@@ -21,7 +21,7 @@ import { and, count, eq, inArray } from 'drizzle-orm';
 import { OPERATIONAL_READINESS_CONTRACT } from '@puntovivo/shared/operational-readiness';
 
 import type { DatabaseInstance } from '../../db/index.js';
-import { hardwareOutbox, paymentOutbox } from '../../db/schema.js';
+import { fiscalEmissionIntents, hardwareOutbox, paymentOutbox } from '../../db/schema.js';
 import { countFiscalOutboxFailures, readSyncBacklog } from '../readiness/signals.js';
 
 /**
@@ -72,6 +72,26 @@ const HARDWARE_OUTBOX_FAILURE_STATUSES = ['failed', 'retrying', 'dead_letter'] a
 
 /** Payment-outbox statuses that mean a charge/refund is declined or stuck. */
 const PAYMENT_OUTBOX_FAILURE_STATUSES = ['declined', 'timeout', 'retrying', 'dead_letter'] as const;
+
+/** Pre-document fiscal obligations that need operator intervention or retry. */
+const FISCAL_INTENT_FAILURE_STATUSES = ['blocked', 'retrying', 'dead_letter'] as const;
+
+export async function countFiscalIntentFailures(
+  db: DatabaseInstance,
+  tenantId: string
+): Promise<number> {
+  const row = await db
+    .select({ total: count(fiscalEmissionIntents.id) })
+    .from(fiscalEmissionIntents)
+    .where(
+      and(
+        eq(fiscalEmissionIntents.tenantId, tenantId),
+        inArray(fiscalEmissionIntents.status, [...FISCAL_INTENT_FAILURE_STATUSES])
+      )
+    )
+    .get();
+  return Number(row?.total ?? 0);
+}
 
 /**
  * Count hardware-outbox rows in a failed / stuck state for the tenant.
@@ -126,12 +146,15 @@ export async function computeNeedsAttention(
   db: DatabaseInstance,
   tenantId: string
 ): Promise<OperationsNeedsAttention> {
-  const [backlog, fiscalFailures, hardwareFailures, paymentFailures] = await Promise.all([
-    readSyncBacklog(db, tenantId),
-    countFiscalOutboxFailures(db, tenantId),
-    countHardwareOutboxFailures(db, tenantId),
-    countPaymentOutboxFailures(db, tenantId),
-  ]);
+  const [backlog, fiscalOutboxFailures, fiscalIntentFailures, hardwareFailures, paymentFailures] =
+    await Promise.all([
+      readSyncBacklog(db, tenantId),
+      countFiscalOutboxFailures(db, tenantId),
+      countFiscalIntentFailures(db, tenantId),
+      countHardwareOutboxFailures(db, tenantId),
+      countPaymentOutboxFailures(db, tenantId),
+    ]);
+  const fiscalFailures = fiscalOutboxFailures + fiscalIntentFailures;
 
   const areas: OperationsAttentionEntry[] = [];
 

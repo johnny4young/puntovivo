@@ -61,9 +61,8 @@ if [ "$GLOBAL_IGNORE" = "true" ] && [ "$PROJECT_IGNORE" != "false" ]; then
     echo "   Re-run: pnpm install (and check pnpm-workspace.yaml allowBuilds)"
 fi
 
-# Electron runtime binary — populated by node_modules/electron/install.js
-# as a postinstall step. Missing means the download was skipped or failed
-# and `pnpm run dev:desktop` will crash at "Electron failed to install correctly".
+# Electron's runtime is installed lazily by the desktop preflight, not by an
+# npm postinstall hook. Missing is normal immediately after dependency install.
 if [ -f "node_modules/electron/path.txt" ] || [ -f "apps/desktop/node_modules/electron/path.txt" ]; then
     echo "✓ Electron runtime installed (node_modules/electron/path.txt)"
 else
@@ -117,8 +116,12 @@ echo ""
 echo "Web App (Browser):"
 echo "  pnpm run dev:web-stack"
 echo ""
-echo "Default Login:"
-echo "  Email: admin@localhost"
-echo "  Password: Admin123!Dev in development unless PUNTOVIVO_DEV_ADMIN_PASSWORD was set before first seed"
+echo "First-use ownership:"
+echo "  A new installation has no default administrator or password."
+echo "  Open the login screen and create the business and its owner."
+echo "  Standalone web: use the private installation code from the local server startup output."
+echo "  Electron: complete setup in the main application window."
+echo "  Existing installations: sign in with an account already created for that business."
+echo "  Explicit demo/test seeds are separate; see docs/DEV-SEED.md."
 echo ""
 echo "======================================"

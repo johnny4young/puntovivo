@@ -1,3 +1,8 @@
+import {
+  createInstallationSetup,
+  type InstallationSetupController,
+} from '../services/installation/setup.js';
+import { resolveExternalOrderWrappingKey } from '../config/external-order-key.js';
 /**
  * Puntovivo server lifecycle orchestrator.
  *
@@ -46,9 +51,51 @@ import { registerDayCloseArtifactRoutes } from './routes/day-close-artifacts.js'
 import { rethrowAfterLifecycleCleanup, ServerLifecycleOwner } from './lifecycle-owner.js';
 import type { PuntovivoServer, ServerOptions } from './types.js';
 import { registerWorkers } from './workers.js';
+import { configureExternalOrderSecretKey } from '../services/external-orders/secret-box.js';
 import { configureWebhookSecretKey } from '../services/events/secret-box.js';
 import { configureAuditAnchor } from '../services/audit-anchor.js';
 import { assertAuditAnchorHeadsTrusted } from '../services/audit-logs.js';
+import { configurePharmacyEvidenceKey } from '../services/pharmacy/evidence-box.js';
+import { resolvePharmacyEvidenceKey } from '../services/pharmacy/keyring.js';
+
+/** Reverse-proxy hops between a client and this server in the hosted shape. */
+export const SITE_HUB_TRUSTED_PROXY_HOPS = 1;
+
+/**
+ * How much of `X-Forwarded-For` this deployment may believe.
+ *
+ * Only a `site_hub` legitimately sits behind a reverse proxy; on the
+ * `device_local` loopback the renderer could otherwise inject a spoofed
+ * `X-Forwarded-For` and dodge the IP-keyed rate-limit buckets.
+ *
+ * The hosted case was `true`, which means "trust every proxy in the chain".
+ * Fastify then resolves `request.ip` to the LEFTMOST forwarded entry — the one
+ * the client itself supplied — so any caller could pick its own IP and the
+ * IP-keyed buckets stopped existing. That holds even behind a correctly
+ * configured proxy, because nginx's `$proxy_add_x_forwarded_for` APPENDS to
+ * whatever header arrived rather than replacing it.
+ *
+ * A hop count fixes it: with one trusted hop, `request.ip` is the address the
+ * immediate proxy observed, and anything the client prepended is ignored.
+ *
+ * Raising this requires knowing the real topology, and the two errors are not
+ * symmetric. Too low collapses every client onto the proxy's own address, so
+ * legitimate users share one bucket — noisy, but closed. Too high hands the
+ * client its own IP again and reopens this hole. Err low.
+ *
+ * The email bucket in `security/loginRateLimit` is independent of this and kept
+ * brute force against a single account capped throughout; what the boolean
+ * left unbounded was spraying horizontally across many accounts.
+ */
+export function resolveTrustProxy(
+  authorityMode: string
+): false | ((address: string, hop: number) => boolean) {
+  if (authorityMode !== 'site_hub') return false;
+  // proxy-addr walks [socketAddress, ...forwardedReversed] and keeps stepping
+  // left while this returns true. Trusting only hop 0 stops at the address our
+  // own proxy observed, which is the first entry the client could not forge.
+  return (_address: string, hop: number) => hop < SITE_HUB_TRUSTED_PROXY_HOPS;
+}
 
 /**
  * Create and configure the Puntovivo server
@@ -97,12 +144,24 @@ async function createOwnedServer(
   owner.defer('active runtime configuration', clearActiveRuntimeConfig);
   configureWebhookSecretKey(options.webhookSecretKey ?? options.encryptionKey);
   owner.defer('webhook secret key', () => configureWebhookSecretKey(undefined));
+  configureExternalOrderSecretKey(
+    resolveExternalOrderWrappingKey({
+      dedicated: options.externalOrderSecretKey,
+      databaseKey: options.encryptionKey,
+      webhookKey: options.webhookSecretKey,
+    })
+  );
+  owner.defer('external order secret key', () => configureExternalOrderSecretKey(undefined));
+  configurePharmacyEvidenceKey(resolvePharmacyEvidenceKey(db, options.pharmacyEvidenceKey));
+  owner.defer('pharmacy evidence key', () => configurePharmacyEvidenceKey(undefined));
   configureAuditAnchor({
     source: options.auditAnchorKey ?? options.encryptionKey,
     store: options.auditAnchorStore,
   });
   owner.defer('audit anchor key', () => configureAuditAnchor({}));
   assertAuditAnchorHeadsTrusted(db);
+  const installationSetup = createInstallationSetup(db);
+  owner.defer('installation setup capability', () => installationSetup.dispose());
 
   // prime the loginRateLimit in-memory cache from the persisted
   // `login_attempts` table so the first post-restart check hits the cache
@@ -162,13 +221,7 @@ async function createOwnedServer(
     routerOptions: {
       maxParamLength: 1024,
     },
-    // only trust X-Forwarded-* headers when the server is
-    // running as a site_hub (the only deployment shape that legitimately
-    // sits behind a reverse proxy). On the device_local loopback the
-    // renderer could otherwise inject a spoofed X-Forwarded-For and
-    // dodge the IP-keyed rate-limit buckets. See docs/SECURITY.md for
-    // the deployment contract.
-    trustProxy: resolvedRuntime.authorityMode === 'site_hub',
+    trustProxy: resolveTrustProxy(resolvedRuntime.authorityMode),
   });
   owner.defer('Fastify application', () => app.close());
   app.server.keepAliveTimeout = SERVER_KEEP_ALIVE_TIMEOUT_MS;
@@ -191,6 +244,7 @@ async function createOwnedServer(
 
   // Decorate request with database instance
   app.decorate('db', db);
+  app.decorate('installationSetup', installationSetup);
 
   // binary evidence bypasses JSON/tRPC to avoid base64 bloat,
   // but keeps the same live access-token, tenant, and role checks.
@@ -203,6 +257,10 @@ async function createOwnedServer(
     trpcOptions: {
       router: appRouter,
       createContext,
+      // The web client routes only payload-heavy read procedures through
+      // tRPC's POST query transport. This never permits a mutation over GET;
+      // the override is accepted exclusively when the request itself is POST.
+      allowMethodOverride: true,
       // `path?: string | undefined` matches the trpc plugin
       // contract under `exactOptionalPropertyTypes`.
       onError({
@@ -267,6 +325,7 @@ async function createOwnedServer(
     paymentWorker,
     webhookWorker,
     operationalAlertWorker,
+    kitchenWorker,
     loginAttemptsCleanup,
     dataRetentionCleanup,
   } = registerWorkers(app, db);
@@ -280,6 +339,7 @@ async function createOwnedServer(
     paymentWorker,
     webhookWorker,
     operationalAlertWorker,
+    kitchenWorker,
     loginAttemptsCleanup,
     dataRetentionCleanup,
     listen: async () => {
@@ -310,6 +370,7 @@ async function createOwnedServer(
         paymentWorker.start();
         webhookWorker.start();
         operationalAlertWorker.start();
+        kitchenWorker.start();
         // sweep stale login_attempts rows on a 1 h cadence;
         // the boot-time `tickOnce` runs the first pass synchronously so
         // a freshly-restarted POS that accumulated rows during downtime
@@ -360,6 +421,7 @@ async function createOwnedServer(
       await owner.dispose();
     },
     getUrl: () => serverUrl,
+    getSetupToken: installationSetup.getToken,
   };
 }
 
@@ -367,5 +429,6 @@ async function createOwnedServer(
 declare module 'fastify' {
   interface FastifyInstance {
     db: DatabaseInstance;
+    installationSetup: InstallationSetupController;
   }
 }

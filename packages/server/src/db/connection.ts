@@ -208,7 +208,10 @@ async function initializeDatabaseCandidate(
   sqlite.pragma('cache_size = -64000');
   sqlite.pragma('temp_store = MEMORY');
   if (dbPath !== ':memory:') {
-    sqlite.pragma('mmap_size = 268435456');
+    // Mapped read pages coexist with the write cache during large privacy
+    // rewrites. Keep the 32 MiB read mapping below the page-cache allowance
+    // so it cannot double the cache working set on top of the worker heap.
+    sqlite.pragma('mmap_size = 33554432');
     sqlite.pragma('wal_autocheckpoint = 1000');
   }
 

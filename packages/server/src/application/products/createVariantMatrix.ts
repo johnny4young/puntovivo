@@ -137,6 +137,11 @@ export async function createProductVariantMatrix(
   input: CreateProductVariantMatrixInput
 ) {
   const now = new Date().toISOString();
+  // Reserve the write slot before reading parent history, balances and SKU
+  // conflicts. A deferred transaction can otherwise lose its snapshot when
+  // another connection commits before this aggregate's first write, and
+  // SQLite rejects that upgrade immediately with SQLITE_BUSY_SNAPSHOT.
+  const writeTransactionConfig = { behavior: 'immediate' } as const;
   const result = ctx.db.transaction(tx => {
     const parent = tx
       .select()
@@ -453,7 +458,7 @@ export async function createProductVariantMatrix(
         values: variant.variantValues,
       })),
     };
-  });
+  }, writeTransactionConfig);
 
   return {
     parentProductId: result.parent.id,

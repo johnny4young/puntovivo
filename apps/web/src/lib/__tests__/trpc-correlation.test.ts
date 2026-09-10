@@ -40,6 +40,7 @@ beforeEach(() => {
 afterEach(() => {
   __resetCorrelationForTests();
   __resetRenderObservabilityForTests();
+  vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
 
@@ -55,6 +56,18 @@ describe('correlation id minting', () => {
   it('mints ids that pass the server intake pattern', () => {
     for (let i = 0; i < 5; i += 1) {
       expect(getTrpcHeaders()['x-correlation-id']).toMatch(SERVER_INTAKE_PATTERN);
+    }
+  });
+
+  it('keeps the shared UUID fallback within the correlation intake without native randomUUID', () => {
+    vi.stubGlobal('crypto', {});
+    let nextByte = 0;
+    vi.spyOn(Math, 'random').mockImplementation(() => (nextByte++ % 256) / 256);
+    const ids = Array.from({ length: 5 }, () => getTrpcHeaders()['x-correlation-id']);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const id of ids) {
+      expect(id).toMatch(SERVER_INTAKE_PATTERN);
+      expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
     }
   });
 

@@ -9,7 +9,7 @@ import {
   users,
   type EmployeeShiftCorrectionBreak,
 } from '../../db/schema.js';
-import { SCHEDULE_ROLES } from './scheduled-shift-policy.js';
+import { managerCanTarget, SCHEDULE_ROLES } from './scheduled-shift-policy.js';
 
 const evidenceSelection = {
   id: employeeShifts.id,
@@ -33,7 +33,7 @@ interface EvidenceFilters {
 function visibilityCondition(actorRole: UserRole) {
   return inArray(
     users.role,
-    actorRole === 'admin' ? [...SCHEDULE_ROLES] : (['manager', 'cashier'] as const)
+    SCHEDULE_ROLES.filter(role => managerCanTarget(actorRole, role))
   );
 }
 
@@ -105,13 +105,44 @@ export async function loadEffectiveAttendanceRows(
   ];
   if (candidateIds.length === 0) return [];
 
+  const rows = await loadEffectiveAttendanceRowsByIds(db, tenantId, actorRole, candidateIds);
+  return rows
+    .filter(row => row.clockedInAt < filters.to && (row.clockedOutAt ?? filters.to) > filters.from)
+    .sort(
+      (left, right) =>
+        left.clockedInAt.localeCompare(right.clockedInAt) ||
+        left.userName.localeCompare(right.userName) ||
+        left.id.localeCompare(right.id)
+    );
+}
+
+/**
+ * Hydrate exact attendance identities through their latest immutable correction.
+ * The requested ids are still tenant- and role-scoped; callers cannot use this
+ * path to bypass manager visibility or to infer another tenant's clock evidence.
+ */
+export async function loadEffectiveAttendanceRowsByIds(
+  db: DatabaseInstance,
+  tenantId: string,
+  actorRole: UserRole,
+  candidateIds: readonly string[]
+) {
+  const uniqueIds = [...new Set(candidateIds)];
+  if (uniqueIds.length === 0) return [];
+
   const [rows, corrections, rawBreaks] = await Promise.all([
     db
       .select(evidenceSelection)
       .from(employeeShifts)
       .innerJoin(users, and(eq(employeeShifts.userId, users.id), eq(users.tenantId, tenantId)))
       .innerJoin(sites, and(eq(employeeShifts.siteId, sites.id), eq(sites.tenantId, tenantId)))
-      .where(and(eq(employeeShifts.tenantId, tenantId), inArray(employeeShifts.id, candidateIds)))
+      .where(
+        and(
+          eq(employeeShifts.tenantId, tenantId),
+          inArray(employeeShifts.id, uniqueIds),
+          visibilityCondition(actorRole)
+        )
+      )
       .all(),
     db
       .select({
@@ -129,7 +160,7 @@ export async function loadEffectiveAttendanceRows(
       .where(
         and(
           eq(employeeShiftCorrections.tenantId, tenantId),
-          inArray(employeeShiftCorrections.employeeShiftId, candidateIds)
+          inArray(employeeShiftCorrections.employeeShiftId, uniqueIds)
         )
       )
       .orderBy(
@@ -148,7 +179,7 @@ export async function loadEffectiveAttendanceRows(
       .where(
         and(
           eq(employeeShiftBreaks.tenantId, tenantId),
-          inArray(employeeShiftBreaks.employeeShiftId, candidateIds)
+          inArray(employeeShiftBreaks.employeeShiftId, uniqueIds)
         )
       )
       .orderBy(asc(employeeShiftBreaks.startedAt), asc(employeeShiftBreaks.id))
@@ -179,51 +210,43 @@ export async function loadEffectiveAttendanceRows(
     rawBreaksByShift.set(breakRow.employeeShiftId, grouped);
   }
 
-  return rows
-    .map(row => {
-      const correction = latestByShift.get(row.id);
-      const originalBreaks = rawBreaksByShift.get(row.id) ?? [];
-      const effectiveBreaks: Array<{
-        id: string;
-        employeeShiftId: string;
-        startedAt: string;
-        endedAt: string | null;
-      }> = correction
-        ? correction.breaks.map((item: EmployeeShiftCorrectionBreak) => ({
-            ...item,
-            employeeShiftId: row.id,
-          }))
-        : originalBreaks;
-      const effectiveClockedInAt = correction?.clockedInAt ?? row.clockedInAt;
-      const effectiveClockedOutAt = correction?.clockedOutAt ?? row.clockedOutAt;
-      return {
-        ...row,
-        clockedInAt: effectiveClockedInAt,
-        clockedOutAt: effectiveClockedOutAt,
-        breaks: effectiveBreaks,
-        original: {
-          clockedInAt: row.clockedInAt,
-          clockedOutAt: row.clockedOutAt,
-          breaks: originalBreaks,
-        },
-        correction: correction
-          ? {
-              id: correction.id,
-              version: correction.version,
-              reason: correction.reason,
-              createdByUserId: correction.createdByUserId,
-              createdByName:
-                creatorNames.get(correction.createdByUserId) ?? correction.createdByUserId,
-              createdAt: correction.createdAt,
-            }
-          : null,
-      };
-    })
-    .filter(row => row.clockedInAt < filters.to && (row.clockedOutAt ?? filters.to) > filters.from)
-    .sort(
-      (left, right) =>
-        left.clockedInAt.localeCompare(right.clockedInAt) ||
-        left.userName.localeCompare(right.userName) ||
-        left.id.localeCompare(right.id)
-    );
+  return rows.map(row => {
+    const correction = latestByShift.get(row.id);
+    const originalBreaks = rawBreaksByShift.get(row.id) ?? [];
+    const effectiveBreaks: Array<{
+      id: string;
+      employeeShiftId: string;
+      startedAt: string;
+      endedAt: string | null;
+    }> = correction
+      ? correction.breaks.map((item: EmployeeShiftCorrectionBreak) => ({
+          ...item,
+          employeeShiftId: row.id,
+        }))
+      : originalBreaks;
+    const effectiveClockedInAt = correction?.clockedInAt ?? row.clockedInAt;
+    const effectiveClockedOutAt = correction?.clockedOutAt ?? row.clockedOutAt;
+    return {
+      ...row,
+      clockedInAt: effectiveClockedInAt,
+      clockedOutAt: effectiveClockedOutAt,
+      breaks: effectiveBreaks,
+      original: {
+        clockedInAt: row.clockedInAt,
+        clockedOutAt: row.clockedOutAt,
+        breaks: originalBreaks,
+      },
+      correction: correction
+        ? {
+            id: correction.id,
+            version: correction.version,
+            reason: correction.reason,
+            createdByUserId: correction.createdByUserId,
+            createdByName:
+              creatorNames.get(correction.createdByUserId) ?? correction.createdByUserId,
+            createdAt: correction.createdAt,
+          }
+        : null,
+    };
+  });
 }

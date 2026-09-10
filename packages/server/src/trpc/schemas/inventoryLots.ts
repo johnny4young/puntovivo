@@ -5,13 +5,10 @@
  */
 
 import { z } from 'zod';
+import { isoDateField } from './common.js';
 
 /** ISO date (YYYY-MM-DD) or full ISO timestamp. */
-const isoDate = z
-  .string()
-  .trim()
-  .min(1)
-  .refine(value => !Number.isNaN(Date.parse(value)), 'Must be a valid ISO date');
+const isoDate = isoDateField();
 
 export const receiveLotInput = z.object({
   siteId: z.string().min(1, 'Site is required'),

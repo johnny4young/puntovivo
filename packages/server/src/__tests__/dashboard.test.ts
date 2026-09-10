@@ -4,10 +4,13 @@ import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import {
+  cashSessions,
   customers,
   inventoryBalances,
   products,
   saleItems,
+  saleReturnItems,
+  saleReturns,
   sales,
   sites,
   users,
@@ -291,7 +294,7 @@ describe('Dashboard tRPC Router', () => {
         discountAmount: 0,
         total: 200,
         paymentMethod: 'cash',
-        paymentStatus: 'refunded',
+        returnState: 'refunded',
         status: 'completed',
         cashSessionId: dashSessionId,
         createdBy: userId,
@@ -301,6 +304,29 @@ describe('Dashboard tRPC Router', () => {
         updatedAt: todayIso,
       },
     ]);
+
+    // A returned sale is only a returned sale because a dated sale_returns
+    // row exists; returnState alone is a denormalized mirror of it. Revenue
+    // now subtracts that dated event, so the fixture has to carry it.
+    const refundedReturnId = nanoid();
+    const refundedSaleItemId = nanoid();
+    await db.insert(saleReturns).values({
+      id: refundedReturnId,
+      tenantId,
+      saleId: refundedSaleId,
+      destination: 'original',
+      subtotal: 200,
+      tipAmount: 0,
+      serviceChargeAmount: 0,
+      discountAmount: 0,
+      taxAmount: 0,
+      refundAmount: 200,
+      currencyCode: 'COP',
+      createdBy: userId,
+      createdAt: new Date(
+        Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 11)
+      ).toISOString(),
+    });
 
     await db.insert(saleItems).values([
       {
@@ -340,7 +366,7 @@ describe('Dashboard tRPC Router', () => {
         total: 8,
       },
       {
-        id: nanoid(),
+        id: refundedSaleItemId,
         saleId: refundedSaleId,
         productId: refundedProductId,
         quantity: 1,
@@ -352,6 +378,36 @@ describe('Dashboard tRPC Router', () => {
         total: 200,
       },
     ]);
+
+    // The production writer inserts the return header AND its lines in one
+    // transaction, so a header without lines describes a sale that cannot
+    // exist. Per-product period figures read the LINES, so omitting them left
+    // a fully refunded product still ranking as a top seller.
+    await db.insert(saleReturnItems).values({
+      id: nanoid(),
+      tenantId,
+      saleReturnId: refundedReturnId,
+      saleItemId: refundedSaleItemId,
+      productId: refundedProductId,
+      productNameSnapshot: 'Refunded Product',
+      productSkuSnapshot: 'REF-001',
+      quantity: 1,
+      baseQuantity: 1,
+      unitPrice: 200,
+      unitEquivalence: 1,
+      discountRate: 0,
+      taxKind: 'iva',
+      taxRate: 0,
+      subtotal: 200,
+      discountAmount: 0,
+      taxAmount: 0,
+      total: 200,
+      costAmount: 40,
+      currencyCode: 'COP',
+      createdAt: new Date(
+        Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 11)
+      ).toISOString(),
+    });
   });
 
   afterAll(async () => {
@@ -419,5 +475,138 @@ describe('Dashboard tRPC Router', () => {
     expect(result.stats.revenueThirtyDays.value).toBe(85.25);
     expect(result.recentSales[0]?.saleNumber).toBe('SALE-PARKED-001');
     expect(result.recentSales[0]?.createdAt).toBe(completedAt);
+  });
+
+  it('books a return in the window against a sale made before it', async () => {
+    // The old top-products query correlated LIFETIME returns onto sale rows
+    // and then windowed on the sale date. That shape cannot express this case
+    // at all: the refund belongs to this week, but its sale row is outside the
+    // window, so there was nothing to correlate it against. The sale it
+    // shrank instead was the one in the closed period that earned it.
+    const db = getDatabase();
+    const site = await db.select().from(sites).where(eq(sites.tenantId, tenantId)).get();
+    const session = await db
+      .select()
+      .from(cashSessions)
+      .where(eq(cashSessions.tenantId, tenantId))
+      .get();
+    const productId = nanoid();
+    const saleId = nanoid();
+    const saleItemId = nanoid();
+    const returnId = nanoid();
+    const now = new Date();
+    const utcDay = (offsetDays: number, hour: number) =>
+      new Date(
+        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + offsetDays, hour)
+      ).toISOString();
+    // Sold well outside the seven-day window, refunded inside it.
+    const soldAt = utcDay(-20, 10);
+    const refundedAt = utcDay(-1, 10);
+
+    await db.insert(products).values({
+      id: productId,
+      tenantId,
+      name: 'Late Return Product',
+      sku: `LATE-${nanoid(5)}`,
+      price: 500,
+      cost: 100,
+      taxRate: 0,
+      minStock: 0,
+      isActive: true,
+      createdAt: soldAt,
+      updatedAt: soldAt,
+    });
+    await db.insert(sales).values({
+      id: saleId,
+      tenantId,
+      saleNumber: `VTA-LATE-${nanoid(5)}`,
+      siteId: site!.id,
+      subtotal: 500,
+      taxAmount: 0,
+      discountAmount: 0,
+      total: 500,
+      paymentMethod: 'cash',
+      paymentStatus: 'paid',
+      status: 'completed',
+      cashSessionId: session!.id,
+      checkoutCompletedAt: soldAt,
+      createdBy: userId,
+      createdAt: soldAt,
+      updatedAt: soldAt,
+    });
+    await db.insert(saleItems).values({
+      id: saleItemId,
+      saleId,
+      productId,
+      quantity: 1,
+      unitPrice: 500,
+      discount: 0,
+      taxRate: 0,
+      taxAmount: 0,
+      costAtSale: 100,
+      total: 500,
+    });
+
+    try {
+      const beforeReturn = await appRouter.createCaller(createTestContext()).dashboard.summary();
+      // Sold outside the window: it is not a top seller this week.
+      expect(beforeReturn.topProducts.some(entry => entry.productId === productId)).toBe(false);
+
+      await db.insert(saleReturns).values({
+        id: returnId,
+        tenantId,
+        saleId,
+        destination: 'original',
+        subtotal: 500,
+        tipAmount: 0,
+        serviceChargeAmount: 0,
+        discountAmount: 0,
+        taxAmount: 0,
+        refundAmount: 500,
+        currencyCode: 'COP',
+        createdBy: userId,
+        createdAt: refundedAt,
+      });
+      await db.insert(saleReturnItems).values({
+        id: nanoid(),
+        tenantId,
+        saleReturnId: returnId,
+        saleItemId,
+        productId,
+        productNameSnapshot: 'Windowed Product',
+        productSkuSnapshot: 'WIN-001',
+        quantity: 1,
+        baseQuantity: 1,
+        unitPrice: 500,
+        unitEquivalence: 1,
+        discountRate: 0,
+        taxKind: 'iva',
+        taxRate: 0,
+        subtotal: 500,
+        discountAmount: 0,
+        taxAmount: 0,
+        total: 500,
+        costAmount: 100,
+        currencyCode: 'COP',
+        createdAt: refundedAt,
+      });
+
+      const afterReturn = await appRouter.createCaller(createTestContext()).dashboard.summary();
+      // The refund lands in THIS week as a negative event, so the product is
+      // still not a top seller -- and, critically, the week it was sold in is
+      // outside this window and was never restated to produce that result.
+      expect(afterReturn.topProducts.some(entry => entry.productId === productId)).toBe(false);
+      // The other products' standings are untouched by a refund that belongs
+      // to a different ticket entirely.
+      expect(afterReturn.topProducts.map(entry => entry.name)).toEqual(
+        beforeReturn.topProducts.map(entry => entry.name)
+      );
+    } finally {
+      await db.delete(saleReturnItems).where(eq(saleReturnItems.saleReturnId, returnId));
+      await db.delete(saleReturns).where(eq(saleReturns.id, returnId));
+      await db.delete(saleItems).where(eq(saleItems.id, saleItemId));
+      await db.delete(sales).where(eq(sales.id, saleId));
+      await db.delete(products).where(eq(products.id, productId));
+    }
   });
 });

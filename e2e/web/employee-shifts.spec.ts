@@ -206,6 +206,66 @@ function readCorrectionEvidence(shiftId: string) {
 }
 
 test.describe('employee attendance evidence across shift states', () => {
+  test('keeps historical attendance visible and exportable after a worker becomes viewer', async ({
+    page,
+  }, info) => {
+    // A historical attendance fixture is intentional. The role change and all
+    // subsequent administration/read/export operations are driven through UI.
+    const scenario = seedOvertimeScenario();
+    const before = readCorrectionEvidence(scenario.fridayShiftId);
+    const tracker = attachClientIssueTracker(page);
+    await login(page, scenario.admin);
+    await ensureLanguage(page, 'en');
+    await page.goto('/users');
+    await page.getByRole('button', { name: 'Edit Camila Horas', exact: true }).click();
+    let dialog = page.getByRole('dialog', { name: 'Edit User', exact: true });
+    await dialog.getByLabel('Role', { exact: true }).selectOption('viewer');
+    await dialog.getByRole('button', { name: 'Save Changes', exact: true }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page.locator('tr').filter({ hasText: 'Camila Horas' })).toContainText('Viewer');
+    const managerEmail = `history.manager.${randomUUID()}@example.test`;
+    await page.getByRole('button', { name: 'Add User', exact: true }).click();
+    dialog = page.getByRole('dialog', { name: 'Create User', exact: true });
+    await dialog.getByLabel('Name', { exact: true }).fill('History Manager');
+    await dialog.getByLabel('Email', { exact: true }).fill(managerEmail);
+    await dialog.getByLabel('Role', { exact: true }).selectOption('manager');
+    await dialog.getByLabel('Initial Password').fill(E2E_PASSWORD);
+    await dialog.getByRole('button', { name: 'Create User', exact: true }).click();
+    await expect(dialog).toBeHidden();
+    await page.goto('/schedule');
+    const attendance = page.getByTestId('team-attendance-panel');
+    const friday = attendance.getByTestId(`attendance-shift-${scenario.fridayShiftId}`);
+    await expect(friday).toContainText('Camila Horas');
+    await openUserMenu(page);
+    const loggedOut = page.waitForResponse(
+      response => response.url().includes('/api/trpc/auth.logout') && response.status() === 200
+    );
+    await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+    await loggedOut;
+    await expect(page).toHaveURL(/\/login$/);
+    await login(page, { email: managerEmail, password: E2E_PASSWORD, defaultPath: '/dashboard' });
+    await ensureLanguage(page, 'en');
+    await page.goto('/schedule');
+    await expect(friday).toContainText('Camila Horas');
+    await expect(attendance.locator('[data-testid^="attendance-shift-"]')).toHaveCount(5);
+    const downloadPromise = page.waitForEvent('download');
+    await attendance.getByRole('button', { name: 'Payroll CSV', exact: true }).click();
+    const csvPath = await (await downloadPromise).path();
+    expect(csvPath).not.toBeNull();
+    expect((await readFile(csvPath!, 'utf8')).match(/"Camila Horas"/g)).toHaveLength(5);
+    await ensureLanguage(page, 'es');
+    await page.reload();
+    await expect(friday).toContainText('Camila Horas');
+    await expect(
+      attendance.getByRole('heading', { name: 'Asistencia real', exact: true })
+    ).toBeVisible();
+    expect(readCorrectionEvidence(scenario.fridayShiftId)).toEqual(before);
+    await page.screenshot({
+      path: info.outputPath('viewer-historical-attendance-es.png'),
+      fullPage: true,
+    });
+    await expectNoClientIssues(tracker);
+  });
   test('persists shifts and explicit breaks across the user menu in both locales', async ({
     page,
   }) => {

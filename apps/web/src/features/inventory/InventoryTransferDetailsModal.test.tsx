@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { screen } from '@testing-library/react';
+import { act, screen } from '@testing-library/react';
 import i18next from 'i18next';
 import { render } from '@/test/utils';
 import type { TransferDetail } from '@/types';
@@ -65,13 +65,7 @@ describe('InventoryTransferDetailsModal', () => {
   it('renders a clean receipt with zero variance and no discrepancy block', () => {
     getByIdState = { data: buildDetail(), isLoading: false, error: null };
 
-    render(
-      <InventoryTransferDetailsModal
-        isOpen
-        transferId="transfer-1"
-        onClose={() => {}}
-      />
-    );
+    render(<InventoryTransferDetailsModal isOpen transferId="transfer-1" onClose={() => {}} />);
 
     expect(screen.getByText('Widget')).toBeInTheDocument();
     expect(screen.queryByText('Discrepancy notes')).not.toBeInTheDocument();
@@ -100,13 +94,7 @@ describe('InventoryTransferDetailsModal', () => {
       error: null,
     };
 
-    render(
-      <InventoryTransferDetailsModal
-        isOpen
-        transferId="transfer-1"
-        onClose={() => {}}
-      />
-    );
+    render(<InventoryTransferDetailsModal isOpen transferId="transfer-1" onClose={() => {}} />);
 
     expect(screen.getByText('Discrepancy notes')).toBeInTheDocument();
     expect(screen.getByText('Box arrived damaged')).toBeInTheDocument();
@@ -137,16 +125,49 @@ describe('InventoryTransferDetailsModal', () => {
       error: null,
     };
 
-    render(
-      <InventoryTransferDetailsModal
-        isOpen
-        transferId="transfer-1"
-        onClose={() => {}}
-      />
-    );
+    render(<InventoryTransferDetailsModal isOpen transferId="transfer-1" onClose={() => {}} />);
 
     // Both "Received" and "Variance" should use the em-dash placeholder.
     const dashes = screen.getAllByText('—');
     expect(dashes.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('localizes the frozen lot status instead of exposing its storage enum', async () => {
+    await i18next.changeLanguage('es');
+    getByIdState = {
+      data: buildDetail({
+        items: [
+          {
+            id: 'item-1',
+            productId: 'p-1',
+            productName: 'Widget',
+            productSku: 'W-001',
+            quantity: 2,
+            receivedQuantity: 2,
+            lots: [
+              {
+                id: 'transfer-lot-1',
+                sourceLotId: 'source-lot-1',
+                destinationLotId: 'destination-lot-1',
+                lotNumber: 'QUAR-001',
+                expiresAt: null,
+                status: 'quarantined',
+                quantity: 2,
+                receivedQuantity: 2,
+                unitCost: 10,
+              },
+            ],
+          },
+        ],
+      }),
+      isLoading: false,
+      error: null,
+    };
+
+    render(<InventoryTransferDetailsModal isOpen transferId="transfer-1" onClose={() => {}} />);
+
+    expect(screen.getByText(/QUAR-001 .* en cuarentena/i)).toBeInTheDocument();
+    expect(screen.queryByText(/quarantined/i)).not.toBeInTheDocument();
+    await act(async () => i18next.changeLanguage('en'));
   });
 });

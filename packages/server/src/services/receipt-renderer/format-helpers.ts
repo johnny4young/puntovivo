@@ -56,6 +56,18 @@ export function formatNumber(value: number): string {
 }
 
 /**
+ * A whole count, for values that are not quantities or money.
+ *
+ * Loyalty points are an integer column with a CHECK that keeps them positive
+ * on a loyalty tender and null everywhere else. Running them through
+ * `formatNumber` printed `250.00 pts`, which reads as a fractional point.
+ */
+export function formatWholeCount(value: number): string {
+  if (!Number.isFinite(value)) return '0';
+  return String(Math.trunc(value));
+}
+
+/**
  * format a currency amount honoring the tenant's resolved
  * locale. When `locale` is missing (legacy test callers), falls back
  * to raw `.toFixed(2)` without a symbol so the pre- contract
@@ -234,6 +246,8 @@ export function tenderMethodLabel(method: string, labels: ReceiptRenderLabels): 
   if (method === 'card') return labels.tendersTable.methods.card;
   if (method === 'transfer') return labels.tendersTable.methods.transfer;
   if (method === 'credit') return labels.tendersTable.methods.credit;
+  if (method === 'loyalty') return labels.tendersTable.methods.loyalty;
+  if (method === 'store_credit') return labels.tendersTable.methods.storeCredit;
   if (method === 'other') return labels.tendersTable.methods.other;
   return method;
 }

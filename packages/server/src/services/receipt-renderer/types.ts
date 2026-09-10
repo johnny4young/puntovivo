@@ -21,6 +21,23 @@ export interface RenderCompany {
   city?: string | null;
 }
 
+/**
+ * One frozen promotion applied to a sale line.
+ *
+ * The sale stores these as immutable snapshots so a receipt reprinted after a
+ * rule is edited or retired still shows the rule that actually priced the
+ * line. Carrying only the discounted total would lose that: the customer sees
+ * a lower price with no evidence of which promotion produced it.
+ */
+export interface RenderItemPromotion {
+  /** Rule name as it stood when the line was priced. */
+  name: string;
+  /** Rule version as it stood when the line was priced. */
+  version: number;
+  /** Money this rule took off the line. */
+  discountAmount: number;
+}
+
 export interface RenderSaleItem {
   name: string;
   sku?: string | null;
@@ -29,12 +46,25 @@ export interface RenderSaleItem {
   taxPercent: number;
   discount: number;
   total: number;
+  /**
+   * Frozen promotion evidence, in the order the rules were applied. Absent on
+   * a fiscal-snapshot receipt: that document carries its own legally frozen
+   * line set with the discount already folded into it, and its items hold no
+   * link back to the sale line, so correlating would be a guess.
+   */
+  promotions?: RenderItemPromotion[];
 }
 
 export interface RenderTender {
   method: string;
   amount: number;
   reference?: string | null;
+  /**
+   * Whole points redeemed by a loyalty tender. The monetary amount alone does
+   * not say how many points were spent, and the point count is what the
+   * customer disputes. Null or absent for every other tender kind.
+   */
+  points?: number | null;
 }
 
 export interface RenderSale {
@@ -185,11 +215,15 @@ export interface ReceiptRenderLabels {
     reference: string;
     amount: string;
     change: string;
+    /** Unit suffix for the point count on a loyalty tender. */
+    points: string;
     methods: {
       cash: string;
       card: string;
       transfer: string;
       credit: string;
+      loyalty: string;
+      storeCredit: string;
       other: string;
     };
   };

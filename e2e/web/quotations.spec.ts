@@ -1,3 +1,5 @@
+import path from 'node:path';
+import { mkdir } from 'node:fs/promises';
 import { expect, test, type Page } from '@playwright/test';
 import {
   attachClientIssueTracker,
@@ -5,15 +7,21 @@ import {
   expectSuccessToast,
   login,
 } from './support/app';
-import { getInventoryBalance, getProductStock, seedSaleScenario } from './support/db';
+import {
+  findLatestSaleForProduct,
+  getInventoryBalance,
+  getProductStock,
+  seedSaleScenario,
+} from './support/db';
 
 // Covers quotation creation, conversion, and tenant-safe list behavior.
 // Current coverage:
 // The journey covers the page entry point, draft creation, send, acceptance,
-// conversion, and inventory invariance across the complete lifecycle.
+// locked POS hydration, atomic checkout, authoritative sale linkage, and the
+// exact inventory change at conversion.
 //
 // The lifecycle test below collapses those six ids into a single focused
-// flow that walks draft → sent → accepted → converted and re-checks
+// flow that walks draft → sent → accepted → POS → converted and re-checks
 // inventory at every transition. Draft deletion and expiry
 // (delete action hidden on non-drafts) used to live here as separate
 // E2E tests; they were retired in favour of the equivalent component
@@ -23,6 +31,17 @@ import { getInventoryBalance, getProductStock, seedSaleScenario } from './suppor
 // UI invariant without booting a browser. The lifecycle E2E stays
 // because it crosses frontend + tRPC + DB with inventory invariants
 // that component tests cannot reach.
+
+async function captureEvidence(page: Page, name: string) {
+  const auditDir = process.env.PUNTOVIVO_AUDIT_DIR;
+  if (!auditDir) return;
+  await mkdir(auditDir, { recursive: true });
+  await page.screenshot({
+    path: path.join(auditDir, `${name}.png`),
+    fullPage: true,
+    animations: 'disabled',
+  });
+}
 
 async function openNewQuotationModal(page: Page) {
   await page.goto('/quotations');
@@ -64,22 +83,21 @@ async function readQuotationNumberFromHistory(page: Page): Promise<string> {
   const firstCell = page.locator('tbody tr').first().getByRole('cell').first();
   await expect(firstCell).toBeVisible();
   const text = (await firstCell.textContent())?.trim() ?? '';
-  const match = text.match(/COT-\d+/);
-  if (!match) {
+  if (!text.includes('COT-')) {
     throw new Error(`Could not parse quotation number from history cell: "${text}"`);
   }
-  return match[0];
+  return text;
 }
 
 test.describe('web quotations', () => {
-  test('manager walks a quotation through draft → sent → accepted → converted without touching inventory', async ({
+  test('manager converts an accepted quotation through the locked POS exactly once', async ({
     page,
   }, testInfo) => {
     const tracker = attachClientIssueTracker(page);
     const scenario = seedSaleScenario(`quot-lifecycle-${testInfo.parallelIndex}-${Date.now()}`);
 
-    // Snapshot inventory before the quotation and assert that no
-    // transition alters stock; quotations are pre-sale documents.
+    // Snapshot inventory before the quotation. Draft/sent/accepted are
+    // pre-sale states and must not alter stock; checkout must debit once.
     const preStock = getProductStock(scenario.product.id);
     const preBySiteA = getInventoryBalance(scenario.sites[0].id, scenario.product.id)?.onHand;
     const preBySiteB = getInventoryBalance(scenario.sites[1].id, scenario.product.id)?.onHand;
@@ -108,16 +126,55 @@ test.describe('web quotations', () => {
     await getHistoryRow(page, quotationNumber).getByRole('button', { name: 'Accept' }).click();
     await expect(getHistoryRow(page, quotationNumber)).toContainText('Accepted');
 
-    // Accepted → Converted (terminal).
+    // Accepted → locked POS. Preparing the ticket is still read-only.
     await getHistoryRow(page, quotationNumber)
-      .getByRole('button', { name: 'Mark as converted' })
+      .getByRole('button', { name: 'Convert to sale' })
       .click();
-    await expect(getHistoryRow(page, quotationNumber)).toContainText('Converted');
+    await expect(page).toHaveURL(/\/sales$/);
+    await expect(page.getByText(`Charging quotation ${quotationNumber}`)).toBeVisible();
+    await expect(page.getByTestId(`sale-cart-item-${scenario.product.sku}`)).toBeVisible();
+    await expect(page.locator('#sales-product-search-input')).toBeDisabled();
+    const productSearchButton = page.getByRole('button', { name: 'Search products' });
+    await expect(productSearchButton).toBeDisabled();
+    await expect(productSearchButton).not.toHaveAttribute('aria-keyshortcuts');
+    await expect(page.getByRole('button', { name: 'Suspend sale' })).toHaveCount(0);
+    await captureEvidence(page, 'pr3-quotation-locked-pos');
 
-    // Inventory must be identical across the full lifecycle.
+    // No inventory mutation occurs until the payment confirmation commits.
     expect(getProductStock(scenario.product.id)).toBe(preStock);
     expect(getInventoryBalance(scenario.sites[0].id, scenario.product.id)?.onHand).toBe(preBySiteA);
     expect(getInventoryBalance(scenario.sites[1].id, scenario.product.id)?.onHand).toBe(preBySiteB);
+
+    await page.getByRole('button', { name: 'Charge sale' }).first().click();
+    const chargeDialog = page
+      .locator('[role="dialog"]')
+      .filter({ has: page.getByRole('heading', { name: 'Charge Sale' }) })
+      .last();
+    await expect(chargeDialog).toBeVisible();
+    await chargeDialog.getByRole('button', { name: 'Confirm Sale' }).click();
+    await expect(chargeDialog).toBeHidden({ timeout: 15_000 });
+    await expectSuccessToast(page, 'Sale completed');
+
+    const sale = findLatestSaleForProduct(scenario.product.id, scenario.manager.id);
+    expect(sale).not.toBeNull();
+    expect(sale?.status).toBe('completed');
+    expect(getProductStock(scenario.product.id)).toBe((preStock ?? 0) - 2);
+    expect(getInventoryBalance(scenario.sites[0].id, scenario.product.id)?.onHand).toBe(
+      (preBySiteA ?? 0) - 2
+    );
+    expect(getInventoryBalance(scenario.sites[1].id, scenario.product.id)?.onHand).toBe(preBySiteB);
+
+    // Reload the read side and prove the immutable quotation→sale link is
+    // visible, not inferred from status or a transient client workspace.
+    await page.goto('/quotations');
+    await expect(getHistoryRow(page, quotationNumber)).toContainText('Converted');
+    await getHistoryRow(page, quotationNumber).getByRole('button', { name: 'Details' }).click();
+    const details = page.getByRole('dialog', { name: 'Quotation details' });
+    await expect(details).toContainText(`Converted to sale ${sale?.saleNumber}`);
+    await captureEvidence(page, 'pr3-quotation-linked-sale');
+    await details.getByRole('button', { name: 'Close', exact: true }).click();
+    await page.reload();
+    await expect(getHistoryRow(page, quotationNumber)).toContainText('Converted');
 
     // Converted is terminal — transition actions collapse back to Details only.
     await expect(

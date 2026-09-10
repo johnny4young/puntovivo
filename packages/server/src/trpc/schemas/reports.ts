@@ -92,6 +92,8 @@ export const accountingPucAccountsInput = z
     inc: accountingPucCode,
     tips: accountingPucCode,
     receivable: accountingPucCode,
+    storeCredit: accountingPucCode,
+    loyalty: accountingPucCode,
     refunds: accountingPucCode,
   })
   .strict();
@@ -176,9 +178,9 @@ export type DiagnosticsExportInput = z.infer<typeof diagnosticsExportInput>;
 
 export const profitMarginInput = z
   .object({
-    /** Inclusive lower bound on `sales.created_at` (ISO 8601 with offset). */
+    /** Inclusive lower bound on checkout/return event time (ISO 8601 with offset). */
     fromDate: isoDateTime,
-    /** Inclusive upper bound on `sales.created_at` (ISO 8601 with offset). */
+    /** Inclusive upper bound on checkout/return event time (ISO 8601 with offset). */
     toDate: isoDateTime,
     /**
      * Maximum product rows returned in the breakdown, ordered by gross

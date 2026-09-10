@@ -8,6 +8,15 @@ import { addProductToCartViaKeyboard, expectSearchInputFocused } from './support
 const MOBILE_VIEWPORT = { width: 390, height: 844 };
 const ADAPTIVE_VIEWPORT = { width: 1280, height: 800 };
 
+function formatCop(amount: number) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'COP',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
 async function captureAuditEvidence(page: Page, target: Locator, name: string) {
   const auditDir = process.env.PUNTOVIVO_AUDIT_DIR;
   if (!auditDir) return;
@@ -85,7 +94,9 @@ test.describe('assistive-technology sweep', () => {
 
     const dialog = page.getByRole('dialog', { name: 'Charge Sale' });
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByRole('status', { name: 'Sale total' })).toContainText('$12,500.00');
+    await expect(dialog.getByRole('status', { name: 'Sale total' })).toContainText(
+      formatCop(12_500)
+    );
     await expect(dialog.getByRole('group', { name: 'Payment method' })).toBeVisible();
     await expect(dialog.getByRole('combobox', { name: 'Payment method' })).toHaveCount(0);
     await expect(dialog.getByTestId('sale-payment-method-select')).toBeHidden();
@@ -118,40 +129,69 @@ test.describe('assistive-technology sweep', () => {
   test('reduced motion opens checkout without running shared transitions', async ({
     page,
   }, testInfo: TestInfo) => {
-    const tracker = attachClientIssueTracker(page);
-    await page.setViewportSize(ADAPTIVE_VIEWPORT);
-    await page.emulateMedia({ reducedMotion: 'reduce' });
-    const scenario = seedSaleScenario(`assistive-motion-${testInfo.parallelIndex}-${Date.now()}`);
-    await login(page, {
-      email: scenario.cashier.email,
-      password: scenario.cashier.password,
-      defaultPath: '/sales',
+    // Hold the real split-chunk request so reduced-motion coverage includes
+    // the loading state instead of passing only when the module is cached.
+    let releaseTipChunk = () => {};
+    const tipChunkGate = new Promise<void>(resolve => {
+      releaseTipChunk = resolve;
     });
-    await addProductToCartViaKeyboard(page, scenario.product.sku);
-    await page.keyboard.press('F1');
+    const tipChunkUrl = /\/SalePaymentTipSection\.tsx(?:\?|$)/;
+    await page.route(tipChunkUrl, async route => {
+      await tipChunkGate;
+      await route.continue();
+    });
+    try {
+      const tracker = attachClientIssueTracker(page);
+      await page.setViewportSize(ADAPTIVE_VIEWPORT);
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      const scenario = seedSaleScenario(`assistive-motion-${testInfo.parallelIndex}-${Date.now()}`);
+      await login(page, {
+        email: scenario.cashier.email,
+        password: scenario.cashier.password,
+        defaultPath: '/sales',
+      });
+      await addProductToCartViaKeyboard(page, scenario.product.sku);
+      await page.keyboard.press('F1');
 
-    const dialog = page.getByRole('dialog', { name: 'Charge Sale' });
-    const drawer = page.getByTestId('sale-payment-drawer');
-    await expect(dialog).toBeVisible();
-    expect(await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches)).toBe(
-      true
-    );
-    expect(
-      await drawer.evaluate(
-        element =>
+      const dialog = page.getByRole('dialog', { name: 'Charge Sale' });
+      const drawer = page.getByTestId('sale-payment-drawer');
+      await expect(dialog).toBeVisible();
+      await expect(drawer.getByRole('status', { name: 'Loading...', exact: true })).toBeVisible();
+      expect(
+        await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches)
+      ).toBe(true);
+      expect(
+        await drawer.evaluate(element =>
           element
             .getAnimations({ subtree: true })
-            .filter(animation => animation.playState === 'running').length
-      )
-    ).toBe(0);
-    await expect
-      .poll(() => dialog.evaluate(element => element.contains(document.activeElement)))
-      .toBe(true);
+            .filter(animation => animation.playState === 'running')
+            .map(animation => ({
+              name:
+                animation instanceof CSSAnimation
+                  ? animation.animationName
+                  : animation instanceof CSSTransition
+                    ? animation.transitionProperty
+                    : animation.id,
+              target:
+                (animation.effect as KeyframeEffect | null)?.target instanceof Element
+                  ? ((animation.effect as KeyframeEffect).target as Element).outerHTML
+                  : null,
+              timing: animation.effect?.getComputedTiming(),
+            }))
+        )
+      ).toEqual([]);
+      await expect
+        .poll(() => dialog.evaluate(element => element.contains(document.activeElement)))
+        .toBe(true);
 
-    await page.keyboard.press('Escape');
-    await expect(dialog).toBeHidden();
-    await expectSearchInputFocused(page);
-    await expectNoClientIssues(tracker);
+      await page.keyboard.press('Escape');
+      await expect(dialog).toBeHidden();
+      await expectSearchInputFocused(page);
+      await expectNoClientIssues(tracker);
+    } finally {
+      releaseTipChunk();
+      await page.unrouteAll({ behavior: 'wait' });
+    }
   });
 
   test('forced colors preserve checkout boundaries and keyboard focus', async ({

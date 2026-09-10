@@ -93,6 +93,11 @@ describe('DayCloseSummaryModal', () => {
     expect(screen.getByText('44.2% gross margin')).toBeInTheDocument();
     expect(screen.getByText('5 days balancing')).toBeInTheDocument();
     expect(screen.getByText('Café 500g')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Net product revenue: after discounts and returns, excluding taxes, tips and service charges.'
+      )
+    ).toBeInTheDocument();
     expect(screen.getByText('+$180.00')).toBeInTheDocument();
     expect(screen.getByTestId('day-close-pulse')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Daily performance' })).toBeInTheDocument();
@@ -134,6 +139,11 @@ describe('DayCloseSummaryModal', () => {
     expect(screen.getByTestId('day-close-pulse')).toBeInTheDocument();
     expect(screen.getByText('10 de julio de 2026')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Compartir por WhatsApp' })).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Ingresos netos por productos: después de descuentos y devoluciones, sin impuestos, propinas ni cargos de servicio.'
+      )
+    ).toBeInTheDocument();
     const decodedHref = decodeURIComponent(
       screen.getByTestId('day-close-whatsapp').getAttribute('href') ?? ''
     );

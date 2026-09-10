@@ -139,13 +139,13 @@ export async function resolveTaxComponentInputs(
   return resolved;
 }
 
-export async function replaceProductTaxComponents(
+export function replaceProductTaxComponents(
   db: DatabaseInstance,
   tenantId: string,
   productId: string,
   components: readonly TaxComponentDefinition[],
   now: string
-): Promise<void> {
+): void {
   assertComponentCountAndUniqueness(components);
   db.delete(productTaxComponents)
     .where(

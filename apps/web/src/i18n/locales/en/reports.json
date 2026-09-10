@@ -2,7 +2,7 @@
   "margin": {
     "kicker": "Finance",
     "title": "Profitability",
-    "description": "Realized revenue, cost of goods sold, and gross margin for the selected range. Cost comes from the exact lots consumed on each sale, falling back to the product cost when a line is not lot-tracked.",
+    "description": "Product revenue after discounts and returns, excluding taxes, tips and service charges. Costs use the lots consumed or the product cost frozen at sale time, never today's catalog cost.",
     "filters": {
       "from": "From",
       "to": "To"
@@ -10,7 +10,7 @@
     "loading": "Loading the report…",
     "error": "The profitability report could not be loaded.",
     "summary": {
-      "revenue": "Revenue",
+      "revenue": "Net product revenue",
       "cogs": "Cost of goods sold",
       "cogsSplit": "Lots {{lots}} · Product cost {{snapshot}}",
       "grossProfit": "Gross profit",
@@ -24,7 +24,7 @@
       "columns": {
         "product": "Product",
         "quantity": "Quantity",
-        "revenue": "Revenue",
+        "revenue": "Net revenue",
         "cogs": "COGS",
         "grossProfit": "Gross profit",
         "margin": "Margin"
@@ -231,6 +231,8 @@
         "inc": "INC payable",
         "tips": "Tips payable",
         "receivable": "Accounts receivable",
+        "storeCredit": "Customer store credit liability",
+        "loyalty": "Loyalty points liability",
         "refunds": "Sales returns"
       }
     },
@@ -268,6 +270,7 @@
       "fiscalStatus": "Fiscal status"
     },
     "unreconciled": "{{count}} sale(s) have taxes that do not match their lines ({{sales}}). Exporting them would misclassify tax as income; resolve them before exporting.",
+    "paymentUnreconciled": "{{count}} refund(s) do not match their recorded payment destinations ({{sales}}). Exporting them would invent or move money between accounts; repair the records before exporting.",
     "siigoCollision": "Two sales from different sites share the same invoice number ({{consecutives}}), and Siigo would merge them into one document. Export one site at a time using the site filter."
   }
 }

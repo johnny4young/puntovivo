@@ -51,3 +51,18 @@ export function buildMainWindowWebPreferences(preload: string): MainWindowResolv
     ...MAIN_WINDOW_WEB_PREFERENCES,
   };
 }
+
+/**
+ * Build the Customer Display preferences with the same Chromium isolation but
+ * a dedicated least-privilege preload. Keeping the builder separate makes an
+ * accidental return to the main renderer's broad desktop bridge reviewable
+ * and testable.
+ */
+export function buildCustomerDisplayWindowWebPreferences(
+  preload: string
+): MainWindowResolvedWebPreferences {
+  return {
+    preload,
+    ...MAIN_WINDOW_WEB_PREFERENCES,
+  };
+}

@@ -1,6 +1,7 @@
+import * as productRead from '../services/products/product-read.js';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import {
   auditLogs,
@@ -539,6 +540,71 @@ describe(' launch migration', () => {
       status: 'duplicate',
       issues: [{ code: 'duplicate_file_barcode', field: 'barcode' }],
     });
+  });
+
+  it('imports with validated units and exact stock without hydrating unused display relations', async () => {
+    const sku = `LEAN-IMPORT-${nanoid()}`;
+    const input = {
+      dataMode: 'real' as const,
+      sourceName: 'lean-import.csv',
+      rows: [
+        row(2, {
+          name: 'Lean import',
+          sku,
+          unit: 'kg',
+          stock: '4',
+          cost: '7.81',
+          price: '12.50',
+          taxRate: '19',
+        }),
+      ],
+    };
+    const caller = appRouter.createCaller(createTestContext());
+    const preview = await caller.launchMigration.previewProducts(input);
+    expect(preview.summary.ready).toBe(1);
+    const hydrate = vi.spyOn(productRead, 'getProductWithRelations');
+    let productId = '';
+    try {
+      const result = await caller.launchMigration.importProducts({
+        ...input,
+        confirmedRealData: true,
+        previewHash: preview.previewHash,
+      });
+      expect(result.summary).toMatchObject({
+        imported: 1,
+        stockInitialized: 1,
+        failed: 0,
+        warnings: 0,
+      });
+      productId = result.importedRows[0]!.productId;
+      expect(hydrate).not.toHaveBeenCalled();
+    } finally {
+      hydrate.mockRestore();
+    }
+    const stored = await productRead.getProductWithRelations(db, productId, tenantId);
+    expect(stored).toMatchObject({
+      id: productId,
+      sku,
+      stock: 4,
+      cost: 7.81,
+      price: 12.5,
+      taxRate: 19,
+    });
+    expect(stored?.unitAssignments).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ unitAbbreviation: 'KG', isBase: true, equivalence: 1 }),
+      ])
+    );
+    expect(
+      db
+        .select()
+        .from(products)
+        .where(and(eq(products.id, productId), eq(products.tenantId, tenantId)))
+        .get()
+    ).toMatchObject({ inventoryValueCents: 3124, cogsValueCents: 3124, valuationQuantity: 4 });
+    expect(
+      await productRead.getProductWithRelations(db, productId, 'foreign-import-tenant')
+    ).toBeNull();
   });
 
   it('imports a zero-stock product with lot tracking enabled', async () => {

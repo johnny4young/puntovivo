@@ -86,11 +86,14 @@ const RECEIPT_LABELS: Record<'en' | 'es', ReceiptRenderLabels> = {
       reference: 'Reference',
       amount: 'Amount',
       change: 'Change',
+      points: 'pts',
       methods: {
         cash: 'Cash',
         card: 'Card',
         transfer: 'Transfer',
         credit: 'Credit',
+        loyalty: 'Loyalty points',
+        storeCredit: 'Store credit',
         other: 'Other',
       },
     },
@@ -120,11 +123,14 @@ const RECEIPT_LABELS: Record<'en' | 'es', ReceiptRenderLabels> = {
       reference: 'Referencia',
       amount: 'Monto',
       change: 'Cambio',
+      points: 'pts',
       methods: {
         cash: 'Efectivo',
         card: 'Tarjeta',
         transfer: 'Transferencia',
         credit: 'Crédito',
+        loyalty: 'Puntos',
+        storeCredit: 'Crédito de tienda',
         other: 'Otro',
       },
     },
@@ -528,6 +534,14 @@ export async function resolveSaleReceiptTemplateContext(args: {
         taxPercent: item.taxRate,
         discount: item.discount,
         total: item.total,
+        // Carry the frozen rule name, version and amount, not just the
+        // discounted total. A receipt reprinted after a promotion is edited or
+        // retired has to show the rule that actually priced the line.
+        promotions: item.promotions.map(promotion => ({
+          name: promotion.nameSnapshot,
+          version: promotion.promotionVersion,
+          discountAmount: promotion.discountAmount,
+        })),
       }));
   const receiptHeader = fiscalSnapshot?.header;
   const taxBreakdown = fiscalSnapshot
@@ -571,6 +585,9 @@ export async function resolveSaleReceiptTemplateContext(args: {
         method: payment.method,
         amount: payment.amount,
         reference: payment.reference,
+        // The money alone does not say how many points were spent, and the
+        // point count is the part a customer disputes.
+        points: payment.loyaltyPoints,
       })),
     },
     ...(primaryFiscal ? { fiscal: primaryFiscal } : {}),

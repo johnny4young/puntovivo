@@ -24,11 +24,12 @@ export function ScheduleShiftCard({
   const endTime = formatShiftTime(shift.endsAt, shift.timeZone, locale);
   const time = t('week.hours', { start: startTime, end: endTime });
   const cancelled = shift.status === 'cancelled';
+  const reconciled = shift.isReconciled;
 
   return (
     <article
       className={`rounded-xl border bg-surface p-3 shadow-sm ${
-        cancelled ? 'border-secondary-200 opacity-60' : 'border-primary-100'
+        cancelled ? 'border-dashed border-secondary-300' : 'border-primary-100'
       }`}
       data-testid={`scheduled-shift-${shift.id}`}
     >
@@ -42,7 +43,7 @@ export function ScheduleShiftCard({
             <span className="whitespace-nowrap xl:block 2xl:inline">–{endTime}</span>
           </p>
         </div>
-        {!cancelled && (
+        {!cancelled && !reconciled && (
           <div className="flex shrink-0 gap-1 xl:mt-2 2xl:mt-0">
             <button
               type="button"
@@ -81,6 +82,11 @@ export function ScheduleShiftCard({
       {cancelled && (
         <span className="mt-2 inline-flex rounded-full bg-secondary-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-secondary-600">
           {t('week.cancelled')}
+        </span>
+      )}
+      {reconciled && (
+        <span className="mt-2 inline-flex rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-700">
+          {t('week.reconciled')}
         </span>
       )}
     </article>

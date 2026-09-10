@@ -21,6 +21,9 @@ export const PRICE_TIERS = [1, 2, 3] as const;
 
 export type PriceTier = (typeof PRICE_TIERS)[number];
 
+/** Half-cent boundary shared by cart guidance and authoritative sale checks. */
+export const PRICE_OVERRIDE_EPSILON = 0.005;
+
 export function isPriceTier(value: unknown): value is PriceTier {
   return value === 1 || value === 2 || value === 3;
 }
@@ -49,4 +52,32 @@ export function resolveTierUnitPrice(input: TierUnitPriceInput): number {
       ? input.assignmentPrice2
       : input.assignmentPrice3;
   return (tierPrice ?? 0) > 0 ? tierPrice! : input.assignmentPrice;
+}
+
+/**
+ * Does `value` sit at or beyond the half-cent boundary from `reference`?
+ *
+ * Subtracting two decimal prices does not land on the boundary exactly, and
+ * the shortfall grows with magnitude: 1 - 0.995 lands just above 0.005, but
+ * 800 - 799.995 lands just below it. A bare `>=` therefore reads the exact
+ * boundary as no override on higher-priced lines, which is the side that
+ * skips manager approval. Allow the comparison the representation error the
+ * operands can carry, scaled to them, so the boundary decides the same way
+ * at every price. The slack is several orders of magnitude below a cent, so
+ * no genuine price difference is swallowed by it.
+ */
+function isAtLeastHalfCentApart(value: number, reference: number): boolean {
+  const tolerance = Number.EPSILON * Math.max(Math.abs(value), Math.abs(reference), 1) * 4;
+  return Math.abs(value - reference) >= PRICE_OVERRIDE_EPSILON - tolerance;
+}
+
+export function isUnitPriceOverride(input: {
+  unitPrice: number;
+  referenceUnitPrice: number;
+  retailUnitPrice: number;
+}): boolean {
+  return (
+    isAtLeastHalfCentApart(input.unitPrice, input.referenceUnitPrice) &&
+    isAtLeastHalfCentApart(input.unitPrice, input.retailUnitPrice)
+  );
 }

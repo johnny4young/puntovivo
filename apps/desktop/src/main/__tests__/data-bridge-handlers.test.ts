@@ -40,6 +40,7 @@ describe('authenticated data-bridge handler core', () => {
         requireTenantId: () => {
           throw new Error('SESSION_NOT_REGISTERED');
         },
+        requireOneOfRoles: () => 'admin',
       },
       log: silentLog,
       operations,
@@ -105,7 +106,7 @@ describe('authenticated data-bridge handler core', () => {
   it('passes only the verified tenant into a data operation', async () => {
     const calls: Array<{ table: string; tenantId: string }> = [];
     const handlers = createDataBridgeHandlers({
-      session: { requireTenantId: () => 'tenant-main' },
+      session: { requireTenantId: () => 'tenant-main', requireOneOfRoles: () => 'admin' },
       log: silentLog,
       operations: {
         ...operations,

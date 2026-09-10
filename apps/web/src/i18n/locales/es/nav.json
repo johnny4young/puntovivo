@@ -164,6 +164,22 @@
     "sequentials": {
       "kicker": "Configuración",
       "title": "Consecutivos"
+    },
+    "reservations": {
+      "title": "Reservas",
+      "kicker": "Salón"
+    },
+    "externalOrders": {
+      "kicker": "Operación",
+      "title": "Pedidos externos"
+    },
+    "mySchedule": {
+      "kicker": "Mi equipo",
+      "title": "Mi horario"
+    },
+    "restaurantModifiers": {
+      "kicker": "Restaurante",
+      "title": "Adicionales de restaurante"
     }
   },
   "sections": {
@@ -182,10 +198,12 @@
     "schedule": "Horario del equipo",
     "orders": "Pedidos",
     "purchases": "Compras",
+    "providerPayables": "Cuentas de proveedores",
     "quotations": "Cotizaciones",
     "delivery": "Domicilios",
     "customers": "Clientes",
     "products": "Productos",
+    "promotions": "Promociones",
     "providers": "Proveedores",
     "categories": "Categorías",
     "locations": "Ubicaciones",
@@ -212,7 +230,10 @@
     "customerDisplay": "Pantalla cliente",
     "mobileWaiter": "Móvil mesero",
     "restaurantTables": "Mesas",
-    "companion": "Seguimiento en vivo"
+    "companion": "Seguimiento en vivo",
+    "reservations": "Reservas",
+    "externalOrders": "Pedidos externos",
+    "restaurantModifiers": "Adicionales de restaurante"
   },
   "badges": {
     "unreadAlertsSr": "anomalías de severidad alta pendientes de revisión"

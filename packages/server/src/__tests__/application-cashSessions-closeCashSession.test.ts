@@ -208,8 +208,11 @@ beforeAll(async () => {
     toNumber: 1000000,
     currentNumber: 0,
     technicalKey: 'closesession-test-tech-key',
-    validFrom: now,
-    validUntil: now,
+    // A real DIAN resolution is valid for months. The fixture used to set
+    // validFrom and validUntil both to `now`, a zero-width window that no
+    // resolution has, and nothing noticed because nothing checked.
+    validFrom: new Date(Date.parse(now) - 86_400_000).toISOString(),
+    validUntil: new Date(Date.parse(now) + 365 * 86_400_000).toISOString(),
     isActive: true,
     createdAt: now,
     updatedAt: now,

@@ -8,6 +8,7 @@ interface SalesQuickSearchBarProps {
   onQueryChange: (value: string) => void;
   onSubmit: () => void;
   inputRef: RefObject<HTMLInputElement | null>;
+  disabled?: boolean;
 }
 
 export function SalesQuickSearchBar({
@@ -15,6 +16,7 @@ export function SalesQuickSearchBar({
   onQueryChange,
   onSubmit,
   inputRef,
+  disabled = false,
 }: SalesQuickSearchBarProps) {
   const { t } = useTranslation('sales');
 
@@ -23,7 +25,7 @@ export function SalesQuickSearchBar({
       className="sales-scan-runway flex flex-col gap-2 px-4 py-4"
       onSubmit={event => {
         event.preventDefault();
-        onSubmit();
+        if (!disabled) onSubmit();
       }}
     >
       <div className="sales-scan-label-row">
@@ -35,7 +37,7 @@ export function SalesQuickSearchBar({
         </label>
         <span className="sales-scanner-ready">
           <span aria-hidden="true" />
-          {t('quickSearch.ready')}
+          {t(disabled ? 'quickSearch.lockedState' : 'quickSearch.ready')}
         </span>
       </div>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -47,22 +49,28 @@ export function SalesQuickSearchBar({
             className="input pl-10"
             placeholder={t('quickSearch.placeholder')}
             value={query}
-            aria-keyshortcuts={ariaKeyshortcutsFor('sales.focusProduct')}
+            disabled={disabled}
+            aria-keyshortcuts={disabled ? undefined : ariaKeyshortcutsFor('sales.focusProduct')}
             onChange={event => onQueryChange(event.target.value)}
           />
         </div>
         <button
           type="submit"
           className="pv-control-key pv-control-key-primary sales-scan-submit whitespace-nowrap"
-          aria-keyshortcuts={ariaKeyshortcutsFor('sales.productSearch')}
+          aria-keyshortcuts={disabled ? undefined : ariaKeyshortcutsFor('sales.productSearch')}
+          disabled={disabled}
         >
           <span>{t('quickSearch.search')}</span>
-          <span className="sales-scan-submit-key" aria-hidden="true">
-            F5
-          </span>
+          {!disabled && (
+            <span className="sales-scan-submit-key" aria-hidden="true">
+              F5
+            </span>
+          )}
         </button>
       </div>
-      <p className="sales-scan-hint text-xs text-secondary-500">{t('quickSearch.hint')}</p>
+      <p className="sales-scan-hint text-xs text-secondary-500">
+        {t(disabled ? 'quickSearch.lockedHint' : 'quickSearch.hint')}
+      </p>
     </form>
   );
 }

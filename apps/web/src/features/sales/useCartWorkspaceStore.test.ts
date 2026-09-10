@@ -1,6 +1,7 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   HISTORY_CAP,
+  selectActiveIsQuotation,
   selectActiveIsResumed,
   selectActiveUndoDepth,
   selectActiveWorkspace,
@@ -40,6 +41,25 @@ describe('useCartWorkspaceStore', () => {
     localStorage.clear();
   });
 
+  it.each(['QuotaExceededError', 'SecurityError'])(
+    'drops in-memory identity-owned work before reporting a %s persistence failure',
+    name => {
+      const store = useCartWorkspaceStore.getState();
+      store.createDraft('tenant-1:user-a');
+      const failure = new DOMException('Storage unavailable', name);
+      const write = vi.spyOn(localStorage, 'setItem').mockImplementation(() => {
+        throw failure;
+      });
+      try {
+        expect(() => store.resetAllWorkspaces()).toThrow(failure);
+        expect(useCartWorkspaceStore.getState().workspaces).toEqual({});
+        expect(useCartWorkspaceStore.getState().activeId).toBeNull();
+      } finally {
+        write.mockRestore();
+      }
+    }
+  );
+
   it('creates a draft, sets it active, and owns it to the caller', () => {
     const ownerKey = 'tenant-1:user-a';
     const id = useCartWorkspaceStore.getState().createDraft(ownerKey);
@@ -50,6 +70,7 @@ describe('useCartWorkspaceStore', () => {
     expect(active?.ownerKey).toBe(ownerKey);
     expect(active?.items).toEqual([]);
     expect(active?.serverSaleId).toBeNull();
+    expect(active?.sourceQuotationId).toBeNull();
     expect(active?.checkoutStartedAt).toBeNull();
   });
 
@@ -103,6 +124,194 @@ describe('useCartWorkspaceStore', () => {
     expect(state.workspaces[id]?.label).toBe('Mesa 5');
     expect(Date.parse(state.workspaces[id]?.checkoutStartedAt ?? '')).not.toBeNaN();
     expect(selectActiveIsResumed(state)).toBe(true);
+    expect(selectActiveIsQuotation(state)).toBe(false);
+  });
+
+  it('refreshes an existing resumed workspace from the authoritative snapshot after a split', () => {
+    const store = useCartWorkspaceStore.getState();
+    const originalItems = [sampleItem({ quantity: 2 })];
+    const id = store.hydrateFromResumed({
+      ownerKey: 'tenant-1:user-a',
+      serverSaleId: 'sale-deduplicated',
+      serverSaleNumber: 'VTA-ORIGINAL',
+      serverCustomerId: 'customer-original',
+      priceTier: 2,
+      label: 'Mesa original',
+      items: originalItems,
+    });
+    store.createDraft('tenant-1:user-a');
+
+    const repeatedId = store.hydrateFromResumed({
+      ownerKey: 'tenant-1:user-a',
+      serverSaleId: 'sale-deduplicated',
+      serverSaleNumber: 'VTA-REFRESHED',
+      serverCustomerId: null,
+      priceTier: 1,
+      label: 'Mesa actualizada',
+      items: [sampleItem({ quantity: 1 })],
+    });
+
+    const state = useCartWorkspaceStore.getState();
+    expect(repeatedId).toBe(id);
+    expect(state.activeId).toBe(id);
+    expect(
+      Object.values(state.workspaces).filter(
+        candidate =>
+          candidate.ownerKey === 'tenant-1:user-a' && candidate.serverSaleId === 'sale-deduplicated'
+      )
+    ).toHaveLength(1);
+    expect(state.workspaces[id]).toMatchObject({
+      serverSaleNumber: 'VTA-REFRESHED',
+      serverCustomerId: null,
+      priceTier: 1,
+      label: 'Mesa actualizada',
+      items: [sampleItem({ quantity: 1 })],
+      selectedItemKey: null,
+      historyStack: [],
+    });
+  });
+
+  it('hydrates an accepted quotation with frozen customer, site, tier, and lines', () => {
+    const id = useCartWorkspaceStore.getState().hydrateFromQuotation({
+      ownerKey: 'tenant-1:user-a',
+      quotationId: 'quote-42',
+      quotationNumber: 'COT-000042',
+      siteId: 'site-1',
+      customerId: 'customer-42',
+      customerName: 'Customer 42',
+      priceTier: 3,
+      items: [sampleItem({ sourceQuotationItemId: 'quote-line-1' })],
+    });
+
+    const state = useCartWorkspaceStore.getState();
+    expect(state.workspaces[id]).toMatchObject({
+      sourceQuotationId: 'quote-42',
+      sourceQuotationNumber: 'COT-000042',
+      sourceQuotationSiteId: 'site-1',
+      sourceQuotationCustomerId: 'customer-42',
+      sourceQuotationCustomerName: 'Customer 42',
+      priceTier: 3,
+      historyStack: [],
+    });
+    expect(selectActiveIsQuotation(state)).toBe(true);
+    expect(selectActiveIsResumed(state)).toBe(false);
+
+    useCartWorkspaceStore.getState().setPriceTier(id, 1);
+    expect(useCartWorkspaceStore.getState().workspaces[id]?.priceTier).toBe(3);
+  });
+
+  it('reuses the existing quotation checkout and preserves selected serials', () => {
+    const args = {
+      ownerKey: 'tenant-1:user-a',
+      quotationId: 'quote-serial',
+      quotationNumber: 'COT-SERIAL',
+      siteId: 'site-1',
+      customerId: null,
+      customerName: null,
+      priceTier: 1 as const,
+      items: [sampleItem({ sourceQuotationItemId: 'quote-line-serial', serialIds: [] })],
+    };
+    const store = useCartWorkspaceStore.getState();
+    const firstId = store.hydrateFromQuotation(args);
+    useCartWorkspaceStore.setState(state => ({
+      workspaces: {
+        ...state.workspaces,
+        [firstId]: {
+          ...state.workspaces[firstId]!,
+          items: [
+            sampleItem({
+              sourceQuotationItemId: 'quote-line-serial',
+              tracksSerials: true,
+              serialIds: [],
+            }),
+          ],
+        },
+      },
+    }));
+    store.setQuotationSerialSelection(firstId, 'sku-42:unit-1', ['serial-1'], 'site-1');
+    store.createDraft(args.ownerKey);
+
+    const reopenedId = useCartWorkspaceStore.getState().hydrateFromQuotation(args);
+    const state = useCartWorkspaceStore.getState();
+
+    expect(reopenedId).toBe(firstId);
+    expect(state.activeId).toBe(firstId);
+    expect(
+      Object.values(state.workspaces).filter(row => row.sourceQuotationId === args.quotationId)
+    ).toHaveLength(1);
+    expect(state.workspaces[firstId]?.items[0]?.serialIds).toEqual(['serial-1']);
+  });
+
+  it('opens one editable replacement workspace per return and freezes its customer identity', () => {
+    const store = useCartWorkspaceStore.getState();
+    const args = {
+      ownerKey: 'tenant-1:user-a',
+      returnId: 'return-42',
+      saleNumber: 'VTA-000042',
+      customerId: 'customer-42',
+      customerName: 'Customer 42',
+      priceTier: 2 as const,
+    };
+    const firstId = store.hydrateFromReturn(args);
+    store.updateCart(firstId, [sampleItem()]);
+    store.createDraft(args.ownerKey);
+    const reopenedId = useCartWorkspaceStore.getState().hydrateFromReturn(args);
+
+    expect(reopenedId).toBe(firstId);
+    expect(useCartWorkspaceStore.getState().activeId).toBe(firstId);
+    expect(useCartWorkspaceStore.getState().workspaces[firstId]).toMatchObject({
+      sourceReturnId: 'return-42',
+      sourceReturnSaleNumber: 'VTA-000042',
+      sourceReturnCustomerId: 'customer-42',
+      sourceReturnCustomerName: 'Customer 42',
+      priceTier: 2,
+      items: [{ productId: 'sku-42' }],
+    });
+    expect(
+      Object.values(useCartWorkspaceStore.getState().workspaces).filter(
+        workspace => workspace.sourceReturnId === args.returnId
+      )
+    ).toHaveLength(1);
+  });
+
+  it('fails closed for generic mutations of resumed and quotation workspaces', () => {
+    const store = useCartWorkspaceStore.getState();
+    const resumedId = store.hydrateFromResumed({
+      ownerKey: 'tenant-1:user-a',
+      serverSaleId: 'sale-locked',
+      serverSaleNumber: 'VTA-LOCKED',
+      serverCustomerId: null,
+      priceTier: 2,
+      label: null,
+      items: [sampleItem({ quantity: 2 })],
+    });
+    store.updateCart(resumedId, []);
+    store.setPriceTier(resumedId, 1);
+    expect(store.undoCart(resumedId)).toBe(false);
+
+    const quotationId = store.hydrateFromQuotation({
+      ownerKey: 'tenant-1:user-a',
+      quotationId: 'quote-locked',
+      quotationNumber: 'COT-LOCKED',
+      siteId: 'site-1',
+      customerId: null,
+      customerName: null,
+      priceTier: 3,
+      items: [sampleItem({ quantity: 3 })],
+    });
+    store.updateCart(quotationId, []);
+    store.setPriceTier(quotationId, 1);
+    expect(store.undoCart(quotationId)).toBe(false);
+
+    const state = useCartWorkspaceStore.getState();
+    expect(state.workspaces[resumedId]).toMatchObject({
+      priceTier: 2,
+      items: [{ quantity: 2 }],
+    });
+    expect(state.workspaces[quotationId]).toMatchObject({
+      priceTier: 3,
+      items: [{ quantity: 3 }],
+    });
   });
 
   it('starts checkout on the first cart item and resets after the cart empties', () => {
@@ -322,5 +531,94 @@ describe('useCartWorkspaceStore', () => {
       store.setActive(a);
       expect(selectActiveUndoDepth(useCartWorkspaceStore.getState())).toBe(2);
     });
+  });
+});
+
+describe('persisted workspace migration', () => {
+  /** Reach the persist middleware's own migrate, the way zustand calls it. */
+  function migrateFrom(fromVersion: number, persisted: unknown) {
+    const migrate = useCartWorkspaceStore.persist.getOptions().migrate;
+    expect(migrate).toBeTypeOf('function');
+    return migrate!(persisted, fromVersion) as { workspaces: Record<string, unknown> };
+  }
+
+  /**
+   * Read the version off the store rather than hard-coding it, so the next
+   * field addition bumps this test with the store instead of stranding it.
+   */
+  const currentVersion = () => useCartWorkspaceStore.persist.getOptions().version ?? 0;
+
+  it('backfills the quotation-origin fields for a workspace persisted at version 6', () => {
+    // The quotation fields were added without bumping PERSIST_VERSION off 6,
+    // so an already-current workspace skipped the migration and kept
+    // sourceQuotationId undefined. The guards compare it against null
+    // strictly, and `undefined !== null` is true, so an ordinary cart from
+    // before the upgrade was treated as a locked quotation cart and refused
+    // edits and reuse.
+    const legacy = {
+      activeId: 'ws-1',
+      workspaces: {
+        'ws-1': {
+          id: 'ws-1',
+          ownerKey: 'tenant-1:user-1',
+          label: 'Draft',
+          items: [sampleItem()],
+          createdAt: '2026-09-01T10:00:00.000Z',
+          updatedAt: '2026-09-01T10:00:00.000Z',
+          serverSaleId: null,
+        },
+      },
+    };
+
+    const migrated = migrateFrom(6, legacy);
+    const workspace = migrated.workspaces['ws-1'] as Record<string, unknown>;
+
+    // Null, not undefined: every guard on this field compares against null.
+    expect(workspace.sourceQuotationId).toBeNull();
+    expect(workspace.sourceQuotationNumber).toBeNull();
+    expect(workspace.sourceQuotationSiteId).toBeNull();
+    expect(workspace.sourceQuotationCustomerId).toBeNull();
+    expect(workspace.sourceQuotationCustomerName).toBeNull();
+    expect(workspace.serverCustomerId).toBeNull();
+    expect(workspace.sourceReturnId).toBeNull();
+    expect(workspace.sourceReturnSaleNumber).toBeNull();
+    expect(workspace.sourceReturnCustomerId).toBeNull();
+    expect(workspace.sourceReturnCustomerName).toBeNull();
+    expect(workspace.priceTier).toBe(1);
+    expect(workspace.historyStack).toEqual([]);
+    expect(workspace.checkoutStartedAt).toBeNull();
+  });
+
+  it('leaves an already-migrated workspace untouched', () => {
+    const current = {
+      activeId: 'ws-2',
+      workspaces: {
+        'ws-2': {
+          id: 'ws-2',
+          ownerKey: 'tenant-1:user-1',
+          label: 'From quotation',
+          items: [],
+          createdAt: '2026-09-01T10:00:00.000Z',
+          updatedAt: '2026-09-01T10:00:00.000Z',
+          serverSaleId: null,
+          serverCustomerId: 'cust-9',
+          sourceQuotationId: 'quote-7',
+          sourceQuotationNumber: 'COT-000007',
+          sourceQuotationSiteId: 'site-1',
+          sourceQuotationCustomerId: 'cust-9',
+          sourceQuotationCustomerName: 'Acme',
+          sourceReturnId: null,
+          sourceReturnSaleNumber: null,
+          sourceReturnCustomerId: null,
+          sourceReturnCustomerName: null,
+          priceTier: 2,
+          historyStack: [],
+          checkoutStartedAt: null,
+        },
+      },
+    };
+
+    const migrated = migrateFrom(currentVersion(), current);
+    expect(migrated.workspaces['ws-2']).toEqual(current.workspaces['ws-2']);
   });
 });

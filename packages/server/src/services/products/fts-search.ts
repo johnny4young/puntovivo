@@ -8,6 +8,9 @@ import type { ExactProductSearchFilters } from './exact-search.js';
 
 const MAX_QUERY_TOKENS = 8;
 const MAX_TOKEN_LENGTH = 48;
+const SELECTIVE_MATCH_LIMIT = 64;
+// A contradiction, rather than a presumed-absent token, also rejects corrupt indexes.
+const EMPTY_MATCH = 'tenant_scope:"empty" NOT tenant_scope:"empty"';
 
 export interface FtsProductMatch {
   productId: string;
@@ -18,6 +21,29 @@ export type ProductFtsTokenOperator = 'AND' | 'OR';
 
 function sqliteClient(db: DatabaseInstance): Database.Database {
   return (db as DatabaseInstance & { $client: Database.Database }).$client;
+}
+
+// Five filter-presence flags and two query paths bound the cache to 64
+// statements per native connection. Only SQL is retained: every invocation
+// rebinds tenant, MATCH, filters and limit, and rechecks identity in SQLite.
+const statements = new WeakMap<Database.Database, Map<number, Database.Statement>>();
+
+function preparedSearch(
+  client: Database.Database,
+  shape: number,
+  query: () => string
+): Database.Statement {
+  let cache = statements.get(client);
+  if (!cache) {
+    cache = new Map();
+    statements.set(client, cache);
+  }
+  let statement = cache.get(shape);
+  if (!statement) {
+    statement = client.prepare(query());
+    cache.set(shape, statement);
+  }
+  return statement;
 }
 
 /**
@@ -32,10 +58,9 @@ export function productSearchTenantScope(tenantId: string): string {
  * Convert untrusted operator text to quoted FTS5 prefix phrases.
  * No FTS operators from the input survive this tokenizer boundary.
  */
-export function buildProductFtsQuery(
-  tenantId: string,
+function buildProductTextQuery(
   query: string,
-  tokenOperator: ProductFtsTokenOperator = 'AND'
+  tokenOperator: ProductFtsTokenOperator
 ): string | null {
   const tokens = query
     .normalize('NFC')
@@ -46,7 +71,16 @@ export function buildProductFtsQuery(
   if (!tokens || tokens.length === 0) return null;
 
   const terms = tokens.map(token => `"${token.replaceAll('"', '""')}"*`).join(` ${tokenOperator} `);
-  return `tenant_scope:"${productSearchTenantScope(tenantId)}" AND {name sku barcode description}:(${terms})`;
+  return `{name sku barcode description active_ingredient generic_name manufacturer sanitary_registration}:(${terms})`;
+}
+
+export function buildProductFtsQuery(
+  tenantId: string,
+  query: string,
+  tokenOperator: ProductFtsTokenOperator = 'AND'
+): string | null {
+  const textQuery = buildProductTextQuery(query, tokenOperator);
+  return textQuery ? `tenant_scope:"${productSearchTenantScope(tenantId)}" AND ${textQuery}` : null;
 }
 
 /**
@@ -62,16 +96,16 @@ export function findFtsProductMatches(
   limit: number,
   tokenOperator: ProductFtsTokenOperator = 'AND'
 ): FtsProductMatch[] {
-  const matchQuery = buildProductFtsQuery(tenantId, query, tokenOperator);
-  if (!matchQuery) return [];
+  const textQuery = buildProductTextQuery(query, tokenOperator);
+  if (!textQuery) return [];
+  const matchQuery = `tenant_scope:"${productSearchTenantScope(tenantId)}" AND ${textQuery}`;
 
   const predicates = [
     '`product_search_fts` MATCH ?',
-    '`product_search_fts`.`tenant_id` = ?',
     '`products`.`tenant_id` = ?',
     "`products`.`catalog_type` <> 'variant_parent'",
   ];
-  const params: Array<string | number> = [matchQuery, tenantId, tenantId];
+  const params: Array<string | number> = [matchQuery, tenantId];
   if (filters.categoryId) {
     predicates.push('`products`.`category_id` = ?');
     params.push(filters.categoryId);
@@ -88,20 +122,84 @@ export function findFtsProductMatches(
     predicates.push('`products`.`tracks_stock` = ?');
     params.push(filters.tracksStock ? 1 : 0);
   }
-  params.push(limit);
+  if (filters.pharmacyOnly) {
+    predicates.push(
+      'EXISTS (SELECT 1 FROM `pharmacy_product_profiles` WHERE `pharmacy_product_profiles`.`product_id` = `products`.`id` AND `pharmacy_product_profiles`.`tenant_id` = ?)'
+    );
+    params.push(tenantId);
+  }
+  const client = sqliteClient(db);
+  const shape =
+    (filters.categoryId ? 1 : 0) |
+    (filters.providerId ? 2 : 0) |
+    (filters.isActive !== undefined ? 4 : 0) |
+    (filters.tracksStock !== undefined ? 8 : 0) |
+    (filters.pharmacyOnly ? 16 : 0);
+  const scoreSql =
+    'bm25(product_search_fts, 0.0, 0.0, 0.0, 10.0, 8.0, 8.0, 2.0, 9.0, 9.0, 4.0, 9.0)';
 
-  const rows = sqliteClient(db)
-    .prepare(
-      `SELECT
-         product_search_fts.product_id AS productId,
-         bm25(product_search_fts, 0.0, 0.0, 0.0, 10.0, 8.0, 8.0, 2.0) AS score
+  // FTS triggers preserve product rowids; future table rebuilds must preserve
+  // them or rebuild FTS. All business filters and authoritative tenant scope
+  // precede LIMIT. Defer reading FTS content to this bounded shortlist, while
+  // checking its text identity in the SAME SQL snapshot, not a later query.
+  // A bounded, tenant-scoped probe and both ranking paths share ONE snapshot.
+  // Small queries rank only the complete probe rowids with text-only BM25:
+  // the scope phrase has zero weight, but including it makes FTS5 compute its
+  // corpus-wide phrase statistics. Broad queries retain the original MATCH.
+  // Never probe global cardinality or truncate a broad set before ranking.
+  const selection = `SELECT products.id AS productId, products.name AS productName,
+    product_search_fts.rowid AS ftsRowid, ${scoreSql} AS score
+    FROM product_search_fts
+    INNER JOIN products ON products.rowid = product_search_fts.rowid`;
+  const candidates = preparedSearch(
+    client,
+    shape,
+    () => `WITH scope_probe AS MATERIALIZED (
+         SELECT rowid FROM product_search_fts WHERE product_search_fts MATCH ?
+         LIMIT ${SELECTIVE_MATCH_LIMIT + 1}
+       ), candidates AS MATERIALIZED (
+         ${selection}
+         WHERE ${predicates.join(' AND ')}
+           AND product_search_fts.rowid IN (
+             SELECT rowid FROM scope_probe
+             WHERE (SELECT count(*) FROM scope_probe) <= ${SELECTIVE_MATCH_LIMIT}
+           )
+         UNION ALL
+         ${selection}
+         WHERE product_search_fts MATCH (
+           CASE WHEN (SELECT count(*) FROM scope_probe) > ${SELECTIVE_MATCH_LIMIT}
+             THEN ? ELSE '${EMPTY_MATCH}' END
+         ) AND ${predicates.slice(1).join(' AND ')}
+         ORDER BY score ASC, productName COLLATE NOCASE ASC, productId ASC
+         LIMIT ?
+       )
+       SELECT product_search_fts.product_id AS productId, candidates.score,
+         CASE WHEN candidates.productId = product_search_fts.product_id
+           AND product_search_fts.tenant_id = ? THEN 1 ELSE 0 END AS identityValid
+       FROM candidates
+       LEFT JOIN product_search_fts ON product_search_fts.rowid = candidates.ftsRowid
+       ORDER BY candidates.score ASC, candidates.productName COLLATE NOCASE ASC,
+         candidates.productId ASC`
+  ).all(matchQuery, textQuery, ...params.slice(1), ...params, limit, tenantId) as Array<
+    FtsProductMatch & { identityValid: number }
+  >;
+
+  if (candidates.every(candidate => candidate.identityValid === 1)) {
+    return candidates.map(({ productId, score }) => ({ productId, score }));
+  }
+
+  // If every top-N row is valid, excluding invalid rows outside N cannot change
+  // the result. Otherwise rerun the FULL guarded query: dropping bad shortlisted
+  // rows would hide valid matches beyond the cutoff and violate ranking/recall.
+  return preparedSearch(
+    client,
+    shape | 32,
+    () => `SELECT product_search_fts.product_id AS productId, ${scoreSql} AS score
        FROM product_search_fts
-       INNER JOIN products ON products.id = product_search_fts.product_id
-       WHERE ${predicates.join(' AND ')}
+       INNER JOIN products ON products.rowid = product_search_fts.rowid
+         AND products.id = product_search_fts.product_id
+       WHERE ${predicates.join(' AND ')} AND product_search_fts.tenant_id = ?
        ORDER BY score ASC, products.name COLLATE NOCASE ASC, products.id ASC
        LIMIT ?`
-    )
-    .all(...params) as Array<{ productId: string; score: number }>;
-
-  return rows;
+  ).all(...params, tenantId, limit) as FtsProductMatch[];
 }

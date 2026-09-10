@@ -34,13 +34,17 @@ import {
   fiscalDocumentItems,
   fiscalDocumentItemTaxComponents,
   fiscalDocuments,
+  fiscalEmissionIntents,
   fiscalNumberingResolutions,
   fiscalOutbox,
+  sales,
 } from '../../../db/schema.js';
 import {
   getFiscalDocumentByCufeInput,
   getFiscalXmlInput,
+  listFiscalEmissionIntentsInput,
   listFiscalDocumentsInput,
+  retryFiscalEmissionIntentInput,
   retryFiscalDocumentInput,
 } from '../../schemas/fiscal.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
@@ -66,6 +70,22 @@ import {
   type ServerExportEnvelope,
 } from '../../../services/exports/envelope.js';
 import { writeAuditLog } from '../../../services/audit-logs.js';
+
+const UNRESOLVED_FISCAL_INTENT_STATUSES = [
+  'queued',
+  'materializing',
+  'blocked',
+  'retrying',
+  'dead_letter',
+] as const;
+
+function safeFiscalIntentReason(lastError: unknown): string | null {
+  if (typeof lastError !== 'object' || lastError === null || Array.isArray(lastError)) return null;
+  const value = lastError as Record<string, unknown>;
+  if (typeof value.reason === 'string') return value.reason.slice(0, 120);
+  if (typeof value.code === 'string') return value.code.slice(0, 120);
+  return null;
+}
 
 /** Shape returned by `reports.fiscal.list` — one row per fiscal document. */
 const LIST_SELECT_COLUMNS = {
@@ -96,6 +116,62 @@ const LIST_SELECT_COLUMNS = {
 } as const;
 
 export const fiscalReportsRouter = router({
+  /**
+   * List durable fiscal obligations that have not materialized a document.
+   * This queue is separate from `list`: there is intentionally no synthetic
+   * document number or CUFE before numbering commits.
+   */
+  listIntents: managerOrAdminProcedure
+    .input(listFiscalEmissionIntentsInput)
+    .query(async ({ ctx, input }) => {
+      const statuses = input.status ? [input.status] : [...UNRESOLVED_FISCAL_INTENT_STATUSES];
+      const conditions = [
+        eq(fiscalEmissionIntents.tenantId, ctx.tenantId),
+        inArray(fiscalEmissionIntents.status, statuses),
+      ];
+      const rows = await ctx.db
+        .select({
+          id: fiscalEmissionIntents.id,
+          source: fiscalEmissionIntents.source,
+          sourceId: fiscalEmissionIntents.sourceId,
+          saleId: fiscalEmissionIntents.saleId,
+          saleNumber: sales.saleNumber,
+          kind: fiscalEmissionIntents.kind,
+          status: fiscalEmissionIntents.status,
+          attempts: fiscalEmissionIntents.attempts,
+          lastError: fiscalEmissionIntents.lastError,
+          createdAt: fiscalEmissionIntents.createdAt,
+          updatedAt: fiscalEmissionIntents.updatedAt,
+        })
+        .from(fiscalEmissionIntents)
+        .innerJoin(
+          sales,
+          and(
+            eq(sales.id, fiscalEmissionIntents.saleId),
+            eq(sales.tenantId, fiscalEmissionIntents.tenantId)
+          )
+        )
+        .where(and(...conditions))
+        .orderBy(desc(fiscalEmissionIntents.createdAt), desc(fiscalEmissionIntents.id))
+        .limit(input.limit)
+        .offset(input.offset)
+        .all();
+      const totalRow = await ctx.db
+        .select({ total: count() })
+        .from(fiscalEmissionIntents)
+        .where(and(...conditions))
+        .get();
+      return {
+        items: rows.map(({ lastError, ...row }) => ({
+          ...row,
+          reason: safeFiscalIntentReason(lastError),
+        })),
+        total: totalRow?.total ?? 0,
+        limit: input.limit,
+        offset: input.offset,
+      };
+    }),
+
   /**
    * Paged list of fiscal documents for the admin Fiscal Documents page
    * and the  Operations Center Fiscal Health panel.
@@ -442,6 +518,82 @@ export const fiscalReportsRouter = router({
     // Queued / submitting / accepted: no-op.
     return { rearmed: false as const };
   }),
+
+  /**
+   * Explicitly re-arm a pre-document fiscal intent using its frozen payload.
+   * No current tenant setting, provider or numbering resolution is substituted;
+   * materialization validates the frozen resolution again and returns to
+   * `blocked` if the original contract is still unavailable or changed.
+   */
+  retryIntent: adminProcedure
+    .input(retryFiscalEmissionIntentInput)
+    .mutation(async ({ ctx, input }) => {
+      const nowIso = new Date().toISOString();
+      const result = ctx.db.transaction(tx => {
+        const row = tx
+          .select({
+            id: fiscalEmissionIntents.id,
+            status: fiscalEmissionIntents.status,
+            attempts: fiscalEmissionIntents.attempts,
+          })
+          .from(fiscalEmissionIntents)
+          .where(
+            and(
+              eq(fiscalEmissionIntents.id, input.intentId),
+              eq(fiscalEmissionIntents.tenantId, ctx.tenantId)
+            )
+          )
+          .get();
+        if (!row) {
+          throwServerError({
+            trpcCode: 'NOT_FOUND',
+            errorCode: 'FISCAL_DOCUMENT_NOT_FOUND',
+            message: 'Fiscal emission intent not found',
+          });
+        }
+        if (row.status === 'materialized' || row.status === 'materializing') {
+          return { rearmed: false as const, status: row.status };
+        }
+        const updated = tx
+          .update(fiscalEmissionIntents)
+          .set({
+            status: 'queued',
+            attempts: row.status === 'dead_letter' ? 0 : row.attempts,
+            nextRetryAt: null,
+            claimToken: null,
+            lockedAt: null,
+            updatedAt: nowIso,
+          })
+          .where(
+            and(
+              eq(fiscalEmissionIntents.id, row.id),
+              eq(fiscalEmissionIntents.tenantId, ctx.tenantId),
+              eq(fiscalEmissionIntents.status, row.status)
+            )
+          )
+          .run();
+        if (updated.changes !== 1) return { rearmed: false as const, status: row.status };
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user!.id,
+          action: 'fiscal.intent.rearmed',
+          resourceType: 'fiscal_emission_intent',
+          resourceId: row.id,
+          before: { status: row.status, attempts: row.attempts },
+          after: { status: 'queued', attempts: row.status === 'dead_letter' ? 0 : row.attempts },
+        });
+        return { rearmed: true as const, status: 'queued' as const };
+      });
+
+      const worker = getDefaultFiscalWorker();
+      if (result.rearmed && worker) {
+        worker.tickOnce(ctx.tenantId).catch(() => {
+          /* worker owns diagnostics and the durable row remains recoverable */
+        });
+      }
+      return result;
+    }),
 });
 
 export type FiscalReportsRouter = typeof fiscalReportsRouter;

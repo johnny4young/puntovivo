@@ -7,6 +7,8 @@ import { OrderDetailsContent } from '@/features/orders/OrderDetailsContent';
 import { OrderReceiveModal, type OrderReceiveValues } from '@/features/orders/OrderReceiveModal';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
+import { translateServerError } from '@/lib/translateServerError';
+import { useCriticalMutation } from '@/lib/useCriticalMutation';
 
 interface OrderDetailsModalProps {
   orderId: string | null;
@@ -21,17 +23,25 @@ export function OrderDetailsModal({
   onClose,
   initialMode = 'details',
 }: OrderDetailsModalProps) {
-  const { t } = useTranslation(['orders', 'common']);
+  const { t } = useTranslation(['orders', 'inventoryControls', 'common', 'errors']);
   const { user } = useAuth();
   const toast = useToast();
   const utils = trpc.useUtils();
   const [isReceiveModalOpen, setIsReceiveModalOpen] = useState(initialMode === 'receive');
   const [receiveModalKey, setReceiveModalKey] = useState(0);
   const [isVoidConfirmOpen, setIsVoidConfirmOpen] = useState(false);
+  const [isSubmitConfirmOpen, setIsSubmitConfirmOpen] = useState(false);
   const [voidError, setVoidError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [receiveError, setReceiveError] = useState<string | null>(null);
+  const orderQuery = trpc.orders.getById.useQuery(
+    { id: orderId ?? '' },
+    { enabled: isOpen && !!orderId }
+  );
+  const order = orderQuery.data;
+  const isDraft = order?.status === 'draft';
 
-  const receiveMutation = trpc.purchases.createFromOrder.useMutation({
+  const receiveMutation = useCriticalMutation('purchases.createFromOrder', {
     onSuccess: async purchase => {
       await Promise.all([
         utils.orders.list.invalidate(),
@@ -45,6 +55,8 @@ export function OrderDetailsModal({
         utils.products.search.invalidate(),
         utils.productSerials.list.invalidate(),
         utils.productSerials.lookup.invalidate(),
+        utils.inventoryLots.list.invalidate(),
+        utils.inventoryLots.expiring.invalidate(),
       ]);
       toast.success({
         title: t('orders:details.toast.receiveSuccessTitle'),
@@ -63,43 +75,70 @@ export function OrderDetailsModal({
     }),
   });
 
-  const voidMutation = trpc.orders.void.useMutation({
+  const voidMutation = useCriticalMutation('orders.void', {
     onSuccess: async () => {
       await Promise.all([
         utils.orders.list.invalidate(),
         utils.orders.getById.invalidate({ id: orderId ?? '' }),
       ]);
-      toast.success({ title: t('orders:details.toast.voidSuccessTitle') });
+      toast.success({
+        title: t(
+          isDraft
+            ? 'orders:details.toast.discardSuccessTitle'
+            : 'orders:details.toast.voidSuccessTitle'
+        ),
+      });
       setIsVoidConfirmOpen(false);
       setVoidError(null);
       onClose();
     },
     onError: onErrorToast(toast, t, {
-      titleKey: 'orders:details.toast.voidErrorTitle',
-      fallbackKey: 'orders:details.toast.voidErrorFallback',
+      titleKey: isDraft
+        ? 'orders:details.toast.discardErrorTitle'
+        : 'orders:details.toast.voidErrorTitle',
+      fallbackKey: isDraft
+        ? 'orders:details.toast.discardErrorFallback'
+        : 'orders:details.toast.voidErrorFallback',
       extra: description => setVoidError(description),
     }),
   });
 
-  const orderQuery = trpc.orders.getById.useQuery(
-    { id: orderId ?? '' },
-    { enabled: isOpen && !!orderId }
-  );
+  const submitMutation = useCriticalMutation('orders.submitDraft', {
+    onSuccess: async () => {
+      await Promise.all([
+        utils.orders.list.invalidate(),
+        utils.orders.getById.invalidate({ id: orderId ?? '' }),
+      ]);
+      toast.success({ title: t('orders:details.toast.submitSuccessTitle') });
+      setIsSubmitConfirmOpen(false);
+      setSubmitError(null);
+    },
+    onError: onErrorToast(toast, t, {
+      titleKey: 'orders:details.toast.submitErrorTitle',
+      fallbackKey: 'orders:details.toast.submitErrorFallback',
+      extra: description => setSubmitError(description),
+    }),
+  });
 
-  const order = orderQuery.data;
   const hasRemainingItems =
     (order?.items ?? []).some(item => (item.remainingQuantity ?? item.quantity) > 0) ?? false;
   const canReceiveOrder =
     (user?.role === 'admin' || user?.role === 'manager') &&
     (order?.status === 'submitted' || order?.status === 'partial_received') &&
     hasRemainingItems;
-  const canVoidOrder = user?.role === 'admin' && order?.status === 'submitted';
+  const canSubmitDraft =
+    (user?.role === 'admin' || user?.role === 'manager') && order?.status === 'draft';
+  const canVoidOrder =
+    (user?.role === 'admin' && (order?.status === 'submitted' || isDraft)) ||
+    (user?.role === 'manager' && isDraft);
 
   const handleClose = () => {
     setIsReceiveModalOpen(false);
     setIsVoidConfirmOpen(false);
+    setIsSubmitConfirmOpen(false);
     setReceiveError(null);
     setVoidError(null);
+    setSubmitError(null);
     onClose();
   };
 
@@ -141,6 +180,16 @@ export function OrderDetailsModal({
     }
   };
 
+  const handleSubmitDraft = async () => {
+    if (!orderId) return;
+    setSubmitError(null);
+    try {
+      await submitMutation.mutateAsync({ id: orderId });
+    } catch {
+      // Error state is handled by the mutation callbacks.
+    }
+  };
+
   return (
     <>
       <Modal
@@ -154,6 +203,15 @@ export function OrderDetailsModal({
         size="full"
         footer={
           <>
+            {canSubmitDraft && (
+              <ModalButton
+                onClick={() => setIsSubmitConfirmOpen(true)}
+                variant="primary"
+                disabled={submitMutation.isPending}
+              >
+                {t('orders:details.actions.submitDraft')}
+              </ModalButton>
+            )}
             {canReceiveOrder && (
               <ModalButton
                 onClick={handleOpenReceiveModal}
@@ -169,7 +227,11 @@ export function OrderDetailsModal({
                 variant="danger"
                 disabled={voidMutation.isPending}
               >
-                {t('orders:confirm.void.confirmText')}
+                {t(
+                  isDraft
+                    ? 'orders:confirm.discardDraft.confirmText'
+                    : 'orders:confirm.void.confirmText'
+                )}
               </ModalButton>
             )}
             <ModalButton onClick={handleClose}>{t('common:actions.close')}</ModalButton>
@@ -179,9 +241,18 @@ export function OrderDetailsModal({
         {orderQuery.isLoading && (
           <p className="text-sm text-secondary-500">{t('orders:details.loading')}</p>
         )}
-        {orderQuery.error && <p className="text-sm text-danger-500">{orderQuery.error.message}</p>}
+        {orderQuery.error && (
+          <p role="alert" className="text-sm text-danger-500">
+            {translateServerError(orderQuery.error, t, t('errors:server.unknown'))}
+          </p>
+        )}
         {order && (
-          <OrderDetailsContent order={order} receiveError={receiveError} voidError={voidError} />
+          <OrderDetailsContent
+            order={order}
+            receiveError={receiveError}
+            voidError={voidError}
+            submitError={submitError}
+          />
         )}
       </Modal>
 
@@ -198,14 +269,27 @@ export function OrderDetailsModal({
       )}
 
       <ConfirmModal
+        isOpen={isSubmitConfirmOpen}
+        onClose={() => setIsSubmitConfirmOpen(false)}
+        onConfirm={() => {
+          void handleSubmitDraft();
+        }}
+        title={t('confirm.submit.title')}
+        message={t('confirm.submit.message')}
+        confirmText={t('confirm.submit.confirmText')}
+        loading={submitMutation.isPending}
+        variant="primary"
+      />
+
+      <ConfirmModal
         isOpen={isVoidConfirmOpen}
         onClose={() => setIsVoidConfirmOpen(false)}
         onConfirm={() => {
           void handleVoidOrder();
         }}
-        title={t('confirm.void.title')}
-        message={t('confirm.void.message')}
-        confirmText={t('confirm.void.confirmText')}
+        title={t(isDraft ? 'confirm.discardDraft.title' : 'confirm.void.title')}
+        message={t(isDraft ? 'confirm.discardDraft.message' : 'confirm.void.message')}
+        confirmText={t(isDraft ? 'confirm.discardDraft.confirmText' : 'confirm.void.confirmText')}
         loading={voidMutation.isPending}
         variant="danger"
       />

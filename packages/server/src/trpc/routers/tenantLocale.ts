@@ -23,7 +23,7 @@ import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { adminProcedure } from '../middleware/roles.js';
 import { assertVersionedWriteApplied } from '../../lib/optimisticVersion.js';
-import { countryCatalog, currencyCatalog, tenantLocaleSettings } from '../../db/schema.js';
+import { countryCatalog, currencyCatalog, tenantLocaleSettings, tenants } from '../../db/schema.js';
 import { resolveTenantLocale } from '../../services/tenant-locale.js';
 import { updateTenantLocaleInput } from '../schemas/tenantLocale.js';
 
@@ -58,7 +58,10 @@ export const tenantLocaleRouter = router({
    */
   update: adminProcedure.input(updateTenantLocaleInput).mutation(async ({ ctx, input }) => {
     const country = await ctx.db
-      .select({ code: countryCatalog.code })
+      .select({
+        code: countryCatalog.code,
+        defaultCurrencyCode: countryCatalog.defaultCurrencyCode,
+      })
       .from(countryCatalog)
       .where(eq(countryCatalog.code, input.countryCode))
       .get();
@@ -83,74 +86,106 @@ export const tenantLocaleRouter = router({
     }
 
     const now = new Date().toISOString();
-    const existing = await ctx.db
-      .select({
-        tenantId: tenantLocaleSettings.tenantId,
-        localeOverride: tenantLocaleSettings.localeOverride,
-        currencyOverride: tenantLocaleSettings.currencyOverride,
-        timezoneOverride: tenantLocaleSettings.timezoneOverride,
-        firstDayOfWeekOverride: tenantLocaleSettings.firstDayOfWeekOverride,
-        version: tenantLocaleSettings.version,
-      })
-      .from(tenantLocaleSettings)
-      .where(eq(tenantLocaleSettings.tenantId, ctx.tenantId))
-      .get();
-    if (existing) {
-      // optimistic-concurrency guard on the update branch. The
-      // version predicate falls back to the stored version when the client
-      // omits one (legacy / first-version-aware client), so the guard only
-      // bites when a divergent version is explicitly supplied.
-      const expectedVersion = input.version ?? existing.version;
-      const versionedUpdate = ctx.db
-        .update(tenantLocaleSettings)
-        .set({
-          countryCode: input.countryCode,
-          localeOverride:
-            input.localeOverride === undefined ? existing.localeOverride : input.localeOverride,
-          currencyOverride:
-            input.currencyOverride === undefined
-              ? existing.currencyOverride
-              : input.currencyOverride,
-          timezoneOverride:
-            input.timezoneOverride === undefined
-              ? existing.timezoneOverride
-              : input.timezoneOverride,
-          firstDayOfWeekOverride:
-            input.firstDayOfWeekOverride === undefined
-              ? existing.firstDayOfWeekOverride
-              : input.firstDayOfWeekOverride,
-          version: expectedVersion + 1,
-          updatedAt: now,
-        })
-        .where(
-          and(
-            eq(tenantLocaleSettings.tenantId, ctx.tenantId),
-            eq(tenantLocaleSettings.version, expectedVersion)
-          )
-        )
-        .run() as { changes?: number };
-      if (input.version !== undefined) {
-        assertVersionedWriteApplied('tenantLocale', versionedUpdate.changes ?? 0, input.version);
-      }
-    } else {
-      await ctx.db
-        .insert(tenantLocaleSettings)
-        .values({
-          tenantId: ctx.tenantId,
-          countryCode: input.countryCode,
-          localeOverride: input.localeOverride ?? null,
-          currencyOverride: input.currencyOverride ?? null,
-          timezoneOverride: input.timezoneOverride ?? null,
-          firstDayOfWeekOverride: input.firstDayOfWeekOverride ?? null,
-          // no row exists yet, so the resolved-locale fallback is
-          // the virtual version 0. Persist the first real write as 1 so a
-          // second tab that also loaded fallback version 0 is rejected by
-          // the guarded update branch instead of overwriting this save.
-          version: (input.version ?? 0) + 1,
-          updatedAt: now,
-        })
-        .run();
-    }
+    let effectiveCurrencyCode = country.defaultCurrencyCode;
+    // Reserve the writer, then read the row and decide insert-vs-update under
+    // that reservation. This read used to happen BEFORE the transaction, so
+    // two first-time saves both saw no row and both took the insert branch;
+    // the loser hit the unique tenant constraint as a raw SQLite error instead
+    // of the documented optimistic-concurrency conflict, and never reached the
+    // guarded update branch at all.
+    ctx.db.transaction(
+      tx => {
+        const current = tx
+          .select({
+            localeOverride: tenantLocaleSettings.localeOverride,
+            currencyOverride: tenantLocaleSettings.currencyOverride,
+            timezoneOverride: tenantLocaleSettings.timezoneOverride,
+            firstDayOfWeekOverride: tenantLocaleSettings.firstDayOfWeekOverride,
+            version: tenantLocaleSettings.version,
+          })
+          .from(tenantLocaleSettings)
+          .where(eq(tenantLocaleSettings.tenantId, ctx.tenantId))
+          .get();
+        const nextCurrencyOverride =
+          current && input.currencyOverride === undefined
+            ? current.currencyOverride
+            : (input.currencyOverride ?? null);
+        effectiveCurrencyCode = nextCurrencyOverride ?? country.defaultCurrencyCode;
+        const existing = current;
+        if (existing) {
+          // optimistic-concurrency guard on the update branch. The version
+          // predicate also protects legacy clients that omit the token: a race
+          // still fails closed instead of letting the currency seam diverge.
+          const expectedVersion = input.version ?? existing.version;
+          const versionedUpdate = tx
+            .update(tenantLocaleSettings)
+            .set({
+              countryCode: input.countryCode,
+              localeOverride:
+                input.localeOverride === undefined ? existing.localeOverride : input.localeOverride,
+              currencyOverride: nextCurrencyOverride,
+              timezoneOverride:
+                input.timezoneOverride === undefined
+                  ? existing.timezoneOverride
+                  : input.timezoneOverride,
+              firstDayOfWeekOverride:
+                input.firstDayOfWeekOverride === undefined
+                  ? existing.firstDayOfWeekOverride
+                  : input.firstDayOfWeekOverride,
+              version: expectedVersion + 1,
+              updatedAt: now,
+            })
+            .where(
+              and(
+                eq(tenantLocaleSettings.tenantId, ctx.tenantId),
+                eq(tenantLocaleSettings.version, expectedVersion)
+              )
+            )
+            .run() as { changes?: number };
+          assertVersionedWriteApplied(
+            'tenantLocale',
+            versionedUpdate.changes ?? 0,
+            expectedVersion
+          );
+        } else {
+          const inserted = tx
+            .insert(tenantLocaleSettings)
+            .values({
+              tenantId: ctx.tenantId,
+              countryCode: input.countryCode,
+              localeOverride: input.localeOverride ?? null,
+              currencyOverride: input.currencyOverride ?? null,
+              timezoneOverride: input.timezoneOverride ?? null,
+              firstDayOfWeekOverride: input.firstDayOfWeekOverride ?? null,
+              // no row exists yet, so the resolved-locale fallback is
+              // the virtual version 0. Persist the first real write as 1 so a
+              // second tab that also loaded fallback version 0 is rejected by
+              // the guarded update branch instead of overwriting this save.
+              version: (input.version ?? 0) + 1,
+              updatedAt: now,
+            })
+            .onConflictDoNothing({ target: tenantLocaleSettings.tenantId })
+            .run() as { changes?: number };
+          // A concurrent first-time save committed first. Report the normal
+          // optimistic-concurrency conflict rather than a unique-constraint
+          // crash, so the client retries against the row that now exists.
+          assertVersionedWriteApplied('tenantLocale', inserted.changes ?? 0, input.version ?? 0);
+        }
+
+        // New monetary rows read this flattened seam, while the renderer reads
+        // tenant_locale_settings. They must move in the same transaction or an
+        // operator can see USD in the cart while the committed sale freezes COP.
+        const tenantUpdate = tx
+          .update(tenants)
+          .set({ defaultCurrencyCode: effectiveCurrencyCode, updatedAt: now })
+          .where(eq(tenants.id, ctx.tenantId))
+          .run() as { changes?: number };
+        if ((tenantUpdate.changes ?? 0) !== 1) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Tenant not found' });
+        }
+      },
+      { behavior: 'immediate' }
+    );
 
     // Return the freshly resolved locale so the client can update
     // its context without a second round-trip.

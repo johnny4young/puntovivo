@@ -55,6 +55,8 @@ describe('ReceiptTemplatePreview', () => {
               card: 'Tarjeta',
               transfer: 'Transferencia',
               credit: 'Crédito',
+              loyalty: 'Puntos de fidelidad',
+              storeCredit: 'Crédito de tienda',
               other: 'Otro',
             },
           }),

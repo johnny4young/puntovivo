@@ -7,6 +7,7 @@ export {
   MODULES_SCHEMA_VERSION,
   buildModulesBlob,
   isModuleId,
+  resolveConfiguredModulesState,
   resolveModulesState,
   visibleDescriptors,
   type ModuleDescriptor,

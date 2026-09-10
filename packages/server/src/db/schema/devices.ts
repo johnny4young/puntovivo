@@ -54,6 +54,14 @@ export const devices = sqliteTable(
     registeredByUserId: text('registered_by_user_id')
       .notNull()
       .references(() => users.id),
+    /**
+     * User whose authenticated session currently owns this physical browser or
+     * terminal identity. Unlike registeredByUserId, this changes on staff
+     * handoff and fences stale commands from the prior cashier.
+     */
+    activeUserId: text('active_user_id').references(() => users.id, { onDelete: 'set null' }),
+    /** Monotonic generation captured by each authenticated critical command. */
+    identityVersion: integer('identity_version').notNull().default(1),
     lastSeenAt: text('last_seen_at'),
     // explicit Authority Node topology metadata. Existing
     // rows may be null; projection code derives a fallback from `kind`.
@@ -74,6 +82,7 @@ export const devices = sqliteTable(
   },
   table => [
     index('idx_devices_tenant_active').on(table.tenantId, table.isActive),
+    index('idx_devices_tenant_active_user').on(table.tenantId, table.activeUserId),
     index('idx_devices_tenant_last_seen').on(table.tenantId, table.lastSeenAt),
     index('idx_devices_tenant_authority_role').on(table.tenantId, table.authorityRole),
     index('idx_devices_tenant_paired_site').on(table.tenantId, table.pairedSiteId),

@@ -1,32 +1,23 @@
-/**
- * Domicilios touch V5.
- *
- * Operational queue for delivery / domicilio orders. Surfaces the
- * five status columns (Por aceptar · Preparando · En camino ·
- * Entregados · Con problema) on the left rail, the filtered card
- * list in the main column, and a persistent detail panel on the
- * right with the customer header, address block, items snapshot,
- * 5-step timeline, courier assignment, and advance / cancel
- * actions.
- *
- * The server scaffold (`deliveryOrders.list / create / advance`)
- * shipped at `0c75ca1`. This module owns the renderer-only side:
- * route gate via `delivery` module, V5 layout, and i18n
- * (`delivery` namespace) in neutral LATAM `tú`.
- *
- * Counts are derived from 5 parallel `list` queries (one per
- * status, each bounded by the existing `(tenant, site, status)`
- * index). A future `deliveryOrders.statusCounts` endpoint could
- * collapse this into a single roundtrip — tracked as .
- */
-import { useMemo, useState } from 'react';
+/** Site-scoped fulfillment queue with real counts and bounded cursor pages. */
+import { lazy, Suspense, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router';
+import { Overlay } from '@/components/overlay/Overlay';
 import { Truck } from 'lucide-react';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { trpc } from '@/lib/trpc';
+import { translateServerError } from '@/lib/translateServerError';
 import { DeliveryOrderCard } from './DeliveryOrderCard';
-import { DeliveryOrderDetail } from './DeliveryOrderDetail';
 
+// The queue is read frequently; load its creation workflow only on explicit intent.
+const LazyDeliveryCreateForm = lazy(() =>
+  import('./DeliveryCreateForm').then(module => ({ default: module.DeliveryCreateForm }))
+);
+const LazyDeliveryOrderDetail = lazy(() =>
+  import('./DeliveryOrderDetail').then(module => ({ default: module.DeliveryOrderDetail }))
+);
+
+/** Canonical delivery states exposed by the logistics API. */
 export type DeliveryStatus = 'accepted' | 'preparing' | 'dispatched' | 'delivered' | 'cancelled';
 
 const STATUS_COLUMNS: DeliveryStatus[] = [
@@ -38,52 +29,37 @@ const STATUS_COLUMNS: DeliveryStatus[] = [
 ];
 
 export function DeliveryPage() {
-  const { t } = useTranslation('delivery');
   const { currentSite } = useTenant();
-  const siteId = currentSite?.id ?? '';
+  return <DeliverySiteQueue key={currentSite?.id ?? ''} siteId={currentSite?.id ?? ''} />;
+}
+
+function DeliverySiteQueue({ siteId }: { siteId: string }) {
+  const { t } = useTranslation(['delivery', 'errors', 'fulfillmentErrors']);
+  const [params, setParams] = useSearchParams();
+  const initialSaleId = params.get('sale') ?? undefined;
+  const [creating, setCreating] = useState(!!initialSaleId);
+  const utils = trpc.useUtils();
+  function closeCreation() {
+    setCreating(false);
+    if (initialSaleId) setParams({}, { replace: true });
+  }
   const [activeStatus, setActiveStatus] = useState<DeliveryStatus>('accepted');
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
-  // one query per status column. The (tenant, site,
-  // status) index keeps each query cheap; the per-column count
-  // surfaces in the left rail badges. We bump `limit` to 200 so
-  // the count is honest up to a busy day's queue (default router
-  // limit is 50). Long-term: a dedicated statusCounts endpoint.
-  const acceptedQuery = trpc.deliveryOrders.list.useQuery(
-    { siteId, status: 'accepted', limit: 200 },
-    { enabled: siteId.length > 0, staleTime: 30_000 }
+  const [cursors, setCursors] = useState<Array<{ id: string; acceptedAt: string }>>([]);
+  const activeQuery = trpc.deliveryOrders.list.useQuery(
+    {
+      siteId,
+      status: activeStatus,
+      limit: 50,
+      ...(cursors.at(-1) ? { cursor: cursors.at(-1)! } : {}),
+    },
+    { enabled: !!siteId, staleTime: 3_000, refetchInterval: 10_000 }
   );
-  const preparingQuery = trpc.deliveryOrders.list.useQuery(
-    { siteId, status: 'preparing', limit: 200 },
-    { enabled: siteId.length > 0, staleTime: 30_000 }
+  const countsQuery = trpc.deliveryOrders.counts.useQuery(
+    { siteId },
+    { enabled: !!siteId, staleTime: 3_000, refetchInterval: 10_000 }
   );
-  const dispatchedQuery = trpc.deliveryOrders.list.useQuery(
-    { siteId, status: 'dispatched', limit: 200 },
-    { enabled: siteId.length > 0, staleTime: 30_000 }
-  );
-  const deliveredQuery = trpc.deliveryOrders.list.useQuery(
-    { siteId, status: 'delivered', limit: 200 },
-    { enabled: siteId.length > 0, staleTime: 30_000 }
-  );
-  const cancelledQuery = trpc.deliveryOrders.list.useQuery(
-    { siteId, status: 'cancelled', limit: 200 },
-    { enabled: siteId.length > 0, staleTime: 30_000 }
-  );
-
-  const queriesByStatus = useMemo<
-    Record<DeliveryStatus, ReturnType<typeof trpc.deliveryOrders.list.useQuery>>
-  >(
-    () => ({
-      accepted: acceptedQuery,
-      preparing: preparingQuery,
-      dispatched: dispatchedQuery,
-      delivered: deliveredQuery,
-      cancelled: cancelledQuery,
-    }),
-    [acceptedQuery, preparingQuery, dispatchedQuery, deliveredQuery, cancelledQuery]
-  );
-
-  const activeQuery = queriesByStatus[activeStatus];
   const activeRows = useMemo(
     () => (Array.isArray(activeQuery.data) ? activeQuery.data : []),
     [activeQuery.data]
@@ -115,9 +91,45 @@ export function DeliveryPage() {
         <p className="text-xs uppercase tracking-[0.18em] text-secondary-500">{t('page.kicker')}</p>
         <h2 className="font-display text-3xl">{t('page.title')}</h2>
         <p className="max-w-3xl text-sm text-secondary-600">{t('page.subtitle')}</p>
+        <button
+          type="button"
+          className="rounded bg-primary-700 px-3 py-2 text-white"
+          onClick={() => setCreating(true)}
+        >
+          {t('create.title')}
+        </button>
       </header>
 
-      <div className="grid flex-1 grid-cols-1 gap-4 lg:grid-cols-[18rem,minmax(0,1fr),22rem]">
+      {creating ? (
+        <Overlay
+          isOpen
+          onClose={closeCreation}
+          title={t('create.title')}
+          closeOnBackdrop={false}
+          closeOnEsc={false}
+          showCloseButton={false}
+        >
+          <Suspense fallback={<p role="status">{t('page.loading')}</p>}>
+            <LazyDeliveryCreateForm
+              siteId={siteId}
+              initialSaleId={initialSaleId}
+              onCancel={closeCreation}
+              onCreated={id => {
+                closeCreation();
+                setActiveStatus('accepted');
+                setCursors([]);
+                setSelectedOrderId(id);
+                void Promise.all([
+                  utils.deliveryOrders.list.invalidate(),
+                  utils.deliveryOrders.counts.invalidate(),
+                  utils.deliveryOrders.saleOptions.invalidate(),
+                ]);
+              }}
+            />
+          </Suspense>
+        </Overlay>
+      ) : null}
+      <div className="grid flex-1 grid-cols-1 gap-4 items-start lg:grid-cols-[12rem_minmax(0,1fr)] xl:grid-cols-[12rem_minmax(14rem,1fr)_20rem]">
         {/* Status nav column */}
         <nav
           aria-label={t('page.title')}
@@ -125,8 +137,7 @@ export function DeliveryPage() {
           data-testid="delivery-status-nav"
         >
           {STATUS_COLUMNS.map(status => {
-            const query = queriesByStatus[status];
-            const count = Array.isArray(query.data) ? query.data.length : 0;
+            const count = countsQuery.data?.[status];
             const isActive = status === activeStatus;
             return (
               <button
@@ -136,6 +147,7 @@ export function DeliveryPage() {
                 data-active={isActive ? 'true' : 'false'}
                 onClick={() => {
                   setActiveStatus(status);
+                  setCursors([]);
                   setSelectedOrderId(null);
                 }}
                 className={[
@@ -153,11 +165,14 @@ export function DeliveryPage() {
                   className="rounded-full bg-secondary-100 px-2 py-0.5 text-xs font-medium text-secondary-700 tabular-nums"
                   data-testid={`delivery-status-${status}-count`}
                 >
-                  {t(`status.${status}.count`, { count })}
+                  {count === undefined || countsQuery.error
+                    ? '—'
+                    : t(`status.${status}.count`, { count })}
                 </span>
               </button>
             );
           })}
+          {countsQuery.error ? <p role="alert">{t('page.countError')}</p> : null}
         </nav>
 
         {/* Filtered cards list */}
@@ -176,7 +191,9 @@ export function DeliveryPage() {
               data-testid="delivery-cards-error"
             >
               <p className="font-medium">{t('page.errorTitle')}</p>
-              <p className="mt-1 text-xs text-danger-600">{activeQuery.error.message}</p>
+              <p className="mt-1 text-xs text-danger-600">
+                {translateServerError(activeQuery.error, t, t('page.errorTitle'))}
+              </p>
               <button
                 type="button"
                 onClick={() => activeQuery.refetch()}
@@ -202,29 +219,62 @@ export function DeliveryPage() {
               />
             ))
           )}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={!cursors.length || activeQuery.isFetching}
+              onClick={() => {
+                setCursors(current => current.slice(0, -1));
+                setSelectedOrderId(null);
+              }}
+              className="rounded border border-line px-3 py-2 disabled:opacity-50"
+            >
+              {t('page.previous')}
+            </button>
+            <button
+              type="button"
+              disabled={activeRows.length < 50 || activeQuery.isFetching || !!activeQuery.error}
+              onClick={() => {
+                const last = activeRows.at(-1);
+                if (!last) return;
+                setCursors(current => [...current, { id: last.id, acceptedAt: last.acceptedAt }]);
+                setSelectedOrderId(null);
+              }}
+              className="rounded border border-line px-3 py-2 disabled:opacity-50"
+            >
+              {t('page.next')}
+            </button>
+          </div>
         </div>
 
         {/* Right-side persistent detail */}
-        <aside data-testid="delivery-detail" className="lg:sticky lg:top-4 lg:self-start">
+        <aside
+          data-testid="delivery-detail"
+          className="lg:col-span-2 xl:col-span-1 xl:sticky xl:top-4 xl:self-start"
+        >
           {selectedRow ? (
-            <DeliveryOrderDetail
-              // Reset internal state (courierName, confirmingCancel)
-              // when the operator switches between orders in the
-              // same column. Without this, typed courier names leak
-              // across selections.
-              key={selectedRow.id}
-              order={selectedRow}
-              onAdvanced={nextStatus => {
-                // After an advance, jump the user to the new status
-                // column so they keep working off the new lane.
-                setActiveStatus(nextStatus);
-                setSelectedOrderId(null);
-              }}
-              onCancelled={() => {
-                setActiveStatus('cancelled');
-                setSelectedOrderId(null);
-              }}
-            />
+            <Suspense fallback={<p role="status">{t('page.loading')}</p>}>
+              <LazyDeliveryOrderDetail
+                // Reset internal state (courierName, confirmingCancel)
+                // when the operator switches between orders in the
+                // same column. Without this, typed courier names leak
+                // across selections.
+                key={`${selectedRow.id}:${selectedRow.version}`}
+                order={selectedRow}
+                onAdvanced={nextStatus => {
+                  // After an advance, jump the user to the new status
+                  // column so they keep working off the new lane.
+                  setActiveStatus(nextStatus);
+                  setCursors([]);
+                  setSelectedOrderId(null);
+                }}
+                onCancelled={() => {
+                  setActiveStatus('cancelled');
+                  setCursors([]);
+                  setSelectedOrderId(null);
+                }}
+              />
+            </Suspense>
           ) : (
             <div className="rounded-xl border border-dashed border-line bg-surface-1 p-6 text-sm text-secondary-500">
               {t('detail.empty')}

@@ -78,8 +78,6 @@
     }
   },
   "contingency": {
-    "badge": "{{count}} in contingency",
-    "title": "Documents awaiting DIAN acceptance",
     "description": "Contingency means the document is waiting for acceptance or needs a later retry."
   },
   "reports": {

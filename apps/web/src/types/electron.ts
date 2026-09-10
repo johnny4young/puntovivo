@@ -15,6 +15,8 @@ export interface ElectronAPI {
   getAppVersion: () => Promise<string>;
   getAppPath: () => Promise<string>;
   getServerUrl: () => Promise<string>;
+  /** Opens or focuses the sandboxed customer-facing auxiliary window when supported by the host. */
+  openCustomerDisplay?: (accessId: string) => Promise<{ ok: true }>;
   getAutoUpdateStatus: () => Promise<{
     isAvailable: boolean;
     state: 'unavailable' | 'idle' | 'checking' | 'available' | 'downloaded' | 'error';
@@ -372,6 +374,15 @@ export interface SyncAPI {
  * on logout; main validates against the embedded server.
  */
 export interface SessionAPI {
+  completeSetup: (input: {
+    ownerName: string;
+    email: string;
+    password: string;
+    businessName: string;
+    siteName: string;
+    countryCode: string;
+    presetId: string;
+  }) => Promise<{ ok: true } | { ok: false; errorCode: string }>;
   register: (accessToken: string) => Promise<{ ok: true }>;
   resume: () => Promise<{ token: string | null }>;
   clear: () => Promise<{ ok: true }>;

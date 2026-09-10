@@ -5,6 +5,7 @@ import {
   createTrpcFetch,
   fetchProtectedApi,
   getTrpcHeaders,
+  invalidateAuthSessionWork,
   setAccessToken,
   setAuthSessionExpiredHandler,
 } from '../trpc';
@@ -30,7 +31,144 @@ describe('trpc auth transport', () => {
     clearAccessToken();
     setAuthSessionExpiredHandler(null);
     vi.unstubAllGlobals();
+    delete window.api;
     document.cookie = 'puntovivo_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+  });
+
+  it('decodes a global throttle as tRPC without expiring or retrying the session', async () => {
+    setAccessToken('active-access-token');
+    const onSessionExpired = vi.fn();
+    setAuthSessionExpiredHandler(onSessionExpired);
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          statusCode: 429,
+          error: {
+            code: -32029,
+            message: 'Too many requests. Wait before trying again.',
+            data: {
+              code: 'TOO_MANY_REQUESTS',
+              httpStatus: 429,
+              errorCode: 'AUTH_RATE_LIMIT_EXCEEDED',
+            },
+          },
+        }),
+        { status: 429, headers: { 'content-type': 'application/json', 'retry-after': '30' } }
+      )
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const client = createTrpcClientWithHeaders({});
+    await expect(client.health.check.query()).rejects.toMatchObject({
+      message: 'Too many requests. Wait before trying again.',
+      data: { code: 'TOO_MANY_REQUESTS', httpStatus: 429, errorCode: 'AUTH_RATE_LIMIT_EXCEEDED' },
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(onSessionExpired).not.toHaveBeenCalled();
+    expect(getTrpcHeaders().authorization).toBe('Bearer active-access-token');
+  });
+
+  it.each([429, 503])('does not expire or loop when a 401 refresh receives %s', async status => {
+    setAccessToken('expired-access-token');
+    const expired = vi.fn();
+    setAuthSessionExpiredHandler(expired);
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response('{}', { status: 401 }))
+      .mockResolvedValueOnce(new Response('{}', { status, headers: { 'retry-after': '45' } }));
+    let failure: unknown;
+    try {
+      await createTrpcFetch(fetchMock)('http://localhost:8090/api/trpc/auth.me?batch=1');
+    } catch (error) {
+      failure = error;
+    }
+    expect(failure).toMatchObject({ data: { httpStatus: status } });
+    expect(
+      (failure as { meta: { response: Response } }).meta.response.headers.get('retry-after')
+    ).toBe('45');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(expired).not.toHaveBeenCalled();
+    expect(getTrpcHeaders().authorization).toBe('Bearer expired-access-token');
+  });
+
+  it.each([
+    { status: 200, transition: 'new-operator' },
+    { status: 401, transition: 'new-operator' },
+    { status: 200, transition: 'logout' },
+    { status: 401, transition: 'logout' },
+  ])('ignores a late refresh $status after $transition', async ({ status, transition }) => {
+    setAccessToken('old-operator');
+    const expired = vi.fn();
+    const register = vi.fn().mockResolvedValue({ ok: true });
+    setAuthSessionExpiredHandler(expired);
+    Object.defineProperty(window, 'api', { configurable: true, value: { session: { register } } });
+    const deferred = createDeferred<Response>();
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response('{}', { status: 401 }))
+      .mockReturnValueOnce(deferred.promise);
+    const pending = createTrpcFetch(fetchMock)('http://localhost:8090/api/trpc/auth.me?batch=1');
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    if (transition === 'logout') invalidateAuthSessionWork();
+    else {
+      clearAccessToken();
+      setAccessToken('new-operator');
+    }
+    expect(fetchMock.mock.calls[1]?.[1]?.signal?.aborted).toBe(true);
+    deferred.resolve(
+      new Response(JSON.stringify([{ result: { data: { token: 'late-old-token' } } }]), { status })
+    );
+    expect((await pending).status).toBe(401);
+    expect(getTrpcHeaders().authorization).toBe(
+      transition === 'logout' ? 'Bearer old-operator' : 'Bearer new-operator'
+    );
+    expect(expired).not.toHaveBeenCalled();
+    expect(register).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not refresh an old request whose first 401 arrives after a handoff', async () => {
+    setAccessToken('old-operator');
+    const deferred = createDeferred<Response>();
+    const fetchMock = vi.fn<typeof fetch>().mockReturnValueOnce(deferred.promise);
+    const pending = createTrpcFetch(fetchMock)('http://localhost:8090/api/trpc/auth.me?batch=1');
+    setAccessToken('new-operator');
+    deferred.resolve(new Response('{}', { status: 401 }));
+    expect((await pending).status).toBe(401);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(getTrpcHeaders().authorization).toBe('Bearer new-operator');
+  });
+
+  it('keeps the new identity single-flight when an older refresh settles', async () => {
+    const oldRefresh = createDeferred<Response>();
+    const newRefresh = createDeferred<Response>();
+    let refreshes = 0;
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (url, init) => {
+      if (String(url).includes('auth.refresh'))
+        return ++refreshes === 1 ? oldRefresh.promise : newRefresh.promise;
+      return new Response('{}', {
+        status:
+          new Headers(init?.headers).get('authorization') === 'Bearer new-rotated' ? 200 : 401,
+      });
+    });
+    const send = createTrpcFetch(fetchMock);
+    setAccessToken('old');
+    const oldRequest = send('http://localhost:8090/api/trpc/auth.me?batch=1');
+    await vi.waitFor(() => expect(refreshes).toBe(1));
+    setAccessToken('new');
+    const first = send('http://localhost:8090/api/trpc/auth.me?batch=1');
+    await vi.waitFor(() => expect(refreshes).toBe(2));
+    oldRefresh.resolve(new Response('{}', { status: 401 }));
+    expect((await oldRequest).status).toBe(401);
+    const second = send('http://localhost:8090/api/trpc/products.list?batch=1');
+    // Let the second 401 reach the still-pending new identity flight.
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(5));
+    newRefresh.resolve(
+      new Response(JSON.stringify([{ result: { data: { token: 'new-rotated' } } }]))
+    );
+    expect((await first).status).toBe(200);
+    expect((await second).status).toBe(200);
+    expect(refreshes).toBe(2);
+    expect(getTrpcHeaders().authorization).toBe('Bearer new-rotated');
   });
 
   it('refreshes an expired access token and retries the request once', async () => {
@@ -164,6 +302,43 @@ describe('trpc auth transport', () => {
     expect(headers.get(COMMAND_ENVELOPE_HEADER)).toBe(envelopeHeader);
   });
 
+  it('sends payload-heavy return previews as POST queries', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify([
+          {
+            result: {
+              data: {
+                refundAmount: 1,
+                allocations: [],
+              },
+            },
+          },
+        ]),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }
+      )
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const client = createTrpcClientWithHeaders({});
+
+    await client.sales.previewReturn.query({
+      id: 'sale-large-return',
+      items: Array.from({ length: 200 }, (_, index) => ({
+        saleItemId: `line-${index}-${'x'.repeat(80)}`,
+        quantity: 1,
+      })),
+    });
+
+    const [url, init] = fetchMock.mock.calls[0] ?? [];
+    expect(init?.method).toBe('POST');
+    expect(String(url)).toContain('/api/trpc/sales.previewReturn?batch=1');
+    expect(String(url)).not.toContain('sale-large-return');
+    expect(String(init?.body)).toContain('sale-large-return');
+  });
+
   it('downloads protected binary routes with the active auth and CSRF transport', async () => {
     setAccessToken('pdf-access-token');
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
@@ -189,3 +364,11 @@ describe('trpc auth transport', () => {
     expect(headers.get('x-csrf-token')).toBe('test-csrf-token');
   });
 });
+
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>(complete => {
+    resolve = complete;
+  });
+  return { promise, resolve };
+}

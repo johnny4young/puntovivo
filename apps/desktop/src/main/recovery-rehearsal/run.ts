@@ -22,6 +22,7 @@ import {
   type DatabaseInstance,
   type PuntovivoServer,
 } from '../../../../../packages/server/dist/index.js';
+import { closeDatabase, initDatabase } from '../../../../../packages/server/dist/db/index.js';
 import {
   REHEARSAL_TABLES,
   buildHistoricalMigrationFixture,
@@ -209,23 +210,31 @@ export async function runRecoveryRehearsal(
     sourceMigrationCount = fixture.contract.migrationCount;
     checks.push({ id: 'historical-contract', outcome: 'passed', detail: 'verified' });
 
-    const historicalServer = await createServer({
+    // Build the historical installation through the database lifecycle only.
+    // Booting today's full Fastify application against an intentionally old
+    // migration prefix couples this fixture to every current boot-time service
+    // (for example a service whose table did not exist in v1.7.0). The upgrade
+    // rehearsal needs to prove the encrypted historical schema and data, while
+    // the two full application boots below prove the current runtime.
+    const historicalDb = await initDatabase({
       dbPath,
+      runMigrations: true,
       migrationsFolder: fixture.migrationsFolder,
       encryptionKey,
       seedData: false,
       verbose: false,
     });
-    activeServer = historicalServer;
-    const historicalSqlite = (historicalServer.db as LiveDatabase).$client;
-    seedHistoricalSentinels(historicalSqlite);
-    historicalColumns = captureHistoricalColumns(historicalSqlite, REHEARSAL_TABLES);
-    historicalFingerprints = fingerprintSentinels(historicalSqlite, historicalColumns);
-    if (countAppliedMigrations(historicalSqlite) !== sourceMigrationCount) {
-      throw new Error('historical database migration count does not match its fixture');
+    try {
+      const historicalSqlite = (historicalDb as LiveDatabase).$client;
+      seedHistoricalSentinels(historicalSqlite);
+      historicalColumns = captureHistoricalColumns(historicalSqlite, REHEARSAL_TABLES);
+      historicalFingerprints = fingerprintSentinels(historicalSqlite, historicalColumns);
+      if (countAppliedMigrations(historicalSqlite) !== sourceMigrationCount) {
+        throw new Error('historical database migration count does not match its fixture');
+      }
+    } finally {
+      closeDatabase();
     }
-    await historicalServer.close();
-    activeServer = null;
     checks.push({ id: 'historical-encrypted-fixture', outcome: 'passed', detail: '2 tenants' });
 
     currentFailureCode = 'UPGRADE_FAILED';

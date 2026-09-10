@@ -27,20 +27,13 @@ import { restaurantTables } from './salesAux.js';
 // KDS ORDERS ()
 // ============================================================================
 
-export const kdsOrderStatusEnum = ['pending', 'ready'] as const;
+export const kdsOrderStatusEnum = ['pending', 'ready', 'cancelled'] as const;
 
 /**
- * kitchen display queue.
- *
- * One row per (sale, station) pair, materialised from `sales` +
- * `sale_items` whenever a tabled draft is suspended or completed.
- * `items_json` is a frozen snapshot so the kitchen sees what the
- * waiter saved even after a split or table change rewrites it.
- *
- * UNIQUE(tenant_id, sale_id, station) makes enqueue idempotent
- * across the suspend → complete progression and against double
- * post-tx hook fires. The compound index on (tenant_id, site_id,
- * status) keeps the board read fast under hundreds of orders.
+ * Immutable kitchen submission header and versioned status projection.
+ * Legacy snapshots stay readable at snapshotVersion=1 and are adopted without
+ * resending food. New submissions use normalized lines and a unique dispatch
+ * key, allowing later rounds without changing an already submitted snapshot.
  */
 export const kdsOrders = sqliteTable(
   'kds_orders',
@@ -59,6 +52,10 @@ export const kdsOrders = sqliteTable(
     tableLabel: text('table_label'),
     saleNumber: text('sale_number').notNull(),
     station: text('station').notNull().default('main'),
+    stationName: text('station_name'),
+    dispatchKey: text('dispatch_key').notNull().default('legacy'),
+    snapshotVersion: integer('snapshot_version').notNull().default(1),
+    version: integer('version').notNull().default(1),
     itemsJson: text('items_json').notNull(),
     notes: text('notes'),
     status: text('status', { enum: kdsOrderStatusEnum }).notNull().default('pending'),
@@ -68,10 +65,11 @@ export const kdsOrders = sqliteTable(
     updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
-    uniqueIndex('idx_kds_orders_unique_sale_station').on(
+    uniqueIndex('idx_kds_orders_unique_dispatch').on(
       table.tenantId,
       table.saleId,
-      table.station
+      table.station,
+      table.dispatchKey
     ),
     index('idx_kds_orders_tenant_site_status').on(table.tenantId, table.siteId, table.status),
   ]

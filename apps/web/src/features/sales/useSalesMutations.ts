@@ -5,6 +5,7 @@ import { useCartWorkspaceStore } from '@/features/sales/useCartWorkspaceStore';
 import {
   CASH_SESSION_CLOSE_INVALIDATIONS,
   CASH_SESSION_OPEN_INVALIDATIONS,
+  invalidateCommittedGroups,
   invalidateGroups,
   SALE_COMPLETION_INVALIDATIONS,
 } from '@/lib/invalidateGroups';
@@ -28,7 +29,7 @@ import type { Sale } from '@/types';
 interface UseSalesMutationsParams {
   /** `${tenantId}:${userId}` or null when signed out — drives the post-sale workspace reset. */
   ownerKey: string | null;
-  /** Best-effort auto-print invoked after the completion toast (). */
+  /** Best-effort auto-print invoked after the completion toast. */
   maybeAutoPrint: (sale: Sale) => Promise<void>;
   setProductSearchQuery: Dispatch<SetStateAction<string>>;
   setSaleError: Dispatch<SetStateAction<string | null>>;
@@ -54,7 +55,7 @@ interface UseSalesMutationsParams {
 /**
  * Owns the sales + cash-session mutation handles for SalesPage: the fresh
  * create / completeDraft sale paths (with the shared `finishSaleEpilogue`
- * +  auto-print), the suspend / resume / discard-draft trio, and
+ * and auto-print), the suspend / resume / discard-draft trio, and
  * the cash-session open / close / record-movement trio. The flow handlers
  * that orchestrate these (handleCheckout, handleSuspendConfirm, …) stay in
  * SalesPage and call the returned handles; this hook only centralizes the
@@ -77,7 +78,7 @@ export function useSalesMutations({
   onCashSessionRecoverySucceeded,
   onCashSessionRecoveryFailed,
 }: UseSalesMutationsParams) {
-  const { t } = useTranslation(['sales', 'errors', 'common']);
+  const { t } = useTranslation(['sales', 'returnErrors', 'errors', 'common', 'fulfillmentErrors']);
   const toast = useToast();
   const utils = trpc.useUtils();
 
@@ -87,7 +88,9 @@ export function useSalesMutations({
   // reset to a fresh blank draft.
   const finishSaleEpilogue = useCallback(
     async (saleId: string, itemCount: number, loyaltyPointsEarned = 0) => {
-      await invalidateGroups(utils, SALE_COMPLETION_INVALIDATIONS);
+      // The financial command is already committed when this callback runs.
+      // Clear the chargeable workspace first so a read-cache failure cannot
+      // leave merchandise on screen and invite a duplicate sale.
       const storeState = useCartWorkspaceStore.getState();
       if (storeState.activeId) {
         storeState.removeWorkspace(storeState.activeId);
@@ -99,6 +102,8 @@ export function useSalesMutations({
       setSaleError(null);
       setIsPaymentModalOpen(false);
       playSaleComplete();
+      onSaleCompleted(saleId);
+      const refreshed = await invalidateCommittedGroups(utils, SALE_COMPLETION_INVALIDATIONS);
       // when the sale accrued points, the cashier should be able
       // to tell the customer without opening another screen. The base copy
       // is unchanged for every tenant without the program (0 points).
@@ -106,11 +111,17 @@ export function useSalesMutations({
         loyaltyPointsEarned > 0
           ? `${itemCount} ${t('toast.successDetail')} · ${t('loyalty.earned', { count: loyaltyPointsEarned })}`
           : `${itemCount} ${t('toast.successDetail')}`;
-      toast.success({
-        title: t('toast.success'),
-        description,
-      });
-      onSaleCompleted(saleId);
+      if (refreshed) {
+        toast.success({
+          title: t('toast.success'),
+          description,
+        });
+      } else {
+        toast.warning({
+          title: t('toast.success'),
+          description: `${description} ${t('common:toast.committedRefreshWarning')}`,
+        });
+      }
     },
     [
       ownerKey,
@@ -173,6 +184,7 @@ export function useSalesMutations({
   // compensate if `sales.suspend` throws after `sales.create(draft)`
   // already created + stock-debited the row.
   const discardDraftMutation = useCriticalMutation('sales.discardDraft');
+  const openRestaurantCheckMutation = useCriticalMutation('restaurantServices.openCheck');
   const openCashSessionMutation = useCriticalMutation('cashSessions.open', {
     onSuccess: async cashSession => {
       await invalidateGroups(utils, CASH_SESSION_OPEN_INVALIDATIONS);
@@ -268,6 +280,7 @@ export function useSalesMutations({
     suspendMutation,
     resumeMutation,
     discardDraftMutation,
+    openRestaurantCheckMutation,
     openCashSessionMutation,
     closeCashSessionMutation,
     recordCashMovementMutation,

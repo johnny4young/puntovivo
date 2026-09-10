@@ -39,35 +39,37 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { useToast } from '@/components/feedback/ToastProvider';
-import { invalidateGroups, SALE_COMPLETION_INVALIDATIONS } from '@/lib/invalidateGroups';
+import { invalidateCommittedGroups, SALE_COMPLETION_INVALIDATIONS } from '@/lib/invalidateGroups';
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
-import {
-  applyPriceTier,
-  getCartSummary,
-  mergeCartItem,
-  type SaleCartItem,
-} from '@/features/sales/saleCart';
+import { applyPriceTier, mergeCartItem, type SaleCartItem } from '@/features/sales/saleCart';
+import { getCartSummary } from '@/features/sales/saleCartTotals';
 import { selectionFromHydratedProduct } from '@/features/sales/productSelection';
 import type { Product } from '@/types';
 import { translateServerError } from '@/lib/translateServerError';
 import { onErrorToast } from '@/lib/mutationHelpers';
+import { useIsModuleActive } from '@/features/modules';
 import { PosTouchCategoryTabs, type PosTouchCategoryOption } from './PosTouchCategoryTabs';
 import { PosTouchProductGrid } from './PosTouchProductGrid';
 import { PosTouchCartSidebar, type PosTouchCustomer } from './PosTouchCartSidebar';
 
 export function PosTouchScreen() {
   const priceIncludesTax = usePriceIncludesTax();
-  const { t } = useTranslation('posTouch');
+  const { t } = useTranslation(['posTouch', 'common', 'fulfillmentErrors']);
   const { currentSite } = useTenant();
   const toast = useToast();
   const utils = trpc.useUtils();
   const siteId = currentSite?.id ?? '';
+  const dineInActive = useIsModuleActive('dine-in');
 
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [cartItems, setCartItems] = useState<SaleCartItem[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<PosTouchCustomer | null>(null);
   const [activePriceTier, setActivePriceTier] = useState<1 | 2 | 3>(1);
+  const activePriceTierRef = useRef<1 | 2 | 3>(1);
+  const [isCheckoutLocked, setIsCheckoutLocked] = useState(false);
+  const checkoutLockedRef = useRef(false);
+  const ticketEpochRef = useRef(0);
 
   const productsQuery = trpc.products.list.useQuery(
     {
@@ -161,35 +163,50 @@ export function PosTouchScreen() {
       // Same set the desktop epilogue uses — a touch sale must refresh
       // sales history, inventory, cash session, and ledger caches too,
       // or /sales and /inventory show pre-sale data for staleTime.
-      await invalidateGroups(utils, SALE_COMPLETION_INVALIDATIONS);
-      toast.success({
-        title: t('toast.chargeSuccess'),
-        description: t('toast.chargeSuccessDescription', { count: variables.items.length }),
-      });
+      // Clear the durable ticket locally before refreshing projections so an
+      // invalidation failure cannot leave a chargeable duplicate cart.
       setCartItems([]);
       // A completed ticket ends the customer/pricing context too. Keeping
       // either selection would silently attach the next walk-in sale to the
       // previous customer or carry wholesale pricing into a new transaction.
       setSelectedCustomer(null);
+      activePriceTierRef.current = 1;
       setActivePriceTier(1);
+      const refreshed = await invalidateCommittedGroups(utils, SALE_COMPLETION_INVALIDATIONS);
+      const title = t('posTouch:toast.chargeSuccess');
+      const description = t('posTouch:toast.chargeSuccessDescription', {
+        count: variables.items.length,
+      });
+      if (refreshed) {
+        toast.success({ title, description });
+      } else {
+        toast.warning({
+          title,
+          description: `${description} ${t('common:toast.committedRefreshWarning')}`,
+        });
+      }
     },
     onError: onErrorToast(toast, t, {
       titleKey: 'toast.chargeError',
       fallbackKey: 'toast.chargeError',
     }),
   });
+  const checkoutLocked = isCheckoutLocked || createMutation.isPending;
 
   // useCallback keeps the memoized product grid from re-rendering its
   // ≤200 tiles on every cart tick — the handler identity is the only
   // grid prop that would otherwise change.
   const handleAddToCart = useCallback(
     async (product: Product) => {
+      if (checkoutLockedRef.current) return;
+      const ticketEpoch = ticketEpochRef.current;
       // `products.list` (the grid query) skips unit assignments to
       // keep the catalog payload small. Hydrate the full product via
       // `products.getById` so we can pick the real base-unit id and
       // build a valid `ProductSearchSelection` for `mergeCartItem`.
       try {
         const full = await utils.products.getById.fetch({ id: product.id });
+        if (checkoutLockedRef.current || ticketEpoch !== ticketEpochRef.current) return;
         const selection = selectionFromHydratedProduct(full as unknown as Product);
         if (!selection) {
           toast.error({
@@ -198,29 +215,32 @@ export function PosTouchScreen() {
           });
           return;
         }
-        setCartItems(current => applyPriceTier(mergeCartItem(current, selection), activePriceTier));
+        setCartItems(current =>
+          applyPriceTier(mergeCartItem(current, selection), activePriceTierRef.current)
+        );
         toast.success({ title: t('toast.addedToCart', { name: product.name }) });
       } catch (err) {
+        if (checkoutLockedRef.current || ticketEpoch !== ticketEpochRef.current) return;
         toast.error({
           title: t('toast.chargeError'),
           description: translateServerError(err, t, t('toast.chargeError')),
         });
       }
     },
-    [activePriceTier, utils, toast, t]
+    [utils, toast, t]
   );
 
-  const setTieredCartItems = useCallback<Dispatch<SetStateAction<SaleCartItem[]>>>(
-    update => {
-      setCartItems(current => {
-        const next = typeof update === 'function' ? update(current) : update;
-        return applyPriceTier(next, activePriceTier);
-      });
-    },
-    [activePriceTier]
-  );
+  const setTieredCartItems = useCallback<Dispatch<SetStateAction<SaleCartItem[]>>>(update => {
+    setCartItems(current => {
+      if (checkoutLockedRef.current) return current;
+      const next = typeof update === 'function' ? update(current) : update;
+      return applyPriceTier(next, activePriceTierRef.current);
+    });
+  }, []);
 
   const handlePriceTierChange = useCallback((tier: 1 | 2 | 3) => {
+    if (checkoutLockedRef.current) return;
+    activePriceTierRef.current = tier;
     setActivePriceTier(tier);
     setCartItems(current => applyPriceTier(current, tier));
   }, []);
@@ -247,7 +267,7 @@ export function PosTouchScreen() {
     // While sales.create is in flight the charge owns the cart: a scan
     // landing mid-mutation would beep success and then be wiped by the
     // onSuccess setCartItems([]) - silent un-charged merchandise.
-    isPaymentModalOpen: createMutation.isPending,
+    isPaymentModalOpen: checkoutLocked,
     isCashSessionModalOpen: false,
     isCashSessionCloseModalOpen: false,
     isCashSessionMovementModalOpen: false,
@@ -259,11 +279,23 @@ export function PosTouchScreen() {
   });
 
   function handleRemoveLine(key: string) {
+    if (checkoutLockedRef.current) return;
     setCartItems(current => current.filter(item => item.key !== key));
   }
 
   function handleClearCart() {
+    if (checkoutLockedRef.current) return;
     setCartItems([]);
+  }
+
+  function handleCustomerChange(customerId: string) {
+    if (checkoutLockedRef.current) return;
+    setSelectedCustomer(customerOptions.find(customer => customer.id === customerId) ?? null);
+  }
+
+  function handleCategoryChange(categoryId: string | null) {
+    if (checkoutLockedRef.current) return;
+    setActiveCategoryId(categoryId);
   }
 
   function deriveChargeDisabledReason(): 'noSite' | 'noSession' | 'noItems' | null {
@@ -276,10 +308,14 @@ export function PosTouchScreen() {
   const canCharge = chargeDisabledReason === null;
 
   async function handleCharge() {
-    if (!canCharge) return;
+    if (!canCharge || checkoutLockedRef.current) return;
+    checkoutLockedRef.current = true;
+    ticketEpochRef.current += 1;
+    setIsCheckoutLocked(true);
     try {
       await createMutation.mutateAsync({
         customerId: selectedCustomer?.id || undefined,
+        priceTier: activePriceTier,
         items: cartItems.map(item => ({
           productId: item.productId,
           unitId: item.unitId,
@@ -296,6 +332,9 @@ export function PosTouchScreen() {
       });
     } catch {
       // onError already surfaces a toast; no rethrow.
+    } finally {
+      checkoutLockedRef.current = false;
+      setIsCheckoutLocked(false);
     }
   }
 
@@ -327,20 +366,28 @@ export function PosTouchScreen() {
           <h2 className="font-display text-3xl tracking-[-0.02em]">{t('page.title')}</h2>
           <p className="max-w-2xl text-sm text-secondary-600">{t('page.subtitle')}</p>
         </div>
-        <Link
-          to="/touch/voice"
-          data-testid="pos-touch-voice-link"
-          className="inline-flex min-h-[44px] items-center gap-2 self-start rounded-full border border-line/70 bg-surface-1 px-4 py-2 text-xs font-medium text-secondary-700 hover:bg-surface-2"
-        >
-          {t('page.voiceLink')}
-        </Link>
+        {dineInActive && (
+          <Link
+            to="/touch/voice"
+            data-testid="pos-touch-voice-link"
+            aria-disabled={checkoutLocked}
+            tabIndex={checkoutLocked ? -1 : undefined}
+            onClick={event => {
+              if (checkoutLockedRef.current) event.preventDefault();
+            }}
+            className={`inline-flex min-h-[44px] items-center gap-2 self-start rounded-full border border-line/70 bg-surface-1 px-4 py-2 text-xs font-medium text-secondary-700 hover:bg-surface-2 ${checkoutLocked ? 'pointer-events-none cursor-wait opacity-60' : ''}`}
+          >
+            {t('page.voiceLink')}
+          </Link>
+        )}
       </header>
 
       <PosTouchCategoryTabs
         categories={categoryOptions}
         activeCategoryId={activeCategoryId}
-        onSelectCategory={setActiveCategoryId}
+        onSelectCategory={handleCategoryChange}
         totalCount={allProducts.length}
+        isDisabled={checkoutLocked}
       />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr),22rem]">
@@ -361,6 +408,7 @@ export function PosTouchScreen() {
             products={products}
             isLoading={productsQuery.isLoading}
             isError={Boolean(productsQuery.error)}
+            isDisabled={checkoutLocked}
             onSelect={handleAddToCart}
           />
         </div>
@@ -372,13 +420,9 @@ export function PosTouchScreen() {
           priceTier={activePriceTier}
           canCharge={canCharge}
           chargeDisabledReason={chargeDisabledReason}
-          isCharging={createMutation.isPending}
+          isCharging={checkoutLocked}
           onClearCart={handleClearCart}
-          onCustomerChange={customerId =>
-            setSelectedCustomer(
-              customerOptions.find(customer => customer.id === customerId) ?? null
-            )
-          }
+          onCustomerChange={handleCustomerChange}
           onPriceTierChange={handlePriceTierChange}
           onRemoveLine={handleRemoveLine}
           onCharge={handleCharge}

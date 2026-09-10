@@ -13,10 +13,21 @@
 
 import { z } from 'zod';
 
+/** Maximum active physical tables one site may expose to operational clients. */
+export const MAX_ACTIVE_RESTAURANT_TABLES_PER_SITE = 500;
+
 export const listRestaurantTablesInput = z.object({
   siteId: z.string().min(1, 'siteId is required'),
   includeArchived: z.boolean().default(false),
-  limit: z.number().int().min(1).max(500).default(100),
+  /** Literal name substring. SQL wildcard characters have no special meaning. */
+  search: z.string().trim().max(80).optional(),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(MAX_ACTIVE_RESTAURANT_TABLES_PER_SITE)
+    .default(MAX_ACTIVE_RESTAURANT_TABLES_PER_SITE),
+  offset: z.number().int().min(0).default(0),
 });
 export type ListRestaurantTablesInput = z.infer<typeof listRestaurantTablesInput>;
 

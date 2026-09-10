@@ -18,6 +18,52 @@ import {
 import { resolvePnpmInvocation } from './lib/pnpm-command.mjs';
 
 /**
+ * A registry timeout is failed evidence, never a clean advisory report. Retain
+ * the known pnpm diagnostic without echoing arbitrary registry text (which may
+ * contain credentials, terminal escapes or an unbounded response body).
+ */
+function isKnownRegistryTimeout(error) {
+  return (
+    error !== null &&
+    typeof error === 'object' &&
+    (error.code === 23 || error.code === '23') &&
+    typeof error.message === 'string' &&
+    /^The operation was aborted due to timeout\.?$/.test(error.message)
+  );
+}
+
+export function extractRunnerAuditAdvisories(report) {
+  if (report && typeof report === 'object' && Object.hasOwn(report, 'error')) {
+    if (isKnownRegistryTimeout(report.error)) {
+      throw new Error('pnpm audit failed (code 23): The operation was aborted due to timeout');
+    }
+    throw new Error('pnpm audit returned an unsupported error report');
+  }
+  return extractAuditAdvisories(report);
+}
+
+/**
+ * Classify a transport envelope for the retry loop, with a BOUNDED summary.
+ *
+ * `readAuditTransportError` interpolates the registry's own message, which may
+ * carry credentials, terminal escapes or an unbounded response body, so retry
+ * diagnostics must not reuse it. Only a recognised registry timeout is worth
+ * another attempt; any other envelope is an answer we cannot interpret, and
+ * retrying it just delays the same fail-closed result.
+ *
+ * @param {unknown} report
+ * @returns {{retryable: boolean, summary: string} | null} null when the report
+ *   is a real answer rather than a transport envelope.
+ */
+export function describeAuditTransportError(report) {
+  if (!report || typeof report !== 'object' || !Object.hasOwn(report, 'error')) return null;
+  if (isKnownRegistryTimeout(report.error)) {
+    return { retryable: true, summary: 'the registry timed out (code 23)' };
+  }
+  return { retryable: false, summary: 'the registry returned an unsupported error report' };
+}
+
+/**
  * Decide the audit outcome from already-gathered evidence.
  *
  * Extracted from the runner so the fail-closed contract is testable without a
@@ -115,6 +161,85 @@ export function decideAuditOutcome({
  * whole audit and exit 0. This gate is fail-closed by design, so it must never
  * no-op quietly.
  */
+/**
+ * A registry timeout is transient, but without a retry a single blip reds
+ * every workspace gate in the repository at once. Retry a bounded number of
+ * times, then fail closed: no advisory report means no evidence the
+ * dependency tree is clean, and this gate never passes on absent evidence.
+ */
+export const AUDIT_ATTEMPTS = 3;
+
+const DEFAULT_AUDIT_BACKOFF_MS = [5_000, 15_000];
+
+/**
+ * Wait before attempt 2 and attempt 3. Length is `AUDIT_ATTEMPTS - 1`.
+ *
+ * Overridable because the exhaustion path is only reachable end-to-end through
+ * a spawned runner, where the injected `sleep` seam is out of reach; a test (or
+ * an operator on a constrained runner) would otherwise wait the real schedule.
+ * A malformed override is ignored rather than trusted, so the gate cannot be
+ * silently stripped of its retries by a bad environment value.
+ */
+export const AUDIT_BACKOFF_MS = parseBackoffOverride(process.env.PUNTOVIVO_AUDIT_BACKOFF_MS);
+
+function parseBackoffOverride(raw) {
+  if (typeof raw !== 'string' || raw.trim() === '') return DEFAULT_AUDIT_BACKOFF_MS;
+  const parsed = raw.split(',').map(part => Number(part.trim()));
+  const usable =
+    parsed.length === AUDIT_ATTEMPTS - 1 &&
+    parsed.every(ms => Number.isFinite(ms) && ms >= 0 && ms <= 60_000);
+  return usable ? parsed : DEFAULT_AUDIT_BACKOFF_MS;
+}
+
+/**
+ * Run the advisory audit, retrying only transport failures.
+ *
+ * Extracted from the runner for the same reason as `decideAuditOutcome`: the
+ * retry contract is the part most likely to regress silently -- an off-by-one
+ * in the attempt count, a backoff read from the wrong index, or an early
+ * `return` that swallows exhaustion would all still produce a green gate. The
+ * audit invocation and the clock arrive as injected functions so a test can
+ * drive success-after-retry and full exhaustion without a registry, a child
+ * process, or real elapsed time.
+ *
+ * A report that parses but carries a transport error is a failed attempt, not
+ * a result: only a report with no transport error is returned. Exhausting the
+ * attempts throws, so the caller fails closed.
+ *
+ * @param {{runAudit: () => {result: object, report: unknown},
+ *   sleep?: (ms: number) => Promise<void>,
+ *   log?: (line: string) => void}} args
+ * @returns {Promise<{result: object, report: unknown}>}
+ */
+export async function runAuditWithRetries({
+  runAudit,
+  sleep = ms => new Promise(done => setTimeout(done, ms)),
+  log = line => console.error(line),
+}) {
+  let lastSummary = '';
+  for (let attempt = 1; attempt <= AUDIT_ATTEMPTS; attempt += 1) {
+    const { result, report } = runAudit();
+    const transport = describeAuditTransportError(report);
+    if (!transport) return { result, report };
+    if (!transport.retryable) {
+      throw new Error(
+        `pnpm audit returned an unsupported error report. The gate stays fail-closed.`
+      );
+    }
+    lastSummary = transport.summary;
+    if (attempt < AUDIT_ATTEMPTS) {
+      const waitMs = AUDIT_BACKOFF_MS[attempt - 1];
+      log(
+        `pnpm audit attempt ${attempt}/${AUDIT_ATTEMPTS} could not reach the advisory registry - ${transport.summary}; retrying in ${waitMs / 1000}s`
+      );
+      await sleep(waitMs);
+    }
+  }
+  throw new Error(
+    `pnpm audit could not reach the advisory registry after ${AUDIT_ATTEMPTS} attempts - ${lastSummary}. The gate stays fail-closed.`
+  );
+}
+
 function isInvokedDirectly(argvPath) {
   if (!argvPath) return false;
   const modulePath = fileURLToPath(import.meta.url);
@@ -156,9 +281,13 @@ if (isDirectInvocation) {
   };
 
   try {
-    const auditResult = runPnpm(['audit', '--audit-level', 'low', '--json']);
-    const auditReport = parseJsonOutput(auditResult, 'pnpm audit');
-    const advisories = extractAuditAdvisories(auditReport);
+    const { result: auditResult, report: auditReport } = await runAuditWithRetries({
+      runAudit: () => {
+        const result = runPnpm(['audit', '--audit-level', 'low', '--json']);
+        return { result, report: parseJsonOutput(result, 'pnpm audit') };
+      },
+    });
+    const advisories = extractRunnerAuditAdvisories(auditReport);
 
     const graphResult = runPnpm(['list', '--prod', '--recursive', '--json', '--depth', 'Infinity']);
     if (graphResult.status !== 0) {

@@ -31,6 +31,8 @@ const TEST_PUC_ACCOUNTS: AccountingPucAccounts = {
   inc: '246205',
   tips: '238095',
   receivable: '130505',
+  storeCredit: '280505',
+  loyalty: '280505',
   refunds: '417595',
 };
 
@@ -90,6 +92,7 @@ function makeVoucher(overrides: Partial<AccountingVoucher> = {}): AccountingVouc
     fiscalStatus: 'accepted',
     refundAmount: 0,
     taxReconciled: true,
+    paymentReconciled: true,
     ...overrides,
   } as AccountingVoucher;
 }
@@ -344,6 +347,64 @@ describe('journal entries for partial and refunded sales', () => {
     expect(rows.find(row => row.account === '246205')?.debit).toBeCloseTo(8, 2);
     expect(rows.every(row => row.date === '02/08/2026')).toBe(true);
     expect(rows.every(row => row.voucher.includes('DEV'))).toBe(true);
+  });
+
+  it('credits the store-credit liability instead of the original tender account', () => {
+    const rows = buildJournalEntries([
+      makeVoucher({
+        kind: 'refund',
+        eventId: 'return-store-credit',
+        refundAmount: 127,
+        payments: [{ method: 'card', destination: 'store_credit', amount: 127 }],
+      }),
+    ]);
+
+    expect(rows.find(row => row.account === '280505')).toMatchObject({ debit: 0, credit: 127 });
+    expect(rows.some(row => row.account === '111005' && row.credit > 0)).toBe(false);
+    expect(rows.reduce((sum, row) => sum + row.debit, 0)).toBeCloseTo(
+      rows.reduce((sum, row) => sum + row.credit, 0),
+      2
+    );
+  });
+
+  it('uses exact persisted refund destinations without rescaling them', () => {
+    const rows = buildJournalEntries([
+      makeVoucher({
+        kind: 'refund',
+        eventId: 'return-split-destinations',
+        subtotal: 100,
+        taxAmount: 0,
+        total: 100,
+        ivaAmount: 0,
+        incAmount: 0,
+        refundAmount: 100,
+        payments: [
+          { method: 'cash', destination: 'cash', amount: 40 },
+          { method: 'credit', destination: 'receivable', amount: 60 },
+        ],
+      }),
+    ]);
+
+    expect(rows.find(row => row.account === '110505' && row.credit > 0)?.credit).toBe(40);
+    expect(rows.find(row => row.account === '130505' && row.credit > 0)?.credit).toBe(60);
+  });
+
+  it('fails closed instead of inventing the missing refund allocation', () => {
+    const corruptRefund = makeVoucher({
+      kind: 'refund',
+      eventId: 'return-corrupt-allocation',
+      total: 100,
+      refundAmount: 100,
+      payments: [{ method: 'cash', destination: 'cash', amount: 40 }],
+      paymentReconciled: false,
+    });
+
+    expect(() => buildJournalEntries([corruptRefund])).toThrow(
+      'ACCOUNTING_REFUND_PAYMENT_UNRECONCILED'
+    );
+    expect(() => buildGenericVoucherRows([corruptRefund])).toThrow(
+      'ACCOUNTING_REFUND_PAYMENT_UNRECONCILED'
+    );
   });
 });
 

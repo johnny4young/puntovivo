@@ -21,6 +21,9 @@ const setActiveMutate = vi.fn();
 const applyPresetMutate = vi.fn();
 const invalidateList = vi.fn(async () => undefined);
 const invalidateEffective = vi.fn(async () => undefined);
+const invalidateReadiness = vi.fn(async () => undefined);
+const invalidateVerticalReadiness = vi.fn(async () => undefined);
+const updateTenantSettings = vi.fn();
 let listResponse: {
   modules: Array<{
     id: string;
@@ -29,6 +32,7 @@ let listResponse: {
     defaultEnabled: boolean;
     enabled: boolean;
     isExplicit: boolean;
+    available: boolean;
   }>;
 } = {
   modules: [
@@ -39,6 +43,7 @@ let listResponse: {
       defaultEnabled: true,
       enabled: true,
       isExplicit: false,
+      available: true,
     },
     {
       id: 'quotations',
@@ -47,6 +52,7 @@ let listResponse: {
       defaultEnabled: true,
       enabled: false,
       isExplicit: true,
+      available: true,
     },
   ],
 };
@@ -68,6 +74,10 @@ vi.mock('@/lib/trpc', () => ({
         list: { invalidate: invalidateList },
         getEffective: { invalidate: invalidateEffective },
       },
+      setupReadiness: {
+        get: { invalidate: invalidateReadiness },
+        vertical: { invalidate: invalidateVerticalReadiness },
+      },
     }),
     modules: {
       list: {
@@ -81,15 +91,22 @@ vi.mock('@/lib/trpc', () => ({
   },
 }));
 
+vi.mock('@/features/auth/AuthProvider', () => ({
+  useAuth: () => ({ updateTenantSettings }),
+}));
+
 vi.mock('@/lib/useCriticalMutation', () => ({
   useCriticalMutation: (
     path: string,
-    options: { onSuccess?: () => Promise<void>; onSettled?: () => void }
+    options: {
+      onSuccess?: (result: unknown, input: { presetId?: string }) => Promise<void>;
+      onSettled?: () => void;
+    }
   ) => ({
-    mutateAsync: async (input: unknown) => {
+    mutateAsync: async (input: { presetId?: string }) => {
       const mutate = path === 'modules.applyPreset' ? applyPresetMutate : setActiveMutate;
       const result = await mutate(input);
-      await options.onSuccess?.();
+      await options.onSuccess?.(result, input);
       options.onSettled?.();
       return result;
     },
@@ -112,6 +129,7 @@ describe('CompanyModulesCard', () => {
           defaultEnabled: true,
           enabled: true,
           isExplicit: false,
+          available: true,
         },
         {
           id: 'quotations',
@@ -120,6 +138,7 @@ describe('CompanyModulesCard', () => {
           defaultEnabled: true,
           enabled: false,
           isExplicit: true,
+          available: true,
         },
       ],
     };
@@ -176,6 +195,7 @@ describe('CompanyModulesCard', () => {
           defaultEnabled: false,
           enabled: true,
           isExplicit: true,
+          available: true,
         },
       ],
     };
@@ -207,6 +227,41 @@ describe('CompanyModulesCard', () => {
     await waitFor(() => {
       expect(invalidateList).toHaveBeenCalled();
       expect(invalidateEffective).toHaveBeenCalled();
+      expect(invalidateVerticalReadiness).toHaveBeenCalled();
+    });
+  });
+
+  it('offers activation for the operational customer display module', async () => {
+    listResponse = {
+      modules: [
+        {
+          id: 'customer-display',
+          i18nKey: 'customerDisplay',
+          adminVisibilityRole: 'admin',
+          defaultEnabled: false,
+          enabled: false,
+          isExplicit: false,
+          available: true,
+        },
+      ],
+    };
+    setActiveMutate.mockResolvedValueOnce({
+      moduleId: 'customer-display',
+      enabled: true,
+      changed: true,
+    });
+
+    render(<CompanyModulesCard />);
+
+    const toggle = screen.getByTestId('modules-toggle-customer-display');
+    expect(toggle).not.toBeDisabled();
+    fireEvent.click(toggle);
+
+    await waitFor(() => {
+      expect(setActiveMutate).toHaveBeenCalledWith({
+        moduleId: 'customer-display',
+        enabled: true,
+      });
     });
   });
 
@@ -232,7 +287,15 @@ describe('CompanyModulesCard', () => {
   // A-30 — vertical presets.
   it('renders a button per vertical preset', () => {
     render(<CompanyModulesCard />);
-    for (const id of ['retail', 'restaurant', 'quickservice', 'wholesale']) {
+    for (const id of [
+      'retail',
+      'restaurant',
+      'quickservice',
+      'wholesale',
+      'hardware',
+      'butchery',
+      'pharmacy',
+    ]) {
       expect(screen.getByTestId(`modules-preset-${id}`)).toBeInTheDocument();
     }
   });
@@ -257,6 +320,9 @@ describe('CompanyModulesCard', () => {
     // route gating refetch on the same tick.
     expect(invalidateList).toHaveBeenCalled();
     expect(invalidateEffective).toHaveBeenCalled();
+    expect(invalidateReadiness).toHaveBeenCalled();
+    expect(invalidateVerticalReadiness).toHaveBeenCalled();
+    expect(updateTenantSettings).toHaveBeenCalledWith({ businessType: 'restaurant' });
     expect(toastSuccess).toHaveBeenCalled();
   });
 

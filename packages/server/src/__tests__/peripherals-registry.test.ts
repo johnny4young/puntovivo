@@ -338,6 +338,34 @@ describe('validatePeripheralConfig — wedge scanner', () => {
     expect(result).toEqual({ ok: true });
   });
 
+  it('accepts an explicit weight/price prefix map for a site', () => {
+    const result = validatePeripheralConfig({
+      kind: 'scanner',
+      driver: 'wedge',
+      config: {
+        gs1Scheme: 'co',
+        gs1Prefixes: { weight: ['21', '23'], price: ['20'] },
+      },
+    });
+    expect(result).toEqual({ ok: true });
+  });
+
+  it('rejects overlapping, empty, and out-of-range GS1 prefix maps', () => {
+    for (const gs1Prefixes of [
+      { weight: ['20'], price: ['20'] },
+      { weight: [], price: [] },
+      { weight: ['30'], price: ['21'] },
+    ]) {
+      expect(
+        validatePeripheralConfig({
+          kind: 'scanner',
+          driver: 'wedge',
+          config: { gs1Prefixes },
+        })
+      ).toMatchObject({ ok: false, code: 'PERIPHERAL_CONFIG_INVALID' });
+    }
+  });
+
   it('rejects a config with non-numeric minLength', () => {
     const result = validatePeripheralConfig({
       kind: 'scanner',

@@ -171,12 +171,14 @@ describe('GlobalStatusStrip', () => {
 
     const { rerender } = renderStrip();
 
-    expect(screen.getByText(/setup incomplete/i)).toBeInTheDocument();
+    expect(
+      screen.getByText('Business setup: 1 required item still needs attention.')
+    ).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /show details/i }));
     const dismiss = screen.getByRole('button', { name: /dismiss/i });
     expect(dismiss).toHaveClass('btn-ghost', 'btn-icon', 'h-8', 'w-8');
     await user.click(dismiss);
-    expect(screen.queryByText(/setup incomplete/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/business setup/i)).not.toBeInTheDocument();
 
     readinessState.query = {
       data: { blockerCount: 0, acknowledgedAt: null },
@@ -198,6 +200,8 @@ describe('GlobalStatusStrip', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getAllByText(/setup incomplete/i).length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText('Business setup: 2 required items still need attention.').length
+    ).toBeGreaterThan(0);
   });
 });

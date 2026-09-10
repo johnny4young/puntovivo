@@ -19,6 +19,7 @@
  * HOST               - Legacy alias for PUNTOVIVO_BIND_HOST (default: 127.0.0.1)
  * DATABASE_URL       - SQLite database path (default: ./data/local.db)
  * PUNTOVIVO_DB_KEY   - Required outside development/test; 64-char hex SQLCipher key
+ * PUNTOVIVO_EXTERNAL_ORDER_KEY - Optional 64-hex-character connector wrapping key (DB encryption remains required in production)
  * JWT_SECRET         - JWT signing secret (auto-generated if not set)
  * PUNTOVIVO_SQLITE_BUSY_TIMEOUT_MS - Optional SQLite writer-lock wait override
  * VERBOSE            - Enable verbose logging (default: false)
@@ -42,10 +43,6 @@ import { captureProcessCrash, flushServerTelemetry } from './observability/index
 import { resolveRuntimeConfig } from './config/runtime.js';
 import { resolveStandaloneEncryptionKey } from './config/standalone-database.js';
 import { createGracefulShutdownHandler } from './lifecycle/gracefulShutdown.js';
-import {
-  shouldPrintCredentialBanner,
-  shouldUseGeneratedAdminPassword,
-} from './logging/credential-banner.js';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -93,6 +90,7 @@ async function main(): Promise<void> {
     );
     const server = await createServer({
       dbPath,
+      seedData: false,
       port: runtime.bindPort,
       host: runtime.bindHost,
       jwtSecret,
@@ -104,6 +102,7 @@ async function main(): Promise<void> {
       // a direct standalone entry-point invocation).
       appVersion: process.env.npm_package_version,
       encryptionKey,
+      externalOrderSecretKey: process.env.PUNTOVIVO_EXTERNAL_ORDER_KEY,
       sqliteBusyTimeoutMs,
     });
 
@@ -165,15 +164,13 @@ async function main(): Promise<void> {
     banner(`  - Health:      ${address}/api/health (compatibility endpoint)`);
     banner(`  - Realtime:    ${address}/api/realtime/subscribe`);
     banner();
-    if (shouldPrintCredentialBanner()) {
-      banner('  Default admin account:');
-      banner('  - Email: admin@localhost');
-      banner(
-        shouldUseGeneratedAdminPassword()
-          ? '  - Password: (generated on first run, shown once in seed output)'
-          : '  - Password: Admin123!Dev (or PUNTOVIVO_DEV_ADMIN_PASSWORD if set before first seed)'
-      );
-      banner('  - See docs/LOGIN_GUIDE.md for details');
+    const token = server.getSetupToken();
+    if (token) {
+      // This is an administrative secret handoff, not telemetry. Supervisors
+      // capturing stdout must protect it as a credential until setup completes.
+      banner('  First use: open Puntovivo on this computer to create your business.');
+      banner(`  Installation code: ${token}`);
+      banner('  Keep this code private. It expires on setup completion or server restart.');
       banner();
     }
     banner('  Press Ctrl+C to stop');

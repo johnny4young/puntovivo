@@ -25,12 +25,13 @@ export interface MintedEnvelope {
 }
 
 /**
+ * Shared request/command identifier primitive, never an authentication secret.
  * Best-effort UUID v4. Uses `crypto.randomUUID()` when available
  * (modern browsers + Node 20+), falls back to a Math.random shim
  * for older runtimes — the shim still produces a v4-shaped string
  * good enough for the server's Zod check.
  */
-function generateUuid(): string {
+export function generateUuid(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
   }
@@ -52,10 +53,11 @@ function generateUuid(): string {
 }
 
 /**
- * Mint a fresh envelope for a single critical mutation. Each
- * `mutate()` call should mint its own — replays for retry control
- * are intentionally orchestrated via the same mutation hook
- * keeping the same envelope.
+ * Mint a fresh envelope for one logical critical-command intent.
+ * `useCriticalMutation` owns that lifetime: concurrent duplicate clicks and
+ * React Query retries reuse the envelope; user retries after an uncertain
+ * outcome retain it too. Success or an explicit terminal rejection closes the
+ * identity so a later intentional command can mint a new one.
  */
 export function mintEnvelope(): MintedEnvelope {
   return {

@@ -24,13 +24,23 @@ describe(' — i18n lazy bootstrap contract', () => {
 
   it('keeps the heavy feature namespaces OUT of the bootstrap (they lazy-load)', () => {
     for (const ns of [
+      'setupReadiness',
       'fiscal',
+      'fiscalOperations',
       'kds',
       'aiSettings',
       'restaurants',
       'copilot',
       'sales',
       'products',
+      'inventoryControls',
+      'fulfillmentErrors',
+      'workforceErrors',
+      'workforce',
+      'timeOff',
+      'availability',
+      'payroll',
+      'shiftSwaps',
     ]) {
       expect(BOOTSTRAP_NAMESPACES).not.toContain(ns);
     }
@@ -53,10 +63,81 @@ describe(' — i18n lazy bootstrap contract', () => {
     expect(i18next.options.partialBundledLanguages).toBe(true);
   });
 
+  it('keeps shell onboarding copy eager and detailed readiness copy on demand', async () => {
+    await i18next.loadNamespaces('setupReadiness');
+    for (const language of ['en', 'es']) {
+      expect(i18next.getResource(language, 'setup', 'readiness')).toBeUndefined();
+      expect(i18next.getResource(language, 'setup', 'banner.cta')).toBeTruthy();
+      expect(i18next.getResource(language, 'setup', 'firstSale.helpAction')).toBeTruthy();
+      expect(i18next.getResource(language, 'setupReadiness', 'readiness.title')).toBeTruthy();
+      expect(i18next.getResource(language, 'setupReadiness', 'emptyState')).toBeTruthy();
+    }
+  });
+
   it('keeps a feature namespace resolvable on demand (no raw keys)', async () => {
     await i18next.loadNamespaces('fiscal');
     const resolved =
       i18next.hasResourceBundle('es', 'fiscal') || i18next.hasResourceBundle('en', 'fiscal');
     expect(resolved).toBe(true);
+  });
+  it('loads the product tracking conflict with catalog copy rather than the bootstrap', async () => {
+    await i18next.loadNamespaces('products');
+    for (const language of ['en', 'es']) {
+      const key = 'server.PRODUCT_TRACKING_REQUIRES_EMPTY_INVENTORY';
+      expect(i18next.getResource(language, 'products', key)).toBeTruthy();
+      expect(i18next.getResource(language, 'errors', key)).toBeUndefined();
+    }
+  });
+
+  it('loads fiscal recovery copy independently of the Operations landing dictionary', async () => {
+    await i18next.loadNamespaces('fiscalOperations');
+    for (const language of ['en', 'es']) {
+      expect(i18next.getResource(language, 'operations', 'fiscal')).toBeUndefined();
+      expect(i18next.getResource(language, 'fiscalOperations', 'fiscal.intent.title')).toBeTruthy();
+    }
+  });
+
+  it('loads fulfillment failure copy without growing the offline bootstrap error dictionary', async () => {
+    await i18next.loadNamespaces('fulfillmentErrors');
+    for (const language of ['en', 'es']) {
+      for (const code of [
+        'DELIVERY_COURIER_REQUIRED',
+        'RESERVATION_TABLE_HELD',
+        'EXTERNAL_ORDER_STATE_INVALID',
+      ]) {
+        expect(i18next.getResource(language, 'errors', `server.${code}`)).toBeUndefined();
+        expect(i18next.getResource(language, 'fulfillmentErrors', `server.${code}`)).toBeTruthy();
+      }
+    }
+  });
+
+  it('loads employment error copy lazily in both languages', async () => {
+    await i18next.loadNamespaces('workforceErrors');
+    for (const language of ['en', 'es']) {
+      for (const code of [
+        'EMPLOYMENT_CONTRACT_OVERLAP',
+        'EMPLOYMENT_CONTRACT_TEMPORARILY_UNAVAILABLE',
+        'PAYROLL_POLICY_UNAVAILABLE',
+        'PAYROLL_PERIOD_OVERLAP',
+        'PAYROLL_PROFILE_OVERLAP',
+        'PAYROLL_REGULAR_RUN_EXISTS',
+        'PAYROLL_PREREQUISITES_INCOMPLETE',
+        'PAYROLL_TEMPORARILY_UNAVAILABLE',
+        'TIME_OFF_TEMPORARILY_UNAVAILABLE',
+        'TIME_OFF_SELF_APPROVAL',
+        'TIME_OFF_SCHEDULE_CONFLICT',
+        'SCHEDULE_TEMPORARILY_UNAVAILABLE',
+        'SCHEDULE_TIME_OFF_CONFLICT',
+        'SCHEDULE_AVAILABILITY_CONFLICT',
+        'SCHEDULE_SHIFT_OVERLAP',
+        'SCHEDULE_PLAN_NOT_FOUND',
+        'SCHEDULE_PLAN_STATE_INVALID',
+        'SCHEDULE_PLAN_CHANGED',
+        'SCHEDULE_RECURRENCE_INVALID',
+      ]) {
+        expect(i18next.getResource(language, 'errors', `server.${code}`)).toBeUndefined();
+        expect(i18next.getResource(language, 'workforceErrors', `server.${code}`)).toBeTruthy();
+      }
+    }
   });
 });

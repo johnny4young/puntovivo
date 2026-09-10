@@ -15,7 +15,8 @@
       "status": "Status",
       "categories": "Categories",
       "noContact": "No contact",
-      "manageCategories": "Manage provider categories"
+      "manageCategories": "Manage provider categories",
+      "payables": "Supplier account"
     },
     "form": {
       "createTitle": "Create Provider",
@@ -74,7 +75,10 @@
     },
     "delete": {
       "title": "Delete Provider",
-      "description": "Are you sure you want to delete this provider? Providers with assigned categories must be cleaned up first."
+      "description": "Are you sure you want to delete this provider? Providers with assigned categories must be cleaned up first.",
+      "submitting": "Deleting…",
+      "confirm": "Delete provider",
+      "cancel": "Cancel"
     },
     "toast": {
       "created": "Provider created",
@@ -398,7 +402,17 @@
         "fieldsDiffer_other": "{{count}} fields differ",
         "recommendedAcceptRemote": "Recommended: accept remote — the server has the most recent data.",
         "recommendedDiscard": "Recommended: discard the stale local change to unblock sync.",
-        "noFieldDiff": "The local and remote versions differ."
+        "noFieldDiff": "The local and remote versions differ.",
+        "atomicRecoveryRequired": "This change affects stock or protected records and cannot be replaced here. Review the original business operation or retry its synchronization. The pending evidence is preserved.",
+        "preserveEvidence": "Keep the pending evidence until safe reconciliation is available.",
+        "fieldLabels": {
+          "name": "Name",
+          "cost": "Unit cost",
+          "initialCost": "Inventory unit cost",
+          "inventoryValueCents": "Inventory value (cents)",
+          "cogsValueCents": "Cost of sales balance (cents)",
+          "valuationQuantity": "Valued quantity"
+        }
       }
     },
     "updater": {
@@ -448,24 +462,13 @@
         "checking": "Checking...",
         "checkForUpdates": "Check for Updates",
         "restarting": "Restarting...",
-        "restartToInstall": "Restart to Install",
-        "verifyDownload": "Verify download",
         "viewRelease": "View release"
-      },
-      "banner": {
-        "readyTitle": "Puntovivo {{version}} is ready to install",
-        "readyDescription": "Restart when this workstation can pause safely.",
-        "verifyTitle": "Puntovivo {{version}} was downloaded previously",
-        "verifyDescription": "Verify the artifact again before installation is enabled.",
-        "dismiss": "Dismiss update notice"
       },
       "toast": {
         "checkingForUpdates": "Checking for updates",
         "updatesUnavailable": "App updates unavailable",
-        "checkError": "Unable to check for updates",
         "restarting": "Restarting to install update",
-        "restartDescription": "The desktop app will close and apply the downloaded release.",
-        "restartError": "Unable to apply update"
+        "restartDescription": "The desktop app will close and apply the downloaded release."
       }
     },
     "backup": {
@@ -736,7 +739,14 @@
       "ratePreview": "A {{total}} sale earns {{count}} point.",
       "ratePreview_other": "A {{total}} sale earns {{count}} points.",
       "rateInvalid": "Enter an amount of {{min}} or more.",
-      "save": "Save rate",
+      "save": "Save earning rate",
+      "redemptionEnabledLabel": "Accept points at checkout",
+      "redemptionEnabledHelp": "Customers can redeem whole points as an itemized payment. The server checks the balance again when the sale is committed.",
+      "redemptionValueLabel": "Checkout value of one point",
+      "redemptionValueHelp": "The monetary amount covered by each whole point when it is redeemed.",
+      "redemptionPreview": "{{count}} points cover {{amount}}.",
+      "redemptionValueInvalid": "Enter an amount greater than zero.",
+      "saveRedemptionValue": "Save redemption value",
       "toast": {
         "saved": "Loyalty program updated",
         "saveError": "The loyalty program could not be updated"

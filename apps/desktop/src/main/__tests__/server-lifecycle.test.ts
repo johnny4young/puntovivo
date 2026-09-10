@@ -46,6 +46,8 @@ describe('Electron embedded server lifecycle', () => {
     assert.equal(result, 'completed');
     assert.equal(closeCalls, 1);
     assert.equal(starts.length, 2);
+    assert.equal(starts[0]?.seedData, false);
+    assert.equal(starts[1]?.seedData, false);
     assert.equal(starts[0]?.jwtSecret, 'stable-electron-jwt-secret-for-lifecycle-test');
     assert.equal(starts[1]?.jwtSecret, starts[0]?.jwtSecret);
     assert.deepEqual(starts[0]?.corsOrigins, [PACKAGED_RENDERER_ORIGIN]);

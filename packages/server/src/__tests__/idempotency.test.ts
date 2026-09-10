@@ -2,16 +2,24 @@
  * Tests for the idempotency service + keyHasher.
  */
 import { describe, expect, it, beforeEach, beforeAll } from 'vitest';
+import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { devices, tenants, users } from '../db/schema.js';
+import { devices, idempotencyKeys, tenants, users } from '../db/schema.js';
 import { hash } from 'argon2';
-import { hashCanonicalInput, __test_canonicalize } from '../services/idempotency/keyHasher.js';
+import {
+  hashCanonicalInput,
+  hashCommandRequest,
+  __test_canonicalize,
+} from '../services/idempotency/keyHasher.js';
 import {
   IDEMPOTENCY_DEFAULT_TTL_MS,
+  IDEMPOTENCY_PROCESSING_LEASE_MS,
+  __test_deleteRetryableSnapshot,
   cleanupExpired,
   completeKey,
+  completeKeyInTransaction,
   failKey,
   reserveKey,
 } from '../services/idempotency/idempotencyService.js';
@@ -72,6 +80,51 @@ describe('keyHasher canonicalize', () => {
     const a = hashCanonicalInput({ items: ['x', 'y'] });
     const b = hashCanonicalInput({ items: ['y', 'x'] });
     expect(a).not.toBe(b);
+  });
+
+  it('the same input at a different site is a different command', () => {
+    // A retained envelope replayed after a site switch must not read as the
+    // same command: it would execute the intent at a site the operator never
+    // authorised for it.
+    const input = { purchaseId: 'p1', quantity: 3 };
+    const actor = {
+      userId: 'user-1',
+      role: 'admin',
+      sessionVersion: 1,
+      deviceIdentityVersion: 1,
+    };
+    const atNorth = hashCommandRequest({ input, siteId: 'site-north', actor });
+    const atSouth = hashCommandRequest({ input, siteId: 'site-south', actor });
+    const atNone = hashCommandRequest({ input, siteId: null, actor });
+    expect(atNorth).not.toBe(atSouth);
+    expect(atNorth).not.toBe(atNone);
+    expect(hashCommandRequest({ input, siteId: 'site-north', actor })).toBe(atNorth);
+  });
+
+  it('the same input under a different actor is a different command', () => {
+    // A retained envelope belongs to the operator and device that minted it.
+    // After a shift handover on a shared terminal, replaying it must read as a
+    // payload conflict rather than execute again as someone else - or hand the
+    // new actor the previous one's stored result.
+    const input = { purchaseId: 'p1', quantity: 3 };
+    const base = {
+      userId: 'user-1',
+      role: 'admin',
+      sessionVersion: 1,
+      deviceIdentityVersion: 1,
+    };
+    const hashFor = (actor: typeof base) =>
+      hashCommandRequest({ input, siteId: 'site-north', actor });
+    const original = hashFor(base);
+
+    // Every axis of the actor is part of the identity, one at a time.
+    expect(hashFor({ ...base, userId: 'user-2' })).not.toBe(original);
+    expect(hashFor({ ...base, role: 'cashier' })).not.toBe(original);
+    expect(hashFor({ ...base, sessionVersion: 2 })).not.toBe(original);
+    expect(hashFor({ ...base, deviceIdentityVersion: 2 })).not.toBe(original);
+
+    // And the same actor still reads as the same command.
+    expect(hashFor({ ...base })).toBe(original);
   });
 
   it('treats null and undefined identically', () => {
@@ -156,6 +209,175 @@ describe('idempotencyService reservation lifecycle', () => {
     });
     expect(first.state).toBe('reserved');
     expect(second.state).toBe('processing');
+  });
+
+  it('reclaims an abandoned processing reservation after the crash-recovery lease', async () => {
+    const key = nanoid();
+    const startedAt = new Date('2026-08-30T12:00:00.000Z');
+    const first = await reserveKey(
+      getDatabase(),
+      {
+        tenantId,
+        deviceId,
+        idempotencyKey: key,
+        operationKind: 'purchases.create',
+        requestHash: 'hash-crash-recovery',
+      },
+      startedAt
+    );
+    expect(first.state).toBe('reserved');
+
+    const stillOwned = await reserveKey(
+      getDatabase(),
+      {
+        tenantId,
+        deviceId,
+        idempotencyKey: key,
+        operationKind: 'purchases.create',
+        requestHash: 'hash-crash-recovery',
+      },
+      new Date(startedAt.getTime() + IDEMPOTENCY_PROCESSING_LEASE_MS - 1)
+    );
+    expect(stillOwned.state).toBe('processing');
+
+    const recovered = await reserveKey(
+      getDatabase(),
+      {
+        tenantId,
+        deviceId,
+        idempotencyKey: key,
+        operationKind: 'purchases.create',
+        requestHash: 'hash-crash-recovery',
+      },
+      new Date(startedAt.getTime() + IDEMPOTENCY_PROCESSING_LEASE_MS)
+    );
+    expect(recovered.state).toBe('reserved');
+    if (first.state === 'reserved' && recovered.state === 'reserved') {
+      expect(recovered.reservationId).not.toBe(first.reservationId);
+      expect(
+        completeKeyInTransaction(getDatabase(), {
+          tenantId,
+          deviceId,
+          idempotencyKey: key,
+          operationKind: 'purchases.create',
+          requestHash: 'hash-crash-recovery',
+          reservationId: first.reservationId,
+          resultRef: { purchaseId: 'stale-owner' },
+        })
+      ).toBe(false);
+      expect(
+        completeKeyInTransaction(getDatabase(), {
+          tenantId,
+          deviceId,
+          idempotencyKey: key,
+          operationKind: 'purchases.create',
+          requestHash: 'hash-crash-recovery',
+          reservationId: recovered.reservationId,
+          resultRef: { purchaseId: 'recovered-owner' },
+        })
+      ).toBe(true);
+
+      const replay = await reserveKey(getDatabase(), {
+        tenantId,
+        deviceId,
+        idempotencyKey: key,
+        operationKind: 'purchases.create',
+        requestHash: 'hash-crash-recovery',
+      });
+      expect(replay).toMatchObject({
+        state: 'cached',
+        resultRef: { purchaseId: 'recovered-owner' },
+      });
+    }
+  });
+
+  it('an abandoned lease cannot be reclaimed by a different payload', async () => {
+    // Without the hash guard on lease recovery, the documented 24-hour
+    // payload-conflict protection silently collapses to the 60-second lease:
+    // any caller reusing the key with a new payload would take the row over.
+    const key = nanoid();
+    const startedAt = new Date('2026-08-30T12:00:00.000Z');
+    const first = await reserveKey(
+      getDatabase(),
+      {
+        tenantId,
+        deviceId,
+        idempotencyKey: key,
+        operationKind: 'purchases.create',
+        requestHash: 'hash-original-payload',
+      },
+      startedAt
+    );
+    expect(first.state).toBe('reserved');
+
+    const afterLease = new Date(startedAt.getTime() + IDEMPOTENCY_PROCESSING_LEASE_MS + 1);
+    const hijack = await reserveKey(
+      getDatabase(),
+      {
+        tenantId,
+        deviceId,
+        idempotencyKey: key,
+        operationKind: 'purchases.create',
+        requestHash: 'hash-DIFFERENT-payload',
+      },
+      afterLease
+    );
+    expect(hijack.state).toBe('conflict');
+
+    // The original payload still recovers its own abandoned reservation.
+    const recovered = await reserveKey(
+      getDatabase(),
+      {
+        tenantId,
+        deviceId,
+        idempotencyKey: key,
+        operationKind: 'purchases.create',
+        requestHash: 'hash-original-payload',
+      },
+      afterLease
+    );
+    expect(recovered.state).toBe('reserved');
+  });
+
+  it('does not replace an owner that committed after a lease takeover read', async () => {
+    const key = nanoid();
+    const startedAt = new Date('2026-08-30T14:00:00.000Z');
+    const input = {
+      tenantId,
+      deviceId,
+      idempotencyKey: key,
+      operationKind: 'purchases.create',
+      requestHash: 'hash-commit-race',
+    };
+    const first = await reserveKey(getDatabase(), input, startedAt);
+    expect(first.state).toBe('reserved');
+    if (first.state !== 'reserved') throw new Error('expected reservation');
+
+    const staleSnapshot = await getDatabase()
+      .select()
+      .from(idempotencyKeys)
+      .where(eq(idempotencyKeys.id, first.reservationId))
+      .get();
+    if (!staleSnapshot) throw new Error('expected idempotency snapshot');
+
+    const committedAt = new Date(startedAt.getTime() + IDEMPOTENCY_PROCESSING_LEASE_MS);
+    expect(
+      completeKeyInTransaction(
+        getDatabase(),
+        {
+          ...input,
+          reservationId: first.reservationId,
+          resultRef: { purchaseId: 'committed-owner' },
+        },
+        committedAt
+      )
+    ).toBe(true);
+
+    expect(__test_deleteRetryableSnapshot(getDatabase(), input, staleSnapshot)).toBe(false);
+    await expect(reserveKey(getDatabase(), input, committedAt)).resolves.toMatchObject({
+      state: 'cached',
+      resultRef: { purchaseId: 'committed-owner' },
+    });
   });
 
   it('concurrent same-key reservations allow only one caller to run', async () => {
@@ -387,5 +609,63 @@ describe('idempotencyService reservation lifecycle', () => {
 
   it('default TTL is 24 hours', () => {
     expect(IDEMPOTENCY_DEFAULT_TTL_MS).toBe(24 * 60 * 60 * 1000);
+    expect(IDEMPOTENCY_PROCESSING_LEASE_MS).toBe(60 * 1000);
+  });
+});
+
+describe('in-transaction completion survives a post-commit failure', () => {
+  it('failKey cannot downgrade a reservation completed inside the write transaction', async () => {
+    // This is the hinge the stock-writing use-cases depend on. They commit
+    // their domain transaction and the middleware then does post-commit work;
+    // if that work throws, the middleware calls failReservation. A reservation
+    // still in `processing` flips to `failed`, and a failed row whose request
+    // hash matches is reclaimable -- so the client retry the middleware itself
+    // advises would re-run the resolver and apply the same stock delta twice.
+    //
+    // Completing inside the transaction makes that unreachable: the row is
+    // already `completed` when the failure lands, and failKey only matches
+    // rows in `processing`. The stored status for a finished row is
+    // `succeeded`; `completed` is the reserveKey result state.
+    const db = getDatabase();
+    const key = nanoid();
+    const requestHash = 'hash-post-commit-failure';
+    const reserveInput = {
+      tenantId,
+      deviceId,
+      idempotencyKey: key,
+      operationKind: 'inventory.createMovement',
+      requestHash,
+    };
+
+    const reserved = await reserveKey(db, reserveInput);
+    expect(reserved.state).toBe('reserved');
+    if (reserved.state !== 'reserved') return;
+
+    expect(
+      completeKeyInTransaction(db, {
+        ...reserveInput,
+        reservationId: reserved.reservationId,
+        resultRef: { movementId: 'movement-1', quantity: 7 },
+      })
+    ).toBe(true);
+
+    // The post-commit work now throws and the middleware fails the
+    // reservation. This must be a no-op.
+    await failKey(db, { ...reserveInput, reservationId: reserved.reservationId });
+
+    const row = await db
+      .select()
+      .from(idempotencyKeys)
+      .where(eq(idempotencyKeys.idempotencyKey, key))
+      .get();
+    expect(row?.status).toBe('succeeded');
+
+    // And the retry replays the cached result instead of earning a fresh
+    // reservation that would re-run the resolver.
+    const retry = await reserveKey(db, reserveInput);
+    expect(retry.state).toBe('cached');
+    if (retry.state === 'cached') {
+      expect(retry.resultRef).toEqual({ movementId: 'movement-1', quantity: 7 });
+    }
   });
 });

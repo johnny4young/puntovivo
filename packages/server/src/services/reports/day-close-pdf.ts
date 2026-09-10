@@ -133,12 +133,22 @@ const COPY = {
 } as const;
 
 const PAYMENT_METHODS = {
-  en: { cash: 'Cash', card: 'Card', transfer: 'Transfer', credit: 'Credit', other: 'Other' },
+  en: {
+    cash: 'Cash',
+    card: 'Card',
+    transfer: 'Transfer',
+    credit: 'Credit',
+    loyalty: 'Loyalty points',
+    store_credit: 'Store credit',
+    other: 'Other',
+  },
   es: {
     cash: 'Efectivo',
     card: 'Tarjeta',
     transfer: 'Transferencia',
     credit: 'Crédito',
+    loyalty: 'Puntos',
+    store_credit: 'Crédito de tienda',
     other: 'Otro',
   },
 } as const;

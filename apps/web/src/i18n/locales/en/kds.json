@@ -1,4 +1,5 @@
 {
+  "boardTitle": "Kitchen · {{site}}",
   "station": {
     "main": "Kitchen",
     "unknown": "Other",
@@ -16,19 +17,87 @@
     "readyStamp": "Ready · {{time}}",
     "elapsedJustNow": "just now",
     "elapsedMinutes_one": "{{count}} min ago",
-    "elapsedMinutes_other": "{{count}} min ago"
+    "elapsedMinutes_other": "{{count}} min ago",
+    "multipleDestinations": "Multiple destinations",
+    "round": "Round: {{value}}",
+    "course": "Course: {{value}}",
+    "diner": "Guest: {{value}}",
+    "destination": "{{table}} · Check {{check}}",
+    "unknownCheck": "Unavailable",
+    "cancelled": "Cancelled — do not prepare",
+    "resend": "Resend notification (same ticket)"
   },
   "empty": {
     "title": "No pending orders",
-    "description": "New tickets appear here as waiters save orders at the table."
+    "description": "New tickets appear when enabled kitchen orders are sent, suspended or completed."
   },
   "errors": {
     "noSiteSelected": "Pick a site to see its kitchen queue.",
-    "loadFailed": "Could not load the kitchen board. Refresh and try again."
+    "loadFailed": "Could not load the kitchen board. Refresh and try again.",
+    "offline": "Offline. Shown tickets may be out of date; preparation actions are disabled until you reconnect.",
+    "hasMore": "More tickets exist than this board can show. Filter by station and finish older work; this is not the complete queue."
   },
   "toast": {
     "recalled": "Order moved back to pending.",
     "markReadyError": "Could not mark the order as ready.",
-    "recallError": "Could not move the order back to pending."
+    "recallError": "Could not move the order back to pending.",
+    "actionError": "Could not update the kitchen ticket. Review the refreshed board."
+  },
+  "server": {
+    "KDS_SNAPSHOT_INVALID": "This kitchen ticket cannot be verified. Ask a manager to review it; do not prepare from incomplete data.",
+    "KDS_CONFIGURATION_INVALID": "Review this site's kitchen stations and routing before sending the order.",
+    "KDS_STATION_IN_USE": "This station still has routing rules or unfinished tickets. Reassign its work before deactivating it.",
+    "KDS_LINE_NOT_FOUND": "This kitchen line is no longer available. Refresh the board.",
+    "KDS_LINE_STATE_INVALID": "This preparation changed or was cancelled. Refresh before continuing.",
+    "KDS_ORDER_LIMIT_EXCEEDED": "This kitchen submission exceeds the safe line limit. Divide the order into smaller rounds.",
+    "KDS_ORDER_NOT_FOUND": "That order is no longer on the kitchen board. Refresh and try again.",
+    "KDS_ORDER_NOT_READY": "That order is no longer marked Ready. Refresh the board to see the current state."
+  },
+  "config": {
+    "title": "Kitchen settings",
+    "description": "Changes affect future submissions only. Already-sent tickets keep their original preparation and destination station.",
+    "stationFilter": "Station",
+    "allStations": "All stations",
+    "refresh": "Refresh",
+    "stations": "Preparation stations",
+    "loading": "Loading…",
+    "active": "Active",
+    "inactive": "Inactive",
+    "edit": "Edit {{name}}",
+    "configureMain": "Configure default kitchen",
+    "editStation": "Edit station",
+    "newStation": "New station",
+    "code": "Code (lowercase letters, numbers, - or _)",
+    "name": "Station name",
+    "position": "Display order",
+    "saveStation": "Save station",
+    "clear": "New station / clear",
+    "routing": "Product and category routing",
+    "precedence": "Product rules override category rules. Inherited routing uses the category, then the default kitchen. Exclusion is explicit; it never removes work already sent.",
+    "targetKind": "Rule target",
+    "product": "Product",
+    "category": "Category",
+    "search": "Search by name or SKU",
+    "configuredOnly": "Only explicit rules",
+    "previous": "Previous",
+    "next": "Next",
+    "noTargets": "No matching products or categories.",
+    "inheritProduct": "Inherit category / default kitchen",
+    "inheritCategory": "Default kitchen",
+    "exclude": "Do not send to kitchen",
+    "unavailableStation": "Unavailable station — choose a valid route",
+    "saveRoute": "Save routing",
+    "saved": "Kitchen settings saved.",
+    "saveError": "Could not save kitchen settings. Refresh and review the current version.",
+    "loadError": "Could not load kitchen settings. Close and reopen to retry."
+  },
+  "line": {
+    "pending": "Pending",
+    "preparing": "Preparing",
+    "ready": "Ready",
+    "voided": "Cancelled",
+    "start": "Start line",
+    "finish": "Line ready",
+    "recall": "Recall line"
   }
 }

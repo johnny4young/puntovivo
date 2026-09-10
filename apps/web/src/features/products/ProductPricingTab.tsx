@@ -1,11 +1,8 @@
+import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { UseFormRegisterReturn } from 'react-hook-form';
 import { parseNumber } from './productForm.helpers';
-import type {
-  MarginAmountField,
-  MarginPercentField,
-  PricingField,
-} from './productForm.types';
+import type { MarginAmountField, MarginPercentField, PricingField } from './productForm.types';
 import type { UseProductFormReturn } from './useProductForm';
 
 interface PricingTierSectionProps {
@@ -66,7 +63,9 @@ export function ProductPricingTab({ formBundle }: ProductPricingTabProps) {
           priceField={form.register('price', { min: 0, valueAsNumber: true })}
           percentField={form.register('marginPercent1', { min: 0, valueAsNumber: true })}
           amountField={form.register('marginAmount1', { min: 0, valueAsNumber: true })}
-          onPriceChange={value => syncTier('price', 'marginPercent1', 'marginAmount1', { price: value })}
+          onPriceChange={value =>
+            syncTier('price', 'marginPercent1', 'marginAmount1', { price: value })
+          }
           onPercentChange={value =>
             syncTier('price', 'marginPercent1', 'marginAmount1', { marginPercent: value })
           }
@@ -79,7 +78,9 @@ export function ProductPricingTab({ formBundle }: ProductPricingTabProps) {
           priceField={form.register('price2', { min: 0, valueAsNumber: true })}
           percentField={form.register('marginPercent2', { min: 0, valueAsNumber: true })}
           amountField={form.register('marginAmount2', { min: 0, valueAsNumber: true })}
-          onPriceChange={value => syncTier('price2', 'marginPercent2', 'marginAmount2', { price: value })}
+          onPriceChange={value =>
+            syncTier('price2', 'marginPercent2', 'marginAmount2', { price: value })
+          }
           onPercentChange={value =>
             syncTier('price2', 'marginPercent2', 'marginAmount2', { marginPercent: value })
           }
@@ -92,7 +93,9 @@ export function ProductPricingTab({ formBundle }: ProductPricingTabProps) {
           priceField={form.register('price3', { min: 0, valueAsNumber: true })}
           percentField={form.register('marginPercent3', { min: 0, valueAsNumber: true })}
           amountField={form.register('marginAmount3', { min: 0, valueAsNumber: true })}
-          onPriceChange={value => syncTier('price3', 'marginPercent3', 'marginAmount3', { price: value })}
+          onPriceChange={value =>
+            syncTier('price3', 'marginPercent3', 'marginAmount3', { price: value })
+          }
           onPercentChange={value =>
             syncTier('price3', 'marginPercent3', 'marginAmount3', { marginPercent: value })
           }
@@ -115,14 +118,16 @@ function PricingTierSection({
   onAmountChange,
 }: PricingTierSectionProps) {
   const { t } = useTranslation('products');
+  const id = useId();
   return (
-    <div className="grid gap-4 md:grid-cols-3">
-      <div className="md:col-span-3">
-        <p className="text-sm font-medium text-secondary-900">{title}</p>
-      </div>
+    <fieldset className="grid gap-4 md:grid-cols-3">
+      <legend className="mb-3 text-sm font-medium text-secondary-900">{title}</legend>
       <div className="pv-field">
-        <label className="label">{t('form.fields.marginPercent')}</label>
+        <label htmlFor={`${id}-percent`} className="label">
+          {t('form.fields.marginPercent')}
+        </label>
         <input
+          id={`${id}-percent`}
           type="number"
           step="0.01"
           min="0"
@@ -135,8 +140,11 @@ function PricingTierSection({
         />
       </div>
       <div className="pv-field">
-        <label className="label">{t('form.fields.marginAmount')}</label>
+        <label htmlFor={`${id}-amount`} className="label">
+          {t('form.fields.marginAmount')}
+        </label>
         <input
+          id={`${id}-amount`}
           type="number"
           step="0.01"
           min="0"
@@ -149,19 +157,26 @@ function PricingTierSection({
         />
       </div>
       <div className="pv-field">
-        <label className="label">{t('form.fields.salePrice')}</label>
+        <label htmlFor={`${id}-price`} className="label">
+          {t('form.fields.salePrice')}
+        </label>
         <input
+          id={`${id}-price`}
           type="number"
           step="0.01"
           min="0"
           className="pv-input"
           {...priceField}
           onChange={event => {
-            priceField.onChange(event);
             onPriceChange(parseNumber(event.target.value));
+            // Let the shared price synchronizer inspect the previous product
+            // value before react-hook-form stores the new input. This keeps a
+            // template-linked base-unit price aligned while preserving an
+            // assignment the operator already priced independently.
+            priceField.onChange(event);
           }}
         />
       </div>
-    </div>
+    </fieldset>
   );
 }

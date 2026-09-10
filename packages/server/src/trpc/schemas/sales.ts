@@ -14,15 +14,29 @@ import { paginationInput } from './common.js';
 // Enums
 // ============================================================================
 
-export const paymentMethodEnum = z.enum(['cash', 'card', 'transfer', 'credit', 'other']);
+export const paymentMethodEnum = z.enum([
+  'cash',
+  'card',
+  'transfer',
+  'credit',
+  'loyalty',
+  'store_credit',
+  'other',
+]);
 // split-tender method enum mirrors paymentMethodEnum so a single
 // sale can mix instant tenders (cash / card / transfer / other) with a
 // credit portion that lands as an IOU on `customer_ledger_entries`. The
 // "all-or-nothing" credit restriction shipped in  was the only thing
 // blocking apartado / layaway; the resolver now sums credit tenders and
 // fires the limit invariant + ledger hook for that portion only.
-export const splitPaymentMethodEnum = z.enum(['cash', 'card', 'transfer', 'credit', 'other']);
-export const paymentStatusEnum = z.enum(['pending', 'paid', 'partial', 'refunded']);
+export const splitPaymentMethodEnum = paymentMethodEnum;
+export const paymentStatusEnum = z.enum([
+  'pending',
+  'paid',
+  'partial',
+  'partially_refunded',
+  'refunded',
+]);
 const completablePaymentStatusEnum = z.enum(['pending', 'paid', 'partial']);
 export const saleStatusEnum = z.enum(['draft', 'completed', 'cancelled', 'voided']);
 
@@ -58,6 +72,8 @@ export const saleItemInput = z
     // semantically two-state: present (real note) or absent.
     notes: z.string().trim().max(280).nullable().optional(),
     serialIds: z.array(z.string().min(1)).max(100).optional(),
+    /** Required on a quotation-backed cart so every frozen line is matched once. */
+    sourceQuotationItemId: z.string().min(1).optional(),
   })
   .strict();
 
@@ -87,8 +103,19 @@ export const salePaymentInput = z
       .finite('Amount must be a finite number')
       .positive('Amount must be greater than zero'),
     reference: z.string().trim().max(120).optional(),
+    /** Required for loyalty and forbidden for every other tender. */
+    loyaltyPoints: z.number().int().positive().optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    if ((value.method === 'loyalty') !== (value.loyaltyPoints !== undefined)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['loyaltyPoints'],
+        message: 'Loyalty tenders require a positive whole-points amount',
+      });
+    }
+  });
 
 export const checkoutApprovalReferenceInput = z
   .object({
@@ -114,6 +141,21 @@ const checkoutApprovalReferencesInput = z
     }
   });
 
+const promotionFingerprintInput = z.string().regex(/^[a-f0-9]{64}$/);
+export const MAX_PHARMACY_EVIDENCE_IDS_PER_SALE = 200;
+const pharmacyEvidenceIdsInput = z
+  .array(z.string().min(1))
+  // A completed sale accepts up to 200 lines. Prescription evidence can be
+  // distinct per regulated product (or split across partial authorizations),
+  // so the transport boundary must not reject a cart the pharmacy preflight
+  // has already accepted.
+  .max(MAX_PHARMACY_EVIDENCE_IDS_PER_SALE)
+  .superRefine((ids, ctx) => {
+    if (new Set(ids).size !== ids.length) {
+      ctx.addIssue({ code: 'custom', message: 'Prescription evidence ids must be unique' });
+    }
+  });
+
 /**
  * restaurant tip / propina method enum. `tipAmount` defaults
  * to 0 so retail tenants that ignore the input pay no contract cost.
@@ -127,9 +169,19 @@ export const createSaleInput = z
     customerId: z.string().optional(),
     /** Explicit operator-selected catalog tier. Omit for legacy customer-tier behavior. */
     priceTier: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
-    items: z.array(saleItemInput).min(1, 'At least one item is required'),
+    /** Accepted quotation converted atomically by this completed sale. */
+    sourceQuotationId: z.string().min(1).optional(),
+    /** Return linked atomically to this independent replacement sale. */
+    sourceReturnId: z.string().min(1).optional(),
+    // Keep the authoritative mutation aligned with promotion/pharmacy
+    // preflight. Besides avoiding a UI-success/server-surprise boundary, the
+    // finite cap bounds transaction, tax, lot and outbox work per command.
+    items: z.array(saleItemInput).min(1, 'At least one item is required').max(200),
     paymentMethod: paymentMethodEnum.default('cash'),
-    paymentStatus: paymentStatusEnum.default('pending'),
+    // Refund statuses are derived exclusively from normalized return rows.
+    // Accepting them on creation would produce stock/cash effects with no
+    // corresponding return evidence and make every downstream report lie.
+    paymentStatus: completablePaymentStatusEnum.default('pending'),
     status: saleStatusEnum.default('completed'),
     notes: z.string().optional(),
     amountReceived: z.number().min(0).optional(),
@@ -152,7 +204,7 @@ export const createSaleInput = z
      * persistence in this mode but still echoed onto `sales.paymentMethod`
      * using the dominant tender so legacy consumers keep rendering.
      */
-    payments: z.array(salePaymentInput).optional(),
+    payments: z.array(salePaymentInput).max(20).optional(),
     /**
      * optional restaurant table the draft is being opened on.
      * Server validates the row belongs to the active tenant and is active
@@ -169,6 +221,10 @@ export const createSaleInput = z
     approvalRequests: checkoutApprovalReferencesInput.optional(),
     /** local cart start; server bounds it against completion time. */
     checkoutStartedAt: z.string().datetime({ offset: true }).optional(),
+    /** Exact server quote accepted by a promotions-aware client. */
+    promotionFingerprint: promotionFingerprintInput.optional(),
+    /** Approved prescription evidence consumed only by a completed sale. */
+    pharmacyEvidenceIds: pharmacyEvidenceIdsInput.optional(),
   })
   .strict()
   .refine(value => !value.tipMethod || (value.tipAmount ?? 0) > 0, {
@@ -179,6 +235,58 @@ export const createSaleInput = z
     message: 'serviceChargeRate requires a positive serviceChargeAmount',
     path: ['serviceChargeAmount'],
   })
+  .refine(value => value.sourceQuotationId === undefined || value.status === 'completed', {
+    message: 'Quotation conversion requires a completed sale',
+    path: ['status'],
+  })
+  .refine(value => value.sourceReturnId === undefined || value.status === 'completed', {
+    message: 'Exchange linking requires a completed sale',
+    path: ['status'],
+  })
+  .refine(value => value.promotionFingerprint === undefined || value.status === 'completed', {
+    message: 'Promotion quotes can only be consumed by completed sales',
+    path: ['promotionFingerprint'],
+  })
+  .refine(value => !value.pharmacyEvidenceIds?.length || value.status === 'completed', {
+    message: 'Prescription evidence can only be consumed by a completed sale',
+    path: ['pharmacyEvidenceIds'],
+  })
+  .refine(
+    value => value.promotionFingerprint === undefined || value.sourceQuotationId === undefined,
+    {
+      message: 'Accepted quotations cannot be dynamically repriced',
+      path: ['promotionFingerprint'],
+    }
+  )
+  .refine(
+    value =>
+      value.sourceQuotationId === undefined ||
+      value.items.every(item => item.sourceQuotationItemId !== undefined),
+    {
+      message: 'Quotation conversion requires an identity for every line',
+      path: ['items'],
+    }
+  )
+  .refine(
+    value =>
+      !value.payments?.some(
+        payment => payment.method === 'loyalty' || payment.method === 'store_credit'
+      ) ||
+      (value.customerId !== undefined && value.customerId.length > 0),
+    {
+      message: 'Loyalty and store-credit tenders require a customer',
+      path: ['customerId'],
+    }
+  )
+  .refine(
+    value =>
+      !['loyalty', 'store_credit'].includes(value.paymentMethod) ||
+      (value.payments !== undefined && value.payments.length > 0),
+    {
+      message: 'Customer-value tenders must be itemized in payments',
+      path: ['payments'],
+    }
+  )
   .refine(
     value =>
       value.paymentMethod !== 'credit' ||
@@ -203,7 +311,8 @@ export const updateSaleInput = z
   .object({
     id: z.string().min(1, 'ID is required'),
     paymentMethod: paymentMethodEnum.optional(),
-    paymentStatus: paymentStatusEnum.optional(),
+    // Only the return command may transition a sale into a refund status.
+    paymentStatus: completablePaymentStatusEnum.optional(),
     notes: z.string().nullable().optional(),
   })
   .strict();
@@ -216,13 +325,96 @@ export const voidSaleInput = z
   })
   .strict();
 
-export const returnSaleInput = z
+const returnSaleLineInput = z
   .object({
-    id: z.string().min(1, 'ID is required'),
-    reason: z.string().optional(),
-    approvalRequestId: z.string().min(1).optional(),
+    saleItemId: z.string().min(1),
+    quantity: z.number().finite().positive(),
+    lotAllocations: z
+      .array(
+        z
+          .object({
+            saleItemLotId: z.string().min(1),
+            quantity: z.number().finite().positive(),
+          })
+          .strict()
+      )
+      .max(100)
+      .optional(),
+    serialIds: z.array(z.string().min(1)).max(100).optional(),
   })
   .strict();
+
+const returnSelectionShape = {
+  id: z.string().min(1, 'ID is required'),
+  items: z.array(returnSaleLineInput).min(1).max(200).optional(),
+  destination: z.enum(['original', 'store_credit']).optional(),
+};
+
+const returnExternalReferencesInput = z
+  .array(
+    z
+      .object({
+        salePaymentId: z.string().min(1).nullable(),
+        reference: z.string().trim().min(1).max(120),
+      })
+      .strict()
+  )
+  .max(20)
+  .optional();
+
+function validateReturnSelection(
+  value: {
+    items?: z.infer<typeof returnSaleLineInput>[] | undefined;
+    externalReferences?: Array<{ salePaymentId: string | null; reference: string }> | undefined;
+  },
+  ctx: z.RefinementCtx
+) {
+  const lineIds = value.items?.map(item => item.saleItemId) ?? [];
+  if (new Set(lineIds).size !== lineIds.length) {
+    ctx.addIssue({ code: 'custom', path: ['items'], message: 'Return lines must be unique' });
+  }
+  for (const [index, line] of (value.items ?? []).entries()) {
+    const lotIds = line.lotAllocations?.map(allocation => allocation.saleItemLotId) ?? [];
+    if (new Set(lotIds).size !== lotIds.length) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['items', index, 'lotAllocations'],
+        message: 'Return lots must be unique',
+      });
+    }
+    if (line.serialIds && new Set(line.serialIds).size !== line.serialIds.length) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['items', index, 'serialIds'],
+        message: 'Return serials must be unique',
+      });
+    }
+  }
+  const paymentKeys =
+    value.externalReferences?.map(reference => reference.salePaymentId ?? '__legacy__') ?? [];
+  if (new Set(paymentKeys).size !== paymentKeys.length) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['externalReferences'],
+      message: 'External refund references must be unique',
+    });
+  }
+}
+
+export const previewReturnInput = z
+  .object(returnSelectionShape)
+  .strict()
+  .superRefine(validateReturnSelection);
+
+export const returnSaleInput = z
+  .object({
+    ...returnSelectionShape,
+    externalReferences: returnExternalReferencesInput,
+    reason: z.string().trim().max(500).optional(),
+    approvalRequestId: z.string().min(1).optional(),
+  })
+  .strict()
+  .superRefine(validateReturnSelection);
 
 // ============================================================================
 // park-and-resume inputs
@@ -271,9 +463,10 @@ export const changeSaleTableInput = z
  * - `saleItemIds` must be non-empty and every id must currently belong
  * to the source draft. Mismatches collapse to a single error code so
  * we do not leak cross-draft existence.
- * - `tableId` is the FK for the NEW draft. `null` leaves the new draft
- * free-text; non-null is validated against the active table catalog
- * for the source draft's site (same shape as `changeTable`).
+ * - `tableId` is the FK for the NEW draft. For a normalized restaurant
+ * check, `null` means the current physical table because a live check cannot
+ * be detached. A tableless legacy draft remains free-text. Non-null values are
+ * validated against the active table catalog for the source draft's site.
  * - `label` provides an optional free-text fallback when `tableId` is
  * null. Ignored when `tableId` resolves to a real row (the resolved
  * table name takes precedence so the panel display stays in sync
@@ -282,7 +475,10 @@ export const changeSaleTableInput = z
 export const splitDraftInput = z
   .object({
     sourceSaleId: z.string().min(1, 'Source sale ID is required'),
-    saleItemIds: z.array(z.string().min(1)).min(1, 'At least one sale item must be selected'),
+    saleItemIds: z
+      .array(z.string().min(1))
+      .min(1, 'At least one sale item must be selected')
+      .max(200, 'A draft split cannot contain more than 200 sale items'),
     tableId: z.string().min(1).nullable(),
     label: z.string().trim().max(80).optional(),
   })
@@ -303,10 +499,10 @@ export const resumeSaleInput = z.object({
 export const listDraftsInput = z.object({
   page: z.number().int().min(1).default(1),
   perPage: z.number().int().min(1).max(200).default(50),
-  /** When provided, drafts are scoped to this site. Ignored for cashiers
-   * because they can only ever see drafts from sessions they own. */
+  /** When provided, both cash-session and physical-table ownership must match
+   * this site. Site-less legacy drafts remain visible for recovery. */
   siteId: z.string().optional(),
-  /** Free-text match against `suspendedLabel` + `saleNumber`. */
+  /** Free-text match against suspension/check labels and sale number. */
   search: z.string().trim().max(120).optional(),
 });
 
@@ -372,7 +568,7 @@ export const completeDraftInput = z
      * The server re-validates to avoid trusting stale client-side
      * computations.
      */
-    payments: z.array(salePaymentInput).optional(),
+    payments: z.array(salePaymentInput).max(20).optional(),
     /**
      * /  — mirrors createSaleInput.creditOverride for
      * frozen drafts. Non-admin callers need a payload-bound admin grant.
@@ -382,6 +578,9 @@ export const completeDraftInput = z
     approvalRequests: checkoutApprovalReferencesInput.optional(),
     /** reset when a suspended draft is resumed into the local cart. */
     checkoutStartedAt: z.string().datetime({ offset: true }).optional(),
+    /** Exact server quote accepted for atomic completion-time repricing. */
+    promotionFingerprint: promotionFingerprintInput.optional(),
+    pharmacyEvidenceIds: pharmacyEvidenceIdsInput.optional(),
   })
   .strict()
   .refine(value => !value.tipMethod || (value.tipAmount ?? 0) > 0, {
@@ -392,6 +591,25 @@ export const completeDraftInput = z
     message: 'serviceChargeRate requires a positive serviceChargeAmount',
     path: ['serviceChargeAmount'],
   });
+
+export const promotionQuoteInput = z.discriminatedUnion('mode', [
+  z
+    .object({
+      mode: z.literal('fresh'),
+      customerId: z.string().min(1).nullable().optional(),
+      priceTier: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
+      items: z.array(saleItemInput).min(1).max(200),
+      discountAmount: z.number().finite().nonnegative().default(0),
+    })
+    .strict(),
+  z
+    .object({
+      mode: z.literal('fromDraft'),
+      saleId: z.string().min(1),
+      customerId: z.string().min(1).nullable().optional(),
+    })
+    .strict(),
+]);
 
 // /  — no Zod refine here for "credit tender requires
 // customerId". The effective customer is the input's when it carries one
@@ -443,4 +661,5 @@ export type ResumeSaleInput = z.infer<typeof resumeSaleInput>;
 export type ListDraftsInput = z.infer<typeof listDraftsInput>;
 export type DiscardDraftInput = z.infer<typeof discardDraftInput>;
 export type CompleteDraftInput = z.infer<typeof completeDraftInput>;
+export type PromotionQuoteInput = z.infer<typeof promotionQuoteInput>;
 export type ChangeSaleTableInput = z.infer<typeof changeSaleTableInput>;

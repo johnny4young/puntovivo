@@ -71,7 +71,7 @@ describe('recordCreditSaleLedger', () => {
   });
 
   it('rejects zero or negative credit amounts', async () => {
-    await expect(
+    expect(() =>
       recordCreditSaleLedger({
         db: server.db,
         tenantId: 'irrelevant',
@@ -79,9 +79,9 @@ describe('recordCreditSaleLedger', () => {
         saleId: 'irrelevant',
         creditAmount: 0,
       })
-    ).rejects.toThrow(/positive finite/);
+    ).toThrow(/positive finite/);
 
-    await expect(
+    expect(() =>
       recordCreditSaleLedger({
         db: server.db,
         tenantId: 'irrelevant',
@@ -89,6 +89,6 @@ describe('recordCreditSaleLedger', () => {
         saleId: 'irrelevant',
         creditAmount: -100,
       })
-    ).rejects.toThrow(/positive finite/);
+    ).toThrow(/positive finite/);
   });
 });

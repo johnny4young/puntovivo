@@ -225,6 +225,25 @@ export function extractMetrics(lhr) {
 }
 
 /**
+ * Lighthouse's own CPU calibration for the machine that took the sample.
+ *
+ * The performance score is a composite dominated by Total Blocking Time, which
+ * tracks how busy the host CPU is. On a shared runner that shifts the WHOLE
+ * score distribution, so a tight within-run spread says nothing about whether
+ * the same commit would score the same elsewhere: this repo has measured the
+ * identical web bundle at 65 and at 73 on separate runs, each with an IQR of 1.
+ * Recording the benchmark index is what makes the next recalibration a
+ * data-driven decision instead of another guess at a tolerance.
+ *
+ * @param {unknown} lhr
+ * @returns {number | null} rounded index, or null when Lighthouse omitted it.
+ */
+export function extractRunnerBenchmark(lhr) {
+  const index = lhr?.environment?.benchmarkIndex;
+  return typeof index === 'number' && Number.isFinite(index) ? Math.round(index) : null;
+}
+
+/**
  * Extra performance signals printed for diagnosis but not budgeted directly.
  * The score can regress while LCP/TTI/CLS remain healthy (for example, when
  * Total Blocking Time rises), so keeping these in the gate log makes the root
@@ -255,6 +274,52 @@ export function extractDiagnostics(lhr) {
     mainThreadWorkMs: rounded('mainthread-work-breakdown'),
     bootupTimeMs: rounded('bootup-time'),
     topBootupScripts,
+  };
+}
+
+/** Bounded CPU diagnostics only; never log raw trace arguments or network headers. */
+export function extractCpuDiagnostics(trace) {
+  const events = Array.isArray(trace?.traceEvents) ? trace.traceEvents : [];
+  const renderers = new Map(
+    events
+      .filter(event => event.name === 'thread_name' && event.args?.name === 'CrRendererMain')
+      .map(event => [`${event.pid}:${event.tid}`, event])
+  );
+  // A process swap can leave multiple renderer records. Without a frame-bound
+  // identity, omit causal diagnostics rather than attribute another page's CPU.
+  if (renderers.size !== 1) return { topCpuEvents: [] };
+  const main = [...renderers.values()][0];
+  return {
+    topCpuEvents: events
+      .filter(
+        event =>
+          event.pid === main.pid &&
+          event.tid === main.tid &&
+          event.ph === 'X' &&
+          ['FunctionCall', 'EvaluateScript', 'Layout', 'UpdateLayoutTree'].includes(event.name) &&
+          Number.isFinite(event.dur) &&
+          event.dur > 0
+      )
+      .sort((left, right) => right.dur - left.dur)
+      .slice(0, 8)
+      .map(event => {
+        const data = event.args?.data ?? {};
+        let script = null;
+        try {
+          const pathname = new URL(data.url).pathname;
+          // Only hashed build assets, not user routes, query strings or origins.
+          if (/^\/assets\/[A-Za-z0-9_.-]+\.js$/.test(pathname)) script = pathname;
+        } catch {
+          /* Non-script events deliberately have no URL. */
+        }
+        return {
+          kind: event.name,
+          durationMs: Math.round(event.dur / 100) / 10,
+          script,
+          line: script && Number.isSafeInteger(data.lineNumber) ? data.lineNumber : null,
+          column: script && Number.isSafeInteger(data.columnNumber) ? data.columnNumber : null,
+        };
+      }),
   };
 }
 
@@ -566,6 +631,9 @@ export async function launchAndMeasure({
   maxScoreIqrPoints,
   scoreFloors = {},
 } = {}) {
+  // Lighthouse's CPU calibration for this host, one entry per sample. Reported
+  // with the measurement so a red score can be told apart from a slow runner.
+  const benchmarkIndices = [];
   let chromium;
   let lighthouse;
   try {
@@ -647,9 +715,14 @@ export async function launchAndMeasure({
           );
           if (runnerResult?.lhr) {
             samples.push(extractMetrics(runnerResult.lhr));
+            const benchmark = extractRunnerBenchmark(runnerResult.lhr);
+            if (benchmark !== null) benchmarkIndices.push(benchmark);
             console.log(
               `check-lighthouse: diagnostics ${route.key} sample ${sample}/${totalSamples} = ${JSON.stringify(
-                extractDiagnostics(runnerResult.lhr)
+                {
+                  ...extractDiagnostics(runnerResult.lhr),
+                  ...extractCpuDiagnostics(runnerResult.artifacts?.Trace),
+                }
               )}`
             );
           } else {
@@ -715,6 +788,12 @@ export async function launchAndMeasure({
     if (Object.keys(measured).length === 0) {
       console.warn('check-lighthouse: WARN skipped — no route produced a Lighthouse result.');
       return null;
+    }
+    if (benchmarkIndices.length > 0) {
+      const sorted = [...benchmarkIndices].sort((a, b) => a - b);
+      console.log(
+        `check-lighthouse: runner cpu benchmarkIndex median=${medianOfSorted(sorted)} range=${sorted[0]}-${sorted.at(-1)} samples=${sorted.length}`
+      );
     }
     return currentLighthouseEvidence(measured);
   } catch (err) {

@@ -4,6 +4,13 @@ import { Modal } from '@/components/form-controls/Modal';
 import { trpc } from '@/lib/trpc';
 import type { InventoryBalanceListItem } from '@/types';
 import type { InventoryBalancesPanelSite } from './InventoryBalancesPanel';
+import { ExactLotAllocationEditor } from './LotEditors';
+import {
+  normalizeExactLotAllocations,
+  sumExactLotAllocations,
+  type ExactLotAllocationDraft,
+  type ExactLotOption,
+} from './lotForm';
 
 export interface InventoryTransferFormValues {
   fromSiteId: string;
@@ -13,6 +20,7 @@ export interface InventoryTransferFormValues {
   notes: string;
   defer: boolean;
   serialIds?: string[];
+  lotAllocations?: Array<{ lotId: string; quantity: number }>;
 }
 
 interface InventoryTransferModalProps {
@@ -56,6 +64,7 @@ export function InventoryTransferModal({
   const [notes, setNotes] = useState('');
   const [defer, setDefer] = useState(false);
   const [serialIds, setSerialIds] = useState<string[]>([]);
+  const [lotAllocations, setLotAllocations] = useState<ExactLotAllocationDraft>({});
   const [formError, setFormError] = useState<string | null>(null);
 
   const productOptions = useMemo(
@@ -66,6 +75,7 @@ export function InventoryTransferModal({
           value: balance.productId,
           label: `${balance.productName} — ${balance.productSku}`,
           onHand: balance.onHand,
+          tracksLots: balance.tracksLots,
           tracksSerials: balance.tracksSerials,
         })),
     [sourceBalances]
@@ -73,12 +83,37 @@ export function InventoryTransferModal({
 
   const selectedBalance = productOptions.find(option => option.value === productId);
   const tracksSerials = selectedBalance?.tracksSerials === true;
+  const tracksLots = selectedBalance?.tracksLots === true;
   const serialsQuery = trpc.productSerials.list.useQuery(
     { siteId: fromSiteId, productId, sellableOnly: true },
     { enabled: tracksSerials && fromSiteId.length > 0 && productId.length > 0 }
   );
   const availableSerials = serialsQuery.data?.items ?? [];
-  const parsedQuantity = tracksSerials ? serialIds.length : Number.parseFloat(quantity);
+  const lotsQuery = trpc.inventoryLots.list.useQuery(
+    { siteId: fromSiteId, productId, activeOnly: false },
+    { enabled: tracksLots && fromSiteId.length > 0 && productId.length > 0 }
+  );
+  const availableLots: ExactLotOption[] = useMemo(
+    () =>
+      (lotsQuery.data?.items ?? [])
+        .filter(lot => lot.onHand > 0)
+        .map(lot => ({
+          id: lot.id,
+          lotNumber: lot.lotNumber,
+          expiresAt: lot.expiresAt,
+          status: lot.status,
+          availableQuantity: lot.onHand,
+        })),
+    [lotsQuery.data]
+  );
+  const parsedQuantity = tracksSerials
+    ? serialIds.length
+    : tracksLots
+      ? sumExactLotAllocations(lotAllocations)
+      : Number.parseFloat(quantity);
+  const normalizedLotAllocations = tracksLots
+    ? normalizeExactLotAllocations(availableLots, lotAllocations)
+    : null;
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -108,6 +143,10 @@ export function InventoryTransferModal({
       );
       return;
     }
+    if (tracksLots && !normalizedLotAllocations) {
+      setFormError(t('transferModal.errors.lotAllocationInvalid'));
+      return;
+    }
 
     await onSubmit({
       fromSiteId,
@@ -117,6 +156,7 @@ export function InventoryTransferModal({
       notes: notes.trim(),
       defer,
       ...(tracksSerials ? { serialIds } : {}),
+      ...(normalizedLotAllocations ? { lotAllocations: normalizedLotAllocations } : {}),
     });
   }
 
@@ -192,6 +232,7 @@ export function InventoryTransferModal({
               setProductId(event.target.value);
               setQuantity('');
               setSerialIds([]);
+              setLotAllocations({});
             }}
           >
             <option value="">{t('transferModal.productPlaceholder')}</option>
@@ -217,9 +258,13 @@ export function InventoryTransferModal({
             step="any"
             min={0}
             className="input mt-1"
-            value={tracksSerials ? String(serialIds.length) : quantity}
-            readOnly={tracksSerials}
-            aria-readonly={tracksSerials}
+            value={
+              tracksSerials || tracksLots
+                ? String(Number.isFinite(parsedQuantity) ? parsedQuantity : 0)
+                : quantity
+            }
+            readOnly={tracksSerials || tracksLots}
+            aria-readonly={tracksSerials || tracksLots}
             onChange={event => setQuantity(event.target.value)}
           />
           {selectedBalance && (
@@ -269,6 +314,19 @@ export function InventoryTransferModal({
               {t('transferModal.serialCount', { count: serialIds.length })}
             </p>
           </fieldset>
+        )}
+
+        {tracksLots && (
+          <ExactLotAllocationEditor
+            idPrefix="inventory-transfer-source"
+            options={availableLots}
+            value={lotAllocations}
+            disabled={isSaving || lotsQuery.isLoading}
+            emptyMessage={
+              lotsQuery.isLoading ? t('transferModal.lotsLoading') : t('transferModal.noLots')
+            }
+            onChange={setLotAllocations}
+          />
         )}
 
         <label className="block">

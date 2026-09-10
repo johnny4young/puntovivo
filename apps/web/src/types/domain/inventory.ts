@@ -10,7 +10,9 @@ export interface InventoryBalanceListItem {
   productId: string;
   productName: string;
   productSku: string;
+  tracksLots?: boolean;
   tracksSerials?: boolean;
+  catalogType?: string;
   onHand: number;
   reserved: number;
   available: number;
@@ -37,6 +39,8 @@ export interface InventoryMovement {
   id: string;
   tenantId: string;
   productId: string;
+  siteId?: string | null;
+  siteName?: string | null;
   product?: Product;
   productName?: string | null;
   productSku?: string | null;

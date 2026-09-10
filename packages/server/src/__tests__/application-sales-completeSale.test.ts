@@ -275,6 +275,24 @@ afterAll(async () => {
 });
 
 describe('completeSale (fresh path)', () => {
+  it('rejects fabricated refund states at the application boundary', async () => {
+    for (const paymentStatus of ['partially_refunded', 'refunded'] as const) {
+      await expect(
+        completeSale(buildContext(), {
+          mode: 'fresh',
+          customerId: null,
+          items: [],
+          paymentMethod: 'cash',
+          paymentStatus,
+          status: 'completed',
+          discountAmount: 0,
+        })
+      ).rejects.toMatchObject({
+        cause: { errorCode: 'SALE_PAYMENT_STATUS_RETURN_MANAGED' },
+      });
+    }
+  });
+
   it('persists sale + payments + inventory movement and advances the sequential', async () => {
     const customerId = await seedCustomer('Acme Direct', 'ACME-TAX-001');
     const productId = await seedProduct({
@@ -829,6 +847,71 @@ describe('completeSale (fresh path)', () => {
       .where(eq(cashMovements.referenceId, saleId))
       .all();
     expect(movements).toHaveLength(0);
+  });
+
+  it('serializes concurrent checkout against the active-site stock and sequential', async () => {
+    const productId = await seedProduct({
+      name: 'CS Last Unit',
+      sku: 'CS-LAST-UNIT',
+      stock: 1,
+      price: 10,
+      taxRate: 0,
+    });
+    const db = getDatabase();
+    const beforeSequential = await db
+      .select({ currentValue: sequentials.currentValue })
+      .from(sequentials)
+      .where(
+        and(
+          eq(sequentials.tenantId, tenantId),
+          eq(sequentials.documentType, 'sale'),
+          eq(sequentials.siteId, siteId)
+        )
+      )
+      .get();
+
+    const checkout = () =>
+      completeSale(buildContext(), {
+        mode: 'fresh',
+        customerId: null,
+        items: [
+          {
+            productId,
+            unitId: baseUnitId,
+            quantity: 1,
+            unitPrice: 10,
+            discount: 0,
+          },
+        ],
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        status: 'completed',
+        amountReceived: 10,
+        discountAmount: 0,
+      });
+    const attempts = await Promise.allSettled([checkout(), checkout()]);
+
+    expect(attempts.filter(attempt => attempt.status === 'fulfilled')).toHaveLength(1);
+    const rejected = attempts.find(
+      (attempt): attempt is PromiseRejectedResult => attempt.status === 'rejected'
+    );
+    expect(rejected?.reason).toMatchObject({
+      cause: { errorCode: 'SALE_INSUFFICIENT_STOCK' },
+    });
+    expect(getProductStockTotal(db, tenantId, productId)).toBe(0);
+
+    const afterSequential = await db
+      .select({ currentValue: sequentials.currentValue })
+      .from(sequentials)
+      .where(
+        and(
+          eq(sequentials.tenantId, tenantId),
+          eq(sequentials.documentType, 'sale'),
+          eq(sequentials.siteId, siteId)
+        )
+      )
+      .get();
+    expect((afterSequential?.currentValue ?? 0) - (beforeSequential?.currentValue ?? 0)).toBe(1);
   });
 });
 

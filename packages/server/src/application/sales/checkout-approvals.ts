@@ -21,6 +21,7 @@ export interface CheckoutApprovalPolicyInput {
   role: UserRole;
   isCompletion: boolean;
   hasDiscount: boolean;
+  hasPriceOverride: boolean;
   hasCreditTender: boolean;
   creditOverride: boolean;
 }

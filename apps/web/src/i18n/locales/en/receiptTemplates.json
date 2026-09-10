@@ -238,6 +238,8 @@
         "card": "Card",
         "transfer": "Transfer",
         "credit": "Credit",
+        "loyalty": "Loyalty points",
+        "storeCredit": "Store credit",
         "other": "Other"
       }
     }

@@ -113,6 +113,10 @@ describe('ProfitMarginReportPage', () => {
     });
     render(<ProfitMarginReportPage />);
     const summary = screen.getByTestId('margin-summary');
+    expect(summary).toHaveTextContent(/Net product revenue|Ingresos netos por productos/);
+    expect(
+      screen.getByText(/never today's catalog cost|nunca al catálogo actual/)
+    ).toBeInTheDocument();
     expect(summary.textContent).toMatch(/170/);
     expect(summary.textContent).toMatch(/63/);
     expect(summary.textContent).toMatch(/107/);

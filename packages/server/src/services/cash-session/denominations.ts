@@ -33,8 +33,14 @@ export function createDefaultCashSessionDenominations(): CashSessionDenomination
 export function getCashSessionDenominationTotal(
   denominations: readonly CashSessionDenomination[]
 ): number {
+  // Round the per-denomination product and the running total, not just the
+  // result: this feeds `cash_sessions.actual_count`, the one money column on
+  // that table with no 2-decimal CHECK, while the variance beside it is
+  // rounded separately by `getCashSessionOverShort`. Leaving the count raw
+  // lets a sub-unit-coin drawer (3 x 0.10 + 1 x 0.20 -> 0.5000000000000001)
+  // store a count that no longer reconciles with its own variance.
   return denominations.reduce((total, denomination) => {
-    return total + denomination.value * denomination.count;
+    return roundMoney(total + roundMoney(denomination.value * denomination.count));
   }, 0);
 }
 

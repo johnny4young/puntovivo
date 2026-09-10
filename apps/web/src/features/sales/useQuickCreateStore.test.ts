@@ -116,13 +116,15 @@ describe('useQuickCreateStore', () => {
 
   it('starts with pendingCustomerAttachId null', () => {
     expect(useQuickCreateStore.getState().pendingCustomerAttachId).toBeNull();
+    expect(useQuickCreateStore.getState().pendingCustomerAttachWorkspaceId).toBeNull();
   });
 
   it('setPendingCustomerAttach fills the slot leaving the other slots untouched', () => {
     useQuickCreateStore.getState().requestCreateCustomer({ defaultName: 'pre-set' });
-    useQuickCreateStore.getState().setPendingCustomerAttach('cus-new-1');
+    useQuickCreateStore.getState().setPendingCustomerAttach('cus-new-1', 'workspace-1');
     const state = useQuickCreateStore.getState();
     expect(state.pendingCustomerAttachId).toBe('cus-new-1');
+    expect(state.pendingCustomerAttachWorkspaceId).toBe('workspace-1');
     // Other slots remain intact.
     expect(state.requestedCreateCustomer).toEqual({ defaultName: 'pre-set' });
     expect(state.requestedCreateProduct).toBeNull();
@@ -133,6 +135,7 @@ describe('useQuickCreateStore', () => {
     const result = useQuickCreateStore.getState().consumePendingCustomerAttach();
     expect(result).toBe('cus-x');
     expect(useQuickCreateStore.getState().pendingCustomerAttachId).toBeNull();
+    expect(useQuickCreateStore.getState().pendingCustomerAttachWorkspaceId).toBeNull();
   });
 
   it('consumePendingCustomerAttach returns null and does not flip state when the slot is empty', () => {
@@ -156,5 +159,6 @@ describe('useQuickCreateStore', () => {
     expect(state.requestedCreateProduct).toBeNull();
     expect(state.requestedCreateCustomer).toBeNull();
     expect(state.pendingCustomerAttachId).toBeNull();
+    expect(state.pendingCustomerAttachWorkspaceId).toBeNull();
   });
 });

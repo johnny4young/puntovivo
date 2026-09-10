@@ -2,6 +2,7 @@ export const CHECKOUT_APPROVAL_RESOURCE_TYPE = 'sale_checkout';
 
 export const checkoutApprovalActionEnum = [
   'sale_discount',
+  'sale_price_override',
   'credit_sale',
   'credit_override',
   'sale_after_hours',
@@ -13,6 +14,7 @@ export interface CheckoutApprovalPolicyInput {
   role: string | undefined;
   isCompletion: boolean;
   hasDiscount: boolean;
+  hasPriceOverride: boolean;
   hasCreditTender: boolean;
   creditOverride: boolean;
 }
@@ -26,6 +28,9 @@ export function getRequiredCheckoutApprovalActions(
   const actions: CheckoutApprovalAction[] = [];
   if (input.hasDiscount && input.role === 'cashier') {
     actions.push('sale_discount');
+  }
+  if (input.hasPriceOverride && input.role === 'cashier') {
+    actions.push('sale_price_override');
   }
   if (input.creditOverride) {
     if (input.role !== 'admin') actions.push('credit_override');
@@ -64,9 +69,11 @@ export function getCheckoutApprovalDiscountAmount(
 }
 
 export interface CheckoutApprovalPayment {
-  method: 'cash' | 'card' | 'transfer' | 'credit' | 'other';
+  method: 'cash' | 'card' | 'transfer' | 'credit' | 'loyalty' | 'store_credit' | 'other';
   amount: number;
   reference?: string | null | undefined;
+  /** Whole points bound to a loyalty tender. Null for every other method. */
+  loyaltyPoints?: number | null | undefined;
 }
 
 /**
@@ -119,6 +126,7 @@ function normalizedPayments(payments: CheckoutApprovalPayment[]) {
     method: payment.method,
     amount: roundTo(payment.amount, 2),
     reference: payment.reference?.trim() || null,
+    loyaltyPoints: payment.loyaltyPoints ?? null,
   }));
 }
 

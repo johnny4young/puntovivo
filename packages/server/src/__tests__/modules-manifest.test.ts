@@ -19,6 +19,7 @@ import {
   MODULES_SCHEMA_VERSION,
   buildModulesBlob,
   isModuleActiveInSettings,
+  resolveConfiguredModulesState,
   isModuleId,
   resolveModulesState,
   visibleDescriptors,
@@ -189,6 +190,13 @@ describe('resolveModulesState', () => {
       expect(state).toHaveProperty(id);
     }
   });
+
+  it('honors explicit activation for the operational customer-display workflow', () => {
+    expect(resolveConfiguredModulesState({ 'customer-display': true })['customer-display']).toBe(
+      true
+    );
+    expect(resolveModulesState({ 'customer-display': true })['customer-display']).toBe(true);
+  });
 });
 
 describe('visibleDescriptors', () => {
@@ -283,5 +291,11 @@ describe('isModuleActiveInSettings', () => {
     expect(isModuleActiveInSettings(settings, 'events-api')).toBe(true);
     // Default for an untouched module.
     expect(isModuleActiveInSettings(settings, 'quotations')).toBe(true);
+  });
+
+  it('resolves the opt-in customer-display workflow from tenant settings', () => {
+    expect(
+      isModuleActiveInSettings({ modules: { 'customer-display': true } }, 'customer-display')
+    ).toBe(true);
   });
 });

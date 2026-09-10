@@ -22,6 +22,24 @@
  */
 
 import type { OutboxKind } from '../../db/schema.js';
+import type { DatabaseInstance } from '../../db/index.js';
+
+/** A lease identifies one tenant-local processing attempt, never just a row. */
+export interface OutboxClaim {
+  id: string;
+  tenantId: string;
+  claimToken: string;
+}
+
+/** SQLite mutations must finish before the owning transaction returns; no async callbacks. */
+export type OutboxMutation = (tx: DatabaseInstance) => undefined;
+
+/** A claimed projection always carries the non-null token needed to fence acknowledgments. */
+export type ClaimedOutboxRow<TPayload, TStatus extends string = string> = OutboxRow<
+  TPayload,
+  TStatus
+> &
+  OutboxClaim;
 
 /**
  * Normalized error shape that every concrete outbox surfaces in

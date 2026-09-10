@@ -22,12 +22,16 @@ import { dirname, join, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
-export const DEFAULT_WEB_HOST = 'localhost';
+// Use one explicit socket family for the availability probe, Vite bind and
+// browser URL. On macOS, `localhost` can resolve to ::1 for node:net while
+// Vite/Chromium reaches 127.0.0.1, allowing a foreign IPv4 listener to evade
+// the ownership preflight and answer the readiness request.
+export const DEFAULT_WEB_HOST = '127.0.0.1';
 // Keep the performance target separate from the normal Vite dev origin (3000)
 // so an operator's open POS tab cannot talk to the gate's throwaway database.
 // 5173 is already part of the standalone server's exact CORS allow-list.
 export const DEFAULT_WEB_PORT = 5173;
-export const DEFAULT_API_HOST = 'localhost';
+export const DEFAULT_API_HOST = '127.0.0.1';
 // The API must also be isolated: browser cookies are host-scoped rather than
 // port-scoped, and an old localhost:3000 tab otherwise sends its polling and
 // refresh traffic into the Lighthouse server on 8090. The gate builds a private

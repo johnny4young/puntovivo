@@ -22,6 +22,9 @@
 
 import { ADMIN_ONLY_ROLES, MANAGER_OR_ADMIN_ROLES, SALES_ROLES } from '@puntovivo/shared/roles';
 import { commandEnvelope } from './commandEnvelope.js';
+import type { ModuleId } from '../../services/modules/manifest.js';
+import { createModuleGuard } from './modules.js';
+import type { UserRole } from '@puntovivo/shared/roles';
 import { createRoleGuard } from './roles.js';
 import { tenantProcedure } from './tenant.js';
 
@@ -32,20 +35,71 @@ import { tenantProcedure } from './tenant.js';
  */
 export const criticalCommandProcedure = tenantProcedure.use(commandEnvelope);
 
-export const criticalCommandAdminProcedure = criticalCommandProcedure.use(
-  createRoleGuard(ADMIN_ONLY_ROLES, 'Only administrators can perform this action')
-);
+/**
+ * Every authorization and entitlement guard is chained BEFORE
+ * `commandEnvelope`, never after.
+ *
+ * `commandEnvelope` short-circuits on an idempotency cache hit, on a replay
+ * conflict, and while the original command is still processing: those paths
+ * return a result (or throw) WITHOUT calling `next()`, so anything chained
+ * after the envelope simply never runs. A role guard placed downstream would
+ * therefore be skipped on exactly the replay paths, letting a lower-privileged
+ * user on a shared terminal replay an administrator's idempotency key and
+ * receive the cached admin-only payload back. Ordering the guard first makes
+ * authorization apply to every path through the envelope, including the ones
+ * that never reach the procedure body.
+ *
+ * The same reasoning covers module entitlement, which is why
+ * `createCriticalCommandModuleProcedure` exists instead of chaining
+ * `createModuleGuard` onto a finished critical-command procedure: a module
+ * disabled after the original request would otherwise still serve its cached
+ * result to a replay of the same key.
+ */
+export const criticalCommandAdminProcedure = tenantProcedure
+  .use(createRoleGuard(ADMIN_ONLY_ROLES, 'Only administrators can perform this action'))
+  .use(commandEnvelope);
 
-export const criticalCommandManagerOrAdminProcedure = criticalCommandProcedure.use(
-  createRoleGuard(
-    MANAGER_OR_ADMIN_ROLES,
-    'Only administrators and managers can perform this action'
+export const criticalCommandManagerOrAdminProcedure = tenantProcedure
+  .use(
+    createRoleGuard(
+      MANAGER_OR_ADMIN_ROLES,
+      'Only administrators and managers can perform this action'
+    )
   )
-);
+  .use(commandEnvelope);
 
-export const criticalCommandCashierManagerOrAdminProcedure = criticalCommandProcedure.use(
-  createRoleGuard(
+export const criticalCommandCashierManagerOrAdminProcedure = tenantProcedure
+  .use(
+    createRoleGuard(
+      SALES_ROLES,
+      'Only cashiers, managers, and administrators can perform this action'
+    )
+  )
+  .use(commandEnvelope);
+
+/**
+ * Critical-command variant of the `*ProcedureWithModule` factories in
+ * `modules.ts`. Those compose onto plain role procedures, where appending the
+ * entitlement guard is safe; a critical command has an envelope that
+ * short-circuits, so the guard has to be layered in before it rather than
+ * chained after the finished procedure.
+ */
+export function createCriticalCommandModuleProcedure(
+  moduleId: ModuleId,
+  roles: readonly UserRole[],
+  message: string
+) {
+  return tenantProcedure
+    .use(createRoleGuard(roles, message))
+    .use(createModuleGuard(moduleId))
+    .use(commandEnvelope);
+}
+
+/** Cashier/manager/admin critical command gated on a module entitlement. */
+export function criticalCommandCashierManagerOrAdminProcedureWithModule(moduleId: ModuleId) {
+  return createCriticalCommandModuleProcedure(
+    moduleId,
     SALES_ROLES,
     'Only cashiers, managers, and administrators can perform this action'
-  )
-);
+  );
+}

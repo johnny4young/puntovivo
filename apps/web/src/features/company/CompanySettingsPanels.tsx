@@ -58,6 +58,11 @@ const CompanyReadinessCard = lazy(() =>
     default: module.CompanyReadinessCard,
   }))
 );
+const VerticalReadinessCard = lazy(() =>
+  import('./VerticalReadinessCard').then(module => ({
+    default: module.VerticalReadinessCard,
+  }))
+);
 
 interface CompanySettingsPanelsProps {
   activeTab: CompanyTabKey;
@@ -108,6 +113,7 @@ export function CompanySettingsPanels({
             }
           >
             <CompanyReadinessCard />
+            <VerticalReadinessCard />
           </Suspense>
         </div>
       )}

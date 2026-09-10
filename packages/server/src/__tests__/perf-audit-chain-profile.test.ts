@@ -39,6 +39,8 @@ let seedElapsedMs = 0;
 let verifyElapsedMs = 0;
 let redactElapsedMs = 0;
 let maxRssGrowthMiB = 0;
+let verifyMaxRssGrowthMiB = 0;
+let redactMaxRssGrowthMiB = 0;
 let rssBaselineMiB = 0;
 let queryPlan: string[] = [];
 
@@ -132,7 +134,7 @@ describe('100k audit-chain profile', () => {
 
   afterAll(async () => {
     process.stdout.write(
-      `audit-chain-profile measured=${JSON.stringify({ rows: budget.rows, seedElapsedMs: Number(seedElapsedMs.toFixed(2)), verifyElapsedMs: Number(verifyElapsedMs.toFixed(2)), redactElapsedMs: Number(redactElapsedMs.toFixed(2)), maxRssGrowthMiB: Number(maxRssGrowthMiB.toFixed(2)), queryPlan })}\n`
+      `audit-chain-profile measured=${JSON.stringify({ rows: budget.rows, seedElapsedMs: Number(seedElapsedMs.toFixed(2)), verifyElapsedMs: Number(verifyElapsedMs.toFixed(2)), redactElapsedMs: Number(redactElapsedMs.toFixed(2)), verifyMaxRssGrowthMiB: Number(verifyMaxRssGrowthMiB.toFixed(2)), redactMaxRssGrowthMiB: Number(redactMaxRssGrowthMiB.toFixed(2)), maxRssGrowthMiB: Number(maxRssGrowthMiB.toFixed(2)), queryPlan })}\n`
     );
     if (server) await server.close();
     configureAuditAnchor({});
@@ -164,7 +166,8 @@ describe('100k audit-chain profile', () => {
     const verification = await verifyAuditChain(getDatabase(), tenantId);
     verifyElapsedMs = performance.now() - startedAt;
     clearTimeout(timer);
-    maxRssGrowthMiB = Math.max(maxRssGrowthMiB, maxRssMiB() - rssBaselineMiB);
+    verifyMaxRssGrowthMiB = maxRssMiB() - rssBaselineMiB;
+    maxRssGrowthMiB = Math.max(maxRssGrowthMiB, verifyMaxRssGrowthMiB);
 
     expect(verification).toMatchObject({ valid: true, checkedCount: budget.rows });
     expect(timerYielded).toBe(true);
@@ -184,7 +187,8 @@ describe('100k audit-chain profile', () => {
       })
     );
     redactElapsedMs = performance.now() - startedAt;
-    maxRssGrowthMiB = Math.max(maxRssGrowthMiB, maxRssMiB() - rssBaselineMiB);
+    redactMaxRssGrowthMiB = maxRssMiB() - rssBaselineMiB;
+    maxRssGrowthMiB = Math.max(maxRssGrowthMiB, redactMaxRssGrowthMiB);
 
     expect(redacted).toBe(1);
     expect(redactElapsedMs).toBeLessThanOrEqual(

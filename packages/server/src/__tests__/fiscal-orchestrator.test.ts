@@ -177,8 +177,11 @@ async function seedFiscalTenant(slugSuffix: string, enableFlag: boolean): Promis
     toNumber: 10000,
     currentNumber: 0,
     technicalKey: 'fc8eac422eba16e22ffd8c6f94b3f40a6e38162c',
-    validFrom: now,
-    validUntil: now,
+    // A real DIAN resolution is valid for months. The fixture used to set
+    // validFrom and validUntil both to `now`, a zero-width window that no
+    // resolution has, and nothing noticed because nothing checked.
+    validFrom: new Date(Date.parse(now) - 86_400_000).toISOString(),
+    validUntil: new Date(Date.parse(now) + 365 * 86_400_000).toISOString(),
     isActive: true,
     createdAt: now,
     updatedAt: now,
@@ -236,6 +239,12 @@ async function seedCompletedSale(opts: {
     id: nanoid(),
     saleId,
     productId: opts.harness.productId,
+    // A sale written by the app always freezes these (runFreshSale copies the
+    // resolved catalog labels onto the line). The fixture used to omit them
+    // and lean on the emitter's live-catalog fallback, which is exactly the
+    // fabrication that fallback was removed for.
+    productNameSnapshot: 'Product as sold',
+    productSkuSnapshot: 'SKU-AS-SOLD',
     quantity: opts.itemQuantity ?? 1,
     unitPrice: opts.itemUnitPrice ?? subtotal,
     unitEquivalence: 1,
@@ -296,8 +305,8 @@ async function seedSecondSiteResolution(
     toNumber: 10000,
     currentNumber: 41,
     technicalKey: 'fc8eac422eba16e22ffd8c6f94b3f40a6e38162c',
-    validFrom: now,
-    validUntil: now,
+    validFrom: new Date(Date.parse(now) - 86_400_000).toISOString(),
+    validUntil: new Date(Date.parse(now) + 365 * 86_400_000).toISOString(),
     isActive: true,
     createdAt: now,
     updatedAt: now,
@@ -535,8 +544,8 @@ describe('emitFiscalDocument', () => {
       .where(eq(fiscalDocumentItems.fiscalDocumentId, result!.id))
       .all();
     expect(items).toHaveLength(1);
-    expect(items[0]?.productName).toBe(`Product a`);
-    expect(items[0]?.productSku).toBe(`SKU-a`);
+    expect(items[0]?.productName).toBe('Product as sold');
+    expect(items[0]?.productSku).toBe('SKU-AS-SOLD');
     expect(items[0]?.quantity).toBe(1);
     expect(items[0]?.lineTotal).toBeCloseTo(119);
     expect(items[0]?.taxCategoryCode).toBe('01');
@@ -820,8 +829,13 @@ describe('emitFiscalDocument', () => {
       .from(fiscalDocumentItems)
       .where(eq(fiscalDocumentItems.fiscalDocumentId, result!.id))
       .all();
-    expect(items[0]?.productName).toBe('Product a');
-    expect(items[0]?.productSku).toBe('SKU-a');
+    // The SALE-time labels, not the catalog's. This assertion used to read
+    // 'Product a' -- the live catalog name at emission -- which passed only
+    // because the emitter fell back to the catalog when the line carried no
+    // snapshot. Now the line carries one, so the document proves the stronger
+    // thing: a rename before OR after emission cannot reach the document.
+    expect(items[0]?.productName).toBe('Product as sold');
+    expect(items[0]?.productSku).toBe('SKU-AS-SOLD');
 
     await db
       .update(products)
@@ -894,6 +908,8 @@ describe('emitFiscalDocument', () => {
       id: nanoid(),
       saleId,
       productId: harness.productId,
+      productNameSnapshot: 'Product as sold',
+      productSkuSnapshot: 'SKU-AS-SOLD',
       quantity: 1,
       unitPrice: 100,
       unitEquivalence: 1,

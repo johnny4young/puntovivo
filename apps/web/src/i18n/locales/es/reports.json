@@ -2,7 +2,7 @@
   "margin": {
     "kicker": "Finanzas",
     "title": "Rentabilidad",
-    "description": "Ingresos realizados, costo de lo vendido y margen bruto del rango seleccionado. El costo sale de los lotes exactos consumidos en cada venta y usa el costo del producto cuando la línea no maneja lotes.",
+    "description": "Ingresos por productos después de descuentos y devoluciones, sin impuestos, propinas ni cargos de servicio. El costo corresponde a los lotes consumidos o al costo del producto guardado al vender, nunca al catálogo actual.",
     "filters": {
       "from": "Desde",
       "to": "Hasta"
@@ -10,7 +10,7 @@
     "loading": "Cargando el reporte…",
     "error": "No se pudo cargar el reporte de rentabilidad.",
     "summary": {
-      "revenue": "Ingresos",
+      "revenue": "Ingresos netos por productos",
       "cogs": "Costo de lo vendido",
       "cogsSplit": "Lotes {{lots}} · Costo de producto {{snapshot}}",
       "grossProfit": "Ganancia bruta",
@@ -24,7 +24,7 @@
       "columns": {
         "product": "Producto",
         "quantity": "Cantidad",
-        "revenue": "Ingresos",
+        "revenue": "Ingresos netos",
         "cogs": "Costo",
         "grossProfit": "Ganancia bruta",
         "margin": "Margen"
@@ -231,6 +231,8 @@
         "inc": "INC por pagar",
         "tips": "Propinas por pagar",
         "receivable": "Cuentas por cobrar",
+        "storeCredit": "Crédito a favor de clientes por pagar",
+        "loyalty": "Puntos de fidelidad por pagar",
         "refunds": "Devoluciones en ventas"
       }
     },
@@ -268,6 +270,7 @@
       "fiscalStatus": "Estado fiscal"
     },
     "unreconciled": "{{count}} venta(s) tienen impuestos que no cuadran con sus líneas ({{sales}}). Exportarlas clasificaría impuesto como ingreso; resuélvelas antes de exportar.",
+    "paymentUnreconciled": "{{count}} devolución(es) no cuadran con sus destinos de pago registrados ({{sales}}). Exportarlas inventaría dinero o lo movería entre cuentas; repara los registros antes de exportar.",
     "siigoCollision": "Dos ventas de sedes distintas comparten el mismo número de factura ({{consecutives}}) y Siigo las uniría en un solo documento. Exporta una sede a la vez con el filtro de sede."
   }
 }

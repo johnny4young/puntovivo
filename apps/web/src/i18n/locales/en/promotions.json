@@ -1,0 +1,90 @@
+{
+  "kicker": "Pricing",
+  "title": "Promotions",
+  "description": "Create explicit discount rules, review their scope, and activate them only when they are ready. Checkout always revalidates the current version.",
+  "create": "Create promotion",
+  "edit": "Edit promotion",
+  "loading": "Loading promotions…",
+  "error": "Promotions could not be loaded.",
+  "discount": "{{value}}% off",
+  "window": "From {{start}} to {{end}}",
+  "filter": {
+    "label": "Filter promotions by status",
+    "all": "All",
+    "draft": "Draft",
+    "active": "Active",
+    "paused": "Paused",
+    "archived": "Archived"
+  },
+  "status": {
+    "draft": "Draft",
+    "active": "Active",
+    "paused": "Paused",
+    "archived": "Archived"
+  },
+  "source": {
+    "expiry": "Approved expiry offer"
+  },
+  "empty": {
+    "title": "No promotions in this view",
+    "description": "Create a draft or choose another status. Drafts never change checkout prices until you activate them."
+  },
+  "targets": {
+    "allProducts": "All products",
+    "product": "One product",
+    "category": "One category",
+    "allSites": "All sites",
+    "allCustomers": "All customers"
+  },
+  "fields": {
+    "name": "Promotion name",
+    "discount": "Discount percentage",
+    "minimum": "Minimum quantity",
+    "site": "Site",
+    "target": "Product scope",
+    "product": "Product",
+    "category": "Category",
+    "customer": "Customer scope",
+    "startsAt": "Starts at",
+    "endsAt": "Ends at",
+    "priority": "Priority",
+    "combinable": "Can combine",
+    "combinableHelp": "Combine only with other eligible combinable rules. Priority still decides the order."
+  },
+  "form": {
+    "createTitle": "Create promotion draft",
+    "editTitle": "Edit promotion",
+    "searchProduct": "Search by product name or code",
+    "chooseCategory": "Choose a category",
+    "selectCustomerOrClear": "Pick a customer from the list, or clear the box to target all customers.",
+    "allCustomers": "Leave empty for all customers or search for one",
+    "expiryReadOnly": "Expiry offers are created from manager-approved radar suggestions and cannot be edited here."
+  },
+  "actions": {
+    "activate": "Activate",
+    "pause": "Pause",
+    "archive": "Archive"
+  },
+  "toast": {
+    "created": "Promotion draft created",
+    "updated": "Promotion updated",
+    "active": "Promotion activated",
+    "paused": "Promotion paused",
+    "archived": "Promotion archived",
+    "saveError": "The promotion could not be saved",
+    "transitionError": "The promotion status could not be changed"
+  },
+  "checkout": {
+    "calculating": "Checking active promotions…",
+    "saved": "Promotions save {{amount}}",
+    "unavailable": "Promotions could not be verified. Checkout remains blocked so the customer is never charged from a stale price.",
+    "retry": "Check promotions again"
+  },
+  "server": {
+    "PROMOTION_NOT_FOUND": "That promotion could not be found.",
+    "PROMOTION_TARGET_INVALID": "The promotion target is invalid or belongs to another business.",
+    "PROMOTION_STATE_INVALID": "The promotion changed or cannot perform that action in its current state.",
+    "PROMOTION_QUOTE_STALE": "Promotions changed while checkout was open. Review the updated total and confirm again.",
+    "PROMOTION_EXPIRY_PHARMACY_FORBIDDEN": "Expiry suggestions cannot become pharmacy promotions."
+  }
+}

@@ -115,6 +115,10 @@ async function proveConsumedApprovalCannotBeReused(page: Page): Promise<void> {
   await expect(
     nextCheckout.approval.getByRole('button', { name: 'Request approval' })
   ).toBeVisible();
+  // Finish the rejected second checkout before using the shell's logout.
+  // The old synthetic session reset hid this still-open payment dialog.
+  await page.keyboard.press('Escape');
+  await expect(nextCheckout.payment).toBeHidden();
 }
 
 async function selectAuditAction(page: Page, action: string): Promise<void> {

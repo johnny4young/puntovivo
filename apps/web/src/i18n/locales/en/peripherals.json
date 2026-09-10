@@ -41,6 +41,25 @@
     "autoPrintOnComplete": {
       "label": "Print automatically when a sale closes",
       "help": "Sends the receipt to this printer when the cashier confirms the sale. The drawer also opens when you enable that option in the printer's advanced configuration."
+    },
+    "gs1": {
+      "title": "GS1 weight and price labels",
+      "help": "Assign each in-store prefix to the value encoded by this site's scale. Unused prefixes are treated as ordinary barcodes.",
+      "scheme": "Label scheme",
+      "prefix": "Prefix {{prefix}}",
+      "invalid": "The GS1 prefix configuration is invalid. Assign at least one prefix and do not reuse a prefix for weight and price.",
+      "schemes": {
+        "none": "Do not decode GS1 labels",
+        "generic": "Generic LATAM",
+        "co": "Colombia (generic layout)",
+        "mx": "Mexico (generic layout)",
+        "cl": "Chile (generic layout)"
+      },
+      "roles": {
+        "none": "Ordinary barcode",
+        "weight": "Weight",
+        "price": "Price"
+      }
     }
   },
   "actions": {

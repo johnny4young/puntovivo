@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   clearAuthSession,
+  requireExplicitSignIn,
+  isExplicitSignInRequired,
+  allowSessionResumeAfterSignIn,
   getStoredAuthTenant,
   getStoredAuthTenantId,
   persistAuthSession,
@@ -103,5 +106,18 @@ describe('clearAuthSession', () => {
 
   it('is a no-op when nothing is stored (does not throw)', () => {
     expect(() => clearAuthSession()).not.toThrow();
+  });
+});
+
+describe('explicit recovery account change', () => {
+  it('retains only a deny-auto-resume intent until a fresh sign-in succeeds', () => {
+    expect(isExplicitSignInRequired()).toBe(false);
+    requireExplicitSignIn();
+    expect(isExplicitSignInRequired()).toBe(true);
+    clearAuthSession();
+    expect(isExplicitSignInRequired()).toBe(true);
+    expect(window.localStorage.getItem('auth_user')).toBeNull();
+    allowSessionResumeAfterSignIn();
+    expect(isExplicitSignInRequired()).toBe(false);
   });
 });

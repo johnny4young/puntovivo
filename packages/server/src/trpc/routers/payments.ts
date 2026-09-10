@@ -27,6 +27,7 @@
  * @module trpc/routers/payments
  */
 
+import { sumMoneySql } from '../../lib/money.js';
 import { and, desc, eq, gte, sql } from 'drizzle-orm';
 import { paymentOutbox, type PaymentOutboxStatus, type PaymentRailId } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
@@ -106,7 +107,7 @@ export const paymentsRouter = router({
           railId: paymentOutbox.railId,
           status: paymentOutbox.status,
           count: sql<number>`count(*)`.as('count'),
-          totalAmount: sql<number>`coalesce(sum(${paymentOutbox.amount}), 0)`.as('total_amount'),
+          totalAmount: sumMoneySql(paymentOutbox.amount).as('total_amount'),
         })
         .from(paymentOutbox)
         .where(and(eq(paymentOutbox.tenantId, ctx.tenantId), gte(paymentOutbox.createdAt, since)))

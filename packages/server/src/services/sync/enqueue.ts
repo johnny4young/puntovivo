@@ -34,9 +34,22 @@
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
-import { operationEvents, syncOutbox, type SyncOperation } from '../../db/schema.js';
+import {
+  operationEvents,
+  inventoryLots,
+  pharmacyProductProfiles,
+  syncOutbox,
+  type SyncOperation,
+} from '../../db/schema.js';
 import { recordEffect } from '../operation-journal/journal.js';
-import { resolveConflictPolicy, resolveDefaultPriority, type SyncEntityType } from './contract.js';
+import {
+  SYNC_PAYLOAD_VERSION,
+  isLocalOnlyAggregateRoot,
+  resolveConflictPolicy,
+  resolveDefaultPriority,
+  resolveSyncTransportPolicy,
+  type SyncEntityType,
+} from './contract.js';
 
 /**
  * Shape of the procedure context the helper expects. Stays
@@ -112,12 +125,70 @@ function resolveOperationEventId(ctx: EnqueueSyncContext): string | null {
  * promises is what lets aggregate mutations commit their primary rows and
  * replication intent atomically.
  */
+/**
+ * Single decision point for whether an outbox row is transportable work or a
+ * terminal local trace. Every writer must reach this — `enqueueSync` below and
+ * the Electron IPC bridge, which inserts into `sync_outbox` directly and would
+ * otherwise queue regulated rows the server-side path parks.
+ *
+ * Two rules apply, both fail-closed:
+ *
+ * 1. The entity type itself is `local_only` in the manifest.
+ * 2. The entity is an aggregate root carrying a `local_only` extension. Today
+ *    that is a product with a pharmacy profile: shipping the base row alone
+ *    hands a receiver a sellable medicine stripped of its policy. Probed per
+ *    row because the same table holds ordinary and regulated products.
+ */
+export function resolveSyncOutboxStatus(
+  db: DatabaseInstance,
+  tenantId: string,
+  entityType: string,
+  entityId: string
+): 'local_only' | 'queued' {
+  if (resolveSyncTransportPolicy(entityType) === 'local_only') return 'local_only';
+  if (!isLocalOnlyAggregateRoot(entityType)) return 'queued';
+
+  // The question is always about a PRODUCT, but the row is not always one. A
+  // lot is governed by the product it belongs to, so resolve that first.
+  let productId: string | null = entityId;
+  if (entityType === 'inventory_lots') {
+    const lot = db
+      .select({ productId: inventoryLots.productId })
+      .from(inventoryLots)
+      .where(and(eq(inventoryLots.tenantId, tenantId), eq(inventoryLots.id, entityId)))
+      .get();
+    // Fail closed. A lot whose product cannot be resolved is held back rather
+    // than shipped: the cost of retaining a row is local, the cost of
+    // replicating a regulated one without its policy is not.
+    productId = lot?.productId ?? null;
+    if (productId === null) return 'local_only';
+  }
+
+  const regulatedExtension = db
+    .select({ productId: pharmacyProductProfiles.productId })
+    .from(pharmacyProductProfiles)
+    .where(
+      and(
+        eq(pharmacyProductProfiles.tenantId, tenantId),
+        eq(pharmacyProductProfiles.productId, productId)
+      )
+    )
+    .get();
+  return regulatedExtension ? 'local_only' : 'queued';
+}
+
 function writeSyncRow(
   ctx: EnqueueSyncContext,
   args: EnqueueSyncArgs,
   operationEventId: string | null
 ): EnqueueSyncResult {
   const conflictPolicy = resolveConflictPolicy(args.entityType);
+  const outboxStatus = resolveSyncOutboxStatus(
+    ctx.db,
+    ctx.tenantId,
+    args.entityType,
+    args.entityId
+  );
   const priority =
     typeof args.priority === 'number' ? args.priority : resolveDefaultPriority(args.entityType);
   const idempotencyKey = ctx.envelope?.idempotencyKey ?? null;
@@ -131,13 +202,13 @@ function writeSyncRow(
       .values({
         id,
         tenantId: ctx.tenantId,
-        status: 'queued',
+        status: outboxStatus,
         entityType: args.entityType,
         entityId: args.entityId,
         operation: args.operation,
         conflictPolicy,
         payload: args.data,
-        payloadVersion: 1,
+        payloadVersion: SYNC_PAYLOAD_VERSION,
         idempotencyKey,
         deviceId,
         dependsOnOperationId: args.dependsOnOperationId ?? null,

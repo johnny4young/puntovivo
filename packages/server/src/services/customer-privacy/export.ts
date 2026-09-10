@@ -17,20 +17,31 @@ import {
   fiscalDocumentItems,
   fiscalDocumentItemTaxComponents,
   fiscalDocuments,
+  loyaltyAccounts,
+  loyaltyMovements,
   paymentOutbox,
+  pharmacyDispensations,
+  pharmacyPrescriptionEvidence,
   products,
   quotationItems,
   quotationItemTaxComponents,
   quotations,
   saleItems,
+  saleItemPromotions,
   saleItemTaxComponents,
+  saleExchanges,
   salePayments,
+  saleReturnItems,
+  saleReturnItemTaxComponents,
+  saleReturnPaymentAllocations,
   saleReturns,
   sales,
+  storeCreditAccounts,
+  storeCreditMovements,
 } from '../../db/schema.js';
 
 export const CUSTOMER_PERSONAL_DATA_SCHEMA = 'puntovivo.customer-personal-data';
-export const CUSTOMER_PERSONAL_DATA_SCHEMA_VERSION = 2;
+export const CUSTOMER_PERSONAL_DATA_SCHEMA_VERSION = 5;
 
 function readNumber(value: Record<string, unknown> | null, key: string): number | null {
   const candidate = value?.[key];
@@ -86,6 +97,63 @@ export function buildCustomerPersonalDataExport(
     return null;
   }
 
+  const pharmacyEvidenceRecords = db
+    .select({
+      id: pharmacyPrescriptionEvidence.id,
+      productId: pharmacyPrescriptionEvidence.productId,
+      productName: products.name,
+      countryCode: pharmacyPrescriptionEvidence.countryCode,
+      policyVersion: pharmacyPrescriptionEvidence.policyVersion,
+      authorizedQuantity: pharmacyPrescriptionEvidence.authorizedQuantity,
+      dispensedQuantity: pharmacyPrescriptionEvidence.dispensedQuantity,
+      validFrom: pharmacyPrescriptionEvidence.validFrom,
+      expiresAt: pharmacyPrescriptionEvidence.expiresAt,
+      status: pharmacyPrescriptionEvidence.status,
+      createdAt: pharmacyPrescriptionEvidence.createdAt,
+      updatedAt: pharmacyPrescriptionEvidence.updatedAt,
+    })
+    .from(pharmacyPrescriptionEvidence)
+    .innerJoin(
+      products,
+      and(eq(products.id, pharmacyPrescriptionEvidence.productId), eq(products.tenantId, tenantId))
+    )
+    .where(
+      and(
+        eq(pharmacyPrescriptionEvidence.tenantId, tenantId),
+        eq(pharmacyPrescriptionEvidence.customerId, customerId)
+      )
+    )
+    .orderBy(asc(pharmacyPrescriptionEvidence.createdAt), asc(pharmacyPrescriptionEvidence.id))
+    .all();
+
+  const pharmacyDispensationRecords = db
+    .select({
+      id: pharmacyDispensations.id,
+      saleId: pharmacyDispensations.saleId,
+      saleItemId: pharmacyDispensations.saleItemId,
+      productId: pharmacyDispensations.productId,
+      productName: products.name,
+      evidenceId: pharmacyDispensations.evidenceId,
+      classification: pharmacyDispensations.classification,
+      policyVersion: pharmacyDispensations.policyVersion,
+      quantity: pharmacyDispensations.quantity,
+      businessDate: pharmacyDispensations.businessDate,
+      createdAt: pharmacyDispensations.createdAt,
+    })
+    .from(pharmacyDispensations)
+    .innerJoin(
+      products,
+      and(eq(products.id, pharmacyDispensations.productId), eq(products.tenantId, tenantId))
+    )
+    .where(
+      and(
+        eq(pharmacyDispensations.tenantId, tenantId),
+        eq(pharmacyDispensations.customerId, customerId)
+      )
+    )
+    .orderBy(asc(pharmacyDispensations.createdAt), asc(pharmacyDispensations.id))
+    .all();
+
   const salesRecords = db
     .select({
       id: sales.id,
@@ -126,6 +194,7 @@ export function buildCustomerPersonalDataExport(
       unitPrice: saleItems.unitPrice,
       unitId: saleItems.unitId,
       unitEquivalence: saleItems.unitEquivalence,
+      manualDiscountRate: saleItems.manualDiscountRate,
       discount: saleItems.discount,
       taxRate: saleItems.taxRate,
       taxAmount: saleItems.taxAmount,
@@ -142,12 +211,40 @@ export function buildCustomerPersonalDataExport(
     .orderBy(asc(sales.createdAt), asc(saleItems.id))
     .all();
 
+  const saleItemPromotionRecords = db
+    .select({
+      id: saleItemPromotions.id,
+      saleItemId: saleItemPromotions.saleItemId,
+      promotionId: saleItemPromotions.promotionId,
+      promotionVersion: saleItemPromotions.promotionVersion,
+      nameSnapshot: saleItemPromotions.nameSnapshot,
+      discountPct: saleItemPromotions.discountPct,
+      discountAmount: saleItemPromotions.discountAmount,
+      priority: saleItemPromotions.priority,
+      combinable: saleItemPromotions.combinable,
+      position: saleItemPromotions.position,
+      source: saleItemPromotions.source,
+      sourceLotId: saleItemPromotions.sourceLotId,
+      createdAt: saleItemPromotions.createdAt,
+    })
+    .from(saleItemPromotions)
+    .innerJoin(saleItems, eq(saleItemPromotions.saleItemId, saleItems.id))
+    .innerJoin(sales, and(eq(saleItems.saleId, sales.id), eq(sales.tenantId, tenantId)))
+    .where(and(eq(saleItemPromotions.tenantId, tenantId), eq(sales.customerId, customerId)))
+    .orderBy(
+      asc(sales.createdAt),
+      asc(saleItemPromotions.saleItemId),
+      asc(saleItemPromotions.position)
+    )
+    .all();
+
   const salePaymentRecords = db
     .select({
       id: salePayments.id,
       saleId: salePayments.saleId,
       method: salePayments.method,
       amount: salePayments.amount,
+      loyaltyPoints: salePayments.loyaltyPoints,
       reference: salePayments.reference,
       createdAt: salePayments.createdAt,
     })
@@ -185,7 +282,14 @@ export function buildCustomerPersonalDataExport(
     .select({
       id: saleReturns.id,
       saleId: saleReturns.saleId,
+      destination: saleReturns.destination,
+      subtotal: saleReturns.subtotal,
+      tipAmount: saleReturns.tipAmount,
+      serviceChargeAmount: saleReturns.serviceChargeAmount,
+      discountAmount: saleReturns.discountAmount,
+      taxAmount: saleReturns.taxAmount,
       refundAmount: saleReturns.refundAmount,
+      currencyCode: saleReturns.currencyCode,
       reason: saleReturns.reason,
       createdAt: saleReturns.createdAt,
       updatedAt: saleReturns.updatedAt,
@@ -194,6 +298,196 @@ export function buildCustomerPersonalDataExport(
     .innerJoin(sales, and(eq(saleReturns.saleId, sales.id), eq(sales.tenantId, tenantId)))
     .where(and(eq(saleReturns.tenantId, tenantId), eq(sales.customerId, customerId)))
     .orderBy(asc(saleReturns.createdAt), asc(saleReturns.id))
+    .all();
+
+  const saleReturnItemRecords = db
+    .select({
+      id: saleReturnItems.id,
+      saleReturnId: saleReturnItems.saleReturnId,
+      saleItemId: saleReturnItems.saleItemId,
+      productId: saleReturnItems.productId,
+      productNameSnapshot: saleReturnItems.productNameSnapshot,
+      productSkuSnapshot: saleReturnItems.productSkuSnapshot,
+      quantity: saleReturnItems.quantity,
+      unitPrice: saleReturnItems.unitPrice,
+      discountRate: saleReturnItems.discountRate,
+      taxKind: saleReturnItems.taxKind,
+      taxRate: saleReturnItems.taxRate,
+      subtotal: saleReturnItems.subtotal,
+      discountAmount: saleReturnItems.discountAmount,
+      taxAmount: saleReturnItems.taxAmount,
+      total: saleReturnItems.total,
+      currencyCode: saleReturnItems.currencyCode,
+      createdAt: saleReturnItems.createdAt,
+    })
+    .from(saleReturnItems)
+    .innerJoin(
+      saleReturns,
+      and(eq(saleReturnItems.saleReturnId, saleReturns.id), eq(saleReturns.tenantId, tenantId))
+    )
+    .innerJoin(sales, and(eq(saleReturns.saleId, sales.id), eq(sales.tenantId, tenantId)))
+    .where(and(eq(saleReturnItems.tenantId, tenantId), eq(sales.customerId, customerId)))
+    .orderBy(asc(saleReturns.createdAt), asc(saleReturnItems.id))
+    .all();
+
+  const saleReturnItemTaxComponentRecords = db
+    .select({
+      saleReturnItemId: saleReturnItemTaxComponents.saleReturnItemId,
+      componentKey: saleReturnItemTaxComponents.componentKey,
+      taxKind: saleReturnItemTaxComponents.taxKind,
+      taxRate: saleReturnItemTaxComponents.taxRate,
+      taxableAmount: saleReturnItemTaxComponents.taxableAmount,
+      taxAmount: saleReturnItemTaxComponents.taxAmount,
+      position: saleReturnItemTaxComponents.position,
+    })
+    .from(saleReturnItemTaxComponents)
+    .innerJoin(
+      saleReturnItems,
+      and(
+        eq(saleReturnItemTaxComponents.saleReturnItemId, saleReturnItems.id),
+        eq(saleReturnItems.tenantId, tenantId)
+      )
+    )
+    .innerJoin(
+      saleReturns,
+      and(eq(saleReturnItems.saleReturnId, saleReturns.id), eq(saleReturns.tenantId, tenantId))
+    )
+    .innerJoin(sales, and(eq(saleReturns.saleId, sales.id), eq(sales.tenantId, tenantId)))
+    .where(
+      and(eq(saleReturnItemTaxComponents.tenantId, tenantId), eq(sales.customerId, customerId))
+    )
+    .orderBy(
+      asc(saleReturnItemTaxComponents.saleReturnItemId),
+      asc(saleReturnItemTaxComponents.position)
+    )
+    .all();
+
+  const saleReturnPaymentRecords = db
+    .select({
+      id: saleReturnPaymentAllocations.id,
+      saleReturnId: saleReturnPaymentAllocations.saleReturnId,
+      salePaymentId: saleReturnPaymentAllocations.salePaymentId,
+      originalMethod: saleReturnPaymentAllocations.originalMethod,
+      destination: saleReturnPaymentAllocations.destination,
+      amount: saleReturnPaymentAllocations.amount,
+      loyaltyPoints: saleReturnPaymentAllocations.loyaltyPoints,
+      externalReference: saleReturnPaymentAllocations.externalReference,
+      createdAt: saleReturnPaymentAllocations.createdAt,
+    })
+    .from(saleReturnPaymentAllocations)
+    .innerJoin(
+      saleReturns,
+      and(
+        eq(saleReturnPaymentAllocations.saleReturnId, saleReturns.id),
+        eq(saleReturns.tenantId, tenantId)
+      )
+    )
+    .innerJoin(sales, and(eq(saleReturns.saleId, sales.id), eq(sales.tenantId, tenantId)))
+    .where(
+      and(eq(saleReturnPaymentAllocations.tenantId, tenantId), eq(sales.customerId, customerId))
+    )
+    .orderBy(asc(saleReturns.createdAt), asc(saleReturnPaymentAllocations.id))
+    .all();
+
+  const saleExchangeRecords = db
+    .select({
+      id: saleExchanges.id,
+      saleReturnId: saleExchanges.saleReturnId,
+      replacementSaleId: saleExchanges.replacementSaleId,
+      createdAt: saleExchanges.createdAt,
+    })
+    .from(saleExchanges)
+    .innerJoin(
+      saleReturns,
+      and(eq(saleExchanges.saleReturnId, saleReturns.id), eq(saleReturns.tenantId, tenantId))
+    )
+    .innerJoin(sales, and(eq(saleReturns.saleId, sales.id), eq(sales.tenantId, tenantId)))
+    .where(and(eq(saleExchanges.tenantId, tenantId), eq(sales.customerId, customerId)))
+    .orderBy(asc(saleExchanges.createdAt), asc(saleExchanges.id))
+    .all();
+
+  const storeCreditAccountRecords = db
+    .select({
+      id: storeCreditAccounts.id,
+      currencyCode: storeCreditAccounts.currencyCode,
+      balance: storeCreditAccounts.balance,
+      createdAt: storeCreditAccounts.createdAt,
+      updatedAt: storeCreditAccounts.updatedAt,
+    })
+    .from(storeCreditAccounts)
+    .where(
+      and(
+        eq(storeCreditAccounts.tenantId, tenantId),
+        eq(storeCreditAccounts.customerId, customerId)
+      )
+    )
+    .orderBy(asc(storeCreditAccounts.currencyCode), asc(storeCreditAccounts.id))
+    .all();
+
+  const storeCreditMovementRecords = db
+    .select({
+      id: storeCreditMovements.id,
+      accountId: storeCreditMovements.accountId,
+      saleReturnId: storeCreditMovements.saleReturnId,
+      saleId: storeCreditMovements.saleId,
+      salePaymentId: storeCreditMovements.salePaymentId,
+      sourceMovementId: storeCreditMovements.sourceMovementId,
+      kind: storeCreditMovements.kind,
+      amount: storeCreditMovements.amount,
+      balanceAfter: storeCreditMovements.balanceAfter,
+      currencyCode: storeCreditMovements.currencyCode,
+      note: storeCreditMovements.note,
+      createdAt: storeCreditMovements.createdAt,
+    })
+    .from(storeCreditMovements)
+    .where(
+      and(
+        eq(storeCreditMovements.tenantId, tenantId),
+        eq(storeCreditMovements.customerId, customerId)
+      )
+    )
+    .orderBy(asc(storeCreditMovements.createdAt), asc(storeCreditMovements.id))
+    .all();
+
+  const loyaltyAccountRecords = db
+    .select({
+      id: loyaltyAccounts.id,
+      points: loyaltyAccounts.points,
+      createdAt: loyaltyAccounts.createdAt,
+      updatedAt: loyaltyAccounts.updatedAt,
+    })
+    .from(loyaltyAccounts)
+    .where(and(eq(loyaltyAccounts.tenantId, tenantId), eq(loyaltyAccounts.customerId, customerId)))
+    .orderBy(asc(loyaltyAccounts.id))
+    .all();
+
+  const loyaltyMovementRecords = db
+    .select({
+      id: loyaltyMovements.id,
+      accountId: loyaltyMovements.accountId,
+      saleId: loyaltyMovements.saleId,
+      saleReturnId: loyaltyMovements.saleReturnId,
+      salePaymentId: loyaltyMovements.salePaymentId,
+      sourceMovementId: loyaltyMovements.sourceMovementId,
+      kind: loyaltyMovements.kind,
+      points: loyaltyMovements.points,
+      rateAtEarn: loyaltyMovements.rateAtEarn,
+      valuePerPoint: loyaltyMovements.valuePerPoint,
+      moneyAmount: loyaltyMovements.moneyAmount,
+      currencyCode: loyaltyMovements.currencyCode,
+      note: loyaltyMovements.note,
+      createdAt: loyaltyMovements.createdAt,
+    })
+    .from(loyaltyMovements)
+    .innerJoin(
+      loyaltyAccounts,
+      and(
+        eq(loyaltyMovements.accountId, loyaltyAccounts.id),
+        eq(loyaltyAccounts.tenantId, tenantId)
+      )
+    )
+    .where(and(eq(loyaltyMovements.tenantId, tenantId), eq(loyaltyAccounts.customerId, customerId)))
+    .orderBy(asc(loyaltyMovements.createdAt), asc(loyaltyMovements.id))
     .all();
 
   const quotationRecords = db
@@ -474,12 +768,23 @@ export function buildCustomerPersonalDataExport(
     generatedAt,
     subject,
     records: {
+      pharmacyPrescriptionEvidence: pharmacyEvidenceRecords,
+      pharmacyDispensations: pharmacyDispensationRecords,
       sales: salesRecords,
       saleItems: saleItemRecords,
+      saleItemPromotions: saleItemPromotionRecords,
       saleItemTaxComponents: saleItemTaxComponentRecords,
       salePayments: salePaymentRecords,
       paymentProviderTransactions: paymentProviderRecords,
       saleReturns: saleReturnRecords,
+      saleReturnItems: saleReturnItemRecords,
+      saleReturnItemTaxComponents: saleReturnItemTaxComponentRecords,
+      saleReturnPaymentAllocations: saleReturnPaymentRecords,
+      saleExchanges: saleExchangeRecords,
+      storeCreditAccounts: storeCreditAccountRecords,
+      storeCreditMovements: storeCreditMovementRecords,
+      loyaltyAccounts: loyaltyAccountRecords,
+      loyaltyMovements: loyaltyMovementRecords,
       quotations: quotationRecords,
       quotationItems: quotationItemRecords,
       quotationItemTaxComponents: quotationItemTaxComponentRecords,

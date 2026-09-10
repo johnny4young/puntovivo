@@ -15,10 +15,18 @@
  * @module application/sales/policies
  */
 
-import { normalizedQuantity as resolveNormalizedQuantity } from '@puntovivo/shared/unit-math';
+import {
+  normalizedQuantity as resolveNormalizedQuantity,
+  roundQuantity,
+} from '@puntovivo/shared/unit-math';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { roundMoney } from '../../lib/money.js';
-import type { CompleteSaleTender, SalePaymentMethod, SalePaymentStatus } from './types.js';
+import type {
+  CompleteSaleTender,
+  SalePaymentMethod,
+  SalePaymentStatus,
+  SaleReturnState,
+} from './types.js';
 
 /**
  * Tolerance for Σ(tenders) vs sale total. Tender amounts are 2-decimal
@@ -148,6 +156,7 @@ export function resolveSalePayments(args: {
       method: payment.method,
       amount: roundMoney(payment.amount),
       reference: payment.reference ?? null,
+      ...(payment.loyaltyPoints !== undefined ? { loyaltyPoints: payment.loyaltyPoints } : {}),
     }));
     const sum = rows.reduce((acc, payment) => roundMoney(acc + payment.amount), 0);
     if (Math.abs(sum - args.total) >= PAYMENT_SUM_EPSILON) {
@@ -208,7 +217,11 @@ export function resolveSalePayments(args: {
  */
 export function getNormalizedSaleQuantity(quantity: number, equivalence: number): number {
   try {
-    return resolveNormalizedQuantity(quantity, equivalence);
+    const normalized = roundQuantity(resolveNormalizedQuantity(quantity, equivalence), 12);
+    if (!Number.isFinite(normalized) || normalized <= 0) {
+      throw new RangeError('The normalized quantity is outside the supported stock precision');
+    }
+    return normalized;
   } catch (error) {
     if (!(error instanceof RangeError)) throw error;
     throwServerError({
@@ -262,19 +275,22 @@ export function buildReturnedSaleNotes(
  * size the reversal cash movement.
  *
  * - Non-cash tenders contribute zero.
- * - Pending or refunded sales contribute zero (no cash actually
- * landed in the drawer for them).
+ * - Pending/refunded states, including an already-partial return, contribute
+ * zero because a header-only fallback cannot reconstruct the remaining cash.
  * - Otherwise the full sale total is the persisted cash contribution.
  */
 export function getPersistedCashContribution(sale: {
   paymentMethod: SalePaymentMethod;
   paymentStatus: SalePaymentStatus;
+  returnState: SaleReturnState | null;
   total: number;
 }): number {
   if (sale.paymentMethod !== 'cash') {
     return 0;
   }
-  if (sale.paymentStatus === 'pending' || sale.paymentStatus === 'refunded') {
+  // Reads the two axes separately now that they no longer share a column: an
+  // uncollected ticket contributes no cash, and so does one already returned.
+  if (sale.paymentStatus === 'pending' || sale.returnState !== null) {
     return 0;
   }
   // `'partial'` covers two distinct cases since the

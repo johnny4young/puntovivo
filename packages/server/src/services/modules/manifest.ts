@@ -145,6 +145,8 @@ export interface ModuleDescriptor {
    * that vertical the wedge.
    */
   ring: 1 | 2 | 3;
+  /** False when the route is reserved but no operational workflow ships yet. */
+  available?: boolean;
 }
 
 /**
@@ -193,10 +195,9 @@ export const MODULES_MANIFEST: Record<ModuleId, ModuleDescriptor> = {
     classification: 'optional',
     ring: 1,
   },
-  // surface modules default OFF so existing tenants do not
-  // see new sidebar entries appear after the kernel ships. The
-  // surfaces themselves render placeholders until  (vertical
-  // restaurant) plugs the real workflows.
+  // Surface modules default OFF so existing tenants do not see new sidebar
+  // entries appear after an upgrade. Each module is enabled explicitly after
+  // its operational setup is complete.
   'pos-touch': {
     id: 'pos-touch',
     defaultEnabled: false,
@@ -315,7 +316,7 @@ export function isModuleId(value: unknown): value is ModuleId {
  * Returns a complete `Record<ModuleId, boolean>` keyed on every
  * known module so callers don't have to special-case missing keys.
  */
-export function resolveModulesState(raw: unknown): Record<ModuleId, boolean> {
+export function resolveConfiguredModulesState(raw: unknown): Record<ModuleId, boolean> {
   const out = {} as Record<ModuleId, boolean>;
   const blob =
     raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : null;
@@ -324,6 +325,20 @@ export function resolveModulesState(raw: unknown): Record<ModuleId, boolean> {
     out[id] = typeof stored === 'boolean' ? stored : MODULES_MANIFEST[id].defaultEnabled;
   }
   return out;
+}
+
+/**
+ * Resolve the modules operators may actually use in this version. A stale
+ * explicit `true` cannot expose a route whose workflow is only reserved in
+ * the manifest. Admin reads use `resolveConfiguredModulesState` separately so
+ * they can still show and remove that legacy choice.
+ */
+export function resolveModulesState(raw: unknown): Record<ModuleId, boolean> {
+  const configured = resolveConfiguredModulesState(raw);
+  for (const id of MODULE_IDS) {
+    if (MODULES_MANIFEST[id].available === false) configured[id] = false;
+  }
+  return configured;
 }
 
 /**
@@ -365,6 +380,9 @@ export function buildModulesBlob(
  * blob doesn't carry an explicit boolean for the id.
  */
 export function isModuleActiveInSettings(tenantSettings: unknown, moduleId: ModuleId): boolean {
+  if (MODULES_MANIFEST[moduleId].available === false) {
+    return false;
+  }
   if (
     tenantSettings === null ||
     typeof tenantSettings !== 'object' ||

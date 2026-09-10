@@ -36,10 +36,12 @@ export async function getOriginalDeeCufe(
     .where(
       and(
         eq(fiscalDocuments.tenantId, tenantId),
+        eq(fiscalDocuments.source, 'sale'),
         eq(fiscalDocuments.sourceId, saleId),
-        eq(fiscalDocuments.kind, 'DEE')
+        eq(fiscalDocuments.kind, 'DEE'),
+        eq(fiscalDocuments.status, 'accepted')
       )
     )
     .get();
-  return row?.cufe ?? undefined;
+  return row?.cufe && !row.cufe.startsWith('pending-') ? row.cufe : undefined;
 }

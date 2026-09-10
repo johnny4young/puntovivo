@@ -116,11 +116,13 @@ export interface RecordErrorArgs {
 }
 
 /**
- * Insert (or no-op on conflict) the operation start row.
+ * Insert, reuse, or reopen the operation start row.
  *
  * The composite UNIQUE on `(tenant_id, operation_id)` makes the
  * insert idempotent — a replay-cached call from `commandEnvelope`
- * reuses the existing row instead of creating a second one.
+ * reuses the existing row instead of creating a second one. A same-envelope
+ * retry after a fully rolled-back primary failure reopens `failed` to
+ * `started`; its prior error rows remain as immutable attempt evidence.
  *
  * Returns `isNew: true` when this call actually inserted; `false`
  * when an existing row was reused. Callers can use this to decide
@@ -131,7 +133,14 @@ export async function recordOperationStart(
   args: RecordStartArgs
 ): Promise<{ eventId: string; isNew: boolean }> {
   const existing = await db
-    .select({ id: operationEvents.id })
+    .select({
+      id: operationEvents.id,
+      status: operationEvents.status,
+      operationKind: operationEvents.operationKind,
+      deviceId: operationEvents.deviceId,
+      userId: operationEvents.userId,
+      requestHash: operationEvents.requestHash,
+    })
     .from(operationEvents)
     .where(
       and(
@@ -142,6 +151,18 @@ export async function recordOperationStart(
     .get();
 
   if (existing) {
+    const sameLogicalCommand =
+      existing.operationKind === args.operationKind &&
+      existing.deviceId === args.deviceId &&
+      existing.userId === args.userId &&
+      existing.requestHash === args.requestHash;
+    if (existing.status === 'failed' && sameLogicalCommand) {
+      await db
+        .update(operationEvents)
+        .set({ status: 'started', completedAt: null })
+        .where(and(eq(operationEvents.id, existing.id), eq(operationEvents.status, 'failed')))
+        .run();
+    }
     return { eventId: existing.id, isNew: false };
   }
 

@@ -29,14 +29,16 @@ describe('checkout approvals', () => {
       requiredCheckoutApprovalActions({
         role: 'cashier',
         hasDiscount: true,
+        hasPriceOverride: true,
         hasCreditTender: true,
         creditOverrideRequired: false,
       })
-    ).toEqual(['sale_discount', 'credit_sale']);
+    ).toEqual(['sale_discount', 'sale_price_override', 'credit_sale']);
     expect(
       requiredCheckoutApprovalActions({
         role: 'cashier',
         hasDiscount: true,
+        hasPriceOverride: false,
         hasCreditTender: true,
         creditOverrideRequired: true,
       })
@@ -45,6 +47,7 @@ describe('checkout approvals', () => {
       requiredCheckoutApprovalActions({
         role: 'manager',
         hasDiscount: true,
+        hasPriceOverride: true,
         hasCreditTender: true,
         creditOverrideRequired: false,
       })
@@ -53,6 +56,7 @@ describe('checkout approvals', () => {
       requiredCheckoutApprovalActions({
         role: 'manager',
         hasDiscount: false,
+        hasPriceOverride: true,
         hasCreditTender: true,
         creditOverrideRequired: true,
       })
@@ -61,6 +65,7 @@ describe('checkout approvals', () => {
       requiredCheckoutApprovalActions({
         role: 'admin',
         hasDiscount: true,
+        hasPriceOverride: true,
         hasCreditTender: true,
         creditOverrideRequired: true,
       })

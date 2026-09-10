@@ -58,6 +58,16 @@ describe('resolveFractionPolicy', () => {
     expect(next).toEqual({ sellByFraction: true, fractionStep: 0.25, fractionMinimum: 0.5 });
   });
 
+  it('accepts the operational thousandth policy used by weight and length products', () => {
+    expect(
+      resolveFractionPolicy({
+        sellByFraction: true,
+        fractionStep: 0.001,
+        fractionMinimum: 0.001,
+      })
+    ).toEqual({ sellByFraction: true, fractionStep: 0.001, fractionMinimum: 0.001 });
+  });
+
   it('rejects when sellByFraction=true but step is missing', () => {
     expectCodedError(
       () => resolveFractionPolicy({ sellByFraction: true, fractionMinimum: 1 }),
@@ -186,6 +196,17 @@ describe('assertSaleQuantityAllowed', () => {
     expect(() => assertSaleQuantityAllowed(0.5, fractionalProduct)).not.toThrow();
     expect(() => assertSaleQuantityAllowed(0.75, fractionalProduct)).not.toThrow();
     expect(() => assertSaleQuantityAllowed(2.5, fractionalProduct)).not.toThrow();
+  });
+
+  it('accepts an exact thousandth without rounding it to a centesimal quantity', () => {
+    expect(() =>
+      assertSaleQuantityAllowed(0.001, {
+        name: 'Weighted cut',
+        sellByFraction: true,
+        fractionStep: 0.001,
+        fractionMinimum: 0.001,
+      })
+    ).not.toThrow();
   });
 
   it('rejects quantities below the configured minimum', () => {

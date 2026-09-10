@@ -36,6 +36,8 @@ interface SalesCartWorkspaceProps {
    * button is hidden entirely.
    */
   onUndo?: () => void;
+  /** Disable commercial line edits while preserving serial fulfilment. */
+  itemsLocked?: boolean;
   /** Contextual one-tap products or safe actions rendered above the cart. */
   quickAccess?: ReactNode;
   /**
@@ -62,6 +64,7 @@ export function SalesCartWorkspace({
   discountInputRefFor,
   canUndo = false,
   onUndo,
+  itemsLocked = false,
   quickAccess,
   priceTier,
   onPriceTierChange,
@@ -148,7 +151,7 @@ export function SalesCartWorkspace({
               )}
             </button>
           )}
-          {items.length > 0 && (
+          {items.length > 0 && !itemsLocked && (
             <button className="btn-ghost" onClick={onClearCart}>
               {t('checkout.clearCart')}
             </button>
@@ -173,6 +176,7 @@ export function SalesCartWorkspace({
             onSerialSelectionChange={onSerialSelectionChange}
             quantityInputRefFor={quantityInputRefFor}
             discountInputRefFor={discountInputRefFor}
+            itemsLocked={itemsLocked}
           />
         )}
       </div>

@@ -29,6 +29,10 @@ import { adminProcedure } from '../../middleware/roles.js';
 import {
   cashSessions,
   fiscalDocuments,
+  saleItemTaxComponents,
+  saleReturnItems,
+  saleReturnItemTaxComponents,
+  saleReturnPaymentAllocations,
   salePayments,
   saleItems,
   saleReturns,
@@ -82,6 +86,11 @@ export interface AccountingVoucherLine {
 export interface AccountingVoucherPayment {
   method: string;
   amount: number;
+  /**
+   * Refund destination. Null only for ordinary sale tenders; return
+   * allocations always freeze the actual refund destination.
+   */
+  destination?: 'cash' | 'receivable' | 'external' | 'loyalty' | 'store_credit' | null;
 }
 
 export interface AccountingVoucher {
@@ -134,6 +143,13 @@ export interface AccountingVoucher {
    * instead of silently reclassifying tax as income.
    */
   taxReconciled: boolean;
+  /**
+   * False when a refund's frozen payment allocations do not add up to
+   * its refund amount. Sale vouchers are always true because an unpaid
+   * sale balance is deliberately posted as accounts receivable by the
+   * journal builder; refund destinations must instead be explicit.
+   */
+  paymentReconciled: boolean;
 }
 
 export const accountingReportsRouter = router({
@@ -246,13 +262,13 @@ export const accountingReportsRouter = router({
         siteNameSnapshot: sales.siteNameSnapshot,
         customerNameSnapshot: sales.customerNameSnapshot,
         customerTaxIdSnapshot: sales.customerTaxIdSnapshot,
-        currencyCode: sales.currencyCode,
-        subtotal: sales.subtotal,
-        discountAmount: sales.discountAmount,
-        taxAmount: sales.taxAmount,
-        tipAmount: sales.tipAmount,
-        serviceChargeAmount: sales.serviceChargeAmount,
-        total: sales.total,
+        currencyCode: saleReturns.currencyCode,
+        subtotal: saleReturns.subtotal,
+        discountAmount: saleReturns.discountAmount,
+        taxAmount: saleReturns.taxAmount,
+        tipAmount: saleReturns.tipAmount,
+        serviceChargeAmount: saleReturns.serviceChargeAmount,
+        total: saleReturns.refundAmount,
         refundAmount: saleReturns.refundAmount,
       })
       .from(saleReturns)
@@ -292,10 +308,20 @@ export const accountingReportsRouter = router({
     const saleIds = [...new Set(headers.map(row => row.saleId))];
     const returnIds = headers.filter(row => row.kind === 'refund').map(row => row.eventId);
 
-    const [lineRows, paymentRows, saleFiscalRows, returnFiscalRows] = saleIds.length
+    const [
+      lineRows,
+      paymentRows,
+      returnLineRows,
+      returnPaymentRows,
+      saleTaxComponentRows,
+      returnTaxComponentRows,
+      saleFiscalRows,
+      returnFiscalRows,
+    ] = saleIds.length
       ? await Promise.all([
           ctx.db
             .select({
+              id: saleItems.id,
               saleId: saleItems.saleId,
               productNameSnapshot: saleItems.productNameSnapshot,
               productSkuSnapshot: saleItems.productSkuSnapshot,
@@ -308,7 +334,8 @@ export const accountingReportsRouter = router({
               total: saleItems.total,
             })
             .from(saleItems)
-            .where(inArray(saleItems.saleId, saleIds))
+            .innerJoin(sales, and(eq(saleItems.saleId, sales.id), eq(sales.tenantId, ctx.tenantId)))
+            .where(and(eq(sales.tenantId, ctx.tenantId), inArray(saleItems.saleId, saleIds)))
             .orderBy(asc(saleItems.id)),
           ctx.db
             .select({
@@ -321,6 +348,93 @@ export const accountingReportsRouter = router({
               and(eq(salePayments.tenantId, ctx.tenantId), inArray(salePayments.saleId, saleIds))
             )
             .orderBy(asc(salePayments.id)),
+          returnIds.length > 0
+            ? ctx.db
+                .select({
+                  id: saleReturnItems.id,
+                  saleReturnId: saleReturnItems.saleReturnId,
+                  productNameSnapshot: saleReturnItems.productNameSnapshot,
+                  productSkuSnapshot: saleReturnItems.productSkuSnapshot,
+                  quantity: saleReturnItems.quantity,
+                  unitPrice: saleReturnItems.unitPrice,
+                  discount: saleReturnItems.discountRate,
+                  taxRate: saleReturnItems.taxRate,
+                  taxKind: saleReturnItems.taxKind,
+                  taxAmount: saleReturnItems.taxAmount,
+                  total: saleReturnItems.total,
+                })
+                .from(saleReturnItems)
+                .where(
+                  and(
+                    eq(saleReturnItems.tenantId, ctx.tenantId),
+                    inArray(saleReturnItems.saleReturnId, returnIds)
+                  )
+                )
+                .orderBy(asc(saleReturnItems.id))
+            : Promise.resolve([]),
+          returnIds.length > 0
+            ? ctx.db
+                .select({
+                  saleReturnId: saleReturnPaymentAllocations.saleReturnId,
+                  method: saleReturnPaymentAllocations.originalMethod,
+                  destination: saleReturnPaymentAllocations.destination,
+                  amount: saleReturnPaymentAllocations.amount,
+                })
+                .from(saleReturnPaymentAllocations)
+                .where(
+                  and(
+                    eq(saleReturnPaymentAllocations.tenantId, ctx.tenantId),
+                    inArray(saleReturnPaymentAllocations.saleReturnId, returnIds)
+                  )
+                )
+                .orderBy(asc(saleReturnPaymentAllocations.id))
+            : Promise.resolve([]),
+          ctx.db
+            .select({
+              saleId: saleItems.saleId,
+              saleItemId: saleItemTaxComponents.saleItemId,
+              taxKind: saleItemTaxComponents.taxKind,
+              taxAmount: saleItemTaxComponents.taxAmount,
+            })
+            .from(saleItemTaxComponents)
+            .innerJoin(saleItems, eq(saleItemTaxComponents.saleItemId, saleItems.id))
+            .innerJoin(sales, and(eq(saleItems.saleId, sales.id), eq(sales.tenantId, ctx.tenantId)))
+            .where(
+              and(
+                eq(saleItemTaxComponents.tenantId, ctx.tenantId),
+                eq(sales.tenantId, ctx.tenantId),
+                inArray(saleItems.saleId, saleIds)
+              )
+            )
+            .orderBy(asc(saleItemTaxComponents.saleItemId), asc(saleItemTaxComponents.position)),
+          returnIds.length > 0
+            ? ctx.db
+                .select({
+                  saleReturnId: saleReturnItems.saleReturnId,
+                  saleReturnItemId: saleReturnItemTaxComponents.saleReturnItemId,
+                  taxKind: saleReturnItemTaxComponents.taxKind,
+                  taxAmount: saleReturnItemTaxComponents.taxAmount,
+                })
+                .from(saleReturnItemTaxComponents)
+                .innerJoin(
+                  saleReturnItems,
+                  and(
+                    eq(saleReturnItemTaxComponents.saleReturnItemId, saleReturnItems.id),
+                    eq(saleReturnItems.tenantId, ctx.tenantId)
+                  )
+                )
+                .where(
+                  and(
+                    eq(saleReturnItemTaxComponents.tenantId, ctx.tenantId),
+                    eq(saleReturnItems.tenantId, ctx.tenantId),
+                    inArray(saleReturnItems.saleReturnId, returnIds)
+                  )
+                )
+                .orderBy(
+                  asc(saleReturnItemTaxComponents.saleReturnItemId),
+                  asc(saleReturnItemTaxComponents.position)
+                )
+            : Promise.resolve([]),
           ctx.db
             .select({
               sourceId: fiscalDocuments.sourceId,
@@ -356,7 +470,7 @@ export const accountingReportsRouter = router({
                 )
             : Promise.resolve([]),
         ])
-      : [[], [], [], []];
+      : [[], [], [], [], [], [], [], []];
 
     const linesBySale = new Map<string, AccountingVoucherLine[]>();
     for (const line of lineRows) {
@@ -377,9 +491,68 @@ export const accountingReportsRouter = router({
     const paymentsBySale = new Map<string, AccountingVoucherPayment[]>();
     for (const payment of paymentRows) {
       const bucket = paymentsBySale.get(payment.saleId) ?? [];
-      bucket.push({ method: payment.method, amount: payment.amount });
+      bucket.push({ method: payment.method, amount: payment.amount, destination: null });
       paymentsBySale.set(payment.saleId, bucket);
     }
+    const linesByReturn = new Map<string, AccountingVoucherLine[]>();
+    for (const line of returnLineRows) {
+      const bucket = linesByReturn.get(line.saleReturnId) ?? [];
+      bucket.push({
+        productNameSnapshot: line.productNameSnapshot,
+        productSkuSnapshot: line.productSkuSnapshot,
+        quantity: line.quantity,
+        unitPrice: line.unitPrice,
+        discount: line.discount,
+        taxRate: line.taxRate,
+        taxKind: line.taxKind,
+        taxAmount: line.taxAmount,
+        total: line.total,
+      });
+      linesByReturn.set(line.saleReturnId, bucket);
+    }
+    const paymentsByReturn = new Map<string, AccountingVoucherPayment[]>();
+    for (const payment of returnPaymentRows) {
+      const bucket = paymentsByReturn.get(payment.saleReturnId) ?? [];
+      bucket.push({
+        method: payment.method,
+        amount: payment.amount,
+        destination: payment.destination,
+      });
+      paymentsByReturn.set(payment.saleReturnId, bucket);
+    }
+    const legacyReturnIds = new Set(
+      returnLineRows
+        .filter(line => line.id.startsWith(`legacy-return-item:${line.saleReturnId}:`))
+        .map(line => line.saleReturnId)
+    );
+    const resolveReturnPayments = (
+      saleReturnId: string,
+      refundAmount: number
+    ): AccountingVoucherPayment[] => {
+      const payments = [...(paymentsByReturn.get(saleReturnId) ?? [])];
+      if (!legacyReturnIds.has(saleReturnId)) {
+        return payments;
+      }
+
+      // Migration 0052 could only preserve the persisted tenders of a legacy
+      // sale. When that sale was partially paid, its remaining balance was an
+      // accounting receivable rather than a sale_payment row. Reconstruct that
+      // missing side only for rows carrying the migration's stable legacy id;
+      // a short allocation on a new return remains visible to the exporter.
+      const allocatedAmount = payments.reduce(
+        (sum, payment) => (payment.amount > 0 ? roundMoney(sum + payment.amount) : sum),
+        0
+      );
+      const receivableAmount = roundMoney(refundAmount - allocatedAmount);
+      if (receivableAmount > 0) {
+        payments.push({
+          method: 'credit',
+          destination: 'receivable',
+          amount: receivableAmount,
+        });
+      }
+      return payments;
+    };
     const buildFiscalMap = (
       rows: typeof saleFiscalRows
     ): Map<string, { documentNumber: string | null; cufe: string | null; status: string }> => {
@@ -404,25 +577,76 @@ export const accountingReportsRouter = router({
     const fiscalBySale = buildFiscalMap(saleFiscalRows);
     const fiscalByReturn = buildFiscalMap(returnFiscalRows);
 
-    const vouchers: AccountingVoucher[] = headers.map(row => {
-      const lines = linesBySale.get(row.saleId) ?? [];
-      // Split of the header tax by the FROZEN line kind — same
-      // bucketing + uniform money-rounding rule the fiscal emitter
-      // applies at sale time.
-      let ivaAmount = 0;
-      let incAmount = 0;
-      for (const line of lines) {
-        if (line.taxKind === 'inc') {
-          incAmount = roundMoney(incAmount + line.taxAmount);
-        } else {
-          ivaAmount = roundMoney(ivaAmount + line.taxAmount);
-        }
+    type TaxSplit = { ivaAmount: number; incAmount: number };
+    const addTax = (
+      target: Map<string, TaxSplit>,
+      parentId: string,
+      taxKind: 'iva' | 'inc',
+      amount: number
+    ): void => {
+      const split = target.get(parentId) ?? { ivaAmount: 0, incAmount: 0 };
+      if (taxKind === 'inc') {
+        split.incAmount = roundMoney(split.incAmount + amount);
+      } else {
+        split.ivaAmount = roundMoney(split.ivaAmount + amount);
       }
+      target.set(parentId, split);
+    };
+
+    // Normalized components are authoritative. The summary columns remain a
+    // compatibility fallback only for legacy lines that have no components.
+    // Mixing both would double-count every post-migration sale.
+    const taxBySale = new Map<string, TaxSplit>();
+    const saleLinesWithComponents = new Set<string>();
+    for (const component of saleTaxComponentRows) {
+      saleLinesWithComponents.add(component.saleItemId);
+      addTax(taxBySale, component.saleId, component.taxKind, component.taxAmount);
+    }
+    for (const line of lineRows) {
+      if (!saleLinesWithComponents.has(line.id)) {
+        addTax(taxBySale, line.saleId, line.taxKind, line.taxAmount);
+      }
+    }
+
+    const taxByReturn = new Map<string, TaxSplit>();
+    const returnLinesWithComponents = new Set<string>();
+    for (const component of returnTaxComponentRows) {
+      returnLinesWithComponents.add(component.saleReturnItemId);
+      addTax(taxByReturn, component.saleReturnId, component.taxKind, component.taxAmount);
+    }
+    for (const line of returnLineRows) {
+      if (!returnLinesWithComponents.has(line.id)) {
+        addTax(taxByReturn, line.saleReturnId, line.taxKind, line.taxAmount);
+      }
+    }
+
+    const vouchers: AccountingVoucher[] = headers.map(row => {
+      const lines =
+        row.kind === 'sale'
+          ? (linesBySale.get(row.saleId) ?? [])
+          : (linesByReturn.get(row.eventId) ?? []);
+      // Split by the frozen normalized components when present; legacy lines
+      // fall back to their single summary tax kind.
+      const { ivaAmount, incAmount } =
+        (row.kind === 'sale' ? taxBySale.get(row.saleId) : taxByReturn.get(row.eventId)) ??
+        ({ ivaAmount: 0, incAmount: 0 } satisfies TaxSplit);
       const fiscal =
         row.kind === 'sale' ? fiscalBySale.get(row.saleId) : fiscalByReturn.get(row.eventId);
       // The header tax and the line tax kinds must agree; otherwise the
       // IVA/INC split (and any journal built from it) is fiction.
       const taxReconciled = roundMoney(ivaAmount + incAmount) === roundMoney(row.taxAmount);
+      const payments =
+        row.kind === 'sale'
+          ? (paymentsBySale.get(row.saleId) ?? [])
+          : resolveReturnPayments(row.eventId, row.refundAmount);
+      const allocatedRefundAmount = payments.reduce(
+        (sum, payment) => roundMoney(sum + payment.amount),
+        0
+      );
+      const paymentReconciled =
+        row.kind === 'sale' ||
+        (payments.every(payment => Number.isFinite(payment.amount) && payment.amount >= 0) &&
+          allocatedRefundAmount === roundMoney(row.refundAmount));
       return {
         kind: row.kind,
         eventId: row.eventId,
@@ -442,12 +666,13 @@ export const accountingReportsRouter = router({
         ivaAmount,
         incAmount,
         lines,
-        payments: paymentsBySale.get(row.saleId) ?? [],
+        payments,
         fiscalDocumentNumber: fiscal?.documentNumber ?? null,
         fiscalCufe: fiscal?.cufe ?? null,
         fiscalStatus: fiscal?.status ?? null,
         refundAmount: row.refundAmount,
         taxReconciled,
+        paymentReconciled,
       };
     });
 

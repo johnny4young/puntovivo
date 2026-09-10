@@ -8,13 +8,12 @@
  * shared e2e support layer enforces the existing zero-console-error
  * invariant on top.
  *
- * extends the catalogue to the five module-gated surfaces
+ * The catalogue includes the five operational module-gated surfaces
  * (`/touch`, `/kds`, `/customer-display`, `/m`, `/delivery`): the e2e
  * baseline now force-enables their modules (`ensureModulesEnabled` in
  * `e2e/shared/baseline.ts`) so axe can reach each surface. The
- * keyboard-only `/sales` end-to-end shipped as ; the manual
- * VoiceOver / NVDA screen-reader sweep is the sole  §3b
- * "Remaining" item.
+ * keyboard-only `/sales` end-to-end is automated separately; the manual
+ * VoiceOver / NVDA screen-reader sweep remains external evidence.
  */
 import { expect, test, type Page } from '@playwright/test';
 import {
@@ -99,10 +98,23 @@ const a11yRoutes: readonly A11yRoute[] = [
       page.getByRole('button', { name: /Create order|Nueva orden|Add product/i }).first(),
   },
   {
+    label: 'Supplier accounts (manager)',
+    path: '/provider-payables',
+    role: 'manager',
+    settled: page =>
+      page.getByRole('heading', { level: 1, name: /Supplier accounts|Cuentas de proveedores/i }),
+  },
+  {
     label: 'Quotations (admin)',
     path: '/quotations',
     role: 'admin',
     settled: page => page.getByRole('button', { name: /New quotation|Nueva cotización/i }),
+  },
+  {
+    label: 'Promotions (admin)',
+    path: '/promotions',
+    role: 'admin',
+    settled: page => page.getByRole('button', { name: /Create promotion|Crear promoción/i }),
   },
   {
     label: 'Company (admin)',
@@ -136,7 +148,7 @@ const a11yRoutes: readonly A11yRoute[] = [
     role: 'admin',
     settled: page => page.getByTestId('day-close-sales-section'),
   },
-  // module-gated surfaces. The e2e baseline force-enables
+  // Module-gated surfaces. The e2e baseline force-enables
   // their modules (see `ensureModulesEnabled` in `e2e/shared/baseline.ts`)
   // so `SurfaceShellRoute` renders them instead of redirecting to
   // `/dashboard`. Admin reaches all of them (admin ∈ salesRoles and
@@ -153,16 +165,18 @@ const a11yRoutes: readonly A11yRoute[] = [
     label: 'Kitchen display (admin)',
     path: '/kds',
     role: 'admin',
-    // KdsBoard renders per-state testids; with the retail seed (a site
-    // is selected but there are no kitchen tickets) it shows the empty
-    // state. Match either loaded state so axe scans the real DOM.
-    settled: page => page.locator('[data-testid="kds-board"], [data-testid="kds-empty-state"]'),
+    // The board now owns its empty state. Require one settled board rather
+    // than matching both its container and the nested empty-state element.
+    settled: page =>
+      page.getByTestId('kds-board').filter({
+        has: page.locator('[data-testid="kds-empty-state"], [data-testid="kds-order-card"]'),
+      }),
   },
   {
     label: 'Customer display (admin)',
     path: '/customer-display',
     role: 'admin',
-    settled: page => page.getByTestId('surface-placeholder'),
+    settled: page => page.getByTestId('customer-display-shell'),
   },
   {
     label: 'Mobile waiter (admin)',

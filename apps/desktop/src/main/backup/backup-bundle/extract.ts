@@ -7,7 +7,7 @@ import { isAbsolute, join } from 'node:path';
 import { Readable, Transform, type TransformCallback } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { crc32, createInflateRaw } from 'node:zlib';
-import { Open, type CentralDirectory, type File as ZipEntry } from 'unzipper';
+import type { CentralDirectory, File as ZipEntry } from 'unzipper';
 import {
   ALLOWED_ZIP_ENTRIES,
   ZIP_DB_ENTRY,
@@ -16,6 +16,7 @@ import {
   ZIP_MANIFEST_ENTRY,
 } from './constants.ts';
 import { detectBackupFormat } from './detect.ts';
+import { copyBackupFileRange } from './copy-range.ts';
 import type { BackupKeyWrap } from './key-wrap.ts';
 import type { BackupManifest, ExtractBackupBundleResult } from './types.ts';
 
@@ -316,6 +317,7 @@ async function validateLocalHeaders(
   return validatedEntries;
 }
 
+/** Shared CRC/size admission for both legacy inflation and bounded stored-payload copying. */
 class EntryIntegrityTransform extends Transform {
   #bytes = 0;
   #crc = 0;
@@ -332,16 +334,21 @@ class EntryIntegrityTransform extends Transform {
     this.#maxBytes = maxBytes;
   }
 
-  override _transform(chunk: Buffer, _encoding: BufferEncoding, callback: TransformCallback): void {
+  acceptChunk(chunk: Buffer): void {
     this.#bytes += chunk.byteLength;
     if (this.#bytes > this.#expectedBytes || this.#bytes > this.#maxBytes) {
-      callback(
-        new Error(`Backup ZIP rejected: entry '${this.#entryName}' exceeded its size limit.`)
-      );
-      return;
+      rejectArchive(`entry '${this.#entryName}' exceeded its size limit.`);
     }
     this.#crc = crc32(chunk, this.#crc) >>> 0;
-    callback(null, chunk);
+  }
+
+  override _transform(chunk: Buffer, _encoding: BufferEncoding, callback: TransformCallback): void {
+    try {
+      this.acceptChunk(chunk);
+      callback(null, chunk);
+    } catch (error) {
+      callback(error instanceof Error ? error : new Error(String(error)));
+    }
   }
 
   assertComplete(): void {
@@ -369,19 +376,37 @@ async function extractEntryToFile(
     ENTRY_LIMITS[entry.path]!
   );
   try {
-    const source =
-      entry.compressedSize === 0
-        ? Readable.from([])
-        : createReadStream(bundlePath, {
-            start: dataStart,
-            end: dataStart + entry.compressedSize - 1,
-            highWaterMark: 64 * 1024,
+    if (entry.compressionMethod === 0) {
+      // Stored SQLCipher payloads need no transform buffering. Reuse one buffer
+      // only after complete positional writes; short I/O must never lose bytes.
+      const source = await open(bundlePath, 'r');
+      try {
+        const destination = await open(outputPath, 'wx', 0o600);
+        try {
+          await copyBackupFileRange({
+            source,
+            destination,
+            sourceOffset: dataStart,
+            byteLength: entry.compressedSize,
+            verifyChunk: chunk => verifier.acceptChunk(chunk),
           });
-    const output = createWriteStream(outputPath, { flags: 'wx', mode: 0o600 });
-    if (entry.compressionMethod === 8) {
-      await pipeline(source, createInflateRaw(), verifier, output);
+        } finally {
+          await destination.close();
+        }
+      } finally {
+        await source.close();
+      }
     } else {
-      await pipeline(source, verifier, output);
+      const source =
+        entry.compressedSize === 0
+          ? Readable.from([])
+          : createReadStream(bundlePath, {
+              start: dataStart,
+              end: dataStart + entry.compressedSize - 1,
+              highWaterMark: 64 * 1024,
+            });
+      const output = createWriteStream(outputPath, { flags: 'wx', mode: 0o600 });
+      await pipeline(source, createInflateRaw(), verifier, output);
     }
     verifier.assertComplete();
     const handle = await open(outputPath, 'r+');
@@ -430,6 +455,8 @@ export async function extractBackupBundle(
     return { dbPath: bundlePath, format: 'sqlite' };
   }
 
+  // Legacy SQLite restores and idle startup do not need the ZIP parser.
+  const { Open } = await import('unzipper');
   let directory: CentralDirectory;
   try {
     directory = await Open.file(bundlePath);

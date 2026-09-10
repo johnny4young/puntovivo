@@ -15,6 +15,7 @@ describe('IPC session authorization core', () => {
           order.push('authorize');
           return 'tenant-main';
         },
+        requireOneOfRoles: () => 'admin',
       },
       ({ tenantId }, rendererTenantId: string) => {
         order.push('handler');
@@ -36,6 +37,7 @@ describe('IPC session authorization core', () => {
         requireTenantId: () => {
           throw new Error('SESSION_NOT_REGISTERED');
         },
+        requireOneOfRoles: () => 'admin',
       },
       () => {
         reachedHandler = true;

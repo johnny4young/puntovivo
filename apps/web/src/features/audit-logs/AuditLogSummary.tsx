@@ -12,7 +12,78 @@ function translateQuotationStatus(status: unknown, t: TFunction): string {
 }
 
 export function AuditLogSummary({ entry }: { entry: AuditLogEntry }) {
-  const { t } = useTranslation(['auditLogs', 'quotations']);
+  const { t } = useTranslation([
+    'auditLogs',
+    'quotations',
+    'sales',
+    'workforce',
+    'schedulePlans',
+    'shiftSwaps',
+  ]);
+
+  if (entry.action === 'shift_swap.changed') {
+    const status = entry.after?.status,
+      version = entry.after?.version;
+    // Never reflect reasons, shift details or fingerprints from the private consent ledger.
+    if (
+      typeof status !== 'string' ||
+      !['requested', 'accepted', 'approved', 'rejected', 'cancelled'].includes(status) ||
+      typeof version !== 'number' ||
+      !Number.isSafeInteger(version) ||
+      version < 1
+    )
+      return <span className="text-sm text-secondary-500">—</span>;
+    return (
+      <span className="text-sm text-secondary-700">
+        {t(`shiftSwaps:statuses.${status}`)} · {t('shiftSwaps:version', { version })}
+      </span>
+    );
+  }
+
+  if (entry.action === 'schedule_plan.changed') {
+    const status = entry.after?.status,
+      version = entry.after?.version,
+      count = entry.after?.occurrenceCount;
+    // A summary may show only a recognized state and bounded counts, never the private plan content.
+    if (
+      typeof status !== 'string' ||
+      !['draft', 'published', 'discarded'].includes(status) ||
+      typeof version !== 'number' ||
+      !Number.isSafeInteger(version) ||
+      version < 1 ||
+      typeof count !== 'number' ||
+      !Number.isInteger(count) ||
+      count < 1 ||
+      count > 1000
+    )
+      return <span className="text-sm text-secondary-500">—</span>;
+    return (
+      <span className="text-sm text-secondary-700">
+        {t(`schedulePlans:statuses.${status}`)} · {t('schedulePlans:shiftCount', { count })} ·{' '}
+        {t('shiftSwaps:version', { version })}
+      </span>
+    );
+  }
+
+  if (entry.action === 'employment_contract.changed') {
+    const kind = entry.after?.kind;
+    const version = entry.after?.version;
+    // Never stringify the private payload or render an unrecognized event name.
+    if (
+      typeof kind !== 'string' ||
+      !['created', 'ended', 'replaced', 'voided'].includes(kind) ||
+      typeof version !== 'number' ||
+      !Number.isSafeInteger(version) ||
+      version < 1
+    ) {
+      return <span className="text-sm text-secondary-500">—</span>;
+    }
+    return (
+      <span className="text-sm text-secondary-700">
+        {t(`workforce:kinds.${kind}`)} · {t('shiftSwaps:version', { version })}
+      </span>
+    );
+  }
 
   // Render a short human string per action type. The summary is derived
   // from the audit payload rather than free-formed so every row reads
@@ -152,8 +223,17 @@ export function AuditLogSummary({ entry }: { entry: AuditLogEntry }) {
   }
 
   if (entry.action === 'sale.return') {
-    const reason =
+    const persistedReason =
       entry.metadata && typeof entry.metadata.reason === 'string' ? entry.metadata.reason : null;
+    const reason = persistedReason
+      ? t(`sales:refund.reasons.${persistedReason}`, { defaultValue: persistedReason })
+      : null;
+    const saleNumber =
+      entry.metadata && typeof entry.metadata.saleNumber === 'string'
+        ? entry.metadata.saleNumber
+        : entry.before && typeof entry.before.saleNumber === 'string'
+          ? entry.before.saleNumber
+          : entry.resourceId;
     const refundAmount =
       entry.after && typeof entry.after.refundAmount === 'number' ? entry.after.refundAmount : null;
     if (refundAmount === null) {
@@ -162,13 +242,14 @@ export function AuditLogSummary({ entry }: { entry: AuditLogEntry }) {
     return reason ? (
       <span className="text-sm text-secondary-700">
         {t('summary.saleRefundReason', {
+          saleNumber,
           amount: formatCurrency(refundAmount),
           reason,
         })}
       </span>
     ) : (
       <span className="text-sm text-secondary-700">
-        {t('summary.saleRefund', { amount: formatCurrency(refundAmount) })}
+        {t('summary.saleRefund', { saleNumber, amount: formatCurrency(refundAmount) })}
       </span>
     );
   }
@@ -235,6 +316,71 @@ export function AuditLogSummary({ entry }: { entry: AuditLogEntry }) {
           purchaseNumber,
           quantity: baseUnitsReceived,
           site: siteName,
+        })}
+      </span>
+    );
+  }
+
+  if (entry.action === 'purchase.return') {
+    const purchaseNumber =
+      entry.before && typeof entry.before.purchaseNumber === 'string'
+        ? entry.before.purchaseNumber
+        : entry.resourceId;
+    const returnAmount =
+      entry.after && typeof entry.after.returnAmount === 'number' ? entry.after.returnAmount : null;
+    const reason =
+      entry.metadata && typeof entry.metadata.reason === 'string' ? entry.metadata.reason : null;
+    if (returnAmount === null) {
+      return <span className="text-sm text-secondary-500">—</span>;
+    }
+    return (
+      <span className="text-sm text-secondary-700">
+        {t(reason ? 'summary.purchaseReturnReason' : 'summary.purchaseReturn', {
+          purchaseNumber,
+          amount: formatCurrency(returnAmount),
+          reason,
+        })}
+      </span>
+    );
+  }
+
+  if (entry.action === 'order.create') {
+    const orderNumber =
+      entry.after && typeof entry.after.orderNumber === 'string' ? entry.after.orderNumber : null;
+    const lineCount =
+      entry.after && typeof entry.after.lineCount === 'number' ? entry.after.lineCount : null;
+    const total = entry.after && typeof entry.after.total === 'number' ? entry.after.total : null;
+    const siteName =
+      entry.metadata && typeof entry.metadata.siteName === 'string'
+        ? entry.metadata.siteName
+        : null;
+    if (orderNumber === null || lineCount === null || total === null || siteName === null) {
+      return <span className="text-sm text-secondary-500">—</span>;
+    }
+    return (
+      <span className="text-sm text-secondary-700">
+        {t('summary.orderCreate', {
+          count: lineCount,
+          orderNumber,
+          total: formatCurrency(total),
+          site: siteName,
+        })}
+      </span>
+    );
+  }
+
+  if (entry.action === 'order.void') {
+    const orderNumber =
+      entry.before && typeof entry.before.orderNumber === 'string'
+        ? entry.before.orderNumber
+        : entry.resourceId;
+    const reason =
+      entry.metadata && typeof entry.metadata.reason === 'string' ? entry.metadata.reason : null;
+    return (
+      <span className="text-sm text-secondary-700">
+        {t(reason ? 'summary.orderVoidReason' : 'summary.orderVoid', {
+          orderNumber,
+          reason,
         })}
       </span>
     );

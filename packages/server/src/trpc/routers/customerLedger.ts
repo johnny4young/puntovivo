@@ -16,7 +16,11 @@ import {
 } from '../../application/customers/index.js';
 import { customerLedgerEntries } from '../../db/schema.js';
 import { router } from '../init.js';
-import { adminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
+import {
+  criticalCommandAdminProcedure,
+  criticalCommandManagerOrAdminProcedure,
+} from '../middleware/criticalCommand.js';
+import { managerOrAdminProcedure } from '../middleware/roles.js';
 
 const listInput = z.object({
   customerId: z.string().min(1),
@@ -71,11 +75,17 @@ export const customerLedgerRouter = router({
       return { balance: result[0]?.balance ?? 0 };
     }),
 
-  addPayment: managerOrAdminProcedure
+  // Both writes move a customer's receivable balance and neither is
+  // reversible from the UI, so they carry the command envelope: the operator's
+  // repeated confirm collapses onto one idempotency key instead of paying the
+  // debt down once per attempt. The role guard stays ahead of the envelope --
+  // see criticalCommand.ts for why a guard behind it would be skipped on the
+  // replay paths.
+  addPayment: criticalCommandManagerOrAdminProcedure
     .input(addPaymentInput)
     .mutation(({ ctx, input }) => addCustomerLedgerPayment({ ...ctx, user: ctx.user! }, input)),
 
-  addAdjustment: adminProcedure
+  addAdjustment: criticalCommandAdminProcedure
     .input(addAdjustmentInput)
     .mutation(({ ctx, input }) => addCustomerLedgerAdjustment({ ...ctx, user: ctx.user! }, input)),
 });

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
+import { fireEvent } from '@testing-library/react';
 import i18next from '@/i18n';
 import { render, screen } from '@/test/utils';
 import type { Site } from '@/types';
@@ -64,6 +65,9 @@ let peripheralRows: PeripheralRow[] = [];
 
 const toastSuccess = vi.fn();
 const toastError = vi.fn();
+const { activeForSiteInvalidate } = vi.hoisted(() => ({
+  activeForSiteInvalidate: vi.fn(async () => undefined),
+}));
 
 vi.mock('@/features/auth/AuthProvider', () => ({
   useAuth: () => ({
@@ -89,6 +93,7 @@ vi.mock('@/lib/trpc', () => ({
     useUtils: () => ({
       peripherals: {
         list: { invalidate: vi.fn(async () => undefined) },
+        activeForSite: { invalidate: activeForSiteInvalidate },
       },
       setupReadiness: {
         get: { invalidate: vi.fn(async () => undefined) },
@@ -113,9 +118,11 @@ vi.mock('@/lib/trpc', () => ({
         }),
       },
       register: {
-        useMutation: () => ({
+        useMutation: (handlers: { onSuccess?: () => Promise<void> | void }) => ({
           mutate: vi.fn(),
-          mutateAsync: vi.fn(),
+          mutateAsync: vi.fn(async () => {
+            await handlers.onSuccess?.();
+          }),
           isPending: false,
           error: null,
           reset: vi.fn(),
@@ -168,6 +175,17 @@ describe('PeripheralsPage', () => {
     peripheralRows = [];
   });
 
+  it('refreshes the active checkout configuration after registering a device', async () => {
+    const user = userEvent.setup();
+    render(<PeripheralsPage />);
+
+    await user.click(screen.getByTestId('peripherals-add-button'));
+    await user.selectOptions(screen.getByLabelText('Device type'), 'scanner');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(activeForSiteInvalidate).toHaveBeenCalledWith({ siteId: 'site-1' });
+  });
+
   it('renders the empty state with the Add device CTA when no rows exist', () => {
     peripheralRows = [];
     render(<PeripheralsPage />);
@@ -198,9 +216,7 @@ describe('PeripheralsPage', () => {
     const emptyState = screen.getByTestId('peripherals-empty-state');
     expect(screen.getByRole('heading', { name: 'Dispositivos' })).toBeInTheDocument();
     expect(emptyState).toHaveTextContent('Aún no hay dispositivos');
-    expect(emptyState).toHaveTextContent(
-      'Agrega un dispositivo para que Puntovivo pueda usarlo.'
-    );
+    expect(emptyState).toHaveTextContent('Agrega un dispositivo para que Puntovivo pueda usarlo.');
     expect(emptyState).not.toHaveTextContent(/periférico|registry/i);
   });
 
@@ -301,5 +317,65 @@ describe('PeripheralsPage', () => {
       'Advanced configuration (JSON)'
     ) as HTMLTextAreaElement;
     expect(configTextarea.value).toContain('"autoPrintOnComplete": true');
+  });
+
+  it('configures GS1 weight and price prefixes with typed per-site controls', async () => {
+    const user = userEvent.setup();
+    render(<PeripheralsPage />);
+    await user.click(screen.getByTestId('peripherals-add-button'));
+    await user.selectOptions(screen.getByLabelText('Device type'), 'scanner');
+
+    expect(screen.getByLabelText('Label scheme')).toHaveValue('generic');
+    expect(screen.getByTestId('peripheral-gs1-prefix-20')).toHaveValue('weight');
+    expect(screen.getByTestId('peripheral-gs1-prefix-21')).toHaveValue('price');
+
+    await user.selectOptions(screen.getByTestId('peripheral-gs1-prefix-21'), 'weight');
+    const config = screen.getByLabelText('Advanced configuration (JSON)') as HTMLTextAreaElement;
+    expect(config.value).toContain('"weight": [');
+    expect(config.value).toContain('"21"');
+    expect(config.value).not.toMatch(/"price": \[[^\]]*"21"/s);
+  });
+
+  it('disables prefix roles when the scanner scheme opts out of GS1 decoding', async () => {
+    const user = userEvent.setup();
+    render(<PeripheralsPage />);
+    await user.click(screen.getByTestId('peripherals-add-button'));
+    await user.selectOptions(screen.getByLabelText('Device type'), 'scanner');
+    await user.selectOptions(screen.getByLabelText('Label scheme'), 'none');
+
+    expect(screen.getByTestId('peripheral-gs1-prefix-20')).toBeDisabled();
+    expect(
+      (screen.getByLabelText('Advanced configuration (JSON)') as HTMLTextAreaElement).value
+    ).toContain('"gs1Scheme": "none"');
+  });
+
+  it('keeps the final active GS1 prefix instead of trapping the typed editor invalid', async () => {
+    const user = userEvent.setup();
+    render(<PeripheralsPage />);
+    await user.click(screen.getByTestId('peripherals-add-button'));
+    await user.selectOptions(screen.getByLabelText('Device type'), 'scanner');
+    const config = screen.getByLabelText('Advanced configuration (JSON)') as HTMLTextAreaElement;
+    fireEvent.change(config, {
+      target: {
+        value: JSON.stringify(
+          {
+            minLength: 6,
+            maxLength: 32,
+            interCharGapMs: 30,
+            endOfScan: 'enter',
+            gs1Scheme: 'generic',
+            gs1Prefixes: { weight: ['20'], price: [] },
+          },
+          null,
+          2
+        ),
+      },
+    });
+
+    await user.selectOptions(screen.getByTestId('peripheral-gs1-prefix-20'), 'none');
+
+    expect(screen.getByText(/Assign at least one prefix/)).toBeVisible();
+    expect(config.value).toContain('"20"');
+    expect(screen.getByTestId('peripheral-gs1-prefix-20')).toHaveValue('weight');
   });
 });

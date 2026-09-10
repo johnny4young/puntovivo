@@ -1,6 +1,7 @@
 import { useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
+import { useSingleFlightSubmit } from '@/lib/useSingleFlightSubmit';
 
 // explicit `| undefined` on optional fields.
 export interface InventoryAdjustmentProduct {
@@ -52,7 +53,10 @@ export function InventoryAdjustmentModal({
     defaultValues: mapProductToForm(product),
   });
 
-  const handleSubmit = form.handleSubmit(onSubmit);
+  // Mirrors the confirm button's disabled expression, so the Enter path
+  // cannot submit what the click path refuses.
+  const canSubmit = !isSaving && !!product && !product.tracksLots && product.tracksSerials !== true;
+  const handleSubmit = form.handleSubmit(useSingleFlightSubmit(canSubmit, onSubmit));
   const nextStock = useWatch({ control: form.control, name: 'newStock' });
   const currentStock = product?.stock ?? 0;
   const delta = (Number(nextStock) || 0) - currentStock;

@@ -76,6 +76,22 @@ describe('selectLotsFefo', () => {
     // roundMoney(1.75 * 33.33) = 58.33
     expect(sel.totalCost).toBe(58.33);
   });
+
+  it('normalizes fractional allocations and shortfall at the stock precision boundary', () => {
+    const lots = [
+      lot({ id: 'first', expiresAt: '2026-02-01', onHand: 0.1, unitCost: 10 }),
+      lot({ id: 'second', expiresAt: '2026-03-01', onHand: 0.2, unitCost: 10 }),
+    ];
+
+    expect(selectLotsFefo(lots, 0.1 + 0.2)).toEqual({
+      allocations: [
+        { lotId: 'first', quantity: 0.1, unitCost: 10, lineCost: 1 },
+        { lotId: 'second', quantity: 0.2, unitCost: 10, lineCost: 2 },
+      ],
+      totalCost: 3,
+      shortfall: 0,
+    });
+  });
 });
 
 describe('weightedAverageUnitCost', () => {

@@ -28,6 +28,8 @@ interface SyncConflictItem {
   localData?: Record<string, unknown> | null;
   remoteData?: Record<string, unknown> | null;
   localRecordExists?: boolean | null;
+  /** Server capability snapshot; mutation revalidates it under the writer lock. */
+  resolutionAvailability?: { local: boolean; remote: boolean; merged: boolean };
 }
 interface CompanySyncQueuePreviewProps {
   isLoading: boolean;
@@ -145,6 +147,9 @@ interface ConflictDiffCardProps {
 function ConflictDiffCard({ conflict, isResolving, onOpenResolution }: ConflictDiffCardProps) {
   const { t } = useTranslation('settings');
   const localRecordMissing = conflict.localRecordExists === false;
+  const availability = conflict.resolutionAvailability;
+  const atomicRecoveryRequired = availability?.remote === false;
+  const atomicNoticeId = atomicRecoveryRequired ? `sync-conflict-atomic-${conflict.id}` : undefined;
   const entityLabel = getSyncEntityLabel(t, conflict.entityType);
   const diffFields = computeConflictDiff(conflict.localData, conflict.remoteData);
   // Reviewer fix — give the "local record missing" notice a stable id so the
@@ -164,7 +169,10 @@ function ConflictDiffCard({ conflict, isResolving, onOpenResolution }: ConflictD
     localRecordExists: conflict.localRecordExists,
   } as const;
   return (
-    <div className="rounded-2xl border border-warning-500/30 bg-warning-50/60 p-4">
+    <article
+      aria-label={t('company.sync.conflict.itemTitle', { entity: entityLabel })}
+      className="rounded-2xl border border-warning-500/30 bg-warning-50/60 p-4"
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-3">
           <span className="pv-gt pv-gt-warning h-8 w-8 shrink-0 rounded-[10px]">
@@ -192,7 +200,7 @@ function ConflictDiffCard({ conflict, isResolving, onOpenResolution }: ConflictD
         )}
       </div>
 
-      {localRecordMissing && (
+      {localRecordMissing && !atomicRecoveryRequired && (
         <p
           id={missingLocalNoticeId}
           className="mt-3 rounded-lg border border-warning-500/30 bg-surface/70 px-3 py-2 text-sm text-warning-800"
@@ -210,7 +218,9 @@ function ConflictDiffCard({ conflict, isResolving, onOpenResolution }: ConflictD
             </div>
             {diffFields.map(field => (
               <div className="row" key={`local-${field.key}`}>
-                <span className="k">{field.key}</span>
+                <span className="k">
+                  {t(`company.sync.conflict.fieldLabels.${field.key}`, { defaultValue: field.key })}
+                </span>
                 <span className="v">{field.localValue}</span>
               </div>
             ))}
@@ -222,7 +232,9 @@ function ConflictDiffCard({ conflict, isResolving, onOpenResolution }: ConflictD
             </div>
             {diffFields.map(field => (
               <div className="row" key={`remote-${field.key}`}>
-                <span className="k">{field.key}</span>
+                <span className="k">
+                  {t(`company.sync.conflict.fieldLabels.${field.key}`, { defaultValue: field.key })}
+                </span>
                 <span className="v changed">{field.remoteValue}</span>
               </div>
             ))}
@@ -236,18 +248,25 @@ function ConflictDiffCard({ conflict, isResolving, onOpenResolution }: ConflictD
         )
       )}
 
+      {atomicRecoveryRequired && (
+        <p id={atomicNoticeId} className="mt-3 text-sm text-secondary-700">
+          {t('company.sync.conflict.atomicRecoveryRequired')}
+        </p>
+      )}
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <span className="inline-flex items-center gap-1.5 text-xs text-secondary-500">
           <Lightbulb className="h-3.5 w-3.5 text-primary-700" aria-hidden="true" />
-          {localRecordMissing
-            ? t('company.sync.conflict.recommendedDiscard')
-            : t('company.sync.conflict.recommendedAcceptRemote')}
+          {atomicRecoveryRequired
+            ? t('company.sync.conflict.preserveEvidence')
+            : localRecordMissing
+              ? t('company.sync.conflict.recommendedDiscard')
+              : t('company.sync.conflict.recommendedAcceptRemote')}
         </span>
         <div className="flex flex-wrap items-center gap-2">
           <Button
             type="button"
-            disabled={isResolving || localRecordMissing}
-            aria-describedby={missingLocalNoticeId}
+            disabled={isResolving || localRecordMissing || availability?.local === false}
+            aria-describedby={atomicNoticeId ?? missingLocalNoticeId}
             onClick={() =>
               onOpenResolution({
                 ...basePayload,
@@ -260,8 +279,8 @@ function ConflictDiffCard({ conflict, isResolving, onOpenResolution }: ConflictD
           </Button>
           <Button
             type="button"
-            disabled={isResolving || localRecordMissing}
-            aria-describedby={missingLocalNoticeId}
+            disabled={isResolving || localRecordMissing || availability?.merged === false}
+            aria-describedby={atomicNoticeId ?? missingLocalNoticeId}
             onClick={() =>
               onOpenResolution({
                 ...basePayload,
@@ -275,14 +294,15 @@ function ConflictDiffCard({ conflict, isResolving, onOpenResolution }: ConflictD
           </Button>
           <Button
             type="button"
-            disabled={isResolving}
+            disabled={isResolving || availability?.remote === false}
+            aria-describedby={atomicNoticeId}
             onClick={() =>
               onOpenResolution({
                 ...basePayload,
                 resolution: 'remote_wins',
               })
             }
-            variant="primary"
+            variant={availability?.remote === false ? 'ghost' : 'primary'}
           >
             <CloudDownload />
             {localRecordMissing
@@ -293,7 +313,7 @@ function ConflictDiffCard({ conflict, isResolving, onOpenResolution }: ConflictD
       </div>
 
       <SyncTechnicalDetails entityType={conflict.entityType} entityId={conflict.entityId} />
-    </div>
+    </article>
   );
 }
 

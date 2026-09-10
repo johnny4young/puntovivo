@@ -4,7 +4,7 @@
  * Drives admin CRUD + archive flow against mocked trpc procedures. The
  * row-action buttons mirror the LocationsPage pattern.
  */
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -19,6 +19,12 @@ const listInvalidate = vi.fn();
 
 let mockUserRole: 'admin' | 'manager' = 'admin';
 let mockTables: Array<Record<string, unknown>> = [];
+let mockFloorTables: Array<Record<string, unknown>> = [];
+let mockTotalItems = 0;
+let mockHasMore = false;
+let lastTableListInput: Record<string, unknown> | null = null;
+let tableListInputs: Array<Record<string, unknown>> = [];
+let archiveOnSuccess: (() => void | Promise<void>) | undefined;
 
 vi.mock('@/components/feedback/ToastProvider', () => ({
   useToast: () => ({
@@ -62,12 +68,23 @@ vi.mock('@/lib/trpc', () => ({
     },
     restaurantTables: {
       list: {
-        useQuery: () => ({
-          data: { items: mockTables },
-          isLoading: false,
-          error: null,
-          refetch: vi.fn(),
-        }),
+        useQuery: (input: Record<string, unknown>) => {
+          tableListInputs.push(input);
+          const isFloorMapQuery = input.limit === 500;
+          if (!isFloorMapQuery) {
+            lastTableListInput = input;
+          }
+          return {
+            data: {
+              items: isFloorMapQuery ? mockFloorTables : mockTables,
+              totalItems: isFloorMapQuery ? mockFloorTables.length : mockTotalItems,
+              hasMore: isFloorMapQuery ? false : mockHasMore,
+            },
+            isLoading: false,
+            error: null,
+            refetch: vi.fn(),
+          };
+        },
       },
       create: {
         useMutation: () => ({
@@ -86,12 +103,15 @@ vi.mock('@/lib/trpc', () => ({
         }),
       },
       archive: {
-        useMutation: () => ({
-          mutateAsync: archiveMutateAsync,
-          isPending: false,
-          reset: vi.fn(),
-          error: null,
-        }),
+        useMutation: (options?: { onSuccess?: () => void | Promise<void> }) => {
+          archiveOnSuccess = options?.onSuccess;
+          return {
+            mutateAsync: archiveMutateAsync,
+            isPending: false,
+            reset: vi.fn(),
+            error: null,
+          };
+        },
       },
     },
   },
@@ -122,6 +142,9 @@ beforeEach(() => {
   archiveMutateAsync.mockClear();
   archiveMutateAsync.mockResolvedValue(undefined);
   listInvalidate.mockClear();
+  lastTableListInput = null;
+  tableListInputs = [];
+  archiveOnSuccess = undefined;
   mockUserRole = 'admin';
   mockTables = [
     {
@@ -149,6 +172,9 @@ beforeEach(() => {
       updatedAt: '2026-05-10T10:05:00.000Z',
     },
   ];
+  mockTotalItems = mockTables.length;
+  mockFloorTables = mockTables;
+  mockHasMore = false;
   void i18n.changeLanguage('en');
 });
 
@@ -205,6 +231,74 @@ describe('RestaurantTablesPage — admin', () => {
     expect(toggle.checked).toBe(false);
     fireEvent.click(toggle);
     expect(toggle.checked).toBe(true);
+  });
+
+  it('paginates catalogs larger than the operational page without hiding rows', async () => {
+    mockTotalItems = 205;
+    mockHasMore = true;
+    renderPage();
+
+    expect(screen.getByTestId('restaurant-tables-pagination')).toHaveTextContent(
+      'Showing 1–2 of 205 tables'
+    );
+    fireEvent.click(screen.getByTestId('restaurant-tables-next-page'));
+    await waitFor(() => {
+      expect(lastTableListInput).toMatchObject({ limit: 100, offset: 100 });
+    });
+    expect(screen.getByTestId('restaurant-tables-previous-page')).not.toBeDisabled();
+  });
+
+  it('searches on the server and keeps the complete active catalog in the floor map', async () => {
+    mockFloorTables = [
+      ...mockTables,
+      {
+        ...mockTables[0],
+        id: 'rt-101',
+        name: 'Mesa Terraza 101',
+      },
+    ];
+    renderPage();
+
+    expect(screen.getByText('Mesa Terraza 101')).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText('Restaurant tables'), {
+      target: { value: 'Terraza 101' },
+    });
+
+    await waitFor(() => {
+      expect(tableListInputs).toContainEqual(
+        expect.objectContaining({
+          search: 'Terraza 101',
+          limit: 100,
+          offset: 0,
+        })
+      );
+    });
+    expect(tableListInputs).toContainEqual(
+      expect.objectContaining({ includeArchived: false, limit: 500, offset: 0 })
+    );
+  });
+
+  it('returns to the first page when archiving the last row of a trailing page', async () => {
+    mockTotalItems = 101;
+    mockHasMore = true;
+    renderPage();
+    fireEvent.click(screen.getByTestId('restaurant-tables-next-page'));
+    await waitFor(() => {
+      expect(lastTableListInput).toMatchObject({ limit: 100, offset: 100 });
+    });
+
+    fireEvent.click(screen.getByTestId('restaurant-table-archive-rt-1'));
+    fireEvent.click(screen.getByRole('button', { name: /Archive$/i }));
+    mockTotalItems = 100;
+    mockHasMore = false;
+    await act(async () => {
+      await archiveOnSuccess?.();
+    });
+
+    await waitFor(() => {
+      expect(lastTableListInput).toMatchObject({ limit: 100, offset: 0 });
+    });
+    expect(screen.queryByTestId('restaurant-tables-pagination')).toBeNull();
   });
 });
 

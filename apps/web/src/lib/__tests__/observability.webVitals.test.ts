@@ -3,10 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // capture the web-vitals callbacks + spy on the tRPC mutation.
 // `vi.hoisted` keeps these references valid inside the hoisted `vi.mock`
 // factories below.
-const { mutateMock, handlers } = vi.hoisted(() => ({
+const { mutateMock, bootstrapMock, handlers } = vi.hoisted(() => ({
   mutateMock: vi.fn(() => Promise.resolve({ accepted: true })),
+  bootstrapMock: vi.fn(() => Promise.resolve()),
   handlers: {} as Record<string, (metric: unknown) => void>,
 }));
+
+vi.mock('../apiBootstrap', () => ({ ensureApiBootstrap: bootstrapMock }));
 
 vi.mock('../trpc', () => ({
   vanillaClient: {
@@ -53,6 +56,7 @@ const originalCores = globalThis.navigator.hardwareConcurrency;
 beforeEach(() => {
   __resetRenderObservabilityForTests();
   mutateMock.mockClear();
+  bootstrapMock.mockReset().mockResolvedValue(undefined);
   for (const key of Object.keys(handlers)) delete handlers[key];
 });
 
@@ -92,14 +96,14 @@ describe('installWebVitalsReporter', () => {
     expect(Object.keys(handlers).sort()).toEqual(['CLS', 'FCP', 'INP', 'LCP', 'TTFB']);
   });
 
-  it('forwards a finalised metric to reportWebVital with the right payload', () => {
+  it('forwards a finalised metric to reportWebVital with the right payload', async () => {
     setHardwareConcurrency(4);
     vi.spyOn(Math, 'random').mockReturnValue(0);
 
     installWebVitalsReporter();
     handlers.LCP?.({ name: 'LCP', value: 2480.5, rating: 'good' });
 
-    expect(mutateMock).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(mutateMock).toHaveBeenCalledTimes(1));
     expect(mutateMock).toHaveBeenCalledWith({
       metric: 'LCP',
       value: 2480.5,
@@ -107,6 +111,46 @@ describe('installWebVitalsReporter', () => {
       route: window.location.pathname,
       deviceClass: 'mid',
     });
+  });
+
+  it('retains first-paint values and route while waiting for safe bootstrap', async () => {
+    let ready!: () => void;
+    bootstrapMock.mockReturnValue(
+      new Promise<void>(resolve => {
+        ready = resolve;
+      })
+    );
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    const originalPath = window.location.pathname;
+    window.history.replaceState(null, '', '/login');
+    try {
+      installWebVitalsReporter();
+      const metric = { name: 'FCP', value: 120, rating: 'good' };
+      handlers.FCP?.(metric);
+      metric.value = 999;
+      window.history.replaceState(null, '', '/dashboard');
+      expect(mutateMock).not.toHaveBeenCalled();
+      ready();
+      await vi.waitFor(() => expect(mutateMock).toHaveBeenCalledTimes(1));
+      expect(mutateMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          metric: 'FCP',
+          value: 120,
+          route: '/login',
+        })
+      );
+    } finally {
+      window.history.replaceState(null, '', originalPath);
+    }
+  });
+
+  it('drops the sample when bootstrap fails without sending an unsafe mutation', async () => {
+    bootstrapMock.mockRejectedValue(new Error('offline'));
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    installWebVitalsReporter();
+    handlers.FCP?.({ name: 'FCP', value: 120, rating: 'good' });
+    await expect(bootstrapMock.mock.results[0]?.value).rejects.toThrow('offline');
+    expect(mutateMock).not.toHaveBeenCalled();
   });
 
   it('skips reporting entirely when the load is not sampled', () => {

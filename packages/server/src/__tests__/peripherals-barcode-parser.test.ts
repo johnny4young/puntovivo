@@ -99,6 +99,30 @@ describe('parseGs1WeightOrPrice', () => {
       sku: '12345',
     });
   });
+
+  it('uses an explicit site prefix map instead of assuming even means weight', () => {
+    expect(
+      parseGs1WeightOrPrice({
+        code: '2112345001999',
+        prefixes: { weight: ['21'], price: ['20'] },
+      })
+    ).toEqual({ kind: 'gs1-weight', sku: '12345', weightKg: 0.199 });
+    expect(
+      parseGs1WeightOrPrice({
+        code: '2012345012349',
+        prefixes: { weight: ['21'], price: ['20'] },
+      })
+    ).toEqual({ kind: 'gs1-price', sku: '12345', priceMajor: 12.34 });
+  });
+
+  it('leaves a 2x label unparsed when its prefix is ignored by the site', () => {
+    expect(
+      parseGs1WeightOrPrice({
+        code: '2012345012349',
+        prefixes: { weight: ['22'], price: [] },
+      })
+    ).toBeNull();
+  });
 });
 
 describe('parseScan top-level', () => {
@@ -176,5 +200,13 @@ describe('parseScan top-level', () => {
     const result = parseScan('2012345012349', { gs1Scheme: 'none' });
     expect(result.kind).toBe('ean13');
     expect(result.lookupCode).toBe('2012345012349');
+  });
+
+  it('threads a custom prefix map through the top-level parser', () => {
+    const result = parseScan('2112345001999', {
+      gs1Prefixes: { weight: ['21'], price: ['20'] },
+    });
+    expect(result.kind).toBe('gs1-weight');
+    expect(result.weightKg).toBe(0.199);
   });
 });

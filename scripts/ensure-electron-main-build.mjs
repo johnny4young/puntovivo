@@ -26,11 +26,18 @@ const repoRoot = resolve(here, '..');
 // so both must agree on this layout.
 const mainEntry = join(repoRoot, 'apps/desktop/.vite/build/index.cjs');
 const preloadEntry = join(repoRoot, 'apps/desktop/.vite/preload/index.cjs');
+const customerDisplayPreloadEntry = join(
+  repoRoot,
+  'apps/desktop/.vite/preload/customer-display.cjs'
+);
 const migrationsJournal = join(repoRoot, 'apps/desktop/.vite/build/migrations/meta/_journal.json');
 
 const missing = [];
 if (!existsSync(mainEntry)) missing.push(relative(repoRoot, mainEntry));
 if (!existsSync(preloadEntry)) missing.push(relative(repoRoot, preloadEntry));
+if (!existsSync(customerDisplayPreloadEntry)) {
+  missing.push(relative(repoRoot, customerDisplayPreloadEntry));
+}
 if (!existsSync(migrationsJournal)) {
   missing.push(relative(repoRoot, migrationsJournal));
 }

@@ -77,7 +77,7 @@ export default defineConfig(({ mode }) => {
       // inflate the desktop/web payload and leak source; re-enable behind a
       // hidden-sourcemap upload once an error-tracking endpoint exists.
       sourcemap: mode !== 'production',
-      rollupOptions: {
+      rolldownOptions: {
         output: {
           // split heavy, route-specific vendor libraries out of the
           // main entry chunk so they load only on the screens that use them.
@@ -85,31 +85,95 @@ export default defineConfig(({ mode }) => {
           // basenames (the bundle-size gate strips the content hash). Matching
           // by node_modules path substring keeps scoped sub-packages
           // (@codemirror/*, @dnd-kit/*) in their group without enumerating each.
-          manualChunks(id) {
-            if (!id.includes('node_modules')) return undefined;
-            // Keep the startup module graph in bounded execution units. A single
-            // vendor entry made ReactDOM + routing + forms + data clients execute
-            // as one long task under Lighthouse's CPU throttle, inflating TBT on
-            // every authenticated route even though route chunks were lazy.
-            if (/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id))
-              return 'react-runtime';
-            if (/[\\/]node_modules[\\/]react-router[\\/]/.test(id)) return 'routing';
-            if (/[\\/]node_modules[\\/]react-hook-form[\\/]/.test(id)) return 'forms';
-            if (/[\\/]node_modules[\\/](@tanstack|@trpc)[\\/]/.test(id)) return 'data-runtime';
-            if (
-              /[\\/]node_modules[\\/](i18next|react-i18next|i18next-resources-to-backend)[\\/]/.test(
-                id
-              )
-            )
-              return 'i18n-runtime';
-            if (/[\\/]node_modules[\\/](clsx|tailwind-merge)[\\/]/.test(id)) return 'style-runtime';
-            if (/[\\/]node_modules[\\/]zustand[\\/]/.test(id)) return 'state-runtime';
-            if (/[\\/]node_modules[\\/](jspdf|jspdf-autotable)[\\/]/.test(id)) return 'pdf';
-            if (/[\\/]node_modules[\\/](exceljs|jszip)[\\/]/.test(id)) return 'xlsx';
-            if (/[\\/]node_modules[\\/](codemirror|@codemirror|@lezer)[\\/]/.test(id))
-              return 'codemirror';
-            if (/[\\/]node_modules[\\/]@dnd-kit[\\/]/.test(id)) return 'dnd';
-            return undefined;
+          codeSplitting: {
+            groups: [
+              {
+                // This shared loader must not be captured by a lazy library's
+                // recursive dependencies: that makes every dynamic importer
+                // download and execute the library at startup (previously PDF).
+                name: 'preload-runtime',
+                test: id => id === '\0vite/preload-helper.js',
+                priority: 100,
+              },
+              {
+                name(id) {
+                  // Error copy is the largest synchronous shell namespace and grows
+                  // with every backend domain. Keep both offline language packs
+                  // statically imported, but name them independently so domain errors
+                  // cannot silently inflate the high-fan-out utility chunk.
+                  if (
+                    /[\\/]apps[\\/]web[\\/]src[\\/]i18n[\\/]locales[\\/]en[\\/]errors\.json$/.test(
+                      id
+                    )
+                  )
+                    return 'errors-en';
+                  if (
+                    /[\\/]apps[\\/]web[\\/]src[\\/]i18n[\\/]locales[\\/]es[\\/]errors\.json$/.test(
+                      id
+                    )
+                  )
+                    return 'errors-es';
+                  // POS support dictionaries are always consumed together. Coalesce
+                  // their tiny imports per language, but keep the larger sales pack
+                  // and unrelated namespaces independently lazy on other routes.
+                  const localeMatch = id.match(
+                    /[\\/]apps[\\/]web[\\/]src[\\/]i18n[\\/]locales[\\/](en|es)[\\/]([^\\/]+)\.json$/
+                  );
+                  if (
+                    localeMatch &&
+                    localeMatch[2] !== 'sales' &&
+                    // Keep this build-only allowlist aligned by the artifact/config test.
+                    [
+                      'returnErrors',
+                      'fulfillmentErrors',
+                      'promotions',
+                      'customers',
+                      'quotationPayablesErrors',
+                      'restaurants',
+                      'scannerErrors',
+                      'salesOperation',
+                      'salesQuickAccess',
+                      'receiptShare',
+                    ].includes(localeMatch[2]!)
+                  )
+                    return `sales-support-${localeMatch[1]}`;
+                  if (!id.includes('node_modules')) return undefined;
+                  // Keep the startup module graph in bounded execution units. A single
+                  // vendor entry made ReactDOM + routing + forms + data clients execute
+                  // as one long task under Lighthouse's CPU throttle, inflating TBT on
+                  // every authenticated route even though route chunks were lazy.
+                  if (/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id))
+                    return 'react-runtime';
+                  if (/[\\/]node_modules[\\/]react-router[\\/]/.test(id)) return 'routing';
+                  if (/[\\/]node_modules[\\/]react-hook-form[\\/]/.test(id)) return 'forms';
+                  // The POS and shell need queries, not the Table feature registry.
+                  // Keep Table's store dependencies with its lazy history/report consumers.
+                  if (
+                    /[\\/]node_modules[\\/]@tanstack[\\/](react-table|table-core|react-store|store)[\\/]/.test(
+                      id
+                    )
+                  )
+                    return 'table-runtime';
+                  if (/[\\/]node_modules[\\/](@tanstack|@trpc)[\\/]/.test(id))
+                    return 'data-runtime';
+                  if (
+                    /[\\/]node_modules[\\/](i18next|react-i18next|i18next-resources-to-backend)[\\/]/.test(
+                      id
+                    )
+                  )
+                    return 'i18n-runtime';
+                  if (/[\\/]node_modules[\\/](clsx|tailwind-merge)[\\/]/.test(id))
+                    return 'style-runtime';
+                  if (/[\\/]node_modules[\\/]zustand[\\/]/.test(id)) return 'state-runtime';
+                  if (/[\\/]node_modules[\\/](jspdf|jspdf-autotable)[\\/]/.test(id)) return 'pdf';
+                  if (/[\\/]node_modules[\\/](exceljs|jszip)[\\/]/.test(id)) return 'xlsx';
+                  if (/[\\/]node_modules[\\/](codemirror|@codemirror|@lezer)[\\/]/.test(id))
+                    return 'codemirror';
+                  if (/[\\/]node_modules[\\/]@dnd-kit[\\/]/.test(id)) return 'dnd';
+                  return undefined;
+                },
+              },
+            ],
           },
         },
       },

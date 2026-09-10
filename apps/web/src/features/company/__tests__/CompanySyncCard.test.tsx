@@ -211,10 +211,54 @@ describe('CompanySyncCard', () => {
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent(/unable to resolve conflict/i);
     expect(alert).toHaveTextContent(
-      /remote audit records cannot be applied safely yet.*keep the local record/i
+      /this protected change cannot be replaced here.*keep the pending evidence/i
     );
     expect(screen.getByText(/product conflict/i)).toBeInTheDocument();
   });
+
+  it.each([true, false])(
+    'preserves blocked evidence with local record present=%s',
+    async localRecordExists => {
+      pullQuery.mockResolvedValueOnce({
+        pendingCount: 0,
+        conflictsCount: 1,
+        queue: [],
+        conflicts: [
+          {
+            id: 'value-conflict',
+            entityType: 'products',
+            entityId: 'product-1',
+            createdAt: '2026-04-08T10:02:00.000Z',
+            localData: { cost: 1 },
+            remoteData: { cost: 0 },
+            localRecordExists,
+            resolutionAvailability: { local: false, remote: false, merged: false },
+          },
+        ],
+      });
+      renderWithProviders(<CompanySyncCard />);
+      const notice = await screen.findByText(/this change affects stock or protected records/i);
+      for (const name of [
+        /^keep local$/i,
+        /^merge$/i,
+        localRecordExists ? /^accept remote$/i : /^discard local change$/i,
+      ]) {
+        const button = screen.getByRole('button', { name });
+        expect(button).toBeDisabled();
+        expect(button).toHaveAttribute('aria-describedby', notice.id);
+      }
+      expect(
+        screen.queryByText(/discard the stale local change to unblock sync/i)
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByRole('button', {
+          name: localRecordExists ? /^accept remote$/i : /^discard local change$/i,
+        })
+      ).not.toHaveClass('btn-primary');
+      expect(screen.getByText(/product conflict/i)).toBeInTheDocument();
+      expect(resolveMutation).not.toHaveBeenCalled();
+    }
+  );
 
   it('only offers discard for missing-local conflicts', async () => {
     const user = userEvent.setup();

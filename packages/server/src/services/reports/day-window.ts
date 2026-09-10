@@ -41,7 +41,7 @@ function parseCalendarDay(day: string): Pick<CalendarParts, 'year' | 'month' | '
   return { year, month, day: date };
 }
 
-function addCalendarDays(day: string, amount: number): string {
+export function addCalendarDays(day: string, amount: number): string {
   const parsed = parseCalendarDay(day);
   const next = new Date(Date.UTC(parsed.year, parsed.month - 1, parsed.day + amount));
   return next.toISOString().slice(0, 10);

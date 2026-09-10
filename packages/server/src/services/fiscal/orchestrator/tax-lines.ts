@@ -43,33 +43,71 @@ export function taxCategoryCodeFor(kind: TaxKind): string {
   return kind === 'inc' ? '04' : '01';
 }
 
-/** Build the adapter lines the packs consume, one source for both paths. */
+/**
+ * Narrow a line's sale-time description, or refuse.
+ *
+ * The two document boundaries below are the only places a `ResolvedLine`
+ * becomes part of an emitted document, so this is the one place the refusal
+ * belongs: the alternatives are to invent a name from the current catalog or
+ * to emit an empty description, and both put something on a legally binding
+ * document that the sale never recorded.
+ *
+ * Callers upstream fail earlier and more usefully -- the enqueue reader
+ * refuses, and `prepareSaleFiscalIntent` records a durable blocked intent
+ * rather than throwing at the operator. This is the backstop that keeps a new
+ * caller from bypassing both without noticing.
+ */
+function requireSaleTimeName(line: ResolvedLine): string {
+  if (line.productName === null) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'FISCAL_LINE_SNAPSHOT_UNKNOWN',
+      message:
+        'This line has no recorded sale-time product description, so it cannot be placed on a fiscal document',
+      details: { lineNumber: line.lineNumber, productId: line.productId },
+    });
+  }
+  return line.productName;
+}
+
+/**
+ * Build the adapter lines the packs consume, one source for both paths.
+ *
+ * This is the only place a `ResolvedLine` becomes something a serializer sees,
+ * which makes it the one place worth guarding: a line whose sale-time name was
+ * never recorded must not reach a pack, because the only ways to serialize it
+ * are to invent a name or to emit an empty description. Every caller upstream
+ * either blocks the intent or refuses the read before getting here; this is the
+ * backstop that keeps a new caller from quietly bypassing both.
+ */
 export function toAdapterLines(lines: readonly ResolvedLine[]): FiscalAdapterLine[] {
-  return lines.map(line => ({
-    lineNumber: line.lineNumber,
-    productName: line.productName,
-    productSku: line.productSku ?? null,
-    // The unit catalog's UN/ECE code (KGM, LTR, H87...) so a
-    // weighed kilogram line serializes as KGM in the UBL unitCode /
-    // CFDI ClaveUnidad; EA remains the fallback for legacy units.
-    unitMeasureCode: line.unitStandardCode ?? 'EA',
-    quantity: line.quantity,
-    unitPrice: line.unitPrice,
-    discountAmount: line.discountAmount,
-    taxRate: line.taxRate,
-    taxAmount: line.taxAmount,
-    taxCategoryCode: taxCategoryCodeFor(line.taxKind),
-    taxComponents: getResolvedLineTaxComponents(line).map(component => ({
-      componentKey: component.componentKey,
-      taxKind: component.taxKind,
-      taxRate: component.taxRate,
-      taxableAmount: component.taxableAmount,
-      taxAmount: component.taxAmount,
-      taxCategoryCode: taxCategoryCodeFor(component.taxKind),
-      position: component.position,
-    })),
-    lineTotal: line.lineTotal,
-  }));
+  return lines.map(line => {
+    return {
+      lineNumber: line.lineNumber,
+      productName: requireSaleTimeName(line),
+      productSku: line.productSku ?? null,
+      // The unit catalog's UN/ECE code (KGM, LTR, H87...) so a
+      // weighed kilogram line serializes as KGM in the UBL unitCode /
+      // CFDI ClaveUnidad; EA remains the fallback for legacy units.
+      unitMeasureCode: line.unitStandardCode ?? 'EA',
+      quantity: line.quantity,
+      unitPrice: line.unitPrice,
+      discountAmount: line.discountAmount,
+      taxRate: line.taxRate,
+      taxAmount: line.taxAmount,
+      taxCategoryCode: taxCategoryCodeFor(line.taxKind),
+      taxComponents: getResolvedLineTaxComponents(line).map(component => ({
+        componentKey: component.componentKey,
+        taxKind: component.taxKind,
+        taxRate: component.taxRate,
+        taxableAmount: component.taxableAmount,
+        taxAmount: component.taxAmount,
+        taxCategoryCode: taxCategoryCodeFor(component.taxKind),
+        position: component.position,
+      })),
+      lineTotal: line.lineTotal,
+    };
+  });
 }
 
 /**
@@ -83,7 +121,7 @@ export function toDocumentItemValues(fiscalDocumentId: string, line: ResolvedLin
     fiscalDocumentId,
     lineNumber: line.lineNumber,
     productId: line.productId,
-    productName: line.productName,
+    productName: requireSaleTimeName(line),
     productSku: line.productSku,
     unitMeasureCode: line.unitStandardCode ?? 'EA',
     quantity: line.quantity,

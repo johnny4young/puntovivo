@@ -5,11 +5,11 @@ import { useTranslation } from 'react-i18next';
 import { ariaKeyshortcutsFor } from '@/lib/shortcuts';
 import { formatCurrency } from '@/lib/utils';
 import {
-  getLineTotals,
   getSaleMinimumQuantity,
   getSaleQuantityStep,
   type SaleCartItem,
 } from '@/features/sales/saleCart';
+import { getLineTotals } from '@/features/sales/saleCartTotals';
 import { useDiscountSuggestions } from '@/features/sales/useDiscountSuggestions';
 import { SaleSerialSelector } from '@/features/sales/SaleSerialSelector';
 import { Badge, Button } from '@/components/ui';
@@ -26,6 +26,8 @@ interface SaleCartTableProps {
     ((itemKey: string, serialIds: string[], siteId: string) => void) | undefined;
   quantityInputRefFor: (itemKey: string) => (node: HTMLInputElement | null) => void;
   discountInputRefFor: (itemKey: string) => (node: HTMLInputElement | null) => void;
+  /** Freeze quantity, discount, add/remove terms while allowing serial selection. */
+  itemsLocked?: boolean;
 }
 export function SaleCartTable({
   items,
@@ -38,13 +40,17 @@ export function SaleCartTable({
   onSerialSelectionChange = () => {},
   quantityInputRefFor,
   discountInputRefFor,
+  itemsLocked = false,
 }: SaleCartTableProps) {
   const priceIncludesTax = usePriceIncludesTax();
   const { t } = useTranslation('sales');
 
   // expiry-radar badge on cart lines; the table only renders in
   // the POS, so the query is gated on having lines at all.
-  const discountSuggestions = useDiscountSuggestions(items.length > 0, discountSuggestionSiteId);
+  const discountSuggestions = useDiscountSuggestions(
+    items.length > 0 && !itemsLocked,
+    discountSuggestionSiteId
+  );
 
   // Borradores de edición por celda (`q:<key>` / `d:<key>`). Un input
   // controlado directo pisa la edición en curso: al vaciar el campo para
@@ -169,7 +175,7 @@ export function SaleCartTable({
                     aria-label={t('cart.decrement', {
                       name: item.productName,
                     })}
-                    disabled={decrementDisabled}
+                    disabled={itemsLocked || decrementDisabled}
                     onClick={() => {
                       onSelectItem(item.key);
                       onQuantityChange(
@@ -203,6 +209,7 @@ export function SaleCartTable({
                         isSelected ? ariaKeyshortcutsFor('sales.focusQuantity') : undefined
                       }
                       value={draftValueFor(`q:${item.key}`, item.quantity)}
+                      disabled={itemsLocked}
                       onFocus={() => onSelectItem(item.key)}
                       onChange={event => {
                         const raw = event.target.value;
@@ -237,6 +244,7 @@ export function SaleCartTable({
                     }}
                     variant="outline"
                     size="icon"
+                    disabled={itemsLocked}
                   >
                     <Plus className="h-4 w-4" aria-hidden="true" />
                   </Button>
@@ -283,6 +291,7 @@ export function SaleCartTable({
                       isSelected ? ariaKeyshortcutsFor('sales.focusDiscount') : undefined
                     }
                     value={draftValueFor(`d:${item.key}`, item.discount)}
+                    disabled={itemsLocked}
                     onFocus={() => onSelectItem(item.key)}
                     onChange={event => {
                       const raw = event.target.value;
@@ -314,19 +323,21 @@ export function SaleCartTable({
                     <span>{t('cart.lineTotal')}</span>
                     <span className="mono">{formatCurrency(lineTotals.total)}</span>
                   </span>
-                  <button
-                    type="button"
-                    className="btn-ghost btn-icon h-9 w-9 text-danger-500 hover:text-danger-700"
-                    aria-label={t('cart.removeItem', {
-                      name: item.productName,
-                    })}
-                    aria-keyshortcuts={
-                      isSelected ? ariaKeyshortcutsFor('sales.removeItem') : undefined
-                    }
-                    onClick={() => onRemove(item.key)}
-                  >
-                    <Trash2 className="h-4 w-4" aria-hidden="true" />
-                  </button>
+                  {!itemsLocked && (
+                    <button
+                      type="button"
+                      className="btn-ghost btn-icon h-9 w-9 text-danger-500 hover:text-danger-700"
+                      aria-label={t('cart.removeItem', {
+                        name: item.productName,
+                      })}
+                      aria-keyshortcuts={
+                        isSelected ? ariaKeyshortcutsFor('sales.removeItem') : undefined
+                      }
+                      onClick={() => onRemove(item.key)}
+                    >
+                      <Trash2 className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                  )}
                 </div>
               </div>
             </li>
@@ -334,7 +345,7 @@ export function SaleCartTable({
         })}
       </ul>
 
-      {shortcutsHint}
+      {!itemsLocked && shortcutsHint}
     </div>
   );
 }

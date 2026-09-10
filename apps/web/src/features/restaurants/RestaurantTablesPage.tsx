@@ -15,6 +15,7 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { ResourcePage } from '@/components/resources/ResourcePage';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useTenant } from '@/features/tenant/TenantProvider';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
@@ -25,6 +26,9 @@ import {
 } from './RestaurantTableFormModal';
 import { RestaurantFloorMapPreview } from './RestaurantFloorMapPreview';
 import { Badge } from '@/components/ui';
+
+const RESTAURANT_TABLE_PAGE_SIZE = 100;
+
 interface RestaurantTableRow {
   id: string;
   tenantId: string;
@@ -36,6 +40,21 @@ interface RestaurantTableRow {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+function mapRestaurantTableRow(row: RestaurantTableRow): RestaurantTableRow {
+  return {
+    id: row.id,
+    tenantId: row.tenantId,
+    siteId: row.siteId,
+    name: row.name,
+    seatCount: row.seatCount,
+    area: row.area,
+    notes: row.notes,
+    isActive: row.isActive ?? false,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
 }
 function buildColumns(
   t: TFunction,
@@ -144,6 +163,9 @@ export function RestaurantTablesPage() {
     return sites[0]?.id ?? '';
   }, [siteOverride, sites, currentSite]);
   const [includeArchived, setIncludeArchived] = useState(false);
+  const [tableOffset, setTableOffset] = useState(0);
+  const [tableSearch, setTableSearch] = useState('');
+  const debouncedTableSearch = useDebouncedValue(tableSearch.trim(), 200);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalInstanceKey, setModalInstanceKey] = useState(0);
   const [editing, setEditing] = useState<RestaurantTableFormInitial | null>(null);
@@ -153,6 +175,23 @@ export function RestaurantTablesPage() {
     {
       siteId: selectedSiteId || 'placeholder',
       includeArchived,
+      ...(debouncedTableSearch ? { search: debouncedTableSearch } : {}),
+      limit: RESTAURANT_TABLE_PAGE_SIZE,
+      offset: tableOffset,
+    },
+    {
+      enabled: selectedSiteId.length > 0,
+    }
+  );
+  // The floor map is an operational overview, not a page decoration. Active
+  // tables are capped at 500 per site server-side, so one bounded query can
+  // render the complete map while the administrative table remains paginated.
+  const floorMapQuery = trpc.restaurantTables.list.useQuery(
+    {
+      siteId: selectedSiteId || 'placeholder',
+      includeArchived: false,
+      limit: 500,
+      offset: 0,
     },
     {
       enabled: selectedSiteId.length > 0,
@@ -188,6 +227,9 @@ export function RestaurantTablesPage() {
       toast.success({
         title: t('tables.toast.archived'),
       });
+      // An archive can remove the only row on the last page. Reset to a known
+      // valid page so the operator never lands on an empty, pager-less slice.
+      setTableOffset(0);
       setArchiveTarget(null);
     },
     onError: onErrorToast(toast, t, {
@@ -239,18 +281,13 @@ export function RestaurantTablesPage() {
       notes: values.notes,
     });
   }
-  const items: RestaurantTableRow[] = (tablesQuery.data?.items ?? []).map(row => ({
-    id: row.id,
-    tenantId: row.tenantId,
-    siteId: row.siteId,
-    name: row.name,
-    seatCount: row.seatCount,
-    area: row.area,
-    notes: row.notes,
-    isActive: row.isActive ?? false,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
-  }));
+  const items: RestaurantTableRow[] = (tablesQuery.data?.items ?? []).map(mapRestaurantTableRow);
+  const floorMapItems: RestaurantTableRow[] = (floorMapQuery.data?.items ?? []).map(
+    mapRestaurantTableRow
+  );
+  const totalTables = tablesQuery.data?.totalItems ?? items.length;
+  const tableRangeStart = totalTables === 0 ? 0 : tableOffset + 1;
+  const tableRangeEnd = Math.min(tableOffset + items.length, totalTables);
   const tableListError = tablesQuery.error
     ? translateServerError(tablesQuery.error, t, t('tables.error'))
     : null;
@@ -261,9 +298,9 @@ export function RestaurantTablesPage() {
   return (
     <>
       <RestaurantFloorMapPreview
-        tables={items}
+        tables={floorMapItems}
         onSelect={id => {
-          const row = items.find(r => r.id === id);
+          const row = floorMapItems.find(r => r.id === id);
           if (row) handleOpenEdit(row);
         }}
       />
@@ -279,7 +316,10 @@ export function RestaurantTablesPage() {
               <select
                 className="input"
                 value={selectedSiteId}
-                onChange={event => setSiteOverride(event.target.value)}
+                onChange={event => {
+                  setSiteOverride(event.target.value);
+                  setTableOffset(0);
+                }}
                 data-testid="restaurant-tables-site-select"
               >
                 {sites.length === 0 && <option value="">—</option>}
@@ -295,7 +335,10 @@ export function RestaurantTablesPage() {
                 type="checkbox"
                 className="h-4 w-4 rounded border-secondary-300"
                 checked={includeArchived}
-                onChange={event => setIncludeArchived(event.target.checked)}
+                onChange={event => {
+                  setIncludeArchived(event.target.checked);
+                  setTableOffset(0);
+                }}
                 data-testid="restaurant-tables-show-archived"
               />
               {t('tables.toolbar.showArchived')}
@@ -316,13 +359,53 @@ export function RestaurantTablesPage() {
         data={items}
         isLoading={tablesQuery.isLoading}
         error={tableListError}
-        searchKey="name"
+        searchValue={tableSearch}
+        onSearchChange={value => {
+          setTableSearch(value);
+          setTableOffset(0);
+        }}
         searchPlaceholder={t('tables.title')}
         loadingMessage={t('tables.loading')}
         onRetry={() => {
           void tablesQuery.refetch();
         }}
       />
+
+      {(tableOffset > 0 || totalTables > RESTAURANT_TABLE_PAGE_SIZE) && (
+        <nav
+          className="mt-4 flex flex-wrap items-center justify-end gap-3 text-sm text-secondary-600"
+          aria-label={t('tables.pagination.ariaLabel')}
+          data-testid="restaurant-tables-pagination"
+        >
+          <span>
+            {t('tables.pagination.summary', {
+              from: tableRangeStart,
+              to: tableRangeEnd,
+              total: totalTables,
+            })}
+          </span>
+          <button
+            type="button"
+            className="btn-secondary"
+            disabled={tableOffset === 0 || tablesQuery.isLoading}
+            onClick={() =>
+              setTableOffset(current => Math.max(0, current - RESTAURANT_TABLE_PAGE_SIZE))
+            }
+            data-testid="restaurant-tables-previous-page"
+          >
+            {t('tables.pagination.previous')}
+          </button>
+          <button
+            type="button"
+            className="btn-secondary"
+            disabled={tablesQuery.data?.hasMore !== true || tablesQuery.isLoading}
+            onClick={() => setTableOffset(current => current + RESTAURANT_TABLE_PAGE_SIZE)}
+            data-testid="restaurant-tables-next-page"
+          >
+            {t('tables.pagination.next')}
+          </button>
+        </nav>
+      )}
 
       {!isAdmin && (
         <div

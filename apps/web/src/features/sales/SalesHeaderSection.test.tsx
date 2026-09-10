@@ -1,11 +1,13 @@
 import { createRef } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import { render } from '@/test/utils';
 import { SalesHeaderSection } from '@/features/sales/SalesHeaderSection';
 
 vi.mock('@/features/sales/SalesQuickSearchBar', () => ({
-  SalesQuickSearchBar: () => <div data-testid="sales-quick-search" />,
+  SalesQuickSearchBar: ({ disabled }: { disabled?: boolean }) => (
+    <div data-testid="sales-quick-search" data-disabled={String(disabled ?? false)} />
+  ),
 }));
 
 vi.mock('@/features/sales/PaceToggleButton', () => ({
@@ -26,7 +28,10 @@ function renderHeader(suspendedDraftsCount: number) {
       onOpenHistory={vi.fn()}
       onOpenSuspended={vi.fn()}
       suspendedDraftsCount={suspendedDraftsCount}
+      customerDisplayEnabled={false}
+      onOpenCustomerDisplay={vi.fn()}
       isResumedCart={false}
+      itemsLocked={false}
       activeWorkspace={null}
     />
   );
@@ -40,5 +45,58 @@ describe('SalesHeaderSection', () => {
 
     renderHeader(2);
     expect(screen.getByTestId('sales-open-suspended')).toHaveAttribute('aria-keyshortcuts');
+  });
+
+  it('shows the accepted-quotation lock and disables product search', () => {
+    render(
+      <SalesHeaderSection
+        productSearchQuery=""
+        onQueryChange={vi.fn()}
+        onSubmitSearch={vi.fn()}
+        productInputRef={createRef<HTMLInputElement>()}
+        onOpenHistory={vi.fn()}
+        onOpenSuspended={vi.fn()}
+        suspendedDraftsCount={0}
+        customerDisplayEnabled={false}
+        onOpenCustomerDisplay={vi.fn()}
+        isResumedCart={false}
+        itemsLocked
+        activeWorkspace={{ sourceQuotationNumber: 'COT-000042' } as never}
+      />
+    );
+
+    expect(screen.getByTestId('quotation-cart-banner')).toHaveTextContent('COT-000042');
+    expect(screen.getByTestId('sales-quick-search')).toHaveAttribute('data-disabled', 'true');
+  });
+
+  it('offers the customer display action only when the module is active', () => {
+    const onOpenCustomerDisplay = vi.fn();
+    const hidden = renderHeader(0);
+    expect(screen.queryByTestId('sales-open-customer-display')).not.toBeInTheDocument();
+    hidden.unmount();
+
+    render(
+      <SalesHeaderSection
+        productSearchQuery=""
+        onQueryChange={vi.fn()}
+        onSubmitSearch={vi.fn()}
+        productInputRef={createRef<HTMLInputElement>()}
+        onOpenHistory={vi.fn()}
+        onOpenSuspended={vi.fn()}
+        suspendedDraftsCount={0}
+        customerDisplayEnabled
+        onOpenCustomerDisplay={onOpenCustomerDisplay}
+        isResumedCart={false}
+        itemsLocked={false}
+        activeWorkspace={null}
+      />
+    );
+    const customerDisplayAction = screen.getByTestId('sales-open-customer-display');
+    expect(customerDisplayAction).toHaveAccessibleName('Customer display');
+    expect(customerDisplayAction.closest('.sales-utility-dock')).toHaveClass(
+      'sales-utility-dock-has-display'
+    );
+    fireEvent.click(customerDisplayAction);
+    expect(onOpenCustomerDisplay).toHaveBeenCalledOnce();
   });
 });

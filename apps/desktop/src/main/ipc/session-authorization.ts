@@ -12,13 +12,15 @@
 export interface DesktopSessionAuthorizer {
   /** Throws SESSION_NOT_REGISTERED when no verified session is active. */
   requireTenantId: () => string;
+  /** Throws SESSION_ROLE_FORBIDDEN when the session role is not allowed. */
+  requireOneOfRoles: (allowedRoles: readonly string[]) => string;
 }
 
 export interface AuthenticatedIpcContext {
   tenantId: string;
 }
 
-export type DesktopIpcSessionErrorCode = 'SESSION_NOT_REGISTERED';
+export type DesktopIpcSessionErrorCode = 'SESSION_NOT_REGISTERED' | 'SESSION_ROLE_FORBIDDEN';
 
 /**
  * Error envelope used only on the main/preload wire. Electron logs every
@@ -30,9 +32,10 @@ export type DesktopIpcSessionResult<T> =
   { ok: true; value: T } | { ok: false; errorCode: DesktopIpcSessionErrorCode };
 
 function getDesktopIpcSessionErrorCode(error: unknown): DesktopIpcSessionErrorCode | null {
-  return error instanceof Error && error.message === 'SESSION_NOT_REGISTERED'
-    ? 'SESSION_NOT_REGISTERED'
-    : null;
+  if (!(error instanceof Error)) return null;
+  if (error.message === 'SESSION_NOT_REGISTERED') return 'SESSION_NOT_REGISTERED';
+  if (error.message === 'SESSION_ROLE_FORBIDDEN') return 'SESSION_ROLE_FORBIDDEN';
+  return null;
 }
 
 export async function captureDesktopIpcSessionResult<T>(
@@ -65,10 +68,16 @@ export function unwrapDesktopIpcSessionResult<T>(result: DesktopIpcSessionResult
  */
 export function withAuthenticatedDesktopSession<Args extends unknown[], Result>(
   session: DesktopSessionAuthorizer,
-  handler: (context: AuthenticatedIpcContext, ...args: Args) => Result
+  handler: (context: AuthenticatedIpcContext, ...args: Args) => Result,
+  allowedRoles?: readonly string[]
 ): (...args: Args) => Result {
   return (...args: Args): Result => {
     const tenantId = session.requireTenantId();
+    // Identity alone is not authorization. Every backup channel already gates
+    // on role through the same session singleton; the data bridge did not, so
+    // any signed-in role could read, write and delete straight past the tRPC
+    // role guards, the audit log and the cash-session invariant.
+    if (allowedRoles) session.requireOneOfRoles(allowedRoles);
     return handler({ tenantId }, ...args);
   };
 }

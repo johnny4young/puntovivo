@@ -1,10 +1,11 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { render } from '@/test/utils';
 import type { Customer } from '@/types';
 import { SalePaymentModal, type SalePaymentValues } from './SalePaymentModal';
+import { useCartWorkspaceStore } from './useCartWorkspaceStore';
 import { useQuickCreateStore } from './useQuickCreateStore';
 
 const approvalInvalidateMock = vi.hoisted(() => vi.fn());
@@ -27,6 +28,30 @@ vi.mock('@/lib/trpc', () => ({
           data: { requiredActions: [], violations: [] },
           isLoading: false,
           isFetching: false,
+          error: null,
+          refetch: vi.fn(),
+        }),
+      },
+    },
+    sales: {
+      quotePromotions: {
+        useQuery: () => ({
+          data: undefined,
+          isLoading: false,
+          isFetching: false,
+          isError: false,
+          error: null,
+          refetch: vi.fn(),
+        }),
+      },
+    },
+    pharmacy: {
+      checkoutRequirements: {
+        useQuery: () => ({
+          data: { countryCode: 'CO', businessDate: '2026-09-02', customerValid: null, requirements: [], ready: true },
+          isLoading: false,
+          isFetching: false,
+          isError: false,
           error: null,
           refetch: vi.fn(),
         }),
@@ -103,6 +128,7 @@ function createProps(overrides?: Partial<React.ComponentProps<typeof SalePayment
     customers,
     isSaving: false,
     error: null,
+    promotionPricingEnabled: false,
     onClose: vi.fn(),
     onSubmit: vi.fn(async () => undefined) as (v: SalePaymentValues) => Promise<void>,
     ...overrides,
@@ -110,7 +136,10 @@ function createProps(overrides?: Partial<React.ComponentProps<typeof SalePayment
 }
 
 afterEach(() => {
-  useQuickCreateStore.getState().reset();
+  act(() => {
+    useQuickCreateStore.getState().reset();
+    useCartWorkspaceStore.getState().resetAllWorkspaces();
+  });
   toastSuccessMock.mockClear();
 });
 
@@ -159,6 +188,43 @@ describe('SalePaymentModal — quick-created customer auto-attach', () => {
     expect(toastSuccessMock).toHaveBeenCalledWith({
       title: 'Customer created and attached to the sale.',
     });
+  });
+
+  it.each([
+    { label: 'accepted quotation', customerLocked: true, approvalSaleId: null },
+    { label: 'resumed draft', customerLocked: true, approvalSaleId: 'sale-locked' },
+  ])('discards a pending attach for a locked $label', async props => {
+    useQuickCreateStore.getState().setPendingCustomerAttach('cust-must-not-leak');
+
+    render(<SalePaymentModal {...createProps(props)} />);
+
+    await waitFor(() => {
+      expect(useQuickCreateStore.getState().pendingCustomerAttachId).toBeNull();
+    });
+    expect(screen.getByLabelText('Customer')).toHaveValue('');
+    expect(toastSuccessMock).not.toHaveBeenCalled();
+  });
+
+  it('attaches only to the workspace that requested the customer', async () => {
+    const customer = makeCustomer({ id: 'cust-scoped', name: 'Scoped Customer' });
+    const store = useCartWorkspaceStore.getState();
+    const targetWorkspaceId = store.createDraft('tenant-1:user-1');
+    const otherWorkspaceId = store.createDraft('tenant-1:user-1');
+    useQuickCreateStore.getState().setPendingCustomerAttach(customer.id, targetWorkspaceId);
+
+    render(<SalePaymentModal {...createProps({ customers: [customer] })} />);
+
+    expect(screen.getByLabelText('Customer')).toHaveValue('');
+    expect(useQuickCreateStore.getState().pendingCustomerAttachId).toBe(customer.id);
+
+    await act(async () => {
+      useCartWorkspaceStore.getState().setActive(targetWorkspaceId);
+    });
+    await waitFor(() => {
+      expect(screen.getByLabelText('Customer')).toHaveValue(customer.id);
+    });
+    expect(useQuickCreateStore.getState().pendingCustomerAttachId).toBeNull();
+    expect(useCartWorkspaceStore.getState().workspaces[otherWorkspaceId]).toBeDefined();
   });
 });
 
@@ -274,7 +340,9 @@ describe('SalePaymentModal — split payments', () => {
     // Enable split mode (adds one initial tender at amount=total=100).
     await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
     // Adjust the amount below total — confirm must go disabled.
-    const firstAmount = screen.getByLabelText('Amount for tender 1') as HTMLInputElement;
+    const firstAmount = (await screen.findByLabelText(
+      'Amount for tender 1'
+    )) as HTMLInputElement;
     await user.clear(firstAmount);
     await user.type(firstAmount, '40');
 
@@ -290,7 +358,9 @@ describe('SalePaymentModal — split payments', () => {
     await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
 
     // First tender already seeded to 100. Lower it to 60 (cash).
-    const firstAmount = screen.getByLabelText('Amount for tender 1') as HTMLInputElement;
+    const firstAmount = (await screen.findByLabelText(
+      'Amount for tender 1'
+    )) as HTMLInputElement;
     fireEvent.change(firstAmount, { target: { value: '60' } });
 
     // Add a second tender row and fill it in (card, 40, reference).
@@ -326,7 +396,9 @@ describe('SalePaymentModal — split payments', () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
 
-    const firstMethod = screen.getByLabelText('Method for tender 1') as HTMLSelectElement;
+    const firstMethod = (await screen.findByLabelText(
+      'Method for tender 1'
+    )) as HTMLSelectElement;
     expect(Array.from(firstMethod.options).map(option => option.value)).not.toContain('credit');
   });
 
@@ -336,7 +408,7 @@ describe('SalePaymentModal — split payments', () => {
 
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
-    await user.click(screen.getByRole('button', { name: /Use single tender/i }));
+    await user.click(await screen.findByRole('button', { name: /Use single tender/i }));
     await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
 
     expect(onSubmit).toHaveBeenCalledTimes(1);
@@ -414,7 +486,9 @@ describe('SalePaymentModal — tip / propina', () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
 
-    const firstAmount = screen.getByLabelText('Amount for tender 1') as HTMLInputElement;
+    const firstAmount = (await screen.findByLabelText(
+      'Amount for tender 1'
+    )) as HTMLInputElement;
     expect(firstAmount.value).toBe('100');
 
     await user.click(screen.getByRole('button', { name: '10%' }));
@@ -434,7 +508,9 @@ describe('SalePaymentModal — tip / propina', () => {
     await user.click(screen.getByRole('button', { name: '10%' }));
     await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
 
-    const firstAmount = screen.getByLabelText('Amount for tender 1') as HTMLInputElement;
+    const firstAmount = (await screen.findByLabelText(
+      'Amount for tender 1'
+    )) as HTMLInputElement;
     // The seeded amount mirrors base + tip (= grandTotal).
     expect(firstAmount.value).toBe('110');
 
@@ -514,7 +590,9 @@ describe('SalePaymentModal — service charge / propina sugerida', () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
 
-    const firstAmount = screen.getByLabelText('Amount for tender 1') as HTMLInputElement;
+    const firstAmount = (await screen.findByLabelText(
+      'Amount for tender 1'
+    )) as HTMLInputElement;
     expect(firstAmount.value).toBe('110');
   });
 });

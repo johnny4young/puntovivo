@@ -6,6 +6,7 @@ import {
   installWebVitalsReporter,
 } from './lib/observability';
 import { AppRoot } from './AppRoot';
+import { isCustomerDisplayEntryLocation } from './features/surfaces/customerDisplayEntry';
 import './index.css';
 
 // install window-level error / unhandledrejection
@@ -16,9 +17,11 @@ installGlobalErrorListeners();
 // configured. Fire-and-forget: never delays the render below, and
 // without VITE_PUNTOVIVO_SENTRY_DSN it is a single env read.
 installRenderTelemetryAdapter();
-// install the Web Vitals reporter at the same bootstrap point so
-// LCP / CLS / INP for the very first (login) paint are captured. Sampled +
-// background-only; no effect on the render path.
-installWebVitalsReporter();
+// Keep the authority-free Customer Display outside every application API,
+// including best-effort RUM. Ordinary POS loads still install the reporter at
+// bootstrap so LCP / CLS / INP for the first login paint are captured.
+if (!isCustomerDisplayEntryLocation(window.location)) {
+  installWebVitalsReporter();
+}
 
 createRoot(document.getElementById('root')!).render(<AppRoot />);

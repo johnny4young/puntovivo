@@ -56,4 +56,39 @@
  * roundMoney(100 / 1.19) === 84.03
  * roundMoney(-2.345) === -2.35
  */
-export { roundMoney } from '@puntovivo/shared/money';
+import { sql, type SQL } from 'drizzle-orm';
+import type { SQLiteColumn } from 'drizzle-orm/sqlite-core';
+
+import { roundMoney } from '@puntovivo/shared/money';
+
+export { roundMoney };
+
+/**
+ * Round a value and return it only when its integer-cent representation is
+ * exact in JavaScript. This is intentionally opt-in while legacy monetary
+ * paths are migrated; callers must translate `null` into their domain error.
+ */
+export function tryRoundMoneyToSafeCents(value: number): number | null {
+  const rounded = roundMoney(value);
+  const cents = Math.round(rounded * 100);
+  return Number.isFinite(rounded) && Number.isSafeInteger(cents) ? rounded : null;
+}
+
+/**
+ * A money SUM over rows, rounded to the cent inside SQL.
+ *
+ * `roundMoney` normalises values the application computes, but it never sees a
+ * `SUM()` the database performs. A float sum over N rows is not cent-clean
+ * even when every row is: a customer ledger holding 0.10 and 0.20 sums to
+ * 0.30000000000000004, and the credit-limit check that compared that against a
+ * 0.35 cupo refused a sale landing exactly on it. Rounding each row as it is
+ * written does not help; the sum has to be rounded too.
+ *
+ * Use this for every aggregate over a monetary column. Seventeen of the
+ * nineteen such sums in the server already wrapped `round(..., 2)` by hand —
+ * this makes the correct form the short one, so the next aggregate does not
+ * have to remember.
+ */
+export function sumMoneySql(column: SQLiteColumn): SQL<number> {
+  return sql<number>`round(coalesce(sum(${column}), 0), 2)`;
+}

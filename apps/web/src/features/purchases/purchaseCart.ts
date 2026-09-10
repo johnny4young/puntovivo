@@ -17,6 +17,7 @@ export interface PurchaseCartItem {
   quantity: number;
   costPerUnit: number;
   currentStock: number;
+  tracksLots: boolean;
   tracksSerials: boolean;
   serialNumbers: string;
 }
@@ -50,6 +51,7 @@ export function buildPurchaseCartItem(selection: ProductSearchSelection): Purcha
     quantity: 1,
     costPerUnit,
     currentStock: selection.product.stock,
+    tracksLots: selection.product.tracksLots === true,
     tracksSerials: selection.product.tracksSerials === true,
     serialNumbers: '',
   };

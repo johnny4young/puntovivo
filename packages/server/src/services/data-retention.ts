@@ -4,8 +4,9 @@
  * Sales, fiscal documents, inventory, payments, cash sessions, and customer
  * transaction evidence are deliberately outside this policy. Only bounded
  * operational evidence is swept: ordinary audit rows, longer-lived privacy
- * audit rows, AI usage telemetry, and sync rows already acknowledged as
- * `synced`. Pending/conflict/dead-letter sync work is never deleted.
+ * audit rows, AI usage telemetry, and terminal sync rows already acknowledged
+ * as `synced` or deliberately confined to this device as `local_only`.
+ * Pending/conflict/dead-letter sync work is never deleted.
  *
  * Audit rows that participate in the tamper-evidence hash chain are
  * never hard-deleted — deleting a chained row would make the chain
@@ -39,7 +40,7 @@ export interface DataRetentionPolicy {
   privacyAuditDays: number;
   /** Provider/cost/error telemetry only — prompts are not stored here. */
   aiAuditDays: number;
-  /** Rows already acknowledged by the sync consumer. */
+  /** Terminal sync support rows: acknowledged or explicitly local-only. */
   syncedOutboxDays: number;
 }
 
@@ -211,7 +212,7 @@ export async function previewDataRetention(
       .where(
         and(
           eq(syncOutbox.tenantId, tenantId),
-          eq(syncOutbox.status, 'synced'),
+          inArray(syncOutbox.status, ['synced', 'local_only']),
           lt(syncOutbox.updatedAt, syncCutoff)
         )
       )
@@ -309,7 +310,7 @@ export async function runDataRetentionSweep(
           .where(
             and(
               eq(syncOutbox.tenantId, tenantId),
-              eq(syncOutbox.status, 'synced'),
+              inArray(syncOutbox.status, ['synced', 'local_only']),
               lt(syncOutbox.updatedAt, preview.syncedOutboxRows.cutoff)
             )
           )

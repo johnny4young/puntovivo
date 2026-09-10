@@ -31,6 +31,8 @@ const SEVERITY_ORDER: Array<'minor' | 'moderate' | 'serious' | 'critical'> = [
 type SeverityFloor = (typeof SEVERITY_ORDER)[number];
 
 interface RunAxeOptions {
+  /** Electron cannot create axe's aggregation tab; require a frame-free renderer before using axe.run. */
+  singleFrame?: boolean;
   /**
    * CSS selector(s) to restrict the scan to a subtree. Defaults to
    * the whole document.
@@ -106,7 +108,13 @@ async function waitForFiniteAnimations(page: Page): Promise<void> {
  * assertions on the lower-severity surface if needed.
  */
 export async function runAxeOnPage(page: Page, options: RunAxeOptions = {}): Promise<AxeResults> {
-  const { include, exclude, severityFloor = 'serious', extraTags = [] } = options;
+  const {
+    include,
+    exclude,
+    severityFloor = 'serious',
+    extraTags = [],
+    singleFrame = false,
+  } = options;
 
   await waitForFiniteAnimations(page);
 
@@ -114,7 +122,16 @@ export async function runAxeOnPage(page: Page, options: RunAxeOptions = {}): Pro
   if (include) builder = builder.include(include);
   if (exclude) builder = builder.exclude(exclude);
 
+  if (singleFrame) {
+    // This changes execution transport, not rules or severity. Never silently omit an iframe.
+    if (page.frames().length !== 1)
+      throw new Error('Single-frame accessibility audit requires no child frames');
+    builder = builder.setLegacyMode(true);
+  }
+
   const results = await builder.analyze();
+  if (singleFrame && page.frames().length !== 1)
+    throw new Error('A child frame appeared during the single-frame accessibility audit');
   const floorRank = severityRank(severityFloor);
   const offending = results.violations.filter(v => severityRank(v.impact) >= floorRank);
 

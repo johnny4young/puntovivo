@@ -5,7 +5,6 @@ import { join } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import type Database from 'better-sqlite3';
 import { createServer, type DatabaseInstance, type PuntovivoServer } from '@puntovivo/server';
-import { Open } from 'unzipper';
 import {
   assertSqliteIntegrity,
   BACKUP_BUNDLE_SCHEMA_VERSION,
@@ -86,6 +85,7 @@ async function writeCorruptedBundle(sourcePath: string, destinationPath: string)
   // repacking the production archive with JSZip. The restore boundary must
   // reject the CRC mismatch before SQLite sees a partially trusted payload.
   await copyFile(sourcePath, destinationPath);
+  const { Open } = await import('unzipper');
   const directory = await Open.file(destinationPath);
   const dbEntry = directory.files.find(entry => entry.path === ZIP_DB_ENTRY);
   if (!dbEntry || dbEntry.compressionMethod !== 0 || dbEntry.uncompressedSize === 0) {

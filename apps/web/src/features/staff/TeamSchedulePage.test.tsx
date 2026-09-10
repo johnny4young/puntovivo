@@ -1,10 +1,15 @@
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, within } from '@/test/utils';
+import { render, screen, within, act, fireEvent } from '@/test/utils';
 import { calendarDateAt, startOfWeek } from './scheduleDate';
+import i18next from '@/i18n';
 
 const mocks = vi.hoisted(() => ({
   create: vi.fn(),
+  failure: null as unknown,
+  toastError: vi.fn(),
+  pending: false,
+  errors: new Map<string, (error: unknown) => void>(),
   update: vi.fn(),
   cancel: vi.fn(),
   invalidate: vi.fn(),
@@ -15,7 +20,7 @@ const mocks = vi.hoisted(() => ({
     data: undefined as
       | undefined
       | {
-          employees: { id: string; name: string; role: 'manager' | 'cashier' }[];
+          employees: { id: string; name: string; role: 'manager' | 'cashier' | 'viewer' }[];
           sites: { id: string; name: string }[];
           locale: string;
           timeZone: string;
@@ -46,6 +51,7 @@ const mocks = vi.hoisted(() => ({
       cancelledByUserId: string | null;
       createdAt: string;
       updatedAt: string;
+      isReconciled: boolean;
     }>,
     isPending: false,
     isFetching: false,
@@ -70,6 +76,8 @@ vi.mock('@/lib/trpc', () => ({
   trpc: {
     useUtils: () => ({
       employeeShifts: { schedule: { list: { invalidate: mocks.invalidate } } },
+      workforce: { shiftSwaps: { invalidate: mocks.invalidate } },
+      auditLogs: { invalidate: mocks.invalidate },
     }),
     employeeShifts: {
       schedule: {
@@ -86,23 +94,56 @@ vi.mock('@/lib/trpc', () => ({
         },
       },
     },
+    workforce: {
+      shiftSwaps: {
+        managerInbox: {
+          useQuery: () => ({
+            data: { items: [], nextCursor: null },
+            isPending: false,
+            isFetching: false,
+            error: null,
+            refetch: mocks.refetch,
+          }),
+        },
+        events: {
+          useQuery: () => ({
+            data: { items: [], nextBeforeVersion: null },
+            isPending: false,
+            isFetching: false,
+            error: null,
+            refetch: mocks.refetch,
+          }),
+        },
+      },
+    },
   },
 }));
 
+vi.mock('@/features/auth/AuthProvider', () => ({
+  useAuth: () => ({ user: { id: 'manager-1', tenantId: 'tenant-1', role: 'manager' } }),
+}));
+
 vi.mock('@/lib/useCriticalMutation', () => ({
-  useCriticalMutation: (path: string) => ({
-    mutate:
-      path === 'employeeShifts.schedule.create'
-        ? mocks.create
-        : path === 'employeeShifts.schedule.update'
-          ? mocks.update
-          : mocks.cancel,
-    isPending: false,
-  }),
+  useCriticalMutation: (path: string, options?: { onError?: (error: unknown) => void }) => {
+    if (options?.onError) mocks.errors.set(path, options.onError);
+    return {
+      mutate: (input: unknown) => {
+        const record =
+          path === 'employeeShifts.schedule.create'
+            ? mocks.create
+            : path === 'employeeShifts.schedule.update'
+              ? mocks.update
+              : mocks.cancel;
+        record(input);
+        if (mocks.failure) options?.onError?.(mocks.failure);
+      },
+      isPending: mocks.pending,
+    };
+  },
 }));
 
 vi.mock('@/components/feedback/ToastProvider', () => ({
-  useToast: () => ({ success: vi.fn(), error: vi.fn() }),
+  useToast: () => ({ success: vi.fn(), error: mocks.toastError }),
 }));
 
 import { TeamSchedulePage } from './TeamSchedulePage';
@@ -133,11 +174,17 @@ function shiftFixture() {
     cancelledByUserId: null,
     createdAt: `${day}T12:00:00.000Z`,
     updatedAt: `${day}T12:00:00.000Z`,
+    isReconciled: false,
   };
 }
 
-beforeEach(() => {
+beforeEach(async () => {
+  await i18next.changeLanguage('en');
   mocks.create.mockReset();
+  mocks.failure = null;
+  mocks.pending = false;
+  mocks.errors.clear();
+  mocks.toastError.mockReset();
   mocks.update.mockReset();
   mocks.cancel.mockReset();
   mocks.invalidate.mockReset();
@@ -164,10 +211,124 @@ beforeEach(() => {
 });
 
 describe('TeamSchedulePage', () => {
+  it.each(['create', 'update', 'cancel'] as const)(
+    'keeps a pending %s decision mounted until its own delayed failure arrives',
+    async action => {
+      const user = userEvent.setup();
+      const view = render(<TeamSchedulePage />);
+      const newDecision = screen.getByRole('button', { name: 'Add shift' });
+      await user.click(
+        action === 'create'
+          ? newDecision
+          : screen.getByRole('button', {
+              name: action === 'update' ? /Edit Ana Torres/ : /Cancel Ana Torres/,
+            })
+      );
+      const dialog = await screen.findByRole('dialog');
+      if (action !== 'cancel') {
+        await user.clear(within(dialog).getByLabelText('Notes'));
+        await user.type(within(dialog).getByLabelText('Notes'), 'Decision A');
+      }
+      await user.click(
+        within(dialog).getByRole('button', {
+          name: action === 'cancel' ? 'Cancel shift' : 'Save shift',
+        })
+      );
+      mocks.pending = true;
+      view.rerender(<TeamSchedulePage />);
+      expect(within(dialog).queryByRole('button', { name: 'Close modal' })).not.toBeInTheDocument();
+      expect(
+        within(dialog).getByRole('button', {
+          name: action === 'cancel' ? 'Keep shift' : 'Close',
+        })
+      ).toBeDisabled();
+      await user.keyboard('{Escape}');
+      fireEvent.click(dialog.firstElementChild!);
+      fireEvent.click(newDecision);
+      if (action !== 'cancel') fireEvent.submit(dialog.querySelector('form')!);
+      expect(screen.getByRole('dialog')).toBe(dialog);
+      expect(
+        action === 'create' ? mocks.create : action === 'update' ? mocks.update : mocks.cancel
+      ).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        mocks.pending = false;
+        mocks.errors.get(`employeeShifts.schedule.${action}`)!({
+          data: { errorCode: 'SCHEDULE_TEMPORARILY_UNAVAILABLE' },
+        });
+      });
+      expect(within(dialog).getByRole('alert')).toHaveTextContent(
+        i18next.t('workforceErrors:server.SCHEDULE_TEMPORARILY_UNAVAILABLE')
+      );
+      if (action !== 'cancel')
+        expect(within(dialog).getByLabelText('Notes')).toHaveValue('Decision A');
+      await user.click(within(dialog).getByRole('button', { name: 'Close modal' }));
+      await user.click(newDecision);
+      expect(within(screen.getByRole('dialog')).queryByRole('alert')).not.toBeInTheDocument();
+    }
+  );
+
+  it.each(['en', 'es'] as const)(
+    'keeps create, edit and cancel failures inside their dialog without stale copy (%s)',
+    async language => {
+      await i18next.changeLanguage(language);
+      mocks.failure = {
+        data: { errorCode: 'SCHEDULE_TEMPORARILY_UNAVAILABLE' },
+        message: 'SQLITE_CONSTRAINT: private evidence',
+      };
+      const user = userEvent.setup();
+      render(<TeamSchedulePage />);
+      for (const action of ['create', 'edit', 'cancel'] as const) {
+        if (action === 'create')
+          await user.click(screen.getByRole('button', { name: /^(Add shift|Agregar turno)$/ }));
+        else
+          await user.click(
+            screen.getByRole('button', {
+              name:
+                action === 'edit'
+                  ? /Edit Ana Torres|Editar turno de Ana/
+                  : /Cancel Ana Torres|Cancelar turno de Ana/,
+            })
+          );
+        const dialog = screen.getByRole('dialog');
+        expect(within(dialog).queryByRole('alert')).not.toBeInTheDocument();
+        if (action !== 'cancel') {
+          await user.clear(within(dialog).getByLabelText(/Notes|Notas/));
+          await user.type(within(dialog).getByLabelText(/Notes|Notas/), 'Preserve this decision');
+        }
+        await user.click(
+          within(dialog).getByRole('button', {
+            name:
+              action === 'cancel'
+                ? /^(Cancel shift|Cancelar turno)$/
+                : /^(Save shift|Guardar turno)$/,
+          })
+        );
+        const alert = within(dialog).getByRole('alert');
+        expect(alert).toHaveTextContent(
+          i18next.t('workforceErrors:server.SCHEDULE_TEMPORARILY_UNAVAILABLE')
+        );
+        expect(alert).not.toHaveTextContent(/SQLITE|SCHEDULE_|workforceErrors:/);
+        expect(mocks.toastError).not.toHaveBeenCalled();
+        if (action !== 'cancel')
+          expect(within(dialog).getByLabelText(/Notes|Notas/)).toHaveValue(
+            'Preserve this decision'
+          );
+        await user.click(within(dialog).getByLabelText(/Close modal|Cerrar modal/));
+      }
+      await user.click(screen.getByRole('button', { name: /^(Add shift|Agregar turno)$/ }));
+      expect(within(screen.getByRole('dialog')).queryByRole('alert')).not.toBeInTheDocument();
+    }
+  );
+
   it('renders a responsive weekly schedule with tenant timezone and KPIs', async () => {
     render(<TeamSchedulePage />);
 
     expect(screen.getByTestId('team-schedule-page')).toHaveTextContent(/Team schedule|Horario/);
+    const activeView = screen.getByRole('button', {
+      name: /Schedule and attendance|Horarios y asistencia/,
+    });
+    expect(activeView).toHaveAttribute('aria-pressed', 'true');
+    expect(activeView).toHaveClass('btn-primary');
     expect(screen.getByTestId('schedule-week-grid').children).toHaveLength(7);
     expect(screen.getByTestId('scheduled-shift-schedule-1')).toHaveTextContent('Ana Torres');
     expect(screen.getByTestId('scheduled-shift-schedule-1')).toHaveTextContent('Sede Centro');
@@ -178,6 +339,30 @@ describe('TeamSchedulePage', () => {
       expect.objectContaining({ fromDate: currentWeekStart() }),
       expect.objectContaining({ enabled: false })
     );
+  });
+
+  it('lazy-loads the independent shift exchange inbox from the workforce views', async () => {
+    const user = userEvent.setup();
+    render(<TeamSchedulePage />);
+    await user.click(screen.getByRole('button', { name: 'Shift exchanges' }));
+    expect(await screen.findByTestId('shift-swap-manager-panel')).toHaveTextContent(
+      'Shift exchange approvals'
+    );
+  });
+
+  it('schedules an eligible viewer worker without changing the employee role', async () => {
+    mocks.context.data!.employees.push({ id: 'viewer-1', name: 'Worker Viewer', role: 'viewer' });
+    const user = userEvent.setup();
+    render(<TeamSchedulePage />);
+    await user.click(screen.getAllByRole('button', { name: /Add shift|Agregar turno/ })[0]!);
+    const dialog = screen.getByRole('dialog');
+    expect(
+      within(dialog).getByRole('option', { name: /Worker Viewer · (Viewer|Consulta)/ })
+    ).toBeInTheDocument();
+    await user.selectOptions(within(dialog).getByLabelText(/Employee|Empleado/), 'viewer-1');
+    await user.click(within(dialog).getByRole('button', { name: /Save shift|Guardar turno/ }));
+    expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({ userId: 'viewer-1' }));
+    expect(mocks.context.data!.employees.at(-1)?.role).toBe('viewer');
   });
 
   it('creates a shift from a day-specific CTA with stable defaults', async () => {
@@ -225,6 +410,18 @@ describe('TeamSchedulePage', () => {
       within(cancelDialog).getByRole('button', { name: /Cancel shift|Cancelar turno/ })
     );
     expect(mocks.cancel).toHaveBeenCalledWith({ id: 'schedule-1', version: 2 });
+  });
+
+  it('labels reconciled shifts as historical evidence without offering destructive actions', () => {
+    mocks.list.data = [{ ...shiftFixture(), isReconciled: true }];
+    render(<TeamSchedulePage />);
+
+    const card = screen.getByTestId('scheduled-shift-schedule-1');
+    expect(card).toHaveTextContent('Reconciled · historical evidence');
+    expect(within(card).queryByRole('button', { name: /Edit Ana Torres/ })).not.toBeInTheDocument();
+    expect(
+      within(card).queryByRole('button', { name: /Cancel Ana Torres/ })
+    ).not.toBeInTheDocument();
   });
 
   it('does not silently substitute an inactive employee or site while editing', async () => {

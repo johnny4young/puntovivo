@@ -8,11 +8,13 @@ const {
   navigateMock,
   setAccessTokenMock,
   clearAccessTokenMock,
+  invalidateAuthSessionWorkMock,
   setSessionExpiredHandlerMock,
   persistSessionMock,
   clearSessionMock,
   resetWorkspacesMock,
   resetQuickCreateMock,
+  clearCustomerDisplayMock,
   refreshMutateMock,
   meQueryMock,
   loginMutateMock,
@@ -21,15 +23,20 @@ const {
   registerDeviceMutateMock,
   healthCheckMock,
   queryClientClearMock,
+  hubModeMock,
+  clearHubMock,
+  refreshHubMock,
 } = vi.hoisted(() => ({
   navigateMock: vi.fn(),
   setAccessTokenMock: vi.fn(),
   clearAccessTokenMock: vi.fn(),
+  invalidateAuthSessionWorkMock: vi.fn(),
   setSessionExpiredHandlerMock: vi.fn(),
   persistSessionMock: vi.fn(),
   clearSessionMock: vi.fn(),
   resetWorkspacesMock: vi.fn(),
   resetQuickCreateMock: vi.fn(),
+  clearCustomerDisplayMock: vi.fn(),
   refreshMutateMock: vi.fn(),
   meQueryMock: vi.fn(),
   loginMutateMock: vi.fn(),
@@ -38,6 +45,9 @@ const {
   registerDeviceMutateMock: vi.fn(),
   healthCheckMock: vi.fn(),
   queryClientClearMock: vi.fn(),
+  hubModeMock: vi.fn(),
+  clearHubMock: vi.fn(),
+  refreshHubMock: vi.fn(),
 }));
 
 const queryClientMock = { clear: queryClientClearMock };
@@ -62,8 +72,10 @@ vi.mock('react-router', async () => {
 vi.mock('@/lib/trpc', () => ({
   setAccessToken: setAccessTokenMock,
   clearAccessToken: clearAccessTokenMock,
+  invalidateAuthSessionWork: invalidateAuthSessionWorkMock,
   setAuthSessionExpiredHandler: setSessionExpiredHandlerMock,
   vanillaClient: {
+    setupReadiness: { get: { query: async () => ({ blockerCount: 0, acknowledgedAt: null }) } },
     health: { check: { query: () => healthCheckMock() } },
     auth: {
       refresh: { mutate: () => refreshMutateMock() },
@@ -76,7 +88,15 @@ vi.mock('@/lib/trpc', () => ({
   },
 }));
 
-vi.mock('./authStorage', () => ({
+vi.mock('./hubAuthTransport', async () => ({
+  ...(await vi.importActual<typeof import('./hubAuthTransport')>('./hubAuthTransport')),
+  isHubClientAuth: hubModeMock,
+  clearHubSession: clearHubMock,
+  refreshHubSession: refreshHubMock,
+}));
+
+vi.mock('./authStorage', async () => ({
+  ...(await vi.importActual<typeof import('./authStorage')>('./authStorage')),
   persistAuthSession: persistSessionMock,
   clearAuthSession: clearSessionMock,
 }));
@@ -93,8 +113,13 @@ vi.mock('@/features/sales/useQuickCreateStore', () => ({
   },
 }));
 
+vi.mock('@/features/surfaces/customerDisplayStorage', () => ({
+  clearAllCustomerDisplayProjections: clearCustomerDisplayMock,
+}));
+
 import { AuthProvider, useAuth } from './AuthProvider';
 import { __resetBootSessionRefreshForTests } from './bootSessionRefresh';
+import { __resetApiBootstrapForTests } from '@/lib/apiBootstrap';
 
 const sessionPayload = {
   user: {
@@ -125,15 +150,19 @@ function wrap({ children }: { children: ReactNode }) {
 }
 
 beforeEach(() => {
+  __resetApiBootstrapForTests();
   window.localStorage.removeItem('puntovivo:staff-handoff');
+  window.localStorage.removeItem('puntovivo:require-explicit-sign-in:v1');
   navigateMock.mockReset();
   setAccessTokenMock.mockReset();
   clearAccessTokenMock.mockReset();
+  invalidateAuthSessionWorkMock.mockReset();
   setSessionExpiredHandlerMock.mockReset();
   persistSessionMock.mockReset();
   clearSessionMock.mockReset();
   resetWorkspacesMock.mockReset();
   resetQuickCreateMock.mockReset();
+  clearCustomerDisplayMock.mockReset();
   refreshMutateMock.mockReset();
   meQueryMock.mockReset();
   loginMutateMock.mockReset();
@@ -142,6 +171,9 @@ beforeEach(() => {
   registerDeviceMutateMock.mockReset().mockResolvedValue({ deviceId: 'web-test-device' });
   healthCheckMock.mockReset().mockResolvedValue({ ok: true });
   queryClientClearMock.mockReset();
+  hubModeMock.mockReset().mockReturnValue(false);
+  clearHubMock.mockReset().mockResolvedValue(undefined);
+  refreshHubMock.mockReset();
 });
 
 afterEach(() => {
@@ -281,32 +313,392 @@ describe('AuthProvider — bootstrap', () => {
     expect(consoleSpy).not.toHaveBeenCalled();
     expect(clearAccessTokenMock).toHaveBeenCalled();
     expect(clearSessionMock).toHaveBeenCalled();
-    expect(resetWorkspacesMock).toHaveBeenCalled();
+    expect(resetWorkspacesMock).not.toHaveBeenCalled();
     expect(resetQuickCreateMock).toHaveBeenCalled();
+    expect(clearCustomerDisplayMock).toHaveBeenCalled();
     expect(queryClientClearMock).toHaveBeenCalled();
     consoleSpy.mockRestore();
   });
 
-  it('logs to console and clears session for non-UNAUTHORIZED bootstrap failures', async () => {
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const err = new Error('network down');
-    refreshMutateMock.mockRejectedValue(err);
-
-    function Probe() {
-      const auth = useAuth();
-      return <span data-testid="auth">{auth.isAuthenticated ? 'yes' : 'no'}</span>;
+  it.each(['health', 'refresh', 'me'] as const)(
+    'keeps %s failures locked and retries only after an explicit action',
+    async stage => {
+      const error = TRPCClientError.from(
+        {
+          error: {
+            code: -32029,
+            message: 'internal fixture detail',
+            data: { code: 'TOO_MANY_REQUESTS', httpStatus: 429 },
+          },
+        },
+        {
+          meta: { response: new Response('{}', { status: 429, headers: { 'retry-after': '30' } }) },
+        }
+      );
+      const now = vi.spyOn(Date, 'now').mockReturnValue(100_000);
+      refreshMutateMock.mockResolvedValue({ token: 'retry-token' });
+      meQueryMock.mockResolvedValue(sessionPayload);
+      const stageMock =
+        stage === 'health'
+          ? healthCheckMock
+          : stage === 'refresh'
+            ? refreshMutateMock
+            : meQueryMock;
+      stageMock.mockRejectedValueOnce(error);
+      const clearDesktop = vi.fn().mockResolvedValue(undefined);
+      Object.defineProperty(window, 'api', {
+        configurable: true,
+        value: { session: { clear: clearDesktop } },
+      });
+      const { result } = renderHook(() => useAuth(), { wrapper: wrap });
+      await waitFor(() => expect(result.current.bootstrapRecovery?.kind).toBe('throttled'));
+      expect(result.current.isAuthenticated).toBe(false);
+      expect(result.current.user).toBeNull();
+      expect(result.current.tenant).toBeNull();
+      expect(result.current.error).toBeNull();
+      expect(clearAccessTokenMock).toHaveBeenCalled();
+      expect(clearSessionMock).toHaveBeenCalled();
+      expect(clearDesktop).not.toHaveBeenCalled();
+      expect(resetWorkspacesMock).not.toHaveBeenCalled();
+      expect(clearCustomerDisplayMock).toHaveBeenCalled();
+      const count = stageMock.mock.calls.length;
+      act(() => result.current.bootstrapRecovery?.retry());
+      expect(stageMock).toHaveBeenCalledTimes(count);
+      now.mockReturnValue(130_000);
+      act(() => {
+        result.current.bootstrapRecovery?.retry();
+        result.current.bootstrapRecovery?.retry();
+      });
+      await waitFor(() => expect(result.current.isAuthenticated).toBe(true));
+      expect(stageMock).toHaveBeenCalledTimes(count + 1);
+      expect(result.current.bootstrapRecovery).toBeUndefined();
+      expect(result.current.user?.id).toBe(sessionPayload.user.id);
+      expect(clearDesktop).not.toHaveBeenCalled();
     }
-    render(wrap({ children: <Probe /> }));
-    await waitFor(() => {
-      expect(screen.getByTestId('auth')).toHaveTextContent('no');
+  );
+
+  it.each(
+    ['health', 'refresh', 'me'].flatMap(stage =>
+      ['network', '503'].map(failure => ({ stage, failure }))
+    )
+  )(
+    'recovers a $stage $failure outage without trusting cached identity',
+    async ({ stage, failure }) => {
+      refreshMutateMock.mockResolvedValue({ token: 'retry-token' });
+      meQueryMock.mockResolvedValue(sessionPayload);
+      const stageMock =
+        stage === 'health'
+          ? healthCheckMock
+          : stage === 'refresh'
+            ? refreshMutateMock
+            : meQueryMock;
+      stageMock.mockRejectedValueOnce(
+        failure === 'network' ? new TypeError('Failed to fetch') : { data: { httpStatus: 503 } }
+      );
+      const { result } = renderHook(() => useAuth(), { wrapper: wrap });
+      await waitFor(() => expect(result.current.bootstrapRecovery?.kind).toBe('unavailable'));
+      expect(result.current.isAuthenticated).toBe(false);
+      expect(persistSessionMock).not.toHaveBeenCalled();
+      expect(resetWorkspacesMock).not.toHaveBeenCalled();
+      act(() => result.current.bootstrapRecovery?.retry());
+      await waitFor(() => expect(result.current.isAuthenticated).toBe(true));
+    }
+  );
+
+  it('allows explicit account change without deleting owner-keyed carts', async () => {
+    refreshMutateMock.mockRejectedValue(new Error('temporary outage'));
+    const clearDesktop = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(window, 'api', {
+      configurable: true,
+      value: { session: { clear: clearDesktop } },
     });
-    expect(consoleSpy).toHaveBeenCalledWith('Auth init error:', err);
-    expect(clearAccessTokenMock).toHaveBeenCalled();
-    consoleSpy.mockRestore();
+    const { result } = renderHook(() => useAuth(), { wrapper: wrap });
+    await waitFor(() => expect(result.current.bootstrapRecovery).toBeDefined());
+    await act(async () => {
+      await result.current.bootstrapRecovery?.signIn();
+    });
+    expect(result.current.bootstrapRecovery).toBeUndefined();
+    expect(result.current.isAuthenticated).toBe(false);
+    expect(clearDesktop).toHaveBeenCalledOnce();
+    expect(resetWorkspacesMock).not.toHaveBeenCalled();
+    expect(navigateMock).toHaveBeenCalledWith('/login', expect.objectContaining({ replace: true }));
+  });
+
+  it('does not auto-resume a browser cookie after choosing another account and reloading', async () => {
+    refreshMutateMock
+      .mockRejectedValueOnce(new TypeError('offline'))
+      .mockResolvedValue({ token: 'previous-user-cookie' });
+    meQueryMock.mockResolvedValue(sessionPayload);
+    const first = renderHook(() => useAuth(), { wrapper: wrap });
+    await waitFor(() => expect(first.result.current.bootstrapRecovery).toBeDefined());
+    await act(async () => {
+      await first.result.current.bootstrapRecovery?.signIn();
+    });
+    first.unmount();
+    const next = renderHook(() => useAuth(), { wrapper: wrap });
+    await waitFor(() => expect(next.result.current.isLoading).toBe(false));
+    expect(next.result.current.isAuthenticated).toBe(false);
+    expect(refreshMutateMock).toHaveBeenCalledOnce();
+    expect(meQueryMock).not.toHaveBeenCalled();
+    loginMutateMock.mockResolvedValue({ token: 'fresh-sign-in' });
+    await act(async () => {
+      await next.result.current.login({ email: 'new@example.test', password: 'secret' });
+    });
+    expect(next.result.current.isAuthenticated).toBe(true);
+    expect(window.localStorage.getItem('puntovivo:require-explicit-sign-in:v1')).toBeNull();
+  });
+
+  it('establishes safe bootstrap before login when auto-resume was explicitly disabled', async () => {
+    window.localStorage.setItem('puntovivo:require-explicit-sign-in:v1', '1');
+    const bootstrap = createDeferred<{ ok: true }>();
+    healthCheckMock.mockReturnValueOnce(bootstrap.promise);
+    loginMutateMock.mockResolvedValue({ token: 'fresh-login' });
+    meQueryMock.mockResolvedValue(sessionPayload);
+    const { result } = renderHook(() => useAuth(), { wrapper: wrap });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    let pending: Promise<void> | undefined;
+    act(() => {
+      pending = result.current.login({ email: 'new@example.test', password: 'secret' });
+    });
+    expect(healthCheckMock).toHaveBeenCalledOnce();
+    expect(loginMutateMock).not.toHaveBeenCalled();
+    expect(refreshMutateMock).not.toHaveBeenCalled();
+    await act(async () => {
+      bootstrap.resolve({ ok: true });
+      await pending;
+    });
+    expect(loginMutateMock).toHaveBeenCalledOnce();
+    expect(result.current.isAuthenticated).toBe(true);
+  });
+
+  it('retains Hub credentials for retry, but waits for their explicit removal before account change', async () => {
+    hubModeMock.mockReturnValue(true);
+    refreshHubMock
+      .mockRejectedValueOnce(new TypeError('offline'))
+      .mockResolvedValue({ token: 'hub-token' });
+    meQueryMock.mockResolvedValue(sessionPayload);
+    const { result, unmount } = renderHook(() => useAuth(), { wrapper: wrap });
+    await waitFor(() => expect(result.current.bootstrapRecovery).toBeDefined());
+    expect(clearHubMock).not.toHaveBeenCalled();
+    act(() => result.current.bootstrapRecovery?.retry());
+    await waitFor(() => expect(result.current.isAuthenticated).toBe(true));
+    expect(clearHubMock).not.toHaveBeenCalled();
+    unmount();
+    refreshHubMock.mockRejectedValue(new TypeError('offline'));
+    const clear = createDeferred<void>();
+    clearHubMock.mockImplementationOnce(() => clear.promise);
+    const next = renderHook(() => useAuth(), { wrapper: wrap });
+    await waitFor(() => expect(next.result.current.bootstrapRecovery).toBeDefined());
+    let change: Promise<void> | undefined;
+    act(() => {
+      change = next.result.current.bootstrapRecovery?.signIn();
+      void next.result.current.bootstrapRecovery?.signIn();
+    });
+    expect(clearHubMock).toHaveBeenCalledOnce();
+    expect(next.result.current.bootstrapRecovery?.isChangingAccount).toBe(true);
+    expect(navigateMock).not.toHaveBeenCalled();
+    await act(async () => {
+      clear.resolve();
+      await change;
+    });
+    expect(next.result.current.bootstrapRecovery).toBeUndefined();
+    expect(navigateMock).toHaveBeenCalledWith('/login', expect.objectContaining({ replace: true }));
+    expect(resetWorkspacesMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps account change blocked if the sealed Hub credential cannot be removed', async () => {
+    hubModeMock.mockReturnValue(true);
+    refreshHubMock.mockRejectedValue(new TypeError('offline'));
+    clearHubMock.mockRejectedValue(new Error('private storage diagnostic'));
+    const { result } = renderHook(() => useAuth(), { wrapper: wrap });
+    await waitFor(() => expect(result.current.bootstrapRecovery).toBeDefined());
+    await act(async () => {
+      await result.current.bootstrapRecovery?.signIn();
+    });
+    expect(result.current.bootstrapRecovery?.accountChangeFailed).toBe(true);
+    expect(result.current.bootstrapRecovery?.isChangingAccount).toBe(false);
+    expect(result.current.isAuthenticated).toBe(false);
+    expect(navigateMock).not.toHaveBeenCalled();
+    expect(resetWorkspacesMock).not.toHaveBeenCalled();
+  });
+
+  it('does not install a late boot result after another tab changes operator', async () => {
+    let resolveMe!: (value: typeof sessionPayload) => void;
+    refreshMutateMock.mockResolvedValue({ token: 'old-token' });
+    meQueryMock.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          resolveMe = resolve;
+        })
+    );
+    const { result } = renderHook(() => useAuth(), { wrapper: wrap });
+    await waitFor(() => expect(meQueryMock).toHaveBeenCalled());
+    act(() =>
+      window.dispatchEvent(
+        new StorageEvent('storage', { key: 'puntovivo:staff-handoff', newValue: 'new-operator' })
+      )
+    );
+    await act(async () => resolveMe(sessionPayload));
+    expect(result.current.isAuthenticated).toBe(false);
+    expect(persistSessionMock).not.toHaveBeenCalled();
+    expect(navigateMock).toHaveBeenCalledWith('/login');
   });
 });
 
+describe('AuthProvider — interactive identity fences', () => {
+  it.each(['login', 'switchStaff', 'logout'] as const)(
+    'does not adopt or clear state after a late %s following another-tab handoff',
+    async operation => {
+      refreshMutateMock.mockResolvedValue({ token: 'original' });
+      meQueryMock.mockResolvedValue(sessionPayload);
+      const { result } = renderHook(() => useAuth(), { wrapper: wrap });
+      await waitFor(() => expect(result.current.isAuthenticated).toBe(true));
+      const deferred = createDeferred<{ token: string; sessionExpiresAt: string }>();
+      const mutation =
+        operation === 'login'
+          ? loginMutateMock
+          : operation === 'switchStaff'
+            ? switchStaffMutateMock
+            : logoutMutateMock;
+      mutation.mockReturnValueOnce(deferred.promise);
+      let pending: Promise<void> | undefined;
+      act(() => {
+        pending =
+          operation === 'login'
+            ? result.current.login({ email: 'old@example.test', password: 'secret' })
+            : operation === 'switchStaff'
+              ? result.current.switchStaff({ targetUserId: 'old', pin: '123456' })
+              : result.current.logout();
+      });
+      await waitFor(() => expect(mutation).toHaveBeenCalledOnce());
+      act(() =>
+        window.dispatchEvent(
+          new StorageEvent('storage', { key: 'puntovivo:staff-handoff', newValue: 'new-operator' })
+        )
+      );
+      const tokensBefore = setAccessTokenMock.mock.calls.length;
+      const persistenceBefore = persistSessionMock.mock.calls.length;
+      const clearsBefore = clearSessionMock.mock.calls.length;
+      await act(async () => {
+        deferred.resolve({ token: 'late-old-token', sessionExpiresAt: '2026-09-06T23:00:00Z' });
+        await pending;
+      });
+      expect(result.current.isAuthenticated).toBe(false);
+      expect(setAccessTokenMock).toHaveBeenCalledTimes(tokensBefore);
+      expect(persistSessionMock).toHaveBeenCalledTimes(persistenceBefore);
+      expect(clearSessionMock).toHaveBeenCalledTimes(clearsBefore);
+      expect(navigateMock).toHaveBeenLastCalledWith('/login');
+    }
+  );
+});
+
 describe('AuthProvider — login flow', () => {
+  it.each(['QuotaExceededError', 'SecurityError'])(
+    'does not issue credentials when deny-resume persistence fails with %s',
+    async name => {
+      refreshMutateMock.mockRejectedValue(
+        new TRPCClientError('You must be logged in to perform this action')
+      );
+      const { result } = renderHook(() => useAuth(), { wrapper: wrap });
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+      const failure = new DOMException('Storage unavailable', name);
+      vi.spyOn(window.localStorage, 'setItem').mockImplementation(() => {
+        throw failure;
+      });
+      await act(async () => {
+        await expect(
+          result.current.login({ email: 'other@example.test', password: 'secret' })
+        ).rejects.toBe(failure);
+      });
+      expect(loginMutateMock).not.toHaveBeenCalled();
+      expect(setAccessTokenMock).not.toHaveBeenCalled();
+      expect(registerDeviceMutateMock).not.toHaveBeenCalled();
+      expect(result.current.isAuthenticated).toBe(false);
+      expect(result.current.isLoading).toBe(false);
+      expect(result.current.error).toBe(failure);
+    }
+  );
+
+  it.each(['QuotaExceededError', 'SecurityError'])(
+    'rejects partial login despite %s during terminal adoption teardown',
+    async name => {
+      vi.spyOn(console, 'warn').mockImplementation(() => {});
+      refreshMutateMock.mockRejectedValue(
+        new TRPCClientError('You must be logged in to perform this action')
+      );
+      const failure = { data: { code: 'UNAUTHORIZED', errorCode: 'AUTH_IDENTITY_CHANGED' } };
+      loginMutateMock.mockResolvedValue({ token: 'other-user-token' });
+      const denyIntentWrites = vi.spyOn(window.localStorage, 'setItem');
+      registerDeviceMutateMock.mockImplementation(async () => {
+        // Storage may become unavailable after credentials have been issued.
+        // Rejected-device teardown must not write the already-persisted intent.
+        denyIntentWrites.mockImplementation(() => {
+          throw new DOMException('Storage unavailable', name);
+        });
+        if (name === 'SecurityError') {
+          clearSessionMock.mockImplementation(() => {
+            throw new DOMException('Storage unavailable', name);
+          });
+        }
+        throw failure;
+      });
+      const clearDesktop = vi.fn().mockResolvedValue(undefined);
+      Object.defineProperty(window, 'api', {
+        configurable: true,
+        value: { session: { clear: clearDesktop } },
+      });
+      const { result } = renderHook(() => useAuth(), { wrapper: wrap });
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+      await act(async () => {
+        await expect(
+          result.current.login({ email: 'other@example.test', password: 'secret' })
+        ).rejects.toBe(failure);
+      });
+      expect(result.current.isAuthenticated).toBe(false);
+      expect(result.current.user).toBeNull();
+      expect(result.current.error).toBe(failure);
+      expect(meQueryMock).not.toHaveBeenCalled();
+      expect(persistSessionMock).not.toHaveBeenCalled();
+      expect(resetWorkspacesMock).not.toHaveBeenCalled();
+      expect(clearDesktop).toHaveBeenCalledTimes(2);
+      expect(queryClientClearMock).toHaveBeenCalledTimes(2);
+      expect(resetQuickCreateMock).toHaveBeenCalledTimes(2);
+      expect(clearCustomerDisplayMock).toHaveBeenCalledTimes(2);
+      expect(window.localStorage.getItem('puntovivo:require-explicit-sign-in:v1')).toBe('1');
+      expect(denyIntentWrites).toHaveBeenCalledExactlyOnceWith(
+        'puntovivo:require-explicit-sign-in:v1',
+        '1'
+      );
+      expect(clearAccessTokenMock.mock.invocationCallOrder.at(-1)).toBeGreaterThan(
+        setAccessTokenMock.mock.invocationCallOrder.at(-1)!
+      );
+    }
+  );
+
+  it('returns a viewer directly to Companion without a dashboard navigation', async () => {
+    refreshMutateMock.mockRejectedValue(
+      new TRPCClientError('You must be logged in to perform this action')
+    );
+    loginMutateMock.mockResolvedValue({ token: 'tok-companion' });
+    meQueryMock.mockResolvedValue({
+      ...sessionPayload,
+      user: { ...sessionPayload.user, role: 'viewer' },
+    });
+    const { result: auth } = renderHook(() => useAuth(), {
+      wrapper: ({ children }) => (
+        <MemoryRouter
+          initialEntries={[{ pathname: '/login', state: { from: { pathname: '/c/' } } }]}
+        >
+          <AuthProvider>{children}</AuthProvider>
+        </MemoryRouter>
+      ),
+    });
+    await waitFor(() => expect(auth.current.isLoading).toBe(false));
+    await act(() => auth.current.login({ email: 'viewer@example.test', password: 'pwd' }));
+    expect(navigateMock).toHaveBeenLastCalledWith('/c/');
+    expect(navigateMock).not.toHaveBeenCalledWith('/dashboard');
+  });
+
   it('on success persists token, fetches the session, and navigates per role', async () => {
     refreshMutateMock.mockRejectedValue(
       new TRPCClientError('You must be logged in to perform this action')
@@ -357,7 +749,205 @@ describe('AuthProvider — login flow', () => {
   });
 });
 
+describe('AuthProvider — confirmed tenant settings', () => {
+  it('mirrors a committed settings patch without replacing unrelated settings', async () => {
+    refreshMutateMock.mockResolvedValue({ token: 'tok-1' });
+    meQueryMock.mockResolvedValue(sessionPayload);
+
+    const { result: auth } = renderHook(() => useAuth(), { wrapper: wrap });
+    await waitFor(() => expect(auth.current.isAuthenticated).toBe(true));
+
+    act(() => {
+      auth.current.updateTenantSettings({ businessType: 'butchery' });
+    });
+
+    expect(auth.current.tenant?.settings).toEqual({
+      taxRate: 19,
+      restaurant: { serviceChargeRate: 0 },
+      businessType: 'butchery',
+    });
+    expect(auth.current.user).toEqual(sessionPayload.user);
+  });
+});
+
+describe('AuthProvider — confirmed session revocation', () => {
+  async function authenticated() {
+    refreshMutateMock.mockResolvedValue({ token: 'tok-1' });
+    meQueryMock.mockResolvedValue(sessionPayload);
+    const hook = renderHook(() => useAuth(), { wrapper: wrap });
+    await waitFor(() => expect(hook.result.current.isAuthenticated).toBe(true));
+    return hook.result;
+  }
+
+  it('closes parked work and desktop authority without calling logout again', async () => {
+    const auth = await authenticated();
+    const clearDesktop = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(window, 'session', {
+      configurable: true,
+      value: { clear: clearDesktop },
+    });
+    const commit = vi.fn().mockResolvedValue({ success: true });
+    await act(async () => {
+      await expect(auth.current.runSessionRevocation(commit)).resolves.toBe(true);
+    });
+    expect(commit).toHaveBeenCalledOnce();
+    expect(logoutMutateMock).not.toHaveBeenCalled();
+    expect(clearDesktop).toHaveBeenCalledOnce();
+    expect(clearAccessTokenMock).toHaveBeenCalledOnce();
+    expect(resetWorkspacesMock).toHaveBeenCalledOnce();
+    expect(queryClientClearMock).toHaveBeenCalledOnce();
+    expect(clearCustomerDisplayMock).toHaveBeenCalledOnce();
+    expect(auth.current.user).toBeNull();
+    expect(auth.current.isLoading).toBe(false);
+    expect(navigateMock).toHaveBeenLastCalledWith('/login');
+    expect(window.localStorage.getItem('puntovivo:staff-handoff')).toMatch(/^revoked:/);
+  });
+
+  it('preserves authority and work when the server rejects the password change', async () => {
+    const auth = await authenticated();
+    const failure = new Error('Current password is incorrect');
+    await act(async () => {
+      await expect(
+        auth.current.runSessionRevocation(async () => {
+          throw failure;
+        })
+      ).rejects.toBe(failure);
+    });
+    expect(auth.current.user?.id).toBe(sessionPayload.user.id);
+    expect(clearAccessTokenMock).not.toHaveBeenCalled();
+    expect(resetWorkspacesMock).not.toHaveBeenCalled();
+    expect(queryClientClearMock).not.toHaveBeenCalled();
+    expect(logoutMutateMock).not.toHaveBeenCalled();
+    expect(navigateMock).not.toHaveBeenCalled();
+  });
+
+  it('does not erase a new login when the old revocation response arrives late', async () => {
+    const auth = await authenticated();
+    let finish = () => {};
+    let pending!: Promise<boolean>;
+    await act(async () => {
+      pending = auth.current.runSessionRevocation(
+        () =>
+          new Promise<void>(resolve => {
+            finish = resolve;
+          })
+      );
+    });
+    act(() => {
+      window.dispatchEvent(
+        new StorageEvent('storage', {
+          key: 'puntovivo:staff-handoff',
+          newValue: 'new-operator',
+        })
+      );
+    });
+    loginMutateMock.mockResolvedValue({ token: 'new-user-token' });
+    meQueryMock.mockResolvedValue({
+      ...sessionPayload,
+      user: { ...sessionPayload.user, id: 'u2', role: 'cashier' },
+    });
+    await act(() => auth.current.login({ email: 'cashier@example.test', password: 'secret' }));
+    const clears = clearAccessTokenMock.mock.calls.length;
+    const resets = resetWorkspacesMock.mock.calls.length;
+    const navigation = navigateMock.mock.calls.length;
+    await act(async () => {
+      finish();
+      await expect(pending).resolves.toBe(false);
+    });
+    expect(auth.current.user?.id).toBe('u2');
+    expect(clearAccessTokenMock).toHaveBeenCalledTimes(clears);
+    expect(resetWorkspacesMock).toHaveBeenCalledTimes(resets);
+    expect(navigateMock).toHaveBeenCalledTimes(navigation);
+  });
+
+  it('clears renderer authority immediately and awaits sealed Hub cleanup before reentry', async () => {
+    const auth = await authenticated();
+    hubModeMock.mockReturnValue(true);
+    let finish = () => {};
+    clearHubMock.mockImplementation(
+      () =>
+        new Promise<void>(resolve => {
+          finish = resolve;
+        })
+    );
+    let pending!: Promise<boolean>;
+    await act(async () => {
+      pending = auth.current.runSessionRevocation(async () => ({ success: true }));
+    });
+    expect(auth.current.isAuthenticated).toBe(false);
+    expect(auth.current.isLoading).toBe(true);
+    expect(resetWorkspacesMock).toHaveBeenCalledOnce();
+    expect(clearHubMock).toHaveBeenCalledOnce();
+    expect(navigateMock).not.toHaveBeenCalled();
+    await act(async () => {
+      finish();
+      await pending;
+    });
+    expect(auth.current.isLoading).toBe(false);
+    expect(navigateMock).toHaveBeenLastCalledWith('/login');
+    expect(logoutMutateMock).not.toHaveBeenCalled();
+  });
+
+  it('finishes local teardown despite storage and revoked-credential bridge failures', async () => {
+    const auth = await authenticated();
+    hubModeMock.mockReturnValue(true);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const storageError = new DOMException('Storage unavailable', 'SecurityError');
+    clearSessionMock.mockImplementation(() => {
+      throw storageError;
+    });
+    resetWorkspacesMock.mockImplementation(() => {
+      throw storageError;
+    });
+    vi.spyOn(window.localStorage, 'setItem').mockImplementation(() => {
+      throw storageError;
+    });
+    clearHubMock.mockRejectedValue(new Error('Bridge unavailable'));
+    await act(async () => {
+      await expect(
+        auth.current.runSessionRevocation(async () => ({ success: true }))
+      ).resolves.toBe(true);
+    });
+    expect(auth.current.isAuthenticated).toBe(false);
+    expect(auth.current.isLoading).toBe(false);
+    expect(clearAccessTokenMock).toHaveBeenCalledOnce();
+    expect(queryClientClearMock).toHaveBeenCalledOnce();
+    expect(resetWorkspacesMock).toHaveBeenCalledOnce();
+    expect(clearCustomerDisplayMock).toHaveBeenCalledOnce();
+    expect(clearHubMock).toHaveBeenCalledOnce();
+    expect(logoutMutateMock).not.toHaveBeenCalled();
+    expect(navigateMock).toHaveBeenLastCalledWith('/login');
+    expect(warn).toHaveBeenCalledTimes(4);
+  });
+});
+
 describe('AuthProvider — logout flow', () => {
+  it('fences unmount work before sending logout without clearing its authority early', async () => {
+    refreshMutateMock.mockResolvedValue({ token: 'tok-1' });
+    meQueryMock.mockResolvedValue(sessionPayload);
+    const committed = createDeferred<void>();
+    logoutMutateMock.mockReturnValue(committed.promise);
+    const { result: auth } = renderHook(() => useAuth(), { wrapper: wrap });
+    await waitFor(() => expect(auth.current.isAuthenticated).toBe(true));
+    clearAccessTokenMock.mockClear();
+    let pending!: Promise<void>;
+    act(() => {
+      pending = auth.current.logout();
+    });
+    expect(auth.current.isLoading).toBe(true);
+    expect(invalidateAuthSessionWorkMock).toHaveBeenCalledOnce();
+    expect(invalidateAuthSessionWorkMock.mock.invocationCallOrder[0]).toBeLessThan(
+      logoutMutateMock.mock.invocationCallOrder[0]!
+    );
+    expect(clearAccessTokenMock).not.toHaveBeenCalled();
+    await act(async () => {
+      committed.resolve();
+      await pending;
+    });
+    expect(clearAccessTokenMock).toHaveBeenCalledOnce();
+    expect(auth.current.isAuthenticated).toBe(false);
+  });
+
   it('clears local state and navigates to /login on success', async () => {
     refreshMutateMock.mockResolvedValue({ token: 'tok-1' });
     meQueryMock.mockResolvedValue(sessionPayload);
@@ -380,12 +970,13 @@ describe('AuthProvider — logout flow', () => {
     expect(clearDesktopSessionMock).toHaveBeenCalledOnce();
     expect(resetWorkspacesMock).toHaveBeenCalled();
     expect(resetQuickCreateMock).toHaveBeenCalled();
+    expect(clearCustomerDisplayMock).toHaveBeenCalled();
     expect(navigateMock).toHaveBeenLastCalledWith('/login');
     expect(auth.current.isAuthenticated).toBe(false);
     expect(window.localStorage.getItem('puntovivo:deviceId')).toBe('registered-device-1');
   });
 
-  it('clears local state and navigates even when the server logout call fails', async () => {
+  it('preserves owner-keyed workspaces when the server logout transaction fails', async () => {
     refreshMutateMock.mockResolvedValue({ token: 'tok-1' });
     meQueryMock.mockResolvedValue(sessionPayload);
     const failure = new Error('server down');
@@ -399,12 +990,15 @@ describe('AuthProvider — logout flow', () => {
       await auth.current.logout();
     });
     expect(clearAccessTokenMock).toHaveBeenCalled();
+    expect(resetWorkspacesMock).not.toHaveBeenCalled();
     expect(resetQuickCreateMock).toHaveBeenCalled();
+    expect(clearCustomerDisplayMock).toHaveBeenCalled();
     expect(queryClientClearMock).toHaveBeenCalled();
     expect(navigateMock).toHaveBeenLastCalledWith('/login');
     expect(auth.current.isAuthenticated).toBe(false);
+    expect(auth.current.error).toBe(failure);
     expect(consoleWarnSpy).toHaveBeenCalledWith(
-      'auth.logout server call failed; clearing local state anyway:',
+      'auth.logout server call failed; preserving draft recovery state:',
       failure
     );
   });
@@ -453,6 +1047,7 @@ describe('AuthProvider — staff switch flow', () => {
     expect(clearAccessTokenMock).toHaveBeenCalled();
     expect(resetWorkspacesMock).toHaveBeenCalled();
     expect(resetQuickCreateMock).toHaveBeenCalled();
+    expect(clearCustomerDisplayMock).toHaveBeenCalled();
     expect(queryClientClearMock).toHaveBeenCalled();
     expect(clearDesktopSessionMock).toHaveBeenCalledOnce();
     expect(registerDesktopSessionMock).toHaveBeenLastCalledWith('tok-cashier');
@@ -558,7 +1153,9 @@ describe('AuthProvider — session expiry hook', () => {
       lastHandler();
     });
     expect(auth.current.isAuthenticated).toBe(false);
+    expect(resetWorkspacesMock).not.toHaveBeenCalled();
     expect(resetQuickCreateMock).toHaveBeenCalled();
+    expect(clearCustomerDisplayMock).toHaveBeenCalled();
     expect(navigateMock).toHaveBeenLastCalledWith('/login');
   });
 });
@@ -598,3 +1195,11 @@ describe('AuthProvider — mapSession edge cases', () => {
     expect(auth.current.tenant?.settings.restaurant?.serviceChargeRate).toBe(0);
   });
 });
+
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>(complete => {
+    resolve = complete;
+  });
+  return { promise, resolve };
+}

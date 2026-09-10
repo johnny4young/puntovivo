@@ -16,6 +16,7 @@ import { and, asc, eq, inArray } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
 import { inventoryBalances, providers, sequentials, sites } from '../../db/schema.js';
 import { ensureInventoryBalancesForSite } from '../../services/inventory-balances.js';
+import { throwServerError } from '../../lib/errorCodes.js';
 import type { PurchaseSequentialContext, PurchaseSiteContext } from './types.js';
 
 export function buildVoidedPurchaseNotes(existingNotes: string | null, reason: string | undefined) {
@@ -79,7 +80,7 @@ export async function getPurchaseSiteContext(
   };
 }
 
-export async function getInventoryBalanceStateForSite(
+export function getInventoryBalanceStateForSite(
   db: DatabaseInstance,
   tenantId: string,
   siteId: string,
@@ -91,7 +92,7 @@ export async function getInventoryBalanceStateForSite(
 
   ensureInventoryBalancesForSite(db, tenantId, siteId);
 
-  const balances = await db
+  const balances = db
     .select({
       productId: inventoryBalances.productId,
       onHand: inventoryBalances.onHand,
@@ -117,6 +118,7 @@ export async function getPurchaseSequentialContext(
   const baseConditions = [
     eq(sequentials.tenantId, tenantId),
     eq(sequentials.documentType, 'purchase'),
+    eq(sites.tenantId, tenantId),
     eq(sites.isActive, true),
   ];
 
@@ -137,6 +139,13 @@ export async function getPurchaseSequentialContext(
     if (siteScopedSequential) {
       return siteScopedSequential;
     }
+
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'PURCHASE_SEQUENTIAL_MISSING',
+      message: 'No active purchase sequential is configured for the selected site',
+      details: { siteId },
+    });
   }
 
   const fallbackSequential = await db
@@ -154,9 +163,10 @@ export async function getPurchaseSequentialContext(
     .get();
 
   if (!fallbackSequential) {
-    throw new TRPCError({
-      code: 'BAD_REQUEST',
-      message: 'No active purchase sequential is configured for the current tenant',
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'PURCHASE_SEQUENTIAL_MISSING',
+      message: 'No active purchase sequential is configured for the current organization',
     });
   }
 

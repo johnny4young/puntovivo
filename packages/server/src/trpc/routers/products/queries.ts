@@ -8,12 +8,15 @@
  * @module trpc/routers/products/queries
  */
 import { TRPCError } from '@trpc/server';
-import { and, eq, inArray, like, ne, or, sql } from 'drizzle-orm';
+import { roundQuantity } from '@puntovivo/shared/unit-math';
+import { and, eq, isNotNull, ne, or, sql } from 'drizzle-orm';
+import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 
 import { tenantProcedure } from '../../middleware/tenant.js';
 import {
   categories,
   locations,
+  pharmacyProductProfiles,
   products,
   providers,
   unitXProduct,
@@ -26,7 +29,10 @@ import {
   searchProductsInput,
   lookupByBarcodeInput,
 } from '../../schemas/products.js';
+import { resolveSiteGs1ParseOptions } from '../../../services/peripherals/barcode/config.js';
 import { parseScan } from '../../../services/peripherals/barcode/parser.js';
+import { assertSaleQuantityAllowed } from '../../../services/fraction-policy.js';
+import { throwServerError } from '../../../lib/errorCodes.js';
 import {
   getProductWithRelations,
   getUnitAssignmentsByProductIds,
@@ -34,13 +40,23 @@ import {
 } from '../../../services/products/product-read.js';
 import { findExactProductMatches } from '../../../services/products/exact-search.js';
 import { findFtsProductMatches } from '../../../services/products/fts-search.js';
+import { hydrateSearchProducts } from '../../../services/products/search-hydration.js';
+
+function literalContains(column: AnySQLiteColumn, value: string) {
+  // The compatibility fallback is a literal substring search, not an SQL
+  // pattern language. Escaping %, _ and the escape marker prevents a
+  // punctuation-only query from degenerating into an unbounded match-all.
+  const escaped = value.replaceAll('!', '!!').replaceAll('%', '!%').replaceAll('_', '!_');
+  return sql`${column} LIKE ${`%${escaped}%`} ESCAPE '!'`;
+}
 
 export const productQueryProcedures = {
   /**
    * List products for the current tenant with pagination and filtering
    */
   list: tenantProcedure.input(listProductsInput).query(async ({ ctx, input }) => {
-    const { page, perPage, search, categoryId, isActive, includeVariantParents } = input;
+    const { page, perPage, search, categoryId, isActive, includeVariantParents, pharmacyOnly } =
+      input;
     const offset = (page - 1) * perPage;
 
     const conditions = [eq(products.tenantId, ctx.tenantId)];
@@ -48,13 +64,25 @@ export const productQueryProcedures = {
       conditions.push(ne(products.catalogType, 'variant_parent'));
     }
     if (search) {
-      conditions.push(or(like(products.name, `%${search}%`), like(products.sku, `%${search}%`))!);
+      conditions.push(
+        or(
+          literalContains(products.name, search),
+          literalContains(products.sku, search),
+          literalContains(pharmacyProductProfiles.activeIngredient, search),
+          literalContains(pharmacyProductProfiles.genericName, search),
+          literalContains(pharmacyProductProfiles.sanitaryRegistration, search),
+          literalContains(pharmacyProductProfiles.manufacturer, search)
+        )!
+      );
     }
     if (categoryId !== undefined) {
       conditions.push(eq(products.categoryId, categoryId));
     }
     if (isActive !== undefined) {
       conditions.push(eq(products.isActive, isActive));
+    }
+    if (pharmacyOnly) {
+      conditions.push(isNotNull(pharmacyProductProfiles.productId));
     }
 
     const where = and(...conditions);
@@ -67,6 +95,13 @@ export const productQueryProcedures = {
         .leftJoin(locations, eq(products.locationId, locations.id))
         .leftJoin(providers, eq(products.providerId, providers.id))
         .leftJoin(vatRates, eq(products.vatRateId, vatRates.id))
+        .leftJoin(
+          pharmacyProductProfiles,
+          and(
+            eq(pharmacyProductProfiles.productId, products.id),
+            eq(pharmacyProductProfiles.tenantId, ctx.tenantId)
+          )
+        )
         .where(where)
         .limit(perPage)
         .offset(offset)
@@ -74,6 +109,13 @@ export const productQueryProcedures = {
       ctx.db
         .select({ count: sql<number>`count(*)` })
         .from(products)
+        .leftJoin(
+          pharmacyProductProfiles,
+          and(
+            eq(pharmacyProductProfiles.productId, products.id),
+            eq(pharmacyProductProfiles.tenantId, ctx.tenantId)
+          )
+        )
         .where(where)
         .get(),
     ]);
@@ -118,6 +160,13 @@ export const productQueryProcedures = {
         .leftJoin(locations, eq(products.locationId, locations.id))
         .leftJoin(providers, eq(products.providerId, providers.id))
         .leftJoin(vatRates, eq(products.vatRateId, vatRates.id))
+        .leftJoin(
+          pharmacyProductProfiles,
+          and(
+            eq(pharmacyProductProfiles.productId, products.id),
+            eq(pharmacyProductProfiles.tenantId, ctx.tenantId)
+          )
+        )
         .where(
           and(
             eq(products.tenantId, ctx.tenantId),
@@ -144,21 +193,21 @@ export const productQueryProcedures = {
    * Search products by name, SKU or barcode
    */
   search: tenantProcedure.input(searchProductsInput).query(async ({ ctx, input }) => {
-    const conditions = [
+    const productConditions = [
       eq(products.tenantId, ctx.tenantId),
       ne(products.catalogType, 'variant_parent'),
     ];
     if (input.categoryId) {
-      conditions.push(eq(products.categoryId, input.categoryId));
+      productConditions.push(eq(products.categoryId, input.categoryId));
     }
     if (input.providerId) {
-      conditions.push(eq(products.providerId, input.providerId));
+      productConditions.push(eq(products.providerId, input.providerId));
     }
     if (input.isActive !== undefined) {
-      conditions.push(eq(products.isActive, input.isActive));
+      productConditions.push(eq(products.isActive, input.isActive));
     }
     if (input.tracksStock !== undefined) {
-      conditions.push(eq(products.tracksStock, input.tracksStock));
+      productConditions.push(eq(products.tracksStock, input.tracksStock));
     }
 
     const searchFilters = {
@@ -166,25 +215,15 @@ export const productQueryProcedures = {
       ...(input.providerId ? { providerId: input.providerId } : {}),
       ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
       ...(input.tracksStock !== undefined ? { tracksStock: input.tracksStock } : {}),
+      ...(input.pharmacyOnly !== undefined ? { pharmacyOnly: input.pharmacyOnly } : {}),
     };
     const hydrateRankedProducts = async (matches: ReadonlyArray<{ productId: string }>) => {
-      const rows = await ctx.db
-        .select(productSelection)
-        .from(products)
-        .leftJoin(categories, eq(products.categoryId, categories.id))
-        .leftJoin(locations, eq(products.locationId, locations.id))
-        .leftJoin(providers, eq(products.providerId, providers.id))
-        .leftJoin(vatRates, eq(products.vatRateId, vatRates.id))
-        .where(
-          and(
-            ...conditions,
-            inArray(
-              products.id,
-              matches.map(match => match.productId)
-            )
-          )
-        )
-        .all();
+      const rows = hydrateSearchProducts(
+        ctx.db,
+        ctx.tenantId,
+        matches.map(match => match.productId),
+        searchFilters
+      );
       const byId = new Map(rows.map(item => [item.id, item]));
       return matches.flatMap(match => {
         const item = byId.get(match.productId);
@@ -214,28 +253,73 @@ export const productQueryProcedures = {
         searchFilters,
         input.limit
       );
-      items =
-        ftsMatches.length > 0
-          ? await hydrateRankedProducts(ftsMatches)
-          : await ctx.db
-              .select(productSelection)
-              .from(products)
-              .leftJoin(categories, eq(products.categoryId, categories.id))
-              .leftJoin(locations, eq(products.locationId, locations.id))
-              .leftJoin(providers, eq(products.providerId, providers.id))
-              .leftJoin(vatRates, eq(products.vatRateId, vatRates.id))
-              .where(
-                and(
-                  ...conditions,
-                  or(
-                    like(products.name, `%${input.q}%`),
-                    like(products.sku, `%${input.q}%`),
-                    like(products.barcode, `%${input.q}%`)
+      if (ftsMatches.length > 0) {
+        items = await hydrateRankedProducts(ftsMatches);
+      } else {
+        // The literal lane exists only for punctuation and within-token
+        // compatibility. Keep its scans narrow instead of evaluating every
+        // catalog and pharmacy column for all rows. Generic search gives the
+        // core catalog lane priority; pharmacy-scoped search gives the
+        // regulated metadata lane priority. The alternate lane is consulted
+        // only when the preferred lane has no match.
+        const catalogLiteralMatch = or(
+          literalContains(products.name, input.q),
+          literalContains(products.sku, input.q),
+          literalContains(products.barcode, input.q)
+        )!;
+        const pharmacyLiteralMatch = or(
+          literalContains(pharmacyProductProfiles.activeIngredient, input.q),
+          literalContains(pharmacyProductProfiles.genericName, input.q),
+          literalContains(pharmacyProductProfiles.sanitaryRegistration, input.q),
+          literalContains(pharmacyProductProfiles.manufacturer, input.q)
+        )!;
+        const findCatalogLiteralMatches = () =>
+          input.pharmacyOnly
+            ? ctx.db
+                .select({ productId: products.id })
+                .from(products)
+                .innerJoin(
+                  pharmacyProductProfiles,
+                  and(
+                    eq(pharmacyProductProfiles.productId, products.id),
+                    eq(pharmacyProductProfiles.tenantId, ctx.tenantId)
                   )
                 )
+                .where(and(...productConditions, catalogLiteralMatch))
+                .limit(input.limit)
+                .all()
+            : ctx.db
+                .select({ productId: products.id })
+                .from(products)
+                .where(and(...productConditions, catalogLiteralMatch))
+                .limit(input.limit)
+                .all();
+        const findPharmacyLiteralMatches = () =>
+          ctx.db
+            .select({ productId: products.id })
+            .from(products)
+            .innerJoin(
+              pharmacyProductProfiles,
+              and(
+                eq(pharmacyProductProfiles.productId, products.id),
+                eq(pharmacyProductProfiles.tenantId, ctx.tenantId)
               )
-              .limit(input.limit)
-              .all();
+            )
+            .where(and(...productConditions, pharmacyLiteralMatch))
+            .limit(input.limit)
+            .all();
+
+        const preferredMatches = input.pharmacyOnly
+          ? await findPharmacyLiteralMatches()
+          : await findCatalogLiteralMatches();
+        const fallbackMatches =
+          preferredMatches.length > 0
+            ? preferredMatches
+            : input.pharmacyOnly
+              ? await findCatalogLiteralMatches()
+              : await findPharmacyLiteralMatches();
+        items = await hydrateRankedProducts(fallbackMatches);
+      }
     }
 
     const assignmentsMap = await getUnitAssignmentsByProductIds(
@@ -287,7 +371,15 @@ export const productQueryProcedures = {
    * so basic Code128 / internal SKU labels still resolve.
    */
   lookupByBarcode: tenantProcedure.input(lookupByBarcodeInput).query(async ({ ctx, input }) => {
-    const parsed = parseScan(input.barcode, { gs1Scheme: input.gs1Scheme });
+    const normalizedBarcode = input.barcode.trim();
+    const scannerOptions = /^2\d{12}$/.test(normalizedBarcode)
+      ? await resolveSiteGs1ParseOptions({
+          db: ctx.db,
+          tenantId: ctx.tenantId,
+          siteId: ctx.siteId,
+        })
+      : undefined;
+    const parsed = parseScan(input.barcode, scannerOptions);
 
     // Strict policy: checksum failure on a known digit-only
     // symbology is a hard reject. `kind: unknown` still falls
@@ -313,6 +405,13 @@ export const productQueryProcedures = {
       .leftJoin(locations, eq(products.locationId, locations.id))
       .leftJoin(providers, eq(products.providerId, providers.id))
       .leftJoin(vatRates, eq(products.vatRateId, vatRates.id))
+      .leftJoin(
+        pharmacyProductProfiles,
+        and(
+          eq(pharmacyProductProfiles.productId, products.id),
+          eq(pharmacyProductProfiles.tenantId, ctx.tenantId)
+        )
+      )
       .where(
         and(
           eq(products.tenantId, ctx.tenantId),
@@ -329,7 +428,7 @@ export const productQueryProcedures = {
     // product AND the specific unit, so the renderer selects that unit and
     // the cart line multiplies by its `equivalence`.
     let resolvedUnitId: string | null = null;
-    if (!item) {
+    if (!item && parsed.kind !== 'gs1-weight' && parsed.kind !== 'gs1-price') {
       const packaging = await ctx.db
         .select({ productId: unitXProduct.productId, unitId: unitXProduct.unitId })
         .from(unitXProduct)
@@ -353,6 +452,13 @@ export const productQueryProcedures = {
           .leftJoin(locations, eq(products.locationId, locations.id))
           .leftJoin(providers, eq(products.providerId, providers.id))
           .leftJoin(vatRates, eq(products.vatRateId, vatRates.id))
+          .leftJoin(
+            pharmacyProductProfiles,
+            and(
+              eq(pharmacyProductProfiles.productId, products.id),
+              eq(pharmacyProductProfiles.tenantId, ctx.tenantId)
+            )
+          )
           .where(and(eq(products.tenantId, ctx.tenantId), eq(products.id, packaging.productId)))
           .get();
       }
@@ -362,9 +468,63 @@ export const productQueryProcedures = {
       return null;
     }
 
+    if (parsed.kind === 'gs1-price' && item.sellByFraction) {
+      // This layout carries one package-price payload but no stock quantity.
+      // Treating it as a per-kilogram unit price would undercharge the line
+      // and leave inventory without a defensible decrement.
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'GS1_PRICE_FRACTIONAL_PRODUCT_UNSUPPORTED',
+        message: 'Price-encoded labels require a whole-package product',
+        details: { product: item.name },
+      });
+    }
+
     const assignmentsMap = await getUnitAssignmentsByProductIds(ctx.db, [item.id]);
     const unitAssignments = assignmentsMap.get(item.id) ?? [];
+    // The display fields below tolerate a legacy product with no explicit base
+    // by falling back to its first assignment. Converting a scale payload must
+    // NOT: a non-base assignment carries an equivalence that checkout applies
+    // again, so a 10x KG assignment would be counted twice and over-decrement
+    // stock by an order of magnitude. Conversion therefore reads a separate
+    // binding that only ever holds an explicitly marked base.
     const baseUnit = unitAssignments.find(a => a.isBase) ?? unitAssignments[0];
+    const explicitBaseUnit = unitAssignments.find(a => a.isBase) ?? null;
+    let suggestedQuantity: number | null = null;
+    if (parsed.kind === 'gs1-weight' && parsed.weightKg !== undefined) {
+      if (
+        explicitBaseUnit?.unitDimension !== 'mass' ||
+        // A deactivated unit still resolves here, but resolveSaleItems refuses
+        // it at checkout. Without this the scan happily adds a weighted line
+        // that can never be sold, and the cashier only finds out at payment.
+        explicitBaseUnit.unitIsActive === false ||
+        explicitBaseUnit.unitReferenceFactor === null ||
+        !Number.isFinite(explicitBaseUnit.unitReferenceFactor) ||
+        explicitBaseUnit.unitReferenceFactor <= 0
+      ) {
+        // A scale payload is kilograms. Applying it directly to metres,
+        // pieces, or an unclassified legacy unit corrupts both the charged
+        // quantity and the stock decrement. New GS1 support therefore fails
+        // closed until the product has an explicit physical mass unit.
+        throwServerError({
+          trpcCode: 'BAD_REQUEST',
+          errorCode: 'GS1_WEIGHT_UNIT_UNSUPPORTED',
+          message: 'Weight-encoded labels require a base mass unit',
+          details: { product: item.name },
+        });
+      }
+
+      // Unit reference factors use grams as the canonical mass unit. Convert
+      // the scale's kilograms into the product's actual base unit before
+      // applying its minimum/step policy (for example 1.234 kg = 1234 g).
+      suggestedQuantity = roundQuantity(
+        (parsed.weightKg * 1000) / explicitBaseUnit.unitReferenceFactor,
+        12
+      );
+      // Do not put a quantity in the cart that checkout is guaranteed to
+      // reject. This preserves the translated whole/minimum/step error code.
+      assertSaleQuantityAllowed(suggestedQuantity, item);
+    }
     // The scanned unit for a packaging hit; base-barcode hits leave this null
     // so the renderer keeps its base-unit default.
     const resolvedUnit = resolvedUnitId
@@ -394,7 +554,7 @@ export const productQueryProcedures = {
       // GS1 weight/price overrides for the cart line. Renderer uses
       // these verbatim when present; otherwise it falls back to
       // `quantity = 1` and the product's base unit price.
-      suggestedQuantity: parsed.weightKg ?? null,
+      suggestedQuantity,
       suggestedPrice: parsed.priceMajor ?? null,
     };
   }),

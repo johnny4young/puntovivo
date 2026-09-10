@@ -63,6 +63,7 @@ export function buildCheckoutApprovalContext({
 export function requiredCheckoutApprovalActions(input: {
   role: string | undefined;
   hasDiscount: boolean;
+  hasPriceOverride: boolean;
   hasCreditTender: boolean;
   creditOverrideRequired: boolean;
 }): CheckoutApprovalAction[] {
@@ -70,6 +71,7 @@ export function requiredCheckoutApprovalActions(input: {
     role: input.role,
     isCompletion: true,
     hasDiscount: input.hasDiscount,
+    hasPriceOverride: input.hasPriceOverride,
     hasCreditTender: input.hasCreditTender,
     creditOverride: input.creditOverrideRequired,
   });

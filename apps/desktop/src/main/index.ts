@@ -2,6 +2,8 @@ import {
   app,
   BrowserWindow,
   dialog,
+  ipcMain,
+  Menu,
   net,
   protocol,
   safeStorage,
@@ -32,14 +34,18 @@ import {
 import { installProcessCrashHandlers } from './crash-telemetry.js';
 import { createEncryptionSetup } from './encryption-setup.js';
 import { setMainLocale, normalizeMainLocale, t } from './i18n';
+import { buildApplicationMenuTemplate } from './application-menu.js';
 import { registerAppLifecycleIpc } from './ipc/app-lifecycle.js';
 import { registerBackupIpc, clearPendingRestore } from './ipc/backup.js';
 import { getDeviceIdPath } from './ipc/backup/runtime.js';
+import { readDeviceIdFromDir } from './device-id-store.js';
 import { registerDeviceIpc } from './ipc/device.js';
 import { registerPeripheralsIpc } from './ipc/peripherals.js';
 import { registerPrintIpc } from './ipc/print.js';
 import { registerDataBridgeIpc } from './ipc/register.js';
 import { registerSessionIpc } from './ipc/session-ipc.js';
+import { createInstallationClaimHandler } from './session/installation-claim.js';
+import { registerWindowIpc } from './ipc/window.js';
 import { createHubAuthSession, HUB_AUTH_STATE_FILE } from './session/hub-auth-session.js';
 import {
   registerSettingsIpc,
@@ -53,7 +59,7 @@ import {
   installPackagedRendererProtocol,
   registerPackagedRendererScheme,
 } from './renderer-protocol.js';
-import { getServerDatabase, getSqliteClient, setServer } from './runtime.js';
+import { getServer, getServerDatabase, getSqliteClient, setServer } from './runtime.js';
 import { createServerLifecycle } from './server-lifecycle.js';
 import { createTrayController } from './tray-controller.js';
 import { createWindowLifecycle } from './window-lifecycle.js';
@@ -115,6 +121,7 @@ const hubAuthSession = (() => {
   return createHubAuthSession({
     hubUrl: authorityRuntime.hubUrl,
     getStatePath: () => join(app.getPath('userData'), HUB_AUTH_STATE_FILE),
+    getDeviceId: () => readDeviceIdFromDir(app.getPath('userData')),
     safeStorage,
     allowInsecureLoopback: isDev,
   });
@@ -211,6 +218,7 @@ windowLifecycle.installGlobalWebContentsPolicy();
 // IPC registration remains synchronous and before app-ready. Every channel is
 // still owned by the same focused module; only lifecycle state moved out.
 registerAppLifecycleIpc();
+registerWindowIpc({ openCustomerDisplay: windowLifecycle.openCustomerDisplay });
 registerPeripheralsIpc();
 registerBackupIpc({
   dbPath: encryptionSetup.dbPath,
@@ -304,10 +312,38 @@ registerSettingsIpc({
 });
 registerDeviceIpc({ log: mainLog });
 registerSessionIpc({ ...(hubAuthSession ? { hubAuthSession } : {}) });
+ipcMain.handle(
+  'session:complete-setup',
+  createInstallationClaimHandler({
+    getMainWindow: windowLifecycle.getWindow,
+    getServer,
+    isHubClient: authorityRuntime.authorityMode === 'hub_client',
+    isDev,
+    webDevServerUrl: WEB_DEV_SERVER_URL,
+  })
+);
 registerDataBridgeIpc({ log: mainLog });
 registerPrintIpc();
 
+/**
+ * Install the curated menu before the first window exists, so a packaged build
+ * never renders Electron's default View -> Toggle Developer Tools. Confirmed
+ * reachable on a packaged build: Cmd+Alt+I opened a console with the full
+ * `window.db` bridge on it.
+ */
+function installApplicationMenu(): void {
+  const template = buildApplicationMenuTemplate({
+    isPackaged: app.isPackaged,
+    platform: process.platform,
+    appName: app.getName(),
+  });
+  if (!template) return;
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+  mainLog.info({ items: template.length }, 'curated application menu installed');
+}
+
 app.whenReady().then(async () => {
+  installApplicationMenu();
   if (packagedRecoveryRequested) {
     if (packagedRecoveryRequestError || !packagedRecoveryRequest) {
       mainLog.error(

@@ -102,6 +102,23 @@ describe('sales schemas reject extra keys', () => {
     );
   });
 
+  it('bounds splitDraft item ids to the sale line limit before building SQL IN clauses', () => {
+    expect(
+      splitDraftInput.safeParse({
+        sourceSaleId: 'sale-1',
+        saleItemIds: Array.from({ length: 200 }, (_, index) => `item-${index}`),
+        tableId: null,
+      }).success
+    ).toBe(true);
+    expect(
+      splitDraftInput.safeParse({
+        sourceSaleId: 'sale-1',
+        saleItemIds: Array.from({ length: 201 }, (_, index) => `item-${index}`),
+        tableId: null,
+      }).success
+    ).toBe(false);
+  });
+
   it('getForReprintInput', () => {
     expectExtraKeyRejected(getForReprintInput, { saleId: 'x' }, { extra: 1 });
   });
@@ -118,6 +135,80 @@ describe('sales schemas reject extra keys', () => {
 
   it('completeDraftInput (refined object — strict applied before refine)', () => {
     expectExtraKeyRejected(completeDraftInput, { saleId: 'x' }, { evil: true });
+  });
+
+  it('keeps refund payment states derived from normalized return evidence', () => {
+    for (const paymentStatus of ['partially_refunded', 'refunded'] as const) {
+      expect(
+        createSaleInput.safeParse({
+          items: [{ productId: 'p1', unitId: 'u1', quantity: 1, unitPrice: 100 }],
+          paymentStatus,
+        }).success
+      ).toBe(false);
+      expect(updateSaleInput.safeParse({ id: 'sale-1', paymentStatus }).success).toBe(false);
+      expect(completeDraftInput.safeParse({ saleId: 'sale-1', paymentStatus }).success).toBe(false);
+    }
+  });
+
+  it('caps split tenders at the same evidence bound used by returns', () => {
+    const payments = Array.from({ length: 21 }, () => ({ method: 'cash' as const, amount: 1 }));
+    expect(
+      createSaleInput.safeParse({
+        items: [{ productId: 'p1', unitId: 'u1', quantity: 1, unitPrice: 21 }],
+        payments,
+      }).success
+    ).toBe(false);
+    expect(completeDraftInput.safeParse({ saleId: 'sale-1', payments }).success).toBe(false);
+  });
+
+  it('keeps the completed-sale line boundary aligned with checkout preflight', () => {
+    const acceptedItems = Array.from({ length: 200 }, (_, index) => ({
+      productId: `product-${index}`,
+      unitId: 'unit-1',
+      quantity: 1,
+      unitPrice: 1,
+    }));
+
+    expect(createSaleInput.safeParse({ items: acceptedItems }).success).toBe(true);
+    expect(
+      createSaleInput.safeParse({
+        items: [...acceptedItems, { ...acceptedItems[0], productId: 'product-200' }],
+      }).success
+    ).toBe(false);
+  });
+
+  it('accepts pharmacy evidence up to the sale-line boundary and rejects surplus ids', () => {
+    const acceptedEvidence = Array.from({ length: 200 }, (_, index) => `evidence-${index}`);
+    const surplusEvidence = [...acceptedEvidence, 'evidence-200'];
+    const completedSale = {
+      status: 'completed' as const,
+      items: [{ productId: 'p1', unitId: 'u1', quantity: 1, unitPrice: 1 }],
+    };
+
+    expect(
+      createSaleInput.safeParse({
+        ...completedSale,
+        pharmacyEvidenceIds: acceptedEvidence,
+      }).success
+    ).toBe(true);
+    expect(
+      createSaleInput.safeParse({
+        ...completedSale,
+        pharmacyEvidenceIds: surplusEvidence,
+      }).success
+    ).toBe(false);
+    expect(
+      completeDraftInput.safeParse({
+        saleId: 'sale-1',
+        pharmacyEvidenceIds: acceptedEvidence,
+      }).success
+    ).toBe(true);
+    expect(
+      completeDraftInput.safeParse({
+        saleId: 'sale-1',
+        pharmacyEvidenceIds: surplusEvidence,
+      }).success
+    ).toBe(false);
   });
 });
 

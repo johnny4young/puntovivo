@@ -23,7 +23,7 @@
  * `CompleteSaleContext`).
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
@@ -34,6 +34,7 @@ import {
   customerLedgerEntries,
   inventoryBalances,
   products,
+  sales,
   sequentials,
   sites,
   unitXProduct,
@@ -43,6 +44,7 @@ import {
 import { appRouter } from '../trpc/router.js';
 import { getProductStockTotal } from '../services/inventory-balances.js';
 import { completeSale } from '../application/sales/completeSale.js';
+import { requireCreditLimitNotExceeded } from '../services/credit-limit.js';
 import type { CompleteSaleContext } from '../application/sales/types.js';
 import { makeFreshContextFactory } from './utils/criticalCommandFixture.js';
 
@@ -296,6 +298,162 @@ describe('completeSale ( credit-sale flow)', () => {
     expect(ledgerRows).toHaveLength(0);
   });
 
+  it('rolls back the completed sale when its receivable cannot be persisted', async () => {
+    const customerId = await seedCustomer({
+      name: 'Cliente Ledger Atómico',
+      creditLimit: 0,
+    });
+    const productId = await seedProduct('Atomic Ledger Item', 'CR-ATOMIC-1', 2);
+    const db = getDatabase();
+    const beforeStock = getProductStockTotal(db, tenantId, productId);
+    const beforeSequential = await db
+      .select({ currentValue: sequentials.currentValue })
+      .from(sequentials)
+      .where(
+        and(
+          eq(sequentials.tenantId, tenantId),
+          eq(sequentials.documentType, 'sale'),
+          eq(sequentials.siteId, siteId)
+        )
+      )
+      .get();
+
+    db.run(
+      sql.raw(`
+        CREATE TEMP TRIGGER fail_atomic_credit_ledger
+        BEFORE INSERT ON customer_ledger_entries
+        WHEN NEW.customer_id = '${customerId}'
+        BEGIN
+          SELECT RAISE(ABORT, 'forced credit ledger failure');
+        END
+      `)
+    );
+
+    try {
+      await expect(
+        completeSale(buildContext(), {
+          mode: 'fresh',
+          customerId,
+          items: [
+            {
+              productId,
+              unitId: baseUnitId,
+              quantity: 1,
+              unitPrice: 10,
+              discount: 0,
+            },
+          ],
+          paymentMethod: 'credit',
+          paymentStatus: 'pending',
+          status: 'completed',
+          discountAmount: 0,
+        })
+      ).rejects.toThrow(/forced credit ledger failure/);
+    } finally {
+      db.run(sql.raw('DROP TRIGGER IF EXISTS fail_atomic_credit_ledger'));
+    }
+
+    expect(getProductStockTotal(db, tenantId, productId)).toBe(beforeStock);
+    expect(
+      await db
+        .select()
+        .from(sales)
+        .where(and(eq(sales.tenantId, tenantId), eq(sales.customerId, customerId)))
+        .all()
+    ).toHaveLength(0);
+    expect(
+      await db
+        .select()
+        .from(customerLedgerEntries)
+        .where(eq(customerLedgerEntries.customerId, customerId))
+        .all()
+    ).toHaveLength(0);
+    const afterSequential = await db
+      .select({ currentValue: sequentials.currentValue })
+      .from(sequentials)
+      .where(
+        and(
+          eq(sequentials.tenantId, tenantId),
+          eq(sequentials.documentType, 'sale'),
+          eq(sequentials.siteId, siteId)
+        )
+      )
+      .get();
+    expect(afterSequential?.currentValue).toBe(beforeSequential?.currentValue);
+  });
+
+  it('serializes concurrent draft completions against the same customer cupo', async () => {
+    const customerId = await seedCustomer({
+      name: 'Cliente Cupo Concurrente',
+      creditLimit: 15,
+    });
+    const productId = await seedProduct('Concurrent Credit Item', 'CR-CONCURRENT-1', 2);
+    const createDraft = () =>
+      completeSale(buildContext(), {
+        mode: 'fresh',
+        customerId,
+        items: [
+          {
+            productId,
+            unitId: baseUnitId,
+            quantity: 1,
+            unitPrice: 10,
+            discount: 0,
+          },
+        ],
+        paymentMethod: 'cash',
+        paymentStatus: 'pending',
+        status: 'draft',
+        amountReceived: 0,
+        discountAmount: 0,
+      });
+    const firstDraft = await createDraft();
+    const secondDraft = await createDraft();
+    const firstDraftId = (firstDraft.sale as { id: string }).id;
+    const secondDraftId = (secondDraft.sale as { id: string }).id;
+
+    const completions = await Promise.allSettled(
+      [firstDraftId, secondDraftId].map(saleId =>
+        completeSale(buildContext(), {
+          mode: 'fromDraft',
+          saleId,
+          paymentMethod: 'credit',
+          paymentStatus: 'pending',
+          amountReceived: 0,
+        })
+      )
+    );
+
+    expect(completions.filter(result => result.status === 'fulfilled')).toHaveLength(1);
+    const rejected = completions.find(
+      (result): result is PromiseRejectedResult => result.status === 'rejected'
+    );
+    expect(rejected?.reason).toMatchObject({
+      cause: { errorCode: 'CREDIT_LIMIT_EXCEEDED' },
+    });
+    const db = getDatabase();
+    const ledgerRows = await db
+      .select()
+      .from(customerLedgerEntries)
+      .where(
+        and(
+          eq(customerLedgerEntries.tenantId, tenantId),
+          eq(customerLedgerEntries.customerId, customerId),
+          eq(customerLedgerEntries.kind, 'sale')
+        )
+      )
+      .all();
+    expect(ledgerRows).toHaveLength(1);
+    expect(ledgerRows[0]?.amount).toBe(10);
+    const draftStates = await db
+      .select({ status: sales.status })
+      .from(sales)
+      .where(and(eq(sales.tenantId, tenantId), eq(sales.customerId, customerId)))
+      .all();
+    expect(draftStates.filter(row => row.status === 'completed')).toHaveLength(1);
+    expect(draftStates.filter(row => row.status === 'draft')).toHaveLength(1);
+  });
+
   it('lets the admin override the cupo via creditOverride=true', async () => {
     const customerId = await seedCustomer({
       name: 'Cliente Con Override',
@@ -514,5 +672,69 @@ describe('completeSale ( credit-sale flow)', () => {
         discountAmount: 0,
       })
     ).rejects.toThrow(/exceeds limit/i);
+  });
+});
+
+describe('credit limit projection rounding', () => {
+  it('does not reject a sale that lands exactly on the cupo because of float drift', async () => {
+    // `customer_ledger_entries.amount` has no 2-decimal CHECK, so SUM() over
+    // N rows is a raw IEEE-754 accumulation -- rounding each row as it is
+    // written does not make their sum cent-clean. A 0.10 + 0.20 ledger sums
+    // to 0.30000000000000004, so a 0.05 sale against a 0.35 cupo projected
+    // 0.35000000000000003 and was refused. This runs inside the sale write
+    // transaction, so the verdict decides whether the sale rolls back.
+    const db = getDatabase();
+    const customerId = await seedCustomer({ name: 'Cupo edge', creditLimit: 0.35 });
+    const now = new Date().toISOString();
+    for (const amount of [0.1, 0.2]) {
+      await db.insert(customerLedgerEntries).values({
+        id: nanoid(),
+        tenantId,
+        customerId,
+        kind: 'sale',
+        amount,
+        createdAt: now,
+      });
+    }
+
+    // The raw SUM must actually drift, or this fixture proves nothing.
+    const raw = await db
+      .select({ balance: sql<number>`COALESCE(SUM(${customerLedgerEntries.amount}), 0)` })
+      .from(customerLedgerEntries)
+      .where(
+        and(
+          eq(customerLedgerEntries.tenantId, tenantId),
+          eq(customerLedgerEntries.customerId, customerId)
+        )
+      )
+      .get();
+    expect(raw?.balance).not.toBe(0.3);
+
+    const projection = requireCreditLimitNotExceeded({
+      db,
+      tenantId,
+      customerId,
+      attemptedAmount: 0.05,
+    });
+    expect(projection.currentBalance).toBe(0.3);
+    expect(projection.projectedBalance).toBe(0.35);
+    expect(projection.overrideApplied).toBe(false);
+  });
+
+  it('still rejects a sale genuinely over the cupo', async () => {
+    const db = getDatabase();
+    const customerId = await seedCustomer({ name: 'Cupo over', creditLimit: 0.35 });
+    await db.insert(customerLedgerEntries).values({
+      id: nanoid(),
+      tenantId,
+      customerId,
+      kind: 'sale',
+      amount: 0.3,
+      createdAt: new Date().toISOString(),
+    });
+
+    expect(() =>
+      requireCreditLimitNotExceeded({ db, tenantId, customerId, attemptedAmount: 0.06 })
+    ).toThrow(/exceeds limit/i);
   });
 });

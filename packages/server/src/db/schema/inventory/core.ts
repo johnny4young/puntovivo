@@ -1,3 +1,4 @@
+import { inventoryValueChecks } from '../value-checks.js';
 /**
  * inventory movements, opening stock, site balances, and stock rollups.
  *
@@ -41,11 +42,18 @@ export const inventoryMovements = sqliteTable(
     productId: text('product_id')
       .notNull()
       .references(() => products.id),
+    // Nullable only for historical rows whose originating site cannot be
+    // reconstructed truthfully. Every live writer persists the exact site.
+    siteId: text('site_id').references(() => sites.id),
     type: text('type', { enum: movementTypeEnum }).notNull(),
     // movements store real quantities (2.5 m, 0.75 kg, …).
     quantity: real('quantity').notNull(),
     previousStock: real('previous_stock').notNull(),
     newStock: real('new_stock').notNull(),
+    /** Frozen signed inventory valuation change; null means historical amount unknown. */
+    inventoryValueDeltaCents: integer('inventory_value_delta_cents'),
+    /** Frozen signed commercial COGS-pool change, distinct from inventory valuation. */
+    cogsValueDeltaCents: integer('cogs_value_delta_cents'),
     reference: text('reference'),
     notes: text('notes'),
     createdBy: text('created_by')
@@ -57,11 +65,20 @@ export const inventoryMovements = sqliteTable(
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
+    ...inventoryValueChecks('inventory_movements', {
+      cents: [table.inventoryValueDeltaCents, table.cogsValueDeltaCents],
+      together: [[table.inventoryValueDeltaCents, table.cogsValueDeltaCents]],
+    }),
     index('idx_inventory_tenant').on(table.tenantId),
     index('idx_inventory_product').on(table.productId),
     index('idx_inventory_created_by').on(table.createdBy),
     // traceability listings filter by tenant + order by date.
     index('idx_inventory_movements_tenant_created').on(table.tenantId, table.createdAt),
+    index('idx_inventory_movements_tenant_site_created').on(
+      table.tenantId,
+      table.siteId,
+      table.createdAt
+    ),
   ]
 );
 
@@ -73,6 +90,10 @@ export const inventoryMovementsRelations = relations(inventoryMovements, ({ one 
   product: one(products, {
     fields: [inventoryMovements.productId],
     references: [products.id],
+  }),
+  site: one(sites, {
+    fields: [inventoryMovements.siteId],
+    references: [sites.id],
   }),
   createdByUser: one(users, {
     fields: [inventoryMovements.createdBy],
@@ -173,7 +194,23 @@ export const inventoryBalances = sqliteTable(
       .notNull()
       .references(() => products.id, { onDelete: 'cascade' }),
     onHand: real('on_hand').notNull().default(0),
+    /**
+     * Always zero, and that is correct rather than a gap.
+     *
+     * Stock is committed at sale-row creation, draft included, and credited
+     * back on discard, so a suspended ticket's units are already out of
+     * `on_hand`. In-transit transfer units are already out of the origin's,
+     * and a serial held by a draft carries its own `product_serials.status`.
+     * Nothing is left for this column to hold.
+     *
+     * Writing it without first moving that commit point double-counts the
+     * hold: `on_hand` was debited already, so `available` would fall twice.
+     * `__tests__/inventory-reserved-is-unused.test.ts` fails if anyone starts.
+     */
     reserved: real('reserved').notNull().default(0),
+    // Monotonic business-state revision. Transport acknowledgements own the
+    // separate syncVersion field and must never advance this token.
+    version: integer('version').notNull().default(0),
     syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
     syncVersion: integer('sync_version').default(0),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),

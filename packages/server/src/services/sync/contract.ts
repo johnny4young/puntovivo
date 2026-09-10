@@ -7,10 +7,9 @@
  * + a runtime test (`sync-contract-manifest.test.ts`) catch new
  * entity types that land without a deliberate policy decision.
  *
- * The manifest is the single source of truth that + peers
- * consume via `sync.getContract()` to negotiate the contract before
- * exchanging payloads. Bumping `SYNC_PAYLOAD_VERSION` invalidates
- * cached snapshots on the consumer side.
+ * The manifest exposes current source-side policy via `sync.getContract()`.
+ * It is not evidence of an implemented inbound replication engine or consumer
+ * codec. New rows carry the current version; historical rows keep theirs.
  *
  * @module services/sync/contract
  */
@@ -19,24 +18,23 @@
  * Conflict resolution policy per ADR-0004:
  *
  * - `manual`: high-risk entities (money, fiscal, cash, inventory,
- * audit). The operator MUST resolve any divergence; auto-resolve
- * is forbidden because a wrong choice causes silent data loss
- * on a sale total or a fiscal CUFE.
+ * audit). Auto-resolve is forbidden. Operator choices are also blocked when
+ * they cannot preserve the complete business aggregate and its evidence.
  *
- * - `auto_lww`: catalog and preferences. Last-write-wins is safe
- * because the loser's edit can be re-applied without altering
- * any committed money/fiscal artifact.  v1 ships only the
- * marker; the actual auto-resolution branch in `sync.push` is
- * parked for a follow-up.
+ * - `auto_lww`: catalog and preferences classification, not permission to
+ * overwrite financial fields. Products additionally require an explicit
+ * operator metadata allowlist. Automatic resolution is not implemented.
  */
 export type SyncConflictPolicy = 'manual' | 'auto_lww';
+export type SyncTransportPolicy = 'outbound' | 'local_only';
 
 /**
  * Current payload version. Bump when a payload's shape changes in
- * a way the consumer cannot infer. Old versions stay readable via
- * a per-version codec lookup at the consumer side (+).
+ * a way the consumer cannot infer. Queue readers retain old payload versions
+ * without inventing missing historical values. A version marker alone does
+ * not supply a backwards-compatible inbound codec.
  */
-export const SYNC_PAYLOAD_VERSION = 1 as const;
+export const SYNC_PAYLOAD_VERSION = 4 as const;
 
 /**
  * Closed list of every entity type the server can emit to
@@ -52,6 +50,15 @@ export const SYNC_ENTITY_TYPES = [
   'sale_items',
   'sale_payments',
   'sale_returns',
+  // A return is replicated as one aggregate payload containing its frozen
+  // line/tax/lot/serial/payment children. The independent exchange link and
+  // store-credit ledger remain separate money-bound entities so peers can
+  // apply them exactly once without guessing from a mutable sale header.
+  'sale_exchanges',
+  // Immutable money evidence for promotions applied to each sale line.
+  'sale_item_promotions',
+  'store_credit_accounts',
+  'store_credit_movements',
   // Provenance child of sale_items (per-lot COGS ledger, ). Like
   // sale_items / sale_payments it is a reserved placeholder: declared here so
   // it carries a conflict policy, but not independently enqueued — it rides
@@ -67,6 +74,16 @@ export const SYNC_ENTITY_TYPES = [
   // Register the manual-conflict policy now; aggregate enqueue wiring lands
   // with that multi-device shift-management promotion.
   'employee_shifts',
+  'delivery_orders',
+  'restaurant_reservations',
+  'external_orders',
+  'employment_contracts',
+  'employee_time_off',
+  'employee_availability',
+  'employee_schedule_plans',
+  'employee_shift_swaps',
+  'employee_shift_reconciliations',
+  'scheduled_shifts',
   // approval identity/evidence must converge manually across
   // terminals; decision conflicts can never use last-write-wins.
   'manager_approval_requests',
@@ -75,14 +92,32 @@ export const SYNC_ENTITY_TYPES = [
   'fiscal_numbering_resolutions',
   'fiscal_certificates',
   'inventory_movements',
+  'inventory_count_sessions',
+  'inventory_count_lines',
+  'inventory_count_identities',
   'inventory_balances',
   'inventory_lots',
+  // Regulated pharmacy records never use catalog LWW. Remote application is
+  // blocked until a codec can prove the complete profile/evidence/recall
+  // aggregate and its immutable children commit together.
+  'pharmacy_product_profiles',
+  'pharmacy_professional_authorizations',
+  'pharmacy_prescription_evidence',
+  'pharmacy_dispensations',
+  'pharmacy_recalls',
+  'pharmacy_recall_lots',
+  'inventory_lot_events',
+  'inventory_transformations',
+  'inventory_transformation_recipes',
   'product_serials',
   'product_serial_transfers',
   // expiry-radar discount suggestions. Registered so the entity
   // carries a conflict policy from day one; enqueue wiring rides a later
   // sync slice (same reserved-placeholder posture as sale_item_lots).
   'price_suggestions',
+  // Versioned price rules can change a live checkout and therefore require
+  // an operator decision on divergence rather than catalog-style LWW.
+  'promotions',
   // loyalty balance + its append-only ledger. Registered so both
   // carry a conflict policy from day one; enqueue wiring rides a later sync
   // slice (same reserved-placeholder posture as sale_item_lots).
@@ -99,6 +134,10 @@ export const SYNC_ENTITY_TYPES = [
   'purchases',
   'purchase_returns',
   'purchase_return_items',
+  'provider_payable_invoices',
+  'provider_payable_payments',
+  'provider_payable_credits',
+  'provider_payable_allocations',
 
   // --- Auto-LWW: catalog + preferences + geography ---
   'customers',
@@ -142,22 +181,49 @@ export const SYNC_CONFLICT_POLICY: Record<SyncEntityType, SyncConflictPolicy> = 
   sale_items: 'manual',
   sale_payments: 'manual',
   sale_returns: 'manual',
+  sale_exchanges: 'manual',
+  sale_item_promotions: 'manual',
+  store_credit_accounts: 'manual',
+  store_credit_movements: 'manual',
   sale_item_lots: 'manual',
   sale_item_serials: 'manual',
   cash_sessions: 'manual',
   cash_movements: 'manual',
   employee_shifts: 'manual',
+  delivery_orders: 'manual',
+  restaurant_reservations: 'manual',
+  external_orders: 'manual',
+  employment_contracts: 'manual',
+  employee_time_off: 'manual',
+  employee_availability: 'manual',
+  employee_schedule_plans: 'manual',
+  employee_shift_swaps: 'manual',
+  employee_shift_reconciliations: 'manual',
+  scheduled_shifts: 'manual',
   manager_approval_requests: 'manual',
   fiscal_documents: 'manual',
   fiscal_document_items: 'manual',
   fiscal_numbering_resolutions: 'manual',
   fiscal_certificates: 'manual',
   inventory_movements: 'manual',
+  inventory_count_sessions: 'manual',
+  inventory_count_lines: 'manual',
+  inventory_count_identities: 'manual',
   inventory_balances: 'manual',
   inventory_lots: 'manual',
+  pharmacy_product_profiles: 'manual',
+  pharmacy_professional_authorizations: 'manual',
+  pharmacy_prescription_evidence: 'manual',
+  pharmacy_dispensations: 'manual',
+  pharmacy_recalls: 'manual',
+  pharmacy_recall_lots: 'manual',
+  inventory_lot_events: 'manual',
+  inventory_transformations: 'manual',
+  inventory_transformation_recipes: 'manual',
   product_serials: 'manual',
   product_serial_transfers: 'manual',
   price_suggestions: 'manual',
+  promotions: 'manual',
   loyalty_accounts: 'manual',
   loyalty_movements: 'manual',
   initial_inventory: 'manual',
@@ -170,6 +236,10 @@ export const SYNC_CONFLICT_POLICY: Record<SyncEntityType, SyncConflictPolicy> = 
   purchases: 'manual',
   purchase_returns: 'manual',
   purchase_return_items: 'manual',
+  provider_payable_invoices: 'manual',
+  provider_payable_payments: 'manual',
+  provider_payable_credits: 'manual',
+  provider_payable_allocations: 'manual',
 
   // --- Auto-LWW (catalog + preferences) ---
   customers: 'auto_lww',
@@ -225,12 +295,177 @@ export function resolveConflictPolicy(entityType: string): SyncConflictPolicy {
   return policy;
 }
 
+/** These rows own exact quantity/value or immutable custody; JSON recovery is not a domain command. */
+const INVENTORY_OPERATOR_BLOCKED_ENTITY_TYPES = new Set<string>([
+  'inventory_movements',
+  'inventory_balances',
+  'inventory_lots',
+  'product_serials',
+  'product_serial_transfers',
+  'initial_inventory',
+  'stock_adjustments',
+  'inventory_count_sessions',
+  'inventory_count_lines',
+  'inventory_count_identities',
+  'sales',
+  'sale_items',
+  'sale_item_lots',
+  'sale_item_serials',
+  'sale_returns',
+  'purchases',
+  'purchase_returns',
+  'purchase_return_items',
+  'orders',
+  'order_items',
+  'transfer_orders',
+  'transfer_order_items',
+  'inventory_transformations',
+]);
+
+/** Closed metadata allowlist: future cost/custody fields are blocked until explicitly reviewed. */
+const PRODUCT_OPERATOR_METADATA_FIELDS = new Set([
+  'id',
+  'name',
+  'description',
+  'sku',
+  'barcode',
+  'imageUrl',
+  'categoryId',
+  'price',
+  'price2',
+  'price3',
+]);
+
+/** Operator-created payloads are distinct from trusted snapshots produced by domain transactions. */
+export function canUseOperatorSyncPayload(
+  entityType: string,
+  payload: Record<string, unknown> | null | undefined
+): boolean {
+  if (INVENTORY_OPERATOR_BLOCKED_ENTITY_TYPES.has(entityType)) return false;
+  return (
+    entityType !== 'products' ||
+    Object.keys(payload ?? {}).every(key => PRODUCT_OPERATOR_METADATA_FIELDS.has(key))
+  );
+}
+
+/** Current server-computed choices; clients display these, but mutations independently revalidate them. */
+export function syncConflictResolutionAvailability(
+  conflict: {
+    entityType: string;
+    localData?: Record<string, unknown> | null;
+    remoteData?: Record<string, unknown> | null;
+  },
+  localRecordExists: boolean | null
+) {
+  const localSafe = canUseOperatorSyncPayload(conflict.entityType, conflict.localData);
+  const remoteSafe =
+    !isRemoteSyncApplyBlocked(conflict.entityType) &&
+    localSafe &&
+    canUseOperatorSyncPayload(conflict.entityType, conflict.remoteData);
+  return {
+    local: localRecordExists !== false && localSafe,
+    remote: remoteSafe,
+    merged: localRecordExists !== false && remoteSafe,
+  };
+}
+
+const REMOTE_SYNC_APPLY_BLOCKED_ENTITY_TYPES = new Set<string>([
+  ...INVENTORY_OPERATOR_BLOCKED_ENTITY_TYPES,
+  // A count and its exact custody children require an aggregate codec, not independent LWW apply.
+  'inventory_count_sessions',
+  'inventory_count_lines',
+  'inventory_count_identities',
+  'delivery_orders',
+  'restaurant_reservations',
+  'external_orders',
+  'employment_contracts',
+  'employee_time_off',
+  'employee_availability',
+  'employee_schedule_plans',
+  'employee_shift_swaps',
+  'employee_shift_reconciliations',
+  'scheduled_shifts',
+  'audit_logs',
+  'pharmacy_product_profiles',
+  'pharmacy_professional_authorizations',
+  'pharmacy_prescription_evidence',
+  'pharmacy_dispensations',
+  'pharmacy_recalls',
+  'pharmacy_recall_lots',
+  'inventory_lot_events',
+  'inventory_transformations',
+  'inventory_transformation_recipes',
+  'transfer_orders',
+]);
+
+const LOCAL_ONLY_SYNC_ENTITY_TYPES = new Set<string>([
+  // A count and its exact custody children require an aggregate codec, not independent LWW apply.
+  'inventory_count_sessions',
+  'inventory_count_lines',
+  'inventory_count_identities',
+  'delivery_orders',
+  'restaurant_reservations',
+  'external_orders',
+  'employment_contracts',
+  'employee_time_off',
+  'employee_availability',
+  'employee_schedule_plans',
+  'employee_shift_swaps',
+  'employee_shift_reconciliations',
+  'scheduled_shifts',
+  'pharmacy_product_profiles',
+  'pharmacy_professional_authorizations',
+  'pharmacy_prescription_evidence',
+  'pharmacy_dispensations',
+  'pharmacy_recalls',
+  'pharmacy_recall_lots',
+  'inventory_lot_events',
+]);
+
 /**
- * Audit rows cannot be accepted from a remote peer until their chain carries
- * device provenance and can be joined into this install's local head.
+ * Aggregate roots whose own row is transportable in general, but must stay
+ * local when a `local_only` extension hangs off it. ADR-0019 rejects
+ * replicating normalized rows independently precisely because a receiver
+ * that gets the base `products` row without its pharmacy profile would sell
+ * a regulated medicine with no policy, no evidence and no recall reach. The
+ * profile is `local_only`, so until an atomic aggregate codec exists the base
+ * row has to be held back with it rather than shipped alone with a marker no
+ * receiver reads. Membership is probed per row by `resolveSyncOutboxStatus`
+ * (in `enqueue.ts`, which owns the database handle) — this module stays pure.
+ *
+ * `inventory_lots` belongs here for the same reason and one step removed: a
+ * lot is governed by its product, and a product that replicated BEFORE it
+ * became regulated would otherwise keep receiving lot and status updates
+ * while the profile, the recall membership and the immutable lot events stay
+ * parked locally. That is the partial-replication state ADR-0019 rejects,
+ * reached without anyone replicating a pharmacy row. The probe resolves the
+ * lot's product before asking the question.
+ */
+const LOCAL_ONLY_AGGREGATE_ROOT_ENTITY_TYPES = new Set<string>(['products', 'inventory_lots']);
+
+export function isLocalOnlyAggregateRoot(entityType: string): boolean {
+  return LOCAL_ONLY_AGGREGATE_ROOT_ENTITY_TYPES.has(entityType);
+}
+
+/**
+ * Delivery events and regulated records have no approved key-exchange/aggregate
+ * codec. Their
+ * outbox row is retained as a local operation trace with final status
+ * `local_only`; no push/worker query may treat it as transportable work.
+ */
+export function resolveSyncTransportPolicy(entityType: string): SyncTransportPolicy {
+  return LOCAL_ONLY_SYNC_ENTITY_TYPES.has(entityType) ? 'local_only' : 'outbound';
+}
+
+/**
+ * Remote/merged conflict resolution stays fail-closed for aggregates whose
+ * inbound codec cannot yet prove all normalized children are applied in the
+ * same transaction. Audit rows additionally require device-aware chain
+ * verification. Regulated pharmacy entities are additionally terminal
+ * `local_only` records until an approved encrypted transport exists.
  */
 export function isRemoteSyncApplyBlocked(entityType: string): boolean {
-  return entityType === 'audit_logs';
+  return REMOTE_SYNC_APPLY_BLOCKED_ENTITY_TYPES.has(entityType);
 }
 
 /**
@@ -263,7 +498,9 @@ export interface SyncContractManifest {
   entities: Array<{
     entityType: SyncEntityType;
     conflictPolicy: SyncConflictPolicy;
+    transportPolicy: SyncTransportPolicy;
     defaultPriority: number;
+    operatorPayloadPolicy: 'blocked' | 'product_metadata_only' | 'existing';
   }>;
 }
 
@@ -273,7 +510,13 @@ export function buildSyncContractManifest(): SyncContractManifest {
     entities: SYNC_ENTITY_TYPES.map(entityType => ({
       entityType,
       conflictPolicy: SYNC_CONFLICT_POLICY[entityType],
+      transportPolicy: resolveSyncTransportPolicy(entityType),
       defaultPriority: resolveDefaultPriority(entityType),
+      operatorPayloadPolicy: INVENTORY_OPERATOR_BLOCKED_ENTITY_TYPES.has(entityType)
+        ? 'blocked'
+        : entityType === 'products'
+          ? 'product_metadata_only'
+          : 'existing',
     })),
   };
 }

@@ -11,6 +11,7 @@ describe('settings-handlers', () => {
           order.push('gate');
           return 'tenant-1';
         },
+        requireOneOfRoles: () => 'admin',
       },
       async () => {
         order.push('persist');
@@ -30,6 +31,7 @@ describe('settings-handlers', () => {
             requireTenantId: () => {
               throw new Error('SESSION_NOT_REGISTERED');
             },
+            requireOneOfRoles: () => 'admin',
           },
           async () => {
             persisted = true;

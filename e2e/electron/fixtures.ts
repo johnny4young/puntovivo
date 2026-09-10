@@ -89,10 +89,10 @@ export const ELECTRON_E2E_USER_DATA_ROOT = resolve(
  * template is what makes each test independent, and it is far cheaper than
  * re-running migrations and seeding per test.
  */
-export function createIsolatedUserDataDir(label: string): string {
+export function createIsolatedUserDataDir(label: string, empty = false): string {
   const slug = label.replace(/[^a-z0-9]+/gi, '-').slice(0, 60);
   const dir = mkdtempSync(join(ELECTRON_E2E_USER_DATA_ROOT, `${slug}-`));
-  cpSync(ELECTRON_E2E_TEMPLATE_DIR, dir, { recursive: true });
+  if (!empty) cpSync(ELECTRON_E2E_TEMPLATE_DIR, dir, { recursive: true });
   return dir;
 }
 export const ELECTRON_E2E_DB_KEY =
@@ -153,6 +153,9 @@ export async function launchUpdaterSmokeElectron(userDataDir: string): Promise<{
       ELECTRON_ENABLE_STACK_DUMPING: '1',
       PUNTOVIVO_DB_KEY: ELECTRON_E2E_DB_KEY,
       PUNTOVIVO_E2E: '1',
+      // Multi-actor journeys deliberately cross several authenticated boots.
+      // Match the isolated web harness so those requests exercise business policy, not test-host throttling.
+      PUNTOVIVO_GLOBAL_RATE_LIMIT_MAX: '10000',
       PUNTOVIVO_E2E_UPDATER: '1',
       PUNTOVIVO_BIND_HOST: ELECTRON_E2E_API_HOST,
       PUNTOVIVO_BIND_PORT: String(ELECTRON_E2E_API_PORT),
@@ -333,6 +336,9 @@ function formatFirstWindowFailure(error: unknown, child: ChildProcess): Error {
 }
 
 interface ElectronFixtures {
+  emptyInstallation: boolean;
+  /** Owned per-test directory, exposed for independent read-only database reconciliation. */
+  userDataDir: string;
   page: Page;
   /**
    * The renderer under test, launched fresh for each test.
@@ -378,6 +384,7 @@ async function launchPackagedRenderer(userDataDir: string): Promise<{
         ELECTRON_ENABLE_LOGGING: '1',
         PUNTOVIVO_DB_KEY: ELECTRON_E2E_DB_KEY,
         PUNTOVIVO_E2E: '1',
+        PUNTOVIVO_GLOBAL_RATE_LIMIT_MAX: '10000',
         PUNTOVIVO_LOG_LEVEL: 'warn',
         PUNTOVIVO_SUPPRESS_CREDENTIAL_BANNER: 'true',
         AUTO_UPDATE: 'false',
@@ -529,11 +536,14 @@ async function waitForDevtools(endpoint: string, child: ChildProcess): Promise<v
 }
 
 export const electronTest = base.extend<ElectronFixtures, ElectronWorkerFixtures>({
+  emptyInstallation: [false, { option: true }],
+  userDataDir: async ({ emptyInstallation }, use, testInfo) => {
+    await use(createIsolatedUserDataDir(testInfo.title, emptyInstallation));
+  },
   desktopRenderer: [
-    async ({}, use, testInfo) => {
+    async ({ userDataDir }, use, testInfo) => {
       // One private, pre-seeded userData directory per test — see
       // createIsolatedUserDataDir for why sharing one broke the suite.
-      const userDataDir = createIsolatedUserDataDir(testInfo.title);
 
       if (IS_PACKAGED_RUN) {
         const launched = await launchPackagedRenderer(userDataDir);
@@ -572,6 +582,7 @@ export const electronTest = base.extend<ElectronFixtures, ElectronWorkerFixtures
             ELECTRON_ENABLE_STACK_DUMPING: '1',
             PUNTOVIVO_DB_KEY: ELECTRON_E2E_DB_KEY,
             PUNTOVIVO_E2E: '1',
+            PUNTOVIVO_GLOBAL_RATE_LIMIT_MAX: '10000',
             PUNTOVIVO_BIND_HOST: ELECTRON_E2E_API_HOST,
             PUNTOVIVO_BIND_PORT: String(ELECTRON_E2E_API_PORT),
             PUNTOVIVO_LOG_LEVEL: 'warn',

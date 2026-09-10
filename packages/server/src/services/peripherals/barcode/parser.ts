@@ -18,8 +18,8 @@
  *
  * Reference layouts (LATAM grocery convention, "generic" scheme):
  *
- * 2{ITF-5 SKU}{ITF-5 WEIGHT-grams}{CHK}   → kind='gs1-weight'
- * 2{ITF-5 SKU}{ITF-5 PRICE-cents}{CHK}    → kind='gs1-price'
+ * {2x PREFIX}{ITF-5 SKU}{ITF-5 WEIGHT-grams}{CHK} → kind='gs1-weight'
+ * {2x PREFIX}{ITF-5 SKU}{ITF-5 PRICE-cents}{CHK}  → kind='gs1-price'
  *
  * Per-country slices (`co`, `mx`, `cl`) currently fall back to the
  * generic layout. When a pilot site shows real-world divergence,
@@ -28,9 +28,11 @@
  * @module services/peripherals/barcode/parser
  */
 
+import { resolveGs1PrefixRole, type Gs1PrefixConfig, type Gs1Scheme } from '@puntovivo/shared/gs1';
+
 export type ScanKind = 'ean13' | 'ean8' | 'upc-a' | 'gs1-weight' | 'gs1-price' | 'unknown';
 
-export type Gs1Scheme = 'none' | 'generic' | 'co' | 'mx' | 'cl';
+export type { Gs1Scheme } from '@puntovivo/shared/gs1';
 
 export interface ParsedScan {
   kind: ScanKind;
@@ -113,9 +115,8 @@ export function validateUpcAChecksum(code: string): boolean {
  * The layout assumed for the `generic` scheme:
  *
  * position 0:    '2'                       (GS1 in-store flag)
- * position 1:    role digit
- * even (0/2/4/6/8) → weight-embedded
- * odd  (1/3/5/7/9) → price-embedded
+ * positions 0-1: configured in-store prefix (compatibility default uses
+ * even prefixes for weight and odd prefixes for price)
  * positions 2-6: SKU (5 digits)
  * positions 7-11: payload (5 digits, grams or cents)
  * position 12:   EAN-13 check digit
@@ -123,7 +124,11 @@ export function validateUpcAChecksum(code: string): boolean {
  * This is the most common LATAM butcher/produce/bulk layout.
  * Per-country schemes can override later without contract churn.
  */
-export function parseGs1WeightOrPrice(args: { code: string; scheme?: Gs1Scheme }): {
+export function parseGs1WeightOrPrice(args: {
+  code: string;
+  scheme?: Gs1Scheme;
+  prefixes?: Gs1PrefixConfig;
+}): {
   kind: 'gs1-weight' | 'gs1-price';
   sku: string;
   weightKg?: number;
@@ -140,13 +145,13 @@ export function parseGs1WeightOrPrice(args: { code: string; scheme?: Gs1Scheme }
     return null;
   }
 
-  const roleDigit = Number(code[1]);
+  const role = resolveGs1PrefixRole(code.slice(0, 2), args.prefixes);
+  if (role === null) return null;
   const sku = code.slice(2, 7); // 5-digit ITF SKU
   const payload = Number(code.slice(7, 12)); // 5-digit ITF payload
   if (Number.isNaN(payload)) return null;
 
-  const isWeight = roleDigit % 2 === 0;
-  if (isWeight) {
+  if (role === 'weight') {
     // payload is grams; convert to kg (3-decimal precision)
     return {
       kind: 'gs1-weight',
@@ -175,7 +180,10 @@ export function parseGs1WeightOrPrice(args: { code: string; scheme?: Gs1Scheme }
  * returning `kind: 'unknown'`; permissive callers can still try
  * the lookup since the parser also exposes `code` verbatim.
  */
-export function parseScan(rawCode: string, options?: { gs1Scheme?: Gs1Scheme }): ParsedScan {
+export function parseScan(
+  rawCode: string,
+  options?: { gs1Scheme?: Gs1Scheme; gs1Prefixes?: Gs1PrefixConfig }
+): ParsedScan {
   const code = rawCode.trim();
   const scheme = options?.gs1Scheme ?? 'generic';
 
@@ -198,7 +206,11 @@ export function parseScan(rawCode: string, options?: { gs1Scheme?: Gs1Scheme }):
   if (code.length === 13) {
     const ean13Ok = validateEan13Checksum(code);
     if (code.startsWith('2') && scheme !== 'none') {
-      const gs1 = parseGs1WeightOrPrice({ code, scheme });
+      const gs1 = parseGs1WeightOrPrice({
+        code,
+        scheme,
+        ...(options?.gs1Prefixes ? { prefixes: options.gs1Prefixes } : {}),
+      });
       if (gs1) {
         return {
           kind: gs1.kind,

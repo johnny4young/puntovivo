@@ -32,7 +32,7 @@ interface CustomerOption {
 }
 
 export function QuotationCreateModal({ isOpen, onClose, onCreated }: QuotationCreateModalProps) {
-  const { t } = useTranslation(['quotations', 'errors']);
+  const { t } = useTranslation(['quotations', 'quotationPayablesErrors', 'errors']);
   const toast = useToast();
   const utils = trpc.useUtils();
 

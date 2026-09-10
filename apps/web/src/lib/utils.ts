@@ -1,6 +1,7 @@
 import { clsx, type ClassValue } from 'clsx';
 import { extendTailwindMerge } from 'tailwind-merge';
 import i18next from '@/i18n';
+import { dateTimeFormatter } from './dateTimeFormatter';
 
 // Configure tailwind-merge for custom color palettes
 // In tailwind-merge v3, custom theme values are added per-scale
@@ -161,7 +162,7 @@ export function formatCurrency(amount: number, currency?: string, locale?: strin
  * still gets Gregorian parts.
  */
 export function calendarDayAt(instant: Date, timeZone: string): string {
-  const parts = new Intl.DateTimeFormat('en-CA-u-ca-iso8601', {
+  const parts = dateTimeFormatter('en-CA-u-ca-iso8601', {
     timeZone,
     year: 'numeric',
     month: '2-digit',
@@ -170,6 +171,29 @@ export function calendarDayAt(instant: Date, timeZone: string): string {
   const value = (type: Intl.DateTimeFormatPartTypes) =>
     parts.find(part => part.type === type)?.value ?? '';
   return `${value('year')}-${value('month')}-${value('day')}`;
+}
+
+/**
+ * Format an ISO calendar day without interpreting it as an instant.
+ *
+ * `new Date('2026-08-31')` is midnight UTC, which renders as August 30 for a
+ * Colombian tenant. Supplier documents and similar business records carry a
+ * day rather than a timestamp, so pin formatting to UTC while still honoring
+ * the tenant's locale and configured short-date pattern.
+ */
+export function formatCalendarDay(day: string, locale?: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return '';
+  const date = new Date(`${day}T00:00:00.000Z`);
+  if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== day) return '';
+
+  const resolvedLocale = locale ?? activeTenantLocale?.locale ?? getActiveLocale();
+  if (!locale && activeTenantLocale?.dateFormatShort) {
+    return formatDateByPattern(date, activeTenantLocale.dateFormatShort, 'UTC');
+  }
+  return dateTimeFormatter(resolvedLocale, {
+    timeZone: 'UTC',
+    dateStyle: 'medium',
+  }).format(date);
 }
 
 export function formatDate(
@@ -192,7 +216,7 @@ export function formatDate(
     return formatDateByPattern(d, activeTenantLocale.dateFormatShort, activeTenantLocale.timezone);
   }
 
-  return new Intl.DateTimeFormat(resolvedLocale, {
+  return dateTimeFormatter(resolvedLocale, {
     ...(resolvedTimezone ? { timeZone: resolvedTimezone } : {}),
     dateStyle: 'medium',
     ...options,
@@ -207,7 +231,7 @@ export function formatDateTime(date: Date | string, locale?: string): string {
   const resolvedLocale = locale ?? activeTenantLocale?.locale ?? getActiveLocale();
 
   if (!locale && activeTenantLocale?.dateFormatShort) {
-    const time = new Intl.DateTimeFormat(resolvedLocale, {
+    const time = dateTimeFormatter(resolvedLocale, {
       timeStyle: 'short',
       timeZone: activeTenantLocale.timezone,
     }).format(d);
@@ -218,7 +242,7 @@ export function formatDateTime(date: Date | string, locale?: string): string {
     )} ${time}`;
   }
 
-  return new Intl.DateTimeFormat(resolvedLocale, {
+  return dateTimeFormatter(resolvedLocale, {
     ...(activeTenantLocale?.timezone ? { timeZone: activeTenantLocale.timezone } : {}),
     dateStyle: 'medium',
     timeStyle: 'short',
@@ -226,7 +250,7 @@ export function formatDateTime(date: Date | string, locale?: string): string {
 }
 
 function formatDateByPattern(date: Date, pattern: string, timeZone: string): string {
-  const parts = new Intl.DateTimeFormat('en-US', {
+  const parts = dateTimeFormatter('en-US', {
     timeZone,
     year: 'numeric',
     month: '2-digit',
@@ -247,7 +271,7 @@ function formatDateByPattern(date: Date, pattern: string, timeZone: string): str
     case 'yyyy-MM-dd':
       return `${year}-${month}-${day}`;
     default:
-      return new Intl.DateTimeFormat(getActiveLocale(), {
+      return dateTimeFormatter(getActiveLocale(), {
         dateStyle: 'medium',
         timeZone,
       }).format(date);

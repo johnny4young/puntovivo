@@ -8,6 +8,7 @@ import { Navigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { RouteErrorBoundary } from '@/components/feedback/AppErrorBoundary';
 import { FullscreenLoadingState, PageLoadingState } from '@/components/feedback/LoadingState';
+import { AuthRecoveryScreen } from '@/features/auth/AuthRecoveryScreen';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { getDefaultRouteForRole } from '@/features/auth/roleAccess';
 import { RequireModule, useModulesSnapshot } from '@/features/modules';
@@ -23,6 +24,8 @@ export function HomeRedirect() {
 
 export function LoginRoute({ children }: { children: ReactNode }) {
   const { t } = useTranslation('auth');
+  const { bootstrapRecovery } = useAuth();
+  if (bootstrapRecovery) return <AuthRecoveryScreen recovery={bootstrapRecovery} />;
 
   return (
     <Suspense

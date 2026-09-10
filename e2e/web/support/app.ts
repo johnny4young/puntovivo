@@ -11,12 +11,12 @@ export const COMPANION_E2E_USERS = {
   manager: {
     email: 'e2e.companion.manager@local.test',
     password: E2E_PASSWORD,
-    defaultPath: '/dashboard',
+    defaultPath: '/c/',
   },
   viewer: {
     email: 'e2e.companion.viewer@local.test',
     password: E2E_PASSWORD,
-    defaultPath: '/dashboard',
+    defaultPath: '/c/',
   },
 } as const;
 
@@ -122,7 +122,7 @@ export async function expectNoClientIssues(tracker: ClientIssueTracker) {
 export async function login(
   page: Page,
   credentials: LoginCredentials,
-  options?: { spanish?: boolean }
+  options?: { spanish?: boolean; entryPath?: '/c/' }
 ) {
   if (options?.spanish) {
     await page.addInitScript(() => {
@@ -130,7 +130,7 @@ export async function login(
     });
   }
 
-  await page.goto('/login');
+  await page.goto(options?.entryPath ?? '/login');
   await page.locator('#email').fill(credentials.email);
   await page.locator('#password').fill(credentials.password);
   await page

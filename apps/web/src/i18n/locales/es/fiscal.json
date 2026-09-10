@@ -78,8 +78,6 @@
     }
   },
   "contingency": {
-    "badge": "{{count}} en contingencia",
-    "title": "Documentos esperando aceptación DIAN",
     "description": "Contingencia significa que el documento espera aceptación o requiere un reintento posterior."
   },
   "reports": {

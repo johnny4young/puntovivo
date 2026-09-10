@@ -13,6 +13,7 @@ import { getDatabase } from '../db/index.js';
 import {
   cashSessions,
   fiscalDocuments,
+  fiscalEmissionIntents,
   fiscalNumberingResolutions,
   products,
   saleItems,
@@ -132,6 +133,32 @@ async function seedFiscalDoc(args: {
   });
 }
 
+async function seedFiscalIntent(
+  saleId: string,
+  status: 'queued' | 'materializing' | 'blocked' | 'retrying' | 'dead_letter'
+) {
+  const now = new Date().toISOString();
+  const id = nanoid();
+  await getDatabase()
+    .insert(fiscalEmissionIntents)
+    .values({
+      id,
+      tenantId,
+      source: 'sale',
+      sourceId: saleId,
+      saleId,
+      kind: 'DEE',
+      requestedByUserId: userId,
+      status,
+      payload: { fixture: true },
+      payloadVersion: 1,
+      attempts: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
+  return id;
+}
+
 beforeAll(async () => {
   server = await createServer({ dbPath: ':memory:', verbose: false });
   const db = getDatabase();
@@ -160,8 +187,11 @@ beforeAll(async () => {
     toNumber: 1000000,
     currentNumber: 0,
     technicalKey: 'pendingchecks-test-tech-key',
-    validFrom: now,
-    validUntil: now,
+    // A real DIAN resolution is valid for months. The fixture used to set
+    // validFrom and validUntil both to `now`, a zero-width window that no
+    // resolution has, and nothing noticed because nothing checked.
+    validFrom: new Date(Date.parse(now) - 86_400_000).toISOString(),
+    validUntil: new Date(Date.parse(now) + 365 * 86_400_000).toISOString(),
     isActive: true,
     createdAt: now,
     updatedAt: now,
@@ -251,6 +281,30 @@ describe('getPendingChecksForSession', () => {
     const result = await getPendingChecksForSession(getDatabase(), tenantId, sessionId);
     expect(result.pendingFiscalDocuments).toBe(1);
     expect(result.fiscalSamples[0].status).toBe('contingency');
+  });
+
+  it('counts a blocked pre-document fiscal intent against the originating session', async () => {
+    const sessionId = await seedSession('blocked-intent');
+    const saleId = await seedSale({
+      sessionId,
+      saleNumber: 'BI-' + nanoid(6),
+      status: 'completed',
+      paymentStatus: 'paid',
+    });
+    const intentId = await seedFiscalIntent(saleId, 'blocked');
+
+    const result = await getPendingChecksForSession(getDatabase(), tenantId, sessionId);
+
+    expect(result.pendingFiscalDocuments).toBe(1);
+    expect(result.fiscalSamples).toEqual([
+      {
+        saleId,
+        saleNumber: expect.stringMatching(/^BI-/),
+        fiscalDocumentId: null,
+        fiscalIntentId: intentId,
+        status: 'blocked',
+      },
+    ]);
   });
 
   it('excludes accepted/sent/rejected fiscal documents', async () => {

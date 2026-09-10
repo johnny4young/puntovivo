@@ -31,6 +31,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import type { DatabaseInstance } from '../db/index.js';
 import { customers, customerLedgerEntries } from '../db/schema.js';
 import { throwServerError } from '../lib/errorCodes.js';
+import { roundMoney } from '../lib/money.js';
 
 export interface RequireCreditLimitNotExceededInput {
   db: DatabaseInstance;
@@ -67,9 +68,9 @@ export interface CreditLimitProjection {
  * inputs are rejected so a caller never silently writes a ledger
  * row of the wrong sign.
  */
-export async function requireCreditLimitNotExceeded(
+export function requireCreditLimitNotExceeded(
   input: RequireCreditLimitNotExceededInput
-): Promise<CreditLimitProjection> {
+): CreditLimitProjection {
   if (!Number.isFinite(input.attemptedAmount) || input.attemptedAmount <= 0) {
     throwServerError({
       trpcCode: 'BAD_REQUEST',
@@ -84,7 +85,7 @@ export async function requireCreditLimitNotExceeded(
   // the caller should have validated this upstream but the helper
   // re-asserts so the invariant cannot be bypassed by a hand-rolled
   // sale row.
-  const customer = await input.db
+  const customer = input.db
     .select({ creditLimit: customers.creditLimit })
     .from(customers)
     .where(and(eq(customers.id, input.customerId), eq(customers.tenantId, input.tenantId)))
@@ -113,7 +114,7 @@ export async function requireCreditLimitNotExceeded(
     };
   }
 
-  const balanceRow = await input.db
+  const balanceRow = input.db
     .select({
       balance: sql<number>`COALESCE(SUM(${customerLedgerEntries.amount}), 0)`.as('balance'),
     })
@@ -126,8 +127,16 @@ export async function requireCreditLimitNotExceeded(
     )
     .get();
 
-  const currentBalance = balanceRow?.balance ?? 0;
-  const projectedBalance = currentBalance + input.attemptedAmount;
+  // `customer_ledger_entries.amount` carries no 2-decimal CHECK, so SUM() over
+  // N rows is a raw IEEE-754 accumulation: rounding each row as it is written
+  // does not make their sum cent-clean. Round the read and the projection
+  // before comparing, or a ledger of 0.10 + 0.20 projects 0.35000000000000003
+  // against a 0.35 limit and rejects a sale that lands exactly on the cupo --
+  // and the mirror case silently allows one a fraction of a cent over it.
+  // This runs inside the sale write transaction, so the verdict decides
+  // whether a committed-shaped sale rolls back.
+  const currentBalance = roundMoney(balanceRow?.balance ?? 0);
+  const projectedBalance = roundMoney(currentBalance + input.attemptedAmount);
   const exceedsLimit = projectedBalance > creditLimit;
 
   if (exceedsLimit && !input.allowOverride) {

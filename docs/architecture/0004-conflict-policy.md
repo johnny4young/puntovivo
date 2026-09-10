@@ -5,24 +5,31 @@
 
 ## Decision
 
-**Sync conflicts on high-risk entities (money, fiscal, cash,
-inventory movements, audit trail) are NEVER resolved automatically.
-The operator must resolve them manually through `sync.resolve` or
-the Operations Center (). Non-financial entities (catalog
-data, preferences) accept last-write-wins with mandatory audit log
-entries.**
+**High-risk sync conflicts (money, fiscal, cash, inventory and audit) never
+resolve automatically. Operator recovery is not an exemption: a choice must
+preserve the complete business aggregate or remain blocked.**
 
-The split is binary and the lists are closed. New entities must be
-classified at design time; defaulting to "high-risk" is the safe
-choice when the call is ambiguous.
+The closed entity manifest classifies `manual` versus `auto_lww`, but the latter
+is a policy marker, not an implemented automatic-resolution engine. Product
+rows contain stock and financial bases as well as descriptive metadata; they
+cannot be treated as wholly non-financial catalog records.
 
-The current implementation () already exposes the building
-blocks: `sync.listConflicts` and `sync.pull` return
-`localRecordExists`; `sync.resolve` rejects `keepLocal` and
-`merged` when the local row is missing and steers the operator to
-`acceptRemote` (rebadged as "Discard Local Change" in the UI). This
-ADR formalizes the entity classification so can wire each
-list to the correct policy without re-arguing per row.
+Current `sync.listConflicts` and `sync.pull` expose both `localRecordExists` and
+server-computed `resolutionAvailability` for local, remote and merged choices.
+The UI disables unavailable actions and explains that evidence is preserved.
+The mutation rechecks the same scope/payload rules under an immediate writer
+transaction. A missing local row does not automatically make accepting remote
+safe. Inventory-owning aggregates and product financial/tracking fields cannot
+be manually reconstructed, overwritten or removed through queue JSON.
+
+For an existing tenant product, an explicit metadata allowlist supports
+operator recovery without altering stock, valuation or custody. All original
+queued payloads for that entity must also be safe before replacement or
+deletion; a metadata-only conflict cannot hide a protected original command.
+Conflict state and replacement outbox intent commit atomically. Domain commands
+and retry of their original intent remain separate from manual payload edits.
+See [ADR-0005](./0005-sync-payload-contract.md) for the v4 contract and current
+local-acknowledgement limitation.
 
 ---
 
@@ -84,9 +91,10 @@ significado contable; aquí no.
 
 ## Non-financial entities (last-write-wins allowed)
 
-The following entities accept automatic conflict resolution by
-`updatedAt` server timestamp, with a mandatory `audit_logs` entry
-recording the auto-resolution choice for the loser side:
+The following catalog/preference classifications are candidates for a future
+automatic-resolution engine, not a claim that one currently runs. Any such
+engine must record an audit snapshot and respect financial-field and aggregate
+boundaries before using a timestamp:
 
 **Catalog data**
 
@@ -121,13 +129,12 @@ recording the auto-resolution choice for the loser side:
 - `sync_outbox` rows in `synced` state
 - `idempotency_keys` past their `expires_at`
 
-**Why these are safe**: catalog and preference data is curated by
-admins, not racing with concurrent sales. Two admins editing the
-same customer row at the same time is rare; when it happens, the
-loser side is recoverable from the audit log. None of these
-entities affect money, taxes, stock balance, or legal compliance.
+**Boundary**: entity names alone are not a safety proof. Product costs, taxes,
+tracking modes and geography affecting business aggregates need domain-specific
+validation; an administrator role does not make arbitrary field replacement
+safe. The current metadata allowlist is deliberately narrower than a full row.
 
-The audit log entry on auto-resolution carries:
+The required audit shape for any future auto-resolution is:
 
 ```
 {
@@ -143,8 +150,8 @@ The audit log entry on auto-resolution carries:
 }
 ```
 
-This makes auto-resolutions reversible by an admin from the
-audit log viewer.
+This proposed loser snapshot supports investigation; it does not establish an
+implemented undo action or permission to mutate committed business evidence.
 
 ## Alternatives Rejected
 
@@ -164,49 +171,17 @@ audit log viewer.
 
 ## Implementation Impact
 
-- **Already in place**: shipped `sync.listConflicts` /
-  `sync.pull` / `sync.resolve` with `localRecordExists`. The
-  `sync_conflicts` table records `resolution: 'local_wins' |
-'remote_wins' | 'merged'` and is operator-driven for high-risk
-  rows today. The errorCode `SYNC_LOCAL_RECORD_MISSING` already
-  exists.
-- **New mapping** (): the sync contract v1 publishes a
-  per-entity `conflictPolicy` field in the payload header. Values
-  are `manual` (high-risk) and `auto_lww` (non-financial). The
-  resolver consults this field before deciding to auto-resolve or
-  enqueue a manual resolution.
-- **Operations Center ()**: shows two distinct panels —
-  "Conflictos pendientes (alto riesgo)" with a count and an
-  action button per row, and "Resoluciones automáticas (24h)"
-  with a read-only summary of the loser snapshots that landed in
-  the audit log.
-- **Audit log discipline**: every `auto_lww` resolution writes the
-  audit row described above. The
-  `audit_logs.action='sync.auto_resolved'` enum value joins the
-  catalog. No row-level entity write goes through the resolver
-  without producing this audit event.
-- **Forbidden flows**: the resolver MUST NOT carry an automatic
-  branch for any high-risk table. Adding one would silently
-  violate the policy; includes a vitest assertion that
-  the high-risk list above maps 1:1 to schema tables tagged
-  `conflictPolicy='manual'`.
+- `services/sync/contract.ts` owns entity classification, transport policy and
+  independent operator-payload policy. A manifest test locks their mapping.
+- `services/sync/operator-policy.ts` shares tenant/entity/payload checks between
+  read capabilities and authoritative mutations.
+- `trpc/routers/sync/conflicts.ts` resolves a pending conflict and replaces safe
+  queue intent inside one immediate transaction, rejecting stale decisions.
+- `trpc/routers/sync/queue.ts` protects manual additions and deletions; system
+  writers continue through the transactional outbox helper.
+- Company synchronization UI presents pending incidents and their available
+  choices. No automatic-resolution timeline or remote application is claimed.
+- Backup and restore preserve queue and conflict evidence along with business
+  rows; restoring a snapshot does not invent a remote reconciliation verdict.
 
-## Implementation map
-
-- Operation journal + outbox kernel. Logs every
-  resolver decision (manual or auto) in the journal so the
-  Operations Center can render the timeline.
-- Fiscal outbox + contingency engine. The
-  `fiscal_outbox` is high-risk by definition and never
-  auto-resolves.
-- Sync contract v1. Introduces the per-entity
-  `conflictPolicy` field and the lint that maps the lists above
-  to schema tables.
-- Operations Center. Renders the two panels and the
-  resolution timeline.
-- Backup, restore, and local security. Backup must
-  preserve the conflict resolution audit history alongside sales
-  / fiscal / outbox data so a restored tenant can audit its
-  history.
-
-Updated: 2026-05-02 (initial ADR set).
+Updated: 2026-09-06 (operator recovery boundary and implementation truth).

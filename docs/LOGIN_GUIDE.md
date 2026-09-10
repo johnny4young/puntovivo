@@ -1,6 +1,6 @@
 # Login and Access Guide
 
-> Updated: April 10, 2026
+> Updated: September 6, 2026
 
 ## Authentication Model
 
@@ -23,21 +23,45 @@ Password policy for user creation, reset, and self-service password change:
 
 The canonical auth transport is tRPC on `/api/trpc`.
 
-## Seeded Admin Account
+## First-use ownership
 
-On first database creation, the system creates an admin account:
+A new interactive installation starts without a business or an administrator.
+The login screen offers two steps: business/location/country/profile, then the
+owner's name, email and strong password. The owner signs in through the same
+normal authentication flow used by existing accounts.
 
-- Email: `admin@localhost`
-- Password in development/non-production: `Admin123!Dev`
-- Password in production: generated randomly and printed once in server output
+- **Electron:** use the main Puntovivo window. Its narrowly scoped IPC bridge
+  submits the fixed tRPC setup command; the installation secret never enters
+  the renderer. Auxiliary windows, frames and remote Hub clients cannot claim
+  an installation.
+- **Standalone web:** run the server and open Puntovivo on that same computer.
+  Enter the private 64-character installation code shown in the server's
+  startup output. Remote HTTP setup is refused, even with forwarded headers.
+  An operator-managed loopback tunnel is an administrative deployment concern,
+  not a remote registration feature.
+- Treat startup output containing this code as a credential. Restrict any
+  supervisor stdout logs; never send it to telemetry, screenshots or support.
+  A restart replaces an unused code, and successful ownership consumes it.
+- Existing databases are adopted as already owned, without changes to accounts,
+  passwords or tenant data. Deleting or deactivating an owner does not reopen
+  setup. A missing completion marker fails closed.
+- If setup committed but the response was lost, sign in with the chosen account.
+  Do not delete a business database to recover a password. Use an existing
+  authorized administrator. If none is available, contact the installation
+  operator rather than recreating the database.
 
-You can override the non-production default before first seed with:
+Creating ownership is **not** business readiness. Legal details, valid tax rates,
+numbering, products, employees and cash configuration remain explicit setup
+steps. The country selection provides catalog-backed currency and locale only;
+no debts, stock, tax identifiers or regulatory authorizations are invented.
 
-```bash
-PUNTOVIVO_DEV_ADMIN_PASSWORD="your-dev-password"
-```
+### Explicit development fixtures
 
-If you miss the production password, recreate the database for that environment and let seed run again.
+The seed tooling and automated test templates can still create `admin@localhost`.
+Their non-production default is `Admin123!Dev`, configurable before seeding with
+`PUNTOVIVO_DEV_ADMIN_PASSWORD`. Interactive standalone and desktop entrypoints
+never enable this fixture seed automatically. See [DEV-SEED.md](./DEV-SEED.md)
+for disposable demonstration data, not production access recovery.
 
 ## Roles
 
@@ -111,10 +135,9 @@ pnpm run dev:web-stack
 
 Check:
 
-- you are using `admin@localhost`
-- in development, try `Admin123!Dev` unless you overrode `PUNTOVIVO_DEV_ADMIN_PASSWORD`
-- in production, copy the generated password exactly
-- the database was actually seeded
+- you are using your actual owner account (or `admin@localhost` only in an explicitly seeded development fixture)
+- the password is the one chosen during first-use setup
+- `Admin123!Dev` applies only to explicitly seeded, disposable development fixtures
 - the user account is active
 
 ### Cannot connect to server
@@ -127,7 +150,7 @@ curl http://localhost:8090/api/health
 
 ### Native module mismatch in desktop mode
 
-Rebuild Electron native modules:
+Verify the portable Electron native runtime (do not rebuild it):
 
 ```bash
 pnpm --filter @puntovivo/desktop run native:ensure:electron
@@ -139,12 +162,12 @@ If server tests later fail due to `better-sqlite3` mismatch in the current shell
 pnpm --filter @puntovivo/server run native:ensure:node
 ```
 
-## Authenticated Manual Request Example
+## Explicit Development-Fixture Login Example
 
 ```bash
 curl -X POST "http://localhost:8090/api/trpc/auth.login?batch=1" \
   -H "Content-Type: application/json" \
-  -d '{"0":{"json":{"email":"admin@localhost","password":"Admin123!Dev"}}}'
+  -d '{"0":{"email":"admin@localhost","password":"Admin123!Dev"}}'
 ```
 
 ## Notes

@@ -21,6 +21,7 @@ import {
   alignClass,
   formatItemCell,
   formatReceiptAmount,
+  formatWholeCount,
   itemColumnLabel,
   tenderMethodLabel,
   totalsRows,
@@ -128,7 +129,17 @@ function renderItemsTableHtml(
           return `<td class="col-${col}">${escapeHtml(text)}</td>`;
         })
         .join('');
-      return `<tr>${cells}</tr>`;
+      // The rule that priced the line, on its own row underneath, spanning
+      // the table so it reads as evidence rather than as another line item.
+      const promotionRows = (item.promotions ?? [])
+        .map(
+          promotion =>
+            `<tr class="promotion-row"><td class="promotion-note" colspan="${block.columns.length}">${escapeHtml(
+              `${promotion.name} (v${promotion.version}) -${formatReceiptAmount(promotion.discountAmount, data.locale)}`
+            )}</td></tr>`
+        )
+        .join('');
+      return `<tr>${cells}</tr>${promotionRows}`;
     })
     .join('');
   return `<div class="block block-items"><table>${headerCells}<tbody>${rowCells}</tbody></table></div>`;
@@ -158,7 +169,12 @@ function renderTendersTableHtml(
 ): string {
   const rows = data.sale.tenders
     .map(tender => {
-      return `<tr><td>${escapeHtml(tenderMethodLabel(tender.method, labels))}</td><td>${escapeHtml(tender.reference ?? '')}</td><td class="tender-amount">${escapeHtml(formatReceiptAmount(tender.amount, data.locale))}</td></tr>`;
+      // A loyalty tender shows its point count: the money it was worth does
+      // not say how many points the customer actually spent.
+      const method = tender.points
+        ? `${tenderMethodLabel(tender.method, labels)} (${formatWholeCount(tender.points)} ${labels.tendersTable.points})`
+        : tenderMethodLabel(tender.method, labels);
+      return `<tr><td>${escapeHtml(method)}</td><td>${escapeHtml(tender.reference ?? '')}</td><td class="tender-amount">${escapeHtml(formatReceiptAmount(tender.amount, data.locale))}</td></tr>`;
     })
     .join('');
   const change =

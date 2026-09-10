@@ -26,8 +26,10 @@ import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { trpc } from '@/lib/trpc';
+import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { formatCurrency } from '@/lib/utils';
 import { onErrorToast } from '@/lib/mutationHelpers';
+import { translateServerError } from '@/lib/translateServerError';
 import {
   buildSemanticFilename,
   exportToCSV,
@@ -119,7 +121,10 @@ export function CustomerLedgerModal({ isOpen, customer, onClose }: CustomerLedge
     ]);
   };
 
-  const addPayment = trpc.customerLedger.addPayment.useMutation({
+  // Critical commands: the server mints an idempotency key per logical input,
+  // so a repeat of the same abono collapses onto the first write instead of
+  // paying the customer's debt down twice.
+  const addPayment = useCriticalMutation('customerLedger.addPayment', {
     onSuccess: async () => {
       await refreshLedger();
       setAbonoMode(null);
@@ -127,7 +132,7 @@ export function CustomerLedgerModal({ isOpen, customer, onClose }: CustomerLedge
     },
     onError: onErrorToast(toast, t, { titleKey: 'ledger.abonoModal.error' }),
   });
-  const addAdjustment = trpc.customerLedger.addAdjustment.useMutation({
+  const addAdjustment = useCriticalMutation('customerLedger.addAdjustment', {
     onSuccess: async () => {
       await refreshLedger();
       setAbonoMode(null);
@@ -138,18 +143,24 @@ export function CustomerLedgerModal({ isOpen, customer, onClose }: CustomerLedge
 
   const handleAbonoSubmit = async (values: CustomerLedgerAbonoValues) => {
     if (!customerId) return;
-    if (abonoMode === 'payment') {
-      await addPayment.mutateAsync({
-        customerId,
-        amount: values.amount,
-        note: values.note || undefined,
-      });
-    } else if (abonoMode === 'adjustment') {
-      await addAdjustment.mutateAsync({
-        customerId,
-        amount: values.amount,
-        note: values.note,
-      });
+    try {
+      if (abonoMode === 'payment') {
+        await addPayment.mutateAsync({
+          customerId,
+          amount: values.amount,
+          note: values.note || undefined,
+        });
+      } else if (abonoMode === 'adjustment') {
+        await addAdjustment.mutateAsync({
+          customerId,
+          amount: values.amount,
+          note: values.note,
+        });
+      }
+    } catch {
+      // Both mutations already report a translated toast and keep their error
+      // for the inline dialog. Do not turn a handled rejection into a global
+      // unhandled promise rejection from the form event.
     }
   };
 
@@ -187,7 +198,8 @@ export function CustomerLedgerModal({ isOpen, customer, onClose }: CustomerLedge
   };
 
   const isMutating = addPayment.isPending || addAdjustment.isPending;
-  const mutationError = addPayment.error?.message ?? addAdjustment.error?.message ?? null;
+  const error = addPayment.error ?? addAdjustment.error;
+  const mutationError = error ? translateServerError(error, t, t('errors:server.unknown')) : null;
 
   if (!customer) {
     return (

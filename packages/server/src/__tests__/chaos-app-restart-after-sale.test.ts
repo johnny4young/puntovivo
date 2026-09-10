@@ -31,15 +31,24 @@
  * @module __tests__/chaos-app-restart-after-sale
  */
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { eq, isNotNull, lte, and, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { fiscalOutbox, hardwareOutbox, syncOutbox, tenants } from '../db/schema.js';
+import {
+  fiscalEmissionIntents,
+  fiscalOutbox,
+  hardwareOutbox,
+  syncOutbox,
+  tenants,
+  users,
+} from '../db/schema.js';
+import { __withExpectedTestLogs } from '../logging/logger.js';
 
 let server: PuntovivoServer;
 let tenantId: string;
+let userId: string;
 
 const MINUTE_MS = 60_000;
 const STALE_CUTOFF_MS = 6 * MINUTE_MS; // > STALE_CLAIM_MS (5min)
@@ -48,12 +57,24 @@ beforeAll(async () => {
   server = await createServer({ dbPath: ':memory:', verbose: false });
   const db = getDatabase();
   tenantId = `chaos-restart-tenant-${nanoid()}`;
+  userId = `chaos-restart-user-${nanoid()}`;
   const now = new Date().toISOString();
   await db.insert(tenants).values({
     id: tenantId,
     name: 'Chaos Restart Tenant',
     slug: tenantId,
     settings: {},
+    isActive: true,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await db.insert(users).values({
+    id: userId,
+    tenantId,
+    email: `${userId}@example.test`,
+    name: 'Chaos Restart User',
+    passwordHash: 'fixture',
+    role: 'admin',
     isActive: true,
     createdAt: now,
     updatedAt: now,
@@ -84,7 +105,7 @@ async function bounceHardwareWorker(): Promise<void> {
 }
 
 describe('chaos: app restart after sale', () => {
-  it('fiscal worker reclaims a stale `submitting` row on boot', async () => {
+  it('fiscal worker reclaims and quarantines a malformed stale submission on boot', async () => {
     const db = getDatabase();
     const rowId = `chaos-fiscal-${nanoid()}`;
     const staleLockedAt = new Date(Date.now() - STALE_CUTOFF_MS).toISOString();
@@ -104,21 +125,106 @@ describe('chaos: app restart after sale', () => {
       updatedAt: staleLockedAt,
     });
 
-    await bounceFiscalWorker();
+    await __withExpectedTestLogs(
+      [{ level: 'warn', module: 'fiscal-outbox-worker', message: 'outbox row failed' }],
+      async () => {
+        await bounceFiscalWorker();
+        await vi.waitFor(() =>
+          expect(
+            db.select().from(fiscalOutbox).where(eq(fiscalOutbox.id, rowId)).get()?.status
+          ).toBe('dead_letter')
+        );
+      }
+    );
 
     const swept = await db
       .select({
         status: fiscalOutbox.status,
         claimToken: fiscalOutbox.claimToken,
         lockedAt: fiscalOutbox.lockedAt,
+        attempts: fiscalOutbox.attempts,
+        lastError: fiscalOutbox.lastError,
       })
       .from(fiscalOutbox)
       .where(eq(fiscalOutbox.id, rowId))
       .get();
     expect(swept).toBeDefined();
-    expect(swept?.status).toBe('queued');
+    // Startup now drains immediately after reclaiming. Invalid historic
+    // payloads must fail closed rather than remain stranded in a queue.
+    expect(swept?.status).toBe('dead_letter');
+    expect(swept?.attempts).toBe(2);
+    expect(swept?.lastError).toMatchObject({ errorCode: 'MALFORMED_REQUEST' });
     expect(swept?.claimToken).toBeNull();
     expect(swept?.lockedAt).toBeNull();
+  });
+
+  it('fiscal worker reclaims a stale local materialization intent on boot', async () => {
+    const db = getDatabase();
+    const rowId = `chaos-fiscal-intent-${nanoid()}`;
+    const staleLockedAt = new Date(Date.now() - STALE_CUTOFF_MS).toISOString();
+    await db.insert(fiscalEmissionIntents).values({
+      id: rowId,
+      tenantId,
+      source: 'sale',
+      sourceId: `sale-${rowId}`,
+      saleId: `sale-${rowId}`,
+      kind: 'DEE',
+      requestedByUserId: userId,
+      status: 'materializing',
+      payload: {
+        version: 1,
+        requestedAt: staleLockedAt,
+        countryCode: 'CO',
+        providerId: 'mock-co',
+        siteId: 'fixture-site',
+        resolution: null,
+        amounts: {},
+        lines: [],
+        adapterInput: { tenantId, source: 'sale', sourceId: `sale-${rowId}`, kind: 'DEE' },
+      },
+      payloadVersion: 1,
+      attempts: 1,
+      claimToken: 'dead-intent-claim',
+      lockedAt: staleLockedAt,
+      createdAt: staleLockedAt,
+      updatedAt: staleLockedAt,
+    });
+
+    await __withExpectedTestLogs(
+      [
+        {
+          level: 'warn',
+          module: 'services/fiscal/fiscal-worker',
+          message: 'fiscal intent requires operator intervention',
+        },
+      ],
+      async () => {
+        await bounceFiscalWorker();
+        await vi.waitFor(() =>
+          expect(
+            db.select().from(fiscalEmissionIntents).where(eq(fiscalEmissionIntents.id, rowId)).get()
+              ?.status
+          ).toBe('blocked')
+        );
+      }
+    );
+
+    const swept = await db
+      .select({
+        status: fiscalEmissionIntents.status,
+        claimToken: fiscalEmissionIntents.claimToken,
+        lockedAt: fiscalEmissionIntents.lockedAt,
+        lastError: fiscalEmissionIntents.lastError,
+      })
+      .from(fiscalEmissionIntents)
+      .where(eq(fiscalEmissionIntents.id, rowId))
+      .get();
+    expect(swept).toMatchObject({
+      status: 'blocked',
+      claimToken: null,
+      lockedAt: null,
+      lastError: { reason: 'numbering_resolution_missing' },
+    });
   });
 
   it('hardware worker reclaims a stale `submitting` row on boot', async () => {

@@ -1,0 +1,243 @@
+import { inventoryValueChecks } from '../value-checks.js';
+/**
+ * Blind physical-count sessions and their immutable stock snapshots.
+ *
+ * A count line snapshots the authoritative site balance when the session is
+ * opened. While the session is `counting`, read models redact that snapshot;
+ * it only becomes reviewable after submission. Approval re-checks every
+ * balance under the SQLite writer reservation before applying discrepancies.
+ *
+ * @module db/schema/inventory/counts
+ */
+
+import { relations, sql } from 'drizzle-orm';
+import {
+  check,
+  index,
+  integer,
+  real,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/sqlite-core';
+import { inventoryCountStatusEnum, nowIso, sqliteNow, syncStatusEnum } from '../base.js';
+import { sites, tenants, users } from '../auth.js';
+import { units } from '../catalogs.js';
+import { products } from '../products.js';
+
+export const inventoryCountSessions = sqliteTable(
+  'inventory_count_sessions',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    siteId: text('site_id')
+      .notNull()
+      .references(() => sites.id),
+    status: text('status', { enum: inventoryCountStatusEnum }).notNull().default('counting'),
+    isBlind: integer('is_blind', { mode: 'boolean' }).notNull().default(true),
+    notes: text('notes'),
+    rejectionReason: text('rejection_reason'),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => users.id),
+    submittedBy: text('submitted_by').references(() => users.id),
+    approvedBy: text('approved_by').references(() => users.id),
+    rejectedBy: text('rejected_by').references(() => users.id),
+    submittedAt: text('submitted_at'),
+    approvedAt: text('approved_at'),
+    rejectedAt: text('rejected_at'),
+    version: integer('version').notNull().default(0),
+    syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
+    syncVersion: integer('sync_version').default(0),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_inventory_count_sessions_tenant_created').on(table.tenantId, table.createdAt),
+    index('idx_inventory_count_sessions_tenant_site_status').on(
+      table.tenantId,
+      table.siteId,
+      table.status
+    ),
+  ]
+);
+
+export const inventoryCountLines = sqliteTable(
+  'inventory_count_lines',
+  {
+    id: text('id').primaryKey(),
+    // Denormalized tenant ownership makes every read and repair query
+    // independently scopeable even if a damaged FK points at another tenant.
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    sessionId: text('session_id')
+      .notNull()
+      .references(() => inventoryCountSessions.id, { onDelete: 'cascade' }),
+    productId: text('product_id')
+      .notNull()
+      .references(() => products.id),
+    unitId: text('unit_id')
+      .notNull()
+      .references(() => units.id),
+    /** Frozen policy: legacy rows are aggregate counts, never inferred from today's catalog. */
+    trackingMode: text('tracking_mode', { enum: ['aggregate', 'lots', 'serials'] })
+      .notNull()
+      .default('aggregate'),
+    expectedQuantity: real('expected_quantity').notNull(),
+    expectedBalanceVersion: integer('expected_balance_version').notNull().default(0),
+    countedQuantity: real('counted_quantity'),
+    discrepancy: real('discrepancy'),
+    unitCostSnapshot: real('unit_cost_snapshot').notNull().default(0),
+    /** Exact global basis observed at opening; null for historical and identity-owned counts. */
+    expectedValuationVersion: integer('expected_valuation_version'),
+    expectedValuationQuantity: real('expected_valuation_quantity'),
+    expectedInventoryValueCents: integer('expected_inventory_value_cents'),
+    expectedCogsValueCents: integer('expected_cogs_value_cents'),
+    cogsUnitCostSnapshot: real('cogs_unit_cost_snapshot'),
+    countedBy: text('counted_by').references(() => users.id),
+    countedAt: text('counted_at'),
+    version: integer('version').notNull().default(0),
+    syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
+    syncVersion: integer('sync_version').default(0),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    ...inventoryValueChecks('inventory_count_lines', {
+      cents: [table.expectedInventoryValueCents, table.expectedCogsValueCents],
+      versions: [table.expectedValuationVersion],
+      quantities: [table.expectedValuationQuantity],
+      together: [
+        [
+          table.expectedInventoryValueCents,
+          table.expectedCogsValueCents,
+          table.expectedValuationQuantity,
+          table.expectedValuationVersion,
+          table.cogsUnitCostSnapshot,
+        ],
+      ],
+    }),
+    uniqueIndex('idx_inventory_count_lines_session_product').on(
+      table.tenantId,
+      table.sessionId,
+      table.productId
+    ),
+    index('idx_inventory_count_lines_tenant_product').on(table.tenantId, table.productId),
+    index('idx_inventory_count_lines_session').on(table.sessionId),
+    // The frozen book balance may legitimately be negative after an imported
+    // or historical shortfall. A physical count must be able to reconcile
+    // that state; only the operator-entered physical quantity is non-negative.
+    check(
+      'inventory_count_lines_counted_nonnegative',
+      sql`${table.countedQuantity} IS NULL OR ${table.countedQuantity} >= 0`
+    ),
+    check('inventory_count_lines_cost_nonnegative', sql`${table.unitCostSnapshot} >= 0`),
+  ]
+);
+
+export const inventoryCountSessionsRelations = relations(
+  inventoryCountSessions,
+  ({ one, many }) => ({
+    tenant: one(tenants, {
+      fields: [inventoryCountSessions.tenantId],
+      references: [tenants.id],
+    }),
+    site: one(sites, {
+      fields: [inventoryCountSessions.siteId],
+      references: [sites.id],
+    }),
+    createdByUser: one(users, {
+      fields: [inventoryCountSessions.createdBy],
+      references: [users.id],
+    }),
+    lines: many(inventoryCountLines),
+  })
+);
+
+export const inventoryCountLinesRelations = relations(inventoryCountLines, ({ one }) => ({
+  session: one(inventoryCountSessions, {
+    fields: [inventoryCountLines.sessionId],
+    references: [inventoryCountSessions.id],
+  }),
+  tenant: one(tenants, {
+    fields: [inventoryCountLines.tenantId],
+    references: [tenants.id],
+  }),
+  product: one(products, {
+    fields: [inventoryCountLines.productId],
+    references: [products.id],
+  }),
+  unit: one(units, {
+    fields: [inventoryCountLines.unitId],
+    references: [units.id],
+  }),
+}));
+
+/**
+ * Exact custody frozen when a count starts. sourceId is deliberately a historical
+ * identity reference rather than a polymorphic FK: approval resolves and checks
+ * the complete tenant/site/product scope against the live source table. Counted
+ * serial quantities are 0/1; lot quantities are in base units. Book snapshots
+ * must never be sent by a blind read or accepted back from a renderer.
+ */
+export const inventoryCountIdentities = sqliteTable(
+  'inventory_count_identities',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    lineId: text('line_id')
+      .notNull()
+      .references(() => inventoryCountLines.id, { onDelete: 'cascade' }),
+    kind: text('kind', { enum: ['lots', 'serials'] }).notNull(),
+    sourceId: text('source_id').notNull(),
+    code: text('code').notNull(),
+    expectedQuantity: real('expected_quantity').notNull(),
+    expectedStatus: text('expected_status').notNull(),
+    expectedCustodyVersion: integer('expected_custody_version').notNull(),
+    /** Nullable only for legacy counts; exact identity value observed when the count opens. */
+    expectedValueCents: integer('expected_value_cents'),
+    /** Frozen approval evidence, distinct from an older count's unknown opening value. */
+    appliedValueBeforeCents: integer('applied_value_before_cents'),
+    appliedValueDeltaCents: integer('applied_value_delta_cents'),
+    expiresAt: text('expires_at'),
+    unitCost: real('unit_cost').notNull(),
+    /** An existing missing serial carries the exact stock policy to restore. */
+    stockStatusBeforeMissing: text('stock_status_before_missing'),
+    countedQuantity: real('counted_quantity'),
+    syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
+    syncVersion: integer('sync_version').default(1),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    ...inventoryValueChecks('inventory_count_identities', {
+      cents: [
+        table.expectedValueCents,
+        table.appliedValueBeforeCents,
+        table.appliedValueDeltaCents,
+      ],
+      nonnegative: [table.expectedValueCents, table.appliedValueBeforeCents],
+      together: [[table.appliedValueBeforeCents, table.appliedValueDeltaCents]],
+    }),
+    uniqueIndex('idx_inventory_count_identities_source').on(
+      table.tenantId,
+      table.lineId,
+      table.sourceId
+    ),
+    uniqueIndex('idx_inventory_count_identities_code').on(table.tenantId, table.lineId, table.code),
+    check('inventory_count_identities_kind', sql`${table.kind} IN ('lots', 'serials')`),
+    check(
+      'inventory_count_identities_quantity',
+      sql`${table.expectedQuantity} >= 0 AND (${table.countedQuantity} IS NULL OR ${table.countedQuantity} >= 0)`
+    ),
+    check(
+      'inventory_count_identities_serial_unit',
+      sql`${table.kind} != 'serials' OR (${table.expectedQuantity} IN (0, 1) AND (${table.countedQuantity} IS NULL OR ${table.countedQuantity} IN (0, 1)))`
+    ),
+  ]
+);

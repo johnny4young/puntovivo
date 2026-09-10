@@ -349,11 +349,19 @@ const receiptRenderLabelsInput = z.object({
     reference: z.string().trim().min(1).max(50),
     amount: z.string().trim().min(1).max(50),
     change: z.string().trim().min(1).max(50),
+    // Defaulted rather than required: a tenant's stored label set predates
+    // this key, and making it mandatory would fail validation on every
+    // template saved before loyalty tenders printed their point count.
+    points: z.string().trim().min(1).max(50).default('pts'),
     methods: z.object({
       cash: z.string().trim().min(1).max(50),
       card: z.string().trim().min(1).max(50),
       transfer: z.string().trim().min(1).max(50),
       credit: z.string().trim().min(1).max(50),
+      // Both tenders were added after customized label sets already existed.
+      // Fill only absent keys; never replace the tenant's supplied wording.
+      loyalty: z.string().trim().min(1).max(50).default('Loyalty points'),
+      storeCredit: z.string().trim().min(1).max(50).default('Store credit'),
       other: z.string().trim().min(1).max(50),
     }),
   }),

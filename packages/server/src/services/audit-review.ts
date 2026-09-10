@@ -26,6 +26,7 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
     'data_import.customers',
   ],
   access: [
+    'installation.owner_created',
     'user.create',
     'user.update',
     'user.pin.update',
@@ -44,6 +45,8 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
     'operational_alert.delivery.retry',
   ],
   money: [
+    // Compensation lifecycle changes affect operational labor cost; private terms stay outside this projection.
+    'employment_contract.changed',
     'pricing.tax_mode.updated',
     'sale.void',
     'sale.return',
@@ -57,6 +60,15 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
     'loss_prevention.settings.updated',
     'loss_prevention.triggered',
     'purchase.void',
+    'provider_payable.invoice.create',
+    'provider_payable.opening.create',
+    'provider_payable.payment.create',
+    'provider_payable.credit.create',
+    // Purchase-order creation and void move no stock, but their supplier,
+    // site, totals and status are money-adjacent procurement decisions that
+    // must stay reconstructable beside the later receipt evidence.
+    'order.create',
+    'order.void',
     'payment.retry',
     'payment.mark_settled',
     'customer.credit_limit.update',
@@ -74,7 +86,15 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
   ],
   inventory: [
     'inventory.adjust_stock',
+    'inventory.revalue',
+    'inventory.count.create',
+    'inventory.count.save',
+    'inventory.count.submit',
+    'inventory.count.approve',
+    'inventory.count.reject',
     'purchase.receive',
+    // The reverse of purchase.receive moves the same stock back out.
+    'purchase.return',
     'transfer.create',
     'transfer.receive',
     'transfer.void',

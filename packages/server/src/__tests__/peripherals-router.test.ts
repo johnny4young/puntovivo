@@ -430,6 +430,49 @@ describe('peripherals.activeForSite', () => {
     expect(row).not.toHaveProperty('createdAt');
   });
 
+  it('keeps custom GS1 maps isolated to the configured site', async () => {
+    const db = getDatabase();
+    const mainSite = await db.select().from(sites).where(eq(sites.id, siteId)).get();
+    if (!mainSite) throw new Error('Expected seeded site');
+    const otherSiteId = nanoid();
+    await db.insert(sites).values({
+      ...mainSite,
+      id: otherSiteId,
+      name: `GS1 site ${otherSiteId}`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    try {
+      const adminCaller = appRouter.createCaller(buildContext('admin'));
+      await adminCaller.peripherals.register({
+        siteId,
+        kind: 'scanner',
+        driver: 'wedge',
+        config: { gs1Prefixes: { weight: ['20'], price: ['21'] } },
+      });
+      await adminCaller.peripherals.register({
+        siteId: otherSiteId,
+        kind: 'scanner',
+        driver: 'wedge',
+        config: { gs1Prefixes: { weight: ['21'], price: ['20'] } },
+      });
+
+      const cashierCaller = appRouter.createCaller(buildContext('cashier'));
+      const main = await cashierCaller.peripherals.activeForSite({ siteId });
+      const other = await cashierCaller.peripherals.activeForSite({ siteId: otherSiteId });
+      expect(main[0]?.config).toMatchObject({
+        gs1Prefixes: { weight: ['20'], price: ['21'] },
+      });
+      expect(other[0]?.config).toMatchObject({
+        gs1Prefixes: { weight: ['21'], price: ['20'] },
+      });
+    } finally {
+      await db.delete(sitePeripherals).where(eq(sitePeripherals.siteId, otherSiteId));
+      await db.delete(sites).where(eq(sites.id, otherSiteId));
+    }
+  });
+
   it('excludes inactive rows', async () => {
     const adminCaller = appRouter.createCaller(buildContext('admin'));
     const registered = await adminCaller.peripherals.register({

@@ -104,6 +104,14 @@ async function navigateInApp(page: Page, route: '/products' | '/purchases' | '/s
     window.dispatchEvent(new PopStateEvent('popstate'));
   }, route);
   await expect(page).toHaveURL(new RegExp(`${route}$`));
+  // History changes before the lazy React route commits. Purchases and products
+  // both expose Add Product, so URL-only readiness can click the previous page.
+  if (route === '/sales') {
+    await expect(page.getByTestId('sales-operation-strip')).toBeVisible();
+  } else {
+    const name = route === '/products' ? /^(products|productos)$/i : /^(purchases|compras)$/i;
+    await expect(page.getByRole('main').getByRole('heading', { level: 1, name })).toBeVisible();
+  }
 }
 
 async function installBlobUrlAudit(page: Page) {
@@ -194,7 +202,7 @@ async function exerciseInvoiceOcrPreviewLifecycle(page: Page) {
 
 async function exerciseShiftCycle(page: Page) {
   await navigateInApp(page, '/products');
-  const addProduct = page.getByRole('button', { name: /add product|agregar producto/i });
+  const addProduct = page.getByRole('button', { name: /^(add product|agregar producto)$/i });
   await expect(addProduct).toBeVisible();
   await addProduct.click();
   const createDialog = page.getByRole('dialog', {

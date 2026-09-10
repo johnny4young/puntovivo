@@ -1,3 +1,4 @@
+import { inventoryValueChecks } from './value-checks.js';
 /**
  * Drizzle schema — salesAux domain.
  *
@@ -29,7 +30,7 @@ import {
   taxKindEnum,
 } from './base.js';
 import { sites, tenants, users } from './auth.js';
-import { units } from './catalogs.js';
+import { units, vatRates } from './catalogs.js';
 import { products } from './products.js';
 import { purchaseItems } from './purchasing.js';
 import { sales } from './sales.js';
@@ -81,6 +82,9 @@ export const saleItems = sqliteTable(
     // back to the live unit, then to the EA default).
     unitStandardCode: text('unit_standard_code'),
     discount: real('discount').notNull().default(0),
+    /** Operator-entered line discount before owner-authored promotions.
+     * Historical rows are null and interpret `discount` as the manual rate. */
+    manualDiscountRate: real('manual_discount_rate'),
     taxRate: real('tax_rate').notNull().default(0),
     // sale-time snapshot of which tax the line levied ('iva' or
     // 'inc'). Freezing it here keeps receipts, reports, and the fiscal
@@ -89,6 +93,9 @@ export const saleItems = sqliteTable(
     taxKind: text('tax_kind', { enum: taxKindEnum }).notNull().default('iva'),
     taxAmount: real('tax_amount').notNull().default(0),
     costAtSale: real('cost_at_sale').notNull().default(0),
+    /** Frozen exact debits; null retains legacy unit-cost interpretation. */
+    inventoryCostCents: integer('inventory_cost_cents'),
+    cogsCostCents: integer('cogs_cost_cents'),
     total: real('total').notNull().default(0),
     // line-level currency seam. By contract these three
     // columns mirror the parent `sales.currency_code` /
@@ -111,8 +118,19 @@ export const saleItems = sqliteTable(
     // of aggregated at the bottom of the ticket. Nullable so retail
     // tenants and pre- sales pass through unchanged.
     notes: text('notes'),
+    /**
+     * Per-unit sum of structured restaurant modifier deltas already included
+     * in `unit_price`. Zero for ordinary retail and historical rows. Keeping
+     * the delta separate lets draft completion distinguish a legitimate extra
+     * from an unauthorised hand-edited catalog price.
+     */
+    restaurantModifierAmount: real('restaurant_modifier_amount').notNull().default(0),
   },
   table => [
+    ...inventoryValueChecks('sale_items', {
+      cents: [table.inventoryCostCents, table.cogsCostCents],
+      together: [[table.inventoryCostCents, table.cogsCostCents]],
+    }),
     index('idx_sale_items_sale').on(table.saleId),
     index('idx_sale_items_product').on(table.productId),
     // line totals, prices, tax, and snapshot cost are always
@@ -126,6 +144,7 @@ export const saleItems = sqliteTable(
     ...moneyPositiveChecks('sale_items_tax', table.taxAmount),
     ...moneyPositiveChecks('sale_items_cost', table.costAtSale),
     ...moneyPositiveChecks('sale_items_total', table.total),
+    ...moneyPositiveChecks('sale_items_restaurant_modifier', table.restaurantModifierAmount),
     moneyTwoDecimalCheck('sale_items_discount', table.discount),
     // exchange rate must be strictly positive (mirror sales).
     check('chk_sale_items_exchange_rate_positive', sql`${table.exchangeRateAtSale} > 0`),
@@ -175,9 +194,15 @@ export const saleItemLots = sqliteTable(
     quantity: real('quantity').notNull(),
     /** The lot's unit cost at consumption — the COGS layer snapshot. */
     unitCost: real('unit_cost').notNull().default(0),
+    /** Exact value debited from the lot, including its allocated residual. */
+    totalCostCents: integer('total_cost_cents'),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
+    ...inventoryValueChecks('sale_item_lots', {
+      cents: [table.totalCostCents],
+      nonnegative: [table.totalCostCents],
+    }),
     index('idx_sale_item_lots_tenant').on(table.tenantId),
     index('idx_sale_item_lots_sale_item').on(table.saleItemId),
     index('idx_sale_item_lots_lot').on(table.lotId),
@@ -231,6 +256,12 @@ export const productSerials = sqliteTable(
     }),
     serialNumber: text('serial_number').notNull(),
     status: text('status', { enum: productSerialStatusEnum }).notNull().default('in_stock'),
+    /** Trigger-owned physical revision. Sync acknowledgements must never advance it. */
+    custodyVersion: integer('custody_version').notNull().default(0),
+    /** Preserve the exact stock policy while an approved physical count marks a unit missing. */
+    stockStatusBeforeMissing: text('stock_status_before_missing', {
+      enum: ['in_stock', 'returned'],
+    }),
     saleItemId: text('sale_item_id').references(() => saleItems.id, { onDelete: 'set null' }),
     unitCost: real('unit_cost').notNull().default(0),
     warrantyExpiresAt: text('warranty_expires_at'),
@@ -361,9 +392,15 @@ export const saleItemSerials = sqliteTable(
       .notNull()
       .references(() => productSerials.id, { onDelete: 'restrict' }),
     serialNumber: text('serial_number').notNull(),
+    /** Frozen identity cost; NULL preserves unknown historical provenance. */
+    costCents: integer('cost_cents'),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
+    ...inventoryValueChecks('sale_item_serials', {
+      cents: [table.costCents],
+      nonnegative: [table.costCents],
+    }),
     index('idx_sale_item_serials_tenant').on(table.tenantId),
     index('idx_sale_item_serials_sale_item').on(table.saleItemId),
     index('idx_sale_item_serials_product_serial').on(table.productSerialId),
@@ -418,6 +455,10 @@ export const salePayments = sqliteTable(
      * receipt number). Not a FK — it's purely descriptive audit context.
      */
     reference: text('reference'),
+    /** Exact whole points debited by a loyalty tender. Null for every other
+     * method and for historical payments. The money amount remains in
+     * `amount`, freezing the configured point value used at checkout. */
+    loyaltyPoints: integer('loyalty_points'),
     syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
     syncVersion: integer('sync_version').default(0),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
@@ -430,6 +471,10 @@ export const salePayments = sqliteTable(
     // signed (reverse-payment + split-refund flows). Only precision
     // enforced; application rounds via roundMoney() before writing.
     moneyTwoDecimalCheck('sale_payments_amount', table.amount),
+    check(
+      'chk_sale_payments_loyalty_points',
+      sql`(${table.method} = 'loyalty' AND ${table.loyaltyPoints} IS NOT NULL AND ${table.loyaltyPoints} > 0) OR (${table.method} <> 'loyalty' AND ${table.loyaltyPoints} IS NULL)`
+    ),
   ]
 );
 
@@ -569,22 +614,19 @@ export type PaymentOutboxRow = typeof paymentOutbox.$inferSelect;
 export type NewPaymentOutboxRow = typeof paymentOutbox.$inferInsert;
 
 // ============================================================================
-// RESTAURANT TABLES ()
+// RESTAURANT TABLES
 // ============================================================================
 
 /**
- * restaurant table catalog.
+ * Restaurant table catalog.
  *
  * Persistent per-site list of physical tables a waiter can pick when
- * opening an order on the voice-ordering / mobile-waiter surfaces.
- * v1 keeps `sales.suspendedLabel` as the persistence column (no
- * `sales.tableId` FK yet) — the dropdown just resolves the picked
- * row's `name` into the existing text label.  will introduce
- * the FK + open/seat/transfer/split state machine on top.
+ * opening an order on voice-ordering, mobile-waiter and traditional POS
+ * surfaces. `sales.tableId` is the fiscal aggregate link, while the normalized
+ * restaurant schema owns visits, checks, diners, rounds and line metadata.
  *
- * The partial-unique index lives in `0023_restaurant_tables.sql` as a
- * hand-appended statement; Drizzle's SQLite dialect cannot emit the
- * `WHERE is_active = 1` clause natively.
+ * Active table names are unique per tenant/site through a partial index so an
+ * archived name can be reused without mutating historical sale snapshots.
  */
 export const restaurantTables = sqliteTable(
   'restaurant_tables',
@@ -652,7 +694,22 @@ export const saleReturns = sqliteTable(
     saleId: text('sale_id')
       .notNull()
       .references(() => sales.id, { onDelete: 'cascade' }),
+    destination: text('destination', { enum: ['original', 'store_credit'] as const })
+      .notNull()
+      .default('original'),
+    subtotal: real('subtotal').notNull().default(0),
+    /** Frozen restaurant tip returned with this slice of the ticket. */
+    tipAmount: real('tip_amount').notNull().default(0),
+    /** Frozen restaurant service charge returned with this slice. */
+    serviceChargeAmount: real('service_charge_amount').notNull().default(0),
+    /** Header-level discount allocated to this return (line discounts stay on items). */
+    discountAmount: real('discount_amount').notNull().default(0),
+    taxAmount: real('tax_amount').notNull().default(0),
     refundAmount: real('refund_amount').notNull().default(0),
+    currencyCode: text('currency_code')
+      .notNull()
+      .default('COP')
+      .references(() => currencyCatalog.code),
     reason: text('reason'),
     createdBy: text('created_by')
       .notNull()
@@ -666,8 +723,12 @@ export const saleReturns = sqliteTable(
     index('idx_sale_returns_tenant').on(table.tenantId),
     index('idx_sale_returns_sale').on(table.saleId),
     index('idx_sale_returns_created_by').on(table.createdBy),
-    uniqueIndex('idx_sale_returns_sale_unique').on(table.saleId),
     // refund amount stores the absolute value being returned.
+    ...moneyPositiveChecks('sale_returns_subtotal', table.subtotal),
+    ...moneyPositiveChecks('sale_returns_tip', table.tipAmount),
+    ...moneyPositiveChecks('sale_returns_service_charge', table.serviceChargeAmount),
+    ...moneyPositiveChecks('sale_returns_discount', table.discountAmount),
+    ...moneyPositiveChecks('sale_returns_tax', table.taxAmount),
     ...moneyPositiveChecks('sale_returns_refund', table.refundAmount),
   ]
 );
@@ -686,3 +747,243 @@ export const saleReturnsRelations = relations(saleReturns, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+// ============================================================================
+// NORMALIZED PARTIAL RETURN SNAPSHOTS
+// ============================================================================
+
+/**
+ * Frozen per-line return evidence. Monetary fields are deltas against the
+ * original immutable sale line, not recomputations from the live catalog.
+ */
+export const saleReturnItems = sqliteTable(
+  'sale_return_items',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    saleReturnId: text('sale_return_id')
+      .notNull()
+      .references(() => saleReturns.id, { onDelete: 'cascade' }),
+    saleItemId: text('sale_item_id')
+      .notNull()
+      .references(() => saleItems.id, { onDelete: 'restrict' }),
+    productId: text('product_id')
+      .notNull()
+      .references(() => products.id, { onDelete: 'restrict' }),
+    // Nullable on purpose: a return migrated from the pre-normalization era
+    // may have no sale-time snapshot, and inventing one from the current
+    // catalog would fabricate historical evidence. Unknown stays unknown.
+    //
+    // 0090 briefly tightened both to NOT NULL. That is unshippable: 0052
+    // deliberately writes them NULL when the sale never recorded them, so the
+    // tightening crashes the first upgrade that meets a legacy return, and it
+    // also made the FISCAL_RETURN_SNAPSHOT_UNKNOWN guard in
+    // services/fiscal/orchestrator/snapshots.ts unreachable. The twin columns
+    // on sale_items were left nullable by the same migration, which is what
+    // gave the tightening away as accidental.
+    productNameSnapshot: text('product_name_snapshot'),
+    productSkuSnapshot: text('product_sku_snapshot'),
+    quantity: real('quantity').notNull(),
+    baseQuantity: real('base_quantity').notNull(),
+    unitPrice: real('unit_price').notNull(),
+    unitEquivalence: real('unit_equivalence').notNull(),
+    unitStandardCode: text('unit_standard_code'),
+    discountRate: real('discount_rate').notNull().default(0),
+    taxKind: text('tax_kind', { enum: taxKindEnum }).notNull().default('iva'),
+    taxRate: real('tax_rate').notNull().default(0),
+    subtotal: real('subtotal').notNull().default(0),
+    discountAmount: real('discount_amount').notNull().default(0),
+    taxAmount: real('tax_amount').notNull().default(0),
+    total: real('total').notNull().default(0),
+    costAmount: real('cost_amount').notNull().default(0),
+    /** Inventory basis is distinct from costAmount (commercial COGS). */
+    inventoryCostCents: integer('inventory_cost_cents'),
+    currencyCode: text('currency_code')
+      .notNull()
+      .default('COP')
+      .references(() => currencyCatalog.code),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    ...inventoryValueChecks('sale_return_items', { cents: [table.inventoryCostCents] }),
+    index('idx_sale_return_items_tenant_return').on(table.tenantId, table.saleReturnId),
+    index('idx_sale_return_items_sale_item').on(table.saleItemId),
+    uniqueIndex('idx_sale_return_items_return_line').on(table.saleReturnId, table.saleItemId),
+    check('chk_sale_return_items_quantity_positive', sql`${table.quantity} > 0`),
+    check('chk_sale_return_items_base_quantity_positive', sql`${table.baseQuantity} > 0`),
+    check('chk_sale_return_items_equivalence_positive', sql`${table.unitEquivalence} > 0`),
+    ...moneyPositiveChecks('sale_return_items_price', table.unitPrice),
+    ...moneyPositiveChecks('sale_return_items_subtotal', table.subtotal),
+    ...moneyPositiveChecks('sale_return_items_discount', table.discountAmount),
+    ...moneyPositiveChecks('sale_return_items_tax', table.taxAmount),
+    ...moneyPositiveChecks('sale_return_items_total', table.total),
+    ...moneyPositiveChecks('sale_return_items_cost', table.costAmount),
+  ]
+);
+
+export const saleReturnItemTaxComponents = sqliteTable(
+  'sale_return_item_tax_components',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    saleReturnItemId: text('sale_return_item_id')
+      .notNull()
+      .references(() => saleReturnItems.id, { onDelete: 'cascade' }),
+    componentKey: text('component_key').notNull(),
+    vatRateId: text('vat_rate_id').references(() => vatRates.id, { onDelete: 'restrict' }),
+    taxKind: text('tax_kind', { enum: taxKindEnum }).notNull(),
+    taxRate: real('tax_rate').notNull(),
+    taxableAmount: real('taxable_amount').notNull().default(0),
+    taxAmount: real('tax_amount').notNull().default(0),
+    position: integer('position').notNull(),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_sale_return_tax_tenant_line').on(table.tenantId, table.saleReturnItemId),
+    uniqueIndex('idx_sale_return_tax_key').on(table.saleReturnItemId, table.componentKey),
+    uniqueIndex('idx_sale_return_tax_position').on(table.saleReturnItemId, table.position),
+    check('chk_sale_return_tax_position', sql`${table.position} between 0 and 3`),
+    check('chk_sale_return_tax_rate', sql`${table.taxRate} >= 0 and ${table.taxRate} <= 100`),
+    ...moneyPositiveChecks('sale_return_tax_base', table.taxableAmount),
+    ...moneyPositiveChecks('sale_return_tax_amount', table.taxAmount),
+  ]
+);
+
+/** Immutable bridge from a returned quantity to the exact consumed lot. */
+export const saleReturnItemLots = sqliteTable(
+  'sale_return_item_lots',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    saleReturnItemId: text('sale_return_item_id')
+      .notNull()
+      .references(() => saleReturnItems.id, { onDelete: 'cascade' }),
+    saleItemLotId: text('sale_item_lot_id')
+      .notNull()
+      .references(() => saleItemLots.id, { onDelete: 'restrict' }),
+    lotId: text('lot_id')
+      .notNull()
+      .references(() => inventoryLots.id, { onDelete: 'restrict' }),
+    quantity: real('quantity').notNull(),
+    unitCost: real('unit_cost').notNull().default(0),
+    totalCostCents: integer('total_cost_cents'),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    ...inventoryValueChecks('sale_return_item_lots', {
+      cents: [table.totalCostCents],
+      nonnegative: [table.totalCostCents],
+    }),
+    index('idx_sale_return_lots_tenant_line').on(table.tenantId, table.saleReturnItemId),
+    index('idx_sale_return_lots_original').on(table.saleItemLotId),
+    uniqueIndex('idx_sale_return_lots_line_original').on(
+      table.saleReturnItemId,
+      table.saleItemLotId
+    ),
+    check('chk_sale_return_lots_quantity_positive', sql`${table.quantity} > 0`),
+    ...moneyPositiveChecks('sale_return_lots_cost', table.unitCost),
+  ]
+);
+
+/** Immutable bridge from a return line to the exact serialized unit. */
+export const saleReturnItemSerials = sqliteTable(
+  'sale_return_item_serials',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    saleReturnItemId: text('sale_return_item_id')
+      .notNull()
+      .references(() => saleReturnItems.id, { onDelete: 'cascade' }),
+    saleItemSerialId: text('sale_item_serial_id')
+      .notNull()
+      .references(() => saleItemSerials.id, { onDelete: 'restrict' }),
+    productSerialId: text('product_serial_id')
+      .notNull()
+      .references(() => productSerials.id, { onDelete: 'restrict' }),
+    serialNumber: text('serial_number').notNull(),
+    /** Frozen identity cost; NULL preserves unknown historical provenance. */
+    costCents: integer('cost_cents'),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    ...inventoryValueChecks('sale_return_item_serials', {
+      cents: [table.costCents],
+      nonnegative: [table.costCents],
+    }),
+    index('idx_sale_return_serials_tenant_line').on(table.tenantId, table.saleReturnItemId),
+    index('idx_sale_return_serials_original').on(table.saleItemSerialId),
+    uniqueIndex('idx_sale_return_serials_once').on(table.saleItemSerialId),
+  ]
+);
+
+export const saleReturnPaymentAllocations = sqliteTable(
+  'sale_return_payment_allocations',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    saleReturnId: text('sale_return_id')
+      .notNull()
+      .references(() => saleReturns.id, { onDelete: 'cascade' }),
+    salePaymentId: text('sale_payment_id').references(() => salePayments.id, {
+      onDelete: 'restrict',
+    }),
+    originalMethod: text('original_method', { enum: paymentMethodEnum }).notNull(),
+    destination: text('destination', {
+      enum: ['cash', 'receivable', 'external', 'loyalty', 'store_credit'] as const,
+    }).notNull(),
+    amount: real('amount').notNull(),
+    /** Whole points restored for a loyalty allocation. Null otherwise. */
+    loyaltyPoints: integer('loyalty_points'),
+    externalReference: text('external_reference'),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_sale_return_allocations_tenant_return').on(table.tenantId, table.saleReturnId),
+    index('idx_sale_return_allocations_payment').on(table.salePaymentId),
+    uniqueIndex('idx_sale_return_allocations_return_payment').on(
+      table.saleReturnId,
+      table.salePaymentId
+    ),
+    ...moneyPositiveChecks('sale_return_allocations_amount', table.amount),
+    check(
+      'chk_sale_return_allocations_loyalty_points',
+      sql`(${table.destination} = 'loyalty' AND ${table.loyaltyPoints} IS NOT NULL AND ${table.loyaltyPoints} >= 0) OR (${table.destination} <> 'loyalty' AND ${table.loyaltyPoints} IS NULL)`
+    ),
+  ]
+);
+
+/** Auditable relationship between a return and the independent replacement sale. */
+export const saleExchanges = sqliteTable(
+  'sale_exchanges',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    saleReturnId: text('sale_return_id')
+      .notNull()
+      .references(() => saleReturns.id, { onDelete: 'restrict' }),
+    replacementSaleId: text('replacement_sale_id')
+      .notNull()
+      .references(() => sales.id, { onDelete: 'restrict' }),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => users.id),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_sale_exchanges_tenant').on(table.tenantId),
+    uniqueIndex('idx_sale_exchanges_return').on(table.saleReturnId),
+    uniqueIndex('idx_sale_exchanges_replacement').on(table.replacementSaleId),
+  ]
+);

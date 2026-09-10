@@ -141,11 +141,13 @@ export function LossPreventionAlertCenter({
   const toast = useToast();
   const utils = trpc.useUtils();
   const [open, setOpen] = useState(false);
+  // Like the approval menu, header alerts must not keep an old operator's
+  // request alive after logout unmounts the authenticated shell.
   const alertsQuery = trpc.lossPrevention.listAlerts.useQuery(
     { siteId, limit: 20 },
     variant === 'popover'
-      ? { refetchInterval: 5_000 }
-      : { refetchInterval: false, refetchOnMount: false }
+      ? { refetchInterval: 5_000, trpc: { abortOnUnmount: true } }
+      : { refetchInterval: false, refetchOnMount: false, trpc: { abortOnUnmount: true } }
   );
   const acknowledgeMutation = useCriticalMutation('lossPrevention.acknowledgeAlert', {
     onSuccess: async () => {

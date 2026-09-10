@@ -68,12 +68,19 @@ describe('sensitive audit review', () => {
     expect(getAuditReviewActions('money')).toContain('data_import.opening_cash');
     expect(getAuditReviewActions('money')).toContain('data_import.fiscal_profile');
     expect(getAuditReviewActions('money')).toContain('day_close.sign_off');
+    expect(getAuditReviewActions('money')).toContain('employment_contract.changed');
     expect(getAuditReviewActions('access')).toContain('webhook_subscription.create');
     expect(getAuditReviewActions('access')).toContain('webhook_subscription.disable');
     expect(getAuditReviewActions('access')).toContain('webhook_subscription.revoke');
     expect(getAuditReviewActions('access')).toContain('webhook_delivery.retry');
     expect(getAuditReviewActions('ai')).toContain('ai.copilot.response_mode.updated');
     expect(getAuditReviewActions('inventory')).not.toContain('data_import.customers');
+    // Procurement evidence must be reachable from a sensitive-category
+    // review; an action missing here is silently omitted from
+    // auditLogs.list({ sensitiveCategory }) rather than rejected.
+    expect(getAuditReviewActions('inventory')).toContain('purchase.return');
+    expect(getAuditReviewActions('money')).toContain('order.create');
+    expect(getAuditReviewActions('money')).toContain('order.void');
   });
 
   beforeAll(async () => {

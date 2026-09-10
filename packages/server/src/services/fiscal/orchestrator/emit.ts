@@ -31,8 +31,13 @@ import { resolveTenantLocale } from '../../tenant-locale.js';
 import type { FiscalAdapterIssueInput, FiscalAdapterLine } from '../adapter.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
 import type { EmitFiscalDocumentArgs, EmitFiscalDocumentResult } from './types.js';
-import { splitIssueTimestamp, isCountryFiscalEnabled, isDianEnabled } from './helpers.js';
-import { resolveBuyer, resolveLines } from './snapshots.js';
+import {
+  checkResolutionUsable,
+  isCountryFiscalEnabled,
+  isDianEnabled,
+  splitIssueTimestamp,
+} from './helpers.js';
+import { resolveBuyer, resolveFiscalDocumentSnapshot } from './snapshots.js';
 
 /**
  * Emit a fiscal document for a sale-lifecycle event (legacy synchronous
@@ -152,7 +157,20 @@ export async function emitFiscalDocument(
 
   const locale = await resolveTenantLocale(tx, tenantId);
   const buyer = await resolveBuyer(tx, tenantId, sale.customerId);
-  const lines = await resolveLines(tx, tenantId, saleId);
+  const documentSnapshot = await resolveFiscalDocumentSnapshot(tx, {
+    tenantId,
+    source,
+    sourceId,
+    saleId,
+    sale: {
+      subtotal: sale.subtotal,
+      taxAmount: sale.taxAmount,
+      discountAmount: sale.discountAmount,
+      total: sale.total,
+    },
+  });
+  const { lines } = documentSnapshot;
+  const documentAmounts = documentSnapshot.amounts;
   if (lines.length === 0) return null;
 
   // : surface tenant settings + emisor legal name to the
@@ -181,7 +199,7 @@ export async function emitFiscalDocument(
   // Fail before calling the provider, then repeat inside the persistence
   // transaction below so both the external side effect and stored document
   // are protected by the same frozen-line invariant.
-  assertFiscalTaxHeaderParity(sale.taxAmount, headerTaxTotals);
+  assertFiscalTaxHeaderParity(documentAmounts.taxAmount, headerTaxTotals);
 
   const consecutive = resolution.currentNumber + 1;
   const documentNumber = `${resolution.prefix}${consecutive.toString().padStart(10, '0')}`;
@@ -219,139 +237,166 @@ export async function emitFiscalDocument(
       department: buyer.department,
       country: buyer.country,
     },
-    subtotal: sale.subtotal,
+    subtotal: documentAmounts.subtotal,
     // bucketed from the frozen lines so an INC sale hashes its
     // consumption tax into the CUFE's '04' slot instead of the IVA one.
     ivaAmount: headerTaxTotals.ivaAmount,
     incAmount: headerTaxTotals.incAmount,
     icaAmount: 0,
-    discountAmount: sale.discountAmount,
-    totalAmount: sale.total,
+    discountAmount: documentAmounts.discountAmount,
+    totalAmount: documentAmounts.total,
     lines: adapterLines,
     originalCufe: args.originalCufe,
     reasonCode: args.reasonCode,
   };
+
+  // Same policy as the intent and enqueue paths, from the same helper: refuse
+  // before calling the provider, so an unusable resolution never burns a
+  // submission.
+  const resolutionUsability = checkResolutionUsable(resolution, new Date().toISOString());
+  if (!resolutionUsability.ok) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'FISCAL_NUMBERING_RESOLUTION_UNUSABLE',
+      message: 'The fiscal numbering resolution cannot issue another consecutive',
+      details: { reason: resolutionUsability.reason, ...resolutionUsability.details },
+    });
+  }
 
   const issued = await adapter.issue(adapterInput);
 
   const fiscalDocumentId = nanoid();
   const now = new Date().toISOString();
 
-  return tx.transaction(writeTx => {
-    const duplicate = writeTx
-      .select({
-        id: fiscalDocuments.id,
-        cufe: fiscalDocuments.cufe,
-        documentNumber: fiscalDocuments.documentNumber,
-        status: fiscalDocuments.status,
-      })
-      .from(fiscalDocuments)
-      .where(
-        and(
-          eq(fiscalDocuments.tenantId, tenantId),
-          eq(fiscalDocuments.source, source),
-          eq(fiscalDocuments.sourceId, sourceId),
-          eq(fiscalDocuments.kind, kind)
+  return tx.transaction(
+    writeTx => {
+      const duplicate = writeTx
+        .select({
+          id: fiscalDocuments.id,
+          cufe: fiscalDocuments.cufe,
+          documentNumber: fiscalDocuments.documentNumber,
+          status: fiscalDocuments.status,
+        })
+        .from(fiscalDocuments)
+        .where(
+          and(
+            eq(fiscalDocuments.tenantId, tenantId),
+            eq(fiscalDocuments.source, source),
+            eq(fiscalDocuments.sourceId, sourceId),
+            eq(fiscalDocuments.kind, kind)
+          )
         )
-      )
-      .get();
-    if (duplicate) {
-      return duplicate;
-    }
-
-    assertFiscalTaxHeaderParity(sale.taxAmount, headerTaxTotals);
-
-    writeTx
-      .insert(fiscalDocuments)
-      .values({
-        id: fiscalDocumentId,
-        tenantId,
-        source,
-        sourceId,
-        kind,
-        resolutionId: resolution.id,
-        consecutive,
-        documentNumber,
-        cufe: issued.cufe,
-        status: issued.status,
-        customerId: buyer.customerId,
-        buyerTaxId: buyer.taxId,
-        buyerTaxIdTypeCode: buyer.taxIdTypeCode,
-        buyerName: buyer.name,
-        buyerEmail: buyer.email,
-        buyerAddress: buyer.address,
-        buyerCity: buyer.city,
-        buyerDepartment: buyer.department,
-        buyerCountry: buyer.country,
-        subtotal: sale.subtotal,
-        taxAmount: sale.taxAmount,
-        discountAmount: sale.discountAmount,
-        totalAmount: sale.total,
-        currencyCode: locale.currency,
-        localeCode: locale.locale,
-        originalCufe: args.originalCufe ?? null,
-        reasonCode: args.reasonCode ?? null,
-        providerId: issued.providerId,
-        providerResponse: issued.providerResponse,
-        xmlRef: issued.xmlRef,
-        retries: 0,
-        emittedByUserId: userId,
-        emittedAt: now,
-        updatedAt: now,
-      })
-      .run();
-
-    for (const line of lines) {
-      const fiscalDocumentItemId = nanoid();
-      writeTx
-        .insert(fiscalDocumentItems)
-        .values({ id: fiscalDocumentItemId, ...toDocumentItemValues(fiscalDocumentId, line) })
-        .run();
-      for (const component of getResolvedLineTaxComponents(line)) {
-        writeTx
-          .insert(fiscalDocumentItemTaxComponents)
-          .values({
-            id: nanoid(),
-            ...toDocumentTaxComponentValues(tenantId, fiscalDocumentItemId, component),
-            createdAt: now,
-          })
-          .run();
+        .get();
+      if (duplicate) {
+        return duplicate;
       }
-    }
 
-    const updateResult = writeTx
-      .update(fiscalNumberingResolutions)
-      .set({ currentNumber: consecutive, updatedAt: now })
-      .where(
-        and(
-          eq(fiscalNumberingResolutions.id, resolution.id),
-          eq(fiscalNumberingResolutions.tenantId, tenantId),
-          eq(fiscalNumberingResolutions.siteId, saleSite.siteId),
-          eq(fiscalNumberingResolutions.kind, kind)
-        )
-      )
-      .run();
+      assertFiscalTaxHeaderParity(documentAmounts.taxAmount, headerTaxTotals);
 
-    if (updateResult.changes !== 1) {
-      throwServerError({
-        trpcCode: 'CONFLICT',
-        errorCode: 'FISCAL_SEQUENTIAL_NOT_ADVANCED',
-        message: 'Fiscal numbering resolution was not advanced',
-        details: {
-          resolutionId: resolution.id,
+      writeTx
+        .insert(fiscalDocuments)
+        .values({
+          id: fiscalDocumentId,
           tenantId,
-          siteId: saleSite.siteId,
+          source,
+          sourceId,
           kind,
-          expectedConsecutive: consecutive,
-        },
-      });
-    }
+          resolutionId: resolution.id,
+          consecutive,
+          documentNumber,
+          cufe: issued.cufe,
+          status: issued.status,
+          customerId: buyer.customerId,
+          buyerTaxId: buyer.taxId,
+          buyerTaxIdTypeCode: buyer.taxIdTypeCode,
+          buyerName: buyer.name,
+          buyerEmail: buyer.email,
+          buyerAddress: buyer.address,
+          buyerCity: buyer.city,
+          buyerDepartment: buyer.department,
+          buyerCountry: buyer.country,
+          subtotal: documentAmounts.subtotal,
+          taxAmount: documentAmounts.taxAmount,
+          discountAmount: documentAmounts.discountAmount,
+          totalAmount: documentAmounts.total,
+          currencyCode: locale.currency,
+          localeCode: locale.locale,
+          originalCufe: args.originalCufe ?? null,
+          reasonCode: args.reasonCode ?? null,
+          providerId: issued.providerId,
+          providerResponse: issued.providerResponse,
+          xmlRef: issued.xmlRef,
+          retries: 0,
+          emittedByUserId: userId,
+          emittedAt: now,
+          updatedAt: now,
+        })
+        .run();
 
-    return {
-      id: fiscalDocumentId,
-      cufe: issued.cufe,
-      documentNumber,
-      status: issued.status,
-    };
-  });
+      for (const line of lines) {
+        const fiscalDocumentItemId = nanoid();
+        writeTx
+          .insert(fiscalDocumentItems)
+          .values({ id: fiscalDocumentItemId, ...toDocumentItemValues(fiscalDocumentId, line) })
+          .run();
+        for (const component of getResolvedLineTaxComponents(line)) {
+          writeTx
+            .insert(fiscalDocumentItemTaxComponents)
+            .values({
+              id: nanoid(),
+              ...toDocumentTaxComponentValues(tenantId, fiscalDocumentItemId, component),
+              createdAt: now,
+            })
+            .run();
+        }
+      }
+
+      const updateResult = writeTx
+        .update(fiscalNumberingResolutions)
+        .set({ currentNumber: consecutive, updatedAt: now })
+        .where(
+          and(
+            eq(fiscalNumberingResolutions.id, resolution.id),
+            eq(fiscalNumberingResolutions.tenantId, tenantId),
+            eq(fiscalNumberingResolutions.siteId, saleSite.siteId),
+            eq(fiscalNumberingResolutions.kind, kind),
+            // The compare-and-swap the docstring above already claimed. Without
+            // it every column in this predicate is immutable for the row, so
+            // `changes` is always 1 and the guard below could only fire if
+            // someone deleted the resolution mid-write.
+            eq(fiscalNumberingResolutions.currentNumber, resolution.currentNumber)
+          )
+        )
+        .run();
+
+      if (updateResult.changes !== 1) {
+        throwServerError({
+          trpcCode: 'CONFLICT',
+          errorCode: 'FISCAL_SEQUENTIAL_NOT_ADVANCED',
+          message: 'Fiscal numbering resolution was not advanced',
+          details: {
+            resolutionId: resolution.id,
+            tenantId,
+            siteId: saleSite.siteId,
+            kind,
+            expectedConsecutive: consecutive,
+          },
+        });
+      }
+
+      return {
+        id: fiscalDocumentId,
+        cufe: issued.cufe,
+        documentNumber,
+        status: issued.status,
+      };
+    },
+    // Reserve the single SQLite writer before the first fiscal mutation.
+    // This path reads the numbering resolution and then writes it, which is
+    // exactly the read-to-write upgrade a deferred transaction can lose --
+    // surfacing SQLITE_BUSY immediately, bypassing busy_timeout. Every other
+    // critical writer in the codebase reserves it up front; the fiscal ones
+    // did not.
+    { behavior: 'immediate' }
+  );
 }

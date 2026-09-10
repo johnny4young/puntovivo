@@ -88,7 +88,8 @@ vi.mock('@/components/form-controls/Modal', () => ({
   ConfirmModal: () => null,
 }));
 
-vi.mock('@/lib/trpc', () => ({
+vi.mock('@/lib/trpc', async () => ({
+  ...(await vi.importActual<typeof import('@/lib/trpc')>('@/lib/trpc')),
   trpc: {
     useUtils: () => ({
       products: {

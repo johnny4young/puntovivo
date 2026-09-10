@@ -1,39 +1,73 @@
 import { Plus, Save, ShoppingBag, Trash2 } from 'lucide-react';
+import { lazy, Suspense } from 'react';
 import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
 import { useTranslation } from 'react-i18next';
 
+import { roundMoney } from '@/lib/money';
 import { formatCurrency } from '@/lib/utils';
+import { getSaleMinimumQuantity, type SaleCartItem } from '@/features/sales/saleCart';
+import { getCartSummary } from '@/features/sales/saleCartTotals';
 import {
-  getCartSummary,
-  getSaleMinimumQuantity,
-  type SaleCartItem,
-} from '@/features/sales/saleCart';
+  DEFAULT_LINE_DETAILS,
+  getRestaurantModifierPriceDelta,
+  type RestaurantLineDraft,
+} from './restaurantDraft';
 
+// The empty ordering screen does not need the modifier editor. Load it only
+// when a product is added rather than charging every waiter landing for it.
+const RestaurantModifierEditor = lazy(() =>
+  import('./RestaurantModifierEditor').then(module => ({
+    default: module.RestaurantModifierEditor,
+  }))
+);
+
+const RESTAURANT_LINE_NOTE_MAX = 280;
+
+/** State and callbacks required to edit one local restaurant order draft. */
 interface VoiceOrderingCartProps {
+  siteId?: string | undefined;
+  canManageModifiers: boolean;
   cartItems: SaleCartItem[];
   itemNotes: Record<string, string>;
+  lineDetails: Record<string, RestaurantLineDraft>;
+  guestCount: number;
   tableLabel: string;
   saveDisabled: boolean;
+  interactionDisabled: boolean;
   onQuantityChange: (itemKey: string, delta: number) => void;
   onRemoveLine: (itemKey: string) => void;
   onNoteChange: (itemKey: string, value: string) => void;
+  onLineDetailsChange: (itemKey: string, value: RestaurantLineDraft) => void;
   onSave: () => void;
 }
 
 /** Presentational cart preview and save controls for voice ordering. */
 export function VoiceOrderingCart({
+  siteId,
+  canManageModifiers,
   cartItems,
   itemNotes,
+  lineDetails,
+  guestCount,
   tableLabel,
   saveDisabled,
+  interactionDisabled,
   onQuantityChange,
   onRemoveLine,
   onNoteChange,
+  onLineDetailsChange,
   onSave,
 }: VoiceOrderingCartProps): React.ReactElement {
   const priceIncludesTax = usePriceIncludesTax();
   const { t } = useTranslation('restaurants');
-  const cartSummary = getCartSummary(cartItems, priceIncludesTax);
+  const pricedCartItems = cartItems.map(item => {
+    const detail = lineDetails[item.key] ?? DEFAULT_LINE_DETAILS;
+    return {
+      ...item,
+      unitPrice: roundMoney(item.unitPrice + getRestaurantModifierPriceDelta(detail.modifiers)),
+    };
+  });
+  const cartSummary = getCartSummary(pricedCartItems, priceIncludesTax);
 
   return (
     <section className="space-y-3">
@@ -55,6 +89,10 @@ export function VoiceOrderingCart({
           <ul className="divide-y divide-line/40">
             {cartItems.map(item => {
               const note = itemNotes[item.key] ?? '';
+              const detail = lineDetails[item.key] ?? DEFAULT_LINE_DETAILS;
+              const effectiveUnitPrice = roundMoney(
+                item.unitPrice + getRestaurantModifierPriceDelta(detail.modifiers)
+              );
               return (
                 <li
                   key={item.key}
@@ -65,13 +103,14 @@ export function VoiceOrderingCart({
                     <div className="flex-1">
                       <p className="text-sm font-medium text-secondary-950">{item.productName}</p>
                       <p className="text-xs text-secondary-500">
-                        {item.unitName} · {formatCurrency(item.unitPrice)}
+                        {item.unitName} · {formatCurrency(effectiveUnitPrice)}
                       </p>
                     </div>
                     <button
                       type="button"
                       className="text-secondary-500 hover:text-danger-600"
                       onClick={() => onRemoveLine(item.key)}
+                      disabled={interactionDisabled}
                       data-testid="voice-ordering-remove-row"
                       aria-label={t('cart.removeRow')}
                     >
@@ -86,7 +125,9 @@ export function VoiceOrderingCart({
                         onClick={() => onQuantityChange(item.key, -1)}
                         aria-label={t('cart.quantityDecrement')}
                         data-testid="voice-ordering-qty-decrement"
-                        disabled={item.quantity <= getSaleMinimumQuantity(item)}
+                        disabled={
+                          interactionDisabled || item.quantity <= getSaleMinimumQuantity(item)
+                        }
                       >
                         −
                       </button>
@@ -100,6 +141,7 @@ export function VoiceOrderingCart({
                         type="button"
                         className="btn-outline btn-icon h-8 w-8"
                         onClick={() => onQuantityChange(item.key, +1)}
+                        disabled={interactionDisabled}
                         aria-label={t('cart.quantityIncrement')}
                         data-testid="voice-ordering-qty-increment"
                       >
@@ -107,18 +149,81 @@ export function VoiceOrderingCart({
                       </button>
                     </div>
                     <span className="text-sm font-medium text-secondary-950">
-                      {formatCurrency(item.quantity * item.unitPrice)}
+                      {formatCurrency(item.quantity * effectiveUnitPrice)}
                     </span>
                   </div>
                   <input
                     type="text"
                     className="input text-xs"
                     placeholder={t('cart.notesPlaceholder')}
+                    maxLength={RESTAURANT_LINE_NOTE_MAX}
                     value={note}
+                    disabled={interactionDisabled}
                     onChange={event => onNoteChange(item.key, event.target.value)}
                     data-testid="voice-ordering-note-input"
                     aria-label={t('cart.notesPlaceholder')}
                   />
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <label className="text-xs font-medium text-secondary-600">
+                      {t('cart.courseLabel')}
+                      <select
+                        className="input mt-1 w-full text-xs"
+                        value={detail.courseKey}
+                        disabled={interactionDisabled}
+                        onChange={event =>
+                          onLineDetailsChange(item.key, {
+                            ...detail,
+                            courseKey: event.target.value as RestaurantLineDraft['courseKey'],
+                          })
+                        }
+                        data-testid="voice-ordering-course-select"
+                      >
+                        {(['starter', 'main', 'dessert', 'drink', 'other'] as const).map(key => (
+                          <option key={key} value={key}>
+                            {t(`cart.courses.${key}`)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="text-xs font-medium text-secondary-600">
+                      {t('cart.seatLabel')}
+                      <select
+                        className="input mt-1 w-full text-xs"
+                        value={Math.min(detail.seatNumber, guestCount)}
+                        disabled={interactionDisabled}
+                        onChange={event =>
+                          onLineDetailsChange(item.key, {
+                            ...detail,
+                            seatNumber: Number(event.target.value),
+                          })
+                        }
+                        data-testid="voice-ordering-seat-select"
+                      >
+                        {Array.from({ length: guestCount }, (_, index) => index + 1).map(seat => (
+                          <option key={seat} value={seat}>
+                            {t('cart.seatOption', { count: seat })}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  <Suspense
+                    fallback={
+                      <p role="status" className="text-xs text-fg3">
+                        {t('cart.modifiersLoading')}
+                      </p>
+                    }
+                  >
+                    <RestaurantModifierEditor
+                      siteId={siteId}
+                      canManage={canManageModifiers}
+                      modifiers={detail.modifiers}
+                      disabled={interactionDisabled}
+                      onChange={modifiers =>
+                        onLineDetailsChange(item.key, { ...detail, modifiers })
+                      }
+                    />
+                  </Suspense>
                 </li>
               );
             })}

@@ -7,6 +7,7 @@ import {
   type UseFormRegisterReturn,
 } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
+import { MIN_OPERATIONAL_QUANTITY } from '@puntovivo/shared/unit-math';
 import type { Product } from '@/types';
 import { calculatePricing } from './pricing';
 import { mapProductToForm } from './productForm.helpers';
@@ -34,6 +35,7 @@ export interface UseProductFormArgs {
   onSubmit: (values: ProductFormValues) => Promise<Product | void>;
   onCreated?: ((product: Product) => void) | undefined;
   onInvalid?: (() => void) | undefined;
+  defaultPharmacyEnabled?: boolean | undefined;
 }
 
 /**
@@ -85,6 +87,7 @@ export interface UseProductFormReturn {
   tracksLots: boolean;
   tracksSerials: boolean;
   isActive: boolean;
+  pharmacyEnabled: boolean;
 }
 
 export function useProductForm({
@@ -94,11 +97,12 @@ export function useProductForm({
   onSubmit,
   onCreated,
   onInvalid,
+  defaultPharmacyEnabled = false,
 }: UseProductFormArgs): UseProductFormReturn {
   const { t } = useTranslation('products');
   const form = useForm<ProductFormValues>({
     defaultValues: (() => {
-      const base = mapProductToForm(product);
+      const base = mapProductToForm(product, defaultPharmacyEnabled);
       // only pre-fill on create mode; edit-mode never
       // overwrites the product's existing name.
       if (mode === 'create' && defaultName && defaultName.length > 0) {
@@ -152,14 +156,45 @@ export function useProductForm({
     return duplicateIndex === -1 || t('form.providerAssignments.providerDuplicate');
   };
 
+  const syncBaseUnitTierPrice = (
+    priceField: PricingField,
+    previousProductValue: number,
+    nextProductValue: number
+  ) => {
+    const baseIndex = form.getValues('unitAssignments').findIndex(assignment => assignment.isBase);
+    if (baseIndex < 0) return;
+
+    const options = { shouldDirty: true, shouldValidate: true } as const;
+    // A vertical template starts its explicit base assignment at the same
+    // price as the product. Keep that linked value aligned until the operator
+    // deliberately diverges the unit price. Existing catalogs are allowed to
+    // keep an independent base-assignment price and must never be overwritten
+    // merely because the product margin changed.
+    if (priceField === 'price') {
+      if (form.getValues(`unitAssignments.${baseIndex}.price`) === previousProductValue) {
+        form.setValue(`unitAssignments.${baseIndex}.price`, nextProductValue, options);
+      }
+    } else if (priceField === 'price2') {
+      if (form.getValues(`unitAssignments.${baseIndex}.price2`) === previousProductValue) {
+        form.setValue(`unitAssignments.${baseIndex}.price2`, nextProductValue, options);
+      }
+    } else {
+      if (form.getValues(`unitAssignments.${baseIndex}.price3`) === previousProductValue) {
+        form.setValue(`unitAssignments.${baseIndex}.price3`, nextProductValue, options);
+      }
+    }
+  };
+
   const syncTier = (
     priceField: PricingField,
     percentField: MarginPercentField,
     amountField: MarginAmountField,
     pricingInput: PricingInput
   ) => {
+    const previousProductValue = form.getValues(priceField);
     const result = calculatePricing({ cost: form.getValues('cost'), ...pricingInput });
     form.setValue(priceField, result.price, { shouldDirty: true, shouldValidate: true });
+    syncBaseUnitTierPrice(priceField, previousProductValue, result.price);
     form.setValue(percentField, result.marginPercent, { shouldDirty: true, shouldValidate: true });
     form.setValue(amountField, result.marginAmount, { shouldDirty: true, shouldValidate: true });
   };
@@ -174,12 +209,14 @@ export function useProductForm({
     ];
 
     for (const [priceField, percentField, amountField] of tiers) {
+      const previousProductValue = form.getValues(priceField);
       const result = calculatePricing({
         cost,
         marginPercent: form.getValues(percentField),
       });
 
       form.setValue(priceField, result.price, { shouldDirty: true, shouldValidate: true });
+      syncBaseUnitTierPrice(priceField, previousProductValue, result.price);
       form.setValue(percentField, result.marginPercent, {
         shouldDirty: true,
         shouldValidate: true,
@@ -214,8 +251,14 @@ export function useProductForm({
     },
   });
   const minStockField = form.register('minStock', { min: 0, valueAsNumber: true });
-  const fractionStepField = form.register('fractionStep', { min: 0.01, valueAsNumber: true });
-  const fractionMinimumField = form.register('fractionMinimum', { min: 0.01, valueAsNumber: true });
+  const fractionStepField = form.register('fractionStep', {
+    min: MIN_OPERATIONAL_QUANTITY,
+    valueAsNumber: true,
+  });
+  const fractionMinimumField = form.register('fractionMinimum', {
+    min: MIN_OPERATIONAL_QUANTITY,
+    valueAsNumber: true,
+  });
   const sellByFractionField = form.register('sellByFraction');
   const tracksLotsField = form.register('tracksLots');
   const tracksSerialsField = form.register('tracksSerials');
@@ -239,6 +282,10 @@ export function useProductForm({
   const isActive = useWatch({
     control: form.control,
     name: 'isActive',
+  });
+  const pharmacyEnabled = useWatch({
+    control: form.control,
+    name: 'pharmacyEnabled',
   });
   const { errors } = form.formState;
 
@@ -285,5 +332,6 @@ export function useProductForm({
     tracksLots,
     tracksSerials,
     isActive,
+    pharmacyEnabled,
   };
 }

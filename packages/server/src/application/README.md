@@ -18,7 +18,7 @@ file grew past 2670 lines because each procedure inlined:
 - input shaping (resolving items, payments, tenders)
 - pre-checks (cash session open, customer valid, ownership)
 - one big `db.transaction(...)` call writing 8+ tables
-- post-commit hooks (fiscal emission, sync queue, audit logs)
+- durable-effect preparation plus post-commit wake-ups and observability
 
 That coupling meant invariant changes (a new payment method, a new
 inventory rule) had to be edited in two-or-three places at once, and
@@ -39,7 +39,8 @@ the use-case input and returns whatever the use-case returns.
 A use-case typically:
 
 1. Validates input against the current DB state.
-2. Opens one transaction that writes every row the operation touches.
+2. Opens one transaction that writes every authoritative row the operation
+   touches, including durable intents/outboxes required for recovery.
 3. After the commit, emits best-effort journal effects + post-commit
    side effects (fiscal, hardware, future outboxes).
 

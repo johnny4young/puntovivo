@@ -117,4 +117,21 @@ describe('OrdersHistoryTable', () => {
     expect(onView).toHaveBeenCalledTimes(1);
     expect(onView).toHaveBeenCalledWith('order-1');
   });
+
+  it('never exposes a receive shortcut for a draft', () => {
+    render(
+      <OrdersHistoryTable
+        orders={[createOrder({ status: 'draft' })]}
+        isLoading={false}
+        error={null}
+        onRetry={vi.fn()}
+        canManageReceipts
+        onView={vi.fn()}
+        onReceive={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('Draft')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Receive' })).not.toBeInTheDocument();
+  });
 });

@@ -50,6 +50,7 @@ import {
 
 const MANAGER_ACTIONS: readonly ManagerApprovalAction[] = [
   'sale_discount',
+  'sale_price_override',
   'sale_after_hours',
   'cash_drawer_open',
   'sale_refund',
@@ -342,7 +343,7 @@ export const managerApprovalsRouter = router({
             amount:
               input.action === 'sale_discount'
                 ? checkoutContext.discountAmount
-                : input.action === 'sale_after_hours'
+                : input.action === 'sale_after_hours' || input.action === 'sale_price_override'
                   ? checkoutContext.total
                   : checkoutContext.creditAmount,
             currencyCode: checkoutContext.currencyCode,
@@ -359,6 +360,7 @@ export const managerApprovalsRouter = router({
                 currencyCode: sales.currencyCode,
                 status: sales.status,
                 paymentStatus: sales.paymentStatus,
+                returnState: sales.returnState,
               })
               .from(sales)
               .where(and(eq(sales.id, resourceId), eq(sales.tenantId, criticalCtx.tenantId)))
@@ -367,7 +369,8 @@ export const managerApprovalsRouter = router({
         if (
           !targetSale ||
           targetSale.status !== 'completed' ||
-          targetSale.paymentStatus === 'refunded'
+          targetSale.returnState === 'refunded' ||
+          (input.action === 'sale_void' && targetSale.returnState === 'partially_refunded')
         ) {
           throwServerError({
             trpcCode: 'BAD_REQUEST',
@@ -563,133 +566,125 @@ export const managerApprovalsRouter = router({
         throwApprovalPinInvalid();
       }
 
-      // PIN verification is deliberately expensive. Re-read the wall clock
-      // after Argon2 so a request cannot cross its expiry boundary while the
-      // credential is being checked and still receive a grant.
-      const decidedNowMs = Date.now();
-      const decidedAt = new Date(decidedNowMs).toISOString();
-      if (request.expiresAt <= decidedAt) {
-        criticalCtx.db
-          .update(managerApprovalRequests)
-          .set({ status: 'expired', updatedAt: decidedAt })
-          .where(
-            and(
-              eq(managerApprovalRequests.id, request.id),
-              eq(managerApprovalRequests.tenantId, criticalCtx.tenantId),
-              eq(managerApprovalRequests.status, 'pending'),
-              lte(managerApprovalRequests.expiresAt, decidedAt)
-            )
-          )
-          .run();
-        throwApprovalExpired();
-      }
-
-      const outcome = criticalCtx.db.transaction(tx => {
-        // PIN verification suspends. Base the distinct-approver
-        // update on a fresh row inside one synchronous SQLite transaction.
-        const current = tx
-          .select()
-          .from(managerApprovalRequests)
-          .where(
-            and(
-              eq(managerApprovalRequests.id, request.id),
-              eq(managerApprovalRequests.tenantId, criticalCtx.tenantId)
-            )
-          )
-          .get();
-        if (!current || current.status !== 'pending') return 'not_pending' as const;
-        if (current.expiresAt <= decidedAt) {
-          tx.update(managerApprovalRequests)
-            .set({ status: 'expired', updatedAt: decidedAt })
+      const outcome = criticalCtx.db.transaction(
+        tx => {
+          // PIN verification suspends. Base the distinct-approver
+          // update on a fresh row inside one synchronous SQLite transaction.
+          // Reserve the writer before reading: a deferred WAL snapshot cannot
+          // be promoted if another connection commits during this decision.
+          // Both Argon2 and acquiring the writer may outlast the request TTL.
+          // Freeze decision time only after both waits have completed.
+          const decidedNowMs = Date.now();
+          const decidedAt = new Date(decidedNowMs).toISOString();
+          const current = tx
+            .select()
+            .from(managerApprovalRequests)
             .where(
               and(
-                eq(managerApprovalRequests.id, current.id),
+                eq(managerApprovalRequests.id, request.id),
+                eq(managerApprovalRequests.tenantId, criticalCtx.tenantId)
+              )
+            )
+            .get();
+          if (!current || current.status !== 'pending') return 'not_pending' as const;
+          if (current.expiresAt <= decidedAt) {
+            tx.update(managerApprovalRequests)
+              .set({ status: 'expired', updatedAt: decidedAt })
+              .where(
+                and(
+                  eq(managerApprovalRequests.id, current.id),
+                  eq(managerApprovalRequests.tenantId, criticalCtx.tenantId),
+                  eq(managerApprovalRequests.status, 'pending')
+                )
+              )
+              .run();
+            return 'expired' as const;
+          }
+          if (current.approvalEvidence.some(evidence => evidence.approverId === approver.id)) {
+            return 'duplicate_approver' as const;
+          }
+
+          const approvalEvidence =
+            input.decision === 'approved'
+              ? [
+                  ...current.approvalEvidence,
+                  {
+                    approverId: approver.id,
+                    approverRole: approverRole as 'admin' | 'manager',
+                    approvedAt: decidedAt,
+                  },
+                ]
+              : current.approvalEvidence;
+          const approvalsCollected = approvalEvidence.length;
+          const approvalComplete =
+            input.decision === 'approved' && approvalsCollected >= current.requiredApprovals;
+          const nextStatus =
+            input.decision === 'rejected' ? 'rejected' : approvalComplete ? 'approved' : 'pending';
+          const grantExpiresAt = approvalComplete
+            ? new Date(decidedNowMs + MANAGER_APPROVAL_GRANT_TTL_MS).toISOString()
+            : null;
+          const result = tx
+            .update(managerApprovalRequests)
+            .set({
+              status: nextStatus,
+              approvalEvidence,
+              decidedAt: nextStatus === 'pending' ? null : decidedAt,
+              decidedBy: nextStatus === 'pending' ? null : approver.id,
+              decisionReason: input.decision === 'rejected' ? (input.reason ?? null) : null,
+              grantExpiresAt,
+              updatedAt: decidedAt,
+            })
+            .where(
+              and(
+                eq(managerApprovalRequests.id, request.id),
                 eq(managerApprovalRequests.tenantId, criticalCtx.tenantId),
-                eq(managerApprovalRequests.status, 'pending')
+                eq(managerApprovalRequests.status, 'pending'),
+                gt(managerApprovalRequests.expiresAt, decidedAt)
               )
             )
             .run();
-          return 'expired' as const;
-        }
-        if (current.approvalEvidence.some(evidence => evidence.approverId === approver.id)) {
-          return 'duplicate_approver' as const;
-        }
+          if (result.changes !== 1) return 'not_pending' as const;
 
-        const approvalEvidence =
-          input.decision === 'approved'
-            ? [
-                ...current.approvalEvidence,
-                {
-                  approverId: approver.id,
-                  approverRole: approverRole as 'admin' | 'manager',
-                  approvedAt: decidedAt,
-                },
-              ]
-            : current.approvalEvidence;
-        const approvalsCollected = approvalEvidence.length;
-        const approvalComplete =
-          input.decision === 'approved' && approvalsCollected >= current.requiredApprovals;
-        const nextStatus =
-          input.decision === 'rejected' ? 'rejected' : approvalComplete ? 'approved' : 'pending';
-        const grantExpiresAt = approvalComplete
-          ? new Date(decidedNowMs + MANAGER_APPROVAL_GRANT_TTL_MS).toISOString()
-          : null;
-        const result = tx
-          .update(managerApprovalRequests)
-          .set({
-            status: nextStatus,
-            approvalEvidence,
-            decidedAt: nextStatus === 'pending' ? null : decidedAt,
-            decidedBy: nextStatus === 'pending' ? null : approver.id,
-            decisionReason: input.decision === 'rejected' ? (input.reason ?? null) : null,
-            grantExpiresAt,
-            updatedAt: decidedAt,
-          })
-          .where(
-            and(
-              eq(managerApprovalRequests.id, request.id),
-              eq(managerApprovalRequests.tenantId, criticalCtx.tenantId),
-              eq(managerApprovalRequests.status, 'pending'),
-              gt(managerApprovalRequests.expiresAt, decidedAt)
-            )
-          )
-          .run();
-        if (result.changes !== 1) return 'not_pending' as const;
-
-        writeAuditLog({
-          tx,
-          tenantId: criticalCtx.tenantId,
-          actorId: approver.id,
-          action:
-            input.decision === 'approved' ? 'manager_approval.approve' : 'manager_approval.reject',
-          resourceType: 'manager_approval',
-          resourceId: request.id,
-          before: {
-            status: 'pending',
-            requesterId: current.requesterId,
-            action: current.action,
-            approvalsCollected: current.approvalEvidence.length,
-          },
-          after: {
-            status: nextStatus,
-            decidedBy: approver.id,
-            decidedAt,
-            grantExpiresAt,
-            approvalsCollected,
-            requiredApprovals: current.requiredApprovals,
-          },
-          metadata: {
-            decisionReason: input.reason ?? null,
-            sessionActorId: criticalCtx.user.id,
-            authMethod: 'staff_pin',
-            pinFreshnessPolicy: 'per_decision',
-            approvalSequence:
-              input.decision === 'approved' ? approvalsCollected : current.approvalEvidence.length,
-            requiredApprovals: current.requiredApprovals,
-          },
-        });
-        return 'decided' as const;
-      });
+          writeAuditLog({
+            tx,
+            tenantId: criticalCtx.tenantId,
+            actorId: approver.id,
+            action:
+              input.decision === 'approved'
+                ? 'manager_approval.approve'
+                : 'manager_approval.reject',
+            resourceType: 'manager_approval',
+            resourceId: request.id,
+            before: {
+              status: 'pending',
+              requesterId: current.requesterId,
+              action: current.action,
+              approvalsCollected: current.approvalEvidence.length,
+            },
+            after: {
+              status: nextStatus,
+              decidedBy: approver.id,
+              decidedAt,
+              grantExpiresAt,
+              approvalsCollected,
+              requiredApprovals: current.requiredApprovals,
+            },
+            metadata: {
+              decisionReason: input.reason ?? null,
+              sessionActorId: criticalCtx.user.id,
+              authMethod: 'staff_pin',
+              pinFreshnessPolicy: 'per_decision',
+              approvalSequence:
+                input.decision === 'approved'
+                  ? approvalsCollected
+                  : current.approvalEvidence.length,
+              requiredApprovals: current.requiredApprovals,
+            },
+          });
+          return 'decided' as const;
+        },
+        { behavior: 'immediate' }
+      );
       if (outcome === 'expired') throwApprovalExpired();
       if (outcome === 'duplicate_approver') throwApprovalPinInvalid();
       if (outcome === 'not_pending') throwApprovalNotPending();
@@ -716,7 +711,7 @@ export const managerApprovalsRouter = router({
         priority: 10,
       });
       return {
-        ...presentRequest(updated, decidedAt),
+        ...presentRequest(updated, new Date().toISOString()),
         approverName: approver.name,
       };
     }),

@@ -15,6 +15,7 @@ import { readFileSync } from 'node:fs';
 import {
   aggregateRouteSamples,
   extractDiagnostics,
+  extractCpuDiagnostics,
   extractMetrics,
   compareToLighthouseBudget,
   isValidLighthousePolicy,
@@ -24,6 +25,7 @@ import {
   resolveLighthouseHostProfile,
   runCli,
   shouldExtendSampling,
+  extractRunnerBenchmark,
 } from './check-lighthouse.mjs';
 
 const THRESHOLD = 30;
@@ -262,7 +264,7 @@ test('compareToLighthouseBudget accepts only the explicit absolute score varianc
   assert.equal(regression.regressions.length, 1);
 });
 
-test('checked-in sales score policy covers the slow hosted runner without losing the next point', () => {
+test('checked-in sales score policy clears runner spread and still rejects a real drop', () => {
   const {
     perRoute,
     thresholdPercent,
@@ -271,46 +273,44 @@ test('checked-in sales score policy covers the slow hosted runner without losing
     samplesPerRoute,
     maxSamplesPerRoute,
   } = CHECKED_BUDGET.lighthouse;
-  assert.equal(CHECKED_BUDGET.version, 6);
+  assert.equal(CHECKED_BUDGET.version, 8);
   assert.equal(perRoute.sales.score, 69);
-  assert.equal(scoreTolerancePoints, 2);
+  assert.equal(scoreTolerancePoints, 5);
 
-  const calibrated = compareToLighthouseBudget({
-    measured: {
-      sales: stableRoute({
-        score: 67,
-        sampleCount: 7,
-        scoreMin: 59,
-        scoreMax: 71,
-        scoreIqr: 2,
-      }),
-    },
-    budget: { sales: { score: perRoute.sales.score } },
-    thresholdPercent,
-    scoreTolerancePoints,
-    maxScoreIqrPoints,
-    expectedSamplesPerRoute: samplesPerRoute,
-    maxExtendedSamplesPerRoute: maxSamplesPerRoute,
-  });
-  assert.equal(calibrated.regressions.length, 0);
-  assert.equal(calibrated.unstable.length, 0);
-  assert.equal(calibrated.varianceAccepted[0].enforcedLimit, 67);
+  const judge = score =>
+    compareToLighthouseBudget({
+      measured: {
+        sales: stableRoute({
+          score,
+          sampleCount: 7,
+          scoreMin: score - 1,
+          scoreMax: score + 1,
+          scoreIqr: 1,
+        }),
+      },
+      budget: { sales: { score: perRoute.sales.score } },
+      thresholdPercent,
+      scoreTolerancePoints,
+      maxScoreIqrPoints,
+      expectedSamplesPerRoute: samplesPerRoute,
+      maxExtendedSamplesPerRoute: maxSamplesPerRoute,
+    });
 
-  const nextPoint = compareToLighthouseBudget({
-    measured: {
-      sales: stableRoute({ score: 66, scoreMin: 66, scoreMax: 66, scoreIqr: 0 }),
-    },
-    budget: { sales: { score: perRoute.sales.score } },
-    thresholdPercent,
-    scoreTolerancePoints,
-    maxScoreIqrPoints,
-    expectedSamplesPerRoute: samplesPerRoute,
-    maxExtendedSamplesPerRoute: maxSamplesPerRoute,
-  });
-  assert.equal(nextPoint.regressions.length, 1);
-  assert.equal(nextPoint.regressions[0].enforcedLimit, 67);
+  // Every score a byte-identical sales bundle has actually produced on a
+  // shared runner. The 66 and the 73 came from consecutive runs of the same
+  // commit range, each with a within-run IQR of 1, so none of these is
+  // evidence of a regression however conclusive its own spread looked.
+  for (const observed of [65, 66, 70, 73]) {
+    const result = judge(observed);
+    assert.equal(result.regressions.length, 0, `score ${observed} must not be a regression`);
+    assert.equal(result.unstable.length, 0, `score ${observed} must not be rejected as unstable`);
+  }
+
+  // The floor still has teeth: below it the gate rejects, and names the limit.
+  const belowFloor = judge(63);
+  assert.equal(belowFloor.regressions.length, 1);
+  assert.equal(belowFloor.regressions[0].enforcedLimit, 64);
 });
-
 test('compareToLighthouseBudget rejects missing or unstable score statistics', () => {
   const missing = compareToLighthouseBudget({
     measured: { sales: { score: 70 } },
@@ -697,8 +697,8 @@ test('runCli requests the sampling policy and rejects an unstable strict proof',
   assert.equal(requestedIqrCap, 4);
   // Enforced floors travel with the sampling policy so the extension trigger
   // and the comparison agree on what undecidable means.
-  assert.equal(requestedFloors.sales, 67);
-  assert.equal(requestedFloors.products, 60);
+  assert.equal(requestedFloors.sales, 64);
+  assert.equal(requestedFloors.products, 57);
   assert.equal(code, 1);
 });
 
@@ -763,4 +763,89 @@ test('runCli does not accept login as a current-schema substitute for authentica
     requireMeasurement: true,
   });
   assert.equal(code, 1);
+});
+
+test('CPU diagnostics are bounded to the renderer and never expose raw trace data', () => {
+  const events = Array.from({ length: 12 }, (_, index) => ({
+    name: 'FunctionCall',
+    ph: 'X',
+    pid: 1,
+    tid: 2,
+    dur: 1000 * (index + 1),
+    args: {
+      data: {
+        url: 'https://private.example/assets/app-A1.js?token=secret',
+        lineNumber: 2,
+        columnNumber: 3,
+        headers: { authorization: 'secret' },
+      },
+    },
+  }));
+  const trace = {
+    traceEvents: [
+      { name: 'thread_name', pid: 1, tid: 2, args: { name: 'CrRendererMain' } },
+      ...events,
+      { ...events[0], tid: 3, dur: 999000 },
+      {
+        ...events[0],
+        name: 'Layout',
+        dur: 20000,
+        args: { data: { url: 'https://private.example/customer/secret' } },
+      },
+      { ...events[0], dur: Infinity },
+    ],
+  };
+  const result = extractCpuDiagnostics(trace);
+  assert.equal(result.topCpuEvents.length, 8);
+  assert.deepEqual(result.topCpuEvents[0], {
+    kind: 'Layout',
+    durationMs: 20,
+    script: null,
+    line: null,
+    column: null,
+  });
+  assert.deepEqual(result.topCpuEvents[1], {
+    kind: 'FunctionCall',
+    durationMs: 12,
+    script: '/assets/app-A1.js',
+    line: 2,
+    column: 3,
+  });
+  assert.doesNotMatch(JSON.stringify(result), /secret|private|token|authorization|headers/);
+  assert.equal(trace.traceEvents.length, 16);
+  assert.deepEqual(extractCpuDiagnostics(undefined), { topCpuEvents: [] });
+  assert.deepEqual(extractCpuDiagnostics({ traceEvents: events }), { topCpuEvents: [] });
+});
+
+test('CPU diagnostics fail closed on ambiguous renderers after a process swap', () => {
+  const renderer = { name: 'thread_name', pid: 1, tid: 2, args: { name: 'CrRendererMain' } };
+  const task = { name: 'Layout', ph: 'X', pid: 1, tid: 2, dur: 50000 };
+  assert.deepEqual(
+    extractCpuDiagnostics({ traceEvents: [renderer, { ...renderer, pid: 3 }, task] }),
+    { topCpuEvents: [] }
+  );
+  assert.equal(
+    extractCpuDiagnostics({ traceEvents: [renderer, renderer, task] }).topCpuEvents.length,
+    1
+  );
+});
+
+test('extractRunnerBenchmark reads the host CPU calibration, or null', () => {
+  // The score is dominated by Total Blocking Time, so the same commit scores
+  // differently on a busy runner. Recording the index is what lets a red score
+  // be told apart from a slow host instead of guessing at a tolerance again.
+  assert.equal(extractRunnerBenchmark({ environment: { benchmarkIndex: 1234.7 } }), 1235);
+  assert.equal(extractRunnerBenchmark({ environment: { benchmarkIndex: 0 } }), 0);
+  for (const lhr of [
+    undefined,
+    null,
+    {},
+    { environment: {} },
+    { environment: { benchmarkIndex: null } },
+    { environment: { benchmarkIndex: 'fast' } },
+    { environment: { benchmarkIndex: Number.NaN } },
+    { environment: { benchmarkIndex: Number.POSITIVE_INFINITY } },
+  ]) {
+    assert.equal(extractRunnerBenchmark(lhr), null, `expected null for ${JSON.stringify(lhr)}`);
+  }
 });

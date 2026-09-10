@@ -4,6 +4,8 @@ import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 import { customerLedgerEntries, customers } from '../../db/schema.js';
+import { throwServerError } from '../../lib/errorCodes.js';
+import { tryRoundMoneyToSafeCents } from '../../lib/money.js';
 import type { AddCustomerLedgerAdjustmentInput, CustomerLedgerContext } from './types.js';
 
 export async function addCustomerLedgerAdjustment(
@@ -18,13 +20,22 @@ export async function addCustomerLedgerAdjustment(
   if (!existing) {
     throw new TRPCError({ code: 'NOT_FOUND', message: 'CUSTOMER_NOT_FOUND' });
   }
+  const amount = tryRoundMoneyToSafeCents(input.amount);
+  if (amount === null || amount === 0) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'CUSTOMER_LEDGER_INVALID_AMOUNT',
+      message: 'CUSTOMER_LEDGER_INVALID_AMOUNT',
+    });
+  }
   const id = nanoid();
   await ctx.db.insert(customerLedgerEntries).values({
     id,
     tenantId: ctx.tenantId,
     customerId: input.customerId,
     kind: 'adjustment',
-    amount: input.amount,
+    // Same reason as the payment path: the balance is a SUM of these rows.
+    amount,
     note: input.note,
     createdBy: ctx.user!.id,
   });

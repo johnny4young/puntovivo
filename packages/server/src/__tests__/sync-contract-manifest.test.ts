@@ -19,11 +19,12 @@ import {
   buildSyncContractManifest,
   resolveConflictPolicy,
   resolveDefaultPriority,
+  resolveSyncTransportPolicy,
 } from '../services/sync/contract.js';
 
 describe('sync contract manifest', () => {
-  it('exposes a positive payload version', () => {
-    expect(SYNC_PAYLOAD_VERSION).toBeGreaterThanOrEqual(1);
+  it('advertises payload v4 for exact inventory snapshots and operator policy', () => {
+    expect(SYNC_PAYLOAD_VERSION).toBe(4);
   });
 
   it('keys SYNC_CONFLICT_POLICY with the SYNC_ENTITY_TYPES literal list', () => {
@@ -38,6 +39,9 @@ describe('sync contract manifest', () => {
       'sale_items',
       'sale_payments',
       'sale_returns',
+      'sale_exchanges',
+      'store_credit_accounts',
+      'store_credit_movements',
       'sale_item_lots',
       'sale_item_serials',
       'cash_sessions',
@@ -48,6 +52,14 @@ describe('sync contract manifest', () => {
       'fiscal_certificates',
       'inventory_movements',
       'inventory_balances',
+      'inventory_lots',
+      'inventory_lot_events',
+      'pharmacy_product_profiles',
+      'pharmacy_professional_authorizations',
+      'pharmacy_prescription_evidence',
+      'pharmacy_dispensations',
+      'pharmacy_recalls',
+      'pharmacy_recall_lots',
       'product_serials',
       'transfer_orders',
       'transfer_order_items',
@@ -57,6 +69,23 @@ describe('sync contract manifest', () => {
     for (const entity of expectedManual) {
       expect(SYNC_CONFLICT_POLICY[entity]).toBe('manual');
     }
+  });
+
+  it('keeps regulated pharmacy aggregates local-only until atomic encrypted sync exists', () => {
+    const localOnly = [
+      'inventory_lot_events',
+      'pharmacy_product_profiles',
+      'pharmacy_professional_authorizations',
+      'pharmacy_prescription_evidence',
+      'pharmacy_dispensations',
+      'pharmacy_recalls',
+      'pharmacy_recall_lots',
+    ] as const;
+    for (const entity of localOnly) {
+      expect(resolveSyncTransportPolicy(entity)).toBe('local_only');
+    }
+    expect(resolveSyncTransportPolicy('inventory_lots')).toBe('outbound');
+    expect(resolveSyncTransportPolicy('products')).toBe('outbound');
   });
 
   it('classifies catalog / preferences entities as auto_lww', () => {
@@ -106,7 +135,25 @@ describe('sync contract manifest', () => {
     expect(manifest.entities[0]?.entityType).toBe(SYNC_ENTITY_TYPES[0]);
     for (const entry of manifest.entities) {
       expect(SYNC_CONFLICT_POLICY[entry.entityType]).toBe(entry.conflictPolicy);
+      expect(resolveSyncTransportPolicy(entry.entityType)).toBe(entry.transportPolicy);
     }
+  });
+
+  it('publishes operator recovery limits independently of transport and LWW markers', () => {
+    const entries = buildSyncContractManifest().entities;
+    expect(entries.find(entry => entry.entityType === 'products')).toMatchObject({
+      conflictPolicy: 'auto_lww',
+      transportPolicy: 'outbound',
+      operatorPayloadPolicy: 'product_metadata_only',
+    });
+    for (const entityType of ['inventory_balances', 'inventory_lots', 'sales', 'purchases']) {
+      expect(entries.find(entry => entry.entityType === entityType)).toMatchObject({
+        operatorPayloadPolicy: 'blocked',
+      });
+    }
+    expect(entries.find(entry => entry.entityType === 'categories')).toMatchObject({
+      operatorPayloadPolicy: 'existing',
+    });
   });
 
   it('covers every entityType literal emitted by any router writer', async () => {
@@ -135,5 +182,22 @@ describe('sync contract manifest', () => {
       missing,
       `entityType literals missing from SYNC_ENTITY_TYPES: ${missing.join(', ')}`
     ).toEqual([]);
+  });
+
+  it('routes the Electron IPC outbox writer through the shared status resolver', async () => {
+    // The desktop bridge is a second writer into sync_outbox that bypasses
+    // enqueueSync, so a hardcoded status there re-opens the leak regardless of
+    // what this manifest says. It cannot be exercised in the desktop
+    // node --test harness (its module graph uses runtime .js specifiers that
+    // --experimental-strip-types cannot resolve), so the guard is on the
+    // source: every status it writes must come from the shared resolver.
+    const bridge = path.resolve(
+      path.dirname(new URL(import.meta.url).pathname),
+      '../../../../apps/desktop/src/main/ipc/sync.ts'
+    );
+    const source = await readFile(bridge, 'utf-8');
+    expect(source).toContain('resolveSyncOutboxStatus');
+    const hardcoded = [...source.matchAll(/status:\s*'([a-z_]+)'/g)].map(match => match[1]);
+    expect(hardcoded, `hardcoded sync_outbox statuses: ${hardcoded.join(', ')}`).toEqual([]);
   });
 });

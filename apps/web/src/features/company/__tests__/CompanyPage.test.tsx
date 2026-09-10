@@ -135,6 +135,10 @@ vi.mock('../CompanyModulesCard', () => ({
 vi.mock('../CompanyReadinessCard', () => ({
   CompanyReadinessCard: () => <div data-testid="card-readiness">Readiness</div>,
 }));
+
+vi.mock('../VerticalReadinessCard', () => ({
+  VerticalReadinessCard: () => <div data-testid="card-vertical-readiness">Vertical readiness</div>,
+}));
 // Stub the telemetry card. The CompanyPage tab test does
 // not exercise the toggle round-trip; the dedicated
 // `CompanyTelemetryCard.test.tsx` pins that contract.

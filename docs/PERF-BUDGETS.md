@@ -8,6 +8,40 @@ and what to do when a build trips a regression. The principle is the
 same as the coverage floor: every regression is a deliberate choice,
 documented in the same PR that produces it.
 
+The lazy employment workspace is tracked at a 5.55 kB gzip baseline (measured
+5.54 kB), and the audit locale namespace at 5.05 kB (measured 5.03 kB). These are
+new tracked chunks after crossing the existing 5 kB admission threshold; no
+existing chunk ceiling or tolerance is increased. Employment forms and private
+history load only when opening the employment workspace, not at application boot.
+
+## Startup chunk reachability
+
+The query/TRPC runtime and the interaction-only TanStack Table registry have
+separate chunks. Their ceilings are 36 kB and 18 kB gzip respectively: the same
+54 kB combined allowance and 5% tolerance as the former single data runtime.
+The production-manifest regression walks static imports from the shell and POS,
+rejects missing graph nodes, and proves Table remains reachable from sales history
+without joining the initial route dependency closure.
+
+The shared Vite preload helper has a small, high-priority runtime group. Without
+that ownership, recursive vendor grouping can place the helper inside the PDF
+chunk and make every dynamic importer eagerly load PDF despite source-level
+`import()`. The regression also excludes PDF from the shell/POS static closure;
+actual history and export interactions must still work. Native Rolldown
+`codeSplitting.groups` retains recursive dependency defaults and React deduplication.
+Chunk names alone are not proof of lazy loading.
+
+### Date formatting on repeated POS renders
+
+Tenant-scoped date formatting reuses at most 64 `Intl.DateTimeFormat` objects,
+keyed by locale and the complete, canonicalized option set (including timezone).
+Dates and formatted results are never retained. Calls without an explicit zone
+bypass reuse so an OS timezone change is not hidden. The test oracle covers DST,
+locale, calendar, numbering and hour-cycle variants. This removes repeated ICU
+formatter construction without hiding checkout controls or changing any existing
+Lighthouse score, latency, transfer, or memory budget. It is not, by itself,
+evidence that a particular hosted performance failure has been resolved.
+
 ## What is enforced today
 
 | Metric                                                                                            | Where                                 | Gate runner                                                                     |
@@ -15,7 +49,7 @@ documented in the same PR that produces it.
 | Per-chunk JavaScript gzipped bundle size                                                          | `ci:web`                              | `scripts/check-bundle-size.mjs` after `vite build`                              |
 | tRPC procedure p95 latency for a curated set of read routes                                       | `ci:server`                           | `__tests__/perf-trpc-latency.test.ts` via vitest                                |
 | Store-sized SQLite seed volume, hot-read p95, and critical query plans                            | `ci:server`                           | `packages/server/scripts/run-store-profile-gate.mjs` → isolated vitest          |
-| Literal product-search relevance and p95 at 1k, 10k, and 50k catalog rows                         | `ci:server`                           | `packages/server/scripts/run-product-search-profile-gate.mjs` → isolated vitest |
+| Product/pharmacy profile build time, literal-search relevance, and p95 at 1k, 10k, and 50k rows   | `ci:server`                           | `packages/server/scripts/run-product-search-profile-gate.mjs` → isolated vitest |
 | Audit-chain indexed verification, transactional redaction, and RSS at 100k rows                   | `ci:server`                           | `packages/server/scripts/run-audit-chain-profile-gate.mjs` → isolated vitest    |
 | Maximum-size launch-product preview and commit elapsed time                                       | `ci:server`                           | `packages/server/scripts/run-store-profile-gate.mjs` → isolated vitest          |
 | Virtualised data-table DOM window against a 1,000-row live specimen                               | local web E2E                         | `e2e/web/design-system-scale.spec.ts`                                           |
@@ -29,6 +63,40 @@ tRPC p95 latency, literal search at three catalog tiers, bounded data-table
 rendering, launch import, encrypted recovery work, Electron memory/launch, and
 Lighthouse web vitals. Each enforced budget fails its owning gate when it
 regresses.
+
+Fiscal Operations copy follows its already-lazy panel through the separate
+`fiscalOperations` namespace, rather than increasing every Operations landing
+visit. The local 2026-09-03 build measured the larger Operations dictionary at
+7.85 KiB gzip and the bootstrap English errors at 8.35 KiB. Existing ceilings
+and the five-percent tolerance were not increased; on-demand EN/ES rendering
+is additionally exercised by the fiscal recovery browser journey.
+
+### Initial route and shell translation ownership
+
+Always-mounted chrome must resolve its copy from bootstrap namespaces, even
+when its final output is null for a role or runtime. The fiscal contingency
+badge and desktop update notice use the small `common` entries; they must not
+suspend the entire shell to fetch the fiscal or company-settings dictionaries.
+The isolated-i18n shell regression deliberately omits those feature resources
+and exercises EN/ES warnings, verification, restart, and recoverable errors.
+
+The sales route starts its initial namespaces alongside its lazy module, not
+from an effect after a suspended render. Quick access keeps its own lazy boundary
+so its catalog observers do not join the cart's initial commit. History, dialogs,
+Table, and PDF also remain lazy. The ten small POS support dictionaries share a
+chunk per language; the larger sales dictionary stays independently bounded.
+This reduces tiny-module requests while preserving the existing sales ceiling.
+The new support chunks have explicit 11/11.6 KiB ceilings; no existing budget or
+tolerance is increased. Other routes using customers, promotions, or restaurants
+also load that language's support chunk, so qualification measures every route.
+Artifact regressions enforce that neither support chunk reaches the static shell
+or initial POS graph, and that EN/ES remain separate.
+Namespace preloading never starts business queries or bypasses site/role guards.
+`useTranslation` retains authority over language changes and loading failures.
+Cart summaries are memoized by immutable items and pricing mode so unrelated
+query updates do not serialize the same Customer Display projection again.
+Heartbeat and reconnect publication are unchanged. Lighthouse also logs bounded
+renderer CPU events, with asset paths only and no raw trace arguments or headers.
 
 ### Data-scale UI contract
 
@@ -135,14 +203,20 @@ own single-worker Vitest process. This keeps wall-clock samples free from the
 parallel coverage pool and also exercises the same incremental FTS triggers
 used by real product writes.
 
-At every tier the gate drives the production `products.search` tRPC procedure
-and measures four distinct operator paths after three discarded warmups:
+At every tier the gate first attaches the one-to-one pharmacy profile to every
+product and requires profile/FTS cardinality parity. Catalog construction and
+pharmacy attachment have separate elapsed budgets for every tier, so a future
+trigger or profile-write regression cannot hide inside the test timeout. The
+gate then drives the production `products.search` tRPC procedure and measures
+retail plus pharmacy operator paths after three discarded warmups:
 
 1. exact SKU resolution through the tenant/code index;
 2. selective multi-token prefix lookup through FTS5;
 3. a broad two-token prefix that matches the whole generated catalog; and
 4. an internal-token substring that deliberately reaches the compatibility
-   `LIKE` fallback.
+   `LIKE` fallback;
+5. active-ingredient prefix lookup through the pharmacy FTS lane; and
+6. exact sanitary-registration lookup through its tenant-scoped index.
 
 The same process also calls the production hybrid candidate service directly
 with a broad query. It requires exactly 200 tenant-safe FTS candidates and
@@ -161,12 +235,16 @@ Thirty samples make the interpolated p95 independent of a single maximum
 pause; repeated slow samples still fail the budget, while one scheduler or GC
 outlier cannot masquerade as a sustained search regression.
 
-The 2026-08-08 literal-search reference measured cumulative catalog construction at
-22.93 ms, 235.12 ms, and 1,266.25 ms. Broad FTS p95 scaled from 1.51 ms to 9.48
-ms and 47.30 ms; exact SKU remained at or below 0.86 ms, selective FTS at or
-below 1.59 ms, and the substring fallback at or below 7.42 ms. Checked-in
-baselines deliberately retain runner headroom, then apply the shared 35%
-tolerance. They are regression budgets rather than user-facing latency SLAs.
+The 2026-08-08 literal-search reference measured cumulative catalog construction
+at 22.93 ms, 235.12 ms, and 1,266.25 ms. Broad FTS p95 scaled from 1.51 ms to
+9.48 ms and 47.30 ms; exact SKU remained at or below 0.86 ms, selective FTS at
+or below 1.59 ms, and the substring fallback at or below 7.42 ms. Two sequential
+2026-09-02 local PR9 runs attached pharmacy profiles in at most 34.02 ms,
+351.47 ms, and 1,662.49 ms. That phase reuses the existing 200/800/4,000 ms
+catalog-build baselines rather than introducing a looser host contract.
+Checked-in baselines deliberately retain runner headroom, then apply the shared
+35% tolerance. They are regression budgets rather than user-facing latency
+SLAs.
 The 2026-08-09 bounded hybrid-candidate reference measured 1.12 ms, 8.55 ms,
 and 43.67 ms p95 at 1k, 10k, and 50k; its checked-in ceilings are 5 ms, 20 ms,
 and 100 ms before the same tolerance.
@@ -198,13 +276,18 @@ The redaction path deliberately stays in the caller's BetterSQLite3 write
 transaction: the PII disposition, complete chain rewrite, anchor reservation,
 and head CAS still commit or roll back together. A connection-local temporary
 walk table and bounded depth cursor replace the former all-rows JavaScript
-snapshot. The first adversarial profile exposed 758.98 MiB RSS growth and a
+snapshot. Its depth is the sole temporary key: the source audit id is already
+globally unique and the verified link/count walk rejects cycles, so duplicating
+all ids in a second in-memory UNIQUE index adds no integrity evidence. The first
+adversarial profile exposed 758.98 MiB RSS growth and a
 2,964.22 ms rewrite. After bounding the implementation and correcting the RSS
 accounting to use one post-seed baseline across both stages, serial validation
 on the same local host measured 140.61–143.48 MiB cumulative maxRSS growth,
 1,099.73–1,118.48 ms redaction, and 377.41–380.30 ms verification. The gate
 also proves temporary tables are removed on both success and fail-closed
-corruption paths.
+corruption paths. A later qualification on the same Apple Silicon machine
+measured 155.91 MiB and 832.46 ms after removing that redundant index, within
+the unchanged absolute and elapsed budgets.
 
 `perf-budget.json::auditChainProfile` keeps portable-runner headroom rather
 than presenting this Apple Silicon run as hosted calibration. The first PR CI
@@ -701,3 +784,53 @@ browser tabs, or ports 3000/8090.
   file. Will land alongside supportability so the surface
   consolidates with the attention queue instead of growing a
   parallel panel.
+
+### SQLite read-mapping envelope
+
+File-backed application connections use a 32 MiB mmap ceiling alongside the
+existing approximately 64 MiB SQLite page cache. Mapped read pages can coexist
+with dirty write-cache pages, in-memory temporary tables and the audit hashing
+worker during a large privacy rewrite; allowing a 256 MiB mapping inflated that
+combined working set. This is a uniform runtime policy, not a profile-only
+setting or an increase to any RSS budget. An mmap ceiling is not a total-process
+memory cap. File-backed latency profiles, encrypted recovery and native runtime
+verification remain necessary when adjusting it.
+
+The audit pager reuses one weakly connection-owned prepared statement, rebinding
+tenant, cursor and page size for every read. It does not retain business rows or
+cache an integrity verdict, and redaction stays in the authorizing transaction.
+
+### Bounded FTS content reads
+
+Broad product searches rank against the complete matching index with authoritative
+product tenant and business filters applied before the final limit. A materialized
+shortlist then validates FTS textual identity and tenant ownership in the same SQL
+snapshot. This avoids reading full FTS content for every broad match. Ranking,
+weights and case-insensitive name/id tie-breaks are unchanged.
+
+If any shortlisted identity is invalid or missing, the search reruns the complete
+original guarded query. It never merely drops a corrupt shortlisted row or hides
+valid matches after the cutoff. Only a fully validated shortlist can use the fast
+path; no business results or integrity verdicts are cached. The fallback is a
+correctness boundary, not permission to ignore or repair index corruption silently.
+
+### Prepared product-search statements
+
+FTS shortlist and corruption-fallback SQL are reused per native SQLite connection
+with a weakly owned, bounded cache (32 filter shapes, at most 64 statements).
+All tenant, query, filter and limit values are rebound on every call. Results,
+pharmacy membership and integrity verdicts are never cached; authoritative
+filters remain before the cutoff and identity validation stays in the same SQL
+snapshot. Independent-connection, live-mutation and full-query oracle tests pin
+those guarantees. This optimization does not change a search performance budget.
+
+### Authentication and account maintenance startup
+
+The recovery screen and its EN/ES copy remain in the static application closure,
+so a failed route download cannot remove the retry/sign-in controls. Account
+password maintenance loads only on explicit action, with a dismissible localized
+loading dialog. The configured-Hub HTTP adapter loads only on a Hub request;
+credential custody and generation fences remain in Electron main. Detailed setup
+readiness copy is separate from the always-available onboarding banner/checklist.
+The production-manifest regression verifies both absence from startup and actual
+dynamic reachability. Existing chunk budgets and tolerances are unchanged.

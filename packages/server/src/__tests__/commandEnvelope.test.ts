@@ -20,13 +20,13 @@ import { eq } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { idempotencyKeys, tenants, users } from '../db/schema.js';
+import { devices, idempotencyKeys, tenants, users } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 import { COMMAND_ENVELOPE_HEADER, DEVICE_ID_HEADER } from '../trpc/schemas/envelope.js';
 import { registerDevice } from '../services/devices/devicesService.js';
 import { reserveKey } from '../services/idempotency/idempotencyService.js';
-import { hashCanonicalInput } from '../services/idempotency/keyHasher.js';
+import { hashCommandRequest } from '../services/idempotency/keyHasher.js';
 import { ServerErrorWithCode } from '../lib/errorCodes.js';
 import { randomUUID } from 'node:crypto';
 import { __withExpectedTestLogs } from '../logging/logger.js';
@@ -74,6 +74,7 @@ interface CallerOptions {
   envelope?: Record<string, string>;
   deviceIdHeader?: string;
   rawEnvelopeOverride?: string;
+  role?: 'admin' | 'manager' | 'cashier';
 }
 
 function makeCaller(opts: CallerOptions = {}): ReturnType<typeof appRouter.createCaller> {
@@ -97,12 +98,12 @@ function makeCaller(opts: CallerOptions = {}): ReturnType<typeof appRouter.creat
     req: {
       server: server.app,
       headers,
-      user: { userId, email: 'envelope', role: 'admin', tenantId },
+      user: { userId, email: 'envelope', role: opts.role ?? 'admin', tenantId },
       jwtVerify: async () => {},
     } as unknown as Context['req'],
     res: {} as unknown as Context['res'],
     db: getDatabase(),
-    user: { id: userId, email: 'envelope', role: 'admin', tenantId },
+    user: { id: userId, email: 'envelope', role: opts.role ?? 'admin', tenantId },
     tenantId,
     siteId: null,
   };
@@ -254,7 +255,7 @@ describe('commandEnvelope middleware: envelope header', () => {
 });
 
 describe('commandEnvelope middleware: idempotency replay', () => {
-  it('replay with same envelope + same input returns cached result, procedure NOT re-invoked', async () => {
+  it('rejects replay after password change revokes the device generation without re-executing', async () => {
     const envelope = {
       operationId: randomUUID(),
       idempotencyKey: randomUUID(),
@@ -268,11 +269,8 @@ describe('commandEnvelope middleware: idempotency replay', () => {
     });
     expect(result1.success).toBe(true);
 
-    // The first call bumped sessionVersion to 2 and changed the
-    // password. The second call replays the SAME envelope; the
-    // middleware MUST short-circuit and return the cached result
-    // without re-running the procedure body. Verify by checking
-    // sessionVersion is unchanged after the second call.
+    // Password change revokes the device generation. Its old envelope cannot
+    // disclose cached data or execute again, even with an unchanged payload.
     const sessionBefore = await getDatabase()
       .select({ sessionVersion: users.sessionVersion })
       .from(users)
@@ -280,11 +278,22 @@ describe('commandEnvelope middleware: idempotency replay', () => {
       .get();
 
     const caller2 = makeCaller({ envelope });
-    const result2 = await caller2.auth.changePassword({
-      currentPassword: 'TestPassword123!',
-      newPassword: 'CachedTest123!',
-    });
-    expect(result2).toMatchObject(result1);
+    await expect(
+      __withExpectedTestLogs(
+        [
+          {
+            level: 'warn',
+            module: 'commandEnvelope',
+            message: 'idempotency key replayed with mismatched canonical input hash',
+          },
+        ],
+        () =>
+          caller2.auth.changePassword({
+            currentPassword: 'TestPassword123!',
+            newPassword: 'CachedTest123!',
+          })
+      )
+    ).rejects.toMatchObject({ cause: { errorCode: 'IDEMPOTENCY_KEY_CONFLICT' } });
 
     const sessionAfter = await getDatabase()
       .select({ sessionVersion: users.sessionVersion })
@@ -331,6 +340,37 @@ describe('commandEnvelope middleware: idempotency replay', () => {
     expect(cause?.errorCode).toBe('IDEMPOTENCY_KEY_CONFLICT');
   });
 
+  it('a cached replay of an admin command still enforces the role guard', async () => {
+    // commandEnvelope short-circuits a cache hit WITHOUT calling next(), so a
+    // role guard chained after it would never run on this path. On a shared
+    // terminal that let a cashier replay an administrator's idempotency key
+    // and receive the cached admin-only payload back.
+    const envelope = {
+      operationId: randomUUID(),
+      idempotencyKey: randomUUID(),
+      clientCreatedAt: new Date().toISOString(),
+    };
+    const payload = { moduleId: 'kds', enabled: true } as const;
+
+    // The administrator runs the command and its result is cached.
+    await makeCaller({ envelope }).modules.setActive(payload);
+    const cachedRow = await getDatabase()
+      .select({ status: idempotencyKeys.status })
+      .from(idempotencyKeys)
+      .where(eq(idempotencyKeys.idempotencyKey, envelope.idempotencyKey))
+      .get();
+    expect(cachedRow?.status).toBe('succeeded');
+
+    // A cashier on the same device replays the very same envelope.
+    let caught: unknown;
+    try {
+      await makeCaller({ envelope, role: 'cashier' }).modules.setActive(payload);
+    } catch (err) {
+      caught = err;
+    }
+    expect((caught as TRPCError | undefined)?.code).toBe('FORBIDDEN');
+  });
+
   it('replay while original command is processing → COMMAND_IN_PROGRESS', async () => {
     const envelope = {
       operationId: randomUUID(),
@@ -346,7 +386,22 @@ describe('commandEnvelope middleware: idempotency replay', () => {
       deviceId,
       idempotencyKey: envelope.idempotencyKey,
       operationKind: 'auth.changePassword',
-      requestHash: hashCanonicalInput(payload),
+      // Through the helper on purpose: the module requires it so the
+      // middleware and its fixtures cannot drift into different shapes.
+      requestHash: hashCommandRequest({
+        input: payload,
+        siteId: null,
+        actor: {
+          userId,
+          role: 'admin',
+          sessionVersion: null,
+          deviceIdentityVersion: getDatabase()
+            .select()
+            .from(devices)
+            .where(eq(devices.id, deviceId))
+            .get()!.identityVersion,
+        },
+      }),
     });
     expect(reservation.state).toBe('reserved');
 

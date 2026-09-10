@@ -1,3 +1,4 @@
+import { inventoryValueChecks } from './value-checks.js';
 /**
  * Drizzle schema — products domain.
  *
@@ -67,6 +68,14 @@ export const products = sqliteTable(
     providerId: text('provider_id').references(() => providers.id),
     locationId: text('location_id'),
     initialCost: real('initial_cost').notNull().default(0),
+    /** Exact tenant-wide non-lot valuation pool; null means legacy basis not adopted. */
+    inventoryValueCents: integer('inventory_value_cents'),
+    /** Separate commercial COGS pool; never conflate cost with initialCost. */
+    cogsValueCents: integer('cogs_value_cents'),
+    /** Quantity at which the value pools were written; balances remain the stock authority. */
+    valuationQuantity: real('valuation_quantity'),
+    /** Business-only revision for value/quantity changes, independent from sync acknowledgements. */
+    valuationVersion: integer('valuation_version').notNull().default(0),
     // currency for every monetary column on this row (price /
     // price2 / price3 / cost / margin amounts / initialCost). Default
     // 'COP' for backfill; the application sets this from
@@ -142,6 +151,16 @@ export const products = sqliteTable(
     updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
+    ...inventoryValueChecks('products', {
+      cents: [table.inventoryValueCents, table.cogsValueCents],
+      versions: [table.valuationVersion],
+      quantities: [table.valuationQuantity],
+      together: [[table.inventoryValueCents, table.cogsValueCents, table.valuationQuantity]],
+      emptyPool: {
+        quantity: table.valuationQuantity,
+        values: [table.inventoryValueCents, table.cogsValueCents],
+      },
+    }),
     index('idx_products_tenant').on(table.tenantId),
     index('idx_products_sku').on(table.sku),
     // Exact POS lookups always carry tenant ownership. Keeping tenant first

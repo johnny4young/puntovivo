@@ -27,19 +27,19 @@ and `RequireModule`; routes and navigation must apply the same gate.
 
 ## Catalog
 
-| Module              | Class    | Ring | Manifest default | New retail tenant | Surface                    |
-| ------------------- | -------- | ---: | ---------------- | ----------------- | -------------------------- |
-| `operations-center` | core     |    1 | on               | on                | Operations and diagnostics |
-| `quotations`        | core     |    1 | on               | on                | Quotations                 |
-| `copilot`           | optional |    1 | on               | off               | AI assistant               |
-| `anomaly-detection` | optional |    1 | on               | off               | Local anomaly detection    |
-| `semantic-search`   | optional |    1 | on               | off               | Semantic product search    |
-| `events-api`        | optional |    1 | off              | off               | Signed outbound webhooks   |
-| `pos-touch`         | optional |    2 | off              | off               | Touch POS                  |
-| `kds`               | optional |    2 | off              | off               | Kitchen display            |
-| `customer-display`  | optional |    2 | off              | off               | Customer display           |
-| `mobile-waiter`     | optional |    2 | off              | off               | Mobile waiter              |
-| `delivery`          | optional |    2 | off              | off               | Delivery                   |
+| Module              | Class    | Ring | Manifest default | New retail tenant | Surface                       |
+| ------------------- | -------- | ---: | ---------------- | ----------------- | ----------------------------- |
+| `operations-center` | core     |    1 | on               | on                | Operations and diagnostics    |
+| `quotations`        | core     |    1 | on               | on                | Quotations                    |
+| `copilot`           | optional |    1 | on               | off               | AI assistant                  |
+| `anomaly-detection` | optional |    1 | on               | off               | Local anomaly detection       |
+| `semantic-search`   | optional |    1 | on               | off               | Semantic product search       |
+| `events-api`        | optional |    1 | off              | off               | Signed outbound webhooks      |
+| `pos-touch`         | optional |    2 | off              | off               | Touch POS                     |
+| `kds`               | optional |    2 | off              | off               | Kitchen display               |
+| `customer-display`  | optional |    2 | off              | off               | Privacy-minimal second screen |
+| `mobile-waiter`     | optional |    2 | off              | off               | Mobile waiter                 |
+| `delivery`          | optional |    2 | off              | off               | Delivery                      |
 
 `RING1_RETAIL_PROFILE` is the explicit profile written for a fresh retail
 tenant. Existing tenants without an override continue to resolve the manifest
@@ -53,6 +53,10 @@ default, preserving compatibility.
 - New module copy ships in English and neutral LATAM Spanish.
 - A gated route must have matching navigation, route, and server enforcement.
 - Changes to a gated surface require active and inactive live-smoke coverage.
+- Customer Display stays opt-in for every preset. An administrator enables it;
+  a sales role opens a named browser window or one reusable sandboxed Electron
+  window. This local projection does not register or certify physical display
+  hardware.
 
 ## Verification
 

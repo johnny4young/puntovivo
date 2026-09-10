@@ -14,6 +14,7 @@ import { syncConflicts, syncOutbox } from '../../../db/schema.js';
 import { pullSyncInput } from '../../schemas/sync.js';
 import {
   PENDING_STATUSES,
+  getConflictResolutionAvailability,
   getConflictLocalRecordExists,
   getSyncOverview,
   type PendingStatus,
@@ -70,10 +71,19 @@ export const syncStatusProcedures = {
     return {
       ...overview,
       queue,
-      conflicts: conflicts.map(conflict => ({
-        ...conflict,
-        localRecordExists: getConflictLocalRecordExists(ctx.db, ctx.tenantId, conflict),
-      })),
+      conflicts: conflicts.map(conflict => {
+        const exists = getConflictLocalRecordExists(ctx.db, ctx.tenantId, conflict);
+        return {
+          ...conflict,
+          localRecordExists: exists,
+          resolutionAvailability: getConflictResolutionAvailability(
+            ctx.db,
+            ctx.tenantId,
+            conflict,
+            exists
+          ),
+        };
+      }),
     };
   }),
 };

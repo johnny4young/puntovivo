@@ -12,6 +12,7 @@ function buildHandlers(
 ) {
   return createDeviceHandlers({
     session: {
+      requireOneOfRoles: () => 'admin',
       requireTenantId:
         options.requireTenantId ??
         (() => {

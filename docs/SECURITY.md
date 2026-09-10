@@ -11,7 +11,41 @@ storage, bounded external effects, and auditable administrative actions.
 - Access tokens are short lived; refresh tokens rotate in families and detect
   replay.
 - Password reset and password change invalidate existing sessions.
+  Confirmed password change parks server work and clears renderer/Desktop/Hub
+  custody without sending another authenticated logout using the revoked token.
+  Completion is fenced to the initiating identity; a late response cannot clear
+  a replacement login. Browser-storage failures never interrupt bearer, visible
+  identity, query-cache, public-display, or IPC cleanup. Optional task telemetry
+  is bound to the initiating auth generation and checked again at batch dispatch,
+  so a deferred unmount sample cannot run anonymously or under the next operator.
+  Ordinary logout invalidates that work before unmounting task screens, while
+  retaining the bearer only until the server parking/logout command settles.
 - Unsafe cookie-backed requests require CSRF protection.
+- Authentication and first-paint telemetry share one safe HTTP bootstrap before
+  sending mutations. A persistent refresh cookie can outlive its session CSRF
+  cookie; early telemetry must not race to create or overwrite that token.
+  Metrics retain their original route while waiting. Bootstrap failure drops
+  best-effort telemetry, never bypasses CSRF or retries arbitrary forbidden writes.
+- A failed startup authority check (throttling, service outage, or network loss)
+  locks the workspace without trusting a cached user. Explicit retry honors the
+  server cooldown and re-verifies the session; there is no automatic retry loop.
+  Owner-keyed carts remain recovery evidence, not authentication. A rejected
+  credential still routes to sign-in. Choosing Sign in again clears desktop
+  and sealed Hub custody before navigation and persists a non-PII deny-auto-resume
+  intent until fresh login plus `auth.me` succeeds. This intent does not revoke a
+  browser's httpOnly cookie remotely; it prevents that cookie from automatically
+  restoring the former operator after reload. Login still performs safe CSRF
+  bootstrap. A failure to remove local custody keeps account change blocked.
+- Identity generations fence pending renderer refresh effects, desktop token
+  verification, and sealed Hub grant updates. An old response cannot install or
+  remove a replacement identity. Refresh remains single-flight within an identity;
+  ordinary token rotation does not change that generation. Identity changes also
+  cancel the old browser refresh request. No bearer, cookie, or identity is cached
+  in the recovery screen, and raw transport/IPC diagnostics are never displayed.
+- Re-entry is not a device handoff. A register still assigned to another operator
+  rejects adoption with safe guidance to recover that operator and use confirmed
+  logout/parking or staff switching. Device identity conflicts cannot be ignored
+  as best-effort registration failures or bypassed by omitting the device id.
 - Shared role middleware defines admin, manager, and cashier capability sets.
 - Staff PIN switching is scoped, rate limited, audited, and cannot create a
   privilege level the acting terminal is not allowed to assume.
@@ -55,8 +89,29 @@ localized re-entry UX; preload rejects locally, so Electron invoke details,
 main-process stacks, and internal session codes are never rendered to the
 operator.
 
+Raw `sync_outbox` rows are administrator-only diagnostics, including generic
+`getAll`/`getById`/`getByField`, the pending-items alias, and insert/update
+responses. This applies to historical queued payloads as well as `local_only`
+rows: replication status is not a read permission. Tenant-scoped queue counts
+and sync status remain available to authenticated operators; business workflows
+use their bounded, role-specific tRPC projections instead.
+
 Content Security Policy and renderer response headers are applied by main.
 Production builds do not inherit development DevTools switches.
+
+## Kitchen preparation
+
+Kitchen reads and mutations are tenant/site scoped and module gated. Cashiers,
+managers and admins may operate the board; only managers/admins can configure
+stations and routing. Mutations verify the displayed generation under the same
+writer that persists audit, immutable events and notification outbox. Malformed
+snapshots fail closed per ticket without hiding unrelated valid preparations.
+
+Kitchen DTOs intentionally omit financial, customer-record and pharmaceutical
+fields. Free-form preparation notes and diner labels are plain text, not HTML;
+operators must not enter unnecessary sensitive information in those fields.
+Offline/stale board actions are disabled. Notification delivery is at least once
+and does not assert external screen/printer receipt.
 
 ## Storage, secrets, and backup
 
@@ -77,6 +132,12 @@ Production builds do not inherit development DevTools switches.
   duplicate or unknown entries, traversal, symlinks, overlapping records,
   oversized metadata, truncation, CRC/hash/MAC disagreement, and unsupported
   ZIP features fail closed before an existing destination is replaced.
+  The ZIP writer owns both file streams and waits for their closure after
+  cancellation or an I/O failure before removing its temporary output; aborting
+  the archive alone does not close a partially consumed source file.
+  Stored ZIP payload extraction uses a fixed working buffer and completes all
+  partial writes before reusing it; CRC, size limits and atomic publication
+  apply equally to stored payloads and legacy deflated entries.
 - Restore stages data before replacement and restarts the embedded server at a
   controlled boundary.
 - Cloud-vault credentials are write-only from the renderer perspective and are
@@ -85,6 +146,52 @@ Production builds do not inherit development DevTools switches.
   emails, card data, certificates, and credential-like fields.
 - Puntovivo does not store PAN or CVV. Payment adapters persist provider-safe
   references and operational status only.
+
+### Pharmacy evidence
+
+- Prescription references, prescriber details, buyer documents, and notes are
+  stored in a purpose-bound AES-256-GCM envelope. Ordinary reads, audit rows,
+  and sync payloads never expose those fields, the ciphertext, or keyed digest.
+  Customer/product associations are still sensitive operational metadata, not
+  anonymous data: tRPC limits their projection by role, and raw desktop outbox
+  access requires an administrator as described above.
+- Approval and dispensing authenticate the evidence envelope, bind its
+  decrypted reference to the tenant/product HMAC, authenticate the sealed
+  professional credential against its country digest and type, revalidate
+  current country policy and authority, and fail closed with stable public
+  errors on missing keys, malformed payloads, or tampering. If a frozen
+  approval stops being usable, checkout does not substitute another credential
+  silently: an effective professional must explicitly re-approve the same
+  sealed evidence, preserving its reference and remaining quantity.
+- The renderer clears prescription PII after commit and on subject changes,
+  mirrors server length/date limits, and disables browser autocomplete and
+  spellcheck assistance for prescription references, professional credentials,
+  buyer documents, and restricted notes.
+- The portable evidence key is wrapped inside the SQLCipher database so
+  backup/restore remains self-contained. This separates ordinary data access
+  but does not claim protection from an attacker who already possesses the
+  database encryption key. External key wrapping requires a separately
+  reviewed recovery design.
+- Pharmacy aggregates and their PII are local-only. Remote apply is blocked
+  until key exchange and a complete regulated aggregate codec exist; a base
+  product row alone is never evidence that another device can dispense it.
+
+### Private pre-payroll evidence
+
+- Payroll profiles, lifecycle reasons, identification data, contribution
+  entities, account suffixes, calculations, and source snapshots are
+  administrator-only. Generic audit and Command Envelope projections retain
+  attribution and version outcomes without copying those private values.
+- Recalculation binds the employee set and exact profile, contract, attendance,
+  correction, reconciliation, and policy snapshot to an authority token. The
+  token is recomputed inside the write transaction; changed evidence is rejected
+  before any new revision is inserted.
+- Payroll tables do not enter the generic synchronization outbox. Remote apply
+  remains blocked until an explicit encryption, retention, key-exchange, and
+  conflict-ownership model exists for private employment data.
+- Effective policies freeze sources and limitations with every calculation, but
+  this evidence is not statutory approval, PILA submission, DIAN electronic
+  payroll, or validation by a payroll provider.
 
 ## Network and external effects
 
@@ -102,6 +209,31 @@ Production builds do not inherit development DevTools switches.
   of versioned shell assets and never intercepts `/api/*`; authenticated totals
   are reset offline and after logout rather than treated as durable mobile
   data.
+
+## Signed external-order inbox
+
+External orders use a bounded, signed tRPC envelope. The server authenticates
+the exact body before parsing it and revalidates credential version, site,
+tenant and time window under the writer lock. Durable event receipts and
+short-lived nonces prevent conflicting retries; a cancellation received before
+creation cannot resurrect an order. Connector administration is admin-only;
+order review requires manager/admin access to the owning tenant and site.
+
+Connector keys are sealed with authenticated encryption bound to tenant and
+connector identity. APIs, command results, audit metadata and notification
+outboxes exclude those credentials. Recipient information remains in restricted
+operational snapshots, not notification payloads. The standalone wrapping key
+must be retained in the deployment secret manager; losing it prevents signature
+verification. Development key availability is not a production encryption
+exemption.
+
+Receiving signed intent never charges, reserves stock or creates a sale.
+Acceptance requires explicit confirmation of a fresh local-price quote and
+atomically creates an unpaid draft through the existing sale writer. A later
+source cancellation blocks checkout/dispatch but cannot silently refund money
+or restore stock. The current adapter is a sandbox contract, not validation of
+a commercial aggregator or its payment evidence. See
+[the signed inbox boundary](architecture/0023-signed-external-order-inbox.md).
 
 ## Auditability
 

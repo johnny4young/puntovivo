@@ -3,9 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import {
-  getCartItemKey,
-  mergeCartItem,
-  updateCartItem,
+  getBarcodeCartItemKey,
+  mergeBarcodeCartItem,
   type SaleCartItem,
 } from '@/features/sales/saleCart';
 import { resolveBarcodeCartSelection } from '@/features/sales/salesOmnibox';
@@ -73,7 +72,7 @@ export function useBarcodeProductScanner({
   setProductSearchQuery,
   setSaleError,
 }: UseBarcodeProductScannerParams) {
-  const { t } = useTranslation(['sales', 'errors', 'common']);
+  const { t } = useTranslation(['sales', 'scannerErrors', 'errors', 'common']);
   const toast = useToast();
   const utils = trpc.useUtils();
   const { currentSite } = useTenant();
@@ -88,8 +87,7 @@ export function useBarcodeProductScanner({
       try {
         const result = await utils.products.lookupByBarcode.fetch({
           barcode: rawCode,
-          gs1Scheme: scannerConfig.gs1Scheme ?? 'generic',
-        });
+        }, { retry: false });
         if (!result) {
           playScanError();
           toast.warning({ title: t('sales:scanner.notFound') });
@@ -113,16 +111,13 @@ export function useBarcodeProductScanner({
         }
         const { selection, quantityOverride: overrideQuantity } = resolved;
         const overridePrice = result.suggestedPrice;
-        const itemKey = getCartItemKey(selection.product.id, selection.unit.unitId);
-        setCartItems(currentItems => {
-          const merged = mergeCartItem(currentItems, selection);
-          if (overrideQuantity !== null) {
-            return merged.map(item =>
-              item.key === itemKey ? updateCartItem(item, { quantity: overrideQuantity }) : item
-            );
-          }
-          return merged;
-        });
+        const itemKey = getBarcodeCartItemKey(selection, overridePrice);
+        setCartItems(currentItems =>
+          mergeBarcodeCartItem(currentItems, selection, {
+            quantity: overrideQuantity,
+            price: overridePrice,
+          })
+        );
         setSelectedCartItemKey(itemKey);
         setProductSearchQuery('');
         setSaleError(null);
@@ -154,7 +149,6 @@ export function useBarcodeProductScanner({
       t,
       toast,
       utils,
-      scannerConfig.gs1Scheme,
     ]
   );
 

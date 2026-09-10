@@ -1,10 +1,18 @@
-import { lazy } from 'react';
+import { lazy, type ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { SurfaceShellRoute } from '../SurfaceShellRoute';
 
 vi.mock('@/components/feedback/LoadingState', () => ({
   PageLoadingState: () => <div data-testid="surface-shell-loading" />,
+}));
+
+vi.mock('@/features/auth/ProtectedRoute', () => ({
+  ProtectedRoute: ({ children, allowedRoles }: { children: ReactNode; allowedRoles?: unknown }) => (
+    <div data-testid="surface-shell-protected" data-any-role={allowedRoles === undefined}>
+      {children}
+    </div>
+  ),
 }));
 
 vi.mock('@/features/modules/ModulesContext', () => ({
@@ -35,6 +43,10 @@ describe('SurfaceShellRoute', () => {
       </SurfaceShellRoute>
     );
 
+    expect(screen.getByTestId('surface-shell-protected')).toHaveAttribute(
+      'data-any-role',
+      'true'
+    );
     expect(await screen.findByTestId('lazy-surface-shell')).toBeInTheDocument();
   });
 });

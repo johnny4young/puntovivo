@@ -10,19 +10,21 @@
  * each owning its pre-checks + the one synchronous `db.transaction`.
  * - `pricing.ts` — pre-tx money resolution (items, sequential, customer,
  * payment plan).
- * - `creditPolicy.ts` — credit pre-flight + best-effort ledger write.
+ * - `creditPolicy.ts` — credit pre-flight + the in-transaction ledger
+ * write. The receivable is financial state, not a side effect: if it
+ * cannot be written the whole sale rolls back.
  * - `fiscalPostHook.ts` — best-effort post-commit fiscal emit + KDS enqueue.
  * - `journal-effects.ts` — journal lookup, summary, effect builders + emit.
  *
- * Behavior parity with the previous inline router code is the explicit
- * acceptance criterion (acceptance contract  / ). The control flow,
- * shape of the rows written, and ordering of side effects all match what
- * `sales.create` / `sales.completeDraft` used to do.
+ * Behavior parity with the previous inline router code remains an explicit
+ * acceptance criterion. The control flow, persisted row shapes and side-effect
+ * ordering match what `sales.create` and `sales.completeDraft` exposed.
  *
  * @module application/sales/completeSale
  */
 
 import { createModuleLogger } from '../../logging/logger.js';
+import { throwServerError } from '../../lib/errorCodes.js';
 import { runFreshSale } from './runFreshSale.js';
 import { runCompleteDraft } from './runCompleteDraft.js';
 import type { CompleteSaleSaleRecord } from './sale-read.js';
@@ -51,11 +53,12 @@ const fallbackLog = createModuleLogger('application/sales/completeSale');
  * would be a separate code ticket, not a documentation change.
  * - One synchronous `db.transaction(...)` writes every row the sale touches
  * (sequential, header, items, payments, stock, inventory movement +
- * balance, cash movement, sync queue, audit logs), fronted by
- * `assertCashSessionStillOpen` (in-tx TOCTOU re-check on the drawer).
- * - Fiscal emission is a BEST-EFFORT POST-COMMIT hook
- * (`safelyEmitFiscalDocument`): it runs after the sale transaction has
- * already committed and a fiscal failure NEVER rolls the sale back.
+ * balance, cash movement, customer ledger receivable, sync queue, audit
+ * logs), fronted by `assertCashSessionStillOpen` (in-tx TOCTOU re-check on
+ * the drawer).
+ * - Fiscal-enabled completion persists a frozen emission intent in the sale
+ * transaction. Materialization/provider delivery remain post-commit and never
+ * roll back stock or cash; the worker recovers an interrupted wake-up.
  *
  * Preconditions: the `mode` discriminator selects one of the two validated
  * path contracts documented on `runFreshSale` and `runCompleteDraft`.
@@ -68,6 +71,18 @@ export async function completeSale(
   input: CompleteSaleInput
 ): Promise<CompleteSaleResult<CompleteSaleSaleRecord>> {
   const log = ctx.log ?? fallbackLog;
+
+  // This application boundary is called directly by tests and internal
+  // services as well as through Zod. Keep the invariant here too: a refund
+  // state without an immutable sale_returns row would corrupt stock, cash and
+  // accounting even if a caller bypassed the tRPC schema.
+  if (input.paymentStatus === 'partially_refunded' || input.paymentStatus === 'refunded') {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'SALE_PAYMENT_STATUS_RETURN_MANAGED',
+      message: 'Refund payment status can only be derived from recorded returns',
+    });
+  }
 
   if (input.mode === 'fresh') {
     return runFreshSale(ctx, log, input);

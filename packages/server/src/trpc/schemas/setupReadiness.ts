@@ -24,6 +24,7 @@ export const setupReadinessSectionIdEnum = [
   'businessType',
   'locale',
   'sites',
+  'sequentials',
   'fiscal',
   'peripherals',
   'payments',
@@ -103,12 +104,59 @@ export const setupReadinessOutputSchema = z.object({
 
 export type SetupReadinessOutput = z.infer<typeof setupReadinessOutputSchema>;
 
+/** Operational verticals that expose a dedicated, evidence-backed setup checklist. */
+export const verticalReadinessProfileEnum = [
+  'retail',
+  'pharmacy',
+  'hardware',
+  'butchery',
+  'restaurant',
+] as const;
+export type VerticalReadinessProfile = (typeof verticalReadinessProfileEnum)[number];
+
+/** Closed ids keep server evidence and translated setup guidance in lockstep. */
+export const verticalReadinessCheckIdEnum = [
+  'catalog',
+  'productUnits',
+  'fractionalSales',
+  'lotTracking',
+  'serializedInventory',
+  'weightedBarcode',
+  'transformationRecipes',
+  'pharmacyCatalog',
+  'pharmacyPolicy',
+  'pharmacyAuthorizations',
+  'restaurantTables',
+  'kdsStations',
+  'customerDisplay',
+] as const;
+export type VerticalReadinessCheckId = (typeof verticalReadinessCheckIdEnum)[number];
+
+export const verticalReadinessCheckSchema = z.object({
+  id: z.enum(verticalReadinessCheckIdEnum),
+  status: z.enum(['ready', 'attention', 'not-applicable']),
+  /** Non-sensitive source-row count supporting the status. */
+  configuredCount: z.number().int().nonnegative(),
+  cta: z.object({ route: z.string(), tab: z.string().optional() }).nullable(),
+});
+
+/** Factual advisory checklist. It never certifies a vertical or blocks checkout. */
+export const verticalReadinessOutputSchema = z.object({
+  businessType: z.enum(VERTICAL_PRESET_IDS).nullable(),
+  profile: z.enum(verticalReadinessProfileEnum).nullable(),
+  checks: z.array(verticalReadinessCheckSchema),
+  readyCount: z.number().int().nonnegative(),
+  attentionCount: z.number().int().nonnegative(),
+});
+export type VerticalReadinessOutput = z.infer<typeof verticalReadinessOutputSchema>;
+
 /**
  * Checkout readiness items surfaced to the cashier at the
  * point of sale via `setupReadiness.checkout`. Closed id union; each id
  * is an i18n key suffix under `sales.preflight.items.<id>`.
  */
 export const checkoutReadinessItemIdEnum = [
+  'sale_sequential',
   'fiscal',
   'receipt_hardware',
   'payment_rail',
@@ -117,11 +165,10 @@ export const checkoutReadinessItemIdEnum = [
 export type CheckoutReadinessItemId = (typeof checkoutReadinessItemIdEnum)[number];
 
 /**
- * Severity of a checkout readiness item. Under the  local-first
- * model EVERY checkout readiness item is a `warning` (a reminder that
- * leaves the charge button enabled); `blocker` stays in the union for
- * future use + parity with the client preflight severity contract, but
- * nothing in the checkout query emits it today.
+ * Severity of a checkout readiness item. `blocker` is reserved for a state
+ * that makes a valid sale impossible, currently missing site numbering.
+ * Recoverable local-first degradations remain warnings and leave checkout
+ * enabled.
  */
 export const checkoutReadinessSeverityEnum = ['blocker', 'warning'] as const;
 export type CheckoutReadinessSeverity = (typeof checkoutReadinessSeverityEnum)[number];

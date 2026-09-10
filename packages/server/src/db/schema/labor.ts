@@ -117,6 +117,13 @@ export const scheduledShifts = sqliteTable(
       table.siteId,
       table.startsAt
     ),
+    // Availability preflight pages advance by employee/status/id, never OFFSET or a temp sort.
+    index('idx_scheduled_shifts_employee_status_id').on(
+      table.tenantId,
+      table.userId,
+      table.status,
+      table.id
+    ),
     index('idx_scheduled_shifts_tenant_user_start').on(
       table.tenantId,
       table.userId,
@@ -318,3 +325,198 @@ export const employeeShiftCorrectionsRelations = relations(employeeShiftCorrecti
 
 export type EmployeeShiftCorrection = typeof employeeShiftCorrections.$inferSelect;
 export type NewEmployeeShiftCorrection = typeof employeeShiftCorrections.$inferInsert;
+
+export const attendanceReconciliationOutcomeEnum = ['attended', 'no_show'] as const;
+/** Manager-confirmed disposition of one frozen scheduled shift. */
+export type AttendanceReconciliationOutcome = (typeof attendanceReconciliationOutcomeEnum)[number];
+
+/**
+ * Frozen plan-to-attendance projection.
+ *
+ * The scheduled snapshot is copied on the first decision and is immutable
+ * thereafter. The linked attendance id may be corrected through a new
+ * projection version, but raw clock evidence remains untouched. A null
+ * employeeShiftId is valid only for an explicit no-show decision.
+ */
+export interface AttendanceReconciliationSnapshot {
+  scheduledShiftId: string;
+  employeeShiftId: string | null;
+  outcome: AttendanceReconciliationOutcome;
+  scheduledShiftVersion: number;
+  userId: string;
+  siteId: string;
+  plannedStartsAt: string;
+  plannedEndsAt: string;
+  plannedTimeZone: string;
+  version: number;
+}
+
+export const employeeShiftReconciliations = sqliteTable(
+  'employee_shift_reconciliations',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    scheduledShiftId: text('scheduled_shift_id')
+      .notNull()
+      .references(() => scheduledShifts.id),
+    employeeShiftId: text('employee_shift_id').references(() => employeeShifts.id),
+    outcome: text('outcome', { enum: attendanceReconciliationOutcomeEnum }).notNull(),
+    scheduledShiftVersion: integer('scheduled_shift_version').notNull(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id),
+    siteId: text('site_id')
+      .notNull()
+      .references(() => sites.id),
+    plannedStartsAt: text('planned_starts_at').notNull(),
+    plannedEndsAt: text('planned_ends_at').notNull(),
+    plannedTimeZone: text('planned_time_zone').notNull(),
+    version: integer('version').notNull().default(1),
+    createdByUserId: text('created_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    updatedByUserId: text('updated_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    uniqueIndex('idx_employee_shift_reconciliations_schedule').on(
+      table.tenantId,
+      table.scheduledShiftId
+    ),
+    uniqueIndex('idx_employee_shift_reconciliations_attendance')
+      .on(table.tenantId, table.employeeShiftId)
+      .where(sql`${table.employeeShiftId} IS NOT NULL`),
+    index('idx_employee_shift_reconciliations_user_plan').on(
+      table.tenantId,
+      table.userId,
+      table.plannedStartsAt,
+      table.id
+    ),
+    index('idx_employee_shift_reconciliations_site_plan').on(
+      table.tenantId,
+      table.siteId,
+      table.plannedStartsAt,
+      table.id
+    ),
+    check(
+      'chk_employee_shift_reconciliations_outcome',
+      sql`(${table.outcome} = 'attended' AND ${table.employeeShiftId} IS NOT NULL) OR (${table.outcome} = 'no_show' AND ${table.employeeShiftId} IS NULL)`
+    ),
+    check(
+      'chk_employee_shift_reconciliations_versions',
+      sql`typeof(${table.version}) = 'integer' AND ${table.version} BETWEEN 1 AND 9007199254740990 AND typeof(${table.scheduledShiftVersion}) = 'integer' AND ${table.scheduledShiftVersion} BETWEEN 1 AND 9007199254740990`
+    ),
+    check(
+      'chk_employee_shift_reconciliations_duration',
+      sql`${table.plannedEndsAt} > ${table.plannedStartsAt}`
+    ),
+    check(
+      'chk_employee_shift_reconciliations_timezone',
+      sql`length(trim(${table.plannedTimeZone})) BETWEEN 1 AND 100`
+    ),
+  ]
+);
+
+/** Append-only private evidence for every reconciliation decision or revision. */
+export const employeeShiftReconciliationEvents = sqliteTable(
+  'employee_shift_reconciliation_events',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    reconciliationId: text('reconciliation_id')
+      .notNull()
+      .references(() => employeeShiftReconciliations.id),
+    version: integer('version').notNull(),
+    kind: text('kind', { enum: ['created', 'revised'] }).notNull(),
+    actorId: text('actor_id')
+      .notNull()
+      .references(() => users.id),
+    operationId: text('operation_id').notNull(),
+    reason: text('reason').notNull(),
+    before: text('before_json', { mode: 'json' }).$type<AttendanceReconciliationSnapshot>(),
+    after: text('after_json', { mode: 'json' }).$type<AttendanceReconciliationSnapshot>().notNull(),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    uniqueIndex('idx_employee_shift_reconciliation_events_version').on(
+      table.tenantId,
+      table.reconciliationId,
+      table.version
+    ),
+    index('idx_employee_shift_reconciliation_events_operation').on(
+      table.tenantId,
+      table.operationId
+    ),
+    check(
+      'chk_employee_shift_reconciliation_events_version',
+      sql`typeof(${table.version}) = 'integer' AND ${table.version} BETWEEN 1 AND 9007199254740990`
+    ),
+    check(
+      'chk_employee_shift_reconciliation_events_reason',
+      sql`length(trim(${table.reason})) BETWEEN 10 AND 500`
+    ),
+    check(
+      'chk_employee_shift_reconciliation_events_json',
+      sql`(${table.before} IS NULL OR json_valid(${table.before})) AND json_valid(${table.after})`
+    ),
+    check(
+      'chk_employee_shift_reconciliation_events_kind',
+      sql`(${table.kind} = 'created' AND ${table.version} = 1 AND ${table.before} IS NULL) OR (${table.kind} = 'revised' AND ${table.version} > 1 AND ${table.before} IS NOT NULL)`
+    ),
+  ]
+);
+
+export const employeeShiftReconciliationsRelations = relations(
+  employeeShiftReconciliations,
+  ({ one, many }) => ({
+    tenant: one(tenants, {
+      fields: [employeeShiftReconciliations.tenantId],
+      references: [tenants.id],
+    }),
+    scheduledShift: one(scheduledShifts, {
+      fields: [employeeShiftReconciliations.scheduledShiftId],
+      references: [scheduledShifts.id],
+    }),
+    attendanceShift: one(employeeShifts, {
+      fields: [employeeShiftReconciliations.employeeShiftId],
+      references: [employeeShifts.id],
+    }),
+    employee: one(users, {
+      fields: [employeeShiftReconciliations.userId],
+      references: [users.id],
+      relationName: 'attendanceReconciliationEmployee',
+    }),
+    site: one(sites, {
+      fields: [employeeShiftReconciliations.siteId],
+      references: [sites.id],
+    }),
+    events: many(employeeShiftReconciliationEvents),
+  })
+);
+
+export const employeeShiftReconciliationEventsRelations = relations(
+  employeeShiftReconciliationEvents,
+  ({ one }) => ({
+    reconciliation: one(employeeShiftReconciliations, {
+      fields: [employeeShiftReconciliationEvents.reconciliationId],
+      references: [employeeShiftReconciliations.id],
+    }),
+    actor: one(users, {
+      fields: [employeeShiftReconciliationEvents.actorId],
+      references: [users.id],
+    }),
+  })
+);
+
+/** Current versioned plan-to-attendance projection. */
+export type EmployeeShiftReconciliation = typeof employeeShiftReconciliations.$inferSelect;
+/** Immutable private decision record for a reconciliation version. */
+export type EmployeeShiftReconciliationEvent =
+  typeof employeeShiftReconciliationEvents.$inferSelect;

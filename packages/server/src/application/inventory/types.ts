@@ -24,4 +24,30 @@ export interface InventoryContext {
 
 export interface CriticalInventoryContext extends InventoryContext {
   envelope: { operationId: string; idempotencyKey?: string };
+  /**
+   * Finish the idempotency reservation inside the use-case write
+   * transaction, the same seam the procurement commands use. Completing here
+   * rather than after the commit is what stops a retryable post-commit
+   * failure from letting the client re-apply the same stock delta.
+   */
+  completeInTransaction: (db: DatabaseInstance, resultRef: unknown) => void;
+}
+
+/** Critical command whose domain result is finalized inside its write transaction. */
+export interface TransactionalInventoryContext extends CriticalInventoryContext {
+  /** Server-owned operation clock; direct unit tests may omit and use UTC fallback. */
+  nowIso?: string;
+  businessDate?: string;
+  businessTimezone?: string;
+  countryCode?: string;
+  localeVersion?: number;
+  completeInTransaction: (db: DatabaseInstance, resultRef: unknown) => void;
+}
+
+/** Inventory command that evaluates date-only lot or pharmacy policy. */
+export interface ClockedTransactionalInventoryContext extends TransactionalInventoryContext {
+  businessDate: string;
+  businessTimezone: string;
+  countryCode: string;
+  localeVersion: number;
 }

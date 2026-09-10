@@ -13,6 +13,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
+import { act } from '@testing-library/react';
 import i18next from '@/i18n';
 import { render, screen, waitFor, within } from '@/test/utils';
 import { PosTouchScreen } from './PosTouchScreen';
@@ -49,11 +50,15 @@ let mockProducts: MockProduct[] = [];
 let mockCategories: Array<{ id: string; name: string }> = [];
 let mockCustomers: Array<{ id: string; name: string; priceTier?: number }> = [];
 let mockActiveSession: { id: string } | null = { id: 'session-1' };
+let mockDineInActive = true;
+let productFetchOverride: ((input: { id: string }) => Promise<Record<string, unknown>>) | null =
+  null;
 const createMutate = vi.fn(async (_input: unknown) => ({ id: 'sale-1' }) as { id: string });
 const invalidateCash = vi.fn();
 const invalidateProducts = vi.fn();
 const toastSuccess = vi.fn();
 const toastError = vi.fn();
+const toastWarning = vi.fn();
 
 // critical-mutation helper ships its own envelope/idempotency
 // wrapper around React Query. We mock it directly so we don't need to
@@ -167,6 +172,20 @@ vi.mock('@/lib/trpc', () => ({
         listDrafts: { invalidate: vi.fn() },
         summary: { invalidate: vi.fn() },
       },
+      restaurantTables: {
+        listWithDraftStatus: { invalidate: vi.fn() },
+      },
+      restaurantServices: {
+        getTableState: { invalidate: vi.fn() },
+      },
+      reservations: { list: { invalidate: vi.fn() } },
+      // Quote conversion shares the canonical sale epilogue. Touch sales do
+      // not originate from a quotation, but the invalidation leaf set is
+      // deliberately surface-agnostic and must remain fully represented.
+      quotations: {
+        list: { invalidate: vi.fn() },
+        getById: { invalidate: vi.fn() },
+      },
       inventory: {
         listMovements: { invalidate: vi.fn() },
         listStock: { invalidate: vi.fn() },
@@ -187,23 +206,8 @@ vi.mock('@/lib/trpc', () => ({
         // unit assignment so `selectionFromProduct` succeeds.
         getById: {
           fetch: async ({ id }: { id: string }) => {
-            const base = mockProducts.find(p => p.id === id);
-            if (!base) throw new Error('Product not found');
-            return {
-              ...base,
-              unitAssignments: [
-                {
-                  id: `${id}-ua`,
-                  productId: id,
-                  unitId: `${id}-unit-1`,
-                  unitName: 'UND',
-                  unitAbbreviation: 'UND',
-                  equivalence: 1,
-                  price: base.price,
-                  isBase: true,
-                },
-              ],
-            };
+            if (productFetchOverride) return productFetchOverride({ id });
+            return hydrateProductForTest(id);
           },
         },
       },
@@ -224,7 +228,11 @@ vi.mock('@/features/tenant/TenantProvider', () => ({
 }));
 
 vi.mock('@/components/feedback/ToastProvider', () => ({
-  useToast: () => ({ success: toastSuccess, error: toastError }),
+  useToast: () => ({ success: toastSuccess, error: toastError, warning: toastWarning }),
+}));
+
+vi.mock('@/features/modules', () => ({
+  useIsModuleActive: () => mockDineInActive,
 }));
 
 function makeProduct(overrides: Partial<MockProduct> = {}): MockProduct {
@@ -256,12 +264,36 @@ function makeProduct(overrides: Partial<MockProduct> = {}): MockProduct {
   };
 }
 
+function hydrateProductForTest(id: string): Record<string, unknown> {
+  const base = mockProducts.find(product => product.id === id);
+  if (!base) throw new Error('Product not found');
+  return {
+    ...base,
+    unitAssignments: [
+      {
+        id: `${id}-ua`,
+        productId: id,
+        unitId: `${id}-unit-1`,
+        unitName: 'UND',
+        unitAbbreviation: 'UND',
+        equivalence: 1,
+        price: base.price,
+        price2: base.price2,
+        price3: base.price3,
+        isBase: true,
+      },
+    ],
+  };
+}
+
 describe('PosTouchScreen', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     await i18next.changeLanguage('en');
     mockSiteId = 'site-1';
     mockActiveSession = { id: 'session-1' };
+    mockDineInActive = true;
+    productFetchOverride = null;
     mockCustomers = [];
     mockProducts = [
       makeProduct({
@@ -304,6 +336,12 @@ describe('PosTouchScreen', () => {
     expect(screen.getByTestId('pos-touch-cart-charge-hint')).toHaveTextContent(
       'Open the cash register'
     );
+  });
+
+  it('hides voice ordering when dine-in is disabled', () => {
+    mockDineInActive = false;
+    render(<PosTouchScreen />);
+    expect(screen.queryByTestId('pos-touch-voice-link')).not.toBeInTheDocument();
   });
 
   it('shows category tabs with the correct per-category item counts', () => {
@@ -387,6 +425,7 @@ describe('PosTouchScreen', () => {
     expect(createMutate).toHaveBeenCalledWith(
       expect.objectContaining({
         customerId: 'cust-wholesale',
+        priceTier: 2,
         amountReceived: 2800,
         items: [expect.objectContaining({ productId: 'p-1', unitPrice: 2800 })],
       })
@@ -398,6 +437,31 @@ describe('PosTouchScreen', () => {
         'true'
       );
     });
+  });
+
+  it('prices a slow product hydration with the tier selected before it resolves', async () => {
+    const user = userEvent.setup();
+    mockProducts = [
+      makeProduct({ id: 'p-1', name: 'Arroz Diana 500g', price: 3200, price2: 2800 }),
+    ];
+    let resolveProduct: ((value: Record<string, unknown>) => void) | undefined;
+    const productHydration = new Promise<Record<string, unknown>>(resolve => {
+      resolveProduct = resolve;
+    });
+    productFetchOverride = async () => productHydration;
+
+    render(<PosTouchScreen />);
+    await user.click(screen.getByTestId('pos-touch-tile-p-1'));
+    await user.click(screen.getByRole('button', { name: 'Tier 2' }));
+    await act(async () => {
+      resolveProduct?.(hydrateProductForTest('p-1'));
+      await productHydration;
+    });
+
+    await screen.findByTestId('pos-touch-cart-line-p-1:p-1-unit-1');
+    expect(
+      screen.getByTestId('pos-touch-cart-total').textContent?.replace(/[^0-9]/g, '')
+    ).toContain('2800');
   });
 
   it('renders the loyalty badge + Sumar puntos CTA when the customer carries a loyaltyProfile', () => {
@@ -437,6 +501,7 @@ describe('PosTouchScreen', () => {
     expect(call.paymentMethod).toBe('cash');
     expect(call.paymentStatus).toBe('paid');
     expect(call.status).toBe('completed');
+    expect(call.priceTier).toBe(1);
     expect(call.amountReceived).toBe(3200);
     expect(Array.isArray(call.items)).toBe(true);
     expect((call.items as Array<{ productId: string; quantity: number }>)[0]).toMatchObject({
@@ -445,5 +510,56 @@ describe('PosTouchScreen', () => {
     });
     expect(invalidateCash).toHaveBeenCalled();
     expect(invalidateProducts).toHaveBeenCalled();
+  });
+
+  it('locks the entire ticket and ignores stale product hydration while charging', async () => {
+    const user = userEvent.setup();
+    let resolveCharge: ((value: { id: string }) => void) | undefined;
+    createMutate.mockImplementationOnce(
+      () =>
+        new Promise<{ id: string }>(resolve => {
+          resolveCharge = resolve;
+        })
+    );
+    let resolveSecondProduct: ((value: Record<string, unknown>) => void) | undefined;
+    const secondProductHydration = new Promise<Record<string, unknown>>(resolve => {
+      resolveSecondProduct = resolve;
+    });
+
+    render(<PosTouchScreen />);
+    await user.click(screen.getByTestId('pos-touch-tile-p-1'));
+    await screen.findByTestId('pos-touch-cart-line-p-1:p-1-unit-1');
+    productFetchOverride = async ({ id }) =>
+      id === 'p-2' ? secondProductHydration : hydrateProductForTest(id);
+    await user.click(screen.getByTestId('pos-touch-tile-p-2'));
+    await user.click(screen.getByTestId('pos-touch-cart-charge'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('pos-touch-cart')).toHaveAttribute('aria-busy', 'true');
+    });
+    expect(screen.getByTestId('pos-touch-tile-p-1')).toBeDisabled();
+    expect(screen.getByTestId('pos-touch-category-all')).toBeDisabled();
+    expect(screen.getByLabelText('Customer')).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Tier 2' })).toBeDisabled();
+    expect(screen.getByTestId('pos-touch-cart-line-p-1:p-1-unit-1-remove')).toBeDisabled();
+    expect(screen.getByTestId('pos-touch-cart-clear')).toBeDisabled();
+    expect(screen.getByTestId('pos-touch-voice-link')).toHaveAttribute('aria-disabled', 'true');
+    expect(createMutate).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveCharge?.({ id: 'sale-locked' });
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('pos-touch-cart-empty')).toBeInTheDocument();
+      expect(screen.getByTestId('pos-touch-cart')).toHaveAttribute('aria-busy', 'false');
+    });
+
+    await act(async () => {
+      resolveSecondProduct?.(hydrateProductForTest('p-2'));
+      await secondProductHydration;
+    });
+    expect(screen.getByTestId('pos-touch-cart-empty')).toBeInTheDocument();
+    expect(screen.queryByTestId('pos-touch-cart-line-p-2:p-2-unit-1')).not.toBeInTheDocument();
   });
 });

@@ -10,6 +10,7 @@ import {
   createCashSessionDenominations,
   getCashSessionCountedTotal,
 } from './cashSessionDenominations';
+import { useSingleFlightSubmit } from '@/lib/useSingleFlightSubmit';
 
 export interface CashSessionOpenValues {
   registerName: string;
@@ -53,7 +54,6 @@ export function CashSessionOpenModal({
   const form = useForm<CashSessionOpenValues>({
     defaultValues: createDefaultValues(defaultRegisterAssignment),
   });
-  const handleSubmit = form.handleSubmit(onSubmit);
   const denominationFieldArray = useFieldArray({
     control: form.control,
     name: 'denominations',
@@ -72,6 +72,10 @@ export function CashSessionOpenModal({
   const isBalanced = cashSessionTotalsMatch(openingFloat ?? 0, denominations ?? []);
   const shouldShowMismatch = (openingFloat ?? 0) > 0 || countedTotal > 0;
   const mismatchMessage = shouldShowMismatch && !isBalanced ? t('cashSession.form.mismatch') : null;
+  // Mirrors the confirm button's disabled expression, so the Enter path
+  // cannot submit what the click path refuses.
+  const canSubmit = !isSaving && !mismatchMessage;
+  const handleSubmit = form.handleSubmit(useSingleFlightSubmit(canSubmit, onSubmit));
 
   return (
     <Overlay

@@ -58,8 +58,17 @@ export interface ResolvedBuyer {
 
 export interface ResolvedLine {
   lineNumber: number;
-  productId: string;
-  productName: string;
+  /** Null for immutable non-catalog adjustments such as tip/service charge. */
+  productId: string | null;
+  /**
+   * What the SALE recorded, verbatim. Null for a line written before the
+   * snapshot columns existed. Never the catalog's current name: an emitted
+   * document attests to what was sold, so substituting today's name after a
+   * rename fabricates history. `toAdapterLines` refuses a null rather than
+   * letting one reach a serializer, and `prepareSaleFiscalIntent` records a
+   * durable blocked intent instead of throwing.
+   */
+  productName: string | null;
   productSku: string | null;
   quantity: number;
   unitPrice: number;

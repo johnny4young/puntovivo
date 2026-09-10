@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { vanillaClient } from '@/lib/trpc';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Eye, EyeOff, LogIn, ScanLine, ShieldCheck, Warehouse } from 'lucide-react';
@@ -6,11 +8,29 @@ import { useAuth } from './AuthProvider';
 import { BrandMark } from '@/components/brand/BrandMark';
 import { translateServerError } from '@/lib/translateServerError';
 import type { LoginCredentials } from '@/types';
+import { isDeviceIdentityChanged } from './authBootstrapFailure';
+
+const InstallationSetupPage = lazy(() =>
+  import('./InstallationSetupPage').then(module => ({ default: module.InstallationSetupPage }))
+);
 
 export function LoginPage() {
+  const [showExistingSignIn, setShowExistingSignIn] = useState(false);
+  const setup = useQuery({
+    queryKey: ['installation-setup-status'],
+    queryFn: () => vanillaClient.auth.setupStatus.query(),
+    retry: false,
+    gcTime: 0,
+    staleTime: 0,
+    refetchOnWindowFocus: false,
+  });
   const { login, isLoading, error } = useAuth();
   const { t } = useTranslation(['auth', 'errors']);
-  const errorMessage = error ? translateServerError(error, t, t('errors:server.unknown')) : null;
+  const errorMessage = isDeviceIdentityChanged(error)
+    ? t('login.previousOperatorActive')
+    : error
+      ? translateServerError(error, t, t('errors:server.unknown'))
+      : null;
   const [showPassword, setShowPassword] = useState(false);
   const {
     register,
@@ -25,6 +45,26 @@ export function LoginPage() {
       // Error is handled by AuthProvider.
     }
   };
+
+  if (setup.data?.required && !showExistingSignIn) {
+    return (
+      <Suspense
+        fallback={
+          <p role="status" className="p-8 text-fg2">
+            {t('setup.loading')}
+          </p>
+        }
+      >
+        <InstallationSetupPage
+          countries={setup.data.countries}
+          onSignIn={() => {
+            setShowExistingSignIn(true);
+            void setup.refetch();
+          }}
+        />
+      </Suspense>
+    );
+  }
 
   return (
     <div className="relative min-h-screen overflow-hidden px-4 py-6 sm:px-6 lg:px-8">

@@ -91,6 +91,19 @@ describe('tRPC batch URL routing', () => {
     expect(first?.result?.data?.status).toBe('ok');
   });
 
+  it('accepts an explicitly POSTed read-only tRPC query', async () => {
+    const response = await server.app.inject({
+      method: 'POST',
+      url: '/api/trpc/health.check?batch=1',
+      headers: { 'content-type': 'application/json' },
+      payload: JSON.stringify({ '0': { json: null } }),
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json() as Array<{ result?: { data?: { status?: string } } }>;
+    expect(body[0]?.result?.data?.status).toBe('ok');
+  });
+
   it('does not return 404 for the legacy /api/health endpoint', async () => {
     const response = await server.app.inject({
       method: 'GET',

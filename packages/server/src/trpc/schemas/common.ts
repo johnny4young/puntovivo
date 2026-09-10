@@ -8,6 +8,28 @@
 
 import { z } from 'zod';
 
+const isoDateTimeWithOffset = z.string().datetime({ offset: true });
+
+function hasValidCalendarDatePrefix(value: string): boolean {
+  const match = /^(\d{4}-\d{2}-\d{2})(?:$|T)/.exec(value);
+  if (!match) return false;
+  const calendarDate = match[1]!;
+  const instant = Date.parse(`${calendarDate}T00:00:00.000Z`);
+  return Number.isFinite(instant) && new Date(instant).toISOString().slice(0, 10) === calendarDate;
+}
+
+/** Strict calendar date or unambiguous ISO timestamp for persisted business dates. */
+export function isoDateField(invalidMessage = 'Must be a valid ISO date') {
+  return z
+    .string()
+    .trim()
+    .min(1)
+    .refine(value => {
+      if (!hasValidCalendarDatePrefix(value)) return false;
+      return value.length === 10 || isoDateTimeWithOffset.safeParse(value).success;
+    }, invalidMessage);
+}
+
 export const paginationInput = z.object({
   page: z.number().int().min(1).default(1),
   perPage: z.number().int().min(1).max(200).default(50),

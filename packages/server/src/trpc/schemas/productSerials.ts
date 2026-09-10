@@ -1,11 +1,9 @@
 /** serialized inventory API schemas. */
 import { z } from 'zod';
+import { isStrictIsoInstant } from '../../lib/isoDate.js';
 
-const isoDate = z
-  .string()
-  .trim()
-  .min(1)
-  .refine(value => !Number.isNaN(Date.parse(value)), 'Must be a valid ISO date');
+/** Strict, so an impossible calendar date is rejected instead of stored two days forward. */
+const isoDate = z.string().trim().min(1).refine(isStrictIsoInstant, 'Must be a valid ISO date');
 
 export const receiveProductSerialsInput = z
   .object({

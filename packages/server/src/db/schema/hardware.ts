@@ -17,14 +17,13 @@ import { sites, tenants } from './auth.js';
 // ============================================================================
 
 /**
- * Closed list of peripheral kinds a site can configure. The contracts +
- * default drivers for `printer` (system) and `payment_terminal` (manual)
- * ship with ;  (scanner pipeline),  (ESC/POS + cash
- * drawer), and  (Bold/Wompi/MercadoPago) extend the driver matrix
- * without touching this enum.
+ * Closed list of peripheral kinds a site can configure. Driver availability
+ * is validated independently by the registry; adding an enum value does not
+ * imply that a physical adapter exists.
  *
- * `customer_display` is reserved for a future change;  surfaces
- * the enum value but no driver registration is permitted.
+ * The local Customer Display surface runs as a sandboxed browser window and
+ * does not use this registry. `customer_display` remains reserved for a future
+ * physical-device adapter, so no driver registration is permitted today.
  */
 export const peripheralKindEnum = [
   'printer',

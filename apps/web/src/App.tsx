@@ -3,13 +3,14 @@ import { Routes, Route, Navigate } from 'react-router';
 import { AuthProvider } from '@/features/auth/AuthProvider';
 import { CommandPaletteProvider } from '@/components/feedback/CommandPaletteProvider';
 import { LocaleSync } from '@/features/locale/LocaleProvider';
-import { TenantProvider } from '@/features/tenant/TenantProvider';
+import { AuthTenantBoundary } from '@/features/auth/AuthTenantBoundary';
 import { ModulesSync } from '@/features/modules';
 import { PricingSync } from '@/features/pricing/PricingContext';
 import { SurfaceShellRoute } from '@/features/surfaces/SurfaceShellRoute';
 import { ProtectedRoute } from '@/features/auth/ProtectedRoute';
 import { MainLayout } from '@/components/layout/MainLayout';
 import {
+  allRoles,
   adminOnlyRoles,
   dashboardRoles,
   managerOrAdminRoles,
@@ -37,14 +38,14 @@ import {
   CompanyPage,
   CopilotPage,
   CustomerCatalogsPage,
-  CustomerDisplayHomePlaceholder,
-  CustomerDisplayShell,
   CustomersPage,
   DataImportPage,
   DesignSystemPage,
   DayCloseReportPage,
   DashboardPage,
   DeliveryPage,
+  ExternalOrdersPage,
+  ReservationsPage,
   FinanceLandingRoute,
   FiscalDocumentListPage,
   FiscalReportsPage,
@@ -60,16 +61,20 @@ import {
   CompanionHome,
   CompanionShell,
   MobileWaiterShell,
+  MySchedulePage,
   OperationsPage,
   OrdersPage,
   PeripheralsPage,
   ProcurementLandingRoute,
   ProductsPage,
+  PromotionsPage,
+  ProviderAccountsPage,
   ProvidersPage,
   PurchasesPage,
   QuotationsPage,
   ReceiptTemplatesPage,
   RestaurantTablesPage,
+  RestaurantModifierCatalogPage,
   SalesPage,
   SequentialsPage,
   SetupLandingRoute,
@@ -86,7 +91,7 @@ import {
 function App() {
   return (
     <AuthProvider>
-      <TenantProvider>
+      <AuthTenantBoundary>
         {/* Modules + Locale state moved from context providers to
             Zustand stores. These null-rendering sync hosts run the backing
             tRPC queries (and the locale side-effects) inside Auth+Tenant
@@ -189,6 +194,14 @@ function App() {
                 }
               />
               <Route
+                path="restaurants/modifiers"
+                element={
+                  <ShellRoute allowedRoles={managerOrAdminRoles} allowedModule="dine-in">
+                    <RestaurantModifierCatalogPage />
+                  </ShellRoute>
+                }
+              />
+              <Route
                 path="restaurants/tables"
                 element={
                   <ShellRoute allowedRoles={adminOnlyRoles} allowedModule="dine-in">
@@ -253,6 +266,14 @@ function App() {
                 }
               />
               <Route
+                path="promotions"
+                element={
+                  <ShellRoute allowedRoles={managerOrAdminRoles}>
+                    <PromotionsPage />
+                  </ShellRoute>
+                }
+              />
+              <Route
                 path="orders"
                 element={
                   <ShellRoute allowedRoles={managerOrAdminRoles}>
@@ -269,10 +290,34 @@ function App() {
                 }
               />
               <Route
+                path="provider-payables"
+                element={
+                  <ShellRoute allowedRoles={managerOrAdminRoles}>
+                    <ProviderAccountsPage />
+                  </ShellRoute>
+                }
+              />
+              <Route
                 path="quotations"
                 element={
                   <ShellRoute allowedRoles={managerOrAdminRoles} allowedModule="quotations">
                     <QuotationsPage />
+                  </ShellRoute>
+                }
+              />
+              <Route
+                path="reservations"
+                element={
+                  <ShellRoute allowedRoles={salesRoles} allowedModule="dine-in">
+                    <ReservationsPage />
+                  </ShellRoute>
+                }
+              />
+              <Route
+                path="external-orders"
+                element={
+                  <ShellRoute allowedRoles={managerOrAdminRoles} allowedModule="delivery">
+                    <ExternalOrdersPage />
                   </ShellRoute>
                 }
               />
@@ -353,6 +398,14 @@ function App() {
                 element={
                   <ShellRoute allowedRoles={managerOrAdminRoles}>
                     <TeamSchedulePage />
+                  </ShellRoute>
+                }
+              />
+              <Route
+                path="my-schedule"
+                element={
+                  <ShellRoute allowedRoles={allRoles}>
+                    <MySchedulePage />
                   </ShellRoute>
                 }
               />
@@ -452,7 +505,14 @@ function App() {
               }
             >
               <Route index element={<TouchHome />} />
-              <Route path="voice" element={<TouchVoiceRoute />} />
+              <Route
+                path="voice"
+                element={
+                  <ShellRoute allowedRoles={salesRoles} allowedModule="dine-in">
+                    <TouchVoiceRoute />
+                  </ShellRoute>
+                }
+              />
             </Route>
             <Route
               path="kds"
@@ -464,16 +524,10 @@ function App() {
             >
               <Route index element={<KdsHomePlaceholder />} />
             </Route>
-            <Route
-              path="customer-display"
-              element={
-                <SurfaceShellRoute allowedRoles={salesRoles} allowedModule="customer-display">
-                  <CustomerDisplayShell />
-                </SurfaceShellRoute>
-              }
-            >
-              <Route index element={<CustomerDisplayHomePlaceholder />} />
-            </Route>
+            {/* Customer Display must boot as a separate, authority-free
+              document. In-app navigation returns to Sales, whose explicit
+              action creates or focuses that isolated window. */}
+            <Route path="customer-display" element={<Navigate to="/sales" replace />} />
             <Route
               path="m"
               element={
@@ -482,7 +536,14 @@ function App() {
                 </SurfaceShellRoute>
               }
             >
-              <Route index element={<MobileWaiterHome />} />
+              <Route
+                index
+                element={
+                  <ShellRoute allowedRoles={salesRoles} allowedModule="dine-in">
+                    <MobileWaiterHome />
+                  </ShellRoute>
+                }
+              />
             </Route>
             {/* Read-only Companion. The dedicated snapshot is intentionally
                 available to viewer while cashier remains excluded. */}
@@ -499,7 +560,7 @@ function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </CommandPaletteProvider>
-      </TenantProvider>
+      </AuthTenantBoundary>
     </AuthProvider>
   );
 }

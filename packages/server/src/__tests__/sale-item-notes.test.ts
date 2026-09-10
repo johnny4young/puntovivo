@@ -118,7 +118,7 @@ async function enableKdsModule(): Promise<void> {
     .get();
   const settings = (row?.settings as Record<string, unknown> | null) ?? {};
   const modules = (settings.modules as Record<string, boolean> | undefined) ?? {};
-  const next = { ...settings, modules: { ...modules, kds: true } };
+  const next = { ...settings, modules: { ...modules, 'dine-in': true, kds: true } };
   await db
     .update(tenants)
     .set({ settings: next, updatedAt: new Date().toISOString() })

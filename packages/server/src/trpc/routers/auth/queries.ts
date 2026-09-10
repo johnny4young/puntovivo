@@ -10,6 +10,7 @@ import { protectedProcedure } from '../../middleware/auth.js';
 import { cashierManagerOrAdminProcedure } from '../../middleware/roles.js';
 import { users, tenants } from '../../../db/schema.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
+import { projectTenantSettingsForClient } from '../../../services/tenant-settings-projection.js';
 
 export const authQueryProcedures = {
   /** Active same-tenant cashiers available for shared-terminal switching. */
@@ -73,7 +74,7 @@ export const authQueryProcedures = {
             id: tenant.id,
             name: tenant.name,
             slug: tenant.slug,
-            settings: tenant.settings,
+            settings: projectTenantSettingsForClient(tenant.settings),
             createdAt: tenant.createdAt,
             updatedAt: tenant.updatedAt,
           }

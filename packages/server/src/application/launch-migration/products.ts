@@ -9,7 +9,7 @@ import { TRPCError } from '@trpc/server';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
-import { createProduct } from '../products/index.js';
+import { createProductForImport } from '../products/index.js';
 import { recordInventoryEntry } from '../inventory/index.js';
 import { products, units, vatRates } from '../../db/schema.js';
 import { createModuleLogger } from '../../logging/logger.js';
@@ -451,7 +451,7 @@ export async function commitLaunchProductImport(
   for (const row of preview.rows) {
     if (row.status !== 'ready') continue;
     try {
-      const created = await createProduct(ctx, {
+      const created = await createProductForImport(ctx, {
         name: row.normalized.name,
         sku: row.normalized.sku,
         description: row.normalized.description,
@@ -558,30 +558,36 @@ export async function commitLaunchProductImport(
   const completedAt = new Date().toISOString();
   const skipped = skippedRows.length;
   const warnings = importedRows.reduce((count, row) => count + row.issues.length, 0);
-  ctx.db.transaction(tx => {
-    writeAuditLog({
-      tx,
-      tenantId: ctx.tenantId,
-      actorId: ctx.user.id,
-      action: 'data_import.products',
-      resourceType: 'data_import',
-      resourceId: importId,
-      after: {
-        imported: importedRows.length,
-        stockInitialized: importedRows.filter(row => row.stockInitialized).length,
-        skipped,
-        invalid: preview.summary.invalid,
-        failed: failedRows.length,
-      },
-      metadata: {
-        dataMode: input.dataMode,
-        sourceFormat: getImportSourceFormat(input.sourceName),
-        previewHash: input.previewHash,
-        totalRows: preview.summary.total,
-        warnings,
-      },
-    });
-  });
+  // Audit-chain writes read the current head before appending. Reserve the
+  // SQLite writer up front so another import cannot make that read transaction
+  // fail while upgrading to a write under normal multi-register contention.
+  ctx.db.transaction(
+    tx => {
+      writeAuditLog({
+        tx,
+        tenantId: ctx.tenantId,
+        actorId: ctx.user.id,
+        action: 'data_import.products',
+        resourceType: 'data_import',
+        resourceId: importId,
+        after: {
+          imported: importedRows.length,
+          stockInitialized: importedRows.filter(row => row.stockInitialized).length,
+          skipped,
+          invalid: preview.summary.invalid,
+          failed: failedRows.length,
+        },
+        metadata: {
+          dataMode: input.dataMode,
+          sourceFormat: getImportSourceFormat(input.sourceName),
+          previewHash: input.previewHash,
+          totalRows: preview.summary.total,
+          warnings,
+        },
+      });
+    },
+    { behavior: 'immediate' }
+  );
 
   return {
     dataMode: input.dataMode,

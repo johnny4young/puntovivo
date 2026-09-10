@@ -5,8 +5,9 @@
  * - COGS for a lot-tracked line comes from `sale_item_lots` (the real
  * per-lot cost), NOT the `cost_at_sale` snapshot.
  * - COGS for a non-lot line comes from `cost_at_sale × normalized quantity`.
- * - Refunded (paymentStatus='refunded', still status='completed'), voided,
- * draft, and out-of-range sales are excluded.
+ * - Sales and their frozen returns are booked in their own periods; fully
+ * refunded tickets cancel only when both events are inside the window.
+ * - Voided, draft, and out-of-range events are excluded.
  * - Tenant isolation and the manager/admin role gate.
  */
 
@@ -20,6 +21,8 @@ import {
   products,
   saleItemLots,
   saleItems,
+  saleReturnItems,
+  saleReturns,
   sales,
   sites,
   tenants,
@@ -27,6 +30,7 @@ import {
 } from '../db/schema.js';
 import { seedCommittedSaleSession } from './utils/cashSessionFixture.js';
 import { computeProfitMarginReport } from '../services/reports/profit-margin.js';
+import { roundMoney } from '../lib/money.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 
@@ -147,10 +151,11 @@ describe('reports.profit.margin', () => {
     const s1 = nanoid();
     const s1Line1 = nanoid();
     const s1Line2 = nanoid();
-    // S2 — refunded (status stays 'completed'); lot-tracked but its lot rows
-    // were deleted on refund, so it would leak revenue with ~0 lot COGS if the
-    // filter missed it. Must be excluded.
+    // S2 — fully returned within the range. Historical full refunds are
+    // normalized into frozen return evidence by the migration, not inferred
+    // from today's header status when computing a dated report.
     const s2 = nanoid();
+    const s2Line = nanoid();
     const s3 = nanoid(); // voided
     const s4 = nanoid(); // draft
     const s5 = nanoid(); // out of range
@@ -181,7 +186,7 @@ describe('reports.profit.margin', () => {
         discountAmount: 0,
         total: 5000,
         paymentMethod: 'cash',
-        paymentStatus: 'refunded',
+        returnState: 'refunded',
         status: 'completed',
         cashSessionId: sessionId,
         createdBy: userId,
@@ -265,7 +270,7 @@ describe('reports.profit.margin', () => {
         total: 50,
       },
       {
-        id: nanoid(),
+        id: s2Line,
         saleId: s2,
         productId: P_LOT,
         quantity: 50,
@@ -313,6 +318,32 @@ describe('reports.profit.margin', () => {
         total: 777,
       },
     ]);
+
+    const s2Return = nanoid();
+    await db.insert(saleReturns).values({
+      id: s2Return,
+      tenantId,
+      saleId: s2,
+      subtotal: 5000,
+      refundAmount: 5000,
+      createdBy: userId,
+      createdAt: IN_RANGE_AT,
+    });
+    await db.insert(saleReturnItems).values({
+      id: nanoid(),
+      tenantId,
+      saleReturnId: s2Return,
+      saleItemId: s2Line,
+      productId: P_LOT,
+      quantity: 50,
+      baseQuantity: 50,
+      unitPrice: 100,
+      unitEquivalence: 1,
+      subtotal: 5000,
+      total: 5000,
+      costAmount: 250,
+      createdAt: IN_RANGE_AT,
+    });
 
     // sale_item_lots only for S1's lot-tracked line (6 from lot A @4, 4 from lot B @6).
     await db.insert(saleItemLots).values([
@@ -376,9 +407,9 @@ describe('reports.profit.margin', () => {
     expect(second?.grossMarginPct).toBe(40);
   });
 
-  it('excludes refunded, voided, draft, and out-of-range sales', async () => {
-    // If any of S2 (5000, refunded), S3 (999, voided), S4 (888, draft), or
-    // S5 (777, out of range) leaked, revenue would jump well past 170.
+  it('nets same-period refunds and excludes voided, draft, and out-of-range sales', async () => {
+    // S2 (5000) and its frozen return cancel; S3 (voided), S4 (draft), and
+    // S5 (out of range) never contribute.
     const report = computeProfitMarginReport(getDatabase(), {
       tenantId,
       fromDate: RANGE_FROM,
@@ -458,8 +489,9 @@ describe('reports.profit.margin', () => {
       createdAt: now,
       updatedAt: now,
     });
+    const lineB = nanoid();
     await db.insert(saleItems).values({
-      id: nanoid(),
+      id: lineB,
       saleId: saleB,
       productId: productB,
       quantity: 1000,
@@ -469,6 +501,31 @@ describe('reports.profit.margin', () => {
       taxAmount: 0,
       costAtSale: 1,
       total: 99999,
+    });
+    const returnB = nanoid();
+    await db.insert(saleReturns).values({
+      id: returnB,
+      tenantId: tenantB,
+      saleId: saleB,
+      subtotal: 49999.5,
+      refundAmount: 49999.5,
+      createdBy: userB,
+      createdAt: now,
+    });
+    await db.insert(saleReturnItems).values({
+      id: nanoid(),
+      tenantId: tenantB,
+      saleReturnId: returnB,
+      saleItemId: lineB,
+      productId: productB,
+      quantity: 500,
+      baseQuantity: 500,
+      unitPrice: 100,
+      unitEquivalence: 1,
+      subtotal: 49999.5,
+      total: 49999.5,
+      costAmount: 500,
+      createdAt: now,
     });
 
     // Tenant A's report is unchanged; tenant B's own report sees only its sale.
@@ -487,7 +544,8 @@ describe('reports.profit.margin', () => {
       toDate: RANGE_TO,
       limit: 50,
     });
-    expect(reportB.summary.revenue).toBe(99999);
+    expect(reportB.summary.revenue).toBe(49999.5);
+    expect(reportB.summary.cogs).toBe(500);
     expect(reportB.products).toHaveLength(1);
     expect(reportB.products[0]?.sku).toBe('B-1');
   });
@@ -495,5 +553,251 @@ describe('reports.profit.margin', () => {
   it('rejects a cashier — manager/admin gated', async () => {
     const caller = appRouter.createCaller(buildContext('cashier'));
     await expect(caller.reports.profit.margin(marginInput)).rejects.toThrow();
+  });
+
+  it('books discounted, tax-exclusive returns on their dates without restating checkout', async () => {
+    const db = getDatabase();
+    const productId = nanoid();
+    const saleId = nanoid();
+    const lineId = nanoid();
+    const soldAt = '2026-08-20T10:00:00.000Z';
+    const returnedAt = '2026-08-21T23:59:59.999Z';
+    const finalReturnAt = '2026-08-22T00:00:00.000Z';
+    const cashSessionId = await seedCommittedSaleSession({ tenantId, cashierId: userId });
+    await db.insert(products).values({
+      id: productId,
+      tenantId,
+      name: 'Dated discounted VAT',
+      sku: `DATED-${nanoid(6)}`,
+      price: 11900,
+      cost: 6000,
+    });
+    await db.insert(sales).values({
+      id: saleId,
+      tenantId,
+      saleNumber: `DATED-${nanoid(6)}`,
+      subtotal: 30000,
+      taxAmount: 5700,
+      discountAmount: 1190,
+      total: 34510,
+      status: 'completed',
+      paymentStatus: 'paid',
+      paymentMethod: 'cash',
+      cashSessionId,
+      createdBy: userId,
+      // A draft created yesterday is revenue only when it was checked out.
+      createdAt: '2026-08-19T10:00:00.000Z',
+      checkoutCompletedAt: soldAt,
+    });
+    await db.insert(saleItems).values({
+      id: lineId,
+      saleId,
+      productId,
+      quantity: 3,
+      unitPrice: 11900,
+      taxAmount: 5700,
+      taxRate: 19,
+      costAtSale: 6000,
+      inventoryCostCents: 1800000,
+      cogsCostCents: 1800000,
+      total: 35700,
+    });
+    const report = (from: string, to = from) =>
+      computeProfitMarginReport(db, {
+        tenantId,
+        fromDate: `${from}T00:00:00.000Z`,
+        toDate: `${to}T23:59:59.999Z`,
+        limit: 50,
+      });
+    const beforeReturn = report('2026-08-20');
+    expect(beforeReturn.summary).toMatchObject({
+      revenue: 28810,
+      cogs: 18000,
+      grossProfit: 10810,
+      salesCount: 1,
+      lineCount: 1,
+    });
+    expect(report('2026-08-19').summary.revenue).toBe(0);
+
+    for (const [quantity, createdAt, discountAmount] of [
+      [1, returnedAt, 396.67],
+      [2, finalReturnAt, 793.33],
+    ] as const) {
+      const returnId = nanoid();
+      await db.insert(saleReturns).values({
+        id: returnId,
+        tenantId,
+        saleId,
+        subtotal: quantity * 10000,
+        taxAmount: quantity * 1900,
+        discountAmount,
+        refundAmount: roundMoney(quantity * 11900 - discountAmount),
+        createdBy: userId,
+        createdAt,
+      });
+      await db.insert(saleReturnItems).values({
+        id: nanoid(),
+        tenantId,
+        saleReturnId: returnId,
+        saleItemId: lineId,
+        productId,
+        quantity,
+        baseQuantity: quantity,
+        unitPrice: 11900,
+        unitEquivalence: 1,
+        taxRate: 19,
+        subtotal: quantity * 10000,
+        taxAmount: quantity * 1900,
+        total: quantity * 11900,
+        costAmount: quantity * 6000,
+        createdAt,
+      });
+    }
+    await db.update(sales).set({ returnState: 'refunded' }).where(eq(sales.id, saleId));
+    await db.update(products).set({ cost: 99000, taxRate: 0 }).where(eq(products.id, productId));
+
+    expect(report('2026-08-20')).toEqual(beforeReturn);
+    const firstReturn = report('2026-08-21');
+    expect(firstReturn.summary).toMatchObject({
+      revenue: -9603.33,
+      cogs: -6000,
+      cogsFromSnapshot: -6000,
+      grossProfit: -3603.33,
+      salesCount: 0,
+      lineCount: 0,
+    });
+    expect(firstReturn.products).toEqual([
+      expect.objectContaining({ productId, quantity: -1, revenue: -9603.33, cogs: -6000 }),
+    ]);
+    const finalReturn = report('2026-08-22');
+    expect(finalReturn.summary).toMatchObject({ revenue: -19206.67, cogs: -12000 });
+    const combined = report('2026-08-20', '2026-08-22');
+    expect(combined.summary).toMatchObject({ revenue: 0, cogs: 0, grossProfit: 0 });
+    expect(combined.products).toEqual([]);
+    expect(
+      roundMoney(
+        beforeReturn.summary.revenue + firstReturn.summary.revenue + finalReturn.summary.revenue
+      )
+    ).toBe(combined.summary.revenue);
+    expect(report('2026-08-23').products).toEqual([]);
+  });
+
+  it('conserves multi-line header cents and dated lot costs through separate final returns', async () => {
+    const db = getDatabase();
+    const saleId = nanoid();
+    const productIds = [nanoid(), nanoid()];
+    const lineIds = [`a-${nanoid()}`, `b-${nanoid()}`];
+    const soldAt = '2026-09-01T12:00:00.000Z';
+    const site = await db.select().from(sites).where(eq(sites.tenantId, tenantId)).get();
+    if (!site) throw new Error('Expected seeded site');
+    const cashSessionId = await seedCommittedSaleSession({ tenantId, cashierId: userId });
+    const lotId = nanoid();
+    for (const [index, productId] of productIds.entries()) {
+      await db.insert(products).values({
+        id: productId,
+        tenantId,
+        name: `Dated cents ${index}`,
+        sku: `CENTS-${nanoid(6)}`,
+        price: index === 0 ? 2.01 : 0.99,
+        cost: 99,
+      });
+    }
+    await db.insert(inventoryLots).values({
+      id: lotId,
+      tenantId,
+      siteId: site.id,
+      productId: productIds[0]!,
+      lotNumber: nanoid(),
+      unitCost: 0.5,
+    });
+    await db.insert(sales).values({
+      id: saleId,
+      tenantId,
+      saleNumber: `CENTS-${nanoid(6)}`,
+      subtotal: 6,
+      discountAmount: 1,
+      total: 5,
+      status: 'completed',
+      paymentMethod: 'cash',
+      paymentStatus: 'paid',
+      cashSessionId,
+      createdBy: userId,
+      createdAt: soldAt,
+    });
+    for (const [index, productId] of productIds.entries()) {
+      await db.insert(saleItems).values({
+        id: lineIds[index]!,
+        saleId,
+        productId,
+        quantity: 2,
+        unitEquivalence: index === 0 ? 2 : 1,
+        unitPrice: index === 0 ? 2.01 : 0.99,
+        total: index === 0 ? 4.02 : 1.98,
+        costAtSale: 99,
+        // Known zero must not fall back to the nonzero catalog/unit cost.
+        inventoryCostCents: index === 0 ? null : 0,
+        cogsCostCents: index === 0 ? null : 0,
+      });
+    }
+    await db.insert(saleItemLots).values({
+      id: nanoid(),
+      tenantId,
+      saleItemId: lineIds[0]!,
+      lotId,
+      quantity: 4,
+      unitCost: 0.5,
+    });
+    for (const day of ['2026-09-02', '2026-09-03']) {
+      const returnId = nanoid();
+      const createdAt = `${day}T12:00:00.000Z`;
+      await db.insert(saleReturns).values({
+        id: returnId,
+        tenantId,
+        saleId,
+        subtotal: 3,
+        discountAmount: 0.5,
+        refundAmount: 2.5,
+        createdBy: userId,
+        createdAt,
+      });
+      for (const [index, productId] of productIds.entries()) {
+        await db.insert(saleReturnItems).values({
+          id: nanoid(),
+          tenantId,
+          saleReturnId: returnId,
+          saleItemId: lineIds[index]!,
+          productId,
+          quantity: 1,
+          baseQuantity: index === 0 ? 2 : 1,
+          unitEquivalence: index === 0 ? 2 : 1,
+          unitPrice: index === 0 ? 2.01 : 0.99,
+          subtotal: index === 0 ? 2.01 : 0.99,
+          total: index === 0 ? 2.01 : 0.99,
+          costAmount: index === 0 ? 1 : 0,
+          createdAt,
+        });
+      }
+    }
+    await db.update(sales).set({ returnState: 'refunded' }).where(eq(sales.id, saleId));
+    const read = (from: string, to = from) =>
+      computeProfitMarginReport(db, {
+        tenantId,
+        fromDate: `${from}T00:00:00.000Z`,
+        toDate: `${to}T23:59:59.999Z`,
+        limit: 50,
+      });
+    const periods = ['2026-09-01', '2026-09-02', '2026-09-03'].map(day => read(day));
+    expect(periods.map(period => period.summary.revenue)).toEqual([5, -2.5, -2.5]);
+    expect(periods.map(period => period.summary.cogsFromLots)).toEqual([2, -1, -1]);
+    expect(periods.map(period => period.summary.cogsFromSnapshot)).toEqual([0, 0, 0]);
+    for (const productId of productIds) {
+      const productPeriods = periods.map(period =>
+        period.products.find(product => product.productId === productId)
+      );
+      expect(productPeriods.every(Boolean)).toBe(true);
+      expect(roundMoney(productPeriods.reduce((sum, row) => sum + row!.revenue, 0))).toBe(0);
+      expect(roundMoney(productPeriods.reduce((sum, row) => sum + row!.cogs, 0))).toBe(0);
+    }
+    expect(read('2026-09-01', '2026-09-03').products).toEqual([]);
   });
 });

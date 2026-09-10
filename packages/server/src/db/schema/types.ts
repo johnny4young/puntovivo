@@ -8,9 +8,23 @@
  *
  * @module db/schema/types
  */
-import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import {
+  check,
+  index,
+  integer,
+  real,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/sqlite-core';
 import { relations, sql } from 'drizzle-orm';
-import { sqliteNow } from './base.js';
+import {
+  moneyPositiveChecks,
+  moneyTwoDecimalCheck,
+  nowIso,
+  sqliteNow,
+  syncStatusEnum,
+} from './base.js';
 import { companies, logos, sites, tenants, users } from './auth.js';
 import {
   categories,
@@ -494,6 +508,136 @@ export type CustomerLedgerEntryRow = typeof customerLedgerEntries.$inferSelect;
 export type NewCustomerLedgerEntryRow = typeof customerLedgerEntries.$inferInsert;
 
 // ============================================================================
+// CUSTOMER STORE CREDIT
+// ============================================================================
+
+/** One materialized balance per tenant/customer/currency, backed by an immutable ledger. */
+export const storeCreditAccounts = sqliteTable(
+  'store_credit_accounts',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    customerId: text('customer_id')
+      .notNull()
+      .references(() => customers.id, { onDelete: 'restrict' }),
+    currencyCode: text('currency_code')
+      .notNull()
+      .default('COP')
+      .references(() => currencyCatalog.code),
+    balance: real('balance').notNull().default(0),
+    syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
+    syncVersion: integer('sync_version').default(0),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_store_credit_accounts_tenant_customer').on(table.tenantId, table.customerId),
+    uniqueIndex('idx_store_credit_accounts_currency').on(
+      table.tenantId,
+      table.customerId,
+      table.currencyCode
+    ),
+    ...moneyPositiveChecks('store_credit_accounts_balance', table.balance),
+  ]
+);
+
+export const storeCreditMovementKindEnum = ['issue', 'redeem', 'adjust', 'revert'] as const;
+
+export const storeCreditMovements = sqliteTable(
+  'store_credit_movements',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    accountId: text('account_id')
+      .notNull()
+      .references(() => storeCreditAccounts.id, { onDelete: 'restrict' }),
+    customerId: text('customer_id')
+      .notNull()
+      .references(() => customers.id, { onDelete: 'restrict' }),
+    saleReturnId: text('sale_return_id').references(() => saleReturns.id, { onDelete: 'restrict' }),
+    saleId: text('sale_id').references(() => sales.id, { onDelete: 'restrict' }),
+    /** Tender that consumed the balance. Logical reference avoids a schema
+     * cycle with salesAux while unique indexes enforce one debit per tender. */
+    salePaymentId: text('sale_payment_id'),
+    /** Original redeem movement restored by a return/void. */
+    sourceMovementId: text('source_movement_id'),
+    kind: text('kind', { enum: storeCreditMovementKindEnum }).notNull(),
+    /** Signed delta: issues/restorations are positive; redemptions are negative. */
+    amount: real('amount').notNull(),
+    balanceAfter: real('balance_after').notNull(),
+    currencyCode: text('currency_code')
+      .notNull()
+      .default('COP')
+      .references(() => currencyCatalog.code),
+    note: text('note'),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => users.id),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_store_credit_movements_tenant_account').on(table.tenantId, table.accountId),
+    index('idx_store_credit_movements_customer').on(table.customerId),
+    uniqueIndex('idx_store_credit_movements_return_issue')
+      .on(table.tenantId, table.saleReturnId)
+      .where(sql`${table.kind} = 'issue' and ${table.saleReturnId} is not null`),
+    uniqueIndex('idx_store_credit_movements_payment_redeem')
+      .on(table.tenantId, table.salePaymentId)
+      .where(sql`${table.kind} = 'redeem' and ${table.salePaymentId} is not null`),
+    uniqueIndex('idx_store_credit_movements_return_source')
+      .on(table.tenantId, table.saleReturnId, table.sourceMovementId, table.kind)
+      .where(sql`${table.saleReturnId} is not null and ${table.sourceMovementId} is not null`),
+    uniqueIndex('idx_store_credit_movements_void_source')
+      .on(table.tenantId, table.saleId, table.sourceMovementId, table.kind)
+      .where(sql`${table.saleReturnId} is null and ${table.sourceMovementId} is not null`),
+    check(
+      'chk_store_credit_movements_sign',
+      sql`(${table.kind} IN ('issue', 'revert') AND ${table.amount} > 0) OR (${table.kind} = 'redeem' AND ${table.amount} < 0) OR (${table.kind} = 'adjust' AND ${table.amount} <> 0)`
+    ),
+    moneyTwoDecimalCheck('store_credit_movements_amount', table.amount),
+    ...moneyPositiveChecks('store_credit_movements_balance', table.balanceAfter),
+  ]
+);
+
+export const storeCreditAccountsRelations = relations(storeCreditAccounts, ({ one, many }) => ({
+  tenant: one(tenants, { fields: [storeCreditAccounts.tenantId], references: [tenants.id] }),
+  customer: one(customers, {
+    fields: [storeCreditAccounts.customerId],
+    references: [customers.id],
+  }),
+  movements: many(storeCreditMovements),
+}));
+
+export const storeCreditMovementsRelations = relations(storeCreditMovements, ({ one }) => ({
+  account: one(storeCreditAccounts, {
+    fields: [storeCreditMovements.accountId],
+    references: [storeCreditAccounts.id],
+  }),
+  customer: one(customers, {
+    fields: [storeCreditMovements.customerId],
+    references: [customers.id],
+  }),
+  saleReturn: one(saleReturns, {
+    fields: [storeCreditMovements.saleReturnId],
+    references: [saleReturns.id],
+  }),
+  sale: one(sales, { fields: [storeCreditMovements.saleId], references: [sales.id] }),
+  createdByUser: one(users, {
+    fields: [storeCreditMovements.createdBy],
+    references: [users.id],
+  }),
+}));
+
+export type StoreCreditAccount = typeof storeCreditAccounts.$inferSelect;
+export type NewStoreCreditAccount = typeof storeCreditAccounts.$inferInsert;
+export type StoreCreditMovement = typeof storeCreditMovements.$inferSelect;
+export type NewStoreCreditMovement = typeof storeCreditMovements.$inferInsert;
+
+// ============================================================================
 // delivery orders (extension promoted to active backlog).
 //
 // Per-site delivery queue. Status flows linearly accepted → preparing →
@@ -509,6 +653,7 @@ export const deliveryOrderStatusEnum = [
   'delivered',
   'cancelled',
 ] as const;
+/** Fulfillment states; delivered and cancelled are terminal, independently of payment. */
 export type DeliveryOrderStatus = (typeof deliveryOrderStatusEnum)[number];
 
 export const deliveryOrders = sqliteTable(
@@ -528,6 +673,13 @@ export const deliveryOrders = sqliteTable(
     addressNotes: text('address_notes'),
     courierName: text('courier_name'),
     status: text('status', { enum: deliveryOrderStatusEnum }).notNull().default('accepted'),
+    // Null provenance/currency remain readable for historical queues; no invented backfill.
+    source: text('source', { enum: ['legacy', 'manual', 'sale'] })
+      .notNull()
+      .default('legacy'),
+    currencyCode: text('currency_code'),
+    version: integer('version').notNull().default(1),
+    cancellationReason: text('cancellation_reason'),
     totalAmount: real('total_amount').notNull().default(0),
     itemsSnapshot: text('items_snapshot'),
     saleId: text('sale_id').references(() => sales.id),
@@ -542,6 +694,15 @@ export const deliveryOrders = sqliteTable(
   table => [
     index('idx_delivery_orders_tenant_site_status').on(table.tenantId, table.siteId, table.status),
     index('idx_delivery_orders_tenant_accepted').on(table.tenantId, table.acceptedAt),
+    index('idx_delivery_orders_queue_cursor').on(
+      table.tenantId,
+      table.siteId,
+      table.status,
+      table.acceptedAt,
+      table.id
+    ),
+    index('idx_delivery_orders_sale').on(table.tenantId, table.saleId),
+    check('chk_delivery_orders_version', sql`${table.version} >= 1`),
   ]
 );
 

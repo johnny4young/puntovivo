@@ -29,6 +29,7 @@ import {
 import { writeAuditLog } from '../../services/audit-logs.js';
 import { sales } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
+import { hasCheckoutPriceOverride } from '../../application/sales/price-override-preflight.js';
 
 export const lossPreventionRouter = router({
   getSettings: adminProcedure.query(({ ctx }) =>
@@ -37,16 +38,36 @@ export const lossPreventionRouter = router({
 
   evaluateCheckout: cashierManagerOrAdminProcedure
     .input(evaluateCheckoutLossPreventionInput)
-    .query(({ ctx, input }) =>
-      evaluateCheckoutLossPrevention({
-        db: ctx.db,
-        tenantId: ctx.tenantId,
-        role: ctx.user!.role,
-        isCompletion: true,
-        items: input.items,
-        discountAmount: input.discountAmount,
-      })
-    ),
+    .query(async ({ ctx, input }) => {
+      const [evaluation, hasPriceOverride] = await Promise.all([
+        evaluateCheckoutLossPrevention({
+          db: ctx.db,
+          tenantId: ctx.tenantId,
+          role: ctx.user!.role,
+          isCompletion: true,
+          items: input.items,
+          discountAmount: input.discountAmount,
+        }),
+        ctx.user!.role === 'cashier'
+          ? hasCheckoutPriceOverride({
+              db: ctx.db,
+              tenantId: ctx.tenantId,
+              items: input.items,
+              priceTier: input.priceTier,
+              saleId: input.saleId,
+            })
+          : Promise.resolve(false),
+      ]);
+      return {
+        ...evaluation,
+        requiredActions: [
+          ...new Set([
+            ...evaluation.requiredActions,
+            ...(hasPriceOverride ? (['sale_price_override'] as const) : []),
+          ]),
+        ],
+      };
+    }),
 
   evaluateShiftAction: cashierManagerOrAdminProcedure
     .input(evaluateShiftActionLossPreventionInput)
@@ -124,25 +145,31 @@ export const lossPreventionRouter = router({
     .input(updateLossPreventionSettingsInput)
     .mutation(({ ctx, input }) => {
       const criticalCtx = asCriticalCommandContext(ctx);
-      return criticalCtx.db.transaction(tx => {
-        const before = resolveLossPreventionSettings(tx, criticalCtx.tenantId);
-        const after = writeLossPreventionSettings(tx, criticalCtx.tenantId, {
-          version: 4,
-          roles: input.roles,
-          alerts: input.alerts ?? before.alerts,
-        });
-        writeAuditLog({
-          tx,
-          tenantId: criticalCtx.tenantId,
-          actorId: criticalCtx.user.id,
-          action: 'loss_prevention.settings.updated',
-          resourceType: 'loss_prevention_rule',
-          resourceId: criticalCtx.tenantId,
-          before: { ...before },
-          after: { ...after },
-          operationId: criticalCtx.envelope.operationId,
-        });
-        return after;
-      });
+      // Reserve the SQLite writer before reading the current settings and
+      // audit head. A deferred transaction can otherwise lose its write
+      // upgrade to another register and surface a raw SQLITE_BUSY to the UI.
+      return criticalCtx.db.transaction(
+        tx => {
+          const before = resolveLossPreventionSettings(tx, criticalCtx.tenantId);
+          const after = writeLossPreventionSettings(tx, criticalCtx.tenantId, {
+            version: 4,
+            roles: input.roles,
+            alerts: input.alerts ?? before.alerts,
+          });
+          writeAuditLog({
+            tx,
+            tenantId: criticalCtx.tenantId,
+            actorId: criticalCtx.user.id,
+            action: 'loss_prevention.settings.updated',
+            resourceType: 'loss_prevention_rule',
+            resourceId: criticalCtx.tenantId,
+            before: { ...before },
+            after: { ...after },
+            operationId: criticalCtx.envelope.operationId,
+          });
+          return after;
+        },
+        { behavior: 'immediate' }
+      );
     }),
 });

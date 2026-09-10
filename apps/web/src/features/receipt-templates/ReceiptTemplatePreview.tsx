@@ -93,6 +93,8 @@ export function ReceiptTemplatePreview({ layout, kind, className }: ReceiptTempl
           card: t('preview.tendersTable.methods.card'),
           transfer: t('preview.tendersTable.methods.transfer'),
           credit: t('preview.tendersTable.methods.credit'),
+          loyalty: t('preview.tendersTable.methods.loyalty'),
+          storeCredit: t('preview.tendersTable.methods.storeCredit'),
           other: t('preview.tendersTable.methods.other'),
         },
       },

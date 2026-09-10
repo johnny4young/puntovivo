@@ -12,8 +12,16 @@
 import { and, asc, desc, eq, gte, lte, sql } from 'drizzle-orm';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
-import { customers, products, saleItems, sales } from '../../db/schema.js';
+import { customers, products, sales } from '../../db/schema.js';
 import { productStockTotalSql } from '../../services/inventory-balances/derive.js';
+import {
+  dailyDatedRevenueSql,
+  datedRevenueSaleConditions,
+  netSaleTotalSql,
+  windowReturnedAmountSql,
+  windowedProductTotalsSql,
+  type WindowedProductTotalsRow,
+} from '../../services/reports/net-sales.js';
 
 type DashboardRevenuePoint = {
   date: string;
@@ -60,7 +68,7 @@ function getRevenueEligibleSaleConditions(tenantId: string) {
   return [
     eq(sales.tenantId, tenantId),
     eq(sales.status, 'completed'),
-    sql`${sales.paymentStatus} != 'refunded'`,
+    sql`(${sales.returnState} is null or ${sales.returnState} != 'refunded')`,
   ] as const;
 }
 
@@ -73,6 +81,18 @@ export const dashboardRouter = router({
     const lastSevenDaysStart = addUtcDays(todayStart, -6);
 
     const completedSaleConditions = getRevenueEligibleSaleConditions(ctx.tenantId);
+    const netSaleTotal = netSaleTotalSql(ctx.tenantId);
+    // Period revenue books returns as dated events; see net-sales. The
+    // per-ticket helper above stays for the recent-sales list, where lifetime
+    // net is a property of the ticket rather than of a period.
+    const todayFrom = todayStart.toISOString();
+    const todayTo = todayEnd.toISOString();
+    // The refund window is half-open, so it takes the next day's start.
+    // Handing it the inclusive 23:59:59.999 used by the sale-side comparison
+    // below dropped a refund recorded in that final millisecond from a figure
+    // whose other half kept the sale.
+    const todayToExclusive = addUtcDays(todayStart, 1).toISOString();
+    const todayRefunds = windowReturnedAmountSql(ctx.tenantId, todayFrom, todayToExclusive);
     // Drafts can stay open across a reporting boundary. Completed-at
     // is the authoritative business instant; created-at remains the
     // compatibility fallback for historical rows predating telemetry.
@@ -89,29 +109,25 @@ export const dashboardRouter = router({
     ] = await Promise.all([
       ctx.db
         .select({
-          revenue: sql<number>`coalesce(sum(${sales.total}), 0)`,
-          orders: sql<number>`count(*)`,
+          revenue: sql<number>`round(coalesce(sum(${sales.total}), 0) - ${todayRefunds}, 2)`,
+          // Revenue goes dated; the ORDER count deliberately does not change
+          // meaning. A fully returned ticket was never counted as an order and
+          // still is not — the review comment was about revenue restating a
+          // closed period, not about redefining throughput.
+          orders: sql<number>`sum(case when ${sales.returnState} is null or ${sales.returnState} != 'refunded' then 1 else 0 end)`,
         })
         .from(sales)
         .where(
           and(
-            ...completedSaleConditions,
-            gte(completedAt, todayStart.toISOString()),
-            lte(completedAt, todayEnd.toISOString())
+            ...datedRevenueSaleConditions(ctx.tenantId),
+            gte(completedAt, todayFrom),
+            lte(completedAt, todayTo)
           )
         )
         .get(),
-      ctx.db
-        .select({
-          date: sql<string>`substr(${completedAt}, 1, 10)`,
-          revenue: sql<number>`coalesce(sum(${sales.total}), 0)`,
-          orders: sql<number>`count(*)`,
-        })
-        .from(sales)
-        .where(and(...completedSaleConditions, gte(completedAt, lastThirtyDaysStart.toISOString())))
-        .groupBy(sql`substr(${completedAt}, 1, 10)`)
-        .orderBy(sql`substr(${completedAt}, 1, 10) asc`)
-        .all(),
+      Promise.resolve(
+        ctx.db.all(dailyDatedRevenueSql(ctx.tenantId, lastThirtyDaysStart.toISOString())) as unknown
+      ) as Promise<Array<{ date: string; revenue: number; orders: number }>>,
       ctx.db
         .select({ value: sql<number>`count(*)` })
         .from(products)
@@ -156,13 +172,16 @@ export const dashboardRouter = router({
         .select({
           id: sales.id,
           saleNumber: sales.saleNumber,
-          total: sales.total,
+          total: netSaleTotal,
           createdAt: completedAt,
           customerName: customers.name,
           customerEmail: customers.email,
         })
         .from(sales)
-        .leftJoin(customers, eq(sales.customerId, customers.id))
+        .leftJoin(
+          customers,
+          and(eq(sales.customerId, customers.id), eq(customers.tenantId, ctx.tenantId))
+        )
         // Same revenue-eligibility filter the stats above use: a
         // parked draft, a cancelled ticket or a voided/refunded sale
         // is not a recent SALE, and listing them made the panel
@@ -171,21 +190,14 @@ export const dashboardRouter = router({
         .orderBy(desc(completedAt))
         .limit(5)
         .all(),
-      ctx.db
-        .select({
-          productId: products.id,
-          productName: products.name,
-          totalQuantity: sql<number>`coalesce(sum(${saleItems.quantity}), 0)`,
-          totalRevenue: sql<number>`coalesce(sum(${saleItems.total}), 0)`,
-        })
-        .from(saleItems)
-        .innerJoin(sales, eq(saleItems.saleId, sales.id))
-        .innerJoin(products, eq(saleItems.productId, products.id))
-        .where(and(...completedSaleConditions, gte(completedAt, lastSevenDaysStart.toISOString())))
-        .groupBy(products.id, products.name)
-        .orderBy(desc(sql<number>`coalesce(sum(${saleItems.total}), 0)`))
-        .limit(5)
-        .all(),
+      // Top products books returns as DATED EVENTS, like every other period
+      // figure on this dashboard. Summing the per-line net helpers under a
+      // window on the sale date instead made a return booked today shrink the
+      // week its ticket was sold in, and could not represent a return booked
+      // this week for a sale made before it at all.
+      ctx.db.all<WindowedProductTotalsRow>(
+        windowedProductTotalsSql(ctx.tenantId, lastSevenDaysStart.toISOString(), 5)
+      ),
       ctx.db
         .select({ value: sql<number>`count(*)` })
         .from(customers)

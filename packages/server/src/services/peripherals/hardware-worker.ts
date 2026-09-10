@@ -88,7 +88,7 @@ export interface HardwareWorker {
 export interface TickOutcome {
   processed: boolean;
   rowId?: string;
-  outcome?: 'completed' | 'retrying' | 'dead_letter';
+  outcome?: 'completed' | 'retrying' | 'dead_letter' | 'lost_claim';
 }
 
 export interface CreateHardwareWorkerOptions {
@@ -323,17 +323,20 @@ export function createHardwareWorker(opts: CreateHardwareWorkerOptions): Hardwar
       workerId,
       loggerLabel: 'hardware-outbox-worker',
       process: async ({ row }) => processHardwareRow(row),
+      onSettled: (tx, outcome) => {
+        try {
+          tx.transaction(metadataTx => {
+            if (outcome === 'completed')
+              recordSuccess(metadataTx, { tenantId, outboxKind: 'hardware' });
+            else if (outcome === 'dead_letter')
+              recordFailure(metadataTx, { tenantId, outboxKind: 'hardware' });
+          });
+        } catch (err) {
+          log.debug({ err, tenantId }, 'hardware outbox metadata write failed (non-blocking)');
+        }
+      },
     });
     if (result.processed) {
-      try {
-        if (result.outcome === 'completed') {
-          await recordSuccess(db, { tenantId, outboxKind: 'hardware' });
-        } else if (result.outcome === 'dead_letter') {
-          await recordFailure(db, { tenantId, outboxKind: 'hardware' });
-        }
-      } catch (err) {
-        log.debug({ err, tenantId }, 'hardware outbox metadata write failed (non-blocking)');
-      }
       return {
         processed: true,
         rowId: result.rowId,

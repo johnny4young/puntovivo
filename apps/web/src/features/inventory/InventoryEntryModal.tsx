@@ -7,6 +7,7 @@ import {
   parseSerialNumbers,
 } from '@/features/inventory/serialNumbers';
 import type { InitialInventoryMode, ProductSearchSelection } from '@/types';
+import { useSingleFlightSubmit } from '@/lib/useSingleFlightSubmit';
 
 export interface InventoryEntryFormValues {
   mode: InitialInventoryMode;
@@ -59,13 +60,16 @@ export function InventoryEntryModal({
     defaultValues: mapSelectionToForm(selection),
   });
 
-  const handleSubmit = form.handleSubmit(onSubmit);
   const quantity = useWatch({ control: form.control, name: 'quantity' });
   const serialNumbersText = useWatch({ control: form.control, name: 'serialNumbers' });
   const mode = useWatch({ control: form.control, name: 'mode' });
   const normalizedQuantity = (Number(quantity) || 0) * (selection?.unit.equivalence ?? 0);
   const tracksLots = selection?.product.tracksLots === true;
   const tracksSerials = selection?.product.tracksSerials === true;
+  // Mirrors the confirm button's disabled expression, so the Enter path
+  // cannot submit what the click path refuses.
+  const canSubmit = !isSaving && !!selection && !((tracksLots || tracksSerials) && !siteId);
+  const handleSubmit = form.handleSubmit(useSingleFlightSubmit(canSubmit, onSubmit));
   const serialCount = parseSerialNumbers(serialNumbersText).length;
   const serialNumbersField = form.register('serialNumbers', {
     validate: value => {

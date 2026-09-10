@@ -1,11 +1,17 @@
 /** safe transitions into and out of lot-tracked inventory. */
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, exists, ne, or, sql } from 'drizzle-orm';
 
 import type { DatabaseInstance } from '../../db/index.js';
 import {
   inventoryBalances,
   inventoryLots,
+  inventoryTransformationInputs,
+  inventoryTransformationOutputs,
+  inventoryTransformations,
+  products,
   productSerials,
+  transferOrderItems,
+  transferOrders,
   type ProductCatalogType,
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
@@ -185,6 +191,181 @@ export function assertCatalogStockMutationAllowed(input: {
       trpcCode: 'BAD_REQUEST',
       errorCode: 'PRODUCT_VARIANT_PARENT_NOT_SELLABLE',
       message: 'A variant matrix parent cannot hold stock',
+    });
+  }
+}
+
+/**
+ * Product inventory identity cannot be reinterpreted while physical custody
+ * is outside both site balances. Deferred transfers freeze the dispatch-time
+ * tracking contract until they are received or voided.
+ */
+export function assertUpdateInventoryIdentityPolicy(input: {
+  db: DatabaseInstance;
+  tenantId: string;
+  productId: string;
+  previousTracksStock: boolean;
+  nextTracksStock: boolean;
+  previousTracksLots: boolean;
+  nextTracksLots: boolean;
+  previousTracksSerials: boolean;
+  nextTracksSerials: boolean;
+}): void {
+  const identityChanged =
+    input.previousTracksStock !== input.nextTracksStock ||
+    input.previousTracksLots !== input.nextTracksLots ||
+    input.previousTracksSerials !== input.nextTracksSerials;
+  if (!identityChanged) return;
+
+  const pendingTransfer = input.db
+    .select({ id: transferOrderItems.id })
+    .from(transferOrderItems)
+    .innerJoin(
+      transferOrders,
+      and(
+        eq(transferOrderItems.transferOrderId, transferOrders.id),
+        eq(transferOrders.tenantId, input.tenantId)
+      )
+    )
+    .where(
+      and(
+        eq(transferOrderItems.productId, input.productId),
+        eq(transferOrders.status, 'in_transit')
+      )
+    )
+    .get();
+  if (pendingTransfer) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'PRODUCT_TRACKING_HAS_IN_TRANSIT_TRANSFER',
+      message: 'Inventory tracking cannot change while product stock is in transit',
+    });
+  }
+
+  // A completed transformation is reversible, and voiding it restores the
+  // product using the mode recorded at execution WITHOUT revalidating it. If
+  // the transformation fully consumed an input, its stock and lots reach zero
+  // and every other guard here is satisfied, so the mode was free to change in
+  // between - and the later reversal would then recreate aggregate stock on a
+  // now lot-tracked product, restore a lot on a product that no longer tracks
+  // lots, or put stock on a service item. Freeze the identity for as long as
+  // the reversal is still possible, the same rule in-transit transfers get.
+  const reversibleTransformation = input.db
+    .select({ id: inventoryTransformations.id })
+    .from(inventoryTransformations)
+    .where(
+      and(
+        eq(inventoryTransformations.tenantId, input.tenantId),
+        eq(inventoryTransformations.status, 'completed'),
+        or(
+          exists(
+            input.db
+              .select({ one: sql`1` })
+              .from(inventoryTransformationInputs)
+              .where(
+                and(
+                  eq(inventoryTransformationInputs.tenantId, input.tenantId),
+                  eq(inventoryTransformationInputs.transformationId, inventoryTransformations.id),
+                  eq(inventoryTransformationInputs.productId, input.productId)
+                )
+              )
+          ),
+          exists(
+            input.db
+              .select({ one: sql`1` })
+              .from(inventoryTransformationOutputs)
+              .where(
+                and(
+                  eq(inventoryTransformationOutputs.tenantId, input.tenantId),
+                  eq(inventoryTransformationOutputs.transformationId, inventoryTransformations.id),
+                  eq(inventoryTransformationOutputs.productId, input.productId)
+                )
+              )
+          )
+        )
+      )
+    )
+    .get();
+  if (reversibleTransformation) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'PRODUCT_TRACKING_HAS_REVERSIBLE_TRANSFORMATION',
+      message:
+        'Inventory tracking cannot change while a completed transformation can still be voided',
+      details: { transformationId: reversibleTransformation.id },
+    });
+  }
+}
+
+/**
+ * Reclassification must not abandon even sub-epsilon physical stock or a cent
+ * owned by it. Run after the existing mode-specific guards (retaining their
+ * error contracts) and again under the catalog writer transaction. A tenant
+ * total of zero does not prove that every site or identity is empty.
+ */
+export function assertUpdateTrackingValuePolicy(
+  input: Parameters<typeof assertUpdateInventoryIdentityPolicy>[0] & {
+    requestedStock?: number | undefined;
+  }
+): void {
+  if (
+    input.previousTracksStock === input.nextTracksStock &&
+    input.previousTracksLots === input.nextTracksLots &&
+    input.previousTracksSerials === input.nextTracksSerials
+  )
+    return;
+  const pending =
+    input.db
+      .select({ id: inventoryBalances.id })
+      .from(inventoryBalances)
+      .where(
+        and(
+          eq(inventoryBalances.tenantId, input.tenantId),
+          eq(inventoryBalances.productId, input.productId),
+          or(ne(inventoryBalances.onHand, 0), ne(inventoryBalances.reserved, 0))
+        )
+      )
+      .get() ??
+    input.db
+      .select({ id: inventoryLots.id })
+      .from(inventoryLots)
+      .where(
+        and(
+          eq(inventoryLots.tenantId, input.tenantId),
+          eq(inventoryLots.productId, input.productId),
+          or(
+            ne(inventoryLots.onHand, 0),
+            ne(inventoryLots.carryingValueCents, 0),
+            ne(inventoryLots.valuationQuantity, 0)
+          )
+        )
+      )
+      .get() ??
+    input.db
+      .select({ id: products.id })
+      .from(products)
+      .where(
+        and(
+          eq(products.tenantId, input.tenantId),
+          eq(products.id, input.productId),
+          or(
+            ne(products.inventoryValueCents, 0),
+            ne(products.cogsValueCents, 0),
+            ne(products.valuationQuantity, 0)
+          )
+        )
+      )
+      .get();
+  const introducesAnonymousStock =
+    (!input.nextTracksStock || input.nextTracksLots || input.nextTracksSerials) &&
+    input.requestedStock !== undefined &&
+    input.requestedStock !== 0;
+  if (pending || introducesAnonymousStock) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'PRODUCT_TRACKING_REQUIRES_EMPTY_INVENTORY',
+      message:
+        'Tracking changes require empty site balances, reservations and value-owning identities; identity-tracked products require a separate receipt',
     });
   }
 }

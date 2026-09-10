@@ -1,3 +1,4 @@
+import { inventoryValueChecks } from '../value-checks.js';
 /**
  * lot costing, expiry, and price-suggestion schema.
  *
@@ -45,8 +46,16 @@ export const inventoryLots = sqliteTable(
     expiresAt: text('expires_at'),
     /** Remaining quantity in base units. */
     onHand: real('on_hand').notNull().default(0),
+    /** Trigger-owned physical revision. Sync acknowledgements must never advance it. */
+    custodyVersion: integer('custody_version').notNull().default(0),
     /** Cost per base unit for this lot — the COGS layer. */
     unitCost: real('unit_cost').notNull().default(0),
+    /** Exact remaining batch value, in integer cents; null for an unadopted legacy batch. */
+    carryingValueCents: integer('carrying_value_cents'),
+    /** Quantity supporting the carrying value; not a second source of physical stock. */
+    valuationQuantity: real('valuation_quantity'),
+    /** Trigger-owned cost/quantity revision; custody status changes and sync ACKs do not advance it. */
+    valuationVersion: integer('valuation_version').notNull().default(0),
     status: text('status', { enum: lotStatusEnum }).notNull().default('active'),
     receivedAt: text('received_at').notNull().default(sqliteNow).$defaultFn(nowIso),
     notes: text('notes'),
@@ -56,6 +65,14 @@ export const inventoryLots = sqliteTable(
     updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
+    ...inventoryValueChecks('inventory_lots', {
+      cents: [table.carryingValueCents],
+      nonnegative: [table.carryingValueCents],
+      versions: [table.valuationVersion],
+      quantities: [table.valuationQuantity],
+      together: [[table.carryingValueCents, table.valuationQuantity]],
+      emptyPool: { quantity: table.valuationQuantity, values: [table.carryingValueCents] },
+    }),
     index('idx_inventory_lots_tenant').on(table.tenantId),
     index('idx_inventory_lots_site').on(table.siteId),
     index('idx_inventory_lots_product').on(table.productId),
@@ -104,18 +121,20 @@ export const inventoryLotsRelations = relations(inventoryLots, ({ one }) => ({
 export const priceSuggestionReasonEnum = ['expiry'] as const;
 
 /** Lifecycle: `active` suggestions surface in the POS badge and the radar;
- * `dismissed` keeps the row for audit but hides it everywhere. There is no
- * `expired` state on purpose — read-side filtering hides a suggestion once
- * its lot depletes or passes its expiry date, so no sweeper is needed. */
-export const priceSuggestionStatusEnum = ['active', 'dismissed'] as const;
+ * `converted` links the manager-approved promotion, while `dismissed` keeps
+ * the row for audit but hides it everywhere. There is no `expired` state on
+ * purpose — read-side filtering hides a suggestion once its lot depletes or
+ * passes its expiry date, so no sweeper is needed. */
+export const priceSuggestionStatusEnum = ['active', 'converted', 'dismissed'] as const;
 
 /**
  * A discount suggestion recorded from the expiry radar ( / ).
  * One row per accepted CTA: the manager saw a lot expiring soon and accepted
  * the deterministic tier discount (see EXPIRY_DISCOUNT_TIERS in
  * services/price-suggestions.ts). The POS reads active rows to badge the
- * product ("sugerido -20%"); v2 ( price lists) will consume this same
- * table to turn suggestions into real promos.
+ * product ("sugerido -20%"); a separate manager approval converts the row
+ * into a lot-bound promotion and records that link without erasing the
+ * original suggestion evidence.
  */
 export const priceSuggestions = sqliteTable(
   'price_suggestions',
@@ -140,6 +159,9 @@ export const priceSuggestions = sqliteTable(
      * survive later lot edits). */
     lotExpiresAt: text('lot_expires_at'),
     status: text('status', { enum: priceSuggestionStatusEnum }).notNull().default('active'),
+    /** Promotion created by the manager's explicit second approval. Logical
+     * reference avoids coupling the inventory schema to the promotion module. */
+    promotionId: text('promotion_id'),
     createdBy: text('created_by')
       .notNull()
       .references(() => users.id),

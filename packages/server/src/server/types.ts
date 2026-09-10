@@ -71,6 +71,13 @@ export interface ServerOptions {
   encryptionKey?: string | undefined;
   /** Optional dedicated wrapping key for webhook signing secrets. Defaults to encryptionKey. */
   webhookSecretKey?: string | undefined;
+  /** Optional 64-hex-character connector wrapping key; does not bypass mandatory production DB encryption. */
+  externalOrderSecretKey?: string | undefined;
+  /**
+   * Optional seed for a new database's pharmacy keyring. Once persisted it
+   * must match exactly; changing it without re-encryption fails closed.
+   */
+  pharmacyEvidenceKey?: string | undefined;
   /**
    * Optional dedicated key for the audit chain head anchor
    * (HMAC over audit_chain_heads). Defaults to encryptionKey so the
@@ -120,6 +127,7 @@ export interface PuntovivoServer {
    */
   paymentWorker: import('../services/payments/payment-worker.js').PaymentWorker;
   webhookWorker: import('../services/events/webhook-worker.js').WebhookWorker;
+  kitchenWorker: import('../services/kds/worker.js').KitchenWorker;
   operationalAlertWorker: import('../services/operations/alert-worker.js').OperationalAlertWorker;
   /**
    * login_attempts cleanup worker. Sweeps rate-limit
@@ -137,6 +145,8 @@ export interface PuntovivoServer {
   listen: () => Promise<string>;
   /** Stop the server and close database */
   close: () => Promise<void>;
+  /** Privileged launcher-only first-run capability. Never expose through HTTP or telemetry; standalone owns the private operator handoff. */
+  getSetupToken: () => string | null;
   /** Get the server URL */
   getUrl: () => string;
 }

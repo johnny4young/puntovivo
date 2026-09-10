@@ -15,7 +15,14 @@ import {
   adminProcedureWithModule,
   managerOrAdminProcedureWithModule,
 } from '../../middleware/modules.js';
-import { categories, locations, products, providers, vatRates } from '../../../db/schema.js';
+import {
+  categories,
+  locations,
+  pharmacyProductProfiles,
+  products,
+  providers,
+  vatRates,
+} from '../../../db/schema.js';
 import {
   regenerateProductEmbeddings,
   resolveActiveEmbeddingModelId,
@@ -92,6 +99,13 @@ export const productSemanticProcedures = {
         .leftJoin(locations, eq(products.locationId, locations.id))
         .leftJoin(providers, eq(products.providerId, providers.id))
         .leftJoin(vatRates, eq(products.vatRateId, vatRates.id))
+        .leftJoin(
+          pharmacyProductProfiles,
+          and(
+            eq(pharmacyProductProfiles.productId, products.id),
+            eq(pharmacyProductProfiles.tenantId, ctx.tenantId)
+          )
+        )
         .where(and(eq(products.tenantId, ctx.tenantId), inArray(products.id, ids)))
         .all();
       const byId = new Map(rows.map(r => [r.id, r]));

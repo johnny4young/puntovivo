@@ -26,10 +26,9 @@ vi.mock('react-i18next', async () => {
 import { SurfacePlaceholder } from '../SurfacePlaceholder';
 import { TouchHomePlaceholder } from '../TouchHomePlaceholder';
 // KdsHomePlaceholder no longer routes through SurfacePlaceholder;
-// the real KdsBoard now mounts there. The Touch / CustomerDisplay /
-// MobileWaiter wrappers stay as placeholder shells and still pin the
+// the real KdsBoard now mounts there. Customer Display also mounts its
+// operational projection. Touch / MobileWaiter stay as placeholder shells and pin the
 // SurfacePlaceholder contract below.
-import { CustomerDisplayHomePlaceholder } from '../CustomerDisplayHomePlaceholder';
 import { MobileWaiterHomePlaceholder } from '../MobileWaiterHomePlaceholder';
 
 describe('SurfacePlaceholder', () => {
@@ -60,11 +59,6 @@ describe('Per-surface placeholder wrappers', () => {
   // KdsHomePlaceholder now mounts the real KdsBoard, so the
   // "i18nKey kds" placeholder assertion is no longer applicable. Live
   // smoke + KdsBoard.test.tsx cover the new behavior.
-
-  it('CustomerDisplayHomePlaceholder uses i18nKey "customerDisplay"', () => {
-    renderInRouter(<CustomerDisplayHomePlaceholder />);
-    expect(screen.getByText('tx:customerDisplay.label')).toBeInTheDocument();
-  });
 
   it('MobileWaiterHomePlaceholder uses i18nKey "mobileWaiter"', () => {
     renderInRouter(<MobileWaiterHomePlaceholder />);

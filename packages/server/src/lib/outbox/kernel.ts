@@ -35,7 +35,14 @@ import { and, asc, desc, eq, isNull, lte, or } from 'drizzle-orm';
 import type { SQLiteColumn, SQLiteTable } from 'drizzle-orm/sqlite-core';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
-import type { NormalizedOutboxError, OutboxRetryPolicy, OutboxRow } from './types.js';
+import type {
+  ClaimedOutboxRow,
+  NormalizedOutboxError,
+  OutboxClaim,
+  OutboxMutation,
+  OutboxRetryPolicy,
+  OutboxRow,
+} from './types.js';
 
 /**
  * Drizzle's `insert` / `select` / `update` query builders
@@ -131,13 +138,15 @@ export interface OutboxKernel<TStatus extends string, TPayload> {
   claimNext: (
     db: DatabaseInstance,
     args: { tenantId: string; workerId: string; nowIso?: string }
-  ) => Promise<OutboxRow<TPayload, TStatus> | null>;
-  complete: (db: DatabaseInstance, args: { id: string }) => Promise<void>;
+  ) => Promise<ClaimedOutboxRow<TPayload, TStatus> | null>;
+  /** Fence intermediate local effects without releasing the lease. */
+  mutateIfOwned: (db: DatabaseInstance, claim: OutboxClaim, mutate: OutboxMutation) => boolean;
+  complete: (db: DatabaseInstance, args: OutboxClaim) => boolean;
   fail: (
     db: DatabaseInstance,
-    args: { id: string; error: NormalizedOutboxError; nowIso?: string }
-  ) => Promise<{ nextRetryAt: string | null; status: TStatus }>;
-  deadLetter: (db: DatabaseInstance, args: { id: string }) => Promise<void>;
+    args: OutboxClaim & { error: NormalizedOutboxError; nowIso?: string }
+  ) => { applied: true; nextRetryAt: string | null; status: TStatus } | { applied: false };
+  deadLetter: (db: DatabaseInstance, args: OutboxClaim) => boolean;
   peek: (
     db: DatabaseInstance,
     args: { tenantId: string; limit?: number }
@@ -148,7 +157,18 @@ export function createOutboxKernel<TStatus extends string, TPayload>(
   opts: OutboxKernelOptions<TStatus>
 ): OutboxKernel<TStatus, TPayload> {
   const { table } = opts;
-  const terminalSet = new Set<string>(opts.terminalStatuses);
+  if (opts.terminalStatuses.includes(opts.processingStatus)) {
+    throw new Error('Outbox processing status cannot be terminal');
+  }
+
+  function owned(claim: OutboxClaim) {
+    return and(
+      eq(table.id, claim.id),
+      eq(table.tenantId, claim.tenantId),
+      eq(table.claimToken, claim.claimToken),
+      eq(table.status, opts.processingStatus)
+    );
+  }
 
   function rowToProjection(raw: Record<string, unknown>): OutboxRow<TPayload, TStatus> {
     return {
@@ -247,6 +267,7 @@ export function createOutboxKernel<TStatus extends string, TPayload>(
         .where(
           and(
             eq(table.id, candidate.id as string),
+            eq(table.tenantId, args.tenantId),
             eq(table.status, candidateStatus),
             isNull(table.claimToken),
             or(isNull(table.nextRetryAt), lte(table.nextRetryAt, nowIso))
@@ -260,110 +281,94 @@ export function createOutboxKernel<TStatus extends string, TPayload>(
       }
 
       // Re-project with the new claim_token / locked_at populated.
-      return rowToProjection({
-        ...candidate,
-        status: opts.processingStatus,
+      return {
+        ...rowToProjection({
+          ...candidate,
+          status: opts.processingStatus,
+          claimToken,
+          lockedAt: nowIso,
+          nextRetryAt: null,
+          updatedAt: nowIso,
+        }),
         claimToken,
-        lockedAt: nowIso,
-        nextRetryAt: null,
-        updatedAt: nowIso,
-      });
+      };
     },
 
-    async complete(db, args) {
-      const nowIso = new Date().toISOString();
-      const current = (await selectAll(db).from(table).where(eq(table.id, args.id)).get()) as
-        Record<string, unknown> | undefined;
-      if (!current) return;
-      if (terminalSet.has(current.status as string)) return;
-      await updateOf(db, table)
+    mutateIfOwned(db, claim, mutate) {
+      // The immediate write lock covers both the ownership check and all local
+      // effects. No network work or await may escape into this transaction.
+      return db.transaction(
+        tx => {
+          const row = selectAll(tx).from(table).where(owned(claim)).get();
+          if (!row) return false;
+          mutate(tx);
+          return true;
+        },
+        { behavior: 'immediate' }
+      );
+    },
+
+    complete(db, args) {
+      const result = updateOf(db, table)
         .set({
           status: opts.succeededStatus,
           claimToken: null,
           lockedAt: null,
           nextRetryAt: null,
-          updatedAt: nowIso,
+          updatedAt: new Date().toISOString(),
         })
-        .where(eq(table.id, args.id))
-        .run();
+        .where(owned(args))
+        .run() as { changes: number };
+      return result.changes === 1;
     },
 
-    async fail(db, args) {
-      const nowIso = args.nowIso ?? new Date().toISOString();
-      const row = (await selectAll(db).from(table).where(eq(table.id, args.id)).get()) as
-        Record<string, unknown> | undefined;
-      if (!row) {
-        return { nextRetryAt: null, status: opts.deadLetterStatus };
-      }
-      const attempts = (row.attempts as number | null) ?? 0;
-      const nextAttempts = attempts + 1;
-
-      // Permanent failures dead-letter immediately, regardless of
-      // policy budget. This is the canonical handling per
-      // ADR-0003 §normalized errors.
-      if (!args.error.recoverable) {
-        await updateOf(db, table)
-          .set({
-            status: opts.deadLetterStatus,
-            attempts: nextAttempts,
-            lastError: args.error,
-            claimToken: null,
-            lockedAt: null,
-            nextRetryAt: null,
-            updatedAt: nowIso,
-          })
-          .where(eq(table.id, args.id))
-          .run();
-        return { nextRetryAt: null, status: opts.deadLetterStatus };
-      }
-
-      // Recoverable: ask the policy how long to wait. If null the
-      // budget is exhausted and we dead-letter.
-      const delayMs = opts.retryPolicy.nextDelayMs(attempts);
-      if (delayMs === null || nextAttempts >= opts.retryPolicy.maxAttempts) {
-        await updateOf(db, table)
-          .set({
-            status: opts.deadLetterStatus,
-            attempts: nextAttempts,
-            lastError: args.error,
-            claimToken: null,
-            lockedAt: null,
-            nextRetryAt: null,
-            updatedAt: nowIso,
-          })
-          .where(eq(table.id, args.id))
-          .run();
-        return { nextRetryAt: null, status: opts.deadLetterStatus };
-      }
-
-      const nextRetryAt = new Date(Date.parse(nowIso) + delayMs).toISOString();
-      await updateOf(db, table)
-        .set({
-          status: opts.retryingStatus,
-          attempts: nextAttempts,
-          lastError: args.error,
-          claimToken: null,
-          lockedAt: null,
-          nextRetryAt,
-          updatedAt: nowIso,
-        })
-        .where(eq(table.id, args.id))
-        .run();
-      return { nextRetryAt, status: opts.retryingStatus };
+    fail(db, args) {
+      return db.transaction(
+        tx => {
+          const row = selectAll(tx).from(table).where(owned(args)).get() as
+            Record<string, unknown> | undefined;
+          if (!row) return { applied: false as const };
+          const nowIso = args.nowIso ?? new Date().toISOString();
+          const attempts = (row.attempts as number | null) ?? 0;
+          const nextAttempts = attempts + 1;
+          const delayMs = args.error.recoverable ? opts.retryPolicy.nextDelayMs(attempts) : null;
+          const exhausted = delayMs === null || nextAttempts >= opts.retryPolicy.maxAttempts;
+          const status = exhausted ? opts.deadLetterStatus : opts.retryingStatus;
+          const nextRetryAt = exhausted
+            ? null
+            : new Date(Date.parse(nowIso) + delayMs).toISOString();
+          const result = updateOf(tx, table)
+            .set({
+              status,
+              attempts: nextAttempts,
+              lastError: args.error,
+              claimToken: null,
+              lockedAt: null,
+              nextRetryAt,
+              updatedAt: nowIso,
+            })
+            .where(owned(args))
+            .run() as { changes: number };
+          return result.changes === 1
+            ? { applied: true as const, nextRetryAt, status }
+            : { applied: false as const };
+        },
+        { behavior: 'immediate' }
+      );
     },
 
-    async deadLetter(db, args) {
-      const nowIso = new Date().toISOString();
-      await updateOf(db, table)
+    deadLetter(db, args) {
+      const result = updateOf(db, table)
         .set({
           status: opts.deadLetterStatus,
           claimToken: null,
           lockedAt: null,
           nextRetryAt: null,
-          updatedAt: nowIso,
+          updatedAt: new Date().toISOString(),
         })
-        .where(eq(table.id, args.id))
-        .run();
+        .where(owned(args))
+        .run() as { changes: number };
+      return result.changes === 1;
     },
 
     async peek(db, args) {

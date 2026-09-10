@@ -7,7 +7,7 @@
  *
  * Reads `sales.getById` for the source draft's items (no new read
  * surface) and reuses `restaurantTables.listWithDraftStatus` for the
- * target table picker (same source  uses). The parent
+ * target table picker. The parent
  * (`SuspendedSalesPanel`) is responsible for gating the CTA on role +
  * catalog availability, just like `TransferTableModal`.
  *
@@ -23,7 +23,7 @@ import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useTenant } from '@/features/tenant/TenantProvider';
-import { invalidateGroups } from '@/lib/invalidateGroups';
+import { invalidateCommittedGroups } from '@/lib/invalidateGroups';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
@@ -43,7 +43,7 @@ interface SplitBillModalProps {
 }
 
 export function SplitBillModal({ draft, onClose }: SplitBillModalProps) {
-  const { t } = useTranslation(['restaurants', 'errors', 'common']);
+  const { t } = useTranslation(['restaurants', 'errors', 'common', 'fulfillmentErrors']);
   const toast = useToast();
   const utils = trpc.useUtils();
   const { currentSite } = useTenant();
@@ -65,7 +65,9 @@ export function SplitBillModal({ draft, onClose }: SplitBillModalProps) {
   // again. Default selection: empty (operator must opt in to each
   // line). Default target: "Misma mesa" (keep the same FK as the
   // source) — that's the most common restaurant flow ("split the
-  // check, leave the table assignment alone").
+  // check, leave the table assignment alone"). A table-backed normalized
+  // check intentionally has no clear-table option because the server keeps a
+  // live restaurant account attached to a physical table.
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(() => new Set());
   const [selectedTableValue, setSelectedTableValue] = useState<string>(() =>
     draft?.tableId ? SAME_TABLE_VALUE : CLEAR_TABLE_VALUE
@@ -75,19 +77,28 @@ export function SplitBillModal({ draft, onClose }: SplitBillModalProps) {
 
   const splitMutation = useCriticalMutation('sales.splitDraft', {
     onSuccess: async data => {
-      await invalidateGroups(utils, [
-        u => u.sales.listDrafts,
-        u => u.restaurantTables.listWithDraftStatus,
-      ]);
       // `data` is `OutputOfPath<'sales.splitDraft'>` inferred from
       // `AppRouter`. Server returns `{ source, created }` where
       // `created.suspendedLabel` may be null (free-text drafts) and
       // `created.saleNumber` is always present.
       const createdLabel = data.created.suspendedLabel ?? data.created.saleNumber;
-      toast.success({
-        title: t('restaurants:split.successToast', { label: createdLabel }),
-      });
+      const successTitle = t('restaurants:split.successToast', { label: createdLabel });
+      // Both checks already exist once onSuccess starts. Close before cache
+      // work so a projection failure cannot invite a second split command.
       onClose();
+      const refreshed = await invalidateCommittedGroups(utils, [
+        u => u.sales.listDrafts,
+        u => u.restaurantTables.listWithDraftStatus,
+        u => u.restaurantServices.getTableState,
+      ]);
+      if (refreshed) {
+        toast.success({ title: successTitle });
+      } else {
+        toast.warning({
+          title: successTitle,
+          description: t('common:toast.committedRefreshWarning'),
+        });
+      }
     },
     onError: error => {
       setErrorMessage(translateServerError(error, t, t('errors:server.unknown')));
@@ -110,10 +121,19 @@ export function SplitBillModal({ draft, onClose }: SplitBillModalProps) {
     });
   };
 
+  const currentLabel = draft.tableName ?? draft.label ?? draft.saleNumber;
+  const showLabelInput = !draft.tableId && selectedTableValue === CLEAR_TABLE_VALUE;
+  const allSelected = items.length > 0 && selectedItemIds.size === items.length;
+  const wouldEmptyRestaurantCheck = Boolean(draft.tableId) && allSelected;
+
   const handleConfirm = () => {
     if (splitMutation.isPending) return;
     if (selectedItemIds.size === 0) {
       setErrorMessage(t('restaurants:split.errorEmptySelection'));
+      return;
+    }
+    if (wouldEmptyRestaurantCheck) {
+      setErrorMessage(t('restaurants:split.errorSourceWouldBeEmpty'));
       return;
     }
     setErrorMessage(null);
@@ -136,10 +156,6 @@ export function SplitBillModal({ draft, onClose }: SplitBillModalProps) {
     onClose();
   };
 
-  const currentLabel = draft.tableName ?? draft.label ?? draft.saleNumber;
-  const showLabelInput = selectedTableValue === CLEAR_TABLE_VALUE;
-  const allSelected = items.length > 0 && selectedItemIds.size === items.length;
-
   return (
     <Modal
       isOpen={draft !== null}
@@ -154,7 +170,9 @@ export function SplitBillModal({ draft, onClose }: SplitBillModalProps) {
           <ModalButton
             variant="primary"
             onClick={handleConfirm}
-            disabled={splitMutation.isPending || selectedItemIds.size === 0}
+            disabled={
+              splitMutation.isPending || selectedItemIds.size === 0 || wouldEmptyRestaurantCheck
+            }
           >
             {splitMutation.isPending
               ? t('restaurants:split.confirming')
@@ -179,14 +197,16 @@ export function SplitBillModal({ draft, onClose }: SplitBillModalProps) {
             {items.length > 0 && (
               <button
                 type="button"
-                className="text-xs font-medium text-primary-800 hover:underline"
+                className="text-xs font-medium text-primary-800 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
                 onClick={() => {
+                  if (splitMutation.isPending) return;
                   if (allSelected) {
                     setSelectedItemIds(new Set());
                   } else {
                     setSelectedItemIds(new Set(items.map(row => row.id)));
                   }
                 }}
+                disabled={splitMutation.isPending}
                 data-testid="split-modal-toggle-all"
               >
                 {allSelected ? t('restaurants:split.clearAll') : t('restaurants:split.selectAll')}
@@ -239,6 +259,11 @@ export function SplitBillModal({ draft, onClose }: SplitBillModalProps) {
               })}
             </ul>
           )}
+          {wouldEmptyRestaurantCheck && (
+            <p className="mt-2 text-xs text-warning-700" data-testid="split-modal-source-required">
+              {t('restaurants:split.errorSourceWouldBeEmpty')}
+            </p>
+          )}
         </div>
 
         <div>
@@ -276,8 +301,15 @@ export function SplitBillModal({ draft, onClose }: SplitBillModalProps) {
                   })}
                 </option>
               )}
-              <option value={CLEAR_TABLE_VALUE}>{t('restaurants:split.clearOption')}</option>
+              {!draft.tableId && (
+                <option value={CLEAR_TABLE_VALUE}>{t('restaurants:split.clearOption')}</option>
+              )}
               {tables.map(row => {
+                // A normalized check shares service-level diners with every
+                // account at its table. Moving only selected lines to another
+                // table would invent a party allocation the operator never
+                // supplied, so keep that split inside the current service.
+                if (draft.hasRestaurantCheck) return null;
                 const isSource = row.id === draft.tableId;
                 const isOccupiedElsewhere = !isSource && row.openDraft !== null;
                 const suffix = isSource
@@ -292,6 +324,14 @@ export function SplitBillModal({ draft, onClose }: SplitBillModalProps) {
                 );
               })}
             </select>
+          )}
+          {draft.hasRestaurantCheck && (
+            <p
+              className="mt-2 text-xs text-secondary-600"
+              data-testid="split-modal-same-table-hint"
+            >
+              {t('restaurants:split.sameTableOnlyHint')}
+            </p>
           )}
         </div>
 

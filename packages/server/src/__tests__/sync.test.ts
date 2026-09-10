@@ -1,3 +1,5 @@
+import { __withExpectedTestLogs } from '../logging/logger.js';
+import { enqueueSync } from '../services/sync/enqueue.js';
 /**
  * Sync tRPC Router Tests
  *
@@ -196,10 +198,11 @@ describe('Sync tRPC Router', () => {
       const caller = appRouter.createCaller(userCtx());
       const entityId = nanoid();
 
+      await insertSyncProduct(entityId);
       const result = await caller.sync.addToQueue({
         entityType: 'products',
         entityId,
-        operation: 'create',
+        operation: 'update',
         data: { name: 'Test Product', price: 100 },
       });
 
@@ -207,7 +210,7 @@ describe('Sync tRPC Router', () => {
       expect(result.id).toBeTypeOf('string');
       expect(result.entityType).toBe('products');
       expect(result.entityId).toBe(entityId);
-      expect(result.operation).toBe('create');
+      expect(result.operation).toBe('update');
       expect(result.createdAt).toBeDefined();
     });
 
@@ -265,9 +268,11 @@ describe('Sync tRPC Router', () => {
     it('removes an existing item and returns { success: true, id }', async () => {
       const caller = appRouter.createCaller(userCtx());
 
+      const entityId = nanoid();
+      await insertSyncProduct(entityId);
       const added = await caller.sync.addToQueue({
         entityType: 'products',
-        entityId: nanoid(),
+        entityId,
         operation: 'update',
         data: { price: 99 },
       });
@@ -406,12 +411,15 @@ describe('Sync tRPC Router', () => {
         updatedAt: now,
       });
 
-      const queued = await caller.sync.addToQueue({
-        entityType: 'inventory_lots',
-        entityId: lotId,
-        operation: 'update',
-        data: { id: lotId, onHand: 12 },
-      });
+      const queued = await enqueueSync(
+        { db, tenantId: testTenantId },
+        {
+          entityType: 'inventory_lots',
+          entityId: lotId,
+          operation: 'update',
+          data: { id: lotId, onHand: 12 },
+        }
+      );
 
       const result = await caller.sync.push({ limit: 50 });
 
@@ -439,12 +447,15 @@ describe('Sync tRPC Router', () => {
       const caller = appRouter.createCaller(userCtx());
       const missingEntityId = nanoid();
 
-      const queued = await caller.sync.addToQueue({
-        entityType: 'products',
-        entityId: missingEntityId,
-        operation: 'update',
-        data: { id: missingEntityId, name: 'Missing Product' },
-      });
+      const queued = await enqueueSync(
+        { db: getDatabase(), tenantId: testTenantId },
+        {
+          entityType: 'products',
+          entityId: missingEntityId,
+          operation: 'update',
+          data: { id: missingEntityId, name: 'Missing Product' },
+        }
+      );
 
       const result = await caller.sync.push({ limit: 50 });
 
@@ -609,7 +620,7 @@ describe('Sync tRPC Router', () => {
         entityType: 'products',
         entityId,
         localData: { id: entityId, name: 'Local Name', price: 10 },
-        remoteData: { id: entityId, name: 'Remote Name', stock: 5 },
+        remoteData: { id: entityId, name: 'Remote Name', price: 5 },
         status: 'pending',
         createdAt: now,
       });
@@ -617,7 +628,7 @@ describe('Sync tRPC Router', () => {
       const result = await caller.sync.resolve({
         id: conflictId,
         resolution: 'merged',
-        mergedData: { id: entityId, name: 'Merged Name', price: 10, stock: 5 },
+        mergedData: { id: entityId, name: 'Merged Name', price: 10 },
       });
 
       expect(result.success).toBe(true);
@@ -648,7 +659,6 @@ describe('Sync tRPC Router', () => {
         id: entityId,
         name: 'Merged Name',
         price: 10,
-        stock: 5,
       });
     });
 
@@ -782,40 +792,305 @@ describe('Sync tRPC Router', () => {
       expect(queuedItems).toHaveLength(0);
     });
 
-    it('blocks remote or merged audit-log apply until device chaining exists', async () => {
+    it.each([
+      'inventory_movements',
+      'inventory_balances',
+      'inventory_lots',
+      'product_serials',
+      'sale_item_serials',
+      'purchases',
+    ] as const)(
+      'rejects independent %s remote/merged values and preserves pending evidence',
+      async entityType => {
+        const db = getDatabase();
+        const caller = appRouter.createCaller(userCtx());
+        for (const resolution of ['remote_wins', 'merged'] as const) {
+          const id = nanoid();
+          const entityId = nanoid();
+          await db.insert(syncConflicts).values({
+            id,
+            tenantId: testTenantId,
+            entityType,
+            entityId,
+            localData: { id: entityId, quantity: 3.001 },
+            remoteData: { quantity: 1, carryingValueCents: 0 },
+            status: 'pending',
+          });
+          const before = await db
+            .select()
+            .from(syncConflicts)
+            .where(eq(syncConflicts.id, id))
+            .get();
+          await expect(
+            caller.sync.resolve({
+              id,
+              resolution,
+              ...(resolution === 'merged'
+                ? { mergedData: { quantity: 1, carryingValueCents: 0 } }
+                : {}),
+            })
+          ).rejects.toMatchObject({ cause: { errorCode: 'SYNC_REMOTE_APPLY_BLOCKED' } });
+          expect(
+            await db.select().from(syncConflicts).where(eq(syncConflicts.id, id)).get()
+          ).toEqual(before);
+        }
+      }
+    );
+
+    it.each([
+      'stock',
+      'initialCost',
+      'cost',
+      'inventoryValueCents',
+      'cogsValueCents',
+      'valuationQuantity',
+      'valuationVersion',
+      'tracksLots',
+      'tracksSerials',
+      'unitAssignments',
+      'carrying_value_cents',
+    ])('rejects unverified product %s in merged and manual queue recovery', async field => {
+      const db = getDatabase();
+      const caller = appRouter.createCaller(userCtx());
+      const entityId = nanoid();
+      await insertSyncProduct(entityId, 'Exact local inventory');
+      const id = nanoid();
+      await db.insert(syncConflicts).values({
+        id,
+        tenantId: testTenantId,
+        entityType: 'products',
+        entityId,
+        localData: { id: entityId, name: 'Original' },
+        remoteData: { [field]: 0 },
+        status: 'pending',
+      });
+      const productBefore = await db.select().from(products).where(eq(products.id, entityId)).get();
+      const conflictBefore = await db
+        .select()
+        .from(syncConflicts)
+        .where(eq(syncConflicts.id, id))
+        .get();
+      for (const resolution of ['remote_wins', 'merged'] as const) {
+        await expect(
+          caller.sync.resolve({
+            id,
+            resolution,
+            ...(resolution === 'merged'
+              ? { mergedData: { id: entityId, name: 'Forged', [field]: 0 } }
+              : {}),
+          })
+        ).rejects.toMatchObject({ cause: { errorCode: 'SYNC_REMOTE_APPLY_BLOCKED' } });
+      }
+      await expect(
+        caller.sync.addToQueue({
+          entityType: 'products',
+          entityId,
+          operation: 'update',
+          data: { id: entityId, [field]: 0 },
+        })
+      ).rejects.toMatchObject({ cause: { errorCode: 'SYNC_REMOTE_APPLY_BLOCKED' } });
+      expect(await db.select().from(products).where(eq(products.id, entityId)).get()).toEqual(
+        productBefore
+      );
+      expect(await db.select().from(syncConflicts).where(eq(syncConflicts.id, id)).get()).toEqual(
+        conflictBefore
+      );
+      expect(
+        await db.select().from(syncOutbox).where(eq(syncOutbox.entityId, entityId)).all()
+      ).toHaveLength(0);
+    });
+
+    it('preserves original value-bearing intent even if a conflict contains only metadata', async () => {
+      const db = getDatabase();
+      const entityId = nanoid();
+      await insertSyncProduct(entityId);
+      const id = nanoid();
+      await db.insert(syncConflicts).values({
+        id,
+        tenantId: testTenantId,
+        entityType: 'products',
+        entityId,
+        localData: { name: 'Old name' },
+        remoteData: { name: 'Remote name' },
+        status: 'pending',
+      });
+      await enqueueSync(
+        { db, tenantId: testTenantId },
+        {
+          entityType: 'products',
+          entityId,
+          operation: 'update',
+          data: { id: entityId, stock: 3.001, inventoryValueCents: 100 },
+        }
+      );
+      const before = await db
+        .select()
+        .from(syncOutbox)
+        .where(eq(syncOutbox.entityId, entityId))
+        .all();
+      await expect(
+        appRouter.createCaller(userCtx()).sync.removeFromQueue({ id: before[0]!.id })
+      ).rejects.toMatchObject({ cause: { errorCode: 'SYNC_REMOTE_APPLY_BLOCKED' } });
+      for (const read of [
+        appRouter.createCaller(userCtx()).sync.pull({}),
+        appRouter.createCaller(userCtx()).sync.listConflicts({}),
+      ]) {
+        const snapshot = await read;
+        const rows = 'conflicts' in snapshot ? snapshot.conflicts : snapshot.items;
+        expect(rows.find(row => row.id === id)).toMatchObject({
+          resolutionAvailability: { local: false, remote: false, merged: false },
+        });
+      }
+      for (const resolution of ['local_wins', 'remote_wins', 'merged'] as const) {
+        await expect(
+          appRouter.createCaller(userCtx()).sync.resolve({
+            id,
+            resolution,
+            ...(resolution === 'merged' ? { mergedData: { name: 'Merged' } } : {}),
+          })
+        ).rejects.toMatchObject({ cause: { errorCode: 'SYNC_REMOTE_APPLY_BLOCKED' } });
+      }
+      expect(
+        await db.select().from(syncOutbox).where(eq(syncOutbox.entityId, entityId)).all()
+      ).toEqual(before);
+      expect(
+        await db.select().from(syncConflicts).where(eq(syncConflicts.id, id)).get()
+      ).toMatchObject({ status: 'pending' });
+    });
+
+    it('rolls back metadata conflict resolution and queue replacement on a late enqueue failure', async () => {
+      const db = getDatabase();
+      const entityId = nanoid();
+      await insertSyncProduct(entityId);
+      const id = nanoid();
+      await db.insert(syncConflicts).values({
+        id,
+        tenantId: testTenantId,
+        entityType: 'products',
+        entityId,
+        localData: { id: entityId, name: 'Keep' },
+        remoteData: { name: 'Remote' },
+        status: 'pending',
+      });
+      await enqueueSync(
+        { db, tenantId: testTenantId },
+        {
+          entityType: 'products',
+          entityId,
+          operation: 'update',
+          data: { id: entityId, name: 'Original queued name' },
+        }
+      );
+      const before = await db
+        .select()
+        .from(syncOutbox)
+        .where(eq(syncOutbox.entityId, entityId))
+        .all();
+      const sqlite = (db as unknown as { $client: { exec: (sql: string) => void } }).$client;
+      sqlite.exec(
+        `CREATE TEMP TRIGGER fail_sync_value_recovery BEFORE INSERT ON sync_outbox WHEN NEW.entity_id = '${entityId}' BEGIN SELECT RAISE(ABORT, 'forced sync recovery failure'); END;`
+      );
+      try {
+        await expect(
+          __withExpectedTestLogs(
+            [
+              { level: 'error', module: 'trpc-tracing', message: 'trpc procedure error' },
+              { level: 'error', module: 'observability', message: 'captured exception' },
+            ],
+            () => appRouter.createCaller(userCtx()).sync.resolve({ id, resolution: 'local_wins' })
+          )
+        ).rejects.toThrow(/forced sync recovery failure/);
+      } finally {
+        sqlite.exec('DROP TRIGGER fail_sync_value_recovery');
+      }
+      expect(
+        await db.select().from(syncOutbox).where(eq(syncOutbox.entityId, entityId)).all()
+      ).toEqual(before);
+      expect(
+        await db.select().from(syncConflicts).where(eq(syncConflicts.id, id)).get()
+      ).toMatchObject({ status: 'pending' });
+      const outcomes = await Promise.allSettled(
+        [0, 1].map(() =>
+          appRouter.createCaller(userCtx()).sync.resolve({ id, resolution: 'local_wins' })
+        )
+      );
+      expect(outcomes.filter(r => r.status === 'fulfilled')).toHaveLength(1);
+      expect(outcomes.filter(r => r.status === 'rejected')).toHaveLength(1);
+      expect(
+        await db.select().from(syncOutbox).where(eq(syncOutbox.entityId, entityId)).all()
+      ).toHaveLength(1);
+    });
+
+    it.each(['localData', 'remoteData'] as const)(
+      'reports and enforces identity mismatch in %s consistently',
+      async source => {
+        const db = getDatabase();
+        const entityId = nanoid();
+        await insertSyncProduct(entityId);
+        const id = nanoid();
+        await db.insert(syncConflicts).values({
+          id,
+          tenantId: testTenantId,
+          entityType: 'products',
+          entityId,
+          localData: { id: entityId, name: 'Local' },
+          remoteData: { id: entityId, name: 'Remote' },
+          [source]: { id: nanoid(), name: 'Wrong identity' },
+          status: 'pending',
+        });
+        const snapshot = await appRouter.createCaller(userCtx()).sync.pull({});
+        expect(snapshot.conflicts.find(row => row.id === id)?.resolutionAvailability).toEqual({
+          local: source !== 'localData',
+          remote: false,
+          merged: false,
+        });
+        await expect(
+          appRouter.createCaller(userCtx()).sync.resolve({ id, resolution: 'remote_wins' })
+        ).rejects.toMatchObject({ cause: { errorCode: 'SYNC_REMOTE_APPLY_BLOCKED' } });
+      }
+    );
+
+    it('blocks remote or merged apply for audit and normalized transformation aggregates', async () => {
       const caller = appRouter.createCaller(userCtx());
       const db = getDatabase();
       const now = new Date().toISOString();
 
-      for (const resolution of ['remote_wins', 'merged'] as const) {
-        const conflictId = nanoid();
-        await db.insert(syncConflicts).values({
-          id: conflictId,
-          tenantId: testTenantId,
-          entityType: 'audit_logs',
-          entityId: nanoid(),
-          localData: {},
-          remoteData: { chainHash: 'untrusted-remote-chain' },
-          status: 'pending',
-          createdAt: now,
-        });
-
-        await expect(
-          caller.sync.resolve({
+      for (const entityType of [
+        'audit_logs',
+        'inventory_transformations',
+        'inventory_transformation_recipes',
+        'transfer_orders',
+      ]) {
+        for (const resolution of ['remote_wins', 'merged'] as const) {
+          const conflictId = nanoid();
+          await db.insert(syncConflicts).values({
             id: conflictId,
-            resolution,
-            ...(resolution === 'merged' ? { mergedData: { chainHash: 'merged' } } : {}),
-          })
-        ).rejects.toMatchObject({
-          code: 'BAD_REQUEST',
-          cause: { errorCode: 'SYNC_REMOTE_APPLY_BLOCKED' },
-        });
-        const conflict = await db
-          .select({ status: syncConflicts.status })
-          .from(syncConflicts)
-          .where(eq(syncConflicts.id, conflictId))
-          .get();
-        expect(conflict?.status).toBe('pending');
+            tenantId: testTenantId,
+            entityType,
+            entityId: nanoid(),
+            localData: {},
+            remoteData: { untrusted: true },
+            status: 'pending',
+            createdAt: now,
+          });
+
+          await expect(
+            caller.sync.resolve({
+              id: conflictId,
+              resolution,
+              ...(resolution === 'merged' ? { mergedData: { merged: true } } : {}),
+            })
+          ).rejects.toMatchObject({
+            code: 'BAD_REQUEST',
+            cause: { errorCode: 'SYNC_REMOTE_APPLY_BLOCKED' },
+          });
+          const conflict = await db
+            .select({ status: syncConflicts.status })
+            .from(syncConflicts)
+            .where(eq(syncConflicts.id, conflictId))
+            .get();
+          expect(conflict?.status).toBe('pending');
+        }
       }
     });
 
@@ -941,11 +1216,13 @@ describe('Sync tRPC Router', () => {
     it('pendingCount is greater than 0 and status is pending', async () => {
       const caller = appRouter.createCaller(userCtx());
 
+      const entityId = nanoid();
+      await insertSyncProduct(entityId);
       // Ensure at least one item is in the queue (previous tests may have removed some)
       await caller.sync.addToQueue({
         entityType: 'products',
-        entityId: nanoid(),
-        operation: 'create',
+        entityId,
+        operation: 'update',
         data: { name: 'Status Check Product' },
       });
 

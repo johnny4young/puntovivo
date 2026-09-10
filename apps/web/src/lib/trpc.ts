@@ -4,14 +4,19 @@
  * Configured tRPC client for Puntovivo web app
  */
 
-import { createTRPCClient, httpBatchLink } from '@trpc/client';
+import { createTRPCClient, httpBatchLink, splitLink, TRPCClientError } from '@trpc/client';
 import { createTRPCReact } from '@trpc/react-query';
 import type { AppRouter } from '@puntovivo/server';
 import { getStoredSiteId } from '@/features/tenant/siteStorage';
-import { DEVICE_ID_HEADER } from './commandEnvelope';
+import { DEVICE_ID_HEADER, generateUuid as generateCorrelationId } from './commandEnvelope';
 import { getCachedDeviceIdSync } from './deviceId';
-import { getRuntimeConfigSync, resolveApiBaseUrl } from './runtimeConfigClient';
-import { createHubApiFetch, refreshHubSession } from '@/features/auth/hubAuthTransport';
+import { resolveApiBaseUrl } from './runtimeConfigClient';
+import { isUnauthorizedAuthFailure } from '@/features/auth/authBootstrapFailure';
+import {
+  createHubApiFetch,
+  isHubClientAuth,
+  refreshHubSession,
+} from '@/features/auth/hubAuthTransport';
 
 // `API_URL` is resolved through the runtime config client
 // at module init. In `hub_client` mode the renderer points at the
@@ -23,11 +28,19 @@ const CSRF_COOKIE_NAME = 'puntovivo_csrf';
 const CSRF_HEADER_NAME = 'x-csrf-token';
 const REFRESH_PATH = `${API_URL}/api/trpc/auth.refresh?batch=1`;
 let accessToken: string | null = null;
-let refreshRequest: Promise<string | null> | null = null;
+// An identity handoff invalidates pending refresh effects. Token rotation within
+// the same identity deliberately keeps this epoch so concurrent 401s still share
+// one refresh; public credential installation/clear always starts a new epoch.
+let authEpoch = 0;
+let refreshRequest: {
+  epoch: number;
+  promise: Promise<string | null>;
+  controller: AbortController;
+} | null = null;
 let authSessionExpiredHandler: (() => void) | null = null;
 
-function getCookieValue(name: string): string | null {
-  const encodedName = `${encodeURIComponent(name)}=`;
+function getCsrfCookie(): string | null {
+  const encodedName = `${CSRF_COOKIE_NAME}=`;
   const cookies = document.cookie.split(';');
 
   for (const cookie of cookies) {
@@ -51,19 +64,6 @@ function getCookieValue(name: string): string | null {
 const CORRELATION_ID_HEADER = 'x-correlation-id';
 
 let lastCorrelationId: string | null = null;
-
-/**
- * Mint a fresh correlation id. `crypto.randomUUID` exists in every
- * modern browser, the Electron renderer, and jsdom; the fallback
- * keeps ancient webviews working with a lower-entropy id that still
- * satisfies the server's `[A-Za-z0-9_-]{8,64}` intake.
- */
-function generateCorrelationId(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-  return `cid-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
-}
 
 /**
  * The id attached to the MOST RECENT tRPC request from this page.
@@ -92,7 +92,7 @@ export function __resetCorrelationForTests(): void {
 export function getTrpcHeaders(): Record<string, string> {
   const headers: Record<string, string> = {};
   const siteId = getStoredSiteId();
-  const csrfToken = getCookieValue(CSRF_COOKIE_NAME);
+  const csrfToken = getCsrfCookie();
   const deviceId = getCachedDeviceIdSync();
 
   // a NEW id per request: the server adopts it (after
@@ -125,30 +125,35 @@ export function getTrpcHeaders(): Record<string, string> {
   return headers;
 }
 
-export function setAccessToken(token: string): void {
+/** Capture a non-secret fence for optional work owned by the current identity. */
+export function captureAuthSessionGuard(): () => boolean {
+  const epoch = authEpoch;
+  return () => !!accessToken && authEpoch === epoch;
+}
+
+/** Stop identity-owned work while retaining authority for the logout command. */
+export function invalidateAuthSessionWork(): void {
+  authEpoch += 1;
+  refreshRequest?.controller.abort();
+}
+
+export function setAccessToken(token: string | null): void {
+  invalidateAuthSessionWork();
   accessToken = token;
 }
 
 export function clearAccessToken(): void {
-  accessToken = null;
+  setAccessToken(null);
 }
 
 export function setAuthSessionExpiredHandler(handler: (() => void) | null): void {
   authSessionExpiredHandler = handler;
 }
 
-function notifyAuthSessionExpired(): void {
-  authSessionExpiredHandler?.();
-}
-
 /** Fail the active renderer session through the same path as an exhausted refresh. */
 export function expireAuthSession(): void {
   clearAccessToken();
-  notifyAuthSessionExpired();
-}
-
-function buildHeaders(init?: HeadersInit): Headers {
-  return new Headers(init);
+  authSessionExpiredHandler?.();
 }
 
 /**
@@ -160,32 +165,39 @@ function buildHeaders(init?: HeadersInit): Headers {
  * same round-trip; the `.finally` clears it once settled so the next genuine
  * expiry refreshes again.
  *
- * On failure (non-2xx or missing token) the access token is cleared and the
+ * On rejected credentials or missing token the access token is cleared and the
  * `authSessionExpired` handler fires so the app can route to login. On success
  * the rotated token is re-registered with the desktop session singleton — a
- * no-op in pure-browser mode ().
+ * no-op in pure-browser mode. Throttling, server outages and network failures
+ * propagate without expiring the session or retrying automatically.
  */
-async function requestAccessTokenRefresh(fetchImpl: typeof fetch): Promise<string | null> {
-  if (refreshRequest) {
-    return refreshRequest;
-  }
+async function requestAccessTokenRefresh(
+  fetchImpl: typeof fetch,
+  epoch: number
+): Promise<string | null> {
+  const isCurrent = () => epoch === authEpoch;
+  if (!isCurrent()) return null;
+  if (refreshRequest?.epoch === epoch) return refreshRequest.promise;
+  const controller = new AbortController();
 
-  refreshRequest = (async () => {
-    if (getRuntimeConfigSync().authorityMode === 'hub_client') {
+  const promise = (async () => {
+    if (isHubClientAuth()) {
       try {
         const result = await refreshHubSession();
-        setAccessToken(result.token);
+        if (!isCurrent()) return null;
+        accessToken = result.token;
         await window.api?.session?.register?.(result.token);
-        return result.token;
-      } catch {
-        clearAccessToken();
-        notifyAuthSessionExpired();
+        return isCurrent() ? result.token : null;
+      } catch (error) {
+        if (!isCurrent()) return null;
+        if (!isUnauthorizedAuthFailure(error)) throw error;
+        expireAuthSession();
         return null;
       }
     }
 
-    const headers = buildHeaders({ 'content-type': 'application/json' });
-    const csrfToken = getCookieValue(CSRF_COOKIE_NAME);
+    const headers = new Headers({ 'content-type': 'application/json' });
+    const csrfToken = getCsrfCookie();
 
     if (csrfToken) {
       headers.set(CSRF_HEADER_NAME, csrfToken);
@@ -204,11 +216,30 @@ async function requestAccessTokenRefresh(fetchImpl: typeof fetch): Promise<strin
       credentials: 'include',
       headers,
       body: '{}',
+      signal: controller.signal,
     });
 
+    if (!isCurrent()) return null;
+    if (response.status === 429 || response.status >= 500) {
+      // A temporary refresh failure must not turn the original 401 into a
+      // false session revocation. Propagate safe metadata, including the
+      // server cooldown, without retrying a rotating credential automatically.
+      throw TRPCClientError.from(
+        {
+          error: {
+            code: response.status === 429 ? -32029 : -32603,
+            message: 'Session verification unavailable.',
+            data: {
+              code: response.status === 429 ? 'TOO_MANY_REQUESTS' : 'INTERNAL_SERVER_ERROR',
+              httpStatus: response.status,
+            },
+          },
+        },
+        { meta: { response } }
+      );
+    }
     if (!response.ok) {
-      clearAccessToken();
-      notifyAuthSessionExpired();
+      expireAuthSession();
       return null;
     }
 
@@ -220,14 +251,14 @@ async function requestAccessTokenRefresh(fetchImpl: typeof fetch): Promise<strin
       };
     }>;
 
-    const nextToken = payload[0]?.result?.data?.token ?? null;
+    if (!isCurrent()) return null;
+    const nextToken = payload[0]?.result?.data?.token;
     if (!nextToken) {
-      clearAccessToken();
-      notifyAuthSessionExpired();
+      expireAuthSession();
       return null;
     }
 
-    setAccessToken(nextToken);
+    accessToken = nextToken;
     // re-register the rotated token with the desktop
     // session singleton so the IPC bridge keeps validating against
     // the current sessionVersion. No-op in pure-browser mode. A
@@ -239,40 +270,42 @@ async function requestAccessTokenRefresh(fetchImpl: typeof fetch): Promise<strin
     } catch (registerErr) {
       console.warn('Desktop session re-register failed after refresh:', registerErr);
     }
-    return nextToken;
+    return isCurrent() ? nextToken : null;
   })().finally(() => {
-    refreshRequest = null;
+    // An older identity's completion must not clear the newer single flight.
+    if (refreshRequest?.promise === promise) refreshRequest = null;
   });
-
-  return refreshRequest;
+  refreshRequest = { epoch, promise, controller };
+  return promise;
 }
 
 function getDefaultApiFetch(): typeof fetch {
-  return getRuntimeConfigSync().authorityMode === 'hub_client' ? createHubApiFetch() : fetch;
+  return isHubClientAuth() ? createHubApiFetch() : fetch;
 }
 
 export function createTrpcFetch(fetchImpl: typeof fetch = getDefaultApiFetch()): typeof fetch {
   return async (input, init) => {
+    const epoch = authEpoch;
     const response = await fetchImpl(input, {
       ...init,
       credentials: 'include',
     });
 
-    if (response.status !== 401 || !accessToken) {
+    if (response.status !== 401 || !accessToken || epoch !== authEpoch) {
       return response;
     }
 
-    const requestUrl = typeof input === 'string' ? input : input.toString();
+    const requestUrl = input.toString();
     if (requestUrl === REFRESH_PATH || requestUrl.includes('/auth.login')) {
       return response;
     }
 
-    const nextToken = await requestAccessTokenRefresh(fetchImpl);
-    if (!nextToken) {
+    const nextToken = await requestAccessTokenRefresh(fetchImpl, epoch);
+    if (!nextToken || epoch !== authEpoch) {
       return response;
     }
 
-    const retryHeaders = buildHeaders(init?.headers);
+    const retryHeaders = new Headers(init?.headers);
     retryHeaders.set('authorization', `Bearer ${nextToken}`);
 
     return fetchImpl(input, {
@@ -293,7 +326,7 @@ export function fetchProtectedApi(
   init: RequestInit = {},
   fetchImpl: typeof fetch = getDefaultApiFetch()
 ): Promise<Response> {
-  const headers = buildHeaders(init.headers);
+  const headers = new Headers(init.headers);
   for (const [name, value] of Object.entries(getTrpcHeaders())) {
     headers.set(name, value);
   }
@@ -314,11 +347,19 @@ export function createTrpcBatchLink(extraHeaders?: HeaderFactory) {
     headers() {
       return {
         ...getTrpcHeaders(),
-        ...(extraHeaders?.() ?? {}),
+        ...extraHeaders?.(),
       };
     },
   };
-  return httpBatchLink(linkOptions as unknown as Parameters<typeof httpBatchLink>[0]);
+  const typedOptions = linkOptions as unknown as Parameters<typeof httpBatchLink<AppRouter>>[0];
+  return splitLink<AppRouter>({
+    // Return previews can carry up to 200 lines with lot and serial
+    // allocations. Keep their read-only query semantics while using POST so
+    // browser, proxy and Store Hub URL limits cannot truncate the selection.
+    condition: operation => operation.path === 'sales.previewReturn',
+    true: httpBatchLink<AppRouter>({ ...typedOptions, methodOverride: 'POST' }),
+    false: httpBatchLink<AppRouter>(typedOptions),
+  });
 }
 
 export function createTrpcClientWithHeaders(headers: Record<string, string>) {

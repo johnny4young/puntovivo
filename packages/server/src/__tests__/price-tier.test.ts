@@ -211,13 +211,21 @@ describe('customer price tier', () => {
     expect(updated.priceTier).toBe(3);
   });
 
-  it('resolves walk-in to tier 1 and rejects unknown customers', async () => {
+  it('resolves walk-in to tier 1 and rejects unknown or privacy-restricted customers', async () => {
     const db = getDatabase();
     expect(await resolveSaleCustomer(db, tenantId, null)).toEqual({
       customerId: null,
       priceTier: 1,
     });
     await expect(resolveSaleCustomer(db, tenantId, 'no-such-customer')).rejects.toMatchObject({
+      cause: expect.objectContaining({ errorCode: 'SALE_CUSTOMER_INVALID' }),
+    });
+    const restricted = await makeCaller().customers.create({ name: 'Restricted customer' });
+    await db
+      .update(customers)
+      .set({ privacyStatus: 'anonymized' })
+      .where(and(eq(customers.id, restricted.id), eq(customers.tenantId, tenantId)));
+    await expect(resolveSaleCustomer(db, tenantId, restricted.id)).rejects.toMatchObject({
       cause: expect.objectContaining({ errorCode: 'SALE_CUSTOMER_INVALID' }),
     });
   });

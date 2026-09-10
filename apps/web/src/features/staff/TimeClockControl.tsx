@@ -14,9 +14,15 @@ export function TimeClockControl({ site }: TimeClockControlProps) {
   const { t } = useTranslation(['common', 'errors']);
   const toast = useToast();
   const utils = trpc.useUtils();
-  const currentQuery = trpc.employeeShifts.current.useQuery();
+  // Opening the menu starts these identity-owned reads. Logout unmounts the
+  // menu before revoking the session; do not let an old read outlive that
+  // boundary and arrive at the server after the operator has signed out.
+  const currentQuery = trpc.employeeShifts.current.useQuery(undefined, {
+    trpc: { abortOnUnmount: true },
+  });
   const breakQuery = trpc.employeeShifts.breaks.current.useQuery(undefined, {
     enabled: Boolean(currentQuery.data),
+    trpc: { abortOnUnmount: true },
   });
   const refreshCurrent = async () => {
     await Promise.all([

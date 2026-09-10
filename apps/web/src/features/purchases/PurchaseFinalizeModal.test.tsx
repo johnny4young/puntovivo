@@ -6,6 +6,7 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { render } from '@/test/utils';
 import type { Provider } from '@/types';
 import { PurchaseFinalizeModal } from './PurchaseFinalizeModal';
+import type { PurchaseCartItem } from './purchaseCart';
 
 beforeAll(async () => {
   await i18next.changeLanguage('en');
@@ -21,6 +22,22 @@ const provider: Provider = {
   updatedAt: '2026-08-28T00:00:00.000Z',
 };
 
+const lotItem: PurchaseCartItem = {
+  key: 'product-lot:case',
+  productId: 'product-lot',
+  productName: 'Cold medicine',
+  productSku: 'MED-LOT',
+  unitId: 'case',
+  unitName: 'Case',
+  unitEquivalence: 2,
+  quantity: 3,
+  costPerUnit: 50,
+  currentStock: 0,
+  tracksLots: true,
+  tracksSerials: false,
+  serialNumbers: '',
+};
+
 describe('PurchaseFinalizeModal', () => {
   it('reports an invalid attempt and exposes the provider error as an alert', async () => {
     const user = userEvent.setup();
@@ -32,6 +49,7 @@ describe('PurchaseFinalizeModal', () => {
         isOpen
         total={125_000}
         providers={[provider]}
+        items={[]}
         isSaving={false}
         error={null}
         onClose={vi.fn()}
@@ -56,6 +74,7 @@ describe('PurchaseFinalizeModal', () => {
         isOpen
         total={125_000}
         providers={[provider]}
+        items={[]}
         isSaving={false}
         error={null}
         onClose={vi.fn()}
@@ -67,10 +86,11 @@ describe('PurchaseFinalizeModal', () => {
     await user.click(screen.getByRole('button', { name: 'Register Purchase' }));
 
     await waitFor(() =>
-      expect(onSubmit).toHaveBeenCalledWith(
-        { providerId: provider.id, notes: '' },
-        expect.anything()
-      )
+      expect(onSubmit).toHaveBeenCalledWith({
+        providerId: provider.id,
+        notes: '',
+        lotReceiptsByItemKey: {},
+      })
     );
 
     rerender(
@@ -78,6 +98,7 @@ describe('PurchaseFinalizeModal', () => {
         isOpen
         total={125_000}
         providers={[provider]}
+        items={[]}
         isSaving={false}
         error="Unable to register purchase"
         onClose={vi.fn()}
@@ -85,5 +106,37 @@ describe('PurchaseFinalizeModal', () => {
       />
     );
     expect(screen.getByRole('alert')).toHaveTextContent('Unable to register purchase');
+  });
+
+  it('requires exact lot identity and submits base-unit receipt provenance', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn(async () => undefined);
+    render(
+      <PurchaseFinalizeModal
+        isOpen
+        total={150}
+        providers={[provider]}
+        items={[lotItem]}
+        isSaving={false}
+        error={null}
+        onClose={vi.fn()}
+        onSubmit={onSubmit}
+      />
+    );
+
+    await user.selectOptions(screen.getByLabelText('Provider'), provider.id);
+    await user.type(screen.getByLabelText('Lot number'), 'LOT-2026-09');
+    expect(screen.getByLabelText('Base quantity')).toHaveValue(6);
+    await user.click(screen.getByRole('button', { name: 'Register Purchase' }));
+
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith({
+        providerId: provider.id,
+        notes: '',
+        lotReceiptsByItemKey: {
+          [lotItem.key]: [{ lotNumber: 'LOT-2026-09', baseQuantity: 6 }],
+        },
+      })
+    );
   });
 });

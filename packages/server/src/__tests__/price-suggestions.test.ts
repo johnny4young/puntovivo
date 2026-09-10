@@ -28,9 +28,11 @@ import {
   users,
 } from '../db/schema.js';
 import {
+  createExpirySuggestion,
   suggestedDiscountPctForExpiry,
   listActiveSuggestions,
 } from '../services/price-suggestions.js';
+import { resolveTenantBusinessClock } from '../services/pharmacy/business-clock.js';
 import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
 import { makeFreshContextFactory } from './utils/criticalCommandFixture.js';
 import { appRouter } from '../trpc/router.js';
@@ -171,6 +173,32 @@ describe('price suggestions', () => {
 
     const active = await caller.inventoryLots.activeSuggestions();
     expect(active.items.some(item => item.id === suggestion.id)).toBe(true);
+  });
+
+  it('rejects a suggestion when the tenant business clock is stale at writer acquisition', async () => {
+    const db = getDatabase();
+    const productId = await seedProduct('Reloj Radar', 'PS-CLOCK');
+    const lotId = await seedLot({ productId, expiresAt: isoDaysFromNow(10) });
+    const clock = await resolveTenantBusinessClock(db, tenantId);
+
+    expect(() =>
+      createExpirySuggestion(db, {
+        tenantId,
+        actorId: userId,
+        lotId,
+        nowIso: clock.nowIso,
+        businessDate: clock.businessDate,
+        localeVersion: clock.localeVersion + 1,
+      })
+    ).toThrow('Tenant locale changed before the business-date operation acquired its transaction');
+
+    expect(
+      db
+        .select({ id: priceSuggestions.id })
+        .from(priceSuggestions)
+        .where(and(eq(priceSuggestions.tenantId, tenantId), eq(priceSuggestions.lotId, lotId)))
+        .get()
+    ).toBeUndefined();
   });
 
   it('guards one active suggestion per lot and allows re-suggest after dismiss', async () => {
