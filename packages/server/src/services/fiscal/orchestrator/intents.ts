@@ -41,7 +41,12 @@ import {
   toDocumentItemValues,
   toDocumentTaxComponentValues,
 } from './tax-lines.js';
-import { isCountryFiscalEnabled, isDianEnabled, splitIssueTimestamp } from './helpers.js';
+import {
+  checkResolutionUsable,
+  isCountryFiscalEnabled,
+  isDianEnabled,
+  splitIssueTimestamp,
+} from './helpers.js';
 import { resolveBuyer, type FiscalMonetarySnapshot } from './snapshots.js';
 import type { EmitFiscalDocumentResult, ResolvedLine } from './types.js';
 
@@ -250,6 +255,10 @@ export async function prepareSaleFiscalIntent(
   // throw: this runs while a sale is being completed, and a sale must not fail
   // because a fiscal document cannot be built.
   const unnamedLine = lines.find(line => line.productName === null);
+  // Shared with the enqueue path so both refuse the same consecutives.
+  const resolutionUsability = resolution
+    ? checkResolutionUsable(resolution, completedAt)
+    : ({ ok: true } as const);
   const adapterInput: FiscalAdapterInputTemplate = {
     tenantId,
     source,
@@ -297,25 +306,9 @@ export async function prepareSaleFiscalIntent(
   if (!resolution) {
     status = 'blocked';
     lastError = blockedError('numbering_resolution_missing', { siteId, kind });
-  } else if (!resolutionIsEffectiveAt(completedAt, resolution.validFrom, resolution.validUntil)) {
+  } else if (!resolutionUsability.ok) {
     status = 'blocked';
-    lastError = blockedError('numbering_resolution_not_effective', {
-      resolutionId: resolution.id,
-      requestedAt: completedAt,
-      validFrom: resolution.validFrom,
-      validUntil: resolution.validUntil,
-    });
-  } else if (
-    resolution.currentNumber < resolution.fromNumber - 1 ||
-    resolution.currentNumber >= resolution.toNumber
-  ) {
-    status = 'blocked';
-    lastError = blockedError('numbering_resolution_exhausted', {
-      resolutionId: resolution.id,
-      currentNumber: resolution.currentNumber,
-      fromNumber: resolution.fromNumber,
-      toNumber: resolution.toNumber,
-    });
+    lastError = blockedError(resolutionUsability.reason, resolutionUsability.details);
   } else if (lines.length === 0) {
     status = 'blocked';
     lastError = blockedError('sale_lines_missing');
@@ -505,35 +498,352 @@ function materializeClaimedIntent(
     throw new FiscalIntentBlockedError('sale_lines_missing');
   }
 
-  return db.transaction(tx => {
-    const duplicate = tx
-      .select({
-        id: fiscalDocuments.id,
-        cufe: fiscalDocuments.cufe,
-        documentNumber: fiscalDocuments.documentNumber,
-        status: fiscalDocuments.status,
-      })
-      .from(fiscalDocuments)
-      .where(
-        and(
-          eq(fiscalDocuments.tenantId, row.tenantId),
-          eq(fiscalDocuments.source, row.source),
-          eq(fiscalDocuments.sourceId, row.sourceId),
-          eq(fiscalDocuments.kind, row.kind)
+  return db.transaction(
+    tx => {
+      const duplicate = tx
+        .select({
+          id: fiscalDocuments.id,
+          cufe: fiscalDocuments.cufe,
+          documentNumber: fiscalDocuments.documentNumber,
+          status: fiscalDocuments.status,
+        })
+        .from(fiscalDocuments)
+        .where(
+          and(
+            eq(fiscalDocuments.tenantId, row.tenantId),
+            eq(fiscalDocuments.source, row.source),
+            eq(fiscalDocuments.sourceId, row.sourceId),
+            eq(fiscalDocuments.kind, row.kind)
+          )
         )
-      )
-      .get();
-    if (duplicate) {
-      const linked = tx
+        .get();
+      if (duplicate) {
+        const linked = tx
+          .update(fiscalEmissionIntents)
+          .set({
+            status: 'materialized',
+            fiscalDocumentId: duplicate.id,
+            claimToken: null,
+            lockedAt: null,
+            nextRetryAt: null,
+            lastError: null,
+            updatedAt: new Date().toISOString(),
+          })
+          .where(
+            and(
+              eq(fiscalEmissionIntents.id, row.id),
+              eq(fiscalEmissionIntents.tenantId, row.tenantId),
+              eq(fiscalEmissionIntents.status, 'materializing'),
+              eq(fiscalEmissionIntents.claimToken, claimToken)
+            )
+          )
+          .run();
+        if (linked.changes !== 1) throw new Error('Fiscal intent claim was lost');
+        return duplicate;
+      }
+
+      const resolution = tx
+        .select({
+          id: fiscalNumberingResolutions.id,
+          resolutionNumber: fiscalNumberingResolutions.resolutionNumber,
+          prefix: fiscalNumberingResolutions.prefix,
+          technicalKey: fiscalNumberingResolutions.technicalKey,
+          fromNumber: fiscalNumberingResolutions.fromNumber,
+          toNumber: fiscalNumberingResolutions.toNumber,
+          currentNumber: fiscalNumberingResolutions.currentNumber,
+          validFrom: fiscalNumberingResolutions.validFrom,
+          validUntil: fiscalNumberingResolutions.validUntil,
+          isActive: fiscalNumberingResolutions.isActive,
+        })
+        .from(fiscalNumberingResolutions)
+        .where(
+          and(
+            eq(fiscalNumberingResolutions.id, resolutionSnapshot.id),
+            eq(fiscalNumberingResolutions.tenantId, row.tenantId),
+            eq(fiscalNumberingResolutions.siteId, payload.siteId),
+            eq(fiscalNumberingResolutions.kind, row.kind)
+          )
+        )
+        .get();
+      if (!resolution) {
+        throw new FiscalIntentBlockedError('numbering_resolution_missing', {
+          resolutionId: resolutionSnapshot.id,
+        });
+      }
+      if (
+        !resolution.isActive ||
+        resolution.resolutionNumber !== resolutionSnapshot.resolutionNumber ||
+        resolution.prefix !== resolutionSnapshot.prefix ||
+        resolution.technicalKey !== resolutionSnapshot.technicalKey ||
+        resolution.fromNumber !== resolutionSnapshot.fromNumber ||
+        resolution.toNumber !== resolutionSnapshot.toNumber ||
+        resolution.validFrom !== resolutionSnapshot.validFrom ||
+        resolution.validUntil !== resolutionSnapshot.validUntil
+      ) {
+        throw new FiscalIntentBlockedError('numbering_resolution_changed', {
+          resolutionId: resolutionSnapshot.id,
+        });
+      }
+      if (
+        !resolutionIsEffectiveAt(
+          payload.requestedAt,
+          resolutionSnapshot.validFrom,
+          resolutionSnapshot.validUntil
+        )
+      ) {
+        throw new FiscalIntentBlockedError('numbering_resolution_not_effective', {
+          resolutionId: resolutionSnapshot.id,
+          requestedAt: payload.requestedAt,
+          validFrom: resolutionSnapshot.validFrom,
+          validUntil: resolutionSnapshot.validUntil,
+        });
+      }
+
+      const headerTaxTotals = sumTaxTotals(payload.lines);
+      assertFiscalTaxHeaderParity(payload.amounts.taxAmount, {
+        ivaAmount: headerTaxTotals.ivaAmount,
+        incAmount: headerTaxTotals.incAmount,
+      });
+
+      const consecutive = resolution.currentNumber + 1;
+      if (
+        consecutive < resolutionSnapshot.fromNumber ||
+        consecutive > resolutionSnapshot.toNumber
+      ) {
+        throw new FiscalIntentBlockedError('numbering_resolution_exhausted', {
+          resolutionId: resolutionSnapshot.id,
+          currentNumber: resolution.currentNumber,
+          fromNumber: resolutionSnapshot.fromNumber,
+          toNumber: resolutionSnapshot.toNumber,
+        });
+      }
+      const documentNumber = `${resolutionSnapshot.prefix}${consecutive
+        .toString()
+        .padStart(10, '0')}`;
+      const originalDocument =
+        row.kind === 'NC'
+          ? tx
+              .select({
+                cufe: fiscalDocuments.cufe,
+                customerId: fiscalDocuments.customerId,
+                buyerTaxId: fiscalDocuments.buyerTaxId,
+                buyerTaxIdTypeCode: fiscalDocuments.buyerTaxIdTypeCode,
+                buyerName: fiscalDocuments.buyerName,
+                buyerEmail: fiscalDocuments.buyerEmail,
+                buyerAddress: fiscalDocuments.buyerAddress,
+                buyerCity: fiscalDocuments.buyerCity,
+                buyerDepartment: fiscalDocuments.buyerDepartment,
+                buyerCountry: fiscalDocuments.buyerCountry,
+                currencyCode: fiscalDocuments.currencyCode,
+                localeCode: fiscalDocuments.localeCode,
+                providerId: fiscalDocuments.providerId,
+                status: fiscalDocuments.status,
+              })
+              .from(fiscalDocuments)
+              .where(
+                and(
+                  eq(fiscalDocuments.tenantId, row.tenantId),
+                  eq(fiscalDocuments.source, 'sale'),
+                  eq(fiscalDocuments.sourceId, row.saleId),
+                  eq(fiscalDocuments.kind, 'DEE')
+                )
+              )
+              .get()
+          : undefined;
+      let originalCufe = payload.adapterInput.originalCufe;
+      if (row.kind === 'NC') {
+        if (!originalDocument || originalDocument.cufe.startsWith('pending-')) {
+          throw new FiscalIntentDependencyPendingError('original_dee_not_accepted');
+        }
+        const originalProvider = originalDocument.providerId
+          ? describeFiscalProvider(originalDocument.providerId)
+          : null;
+        // Mock/draft packs produce local evidence, not authority acceptance.
+        // Only known non-certified packs may reference their emitted draft;
+        // never relax the acceptance requirement for a certified/unknown pack.
+        const localDraft =
+          originalProvider &&
+          originalProvider.maturity !== 'certified' &&
+          (originalDocument.status === 'sent' || originalDocument.status === 'pending');
+        if (originalDocument.status !== 'accepted' && !localDraft) {
+          throw new FiscalIntentDependencyPendingError('original_dee_not_accepted');
+        }
+        if (originalCufe && originalCufe !== originalDocument.cufe) {
+          throw new FiscalIntentBlockedError('original_dee_changed', {
+            saleId: row.saleId,
+          });
+        }
+        if (
+          (originalProvider && originalProvider.countryCode !== payload.countryCode) ||
+          originalDocument.providerId !== payload.providerId
+        ) {
+          throw new FiscalIntentBlockedError('original_dee_contract_changed', {
+            saleId: row.saleId,
+          });
+        }
+        originalCufe = originalDocument.cufe;
+      }
+      const adapterInput: FiscalAdapterIssueInput = {
+        ...payload.adapterInput,
+        originalCufe,
+        // A credit note references immutable fiscal evidence, never a customer's
+        // current catalog record or a later tenant currency change.
+        buyer: originalDocument
+          ? {
+              taxId: originalDocument.buyerTaxId,
+              taxIdTypeCode: originalDocument.buyerTaxIdTypeCode,
+              name: originalDocument.buyerName,
+              email: originalDocument.buyerEmail,
+              address: originalDocument.buyerAddress,
+              city: originalDocument.buyerCity,
+              department: originalDocument.buyerDepartment,
+              country: originalDocument.buyerCountry,
+            }
+          : payload.adapterInput.buyer,
+        currencyCode: originalDocument?.currencyCode ?? payload.adapterInput.currencyCode,
+        localeCode: originalDocument?.localeCode ?? payload.adapterInput.localeCode,
+        resolution: {
+          id: resolutionSnapshot.id,
+          resolutionNumber: resolutionSnapshot.resolutionNumber,
+          prefix: resolutionSnapshot.prefix,
+          technicalKey: resolutionSnapshot.technicalKey,
+          consecutive,
+          documentNumber,
+        },
+      };
+      if (payload.countryCode === 'CL') {
+        const buyerHasRut =
+          !!adapterInput.buyer.taxId && adapterInput.buyer.taxId !== CONSUMIDOR_FINAL.taxId;
+        const tipoDte = mapInternalKindToTipoDte(row.source, buyerHasRut);
+        const allocation = allocateNextFolio(tx, { tenantId: row.tenantId, tipoDte });
+        adapterInput.chileAllocation = {
+          cafId: allocation.cafId,
+          folio: allocation.folio,
+          tipoDte: allocation.tipoDte,
+          rutEmisor: allocation.rutEmisor,
+          rawCafXml: allocation.rawCafXml,
+          rangeRemaining: allocation.rangeRemaining,
+        };
+      }
+
+      const fiscalDocumentId = nanoid();
+      const placeholderCufe = `pending-${nanoid(40)}`;
+      const now = new Date().toISOString();
+      const buyer = adapterInput.buyer;
+      tx.insert(fiscalDocuments)
+        .values({
+          id: fiscalDocumentId,
+          tenantId: row.tenantId,
+          source: row.source,
+          sourceId: row.sourceId,
+          kind: row.kind,
+          resolutionId: resolutionSnapshot.id,
+          consecutive,
+          documentNumber,
+          cufe: placeholderCufe,
+          status: 'pending',
+          customerId: originalDocument ? originalDocument.customerId : payload.buyerCustomerId,
+          buyerTaxId: buyer.taxId,
+          buyerTaxIdTypeCode: buyer.taxIdTypeCode,
+          buyerName: buyer.name,
+          buyerEmail: buyer.email,
+          buyerAddress: buyer.address,
+          buyerCity: buyer.city,
+          buyerDepartment: buyer.department,
+          buyerCountry: buyer.country,
+          subtotal: payload.amounts.subtotal,
+          taxAmount: payload.amounts.taxAmount,
+          discountAmount: payload.amounts.discountAmount,
+          totalAmount: payload.amounts.total,
+          currencyCode: adapterInput.currencyCode,
+          localeCode: adapterInput.localeCode,
+          originalCufe: adapterInput.originalCufe ?? null,
+          reasonCode: payload.adapterInput.reasonCode ?? null,
+          providerId: payload.providerId,
+          providerResponse: null,
+          xmlRef: null,
+          retries: 0,
+          emittedByUserId: row.requestedByUserId,
+          emittedAt: payload.requestedAt,
+          updatedAt: now,
+        })
+        .run();
+
+      for (const line of payload.lines) {
+        const fiscalDocumentItemId = nanoid();
+        tx.insert(fiscalDocumentItems)
+          .values({ id: fiscalDocumentItemId, ...toDocumentItemValues(fiscalDocumentId, line) })
+          .run();
+        for (const component of getResolvedLineTaxComponents(line)) {
+          tx.insert(fiscalDocumentItemTaxComponents)
+            .values({
+              id: nanoid(),
+              ...toDocumentTaxComponentValues(row.tenantId, fiscalDocumentItemId, component),
+              createdAt: now,
+            })
+            .run();
+        }
+      }
+
+      const advanced = tx
+        .update(fiscalNumberingResolutions)
+        .set({ currentNumber: consecutive, updatedAt: now })
+        .where(
+          and(
+            eq(fiscalNumberingResolutions.id, resolution.id),
+            eq(fiscalNumberingResolutions.tenantId, row.tenantId),
+            eq(fiscalNumberingResolutions.siteId, payload.siteId),
+            eq(fiscalNumberingResolutions.kind, row.kind),
+            eq(fiscalNumberingResolutions.currentNumber, resolution.currentNumber)
+          )
+        )
+        .run();
+      if (advanced.changes !== 1) {
+        throwServerError({
+          trpcCode: 'CONFLICT',
+          errorCode: 'FISCAL_SEQUENTIAL_NOT_ADVANCED',
+          message: 'Fiscal numbering resolution was not advanced',
+          details: { resolutionId: resolution.id, tenantId: row.tenantId, kind: row.kind },
+        });
+      }
+
+      tx.insert(fiscalOutbox)
+        .values({
+          id: nanoid(),
+          tenantId: row.tenantId,
+          status: 'queued',
+          kind: 'emit',
+          fiscalDocumentId,
+          providerId: payload.providerId,
+          cufe: null,
+          payload: {
+            countryCode: payload.countryCode,
+            providerId: payload.providerId,
+            fiscalDocumentId,
+            adapterInput,
+          },
+          payloadVersion: 1,
+          attempts: 0,
+          nextRetryAt: null,
+          lastError: null,
+          priority: 0,
+          claimToken: null,
+          lockedAt: null,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .run();
+
+      const completed = tx
         .update(fiscalEmissionIntents)
         .set({
           status: 'materialized',
-          fiscalDocumentId: duplicate.id,
+          fiscalDocumentId,
           claimToken: null,
           lockedAt: null,
           nextRetryAt: null,
           lastError: null,
-          updatedAt: new Date().toISOString(),
+          updatedAt: now,
         })
         .where(
           and(
@@ -544,323 +854,18 @@ function materializeClaimedIntent(
           )
         )
         .run();
-      if (linked.changes !== 1) throw new Error('Fiscal intent claim was lost');
-      return duplicate;
-    }
+      if (completed.changes !== 1) throw new Error('Fiscal intent claim was lost');
 
-    const resolution = tx
-      .select({
-        id: fiscalNumberingResolutions.id,
-        resolutionNumber: fiscalNumberingResolutions.resolutionNumber,
-        prefix: fiscalNumberingResolutions.prefix,
-        technicalKey: fiscalNumberingResolutions.technicalKey,
-        fromNumber: fiscalNumberingResolutions.fromNumber,
-        toNumber: fiscalNumberingResolutions.toNumber,
-        currentNumber: fiscalNumberingResolutions.currentNumber,
-        validFrom: fiscalNumberingResolutions.validFrom,
-        validUntil: fiscalNumberingResolutions.validUntil,
-        isActive: fiscalNumberingResolutions.isActive,
-      })
-      .from(fiscalNumberingResolutions)
-      .where(
-        and(
-          eq(fiscalNumberingResolutions.id, resolutionSnapshot.id),
-          eq(fiscalNumberingResolutions.tenantId, row.tenantId),
-          eq(fiscalNumberingResolutions.siteId, payload.siteId),
-          eq(fiscalNumberingResolutions.kind, row.kind)
-        )
-      )
-      .get();
-    if (!resolution) {
-      throw new FiscalIntentBlockedError('numbering_resolution_missing', {
-        resolutionId: resolutionSnapshot.id,
-      });
-    }
-    if (
-      !resolution.isActive ||
-      resolution.resolutionNumber !== resolutionSnapshot.resolutionNumber ||
-      resolution.prefix !== resolutionSnapshot.prefix ||
-      resolution.technicalKey !== resolutionSnapshot.technicalKey ||
-      resolution.fromNumber !== resolutionSnapshot.fromNumber ||
-      resolution.toNumber !== resolutionSnapshot.toNumber ||
-      resolution.validFrom !== resolutionSnapshot.validFrom ||
-      resolution.validUntil !== resolutionSnapshot.validUntil
-    ) {
-      throw new FiscalIntentBlockedError('numbering_resolution_changed', {
-        resolutionId: resolutionSnapshot.id,
-      });
-    }
-    if (
-      !resolutionIsEffectiveAt(
-        payload.requestedAt,
-        resolutionSnapshot.validFrom,
-        resolutionSnapshot.validUntil
-      )
-    ) {
-      throw new FiscalIntentBlockedError('numbering_resolution_not_effective', {
-        resolutionId: resolutionSnapshot.id,
-        requestedAt: payload.requestedAt,
-        validFrom: resolutionSnapshot.validFrom,
-        validUntil: resolutionSnapshot.validUntil,
-      });
-    }
-
-    const headerTaxTotals = sumTaxTotals(payload.lines);
-    assertFiscalTaxHeaderParity(payload.amounts.taxAmount, {
-      ivaAmount: headerTaxTotals.ivaAmount,
-      incAmount: headerTaxTotals.incAmount,
-    });
-
-    const consecutive = resolution.currentNumber + 1;
-    if (consecutive < resolutionSnapshot.fromNumber || consecutive > resolutionSnapshot.toNumber) {
-      throw new FiscalIntentBlockedError('numbering_resolution_exhausted', {
-        resolutionId: resolutionSnapshot.id,
-        currentNumber: resolution.currentNumber,
-        fromNumber: resolutionSnapshot.fromNumber,
-        toNumber: resolutionSnapshot.toNumber,
-      });
-    }
-    const documentNumber = `${resolutionSnapshot.prefix}${consecutive
-      .toString()
-      .padStart(10, '0')}`;
-    const originalDocument =
-      row.kind === 'NC'
-        ? tx
-            .select({
-              cufe: fiscalDocuments.cufe,
-              customerId: fiscalDocuments.customerId,
-              buyerTaxId: fiscalDocuments.buyerTaxId,
-              buyerTaxIdTypeCode: fiscalDocuments.buyerTaxIdTypeCode,
-              buyerName: fiscalDocuments.buyerName,
-              buyerEmail: fiscalDocuments.buyerEmail,
-              buyerAddress: fiscalDocuments.buyerAddress,
-              buyerCity: fiscalDocuments.buyerCity,
-              buyerDepartment: fiscalDocuments.buyerDepartment,
-              buyerCountry: fiscalDocuments.buyerCountry,
-              currencyCode: fiscalDocuments.currencyCode,
-              localeCode: fiscalDocuments.localeCode,
-              providerId: fiscalDocuments.providerId,
-              status: fiscalDocuments.status,
-            })
-            .from(fiscalDocuments)
-            .where(
-              and(
-                eq(fiscalDocuments.tenantId, row.tenantId),
-                eq(fiscalDocuments.source, 'sale'),
-                eq(fiscalDocuments.sourceId, row.saleId),
-                eq(fiscalDocuments.kind, 'DEE')
-              )
-            )
-            .get()
-        : undefined;
-    let originalCufe = payload.adapterInput.originalCufe;
-    if (row.kind === 'NC') {
-      if (!originalDocument || originalDocument.cufe.startsWith('pending-')) {
-        throw new FiscalIntentDependencyPendingError('original_dee_not_accepted');
-      }
-      const originalProvider = originalDocument.providerId
-        ? describeFiscalProvider(originalDocument.providerId)
-        : null;
-      // Mock/draft packs produce local evidence, not authority acceptance.
-      // Only known non-certified packs may reference their emitted draft;
-      // never relax the acceptance requirement for a certified/unknown pack.
-      const localDraft =
-        originalProvider &&
-        originalProvider.maturity !== 'certified' &&
-        (originalDocument.status === 'sent' || originalDocument.status === 'pending');
-      if (originalDocument.status !== 'accepted' && !localDraft) {
-        throw new FiscalIntentDependencyPendingError('original_dee_not_accepted');
-      }
-      if (originalCufe && originalCufe !== originalDocument.cufe) {
-        throw new FiscalIntentBlockedError('original_dee_changed', {
-          saleId: row.saleId,
-        });
-      }
-      if (
-        (originalProvider && originalProvider.countryCode !== payload.countryCode) ||
-        originalDocument.providerId !== payload.providerId
-      ) {
-        throw new FiscalIntentBlockedError('original_dee_contract_changed', {
-          saleId: row.saleId,
-        });
-      }
-      originalCufe = originalDocument.cufe;
-    }
-    const adapterInput: FiscalAdapterIssueInput = {
-      ...payload.adapterInput,
-      originalCufe,
-      // A credit note references immutable fiscal evidence, never a customer's
-      // current catalog record or a later tenant currency change.
-      buyer: originalDocument
-        ? {
-            taxId: originalDocument.buyerTaxId,
-            taxIdTypeCode: originalDocument.buyerTaxIdTypeCode,
-            name: originalDocument.buyerName,
-            email: originalDocument.buyerEmail,
-            address: originalDocument.buyerAddress,
-            city: originalDocument.buyerCity,
-            department: originalDocument.buyerDepartment,
-            country: originalDocument.buyerCountry,
-          }
-        : payload.adapterInput.buyer,
-      currencyCode: originalDocument?.currencyCode ?? payload.adapterInput.currencyCode,
-      localeCode: originalDocument?.localeCode ?? payload.adapterInput.localeCode,
-      resolution: {
-        id: resolutionSnapshot.id,
-        resolutionNumber: resolutionSnapshot.resolutionNumber,
-        prefix: resolutionSnapshot.prefix,
-        technicalKey: resolutionSnapshot.technicalKey,
-        consecutive,
-        documentNumber,
-      },
-    };
-    if (payload.countryCode === 'CL') {
-      const buyerHasRut =
-        !!adapterInput.buyer.taxId && adapterInput.buyer.taxId !== CONSUMIDOR_FINAL.taxId;
-      const tipoDte = mapInternalKindToTipoDte(row.source, buyerHasRut);
-      const allocation = allocateNextFolio(tx, { tenantId: row.tenantId, tipoDte });
-      adapterInput.chileAllocation = {
-        cafId: allocation.cafId,
-        folio: allocation.folio,
-        tipoDte: allocation.tipoDte,
-        rutEmisor: allocation.rutEmisor,
-        rawCafXml: allocation.rawCafXml,
-        rangeRemaining: allocation.rangeRemaining,
-      };
-    }
-
-    const fiscalDocumentId = nanoid();
-    const placeholderCufe = `pending-${nanoid(40)}`;
-    const now = new Date().toISOString();
-    const buyer = adapterInput.buyer;
-    tx.insert(fiscalDocuments)
-      .values({
-        id: fiscalDocumentId,
-        tenantId: row.tenantId,
-        source: row.source,
-        sourceId: row.sourceId,
-        kind: row.kind,
-        resolutionId: resolutionSnapshot.id,
-        consecutive,
-        documentNumber,
-        cufe: placeholderCufe,
-        status: 'pending',
-        customerId: originalDocument ? originalDocument.customerId : payload.buyerCustomerId,
-        buyerTaxId: buyer.taxId,
-        buyerTaxIdTypeCode: buyer.taxIdTypeCode,
-        buyerName: buyer.name,
-        buyerEmail: buyer.email,
-        buyerAddress: buyer.address,
-        buyerCity: buyer.city,
-        buyerDepartment: buyer.department,
-        buyerCountry: buyer.country,
-        subtotal: payload.amounts.subtotal,
-        taxAmount: payload.amounts.taxAmount,
-        discountAmount: payload.amounts.discountAmount,
-        totalAmount: payload.amounts.total,
-        currencyCode: adapterInput.currencyCode,
-        localeCode: adapterInput.localeCode,
-        originalCufe: adapterInput.originalCufe ?? null,
-        reasonCode: payload.adapterInput.reasonCode ?? null,
-        providerId: payload.providerId,
-        providerResponse: null,
-        xmlRef: null,
-        retries: 0,
-        emittedByUserId: row.requestedByUserId,
-        emittedAt: payload.requestedAt,
-        updatedAt: now,
-      })
-      .run();
-
-    for (const line of payload.lines) {
-      const fiscalDocumentItemId = nanoid();
-      tx.insert(fiscalDocumentItems)
-        .values({ id: fiscalDocumentItemId, ...toDocumentItemValues(fiscalDocumentId, line) })
-        .run();
-      for (const component of getResolvedLineTaxComponents(line)) {
-        tx.insert(fiscalDocumentItemTaxComponents)
-          .values({
-            id: nanoid(),
-            ...toDocumentTaxComponentValues(row.tenantId, fiscalDocumentItemId, component),
-            createdAt: now,
-          })
-          .run();
-      }
-    }
-
-    const advanced = tx
-      .update(fiscalNumberingResolutions)
-      .set({ currentNumber: consecutive, updatedAt: now })
-      .where(
-        and(
-          eq(fiscalNumberingResolutions.id, resolution.id),
-          eq(fiscalNumberingResolutions.tenantId, row.tenantId),
-          eq(fiscalNumberingResolutions.siteId, payload.siteId),
-          eq(fiscalNumberingResolutions.kind, row.kind),
-          eq(fiscalNumberingResolutions.currentNumber, resolution.currentNumber)
-        )
-      )
-      .run();
-    if (advanced.changes !== 1) {
-      throwServerError({
-        trpcCode: 'CONFLICT',
-        errorCode: 'FISCAL_SEQUENTIAL_NOT_ADVANCED',
-        message: 'Fiscal numbering resolution was not advanced',
-        details: { resolutionId: resolution.id, tenantId: row.tenantId, kind: row.kind },
-      });
-    }
-
-    tx.insert(fiscalOutbox)
-      .values({
-        id: nanoid(),
-        tenantId: row.tenantId,
-        status: 'queued',
-        kind: 'emit',
-        fiscalDocumentId,
-        providerId: payload.providerId,
-        cufe: null,
-        payload: {
-          countryCode: payload.countryCode,
-          providerId: payload.providerId,
-          fiscalDocumentId,
-          adapterInput,
-        },
-        payloadVersion: 1,
-        attempts: 0,
-        nextRetryAt: null,
-        lastError: null,
-        priority: 0,
-        claimToken: null,
-        lockedAt: null,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .run();
-
-    const completed = tx
-      .update(fiscalEmissionIntents)
-      .set({
-        status: 'materialized',
-        fiscalDocumentId,
-        claimToken: null,
-        lockedAt: null,
-        nextRetryAt: null,
-        lastError: null,
-        updatedAt: now,
-      })
-      .where(
-        and(
-          eq(fiscalEmissionIntents.id, row.id),
-          eq(fiscalEmissionIntents.tenantId, row.tenantId),
-          eq(fiscalEmissionIntents.status, 'materializing'),
-          eq(fiscalEmissionIntents.claimToken, claimToken)
-        )
-      )
-      .run();
-    if (completed.changes !== 1) throw new Error('Fiscal intent claim was lost');
-
-    return { id: fiscalDocumentId, cufe: placeholderCufe, documentNumber, status: 'pending' };
-  });
+      return { id: fiscalDocumentId, cufe: placeholderCufe, documentNumber, status: 'pending' };
+    },
+    // Reserve the single SQLite writer before the first fiscal mutation.
+    // This path reads the numbering resolution and then writes it, which is
+    // exactly the read-to-write upgrade a deferred transaction can lose --
+    // surfacing SQLITE_BUSY immediately, bypassing busy_timeout. Every other
+    // critical writer in the codebase reserves it up front; the fiscal ones
+    // did not.
+    { behavior: 'immediate' }
+  );
 }
 
 function retryDelayMs(attempts: number): number {

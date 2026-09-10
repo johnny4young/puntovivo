@@ -177,8 +177,11 @@ async function seedFiscalTenant(slugSuffix: string, enableFlag: boolean): Promis
     toNumber: 10000,
     currentNumber: 0,
     technicalKey: 'fc8eac422eba16e22ffd8c6f94b3f40a6e38162c',
-    validFrom: now,
-    validUntil: now,
+    // A real DIAN resolution is valid for months. The fixture used to set
+    // validFrom and validUntil both to `now`, a zero-width window that no
+    // resolution has, and nothing noticed because nothing checked.
+    validFrom: new Date(Date.parse(now) - 86_400_000).toISOString(),
+    validUntil: new Date(Date.parse(now) + 365 * 86_400_000).toISOString(),
     isActive: true,
     createdAt: now,
     updatedAt: now,
@@ -302,8 +305,8 @@ async function seedSecondSiteResolution(
     toNumber: 10000,
     currentNumber: 41,
     technicalKey: 'fc8eac422eba16e22ffd8c6f94b3f40a6e38162c',
-    validFrom: now,
-    validUntil: now,
+    validFrom: new Date(Date.parse(now) - 86_400_000).toISOString(),
+    validUntil: new Date(Date.parse(now) + 365 * 86_400_000).toISOString(),
     isActive: true,
     createdAt: now,
     updatedAt: now,

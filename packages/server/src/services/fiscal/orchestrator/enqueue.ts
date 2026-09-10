@@ -41,7 +41,12 @@ import { allocateNextFolio } from '../packs/cl/caf-allocator.js';
 import { mapInternalKindToTipoDte } from '../packs/cl/mappings.js';
 import { getFiscalAdapter, isSupportedFiscalCountry } from '../registry.js';
 import type { EmitFiscalDocumentResult } from './types.js';
-import { splitIssueTimestamp, isCountryFiscalEnabled, isDianEnabled } from './helpers.js';
+import {
+  checkResolutionUsable,
+  isCountryFiscalEnabled,
+  isDianEnabled,
+  splitIssueTimestamp,
+} from './helpers.js';
 import { resolveBuyer, resolveFiscalDocumentSnapshot } from './snapshots.js';
 
 /**
@@ -309,175 +314,207 @@ export async function enqueueFiscalEmission(args: {
   const placeholderCufe = `pending-${nanoid(40)}`;
   const now = new Date().toISOString();
 
-  return db.transaction(writeTx => {
-    const duplicate = writeTx
-      .select({
-        id: fiscalDocuments.id,
-        cufe: fiscalDocuments.cufe,
-        documentNumber: fiscalDocuments.documentNumber,
-        status: fiscalDocuments.status,
-      })
-      .from(fiscalDocuments)
-      .where(
-        and(
-          eq(fiscalDocuments.tenantId, tenantId),
-          eq(fiscalDocuments.source, source),
-          eq(fiscalDocuments.sourceId, sourceId),
-          eq(fiscalDocuments.kind, kind)
+  // Same policy as the intent path, from the same helper: a consecutive past
+  // the resolution's range or outside its validity window is invalid the
+  // moment a real pack validates it, and issuing one burns a number that
+  // cannot be reused.
+  const resolutionUsability = checkResolutionUsable(resolution, now);
+  if (!resolutionUsability.ok) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'FISCAL_NUMBERING_RESOLUTION_UNUSABLE',
+      message: 'The fiscal numbering resolution cannot issue another consecutive',
+      details: { reason: resolutionUsability.reason, ...resolutionUsability.details },
+    });
+  }
+
+  // Reserve the single SQLite writer before the first fiscal mutation. This
+  // path reads the resolution and then writes it, which is exactly the
+  // read-to-write upgrade a deferred transaction can lose -- surfacing
+  // SQLITE_BUSY immediately, bypassing busy_timeout. Every other critical
+  // writer in the codebase does this; the fiscal ones did not.
+  return db.transaction(
+    writeTx => {
+      const duplicate = writeTx
+        .select({
+          id: fiscalDocuments.id,
+          cufe: fiscalDocuments.cufe,
+          documentNumber: fiscalDocuments.documentNumber,
+          status: fiscalDocuments.status,
+        })
+        .from(fiscalDocuments)
+        .where(
+          and(
+            eq(fiscalDocuments.tenantId, tenantId),
+            eq(fiscalDocuments.source, source),
+            eq(fiscalDocuments.sourceId, sourceId),
+            eq(fiscalDocuments.kind, kind)
+          )
         )
-      )
-      .get();
-    if (duplicate) {
-      return duplicate;
-    }
-
-    assertFiscalTaxHeaderParity(documentAmounts.taxAmount, headerTaxTotals);
-
-    // Chile: pre-allocate the next CAF folio inside this
-    // write transaction so the cursor advance + the fiscal_documents
-    // insert + the outbox enqueue commit atomically. The orchestrator
-    // resolves tipoDte from (source, buyerHasRut) and embeds the
-    // allocation in the outbox payload — the worker passes it to
-    // adapter.issue() without re-querying the DB. If the allocator
-    // throws (CAF_NOT_AVAILABLE / CAF_EXHAUSTED), the surrounding tx
-    // rolls back: no folio burned, no fiscal_documents row created,
-    // no outbox row enqueued.
-    if (adapter.countryCode === 'CL') {
-      const buyerHasRut = !!buyer.taxId && buyer.taxId !== CONSUMIDOR_FINAL.taxId;
-      const tipoDte = mapInternalKindToTipoDte(source, buyerHasRut);
-      const allocation = allocateNextFolio(writeTx, { tenantId, tipoDte });
-      adapterInput.chileAllocation = {
-        cafId: allocation.cafId,
-        folio: allocation.folio,
-        tipoDte: allocation.tipoDte,
-        rutEmisor: allocation.rutEmisor,
-        rawCafXml: allocation.rawCafXml,
-        rangeRemaining: allocation.rangeRemaining,
-      };
-    }
-
-    writeTx
-      .insert(fiscalDocuments)
-      .values({
-        id: fiscalDocumentId,
-        tenantId,
-        source,
-        sourceId,
-        kind,
-        resolutionId: resolution.id,
-        consecutive,
-        documentNumber,
-        cufe: placeholderCufe,
-        status: 'pending',
-        customerId: buyer.customerId,
-        buyerTaxId: buyer.taxId,
-        buyerTaxIdTypeCode: buyer.taxIdTypeCode,
-        buyerName: buyer.name,
-        buyerEmail: buyer.email,
-        buyerAddress: buyer.address,
-        buyerCity: buyer.city,
-        buyerDepartment: buyer.department,
-        buyerCountry: buyer.country,
-        subtotal: documentAmounts.subtotal,
-        taxAmount: documentAmounts.taxAmount,
-        discountAmount: documentAmounts.discountAmount,
-        totalAmount: documentAmounts.total,
-        currencyCode: locale.currency,
-        localeCode: locale.locale,
-        originalCufe: args.originalCufe ?? null,
-        reasonCode: args.reasonCode ?? null,
-        providerId: adapter.providerId,
-        providerResponse: null,
-        xmlRef: null,
-        retries: 0,
-        emittedByUserId: userId,
-        emittedAt: now,
-        updatedAt: now,
-      })
-      .run();
-
-    for (const line of lines) {
-      const fiscalDocumentItemId = nanoid();
-      writeTx
-        .insert(fiscalDocumentItems)
-        .values({ id: fiscalDocumentItemId, ...toDocumentItemValues(fiscalDocumentId, line) })
-        .run();
-      for (const component of getResolvedLineTaxComponents(line)) {
-        writeTx
-          .insert(fiscalDocumentItemTaxComponents)
-          .values({
-            id: nanoid(),
-            ...toDocumentTaxComponentValues(tenantId, fiscalDocumentItemId, component),
-            createdAt: now,
-          })
-          .run();
+        .get();
+      if (duplicate) {
+        return duplicate;
       }
-    }
 
-    const updateResult = writeTx
-      .update(fiscalNumberingResolutions)
-      .set({ currentNumber: consecutive, updatedAt: now })
-      .where(
-        and(
-          eq(fiscalNumberingResolutions.id, resolution.id),
-          eq(fiscalNumberingResolutions.tenantId, tenantId),
-          eq(fiscalNumberingResolutions.siteId, saleSite.siteId),
-          eq(fiscalNumberingResolutions.kind, kind)
-        )
-      )
-      .run();
-    if (updateResult.changes !== 1) {
-      throwServerError({
-        trpcCode: 'CONFLICT',
-        errorCode: 'FISCAL_SEQUENTIAL_NOT_ADVANCED',
-        message: 'Fiscal numbering resolution was not advanced',
-        details: {
-          resolutionId: resolution.id,
+      assertFiscalTaxHeaderParity(documentAmounts.taxAmount, headerTaxTotals);
+
+      // Chile: pre-allocate the next CAF folio inside this
+      // write transaction so the cursor advance + the fiscal_documents
+      // insert + the outbox enqueue commit atomically. The orchestrator
+      // resolves tipoDte from (source, buyerHasRut) and embeds the
+      // allocation in the outbox payload — the worker passes it to
+      // adapter.issue() without re-querying the DB. If the allocator
+      // throws (CAF_NOT_AVAILABLE / CAF_EXHAUSTED), the surrounding tx
+      // rolls back: no folio burned, no fiscal_documents row created,
+      // no outbox row enqueued.
+      if (adapter.countryCode === 'CL') {
+        const buyerHasRut = !!buyer.taxId && buyer.taxId !== CONSUMIDOR_FINAL.taxId;
+        const tipoDte = mapInternalKindToTipoDte(source, buyerHasRut);
+        const allocation = allocateNextFolio(writeTx, { tenantId, tipoDte });
+        adapterInput.chileAllocation = {
+          cafId: allocation.cafId,
+          folio: allocation.folio,
+          tipoDte: allocation.tipoDte,
+          rutEmisor: allocation.rutEmisor,
+          rawCafXml: allocation.rawCafXml,
+          rangeRemaining: allocation.rangeRemaining,
+        };
+      }
+
+      writeTx
+        .insert(fiscalDocuments)
+        .values({
+          id: fiscalDocumentId,
           tenantId,
-          siteId: saleSite.siteId,
+          source,
+          sourceId,
           kind,
-          expectedConsecutive: consecutive,
-        },
-      });
-    }
-
-    // Enqueue the outbox row last so a constraint-violation roll-back
-    // on fiscal_documents (rare — the duplicate probe runs first)
-    // doesn't leave an orphan outbox row.
-    const outboxId = nanoid();
-    writeTx
-      .insert(fiscalOutbox)
-      .values({
-        id: outboxId,
-        tenantId,
-        status: 'queued',
-        kind: 'emit',
-        fiscalDocumentId,
-        providerId: adapter.providerId,
-        cufe: null,
-        payload: {
-          countryCode: adapter.countryCode,
+          resolutionId: resolution.id,
+          consecutive,
+          documentNumber,
+          cufe: placeholderCufe,
+          status: 'pending',
+          customerId: buyer.customerId,
+          buyerTaxId: buyer.taxId,
+          buyerTaxIdTypeCode: buyer.taxIdTypeCode,
+          buyerName: buyer.name,
+          buyerEmail: buyer.email,
+          buyerAddress: buyer.address,
+          buyerCity: buyer.city,
+          buyerDepartment: buyer.department,
+          buyerCountry: buyer.country,
+          subtotal: documentAmounts.subtotal,
+          taxAmount: documentAmounts.taxAmount,
+          discountAmount: documentAmounts.discountAmount,
+          totalAmount: documentAmounts.total,
+          currencyCode: locale.currency,
+          localeCode: locale.locale,
+          originalCufe: args.originalCufe ?? null,
+          reasonCode: args.reasonCode ?? null,
           providerId: adapter.providerId,
-          fiscalDocumentId,
-          adapterInput,
-        },
-        payloadVersion: 1,
-        attempts: 0,
-        nextRetryAt: null,
-        lastError: null,
-        priority: 0,
-        claimToken: null,
-        lockedAt: null,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .run();
+          providerResponse: null,
+          xmlRef: null,
+          retries: 0,
+          emittedByUserId: userId,
+          emittedAt: now,
+          updatedAt: now,
+        })
+        .run();
 
-    return {
-      id: fiscalDocumentId,
-      cufe: placeholderCufe,
-      documentNumber,
-      status: 'pending',
-    };
-  });
+      for (const line of lines) {
+        const fiscalDocumentItemId = nanoid();
+        writeTx
+          .insert(fiscalDocumentItems)
+          .values({ id: fiscalDocumentItemId, ...toDocumentItemValues(fiscalDocumentId, line) })
+          .run();
+        for (const component of getResolvedLineTaxComponents(line)) {
+          writeTx
+            .insert(fiscalDocumentItemTaxComponents)
+            .values({
+              id: nanoid(),
+              ...toDocumentTaxComponentValues(tenantId, fiscalDocumentItemId, component),
+              createdAt: now,
+            })
+            .run();
+        }
+      }
+
+      const updateResult = writeTx
+        .update(fiscalNumberingResolutions)
+        .set({ currentNumber: consecutive, updatedAt: now })
+        .where(
+          and(
+            eq(fiscalNumberingResolutions.id, resolution.id),
+            eq(fiscalNumberingResolutions.tenantId, tenantId),
+            eq(fiscalNumberingResolutions.siteId, saleSite.siteId),
+            eq(fiscalNumberingResolutions.kind, kind),
+            // The compare-and-swap. Without it every column in this predicate
+            // is immutable for the row, so `changes` is always 1 and the guard
+            // below can only fire if someone deleted the resolution mid-write.
+            eq(fiscalNumberingResolutions.currentNumber, resolution.currentNumber)
+          )
+        )
+        .run();
+      if (updateResult.changes !== 1) {
+        throwServerError({
+          trpcCode: 'CONFLICT',
+          errorCode: 'FISCAL_SEQUENTIAL_NOT_ADVANCED',
+          message: 'Fiscal numbering resolution was not advanced',
+          details: {
+            resolutionId: resolution.id,
+            tenantId,
+            siteId: saleSite.siteId,
+            kind,
+            expectedConsecutive: consecutive,
+          },
+        });
+      }
+
+      // Enqueue the outbox row last so a constraint-violation roll-back
+      // on fiscal_documents (rare — the duplicate probe runs first)
+      // doesn't leave an orphan outbox row.
+      const outboxId = nanoid();
+      writeTx
+        .insert(fiscalOutbox)
+        .values({
+          id: outboxId,
+          tenantId,
+          status: 'queued',
+          kind: 'emit',
+          fiscalDocumentId,
+          providerId: adapter.providerId,
+          cufe: null,
+          payload: {
+            countryCode: adapter.countryCode,
+            providerId: adapter.providerId,
+            fiscalDocumentId,
+            adapterInput,
+          },
+          payloadVersion: 1,
+          attempts: 0,
+          nextRetryAt: null,
+          lastError: null,
+          priority: 0,
+          claimToken: null,
+          lockedAt: null,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .run();
+
+      return {
+        id: fiscalDocumentId,
+        cufe: placeholderCufe,
+        documentNumber,
+        status: 'pending',
+      };
+    },
+    // Reserve the single SQLite writer before the first fiscal mutation.
+    // This path reads the numbering resolution and then writes it, which is
+    // exactly the read-to-write upgrade a deferred transaction can lose --
+    // surfacing SQLITE_BUSY immediately, bypassing busy_timeout. Every other
+    // critical writer in the codebase reserves it up front; the fiscal ones
+    // did not.
+    { behavior: 'immediate' }
+  );
 }

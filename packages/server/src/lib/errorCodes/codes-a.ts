@@ -807,6 +807,13 @@ export const SERVER_ERROR_CODES_A = {
    * document-kind) triple that raced.
    */
   FISCAL_SEQUENTIAL_NOT_ADVANCED: 'FISCAL_SEQUENTIAL_NOT_ADVANCED',
+  /**
+   * The numbering resolution cannot issue its next consecutive: the range is
+   * exhausted, or the request falls outside the resolution's validity window.
+   *  carries  plus the resolution coordinates. The intent
+   * path records the same two reasons as a durable blocked intent instead.
+   */
+  FISCAL_NUMBERING_RESOLUTION_UNUSABLE: 'FISCAL_NUMBERING_RESOLUTION_UNUSABLE',
   /** Frozen IVA + INC line buckets do not reconstruct the sale header tax total. */
   FISCAL_TAX_TOTAL_MISMATCH: 'FISCAL_TAX_TOTAL_MISMATCH',
 } as const;

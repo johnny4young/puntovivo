@@ -83,3 +83,77 @@ export async function isDianEnabled(tx: DatabaseInstance, tenantId: string): Pro
   const flag = settings.fiscal_dian_enabled ?? settings.fiscalDianEnabled;
   return flag === true || flag === 'true' || flag === 1;
 }
+
+/**
+ * Whether a numbering resolution may issue its next consecutive right now.
+ *
+ * Two conditions, and they were previously checked on ONE of the two paths
+ * that advance a resolution. `prepareSaleFiscalIntent` blocked on both;
+ * `enqueueFiscalDocument` checked neither, so the same product validated a
+ * consecutive on one path and issued an out-of-range or expired one on the
+ * other. Same policy, one implementation, both callers.
+ *
+ * The reasons are returned rather than thrown because the two callers need
+ * different shapes: the intent path records a durable blocked intent, and the
+ * enqueue path refuses inline.
+ */
+export type ResolutionUsability =
+  | { ok: true }
+  | {
+      ok: false;
+      reason: 'numbering_resolution_not_effective' | 'numbering_resolution_exhausted';
+      details: Record<string, unknown>;
+    };
+
+export function checkResolutionUsable(
+  resolution: {
+    id: string;
+    validFrom: string;
+    validUntil: string;
+    currentNumber: number;
+    fromNumber: number;
+    toNumber: number;
+  },
+  requestedAt: string
+): ResolutionUsability {
+  const requested = Date.parse(requestedAt);
+  const from = Date.parse(resolution.validFrom);
+  const until = Date.parse(resolution.validUntil);
+  const effective =
+    Number.isFinite(requested) &&
+    Number.isFinite(from) &&
+    Number.isFinite(until) &&
+    requested >= from &&
+    requested <= until;
+  if (!effective) {
+    return {
+      ok: false,
+      reason: 'numbering_resolution_not_effective',
+      details: {
+        resolutionId: resolution.id,
+        requestedAt,
+        validFrom: resolution.validFrom,
+        validUntil: resolution.validUntil,
+      },
+    };
+  }
+  // `currentNumber` is the LAST issued number, so the next one is
+  // `currentNumber + 1`: it must not fall below the range start, and the last
+  // issuable value is `toNumber` itself.
+  if (
+    resolution.currentNumber < resolution.fromNumber - 1 ||
+    resolution.currentNumber >= resolution.toNumber
+  ) {
+    return {
+      ok: false,
+      reason: 'numbering_resolution_exhausted',
+      details: {
+        resolutionId: resolution.id,
+        currentNumber: resolution.currentNumber,
+        fromNumber: resolution.fromNumber,
+        toNumber: resolution.toNumber,
+      },
+    };
+  }
+  return { ok: true };
+}

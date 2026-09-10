@@ -166,6 +166,7 @@
     "FISCAL_NUMBERING_RANGE_INVALID": "El rango de numeración de la DIAN no es válido. El consecutivo inicial debe ser un número positivo y no puede ser mayor que el consecutivo final.",
     "FISCAL_RETURN_SNAPSHOT_UNKNOWN": "No hay descripción del producto registrada en la venta, así que no se puede emitir la nota crédito.",
     "FISCAL_LINE_SNAPSHOT_UNKNOWN": "Esta línea no tiene descripción del producto registrada en la venta, así que no se puede incluir en un documento fiscal.",
+    "FISCAL_NUMBERING_RESOLUTION_UNUSABLE": "La resolución de numeración fiscal no puede emitir otro número: el rango se agotó o está fuera de sus fechas de vigencia.",
     "FISCAL_DOCUMENT_NOT_FOUND": "No se pudo encontrar el documento fiscal o su fila de reintento.",
     "DEVICE_NOT_REGISTERED": "Este equipo aún no está registrado para tu organización. Cierra sesión y vuelve a iniciar para reconectar el dispositivo.",
     "AUTHORITY_SITE_NOT_FOUND": "Esa sede no está disponible para emparejar dispositivos.",
