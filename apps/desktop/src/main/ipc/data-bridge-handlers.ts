@@ -87,6 +87,21 @@ export function resolveActiveTenantId(
   return sessionTenantId;
 }
 
+/**
+ * Role policy for the data bridge, mirroring what tRPC demands for the same
+ * operation. The bridge reaches `products`, `customers`, `sales`, `sale_items`,
+ * `categories`, `inventory_movements` and `sync_outbox` directly, so an
+ * unguarded write here is a strict bypass of the server-side guard, the audit
+ * row, the fiscal reversal and the cash-session invariant.
+ *
+ * Deletes are admin because `products.delete` and `customers.delete` are, and
+ * because `sales` has no delete procedure at all on the tRPC side — the bridge
+ * is the only way to remove one.
+ */
+const BRIDGE_READ_ROLES = ['admin', 'manager', 'cashier', 'viewer'] as const;
+const BRIDGE_WRITE_ROLES = ['admin', 'manager'] as const;
+const BRIDGE_DELETE_ROLES = ['admin'] as const;
+
 export function createDataBridgeHandlers(deps: DataBridgeHandlerDeps) {
   const { operations } = deps;
   const activeTenant = (sessionTenantId: string, hint?: unknown) =>
@@ -96,7 +111,8 @@ export function createDataBridgeHandlers(deps: DataBridgeHandlerDeps) {
     getAll: withAuthenticatedDesktopSession(
       deps.session,
       async ({ tenantId }, table: string, rendererTenantId?: unknown) =>
-        operations.getAll(table, activeTenant(tenantId, rendererTenantId))
+        operations.getAll(table, activeTenant(tenantId, rendererTenantId)),
+      BRIDGE_READ_ROLES
     ),
     getById: withAuthenticatedDesktopSession(
       deps.session,
@@ -104,7 +120,8 @@ export function createDataBridgeHandlers(deps: DataBridgeHandlerDeps) {
         const validatedTable = operations.getAllowedTable(table);
         await operations.assertRowBelongsToTenant(validatedTable, id, tenantId);
         return operations.getById(table, id);
-      }
+      },
+      BRIDGE_READ_ROLES
     ),
     insert: withAuthenticatedDesktopSession(
       deps.session,
@@ -122,7 +139,8 @@ export function createDataBridgeHandlers(deps: DataBridgeHandlerDeps) {
           tenantId: activeTenant(tenantId, data.tenantId),
         };
         return operations.insert(table, tenantScopedData);
-      }
+      },
+      BRIDGE_WRITE_ROLES
     ),
     update: withAuthenticatedDesktopSession(
       deps.session,
@@ -141,7 +159,8 @@ export function createDataBridgeHandlers(deps: DataBridgeHandlerDeps) {
           tenantId: activeTenant(tenantId, data.tenantId),
         };
         return operations.update(table, id, tenantScopedData);
-      }
+      },
+      BRIDGE_WRITE_ROLES
     ),
     delete: withAuthenticatedDesktopSession(
       deps.session,
@@ -149,22 +168,26 @@ export function createDataBridgeHandlers(deps: DataBridgeHandlerDeps) {
         const validatedTable = operations.getAllowedTable(table);
         await operations.assertRowBelongsToTenant(validatedTable, id, tenantId);
         return operations.delete(table, id);
-      }
+      },
+      BRIDGE_DELETE_ROLES
     ),
     getByField: withAuthenticatedDesktopSession(
       deps.session,
       async ({ tenantId }, table: string, fieldName: string, value: unknown) =>
-        operations.getByField(table, fieldName, value, tenantId)
+        operations.getByField(table, fieldName, value, tenantId),
+      BRIDGE_READ_ROLES
     ),
     deleteByTenant: withAuthenticatedDesktopSession(
       deps.session,
       async ({ tenantId }, table: string, rendererTenantId?: unknown) =>
-        operations.deleteByTenant(table, activeTenant(tenantId, rendererTenantId))
+        operations.deleteByTenant(table, activeTenant(tenantId, rendererTenantId)),
+      BRIDGE_DELETE_ROLES
     ),
     countByTenant: withAuthenticatedDesktopSession(
       deps.session,
       async ({ tenantId }, table: string, rendererTenantId?: unknown) =>
-        operations.countByTenant(table, activeTenant(tenantId, rendererTenantId))
+        operations.countByTenant(table, activeTenant(tenantId, rendererTenantId)),
+      BRIDGE_READ_ROLES
     ),
     addToSyncQueue: withAuthenticatedDesktopSession(
       deps.session,
@@ -176,7 +199,8 @@ export function createDataBridgeHandlers(deps: DataBridgeHandlerDeps) {
           operation,
           tenantId: sessionTenantId,
         });
-      }
+      },
+      BRIDGE_WRITE_ROLES
     ),
     getPendingSyncItems: withAuthenticatedDesktopSession(
       deps.session,

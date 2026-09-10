@@ -17,6 +17,7 @@ describe('auxiliary-window IPC handler core', () => {
         requireTenantId: () => {
           throw new Error('SESSION_NOT_REGISTERED');
         },
+        requireOneOfRoles: () => 'admin',
       },
       isCustomerDisplayAccessId: value => {
         validated = true;
@@ -37,7 +38,7 @@ describe('auxiliary-window IPC handler core', () => {
   it('rejects an invalid pairing id without opening a window', async () => {
     let opened = false;
     const handlers = createWindowHandlers({
-      session: { requireTenantId: () => 'tenant-main' },
+      session: { requireTenantId: () => 'tenant-main', requireOneOfRoles: () => 'admin' },
       isCustomerDisplayAccessId: isAccessId,
       openCustomerDisplay: async () => {
         opened = true;
@@ -58,6 +59,7 @@ describe('auxiliary-window IPC handler core', () => {
           order.push('authorize');
           return 'tenant-main';
         },
+        requireOneOfRoles: () => 'admin',
       },
       isCustomerDisplayAccessId: value => {
         order.push('validate');
