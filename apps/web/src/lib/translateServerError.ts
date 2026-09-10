@@ -533,6 +533,7 @@ export const KNOWN_SERVER_ERROR_CODES = [
   // ---  error wrapping cleanup ---
   'FISCAL_SEQUENTIAL_NOT_ADVANCED',
   'CREDIT_LEDGER_INVALID_AMOUNT',
+  'CUSTOMER_LEDGER_INVALID_AMOUNT',
   // ---  optimistic concurrency ---
   'STALE_VERSION',
 ] as const;

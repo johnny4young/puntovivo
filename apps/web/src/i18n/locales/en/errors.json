@@ -213,6 +213,7 @@
     "FISCAL_SEQUENTIAL_NOT_ADVANCED": "A concurrent emitter raced past the same fiscal sequential window. Retry the operation; the next attempt picks a fresh number.",
     "FISCAL_TAX_TOTAL_MISMATCH": "The fiscal tax totals no longer match the frozen sale lines. The sale remains saved, but fiscal emission was stopped for review.",
     "DEVICE_PAIRING_CODE_ALLOCATION_EXHAUSTED": "Could not allocate a unique device pairing code after several attempts. Wait a moment and request a new code.",
+    "CUSTOMER_LEDGER_INVALID_AMOUNT": "The rounded amount must not be zero or exceed the supported monetary range.",
     "CREDIT_LEDGER_INVALID_AMOUNT": "The credit ledger amount must be a positive finite number.",
     "STALE_VERSION": "Another user changed this record while you were editing. Reload to get the latest version, then try again.",
     "HARDWARE_NO_DRAWER_REGISTERED": "No cash drawer is currently registered for this site. Pair one from Operations before opening the drawer.",

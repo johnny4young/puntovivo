@@ -100,11 +100,12 @@ vi.mock('@/lib/trpc', () => ({
  */
 const criticalMutateAsync = vi.hoisted(() => vi.fn(async () => undefined));
 const criticalPaths = vi.hoisted(() => [] as string[]);
+let criticalError: Error | null = null;
 
 vi.mock('@/lib/useCriticalMutation', () => ({
   useCriticalMutation: (path: string) => {
     criticalPaths.push(path);
-    return { mutateAsync: criticalMutateAsync, isPending: false, error: null };
+    return { mutateAsync: criticalMutateAsync, isPending: false, error: criticalError };
   },
 }));
 
@@ -124,6 +125,7 @@ function makeCustomer(overrides: Partial<Customer> = {}): Customer {
 describe('CustomerLedgerModal', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
+    criticalError = null;
     await i18next.changeLanguage('en');
     mockRole = 'admin';
     mockLedgerRows = [];
@@ -255,10 +257,35 @@ describe('CustomerLedgerModal', () => {
   });
   it('routes both ledger writes through the critical-command path', () => {
     render(<CustomerLedgerModal isOpen customer={makeCustomer()} onClose={vi.fn()} />);
-    expect(criticalPaths).toEqual([
-      'customerLedger.addPayment',
-      'customerLedger.addAdjustment',
-    ]);
+    expect(criticalPaths).toEqual(['customerLedger.addPayment', 'customerLedger.addAdjustment']);
+  });
+
+  it('translates monetary rejections in the inline payment dialog', async () => {
+    criticalError = Object.assign(new Error('CUSTOMER_LEDGER_INVALID_AMOUNT'), {
+      data: { errorCode: 'CUSTOMER_LEDGER_INVALID_AMOUNT' },
+    });
+    const user = userEvent.setup();
+    render(<CustomerLedgerModal isOpen customer={makeCustomer()} onClose={vi.fn()} />);
+    await user.click(screen.getByRole('button', { name: /receive payment/i }));
+    expect(
+      screen.getByText(
+        'The rounded amount must not be zero or exceed the supported monetary range.'
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByText('CUSTOMER_LEDGER_INVALID_AMOUNT')).not.toBeInTheDocument();
+  });
+
+  it('contains a handled mutation rejection at the form event boundary', async () => {
+    criticalMutateAsync.mockRejectedValueOnce(new Error('CUSTOMER_LEDGER_INVALID_AMOUNT'));
+    const user = userEvent.setup();
+    render(<CustomerLedgerModal isOpen customer={makeCustomer()} onClose={vi.fn()} />);
+    await user.click(screen.getByRole('button', { name: /receive payment/i }));
+    fireEvent.change(screen.getByTestId('customer-ledger-amount-input'), {
+      target: { value: '1' },
+    });
+    await user.click(screen.getByText('Confirm payment'));
+    expect(criticalMutateAsync).toHaveBeenCalledOnce();
+    expect(screen.getByRole('heading', { name: 'Receive payment' })).toBeInTheDocument();
   });
 
   it('sends a confirmed abono through the critical mutation', async () => {

@@ -402,6 +402,20 @@ describe('customerLedger.* router', () => {
       expect(row?.amount).toBe(-10.01);
     });
 
+    it('rejects payments that round to zero without persisting a ledger entry', async () => {
+      const customerId = await seedCustomer('Sub-cent payment');
+      for (const amount of [Number.MIN_VALUE, 0.001, 0.0049]) {
+        await expect(
+          adminCaller().customerLedger.addPayment({ customerId, amount })
+        ).rejects.toMatchObject({ code: 'BAD_REQUEST', message: 'CUSTOMER_LEDGER_INVALID_AMOUNT' });
+      }
+      expect(await adminCaller().customerLedger.list({ customerId })).toEqual([]);
+      const result = await adminCaller().customerLedger.addPayment({ customerId, amount: 0.005 });
+      expect(await adminCaller().customerLedger.list({ customerId })).toEqual([
+        expect.objectContaining({ id: result.id, amount: -0.01 }),
+      ]);
+    });
+
     it('normalizes a positive input even when the caller sends a negative number', async () => {
       // The Zod refinement rejects non-positive amounts BEFORE the
       // handler runs, so the safe behavior is "always rejects ≤ 0".
@@ -532,6 +546,26 @@ describe('customerLedger.* router', () => {
           note: '',
         })
       ).rejects.toThrow(/note/i);
+    });
+
+    it('rejects signed adjustments that round to zero and preserves half-cent signs', async () => {
+      const customerId = await seedCustomer('Sub-cent adjustment');
+      for (const amount of [0.001, -0.001, 0.0049, -0.0049]) {
+        await expect(
+          adminCaller().customerLedger.addAdjustment({ customerId, amount, note: 'Reconciliation' })
+        ).rejects.toMatchObject({ code: 'BAD_REQUEST', message: 'CUSTOMER_LEDGER_INVALID_AMOUNT' });
+      }
+      expect(await adminCaller().customerLedger.list({ customerId })).toEqual([]);
+      for (const amount of [0.005, -0.005]) {
+        await adminCaller().customerLedger.addAdjustment({
+          customerId,
+          amount,
+          note: 'Reconciliation',
+        });
+      }
+      expect(
+        (await adminCaller().customerLedger.list({ customerId })).map(row => row.amount).sort()
+      ).toEqual([-0.01, 0.01]);
     });
 
     it('rejects a zero amount', async () => {
