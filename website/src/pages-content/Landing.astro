@@ -4,6 +4,7 @@ import Icon from '../components/Icon.astro';
 import RichText from '../components/RichText.astro';
 import DownloadButton from '../components/DownloadButton.astro';
 import AISection from '../components/AISection.astro';
+import Capturas from '../components/Capturas.astro';
 import AIFaq from '../components/AIFaq.astro';
 import { useTranslations } from '../i18n/index.js';
 import { localizedHref } from '../lib/paths.js';
@@ -304,6 +305,8 @@ const MOCK_KEY_STYLE =
 </section>
 
 {/* ---------- Caja con cierre ciego ---------- */}
+<Capturas lang={lang} />
+
 <section class="pv-shell pv-section" id="caja">
   <div class="pv-copilot">
     <div class="copy">

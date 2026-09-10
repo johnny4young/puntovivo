@@ -445,6 +445,42 @@
           "Unidades con dimensión y código UN/ECE (kg, gramo, litro, docena) que fluyen al documento fiscal.",
           "Etiquetas GS1 de peso o precio embebido: el escáner las resuelve en la caja clásica y en la pantalla táctil."
         ]
+      },
+      {
+        "when": "Construido",
+        "h": "Restaurante y cocina",
+        "bullets": [
+          "Mesas, cuentas abiertas y transferencia de cuenta entre mesas, todo dentro de una transacción.",
+          "Pantalla de cocina durable: cada línea sobrevive a un reinicio y conserva su orden de preparación.",
+          "División de cuenta por ítems hacia un ticket nuevo, con rastro de quién la dividió."
+        ]
+      },
+      {
+        "when": "Construido",
+        "h": "Farmacia y trazabilidad de lote",
+        "bullets": [
+          "Custodia por lote con vencimiento, cuarentena y retiros del mercado.",
+          "Autorizaciones y evidencia por venta controlada, con aprobación y revocación auditadas.",
+          "El recibo exige identidad de lote concreta en las líneas que la rastrean."
+        ]
+      },
+      {
+        "when": "Construido",
+        "h": "Equipo, turnos y pre-nómina",
+        "bullets": [
+          "Horario por sede en la zona horaria del negocio; el sistema bloquea cruces.",
+          "Asistencia real contra lo planificado, con pausas explícitas y correcciones que nunca reescriben la evidencia.",
+          "Exportación a CSV de nómina y XLSX contable; el libro es neutral frente al proveedor y no calcula salarios."
+        ]
+      },
+      {
+        "when": "Construido",
+        "h": "Domicilios y pedidos externos",
+        "bullets": [
+          "Reservas y domicilios con estados propios y transiciones auditadas.",
+          "Entrada de pedidos externos firmada, con nonce contra reenvíos.",
+          "Cancelaciones resueltas por el operador, nunca por marca de tiempo."
+        ]
       }
     ]
   },
@@ -1472,5 +1508,37 @@
     "publishedOn": "Publicada el {{date}}",
     "viewOnGitHub": "Ver en GitHub",
     "loading": "Consultando versiones…"
+  },
+  "shots": {
+    "kicker": "La consola por dentro",
+    "title": "Seis pantallas, ningún render.",
+    "desc": "Capturas reales de la consola corriendo contra un catálogo colombiano de demostración. Los precios, los consecutivos y los saldos que ves salieron del mismo código que puedes ejecutar hoy.",
+    "items": {
+      "dashboard": {
+        "title": "Centro de mando",
+        "desc": "Ventas del día, alertas de stock bajo y reposición en una sola lectura, antes de que el turno empiece a correr."
+      },
+      "pos": {
+        "title": "Caja",
+        "desc": "Escáner listo, impuestos por línea y atajos de teclado. La caja se abre con conteo por denominaciones y el cobro no depende del mouse."
+      },
+      "catalogo": {
+        "title": "Catálogo",
+        "desc": "Tarifa, existencias y margen por producto. La búsqueda semántica encuentra lo que el cajero recuerda, no lo que escribió el proveedor."
+      },
+      "cierreDia": {
+        "title": "Cierre del día",
+        "desc": "La evidencia completa antes de firmar: ingresos, diferencia de caja, documentos fiscales y las tareas que todavía bloquean el cierre."
+      },
+      "fiscal": {
+        "title": "Documentos fiscales",
+        "desc": "Cada documento equivalente con su consecutivo, su comprador y su XML. Los registros de demostración se marcan como tales y nunca se confunden con evidencia aceptada por la autoridad."
+      },
+      "equipo": {
+        "title": "Horario del equipo",
+        "desc": "Turnos por sede en la zona horaria del negocio, con los cruces bloqueados y cada cambio conservado para auditoría. La asistencia real se exporta a nómina y contabilidad."
+      }
+    },
+    "note": "Los datos son de demostración: un negocio sembrado con el comando de desarrollo, no un cliente real. La interfaz, los cálculos y los estados son los que trae el código."
   }
 }

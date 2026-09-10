@@ -1,0 +1,140 @@
+---
+/**
+ * Product screenshot gallery.
+ *
+ * Real captures of the running console against the `demo-co` seed — the same
+ * Colombian catalogue and the same peso amounts an operator sees. They are
+ * deliberately NOT mockups: the site's promise is that everything shown is
+ * code you can run, so a rendered illustration here would undercut every other
+ * page.
+ *
+ * The first shot loads eagerly because it sits close to the fold; the rest are
+ * lazy. All six ship as WebP (316 KB together, against 2.2 MB as PNG).
+ */
+import { useTranslations } from '../i18n/index.js';
+
+const { lang } = Astro.props;
+const t = useTranslations(lang);
+const base = import.meta.env.BASE_URL;
+
+const SHOTS = ['dashboard', 'pos', 'catalogo', 'cierreDia', 'fiscal', 'equipo'];
+const FILES = {
+  dashboard: 'dashboard',
+  pos: 'pos',
+  catalogo: 'catalogo',
+  cierreDia: 'cierre-dia',
+  fiscal: 'fiscal',
+  equipo: 'equipo',
+};
+
+const shots = SHOTS.map((id, index) => ({
+  id,
+  index,
+  file: FILES[id],
+  title: t(`shots.items.${id}.title`),
+  desc: t(`shots.items.${id}.desc`),
+}));
+---
+
+<section class="pv-shell pv-section" id="capturas">
+  <div class="head">
+    <span class="pv-kicker">{t('shots.kicker')}</span>
+    <h2 class="pv-display">{t('shots.title')}</h2>
+    <p class="desc">{t('shots.desc')}</p>
+  </div>
+
+  <div class="pv-shots">
+    {
+      shots.map(s => (
+        <figure class={s.index === 0 ? 'pv-shot pv-shot-lead' : 'pv-shot'}>
+          <div class="frame">
+            <img
+              src={`${base}capturas/${s.file}.webp`}
+              alt={s.title}
+              width="1280"
+              height="800"
+              loading={s.index === 0 ? 'eager' : 'lazy'}
+              decoding="async"
+            />
+          </div>
+          <figcaption>
+            <h3>{s.title}</h3>
+            <p>{s.desc}</p>
+          </figcaption>
+        </figure>
+      ))
+    }
+  </div>
+
+  <p class="pv-shots-note">{t('shots.note')}</p>
+</section>
+
+<style>
+  .pv-shots {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 26px;
+    margin-top: 28px;
+  }
+
+  /* The command centre earns the full width: it is the one shot that shows
+     the whole shape of the product rather than a single screen. */
+  .pv-shot-lead {
+    grid-column: 1 / -1;
+  }
+
+  .pv-shot {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .frame {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+    background: var(--muted);
+    /* A hairline inner edge keeps the light UI in the screenshot from
+       bleeding into the light page behind it. */
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.6),
+      0 1px 2px rgba(3, 15, 25, 0.04),
+      0 12px 28px rgba(3, 15, 25, 0.07);
+  }
+
+  .frame img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  figcaption h3 {
+    margin: 0 0 4px;
+    font-size: 1.0625rem;
+    line-height: 1.3;
+  }
+
+  figcaption p {
+    margin: 0;
+    color: var(--ink-soft);
+    font-size: 0.9375rem;
+    line-height: 1.55;
+    max-width: 58ch;
+  }
+
+  .pv-shots-note {
+    margin: 26px 0 0;
+    color: var(--muted-foreground);
+    font-size: 0.875rem;
+    line-height: 1.6;
+    max-width: 72ch;
+  }
+
+  @media (max-width: 860px) {
+    .pv-shots {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 22px;
+    }
+  }
+</style>
