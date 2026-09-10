@@ -358,8 +358,10 @@ const receiptRenderLabelsInput = z.object({
       card: z.string().trim().min(1).max(50),
       transfer: z.string().trim().min(1).max(50),
       credit: z.string().trim().min(1).max(50),
-      loyalty: z.string().trim().min(1).max(50),
-      storeCredit: z.string().trim().min(1).max(50),
+      // Both tenders were added after customized label sets already existed.
+      // Fill only absent keys; never replace the tenant's supplied wording.
+      loyalty: z.string().trim().min(1).max(50).default('Loyalty points'),
+      storeCredit: z.string().trim().min(1).max(50).default('Store credit'),
       other: z.string().trim().min(1).max(50),
     }),
   }),

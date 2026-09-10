@@ -18,7 +18,10 @@ import {
   buildPreviewData,
   renderReceipt,
 } from '../services/receipt-renderer/index.js';
-import { receiptLayoutSchema } from '../trpc/schemas/receiptTemplates.js';
+import {
+  receiptLayoutSchema,
+  renderPreviewReceiptTemplateInput,
+} from '../trpc/schemas/receiptTemplates.js';
 
 let server: PuntovivoServer;
 let tenantId: string;
@@ -1281,9 +1284,8 @@ describe('Receipt Templates (Iter 2)', () => {
       // Requiring it would have failed validation on every stored set.
     });
 
-    it('accepts a stored label set that predates the loyalty points key', async () => {
-      // Same shape a tenant saved before receipts printed a point count. It
-      // must still render, falling back to the default unit suffix.
+    it('accepts legacy label sets missing both new tenders and the points suffix', async () => {
+      // An actual pre-loyalty label set omits all three keys, not just points.
       const caller = appRouter.createCaller(createAdminContext());
       const legacyLabels = {
         documentTitle: 'Recibo',
@@ -1315,20 +1317,56 @@ describe('Receipt Templates (Iter 2)', () => {
             card: 'Tarjeta',
             transfer: 'Transferencia',
             credit: 'Crédito',
-            loyalty: 'Puntos',
-            storeCredit: 'Crédito de tienda',
             other: 'Otro',
           },
         },
       };
 
-      await expect(
-        caller.receiptTemplates.renderPreview({
-          layout: basicLayout(),
-          kind: 'sale',
-          labels: legacyLabels as never,
-        })
-      ).resolves.toMatchObject({ html: expect.stringContaining('Recibo') });
+      const input = { layout: basicLayout(), kind: 'sale' as const, labels: legacyLabels };
+      const parsed = renderPreviewReceiptTemplateInput.parse(input);
+      expect(parsed.labels?.tendersTable).toMatchObject({
+        points: 'pts',
+        methods: {
+          cash: 'Efectivo',
+          loyalty: 'Loyalty points',
+          storeCredit: 'Store credit',
+        },
+      });
+      const rendered = await caller.receiptTemplates.renderPreview(input);
+      expect(rendered.html).toContain('Recibo');
+      expect(rendered.html).toContain('Efectivo');
+
+      const customized = renderPreviewReceiptTemplateInput.parse({
+        ...input,
+        labels: {
+          ...legacyLabels,
+          tendersTable: {
+            ...legacyLabels.tendersTable,
+            points: 'puntos redimidos',
+            methods: {
+              ...legacyLabels.tendersTable.methods,
+              loyalty: 'Mi programa',
+              storeCredit: 'Mi saldo a favor',
+            },
+          },
+        },
+      });
+      expect(customized.labels?.tendersTable).toMatchObject({
+        points: 'puntos redimidos',
+        methods: { loyalty: 'Mi programa', storeCredit: 'Mi saldo a favor' },
+      });
+      expect(
+        renderPreviewReceiptTemplateInput.safeParse({
+          ...input,
+          labels: {
+            ...legacyLabels,
+            tendersTable: {
+              ...legacyLabels.tendersTable,
+              methods: { ...legacyLabels.tendersTable.methods, loyalty: '' },
+            },
+          },
+        }).success
+      ).toBe(false);
     });
 
     it('localizes fiscal preview authority from the tenant country', async () => {
