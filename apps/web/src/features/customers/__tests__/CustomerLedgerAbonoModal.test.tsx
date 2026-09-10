@@ -8,7 +8,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
-import { fireEvent } from '@testing-library/react';
+import { act, fireEvent } from '@testing-library/react';
 import i18next from '@/i18n';
 import { render, screen } from '@/test/utils';
 import { CustomerLedgerAbonoModal } from '../CustomerLedgerAbonoModal';
@@ -118,5 +118,72 @@ describe('CustomerLedgerAbonoModal', () => {
   it('surfaces a parent error message inline', () => {
     renderModal({ error: 'Server is down' });
     expect(screen.getByTestId('customer-ledger-abono-error')).toHaveTextContent('Server is down');
+  });
+  /**
+   * A held Enter halves the customer's debt.
+   *
+   * The confirm button sits in the modal FOOTER, which `Modal` renders as a
+   * sibling of the form, so `disabled={isSaving}` is not on the submit path at
+   * all. The form carries no submit button of its own and exactly one
+   * implicit-submission-blocking field (the amount; a `<textarea>` does not
+   * block), which is precisely the HTML condition under which Enter submits.
+   * And `customerLedger.addPayment` is not a critical command, so there is no
+   * envelope and no server-side dedupe behind it: each repeat is another row
+   * against the customer's balance.
+   *
+   * jsdom implements no implicit submission at all, so the event is dispatched
+   * directly here; a real keyboard dispatches it once per key repeat.
+   */
+  function ledgerForm(): HTMLFormElement {
+    // The modal portals into document.body.
+    const form = document.querySelector('form');
+    if (!form) throw new Error('ledger form not rendered');
+    return form;
+  }
+
+  it('records one payment however many submit events the form receives', async () => {
+    let releaseWrite!: () => void;
+    const props = renderModal({
+      mode: 'payment',
+      onSubmit: vi.fn(
+        () =>
+          new Promise<void>(resolve => {
+            releaseWrite = () => resolve();
+          })
+      ),
+    });
+
+    fireEvent.change(screen.getByTestId('customer-ledger-amount-input'), {
+      target: { value: '250' },
+    });
+    // One act() around all three, so they land the way a key repeat does:
+    // before React has re-rendered anything the first one caused.
+    await act(async () => {
+      fireEvent.submit(ledgerForm());
+      fireEvent.submit(ledgerForm());
+      fireEvent.submit(ledgerForm());
+    });
+
+    // Non-vacuous in both directions: the first dispatch DID reach the
+    // handler, and the repeats did not.
+    expect(props.onSubmit).toHaveBeenCalledOnce();
+    expect(props.onSubmit).toHaveBeenCalledWith({ amount: 250, note: '' });
+
+    await act(async () => {
+      releaseWrite();
+    });
+  });
+
+  it('refuses a submit event while the parent reports the write in flight', async () => {
+    const props = renderModal({ mode: 'payment', isSaving: true });
+
+    fireEvent.change(screen.getByTestId('customer-ledger-amount-input'), {
+      target: { value: '250' },
+    });
+    await act(async () => {
+      fireEvent.submit(ledgerForm());
+    });
+
+    expect(props.onSubmit).not.toHaveBeenCalled();
   });
 });

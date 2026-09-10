@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import { formatCurrency } from '@/lib/utils';
 import type { Provider } from '@/types';
+import { useSingleFlightSubmit } from '@/lib/useSingleFlightSubmit';
 
 export interface OrderFinalizeValues {
   providerId: string;
@@ -36,7 +37,10 @@ export function OrderFinalizeModal({
     },
   });
 
-  const handleSubmit = form.handleSubmit(onSubmit);
+  // Mirrors the confirm button's disabled expression, so the Enter path
+  // cannot submit what the click path refuses.
+  const canSubmit = !isSaving;
+  const handleSubmit = form.handleSubmit(useSingleFlightSubmit(canSubmit, onSubmit));
 
   return (
     <Modal

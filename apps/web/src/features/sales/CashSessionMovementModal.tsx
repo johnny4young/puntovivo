@@ -1,6 +1,7 @@
 import { useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
+import { useSingleFlightSubmit } from '@/lib/useSingleFlightSubmit';
 
 export interface CashSessionMovementValues {
   type: 'paid_in' | 'paid_out' | 'skim' | 'replenishment';
@@ -35,7 +36,10 @@ export function CashSessionMovementModal({
   const form = useForm<CashSessionMovementValues>({
     defaultValues: createDefaultValues(),
   });
-  const handleSubmit = form.handleSubmit(onSubmit);
+  // Mirrors the confirm button's disabled expression, so the Enter path
+  // cannot submit what the click path refuses.
+  const canSubmit = !isSaving;
+  const handleSubmit = form.handleSubmit(useSingleFlightSubmit(canSubmit, onSubmit));
   const selectedType = useWatch({
     control: form.control,
     name: 'type',

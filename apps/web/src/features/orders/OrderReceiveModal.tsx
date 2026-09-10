@@ -17,6 +17,7 @@ import {
   type LotReceiptDraft,
   type LotReceiptPayload,
 } from '@/features/inventory/lotForm';
+import { useSingleFlightSubmit } from '@/lib/useSingleFlightSubmit';
 
 interface OrderReceiveFormValues {
   items: Array<{
@@ -74,8 +75,11 @@ export function OrderReceiveModal({
       )
   );
 
+  // Mirrors the confirm button's disabled expression, so the Enter path
+  // cannot submit what the click path refuses.
+  const canSubmit = !isSaving;
   const handleSubmit = form.handleSubmit(
-    async values => {
+    useSingleFlightSubmit(canSubmit, async values => {
       const selectedItems = values.items.filter((item, index) => {
         const orderItem = order.items?.[index];
         if (orderItem?.tracksSerials) return parseSerialNumbers(item.serialNumbers).length > 0;
@@ -127,7 +131,7 @@ export function OrderReceiveModal({
       }
 
       await onSubmit({ items: normalizedItems, notes: values.notes });
-    },
+    }),
     () => undefined
   );
 

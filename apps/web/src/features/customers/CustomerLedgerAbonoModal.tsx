@@ -20,6 +20,7 @@ import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
+import { useSingleFlightSubmit } from '@/lib/useSingleFlightSubmit';
 
 export type CustomerLedgerAbonoMode = 'payment' | 'adjustment';
 
@@ -63,12 +64,17 @@ export function CustomerLedgerAbonoModal({
     }
   }, [isOpen, mode, form]);
 
-  const handleConfirm = form.handleSubmit(async values => {
-    await onSubmit({
-      amount: values.amount,
-      note: values.note?.trim() ?? '',
-    });
-  });
+  // Mirrors the confirm button's disabled expression, so the Enter path
+  // cannot submit what the click path refuses.
+  const canSubmit = !isSaving;
+  const handleConfirm = form.handleSubmit(
+    useSingleFlightSubmit(canSubmit, async values => {
+      await onSubmit({
+        amount: values.amount,
+        note: values.note?.trim() ?? '',
+      });
+    })
+  );
 
   return (
     <Modal

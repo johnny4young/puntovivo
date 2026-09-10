@@ -14,6 +14,7 @@ import {
   type LotReceiptPayload,
 } from '@/features/inventory/lotForm';
 import type { PurchaseCartItem } from './purchaseCart';
+import { useSingleFlightSubmit } from '@/lib/useSingleFlightSubmit';
 
 export interface PurchaseFinalizeValues {
   providerId: string;
@@ -68,8 +69,11 @@ export function PurchaseFinalizeModal({
       )
   );
 
+  // Mirrors the confirm button's disabled expression, so the Enter path
+  // cannot submit what the click path refuses.
+  const canSubmit = !isSaving;
   const handleSubmit = form.handleSubmit(
-    async values => {
+    useSingleFlightSubmit(canSubmit, async values => {
       const lotReceiptsByItemKey: Record<string, LotReceiptPayload[]> = {};
       for (const item of items.filter(candidate => candidate.tracksLots)) {
         const drafts = lotDraftsByItemKey[item.key] ?? [];
@@ -86,7 +90,7 @@ export function PurchaseFinalizeModal({
         lotReceiptsByItemKey[item.key] = normalized;
       }
       await onSubmit({ ...values, lotReceiptsByItemKey });
-    },
+    }),
     () => onInvalid?.()
   );
 

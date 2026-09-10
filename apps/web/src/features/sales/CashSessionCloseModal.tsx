@@ -12,6 +12,7 @@ import {
   createCashSessionDenominations,
   getCashSessionCountedTotal,
 } from './cashSessionDenominations';
+import { useSingleFlightSubmit } from '@/lib/useSingleFlightSubmit';
 
 /**
  * tolerance under which counted-vs-expected is considered balanced
@@ -79,7 +80,6 @@ export function CashSessionCloseModal({
   const form = useForm<CashSessionCloseValues>({
     defaultValues: createDefaultValues(),
   });
-  const handleSubmit = form.handleSubmit(onSubmit);
   const denominationFieldArray = useFieldArray({
     control: form.control,
     name: 'denominations',
@@ -110,6 +110,10 @@ export function CashSessionCloseModal({
             : 'cashSession.closeForm.mismatch'
         )
       : null;
+  // Mirrors the confirm button's disabled expression, so the Enter path
+  // cannot submit what the click path refuses.
+  const canSubmit = !isSaving && !!cashSession && !mismatchMessage;
+  const handleSubmit = form.handleSubmit(useSingleFlightSubmit(canSubmit, onSubmit));
   const liveDelta =
     cashSession && typeof cashSession.expectedBalance === 'number' && hasFiniteDenominationCounts
       ? countedTotal - cashSession.expectedBalance
