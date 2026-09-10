@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, render as rtlRender, renderHook, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 // TenantProvider reads useQueryClient() (site-switch cache invalidation),
 // so every render needs a real QueryClientProvider around it.
@@ -9,9 +9,7 @@ function render(ui: ReactElement) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  return rtlRender(
-    <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>
-  );
+  return rtlRender(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>);
 }
 
 const { useAuthMock, useSitesQueryMock } = vi.hoisted(() => ({
@@ -128,11 +126,7 @@ describe('TenantProvider — context value', () => {
 
     function Probe() {
       const t = useTenant();
-      return (
-        <span data-testid="settings">
-          {t.tenantSettings === null ? 'null' : 'present'}
-        </span>
-      );
+      return <span data-testid="settings">{t.tenantSettings === null ? 'null' : 'present'}</span>;
     }
     render(
       <TenantProvider>
@@ -224,5 +218,68 @@ describe('TenantProvider — context value', () => {
     });
     expect(result.current.currentSite?.id).toBe('site-2');
     expect(invalidateSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('never adopts a cached site list from another tenant and refetches the active tenant sites', () => {
+    const refetch = vi.fn();
+    const demoTenant = { ...tenantPayload, id: 'tenant-demo', slug: 'demo-co' };
+    const demoSites = [
+      { ...sitesPayload[0]!, id: 'site-north', tenantId: 'tenant-demo', name: 'Sede Norte' },
+      { ...sitesPayload[1]!, id: 'site-south', tenantId: 'tenant-demo', name: 'Sede Sur' },
+    ];
+    useAuthMock.mockReturnValue({ tenant: demoTenant, isAuthenticated: true });
+    // The previous tenant's rows are still cached under the identity-less query key.
+    useSitesQueryMock.mockReturnValue({
+      data: { items: sitesPayload, activeSiteId: 'site-1' },
+      isLoading: false,
+      refetch,
+    });
+
+    function Probe() {
+      const t = useTenant();
+      return (
+        <div>
+          <span data-testid="current">{t.currentSite?.name ?? '—'}</span>
+          <span data-testid="sites">{t.sites.map(site => site.name).join(',')}</span>
+          <span data-testid="loading">{t.isLoadingSites ? 'yes' : 'no'}</span>
+        </div>
+      );
+    }
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+    const view = rtlRender(
+      <TenantProvider>
+        <Probe />
+      </TenantProvider>,
+      { wrapper }
+    );
+
+    expect(screen.getByTestId('current')).toHaveTextContent('—');
+    expect(screen.getByTestId('sites')).toBeEmptyDOMElement();
+    expect(screen.getByTestId('loading')).toHaveTextContent('yes');
+    expect(refetch).toHaveBeenCalledOnce();
+    expect(window.localStorage.getItem('active_site_id:tenant-demo')).toBeNull();
+
+    useSitesQueryMock.mockReturnValue({
+      data: { items: demoSites, activeSiteId: 'site-north' },
+      isLoading: false,
+      refetch,
+    });
+    view.rerender(
+      <TenantProvider>
+        <Probe />
+      </TenantProvider>
+    );
+
+    expect(screen.getByTestId('current')).toHaveTextContent('Sede Norte');
+    expect(screen.getByTestId('sites')).toHaveTextContent('Sede Norte,Sede Sur');
+    expect(screen.getByTestId('loading')).toHaveTextContent('no');
+    expect(refetch).toHaveBeenCalledOnce();
+    expect(window.localStorage.getItem('active_site_id:tenant-demo')).toBe('site-north');
   });
 });
