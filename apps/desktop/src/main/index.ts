@@ -3,6 +3,7 @@ import {
   BrowserWindow,
   dialog,
   ipcMain,
+  Menu,
   net,
   protocol,
   safeStorage,
@@ -33,6 +34,7 @@ import {
 import { installProcessCrashHandlers } from './crash-telemetry.js';
 import { createEncryptionSetup } from './encryption-setup.js';
 import { setMainLocale, normalizeMainLocale, t } from './i18n';
+import { buildApplicationMenuTemplate } from './application-menu.js';
 import { registerAppLifecycleIpc } from './ipc/app-lifecycle.js';
 import { registerBackupIpc, clearPendingRestore } from './ipc/backup.js';
 import { getDeviceIdPath } from './ipc/backup/runtime.js';
@@ -323,7 +325,25 @@ ipcMain.handle(
 registerDataBridgeIpc({ log: mainLog });
 registerPrintIpc();
 
+/**
+ * Install the curated menu before the first window exists, so a packaged build
+ * never renders Electron's default View -> Toggle Developer Tools. Confirmed
+ * reachable on a packaged build: Cmd+Alt+I opened a console with the full
+ * `window.db` bridge on it.
+ */
+function installApplicationMenu(): void {
+  const template = buildApplicationMenuTemplate({
+    isPackaged: app.isPackaged,
+    platform: process.platform,
+    appName: app.getName(),
+  });
+  if (!template) return;
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+  mainLog.info({ items: template.length }, 'curated application menu installed');
+}
+
 app.whenReady().then(async () => {
+  installApplicationMenu();
   if (packagedRecoveryRequested) {
     if (packagedRecoveryRequestError || !packagedRecoveryRequest) {
       mainLog.error(
