@@ -1,8 +1,17 @@
 /**
  * What's-New tRPC Router —
  *
- * Per-release announcement records. Tenant-scoped or product-wide
- * (tenant_id IS NULL). Auth-checked users see unseen entries; the
+ * Per-release announcement records, always scoped to the publishing tenant.
+ *
+ * A product-wide scope used to exist here: `publish` accepted
+ * tenantScope: 'product-wide' and wrote tenant_id NULL, while `listUnseen`
+ * served NULL rows to every tenant. But `admin` is a per-tenant role and this
+ * install has no platform role above it, so any tenant's admin could publish
+ * attacker-authored title and body into the What's-New overlay of every other
+ * tenant on the install. The scope is gone rather than gated, and the read
+ * refuses NULL rows so any row a previous build wrote stays invisible.
+ *
+ * Auth-checked users see unseen entries; the
  * Overlay primitive () surfaces the most recent unseen one,
  * and `markSeen` writes an ack so the same release does not repeat.
  *
@@ -14,7 +23,8 @@
  * @module trpc/routers/whatsNew
  */
 
-import { and, desc, eq, isNull, notInArray, or } from 'drizzle-orm';
+import { TRPCError } from '@trpc/server';
+import { and, desc, eq, notInArray } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { z } from 'zod';
 import { router } from '../init.js';
@@ -23,7 +33,6 @@ import { adminProcedure } from '../middleware/roles.js';
 import { whatsNewAcks, whatsNewEntries } from '../../db/schema.js';
 
 const publishInput = z.object({
-  tenantScope: z.enum(['tenant', 'product-wide']).default('tenant'),
   version: z.string().min(1),
   title: z.string().min(1),
   body: z.string().min(1),
@@ -35,8 +44,8 @@ const markSeenInput = z.object({
 
 export const whatsNewRouter = router({
   listUnseen: tenantProcedure.query(async ({ ctx }) => {
-    // Read every entry visible to this tenant (own + product-wide)
-    // and remove the ones the current user has already acked.
+    // Read this tenant's own entries and remove the ones the current user
+    // has already acked. NULL-tenant rows are deliberately not visible.
     // surfaces only the most recent unseen one to the
     // Overlay, but the listing returns the full set so a Settings
     // → Novedades archive can render history later.
@@ -46,10 +55,7 @@ export const whatsNewRouter = router({
       .where(eq(whatsNewAcks.userId, ctx.user!.id));
     const ackedIds = ackedRows.map(r => r.entryId);
 
-    const tenantFilter = or(
-      eq(whatsNewEntries.tenantId, ctx.tenantId),
-      isNull(whatsNewEntries.tenantId)
-    );
+    const tenantFilter = eq(whatsNewEntries.tenantId, ctx.tenantId);
     const conditions = ackedIds.length
       ? and(tenantFilter, notInArray(whatsNewEntries.id, ackedIds))
       : tenantFilter;
@@ -63,6 +69,18 @@ export const whatsNewRouter = router({
   }),
 
   markSeen: tenantProcedure.input(markSeenInput).mutation(async ({ ctx, input }) => {
+    // The ack carried no predicate tying the entry to the caller's tenant, so
+    // a user could ack another tenant's private entry id. Nothing reads acks
+    // back across tenants today, which is the only reason it was not a
+    // disclosure - resolve the entry first so it cannot become one.
+    const entry = await ctx.db
+      .select({ id: whatsNewEntries.id })
+      .from(whatsNewEntries)
+      .where(and(eq(whatsNewEntries.id, input.entryId), eq(whatsNewEntries.tenantId, ctx.tenantId)))
+      .get();
+    if (!entry) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'WHATS_NEW_ENTRY_NOT_FOUND' });
+    }
     // Idempotent: the unique (entry_id, user_id) index makes the
     // second insert noop via ON CONFLICT DO NOTHING.
     await ctx.db
@@ -80,7 +98,7 @@ export const whatsNewRouter = router({
     const id = nanoid();
     await ctx.db.insert(whatsNewEntries).values({
       id,
-      tenantId: input.tenantScope === 'tenant' ? ctx.tenantId : null,
+      tenantId: ctx.tenantId,
       version: input.version,
       title: input.title,
       body: input.body,
