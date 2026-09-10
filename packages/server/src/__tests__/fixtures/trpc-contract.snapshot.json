@@ -2864,7 +2864,7 @@
   {
     "path": "whatsNew.publish",
     "kind": "mutation",
-    "input": "object{body:string[minLength=1],tenantScope?:enum(\"tenant\"|\"product-wide\"),title:string[minLength=1],version:string[minLength=1]}",
+    "input": "object{body:string[minLength=1],title:string[minLength=1],version:string[minLength=1]}",
     "output": "inferred"
   },
   {
