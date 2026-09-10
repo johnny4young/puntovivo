@@ -144,9 +144,18 @@ describe('table rebuilds preserve every column added before them', () => {
     table => {
       // Constraints are the other half of the same hazard, and a worse one to
       // lose: a dropped column fails loudly the next time something reads it,
-      // while a dropped CHECK just stops rejecting bad rows. The baseline
-      // declares these in raw SQL, so drizzle-kit does not know they exist and
-      // will not re-emit them in a rebuild it generates.
+      // while a dropped CHECK just stops rejecting bad rows.
+      //
+      // This guard was written on a false premise - that the baseline declares
+      // CHECKs in raw SQL the schema never mirrors. It does not: all 566 CHECK
+      // constraints across 112 tables are generated from `check()` declarations
+      // in schema.ts, and the cash_sessions ones come from the
+      // moneyPositiveChecks / moneyTwoDecimalCheck helpers, which is why a
+      // literal grep for `chk_cash_sessions` found nothing.
+      //
+      // The rule is still worth holding, for the reason the snapshot check
+      // below documents: a rebuild generated from a stale snapshot drops
+      // whatever that snapshot did not record, constraints included.
       const files = migrationFiles();
       let held = new Set<string>();
 
