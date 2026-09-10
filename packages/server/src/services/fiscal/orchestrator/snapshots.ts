@@ -135,10 +135,6 @@ export async function resolveLines(
       productId: saleItems.productId,
       productNameSnapshot: saleItems.productNameSnapshot,
       productSkuSnapshot: saleItems.productSkuSnapshot,
-      // Historical rows predating sale-time label snapshots may still carry
-      // nulls. Only those rows fall back to the tenant-scoped live catalog.
-      liveProductName: products.name,
-      liveProductSku: products.sku,
       quantity: saleItems.quantity,
       unitPrice: saleItems.unitPrice,
       discount: saleItems.discount,
@@ -209,8 +205,14 @@ export async function resolveLines(
     return {
       lineNumber: index + 1,
       productId: row.productId,
-      productName: row.productNameSnapshot ?? row.liveProductName ?? 'Unknown product',
-      productSku: row.productSkuSnapshot ?? row.liveProductSku,
+      // Verbatim, nulls included. The live catalog used to fill these in,
+      // which froze today's name onto a document attesting to what was sold
+      // -- and the second fallback could put the literal string
+      // 'Unknown product' on an invoice. A line with no recorded name is
+      // blocked by prepareSaleFiscalIntent and refused by toAdapterLines;
+      // neither of those can happen if this hands them a fabricated string.
+      productName: row.productNameSnapshot,
+      productSku: row.productSkuSnapshot,
       quantity: row.quantity,
       unitPrice: row.unitPrice,
       discountAmount: roundMoney((gross * (row.discount ?? 0)) / 100),

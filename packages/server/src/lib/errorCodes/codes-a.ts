@@ -728,8 +728,15 @@ export const SERVER_ERROR_CODES_A = {
   SYNC_OUTBOX_DEAD_LETTER: 'SYNC_OUTBOX_DEAD_LETTER',
 
   // ---  fiscal reports ---
-  /** `reports.fiscal.getByCufe` could not find a row with that CUFE for the tenant. */
+  /** A return line carries no sale-time product description, so no credit note can be issued. */
   FISCAL_RETURN_SNAPSHOT_UNKNOWN: 'FISCAL_RETURN_SNAPSHOT_UNKNOWN',
+  /**
+   * A line reached the document boundary with no sale-time product
+   * description. Serializing it would mean inventing a name or emitting an
+   * empty one onto a legally binding document, so it fails closed instead.
+   */
+  FISCAL_LINE_SNAPSHOT_UNKNOWN: 'FISCAL_LINE_SNAPSHOT_UNKNOWN',
+  /** `reports.fiscal.getByCufe` could not find a row with that CUFE for the tenant. */
   FISCAL_DOCUMENT_NOT_FOUND: 'FISCAL_DOCUMENT_NOT_FOUND',
 
   // ---  multi-country fiscal packs ---

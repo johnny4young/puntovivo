@@ -89,8 +89,9 @@ export interface PlannedReturnSerial {
 export interface PlannedReturnLine {
   saleItemId: string;
   productId: string;
-  productNameSnapshot: string;
-  productSkuSnapshot: string;
+  /** What the SALE recorded, verbatim. Null where it recorded nothing. */
+  productNameSnapshot: string | null;
+  productSkuSnapshot: string | null;
   tracksStock: boolean;
   quantity: number;
   baseQuantity: number;
@@ -905,8 +906,12 @@ export function buildReturnPlan(
     lines.push({
       saleItemId: line.id,
       productId: line.productId,
-      productNameSnapshot: line.productNameSnapshot ?? line.productName,
-      productSkuSnapshot: line.productSkuSnapshot ?? line.productSku,
+      // Verbatim, nulls included -- `line.productName` is the LIVE catalog
+      // name, so falling back to it froze a post-sale rename onto the return
+      // as if the sale had recorded it. Migration 0052 states the rule for
+      // the rows it backfilled; this is the same rule for rows written today.
+      productNameSnapshot: line.productNameSnapshot,
+      productSkuSnapshot: line.productSkuSnapshot,
       tracksStock: line.tracksStock ?? true,
       quantity,
       baseQuantity,

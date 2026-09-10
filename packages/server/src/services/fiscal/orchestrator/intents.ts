@@ -245,6 +245,11 @@ export async function prepareSaleFiscalIntent(
   const frozenSettings = fiscalSettingsSnapshot(tenantSettings, locale.countryCode);
   const { issueDate, issueTime } = splitIssueTimestamp(new Date(completedAt));
   const headerTaxTotals = sumTaxTotals(lines);
+  // A line whose sale-time description was never recorded. Resolved here, ahead
+  // of the adapter input, because the intent has to BLOCK on it rather than
+  // throw: this runs while a sale is being completed, and a sale must not fail
+  // because a fiscal document cannot be built.
+  const unnamedLine = lines.find(line => line.productName === null);
   const adapterInput: FiscalAdapterInputTemplate = {
     tenantId,
     source,
@@ -275,7 +280,11 @@ export async function prepareSaleFiscalIntent(
     icaAmount: 0,
     discountAmount: amounts.discountAmount,
     totalAmount: amounts.total,
-    lines: toAdapterLines(lines),
+    // Safe here only because `unnamedLine` is resolved above and blocks the
+    // intent: toAdapterLines refuses a null name by throwing, and a missing
+    // snapshot deserves a durable blocked intent the operator can see, not an
+    // exception in the middle of completing a sale.
+    lines: unnamedLine === undefined ? toAdapterLines(lines) : [],
     originalCufe:
       args.originalCufe && !args.originalCufe.startsWith('pending-')
         ? args.originalCufe
@@ -310,6 +319,16 @@ export async function prepareSaleFiscalIntent(
   } else if (lines.length === 0) {
     status = 'blocked';
     lastError = blockedError('sale_lines_missing');
+  } else if (unnamedLine !== undefined) {
+    // Migration 0052 states the rule the whole subsystem follows: unknown
+    // provenance stays explicitly unknown. A document cannot be built without
+    // inventing the description, so the intent stays durably blocked and the
+    // operator sees why instead of the sale failing.
+    status = 'blocked';
+    lastError = blockedError('line_snapshot_unknown', {
+      lineNumber: unnamedLine.lineNumber,
+      productId: unnamedLine.productId,
+    });
   } else {
     try {
       assertFiscalTaxHeaderParity(amounts.taxAmount, headerTaxTotals);

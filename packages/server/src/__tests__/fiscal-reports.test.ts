@@ -200,6 +200,10 @@ async function seedSaleAndEmit(h: Harness, saleNumber: string): Promise<string> 
     id: nanoid(),
     saleId,
     productId: h.productId,
+    // A sale written by the app always freezes these; the fixture used to
+    // omit them and lean on the emitter's live-catalog fallback.
+    productNameSnapshot: 'Product as sold',
+    productSkuSnapshot: 'SKU-AS-SOLD',
     quantity: 1,
     unitPrice: 100,
     unitEquivalence: 1,
@@ -361,8 +365,9 @@ describe('reports.fiscal', () => {
     expect(row.header.maturity).toBe('mock');
     expect(row.header.resolutionNumber).toBe('18760000001');
     expect(row.lines).toHaveLength(1);
-    expect(row.lines[0]?.productName).toBe('Product rep-a');
-    expect(row.lines[0]?.productSku).toBe('SKU-rep-a');
+    // The SALE-time label, not the catalog's current one.
+    expect(row.lines[0]?.productName).toBe('Product as sold');
+    expect(row.lines[0]?.productSku).toBe('SKU-AS-SOLD');
     expect(row.lines[0]?.taxComponents).toEqual([
       expect.objectContaining({ taxKind: 'iva', taxRate: 19, taxAmount: 19, position: 0 }),
     ]);
