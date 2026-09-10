@@ -215,15 +215,21 @@ Margin/COGS reporting over `sale_item_lots` is also shipped. The
 (`/profitability`) surface realized gross margin over a date range, sourcing
 COGS from the per-lot ledger for lot-tracked lines and the `cost_at_sale`
 snapshot otherwise. Product revenue excludes frozen line taxes, returned line
-amounts, and the unreturned ticket discount. Remaining gross merchandise values
-weight the ticket discount; stable line-id cumulative cent rounding conserves
-its remainder before any product ranking or limit. Return discounts are summed
-once per eligible sale in a tenant-scoped CTE. Both owner profitability and the
-cashier's bounded top-products query share this allocation; the cashier query
-never reads COGS. Tips and service charges remain outside product margin, while
-cash/ticket summaries retain their collected totals. Negative product revenue
-or profit is preserved; the percentage remains zero when net revenue is not
-positive. Historical tax/cost snapshots are never recalculated from the catalog.
+amounts, and the unreturned ticket discount. Checkout belongs to its completion
+date and each normalized return belongs to its own event date. Opening/closing
+positions use frozen quantities, taxes and costs at those boundaries; a later
+refund cannot rewrite a prior report. Return-only periods can contain negative
+quantity, revenue and COGS. Remaining gross merchandise values weight each
+boundary's ticket discount; stable line-id cumulative cent rounding conserves
+its remainder before product ranking or limits. Known-zero adopted COGS stays
+zero rather than falling back to an old catalog cost. The cashier's bounded
+product query never exposes COGS. Tips and service charges remain outside
+product margin, while cash/ticket summaries retain their collected totals.
+Negative product revenue or profit is preserved; the percentage remains zero
+when net revenue is not positive. Historical tax/cost snapshots are never
+recalculated from the catalog.
+All report reads share one deferred SQLite snapshot, so a concurrent void or
+return cannot mix sale-line eligibility with costs from another committed state.
 
 ## Migration principles (how we avoid a big-bang)
 

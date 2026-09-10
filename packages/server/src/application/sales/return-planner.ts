@@ -1,4 +1,5 @@
 import { resolveSerialReturnValue } from './serial-return-value.js';
+import { allocateReturnTenderCents } from './return-tender-allocation.js';
 /**
  * Pure, tenant-scoped planning for partial returns.
  *
@@ -1076,43 +1077,30 @@ export function buildReturnPlan(
       reference.reference,
     ])
   );
-  const cumulativeRefund = roundMoney(priorRefundAmount + refundAmount);
-  let cumulativeTenderAmount = 0;
-  let cumulativeTargetAmount = 0;
-  const paymentTargets = paymentSources.map((source, index) => {
-    cumulativeTenderAmount = roundMoney(cumulativeTenderAmount + source.amount);
-    // Allocate rounded cents at cumulative boundaries rather than rounding
-    // every tender independently. The last boundary is the exact cumulative
-    // refund, so even three one-cent tenders can fund a one-cent return and
-    // every sequence of partial returns still converges to the original mix.
-    const targetThroughSource =
-      index === paymentSources.length - 1
-        ? cumulativeRefund
-        : roundMoney(cumulativeRefund * Math.min(1, cumulativeTenderAmount / sale.total));
-    const target = roundMoney(targetThroughSource - cumulativeTargetAmount);
-    cumulativeTargetAmount = targetThroughSource;
-    if (target < 0 || target - source.amount > EPSILON) {
-      returnError(
-        'SALE_RETURN_PAYMENT_ALLOCATION_MISMATCH',
-        'The original tender balance cannot fund this return',
-        { salePaymentId: source.id, target, originalAmount: source.amount }
-      );
-    }
-    return target;
+  const remainingTenderCents = paymentSources.map(source => {
+    const prior = priorByPayment.get(source.id ?? `legacy:${source.method}`) ?? 0;
+    return Math.round(roundMoney(source.amount - prior) * 100);
   });
+  const allocationCents = allocateReturnTenderCents(
+    Math.round(refundAmount * 100),
+    remainingTenderCents
+  );
+  if (
+    allocationCents === null ||
+    remainingTenderCents.reduce((sum, value) => sum + value, 0) !==
+      Math.round(remainingSaleAmount * 100)
+  ) {
+    returnError(
+      'SALE_RETURN_PAYMENT_ALLOCATION_MISMATCH',
+      'The original tender balance cannot fund this return'
+    );
+  }
   const allocations: PlannedReturnPaymentAllocation[] = [];
   for (const [index, source] of paymentSources.entries()) {
     const key = source.id ?? `legacy:${source.method}`;
     const prior = priorByPayment.get(key) ?? 0;
-    const target = paymentTargets[index]!;
-    const amount = roundMoney(target - prior);
-    if (amount < 0) {
-      returnError(
-        'SALE_RETURN_PAYMENT_ALLOCATION_MISMATCH',
-        'A prior return exceeds the deterministic tender allocation',
-        { salePaymentId: source.id, target, prior }
-      );
-    }
+    const amount = roundMoney(allocationCents[index]! / 100);
+    const target = roundMoney(prior + amount);
     if (amount <= 0) continue;
     // A credit tender is an unpaid receivable, not money the customer paid.
     // Returning it must reduce that debt even when the paid portions are sent

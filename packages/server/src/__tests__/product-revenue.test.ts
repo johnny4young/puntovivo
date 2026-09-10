@@ -181,6 +181,8 @@ describe('frozen product revenue allocation', () => {
       createdBy: userId,
       discountAmount: 0.34,
       refundAmount: 9.66,
+      // This assertion covers same-period netting, not a future dated return.
+      createdAt: at,
     });
     await db.insert(saleReturnItems).values({
       id: nanoid(),
@@ -216,6 +218,7 @@ describe('frozen product revenue allocation', () => {
       createdBy: userId,
       discountAmount: 0.67,
       refundAmount: 19.33,
+      createdAt: at,
     });
     await db.insert(saleReturnItems).values({
       id: nanoid(),

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
@@ -1288,14 +1288,37 @@ describe('normalized partial returns', () => {
       .all();
     expect(firstAllocations.reduce((sum, row) => sum + row.amount, 0)).toBe(0.01);
 
-    await returnSale(context(), { id: saleId });
+    // Do not skip the middle boundary by refunding both remaining units at
+    // once: the old cumulative targets fell from one cent to zero there.
+    for (let returned = 2; returned <= 3; returned += 1) {
+      const refundCaller = appRouter.createCaller(callerContext());
+      const input = { id: saleId, items: [{ saleItemId: lineId, quantity: 1 }] };
+      const response = await refundCaller.sales.returnSale(input);
+      expect(await refundCaller.sales.returnSale(input)).toEqual(response);
+      expect(
+        await db.select().from(saleReturns).where(eq(saleReturns.saleId, saleId)).all()
+      ).toHaveLength(returned);
+      expect(await getProductStockTotal(db, tenantId, productId)).toBe(returned);
+    }
     const allAllocations = await db
-      .select({ amount: saleReturnPaymentAllocations.amount })
+      .select({
+        amount: saleReturnPaymentAllocations.amount,
+        paymentId: saleReturnPaymentAllocations.salePaymentId,
+      })
       .from(saleReturnPaymentAllocations)
       .innerJoin(saleReturns, eq(saleReturnPaymentAllocations.saleReturnId, saleReturns.id))
       .where(and(eq(saleReturns.tenantId, tenantId), eq(saleReturns.saleId, saleId)))
       .all();
     expect(allAllocations.reduce((sum, row) => sum + row.amount, 0)).toBeCloseTo(0.03, 8);
+    const refundedByPayment = new Map<string | null, number>();
+    for (const allocation of allAllocations) {
+      expect(allocation.amount).toBeGreaterThan(0);
+      refundedByPayment.set(
+        allocation.paymentId,
+        (refundedByPayment.get(allocation.paymentId) ?? 0) + allocation.amount
+      );
+    }
+    expect([...refundedByPayment.values()]).toEqual([0.01, 0.01, 0.01]);
   });
 
   it('requires external evidence before claiming a card refund', async () => {
@@ -1728,6 +1751,75 @@ describe('normalized partial returns', () => {
     expect(readProfit()).toMatchObject({ revenue: 19206.67, cogs: 12000, grossProfit: 7206.67 });
     await returnSale(context(), { id: saleId, items: [{ saleItemId: lineId, quantity: 2 }] });
     expect(readProfit()).toBeUndefined();
+  });
+
+  it('keeps real multi-line checkout profit frozen and books each partial return on its own day', async () => {
+    const db = getDatabase();
+    const productIds = [
+      await seedProduct({ name: 'Dated VAT item A', price: 11900, stock: 5 }),
+      await seedProduct({ name: 'Dated VAT item B', price: 5950, stock: 5 }),
+    ];
+    for (const [index, productId] of productIds.entries()) {
+      await db
+        .update(products)
+        .set({ cost: index === 0 ? 6000 : 3000, taxRate: 19, taxKind: 'iva' })
+        .where(and(eq(products.tenantId, tenantId), eq(products.id, productId)))
+        .run();
+    }
+    const day = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+    const soldAt = `${day}T12:00:00.000Z`;
+    const firstReturnAt = new Date(Date.parse(soldAt) + 86_400_000).toISOString();
+    const finalReturnAt = new Date(Date.parse(soldAt) + 2 * 86_400_000).toISOString();
+    const readProfit = (at: string, to = at) =>
+      computeProfitMarginReport(db, {
+        tenantId,
+        fromDate: `${at.slice(0, 10)}T00:00:00.000Z`,
+        toDate: `${to.slice(0, 10)}T23:59:59.999Z`,
+        limit: 500,
+      });
+    // Only Date is virtualized; real command/SQLite behavior and async timers
+    // remain untouched. No manufactured sale/return monetary snapshots.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(soldAt);
+      const completed = await completeSale(context(), {
+        mode: 'fresh',
+        customerId: null,
+        items: productIds.map((productId, index) => ({
+          productId,
+          unitId,
+          quantity: 2,
+          unitPrice: index === 0 ? 11900 : 5950,
+          discount: 0,
+        })),
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        status: 'completed',
+        amountReceived: 34509.99,
+        discountAmount: 1190.01,
+      });
+      const saleId = (completed.sale as { id: string }).id;
+      const soldLines = await db.select().from(saleItems).where(eq(saleItems.saleId, saleId)).all();
+      const sold = readProfit(soldAt);
+      expect(sold.summary).toMatchObject({ revenue: 28809.99, cogs: 18000 });
+      const firstItems = soldLines.map(line => ({ saleItemId: line.id, quantity: 1 }));
+      vi.setSystemTime(firstReturnAt);
+      await appRouter
+        .createCaller(callerContext())
+        .sales.returnSale({ id: saleId, items: firstItems });
+      const first = readProfit(firstReturnAt);
+      expect(first.summary).toMatchObject({ revenue: -14404.99, cogs: -9000, salesCount: 0 });
+      expect(readProfit(soldAt)).toEqual(sold);
+      vi.setSystemTime(finalReturnAt);
+      await appRouter.createCaller(callerContext()).sales.returnSale({ id: saleId });
+      const final = readProfit(finalReturnAt);
+      expect(final.summary).toMatchObject({ revenue: -14405, cogs: -9000, salesCount: 0 });
+      expect(readProfit(soldAt)).toEqual(sold);
+      expect(readProfit(firstReturnAt)).toEqual(first);
+      expect(readProfit(soldAt, finalReturnAt).products).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it.each([1, 3])(
