@@ -13669,6 +13669,13 @@
           "notNull": true,
           "autoincrement": false,
           "default": "(datetime('now'))"
+        },
+        "return_state": {
+          "name": "return_state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
       "indexes": {
@@ -13739,6 +13746,14 @@
             "sale_number"
           ],
           "isUnique": true
+        },
+        "idx_sales_tenant_return_state": {
+          "name": "idx_sales_tenant_return_state",
+          "columns": [
+            "tenant_id",
+            "return_state"
+          ],
+          "isUnique": false
         }
       },
       "foreignKeys": {

@@ -58,6 +58,50 @@ function declaredConstraints(sql: string, name: string): string[] | null {
   return [...create[1]!.matchAll(/CONSTRAINT "([a-z0-9_]+)"/g)].map(match => match[1]!);
 }
 
+/**
+ * The column set the migration SQL implies for `table`, replaying every
+ * `ALTER TABLE ... ADD` and every `__new_<table>` rebuild in journal order.
+ */
+function columnsImpliedBySql(files: readonly string[], table: string): Set<string> {
+  const columns = new Set<string>();
+  for (const file of files) {
+    const sql = readFileSync(resolve(MIGRATIONS, file), 'utf8');
+    const rebuilt = rebuiltColumns(sql, table);
+    if (rebuilt) {
+      columns.clear();
+      for (const column of rebuilt) columns.add(column);
+    }
+    const created = declaredColumns(sql, table);
+    if (created) {
+      columns.clear();
+      for (const column of created) columns.add(column);
+    }
+    for (const column of addedColumns(sql, table)) columns.add(column);
+  }
+  return columns;
+}
+
+/** The column list of a plain `CREATE TABLE <table>`, or null when absent. */
+function declaredColumns(sql: string, table: string): string[] | null {
+  const create = new RegExp(`CREATE TABLE \`${table}\` \\(([\\s\\S]*?)\\n\\);`).exec(sql);
+  if (!create) return null;
+  return [...create[1]!.matchAll(/^\t\`([a-z_]+)\`/gm)].map(match => match[1]!);
+}
+
+/** Columns the newest drizzle snapshot believes `table` has. */
+function columnsInLatestSnapshot(table: string): string[] | null {
+  const journal = JSON.parse(readFileSync(resolve(MIGRATIONS, 'meta/_journal.json'), 'utf8')) as {
+    entries: Array<{ idx: number }>;
+  };
+  const newest = Math.max(...journal.entries.map(entry => entry.idx));
+  const snapshotPath = resolve(MIGRATIONS, `meta/${String(newest).padStart(4, '0')}_snapshot.json`);
+  const snapshot = JSON.parse(readFileSync(snapshotPath, 'utf8')) as {
+    tables: Record<string, { columns: Record<string, unknown> }>;
+  };
+  const entry = snapshot.tables[table];
+  return entry ? Object.keys(entry.columns) : null;
+}
+
 describe('table rebuilds preserve every column added before them', () => {
   // Tables whose rebuilds have actually bitten, plus the ones most likely to:
   // long-lived aggregates that several verticals extend independently.
@@ -135,6 +179,30 @@ describe('table rebuilds preserve every column added before them', () => {
       return found !== null && found.length > 0;
     });
     expect(withChecks).toBeDefined();
+  });
+
+  it.each(WATCHED_TABLES)('the newest snapshot agrees with the SQL about %s', table => {
+    // The other half of the same hazard, and the half that actually bit.
+    //
+    // drizzle-kit diffs schema.ts against the NEWEST snapshot, so a snapshot
+    // that has fallen behind the SQL makes the next `generate` emit an ADD for
+    // a column the database already has - which aborts on every existing
+    // install - and makes any rebuild it generates drop that column again.
+    //
+    // sales.return_state was lost exactly this way: 0057 was generated from a
+    // branch cut before the return-state split landed, its snapshot recorded a
+    // sales table without the column even though its SQL never touched sales,
+    // and all 33 snapshots after it inherited the omission. The guard above
+    // reads migration SQL, which was correct, so nothing caught it.
+    const implied = columnsImpliedBySql(migrationFiles(), table);
+    const snapshot = columnsInLatestSnapshot(table);
+    expect(snapshot, `no snapshot entry for ${table}`).not.toBeNull();
+    for (const column of implied) {
+      expect(
+        snapshot,
+        `the newest snapshot has no \`${column}\` on ${table}, but the migrations add it. The next drizzle-kit generate would emit a duplicate ADD, and a generated rebuild would drop it.`
+      ).toContain(column);
+    }
   });
 
   it('actually sees the sales rebuild and the return-state column', () => {

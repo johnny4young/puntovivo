@@ -186,6 +186,11 @@ export const sales = sqliteTable(
     // on every page load. Mirrors idx_inventory_movements_tenant_created /
     // idx_audit_logs_tenant_created.
     index('idx_sales_tenant_created').on(table.tenantId, table.createdAt),
+    // Created in raw SQL by the return-state split and re-created by the
+    // constraints rebuild, but never declared here - so drizzle-kit did not
+    // know it existed and no snapshot recorded it. A generated `sales` rebuild
+    // would have dropped it silently.
+    index('idx_sales_tenant_return_state').on(table.tenantId, table.returnState),
     index('idx_sales_customer').on(table.customerId),
     index('idx_sales_cash_session').on(table.cashSessionId),
     index('idx_sales_created_by').on(table.createdBy),
