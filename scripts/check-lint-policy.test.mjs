@@ -145,3 +145,23 @@ test('the committed Oxlint configuration rejects an explicit any fixture', () =>
     rmSync(fixtureDir, { recursive: true, force: true });
   }
 });
+
+test('the E2E hook-name exception does not disable React hook checks in application code', () => {
+  // Oxlint accepts the react-hooks alias in configuration. Exercise the actual
+  // binary instead of assuming that its documented react prefix is exclusive.
+  const source = 'import { useState } from "react";\nexport function fixture() { useState(0); }\n';
+  assertRejectedFixture(new URL('apps/web/src/', root), source, /rules-of-hooks/);
+  const fixtureDir = mkdtempSync(join(fileURLToPath(new URL('e2e/', root)), '.oxlint-policy-'));
+  const fixturePath = join(fixtureDir, 'fixture.ts');
+  writeFileSync(fixturePath, source);
+  try {
+    const result = spawnSync(
+      process.execPath,
+      [oxlintBin, '--config', oxlintConfigPath, fixturePath],
+      { encoding: 'utf8' }
+    );
+    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+  } finally {
+    rmSync(fixtureDir, { recursive: true, force: true });
+  }
+});
