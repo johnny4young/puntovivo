@@ -718,7 +718,7 @@ describe('fiscal outbox — happy path', () => {
     }
   });
 
-  it('persists the same durable intent when a draft is settled', async () => {
+  it('freezes the same checkout labels for the draft receipt, fiscal intent and later return', async () => {
     __setFiscalAdapterForTest('CO', new StubAdapter({ kind: 'happy' }));
     const originalProductName = 'Draft fiscal intent product';
     const { saleId, productId } = await seedProductAndSale({
@@ -727,9 +727,13 @@ describe('fiscal outbox — happy path', () => {
       status: 'draft',
     });
     const db = getDatabase();
+    const checkoutIdentity = {
+      productName: 'Catalog name changed before settlement',
+      productSku: 'OB-DRAFT-CHECKOUT-' + nanoid(6),
+    };
     await db
       .update(products)
-      .set({ name: 'Catalog name changed before settlement' })
+      .set({ name: checkoutIdentity.productName, sku: checkoutIdentity.productSku })
       .where(and(eq(products.tenantId, tenantId), eq(products.id, productId)));
     const fresh = makeFreshContextFactory({
       db,
@@ -741,12 +745,18 @@ describe('fiscal outbox — happy path', () => {
       deviceId: testDeviceId,
       defaultRole: 'admin',
     });
-    await appRouter.createCaller(fresh()).sales.completeDraft({
+    const completed = await appRouter.createCaller(fresh()).sales.completeDraft({
       saleId,
       paymentMethod: 'cash',
       paymentStatus: 'paid',
       amountReceived: 100,
     });
+    expect(completed.items).toEqual([
+      expect.objectContaining({
+        productNameSnapshot: checkoutIdentity.productName,
+        productSkuSnapshot: checkoutIdentity.productSku,
+      }),
+    ]);
     await server.fiscalWorker.tickOnce(tenantId);
 
     const intent = await db
@@ -756,7 +766,14 @@ describe('fiscal outbox — happy path', () => {
         and(eq(fiscalEmissionIntents.tenantId, tenantId), eq(fiscalEmissionIntents.saleId, saleId))
       )
       .get();
-    expect(intent).toMatchObject({ status: 'materialized', sourceId: saleId });
+    expect(intent).toMatchObject({
+      status: 'materialized',
+      sourceId: saleId,
+      payload: {
+        lines: [expect.objectContaining(checkoutIdentity)],
+        adapterInput: { lines: [expect.objectContaining(checkoutIdentity)] },
+      },
+    });
     const materialized = await readFiscalDocAndOutbox(saleId);
     expect(materialized).toMatchObject({
       doc: { status: 'accepted' },
@@ -764,12 +781,89 @@ describe('fiscal outbox — happy path', () => {
     });
     const fiscalItem = materialized.doc
       ? await db
-          .select({ productName: fiscalDocumentItems.productName })
+          .select({
+            productName: fiscalDocumentItems.productName,
+            productSku: fiscalDocumentItems.productSku,
+          })
           .from(fiscalDocumentItems)
           .where(eq(fiscalDocumentItems.fiscalDocumentId, materialized.doc.id))
           .get()
       : undefined;
-    expect(fiscalItem?.productName).toBe(originalProductName);
+    expect(fiscalItem).toEqual(checkoutIdentity);
+    const completedLine = await db
+      .select({
+        id: saleItems.id,
+        productName: saleItems.productNameSnapshot,
+        productSku: saleItems.productSkuSnapshot,
+      })
+      .from(saleItems)
+      .where(eq(saleItems.saleId, saleId))
+      .get();
+    expect(completedLine).toMatchObject(checkoutIdentity);
+    expect(fiscalItem?.productName).toBe(completedLine?.productName);
+    expect(fiscalItem?.productSku).toBe(completedLine?.productSku);
+    if (!completedLine) throw new Error('Expected completed draft line');
+
+    // A later catalog edit must not change either completed output, nor the
+    // description on the credit note when the customer returns the item.
+    await db
+      .update(products)
+      .set({ name: 'Catalog name changed after checkout', sku: 'OB-DRAFT-LATER-' + nanoid(6) })
+      .where(and(eq(products.tenantId, tenantId), eq(products.id, productId)));
+    const reprint = await getSaleRecord(db, tenantId, saleId);
+    expect(reprint.items).toEqual([
+      expect.objectContaining({
+        productNameSnapshot: checkoutIdentity.productName,
+        productSkuSnapshot: checkoutIdentity.productSku,
+      }),
+    ]);
+    await appRouter.createCaller(fresh()).sales.returnSale({
+      id: saleId,
+      items: [{ saleItemId: completedLine.id, quantity: 1 }],
+      reason: 'Return the settled draft item',
+    });
+    await server.fiscalWorker.tickOnce(tenantId);
+    const returnIntent = await db
+      .select()
+      .from(fiscalEmissionIntents)
+      .where(
+        and(
+          eq(fiscalEmissionIntents.tenantId, tenantId),
+          eq(fiscalEmissionIntents.saleId, saleId),
+          eq(fiscalEmissionIntents.source, 'return')
+        )
+      )
+      .get();
+    expect(returnIntent).toMatchObject({
+      status: 'materialized',
+      payload: { lines: [expect.objectContaining(checkoutIdentity)] },
+    });
+    const noteItems = await db
+      .select({
+        productName: fiscalDocumentItems.productName,
+        productSku: fiscalDocumentItems.productSku,
+      })
+      .from(fiscalDocumentItems)
+      .innerJoin(fiscalDocuments, eq(fiscalDocuments.id, fiscalDocumentItems.fiscalDocumentId))
+      .where(
+        and(
+          eq(fiscalDocuments.tenantId, tenantId),
+          eq(fiscalDocuments.kind, 'NC'),
+          eq(fiscalDocuments.sourceId, returnIntent?.sourceId ?? '')
+        )
+      )
+      .all();
+    expect(noteItems).toEqual([checkoutIdentity]);
+    expect(
+      await db
+        .select({
+          productName: fiscalDocumentItems.productName,
+          productSku: fiscalDocumentItems.productSku,
+        })
+        .from(fiscalDocumentItems)
+        .where(eq(fiscalDocumentItems.fiscalDocumentId, materialized.doc!.id))
+        .get()
+    ).toEqual(checkoutIdentity);
   });
 
   it('enqueues fiscal_document.accepted when events-api is ON', async () => {

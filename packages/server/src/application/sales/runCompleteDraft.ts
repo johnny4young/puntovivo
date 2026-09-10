@@ -457,10 +457,11 @@ export async function runCompleteDraft(
     return {
       lineNumber: index + 1,
       productId: item.productId,
-      // A draft already owns its catalog identity. Later product edits must not
-      // rewrite the legal line when the operator settles the suspended sale.
-      productName: item.productNameSnapshot ?? item.productName ?? item.productId,
-      productSku: item.productSkuSnapshot ?? item.productSku,
+      // Draft labels are refreshed at checkout. Use the same tenant-scoped
+      // catalog read that the transaction freezes on sale_items below, not
+      // the earlier draft labels; receipt and fiscal evidence must agree.
+      productName: item.productName,
+      productSku: item.productSku,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       discountAmount: roundMoney(
@@ -858,6 +859,8 @@ export async function runCompleteDraft(
         // A draft can remain open while catalog labels change. Refresh every
         // line snapshot at the completion boundary so a later reprint matches
         // what the completed receipt showed, not the earlier draft label.
+        // These are the same preflight values used by fiscalLines, so no
+        // second catalog read can split receipt and fiscal identities.
         for (const item of draftApprovalItems) {
           const promotionLine = promotionLineByItemId.get(item.id);
           const snapshottedItem = tx
