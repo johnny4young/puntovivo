@@ -108,6 +108,34 @@ describe('tenant settings projection', () => {
     expect(projected).toEqual({ taxRate: 0 });
   });
 
+  it('omits a malformed expiry ladder instead of casting it', () => {
+    // The client narrows this one past a primitive, to {maxDays, pct}[]. Casting
+    // the stored blob to that shape would type-check and then break at render -
+    // the same lie as a hand-written SQL row cast. The panel already falls back
+    // to its own defaults when the setting is absent.
+    for (const broken of [
+      'not-an-array',
+      [{ maxDays: 7 }],
+      [{ maxDays: '7', pct: 30 }],
+      [{ maxDays: Number.NaN, pct: 30 }],
+      [{ maxDays: 7, pct: 30 }, null],
+    ]) {
+      const projected = projectTenantSettingsForClient({ discount: { expiryTiers: broken } });
+      expect(Object.hasOwn(projected, 'discount')).toBe(false);
+    }
+    expect(
+      projectTenantSettingsForClient({ discount: { expiryTiers: [{ maxDays: 7, pct: 30 }] } })
+    ).toEqual({ discount: { expiryTiers: [{ maxDays: 7, pct: 30 }] } });
+  });
+
+  it('omits a nested wrapper whose required value is missing', () => {
+    // restaurant and cashClose declare their sub-key as REQUIRED inside an
+    // optional object, so emitting {} would hand the client a shape its own
+    // type says cannot exist.
+    const projected = projectTenantSettingsForClient({ restaurant: {}, cashClose: {} });
+    expect(projected).toEqual({});
+  });
+
   it('survives a blob that is missing, null, or not an object', () => {
     for (const input of [undefined, null, 'nope', 42, []]) {
       expect(projectTenantSettingsForClient(input)).toEqual({});

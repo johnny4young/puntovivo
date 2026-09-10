@@ -24,15 +24,23 @@
  * @module services/tenant-settings-projection
  */
 
-/** The shape `auth.me` is allowed to publish. Mirrors the client contract. */
+import type { VerticalPresetId } from '@puntovivo/shared/vertical-presets';
+
+/**
+ * The shape `auth.me` is allowed to publish. Mirrors the client contract.
+ *
+ * The unions are not decoration: these types flow end to end through the
+ * AppRouter export, so widening `businessType` to `string` breaks the web
+ * build where it narrows a vertical.
+ */
 export interface ClientTenantSettings {
   taxRate?: number;
-  businessType?: string;
+  businessType?: VerticalPresetId;
   logo?: string;
-  theme?: string;
-  restaurant?: { serviceChargeRate?: number };
-  cashClose?: { blindClose?: boolean };
-  discount?: { expiryTiers?: unknown };
+  theme?: 'light' | 'dark' | 'system';
+  restaurant?: { serviceChargeRate: number };
+  cashClose?: { blindClose: boolean };
+  discount?: { expiryTiers: Array<{ maxDays: number; pct: number }> };
 }
 
 /** Every top-level key this projection will publish. Exported for the test. */
@@ -61,18 +69,39 @@ function pick(target: Record<string, unknown>, source: Record<string, unknown>, 
   if (Object.hasOwn(source, key)) target[key] = source[key];
 }
 
-/** Project one nested object down to the sub-keys the client declares. */
+/**
+ * Project one nested object down to the single sub-key the client declares.
+ *
+ * Each of these shapes declares its sub-key as REQUIRED inside an optional
+ * object, so emitting `{}` when the stored blob has the wrapper but not the
+ * value would hand the client a shape its own type says cannot exist. Omit the
+ * wrapper instead and let the client's default fill in.
+ */
 function pickNested(
   target: Record<string, unknown>,
   source: Record<string, unknown>,
   key: string,
-  subKeys: readonly string[]
+  requiredSubKey: string
 ): void {
   const nested = asRecord(source[key]);
-  if (!nested) return;
-  const projected: Record<string, unknown> = {};
-  for (const subKey of subKeys) pick(projected, nested, subKey);
-  target[key] = projected;
+  if (!nested || !Object.hasOwn(nested, requiredSubKey)) return;
+  target[key] = { [requiredSubKey]: nested[requiredSubKey] };
+}
+
+function isExpiryTierList(value: unknown): value is Array<{ maxDays: number; pct: number }> {
+  return (
+    Array.isArray(value) &&
+    value.every(entry => {
+      const tier = asRecord(entry);
+      return (
+        tier !== null &&
+        typeof tier.maxDays === 'number' &&
+        Number.isFinite(tier.maxDays) &&
+        typeof tier.pct === 'number' &&
+        Number.isFinite(tier.pct)
+      );
+    })
+  );
 }
 
 /**
@@ -88,8 +117,16 @@ export function projectTenantSettingsForClient(settings: unknown): ClientTenantS
   pick(projected, source, 'businessType');
   pick(projected, source, 'logo');
   pick(projected, source, 'theme');
-  pickNested(projected, source, 'restaurant', ['serviceChargeRate']);
-  pickNested(projected, source, 'cashClose', ['blindClose']);
-  pickNested(projected, source, 'discount', ['expiryTiers']);
+  pickNested(projected, source, 'restaurant', 'serviceChargeRate');
+  pickNested(projected, source, 'cashClose', 'blindClose');
+
+  // The only setting whose shape the client narrows beyond a primitive. The
+  // stored blob is untyped, so casting it to the declared array would be the
+  // same lie as a hand-written SQL row cast: it type-checks and then breaks at
+  // render. Validate instead, and omit the wrapper when it does not hold so the
+  // panel falls back to its own defaults, which it already does.
+  const tiers = asRecord(source.discount)?.expiryTiers;
+  if (isExpiryTierList(tiers)) projected.discount = { expiryTiers: tiers };
+
   return projected as ClientTenantSettings;
 }
