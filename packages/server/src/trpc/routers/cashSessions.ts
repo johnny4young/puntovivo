@@ -19,7 +19,7 @@ import { router } from '../init.js';
 import { roundMoney } from '../../lib/money.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { cashierManagerOrAdminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
-import { criticalCommandProcedure } from '../middleware/criticalCommand.js';
+import { criticalCommandCashierManagerOrAdminProcedure } from '../middleware/criticalCommand.js';
 import { computeDayCloseSummary } from '../../services/reports/day-close.js';
 import { computeCashierPace as computeCashierPaceFromTiming } from '../../services/reports/cashier-pace.js';
 import { computeCashierPace } from '../../services/cashier-pace.js';
@@ -346,28 +346,40 @@ export const cashSessionsRouter = router({
     };
   }),
 
-  open: criticalCommandProcedure.input(openCashSessionInput).mutation(async ({ ctx, input }) => {
-    const result = await openCashSession(buildCashSessionContext(ctx), input);
-    // Preserve legacy router contract: return the joined record shape
-    // the UI already consumes via cashSessionRecordSelection.
-    const created = await getCashSessionRecord(ctx.db, ctx.tenantId, result.session.id);
-    if (!created) {
-      throw new Error('Failed to load the created cash session');
-    }
-    return {
-      ...presentCashSessionRecord(created, ctx.user?.role),
-      attendanceShiftStarted: result.attendanceShiftStarted,
-    };
-  }),
+  // Drawer writes are cashier-or-above. They ran on the ungated
+  // criticalCommandProcedure, which is tenantProcedure + the idempotency
+  // envelope and nothing else - an envelope is not a role guard. `viewer` is
+  // an assignable role, and a viewer could open the drawer, move cash and
+  // close it, mutating expected_balance, over_short and the day-close
+  // evidence. openCashSession also writes an employee_shifts row and a
+  // clock_in audit entry, so it was a strict bypass of employeeShifts.clockIn,
+  // which IS gated. The read siblings in this router were already correct.
+  open: criticalCommandCashierManagerOrAdminProcedure
+    .input(openCashSessionInput)
+    .mutation(async ({ ctx, input }) => {
+      const result = await openCashSession(buildCashSessionContext(ctx), input);
+      // Preserve legacy router contract: return the joined record shape
+      // the UI already consumes via cashSessionRecordSelection.
+      const created = await getCashSessionRecord(ctx.db, ctx.tenantId, result.session.id);
+      if (!created) {
+        throw new Error('Failed to load the created cash session');
+      }
+      return {
+        ...presentCashSessionRecord(created, ctx.user?.role),
+        attendanceShiftStarted: result.attendanceShiftStarted,
+      };
+    }),
 
-  close: criticalCommandProcedure.input(closeCashSessionInput).mutation(async ({ ctx, input }) => {
-    const result = await closeCashSession(buildCashSessionContext(ctx), input);
-    const closedSession = await getCashSessionRecord(ctx.db, ctx.tenantId, result.session.id);
-    if (!closedSession) {
-      throw new Error('Failed to load the closed cash session');
-    }
-    return presentCashSessionRecord(closedSession, ctx.user?.role);
-  }),
+  close: criticalCommandCashierManagerOrAdminProcedure
+    .input(closeCashSessionInput)
+    .mutation(async ({ ctx, input }) => {
+      const result = await closeCashSession(buildCashSessionContext(ctx), input);
+      const closedSession = await getCashSessionRecord(ctx.db, ctx.tenantId, result.session.id);
+      if (!closedSession) {
+        throw new Error('Failed to load the closed cash session');
+      }
+      return presentCashSessionRecord(closedSession, ctx.user?.role);
+    }),
 
   /**
    * day-close ritual. Open to the cashier (they are the one who
@@ -490,7 +502,7 @@ export const cashSessionsRouter = router({
     return getPendingChecksForSession(ctx.db, ctx.tenantId, sessionId);
   }),
 
-  recordMovement: criticalCommandProcedure
+  recordMovement: criticalCommandCashierManagerOrAdminProcedure
     .input(recordCashMovementInput)
     .mutation(async ({ ctx, input }) => {
       const result = await recordCashMovement(buildCashSessionContext(ctx), input);

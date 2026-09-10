@@ -15,10 +15,7 @@
 import { and, eq } from 'drizzle-orm';
 
 import { cashierManagerOrAdminProcedure, managerOrAdminProcedure } from '../../middleware/roles.js';
-import {
-  criticalCommandCashierManagerOrAdminProcedure,
-  criticalCommandProcedure,
-} from '../../middleware/criticalCommand.js';
+import { criticalCommandCashierManagerOrAdminProcedure } from '../../middleware/criticalCommand.js';
 import { asCriticalCommandContext } from '../../middleware/commandEnvelope.js';
 import { cashSessions, sales } from '../../../db/schema.js';
 import { enqueueSync } from '../../../services/sync/enqueue.js';
@@ -344,7 +341,11 @@ export const salesLifecycleProcedures = {
    * their currently-active session; manager and admin override the
    * session check.
    */
-  getForReprint: criticalCommandProcedure
+  // Same class as the cash-drawer writes: this ran on the ungated
+  // criticalCommandProcedure, bumping reprintCount and returning full sale
+  // PII. It fails closed today only because the in-body ownership check
+  // requires the caller's own open session - an accident, not a guard.
+  getForReprint: criticalCommandCashierManagerOrAdminProcedure
     .input(getForReprintInput)
     .mutation(async ({ ctx, input }) => {
       const commandContext = asCriticalCommandContext(ctx);
