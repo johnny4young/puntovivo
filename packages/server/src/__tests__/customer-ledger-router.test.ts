@@ -16,7 +16,13 @@
  * - list / getBalance / addPayment → manager + admin
  * - addAdjustment                  → admin only
  * - cashier never reaches any procedure
+ *
+ * Both writes are critical commands, so every mutating call needs a registered
+ * device plus a command envelope. Devices claim an activeUserId, so each role
+ * carries its own; a shared one would be rejected as `different_user` rather
+ * than reaching the assertion under test.
  */
+import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { and, desc, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -25,6 +31,12 @@ import { getDatabase } from '../db/index.js';
 import { customers, customerLedgerEntries, sites, tenants, users } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
+import { registerDevice } from '../services/devices/devicesService.js';
+import {
+  COMMAND_ENVELOPE_HEADER,
+  DEVICE_ID_HEADER,
+  type CommandEnvelope,
+} from '../trpc/schemas/envelope.js';
 
 let server: PuntovivoServer;
 let tenantId: string;
@@ -34,19 +46,41 @@ let managerUserId: string;
 let cashierUserId: string;
 let foreignTenantId: string;
 let foreignCustomerId: string;
+const deviceIdByUserId = new Map<string, string>();
 
 function createCallerContext(overrides: {
   userId: string;
   role: 'admin' | 'manager' | 'cashier' | 'viewer';
   email: string;
   tenantOverride?: string;
+  /** Replay the exact same envelope, to exercise the idempotency path. */
+  envelope?: CommandEnvelope;
+  /** Drop the envelope header, to prove the procedure demands one. */
+  omitEnvelope?: boolean;
+  /** Drop the device header, to prove the procedure demands one. */
+  omitDevice?: boolean;
 }): Context {
   const db = getDatabase();
   const effectiveTenant = overrides.tenantOverride ?? tenantId;
+  // A fresh envelope per context: two calls that must both land (rather than
+  // deduplicate) each get their own idempotency key, exactly as the client
+  // mints one per logical input.
+  const envelope: CommandEnvelope = {
+    operationId: randomUUID(),
+    idempotencyKey: randomUUID(),
+    clientCreatedAt: new Date().toISOString(),
+  };
+  const deviceId = overrides.omitDevice ? undefined : deviceIdByUserId.get(overrides.userId);
+  const headers: Record<string, string> = {
+    ...(deviceId ? { [DEVICE_ID_HEADER]: deviceId } : {}),
+    ...(overrides.omitEnvelope
+      ? {}
+      : { [COMMAND_ENVELOPE_HEADER]: JSON.stringify(overrides.envelope ?? envelope) }),
+  };
   return {
     req: {
       server: server.app,
-      headers: {},
+      headers,
       user: {
         userId: overrides.userId,
         email: overrides.email,
@@ -66,6 +100,18 @@ function createCallerContext(overrides: {
     tenantId: effectiveTenant,
     siteId: primarySiteId,
   };
+}
+
+/** A caller with a freshly minted envelope, for one deliberate write. */
+function adminCaller(envelope?: CommandEnvelope) {
+  return appRouter.createCaller(
+    createCallerContext({
+      userId: adminUserId,
+      role: 'admin',
+      email: 'admin@localhost',
+      ...(envelope ? { envelope } : {}),
+    })
+  );
 }
 
 async function seedCustomer(name: string, tenantOverride?: string): Promise<string> {
@@ -135,6 +181,16 @@ describe('customerLedger.* router', () => {
       name: 'Foreign Tenant',
     });
     foreignCustomerId = await seedCustomer('Foreign Customer', foreignTenantId);
+
+    for (const userId of [adminUserId, managerUserId, cashierUserId]) {
+      const registration = await registerDevice(db, {
+        tenantId,
+        userId,
+        kind: 'web',
+        name: `ledger-test-${userId.slice(0, 6)}`,
+      });
+      deviceIdByUserId.set(userId, registration.deviceId);
+    }
   });
 
   afterAll(async () => {
@@ -350,19 +406,15 @@ describe('customerLedger.* router', () => {
       // The Zod refinement rejects non-positive amounts BEFORE the
       // handler runs, so the safe behavior is "always rejects ≤ 0".
       const customerId = await seedCustomer('Pagador Negativo');
-      const caller = appRouter.createCaller(
-        createCallerContext({
-          userId: adminUserId,
-          role: 'admin',
-          email: 'admin@localhost',
-        })
-      );
-      await expect(caller.customerLedger.addPayment({ customerId, amount: -100 })).rejects.toThrow(
-        /positive/i
-      );
-      await expect(caller.customerLedger.addPayment({ customerId, amount: 0 })).rejects.toThrow(
-        /positive/i
-      );
+      // A caller per attempt: the two payloads differ, so replaying one
+      // envelope across both would be an IDEMPOTENCY_KEY_CONFLICT rather than
+      // the validation error under test.
+      await expect(
+        adminCaller().customerLedger.addPayment({ customerId, amount: -100 })
+      ).rejects.toThrow(/positive/i);
+      await expect(
+        adminCaller().customerLedger.addPayment({ customerId, amount: 0 })
+      ).rejects.toThrow(/positive/i);
     });
 
     it('rejects a customerId from a foreign tenant', async () => {
@@ -442,19 +494,14 @@ describe('customerLedger.* router', () => {
 
     it('accepts both signs and stores the amount as-is', async () => {
       const customerId = await seedCustomer('Ajuste Dual');
-      const caller = appRouter.createCaller(
-        createCallerContext({
-          userId: adminUserId,
-          role: 'admin',
-          email: 'admin@localhost',
-        })
-      );
-      const positive = await caller.customerLedger.addAdjustment({
+      // Two deliberate, different writes: each needs its own envelope, the
+      // same way the client mints one per logical input.
+      const positive = await adminCaller().customerLedger.addAdjustment({
         customerId,
         amount: 75,
         note: 'Saldo anterior',
       });
-      const negative = await caller.customerLedger.addAdjustment({
+      const negative = await adminCaller().customerLedger.addAdjustment({
         customerId,
         amount: -40,
         note: 'Devolución producto fuera de plazo',
@@ -621,6 +668,152 @@ describe('customerLedger.* router', () => {
           isActive: true,
         })
       ).rejects.toThrow(/creditLimit|nonnegative|greater/i);
+    });
+  });
+  // -------------------------------------------------------------------------
+  // command envelope
+  // -------------------------------------------------------------------------
+
+  describe('command envelope', () => {
+    /**
+     * The write path the operator actually drives is a modal whose confirm
+     * button sits OUTSIDE the form (the modal renders its footer as a sibling
+     * of the body), so a submit event dispatched at the form -- what Enter
+     * does -- never consults the button's disabled state. The client-side
+     * guard closes that on the one machine that has it. The envelope is what
+     * closes it for every other caller: a second delivery of the same logical
+     * payment collapses onto the first write instead of halving the
+     * customer's debt again.
+     */
+    it('replaying one envelope writes a single payment row', async () => {
+      const customerId = await seedCustomer('Cliente Reintento');
+      const envelope: CommandEnvelope = {
+        operationId: randomUUID(),
+        idempotencyKey: randomUUID(),
+        clientCreatedAt: new Date().toISOString(),
+      };
+
+      const first = await adminCaller(envelope).customerLedger.addPayment({
+        customerId,
+        amount: 500,
+      });
+      const replay = await adminCaller(envelope).customerLedger.addPayment({
+        customerId,
+        amount: 500,
+      });
+
+      // The replay is served from the idempotency record, so it reports the
+      // same entry rather than creating a second one.
+      expect(replay).toEqual(first);
+
+      const db = getDatabase();
+      const rows = await db
+        .select()
+        .from(customerLedgerEntries)
+        .where(eq(customerLedgerEntries.customerId, customerId));
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.amount).toBe(-500);
+
+      const balance = await adminCaller().customerLedger.getBalance({ customerId });
+      expect(balance.balance).toBe(-500);
+    });
+
+    it('replaying one envelope writes a single adjustment row', async () => {
+      const customerId = await seedCustomer('Cliente Ajuste Reintento');
+      const envelope: CommandEnvelope = {
+        operationId: randomUUID(),
+        idempotencyKey: randomUUID(),
+        clientCreatedAt: new Date().toISOString(),
+      };
+      const input = { customerId, amount: 120, note: 'Saldo inicial' };
+
+      const first = await adminCaller(envelope).customerLedger.addAdjustment(input);
+      const replay = await adminCaller(envelope).customerLedger.addAdjustment(input);
+      expect(replay).toEqual(first);
+
+      const db = getDatabase();
+      const rows = await db
+        .select()
+        .from(customerLedgerEntries)
+        .where(eq(customerLedgerEntries.customerId, customerId));
+      expect(rows).toHaveLength(1);
+    });
+
+    it('refuses a write with no envelope at all', async () => {
+      // Pins the decorator itself. Reverting either procedure to a bare role
+      // guard makes this pass silently, which is exactly the regression this
+      // assertion exists to catch.
+      const customerId = await seedCustomer('Cliente Sin Sobre');
+      const caller = appRouter.createCaller(
+        createCallerContext({
+          userId: adminUserId,
+          role: 'admin',
+          email: 'admin@localhost',
+          omitEnvelope: true,
+        })
+      );
+      await expect(
+        caller.customerLedger.addPayment({ customerId, amount: 10 })
+      ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+      await expect(
+        caller.customerLedger.addAdjustment({ customerId, amount: 10, note: 'x' })
+      ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+
+      const db = getDatabase();
+      const rows = await db
+        .select()
+        .from(customerLedgerEntries)
+        .where(eq(customerLedgerEntries.customerId, customerId));
+      expect(rows).toHaveLength(0);
+    });
+
+    it('refuses a write from an unregistered device', async () => {
+      const customerId = await seedCustomer('Cliente Sin Dispositivo');
+      const caller = appRouter.createCaller(
+        createCallerContext({
+          userId: adminUserId,
+          role: 'admin',
+          email: 'admin@localhost',
+          omitDevice: true,
+        })
+      );
+      await expect(caller.customerLedger.addPayment({ customerId, amount: 10 })).rejects.toThrow(
+        /x-device-id/i
+      );
+    });
+
+    it('checks the role before the envelope, on both writes', async () => {
+      // The documented ordering: guards chain BEFORE commandEnvelope, because
+      // the envelope short-circuits on a cache hit without calling next(). A
+      // cashier with no device must be refused for the ROLE, not merely for
+      // the missing header -- otherwise registering a device would be enough
+      // to reach an admin-only write's cached result.
+      const customerId = await seedCustomer('Cliente Rol');
+      const cashier = appRouter.createCaller(
+        createCallerContext({
+          userId: cashierUserId,
+          role: 'cashier',
+          email: 'cashier@localhost',
+          omitDevice: true,
+          omitEnvelope: true,
+        })
+      );
+      await expect(
+        cashier.customerLedger.addPayment({ customerId, amount: 10 })
+      ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+
+      const manager = appRouter.createCaller(
+        createCallerContext({
+          userId: managerUserId,
+          role: 'manager',
+          email: 'manager@localhost',
+          omitDevice: true,
+          omitEnvelope: true,
+        })
+      );
+      await expect(
+        manager.customerLedger.addAdjustment({ customerId, amount: 10, note: 'x' })
+      ).rejects.toMatchObject({ code: 'FORBIDDEN' });
     });
   });
 });

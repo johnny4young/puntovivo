@@ -26,6 +26,7 @@ import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { trpc } from '@/lib/trpc';
+import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { formatCurrency } from '@/lib/utils';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import {
@@ -119,7 +120,10 @@ export function CustomerLedgerModal({ isOpen, customer, onClose }: CustomerLedge
     ]);
   };
 
-  const addPayment = trpc.customerLedger.addPayment.useMutation({
+  // Critical commands: the server mints an idempotency key per logical input,
+  // so a repeat of the same abono collapses onto the first write instead of
+  // paying the customer's debt down twice.
+  const addPayment = useCriticalMutation('customerLedger.addPayment', {
     onSuccess: async () => {
       await refreshLedger();
       setAbonoMode(null);
@@ -127,7 +131,7 @@ export function CustomerLedgerModal({ isOpen, customer, onClose }: CustomerLedge
     },
     onError: onErrorToast(toast, t, { titleKey: 'ledger.abonoModal.error' }),
   });
-  const addAdjustment = trpc.customerLedger.addAdjustment.useMutation({
+  const addAdjustment = useCriticalMutation('customerLedger.addAdjustment', {
     onSuccess: async () => {
       await refreshLedger();
       setAbonoMode(null);

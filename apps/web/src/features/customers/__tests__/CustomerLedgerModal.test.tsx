@@ -9,6 +9,9 @@
  * - cupo + projected balance behave correctly per `creditLimit`
  * - role gating: cashier never reaches this surface; manager sees
  * Cargar a cuenta disabled; admin sees it enabled.
+ * - both writes go through the critical-command path, so a repeated
+ * confirm collapses onto one idempotency key server-side instead of
+ * paying the customer's debt down twice.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
@@ -84,21 +87,24 @@ vi.mock('@/lib/trpc', () => ({
           error: null,
         }),
       },
-      addPayment: {
-        useMutation: () => ({
-          mutateAsync: vi.fn(),
-          isPending: false,
-          error: null,
-        }),
-      },
-      addAdjustment: {
-        useMutation: () => ({
-          mutateAsync: vi.fn(),
-          isPending: false,
-          error: null,
-        }),
-      },
     },
+  },
+}));
+
+/**
+ * Both ledger writes move money and are not reversible from the UI, so they
+ * are critical commands: the hook mints one envelope per logical input, and
+ * the server refuses a call without one. Mocking the hook (rather than the
+ * raw trpc procedure) is what pins that wiring — a revert to
+ * `trpc.customerLedger.addPayment.useMutation` makes the path assertion fail.
+ */
+const criticalMutateAsync = vi.hoisted(() => vi.fn(async () => undefined));
+const criticalPaths = vi.hoisted(() => [] as string[]);
+
+vi.mock('@/lib/useCriticalMutation', () => ({
+  useCriticalMutation: (path: string) => {
+    criticalPaths.push(path);
+    return { mutateAsync: criticalMutateAsync, isPending: false, error: null };
   },
 }));
 
@@ -123,6 +129,7 @@ describe('CustomerLedgerModal', () => {
     mockLedgerRows = [];
     mockBalance = 0;
     exportToCSVMock.mockClear();
+    criticalPaths.length = 0;
   });
 
   it('renders the empty state when the customer has no ledger entries', () => {
@@ -245,5 +252,29 @@ describe('CustomerLedgerModal', () => {
     expect(screen.queryByRole('heading', { name: 'Receive payment' })).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Account statement' })).toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
+  });
+  it('routes both ledger writes through the critical-command path', () => {
+    render(<CustomerLedgerModal isOpen customer={makeCustomer()} onClose={vi.fn()} />);
+    expect(criticalPaths).toEqual([
+      'customerLedger.addPayment',
+      'customerLedger.addAdjustment',
+    ]);
+  });
+
+  it('sends a confirmed abono through the critical mutation', async () => {
+    const user = userEvent.setup();
+    render(<CustomerLedgerModal isOpen customer={makeCustomer()} onClose={vi.fn()} />);
+
+    await user.click(screen.getByRole('button', { name: /receive payment/i }));
+    fireEvent.change(screen.getByTestId('customer-ledger-amount-input'), {
+      target: { value: '250' },
+    });
+    await user.click(screen.getByText('Confirm payment'));
+
+    expect(criticalMutateAsync).toHaveBeenCalledExactlyOnceWith({
+      customerId: 'cust-1',
+      amount: 250,
+      note: undefined,
+    });
   });
 });

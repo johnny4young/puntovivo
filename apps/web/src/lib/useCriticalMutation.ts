@@ -110,6 +110,11 @@ export type CriticalCommandPath =
   | 'providerPayables.createOpeningBalance'
   | 'providerPayables.recordPayment'
   | 'providerPayables.recordCredit'
+  // Receivable side of the same ledger. Both move a customer's balance and
+  // neither is reversible from the UI, so a repeated confirm has to collapse
+  // onto one idempotency key rather than pay the debt down twice.
+  | 'customerLedger.addPayment'
+  | 'customerLedger.addAdjustment'
   | 'users.create'
   | 'users.update'
   | 'users.setStaffPin'
