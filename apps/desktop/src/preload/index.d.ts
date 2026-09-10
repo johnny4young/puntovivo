@@ -225,26 +225,26 @@ interface DeviceAPI {
 }
 
 interface DatabaseAPI {
-  getAll: (table: string, tenantId: string) => Promise<unknown[]>;
+  getAll: (table: string) => Promise<unknown[]>;
   getById: (table: string, id: string) => Promise<unknown>;
   insert: (table: string, data: Record<string, unknown>) => Promise<unknown>;
   update: (table: string, id: string, data: Record<string, unknown>) => Promise<unknown>;
   delete: (table: string, id: string) => Promise<boolean>;
   getByField: (table: string, fieldName: string, value: unknown) => Promise<unknown[]>;
-  deleteByTenant: (table: string, tenantId: string) => Promise<number>;
-  countByTenant: (table: string, tenantId: string) => Promise<number>;
+  deleteByTenant: (table: string) => Promise<number>;
+  countByTenant: (table: string) => Promise<number>;
   addToSyncQueue: (item: Record<string, unknown>) => Promise<void>;
-  getPendingSyncItems: (tenantId: string) => Promise<unknown[]>;
+  getPendingSyncItems: () => Promise<unknown[]>;
 }
 
 interface SyncAPI {
-  getStatus: (tenantId?: string) => Promise<{
+  getStatus: () => Promise<{
     isOnline: boolean;
     lastSync: string | null;
     pendingItems: number;
     conflicts: number;
   }>;
-  triggerSync: (tenantId?: string) => Promise<{
+  triggerSync: () => Promise<{
     success: boolean;
     synced: number;
     errors: string[];

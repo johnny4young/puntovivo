@@ -74,19 +74,22 @@ function handlersForRole(role: string, reached: string[]) {
 async function attempt(
   role: string,
   channel: string,
-  reached: string[]
+  reached: string[],
+  table = 'products'
 ): Promise<'allowed' | 'forbidden'> {
   const handlers = handlersForRole(role, reached) as unknown as Record<
     string,
     (...args: unknown[]) => Promise<unknown>
   >;
   const args: Record<string, unknown[]> = {
-    getAll: ['products'],
-    getById: ['products', 'row-1'],
-    getByField: ['products', 'sku', 'SKU-1'],
-    countByTenant: ['products'],
-    insert: ['products', { id: 'row-1' }],
-    update: ['products', 'row-1', { price: 0 }],
+    getAll: [table],
+    getById: [table, 'row-1'],
+    getByField: [table, 'id', 'row-1'],
+    countByTenant: [table],
+    getPendingSyncItems: [],
+    getSyncStatus: [],
+    insert: [table, { id: 'row-1' }],
+    update: [table, 'row-1', { price: 0 }],
     delete: ['products', 'row-1'],
     deleteByTenant: ['sales'],
   };
@@ -102,12 +105,52 @@ async function attempt(
 const READS = ['getAll', 'getById', 'getByField', 'countByTenant'];
 const WRITES = ['insert', 'update'];
 const DELETES = ['delete', 'deleteByTenant'];
+const RAW_OUTBOX_CHANNELS = [
+  'getAll',
+  'getById',
+  'getByField',
+  'getPendingSyncItems',
+  // Mutations return the raw row, so even an empty update is a read alias.
+  'insert',
+  'update',
+];
 
 describe('data bridge role guard', () => {
-  it('lets every role read', async () => {
+  it('lets every role read ordinary catalog rows', async () => {
     for (const role of ['admin', 'manager', 'cashier', 'viewer']) {
       for (const channel of READS) {
         assert.equal(await attempt(role, channel, []), 'allowed', `${role} ${channel}`);
+      }
+    }
+  });
+
+  it('refuses raw outbox payloads to every non-admin before any database read', async () => {
+    for (const role of ['manager', 'cashier', 'viewer']) {
+      for (const channel of RAW_OUTBOX_CHANNELS) {
+        const reached: string[] = [];
+        assert.equal(
+          await attempt(role, channel, reached, 'sync_outbox'),
+          'forbidden',
+          `${role} ${channel}`
+        );
+        assert.deepEqual(reached, [], `${role} ${channel} queried protected data`);
+      }
+    }
+  });
+
+  it('preserves administrator diagnostics and non-sensitive queue counts for other roles', async () => {
+    for (const channel of RAW_OUTBOX_CHANNELS) {
+      const reached: string[] = [];
+      assert.equal(await attempt('admin', channel, reached, 'sync_outbox'), 'allowed', channel);
+      assert.deepEqual(reached, [channel]);
+    }
+    for (const role of ['admin', 'manager', 'cashier', 'viewer']) {
+      for (const channel of ['countByTenant', 'getSyncStatus']) {
+        assert.equal(
+          await attempt(role, channel, [], 'sync_outbox'),
+          'allowed',
+          `${role} ${channel}`
+        );
       }
     }
   });

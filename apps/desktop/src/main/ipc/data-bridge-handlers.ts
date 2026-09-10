@@ -101,22 +101,34 @@ export function resolveActiveTenantId(
 const BRIDGE_READ_ROLES = ['admin', 'manager', 'cashier', 'viewer'] as const;
 const BRIDGE_WRITE_ROLES = ['admin', 'manager'] as const;
 const BRIDGE_DELETE_ROLES = ['admin'] as const;
+const BRIDGE_DIAGNOSTIC_ROLES = ['admin'] as const;
 
 export function createDataBridgeHandlers(deps: DataBridgeHandlerDeps) {
   const { operations } = deps;
   const activeTenant = (sessionTenantId: string, hint?: unknown) =>
     resolveActiveTenantId(sessionTenantId, hint, deps.log);
+  // Outbox payloads are raw administrative diagnostics, not the bounded
+  // operational projections served by tRPC. A local_only replication status
+  // does not make prescription/customer associations safe for every reader.
+  // Authorize before any query, including historical rows and ID/field reads.
+  // Inserts/updates return raw rows too, so their response is the same boundary.
+  const requireRawOutboxAccess = (table: string) => {
+    if (table === 'sync_outbox') deps.session.requireOneOfRoles(BRIDGE_DIAGNOSTIC_ROLES);
+  };
 
   return {
     getAll: withAuthenticatedDesktopSession(
       deps.session,
-      async ({ tenantId }, table: string, rendererTenantId?: unknown) =>
-        operations.getAll(table, activeTenant(tenantId, rendererTenantId)),
+      async ({ tenantId }, table: string, rendererTenantId?: unknown) => {
+        requireRawOutboxAccess(table);
+        return operations.getAll(table, activeTenant(tenantId, rendererTenantId));
+      },
       BRIDGE_READ_ROLES
     ),
     getById: withAuthenticatedDesktopSession(
       deps.session,
       async ({ tenantId }, table: string, id: string) => {
+        requireRawOutboxAccess(table);
         const validatedTable = operations.getAllowedTable(table);
         await operations.assertRowBelongsToTenant(validatedTable, id, tenantId);
         return operations.getById(table, id);
@@ -126,6 +138,7 @@ export function createDataBridgeHandlers(deps: DataBridgeHandlerDeps) {
     insert: withAuthenticatedDesktopSession(
       deps.session,
       async ({ tenantId }, table: string, data: Record<string, unknown>) => {
+        requireRawOutboxAccess(table);
         const validatedTable = operations.getAllowedTable(table);
         if (validatedTable === 'sale_items') {
           await operations.assertSaleItemWriteBelongsToTenant(
@@ -145,6 +158,7 @@ export function createDataBridgeHandlers(deps: DataBridgeHandlerDeps) {
     update: withAuthenticatedDesktopSession(
       deps.session,
       async ({ tenantId }, table: string, id: string, data: Record<string, unknown>) => {
+        requireRawOutboxAccess(table);
         const validatedTable = operations.getAllowedTable(table);
         await operations.assertRowBelongsToTenant(validatedTable, id, tenantId);
         if (validatedTable === 'sale_items') {
@@ -173,8 +187,10 @@ export function createDataBridgeHandlers(deps: DataBridgeHandlerDeps) {
     ),
     getByField: withAuthenticatedDesktopSession(
       deps.session,
-      async ({ tenantId }, table: string, fieldName: string, value: unknown) =>
-        operations.getByField(table, fieldName, value, tenantId),
+      async ({ tenantId }, table: string, fieldName: string, value: unknown) => {
+        requireRawOutboxAccess(table);
+        return operations.getByField(table, fieldName, value, tenantId);
+      },
       BRIDGE_READ_ROLES
     ),
     deleteByTenant: withAuthenticatedDesktopSession(
@@ -205,7 +221,8 @@ export function createDataBridgeHandlers(deps: DataBridgeHandlerDeps) {
     getPendingSyncItems: withAuthenticatedDesktopSession(
       deps.session,
       async ({ tenantId }, rendererTenantId?: unknown) =>
-        operations.getPendingSyncItems(activeTenant(tenantId, rendererTenantId))
+        operations.getPendingSyncItems(activeTenant(tenantId, rendererTenantId)),
+      BRIDGE_DIAGNOSTIC_ROLES
     ),
     getSyncStatus: withAuthenticatedDesktopSession(
       deps.session,

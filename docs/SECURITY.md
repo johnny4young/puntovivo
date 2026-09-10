@@ -89,6 +89,13 @@ localized re-entry UX; preload rejects locally, so Electron invoke details,
 main-process stacks, and internal session codes are never rendered to the
 operator.
 
+Raw `sync_outbox` rows are administrator-only diagnostics, including generic
+`getAll`/`getById`/`getByField`, the pending-items alias, and insert/update
+responses. This applies to historical queued payloads as well as `local_only`
+rows: replication status is not a read permission. Tenant-scoped queue counts
+and sync status remain available to authenticated operators; business workflows
+use their bounded, role-specific tRPC projections instead.
+
 Content Security Policy and renderer response headers are applied by main.
 Production builds do not inherit development DevTools switches.
 
@@ -142,10 +149,12 @@ and does not assert external screen/printer receipt.
 
 ### Pharmacy evidence
 
-- Prescription PII is stored only in a purpose-bound AES-256-GCM envelope.
-  Ordinary reads, audit rows, and sync payloads expose bounded operational
-  metadata but never the ciphertext, keyed digest, reference, prescriber,
-  buyer document, or notes.
+- Prescription references, prescriber details, buyer documents, and notes are
+  stored in a purpose-bound AES-256-GCM envelope. Ordinary reads, audit rows,
+  and sync payloads never expose those fields, the ciphertext, or keyed digest.
+  Customer/product associations are still sensitive operational metadata, not
+  anonymous data: tRPC limits their projection by role, and raw desktop outbox
+  access requires an administrator as described above.
 - Approval and dispensing authenticate the evidence envelope, bind its
   decrypted reference to the tenant/product HMAC, authenticate the sealed
   professional credential against its country digest and type, revalidate
