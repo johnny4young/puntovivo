@@ -104,6 +104,12 @@ export interface PerfBudgetProductSearchProfile {
   pharmacyBuildElapsedMs: Record<string, number>;
   /** Catalog size to query-shape p95 baselines in milliseconds. */
   p95: Record<string, Record<string, number>>;
+  /**
+   * Catalog size to substring-lane p95 baselines for a catalog that carries a
+   * pharmacy profile on every product. Kept apart from `p95` so retail stores
+   * are never budgeted for pharmacy data.
+   */
+  pharmacyP95: Record<string, Record<string, number>>;
 }
 
 export interface PerfBudgetAuditChainProfile {
@@ -196,11 +202,17 @@ export function loadPerfBudget(): PerfBudget {
     !parsed.productSearchProfile.buildElapsedMs ||
     !parsed.productSearchProfile.pharmacyBuildElapsedMs ||
     !parsed.productSearchProfile.p95 ||
+    !parsed.productSearchProfile.pharmacyP95 ||
     parsed.productSearchProfile.catalogSizes.some(size => {
       const key = String(size);
       const buildMs = parsed.productSearchProfile?.buildElapsedMs?.[key];
       const pharmacyBuildMs = parsed.productSearchProfile?.pharmacyBuildElapsedMs?.[key];
-      const queryBudgets = parsed.productSearchProfile?.p95?.[key];
+      const invalidQueryBudgets = (queryBudgets: Record<string, number> | undefined) =>
+        !queryBudgets ||
+        Object.keys(queryBudgets).length === 0 ||
+        Object.values(queryBudgets).some(
+          value => typeof value !== 'number' || !Number.isFinite(value) || value <= 0
+        );
       return (
         typeof buildMs !== 'number' ||
         !Number.isFinite(buildMs) ||
@@ -208,11 +220,8 @@ export function loadPerfBudget(): PerfBudget {
         typeof pharmacyBuildMs !== 'number' ||
         !Number.isFinite(pharmacyBuildMs) ||
         pharmacyBuildMs <= 0 ||
-        !queryBudgets ||
-        Object.keys(queryBudgets).length === 0 ||
-        Object.values(queryBudgets).some(
-          value => typeof value !== 'number' || !Number.isFinite(value) || value <= 0
-        )
+        invalidQueryBudgets(parsed.productSearchProfile?.p95?.[key]) ||
+        invalidQueryBudgets(parsed.productSearchProfile?.pharmacyP95?.[key])
       );
     }) ||
     !parsed.auditChainProfile ||

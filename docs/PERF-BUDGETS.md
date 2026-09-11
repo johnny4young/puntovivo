@@ -196,27 +196,49 @@ in-memory SQLite gate.
 
 ### Product-search scale contract
 
-`__tests__/perf-product-search-profile.test.ts` grows one deterministic tenant
-catalog through 1,000, 10,000, and 50,000 products in the same in-memory SQLite
-database. The profile runs after the ordinary coverage and store gates in its
+`__tests__/perf-product-search-profile.test.ts` grows the same deterministic
+tenant catalog through 1,000, 10,000, and 50,000 products twice, once per
+tenant shape, each in its own in-memory SQLite database: a retail catalog with
+no pharmacy profile, and a pharmacy catalog with a one-to-one profile on every
+product. The profile runs after the ordinary coverage and store gates in its
 own single-worker Vitest process. This keeps wall-clock samples free from the
 parallel coverage pool and also exercises the same incremental FTS triggers
 used by real product writes.
 
-At every tier the gate first attaches the one-to-one pharmacy profile to every
-product and requires profile/FTS cardinality parity. Catalog construction and
+The shapes use separate databases because profile data changes what the same
+scan touches. On 2026-09-11 the single mixed catalog measured its substring
+lane at 20 to 28 ms on hosted runners against a 27 ms ceiling, while the 10k
+tier stayed flat and the literal lane itself never joined a profile. One shared
+budget would either bill retail stores for pharmacy data or let a pharmacy
+regression hide under retail headroom.
+
+Each shape requires profile/FTS cardinality parity at every tier: no profile for
+retail and one per product for pharmacy. Retail catalog construction and
 pharmacy attachment have separate elapsed budgets for every tier, so a future
 trigger or profile-write regression cannot hide inside the test timeout. The
-gate then drives the production `products.search` tRPC procedure and measures
-retail plus pharmacy operator paths after three discarded warmups:
+gate then drives the production `products.search` tRPC procedure after three
+discarded warmups. Both shapes measure:
 
 1. exact SKU resolution through the tenant/code index;
 2. selective multi-token prefix lookup through FTS5;
 3. a broad two-token prefix that matches the whole generated catalog; and
 4. an internal-token substring that deliberately reaches the compatibility
-   `LIKE` fallback;
-5. active-ingredient prefix lookup through the pharmacy FTS lane; and
-6. exact sanitary-registration lookup through its tenant-scoped index.
+   `LIKE` fallback.
+
+The pharmacy shape adds:
+
+5. active-ingredient prefix lookup through the pharmacy FTS lane;
+6. exact sanitary-registration lookup through its tenant-scoped index; and
+7. a pharmacy-only internal-token fragment of the active ingredient, which
+   reaches the joined regulated-metadata `LIKE` lane.
+
+Exact, FTS, and hybrid-pool ceilings come from `p95` for both shapes. Only the
+substring lanes are budgeted per shape: the retail catalog answers to
+`p95.substringFallback`, while the pharmacy catalog's generic and metadata
+substrings answer to `pharmacyP95`. Kitchen-routing lookups run on the retail
+catalog. The catalog and literal search procedures evaluate regulated metadata
+only for a tenant that owns a pharmacy profile, so a retail tenant never pays
+that join probe.
 
 The same process also calls the production hybrid candidate service directly
 with a broad query. It requires exactly 200 tenant-safe FTS candidates and
@@ -242,6 +264,10 @@ or below 1.59 ms, and the substring fallback at or below 7.42 ms. Two sequential
 2026-09-02 local PR9 runs attached pharmacy profiles in at most 34.02 ms,
 351.47 ms, and 1,662.49 ms. That phase reuses the existing 200/800/4,000 ms
 catalog-build baselines rather than introducing a looser host contract.
+The `pharmacyP95` substring ceilings are provisional until two sequential
+hosted Backend Server runs recalibrate them. Two local Apple Silicon runs of
+the split measured the 50k pharmacy catalog substring at most 9.40 ms and the
+pharmacy-only metadata substring at most 21.17 ms.
 Checked-in baselines deliberately retain runner headroom, then apply the shared
 35% tolerance. They are regression budgets rather than user-facing latency
 SLAs.
