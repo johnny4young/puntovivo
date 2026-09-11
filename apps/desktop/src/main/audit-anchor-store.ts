@@ -94,7 +94,9 @@ export function createSafeStorageAuditAnchorStore(options: {
     } catch {
       // Windows ACLs plus DPAPI own access control.
     }
-    const file = openSync(tmpPath, 'r');
+    // Windows backs fsync with FlushFileBuffers, which needs a writable handle;
+    // a read-only descriptor fails there with EPERM although POSIX accepts it.
+    const file = openSync(tmpPath, 'r+');
     try {
       fsyncSync(file);
     } finally {
