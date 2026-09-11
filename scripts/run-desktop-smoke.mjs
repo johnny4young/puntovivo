@@ -39,6 +39,7 @@ import {
   createSmokeOwnerCredentials,
   settleRenderer,
   signBackIn,
+  trackRendererRequests,
 } from './lib/packaged-first-use-journey.mjs';
 
 const APP_NAME = 'Puntovivo';
@@ -280,6 +281,8 @@ async function verifyPackagedRenderer() {
       context.pages().find(candidate => candidate.url().startsWith('puntovivo-app:')) ??
       context.pages()[0] ??
       (await context.waitForEvent('page', { timeout: RENDERER_TIMEOUT_MS }));
+    // Count requests before driving anything, so shutdown can wait for them.
+    const requests = trackRendererRequests(page);
 
     // A fresh packaged install has no owner, so the login route resolves to
     // the first-use setup form. The ordinary sign-in form renders briefly while
@@ -321,8 +324,8 @@ async function verifyPackagedRenderer() {
         .waitFor({ state: 'visible', timeout: 30_000 });
     }
 
-    // Shut down only after the landing stops painting; see settleRenderer.
-    await settleRenderer(page);
+    // Shut down only after the landing stops painting and loading; see settleRenderer.
+    await settleRenderer(page, requests);
     console.log(
       '[desktop-smoke] renderer OK: preload bridge, first-use claim, owner sign-in, and data-backed landing'
     );

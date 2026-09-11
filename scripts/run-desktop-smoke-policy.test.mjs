@@ -72,11 +72,12 @@ test('packaged renderer smoke proves the preload bridge and a data-backed login'
   assert.match(rendererJourney, /page && process\.platform !== 'linux'/);
   assert.match(rendererJourney, /X11 is the inverse/);
   const inOrder = [
+    'const requests = trackRendererRequests(page)',
     "page.locator('#setup-businessName')",
     'claimInstallation(page, owner',
     'signBackIn(page, owner',
     'company-tab-readiness',
-    'settleRenderer(page)',
+    'settleRenderer(page, requests)',
     'renderer OK',
     'requestE2eAppQuit',
   ].map(marker => rendererJourney.indexOf(marker));
@@ -84,7 +85,7 @@ test('packaged renderer smoke proves the preload bridge and a data-backed login'
     inOrder.every(
       (position, index) => position !== -1 && (index === 0 || position > inOrder[index - 1])
     ),
-    'claim, sign back in, check the landing, then settle before any shutdown'
+    'track requests before driving, claim, sign back in, check the landing, then settle before any shutdown'
   );
   assert.ok(
     rendererJourney.lastIndexOf('finish(rendererError)') >

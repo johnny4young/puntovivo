@@ -19,42 +19,41 @@ import {
   createSmokeOwnerCredentials,
   settleRenderer,
   signBackIn,
+  trackRendererRequests,
 } from './lib/packaged-first-use-journey.mjs';
 
 /**
- * Run the in-page settle function in Node against controllable stand-ins for
- * document.getAnimations and resource timing, the two signals it watches.
+ * A Playwright page stand-in for settling: it emits request events the way
+ * connectOverCDP delivers them, and runs the animation probe in Node against a
+ * controllable document.getAnimations.
  */
-async function settleAgainst({ animatingForMs = 0, networkForMs = 0 }, options) {
-  const originalObserver = globalThis.PerformanceObserver;
+function settlePage({ animatingForMs = 0 } = {}) {
   const started = performance.now();
-  const observers = new Set();
-  const network = setInterval(() => {
-    if (performance.now() - started < networkForMs) observers.forEach(callback => callback());
-  }, 20);
-  globalThis.document = {
-    getAnimations: () =>
-      performance.now() - started < animatingForMs ? [{ playState: 'running' }] : [],
+  const listeners = new Map();
+  return {
+    started,
+    on(event, handler) {
+      listeners.set(event, [...(listeners.get(event) ?? []), handler]);
+    },
+    emit(event, request) {
+      for (const handler of listeners.get(event) ?? []) handler(request);
+    },
+    async evaluate(probe) {
+      globalThis.document = {
+        getAnimations: () =>
+          performance.now() - started < animatingForMs ? [{ playState: 'running' }] : [],
+      };
+      try {
+        return probe();
+      } finally {
+        delete globalThis.document;
+      }
+    },
   };
-  globalThis.PerformanceObserver = class {
-    constructor(callback) {
-      this.callback = callback;
-    }
-    observe() {
-      observers.add(this.callback);
-    }
-    disconnect() {
-      observers.delete(this.callback);
-    }
-  };
-  try {
-    await settleRenderer({ evaluate: (fn, arg) => fn(arg) }, options);
-    return performance.now() - started;
-  } finally {
-    clearInterval(network);
-    globalThis.PerformanceObserver = originalObserver;
-    delete globalThis.document;
-  }
+}
+
+function pageRequest(url, resourceType = 'fetch') {
+  return { url: () => url, resourceType: () => resourceType };
 }
 
 /** A Playwright page stand-in that records every operator action in order. */
@@ -207,18 +206,62 @@ test('recognises every credential a packaged first run must never print', () => 
   assert.doesNotMatch('[Server] ✓ Server started at http://127.0.0.1:8090', CREDENTIAL_BANNER);
 });
 
-test('settles only after animations stop and the network stays quiet', async () => {
-  const elapsed = await settleAgainst(
-    { animatingForMs: 120, networkForMs: 200 },
-    { quietMs: 100, timeoutMs: 2_000 }
-  );
-  // The quiet window starts after the last activity, the network at 200 ms.
+test('settles only after animations stop and requests finish', async () => {
+  const page = settlePage({ animatingForMs: 120 });
+  const requests = trackRendererRequests(page);
+  const data = pageRequest('http://127.0.0.1:37707/api/trpc/sales.list?batch=1');
+  page.emit('request', data);
+  setTimeout(() => page.emit('requestfinished', data), 200);
+
+  await settleRenderer(page, requests, { quietMs: 100, timeoutMs: 2_000 });
+  const elapsed = performance.now() - page.started;
+  // The quiet window starts after the last activity: the request at 200 ms.
   assert.ok(elapsed >= 300, `settled after ${elapsed.toFixed(0)} ms, before activity stopped`);
 });
 
 test('refuses to shut down over a renderer that never stops animating', async () => {
+  const page = settlePage({ animatingForMs: Number.POSITIVE_INFINITY });
   await assert.rejects(
-    settleAgainst({ animatingForMs: Number.POSITIVE_INFINITY }, { quietMs: 100, timeoutMs: 300 }),
+    settleRenderer(page, trackRendererRequests(page), { quietMs: 100, timeoutMs: 300 }),
     /still animating or loading 300 ms after its landing/
+  );
+});
+
+test('waits for a request that is still in flight past the quiet window', async () => {
+  // Resource timing only reports a request once it completes; a request that
+  // starts before settling and outlives the quiet window must still hold it.
+  const page = settlePage();
+  const requests = trackRendererRequests(page);
+  const slow = pageRequest('http://127.0.0.1:37707/api/trpc/setupReadiness.get?batch=1');
+  page.emit('request', slow);
+  setTimeout(() => page.emit('requestfinished', slow), 400);
+
+  await settleRenderer(page, requests, { quietMs: 100, timeoutMs: 2_000 });
+  const elapsed = performance.now() - page.started;
+  assert.ok(elapsed >= 500, `settled after ${elapsed.toFixed(0)} ms while a request was in flight`);
+});
+
+test('ignores the streams that stay open for the whole session', async () => {
+  // The realtime channel is a streaming fetch that never finishes, so counting
+  // it would hold every landing that subscribes until the timeout.
+  const page = settlePage();
+  const requests = trackRendererRequests(page);
+  page.emit(
+    'request',
+    pageRequest('http://127.0.0.1:37707/api/realtime/subscribe?collections=sales')
+  );
+  page.emit('request', pageRequest('http://127.0.0.1:37707/events', 'eventsource'));
+
+  await settleRenderer(page, requests, { quietMs: 100, timeoutMs: 1_000 });
+  assert.equal(requests.outstanding, 0);
+});
+
+test('fails loudly when an ordinary request never finishes', async () => {
+  const page = settlePage();
+  const requests = trackRendererRequests(page);
+  page.emit('request', pageRequest('http://127.0.0.1:37707/api/trpc/reports.dayClose.preview'));
+  await assert.rejects(
+    settleRenderer(page, requests, { quietMs: 100, timeoutMs: 300 }),
+    /\(1 request\(s\) outstanding\)/
   );
 });

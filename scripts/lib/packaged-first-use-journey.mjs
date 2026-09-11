@@ -15,6 +15,7 @@
  * @module scripts/lib/packaged-first-use-journey
  */
 import { randomBytes } from 'node:crypto';
+import { performance } from 'node:perf_hooks';
 
 const CONTINUE = /^(Continue|Continuar)$/;
 const CREATE_WORKSPACE = /^(Create my workspace|Crear mi espacio de trabajo)$/;
@@ -76,45 +77,78 @@ export async function claimInstallation(page, credentials, { timeoutMs }) {
   await waitForWorkspace(page, timeoutMs);
 }
 
+/** Requests that stay open for the whole session by design are not outstanding work. */
+function isSessionStream(request) {
+  const type = request.resourceType();
+  if (type === 'eventsource' || type === 'websocket') return true;
+  try {
+    // The realtime channel is a fetch that streams server-sent events for as
+    // long as a screen subscribes, so it never finishes while the app runs.
+    return new URL(request.url()).pathname.startsWith('/api/realtime/');
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Count the renderer's outstanding requests from the moment the smoke holds the
+ * page. Resource timing only reports a request once it completes, so a request
+ * still in flight would otherwise look like a quiet renderer. Attach this
+ * before driving the journey so every request is seen from its start.
+ */
+export function trackRendererRequests(page) {
+  const outstanding = new Set();
+  const tracker = {
+    lastActivity: performance.now(),
+    get outstanding() {
+      return outstanding.size;
+    },
+  };
+  page.on('request', request => {
+    if (isSessionStream(request)) return;
+    outstanding.add(request);
+    tracker.lastActivity = performance.now();
+  });
+  const finish = request => {
+    if (outstanding.delete(request)) tracker.lastActivity = performance.now();
+  };
+  page.on('requestfinished', finish);
+  page.on('requestfailed', finish);
+  return tracker;
+}
+
 /**
  * Wait until the landing stops animating and loading before the smoke shuts
  * the app down. The journey reaches its landing within about 100 ms of signing
  * back in, while loading skeletons still animate; on X11, destroying the
  * window with a frame still in flight makes Chromium log SharedImageManager and
- * PutImage DrawableError errors. Polling uses timers, not animation frames, so
- * waiting never schedules a frame of its own.
+ * PutImage DrawableError errors. The quiet window restarts while any animation
+ * runs or any tracked request is outstanding, and whenever a request starts or
+ * finishes. Polling uses timers, not animation frames, so waiting never
+ * schedules a frame of its own.
  */
-export async function settleRenderer(page, { quietMs = 750, timeoutMs = 15_000 } = {}) {
-  const settled = await page.evaluate(
-    ({ quietMs: quiet, timeoutMs: limit }) =>
-      new Promise(resolve => {
-        const started = performance.now();
-        let lastActivity = started;
-        const network = new PerformanceObserver(() => {
-          lastActivity = performance.now();
-        });
-        network.observe({ type: 'resource' });
-        const poll = () => {
-          const now = performance.now();
-          if (document.getAnimations().some(animation => animation.playState === 'running')) {
-            lastActivity = now;
-          }
-          if (now - lastActivity >= quiet) {
-            network.disconnect();
-            resolve(true);
-          } else if (now - started >= limit) {
-            network.disconnect();
-            resolve(false);
-          } else {
-            setTimeout(poll, 50);
-          }
-        };
-        setTimeout(poll, 50);
-      }),
-    { quietMs, timeoutMs }
-  );
-  if (!settled) {
-    throw new Error(`renderer was still animating or loading ${timeoutMs} ms after its landing`);
+export async function settleRenderer(
+  page,
+  requests,
+  { quietMs = 750, timeoutMs = 15_000, pollMs = 50 } = {}
+) {
+  const started = performance.now();
+  let lastActivity = started;
+  for (;;) {
+    const animating = await page.evaluate(() =>
+      document.getAnimations().some(animation => animation.playState === 'running')
+    );
+    const now = performance.now();
+    if (animating || requests.outstanding > 0) lastActivity = now;
+    lastActivity = Math.max(lastActivity, requests.lastActivity);
+    if (now - lastActivity >= quietMs) return;
+    if (now - started >= timeoutMs) {
+      throw new Error(
+        `renderer was still animating or loading ${timeoutMs} ms after its landing ` +
+          `(${requests.outstanding} request(s) outstanding)`
+      );
+    }
+    await new Promise(resolve => setTimeout(resolve, pollMs));
   }
 }
 
