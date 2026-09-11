@@ -19,31 +19,36 @@ function withDatabase<T>(run: (db: Database.Database) => T): T {
 // own physical stock. Direct fixtures prove recovery, not inventory receipt UX.
 function createFixture() {
   return withDatabase(db =>
-    db.transaction(() => {
-      const { tenantId } = db
-        .prepare('SELECT tenant_id AS tenantId FROM users WHERE email = ?')
-        .get('e2e.admin@local.test') as { tenantId: string };
-      const sites = db
-        .prepare('SELECT id FROM sites WHERE tenant_id = ? AND is_active = 1 ORDER BY id LIMIT 2')
-        .all(tenantId) as { id: string }[];
-      expect(sites).toHaveLength(2);
-      const { id: unitId } = db
-        .prepare('SELECT id FROM units WHERE tenant_id = ? AND abbreviation = ?')
-        .get(tenantId, 'UND') as { id: string };
-      const id = `tracking-value-${randomUUID()}`;
-      db.prepare(
-        'INSERT INTO products (id, tenant_id, name, sku, price, cost, initial_cost, inventory_value_cents, cogs_value_cents, valuation_quantity) VALUES (?, ?, ?, ?, 2, 1, 1, 0, 0, 0)'
-      ).run(id, tenantId, 'Site stock reconciliation', id);
-      db.prepare(
-        'INSERT INTO unit_x_product (id, product_id, unit_id, equivalence, price, is_base) VALUES (?, ?, ?, 1, 2, 1)'
-      ).run(`${id}-unit`, id, unitId);
-      for (const [index, site] of sites.entries()) {
+    db
+      .transaction(() => {
+        const { tenantId } = db
+          .prepare('SELECT tenant_id AS tenantId FROM users WHERE email = ?')
+          .get('e2e.admin@local.test') as { tenantId: string };
+        const sites = db
+          .prepare('SELECT id FROM sites WHERE tenant_id = ? AND is_active = 1 ORDER BY id LIMIT 2')
+          .all(tenantId) as { id: string }[];
+        expect(sites).toHaveLength(2);
+        const { id: unitId } = db
+          .prepare('SELECT id FROM units WHERE tenant_id = ? AND abbreviation = ?')
+          .get(tenantId, 'UND') as { id: string };
+        const id = `tracking-value-${randomUUID()}`;
         db.prepare(
-          'INSERT INTO inventory_balances (id, tenant_id, site_id, product_id, on_hand) VALUES (?, ?, ?, ?, ?)'
-        ).run(`${id}-${index}`, tenantId, site.id, id, index === 0 ? 1 : -1);
-      }
-      return { id, tenantId };
-    })()
+          'INSERT INTO products (id, tenant_id, name, sku, price, cost, initial_cost, inventory_value_cents, cogs_value_cents, valuation_quantity) VALUES (?, ?, ?, ?, 2, 1, 1, 0, 0, 0)'
+        ).run(id, tenantId, 'Site stock reconciliation', id);
+        db.prepare(
+          'INSERT INTO unit_x_product (id, product_id, unit_id, equivalence, price, is_base) VALUES (?, ?, ?, 1, 2, 1)'
+        ).run(`${id}-unit`, id, unitId);
+        for (const [index, site] of sites.entries()) {
+          db.prepare(
+            'INSERT INTO inventory_balances (id, tenant_id, site_id, product_id, on_hand) VALUES (?, ?, ?, ?, ?)'
+          ).run(`${id}-${index}`, tenantId, site.id, id, index === 0 ? 1 : -1);
+        }
+        return { id, tenantId };
+      })
+      // Immediate, because this fixture reads before it writes: a deferred
+      // transaction cannot wait for the lock when the running server commits in
+      // between, so SQLite reports the database as locked at once.
+      .immediate()
   );
 }
 

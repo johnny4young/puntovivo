@@ -504,35 +504,41 @@ function seedBusinessProduct(
   );
   const totalStock = Object.values(stockBySiteId).reduce((sum, stock) => sum + stock, 0);
 
-  db.prepare(
-    `insert into products (
-      id, tenant_id, name, sku, price, price2, price3, cost, initial_cost,
-      min_stock, sell_by_fraction, is_active, created_at, updated_at
-    ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1, ?, ?)`
-  ).run(productId, args.tenantId, productName, sku, 12500, 12500, 12500, 7500, 7500, 1, now, now);
-
-  db.prepare(
-    `insert into unit_x_product (
-      id, product_id, unit_id, equivalence, price, is_base, created_at, updated_at
-    ) values (?, ?, ?, 1, ?, 1, ?, ?)`
-  ).run(makeId('e2e_unit_product'), productId, unitId, 12500, now, now);
-
-  for (const site of args.sites) {
+  // Inventory reads run ensureInventoryBalancesForSite for the shared tenant, so
+  // a product committed ahead of its balances can receive a server-created row
+  // first and fail the insert below. Commit the product and every balance in
+  // one immediate write.
+  db.transaction(() => {
     db.prepare(
-      `insert into inventory_balances (
-        id, tenant_id, site_id, product_id, on_hand, reserved,
-        sync_status, sync_version, created_at, updated_at
-      ) values (?, ?, ?, ?, ?, 0, 'pending', 0, ?, ?)`
-    ).run(
-      makeId('e2e_balance'),
-      args.tenantId,
-      site.id,
-      productId,
-      stockBySiteId[site.id] ?? 0,
-      now,
-      now
-    );
-  }
+      `insert into products (
+        id, tenant_id, name, sku, price, price2, price3, cost, initial_cost,
+        min_stock, sell_by_fraction, is_active, created_at, updated_at
+      ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1, ?, ?)`
+    ).run(productId, args.tenantId, productName, sku, 12500, 12500, 12500, 7500, 7500, 1, now, now);
+
+    db.prepare(
+      `insert into unit_x_product (
+        id, product_id, unit_id, equivalence, price, is_base, created_at, updated_at
+      ) values (?, ?, ?, 1, ?, 1, ?, ?)`
+    ).run(makeId('e2e_unit_product'), productId, unitId, 12500, now, now);
+
+    for (const site of args.sites) {
+      db.prepare(
+        `insert into inventory_balances (
+          id, tenant_id, site_id, product_id, on_hand, reserved,
+          sync_status, sync_version, created_at, updated_at
+        ) values (?, ?, ?, ?, ?, 0, 'pending', 0, ?, ?)`
+      ).run(
+        makeId('e2e_balance'),
+        args.tenantId,
+        site.id,
+        productId,
+        stockBySiteId[site.id] ?? 0,
+        now,
+        now
+      );
+    }
+  }).immediate();
 
   return {
     id: productId,
