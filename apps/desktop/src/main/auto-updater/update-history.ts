@@ -183,7 +183,9 @@ function writeRecord(filePath: string, record: UpdateHistoryRecord): void {
     } catch {
       // Windows ACLs own access control.
     }
-    const file = openSync(temporaryPath, 'r');
+    // Windows backs fsync with FlushFileBuffers, which needs a writable handle;
+    // a read-only descriptor fails there with EPERM although POSIX accepts it.
+    const file = openSync(temporaryPath, 'r+');
     try {
       fsyncSync(file);
     } finally {

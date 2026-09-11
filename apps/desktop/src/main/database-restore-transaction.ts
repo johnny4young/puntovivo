@@ -61,7 +61,9 @@ async function exists(path: string): Promise<boolean> {
 }
 
 async function syncFile(path: string): Promise<void> {
-  const handle = await open(path, 'r');
+  // Windows backs fsync with FlushFileBuffers, which needs a writable handle;
+  // a read-only handle fails there with EPERM although POSIX accepts it.
+  const handle = await open(path, 'r+');
   try {
     await handle.sync();
   } finally {
