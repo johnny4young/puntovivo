@@ -114,6 +114,70 @@ describe('Electron process log policy', () => {
     );
   });
 
+  it('accepts the cold macOS spell server check only for that request and the packaged app', () => {
+    // Observed on the macos-26 release runner (2026-09-04, job 101069511807)
+    // right after the smoke typed into the sign-in form.
+    assert.equal(
+      classifyElectronStderrLine(
+        '2026-09-04 15:08:21.025 puntovivo[35397:58957] NSSpellServer dataFromCheckingString timed out, index is 1'
+      ),
+      'informational'
+    );
+    assert.equal(
+      classifyElectronStderrLine(
+        '2026-09-04 15:08:21.536 puntovivo[35397:58957] NSSpellServer dataFromCheckingString succeeded, index is 0'
+      ),
+      'informational'
+    );
+    // Another outcome, another spell server request, or another process stays blocking.
+    assert.equal(
+      classifyElectronStderrLine(
+        '2026-09-04 15:08:21.025 puntovivo[35397:58957] NSSpellServer dataFromCheckingString failed, index is 1'
+      ),
+      'unexpected'
+    );
+    assert.equal(
+      classifyElectronStderrLine(
+        '2026-09-04 15:08:21.025 puntovivo[35397:58957] NSSpellServer checkString timed out, index is 1'
+      ),
+      'unexpected'
+    );
+    assert.equal(
+      classifyElectronStderrLine(
+        '2026-09-04 15:08:21.025 puntovivo Helper (Renderer)[35398:58960] NSSpellServer dataFromCheckingString timed out, index is 1'
+      ),
+      'unexpected'
+    );
+  });
+
+  it('accepts the Chromium 150 task policy teardown pair and nothing else from that file', () => {
+    // Lines 53 and 98 of base/process/process_mac.cc in Chromium 150.0.7871.224
+    // (Electron 43.4.1); logged once during app quit on the same 2026-09-04 run.
+    assert.equal(
+      classifyElectronStderrLine(
+        '[35397:0904/150825.687043:ERROR:base/process/process_mac.cc:53] task_policy_set TASK_CATEGORY_POLICY: (os/kern) invalid argument (4)'
+      ),
+      'informational'
+    );
+    assert.equal(
+      classifyElectronStderrLine(
+        '[35397:0904/150825.687108:ERROR:base/process/process_mac.cc:98] task_policy_set TASK_SUPPRESSION_POLICY: (os/kern) invalid argument (4)'
+      ),
+      'informational'
+    );
+    // Adjacent lines, swapped messages, other kern results, and the reading
+    // counterpart stay blocking, so a Chromium rebase forces a deliberate re-pin.
+    for (const line of [
+      '[35397:0904/150825.687043:ERROR:base/process/process_mac.cc:54] task_policy_set TASK_CATEGORY_POLICY: (os/kern) invalid argument (4)',
+      '[35397:0904/150825.687108:ERROR:base/process/process_mac.cc:97] task_policy_set TASK_SUPPRESSION_POLICY: (os/kern) invalid argument (4)',
+      '[35397:0904/150825.687043:ERROR:base/process/process_mac.cc:53] task_policy_set TASK_SUPPRESSION_POLICY: (os/kern) invalid argument (4)',
+      '[35397:0904/150825.687043:ERROR:base/process/process_mac.cc:53] task_policy_set TASK_CATEGORY_POLICY: (os/kern) failure (5)',
+      '[35397:0904/150825.687043:ERROR:base/process/process_mac.cc:38] task_policy_get TASK_CATEGORY_POLICY: (os/kern) invalid argument (4)',
+    ]) {
+      assert.equal(classifyElectronStderrLine(line), 'unexpected', line);
+    }
+  });
+
   it('allows only the exact packaged-CDP startup diagnostic behind an explicit scope', () => {
     const bundleFailure =
       '[33558:0729/105016.628130:INFO:CONSOLE:2] "Electron sandboxed_renderer.bundle.js script failed to run", source: node:electron/js2c/sandbox_bundle (2)';
