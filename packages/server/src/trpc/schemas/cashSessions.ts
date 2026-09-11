@@ -7,6 +7,11 @@ export const cashSessionDenominationInput = z.object({
   count: z.number().int().min(0, 'Denomination count cannot be negative'),
 });
 
+/**
+ * `siteId` only partitions the client cache key per site. The procedures answer
+ * for `ctx.siteId`, which `createContext` resolves from the validated
+ * `x-site-id` header.
+ */
 export const getActiveCashSessionInput = z
   .object({
     siteId: z.string().optional(),

@@ -747,6 +747,61 @@ describe('AuthProvider — login flow', () => {
     await waitFor(() => expect(auth.current.error).toBe(failure));
     expect(navigateMock).not.toHaveBeenCalled();
   });
+
+  it('purges the resumed identity caches before a different login becomes visible', async () => {
+    // Opening /login keeps the refresh cookie: boot resumes that identity behind
+    // the form, and its queries fill cache keys that carry no identity.
+    refreshMutateMock.mockResolvedValue({ token: 'tok-resumed' });
+    meQueryMock.mockResolvedValueOnce(sessionPayload).mockResolvedValueOnce({
+      user: { ...sessionPayload.user, id: 'u2', email: 'admin@demo.co', tenantId: 't2' },
+      tenant: { ...sessionPayload.tenant, id: 't2', name: 'Demo Retail Colombia', slug: 'demo-co' },
+    });
+    loginMutateMock.mockResolvedValue({ token: 'tok-demo' });
+
+    const { result: auth } = renderHook(() => useAuth(), { wrapper: wrap });
+    await waitFor(() => expect(auth.current.tenant?.id).toBe('t1'));
+    expect(queryClientClearMock).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await auth.current.login({ email: 'admin@demo.co', password: 'pwd' });
+    });
+
+    expect(auth.current.tenant?.id).toBe('t2');
+    expect(queryClientClearMock).toHaveBeenCalledOnce();
+    expect(resetQuickCreateMock).toHaveBeenCalledOnce();
+    expect(clearCustomerDisplayMock).toHaveBeenCalledOnce();
+    // Purge only after the verified bearer replaced the resumed one, and before
+    // the new identity is persisted or rendered.
+    expect(queryClientClearMock.mock.invocationCallOrder[0]).toBeGreaterThan(
+      setAccessTokenMock.mock.invocationCallOrder.at(-1)!
+    );
+    expect(queryClientClearMock.mock.invocationCallOrder[0]).toBeLessThan(
+      persistSessionMock.mock.invocationCallOrder.at(-1)!
+    );
+    // Owner-keyed carts stay recovery evidence for the resumed operator.
+    expect(resetWorkspacesMock).not.toHaveBeenCalled();
+    expect(clearSessionMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps the resumed identity and its caches when the new credentials are rejected', async () => {
+    refreshMutateMock.mockResolvedValue({ token: 'tok-resumed' });
+    meQueryMock.mockResolvedValue(sessionPayload);
+    const failure = new Error('bad password');
+    loginMutateMock.mockRejectedValue(failure);
+
+    const { result: auth } = renderHook(() => useAuth(), { wrapper: wrap });
+    await waitFor(() => expect(auth.current.tenant?.id).toBe('t1'));
+
+    await act(async () => {
+      await expect(auth.current.login({ email: 'admin@demo.co', password: 'wrong' })).rejects.toBe(
+        failure
+      );
+    });
+
+    expect(auth.current.tenant?.id).toBe('t1');
+    expect(queryClientClearMock).not.toHaveBeenCalled();
+    expect(resetQuickCreateMock).not.toHaveBeenCalled();
+  });
 });
 
 describe('AuthProvider — confirmed tenant settings', () => {

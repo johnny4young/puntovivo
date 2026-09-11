@@ -58,12 +58,14 @@ export async function createContext({
   }
 
   // Resolve the active site for this request. Precedence:
-  //   1. An explicit `x-site-id` header, but ONLY when it names a site that
-  //      belongs to this tenant AND is active — this rejects cross-tenant or
-  //      stale-site selection coming from client-supplied input.
-  //   2. Otherwise fall back to the tenant's first active site by name, so
-  //      single-site tenants and requests that omit the header still receive
-  //      a deterministic `siteId` instead of null.
+  //   1. An explicit `x-site-id` header is honored ONLY when it names a site
+  //      that belongs to this tenant AND is active. A foreign, stale, or
+  //      inactive selection leaves the request without a site: it is never
+  //      swapped for another site, so writes keyed on `ctx.siteId` fail
+  //      instead of landing somewhere the operator did not select.
+  //   2. A request that omits the header falls back to the tenant's first
+  //      active site by name, so single-site tenants still receive a
+  //      deterministic `siteId` instead of null.
   // Anonymous (no-tenant) requests never carry a site.
   if (tenantId) {
     const requestedSiteId = getHeaderValue(req.headers['x-site-id']);
@@ -77,12 +79,8 @@ export async function createContext({
         )
         .get();
 
-      if (requestedSite) {
-        siteId = requestedSite.id;
-      }
-    }
-
-    if (!siteId) {
+      siteId = requestedSite?.id ?? null;
+    } else {
       const fallbackSite = await req.server.db
         .select({ id: sites.id })
         .from(sites)

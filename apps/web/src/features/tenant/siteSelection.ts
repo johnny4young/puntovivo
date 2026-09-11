@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Site } from '@/types';
 import { clearStoredSiteId, getStoredSiteId, persistSiteId } from './siteStorage';
 
+const NO_SITES: Site[] = [];
+
 export function normalizeSites(sites: Site[] | undefined): Site[] {
   return (sites ?? []).map(site => ({
     ...site,
@@ -51,8 +53,18 @@ export function useActiveSite({
 
   const selectedSiteId = selection.tenantId === tenantId ? selection.siteId : null;
 
+  // `sites.list` query keys carry no identity, so a provider mounted for a new
+  // tenant can observe rows cached for the previous one. The server lists only
+  // the caller's own sites: one row owned by another tenant proves the list
+  // answers a different identity. Never resolve, expose, persist, or clear from
+  // it, so a stored or fallback id is only ever validated against sites this
+  // tenant owns.
+  const isForeignSiteList = !!tenantId && sites.some(site => site.tenantId !== tenantId);
+  const isTenantListReady = !!tenantId && sitesReady && !isForeignSiteList;
+  const tenantSites = isTenantListReady ? sites : NO_SITES;
+
   const resolvedSiteId = useMemo(() => {
-    if (!tenantId || !sitesReady || sites.length === 0) {
+    if (!tenantId || tenantSites.length === 0) {
       return null;
     }
 
@@ -60,12 +72,12 @@ export function useActiveSite({
       currentSiteId: selectedSiteId,
       storedSiteId: getStoredSiteId(tenantId),
       fallbackSiteId,
-      sites,
+      sites: tenantSites,
     });
-  }, [selectedSiteId, fallbackSiteId, sites, sitesReady, tenantId]);
+  }, [selectedSiteId, fallbackSiteId, tenantSites, tenantId]);
 
   useEffect(() => {
-    if (!tenantId || !sitesReady) {
+    if (!tenantId || !isTenantListReady) {
       return;
     }
 
@@ -75,11 +87,11 @@ export function useActiveSite({
     }
 
     clearStoredSiteId(tenantId);
-  }, [resolvedSiteId, sitesReady, tenantId]);
+  }, [resolvedSiteId, isTenantListReady, tenantId]);
 
   const currentSite = useMemo(
-    () => sites.find(site => site.id === resolvedSiteId) ?? null,
-    [resolvedSiteId, sites]
+    () => tenantSites.find(site => site.id === resolvedSiteId) ?? null,
+    [resolvedSiteId, tenantSites]
   );
 
   const switchSite = useCallback(
@@ -88,16 +100,20 @@ export function useActiveSite({
         return;
       }
 
-      if (!sites.some(site => site.id === siteId)) {
+      if (!tenantSites.some(site => site.id === siteId)) {
         return;
       }
 
       setSelection({ tenantId, siteId });
     },
-    [sites, tenantId]
+    [tenantSites, tenantId]
   );
 
   return {
+    /** Sites this tenant owns; empty until an authoritative list arrives. */
+    tenantSites,
+    /** The provided list answers another identity and must be fetched again. */
+    isForeignSiteList,
     currentSite,
     currentSiteId: resolvedSiteId,
     switchSite,

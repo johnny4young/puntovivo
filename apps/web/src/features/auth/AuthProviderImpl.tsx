@@ -504,6 +504,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const session = mapSession(await vanillaClient.auth.me.query());
         if (!isCurrent()) return;
 
+        // Opening /login does not discard the refresh cookie, so boot may have
+        // resumed another identity behind this form and cached its tenant reads
+        // (sites, modules, pricing, locale). Query keys carry no identity: purge
+        // them in the same tick the verified identity renders, or the new tenant
+        // starts from the previous tenant's still-fresh cache. Owner-keyed carts
+        // stay recovery evidence, and the tenant reference is rewritten below.
+        resetIdentityOwnedState({
+          clearVisibleSession: false,
+          clearPersistedSession: false,
+          preserveWorkspaces: true,
+        });
         persistAuthSession(session);
         allowSessionResumeAfterSignIn();
         setUser(session.user);
@@ -565,7 +576,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // The return destination belongs to this login navigation, not to a
       // persisted user preference or an untrusted external redirect URL.
     },
-    [navigate, location.state, clearLocalSession]
+    [navigate, location.state, clearLocalSession, resetIdentityOwnedState]
   );
 
   const switchStaff = useCallback(

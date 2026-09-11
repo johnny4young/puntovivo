@@ -4,7 +4,7 @@ import type { inferRouterInputs, inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '@puntovivo/server';
 import { buildCriticalCommandHeaders, mintEnvelope, type MintedEnvelope } from './commandEnvelope';
 import { getCachedDeviceIdSync } from './deviceId';
-import { getStoredSiteId } from '@/features/tenant/siteStorage';
+import { getRequestSiteId } from '@/features/tenant/siteStorage';
 import { createTrpcClientWithHeaders } from './trpc';
 
 type RouterInputs = inferRouterInputs<AppRouter>;
@@ -364,7 +364,7 @@ export function useCriticalMutation<TPath extends CriticalCommandPath>(
           promise: null,
           createdAtMs: Date.now(),
           deviceId,
-          siteId: getStoredSiteId(),
+          siteId: getRequestSiteId(),
         };
         activeCalls.current.set(inputKey, active);
       }

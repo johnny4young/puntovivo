@@ -18,6 +18,9 @@ export const sequentialsRouter = router({
     const conditions = [eq(sequentials.tenantId, ctx.tenantId)];
 
     if (input?.siteId) {
+      // A foreign site id must fail like every other site-scoped procedure,
+      // not pass as a tenant site that simply has no numbering.
+      await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
       conditions.push(eq(sequentials.siteId, input.siteId));
     }
 

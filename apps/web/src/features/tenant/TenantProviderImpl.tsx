@@ -24,7 +24,7 @@ export function TenantProvider({ children }: TenantProviderProps) {
     () => normalizeSites(sitesQuery.data?.items as Site[] | undefined),
     [sitesQuery.data]
   );
-  const { currentSite, switchSite } = useActiveSite({
+  const { tenantSites, isForeignSiteList, currentSite, switchSite } = useActiveSite({
     tenantId: tenant?.id ?? null,
     sites,
     fallbackSiteId: sitesQuery.data?.activeSiteId ?? sites[0]?.id ?? null,
@@ -32,6 +32,17 @@ export function TenantProvider({ children }: TenantProviderProps) {
     // Do not let that transient shape erase the locally remembered site.
     sitesReady: sitesQuery.data !== undefined,
   });
+
+  // A list cached for the previous identity is not this tenant's answer, and a
+  // remounted observer does not refetch data that is still within staleTime.
+  // Keep the selector loading and ask the server for this tenant's own sites.
+  const refetchSites = sitesQuery.refetch;
+  useEffect(() => {
+    if (isForeignSiteList) {
+      void refetchSites();
+    }
+  }, [isForeignSiteList, refetchSites]);
+  const isLoadingSites = sitesQuery.isLoading || isForeignSiteList;
 
   // Site scoping rides on the `x-site-id` header, NOT on the React Query
   // keys — so a cached `sales.list`/`listDrafts`/etc. entry from the
@@ -59,12 +70,12 @@ export function TenantProvider({ children }: TenantProviderProps) {
     () => ({
       currentTenant: tenant,
       tenantSettings: tenant?.settings ?? null,
-      sites,
+      sites: tenantSites,
       currentSite,
-      isLoadingSites: sitesQuery.isLoading,
+      isLoadingSites,
       switchSite,
     }),
-    [tenant, sites, currentSite, sitesQuery.isLoading, switchSite]
+    [tenant, tenantSites, currentSite, isLoadingSites, switchSite]
   );
 
   return <TenantContext.Provider value={value}>{children}</TenantContext.Provider>;

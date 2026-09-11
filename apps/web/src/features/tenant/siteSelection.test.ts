@@ -138,6 +138,59 @@ describe('useActiveSite — resolution', () => {
   });
 });
 
+describe('useActiveSite — tenant ownership', () => {
+  // `sites.list` query keys carry no identity, so a provider mounted for a new
+  // tenant can briefly observe the previous tenant's cached rows.
+  const previousTenantSites = [
+    makeSite({ id: 'default-branch', tenantId: 'tenant-default', name: 'E2E Branch Site' }),
+    makeSite({ id: 'default-main', tenantId: 'tenant-default', name: 'Main Site' }),
+  ];
+  const activeTenantSites = [
+    makeSite({ id: 'demo-north', tenantId: 'tenant-demo', name: 'Sede Norte' }),
+    makeSite({ id: 'demo-south', tenantId: 'tenant-demo', name: 'Sede Sur' }),
+  ];
+
+  it('never adopts, exposes, persists, or clears from another tenant site list', async () => {
+    const { result } = renderHook(() =>
+      useActiveSite({
+        tenantId: 'tenant-demo',
+        sites: previousTenantSites,
+        fallbackSiteId: 'default-branch',
+      })
+    );
+
+    await act(async () => {
+      await result.current.switchSite('default-main');
+    });
+
+    expect(result.current.currentSite).toBeNull();
+    expect(result.current.currentSiteId).toBeNull();
+    expect(result.current.tenantSites).toEqual([]);
+    expect(result.current.isForeignSiteList).toBe(true);
+    expect(mockedPersist).not.toHaveBeenCalled();
+    expect(mockedClear).not.toHaveBeenCalled();
+  });
+
+  it('replaces a stored site id owned by another tenant with the tenant primary site', async () => {
+    mockedGet.mockReturnValue('default-branch');
+    const { result, rerender } = renderHook(
+      ({ sites, fallbackSiteId }: { sites: Site[]; fallbackSiteId: string }) =>
+        useActiveSite({ tenantId: 'tenant-demo', sites, fallbackSiteId }),
+      { initialProps: { sites: previousTenantSites, fallbackSiteId: 'default-branch' } }
+    );
+    expect(result.current.currentSiteId).toBeNull();
+
+    rerender({ sites: activeTenantSites, fallbackSiteId: 'demo-north' });
+
+    await waitFor(() => {
+      expect(result.current.currentSite?.name).toBe('Sede Norte');
+    });
+    expect(result.current.isForeignSiteList).toBe(false);
+    expect(mockedPersist).toHaveBeenCalledExactlyOnceWith('demo-north', 'tenant-demo');
+    expect(mockedClear).not.toHaveBeenCalled();
+  });
+});
+
 describe('useActiveSite — persistence side-effects', () => {
   it('preserves the stored site while the sites query is still loading', async () => {
     mockedGet.mockReturnValue('site-2');

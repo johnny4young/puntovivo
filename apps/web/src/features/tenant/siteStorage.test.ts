@@ -6,7 +6,9 @@ vi.mock('@/features/auth/authStorage', () => ({
 
 import { getStoredAuthTenantId } from '@/features/auth/authStorage';
 import {
+  __resetDocumentSiteForTests,
   clearStoredSiteId,
+  getRequestSiteId,
   getStoredSiteId,
   persistSiteId,
 } from './siteStorage';
@@ -16,6 +18,7 @@ const mockedGetTenant = vi.mocked(getStoredAuthTenantId);
 beforeEach(() => {
   mockedGetTenant.mockReset();
   window.localStorage.clear();
+  __resetDocumentSiteForTests();
 });
 
 afterEach(() => {
@@ -97,5 +100,51 @@ describe('clearStoredSiteId', () => {
     clearStoredSiteId(undefined);
     // The unrelated entry is preserved.
     expect(window.localStorage.getItem('active_site_id:other')).toBe('site-C');
+  });
+});
+
+describe('getRequestSiteId', () => {
+  it('keeps the site this document resolved after another tab rewrites the shared key', () => {
+    mockedGetTenant.mockReturnValue('tenant-1');
+    persistSiteId('site-north', 'tenant-1');
+    // Every same-origin tab shares localStorage: this write is another tab's switch.
+    window.localStorage.setItem('active_site_id:tenant-1', 'site-south');
+
+    expect(getRequestSiteId()).toBe('site-north');
+    // The shared key still remembers the latest selection for the next boot.
+    expect(getStoredSiteId('tenant-1')).toBe('site-south');
+  });
+
+  it('uses the remembered selection until this document resolves a site', () => {
+    mockedGetTenant.mockReturnValue('tenant-1');
+    window.localStorage.setItem('active_site_id:tenant-1', 'site-south');
+
+    expect(getRequestSiteId()).toBe('site-south');
+  });
+
+  it('keeps this document site when storage loses the auth tenant', () => {
+    mockedGetTenant.mockReturnValue('tenant-1');
+    persistSiteId('site-north', 'tenant-1');
+    mockedGetTenant.mockReturnValue(null);
+
+    expect(getRequestSiteId()).toBe('site-north');
+  });
+
+  it('follows the stored tenant once another identity replaces it', () => {
+    mockedGetTenant.mockReturnValue('tenant-1');
+    persistSiteId('site-north', 'tenant-1');
+    mockedGetTenant.mockReturnValue('tenant-2');
+    window.localStorage.setItem('active_site_id:tenant-2', 'site-b');
+
+    expect(getRequestSiteId()).toBe('site-b');
+  });
+
+  it('forgets this document site when its tenant selection is cleared', () => {
+    mockedGetTenant.mockReturnValue('tenant-1');
+    persistSiteId('site-north', 'tenant-1');
+    clearStoredSiteId('tenant-1');
+    window.localStorage.setItem('active_site_id:tenant-1', 'site-south');
+
+    expect(getRequestSiteId()).toBe('site-south');
   });
 });

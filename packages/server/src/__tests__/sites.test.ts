@@ -3,7 +3,7 @@ import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { companies, locations, sites, users } from '../db/schema.js';
+import { companies, locations, sites, tenants, users } from '../db/schema.js';
 import { signAccessToken } from '../security/authTokens.js';
 import { appRouter } from '../trpc/router.js';
 import { createContext, type Context } from '../trpc/context.js';
@@ -145,6 +145,73 @@ describe('Sites tRPC Router', () => {
     const result = await caller.sites.list();
 
     expect(result.activeSiteId).toBe(mainSiteId);
+  });
+
+  it('leaves the request without a site when the header names another tenant site', async () => {
+    const db = getDatabase();
+    const foreignTenantId = nanoid();
+    const foreignCompanyId = nanoid();
+    const foreignSiteId = nanoid();
+    const now = new Date().toISOString();
+    await db.insert(tenants).values({
+      id: foreignTenantId,
+      name: 'Foreign header tenant',
+      slug: `foreign-header-${foreignTenantId}`,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(companies).values({
+      id: foreignCompanyId,
+      tenantId: foreignTenantId,
+      name: 'Foreign header company',
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(sites).values({
+      id: foreignSiteId,
+      tenantId: foreignTenantId,
+      companyId: foreignCompanyId,
+      name: 'Foreign header site',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    try {
+      // Never swapped for this tenant's first active site: writes keyed on the
+      // request site must fail instead of landing where nobody selected.
+      const context = await createTestContext(foreignSiteId);
+      expect(context.siteId).toBeNull();
+      const result = await appRouter.createCaller(context).sites.list();
+      expect(result.activeSiteId).toBeNull();
+    } finally {
+      await db.delete(sites).where(eq(sites.id, foreignSiteId));
+      await db.delete(companies).where(eq(companies.id, foreignCompanyId));
+      await db.delete(tenants).where(eq(tenants.id, foreignTenantId));
+    }
+  });
+
+  it('leaves the request without a site when the header names an inactive tenant site', async () => {
+    const db = getDatabase();
+    const mainSite = await db.select().from(sites).where(eq(sites.id, mainSiteId)).get();
+    const closedSiteId = nanoid();
+    const now = new Date().toISOString();
+    await db.insert(sites).values({
+      id: closedSiteId,
+      tenantId,
+      companyId: mainSite!.companyId,
+      name: 'Closed branch',
+      isActive: false,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    try {
+      const context = await createTestContext(closedSiteId);
+      expect(context.siteId).toBeNull();
+    } finally {
+      await db.delete(sites).where(eq(sites.id, closedSiteId));
+    }
   });
 
   it('creates, updates, filters, and deletes an unreferenced site', async () => {

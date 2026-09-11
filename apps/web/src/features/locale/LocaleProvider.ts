@@ -100,9 +100,12 @@ export function useLocaleSync(): void {
   const { isAuthenticated } = useAuth();
   const { currentTenant } = useTenant();
 
-  // Keyed on `currentTenant?.id` so React Query re-fetches on tenant
-  // switch. Enabled gate prevents the query firing for unauthenticated
-  // sessions (the tRPC middleware would reject and surface a toast).
+  // The query key carries no tenant: `tenantId` only gates `enabled`, so the
+  // query never fires for unauthenticated sessions (the tRPC middleware would
+  // reject and surface a toast). An identity change refetches only because
+  // logout and login purge the query cache before the tenant boundary remounts
+  // this host; otherwise the new tenant would reuse the previous tenant's
+  // cached locale until staleTime expires.
   const tenantId = currentTenant?.id ?? null;
   const query = trpc.tenantLocale.get.useQuery(undefined, {
     enabled: isAuthenticated && tenantId !== null,

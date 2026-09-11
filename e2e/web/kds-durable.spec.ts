@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { mkdir } from 'node:fs/promises';
-import { expect, test } from '@playwright/test';
+import { expect, test, type TestInfo } from '@playwright/test';
 import {
   attachClientIssueTracker,
   ensureLanguage,
@@ -10,12 +10,20 @@ import {
 import { readKitchenEvidence, seedKitchenScenario } from './support/kds';
 import { runAxeOnPage } from './support/a11y';
 
+// Kitchen scenarios share the seeded site, so a fixed station name matches the
+// station an earlier run or repeat created. Stay within the length of the
+// names this suite already saves.
+function uniqueStationName(prefix: string, testInfo: TestInfo): string {
+  return `${prefix} ${testInfo.repeatEachIndex}${Date.now().toString(36).slice(-5)}`;
+}
+
 test('kitchen routing, structured preparation and versioned transitions survive reload', async ({
   page,
 }, testInfo) => {
   const scenario = seedKitchenScenario(`kitchen-${testInfo.parallelIndex}-${Date.now()}`);
   const tracker = attachClientIssueTracker(page);
   const code = `grill-${Date.now()}`;
+  const stationName = uniqueStationName('E2E Grill', testInfo);
   await login(page, { ...scenario.admin, defaultPath: '/dashboard' });
   await page.goto('/kds');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(
@@ -24,20 +32,28 @@ test('kitchen routing, structured preparation and versioned transitions survive 
   await page.getByRole('button', { name: 'Kitchen settings', exact: true }).click();
   const config = page.getByRole('dialog', { name: 'Kitchen settings' });
   await config.getByLabel(/Code \(/).fill(code);
-  await config.getByLabel('Station name', { exact: true }).fill('E2E Grill');
+  await config.getByLabel('Station name', { exact: true }).fill(stationName);
   await config.getByRole('button', { name: 'Save station', exact: true }).click();
-  await expect(config.getByRole('button', { name: 'Edit E2E Grill', exact: true })).toBeVisible();
+  await expect(
+    config.getByRole('button', { name: `Edit ${stationName}`, exact: true })
+  ).toBeVisible();
   await config.getByLabel('Search by name or SKU').fill(scenario.product.sku);
   const route = config.getByRole('combobox', { name: scenario.product.name, exact: true });
   const routingForm = config.locator('form').filter({
     has: page.getByRole('combobox', { name: scenario.product.name, exact: true }),
   });
   await expect(route).toBeEnabled();
-  await route.selectOption({ label: 'E2E Grill' });
-  await routingForm.getByRole('button', { name: 'Save routing', exact: true }).click();
-  await expect(
-    routingForm.getByRole('button', { name: 'Save routing', exact: true })
-  ).toBeDisabled();
+  await route.selectOption({ label: stationName });
+  const saveRouting = routingForm.getByRole('button', { name: 'Save routing', exact: true });
+  // The button is also disabled while the save is in flight, so leaving on that
+  // state alone can abort the request. Wait for the committed rule, then for the
+  // refetched target that matches the selection again.
+  const routingSaved = page.waitForResponse(
+    response => response.url().includes('kds.saveRoutingRule') && response.ok()
+  );
+  await saveRouting.click();
+  await routingSaved;
+  await expect(saveRouting).toBeDisabled();
   await page.keyboard.press('Escape');
   await page.goto('/restaurants/tables');
   await page.getByTestId('restaurant-tables-create-cta').click();
@@ -143,6 +159,7 @@ test('an open peer kitchen receives station configuration changes without reload
   page,
 }, testInfo) => {
   const scenario = seedKitchenScenario(`kitchen-peer-${testInfo.parallelIndex}-${Date.now()}`);
+  const stationName = uniqueStationName('E2E Peer', testInfo);
   await login(page, { ...scenario.admin, defaultPath: '/dashboard' });
   await page.goto('/kds');
   const peer = await page.context().newPage();
@@ -153,17 +170,16 @@ test('an open peer kitchen receives station configuration changes without reload
     await page.getByRole('button', { name: 'Kitchen settings', exact: true }).click();
     const config = page.getByRole('dialog', { name: 'Kitchen settings' });
     await config.getByLabel(/Code \(/).fill(`peer-${Date.now()}`);
-    await config.getByLabel('Station name', { exact: true }).fill('E2E Peer station');
+    await config.getByLabel('Station name', { exact: true }).fill(stationName);
     await config.getByRole('button', { name: 'Save station', exact: true }).click();
-    await expect(config.getByRole('button', { name: 'Edit E2E Peer station' })).toBeVisible();
+    await expect(
+      config.getByRole('button', { name: `Edit ${stationName}`, exact: true })
+    ).toBeVisible();
     // Configuration changes do not emit order events. A separate open display
     // must still converge within the board's 30-second freshness contract.
-    await expect(peer.getByRole('option', { name: 'E2E Peer station', exact: true })).toHaveCount(
-      1,
-      {
-        timeout: 35_000,
-      }
-    );
+    await expect(peer.getByRole('option', { name: stationName, exact: true })).toHaveCount(1, {
+      timeout: 35_000,
+    });
     await expectNoClientIssues(tracker);
   } finally {
     await peer.close();
