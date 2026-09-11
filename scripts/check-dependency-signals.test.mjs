@@ -102,6 +102,25 @@ test('Sentry Node receives its undeclared OpenTelemetry peer explicitly', () => 
   assert.match(workspaceManifest, /^\s+'@opentelemetry\/core': '2\.10\.0'$/m);
 });
 
+test('every versioned package extension targets a version the lockfile resolves', () => {
+  // An extension key pins an exact version, so bumping that package leaves a
+  // stale key that silently stops applying: moving electron-builder to 26.16.1
+  // with the old app-builder-lib@26.15.3 key dropped the optional
+  // electron-builder-squirrel-windows peer meta behind a generic peer warning.
+  const block = workspaceManifest.match(/^packageExtensions:\n((?:(?: {2}.*)?\n)+)/m);
+  assert.ok(block, 'expected a packageExtensions block');
+  const keys = [...block[1].matchAll(/^ {2}'([^']+@\d[^']*)':$/gm)].map(match => match[1]);
+  assert.ok(keys.length > 0, 'expected versioned packageExtensions keys');
+  for (const key of keys) {
+    const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    assert.match(
+      lockfile,
+      new RegExp(`^ {2}'?${escaped}'?:$`, 'm'),
+      `${key} is not a resolved package, so its extension no longer applies`
+    );
+  }
+});
+
 test('native install uses the bundled Node-API SQLite contract', () => {
   const packageJsonPath = require.resolve('better-sqlite3/package.json');
   const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'));

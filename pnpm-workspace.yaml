@@ -61,7 +61,7 @@ allowBuilds:
 # Windows as NSIS, so mark that target-specific peer optional instead of
 # installing an unused vulnerable toolchain.
 packageExtensions:
-  'app-builder-lib@26.15.3':
+  'app-builder-lib@26.16.1':
     peerDependenciesMeta:
       electron-builder-squirrel-windows:
         optional: true
