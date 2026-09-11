@@ -10,15 +10,52 @@
  * that the smoke script really uses it.
  */
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { performance } from 'node:perf_hooks';
 import { test } from 'node:test';
 
 import {
   CREDENTIAL_BANNER,
   claimInstallation,
   createSmokeOwnerCredentials,
+  settleRenderer,
   signBackIn,
 } from './lib/packaged-first-use-journey.mjs';
+
+/**
+ * Run the in-page settle function in Node against controllable stand-ins for
+ * document.getAnimations and resource timing, the two signals it watches.
+ */
+async function settleAgainst({ animatingForMs = 0, networkForMs = 0 }, options) {
+  const originalObserver = globalThis.PerformanceObserver;
+  const started = performance.now();
+  const observers = new Set();
+  const network = setInterval(() => {
+    if (performance.now() - started < networkForMs) observers.forEach(callback => callback());
+  }, 20);
+  globalThis.document = {
+    getAnimations: () =>
+      performance.now() - started < animatingForMs ? [{ playState: 'running' }] : [],
+  };
+  globalThis.PerformanceObserver = class {
+    constructor(callback) {
+      this.callback = callback;
+    }
+    observe() {
+      observers.add(this.callback);
+    }
+    disconnect() {
+      observers.delete(this.callback);
+    }
+  };
+  try {
+    await settleRenderer({ evaluate: (fn, arg) => fn(arg) }, options);
+    return performance.now() - started;
+  } finally {
+    clearInterval(network);
+    globalThis.PerformanceObserver = originalObserver;
+    delete globalThis.document;
+  }
+}
 
 /** A Playwright page stand-in that records every operator action in order. */
 function recordedPage({ tokenFieldCount = 0 } = {}) {
@@ -170,12 +207,18 @@ test('recognises every credential a packaged first run must never print', () => 
   assert.doesNotMatch('[Server] ✓ Server started at http://127.0.0.1:8090', CREDENTIAL_BANNER);
 });
 
-test('the packaged smoke uses the claim journey and never scrapes a credential', () => {
-  const source = readFileSync(new URL('./run-desktop-smoke.mjs', import.meta.url), 'utf8');
-  assert.match(source, /from '\.\/lib\/packaged-first-use-journey\.mjs'/);
-  assert.match(source, /claimInstallation\(/);
-  assert.match(source, /signBackIn\(/);
-  assert.match(source, /CREDENTIAL_BANNER\.test\(/, 'a printed credential must fail the smoke');
-  assert.doesNotMatch(source, /Password:\\s\+\(/, 'the smoke must not read a password from output');
-  assert.doesNotMatch(source, /waitForFirstRunPassword/);
+test('settles only after animations stop and the network stays quiet', async () => {
+  const elapsed = await settleAgainst(
+    { animatingForMs: 120, networkForMs: 200 },
+    { quietMs: 100, timeoutMs: 2_000 }
+  );
+  // The quiet window starts after the last activity, the network at 200 ms.
+  assert.ok(elapsed >= 300, `settled after ${elapsed.toFixed(0)} ms, before activity stopped`);
+});
+
+test('refuses to shut down over a renderer that never stops animating', async () => {
+  await assert.rejects(
+    settleAgainst({ animatingForMs: Number.POSITIVE_INFINITY }, { quietMs: 100, timeoutMs: 300 }),
+    /still animating or loading 300 ms after its landing/
+  );
 });

@@ -42,11 +42,18 @@ test('packaged renderer smoke proves the preload bridge and a data-backed login'
   assert.doesNotMatch(smoke, /KEY_STORE_GATED|keyGated/);
   assert.match(smoke, /Boolean\(window\.electron\)/);
   assert.match(smoke, /Boolean\(window\.api\)/);
-  assert.match(smoke, /admin@localhost/);
+  // First use is an installation claim with harness-chosen credentials: no
+  // seeded administrator exists, and nothing is read from process output.
+  assert.doesNotMatch(smoke, /admin@localhost/);
+  assert.doesNotMatch(smoke, /waitForFirstRunPassword|Password:\\s\+\(/);
+  assert.match(smoke, /from '\.\/lib\/packaged-first-use-journey\.mjs'/);
+  assert.match(smoke, /const owner = createSmokeOwnerCredentials\(\)/);
+  assert.match(smoke, /CREDENTIAL_BANNER\.test\(output\)/);
   assert.match(smoke, /today's sales\|ventas de hoy/);
   assert.match(smoke, /company-tab-readiness/);
   assert.match(smoke, /aria-current/);
   assert.match(smoke, /\\\[Database\\\] Password:/);
+  assert.match(smoke, /Installation code:/);
   assert.match(smoke, /\[Redacted\]/);
 
   const rendererJourney = smoke.slice(
@@ -64,6 +71,21 @@ test('packaged renderer smoke proves the preload bridge and a data-backed login'
   assert.match(rendererJourney, /gracefulQuitRequested: true/);
   assert.match(rendererJourney, /page && process\.platform !== 'linux'/);
   assert.match(rendererJourney, /X11 is the inverse/);
+  const inOrder = [
+    "page.locator('#setup-businessName')",
+    'claimInstallation(page, owner',
+    'signBackIn(page, owner',
+    'company-tab-readiness',
+    'settleRenderer(page)',
+    'renderer OK',
+    'requestE2eAppQuit',
+  ].map(marker => rendererJourney.indexOf(marker));
+  assert.ok(
+    inOrder.every(
+      (position, index) => position !== -1 && (index === 0 || position > inOrder[index - 1])
+    ),
+    'claim, sign back in, check the landing, then settle before any shutdown'
+  );
   assert.ok(
     rendererJourney.lastIndexOf('finish(rendererError)') >
       rendererJourney.indexOf('chromium.connectOverCDP'),

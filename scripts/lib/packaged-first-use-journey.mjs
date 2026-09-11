@@ -76,6 +76,48 @@ export async function claimInstallation(page, credentials, { timeoutMs }) {
   await waitForWorkspace(page, timeoutMs);
 }
 
+/**
+ * Wait until the landing stops animating and loading before the smoke shuts
+ * the app down. The journey reaches its landing within about 100 ms of signing
+ * back in, while loading skeletons still animate; on X11, destroying the
+ * window with a frame still in flight makes Chromium log SharedImageManager and
+ * PutImage DrawableError errors. Polling uses timers, not animation frames, so
+ * waiting never schedules a frame of its own.
+ */
+export async function settleRenderer(page, { quietMs = 750, timeoutMs = 15_000 } = {}) {
+  const settled = await page.evaluate(
+    ({ quietMs: quiet, timeoutMs: limit }) =>
+      new Promise(resolve => {
+        const started = performance.now();
+        let lastActivity = started;
+        const network = new PerformanceObserver(() => {
+          lastActivity = performance.now();
+        });
+        network.observe({ type: 'resource' });
+        const poll = () => {
+          const now = performance.now();
+          if (document.getAnimations().some(animation => animation.playState === 'running')) {
+            lastActivity = now;
+          }
+          if (now - lastActivity >= quiet) {
+            network.disconnect();
+            resolve(true);
+          } else if (now - started >= limit) {
+            network.disconnect();
+            resolve(false);
+          } else {
+            setTimeout(poll, 50);
+          }
+        };
+        setTimeout(poll, 50);
+      }),
+    { quietMs, timeoutMs }
+  );
+  if (!settled) {
+    throw new Error(`renderer was still animating or loading ${timeoutMs} ms after its landing`);
+  }
+}
+
 /** Sign out, then prove the claimed credentials open the workspace again. */
 export async function signBackIn(page, credentials, { timeoutMs }) {
   await page.locator('header').getByRole('button', { name: OPEN_USER_MENU }).click();

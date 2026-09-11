@@ -37,6 +37,7 @@ import {
   CREDENTIAL_BANNER,
   claimInstallation,
   createSmokeOwnerCredentials,
+  settleRenderer,
   signBackIn,
 } from './lib/packaged-first-use-journey.mjs';
 
@@ -320,6 +321,8 @@ async function verifyPackagedRenderer() {
         .waitFor({ state: 'visible', timeout: 30_000 });
     }
 
+    // Shut down only after the landing stops painting; see settleRenderer.
+    await settleRenderer(page);
     console.log(
       '[desktop-smoke] renderer OK: preload bridge, first-use claim, owner sign-in, and data-backed landing'
     );
