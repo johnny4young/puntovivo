@@ -52,6 +52,28 @@ is usable from source, but it is not a new packaged release yet.
   a real alert receiver with ownership, and an observed retail pilot remain
   open gates.
 
+## [1.14.1](https://github.com/johnny4young/puntovivo/compare/v1.14.0...v1.14.1) (2026-09-11)
+
+
+### Bug Fixes
+
+* **desktop:** sync durable writes through writable handles on Windows ([3c044eb](https://github.com/johnny4young/puntovivo/commit/3c044ebdecb47390a159d61fbf89aee24fb36e82))
+* **release:** drive the first-use claim in the packaged desktop smoke ([8733e36](https://github.com/johnny4young/puntovivo/commit/8733e368702c9a4d2bd2163915f5c8d99c38302f))
+* **release:** require the backup manifest schema the desktop writes ([3352a91](https://github.com/johnny4young/puntovivo/commit/3352a91a4bfbe174845fe6fddbe0f3cafef33edf))
+* **release:** settle the packaged renderer before smoke shutdown ([fe9ab85](https://github.com/johnny4young/puntovivo/commit/fe9ab8544b2ca1ba08ac116d35259af4b9e614dd))
+* **release:** unblock the packaged desktop smoke after first-use ownership ([e07c371](https://github.com/johnny4young/puntovivo/commit/e07c371c816645e87ecae841da446e212deab3a9))
+* **release:** wait for in-flight renderer requests before smoke shutdown ([3a9c3b3](https://github.com/johnny4young/puntovivo/commit/3a9c3b3c097b53db06c4a15126ceebfbbcf1a03b))
+* **sequentials:** reject a site filter owned by another tenant ([258249a](https://github.com/johnny4young/puntovivo/commit/258249ae8a723ab1fb0518c912068ac1a998b10b))
+* **tenant:** keep each tab's requests on the site it shows ([154bda7](https://github.com/johnny4young/puntovivo/commit/154bda72cd4c08732a258e51191acace1ad37471))
+* **tenant:** keep the active site owned by its tenant and tab ([a5cea5f](https://github.com/johnny4young/puntovivo/commit/a5cea5f5dd21cdf6b7235aae6a676d28b3ea3951))
+* **trpc:** leave a request without a site when its site header is invalid ([76982b4](https://github.com/johnny4young/puntovivo/commit/76982b45ef8e7e1ef3a2bfb10ea5560ddbd846f6))
+
+
+### Performance
+
+* **products:** scope pharmacy search to owning tenants and gate search per tenant shape ([5e3a894](https://github.com/johnny4young/puntovivo/commit/5e3a8946534282c06c95a4f1a74121d891e495c0))
+* **products:** skip pharmacy metadata scans for tenants without profiles ([8275c51](https://github.com/johnny4young/puntovivo/commit/8275c51d5a24561e497c19f52d729895a84801f2))
+
 ## [1.14.0](https://github.com/johnny4young/puntovivo/compare/v1.13.0...v1.14.0) (2026-09-10)
 
 
