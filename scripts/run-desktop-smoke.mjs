@@ -33,6 +33,12 @@ import {
   classifyElectronStdoutLine,
 } from './electron-process-log-policy.mjs';
 import { resolvePackagedBinary } from './lib/packaged-binary.mjs';
+import {
+  CREDENTIAL_BANNER,
+  claimInstallation,
+  createSmokeOwnerCredentials,
+  signBackIn,
+} from './lib/packaged-first-use-journey.mjs';
 
 const APP_NAME = 'Puntovivo';
 const TIMEOUT_MS = Number(process.env.PUNTOVIVO_SMOKE_TIMEOUT_MS) || 45_000;
@@ -80,7 +86,9 @@ async function reserveLoopbackPort() {
 }
 
 function redactSensitiveOutput(value) {
-  return value.replace(/(\[Database\] Password:\s+)\S+/g, '$1[Redacted]');
+  return value
+    .replace(/(\[Database\] Password:\s+)\S+/g, '$1[Redacted]')
+    .replace(/(Installation code:\s+)\S+/g, '$1[Redacted]');
 }
 
 /** Shallow BFS for a dir (or file) whose basename matches, skipping into .app. */
@@ -195,15 +203,12 @@ const child = spawn(binary, childArgs, {
 let output = '';
 let stdoutOutput = '';
 let stderrOutput = '';
-let firstRunAdminPassword = null;
 const seen = { launched: false, serverAttempt: false, serverUp: false };
 let done = false;
 let completed = false;
 
 function scan(chunk) {
   output += chunk;
-  const passwordMatch = /\[Database\] Password:\s+([^\s]+)/.exec(output);
-  if (passwordMatch) firstRunAdminPassword = passwordMatch[1];
   if (LAUNCHED.test(chunk)) seen.launched = true;
   if (SERVER_ATTEMPT.test(chunk)) seen.serverAttempt = true;
   if (SERVER_UP.test(chunk)) seen.serverUp = true;
@@ -214,8 +219,8 @@ function scan(chunk) {
     }
   }
   // Enough signal to call the runtime-only smoke. Renderer mode additionally
-  // proves that the packaged web assets + preload bridge load and a first-run
-  // admin session reaches a data-backed route.
+  // proves that the packaged web assets + preload bridge load, the first-use
+  // claim creates an owner, and that owner signs back in to a data-backed route.
   if (seen.launched && seen.serverUp) {
     if (!VERIFY_RENDERER) {
       finish(null);
@@ -261,17 +266,6 @@ async function waitForRendererReadyTarget(endpoint) {
   throw new Error('timed out waiting for the packaged renderer to finish initialization');
 }
 
-async function waitForFirstRunPassword() {
-  const deadline = Date.now() + 15_000;
-  while (!firstRunAdminPassword && Date.now() < deadline) {
-    await new Promise(resolve => setTimeout(resolve, 100));
-  }
-  if (!firstRunAdminPassword) {
-    throw new Error('packaged first-run admin credential was not emitted');
-  }
-  return firstRunAdminPassword;
-}
-
 async function verifyPackagedRenderer() {
   const endpoint = `http://127.0.0.1:${rendererPort}`;
   let rendererError = null;
@@ -286,7 +280,10 @@ async function verifyPackagedRenderer() {
       context.pages()[0] ??
       (await context.waitForEvent('page', { timeout: RENDERER_TIMEOUT_MS }));
 
-    await page.getByLabel(/email/i).waitFor({
+    // A fresh packaged install has no owner, so the login route resolves to
+    // the first-use setup form. The ordinary sign-in form renders briefly while
+    // setup status loads, which is why its email field is not a readiness signal.
+    await page.locator('#setup-businessName').waitFor({
       state: 'visible',
       timeout: RENDERER_TIMEOUT_MS,
     });
@@ -305,22 +302,11 @@ async function verifyPackagedRenderer() {
       );
     }
 
-    const password = await waitForFirstRunPassword();
-    await page.getByLabel(/email/i).fill('admin@localhost');
-    await page.getByRole('textbox', { name: /password/i }).fill(password);
-    await page
-      .getByRole('button', { name: /enter workspace|entrar al espacio de trabajo/i })
-      .click();
-    await page
-      .waitForFunction(
-        () =>
-          window.location.hash.includes('/dashboard') || window.location.hash.includes('/company'),
-        undefined,
-        { timeout: 30_000 }
-      )
-      .catch(error => {
-        throw new Error(`post-login route stayed at ${page.url()}: ${error.message}`);
-      });
+    // The harness owns these credentials. Main injects the one-use setup
+    // capability, so the claim also proves the trusted packaged-origin check.
+    const owner = createSmokeOwnerCredentials();
+    await claimInstallation(page, owner, { timeoutMs: 30_000 });
+    await signBackIn(page, owner, { timeoutMs: 30_000 });
     if (page.url().includes('/company')) {
       const readinessTab = page.getByTestId('company-tab-readiness');
       await readinessTab.waitFor({ state: 'visible', timeout: 30_000 });
@@ -335,7 +321,7 @@ async function verifyPackagedRenderer() {
     }
 
     console.log(
-      '[desktop-smoke] renderer OK: preload bridge, first-run login, and data-backed landing'
+      '[desktop-smoke] renderer OK: preload bridge, first-use claim, owner sign-in, and data-backed landing'
     );
   } catch (error) {
     rendererError = `packaged renderer journey failed: ${error.message}`;
@@ -412,6 +398,11 @@ function complete(error) {
   if (completed) return;
   completed = true;
   removeUserDataBestEffort();
+  // A packaged first run must never print a credential. This fails even a
+  // journey that otherwise passed, in both smoke modes.
+  if (!error && CREDENTIAL_BANNER.test(output)) {
+    error = 'packaged process printed a credential banner to its output';
+  }
   if (!error) {
     const unexpectedOutput = [
       ...stdoutOutput
