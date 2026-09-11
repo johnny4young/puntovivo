@@ -102,14 +102,51 @@ test('Sentry Node receives its undeclared OpenTelemetry peer explicitly', () => 
   assert.match(workspaceManifest, /^\s+'@opentelemetry\/core': '2\.10\.0'$/m);
 });
 
+// pnpm reads an extension key single-quoted, double-quoted, or bare (valid YAML
+// for a package whose name does not start with @), and Prettier normalizes none
+// of those spellings. A key this reader cannot see is a key that silently stops
+// being checked, which is the very regression the test below exists to catch, so
+// the block runs to the next top-level key: a column-0 comment or a blank line
+// inside it must not truncate the scan, and the last entry needs no newline.
+function readVersionedExtensionKeys(manifest) {
+  const lines = manifest.split('\n');
+  const start = lines.indexOf('packageExtensions:');
+  assert.ok(start >= 0, 'expected a packageExtensions block');
+  let end = start + 1;
+  while (end < lines.length && !/^[^\s#]/.test(lines[end])) {
+    end += 1;
+  }
+  return lines
+    .slice(start + 1, end)
+    .filter(line => !/^\s*#/.test(line))
+    .map(line => line.match(/^ {2}(?:'([^']+)'|"([^"]+)"|([^\s'"][^:]*?)) *:$/))
+    .filter(match => match !== null)
+    .map(match => match[1] ?? match[2] ?? match[3])
+    .filter(key => /@\d/.test(key));
+}
+
 test('every versioned package extension targets a version the lockfile resolves', () => {
   // An extension key pins an exact version, so bumping that package leaves a
   // stale key that silently stops applying: moving electron-builder to 26.16.1
   // with the old app-builder-lib@26.15.3 key dropped the optional
   // electron-builder-squirrel-windows peer meta behind a generic peer warning.
-  const block = workspaceManifest.match(/^packageExtensions:\n((?:(?: {2}.*)?\n)+)/m);
-  assert.ok(block, 'expected a packageExtensions block');
-  const keys = [...block[1].matchAll(/^ {2}'([^']+@\d[^']*)':$/gm)].map(match => match[1]);
+  // This fixture fails against a reader that only accepts single quotes, stops
+  // at a column-0 comment, or requires a trailing newline.
+  assert.deepEqual(
+    readVersionedExtensionKeys(
+      [
+        'packageExtensions:',
+        "  'a@1.0.0':",
+        '    dependencies:',
+        '# a column-0 comment inside the block',
+        '  "b@2.0.0":',
+        '    dependencies:',
+        '  c@3.0.0:',
+      ].join('\n')
+    ),
+    ['a@1.0.0', 'b@2.0.0', 'c@3.0.0']
+  );
+  const keys = readVersionedExtensionKeys(workspaceManifest);
   assert.ok(keys.length > 0, 'expected versioned packageExtensions keys');
   for (const key of keys) {
     const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
