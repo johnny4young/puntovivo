@@ -59,3 +59,16 @@ test('web path filtering includes the executable critical contract', () => {
   assert.match(workflow, /^              - 'playwright\.web\.config\.ts'$/m);
   assert.match(workflow, /^              - 'scripts\/check-operator-journeys\*\.mjs'$/m);
 });
+
+test('the ordinary local web suite builds the server its empty-installation fixture imports', () => {
+  const packageJson = JSON.parse(readRepoFile('package.json'));
+  const command = packageJson.scripts['test:e2e:web'];
+  const fixture = readRepoFile('e2e/shared/installation-server.mjs');
+
+  // Without this build a fresh checkout fails both first-owner journeys before
+  // any browser step, and a stale dist silently exercises an old server.
+  assert.match(fixture, /packages\/server\/dist\/index\.js/);
+  const build = command.indexOf('pnpm --filter @puntovivo/server run build');
+  assert.notEqual(build, -1, 'test:e2e:web must build the server');
+  assert.ok(build < command.indexOf('playwright test'), 'the build must precede Playwright');
+});
