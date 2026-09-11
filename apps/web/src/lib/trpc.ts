@@ -7,7 +7,7 @@
 import { createTRPCClient, httpBatchLink, splitLink, TRPCClientError } from '@trpc/client';
 import { createTRPCReact } from '@trpc/react-query';
 import type { AppRouter } from '@puntovivo/server';
-import { getStoredSiteId } from '@/features/tenant/siteStorage';
+import { getRequestSiteId } from '@/features/tenant/siteStorage';
 import { DEVICE_ID_HEADER, generateUuid as generateCorrelationId } from './commandEnvelope';
 import { getCachedDeviceIdSync } from './deviceId';
 import { resolveApiBaseUrl } from './runtimeConfigClient';
@@ -91,7 +91,7 @@ export function __resetCorrelationForTests(): void {
  */
 export function getTrpcHeaders(): Record<string, string> {
   const headers: Record<string, string> = {};
-  const siteId = getStoredSiteId();
+  const siteId = getRequestSiteId();
   const csrfToken = getCsrfCookie();
   const deviceId = getCachedDeviceIdSync();
 

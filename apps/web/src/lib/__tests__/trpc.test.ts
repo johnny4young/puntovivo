@@ -10,6 +10,55 @@ import {
   setAuthSessionExpiredHandler,
 } from '../trpc';
 import { COMMAND_ENVELOPE_HEADER, DEVICE_ID_HEADER } from '../commandEnvelope';
+import { clearStoredSiteId, persistSiteId } from '@/features/tenant/siteStorage';
+
+describe('trpc site header', () => {
+  const stored = new Map<string, string>();
+
+  beforeEach(() => {
+    stored.clear();
+    Object.defineProperty(window, 'localStorage', {
+      configurable: true,
+      value: {
+        getItem: vi.fn((key: string) => stored.get(key) ?? null),
+        setItem: vi.fn((key: string, value: string) => void stored.set(key, value)),
+        removeItem: vi.fn((key: string) => void stored.delete(key)),
+        clear: vi.fn(() => stored.clear()),
+      },
+    });
+  });
+
+  afterEach(() => {
+    clearStoredSiteId('tenant-north');
+    clearStoredSiteId('tenant-next');
+  });
+
+  it('keeps sending the site this document resolved after another tab changes the shared selection', () => {
+    stored.set('auth_tenant', JSON.stringify({ id: 'tenant-north' }));
+    persistSiteId('site-north', 'tenant-north');
+    // Every same-origin tab shares localStorage: this write is another tab's switch.
+    stored.set('active_site_id:tenant-north', 'site-south');
+
+    expect(getTrpcHeaders()['x-site-id']).toBe('site-north');
+  });
+
+  it('sends the remembered selection before this document resolves a site', () => {
+    stored.set('auth_tenant', JSON.stringify({ id: 'tenant-north' }));
+    stored.set('active_site_id:tenant-north', 'site-south');
+
+    expect(getTrpcHeaders()['x-site-id']).toBe('site-south');
+  });
+
+  it('follows the stored tenant once a login replaces this document identity', () => {
+    stored.set('auth_tenant', JSON.stringify({ id: 'tenant-north' }));
+    persistSiteId('site-north', 'tenant-north');
+    // Login persists the new tenant before its provider resolves a site.
+    stored.set('auth_tenant', JSON.stringify({ id: 'tenant-next' }));
+    stored.set('active_site_id:tenant-next', 'site-next');
+
+    expect(getTrpcHeaders()['x-site-id']).toBe('site-next');
+  });
+});
 
 describe('trpc auth transport', () => {
   beforeEach(() => {

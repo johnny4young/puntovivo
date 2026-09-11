@@ -17,13 +17,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
   getCachedDeviceIdSyncMock,
-  getStoredSiteIdMock,
+  getRequestSiteIdMock,
   createTrpcClientWithHeadersMock,
   mintEnvelopeMock,
   mutateMocks,
 } = vi.hoisted(() => ({
   getCachedDeviceIdSyncMock: vi.fn<() => string | null>(),
-  getStoredSiteIdMock: vi.fn<() => string | null>(),
+  getRequestSiteIdMock: vi.fn<() => string | null>(),
   createTrpcClientWithHeadersMock: vi.fn(),
   mintEnvelopeMock: vi.fn(),
   mutateMocks: {
@@ -45,7 +45,7 @@ const {
 }));
 
 vi.mock('@/features/tenant/siteStorage', () => ({
-  getStoredSiteId: getStoredSiteIdMock,
+  getRequestSiteId: getRequestSiteIdMock,
 }));
 
 vi.mock('@/lib/deviceId', () => ({
@@ -91,7 +91,7 @@ beforeEach(() => {
       clientCreatedAt: '2026-05-01T00:00:00.000Z',
     };
   });
-  getStoredSiteIdMock.mockReturnValue(null);
+  getRequestSiteIdMock.mockReturnValue(null);
   createTrpcClientWithHeadersMock.mockReturnValue({
     employeeShifts: { schedule: { create: { mutate: mutateMocks.scheduleCreate } } },
     workforce: {
@@ -488,7 +488,7 @@ describe('useCriticalMutation', () => {
     // followed the operator's new site selection, the same logical command
     // would execute somewhere it was never authorised.
     getCachedDeviceIdSyncMock.mockReturnValue('dev-site-switch');
-    getStoredSiteIdMock.mockReturnValue('site-north');
+    getRequestSiteIdMock.mockReturnValue('site-north');
     mutateMocks.purchasesCreate
       .mockRejectedValueOnce(new Error('Failed to fetch'))
       .mockResolvedValueOnce({ id: 'purchase-after-site-switch' });
@@ -501,7 +501,7 @@ describe('useCriticalMutation', () => {
     });
 
     // The operator switches sites before retrying.
-    getStoredSiteIdMock.mockReturnValue('site-south');
+    getRequestSiteIdMock.mockReturnValue('site-south');
 
     await act(async () => {
       await expect(result.current.mutateAsync(input)).resolves.toEqual({
