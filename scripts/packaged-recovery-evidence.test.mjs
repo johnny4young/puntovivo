@@ -8,6 +8,7 @@ import { PassThrough } from 'node:stream';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
+  BACKUP_MANIFEST_SCHEMA_VERSION,
   PACKAGED_RECOVERY_MINIMUM_COUNTS,
   REQUIRED_PACKAGED_RECOVERY_CHECKS,
   validatePackagedRecoveryEvidence,
@@ -59,7 +60,7 @@ export function packagedRecoveryFixture(overrides = {}) {
     recovery: {
       bundleSha256: HASH,
       bundleBytes: 500_000,
-      manifestSchemaVersion: 1,
+      manifestSchemaVersion: BACKUP_MANIFEST_SCHEMA_VERSION,
       sourceDatabaseSha256: HASH,
       restoredDatabaseSha256: 'b'.repeat(64),
       restoredLogicalSha256: HASH,
@@ -99,6 +100,26 @@ test('packaged recovery evidence requires the complete release contract', () => 
       architecture: 'arm64',
     }),
     report
+  );
+});
+
+test('packaged recovery evidence follows the backup manifest schema the desktop writes', () => {
+  // A stale pin rejects every healthy candidate: the desktop moved to schema 2
+  // on 2026-08-25 while this contract still required 1, and the manual build
+  // failed its recovery rehearsal from then on.
+  const constants = readFileSync(
+    path.join(repoRoot, 'apps/desktop/src/main/backup/backup-bundle/constants.ts'),
+    'utf8'
+  );
+  const written = /export const BACKUP_BUNDLE_SCHEMA_VERSION = (\d+);/.exec(constants);
+  assert.ok(written, 'the desktop backup bundle schema constant was not found');
+  assert.equal(BACKUP_MANIFEST_SCHEMA_VERSION, Number(written[1]));
+
+  const stale = packagedRecoveryFixture();
+  stale.recovery.manifestSchemaVersion = BACKUP_MANIFEST_SCHEMA_VERSION - 1;
+  assert.throws(
+    () => validatePackagedRecoveryEvidence(stale),
+    /backup manifest schema is unsupported/
   );
 });
 

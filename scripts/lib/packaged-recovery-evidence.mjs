@@ -2,6 +2,12 @@ const SHA_PATTERN = /^[0-9a-f]{40}$/;
 const HASH_PATTERN = /^[0-9a-f]{64}$/;
 
 export const PACKAGED_RECOVERY_REPORT_SCHEMA_VERSION = 1;
+/**
+ * The backup manifest schema a packaged candidate must write. It follows
+ * BACKUP_BUNDLE_SCHEMA_VERSION in the desktop backup bundle constants; a stale
+ * value here rejects every healthy candidate's recovery rehearsal.
+ */
+export const BACKUP_MANIFEST_SCHEMA_VERSION = 2;
 export const PACKAGED_RECOVERY_PROFILE_ID = 'retail-annual-medium-v1';
 export const PACKAGED_RECOVERY_MINIMUM_COUNTS = Object.freeze({
   products: 2_500,
@@ -359,7 +365,10 @@ export function validatePackagedRecoveryEvidence(report, expectations = {}) {
     'restored logical hash differs from the source'
   );
   requireCondition(recovery.bundleBytes > 0, 'packaged recovery bundle is empty');
-  requireCondition(recovery.manifestSchemaVersion === 1, 'backup manifest schema is unsupported');
+  requireCondition(
+    recovery.manifestSchemaVersion === BACKUP_MANIFEST_SCHEMA_VERSION,
+    'backup manifest schema is unsupported'
+  );
   requireCondition(recovery.wrongKeyRejected === true, 'wrong-key restore was not rejected');
   requireCondition(recovery.corruptBundleRejected === true, 'corrupt bundle was not rejected');
   requireCondition(

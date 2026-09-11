@@ -11,6 +11,7 @@ import {
   parseUpdateFeed,
 } from './collect-desktop-candidate-evidence.mjs';
 import {
+  BACKUP_MANIFEST_SCHEMA_VERSION,
   PACKAGED_RECOVERY_MINIMUM_COUNTS,
   REQUIRED_PACKAGED_RECOVERY_CHECKS,
 } from './lib/packaged-recovery-evidence.mjs';
@@ -50,7 +51,7 @@ function writeRecoveryEvidence(outDir, platform = 'darwin', architecture = 'arm6
     recovery: {
       bundleSha256: hash,
       bundleBytes: 500_000,
-      manifestSchemaVersion: 1,
+      manifestSchemaVersion: BACKUP_MANIFEST_SCHEMA_VERSION,
       sourceDatabaseSha256: hash,
       restoredDatabaseSha256: 'b'.repeat(64),
       restoredLogicalSha256: hash,
