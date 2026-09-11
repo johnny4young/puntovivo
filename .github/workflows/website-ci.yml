@@ -1,0 +1,60 @@
+name: Website CI
+
+# Validate the standalone marketing site before merge. This workflow never
+# deploys and needs neither Cloudflare secrets nor write permissions.
+on:
+  pull_request:
+    branches: [main, 'codex/**']
+    paths:
+      - 'website/**'
+      - '.github/workflows/website-ci.yml'
+      - '.github/workflows/deploy-web.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'website/**'
+      - '.github/workflows/website-ci.yml'
+      - '.github/workflows/deploy-web.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: website-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  website:
+    name: Website tests and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          standalone: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - name: Install standalone dependencies
+        run: pnpm install --ignore-workspace --frozen-lockfile --ignore-scripts
+
+      - name: Audit build dependencies
+        run: pnpm audit --ignore-workspace --audit-level high
+
+      - name: Test including root and subpath gallery builds
+        run: pnpm test
+
+      - name: Build production site
+        env:
+          SITE_BASE_PATH: /
+        run: pnpm run build

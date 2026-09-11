@@ -445,6 +445,42 @@
           "Units carry a dimension and UN/ECE code (kg, gram, litre, dozen) that flows into the fiscal document.",
           "GS1 weight or price-embedded labels resolve at the classic register and the touch screen alike."
         ]
+      },
+      {
+        "when": "Built",
+        "h": "Restaurant and kitchen",
+        "bullets": [
+          "Tables, open checks and moving a check between tables, all inside one transaction.",
+          "Durable kitchen display: every line survives a restart and keeps its preparation order.",
+          "Split a check by items into a new ticket, with a trace of who split it."
+        ]
+      },
+      {
+        "when": "Built",
+        "h": "Pharmacy and lot traceability",
+        "bullets": [
+          "Lot custody with expiry, quarantine and market recalls.",
+          "Authorisations and evidence for prescription products in Colombia, with audited approval and revocation. Controlled medicines remain blocked; these controls are not regulatory certification.",
+          "Receiving demands concrete lot identity on the lines that track it."
+        ]
+      },
+      {
+        "when": "Built",
+        "h": "Team, shifts and pre-payroll",
+        "bullets": [
+          "Schedule per site in the business time zone; the system blocks overlaps.",
+          "Real attendance against plan, with explicit breaks and corrections that never rewrite the evidence.",
+          "Payroll CSV and accounting XLSX exports; the ledger is provider-neutral and computes no salaries."
+        ]
+      },
+      {
+        "when": "Built",
+        "h": "Delivery and external orders",
+        "bullets": [
+          "Reservations and delivery orders with their own states and audited transitions.",
+          "Signed external order intake, with a nonce against replays.",
+          "Cancellations resolved by the operator, never by timestamp."
+        ]
       }
     ]
   },
@@ -1472,5 +1508,39 @@
     "publishedOn": "Published on {{date}}",
     "viewOnGitHub": "View on GitHub",
     "loading": "Fetching releases…"
+  },
+  "shots": {
+    "kicker": "Inside the console",
+    "title": "Six screens, no renders.",
+    "desc": "Real captures of the console running against a Colombian demo catalogue. The prices, sequentials and balances you see came out of the same code you can run today.",
+    "items": {
+      "dashboard": {
+        "title": "Command centre",
+        "desc": "Today's sales, low-stock alerts and replenishment in one read, before the shift starts moving."
+      },
+      "pos": {
+        "title": "Checkout",
+        "desc": "Scanner ready, per-line tax and keyboard shortcuts. The register opens on a denomination count and charging never needs the mouse."
+      },
+      "catalogo": {
+        "title": "Catalogue",
+        "desc": "Price, stock and margin per product. Text search and optional semantic search with a configured embedding provider."
+      },
+      "cierreDia": {
+        "title": "Day close",
+        "desc": "The full evidence before signing: revenue, drawer variance, fiscal documents and the tasks still blocking the close."
+      },
+      "fiscal": {
+        "title": "Fiscal documents",
+        "desc": "Every equivalent document with its sequential, its buyer and its XML. Demo records are labelled as such and never pass as evidence accepted by the authority."
+      },
+      "equipo": {
+        "title": "Team schedule",
+        "desc": "Shifts per site in the business time zone, with overlaps blocked and every change kept for audit. Real attendance exports to payroll and accounting."
+      }
+    },
+    "note": "The screenshots show the Spanish interface with data from a demo business seeded by the development command, not a real customer. The app is also available in English. The interface, the maths and the states are the ones the code ships.",
+    "open": "Enlarge screenshot",
+    "openLabel": "Enlarge screenshot: {{title}}"
   }
 }
