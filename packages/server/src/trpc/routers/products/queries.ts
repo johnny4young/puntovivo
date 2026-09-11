@@ -38,6 +38,7 @@ import {
   getUnitAssignmentsByProductIds,
   productSelection,
 } from '../../../services/products/product-read.js';
+import { hasPharmacyProductProfiles } from '../../../services/pharmacy/operational-state.js';
 import { findExactProductMatches } from '../../../services/products/exact-search.js';
 import { findFtsProductMatches } from '../../../services/products/fts-search.js';
 import { hydrateSearchProducts } from '../../../services/products/search-hydration.js';
@@ -58,6 +59,15 @@ export const productQueryProcedures = {
     const { page, perPage, search, categoryId, isActive, includeVariantParents, pharmacyOnly } =
       input;
     const offset = (page - 1) * perPage;
+    // Regulated metadata can only match a tenant that owns pharmacy profiles.
+    // Everyone else skips the per-row join probe and four extra LIKE scans,
+    // with identical results.
+    const searchesPharmacyMetadata =
+      Boolean(search) && hasPharmacyProductProfiles(ctx.db, ctx.tenantId);
+    const pharmacyProfileJoin = and(
+      eq(pharmacyProductProfiles.productId, products.id),
+      eq(pharmacyProductProfiles.tenantId, ctx.tenantId)
+    );
 
     const conditions = [eq(products.tenantId, ctx.tenantId)];
     if (!includeVariantParents) {
@@ -68,10 +78,14 @@ export const productQueryProcedures = {
         or(
           literalContains(products.name, search),
           literalContains(products.sku, search),
-          literalContains(pharmacyProductProfiles.activeIngredient, search),
-          literalContains(pharmacyProductProfiles.genericName, search),
-          literalContains(pharmacyProductProfiles.sanitaryRegistration, search),
-          literalContains(pharmacyProductProfiles.manufacturer, search)
+          ...(searchesPharmacyMetadata
+            ? [
+                literalContains(pharmacyProductProfiles.activeIngredient, search),
+                literalContains(pharmacyProductProfiles.genericName, search),
+                literalContains(pharmacyProductProfiles.sanitaryRegistration, search),
+                literalContains(pharmacyProductProfiles.manufacturer, search),
+              ]
+            : [])
         )!
       );
     }
@@ -86,6 +100,7 @@ export const productQueryProcedures = {
     }
 
     const where = and(...conditions);
+    const countsThroughPharmacyProfile = pharmacyOnly === true || searchesPharmacyMetadata;
 
     const [items, countResult] = await Promise.all([
       ctx.db
@@ -95,29 +110,26 @@ export const productQueryProcedures = {
         .leftJoin(locations, eq(products.locationId, locations.id))
         .leftJoin(providers, eq(products.providerId, providers.id))
         .leftJoin(vatRates, eq(products.vatRateId, vatRates.id))
-        .leftJoin(
-          pharmacyProductProfiles,
-          and(
-            eq(pharmacyProductProfiles.productId, products.id),
-            eq(pharmacyProductProfiles.tenantId, ctx.tenantId)
-          )
-        )
+        // The page projection carries the profile fields, so this join stays;
+        // it probes only rows that already passed the product filters.
+        .leftJoin(pharmacyProductProfiles, pharmacyProfileJoin)
         .where(where)
         .limit(perPage)
         .offset(offset)
         .all(),
-      ctx.db
-        .select({ count: sql<number>`count(*)` })
-        .from(products)
-        .leftJoin(
-          pharmacyProductProfiles,
-          and(
-            eq(pharmacyProductProfiles.productId, products.id),
-            eq(pharmacyProductProfiles.tenantId, ctx.tenantId)
-          )
-        )
-        .where(where)
-        .get(),
+      // The count reads no profile column unless a predicate needs one.
+      countsThroughPharmacyProfile
+        ? ctx.db
+            .select({ count: sql<number>`count(*)` })
+            .from(products)
+            .leftJoin(pharmacyProductProfiles, pharmacyProfileJoin)
+            .where(where)
+            .get()
+        : ctx.db
+            .select({ count: sql<number>`count(*)` })
+            .from(products)
+            .where(where)
+            .get(),
     ]);
 
     const totalItems = countResult?.count ?? 0;
@@ -261,7 +273,9 @@ export const productQueryProcedures = {
         // catalog and pharmacy column for all rows. Generic search gives the
         // core catalog lane priority; pharmacy-scoped search gives the
         // regulated metadata lane priority. The alternate lane is consulted
-        // only when the preferred lane has no match.
+        // only when the preferred lane has no match, and a generic search
+        // skips the metadata lane entirely for a tenant without profiles: it
+        // could match nothing and would cost a second full catalog scan.
         const catalogLiteralMatch = or(
           literalContains(products.name, input.q),
           literalContains(products.sku, input.q),
@@ -317,7 +331,9 @@ export const productQueryProcedures = {
             ? preferredMatches
             : input.pharmacyOnly
               ? await findCatalogLiteralMatches()
-              : await findPharmacyLiteralMatches();
+              : hasPharmacyProductProfiles(ctx.db, ctx.tenantId)
+                ? await findPharmacyLiteralMatches()
+                : [];
         items = await hydrateRankedProducts(fallbackMatches);
       }
     }

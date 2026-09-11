@@ -120,8 +120,8 @@
     }
   },
   "productSearchProfile": {
-    "$comment": "C3/D1 search scale contract. ci:server grows one deterministic tenant catalog through 1k, 10k, and 50k products, attaches a pharmacy profile to every row, bounds both write phases, checks FTS/profile consistency and tenant isolation, measures the real products.search tRPC path for exact SKU and sanitary registration, selective/broad retail and pharmacy FTS, substring fallback, and the bounded 200-id hybrid semantic candidate pool without calling an AI provider.",
-    "$baseline": "Broad-FTS baselines were recalibrated on 2026-08-13 from two sequential ubuntu-latest Backend Server runs for PR 197. The observed broad p95 maxima were 6.61 ms at 1k, 28.95 ms at 10k, and 136.50 ms at 50k; the 50k tier was reached in the first run because the second stopped at the earlier 10k assertion. PR9 gives pharmacy-profile attachment the same existing catalog-build ceilings: two sequential local runs measured maxima of 34.02, 351.47, and 1662.49 ms. The existing 35% tolerance remains fixed. Re-capture serially on the hosted runner before changing these values again.",
+    "$comment": "C3/D1 search scale contract. ci:server grows the same deterministic tenant catalog through 1k, 10k, and 50k products twice, in separate databases: a retail catalog without pharmacy profiles and a pharmacy catalog with a profile on every row. Both shapes check FTS/profile consistency and tenant isolation and measure the real products.search tRPC path for exact SKU, selective/broad FTS, substring fallback, and the bounded 200-id hybrid semantic candidate pool without calling an AI provider; the pharmacy shape adds its profile-attachment build, sanitary registration, pharmacy FTS, and a pharmacy-only metadata substring. p95 holds the budgets both shapes share plus the retail substring lane; pharmacyP95 holds only the substring lanes whose cost depends on profile data.",
+    "$baseline": "Broad-FTS baselines were recalibrated on 2026-08-13 from two sequential ubuntu-latest Backend Server runs for PR 197. The observed broad p95 maxima were 6.61 ms at 1k, 28.95 ms at 10k, and 136.50 ms at 50k; the 50k tier was reached in the first run because the second stopped at the earlier 10k assertion. PR9 gives pharmacy-profile attachment the same existing catalog-build ceilings: two sequential local runs measured maxima of 34.02, 351.47, and 1662.49 ms. The existing 35% tolerance remains fixed. Re-capture serially on the hosted runner before changing these values again. The 2026-09-11 retail/pharmacy split was recalibrated from two sequential ubuntu-latest Backend Server runs of PR 237 with a flat store-profile control. Substring p95 maxima at 1k, 10k, and 50k: retail 1.38, 4.37, and 19.85 ms; pharmacy catalog 1.42, 4.48, and 19.83 ms; pharmacy-only metadata 2.16, 11.20, and 50.11 ms. Both catalog shapes cost the same within a run, but the identical 50k lane measured 20.13, 26.05, 27.94, and 28.14 ms on earlier hosted runs of the mixed fixture with its code unchanged, so the 50k substring budget follows that 28.14 ms maximum at about 1.1x: 23 for retail and the pharmacy catalog, which kitchen routing also reuses. Metadata budgets follow their own hosted maxima and never sit below the retail substring budget of the same tier.",
     "catalogSizes": [1000, 10000, 50000],
     "warmupIterations": 3,
     "samplesPerQuery": 30,
@@ -156,8 +156,22 @@
         "exactSku": 4,
         "ftsSelective": 5,
         "ftsBroad": 110,
-        "substringFallback": 20,
+        "substringFallback": 23,
         "semanticCandidatePool": 100
+      }
+    },
+    "pharmacyP95": {
+      "1000": {
+        "catalogSubstringFallback": 4,
+        "metadataSubstringFallback": 4
+      },
+      "10000": {
+        "catalogSubstringFallback": 8,
+        "metadataSubstringFallback": 9.5
+      },
+      "50000": {
+        "catalogSubstringFallback": 23,
+        "metadataSubstringFallback": 41
       }
     }
   },

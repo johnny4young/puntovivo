@@ -105,7 +105,12 @@ keeping regulated aggregates local until that contract exists.
   Checkout receives requirements and evidence ids, never prescription PII.
 - Medicine search uses tenant-scoped exact and FTS5 lanes over commercial name,
   generic name, active ingredient, manufacturer, barcode, SKU, and sanitary
-  registration. The 50,000-product profile remains a release gate.
+  registration. The literal compatibility lanes of `products.list` and
+  `products.search` evaluate regulated metadata only for a tenant that owns a
+  pharmacy profile; the owned data, not the vertical preset, decides, so leaving
+  the pharmacy preset keeps existing medicines findable. The 50,000-product
+  profile remains a release gate and budgets retail and pharmacy catalogs
+  separately.
 - Managers and administrators operate lots, evidence, authorizations, and
   recalls. Recall contact PII is admin-only; managers receive operational ids
   and cashiers cannot open the recall investigation surface.
