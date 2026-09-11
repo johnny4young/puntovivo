@@ -272,4 +272,46 @@ describe('Sequentials tRPC Router', () => {
       await db.delete(tenants).where(eq(tenants.id, foreignTenantId));
     }
   });
+
+  it('rejects a site filter owned by another tenant instead of listing nothing', async () => {
+    const db = getDatabase();
+    const foreignTenantId = nanoid();
+    const foreignCompanyId = nanoid();
+    const foreignSiteId = nanoid();
+    const now = new Date().toISOString();
+    await db.insert(tenants).values({
+      id: foreignTenantId,
+      name: 'Foreign filter tenant',
+      slug: `foreign-filter-${foreignTenantId}`,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(companies).values({
+      id: foreignCompanyId,
+      tenantId: foreignTenantId,
+      name: 'Foreign filter company',
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(sites).values({
+      id: foreignSiteId,
+      tenantId: foreignTenantId,
+      companyId: foreignCompanyId,
+      name: 'Foreign filter site',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    try {
+      const caller = appRouter.createCaller(createTestContext());
+      await expect(caller.sequentials.list({ siteId: foreignSiteId })).rejects.toMatchObject({
+        code: 'NOT_FOUND',
+      });
+    } finally {
+      await db.delete(sites).where(eq(sites.id, foreignSiteId));
+      await db.delete(companies).where(eq(companies.id, foreignCompanyId));
+      await db.delete(tenants).where(eq(tenants.id, foreignTenantId));
+    }
+  });
 });
