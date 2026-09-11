@@ -179,9 +179,9 @@ test('no page advertises a key combination the product does not bind', () => {
   // The hero used to promise Alt+K for the palette (it is Mod+K), Alt+C for
   // charging (it focuses the quantity field), plus Alt+N and Alt+M, which do
   // not exist at all. Any Alt/⌥ badge on these surfaces must name a real one.
-  const advertised = [...surfaces.matchAll(/pv-key[^>]*>(?:Alt|⌥)<\/span>\s*<span class="pv-key"[^>]*>([A-Z0-9?])</g)].map(
-    m => `Alt+${m[1]}`
-  );
+  const advertised = [
+    ...surfaces.matchAll(/pv-key[^>]*>(?:Alt|⌥)<\/span>\s*<span class="pv-key"[^>]*>([A-Z0-9?])</g),
+  ].map(m => `Alt+${m[1]}`);
   const shipped = new Set(SITE_SHORTCUTS.map(claim => canonicalCombo(claim.keys)));
   for (const combo of advertised) {
     assert.ok(shipped.has(combo), `hero advertises ${combo}, which the product does not bind`);
@@ -197,7 +197,10 @@ test('every Discussions link points at the canonical repository channel', () => 
   // derive from REPO_URL/discussions — a typo'd or hardcoded variant would
   // 404 just like the disabled channel used to.
   assert.match(sources, /REPO_URL\}\/discussions/);
-  assert.doesNotMatch(sources, /github\.com\/(?!johnny4young\/puntovivo\/discussions)[^\s"'`]*\/discussions/i);
+  assert.doesNotMatch(
+    sources,
+    /github\.com\/(?!johnny4young\/puntovivo\/discussions)[^\s"'`]*\/discussions/i
+  );
   // The visible copy offers the channel in both locales.
   assert.match(JSON.stringify(locales), /GitHub Discussions/);
 });
@@ -226,6 +229,36 @@ test('the built-modules claims map to real code in the repository', () => {
   assert.match(read('apps/web/src/features/sales/useBarcodeWedgeListener.ts'), /gs1/i);
 });
 
+test('pharmacy copy distinguishes prescription controls from blocked controlled medicines', () => {
+  for (const [lang, locale] of Object.entries(locales)) {
+    const pharmacy = locale.modules.items.find(item => /Pharmacy|Farmacia/.test(item.h));
+    assert.ok(pharmacy, `${lang} needs the pharmacy module`);
+    const copy = pharmacy.bullets.join(' ');
+    assert.match(copy, /prescription|prescripción/i);
+    assert.match(
+      copy,
+      /controlled medicines remain blocked|medicamentos controlados siguen bloqueados/i
+    );
+    assert.match(copy, /not .*certification|no .*certificación/i);
+    assert.doesNotMatch(copy, /per controlled sale|por venta controlada/i);
+  }
+});
+
+test('Spanish lot receiving copy names inventory reception, not a customer receipt', () => {
+  const pharmacy = locales.es.modules.items.find(item => /Farmacia/.test(item.h));
+  const receiving = pharmacy.bullets.find(bullet => /identidad de lote/.test(bullet));
+  assert.match(receiving, /recepción/i);
+  assert.doesNotMatch(receiving, /recibo/i);
+});
+
+test('gallery copy explains screenshot language and optional semantic search', () => {
+  for (const locale of Object.values(locales)) {
+    assert.match(locale.shots.note, /Spanish|español/);
+    assert.match(locale.shots.items.catalogo.desc, /optional|opcional/i);
+    assert.match(locale.shots.items.catalogo.desc, /configured|configurado/i);
+  }
+});
+
 test('the security page claims map to real controls', () => {
   const read = rel => readFileSync(path.join(repoRoot, rel), 'utf8');
 
@@ -235,10 +268,7 @@ test('the security page claims map to real controls', () => {
   const desktopMain = read('apps/desktop/src/main/index.ts');
   assert.match(desktopMain, /createEncryptionSetup|PUNTOVIVO_DB_KEY|encryption/i);
   // Revealing the backup key is an audited action.
-  assert.match(
-    read('packages/server/src/db/schema/base.ts'),
-    /backup\.encryption_key_reveal/
-  );
+  assert.match(read('packages/server/src/db/schema/base.ts'), /backup\.encryption_key_reveal/);
   // The update chain refuses silent installs without a verifiable
   // signature (install-policy module from the update-chain band).
   assert.match(

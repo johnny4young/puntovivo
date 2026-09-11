@@ -460,7 +460,7 @@
         "h": "Pharmacy and lot traceability",
         "bullets": [
           "Lot custody with expiry, quarantine and market recalls.",
-          "Authorisations and evidence per controlled sale, with audited approval and revocation.",
+          "Authorisations and evidence for prescription products in Colombia, with audited approval and revocation. Controlled medicines remain blocked; these controls are not regulatory certification.",
           "Receiving demands concrete lot identity on the lines that track it."
         ]
       },
@@ -1524,7 +1524,7 @@
       },
       "catalogo": {
         "title": "Catalogue",
-        "desc": "Price, stock and margin per product. Semantic search finds what the cashier remembers, not what the supplier typed."
+        "desc": "Price, stock and margin per product. Text search and optional semantic search with a configured embedding provider."
       },
       "cierreDia": {
         "title": "Day close",
@@ -1539,6 +1539,8 @@
         "desc": "Shifts per site in the business time zone, with overlaps blocked and every change kept for audit. Real attendance exports to payroll and accounting."
       }
     },
-    "note": "The data is a demo business seeded by the development command, not a real customer. The interface, the maths and the states are the ones the code ships."
+    "note": "The screenshots show the Spanish interface with data from a demo business seeded by the development command, not a real customer. The app is also available in English. The interface, the maths and the states are the ones the code ships.",
+    "open": "Enlarge screenshot",
+    "openLabel": "Enlarge screenshot: {{title}}"
   }
 }

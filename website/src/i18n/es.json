@@ -460,8 +460,8 @@
         "h": "Farmacia y trazabilidad de lote",
         "bullets": [
           "Custodia por lote con vencimiento, cuarentena y retiros del mercado.",
-          "Autorizaciones y evidencia por venta controlada, con aprobación y revocación auditadas.",
-          "El recibo exige identidad de lote concreta en las líneas que la rastrean."
+          "Autorizaciones y evidencia para productos de prescripción en Colombia, con aprobación y revocación auditadas. Los medicamentos controlados siguen bloqueados; estos controles no son una certificación regulatoria.",
+          "La recepción de inventario exige identidad de lote concreta en las líneas que la rastrean."
         ]
       },
       {
@@ -1524,7 +1524,7 @@
       },
       "catalogo": {
         "title": "Catálogo",
-        "desc": "Tarifa, existencias y margen por producto. La búsqueda semántica encuentra lo que el cajero recuerda, no lo que escribió el proveedor."
+        "desc": "Tarifa, existencias y margen por producto. Búsqueda por texto y búsqueda semántica opcional con un proveedor de embeddings configurado."
       },
       "cierreDia": {
         "title": "Cierre del día",
@@ -1539,6 +1539,8 @@
         "desc": "Turnos por sede en la zona horaria del negocio, con los cruces bloqueados y cada cambio conservado para auditoría. La asistencia real se exporta a nómina y contabilidad."
       }
     },
-    "note": "Los datos son de demostración: un negocio sembrado con el comando de desarrollo, no un cliente real. La interfaz, los cálculos y los estados son los que trae el código."
+    "note": "Las capturas muestran la interfaz en español con datos de un negocio de demostración creado por el comando de desarrollo, no de un cliente real. La aplicación también está disponible en inglés. La interfaz, los cálculos y los estados son los que trae el código.",
+    "open": "Ampliar captura",
+    "openLabel": "Ampliar captura: {{title}}"
   }
 }
