@@ -11,9 +11,10 @@
  * At every tier it drives the real tRPC procedure across the exact, FTS5, and
  * compatibility fallback lanes, checks deterministic relevance and tenant
  * scope, and records p95 without contention from the coverage pool. The
- * substring lanes answer to per-shape budgets: 50k profiles make the same scan
- * a different workload, so one shared budget would either bill retail stores
- * for pharmacy data or let a pharmacy regression hide under retail headroom.
+ * substring lanes answer to per-shape budgets: profile content slows broad FTS
+ * and adds a regulated-metadata lane, so one mixed fixture would either bill
+ * retail stores for pharmacy data or let a pharmacy regression hide under
+ * retail headroom.
  *
  * @module __tests__/perf-product-search-profile.test
  */

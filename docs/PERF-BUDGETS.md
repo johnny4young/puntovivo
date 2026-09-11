@@ -205,12 +205,13 @@ own single-worker Vitest process. This keeps wall-clock samples free from the
 parallel coverage pool and also exercises the same incremental FTS triggers
 used by real product writes.
 
-The shapes use separate databases because profile data changes what the same
-scan touches. On 2026-09-11 the single mixed catalog measured its substring
-lane at 20 to 28 ms on hosted runners against a 27 ms ceiling, while the 10k
-tier stayed flat and the literal lane itself never joined a profile. One shared
-budget would either bill retail stores for pharmacy data or let a pharmacy
-regression hide under retail headroom.
+The shapes use separate databases so each budget is measured on the data it
+protects. On hosted runners, profile content makes broad FTS and the hybrid
+pool about 20% slower. The pharmacy shape also adds a regulated-metadata lane
+that costs about 2.5 times the catalog substring. A single mixed fixture would
+either bill retail stores for pharmacy data or let a pharmacy regression hide
+under retail headroom. Within one hosted run, the generic substring lane costs
+the same on both catalogs.
 
 Each shape requires profile/FTS cardinality parity at every tier: no profile for
 retail and one per product for pharmacy. Retail catalog construction and
@@ -264,10 +265,15 @@ or below 1.59 ms, and the substring fallback at or below 7.42 ms. Two sequential
 2026-09-02 local PR9 runs attached pharmacy profiles in at most 34.02 ms,
 351.47 ms, and 1,662.49 ms. That phase reuses the existing 200/800/4,000 ms
 catalog-build baselines rather than introducing a looser host contract.
-The `pharmacyP95` substring ceilings are provisional until two sequential
-hosted Backend Server runs recalibrate them. Two local Apple Silicon runs of
-the split measured the 50k pharmacy catalog substring at most 9.40 ms and the
-pharmacy-only metadata substring at most 21.17 ms.
+The 2026-09-11 split was recalibrated from two sequential hosted Backend Server
+runs with a flat store-profile control. At 50k, retail and pharmacy catalog
+substring p95 stayed within 19.85 ms, and the pharmacy-only metadata substring
+within 50.11 ms. Earlier hosted runs of the same 50k lane, with its code
+unchanged, measured 20.13, 26.05, 27.94, and 28.14 ms. The 50k substring budget
+therefore follows that 28.14 ms maximum rather than a single run: 23 ms before
+tolerance, for both catalog shapes and for kitchen routing, which reuses it.
+The metadata lane follows its own hosted maxima (4, 9.5, and 41 ms) and never
+sits below the retail substring budget of the same tier.
 Checked-in baselines deliberately retain runner headroom, then apply the shared
 35% tolerance. They are regression budgets rather than user-facing latency
 SLAs.
