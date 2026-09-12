@@ -5,6 +5,11 @@ import { createRequire } from 'node:module';
 import { test } from 'node:test';
 import path from 'node:path';
 
+import {
+  EXACT_VERSION,
+  parseWorkspacePackageExtensionSelectors,
+} from './lib/workspace-manifest.mjs';
+
 const require = createRequire(import.meta.url);
 const workspaceManifest = readFileSync(new URL('../pnpm-workspace.yaml', import.meta.url), 'utf8');
 const lockfile = readFileSync(new URL('../pnpm-lock.yaml', import.meta.url), 'utf8');
@@ -100,6 +105,103 @@ test('Sentry Node receives its undeclared OpenTelemetry peer explicitly', () => 
   assert.equal(corePackage.version, '2.10.0');
   assert.match(workspaceManifest, /^\s+'@sentry\/node@10\.71\.0':$/m);
   assert.match(workspaceManifest, /^\s+'@opentelemetry\/core': '2\.10\.0'$/m);
+});
+
+// A selector that pins a version stops applying, silently, as soon as that
+// package moves: electron-builder 26.16.1 with the old app-builder-lib@26.15.3
+// selector dropped the optional electron-builder-squirrel-windows peer meta
+// behind a generic peer warning. A versionless selector applies to every
+// version and cannot go stale, and a pinned one must name a version the lockfile
+// resolves. Lockfile keys are exact, so a range cannot be checked against them
+// and is rejected with a message that says so rather than a misleading one.
+function assertExtensionSelectorApplies(selector) {
+  const [, name, version] = selector.match(/^((?:@[^/@\s]+\/)?[^@\s]+)(?:@(.+))?$/u) ?? [];
+  assert.ok(name, `${selector} is not a package selector`);
+  if (version === undefined) return;
+  assert.match(
+    version,
+    EXACT_VERSION,
+    `${selector} names a version range; pin one exact version or drop the version`
+  );
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  assert.match(
+    lockfile,
+    new RegExp(`^ {2}'?${escaped}'?:$`, 'm'),
+    `${selector} is not a resolved package, so its extension no longer applies`
+  );
+}
+
+test('the packageExtensions reader fails loudly on any spelling it cannot check', () => {
+  // A selector the reader skipped would silently stop being checked, so every
+  // spelling pnpm accepts must parse and every other shape must throw.
+  assert.deepEqual(
+    parseWorkspacePackageExtensionSelectors(
+      [
+        'packageExtensions:',
+        "  'a@1.0.0':",
+        '    dependencies:',
+        '# a column-0 comment inside the block',
+        '  "b@2.0.0": # a trailing comment',
+        '    dependencies:',
+        '  c@3.0.0:  ',
+        '    dependencies:',
+        'overrides:',
+        '  d@4.0.0: 4.0.1',
+      ].join('\r\n')
+    ),
+    ['a@1.0.0', 'b@2.0.0', 'c@3.0.0']
+  );
+  for (const entry of [
+    "  'a@1.0.0': { dependencies: { b: 1.0.0 } }",
+    "  'a@1.0.0': inline",
+    '   a@1.0.0:',
+  ]) {
+    assert.throws(
+      () => parseWorkspacePackageExtensionSelectors(`packageExtensions:\n${entry}\n`),
+      /Unsupported packageExtensions syntax/,
+      entry
+    );
+  }
+  assert.throws(
+    () => parseWorkspacePackageExtensionSelectors("packageExtensions:\n  'a@1.0.0':\n  a@1.0.0:\n"),
+    /Duplicate packageExtensions selector a@1\.0\.0/
+  );
+});
+
+test('every package extension selector keeps applying to the installed package', () => {
+  assert.doesNotThrow(() => assertExtensionSelectorApplies('app-builder-lib'));
+  assert.doesNotThrow(() => assertExtensionSelectorApplies('@sentry/node'));
+  for (const range of ['app-builder-lib@26.x', 'app-builder-lib@^26.16.1', '@sentry/node@>=10']) {
+    assert.throws(() => assertExtensionSelectorApplies(range), /names a version range/, range);
+  }
+  assert.throws(
+    () => assertExtensionSelectorApplies('@puntovivo/never-installed@1.0.0'),
+    /is not a resolved package/
+  );
+  const selectors = parseWorkspacePackageExtensionSelectors(workspaceManifest);
+  assert.ok(selectors.length > 0, 'expected packageExtensions selectors');
+  for (const selector of selectors) assertExtensionSelectorApplies(selector);
+});
+
+test('electron-builder unlocks its signing keychain with the keychain password', () => {
+  // electron-builder 26.15.3 through 26.16.0 passed the p12 import password to
+  // security set-key-partition-list for the throwaway keychain it creates with a
+  // random password. The macOS 26.6 runner image rejects that, which failed the
+  // signed mac release job of v1.14.0 and again of v1.14.1. Only a signed release
+  // reaches this call, so pin the behavior here, where a bump that regresses it
+  // fails CI instead of the next release.
+  const macCodeSign = readFileSync(
+    path.join(
+      path.dirname(require.resolve('app-builder-lib/package.json')),
+      'out/codeSign/macCodeSign.js'
+    ),
+    'utf8'
+  );
+  const calls = macCodeSign.match(/\[\s*["']set-key-partition-list["'][^\]]*\]/g) ?? [];
+  assert.ok(calls.length > 0, 'expected app-builder-lib to call security set-key-partition-list');
+  for (const call of calls) {
+    assert.match(call, /["']-k["'],\s*keychainPassword,/, call);
+  }
 });
 
 test('native install uses the bundled Node-API SQLite contract', () => {

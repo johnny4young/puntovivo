@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 
-const EXACT_VERSION = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+import { EXACT_VERSION, readWorkspaceSection, unquoteYamlScalar } from './workspace-manifest.mjs';
+
 const EXACT_NPM_ALIAS =
   /^npm:(?:@[^/\s]+\/)?[^@\s]+@\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -12,31 +13,11 @@ export const MAX_REVIEW_DAYS = Object.freeze({
   'regression-ceiling': 14,
 });
 
-function unquoteYamlScalar(value) {
-  const trimmed = value.trim();
-  if (
-    (trimmed.startsWith("'") && trimmed.endsWith("'")) ||
-    (trimmed.startsWith('"') && trimmed.endsWith('"'))
-  ) {
-    return trimmed.slice(1, -1);
-  }
-  return trimmed;
-}
-
 /** Parse only the top-level pnpm overrides mapping without adding a YAML runtime dependency. */
 export function parseWorkspaceOverrides(source) {
   const overrides = new Map();
-  let insideOverrides = false;
 
-  for (const line of source.split(/\r?\n/u)) {
-    if (!insideOverrides) {
-      insideOverrides = line === 'overrides:';
-      continue;
-    }
-
-    if (/^[A-Za-z][\w-]*:/u.test(line)) break;
-    if (/^\s*(?:#.*)?$/u.test(line)) continue;
-
+  for (const line of readWorkspaceSection(source, 'overrides')) {
     const match = line.match(/^\s{2}((?:'[^']+'|"[^"]+"|[^:#][^:]*?)):\s+(.+?)\s*$/u);
     if (!match) {
       throw new Error(`Unsupported overrides syntax: ${line.trim()}`);
@@ -48,7 +29,6 @@ export function parseWorkspaceOverrides(source) {
     overrides.set(selector, target);
   }
 
-  if (!insideOverrides) throw new Error('pnpm-workspace.yaml has no overrides mapping');
   return overrides;
 }
 

@@ -77,7 +77,46 @@ export function classifyElectronStderrLine(
     // the system backupd sandbox refuses an XPC connection the process never
     // needed; the app is unaffected. Observed on the macOS Sequoia 15 runner
     // under Electron 43 (the Tahoe 26 runner does not emit it). The exact
-    // service name keeps every other XPC failure blocking.
+    // service name keeps every other XPC failure blocking. The helper is named
+    // after productName in apps/desktop/electron-builder.yml; the policy test
+    // reads it from there, so a rename fails that test instead of the mac smoke.
+    return 'informational';
+  }
+
+  if (
+    /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3} puntovivo\[\d+:\d+\] NSSpellServer dataFromCheckingString (?:timed out|succeeded), index is \d+$/.test(
+      line
+    )
+  ) {
+    // AppKit logs this from the packaged app's browser process when the native
+    // macOS spellchecker, which Electron enables for text fields by default,
+    // asks the system spell server to check typed text. On a fresh runner
+    // session that service starts cold: the first request timed out and the
+    // next succeeded half a second later, right after the smoke typed into the
+    // sign-in form (macos-26 release runner, 2026-09-04, job 101069511807).
+    // Spellcheck only decorates input; the app is unaffected. Only this request,
+    // its two outcomes, and the packaged process are accepted. That process is
+    // named after executableName in apps/desktop/electron-builder.yml, which the
+    // policy test reads, so a rename fails that test instead of the mac smoke.
+    return 'informational';
+  }
+
+  if (
+    /^\[[^\]\r\n]+:ERROR:base\/process\/process_mac\.cc:53\] task_policy_set TASK_CATEGORY_POLICY: \(os\/kern\) invalid argument \(4\)$/.test(
+      line
+    ) ||
+    /^\[[^\]\r\n]+:ERROR:base\/process\/process_mac\.cc:98\] task_policy_set TASK_SUPPRESSION_POLICY: \(os\/kern\) invalid argument \(4\)$/.test(
+      line
+    )
+  ) {
+    // Chromium's Process::SetPriority issues both calls for a child's task port
+    // even when the first fails, so these arrive as a pair. The same run logged
+    // the pair once, about 1.7 s after the embedded server stopped during app
+    // quit and never while the app ran, consistent with re-prioritizing a
+    // renderer or utility process that was already exiting (macos-26 release
+    // runner, 2026-09-04, job 101069511807). The line numbers are pinned ON
+    // PURPOSE to Chromium 150.0.7871.224 (Electron 43.4.1) so every rebase
+    // forces a re-verification; any other kern result stays blocking.
     return 'informational';
   }
 
