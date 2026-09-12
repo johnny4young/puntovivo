@@ -59,9 +59,11 @@ allowBuilds:
 # electron-builder uses app-builder-lib for every target, but its Squirrel
 # package is only required for the Squirrel.Windows target. Puntovivo packages
 # Windows as NSIS, so mark that target-specific peer optional instead of
-# installing an unused vulnerable toolchain.
+# installing an unused vulnerable toolchain. The selector names no version on
+# purpose: the peer is optional for every app-builder-lib release, and a pinned
+# selector silently stops applying the moment electron-builder moves.
 packageExtensions:
-  'app-builder-lib@26.16.1':
+  'app-builder-lib':
     peerDependenciesMeta:
       electron-builder-squirrel-windows:
         optional: true

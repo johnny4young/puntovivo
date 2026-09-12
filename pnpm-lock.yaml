@@ -43,7 +43,7 @@ overrides:
   undici@7.28.0: 7.29.0
   '@aws-sdk/core@3.977.5': 3.977.6
 
-packageExtensionsChecksum: sha256-w4CS8LiXBGKqEMHI8n0rOby+7FzijesBhqCHcRsplEM=
+packageExtensionsChecksum: sha256-BFsIdCirX/tDf+EDERlFelWu6jlBKb+AW6eqatgdv+0=
 
 patchedDependencies:
   '@electron/asar@4.2.1': 7b17b5bf017952acdc62c343d6e2aada73c5aa99c6ccf4e05b530c850335732b
