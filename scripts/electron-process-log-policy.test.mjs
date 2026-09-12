@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import {
   classifyElectronStderrLine,
@@ -147,6 +148,33 @@ describe('Electron process log policy', () => {
         '2026-09-04 15:08:21.025 puntovivo Helper (Renderer)[35398:58960] NSSpellServer dataFromCheckingString timed out, index is 1'
       ),
       'unexpected'
+    );
+  });
+
+  it('names the macOS processes after the packaging config that produces them', () => {
+    // The spell server rule matches the browser process by executableName and
+    // the backupd rule matches the helper by productName, both set in
+    // apps/desktop/electron-builder.yml. A rename there would turn both rules
+    // into dead code and fail the mac smoke with no hint of the cause.
+    const config = readFileSync(
+      new URL('../apps/desktop/electron-builder.yml', import.meta.url),
+      'utf8'
+    );
+    const executableName = config.match(/^executableName: (.+?)\s*$/m)?.[1];
+    const productName = config.match(/^productName: (.+?)\s*$/m)?.[1];
+    assert.ok(executableName, 'expected executableName in electron-builder.yml');
+    assert.ok(productName, 'expected productName in electron-builder.yml');
+    assert.equal(
+      classifyElectronStderrLine(
+        `2026-09-04 15:08:21.025 ${executableName}[35397:58957] NSSpellServer dataFromCheckingString timed out, index is 1`
+      ),
+      'informational'
+    );
+    assert.equal(
+      classifyElectronStderrLine(
+        `2026-08-20 18:41:07.512 ${productName} Helper[4711:58960] XPC error for connection com.apple.backupd.sandbox.xpc: Connection invalid`
+      ),
+      'informational'
     );
   });
 

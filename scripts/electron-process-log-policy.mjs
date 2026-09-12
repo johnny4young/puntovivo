@@ -77,7 +77,9 @@ export function classifyElectronStderrLine(
     // the system backupd sandbox refuses an XPC connection the process never
     // needed; the app is unaffected. Observed on the macOS Sequoia 15 runner
     // under Electron 43 (the Tahoe 26 runner does not emit it). The exact
-    // service name keeps every other XPC failure blocking.
+    // service name keeps every other XPC failure blocking. The helper is named
+    // after productName in apps/desktop/electron-builder.yml; the policy test
+    // reads it from there, so a rename fails that test instead of the mac smoke.
     return 'informational';
   }
 
@@ -93,7 +95,9 @@ export function classifyElectronStderrLine(
     // next succeeded half a second later, right after the smoke typed into the
     // sign-in form (macos-26 release runner, 2026-09-04, job 101069511807).
     // Spellcheck only decorates input; the app is unaffected. Only this request,
-    // its two outcomes, and the packaged process are accepted.
+    // its two outcomes, and the packaged process are accepted. That process is
+    // named after executableName in apps/desktop/electron-builder.yml, which the
+    // policy test reads, so a rename fails that test instead of the mac smoke.
     return 'informational';
   }
 
