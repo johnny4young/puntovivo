@@ -183,6 +183,27 @@ test('every package extension selector keeps applying to the installed package',
   for (const selector of selectors) assertExtensionSelectorApplies(selector);
 });
 
+test('electron-builder unlocks its signing keychain with the keychain password', () => {
+  // electron-builder 26.15.3 through 26.16.0 passed the p12 import password to
+  // security set-key-partition-list for the throwaway keychain it creates with a
+  // random password. The macOS 26.6 runner image rejects that, which failed the
+  // signed mac release job of v1.14.0 and again of v1.14.1. Only a signed release
+  // reaches this call, so pin the behavior here, where a bump that regresses it
+  // fails CI instead of the next release.
+  const macCodeSign = readFileSync(
+    path.join(
+      path.dirname(require.resolve('app-builder-lib/package.json')),
+      'out/codeSign/macCodeSign.js'
+    ),
+    'utf8'
+  );
+  const calls = macCodeSign.match(/\[\s*["']set-key-partition-list["'][^\]]*\]/g) ?? [];
+  assert.ok(calls.length > 0, 'expected app-builder-lib to call security set-key-partition-list');
+  for (const call of calls) {
+    assert.match(call, /["']-k["'],\s*keychainPassword,/, call);
+  }
+});
+
 test('native install uses the bundled Node-API SQLite contract', () => {
   const packageJsonPath = require.resolve('better-sqlite3/package.json');
   const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
