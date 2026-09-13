@@ -39,7 +39,9 @@ permissions:
 #
 # 2. detect-changes path filter: each downstream job only runs when files in
 # its area (or shared root config) changed. A docs-only commit runs just the
-# ~30s detect-changes job; a web-only commit skips the desktop/server jobs.
+# ~30s detect-changes job, except curated release notes, which also run the
+# release automation that validates them; a web-only commit skips the
+# desktop/server jobs.
 #
 # The full Playwright e2e suite is intentionally NOT in CI — it is the single
 # most expensive job and is run locally via `pnpm run test:e2e:web` when the
@@ -131,6 +133,10 @@ jobs:
               - 'scripts/build-electron-main.mjs'
             release:
               - 'scripts/**'
+              # The release notes test validates every curated note here, and
+              # the release run publishes the note from the tag it creates, so
+              # a malformed note must fail the pull request, not the release.
+              - 'docs/releases/**'
               - 'e2e/web/business.spec.ts'
               - '.github/workflows/release.yml'
               - '.github/workflows/prerelease-e2e.yml'
@@ -138,8 +144,9 @@ jobs:
   # ============================================================================
   # Release Automation Tests
   # ----------------------------------------------------------------------------
-  # Only runs when the release tooling (scripts/, release.yml) or shared root
-  # config changes — it validates that machinery, not application code.
+  # Only runs when the release tooling (scripts/, release.yml), the curated
+  # release notes (docs/releases/) or shared root config changes — it validates
+  # that machinery and its notes, not application code.
   # ============================================================================
   release-automation:
     name: Release Automation
