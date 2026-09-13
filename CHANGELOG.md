@@ -52,6 +52,13 @@ is usable from source, but it is not a new packaged release yet.
   a real alert receiver with ownership, and an observed retail pilot remain
   open gates.
 
+## [1.14.2](https://github.com/johnny4young/puntovivo/compare/v1.14.1...v1.14.2) (2026-09-12)
+
+
+### Bug Fixes
+
+* **release:** unblock the signed macOS desktop build ([818d049](https://github.com/johnny4young/puntovivo/commit/818d049cca5919ba39c062c47da03d329a544b9d))
+
 ## [1.14.1](https://github.com/johnny4young/puntovivo/compare/v1.14.0...v1.14.1) (2026-09-11)
 
 
