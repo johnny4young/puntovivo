@@ -140,13 +140,17 @@ jobs:
               - 'e2e/web/business.spec.ts'
               - '.github/workflows/release.yml'
               - '.github/workflows/prerelease-e2e.yml'
+              # The release notes test pins how this workflow checks out the tag
+              # it creates and publishes the curated note from it.
+              - '.github/workflows/release-please.yml'
 
   # ============================================================================
   # Release Automation Tests
   # ----------------------------------------------------------------------------
-  # Only runs when the release tooling (scripts/, release.yml), the curated
-  # release notes (docs/releases/) or shared root config changes — it validates
-  # that machinery and its notes, not application code.
+  # Only runs when the release tooling (scripts/, release.yml,
+  # release-please.yml), the curated release notes (docs/releases/) or shared
+  # root config changes — it validates that machinery and its notes, not
+  # application code.
   # ============================================================================
   release-automation:
     name: Release Automation
