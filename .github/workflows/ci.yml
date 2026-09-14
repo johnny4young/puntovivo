@@ -120,7 +120,15 @@ jobs:
               - 'scripts/critical-e2e-workflow.test.mjs'
               - 'scripts/check-lighthouse*.mjs'
               - 'scripts/run-lighthouse-gate*.mjs'
-              - 'scripts/ensure-playwright-browser.mjs'
+              # ci:web is the only gate that runs the script tests below.
+              - 'scripts/ensure-playwright-browser*.mjs'
+              - 'scripts/vite-web-config.test.mjs'
+              - 'scripts/check-adaptive-ui*.mjs'
+              - 'scripts/check-bundle-size*.mjs'
+              - 'scripts/check-contrast*.mjs'
+              - 'scripts/check-operator-deck-adoption*.mjs'
+              - 'scripts/generate-companion-service-worker*.mjs'
+              - 'scripts/long-shift-*'
             server:
               - 'packages/server/**'
               - 'perf-budget.json'
@@ -132,8 +140,6 @@ jobs:
               - 'scripts/run-electron-memory-gate*.mjs'
               - 'scripts/build-electron-main.mjs'
               # ci:desktop is the only gate that runs the script tests below.
-              # scripts/ci-path-filters.test.mjs fails when one of them, or a
-              # file it imports or reads, falls outside this filter.
               - 'scripts/asar-stream-integrity*.mjs'
               - 'scripts/backup-streaming-budget*.mjs'
               - 'scripts/electron-e2e-runtime*.mjs'
@@ -142,9 +148,28 @@ jobs:
               - 'scripts/ensure-migrations-bundled*.mjs'
               - 'scripts/ensure-native-runtime*.mjs'
               - 'scripts/packaged-first-use-journey.test.mjs'
-              - 'scripts/lib/packaged-first-use-journey.mjs'
               - 'scripts/prune-native-prebuilds*.mjs'
               - 'scripts/vite-main-config*.mjs'
+              # ci:shared runs in every workspace job. Its script tests are
+              # listed here because Desktop Workspace is the cheapest job that
+              # runs it, and scripts/lib holds the modules those tests share.
+              - 'scripts/lib/**'
+              - 'scripts/audit-disposition-policy.test.mjs'
+              - 'scripts/check-dependency-signals.test.mjs'
+              - 'scripts/check-e2e-awaited-helpers*.mjs'
+              - 'scripts/e2e-baseline-cleanup.test.mjs'
+              - 'e2e/shared/baseline.ts'
+              - 'scripts/check-exact-override-policy*.mjs'
+              - 'scripts/check-format-policy.test.mjs'
+              - 'scripts/check-lint-policy.test.mjs'
+              - 'scripts/check-operational-readiness*.mjs'
+              - 'scripts/check-migration-chain*.mjs'
+              - 'scripts/check-repository-hygiene*.mjs'
+              - 'scripts/check-setup*'
+              - 'scripts/ensure-shared-build.test.mjs'
+              - 'scripts/pnpm-command.test.mjs'
+              - 'scripts/run-dependency-audit*.mjs'
+              - 'scripts/runtime-dependency-reachability.test.mjs'
             release:
               - 'scripts/**'
               # The release notes test validates every curated note here, and
@@ -157,6 +182,15 @@ jobs:
               # The release notes test pins how this workflow checks out the tag
               # it creates and publishes the curated note from it.
               - '.github/workflows/release-please.yml'
+              # Packaging and candidate policy tests read these inputs.
+              - '.github/workflows/build-desktop.yml'
+              - 'apps/desktop/package.json'
+              - 'apps/desktop/electron-builder.yml'
+              - 'apps/desktop/scripts/prune-native-prebuilds.mjs'
+              - 'apps/web/vite.config.ts'
+              # scripts/ci-path-filters.test.mjs fails when a script test that a
+              # CI gate runs, or a file it references statically, is outside
+              # every filter of the jobs that run that gate.
 
   # ============================================================================
   # Release Automation Tests
