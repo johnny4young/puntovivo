@@ -62,6 +62,7 @@ import {
 import { getServer, getServerDatabase, getSqliteClient, setServer } from './runtime.js';
 import { createServerLifecycle } from './server-lifecycle.js';
 import { createTrayController } from './tray-controller.js';
+import { disableBuiltinSpellchecker } from './window-config.js';
 import { createWindowLifecycle } from './window-lifecycle.js';
 import {
   isPackagedRecoveryRequested,
@@ -390,6 +391,9 @@ app.whenReady().then(async () => {
 
   setMainLocale(normalizeMainLocale(app.getLocale()));
   refreshAutoUpdateTranslations();
+
+  // No window may open with the builtin spellchecker on; see window-config.ts.
+  disableBuiltinSpellchecker(session.defaultSession);
 
   // baseline CSP for renderer-served responses. Fastify API responses already
   // carry Helmet's CSP and must not receive a duplicate concatenated header.
