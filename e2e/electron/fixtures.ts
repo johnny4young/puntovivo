@@ -44,8 +44,8 @@ import { resolvePackagedBinary } from '../../scripts/lib/packaged-binary.mjs';
 import { assertObservedPackagedVersion } from '../../scripts/lib/external-electron-e2e-evidence.mjs';
 // @ts-expect-error -- pure .mjs policy shared with Node's desktop quality gate.
 import {
-  classifyElectronStderrLine,
   classifyElectronStdoutLine,
+  createElectronStderrClassifier,
 } from '../../scripts/electron-process-log-policy.mjs';
 // @ts-expect-error -- pure .mjs constants shared with the Playwright config.
 import {
@@ -243,6 +243,9 @@ function forwardElectronProcessLogs(
   } = {}
 ): { assertClean: () => void } {
   const unexpectedOutput: string[] = [];
+  // One classifier per launched process, so a bounded diagnostic that repeats
+  // past its limit in this run is reported instead of accepted indefinitely.
+  const stderrClassifier = createElectronStderrClassifier(options);
   let stdoutBuffer = '';
   let stderrBuffer = '';
   const forwardStdoutLine = (line: string) => {
@@ -255,7 +258,7 @@ function forwardElectronProcessLogs(
     }
   };
   const forwardStderrLine = (line: string) => {
-    const classification = classifyElectronStderrLine(line, options);
+    const classification = stderrClassifier.classify(line);
     if (classification === 'lifecycle') return;
     if (classification === 'informational') {
       process.stdout.write(`[electron:info] ${line}\n`);
@@ -310,10 +313,17 @@ function forwardElectronProcessLogs(
       flushStdoutBuffer();
       flushStderrBuffer();
       if (unexpectedOutput.length > 0) {
+        const repeated = stderrClassifier
+          .exceededLimits()
+          .map(
+            ({ description, count, limit }) =>
+              `- ${description} appeared ${count} times; a benign run logs at most ${limit}`
+          );
         throw new Error(
-          `Electron emitted unexpected diagnostics:\n${unexpectedOutput
-            .map(line => `- ${line}`)
-            .join('\n')}`
+          `Electron emitted unexpected diagnostics:\n${[
+            ...repeated,
+            ...unexpectedOutput.map(line => `- ${line}`),
+          ].join('\n')}`
         );
       }
     },

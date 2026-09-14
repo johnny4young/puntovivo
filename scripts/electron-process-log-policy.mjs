@@ -1,4 +1,62 @@
 /**
+ * Diagnostics that are benign a few times per process run but would hide a
+ * persistent failure if accepted without limit. classifyElectronStderrLine
+ * accepts each line on its own; createElectronStderrClassifier also counts
+ * them across one run and treats every occurrence past the limit as
+ * unexpected, because repetition is exactly the signal a persistent failure
+ * gives. Each limit is twice the largest count of the one benign run on record.
+ */
+const BOUNDED_STDERR_DIAGNOSTICS = [
+  {
+    // AppKit logs this from the packaged app's browser process when the native
+    // macOS spellchecker, which Electron enables for text fields by default,
+    // asks the system spell server to check typed text. On a fresh runner
+    // session that service starts cold: the first request timed out and the
+    // next succeeded half a second later, right after the smoke typed into the
+    // sign-in form (macos-26 release runner, 2026-09-04, job 101069511807).
+    // Spellcheck only decorates input; the app is unaffected. Only this request,
+    // its two outcomes, and the packaged process are accepted. That process is
+    // named after executableName in apps/desktop/electron-builder.yml, which the
+    // policy test reads, so a rename fails that test instead of the mac smoke.
+    // That run logged two lines; a spell server timing out on every check
+    // would log many more.
+    id: 'macos-spell-server-cold-start',
+    description: 'macOS spell server messages',
+    limit: 4,
+    patterns: [
+      /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3} puntovivo\[\d+:\d+\] NSSpellServer dataFromCheckingString (?:timed out|succeeded), index is \d+$/,
+    ],
+  },
+  {
+    // Chromium's Process::SetPriority issues both calls for a child's task port
+    // even when the first fails, so these arrive as a pair. The same run logged
+    // the pair once, about 1.7 s after the embedded server stopped during app
+    // quit and never while the app ran, consistent with re-prioritizing a
+    // renderer or utility process that was already exiting (macos-26 release
+    // runner, 2026-09-04, job 101069511807). The line numbers are pinned ON
+    // PURPOSE to Chromium 150.0.7871.224 (Electron 43.4.1) so every rebase
+    // forces a re-verification; any other kern result stays blocking. Both
+    // lines share one budget: task policy failing for live children would
+    // repeat the pair well past two.
+    id: 'chromium-task-policy-teardown',
+    description: 'Chromium task policy messages',
+    limit: 4,
+    patterns: [
+      /^\[[^\]\r\n]+:ERROR:base\/process\/process_mac\.cc:53\] task_policy_set TASK_CATEGORY_POLICY: \(os\/kern\) invalid argument \(4\)$/,
+      /^\[[^\]\r\n]+:ERROR:base\/process\/process_mac\.cc:98\] task_policy_set TASK_SUPPRESSION_POLICY: \(os\/kern\) invalid argument \(4\)$/,
+    ],
+  },
+];
+
+function boundedStderrDiagnostic(line) {
+  return (
+    BOUNDED_STDERR_DIAGNOSTICS.find(diagnostic =>
+      diagnostic.patterns.some(pattern => pattern.test(line))
+    ) ?? null
+  );
+}
+
+/**
  * Classify Electron/Chromium stderr without disabling its diagnostic emitters.
  *
  * Chromium writes informational console forwarding and the remote-debugging
@@ -83,40 +141,9 @@ export function classifyElectronStderrLine(
     return 'informational';
   }
 
-  if (
-    /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3} puntovivo\[\d+:\d+\] NSSpellServer dataFromCheckingString (?:timed out|succeeded), index is \d+$/.test(
-      line
-    )
-  ) {
-    // AppKit logs this from the packaged app's browser process when the native
-    // macOS spellchecker, which Electron enables for text fields by default,
-    // asks the system spell server to check typed text. On a fresh runner
-    // session that service starts cold: the first request timed out and the
-    // next succeeded half a second later, right after the smoke typed into the
-    // sign-in form (macos-26 release runner, 2026-09-04, job 101069511807).
-    // Spellcheck only decorates input; the app is unaffected. Only this request,
-    // its two outcomes, and the packaged process are accepted. That process is
-    // named after executableName in apps/desktop/electron-builder.yml, which the
-    // policy test reads, so a rename fails that test instead of the mac smoke.
-    return 'informational';
-  }
-
-  if (
-    /^\[[^\]\r\n]+:ERROR:base\/process\/process_mac\.cc:53\] task_policy_set TASK_CATEGORY_POLICY: \(os\/kern\) invalid argument \(4\)$/.test(
-      line
-    ) ||
-    /^\[[^\]\r\n]+:ERROR:base\/process\/process_mac\.cc:98\] task_policy_set TASK_SUPPRESSION_POLICY: \(os\/kern\) invalid argument \(4\)$/.test(
-      line
-    )
-  ) {
-    // Chromium's Process::SetPriority issues both calls for a child's task port
-    // even when the first fails, so these arrive as a pair. The same run logged
-    // the pair once, about 1.7 s after the embedded server stopped during app
-    // quit and never while the app ran, consistent with re-prioritizing a
-    // renderer or utility process that was already exiting (macos-26 release
-    // runner, 2026-09-04, job 101069511807). The line numbers are pinned ON
-    // PURPOSE to Chromium 150.0.7871.224 (Electron 43.4.1) so every rebase
-    // forces a re-verification; any other kern result stays blocking.
+  if (boundedStderrDiagnostic(line)) {
+    // Accepted line by line here; a run classifier also enforces the limit
+    // documented on BOUNDED_STDERR_DIAGNOSTICS.
     return 'informational';
   }
 
@@ -148,6 +175,36 @@ export function classifyElectronStderrLine(
   }
 
   return 'unexpected';
+}
+
+/**
+ * Classify the stderr of one process run. Lines are classified exactly as
+ * classifyElectronStderrLine does, except that a bounded diagnostic becomes
+ * unexpected once it repeats past its limit within this run. Create one
+ * classifier per launched process so every run starts with a fresh budget.
+ */
+export function createElectronStderrClassifier(options = {}) {
+  const counts = new Map();
+  return {
+    classify(line) {
+      const classification = classifyElectronStderrLine(line, options);
+      const diagnostic = classification === 'informational' ? boundedStderrDiagnostic(line) : null;
+      if (!diagnostic) return classification;
+      const count = (counts.get(diagnostic) ?? 0) + 1;
+      counts.set(diagnostic, count);
+      return count > diagnostic.limit ? 'unexpected' : classification;
+    },
+    exceededLimits() {
+      return BOUNDED_STDERR_DIAGNOSTICS.filter(
+        diagnostic => (counts.get(diagnostic) ?? 0) > diagnostic.limit
+      ).map(diagnostic => ({
+        id: diagnostic.id,
+        description: diagnostic.description,
+        count: counts.get(diagnostic),
+        limit: diagnostic.limit,
+      }));
+    },
+  };
 }
 
 export function classifyElectronStdoutLine(line) {

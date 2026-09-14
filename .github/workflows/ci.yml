@@ -131,6 +131,9 @@ jobs:
               - 'scripts/check-electron-memory*.mjs'
               - 'scripts/run-electron-memory-gate*.mjs'
               - 'scripts/build-electron-main.mjs'
+              # ci:desktop is the only gate that runs the Electron log policy
+              # tests, which the packaged smoke and Electron E2E depend on.
+              - 'scripts/electron-process-log-policy*.mjs'
             release:
               - 'scripts/**'
               # The release notes test validates every curated note here, and
