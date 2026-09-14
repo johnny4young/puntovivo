@@ -29,8 +29,8 @@ import process from 'node:process';
 import { listPackage } from '@electron/asar';
 import { chromium } from '@playwright/test';
 import {
-  classifyElectronStderrLine,
   classifyElectronStdoutLine,
+  createElectronStderrClassifier,
 } from './electron-process-log-policy.mjs';
 import { resolvePackagedBinary } from './lib/packaged-binary.mjs';
 import {
@@ -410,18 +410,27 @@ function complete(error) {
     error = 'packaged process printed a credential banner to its output';
   }
   if (!error) {
+    // One classifier for the whole run, so a benign diagnostic that repeats
+    // past its limit fails the smoke instead of hiding a persistent failure.
+    const stderrClassifier = createElectronStderrClassifier();
     const unexpectedOutput = [
       ...stdoutOutput
         .split(/\r?\n/)
         .filter(line => classifyElectronStdoutLine(line) === 'unexpected'),
       ...stderrOutput
         .split(/\r?\n/)
-        .filter(line => classifyElectronStderrLine(line) === 'unexpected'),
+        .filter(line => stderrClassifier.classify(line) === 'unexpected'),
     ];
     if (unexpectedOutput.length > 0) {
+      const repeated = stderrClassifier
+        .exceededLimits()
+        .map(
+          ({ description, count, limit }) =>
+            `${description} appeared ${count} times; a benign run logs at most ${limit}`
+        );
       error =
         `packaged process emitted unexpected warning/error output:\n` +
-        redactSensitiveOutput(unexpectedOutput.slice(-25).join('\n'));
+        redactSensitiveOutput([...repeated, ...unexpectedOutput.slice(-25)].join('\n'));
     }
   }
   if (error) {

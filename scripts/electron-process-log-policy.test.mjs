@@ -4,7 +4,19 @@ import { describe, it } from 'node:test';
 import {
   classifyElectronStderrLine,
   classifyElectronStdoutLine,
+  createElectronStderrClassifier,
 } from './electron-process-log-policy.mjs';
+
+// The four lines of the one benign macOS run on record (macos-26 release
+// runner, 2026-09-04): a cold spell server, then the teardown task policy pair.
+const SPELL_TIMED_OUT =
+  '2026-09-04 15:08:21.025 puntovivo[35397:58957] NSSpellServer dataFromCheckingString timed out, index is 1';
+const SPELL_SUCCEEDED =
+  '2026-09-04 15:08:21.536 puntovivo[35397:58957] NSSpellServer dataFromCheckingString succeeded, index is 0';
+const TASK_CATEGORY_POLICY =
+  '[35397:0904/150825.687043:ERROR:base/process/process_mac.cc:53] task_policy_set TASK_CATEGORY_POLICY: (os/kern) invalid argument (4)';
+const TASK_SUPPRESSION_POLICY =
+  '[35397:0904/150825.687108:ERROR:base/process/process_mac.cc:98] task_policy_set TASK_SUPPRESSION_POLICY: (os/kern) invalid argument (4)';
 
 describe('Electron process log policy', () => {
   it('keeps Chromium console INFO visible without treating it as a failure', () => {
@@ -204,6 +216,84 @@ describe('Electron process log policy', () => {
     ]) {
       assert.equal(classifyElectronStderrLine(line), 'unexpected', line);
     }
+  });
+
+  it('keeps the recorded benign macOS run clean under the per-run budget', () => {
+    const run = createElectronStderrClassifier();
+    for (const line of [
+      SPELL_TIMED_OUT,
+      SPELL_SUCCEEDED,
+      TASK_CATEGORY_POLICY,
+      TASK_SUPPRESSION_POLICY,
+    ]) {
+      assert.equal(run.classify(line), 'informational', line);
+    }
+    assert.deepEqual(run.exceededLimits(), []);
+  });
+
+  it('blocks a bounded macOS diagnostic once it repeats past its limit in one run', () => {
+    // Repetition is the signal a persistent failure gives: a spell server that
+    // times out on every check, or task policy calls failing for live children.
+    const run = createElectronStderrClassifier();
+    for (let index = 0; index < 4; index += 1) {
+      assert.equal(run.classify(SPELL_TIMED_OUT), 'informational');
+    }
+    assert.equal(run.classify(SPELL_SUCCEEDED), 'unexpected');
+
+    // Both task policy lines share one budget, so two teardown pairs fit and
+    // the next line of either kind does not.
+    for (let pair = 0; pair < 2; pair += 1) {
+      assert.equal(run.classify(TASK_CATEGORY_POLICY), 'informational');
+      assert.equal(run.classify(TASK_SUPPRESSION_POLICY), 'informational');
+    }
+    assert.equal(run.classify(TASK_SUPPRESSION_POLICY), 'unexpected');
+    assert.equal(run.classify(TASK_CATEGORY_POLICY), 'unexpected');
+
+    assert.deepEqual(
+      run.exceededLimits().map(({ id, count, limit }) => ({ id, count, limit })),
+      [
+        { id: 'macos-spell-server-cold-start', count: 5, limit: 4 },
+        { id: 'chromium-task-policy-teardown', count: 6, limit: 4 },
+      ]
+    );
+    for (const { description } of run.exceededLimits()) {
+      assert.match(description, /\S/);
+    }
+  });
+
+  it('starts every process run with its own budget and counts nothing else', () => {
+    const first = createElectronStderrClassifier();
+    for (let index = 0; index < 5; index += 1) first.classify(SPELL_TIMED_OUT);
+    assert.equal(first.exceededLimits().length, 1);
+
+    const second = createElectronStderrClassifier();
+    assert.equal(second.classify(SPELL_TIMED_OUT), 'informational');
+    assert.deepEqual(second.exceededLimits(), []);
+
+    // Unbounded informational lines never spend a budget, unexpected lines stay
+    // unexpected, and the per-line classifier itself remains stateless.
+    const devtools =
+      'DevTools listening on ws://127.0.0.1:9222/devtools/browser/0f6e5b1c-1d1c-4d5e-9c3b-9d2f0b8a7a61';
+    for (let index = 0; index < 50; index += 1) {
+      assert.equal(second.classify(devtools), 'informational');
+    }
+    assert.equal(second.classify('[1:2:ERROR:foo.cc:1] something broke'), 'unexpected');
+    assert.deepEqual(second.exceededLimits(), []);
+    for (let index = 0; index < 10; index += 1) {
+      assert.equal(classifyElectronStderrLine(SPELL_TIMED_OUT), 'informational');
+    }
+  });
+
+  it('carries the scoped diagnostics options into a run classifier', () => {
+    const raceLine =
+      '[33558:0729/105016.628130:WARNING:net/spdy/spdy_session.cc:3154] Received HEADERS for invalid stream 5';
+    assert.equal(createElectronStderrClassifier().classify(raceLine), 'unexpected');
+    assert.equal(
+      createElectronStderrClassifier({ allowPackagedNetworkRaceDiagnostic: true }).classify(
+        raceLine
+      ),
+      'informational'
+    );
   });
 
   it('allows only the exact packaged-CDP startup diagnostic behind an explicit scope', () => {

@@ -32,7 +32,13 @@ test('packaged renderer smoke proves the preload bridge and a data-backed login'
   assert.match(smoke, /PUNTOVIVO_E2E: '1'/);
   assert.match(smoke, /PUNTOVIVO_BIND_PORT: String\(serverPort\)/);
   assert.match(smoke, /classifyElectronStdoutLine/);
-  assert.match(smoke, /classifyElectronStderrLine/);
+  // Stderr goes through one run classifier so bounded diagnostics are counted
+  // across the whole process run; the stateless per-line call would accept a
+  // repeated diagnostic without limit.
+  assert.match(smoke, /const stderrClassifier = createElectronStderrClassifier\(\);/);
+  assert.match(smoke, /stderrClassifier\.classify\(line\) === 'unexpected'/);
+  assert.match(smoke, /stderrClassifier\s*\.exceededLimits\(\)/);
+  assert.doesNotMatch(smoke, /classifyElectronStderrLine\(/);
   assert.match(smoke, /packaged process emitted unexpected warning\/error output/);
   assert.match(smoke, /PUNTOVIVO_DB_KEY: randomBytes\(32\)\.toString\('hex'\)/);
   assert.match(smoke, /AUTO_UPDATE: 'false'/);
