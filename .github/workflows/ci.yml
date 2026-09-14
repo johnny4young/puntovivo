@@ -131,9 +131,20 @@ jobs:
               - 'scripts/check-electron-memory*.mjs'
               - 'scripts/run-electron-memory-gate*.mjs'
               - 'scripts/build-electron-main.mjs'
-              # ci:desktop is the only gate that runs the Electron log policy
-              # tests, which the packaged smoke and Electron E2E depend on.
+              # ci:desktop is the only gate that runs the script tests below.
+              # scripts/ci-path-filters.test.mjs fails when one of them, or a
+              # file it imports or reads, falls outside this filter.
+              - 'scripts/asar-stream-integrity*.mjs'
+              - 'scripts/backup-streaming-budget*.mjs'
+              - 'scripts/electron-e2e-runtime*.mjs'
+              - 'e2e/electron/fixtures.ts'
               - 'scripts/electron-process-log-policy*.mjs'
+              - 'scripts/ensure-migrations-bundled*.mjs'
+              - 'scripts/ensure-native-runtime*.mjs'
+              - 'scripts/packaged-first-use-journey.test.mjs'
+              - 'scripts/lib/packaged-first-use-journey.mjs'
+              - 'scripts/prune-native-prebuilds*.mjs'
+              - 'scripts/vite-main-config*.mjs'
             release:
               - 'scripts/**'
               # The release notes test validates every curated note here, and
