@@ -52,6 +52,14 @@ is usable from source, but it is not a new packaged release yet.
   a real alert receiver with ownership, and an observed retail pilot remain
   open gates.
 
+## [1.14.3](https://github.com/johnny4young/puntovivo/compare/v1.14.2...v1.14.3) (2026-09-15)
+
+
+### Bug Fixes
+
+* **desktop:** turn off the builtin spellchecker ([2614c7b](https://github.com/johnny4young/puntovivo/commit/2614c7b49ee381afda92d7189d570b1a3d08c21a))
+* **desktop:** turn off the builtin spellchecker ([7ac7cae](https://github.com/johnny4young/puntovivo/commit/7ac7cae65bd9af79b2cb60ab6741e2df2eb2b760))
+
 ## [1.14.2](https://github.com/johnny4young/puntovivo/compare/v1.14.1...v1.14.2) (2026-09-12)
 
 
