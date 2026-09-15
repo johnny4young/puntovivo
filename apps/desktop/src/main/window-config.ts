@@ -1,4 +1,4 @@
-import type { WebPreferences } from 'electron';
+import type { Session, WebPreferences } from 'electron';
 
 /**
  * Shape of the security-critical subset of the main window's webPreferences.
@@ -16,8 +16,21 @@ export type MainWindowWebPreferences = Pick<
 
 export type MainWindowResolvedWebPreferences = Pick<
   WebPreferences,
-  'preload' | 'sandbox' | 'contextIsolation' | 'nodeIntegration'
+  'preload' | 'sandbox' | 'contextIsolation' | 'nodeIntegration' | 'spellcheck'
 >;
+
+/**
+ * Electron's builtin spellchecker stays off in every Puntovivo window.
+ *
+ * On Windows and Linux it downloads Hunspell dictionaries from the Chromium
+ * CDN by default, a runtime network dependency an offline-first register must
+ * not have (the same reason fonts ship inside the app). It cannot detect the
+ * language being typed, the app offers no spelling suggestions, and most
+ * register fields hold codes, SKUs and names, so its only visible effect was
+ * underlining correct input. On macOS it also sends typed text to the system
+ * spell server. The web app keeps each browser's own behavior.
+ */
+const RENDERER_SPELLCHECK = false;
 
 /**
  * the main BrowserWindow renderer runs under the Chromium
@@ -49,6 +62,7 @@ export function buildMainWindowWebPreferences(preload: string): MainWindowResolv
   return {
     preload,
     ...MAIN_WINDOW_WEB_PREFERENCES,
+    spellcheck: RENDERER_SPELLCHECK,
   };
 }
 
@@ -64,5 +78,15 @@ export function buildCustomerDisplayWindowWebPreferences(
   return {
     preload,
     ...MAIN_WINDOW_WEB_PREFERENCES,
+    spellcheck: RENDERER_SPELLCHECK,
   };
+}
+
+/**
+ * Turn the builtin spellchecker off for a whole session, so windows without
+ * these preferences, such as the hidden receipt print window, and the session's
+ * dictionary downloader stay off too. Call it before any window is created.
+ */
+export function disableBuiltinSpellchecker(session: Pick<Session, 'setSpellCheckerEnabled'>): void {
+  session.setSpellCheckerEnabled(RENDERER_SPELLCHECK);
 }

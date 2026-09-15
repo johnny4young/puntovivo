@@ -3,6 +3,7 @@ import { strict as assert } from 'node:assert';
 import {
   buildCustomerDisplayWindowWebPreferences,
   buildMainWindowWebPreferences,
+  disableBuiltinSpellchecker,
   MAIN_WINDOW_WEB_PREFERENCES,
 } from '../window-config.ts';
 
@@ -48,6 +49,7 @@ describe('MAIN_WINDOW_WEB_PREFERENCES', () => {
       sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,
+      spellcheck: false,
     });
   });
 
@@ -59,6 +61,23 @@ describe('MAIN_WINDOW_WEB_PREFERENCES', () => {
       sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,
+      spellcheck: false,
     });
+  });
+});
+
+// Electron's builtin spellchecker stays off: on Windows and Linux it downloads
+// Hunspell dictionaries from the Chromium CDN by default, which an offline
+// register must not depend on, and it cannot tell which language is typed.
+describe('builtin spellchecker', () => {
+  it('turns the spellchecker off for the whole session before any window opens', () => {
+    const calls: boolean[] = [];
+    disableBuiltinSpellchecker({
+      setSpellCheckerEnabled: (enable: boolean) => {
+        calls.push(enable);
+      },
+    });
+
+    assert.deepEqual(calls, [false]);
   });
 });
