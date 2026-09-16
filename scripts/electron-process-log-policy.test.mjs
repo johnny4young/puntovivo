@@ -127,61 +127,33 @@ describe('Electron process log policy', () => {
     );
   });
 
-  it('accepts the cold macOS spell server check only for that request and the packaged app', () => {
-    // Observed on the macos-26 release runner (2026-09-04, job 101069511807)
-    // right after the smoke typed into the sign-in form.
-    assert.equal(
-      classifyElectronStderrLine(
-        '2026-09-04 15:08:21.025 puntovivo[35397:58957] NSSpellServer dataFromCheckingString timed out, index is 1'
-      ),
-      'informational'
-    );
-    assert.equal(
-      classifyElectronStderrLine(
-        '2026-09-04 15:08:21.536 puntovivo[35397:58957] NSSpellServer dataFromCheckingString succeeded, index is 0'
-      ),
-      'informational'
-    );
-    // Another outcome, another spell server request, or another process stays blocking.
-    assert.equal(
-      classifyElectronStderrLine(
-        '2026-09-04 15:08:21.025 puntovivo[35397:58957] NSSpellServer dataFromCheckingString failed, index is 1'
-      ),
-      'unexpected'
-    );
-    assert.equal(
-      classifyElectronStderrLine(
-        '2026-09-04 15:08:21.025 puntovivo[35397:58957] NSSpellServer checkString timed out, index is 1'
-      ),
-      'unexpected'
-    );
-    assert.equal(
-      classifyElectronStderrLine(
-        '2026-09-04 15:08:21.025 puntovivo Helper (Renderer)[35398:58960] NSSpellServer dataFromCheckingString timed out, index is 1'
-      ),
-      'unexpected'
-    );
+  it('blocks the macOS spell server lines now that the spellchecker is off', () => {
+    // These were accepted while Electron's builtin spellchecker was on, from the
+    // packaged browser process asking the system spell server to check typed text
+    // (macos-26 release runner, 2026-09-04, job 101069511807). Puntovivo turns
+    // that spellchecker off for every window and for the session, and the v1.14.3
+    // release job logged none of these lines. They stay blocking so a
+    // reappearance, which would mean the spellchecker came back, fails the smoke.
+    for (const line of [
+      SPELL_TIMED_OUT,
+      SPELL_SUCCEEDED,
+      '2026-09-04 15:08:21.025 puntovivo[35397:58957] NSSpellServer dataFromCheckingString failed, index is 1',
+      '2026-09-04 15:08:21.025 puntovivo Helper (Renderer)[35398:58960] NSSpellServer dataFromCheckingString timed out, index is 1',
+    ]) {
+      assert.equal(classifyElectronStderrLine(line), 'unexpected', line);
+    }
   });
 
-  it('names the macOS processes after the packaging config that produces them', () => {
-    // The spell server rule matches the browser process by executableName and
-    // the backupd rule matches the helper by productName, both set in
-    // apps/desktop/electron-builder.yml. A rename there would turn both rules
-    // into dead code and fail the mac smoke with no hint of the cause.
+  it('names the macOS helper after the packaging config that produces it', () => {
+    // The backupd rule matches the helper by productName in
+    // apps/desktop/electron-builder.yml. A rename there would turn the rule into
+    // dead code and fail the mac smoke with no hint of the cause.
     const config = readFileSync(
       new URL('../apps/desktop/electron-builder.yml', import.meta.url),
       'utf8'
     );
-    const executableName = config.match(/^executableName: (.+?)\s*$/m)?.[1];
     const productName = config.match(/^productName: (.+?)\s*$/m)?.[1];
-    assert.ok(executableName, 'expected executableName in electron-builder.yml');
     assert.ok(productName, 'expected productName in electron-builder.yml');
-    assert.equal(
-      classifyElectronStderrLine(
-        `2026-09-04 15:08:21.025 ${executableName}[35397:58957] NSSpellServer dataFromCheckingString timed out, index is 1`
-      ),
-      'informational'
-    );
     assert.equal(
       classifyElectronStderrLine(
         `2026-08-20 18:41:07.512 ${productName} Helper[4711:58960] XPC error for connection com.apple.backupd.sandbox.xpc: Connection invalid`
@@ -220,25 +192,16 @@ describe('Electron process log policy', () => {
 
   it('keeps the recorded benign macOS run clean under the per-run budget', () => {
     const run = createElectronStderrClassifier();
-    for (const line of [
-      SPELL_TIMED_OUT,
-      SPELL_SUCCEEDED,
-      TASK_CATEGORY_POLICY,
-      TASK_SUPPRESSION_POLICY,
-    ]) {
+    for (const line of [TASK_CATEGORY_POLICY, TASK_SUPPRESSION_POLICY]) {
       assert.equal(run.classify(line), 'informational', line);
     }
     assert.deepEqual(run.exceededLimits(), []);
   });
 
   it('blocks a bounded macOS diagnostic once it repeats past its limit in one run', () => {
-    // Repetition is the signal a persistent failure gives: a spell server that
-    // times out on every check, or task policy calls failing for live children.
+    // Repetition is the signal a persistent failure gives: task policy calls
+    // failing for live children rather than once for an exiting one.
     const run = createElectronStderrClassifier();
-    for (let index = 0; index < 4; index += 1) {
-      assert.equal(run.classify(SPELL_TIMED_OUT), 'informational');
-    }
-    assert.equal(run.classify(SPELL_SUCCEEDED), 'unexpected');
 
     // Both task policy lines share one budget, so two teardown pairs fit and
     // the next line of either kind does not.
@@ -251,10 +214,7 @@ describe('Electron process log policy', () => {
 
     assert.deepEqual(
       run.exceededLimits().map(({ id, count, limit }) => ({ id, count, limit })),
-      [
-        { id: 'macos-spell-server-cold-start', count: 5, limit: 4 },
-        { id: 'chromium-task-policy-teardown', count: 6, limit: 4 },
-      ]
+      [{ id: 'chromium-task-policy-teardown', count: 6, limit: 4 }]
     );
     for (const { description } of run.exceededLimits()) {
       assert.match(description, /\S/);
@@ -263,11 +223,11 @@ describe('Electron process log policy', () => {
 
   it('starts every process run with its own budget and counts nothing else', () => {
     const first = createElectronStderrClassifier();
-    for (let index = 0; index < 5; index += 1) first.classify(SPELL_TIMED_OUT);
+    for (let index = 0; index < 5; index += 1) first.classify(TASK_CATEGORY_POLICY);
     assert.equal(first.exceededLimits().length, 1);
 
     const second = createElectronStderrClassifier();
-    assert.equal(second.classify(SPELL_TIMED_OUT), 'informational');
+    assert.equal(second.classify(TASK_CATEGORY_POLICY), 'informational');
     assert.deepEqual(second.exceededLimits(), []);
 
     // Unbounded informational lines never spend a budget, unexpected lines stay
@@ -280,7 +240,7 @@ describe('Electron process log policy', () => {
     assert.equal(second.classify('[1:2:ERROR:foo.cc:1] something broke'), 'unexpected');
     assert.deepEqual(second.exceededLimits(), []);
     for (let index = 0; index < 10; index += 1) {
-      assert.equal(classifyElectronStderrLine(SPELL_TIMED_OUT), 'informational');
+      assert.equal(classifyElectronStderrLine(TASK_CATEGORY_POLICY), 'informational');
     }
   });
 
