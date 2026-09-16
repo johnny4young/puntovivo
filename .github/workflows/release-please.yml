@@ -14,6 +14,12 @@ name: release-please
 # desktop installers onto the release. Running release.yml as a reusable
 # workflow in the same run means no PAT is needed — a bot-created release event
 # would not, by itself, trigger a separate workflow.
+#
+# While a Release PR is open, the release-notes-gate job posts a "Curated release
+# notes" commit status on it after every push to main: failure while main has no
+# valid docs/releases/vX.Y.Z.md for the version the PR proposes, success once it
+# does. The PR's own CI cannot report that unattended, because GitHub holds the
+# workflow runs of github-actions[bot] commits until a maintainer approves them.
 
 on:
   push:
@@ -71,3 +77,22 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/publish-human-release-notes.mjs "${{ needs.release-please.outputs.tag_name }}"
+
+  release-notes-gate:
+    name: Curated notes status on the Release PR
+    needs: release-please
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+      statuses: write
+    steps:
+      - name: Check out the pushed commit
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Post the curated notes status on the open Release PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/release-notes-gate.mjs
