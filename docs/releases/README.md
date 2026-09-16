@@ -25,16 +25,27 @@ delivery date without fresh evidence.
 Before merging a Release Please PR:
 
 1. determine the version proposed by the PR;
-2. add `docs/releases/vX.Y.Z.md` with the structure above;
+2. add `docs/releases/vX.Y.Z.md` to `main` with the structure above;
 3. verify every claim against `docs/PROJECT-STATUS.md` and the release-candidate
    evidence;
-4. run `pnpm run ci:release`.
+4. run `pnpm run ci:release`;
+5. wait for the `Curated release notes` status on the PR to pass.
 
 `ci:release` fails while no curated note exists for the version in
-`.release-please-manifest.json`, so a Release Please PR stays red until its note
-lands. That check exists because v1.11.0 through v1.14.1 and v1.14.3 were
-released without one: the publishing job checks out the tag, so a note added
-afterwards reaches the release only by editing it by hand.
+`.release-please-manifest.json`. That check exists because v1.11.0 through
+v1.14.1 and v1.14.3 were released without one: the publishing job checks out the
+tag, so a note added afterwards reaches the release only by editing it by hand.
+
+That check does not run on its own on a Release Please PR. Its commits come from
+`github-actions[bot]`, so GitHub holds the PR's CI run as `action_required` until
+a maintainer approves it under Actions. The `Curated release notes` status needs
+no approval: after every push to `main`, `.github/workflows/release-please.yml`
+posts it on the open Release Please PR, failing while `main` has no valid note
+for the version the PR proposes and passing once it has one. The note belongs on
+`main`, not on the PR branch, which Release Please rewrites whenever it updates
+the PR. Because the note lives on `main`, the PR diff never shows it; the status
+is where to confirm it. `main` requires no status checks, so neither the status
+nor the CI run stops the PR from merging on its own.
 
 After Release Please creates the tag, `.github/workflows/release-please.yml`
 checks out that exact tag and replaces the generated GitHub release body with
