@@ -52,6 +52,14 @@ is usable from source, but it is not a new packaged release yet.
   a real alert receiver with ownership, and an observed retail pilot remain
   open gates.
 
+## [1.14.4](https://github.com/johnny4young/puntovivo/compare/v1.14.3...v1.14.4) (2026-09-16)
+
+
+### Bug Fixes
+
+* **release:** block the macOS spell server lines again ([9921b9b](https://github.com/johnny4young/puntovivo/commit/9921b9bcea62d41de88c1c8ed743a887e43583ea))
+* **release:** block the macOS spell server lines again ([fcc6daf](https://github.com/johnny4young/puntovivo/commit/fcc6dafcb4aa1c497ee6a815c7b6fbe8f606c7ce))
+
 ## [1.14.3](https://github.com/johnny4young/puntovivo/compare/v1.14.2...v1.14.3) (2026-09-15)
 
 
