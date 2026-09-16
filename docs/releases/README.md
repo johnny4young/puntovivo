@@ -30,6 +30,12 @@ Before merging a Release Please PR:
    evidence;
 4. run `pnpm run ci:release`.
 
+`ci:release` fails while no curated note exists for the version in
+`.release-please-manifest.json`, so a Release Please PR stays red until its note
+lands. That check exists because v1.11.0 through v1.14.1 and v1.14.3 were
+released without one: the publishing job checks out the tag, so a note added
+afterwards reaches the release only by editing it by hand.
+
 After Release Please creates the tag, `.github/workflows/release-please.yml`
 checks out that exact tag and replaces the generated GitHub release body with
 the curated file. The generated `CHANGELOG.md` remains available for readers
