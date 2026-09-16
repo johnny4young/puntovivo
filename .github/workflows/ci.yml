@@ -180,8 +180,10 @@ jobs:
               - '.github/workflows/release.yml'
               - '.github/workflows/prerelease-e2e.yml'
               # The release notes test pins how this workflow checks out the tag
-              # it creates and publishes the curated note from it.
+              # it creates and publishes the curated note from it, and requires a
+              # curated note for the version this manifest declares.
               - '.github/workflows/release-please.yml'
+              - '.release-please-manifest.json'
               # Packaging and candidate policy tests read these inputs.
               - '.github/workflows/build-desktop.yml'
               - 'apps/desktop/package.json'

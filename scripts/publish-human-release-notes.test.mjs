@@ -57,6 +57,32 @@ test('every tracked stable release has a valid human-first note', () => {
   }
 });
 
+test('the version the release manifest declares already has its curated note', () => {
+  // A release-please pull request bumps this manifest to the version it will
+  // tag. Failing here while the note is missing is the only thing that stops
+  // that pull request from merging first and leaving the release with the
+  // generated changelog, as happened for v1.11.0 through v1.14.1 and v1.14.3:
+  // the publishing job checks out the tag, so it cannot be fixed afterwards
+  // without editing the published release by hand.
+  const manifest = JSON.parse(
+    readFileSync(path.join(repoRoot, '.release-please-manifest.json'), 'utf8')
+  );
+  const versions = Object.values(manifest);
+  assert.equal(versions.length, 1, 'expected exactly one component in the release manifest');
+
+  const tag = `v${versions[0]}`;
+  const notesPath = humanReleaseNotesPath(tag, repoRoot);
+  let content;
+  try {
+    content = readFileSync(notesPath, 'utf8');
+  } catch {
+    assert.fail(
+      `${path.relative(repoRoot, notesPath)} is missing; add the curated note before merging the release pull request (docs/releases/README.md)`
+    );
+  }
+  validateHumanReleaseNotes(tag, content);
+});
+
 test('publisher validates the tracked note and edits the matching release', () => {
   const root = mkdtempSync(path.join(os.tmpdir(), 'puntovivo-release-notes-'));
   const notesDir = path.join(root, 'docs', 'releases');
