@@ -31,10 +31,15 @@ Before merging a Release Please PR:
 4. run `pnpm run ci:release`.
 
 `ci:release` fails while no curated note exists for the version in
-`.release-please-manifest.json`, so a Release Please PR stays red until its note
-lands. That check exists because v1.11.0 through v1.14.1 and v1.14.3 were
-released without one: the publishing job checks out the tag, so a note added
-afterwards reaches the release only by editing it by hand.
+`.release-please-manifest.json`. That check exists because v1.11.0 through
+v1.14.1 and v1.14.3 were released without one: the publishing job checks out the
+tag, so a note added afterwards reaches the release only by editing it by hand.
+
+The check does not run on its own on a Release Please PR. Its commits come from
+`github-actions[bot]`, so GitHub holds the PR's CI run as `action_required` until
+a maintainer approves it under Actions, and `main` requires no status checks, so
+the PR can merge whether or not the run happened. Approve that run and wait for
+Release Automation before merging the PR.
 
 After Release Please creates the tag, `.github/workflows/release-please.yml`
 checks out that exact tag and replaces the generated GitHub release body with
