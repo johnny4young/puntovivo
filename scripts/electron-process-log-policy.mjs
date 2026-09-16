@@ -6,27 +6,12 @@
  * unexpected, because repetition is exactly the signal a persistent failure
  * gives. Each limit is twice the largest count of the one benign run on record.
  */
+// The macOS spell server lines this list used to accept are gone with the rule:
+// Puntovivo turns Electron's builtin spellchecker off in window-config.ts, so the
+// packaged app no longer asks that service to check typed text, and the v1.14.3
+// release job logged none. They are blocking again on purpose, so a reappearance
+// reports that the spellchecker came back instead of passing as known noise.
 const BOUNDED_STDERR_DIAGNOSTICS = [
-  {
-    // AppKit logs this from the packaged app's browser process when the native
-    // macOS spellchecker, which Electron enables for text fields by default,
-    // asks the system spell server to check typed text. On a fresh runner
-    // session that service starts cold: the first request timed out and the
-    // next succeeded half a second later, right after the smoke typed into the
-    // sign-in form (macos-26 release runner, 2026-09-04, job 101069511807).
-    // Spellcheck only decorates input; the app is unaffected. Only this request,
-    // its two outcomes, and the packaged process are accepted. That process is
-    // named after executableName in apps/desktop/electron-builder.yml, which the
-    // policy test reads, so a rename fails that test instead of the mac smoke.
-    // That run logged two lines; a spell server timing out on every check
-    // would log many more.
-    id: 'macos-spell-server-cold-start',
-    description: 'macOS spell server messages',
-    limit: 4,
-    patterns: [
-      /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3} puntovivo\[\d+:\d+\] NSSpellServer dataFromCheckingString (?:timed out|succeeded), index is \d+$/,
-    ],
-  },
   {
     // Chromium's Process::SetPriority issues both calls for a child's task port
     // even when the first fails, so these arrive as a pair. The same run logged
