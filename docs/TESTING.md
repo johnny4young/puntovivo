@@ -24,6 +24,15 @@ Run commands from the repository root.
 The workspace CI commands include type checking, linting, tests, dependency
 audit, and the build or runtime measurements appropriate to that workspace.
 
+`ci:release` includes the distribution-trust verdict and packaged-binary resolver
+contracts through `test:release-script`. Pull-request release automation runs
+when either test or its implementation changes, via the existing `scripts/**`
+path filter. A registration regression also prevents these contracts from
+silently disappearing from that job's script graph. These use injected trust
+tool results and temporary executable-layout fixtures; they do not sign, notarize,
+launch or certify a real distributable. Actual OS trust and packaged execution
+still require the release-candidate checks below.
+
 ## Responsive operator shell
 
 `e2e/web/header-responsive.spec.ts` exercises real, isolated tenants with long

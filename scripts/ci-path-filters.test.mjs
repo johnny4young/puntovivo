@@ -186,6 +186,24 @@ test('every script test a CI gate runs is covered by the filters of a job that r
   );
 });
 
+test('release automation executes the distribution trust and packaged binary contracts', () => {
+  const workflow = readRepoFile('.github/workflows/ci.yml');
+  const scripts = JSON.parse(readRepoFile('package.json')).scripts;
+  const jobs = readJobs(workflow).filter(job => job.name === 'release-automation');
+  assert.equal(jobs.length, 1, 'expected the path-gated release automation job');
+  const reached = scriptFilters(jobs, scripts);
+  const registered = new Set([...reached.keys()].flatMap(name => scriptTests(scripts[name])));
+
+  // The general filter guard can only inspect tests that are already registered.
+  // Keep these release-safety contracts from silently becoming orphaned again.
+  for (const contract of [
+    'scripts/distribution-trust.test.mjs',
+    'scripts/packaged-binary.test.mjs',
+  ]) {
+    assert.ok(registered.has(contract), `release automation does not execute ${contract}`);
+  }
+});
+
 test('the filters, jobs, globs and references are read the way CI resolves them', () => {
   const workflow = [
     '          filters: |',
