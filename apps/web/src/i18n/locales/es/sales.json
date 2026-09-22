@@ -354,7 +354,7 @@
     "amountNegative": "El monto recibido no puede ser negativo",
     "quickAmount": {
       "exactKicker": "Exacto",
-      "billKicker": "Billete"
+      "amountKicker": "Monto"
     },
     "balance": "Saldo pendiente",
     "change": "Cambio",
