@@ -32,7 +32,7 @@ function methodParameters(relativePath: string, interfaceName: string) {
   );
 }
 
-for (const name of ['DatabaseAPI', 'SyncAPI']) {
+for (const name of ['SyncAPI']) {
   test(`${name} renderer declarations match the session-bound preload parameters`, () => {
     const implementation = methodParameters('../../preload/index.ts', name);
     assert.deepEqual(methodParameters('../../preload/index.d.ts', name), implementation);
@@ -40,5 +40,16 @@ for (const name of ['DatabaseAPI', 'SyncAPI']) {
       methodParameters('../../../../web/src/types/electron.ts', name),
       implementation
     );
+  });
+}
+
+for (const path of [
+  '../../preload/index.ts',
+  '../../preload/index.d.ts',
+  '../../../../web/src/types/electron.ts',
+]) {
+  test(`${path} declares no removed DatabaseAPI`, () => {
+    const source = readFileSync(new URL(path, import.meta.url), 'utf8');
+    assert.equal(source.includes('DatabaseAPI'), false);
   });
 }

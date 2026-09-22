@@ -4,8 +4,8 @@
  * Holds the single mutable reference to the in-process Fastify server and
  * the safe accessors every `ipc/*` handler uses to reach the database.
  * Kept deliberately Electron-free (it imports only types from
- * `@puntovivo/server`) so the `ipc/db.ts` / `ipc/sync.ts` concern modules
- * that depend on it stay unit-testable under `node --test` without booting
+ * `@puntovivo/server`) so the `ipc/sync.ts` concern module
+ * that depends on it stays unit-testable under `node --test` without booting
  * Electron — mirroring the existing `backup-bundle.ts` / `desktopSession.ts`
  * Electron-free idiom.
  *

@@ -92,7 +92,7 @@ test.describe('Customer Display on the desktop app', () => {
         hasElectron: window.electron !== undefined,
         hasSession: window.session !== undefined,
         hasApi: window.api !== undefined,
-        hasDatabase: window.db !== undefined,
+        hasDatabase: 'db' in window,
         hasSync: window.sync !== undefined,
       }))
     ).toEqual({

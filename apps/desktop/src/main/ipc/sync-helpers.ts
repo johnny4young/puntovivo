@@ -5,16 +5,7 @@
  * @module main/ipc/sync-helpers
  */
 import { randomUUID } from 'node:crypto';
-import {
-  and,
-  eq,
-  inArray,
-  sql,
-  appSettings,
-  syncConflicts,
-  syncOutbox,
-  type SyncConflictPolicy,
-} from '@puntovivo/server';
+import { and, eq, inArray, sql, appSettings, syncConflicts, syncOutbox } from '@puntovivo/server';
 import { getServerDatabase, getSqliteClient } from '../runtime.js';
 
 export const DESKTOP_SYNC_CONFIG_KEY = 'desktop_sync_config';
@@ -23,39 +14,6 @@ export const DESKTOP_PENDING_SYNC_STATUSES = ['queued', 'submitting', 'retrying'
 export const DESKTOP_PROCESSABLE_SYNC_STATUSES = ['queued', 'retrying'] as const;
 export type DesktopPendingSyncStatus = (typeof DESKTOP_PENDING_SYNC_STATUSES)[number];
 export type DesktopProcessableSyncStatus = (typeof DESKTOP_PROCESSABLE_SYNC_STATUSES)[number];
-export const SYNC_ENTITY_TYPE_MAP: Record<string, string> = {
-  product: 'products',
-  customer: 'customers',
-  sale: 'sales',
-  sale_item: 'sale_items',
-  category: 'categories',
-  inventory_movement: 'inventory_movements',
-  company: 'companies',
-  country: 'countries',
-  department: 'departments',
-  city: 'cities',
-  identification_type: 'identification_types',
-  person_type: 'person_types',
-  regime_type: 'regime_types',
-  client_type: 'client_types',
-  commercial_activity: 'commercial_activities',
-  location: 'locations',
-  site: 'sites',
-  unit: 'units',
-  user: 'users',
-  provider: 'providers',
-  vat_rate: 'vat_rates',
-  logo: 'logos',
-  sequential: 'sequentials',
-  order: 'orders',
-  order_item: 'order_items',
-  purchase: 'purchases',
-  purchase_item: 'purchase_items',
-  purchase_return: 'purchase_returns',
-  purchase_return_item: 'purchase_return_items',
-  sale_return: 'sale_returns',
-  initial_inventory_item: 'initial_inventory',
-};
 export const SYNC_ENTITY_CONFIG = {
   category_x_provider: {
     tableName: 'category_x_provider',
@@ -127,31 +85,6 @@ export const SYNC_ENTITY_CONFIG = {
   users: { tableName: 'users', supportsSyncMetadata: false, touchUpdatedAt: false },
   vat_rates: { tableName: 'vat_rates', supportsSyncMetadata: false, touchUpdatedAt: false },
 } as const;
-export const DESKTOP_MANUAL_SYNC_ENTITIES = new Set<string>([
-  'sales',
-  'sale_items',
-  'sale_payments',
-  'sale_returns',
-  'cash_sessions',
-  'cash_movements',
-  'fiscal_documents',
-  'fiscal_document_items',
-  'fiscal_numbering_resolutions',
-  'fiscal_certificates',
-  'inventory_movements',
-  'inventory_balances',
-  'initial_inventory',
-  'transfer_orders',
-  'transfer_order_items',
-  'stock_adjustments',
-  'audit_logs',
-  'orders',
-  'order_items',
-  'purchases',
-  'purchase_items',
-  'purchase_returns',
-  'purchase_return_items',
-]);
 
 export function getLastSyncKey(tenantId: string): string {
   return `${LAST_SYNC_KEY_PREFIX}${tenantId}`;
@@ -173,10 +106,6 @@ export function desktopProcessableSyncWhere(tenantId: string) {
       DESKTOP_PROCESSABLE_SYNC_STATUSES as unknown as DesktopProcessableSyncStatus[]
     )
   );
-}
-
-export function resolveDesktopConflictPolicy(entityType: string): SyncConflictPolicy {
-  return DESKTOP_MANUAL_SYNC_ENTITIES.has(entityType) ? 'manual' : 'auto_lww';
 }
 
 export async function getLastSyncAt(tenantId?: string): Promise<string | null> {
@@ -391,8 +320,4 @@ export async function ensurePendingConflict(
   });
 
   return conflictId;
-}
-
-export function normalizeSyncEntityType(entityType: string): string {
-  return SYNC_ENTITY_TYPE_MAP[entityType] ?? entityType;
 }

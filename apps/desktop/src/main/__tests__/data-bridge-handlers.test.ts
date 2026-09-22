@@ -10,31 +10,14 @@ const silentLog = { warn: () => {} };
 const unexpectedAsyncOperation = async (): Promise<never> => {
   throw new Error('UNEXPECTED_OPERATION');
 };
-const unexpectedSyncOperation = (): never => {
-  throw new Error('UNEXPECTED_OPERATION');
-};
 const operations: DataBridgeOperations = {
-  getAllowedTable: unexpectedSyncOperation,
-  assertRowBelongsToTenant: unexpectedAsyncOperation,
-  assertSaleItemWriteBelongsToTenant: unexpectedAsyncOperation,
-  getAll: unexpectedAsyncOperation,
-  getById: unexpectedAsyncOperation,
-  insert: unexpectedAsyncOperation,
-  update: unexpectedAsyncOperation,
-  delete: unexpectedAsyncOperation,
-  getByField: unexpectedAsyncOperation,
-  deleteByTenant: unexpectedAsyncOperation,
-  countByTenant: unexpectedAsyncOperation,
-  assertSyncOperation: unexpectedSyncOperation,
-  addToSyncQueue: unexpectedAsyncOperation,
-  getPendingSyncItems: unexpectedAsyncOperation,
   getSyncStatus: unexpectedAsyncOperation,
   triggerSync: unexpectedAsyncOperation,
   setSyncConfig: unexpectedAsyncOperation,
 };
 
 describe('authenticated data-bridge handler core', () => {
-  it('rejects every db and sync channel before domain code when the session is absent', async () => {
+  it('rejects every retained sync channel before domain code when the session is absent', async () => {
     const handlers = createDataBridgeHandlers({
       session: {
         requireTenantId: () => {
@@ -47,25 +30,6 @@ describe('authenticated data-bridge handler core', () => {
     });
 
     const invocations: Array<[string, () => unknown]> = [
-      ['db:getAll', () => handlers.getAll('products', 'tenant-renderer')],
-      ['db:getById', () => handlers.getById('products', 'row-1')],
-      ['db:insert', () => handlers.insert('products', { id: 'row-1' })],
-      ['db:update', () => handlers.update('products', 'row-1', {})],
-      ['db:delete', () => handlers.delete('products', 'row-1')],
-      ['db:getByField', () => handlers.getByField('products', 'sku', 'SKU-1')],
-      ['db:deleteByTenant', () => handlers.deleteByTenant('products', 'tenant-renderer')],
-      ['db:countByTenant', () => handlers.countByTenant('products', 'tenant-renderer')],
-      [
-        'db:addToSyncQueue',
-        () =>
-          handlers.addToSyncQueue({
-            entityType: 'products',
-            entityId: 'row-1',
-            operation: 'create',
-            tenantId: 'tenant-renderer',
-          }),
-      ],
-      ['db:getPendingSyncItems', () => handlers.getPendingSyncItems('tenant-renderer')],
       ['sync:getStatus', () => handlers.getSyncStatus('tenant-renderer')],
       ['sync:triggerSync', () => handlers.triggerSync('tenant-renderer')],
       ['sync:setConfig', () => handlers.setSyncConfig({ enabled: true })],
@@ -80,7 +44,7 @@ describe('authenticated data-bridge handler core', () => {
         channel
       );
     }
-    assert.equal(invocations.length, 13);
+    assert.equal(invocations.length, 3);
   });
 
   it('ignores a renderer tenant mismatch and records it without exposing control', () => {
@@ -103,23 +67,25 @@ describe('authenticated data-bridge handler core', () => {
     ]);
   });
 
-  it('passes only the verified tenant into a data operation', async () => {
-    const calls: Array<{ table: string; tenantId: string }> = [];
-    const handlers = createDataBridgeHandlers({
-      session: { requireTenantId: () => 'tenant-main', requireOneOfRoles: () => 'admin' },
-      log: silentLog,
-      operations: {
-        ...operations,
-        getAll: async (table, tenantId) => {
-          calls.push({ table, tenantId });
-          return [];
+  for (const method of ['getSyncStatus', 'triggerSync'] as const) {
+    it(`${method} passes only the verified tenant and preserves its result`, async () => {
+      const calls: string[] = [];
+      const result = { pendingItems: 2 };
+      const handlers = createDataBridgeHandlers({
+        session: { requireTenantId: () => 'tenant-main', requireOneOfRoles: () => 'admin' },
+        log: silentLog,
+        operations: {
+          ...operations,
+          [method]: async (tenantId: string) => {
+            calls.push(tenantId);
+            return result;
+          },
         },
-      },
+      });
+      assert.equal(await handlers[method]('tenant-renderer'), result);
+      assert.deepEqual(calls, ['tenant-main']);
     });
-
-    await handlers.getAll('products', 'tenant-renderer');
-    assert.deepEqual(calls, [{ table: 'products', tenantId: 'tenant-main' }]);
-  });
+  }
 
   it('does not warn for absent or matching compatibility hints', () => {
     let warnings = 0;

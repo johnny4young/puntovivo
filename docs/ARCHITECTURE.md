@@ -692,7 +692,7 @@ renderer -> contextBridge wrapper -> ipcRenderer.invoke
          -> validated ipcMain.handle -> main-process capability
 ```
 
-Preload wrappers stay narrow and declarative. Business data normally flows over
+Preload wrappers stay narrow and declarative. Business data flows over
 tRPC; IPC is reserved for desktop-only lifecycle, storage, updater, backup,
 printing, and local-device capabilities.
 
@@ -703,7 +703,11 @@ against the active authority before returning it and clears the singleton when
 it is expired, stale, or no longer belongs to the registered identity. The
 token is never written to disk and remains absent from session diagnostics.
 
-Database and sync IPC methods are constructed through an Electron-free handler
+The renderer has no raw database bridge: neither `window.db` nor
+`window.api.db` is exposed, and no `db:*` handlers are registered in main.
+Generic table CRUD and raw outbox enqueue/diagnostics cannot bypass tRPC use
+cases, role checks, audit, cash-session or fiscal invariants. Sync summary,
+trigger and configuration IPC methods remain in an Electron-free handler
 core that resolves the tenant from that verified main-process session before
 validation or persistence can run; renderer tenant hints are compatibility
 inputs only and never control scope. Workstation-settings writes and the
@@ -712,7 +716,7 @@ pre-login locale update remains structurally separate because it must translate
 the login window, tray, and updater before authentication. The read-only device
 id is needed to complete login; read-only workstation presentation preferences
 contain no tenant or business data. Node tests enumerate every authenticated
-db/sync channel and pin those bounded pre-login exceptions. Expected stale-session
+sync channel and pin those bounded pre-login exceptions. Expected stale-session
 failures cross the main/preload wire as a closed error envelope instead of a
 rejected `ipcMain.handle` call; preload recreates the renderer rejection without
 Electron's internal invoke wrapper or a main-process stack diagnostic.

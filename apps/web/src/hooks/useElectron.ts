@@ -35,6 +35,5 @@ export function useElectron() {
     appInfo,
     electron: inElectron ? (window.electron as ElectronAPI) : null,
     sync: inElectron ? (window.sync as SyncAPI) : null,
-    db: inElectron ? window.db : null,
   };
 }
