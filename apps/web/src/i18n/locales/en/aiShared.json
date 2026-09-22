@@ -38,7 +38,7 @@
     "anomaly": "Starting point for an investigation, not an accusation."
   },
   "privacy": {
-    "redaction": "Personal data is redacted before it leaves your server."
+    "redaction": "Copilot replaces customer names, cashier names and cashier IDs in its current analytics snapshot with temporary labels, and protects matching values in the conversation. This is not anonymization: other text, audio and documents may contain personal data and are sent to the configured provider. Do not include sensitive information."
   },
   "audit": {
     "title": "AI activity log",

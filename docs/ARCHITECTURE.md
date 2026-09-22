@@ -436,6 +436,38 @@ not imply compatible embedding spaces, so model changes require regeneration.
 [ADR-0011](./architecture/0011-product-search-vectors.md) owns the codec,
 benchmark, market comparison, and extension-adoption trigger.
 
+## AI analytics privacy boundary
+
+The co-pilot loads a tenant-scoped, time-bounded sales snapshot before its first
+model request. Its provider-only in-memory database replaces customer names,
+cashier names and cashier IDs with request-local opaque labels **before** SQL
+can compute aliases, substrings, encodings or aggregates. All tool steps use the
+same snapshot; it closes on success and failure. Joins additionally constrain
+the ownership of customers, users, sites, cash sessions and products.
+
+The same dictionary protects matching whole values in every user and assistant
+message and in the snapshot's operational labels. This is not a general PII
+detector or anonymization. The dictionary covers only identities present in the
+selected analytics window/site; arbitrary text, partial names, embedded values,
+audio and documents are not universally redacted. Other AI workflows have their
+own egress paths. The legacy `privacy.piiRedaction` capability is therefore
+reported as `false`, including when reading a stored historical `true` value.
+
+Pseudonyms preserve exact name-value grouping (including homonyms), cashier-ID
+grouping, anonymous customer NULLs and monetary values. They do not preserve
+alphabetical ordering, partial-name searches or case-normalized name grouping.
+Their namespace changes for each invocation: an old label must never silently
+identify another person. The prompt asks for a restated name or aggregate
+criteria when a conversation refers to old labels; this instruction is not a
+deterministic semantic guarantee. Authorized local read-only SQL retains its
+identity-bearing contract and is not used as the model tool.
+
+The system prompt remains static for provider caching. Snapshot contents and
+identity maps are not persisted to the AI audit log. Provider-boundary tests use
+the real AI SDK with an in-process fake model and inspect every serialized model
+call, including the calls following tool results and tool errors. These tests
+are not a live-provider certification.
+
 ## Price-tier boundary
 
 Products expose a three-price grid for their base unit. Each alternate unit

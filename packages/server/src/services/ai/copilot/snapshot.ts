@@ -11,6 +11,7 @@
  * @module services/ai/copilot/snapshot
  */
 import Database from 'better-sqlite3';
+import { createIdentityProjection } from './privacy.js';
 import { TRPCError } from '@trpc/server';
 import { and, desc, eq, gte, lte, type SQL } from 'drizzle-orm';
 
@@ -142,10 +143,13 @@ async function loadSalesSnapshot(
       status: sales.status,
     })
     .from(sales)
-    .innerJoin(cashSessions, eq(sales.cashSessionId, cashSessions.id))
-    .innerJoin(sites, eq(cashSessions.siteId, sites.id))
-    .innerJoin(users, eq(sales.createdBy, users.id))
-    .leftJoin(customers, eq(sales.customerId, customers.id))
+    .innerJoin(
+      cashSessions,
+      and(eq(sales.cashSessionId, cashSessions.id), eq(cashSessions.tenantId, tenantId))
+    )
+    .innerJoin(sites, and(eq(cashSessions.siteId, sites.id), eq(sites.tenantId, tenantId)))
+    .innerJoin(users, and(eq(sales.createdBy, users.id), eq(users.tenantId, tenantId)))
+    .leftJoin(customers, and(eq(sales.customerId, customers.id), eq(customers.tenantId, tenantId)))
     .where(and(...filters))
     .orderBy(desc(sales.createdAt))
     .limit(SALES_SNAPSHOT_ROW_LIMIT + 1);
@@ -197,10 +201,13 @@ async function loadLineItemSnapshot(
       lineTotal: saleItems.total,
     })
     .from(saleItems)
-    .innerJoin(sales, eq(saleItems.saleId, sales.id))
-    .innerJoin(cashSessions, eq(sales.cashSessionId, cashSessions.id))
-    .innerJoin(sites, eq(cashSessions.siteId, sites.id))
-    .innerJoin(products, eq(saleItems.productId, products.id))
+    .innerJoin(sales, and(eq(saleItems.saleId, sales.id), eq(sales.tenantId, tenantId)))
+    .innerJoin(
+      cashSessions,
+      and(eq(sales.cashSessionId, cashSessions.id), eq(cashSessions.tenantId, tenantId))
+    )
+    .innerJoin(sites, and(eq(cashSessions.siteId, sites.id), eq(sites.tenantId, tenantId)))
+    .innerJoin(products, and(eq(saleItems.productId, products.id), eq(products.tenantId, tenantId)))
     .where(and(...filters))
     .orderBy(desc(sales.createdAt))
     .limit(LINE_ITEMS_SNAPSHOT_ROW_LIMIT + 1);
@@ -305,36 +312,35 @@ function insertSnapshotRows(
   tx();
 }
 
-export async function runReadOnlySQL(
+/** Load one bounded dataset before the first provider request. */
+async function loadSnapshot(
   db: DatabaseInstance,
   tenantId: string,
-  options: SnapshotOptions,
-  now: Date = new Date()
-): Promise<CopilotSQLResult> {
-  const safeQuery = validateReadOnlySQL(options.query);
-  const window = resolveWindow(options.context, now);
-  const requestedSiteId = options.context?.siteId ?? null;
-  if (requestedSiteId) {
-    await assertTenantSite(db, tenantId, requestedSiteId);
-  }
-
+  context: SnapshotOptions['context'],
+  now: Date
+) {
+  const window = resolveWindow(context, now);
+  const requestedSiteId = context?.siteId ?? null;
+  if (requestedSiteId) await assertTenantSite(db, tenantId, requestedSiteId);
   const [saleRows, lineRows] = await Promise.all([
     loadSalesSnapshot(db, tenantId, window, requestedSiteId),
     loadLineItemSnapshot(db, tenantId, window, requestedSiteId),
   ]);
+  return { window, saleRows, lineRows };
+}
 
-  const sqlite = createSnapshotDatabase();
+function executeSnapshotQuery(
+  sqlite: Database.Database,
+  query: string,
+  window: CopilotWindow
+): CopilotSQLResult {
+  const safeQuery = validateReadOnlySQL(query);
   try {
-    insertSnapshotRows(sqlite, saleRows, lineRows);
-    sqlite.pragma('query_only = ON');
-
-    const cappedQuery = `SELECT * FROM (${safeQuery}) LIMIT ${RESULT_ROW_LIMIT + 1}`;
-    const statement = sqlite.prepare(cappedQuery);
+    const statement = sqlite.prepare(`SELECT * FROM (${safeQuery}) LIMIT ${RESULT_ROW_LIMIT + 1}`);
     const rawRows = statement.all() as SnapshotRow[];
     const truncated = rawRows.length > RESULT_ROW_LIMIT;
     const rows = rawRows.slice(0, RESULT_ROW_LIMIT).map(normalizeRow);
     const columns = statement.columns().map(column => column.name);
-
     return {
       sql: safeQuery,
       columns,
@@ -348,11 +354,74 @@ export async function runReadOnlySQL(
     if (
       error instanceof TRPCError ||
       (error instanceof Error && error.cause instanceof ServerErrorWithCode)
-    ) {
+    )
       throw error;
-    }
     rejectSQL(error instanceof Error ? error.message : 'Analytics SQL failed');
+  }
+}
+
+/** Authorized local SQL retains its existing identity-bearing result contract. */
+export async function runReadOnlySQL(
+  db: DatabaseInstance,
+  tenantId: string,
+  options: SnapshotOptions,
+  now: Date = new Date()
+): Promise<CopilotSQLResult> {
+  validateReadOnlySQL(options.query);
+  const { window, saleRows, lineRows } = await loadSnapshot(db, tenantId, options.context, now);
+  const sqlite = createSnapshotDatabase();
+  try {
+    insertSnapshotRows(sqlite, saleRows, lineRows);
+    sqlite.pragma('query_only = ON');
+    return executeSnapshotQuery(sqlite, options.query, window);
   } finally {
     sqlite.close();
   }
+}
+
+/**
+ * Provider-only projection. Pseudonymize before SQLite can derive aliases,
+ * substrings, encodings or aggregates. Close after the entire model invocation;
+ * every tool step must use this same dataset and identity dictionary.
+ */
+export async function createCopilotSnapshot(
+  db: DatabaseInstance,
+  tenantId: string,
+  context: SnapshotOptions['context'],
+  now: Date
+) {
+  const { window, saleRows, lineRows } = await loadSnapshot(db, tenantId, context, now);
+  const projection = createIdentityProjection(
+    saleRows.flatMap(row => [row.cashierId, row.cashierName, row.customerName])
+  );
+  const protectedSales = saleRows.map(row => ({
+    ...row,
+    cashierId: projection.identity(row.cashierId),
+    cashierName: projection.identity(row.cashierName),
+    customerName: row.customerName === null ? null : projection.identity(row.customerName),
+    siteName: projection.redact(row.siteName),
+    saleNumber: projection.redact(row.saleNumber),
+  }));
+  const protectedLines = lineRows.map(row => ({
+    ...row,
+    siteName: projection.redact(row.siteName),
+    saleNumber: projection.redact(row.saleNumber),
+    productName: projection.redact(row.productName),
+    sku: projection.redact(row.sku),
+  }));
+  const sqlite = createSnapshotDatabase();
+  try {
+    insertSnapshotRows(sqlite, protectedSales, protectedLines);
+    sqlite.pragma('query_only = ON');
+  } catch (error) {
+    sqlite.close();
+    throw error;
+  }
+  return {
+    redact: projection.redact,
+    query: (query: string) => executeSnapshotQuery(sqlite, query, window),
+    close: () => {
+      sqlite.close();
+    },
+  };
 }
