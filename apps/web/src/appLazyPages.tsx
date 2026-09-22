@@ -122,18 +122,14 @@ export const PeripheralsPage = lazyPage(async () => ({
 export const OperationsPage = lazyPage(async () => ({
   default: (await import('@/features/operations/OperationsPage')).OperationsPage,
 }));
-// surface shells + placeholder pages. Each surface mounts
-// as a top-level route OUTSIDE of <MainLayout> so it owns its full
-// viewport (KDS fullscreen, customer-display second monitor, mobile
-// waiter phone-width). Real workflows plug into the existing shells
-// in  without forking the App component.
+// Surface shells mount as top-level routes outside <MainLayout> so each owns
+// its viewport (KDS fullscreen, customer display second monitor, mobile
+// waiter phone-width). Their active homes are wired below.
 export const TouchShell = lazyPage(async () => ({
   default: (await import('@/features/surfaces/TouchShell')).TouchShell,
 }));
-// real restaurant voice-ordering surface replaces the
-// `TouchHomePlaceholder` for `/touch`. The placeholder file stays
-// in the repo as the reference for the KDS / customer-display
-// surfaces that still ship the "Coming with " chrome.
+// The real touch POS home mounts at `/touch`; voice ordering stays at
+// `/touch/voice`.
 export const TouchHome = lazyPage(async () => ({
   default: (await import('@/features/restaurants/TouchHome')).default,
 }));
@@ -175,8 +171,7 @@ export const CompanionHome = lazyPage(async () => ({
 export const MobileWaiterShell = lazyPage(async () => ({
   default: (await import('@/features/surfaces/MobileWaiterShell')).MobileWaiterShell,
 }));
-// real restaurant voice-ordering surface replaces the
-// `MobileWaiterHomePlaceholder` for `/m`.
+// The real mobile waiter home mounts at `/m`.
 export const MobileWaiterHome = lazyPage(async () => ({
   default: (await import('@/features/restaurants/MobileWaiterHome')).default,
 }));
