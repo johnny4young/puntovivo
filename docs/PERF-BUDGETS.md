@@ -97,6 +97,16 @@ Cart summaries are memoized by immutable items and pricing mode so unrelated
 query updates do not serialize the same Customer Display projection again.
 Heartbeat and reconnect publication are unchanged. Lighthouse also logs bounded
 renderer CPU events, with asset paths only and no raw trace arguments or headers.
+Each sample also records its score, LCP, TTI, and CLS before aggregation. CPU
+attribution uses the pinned Lighthouse trace processor to select the audited
+main frame's renderer threads, including process swaps; tasks starting before
+the measured navigation are excluded. The eight longest supported complete
+CPU events are diagnostic examples, not an additive CPU total. Output includes
+`cpuAttribution: main-frame`, or `unavailable` with an empty list if trace
+identity/parsing is unavailable. No raw trace or parser errors are logged.
+This internal Lighthouse API is isolated to diagnostics and covered by synthetic
+multi-renderer trace tests; revalidate it when upgrading Lighthouse. Its failure
+never changes metrics, sampling, score floors, or the strict acceptance policy.
 
 ### Data-scale UI contract
 
