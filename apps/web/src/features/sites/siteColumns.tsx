@@ -60,32 +60,44 @@ export function createSiteColumns({
     {
       id: 'actions',
       size: 90,
-      cell: ({ row }) => (
-        <div className="flex items-center gap-1">
-          <button
-            className="btn-ghost btn-icon h-8 w-8"
-            onClick={() => onManageLocations(row.original)}
-            disabled={!canManage}
-            title={t('sites.columns.manageLocations')}
-          >
-            <MapPinned className="h-4 w-4" />
-          </button>
-          <button
-            className="btn-ghost btn-icon h-8 w-8"
-            onClick={() => onEdit(row.original)}
-            disabled={!canManage}
-          >
-            <Pencil className="h-4 w-4" />
-          </button>
-          <button
-            className="btn-ghost btn-icon h-8 w-8 text-danger-500 hover:text-danger-700"
-            onClick={() => onDelete(row.original)}
-            disabled={!canManage}
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        </div>
-      ),
+      cell: ({ row }) => {
+        const site = row.original;
+        const manageLabel = `${t('sites.locations.manage')} ${site.name}`;
+        const editLabel = `${t('common:actions.edit')} ${site.name}`;
+        const deleteLabel = `${t('common:actions.delete')} ${site.name}`;
+        return (
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              className="btn-ghost btn-icon h-8 w-8"
+              onClick={() => onManageLocations(site)}
+              disabled={!canManage}
+              aria-label={manageLabel}
+              title={manageLabel}
+            >
+              <MapPinned className="h-4 w-4" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className="btn-ghost btn-icon h-8 w-8"
+              onClick={() => onEdit(site)}
+              disabled={!canManage}
+              aria-label={editLabel}
+            >
+              <Pencil className="h-4 w-4" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className="btn-ghost btn-icon h-8 w-8 text-danger-500 hover:text-danger-700"
+              onClick={() => onDelete(site)}
+              disabled={!canManage}
+              aria-label={deleteLabel}
+            >
+              <Trash2 className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+        );
+      },
     },
   ];
 }
