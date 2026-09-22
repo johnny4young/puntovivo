@@ -618,6 +618,25 @@ export function seedSaleScenario(seed: string): SeededSaleScenario {
   return seedScenario(seed);
 }
 
+/** A large legitimate catalog price exercises mobile monetary layout without mocking checkout. */
+export function seedLargeTotalSaleScenario(seed: string): SeededSaleScenario {
+  const scenario = seedScenario(seed);
+  const db = openDb();
+  try {
+    db.transaction(() => {
+      db.prepare(
+        'update products set price = 123456789, price2 = 123456789, price3 = 123456789 where id = ? and tenant_id = ?'
+      ).run(scenario.product.id, scenario.tenantId);
+      db.prepare('update unit_x_product set price = 123456789 where product_id = ?').run(
+        scenario.product.id
+      );
+    })();
+    return scenario;
+  } finally {
+    db.close();
+  }
+}
+
 /** A tiny catalog price exposes cent allocation without fabricating a sale or refund. */
 export function seedCentRefundScenario(seed: string): SeededSaleScenario {
   const scenario = seedScenario(seed);

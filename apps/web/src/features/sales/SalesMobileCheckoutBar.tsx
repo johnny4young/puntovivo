@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from 'react';
 import { FilePlus2, ListTree, PauseCircle, Receipt, Search, WalletCards } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatCurrency } from '@/lib/utils';
@@ -50,6 +51,23 @@ export function SalesMobileCheckoutBar({
   hubReachable,
 }: SalesMobileCheckoutBarProps) {
   const { t } = useTranslation('sales');
+  const barRef = useRef<HTMLDivElement>(null);
+  const footprintRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const bar = barRef.current;
+    const footprint = footprintRef.current;
+    if (!bar || !footprint) return;
+    // The fixed bar can grow with translations, park actions and text zoom.
+    // Reserve its actual layout height so the last checkout controls can scroll clear.
+    const reserveFootprint = () => {
+      footprint.style.height = `${bar.offsetHeight}px`;
+    };
+    reserveFootprint();
+    const observer = new ResizeObserver(reserveFootprint);
+    observer.observe(bar, { box: 'border-box' });
+    return () => observer.disconnect();
+  }, []);
   const hasDraftItems = draftSummary.itemCount > 0;
   // mirror the SalesCheckoutPanel gate so a hub_client
   // terminal on a phone or tablet cannot bypass the hub-unreachable
@@ -77,15 +95,19 @@ export function SalesMobileCheckoutBar({
   const showParkActions = showSuspendAction || showNewSaleAction || Boolean(onToggleSuspendedPanel);
 
   return (
-    <div className="lg:hidden">
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line/70 bg-surface/92 px-4 py-3 shadow-[0_-18px_40px_rgba(10,18,33,0.16)] backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center gap-3">
-          <div className="min-w-0 flex-1">
+    <div ref={footprintRef} className="lg:hidden" data-testid="mobile-checkout-footprint">
+      <div
+        ref={barRef}
+        data-testid="mobile-checkout-bar"
+        className="fixed inset-x-0 bottom-0 z-30 border-t border-line/70 bg-surface/92 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-18px_40px_rgba(10,18,33,0.16)] backdrop-blur-xl"
+      >
+        <div className="mx-auto grid max-w-7xl grid-cols-2 items-center gap-3">
+          <div className="col-span-2 min-w-0">
             <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
               {t('page.draftTotal')}
             </p>
-            <div className="mt-1 flex items-end gap-2">
-              <p className="truncate text-lg font-semibold text-secondary-950">
+            <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <p className="min-w-0 text-lg font-semibold wrap-anywhere text-secondary-950">
                 {formatCurrency(draftSummary.total)}
               </p>
               <p className="pb-0.5 text-sm text-secondary-500">
@@ -95,19 +117,19 @@ export function SalesMobileCheckoutBar({
           </div>
           <button
             type="button"
-            className="btn-outline"
+            className="btn-outline min-w-0 justify-center"
             onClick={onOpenSearch}
             disabled={!canOpenSearch}
             aria-keyshortcuts={
               canOpenSearch ? ariaKeyshortcutsFor('sales.productSearch') : undefined
             }
           >
-            <Search className="h-4 w-4" />
+            <Search className="h-4 w-4 shrink-0" />
             {t('quickSearch.search')}
           </button>
           <button
             type="button"
-            className="btn-primary"
+            className="btn-primary min-w-0 justify-center"
             onClick={primaryAction}
             disabled={primaryActionDisabled}
             aria-keyshortcuts={ariaKeyshortcutsFor(
@@ -119,16 +141,16 @@ export function SalesMobileCheckoutBar({
             )}
           >
             {cashSession && hasDraftItems ? (
-              <Receipt className="h-4 w-4" />
+              <Receipt className="h-4 w-4 shrink-0" />
             ) : (
-              <WalletCards className="h-4 w-4" />
+              <WalletCards className="h-4 w-4 shrink-0" />
             )}
             {primaryActionLabel}
           </button>
         </div>
         {showParkActions && (
           <div
-            className="mx-auto mt-3 grid max-w-7xl grid-cols-3 gap-2"
+            className="mx-auto mt-3 grid max-w-7xl grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-2"
             data-testid="mobile-park-controls"
           >
             {showSuspendAction && (
@@ -139,7 +161,7 @@ export function SalesMobileCheckoutBar({
                 data-testid="mobile-checkout-suspend"
                 aria-keyshortcuts={ariaKeyshortcutsFor('sales.suspend')}
               >
-                <PauseCircle className="h-4 w-4" />
+                <PauseCircle className="h-4 w-4 shrink-0" />
                 {t('park.suspend')}
               </button>
             )}
@@ -151,7 +173,7 @@ export function SalesMobileCheckoutBar({
                 data-testid="mobile-checkout-new-sale"
                 aria-keyshortcuts={ariaKeyshortcutsFor('sales.newSale')}
               >
-                <FilePlus2 className="h-4 w-4" />
+                <FilePlus2 className="h-4 w-4 shrink-0" />
                 {t('park.newSale')}
               </button>
             )}
@@ -167,7 +189,7 @@ export function SalesMobileCheckoutBar({
                     : undefined
                 }
               >
-                <ListTree className="h-4 w-4" />
+                <ListTree className="h-4 w-4 shrink-0" />
                 {t('park.panelTitle')}
                 {suspendedDraftsCount > 0 && (
                   <span className="rounded-full bg-primary-100 px-1.5 py-0.5 text-[0.65rem] font-semibold text-primary-700">
