@@ -24,6 +24,24 @@ Run commands from the repository root.
 The workspace CI commands include type checking, linting, tests, dependency
 audit, and the build or runtime measurements appropriate to that workspace.
 
+### Server test type ratchet
+
+`ci:server` runs the production server typecheck and then a separate test
+typecheck through `packages/server/tsconfig.tests.json`. The test configuration
+keeps all production strictness, expands `rootDir` only far enough to include
+the server's imported fixtures, and exposes the ES2024 library implemented by
+the required Node 24 runtime. It does not widen the production build config.
+
+The current test suite has a checked-in baseline of 256 diagnostics across 118
+files. `test-typecheck-baseline.json` records counts by file and diagnostic code,
+not line number: a new file/code pair or a higher count fails, while a resolved
+diagnostic also fails until the baseline is deliberately reduced. This prevents
+new debt and ensures improvements cannot leave a stale allowance behind. After
+reviewing the raw compiler output, maintainers can regenerate the smaller
+snapshot with `pnpm --filter @puntovivo/server run typecheck:tests:update`; CI
+never updates it automatically. Passing this ratchet means no type debt was
+added relative to the snapshot, not that every server test is type-clean yet.
+
 ## Responsive operator shell
 
 `e2e/web/header-responsive.spec.ts` exercises real, isolated tenants with long
