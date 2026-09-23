@@ -445,6 +445,18 @@ can compute aliases, substrings, encodings or aggregates. All tool steps use the
 same snapshot; it closes on success and failure. Joins additionally constrain
 the ownership of customers, users, sites, cash sessions and products.
 
+The analytics body site, when present, defines the filtered snapshot and the
+site charged by the Co-pilot quota; the selected UI site is only a prompt focus.
+An omitted or null body site retains tenant-wide analytics. Those requests
+check the quota of every tenant site the snapshot can read and record one
+site-less audit row, so their cost is not duplicated across sites. A tenant-wide
+successful row stores its call-time site list and counts once in each listed
+site's monthly Co-pilot usage projection, without retroactively charging sites
+created later in the month.
+The web conversation explicitly selects all sites or the current site,
+clears earlier evidence when that selection changes, and discards responses
+that finish after the user or site context has changed.
+
 The same dictionary protects matching whole values in every user and assistant
 message and in the snapshot's operational labels. This is not a general PII
 detector or anonymization. The dictionary covers only identities present in the

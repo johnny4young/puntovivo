@@ -27,6 +27,14 @@
     "starter": "Try: How much did I sell yesterday in Sur?",
     "resultReady": "Results for your latest question are ready. View the queries and rows."
   },
+  "scope": {
+    "label": "Data scope",
+    "allSites": "All sites",
+    "currentSite": "Current site: {{site}}",
+    "allHint": "A successful question uses one monthly Co-pilot allowance at each site.",
+    "currentHint": "Uses only this site's data and monthly allowance.",
+    "unavailableHint": "Wait until the current site is confirmed."
+  },
   "composer": {
     "label": "Analytics question",
     "placeholder": "Ask your data anything...",

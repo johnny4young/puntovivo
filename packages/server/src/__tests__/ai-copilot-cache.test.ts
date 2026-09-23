@@ -374,6 +374,8 @@ describe('runCopilotChat — generateText receives the static system + context-p
       .from(aiAuditLog)
       .where(eq(aiAuditLog.id, result.auditLogId))
       .get();
+    expect(row?.siteId).toBeNull();
+    expect(row?.scopeSiteIds).toEqual([siteId]);
     expect(row).toMatchObject({
       tenantId,
       feature: 'copilot',
@@ -385,6 +387,30 @@ describe('runCopilotChat — generateText receives the static system + context-p
       cacheWriteTokens: 200,
       errorCode: null,
     });
+  });
+
+  it('attributes an explicit body site even when the request has no header site', async () => {
+    const { tenantId, siteId } = await seedTenantWithAI('body-site-attribution');
+    mockGenerateTextWithSQL('Resumen');
+
+    const result = await runCopilotChat(
+      { db: getDatabase(), tenantId, siteId: null, userId: null },
+      {
+        messages: [{ role: 'user', content: 'Ventas de esta sede' }],
+        context: { siteId },
+      },
+      { factory: () => buildStubProvider(), now: new Date('2026-05-13T12:00:00.000Z') }
+    );
+
+    const row = await getDatabase()
+      .select({ siteId: aiAuditLog.siteId, scopeSiteIds: aiAuditLog.scopeSiteIds })
+      .from(aiAuditLog)
+      .where(eq(aiAuditLog.id, result.auditLogId))
+      .get();
+    expect(row?.siteId).toBe(siteId);
+    expect(row?.scopeSiteIds).toBeNull();
+    const call = generateTextMock.mock.calls[0]![0] as Record<string, unknown>;
+    expect(call.prompt).toContain(`active_site_id: ${siteId}`);
   });
 
   it('stops verified mode after the SQL tool and never returns the model narrative', async () => {

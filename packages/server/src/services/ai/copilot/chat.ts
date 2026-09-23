@@ -31,6 +31,7 @@ import type { AISettings } from '../types.js';
 import { ALLOWED_TABLES, RESULT_ROW_LIMIT, SQL_MAX_LENGTH } from './constants.js';
 import { resolveWindow, validateModelAnalyticsSQL } from './sql.js';
 import { createCopilotSnapshot } from './snapshot.js';
+import { resolveCopilotQuotaSites } from './scope.js';
 import {
   buildContextBlock,
   buildPrompt,
@@ -136,6 +137,13 @@ export async function runCopilotChat(
   const factory = options.factory ?? defaultFactory;
   const { provider, modelId, settings } = await resolveConfiguredProvider(ctx, factory);
   const responseMode = settings.features?.copilot.responseMode ?? 'guided';
+  // An explicit body site filters the snapshot. A missing/null body site is
+  // tenant-wide even when the UI has a selected site in the request header.
+  const auditSiteId = input.context?.siteId ?? null;
+  const promptSiteId = auditSiteId ?? ctx.siteId;
+  const scopeSiteIds =
+    options.scopeSiteIds ??
+    (await resolveCopilotQuotaSites(ctx.db, ctx.tenantId, input.context?.siteId));
   const startedAt = Date.now();
   const sqlCapture: { results: CopilotSQLResult[]; attempts: number; overLimit: boolean } = {
     results: [],
@@ -152,10 +160,10 @@ export async function runCopilotChat(
 
   let snapshot: Awaited<ReturnType<typeof createCopilotSnapshot>> | undefined;
   try {
-    snapshot = await createCopilotSnapshot(ctx.db, ctx.tenantId, input.context, now);
+    snapshot = await createCopilotSnapshot(ctx.db, ctx.tenantId, input.context, now, scopeSiteIds);
     const protectedSnapshot = snapshot;
     const providerOptions = provider.cacheControlForSystemPrompt();
-    const contextBlock = buildContextBlock(window, ctx.siteId);
+    const contextBlock = buildContextBlock(window, promptSiteId);
     const messagesWithContext = injectContextIntoMessages(
       input.messages.map(message => ({
         ...message,
@@ -172,7 +180,7 @@ export async function runCopilotChat(
           description: 'Return the active site and bounded analytics window for this chat.',
           inputSchema: z.object({}),
           execute: async () => ({
-            siteId: ctx.siteId,
+            siteId: promptSiteId,
             window,
             allowedTables: Array.from(ALLOWED_TABLES),
             resultRowLimit: RESULT_ROW_LIMIT,
@@ -255,7 +263,8 @@ export async function runCopilotChat(
 
     const { id: auditLogId } = await recordCall(ctx.db, {
       tenantId: ctx.tenantId,
-      siteId: ctx.siteId,
+      siteId: auditSiteId,
+      scopeSiteIds: auditSiteId === null ? scopeSiteIds : null,
       userId: ctx.userId,
       feature: 'copilot',
       responseMode,
@@ -285,7 +294,8 @@ export async function runCopilotChat(
     const errorCode = serverErrorCodeFrom(error);
     await recordCall(ctx.db, {
       tenantId: ctx.tenantId,
-      siteId: ctx.siteId,
+      siteId: auditSiteId,
+      scopeSiteIds: auditSiteId === null ? scopeSiteIds : null,
       userId: ctx.userId,
       feature: 'copilot',
       responseMode,
