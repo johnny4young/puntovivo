@@ -502,6 +502,18 @@ also rechecks the active site's invoice quota and tenant ownership under the
 writer lock; earlier router checks provide only fast rejection. Upload,
 extraction, and confirmation require the same active site.
 
+The synchronous Textract path preserves one-page PDF support, but parses PDF
+bytes locally before regional-price lookup, budget reservation, and provider
+dispatch. A ten-second preflight must find exactly one retrievable page;
+malformed, unreadable, or multi-page PDFs fail without a cost reservation or
+unknown-liability audit. This guard is not a promise that Textract accepts
+every syntactically valid PDF or that a provider-side failure is free after
+dispatch. JPEG and PNG do not load the PDF parser.
+
+The Electron main bundle must ship PDF.js's matching `pdf.worker.mjs` next to
+its generated PDF chunk; `build:main` parses a one-page fixture from the
+generated bundle so a missing worker fails CI and packaging before release.
+
 Successful estimated cost and reservation release commit with one audit row.
 Voice transcription prices returned audio duration; missing duration or
 pricing is not a free transcript. Textract prices returned

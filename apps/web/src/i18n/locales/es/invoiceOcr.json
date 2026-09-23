@@ -3,17 +3,17 @@
   "dialog": {
     "kicker": "OCR de factura",
     "title": "Sube una foto, la IA lee la factura",
-    "subtitle": "Soporta JPG, PNG y PDF hasta 10 MB. Revisa cada campo antes de registrar la compra.",
+    "subtitle": "Soporta JPG, PNG y PDF de una página hasta 10 MB. Revisa cada campo antes de registrar la compra.",
     "close": "Cerrar"
   },
   "preview": {
-    "pdfOnePage": "PDF · 1 página"
+    "pdfFile": "PDF"
   },
   "upload": {
     "help": "Selecciona la factura del proveedor o tómale una foto desde la tableta.",
     "upload": "Subir archivo",
     "camera": "Tomar foto",
-    "fileTypes": "JPG · PNG · PDF — máx 10 MB"
+    "fileTypes": "JPG · PNG · PDF (1 página) — máx 10 MB"
   },
   "stage": {
     "uploading": "Preparando imagen...",

@@ -3,8 +3,8 @@
  * Packaged-desktop smoke test (mirrors Lingua's smoke:desktop:packaged).
  *
  * Boots the PACKAGED Electron app and asserts it launches far enough to prove
- * the vite-externalized native modules (better-sqlite3, argon2) and their
- * runtime closure actually shipped in the bundle. This is the check that was
+ * the vite-externalized native modules (better-sqlite3, argon2), PDF.js worker,
+ * and their runtime closure actually shipped in the bundle. This check was
  * missing when the packaged app silently lacked node_modules and could never
  * require('better-sqlite3') — a regression component/unit tests cannot catch.
  *
@@ -146,10 +146,15 @@ function checkStructure(binary) {
       fail(`app.asar is missing node_modules/${mod} (vite-externalized native not bundled)`);
     }
   }
+  if (!entries.includes('.vite/build/pdf.worker.mjs')) {
+    fail('app.asar is missing the bundled PDF.js worker');
+  }
   if (!hasNodeAddon(path.join(unpacked, 'node_modules', 'better-sqlite3'))) {
     fail('better_sqlite3.node was not unpacked into app.asar.unpacked');
   }
-  console.log('[desktop-smoke] structure OK: better-sqlite3 + argon2 in app.asar, .node unpacked');
+  console.log(
+    '[desktop-smoke] structure OK: native addons and PDF.js worker are packaged'
+  );
 }
 
 const input = findInput();
@@ -162,7 +167,7 @@ try {
 checkStructure(binary);
 
 if (process.argv.includes('--structure-only')) {
-  console.log('[desktop-smoke] PASS (structure-only): natives are packaged');
+  console.log('[desktop-smoke] PASS (structure-only): natives and PDF.js worker are packaged');
   process.exit(0);
 }
 
