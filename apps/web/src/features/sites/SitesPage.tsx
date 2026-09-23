@@ -46,9 +46,17 @@ export function SitesPage() {
     { enabled: !!siteForLocations?.id }
   );
 
+  const invalidateSiteReads = async () => {
+    // Site availability changes the guide even when no active site is selected.
+    await Promise.all([
+      utils.sites.list.invalidate(),
+      utils.setupReadiness.get.invalidate(),
+    ]);
+  };
+
   const createMutation = trpc.sites.create.useMutation({
     onSuccess: async () => {
-      await utils.sites.list.invalidate();
+      await invalidateSiteReads();
       handleCloseModal();
       toast.success({ title: t('sites.toast.created') });
     },
@@ -57,7 +65,7 @@ export function SitesPage() {
 
   const updateMutation = trpc.sites.update.useMutation({
     onSuccess: async () => {
-      await utils.sites.list.invalidate();
+      await invalidateSiteReads();
       handleCloseModal();
       toast.success({ title: t('sites.toast.updated') });
     },
@@ -66,7 +74,7 @@ export function SitesPage() {
 
   const deleteMutation = trpc.sites.delete.useMutation({
     onSuccess: async () => {
-      await utils.sites.list.invalidate();
+      await invalidateSiteReads();
       setSiteToDelete(null);
       toast.success({ title: t('sites.toast.deleted') });
     },

@@ -198,13 +198,13 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
               {tGuide('title')}
             </h2>
             <p className="mt-3 max-w-[62ch] text-sm leading-6 text-primary-50/80">
-              {tGuide('description')}
+              {tGuide('description', { total: stepCount })}
             </p>
           </div>
           <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
             <div className="flex items-center justify-between gap-4">
               <span className="text-sm font-semibold text-white">
-                {tGuide('progress', { ready: resolvedCount })}
+                {tGuide('progress', { ready: resolvedCount, total: stepCount })}
               </span>
               {hasBlockers && (
                 <span
@@ -223,7 +223,7 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
               aria-valuemin={0}
               aria-valuemax={stepCount}
               aria-valuenow={resolvedCount}
-              aria-label={tGuide('progress', { ready: resolvedCount })}
+              aria-label={tGuide('progress', { ready: resolvedCount, total: stepCount })}
             >
               <div
                 className="h-full rounded-full bg-primary-200 transition-[width]"

@@ -176,7 +176,7 @@
     },
     "setupNavigation": {
       "guideTitle": "Configuración guiada",
-      "guideDescription": "Cinco áreas claras y una decisión obligatoria a la vez.",
+      "guideDescription": "Áreas claras y una decisión obligatoria a la vez.",
       "advancedTitle": "Configuración avanzada",
       "advancedDescription": "Políticas, módulos opcionales y herramientas del puesto."
     },

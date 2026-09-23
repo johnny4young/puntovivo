@@ -1,8 +1,8 @@
 {
   "kicker": "Guided setup",
   "title": "Prepare the business without getting lost",
-  "description": "Five clear areas cover what the store needs. We show one required decision at a time; optional tools can wait.",
-  "progress": "{{ready}} of 5 areas ready",
+  "description": "{{total}} clear areas cover what the store needs. We show one required decision at a time; optional tools can wait.",
+  "progress": "{{ready}} of {{total}} areas ready",
   "next": {
     "eyebrow": "Next required decision",
     "title": "Complete {{section}}",
