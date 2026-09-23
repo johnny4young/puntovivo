@@ -280,6 +280,7 @@ export function confirmOcrDraftPurchase(ctx: PurchaseContext, input: ConfirmInvo
           subtotal: input.totals.subtotal,
           total: input.totals.total,
           linesSum: input.totals.linesSum,
+          netCostReviewed: input.lines.every(line => line.netCostConfirmed),
           payloadHash: upload.payloadHash,
           mimeType: upload.mimeType,
           sizeBytes: upload.sizeBytes,

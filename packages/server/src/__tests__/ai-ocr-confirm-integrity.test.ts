@@ -24,6 +24,7 @@ import { writeAuditLog } from '../services/audit-logs.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 import type { ConfirmInvoiceDraftInput } from '../trpc/schemas/ai-vision.js';
+import { confirmInvoiceDraftInput } from '../trpc/schemas/ai-vision.js';
 
 let server: PuntovivoServer;
 let tenantId: string;
@@ -204,6 +205,7 @@ async function seed() {
         description: 'Rice',
         quantity: 1,
         unitPrice: 100,
+        netCostConfirmed: true,
         matchedProductId: productId,
         unitId,
       },
@@ -414,6 +416,43 @@ describe('invoice OCR confirmation integrity', () => {
     expect(
       await getDatabase().select().from(purchases).where(eq(purchases.tenantId, tenantId))
     ).toHaveLength(0);
+  });
+
+  it('requires an explicit net-cost review for every invoice line', () => {
+    expect(
+      confirmInvoiceDraftInput.safeParse({
+        ...input,
+        lines: input.lines.map(({ netCostConfirmed: _reviewed, ...line }) => line),
+      }).success
+    ).toBe(false);
+    expect(
+      confirmInvoiceDraftInput.safeParse({
+        ...input,
+        lines: input.lines.map(line => ({ ...line, netCostConfirmed: false })),
+      }).success
+    ).toBe(false);
+  });
+
+  it('persists an operator-corrected net cost for a gross-price extraction', async () => {
+    const reviewed = {
+      ...input,
+      lines: input.lines.map(line => ({ ...line, unitPrice: 100, netCostConfirmed: true })),
+    };
+    const first = await caller().ai.invoiceOcr.confirm(reviewed);
+    const retry = await caller().ai.invoiceOcr.confirm(reviewed);
+    expect(retry.purchase.id).toBe(first.purchase.id);
+    expect(first.purchase.subtotal).toBe(100);
+    expect(first.purchase.total).toBe(100);
+    const purchaseAudit = await getDatabase()
+      .select({ metadata: auditLogs.metadata })
+      .from(auditLogs)
+      .where(and(eq(auditLogs.tenantId, tenantId), eq(auditLogs.action, 'ai.invoice_ocr.confirm')))
+      .get();
+    expect(purchaseAudit?.metadata).toMatchObject({
+      netCostReviewed: true,
+      subtotal: 100,
+      total: 119,
+    });
   });
 
   it('rejects a failed extraction even when its upload link exists', async () => {

@@ -512,10 +512,15 @@ conflicts. A committed retry remains available after extraction-audit metadata
 retention or feature disablement, while an uncommitted confirmation fails closed
 if its provenance is missing. The persisted draft uses net line costs, and
 confirmation rejects a mismatch between those costs, reviewed subtotal, tax,
-and invoice total. Textract does not indicate whether a line's unit price
-includes tax; a tax-inclusive line can therefore be rejected until an explicit
-tax-basis correction flow is implemented. Do not weaken reconciliation to make
-that invoice pass implicitly.
+and invoice total. Every line must carry the operator's explicit acknowledgment
+that its editable unit cost is net of tax. The UI mirrors the writer's rounded
+net-line subtotal and subtotal-plus-IVA checks, allows OCR totals to be
+corrected, and blocks confirmation until every line has been reviewed. The
+confirmation audit records that net costs were checked; it does not claim OCR
+can determine the tax basis. Textract does not indicate whether a line's unit
+price includes tax; a tax-inclusive OCR proposal remains blocked until the
+operator corrects its net unit cost and reconciles the invoice totals. Do not
+weaken reconciliation to make that invoice pass implicitly.
 
 Successful estimated cost and reservation release commit with one audit row.
 Voice transcription prices returned audio duration; missing duration or

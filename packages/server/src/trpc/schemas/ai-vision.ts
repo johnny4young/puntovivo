@@ -88,6 +88,8 @@ export const confirmInvoiceDraftInput = z.object({
         description: z.string().trim().min(1).max(500),
         quantity: z.number().positive(),
         unitPrice: z.number().min(0),
+        /** The operator checked that unitPrice is a net cost without tax. */
+        netCostConfirmed: z.literal(true),
         matchedProductId: z.string().min(1),
         unitId: z.string().min(1),
       })
