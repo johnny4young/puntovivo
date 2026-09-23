@@ -21,7 +21,9 @@ import {
   type ServerErrorCode,
 } from '../../../lib/errorCodes.js';
 
-import { currentMonthSpend, recordCall } from '../auditLog.js';
+import { recordCall } from '../auditLog.js';
+import { reserveAiBudget, settleAiBudget } from '../budget.js';
+import type { AiBudgetReservation } from '../budget.js';
 import { resolveAISettings, toBillableTokenUsage } from '../client.js';
 import type { AIInvocationContext, ProviderFactory } from '../client.js';
 import { getProvider } from '../providers/registry.js';
@@ -111,15 +113,6 @@ async function resolveConfiguredProvider(
       message: 'AI monthly budget is zero',
     });
   }
-  const spent = await currentMonthSpend(ctx.db, ctx.tenantId);
-  if (spent >= settings.monthlyBudgetUsd) {
-    throwServerError({
-      trpcCode: 'BAD_REQUEST',
-      errorCode: 'AI_BUDGET_EXCEEDED',
-      message: `AI monthly budget exhausted ($${spent.toFixed(4)} of $${settings.monthlyBudgetUsd.toFixed(2)})`,
-    });
-  }
-
   return {
     provider,
     modelId: settings.modelId ?? provider.defaultModelId,
@@ -157,6 +150,7 @@ export async function runCopilotChat(
     cacheWriteTokens: number;
     costUsd: number;
   } | null = null;
+  let reservation: AiBudgetReservation | null = null;
 
   let snapshot: Awaited<ReturnType<typeof createCopilotSnapshot>> | undefined;
   try {
@@ -171,10 +165,16 @@ export async function runCopilotChat(
       })),
       contextBlock
     );
+    const model = provider.languageModel(modelId);
+    const prompt = buildPrompt(messagesWithContext);
+    reservation = reserveAiBudget(ctx.db, ctx.tenantId, now);
     const result = await generateText({
-      model: provider.languageModel(modelId),
+      model,
       instructions: buildSystemPrompt(responseMode),
-      prompt: buildPrompt(messagesWithContext),
+      prompt,
+      ...(ctx.abortSignal !== undefined ? { abortSignal: ctx.abortSignal } : {}),
+      timeout: { totalMs: 60_000 },
+      maxRetries: 0,
       tools: {
         getCurrentSiteContext: tool({
           description: 'Return the active site and bounded analytics window for this chat.',
@@ -229,6 +229,16 @@ export async function runCopilotChat(
       usageNestedNumber(inputRecord, 'noCache') ||
       usageNestedNumber(detailsRecord, 'noCacheTokens') ||
       Math.max(inputTokens - cacheReadTokens - cacheWriteTokens, 0);
+    if (
+      provider.id !== 'ollama' &&
+      inputTokens + outputTokens + cacheReadTokens + cacheWriteTokens <= 0
+    ) {
+      throwServerError({
+        trpcCode: 'BAD_GATEWAY',
+        errorCode: 'AI_PROVIDER_ERROR',
+        message: 'Co-pilot provider returned no billable usage',
+      });
+    }
     const costUsd = provider.pricing.calculateCostUsd(
       modelId,
       toBillableTokenUsage({
@@ -241,6 +251,13 @@ export async function runCopilotChat(
         },
       })
     );
+    if (!Number.isFinite(costUsd) || costUsd < 0) {
+      throwServerError({
+        trpcCode: 'BAD_GATEWAY',
+        errorCode: 'AI_PROVIDER_ERROR',
+        message: 'Co-pilot provider usage could not be priced',
+      });
+    }
     consumedUsage = { inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens, costUsd };
 
     if (sqlCapture.overLimit) {
@@ -261,23 +278,29 @@ export async function runCopilotChat(
     }
     const durationMs = Date.now() - startedAt;
 
-    const { id: auditLogId } = await recordCall(ctx.db, {
-      tenantId: ctx.tenantId,
-      siteId: auditSiteId,
-      scopeSiteIds: auditSiteId === null ? scopeSiteIds : null,
-      userId: ctx.userId,
-      feature: 'copilot',
-      responseMode,
-      providerId: provider.id,
-      modelId,
-      inputTokens,
-      outputTokens,
-      cacheReadTokens,
-      cacheWriteTokens,
-      costUsd,
-      durationMs,
-      errorCode: null,
-    });
+    const { id: auditLogId } = settleAiBudget(
+      ctx.db,
+      reservation,
+      {
+        tenantId: ctx.tenantId,
+        siteId: auditSiteId,
+        scopeSiteIds: auditSiteId === null ? scopeSiteIds : null,
+        userId: ctx.userId,
+        feature: 'copilot',
+        responseMode,
+        providerId: provider.id,
+        modelId,
+        inputTokens,
+        outputTokens,
+        cacheReadTokens,
+        cacheWriteTokens,
+        costUsd,
+        costState: provider.id === 'ollama' ? 'local_zero' : 'estimated',
+        durationMs,
+        errorCode: null,
+      },
+      false
+    );
 
     return {
       ...sqlResult,
@@ -292,7 +315,16 @@ export async function runCopilotChat(
     };
   } catch (error) {
     const errorCode = serverErrorCodeFrom(error);
-    await recordCall(ctx.db, {
+    const uncertainRemoteCost =
+      reservation !== null && consumedUsage === null && provider.id !== 'ollama';
+    const costState: 'local_zero' | 'estimated' | 'unknown' = consumedUsage
+      ? provider.id === 'ollama'
+        ? 'local_zero'
+        : 'estimated'
+      : provider.id === 'ollama'
+        ? 'local_zero'
+        : 'unknown';
+    const audit = {
       tenantId: ctx.tenantId,
       siteId: auditSiteId,
       scopeSiteIds: auditSiteId === null ? scopeSiteIds : null,
@@ -306,9 +338,15 @@ export async function runCopilotChat(
       cacheReadTokens: consumedUsage?.cacheReadTokens ?? 0,
       cacheWriteTokens: consumedUsage?.cacheWriteTokens ?? 0,
       costUsd: consumedUsage?.costUsd ?? 0,
+      costState,
       durationMs: Date.now() - startedAt,
       errorCode,
-    });
+    };
+    if (reservation) {
+      settleAiBudget(ctx.db, reservation, audit, uncertainRemoteCost);
+    } else if (errorCode !== 'AI_BUDGET_EXCEEDED') {
+      await recordCall(ctx.db, { ...audit, costState: 'not_incurred' });
+    }
 
     if (error instanceof TRPCError) {
       throw error;
