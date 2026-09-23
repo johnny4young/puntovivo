@@ -158,13 +158,9 @@ export const openaiProvider: AIProvider = {
     return openai(modelId);
   },
 
-  // slice 1 — Whisper-style audio transcription routed
-  // through `openai.transcription(modelId)`. `whisper-1` ships as the
-  // default because it is the cheapest ($0.006/min) and historically
-  // the most stable; operators wanting the `gpt-4o-transcribe`
-  // accuracy uplift override via the AI Settings card. Provider
-  // returns a `TranscriptionModelV4` consumed by the AI SDK
-  // `transcribe({ model, audio })`.
+  // Whisper-style audio transcription routed through the AI SDK. The
+  // language-model override does not select a transcription model; keep
+  // `whisper-1` until a dedicated, priced setting is available.
   defaultTranscriptionModelId: FALLBACK_TRANSCRIPTION_MODEL_ID,
   transcriptionPricing: TRANSCRIPTION_PRICING,
   transcriptionModel(modelId: string): TranscriptionModelV4 {

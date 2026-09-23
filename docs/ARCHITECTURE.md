@@ -493,23 +493,25 @@ semantic correctness: a SELECT can still produce a constant despite reading a
 table, choose the wrong metric, or omit relevant records. Operators must
 inspect SQL scope and columns before acting on any figure.
 
-Generic AI completions and Co-pilot chat admit one in-flight provider attempt
-per tenant through a shared, durable, local-calendar-month SQLite reservation
-acquired under `BEGIN IMMEDIATE`. Co-pilot checks every authorized snapshot
-site's remaining monthly quota inside that same write transaction, immediately
+Generic AI completions, Co-pilot chat, and voice transcription admit one
+in-flight provider attempt per tenant through a shared, durable,
+local-calendar-month SQLite reservation acquired under `BEGIN IMMEDIATE`.
+Co-pilot checks every authorized snapshot site's remaining monthly quota inside that same write transaction, immediately
 before provider dispatch; its earlier router check only provides fast rejection.
-Successful estimated cost and reservation release commit with one audit row;
-an error, cancellation, or unpriceable remote result
-records one unknown-cost row and retains a month-scoped liability hold. An
-Ollama model-call failure cannot incur remote charges and releases its hold.
+Successful estimated cost and reservation release commit with one audit row.
+Voice transcription prices the returned audio duration; a missing duration or
+pricing row is not treated as a free transcript. An error, cancellation, or
+unpriceable remote result records one unknown-cost row and retains a
+month-scoped liability hold. An Ollama model-call failure cannot incur remote charges and releases its hold.
 Co-pilot also records priced provider usage when it rejects an answer without
 validated SQL, and preserves the call-time analytics site scope in its audit.
 The SDK's implicit retries are disabled on these paths, and calls have a bounded
-timeout. The Co-pilot chat and connection-test HTTP procedures also forward a
-prematurely closed response as an abort signal to the provider call; a normal
-completed response does not cancel it, and direct non-HTTP callers remain
-supported. Cancellation after remote dispatch retains the unknown-cost hold
-because disconnecting cannot prove that a provider did not bill. This is a
+timeout. The Co-pilot chat, connection-test, and voice-transcription HTTP
+procedures also forward a prematurely closed response as an abort signal
+to the provider call; a normal completed response does not cancel it,
+and direct non-HTTP callers remain supported. Cancellation after remote dispatch retains the unknown-cost hold
+because disconnecting cannot prove that a provider did not bill. Voice
+transcription uses a 60-second bound and zero SDK retries. This is a
 conservative **local admission control**, not an exact USD
 invoice cap: a single call can exceed the remaining budget, and other AI entry
 points have not yet adopted this reservation path. Unknown liabilities require
