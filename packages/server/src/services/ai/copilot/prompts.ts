@@ -18,15 +18,15 @@ const SHARED_SYSTEM_PROMPT_LINES = [
   'The only SQL tables available are:',
   '- sales_summary(sale_id, sale_number, sold_at, sale_date, site_id, site_name, cashier_id, cashier_name, customer_name, subtotal, tax_amount, discount_amount, total, payment_method, payment_status, status)',
   '- sale_line_items(sale_id, sale_number, sold_at, sale_date, site_id, site_name, product_id, product_name, sku, quantity, unit_price, discount, tax_rate, tax_amount, cost_at_sale, line_total)',
-  'Use only a single SELECT or WITH statement. No semicolons, PRAGMA, ATTACH, temp tables, or mutations.',
+  'Use only a single SELECT statement that reads sales_summary or sale_line_items directly. Do not use WITH/CTEs, semicolons, PRAGMA, ATTACH, temp tables, or mutations.',
   'The current analytics window and the active UI site context are provided in the latest user message inside a <context>...</context> block. Read those values when building SQL — the analytics_window_from / analytics_window_to ISO timestamps bound the available data, and active_site_id is the UI focus site (use it only when the user asks for the current site).',
   "For \"ayer\", filter by sale_date = date('now', '-1 day'). For site names like Sur, use lower(site_name) LIKE '%sur%'.",
 ];
 
 const GUIDED_SYSTEM_PROMPT = [
   ...SHARED_SYSTEM_PROMPT_LINES,
-  'Answer in the same language as the user, concise and operational.',
-  'When the SQL result has rows, summarize the answer and mention whether rows were truncated.',
+  'Guided query review is active. Call runReadOnlySQL and end the turn immediately after the tool returns.',
+  'Do not write an explanation or business conclusion. The application provides deterministic reading guidance from the returned rows.',
 ].join('\n');
 
 const VERIFIED_SYSTEM_PROMPT = [

@@ -31,6 +31,7 @@ import {
   type CopilotWindow,
 } from '../services/ai/copilot.js';
 import type { AIProvider, ProviderPricing } from '../services/ai/providers/types.js';
+import { validateModelAnalyticsSQL } from '../services/ai/copilot/sql.js';
 
 const generateTextMock = vi.fn();
 
@@ -210,6 +211,24 @@ describe('buildSystemPrompt — cache stability invariant', () => {
   });
 });
 
+describe('model SQL evidence floor', () => {
+  it('requires a real analytics source, not a constant or a shadowing CTE', () => {
+    for (const query of [
+      'SELECT 42 AS sale_count',
+      'WITH fabricated AS (SELECT 42 AS sale_count) SELECT * FROM fabricated',
+      'WITH sales_summary AS (SELECT 42 AS sale_count) SELECT * FROM sales_summary',
+      'WITH RECURSIVE sales_summary AS (SELECT 42 AS sale_count) SELECT * FROM sales_summary',
+      'WITH sales_summary(sale_count) AS (SELECT 42) SELECT * FROM sales_summary',
+      'SELECT * FROM (WITH sales_summary AS (SELECT 42 AS sale_count) SELECT * FROM sales_summary)',
+    ]) {
+      expect(() => validateModelAnalyticsSQL(query)).toThrow(TRPCError);
+    }
+    expect(validateModelAnalyticsSQL('SELECT COUNT(*) FROM sales_summary')).toBe(
+      'SELECT COUNT(*) FROM sales_summary'
+    );
+  });
+});
+
 describe('buildContextBlock — dynamic per-call payload', () => {
   const window: CopilotWindow = {
     from: '2026-02-12T00:00:00.000Z',
@@ -278,7 +297,7 @@ describe('injectContextIntoMessages — latest-user-turn prepend', () => {
 describe('runCopilotChat — generateText receives the static system + context-prefixed prompt', () => {
   it('passes the static buildSystemPrompt() as system and a <context>-prefixed prompt for the Anthropic provider', async () => {
     const { tenantId, siteId } = await seedTenantWithAI('anthropic');
-    mockGenerateTextSuccess('Total vendido ayer: $0');
+    mockGenerateTextWithSQL('Summary ready.');
 
     const result = await runCopilotChat(
       { db: getDatabase(), tenantId, siteId, userId: null },
@@ -317,7 +336,7 @@ describe('runCopilotChat — generateText receives the static system + context-p
 
   it('omits providerOptions when the provider returns undefined (OpenAI path, no regression)', async () => {
     const { tenantId, siteId } = await seedTenantWithAI('openai');
-    mockGenerateTextSuccess('OK');
+    mockGenerateTextWithSQL('OK');
 
     await runCopilotChat(
       { db: getDatabase(), tenantId, siteId, userId: null },
@@ -342,7 +361,7 @@ describe('runCopilotChat — generateText receives the static system + context-p
 
   it('persists cacheReadTokens + cacheWriteTokens from the SDK usage shape onto the audit row', async () => {
     const { tenantId, siteId } = await seedTenantWithAI('cache-audit');
-    mockGenerateTextSuccess('Resumen');
+    mockGenerateTextWithSQL('Resumen');
 
     const result = await runCopilotChat(
       { db: getDatabase(), tenantId, siteId, userId: null },
@@ -396,6 +415,174 @@ describe('runCopilotChat — generateText receives the static system + context-p
     expect(auditRow?.responseMode).toBe('verified');
   });
 
+  it('rejects a guided figure without SQL evidence and audits the failure', async () => {
+    const { tenantId, siteId } = await seedTenantWithAI('guided-unverified-figure');
+    mockGenerateTextSuccess('There were 42 sales yesterday.');
+
+    await expectErrorCode(
+      runCopilotChat(
+        { db: getDatabase(), tenantId, siteId, userId: null },
+        { messages: [{ role: 'user', content: 'How many sales yesterday?' }] },
+        { factory: () => buildStubProvider(), now: new Date('2026-05-13T12:00:00.000Z') }
+      ),
+      'AI_PROVIDER_ERROR'
+    );
+    const auditRow = await getDatabase()
+      .select()
+      .from(aiAuditLog)
+      .where(eq(aiAuditLog.tenantId, tenantId))
+      .get();
+    expect(auditRow).toMatchObject({
+      responseMode: 'guided',
+      errorCode: 'AI_PROVIDER_ERROR',
+      inputTokens: 1200,
+      outputTokens: 300,
+      cacheReadTokens: 800,
+      cacheWriteTokens: 200,
+    });
+    expect(auditRow?.costUsd).toBeGreaterThan(0);
+  });
+
+  it('rejects even digit-free guided business prose without SQL evidence', async () => {
+    const { tenantId, siteId } = await seedTenantWithAI('guided-unverified-prose');
+    mockGenerateTextSuccess('Sales were strong yesterday.');
+    await expectErrorCode(
+      runCopilotChat(
+        { db: getDatabase(), tenantId, siteId, userId: null },
+        { messages: [{ role: 'user', content: 'How did sales go yesterday?' }] },
+        { factory: () => buildStubProvider(), now: new Date('2026-05-13T12:00:00.000Z') }
+      ),
+      'AI_PROVIDER_ERROR'
+    );
+  });
+
+  it('returns only SQL rows when guided prose uses a correct digit under the wrong metric', async () => {
+    const { tenantId, siteId } = await seedTenantWithAI('guided-wrong-metric');
+    mockGenerateTextWithSQL('Revenue was 0 dollars yesterday.');
+
+    const result = await runCopilotChat(
+      { db: getDatabase(), tenantId, siteId, userId: null },
+      { messages: [{ role: 'user', content: 'How many sales yesterday?' }] },
+      { factory: () => buildStubProvider(), now: new Date('2026-05-13T12:00:00.000Z') }
+    );
+
+    expect(result.rows).toEqual([{ sale_count: 0 }]);
+    expect(result.answer).toBe('');
+    expect(result.responseMode).toBe('guided');
+  });
+
+  it('withholds qualitative prose over a numeric result cell', async () => {
+    const { tenantId, siteId } = await seedTenantWithAI('guided-numeric-row');
+    mockGenerateTextWithSQL('Revenue is high.');
+    const result = await runCopilotChat(
+      { db: getDatabase(), tenantId, siteId, userId: null },
+      { messages: [{ role: 'user', content: 'How many sales yesterday?' }] },
+      { factory: () => buildStubProvider(), now: new Date('2026-05-13T12:00:00.000Z') }
+    );
+    expect(result.answer).toBe('');
+  });
+
+  it('withholds guided model prose even when the SQL result is nonnumeric', async () => {
+    const { tenantId, siteId } = await seedTenantWithAI('guided-qualitative-row');
+    generateTextMock.mockImplementation(
+      async (options: {
+        tools: { runReadOnlySQL: { execute?: (input: { query: string }) => Promise<unknown> } };
+      }) => {
+        await options.tools.runReadOnlySQL.execute?.({
+          query: "SELECT COALESCE(MAX(site_name), 'none') AS site_name FROM sales_summary",
+        });
+        return successfulGenerateTextResult('Twenty sales happened in Sur.');
+      }
+    );
+
+    const result = await runCopilotChat(
+      { db: getDatabase(), tenantId, siteId, userId: null },
+      { messages: [{ role: 'user', content: 'Which site?' }] },
+      { factory: () => buildStubProvider(), now: new Date('2026-05-13T12:00:00.000Z') }
+    );
+    expect(result.rows).toEqual([{ site_name: 'none' }]);
+    expect(result.answer).toBe('');
+  });
+
+  it('returns every SQL result in order instead of showing only the last one', async () => {
+    const { tenantId, siteId } = await seedTenantWithAI('guided-multistep');
+    generateTextMock.mockImplementation(
+      async (options: {
+        tools: { runReadOnlySQL: { execute?: (input: { query: string }) => Promise<unknown> } };
+      }) => {
+        await options.tools.runReadOnlySQL.execute?.({
+          query: 'SELECT COUNT(*) AS sale_count FROM sales_summary',
+        });
+        await options.tools.runReadOnlySQL.execute?.({
+          query: "SELECT COALESCE(MAX(site_name), 'none') AS site_name FROM sales_summary",
+        });
+        return successfulGenerateTextResult('Sales look strong in Sur.');
+      }
+    );
+
+    const result = await runCopilotChat(
+      { db: getDatabase(), tenantId, siteId, userId: null },
+      { messages: [{ role: 'user', content: 'How many sales in Sur?' }] },
+      { factory: () => buildStubProvider(), now: new Date('2026-05-13T12:00:00.000Z') }
+    );
+    expect(result.queries).toHaveLength(2);
+    expect(result.queries[0]?.rows).toEqual([{ sale_count: 0 }]);
+    expect(result.queries[1]?.rows).toEqual([{ site_name: 'none' }]);
+    expect(result.answer).toBe('');
+  });
+
+  it('rejects more than five model SQL attempts and accounts for provider usage', async () => {
+    const { tenantId, siteId } = await seedTenantWithAI('guided-query-limit');
+    generateTextMock.mockImplementation(
+      async (options: {
+        tools: { runReadOnlySQL: { execute?: (input: { query: string }) => Promise<unknown> } };
+      }) => {
+        for (let i = 0; i < 6; i++) {
+          await options.tools.runReadOnlySQL.execute?.({
+            query: 'SELECT COUNT(*) AS sale_count FROM sales_summary',
+          });
+        }
+        return successfulGenerateTextResult('Ignored model prose.');
+      }
+    );
+    await expectErrorCode(
+      runCopilotChat(
+        { db: getDatabase(), tenantId, siteId, userId: null },
+        { messages: [{ role: 'user', content: 'Many analytics requests' }] },
+        { factory: () => buildStubProvider(), now: new Date('2026-05-13T12:00:00.000Z') }
+      ),
+      'AI_COPILOT_SQL_REJECTED'
+    );
+    const auditRow = await getDatabase()
+      .select()
+      .from(aiAuditLog)
+      .where(eq(aiAuditLog.tenantId, tenantId))
+      .get();
+    expect(auditRow?.costUsd).toBeGreaterThan(0);
+  });
+
+  it('does not use guided prose to assert a conclusion when a query returns no rows', async () => {
+    const { tenantId, siteId } = await seedTenantWithAI('guided-empty-rows');
+    generateTextMock.mockImplementation(
+      async (options: {
+        tools: { runReadOnlySQL: { execute?: (input: { query: string }) => Promise<unknown> } };
+      }) => {
+        await options.tools.runReadOnlySQL.execute?.({
+          query: 'SELECT sale_id FROM sales_summary WHERE 1 = 0',
+        });
+        return successfulGenerateTextResult('There are no sales in this business.');
+      }
+    );
+
+    const result = await runCopilotChat(
+      { db: getDatabase(), tenantId, siteId, userId: null },
+      { messages: [{ role: 'user', content: 'Show sales' }] },
+      { factory: () => buildStubProvider(), now: new Date('2026-05-13T12:00:00.000Z') }
+    );
+    expect(result.rowCount).toBe(0);
+    expect(result.answer).toBe('');
+  });
+
   it('fails closed when a verified-mode provider returns without validated SQL', async () => {
     const { tenantId, siteId } = await seedTenantWithAI('verified-no-sql', 'verified');
     mockGenerateTextSuccess('Unsupported narrative-only response.');
@@ -422,7 +609,7 @@ describe('runCopilotChat — generateText receives the static system + context-p
 
   it('regenerates the context block on a follow-up call so the latest window flows through', async () => {
     const { tenantId, siteId } = await seedTenantWithAI('multi-turn');
-    mockGenerateTextSuccess('Answer 1');
+    mockGenerateTextWithSQL('First answer');
 
     await runCopilotChat(
       { db: getDatabase(), tenantId, siteId, userId: null },
@@ -430,7 +617,7 @@ describe('runCopilotChat — generateText receives the static system + context-p
       { factory: () => buildStubProvider(), now: new Date('2026-05-13T12:00:00.000Z') }
     );
 
-    mockGenerateTextSuccess('Answer 2');
+    mockGenerateTextWithSQL('Second answer');
     await runCopilotChat(
       { db: getDatabase(), tenantId, siteId, userId: null },
       {

@@ -34,7 +34,7 @@
     "role": "Solo el administrador puede activar la IA."
   },
   "disclaimer": {
-    "copilot": "Respuesta generada por IA · revisa el SQL antes de actuar.",
+    "copilot": "La IA elige una consulta, no una conclusión de negocio verificada. Revisa el SQL y sus filas antes de actuar.",
     "anomaly": "Punto de partida para una investigación, no una acusación."
   },
   "privacy": {

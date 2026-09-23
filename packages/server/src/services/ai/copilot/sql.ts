@@ -107,3 +107,30 @@ export function validateReadOnlySQL(query: string): string {
 
   return normalized;
 }
+
+/**
+ * Model-facing analytics must at least read an actual snapshot table. A
+ * constant SELECT or a CTE shadowing a table name is not source evidence.
+ * This is deliberately only a provenance floor: a table-reading query may
+ * still calculate the wrong KPI, which the UI must never call proof.
+ */
+export function validateModelAnalyticsSQL(query: string): string {
+  const normalized = validateReadOnlySQL(query);
+  // The lightweight SQL guard cannot reliably distinguish every recursive,
+  // column-list or quoted CTE shadow from a base table. Fail closed here;
+  // authorized local read-only SQL still retains WITH support.
+  const inspected = stripQuotedStrings(normalized);
+  if (/\bwith\b/i.test(inspected)) {
+    rejectSQL('Model analytics CTE queries are not supported');
+  }
+  const readsSource = Array.from(
+    inspected.matchAll(/\b(?:from|join)\s+([`"]?[a-zA-Z_][a-zA-Z0-9_."`]*\]?)/gi)
+  ).some(match => {
+    const table = sanitizeTableName(match[1]!);
+    return ALLOWED_TABLES.has(table);
+  });
+  if (!readsSource) {
+    rejectSQL('Model analytics query must read a snapshot source table');
+  }
+  return normalized;
+}
