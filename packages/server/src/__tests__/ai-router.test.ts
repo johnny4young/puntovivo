@@ -28,6 +28,7 @@ import {
   users,
 } from '../db/schema.js';
 import { ServerErrorWithCode } from '../lib/errorCodes.js';
+import { writeAuditLog } from '../services/audit-logs.js';
 import { runReadOnlySQL, validateReadOnlySQL } from '../services/ai/index.js';
 import { AI_QUOTAS } from '../services/ai/quotas.js';
 import { configureAuditAnchorKey } from '../services/audit-anchor.js';
@@ -429,6 +430,32 @@ describe('ai.invoiceOcr.confirm', () => {
       payloadHash: 'test-upload-hash',
       createdAt: now,
     });
+    await db.insert(aiAuditLog).values({
+      id: 'ai-audit-extract-1',
+      tenantId,
+      siteId,
+      userId: adminId,
+      feature: 'invoiceOcr',
+      providerId: 'textract',
+      modelId: 'aws-textract-analyze-expense',
+      inputTokens: 0,
+      outputTokens: 0,
+      costUsd: 0.01,
+      durationMs: 1,
+      errorCode: null,
+      createdAt: now,
+    });
+    db.transaction(tx =>
+      writeAuditLog({
+        tx,
+        tenantId,
+        actorId: adminId,
+        action: 'ai.invoice_ocr.extract',
+        resourceType: 'ai_feature',
+        resourceId: uploadId,
+        metadata: { aiAuditLogId: 'ai-audit-extract-1', payloadHash: 'test-upload-hash' },
+      })
+    );
 
     const caller = appRouter.createCaller(
       createCtx({ tenantId, userId: adminId, role: 'admin', siteId })

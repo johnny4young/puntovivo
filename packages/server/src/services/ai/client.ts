@@ -45,11 +45,8 @@ export interface AIInvocationContext {
  * `DEFAULT_AI_SETTINGS` for any field the row hasn't set yet. Returned
  * value is type-safe even when the JSON blob contains garbage.
  */
-export async function resolveAISettings(
-  db: DatabaseInstance,
-  tenantId: string
-): Promise<AISettings> {
-  const tenant = await db
+export function resolveAISettingsInTransaction(db: DatabaseInstance, tenantId: string): AISettings {
+  const tenant = db
     .select({ settings: tenants.settings })
     .from(tenants)
     .where(eq(tenants.id, tenantId))
@@ -69,6 +66,14 @@ export async function resolveAISettings(
     modelId: typeof ai.modelId === 'string' && ai.modelId.length > 0 ? ai.modelId : null,
     features: mergeFeatureFlags(ai.features),
   };
+}
+
+// Preserve the existing Promise API for callers outside a SQLite writer.
+export async function resolveAISettings(
+  db: DatabaseInstance,
+  tenantId: string
+): Promise<AISettings> {
+  return resolveAISettingsInTransaction(db, tenantId);
 }
 
 function mergeFeatureFlags(raw: unknown): AIFeatureFlags {

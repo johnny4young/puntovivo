@@ -652,6 +652,13 @@
       "when": 1790162866437,
       "tag": "0092_ai_budget_reservations",
       "breakpoints": true
+    },
+    {
+      "idx": 93,
+      "version": "6",
+      "when": 1790189486021,
+      "tag": "0093_ocr_confirmation_idempotency",
+      "breakpoints": true
     }
   ]
 }

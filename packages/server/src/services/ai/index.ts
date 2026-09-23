@@ -11,6 +11,7 @@
 export {
   completeAI,
   resolveAISettings,
+  resolveAISettingsInTransaction,
   setCopilotResponseMode,
   writeAISettings,
   type AIInvocationContext,

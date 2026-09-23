@@ -502,6 +502,21 @@ also rechecks the active site's invoice quota and tenant ownership under the
 writer lock; earlier router checks provide only fast rejection. Upload,
 extraction, and confirmation require the same active site.
 
+Invoice OCR confirmation accepts only a successful extraction audit linked to
+the same tenant, active site, upload and upload payload hash. One
+`BEGIN IMMEDIATE` transaction allocates the purchase number, creates the draft
+and items, enqueues its sync intent, and appends the confirmation audit. A
+tenant-scoped unique extraction claim and reviewed-input hash make an identical
+retry return the original draft without new side effects; a changed review
+conflicts. A committed retry remains available after extraction-audit metadata
+retention or feature disablement, while an uncommitted confirmation fails closed
+if its provenance is missing. The persisted draft uses net line costs, and
+confirmation rejects a mismatch between those costs, reviewed subtotal, tax,
+and invoice total. Textract does not indicate whether a line's unit price
+includes tax; a tax-inclusive line can therefore be rejected until an explicit
+tax-basis correction flow is implemented. Do not weaken reconciliation to make
+that invoice pass implicitly.
+
 Successful estimated cost and reservation release commit with one audit row.
 Voice transcription prices returned audio duration; missing duration or
 pricing is not a free transcript. Textract prices returned
