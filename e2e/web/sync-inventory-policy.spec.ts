@@ -13,7 +13,7 @@ import {
 const databasePath = path.join(process.cwd(), 'packages/server/data/local.db');
 function withDatabase<T>(run: (db: Database.Database) => T): T {
   const db = new Database(databasePath);
-  db.pragma('busy_timeout = 5000');
+  db.pragma('busy_timeout = 15000');
   try {
     return run(db);
   } finally {
@@ -25,8 +25,10 @@ function withDatabase<T>(run: (db: Database.Database) => T): T {
 // Only conflicts are adversarial: the persisted value and site balance agree.
 // This is sync recovery evidence, not qualification of inventory receipt UI.
 function createIncidents() {
-  return withDatabase(db =>
-    db.transaction(() => {
+  return withDatabase(db => {
+    // Acquire the writer slot before the initial reads: a deferred transaction
+    // cannot always upgrade its read lock when the live server is writing.
+    const seed = db.transaction(() => {
       const owner = db
         .prepare('SELECT tenant_id AS tenantId FROM users WHERE email = ?')
         .get('e2e.admin@local.test') as { tenantId: string };
@@ -87,8 +89,9 @@ function createIncidents() {
         valuedConflictId,
         metadataConflictId,
       };
-    })()
-  );
+    });
+    return seed.immediate();
+  });
 }
 
 test.describe('inventory sync recovery policy', () => {

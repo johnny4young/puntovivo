@@ -118,7 +118,7 @@ function readEvidence(tenantId: string, intentId: string) {
 }
 
 for (const language of ['en', 'es'] as const) {
-  test(`admin rechecks a frozen fiscal obligation without inventing a document (${language})`, async ({
+  test(`admin rechecks a frozen fiscal obligation without inventing a document (${language}) @isolated-journey`, async ({
     page,
   }, testInfo) => {
     const scenario = seedFiscalProfileScenario(`intent-${language}-${testInfo.parallelIndex}`);

@@ -19,7 +19,7 @@ test('long-shift command stays opt-in, serial, and outside the ordinary suite', 
   assert.match(soakCommand, /--grep @long-shift-soak/);
   assert.match(soakCommand, /--workers=1/);
   assert.match(soakCommand, /--forbid-only/);
-  assert.match(ordinaryCommand, /--grep-invert @long-shift-soak/);
+  assert.match(ordinaryCommand, /--grep-invert ["']@long-shift-soak\|@isolated-journey["']/);
 
   const workflow = readRepoFile('.github/workflows/ci.yml');
   assert.doesNotMatch(workflow, /pnpm run test:e2e:web:soak/);
