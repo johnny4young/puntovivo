@@ -1,9 +1,10 @@
 import type { ComponentProps } from 'react';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { render } from '@/test/utils';
+import i18next from '@/i18n';
 import { InvoiceOcrDialog } from './InvoiceOcrDialog';
 import type { PurchaseDraft } from './types';
 import type { Provider } from '@/types';
@@ -90,6 +91,7 @@ const draft: PurchaseDraft = {
       description: 'Yogurt fresa 200g',
       quantity: 2,
       unitPrice: 5000,
+      netCostConfirmed: false,
       matchedProductId: 'product-1',
       matchedProductName: 'Yogurt fresa 200g',
       matchedProductSku: 'YOG-200',
@@ -340,6 +342,30 @@ describe('InvoiceOcrDialog states', () => {
     expect(screen.getByRole('button', { name: /confirmar|confirm/i })).toBeDisabled();
   });
 
+  it('uses singular Spanish copy for one unmatched catalog line', async () => {
+    try {
+      await i18next.changeLanguage('es');
+      uploadMutateAsync.mockResolvedValue({ uploadId: 'upload-1' });
+      extractMutateAsync.mockResolvedValue({
+        ...draft,
+        lines: [{ ...draft.lines[0]!, matchedProductId: null, unitId: null }],
+      });
+      renderDialog();
+
+      await userEvent.upload(uploadInput(document.body), invoiceFile());
+
+      expect(
+        await screen.findByText(
+          '1 línea sin coincidencia en el catálogo. Asígnale un producto para confirmar.'
+        )
+      ).toBeInTheDocument();
+    } finally {
+      await act(async () => {
+        await i18next.changeLanguage('en');
+      });
+    }
+  });
+
   it('confirms a reviewed draft and closes the dialog', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
@@ -351,6 +377,7 @@ describe('InvoiceOcrDialog states', () => {
 
     await user.upload(uploadInput(document.body), invoiceFile());
     await screen.findByText(/borrador de compra|purchase draft/i);
+    await user.click(screen.getByRole('checkbox', { name: /verified.*excludes tax/i }));
     await user.click(screen.getByRole('button', { name: /confirmar|confirm/i }));
 
     await waitFor(() => expect(confirmMutateAsync).toHaveBeenCalledTimes(1));
@@ -362,8 +389,114 @@ describe('InvoiceOcrDialog states', () => {
       })
     );
     expect(toastSuccess).toHaveBeenCalled();
-    expect(onConfirmed).toHaveBeenCalledWith(draft);
+    expect(onConfirmed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lines: [expect.objectContaining({ unitPrice: 5000, netCostConfirmed: true })],
+      })
+    );
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('blocks a gross OCR unit price until the operator corrects and verifies its net cost', async () => {
+    const user = userEvent.setup();
+    uploadMutateAsync.mockResolvedValue({ uploadId: 'upload-1' });
+    extractMutateAsync.mockResolvedValue({
+      ...draft,
+      lines: [{ ...draft.lines[0]!, unitPrice: 5950 }],
+    });
+    confirmMutateAsync.mockResolvedValue({ ok: true });
+    renderDialog();
+
+    await user.upload(uploadInput(document.body), invoiceFile());
+    const netCost = await screen.findByRole('spinbutton', { name: /net unit cost/i });
+    expect(screen.getByRole('button', { name: /^confirm$/i })).toBeDisabled();
+    expect(screen.getByText(/net line subtotal does not match/i)).toBeInTheDocument();
+
+    await user.clear(netCost);
+    await user.type(netCost, '5000');
+    expect(screen.getByRole('button', { name: /^confirm$/i })).toBeDisabled();
+    await user.click(screen.getByRole('checkbox', { name: /verified.*excludes tax/i }));
+    await user.click(screen.getByRole('button', { name: /^confirm$/i }));
+
+    await waitFor(() => expect(confirmMutateAsync).toHaveBeenCalledTimes(1));
+    expect(confirmMutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lines: [expect.objectContaining({ unitPrice: 5000, netCostConfirmed: true })],
+        totals: expect.objectContaining({ subtotal: 10_000, iva: 1900, total: 11_900 }),
+      })
+    );
+  });
+
+  it('allows the operator to correct OCR invoice totals only when all amounts reconcile', async () => {
+    const user = userEvent.setup();
+    uploadMutateAsync.mockResolvedValue({ uploadId: 'upload-1' });
+    extractMutateAsync.mockResolvedValue({
+      ...draft,
+      totals: { subtotal: 9500, iva: 1900, total: 11_400, linesSum: 11_400 },
+    });
+    confirmMutateAsync.mockResolvedValue({ ok: true });
+    renderDialog();
+
+    await user.upload(uploadInput(document.body), invoiceFile());
+    expect(await screen.findByText(/net line subtotal does not match/i)).toBeInTheDocument();
+    await user.click(screen.getByRole('checkbox', { name: /verified.*excludes tax/i }));
+    await user.clear(screen.getByRole('spinbutton', { name: /^subtotal$/i }));
+    await user.type(screen.getByRole('spinbutton', { name: /^subtotal$/i }), '10000');
+    expect(screen.getByRole('button', { name: /^confirm$/i })).toBeDisabled();
+    expect(screen.getByText(/subtotal plus IVA does not match/i)).toBeInTheDocument();
+    await user.clear(screen.getByRole('spinbutton', { name: /^total$/i }));
+    await user.type(screen.getByRole('spinbutton', { name: /^total$/i }), '11900');
+    await user.clear(screen.getByRole('spinbutton', { name: /invoice lines total/i }));
+    await user.type(screen.getByRole('spinbutton', { name: /invoice lines total/i }), '11900');
+    await user.click(screen.getByRole('button', { name: /^confirm$/i }));
+
+    await waitFor(() => expect(confirmMutateAsync).toHaveBeenCalledTimes(1));
+    expect(confirmMutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        totals: { subtotal: 10_000, iva: 1900, total: 11_900, linesSum: 11_900 },
+      })
+    );
+  });
+
+  it('requires a fresh net-cost acknowledgment after the operator edits a line price', async () => {
+    const user = userEvent.setup();
+    uploadMutateAsync.mockResolvedValue({ uploadId: 'upload-1' });
+    extractMutateAsync.mockResolvedValue(draft);
+    renderDialog();
+    await user.upload(uploadInput(document.body), invoiceFile());
+
+    const checkbox = await screen.findByRole('checkbox', { name: /verified.*excludes tax/i });
+    await user.click(checkbox);
+    expect(screen.getByRole('button', { name: /^confirm$/i })).toBeEnabled();
+    const netCost = screen.getByRole('spinbutton', { name: /net unit cost/i });
+    await user.clear(netCost);
+    await user.type(netCost, '5000');
+    expect(checkbox).not.toBeChecked();
+    expect(screen.getByRole('button', { name: /^confirm$/i })).toBeDisabled();
+    expect(confirmMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('shows neutral Spanish guidance for a gross OCR price without auto-converting it', async () => {
+    try {
+      await i18next.changeLanguage('es');
+      uploadMutateAsync.mockResolvedValue({ uploadId: 'upload-1' });
+      extractMutateAsync.mockResolvedValue({
+        ...draft,
+        lines: [{ ...draft.lines[0]!, unitPrice: 5950 }],
+      });
+      renderDialog();
+      await userEvent.upload(uploadInput(document.body), invoiceFile());
+
+      expect(
+        await screen.findByRole('spinbutton', { name: /costo unitario neto de Yogurt/i })
+      ).toHaveValue(5950);
+      expect(screen.getByText(/subtotal neto de las líneas no coincide/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^confirmar$/i })).toBeDisabled();
+    } finally {
+      await act(async () => {
+        await i18next.changeLanguage('en');
+      });
+    }
   });
 
   it('keeps the review open when confirmation fails', async () => {
@@ -376,6 +509,7 @@ describe('InvoiceOcrDialog states', () => {
 
     await user.upload(uploadInput(document.body), invoiceFile());
     await screen.findByText(/borrador de compra|purchase draft/i);
+    await user.click(screen.getByRole('checkbox', { name: /verified.*excludes tax/i }));
     await user.click(screen.getByRole('button', { name: /confirmar|confirm/i }));
 
     await waitFor(() => expect(toastError).toHaveBeenCalled());

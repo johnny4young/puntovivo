@@ -124,6 +124,16 @@ export function InvoiceOcrDialog({ open, onClose, providers, onConfirmed }: Invo
 
   async function handleConfirm(updated: PurchaseDraft) {
     try {
+      if (updated.lines.some(line => !line.netCostConfirmed)) {
+        toast.error({
+          title: t('invoiceOcr:error.title', { defaultValue: 'No pude leer esa factura' }),
+          description: t('invoiceOcr:error.netCostReviewRequired', {
+            defaultValue:
+              'Verifica el costo unitario neto sin IVA de cada línea antes de confirmar.',
+          }),
+        });
+        return;
+      }
       const unresolved = updated.lines.find(line => !line.matchedProductId || !line.unitId);
       if (!updated.providerId || unresolved) {
         toast.error({
@@ -150,6 +160,7 @@ export function InvoiceOcrDialog({ open, onClose, providers, onConfirmed }: Invo
           description: line.description,
           quantity: line.quantity,
           unitPrice: line.unitPrice,
+          netCostConfirmed: line.netCostConfirmed as true,
           matchedProductId: line.matchedProductId!,
           unitId: line.unitId!,
         })),

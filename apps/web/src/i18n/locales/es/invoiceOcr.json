@@ -28,6 +28,11 @@
     "lines": "Líneas",
     "subtotal": "Subtotal",
     "total": "Total",
+    "netUnitCost": "Costo unitario neto (sin IVA)",
+    "netUnitCostForLine": "Costo unitario neto de {{description}}",
+    "netCostAcknowledgment": "Verifiqué que el costo neto de {{description}} no incluye IVA.",
+    "netCostGuidance": "Los precios leídos por OCR pueden incluir IVA. Ingresa el costo unitario neto sin impuesto y compáralo con el subtotal de la factura antes de confirmar.",
+    "invoiceLinesTotal": "Total de líneas de la factura",
     "unmatchedLine": "Pendiente de producto",
     "assignProduct": "Asignar producto",
     "changeProduct": "Cambiar producto",
@@ -39,7 +44,12 @@
     "disclaimer": "La IA leyó la factura. Revisa cada campo antes de registrar la compra.",
     "warning": {
       "totalsMismatch": "El total no coincide con la suma de líneas (diferencia {{diff}}). Revisa antes de confirmar.",
-      "unmatched": "{{count}} líneas sin coincidencia en el catálogo. Asígnales un producto para confirmar.",
+      "netSubtotalMismatch": "El subtotal neto de las líneas no coincide con el subtotal revisado (diferencia {{diff}}). Corrige los costos netos o el subtotal.",
+      "invoiceTotalMismatch": "El subtotal más IVA no coincide con el total de la factura. Corrige los importes revisados.",
+      "invalidAmount": "Ingresa importes válidos no negativos y cantidades positivas antes de confirmar.",
+      "netCostReviewRequired": "Verifica el costo unitario neto sin IVA de cada línea antes de confirmar.",
+      "unmatched_one": "{{count}} línea sin coincidencia en el catálogo. Asígnale un producto para confirmar.",
+      "unmatched_other": "{{count}} líneas sin coincidencia en el catálogo. Asígnales un producto para confirmar.",
       "providerRequired": "Selecciona el proveedor del catálogo antes de confirmar."
     }
   },
@@ -48,7 +58,8 @@
     "tryAgain": "Reintentar",
     "unsupportedType": "Tipo de archivo no soportado.",
     "tooLarge": "Archivo demasiado grande (máx 10 MB).",
-    "missingRequired": "Selecciona proveedor y producto para cada línea antes de confirmar."
+    "missingRequired": "Selecciona proveedor y producto para cada línea antes de confirmar.",
+    "netCostReviewRequired": "Verifica el costo unitario neto sin IVA de cada línea antes de confirmar."
   },
   "success": {
     "title": "Borrador listo",
