@@ -505,7 +505,12 @@ Ollama model-call failure cannot incur remote charges and releases its hold.
 Co-pilot also records priced provider usage when it rejects an answer without
 validated SQL, and preserves the call-time analytics site scope in its audit.
 The SDK's implicit retries are disabled on these paths, and calls have a bounded
-timeout. This is a conservative **local admission control**, not an exact USD
+timeout. The Co-pilot chat and connection-test HTTP procedures also forward a
+prematurely closed response as an abort signal to the provider call; a normal
+completed response does not cancel it, and direct non-HTTP callers remain
+supported. Cancellation after remote dispatch retains the unknown-cost hold
+because disconnecting cannot prove that a provider did not bill. This is a
+conservative **local admission control**, not an exact USD
 invoice cap: a single call can exceed the remaining budget, and other AI entry
 points have not yet adopted this reservation path. Unknown liabilities require
 provider-invoice reconciliation; they are never automatically declared free.

@@ -20,6 +20,7 @@ import { throwServerError } from '../../../lib/errorCodes.js';
 import { requireCopilotQuotasForSites } from '../../../services/ai/quotas.js';
 import { resolveCopilotQuotaSites } from '../../../services/ai/copilot/scope.js';
 import { copilotChatInput, copilotResponseModeInput } from '../../schemas/ai.js';
+import { withClientAbortSignal } from '../../request-abort.js';
 
 export const copilotRouter = router({
   setResponseMode: adminProcedure
@@ -56,15 +57,18 @@ export const copilotRouter = router({
         siteIds: quotaSiteIds,
       });
       const userId = ctx.user?.id ?? null;
-      return runCopilotChat(
-        {
-          db: ctx.db,
-          tenantId: ctx.tenantId,
-          siteId: ctx.siteId,
-          userId,
-        },
-        input,
-        { scopeSiteIds: quotaSiteIds }
+      return withClientAbortSignal(ctx.res, abortSignal =>
+        runCopilotChat(
+          {
+            db: ctx.db,
+            tenantId: ctx.tenantId,
+            siteId: ctx.siteId,
+            userId,
+            ...(abortSignal ? { abortSignal } : {}),
+          },
+          input,
+          { scopeSiteIds: quotaSiteIds }
+        )
       );
     }),
 });

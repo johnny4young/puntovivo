@@ -167,6 +167,7 @@ export async function runCopilotChat(
     );
     const model = provider.languageModel(modelId);
     const prompt = buildPrompt(messagesWithContext);
+    ctx.abortSignal?.throwIfAborted();
     reservation = reserveAiBudget(ctx.db, ctx.tenantId, now, { copilotSiteIds: scopeSiteIds });
     const result = await generateText({
       model,
@@ -314,6 +315,9 @@ export async function runCopilotChat(
       auditLogId,
     };
   } catch (error) {
+    // A disconnected request cancelled before admission cannot have reached
+    // the provider; it must not create a usage row or unknown-cost hold.
+    if (ctx.abortSignal?.aborted && reservation === null) throw error;
     const errorCode = serverErrorCodeFrom(error);
     const uncertainRemoteCost =
       reservation !== null && consumedUsage === null && provider.id !== 'ollama';

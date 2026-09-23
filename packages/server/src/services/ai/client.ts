@@ -390,6 +390,7 @@ export async function completeAI(
   const modelId = input.modelId ?? settings.modelId ?? provider.defaultModelId;
   const model = provider.languageModel(modelId);
   const providerOptions = provider.cacheControlForSystemPrompt();
+  ctx.abortSignal?.throwIfAborted();
   const reservation = reserveAiBudget(ctx.db, ctx.tenantId);
   const startedAt = Date.now();
 
