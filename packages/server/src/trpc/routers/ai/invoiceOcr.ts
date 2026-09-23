@@ -18,12 +18,13 @@ import { and, eq } from 'drizzle-orm';
 
 import { router } from '../../init.js';
 import { managerOrAdminProcedure } from '../../middleware/roles.js';
-import { recordCall, resolveAISettings } from '../../../services/ai/index.js';
+import { resolveAISettings } from '../../../services/ai/index.js';
 import { matchInvoiceLinesToProducts } from '../../../services/ai/vision/index.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
 import { normalizeColombianInvoice } from '../../../services/ai/invoice/normalize-co.js';
-import { extractInvoiceWithTextract } from '../../../services/ai/invoice/textract.js';
+import { extractInvoiceWithAdmission } from '../../../services/ai/invoice/admission.js';
 import { requireAiQuotaAvailable } from '../../../services/ai/quotas.js';
+import { withClientAbortSignal } from '../../request-abort.js';
 import { createOcrDraftPurchase } from '../../../application/purchases/index.js';
 import { writeAuditLog } from '../../../services/audit-logs.js';
 import { confirmInvoiceDraftInput, extractInvoiceOcrInput } from '../../schemas/ai-vision.js';
@@ -42,23 +43,31 @@ export const invoiceOcrRouter = router({
           message: 'Invoice OCR is disabled for this tenant',
         });
       }
-      // per-site monthly quota check fires BEFORE the
-      // OCR provider call so a blocked request never writes an
-      // audit row. Bypass when the request has no site context.
-      if (ctx.siteId) {
-        await requireAiQuotaAvailable({
-          db: ctx.db,
-          tenantId: ctx.tenantId,
-          siteId: ctx.siteId,
-          feature: 'invoiceOcr',
+      const siteId = ctx.siteId;
+      if (!siteId) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Select an active site before extracting an invoice',
         });
       }
+      // Fast quota rejection; reserveAiBudget repeats it under BEGIN IMMEDIATE
+      // so concurrent requests cannot both pass the last available slot.
+      await requireAiQuotaAvailable({
+        db: ctx.db,
+        tenantId: ctx.tenantId,
+        siteId,
+        feature: 'invoiceOcr',
+      });
 
       const upload = await ctx.db
         .select()
         .from(invoiceUploads)
         .where(
-          and(eq(invoiceUploads.id, input.uploadId), eq(invoiceUploads.tenantId, ctx.tenantId))
+          and(
+            eq(invoiceUploads.id, input.uploadId),
+            eq(invoiceUploads.tenantId, ctx.tenantId),
+            eq(invoiceUploads.siteId, siteId)
+          )
         )
         .get();
 
@@ -79,40 +88,33 @@ export const invoiceOcrRouter = router({
         });
       }
 
-      const result = await extractInvoiceWithTextract({
-        documentBase64: upload.payloadBase64,
-        mimeType: upload.mimeType as Parameters<typeof extractInvoiceWithTextract>[0]['mimeType'],
-      });
-
-      const { id: aiAuditLogId } = await recordCall(ctx.db, {
-        tenantId: ctx.tenantId,
-        siteId: ctx.siteId,
-        userId,
-        feature: 'invoiceOcr',
-        providerId: result.provider,
-        modelId: result.model,
-        inputTokens: 0,
-        outputTokens: 0,
-        cacheReadTokens: 0,
-        cacheWriteTokens: 0,
-        costUsd: result.costUsd,
-        durationMs: result.durationMs,
-        errorCode: null,
-      });
+      const { result: textractResult, auditLogId: aiAuditLogId } = await withClientAbortSignal(
+        ctx.res,
+        abortSignal =>
+          extractInvoiceWithAdmission(
+            { db: ctx.db, tenantId: ctx.tenantId, siteId, userId, abortSignal },
+            {
+              documentBase64: upload.payloadBase64,
+              mimeType: upload.mimeType as Parameters<
+                typeof extractInvoiceWithAdmission
+              >[1]['mimeType'],
+            }
+          )
+      );
 
       const normalized = normalizeColombianInvoice({
-        supplierName: result.invoice.supplierName,
-        supplierTaxId: result.invoice.supplierTaxId,
-        invoiceNumber: result.invoice.invoiceNumber,
-        subtotal: result.invoice.subtotal,
-        taxAmount: result.invoice.taxAmount,
-        lines: result.invoice.lines.map(l => ({ totalLine: l.totalLine })),
+        supplierName: textractResult.invoice.supplierName,
+        supplierTaxId: textractResult.invoice.supplierTaxId,
+        invoiceNumber: textractResult.invoice.invoiceNumber,
+        subtotal: textractResult.invoice.subtotal,
+        taxAmount: textractResult.invoice.taxAmount,
+        lines: textractResult.invoice.lines.map(l => ({ totalLine: l.totalLine })),
       });
 
-      const lineMatches = result.invoice.lines.length
+      const lineMatches = textractResult.invoice.lines.length
         ? await matchInvoiceLinesToProducts(
             { db: ctx.db, tenantId: ctx.tenantId, siteId: ctx.siteId, userId },
-            result.invoice.lines.map(l => ({
+            textractResult.invoice.lines.map(l => ({
               description: l.description,
               quantity: l.quantity,
               unitPrice: l.unitPrice,
@@ -148,9 +150,9 @@ export const invoiceOcrRouter = router({
         });
       }
 
-      const subtotal = result.invoice.subtotal ?? 0;
-      const iva = result.invoice.taxAmount ?? 0;
-      const total = result.invoice.total ?? subtotal + iva;
+      const subtotal = textractResult.invoice.subtotal ?? 0;
+      const iva = textractResult.invoice.taxAmount ?? 0;
+      const total = textractResult.invoice.total ?? subtotal + iva;
       const linesSum =
         Math.abs(normalized.linesSum + iva - total) <= 100
           ? normalized.linesSum + iva
@@ -160,14 +162,14 @@ export const invoiceOcrRouter = router({
         supplier: {
           name: normalized.supplier.name,
           nit: normalized.supplier.nit,
-          confidence: result.invoice.supplierName ? 0.92 : 0.55,
+          confidence: textractResult.invoice.supplierName ? 0.92 : 0.55,
         },
         providerId: await findProviderIdForInvoice(ctx.db, ctx.tenantId, normalized.supplier),
         invoiceNumber: {
           value: normalized.invoiceNumber ?? '',
-          confidence: result.invoice.invoiceNumber ? 0.9 : 0.5,
+          confidence: textractResult.invoice.invoiceNumber ? 0.9 : 0.5,
         },
-        lines: result.invoice.lines.map((line, idx) => {
+        lines: textractResult.invoice.lines.map((line, idx) => {
           const match = matchedLookup.get(idx);
           return {
             description: line.description,
@@ -191,9 +193,9 @@ export const invoiceOcrRouter = router({
         },
         warnings: [] as string[],
         meta: {
-          costUsd: result.costUsd,
-          latencyMs: result.durationMs,
-          provider: result.provider,
+          costUsd: textractResult.costUsd,
+          latencyMs: textractResult.durationMs,
+          provider: textractResult.provider,
         },
         uploadId: upload.id,
         extractAuditId: aiAuditLogId,
@@ -211,10 +213,10 @@ export const invoiceOcrRouter = router({
           resourceType: 'ai_feature',
           resourceId: upload.id,
           metadata: {
-            provider: result.provider,
-            costUsd: result.costUsd,
-            latencyMs: result.durationMs,
-            model: result.model,
+            provider: textractResult.provider,
+            costUsd: textractResult.costUsd,
+            latencyMs: textractResult.durationMs,
+            model: textractResult.model,
             aiAuditLogId,
             payloadHash: upload.payloadHash,
             mimeType: upload.mimeType,
@@ -241,6 +243,14 @@ export const invoiceOcrRouter = router({
         });
       }
 
+      const siteId = ctx.siteId;
+      if (!siteId) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Select an active site before confirming an invoice',
+        });
+      }
+
       if (Math.abs(input.totals.total - input.totals.linesSum) > 100) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
@@ -257,7 +267,11 @@ export const invoiceOcrRouter = router({
         })
         .from(invoiceUploads)
         .where(
-          and(eq(invoiceUploads.id, input.uploadId), eq(invoiceUploads.tenantId, ctx.tenantId))
+          and(
+            eq(invoiceUploads.id, input.uploadId),
+            eq(invoiceUploads.tenantId, ctx.tenantId),
+            eq(invoiceUploads.siteId, siteId)
+          )
         )
         .get();
 

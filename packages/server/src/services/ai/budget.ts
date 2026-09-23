@@ -6,7 +6,7 @@ import type { DatabaseInstance } from '../../db/index.js';
 import { aiAuditLog, aiBudgetReservations, tenants } from '../../db/schema.js';
 import type { NewAIAuditLogRow } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
-import { assertCopilotQuotasForSites } from './quotas.js';
+import { assertCopilotQuotasForSites, assertInvoiceOcrQuotaForSite } from './quotas.js';
 
 export interface AiBudgetReservation {
   id: string;
@@ -16,6 +16,10 @@ export interface AiBudgetReservation {
 export interface AiBudgetAdmissionOptions {
   /** Check every site that the pending Copilot snapshot may read under the same write lock. */
   copilotSiteIds?: string[];
+  /** Recheck the active invoice OCR site and its quota inside the writer lock. */
+  invoiceOcrSiteId?: string;
+  /** Lower bound known before dispatch, e.g. one Textract page. */
+  minimumKnownCostUsd?: number;
 }
 
 type CallAudit = Omit<NewAIAuditLogRow, 'id' | 'createdAt'> & {
@@ -66,6 +70,30 @@ export function reserveAiBudget(
           message: 'AI features are disabled for this tenant',
         });
       }
+      if (options.invoiceOcrSiteId !== undefined) {
+        const features = (ai.features ?? {}) as Record<string, unknown>;
+        const invoiceOcr = (features.invoiceOcr ?? {}) as Record<string, unknown>;
+        if (invoiceOcr.enabled !== true) {
+          throwServerError({
+            trpcCode: 'BAD_REQUEST',
+            errorCode: 'AI_DISABLED',
+            message: 'Invoice OCR is disabled for this tenant',
+          });
+        }
+        // Provider selection can change after the router's fast read. Only
+        // the Textract implementation owns this paid admission path.
+        if (invoiceOcr.provider !== undefined && invoiceOcr.provider !== 'textract') {
+          throwServerError({
+            trpcCode: 'BAD_REQUEST',
+            errorCode: 'AI_PROVIDER_ERROR',
+            message: 'Textract is no longer the selected invoice OCR provider',
+          });
+        }
+      }
+      const minimumKnownCost = options.minimumKnownCostUsd ?? 0;
+      if (!Number.isFinite(minimumKnownCost) || minimumKnownCost < 0) {
+        denyBudget('AI call has an invalid minimum estimated cost');
+      }
       const budget = ai.monthlyBudgetUsd;
       if (typeof budget !== 'number' || !Number.isFinite(budget) || budget <= 0) {
         denyBudget('AI monthly budget is zero');
@@ -102,12 +130,19 @@ export function reserveAiBudget(
         )
         .get();
       const spent = Number(summary?.knownSpend ?? 0);
-      if (Number(summary?.unknownCalls ?? 0) > 0 || spent >= budget) {
+      if (
+        Number(summary?.unknownCalls ?? 0) > 0 ||
+        spent >= budget ||
+        spent + minimumKnownCost > budget + 1e-9
+      ) {
         denyBudget(`AI monthly budget unavailable ($${spent.toFixed(4)} of $${budget.toFixed(2)})`);
       }
 
       if (options.copilotSiteIds !== undefined) {
         assertCopilotQuotasForSites({ db: tx, tenantId, siteIds: options.copilotSiteIds, now });
+      }
+      if (options.invoiceOcrSiteId !== undefined) {
+        assertInvoiceOcrQuotaForSite({ db: tx, tenantId, siteId: options.invoiceOcrSiteId, now });
       }
 
       const id = nanoid();
