@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   setModeUseMutationMock: vi.fn(),
   invalidateSettingsMock: vi.fn(),
   useAuthMock: vi.fn(),
+  useTenantMock: vi.fn(),
 }));
 
 vi.mock('@ai-sdk/react', () => ({
@@ -32,6 +33,10 @@ vi.mock('@/hooks', async () => {
 
 vi.mock('@/features/auth/AuthContext', () => ({
   useAuth: () => mocks.useAuthMock(),
+}));
+
+vi.mock('@/features/tenant/TenantContext', () => ({
+  useTenant: () => mocks.useTenantMock(),
 }));
 
 vi.mock('@/lib/trpc', () => ({
@@ -59,6 +64,9 @@ function baseChatState(overrides?: Record<string, unknown>) {
   return {
     messages: [],
     sendMessage: vi.fn().mockResolvedValue(undefined),
+    setMessages: vi.fn(),
+    clearError: vi.fn(),
+    stop: vi.fn(),
     status: 'ready',
     error: undefined,
     ...overrides,
@@ -108,6 +116,10 @@ describe('CopilotPage', () => {
     mocks.mutateMock.mockResolvedValue(result);
     mocks.useChatMock.mockReturnValue(baseChatState());
     mocks.useAuthMock.mockReturnValue({ user: { role: 'admin' } });
+    mocks.useTenantMock.mockReturnValue({
+      currentSite: { id: 'site-north', name: 'North' },
+      isLoadingSites: false,
+    });
     mocks.settingsQueryMock.mockReturnValue({
       data: { features: { copilot: { enabled: true, responseMode: 'guided' } } },
       isLoading: false,
@@ -138,6 +150,113 @@ describe('CopilotPage', () => {
     expect(sendMessage).toHaveBeenCalledWith({
       text: 'How much did I sell yesterday in Sur?',
     });
+    expect(screen.getByLabelText('Data scope')).toHaveValue('all');
+  });
+
+  it('sends the selected call-time site scope and clears prior conversation on change', async () => {
+    let capturedTransport: ChatTransport<UIMessage> | null = null;
+    const setMessages = vi.fn();
+    const clearError = vi.fn();
+    mocks.useChatMock.mockImplementation((args: { transport: ChatTransport<UIMessage> }) => {
+      capturedTransport = args.transport;
+      return baseChatState({ setMessages, clearError });
+    });
+    const { rerender } = render(<CopilotPage />);
+    const request = {
+      trigger: 'submit-message' as const,
+      chatId: 'scope-test',
+      messageId: undefined,
+      messages: [
+        {
+          id: 'scope-user',
+          role: 'user',
+          parts: [{ type: 'text', text: 'Show sales' }],
+        } as UIMessage,
+      ],
+      abortSignal: undefined,
+    };
+
+    await act(async () => {
+      await capturedTransport?.sendMessages(request);
+    });
+    expect(mocks.mutateMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ context: { siteId: null } })
+    );
+
+    await userEvent.selectOptions(screen.getByLabelText('Data scope'), 'current');
+    expect(setMessages).toHaveBeenCalledWith([]);
+    expect(clearError).toHaveBeenCalledOnce();
+    await act(async () => {
+      await capturedTransport?.sendMessages(request);
+    });
+    expect(mocks.mutateMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ context: { siteId: 'site-north' } })
+    );
+
+    mocks.useTenantMock.mockReturnValue({
+      currentSite: { id: 'site-south', name: 'South' },
+      isLoadingSites: false,
+    });
+    rerender(<CopilotPage />);
+    await act(async () => {
+      await capturedTransport?.sendMessages(request);
+    });
+    expect(mocks.mutateMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ context: { siteId: 'site-south' } })
+    );
+    expect(setMessages).toHaveBeenCalledTimes(2);
+    expect(clearError).toHaveBeenCalledTimes(2);
+  });
+
+  it('blocks current-site questions while the selected site is no longer confirmed', async () => {
+    const { rerender } = render(<CopilotPage />);
+    await userEvent.selectOptions(screen.getByLabelText('Data scope'), 'current');
+    mocks.useTenantMock.mockReturnValue({ currentSite: null, isLoadingSites: true });
+    rerender(<CopilotPage />);
+    expect(screen.getByRole('button', { name: 'Send question' })).toBeDisabled();
+    expect(screen.getByLabelText('Analytics question')).toBeDisabled();
+    expect(screen.getByText('Wait until the current site is confirmed.')).toBeInTheDocument();
+  });
+
+  it('discards a late result after switching site ownership', async () => {
+    let capturedTransport: ChatTransport<UIMessage> | null = null;
+    const stop = vi.fn();
+    mocks.useChatMock.mockImplementation((args: { transport: ChatTransport<UIMessage> }) => {
+      capturedTransport = args.transport;
+      return baseChatState({ stop });
+    });
+    let resolveRequest: (value: CopilotChatResult) => void = () => undefined;
+    mocks.mutateMock.mockReturnValue(
+      new Promise<CopilotChatResult>(resolve => {
+        resolveRequest = resolve;
+      })
+    );
+    const { rerender } = render(<CopilotPage />);
+    const transport = capturedTransport as ChatTransport<UIMessage> | null;
+    const pending = transport?.sendMessages({
+      trigger: 'submit-message',
+      chatId: 'late-result',
+      messageId: undefined,
+      messages: [
+        {
+          id: 'late-user',
+          role: 'user',
+          parts: [{ type: 'text', text: 'Show sales' }],
+        } as UIMessage,
+      ],
+      abortSignal: undefined,
+    });
+    mocks.useTenantMock.mockReturnValue({
+      currentSite: { id: 'site-south', name: 'South' },
+      isLoadingSites: false,
+    });
+    rerender(<CopilotPage />);
+    expect(stop).toHaveBeenCalledOnce();
+    await act(async () => {
+      resolveRequest(result);
+      await pending;
+    });
+    expect(screen.queryByText('Executed SQL')).not.toBeInTheDocument();
   });
 
   it('lets an admin switch the tenant to results-only mode', async () => {

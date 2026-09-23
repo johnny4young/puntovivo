@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useChat } from '@ai-sdk/react';
 import type { UIMessage } from 'ai';
 import { useTranslation } from 'react-i18next';
@@ -14,15 +14,33 @@ import {
 } from 'lucide-react';
 import { Badge, Button } from '@/components/ui';
 import { useAuth } from '@/features/auth/AuthContext';
+import { useTenant } from '@/features/tenant/TenantContext';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
 import { useTenantSettings } from '@/hooks';
 import { cn } from '@/lib/utils';
-import { createCopilotTransport, type CopilotChatResult } from './copilotTransport';
+import {
+  createCopilotTransport,
+  type CopilotAnalyticsScope,
+  type CopilotChatResult,
+  type CopilotTransportScope,
+} from './copilotTransport';
 
 type CopilotRow = CopilotChatResult['rows'][number];
 type CopilotResponseMode = CopilotChatResult['responseMode'];
 type CopilotQuery = CopilotChatResult['queries'][number];
+
+// The transport is stable for useChat, but its next request must read the
+// committed selection rather than the selection captured on its first render.
+function createScopeCell(initial: CopilotTransportScope) {
+  let value = initial;
+  return {
+    read: () => value,
+    write: (next: CopilotTransportScope) => {
+      value = next;
+    },
+  };
+}
 
 function messageText(message: UIMessage): string {
   return message.parts
@@ -449,11 +467,28 @@ function ResultsPanel({
 export function CopilotPage() {
   const { t } = useTranslation(['copilot', 'errors']);
   const { user } = useAuth();
+  const { currentSite, isLoadingSites } = useTenant();
   const { formatCurrency } = useTenantSettings();
   const utils = trpc.useUtils();
   const settingsQuery = trpc.ai.settings.get.useQuery();
   const [input, setInput] = useState('');
+  const [analyticsScope, setAnalyticsScope] = useState<CopilotAnalyticsScope>('all');
   const [latestResult, setLatestResult] = useState<CopilotChatResult | null>(null);
+  const ownerSiteKey = `${user?.tenantId ?? ''}:${user?.id ?? ''}:${currentSite?.id ?? ''}`;
+  const [scopeCell] = useState(() =>
+    createScopeCell({
+      mode: analyticsScope,
+      siteId: currentSite?.id ?? null,
+      ownerKey: ownerSiteKey,
+    })
+  );
+  useLayoutEffect(() => {
+    scopeCell.write({
+      mode: analyticsScope,
+      siteId: currentSite?.id ?? null,
+      ownerKey: ownerSiteKey,
+    });
+  }, [analyticsScope, currentSite?.id, ownerSiteKey, scopeCell]);
   const responseMode = settingsQuery.data?.features?.copilot.responseMode ?? 'guided';
   const responseModeMutation = trpc.ai.copilot.setResponseMode.useMutation({
     onSuccess: async () => {
@@ -461,9 +496,24 @@ export function CopilotPage() {
       await utils.ai.settings.get.invalidate();
     },
   });
-  const transport = useMemo(() => createCopilotTransport({ onResult: setLatestResult }), []);
-  const { messages, sendMessage, status, error } = useChat({ transport });
+  const [transport] = useState(() =>
+    createCopilotTransport({ onResult: setLatestResult, getScope: scopeCell.read })
+  );
+  const { messages, sendMessage, setMessages, clearError, stop, status, error } = useChat({
+    transport,
+  });
   const isBusy = status === 'submitted' || status === 'streaming';
+  const currentSiteUnavailable = analyticsScope === 'current' && (isLoadingSites || !currentSite);
+  const previousOwnerSiteKey = useRef(ownerSiteKey);
+  useEffect(() => {
+    if (previousOwnerSiteKey.current !== ownerSiteKey) {
+      previousOwnerSiteKey.current = ownerSiteKey;
+      stop();
+      setMessages([]);
+      clearError();
+      setLatestResult(null);
+    }
+  }, [ownerSiteKey, setMessages, clearError, stop]);
   const errorMessage = error ? translateServerError(error, t, t('errors:server.unknown')) : null;
   const responseModeError = responseModeMutation.error
     ? translateServerError(responseModeMutation.error, t, t('copilot:mode.updateError'))
@@ -474,12 +524,20 @@ export function CopilotPage() {
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const text = input.trim();
-    if (!text || isBusy) {
+    if (!text || isBusy || currentSiteUnavailable) {
       return;
     }
     setInput('');
     setLatestResult(null);
     void sendMessage({ text });
+  }
+
+  function changeScope(nextScope: CopilotAnalyticsScope) {
+    if (isBusy || (nextScope === 'current' && (isLoadingSites || !currentSite))) return;
+    setAnalyticsScope(nextScope);
+    setMessages([]);
+    clearError();
+    setLatestResult(null);
   }
 
   return (
@@ -564,6 +622,32 @@ export function CopilotPage() {
           )}
 
           <form className="border-t border-line/70 p-4" onSubmit={handleSubmit}>
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <label className="text-sm font-medium text-secondary-800" htmlFor="copilot-scope">
+                {t('copilot:scope.label')}
+              </label>
+              <select
+                id="copilot-scope"
+                className="input w-auto min-w-0 max-w-full"
+                value={analyticsScope}
+                onChange={event => changeScope(event.target.value as CopilotAnalyticsScope)}
+                disabled={isBusy}
+              >
+                <option value="all">{t('copilot:scope.allSites')}</option>
+                <option value="current" disabled={isLoadingSites || !currentSite}>
+                  {t('copilot:scope.currentSite', { site: currentSite?.name ?? '' })}
+                </option>
+              </select>
+              <p className="text-xs text-secondary-600">
+                {t(
+                  analyticsScope === 'all'
+                    ? 'copilot:scope.allHint'
+                    : currentSiteUnavailable
+                      ? 'copilot:scope.unavailableHint'
+                      : 'copilot:scope.currentHint'
+                )}
+              </p>
+            </div>
             <label className="sr-only" htmlFor="copilot-prompt">
               {t('copilot:composer.label')}
             </label>
@@ -574,12 +658,12 @@ export function CopilotPage() {
                 value={input}
                 onChange={event => setInput(event.target.value)}
                 placeholder={t('copilot:composer.placeholder')}
-                disabled={isBusy}
+                disabled={isBusy || currentSiteUnavailable}
               />
               <button
                 type="submit"
                 className="btn-primary btn-icon h-12 w-12 shrink-0"
-                disabled={!input.trim() || isBusy}
+                disabled={!input.trim() || isBusy || currentSiteUnavailable}
                 aria-label={t('copilot:composer.send')}
                 title={t('copilot:composer.send')}
               >

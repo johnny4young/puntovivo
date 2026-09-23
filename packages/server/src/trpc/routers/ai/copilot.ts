@@ -17,7 +17,8 @@ import {
   setCopilotResponseMode,
 } from '../../../services/ai/index.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
-import { requireAiQuotaAvailable } from '../../../services/ai/quotas.js';
+import { requireCopilotQuotasForSites } from '../../../services/ai/quotas.js';
+import { resolveCopilotQuotaSites } from '../../../services/ai/copilot/scope.js';
 import { copilotChatInput, copilotResponseModeInput } from '../../schemas/ai.js';
 
 export const copilotRouter = router({
@@ -41,19 +42,19 @@ export const copilotRouter = router({
           message: 'Co-pilot is disabled for this tenant',
         });
       }
-      // per-site monthly quota check fires BEFORE the
-      // provider call so a blocked request never writes an audit
-      // row. Bypass when the request has no site context (admin
-      // without a selected site); the quota is "per site" by
-      // definition, so a site-less call has no bucket to charge.
-      if (ctx.siteId) {
-        await requireAiQuotaAvailable({
-          db: ctx.db,
-          tenantId: ctx.tenantId,
-          siteId: ctx.siteId,
-          feature: 'copilot',
-        });
-      }
+      // The body selects the analytics data scope; the header only gives the
+      // model a UI focus site. A tenant-wide snapshot consumes the quota of
+      // every site it can read, rather than bypassing per-site quotas.
+      const quotaSiteIds = await resolveCopilotQuotaSites(
+        ctx.db,
+        ctx.tenantId,
+        input.context?.siteId
+      );
+      await requireCopilotQuotasForSites({
+        db: ctx.db,
+        tenantId: ctx.tenantId,
+        siteIds: quotaSiteIds,
+      });
       const userId = ctx.user?.id ?? null;
       return runCopilotChat(
         {
@@ -62,7 +63,8 @@ export const copilotRouter = router({
           siteId: ctx.siteId,
           userId,
         },
-        input
+        input,
+        { scopeSiteIds: quotaSiteIds }
       );
     }),
 });

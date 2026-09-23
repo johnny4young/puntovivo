@@ -28,6 +28,7 @@ import {
   countMonthlyAiCalls,
   projectEmptyAiQuotas,
   requireAiQuotaAvailable,
+  requireCopilotQuotasForSites,
   type QuotaFeature,
 } from '../services/ai/quotas.js';
 import { ServerErrorWithCode } from '../lib/errorCodes.js';
@@ -43,16 +44,18 @@ const NOW = new Date('2026-05-15T12:00:00Z');
 
 async function seedAuditRow(args: {
   tenantId: string;
-  siteId: string;
+  siteId: string | null;
   feature: QuotaFeature;
   errorCode?: string | null;
   createdAt?: string;
+  scopeSiteIds?: string[];
 }) {
   const db = getDatabase();
   await db.insert(aiAuditLog).values({
     id: nanoid(),
     tenantId: args.tenantId,
     siteId: args.siteId,
+    ...(args.scopeSiteIds ? { scopeSiteIds: args.scopeSiteIds } : {}),
     userId: null,
     feature: args.feature,
     providerId: 'anthropic',
@@ -335,6 +338,115 @@ describe('AI quotas', () => {
       now: NOW,
     });
     expect(otherProjection.used).toBe(0);
+  });
+
+  it('counts one tenant-wide Copilot success for every site without extra audit rows', async () => {
+    await seedAuditRow({
+      tenantId,
+      siteId: null,
+      feature: 'copilot',
+      scopeSiteIds: [siteAId, siteBId],
+    });
+    await seedAuditRow({ tenantId, siteId: null, feature: 'invoiceOcr' });
+
+    for (const quotaSiteId of [siteAId, siteBId]) {
+      expect(
+        await countMonthlyAiCalls({
+          db: getDatabase(),
+          tenantId,
+          siteId: quotaSiteId,
+          feature: 'copilot',
+          now: NOW,
+        })
+      ).toBe(1);
+      expect(
+        await countMonthlyAiCalls({
+          db: getDatabase(),
+          tenantId,
+          siteId: quotaSiteId,
+          feature: 'invoiceOcr',
+          now: NOW,
+        })
+      ).toBe(0);
+    }
+    expect(
+      await countMonthlyAiCalls({
+        db: getDatabase(),
+        tenantId: secondTenantId,
+        siteId: secondTenantSiteId,
+        feature: 'copilot',
+        now: NOW,
+      })
+    ).toBe(0);
+    const rows = await getDatabase()
+      .select()
+      .from(aiAuditLog)
+      .where(and(eq(aiAuditLog.tenantId, tenantId), eq(aiAuditLog.feature, 'copilot')));
+    expect(rows).toHaveLength(1);
+  });
+
+  it('does not charge a site created after a tenant-wide Copilot call', async () => {
+    await seedAuditRow({
+      tenantId,
+      siteId: null,
+      feature: 'copilot',
+      scopeSiteIds: [siteAId],
+    });
+    expect(
+      await countMonthlyAiCalls({
+        db: getDatabase(),
+        tenantId,
+        siteId: siteAId,
+        feature: 'copilot',
+        now: NOW,
+      })
+    ).toBe(1);
+    expect(
+      await countMonthlyAiCalls({
+        db: getDatabase(),
+        tenantId,
+        siteId: siteBId,
+        feature: 'copilot',
+        now: NOW,
+      })
+    ).toBe(0);
+  });
+
+  it('checks mixed direct and tenant-wide usage in one batch', async () => {
+    await seedAuditRows({
+      tenantId,
+      siteId: siteAId,
+      feature: 'copilot',
+      count: AI_QUOTAS.copilot - 1,
+    });
+    await seedAuditRow({
+      tenantId,
+      siteId: null,
+      feature: 'copilot',
+      scopeSiteIds: [siteAId, siteBId],
+    });
+
+    await expect(
+      requireCopilotQuotasForSites({
+        db: getDatabase(),
+        tenantId,
+        siteIds: [siteAId, siteBId],
+        now: NOW,
+      })
+    ).rejects.toMatchObject({
+      cause: {
+        errorCode: 'AI_QUOTA_EXCEEDED',
+        details: { siteId: siteAId, used: AI_QUOTAS.copilot },
+      },
+    });
+    await expect(
+      requireCopilotQuotasForSites({
+        db: getDatabase(),
+        tenantId,
+        siteIds: [siteBId],
+        now: NOW,
+      })
+    ).resolves.toBeUndefined();
   });
 
   it('calendar boundary: previous-month rows do not count', async () => {
