@@ -64,7 +64,7 @@ function ToastViewport({
   const { t } = useTranslation('common');
 
   return (
-    <div className="pointer-events-none fixed right-4 top-4 z-50 flex w-full max-w-sm flex-col gap-3">
+    <div className="pointer-events-auto fixed left-4 right-4 top-4 z-50 flex max-h-[calc(100dvh-2rem)] w-auto max-w-sm flex-col gap-3 overflow-y-auto overscroll-contain sm:left-auto sm:w-full">
       {toasts.map(toast => {
         const Icon = getToastIcon(toast.tone);
 
@@ -73,12 +73,12 @@ function ToastViewport({
             key={toast.id}
             role={toast.tone === 'error' ? 'alert' : 'status'}
             className={cn(
-              'pointer-events-auto rounded-2xl border p-4 shadow-soft animate-fade-in backdrop-blur',
+              'pointer-events-auto min-w-0 break-words rounded-2xl border p-4 shadow-soft animate-fade-in backdrop-blur',
               getToastClasses(toast.tone)
             )}
           >
             <div className="flex items-start gap-3">
-              <div className="mt-0.5">
+              <div className="mt-0.5 shrink-0">
                 <Icon className="h-5 w-5" />
               </div>
               <div className="min-w-0 flex-1">
@@ -89,7 +89,7 @@ function ToastViewport({
                 {toast.action && (
                   <button
                     type="button"
-                    className="mt-3 rounded-lg border border-current/25 px-3 py-1.5 text-sm font-semibold transition hover:bg-black/5 focus-visible:shadow-[var(--focus-ring)]"
+                    className="mt-3 max-w-full whitespace-normal break-words rounded-lg border border-current/25 px-3 py-1.5 text-sm font-semibold transition hover:bg-black/5 focus-visible:shadow-[var(--focus-ring)]"
                     onClick={() => {
                       void runToastAction(toast, onDismiss);
                     }}
@@ -100,7 +100,7 @@ function ToastViewport({
               </div>
               <button
                 type="button"
-                className="rounded-md p-1 opacity-70 transition hover:bg-black/5 hover:opacity-100"
+                className="shrink-0 rounded-md p-1 opacity-70 transition hover:bg-black/5 hover:opacity-100"
                 onClick={() => onDismiss(toast.id)}
                 aria-label={t('toast.dismiss', { title: toast.title })}
               >
