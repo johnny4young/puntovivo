@@ -121,6 +121,14 @@ function requestInput(
 }
 
 describe('manager approvals router', () => {
+  it('does not treat a PIN-shaped opaque site id as a secret field', () => {
+    const publicPayload = { siteId: 'AnRpin-c5zdhiplij3yTE', status: 'approved' };
+    expect(collectPropertyNames(publicPayload).join(' ')).not.toMatch(/claimToken|pin|hash/i);
+    expect(collectPropertyNames({ ...publicPayload, staffPinHash: 'secret' }).join(' ')).toMatch(
+      /pin|hash/i
+    );
+  });
+
   it('counts only distinct approval evidence while preserving legacy decisions', () => {
     const approvedAt = new Date().toISOString();
     expect(
@@ -576,7 +584,16 @@ describe('manager approvals router', () => {
       authMethod: 'staff_pin',
       pinFreshnessPolicy: 'per_decision',
     });
-    expect(JSON.stringify(decided)).not.toMatch(/claimToken|pin|hash/i);
+    const managerSecret = await db
+      .select({ staffPinHash: users.staffPinHash })
+      .from(users)
+      .where(eq(users.id, manager.id))
+      .get();
+    expect(managerSecret?.staffPinHash).toBeTruthy();
+    const decidedJson = JSON.stringify(decided);
+    expect(collectPropertyNames(decided).join(' ')).not.toMatch(/claimToken|pin|hash/i);
+    expect(decidedJson).not.toContain('864209');
+    expect(decidedJson).not.toContain(managerSecret!.staffPinHash!);
 
     const syncRows = await db
       .select({ payload: syncOutbox.payload })
@@ -590,7 +607,12 @@ describe('manager approvals router', () => {
       )
       .all();
     expect(syncRows).toHaveLength(2);
-    expect(JSON.stringify(syncRows)).not.toMatch(/claimToken|claimExpiresAt|pin|hash/i);
+    const syncJson = JSON.stringify(syncRows);
+    expect(collectPropertyNames(syncRows).join(' ')).not.toMatch(
+      /claimToken|claimExpiresAt|pin|hash/i
+    );
+    expect(syncJson).not.toContain('864209');
+    expect(syncJson).not.toContain(managerSecret!.staffPinHash!);
   });
 
   it('reserves the writer before reading decision evidence under WAL contention', async () => {
