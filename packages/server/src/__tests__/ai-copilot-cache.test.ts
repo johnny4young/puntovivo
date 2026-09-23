@@ -324,6 +324,30 @@ describe('injectContextIntoMessages — latest-user-turn prepend', () => {
 });
 
 describe('runCopilotChat — generateText receives the static system + context-prefixed prompt', () => {
+  it('skips provider dispatch, audit and reservation when cancelled before admission', async () => {
+    const { tenantId, siteId } = await seedTenantWithAI('pre-dispatch-abort');
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(
+      runCopilotChat(
+        { db: getDatabase(), tenantId, siteId, userId: null, abortSignal: controller.signal },
+        { messages: [{ role: 'user', content: 'Show sales' }] },
+        { factory: () => buildStubProvider() }
+      )
+    ).rejects.toMatchObject({ name: 'AbortError' });
+    expect(generateTextMock).not.toHaveBeenCalled();
+    expect(
+      await getDatabase().select().from(aiAuditLog).where(eq(aiAuditLog.tenantId, tenantId)).all()
+    ).toHaveLength(0);
+    expect(
+      await getDatabase()
+        .select()
+        .from(aiBudgetReservations)
+        .where(eq(aiBudgetReservations.tenantId, tenantId))
+        .all()
+    ).toHaveLength(0);
+  });
   it('passes the static buildSystemPrompt() as system and a <context>-prefixed prompt for the Anthropic provider', async () => {
     const { tenantId, siteId } = await seedTenantWithAI('anthropic');
     mockGenerateTextWithSQL('Summary ready.');

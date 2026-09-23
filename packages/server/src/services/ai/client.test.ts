@@ -445,6 +445,21 @@ describe('client.completeAI', () => {
     expect(await db.select().from(aiAuditLog).all()).toHaveLength(1);
   });
 
+  it('does not reserve or audit a request cancelled before provider dispatch', async () => {
+    const db = getDatabase();
+    await writeAISettings(db, tenantId, { enabled: true, monthlyBudgetUsd: 1 });
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(
+      completeAI({ db, tenantId, siteId, userId, abortSignal: controller.signal }, baseInput, () =>
+        buildMockProvider()
+      )
+    ).rejects.toMatchObject({ name: 'AbortError' });
+    expect(await db.select().from(aiAuditLog).all()).toHaveLength(0);
+    expect(await db.select().from(aiBudgetReservations).all()).toHaveLength(0);
+  });
+
   it('does not block a different tenant on the first tenant budget reservation', async () => {
     const db = getDatabase();
     await writeAISettings(db, tenantId, { enabled: true, monthlyBudgetUsd: 1 });

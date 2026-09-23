@@ -24,6 +24,7 @@ import { requireAiQuotaAvailable } from '../../../services/ai/quotas.js';
 import { aiBreakdownInput, aiUsageInput } from '../../schemas/ai.js';
 import { extractInvoiceLinesInput, matchInvoiceLinesInput } from '../../schemas/ai-vision.js';
 import { parseCartCommandInput, transcribeAudioInput } from '../../schemas/ai-voice.js';
+import { withClientAbortSignal } from '../../request-abort.js';
 
 export const standaloneProcedures = {
   usage: adminProcedure.input(aiUsageInput).query(async ({ ctx, input }) => {
@@ -203,20 +204,23 @@ export const standaloneProcedures = {
     // keeps TypeScript happy and produces a clearer 500 if the chain
     // is ever rewired.
     const userId = ctx.user?.id ?? null;
-    const result = await completeAI(
-      {
-        db: ctx.db,
-        tenantId: ctx.tenantId,
-        siteId: ctx.siteId,
-        userId,
-      },
-      {
-        feature: 'completeTest',
-        system:
-          'You are the connection-test endpoint of the Puntovivo POS. Reply with a one-line confirmation.',
-        prompt: 'Reply with the single word: pong',
-        maxOutputTokens: 32,
-      }
+    const result = await withClientAbortSignal(ctx.res, abortSignal =>
+      completeAI(
+        {
+          db: ctx.db,
+          tenantId: ctx.tenantId,
+          siteId: ctx.siteId,
+          userId,
+          ...(abortSignal ? { abortSignal } : {}),
+        },
+        {
+          feature: 'completeTest',
+          system:
+            'You are the connection-test endpoint of the Puntovivo POS. Reply with a one-line confirmation.',
+          prompt: 'Reply with the single word: pong',
+          maxOutputTokens: 32,
+        }
+      )
     );
     return {
       text: result.text,
