@@ -494,9 +494,12 @@ table, choose the wrong metric, or omit relevant records. Operators must
 inspect SQL scope and columns before acting on any figure.
 
 Generic AI completions and Co-pilot chat admit one in-flight provider attempt
-per tenant through a shared, durable, local-calendar-month SQLite reservation acquired
-under `BEGIN IMMEDIATE`. Successful estimated cost and reservation release
-commit with one audit row; an error, cancellation, or unpriceable remote result
+per tenant through a shared, durable, local-calendar-month SQLite reservation
+acquired under `BEGIN IMMEDIATE`. Co-pilot checks every authorized snapshot
+site's remaining monthly quota inside that same write transaction, immediately
+before provider dispatch; its earlier router check only provides fast rejection.
+Successful estimated cost and reservation release commit with one audit row;
+an error, cancellation, or unpriceable remote result
 records one unknown-cost row and retains a month-scoped liability hold. An
 Ollama model-call failure cannot incur remote charges and releases its hold.
 Co-pilot also records priced provider usage when it rejects an answer without

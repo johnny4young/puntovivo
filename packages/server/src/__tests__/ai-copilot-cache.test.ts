@@ -17,6 +17,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import { TRPCError } from '@trpc/server';
 import { eq } from 'drizzle-orm';
 import type { LanguageModelV4 } from '@ai-sdk/provider';
+import { nanoid } from 'nanoid';
 
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
@@ -32,6 +33,7 @@ import {
 } from '../services/ai/copilot.js';
 import type { AIProvider, ProviderPricing } from '../services/ai/providers/types.js';
 import { validateModelAnalyticsSQL } from '../services/ai/copilot/sql.js';
+import { AI_QUOTAS, requireCopilotQuotasForSites } from '../services/ai/quotas.js';
 
 const generateTextMock = vi.fn();
 
@@ -160,6 +162,33 @@ function mockGenerateTextWithSQL(textAnswer: string): void {
       return successfulGenerateTextResult(textAnswer);
     }
   );
+}
+
+async function seedSuccessfulCopilotCalls(
+  tenantId: string,
+  siteId: string,
+  count: number,
+  createdAt: string
+): Promise<void> {
+  await getDatabase()
+    .insert(aiAuditLog)
+    .values(
+      Array.from({ length: count }, () => ({
+        id: nanoid(),
+        tenantId,
+        siteId,
+        userId: null,
+        feature: 'copilot' as const,
+        providerId: 'anthropic' as const,
+        modelId: 'test-copilot-model',
+        inputTokens: 1,
+        outputTokens: 1,
+        costUsd: 0,
+        durationMs: 1,
+        errorCode: null,
+        createdAt,
+      }))
+    );
 }
 
 let server: PuntovivoServer;
@@ -677,6 +706,41 @@ describe('runCopilotChat — generateText receives the static system + context-p
       releaseFirst?.();
     }
     await first;
+    expect(
+      await getDatabase()
+        .select()
+        .from(aiBudgetReservations)
+        .where(eq(aiBudgetReservations.tenantId, tenantId))
+    ).toHaveLength(0);
+  });
+
+  it('rechecks the site quota at provider admission after a stale router precheck', async () => {
+    const { tenantId, siteId } = await seedTenantWithAI('stale-site-quota');
+    const now = new Date();
+    await seedSuccessfulCopilotCalls(tenantId, siteId, AI_QUOTAS.copilot - 1, now.toISOString());
+    await requireCopilotQuotasForSites({
+      db: getDatabase(),
+      tenantId,
+      siteIds: [siteId],
+      now,
+    });
+
+    // Another admitted call can finish between a router precheck and this
+    // model dispatch. The reservation transaction must see its audit row.
+    await seedSuccessfulCopilotCalls(tenantId, siteId, 1, now.toISOString());
+    mockGenerateTextWithSQL('Should not run');
+    await expectErrorCode(
+      runCopilotChat(
+        { db: getDatabase(), tenantId, siteId, userId: null },
+        { messages: [{ role: 'user', content: 'Sales?' }] },
+        { factory: () => buildStubProvider(), now, scopeSiteIds: [siteId] }
+      ),
+      'AI_QUOTA_EXCEEDED'
+    );
+    expect(generateTextMock).not.toHaveBeenCalled();
+    expect(
+      await getDatabase().select().from(aiAuditLog).where(eq(aiAuditLog.tenantId, tenantId))
+    ).toHaveLength(AI_QUOTAS.copilot);
     expect(
       await getDatabase()
         .select()
