@@ -136,6 +136,138 @@ describe('CompanyReadinessCard', () => {
     expect(screen.getByRole('button', { name: /retry|reintentar/i })).toBeInTheDocument();
   });
 
+  it('does not report completed setup before a payload exists', () => {
+    readinessQueryRef.current.isLoading = false;
+    render(<CompanyReadinessCard />);
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('company-readiness-ready')).not.toBeInTheDocument();
+  });
+
+  describe.each(['en', 'es'] as const)('progress in %s', language => {
+    const progressLabel = (ready: number) =>
+      language === 'en' ? `${ready} of 6 areas ready` : `${ready} de 6 áreas listas`;
+
+    function expectProgress(ready: number) {
+      const progress = screen.getByRole('progressbar', { name: progressLabel(ready) });
+      const renderedSteps = screen.getAllByTestId(/^company-guided-step-/);
+      expect(renderedSteps).toHaveLength(6);
+      expect(progress).toHaveAttribute('aria-valuemin', '0');
+      expect(progress).toHaveAttribute('aria-valuemax', String(renderedSteps.length));
+      expect(progress).toHaveAttribute('aria-valuenow', String(ready));
+      expect(progress.firstElementChild).toHaveStyle({ width: `${(ready / 6) * 100}%` });
+      expect(screen.getByText(progressLabel(ready))).toBeInTheDocument();
+      expect(
+        screen.getByText(language === 'en' ? /^6 clear areas cover/ : /^6 áreas claras reúnen/)
+      ).toBeInTheDocument();
+    }
+
+    beforeEach(async () => {
+      await i18next.changeLanguage(language);
+    });
+
+    it('counts ready and unused areas, but not optional, warning or blocked areas', () => {
+      setReadiness({
+        businessType: null,
+        blockerCount: 1,
+        sections: sampleSections().map(section => {
+          if (section.id === 'businessType') return { ...section, status: 'optional-pending' };
+          if (section.id === 'fiscal') return { ...section, status: 'not-applicable', cta: null };
+          if (section.id === 'payments') return { ...section, status: 'warning' };
+          return section;
+        }),
+      });
+      render(<CompanyReadinessCard />, { initialEntries: ['/company?step=business'] });
+
+      expectProgress(2);
+      for (const [id, status] of [
+        ['businessType', 'optional'],
+        ['business', 'ready'],
+        ['selling', 'blocker'],
+        ['fiscal', 'not-applicable'],
+        ['payments', 'warning'],
+        ['devices', 'optional'],
+      ]) {
+        expect(screen.getByTestId(`company-guided-step-${id}`)).toHaveAttribute(
+          'data-status',
+          status
+        );
+      }
+      expect(screen.getByTestId('company-readiness-cta-catalog')).toBeInTheDocument();
+      expect(screen.queryByTestId('company-readiness-ready')).not.toBeInTheDocument();
+    });
+
+    it('keeps an unconfigured business at zero and exposes its first required action', () => {
+      setReadiness({
+        businessType: null,
+        blockerCount: 3,
+        sections: sampleSections().map(section => ({
+          ...section,
+          status: ['locale', 'sites', 'catalog'].includes(section.id)
+            ? 'blocker'
+            : 'optional-pending',
+        })),
+      });
+      render(<CompanyReadinessCard />);
+
+      expectProgress(0);
+      expect(screen.getByTestId('company-readiness-cta-locale')).toBeInTheDocument();
+      expect(screen.queryByTestId('company-readiness-acknowledge')).not.toBeInTheDocument();
+    });
+
+    it('uses the same total at completion without changing the operational readiness claim', () => {
+      setReadiness({
+        blockerCount: 0,
+        sections: sampleSections().map(section => ({ ...section, status: 'ready' })),
+      });
+      render(<CompanyReadinessCard />, { initialEntries: ['/company?step=business'] });
+
+      expectProgress(6);
+      expect(screen.getByTestId('company-readiness-ready')).toHaveTextContent(
+        language === 'en' ? 'Operational base ready' : 'Base operativa lista'
+      );
+      expect(screen.getByTestId('company-readiness-acknowledge')).toBeInTheDocument();
+    });
+
+    it('recomputes progress and the next action when profile and site readiness change', () => {
+      const sections = sampleSections().map(section => {
+        if (section.id === 'businessType')
+          return { ...section, status: 'optional-pending' as const };
+        if (section.status === 'blocker') return { ...section, status: 'ready' as const };
+        return section;
+      });
+      setReadiness({ businessType: null, blockerCount: 0, sections });
+      const { rerender } = render(<CompanyReadinessCard />, {
+        initialEntries: ['/company?step=business'],
+      });
+      expectProgress(4);
+      expect(screen.getByTestId('company-readiness-ready')).toBeInTheDocument();
+
+      setReadiness({
+        businessType: 'retail',
+        blockerCount: 0,
+        sections: sections.map(section =>
+          section.id === 'businessType' ? { ...section, status: 'ready' } : section
+        ),
+      });
+      rerender(<CompanyReadinessCard />);
+      expectProgress(5);
+
+      setReadiness({
+        businessType: 'retail',
+        blockerCount: 1,
+        sections: sections.map(section => {
+          if (section.id === 'businessType') return { ...section, status: 'ready' };
+          if (section.id === 'sites') return { ...section, status: 'blocker' };
+          return section;
+        }),
+      });
+      rerender(<CompanyReadinessCard />);
+      expectProgress(4);
+      expect(screen.getByTestId('company-readiness-cta-sites')).toBeInTheDocument();
+      expect(screen.queryByTestId('company-readiness-ready')).not.toBeInTheDocument();
+    });
+  });
+
   it('shows six approachable areas and only the next required decision', () => {
     setReadiness();
     render(<CompanyReadinessCard />);

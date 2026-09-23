@@ -1,8 +1,8 @@
 {
   "kicker": "Configuración guiada",
   "title": "Prepara el negocio sin perderte",
-  "description": "Cinco áreas claras reúnen lo que necesita la tienda. Mostramos una sola decisión obligatoria a la vez; lo opcional puede esperar.",
-  "progress": "{{ready}} de 5 áreas listas",
+  "description": "{{total}} áreas claras reúnen lo que necesita la tienda. Mostramos una sola decisión obligatoria a la vez; lo opcional puede esperar.",
+  "progress": "{{ready}} de {{total}} áreas listas",
   "next": {
     "eyebrow": "Siguiente decisión obligatoria",
     "title": "Completa {{section}}",
