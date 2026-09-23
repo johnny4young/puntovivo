@@ -20,6 +20,15 @@ const logoutMock = vi.fn();
 
 const moduleActiveMock = vi.fn((_id: string) => true);
 const aiEnabledMock = vi.fn(() => true);
+const voiceAvailabilityUseQueryMock = vi.fn((_input: unknown, _options: { enabled: boolean }) => ({
+  data: { enabled: aiEnabledMock() },
+  isLoading: false,
+}));
+const restrictedSettingsUseQueryMock = vi.fn(() => ({
+  data: undefined,
+  isLoading: false,
+  error: new Error('FORBIDDEN'),
+}));
 const cashSessionMock = vi.fn<() => Record<string, unknown> | null>(() => ({
   id: 'cs-1',
   siteId: 'site-1',
@@ -124,10 +133,11 @@ vi.mock('@/lib/trpc', () => ({
     ai: {
       settings: {
         get: {
-          useQuery: () => ({
-            data: { enabled: aiEnabledMock(), monthlyBudgetUsd: 100 },
-            isLoading: false,
-          }),
+          useQuery: () => restrictedSettingsUseQueryMock(),
+        },
+        voiceAvailability: {
+          useQuery: (input: unknown, options: { enabled: boolean }) =>
+            voiceAvailabilityUseQueryMock(input, options),
         },
       },
     },
@@ -335,6 +345,15 @@ beforeEach(async () => {
 });
 
 describe('VoiceOrderingScreen', () => {
+  it('uses cashier-safe voice availability instead of restricted full AI settings', async () => {
+    renderScreen();
+    expect(voiceAvailabilityUseQueryMock).toHaveBeenCalledWith(undefined, { enabled: true });
+    expect(restrictedSettingsUseQueryMock).not.toHaveBeenCalled();
+    expect(screen.getByTestId('voice-ordering-mic-cta')).toBeEnabled();
+    fireEvent.click(screen.getByTestId('voice-ordering-mic-cta'));
+    await waitFor(() => expect(screen.getByTestId('voice-modal-stub')).toBeInTheDocument());
+  });
+
   it('renders the focused surface without the main application chrome', () => {
     renderScreen();
     expect(screen.getByTestId('voice-ordering-screen')).toBeInTheDocument();

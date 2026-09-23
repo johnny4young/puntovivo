@@ -72,6 +72,12 @@
     "output": "inferred"
   },
   {
+    "path": "ai.settings.voiceAvailability",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
     "path": "ai.transcribeAudio",
     "kind": "mutation",
     "input": "object{audioBase64:string[minLength=1,maxLength=14712832],mimeType:enum(\"audio/webm\"|\"audio/mp4\"|\"audio/mpeg\"|\"audio/wav\"|\"audio/m4a\"|\"audio/ogg\"|\"audio/x-m4a\")}",
