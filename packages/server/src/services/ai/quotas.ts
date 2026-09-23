@@ -33,9 +33,10 @@
  * @module services/ai/quotas
  */
 import { and, count, eq, gte, inArray, isNull, lt, or, sql } from 'drizzle-orm';
+import { TRPCError } from '@trpc/server';
 
 import type { DatabaseInstance } from '../../db/index.js';
-import { aiAuditLog } from '../../db/schema.js';
+import { aiAuditLog, sites } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 
 /**
@@ -246,6 +247,48 @@ export function assertCopilotQuotasForSites(args: {
         },
       });
     }
+  }
+}
+
+/** Repeat the invoice quota and site ownership check under the budget writer lock. */
+export function assertInvoiceOcrQuotaForSite(args: {
+  db: Pick<DatabaseInstance, 'select'>;
+  tenantId: string;
+  siteId: string;
+  now?: Date;
+}): void {
+  const { db, tenantId, siteId, now = new Date() } = args;
+  const site = db
+    .select({ id: sites.id })
+    .from(sites)
+    .where(and(eq(sites.id, siteId), eq(sites.tenantId, tenantId), eq(sites.isActive, true)))
+    .get();
+  if (!site) {
+    throw new TRPCError({ code: 'NOT_FOUND', message: 'Active invoice OCR site not found' });
+  }
+  const { start, end } = monthBounds(now);
+  const row = db
+    .select({ total: count(aiAuditLog.id) })
+    .from(aiAuditLog)
+    .where(
+      and(
+        eq(aiAuditLog.tenantId, tenantId),
+        eq(aiAuditLog.siteId, siteId),
+        eq(aiAuditLog.feature, 'invoiceOcr'),
+        isNull(aiAuditLog.errorCode),
+        gte(aiAuditLog.createdAt, start),
+        lt(aiAuditLog.createdAt, end)
+      )
+    )
+    .get();
+  const used = Number(row?.total ?? 0);
+  if (used >= AI_QUOTAS.invoiceOcr) {
+    throwServerError({
+      trpcCode: 'TOO_MANY_REQUESTS',
+      errorCode: 'AI_QUOTA_EXCEEDED',
+      message: 'Monthly invoice OCR quota exhausted for this site',
+      details: { feature: 'invoiceOcr', siteId, used, limit: AI_QUOTAS.invoiceOcr, resetsAt: end },
+    });
   }
 }
 

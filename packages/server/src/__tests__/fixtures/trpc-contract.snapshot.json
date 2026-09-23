@@ -2786,7 +2786,7 @@
   {
     "path": "upload.uploadInvoice",
     "kind": "mutation",
-    "input": "object{fileName?:string[minLength=1,maxLength=240],imageBase64:string[minLength=1,maxLength=14712832],mimeType:enum(\"image/jpeg\"|\"image/png\"|\"image/webp\"|\"application/pdf\")}",
+    "input": "object{fileName?:string[minLength=1,maxLength=240],imageBase64:string[minLength=1,maxLength=14712832],mimeType:enum(\"image/jpeg\"|\"image/png\"|\"application/pdf\")}",
     "output": "inferred"
   },
   {
