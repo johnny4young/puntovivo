@@ -17,7 +17,7 @@ import { NoTranscriptGeneratedError, transcribe } from 'ai';
 import type { DatabaseInstance } from '../../../db/index.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
 
-import { currentMonthSpend, recordCall } from '../auditLog.js';
+import { reserveAiBudget, settleAiBudget } from '../budget.js';
 import { getProvider } from '../providers/registry.js';
 import type { AIProvider } from '../providers/types.js';
 import { resolveAISettings } from '../client.js';
@@ -49,6 +49,8 @@ export interface VoiceTranscribeInvocationContext {
   tenantId: string;
   siteId: string | null;
   userId: string | null;
+  /** Lost HTTP response cancels pending provider work before another retry. */
+  abortSignal?: AbortSignal;
 }
 
 export interface VoiceTranscribeInput {
@@ -165,15 +167,6 @@ export async function transcribeAudio(
     });
   }
 
-  const spent = await currentMonthSpend(ctx.db, ctx.tenantId);
-  if (spent >= settings.monthlyBudgetUsd) {
-    throwServerError({
-      trpcCode: 'BAD_REQUEST',
-      errorCode: 'AI_BUDGET_EXCEEDED',
-      message: `AI monthly budget exhausted ($${spent.toFixed(4)} of $${settings.monthlyBudgetUsd.toFixed(2)})`,
-    });
-  }
-
   // The tenant `settings.modelId` is the operator's per-tenant
   // LANGUAGE / vision model override (e.g. `gpt-4.1`, `gpt-4o`). It
   // belongs to a different model namespace than Whisper / GPT-4o-
@@ -183,40 +176,106 @@ export async function transcribeAudio(
   // until a separate `settings.transcriptionModelId` ships (captured
   // as a slice 2 follow-up).
   const modelId = provider.defaultTranscriptionModelId ?? provider.defaultModelId;
-  const startedAt = Date.now();
   const audioBuffer = Buffer.from(input.audioBase64, 'base64');
+  const model = provider.transcriptionModel(modelId);
+  const abortSignal = ctx.abortSignal
+    ? AbortSignal.any([ctx.abortSignal, AbortSignal.timeout(60_000)])
+    : AbortSignal.timeout(60_000);
+  abortSignal.throwIfAborted();
+  const reservation = reserveAiBudget(ctx.db, ctx.tenantId);
+  const startedAt = Date.now();
+  const settleUnknown = (errorCode: 'AI_VOICE_PARSE_FAILED' | 'AI_PROVIDER_ERROR') =>
+    settleAiBudget(
+      ctx.db,
+      reservation,
+      {
+        tenantId: ctx.tenantId,
+        siteId: ctx.siteId,
+        userId: ctx.userId,
+        feature: 'voiceTranscribe',
+        providerId: provider.id,
+        modelId,
+        inputTokens: 0,
+        outputTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        costUsd: 0,
+        costState: 'unknown',
+        durationMs: Date.now() - startedAt,
+        errorCode,
+      },
+      true
+    );
 
+  let result;
   try {
-    const result = await transcribe({
-      model: provider.transcriptionModel(modelId),
+    result = await transcribe({
+      model,
       audio: audioBuffer,
+      abortSignal,
+      // Retry may bill twice even when the first response was lost.
+      maxRetries: 0,
     });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Voice provider call failed';
+    const isParseFailure =
+      NoTranscriptGeneratedError.isInstance(error) ||
+      (error instanceof Error && /No transcript generated/i.test(error.message));
+    const errorCode = isParseFailure ? 'AI_VOICE_PARSE_FAILED' : 'AI_PROVIDER_ERROR';
 
-    const transcript = result.text;
-    const language = result.language ?? null;
-    const audioDurationSeconds = result.durationInSeconds ?? 0;
+    // The SDK may have sent the request before failure/cancellation. Preserve
+    // the unknown invoice liability rather than allowing a free retry.
+    settleUnknown(errorCode);
 
-    // slice 1 — Whisper bills per minute of audio, not per
-    // token. Reuse the provider's `transcriptionPricing` map (falling
-    // back to the default model id when the operator overrides to a
-    // model that isn't priced) and compute the cost inline; the
-    // token-based `provider.pricing.calculateCostUsd` does not fit.
-    const pricingRow =
-      provider.transcriptionPricing?.[modelId] ??
-      (provider.defaultTranscriptionModelId
-        ? provider.transcriptionPricing?.[provider.defaultTranscriptionModelId]
-        : undefined);
-    const perMinuteUsd = pricingRow?.perMinuteUsd ?? 0;
-    const costUsd = (audioDurationSeconds / 60) * perMinuteUsd;
-    const durationMs = Date.now() - startedAt;
+    throwServerError({
+      trpcCode: isParseFailure ? 'BAD_REQUEST' : 'BAD_GATEWAY',
+      errorCode,
+      message,
+      details: { cause: String(error) },
+    });
+  }
 
-    // The audit-log schema has no `audio_seconds` column today; we
-    // overload `input_tokens` to store the rounded audio duration in
-    // seconds so cross-feature spend reports stay denormalised under a
-    // single column. Bounded by `VOICE_TRANSCRIBE_MAX_BYTES` so the
-    // value comfortably fits an INTEGER. Adding a typed
-    // `details JSON` column is deferred.
-    const { id: auditLogId } = await recordCall(ctx.db, {
+  const transcript = result.text;
+  const language = result.language ?? null;
+  const audioDurationSeconds = result.durationInSeconds;
+  const pricingRow =
+    provider.transcriptionPricing?.[modelId] ??
+    (provider.defaultTranscriptionModelId
+      ? provider.transcriptionPricing?.[provider.defaultTranscriptionModelId]
+      : undefined);
+  const perMinuteUsd = pricingRow?.perMinuteUsd;
+  const costUsd =
+    typeof audioDurationSeconds === 'number' && typeof perMinuteUsd === 'number'
+      ? (audioDurationSeconds / 60) * perMinuteUsd
+      : Number.NaN;
+  const durationMs = Date.now() - startedAt;
+
+  // A transcript without duration or a usable price cannot establish a
+  // monetary estimate. Keep the reservation for invoice reconciliation.
+  if (
+    typeof audioDurationSeconds !== 'number' ||
+    !Number.isFinite(audioDurationSeconds) ||
+    audioDurationSeconds <= 0 ||
+    typeof perMinuteUsd !== 'number' ||
+    !Number.isFinite(perMinuteUsd) ||
+    perMinuteUsd <= 0 ||
+    !Number.isFinite(costUsd) ||
+    costUsd < 0
+  ) {
+    settleUnknown('AI_PROVIDER_ERROR');
+    throwServerError({
+      trpcCode: 'BAD_GATEWAY',
+      errorCode: 'AI_PROVIDER_ERROR',
+      message: 'Voice provider returned unpriceable audio duration',
+    });
+  }
+
+  // The audit schema stores rounded audio seconds in input_tokens until
+  // a typed audio-duration column exists.
+  const { id: auditLogId } = settleAiBudget(
+    ctx.db,
+    reservation,
+    {
       tenantId: ctx.tenantId,
       siteId: ctx.siteId,
       userId: ctx.userId,
@@ -228,53 +287,21 @@ export async function transcribeAudio(
       cacheReadTokens: 0,
       cacheWriteTokens: 0,
       costUsd,
+      costState: 'estimated',
       durationMs,
       errorCode: null,
-    });
+    },
+    false
+  );
 
-    return {
-      transcript,
-      language,
-      audioDurationSeconds,
-      costUsd,
-      durationMs,
-      provider: provider.id,
-      model: modelId,
-      auditLogId,
-    };
-  } catch (error) {
-    const durationMs = Date.now() - startedAt;
-    const message = error instanceof Error ? error.message : 'Voice provider call failed';
-    // Identify parse-level failures by SDK error class so transport
-    // errors don't get misclassified as parse failures. The substring
-    // fallback covers SDK versions that wrap the typed error.
-    const isParseFailure =
-      NoTranscriptGeneratedError.isInstance(error) ||
-      (error instanceof Error && /No transcript generated/i.test(error.message));
-
-    const errorCode = isParseFailure ? 'AI_VOICE_PARSE_FAILED' : 'AI_PROVIDER_ERROR';
-
-    await recordCall(ctx.db, {
-      tenantId: ctx.tenantId,
-      siteId: ctx.siteId,
-      userId: ctx.userId,
-      feature: 'voiceTranscribe',
-      providerId: provider.id,
-      modelId,
-      inputTokens: 0,
-      outputTokens: 0,
-      cacheReadTokens: 0,
-      cacheWriteTokens: 0,
-      costUsd: 0,
-      durationMs,
-      errorCode,
-    });
-
-    throwServerError({
-      trpcCode: isParseFailure ? 'BAD_REQUEST' : 'BAD_GATEWAY',
-      errorCode,
-      message,
-      details: { cause: String(error) },
-    });
-  }
+  return {
+    transcript,
+    language,
+    audioDurationSeconds,
+    costUsd,
+    durationMs,
+    provider: provider.id,
+    model: modelId,
+    auditLogId,
+  };
 }
