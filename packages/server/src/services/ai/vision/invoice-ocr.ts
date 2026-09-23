@@ -22,7 +22,7 @@ import { z } from 'zod';
 import type { DatabaseInstance } from '../../../db/index.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
 
-import { currentMonthSpend, recordCall } from '../auditLog.js';
+import { reserveAiBudget, settleAiBudget } from '../budget.js';
 import { toBillableTokenUsage } from '../client.js';
 import { getProvider } from '../providers/registry.js';
 import type { AIProvider } from '../providers/types.js';
@@ -92,6 +92,7 @@ export interface InvoiceOcrInvocationContext {
   tenantId: string;
   siteId: string | null;
   userId: string | null;
+  abortSignal?: AbortSignal | undefined;
 }
 
 export interface InvoiceOcrInput {
@@ -199,24 +200,46 @@ export async function extractInvoiceFromImage(
     });
   }
 
-  const spent = await currentMonthSpend(ctx.db, ctx.tenantId);
-  if (spent >= settings.monthlyBudgetUsd) {
-    throwServerError({
-      trpcCode: 'BAD_REQUEST',
-      errorCode: 'AI_BUDGET_EXCEEDED',
-      message: `AI monthly budget exhausted ($${spent.toFixed(4)} of $${settings.monthlyBudgetUsd.toFixed(2)})`,
-    });
-  }
-
   const modelId = settings.modelId ?? provider.defaultModelId;
-  const startedAt = Date.now();
   const providerOptions = provider.cacheControlForSystemPrompt();
+  const abortSignal = ctx.abortSignal
+    ? AbortSignal.any([ctx.abortSignal, AbortSignal.timeout(60_000)])
+    : AbortSignal.timeout(60_000);
+  abortSignal.throwIfAborted();
+  const reservation = reserveAiBudget(ctx.db, ctx.tenantId);
+  const startedAt = Date.now();
+  const settleUnknown = (errorCode: 'AI_VISION_PARSE_FAILED' | 'AI_PROVIDER_ERROR') =>
+    settleAiBudget(
+      ctx.db,
+      reservation,
+      {
+        tenantId: ctx.tenantId,
+        siteId: ctx.siteId,
+        userId: ctx.userId,
+        feature: 'invoiceOcr',
+        providerId: provider.id,
+        modelId,
+        inputTokens: 0,
+        outputTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        costUsd: 0,
+        costState: 'unknown',
+        durationMs: Date.now() - startedAt,
+        errorCode,
+      },
+      true
+    );
 
+  let result;
   try {
-    const result = await generateObject({
+    result = await generateObject({
       model: provider.visionModel(modelId),
       instructions: EXTRACT_PROMPT_SYSTEM,
       schema: InvoiceOcrSchema,
+      abortSignal,
+      // Retrying may bill twice after an ambiguous provider response.
+      maxRetries: 0,
       messages: [
         {
           role: 'user',
@@ -234,43 +257,7 @@ export async function extractInvoiceFromImage(
         ? { providerOptions: providerOptions as ProviderOptions }
         : {}),
     });
-
-    const billable = toBillableTokenUsage(result.usage);
-    const inputTokens = result.usage.inputTokens ?? 0;
-    const outputTokens = result.usage.outputTokens ?? 0;
-    const cacheReadTokens = result.usage.inputTokenDetails?.cacheReadTokens ?? 0;
-    const cacheWriteTokens = result.usage.inputTokenDetails?.cacheWriteTokens ?? 0;
-    const costUsd = provider.pricing.calculateCostUsd(modelId, billable);
-    const durationMs = Date.now() - startedAt;
-
-    const { id: auditLogId } = await recordCall(ctx.db, {
-      tenantId: ctx.tenantId,
-      siteId: ctx.siteId,
-      userId: ctx.userId,
-      feature: 'invoiceOcr',
-      providerId: provider.id,
-      modelId,
-      inputTokens,
-      outputTokens,
-      cacheReadTokens,
-      cacheWriteTokens,
-      costUsd,
-      durationMs,
-      errorCode: null,
-    });
-
-    return {
-      invoice: result.object,
-      costUsd,
-      durationMs,
-      inputTokens,
-      outputTokens,
-      provider: provider.id,
-      model: modelId,
-      auditLogId,
-    };
   } catch (error) {
-    const durationMs = Date.now() - startedAt;
     const message = error instanceof Error ? error.message : 'Vision provider call failed';
     // Identify schema-validation failures by SDK error class rather
     // than substring matching, which would misclassify provider HTTP
@@ -292,21 +279,8 @@ export async function extractInvoiceFromImage(
 
     const errorCode = isSchemaFailure ? 'AI_VISION_PARSE_FAILED' : 'AI_PROVIDER_ERROR';
 
-    await recordCall(ctx.db, {
-      tenantId: ctx.tenantId,
-      siteId: ctx.siteId,
-      userId: ctx.userId,
-      feature: 'invoiceOcr',
-      providerId: provider.id,
-      modelId,
-      inputTokens: 0,
-      outputTokens: 0,
-      cacheReadTokens: 0,
-      cacheWriteTokens: 0,
-      costUsd: 0,
-      durationMs,
-      errorCode,
-    });
+    // The provider may have billed before returning a parse, transport, or abort error.
+    settleUnknown(errorCode);
 
     throwServerError({
       trpcCode: isSchemaFailure ? 'BAD_REQUEST' : 'BAD_GATEWAY',
@@ -315,4 +289,77 @@ export async function extractInvoiceFromImage(
       details: { cause: String(error) },
     });
   }
+
+  const usage = result.usage;
+  const inputTokens = usage?.inputTokens;
+  const outputTokens = usage?.outputTokens;
+  // A remote response without complete usage cannot be priced. Keep the
+  // admission hold instead of recording a misleading zero-dollar success.
+  if (
+    typeof inputTokens !== 'number' ||
+    !Number.isFinite(inputTokens) ||
+    inputTokens < 0 ||
+    typeof outputTokens !== 'number' ||
+    !Number.isFinite(outputTokens) ||
+    outputTokens < 0 ||
+    inputTokens + outputTokens === 0
+  ) {
+    settleUnknown('AI_PROVIDER_ERROR');
+    throwServerError({
+      trpcCode: 'BAD_GATEWAY',
+      errorCode: 'AI_PROVIDER_ERROR',
+      message: 'Vision provider returned missing or invalid token usage',
+    });
+  }
+
+  const cacheReadTokens = usage.inputTokenDetails?.cacheReadTokens ?? 0;
+  const cacheWriteTokens = usage.inputTokenDetails?.cacheWriteTokens ?? 0;
+  let costUsd: number;
+  try {
+    costUsd = provider.pricing.calculateCostUsd(modelId, toBillableTokenUsage(usage));
+  } catch {
+    costUsd = Number.NaN;
+  }
+  if (!Number.isFinite(costUsd) || costUsd < 0) {
+    settleUnknown('AI_PROVIDER_ERROR');
+    throwServerError({
+      trpcCode: 'BAD_GATEWAY',
+      errorCode: 'AI_PROVIDER_ERROR',
+      message: 'Vision provider returned unpriceable token usage',
+    });
+  }
+
+  const durationMs = Date.now() - startedAt;
+  const { id: auditLogId } = settleAiBudget(
+    ctx.db,
+    reservation,
+    {
+      tenantId: ctx.tenantId,
+      siteId: ctx.siteId,
+      userId: ctx.userId,
+      feature: 'invoiceOcr',
+      providerId: provider.id,
+      modelId,
+      inputTokens,
+      outputTokens,
+      cacheReadTokens,
+      cacheWriteTokens,
+      costUsd,
+      costState: 'estimated',
+      durationMs,
+      errorCode: null,
+    },
+    false
+  );
+
+  return {
+    invoice: result.object,
+    costUsd,
+    durationMs,
+    inputTokens,
+    outputTokens,
+    provider: provider.id,
+    model: modelId,
+    auditLogId,
+  };
 }

@@ -14,7 +14,7 @@ import type { LanguageModelV4 } from '@ai-sdk/provider';
 
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { aiAuditLog, tenants } from '../db/schema.js';
+import { aiAuditLog, aiBudgetReservations, tenants } from '../db/schema.js';
 import { ServerErrorWithCode, type ServerErrorCode } from '../lib/errorCodes.js';
 import {
   INVOICE_OCR_MAX_BYTES,
@@ -334,6 +334,7 @@ describe('extractInvoiceFromImage', () => {
     expect(failure).toBeDefined();
     expect(failure?.feature).toBe('invoiceOcr');
     expect(failure?.costUsd).toBe(0);
+    expect(failure?.costState).toBe('unknown');
   });
 
   it('classifies a ZodError as AI_VISION_PARSE_FAILED via the SDK-class branch', async () => {
@@ -401,5 +402,138 @@ describe('extractInvoiceFromImage', () => {
       .where(eq(aiAuditLog.tenantId, tenantId));
     const failure = rows.find(row => row.errorCode === 'AI_PROVIDER_ERROR');
     expect(failure).toBeDefined();
+  });
+
+  it('admits one in-flight invoice vision call per tenant and settles known usage', async () => {
+    const tenantId = await seedTenant('admission');
+    await enableAI(tenantId);
+    let finish!: (value: unknown) => void;
+    generateObjectMock.mockImplementationOnce(
+      () =>
+        new Promise(resolve => {
+          finish = resolve;
+        })
+    );
+    const call = () =>
+      extractInvoiceFromImage(
+        { db: getDatabase(), tenantId, siteId: null, userId: null },
+        { imageBase64: 'aGVsbG8=', mimeType: 'image/png' },
+        () => buildStubProvider()
+      );
+    const first = call();
+    await vi.waitFor(() => expect(generateObjectMock).toHaveBeenCalledTimes(1));
+    await expectErrorCode(call(), 'AI_BUDGET_EXCEEDED');
+    expect(generateObjectMock).toHaveBeenCalledTimes(1);
+    finish({ object: SAMPLE_INVOICE, usage: { inputTokens: 1200, outputTokens: 300 } });
+    await expect(first).resolves.toMatchObject({ invoice: SAMPLE_INVOICE });
+    const audit = await getDatabase()
+      .select()
+      .from(aiAuditLog)
+      .where(eq(aiAuditLog.tenantId, tenantId));
+    expect(audit).toMatchObject([{ costState: 'estimated', errorCode: null }]);
+    expect(
+      await getDatabase()
+        .select()
+        .from(aiBudgetReservations)
+        .where(eq(aiBudgetReservations.tenantId, tenantId))
+    ).toHaveLength(0);
+  });
+
+  it('retains unknown liability after a remote failure and blocks a free retry', async () => {
+    const tenantId = await seedTenant('remote-unknown');
+    await enableAI(tenantId);
+    generateObjectMock.mockRejectedValueOnce(new Error('upstream connection reset'));
+    const call = () =>
+      extractInvoiceFromImage(
+        { db: getDatabase(), tenantId, siteId: null, userId: null },
+        { imageBase64: 'aGVsbG8=', mimeType: 'image/png' },
+        () => buildStubProvider()
+      );
+    await expectErrorCode(call(), 'AI_PROVIDER_ERROR');
+    await expectErrorCode(call(), 'AI_BUDGET_EXCEEDED');
+    expect(generateObjectMock).toHaveBeenCalledTimes(1);
+    expect(
+      await getDatabase().select().from(aiAuditLog).where(eq(aiAuditLog.tenantId, tenantId))
+    ).toMatchObject([{ costState: 'unknown' }]);
+    expect(
+      await getDatabase()
+        .select()
+        .from(aiBudgetReservations)
+        .where(eq(aiBudgetReservations.tenantId, tenantId))
+    ).toMatchObject([{ state: 'unknown' }]);
+  });
+
+  it('does not count missing remote token usage as a free invoice', async () => {
+    const tenantId = await seedTenant('no-usage');
+    await enableAI(tenantId);
+    generateObjectMock.mockResolvedValueOnce({ object: SAMPLE_INVOICE, usage: {} });
+    await expectErrorCode(
+      extractInvoiceFromImage(
+        { db: getDatabase(), tenantId, siteId: null, userId: null },
+        { imageBase64: 'aGVsbG8=', mimeType: 'image/png' },
+        () => buildStubProvider()
+      ),
+      'AI_PROVIDER_ERROR'
+    );
+    expect(
+      await getDatabase().select().from(aiAuditLog).where(eq(aiAuditLog.tenantId, tenantId))
+    ).toMatchObject([{ costState: 'unknown' }]);
+  });
+
+  it('does not reserve or dispatch a pre-aborted invoice request', async () => {
+    const tenantId = await seedTenant('pre-aborted');
+    await enableAI(tenantId);
+    const controller = new AbortController();
+    controller.abort();
+    await expect(
+      extractInvoiceFromImage(
+        { db: getDatabase(), tenantId, siteId: null, userId: null, abortSignal: controller.signal },
+        { imageBase64: 'aGVsbG8=', mimeType: 'image/png' },
+        () => buildStubProvider()
+      )
+    ).rejects.toMatchObject({ name: 'AbortError' });
+    expect(generateObjectMock).not.toHaveBeenCalled();
+    expect(
+      await getDatabase().select().from(aiAuditLog).where(eq(aiAuditLog.tenantId, tenantId))
+    ).toHaveLength(0);
+    expect(
+      await getDatabase()
+        .select()
+        .from(aiBudgetReservations)
+        .where(eq(aiBudgetReservations.tenantId, tenantId))
+    ).toHaveLength(0);
+  });
+
+  it('bounds and cancels the provider call without SDK retries', async () => {
+    const tenantId = await seedTenant('abort');
+    await enableAI(tenantId);
+    const controller = new AbortController();
+    generateObjectMock.mockImplementationOnce(
+      (options: { abortSignal: AbortSignal }) =>
+        new Promise((_resolve, reject) => {
+          options.abortSignal.addEventListener(
+            'abort',
+            () => reject(new Error('request cancelled')),
+            { once: true }
+          );
+        })
+    );
+    const pending = extractInvoiceFromImage(
+      { db: getDatabase(), tenantId, siteId: null, userId: null, abortSignal: controller.signal },
+      { imageBase64: 'aGVsbG8=', mimeType: 'image/png' },
+      () => buildStubProvider()
+    );
+    await vi.waitFor(() => expect(generateObjectMock).toHaveBeenCalledTimes(1));
+    const options = generateObjectMock.mock.calls[0]?.[0] as {
+      abortSignal?: AbortSignal;
+      maxRetries?: number;
+    };
+    controller.abort();
+    await expectErrorCode(pending, 'AI_PROVIDER_ERROR');
+    expect(options.abortSignal?.aborted).toBe(true);
+    expect(options.maxRetries).toBe(0);
+    expect(
+      await getDatabase().select().from(aiAuditLog).where(eq(aiAuditLog.tenantId, tenantId))
+    ).toMatchObject([{ costState: 'unknown' }]);
   });
 });
