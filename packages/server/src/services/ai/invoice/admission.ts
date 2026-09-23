@@ -2,6 +2,7 @@
 import type { DatabaseInstance } from '../../../db/index.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
 import { reserveAiBudget, settleAiBudget } from '../budget.js';
+import { assertSinglePagePdf } from './pdf-preflight.js';
 import { extractInvoiceWithTextract, resolveTextractPriceConfig } from './textract.js';
 import type { TextractInvoiceOcrInput } from './textract.js';
 
@@ -28,12 +29,16 @@ export async function extractInvoiceWithAdmission(
       message: 'Textract accepts JPEG, PNG, and single-page PDF invoices',
     });
   }
-  // A missing or stale regional page price blocks the paid request before it
-  // occupies the tenant's budget reservation.
-  const price = resolveTextractPriceConfig();
   const abortSignal = ctx.abortSignal
     ? AbortSignal.any([ctx.abortSignal, AbortSignal.timeout(60_000)])
     : AbortSignal.timeout(60_000);
+  abortSignal.throwIfAborted();
+  if (input.mimeType === 'application/pdf') {
+    await assertSinglePagePdf(input.documentBase64, abortSignal);
+  }
+  // A missing or stale regional page price blocks the paid request before it
+  // occupies the tenant's budget reservation.
+  const price = resolveTextractPriceConfig();
   abortSignal.throwIfAborted();
   const reservation = reserveAiBudget(ctx.db, ctx.tenantId, new Date(), {
     invoiceOcrSiteId: ctx.siteId,

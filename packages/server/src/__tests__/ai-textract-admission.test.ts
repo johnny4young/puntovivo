@@ -3,6 +3,7 @@ import { EventEmitter } from 'node:events';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
+import { jsPDF } from 'jspdf';
 
 const textractCall = vi.hoisted(() => vi.fn());
 const priceConfig = vi.hoisted(() => vi.fn());
@@ -43,6 +44,12 @@ const INVOICE = {
   taxAmount: 19,
   total: 119,
 };
+
+function pdfBase64(pageCount: number): string {
+  const document = new jsPDF();
+  for (let page = 1; page < pageCount; page += 1) document.addPage();
+  return Buffer.from(document.output('arraybuffer')).toString('base64');
+}
 
 let server: PuntovivoServer;
 let tenantId: string;
@@ -185,6 +192,62 @@ describe('active Textract invoice admission', () => {
         .from(aiBudgetReservations)
         .where(eq(aiBudgetReservations.tenantId, tenantId))
     ).toHaveLength(0);
+  });
+
+  it('rejects a multi-page PDF before budget reservation or paid dispatch', async () => {
+    await getDatabase()
+      .update(invoiceUploads)
+      .set({ mimeType: 'application/pdf', payloadBase64: pdfBase64(2) })
+      .where(eq(invoiceUploads.id, uploadId));
+    await expect(caller().ai.invoiceOcr.extract({ uploadId })).rejects.toMatchObject({
+      code: 'BAD_REQUEST',
+      cause: { errorCode: 'AI_VISION_PDF_PAGE_LIMIT' },
+    });
+    expect(textractCall).not.toHaveBeenCalled();
+    expect(
+      await getDatabase()
+        .select()
+        .from(aiBudgetReservations)
+        .where(eq(aiBudgetReservations.tenantId, tenantId))
+    ).toHaveLength(0);
+    expect(
+      await getDatabase().select().from(aiAuditLog).where(eq(aiAuditLog.tenantId, tenantId))
+    ).toHaveLength(0);
+  });
+
+  it('rejects a malformed PDF before budget reservation or paid dispatch', async () => {
+    await getDatabase()
+      .update(invoiceUploads)
+      .set({
+        mimeType: 'application/pdf',
+        payloadBase64: Buffer.from('%PDF-1.7').toString('base64'),
+      })
+      .where(eq(invoiceUploads.id, uploadId));
+    await expect(caller().ai.invoiceOcr.extract({ uploadId })).rejects.toMatchObject({
+      code: 'BAD_REQUEST',
+      cause: { errorCode: 'AI_VISION_PDF_INVALID' },
+    });
+    expect(textractCall).not.toHaveBeenCalled();
+    expect(
+      await getDatabase()
+        .select()
+        .from(aiBudgetReservations)
+        .where(eq(aiBudgetReservations.tenantId, tenantId))
+    ).toHaveLength(0);
+    expect(
+      await getDatabase().select().from(aiAuditLog).where(eq(aiAuditLog.tenantId, tenantId))
+    ).toHaveLength(0);
+  });
+
+  it('retains single-page PDF support after preflight', async () => {
+    await getDatabase()
+      .update(invoiceUploads)
+      .set({ mimeType: 'application/pdf', payloadBase64: pdfBase64(1) })
+      .where(eq(invoiceUploads.id, uploadId));
+    await expect(caller().ai.invoiceOcr.extract({ uploadId })).resolves.toMatchObject({
+      meta: { costUsd: 0.01 },
+    });
+    expect(textractCall).toHaveBeenCalledTimes(1);
   });
 
   it('requires a site and a same-site upload before any paid call', async () => {

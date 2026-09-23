@@ -32,7 +32,7 @@ export function InvoiceOcrPreview({
             <p className="font-mono text-sm font-semibold text-secondary-900">
               {fileName ?? 'invoice.pdf'}
             </p>
-            <p className="mt-2 text-xs text-secondary-500">{t('preview.pdfOnePage')}</p>
+            <p className="mt-2 text-xs text-secondary-500">{t('preview.pdfFile')}</p>
           </div>
         </div>
       ) : (

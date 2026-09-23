@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Camera, UploadCloud } from 'lucide-react';
 import { Overlay } from '@/components/overlay/Overlay';
 import { trpc } from '@/lib/trpc';
+import { translateServerError } from '@/lib/translateServerError';
 import { useAiFeatureFlag } from '@/features/ai-shared';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { InvoiceOcrPreview } from './InvoiceOcrPreview';
@@ -23,7 +24,7 @@ const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'application/pdf']);
 const MAX_BYTES = 10 * 1024 * 1024;
 
 export function InvoiceOcrDialog({ open, onClose, providers, onConfirmed }: InvoiceOcrDialogProps) {
-  const { t } = useTranslation(['invoiceOcr', 'common']);
+  const { t } = useTranslation(['invoiceOcr', 'common', 'errors']);
   const toast = useToast();
   const enabled = useAiFeatureFlag('invoiceOcr');
 
@@ -117,7 +118,7 @@ export function InvoiceOcrDialog({ open, onClose, providers, onConfirmed }: Invo
       setStage('review');
     } catch (err) {
       if (operationGeneration !== operationGenerationRef.current) return;
-      setErrorMsg(err instanceof Error ? err.message : String(err));
+      setErrorMsg(translateServerError(err, t, t('invoiceOcr:error.title')));
       setStage('error');
     }
   }
@@ -183,7 +184,7 @@ export function InvoiceOcrDialog({ open, onClose, providers, onConfirmed }: Invo
       title={t('invoiceOcr:dialog.title', { defaultValue: 'Sube una foto, la IA lee la factura' })}
       description={t('invoiceOcr:dialog.subtitle', {
         defaultValue:
-          'Soporta JPG, PNG y PDF hasta 10 MB. Revisa cada campo antes de registrar la compra.',
+          'Soporta JPG, PNG y PDF de una página hasta 10 MB. Revisa cada campo antes de registrar la compra.',
       })}
     >
       <div className="space-y-5">
@@ -236,7 +237,9 @@ export function InvoiceOcrDialog({ open, onClose, providers, onConfirmed }: Invo
               }}
             />
             <p className="text-[11px] text-secondary-500">
-              {t('invoiceOcr:upload.fileTypes', { defaultValue: 'JPG · PNG · PDF — máx 10 MB' })}
+              {t('invoiceOcr:upload.fileTypes', {
+                defaultValue: 'JPG · PNG · PDF (1 página) — máx 10 MB',
+              })}
             </p>
           </div>
         )}
