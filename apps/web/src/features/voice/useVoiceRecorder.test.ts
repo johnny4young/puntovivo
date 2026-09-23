@@ -118,6 +118,7 @@ beforeEach(() => {
 
 afterEach(() => {
   uninstallFakes();
+  vi.restoreAllMocks();
   vi.useRealTimers();
 });
 
@@ -174,6 +175,91 @@ describe('useVoiceRecorder ( slice 2)', () => {
     // the OS mic indicator turns off.
     expect(trackStopSpy).toHaveBeenCalledTimes(1);
   });
+
+  it('releases a late microphone grant after the consumer unmounts', async () => {
+    let grantMicrophone!: (stream: MediaStream) => void;
+    getUserMediaMock.mockImplementationOnce(
+      () =>
+        new Promise(resolve => {
+          grantMicrophone = resolve;
+        })
+    );
+    const { result, unmount } = renderHook(() => useVoiceRecorder());
+    let startPromise!: Promise<void>;
+    act(() => {
+      startPromise = result.current.start();
+    });
+
+    unmount();
+    await act(async () => {
+      grantMicrophone(buildFakeStream());
+      await startPromise;
+    });
+
+    expect(trackStopSpy).toHaveBeenCalledTimes(1);
+    expect(FakeMediaRecorder.instances).toHaveLength(0);
+  });
+
+  it('does not request two microphone streams on concurrent start clicks', async () => {
+    let grantMicrophone!: (stream: MediaStream) => void;
+    getUserMediaMock.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          grantMicrophone = resolve;
+        })
+    );
+    const { result } = renderHook(() => useVoiceRecorder());
+    let firstStart!: Promise<void>;
+    let secondStart!: Promise<void>;
+    act(() => {
+      firstStart = result.current.start();
+      secondStart = result.current.start();
+    });
+    expect(getUserMediaMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      grantMicrophone(buildFakeStream());
+      await Promise.all([firstStart, secondStart]);
+    });
+    expect(FakeMediaRecorder.instances).toHaveLength(1);
+    await act(async () => {
+      await result.current.stop();
+    });
+    expect(trackStopSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['constructor', 'start'] as const)(
+    'releases the microphone if MediaRecorder %s throws',
+    async failurePoint => {
+      if (failurePoint === 'constructor') {
+        class FailingMediaRecorder extends FakeMediaRecorder {
+          constructor(stream: MediaStream, options?: { mimeType?: string }) {
+            super(stream, options);
+            throw new Error('MediaRecorder constructor failed');
+          }
+        }
+        installFakes({ mediaRecorder: FailingMediaRecorder });
+      } else {
+        vi.spyOn(FakeMediaRecorder.prototype, 'start').mockImplementationOnce(() => {
+          throw new Error('MediaRecorder start failed');
+        });
+      }
+
+      const { result } = renderHook(() => useVoiceRecorder());
+      let caught: unknown;
+      await act(async () => {
+        try {
+          await result.current.start();
+        } catch (err) {
+          caught = err;
+        }
+      });
+
+      expect(caught).toBeInstanceOf(Error);
+      expect(result.current.recording).toBe(false);
+      expect(trackStopSpy).toHaveBeenCalledTimes(1);
+    }
+  );
 
   it('auto-stops at the 30-second hard cap and returns the captured blob', async () => {
     // `useFakeTimers` must keep `microtaskQueue` real so the

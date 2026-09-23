@@ -150,6 +150,8 @@ export function useVoiceRecorder(options: VoiceRecorderOptions = {}): VoiceRecor
   const autoStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoStopTriggeredRef = useRef<boolean>(false);
   const onAutoStopRef = useRef<VoiceRecorderOptions['onAutoStop']>(options.onAutoStop);
+  const mountedRef = useRef(true);
+  const permissionRequestRef = useRef(false);
 
   useEffect(() => {
     onAutoStopRef.current = options.onAutoStop;
@@ -185,6 +187,7 @@ export function useVoiceRecorder(options: VoiceRecorderOptions = {}): VoiceRecor
       // as a no-op rather than spinning up a second recorder.
       return;
     }
+    if (permissionRequestRef.current) return;
     setError(null);
 
     const mimeType = detectSupportedMimeType();
@@ -201,18 +204,37 @@ export function useVoiceRecorder(options: VoiceRecorderOptions = {}): VoiceRecor
     }
 
     let stream: MediaStream;
+    permissionRequestRef.current = true;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch (err) {
       const classified = classifyGetUserMediaError(err);
-      setError(classified);
+      if (mountedRef.current) setError(classified);
       throw err instanceof Error ? err : new Error(classified.message);
+    } finally {
+      permissionRequestRef.current = false;
+    }
+
+    // Permission can resolve after the consuming dialog has closed. Its
+    // unmount cleanup already ran before this local stream existed, so release
+    // the late grant here instead of starting an orphaned recorder.
+    if (!mountedRef.current) {
+      for (const track of stream.getTracks()) track.stop();
+      return;
     }
 
     streamRef.current = stream;
     chunksRef.current = [];
 
-    const recorder = new MediaRecorder(stream, { mimeType });
+    let recorder: MediaRecorder;
+    try {
+      recorder = new MediaRecorder(stream, { mimeType });
+    } catch (err) {
+      releaseStream();
+      const classified = classifyGetUserMediaError(err);
+      setError(classified);
+      throw err instanceof Error ? err : new Error(classified.message);
+    }
     recorderRef.current = recorder;
     setRecordedMimeType(mimeType);
 
@@ -257,7 +279,16 @@ export function useVoiceRecorder(options: VoiceRecorderOptions = {}): VoiceRecor
       if (reject) reject(err);
     };
 
-    recorder.start();
+    try {
+      recorder.start();
+    } catch (err) {
+      recorderRef.current = null;
+      releaseStream();
+      setRecordedMimeType(null);
+      const classified = classifyGetUserMediaError(err);
+      setError(classified);
+      throw err instanceof Error ? err : new Error(classified.message);
+    }
     setRecording(true);
 
     // Hard cap: stop the recording at the 30-second budget so we
@@ -292,7 +323,9 @@ export function useVoiceRecorder(options: VoiceRecorderOptions = {}): VoiceRecor
   // Cleanup on unmount: stop the recorder and release the stream so
   // the mic indicator turns off when the operator navigates away.
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
+      mountedRef.current = false;
       clearAutoStop();
       autoStopTriggeredRef.current = false;
       if (recorderRef.current && recorderRef.current.state === 'recording') {

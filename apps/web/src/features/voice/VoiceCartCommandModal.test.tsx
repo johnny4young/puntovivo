@@ -74,21 +74,13 @@ vi.mock('@/features/voice/blobToBase64', () => ({
 }));
 
 vi.mock('@/lib/trpc', () => ({
-  trpc: {
+  vanillaClient: {
     ai: {
       transcribeAudio: {
-        useMutation: () => ({
-          mutate: vi.fn(),
-          mutateAsync: transcribeMutateAsyncMock,
-          isPending: false,
-        }),
+        mutate: (input: unknown, options: unknown) => transcribeMutateAsyncMock(input, options),
       },
       parseCartCommand: {
-        useMutation: () => ({
-          mutate: vi.fn(),
-          mutateAsync: parseMutateAsyncMock,
-          isPending: false,
-        }),
+        mutate: (input: unknown, options: unknown) => parseMutateAsyncMock(input, options),
       },
     },
   },
@@ -110,6 +102,95 @@ beforeEach(async () => {
 });
 
 describe('VoiceCartCommandModal ( slice 3)', () => {
+  it('focuses the dialog, traps Tab, closes on Escape, and restores the opener', async () => {
+    const opener = document.createElement('button');
+    opener.textContent = 'Open voice';
+    document.body.append(opener);
+    opener.focus();
+    const onClose = vi.fn();
+
+    try {
+      const { rerender } = render(
+        <VoiceCartCommandModal isOpen={true} onClose={onClose} onApply={vi.fn()} />
+      );
+      const close = screen.getByLabelText('Close');
+      const record = screen.getByTestId('voice-modal-record');
+
+      await waitFor(() => expect(close).toHaveFocus());
+      expect(opener).toHaveAttribute('aria-hidden', 'true');
+      expect(opener.inert).toBe(true);
+      fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
+      expect(record).toHaveFocus();
+      fireEvent.keyDown(document, { key: 'Tab' });
+      expect(close).toHaveFocus();
+
+      fireEvent.keyDown(document, { key: 'Escape' });
+      await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+      rerender(<VoiceCartCommandModal isOpen={false} onClose={onClose} onApply={vi.fn()} />);
+      await waitFor(() => expect(opener).toHaveFocus());
+      expect(opener).not.toHaveAttribute('aria-hidden');
+      expect(opener.inert).toBe(false);
+    } finally {
+      opener.remove();
+    }
+  });
+
+  it('discards an in-flight transcription when the dialog closes', async () => {
+    let resolveTranscription!: (value: { transcript: string }) => void;
+    transcribeMutateAsyncMock.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          resolveTranscription = resolve;
+        })
+    );
+    recorderState.recording = true;
+    const onClose = vi.fn();
+    render(<VoiceCartCommandModal isOpen={true} onClose={onClose} onApply={vi.fn()} />);
+
+    fireEvent.click(screen.getByTestId('voice-modal-record'));
+    await waitFor(() => expect(transcribeMutateAsyncMock).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByLabelText('Close'));
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    const transcribeOptions = transcribeMutateAsyncMock.mock.calls[0]?.[1] as {
+      signal: AbortSignal;
+    };
+    expect(transcribeOptions.signal.aborted).toBe(true);
+
+    await act(async () => {
+      resolveTranscription({ transcript: 'discarded after close' });
+    });
+    expect(parseMutateAsyncMock).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('voice-modal-review')).not.toBeInTheDocument();
+    expect(toastError).not.toHaveBeenCalled();
+  });
+
+  it('aborts an in-flight parse without showing a late review or error', async () => {
+    transcribeMutateAsyncMock.mockResolvedValue({ transcript: 'add bread' });
+    let resolveParse!: (value: { mode: 'unrecognized'; reason: string }) => void;
+    parseMutateAsyncMock.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          resolveParse = resolve;
+        })
+    );
+    recorderState.recording = true;
+    const onClose = vi.fn();
+    render(<VoiceCartCommandModal isOpen={true} onClose={onClose} onApply={vi.fn()} />);
+
+    fireEvent.click(screen.getByTestId('voice-modal-record'));
+    await waitFor(() => expect(parseMutateAsyncMock).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByLabelText('Close'));
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    const parseOptions = parseMutateAsyncMock.mock.calls[0]?.[1] as { signal: AbortSignal };
+    expect(parseOptions.signal.aborted).toBe(true);
+
+    await act(async () => {
+      resolveParse({ mode: 'unrecognized', reason: 'discarded' });
+    });
+    expect(screen.queryByTestId('voice-modal-review')).not.toBeInTheDocument();
+    expect(toastError).not.toHaveBeenCalled();
+  });
+
   it('renders the idle state with the mic CTA + intro copy', () => {
     render(<VoiceCartCommandModal isOpen={true} onClose={vi.fn()} onApply={vi.fn()} />);
     expect(screen.getByTestId('voice-cart-modal')).toBeInTheDocument();
