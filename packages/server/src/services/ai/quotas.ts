@@ -185,15 +185,16 @@ export async function requireAiQuotaAvailable(
 /**
  * Check a Co-pilot snapshot's complete call-time site scope in two bounded
  * reads, rather than rescanning every site-less audit row once per site.
- * This is still a read-before-call gate; atomic in-flight reservations are a
- * separate admission contract.
+ * The router uses this for an early rejection; the budget reservation repeats
+ * it on its transaction handle under BEGIN IMMEDIATE so a stale router read
+ * cannot authorize an extra provider call.
  */
-export async function requireCopilotQuotasForSites(args: {
-  db: DatabaseInstance;
+export function assertCopilotQuotasForSites(args: {
+  db: Pick<DatabaseInstance, 'select'>;
   tenantId: string;
   siteIds: string[];
   now?: Date;
-}): Promise<void> {
+}): void {
   const { db, tenantId, siteIds, now = new Date() } = args;
   if (siteIds.length === 0) return;
   const { start, end } = monthBounds(now);
@@ -206,17 +207,17 @@ export async function requireCopilotQuotasForSites(args: {
     gte(aiAuditLog.createdAt, start),
     lt(aiAuditLog.createdAt, end),
   ];
-  const [siteRows, tenantWideRows] = await Promise.all([
-    db
-      .select({ siteId: aiAuditLog.siteId, total: count(aiAuditLog.id) })
-      .from(aiAuditLog)
-      .where(and(...baseFilters, inArray(aiAuditLog.siteId, siteIds)))
-      .groupBy(aiAuditLog.siteId),
-    db
-      .select({ scopeSiteIds: aiAuditLog.scopeSiteIds })
-      .from(aiAuditLog)
-      .where(and(...baseFilters, isNull(aiAuditLog.siteId))),
-  ]);
+  const siteRows = db
+    .select({ siteId: aiAuditLog.siteId, total: count(aiAuditLog.id) })
+    .from(aiAuditLog)
+    .where(and(...baseFilters, inArray(aiAuditLog.siteId, siteIds)))
+    .groupBy(aiAuditLog.siteId)
+    .all();
+  const tenantWideRows = db
+    .select({ scopeSiteIds: aiAuditLog.scopeSiteIds })
+    .from(aiAuditLog)
+    .where(and(...baseFilters, isNull(aiAuditLog.siteId)))
+    .all();
 
   for (const row of siteRows) {
     if (row.siteId) used.set(row.siteId, row.total);
@@ -246,6 +247,16 @@ export async function requireCopilotQuotasForSites(args: {
       });
     }
   }
+}
+
+/** Keep the router's early rejection while admission repeats it under BEGIN IMMEDIATE. */
+export async function requireCopilotQuotasForSites(args: {
+  db: DatabaseInstance;
+  tenantId: string;
+  siteIds: string[];
+  now?: Date;
+}): Promise<void> {
+  assertCopilotQuotasForSites(args);
 }
 
 /**

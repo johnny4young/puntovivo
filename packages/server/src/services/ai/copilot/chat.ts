@@ -167,7 +167,7 @@ export async function runCopilotChat(
     );
     const model = provider.languageModel(modelId);
     const prompt = buildPrompt(messagesWithContext);
-    reservation = reserveAiBudget(ctx.db, ctx.tenantId, now);
+    reservation = reserveAiBudget(ctx.db, ctx.tenantId, now, { copilotSiteIds: scopeSiteIds });
     const result = await generateText({
       model,
       instructions: buildSystemPrompt(responseMode),
@@ -344,7 +344,7 @@ export async function runCopilotChat(
     };
     if (reservation) {
       settleAiBudget(ctx.db, reservation, audit, uncertainRemoteCost);
-    } else if (errorCode !== 'AI_BUDGET_EXCEEDED') {
+    } else if (errorCode !== 'AI_BUDGET_EXCEEDED' && errorCode !== 'AI_QUOTA_EXCEEDED') {
       await recordCall(ctx.db, { ...audit, costState: 'not_incurred' });
     }
 

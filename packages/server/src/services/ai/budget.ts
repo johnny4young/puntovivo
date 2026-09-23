@@ -6,10 +6,16 @@ import type { DatabaseInstance } from '../../db/index.js';
 import { aiAuditLog, aiBudgetReservations, tenants } from '../../db/schema.js';
 import type { NewAIAuditLogRow } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
+import { assertCopilotQuotasForSites } from './quotas.js';
 
 export interface AiBudgetReservation {
   id: string;
   tenantId: string;
+}
+
+export interface AiBudgetAdmissionOptions {
+  /** Check every site that the pending Copilot snapshot may read under the same write lock. */
+  copilotSiteIds?: string[];
 }
 
 type CallAudit = Omit<NewAIAuditLogRow, 'id' | 'createdAt'> & {
@@ -40,7 +46,8 @@ function denyBudget(message: string): never {
 export function reserveAiBudget(
   db: DatabaseInstance,
   tenantId: string,
-  now: Date = new Date()
+  now: Date = new Date(),
+  options: AiBudgetAdmissionOptions = {}
 ): AiBudgetReservation {
   const month = monthWindow(now);
   return db.transaction(
@@ -97,6 +104,10 @@ export function reserveAiBudget(
       const spent = Number(summary?.knownSpend ?? 0);
       if (Number(summary?.unknownCalls ?? 0) > 0 || spent >= budget) {
         denyBudget(`AI monthly budget unavailable ($${spent.toFixed(4)} of $${budget.toFixed(2)})`);
+      }
+
+      if (options.copilotSiteIds !== undefined) {
+        assertCopilotQuotasForSites({ db: tx, tenantId, siteIds: options.copilotSiteIds, now });
       }
 
       const id = nanoid();
