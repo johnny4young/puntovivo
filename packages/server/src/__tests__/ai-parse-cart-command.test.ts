@@ -292,6 +292,37 @@ describe('ai.parseCartCommand ( slice 3)', () => {
     expect(audit).toHaveLength(0);
   });
 
+  it('does not return raw provider diagnostics to the cashier', async () => {
+    const { tenantId, cashierId } = await seedTenant('provider-error', { aiEnabled: true });
+    const secret = 'PRIVATE_CART_IN_PROVIDER_ERROR';
+    generateObjectMock.mockRejectedValue(new Error(`Provider unavailable ${secret}`));
+
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: cashierId, role: 'cashier' })
+    );
+    let caught: unknown;
+    try {
+      await caller.ai.parseCartCommand({ transcript: 'agrega una coca' });
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(TRPCError);
+    expect((caught as TRPCError).message).toBe('Voice parser call failed');
+    expect((caught as TRPCError).message).not.toContain(secret);
+    expect(((caught as TRPCError).cause as ServerErrorWithCode).errorCode).toBe(
+      'AI_PROVIDER_ERROR'
+    );
+    expect(((caught as TRPCError).cause as ServerErrorWithCode).details).toBeUndefined();
+
+    const audit = await getDatabase()
+      .select()
+      .from(aiAuditLog)
+      .where(eq(aiAuditLog.tenantId, tenantId))
+      .all();
+    expect(audit).toHaveLength(1);
+    expect(audit[0]?.errorCode).toBe('AI_PROVIDER_ERROR');
+  });
+
   it('returns mode=unrecognized when the parser yields zero items', async () => {
     const { tenantId, cashierId } = await seedTenant('unrecognized', {
       aiEnabled: true,

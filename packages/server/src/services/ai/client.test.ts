@@ -154,7 +154,7 @@ function buildMockProvider(overrides: Partial<AIProvider> = {}): AIProvider {
   return { ...base, ...overrides };
 }
 
-async function expectThrow(promise: Promise<unknown>, errorCode: string): Promise<void> {
+async function expectThrow(promise: Promise<unknown>, errorCode: string): Promise<TRPCError> {
   let caught: unknown;
   try {
     await promise;
@@ -165,6 +165,7 @@ async function expectThrow(promise: Promise<unknown>, errorCode: string): Promis
   const cause = (caught as TRPCError).cause;
   expect(cause).toBeInstanceOf(ServerErrorWithCode);
   expect((cause as ServerErrorWithCode).errorCode).toBe(errorCode);
+  return caught as TRPCError;
 }
 
 describe('client.completeAI', () => {
@@ -337,7 +338,8 @@ describe('client.completeAI', () => {
   it('records a failure row with cost_usd=0 and AI_PROVIDER_ERROR when the SDK throws', async () => {
     const db = getDatabase();
     await writeAISettings(db, tenantId, { enabled: true, monthlyBudgetUsd: 1 });
-    await expectThrow(
+    const secret = 'PRIVATE_CUSTOMER_IN_PROVIDER_ERROR';
+    const failure = await expectThrow(
       completeAI({ db, tenantId, siteId, userId }, baseInput, () =>
         buildMockProvider({
           languageModel: () =>
@@ -345,16 +347,19 @@ describe('client.completeAI', () => {
               provider: 'anthropic',
               modelId: 'claude-haiku-4-5',
               doGenerate: async () => {
-                throw new Error('synthetic provider failure');
+                throw new Error(`synthetic provider failure ${secret}`);
               },
               doStream: async () => {
-                throw new Error('synthetic provider failure');
+                throw new Error(`synthetic provider failure ${secret}`);
               },
             }),
         })
       ),
       'AI_PROVIDER_ERROR'
     );
+    expect(failure.message).toBe('AI provider call failed');
+    expect(failure.message).not.toContain(secret);
+    expect((failure.cause as ServerErrorWithCode).details).toBeUndefined();
     const rows = await db.select().from(aiAuditLog).all();
     expect(rows).toHaveLength(1);
     expect(rows[0]?.errorCode).toBe('AI_PROVIDER_ERROR');
