@@ -257,6 +257,9 @@ export const SERVER_ERROR_CODES_B = {
    * `{ outboxId, currentStatus }` for the UI hint.
    */
   PAYMENT_OUTBOX_NOT_RETRIABLE: 'PAYMENT_OUTBOX_NOT_RETRIABLE',
+  PAYMENT_PROPOSAL_NOT_FOUND: 'PAYMENT_PROPOSAL_NOT_FOUND',
+  PAYMENT_PROPOSAL_NOT_PENDING: 'PAYMENT_PROPOSAL_NOT_PENDING',
+  PAYMENT_PROPOSAL_STALE: 'PAYMENT_PROPOSAL_STALE',
   /**
    * admin tried to act on a `restaurant_tables` row that
    * does not exist for the active tenant. The lookup is tenant-scoped

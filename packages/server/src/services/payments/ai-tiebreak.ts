@@ -4,8 +4,9 @@
  * The deterministic matcher in `reconciliation.ts` covers exact + epsilon
  * matches across (reference, providerTransactionId, amount). When two or
  * more POS tenders remain plausible candidates for the same provider
- * statement row, this module hands the decision off to the configured
- * language provider via `generateObject` against a tight schema.
+ * statement row, this module asks the configured
+ * language provider for a recommendation via `generateObject` against a tight schema.
+ * A recommendation is persisted for human review; it never settles money.
  *
  * Gating: every AI-side failure mode (disabled, over-budget, provider
  * outage) is caught and surfaced as `{ ok: false, reason }` so the matcher

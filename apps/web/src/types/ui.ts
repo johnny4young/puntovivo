@@ -138,6 +138,8 @@ export type AuditLogAction =
   // Operations Center payment admin gestures.
   | 'payment.retry'
   | 'payment.mark_settled'
+  | 'payment.proposal_approved'
+  | 'payment.proposal_rejected'
   // restaurant table catalog admin gestures.
   | 'restaurant_table.create'
   | 'restaurant_table.update'
@@ -273,6 +275,7 @@ export type AuditLogResourceType =
   | 'device'
   // payment_outbox rows targeted by admin retry / mark_settled.
   | 'payment_outbox'
+  | 'payment_reconciliation_proposal'
   | 'webhook_subscription'
   | 'webhook_outbox'
   | 'operational_alert'
