@@ -493,6 +493,18 @@ semantic correctness: a SELECT can still produce a constant despite reading a
 table, choose the wrong metric, or omit relevant records. Operators must
 inspect SQL scope and columns before acting on any figure.
 
+The generic AI completion pipeline admits one in-flight provider attempt per
+tenant through a durable, local-calendar-month SQLite reservation acquired
+under `BEGIN IMMEDIATE`. Successful estimated cost and reservation release
+commit with one audit row; an error, cancellation, or unpriceable remote result
+records one unknown-cost row and retains a month-scoped liability hold. An
+Ollama model-call failure cannot incur remote charges and releases its hold. The SDK's
+implicit retries are disabled for this pipeline, and calls have a bounded
+timeout. This is a conservative **local admission control**, not an exact USD
+invoice cap: a single call can exceed the remaining budget, and other AI entry
+points have not yet adopted this reservation path. Unknown liabilities require
+provider-invoice reconciliation; they are never automatically declared free.
+
 ## Price-tier boundary
 
 Products expose a three-price grid for their base unit. Each alternate unit

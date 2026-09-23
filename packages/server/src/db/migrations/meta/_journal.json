@@ -645,6 +645,13 @@
       "when": 1790158787384,
       "tag": "0091_ai_copilot_scope_sites",
       "breakpoints": true
+    },
+    {
+      "idx": 92,
+      "version": "6",
+      "when": 1790162866437,
+      "tag": "0092_ai_budget_reservations",
+      "breakpoints": true
     }
   ]
 }

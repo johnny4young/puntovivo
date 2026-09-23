@@ -19,7 +19,7 @@ import { tenants } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../audit-logs.js';
 
-import { currentMonthSpend, recordCall } from './auditLog.js';
+import { reserveAiBudget, settleAiBudget } from './budget.js';
 import { getProvider } from './providers/registry.js';
 import type { AIProvider, TokenUsage } from './providers/types.js';
 import type {
@@ -36,6 +36,8 @@ export interface AIInvocationContext {
   tenantId: string;
   siteId: string | null;
   userId: string | null;
+  /** Request cancellation is propagated to the provider when available. */
+  abortSignal?: AbortSignal;
 }
 
 /**
@@ -385,84 +387,52 @@ export async function completeAI(
     });
   }
 
-  const spent = await currentMonthSpend(ctx.db, ctx.tenantId);
-  if (spent >= settings.monthlyBudgetUsd) {
-    throwServerError({
-      trpcCode: 'BAD_REQUEST',
-      errorCode: 'AI_BUDGET_EXCEEDED',
-      message: `AI monthly budget exhausted ($${spent.toFixed(4)} of $${settings.monthlyBudgetUsd.toFixed(2)})`,
-    });
-  }
-
   const modelId = input.modelId ?? settings.modelId ?? provider.defaultModelId;
+  const model = provider.languageModel(modelId);
+  const providerOptions = provider.cacheControlForSystemPrompt();
+  const reservation = reserveAiBudget(ctx.db, ctx.tenantId);
   const startedAt = Date.now();
 
+  let result;
   try {
-    const providerOptions = provider.cacheControlForSystemPrompt();
-    const result = await generateText({
-      model: provider.languageModel(modelId),
+    result = await generateText({
+      model,
       ...(input.system !== undefined ? { instructions: input.system } : {}),
       prompt: input.prompt,
       ...(input.maxOutputTokens !== undefined ? { maxOutputTokens: input.maxOutputTokens } : {}),
+      ...(ctx.abortSignal !== undefined ? { abortSignal: ctx.abortSignal } : {}),
+      timeout: { totalMs: 60_000 },
+      maxRetries: 0,
       ...(providerOptions !== undefined
         ? { providerOptions: providerOptions as ProviderOptions }
         : {}),
     });
-
-    const inputTokens = result.usage.inputTokens ?? 0;
-    const outputTokens = result.usage.outputTokens ?? 0;
-    const cacheReadTokens = result.usage.inputTokenDetails?.cacheReadTokens ?? 0;
-    const cacheWriteTokens = result.usage.inputTokenDetails?.cacheWriteTokens ?? 0;
-    const costUsd = provider.pricing.calculateCostUsd(modelId, toBillableTokenUsage(result.usage));
-    const durationMs = Date.now() - startedAt;
-
-    const { id: auditLogId } = await recordCall(ctx.db, {
-      tenantId: ctx.tenantId,
-      siteId: ctx.siteId,
-      userId: ctx.userId,
-      feature: input.feature,
-      providerId: provider.id,
-      modelId,
-      inputTokens,
-      outputTokens,
-      cacheReadTokens,
-      cacheWriteTokens,
-      costUsd,
-      durationMs,
-      errorCode: null,
-    });
-
-    return {
-      text: result.text,
-      inputTokens,
-      outputTokens,
-      cacheReadTokens,
-      cacheWriteTokens,
-      costUsd,
-      durationMs,
-      provider: provider.id,
-      model: modelId,
-      auditLogId,
-    };
   } catch (error) {
     const durationMs = Date.now() - startedAt;
-    // Persist the failure so dashboards count it. Cost is zero — the
-    // call never billed against the tenant's spend.
-    await recordCall(ctx.db, {
-      tenantId: ctx.tenantId,
-      siteId: ctx.siteId,
-      userId: ctx.userId,
-      feature: input.feature,
-      providerId: provider.id,
-      modelId,
-      inputTokens: 0,
-      outputTokens: 0,
-      cacheReadTokens: 0,
-      cacheWriteTokens: 0,
-      costUsd: 0,
-      durationMs,
-      errorCode: 'AI_PROVIDER_ERROR',
-    });
+    // The SDK may have sent this request before failure or cancellation;
+    // zero is not evidence of a free provider call.
+    const uncertainRemoteCost = provider.id !== 'ollama';
+    settleAiBudget(
+      ctx.db,
+      reservation,
+      {
+        tenantId: ctx.tenantId,
+        siteId: ctx.siteId,
+        userId: ctx.userId,
+        feature: input.feature,
+        providerId: provider.id,
+        modelId,
+        inputTokens: 0,
+        outputTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        costUsd: 0,
+        costState: uncertainRemoteCost ? 'unknown' : 'local_zero',
+        durationMs,
+        errorCode: 'AI_PROVIDER_ERROR',
+      },
+      uncertainRemoteCost
+    );
     throwServerError({
       trpcCode: 'BAD_GATEWAY',
       errorCode: 'AI_PROVIDER_ERROR',
@@ -470,4 +440,100 @@ export async function completeAI(
       details: { cause: String(error) },
     });
   }
+
+  const inputTokens = result.usage.inputTokens ?? 0;
+  const outputTokens = result.usage.outputTokens ?? 0;
+  const cacheReadTokens = result.usage.inputTokenDetails?.cacheReadTokens ?? 0;
+  const cacheWriteTokens = result.usage.inputTokenDetails?.cacheWriteTokens ?? 0;
+  const durationMs = Date.now() - startedAt;
+  const markUnpriceable = () => {
+    settleAiBudget(
+      ctx.db,
+      reservation,
+      {
+        tenantId: ctx.tenantId,
+        siteId: ctx.siteId,
+        userId: ctx.userId,
+        feature: input.feature,
+        providerId: provider.id,
+        modelId,
+        inputTokens,
+        outputTokens,
+        cacheReadTokens,
+        cacheWriteTokens,
+        costUsd: 0,
+        costState: 'unknown',
+        durationMs,
+        errorCode: 'AI_PROVIDER_ERROR',
+      },
+      true
+    );
+  };
+  const hasUsableRemoteUsage =
+    result.usage.inputTokens !== undefined &&
+    result.usage.outputTokens !== undefined &&
+    inputTokens + outputTokens + cacheReadTokens + cacheWriteTokens > 0;
+  if (provider.id !== 'ollama' && !hasUsableRemoteUsage) {
+    markUnpriceable();
+    throwServerError({
+      trpcCode: 'BAD_GATEWAY',
+      errorCode: 'AI_PROVIDER_ERROR',
+      message: 'AI provider returned no billable usage',
+    });
+  }
+
+  let costUsd: number;
+  try {
+    costUsd = provider.pricing.calculateCostUsd(modelId, toBillableTokenUsage(result.usage));
+  } catch {
+    markUnpriceable();
+    throwServerError({
+      trpcCode: 'BAD_GATEWAY',
+      errorCode: 'AI_PROVIDER_ERROR',
+      message: 'AI provider usage could not be priced',
+    });
+  }
+  if (!Number.isFinite(costUsd) || costUsd < 0) {
+    markUnpriceable();
+    throwServerError({
+      trpcCode: 'BAD_GATEWAY',
+      errorCode: 'AI_PROVIDER_ERROR',
+      message: 'AI provider returned unpriceable usage',
+    });
+  }
+
+  const { id: auditLogId } = settleAiBudget(
+    ctx.db,
+    reservation,
+    {
+      tenantId: ctx.tenantId,
+      siteId: ctx.siteId,
+      userId: ctx.userId,
+      feature: input.feature,
+      providerId: provider.id,
+      modelId,
+      inputTokens,
+      outputTokens,
+      cacheReadTokens,
+      cacheWriteTokens,
+      costUsd,
+      costState: provider.id === 'ollama' ? 'local_zero' : 'estimated',
+      durationMs,
+      errorCode: null,
+    },
+    false
+  );
+
+  return {
+    text: result.text,
+    inputTokens,
+    outputTokens,
+    cacheReadTokens,
+    cacheWriteTokens,
+    costUsd,
+    durationMs,
+    provider: provider.id,
+    model: modelId,
+    auditLogId,
+  };
 }

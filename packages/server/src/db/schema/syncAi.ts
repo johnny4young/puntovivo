@@ -373,6 +373,28 @@ export const aiAuditLogRelations = relations(aiAuditLog, ({ one }) => ({
   }),
 }));
 
+/**
+ * One outstanding remote AI admission per tenant and local calendar month.
+ * A failed/aborted request remains as an unknown liability until the month
+ * rolls over or an explicit reconciliation resolves its provider invoice.
+ */
+export const aiBudgetReservations = sqliteTable(
+  'ai_budget_reservations',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    monthStart: text('month_start').notNull(),
+    state: text('state', { enum: ['pending', 'unknown'] }).notNull(),
+    auditLogId: text('audit_log_id').references(() => aiAuditLog.id),
+    createdAt: text('created_at').notNull().$defaultFn(nowIso),
+  },
+  table => [
+    uniqueIndex('idx_ai_budget_reservations_tenant_month').on(table.tenantId, table.monthStart),
+  ]
+);
+
 export type AIAuditLogRow = typeof aiAuditLog.$inferSelect;
 export type NewAIAuditLogRow = typeof aiAuditLog.$inferInsert;
 

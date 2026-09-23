@@ -9,9 +9,17 @@ import { simulateReadableStream } from 'ai';
 import { ServerErrorWithCode } from '../../lib/errorCodes.js';
 import { createServer, type PuntovivoServer } from '../../index.js';
 import { getDatabase } from '../../db/index.js';
-import { aiAuditLog, companies, sites, tenants, users } from '../../db/schema.js';
+import {
+  aiAuditLog,
+  aiBudgetReservations,
+  companies,
+  sites,
+  tenants,
+  users,
+} from '../../db/schema.js';
 
 import { completeAI, resolveAISettings, writeAISettings } from './client.js';
+import { reserveAiBudget } from './budget.js';
 import type { AIProvider } from './providers/types.js';
 
 let server: PuntovivoServer;
@@ -86,6 +94,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   const db = getDatabase();
+  await db.delete(aiBudgetReservations).run();
   await db.delete(aiAuditLog).run();
   await db.update(tenants).set({ settings: {} }).where(eq(tenants.id, tenantId));
 });
@@ -334,7 +343,127 @@ describe('client.completeAI', () => {
     expect(rows[0]?.siteId).toBeNull();
   });
 
-  it('records a failure row with cost_usd=0 and AI_PROVIDER_ERROR when the SDK throws', async () => {
+  it('admits only one remote call while another tenant-month call is in flight', async () => {
+    const db = getDatabase();
+    await writeAISettings(db, tenantId, { enabled: true, monthlyBudgetUsd: 0.01 });
+    let enterFirst!: () => void;
+    let finishFirst!: () => void;
+    const firstEntered = new Promise<void>(resolve => {
+      enterFirst = resolve;
+    });
+    const firstGate = new Promise<void>(resolve => {
+      finishFirst = resolve;
+    });
+    let providerCalls = 0;
+    const provider = buildMockProvider({
+      languageModel: () =>
+        new MockLanguageModelV4({
+          provider: 'anthropic',
+          modelId: 'claude-haiku-4-5',
+          doGenerate: async () => {
+            providerCalls += 1;
+            if (providerCalls === 1) {
+              enterFirst();
+              await firstGate;
+            }
+            return {
+              content: [{ type: 'text', text: 'pong' }],
+              finishReason: 'stop',
+              usage: {
+                inputTokens: { total: 10, noCache: 10, cacheRead: 0, cacheWrite: 0 },
+                outputTokens: { total: 5 },
+              },
+              warnings: [],
+            };
+          },
+          doStream: async () => {
+            throw new Error('unexpected streaming call');
+          },
+        }),
+    });
+
+    const first = completeAI({ db, tenantId, siteId, userId }, baseInput, () => provider);
+    await firstEntered;
+    try {
+      await expectThrow(
+        completeAI({ db, tenantId, siteId, userId }, baseInput, () => provider),
+        'AI_BUDGET_EXCEEDED'
+      );
+      expect(providerCalls).toBe(1);
+    } finally {
+      finishFirst();
+      await first;
+    }
+    expect(await db.select().from(aiAuditLog).all()).toHaveLength(1);
+  });
+
+  it('keeps a cancelled remote request as an unknown liability without a duplicate retry', async () => {
+    const db = getDatabase();
+    await writeAISettings(db, tenantId, { enabled: true, monthlyBudgetUsd: 1 });
+    const controller = new AbortController();
+    let enterCall!: () => void;
+    const entered = new Promise<void>(resolve => {
+      enterCall = resolve;
+    });
+    const provider = buildMockProvider({
+      languageModel: () =>
+        new MockLanguageModelV4({
+          provider: 'anthropic',
+          modelId: 'claude-haiku-4-5',
+          doGenerate: async ({ abortSignal }) => {
+            enterCall();
+            return new Promise((_, reject) => {
+              abortSignal?.addEventListener('abort', () => reject(new Error('cancelled')), {
+                once: true,
+              });
+            });
+          },
+          doStream: async () => {
+            throw new Error('unexpected streaming call');
+          },
+        }),
+    });
+
+    const call = completeAI(
+      { db, tenantId, siteId, userId, abortSignal: controller.signal },
+      baseInput,
+      () => provider
+    );
+    await entered;
+    controller.abort();
+    await expectThrow(call, 'AI_PROVIDER_ERROR');
+    const rows = await db.select().from(aiAuditLog).all();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.costState).toBe('unknown');
+    expect(await db.select().from(aiBudgetReservations).all()).toMatchObject([
+      { tenantId, state: 'unknown', auditLogId: rows[0]?.id },
+    ]);
+    await expectThrow(
+      completeAI({ db, tenantId, siteId, userId }, baseInput, () => buildMockProvider()),
+      'AI_BUDGET_EXCEEDED'
+    );
+    expect(await db.select().from(aiAuditLog).all()).toHaveLength(1);
+  });
+
+  it('does not block a different tenant on the first tenant budget reservation', async () => {
+    const db = getDatabase();
+    await writeAISettings(db, tenantId, { enabled: true, monthlyBudgetUsd: 1 });
+    await writeAISettings(db, tenantOther, { enabled: true, monthlyBudgetUsd: 1 });
+    const reservation = reserveAiBudget(db, tenantId);
+    try {
+      const other = await completeAI(
+        { db, tenantId: tenantOther, siteId: null, userId: null },
+        baseInput,
+        () => buildMockProvider()
+      );
+      expect(other.text).toBe('pong');
+      expect(await db.select().from(aiAuditLog).all()).toHaveLength(1);
+    } finally {
+      await db.delete(aiBudgetReservations).where(eq(aiBudgetReservations.id, reservation.id));
+    }
+  });
+
+  it('records an unknown-cost failure and blocks an unsafe retry after the SDK throws', async () => {
     const db = getDatabase();
     await writeAISettings(db, tenantId, { enabled: true, monthlyBudgetUsd: 1 });
     await expectThrow(
@@ -359,6 +488,68 @@ describe('client.completeAI', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]?.errorCode).toBe('AI_PROVIDER_ERROR');
     expect(rows[0]?.costUsd).toBe(0);
+    expect(rows[0]?.costState).toBe('unknown');
+    await expectThrow(
+      completeAI({ db, tenantId, siteId, userId }, baseInput, () => buildMockProvider()),
+      'AI_BUDGET_EXCEEDED'
+    );
+    expect(await db.select().from(aiAuditLog).all()).toHaveLength(1);
+  });
+
+  it('keeps provider success auditable when local pricing throws after the billable call', async () => {
+    const db = getDatabase();
+    await writeAISettings(db, tenantId, { enabled: true, monthlyBudgetUsd: 1 });
+    const provider = buildMockProvider({
+      pricing: {
+        models: {},
+        calculateCostUsd: () => {
+          throw new Error('missing price');
+        },
+      },
+    });
+    await expectThrow(
+      completeAI({ db, tenantId, siteId, userId }, baseInput, () => provider),
+      'AI_PROVIDER_ERROR'
+    );
+    const rows = await db.select().from(aiAuditLog).all();
+    expect(rows).toMatchObject([{ costState: 'unknown', errorCode: 'AI_PROVIDER_ERROR' }]);
+    expect(await db.select().from(aiBudgetReservations).all()).toMatchObject([
+      { state: 'unknown', auditLogId: rows[0]?.id },
+    ]);
+  });
+
+  it('does not treat a remote success with zero reported usage as free', async () => {
+    const db = getDatabase();
+    await writeAISettings(db, tenantId, { enabled: true, monthlyBudgetUsd: 1 });
+    const provider = buildMockProvider({
+      languageModel: () =>
+        new MockLanguageModelV4({
+          provider: 'anthropic',
+          modelId: 'claude-haiku-4-5',
+          doGenerate: async () => ({
+            content: [{ type: 'text', text: 'pong' }],
+            finishReason: 'stop',
+            usage: {
+              inputTokens: { total: 0, noCache: 0, cacheRead: 0, cacheWrite: 0 },
+              outputTokens: { total: 0 },
+            },
+            warnings: [],
+          }),
+          doStream: async () => {
+            throw new Error('unexpected streaming call');
+          },
+        }),
+    });
+    await expectThrow(
+      completeAI({ db, tenantId, siteId, userId }, baseInput, () => provider),
+      'AI_PROVIDER_ERROR'
+    );
+    expect(await db.select().from(aiAuditLog).all()).toMatchObject([
+      { costState: 'unknown', costUsd: 0 },
+    ]);
+    expect(await db.select().from(aiBudgetReservations).all()).toMatchObject([
+      { state: 'unknown' },
+    ]);
   });
 
   it('does not let one tenant see another tenant spend during budget pre-check', async () => {
