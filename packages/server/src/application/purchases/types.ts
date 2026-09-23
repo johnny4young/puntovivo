@@ -9,7 +9,6 @@
  * @module application/purchases/types
  */
 import type { DatabaseInstance } from '../../db/index.js';
-import type { CreatePurchaseInput } from '../../trpc/schemas/purchases.js';
 
 /**
  * Minimal structural subset of the tRPC `Context` that the purchase
@@ -19,9 +18,9 @@ import type { CreatePurchaseInput } from '../../trpc/schemas/purchases.js';
  * - `siteId` is nullable: a purchase tolerates a missing active site and
  * falls back to the tenant's first active purchase sequential's site
  * (see `getPurchaseSequentialContext` / `getPurchaseSiteContext`).
- * OCR draft capture uses this non-critical base because it does not move
- * stock. Completed procurement commands extend it with a mandatory Command
- * Envelope and transactional idempotency finalizer below.
+ * OCR confirmation is stricter and requires an active site even though it
+ * does not move stock. Completed procurement commands extend it with a
+ * mandatory Command Envelope and transactional idempotency finalizer below.
  */
 export interface PurchaseContext {
   db: DatabaseInstance;
@@ -96,12 +95,6 @@ export type PurchaseSiteContext = {
   id: string;
   name: string;
 };
-
-export interface CreateOcrDraftPurchaseInput {
-  providerId: string;
-  items: CreatePurchaseInput['items'];
-  notes?: string | null;
-}
 
 export type ResolvedOrderReceiptItem = ResolvedPurchaseItem & {
   sourceOrderItemId: string;
