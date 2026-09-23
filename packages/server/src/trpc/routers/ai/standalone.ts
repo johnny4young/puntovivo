@@ -63,17 +63,20 @@ export const standaloneProcedures = {
           feature: 'invoiceOcr',
         });
       }
-      const result = await extractInvoiceFromImage(
-        {
-          db: ctx.db,
-          tenantId: ctx.tenantId,
-          siteId: ctx.siteId,
-          userId,
-        },
-        {
-          imageBase64: input.imageBase64,
-          mimeType: input.mimeType,
-        }
+      const result = await withClientAbortSignal(ctx.res, abortSignal =>
+        extractInvoiceFromImage(
+          {
+            db: ctx.db,
+            tenantId: ctx.tenantId,
+            siteId: ctx.siteId,
+            userId,
+            abortSignal,
+          },
+          {
+            imageBase64: input.imageBase64,
+            mimeType: input.mimeType,
+          }
+        )
       );
       return {
         invoice: result.invoice,
