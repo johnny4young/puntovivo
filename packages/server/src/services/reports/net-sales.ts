@@ -30,6 +30,7 @@
 
 import { sql, type SQL } from 'drizzle-orm';
 import { saleItems, sales } from '../../db/schema.js';
+import type { UtcDayWindow } from './day-window.js';
 
 export function saleReturnedAmountSql(tenantId: string): SQL<number> {
   return sql<number>`coalesce((
@@ -198,6 +199,18 @@ export function datedRevenueSaleConditions(tenantId: string): readonly SQL[] {
   return [sql`${sales.tenantId} = ${tenantId}`, sql`${sales.status} = 'completed'`];
 }
 
+/** One tenant-local calendar label and its real half-open UTC boundaries. */
+export interface RevenueDayWindow extends UtcDayWindow {
+  date: string;
+}
+
+/** Rounded dated revenue and the existing non-refunded order count for one calendar day. */
+export interface DailyRevenueRow {
+  date: string;
+  revenue: number;
+  orders: number;
+}
+
 /**
  * Daily revenue series as a UNION of dated events: each sale contributes its
  * total on the day it completed, each return contributes a NEGATIVE refund on
@@ -212,36 +225,50 @@ export function datedRevenueSaleConditions(tenantId: string): readonly SQL[] {
  * Returns rows of { date, revenue, orders }, ascending by date. A day with
  * only refunds appears with negative revenue and zero orders, which is the
  * honest picture and something the previous per-sale correlation could not
- * represent at all.
+ * represent at all. Windows must be nonempty, chronological and contiguous.
  */
-export function dailyDatedRevenueSql(tenantId: string, fromIso: string): SQL {
+export function dailyDatedRevenueSql(tenantId: string, windows: readonly RevenueDayWindow[]): SQL {
+  const first = windows[0];
+  const last = windows.at(-1);
+  if (!first || !last) throw new RangeError('Daily revenue requires at least one calendar day');
+  // Bucket each already-bounded event once. Joining a day table can make SQLite
+  // rescan tenant history once per day rather than once per reporting window.
+  const calendarDay = sql`case ${sql.join(
+    windows.map(
+      window =>
+        sql`when e.event_at >= ${window.startIso} and e.event_at < ${window.endExclusiveIso} then ${window.date}`
+    ),
+    sql` `
+  )} end`;
   return sql`
     select
-      event_date as date,
-      round(coalesce(sum(amount), 0), 2) as revenue,
-      coalesce(sum(orders), 0) as orders
+      ${calendarDay} as date,
+      round(coalesce(sum(e.amount), 0), 2) as revenue,
+      coalesce(sum(e.orders), 0) as orders
     from (
       select
-        substr(coalesce(s.checkout_completed_at, s.created_at), 1, 10) as event_date,
+        coalesce(s.checkout_completed_at, s.created_at) as event_at,
         s.total as amount,
         case when s.return_state is null or s.return_state != 'refunded' then 1 else 0 end as orders
       from sales s
       where s.tenant_id = ${tenantId}
         and s.status = 'completed'
-        and coalesce(s.checkout_completed_at, s.created_at) >= ${fromIso}
+        and coalesce(s.checkout_completed_at, s.created_at) >= ${first.startIso}
+        and coalesce(s.checkout_completed_at, s.created_at) < ${last.endExclusiveIso}
       union all
       select
-        substr(sr.created_at, 1, 10) as event_date,
+        sr.created_at as event_at,
         -sr.refund_amount as amount,
         0 as orders
       from sale_returns sr
       join sales s2 on s2.id = sr.sale_id and s2.tenant_id = sr.tenant_id
       where sr.tenant_id = ${tenantId}
         and s2.status = 'completed'
-        and sr.created_at >= ${fromIso}
-    )
-    group by event_date
-    order by event_date asc
+        and sr.created_at >= ${first.startIso}
+        and sr.created_at < ${last.endExclusiveIso}
+    ) e
+    group by date
+    order by date asc
   `;
 }
 
@@ -275,7 +302,12 @@ export interface WindowedProductTotalsRow {
   totalRevenue: number;
 }
 
-export function windowedProductTotalsSql(tenantId: string, fromIso: string, limit: number): SQL {
+export function windowedProductTotalsSql(
+  tenantId: string,
+  fromIso: string,
+  toExclusiveIso: string,
+  limit: number
+): SQL {
   return sql`
     select
       p.id as productId,
@@ -291,6 +323,7 @@ export function windowedProductTotalsSql(tenantId: string, fromIso: string, limi
       join sales s on s.id = si.sale_id and s.tenant_id = ${tenantId}
       where s.status = 'completed'
         and coalesce(s.checkout_completed_at, s.created_at) >= ${fromIso}
+        and coalesce(s.checkout_completed_at, s.created_at) < ${toExclusiveIso}
       union all
       select
         sri.product_id as product_id,
@@ -302,6 +335,7 @@ export function windowedProductTotalsSql(tenantId: string, fromIso: string, limi
       where sri.tenant_id = ${tenantId}
         and s2.status = 'completed'
         and sr.created_at >= ${fromIso}
+        and sr.created_at < ${toExclusiveIso}
     ) e
     join products p on p.id = e.product_id and p.tenant_id = ${tenantId}
     group by p.id, p.name
