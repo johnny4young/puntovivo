@@ -8,9 +8,17 @@
  * expected-value guard so every committed document owns a distinct number.
  */
 import { and, eq } from 'drizzle-orm';
-import type { DatabaseInstance } from '../db/index.js';
+import type { DatabaseInstance } from '../db/types.js';
 import { sequentials } from '../db/schema.js';
 import { throwServerError } from '../lib/errorCodes.js';
+
+/**
+ * The only Drizzle operations needed while allocating a document number.
+ * Both the connection and its transaction implement these methods; requiring
+ * the full connection would force transaction callers to lie about their type.
+ * Callers must still supply a handle inside their own write transaction.
+ */
+export type SequentialAllocationExecutor = Pick<DatabaseInstance, 'select' | 'update'>;
 
 export interface AllocatedSequential {
   value: number;
@@ -18,7 +26,7 @@ export interface AllocatedSequential {
 }
 
 export function allocateNextSequential(
-  db: DatabaseInstance,
+  db: SequentialAllocationExecutor,
   args: {
     tenantId: string;
     sequentialId: string;

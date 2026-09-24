@@ -49,7 +49,7 @@ export async function createOcrDraftPurchase(
 
   ctx.db.transaction(
     tx => {
-      purchaseNumber = allocateNextSequential(tx as unknown as typeof ctx.db, {
+      purchaseNumber = allocateNextSequential(tx, {
         tenantId: ctx.tenantId,
         sequentialId: sequentialContext.id,
         updatedAt: now,
