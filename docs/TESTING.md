@@ -42,6 +42,17 @@ snapshot with `pnpm --filter @puntovivo/server run typecheck:tests:update`; CI
 never updates it automatically. Passing this ratchet means no type debt was
 added relative to the snapshot, not that every server test is type-clean yet.
 
+### Server coverage floors
+
+The server's `ci:server` coverage run enforces minimum statements, branches,
+functions and lines of **85%, 76%, 82% and 87%**, respectively. The floors
+retain roughly 1.6–2.4 percentage points of headroom below three hosted
+backend measurements on the same test scope (about 87%, 78.4%, 84% and 88.6%).
+Branch coverage is ratcheted from its older 63% floor without excluding more
+production code or changing the coverage provider. A green aggregate does
+not prove every tenant, fiscal or rollback path is covered; focused invariant
+tests remain mandatory for those changes.
+
 ## Responsive operator shell
 
 `e2e/web/header-responsive.spec.ts` exercises real, isolated tenants with long
