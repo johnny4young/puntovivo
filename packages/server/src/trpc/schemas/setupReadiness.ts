@@ -116,6 +116,7 @@ export type VerticalReadinessProfile = (typeof verticalReadinessProfileEnum)[num
 
 /** Closed ids keep server evidence and translated setup guidance in lockstep. */
 export const verticalReadinessCheckIdEnum = [
+  'businessCalendar',
   'catalog',
   'productUnits',
   'fractionalSales',

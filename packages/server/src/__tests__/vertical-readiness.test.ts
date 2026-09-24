@@ -276,6 +276,75 @@ describe('setupReadiness.vertical', () => {
     });
   });
 
+  it.each(['retail', 'pharmacy'] as const)(
+    'keeps %s readiness repairable without certifying an invalid legacy timezone',
+    async businessType => {
+      const affected = await seedTenant({ businessType });
+      const healthy = await seedTenant({ businessType });
+      await getDatabase()
+        .update(tenantLocaleSettings)
+        .set({ timezoneOverride: 'Mars/Olympus' })
+        .where(eq(tenantLocaleSettings.tenantId, affected.tenantId));
+
+      await expect(callerFor(affected).setupReadiness.vertical()).resolves.toEqual({
+        businessType,
+        profile: businessType,
+        checks: [
+          {
+            id: 'businessCalendar',
+            status: 'attention',
+            configuredCount: 0,
+            cta: { route: '/company', tab: 'locale' },
+          },
+        ],
+        readyCount: 0,
+        attentionCount: 1,
+      });
+      const healthyReadiness = await callerFor(healthy).setupReadiness.vertical();
+      expect(healthyReadiness.checks.some(item => item.id === 'businessCalendar')).toBe(false);
+
+      await getDatabase()
+        .update(tenantLocaleSettings)
+        .set({ timezoneOverride: null })
+        .where(eq(tenantLocaleSettings.tenantId, affected.tenantId));
+      const repairedReadiness = await callerFor(affected).setupReadiness.vertical();
+      expect(repairedReadiness.profile).toBe(businessType);
+      expect(repairedReadiness.checks.some(item => item.id === 'businessCalendar')).toBe(false);
+      expect(repairedReadiness.checks.length).toBeGreaterThan(1);
+    }
+  );
+
+  it.each(['Mars/Olympus', '+05:00'])(
+    'rejects newly submitted invalid timezone %s before changing locale or readiness',
+    async timezoneOverride => {
+      const harness = await seedTenant({ businessType: 'pharmacy' });
+      await expect(
+        callerFor(harness).tenantLocale.update({ countryCode: 'CO', timezoneOverride })
+      ).rejects.toMatchObject({
+        code: 'BAD_REQUEST',
+        cause: { errorCode: 'TENANT_TIMEZONE_INVALID' },
+      });
+      const saved = await getDatabase()
+        .select({ timezoneOverride: tenantLocaleSettings.timezoneOverride })
+        .from(tenantLocaleSettings)
+        .where(eq(tenantLocaleSettings.tenantId, harness.tenantId))
+        .get();
+      expect(saved?.timezoneOverride).toBeNull();
+      expect((await callerFor(harness).setupReadiness.vertical()).checks.length).toBeGreaterThan(1);
+    }
+  );
+
+  it.each(['UTC', 'America/Bogota', 'US/Eastern'])(
+    'accepts supported timezone %s and keeps the vertical checklist available',
+    async timezoneOverride => {
+      const harness = await seedTenant({ businessType: 'pharmacy' });
+      await callerFor(harness).tenantLocale.update({ countryCode: 'CO', timezoneOverride });
+      const readiness = await callerFor(harness).setupReadiness.vertical();
+      expect(readiness.profile).toBe('pharmacy');
+      expect(readiness.checks.some(item => item.id === 'businessCalendar')).toBe(false);
+    }
+  );
+
   it.each(['retail', 'wholesale'] as const)(
     'maps %s to the retail checklist and reports exact unit coverage',
     async businessType => {

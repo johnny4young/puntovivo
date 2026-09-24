@@ -24,6 +24,10 @@
   },
   "action": "Revisar configuración",
   "checks": {
+    "businessCalendar": {
+      "label": "Calendario del negocio",
+      "hint": "La zona horaria guardada no es compatible. Actualiza la configuración regional antes de confiar en el estado basado en fechas."
+    },
     "catalog": {
       "label": "Catálogo vendible",
       "hint": "{{count}} productos activos están disponibles para este negocio."
