@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
@@ -13,6 +13,7 @@ import {
   saleReturns,
   sales,
   sites,
+  tenantLocaleSettings,
   users,
 } from '../db/schema.js';
 import { seedCommittedSaleSession } from './utils/cashSessionFixture.js';
@@ -61,6 +62,8 @@ describe('Dashboard tRPC Router', () => {
       verbose: false,
     });
 
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-09-21T16:00:00.000Z'));
     const db = getDatabase();
     const seededUser = await db
       .select()
@@ -73,6 +76,14 @@ describe('Dashboard tRPC Router', () => {
 
     tenantId = seededUser.tenantId;
     userId = seededUser.id;
+    // These legacy eligibility cases use UTC fixtures; local-day edges live in the dedicated suite.
+    await db
+      .insert(tenantLocaleSettings)
+      .values({ tenantId, countryCode: 'CO', timezoneOverride: 'UTC' })
+      .onConflictDoUpdate({
+        target: tenantLocaleSettings.tenantId,
+        set: { timezoneOverride: 'UTC' },
+      });
 
     const seededSite = await db
       .select()
@@ -411,6 +422,7 @@ describe('Dashboard tRPC Router', () => {
   });
 
   afterAll(async () => {
+    vi.useRealTimers();
     await server.close();
   });
 

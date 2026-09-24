@@ -212,6 +212,31 @@ display.
   completed without an active template remains on the legacy renderer even if
   a template is configured later.
 
+## Reporting calendar boundary
+
+Dashboard today, its thirty-calendar-day revenue series, and its seven-day top
+products use the timezone resolved by `services/tenant-locale.ts`: explicit
+tenant override, country default, then the existing unconfigured fallback.
+`services/reports/day-window.ts` converts each calendar date into a half-open
+UTC interval, including DST days and skipped local midnights. Reporting never
+adds a fixed 24 hours to advance a local day or rewrites stored timestamps.
+
+Completed sales are attributed by `checkoutCompletedAt`, with `createdAt` only
+for historical rows without completion telemetry. Returns subtract immutable
+amounts on their own booking day, not the original sale day. Today's money and
+order count are the same aggregate as the final chart bucket. Fully returned
+orders remain excluded from throughput while both dated money events remain
+visible. Top products retain their positive-net-quantity policy and exclude
+both sale and return events outside the same bounded local reporting window.
+
+Calendar labels remain date-only values in the UI. A successful locale-setting
+change invalidates the dashboard aggregate as well as locale formatting; a
+cached old timezone must not survive a settings round trip. Locale writes reject
+unsupported named time zones and fixed numeric offsets. A legacy invalid override
+fails the dashboard closed with `TENANT_TIMEZONE_INVALID` and localized repair
+instructions; it never silently substitutes another calendar. Administrators can
+correct the override or clear it to restore country-default inheritance.
+
 ## Local storage and recovery
 
 Packaged Electron databases use SQLCipher. The database key is obtained through

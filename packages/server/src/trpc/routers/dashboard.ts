@@ -9,60 +9,26 @@
  * @module trpc/routers/dashboard
  */
 
-import { and, asc, desc, eq, gte, lte, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, lte, sql } from 'drizzle-orm';
+import { isSupportedTimeZone } from '../../lib/time-zone.js';
+import { throwServerError } from '../../lib/errorCodes.js';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { customers, products, sales } from '../../db/schema.js';
 import { productStockTotalSql } from '../../services/inventory-balances/derive.js';
 import {
   dailyDatedRevenueSql,
-  datedRevenueSaleConditions,
   netSaleTotalSql,
-  windowReturnedAmountSql,
   windowedProductTotalsSql,
   type WindowedProductTotalsRow,
+  type DailyRevenueRow,
 } from '../../services/reports/net-sales.js';
-
-type DashboardRevenuePoint = {
-  date: string;
-  revenue: number;
-  orders: number;
-};
-
-function startOfUtcDay(date: Date): Date {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-}
-
-function endOfUtcDay(date: Date): Date {
-  return new Date(
-    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 23, 59, 59, 999)
-  );
-}
-
-function addUtcDays(date: Date, days: number): Date {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days));
-}
-
-function toIsoDate(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
-
-function buildRevenueSeries(days: number, today: Date, rows: DashboardRevenuePoint[]) {
-  const rowMap = new Map(rows.map(row => [row.date, row]));
-  const startDate = addUtcDays(startOfUtcDay(today), -(days - 1));
-
-  return Array.from({ length: days }, (_, offset) => {
-    const currentDate = addUtcDays(startDate, offset);
-    const isoDate = toIsoDate(currentDate);
-    const row = rowMap.get(isoDate);
-
-    return {
-      date: isoDate,
-      revenue: row?.revenue ?? 0,
-      orders: row?.orders ?? 0,
-    };
-  });
-}
+import { resolveTenantLocale } from '../../services/tenant-locale.js';
+import {
+  addCalendarDays,
+  calendarDayInTimeZone,
+  resolveUtcDayWindow,
+} from '../../services/reports/day-window.js';
 
 function getRevenueEligibleSaleConditions(tenantId: string) {
   return [
@@ -75,31 +41,30 @@ function getRevenueEligibleSaleConditions(tenantId: string) {
 export const dashboardRouter = router({
   summary: tenantProcedure.query(async ({ ctx }) => {
     const now = new Date();
-    const todayStart = startOfUtcDay(now);
-    const todayEnd = endOfUtcDay(now);
-    const lastThirtyDaysStart = addUtcDays(todayStart, -29);
-    const lastSevenDaysStart = addUtcDays(todayStart, -6);
+    const { timezone } = await resolveTenantLocale(ctx.db, ctx.tenantId);
+    // Legacy persisted overrides predate write validation. Do not silently
+    // report another calendar's totals when the company configuration is invalid.
+    if (!isSupportedTimeZone(timezone)) {
+      throwServerError({
+        trpcCode: 'PRECONDITION_FAILED',
+        errorCode: 'TENANT_TIMEZONE_INVALID',
+        message: 'Correct or clear the company time zone override before loading the dashboard.',
+      });
+    }
+    const today = calendarDayInTimeZone(now, timezone);
+    const windows = Array.from({ length: 30 }, (_, offset) => {
+      const date = addCalendarDays(today, offset - 29);
+      return { date, ...resolveUtcDayWindow(date, timezone) };
+    });
+    const { endExclusiveIso } = resolveUtcDayWindow(today, timezone);
+    const lastSevenDaysStart = resolveUtcDayWindow(addCalendarDays(today, -6), timezone).startIso;
 
     const completedSaleConditions = getRevenueEligibleSaleConditions(ctx.tenantId);
     const netSaleTotal = netSaleTotalSql(ctx.tenantId);
-    // Period revenue books returns as dated events; see net-sales. The
-    // per-ticket helper above stays for the recent-sales list, where lifetime
-    // net is a property of the ticket rather than of a period.
-    const todayFrom = todayStart.toISOString();
-    const todayTo = todayEnd.toISOString();
-    // The refund window is half-open, so it takes the next day's start.
-    // Handing it the inclusive 23:59:59.999 used by the sale-side comparison
-    // below dropped a refund recorded in that final millisecond from a figure
-    // whose other half kept the sale.
-    const todayToExclusive = addUtcDays(todayStart, 1).toISOString();
-    const todayRefunds = windowReturnedAmountSql(ctx.tenantId, todayFrom, todayToExclusive);
-    // Drafts can stay open across a reporting boundary. Completed-at
-    // is the authoritative business instant; created-at remains the
-    // compatibility fallback for historical rows predating telemetry.
+    // Completion is authoritative; historical rows retain their created-at fallback.
     const completedAt = sql<string>`coalesce(${sales.checkoutCompletedAt}, ${sales.createdAt})`;
 
     const [
-      todaySalesStats,
       revenueThirtyDays,
       lowStockCount,
       lowStockItems,
@@ -107,27 +72,7 @@ export const dashboardRouter = router({
       topProducts,
       customerCount,
     ] = await Promise.all([
-      ctx.db
-        .select({
-          revenue: sql<number>`round(coalesce(sum(${sales.total}), 0) - ${todayRefunds}, 2)`,
-          // Revenue goes dated; the ORDER count deliberately does not change
-          // meaning. A fully returned ticket was never counted as an order and
-          // still is not — the review comment was about revenue restating a
-          // closed period, not about redefining throughput.
-          orders: sql<number>`sum(case when ${sales.returnState} is null or ${sales.returnState} != 'refunded' then 1 else 0 end)`,
-        })
-        .from(sales)
-        .where(
-          and(
-            ...datedRevenueSaleConditions(ctx.tenantId),
-            gte(completedAt, todayFrom),
-            lte(completedAt, todayTo)
-          )
-        )
-        .get(),
-      Promise.resolve(
-        ctx.db.all(dailyDatedRevenueSql(ctx.tenantId, lastThirtyDaysStart.toISOString())) as unknown
-      ) as Promise<Array<{ date: string; revenue: number; orders: number }>>,
+      ctx.db.all<DailyRevenueRow>(dailyDatedRevenueSql(ctx.tenantId, windows)),
       ctx.db
         .select({ value: sql<number>`count(*)` })
         .from(products)
@@ -196,7 +141,7 @@ export const dashboardRouter = router({
       // week its ticket was sold in, and could not represent a return booked
       // this week for a sale made before it at all.
       ctx.db.all<WindowedProductTotalsRow>(
-        windowedProductTotalsSql(ctx.tenantId, lastSevenDaysStart.toISOString(), 5)
+        windowedProductTotalsSql(ctx.tenantId, lastSevenDaysStart, endExclusiveIso, 5)
       ),
       ctx.db
         .select({ value: sql<number>`count(*)` })
@@ -205,7 +150,12 @@ export const dashboardRouter = router({
         .get(),
     ]);
 
-    const revenueSeries = buildRevenueSeries(30, now, revenueThirtyDays);
+    const rowsByDay = new Map(revenueThirtyDays.map(row => [row.date, row]));
+    const revenueSeries = windows.map(
+      ({ date }) => rowsByDay.get(date) ?? { date, revenue: 0, orders: 0 }
+    );
+    // Today and the chart share the same dated-event aggregate and calendar boundaries.
+    const todaySalesStats = revenueSeries.at(-1);
     const revenueThirtyDayTotal = revenueSeries.reduce((total, point) => total + point.revenue, 0);
 
     return {

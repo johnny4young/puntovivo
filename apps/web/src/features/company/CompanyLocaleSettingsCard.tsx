@@ -45,6 +45,7 @@ export function CompanyLocaleSettingsCard() {
     onSuccess: async (_data, variables) => {
       await Promise.all([
         utils.tenantLocale.get.invalidate(),
+        utils.dashboard.summary.invalidate(),
         utils.setupReadiness.get.invalidate(),
         utils.setupReadiness.checkout.invalidate(),
         utils.setupReadiness.vertical.invalidate(),

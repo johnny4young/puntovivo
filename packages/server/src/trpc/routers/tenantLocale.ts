@@ -19,6 +19,8 @@
 
 import { and, asc, eq } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
+import { isSupportedTimeZone } from '../../lib/time-zone.js';
+import { throwServerError } from '../../lib/errorCodes.js';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { adminProcedure } from '../middleware/roles.js';
@@ -83,6 +85,14 @@ export const tenantLocaleRouter = router({
           message: `Currency code ${input.currencyOverride} is not in the catalog`,
         });
       }
+    }
+
+    if (input.timezoneOverride != null && !isSupportedTimeZone(input.timezoneOverride)) {
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'TENANT_TIMEZONE_INVALID',
+        message: 'Choose a supported IANA time zone or clear the override in Company settings.',
+      });
     }
 
     const now = new Date().toISOString();
