@@ -136,7 +136,7 @@ export function ProviderCategoryAssignmentsModal({
 
         <div className="max-h-[360px] space-y-3 overflow-y-auto pr-1">
           {filteredCategories.length === 0 && (
-            <div className="rounded-xl border border-secondary-200 bg-white px-4 py-6 text-center text-sm text-secondary-500">
+            <div className="rounded-xl border border-secondary-200 bg-surface px-4 py-6 text-center text-sm text-secondary-500">
               {t('providers.categories.noMatch')}
             </div>
           )}
@@ -150,7 +150,7 @@ export function ProviderCategoryAssignmentsModal({
                 className={`flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-4 transition ${
                   isSelected
                     ? 'border-primary-300 bg-primary-50'
-                    : 'border-secondary-200 bg-white hover:border-secondary-300'
+                    : 'border-secondary-200 bg-surface hover:border-secondary-300'
                 }`}
                 style={{ paddingLeft: `${16 + category.depth * 20}px` }}
               >
