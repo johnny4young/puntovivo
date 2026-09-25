@@ -186,6 +186,85 @@ test('every script test a CI gate runs is covered by the filters of a job that r
   );
 });
 
+test('shared browser and Electron journeys trigger both workspace jobs', () => {
+  const filters = readPathFilters(readRepoFile('.github/workflows/ci.yml'));
+  for (const job of ['web', 'desktop']) {
+    const patterns = filters[job].map(globToRegExp);
+    for (const file of ['e2e/shared/pharmacy-role-journey.ts', 'e2e/shared/future-journey.ts']) {
+      assert.ok(
+        patterns.some(pattern => pattern.test(file)),
+        `${job} must run when ${file} changes`
+      );
+    }
+  }
+  const desktopPatterns = filters.desktop.map(globToRegExp);
+  assert.ok(
+    desktopPatterns.some(pattern => pattern.test('e2e/electron/future.spec.ts')),
+    'desktop must run when an Electron journey changes'
+  );
+});
+
+test('pharmacy role changes run their affected browser journey in hosted CI', () => {
+  const workflow = readRepoFile('.github/workflows/ci.yml');
+  const filters = readPathFilters(workflow);
+  const patterns = (filters.pharmacy_roles ?? []).map(globToRegExp);
+  for (const file of [
+    'e2e/shared/pharmacy-role-journey.ts',
+    'e2e/shared/baseline.ts',
+    'e2e/web/pharmacy-roles.spec.ts',
+    'e2e/web/support/app.ts',
+    'playwright.web.config.ts',
+  ]) {
+    assert.ok(
+      patterns.some(pattern => pattern.test(file)),
+      `${file} must trigger pharmacy roles`
+    );
+  }
+  assert.match(
+    workflow,
+    /^      pharmacy_roles: \$\{\{ steps\.filter\.outputs\.pharmacy_roles \}\}$/mu
+  );
+  assert.match(
+    workflow,
+    /- name: Run pharmacy role web journey\n        if: \$\{\{ needs\.detect-changes\.outputs\.pharmacy_roles == 'true' \}\}\n        run: pnpm exec playwright test e2e\/web\/pharmacy-roles\.spec\.ts --config=playwright\.web\.config\.ts --workers=1 --forbid-only/u
+  );
+});
+
+test('pharmacy role changes run their affected Electron journey in hosted CI', () => {
+  const workflow = readRepoFile('.github/workflows/ci.yml');
+  assert.match(workflow, /sudo apt-get install -y xvfb dbus-x11 /u);
+  const filters = readPathFilters(workflow);
+  const patterns = (filters.pharmacy_electron_roles ?? []).map(globToRegExp);
+  for (const file of [
+    'e2e/shared/pharmacy-role-journey.ts',
+    'e2e/shared/baseline.ts',
+    'e2e/electron/pharmacy-roles.spec.ts',
+    'e2e/electron/fixtures.ts',
+    'e2e/electron/global-setup.ts',
+    'playwright.electron.config.ts',
+    'scripts/ensure-electron-main-build.mjs',
+    'scripts/electron-e2e-runtime.mjs',
+  ]) {
+    assert.ok(
+      patterns.some(pattern => pattern.test(file)),
+      `${file} must trigger Electron roles`
+    );
+  }
+  assert.match(
+    workflow,
+    /^      pharmacy_electron_roles: \$\{\{ steps\.filter\.outputs\.pharmacy_electron_roles \}\}$/mu
+  );
+  const desktopPatterns = filters.desktop.map(globToRegExp);
+  assert.ok(
+    desktopPatterns.some(pattern => pattern.test('playwright.electron.config.ts')),
+    'the Electron Playwright config must also schedule desktop validation'
+  );
+  assert.match(
+    workflow,
+    /- name: Run pharmacy role Electron journey\n        if: \$\{\{ needs\.detect-changes\.outputs\.pharmacy_electron_roles == 'true' \}\}\n        timeout-minutes: 4\n        run: \|\n          node scripts\/ensure-electron-main-build\.mjs\n          xvfb-run -a -s "-screen 0 1280x1024x24 -extension MIT-SHM" dbus-run-session -- pnpm exec playwright test e2e\/electron\/pharmacy-roles\.spec\.ts --config=playwright\.electron\.config\.ts --workers=1 --forbid-only/u
+  );
+});
+
 test('the filters, jobs, globs and references are read the way CI resolves them', () => {
   const workflow = [
     '          filters: |',

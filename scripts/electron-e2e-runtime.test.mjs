@@ -4,6 +4,7 @@ import { describe, it } from 'node:test';
 import {
   DEFAULT_ELECTRON_E2E_API_PORT,
   ELECTRON_E2E_API_HOST,
+  devElectronSandboxArgs,
   resolveElectronE2eApiPort,
 } from './electron-e2e-runtime.mjs';
 
@@ -31,5 +32,11 @@ describe('Electron E2E runtime isolation', () => {
         /must be an integer from 1 to 65535/
       );
     }
+  });
+
+  it('uses the test-only Linux sandbox exception without changing other platforms', () => {
+    assert.deepEqual(devElectronSandboxArgs('linux'), ['--no-sandbox']);
+    assert.deepEqual(devElectronSandboxArgs('darwin'), []);
+    assert.deepEqual(devElectronSandboxArgs('win32'), []);
   });
 });

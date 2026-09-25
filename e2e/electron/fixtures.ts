@@ -52,6 +52,7 @@ import {
   ELECTRON_E2E_API_HOST,
   ELECTRON_E2E_API_PORT,
   ELECTRON_E2E_API_URL,
+  devElectronSandboxArgs,
 } from '../../scripts/electron-e2e-runtime.mjs';
 
 /**
@@ -126,7 +127,7 @@ export const IS_PACKAGED_RUN = PACKAGED_APP_DIR.length > 0;
 function resolveDevLaunchTarget(): { executablePath: string; args: string[] } {
   return {
     executablePath: requireFromDesktopWorkspace('electron') as string,
-    args: [ELECTRON_MAIN_ENTRY],
+    args: [ELECTRON_MAIN_ENTRY, ...devElectronSandboxArgs()],
   };
 }
 
