@@ -54,6 +54,17 @@ function collectPropertyNames(value: unknown): string[] {
   return Object.entries(value).flatMap(([key, nested]) => [key, ...collectPropertyNames(nested)]);
 }
 
+// Match whole key words, so shippingMode or a NanoID value never reads as a PIN.
+function secretPropertyNames(value: unknown, exactNames: string[] = []): string[] {
+  return collectPropertyNames(value).filter(
+    key =>
+      exactNames.includes(key) ||
+      (key.match(/[A-Z]?[a-z]+|[A-Z]+(?![a-z])/gu) ?? []).some(word =>
+        ['pin', 'hash'].includes(word.toLowerCase())
+      )
+  );
+}
+
 async function createEmployee(role: EmployeeRole, pin?: string) {
   const id = nanoid();
   const email = `approval-${role}-${id}@example.test`;
@@ -121,12 +132,23 @@ function requestInput(
 }
 
 describe('manager approvals router', () => {
-  it('does not treat a PIN-shaped opaque site id as a secret field', () => {
-    const publicPayload = { siteId: 'AnRpin-c5zdhiplij3yTE', status: 'approved' };
-    expect(collectPropertyNames(publicPayload).join(' ')).not.toMatch(/claimToken|pin|hash/i);
-    expect(collectPropertyNames({ ...publicPayload, staffPinHash: 'secret' }).join(' ')).toMatch(
-      /pin|hash/i
-    );
+  it('flags secret key words, not PIN-shaped ids or words that contain pin', () => {
+    const publicPayload = {
+      siteId: 'AnRpin-c5zdhiplij3yTE',
+      summary: { shippingMode: 'pickup', mapping: {}, spinner: false },
+    };
+    expect(secretPropertyNames(publicPayload, ['claimToken'])).toEqual([]);
+    expect(
+      secretPropertyNames(
+        {
+          ...publicPayload,
+          staffPinHash: 'x',
+          nested: [{ PIN: 'x', pin_hash: 'x' }],
+          claimToken: 'x',
+        },
+        ['claimToken']
+      )
+    ).toEqual(['staffPinHash', 'PIN', 'pin_hash', 'claimToken']);
   });
 
   it('counts only distinct approval evidence while preserving legacy decisions', () => {
@@ -250,7 +272,7 @@ describe('manager approvals router', () => {
     expect(syncRows).toHaveLength(1);
     // Check the payload contract, not opaque random identifier values: NanoID
     // can legitimately contain a case-insensitive `pin` substring.
-    expect(collectPropertyNames(syncRows).join(' ')).not.toMatch(/pin|hash/i);
+    expect(secretPropertyNames(syncRows)).toEqual([]);
   });
 
   it('derives checkout identity and financial summary from the bound context', async () => {
@@ -591,7 +613,7 @@ describe('manager approvals router', () => {
       .get();
     expect(managerSecret?.staffPinHash).toBeTruthy();
     const decidedJson = JSON.stringify(decided);
-    expect(collectPropertyNames(decided).join(' ')).not.toMatch(/claimToken|pin|hash/i);
+    expect(secretPropertyNames(decided, ['claimToken'])).toEqual([]);
     expect(decidedJson).not.toContain('864209');
     expect(decidedJson).not.toContain(managerSecret!.staffPinHash!);
 
@@ -608,9 +630,7 @@ describe('manager approvals router', () => {
       .all();
     expect(syncRows).toHaveLength(2);
     const syncJson = JSON.stringify(syncRows);
-    expect(collectPropertyNames(syncRows).join(' ')).not.toMatch(
-      /claimToken|claimExpiresAt|pin|hash/i
-    );
+    expect(secretPropertyNames(syncRows, ['claimToken', 'claimExpiresAt'])).toEqual([]);
     expect(syncJson).not.toContain('864209');
     expect(syncJson).not.toContain(managerSecret!.staffPinHash!);
   });
