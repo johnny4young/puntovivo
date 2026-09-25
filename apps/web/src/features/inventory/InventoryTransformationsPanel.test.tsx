@@ -1,8 +1,9 @@
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { screen, waitFor, within } from '@testing-library/react';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { render } from '@/test/utils';
+import { __localeStoreForTests } from '@/features/locale/LocaleProvider';
 import { InventoryTransformationsPanel } from './InventoryTransformationsPanel';
 
 const createRecipeMutate = vi.fn(async () => undefined);
@@ -14,6 +15,13 @@ let transformationDetails: Record<string, unknown> | undefined;
 let historyError: unknown = null;
 let detailsError: unknown = null;
 let lotListError: unknown = null;
+let boundaryLots: Array<{
+  id: string;
+  lotNumber: string;
+  expiresAt: string;
+  status: string;
+  onHand: number;
+}> = [];
 let recipeHasMore = false;
 let recipeListError: unknown = null;
 let recipeListInputs: Array<Record<string, unknown>> = [];
@@ -203,6 +211,7 @@ vi.mock('@/lib/trpc', () => ({
                           status: 'active',
                           onHand: 5,
                         },
+                        ...boundaryLots,
                       ]
                     : [],
               },
@@ -223,6 +232,7 @@ describe('InventoryTransformationsPanel', () => {
     historyError = null;
     detailsError = null;
     lotListError = null;
+    boundaryLots = [];
     recipeHasMore = false;
     recipeListError = null;
     recipeListInputs = [];
@@ -232,6 +242,106 @@ describe('InventoryTransformationsPanel', () => {
     createRecipeMutate.mockClear();
     updateRecipeMutate.mockClear();
     executeMutate.mockClear();
+  });
+
+  afterEach(() => {
+    act(() => __localeStoreForTests.getState().reset());
+    vi.restoreAllMocks();
+  });
+
+  it('offers a tenant-day-valid exact lot after UTC midnight without offering elapsed lots', async () => {
+    vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-09-26T00:30:00.000Z'));
+    __localeStoreForTests.getState().setResolved({
+      ...__localeStoreForTests.getState().resolved,
+      timezone: 'America/Bogota',
+    });
+    boundaryLots = [
+      {
+        id: 'lot-today',
+        lotNumber: 'RAW-TODAY',
+        expiresAt: '2026-09-25',
+        status: 'active',
+        onHand: 5,
+      },
+      {
+        id: 'lot-past',
+        lotNumber: 'RAW-PAST',
+        expiresAt: '2026-09-24',
+        status: 'active',
+        onHand: 5,
+      },
+      {
+        id: 'lot-instant',
+        lotNumber: 'RAW-INSTANT',
+        expiresAt: '2026-09-26T00:29:00.000Z',
+        status: 'active',
+        onHand: 5,
+      },
+    ];
+    recipeItems = [
+      {
+        id: 'boundary-recipe',
+        siteId: null,
+        name: 'Boundary recipe',
+        kind: 'recipe',
+        notes: null,
+        isActive: true,
+        version: 0,
+        inputs: [
+          {
+            id: 'recipe-input',
+            productId: 'tracked-raw',
+            productName: 'Tracked raw',
+            productSku: 'RAW-TRACKED',
+            tracksLots: true,
+            tracksSerials: false,
+            tracksStock: true,
+            catalogType: 'standard',
+            baseQuantity: 1,
+          },
+        ],
+        outputs: [
+          {
+            id: 'recipe-output',
+            productId: 'tracked-output',
+            productName: 'Tracked output',
+            productSku: 'OUT-TRACKED',
+            tracksLots: false,
+            tracksSerials: false,
+            tracksStock: true,
+            catalogType: 'standard',
+            expectedBaseQuantity: 1,
+            allocationWeight: 1,
+            role: 'primary',
+          },
+        ],
+      },
+    ];
+
+    const user = userEvent.setup();
+    render(<InventoryTransformationsPanel siteId="site-1" />);
+    await user.click(screen.getByRole('button', { name: 'Execute' }));
+    const dialog = within(screen.getByRole('dialog'));
+    expect(dialog.getByLabelText('Quantity from lot RAW-TODAY')).toBeVisible();
+    expect(dialog.queryByLabelText('Quantity from lot RAW-PAST')).not.toBeInTheDocument();
+    expect(dialog.queryByLabelText('Quantity from lot RAW-INSTANT')).not.toBeInTheDocument();
+
+    act(() =>
+      __localeStoreForTests.getState().setResolved({
+        ...__localeStoreForTests.getState().resolved,
+        timezone: 'Unsupported/Legacy_Zone',
+      })
+    );
+    expect(dialog.getByRole('alert')).toBeVisible();
+    expect(dialog.queryByLabelText('Quantity from lot RAW-TODAY')).not.toBeInTheDocument();
+
+    act(() =>
+      __localeStoreForTests.getState().setResolved({
+        ...__localeStoreForTests.getState().resolved,
+        timezone: 'America/Bogota',
+      })
+    );
+    expect(dialog.getByLabelText('Quantity from lot RAW-TODAY')).toBeVisible();
   });
 
   it('creates a site-scoped recipe from the inventory UI', async () => {
