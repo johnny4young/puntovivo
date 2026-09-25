@@ -81,6 +81,8 @@ jobs:
       desktop: ${{ steps.filter.outputs.desktop }}
       release: ${{ steps.filter.outputs.release }}
       shared: ${{ steps.filter.outputs.shared }}
+      pharmacy_roles: ${{ steps.filter.outputs.pharmacy_roles }}
+      pharmacy_electron_roles: ${{ steps.filter.outputs.pharmacy_electron_roles }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -112,6 +114,8 @@ jobs:
             web:
               - 'apps/web/**'
               - 'e2e/web/**'
+              # Shared journeys also run in the web and Electron suites.
+              - 'e2e/shared/**'
               - 'operator-journeys.json'
               - 'playwright.web.config.ts'
               - 'packages/server/**'
@@ -129,11 +133,30 @@ jobs:
               - 'scripts/check-operator-deck-adoption*.mjs'
               - 'scripts/generate-companion-service-worker*.mjs'
               - 'scripts/long-shift-*'
+            pharmacy_roles:
+              # Shared helpers and the Web harness can affect this untagged
+              # role-handoff test; scheduling Web alone never executes it.
+              - 'e2e/shared/**'
+              - 'e2e/web/pharmacy-roles.spec.ts'
+              - 'e2e/web/support/app.ts'
+              - 'playwright.web.config.ts'
+            pharmacy_electron_roles:
+              - 'e2e/shared/**'
+              - 'e2e/electron/pharmacy-roles.spec.ts'
+              # Harness/config changes can break the same hosted launch.
+              - 'e2e/electron/fixtures.ts'
+              - 'e2e/electron/global-setup.ts'
+              - 'playwright.electron.config.ts'
+              - 'scripts/ensure-electron-main-build.mjs'
+              - 'scripts/electron-e2e-runtime.mjs'
             server:
               - 'packages/server/**'
               - 'perf-budget.json'
             desktop:
               - 'apps/desktop/**'
+              - 'e2e/electron/**'
+              - 'e2e/shared/**'
+              - 'playwright.electron.config.ts'
               - 'packages/server/**'
               - 'perf-budget.json'
               - 'scripts/check-electron-memory*.mjs'
@@ -143,7 +166,6 @@ jobs:
               - 'scripts/asar-stream-integrity*.mjs'
               - 'scripts/backup-streaming-budget*.mjs'
               - 'scripts/electron-e2e-runtime*.mjs'
-              - 'e2e/electron/fixtures.ts'
               - 'scripts/electron-process-log-policy*.mjs'
               - 'scripts/ensure-migrations-bundled*.mjs'
               - 'scripts/ensure-native-runtime*.mjs'
@@ -158,7 +180,6 @@ jobs:
               - 'scripts/check-dependency-signals.test.mjs'
               - 'scripts/check-e2e-awaited-helpers*.mjs'
               - 'scripts/e2e-baseline-cleanup.test.mjs'
-              - 'e2e/shared/baseline.ts'
               - 'scripts/check-exact-override-policy*.mjs'
               - 'scripts/check-format-policy.test.mjs'
               - 'scripts/check-lint-policy.test.mjs'
@@ -277,11 +298,17 @@ jobs:
       - name: Run critical web journeys
         run: pnpm run test:e2e:web:critical
 
-      - name: Upload critical browser diagnostics
+      # This one-test supplement runs only when the affected role-handoff
+      # journey changes. Keep the full Playwright suite local-only.
+      - name: Run pharmacy role web journey
+        if: ${{ needs.detect-changes.outputs.pharmacy_roles == 'true' }}
+        run: pnpm exec playwright test e2e/web/pharmacy-roles.spec.ts --config=playwright.web.config.ts --workers=1 --forbid-only
+
+      - name: Upload web browser diagnostics
         if: ${{ failure() }}
         uses: actions/upload-artifact@v7
         with:
-          name: critical-e2e-web-${{ github.run_id }}-${{ github.run_attempt }}
+          name: web-e2e-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             test-results/playwright-web
             playwright-report/web
@@ -356,7 +383,7 @@ jobs:
         timeout-minutes: 5
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb libgtk-3-0 libnss3 libatk-bridge2.0-0 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxrandr2 libgbm1 libxshmfence1 libxss1 xdg-utils
+          sudo apt-get install -y xvfb dbus-x11 libgtk-3-0 libnss3 libatk-bridge2.0-0 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxrandr2 libgbm1 libxshmfence1 libxss1 xdg-utils
           sudo apt-get install -y libasound2t64 || sudo apt-get install -y libasound2
 
       # Electron 42+ no longer downloads its runtime during package installation.
@@ -389,6 +416,26 @@ jobs:
 
       - name: Run desktop validation
         run: pnpm run ci:desktop
+
+      # Shared role-handoff helpers run in both renderers. The ordinary
+      # desktop workspace gate does not execute Playwright Electron specs.
+      - name: Run pharmacy role Electron journey
+        if: ${{ needs.detect-changes.outputs.pharmacy_electron_roles == 'true' }}
+        timeout-minutes: 4
+        run: |
+          node scripts/ensure-electron-main-build.mjs
+          xvfb-run -a -s "-screen 0 1280x1024x24 -extension MIT-SHM" dbus-run-session -- pnpm exec playwright test e2e/electron/pharmacy-roles.spec.ts --config=playwright.electron.config.ts --workers=1 --forbid-only
+
+      - name: Upload pharmacy Electron diagnostics
+        if: ${{ failure() && needs.detect-changes.outputs.pharmacy_electron_roles == 'true' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: pharmacy-electron-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            test-results/playwright-electron
+            playwright-report/electron
+          if-no-files-found: warn
+          retention-days: 7
 
   # ============================================================================
   # Backend Server Tests & Build (Node.js)
