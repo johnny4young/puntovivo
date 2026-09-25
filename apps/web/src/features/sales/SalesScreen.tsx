@@ -354,7 +354,7 @@ export function SalesScreen({
           onSelectWorkspace={handleSelectWorkspace}
         />
 
-        <section className="sales-workbench-grid grid gap-4 pos:min-h-0 pos:flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,20rem)] pos:grid-rows-[minmax(0,1fr)] xl:grid-cols-[minmax(0,2fr)_minmax(320px,360px)]">
+        <section className="sales-workbench-grid grid grid-cols-1 gap-4 pos:min-h-0 pos:flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,20rem)] pos:grid-rows-[minmax(0,1fr)] xl:grid-cols-[minmax(0,2fr)_minmax(320px,360px)]">
           <SalesCartWorkspace
             items={cartItems}
             discountSuggestionSiteId={currentSite?.id ?? null}
