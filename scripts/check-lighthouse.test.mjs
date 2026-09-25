@@ -881,11 +881,15 @@ test('CPU diagnostics follow a committed main-frame process swap', async () => {
     },
     cpuTask({ dur: 999000 }),
     cpuTask({ pid: 3, tid: 4, dur: 23000 }),
+    cpuTask({ pid: 3, tid: 4, ts: 100, dur: 5000 }),
+    cpuTask({ pid: 3, tid: 4, ts: 99, dur: 888000 }),
   ]);
   const result = await extractCpuDiagnostics(trace);
   assert.equal(result.cpuAttribution, 'main-frame');
-  assert.equal(result.topCpuEvents.length, 1);
-  assert.equal(result.topCpuEvents[0].durationMs, 23);
+  assert.deepEqual(
+    result.topCpuEvents.map(event => event.durationMs),
+    [23, 5]
+  );
 });
 
 test('CPU diagnostics are bounded and never expose raw trace data', async () => {

@@ -720,13 +720,14 @@ export async function launchAndMeasure({
             }
           );
           if (runnerResult?.lhr) {
-            samples.push(extractMetrics(runnerResult.lhr));
+            const metrics = extractMetrics(runnerResult.lhr);
+            samples.push(metrics);
             const benchmark = extractRunnerBenchmark(runnerResult.lhr);
             if (benchmark !== null) benchmarkIndices.push(benchmark);
             console.log(
               `check-lighthouse: diagnostics ${route.key} sample ${sample}/${totalSamples} = ${JSON.stringify(
                 {
-                  ...extractMetrics(runnerResult.lhr),
+                  ...metrics,
                   ...extractDiagnostics(runnerResult.lhr),
                   ...(await extractCpuDiagnostics(runnerResult.artifacts?.Trace)),
                 }
