@@ -34,7 +34,7 @@ import {
 } from '@playwright/test';
 import type { ChildProcess } from 'node:child_process';
 import { spawn, spawnSync } from 'node:child_process';
-import { cpSync, mkdtempSync, rmSync } from 'node:fs';
+import { cpSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { createRequire } from 'node:module';
 import { join, resolve } from 'node:path';
@@ -100,15 +100,16 @@ export const ELECTRON_E2E_DB_KEY =
   'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
 
 /**
- * Compiled Electron main entry. Electron Forge's Vite plugin emits
- * this during `npm run dev:desktop` and `npm run package:desktop`.
- * `test:e2e:electron` verifies the artefact exists before Playwright
- * starts and prints the rebuild command when it is missing.
+ * Launch the desktop package directory, not the compiled main file directly.
+ * Its package.json points to that same Vite bundle and gives Electron the
+ * real app version; file-path launch selects Electron's default app metadata.
+ * `test:e2e:electron` checks the built main/preload artefacts first.
  */
-const ELECTRON_MAIN_ENTRY = resolve(process.cwd(), 'apps/desktop/.vite/build/index.cjs');
-const requireFromDesktopWorkspace = createRequire(
-  resolve(process.cwd(), 'apps/desktop/package.json')
-);
+const DESKTOP_APP_DIR = resolve(process.cwd(), 'apps/desktop');
+const DESKTOP_APP_VERSION = (
+  JSON.parse(readFileSync(join(DESKTOP_APP_DIR, 'package.json'), 'utf8')) as { version: string }
+).version;
+const requireFromDesktopWorkspace = createRequire(join(DESKTOP_APP_DIR, 'package.json'));
 
 /**
  * Packaging output to run against, when the operator wants the journeys proven
@@ -127,8 +128,15 @@ export const IS_PACKAGED_RUN = PACKAGED_APP_DIR.length > 0;
 function resolveDevLaunchTarget(): { executablePath: string; args: string[] } {
   return {
     executablePath: requireFromDesktopWorkspace('electron') as string,
-    args: [ELECTRON_MAIN_ENTRY, ...devElectronSandboxArgs()],
+    args: [DESKTOP_APP_DIR, ...devElectronSandboxArgs()],
   };
+}
+
+async function assertDevAppVersion(electronApp: ElectronApplication): Promise<void> {
+  const observed = await electronApp.evaluate(({ app }) => app.getVersion());
+  if (observed !== DESKTOP_APP_VERSION) {
+    throw new Error(`Electron dev app version ${observed} differs from ${DESKTOP_APP_VERSION}`);
+  }
 }
 
 /**
@@ -169,6 +177,7 @@ export async function launchUpdaterSmokeElectron(userDataDir: string): Promise<{
   let disposed = false;
   try {
     const page = await electronApp.firstWindow();
+    await assertDevAppVersion(electronApp);
     return {
       page,
       dispose: async () => {
@@ -609,6 +618,7 @@ export const electronTest = base.extend<ElectronFixtures, ElectronWorkerFixtures
         } catch (error) {
           throw formatFirstWindowFailure(error, electronApp.process());
         }
+        await assertDevAppVersion(electronApp);
         await use(page);
       } finally {
         if (electronApp) {
