@@ -708,7 +708,7 @@
       "addTier": "Add tier",
       "removeTier": "Remove tier {{position}}",
       "save": "Save ladder",
-      "sessionNote": "The radar picks up the new ladder on the next login or page refresh.",
+      "sessionNote": "Radar preview updates on save; refresh other registers.",
       "toast": {
         "saved": "Discount ladder saved",
         "saveError": "The discount ladder could not be saved"
