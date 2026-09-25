@@ -6,11 +6,13 @@
  * and drives the two mutations from the action column. The tier preview and
  * urgency tones are asserted through the row chips.
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18n from '@/i18n';
 import { render } from '@/test/utils';
+import { setActiveTenantLocale } from '@/lib/utils';
+import { __localeStoreForTests } from '@/features/locale/LocaleProvider';
 import { ExpiryRadarPanel } from './ExpiryRadarPanel';
 
 interface MockLot {
@@ -141,6 +143,12 @@ function makeLot(overrides: Partial<MockLot>): MockLot {
 }
 
 describe('ExpiryRadarPanel', () => {
+  afterEach(() => {
+    setActiveTenantLocale(null);
+    act(() => __localeStoreForTests.getState().reset());
+    vi.restoreAllMocks();
+  });
+
   beforeEach(async () => {
     await i18n.changeLanguage('en');
     vi.clearAllMocks();
@@ -158,6 +166,121 @@ describe('ExpiryRadarPanel', () => {
       error: null,
       refetch: vi.fn(),
     };
+  });
+
+  it.each([
+    {
+      language: 'en',
+      locale: 'en-US',
+      dateFormatShort: 'MM/dd/yyyy',
+      calendarDate: '09/30/2026',
+      instantDate: '09/29/2026',
+    },
+    {
+      language: 'es',
+      locale: 'es-CO',
+      dateFormatShort: 'dd/MM/yyyy',
+      calendarDate: '30/09/2026',
+      instantDate: '29/09/2026',
+    },
+  ])('renders lot calendar dates without a Bogota timezone shift ($language)', async scenario => {
+    await i18n.changeLanguage(scenario.language);
+    setActiveTenantLocale({
+      locale: scenario.locale,
+      currency: 'COP',
+      displayDecimals: 0,
+      timezone: 'America/Bogota',
+      dateFormatShort: scenario.dateFormatShort,
+    });
+    mockExpiring.data = {
+      items: [
+        makeLot({ id: 'calendar-lot', lotNumber: 'CALENDAR-LOT', expiresAt: '2026-09-30' }),
+        makeLot({
+          id: 'instant-lot',
+          lotNumber: 'INSTANT-LOT',
+          expiresAt: '2026-09-30T02:00:00.000Z',
+        }),
+      ],
+      cutoff: '2026-10-25T00:00:00.000Z',
+    };
+
+    render(<ExpiryRadarPanel />);
+
+    expect(
+      within(screen.getByRole('row', { name: /CALENDAR-LOT/ })).getByText(scenario.calendarDate)
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('row', { name: /INSTANT-LOT/ })).getByText(scenario.instantDate)
+    ).toBeInTheDocument();
+  });
+
+  it.each([
+    { language: 'en', title: 'Correct the business timezone in Company settings.' },
+    { language: 'es', title: 'Ajusta la zona horaria en Empresa.' },
+  ])(
+    'fails closed instead of crashing for a legacy invalid tenant zone ($language)',
+    async scenario => {
+      await i18n.changeLanguage(scenario.language);
+      act(() =>
+        __localeStoreForTests.getState().setResolved({
+          ...__localeStoreForTests.getState().resolved,
+          timezone: 'Unsupported/Legacy_Zone',
+        })
+      );
+      mockExpiring.data = {
+        items: [makeLot({ id: 'legacy-zone-lot', expiresAt: '2026-09-30' })],
+        cutoff: '2026-10-25T00:00:00.000Z',
+      };
+
+      render(<ExpiryRadarPanel />);
+
+      expect(screen.getByText(scenario.title)).toBeVisible();
+      expect(screen.queryByTestId('expiry-suggest-legacy-zone-lot')).not.toBeInTheDocument();
+      expect(suggestMutate).not.toHaveBeenCalled();
+
+      act(() =>
+        __localeStoreForTests.getState().setResolved({
+          ...__localeStoreForTests.getState().resolved,
+          timezone: 'America/Bogota',
+        })
+      );
+      expect(screen.queryByText(scenario.title)).not.toBeInTheDocument();
+      expect(screen.getByTestId('expiry-suggest-legacy-zone-lot')).toBeVisible();
+    }
+  );
+
+  it('uses tenant calendar days for date-only badges and tiers after local evening', () => {
+    // 00:30 UTC is still September 25 in Bogota. The calendar lot is five
+    // business days away; the timestamp is only four elapsed days away.
+    vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-09-26T00:30:00.000Z'));
+    __localeStoreForTests.getState().setResolved({
+      ...__localeStoreForTests.getState().resolved,
+      timezone: 'America/Bogota',
+    });
+    mockTenantSettings = {
+      discount: {
+        expiryTiers: [
+          { maxDays: 4, pct: 40 },
+          { maxDays: 5, pct: 20 },
+        ],
+      },
+    };
+    mockExpiring.data = {
+      items: [
+        makeLot({ id: 'calendar-boundary', expiresAt: '2026-09-30' }),
+        makeLot({ id: 'instant-boundary', expiresAt: '2026-09-30T00:00:00.000Z' }),
+      ],
+      cutoff: '2026-10-25T00:00:00.000Z',
+    };
+
+    render(<ExpiryRadarPanel />);
+
+    expect(screen.getByTestId('expiry-days-calendar-boundary')).toHaveTextContent('in 5 days');
+    expect(screen.getByTestId('expiry-suggest-calendar-boundary')).toHaveTextContent(
+      'Suggest -20%'
+    );
+    expect(screen.getByTestId('expiry-days-instant-boundary')).toHaveTextContent('in 4 days');
+    expect(screen.getByTestId('expiry-suggest-instant-boundary')).toHaveTextContent('Suggest -40%');
   });
 
   // the row preview follows the tenant's ladder, not a hardcode.

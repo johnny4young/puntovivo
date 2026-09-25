@@ -8,12 +8,15 @@ import { TableLoadingState } from '@/components/tables/TableLoadingState';
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { KpiTile, Badge } from '@/components/ui';
 import { useToast } from '@/components/feedback/ToastProvider';
+import { useResolvedLocale } from '@/features/locale/LocaleProvider';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
-import { cn, formatCurrency, formatDate } from '@/lib/utils';
+import { calendarDayAt, cn, formatCurrency } from '@/lib/utils';
 import { roundMoney } from '@/lib/money';
+import { ISO_DATE_ONLY_PATTERN } from '@puntovivo/shared/iso-date';
+import { formatLotExpiryDate } from './lotForm';
 
 /** The radar's fixed look-ahead window (days). A selector is a captured
  * follow-up; 30 days covers every discount tier. */
@@ -64,6 +67,26 @@ function previewPctForDays(
 }
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+function resolveBusinessDate(now: number, timezone: string): string | null {
+  try {
+    return calendarDayAt(new Date(now), timezone);
+  } catch (error) {
+    if (error instanceof RangeError) return null;
+    throw error;
+  }
+}
+
+/** Match the server's tenant-calendar tier rule for date-only lots. Timestamp
+ * expiries keep their elapsed-day ceiling instead of gaining a calendar day. */
+function daysLeftForExpiry(expiresAt: string, now: number, businessDate: string): number {
+  if (ISO_DATE_ONLY_PATTERN.test(expiresAt)) {
+    const expiryDay = Date.parse(`${expiresAt}T00:00:00.000Z`);
+    const currentDay = Date.parse(`${businessDate}T00:00:00.000Z`);
+    return Math.max(0, Math.round((expiryDay - currentDay) / DAY_MS));
+  }
+  return Math.max(0, Math.ceil((Date.parse(expiresAt) - now) / DAY_MS));
+}
+
 /** One radar row: an expiring lot joined with its active suggestion (if any). */
 interface ExpiryRadarRow {
   lotId: string;
@@ -103,6 +126,7 @@ function urgencyTone(daysLeft: number): 'danger' | 'warning' | 'neutral' {
  */
 export function ExpiryRadarPanel() {
   const { t } = useTranslation(['inventory', 'promotions']);
+  const { timezone } = useResolvedLocale();
   // the tenant's tuned ladder rides the auth.me session payload
   // (same channel as the  blind-close flag); fall back to the
   // defaults when the tenant never tuned it.
@@ -174,7 +198,9 @@ export function ExpiryRadarPanel() {
   // the panel remounts per tab visit, so a per-render clock read buys
   // nothing and trips react-hooks/purity.
   const [now] = useState(() => Date.now());
+  const businessDate = resolveBusinessDate(now, timezone);
   const rows = useMemo<ExpiryRadarRow[]>(() => {
+    if (businessDate === null) return [];
     const items = expiringQuery.data?.items ?? [];
     const byLot = new Map(
       (suggestionsQuery.data?.items ?? []).map(item => [
@@ -194,9 +220,7 @@ export function ExpiryRadarPanel() {
         ])
     );
     return items.map(item => {
-      const daysLeft = item.expiresAt
-        ? Math.max(0, Math.ceil((Date.parse(item.expiresAt) - now) / DAY_MS))
-        : 0;
+      const daysLeft = item.expiresAt ? daysLeftForExpiry(item.expiresAt, now, businessDate) : 0;
       return {
         lotId: item.id,
         productName: item.productName,
@@ -216,7 +240,14 @@ export function ExpiryRadarPanel() {
         promotion: promotionByLot.get(item.id) ?? null,
       };
     });
-  }, [expiringQuery.data, expiryPromotionsQuery.data, suggestionsQuery.data, now, tiers]);
+  }, [
+    expiringQuery.data,
+    expiryPromotionsQuery.data,
+    suggestionsQuery.data,
+    now,
+    tiers,
+    businessDate,
+  ]);
   const totalValueAtRisk = rows.reduce((sum, row) => roundMoney(sum + row.valueAtRisk), 0);
   const activeCount = rows.filter(row => row.suggestion !== null).length;
   const isMutating =
@@ -245,7 +276,9 @@ export function ExpiryRadarPanel() {
         size: 190,
         cell: ({ row }) => (
           <div className="flex items-center gap-2">
-            <span>{row.original.expiresAt ? formatDate(row.original.expiresAt) : '—'}</span>
+            <span>
+              {row.original.expiresAt ? formatLotExpiryDate(row.original.expiresAt) : '—'}
+            </span>
             <Badge
               data-testid={`expiry-days-${row.original.lotId}`}
               variant={urgencyTone(row.original.daysLeft)}
@@ -370,6 +403,13 @@ export function ExpiryRadarPanel() {
     ],
     [t, isMutating, pharmacyMode, activateMutation, dismissMutation, suggestMutation]
   );
+  if (businessDate === null) {
+    return (
+      <div data-testid="expiry-radar-panel">
+        <TableErrorState title={t('common:status.error')} message={t('expiry.invalidZone')} />
+      </div>
+    );
+  }
   return (
     <div className="space-y-4" data-testid="expiry-radar-panel">
       {/* window sweep selector. A segmented control (not a select)
