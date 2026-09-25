@@ -1,5 +1,5 @@
 import { strict as assert } from 'node:assert';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -184,6 +184,21 @@ test('every script test a CI gate runs is covered by the filters of a job that r
     [],
     `not covered by a filter of any job that runs the gate:\n${uncovered.join('\n')}`
   );
+});
+
+test('every script test is run by a gate some CI job reaches', () => {
+  // The filter guard above only sees registered tests, so an unregistered test
+  // would never run in CI and never fail it.
+  const workflow = readRepoFile('.github/workflows/ci.yml');
+  const scripts = JSON.parse(readRepoFile('package.json')).scripts;
+  const reached = scriptFilters(readJobs(workflow), scripts);
+  const registered = new Set([...reached.keys()].flatMap(name => scriptTests(scripts[name])));
+  const tests = readdirSync(path.join(repoRoot, 'scripts'))
+    .filter(file => /\.test\.m[jt]s$/u.test(file))
+    .map(file => `scripts/${file}`);
+  assert.ok(tests.length > 0, 'expected script tests under scripts/');
+  const orphaned = tests.filter(file => !registered.has(file));
+  assert.deepEqual(orphaned, [], `script tests no CI job runs:\n${orphaned.join('\n')}`);
 });
 
 test('the filters, jobs, globs and references are read the way CI resolves them', () => {
