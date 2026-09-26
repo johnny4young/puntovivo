@@ -613,6 +613,78 @@ export const paymentOutboxRelations = relations(paymentOutbox, ({ one }) => ({
 export type PaymentOutboxRow = typeof paymentOutbox.$inferSelect;
 export type NewPaymentOutboxRow = typeof paymentOutbox.$inferInsert;
 
+/** Review lifecycle; a model recommendation is never an authorization. */
+export const paymentProposalStatusEnum = ['pending', 'approved', 'rejected'] as const;
+export type PaymentProposalStatus = (typeof paymentProposalStatusEnum)[number];
+
+/** Immutable evidence captured before a statement-import cursor advances. */
+export interface PaymentProposalEvidence {
+  statement: {
+    railId: PaymentRailId;
+    reference: string;
+    providerTransactionId: string;
+    amount: number;
+    currencyCode: string;
+    status: 'settled';
+    settledAt: string;
+    fee: number;
+  };
+  candidates: Array<{
+    outboxId: string;
+    salePaymentId: string | null;
+    reference: string;
+    providerTransactionId: string | null;
+    amount: number;
+    currencyCode: string;
+    kind: PaymentOutboxKind;
+    status: PaymentOutboxStatus;
+    createdAt: string;
+  }>;
+  recommendedOutboxId: string;
+  confidence: 'high' | 'medium' | 'low';
+  explanation: string;
+  aiAuditLogId: string;
+}
+
+/** Durable, tenant-scoped recommendation; only an admin mutation may settle its outbox row. */
+export const paymentReconciliationProposals = sqliteTable(
+  'payment_reconciliation_proposals',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    railId: text('rail_id', { enum: paymentRailIdEnum }).notNull(),
+    /** SHA-256 of the canonical statement row; exact imports are idempotent. */
+    statementKey: text('statement_key').notNull(),
+    selectedOutboxId: text('selected_outbox_id').notNull(),
+    status: text('status', { enum: paymentProposalStatusEnum }).notNull().default('pending'),
+    evidence: text('evidence', { mode: 'json' }).$type<PaymentProposalEvidence>().notNull(),
+    createdAt: text('created_at')
+      .notNull()
+      .$defaultFn(() => new Date().toISOString()),
+    reviewedAt: text('reviewed_at'),
+    reviewedBy: text('reviewed_by'),
+  },
+  table => [
+    uniqueIndex('idx_payment_proposals_statement').on(
+      table.tenantId,
+      table.railId,
+      table.statementKey
+    ),
+    index('idx_payment_proposals_tenant_status').on(table.tenantId, table.status, table.createdAt),
+    uniqueIndex('idx_payment_proposals_one_pending_outbox')
+      .on(table.tenantId, table.selectedOutboxId)
+      .where(sql`${table.status} = 'pending'`),
+    check(
+      'chk_payment_proposals_status',
+      sql`${table.status} IN ('pending', 'approved', 'rejected')`
+    ),
+  ]
+);
+
+export type PaymentReconciliationProposal = typeof paymentReconciliationProposals.$inferSelect;
+
 // ============================================================================
 // RESTAURANT TABLES
 // ============================================================================

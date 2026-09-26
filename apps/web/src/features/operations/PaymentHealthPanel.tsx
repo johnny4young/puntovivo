@@ -15,6 +15,7 @@ import { Badge, StatusStrip, Button } from '@/components/ui';
 import { PaymentBreakdownSection } from './PaymentBreakdownSection';
 import { PaymentHealthSummary, PaymentRailSummary } from './PaymentHealthOverview';
 import { PaymentMismatchSection } from './PaymentMismatchSection';
+import { PaymentProposalSection } from './PaymentProposalSection';
 import {
   getPaymentErrorMessage,
   PAYMENT_BREAKDOWN_WINDOW_DAYS,
@@ -198,6 +199,8 @@ export function PaymentHealthPanel({
       {data && <PaymentRailSummary data={data} />}
 
       {data && <PaymentMismatchSection mismatches={data.mismatches} />}
+
+      <PaymentProposalSection isAdmin={isAdmin} />
 
       <section className="card p-6 space-y-4">
         <h3 className="pv-title text-lg">{t('payments.outbox.title')}</h3>

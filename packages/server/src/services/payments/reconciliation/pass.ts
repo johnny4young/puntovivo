@@ -4,14 +4,15 @@
  * @module services/payments/reconciliation/pass
  */
 
-import { and, eq, gte } from 'drizzle-orm';
-import { paymentOutbox, salePayments } from '../../../db/schema.js';
+import { and, eq, gte, isNull, lte, ne, notExists, or } from 'drizzle-orm';
+import { paymentOutbox, paymentReconciliationProposals, salePayments } from '../../../db/schema.js';
 import type { PaymentRailId } from '../../../db/schema.js';
 import type { DatabaseInstance } from '../../../db/index.js';
 import type { TiebreakContext, TiebreakFn } from '../ai-tiebreak.js';
 import { AMOUNT_EPSILON, RECONCILIATION_WINDOW_DAYS, TIEBREAK_WINDOW_MS } from './constants.js';
 import { isRailCandidateTender } from './helpers.js';
 import type { PaymentOutboxRow } from './types.js';
+import { savePaymentProposal, statementKey } from './proposals.js';
 
 /**
  * One row in an imported provider statement. Mirrors the deterministic
@@ -57,7 +58,7 @@ export interface RunReconciliationPassResult {
   mismatches: ReconciliationPassMismatch[];
   byKind: Record<ReconciliationMismatchKind, number>;
   tiebreakAttempts: number;
-  tiebreakDecided: number;
+  tiebreakProposed: number;
   tiebreakDegraded: number;
 }
 
@@ -82,15 +83,17 @@ export interface RunReconciliationPassOptions {
  * candidate → match. ≥ 2 candidates → AI tie-break (when wired)
  * or surface as `ambiguous`.
  * - No candidate → surface as `orphan_provider_row`.
+ * - An AI recommendation is stored as a pending human-review proposal;
+ *   it never mutates the payment outbox.
  *
  * Matched outbox rows transition to `status='settled'` and store the
  * provider transaction id. Statement rows whose status is `declined` or
  * `pending` always surface as a `provider_issue` mismatch even when the
  * link found a candidate, so the operator still sees the failure.
  *
- * Side effects are limited to UPDATE statements on `payment_outbox` rows
- * already scoped to `tenantId`. The function never INSERTs new rows —
- * fully decoupling reconciliation from capture.
+ * Deterministic matches update tenant-scoped `payment_outbox` rows; model
+ * recommendations insert tenant-scoped review proposals. Neither path
+ * inserts a charge or modifies the completed sale or tender.
  */
 export async function runReconciliationPass(
   db: DatabaseInstance,
@@ -132,7 +135,20 @@ export async function runReconciliationPass(
     }
   }
 
-  const matchedOutboxIds = new Set<string>();
+  const proposalRows = await db
+    .select({
+      statementKey: paymentReconciliationProposals.statementKey,
+      status: paymentReconciliationProposals.status,
+      selectedOutboxId: paymentReconciliationProposals.selectedOutboxId,
+    })
+    .from(paymentReconciliationProposals)
+    .where(eq(paymentReconciliationProposals.tenantId, tenantId))
+    .all();
+  const priorProposals = new Map(proposalRows.map(row => [row.statementKey, row]));
+  const reservedOutboxIds = new Set(
+    proposalRows.filter(row => row.status === 'pending').map(row => row.selectedOutboxId)
+  );
+  const unavailableOutboxIds = new Set(reservedOutboxIds);
   const mismatches: ReconciliationPassMismatch[] = [];
   const byKind: Record<ReconciliationMismatchKind, number> = {
     amount_mismatch: 0,
@@ -144,10 +160,31 @@ export async function runReconciliationPass(
 
   let matched = 0;
   let tiebreakAttempts = 0;
-  let tiebreakDecided = 0;
+  let tiebreakProposed = 0;
   let tiebreakDegraded = 0;
 
   for (const statement of statementRows) {
+    const priorProposal = priorProposals.get(statementKey(statement));
+    if (priorProposal) {
+      // Re-imports must not re-call the model or settle a different candidate.
+      // A rejected recommendation remains visible as an ambiguous statement.
+      if (priorProposal.status !== 'approved') {
+        mismatches.push({
+          kind: 'ambiguous',
+          railId: statement.railId,
+          paymentOutboxId: null,
+          salePaymentId: null,
+          reference: statement.reference,
+          providerTransactionId: statement.providerTransactionId,
+          amount: statement.amount,
+          providerAmount: statement.amount,
+          suggestedAction: 'review_provider',
+          candidateSalePaymentIds: null,
+        });
+        byKind.ambiguous += 1;
+      }
+      continue;
+    }
     // Provider-failure statements never settle a tender even if a row
     // looks like a match — they must surface as `provider_issue` so the
     // operator follows up.
@@ -157,9 +194,9 @@ export async function runReconciliationPass(
           statement,
           indexedByProviderTxId,
           indexedByReference,
-          matchedOutboxIds
+          unavailableOutboxIds
         ) ?? null;
-      if (candidate) matchedOutboxIds.add(candidate.id);
+      if (candidate) unavailableOutboxIds.add(candidate.id);
       mismatches.push({
         kind: 'provider_issue',
         railId: statement.railId,
@@ -180,9 +217,15 @@ export async function runReconciliationPass(
       statement,
       indexedByProviderTxId,
       indexedByReference,
-      matchedOutboxIds
+      unavailableOutboxIds
     );
     if (strict) {
+      if (strict.currencyCode !== statement.currencyCode) {
+        mismatches.push(blockedSettlementMismatch(statement, strict));
+        byKind.ambiguous += 1;
+        unavailableOutboxIds.add(strict.id);
+        continue;
+      }
       const amountDelta = Math.abs(strict.amount - statement.amount);
       if (amountDelta > AMOUNT_EPSILON) {
         mismatches.push({
@@ -202,19 +245,24 @@ export async function runReconciliationPass(
         // counterpart) — only the amount is off. Skip the trailing
         // sweep so the same physical row never double-counts as
         // `missing_provider_reference` with a different suggestedAction.
-        matchedOutboxIds.add(strict.id);
+        unavailableOutboxIds.add(strict.id);
         continue;
       }
-      await settleOutboxRow(db, tenantId, strict.id, statement);
-      matchedOutboxIds.add(strict.id);
-      matched += 1;
+      const settlement = await settleOutboxRow(db, tenantId, strict.id, statement);
+      unavailableOutboxIds.add(strict.id);
+      if (settlement === 'blocked') {
+        mismatches.push(blockedSettlementMismatch(statement, strict));
+        byKind.ambiguous += 1;
+      } else {
+        matched += 1;
+      }
       continue;
     }
 
     // Fuzzy pass: candidate set is outbox rows in the same rail with
     // amount inside epsilon AND createdAt within TIEBREAK_WINDOW_MS of
     // the statement timestamp.
-    const fuzzy = collectFuzzyCandidates(statement, outboxRows, matchedOutboxIds);
+    const fuzzy = collectFuzzyCandidates(statement, outboxRows, unavailableOutboxIds);
     if (fuzzy.length === 0) {
       mismatches.push({
         kind: 'orphan_provider_row',
@@ -234,14 +282,22 @@ export async function runReconciliationPass(
 
     if (fuzzy.length === 1) {
       const winner = fuzzy[0]!;
-      await settleOutboxRow(db, tenantId, winner.id, statement);
-      matchedOutboxIds.add(winner.id);
-      matched += 1;
+      const settlement = await settleOutboxRow(db, tenantId, winner.id, statement);
+      unavailableOutboxIds.add(winner.id);
+      if (settlement === 'blocked') {
+        mismatches.push(blockedSettlementMismatch(statement, winner));
+        byKind.ambiguous += 1;
+      } else {
+        matched += 1;
+      }
       continue;
     }
 
     // Multiple candidates — try the AI tie-break if wired.
     if (opts.aiTiebreak && opts.aiContext) {
+      if (opts.aiContext.tenantId !== tenantId) {
+        throw new Error('Payment AI tie-break context tenant does not match reconciliation tenant');
+      }
       tiebreakAttempts += 1;
       const decision = await opts.aiTiebreak(opts.aiContext, {
         statementReference: statement.reference,
@@ -258,17 +314,29 @@ export async function runReconciliationPass(
         })),
       });
       if (decision.ok) {
-        const winner = fuzzy.find(
+        const selected = fuzzy.filter(
           candidate =>
             candidate.salePaymentId === decision.salePaymentId ||
             candidate.id === decision.salePaymentId
         );
+        // A sale payment can have multiple outbox attempts; a model id
+        // that selects more than one physical row is still ambiguous.
+        const winner = selected.length === 1 ? selected[0] : undefined;
         if (winner) {
-          await settleOutboxRow(db, tenantId, winner.id, statement);
-          matchedOutboxIds.add(winner.id);
-          matched += 1;
-          tiebreakDecided += 1;
-          continue;
+          const proposal = await savePaymentProposal(
+            db,
+            tenantId,
+            statement,
+            fuzzy,
+            winner,
+            decision
+          );
+          if (proposal?.status === 'pending') {
+            tiebreakProposed += 1;
+            priorProposals.set(proposal.statementKey, proposal);
+            reservedOutboxIds.add(proposal.selectedOutboxId);
+            unavailableOutboxIds.add(proposal.selectedOutboxId);
+          }
         }
       } else {
         tiebreakDegraded += 1;
@@ -294,7 +362,7 @@ export async function runReconciliationPass(
   // touch as `missing_provider_reference` — the cashier captured the
   // tender locally but the provider has not settled it inside the window.
   for (const row of outboxRows) {
-    if (matchedOutboxIds.has(row.id)) continue;
+    if (unavailableOutboxIds.has(row.id)) continue;
     if (row.status === 'settled' || row.status === 'dead_letter') continue;
     if (!row.salePaymentId) continue;
     // Only surface "captured but not yet settled" once per outbox row.
@@ -338,7 +406,7 @@ export async function runReconciliationPass(
     mismatches,
     byKind,
     tiebreakAttempts,
-    tiebreakDecided,
+    tiebreakProposed,
     tiebreakDegraded,
   };
 }
@@ -372,7 +440,14 @@ function filterStrictCandidates(
   rows: PaymentOutboxRow[],
   alreadyMatched: Set<string>
 ): PaymentOutboxRow[] {
-  return rows.filter(row => row.railId === statement.railId && !alreadyMatched.has(row.id));
+  return rows.filter(
+    row =>
+      row.railId === statement.railId &&
+      !alreadyMatched.has(row.id) &&
+      (row.status !== 'settled' ||
+        (statement.providerTransactionId.length > 0 &&
+          row.providerTransactionId === statement.providerTransactionId))
+  );
 }
 
 function collectFuzzyCandidates(
@@ -384,7 +459,8 @@ function collectFuzzyCandidates(
   if (!Number.isFinite(statementMs)) return [];
   return outboxRows.filter(row => {
     if (alreadyMatched.has(row.id)) return false;
-    if (row.railId !== statement.railId) return false;
+    if (row.railId !== statement.railId || row.status === 'settled') return false;
+    if (row.currencyCode !== statement.currencyCode) return false;
     if (Math.abs(row.amount - statement.amount) > AMOUNT_EPSILON) return false;
     const rowMs = Date.parse(row.createdAt);
     if (!Number.isFinite(rowMs)) return false;
@@ -392,18 +468,100 @@ function collectFuzzyCandidates(
   });
 }
 
+function blockedSettlementMismatch(
+  statement: StatementRow,
+  candidate: PaymentOutboxRow
+): ReconciliationPassMismatch {
+  return {
+    kind: 'ambiguous',
+    railId: statement.railId,
+    paymentOutboxId: candidate.id,
+    salePaymentId: candidate.salePaymentId,
+    reference: statement.reference,
+    providerTransactionId: statement.providerTransactionId,
+    amount: candidate.amount,
+    providerAmount: statement.amount,
+    suggestedAction: 'review_provider',
+    candidateSalePaymentIds: candidate.salePaymentId ? [candidate.salePaymentId] : null,
+  };
+}
+
 async function settleOutboxRow(
   db: DatabaseInstance,
   tenantId: string,
   outboxId: string,
   statement: StatementRow
-): Promise<void> {
-  await db
+): Promise<'settled' | 'already_settled' | 'blocked'> {
+  const pendingProposal = db
+    .select({ id: paymentReconciliationProposals.id })
+    .from(paymentReconciliationProposals)
+    .where(
+      and(
+        eq(paymentReconciliationProposals.tenantId, tenantId),
+        eq(paymentReconciliationProposals.selectedOutboxId, outboxId),
+        eq(paymentReconciliationProposals.status, 'pending')
+      )
+    );
+  const otherSettlement = db
+    .select({ id: paymentOutbox.id })
+    .from(paymentOutbox)
+    .where(
+      and(
+        eq(paymentOutbox.tenantId, tenantId),
+        eq(paymentOutbox.railId, statement.railId),
+        eq(paymentOutbox.providerTransactionId, statement.providerTransactionId),
+        eq(paymentOutbox.status, 'settled'),
+        ne(paymentOutbox.id, outboxId)
+      )
+    );
+  const updated = await db
     .update(paymentOutbox)
     .set({
       status: 'settled',
       providerTransactionId: statement.providerTransactionId,
       updatedAt: new Date().toISOString(),
     })
-    .where(and(eq(paymentOutbox.id, outboxId), eq(paymentOutbox.tenantId, tenantId)));
+    .where(
+      and(
+        eq(paymentOutbox.id, outboxId),
+        eq(paymentOutbox.tenantId, tenantId),
+        eq(paymentOutbox.railId, statement.railId),
+        eq(paymentOutbox.currencyCode, statement.currencyCode),
+        gte(paymentOutbox.amount, statement.amount - AMOUNT_EPSILON),
+        lte(paymentOutbox.amount, statement.amount + AMOUNT_EPSILON),
+        ne(paymentOutbox.status, 'settled'),
+        ne(paymentOutbox.status, 'submitting'),
+        isNull(paymentOutbox.claimToken),
+        isNull(paymentOutbox.lockedAt),
+        or(
+          isNull(paymentOutbox.providerTransactionId),
+          eq(paymentOutbox.providerTransactionId, statement.providerTransactionId)
+        ),
+        notExists(pendingProposal),
+        ...(statement.providerTransactionId.length > 0 ? [notExists(otherSettlement)] : [])
+      )
+    )
+    .run();
+  if (updated.changes === 1) return 'settled';
+  const current = await db
+    .select({
+      status: paymentOutbox.status,
+      providerTransactionId: paymentOutbox.providerTransactionId,
+      amount: paymentOutbox.amount,
+      currencyCode: paymentOutbox.currencyCode,
+      railId: paymentOutbox.railId,
+    })
+    .from(paymentOutbox)
+    .where(and(eq(paymentOutbox.id, outboxId), eq(paymentOutbox.tenantId, tenantId)))
+    .get();
+  if (
+    current?.status === 'settled' &&
+    current.providerTransactionId === statement.providerTransactionId &&
+    current.railId === statement.railId &&
+    current.currencyCode === statement.currencyCode &&
+    Math.abs(current.amount - statement.amount) <= AMOUNT_EPSILON
+  ) {
+    return 'already_settled';
+  }
+  return 'blocked';
 }
