@@ -32,6 +32,50 @@ function connectSrcOriginsPlugin(urls: Array<string | undefined>): Plugin {
   };
 }
 
+/** Display-face files painted by the login and boot loading screens. */
+export const BOOT_FONT_FILES = [
+  'source-serif-4-latin-400-normal.woff2',
+  'source-serif-4-latin-600-normal.woff2',
+];
+
+/**
+ * Preload the boot display faces. Where Iowan Old Style is not installed
+ * (Linux, Windows), CSS discovers Source Serif 4 only once the headline
+ * renders, so the page first lays out in a fallback serif and then reflows.
+ */
+export function preloadBootFontsPlugin(): Plugin {
+  let base = '/';
+  return {
+    name: 'puntovivo-preload-boot-fonts',
+    apply: 'build',
+    configResolved(config) {
+      base = config.base;
+    },
+    transformIndexHtml: {
+      order: 'post',
+      handler(_html, ctx) {
+        return Object.values(ctx.bundle ?? {}).flatMap(output =>
+          output.type === 'asset' && output.names.some(name => BOOT_FONT_FILES.includes(name))
+            ? [
+                {
+                  tag: 'link',
+                  attrs: {
+                    rel: 'preload',
+                    as: 'font',
+                    type: 'font/woff2',
+                    crossorigin: true,
+                    href: `${base}${output.fileName}`,
+                  },
+                  injectTo: 'head' as const,
+                },
+              ]
+            : []
+        );
+      },
+    },
+  };
+}
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, import.meta.dirname, 'VITE_');
@@ -45,6 +89,7 @@ export default defineConfig(({ mode }) => {
       tailwindcss(),
       react(),
       connectSrcOriginsPlugin([env.VITE_API_URL, env.VITE_PUNTOVIVO_SENTRY_DSN]),
+      preloadBootFontsPlugin(),
     ],
     resolve: {
       // keep a single React instance across the app and every
