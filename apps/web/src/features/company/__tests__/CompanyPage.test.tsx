@@ -111,6 +111,15 @@ vi.mock('../CompanyAutoUpdateCard', () => ({
 vi.mock('../CompanyCashCloseSettingsCard', () => ({
   CompanyCashCloseSettingsCard: () => <div data-testid="card-cash-close">CashClose</div>,
 }));
+vi.mock('../CompanyPricingSettingsCard', () => ({
+  CompanyPricingSettingsCard: () => <div data-testid="card-pricing">Pricing</div>,
+}));
+vi.mock('../CompanyDiscountSettingsCard', () => ({
+  CompanyDiscountSettingsCard: () => <div data-testid="card-discount">Discount</div>,
+}));
+vi.mock('../CompanyLoyaltySettingsCard', () => ({
+  CompanyLoyaltySettingsCard: () => <div data-testid="card-loyalty">Loyalty</div>,
+}));
 vi.mock('../CompanyLogoLibraryCard', () => ({
   CompanyLogoLibraryCard: () => <div data-testid="card-logos">Logos</div>,
 }));
@@ -213,6 +222,15 @@ describe('CompanyPage tab behavior', () => {
     expect(screen.getByTestId('company-tab-readiness')).not.toHaveAttribute('aria-current', 'page');
     // General-tab content should NOT render simultaneously.
     expect(screen.queryByLabelText(/company name/i)).not.toBeInTheDocument();
+  });
+
+  it('keeps the live expiry-discount policy editor reachable on the admin general tab', async () => {
+    const { container } = render(<CompanyPage />, { initialEntries: ['/company?tab=general'] });
+
+    expect(screen.getByTestId('card-pricing')).toBeInTheDocument();
+    expect(await screen.findByTestId('card-discount')).toBeInTheDocument();
+    expect(await screen.findByTestId('card-loyalty')).toBeInTheDocument();
+    await assertNoA11yViolations(container);
   });
 
   it('returns to the guided landing when Advanced settings is collapsed', async () => {
@@ -419,5 +437,6 @@ describe('CompanyPage non-admin behavior', () => {
     // Admin-only cards must be absent.
     expect(screen.queryByTestId('card-ai')).not.toBeInTheDocument();
     expect(screen.queryByTestId('card-locale')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('card-discount')).not.toBeInTheDocument();
   });
 });
