@@ -271,7 +271,6 @@ export async function extractInvoiceFromImage(
     };
   } catch (error) {
     const durationMs = Date.now() - startedAt;
-    const message = error instanceof Error ? error.message : 'Vision provider call failed';
     // Identify schema-validation failures by SDK error class rather
     // than substring matching, which would misclassify provider HTTP
     // 4xx bodies containing the words "validation" / "parse" / etc as
@@ -311,8 +310,7 @@ export async function extractInvoiceFromImage(
     throwServerError({
       trpcCode: isSchemaFailure ? 'BAD_REQUEST' : 'BAD_GATEWAY',
       errorCode,
-      message,
-      details: { cause: String(error) },
+      message: isSchemaFailure ? 'Invoice could not be parsed' : 'Vision provider call failed',
     });
   }
 }

@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import Database from 'better-sqlite3';
+import { TRPCError } from '@trpc/server';
 import { MockLanguageModelV4 } from 'ai/test';
 import type { LanguageModelV4GenerateResult } from '@ai-sdk/provider';
 import { nanoid } from 'nanoid';
@@ -21,6 +22,7 @@ import {
 import { runCopilotChat, runReadOnlySQL } from '../services/ai/copilot.js';
 import type { CopilotChatMessage } from '../services/ai/copilot.js';
 import { resolveAISettings } from '../services/ai/client.js';
+import { ServerErrorWithCode } from '../lib/errorCodes.js';
 import type { AIProvider } from '../services/ai/providers/types.js';
 
 const NOW = new Date('2026-09-21T12:00:00Z');
@@ -197,6 +199,27 @@ describe('copilot provider boundary (real AI SDK, no remote calls)', () => {
     expectProtected(calls);
   });
 
+  it('does not expose SQLite diagnostics from a rejected analytics query', async () => {
+    const secret = 'PRIVATE_SQL_IDENTIFIER_IN_ERROR';
+    let caught: unknown;
+    try {
+      await runReadOnlySQL(
+        getDatabase(),
+        tenantId,
+        { query: `SELECT ${secret} FROM sales_summary` },
+        NOW
+      );
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(TRPCError);
+    expect((caught as TRPCError).message).toBe('Analytics SQL failed');
+    expect((caught as TRPCError).message).not.toContain(secret);
+    expect(((caught as TRPCError).cause as ServerErrorWithCode).errorCode).toBe(
+      'AI_COPILOT_SQL_REJECTED'
+    );
+  });
+
   it('never reassigns a previous invocation label to a different identity', async () => {
     const query = 'SELECT customer_name FROM sales_summary WHERE customer_name IS NOT NULL LIMIT 1';
     const first = await chat(query);
@@ -344,14 +367,16 @@ describe('copilot provider boundary (real AI SDK, no remote calls)', () => {
 
   it('closes the private snapshot after a provider failure', async () => {
     const close = vi.spyOn(Database.prototype, 'close');
+    const secret = 'PRIVATE_COPILOT_HISTORY_IN_PROVIDER_ERROR';
     const model = new MockLanguageModelV4({
       doGenerate: async () => {
-        throw new Error('Provider unavailable');
+        throw new Error(`Provider unavailable ${secret}`);
       },
     });
     try {
-      await expect(
-        runCopilotChat(
+      let caught: unknown;
+      try {
+        await runCopilotChat(
           { db: getDatabase(), tenantId, siteId, userId },
           { messages: [{ role: 'user', content: CUSTOMER }] },
           {
@@ -365,14 +390,55 @@ describe('copilot provider boundary (real AI SDK, no remote calls)', () => {
               pricing: { models: {}, calculateCostUsd: () => 0 },
             }),
           }
-        )
-      ).rejects.toThrow('Provider unavailable');
+        );
+      } catch (error) {
+        caught = error;
+      }
+      expect(caught).toBeInstanceOf(TRPCError);
+      expect((caught as TRPCError).message).toBe('AI provider call failed');
+      expect((caught as TRPCError).message).not.toContain(secret);
+      expect(((caught as TRPCError).cause as ServerErrorWithCode).details).toBeUndefined();
       expect(close).toHaveBeenCalledOnce();
       expect(model.doGenerateCalls).toHaveLength(1);
       expectProtected(model.doGenerateCalls);
     } finally {
       close.mockRestore();
     }
+  });
+
+  it('does not trust a provider-originated TRPCError as an internal safe error', async () => {
+    const secret = 'PRIVATE_COPILOT_TRPC_IN_PROVIDER_ERROR';
+    const model = new MockLanguageModelV4({
+      doGenerate: async () => {
+        throw new TRPCError({ code: 'BAD_GATEWAY', message: secret });
+      },
+    });
+    let caught: unknown;
+    try {
+      await runCopilotChat(
+        { db: getDatabase(), tenantId, siteId, userId },
+        { messages: [{ role: 'user', content: CUSTOMER }] },
+        {
+          now: NOW,
+          factory: () => ({
+            id: 'anthropic',
+            defaultModelId: 'test',
+            isConfigured: () => true,
+            languageModel: () => model,
+            cacheControlForSystemPrompt: () => undefined,
+            pricing: { models: {}, calculateCostUsd: () => 0 },
+          }),
+        }
+      );
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(TRPCError);
+    expect((caught as TRPCError).message).toBe('AI provider call failed');
+    expect((caught as TRPCError).message).not.toContain(secret);
+    expect(((caught as TRPCError).cause as ServerErrorWithCode).errorCode).toBe(
+      'AI_PROVIDER_ERROR'
+    );
   });
 
   it('does not advertise universal PII redaction for other AI paths or stored legacy settings', async () => {

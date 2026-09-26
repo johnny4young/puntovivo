@@ -468,6 +468,14 @@ the real AI SDK with an in-process fake model and inspect every serialized model
 call, including the calls following tool results and tool errors. These tests
 are not a live-provider certification.
 
+AI provider, SDK, and analytics SQLite exceptions are untrusted diagnostics:
+client-facing tRPC errors expose a fixed fallback and stable error code, never
+the raw exception message or a `cause` detail. Parse failures keep their
+distinct code from transport failures. The tenant audit records the code and
+call metadata, not exception text; only locally constructed domain errors may
+cross the Co-pilot boundary unchanged. This contract limits secondary leakage
+through the browser response and centralized error tracing.
+
 ## Price-tier boundary
 
 Products expose a three-price grid for their base unit. Each alternate unit

@@ -444,7 +444,7 @@ export async function completeAI(
       model: modelId,
       auditLogId,
     };
-  } catch (error) {
+  } catch {
     const durationMs = Date.now() - startedAt;
     // Persist the failure so dashboards count it. Cost is zero — the
     // call never billed against the tenant's spend.
@@ -466,8 +466,7 @@ export async function completeAI(
     throwServerError({
       trpcCode: 'BAD_GATEWAY',
       errorCode: 'AI_PROVIDER_ERROR',
-      message: error instanceof Error ? error.message : 'AI provider call failed',
-      details: { cause: String(error) },
+      message: 'AI provider call failed',
     });
   }
 }

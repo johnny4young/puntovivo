@@ -310,7 +310,10 @@ describe('ai.transcribeAudio ( slice 1)', () => {
     // Plain Error matching the substring fallback the service narrows
     // on. Avoids constructing the typed `NoTranscriptGeneratedError`
     // which has a private constructor in some SDK versions.
-    transcribeMock.mockRejectedValue(new Error('No transcript generated from the provider'));
+    const secret = 'PRIVATE_AUDIO_IN_PROVIDER_ERROR';
+    transcribeMock.mockRejectedValue(
+      new Error(`No transcript generated from the provider ${secret}`)
+    );
 
     const caller = appRouter.createCaller(
       createCtx({ tenantId, userId: managerId, role: 'manager' })
@@ -327,6 +330,9 @@ describe('ai.transcribeAudio ( slice 1)', () => {
     expect(caught).toBeInstanceOf(TRPCError);
     const cause = (caught as TRPCError).cause;
     expect((cause as ServerErrorWithCode).errorCode).toBe('AI_VOICE_PARSE_FAILED');
+    expect((caught as TRPCError).message).toBe('Voice transcription could not be parsed');
+    expect((caught as TRPCError).message).not.toContain(secret);
+    expect((cause as ServerErrorWithCode).details).toBeUndefined();
 
     const audit = await getDatabase()
       .select()
@@ -336,6 +342,40 @@ describe('ai.transcribeAudio ( slice 1)', () => {
     expect(audit).toHaveLength(1);
     expect(audit[0]?.errorCode).toBe('AI_VOICE_PARSE_FAILED');
     expect(audit[0]?.costUsd).toBe(0);
+  });
+
+  it('does not expose voice provider transport diagnostics', async () => {
+    const { tenantId, managerId } = await seedTenant('provider-fail', { aiEnabled: true });
+    const secret = 'PRIVATE_AUDIO_IN_TRANSPORT_ERROR';
+    transcribeMock.mockRejectedValue(new Error(`Provider unavailable ${secret}`));
+
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: managerId, role: 'manager' })
+    );
+    let caught: unknown;
+    try {
+      await caller.ai.transcribeAudio({
+        audioBase64: base64OfDecodedBytes(1024),
+        mimeType: 'audio/webm',
+      });
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(TRPCError);
+    expect((caught as TRPCError).message).toBe('Voice provider call failed');
+    expect((caught as TRPCError).message).not.toContain(secret);
+    expect(((caught as TRPCError).cause as ServerErrorWithCode).errorCode).toBe(
+      'AI_PROVIDER_ERROR'
+    );
+    expect(((caught as TRPCError).cause as ServerErrorWithCode).details).toBeUndefined();
+
+    const audit = await getDatabase()
+      .select()
+      .from(aiAuditLog)
+      .where(eq(aiAuditLog.tenantId, tenantId))
+      .all();
+    expect(audit).toHaveLength(1);
+    expect(audit[0]?.errorCode).toBe('AI_PROVIDER_ERROR');
   });
 
   it('throws AI_BUDGET_EXCEEDED before invoking the provider', async () => {
