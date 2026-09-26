@@ -298,27 +298,6 @@ export interface DeviceAPI {
   setId: (id: string) => Promise<void>;
 }
 
-/**
- * vector 1 — the `tenantId` argument is no longer accepted on
- * tenant-scoped methods. Main process derives it from the registered
- * desktopSession (set via `session.register` after login). Legacy
- * arities are kept marked deprecated for one release so the
- * IndexedDB browser fallback can keep its current call shape; the
- * Electron path drops them.
- */
-export interface DatabaseAPI {
-  getAll: (table: string) => Promise<unknown[]>;
-  getById: (table: string, id: string) => Promise<unknown>;
-  insert: (table: string, data: Record<string, unknown>) => Promise<unknown>;
-  update: (table: string, id: string, data: Record<string, unknown>) => Promise<unknown>;
-  delete: (table: string, id: string) => Promise<boolean>;
-  getByField: (table: string, fieldName: string, value: unknown) => Promise<unknown[]>;
-  deleteByTenant: (table: string) => Promise<number>;
-  countByTenant: (table: string) => Promise<number>;
-  addToSyncQueue: (item: Record<string, unknown>) => Promise<void>;
-  getPendingSyncItems: () => Promise<unknown[]>;
-}
-
 export interface SyncAPI {
   getStatus: () => Promise<{
     isOnline: boolean;
@@ -342,11 +321,10 @@ export interface SyncAPI {
  * vector 1 — desktop session lifecycle. Renderer's
  * AuthProvider calls `register(accessToken)` after a successful login
  * (and after every successful `auth.refresh` rotation), and `clear()`
- * after logout. Until `register` succeeds, every `db.*` / `sync.*`
+ * after logout. Until `register` succeeds, every `sync.*`
  * call rejects with `SESSION_NOT_REGISTERED`.
  */
 export interface DesktopBridgeAPI extends ElectronAPI {
-  db: DatabaseAPI;
   sync: SyncAPI;
   session: SessionAPI;
 }
@@ -429,25 +407,6 @@ const electronAPI: ElectronAPI = {
     ipcRenderer.invoke('e2e:was-app-update-restart-requested'),
 };
 
-const dbAPI: DatabaseAPI = {
-  // vector 1 — tenantId stays out of the wire. Main process
-  // reads it from the desktopSession singleton.
-  getAll: (table: string) => invokeSessionProtected('db:getAll', table),
-  getById: (table: string, id: string) => invokeSessionProtected('db:getById', table, id),
-  insert: (table: string, data: Record<string, unknown>) =>
-    invokeSessionProtected('db:insert', table, data),
-  update: (table: string, id: string, data: Record<string, unknown>) =>
-    invokeSessionProtected('db:update', table, id, data),
-  delete: (table: string, id: string) => invokeSessionProtected('db:delete', table, id),
-  getByField: (table: string, fieldName: string, value: unknown) =>
-    invokeSessionProtected('db:getByField', table, fieldName, value),
-  deleteByTenant: (table: string) => invokeSessionProtected('db:deleteByTenant', table),
-  countByTenant: (table: string) => invokeSessionProtected('db:countByTenant', table),
-  addToSyncQueue: (item: Record<string, unknown>) =>
-    invokeSessionProtected('db:addToSyncQueue', item),
-  getPendingSyncItems: () => invokeSessionProtected('db:getPendingSyncItems'),
-};
-
 const syncAPI: SyncAPI = {
   getStatus: () => invokeSessionProtected('sync:getStatus'),
   triggerSync: () => invokeSessionProtected('sync:triggerSync'),
@@ -458,14 +417,12 @@ const sessionAPI = createSessionApi();
 
 const desktopBridgeAPI: DesktopBridgeAPI = {
   ...electronAPI,
-  db: dbAPI,
   sync: syncAPI,
   session: sessionAPI,
 };
 
 // Expose APIs to renderer process
 contextBridge.exposeInMainWorld('electron', electronAPI);
-contextBridge.exposeInMainWorld('db', dbAPI);
 contextBridge.exposeInMainWorld('sync', syncAPI);
 contextBridge.exposeInMainWorld('session', sessionAPI);
 contextBridge.exposeInMainWorld('api', desktopBridgeAPI);

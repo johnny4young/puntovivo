@@ -1,20 +1,11 @@
 /**
  * Desktop session singleton.
  *
- * The Electron preload exposes a `db.*` / `sync.*` IPC bridge that
- * historically accepted the `tenantId` as a renderer-supplied
- * argument. That contract was a breach: any code in the renderer
- * (incl. before login, or a compromised dependency) could call
- * `window.db.deleteByTenant('sales', '<other-tenant-id>')` and bypass
- * every multi-tenant guard the tRPC layer enforces.
- *
- * This module closes that breach by holding the authenticated
- * identity server-side. After a successful login the renderer
- * dispatches `session:register({ accessToken })`; main validates the
- * token via `verifyTokenWithServer` (the embedded Fastify instance
- * provides `jwt.verify` + the DB) and stores the payload. Every
- * `db:*` / `sync:*` handler then reads `tenantId` / `userId` / `role`
- * from this singleton instead of trusting the renderer.
+ * Authenticated IPC derives identity from main, never renderer-supplied
+ * tenant hints. After login the renderer dispatches session:register with
+ * its access token; main validates it against the active authority and stores
+ * the verified identity. Sync, backup and native capabilities consume that
+ * session. Raw table CRUD is not an exposed renderer capability.
  *
  * The singleton is process-wide because Electron's main process is
  * single-threaded; one `BrowserWindow` (the production layout uses

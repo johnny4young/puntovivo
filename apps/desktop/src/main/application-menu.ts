@@ -3,9 +3,8 @@
  *
  * Electron installs a default menu when the app sets none, and that default
  * carries View -> Toggle Developer Tools. Confirmed on a packaged build:
- * Cmd+Alt+I opens DevTools and `Object.keys(window.db)` returns the full data
- * bridge. Any operator standing at a terminal has a console against the local
- * encrypted database.
+ * Cmd+Alt+I opened a console against the renderer's capabilities. Removing
+ * raw database IPC does not make that console suitable for a production till.
  *
  * The fix is NOT `Menu.setApplicationMenu(null)`. On macOS the clipboard
  * shortcuts live in the application menu, so removing it outright takes
