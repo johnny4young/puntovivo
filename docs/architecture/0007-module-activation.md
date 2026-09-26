@@ -191,20 +191,20 @@ Concretely:
   the resolved module state so a future surfaces admin tab (or the
   renderer's `useSurfacesSnapshot()` hook) does not need a second
   `modules.list` round-trip.
-- Renderer mirror at `apps/web/src/features/surfaces/manifest.ts`
-  plus 4 layout shell components — each composes
-  `<ProtectedRoute>` + `<RequireModule fallback={<Navigate to="/dashboard" />}>`
-  - `<Suspense>` around `<Outlet />`. Routes mount as top-level in
-    `App.tsx`, OUTSIDE of `MainLayout`, so each shell owns its full
-    viewport (KDS fullscreen black backdrop, customer-display gradient,
-    mobile-waiter phone-width container, POS Touch wider chrome).
+- The server manifest is the canonical surface catalog; there is no renderer
+  mirror. `SurfaceShellRoute` composes role and module guards with
+  `<Suspense>` at the route level, before loading the lazy POS Touch, KDS,
+  and Mobile Waiter shells in `App.tsx`. Those routes sit outside
+  `MainLayout`, so each shell owns its viewport. Customer Display instead
+  boots in an isolated root/window; in-app navigation to
+  `/customer-display` redirects to Sales.
 - The restaurant vertical plugs real workflows into the existing shells
   without forking the App component. Voice Ordering and Mobile Waiter share
   the normalized sale-backed service/check command, while KDS keeps its own
   module-gated projection. `/touch/voice` therefore requires both `pos-touch`
   and `dine-in`, and `/m` requires both `mobile-waiter` and `dine-in`; enabling
-  a viewport shell alone cannot bypass the restaurant-domain gate. The shells
-  and manifest remain the seam.
+  a viewport shell alone cannot bypass the restaurant-domain gate. The server
+  manifest and route-level guards remain the seam.
 
 The surface-as-module pattern adds zero new architectural primitives —
 it composes the module guard, role guard, and lazy route exactly
