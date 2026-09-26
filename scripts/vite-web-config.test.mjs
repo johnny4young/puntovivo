@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-import viteWebConfig from '../apps/web/vite.config.ts';
+import viteWebConfig, { BOOT_FONT_FILES } from '../apps/web/vite.config.ts';
 import { SALES_INITIAL_NAMESPACES } from '../apps/web/src/features/sales/salesInitialNamespaces.ts';
 
 const config = viteWebConfig({
@@ -172,6 +172,24 @@ test('POS support copy remains dynamic and language-separated in the built artif
         'languages must not import each other'
       );
     }
+  }
+});
+
+test('the built shell preloads the exact display faces its stylesheet uses', () => {
+  const dist = new URL('../apps/web/dist/', import.meta.url);
+  const html = readFileSync(new URL('index.html', dist), 'utf8');
+  const hrefs = [...html.matchAll(/<link rel="preload" as="font"[^>]* href="([^"]+)"/g)].map(
+    match => match[1]
+  );
+  assert.equal(hrefs.length, BOOT_FONT_FILES.length);
+  const css = [...html.matchAll(/<link rel="stylesheet"[^>]* href="([^"]+)"/g)]
+    .map(match => readFileSync(new URL(match[1], dist), 'utf8'))
+    .join('\n');
+  for (const file of BOOT_FONT_FILES) {
+    const href = hrefs.find(value => value.includes(file.replace('.woff2', '-')));
+    // Relative so the protocol-backed desktop bundle resolves it too.
+    assert.match(href ?? '', /^\.\/assets\/[^/]+\.woff2$/, file);
+    assert.ok(css.includes(href.slice('./assets/'.length)), `${href} must be the CSS face`);
   }
 });
 
