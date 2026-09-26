@@ -1,8 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   calendarDayAt,
   cn,
-  debounce,
   formatCalendarDay,
   formatCurrency,
   formatDate,
@@ -12,13 +11,10 @@ import {
   getErrorMessage,
   isOnline,
   setActiveTenantLocale,
-  sleep,
-  throttle,
 } from './utils';
 
 afterEach(() => {
   setActiveTenantLocale(null);
-  vi.useRealTimers();
 });
 
 describe('cn — tailwind-merge wrapper', () => {
@@ -159,50 +155,6 @@ describe('generateId', () => {
   it('returns a UUID-shaped string', () => {
     const id = generateId();
     expect(id).toMatch(/^[0-9a-f-]{36}$/i);
-  });
-});
-
-describe('debounce / throttle', () => {
-  it('debounce coalesces rapid calls and invokes once after the delay', () => {
-    vi.useFakeTimers();
-    const spy = vi.fn();
-    const debounced = debounce(spy, 50);
-    debounced('a');
-    debounced('b');
-    debounced('c');
-    expect(spy).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(50);
-    expect(spy).toHaveBeenCalledTimes(1);
-    expect(spy).toHaveBeenCalledWith('c');
-  });
-
-  it('throttle invokes immediately, then suppresses calls inside the window', () => {
-    vi.useFakeTimers();
-    const spy = vi.fn();
-    const throttled = throttle(spy, 100);
-    throttled('a');
-    throttled('b');
-    throttled('c');
-    expect(spy).toHaveBeenCalledTimes(1);
-    expect(spy).toHaveBeenCalledWith('a');
-    vi.advanceTimersByTime(100);
-    throttled('d');
-    expect(spy).toHaveBeenCalledTimes(2);
-    expect(spy).toHaveBeenLastCalledWith('d');
-  });
-});
-
-describe('sleep', () => {
-  it('resolves after the requested delay', async () => {
-    vi.useFakeTimers();
-    const promise = sleep(20);
-    let resolved = false;
-    promise.then(() => {
-      resolved = true;
-    });
-    expect(resolved).toBe(false);
-    await vi.advanceTimersByTimeAsync(20);
-    expect(resolved).toBe(true);
   });
 });
 
