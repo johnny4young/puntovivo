@@ -80,10 +80,19 @@ afterEach(() => closeDatabase());
 
 describe('payroll profile application service', () => {
   it('stores private history while audit and command completion remain minimal', async () => {
-    const ctx = context();
+    const ctx = context({
+      envelope: {
+        // A legitimate opaque operation id may contain the same four digits
+        // as a private bank-account suffix without leaking that account.
+        operationId: '00000000-0000-4000-8000-000000004321',
+        idempotencyKey: '00000000-0000-4000-8000-000000000001',
+        clientCreatedAt: '2026-01-01T00:00:00.000Z',
+      },
+    });
     const result = await createPayrollProfile(ctx, { profile: profile(), reason });
     const rows = getDatabase().select().from(payrollEmployeeProfiles).all();
     const events = getDatabase().select().from(payrollEmployeeProfileEvents).all();
+    const audit = getDatabase().select().from(auditLogs).all();
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
       userId: 'worker',
@@ -94,19 +103,32 @@ describe('payroll profile application service', () => {
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({ kind: 'created', reason, before: null });
     expect(ctx.completeInTransaction).toHaveBeenCalledExactlyOnceWith(expect.anything(), result);
-    const publicEvidence = JSON.stringify({
-      result,
-      audit: getDatabase().select().from(auditLogs).all(),
+    // Assert the complete public result and every audit field that may carry
+    // user data. Opaque ids and integrity hashes can coincidentally contain
+    // the same four digits as a private account suffix without leaking it.
+    expect(result).toEqual({
+      id: expect.any(String),
+      siteId: 'site',
+      version: 1,
     });
-    for (const secret of [
-      '123456789',
-      '4321',
-      'EPS private',
-      'Pension private',
-      'CCF private',
-      reason,
-    ])
-      expect(publicEvidence).not.toContain(secret);
+    expect(audit).toHaveLength(1);
+    expect(audit[0]).toEqual({
+      id: expect.any(String),
+      tenantId: 'tenant',
+      actorId: 'admin',
+      action: 'payroll_profile.changed',
+      resourceType: 'payroll_profile',
+      resourceId: result.id,
+      before: null,
+      after: { version: 1, siteId: 'site', kind: 'created' },
+      metadata: null,
+      operationId: ctx.envelope.operationId,
+      contentHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+      prevHash: 'genesis',
+      chainHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+      redactedAt: null,
+      createdAt: expect.any(String),
+    });
   });
 
   it('replaces an interval atomically and never rewrites the previous snapshot', async () => {
