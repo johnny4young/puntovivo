@@ -3,6 +3,7 @@
  *
  * `ai.settings.get` (manager/admin) — current AI configuration + provider
  * availability, current-month spend, and per-site quotas.
+ * `ai.settings.voiceAvailability` (cashier/manager/admin) — enabled-only voice gate.
  * `ai.settings.update` (admin) — partial patch on `tenants.settings.ai`;
  * accepts any provider registered by the server.
  *
@@ -11,6 +12,7 @@
 
 import { router } from '../../init.js';
 import { adminProcedure, managerOrAdminProcedure } from '../../middleware/roles.js';
+import { cashierManagerOrAdminProcedureWithModule } from '../../middleware/modules.js';
 import {
   currentMonthCostSummary,
   listProviders,
@@ -22,6 +24,15 @@ import { projectEmptyAiQuotas, projectAiQuotas } from '../../../services/ai/quot
 import { updateAISettingsInput } from '../../schemas/ai.js';
 
 export const settingsRouter = router({
+  // The cashier voice surface needs a capability check, not the manager-only
+  // configuration, provider, budget, spend, and quota projection from get.
+  voiceAvailability: cashierManagerOrAdminProcedureWithModule('semantic-search').query(
+    async ({ ctx }) => {
+      const settings = await resolveAISettings(ctx.db, ctx.tenantId);
+      return { enabled: settings.enabled };
+    }
+  ),
+
   get: managerOrAdminProcedure.query(async ({ ctx }) => {
     const settings = await resolveAISettings(ctx.db, ctx.tenantId);
     const provider = getProvider(settings.providerId);

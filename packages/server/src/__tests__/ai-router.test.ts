@@ -347,6 +347,58 @@ describe('ai.settings.get', () => {
   });
 });
 
+describe('ai.settings.voiceAvailability', () => {
+  it('lets a cashier read only the tenant voice-enabled flag', async () => {
+    const db = getDatabase();
+    await db
+      .update(tenants)
+      .set({
+        settings: {
+          modules: { 'semantic-search': true },
+          ai: { enabled: true, monthlyBudgetUsd: 73, providerId: 'openai' },
+        },
+      })
+      .where(eq(tenants.id, tenantId));
+
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: cashierId, role: 'cashier', siteId })
+    );
+    expect(await caller.ai.settings.voiceAvailability()).toEqual({ enabled: true });
+    await expect(caller.ai.settings.get()).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  });
+
+  it('uses the current tenant settings without leaking another tenant configuration', async () => {
+    const db = getDatabase();
+    await db
+      .update(tenants)
+      .set({ settings: { modules: { 'semantic-search': true }, ai: { enabled: true } } })
+      .where(eq(tenants.id, tenantId));
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId: tenantOther, userId: cashierId, role: 'cashier', siteId: null })
+    );
+    expect(await caller.ai.settings.voiceAvailability()).toEqual({ enabled: false });
+  });
+
+  it('rejects a cashier when the tenant semantic-search module is disabled', async () => {
+    const db = getDatabase();
+    await db
+      .update(tenants)
+      .set({
+        settings: {
+          modules: { 'semantic-search': false },
+          ai: { enabled: true },
+        },
+      })
+      .where(eq(tenants.id, tenantId));
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: cashierId, role: 'cashier', siteId })
+    );
+    await expect(caller.ai.settings.voiceAvailability()).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
+  });
+});
+
 describe('ai.invoiceOcr.confirm', () => {
   it('creates a draft purchase and writes the confirm audit row', async () => {
     const db = getDatabase();
