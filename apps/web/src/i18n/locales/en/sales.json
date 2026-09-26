@@ -354,7 +354,7 @@
     "amountNegative": "Amount received cannot be negative",
     "quickAmount": {
       "exactKicker": "Exact",
-      "billKicker": "Bill"
+      "amountKicker": "Amount"
     },
     "balance": "Outstanding balance",
     "change": "Change",

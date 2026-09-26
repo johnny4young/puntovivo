@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn, formatCurrency } from '@/lib/utils';
 
+/** Cash amount shortcuts; the parent owns selection and payment calculations. */
 interface QuickDenominationSelectorProps {
   total: number;
   currentValue: number;
@@ -15,10 +16,10 @@ interface QuickDenominationSelectorProps {
 /**
  * design-system V4 "Recibido" panel.
  *
- * Renders three smart suggestions plus an "Exact" button so the cashier
- * can mark the amount received with one tap. Suggestions ladder up from
- * the grand total: the next round bill above the total, then +50%, then
- * 2×. "Exact" mirrors the total to drop change to zero.
+ * Renders up to three suggested amounts plus an "Exact" button so the cashier
+ * can mark the amount received with one tap. Suggestions combine denomination
+ * seeds with calculated rounded amounts; they do not all represent banknotes.
+ * "Exact" mirrors the total to drop change to zero.
  *
  * The component never mutates anything itself — it just calls
  * `onSelect(amount)` so the parent form (single tender or split tender)
@@ -91,7 +92,7 @@ export function QuickDenominationSelector({
           )}
         >
           <span className="block text-[0.55rem] font-semibold uppercase tracking-[0.24em] text-secondary-500">
-            {t('payment.quickAmount.billKicker')}
+            {t('payment.quickAmount.amountKicker')}
           </span>
           <span className="mt-0.5 block font-mono text-sm tabular-nums">
             {formatCurrency(amount)}
