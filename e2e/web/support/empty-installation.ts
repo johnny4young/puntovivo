@@ -4,6 +4,7 @@ import { once } from 'node:events';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { describeEmptyInstallationForwardingFailure } from './empty-installation-diagnostics.js';
 
 /** Test-owned server with no business identities; its capability never enters a public API. */
 interface EmptyInstallation {
@@ -28,8 +29,12 @@ export const test = base.extend<{ installation: EmptyInstallation }>({
       },
       stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
     });
-    const failures: string[] = [];
-    child.stderr?.on('data', chunk => failures.push(String(chunk)));
+    // Server stderr is failure evidence, but retaining its text would let a
+    // Playwright assertion print credentials or request details on failure.
+    let stderrBytes = 0;
+    child.stderr?.on('data', chunk => {
+      stderrBytes += Buffer.byteLength(chunk);
+    });
     const exited = once(child, 'exit');
     let completed = false;
     try {
@@ -55,13 +60,31 @@ export const test = base.extend<{ installation: EmptyInstallation }>({
       // response or business identity is fabricated by this forwarding seam.
       await page.route('**/api/**', async route => {
         const original = new URL(route.request().url());
-        const response = await route.fetch({
-          url: `${ready.url}${original.pathname}${original.search}`,
-        });
+        let response;
+        try {
+          response = await route.fetch({
+            url: `${ready.url}${original.pathname}${original.search}`,
+          });
+        } catch (error) {
+          // Playwright's raw route.fetch error prints request headers, which
+          // include the synthetic installation's refresh cookie. Fail the
+          // test unchanged, but report only safe transport/process metadata.
+          throw new Error(
+            describeEmptyInstallationForwardingFailure({
+              method: route.request().method(),
+              requestUrl: route.request().url(),
+              error,
+              childExitCode: child.exitCode,
+              childSignalCode: child.signalCode,
+              childConnected: child.connected,
+              stderrBytes,
+            })
+          );
+        }
         await route.fulfill({ response });
       });
       await use({ databasePath, token: ready.token });
-      expect(failures).toEqual([]);
+      expect(stderrBytes, 'the isolated server must not write to stderr').toBe(0);
       completed = true;
     } finally {
       await page.unrouteAll({ behavior: 'wait' });

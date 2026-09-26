@@ -12,7 +12,7 @@ import { seedSurfaceGateScenario } from './support/db.js';
 
 test.use({ actionTimeout: 15_000 });
 
-test('pharmacy recall redacts customer identity for manager and excludes cashier', async ({
+test('pharmacy recall redacts customer identity for manager and excludes cashier @isolated-journey', async ({
   page,
 }, info) => {
   test.setTimeout(120_000);

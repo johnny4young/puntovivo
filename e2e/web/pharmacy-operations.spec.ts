@@ -14,7 +14,7 @@ import { seedSurfaceGateScenario } from './support/db.js';
 
 test.use({ actionTimeout: 15_000 });
 
-test('pharmacy day preserves OTC lot custody and consumes approved prescription evidence once', async ({
+test('pharmacy day preserves OTC lot custody and consumes approved prescription evidence once @isolated-journey', async ({
   page,
 }, info) => {
   test.setTimeout(120_000);
