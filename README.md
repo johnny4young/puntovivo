@@ -102,12 +102,12 @@ retail POS sellability.
 
 Puntovivo is under active development. Honest gates:
 
-| Stage                    | Verdict                   | Why                                                                                                                                                                                                                                                              |
-| ------------------------ | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Development demo         | Ready                     | The retail core, workforce, serialized inventory, launch import, privacy, backup, and operations surfaces are demonstrable and covered by automated tests.                                                                                                       |
-| Controlled internal beta | Ready with release checks | v1.11.0 remains at a 10 percent staged rollout. The last retained cross-platform packaged/recovery proof is the older v1.10.1 candidate `c6aebb8e`; v1.11.0 still needs representative-host clean install, upgrade from v1.10.0, and downgrade-refusal evidence. |
-| Private retail pilot     | Not yet                   | Fiscal contingency, certified provider transmission, final fiscal receipt proof, and physical POS hardware still need to close.                                                                                                                                  |
-| Production sale          | No                        | Requires fiscal certification, legal retention evidence, hardware validation, externally delivered alerts, payment-terminal policy, and an observed pilot.                                                                                                       |
+| Stage                    | Verdict                   | Why                                                                                                                                                                                                                                                                                                            |
+| ------------------------ | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Development demo         | Ready                     | The retail core, workforce, serialized inventory, launch import, privacy, backup, and operations surfaces are demonstrable and covered by automated tests.                                                                                                                                                     |
+| Controlled internal beta | Ready with release checks | v1.14.4 is published and its live desktop update feed offers a 10 percent staged rollout. The documented v1.10.1 packaged/recovery matrix is historical regression evidence, not proof for v1.14.4. Representative-host clean install, production-updater upgrade, and downgrade refusal remain release gates. |
+| Private retail pilot     | Not yet                   | Fiscal contingency, certified provider transmission, final fiscal receipt proof, and physical POS hardware still need to close.                                                                                                                                                                                |
+| Production sale          | No                        | Requires fiscal certification, legal retention evidence, hardware validation, externally delivered alerts, payment-terminal policy, and an observed pilot.                                                                                                                                                     |
 
 The canonical capability inventory, remaining gaps, and release gates live in
 [docs/PROJECT-STATUS.md](./docs/PROJECT-STATUS.md).
@@ -118,12 +118,14 @@ The canonical capability inventory, remaining gaps, and release gates live in
   certificate, and numbering resolution.
 - Hardware printer, drawer, scanner, and terminal certification require a
   physical lab.
-- Signed Windows and notarized macOS v1.10.1 installers are the latest retained
-  cross-platform baseline. That older candidate passed packaged runtime and all
-  nine encrypted recovery checks on Linux, macOS, and Windows in
+- The historical v1.10.1 manual candidate passed packaged runtime and all nine
+  encrypted recovery checks on Linux, macOS, and Windows in
   [run 31264233582](https://github.com/johnny4young/puntovivo/actions/runs/31264233582).
-  Those artifacts are regression evidence for v1.10.1, not proof of the v1.11.0
-  binary, a newly signed release, or a production recovery-time promise.
+  That validation-only matrix is regression evidence for v1.10.1, not proof of
+  the current v1.14.4 binary, release signing, or a production recovery-time
+  promise. The [v1.14.4 release](https://github.com/johnny4young/puntovivo/releases/tag/v1.14.4)
+  and [live update policy](https://johnny4young.github.io/puntovivo/update-policy.json)
+  do not substitute for representative-machine Gate 5 evidence.
 - The macOS artifact is Apple Silicon and now declares macOS 15 Sequoia as its
   minimum. The candidate workflow separately targets Sequoia 15 and Tahoe 26;
   Intel has no supported artifact today.
