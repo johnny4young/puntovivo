@@ -41,6 +41,34 @@ function ActionToastHarness({ onAction }: { onAction: () => void | Promise<void>
   );
 }
 
+function LongToastHarness({ language }: { language: 'en' | 'es' }) {
+  const toast = useToast();
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        toast.warning({
+          title:
+            language === 'en'
+              ? 'UnexpectedlyLongUnbrokenToastTitleWithoutSpaces'
+              : 'AvisoExtremadamenteLargoSinEspacios',
+          description:
+            language === 'en'
+              ? 'UnexpectedlyLongUnbrokenToastDescriptionWithoutSpaces'
+              : 'DescripcionExtremadamenteLargaSinEspacios',
+          action: {
+            label: language === 'en' ? 'Try again' : 'Intenta de nuevo',
+            onClick: () => undefined,
+          },
+          durationMs: 60_000,
+        });
+      }}
+    >
+      Show long toast
+    </button>
+  );
+}
+
 describe('ToastProvider', () => {
   beforeEach(async () => {
     await i18next.changeLanguage('en');
@@ -117,4 +145,40 @@ describe('ToastProvider', () => {
     expect(screen.getByText('Session expired')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Sign in again' })).toBeVisible();
   });
+
+  it.each(['en', 'es'] as const)(
+    'keeps a long %s toast within narrow viewport insets with a reachable dismissal',
+    async language => {
+      await i18next.changeLanguage(language);
+      const user = userEvent.setup();
+      render(
+        <ToastProvider>
+          <LongToastHarness language={language} />
+        </ToastProvider>
+      );
+
+      await user.click(screen.getByRole('button', { name: 'Show long toast' }));
+      const alert = screen.getByRole('status');
+      const viewport = alert.parentElement;
+      expect(viewport).toHaveClass('left-4', 'right-4', 'w-auto', 'sm:left-auto', 'sm:w-full');
+      expect(viewport).toHaveClass(
+        'pointer-events-auto',
+        'max-h-[calc(100dvh-2rem)]',
+        'overflow-y-auto'
+      );
+      expect(alert).toHaveClass('break-words');
+      expect(
+        screen.getByText(
+          language === 'en'
+            ? 'UnexpectedlyLongUnbrokenToastDescriptionWithoutSpaces'
+            : 'DescripcionExtremadamenteLargaSinEspacios'
+        )
+      ).toBeVisible();
+      const dismiss = screen.getByRole('button', {
+        name: language === 'en' ? /dismiss unexpectedlylong/i : /descartar avisoextremadamente/i,
+      });
+      await user.click(dismiss);
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    }
+  );
 });
