@@ -52,6 +52,18 @@ is usable from source, but it is not a new packaged release yet.
   a real alert receiver with ownership, and an observed retail pilot remain
   open gates.
 
+## [1.14.5](https://github.com/johnny4young/puntovivo/compare/v1.14.4...v1.14.5) (2026-09-26)
+
+
+### Bug Fixes
+
+* **ai:** protect copilot identities before provider analytics ([164ffba](https://github.com/johnny4young/puntovivo/commit/164ffba9403e1d5b76cd1df9a4e176c3e619c093))
+* **ai:** protect copilot identities before provider analytics ([4d3317b](https://github.com/johnny4young/puntovivo/commit/4d3317baaacd0cc7f6356985a61affdb3af227d3))
+* **perf:** bind Lighthouse CPU diagnostics to the audited frame ([60dcaef](https://github.com/johnny4young/puntovivo/commit/60dcaef46dad9c138fcedc2c4fa08788d948a0e7))
+* **perf:** bind Lighthouse CPU diagnostics to the audited frame ([42fa706](https://github.com/johnny4young/puntovivo/commit/42fa7062734b9ac858e8587d402f88bb22a6c017))
+* **web:** preload boot display faces to remove login font-swap shift ([4986189](https://github.com/johnny4young/puntovivo/commit/4986189bb922207ca5018eb174a28ede61806502))
+* **web:** preload boot display faces to remove login font-swap shift ([e3b95d1](https://github.com/johnny4young/puntovivo/commit/e3b95d1b1bc67318ca3e3e12e1d78eaf1ea8d316))
+
 ## [1.14.4](https://github.com/johnny4young/puntovivo/compare/v1.14.3...v1.14.4) (2026-09-16)
 
 
