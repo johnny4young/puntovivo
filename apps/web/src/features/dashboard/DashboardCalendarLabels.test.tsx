@@ -48,6 +48,29 @@ describe('dashboard calendar labels', () => {
     }
   }
 
+  it('keeps the calendar day when the tenant has no short date pattern', async () => {
+    await i18next.changeLanguage('en');
+    setActiveTenantLocale({
+      locale: 'en-US',
+      currency: 'USD',
+      displayDecimals: 2,
+      timezone: 'America/Bogota',
+      dateFormatShort: '',
+    });
+    const { container } = render(
+      <RevenueTrendCard
+        points={[
+          { date: '2026-03-08', revenue: 10, orders: 1 },
+          { date: '2026-11-01', revenue: 20, orders: 2 },
+        ]}
+        formatCurrency={formatCurrency}
+      />
+    );
+    expect(container.querySelector('.dashboard-chart-axis')?.textContent).toBe(
+      'Mar 8, 2026Nov 1, 2026'
+    );
+  });
+
   it('keeps empty dates empty rather than manufacturing a calendar day', async () => {
     await i18next.changeLanguage('en');
     const { container } = render(<RevenueTrendCard points={[]} formatCurrency={formatCurrency} />);
