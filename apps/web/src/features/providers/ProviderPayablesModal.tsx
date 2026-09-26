@@ -433,7 +433,7 @@ export function ProviderPayablesModal({ isOpen, provider, onClose }: ProviderPay
                 </label>
               </div>
               {(action === 'payment' || action === 'credit') && (
-                <div className="mt-3 rounded-xl border border-line bg-white p-3 text-sm">
+                <div className="mt-3 rounded-xl border border-line bg-surface p-3 text-sm">
                   <p className="font-medium text-secondary-900">
                     {t('providerPayables:form.allocationTitle')}
                   </p>
