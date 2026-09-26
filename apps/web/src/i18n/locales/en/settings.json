@@ -103,8 +103,7 @@
       "phone": "Phone",
       "status": "Status",
       "locations": "Locations",
-      "noAddress": "No address",
-      "manageLocations": "Manage site locations"
+      "noAddress": "No address"
     },
     "form": {
       "createTitle": "Create Site",

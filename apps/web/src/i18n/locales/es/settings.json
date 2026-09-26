@@ -103,8 +103,7 @@
       "phone": "Teléfono",
       "status": "Estado",
       "locations": "Ubicaciones",
-      "noAddress": "Sin dirección",
-      "manageLocations": "Gestionar ubicaciones de la sede"
+      "noAddress": "Sin dirección"
     },
     "form": {
       "createTitle": "Crear sede",
