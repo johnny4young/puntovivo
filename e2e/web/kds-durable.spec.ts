@@ -57,7 +57,9 @@ test('kitchen routing, structured preparation and versioned transitions survive 
   await page.keyboard.press('Escape');
   await page.goto('/restaurants/tables');
   await page.getByTestId('restaurant-tables-create-cta').click();
-  const tableName = `E2E Kitchen ${Date.now()}`;
+  // Keep the modifier price in a non-price identifier so the kitchen assertion
+  // cannot accidentally scan the table header instead of the preparation line.
+  const tableName = `E2E Kitchen 1500 ${Date.now()}`;
   const table = page.getByRole('dialog', { name: 'Create table' });
   await table.getByTestId('restaurant-table-name').fill(tableName);
   await table.getByTestId('restaurant-table-seat-count').fill('2');
@@ -85,8 +87,12 @@ test('kitchen routing, structured preparation and versioned transitions survive 
   const card = page.getByTestId('kds-order-card').filter({ hasText: scenario.product.name });
   await expect(card).toBeVisible();
   await expect(card).toContainText('Course: Starter');
-  await expect(card).toContainText('Extra cheese');
-  await expect(card).not.toContainText('1500');
+  const preparationLine = card
+    .getByTestId('kds-order-card-item')
+    .filter({ hasText: scenario.product.name });
+  await expect(preparationLine.getByText('1 × Extra cheese', { exact: true })).toBeVisible();
+  const preparationDetails = (await preparationLine.locator('p').allTextContents()).join(' ');
+  expect(preparationDetails).not.toMatch(/\b1[.,]?500\b/);
   await expect(card).toContainText('No onions <script>not executable</script>');
   await runAxeOnPage(page, { include: '[data-testid="kds-board"]' });
   const before = readKitchenEvidence(scenario.tenantId, scenario.product.id);
