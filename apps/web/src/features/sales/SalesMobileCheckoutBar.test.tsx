@@ -22,6 +22,53 @@ const activeCashSession = {
 };
 
 describe('SalesMobileCheckoutBar', () => {
+  it('reserves the measured fixed-bar footprint and releases its observer on unmount', () => {
+    const observe = vi.fn();
+    const disconnect = vi.fn();
+    let resize = () => {};
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(callback: () => void) {
+          resize = callback;
+        }
+        observe = observe;
+        disconnect = disconnect;
+      }
+    );
+    const height = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(180);
+    try {
+      const { unmount } = render(
+        <SalesMobileCheckoutBar
+          draftSummary={{ itemCount: 0, subtotal: 0, taxAmount: 0, total: 0 }}
+          cashSession={null}
+          canCharge={false}
+          canOpenCashSession
+          canCloseCashSession={false}
+          onOpenSearch={vi.fn()}
+          onCharge={vi.fn()}
+          onOpenCashSession={vi.fn()}
+          onCloseCashSession={vi.fn()}
+        />
+      );
+      expect(observe).toHaveBeenCalledWith(screen.getByTestId('mobile-checkout-bar'), {
+        box: 'border-box',
+      });
+      expect(screen.getByTestId('mobile-checkout-footprint')).toHaveStyle({ height: '180px' });
+      height.mockReturnValue(244);
+      resize();
+      expect(screen.getByTestId('mobile-checkout-footprint')).toHaveStyle({ height: '244px' });
+      height.mockReturnValue(0);
+      resize();
+      expect(screen.getByTestId('mobile-checkout-footprint')).toHaveStyle({ height: '0px' });
+      unmount();
+      expect(disconnect).toHaveBeenCalledOnce();
+    } finally {
+      height.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('renders the draft summary and actions in Spanish', async () => {
     await i18next.changeLanguage('es');
     const expectedTotal = formatCurrency(23.8).replace(/\s+/g, ' ');
