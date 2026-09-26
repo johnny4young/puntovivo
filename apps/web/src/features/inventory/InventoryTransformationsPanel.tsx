@@ -7,13 +7,14 @@ import { useTranslation } from 'react-i18next';
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { Modal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
+import { useResolvedLocale } from '@/features/locale/LocaleProvider';
 import { TablePagination } from '@/components/tables/TablePagination';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
-import { formatCurrency, formatDateTime } from '@/lib/utils';
+import { calendarDayAt, formatCurrency, formatDateTime } from '@/lib/utils';
 import type { Product } from '@/types';
 import { ExactLotAllocationEditor } from './LotEditors';
 import {
@@ -559,24 +560,35 @@ function TransformationInputEditor({
   onOptionsChange: (recipeInputId: string, options: ExactLotOption[]) => void;
 }) {
   const { t } = useTranslation('inventory');
+  const { timezone } = useResolvedLocale();
   const [now] = useState(() => Date.now());
+  const businessDate = useMemo(() => {
+    if (!input.tracksLots) return null;
+    try {
+      return calendarDayAt(new Date(now), timezone);
+    } catch (error) {
+      // A legacy invalid tenant zone must not expose any unverified exact
+      // lots or crash the editor; the locale can be repaired elsewhere.
+      if (error instanceof RangeError) return null;
+      throw error;
+    }
+  }, [input.tracksLots, now, timezone]);
   const lotsQuery = trpc.inventoryLots.list.useQuery(
     { siteId, productId: input.productId, activeOnly: true },
     { enabled: input.tracksLots }
   );
-  const options: ExactLotOption[] = useMemo(
-    () =>
-      (lotsQuery.data?.items ?? [])
-        .filter(lot => lot.onHand > 0 && !isLotExpiredAt(lot.expiresAt, now))
-        .map(lot => ({
-          id: lot.id,
-          lotNumber: lot.lotNumber,
-          expiresAt: lot.expiresAt,
-          status: lot.status,
-          availableQuantity: lot.onHand,
-        })),
-    [lotsQuery.data, now]
-  );
+  const options: ExactLotOption[] = useMemo(() => {
+    if (businessDate === null) return [];
+    return (lotsQuery.data?.items ?? [])
+      .filter(lot => lot.onHand > 0 && !isLotExpiredAt(lot.expiresAt, now, businessDate))
+      .map(lot => ({
+        id: lot.id,
+        lotNumber: lot.lotNumber,
+        expiresAt: lot.expiresAt,
+        status: lot.status,
+        availableQuantity: lot.onHand,
+      }));
+  }, [lotsQuery.data, now, businessDate]);
   const allocatedLotIds = useMemo(
     () => options.filter(option => parsePositiveQuantity(value.allocations[option.id] ?? '') > 0),
     [options, value.allocations]
@@ -619,7 +631,7 @@ function TransformationInputEditor({
           onChange={baseQuantity => onChange({ ...value, baseQuantity })}
         />
       </div>
-      {input.tracksLots && !lotsQuery.error && (
+      {input.tracksLots && !lotsQuery.error && businessDate !== null && (
         <ExactLotAllocationEditor
           idPrefix={`transformation-${input.id}`}
           options={options}
@@ -629,7 +641,7 @@ function TransformationInputEditor({
           onChange={allocations => onChange({ ...value, allocations })}
         />
       )}
-      {input.tracksLots && lotsQuery.error && (
+      {input.tracksLots && (lotsQuery.error || businessDate === null) && (
         <p className="mt-3 text-sm text-danger-700" role="alert">
           {t('transformations.execute.lotsError')}
         </p>
