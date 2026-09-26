@@ -2,13 +2,13 @@
   "page": {
     "kicker": "Inteligencia · Co-pilot",
     "title": "Co-pilot",
-    "subtitle": "Pregúntale a tus datos. El SQL siempre se muestra abajo del resultado, auditado y descargable."
+    "subtitle": "Explora tus datos. Cuando se ejecuta una consulta, el SQL y sus filas quedan visibles para revisión."
   },
   "mode": {
     "kicker": "Contrato de respuesta",
     "active": "Activo ahora",
-    "guidedTitle": "Datos con explicación",
-    "guidedDescription": "Muestra la consulta validada y sus filas, y luego agrega una explicación breve generada por IA.",
+    "guidedTitle": "Revisión guiada de la consulta",
+    "guidedDescription": "Muestra una guía breve y determinista junto con la consulta ejecutada y sus filas. No presenta conclusiones generadas por IA.",
     "verifiedTitle": "Solo resultados",
     "verifiedDescription": "Muestra únicamente el SQL validado, el número de filas, la tabla y un gráfico determinista. No solicita ni presenta una interpretación generada.",
     "verifiedCaveat": "Una consulta válida y sus filas son evidencia, pero no demuestran automáticamente que una conclusión de negocio sea correcta.",
@@ -19,11 +19,13 @@
     "loading": "Cargando el modo de respuesta...",
     "updating": "Actualizando el modo de respuesta...",
     "updateError": "No pudimos actualizar el modo de respuesta.",
-    "resultVerified": "Respuesta de solo resultados: no se agregó una narrativa generada."
+    "resultVerified": "Respuesta de solo resultados: no se agregó una narrativa generada.",
+    "resultGuided": "Revisa el SQL ejecutado y las filas visibles antes de usar una cifra. Una consulta válida podría responder otra pregunta y las filas podrían estar recortadas."
   },
   "chat": {
     "title": "Conversación",
-    "starter": "Prueba: ¿cuánto vendí ayer en Sur?"
+    "starter": "Prueba: ¿cuánto vendí ayer en Sur?",
+    "resultReady": "Los resultados de tu última pregunta están listos. Ver consultas y filas."
   },
   "composer": {
     "label": "Pregunta de analítica",
@@ -36,6 +38,7 @@
     "loading": "Analizando..."
   },
   "results": {
+    "queryLabel": "Consulta {{index}}",
     "tableTitle": "Filas del resultado",
     "sqlDisclosure": "SQL ejecutado",
     "noRows": "Este análisis no devolvió filas.",
@@ -43,7 +46,7 @@
     "meta": "{{provider}} / {{model}} · {{rows}} filas · {{cost}}",
     "metaProviderLabel": "Proveedor",
     "metaCostLabel": "Costo",
-    "metaRowsLabel": "Filas",
+    "metaRowsLabel": "Filas visibles",
     "metaTruncatedLabel": "Truncado",
     "emptyKicker": "Resultado"
   }
