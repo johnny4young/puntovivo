@@ -6,6 +6,7 @@
     "reload": "Recargar la aplicación"
   },
   "server": {
+    "TENANT_TIMEZONE_INVALID": "La zona horaria de la empresa no es válida. Pide a un administrador que corrija o borre la zona horaria personalizada en Empresa y vuelve a intentar.",
     "AUTH_INVALID_CREDENTIALS": "Correo o contraseña incorrectos.",
     "AUTH_USER_DISABLED": "Tu cuenta ha sido deshabilitada. Por favor contacta al administrador.",
     "AUTH_TENANT_DISABLED": "Tu organización ha sido deshabilitada. Por favor contacta a soporte.",

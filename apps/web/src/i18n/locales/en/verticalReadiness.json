@@ -24,6 +24,10 @@
   },
   "action": "Review setup",
   "checks": {
+    "businessCalendar": {
+      "label": "Business calendar",
+      "hint": "The saved time zone is unsupported. Update locale settings before trusting date-based readiness."
+    },
     "catalog": {
       "label": "Sellable catalog",
       "hint": "{{count}} active products are available to this business."

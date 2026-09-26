@@ -799,6 +799,13 @@ selected operating profile. It reports factual configuration and catalog
 counts and links to existing self-service screens. It is advisory: it neither
 blocks checkout nor converts software evidence into legal, hardware, fiscal,
 or production certification.
+For a configured operating profile, when a persisted tenant timezone is
+unsupported, the projection returns only an actionable business-calendar
+attention item leading to Locale settings.
+It does not substitute another calendar day or report date-dependent pharmacy
+policy and authorization counts as ready until the timezone is repaired. Newly
+submitted timezone overrides reject unsupported named zones and bare numeric
+offset strings before persistence; clearing an invalid legacy override remains permitted.
 
 ## Durable decisions
 
