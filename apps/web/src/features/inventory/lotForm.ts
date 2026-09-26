@@ -38,12 +38,20 @@ export type ExactLotAllocationDraft = Record<string, string>;
  * rolls an impossible calendar date forward - so the transformation UI offered
  * a lot built on `2026-02-30T00:00:00.000Z` that execution then rejected.
  */
-export function isLotExpiredAt(expiresAt: string | null | undefined, now: number): boolean {
+export function isLotExpiredAt(
+  expiresAt: string | null | undefined,
+  now: number,
+  businessDate?: string
+): boolean {
   if (!expiresAt) return false;
+  if (!Number.isFinite(now)) return true;
   const expiryTime = parseStrictIsoInstant(expiresAt);
   if (expiryTime === null) return true;
   if (ISO_DATE_ONLY_PATTERN.test(expiresAt)) {
-    return expiresAt < new Date(now).toISOString().slice(0, 10);
+    // A calendar-day expiry remains usable through the tenant's operational
+    // day, even when UTC has already advanced to tomorrow.
+    const effectiveBusinessDate = businessDate ?? new Date(now).toISOString().slice(0, 10);
+    return !ISO_DATE_ONLY_PATTERN.test(effectiveBusinessDate) || expiresAt < effectiveBusinessDate;
   }
   return expiryTime <= now;
 }
