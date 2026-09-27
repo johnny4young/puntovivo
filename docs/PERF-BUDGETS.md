@@ -31,6 +31,16 @@ actual history and export interactions must still work. Native Rolldown
 `codeSplitting.groups` retains recursive dependency defaults and React deduplication.
 Chunk names alone are not proof of lazy loading.
 
+Startup modules that the entry shares with lazy routes (icons, `Button`, `Modal`,
+money helpers, the tRPC client, auth) collect into one `app-shell` chunk
+(`$initial` tag, `minShareCount: 2`). Otherwise Rolldown ships them as dozens of
+sub-3 kB chunks. Lighthouse simulates each request at 150 ms RTT over six
+HTTP/1.1 connections, so request count, not bytes, drove FCP and LCP. The shell
+starts from 12 files instead of 48. Keep the group at default priority after the
+vendor group: a negative priority outranks every group and absorbs the vendor
+and error-copy splits. The artifact regression bounds the startup closure and
+rejects an `app-shell` → entry import cycle.
+
 ### Date formatting on repeated POS renders
 
 Tenant-scoped date formatting reuses at most 64 `Intl.DateTimeFormat` objects,
@@ -97,6 +107,16 @@ Cart summaries are memoized by immutable items and pricing mode so unrelated
 query updates do not serialize the same Customer Display projection again.
 Heartbeat and reconnect publication are unchanged. Lighthouse also logs bounded
 renderer CPU events, with asset paths only and no raw trace arguments or headers.
+Each sample also records its score, LCP, TTI, and CLS before aggregation. CPU
+attribution uses the pinned Lighthouse trace processor to select the audited
+main frame's renderer threads, including process swaps; tasks starting before
+the measured navigation are excluded. The eight longest supported complete
+CPU events are diagnostic examples, not an additive CPU total. Output includes
+`cpuAttribution: main-frame`, or `unavailable` with an empty list if trace
+identity/parsing is unavailable. No raw trace or parser errors are logged.
+This internal Lighthouse API is isolated to diagnostics and covered by synthetic
+multi-renderer trace tests; revalidate it when upgrading Lighthouse. Its failure
+never changes metrics, sampling, score floors, or the strict acceptance policy.
 
 ### Data-scale UI contract
 

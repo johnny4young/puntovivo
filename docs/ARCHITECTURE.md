@@ -436,6 +436,38 @@ not imply compatible embedding spaces, so model changes require regeneration.
 [ADR-0011](./architecture/0011-product-search-vectors.md) owns the codec,
 benchmark, market comparison, and extension-adoption trigger.
 
+## AI analytics privacy boundary
+
+The co-pilot loads a tenant-scoped, time-bounded sales snapshot before its first
+model request. Its provider-only in-memory database replaces customer names,
+cashier names and cashier IDs with request-local opaque labels **before** SQL
+can compute aliases, substrings, encodings or aggregates. All tool steps use the
+same snapshot; it closes on success and failure. Joins additionally constrain
+the ownership of customers, users, sites, cash sessions and products.
+
+The same dictionary protects matching whole values in every user and assistant
+message and in the snapshot's operational labels. This is not a general PII
+detector or anonymization. The dictionary covers only identities present in the
+selected analytics window/site; arbitrary text, partial names, embedded values,
+audio and documents are not universally redacted. Other AI workflows have their
+own egress paths. The legacy `privacy.piiRedaction` capability is therefore
+reported as `false`, including when reading a stored historical `true` value.
+
+Pseudonyms preserve exact name-value grouping (including homonyms), cashier-ID
+grouping, anonymous customer NULLs and monetary values. They do not preserve
+alphabetical ordering, partial-name searches or case-normalized name grouping.
+Their namespace changes for each invocation: an old label must never silently
+identify another person. The prompt asks for a restated name or aggregate
+criteria when a conversation refers to old labels; this instruction is not a
+deterministic semantic guarantee. Authorized local read-only SQL retains its
+identity-bearing contract and is not used as the model tool.
+
+The system prompt remains static for provider caching. Snapshot contents and
+identity maps are not persisted to the AI audit log. Provider-boundary tests use
+the real AI SDK with an in-process fake model and inspect every serialized model
+call, including the calls following tool results and tool errors. These tests
+are not a live-provider certification.
+
 ## Price-tier boundary
 
 Products expose a three-price grid for their base unit. Each alternate unit
@@ -692,7 +724,7 @@ renderer -> contextBridge wrapper -> ipcRenderer.invoke
          -> validated ipcMain.handle -> main-process capability
 ```
 
-Preload wrappers stay narrow and declarative. Business data normally flows over
+Preload wrappers stay narrow and declarative. Business data flows over
 tRPC; IPC is reserved for desktop-only lifecycle, storage, updater, backup,
 printing, and local-device capabilities.
 
@@ -703,7 +735,11 @@ against the active authority before returning it and clears the singleton when
 it is expired, stale, or no longer belongs to the registered identity. The
 token is never written to disk and remains absent from session diagnostics.
 
-Database and sync IPC methods are constructed through an Electron-free handler
+The renderer has no raw database bridge: neither `window.db` nor
+`window.api.db` is exposed, and no `db:*` handlers are registered in main.
+Generic table CRUD and raw outbox enqueue/diagnostics cannot bypass tRPC use
+cases, role checks, audit, cash-session or fiscal invariants. Sync summary,
+trigger and configuration IPC methods remain in an Electron-free handler
 core that resolves the tenant from that verified main-process session before
 validation or persistence can run; renderer tenant hints are compatibility
 inputs only and never control scope. Workstation-settings writes and the
@@ -712,7 +748,7 @@ pre-login locale update remains structurally separate because it must translate
 the login window, tray, and updater before authentication. The read-only device
 id is needed to complete login; read-only workstation presentation preferences
 contain no tenant or business data. Node tests enumerate every authenticated
-db/sync channel and pin those bounded pre-login exceptions. Expected stale-session
+sync channel and pin those bounded pre-login exceptions. Expected stale-session
 failures cross the main/preload wire as a closed error envelope instead of a
 rejected `ipcMain.handle` call; preload recreates the renderer rejection without
 Electron's internal invoke wrapper or a main-process stack diagnostic.
@@ -799,6 +835,13 @@ selected operating profile. It reports factual configuration and catalog
 counts and links to existing self-service screens. It is advisory: it neither
 blocks checkout nor converts software evidence into legal, hardware, fiscal,
 or production certification.
+For a configured operating profile, when a persisted tenant timezone is
+unsupported, the projection returns only an actionable business-calendar
+attention item leading to Locale settings.
+It does not substitute another calendar day or report date-dependent pharmacy
+policy and authorization counts as ready until the timezone is repaired. Newly
+submitted timezone overrides reject unsupported named zones and bare numeric
+offset strings before persistence; clearing an invalid legacy override remains permitted.
 
 ## Durable decisions
 
