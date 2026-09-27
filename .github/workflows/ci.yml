@@ -132,6 +132,9 @@ jobs:
             server:
               - 'packages/server/**'
               - 'perf-budget.json'
+              # Server tests guard Electron main sources, such as the
+              # sync_outbox writer check in sync-contract-manifest.test.ts.
+              - 'apps/desktop/src/main/**'
             desktop:
               - 'apps/desktop/**'
               - 'packages/server/**'
