@@ -334,16 +334,42 @@ describe('setupReadiness.vertical', () => {
     }
   );
 
-  it.each(['UTC', 'America/Bogota', 'US/Eastern'])(
-    'accepts supported timezone %s and keeps the vertical checklist available',
-    async timezoneOverride => {
+  it.each([
+    ['UTC', 'UTC'],
+    ['America/Bogota', 'America/Bogota'],
+    ['america/bogota', 'America/Bogota'],
+    ['US/Eastern', 'America/New_York'],
+  ])(
+    'accepts supported timezone %s, stores it as %s and keeps the checklist available',
+    async (timezoneOverride, stored) => {
       const harness = await seedTenant({ businessType: 'pharmacy' });
       await callerFor(harness).tenantLocale.update({ countryCode: 'CO', timezoneOverride });
+      const saved = await getDatabase()
+        .select({ timezoneOverride: tenantLocaleSettings.timezoneOverride })
+        .from(tenantLocaleSettings)
+        .where(eq(tenantLocaleSettings.tenantId, harness.tenantId))
+        .get();
+      expect(saved?.timezoneOverride).toBe(stored);
       const readiness = await callerFor(harness).setupReadiness.vertical();
       expect(readiness.profile).toBe('pharmacy');
       expect(readiness.checks.some(item => item.id === 'businessCalendar')).toBe(false);
     }
   );
+
+  it('reports the repair code from date-bound commands on an invalid legacy timezone', async () => {
+    const harness = await seedTenant({ businessType: 'pharmacy' });
+    await getDatabase()
+      .update(tenantLocaleSettings)
+      .set({ timezoneOverride: 'Mars/Olympus' })
+      .where(eq(tenantLocaleSettings.tenantId, harness.tenantId));
+    await expect(
+      callerFor(harness).inventoryLots.expiring({ withinDays: 30 })
+    ).rejects.toMatchObject({
+      code: 'PRECONDITION_FAILED',
+      cause: { errorCode: 'TENANT_TIMEZONE_INVALID' },
+      message: expect.not.stringContaining('Mars/Olympus'),
+    });
+  });
 
   it.each(['retail', 'wholesale'] as const)(
     'maps %s to the retail checklist and reports exact unit coverage',

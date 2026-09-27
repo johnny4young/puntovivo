@@ -18,10 +18,9 @@ import {
 import { resolveModulesState } from '../../../services/modules/manifest.js';
 import { resolvePharmacyPolicy } from '../../../services/pharmacy/policy.js';
 import { wedgeScannerConfigSchema } from '../../../services/peripherals/drivers/keyboard-wedge-scanner.js';
-import {
-  InvalidTenantTimezoneError,
-  resolveTenantBusinessClock,
-} from '../../../services/pharmacy/business-clock.js';
+import { TRPCError } from '@trpc/server';
+import { ServerErrorWithCode } from '../../../lib/errorCodes.js';
+import { resolveTenantBusinessClock } from '../../../services/pharmacy/business-clock.js';
 import { inspectPharmacyAuthorizationSnapshot } from '../../../application/pharmacy/authorizations.js';
 import type {
   VerticalReadinessCheckId,
@@ -88,7 +87,11 @@ export async function buildVerticalReadiness(args: {
   try {
     clock = await resolveTenantBusinessClock(args.db, args.tenantId);
   } catch (error) {
-    if (!(error instanceof InvalidTenantTimezoneError)) throw error;
+    const invalidTimezone =
+      error instanceof TRPCError &&
+      error.cause instanceof ServerErrorWithCode &&
+      error.cause.errorCode === 'TENANT_TIMEZONE_INVALID';
+    if (!invalidTimezone) throw error;
     // Date-dependent policy and authorization signals are unknowable until
     // the saved timezone is repaired. Never present them as ready or fall back
     // to a different calendar day just to keep the checklist populated.
