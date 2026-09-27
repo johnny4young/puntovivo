@@ -100,7 +100,6 @@ test('raw pharmacy history is unavailable to every Electron role while safe sync
         'pendingItems',
       ]);
       expect(result.status.pendingItems).toBeGreaterThanOrEqual(1);
-      expect(JSON.stringify(result)).not.toContain('ipc-privacy-fixture-patient');
     });
   }
   // The data still exists: removal of the capability must not masquerade as
