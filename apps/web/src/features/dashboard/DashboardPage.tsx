@@ -51,7 +51,7 @@ function getStatMetric(
 }
 
 export function DashboardPage() {
-  const { formatCurrency, formatDate, formatDateTime } = useTenantSettings();
+  const { formatCurrency, formatDateTime } = useTenantSettings();
   const { t } = useTranslation('dashboard');
   const { user } = useAuth();
   const anomalyModuleActive = useIsModuleActive('anomaly-detection');
@@ -197,11 +197,7 @@ export function DashboardPage() {
       </section>
 
       <div className="dashboard-primary-grid pv-reveal pv-reveal-delay-1">
-        <RevenueTrendCard
-          points={revenueChart}
-          formatCurrency={formatCurrency}
-          formatDate={formatDate}
-        />
+        <RevenueTrendCard points={revenueChart} formatCurrency={formatCurrency} />
         <LowStockAlertsCard items={lowStockItems} />
       </div>
 
