@@ -31,6 +31,16 @@ actual history and export interactions must still work. Native Rolldown
 `codeSplitting.groups` retains recursive dependency defaults and React deduplication.
 Chunk names alone are not proof of lazy loading.
 
+Startup modules that the entry shares with lazy routes (icons, `Button`, `Modal`,
+money helpers, the tRPC client, auth) collect into one `app-shell` chunk
+(`$initial` tag, `minShareCount: 2`). Otherwise Rolldown ships them as dozens of
+sub-3 kB chunks. Lighthouse simulates each request at 150 ms RTT over six
+HTTP/1.1 connections, so request count, not bytes, drove FCP and LCP. The shell
+starts from 12 files instead of 48. Keep the group at default priority after the
+vendor group: a negative priority outranks every group and absorbs the vendor
+and error-copy splits. The artifact regression bounds the startup closure and
+rejects an `app-shell` → entry import cycle.
+
 ### Date formatting on repeated POS renders
 
 Tenant-scoped date formatting reuses at most 64 `Intl.DateTimeFormat` objects,

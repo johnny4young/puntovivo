@@ -29,6 +29,45 @@ test('the shared Vite loader is claimed before any lazy vendor dependencies', ()
   assert.ok(helper.priority > (dataGroup.priority ?? 0));
 });
 
+test('startup modules shared with lazy routes collect into one app-shell chunk', () => {
+  const groups = output.codeSplitting.groups;
+  const appShell = groups.find(group => group.name === 'app-shell');
+  // A negative priority outranks every group and would swallow the vendor splits.
+  assert.equal(appShell.priority, undefined);
+  assert.ok(groups.indexOf(appShell) > groups.indexOf(dataGroup));
+  assert.deepEqual(appShell.tags, ['$initial']);
+  assert.equal(appShell.minShareCount, 2);
+  assert.equal(appShell.includeDependenciesRecursively, undefined);
+  assert.equal(appShell.test('/repo/apps/web/src/main.tsx'), false);
+  assert.equal(appShell.test('/repo/apps/web/src/components/ui/Button.tsx'), true);
+});
+
+test('the built shell starts from a bounded, acyclic set of chunks', () => {
+  const manifest = JSON.parse(
+    readFileSync(new URL('../apps/web/dist/.vite/manifest.json', import.meta.url), 'utf8')
+  );
+  const closure = entry => {
+    const visited = new Set();
+    const visit = key => {
+      if (visited.has(key)) return;
+      visited.add(key);
+      for (const dependency of manifest[key].imports ?? []) visit(dependency);
+    };
+    visit(entry);
+    return visited;
+  };
+  const startup = closure('index.html');
+  // Each startup chunk costs a round trip before first paint.
+  assert.ok(startup.size <= 14, `startup loads ${startup.size} chunks`);
+  const appShell = [...startup].filter(key => /^_app-shell-/.test(key));
+  assert.equal(appShell.length, 1, 'startup must load exactly one app-shell chunk');
+  assert.equal(
+    closure(appShell[0]).has('index.html'),
+    false,
+    'app-shell must not import the entry'
+  );
+});
+
 test('Table and its private stores are separate from the eager query and virtualizer runtime', () => {
   for (const separator of ['/', '\\']) {
     for (const prefix of [
