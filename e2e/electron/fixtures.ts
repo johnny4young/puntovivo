@@ -32,6 +32,7 @@ import {
   type ElectronApplication,
   type Page,
 } from '@playwright/test';
+import type Database from 'better-sqlite3';
 import type { ChildProcess } from 'node:child_process';
 import { spawn, spawnSync } from 'node:child_process';
 import { cpSync, mkdtempSync, rmSync } from 'node:fs';
@@ -97,6 +98,12 @@ export function createIsolatedUserDataDir(label: string, empty = false): string 
 }
 export const ELECTRON_E2E_DB_KEY =
   'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
+
+export function applyE2eSqlCipherKey(db: Database.Database): void {
+  db.pragma("cipher='sqlcipher'");
+  db.pragma('legacy = 4');
+  db.pragma(`key = "x'${ELECTRON_E2E_DB_KEY}'"`);
+}
 
 /**
  * Compiled Electron main entry. Electron Forge's Vite plugin emits

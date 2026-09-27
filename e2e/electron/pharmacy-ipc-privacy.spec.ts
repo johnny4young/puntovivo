@@ -11,7 +11,7 @@ import {
   electronTest,
   expect,
   createIsolatedUserDataDir,
-  ELECTRON_E2E_DB_KEY,
+  applyE2eSqlCipherKey,
 } from './fixtures.js';
 import { signIn, signOut } from './support/journey.js';
 
@@ -30,9 +30,7 @@ const historicalRows = ['local_only', 'queued'].map(status => ({
 
 function openFixture(userDataDir: string) {
   const db = new Database(join(userDataDir, 'data', 'local.db'));
-  db.pragma("cipher='sqlcipher'");
-  db.pragma('legacy = 4');
-  db.pragma(`key = "x'${ELECTRON_E2E_DB_KEY}'"`);
+  applyE2eSqlCipherKey(db);
   return db;
 }
 
