@@ -218,6 +218,14 @@ export default defineConfig(({ mode }) => {
                   return undefined;
                 },
               },
+              {
+                // Startup modules shared with lazy routes would otherwise ship as
+                // dozens of sub-3 kB chunks, and each costs a round trip at boot.
+                name: 'app-shell',
+                tags: ['$initial'],
+                test: id => !/[\\/]src[\\/]main\.tsx$/.test(id),
+                minShareCount: 2,
+              },
             ],
           },
         },
