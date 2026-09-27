@@ -46,10 +46,10 @@ for (const spanish of [false, true]) {
     );
     await page.setViewportSize({ width: 375, height: 812 });
     await login(page, { ...scenario.cashier, defaultPath: '/sales' }, { spanish });
-    // Anchor in visible copy so the regression also runs against the old layout.
+    // Anchor the amount in visible copy so the check follows what the cashier reads.
     const label = page.getByText(spanish ? 'Total borrador' : 'Draft total', { exact: true });
     const total = label.locator('..').locator('p').nth(1);
-    const bar = label.locator('xpath=ancestor::div[contains(@class,"fixed")]');
+    const bar = page.getByTestId('mobile-checkout-bar');
     for (const viewport of VIEWPORTS) {
       await page.setViewportSize(viewport);
       await expectUnclipped(total, page);
