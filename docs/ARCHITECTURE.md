@@ -52,6 +52,10 @@ surface to its renderer.
   they do not allocate HTTP ports.
 - Every operation accepting a site identifier validates that the site belongs
   to the active tenant.
+- The cashier voice screen reads only `ai.settings.voiceAvailability`, a
+  tenant-scoped, `semantic-search`-gated enabled flag. The full
+  `ai.settings.get` projection (provider, budget, spend, and quotas) remains
+  manager/admin-only; a UI capability check must not widen that contract.
 
 ### Companion boundary
 
