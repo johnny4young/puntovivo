@@ -6,26 +6,25 @@ interface QuickDenominationSelectorProps {
   total: number;
   currentValue: number;
   onSelect: (amount: number) => void;
-  /** Token list of base denominations in the tenant currency. Defaults to
-   * COP-friendly 10k / 20k / 50k bills; tenants on different currencies
-   * can override by passing a prop list down later. */
+  /** Base denominations in the tenant currency. Defaults to COP-sized
+   * 10k / 20k / 50k / 100k seeds. */
   denominations?: readonly number[];
 }
+
+const DEFAULT_DENOMINATIONS = [10_000, 20_000, 50_000, 100_000] as const;
 
 /**
  * design-system V4 "Recibido" panel.
  *
- * Renders three smart suggestions plus an "Exact" button so the cashier
- * can mark the amount received with one tap. Suggestions ladder up from
- * the grand total: the next round bill above the total, then +50%, then
- * 2×. "Exact" mirrors the total to drop change to zero.
+ * Renders up to three suggested amounts plus an "Exact" button so the cashier
+ * can mark the amount received with one tap. Suggestions combine denomination
+ * seeds with calculated rounded amounts; they do not all represent banknotes.
+ * "Exact" mirrors the total to drop change to zero.
  *
  * The component never mutates anything itself — it just calls
  * `onSelect(amount)` so the parent form (single tender or split tender)
  * stays the only source of truth for the receipt math.
  */
-const DEFAULT_DENOMINATIONS = [10_000, 20_000, 50_000, 100_000] as const;
-
 export function QuickDenominationSelector({
   total,
   currentValue,
@@ -53,10 +52,12 @@ export function QuickDenominationSelector({
     const doubled = Math.ceil((total * 2) / 1_000) * 1_000;
     return Array.from(new Set([nextBill, biggerBill, doubled]))
       .filter(v => v >= total)
+      .sort((a, b) => a - b)
       .slice(0, 3);
   }, [total, denominations]);
 
-  const isActive = (amount: number) => Math.abs(currentValue - amount) < 0.5;
+  // Half a cent, so a 2-decimal tender a few cents short never reads as exact.
+  const isActive = (amount: number) => Math.abs(currentValue - amount) < 0.005;
 
   return (
     <div
@@ -91,7 +92,7 @@ export function QuickDenominationSelector({
           )}
         >
           <span className="block text-[0.55rem] font-semibold uppercase tracking-[0.24em] text-secondary-500">
-            {t('payment.quickAmount.billKicker')}
+            {t('payment.quickAmount.amountKicker')}
           </span>
           <span className="mt-0.5 block font-mono text-sm tabular-nums">
             {formatCurrency(amount)}
