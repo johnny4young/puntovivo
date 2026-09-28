@@ -10,9 +10,16 @@ import i18n from '@/i18n';
 import { render } from '@/test/utils';
 import { CompanyDiscountSettingsCard } from './CompanyDiscountSettingsCard';
 
-const updateMutate = vi.fn(async () => undefined);
-let mockTiers: Array<{ maxDays: number; pct: number }>;
+type Tier = { maxDays: number; pct: number };
+const updateMutate = vi.fn(async (_input: { expiryTiers: Tier[] }) => undefined);
+const updateTenantSettings = vi.fn();
+let mockServerReply: Tier[] | null = null;
+let mockTiers: Tier[];
 let mockIsLoading = false;
+
+vi.mock('@/features/auth/AuthProvider', () => ({
+  useAuth: () => ({ updateTenantSettings }),
+}));
 
 vi.mock('@/lib/trpc', () => ({
   trpc: {
@@ -30,7 +37,19 @@ vi.mock('@/lib/trpc', () => ({
         }),
       },
       update: {
-        useMutation: () => ({ mutateAsync: updateMutate, isPending: false }),
+        useMutation: (options: {
+          onSuccess?: (result: { expiryTiers: Tier[] }) => void;
+          onSettled?: () => void;
+        }) => ({
+          mutateAsync: async (input: { expiryTiers: Tier[] }) => {
+            await updateMutate(input);
+            const result = { expiryTiers: mockServerReply ?? input.expiryTiers };
+            options.onSuccess?.(result);
+            options.onSettled?.();
+            return result;
+          },
+          isPending: false,
+        }),
       },
     },
   },
@@ -45,6 +64,7 @@ describe('CompanyDiscountSettingsCard', () => {
     await i18n.changeLanguage('en');
     vi.clearAllMocks();
     mockIsLoading = false;
+    mockServerReply = null;
     mockTiers = [
       { maxDays: 7, pct: 30 },
       { maxDays: 15, pct: 20 },
@@ -105,6 +125,26 @@ describe('CompanyDiscountSettingsCard', () => {
         { maxDays: 15, pct: 20 },
         { maxDays: 30, pct: 10 },
       ],
+    });
+  });
+
+  it('mirrors the committed server ladder to the live radar without a new login', async () => {
+    const user = userEvent.setup();
+    mockServerReply = [
+      { maxDays: 3, pct: 34 },
+      { maxDays: 15, pct: 20 },
+      { maxDays: 30, pct: 10 },
+    ];
+    render(<CompanyDiscountSettingsCard />);
+
+    const days = screen.getByLabelText('Days left for tier 1');
+    await user.clear(days);
+    await user.type(days, '3');
+    expect(updateTenantSettings).not.toHaveBeenCalled();
+    await user.click(screen.getByTestId('discount-save-tiers'));
+
+    expect(updateTenantSettings).toHaveBeenCalledWith({
+      discount: { expiryTiers: mockServerReply },
     });
   });
 

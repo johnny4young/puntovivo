@@ -32,7 +32,12 @@ import { CompanyTraySettingsCard } from './CompanyTraySettingsCard';
 
 // backup and recovery modals are needed only on the data tab.
 // Keep that security-heavy surface out of the initial Company route chunk.
-// loyalty program admin card, lazy for the same chunk reason.
+// Discount and loyalty policy editors are needed only on the general tab.
+const CompanyDiscountSettingsCard = lazy(() =>
+  import('./CompanyDiscountSettingsCard').then(module => ({
+    default: module.CompanyDiscountSettingsCard,
+  }))
+);
 const CompanyLoyaltySettingsCard = lazy(() =>
   import('./CompanyLoyaltySettingsCard').then(module => ({
     default: module.CompanyLoyaltySettingsCard,
@@ -130,6 +135,17 @@ export function CompanySettingsPanels({
             onSubmit={onSubmit}
           />
           <CompanyPricingSettingsCard />
+          <Suspense
+            fallback={
+              <div
+                className="h-48 animate-pulse rounded-2xl border border-line bg-surface"
+                role="status"
+                aria-label={t('company.discount.title')}
+              />
+            }
+          >
+            <CompanyDiscountSettingsCard />
+          </Suspense>
           <Suspense
             fallback={
               <div
