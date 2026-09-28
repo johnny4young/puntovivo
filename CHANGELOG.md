@@ -52,6 +52,58 @@ is usable from source, but it is not a new packaged release yet.
   a real alert receiver with ownership, and an observed retail pilot remain
   open gates.
 
+## [1.14.5](https://github.com/johnny4young/puntovivo/compare/v1.14.4...v1.14.5) (2026-09-28)
+
+
+### Bug Fixes
+
+* **ai:** protect copilot identities before provider analytics ([164ffba](https://github.com/johnny4young/puntovivo/commit/164ffba9403e1d5b76cd1df9a4e176c3e619c093))
+* **ai:** protect copilot identities before provider analytics ([4d3317b](https://github.com/johnny4young/puntovivo/commit/4d3317baaacd0cc7f6356985a61affdb3af227d3))
+* **dashboard:** preserve calendar dates in revenue labels ([8d5c7f4](https://github.com/johnny4young/puntovivo/commit/8d5c7f434359668598f3c35a4cb70a9a684f2f67))
+* **dashboard:** preserve calendar dates in revenue labels ([288992c](https://github.com/johnny4young/puntovivo/commit/288992ce1d7cdbeb74fe2b140b6eba23c008669c))
+* **desktop:** align outbox guard and docs with the removed raw bridge ([26cfedc](https://github.com/johnny4young/puntovivo/commit/26cfedc60dd7dbc1e1dbfe0edefaf5084244ab47))
+* **desktop:** remove unused raw database IPC capabilities ([1fae758](https://github.com/johnny4young/puntovivo/commit/1fae7588ff8fd35de01d01a3495aead70a783394))
+* **desktop:** remove unused raw database IPC capabilities ([71808dd](https://github.com/johnny4young/puntovivo/commit/71808ddf49b3ef9605bd964b2f7e66296d7139a3))
+* **feedback:** contain toasts on narrow screens ([ee9942e](https://github.com/johnny4young/puntovivo/commit/ee9942e1b9b5209bb46133113f84433047713afc))
+* **feedback:** contain toasts on narrow screens ([afb2034](https://github.com/johnny4young/puntovivo/commit/afb20343d75722d8b0130f9c454787e237657211))
+* **feedback:** keep toasts right-aligned and click-through ([9b6c1d5](https://github.com/johnny4young/puntovivo/commit/9b6c1d5ea509505bfc559ab6a85612413f0b10ef))
+* **perf:** bind Lighthouse CPU diagnostics to the audited frame ([60dcaef](https://github.com/johnny4young/puntovivo/commit/60dcaef46dad9c138fcedc2c4fa08788d948a0e7))
+* **perf:** bind Lighthouse CPU diagnostics to the audited frame ([42fa706](https://github.com/johnny4young/puntovivo/commit/42fa7062734b9ac858e8587d402f88bb22a6c017))
+* **readiness:** recover unsupported tenant timezones ([70f4a0c](https://github.com/johnny4young/puntovivo/commit/70f4a0c376f9157cbe8edeb9610bc1c7d160c5e1))
+* **readiness:** recover unsupported tenant timezones ([a734da0](https://github.com/johnny4young/puntovivo/commit/a734da037b06a686efa5fe6d3c0baa2708b909a7))
+* **readiness:** surface the timezone repair code from every date-bound command ([ab05ff8](https://github.com/johnny4young/puntovivo/commit/ab05ff8fcaa39d143535954af16667644b9fa353))
+* **sales:** keep mobile checkout totals fully visible ([1fbcb24](https://github.com/johnny4young/puntovivo/commit/1fbcb24ed53ba3c797d2b35301c679949edde126))
+* **sales:** keep mobile checkout totals fully visible ([8e86d64](https://github.com/johnny4young/puntovivo/commit/8e86d6409c0e2a9ad99f849a9138d8b146716c5f))
+* **sales:** label cash suggestions as amounts ([c937938](https://github.com/johnny4young/puntovivo/commit/c937938521e882a0022e33caad272076aa74fe58))
+* **sales:** label cash suggestions as amounts ([389410a](https://github.com/johnny4young/puntovivo/commit/389410a57e29967a44fce5f2b1f9510ec35d6b31))
+* **sales:** order cash shortcuts and tighten exact match ([f4b9483](https://github.com/johnny4young/puntovivo/commit/f4b9483a32292c36c5c0e68a2c57cf907900acf6))
+* **sites:** interpolate site action labels ([b9980e4](https://github.com/johnny4young/puntovivo/commit/b9980e449c4d70bebf8803bf950af67ec0563a0c))
+* **sites:** name site row actions accessibly ([11949e9](https://github.com/johnny4young/puntovivo/commit/11949e9c96e965d2f8ff846cb804965a6044b55d))
+* **sites:** name site row actions accessibly ([b7eca09](https://github.com/johnny4young/puntovivo/commit/b7eca0948aec3c37e25af6e4da056fe46aa5c116))
+* **sites:** show a tooltip on every site row action ([33195bf](https://github.com/johnny4young/puntovivo/commit/33195bf994744ebfea694d3ca0786030c2664d1c))
+* **voice:** allow cashiers to check voice availability ([e5ffc7d](https://github.com/johnny4young/puntovivo/commit/e5ffc7dc5b3d5f4abd1be05bd785f117d78a4064))
+* **voice:** allow cashiers to check voice availability ([de6a14c](https://github.com/johnny4young/puntovivo/commit/de6a14c1686ec5a0e7f838f6408adf422135e17f))
+* **voice:** refresh voice availability after AI settings saves ([f029ac1](https://github.com/johnny4young/puntovivo/commit/f029ac150725eb0ac6bfca1fd006998ba932efc7))
+* **web:** preload boot display faces to remove login font-swap shift ([4986189](https://github.com/johnny4young/puntovivo/commit/4986189bb922207ca5018eb174a28ede61806502))
+* **web:** preload boot display faces to remove login font-swap shift ([e3b95d1](https://github.com/johnny4young/puntovivo/commit/e3b95d1b1bc67318ca3e3e12e1d78eaf1ea8d316))
+
+
+### Performance
+
+* **web:** collect shared startup modules into one app-shell chunk ([9d6635f](https://github.com/johnny4young/puntovivo/commit/9d6635f4ebcf79a40d9c4aec04f7635e96b33318))
+* **web:** collect shared startup modules into one app-shell chunk ([39e2c7e](https://github.com/johnny4young/puntovivo/commit/39e2c7e096f563b47667c0740072ae44e6598f09))
+
+
+### Refactors
+
+* **sales:** remove unused cashier pace preference store ([9ab8b28](https://github.com/johnny4young/puntovivo/commit/9ab8b2805b6b1324e966a5e1e187137ad1ee43a5))
+* **sales:** remove unused cashier pace preference store ([d528e13](https://github.com/johnny4young/puntovivo/commit/d528e13451d4c848bb640f2d500a3098a807bdbd))
+* **surfaces:** drop orphaned placeholder copy and stale surface docs ([c80c0f1](https://github.com/johnny4young/puntovivo/commit/c80c0f1ee12275fb778f1437cb8b1b263d618eb9))
+* **surfaces:** remove unreachable renderer placeholders ([d6aef66](https://github.com/johnny4young/puntovivo/commit/d6aef6672512e1410164925bf3d935c5656e665d))
+* **surfaces:** remove unreachable renderer placeholders ([c6c5a24](https://github.com/johnny4young/puntovivo/commit/c6c5a242f872a93ab9a1a74af45330d9d169a138))
+* **web:** remove unused helper exports ([c85b9b3](https://github.com/johnny4young/puntovivo/commit/c85b9b3effebcf14d95cf7af5c131fbbf09c517d))
+* **web:** remove unused helper exports ([6bb550d](https://github.com/johnny4young/puntovivo/commit/6bb550ddce0ef64f2ecb92870832eee6ee6c1dab))
+
 ## [1.14.4](https://github.com/johnny4young/puntovivo/compare/v1.14.3...v1.14.4) (2026-09-16)
 
 
