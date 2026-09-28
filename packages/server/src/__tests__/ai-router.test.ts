@@ -44,7 +44,7 @@ let siteId: string;
 function createCtx(opts: {
   tenantId: string;
   userId: string;
-  role: 'admin' | 'cashier' | 'manager';
+  role: 'admin' | 'cashier' | 'manager' | 'viewer';
   siteId?: string | null;
 }): Context {
   const db = getDatabase();
@@ -393,9 +393,28 @@ describe('ai.settings.voiceAvailability', () => {
     const caller = appRouter.createCaller(
       createCtx({ tenantId, userId: cashierId, role: 'cashier', siteId })
     );
-    await expect(caller.ai.settings.voiceAvailability()).rejects.toMatchObject({
-      code: 'FORBIDDEN',
-    });
+    const error = await caller.ai.settings.voiceAvailability().catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(TRPCError);
+    expect((error as TRPCError).code).toBe('FORBIDDEN');
+    expect((error as TRPCError).cause).toBeInstanceOf(ServerErrorWithCode);
+    expect(((error as TRPCError).cause as ServerErrorWithCode).errorCode).toBe(
+      'MODULE_NOT_ACTIVATED'
+    );
+  });
+
+  it('rejects a viewer even when voice is enabled for the tenant', async () => {
+    const db = getDatabase();
+    await db
+      .update(tenants)
+      .set({ settings: { modules: { 'semantic-search': true }, ai: { enabled: true } } })
+      .where(eq(tenants.id, tenantId));
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: cashierId, role: 'viewer', siteId })
+    );
+    const error = await caller.ai.settings.voiceAvailability().catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(TRPCError);
+    expect((error as TRPCError).code).toBe('FORBIDDEN');
+    expect((error as TRPCError).cause).not.toBeInstanceOf(ServerErrorWithCode);
   });
 });
 
