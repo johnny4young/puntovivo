@@ -145,8 +145,8 @@ remain enforced.
 
 This is local candidate evidence, not representative-machine Gate 5 evidence.
 It does not prove signed clean installation, production-updater upgrade from
-v1.10.0, or downgrade refusal on Sequoia, Tahoe, Windows, and Linux, and it does
-not authorize promoting the current staged rollout. Exact timings are
+the previous signed release, or downgrade refusal on Sequoia, Tahoe, Windows,
+and Linux, and it does not authorize promoting the current staged rollout. Exact timings are
 host-sensitive and remain in the command logs or ignored `.artifacts/` reports;
 the committed performance budgets, rather than this machine's measurements,
 remain the normative thresholds.
@@ -1081,9 +1081,12 @@ Sequoia run or the representative-machine clean-install, real-updater upgrade,
 and downgrade-refusal checks required before rollout promotion.
 
 A later [four-target manual build run](https://github.com/johnny4young/puntovivo/actions/runs/34649168839)
-passed on 2026-09-11, including Sequoia and Tahoe, but its uploaded artifacts
-have expired. It predates published v1.14.4 and cannot be used as inspectable
-Gate 5 evidence for that release. The [v1.14.4 release workflow](https://github.com/johnny4young/puntovivo/actions/runs/35138577582)
+passed on 2026-09-11 for branch commit `ef85c941`, not a release candidate. It
+packaged, smoke-tested and rehearsed encrypted recovery on Linux, Windows,
+Sequoia and Tahoe. It predates published v1.14.4 and cannot be used as Gate 5
+evidence for that release. Neither run retains downloadable artifacts, so both
+are historical records rather than inspectable evidence. The
+[v1.14.4 release workflow](https://github.com/johnny4young/puntovivo/actions/runs/35138577582)
 passed on 2026-09-16 and published platform artifacts and an update feed; it
 also does not establish representative-machine Gate 5.
 
@@ -1226,8 +1229,8 @@ source-level migration, sealed-floor unit tests,
 and deterministic updater E2E do **not** prove that the signed v1.10.0 → v1.11.0
 pair upgrades or that a representative machine refuses the previous signed
 installer. Gate 5 needs that observed updater round trip and visible refusal
-with unchanged database bytes. No approved Gate 5 manifest for the currently
-published v1.14.4 candidate is linked here. Its
+with unchanged database bytes. No approved Gate 5 manifest for v1.14.4, the
+latest published release as of 2026-09-22, is linked here. Its
 [live update policy](https://johnny4young.github.io/puntovivo/update-policy.json)
 still specifies a 10 percent rollout as checked on 2026-09-22.
 
