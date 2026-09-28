@@ -160,13 +160,13 @@ describe('ToastProvider', () => {
       await user.click(screen.getByRole('button', { name: 'Show long toast' }));
       const alert = screen.getByRole('status');
       const viewport = alert.parentElement;
-      expect(viewport).toHaveClass('left-4', 'right-4', 'w-auto', 'sm:left-auto', 'sm:w-full');
+      expect(viewport).toHaveClass('left-4', 'right-4', 'ml-auto', 'sm:left-auto', 'sm:w-full');
       expect(viewport).toHaveClass(
-        'pointer-events-auto',
+        'pointer-events-none',
         'max-h-[calc(100dvh-2rem)]',
         'overflow-y-auto'
       );
-      expect(alert).toHaveClass('break-words');
+      expect(alert).toHaveClass('pointer-events-auto', 'break-words');
       expect(
         screen.getByText(
           language === 'en'

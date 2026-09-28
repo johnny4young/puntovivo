@@ -64,7 +64,7 @@ function ToastViewport({
   const { t } = useTranslation('common');
 
   return (
-    <div className="pointer-events-auto fixed left-4 right-4 top-4 z-50 flex max-h-[calc(100dvh-2rem)] w-auto max-w-sm flex-col gap-3 overflow-y-auto overscroll-contain sm:left-auto sm:w-full">
+    <div className="pointer-events-none fixed left-4 right-4 top-4 z-50 ml-auto flex max-h-[calc(100dvh-2rem)] max-w-sm flex-col gap-3 overflow-y-auto overscroll-contain sm:left-auto sm:w-full">
       {toasts.map(toast => {
         const Icon = getToastIcon(toast.tone);
 
@@ -73,7 +73,7 @@ function ToastViewport({
             key={toast.id}
             role={toast.tone === 'error' ? 'alert' : 'status'}
             className={cn(
-              'pointer-events-auto min-w-0 break-words rounded-2xl border p-4 shadow-soft animate-fade-in backdrop-blur',
+              'pointer-events-auto break-words rounded-2xl border p-4 shadow-soft animate-fade-in backdrop-blur',
               getToastClasses(toast.tone)
             )}
           >
