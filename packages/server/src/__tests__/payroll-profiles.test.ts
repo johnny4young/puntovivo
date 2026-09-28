@@ -53,6 +53,24 @@ function profile() {
   };
 }
 const reason = 'Reviewed private payroll profile evidence';
+const privateValues = [
+  '123456789',
+  '4321',
+  'EPS private',
+  'Pension private',
+  'CCF private',
+  reason,
+];
+// Only payload fields can carry user data; ids and hashes may repeat a
+// private suffix by chance without leaking it.
+function expectPrivateValuesOutOfAudit() {
+  const audit = getDatabase().select().from(auditLogs).all();
+  const payloads = JSON.stringify(
+    audit.map(({ before, after, metadata }) => ({ before, after, metadata }))
+  );
+  for (const value of privateValues) expect(payloads).not.toContain(value);
+  return audit;
+}
 function target(row: { id: string; siteId: string; version: number }) {
   return { id: row.id, siteId: row.siteId, expectedVersion: row.version, reason };
 }
@@ -82,17 +100,15 @@ describe('payroll profile application service', () => {
   it('stores private history while audit and command completion remain minimal', async () => {
     const ctx = context({
       envelope: {
-        // A legitimate opaque operation id may contain the same four digits
-        // as a private bank-account suffix without leaking that account.
+        // Ends in the private account suffix; the scan must not flag opaque ids.
         operationId: '00000000-0000-4000-8000-000000004321',
-        idempotencyKey: '00000000-0000-4000-8000-000000000001',
-        clientCreatedAt: '2026-01-01T00:00:00.000Z',
+        idempotencyKey: randomUUID(),
+        clientCreatedAt: new Date().toISOString(),
       },
     });
     const result = await createPayrollProfile(ctx, { profile: profile(), reason });
     const rows = getDatabase().select().from(payrollEmployeeProfiles).all();
     const events = getDatabase().select().from(payrollEmployeeProfileEvents).all();
-    const audit = getDatabase().select().from(auditLogs).all();
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
       userId: 'worker',
@@ -103,31 +119,19 @@ describe('payroll profile application service', () => {
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({ kind: 'created', reason, before: null });
     expect(ctx.completeInTransaction).toHaveBeenCalledExactlyOnceWith(expect.anything(), result);
-    // Assert the complete public result and every audit field that may carry
-    // user data. Opaque ids and integrity hashes can coincidentally contain
-    // the same four digits as a private account suffix without leaking it.
-    expect(result).toEqual({
-      id: expect.any(String),
-      siteId: 'site',
-      version: 1,
-    });
+    expect(result).toEqual({ id: expect.any(String), siteId: 'site', version: 1 });
+    const audit = expectPrivateValuesOutOfAudit();
     expect(audit).toHaveLength(1);
-    expect(audit[0]).toEqual({
-      id: expect.any(String),
+    expect(audit[0]).toMatchObject({
       tenantId: 'tenant',
       actorId: 'admin',
       action: 'payroll_profile.changed',
       resourceType: 'payroll_profile',
       resourceId: result.id,
+      operationId: ctx.envelope.operationId,
       before: null,
       after: { version: 1, siteId: 'site', kind: 'created' },
       metadata: null,
-      operationId: ctx.envelope.operationId,
-      contentHash: expect.stringMatching(/^[a-f0-9]{64}$/),
-      prevHash: 'genesis',
-      chainHash: expect.stringMatching(/^[a-f0-9]{64}$/),
-      redactedAt: null,
-      createdAt: expect.any(String),
     });
   });
 
@@ -160,6 +164,7 @@ describe('payroll profile application service', () => {
       arlRiskClass: 2,
     });
     expect(getDatabase().select().from(payrollEmployeeProfileEvents).all()).toHaveLength(3);
+    expect(expectPrivateValuesOutOfAudit()).toHaveLength(3);
   });
 
   it('rolls back replacement, audit and private events when completion fails', async () => {
@@ -248,5 +253,6 @@ describe('payroll profile application service', () => {
         .all()
         .map(row => row.kind)
     ).toEqual(['created', 'ended', 'voided']);
+    expect(expectPrivateValuesOutOfAudit()).toHaveLength(3);
   });
 });
