@@ -2,16 +2,16 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn, formatCurrency } from '@/lib/utils';
 
-/** Cash amount shortcuts; the parent owns selection and payment calculations. */
 interface QuickDenominationSelectorProps {
   total: number;
   currentValue: number;
   onSelect: (amount: number) => void;
-  /** Token list of base denominations in the tenant currency. Defaults to
-   * COP-friendly 10k / 20k / 50k bills; tenants on different currencies
-   * can override by passing a prop list down later. */
+  /** Base denominations in the tenant currency. Defaults to COP-sized
+   * 10k / 20k / 50k / 100k seeds. */
   denominations?: readonly number[];
 }
+
+const DEFAULT_DENOMINATIONS = [10_000, 20_000, 50_000, 100_000] as const;
 
 /**
  * design-system V4 "Recibido" panel.
@@ -25,8 +25,6 @@ interface QuickDenominationSelectorProps {
  * `onSelect(amount)` so the parent form (single tender or split tender)
  * stays the only source of truth for the receipt math.
  */
-const DEFAULT_DENOMINATIONS = [10_000, 20_000, 50_000, 100_000] as const;
-
 export function QuickDenominationSelector({
   total,
   currentValue,
@@ -54,10 +52,12 @@ export function QuickDenominationSelector({
     const doubled = Math.ceil((total * 2) / 1_000) * 1_000;
     return Array.from(new Set([nextBill, biggerBill, doubled]))
       .filter(v => v >= total)
+      .sort((a, b) => a - b)
       .slice(0, 3);
   }, [total, denominations]);
 
-  const isActive = (amount: number) => Math.abs(currentValue - amount) < 0.5;
+  // Half a cent, so a 2-decimal tender a few cents short never reads as exact.
+  const isActive = (amount: number) => Math.abs(currentValue - amount) < 0.005;
 
   return (
     <div
