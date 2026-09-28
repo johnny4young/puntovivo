@@ -133,10 +133,10 @@ export function SaleCartTable({
                 isSelected ? 'border-primary-300 ring-1 ring-primary-200/70' : 'border-line/70',
               ].join(' ')}
             >
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <button
                   type="button"
-                  className="min-w-0 flex-1 text-left"
+                  className="min-w-0 text-left sm:flex-1"
                   aria-label={t('cart.selectItem', {
                     name: item.productName,
                   })}
@@ -168,7 +168,7 @@ export function SaleCartTable({
                   )}
                 </button>
 
-                <div className="flex shrink-0 items-center gap-2">
+                <div className="flex items-center justify-between gap-2 sm:shrink-0">
                   <Button
                     type="button"
                     className="disabled:cursor-not-allowed disabled:opacity-45"
@@ -274,8 +274,8 @@ export function SaleCartTable({
               {/* Descuento + base + eliminar: controles secundarios, fuera de
                * la fila táctil principal. El input conserva el ref para Alt+D
                * y el handler onDiscountChange intactos. */}
-              <div className="mt-2 flex items-center justify-between gap-3 border-t border-line/55 pt-2 text-[11px] text-secondary-500">
-                <label className="flex items-center gap-2">
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-3 border-t border-line/55 pt-2 text-[11px] text-secondary-500">
+                <label className="flex flex-wrap items-center gap-2">
                   <span>{t('cart.discount')}</span>
                   <input
                     ref={discountInputRefFor(item.key)}
@@ -318,7 +318,7 @@ export function SaleCartTable({
                   </span>
                 </label>
 
-                <div className="flex items-center gap-2">
+                <div className="ml-auto flex items-center gap-2">
                   <span className="flex items-center gap-1">
                     <span>{t('cart.lineTotal')}</span>
                     <span className="mono">{formatCurrency(lineTotals.total)}</span>
