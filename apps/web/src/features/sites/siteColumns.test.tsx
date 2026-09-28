@@ -57,19 +57,24 @@ describe('site action buttons', () => {
         delete: 'Eliminar North Store',
       },
     },
-  ])('names every icon action with its row context in $language', async ({ language, labels }) => {
-    const user = userEvent.setup();
-    const callbacks = renderSiteActions(language, true);
-    for (const label of Object.values(labels)) {
-      expect(screen.getByRole('button', { name: label })).toBeEnabled();
+  ])(
+    'names and titles every icon action with its row context in $language',
+    async ({ language, labels }) => {
+      const user = userEvent.setup();
+      const callbacks = renderSiteActions(language, true);
+      for (const label of Object.values(labels)) {
+        const button = screen.getByRole('button', { name: label });
+        expect(button).toBeEnabled();
+        expect(button).toHaveAttribute('title', label);
+      }
+      await user.click(screen.getByRole('button', { name: labels.manage }));
+      await user.click(screen.getByRole('button', { name: labels.edit }));
+      await user.click(screen.getByRole('button', { name: labels.delete }));
+      expect(callbacks.onManageLocations).toHaveBeenCalledWith(site);
+      expect(callbacks.onEdit).toHaveBeenCalledWith(site);
+      expect(callbacks.onDelete).toHaveBeenCalledWith(site);
     }
-    await user.click(screen.getByRole('button', { name: labels.manage }));
-    await user.click(screen.getByRole('button', { name: labels.edit }));
-    await user.click(screen.getByRole('button', { name: labels.delete }));
-    expect(callbacks.onManageLocations).toHaveBeenCalledWith(site);
-    expect(callbacks.onEdit).toHaveBeenCalledWith(site);
-    expect(callbacks.onDelete).toHaveBeenCalledWith(site);
-  });
+  );
 
   it('keeps all three named actions disabled without site-management permission', async () => {
     const user = userEvent.setup();

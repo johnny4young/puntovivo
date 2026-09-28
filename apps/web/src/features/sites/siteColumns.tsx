@@ -83,6 +83,7 @@ export function createSiteColumns({
               onClick={() => onEdit(site)}
               disabled={!canManage}
               aria-label={editLabel}
+              title={editLabel}
             >
               <Pencil className="h-4 w-4" aria-hidden="true" />
             </button>
@@ -92,6 +93,7 @@ export function createSiteColumns({
               onClick={() => onDelete(site)}
               disabled={!canManage}
               aria-label={deleteLabel}
+              title={deleteLabel}
             >
               <Trash2 className="h-4 w-4" aria-hidden="true" />
             </button>
