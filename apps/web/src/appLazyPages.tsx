@@ -123,8 +123,8 @@ export const OperationsPage = lazyPage(async () => ({
   default: (await import('@/features/operations/OperationsPage')).OperationsPage,
 }));
 // Surface shells mount as top-level routes outside <MainLayout> so each owns
-// its viewport (KDS fullscreen, customer display second monitor, mobile
-// waiter phone-width). Their active homes are wired below.
+// its viewport (KDS fullscreen, mobile waiter phone-width). Customer Display
+// boots from its own isolated root in AppRoot instead.
 export const TouchShell = lazyPage(async () => ({
   default: (await import('@/features/surfaces/TouchShell')).TouchShell,
 }));

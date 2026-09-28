@@ -188,13 +188,12 @@ Concretely:
   kernel ships. Operators flip them on per tenant via
   `/company?tab=modules`.
 - New tRPC `surfaces.list` (managerOrAdmin) joins the manifest with
-  the resolved module state so a future surfaces admin tab (or the
-  renderer's `useSurfacesSnapshot()` hook) does not need a second
-  `modules.list` round-trip.
+  the resolved module state so a future surfaces admin tab does not
+  need a second `modules.list` round-trip.
 - The server manifest is the canonical surface catalog; there is no renderer
   mirror. `SurfaceShellRoute` composes role and module guards with
   `<Suspense>` at the route level, before loading the lazy POS Touch, KDS,
-  and Mobile Waiter shells in `App.tsx`. Those routes sit outside
+  Mobile Waiter, and Companion shells in `App.tsx`. Those routes sit outside
   `MainLayout`, so each shell owns its viewport. Customer Display instead
   boots in an isolated root/window; in-app navigation to
   `/customer-display` redirects to Sales.

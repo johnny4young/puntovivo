@@ -2,37 +2,28 @@
   "section": {
     "title": "Superficies"
   },
-  "placeholder": {
-    "dashboardCta": "Volver al panel"
-  },
   "posDesktop": {
     "label": "POS Escritorio",
-    "description": "La interfaz POS de escritorio que ya existe. /sales, /inventory, /dashboard, etc.",
-    "upcomingTicket": "Superficie por defecto"
+    "description": "La interfaz POS de escritorio que ya existe. /sales, /inventory, /dashboard, etc."
   },
   "posTouch": {
     "label": "POS Táctil",
-    "description": "Diseño optimizado para tabletas: botones más amplios, tipografía mayor y barra de acciones inferior.",
-    "upcomingTicket": "Disponible próximamente"
+    "description": "Diseño optimizado para tabletas: botones más amplios, tipografía mayor y barra de acciones inferior."
   },
   "kds": {
     "label": "KDS — Pantalla de cocina",
-    "description": "Cola de pedidos a pantalla completa para el equipo de cocina. Sin barra lateral ni cabecera; pensada para una TV en cocina.",
-    "upcomingTicket": "Disponible próximamente"
+    "description": "Cola de pedidos a pantalla completa para el equipo de cocina. Sin barra lateral ni cabecera; pensada para una TV en cocina."
   },
   "customerDisplay": {
     "label": "Pantalla cliente",
-    "description": "Espejo del carrito en segunda pantalla: muestra al cliente en tiempo real los productos y totales de la venta.",
-    "upcomingTicket": "Disponible"
+    "description": "Espejo del carrito en segunda pantalla: muestra al cliente en tiempo real los productos y totales de la venta."
   },
   "mobileWaiter": {
     "label": "Móvil mesero",
-    "description": "Diseño con ancho de teléfono para que el mesero tome pedidos directamente en la mesa.",
-    "upcomingTicket": "Disponible próximamente"
+    "description": "Diseño con ancho de teléfono para que el mesero tome pedidos directamente en la mesa."
   },
   "companion": {
     "label": "Seguimiento en vivo",
-    "description": "Vista de solo lectura del día en el teléfono: ventas en vivo, alertas y estado del cierre.",
-    "upcomingTicket": "Próximamente"
+    "description": "Vista de solo lectura del día en el teléfono: ventas en vivo, alertas y estado del cierre."
   }
 }
