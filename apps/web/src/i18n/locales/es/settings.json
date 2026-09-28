@@ -105,6 +105,10 @@
       "locations": "Ubicaciones",
       "noAddress": "Sin dirección"
     },
+    "actions": {
+      "edit": "Editar {{name}}",
+      "delete": "Eliminar {{name}}"
+    },
     "form": {
       "createTitle": "Crear sede",
       "editTitle": "Editar sede",
@@ -121,7 +125,7 @@
       }
     },
     "locations": {
-      "manage": "Gestionar ubicaciones para",
+      "manage": "Gestionar ubicaciones para {{name}}",
       "title": "Gestionar ubicaciones de la sede",
       "loading": "Cargando asignaciones de ubicación...",
       "error": "No se pudieron cargar las asignaciones de ubicación",

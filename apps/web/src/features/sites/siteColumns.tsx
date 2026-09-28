@@ -62,9 +62,9 @@ export function createSiteColumns({
       size: 90,
       cell: ({ row }) => {
         const site = row.original;
-        const manageLabel = `${t('sites.locations.manage')} ${site.name}`;
-        const editLabel = `${t('common:actions.edit')} ${site.name}`;
-        const deleteLabel = `${t('common:actions.delete')} ${site.name}`;
+        const manageLabel = t('sites.locations.manage', { name: site.name });
+        const editLabel = t('sites.actions.edit', { name: site.name });
+        const deleteLabel = t('sites.actions.delete', { name: site.name });
         return (
           <div className="flex items-center gap-1">
             <button

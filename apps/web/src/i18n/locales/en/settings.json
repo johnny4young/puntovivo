@@ -105,6 +105,10 @@
       "locations": "Locations",
       "noAddress": "No address"
     },
+    "actions": {
+      "edit": "Edit {{name}}",
+      "delete": "Delete {{name}}"
+    },
     "form": {
       "createTitle": "Create Site",
       "editTitle": "Edit Site",
@@ -121,7 +125,7 @@
       }
     },
     "locations": {
-      "manage": "Manage Locations for",
+      "manage": "Manage Locations for {{name}}",
       "title": "Manage Site Locations",
       "loading": "Loading location assignments...",
       "error": "Unable to load location assignments",

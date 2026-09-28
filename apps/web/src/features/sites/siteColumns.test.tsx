@@ -4,7 +4,7 @@ import i18next from '@/i18n';
 import { describe, expect, it, vi } from 'vitest';
 import { DataTable } from '@/components/tables/DataTable';
 import { render } from '@/test/utils';
-import type { Site } from '@/types/domain';
+import type { Site } from '@/types';
 import { createSiteColumns } from './siteColumns';
 
 const site: Site = {
@@ -71,11 +71,18 @@ describe('site action buttons', () => {
     expect(callbacks.onDelete).toHaveBeenCalledWith(site);
   });
 
-  it('keeps all three named actions disabled without site-management permission', () => {
+  it('keeps all three named actions disabled without site-management permission', async () => {
+    const user = userEvent.setup();
     const callbacks = renderSiteActions('en', false);
-    expect(screen.getByRole('button', { name: 'Manage Locations for North Store' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Edit North Store' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Delete North Store' })).toBeDisabled();
+    for (const name of [
+      'Manage Locations for North Store',
+      'Edit North Store',
+      'Delete North Store',
+    ]) {
+      const button = screen.getByRole('button', { name });
+      expect(button).toBeDisabled();
+      await user.click(button);
+    }
     expect(callbacks.onManageLocations).not.toHaveBeenCalled();
     expect(callbacks.onEdit).not.toHaveBeenCalled();
     expect(callbacks.onDelete).not.toHaveBeenCalled();
