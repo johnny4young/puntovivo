@@ -6,13 +6,17 @@
  */
 
 import { TRPCError } from '@trpc/server';
+import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import {
+  auditChainHeads,
+  auditLogs,
   cashSessions,
   companies,
   paymentOutbox,
+  paymentReconciliationProposals,
   salePayments,
   sales,
   sites,
@@ -21,6 +25,7 @@ import {
   type PaymentRailId,
 } from '../db/schema.js';
 import { PAYMENT_RAIL_IDS } from '../services/payments/manifest.js';
+import { savePaymentProposal } from '../services/payments/reconciliation/proposals.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 
@@ -473,5 +478,286 @@ describe('payment_outbox idempotency invariant', () => {
         railId: 'bold',
       })
     ).resolves.toBeUndefined();
+  });
+});
+
+describe('payments AI proposal review', () => {
+  async function seedProposal(suffix: string) {
+    const h = await seedHarness(suffix);
+    const outboxId = `proposal-outbox-${suffix}`;
+    const statementAt = new Date().toISOString();
+    const saleId = `proposal-sale-${suffix}`;
+    const salePaymentId = `proposal-tender-${suffix}`;
+    await insertSalePayment({
+      tenantId: h.tenantId,
+      adminId: h.adminId,
+      saleId,
+      salePaymentId,
+      method: 'card',
+      amount: 100_000,
+      reference: `POS-${suffix}`,
+      createdAt: statementAt,
+    });
+    await insertPaymentOutboxRow({
+      tenantId: h.tenantId,
+      id: outboxId,
+      railId: 'wompi',
+      salePaymentId,
+      status: 'approved',
+      amount: 100_000,
+      reference: `POS-${suffix}`,
+      createdAt: statementAt,
+    });
+    const db = getDatabase();
+    const outbox = (await db
+      .select()
+      .from(paymentOutbox)
+      .where(eq(paymentOutbox.id, outboxId))
+      .get())!;
+    const statement = {
+      railId: 'wompi' as const,
+      reference: `PROVIDER-${suffix}`,
+      providerTransactionId: `provider-tx-${suffix}`,
+      amount: 100_000,
+      currencyCode: 'COP',
+      status: 'settled' as const,
+      settledAt: statementAt,
+      fee: 0,
+    };
+    const proposal = await savePaymentProposal(db, h.tenantId, statement, [outbox], outbox, {
+      ok: true,
+      salePaymentId: outboxId,
+      confidence: 'medium',
+      explanation: 'Candidate amount and settlement time match.',
+      costUsd: 0,
+      auditLogId: `audit-${suffix}`,
+    });
+    expect(proposal).not.toBeNull();
+    return { h, outboxId, saleId, salePaymentId, proposalId: proposal!.id, statement };
+  }
+
+  it('lists immutable evidence to managers but only admins can confirm it once', async () => {
+    const { h, outboxId, saleId, salePaymentId, proposalId, statement } =
+      await seedProposal('approve');
+    const manager = appRouter.createCaller(buildCtx(h.tenantId, h.managerId, 'manager'));
+    const cashier = appRouter.createCaller(buildCtx(h.tenantId, h.cashierId, 'cashier'));
+    const admin = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
+    const other = await seedHarness('proposal-other-tenant');
+    const otherAdmin = appRouter.createCaller(buildCtx(other.tenantId, other.adminId, 'admin'));
+
+    const visible = await manager.payments.listProposals({ status: 'pending' });
+    expect(visible).toHaveLength(1);
+    expect(visible[0]).toMatchObject({
+      id: proposalId,
+      selectedOutboxId: outboxId,
+      evidence: { statement, recommendedOutboxId: outboxId },
+    });
+    await expect(cashier.payments.listProposals({})).rejects.toBeInstanceOf(TRPCError);
+    await expect(
+      manager.payments.reviewProposal({ proposalId, decision: 'approve' })
+    ).rejects.toBeInstanceOf(TRPCError);
+    await expect(otherAdmin.payments.listProposals({})).resolves.toEqual([]);
+    await expect(
+      otherAdmin.payments.reviewProposal({ proposalId, decision: 'approve' })
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+
+    await expect(
+      admin.payments.reviewProposal({ proposalId, decision: 'approve' })
+    ).resolves.toEqual({
+      proposalId,
+      status: 'approved',
+    });
+    const db = getDatabase();
+    const settled = await db
+      .select()
+      .from(paymentOutbox)
+      .where(eq(paymentOutbox.id, outboxId))
+      .get();
+    expect(settled).toMatchObject({
+      status: 'settled',
+      providerTransactionId: statement.providerTransactionId,
+    });
+    expect(
+      await db.select().from(salePayments).where(eq(salePayments.id, salePaymentId)).get()
+    ).toMatchObject({
+      amount: 100_000,
+      saleId,
+    });
+    expect(await db.select().from(sales).where(eq(sales.id, saleId)).get()).toMatchObject({
+      total: 100_000,
+      paymentStatus: 'paid',
+    });
+    const reviewAudit = await db
+      .select()
+      .from(auditLogs)
+      .where(and(eq(auditLogs.tenantId, h.tenantId), eq(auditLogs.resourceId, proposalId)))
+      .all();
+    expect(reviewAudit).toHaveLength(1);
+    expect(reviewAudit[0]?.action).toBe('payment.proposal_approved');
+    await expect(
+      admin.payments.reviewProposal({ proposalId, decision: 'approve' })
+    ).resolves.toEqual({ proposalId, status: 'approved' });
+    const repeatAudit = await db
+      .select()
+      .from(auditLogs)
+      .where(and(eq(auditLogs.tenantId, h.tenantId), eq(auditLogs.resourceId, proposalId)))
+      .all();
+    expect(repeatAudit).toHaveLength(1);
+    await expect(
+      admin.payments.reviewProposal({ proposalId, decision: 'reject' })
+    ).rejects.toMatchObject({ code: 'CONFLICT' });
+  });
+
+  it.each(['approve', 'reject'] as const)(
+    'rolls back the entire %s decision when its proposal audit fails, then retries once',
+    async decision => {
+      const { h, outboxId, proposalId, saleId, salePaymentId } = await seedProposal(
+        `audit-rollback-${decision}`
+      );
+      const db = getDatabase();
+      const admin = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
+      const snapshot = () => ({
+        outbox: db.select().from(paymentOutbox).where(eq(paymentOutbox.id, outboxId)).get(),
+        proposal: db
+          .select()
+          .from(paymentReconciliationProposals)
+          .where(eq(paymentReconciliationProposals.id, proposalId))
+          .get(),
+        sale: db.select().from(sales).where(eq(sales.id, saleId)).get(),
+        tender: db.select().from(salePayments).where(eq(salePayments.id, salePaymentId)).get(),
+        audits: db.select().from(auditLogs).where(eq(auditLogs.tenantId, h.tenantId)).all(),
+        head: db
+          .select()
+          .from(auditChainHeads)
+          .where(eq(auditChainHeads.tenantId, h.tenantId))
+          .get(),
+      });
+      const before = snapshot();
+      // Approval writes its outbox audit first: failing the later proposal audit
+      // must also undo that earlier audit row and its chain-head advancement.
+      db.run(
+        sql.raw(`CREATE TEMP TRIGGER fail_payment_proposal_review_audit
+        BEFORE INSERT ON audit_logs
+        WHEN NEW.action IN ('payment.proposal_approved', 'payment.proposal_rejected')
+        BEGIN SELECT RAISE(ABORT, 'forced proposal audit failure'); END`)
+      );
+      try {
+        await expect(admin.payments.reviewProposal({ proposalId, decision })).rejects.toThrow();
+      } finally {
+        db.run(sql.raw('DROP TRIGGER fail_payment_proposal_review_audit'));
+      }
+      expect(snapshot()).toEqual(before);
+
+      const status = decision === 'approve' ? 'approved' : 'rejected';
+      await expect(admin.payments.reviewProposal({ proposalId, decision })).resolves.toEqual({
+        proposalId,
+        status,
+      });
+      const committed = snapshot();
+      expect(committed.audits).toHaveLength(
+        before.audits.length + (decision === 'approve' ? 2 : 1)
+      );
+      expect(committed.sale).toEqual(before.sale);
+      expect(committed.tender).toEqual(before.tender);
+      await expect(admin.payments.reviewProposal({ proposalId, decision })).resolves.toEqual({
+        proposalId,
+        status,
+      });
+      expect(snapshot()).toEqual(committed);
+    }
+  );
+
+  it('rejects stale evidence without settlement, then permits an audited rejection', async () => {
+    const { h, outboxId, proposalId } = await seedProposal('stale');
+    const db = getDatabase();
+    await db
+      .update(paymentOutbox)
+      .set({ amount: 99_000 })
+      .where(eq(paymentOutbox.id, outboxId))
+      .run();
+    const admin = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
+    await expect(
+      admin.payments.reviewProposal({ proposalId, decision: 'approve' })
+    ).rejects.toMatchObject({ code: 'CONFLICT' });
+    expect(
+      await db.select().from(paymentOutbox).where(eq(paymentOutbox.id, outboxId)).get()
+    ).toMatchObject({ status: 'approved', providerTransactionId: null });
+    await expect(
+      admin.payments.reviewProposal({ proposalId, decision: 'reject' })
+    ).resolves.toEqual({ proposalId, status: 'rejected' });
+    const row = await db
+      .select()
+      .from(paymentReconciliationProposals)
+      .where(eq(paymentReconciliationProposals.id, proposalId))
+      .get();
+    expect(row).toMatchObject({ status: 'rejected', reviewedBy: h.adminId });
+    await expect(
+      admin.payments.reviewProposal({ proposalId, decision: 'reject' })
+    ).resolves.toEqual({ proposalId, status: 'rejected' });
+  });
+});
+
+describe('payment proposal claimed-row safety', () => {
+  it('refuses settlement after a worker claims the suggested outbox row', async () => {
+    const h = await seedHarness('claim-race');
+    const outboxId = 'proposal-claim-race-outbox';
+    const now = new Date().toISOString();
+    await insertPaymentOutboxRow({
+      tenantId: h.tenantId,
+      id: outboxId,
+      railId: 'bold',
+      status: 'approved',
+      amount: 500,
+    });
+    const db = getDatabase();
+    const row = (await db
+      .select()
+      .from(paymentOutbox)
+      .where(eq(paymentOutbox.id, outboxId))
+      .get())!;
+    const proposal = await savePaymentProposal(
+      db,
+      h.tenantId,
+      {
+        railId: 'bold',
+        reference: 'provider-claim-race',
+        providerTransactionId: 'tx-claim-race',
+        amount: 500,
+        currencyCode: 'COP',
+        status: 'settled',
+        settledAt: now,
+        fee: 0,
+      },
+      [row],
+      row,
+      {
+        ok: true,
+        salePaymentId: outboxId,
+        confidence: 'high',
+        explanation: 'Test',
+        costUsd: 0,
+        auditLogId: 'audit-claim-race',
+      }
+    );
+    expect(proposal).not.toBeNull();
+    await db
+      .update(paymentOutbox)
+      .set({ status: 'submitting', claimToken: 'worker-token', lockedAt: now })
+      .where(eq(paymentOutbox.id, outboxId))
+      .run();
+    const admin = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
+    await expect(
+      admin.payments.reviewProposal({ proposalId: proposal!.id, decision: 'approve' })
+    ).rejects.toMatchObject({ code: 'CONFLICT' });
+    expect(
+      await db
+        .select()
+        .from(paymentReconciliationProposals)
+        .where(eq(paymentReconciliationProposals.id, proposal!.id))
+        .get()
+    ).toMatchObject({ status: 'pending' });
+    expect(
+      await db.select().from(paymentOutbox).where(eq(paymentOutbox.id, outboxId)).get()
+    ).toMatchObject({ status: 'submitting', claimToken: 'worker-token' });
   });
 });

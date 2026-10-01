@@ -24,6 +24,7 @@ import {
   cashSessions,
   companies,
   paymentOutbox,
+  paymentReconciliationProposals,
   salePayments,
   sales,
   sites,
@@ -32,6 +33,7 @@ import {
 } from '../db/schema.js';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { runReconciliationPass } from '../services/payments/reconciliation.js';
+import { savePaymentProposal } from '../services/payments/reconciliation/proposals.js';
 import type { TiebreakFn } from '../services/payments/ai-tiebreak.js';
 import { seedCommittedSaleSession } from './utils/cashSessionFixture.js';
 
@@ -139,6 +141,9 @@ async function seedFromFixture(fixture: FixtureBundle): Promise<void> {
 
 async function cleanupTenant(): Promise<void> {
   const db = getDatabase();
+  await db
+    .delete(paymentReconciliationProposals)
+    .where(eq(paymentReconciliationProposals.tenantId, TENANT_ID));
   await db.delete(paymentOutbox).where(eq(paymentOutbox.tenantId, TENANT_ID));
   await db.delete(salePayments).where(eq(salePayments.tenantId, TENANT_ID));
   await db.delete(sales).where(eq(sales.tenantId, TENANT_ID));
@@ -285,8 +290,8 @@ describe('runReconciliationPass — AI tie-break wiring', () => {
     let tiebreakCalls = 0;
     const stubTiebreak: TiebreakFn = async (_ctx, input) => {
       tiebreakCalls += 1;
-      // Pick the duplicate row deterministically so the matcher
-      // settles it and advances `matched`.
+      // Pick the duplicate row deterministically. An AI recommendation
+      // must not itself settle a payment outbox row.
       const winner = input.candidates.find(c => c.salePaymentId === ambiguousId);
       if (!winner) {
         return { ok: false, reason: 'ai-not-decisive', costUsd: 0, auditLogId: null };
@@ -309,9 +314,157 @@ describe('runReconciliationPass — AI tie-break wiring', () => {
 
     expect(tiebreakCalls).toBe(1);
     expect(pass.tiebreakAttempts).toBe(1);
-    expect(pass.tiebreakDecided).toBe(1);
+    expect(pass.tiebreakProposed).toBe(1);
     expect(pass.tiebreakDegraded).toBe(0);
-    expect(pass.matched).toBe(1);
+    expect(pass.matched).toBe(0);
+    expect(pass.byKind.ambiguous).toBeGreaterThanOrEqual(1);
+    const recommendedRow = await db
+      .select({
+        status: paymentOutbox.status,
+        providerTransactionId: paymentOutbox.providerTransactionId,
+      })
+      .from(paymentOutbox)
+      .where(eq(paymentOutbox.id, ambiguousId))
+      .get();
+    expect(recommendedRow).toEqual({ status: 'approved', providerTransactionId: null });
+    const proposals = await db.select().from(paymentReconciliationProposals).all();
+    expect(proposals).toHaveLength(1);
+    expect(proposals[0]).toMatchObject({
+      tenantId: TENANT_ID,
+      status: 'pending',
+      selectedOutboxId: ambiguousId,
+      evidence: { statement: ambiguousStatement, recommendedOutboxId: ambiguousId },
+    });
+    const replay = await runReconciliationPass(db, TENANT_ID, [ambiguousStatement], {
+      now: FIXED_NOW,
+      aiTiebreak: stubTiebreak,
+      aiContext: { db, tenantId: TENANT_ID, siteId: null, userId: null },
+    });
+    expect(tiebreakCalls).toBe(1);
+    expect(replay.tiebreakAttempts).toBe(0);
+    expect(replay.matched).toBe(0);
+    expect(await db.select().from(paymentReconciliationProposals).all()).toHaveLength(1);
+  });
+
+  it('does not save AI evidence after a candidate is claimed during model latency', async () => {
+    await cleanupTenant();
+    await seedFromFixture(bundle);
+    const db = getDatabase();
+    const candidateIds = ['ai-latency-left', 'ai-latency-right'];
+    for (const id of candidateIds) {
+      await db.insert(paymentOutbox).values({
+        id,
+        tenantId: TENANT_ID,
+        salePaymentId: null,
+        railId: 'wompi',
+        kind: 'charge',
+        status: 'approved',
+        amount: 943214.27,
+        currencyCode: 'COP',
+        reference: id,
+        providerTransactionId: null,
+        payload: { fixture: true },
+        payloadVersion: 1,
+        attempts: 0,
+        nextRetryAt: null,
+        lastError: null,
+        priority: 0,
+        claimToken: null,
+        lockedAt: null,
+        idempotencyKey: null,
+        createdAt: FIXED_NOW.toISOString(),
+        updatedAt: FIXED_NOW.toISOString(),
+      });
+    }
+    const statement = {
+      railId: 'wompi' as const,
+      reference: 'unknown-ai-latency',
+      providerTransactionId: 'tx-ai-latency',
+      amount: 943214.27,
+      currencyCode: 'COP',
+      status: 'settled' as const,
+      settledAt: FIXED_NOW.toISOString(),
+      fee: 0,
+    };
+    await expect(
+      runReconciliationPass(db, TENANT_ID, [statement], {
+        now: FIXED_NOW,
+        aiContext: { db, tenantId: TENANT_ID, siteId: null, userId: null },
+        aiTiebreak: async () => {
+          await db
+            .update(paymentOutbox)
+            .set({
+              status: 'submitting',
+              claimToken: 'concurrent-worker',
+              lockedAt: FIXED_NOW.toISOString(),
+            })
+            .where(eq(paymentOutbox.id, candidateIds[0]!));
+          return {
+            ok: true,
+            salePaymentId: candidateIds[0]!,
+            confidence: 'high',
+            explanation: 'Model selected a row before it was claimed',
+            costUsd: 0,
+            auditLogId: 'ai-latency-audit',
+          };
+        },
+      })
+    ).rejects.toThrow('candidates changed during AI review');
+    expect(await db.select().from(paymentReconciliationProposals).all()).toHaveLength(0);
+  });
+
+  it('refuses two pending statements for the same outbox instead of dropping one', async () => {
+    await cleanupTenant();
+    await seedFromFixture(bundle);
+    const db = getDatabase();
+    const selected = bundle.rows.find(row => row.outboxRow?.status === 'approved')!.outboxRow!;
+    await db
+      .update(paymentOutbox)
+      .set({ providerTransactionId: null })
+      .where(eq(paymentOutbox.id, selected.id));
+    const winner = (await db
+      .select()
+      .from(paymentOutbox)
+      .where(eq(paymentOutbox.id, selected.id))
+      .get())!;
+    const base = {
+      railId: winner.railId,
+      reference: 'pending-conflict-a',
+      providerTransactionId: 'tx-pending-conflict-a',
+      amount: winner.amount,
+      currencyCode: winner.currencyCode,
+      status: 'settled' as const,
+      settledAt: winner.createdAt,
+      fee: 0,
+    };
+    const decision = {
+      ok: true as const,
+      salePaymentId: winner.salePaymentId ?? winner.id,
+      confidence: 'high' as const,
+      explanation: 'Synthetic recommendation',
+      costUsd: 0,
+      auditLogId: 'pending-conflict-audit',
+    };
+    expect(
+      await savePaymentProposal(db, TENANT_ID, base, [winner], winner, decision)
+    ).toMatchObject({
+      status: 'pending',
+    });
+    await expect(
+      savePaymentProposal(
+        db,
+        TENANT_ID,
+        {
+          ...base,
+          reference: 'pending-conflict-b',
+          providerTransactionId: 'tx-pending-conflict-b',
+        },
+        [winner],
+        winner,
+        decision
+      )
+    ).rejects.toThrow('conflicts with a pending candidate');
+    expect(await db.select().from(paymentReconciliationProposals).all()).toHaveLength(1);
   });
 
   it('degrades silently when the AI tie-break refuses to decide', async () => {
@@ -370,11 +523,71 @@ describe('runReconciliationPass — AI tie-break wiring', () => {
     });
 
     expect(pass.tiebreakAttempts).toBe(1);
-    expect(pass.tiebreakDecided).toBe(0);
+    expect(pass.tiebreakProposed).toBe(0);
     expect(pass.tiebreakDegraded).toBe(1);
     expect(pass.matched).toBe(0);
     expect(pass.byKind.ambiguous).toBeGreaterThanOrEqual(1);
     expect(pass.mismatches.some(m => m.kind === 'ambiguous')).toBe(true);
+  });
+});
+
+describe('runReconciliationPass — settlement immutability', () => {
+  it('never overwrites a settled provider transaction on a later same-reference statement', async () => {
+    await cleanupTenant();
+    await seedFromFixture(bundle);
+    const db = getDatabase();
+    await db.insert(paymentOutbox).values({
+      id: 'sequential-provider-immutable',
+      tenantId: TENANT_ID,
+      salePaymentId: null,
+      railId: 'wompi',
+      kind: 'charge',
+      status: 'approved',
+      amount: 943214.27,
+      currencyCode: 'COP',
+      reference: 'sequential-reference',
+      providerTransactionId: null,
+      payload: { fixture: true },
+      payloadVersion: 1,
+      attempts: 0,
+      nextRetryAt: null,
+      lastError: null,
+      priority: 0,
+      claimToken: null,
+      lockedAt: null,
+      idempotencyKey: null,
+      createdAt: FIXED_NOW.toISOString(),
+      updatedAt: FIXED_NOW.toISOString(),
+    });
+    const first = {
+      railId: 'wompi' as const,
+      reference: 'sequential-reference',
+      providerTransactionId: 'provider-tx-first',
+      amount: 943214.27,
+      currencyCode: 'COP',
+      status: 'settled' as const,
+      settledAt: FIXED_NOW.toISOString(),
+      fee: 0,
+    };
+    expect((await runReconciliationPass(db, TENANT_ID, [first], { now: FIXED_NOW })).matched).toBe(
+      1
+    );
+    const second = await runReconciliationPass(
+      db,
+      TENANT_ID,
+      [{ ...first, providerTransactionId: 'provider-tx-second' }],
+      { now: FIXED_NOW }
+    );
+    expect(second.matched).toBe(0);
+    const row = await db
+      .select({
+        status: paymentOutbox.status,
+        providerTransactionId: paymentOutbox.providerTransactionId,
+      })
+      .from(paymentOutbox)
+      .where(eq(paymentOutbox.id, 'sequential-provider-immutable'))
+      .get();
+    expect(row).toEqual({ status: 'settled', providerTransactionId: 'provider-tx-first' });
   });
 });
 
