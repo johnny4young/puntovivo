@@ -6,6 +6,8 @@ import { runAxeOnPage } from '../web/support/a11y.js';
 /** Runtime-specific navigation and actor login while the business flow stays target-agnostic. */
 interface AttendanceReconciliationJourneyTarget {
   singleFrameAxe?: boolean;
+  /** Effective scheduling timezone of this target's seeded tenant. */
+  timeZone: string;
   navigate: (route: string) => Promise<void>;
   signIn: (email: string) => Promise<void>;
   signInAdmin: () => Promise<void>;
@@ -17,13 +19,14 @@ export function assertAttendanceReconciliationJourneyDiagnostics(tracker: Client
   expect(tracker.getIssues()).toEqual([]);
 }
 
-function bogotaDate(offsetDays = 0): string {
+/** Calendar day for the fixture tenant, not the host machine or another tenant. */
+export function tenantDate(timeZone: string, offsetDays = 0, now = new Date()): string {
   const today = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Bogota',
+    timeZone,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
-  }).format(new Date());
+  }).format(now);
   const date = new Date(`${today}T12:00:00.000Z`);
   date.setUTCDate(date.getUTCDate() + offsetDays);
   return date.toISOString().slice(0, 10);
@@ -71,8 +74,9 @@ export async function runAttendanceReconciliationJourney(
     email: `attendance.manager.${suffix}@example.test`,
     role: 'Manager',
   };
-  const today = bogotaDate();
-  const previousWeekDate = bogotaDate(-7);
+  const now = new Date();
+  const today = tenantDate(target.timeZone, 0, now);
+  const previousWeekDate = tenantDate(target.timeZone, -7, now);
   const attendedReason = `Reviewed signed attendance evidence ${suffix}`;
   const noShowReason = `No clock evidence after supervisor review ${suffix}`;
 
@@ -90,6 +94,9 @@ export async function runAttendanceReconciliationJourney(
   }
 
   await target.navigate('/schedule');
+  await expect(
+    page.getByText(`Schedule timezone: ${target.timeZone}`, { exact: true })
+  ).toBeVisible();
   await page.getByRole('button', { name: 'Employment and assignments', exact: true }).click();
   const employment = page.getByTestId('employment-panel');
   await employment.getByRole('button', { name: 'Add employment terms' }).click();

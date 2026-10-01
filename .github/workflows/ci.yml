@@ -122,10 +122,13 @@ jobs:
               - 'e2e/shared/**'
               - 'operator-journeys.json'
               - 'playwright.web.config.ts'
+              - 'playwright.web-heavy.config.ts'
               - 'packages/server/**'
               - 'perf-budget.json'
               - 'scripts/check-operator-journeys*.mjs'
               - 'scripts/critical-e2e-workflow.test.mjs'
+              - 'scripts/web-e2e-env.mjs'
+              - 'scripts/e2e-api-origin.test.mjs'
               - 'scripts/check-lighthouse*.mjs'
               - 'scripts/run-lighthouse-gate*.mjs'
               # ci:web is the only gate that runs the script tests below.
@@ -136,6 +139,7 @@ jobs:
               - 'scripts/check-contrast*.mjs'
               - 'scripts/check-operator-deck-adoption*.mjs'
               - 'scripts/generate-companion-service-worker*.mjs'
+              - 'scripts/isolated-journey-e2e-contract.test.mjs'
               - 'scripts/long-shift-*'
             pharmacy_roles:
               # Shared helpers and the Web harness can affect this untagged
