@@ -685,11 +685,47 @@ export function createHubAuthSession(options: CreateHubAuthSessionOptions): HubA
     if (refreshInFlight?.generation === generation) return refreshInFlight.promise;
     const expected = generation;
     const promise = (async () => {
-      const state = loadState();
+      let state = loadState();
       if (!state)
         throw new HubAuthRemoteError({ message: 'Store Hub session is missing', status: 401 });
       try {
-        const response = await call<{ token: string }>('auth.refresh', undefined, { state });
+        let response;
+        try {
+          response = await call<{ token: string }>('auth.refresh', undefined, { state });
+        } catch (error) {
+          // Only this pre-handler rejection proves no refresh rotation ran.
+          // Repair an old companion once; never retry a 401 replay response or
+          // an ambiguous network/server failure with a rotating credential.
+          if (
+            !(error instanceof HubAuthRemoteError) ||
+            error.status !== 403 ||
+            !error.message.startsWith('CSRF_VALIDATION_FAILED:')
+          ) {
+            throw error;
+          }
+          requireGeneration(expected);
+          const bootstrap = await fetchImpl(`${hubUrl}/api/trpc/health.check`, {
+            method: 'GET',
+            redirect: 'error',
+            headers: { cookie: `${REFRESH_COOKIE_NAME}=${state.refreshToken}` },
+          });
+          requireGeneration(expected);
+          if (!bootstrap.ok) {
+            throw new HubAuthRemoteError({
+              message: 'Store Hub session verification unavailable',
+              status: bootstrap.status,
+            });
+          }
+          const csrfToken = parseCookie(bootstrap.headers, CSRF_COOKIE_NAME);
+          if (!csrfToken || !/^v1\.[A-Za-z0-9_-]{43}$/.test(csrfToken)) {
+            throw new HubAuthRemoteError({
+              message: 'Store Hub session must sign in again',
+              status: 401,
+            });
+          }
+          state = { ...state, csrfToken };
+          response = await call<{ token: string }>('auth.refresh', undefined, { state });
+        }
         requireGeneration(expected);
         const cookies = updateCookies(response.headers, state);
         installGrant(
