@@ -9,6 +9,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { fileURLToPath } from 'node:url';
 import {
   buildCheckArgs,
   buildCheckEnv,
@@ -99,7 +100,7 @@ test('buildPreviewArgs starts Vite preview on a strict port', () => {
 
 test('buildCheckArgs forwards only check-electron-memory arguments', () => {
   const args = buildCheckArgs(['--strict', '--require-measurement']);
-  assert.match(args[0], /scripts\/check-electron-memory\.mjs$/);
+  assert.equal(args[0], fileURLToPath(new URL('./check-electron-memory.mjs', import.meta.url)));
   assert.deepEqual(args.slice(1), ['--strict', '--require-measurement']);
 });
 
