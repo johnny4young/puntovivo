@@ -15,6 +15,9 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import {
   WCAG_AA_RATIO,
@@ -24,30 +27,94 @@ import {
   contrastRatio,
   extractScopes,
   evaluateScope,
+  runCli,
 } from './check-contrast.mjs';
+
+async function runWithTheme(source) {
+  const directory = mkdtempSync(join(tmpdir(), 'puntovivo-contrast-test-'));
+  const themeFile = join(directory, 'theme.css');
+  writeFileSync(themeFile, source);
+  const originalLog = console.log;
+  const originalError = console.error;
+  console.log = () => {};
+  console.error = () => {};
+  try {
+    return await runCli({ themeFile });
+  } finally {
+    console.log = originalLog;
+    console.error = originalError;
+    rmSync(directory, { recursive: true, force: true });
+  }
+}
 
 test('parseOklch reads the canonical oklch triplet', () => {
   const triplet = parseOklch('oklch(0.98 0.008 84)');
   assert.deepEqual(triplet, { L: 0.98, C: 0.008, H: 84 });
 });
 
-test('parseOklch tolerates surrounding whitespace and the optional alpha slash', () => {
+test('parseOklch tolerates surrounding whitespace and explicit opaque alpha', () => {
   assert.deepEqual(parseOklch('  oklch( 0.5  0.1  220 )  '), {
     L: 0.5,
     C: 0.1,
     H: 220,
   });
-  assert.deepEqual(parseOklch('oklch(0.5 0.1 220 / 0.8)'), {
+  assert.deepEqual(parseOklch('oklch(0.5 0.1 220 / 1)'), {
     L: 0.5,
     C: 0.1,
     H: 220,
   });
 });
 
+test('parseOklch refuses transparency and malformed alpha instead of discarding it', () => {
+  for (const alpha of ['0', '0.8', '80%', 'invalid', '1..0']) {
+    assert.equal(parseOklch(`oklch(0.5 0.1 220 / ${alpha})`), null, alpha);
+  }
+  assert.deepEqual(parseOklch('oklch(0.5 0.1 220 / 100%)'), { L: 0.5, C: 0.1, H: 220 });
+});
+
+test('parseOklch clamps negative chroma to the CSS achromatic value', () => {
+  assert.deepEqual(parseOklch('oklch(0.65 -0.5 75)'), { L: 0.65, C: 0, H: 75 });
+});
+
+test('negative chroma cannot turn low-contrast gray text into a false AA pass', () => {
+  const result = evaluateScope({
+    selector: ':root',
+    declarations: { background: 'oklch(1 0 0)', foreground: 'oklch(0.65 -0.5 75)' },
+  });
+  const pair = result.regressions.find(row => row.pair === 'background / foreground');
+  assert.ok(pair, 'CSS clamps negative chroma to zero, so this gray pair must fail');
+  assert.ok(pair.ratio < WCAG_AA_RATIO);
+  assert.ok(!result.ok.some(row => row.pair === 'background / foreground'));
+});
+
+test('parseOklch clamps CSS lightness to its display range', () => {
+  assert.deepEqual(parseOklch('oklch(-0.2 0.1 240)'), { L: 0, C: 0.1, H: 240 });
+  assert.deepEqual(parseOklch('oklch(2 2 240)'), { L: 1, C: 2, H: 240 });
+});
+
+test('display lightness endpoints stay black or white regardless of chroma', () => {
+  for (const H of [0, 90, 240]) {
+    assert.deepEqual(oklchToLinearRgb({ L: 0, C: 2, H }), { r: 0, g: 0, b: 0 });
+    assert.deepEqual(oklchToLinearRgb({ L: 1, C: 2, H }), { r: 1, g: 1, b: 1 });
+  }
+});
+
+test('out-of-range lightness cannot make white-on-white text appear AA compliant', () => {
+  const result = evaluateScope({
+    selector: ':root',
+    declarations: { background: 'oklch(1 0 0)', foreground: 'oklch(2 2 240)' },
+  });
+  const pair = result.regressions.find(row => row.pair === 'background / foreground');
+  assert.ok(pair, 'clamped white text on white must fail AA regardless of chroma');
+  assert.equal(pair.ratio, 1);
+});
+
 test('parseOklch returns null for non-oklch inputs', () => {
   assert.equal(parseOklch('hsl(220 13% 91%)'), null);
   assert.equal(parseOklch('#ffffff'), null);
   assert.equal(parseOklch('rgb(255 255 255)'), null);
+  assert.equal(parseOklch('oklch(1..2 0 0)'), null);
+  assert.equal(parseOklch('oklch(. 0 0)'), null);
 });
 
 test('contrastRatio matches the WCAG formula and is direction-agnostic', () => {
@@ -87,6 +154,127 @@ test('extractScopes recovers per-scope declarations from theme-shaped CSS', () =
   assert.equal(scopes[1].selector, '.dark');
   assert.equal(scopes[1].declarations.foreground, 'oklch(1 0 0)');
 });
+
+test('extractScopes finds the real light and dark theme after comments and at-rules', () => {
+  const themeSource = readFileSync(
+    new URL('../apps/web/src/styles/theme.css', import.meta.url),
+    'utf8'
+  );
+  const scopes = extractScopes(themeSource);
+  assert.deepEqual(
+    scopes
+      .filter(scope => scope.selector === ':root' || scope.selector === '.dark')
+      .map(scope => scope.selector),
+    [':root', '.dark']
+  );
+  assert.equal(
+    scopes.find(scope => scope.selector === ':root').declarations.surface,
+    'oklch(0.992 0.003 225)'
+  );
+});
+
+test('extractScopes ignores comment braces and semicolon-terminated at-statements', () => {
+  const scopes = extractScopes(`
+    /* Not a selector: { --background: oklch(0 0 0); } */
+    @custom-variant dark (&:where(.dark, .dark *));
+    :root { --background: oklch(1 0 0); --foreground: oklch(0 0 0); }
+    .dark { --background: oklch(0 0 0); --foreground: oklch(1 0 0); }
+  `);
+  assert.deepEqual(
+    scopes.map(scope => scope.selector),
+    [':root', '.dark']
+  );
+});
+
+test('contrast gate fails closed when the light theme scope is missing', async () => {
+  assert.equal(
+    await runWithTheme('.dark { --background: oklch(0.2 0 0); --foreground: oklch(1 0 0); }'),
+    1
+  );
+});
+
+test('contrast gate fails closed when the dark theme scope is missing', async () => {
+  assert.equal(
+    await runWithTheme(':root { --background: oklch(1 0 0); --foreground: oklch(0.2 0 0); }'),
+    1
+  );
+});
+
+test('contrast gate rejects a named theme with no measurable base text pair', async () => {
+  assert.equal(
+    await runWithTheme(`
+      :root { --surface: oklch(1 0 0); }
+      .dark { --background: oklch(0.2 0 0); --foreground: oklch(1 0 0); }
+    `),
+    1
+  );
+});
+
+test('contrast gate rejects a base text pair with malformed numeric components', async () => {
+  assert.equal(
+    await runWithTheme(`
+      :root { --background: oklch(1..2 0 0); --foreground: oklch(0 0 0); }
+      .dark { --background: oklch(0 0 0); --foreground: oklch(1 0 0); }
+    `),
+    1
+  );
+});
+
+test('contrast gate catches a light-only token regression in the real theme', async () => {
+  const source = readFileSync(new URL('../apps/web/src/styles/theme.css', import.meta.url), 'utf8');
+  const regressed = source.replace(
+    '--destructive-foreground: oklch(0.985 0.005 84);',
+    '--destructive-foreground: oklch(0.57 0.192 24);'
+  );
+  assert.notEqual(regressed, source, 'the light destructive token must exist in the real theme');
+  assert.equal(await runWithTheme(regressed), 1);
+});
+
+test('contrast gate rejects a missing enforced pair outside the base text pair', async () => {
+  const source = readFileSync(new URL('../apps/web/src/styles/theme.css', import.meta.url), 'utf8');
+  const missing = source.replace('--destructive-foreground: oklch(0.985 0.005 84);', '');
+  assert.notEqual(missing, source, 'the light destructive token must exist in the real theme');
+  assert.equal(await runWithTheme(missing), 1);
+});
+
+test('contrast gate rejects malformed numeric color in a non-base enforced pair', async () => {
+  const source = readFileSync(new URL('../apps/web/src/styles/theme.css', import.meta.url), 'utf8');
+  const malformed = source.replace(
+    '--operator-warning-ink: oklch(0.39 0.085 72);',
+    '--operator-warning-ink: oklch(0.39.. 0.085 72);'
+  );
+  assert.notEqual(malformed, source, 'the light warning ink token must exist in the real theme');
+  assert.equal(await runWithTheme(malformed), 1);
+});
+
+test('contrast gate rejects unsupported color syntax in an enforced theme pair', async () => {
+  const source = readFileSync(new URL('../apps/web/src/styles/theme.css', import.meta.url), 'utf8');
+  const unsupported = source.replace(
+    '--operator-warning-ink: oklch(0.39 0.085 72);',
+    '--operator-warning-ink: hsl(42 60% 30%);'
+  );
+  assert.notEqual(unsupported, source, 'the light warning ink token must exist in the real theme');
+  assert.equal(await runWithTheme(unsupported), 1);
+});
+
+for (const [label, color] of [
+  ['transparent alpha', 'oklch(0.985 0.005 84 / 0)'],
+  ['malformed alpha', 'oklch(0.985 0.005 84 / invalid)'],
+  ['overflowing RGB conversion', `oklch(0.985 ${'9'.repeat(200)} 84)`],
+]) {
+  test(`contrast gate rejects ${label} in an enforced pair`, async () => {
+    const source = readFileSync(
+      new URL('../apps/web/src/styles/theme.css', import.meta.url),
+      'utf8'
+    );
+    const changed = source.replace(
+      '--destructive-foreground: oklch(0.985 0.005 84);',
+      `--destructive-foreground: ${color};`
+    );
+    assert.notEqual(changed, source, 'the light destructive token must exist in the real theme');
+    assert.equal(await runWithTheme(changed), 1);
+  });
+}
 
 test('evaluateScope flags a body-text pair that falls under 4.5:1', () => {
   // Pick two oklch lightnesses that produce a ~3:1 contrast — well
