@@ -118,6 +118,7 @@ jobs:
               - 'e2e/web/**'
               - 'operator-journeys.json'
               - 'playwright.web.config.ts'
+              - 'playwright.web-heavy.config.ts'
               - 'packages/server/**'
               - 'perf-budget.json'
               - 'scripts/check-operator-journeys*.mjs'
@@ -132,6 +133,7 @@ jobs:
               - 'scripts/check-contrast*.mjs'
               - 'scripts/check-operator-deck-adoption*.mjs'
               - 'scripts/generate-companion-service-worker*.mjs'
+              - 'scripts/isolated-journey-e2e-contract.test.mjs'
               - 'scripts/long-shift-*'
             server:
               - 'packages/server/**'
