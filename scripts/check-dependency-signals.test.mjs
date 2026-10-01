@@ -266,3 +266,120 @@ test('TypeScript 7 compiler stays isolated from the TypeScript 6 tooling API', (
   assert.equal(typescriptEslintPackage.version, '8.68.0');
   assert.equal(typescriptEslintPackage.peerDependencies.typescript, '>=4.8.4 <6.1.0');
 });
+
+// Resolve from the consuming package, not the hoisted root: the schema
+// compiler and AJV use different supported fast-uri major lines.
+for (const owner of ['fast-json-stringify', 'ajv']) {
+  test(owner + ' normalizes percent-encoded host case before URI comparison', () => {
+    const ownerRequire = createRequire(require.resolve(owner));
+    const uri = ownerRequire('fast-uri');
+    assert.equal(uri.parse('//%41.com').host, 'a.com');
+    assert.equal(uri.equal('//%41.com', '//a.com'), true);
+    assert.equal(uri.equal('//a.com', '//b.com'), false);
+  });
+}
+
+test('the rate limiter subnet dependency rejects cross-family allowlist matches', () => {
+  const rateLimitRequire = createRequire(require.resolve('@fastify/rate-limit'));
+  const { Address4, Address6 } = rateLimitRequire('ip-address');
+  const cases = [
+    [new Address6('a00::1'), new Address4('10.0.0.0/8')],
+    [new Address4('32.0.0.1'), new Address6('2000::/3')],
+  ];
+  for (const [address, subnet] of cases) {
+    assert.equal(address.isInSubnet(subnet), false);
+    assert.equal(address.isHostInSubnet(subnet), false);
+  }
+  // Positive controls keep a fail-closed regression from passing by simply
+  // disabling all subnet matches.
+  assert.equal(new Address4('10.1.2.3').isInSubnet(new Address4('10.0.0.0/8')), true);
+  assert.equal(new Address6('2001:db8::1').isInSubnet(new Address6('2001:db8::/32')), true);
+});
+
+test('HTTP consumers keep patched undici releases within their existing major lines', () => {
+  const owners = [
+    ['@electron/get', '7.29.1'],
+    ['node-gyp', '6.28.1'],
+    ['@ai-sdk/provider-utils', '7.29.1'],
+    ['jsdom', '8.10.2'],
+  ];
+  for (const [owner, version] of owners) {
+    const ownerRequire = createRequire(require.resolve(owner + '/package.json'));
+    assert.equal(ownerRequire('undici/package.json').version, version, owner);
+  }
+});
+
+for (const hook of [
+  'beforeSanitizeElements',
+  'uponSanitizeElement',
+  'afterSanitizeElements',
+  'afterSanitizeAttributes',
+]) {
+  test('PDF sanitizer neutralizes detached descendants from ' + hook, () => {
+    const pdfRequire = createRequire(require.resolve('jspdf'));
+    const { JSDOM } = require('jsdom');
+    const window = new JSDOM('<!doctype html><body></body>').window;
+    try {
+      const purify = pdfRequire('dompurify')(window);
+      const root = window.document.createElement('div');
+      const wrapper = window.document.createElement('section');
+      const image = window.document.createElement('img');
+      // No resource URL or script execution: inspect the retained attribute
+      // through the original reference even after its parent is detached.
+      image.setAttribute('onerror', 'void 0');
+      wrapper.append(image);
+      root.append(wrapper);
+      window.document.body.append(root);
+      purify.addHook(hook, node => {
+        if (node === wrapper) wrapper.remove();
+      });
+      purify.sanitize(root, { IN_PLACE: true });
+      assert.equal(wrapper.isConnected, false);
+      assert.equal(image.hasAttribute('onerror'), false);
+    } finally {
+      window.close();
+    }
+  });
+}
+
+test('glob brace parsing treats excessive nesting as literal without stack exhaustion', () => {
+  const globRequire = createRequire(require.resolve('minimatch'));
+  const { expand, EXPANSION_MAX_DEPTH } = globRequire('brace-expansion');
+  assert.equal(EXPANSION_MAX_DEPTH, 1_000);
+  const depth = 6_000;
+  const pattern = '{'.repeat(depth) + 'a,b' + '}'.repeat(depth);
+  // Upstream deliberately treats over-depth input as literal instead of
+  // recursing or throwing; ordinary nesting must still expand normally.
+  assert.deepEqual(expand(pattern), [pattern]);
+  assert.deepEqual(expand('{{a,b}}'), ['{a}', '{b}']);
+  assert.deepEqual(expand('report-{en,es}.pdf'), ['report-en.pdf', 'report-es.pdf']);
+});
+
+test('glob brace parsing processes long comma groups without stack exhaustion', () => {
+  const globRequire = createRequire(require.resolve('minimatch'));
+  const { expand } = globRequire('brace-expansion');
+  const count = 8_000;
+  assert.deepEqual(expand('{' + '{a},'.repeat(count) + 'b}'), [...Array(count).fill('{a}'), 'b']);
+});
+
+test('Electron development and production packaging share the reviewed patched runtime', () => {
+  const desktop = readJson(new URL('../apps/desktop/package.json', import.meta.url));
+  const builder = readFileSync(
+    new URL('../apps/desktop/electron-builder.yml', import.meta.url),
+    'utf8'
+  );
+  const version = require('electron/package.json').version;
+  assert.equal(version, '43.5.0');
+  assert.equal(desktop.devDependencies.electron, version);
+  assert.equal(builder.match(/^electronVersion:\s*(\S+)$/m)?.[1], version);
+  assert.doesNotMatch(workspaceManifest, /^\s+- electron@43\.4\.1$/m);
+});
+
+test('glob brace rewrite work is bounded while ordinary patterns still expand', () => {
+  const globRequire = createRequire(require.resolve('minimatch'));
+  const { expand, EXPANSION_MAX_REWRITES } = globRequire('brace-expansion');
+  assert.equal(EXPANSION_MAX_REWRITES, 1_000);
+  const pattern = '{a}' + '}'.repeat(2_000) + ',z}';
+  assert.deepEqual(expand(pattern), [pattern]);
+  assert.deepEqual(expand('{a},b}'), ['a}', 'b']);
+});
