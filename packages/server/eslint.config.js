@@ -33,5 +33,21 @@ export default tseslint.config(
       // a logger instead.
       'no-console': 'error',
     },
+  },
+  {
+    files: ['src/services/sequential-allocation.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['../application/**', '../trpc/**', '../../application/**', '../../trpc/**'],
+              message: 'Keep document-number allocation below application and transport layers.',
+            },
+          ],
+        },
+      ],
+    },
   }
 );
