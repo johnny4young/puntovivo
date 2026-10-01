@@ -10,6 +10,7 @@ import { getSaleSequentialContext } from '../application/sales/item-resolution.j
 import { getPurchaseSequentialContext } from '../application/purchases/helpers.js';
 import { getOrderSequentialContext } from '../trpc/routers/orders/helpers.js';
 import { resolveQuotationSequential } from '../services/quotations/create.js';
+import { allocateNextSequential } from '../services/sequential-allocation.js';
 
 let server: PuntovivoServer;
 let tenantId: string;
@@ -76,6 +77,73 @@ describe('Sequentials tRPC Router', () => {
 
   afterAll(async () => {
     await server.close();
+  });
+
+  it('accepts the transaction executor and rolls back allocation on failure', () => {
+    const db = getDatabase();
+    const scope = and(
+      eq(sequentials.tenantId, tenantId),
+      eq(sequentials.siteId, siteId),
+      eq(sequentials.documentType, 'purchase')
+    );
+    const before = db.select().from(sequentials).where(scope).get();
+    expect(before).toBeDefined();
+    if (!before) throw new Error('Expected seeded purchase sequential');
+
+    expect(() =>
+      db.transaction(
+        tx => {
+          const allocated = allocateNextSequential(tx, {
+            tenantId,
+            sequentialId: before.id,
+            updatedAt: new Date().toISOString(),
+          });
+          expect(allocated.value).toBe(before.currentValue + 1);
+          throw new Error('rollback canary');
+        },
+        { behavior: 'immediate' }
+      )
+    ).toThrow('rollback canary');
+
+    expect(db.select().from(sequentials).where(scope).get()?.currentValue).toBe(
+      before.currentValue
+    );
+  });
+
+  it('keeps the tenant-scoped sequential conflict error for a transaction executor', () => {
+    const db = getDatabase();
+    const purchase = db
+      .select({ id: sequentials.id })
+      .from(sequentials)
+      .where(
+        and(
+          eq(sequentials.tenantId, tenantId),
+          eq(sequentials.siteId, siteId),
+          eq(sequentials.documentType, 'purchase')
+        )
+      )
+      .get();
+    expect(purchase).toBeDefined();
+    if (!purchase) throw new Error('Expected seeded purchase sequential');
+
+    let error: unknown;
+    try {
+      db.transaction(
+        tx =>
+          allocateNextSequential(tx, {
+            tenantId: nanoid(),
+            sequentialId: purchase.id,
+            updatedAt: new Date().toISOString(),
+          }),
+        { behavior: 'immediate' }
+      );
+    } catch (caught) {
+      error = caught;
+    }
+    expect(error).toMatchObject({
+      code: 'CONFLICT',
+      cause: { errorCode: 'DOCUMENT_SEQUENTIAL_CHANGED' },
+    });
   });
 
   it('lists and updates seeded sequentials, creates a new one for another type, and deletes it', async () => {
