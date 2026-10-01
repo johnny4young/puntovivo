@@ -480,6 +480,19 @@ call metadata, not exception text; only locally constructed domain errors may
 cross the Co-pilot boundary unchanged. This contract limits secondary leakage
 through the browser response and centralized error tracing.
 
+Every Co-pilot response requires at least one successful read-only SQL query
+against a provider-safe snapshot table. The model-facing tool rejects
+constant-only and CTE queries; authorized local SQL retains its separate WITH
+contract. Up to five model SQL attempts are allowed, and every successful
+result is returned in order rather than hiding earlier queries. Neither mode
+displays model-authored prose. Guided mode adds only localized, deterministic
+review guidance; verified-results mode shows queries and rows without that
+guide. The provider's actual token usage is audited even when a response fails
+the SQL requirement. These checks establish a minimum source boundary, **not**
+semantic correctness: a SELECT can still produce a constant despite reading a
+table, choose the wrong metric, or omit relevant records. Operators must
+inspect SQL scope and columns before acting on any figure.
+
 ## Price-tier boundary
 
 Products expose a three-price grid for their base unit. Each alternate unit

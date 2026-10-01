@@ -56,6 +56,7 @@ export interface CopilotSQLResult {
 
 export interface CopilotChatResult extends CopilotSQLResult {
   answer: string;
+  queries: CopilotSQLResult[];
   responseMode: CopilotResponseMode;
   costUsd: number;
   durationMs: number;

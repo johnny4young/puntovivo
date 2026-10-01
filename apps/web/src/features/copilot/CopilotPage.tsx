@@ -22,6 +22,7 @@ import { createCopilotTransport, type CopilotChatResult } from './copilotTranspo
 
 type CopilotRow = CopilotChatResult['rows'][number];
 type CopilotResponseMode = CopilotChatResult['responseMode'];
+type CopilotQuery = CopilotChatResult['queries'][number];
 
 function messageText(message: UIMessage): string {
   return message.parts
@@ -218,7 +219,7 @@ function ResultChart({
   result,
   formatCurrency,
 }: {
-  result: CopilotChatResult;
+  result: CopilotQuery;
   formatCurrency: (amount: number) => string;
 }) {
   const chart = result.chart;
@@ -273,7 +274,7 @@ function ResultTable({
   result,
   formatCurrency,
 }: {
-  result: CopilotChatResult;
+  result: CopilotQuery;
   formatCurrency: (amount: number) => string;
 }) {
   const { t } = useTranslation('copilot');
@@ -341,7 +342,7 @@ function ResultsPanel({
 
   if (!result) {
     return (
-      <section className="card p-6">
+      <section id="copilot-results" className="card p-6">
         <div className="flex h-56 flex-col items-center justify-center gap-3 text-center">
           <div className="glyph-tile glyph-tile-primary h-12 w-12">
             <Sparkles className="h-5 w-5" aria-hidden="true" />
@@ -363,28 +364,43 @@ function ResultsPanel({
   }
 
   return (
-    <div className="space-y-4">
+    <div id="copilot-results" className="min-w-0 space-y-4">
       {result.responseMode === 'verified' && (
         <div className="flex items-center gap-2 rounded-2xl border border-primary-500/25 bg-primary-50 px-4 py-3 text-sm font-medium text-primary-800">
           <ShieldCheck className="h-4 w-4 shrink-0" aria-hidden="true" />
           {t('copilot:mode.resultVerified')}
         </div>
       )}
-      <ResultChart result={result} formatCurrency={formatCurrency} />
-      <ResultTable result={result} formatCurrency={formatCurrency} />
-      {result.sql && (
-        <section className="card overflow-hidden">
-          <div className="flex items-center gap-2 border-b border-line/70 px-5 py-3">
-            <Database className="h-4 w-4 text-primary-700" aria-hidden="true" />
-            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-primary-700">
-              {t('results.sqlDisclosure')}
-            </p>
-          </div>
-          <pre className="overflow-x-auto bg-secondary-950 px-5 py-4 text-xs leading-6 text-secondary-50">
-            <code>{result.sql}</code>
-          </pre>
-        </section>
+      {result.responseMode === 'guided' && (
+        <div className="flex items-start gap-2 rounded-2xl border border-primary-500/25 bg-primary-50 px-4 py-3 text-sm font-medium text-primary-800">
+          <Database className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          {t('copilot:mode.resultGuided')}
+        </div>
       )}
+      {result.queries.map((query, index) => (
+        <section
+          key={`${index}:${query.sql}`}
+          className="space-y-4"
+          aria-label={t('copilot:results.queryLabel', { index: index + 1 })}
+        >
+          <h3 className="text-sm font-semibold text-secondary-950">
+            {t('copilot:results.queryLabel', { index: index + 1 })}
+          </h3>
+          <ResultChart result={query} formatCurrency={formatCurrency} />
+          <ResultTable result={query} formatCurrency={formatCurrency} />
+          <section className="card overflow-hidden">
+            <div className="flex items-center gap-2 border-b border-line/70 px-5 py-3">
+              <Database className="h-4 w-4 text-primary-700" aria-hidden="true" />
+              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-primary-700">
+                {t('results.sqlDisclosure')}
+              </p>
+            </div>
+            <pre className="overflow-x-auto bg-secondary-950 px-5 py-4 text-xs leading-6 text-secondary-50">
+              <code>{query.sql}</code>
+            </pre>
+          </section>
+        </section>
+      ))}
       <section className="card relative overflow-hidden p-4">
         <div className="grid gap-3 text-[11px] uppercase tracking-[0.18em] text-secondary-500 sm:grid-cols-[1fr_auto_auto_auto]">
           <div>
@@ -408,10 +424,10 @@ function ResultsPanel({
               {t('results.metaRowsLabel', { defaultValue: 'Filas' })}
             </p>
             <p className="mt-1 font-mono text-[12px] tabular-nums tracking-normal text-secondary-900 normal-case">
-              {result.rowCount}
+              {result.queries.reduce((total, query) => total + query.rowCount, 0)}
             </p>
           </div>
-          {result.truncated && (
+          {result.queries.some(query => query.truncated) && (
             <div>
               <p className="text-[9.5px] font-semibold tracking-[0.22em] text-warning-700">
                 {t('results.metaTruncatedLabel', { defaultValue: 'Truncado' })}
@@ -488,7 +504,7 @@ export function CopilotPage() {
             <p className="mt-2 text-sm leading-6 text-secondary-600">
               {t('copilot:page.subtitle', {
                 defaultValue:
-                  'Pregúntale a tus datos. El SQL siempre se muestra abajo del resultado, auditado y descargable.',
+                  'Explora tus datos. Cuando se ejecuta una consulta, el SQL y sus filas quedan visibles para revisión.',
               })}
             </p>
           </div>
@@ -505,7 +521,7 @@ export function CopilotPage() {
       />
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-        <section className="card flex min-h-[35rem] flex-col overflow-hidden">
+        <section className="card flex min-h-[35rem] min-w-0 flex-col overflow-hidden">
           <div className="flex items-center gap-2 border-b border-line/70 px-5 py-4">
             <MessageSquareText className="h-4 w-4 text-primary-700" />
             <h2 className="text-sm font-semibold text-secondary-950">{t('copilot:chat.title')}</h2>
@@ -526,6 +542,16 @@ export function CopilotPage() {
                 <div className="rounded-2xl border border-line/70 bg-surface px-4 py-3 text-sm text-secondary-600">
                   {t('copilot:states.loading')}
                 </div>
+              </div>
+            )}
+            {latestResult && (
+              <div
+                role="status"
+                className="rounded-2xl border border-primary-500/25 bg-primary-50 px-4 py-3 text-sm text-primary-800"
+              >
+                <a className="font-medium underline underline-offset-2" href="#copilot-results">
+                  {t('copilot:chat.resultReady')}
+                </a>
               </div>
             )}
           </div>
