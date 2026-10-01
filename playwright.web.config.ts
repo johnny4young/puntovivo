@@ -1,6 +1,8 @@
 import path from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { defineConfig, devices } from '@playwright/test';
+import { assertWebE2eEnvCanUsePlaintextFixture } from './scripts/web-e2e-env.mjs';
+import { resolveE2eApiOrigin, resolveE2eWebOrigin } from './e2e/web/support/api-origin.ts';
 
 // Playwright controls worker colour through FORCE_COLOR. Preserve an
 // operator's NO_COLOR preference without passing both variables to Node,
@@ -12,10 +14,40 @@ if (process.env.NO_COLOR !== undefined) {
 
 process.env.PLAYWRIGHT_BROWSERS_PATH ??= path.join(process.cwd(), '.playwright-browsers');
 process.env.PUNTOVIVO_SQLITE_BUSY_TIMEOUT_MS ??= '15000';
+assertWebE2eEnvCanUsePlaintextFixture(process.cwd());
+// Playwright merges each webServer.env with the runner's environment. Omitting
+// this key from the child override alone would still inherit it and make the
+// suite-owned plaintext fixture unreadable. Clear only the test runner copy.
+delete process.env.PUNTOVIVO_DB_KEY;
+const apiOrigin = resolveE2eApiOrigin(
+  process.env.PUNTOVIVO_E2E_API_ORIGIN,
+  'http://localhost:8090'
+);
+const apiPort = new URL(apiOrigin).port;
+// SameSite=Strict refresh cookies survive full navigation only when both
+// loopback origins use the same hostname. Never weaken the cookie policy.
+const webOrigin = resolveE2eWebOrigin(apiOrigin);
+const webHost = new URL(webOrigin).hostname;
+// Direct probes, renderer and owned backend must target the same listener.
+process.env.PUNTOVIVO_E2E_API_ORIGIN = apiOrigin;
+const e2eDbPath = path.resolve(process.cwd(), 'packages/server/data/local.db');
 
 const webServerEnv = Object.fromEntries(
   Object.entries({
     ...process.env,
+    // The fixture opens this exact plaintext DB directly. Never inherit a
+    // shared-dev DATABASE_URL into the suite.
+    DATABASE_URL: e2eDbPath,
+    // An operator's Hub/LAN environment must not turn the test-owned server
+    // into a site hub or bind it beyond loopback.
+    // The standalone dev launcher does not override an inherited production
+    // marker. Keep this suite's plaintext fixture explicitly in development
+    // without weakening the server's production SQLCipher requirement.
+    NODE_ENV: 'development',
+    PUNTOVIVO_RUNTIME_ENV: 'development',
+    PUNTOVIVO_AUTHORITY_MODE: 'device_local',
+    PUNTOVIVO_BIND_HOST: '127.0.0.1',
+    PUNTOVIVO_BIND_PORT: apiPort,
     PUNTOVIVO_E2E: '1',
     // Only the isolated test server needs this key; its plaintext DB is opened by the harness.
     PUNTOVIVO_EXTERNAL_ORDER_KEY: randomBytes(32).toString('hex'),
@@ -44,7 +76,7 @@ export default defineConfig({
     timeout: 10_000,
   },
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: webOrigin,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -59,17 +91,26 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: 'node scripts/dev-launcher.mjs server',
+      // Direct workspace commands do not sweep a sibling task's listeners.
+      // Fail closed on a port collision rather than borrowing its backend.
+      command: 'pnpm --filter @puntovivo/server run dev',
       env: webServerEnv,
-      url: 'http://127.0.0.1:8090/api/health',
-      reuseExistingServer: !process.env.CI,
+      url: `http://127.0.0.1:${apiPort}/api/health`,
+      reuseExistingServer: false,
       gracefulShutdown: { signal: 'SIGTERM', timeout: 2_000 },
       timeout: 120_000,
     },
     {
-      command: 'node scripts/dev-launcher.mjs web',
-      url: 'http://localhost:3000/login',
-      reuseExistingServer: !process.env.CI,
+      // The normal dev port 3000 can belong to another Git worktree. Use a
+      // dedicated Vite origin whose owner Playwright must start itself.
+      command: `pnpm --filter @puntovivo/web exec vite --host ${webHost} --port 5173 --strictPort`,
+      env: {
+        VITE_API_URL: apiOrigin,
+        NODE_ENV: 'development',
+        PUNTOVIVO_RUNTIME_ENV: 'development',
+      },
+      url: `${webOrigin}/login`,
+      reuseExistingServer: false,
       gracefulShutdown: { signal: 'SIGTERM', timeout: 2_000 },
       timeout: 120_000,
     },

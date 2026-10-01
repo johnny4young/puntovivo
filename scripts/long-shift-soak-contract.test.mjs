@@ -20,6 +20,9 @@ test('long-shift command stays opt-in, serial, and outside the ordinary suite', 
   assert.match(soakCommand, /--workers=1/);
   assert.match(soakCommand, /--forbid-only/);
   assert.match(ordinaryCommand, /--grep-invert ["']@long-shift-soak\|@isolated-journey["']/);
+  const build = soakCommand.indexOf('pnpm --filter @puntovivo/server run build');
+  assert.notEqual(build, -1, 'soak E2E must build the server imported by global setup');
+  assert.ok(build < soakCommand.indexOf('playwright test'), 'the build must precede Playwright');
 
   const workflow = readRepoFile('.github/workflows/ci.yml');
   assert.doesNotMatch(workflow, /pnpm run test:e2e:web:soak/);
