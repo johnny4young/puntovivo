@@ -3,7 +3,7 @@ import { throwServerError, ServerErrorWithCode } from '../../../lib/errorCodes.j
 import { TRPCError } from '@trpc/server';
 import { syncConflictResolutionAvailability } from '../../../services/sync/contract.js';
 /**
- * Sync router shared helpers ( split).
+ * Sync router shared helpers.
  *
  * Leaf module: the sync-entity allowlist, the last-sync-time
  * accessors, the sync-overview aggregation, the conflict helpers, and the
@@ -22,8 +22,8 @@ import { appSettings, syncConflicts, syncOutbox } from '../../../db/schema.js';
 export const LAST_SYNC_KEY_PREFIX = 'sync_last_sync:';
 
 /**
- * Statuses that count as "still pending" — the row has not yet been
- * accepted by the central server. `submitting` is a transient mid-push
+ * Statuses that count as "still pending" — local processing has not yet
+ * reached a final state. These counts do not establish remote delivery. `submitting` is a transient mid-push
  * state; counting it as pending preserves the legacy semantics where
  * any non-final row blocked closeout flows.
  */
@@ -204,31 +204,30 @@ export async function getLastSyncAt(db: DatabaseInstance, tenantId: string) {
   return typeof row?.value === 'string' ? row.value : null;
 }
 
-export async function saveLastSyncAt(db: DatabaseInstance, tenantId: string, value: string) {
+export function saveLastSyncAt(db: DatabaseInstance, tenantId: string, value: string) {
   const key = getLastSyncKey(tenantId);
-  const existing = await db
-    .select({ key: appSettings.key })
+  const existing = db
+    .select({ key: appSettings.key, value: appSettings.value })
     .from(appSettings)
     .where(eq(appSettings.key, key))
     .get();
 
   if (existing) {
-    await db
-      .update(appSettings)
+    // All writers supply canonical UTC ISO timestamps. Preserve the later
+    // committed marker if the wall clock moves backward between pushes.
+    const nextValue =
+      typeof existing.value === 'string' && existing.value > value ? existing.value : value;
+    db.update(appSettings)
       .set({
-        value,
-        updatedAt: value,
+        value: nextValue,
+        updatedAt: nextValue,
       })
       .where(eq(appSettings.key, key))
       .run();
     return;
   }
 
-  await db.insert(appSettings).values({
-    key,
-    value,
-    updatedAt: value,
-  });
+  db.insert(appSettings).values({ key, value, updatedAt: value }).run();
 }
 
 export async function getSyncOverview(db: DatabaseInstance, tenantId: string) {
@@ -297,13 +296,13 @@ export async function getSyncOverview(db: DatabaseInstance, tenantId: string) {
   } as const;
 }
 
-export async function hasPendingConflict(
+export function hasPendingConflict(
   db: DatabaseInstance,
   tenantId: string,
   entityType: string,
   entityId: string
 ) {
-  const conflict = await db
+  const conflict = db
     .select({ id: syncConflicts.id })
     .from(syncConflicts)
     .where(
@@ -319,7 +318,7 @@ export async function hasPendingConflict(
   return conflict?.id ?? null;
 }
 
-export async function ensureSyncConflict(
+export function ensureSyncConflict(
   db: DatabaseInstance,
   {
     tenantId,
@@ -335,22 +334,24 @@ export async function ensureSyncConflict(
     remoteData: Record<string, unknown>;
   }
 ) {
-  const existingConflictId = await hasPendingConflict(db, tenantId, entityType, entityId);
+  const existingConflictId = hasPendingConflict(db, tenantId, entityType, entityId);
   if (existingConflictId) {
     return existingConflictId;
   }
 
   const conflictId = nanoid();
-  await db.insert(syncConflicts).values({
-    id: conflictId,
-    tenantId,
-    entityType,
-    entityId,
-    localData,
-    remoteData,
-    status: 'pending',
-    createdAt: new Date().toISOString(),
-  });
+  db.insert(syncConflicts)
+    .values({
+      id: conflictId,
+      tenantId,
+      entityType,
+      entityId,
+      localData,
+      remoteData,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+    })
+    .run();
 
   return conflictId;
 }
@@ -360,15 +361,14 @@ export async function ensureSyncConflict(
  * normalized error, transition to `retrying`. Used by `sync.push`
  * when a row hits a recoverable obstacle.
  */
-export async function markOutboxFailure(
+export function markOutboxFailure(
   db: DatabaseInstance,
   tenantId: string,
   outboxId: string,
   message: string
 ) {
   const now = new Date().toISOString();
-  await db
-    .update(syncOutbox)
+  db.update(syncOutbox)
     .set({
       status: 'retrying',
       attempts: sql`${syncOutbox.attempts} + 1`,
