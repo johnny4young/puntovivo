@@ -72,7 +72,12 @@ export const syncContractProcedures = {
    */
   retry: adminProcedure.input(retryOutboxInput).mutation(async ({ ctx, input }) => {
     const existing = await ctx.db
-      .select({ id: syncOutbox.id, status: syncOutbox.status })
+      .select({
+        id: syncOutbox.id,
+        status: syncOutbox.status,
+        attempts: syncOutbox.attempts,
+        updatedAt: syncOutbox.updatedAt,
+      })
       .from(syncOutbox)
       .where(and(eq(syncOutbox.id, input.id), eq(syncOutbox.tenantId, ctx.tenantId)))
       .get();
@@ -87,7 +92,7 @@ export const syncContractProcedures = {
       return { ok: true as const, id: input.id };
     }
     const now = new Date().toISOString();
-    await ctx.db
+    const result = await ctx.db
       .update(syncOutbox)
       .set({
         status: 'queued',
@@ -98,7 +103,25 @@ export const syncContractProcedures = {
         lockedAt: null,
         updatedAt: now,
       })
-      .where(and(eq(syncOutbox.id, input.id), eq(syncOutbox.tenantId, ctx.tenantId)));
+      // A push can settle or fail this row after the read above. Retry only
+      // the exact observed attempt; never requeue a later successful push.
+      .where(
+        and(
+          eq(syncOutbox.id, input.id),
+          eq(syncOutbox.tenantId, ctx.tenantId),
+          eq(syncOutbox.status, existing.status),
+          eq(syncOutbox.attempts, existing.attempts),
+          eq(syncOutbox.updatedAt, existing.updatedAt)
+        )
+      )
+      .run();
+    if (result.changes === 0) {
+      throwServerError({
+        trpcCode: 'CONFLICT',
+        errorCode: 'STALE_VERSION',
+        message: 'Sync outbox row changed during retry; refresh before retrying again',
+      });
+    }
     return { ok: true as const, id: input.id };
   }),
 };

@@ -1,3 +1,4 @@
+import { availableParallelism } from 'node:os';
 import { configDefaults, defineConfig } from 'vitest/config';
 
 const TRPC_PROFILE_TEST = 'src/__tests__/perf-trpc-latency.test.ts';
@@ -18,6 +19,10 @@ const enabledProfileTest =
 export default defineConfig({
   test: {
     globals: true,
+    // Each worker repeatedly migrates databases and hashes native credentials.
+    // Bound that concurrency instead of multiplying it by the host core count;
+    // all suites, assertions, coverage floors and timeout budgets remain intact.
+    maxWorkers: Math.min(4, availableParallelism()),
     environment: 'node',
     include: enabledProfileTest ? [enabledProfileTest] : ['src/**/*.test.ts'],
     exclude: enabledProfileTest
