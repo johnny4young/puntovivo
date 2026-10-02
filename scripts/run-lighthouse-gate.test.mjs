@@ -171,6 +171,30 @@ test('buildGateEnv owns DB, browser cache, ports, and Lighthouse target', () => 
   assert.equal(env.PUNTOVIVO_DB_KEY, undefined);
 });
 
+test('buildGateEnv binds script attribution to the owned isolated build, not ambient dist', () => {
+  const options = resolveRunLighthouseGateOptions({ argv: [], env: {} });
+  const env = buildGateEnv(
+    { PUNTOVIVO_LIGHTHOUSE_BUILD_DIRECTORY: '/stale/dist' },
+    options,
+    '/owned/db',
+    '/owned/browser',
+    '/owned/web-dist'
+  );
+  assert.equal(env.PUNTOVIVO_LIGHTHOUSE_BUILD_DIRECTORY, '/owned/web-dist');
+});
+
+test('external-preview mode uses its explicitly supplied attribution build', () => {
+  const options = resolveRunLighthouseGateOptions({ argv: ['--skip-preview'], env: {} });
+  const env = buildGateEnv(
+    { PUNTOVIVO_LIGHTHOUSE_BUILD_DIRECTORY: '/external/web-dist' },
+    options,
+    '/owned/db',
+    '/owned/browser',
+    '/unused/web-dist'
+  );
+  assert.equal(env.PUNTOVIVO_LIGHTHOUSE_BUILD_DIRECTORY, '/external/web-dist');
+});
+
 test('buildProductionWebEnv isolates production mode from the seed runtime', () => {
   const gateEnv = { NODE_ENV: 'development', VITE_API_URL: 'http://localhost:8999' };
 

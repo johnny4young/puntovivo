@@ -26,7 +26,8 @@
  * @module scripts/check-lighthouse
  */
 
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { lstatSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
 import { dirname, join, resolve } from 'node:path';
 import { arch, cpus, platform, release, tmpdir, totalmem } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -249,21 +250,77 @@ export function extractRunnerBenchmark(lhr) {
  * Total Blocking Time rises), so keeping these in the gate log makes the root
  * cause visible instead of leaving operators with only an opaque score.
  */
-export function extractDiagnostics(lhr) {
+/**
+ * Verify scripts against regular files in this build, then assign private,
+ * process-local IDs shared by bootup and CPU diagnostics. Never export the
+ * reverse mapping. A missing build or untrusted URL produces null, not a
+ * guessed asset name. Symlink entries and noncanonical URLs fail closed.
+ */
+export function createBuildScriptIdResolver({
+  buildDirectory = process.env.PUNTOVIVO_LIGHTHOUSE_BUILD_DIRECTORY ||
+    join(REPO_ROOT, 'apps/web/dist'),
+  baseUrl = BASE_URL,
+} = {}) {
+  const scripts = new Map();
+  let origin;
+  try {
+    const base = new URL(baseUrl);
+    if (!['http:', 'https:'].includes(base.protocol) || base.username || base.password) {
+      return () => null;
+    }
+    origin = base.origin;
+    const assets = join(buildDirectory, 'assets');
+    if (!lstatSync(assets).isDirectory()) return () => null;
+    // Canonicalize the trusted build root: macOS temp directories themselves
+    // may have symlink ancestors without making an asset entry a symlink.
+    const canonicalAssets = realpathSync(assets);
+    for (const name of readdirSync(assets)) {
+      if (!/^[A-Za-z0-9_.-]+\.js$/.test(name)) continue;
+      const file = join(assets, name);
+      if (!lstatSync(file).isFile() || realpathSync(file) !== join(canonicalAssets, name)) continue;
+      scripts.set(`/assets/${name}`, `script-${randomBytes(12).toString('hex')}`);
+    }
+  } catch {
+    // Partial inventories must not become proof after an interrupted build.
+    scripts.clear();
+  }
+  return value => {
+    if (typeof value !== 'string') return null;
+    try {
+      const url = new URL(value);
+      if (
+        url.origin !== origin ||
+        url.search ||
+        url.hash ||
+        url.username ||
+        url.password ||
+        value !== `${url.origin}${url.pathname}`
+      )
+        return null;
+      return scripts.get(url.pathname) ?? null;
+    } catch {
+      return null;
+    }
+  };
+}
+
+export function extractDiagnostics(lhr, resolveScriptId = () => null) {
   const audits = lhr?.audits ?? {};
   const rounded = id => {
     const value = audits[id]?.numericValue;
     return typeof value === 'number' && Number.isFinite(value) ? Math.round(value) : null;
   };
   const topBootupScripts = [...(audits['bootup-time']?.details?.items ?? [])]
-    .filter(item => typeof item?.total === 'number')
+    .filter(
+      item => typeof item?.total === 'number' && Number.isFinite(item.total) && item.total >= 0
+    )
     .sort((a, b) => b.total - a.total)
     .slice(0, 5)
     .map(item => ({
-      url: String(item.url ?? '').replace(BASE_URL, ''),
+      scriptId: resolveScriptId(item.url),
       totalMs: Math.round(item.total),
       scriptingMs:
-        typeof item.scripting === 'number' && Number.isFinite(item.scripting)
+        typeof item.scripting === 'number' && Number.isFinite(item.scripting) && item.scripting >= 0
           ? Math.round(item.scripting)
           : null,
     }));
@@ -341,7 +398,7 @@ export function extractLcpDiagnostics(lhr) {
 }
 
 /** Bounded CPU diagnostics only; never log raw trace arguments or network headers. */
-export async function extractCpuDiagnostics(trace) {
+export async function extractCpuDiagnostics(trace, resolveScriptId = () => null) {
   const unavailable = { cpuAttribution: 'unavailable', topCpuEvents: [] };
   if (!Array.isArray(trace?.traceEvents) || trace.traceEvents.length === 0) return unavailable;
   let processed;
@@ -373,20 +430,19 @@ export async function extractCpuDiagnostics(trace) {
       .slice(0, 8)
       .map(event => {
         const data = event.args?.data ?? {};
-        let script = null;
-        try {
-          const pathname = new URL(data.url).pathname;
-          // Only hashed build assets, not user routes, query strings or origins.
-          if (/^\/assets\/[A-Za-z0-9_.-]+\.js$/.test(pathname)) script = pathname;
-        } catch {
-          /* Non-script events deliberately have no URL. */
-        }
+        const scriptId = resolveScriptId(data.url);
         return {
           kind: event.name,
           durationMs: Math.round(event.dur / 100) / 10,
-          script,
-          line: script && Number.isSafeInteger(data.lineNumber) ? data.lineNumber : null,
-          column: script && Number.isSafeInteger(data.columnNumber) ? data.columnNumber : null,
+          scriptId,
+          line:
+            scriptId && Number.isSafeInteger(data.lineNumber) && data.lineNumber >= 0
+              ? data.lineNumber
+              : null,
+          column:
+            scriptId && Number.isSafeInteger(data.columnNumber) && data.columnNumber >= 0
+              ? data.columnNumber
+              : null,
         };
       }),
   };
@@ -761,6 +817,7 @@ export async function launchAndMeasure({
       }
     }
 
+    const resolveScriptId = createBuildScriptIdResolver();
     const measured = {};
     for (const route of ROUTES) {
       if (route.auth && !loggedIn) continue;
@@ -791,9 +848,9 @@ export async function launchAndMeasure({
               `check-lighthouse: diagnostics ${route.key} sample ${sample}/${totalSamples} = ${JSON.stringify(
                 {
                   ...metrics,
-                  ...extractDiagnostics(runnerResult.lhr),
+                  ...extractDiagnostics(runnerResult.lhr, resolveScriptId),
                   ...extractLcpDiagnostics(runnerResult.lhr),
-                  ...(await extractCpuDiagnostics(runnerResult.artifacts?.Trace)),
+                  ...(await extractCpuDiagnostics(runnerResult.artifacts?.Trace, resolveScriptId)),
                 }
               )}`
             );
