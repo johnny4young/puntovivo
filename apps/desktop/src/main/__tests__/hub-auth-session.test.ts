@@ -1,6 +1,7 @@
 import { afterEach, describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer } from '@puntovivo/server';
@@ -49,17 +50,18 @@ function accessToken(sessionVersion: number): string {
   ).toString('base64url')}.signature`;
 }
 
-function successResponse(data: unknown, cookies?: { refresh: string; csrf?: string }): Response {
+function successResponse(data: unknown, cookies?: { refresh?: string; csrf?: string }): Response {
   const headers = new Headers({ 'content-type': 'application/json' });
-  if (cookies) {
-    headers.append(
-      'set-cookie',
-      `puntovivo_refresh=${cookies.refresh}; Path=/; HttpOnly${
-        cookies.csrf ? `, puntovivo_csrf=${cookies.csrf}; Path=/` : ''
-      }`
-    );
-  }
+  if (cookies?.refresh)
+    headers.append('set-cookie', `puntovivo_refresh=${cookies.refresh}; Path=/; HttpOnly`);
+  if (cookies?.csrf) headers.append('set-cookie', `puntovivo_csrf=${cookies.csrf}; Path=/`);
   return new Response(JSON.stringify([{ result: { data } }]), { status: 200, headers });
+}
+
+/** Narrow fixture access to the server-owned JWT decorator; no desktop runtime dependency. */
+interface TestJwtSigner {
+  decode(token: string): Record<string, unknown> | null;
+  sign(payload: Record<string, unknown>, options: { expiresIn: string }): string;
 }
 
 function unauthorizedResponse(): Response {
@@ -83,9 +85,10 @@ function unauthorizedResponse(): Response {
 }
 
 describe('Store Hub main-process auth custody', () => {
-  it('requires HTTPS outside loopback development', () => {
+  it('requires HTTPS when packaged, including a loopback Hub URL', () => {
     assert.equal(normalizeHubAuthUrl('https://hub.example.test/'), 'https://hub.example.test');
     assert.equal(normalizeHubAuthUrl('http://127.0.0.1:8090/', true), 'http://127.0.0.1:8090');
+    assert.throws(() => normalizeHubAuthUrl('http://127.0.0.1:8090/', false), /must use HTTPS/);
     assert.throws(() => normalizeHubAuthUrl('http://192.168.1.8:8090', true), /must use HTTPS/);
     assert.throws(() => normalizeHubAuthUrl('https://user:pass@hub.example.test'), /credentials/);
   });
@@ -292,6 +295,83 @@ describe('Store Hub main-process auth custody', () => {
       assert.match(safeStorage.decryptString(readFileSync(statePath)), /refresh-2/);
     });
   }
+
+  function csrfRejection() {
+    return new Response(
+      JSON.stringify({
+        error: { message: 'CSRF_VALIDATION_FAILED: missing or invalid CSRF token' },
+      }),
+      { status: 403 }
+    );
+  }
+
+  for (const failure of ['rejected-again', 'unavailable', 'unsigned-proof'] as const) {
+    it(`bounds CSRF recovery and handles ${failure} without ambiguous rotation retries`, async () => {
+      const statePath = tempStatePath();
+      let refreshes = 0;
+      let bootstraps = 0;
+      const auth = createHubAuthSession({
+        hubUrl: 'https://hub.example.test',
+        getStatePath: () => statePath,
+        safeStorage,
+        fetchImpl: (async (input, init) => {
+          if (String(input).includes('auth.login')) return loginResponse(1);
+          if (String(input).includes('health.check')) {
+            bootstraps++;
+            assert.equal(init?.redirect, 'error');
+            assert.equal(new Headers(init?.headers).has('authorization'), false);
+            if (failure === 'unavailable') return new Response('{}', { status: 503 });
+            return successResponse(
+              {},
+              {
+                csrf: failure === 'unsigned-proof' ? 'x'.repeat(43) : `v1.${'x'.repeat(43)}`,
+              }
+            );
+          }
+          refreshes++;
+          return csrfRejection();
+        }) as typeof fetch,
+      });
+      await auth.login({ email: 'admin@example.test', password: 'secret' });
+      await assert.rejects(auth.refresh());
+      assert.equal(bootstraps, 1);
+      assert.equal(refreshes, failure === 'rejected-again' ? 2 : 1);
+      assert.equal(existsSync(statePath), failure === 'unavailable');
+    });
+  }
+
+  it('does not rotate or overwrite a new identity after a late CSRF bootstrap', async () => {
+    const statePath = tempStatePath();
+    const pendingBootstrap = createDeferred<Response>();
+    const started = createDeferred<void>();
+    let logins = 0;
+    let refreshes = 0;
+    const auth = createHubAuthSession({
+      hubUrl: 'https://hub.example.test',
+      getStatePath: () => statePath,
+      safeStorage,
+      fetchImpl: (async input => {
+        if (String(input).includes('auth.login')) return loginResponse(++logins);
+        if (String(input).includes('health.check')) {
+          started.resolve();
+          return pendingBootstrap.promise;
+        }
+        refreshes++;
+        return csrfRejection();
+      }) as typeof fetch,
+    });
+    await auth.login({ email: 'admin@example.test', password: 'secret' });
+    const pending = auth.refresh();
+    const rejected = assert.rejects(pending, /active session changed/);
+    await started.promise;
+    auth.clear();
+    await auth.login({ email: 'admin@example.test', password: 'new-secret' });
+    pendingBootstrap.resolve(successResponse({}, { csrf: `v1.${'x'.repeat(43)}` }));
+    await rejected;
+    assert.equal(refreshes, 1);
+    assert.match(safeStorage.decryptString(readFileSync(statePath)), /refresh-2/);
+    assert.equal((await auth.verifyAccessToken(accessToken(2)))?.sessionVersion, 2);
+  });
 
   it('forwards the registered terminal on staff handoff', async () => {
     const statePath = tempStatePath();
@@ -581,78 +661,200 @@ describe('Store Hub main-process auth custody', () => {
     );
   });
 
-  it('renews against the real Fastify tRPC and rotating-cookie contract', async () => {
-    const server = await createServer({ dbPath: ':memory:', verbose: false });
-    const statePath = tempStatePath();
-    let lastRequestHeaders: Record<string, string> = {};
-    const injectFetch = (async (input: string | URL | Request, init?: RequestInit) => {
-      const url = new URL(String(input));
-      const requestHeaders = Object.fromEntries(new Headers(init?.headers).entries());
-      lastRequestHeaders = requestHeaders;
-      const response = await server.app.inject({
-        method: (init?.method ?? 'GET') as 'GET' | 'POST',
-        url: `${url.pathname}${url.search}`,
-        headers: requestHeaders,
-        ...(typeof init?.body === 'string' ? { payload: init.body } : {}),
-      });
-      const headers = new Headers();
-      for (const [name, value] of Object.entries(response.headers)) {
-        if (Array.isArray(value)) {
-          for (const item of value) headers.append(name, item);
-        } else if (value !== undefined) {
-          headers.append(name, String(value));
+  for (const migration of ['current', 'unsigned-companion', 'legacy-jwt'] as const) {
+    it(`renews, switches staff and logs out against the real Fastify tRPC cookie contract (${migration})`, async () => {
+      // Each in-memory authority gets a fresh fixture credential. Restore the
+      // process seed override before driving the protocol so it cannot leak
+      // into subsequent test boots or depend on a checked-in password.
+      const fixturePassword = `Aa!${randomUUID()}`;
+      const previousSeedPassword = process.env.PUNTOVIVO_DEV_ADMIN_PASSWORD;
+      process.env.PUNTOVIVO_DEV_ADMIN_PASSWORD = fixturePassword;
+      const server = await (async () => {
+        try {
+          return await createServer({ dbPath: ':memory:', verbose: false });
+        } finally {
+          if (previousSeedPassword === undefined) delete process.env.PUNTOVIVO_DEV_ADMIN_PASSWORD;
+          else process.env.PUNTOVIVO_DEV_ADMIN_PASSWORD = previousSeedPassword;
         }
+      })();
+      assert.equal(process.env.PUNTOVIVO_DEV_ADMIN_PASSWORD, previousSeedPassword);
+      const statePath = tempStatePath();
+      let lastRequestHeaders: Record<string, string> = {};
+      const injectFetch = (async (input: string | URL | Request, init?: RequestInit) => {
+        const url = new URL(String(input));
+        const requestHeaders = Object.fromEntries(new Headers(init?.headers).entries());
+        lastRequestHeaders = requestHeaders;
+        const response = await server.app.inject({
+          method: (init?.method ?? 'GET') as 'GET' | 'POST',
+          url: `${url.pathname}${url.search}`,
+          headers: requestHeaders,
+          ...(typeof init?.body === 'string' ? { payload: init.body } : {}),
+        });
+        const headers = new Headers();
+        for (const [name, value] of Object.entries(response.headers)) {
+          if (Array.isArray(value)) {
+            for (const item of value) headers.append(name, item);
+          } else if (value !== undefined) {
+            headers.append(name, String(value));
+          }
+        }
+        return new Response(response.body, { status: response.statusCode, headers });
+      }) as typeof fetch;
+
+      try {
+        const first = createHubAuthSession({
+          hubUrl: 'https://hub.example.test',
+          getStatePath: () => statePath,
+          safeStorage,
+          fetchImpl: injectFetch,
+        });
+        const login = await first.login({
+          email: 'admin@localhost',
+          password: fixturePassword,
+        });
+        assert.equal(/^[^.]+\.[^.]+\.[^.]+$/.test(login.token), true);
+        const firstState = JSON.parse(safeStorage.decryptString(readFileSync(statePath))) as {
+          refreshToken: string;
+          csrfToken: string;
+        };
+        const firstRefreshCredential = firstState.refreshToken;
+        assert.equal(/^v1\.[A-Za-z0-9_-]{43}$/.test(firstState.csrfToken), true);
+        assert.equal(readFileSync(statePath, 'utf8').includes(firstState.csrfToken), false);
+
+        let activeDeviceId: string | null = null;
+        if (migration !== 'current') {
+          const prior = JSON.parse(safeStorage.decryptString(readFileSync(statePath)));
+          prior.csrfToken = 'x'.repeat(43);
+          if (migration === 'legacy-jwt') {
+            const jwt = server.app.getDecorator<TestJwtSigner>('jwt');
+            const decoded = jwt.decode(prior.refreshToken);
+            assert.ok(decoded);
+            const legacy = { ...decoded };
+            for (const claim of ['familyId', 'jti', 'iat', 'exp']) delete legacy[claim];
+            prior.refreshToken = jwt.sign(legacy, { expiresIn: '7d' });
+          }
+          writeFileSync(statePath, safeStorage.encryptString(JSON.stringify(prior)));
+        }
+        const restarted = createHubAuthSession({
+          hubUrl: 'https://hub.example.test',
+          getStatePath: () => statePath,
+          getDeviceId: async () => activeDeviceId,
+          safeStorage,
+          fetchImpl: injectFetch,
+        });
+        const renewed = await restarted.refresh();
+        const refreshRequestHeaders = { ...lastRequestHeaders };
+        const rotatedState = JSON.parse(safeStorage.decryptString(readFileSync(statePath))) as {
+          refreshToken: string;
+          csrfToken: string;
+        };
+        assert.equal(rotatedState.refreshToken !== firstRefreshCredential, true);
+        assert.equal(rotatedState.csrfToken === firstState.csrfToken, migration !== 'legacy-jwt');
+        assert.equal(
+          /^v1\.[A-Za-z0-9_-]{43}$/.test(refreshRequestHeaders['x-csrf-token'] ?? ''),
+          true
+        );
+        assert.equal(
+          refreshRequestHeaders.cookie?.includes(
+            `puntovivo_csrf=${refreshRequestHeaders['x-csrf-token']}`
+          ),
+          true
+        );
+        assert.equal((await restarted.verifyAccessToken(renewed.token))?.email, 'admin@localhost');
+        const proxied = await restarted.request({
+          path: '/api/trpc/auth.me?batch=1&input=%7B%7D',
+          method: 'GET',
+          headers: {
+            authorization: `Bearer ${renewed.token}`,
+            cookie: 'renderer-cookie-must-not-cross',
+            'x-csrf-token': 'renderer-csrf-must-not-cross',
+            'x-correlation-id': 'hub-proxy-test',
+          },
+        });
+        assert.equal(proxied.status, 200);
+        assert.equal(proxied.headers['set-cookie'] === undefined, true);
+        assert.equal(lastRequestHeaders.cookie === undefined, true);
+        assert.equal(lastRequestHeaders['x-csrf-token'] === undefined, true);
+        assert.equal(lastRequestHeaders['x-correlation-id'], 'hub-proxy-test');
+
+        async function postAsAdmin<T>(
+          procedure: string,
+          input: unknown,
+          critical = false
+        ): Promise<T> {
+          const response = await restarted.request({
+            path: `/api/trpc/${procedure}?batch=1`,
+            method: 'POST',
+            headers: {
+              authorization: `Bearer ${renewed.token}`,
+              'content-type': 'application/json',
+              ...(activeDeviceId ? { 'x-device-id': activeDeviceId } : {}),
+              ...(critical
+                ? {
+                    'x-puntovivo-envelope': JSON.stringify({
+                      operationId: randomUUID(),
+                      idempotencyKey: randomUUID(),
+                      clientCreatedAt: new Date().toISOString(),
+                    }),
+                  }
+                : {}),
+            },
+            body: JSON.stringify({ '0': input }),
+          });
+          assert.equal(response.status, 200);
+          const envelope = JSON.parse(response.body) as Array<{ result?: { data?: T } }>;
+          const data = envelope[0]?.result?.data;
+          assert.ok(data);
+          return data;
+        }
+
+        const device = await postAsAdmin<{ deviceId: string }>('auth.registerDevice', {
+          kind: 'hub_client',
+          name: 'Hub CSRF handoff test',
+        });
+        activeDeviceId = device.deviceId;
+        const cashier = await postAsAdmin<{ id: string }>(
+          'users.create',
+          {
+            email: `hub-cashier-${randomUUID()}@example.test`,
+            name: 'Hub Cashier',
+            password: `Aa!${randomUUID()}`,
+            role: 'cashier',
+            isActive: true,
+          },
+          true
+        );
+        await postAsAdmin('users.setStaffPin', { id: cashier.id, pin: '246810' }, true);
+
+        const handoff = await restarted.switchStaff({ targetUserId: cashier.id, pin: '246810' });
+        const handoffState = JSON.parse(safeStorage.decryptString(readFileSync(statePath))) as {
+          refreshToken: string;
+          csrfToken: string;
+        };
+        assert.equal(handoffState.refreshToken !== rotatedState.refreshToken, true);
+        assert.equal(handoffState.csrfToken !== rotatedState.csrfToken, true);
+        assert.equal(lastRequestHeaders['x-device-id'] === activeDeviceId, true);
+        assert.equal((await restarted.verifyAccessToken(handoff.token))?.userId, cashier.id);
+        assert.equal(await restarted.verifyAccessToken(renewed.token), null);
+
+        const cashierRenewed = await restarted.refresh();
+        const cashierState = JSON.parse(safeStorage.decryptString(readFileSync(statePath))) as {
+          csrfToken: string;
+        };
+        assert.equal(cashierState.csrfToken === handoffState.csrfToken, true);
+        assert.equal((await restarted.verifyAccessToken(cashierRenewed.token))?.userId, cashier.id);
+        await assert.rejects(
+          restarted.request({ path: '/api/../admin', method: 'GET', headers: {} }),
+          /escaped the configured hub/
+        );
+        await restarted.logout();
+        assert.equal(existsSync(statePath), false);
+        assert.equal(await restarted.verifyAccessToken(cashierRenewed.token), null);
+      } finally {
+        await server.close();
       }
-      return new Response(response.body, { status: response.statusCode, headers });
-    }) as typeof fetch;
-
-    try {
-      const first = createHubAuthSession({
-        hubUrl: 'https://hub.example.test',
-        getStatePath: () => statePath,
-        safeStorage,
-        fetchImpl: injectFetch,
-      });
-      const login = await first.login({
-        email: 'admin@localhost',
-        password: 'Admin123!Dev',
-      });
-      assert.match(login.token, /^[^.]+\.[^.]+\.[^.]+$/);
-      const firstRefreshCredential = JSON.parse(safeStorage.decryptString(readFileSync(statePath)))
-        .refreshToken as string;
-
-      const restarted = createHubAuthSession({
-        hubUrl: 'https://hub.example.test',
-        getStatePath: () => statePath,
-        safeStorage,
-        fetchImpl: injectFetch,
-      });
-      const renewed = await restarted.refresh();
-      const rotatedRefreshCredential = JSON.parse(
-        safeStorage.decryptString(readFileSync(statePath))
-      ).refreshToken as string;
-      assert.notEqual(rotatedRefreshCredential, firstRefreshCredential);
-      assert.equal((await restarted.verifyAccessToken(renewed.token))?.email, 'admin@localhost');
-      const proxied = await restarted.request({
-        path: '/api/trpc/auth.me?batch=1&input=%7B%7D',
-        method: 'GET',
-        headers: {
-          authorization: `Bearer ${renewed.token}`,
-          cookie: 'renderer-cookie-must-not-cross',
-          'x-correlation-id': 'hub-proxy-test',
-        },
-      });
-      assert.equal(proxied.status, 200);
-      assert.equal(lastRequestHeaders.cookie, undefined);
-      assert.equal(lastRequestHeaders['x-correlation-id'], 'hub-proxy-test');
-      await assert.rejects(
-        restarted.request({ path: '/api/../admin', method: 'GET', headers: {} }),
-        /escaped the configured hub/
-      );
-    } finally {
-      await server.close();
-    }
-  });
+    });
+  }
 
   it('streams Store Hub realtime with Bearer refresh, replay cursor, and shared framing', async () => {
     const statePath = tempStatePath();

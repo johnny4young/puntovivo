@@ -84,6 +84,60 @@ describe('trpc auth transport', () => {
     document.cookie = 'puntovivo_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
   });
 
+  it('uses the current CSRF cookie when a queued request dispatches after login rotates it', async () => {
+    document.cookie = 'puntovivo_csrf=pre-login-token; path=/';
+    const queuedHeaders = getTrpcHeaders();
+    document.cookie = 'puntovivo_csrf=session-token; path=/';
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response('{}', { status: 200 }));
+
+    await createTrpcFetch(fetchMock)(
+      'http://localhost:8090/api/trpc/observability.reportWebVital',
+      {
+        method: 'POST',
+        headers: queuedHeaders,
+        body: '{}',
+      }
+    );
+
+    expect(new Headers(fetchMock.mock.calls[0]?.[1]?.headers).get('x-csrf-token')).toBe(
+      'session-token'
+    );
+    expect(queuedHeaders['x-csrf-token']).toBe('pre-login-token');
+  });
+
+  it('does not crash bootstrap when the CSRF cookie has malformed percent encoding', () => {
+    document.cookie = 'puntovivo_csrf=%; path=/';
+
+    expect(getTrpcHeaders()['x-csrf-token']).toBeUndefined();
+  });
+
+  it('sends public Web Vitals without ambient cookies while retaining bearer attribution', async () => {
+    setAccessToken('active-access-token');
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify([{ result: { data: { accepted: true } } }]), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const client = createTrpcClientWithHeaders({});
+
+    await client.observability.reportWebVital.mutate({
+      metric: 'FCP',
+      value: 120,
+      rating: 'good',
+      route: '/login',
+      deviceClass: 'mid',
+    });
+
+    const [url, init] = fetchMock.mock.calls[0]!;
+    const headers = new Headers(init?.headers);
+    expect(String(url)).toContain('/api/trpc/observability.reportWebVital');
+    expect(init?.credentials).toBe('omit');
+    expect(headers.get('authorization')).toBe('Bearer active-access-token');
+    expect(headers.has('x-csrf-token')).toBe(false);
+  });
+
   it('decodes a global throttle as tRPC without expiring or retrying the session', async () => {
     setAccessToken('active-access-token');
     const onSessionExpired = vi.fn();

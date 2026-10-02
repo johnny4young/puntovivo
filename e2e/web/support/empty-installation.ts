@@ -60,10 +60,14 @@ export const test = base.extend<{ installation: EmptyInstallation }>({
       // response or business identity is fabricated by this forwarding seam.
       await page.route('**/api/**', async route => {
         const original = new URL(route.request().url());
+        const originalHeaders = await route.request().allHeaders();
+        // Preserve cookie absence: route.fetch has a different cookie jar from
+        // the browser, including when telemetry explicitly omits credentials.
         let response;
         try {
           response = await route.fetch({
             url: `${ready.url}${original.pathname}${original.search}`,
+            headers: { ...originalHeaders, cookie: originalHeaders.cookie ?? '' },
           });
         } catch (error) {
           // Playwright's raw route.fetch error prints request headers, which
