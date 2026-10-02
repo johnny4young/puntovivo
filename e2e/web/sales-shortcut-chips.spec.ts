@@ -22,11 +22,13 @@ for (const language of ['en', 'es'] as const) {
 
     const heading = page.getByText(language === 'es' ? 'Atajos' : 'Shortcuts', { exact: true });
     const card = heading.locator('..');
-    await expect(card.locator('kbd')).toHaveCount(5);
+    // Editing hints are a separate set; these assertions own the five action chips.
+    const chips = card.locator(':scope > div.grid').locator('kbd');
+    await expect(chips).toHaveCount(5);
 
     for (const width of [1440, 1280]) {
       await page.setViewportSize({ width, height: 900 });
-      const labels = await card.locator('kbd').evaluateAll(keys =>
+      const labels = await chips.evaluateAll(keys =>
         keys.map(key => {
           const chip = key.parentElement;
           const label = chip?.querySelector('span');
@@ -50,7 +52,7 @@ for (const language of ['en', 'es'] as const) {
     // The mobile checkout uses a separate action bar. Preserve the dock's
     // two-column order without asserting the broader Sales panel's viewport fit.
     await page.setViewportSize({ width: 375, height: 812 });
-    const mobileChips = await card.locator('kbd').evaluateAll(keys =>
+    const mobileChips = await chips.evaluateAll(keys =>
       keys.map(key => {
         const chip = key.parentElement;
         const label = chip?.querySelector('span');

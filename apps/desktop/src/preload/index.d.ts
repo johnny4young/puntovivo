@@ -224,19 +224,6 @@ interface DeviceAPI {
   setId: (id: string) => Promise<void>;
 }
 
-interface DatabaseAPI {
-  getAll: (table: string) => Promise<unknown[]>;
-  getById: (table: string, id: string) => Promise<unknown>;
-  insert: (table: string, data: Record<string, unknown>) => Promise<unknown>;
-  update: (table: string, id: string, data: Record<string, unknown>) => Promise<unknown>;
-  delete: (table: string, id: string) => Promise<boolean>;
-  getByField: (table: string, fieldName: string, value: unknown) => Promise<unknown[]>;
-  deleteByTenant: (table: string) => Promise<number>;
-  countByTenant: (table: string) => Promise<number>;
-  addToSyncQueue: (item: Record<string, unknown>) => Promise<void>;
-  getPendingSyncItems: () => Promise<unknown[]>;
-}
-
 interface SyncAPI {
   getStatus: () => Promise<{
     isOnline: boolean;
@@ -316,7 +303,6 @@ interface SessionAPI {
 }
 
 interface DesktopBridgeAPI extends DesktopElectronAPI {
-  db: DatabaseAPI;
   sync: SyncAPI;
   session: SessionAPI;
 }
@@ -324,7 +310,6 @@ interface DesktopBridgeAPI extends DesktopElectronAPI {
 declare global {
   interface Window {
     electron: DesktopElectronAPI;
-    db: DatabaseAPI;
     sync: SyncAPI;
     session: SessionAPI;
     api: DesktopBridgeAPI;
