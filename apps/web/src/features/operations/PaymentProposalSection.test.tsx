@@ -146,6 +146,38 @@ describe('PaymentProposalSection', () => {
     }
   );
 
+  it.each([
+    ['en', 'COP'],
+    ['es', 'COP'],
+    ['en', 'CLP'],
+    ['es', 'CLP'],
+  ])(
+    'preserves fractional evidence despite zero-decimal currency defaults (%s/%s)',
+    async (locale, currencyCode) => {
+      await i18n.changeLanguage(locale);
+      mockProposals = [
+        {
+          ...proposal,
+          evidence: {
+            ...proposal.evidence,
+            statement: { ...proposal.evidence.statement, amount: 123.45, fee: 0.67, currencyCode },
+            candidates: proposal.evidence.candidates.map((candidate, index) => ({
+              ...candidate,
+              amount: index === 0 ? 123.45 : 123.46,
+              currencyCode,
+            })),
+          },
+        },
+      ];
+      render(<PaymentProposalSection isAdmin />);
+      fireEvent.click(screen.getByTestId('payment-proposal-review-proposal-1'));
+      const dialog = screen.getByRole('dialog');
+      expect(dialog).toHaveTextContent(locale === 'en' ? '123.45' : '123,45');
+      expect(dialog).toHaveTextContent(locale === 'en' ? '123.46' : '123,46');
+      expect(dialog).toHaveTextContent(locale === 'en' ? '0.67' : '0,67');
+    }
+  );
+
   it('lets a manager inspect evidence but not approve or reject', () => {
     render(<PaymentProposalSection isAdmin={false} />);
     fireEvent.click(screen.getByTestId('payment-proposal-review-proposal-1'));

@@ -23,6 +23,18 @@ a partial unique index allows at most one pending proposal per outbox row;
 re-importing the same statement does not call the model again. Rejected
 proposals preserve the evidence and do not silently re-open on replay.
 
+Human-review authority is keyed by **tenant, rail, and provider transaction
+id**, not by the full-row fingerprint. A fee, reference, or settlement-time
+correction cannot settle a different candidate, call the model again, or
+replace the immutable proposal. Approved identities cannot settle twice;
+pending and rejected identities remain subject to human review. Proposal
+persistence checks this identity under an explicit `IMMEDIATE` write lock:
+exact replay returns the stored proposal, while a changed row or selection
+conflicts. The deterministic settlement update also checks proposal identity
+inside its `NOT EXISTS` predicate, including proposals inserted after the
+pass's initial snapshot. Existing evidence supplies the identity; no historical
+proposal or provider record is rewritten.
+
 Only an administrator can approve or reject the proposal through the payments
 tRPC router. The read API also permits managers, but the current Operations
 route exposes Payment Health only to administrators; manager access to that
@@ -31,7 +43,10 @@ amounts, currencies, references, transaction IDs,
 all candidates, discrepancies, and a warning that the model has not confirmed
 payment. Approval requires the administrator to acknowledge checking the
 provider's settled record. A screenshot or model explanation is never treated
-as settlement evidence.
+as settlement evidence. The proposal amount, candidate amount, and fee
+fields show the repository's two-decimal money precision even for currencies
+whose default display hides fractions. This evidence-only override never
+changes tenant display preferences, stored amounts, or fiscal serialization.
 
 Before a model recommendation is persisted, every candidate is re-read in
 a SQLite write transaction. If a worker claims a candidate during model latency,
@@ -85,7 +100,9 @@ activation gates; this decision does not activate them.
 The in-memory router and matcher tests cover no AI-side settlement, proposal
 persistence and exact replay, tenant and role isolation, stale amount and
 claimed-row conflicts, concurrent model-latency changes, pending-outbox
-uniqueness, immutable provider transactions, idempotent review, atomic audit, and unchanged sale
+uniqueness, fee/reference/time corrections, intra-batch replay, a proposal
+arriving after the read snapshot, two-connection writer-lock exclusion,
+immutable provider transactions, idempotent review, atomic audit, and unchanged sale
 accounting. UI tests cover evidence, both locales, manager read-only access,
 and the explicit approval gate. Server and web CI plus live running-target
 review remain mandatory before promotion.

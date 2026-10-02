@@ -112,7 +112,9 @@ export function PaymentProposalSection({ isAdmin }: { isAdmin: boolean }): React
                   <td className="num">
                     {formatCurrency(
                       proposal.evidence.statement.amount,
-                      proposal.evidence.statement.currencyCode
+                      proposal.evidence.statement.currencyCode,
+                      undefined,
+                      2
                     )}
                   </td>
                   <td>
@@ -220,6 +222,8 @@ function ProposalEvidence({
       ].filter((value): value is string => value !== null)
     : [];
 
+  // Payment evidence retains two-decimal money precision even when CLDR's
+  // currency default hides fractions; this never changes stored amounts.
   return (
     <div className="space-y-5 text-sm">
       <StatusStrip tone="warning" icon={AlertTriangle} title={t('payments.proposals.aiWarning')} />
@@ -235,7 +239,7 @@ function ProposalEvidence({
         <div>
           <dt className="font-semibold">{t('payments.proposals.providerAmount')}</dt>
           <dd>
-            {formatCurrency(statement.amount, statement.currencyCode)}{' '}
+            {formatCurrency(statement.amount, statement.currencyCode, undefined, 2)}{' '}
             <span className="font-mono text-xs text-secondary-500">{statement.currencyCode}</span>
           </dd>
         </div>
@@ -246,7 +250,7 @@ function ProposalEvidence({
         <div>
           <dt className="font-semibold">{t('payments.proposals.fee')}</dt>
           <dd>
-            {formatCurrency(statement.fee, statement.currencyCode)}{' '}
+            {formatCurrency(statement.fee, statement.currencyCode, undefined, 2)}{' '}
             <span className="font-mono text-xs text-secondary-500">{statement.currencyCode}</span>
           </dd>
         </div>
@@ -282,7 +286,7 @@ function ProposalEvidence({
                   </td>
                   <td className="break-all">{candidate.providerTransactionId ?? '—'}</td>
                   <td className="num">
-                    {formatCurrency(candidate.amount, candidate.currencyCode)}{' '}
+                    {formatCurrency(candidate.amount, candidate.currencyCode, undefined, 2)}{' '}
                     {candidate.currencyCode}
                   </td>
                   <td>{t(`payments.status.${candidate.status}`)}</td>

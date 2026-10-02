@@ -263,8 +263,49 @@ test('TypeScript 7 compiler stays isolated from the TypeScript 6 tooling API', (
   assert.match(version.stdout, /^Version 7\.0\.2\s*$/);
   assert.equal(compatibilityPackage.name, '@typescript/typescript6');
   assert.equal(compatibilityPackage.version, '6.0.2');
-  assert.equal(typescriptEslintPackage.version, '8.68.0');
+  assert.equal(typeof require('typescript').createProgram, 'function');
+  assert.equal(typescriptEslintPackage.version, '8.70.1');
   assert.equal(typescriptEslintPackage.peerDependencies.typescript, '>=4.8.4 <6.1.0');
+});
+
+test('receipt editor dependencies share one CodeMirror state class identity', () => {
+  const state = require('@codemirror/state');
+  for (const owner of [
+    '@uiw/react-codemirror',
+    '@codemirror/search',
+    '@codemirror/theme-one-dark',
+    '@codemirror/commands',
+    '@codemirror/autocomplete',
+    '@codemirror/lint',
+    '@codemirror/language',
+  ]) {
+    // Separate compatible copies still break extension instanceof checks.
+    const ownerRequire = createRequire(require.resolve(owner));
+    assert.equal(ownerRequire('@codemirror/state').EditorState, state.EditorState, owner);
+    assert.equal(ownerRequire('@codemirror/state').Facet, state.Facet, owner);
+  }
+});
+
+test('Vitest 5 and its coverage provider share the reviewed Vite and Node contract', () => {
+  for (const workspace of ['apps/web', 'packages/server']) {
+    const ownerRequire = createRequire(
+      new URL('../' + workspace + '/package.json', import.meta.url)
+    );
+    const manifest = readJson(new URL('../' + workspace + '/package.json', import.meta.url));
+    const runner = ownerRequire('vitest/package.json');
+    const coverage = ownerRequire('@vitest/coverage-v8/package.json');
+    const vite = ownerRequire('vite/package.json');
+    assert.equal(manifest.devDependencies.vitest, '^5.0.1');
+    assert.equal(manifest.devDependencies['@vitest/coverage-v8'], '^5.0.1');
+    assert.equal(runner.version, '5.0.1');
+    assert.equal(coverage.version, runner.version);
+    assert.equal(coverage.peerDependencies.vitest, runner.version);
+    assert.equal(vite.version, '8.3.0');
+    // Node 24 remains a supported execution target, even with Node 26 declarations.
+    assert.equal(runner.engines.node, '^22.12.0 || ^24.0.0 || >=26.0.0');
+    assert.equal(runner.peerDependencies.vite, '^6.4.0 || ^7.0.0 || ^8.0.0');
+    assert.equal(ownerRequire('@types/node/package.json').version, '26.6.2');
+  }
 });
 
 // Resolve from the consuming package, not the hoisted root: the schema
@@ -301,7 +342,7 @@ test('HTTP consumers keep patched undici releases within their existing major li
     ['@electron/get', '7.29.1'],
     ['node-gyp', '6.28.1'],
     ['@ai-sdk/provider-utils', '7.29.1'],
-    ['jsdom', '8.10.2'],
+    ['jsdom', '8.11.0'],
   ];
   for (const [owner, version] of owners) {
     const ownerRequire = createRequire(require.resolve(owner + '/package.json'));

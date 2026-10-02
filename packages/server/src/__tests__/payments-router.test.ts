@@ -536,6 +536,58 @@ describe('payments AI proposal review', () => {
     return { h, outboxId, saleId, salePaymentId, proposalId: proposal!.id, statement };
   }
 
+  it('keeps the same provider transaction independent across tenants and rails', async () => {
+    const { h, outboxId, statement } = await seedProposal('identity-scope');
+    const db = getDatabase();
+    const original = db.select().from(paymentOutbox).where(eq(paymentOutbox.id, outboxId)).get()!;
+    const other = await seedHarness('identity-scope-other');
+    for (const scope of [
+      { id: 'identity-other-rail', tenantId: h.tenantId, railId: 'bold' as const },
+      { id: 'identity-other-tenant', tenantId: other.tenantId, railId: statement.railId },
+    ]) {
+      const candidate = { ...original, ...scope, salePaymentId: null };
+      db.insert(paymentOutbox).values(candidate).run();
+      const proposal = await savePaymentProposal(
+        db,
+        scope.tenantId,
+        { ...statement, railId: scope.railId },
+        [candidate],
+        candidate,
+        {
+          ok: true,
+          salePaymentId: scope.id,
+          confidence: 'medium',
+          explanation: 'Synthetic identity scope',
+          costUsd: 0,
+          auditLogId: 'stub-scope',
+        }
+      );
+      expect(proposal).toMatchObject({
+        tenantId: scope.tenantId,
+        railId: scope.railId,
+        selectedOutboxId: scope.id,
+        status: 'pending',
+      });
+      expect(proposal!.evidence.statement.providerTransactionId).toBe(
+        statement.providerTransactionId
+      );
+    }
+    expect(
+      db
+        .select()
+        .from(paymentReconciliationProposals)
+        .where(eq(paymentReconciliationProposals.tenantId, h.tenantId))
+        .all()
+    ).toHaveLength(2);
+    expect(
+      db
+        .select()
+        .from(paymentReconciliationProposals)
+        .where(eq(paymentReconciliationProposals.tenantId, other.tenantId))
+        .all()
+    ).toHaveLength(1);
+  });
+
   it('lists immutable evidence to managers but only admins can confirm it once', async () => {
     const { h, outboxId, saleId, salePaymentId, proposalId, statement } =
       await seedProposal('approve');

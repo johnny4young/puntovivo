@@ -9,7 +9,7 @@
  * mismatch space as future changes evolve the matcher heuristics.
  */
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { eq } from 'drizzle-orm';
 
 import {
@@ -344,6 +344,212 @@ describe('runReconciliationPass — AI tie-break wiring', () => {
     expect(replay.tiebreakAttempts).toBe(0);
     expect(replay.matched).toBe(0);
     expect(await db.select().from(paymentReconciliationProposals).all()).toHaveLength(1);
+
+    // A row fingerprint can change without changing the provider transaction.
+    // Neither a fee correction nor an alternate reference grants settlement authority.
+    for (const correction of [
+      { fee: 1 },
+      { reference: sample.outboxRow!.reference },
+      { settledAt: new Date(Date.parse(ambiguousStatement.settledAt) + 1000).toISOString() },
+    ]) {
+      const corrected = await runReconciliationPass(
+        db,
+        TENANT_ID,
+        [{ ...ambiguousStatement, ...correction }],
+        {
+          now: FIXED_NOW,
+          aiTiebreak: stubTiebreak,
+          aiContext: { db, tenantId: TENANT_ID, siteId: null, userId: null },
+        }
+      );
+      expect(corrected.matched).toBe(0);
+      expect(corrected.byKind.ambiguous).toBe(1);
+      expect(tiebreakCalls).toBe(1);
+      expect(
+        await db
+          .select()
+          .from(paymentOutbox)
+          .where(eq(paymentOutbox.id, sample.outboxRow!.id))
+          .get()
+      ).toMatchObject({
+        status: sample.outboxRow!.status,
+        providerTransactionId: sample.outboxRow!.providerTransactionId,
+      });
+      expect(await db.select().from(paymentReconciliationProposals).all()).toHaveLength(1);
+    }
+  });
+
+  it('keeps corrected provider transactions behind the existing human review', async () => {
+    await cleanupTenant();
+    await seedFromFixture(bundle);
+    const db = getDatabase();
+    const candidateIds = ['identity-left', 'identity-right'];
+    for (const id of candidateIds) {
+      await db.insert(paymentOutbox).values({
+        id,
+        tenantId: TENANT_ID,
+        railId: 'wompi',
+        kind: 'charge',
+        status: 'approved',
+        amount: 943214.27,
+        currencyCode: 'COP',
+        reference: id,
+        providerTransactionId: null,
+        payload: { fixture: true },
+        createdAt: FIXED_NOW.toISOString(),
+        updatedAt: FIXED_NOW.toISOString(),
+      });
+    }
+    const statement = {
+      railId: 'wompi' as const,
+      reference: 'identity-unmatched',
+      providerTransactionId: 'identity-provider-tx',
+      amount: 943214.27,
+      currencyCode: 'COP',
+      status: 'settled' as const,
+      settledAt: FIXED_NOW.toISOString(),
+      fee: 0,
+    };
+    let calls = 0;
+    const options = {
+      now: FIXED_NOW,
+      aiContext: { db, tenantId: TENANT_ID, siteId: null, userId: null },
+      aiTiebreak: (async () => {
+        calls += 1;
+        return {
+          ok: true,
+          salePaymentId: candidateIds[0]!,
+          confidence: 'high',
+          explanation: 'Synthetic identity regression',
+          costUsd: 0,
+          auditLogId: 'stub-identity',
+        };
+      }) satisfies TiebreakFn,
+    };
+    expect(
+      (await runReconciliationPass(db, TENANT_ID, [statement, { ...statement, fee: 4 }], options))
+        .tiebreakProposed
+    ).toBe(1);
+    for (const correction of [
+      { fee: 1 },
+      { reference: candidateIds[1]! },
+      { settledAt: new Date(FIXED_NOW.getTime() + 1000).toISOString() },
+    ]) {
+      const result = await runReconciliationPass(
+        db,
+        TENANT_ID,
+        [{ ...statement, ...correction }],
+        options
+      );
+      expect(result.matched).toBe(0);
+      expect(result.byKind.ambiguous).toBe(1);
+      expect(calls).toBe(1);
+      for (const id of candidateIds) {
+        expect(
+          await db.select().from(paymentOutbox).where(eq(paymentOutbox.id, id)).get()
+        ).toMatchObject({ status: 'approved', providerTransactionId: null });
+      }
+      expect(await db.select().from(paymentReconciliationProposals).all()).toHaveLength(1);
+    }
+    const rows = candidateIds.map(id =>
+      db.select().from(paymentOutbox).where(eq(paymentOutbox.id, id)).get()!
+    );
+    const decision = {
+      ok: true as const,
+      salePaymentId: candidateIds[0]!,
+      confidence: 'high' as const,
+      explanation: 'Synthetic replay',
+      costUsd: 0,
+      auditLogId: 'stub-identity',
+    };
+    const prior = (await db.select().from(paymentReconciliationProposals).all())[0]!;
+    expect(await savePaymentProposal(db, TENANT_ID, statement, rows, rows[0]!, decision)).toEqual(
+      prior
+    );
+    await expect(
+      savePaymentProposal(db, TENANT_ID, { ...statement, fee: 2 }, rows, rows[1]!, {
+        ...decision,
+        salePaymentId: candidateIds[1]!,
+      })
+    ).rejects.toThrow('already has a human review proposal');
+    await db
+      .update(paymentReconciliationProposals)
+      .set({ status: 'rejected' })
+      .where(eq(paymentReconciliationProposals.id, prior.id));
+    const rejectedReplay = await runReconciliationPass(
+      db,
+      TENANT_ID,
+      [{ ...statement, fee: 3 }],
+      options
+    );
+    expect(rejectedReplay.matched).toBe(0);
+    expect(rejectedReplay.byKind.ambiguous).toBe(1);
+    expect(calls).toBe(1);
+    expect(await db.select().from(paymentReconciliationProposals).all()).toHaveLength(1);
+  });
+
+  it('checks provider identity atomically when a proposal arrives after the pass snapshot', async () => {
+    await cleanupTenant();
+    await seedFromFixture(bundle);
+    const db = getDatabase();
+    const candidateId = 'identity-write-race';
+    const statement = {
+      railId: 'wompi' as const,
+      reference: candidateId,
+      providerTransactionId: 'identity-write-race-tx',
+      amount: 943214.27,
+      currencyCode: 'COP',
+      status: 'settled' as const,
+      settledAt: FIXED_NOW.toISOString(),
+      fee: 1,
+    };
+    await db.insert(paymentOutbox).values({
+      id: candidateId,
+      tenantId: TENANT_ID,
+      railId: 'wompi',
+      kind: 'charge',
+      status: 'approved',
+      amount: statement.amount,
+      currencyCode: 'COP',
+      reference: candidateId,
+      providerTransactionId: null,
+      payload: { fixture: true },
+      createdAt: statement.settledAt,
+      updatedAt: statement.settledAt,
+    });
+    const originalUpdate = db.update.bind(db);
+    const update = vi.spyOn(db, 'update').mockImplementationOnce(table => {
+      expect(table).toBe(paymentOutbox);
+      // Deterministic competing-writer interleaving, not a multi-process timing claim.
+      db.insert(paymentReconciliationProposals)
+        .values({
+          id: 'identity-competing-proposal',
+          tenantId: TENANT_ID,
+          railId: 'wompi',
+          statementKey: 'competing-fingerprint',
+          selectedOutboxId: 'different-outbox',
+          evidence: {
+            statement: { ...statement, fee: 0 },
+            candidates: [],
+            recommendedOutboxId: 'different-outbox',
+            confidence: 'high',
+            explanation: 'Synthetic interleaving',
+            aiAuditLogId: 'stub-race',
+          },
+        })
+        .run();
+      return originalUpdate(table);
+    });
+    try {
+      const result = await runReconciliationPass(db, TENANT_ID, [statement], { now: FIXED_NOW });
+      expect(result.matched).toBe(0);
+      expect(result.byKind.ambiguous).toBe(1);
+      expect(
+        db.select().from(paymentOutbox).where(eq(paymentOutbox.id, candidateId)).get()
+      ).toMatchObject({ status: 'approved', providerTransactionId: null });
+    } finally {
+      update.mockRestore();
+    }
   });
 
   it('does not save AI evidence after a candidate is claimed during model latency', async () => {

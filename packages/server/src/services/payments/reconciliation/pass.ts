@@ -12,7 +12,12 @@ import type { TiebreakContext, TiebreakFn } from '../ai-tiebreak.js';
 import { AMOUNT_EPSILON, RECONCILIATION_WINDOW_DAYS, TIEBREAK_WINDOW_MS } from './constants.js';
 import { isRailCandidateTender } from './helpers.js';
 import type { PaymentOutboxRow } from './types.js';
-import { savePaymentProposal, statementKey } from './proposals.js';
+import {
+  proposalProviderIdentity,
+  providerTransactionKey,
+  savePaymentProposal,
+  statementKey,
+} from './proposals.js';
 
 /**
  * One row in an imported provider statement. Mirrors the deterministic
@@ -138,6 +143,7 @@ export async function runReconciliationPass(
   const proposalRows = await db
     .select({
       statementKey: paymentReconciliationProposals.statementKey,
+      evidence: paymentReconciliationProposals.evidence,
       status: paymentReconciliationProposals.status,
       selectedOutboxId: paymentReconciliationProposals.selectedOutboxId,
     })
@@ -145,6 +151,9 @@ export async function runReconciliationPass(
     .where(eq(paymentReconciliationProposals.tenantId, tenantId))
     .all();
   const priorProposals = new Map(proposalRows.map(row => [row.statementKey, row]));
+  const priorProviderTransactions = new Map(
+    proposalRows.map(row => [providerTransactionKey(row.evidence.statement), row])
+  );
   const reservedOutboxIds = new Set(
     proposalRows.filter(row => row.status === 'pending').map(row => row.selectedOutboxId)
   );
@@ -164,7 +173,9 @@ export async function runReconciliationPass(
   let tiebreakDegraded = 0;
 
   for (const statement of statementRows) {
-    const priorProposal = priorProposals.get(statementKey(statement));
+    const priorProposal =
+      priorProposals.get(statementKey(statement)) ??
+      priorProviderTransactions.get(providerTransactionKey(statement));
     if (priorProposal) {
       // Re-imports must not re-call the model or settle a different candidate.
       // A rejected recommendation remains visible as an ambiguous statement.
@@ -334,6 +345,10 @@ export async function runReconciliationPass(
           if (proposal?.status === 'pending') {
             tiebreakProposed += 1;
             priorProposals.set(proposal.statementKey, proposal);
+            priorProviderTransactions.set(
+              providerTransactionKey(proposal.evidence.statement),
+              proposal
+            );
             reservedOutboxIds.add(proposal.selectedOutboxId);
             unavailableOutboxIds.add(proposal.selectedOutboxId);
           }
@@ -492,14 +507,20 @@ async function settleOutboxRow(
   outboxId: string,
   statement: StatementRow
 ): Promise<'settled' | 'already_settled' | 'blocked'> {
+  // This write-time fence also catches a proposal arriving after the pass snapshot.
   const pendingProposal = db
     .select({ id: paymentReconciliationProposals.id })
     .from(paymentReconciliationProposals)
     .where(
       and(
         eq(paymentReconciliationProposals.tenantId, tenantId),
-        eq(paymentReconciliationProposals.selectedOutboxId, outboxId),
-        eq(paymentReconciliationProposals.status, 'pending')
+        or(
+          and(
+            eq(paymentReconciliationProposals.selectedOutboxId, outboxId),
+            eq(paymentReconciliationProposals.status, 'pending')
+          ),
+          proposalProviderIdentity(tenantId, statement)
+        )
       )
     );
   const otherSettlement = db
