@@ -283,15 +283,16 @@ export async function runCopilotChat(
       errorCode,
     });
 
-    if (error instanceof TRPCError) {
+    // Only locally constructed domain errors carry our stable code. An SDK
+    // can also throw a TRPCError, whose message is untrusted provider data.
+    if (error instanceof TRPCError && error.cause instanceof ServerErrorWithCode) {
       throw error;
     }
 
     return throwServerError({
       trpcCode: 'BAD_GATEWAY',
       errorCode: 'AI_PROVIDER_ERROR',
-      message: error instanceof Error ? error.message : 'AI provider call failed',
-      details: { cause: String(error) },
+      message: 'AI provider call failed',
     });
   } finally {
     snapshot?.close();
