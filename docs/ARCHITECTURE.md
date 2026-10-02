@@ -52,6 +52,10 @@ surface to its renderer.
   they do not allocate HTTP ports.
 - Every operation accepting a site identifier validates that the site belongs
   to the active tenant.
+- The cashier voice screen reads only `ai.settings.voiceAvailability`, a
+  tenant-scoped, `semantic-search`-gated enabled flag. The full
+  `ai.settings.get` projection (provider, budget, spend, and quotas) remains
+  manager/admin-only; a UI capability check must not widen that contract.
 
 ### Companion boundary
 
@@ -128,6 +132,10 @@ display.
   cashier.
 - Versioned mutable resources use compare-and-swap updates and report conflicts
   rather than silently overwriting concurrent edits.
+- AI payment tie-breaks create durable, tenant-scoped review proposals, never
+  settlements. An admin decision revalidates the selected provider statement
+  and outbox row before an atomic status change and audit; see
+  [ADR-0031](architecture/0031-human-review-of-ai-payment-proposals.md).
 - Payment, hardware, and sync effects use dedicated durable outboxes. A
   fiscal-enabled completed sale first records a frozen emission intent in the
   sale transaction; the fiscal worker materializes that intent into the fiscal
@@ -480,6 +488,14 @@ the real AI SDK with an in-process fake model and inspect every serialized model
 call, including the calls following tool results and tool errors. These tests
 are not a live-provider certification.
 
+AI provider, SDK, and analytics SQLite exceptions are untrusted diagnostics:
+client-facing tRPC errors expose a fixed fallback and stable error code, never
+the raw exception message or a `cause` detail. Parse failures keep their
+distinct code from transport failures. The tenant audit records the code and
+call metadata, not exception text; only locally constructed domain errors may
+cross the Co-pilot boundary unchanged. This contract limits secondary leakage
+through the browser response and centralized error tracing.
+
 Every Co-pilot response requires at least one successful read-only SQL query
 against a provider-safe snapshot table. The model-facing tool rejects
 constant-only and CTE queries; authorized local SQL retains its separate WITH
@@ -749,7 +765,7 @@ renderer -> contextBridge wrapper -> ipcRenderer.invoke
          -> validated ipcMain.handle -> main-process capability
 ```
 
-Preload wrappers stay narrow and declarative. Business data normally flows over
+Preload wrappers stay narrow and declarative. Business data flows over
 tRPC; IPC is reserved for desktop-only lifecycle, storage, updater, backup,
 printing, and local-device capabilities.
 
@@ -760,7 +776,11 @@ against the active authority before returning it and clears the singleton when
 it is expired, stale, or no longer belongs to the registered identity. The
 token is never written to disk and remains absent from session diagnostics.
 
-Database and sync IPC methods are constructed through an Electron-free handler
+The renderer has no raw database bridge: neither `window.db` nor
+`window.api.db` is exposed, and no `db:*` handlers are registered in main.
+Generic table CRUD and raw outbox enqueue/diagnostics cannot bypass tRPC use
+cases, role checks, audit, cash-session or fiscal invariants. Sync summary,
+trigger and configuration IPC methods remain in an Electron-free handler
 core that resolves the tenant from that verified main-process session before
 validation or persistence can run; renderer tenant hints are compatibility
 inputs only and never control scope. Workstation-settings writes and the
@@ -769,7 +789,7 @@ pre-login locale update remains structurally separate because it must translate
 the login window, tray, and updater before authentication. The read-only device
 id is needed to complete login; read-only workstation presentation preferences
 contain no tenant or business data. Node tests enumerate every authenticated
-db/sync channel and pin those bounded pre-login exceptions. Expected stale-session
+sync channel and pin those bounded pre-login exceptions. Expected stale-session
 failures cross the main/preload wire as a closed error envelope instead of a
 rejected `ipcMain.handle` call; preload recreates the renderer rejection without
 Electron's internal invoke wrapper or a main-process stack diagnostic.
@@ -856,6 +876,13 @@ selected operating profile. It reports factual configuration and catalog
 counts and links to existing self-service screens. It is advisory: it neither
 blocks checkout nor converts software evidence into legal, hardware, fiscal,
 or production certification.
+For a configured operating profile, when a persisted tenant timezone is
+unsupported, the projection returns only an actionable business-calendar
+attention item leading to Locale settings.
+It does not substitute another calendar day or report date-dependent pharmacy
+policy and authorization counts as ready until the timezone is repaired. Newly
+submitted timezone overrides reject unsupported named zones and bare numeric
+offset strings before persistence; clearing an invalid legacy override remains permitted.
 
 ## Durable decisions
 
