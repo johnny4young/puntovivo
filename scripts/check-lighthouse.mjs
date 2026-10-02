@@ -277,6 +277,69 @@ export function extractDiagnostics(lhr) {
   };
 }
 
+/**
+ * Bounded LCP insight diagnostics. Lighthouse node snippets may contain user
+ * content, so publish only a small allowlisted HTML tag and numeric subparts.
+ * Insight subparts are observed trace timings, not directly additive to the
+ * simulation-adjusted largest-contentful-paint audit used by the score gate.
+ */
+export function extractLcpDiagnostics(lhr) {
+  const subpartNames = [
+    'timeToFirstByte',
+    'resourceLoadDelay',
+    'resourceLoadDuration',
+    'elementRenderDelay',
+  ];
+  const lcpObservedBreakdownMs = Object.fromEntries(subpartNames.map(name => [name, null]));
+  const details = lhr?.audits?.['lcp-breakdown-insight']?.details;
+  const items = details?.type === 'list' && Array.isArray(details.items) ? details.items : [];
+  const table = items.find(item => item?.type === 'table' && Array.isArray(item.items));
+  for (const row of table?.items ?? []) {
+    if (!Object.hasOwn(lcpObservedBreakdownMs, row?.subpart)) continue;
+    const duration = row?.duration;
+    if (typeof duration === 'number' && Number.isFinite(duration) && duration >= 0) {
+      lcpObservedBreakdownMs[row.subpart] = Math.round(duration);
+    }
+  }
+
+  const node = items.find(item => item?.type === 'node');
+  const tag =
+    typeof node?.snippet === 'string'
+      ? /^\s*<([a-z][a-z0-9-]*)\b/i.exec(node.snippet)?.[1]?.toLowerCase()
+      : null;
+  const safeTags = new Set([
+    'a',
+    'article',
+    'body',
+    'button',
+    'canvas',
+    'div',
+    'h1',
+    'h2',
+    'h3',
+    'h4',
+    'h5',
+    'h6',
+    'header',
+    'img',
+    'li',
+    'main',
+    'p',
+    'picture',
+    'section',
+    'span',
+    'svg',
+    'table',
+    'td',
+    'th',
+    'video',
+  ]);
+  return {
+    lcpElementTag: tag ? (safeTags.has(tag) ? tag : 'other') : null,
+    lcpObservedBreakdownMs,
+  };
+}
+
 /** Bounded CPU diagnostics only; never log raw trace arguments or network headers. */
 export async function extractCpuDiagnostics(trace) {
   const unavailable = { cpuAttribution: 'unavailable', topCpuEvents: [] };
@@ -729,6 +792,7 @@ export async function launchAndMeasure({
                 {
                   ...metrics,
                   ...extractDiagnostics(runnerResult.lhr),
+                  ...extractLcpDiagnostics(runnerResult.lhr),
                   ...(await extractCpuDiagnostics(runnerResult.artifacts?.Trace)),
                 }
               )}`

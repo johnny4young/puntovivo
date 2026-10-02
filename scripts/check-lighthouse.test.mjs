@@ -15,6 +15,7 @@ import { readFileSync } from 'node:fs';
 import {
   aggregateRouteSamples,
   extractDiagnostics,
+  extractLcpDiagnostics,
   extractCpuDiagnostics,
   extractMetrics,
   compareToLighthouseBudget,
@@ -198,6 +199,135 @@ test('extractDiagnostics exposes blocking-time signals and the heaviest scripts'
       { url: '/assets/small.js', totalMs: 100, scriptingMs: 80 },
     ],
   });
+});
+
+test('extractLcpDiagnostics reads the current insight without leaking node details', () => {
+  const secret = 'private-customer-123';
+  const lhr = {
+    audits: {
+      'lcp-breakdown-insight': {
+        details: {
+          type: 'list',
+          items: [
+            {
+              type: 'table',
+              items: [
+                { subpart: 'timeToFirstByte', duration: 123.6 },
+                { subpart: 'resourceLoadDelay', duration: 45.4 },
+                { subpart: 'resourceLoadDuration', duration: 99.7 },
+                { subpart: 'elementRenderDelay', duration: 401.2 },
+              ],
+            },
+            {
+              type: 'node',
+              snippet: `<IMG alt=\"${secret}\">`,
+              selector: `#${secret}`,
+              nodeLabel: secret,
+            },
+          ],
+        },
+      },
+    },
+  };
+
+  const diagnostic = extractLcpDiagnostics(lhr);
+  assert.deepEqual(diagnostic, {
+    lcpElementTag: 'img',
+    lcpObservedBreakdownMs: {
+      timeToFirstByte: 124,
+      resourceLoadDelay: 45,
+      resourceLoadDuration: 100,
+      elementRenderDelay: 401,
+    },
+  });
+  assert.equal(JSON.stringify(diagnostic).includes(secret), false);
+});
+
+test('extractLcpDiagnostics rejects malformed values and unknown element tags', () => {
+  const lhr = {
+    audits: {
+      'lcp-breakdown-insight': {
+        details: {
+          type: 'list',
+          items: [
+            {
+              type: 'table',
+              items: [
+                null,
+                { subpart: 'timeToFirstByte', duration: -1 },
+                { subpart: 'elementRenderDelay', duration: Number.POSITIVE_INFINITY },
+              ],
+            },
+            { type: 'node', snippet: '<private-customer-record id=\"secret\">' },
+          ],
+        },
+      },
+    },
+  };
+  assert.deepEqual(extractLcpDiagnostics(lhr), {
+    lcpElementTag: 'other',
+    lcpObservedBreakdownMs: {
+      timeToFirstByte: null,
+      resourceLoadDelay: null,
+      resourceLoadDuration: null,
+      elementRenderDelay: null,
+    },
+  });
+  assert.deepEqual(extractLcpDiagnostics({ audits: {} }), {
+    lcpElementTag: null,
+    lcpObservedBreakdownMs: {
+      timeToFirstByte: null,
+      resourceLoadDelay: null,
+      resourceLoadDuration: null,
+      elementRenderDelay: null,
+    },
+  });
+});
+
+test('extractLcpDiagnostics stays bounded for private attributes and malformed insight shapes', () => {
+  const secret = 'https://private.invalid/customer?token=secret-canary';
+  for (const details of [undefined, null, {}, { type: 'table', items: [] }]) {
+    const diagnostic = extractLcpDiagnostics({ audits: { 'lcp-breakdown-insight': { details } } });
+    assert.equal(diagnostic.lcpElementTag, null);
+    assert.deepEqual(Object.values(diagnostic.lcpObservedBreakdownMs), [null, null, null, null]);
+  }
+  const diagnostic = extractLcpDiagnostics({
+    audits: {
+      'lcp-breakdown-insight': {
+        details: {
+          type: 'list',
+          items: [
+            {
+              type: 'table',
+              items: [
+                { subpart: 'resourceLoadDelay', duration: 0 },
+                { subpart: 'resourceLoadDuration', duration: '12' },
+                { subpart: secret, duration: 12 },
+              ],
+            },
+            {
+              type: 'node',
+              snippet: `<p data-private="${secret}">${secret}</p>`,
+              selector: secret,
+              nodeLabel: secret,
+              path: secret,
+              boundingRect: { private: secret },
+            },
+          ],
+        },
+      },
+    },
+  });
+  assert.deepEqual(diagnostic, {
+    lcpElementTag: 'p',
+    lcpObservedBreakdownMs: {
+      timeToFirstByte: null,
+      resourceLoadDelay: 0,
+      resourceLoadDuration: null,
+      elementRenderDelay: null,
+    },
+  });
+  assert.equal(JSON.stringify(diagnostic).includes(secret), false);
 });
 
 test('compareToLighthouseBudget: a lower-is-better metric within ceiling is ok', () => {
