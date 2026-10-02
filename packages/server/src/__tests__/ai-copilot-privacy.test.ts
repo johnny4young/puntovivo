@@ -10,6 +10,7 @@ import { eq } from 'drizzle-orm';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import {
+  aiAuditLog,
   cashSessions,
   companies,
   customers,
@@ -162,6 +163,88 @@ function expectProtected(calls: unknown) {
 }
 
 describe('copilot provider boundary (real AI SDK, no remote calls)', () => {
+  it.each(['success', 'no-source', 'query-limit'] as const)(
+    'audits complete SDK usage once when the evidence outcome is %s',
+    async outcome => {
+      const queries = [
+        'SELECT COUNT(*) AS n FROM sales_summary',
+        'SELECT SUM(total) AS amount FROM sales_summary',
+      ];
+      const overLimit = step();
+      overLimit.content = Array.from({ length: 6 }, (_, index) => ({
+        type: 'tool-call' as const,
+        toolCallId: `limit-${index}`,
+        toolName: 'runReadOnlySQL',
+        input: JSON.stringify({ query: queries[0] }),
+      }));
+      overLimit.finishReason = { unified: 'tool-calls', raw: undefined };
+      const steps =
+        outcome === 'success'
+          ? [step(queries[0]), step(queries[1]), step()]
+          : outcome === 'query-limit'
+            ? [overLimit, step()]
+            : [step()];
+      const model = new MockLanguageModelV4({ doGenerate: steps });
+      const db = getDatabase();
+      const before = new Set(
+        (
+          await db
+            .select({ id: aiAuditLog.id })
+            .from(aiAuditLog)
+            .where(eq(aiAuditLog.tenantId, tenantId))
+        ).map(row => row.id)
+      );
+      const provider: AIProvider = {
+        id: 'anthropic',
+        defaultModelId: 'local-usage-fixture',
+        isConfigured: () => true,
+        languageModel: () => model,
+        cacheControlForSystemPrompt: () => undefined,
+        pricing: {
+          models: {},
+          calculateCostUsd: (_modelId, usage) =>
+            (usage.inputTokens + 5 * usage.outputTokens) / 1_000_000,
+        },
+      };
+      const run = runCopilotChat(
+        { db, tenantId, siteId, userId },
+        { messages: [{ role: 'user', content: 'Count sales and show their total.' }] },
+        { now: NOW, factory: () => provider }
+      );
+      if (outcome === 'success') {
+        const result = await run;
+        expect(result.answer).toBe('');
+        expect(result.queries.map(query => query.sql)).toEqual(queries);
+        expect(result.queries.map(query => query.rows)).toEqual([[{ n: 3 }], [{ amount: 300 }]]);
+        expect(result.costUsd).toBeCloseTo(105 / 1_000_000, 10);
+      } else {
+        await expect(run).rejects.toMatchObject({
+          code: outcome === 'query-limit' ? 'BAD_REQUEST' : 'BAD_GATEWAY',
+        });
+      }
+      expect(model.doGenerateCalls).toHaveLength(steps.length);
+      expectProtected(model.doGenerateCalls);
+      const added = (
+        await db.select().from(aiAuditLog).where(eq(aiAuditLog.tenantId, tenantId))
+      ).filter(row => !before.has(row.id));
+      expect(added).toHaveLength(1);
+      expect(added[0]).toMatchObject({
+        tenantId,
+        siteId,
+        userId,
+        inputTokens: steps.length * 10,
+        outputTokens: steps.length * 5,
+        errorCode:
+          outcome === 'success'
+            ? null
+            : outcome === 'query-limit'
+              ? 'AI_COPILOT_SQL_REJECTED'
+              : 'AI_PROVIDER_ERROR',
+      });
+      expect(added[0]?.costUsd).toBeCloseTo((steps.length * 35) / 1_000_000, 10);
+    }
+  );
+
   it('protects old history and the current turn, not only SQL output', async () => {
     const { calls } = await chat('SELECT COUNT(*) AS n, SUM(total) AS amount FROM sales_summary', [
       { role: 'user', content: `Earlier: ${CUSTOMER}, ${CASHIER}, ${userId}` },

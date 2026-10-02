@@ -66,7 +66,22 @@ function baseChatState(overrides?: Record<string, unknown>) {
 }
 
 const result: CopilotChatResult = {
-  answer: 'You sold $120.00 yesterday in Sur.',
+  answer: '',
+  queries: [
+    {
+      sql: "SELECT site_name, SUM(total) AS revenue FROM sales_summary WHERE sale_date = date('now', '-1 day') GROUP BY site_name",
+      columns: ['site_name', 'revenue'],
+      rows: [{ site_name: 'Sur', revenue: 120 }],
+      rowCount: 1,
+      truncated: false,
+      chart: { type: 'bar', labelKey: 'site_name', valueKey: 'revenue' },
+      window: {
+        from: '2026-04-28T00:00:00.000Z',
+        to: '2026-04-29T00:00:00.000Z',
+        defaulted: false,
+      },
+    },
+  ],
   sql: "SELECT site_name, SUM(total) AS revenue FROM sales_summary WHERE sale_date = date('now', '-1 day') GROUP BY site_name",
   columns: ['site_name', 'revenue'],
   rows: [{ site_name: 'Sur', revenue: 120 }],
@@ -112,7 +127,7 @@ describe('CopilotPage', () => {
     render(<CopilotPage />);
 
     expect(screen.getByText('No analysis yet')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Data with an explanation' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Guided query review' })).toBeInTheDocument();
 
     await userEvent.type(
       screen.getByLabelText('Analytics question'),
@@ -146,7 +161,7 @@ describe('CopilotPage', () => {
       screen.getByRole('heading', { name: 'Loading the active response mode' })
     ).toBeInTheDocument();
     expect(screen.queryByText('Active now')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Data with an explanation' })).not.toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'Guided query review' })).not.toHaveAttribute(
       'aria-pressed',
       'true'
     );
@@ -270,5 +285,93 @@ describe('CopilotPage', () => {
       screen.getByText('Verified-results response: no generated narrative was added.')
     ).toBeInTheDocument();
     expect(screen.getByText('Executed SQL')).toBeInTheDocument();
+  });
+
+  it('shows deterministic guided query guidance without a model text chunk', async () => {
+    mocks.mutateMock.mockResolvedValue({ ...result, answer: '' });
+    let capturedTransport: ChatTransport<UIMessage> | null = null;
+    mocks.useChatMock.mockImplementation((args: { transport: ChatTransport<UIMessage> }) => {
+      capturedTransport = args.transport;
+      return baseChatState();
+    });
+
+    render(<CopilotPage />);
+    let stream: ReadableStream<UIMessageChunk> | null = null;
+    await act(async () => {
+      stream =
+        (await capturedTransport?.sendMessages({
+          trigger: 'submit-message',
+          chatId: 'chat-evidence',
+          messageId: undefined,
+          messages: [
+            {
+              id: 'evidence-user',
+              role: 'user',
+              parts: [{ type: 'text', text: 'How many sales?' }],
+            } as UIMessage,
+          ],
+          abortSignal: undefined,
+        })) ?? null;
+    });
+    const chunks: UIMessageChunk[] = [];
+    const readableStream = stream as ReadableStream<UIMessageChunk> | null;
+    if (readableStream) {
+      const reader = readableStream.getReader();
+      while (true) {
+        const next = await reader.read();
+        if (next.done) break;
+        chunks.push(next.value);
+      }
+    }
+    expect(chunks.some(chunk => chunk.type === 'text-delta')).toBe(false);
+    expect(screen.getByText(/Review the executed SQL and displayed rows/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Results for your latest question/ })).toHaveAttribute(
+      'href',
+      '#copilot-results'
+    );
+    expect(screen.getByText('Executed SQL')).toBeInTheDocument();
+  });
+
+  it('shows every SQL result when a guided request used multiple queries', async () => {
+    mocks.mutateMock.mockResolvedValue({
+      ...result,
+      queries: [
+        result.queries[0]!,
+        {
+          ...result.queries[0]!,
+          sql: 'SELECT COUNT(*) AS sale_count FROM sales_summary',
+          columns: ['sale_count'],
+          rows: [{ sale_count: 20 }],
+          chart: null,
+        },
+      ],
+    });
+    let capturedTransport: ChatTransport<UIMessage> | null = null;
+    mocks.useChatMock.mockImplementation((args: { transport: ChatTransport<UIMessage> }) => {
+      capturedTransport = args.transport;
+      return baseChatState();
+    });
+    render(<CopilotPage />);
+    await act(async () => {
+      await capturedTransport?.sendMessages({
+        trigger: 'submit-message',
+        chatId: 'chat-multi',
+        messageId: undefined,
+        messages: [
+          {
+            id: 'multi-user',
+            role: 'user',
+            parts: [{ type: 'text', text: 'Compare sites' }],
+          } as UIMessage,
+        ],
+        abortSignal: undefined,
+      });
+    });
+    expect(screen.getByRole('heading', { name: 'Query 1' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Query 2' })).toBeInTheDocument();
+    expect(screen.getAllByText('Executed SQL')).toHaveLength(2);
+    expect(
+      screen.getByText('SELECT COUNT(*) AS sale_count FROM sales_summary')
+    ).toBeInTheDocument();
   });
 });

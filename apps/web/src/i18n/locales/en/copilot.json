@@ -2,13 +2,13 @@
   "page": {
     "kicker": "Intelligence · Co-pilot",
     "title": "Co-pilot",
-    "subtitle": "Ask your data anything. The SQL stays visible under every result so the answer is auditable."
+    "subtitle": "Explore your data. When a query runs, its SQL and result rows remain visible for review."
   },
   "mode": {
     "kicker": "Response contract",
     "active": "Active now",
-    "guidedTitle": "Data with an explanation",
-    "guidedDescription": "Shows the validated query and rows, then adds a concise AI-generated explanation.",
+    "guidedTitle": "Guided query review",
+    "guidedDescription": "Shows a short, deterministic reading guide with the executed query and rows. No AI-generated conclusion is displayed.",
     "verifiedTitle": "Results only",
     "verifiedDescription": "Shows only the validated SQL, row count, table, and deterministic chart. No generated interpretation is requested or displayed.",
     "verifiedCaveat": "A valid query and its rows are evidence, but they do not automatically prove that a business conclusion is correct.",
@@ -19,11 +19,13 @@
     "loading": "Loading response mode...",
     "updating": "Updating response mode...",
     "updateError": "We could not update the response mode.",
-    "resultVerified": "Verified-results response: no generated narrative was added."
+    "resultVerified": "Verified-results response: no generated narrative was added.",
+    "resultGuided": "Review the executed SQL and displayed rows before using a figure. A valid query may answer the wrong question, and rows may be truncated."
   },
   "chat": {
     "title": "Conversation",
-    "starter": "Try: How much did I sell yesterday in Sur?"
+    "starter": "Try: How much did I sell yesterday in Sur?",
+    "resultReady": "Results for your latest question are ready. View the queries and rows."
   },
   "composer": {
     "label": "Analytics question",
@@ -36,6 +38,7 @@
     "loading": "Analyzing..."
   },
   "results": {
+    "queryLabel": "Query {{index}}",
     "tableTitle": "Result rows",
     "sqlDisclosure": "Executed SQL",
     "noRows": "No rows returned for this analysis.",
@@ -43,7 +46,7 @@
     "meta": "{{provider}} / {{model}} · {{rows}} rows · {{cost}}",
     "metaProviderLabel": "Provider",
     "metaCostLabel": "Cost",
-    "metaRowsLabel": "Rows",
+    "metaRowsLabel": "Displayed rows",
     "metaTruncatedLabel": "Truncated",
     "emptyKicker": "Result"
   }
