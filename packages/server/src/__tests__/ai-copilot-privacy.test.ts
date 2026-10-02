@@ -230,7 +230,8 @@ describe('copilot provider boundary (real AI SDK, no remote calls)', () => {
       expect(added).toHaveLength(1);
       expect(added[0]).toMatchObject({
         tenantId,
-        siteId,
+        siteId: null,
+        scopeSiteIds: [siteId],
         userId,
         inputTokens: steps.length * 10,
         outputTokens: steps.length * 5,
