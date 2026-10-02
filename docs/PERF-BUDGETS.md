@@ -118,6 +118,13 @@ This internal Lighthouse API is isolated to diagnostics and covered by synthetic
 multi-renderer trace tests; revalidate it when upgrading Lighthouse. Its failure
 never changes metrics, sampling, score floors, or the strict acceptance policy.
 
+LCP diagnostics expose only an allowlisted element tag and the four observed
+trace subparts from the pinned Lighthouse breakdown insight. Missing or invalid
+subparts remain null. Node text, selectors, labels, attributes, and resource
+URLs are never included. These observed timings are not additive to the
+simulation-adjusted LCP audit used by the score and budget gates; they do not
+change measurements, thresholds, or acceptance.
+
 ### Data-scale UI contract
 
 `/design-system` Base 08 renders the production `DataTable` with the
