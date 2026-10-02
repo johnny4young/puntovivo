@@ -490,8 +490,8 @@ function App() {
             </Route>
             {/* surface shells. Each owns its full viewport
               outside MainLayout so the surface chrome (KDS fullscreen
-              dark backdrop, customer-display gradient, mobile-waiter
-              phone-width container, POS Touch wider buttons) is not
+              dark backdrop, mobile-waiter phone-width container, POS
+              Touch wider buttons) is not
               boxed inside the desktop sidebar + Header.  — role +
               module gating lives in SurfaceShellRoute (route level), BEFORE
               the lazy shell import, so a disabled module never loads its

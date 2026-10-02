@@ -329,8 +329,8 @@ registerPrintIpc();
 /**
  * Install the curated menu before the first window exists, so a packaged build
  * never renders Electron's default View -> Toggle Developer Tools. Confirmed
- * reachable on a packaged build: Cmd+Alt+I opened a console with the full
- * `window.db` bridge on it.
+ * reachable on a packaged build: Cmd+Alt+I opened a renderer console. Removing
+ * raw database IPC does not remove the need for the curated production menu.
  */
 function installApplicationMenu(): void {
   const template = buildApplicationMenuTemplate({
