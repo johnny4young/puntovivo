@@ -16,6 +16,7 @@ import { createServer } from 'node:net';
 import { setTimeout as delay } from 'node:timers/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { resolvePnpmInvocation } from './lib/pnpm-command.mjs';
 
 export const DEFAULT_PREVIEW_HOST = '127.0.0.1';
 export const DEFAULT_PREVIEW_PORT = 4173;
@@ -24,7 +25,6 @@ export const DEFAULT_POLL_INTERVAL_MS = 500;
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const CHECK_ELECTRON_MEMORY_SCRIPT = resolve(REPO_ROOT, 'scripts', 'check-electron-memory.mjs');
-const PNPM_COMMAND = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 
 function parsePositiveInteger(value, fallback) {
   const parsed = Number.parseInt(String(value ?? ''), 10);
@@ -115,6 +115,35 @@ export function buildPreviewArgs({ host, port }) {
     String(port),
     '--strictPort',
   ];
+}
+
+/**
+ * Reuse the pnpm entry that launched the gate: either a Node script or a native
+ * executable. Windows .cmd/.bat wrappers cannot be spawned directly, and a
+ * shell would reinterpret operator-supplied preview arguments. Fail closed
+ * instead; invoking through pnpm supplies its actual entry in npm_execpath.
+ */
+export function buildPreviewInvocation(
+  options,
+  { env = process.env, platform = process.platform, execPath = process.execPath } = {}
+) {
+  const pnpmEntry = env.npm_execpath || (platform === 'win32' ? null : 'pnpm');
+  if (!pnpmEntry) {
+    throw new Error(
+      'Run the memory gate via pnpm run perf:electron-memory:gate to provide its executable entry'
+    );
+  }
+  const invocation = resolvePnpmInvocation(pnpmEntry, { platform, execPath });
+  if (invocation.shell) {
+    throw new Error(
+      'Run the memory gate via pnpm run perf:electron-memory:gate, not a pnpm .cmd/.bat wrapper'
+    );
+  }
+  return {
+    command: invocation.command,
+    args: [...invocation.argsPrefix, ...buildPreviewArgs(options)],
+    shell: false,
+  };
 }
 
 export function buildCheckArgs(passThroughArgs = []) {
@@ -266,9 +295,10 @@ export async function runCli({ argv = process.argv.slice(2), env = process.env }
         options.port = await reserveLoopbackPort();
         options.previewUrl = `http://${options.host}:${options.port}`;
       }
-      const previewArgs = buildPreviewArgs(options);
+      const invocation = buildPreviewInvocation(options, { env });
       console.log(`run-electron-memory-gate: starting web preview at ${options.previewUrl}`);
-      previewProcess = spawn(PNPM_COMMAND, previewArgs, {
+      previewProcess = spawn(invocation.command, invocation.args, {
+        shell: invocation.shell,
         cwd: REPO_ROOT,
         env,
         stdio: ['ignore', 'pipe', 'pipe'],
