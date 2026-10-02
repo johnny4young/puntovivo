@@ -663,7 +663,21 @@ describe('Store Hub main-process auth custody', () => {
 
   for (const migration of ['current', 'unsigned-companion', 'legacy-jwt'] as const) {
     it(`renews, switches staff and logs out against the real Fastify tRPC cookie contract (${migration})`, async () => {
-      const server = await createServer({ dbPath: ':memory:', verbose: false });
+      // Each in-memory authority gets a fresh fixture credential. Restore the
+      // process seed override before driving the protocol so it cannot leak
+      // into subsequent test boots or depend on a checked-in password.
+      const fixturePassword = `Aa!${randomUUID()}`;
+      const previousSeedPassword = process.env.PUNTOVIVO_DEV_ADMIN_PASSWORD;
+      process.env.PUNTOVIVO_DEV_ADMIN_PASSWORD = fixturePassword;
+      const server = await (async () => {
+        try {
+          return await createServer({ dbPath: ':memory:', verbose: false });
+        } finally {
+          if (previousSeedPassword === undefined) delete process.env.PUNTOVIVO_DEV_ADMIN_PASSWORD;
+          else process.env.PUNTOVIVO_DEV_ADMIN_PASSWORD = previousSeedPassword;
+        }
+      })();
+      assert.equal(process.env.PUNTOVIVO_DEV_ADMIN_PASSWORD, previousSeedPassword);
       const statePath = tempStatePath();
       let lastRequestHeaders: Record<string, string> = {};
       const injectFetch = (async (input: string | URL | Request, init?: RequestInit) => {
@@ -696,7 +710,7 @@ describe('Store Hub main-process auth custody', () => {
         });
         const login = await first.login({
           email: 'admin@localhost',
-          password: 'Admin123!Dev',
+          password: fixturePassword,
         });
         assert.equal(/^[^.]+\.[^.]+\.[^.]+$/.test(login.token), true);
         const firstState = JSON.parse(safeStorage.decryptString(readFileSync(statePath))) as {
@@ -804,7 +818,7 @@ describe('Store Hub main-process auth custody', () => {
           {
             email: `hub-cashier-${randomUUID()}@example.test`,
             name: 'Hub Cashier',
-            password: 'TempPass123!Aa',
+            password: `Aa!${randomUUID()}`,
             role: 'cashier',
             isActive: true,
           },
