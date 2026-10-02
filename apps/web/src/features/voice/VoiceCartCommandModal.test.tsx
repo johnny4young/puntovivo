@@ -220,6 +220,27 @@ describe('VoiceCartCommandModal ( slice 3)', () => {
     expect(screen.getByTestId('voice-modal-countdown')).toHaveTextContent(/Recording|Grabando/);
   });
 
+  it('owns one stop-to-transcription pipeline while final capture is pending', async () => {
+    let deliverStop!: (blob: Blob) => void;
+    const stopped = new Promise<Blob>(resolve => {
+      deliverStop = resolve;
+    });
+    recorderState.recording = true;
+    recorderState.stopMock = vi.fn(() => stopped);
+    transcribeMutateAsyncMock.mockResolvedValue({ transcript: 'synthetic' });
+    parseMutateAsyncMock.mockResolvedValue({ mode: 'unrecognized', reason: 'synthetic' });
+    render(<VoiceCartCommandModal isOpen={true} onClose={vi.fn()} onApply={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('voice-modal-record'));
+    fireEvent.click(screen.getByTestId('voice-modal-record'));
+    const stopRequests = recorderState.stopMock.mock.calls.length;
+    await act(async () => {
+      deliverStop(new Blob(['fake'], { type: 'audio/webm' }));
+    });
+    await waitFor(() => expect(parseMutateAsyncMock).toHaveBeenCalledTimes(1));
+    expect(stopRequests).toBe(1);
+    expect(transcribeMutateAsyncMock).toHaveBeenCalledTimes(1);
+  });
+
   it('stops an active recording on close without forwarding audio', async () => {
     const onClose = vi.fn();
     recorderState.recording = true;

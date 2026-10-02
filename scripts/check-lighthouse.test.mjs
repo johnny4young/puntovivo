@@ -765,13 +765,59 @@ test('runCli does not accept login as a current-schema substitute for authentica
   assert.equal(code, 1);
 });
 
-test('CPU diagnostics are bounded to the renderer and never expose raw trace data', () => {
-  const events = Array.from({ length: 12 }, (_, index) => ({
+// Use the pinned Lighthouse trace processor, not a mocked renderer selector.
+function cpuTrace(events = []) {
+  return {
+    traceEvents: [
+      {
+        name: 'thread_name',
+        cat: '__metadata',
+        ph: 'M',
+        pid: 1,
+        tid: 2,
+        ts: 0,
+        args: { name: 'CrRendererMain' },
+      },
+      {
+        name: 'TracingStartedInBrowser',
+        cat: 'disabled-by-default-devtools.timeline',
+        ph: 'I',
+        pid: 10,
+        tid: 10,
+        ts: 0,
+        args: {
+          data: { frames: [{ frame: 'main', processId: 1, url: 'https://private.example/sales' }] },
+        },
+      },
+      {
+        name: 'navigationStart',
+        cat: 'blink.user_timing',
+        ph: 'R',
+        pid: 1,
+        tid: 2,
+        ts: 100,
+        args: {
+          frame: 'main',
+          data: {
+            documentLoaderURL: 'https://private.example/sales',
+            isLoadingMainFrame: true,
+          },
+        },
+      },
+      ...events,
+    ],
+  };
+}
+
+function cpuTask(overrides = {}) {
+  return {
     name: 'FunctionCall',
+    cat: 'devtools.timeline',
     ph: 'X',
     pid: 1,
     tid: 2,
-    dur: 1000 * (index + 1),
+    ts: 200,
+    dur: 12000,
     args: {
       data: {
         url: 'https://private.example/assets/app-A1.js?token=secret',
@@ -780,22 +826,86 @@ test('CPU diagnostics are bounded to the renderer and never expose raw trace dat
         headers: { authorization: 'secret' },
       },
     },
-  }));
-  const trace = {
-    traceEvents: [
-      { name: 'thread_name', pid: 1, tid: 2, args: { name: 'CrRendererMain' } },
-      ...events,
-      { ...events[0], tid: 3, dur: 999000 },
-      {
-        ...events[0],
-        name: 'Layout',
-        dur: 20000,
-        args: { data: { url: 'https://private.example/customer/secret' } },
-      },
-      { ...events[0], dur: Infinity },
-    ],
+    ...overrides,
   };
-  const result = extractCpuDiagnostics(trace);
+}
+
+test('CPU diagnostics bind multiple renderers to the audited main frame', async () => {
+  const result = await extractCpuDiagnostics(
+    cpuTrace([
+      {
+        name: 'thread_name',
+        cat: '__metadata',
+        ph: 'M',
+        pid: 3,
+        tid: 4,
+        ts: 0,
+        args: { name: 'CrRendererMain' },
+      },
+      cpuTask(),
+      cpuTask({ pid: 3, tid: 4, dur: 999000 }),
+      cpuTask({ tid: 5, dur: 888000 }),
+      cpuTask({ ts: 99, dur: 777000 }),
+    ])
+  );
+  assert.equal(result.cpuAttribution, 'main-frame');
+  assert.equal(result.topCpuEvents.length, 1);
+  assert.equal(result.topCpuEvents[0].durationMs, 12);
+});
+
+test('CPU diagnostics follow a committed main-frame process swap', async () => {
+  const trace = cpuTrace([
+    {
+      name: 'thread_name',
+      cat: '__metadata',
+      ph: 'M',
+      pid: 3,
+      tid: 4,
+      ts: 0,
+      args: { name: 'CrRendererMain' },
+    },
+    {
+      name: 'FrameCommittedInBrowser',
+      cat: 'devtools.timeline',
+      ph: 'I',
+      pid: 10,
+      tid: 10,
+      ts: 110,
+      args: {
+        data: {
+          frame: 'main',
+          processId: 3,
+          url: 'https://private.example/sales',
+        },
+      },
+    },
+    cpuTask({ dur: 999000 }),
+    cpuTask({ pid: 3, tid: 4, dur: 23000 }),
+    cpuTask({ pid: 3, tid: 4, ts: 100, dur: 5000 }),
+    cpuTask({ pid: 3, tid: 4, ts: 99, dur: 888000 }),
+  ]);
+  const result = await extractCpuDiagnostics(trace);
+  assert.equal(result.cpuAttribution, 'main-frame');
+  assert.deepEqual(
+    result.topCpuEvents.map(event => event.durationMs),
+    [23, 5]
+  );
+});
+
+test('CPU diagnostics are bounded and never expose raw trace data', async () => {
+  const trace = cpuTrace([
+    ...Array.from({ length: 12 }, (_, index) => cpuTask({ dur: 1000 * (index + 1) })),
+    cpuTask({
+      name: 'Layout',
+      dur: 20000,
+      args: { data: { url: 'https://private.example/customer/secret' } },
+    }),
+    cpuTask({ dur: Infinity }),
+    cpuTask({ dur: -1 }),
+    cpuTask({ dur: 0 }),
+  ]);
+  const before = structuredClone(trace);
+  const result = await extractCpuDiagnostics(trace);
   assert.equal(result.topCpuEvents.length, 8);
   assert.deepEqual(result.topCpuEvents[0], {
     kind: 'Layout',
@@ -812,22 +922,25 @@ test('CPU diagnostics are bounded to the renderer and never expose raw trace dat
     column: 3,
   });
   assert.doesNotMatch(JSON.stringify(result), /secret|private|token|authorization|headers/);
-  assert.equal(trace.traceEvents.length, 16);
-  assert.deepEqual(extractCpuDiagnostics(undefined), { topCpuEvents: [] });
-  assert.deepEqual(extractCpuDiagnostics({ traceEvents: events }), { topCpuEvents: [] });
+  assert.deepEqual(trace, before);
 });
 
-test('CPU diagnostics fail closed on ambiguous renderers after a process swap', () => {
-  const renderer = { name: 'thread_name', pid: 1, tid: 2, args: { name: 'CrRendererMain' } };
-  const task = { name: 'Layout', ph: 'X', pid: 1, tid: 2, dur: 50000 };
-  assert.deepEqual(
-    extractCpuDiagnostics({ traceEvents: [renderer, { ...renderer, pid: 3 }, task] }),
-    { topCpuEvents: [] }
-  );
-  assert.equal(
-    extractCpuDiagnostics({ traceEvents: [renderer, renderer, task] }).topCpuEvents.length,
-    1
-  );
+test('CPU diagnostics explicitly fail closed without frame or navigation identity', async () => {
+  const trace = cpuTrace([cpuTask()]);
+  for (const invalid of [
+    undefined,
+    {},
+    { traceEvents: [] },
+    { traceEvents: [cpuTask()] },
+    { traceEvents: trace.traceEvents.filter(event => event.name !== 'TracingStartedInBrowser') },
+    { traceEvents: trace.traceEvents.filter(event => event.name !== 'navigationStart') },
+    { traceEvents: [null] },
+  ]) {
+    assert.deepEqual(await extractCpuDiagnostics(invalid), {
+      cpuAttribution: 'unavailable',
+      topCpuEvents: [],
+    });
+  }
 });
 
 test('extractRunnerBenchmark reads the host CPU calibration, or null', () => {

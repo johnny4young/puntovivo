@@ -112,7 +112,7 @@ function mergeFeatureFlags(raw: unknown): AIFeatureFlags {
           : DEFAULT_AI_FEATURE_FLAGS.invoiceOcr.provider,
     },
     privacy: {
-      piiRedaction: true,
+      piiRedaction: false,
       modelLocation:
         incoming.privacy?.modelLocation === 'on-prem' || incoming.privacy?.modelLocation === 'us'
           ? incoming.privacy.modelLocation
@@ -164,7 +164,7 @@ function mergePatchFeatures(
     privacy: {
       ...base.privacy,
       ...stripUndefined(patch.privacy),
-      piiRedaction: true,
+      piiRedaction: false,
     } as AIFeatureFlags['privacy'],
   };
 }

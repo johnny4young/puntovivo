@@ -150,6 +150,7 @@ export function VoiceCartCommandModal({
   const pipelineAbortRef = useRef<AbortController | null>(null);
   const activeRef = useRef(false);
   const closingRef = useRef(false);
+  const recordActionRef = useRef(false);
 
   // React Query's abortOnUnmount applies to queries, not mutations. These
   // requests use the same authenticated tRPC link through its vanilla client
@@ -181,7 +182,9 @@ export function VoiceCartCommandModal({
     const controller = new AbortController();
     pipelineAbortRef.current = controller;
     const isCurrent = () =>
-      activeRef.current && !closingRef.current && pipelineAbortRef.current === controller &&
+      activeRef.current &&
+      !closingRef.current &&
+      pipelineAbortRef.current === controller &&
       !controller.signal.aborted;
     try {
       const { base64, mimeType } = await blobToBase64(blob);
@@ -280,35 +283,40 @@ export function VoiceCartCommandModal({
   // Driving a state-reset effect from `isOpen` would trigger
   // `react-hooks/set-state-in-effect` cascades.
   async function handleRecordToggle(): Promise<void> {
-    if (closingRef.current) return;
-    if (recorder.recording) {
-      try {
-        const blob = await recorder.stop();
-        setRecordingSeconds(0);
-        await forwardBlob(blob);
-      } catch (err) {
-        if (closingRef.current || !activeRef.current) return;
-        onErrorToast(toast, t, { titleKey: 'voice:modalTitle' })(err);
-        setPhase('idle');
-        setRecordingSeconds(0);
-      }
-      return;
-    }
-    // Starting a new recording resets prior review state.
-    pipelineAbortRef.current?.abort();
-    pipelineAbortRef.current = null;
-    setPhase('recording');
-    setRecordingSeconds(0);
-    setTranscript(null);
-    setMatches([]);
-    setUnrecognizedReason(null);
+    if (closingRef.current || recordActionRef.current) return;
+    recordActionRef.current = true;
     try {
-      await recorder.start();
-    } catch {
-      if (closingRef.current || !activeRef.current) return;
-      // recorder.error carries the classified failure; the hint UI
-      // renders it. Swallow the throw and fall back to idle.
-      setPhase('idle');
+      if (recorder.recording) {
+        try {
+          const blob = await recorder.stop();
+          setRecordingSeconds(0);
+          await forwardBlob(blob);
+        } catch (err) {
+          if (closingRef.current || !activeRef.current) return;
+          onErrorToast(toast, t, { titleKey: 'voice:modalTitle' })(err);
+          setPhase('idle');
+          setRecordingSeconds(0);
+        }
+        return;
+      }
+      // Starting a new recording resets prior review state.
+      pipelineAbortRef.current?.abort();
+      pipelineAbortRef.current = null;
+      setPhase('recording');
+      setRecordingSeconds(0);
+      setTranscript(null);
+      setMatches([]);
+      setUnrecognizedReason(null);
+      try {
+        await recorder.start();
+      } catch {
+        if (closingRef.current || !activeRef.current) return;
+        // recorder.error carries the classified failure; the hint UI
+        // renders it. Swallow the throw and fall back to idle.
+        setPhase('idle');
+      }
+    } finally {
+      recordActionRef.current = false;
     }
   }
 
@@ -342,8 +350,7 @@ export function VoiceCartCommandModal({
           ? t('voice:unsupportedHint')
           : null;
 
-  const recordDisabled =
-    !recorder.supported || phase === 'transcribing' || phase === 'parsing';
+  const recordDisabled = !recorder.supported || phase === 'transcribing' || phase === 'parsing';
 
   return (
     <div
@@ -354,7 +361,11 @@ export function VoiceCartCommandModal({
       aria-labelledby="voice-modal-title"
       data-testid="voice-cart-modal"
     >
-      <div ref={panelRef} tabIndex={-1} className="card max-h-full w-full max-w-lg overflow-auto p-6 space-y-4">
+      <div
+        ref={panelRef}
+        tabIndex={-1}
+        className="card max-h-full w-full max-w-lg overflow-auto p-6 space-y-4"
+      >
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-100">

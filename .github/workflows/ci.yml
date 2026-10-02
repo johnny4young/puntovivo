@@ -109,6 +109,10 @@ jobs:
               - 'scripts/ensure-shared-build.mjs'
               - 'tsconfig*.json'
               - '.npmrc'
+              # Shared formatting contracts read both checkout and formatter
+              # policy; config-only edits must run their owning gates too.
+              - '.gitattributes'
+              - '.prettierrc'
             web:
               - 'apps/web/**'
               - 'e2e/web/**'
@@ -134,6 +138,9 @@ jobs:
             server:
               - 'packages/server/**'
               - 'perf-budget.json'
+              # Server tests guard Electron main sources, such as the
+              # sync_outbox writer check in sync-contract-manifest.test.ts.
+              - 'apps/desktop/src/main/**'
             desktop:
               - 'apps/desktop/**'
               - 'packages/server/**'

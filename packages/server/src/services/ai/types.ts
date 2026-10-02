@@ -58,7 +58,8 @@ export interface AIFeatureFlags {
     provider: 'textract' | 'docai' | 'azure';
   };
   privacy: {
-    piiRedaction: true;
+    /** Legacy capability field: universal redaction is not provided by AI features. */
+    piiRedaction: false;
     modelLocation: 'us' | 'on-prem';
   };
 }
@@ -68,7 +69,7 @@ export const DEFAULT_AI_FEATURE_FLAGS: AIFeatureFlags = {
   anomalies: { enabled: false, alertSeverityThreshold: 'media' },
   semanticSearch: { enabled: false },
   invoiceOcr: { enabled: false, provider: 'textract' },
-  privacy: { piiRedaction: true, modelLocation: 'us' },
+  privacy: { piiRedaction: false, modelLocation: 'us' },
 };
 
 /**

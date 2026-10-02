@@ -127,9 +127,8 @@ function resolveOperationEventId(ctx: EnqueueSyncContext): string | null {
  */
 /**
  * Single decision point for whether an outbox row is transportable work or a
- * terminal local trace. Every writer must reach this — `enqueueSync` below and
- * the Electron IPC bridge, which inserts into `sync_outbox` directly and would
- * otherwise queue regulated rows the server-side path parks.
+ * terminal local trace. Every `sync_outbox` writer must reach this; today that
+ * is only `enqueueSync` below.
  *
  * Two rules apply, both fail-closed:
  *

@@ -227,7 +227,11 @@ export function SitesPage() {
       <Modal
         isOpen={!!siteForLocations && siteLocationAssignmentsQuery.isLoading}
         onClose={handleCloseLocationsModal}
-        title={siteForLocations ? `${t('sites.locations.manage')} ${siteForLocations.name}` : t('sites.locations.title')}
+        title={
+          siteForLocations
+            ? t('sites.locations.manage', { name: siteForLocations.name })
+            : t('sites.locations.title')
+        }
         size="sm"
       >
         <div className="py-4 text-sm text-secondary-600">{t('sites.locations.loading')}</div>
@@ -236,7 +240,11 @@ export function SitesPage() {
       <Modal
         isOpen={!!siteForLocations && !!siteLocationAssignmentsQuery.error}
         onClose={handleCloseLocationsModal}
-        title={siteForLocations ? `${t('sites.locations.manage')} ${siteForLocations.name}` : t('sites.locations.title')}
+        title={
+          siteForLocations
+            ? t('sites.locations.manage', { name: siteForLocations.name })
+            : t('sites.locations.title')
+        }
         size="sm"
       >
         <div className="py-4 text-sm text-danger-600">

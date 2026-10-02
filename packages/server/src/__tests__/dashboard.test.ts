@@ -431,6 +431,8 @@ describe('Dashboard tRPC Router', () => {
     expect(result.lowStockItems[0]?.name).toBe('Sugar Pack');
 
     expect(result.revenueChart).toHaveLength(30);
+    // The web chart formats these as calendar-day keys and renders nothing for other shapes.
+    for (const point of result.revenueChart) expect(point.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(result.revenueChart[result.revenueChart.length - 1]?.revenue).toBe(59.5);
     expect(result.revenueChart[result.revenueChart.length - 7]?.revenue).toBe(15.75);
   });
