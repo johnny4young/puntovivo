@@ -153,9 +153,7 @@ export function SalesCheckoutPanel({
           onClick={onOpenSearch}
           disabled={!canOpenSearch}
           aria-label={t('checkout.searchProducts')}
-          aria-keyshortcuts={
-            canOpenSearch ? ariaKeyshortcutsFor('sales.productSearch') : undefined
-          }
+          aria-keyshortcuts={canOpenSearch ? ariaKeyshortcutsFor('sales.productSearch') : undefined}
           variant="outline"
           size="icon"
           type="submit"
@@ -184,13 +182,8 @@ export function SalesCheckoutPanel({
       </div>
 
       <div className="mt-5 space-y-3 pos:min-h-0 pos:flex-1 pos:overflow-y-auto pos:scroll-pb-28 pos:pb-28">
-        {/*  V4 — "Último escaneado" + "Sugerencia rápida". When the
-         * cart is empty we surface a 4-tile dashed-border grid as a hint
-         * to the cashier (scan, scan again, search, suggest). When the
-         * cart has items, the dashed grid hides and the most-recent line
-         * surfaces as a one-row badge so the operator can verify the
-         * last scan at a glance. */}
-        {draftSummary.itemCount > 0 ? (
+        {/* This is a cart count, not the identity of the last scanned product. */}
+        {draftSummary.itemCount > 0 && (
           <div className="card-inset relative overflow-hidden px-4 py-3">
             <div
               aria-hidden="true"
@@ -203,70 +196,16 @@ export function SalesCheckoutPanel({
             <div className="relative flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-[9.5px] font-semibold uppercase tracking-[0.22em] text-primary-700">
-                  {t('checkout.lastScanned', {
-                    defaultValue: 'Último escaneado',
-                  })}
+                  {t('checkout.cartSummary')}
                 </p>
                 <p className="mt-1 truncate text-sm font-semibold text-secondary-950">
-                  {t('checkout.lastScannedHint', {
-                    defaultValue: '{{count}} ítems en carrito · revisa el total',
+                  {t('checkout.cartSummaryHint', {
                     count: draftSummary.itemCount,
                   })}
                 </p>
               </div>
               <ScanLine className="h-4 w-4 shrink-0 text-primary-700" aria-hidden="true" />
             </div>
-          </div>
-        ) : (
-          <div className="rounded-2xl border border-dashed border-line bg-surface/40 px-3 py-3">
-            <p className="text-[9.5px] font-semibold uppercase tracking-[0.22em] text-secondary-500">
-              {t('checkout.quickSuggestionKicker', {
-                defaultValue: 'Sugerencia rápida',
-              })}
-            </p>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              {(
-                [
-                  [
-                    'scan',
-                    t('checkout.suggestionScan', {
-                      defaultValue: 'Escanea producto',
-                    }),
-                  ],
-                  [
-                    'barcode',
-                    t('checkout.suggestionBarcode', {
-                      defaultValue: 'Pega código',
-                    }),
-                  ],
-                  [
-                    'search',
-                    t('checkout.suggestionSearch', {
-                      defaultValue: 'Busca SKU',
-                    }),
-                  ],
-                  [
-                    'waiting',
-                    t('checkout.suggestionWaiting', {
-                      defaultValue: 'Esperando…',
-                    }),
-                  ],
-                ] as const
-              ).map(([key, label]) => (
-                <div
-                  key={key}
-                  className="rounded-xl border border-dashed border-line/70 bg-surface/70 px-2.5 py-2"
-                >
-                  <p className="text-[11px] leading-4 text-secondary-600">{label}</p>
-                </div>
-              ))}
-            </div>
-            <p className="mt-2 text-[10.5px] text-secondary-500">
-              {t('checkout.quickSuggestionHelper', {
-                defaultValue:
-                  'Las sugerencias por catálogo aparecen aquí cuando estén disponibles.',
-              })}
-            </p>
           </div>
         )}
 
@@ -431,7 +370,23 @@ export function SalesCheckoutPanel({
               </div>
             ))}
           </div>
-          <p className="mt-2 text-[11px] text-secondary-500">{t('checkout.shortcutsHint')}</p>
+          {canOpenSearch && (
+            <p className="mt-2 flex flex-wrap gap-x-3 gap-y-2 text-[11px] text-secondary-500">
+              {(
+                [
+                  ['sales.focusProduct', t('checkout.shortcut.search')],
+                  ['sales.focusQuantity', t('checkout.shortcut.quantity')],
+                  ['sales.focusDiscount', t('checkout.shortcut.discount')],
+                  ['sales.focusUnit', t('checkout.shortcut.unitInDialog')],
+                ] as const
+              ).map(([id, label]) => (
+                <span key={id} className="inline-flex items-center gap-1">
+                  <kbd className="pv-kbd">{shortcutLabel(id)}</kbd>
+                  <span>{label}</span>
+                </span>
+              ))}
+            </p>
+          )}
         </div>
 
         {showPreflightPanel && preflightItems.length > 0 && (

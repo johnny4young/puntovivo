@@ -23,17 +23,15 @@
     "chargeSite": "Sede de cobro",
     "noSite": "Sin sede seleccionada",
     "shortcuts": "Atajos",
-    "shortcutsHint": "`Alt+P` buscar, `Alt+C` cantidad, `Alt+D` descuento, `Alt+U` unidad en diálogo",
     "chargeSale": "Cobrar venta",
     "hubGatedHint": "La finalización de la venta queda pausada hasta que el hub de la tienda vuelva a estar accesible. Verifica que el hub esté encendido y conectado.",
     "addProduct": "Agregar producto",
     "activeSite": "Sede activa",
     "activeSiteHint": "La sede seleccionada controla la numeración consecutiva y la validación de stock.",
     "noSiteWarning": "Selecciona una sede activa antes de cobrar para usar el consecutivo y el alcance de stock correctos.",
-    "keyboardHint": "Flujo con teclado: `F5` catálogo, `F1` cobrar, `Delete` eliminar línea actual",
     "addToCart": "Agregar al carrito",
     "itemCount": "Artículos",
-    "searchHint": "La búsqueda reutiliza el diálogo de catálogo existente con selección de unidad y validación de stock.",
+    "searchHint": "Escanea un código de barras o busca por nombre o SKU para agregar un producto.",
     "activeTicket": "Ticket activo",
     "currentCart": "Carrito actual",
     "adjustHint": "Ajusta cantidades, descuentos y totales antes de enviar la venta al cobro.",
@@ -49,23 +47,20 @@
       "tier2Title": "Precio 2",
       "tier3Title": "Precio 3"
     },
-    "lastScanned": "Último escaneado",
-    "lastScannedHint_one": "{{count}} ítem en carrito · revisa el total",
-    "lastScannedHint_other": "{{count}} ítems en carrito · revisa el total",
-    "quickSuggestionKicker": "Sugerencia rápida",
-    "suggestionScan": "Escanea producto",
-    "suggestionBarcode": "Pega código",
-    "suggestionSearch": "Busca SKU",
-    "suggestionWaiting": "Esperando…",
-    "quickSuggestionHelper": "Las sugerencias por catálogo aparecen aquí cuando estén disponibles.",
     "shortcut": {
       "search": "Buscar",
       "suspend": "Pausar",
       "resume": "Retomar",
       "charge": "Cobrar",
-      "fastCash": "Cobro rápido"
+      "fastCash": "Cobro rápido",
+      "quantity": "Cantidad",
+      "discount": "Descuento",
+      "unitInDialog": "Unidad en diálogo"
     },
-    "itemsWithCount": "Ítems ({{value}})"
+    "itemsWithCount": "Ítems ({{value}})",
+    "cartSummary": "Resumen del carrito",
+    "cartSummaryHint_one": "{{count}} ítem en carrito · revisa el total",
+    "cartSummaryHint_other": "{{count}} ítems en carrito · revisa el total"
   },
   "cart": {
     "empty": "Busca y agrega productos para iniciar una venta.",
@@ -533,9 +528,12 @@
     "ready": "Escáner listo",
     "placeholder": "Escanea código de barras o escribe SKU / nombre",
     "search": "Buscar",
-    "hint": "`Alt+P` buscar, `F5` catálogo, `F1` cobrar.",
     "lockedState": "Edición de productos bloqueada",
-    "lockedHint": "La búsqueda y el escáner están deshabilitados para este ticket bloqueado. Continúa con las acciones de cobro permitidas."
+    "lockedHint": "La búsqueda y el escáner están deshabilitados para este ticket bloqueado. Continúa con las acciones de cobro permitidas.",
+    "shortcut": {
+      "focusSearch": "Buscar",
+      "openCatalog": "Catálogo"
+    }
   },
   "paymentStatus": {
     "pending": "Pendiente",
