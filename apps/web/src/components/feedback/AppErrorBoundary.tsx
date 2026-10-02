@@ -5,7 +5,6 @@ import { captureRenderError } from '@/lib/observability';
 import { Button } from '@/components/ui/Button';
 
 interface AppErrorFallbackProps {
-  error: Error;
   onRetry: () => void;
   /**
    * `app` renders the fullscreen crash card (root boundary); `route`
@@ -15,7 +14,8 @@ interface AppErrorFallbackProps {
   variant?: 'app' | 'route';
 }
 
-function AppErrorFallback({ error, onRetry, variant = 'app' }: AppErrorFallbackProps) {
+function AppErrorFallback({ onRetry, variant = 'app' }: AppErrorFallbackProps) {
+  // Diagnostics belong to captureRenderError, never the operator-facing fallback.
   const { t } = useTranslation('errors');
   return (
     <div
@@ -25,16 +25,13 @@ function AppErrorFallback({ error, onRetry, variant = 'app' }: AppErrorFallbackP
           : 'flex min-h-[50vh] items-center justify-center px-6 py-12'
       }
     >
-      <div className="w-full max-w-xl rounded-3xl border border-danger-200 bg-white p-8 shadow-soft">
+      <div className="w-full max-w-xl rounded-3xl border border-danger-200 bg-surface p-8 shadow-soft">
         <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-danger-50">
           <AlertTriangle className="h-7 w-7 text-danger-600" />
         </div>
         <div className="mt-6 space-y-2">
           <h1 className="text-2xl font-semibold text-secondary-900">{t('boundary.title')}</h1>
           <p className="text-sm text-secondary-600">{t('boundary.description')}</p>
-        </div>
-        <div className="mt-5 rounded-2xl border border-danger-200 bg-danger-50 px-4 py-3">
-          <p className="text-sm font-medium text-danger-700">{error.message}</p>
         </div>
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
           <Button onClick={onRetry}>
@@ -88,11 +85,7 @@ class BoundaryInner extends Component<BoundaryInnerProps, BoundaryInnerState> {
   override render() {
     if (this.state.error) {
       return (
-        <AppErrorFallback
-          error={this.state.error}
-          onRetry={this.props.onRetry}
-          variant={this.props.variant ?? 'app'}
-        />
+        <AppErrorFallback onRetry={this.props.onRetry} variant={this.props.variant ?? 'app'} />
       );
     }
 
