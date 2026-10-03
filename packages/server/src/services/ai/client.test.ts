@@ -3,7 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { TRPCError } from '@trpc/server';
 import { hash } from 'argon2';
 import { nanoid } from 'nanoid';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { MockLanguageModelV4, mockId } from 'ai/test';
 import { simulateReadableStream } from 'ai';
 
@@ -179,6 +179,61 @@ async function expectThrow(promise: Promise<unknown>, errorCode: string): Promis
 }
 
 describe('client.completeAI', () => {
+  it.each(['success', 'provider failure', 'pricing failure'] as const)(
+    'keeps the pending hold and public privacy when completion audit fails: %s',
+    async outcome => {
+      const db = getDatabase();
+      await writeAISettings(db, tenantId, { enabled: true, monthlyBudgetUsd: 1 });
+      const provider = buildMockProvider({
+        ...(outcome === 'provider failure'
+          ? {
+              languageModel: () =>
+                new MockLanguageModelV4({
+                  doGenerate: async () => {
+                    throw new Error('PRIVATE_SDK_CANARY');
+                  },
+                }),
+            }
+          : {}),
+        ...(outcome === 'pricing failure'
+          ? {
+              pricing: {
+                models: {},
+                calculateCostUsd: () => {
+                  throw new Error('PRIVATE_PRICE_CANARY');
+                },
+              },
+            }
+          : {}),
+      });
+      db.run(
+        sql`CREATE TRIGGER fail_completion_audit BEFORE INSERT ON ai_audit_log BEGIN SELECT RAISE(ABORT, 'PRIVATE_COMPLETION_AUDIT_CANARY'); END`
+      );
+      try {
+        const error = await expectThrow(
+          completeAI({ db, tenantId, siteId, userId }, baseInput, () => provider),
+          'AI_PROVIDER_ERROR'
+        );
+        expectNoPublicDiagnostic(error, 'PRIVATE_COMPLETION_AUDIT_CANARY');
+        expect(
+          await db.select().from(aiAuditLog).where(eq(aiAuditLog.tenantId, tenantId))
+        ).toHaveLength(0);
+        expect(
+          await db
+            .select()
+            .from(aiBudgetReservations)
+            .where(eq(aiBudgetReservations.tenantId, tenantId))
+        ).toMatchObject([{ tenantId, state: 'pending', auditLogId: null }]);
+        await expectThrow(
+          completeAI({ db, tenantId, siteId, userId }, baseInput, () => buildMockProvider()),
+          'AI_BUDGET_EXCEEDED'
+        );
+      } finally {
+        db.run(sql`DROP TRIGGER fail_completion_audit`);
+      }
+    }
+  );
+
   it.each(['factory', 'isConfigured', 'languageModel', 'cacheControlForSystemPrompt'] as const)(
     'sanitizes a throwing %s hook before reserving or dispatching a provider call',
     async hook => {

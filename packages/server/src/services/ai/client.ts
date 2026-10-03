@@ -329,6 +329,20 @@ interface UsageForPricing {
     | undefined;
 }
 
+function settleCompletion(...args: Parameters<typeof settleAiBudget>): { id: string } {
+  try {
+    return settleAiBudget(...args);
+  } catch {
+    // The kernel rolls back audit and settlement together. Keep its durable
+    // hold, but never expose a private persistence diagnostic to the caller.
+    return throwServerError({
+      trpcCode: 'BAD_GATEWAY',
+      errorCode: 'AI_PROVIDER_ERROR',
+      message: 'AI call could not be recorded',
+    });
+  }
+}
+
 function isKnownTokenCount(value: number | undefined): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0;
 }
@@ -439,7 +453,7 @@ export async function completeAI(
     // The SDK may have sent this request before failure or cancellation;
     // zero is not evidence of a free provider call.
     const uncertainRemoteCost = provider.id !== 'ollama';
-    settleAiBudget(
+    settleCompletion(
       ctx.db,
       reservation,
       {
@@ -476,7 +490,7 @@ export async function completeAI(
   const cacheWriteTokens = tokenCount(result.usage.inputTokenDetails?.cacheWriteTokens);
   const durationMs = Date.now() - startedAt;
   const markUnpriceable = () => {
-    settleAiBudget(
+    settleCompletion(
       ctx.db,
       reservation,
       {
@@ -536,7 +550,7 @@ export async function completeAI(
     });
   }
 
-  const { id: auditLogId } = settleAiBudget(
+  const { id: auditLogId } = settleCompletion(
     ctx.db,
     reservation,
     {
