@@ -7,6 +7,7 @@ import { aiAuditLog, aiBudgetReservations, tenants } from '../../db/schema.js';
 import type { NewAIAuditLogRow } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 
+/** Tenant-bound handle; only its pending admission may be settled once. */
 export interface AiBudgetReservation {
   id: string;
   tenantId: string;

@@ -375,8 +375,8 @@ export const aiAuditLogRelations = relations(aiAuditLog, ({ one }) => ({
 
 /**
  * One outstanding remote AI admission per tenant and local calendar month.
- * A failed/aborted request remains as an unknown liability until the month
- * rolls over or an explicit reconciliation resolves its provider invoice.
+ * A failed/aborted remote request retains its original-month liability.
+ * Month rollover does not delete it or prove that the provider charged zero.
  */
 export const aiBudgetReservations = sqliteTable(
   'ai_budget_reservations',

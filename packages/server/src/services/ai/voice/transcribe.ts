@@ -244,7 +244,6 @@ export async function transcribeAudio(
     };
   } catch (error) {
     const durationMs = Date.now() - startedAt;
-    const message = error instanceof Error ? error.message : 'Voice provider call failed';
     // Identify parse-level failures by SDK error class so transport
     // errors don't get misclassified as parse failures. The substring
     // fallback covers SDK versions that wrap the typed error.
@@ -273,8 +272,9 @@ export async function transcribeAudio(
     throwServerError({
       trpcCode: isParseFailure ? 'BAD_REQUEST' : 'BAD_GATEWAY',
       errorCode,
-      message,
-      details: { cause: String(error) },
+      message: isParseFailure
+        ? 'Voice transcription could not be parsed'
+        : 'Voice provider call failed',
     });
   }
 }

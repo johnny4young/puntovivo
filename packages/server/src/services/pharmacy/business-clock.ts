@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
 import { countryCatalog, tenantLocaleSettings } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
+import { isSupportedTimeZone } from '../../lib/time-zone.js';
 import { calendarDayInTimeZone } from '../reports/day-window.js';
 import { LOCALE_FALLBACK, resolveTenantLocale } from '../tenant-locale.js';
 
@@ -25,8 +26,17 @@ export async function resolveTenantBusinessClock(
   now: Date = new Date()
 ): Promise<TenantBusinessClock> {
   const locale = await resolveTenantLocale(db, tenantId);
+  const nowIso = now.toISOString();
+  if (!isSupportedTimeZone(locale.timezone)) {
+    // Every date-bound command must surface the repair path, never the raw value.
+    throwServerError({
+      trpcCode: 'PRECONDITION_FAILED',
+      errorCode: 'TENANT_TIMEZONE_INVALID',
+      message: 'Tenant business timezone is unsupported',
+    });
+  }
   return {
-    nowIso: now.toISOString(),
+    nowIso,
     businessDate: calendarDayInTimeZone(now, locale.timezone),
     timezone: locale.timezone,
     countryCode: locale.countryCode,

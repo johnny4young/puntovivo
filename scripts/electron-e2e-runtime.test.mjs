@@ -20,6 +20,19 @@ describe('Electron E2E runtime isolation', () => {
     assert.match(fixture, /process\.env\.PUNTOVIVO_EXPECTED_APP_VERSION/);
   });
 
+  it('isolates the development credential store before either Electron launch', () => {
+    const fixture = readFileSync('e2e/electron/fixtures.ts', 'utf8');
+    const target = fixture.slice(
+      fixture.indexOf('function resolveDevLaunchTarget()'),
+      fixture.indexOf('export async function launchUpdaterSmokeElectron(')
+    );
+    assert.match(target, /args:\s*\[ELECTRON_MAIN_ENTRY,\s*\.\.\.credentialStoreArgs\(\)\]/);
+    assert.equal((fixture.match(/const target = resolveDevLaunchTarget\(\);/g) ?? []).length, 2);
+    // Reuse the packaged harness policy; do not change production safeStorage.
+    assert.match(fixture, /process\.platform === 'darwin'\) return \['--use-mock-keychain'\]/);
+    assert.match(fixture, /process\.platform === 'linux'\) return \['--password-store=basic'\]/);
+  });
+
   it('accepts an explicit valid test port', () => {
     assert.equal(resolveElectronE2eApiPort({ PUNTOVIVO_E2E_API_PORT: '19091' }), 19091);
   });

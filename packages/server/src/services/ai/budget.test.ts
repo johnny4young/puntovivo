@@ -7,7 +7,7 @@ import Database from 'better-sqlite3';
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { nanoid } from 'nanoid';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createServer, type PuntovivoServer } from '../../index.js';
 import { getDatabase } from '../../db/index.js';
@@ -20,6 +20,7 @@ import { writeAISettings } from './client.js';
 const directory = mkdtempSync(join(tmpdir(), 'puntovivo-ai-budget-'));
 const dbPath = join(directory, 'budget.db');
 const tenantId = nanoid();
+const otherTenantId = nanoid();
 let server: PuntovivoServer;
 let peerNative: Database.Database;
 
@@ -53,7 +54,18 @@ beforeAll(async () => {
       createdAt: now,
       updatedAt: now,
     });
+  await getDatabase()
+    .insert(schema.tenants)
+    .values({
+      id: otherTenantId,
+      name: 'Other budget tenant',
+      slug: `budget-${otherTenantId}`,
+      settings: {},
+      createdAt: now,
+      updatedAt: now,
+    });
   peerNative = new Database(dbPath);
+  peerNative.pragma('busy_timeout = 0');
   peerNative.pragma('foreign_keys = ON');
 });
 
@@ -68,6 +80,7 @@ beforeEach(async () => {
   await db.delete(schema.aiBudgetReservations).run();
   await db.delete(schema.aiAuditLog).run();
   await writeAISettings(db, tenantId, { enabled: true, monthlyBudgetUsd: 1 });
+  await writeAISettings(db, otherTenantId, { enabled: true, monthlyBudgetUsd: 1 });
 });
 
 function expectBudgetDenied(action: () => unknown): void {
@@ -83,6 +96,115 @@ function expectBudgetDenied(action: () => unknown): void {
 }
 
 describe('durable AI budget admission', () => {
+  it('takes the cross-connection writer lock before reading admission state', () => {
+    const db = getDatabase();
+    const transaction = db.transaction.bind(db);
+    const spy = vi.spyOn(db, 'transaction').mockImplementationOnce((callback, config) =>
+      transaction(tx => {
+        expect(config?.behavior).toBe('immediate');
+        expect(() => peerNative.exec('BEGIN IMMEDIATE')).toThrow(/locked/);
+        expect(peerNative.inTransaction).toBe(false);
+        return callback(tx);
+      }, config)
+    );
+    try {
+      const admission = reserveAiBudget(db, tenantId);
+      expectBudgetDenied(() => reserveAiBudget(drizzle(peerNative, { schema }), tenantId));
+      expect(db.select().from(schema.aiBudgetReservations).all()).toMatchObject([
+        { id: admission.id, tenantId, state: 'pending' },
+      ]);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('retains unknown holds and their original audit across a connection restart', () => {
+    const db = getDatabase();
+    const reservation = reserveAiBudget(db, tenantId);
+    const result = settleAiBudget(
+      db,
+      reservation,
+      {
+        ...audit,
+        costState: 'unknown',
+        costUsd: 0,
+        errorCode: 'AI_PROVIDER_ERROR',
+      },
+      true
+    );
+    const originalAudit = db.select().from(schema.aiAuditLog).all();
+    peerNative.close();
+    peerNative = new Database(dbPath);
+    peerNative.pragma('foreign_keys = ON');
+    peerNative.pragma('busy_timeout = 0');
+    const peer = drizzle(peerNative, { schema });
+    expect(peer.select().from(schema.aiBudgetReservations).all()).toMatchObject([
+      { id: reservation.id, tenantId, state: 'unknown', auditLogId: result.id },
+    ]);
+    expectBudgetDenied(() => reserveAiBudget(peer, tenantId));
+    expect(() => settleAiBudget(peer, reservation, audit, false)).toThrow(
+      /cannot be settled twice/
+    );
+    expect(peer.select().from(schema.aiAuditLog).all()).toEqual(originalAudit);
+    expect(peerNative.pragma('integrity_check', { simple: true })).toBe('ok');
+    expect(peerNative.pragma('foreign_key_check')).toEqual([]);
+  });
+
+  it('does not settle or release a reservation using another tenant or audit owner', () => {
+    const db = getDatabase();
+    const reservation = reserveAiBudget(db, tenantId);
+    expect(() =>
+      settleAiBudget(
+        db,
+        { ...reservation, tenantId: otherTenantId },
+        {
+          ...audit,
+          tenantId: otherTenantId,
+        },
+        false
+      )
+    ).toThrow(/across tenants/);
+    expect(() =>
+      settleAiBudget(db, reservation, { ...audit, tenantId: otherTenantId }, false)
+    ).toThrow(/across tenants/);
+    expect(db.select().from(schema.aiAuditLog).all()).toEqual([]);
+    expect(db.select().from(schema.aiBudgetReservations).all()).toMatchObject([
+      { id: reservation.id, tenantId, state: 'pending' },
+    ]);
+    const independent = reserveAiBudget(drizzle(peerNative, { schema }), otherTenantId);
+    expect(independent.tenantId).toBe(otherTenantId);
+    settleAiBudget(db, reservation, audit, false);
+    expect(db.select().from(schema.aiBudgetReservations).all()).toMatchObject([
+      { id: independent.id, tenantId: otherTenantId, state: 'pending' },
+    ]);
+  });
+
+  it('blocks a historical unknown call even without a reservation', () => {
+    const db = getDatabase();
+    db.insert(schema.aiAuditLog)
+      .values({
+        ...audit,
+        id: nanoid(),
+        costState: 'unknown',
+        costUsd: 0,
+        createdAt: new Date().toISOString(),
+      })
+      .run();
+    expectBudgetDenied(() => reserveAiBudget(db, tenantId));
+    expect(db.select().from(schema.aiBudgetReservations).all()).toEqual([]);
+    expect(db.select().from(schema.aiAuditLog).all()).toHaveLength(1);
+    expect(reserveAiBudget(db, otherTenantId).tenantId).toBe(otherTenantId);
+  });
+
+  it('does not grant new budget after settling a cost at the monthly limit', () => {
+    const db = getDatabase();
+    const reservation = reserveAiBudget(db, tenantId);
+    settleAiBudget(db, reservation, { ...audit, costUsd: 1 }, false);
+    expect(db.select().from(schema.aiBudgetReservations).all()).toEqual([]);
+    expectBudgetDenied(() => reserveAiBudget(drizzle(peerNative, { schema }), tenantId));
+    expect(db.select().from(schema.aiAuditLog).all()).toMatchObject([{ costUsd: 1 }]);
+  });
+
   it('keeps the admission month and audit timestamp together across month rollover', async () => {
     const db = getDatabase();
     const pinned = new Date(2026, 8, 30, 23, 59, 59, 999);

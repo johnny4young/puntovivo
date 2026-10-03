@@ -329,8 +329,12 @@ interface UsageForPricing {
     | undefined;
 }
 
+function isKnownTokenCount(value: number | undefined): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+}
+
 function tokenCount(value: number | undefined): number {
-  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0;
+  return isKnownTokenCount(value) ? value : 0;
 }
 
 export function toBillableTokenUsage(usage: UsageForPricing): TokenUsage {
@@ -369,9 +373,22 @@ export async function completeAI(
     });
   }
 
-  const provider = factory(settings.providerId);
+  // Preparation hooks have not dispatched a request: sanitize their errors,
+  // but do not manufacture an unknown bill or reserve the tenant's budget.
+  let provider: AIProvider;
+  let configured: boolean;
+  try {
+    provider = factory(settings.providerId);
+    configured = provider.isConfigured();
+  } catch {
+    throwServerError({
+      trpcCode: 'BAD_GATEWAY',
+      errorCode: 'AI_PROVIDER_ERROR',
+      message: 'AI provider call failed',
+    });
+  }
 
-  if (!provider.isConfigured()) {
+  if (!configured) {
     throwServerError({
       trpcCode: 'BAD_REQUEST',
       errorCode: 'AI_PROVIDER_ERROR',
@@ -388,8 +405,18 @@ export async function completeAI(
   }
 
   const modelId = input.modelId ?? settings.modelId ?? provider.defaultModelId;
-  const model = provider.languageModel(modelId);
-  const providerOptions = provider.cacheControlForSystemPrompt();
+  let model: ReturnType<AIProvider['languageModel']>;
+  let providerOptions: ReturnType<AIProvider['cacheControlForSystemPrompt']>;
+  try {
+    model = provider.languageModel(modelId);
+    providerOptions = provider.cacheControlForSystemPrompt();
+  } catch {
+    throwServerError({
+      trpcCode: 'BAD_GATEWAY',
+      errorCode: 'AI_PROVIDER_ERROR',
+      message: 'AI provider call failed',
+    });
+  }
   const reservation = reserveAiBudget(ctx.db, ctx.tenantId);
   const startedAt = Date.now();
 
@@ -407,7 +434,7 @@ export async function completeAI(
         ? { providerOptions: providerOptions as ProviderOptions }
         : {}),
     });
-  } catch (error) {
+  } catch {
     const durationMs = Date.now() - startedAt;
     // The SDK may have sent this request before failure or cancellation;
     // zero is not evidence of a free provider call.
@@ -436,15 +463,17 @@ export async function completeAI(
     throwServerError({
       trpcCode: 'BAD_GATEWAY',
       errorCode: 'AI_PROVIDER_ERROR',
-      message: error instanceof Error ? error.message : 'AI provider call failed',
-      details: { cause: String(error) },
+      message: 'AI provider call failed',
     });
   }
 
-  const inputTokens = result.usage.inputTokens ?? 0;
-  const outputTokens = result.usage.outputTokens ?? 0;
-  const cacheReadTokens = result.usage.inputTokenDetails?.cacheReadTokens ?? 0;
-  const cacheWriteTokens = result.usage.inputTokenDetails?.cacheWriteTokens ?? 0;
+  // Invalid counters cannot be persisted as NaN/Infinity (SQLite maps NaN
+  // to NULL), nor may normalization turn them into a known free call.
+  // Retain each valid counter and keep the cost unknown if any is malformed.
+  const inputTokens = tokenCount(result.usage.inputTokens);
+  const outputTokens = tokenCount(result.usage.outputTokens);
+  const cacheReadTokens = tokenCount(result.usage.inputTokenDetails?.cacheReadTokens);
+  const cacheWriteTokens = tokenCount(result.usage.inputTokenDetails?.cacheWriteTokens);
   const durationMs = Date.now() - startedAt;
   const markUnpriceable = () => {
     settleAiBudget(
@@ -470,8 +499,13 @@ export async function completeAI(
     );
   };
   const hasUsableRemoteUsage =
-    result.usage.inputTokens !== undefined &&
-    result.usage.outputTokens !== undefined &&
+    isKnownTokenCount(result.usage.inputTokens) &&
+    isKnownTokenCount(result.usage.outputTokens) &&
+    [
+      result.usage.inputTokenDetails?.noCacheTokens,
+      result.usage.inputTokenDetails?.cacheReadTokens,
+      result.usage.inputTokenDetails?.cacheWriteTokens,
+    ].every(value => value === undefined || isKnownTokenCount(value)) &&
     inputTokens + outputTokens + cacheReadTokens + cacheWriteTokens > 0;
   if (provider.id !== 'ollama' && !hasUsableRemoteUsage) {
     markUnpriceable();

@@ -1,3 +1,4 @@
+import { expectNoPublicDiagnostic } from '../../__tests__/utils/ai-error-privacy.js';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { TRPCError } from '@trpc/server';
 import { hash } from 'argon2';
@@ -163,7 +164,7 @@ function buildMockProvider(overrides: Partial<AIProvider> = {}): AIProvider {
   return { ...base, ...overrides };
 }
 
-async function expectThrow(promise: Promise<unknown>, errorCode: string): Promise<void> {
+async function expectThrow(promise: Promise<unknown>, errorCode: string): Promise<TRPCError> {
   let caught: unknown;
   try {
     await promise;
@@ -174,9 +175,61 @@ async function expectThrow(promise: Promise<unknown>, errorCode: string): Promis
   const cause = (caught as TRPCError).cause;
   expect(cause).toBeInstanceOf(ServerErrorWithCode);
   expect((cause as ServerErrorWithCode).errorCode).toBe(errorCode);
+  return caught as TRPCError;
 }
 
 describe('client.completeAI', () => {
+  it.each(['factory', 'isConfigured', 'languageModel', 'cacheControlForSystemPrompt'] as const)(
+    'sanitizes a throwing %s hook before reserving or dispatching a provider call',
+    async hook => {
+      const db = getDatabase();
+      await writeAISettings(db, tenantId, { enabled: true, monthlyBudgetUsd: 1 });
+      const privateError = new Error('PREPARATION_SECRET_CANARY provider-key private-payload');
+      let dispatched = false;
+      const model = new MockLanguageModelV4({
+        doGenerate: async () => {
+          dispatched = true;
+          throw new Error('A preparation failure must not dispatch');
+        },
+      });
+      const provider = buildMockProvider({
+        isConfigured: () => {
+          if (hook === 'isConfigured') throw privateError;
+          return true;
+        },
+        languageModel: () => {
+          if (hook === 'languageModel') throw privateError;
+          return model;
+        },
+        cacheControlForSystemPrompt: () => {
+          if (hook === 'cacheControlForSystemPrompt') throw privateError;
+          return undefined;
+        },
+      });
+      let caught: unknown;
+      try {
+        await completeAI({ db, tenantId, siteId, userId }, baseInput, () => {
+          if (hook === 'factory') throw privateError;
+          return provider;
+        });
+      } catch (error) {
+        caught = error;
+      }
+      expect(caught).toBeInstanceOf(TRPCError);
+      expect((caught as TRPCError).code).toBe('BAD_GATEWAY');
+      expect((caught as TRPCError).message).toBe('AI provider call failed');
+      const cause = (caught as TRPCError).cause;
+      expect(cause).toBeInstanceOf(ServerErrorWithCode);
+      expect((cause as ServerErrorWithCode).errorCode).toBe('AI_PROVIDER_ERROR');
+      expect((cause as ServerErrorWithCode).details ?? null).toBeNull();
+      expect(cause).not.toBe(privateError);
+      expect(JSON.stringify(caught)).not.toContain('PREPARATION_SECRET_CANARY');
+      expect(dispatched).toBe(false);
+      expect(await db.select().from(aiBudgetReservations).all()).toHaveLength(0);
+      expect(await db.select().from(aiAuditLog).all()).toHaveLength(0);
+    }
+  );
+
   it('throws AI_DISABLED when ai.enabled is false (default)', async () => {
     const db = getDatabase();
     await expectThrow(
@@ -466,7 +519,8 @@ describe('client.completeAI', () => {
   it('records an unknown-cost failure and blocks an unsafe retry after the SDK throws', async () => {
     const db = getDatabase();
     await writeAISettings(db, tenantId, { enabled: true, monthlyBudgetUsd: 1 });
-    await expectThrow(
+    const secret = 'PRIVATE_CUSTOMER_IN_PROVIDER_ERROR';
+    const failure = await expectThrow(
       completeAI({ db, tenantId, siteId, userId }, baseInput, () =>
         buildMockProvider({
           languageModel: () =>
@@ -474,21 +528,92 @@ describe('client.completeAI', () => {
               provider: 'anthropic',
               modelId: 'claude-haiku-4-5',
               doGenerate: async () => {
-                throw new Error('synthetic provider failure');
+                throw new Error(`synthetic provider failure ${secret}`);
               },
               doStream: async () => {
-                throw new Error('synthetic provider failure');
+                throw new Error(`synthetic provider failure ${secret}`);
               },
             }),
         })
       ),
       'AI_PROVIDER_ERROR'
     );
+    expect(failure.message).toBe('AI provider call failed');
+    expect(failure.message).not.toContain(secret);
+    expectNoPublicDiagnostic(failure, secret);
+    expect((failure.cause as ServerErrorWithCode).details).toBeUndefined();
     const rows = await db.select().from(aiAuditLog).all();
     expect(rows).toHaveLength(1);
     expect(rows[0]?.errorCode).toBe('AI_PROVIDER_ERROR');
     expect(rows[0]?.costUsd).toBe(0);
     expect(rows[0]?.costState).toBe('unknown');
+    await expectThrow(
+      completeAI({ db, tenantId, siteId, userId }, baseInput, () => buildMockProvider()),
+      'AI_BUDGET_EXCEEDED'
+    );
+    expect(await db.select().from(aiAuditLog).all()).toHaveLength(1);
+  });
+
+  it.each([
+    { label: 'negative input', input: -1, output: 5, read: 0, write: 0, noCache: 10 },
+    { label: 'infinite input', input: Infinity, output: 5, read: 0, write: 0, noCache: 10 },
+    { label: 'NaN input', input: NaN, output: 5, read: 0, write: 0, noCache: 10 },
+    { label: 'negative output', input: 10, output: -1, read: 0, write: 0, noCache: 10 },
+    { label: 'negative cache read', input: 10, output: 5, read: -1, write: 0, noCache: 10 },
+    { label: 'infinite cache write', input: 10, output: 5, read: 0, write: Infinity, noCache: 10 },
+    { label: 'negative uncached input', input: 10, output: 5, read: 0, write: 0, noCache: -1 },
+  ])('holds unknown cost without pricing malformed usage: $label', async usage => {
+    const db = getDatabase();
+    await writeAISettings(db, tenantId, { enabled: true, monthlyBudgetUsd: 1 });
+    let priced = false;
+    const provider = buildMockProvider({
+      languageModel: () =>
+        new MockLanguageModelV4({
+          doGenerate: async () => ({
+            content: [{ type: 'text', text: 'already dispatched' }],
+            finishReason: 'stop',
+            usage: {
+              inputTokens: {
+                total: usage.input,
+                noCache: usage.noCache,
+                cacheRead: usage.read,
+                cacheWrite: usage.write,
+              },
+              outputTokens: { total: usage.output },
+            },
+            warnings: [],
+          }),
+        }),
+      pricing: {
+        models: {},
+        calculateCostUsd: () => {
+          priced = true;
+          return 0.001;
+        },
+      },
+    });
+    await expectThrow(
+      completeAI({ db, tenantId, siteId, userId }, baseInput, () => provider),
+      'AI_PROVIDER_ERROR'
+    );
+    expect(priced).toBe(false);
+    const rows = await db.select().from(aiAuditLog).all();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      tenantId,
+      siteId,
+      userId,
+      costState: 'unknown',
+      costUsd: 0,
+      inputTokens: Number.isFinite(usage.input) && usage.input >= 0 ? usage.input : 0,
+      outputTokens: Number.isFinite(usage.output) && usage.output >= 0 ? usage.output : 0,
+      cacheReadTokens: Number.isFinite(usage.read) && usage.read >= 0 ? usage.read : 0,
+      cacheWriteTokens: Number.isFinite(usage.write) && usage.write >= 0 ? usage.write : 0,
+      errorCode: 'AI_PROVIDER_ERROR',
+    });
+    expect(await db.select().from(aiBudgetReservations).all()).toMatchObject([
+      { tenantId, state: 'unknown', auditLogId: rows[0]?.id },
+    ]);
     await expectThrow(
       completeAI({ db, tenantId, siteId, userId }, baseInput, () => buildMockProvider()),
       'AI_BUDGET_EXCEEDED'
@@ -515,6 +640,31 @@ describe('client.completeAI', () => {
     expect(rows).toMatchObject([{ costState: 'unknown', errorCode: 'AI_PROVIDER_ERROR' }]);
     expect(await db.select().from(aiBudgetReservations).all()).toMatchObject([
       { state: 'unknown', auditLogId: rows[0]?.id },
+    ]);
+  });
+
+  it.each([-1, Infinity, NaN])('holds unknown cost when pricing returns %s', async cost => {
+    const db = getDatabase();
+    await writeAISettings(db, tenantId, { enabled: true, monthlyBudgetUsd: 1 });
+    const provider = buildMockProvider({ pricing: { models: {}, calculateCostUsd: () => cost } });
+    const failure = await expectThrow(
+      completeAI({ db, tenantId, siteId, userId }, baseInput, () => provider),
+      'AI_PROVIDER_ERROR'
+    );
+    expect(failure.message).toBe('AI provider returned unpriceable usage');
+    const rows = await db.select().from(aiAuditLog).all();
+    expect(rows).toMatchObject([
+      {
+        tenantId,
+        inputTokens: 10,
+        outputTokens: 5,
+        costState: 'unknown',
+        costUsd: 0,
+        errorCode: 'AI_PROVIDER_ERROR',
+      },
+    ]);
+    expect(await db.select().from(aiBudgetReservations).all()).toMatchObject([
+      { tenantId, state: 'unknown', auditLogId: rows[0]?.id },
     ]);
   });
 

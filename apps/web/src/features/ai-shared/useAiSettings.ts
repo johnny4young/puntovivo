@@ -17,7 +17,7 @@ import { trpc } from '@/lib/trpc';
  * Both surfaces previously duplicated the exact same trio:
  * 1. `trpc.ai.settings.get.useQuery()` — the provider / feature-toggle read.
  * 2. `trpc.ai.settings.update.useMutation()` whose `onSuccess` invalidates
- * `ai.settings.get` and fires a success toast, and whose `onError` runs
+ * every `ai.settings` read and fires a success toast, and whose `onError` runs
  * `onErrorToast`.
  * 3. `trpc.useUtils()` purely to invalidate the read after a write.
  *
@@ -63,7 +63,8 @@ export function useAiSettings(options: UseAiSettingsOptions) {
 
   const updateMutation = trpc.ai.settings.update.useMutation({
     onSuccess: async () => {
-      await utils.ai.settings.get.invalidate();
+      // Also refreshes voiceAvailability, which the cashier voice screen reads.
+      await utils.ai.settings.invalidate();
       toast.success({ title: t(saveSuccessTitleKey) });
     },
     onError: onErrorToast(toast, t, { titleKey: saveErrorTitleKey }),
@@ -77,7 +78,7 @@ export function useAiSettings(options: UseAiSettingsOptions) {
       data: settingsQuery.data,
       /**
        * The shared `ai.settings.update` mutation. `onSuccess` invalidates
-       * `ai.settings.get` and emits the success toast; `onError` runs
+       * every `ai.settings` read and emits the success toast; `onError` runs
        * `onErrorToast` with the caller's title key.
        */
       updateMutation,

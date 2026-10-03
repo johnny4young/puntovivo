@@ -139,11 +139,11 @@ export async function runCopilotChat(
   const responseMode = settings.features?.copilot.responseMode ?? 'guided';
   // An explicit body site filters the snapshot. A missing/null body site is
   // tenant-wide even when the UI has a selected site in the request header.
-  const auditSiteId = input.context?.siteId ?? null;
-  const promptSiteId = auditSiteId ?? ctx.siteId;
-  const scopeSiteIds =
-    options.scopeSiteIds ??
-    (await resolveCopilotQuotaSites(ctx.db, ctx.tenantId, input.context?.siteId));
+  const promptSiteId = input.context?.siteId ?? ctx.siteId;
+  // Scope preparation can fail before any provider dispatch. Keep its
+  // zero-usage failure audit, without attributing an unauthorized body site.
+  let auditSiteId: string | null = null;
+  let scopeSiteIds: string[] = [];
   const startedAt = Date.now();
   const sqlCapture: { results: CopilotSQLResult[]; attempts: number; overLimit: boolean } = {
     results: [],
@@ -160,6 +160,10 @@ export async function runCopilotChat(
 
   let snapshot: Awaited<ReturnType<typeof createCopilotSnapshot>> | undefined;
   try {
+    scopeSiteIds =
+      options.scopeSiteIds ??
+      (await resolveCopilotQuotaSites(ctx.db, ctx.tenantId, input.context?.siteId));
+    auditSiteId = input.context?.siteId ?? null;
     snapshot = await createCopilotSnapshot(ctx.db, ctx.tenantId, input.context, now, scopeSiteIds);
     const protectedSnapshot = snapshot;
     const providerOptions = provider.cacheControlForSystemPrompt();
@@ -310,15 +314,16 @@ export async function runCopilotChat(
       errorCode,
     });
 
-    if (error instanceof TRPCError) {
+    // Only locally constructed domain errors carry our stable code. An SDK
+    // can also throw a TRPCError, whose message is untrusted provider data.
+    if (error instanceof TRPCError && error.cause instanceof ServerErrorWithCode) {
       throw error;
     }
 
     return throwServerError({
       trpcCode: 'BAD_GATEWAY',
       errorCode: 'AI_PROVIDER_ERROR',
-      message: error instanceof Error ? error.message : 'AI provider call failed',
-      details: { cause: String(error) },
+      message: 'AI provider call failed',
     });
   } finally {
     snapshot?.close();

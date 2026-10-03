@@ -215,6 +215,8 @@ describe('model SQL evidence floor', () => {
   it('requires a real analytics source, not a constant or a shadowing CTE', () => {
     for (const query of [
       'SELECT 42 AS sale_count',
+      'SELECT 42 AS [from sales_summary]',
+      'SELECT 42 AS [join sale_line_items]',
       'WITH fabricated AS (SELECT 42 AS sale_count) SELECT * FROM fabricated',
       'WITH sales_summary AS (SELECT 42 AS sale_count) SELECT * FROM sales_summary',
       'WITH RECURSIVE sales_summary AS (SELECT 42 AS sale_count) SELECT * FROM sales_summary',
@@ -227,6 +229,53 @@ describe('model SQL evidence floor', () => {
       'SELECT COUNT(*) FROM sales_summary'
     );
   });
+});
+
+describe('chat snapshot scope before provider dispatch', () => {
+  it.each(['foreign', 'inactive'] as const)(
+    'rejects a %s site before generation and audits the requesting tenant',
+    async kind => {
+      const current = await seedTenantWithAI(`scope-request-${kind}`);
+      const other = await seedTenantWithAI(`scope-other-${kind}`);
+      const requestedSite = kind === 'foreign' ? other.siteId : current.siteId;
+      if (kind === 'inactive') {
+        await getDatabase()
+          .update(sites)
+          .set({ isActive: false })
+          .where(eq(sites.id, current.siteId));
+      }
+      mockGenerateTextWithSQL('Must never be invoked');
+      await expectErrorCode(
+        runCopilotChat(
+          { db: getDatabase(), tenantId: current.tenantId, siteId: current.siteId, userId: null },
+          {
+            messages: [{ role: 'user', content: 'Show sales' }],
+            context: { siteId: requestedSite },
+          },
+          { factory: () => buildStubProvider(), now: new Date('2026-05-13T12:00:00.000Z') }
+        ),
+        'AI_COPILOT_SQL_REJECTED'
+      );
+      expect(generateTextMock).not.toHaveBeenCalled();
+      const audits = await getDatabase()
+        .select()
+        .from(aiAuditLog)
+        .where(eq(aiAuditLog.tenantId, current.tenantId));
+      expect(audits).toHaveLength(1);
+      expect(audits[0]).toMatchObject({
+        tenantId: current.tenantId,
+        siteId: null,
+        scopeSiteIds: [],
+        inputTokens: 0,
+        outputTokens: 0,
+        costUsd: 0,
+        errorCode: 'AI_COPILOT_SQL_REJECTED',
+      });
+      expect(
+        await getDatabase().select().from(aiAuditLog).where(eq(aiAuditLog.tenantId, other.tenantId))
+      ).toEqual([]);
+    }
+  );
 });
 
 describe('buildContextBlock — dynamic per-call payload', () => {
