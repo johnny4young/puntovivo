@@ -194,7 +194,7 @@ describe('migration replay against a non-empty database', () => {
     }
   }, 180_000);
 
-  it.each([90, 91])(
+  it.each([90, 91, 92])(
     'preserves historical AI calls and payment evidence when upgrading from journal index %i',
     async afterIdx => {
       workdir = mkdtempSync(join(tmpdir(), 'puntovivo-ai-scope-upgrade-'));
@@ -221,6 +221,9 @@ describe('migration replay against a non-empty database', () => {
             'COP', 'Unchanged evidence', '{}', 0, 'scope-payment-original',
             '2026-09-01T10:00:00.000Z', '2026-09-01T10:00:00.000Z');
       `);
+      if (afterIdx >= 92) {
+        rawClient().exec(`UPDATE ai_audit_log SET scope_site_ids = '["scope-site"]'`);
+      }
       const auditBefore = rawClient().prepare('SELECT * FROM ai_audit_log').get() as Record<
         string,
         unknown
@@ -232,12 +235,31 @@ describe('migration replay against a non-empty database', () => {
         await initDatabase({ dbPath, seedData: false, migrationsFolder: MIGRATIONS });
         expect(rawClient().prepare('SELECT * FROM ai_audit_log').get()).toEqual({
           ...auditBefore,
-          scope_site_ids: null,
+          scope_site_ids: auditBefore.scope_site_ids ?? null,
         });
         expect(rawClient().prepare('SELECT * FROM payment_outbox').all()).toEqual(paymentBefore);
         expect(rawClient().prepare('SELECT * FROM payment_reconciliation_proposals').all()).toEqual(
           []
         );
+        const reservations = rawClient().prepare('SELECT * FROM ai_budget_reservations').all();
+        if (boot === 0) {
+          expect(reservations).toEqual([]);
+          rawClient().exec(`INSERT INTO ai_budget_reservations
+            (id, tenant_id, month_start, state, created_at)
+            VALUES ('upgrade-pending', 'scope-upgrade', '2026-09-01T00:00:00.000Z',
+              'pending', '2026-09-30T23:59:59.000Z')`);
+        } else {
+          expect(reservations).toEqual([
+            {
+              id: 'upgrade-pending',
+              tenant_id: 'scope-upgrade',
+              month_start: '2026-09-01T00:00:00.000Z',
+              state: 'pending',
+              audit_log_id: null,
+              created_at: '2026-09-30T23:59:59.000Z',
+            },
+          ]);
+        }
         expect(rawClient().prepare('PRAGMA integrity_check').get()).toEqual({
           integrity_check: 'ok',
         });
@@ -276,6 +298,27 @@ describe('migration replay against a non-empty database', () => {
     );
     expect(new Set(journal.entries.map(entry => entry.tag)).size).toBe(journal.entries.length);
     expect(journal.entries[92]!.when).toBeGreaterThan(journal.entries[91]!.when);
+  });
+
+  it('extends analytics scope and payment history with only the budget reservation table', () => {
+    const previous = JSON.parse(readFileSync(join(MIGRATIONS, 'meta/0092_snapshot.json'), 'utf8'));
+    const current = JSON.parse(readFileSync(join(MIGRATIONS, 'meta/0093_snapshot.json'), 'utf8'));
+    expect(current.prevId).toBe(previous.id);
+    expect(previous.tables.payment_reconciliation_proposals).toBeDefined();
+    expect(previous.tables.ai_audit_log.columns.scope_site_ids).toBeDefined();
+    expect(Object.keys(current.tables).sort()).toEqual(
+      [...Object.keys(previous.tables), 'ai_budget_reservations'].sort()
+    );
+    for (const [name, table] of Object.entries(previous.tables)) {
+      expect(current.tables[name], name).toEqual(table);
+    }
+    expect(current.tables.ai_budget_reservations.columns).toHaveProperty('audit_log_id');
+    expect(
+      current.tables.ai_budget_reservations.indexes.idx_ai_budget_reservations_tenant_month
+    ).toMatchObject({ isUnique: true, columns: ['tenant_id', 'month_start'] });
+    const journal = JSON.parse(readFileSync(join(MIGRATIONS, 'meta/_journal.json'), 'utf8'));
+    expect(journal.entries[93]).toMatchObject({ idx: 93, tag: '0093_ai_budget_reservations' });
+    expect(journal.entries[93].when).toBeGreaterThan(journal.entries[92].when);
   });
 
   it('declares a fixture for every point the chain is seeded at', () => {
