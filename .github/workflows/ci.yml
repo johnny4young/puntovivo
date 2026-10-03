@@ -8,11 +8,12 @@ on:
     # main here left every intermediate layer of a stack with no functional
     # gate at all -- the PR showed a green check that came from external
     # scanners alone, never from typecheck, lint, test, or build. Accepting a
-    # codex/** base closes that hole. It does not multiply the minute budget:
+    # codex/** or dependabot/** base closes that hole: dependency updates also
+    # serve as stack foundations. It does not multiply the minute budget:
     # dorny/paths-filter diffs a pull_request against that PR's own base ref,
     # so each layer is filtered on its own delta rather than on the whole
     # stack, and the concurrency group below still cancels superseded runs.
-    branches: [main, 'codex/**']
+    branches: [main, 'codex/**', 'dependabot/**']
 
 env:
   NODE_VERSION: '24'
@@ -118,6 +119,7 @@ jobs:
               - 'e2e/web/**'
               - 'operator-journeys.json'
               - 'playwright.web.config.ts'
+              - 'playwright.web-heavy.config.ts'
               - 'packages/server/**'
               - 'perf-budget.json'
               - 'scripts/check-operator-journeys*.mjs'
@@ -132,6 +134,7 @@ jobs:
               - 'scripts/check-contrast*.mjs'
               - 'scripts/check-operator-deck-adoption*.mjs'
               - 'scripts/generate-companion-service-worker*.mjs'
+              - 'scripts/isolated-journey-e2e-contract.test.mjs'
               - 'scripts/long-shift-*'
             server:
               - 'packages/server/**'
@@ -167,6 +170,7 @@ jobs:
               - 'scripts/e2e-baseline-cleanup.test.mjs'
               - 'scripts/electron-fetch-download.test.mjs'
               - 'e2e/shared/baseline.ts'
+              - 'e2e/shared/attendance-date.ts'
               - 'scripts/check-exact-override-policy*.mjs'
               - 'scripts/check-format-policy.test.mjs'
               - 'scripts/check-lint-policy.test.mjs'
