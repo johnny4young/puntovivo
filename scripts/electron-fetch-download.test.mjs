@@ -129,6 +129,17 @@ test('deadline and caller cancellation abort a stalled body', { timeout: 15000 }
   await assert.rejects(task, error => error.name === 'AbortError');
 });
 
+test('caller cancellation preserves a null abort reason', { timeout: 15000 }, async () => {
+  const controller = new AbortController();
+  controller.abort(null);
+  const count = requests;
+  await assert.rejects(
+    downloadWithFetch(config('cancel-null', '/artifact', { signal: controller.signal })),
+    error => error === controller.signal.reason
+  );
+  assert.equal(requests, count);
+});
+
 test(
   'invalid deadlines and legacy custom agents fail explicitly before any network request',
   { timeout: 15000 },

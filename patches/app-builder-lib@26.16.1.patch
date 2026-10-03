@@ -118,13 +118,13 @@ index 0000000000000000000000000000000000000000..0c5dc6d2c74146af3919ad473ae6d6bc
 +    } catch (error) {
 +        // Preserve builder's existing bounded retry classification without
 +        // turning a fetch status/timeout into an unbounded generic retry.
-+        if (error.name === "TimeoutError") {
++        if (error?.name === "TimeoutError") {
 +            const timeoutError = new Error(error.message, { cause: error });
 +            timeoutError.name = "TimeoutError";
 +            timeoutError.code = "ETIMEDOUT";
 +            throw timeoutError;
 +        }
-+        if (error.response && typeof error.response.status === "number") {
++        if (error?.response && typeof error.response.status === "number") {
 +            error.response.statusCode = error.response.status;
 +        }
 +        throw error;
