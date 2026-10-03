@@ -41,13 +41,13 @@ test('every exact registry override has a current bounded review', () => {
 
   // A literal on purpose: this is the tripwire for a pin added or dropped
   // without a matching policy entry, so it must NOT be derived.
-  assert.equal(result.exactOverrideCount, 42);
+  assert.equal(result.exactOverrideCount, 41);
   assert.equal(result.owner, 'platform-maintainers');
   assert.equal(result.nextReviewBy, earliestReviewBy);
 });
 
 test('local workspace replacements do not create false pin debt', () => {
-  assert.equal(isExactRegistryOverride('file:packages/boolean-compat'), false);
+  assert.equal(isExactRegistryOverride('file:packages/local-compat'), false);
   assert.equal(isExactRegistryOverride('npm:tsx@4.21.0'), true);
   assert.equal(isExactRegistryOverride('4.21.0'), true);
   assert.equal(isExactRegistryOverride('^4.21.0'), false);
