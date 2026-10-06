@@ -259,6 +259,30 @@ describe('model SQL evidence floor', () => {
       'SELECT COUNT(*) FROM sales_summary'
     );
   });
+
+  it('rejects schema tables hidden behind comma joins or quoted identifiers', () => {
+    for (const query of [
+      'SELECT * FROM sales_summary, sqlite_master',
+      'SELECT * FROM sales_summary s, sqlite_schema m WHERE s.total > 0',
+      "SELECT name FROM sales_summary, pragma_table_info('sales_summary')",
+      'SELECT * FROM sales_summary JOIN "sqlite_master" ON 1 = 1',
+      'SELECT * FROM sales_summary, "sqlite_master"',
+      'SELECT * FROM sales_summary, `other_table`',
+      "SELECT * FROM sales_summary, json_each('[1]')",
+      'SELECT * FROM (SELECT * FROM sales_summary), sqlite_temp_master',
+    ]) {
+      expect(() => validateModelAnalyticsSQL(query), query).toThrow(TRPCError);
+    }
+    for (const query of [
+      'SELECT s.site_name, SUM(l.line_total) FROM sales_summary s, sale_line_items l WHERE s.sale_id = l.sale_id GROUP BY s.site_name',
+      'SELECT COUNT(*) FROM sales_summary AS s WHERE s.total > 0 ORDER BY 1 LIMIT 5',
+      "SELECT product_name FROM sale_line_items WHERE product_name LIKE '%from x, y%'",
+      'SELECT t.n FROM (SELECT COUNT(*) AS n FROM sales_summary) t',
+      'SELECT * FROM sales_summary JOIN sale_line_items ON sales_summary.sale_id = sale_line_items.sale_id',
+    ]) {
+      expect(validateModelAnalyticsSQL(query), query).toBe(query);
+    }
+  });
 });
 
 describe('chat snapshot scope before provider dispatch', () => {
