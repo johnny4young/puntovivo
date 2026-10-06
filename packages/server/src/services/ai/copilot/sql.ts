@@ -129,6 +129,27 @@ export function validateModelAnalyticsSQL(query: string): string {
   if (/\bwith\b/i.test(inspected)) {
     rejectSQL('Model analytics CTE queries are not supported');
   }
+  // Quoted identifiers are collapsed by the string stripper above, so the
+  // table allow-list would never see `FROM "sqlite_master"`. Model SQL only
+  // needs plain identifiers; string literals use single quotes.
+  if (/["`]/.test(inspected)) {
+    rejectSQL('Model analytics quoted identifiers are not supported');
+  }
+  // Schema tables and table-valued pragmas are not analytics sources, even
+  // inside the isolated in-memory snapshot.
+  if (/\b(?:sqlite_\w+|pragma_\w+)\b/i.test(inspected)) {
+    rejectSQL('Model analytics query must read only snapshot source tables');
+  }
+  // `FROM a, b` lists are not covered by the FROM/JOIN regex, which only
+  // inspects the first item. Every top-level item must be a source table
+  // or a parenthesized subquery (whose own FROM is checked separately).
+  for (const item of fromListItems(inspected)) {
+    if (item.startsWith('(')) continue;
+    const table = sanitizeTableName(item.split(/\s+/)[0] ?? '');
+    if (!ALLOWED_TABLES.has(table)) {
+      rejectSQL('Model analytics query must read only snapshot source tables');
+    }
+  }
   const readsSource = Array.from(
     inspected.matchAll(/\b(?:from|join)\s+([`"]?[a-zA-Z_][a-zA-Z0-9_."`]*\]?)/gi)
   ).some(match => {
@@ -139,4 +160,39 @@ export function validateModelAnalyticsSQL(query: string): string {
     rejectSQL('Model analytics query must read a snapshot source table');
   }
   return normalized;
+}
+
+const FROM_LIST_END =
+  /^(?:where|group|order|limit|having|window|union|intersect|except|join|inner|left|right|full|cross|natural|on|using)\b/i;
+
+/** Top-level comma-separated items of every FROM clause, lower-cased and trimmed. */
+function fromListItems(inspected: string): string[] {
+  const items: string[] = [];
+  for (const match of inspected.matchAll(/\bfrom\b/gi)) {
+    let depth = 0;
+    let current = '';
+    let index = match.index + match[0].length;
+    for (; index < inspected.length; index += 1) {
+      const char = inspected[index]!;
+      if (char === '(') depth += 1;
+      if (char === ')') {
+        if (depth === 0) break;
+        depth -= 1;
+      }
+      if (depth === 0) {
+        if (char === ',') {
+          items.push(current.trim().toLowerCase());
+          current = '';
+          continue;
+        }
+        if (/\s/.test(char) && FROM_LIST_END.test(inspected.slice(index + 1))) {
+          current += char;
+          break;
+        }
+      }
+      current += char;
+    }
+    items.push(current.trim().toLowerCase());
+  }
+  return items.filter(item => item.length > 0);
 }
