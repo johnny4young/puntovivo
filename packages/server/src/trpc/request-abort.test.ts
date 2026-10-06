@@ -49,9 +49,31 @@ describe('withClientAbortSignal', () => {
       withClientAbortSignal(reply, async () => {
         enteredWork = true;
       })
-    ).rejects.toMatchObject({ name: 'AbortError' });
+    ).rejects.toMatchObject({ name: 'TRPCError', code: 'CLIENT_CLOSED_REQUEST' });
     expect(enteredWork).toBe(false);
     expect(raw.listenerCount('close')).toBe(0);
+  });
+
+  it('reports a cancellation raised by downstream admission as a client close', async () => {
+    const { raw, reply } = replyFixture();
+    const work = withClientAbortSignal(reply, async signal => {
+      await new Promise<void>(resolve => signal?.addEventListener('abort', () => resolve()));
+      signal?.throwIfAborted();
+    });
+    raw.destroyed = true;
+    raw.emit('close');
+    await expect(work).rejects.toMatchObject({ code: 'CLIENT_CLOSED_REQUEST' });
+  });
+
+  it('keeps a non-abort failure unchanged even after the client closed', async () => {
+    const { raw, reply } = replyFixture();
+    const work = withClientAbortSignal(reply, async signal => {
+      await new Promise<void>(resolve => signal?.addEventListener('abort', () => resolve()));
+      throw new Error('provider failed');
+    });
+    raw.destroyed = true;
+    raw.emit('close');
+    await expect(work).rejects.toThrow('provider failed');
   });
 
   it('supports HTTP-less direct callers and cleans up after a rejection', async () => {

@@ -322,8 +322,17 @@ export async function runCopilotChat(
     };
   } catch (error) {
     // A disconnected request cancelled before admission cannot have reached
-    // the provider; it must not create a usage row or unknown-cost hold.
-    if (ctx.abortSignal?.aborted && reservation === null) throw error;
+    // the provider; it must not create a usage row or unknown-cost hold. Only
+    // the cancellation itself is rethrown: any other failure keeps the
+    // sanitized path below even if the client has gone.
+    if (
+      reservation === null &&
+      ctx.abortSignal?.aborted &&
+      error instanceof Error &&
+      error.name === 'AbortError'
+    ) {
+      throw error;
+    }
     const errorCode = serverErrorCodeFrom(error);
     // A pre-inference provider rejection (4xx) or a connection that was never
     // established proves no billable work; any other post-dispatch failure
