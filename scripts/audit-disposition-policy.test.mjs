@@ -85,7 +85,12 @@ function advisory(overrides = {}) {
   };
 }
 
-function decide({ advisories, policy = policyWith([]), auditStatus = 1, productionVersions = {} }) {
+function decide({
+  advisories,
+  policy = policyWith([]),
+  auditStatus = 1,
+  productionVersions = {},
+}) {
   return decideAuditOutcome({
     advisories,
     reachability: reachabilityIndex(productionVersions),
@@ -94,25 +99,11 @@ function decide({ advisories, policy = policyWith([]), auditStatus = 1, producti
   });
 }
 
-test('the checked-in disposition file is valid and carries only the reviewed acceptances', () => {
-  // Validate inside the file's own review window; expiry has dedicated tests.
-  const latestReviewedOn = REAL_POLICY.dispositions
-    .map(entry => entry.reviewedOn)
-    .sort()
-    .at(-1);
-  const now = latestReviewedOn ? new Date(`${latestReviewedOn}T12:00:00.000Z`) : NOW;
-  const result = validateAuditDispositions({ policy: REAL_POLICY, now });
+test('the checked-in disposition file is valid and empty in the steady state', () => {
+  const result = validateAuditDispositions({ policy: REAL_POLICY, now: NOW });
   assert.equal(result.owner, 'platform-maintainers');
-  // A literal tripwire: the steady state is empty, and every accepted advisory
-  // must be added or removed deliberately. These two build-only advisories
-  // have no published patched release yet.
-  assert.deepEqual([...result.byAdvisoryId.keys()].sort(), [
-    'GHSA-hp3w-g68c-fv3c',
-    'GHSA-vfj7-8cjw-p6xm',
-  ]);
-  for (const entry of result.byAdvisoryId.values()) {
-    assert.equal(entry.category, 'tooling-unreachable');
-  }
+  assert.equal(result.dispositionCount, 0);
+  assert.equal(result.nextReviewBy, null);
 });
 
 test('disposition metadata is mandatory and bounded', () => {
@@ -127,10 +118,7 @@ test('disposition metadata is mandatory and bounded', () => {
     [{ removalCriteria: 'nope' }, /requires removal criteria/],
     [{ reachabilityArgument: 'unreachable, trust me' }, /requires a reachability argument/],
     [{ advisories: {} }, /requires advisories/],
-    [
-      { advisories: { 'not-an-advisory': 'demo-tool' } },
-      /must be an advisory id the audit reports/,
-    ],
+    [{ advisories: { 'not-an-advisory': 'demo-tool' } }, /must be an advisory id the audit reports/],
     [{ advisories: { unknown: 'demo-tool' } }, /must be an advisory id the audit reports/],
     [{ advisories: { 'GHSA-aaaa-bbbb-cccc': '' } }, /requires the affected package name/],
     [{ reviewedOn: '2026-02-31' }, /reviewedOn is invalid/],
