@@ -156,6 +156,7 @@
     "AI_VISION_NOT_AVAILABLE": "The current AI provider does not support reading images. Switch the provider in Company → AI settings.",
     "AI_VISION_PARSE_FAILED": "The model could not read this invoice cleanly. Try a sharper photo or transcribe the line items manually.",
     "AI_VISION_IMAGE_TOO_LARGE": "The document is too large. Use a file under 10 MB.",
+    "AI_INVOICE_OCR_SITE_NOT_FOUND": "The selected site is no longer active for this organization. Choose an active site and try the invoice again.",
     "AI_VOICE_NOT_AVAILABLE": "The current AI provider does not support voice transcription. Switch the provider in Company → AI settings.",
     "AI_VOICE_PARSE_FAILED": "The model could not understand the audio. Try recording again in a quieter spot.",
     "AI_VOICE_AUDIO_TOO_LARGE": "The audio file is too large. Use a clip under 10 MB.",
