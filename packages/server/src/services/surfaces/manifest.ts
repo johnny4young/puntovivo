@@ -66,8 +66,8 @@ export interface SurfaceDescriptor {
   /** Lowest role the surface accepts. */
   defaultRoleSet: SurfaceRoleSet;
   /**
-   * Suffix under the `surfaces.*` i18n namespace. The renderer reads
-   * `surfaces.<i18nKey>.label` and `surfaces.<i18nKey>.description`.
+   * Suffix under the web `surfaces.*` i18n namespace, which keeps
+   * `label` and `description` for a future surface picker.
    */
   i18nKey: string;
 }

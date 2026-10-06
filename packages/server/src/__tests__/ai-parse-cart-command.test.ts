@@ -1,3 +1,4 @@
+import { expectNoPublicDiagnostic } from './utils/ai-error-privacy.js';
 /**
  * slice 3 — `ai.parseCartCommand` integration tests.
  *
@@ -18,6 +19,7 @@ import type { EmbeddingModelV4 } from '@ai-sdk/provider';
 
 const generateObjectMock = vi.fn();
 const embedManyMock = vi.fn();
+const promptOptionsMock = vi.fn();
 
 vi.mock('ai', async () => {
   const actual = await vi.importActual<typeof import('ai')>('ai');
@@ -37,6 +39,7 @@ vi.mock('../services/ai/providers/openai.js', async () => {
     openaiProvider: {
       ...actual.openaiProvider,
       isConfigured: () => true,
+      cacheControlForSystemPrompt: () => promptOptionsMock(),
       embeddingModel: (_modelId: string) => ({}) as EmbeddingModelV4<string>,
     },
   };
@@ -48,6 +51,8 @@ import { aiAuditLog, products, tenants, unitXProduct, units, users } from '../db
 import { ServerErrorWithCode } from '../lib/errorCodes.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
+import { getActiveTelemetrySink, registerTelemetrySink } from '../observability/sink.js';
+import type { TelemetryEventAttrs } from '../observability/capture.js';
 
 let server: PuntovivoServer;
 
@@ -200,6 +205,7 @@ afterAll(async () => {
 beforeEach(() => {
   generateObjectMock.mockReset();
   embedManyMock.mockReset();
+  promptOptionsMock.mockReset();
 });
 
 describe('ai.parseCartCommand ( slice 3)', () => {
@@ -290,6 +296,93 @@ describe('ai.parseCartCommand ( slice 3)', () => {
       .where(eq(aiAuditLog.tenantId, tenantId))
       .all();
     expect(audit).toHaveLength(0);
+  });
+
+  it('bounds prompt-options errors in the response, audit and opted-in telemetry', async () => {
+    const { tenantId, cashierId } = await seedTenant('prompt-options', { aiEnabled: true });
+    const db = getDatabase();
+    const tenant = await db.select().from(tenants).where(eq(tenants.id, tenantId)).get();
+    await db
+      .update(tenants)
+      .set({ settings: { ...tenant?.settings, telemetryOptIn: true } })
+      .where(eq(tenants.id, tenantId));
+    const secret = 'PRIVATE_CART_IN_PROMPT_OPTIONS';
+    promptOptionsMock.mockImplementation(() => {
+      throw new Error(secret);
+    });
+    const capture = vi.fn<(error: unknown, attrs: TelemetryEventAttrs) => void>();
+    const previous = getActiveTelemetrySink();
+    registerTelemetrySink({ captureException: capture, recordSpan: () => {} });
+    try {
+      const caller = appRouter.createCaller(
+        createCtx({ tenantId, userId: cashierId, role: 'cashier' })
+      );
+      let caught: unknown;
+      try {
+        await caller.ai.parseCartCommand({ transcript: 'agrega una coca' });
+      } catch (error) {
+        caught = error;
+      }
+      expectNoPublicDiagnostic(caught, secret);
+      expect(caught).toMatchObject({ message: 'Voice parser call failed' });
+      expect(generateObjectMock).not.toHaveBeenCalled();
+      expect(embedManyMock).not.toHaveBeenCalled();
+      const audit = await db
+        .select()
+        .from(aiAuditLog)
+        .where(eq(aiAuditLog.tenantId, tenantId))
+        .all();
+      expect(audit).toHaveLength(1);
+      expect(audit[0]?.errorCode).toBe('AI_PROVIDER_ERROR');
+      expect(JSON.stringify(audit)).not.toContain(secret);
+      await vi.waitFor(() => expect(capture).toHaveBeenCalled());
+      for (const [error, attrs] of capture.mock.calls) {
+        expect(attrs.tenantId).toBe(tenantId);
+        expect(
+          JSON.stringify({
+            attrs,
+            message: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : null,
+            cause: error instanceof Error ? error.cause : null,
+          })
+        ).not.toContain(secret);
+      }
+    } finally {
+      registerTelemetrySink(previous);
+    }
+  });
+
+  it('does not return raw provider diagnostics to the cashier', async () => {
+    const { tenantId, cashierId } = await seedTenant('provider-error', { aiEnabled: true });
+    const secret = 'PRIVATE_CART_IN_PROVIDER_ERROR';
+    generateObjectMock.mockRejectedValue(new Error(`Provider unavailable ${secret}`));
+
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: cashierId, role: 'cashier' })
+    );
+    let caught: unknown;
+    try {
+      await caller.ai.parseCartCommand({ transcript: 'agrega una coca' });
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(TRPCError);
+    expect((caught as TRPCError).message).toBe('Voice parser call failed');
+    expect((caught as TRPCError).message).not.toContain(secret);
+    expectNoPublicDiagnostic(caught, secret);
+    expect(((caught as TRPCError).cause as ServerErrorWithCode).errorCode).toBe(
+      'AI_PROVIDER_ERROR'
+    );
+    expect(((caught as TRPCError).cause as ServerErrorWithCode).details).toBeUndefined();
+
+    const audit = await getDatabase()
+      .select()
+      .from(aiAuditLog)
+      .where(eq(aiAuditLog.tenantId, tenantId))
+      .all();
+    expect(audit).toHaveLength(1);
+    expect(audit[0]?.errorCode).toBe('AI_PROVIDER_ERROR');
+    expect(JSON.stringify(audit)).not.toContain(secret);
   });
 
   it('returns mode=unrecognized when the parser yields zero items', async () => {
