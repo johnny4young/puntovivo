@@ -480,6 +480,62 @@ describe('extractInvoiceFromImage', () => {
     ).toMatchObject([{ costState: 'unknown' }]);
   });
 
+  it('releases a local Ollama failure instead of holding a remote liability', async () => {
+    const tenantId = await seedTenant('ollama-local');
+    await enableAI(tenantId);
+    generateObjectMock.mockRejectedValueOnce(new Error('connect ECONNREFUSED 127.0.0.1:11434'));
+    generateObjectMock.mockResolvedValueOnce({ object: SAMPLE_INVOICE, usage: {} });
+    const call = () =>
+      extractInvoiceFromImage(
+        { db: getDatabase(), tenantId, siteId: null, userId: null },
+        { imageBase64: 'aGVsbG8=', mimeType: 'image/png' },
+        () => buildStubProvider({ id: 'ollama' })
+      );
+    await expectErrorCode(call(), 'AI_PROVIDER_ERROR');
+    // The local failure must not block the tenant's next AI admission.
+    await expect(call()).resolves.toMatchObject({ invoice: SAMPLE_INVOICE, costUsd: 0 });
+    const audit = await getDatabase()
+      .select()
+      .from(aiAuditLog)
+      .where(eq(aiAuditLog.tenantId, tenantId));
+    expect(audit).toHaveLength(2);
+    expect(audit.every(row => row.costState === 'local_zero')).toBe(true);
+    expect(
+      await getDatabase()
+        .select()
+        .from(aiBudgetReservations)
+        .where(eq(aiBudgetReservations.tenantId, tenantId))
+    ).toHaveLength(0);
+  });
+
+  it('does not reserve when the vision model cannot be prepared', async () => {
+    const tenantId = await seedTenant('prep-failure');
+    await enableAI(tenantId);
+    await expectErrorCode(
+      extractInvoiceFromImage(
+        { db: getDatabase(), tenantId, siteId: null, userId: null },
+        { imageBase64: 'aGVsbG8=', mimeType: 'image/png' },
+        () =>
+          buildStubProvider({
+            visionModel: () => {
+              throw new Error('invalid local model configuration');
+            },
+          })
+      ),
+      'AI_PROVIDER_ERROR'
+    );
+    expect(generateObjectMock).not.toHaveBeenCalled();
+    expect(
+      await getDatabase().select().from(aiAuditLog).where(eq(aiAuditLog.tenantId, tenantId))
+    ).toHaveLength(0);
+    expect(
+      await getDatabase()
+        .select()
+        .from(aiBudgetReservations)
+        .where(eq(aiBudgetReservations.tenantId, tenantId))
+    ).toHaveLength(0);
+  });
+
   it('does not reserve or dispatch a pre-aborted invoice request', async () => {
     const tenantId = await seedTenant('pre-aborted');
     await enableAI(tenantId);

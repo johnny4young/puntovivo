@@ -201,7 +201,24 @@ export async function extractInvoiceFromImage(
   }
 
   const modelId = settings.modelId ?? provider.defaultModelId;
-  const providerOptions = provider.cacheControlForSystemPrompt();
+  // Preparation hooks run before dispatch: a failure here cannot have billed,
+  // so it must not occupy the admission or record an unknown liability.
+  let model: ReturnType<NonNullable<AIProvider['visionModel']>>;
+  let providerOptions: ReturnType<AIProvider['cacheControlForSystemPrompt']>;
+  try {
+    model = provider.visionModel(modelId);
+    providerOptions = provider.cacheControlForSystemPrompt();
+  } catch {
+    throwServerError({
+      trpcCode: 'BAD_GATEWAY',
+      errorCode: 'AI_PROVIDER_ERROR',
+      message: 'Vision provider call failed',
+    });
+  }
+  // Ollama runs locally and cannot incur a remote charge: like the generic
+  // completion kernel, its failures release the hold instead of retaining
+  // a tenant-wide unknown liability for the rest of the month.
+  const remoteCost = provider.id !== 'ollama';
   const abortSignal = ctx.abortSignal
     ? AbortSignal.any([ctx.abortSignal, AbortSignal.timeout(60_000)])
     : AbortSignal.timeout(60_000);
@@ -224,17 +241,17 @@ export async function extractInvoiceFromImage(
         cacheReadTokens: 0,
         cacheWriteTokens: 0,
         costUsd: 0,
-        costState: 'unknown',
+        costState: remoteCost ? 'unknown' : 'local_zero',
         durationMs: Date.now() - startedAt,
         errorCode,
       },
-      true
+      remoteCost
     );
 
   let result;
   try {
     result = await generateObject({
-      model: provider.visionModel(modelId),
+      model,
       instructions: EXTRACT_PROMPT_SYSTEM,
       schema: InvoiceOcrSchema,
       abortSignal,
@@ -291,18 +308,20 @@ export async function extractInvoiceFromImage(
   }
 
   const usage = result.usage;
-  const inputTokens = usage?.inputTokens;
-  const outputTokens = usage?.outputTokens;
+  const rawInputTokens = usage?.inputTokens;
+  const rawOutputTokens = usage?.outputTokens;
+  const isKnownCount = (value: unknown): value is number =>
+    typeof value === 'number' && Number.isFinite(value) && value >= 0;
+  const inputTokens = isKnownCount(rawInputTokens) ? rawInputTokens : 0;
+  const outputTokens = isKnownCount(rawOutputTokens) ? rawOutputTokens : 0;
   // A remote response without complete usage cannot be priced. Keep the
   // admission hold instead of recording a misleading zero-dollar success.
+  // Local Ollama usage is informational only; its cost is zero regardless.
   if (
-    typeof inputTokens !== 'number' ||
-    !Number.isFinite(inputTokens) ||
-    inputTokens < 0 ||
-    typeof outputTokens !== 'number' ||
-    !Number.isFinite(outputTokens) ||
-    outputTokens < 0 ||
-    inputTokens + outputTokens === 0
+    remoteCost &&
+    (!isKnownCount(rawInputTokens) ||
+      !isKnownCount(rawOutputTokens) ||
+      inputTokens + outputTokens === 0)
   ) {
     settleUnknown('AI_PROVIDER_ERROR');
     throwServerError({
@@ -345,7 +364,7 @@ export async function extractInvoiceFromImage(
       cacheReadTokens,
       cacheWriteTokens,
       costUsd,
-      costState: 'estimated',
+      costState: remoteCost ? 'estimated' : 'local_zero',
       durationMs,
       errorCode: null,
     },
