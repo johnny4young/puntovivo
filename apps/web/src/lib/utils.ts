@@ -126,10 +126,17 @@ export function getActiveTenantLocale(): ActiveTenantLocaleSnapshot | null {
 const currencyFormatterCache = new Map<string, Intl.NumberFormat>();
 const CURRENCY_FORMATTER_CACHE_CAP = 32;
 
-export function formatCurrency(amount: number, currency?: string, locale?: string): string {
+/** Evidence surfaces may pin precision without changing ordinary tenant/currency defaults. */
+export function formatCurrency(
+  amount: number,
+  currency?: string,
+  locale?: string,
+  fractionDigits?: number
+): string {
   const resolvedCurrency = currency ?? activeTenantLocale?.currency ?? 'USD';
   const resolvedLocale = locale ?? activeTenantLocale?.locale ?? getActiveLocale();
-  const displayDecimals = currency === undefined ? activeTenantLocale?.displayDecimals : undefined;
+  const displayDecimals =
+    fractionDigits ?? (currency === undefined ? activeTenantLocale?.displayDecimals : undefined);
   const cacheKey = `${resolvedLocale}|${resolvedCurrency}|${displayDecimals ?? ''}`;
   let formatter = currencyFormatterCache.get(cacheKey);
   if (!formatter) {
@@ -280,35 +287,6 @@ function formatDateByPattern(date: Date, pattern: string, timeZone: string): str
 
 export function generateId(): string {
   return crypto.randomUUID();
-}
-
-export function debounce<T extends (...args: unknown[]) => unknown>(
-  fn: T,
-  delay: number
-): (...args: Parameters<T>) => void {
-  let timeoutId: ReturnType<typeof setTimeout>;
-  return (...args: Parameters<T>) => {
-    clearTimeout(timeoutId);
-    timeoutId = setTimeout(() => fn(...args), delay);
-  };
-}
-
-export function throttle<T extends (...args: unknown[]) => unknown>(
-  fn: T,
-  limit: number
-): (...args: Parameters<T>) => void {
-  let inThrottle: boolean;
-  return (...args: Parameters<T>) => {
-    if (!inThrottle) {
-      fn(...args);
-      inThrottle = true;
-      setTimeout(() => (inThrottle = false), limit);
-    }
-  };
-}
-
-export function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 export function isOnline(): boolean {

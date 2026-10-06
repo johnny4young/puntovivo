@@ -12,12 +12,14 @@
  *
  * @module services/ai/voice/transcribe
  */
+import type { TranscriptionModelV4 } from '@ai-sdk/provider';
 import { NoTranscriptGeneratedError, transcribe } from 'ai';
 
 import type { DatabaseInstance } from '../../../db/index.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
 
 import { reserveAiBudget, settleAiBudget } from '../budget.js';
+import { isDefinitiveProviderRejection } from '../provider-rejection.js';
 import { getProvider } from '../providers/registry.js';
 import type { AIProvider } from '../providers/types.js';
 import { resolveAISettings } from '../client.js';
@@ -177,14 +179,63 @@ export async function transcribeAudio(
   // as a slice 2 follow-up).
   const modelId = provider.defaultTranscriptionModelId ?? provider.defaultModelId;
   const audioBuffer = Buffer.from(input.audioBase64, 'base64');
-  const model = provider.transcriptionModel(modelId);
-  const abortSignal = ctx.abortSignal
-    ? AbortSignal.any([ctx.abortSignal, AbortSignal.timeout(60_000)])
-    : AbortSignal.timeout(60_000);
-  abortSignal.throwIfAborted();
+  // Preparation runs before dispatch: sanitize its failure without reserving.
+  let baseModel: TranscriptionModelV4;
+  try {
+    baseModel = provider.transcriptionModel(modelId);
+  } catch {
+    throwServerError({
+      trpcCode: 'BAD_GATEWAY',
+      errorCode: 'AI_PROVIDER_ERROR',
+      message: 'Voice provider call failed',
+    });
+  }
+  // Record the provider-reported audio duration even when the SDK then
+  // rejects an empty transcript (NoTranscriptGeneratedError): the audio was
+  // processed and billed per minute, so its cost is known, not unknown.
+  let reportedDurationSeconds: number | undefined;
+  const model: TranscriptionModelV4 = {
+    specificationVersion: baseModel.specificationVersion,
+    provider: baseModel.provider,
+    modelId: baseModel.modelId,
+    doGenerate: async options => {
+      const generated = await baseModel.doGenerate(options);
+      reportedDurationSeconds = generated.durationInSeconds;
+      return generated;
+    },
+  };
+  const pricingRow =
+    provider.transcriptionPricing?.[modelId] ??
+    (provider.defaultTranscriptionModelId
+      ? provider.transcriptionPricing?.[provider.defaultTranscriptionModelId]
+      : undefined);
+  const priceAudio = (seconds: unknown): number | null => {
+    const perMinuteUsd = pricingRow?.perMinuteUsd;
+    if (
+      typeof seconds !== 'number' ||
+      !Number.isFinite(seconds) ||
+      seconds <= 0 ||
+      typeof perMinuteUsd !== 'number' ||
+      !Number.isFinite(perMinuteUsd) ||
+      perMinuteUsd <= 0
+    ) {
+      return null;
+    }
+    const cost = (seconds / 60) * perMinuteUsd;
+    return Number.isFinite(cost) && cost >= 0 ? cost : null;
+  };
+  // The client signal is admission-only: it stops work before the budget is
+  // reserved, but a dispatched transcription runs to this deadline and
+  // settles its known cost instead of becoming an unknown-cost liability.
+  ctx.abortSignal?.throwIfAborted();
   const reservation = reserveAiBudget(ctx.db, ctx.tenantId);
   const startedAt = Date.now();
-  const settleUnknown = (errorCode: 'AI_VOICE_PARSE_FAILED' | 'AI_PROVIDER_ERROR') =>
+  const settle = (
+    costState: 'estimated' | 'unknown' | 'not_incurred',
+    costUsd: number,
+    audioSeconds: number,
+    errorCode: 'AI_VOICE_PARSE_FAILED' | 'AI_PROVIDER_ERROR' | null
+  ) =>
     settleAiBudget(
       ctx.db,
       reservation,
@@ -195,16 +246,18 @@ export async function transcribeAudio(
         feature: 'voiceTranscribe',
         providerId: provider.id,
         modelId,
-        inputTokens: 0,
+        // The audit schema stores rounded audio seconds in input_tokens until
+        // a typed audio-duration column exists.
+        inputTokens: Math.round(audioSeconds),
         outputTokens: 0,
         cacheReadTokens: 0,
         cacheWriteTokens: 0,
-        costUsd: 0,
-        costState: 'unknown',
+        costUsd,
+        costState,
         durationMs: Date.now() - startedAt,
         errorCode,
       },
-      true
+      costState === 'unknown'
     );
 
   let result;
@@ -212,57 +265,50 @@ export async function transcribeAudio(
     result = await transcribe({
       model,
       audio: audioBuffer,
-      abortSignal,
+      abortSignal: AbortSignal.timeout(60_000),
       // Retry may bill twice even when the first response was lost.
       maxRetries: 0,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Voice provider call failed';
     const isParseFailure =
       NoTranscriptGeneratedError.isInstance(error) ||
       (error instanceof Error && /No transcript generated/i.test(error.message));
     const errorCode = isParseFailure ? 'AI_VOICE_PARSE_FAILED' : 'AI_PROVIDER_ERROR';
+    const parsedAudioCost = isParseFailure ? priceAudio(reportedDurationSeconds) : null;
 
-    // The SDK may have sent the request before failure/cancellation. Preserve
-    // the unknown invoice liability rather than allowing a free retry.
-    settleUnknown(errorCode);
+    if (parsedAudioCost !== null) {
+      // Audio was processed without speech: billed, known cost.
+      settle('estimated', parsedAudioCost, reportedDurationSeconds as number, errorCode);
+    } else if (isDefinitiveProviderRejection(error)) {
+      // A pre-inference rejection or a connection never established: no audio
+      // was processed, so nothing was billed.
+      settle('not_incurred', 0, 0, errorCode);
+    } else {
+      // The SDK may have sent the request before failure or our deadline.
+      // Preserve the unknown invoice liability rather than allowing a free retry.
+      settle('unknown', 0, 0, errorCode);
+    }
 
     throwServerError({
       trpcCode: isParseFailure ? 'BAD_REQUEST' : 'BAD_GATEWAY',
       errorCode,
-      message,
-      details: { cause: String(error) },
+      // Provider error text is untrusted and can echo request data (#291).
+      message: isParseFailure
+        ? 'Voice transcription could not be parsed'
+        : 'Voice provider call failed',
     });
   }
 
   const transcript = result.text;
   const language = result.language ?? null;
   const audioDurationSeconds = result.durationInSeconds;
-  const pricingRow =
-    provider.transcriptionPricing?.[modelId] ??
-    (provider.defaultTranscriptionModelId
-      ? provider.transcriptionPricing?.[provider.defaultTranscriptionModelId]
-      : undefined);
-  const perMinuteUsd = pricingRow?.perMinuteUsd;
-  const costUsd =
-    typeof audioDurationSeconds === 'number' && typeof perMinuteUsd === 'number'
-      ? (audioDurationSeconds / 60) * perMinuteUsd
-      : Number.NaN;
+  const costUsd = priceAudio(audioDurationSeconds);
   const durationMs = Date.now() - startedAt;
 
   // A transcript without duration or a usable price cannot establish a
   // monetary estimate. Keep the reservation for invoice reconciliation.
-  if (
-    typeof audioDurationSeconds !== 'number' ||
-    !Number.isFinite(audioDurationSeconds) ||
-    audioDurationSeconds <= 0 ||
-    typeof perMinuteUsd !== 'number' ||
-    !Number.isFinite(perMinuteUsd) ||
-    perMinuteUsd <= 0 ||
-    !Number.isFinite(costUsd) ||
-    costUsd < 0
-  ) {
-    settleUnknown('AI_PROVIDER_ERROR');
+  if (costUsd === null || typeof audioDurationSeconds !== 'number') {
+    settle('unknown', 0, 0, 'AI_PROVIDER_ERROR');
     throwServerError({
       trpcCode: 'BAD_GATEWAY',
       errorCode: 'AI_PROVIDER_ERROR',
@@ -270,29 +316,7 @@ export async function transcribeAudio(
     });
   }
 
-  // The audit schema stores rounded audio seconds in input_tokens until
-  // a typed audio-duration column exists.
-  const { id: auditLogId } = settleAiBudget(
-    ctx.db,
-    reservation,
-    {
-      tenantId: ctx.tenantId,
-      siteId: ctx.siteId,
-      userId: ctx.userId,
-      feature: 'voiceTranscribe',
-      providerId: provider.id,
-      modelId,
-      inputTokens: Math.round(audioDurationSeconds),
-      outputTokens: 0,
-      cacheReadTokens: 0,
-      cacheWriteTokens: 0,
-      costUsd,
-      costState: 'estimated',
-      durationMs,
-      errorCode: null,
-    },
-    false
-  );
+  const { id: auditLogId } = settle('estimated', costUsd, audioDurationSeconds, null);
 
   return {
     transcript,

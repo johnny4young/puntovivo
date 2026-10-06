@@ -32,6 +32,7 @@ import {
   type ElectronApplication,
   type Page,
 } from '@playwright/test';
+import type Database from 'better-sqlite3';
 import type { ChildProcess } from 'node:child_process';
 import { spawn, spawnSync } from 'node:child_process';
 import { cpSync, mkdtempSync, rmSync } from 'node:fs';
@@ -98,6 +99,12 @@ export function createIsolatedUserDataDir(label: string, empty = false): string 
 export const ELECTRON_E2E_DB_KEY =
   'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
 
+export function applyE2eSqlCipherKey(db: Database.Database): void {
+  db.pragma("cipher='sqlcipher'");
+  db.pragma('legacy = 4');
+  db.pragma(`key = "x'${ELECTRON_E2E_DB_KEY}'"`);
+}
+
 /**
  * Compiled Electron main entry. Electron Forge's Vite plugin emits
  * this during `npm run dev:desktop` and `npm run package:desktop`.
@@ -126,7 +133,7 @@ export const IS_PACKAGED_RUN = PACKAGED_APP_DIR.length > 0;
 function resolveDevLaunchTarget(): { executablePath: string; args: string[] } {
   return {
     executablePath: requireFromDesktopWorkspace('electron') as string,
-    args: [ELECTRON_MAIN_ENTRY],
+    args: [ELECTRON_MAIN_ENTRY, ...credentialStoreArgs()],
   };
 }
 
@@ -193,11 +200,12 @@ export function packagedExecutablePath(): string {
 }
 
 /**
- * Isolate Chromium's own credential store for a packaged run.
+ * Isolate Chromium's credential store for every test-owned Electron launch.
  *
  * Chromium initialises cookie/password crypto before `app.whenReady`. On a
- * signed-but-not-notarized bundle macOS blocks on the global Chrome Safe
- * Storage item and the app never opens a window — the launch just times out —
+ * newly installed development runtime or signed-but-not-notarized bundle,
+ * macOS can block on the global Chrome Safe Storage item even after the
+ * window opens. Its IPC calls then stall behind the Keychain authorization —
  * and headless Linux runners may have no libsecret at all. The application's
  * own database key is already injected through PUNTOVIVO_DB_KEY, so this only
  * covers the layer underneath it. safeStorage itself has hermetic main-process
@@ -607,6 +615,34 @@ export const electronTest = base.extend<ElectronFixtures, ElectronWorkerFixtures
           page = await electronApp.firstWindow();
         } catch (error) {
           throw formatFirstWindowFailure(error, electronApp.process());
+        }
+        if (process.platform === 'darwin') {
+          // CDP owns keyboard input in this dev fixture. A foreground native
+          // window can receive unrelated operator typing/shortcuts and corrupt
+          // identities during automation. This does not qualify native focus.
+          // Packaged targets and production window preferences remain unchanged.
+          const appForIsolation = electronApp;
+          await appForIsolation.evaluate(({ app, BrowserWindow }) => {
+            const isolate = (window: InstanceType<typeof BrowserWindow>) => {
+              window.setFocusable(false);
+              // Electron documents that setFocusable alone does not remove
+              // existing macOS focus. Explicitly relinquish that focus too.
+              window.blur();
+            };
+            BrowserWindow.getAllWindows().forEach(isolate);
+            app.on('browser-window-created', (_event, window) => isolate(window));
+          });
+          await base.expect
+            .poll(async () =>
+              appForIsolation.evaluate(({ BrowserWindow }) => {
+                const windows = BrowserWindow.getAllWindows();
+                return (
+                  windows.length > 0 &&
+                  windows.every(window => !window.isFocusable() && !window.isFocused())
+                );
+              })
+            )
+            .toBe(true);
         }
         await use(page);
       } finally {

@@ -24,6 +24,18 @@ Run commands from the repository root.
 The workspace CI commands include type checking, linting, tests, dependency
 audit, and the build or runtime measurements appropriate to that workspace.
 
+`ci:release` includes the distribution-trust verdict and packaged-binary resolver
+contracts through `test:release-script`. Pull-request release automation runs
+when either test or its implementation changes, via the existing `scripts/**`
+path filter. Both contracts use injected trust tool results and temporary
+executable-layout fixtures; they do not sign, notarize, launch or certify a real
+distributable. Actual OS trust and packaged execution still require the
+release-candidate checks below.
+
+A registration test in `scripts/ci-path-filters.test.mjs` fails when any
+`scripts/*.test.mjs` or `scripts/*.test.mts` file is not run by a gate that some
+CI job reaches, so a new script test cannot silently skip CI.
+
 ## Responsive operator shell
 
 `e2e/web/header-responsive.spec.ts` exercises real, isolated tenants with long
@@ -145,8 +157,8 @@ remain enforced.
 
 This is local candidate evidence, not representative-machine Gate 5 evidence.
 It does not prove signed clean installation, production-updater upgrade from
-v1.10.0, or downgrade refusal on Sequoia, Tahoe, Windows, and Linux, and it does
-not authorize moving the v1.11.0 rollout above 10 percent. Exact timings are
+the previous signed release, or downgrade refusal on Sequoia, Tahoe, Windows,
+and Linux, and it does not authorize promoting the current staged rollout. Exact timings are
 host-sensitive and remain in the command logs or ignored `.artifacts/` reports;
 the committed performance budgets, rather than this machine's measurements,
 remain the normative thresholds.
@@ -1064,7 +1076,7 @@ requires one fresh full workflow run for Linux, macOS, and Windows against the
 same 40-character SHA. Do not copy a report between platforms or translate a
 source-level rehearsal into packaged evidence.
 
-The most recent retained cross-platform proof is manual workflow
+The documented historical cross-platform encrypted-recovery baseline is manual workflow
 [run 31264233582](https://github.com/johnny4young/puntovivo/actions/runs/31264233582)
 from 2026-08-08 against the released candidate
 `c6aebb8ee27e1f6f73e593cbd0a4ff117fd8a567` (app `1.10.1`, database schema
@@ -1079,6 +1091,16 @@ signing, notarization, certification, or a production recovery-time commitment.
 The macOS job ran on Tahoe 26.5.2 arm64. It does not replace a separate
 Sequoia run or the representative-machine clean-install, real-updater upgrade,
 and downgrade-refusal checks required before rollout promotion.
+
+A later [four-target manual build run](https://github.com/johnny4young/puntovivo/actions/runs/34649168839)
+passed on 2026-09-11 for branch commit `ef85c941`, not a release candidate. It
+packaged, smoke-tested and rehearsed encrypted recovery on Linux, Windows,
+Sequoia and Tahoe. It predates published v1.14.4 and cannot be used as Gate 5
+evidence for that release. Neither run retains downloadable artifacts, so both
+are historical records rather than inspectable evidence. The
+[v1.14.4 release workflow](https://github.com/johnny4young/puntovivo/actions/runs/35138577582)
+passed on 2026-09-16 and published platform artifacts and an update feed; it
+also does not establish representative-machine Gate 5.
 
 ## Representative-machine Gate 5
 
@@ -1214,12 +1236,15 @@ pnpm run validate:gate5-evidence -- \
   --support-target macos-15-sequoia-arm64
 ```
 
-Important v1.11.0 limitation: source-level migration, sealed-floor unit tests,
+The historical v1.11.0 example illustrates the continuing limitation:
+source-level migration, sealed-floor unit tests,
 and deterministic updater E2E do **not** prove that the signed v1.10.0 → v1.11.0
 pair upgrades or that a representative machine refuses the previous signed
 installer. Gate 5 needs that observed updater round trip and visible refusal
-with unchanged database bytes. No such approved v1.11.0 manifest is retained
-today, so its rollout remains at 10 percent.
+with unchanged database bytes. No approved Gate 5 manifest for v1.14.4, the
+latest published release as of 2026-09-22, is linked here. Its
+[live update policy](https://johnny4young.github.io/puntovivo/update-policy.json)
+still specifies a 10 percent rollout as checked on 2026-09-22.
 
 If any recovery check fails, the host wrapper copies the bounded failure report
 before returning non-zero, and the artifact step still uploads it with the
