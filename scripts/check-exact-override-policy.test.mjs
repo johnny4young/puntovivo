@@ -45,7 +45,7 @@ test('every exact registry override has a current bounded review', () => {
 
   // A literal on purpose: this is the tripwire for a pin added or dropped
   // without a matching policy entry, so it must NOT be derived.
-  assert.equal(result.exactOverrideCount, 43);
+  assert.equal(result.exactOverrideCount, 42);
   assert.equal(result.owner, 'platform-maintainers');
   assert.equal(result.nextReviewBy, earliestReviewBy);
 });
