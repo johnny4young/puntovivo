@@ -24,6 +24,7 @@ import {
 import { recordCall } from '../auditLog.js';
 import { reserveAiBudget, settleAiBudget } from '../budget.js';
 import type { AiBudgetReservation } from '../budget.js';
+import { isDefinitiveProviderRejection } from '../provider-rejection.js';
 import { resolveAISettings, toBillableTokenUsage } from '../client.js';
 import type { AIInvocationContext, ProviderFactory } from '../client.js';
 import { getProvider } from '../providers/registry.js';
@@ -176,7 +177,8 @@ export async function runCopilotChat(
       model,
       instructions: buildSystemPrompt(responseMode),
       prompt,
-      ...(ctx.abortSignal !== undefined ? { abortSignal: ctx.abortSignal } : {}),
+      // A client abort never reaches a dispatched call (admission-only signal):
+      // it runs to this deadline and settles its known cost.
       timeout: { totalMs: 60_000 },
       maxRetries: 0,
       tools: {
@@ -319,15 +321,21 @@ export async function runCopilotChat(
     };
   } catch (error) {
     const errorCode = serverErrorCodeFrom(error);
+    // A pre-inference provider rejection (4xx) or a connection that was never
+    // established proves no billable work; any other post-dispatch failure
+    // without priced usage keeps an unknown-cost hold.
+    const notIncurred =
+      reservation !== null && consumedUsage === null && isDefinitiveProviderRejection(error);
     const uncertainRemoteCost =
-      reservation !== null && consumedUsage === null && provider.id !== 'ollama';
-    const costState: 'local_zero' | 'estimated' | 'unknown' = consumedUsage
-      ? provider.id === 'ollama'
+      reservation !== null && consumedUsage === null && provider.id !== 'ollama' && !notIncurred;
+    const costState: 'local_zero' | 'estimated' | 'unknown' | 'not_incurred' =
+      provider.id === 'ollama'
         ? 'local_zero'
-        : 'estimated'
-      : provider.id === 'ollama'
-        ? 'local_zero'
-        : 'unknown';
+        : consumedUsage
+          ? 'estimated'
+          : notIncurred
+            ? 'not_incurred'
+            : 'unknown';
     const audit = {
       tenantId: ctx.tenantId,
       siteId: auditSiteId,
@@ -347,8 +355,18 @@ export async function runCopilotChat(
       errorCode,
     };
     if (reservation) {
-      settleAiBudget(ctx.db, reservation, audit, uncertainRemoteCost);
-    } else if (errorCode !== 'AI_BUDGET_EXCEEDED') {
+      try {
+        settleAiBudget(ctx.db, reservation, audit, uncertainRemoteCost);
+      } catch {
+        // The kernel rolls back audit and settlement together and keeps the
+        // hold; never surface its private persistence diagnostic.
+        return throwServerError({
+          trpcCode: 'BAD_GATEWAY',
+          errorCode: 'AI_PROVIDER_ERROR',
+          message: 'AI call could not be recorded',
+        });
+      }
+    } else if (errorCode !== 'AI_BUDGET_EXCEEDED' && errorCode !== 'AI_BUDGET_BUSY') {
       await recordCall(ctx.db, { ...audit, costState: 'not_incurred' });
     }
 

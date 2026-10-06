@@ -17,6 +17,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import { TRPCError } from '@trpc/server';
 import { eq } from 'drizzle-orm';
 import type { LanguageModelV4 } from '@ai-sdk/provider';
+import { APICallError } from 'ai';
 
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
@@ -720,8 +721,12 @@ describe('runCopilotChat — generateText receives the static system + context-p
     const first = invoke();
     await vi.waitFor(() => expect(generateTextMock).toHaveBeenCalledTimes(1));
     try {
-      await expectErrorCode(invoke(), 'AI_BUDGET_EXCEEDED');
+      await expectErrorCode(invoke(), 'AI_BUDGET_BUSY');
       expect(generateTextMock).toHaveBeenCalledTimes(1);
+      // A busy rejection is not a call: it writes no audit row.
+      expect(
+        await getDatabase().select().from(aiAuditLog).where(eq(aiAuditLog.tenantId, tenantId))
+      ).toHaveLength(0);
     } finally {
       releaseFirst?.();
     }
@@ -800,32 +805,74 @@ describe('runCopilotChat — generateText receives the static system + context-p
     ).toMatchObject([{ state: 'unknown' }]);
   });
 
-  it('propagates cancellation and retains the uncertain remote charge', async () => {
+  it('never forwards the client abort signal to a dispatched provider call', async () => {
     const { tenantId, siteId } = await seedTenantWithAI('cancelled-provider');
     const controller = new AbortController();
-    generateTextMock.mockImplementation(async (options: { abortSignal?: AbortSignal }) => {
-      expect(options.abortSignal).toBe(controller.signal);
-      controller.abort();
-      throw new Error('cancelled after provider dispatch');
-    });
-    await expectErrorCode(
+    generateTextMock.mockImplementation(
+      async (options: {
+        abortSignal?: AbortSignal;
+        tools: { runReadOnlySQL: { execute?: (input: { query: string }) => Promise<unknown> } };
+      }) => {
+        expect(options.abortSignal).toBeUndefined();
+        controller.abort();
+        await options.tools.runReadOnlySQL.execute?.({
+          query: 'SELECT COUNT(*) AS sale_count FROM sales_summary',
+        });
+        return successfulGenerateTextResult('Summary');
+      }
+    );
+    await expect(
       runCopilotChat(
         { db: getDatabase(), tenantId, siteId, userId: null, abortSignal: controller.signal },
         { messages: [{ role: 'user', content: 'Sales?' }] },
         { factory: () => buildStubProvider() }
-      ),
-      'AI_PROVIDER_ERROR'
-    );
+      )
+    ).resolves.toMatchObject({ rowCount: 1 });
     expect(
       await getDatabase().select().from(aiAuditLog).where(eq(aiAuditLog.tenantId, tenantId))
-    ).toMatchObject([{ costState: 'unknown' }]);
+    ).toMatchObject([{ costState: 'estimated', errorCode: null }]);
     expect(
       await getDatabase()
         .select()
         .from(aiBudgetReservations)
         .where(eq(aiBudgetReservations.tenantId, tenantId))
-    ).toMatchObject([{ state: 'unknown' }]);
+    ).toHaveLength(0);
   });
+
+  it.each([
+    { label: '429 rate limit', statusCode: 429, costState: 'not_incurred', held: false },
+    { label: '401 credentials', statusCode: 401, costState: 'not_incurred', held: false },
+    { label: '503 unavailable', statusCode: 503, costState: 'unknown', held: true },
+  ] as const)(
+    'classifies a Copilot $label provider answer by what it proves',
+    async ({ statusCode, costState, held }) => {
+      const { tenantId, siteId } = await seedTenantWithAI(`copilot-status-${statusCode}`);
+      generateTextMock.mockRejectedValueOnce(
+        new APICallError({
+          message: `provider answered ${statusCode}`,
+          url: 'https://provider.invalid/v1/messages',
+          requestBodyValues: {},
+          statusCode,
+        })
+      );
+      await expectErrorCode(
+        runCopilotChat(
+          { db: getDatabase(), tenantId, siteId, userId: null },
+          { messages: [{ role: 'user', content: 'Sales?' }] },
+          { factory: () => buildStubProvider() }
+        ),
+        'AI_PROVIDER_ERROR'
+      );
+      expect(
+        await getDatabase().select().from(aiAuditLog).where(eq(aiAuditLog.tenantId, tenantId))
+      ).toMatchObject([{ costState, errorCode: 'AI_PROVIDER_ERROR' }]);
+      const holds = await getDatabase()
+        .select()
+        .from(aiBudgetReservations)
+        .where(eq(aiBudgetReservations.tenantId, tenantId));
+      expect(holds).toHaveLength(held ? 1 : 0);
+    }
+  );
 
   it('regenerates the context block on a follow-up call so the latest window flows through', async () => {
     const { tenantId, siteId } = await seedTenantWithAI('multi-turn');
