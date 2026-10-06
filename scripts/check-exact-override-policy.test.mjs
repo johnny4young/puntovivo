@@ -28,6 +28,10 @@ const latestReviewedOn = policy.reviews
   .map(review => review.reviewedOn)
   .sort()
   .at(-1);
+// Contract tests below assert one rule each. Pin their clock inside the
+// checked-in review window so a routine review expiry cannot mask the rule
+// under test (the expiry rule has its own dedicated test).
+const insideReviewWindow = new Date(`${latestReviewedOn}T12:00:00.000Z`);
 const securityFloorReviewedOn = policy.reviews.find(
   ({ category }) => category === 'security-floor'
 ).reviewedOn;
@@ -41,13 +45,13 @@ test('every exact registry override has a current bounded review', () => {
 
   // A literal on purpose: this is the tripwire for a pin added or dropped
   // without a matching policy entry, so it must NOT be derived.
-  assert.equal(result.exactOverrideCount, 42);
+  assert.equal(result.exactOverrideCount, 43);
   assert.equal(result.owner, 'platform-maintainers');
   assert.equal(result.nextReviewBy, earliestReviewBy);
 });
 
 test('local workspace replacements do not create false pin debt', () => {
-  assert.equal(isExactRegistryOverride('file:packages/boolean-compat'), false);
+  assert.equal(isExactRegistryOverride('file:packages/local-compat'), false);
   assert.equal(isExactRegistryOverride('npm:tsx@4.21.0'), true);
   assert.equal(isExactRegistryOverride('4.21.0'), true);
   assert.equal(isExactRegistryOverride('^4.21.0'), false);
@@ -56,7 +60,12 @@ test('local workspace replacements do not create false pin debt', () => {
 test('a newly added exact override fails until it has review metadata', () => {
   const changedOverrides = new Map(overrides).set('new-transitive', '1.2.3');
   assert.throws(
-    () => validateExactOverridePolicy({ overrides: changedOverrides, policy }),
+    () =>
+      validateExactOverridePolicy({
+        overrides: changedOverrides,
+        policy,
+        now: insideReviewWindow,
+      }),
     /lack review metadata: new-transitive/
   );
 });
@@ -64,7 +73,12 @@ test('a newly added exact override fails until it has review metadata', () => {
 test('changing a pin target requires a fresh bound review', () => {
   const changedOverrides = new Map(overrides).set('postcss', '8.5.26');
   assert.throws(
-    () => validateExactOverridePolicy({ overrides: changedOverrides, policy }),
+    () =>
+      validateExactOverridePolicy({
+        overrides: changedOverrides,
+        policy,
+        now: insideReviewWindow,
+      }),
     /postcss changed from reviewed target 8\.5\.25 to 8\.5\.26/
   );
 });
@@ -73,7 +87,12 @@ test('removed overrides cannot leave stale policy entries', () => {
   const changedOverrides = new Map(overrides);
   changedOverrides.delete('postcss');
   assert.throws(
-    () => validateExactOverridePolicy({ overrides: changedOverrides, policy }),
+    () =>
+      validateExactOverridePolicy({
+        overrides: changedOverrides,
+        policy,
+        now: insideReviewWindow,
+      }),
     /stale or non-registry selector postcss/
   );
 });
