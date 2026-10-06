@@ -32,12 +32,18 @@ type CopilotQuery = CopilotChatResult['queries'][number];
 
 // The transport is stable for useChat, but its next request must read the
 // committed selection rather than the selection captured on its first render.
-function createScopeCell(initial: CopilotTransportScope) {
-  let value = initial;
+function createScopeCell(initial: Omit<CopilotTransportScope, 'revision'>) {
+  let value = { ...initial, revision: 0 };
   return {
     read: () => value,
-    write: (next: CopilotTransportScope) => {
-      value = next;
+    write: (next: Omit<CopilotTransportScope, 'revision'>) => {
+      if (
+        next.mode !== value.mode ||
+        next.siteId !== value.siteId ||
+        next.ownerKey !== value.ownerKey
+      ) {
+        value = { ...next, revision: value.revision + 1 };
+      }
     },
   };
 }

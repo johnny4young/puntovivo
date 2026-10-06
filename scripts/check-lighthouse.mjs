@@ -278,23 +278,29 @@ export function extractDiagnostics(lhr) {
 }
 
 /** Bounded CPU diagnostics only; never log raw trace arguments or network headers. */
-export function extractCpuDiagnostics(trace) {
-  const events = Array.isArray(trace?.traceEvents) ? trace.traceEvents : [];
-  const renderers = new Map(
-    events
-      .filter(event => event.name === 'thread_name' && event.args?.name === 'CrRendererMain')
-      .map(event => [`${event.pid}:${event.tid}`, event])
-  );
-  // A process swap can leave multiple renderer records. Without a frame-bound
-  // identity, omit causal diagnostics rather than attribute another page's CPU.
-  if (renderers.size !== 1) return { topCpuEvents: [] };
-  const main = [...renderers.values()][0];
+export async function extractCpuDiagnostics(trace) {
+  const unavailable = { cpuAttribution: 'unavailable', topCpuEvents: [] };
+  if (!Array.isArray(trace?.traceEvents) || trace.traceEvents.length === 0) return unavailable;
+  let processed;
+  try {
+    // Reuse the pinned Lighthouse processor: renderer counts cannot identify the
+    // audited frame across process swaps. This internal API is diagnostic only.
+    const { ProcessedTrace } = await import('lighthouse/core/computed/processed-trace.js');
+    processed = await ProcessedTrace.request(trace, { computedCache: new Map() });
+  } catch {
+    // Missing attribution must not hide or change the actual performance gate.
+    return unavailable;
+  }
+  const origin = processed.timeOriginEvt?.ts;
+  if (!Array.isArray(processed.mainThreadEvents) || !Number.isFinite(origin)) return unavailable;
   return {
-    topCpuEvents: events
+    cpuAttribution: 'main-frame',
+    topCpuEvents: processed.mainThreadEvents
       .filter(
         event =>
-          event.pid === main.pid &&
-          event.tid === main.tid &&
+          // Exclude earlier page work, including tasks spanning navigation.
+          Number.isFinite(event.ts) &&
+          event.ts >= origin &&
           event.ph === 'X' &&
           ['FunctionCall', 'EvaluateScript', 'Layout', 'UpdateLayoutTree'].includes(event.name) &&
           Number.isFinite(event.dur) &&
@@ -714,14 +720,16 @@ export async function launchAndMeasure({
             }
           );
           if (runnerResult?.lhr) {
-            samples.push(extractMetrics(runnerResult.lhr));
+            const metrics = extractMetrics(runnerResult.lhr);
+            samples.push(metrics);
             const benchmark = extractRunnerBenchmark(runnerResult.lhr);
             if (benchmark !== null) benchmarkIndices.push(benchmark);
             console.log(
               `check-lighthouse: diagnostics ${route.key} sample ${sample}/${totalSamples} = ${JSON.stringify(
                 {
+                  ...metrics,
                   ...extractDiagnostics(runnerResult.lhr),
-                  ...extractCpuDiagnostics(runnerResult.artifacts?.Trace),
+                  ...(await extractCpuDiagnostics(runnerResult.artifacts?.Trace)),
                 }
               )}`
             );

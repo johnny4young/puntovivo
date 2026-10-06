@@ -54,7 +54,7 @@ It is "Electron main process hosting both the backend and the desktop OS integra
 flowchart LR
     User[User]
     Renderer[Renderer\nReact + TanStack Query + tRPC client]
-    Preload[Preload\nwindow.electron / window.db / window.sync]
+    Preload[Preload\nwindow.electron / window.sync]
     Main[Electron Main Process\nwindow lifecycle + IPC handlers]
     Server[Embedded Fastify Server\ninside main process]
     DB[(SQLite local.db)]
@@ -232,7 +232,7 @@ That distinction matters:
 
 ```text
 Renderer code
-  -> window.electron / window.db / window.sync
+  -> window.electron / window.sync
   -> preload bridge
   -> ipcRenderer.invoke(channel, payload)
   -> ipcMain.handle(channel, handler)
@@ -259,8 +259,8 @@ Preload exists to expose a controlled surface into `window`.
 This project exposes:
 
 - `window.electron`
-- `window.db`
 - `window.sync`
+- `window.session`
 - `window.api` as an aggregate compatibility surface
 
 Why this is used:
@@ -275,7 +275,7 @@ Why this is used:
 ```mermaid
 flowchart LR
     UI[React component]
-    Bridge[window.electron / window.db / window.sync]
+    Bridge[window.electron / window.sync]
     Preload[contextBridge.exposeInMainWorld]
     Invoke[ipcRenderer.invoke]
     Handle[ipcMain.handle]
@@ -311,19 +311,6 @@ Desktop shell / workstation:
 - `create-database-backup`
 - `restore-database-backup`
 - `print-receipt`
-
-Local DB bridge:
-
-- `db:getAll`
-- `db:getById`
-- `db:insert`
-- `db:update`
-- `db:delete`
-- `db:getByField`
-- `db:deleteByTenant`
-- `db:countByTenant`
-- `db:addToSyncQueue`
-- `db:getPendingSyncItems`
 
 Desktop sync bridge:
 
@@ -369,30 +356,12 @@ Why:
 
 This is one of the cleanest architecture decisions in the repo.
 
-### What the local DB bridge is for
+### No raw database bridge
 
-The `window.db` bridge is not the canonical business API.
-It is a narrow desktop/offline helper around allowlisted tables.
-
-You can see this in main:
-
-- allowlisted table names
-- table-column normalization
-- camelCase/snake_case mapping
-- JSON column handling
-- tenant-aware filtering for allowed reads/writes
-
-Why it exists:
-
-- support desktop-local/offline workflows
-- support sync queue inspection and manipulation
-- expose only a controlled subset of the local database
-
-Why it is intentionally constrained:
-
-- direct DB access from renderer is dangerous if unconstrained
-- unrestricted renderer SQL would break isolation and increase security risk
-- the project wants most business logic to remain server-owned
+The renderer has no generic table or outbox access: neither `window.db` nor
+`window.api.db` exists, and main registers no `db:*` handlers. Business reads
+and writes go through tRPC so role checks, audit, cash-session and fiscal
+invariants always apply.
 
 ### How to extend IPC safely
 
@@ -407,7 +376,7 @@ Preferred process:
 
 Recommended pattern:
 
-1. add method to `ElectronAPI`, `DatabaseAPI`, or `SyncAPI` in [index.ts](../apps/desktop/src/preload/index.ts)
+1. add method to `ElectronAPI` or `SyncAPI` in [index.ts](../apps/desktop/src/preload/index.ts)
 2. mirror the typing in [index.d.ts](../apps/desktop/src/preload/index.d.ts)
 3. expose it with `ipcRenderer.invoke(...)` in preload
 4. implement `ipcMain.handle(...)` in main

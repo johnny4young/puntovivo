@@ -229,15 +229,3 @@ export function useOfflineSync() {
     refreshStatus,
   };
 }
-
-// Hook to check if offline mode is available
-export function useOfflineCapability() {
-  // Check for Electron API or IndexedDB support on first render
-  const [hasCapability] = useState(() => {
-    const isElectron = typeof window !== 'undefined' && Boolean(window.api?.sync);
-    const hasIndexedDB = typeof indexedDB !== 'undefined';
-    return Boolean(isElectron) || hasIndexedDB;
-  });
-
-  return hasCapability;
-}

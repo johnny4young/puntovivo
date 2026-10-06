@@ -3,8 +3,10 @@
  *
  * `ai.usage` / `ai.usageByBreakdown` (admin) audit reads, the legacy
  * `ai.extractInvoiceLines` + `ai.matchInvoiceLines` invoice surfaces, the
- * `ai.transcribeAudio` + `ai.parseCartCommand` voice flows, and the
- * `ai.completeTest` end-to-end smoke. Spread into the router barrel.
+ * `ai.transcribeAudio` + `ai.parseCartCommand` voice flows, the
+ * `ai.completeTest` end-to-end smoke, and the admin
+ * `ai.reconcileBudgetHold` recovery for unknown-cost AI calls. Spread into
+ * the router barrel.
  *
  * @module trpc/routers/ai/standalone
  */
@@ -21,7 +23,8 @@ import {
 } from '../../../services/ai/vision/index.js';
 import { parseVoiceCartCommand, transcribeAudio } from '../../../services/ai/voice/index.js';
 import { requireAiQuotaAvailable } from '../../../services/ai/quotas.js';
-import { aiBreakdownInput, aiUsageInput } from '../../schemas/ai.js';
+import { reconcileAiBudgetHold } from '../../../services/ai/budget.js';
+import { aiBreakdownInput, aiReconcileBudgetHoldInput, aiUsageInput } from '../../schemas/ai.js';
 import { extractInvoiceLinesInput, matchInvoiceLinesInput } from '../../schemas/ai-vision.js';
 import { parseCartCommandInput, transcribeAudioInput } from '../../schemas/ai-voice.js';
 import { withClientAbortSignal } from '../../request-abort.js';
@@ -236,4 +239,18 @@ export const standaloneProcedures = {
       model: result.model,
     };
   }),
+
+  /**
+   * Book the provider-billed cost of the month's unknown-cost AI calls and
+   * release the tenant's AI admission hold. Admin-only and recorded in the
+   * tenant audit chain; a live in-flight call is never released.
+   */
+  reconcileBudgetHold: adminProcedure.input(aiReconcileBudgetHoldInput).mutation(({ ctx, input }) =>
+    reconcileAiBudgetHold(ctx.db, {
+      tenantId: ctx.tenantId,
+      actorId: ctx.user!.id,
+      costUsd: input.costUsd,
+      note: input.note,
+    })
+  ),
 };
