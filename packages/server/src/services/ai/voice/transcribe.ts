@@ -217,7 +217,6 @@ export async function transcribeAudio(
       maxRetries: 0,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Voice provider call failed';
     const isParseFailure =
       NoTranscriptGeneratedError.isInstance(error) ||
       (error instanceof Error && /No transcript generated/i.test(error.message));
@@ -230,8 +229,10 @@ export async function transcribeAudio(
     throwServerError({
       trpcCode: isParseFailure ? 'BAD_REQUEST' : 'BAD_GATEWAY',
       errorCode,
-      message,
-      details: { cause: String(error) },
+      // Provider error text is untrusted and can echo request data (#291).
+      message: isParseFailure
+        ? 'Voice transcription could not be parsed'
+        : 'Voice provider call failed',
     });
   }
 

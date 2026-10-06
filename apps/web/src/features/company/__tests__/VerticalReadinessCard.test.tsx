@@ -19,6 +19,7 @@ interface VerticalReadiness {
   profile: 'retail' | 'pharmacy' | 'hardware' | 'butchery' | 'restaurant' | null;
   checks: Array<{
     id:
+      | 'businessCalendar'
       | 'catalog'
       | 'productUnits'
       | 'fractionalSales'
@@ -174,6 +175,44 @@ describe('VerticalReadinessCard', () => {
     expect(screen.getByText(/Choose a business type above/i)).toBeInTheDocument();
     expect(screen.queryByRole('list')).not.toBeInTheDocument();
   });
+
+  it.each([
+    ['en', 'Business calendar', 'The saved time zone is unsupported.'],
+    ['es', 'Calendario del negocio', 'La zona horaria guardada no es compatible.'],
+  ])(
+    'offers %s locale repair without showing unverified readiness',
+    async (language, label, hint) => {
+      await i18next.changeLanguage(language);
+      setData({
+        businessType: 'pharmacy',
+        profile: 'pharmacy',
+        checks: [
+          {
+            id: 'businessCalendar',
+            status: 'attention',
+            configuredCount: 0,
+            cta: { route: '/company', tab: 'locale' },
+          },
+        ],
+        readyCount: 0,
+        attentionCount: 1,
+      });
+      render(
+        <>
+          <VerticalReadinessCard />
+          <LocationProbe />
+        </>,
+        { initialEntries: ['/company?tab=readiness'] }
+      );
+
+      const check = screen.getByTestId('vertical-readiness-businessCalendar');
+      expect(check).toHaveTextContent(label);
+      expect(check).toHaveTextContent(hint);
+      expect(screen.getByText(/0 (ready|listos)/i)).toBeInTheDocument();
+      fireEvent.click(screen.getByTestId('vertical-readiness-action-businessCalendar'));
+      expect(screen.getByTestId('location-probe')).toHaveTextContent('/company?tab=locale');
+    }
+  );
 
   it('shows factual counts, attention and optional states with safe deep links', () => {
     setData(pharmacyReadiness());

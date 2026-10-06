@@ -3,10 +3,7 @@
  *
  * Electron installs a default menu when the app sets none, and that default
  * carries View -> Toggle Developer Tools. Confirmed by hand on a packaged
- * build: Cmd+Alt+I opened DevTools and `Object.keys(window.db)` returned
- * getAll, getById, insert, update, delete, getByField, deleteByTenant,
- * countByTenant, addToSyncQueue, getPendingSyncItems — a console against the
- * local encrypted database, at any operator's terminal.
+ * build: Cmd+Alt+I opened a renderer console at any operator's terminal.
  *
  * @module main/__tests__/application-menu.test
  */
