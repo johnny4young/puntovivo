@@ -153,6 +153,25 @@ test('buildPreviewInvocation preserves direct POSIX invocation and honors explic
   );
 });
 
+test('buildPreviewInvocation never hands pnpm arguments to another package manager', () => {
+  const options = { host: '127.0.0.1', port: 4444 };
+  for (const entry of ['/usr/lib/node_modules/npm/bin/npm-cli.js', '/opt/yarn/bin/yarn.js']) {
+    assert.deepEqual(
+      buildPreviewInvocation(options, { env: { npm_execpath: entry }, platform: 'linux' }),
+      { command: 'pnpm', args: buildPreviewArgs(options), shell: false },
+      entry
+    );
+  }
+  assert.throws(
+    () =>
+      buildPreviewInvocation(options, {
+        env: { npm_execpath: String.raw`C:\npm\bin\npm-cli.js` },
+        platform: 'win32',
+      }),
+    /Run the memory gate via pnpm/
+  );
+});
+
 test('buildPreviewInvocation fails closed for a missing Windows entry or a shell wrapper', () => {
   const options = { host: '127.0.0.1', port: 4444 };
   for (const entry of [undefined, '', 'pnpm.cmd', 'pnpm.bat']) {
