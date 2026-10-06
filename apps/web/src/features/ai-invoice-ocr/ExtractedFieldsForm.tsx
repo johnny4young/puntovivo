@@ -350,7 +350,7 @@ export function ExtractedFieldsForm({
           <Warning>
             {t('form.warning.totalsMismatch', {
               defaultValue:
-                'El total no coincide con la suma de líneas (diferencia {{diff}}). Revisa antes de confirmar.',
+                'Total does not match the sum of lines (difference {{diff}}). Review before confirming.',
               diff: formatCurrency(Math.abs(totals.linesSum - totals.total)),
             })}
           </Warning>
