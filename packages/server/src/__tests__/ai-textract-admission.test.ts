@@ -251,7 +251,9 @@ describe('active Textract invoice admission', () => {
       writableFinished: false,
       destroyed: true,
     });
-    await expect(caller(siteId, response).ai.invoiceOcr.extract({ uploadId })).rejects.toThrow();
+    await expect(
+      caller(siteId, response).ai.invoiceOcr.extract({ uploadId })
+    ).rejects.toMatchObject({ code: 'CLIENT_CLOSED_REQUEST' });
     expect(textractCall).not.toHaveBeenCalled();
     expect(
       await getDatabase()
@@ -272,7 +274,7 @@ describe('active Textract invoice admission', () => {
     const first = caller().ai.invoiceOcr.extract({ uploadId });
     await vi.waitFor(() => expect(textractCall).toHaveBeenCalledTimes(1));
     await expect(caller().ai.invoiceOcr.extract({ uploadId })).rejects.toMatchObject({
-      cause: { errorCode: 'AI_BUDGET_EXCEEDED' },
+      cause: { errorCode: 'AI_BUDGET_BUSY' },
     });
     finish({
       invoice: INVOICE,
@@ -410,6 +412,17 @@ describe('active Textract invoice admission', () => {
   it('rechecks the 200-call site quota and site ownership inside the budget writer', async () => {
     const db = getDatabase();
     const now = new Date().toISOString();
+    // Site ownership is rechecked under the writer lock with a coded error.
+    let foreignSiteError: unknown;
+    try {
+      reserveAiBudget(db, tenantId, new Date(), { invoiceOcrSiteId: 'foreign-site' });
+    } catch (error) {
+      foreignSiteError = error;
+    }
+    expect(foreignSiteError).toMatchObject({
+      code: 'NOT_FOUND',
+      cause: { errorCode: 'AI_INVOICE_OCR_SITE_NOT_FOUND' },
+    });
     await db.insert(aiAuditLog).values(
       Array.from({ length: 200 }, () => ({
         id: nanoid(),
@@ -443,29 +456,90 @@ describe('active Textract invoice admission', () => {
     expect(textractCall).not.toHaveBeenCalled();
   });
 
-  it('forwards a premature response close to Textract and retains liability', async () => {
+  it('lets a dispatched Textract call finish and settle its pages after a disconnect', async () => {
     const response = Object.assign(new EventEmitter(), {
       writableFinished: false,
       destroyed: false,
     });
+    let finish!: () => void;
     textractCall.mockImplementationOnce(
-      (input: { abortSignal: AbortSignal }) =>
-        new Promise((_resolve, reject) => {
-          input.abortSignal.addEventListener(
-            'abort',
-            () => reject(new Error('request cancelled')),
-            { once: true }
-          );
+      () =>
+        new Promise(resolve => {
+          finish = () =>
+            resolve({
+              invoice: INVOICE,
+              costUsd: 0.01,
+              durationMs: 12,
+              provider: 'textract',
+              model: 'aws-textract-analyze-expense',
+            });
         })
     );
     const pending = caller(siteId, response).ai.invoiceOcr.extract({ uploadId });
     await vi.waitFor(() => expect(textractCall).toHaveBeenCalledTimes(1));
     const input = textractCall.mock.calls[0]?.[0] as { abortSignal?: AbortSignal };
+    response.destroyed = true;
     response.emit('close');
-    await expect(pending).rejects.toMatchObject({ cause: { errorCode: 'AI_PROVIDER_ERROR' } });
-    expect(input.abortSignal?.aborted).toBe(true);
+    // The client close is admission-only: the paid call is not abandoned.
+    expect(input.abortSignal?.aborted).toBe(false);
+    finish();
+    await expect(pending).resolves.toMatchObject({ meta: { costUsd: 0.01 } });
     expect(
       await getDatabase().select().from(aiAuditLog).where(eq(aiAuditLog.tenantId, tenantId))
-    ).toMatchObject([{ costState: 'unknown' }]);
+    ).toMatchObject([{ costState: 'estimated', costUsd: 0.01 }]);
+    expect(
+      await getDatabase()
+        .select()
+        .from(aiBudgetReservations)
+        .where(eq(aiBudgetReservations.tenantId, tenantId))
+    ).toHaveLength(0);
+  });
+
+  it.each([
+    'ThrottlingException',
+    'AccessDeniedException',
+    'UnsupportedDocumentException',
+    'InvalidParameterException',
+  ])('releases the hold when AWS answers %s (no page analyzed)', async name => {
+    textractCall.mockRejectedValueOnce(
+      Object.assign(new Error(`${name}: rejected`), {
+        name,
+        $fault: 'client',
+        $metadata: { httpStatusCode: 400 },
+      })
+    );
+    await expect(caller().ai.invoiceOcr.extract({ uploadId })).rejects.toMatchObject({
+      cause: { errorCode: 'AI_PROVIDER_ERROR' },
+    });
+    expect(
+      await getDatabase().select().from(aiAuditLog).where(eq(aiAuditLog.tenantId, tenantId))
+    ).toMatchObject([{ costState: 'not_incurred', costUsd: 0, errorCode: 'AI_PROVIDER_ERROR' }]);
+    expect(
+      await getDatabase()
+        .select()
+        .from(aiBudgetReservations)
+        .where(eq(aiBudgetReservations.tenantId, tenantId))
+    ).toHaveLength(0);
+    // The released admission serves the next invoice.
+    await expect(caller().ai.invoiceOcr.extract({ uploadId })).resolves.toBeDefined();
+  });
+
+  it('keeps an AWS server fault as an unknown liability', async () => {
+    textractCall.mockRejectedValueOnce(
+      Object.assign(new Error('InternalServerError'), {
+        name: 'InternalServerError',
+        $fault: 'server',
+        $metadata: { httpStatusCode: 500 },
+      })
+    );
+    await expect(caller().ai.invoiceOcr.extract({ uploadId })).rejects.toMatchObject({
+      cause: { errorCode: 'AI_PROVIDER_ERROR' },
+    });
+    expect(
+      await getDatabase()
+        .select()
+        .from(aiBudgetReservations)
+        .where(eq(aiBudgetReservations.tenantId, tenantId))
+    ).toMatchObject([{ state: 'unknown' }]);
   });
 });

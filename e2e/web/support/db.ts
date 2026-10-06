@@ -618,23 +618,39 @@ export function seedSaleScenario(seed: string): SeededSaleScenario {
   return seedScenario(seed);
 }
 
-/** A tiny catalog price exposes cent allocation without fabricating a sale or refund. */
-export function seedCentRefundScenario(seed: string): SeededSaleScenario {
+function seedPricedSaleScenario(seed: string, price: number): SeededSaleScenario {
   const scenario = seedScenario(seed);
   const db = openDb();
   try {
     db.transaction(() => {
-      db.prepare(
-        'update products set price = 0.01, price2 = 0.01, price3 = 0.01 where id = ? and tenant_id = ?'
-      ).run(scenario.product.id, scenario.tenantId);
-      db.prepare('update unit_x_product set price = 0.01 where product_id = ?').run(
-        scenario.product.id
-      );
+      const product = db
+        .prepare(
+          'update products set price = ?, price2 = ?, price3 = ? where id = ? and tenant_id = ?'
+        )
+        .run(price, price, price, scenario.product.id, scenario.tenantId);
+      const unit = db
+        .prepare('update unit_x_product set price = ? where product_id = ?')
+        .run(price, scenario.product.id);
+      if (product.changes !== 1 || unit.changes !== 1) {
+        throw new Error(
+          `Expected one product and one unit price, updated ${product.changes}/${unit.changes}`
+        );
+      }
     })();
     return scenario;
   } finally {
     db.close();
   }
+}
+
+/** A large legitimate catalog price exercises mobile monetary layout without mocking checkout. */
+export function seedLargeTotalSaleScenario(seed: string): SeededSaleScenario {
+  return seedPricedSaleScenario(seed, 123456789);
+}
+
+/** A tiny catalog price exposes cent allocation without fabricating a sale or refund. */
+export function seedCentRefundScenario(seed: string): SeededSaleScenario {
+  return seedPricedSaleScenario(seed, 0.01);
 }
 
 /**

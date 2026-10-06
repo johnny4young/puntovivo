@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "8cec1d35-70cf-4403-8fbf-21cb8341736f",
-  "prevId": "8a947118-f2d1-441a-a3c8-26f4c0f5db56",
+  "id": "e3f55b38-068c-4eb9-916a-e899859b316c",
+  "prevId": "89313c47-6b64-4781-a102-66664d7e61f5",
   "tables": {
     "auth_refresh_families": {
       "name": "auth_refresh_families",
@@ -12474,20 +12474,6 @@
           "notNull": false,
           "autoincrement": false
         },
-        "ocr_extract_audit_id": {
-          "name": "ocr_extract_audit_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "ocr_confirmation_hash": {
-          "name": "ocr_confirmation_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "site_id": {
           "name": "site_id",
           "type": "text",
@@ -12609,15 +12595,6 @@
             "purchase_number"
           ],
           "isUnique": true
-        },
-        "idx_purchases_tenant_ocr_extract": {
-          "name": "idx_purchases_tenant_ocr_extract",
-          "columns": [
-            "tenant_id",
-            "ocr_extract_audit_id"
-          ],
-          "isUnique": true,
-          "where": "ocr_extract_audit_id IS NOT NULL"
         }
       },
       "foreignKeys": {
@@ -14223,6 +14200,134 @@
         "chk_payment_outbox_amount_2dec": {
           "name": "chk_payment_outbox_amount_2dec",
           "value": "round(\"payment_outbox\".\"amount\", 2) = \"payment_outbox\".\"amount\""
+        }
+      }
+    },
+    "payment_reconciliation_proposals": {
+      "name": "payment_reconciliation_proposals",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "rail_id": {
+          "name": "rail_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "statement_key": {
+          "name": "statement_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "selected_outbox_id": {
+          "name": "selected_outbox_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'pending'"
+        },
+        "evidence": {
+          "name": "evidence",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "reviewed_at": {
+          "name": "reviewed_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "reviewed_by": {
+          "name": "reviewed_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "idx_payment_proposals_statement": {
+          "name": "idx_payment_proposals_statement",
+          "columns": [
+            "tenant_id",
+            "rail_id",
+            "statement_key"
+          ],
+          "isUnique": true
+        },
+        "idx_payment_proposals_tenant_status": {
+          "name": "idx_payment_proposals_tenant_status",
+          "columns": [
+            "tenant_id",
+            "status",
+            "created_at"
+          ],
+          "isUnique": false
+        },
+        "idx_payment_proposals_one_pending_outbox": {
+          "name": "idx_payment_proposals_one_pending_outbox",
+          "columns": [
+            "tenant_id",
+            "selected_outbox_id"
+          ],
+          "isUnique": true,
+          "where": "\"payment_reconciliation_proposals\".\"status\" = 'pending'"
+        }
+      },
+      "foreignKeys": {
+        "payment_reconciliation_proposals_tenant_id_tenants_id_fk": {
+          "name": "payment_reconciliation_proposals_tenant_id_tenants_id_fk",
+          "tableFrom": "payment_reconciliation_proposals",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "chk_payment_proposals_status": {
+          "name": "chk_payment_proposals_status",
+          "value": "\"payment_reconciliation_proposals\".\"status\" IN ('pending', 'approved', 'rejected')"
         }
       }
     },

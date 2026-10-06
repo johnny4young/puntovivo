@@ -15,7 +15,13 @@
  *
  * @module services/ai/vision/invoice-ocr
  */
-import { JSONParseError, NoObjectGeneratedError, TypeValidationError, generateObject } from 'ai';
+import {
+  JSONParseError,
+  NoObjectGeneratedError,
+  TypeValidationError,
+  generateObject,
+  type LanguageModelUsage,
+} from 'ai';
 import type { ProviderOptions } from '@ai-sdk/provider-utils';
 import { z } from 'zod';
 
@@ -23,6 +29,7 @@ import type { DatabaseInstance } from '../../../db/index.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
 
 import { reserveAiBudget, settleAiBudget } from '../budget.js';
+import { isDefinitiveProviderRejection } from '../provider-rejection.js';
 import { toBillableTokenUsage } from '../client.js';
 import { getProvider } from '../providers/registry.js';
 import type { AIProvider } from '../providers/types.js';
@@ -201,14 +208,34 @@ export async function extractInvoiceFromImage(
   }
 
   const modelId = settings.modelId ?? provider.defaultModelId;
-  const providerOptions = provider.cacheControlForSystemPrompt();
-  const abortSignal = ctx.abortSignal
-    ? AbortSignal.any([ctx.abortSignal, AbortSignal.timeout(60_000)])
-    : AbortSignal.timeout(60_000);
-  abortSignal.throwIfAborted();
+  // Preparation hooks run before dispatch: a failure here cannot have billed,
+  // so it must not occupy the admission or record an unknown liability.
+  let model: ReturnType<NonNullable<AIProvider['visionModel']>>;
+  let providerOptions: ReturnType<AIProvider['cacheControlForSystemPrompt']>;
+  try {
+    model = provider.visionModel(modelId);
+    providerOptions = provider.cacheControlForSystemPrompt();
+  } catch {
+    throwServerError({
+      trpcCode: 'BAD_GATEWAY',
+      errorCode: 'AI_PROVIDER_ERROR',
+      message: 'Vision provider call failed',
+    });
+  }
+  // Ollama runs locally and cannot incur a remote charge: like the generic
+  // completion kernel, its failures release the hold instead of retaining
+  // a tenant-wide unknown liability for the rest of the month.
+  const remoteCost = provider.id !== 'ollama';
+  // The client signal is admission-only: it stops work before the budget is
+  // reserved, but a dispatched extraction runs to its own deadline and
+  // settles its known cost instead of becoming an unknown-cost liability.
+  ctx.abortSignal?.throwIfAborted();
   const reservation = reserveAiBudget(ctx.db, ctx.tenantId);
   const startedAt = Date.now();
-  const settleUnknown = (errorCode: 'AI_VISION_PARSE_FAILED' | 'AI_PROVIDER_ERROR') =>
+  const settleFailure = (
+    errorCode: 'AI_VISION_PARSE_FAILED' | 'AI_PROVIDER_ERROR',
+    notIncurred = false
+  ) =>
     settleAiBudget(
       ctx.db,
       reservation,
@@ -224,20 +251,41 @@ export async function extractInvoiceFromImage(
         cacheReadTokens: 0,
         cacheWriteTokens: 0,
         costUsd: 0,
-        costState: 'unknown',
+        costState: !remoteCost ? 'local_zero' : notIncurred ? 'not_incurred' : 'unknown',
         durationMs: Date.now() - startedAt,
         errorCode,
       },
-      true
+      remoteCost && !notIncurred
     );
+
+  const isKnownCount = (value: unknown): value is number =>
+    typeof value === 'number' && Number.isFinite(value) && value >= 0;
+  /** Priced cost of complete, non-empty remote usage; null when unusable. */
+  const priceUsage = (usage: LanguageModelUsage | undefined): number | null => {
+    if (
+      !usage ||
+      !isKnownCount(usage.inputTokens) ||
+      !isKnownCount(usage.outputTokens) ||
+      usage.inputTokens + usage.outputTokens === 0
+    ) {
+      return null;
+    }
+    let cost: number;
+    try {
+      cost = provider.pricing.calculateCostUsd(modelId, toBillableTokenUsage(usage));
+    } catch {
+      return null;
+    }
+    return Number.isFinite(cost) && cost >= 0 ? cost : null;
+  };
 
   let result;
   try {
     result = await generateObject({
-      model: provider.visionModel(modelId),
+      model,
       instructions: EXTRACT_PROMPT_SYSTEM,
       schema: InvoiceOcrSchema,
-      abortSignal,
+      abortSignal: AbortSignal.timeout(60_000),
       // Retrying may bill twice after an ambiguous provider response.
       maxRetries: 0,
       messages: [
@@ -258,7 +306,6 @@ export async function extractInvoiceFromImage(
         : {}),
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Vision provider call failed';
     // Identify schema-validation failures by SDK error class rather
     // than substring matching, which would misclassify provider HTTP
     // 4xx bodies containing the words "validation" / "parse" / etc as
@@ -279,32 +326,60 @@ export async function extractInvoiceFromImage(
 
     const errorCode = isSchemaFailure ? 'AI_VISION_PARSE_FAILED' : 'AI_PROVIDER_ERROR';
 
-    // The provider may have billed before returning a parse, transport, or abort error.
-    settleUnknown(errorCode);
+    // A schema failure still consumed priced tokens: book them when the SDK
+    // reports usage. A pre-inference rejection (4xx) or a connection never
+    // established billed nothing. Anything else may have been billed.
+    const parseUsage =
+      isSchemaFailure && NoObjectGeneratedError.isInstance(error) ? error.usage : undefined;
+    const parseCost = remoteCost ? priceUsage(parseUsage) : null;
+    if (parseCost !== null && parseUsage) {
+      settleAiBudget(
+        ctx.db,
+        reservation,
+        {
+          tenantId: ctx.tenantId,
+          siteId: ctx.siteId,
+          userId: ctx.userId,
+          feature: 'invoiceOcr',
+          providerId: provider.id,
+          modelId,
+          inputTokens: parseUsage.inputTokens ?? 0,
+          outputTokens: parseUsage.outputTokens ?? 0,
+          cacheReadTokens: parseUsage.inputTokenDetails?.cacheReadTokens ?? 0,
+          cacheWriteTokens: parseUsage.inputTokenDetails?.cacheWriteTokens ?? 0,
+          costUsd: parseCost,
+          costState: 'estimated',
+          durationMs: Date.now() - startedAt,
+          errorCode,
+        },
+        false
+      );
+    } else {
+      settleFailure(errorCode, isDefinitiveProviderRejection(error));
+    }
 
     throwServerError({
       trpcCode: isSchemaFailure ? 'BAD_REQUEST' : 'BAD_GATEWAY',
       errorCode,
-      message,
-      details: { cause: String(error) },
+      message: isSchemaFailure ? 'Invoice could not be parsed' : 'Vision provider call failed',
     });
   }
 
   const usage = result.usage;
-  const inputTokens = usage?.inputTokens;
-  const outputTokens = usage?.outputTokens;
+  const rawInputTokens = usage?.inputTokens;
+  const rawOutputTokens = usage?.outputTokens;
+  const inputTokens = isKnownCount(rawInputTokens) ? rawInputTokens : 0;
+  const outputTokens = isKnownCount(rawOutputTokens) ? rawOutputTokens : 0;
   // A remote response without complete usage cannot be priced. Keep the
   // admission hold instead of recording a misleading zero-dollar success.
+  // Local Ollama usage is informational only; its cost is zero regardless.
   if (
-    typeof inputTokens !== 'number' ||
-    !Number.isFinite(inputTokens) ||
-    inputTokens < 0 ||
-    typeof outputTokens !== 'number' ||
-    !Number.isFinite(outputTokens) ||
-    outputTokens < 0 ||
-    inputTokens + outputTokens === 0
+    remoteCost &&
+    (!isKnownCount(rawInputTokens) ||
+      !isKnownCount(rawOutputTokens) ||
+      inputTokens + outputTokens === 0)
   ) {
-    settleUnknown('AI_PROVIDER_ERROR');
+    settleFailure('AI_PROVIDER_ERROR');
     throwServerError({
       trpcCode: 'BAD_GATEWAY',
       errorCode: 'AI_PROVIDER_ERROR',
@@ -321,7 +396,7 @@ export async function extractInvoiceFromImage(
     costUsd = Number.NaN;
   }
   if (!Number.isFinite(costUsd) || costUsd < 0) {
-    settleUnknown('AI_PROVIDER_ERROR');
+    settleFailure('AI_PROVIDER_ERROR');
     throwServerError({
       trpcCode: 'BAD_GATEWAY',
       errorCode: 'AI_PROVIDER_ERROR',
@@ -345,7 +420,7 @@ export async function extractInvoiceFromImage(
       cacheReadTokens,
       cacheWriteTokens,
       costUsd,
-      costState: 'estimated',
+      costState: remoteCost ? 'estimated' : 'local_zero',
       durationMs,
       errorCode: null,
     },

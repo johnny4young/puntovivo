@@ -25,7 +25,6 @@ vi.mock('@/features/modules', () => ({
 vi.mock('@/hooks', () => ({
   useTenantSettings: () => ({
     formatCurrency: (value: number) => `$${value.toFixed(2)}`,
-    formatDate: (value: string) => value,
     formatDateTime: (value: string) => value,
   }),
 }));

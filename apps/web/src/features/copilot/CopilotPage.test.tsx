@@ -259,6 +259,64 @@ describe('CopilotPage', () => {
     expect(screen.queryByText('Executed SQL')).not.toBeInTheDocument();
   });
 
+  it.each([
+    { boundary: 'owner round-trip', failure: false },
+    { boundary: 'abort', failure: false },
+    { boundary: 'owner round-trip', failure: true },
+    { boundary: 'abort', failure: true },
+  ])(
+    'discards a canceled response after $boundary, failure=$failure',
+    async ({ boundary, failure }) => {
+      let capturedTransport: ChatTransport<UIMessage> | null = null;
+      const stop = vi.fn();
+      mocks.useChatMock.mockImplementation((args: { transport: ChatTransport<UIMessage> }) => {
+        capturedTransport = args.transport;
+        return baseChatState({ stop });
+      });
+      let resolveRequest: (value: CopilotChatResult) => void = () => undefined;
+      let rejectRequest: (reason: Error) => void = () => undefined;
+      mocks.mutateMock.mockReturnValue(
+        new Promise<CopilotChatResult>((resolve, reject) => {
+          resolveRequest = resolve;
+          rejectRequest = reject;
+        })
+      );
+      const { rerender } = render(<CopilotPage />);
+      const controller = new AbortController();
+      const transport = capturedTransport as ChatTransport<UIMessage> | null;
+      const pending = transport?.sendMessages({
+        trigger: 'submit-message',
+        chatId: 'canceled-result',
+        messageId: undefined,
+        messages: [
+          { id: 'canceled-user', role: 'user', parts: [{ type: 'text', text: 'Show sales' }] },
+        ],
+        abortSignal: controller.signal,
+      });
+      if (boundary === 'abort') {
+        controller.abort();
+      } else {
+        for (const id of ['site-south', 'site-north']) {
+          mocks.useTenantMock.mockReturnValue({
+            currentSite: { id, name: id },
+            isLoadingSites: false,
+          });
+          rerender(<CopilotPage />);
+        }
+        expect(stop).toHaveBeenCalledTimes(2);
+      }
+      await act(async () => {
+        if (failure)
+          rejectRequest(
+            new Error('Canceled provider response must not reach the new conversation')
+          );
+        else resolveRequest(result);
+        await expect(pending).resolves.toBeInstanceOf(ReadableStream);
+      });
+      expect(screen.queryByText('Executed SQL')).not.toBeInTheDocument();
+    }
+  );
+
   it('lets an admin switch the tenant to results-only mode', async () => {
     render(<CopilotPage />);
 
