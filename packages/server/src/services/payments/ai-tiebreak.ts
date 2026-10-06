@@ -28,6 +28,7 @@ import type { DatabaseInstance } from '../../db/index.js';
 import { createModuleLogger } from '../../logging/logger.js';
 import { currentMonthSpend, recordCall } from '../ai/auditLog.js';
 import { resolveAISettings, toBillableTokenUsage } from '../ai/client.js';
+import { summarizeProviderError } from '../ai/provider-error.js';
 import { getProvider } from '../ai/providers/registry.js';
 
 const log = createModuleLogger('services/payments/ai-tiebreak');
@@ -193,7 +194,14 @@ export async function aiTiebreak(
   } catch (error) {
     const durationMs = Date.now() - startedAt;
     log.warn(
-      { err: error, tenantId: ctx.tenantId, providerId: provider.id, modelId },
+      // Provider errors carry the prompt (statement and tender data) and the
+      // response body as enumerable fields; log only a bounded summary.
+      {
+        provider: summarizeProviderError(error),
+        tenantId: ctx.tenantId,
+        providerId: provider.id,
+        modelId,
+      },
       'payment AI tie-break provider call failed'
     );
     let auditLogId: string | null = null;
