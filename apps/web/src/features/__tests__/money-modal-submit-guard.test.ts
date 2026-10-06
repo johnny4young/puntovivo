@@ -24,9 +24,8 @@
  * @module features/__tests__/money-modal-submit-guard.test
  */
 
-import { readFileSync } from 'node:fs';
+import { globSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import fg from 'fast-glob';
 import { describe, expect, it } from 'vitest';
 
 // Vitest runs with the workspace root as cwd; `import.meta.url` is not a file
@@ -93,16 +92,17 @@ const GUARDED_HANDLE_SUBMIT = /\bform\.handleSubmit\(\s*useSingleFlightSubmit\(/
 
 /** Every source file under `features/` that pairs `isSaving` with a form submit. */
 function scanSubmitSites(): Map<string, number> {
-  const files = fg.sync('**/*.{ts,tsx}', {
+  const files = globSync('**/*.{ts,tsx}', {
     cwd: FEATURES_DIR,
-    ignore: ['**/__tests__/**', '**/*.test.ts', '**/*.test.tsx'],
+    exclude: ['**/__tests__/**', '**/*.test.ts', '**/*.test.tsx'],
   });
   const sites = new Map<string, number>();
   for (const relative of files) {
     const source = readFileSync(path.join(FEATURES_DIR, relative), 'utf8');
     if (!source.includes('isSaving')) continue;
     const count = source.match(HANDLE_SUBMIT)?.length ?? 0;
-    if (count > 0) sites.set(path.posix.join('features', relative), count);
+    if (count > 0)
+      sites.set(path.posix.join('features', relative.split(path.sep).join('/')), count);
   }
   return sites;
 }
