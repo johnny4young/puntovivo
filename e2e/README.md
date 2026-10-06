@@ -340,7 +340,14 @@ before the login form renders, first verify the Electron runtime itself:
 node_modules/electron/dist/Electron.app/Contents/MacOS/Electron --version
 ```
 
-On macOS this must print the pinned Electron version, currently `v43.4.1`.
+On macOS this must print the pinned Electron version, currently `v43.5.0`.
+
+Both development and packaged E2E launches isolate Chromium credential storage
+(`--use-mock-keychain` on macOS, `--password-store=basic` on Linux). This
+prevents a newly installed runtime from prompting for the operator's Keychain
+and blocking later IPC. The encrypted test database still uses the explicit
+E2E key; this harness isolation does not qualify production key storage.
+
 Do not pass Node-style `-e` snippets to the Electron binary; Electron
 interprets the snippet as an app path and opens a misleading "Unable to
 find Electron app" dialog.
@@ -375,3 +382,15 @@ Mobile Waiter and Touch. `web/delivery.spec.ts` covers manual and sale-backed
 logistics. Electron counterparts run against the embedded server and encrypted
 per-test userData: the source adapter is HTTP, but operator writes stay in the UI.
 These journeys do not assert vendor certification, signed installation or hardware.
+
+### Native input versus desktop automation
+
+On macOS the development Electron fixture makes its own native windows
+non-focusable and explicitly blurs existing focus. Playwright still drives the
+real sandboxed renderer and embedded backend through CDP, including DOM keyboard
+and focus assertions. This prevents unrelated operator typing or shortcuts from
+entering a synthetic credential or checkout while automation runs. Each launch
+asserts the native isolation before the journey starts. Production window
+preferences, packaged targets, Linux and Windows are unchanged. These automated
+journeys do not qualify physical keyboard input or native-window focus behavior;
+those require a separate operator-owned smoke.

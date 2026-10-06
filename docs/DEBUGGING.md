@@ -56,8 +56,8 @@ Relevant files:
 Use when debugging:
 
 - `window.electron`
-- `window.db`
 - `window.sync`
+- `window.session`
 - desktop-only renderer integration bugs
 
 Relevant file:

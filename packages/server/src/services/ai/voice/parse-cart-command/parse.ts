@@ -114,11 +114,11 @@ export async function parseVoiceCartCommand(
 
   const modelId = settings.modelId ?? provider.defaultModelId;
   const startedAt = Date.now();
-  const providerOptions = provider.cacheControlForSystemPrompt();
 
   let parsed: VoiceCartCommand;
   let costUsd = 0;
   try {
+    const providerOptions = provider.cacheControlForSystemPrompt();
     const result = await generateObject({
       model: provider.languageModel(modelId),
       instructions: SYSTEM_PROMPT,
@@ -131,9 +131,8 @@ export async function parseVoiceCartCommand(
     parsed = result.object;
     const billable = toBillableTokenUsage(result.usage);
     costUsd = provider.pricing.calculateCostUsd(modelId, billable);
-  } catch (error) {
+  } catch {
     const durationMs = Date.now() - startedAt;
-    const message = error instanceof Error ? error.message : 'Voice parser call failed';
     await recordCall(ctx.db, {
       tenantId: ctx.tenantId,
       siteId: ctx.siteId,
@@ -152,8 +151,7 @@ export async function parseVoiceCartCommand(
     throwServerError({
       trpcCode: 'BAD_GATEWAY',
       errorCode: 'AI_PROVIDER_ERROR',
-      message,
-      details: { cause: String(error) },
+      message: 'Voice parser call failed',
     });
   }
 

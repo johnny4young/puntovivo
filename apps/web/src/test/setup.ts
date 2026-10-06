@@ -1,7 +1,10 @@
-import '@testing-library/jest-dom';
-import { vi } from 'vitest';
+import * as domMatchers from '@testing-library/jest-dom/matchers';
+import { expect, vi } from 'vitest';
 import '../i18n'; // initialize i18next so useTranslation works in tests
 import { registerAllNamespacesForTest } from './i18nTestResources';
+
+// Register the real DOM matchers without the legacy Jest-global type augmentation.
+expect.extend(domMatchers);
 
 function throwUnexpectedConsole(method: 'error' | 'warn', args: unknown[]): never {
   const detail = args

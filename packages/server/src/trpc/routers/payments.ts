@@ -29,21 +29,29 @@
 
 import { sumMoneySql } from '../../lib/money.js';
 import { and, desc, eq, gte, sql } from 'drizzle-orm';
-import { paymentOutbox, type PaymentOutboxStatus, type PaymentRailId } from '../../db/schema.js';
+import {
+  paymentOutbox,
+  paymentReconciliationProposals,
+  type PaymentOutboxStatus,
+  type PaymentRailId,
+} from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import {
   buildPaymentRailsContract,
   getPaymentReconciliation,
 } from '../../services/payments/index.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
+import { reviewPaymentProposal } from '../../services/payments/reconciliation/review.js';
 import { router } from '../init.js';
 import { adminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
 import {
+  listPaymentProposalsInput,
   markPaymentOutboxSettledInput,
   paymentMethodBreakdownInput,
   paymentReconciliationInput,
   peekPaymentOutboxInput,
   retryPaymentOutboxInput,
+  reviewPaymentProposalInput,
 } from '../schemas/payments.js';
 
 export const paymentsRouter = router({
@@ -87,6 +95,33 @@ export const paymentsRouter = router({
     .query(async ({ ctx, input }) => {
       return getPaymentReconciliation(ctx.db, ctx.tenantId, input);
     }),
+
+  /** Immutable AI evidence, including recent reviewed recommendations. */
+  listProposals: managerOrAdminProcedure
+    .input(listPaymentProposalsInput)
+    .query(async ({ ctx, input }) => {
+      return ctx.db
+        .select()
+        .from(paymentReconciliationProposals)
+        .where(
+          input.status
+            ? and(
+                eq(paymentReconciliationProposals.tenantId, ctx.tenantId),
+                eq(paymentReconciliationProposals.status, input.status)
+              )
+            : eq(paymentReconciliationProposals.tenantId, ctx.tenantId)
+        )
+        .orderBy(desc(paymentReconciliationProposals.createdAt))
+        .limit(input.limit)
+        .all();
+    }),
+
+  /** Only an admin can approve or reject a pending AI recommendation. */
+  reviewProposal: adminProcedure
+    .input(reviewPaymentProposalInput)
+    .mutation(({ ctx, input }) =>
+      reviewPaymentProposal(ctx.db, ctx.tenantId, ctx.user!.id, input.proposalId, input.decision)
+    ),
 
   /**
    * aggregated `(rail × status)` view for the last
