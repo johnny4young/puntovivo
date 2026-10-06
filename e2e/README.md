@@ -360,7 +360,14 @@ before the login form renders, first verify the Electron runtime itself:
 node_modules/electron/dist/Electron.app/Contents/MacOS/Electron --version
 ```
 
-On macOS this must print the pinned Electron version, currently `v43.4.1`.
+On macOS this must print the pinned Electron version, currently `v43.5.0`.
+
+Both development and packaged E2E launches isolate Chromium credential storage
+(`--use-mock-keychain` on macOS, `--password-store=basic` on Linux). This
+prevents a newly installed runtime from prompting for the operator's Keychain
+and blocking later IPC. The encrypted test database still uses the explicit
+E2E key; this harness isolation does not qualify production key storage.
+
 Do not pass Node-style `-e` snippets to the Electron binary; Electron
 interprets the snippet as an app path and opens a misleading "Unable to
 find Electron app" dialog.

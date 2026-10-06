@@ -38,7 +38,7 @@
     "anomaly": "Punto de partida para una investigación, no una acusación."
   },
   "privacy": {
-    "redaction": "Los datos personales se redactan antes de salir de tu servidor."
+    "redaction": "El copiloto reemplaza los nombres de clientes y cajeros y los identificadores de cajeros de su consulta analítica actual por etiquetas temporales, y protege los valores coincidentes en la conversación. Esto no es anonimización: otros textos, audios y documentos pueden contener datos personales y se envían al proveedor configurado. No incluyas información sensible."
   },
   "audit": {
     "title": "Registro de IA",

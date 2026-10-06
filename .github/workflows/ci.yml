@@ -8,11 +8,12 @@ on:
     # main here left every intermediate layer of a stack with no functional
     # gate at all -- the PR showed a green check that came from external
     # scanners alone, never from typecheck, lint, test, or build. Accepting a
-    # codex/** base closes that hole. It does not multiply the minute budget:
+    # codex/** or dependabot/** base closes that hole: dependency updates also
+    # serve as stack foundations. It does not multiply the minute budget:
     # dorny/paths-filter diffs a pull_request against that PR's own base ref,
     # so each layer is filtered on its own delta rather than on the whole
     # stack, and the concurrency group below still cancels superseded runs.
-    branches: [main, 'codex/**']
+    branches: [main, 'codex/**', 'dependabot/**']
 
 env:
   NODE_VERSION: '24'
@@ -109,6 +110,10 @@ jobs:
               - 'scripts/ensure-shared-build.mjs'
               - 'tsconfig*.json'
               - '.npmrc'
+              # Shared formatting contracts read both checkout and formatter
+              # policy; config-only edits must run their owning gates too.
+              - '.gitattributes'
+              - '.prettierrc'
             web:
               - 'apps/web/**'
               - 'e2e/web/**'
@@ -134,6 +139,9 @@ jobs:
             server:
               - 'packages/server/**'
               - 'perf-budget.json'
+              # Server tests guard Electron main sources, such as the
+              # sync_outbox writer check in sync-contract-manifest.test.ts.
+              - 'apps/desktop/src/main/**'
             desktop:
               - 'apps/desktop/**'
               - 'packages/server/**'
@@ -160,7 +168,9 @@ jobs:
               - 'scripts/check-dependency-signals.test.mjs'
               - 'scripts/check-e2e-awaited-helpers*.mjs'
               - 'scripts/e2e-baseline-cleanup.test.mjs'
+              - 'scripts/electron-fetch-download.test.mjs'
               - 'e2e/shared/baseline.ts'
+              - 'e2e/shared/attendance-date.ts'
               - 'scripts/check-exact-override-policy*.mjs'
               - 'scripts/check-format-policy.test.mjs'
               - 'scripts/check-lint-policy.test.mjs'
@@ -190,6 +200,7 @@ jobs:
               - '.github/workflows/build-desktop.yml'
               - 'apps/desktop/package.json'
               - 'apps/desktop/electron-builder.yml'
+              - 'apps/desktop/forge.config.js'
               - 'apps/desktop/scripts/prune-native-prebuilds.mjs'
               - 'apps/web/vite.config.ts'
               # scripts/ci-path-filters.test.mjs fails when a script test that a

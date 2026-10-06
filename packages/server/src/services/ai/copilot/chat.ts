@@ -30,7 +30,7 @@ import type { AISettings } from '../types.js';
 
 import { ALLOWED_TABLES, RESULT_ROW_LIMIT, SQL_MAX_LENGTH } from './constants.js';
 import { resolveWindow } from './sql.js';
-import { runReadOnlySQL } from './snapshot.js';
+import { createCopilotSnapshot } from './snapshot.js';
 import {
   buildContextBlock,
   buildPrompt,
@@ -139,10 +139,19 @@ export async function runCopilotChat(
   const startedAt = Date.now();
   let lastSQLResult: CopilotSQLResult | null = null;
 
+  let snapshot: Awaited<ReturnType<typeof createCopilotSnapshot>> | undefined;
   try {
+    snapshot = await createCopilotSnapshot(ctx.db, ctx.tenantId, input.context, now);
+    const protectedSnapshot = snapshot;
     const providerOptions = provider.cacheControlForSystemPrompt();
     const contextBlock = buildContextBlock(window, ctx.siteId);
-    const messagesWithContext = injectContextIntoMessages(input.messages, contextBlock);
+    const messagesWithContext = injectContextIntoMessages(
+      input.messages.map(message => ({
+        ...message,
+        content: protectedSnapshot.redact(message.content),
+      })),
+      contextBlock
+    );
     const result = await generateText({
       model: provider.languageModel(modelId),
       instructions: buildSystemPrompt(responseMode),
@@ -165,12 +174,7 @@ export async function runCopilotChat(
             query: z.string().min(1).max(SQL_MAX_LENGTH),
           }),
           execute: async ({ query }) => {
-            lastSQLResult = await runReadOnlySQL(
-              ctx.db,
-              ctx.tenantId,
-              { query, context: input.context },
-              now
-            );
+            lastSQLResult = protectedSnapshot.query(query);
             return lastSQLResult;
           },
         }),
@@ -283,11 +287,13 @@ export async function runCopilotChat(
       throw error;
     }
 
-    throwServerError({
+    return throwServerError({
       trpcCode: 'BAD_GATEWAY',
       errorCode: 'AI_PROVIDER_ERROR',
       message: error instanceof Error ? error.message : 'AI provider call failed',
       details: { cause: String(error) },
     });
+  } finally {
+    snapshot?.close();
   }
 }

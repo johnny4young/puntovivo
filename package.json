@@ -32,6 +32,7 @@
     "ci:desktop": "pnpm run ci:shared && pnpm run ci:audit && pnpm run lint:fast:desktop && pnpm --filter @puntovivo/server run build && pnpm --filter @puntovivo/web run build && pnpm --filter @puntovivo/desktop run build:main && pnpm --filter @puntovivo/desktop run typecheck && pnpm --filter @puntovivo/desktop run lint && pnpm --filter @puntovivo/desktop run format && pnpm --filter @puntovivo/desktop run test && pnpm --filter @puntovivo/desktop run profile:backup:ci && node --test scripts/asar-stream-integrity.test.mjs scripts/backup-streaming-budget.test.mjs scripts/check-electron-memory.test.mjs scripts/electron-e2e-runtime.test.mjs scripts/electron-process-log-policy.test.mjs scripts/ensure-migrations-bundled.test.mjs scripts/ensure-native-runtime.test.mjs scripts/packaged-first-use-journey.test.mjs scripts/prune-native-prebuilds.test.mjs scripts/run-electron-memory-gate.test.mjs scripts/vite-main-config.test.mjs && node scripts/run-electron-memory-gate.mjs --strict --require-measurement",
     "perf:backup:release": "pnpm --filter @puntovivo/desktop run profile:backup:release",
     "perf:electron-memory": "node scripts/check-electron-memory.mjs",
+    "perf:electron-memory:gate": "node scripts/run-electron-memory-gate.mjs",
     "perf:lighthouse": "node scripts/check-lighthouse.mjs",
     "ci:server": "pnpm run ci:shared && pnpm run ci:audit && pnpm run lint:fast:server && pnpm --filter @puntovivo/server run typecheck && pnpm --filter @puntovivo/server run lint && pnpm --filter @puntovivo/server run format && pnpm --filter @puntovivo/server run test:coverage && pnpm --filter @puntovivo/server run test:perf:trpc && pnpm --filter @puntovivo/server run test:perf:store && pnpm --filter @puntovivo/server run test:perf:search && pnpm --filter @puntovivo/server run test:perf:audit",
     "test:e2e:web": "node scripts/ensure-playwright-browser.mjs && pnpm --filter @puntovivo/server run build && pnpm --filter @puntovivo/server run native:ensure:node && playwright test --config=playwright.web.config.ts --grep-invert \"@long-shift-soak|@isolated-journey\" --forbid-only && playwright test --config=playwright.web-heavy.config.ts --grep @isolated-journey --workers=1 --forbid-only",
@@ -44,7 +45,7 @@
     "test:e2e": "pnpm run test:e2e:web && pnpm run test:e2e:electron",
     "collect:gate5-evidence": "node scripts/collect-representative-install-evidence.mjs",
     "validate:gate5-evidence": "node scripts/validate-representative-install-evidence.mjs",
-    "test:release-script": "node --test scripts/ci-path-filters.test.mjs scripts/upload-release-assets.test.mjs scripts/github-cli-utils.test.mjs scripts/rewrite-update-feed.test.mjs scripts/update-rollout-workflow.test.mjs scripts/clean-paths.test.mjs scripts/prerelease-e2e-workflow.test.mjs scripts/collect-desktop-candidate-evidence.test.mjs scripts/desktop-candidate-workflow.test.mjs scripts/desktop-native-packaging-policy.test.mjs scripts/run-desktop-smoke-policy.test.mjs scripts/packaged-recovery-evidence.test.mjs scripts/publish-human-release-notes.test.mjs scripts/release-notes-gate.test.mjs scripts/external-electron-e2e-evidence.test.mjs scripts/representative-install-evidence.test.mjs",
+    "test:release-script": "node --test scripts/ci-path-filters.test.mjs scripts/distribution-trust.test.mjs scripts/packaged-binary.test.mjs scripts/upload-release-assets.test.mjs scripts/github-cli-utils.test.mjs scripts/rewrite-update-feed.test.mjs scripts/update-rollout-workflow.test.mjs scripts/clean-paths.test.mjs scripts/prerelease-e2e-workflow.test.mjs scripts/collect-desktop-candidate-evidence.test.mjs scripts/desktop-candidate-workflow.test.mjs scripts/desktop-native-packaging-policy.test.mjs scripts/run-desktop-smoke-policy.test.mjs scripts/packaged-recovery-evidence.test.mjs scripts/publish-human-release-notes.test.mjs scripts/release-notes-gate.test.mjs scripts/external-electron-e2e-evidence.test.mjs scripts/representative-install-evidence.test.mjs",
     "seed:dev": "pnpm --filter @puntovivo/server run seed:dev",
     "clean": "node ./scripts/clean-paths.mjs node_modules \"apps/*/node_modules\" \"packages/*/node_modules\"",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
@@ -54,22 +55,23 @@
     "lint:fast:desktop": "oxlint apps/desktop/src",
     "lint:fast:e2e": "oxlint e2e",
     "audit:repository": "node scripts/check-repository-hygiene.mjs",
-    "ci:shared": "pnpm run audit:repository && pnpm --filter @puntovivo/shared run ci && node --experimental-strip-types --test scripts/audit-disposition-policy.test.mjs scripts/check-dependency-signals.test.mjs scripts/check-e2e-awaited-helpers.test.mjs scripts/e2e-baseline-cleanup.test.mjs scripts/check-exact-override-policy.test.mjs scripts/check-format-policy.test.mjs scripts/check-lint-policy.test.mjs scripts/check-operational-readiness.test.mjs scripts/check-migration-chain.test.mjs scripts/check-repository-hygiene.test.mjs scripts/check-setup.test.mjs scripts/ensure-shared-build.test.mjs scripts/pnpm-command.test.mjs scripts/run-dependency-audit.test.mjs scripts/runtime-dependency-reachability.test.mjs && node scripts/check-migration-chain.mjs && node scripts/check-e2e-awaited-helpers.mjs && node scripts/check-exact-override-policy.mjs && node --experimental-strip-types scripts/check-operational-readiness.mjs"
+    "ci:shared": "pnpm run audit:repository && pnpm --filter @puntovivo/shared run ci && node --experimental-strip-types --test scripts/audit-disposition-policy.test.mjs scripts/electron-fetch-download.test.mjs scripts/check-dependency-signals.test.mjs scripts/check-e2e-awaited-helpers.test.mjs scripts/e2e-baseline-cleanup.test.mjs scripts/check-exact-override-policy.test.mjs scripts/check-format-policy.test.mjs scripts/check-lint-policy.test.mjs scripts/check-operational-readiness.test.mjs scripts/check-migration-chain.test.mjs scripts/check-repository-hygiene.test.mjs scripts/check-setup.test.mjs scripts/ensure-shared-build.test.mjs scripts/pnpm-command.test.mjs scripts/run-dependency-audit.test.mjs scripts/runtime-dependency-reachability.test.mjs && node scripts/check-migration-chain.mjs && node scripts/check-e2e-awaited-helpers.mjs && node scripts/check-exact-override-policy.mjs && node --experimental-strip-types scripts/check-operational-readiness.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
     "@electron/asar": "4.2.1",
-    "@playwright/test": "^1.62.1",
-    "@types/node": "^24.13.3",
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^26.6.2",
     "@typescript/native": "npm:typescript@^7.0.2",
     "argon2": "^0.45.1",
     "axe-core": "^4.13.0",
     "better-sqlite3": "npm:better-sqlite3-multiple-ciphers@^13.0.3",
-    "lighthouse": "^13.4.1",
+    "lighthouse": "^13.5.0",
     "nanoid": "^6.0.1",
-    "oxlint": "^1.80.0",
-    "prettier": "^3.9.6",
-    "typescript": "npm:@typescript/typescript6@^6.0.2"
+    "oxlint": "^1.85.0",
+    "prettier": "^3.9.8",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "listr2": "^11.1.1"
   },
   "engines": {
     "node": ">=24.0.0"

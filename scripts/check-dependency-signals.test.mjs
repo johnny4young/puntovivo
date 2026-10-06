@@ -35,17 +35,18 @@ test('dependency policy replaces deprecations instead of suppressing warnings', 
   );
 });
 
-test('global-agent receives the maintained boolean compatibility contract', () => {
-  const packageJsonPath = require.resolve('boolean/package.json');
-  const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
-  const { boolean, isBooleanable } = require('boolean');
-
-  assert.equal(packageJson.version, '3.2.1-puntovivo.0');
-  assert.match(workspaceManifest, /^\s+boolean: 'file:packages\/boolean-compat'$/m);
-  assert.equal(boolean('false'), false);
-  assert.equal(boolean('yes'), true);
-  assert.equal(isBooleanable('off'), true);
-  assert.equal(isBooleanable('maybe'), false);
+test('desktop tooling no longer retains the retired proxy, cache and glob graph', () => {
+  for (const name of [
+    'global-agent',
+    'got',
+    'http-cache-semantics',
+    'cacheable-request',
+    'braces',
+    'fast-glob',
+  ]) {
+    assert.doesNotMatch(lockfile, new RegExp(`^ {2}'?${name}@`, 'm'), name);
+  }
+  assert.doesNotMatch(workspaceManifest, /file:packages\/boolean-compat/);
 });
 
 test('deprecated lodash.isequal consumers receive a maintained equivalent call shape', () => {
@@ -263,6 +264,164 @@ test('TypeScript 7 compiler stays isolated from the TypeScript 6 tooling API', (
   assert.match(version.stdout, /^Version 7\.0\.2\s*$/);
   assert.equal(compatibilityPackage.name, '@typescript/typescript6');
   assert.equal(compatibilityPackage.version, '6.0.2');
-  assert.equal(typescriptEslintPackage.version, '8.68.0');
+  assert.equal(typeof require('typescript').createProgram, 'function');
+  assert.equal(typescriptEslintPackage.version, '8.70.1');
   assert.equal(typescriptEslintPackage.peerDependencies.typescript, '>=4.8.4 <6.1.0');
+});
+
+test('receipt editor dependencies share one CodeMirror state class identity', () => {
+  const state = require('@codemirror/state');
+  for (const owner of [
+    '@uiw/react-codemirror',
+    '@codemirror/search',
+    '@codemirror/theme-one-dark',
+    '@codemirror/commands',
+    '@codemirror/autocomplete',
+    '@codemirror/lint',
+    '@codemirror/language',
+  ]) {
+    // Separate compatible copies still break extension instanceof checks.
+    const ownerRequire = createRequire(require.resolve(owner));
+    assert.equal(ownerRequire('@codemirror/state').EditorState, state.EditorState, owner);
+    assert.equal(ownerRequire('@codemirror/state').Facet, state.Facet, owner);
+  }
+});
+
+test('Vitest 5 and its coverage provider share the reviewed Vite and Node contract', () => {
+  for (const workspace of ['apps/web', 'packages/server']) {
+    const ownerRequire = createRequire(
+      new URL('../' + workspace + '/package.json', import.meta.url)
+    );
+    const manifest = readJson(new URL('../' + workspace + '/package.json', import.meta.url));
+    const runner = ownerRequire('vitest/package.json');
+    const coverage = ownerRequire('@vitest/coverage-v8/package.json');
+    const vite = ownerRequire('vite/package.json');
+    assert.equal(manifest.devDependencies.vitest, '^5.0.1');
+    assert.equal(manifest.devDependencies['@vitest/coverage-v8'], '^5.0.1');
+    assert.equal(runner.version, '5.0.1');
+    assert.equal(coverage.version, runner.version);
+    assert.equal(coverage.peerDependencies.vitest, runner.version);
+    assert.equal(vite.version, '8.3.0');
+    // Node 24 remains a supported execution target, even with Node 26 declarations.
+    assert.equal(runner.engines.node, '^22.12.0 || ^24.0.0 || >=26.0.0');
+    assert.equal(runner.peerDependencies.vite, '^6.4.0 || ^7.0.0 || ^8.0.0');
+    assert.equal(ownerRequire('@types/node/package.json').version, '26.6.2');
+  }
+});
+
+// Resolve from the consuming package, not the hoisted root: the schema
+// compiler and AJV use different supported fast-uri major lines.
+for (const owner of ['fast-json-stringify', 'ajv']) {
+  test(owner + ' normalizes percent-encoded host case before URI comparison', () => {
+    const ownerRequire = createRequire(require.resolve(owner));
+    const uri = ownerRequire('fast-uri');
+    assert.equal(uri.parse('//%41.com').host, 'a.com');
+    assert.equal(uri.equal('//%41.com', '//a.com'), true);
+    assert.equal(uri.equal('//a.com', '//b.com'), false);
+  });
+}
+
+test('the rate limiter subnet dependency rejects cross-family allowlist matches', () => {
+  const rateLimitRequire = createRequire(require.resolve('@fastify/rate-limit'));
+  const { Address4, Address6 } = rateLimitRequire('ip-address');
+  const cases = [
+    [new Address6('a00::1'), new Address4('10.0.0.0/8')],
+    [new Address4('32.0.0.1'), new Address6('2000::/3')],
+  ];
+  for (const [address, subnet] of cases) {
+    assert.equal(address.isInSubnet(subnet), false);
+    assert.equal(address.isHostInSubnet(subnet), false);
+  }
+  // Positive controls keep a fail-closed regression from passing by simply
+  // disabling all subnet matches.
+  assert.equal(new Address4('10.1.2.3').isInSubnet(new Address4('10.0.0.0/8')), true);
+  assert.equal(new Address6('2001:db8::1').isInSubnet(new Address6('2001:db8::/32')), true);
+});
+
+test('HTTP consumers keep patched undici releases within their existing major lines', () => {
+  const owners = [
+    ['app-builder-lib', '7.29.1'],
+    ['node-gyp', '6.28.1'],
+    ['@ai-sdk/provider-utils', '7.29.1'],
+    ['jsdom', '8.11.0'],
+  ];
+  for (const [owner, version] of owners) {
+    const ownerRequire = createRequire(require.resolve(owner + '/package.json'));
+    assert.equal(ownerRequire('undici/package.json').version, version, owner);
+  }
+});
+
+for (const hook of [
+  'beforeSanitizeElements',
+  'uponSanitizeElement',
+  'afterSanitizeElements',
+  'afterSanitizeAttributes',
+]) {
+  test('PDF sanitizer neutralizes detached descendants from ' + hook, () => {
+    const pdfRequire = createRequire(require.resolve('jspdf'));
+    const { JSDOM } = require('jsdom');
+    const window = new JSDOM('<!doctype html><body></body>').window;
+    try {
+      const purify = pdfRequire('dompurify')(window);
+      const root = window.document.createElement('div');
+      const wrapper = window.document.createElement('section');
+      const image = window.document.createElement('img');
+      // No resource URL or script execution: inspect the retained attribute
+      // through the original reference even after its parent is detached.
+      image.setAttribute('onerror', 'void 0');
+      wrapper.append(image);
+      root.append(wrapper);
+      window.document.body.append(root);
+      purify.addHook(hook, node => {
+        if (node === wrapper) wrapper.remove();
+      });
+      purify.sanitize(root, { IN_PLACE: true });
+      assert.equal(wrapper.isConnected, false);
+      assert.equal(image.hasAttribute('onerror'), false);
+    } finally {
+      window.close();
+    }
+  });
+}
+
+test('glob brace parsing treats excessive nesting as literal without stack exhaustion', () => {
+  const globRequire = createRequire(require.resolve('minimatch'));
+  const { expand, EXPANSION_MAX_DEPTH } = globRequire('brace-expansion');
+  assert.equal(EXPANSION_MAX_DEPTH, 1_000);
+  const depth = 6_000;
+  const pattern = '{'.repeat(depth) + 'a,b' + '}'.repeat(depth);
+  // Upstream deliberately treats over-depth input as literal instead of
+  // recursing or throwing; ordinary nesting must still expand normally.
+  assert.deepEqual(expand(pattern), [pattern]);
+  assert.deepEqual(expand('{{a,b}}'), ['{a}', '{b}']);
+  assert.deepEqual(expand('report-{en,es}.pdf'), ['report-en.pdf', 'report-es.pdf']);
+});
+
+test('glob brace parsing processes long comma groups without stack exhaustion', () => {
+  const globRequire = createRequire(require.resolve('minimatch'));
+  const { expand } = globRequire('brace-expansion');
+  const count = 8_000;
+  assert.deepEqual(expand('{' + '{a},'.repeat(count) + 'b}'), [...Array(count).fill('{a}'), 'b']);
+});
+
+test('Electron development and production packaging share the reviewed patched runtime', () => {
+  const desktop = readJson(new URL('../apps/desktop/package.json', import.meta.url));
+  const builder = readFileSync(
+    new URL('../apps/desktop/electron-builder.yml', import.meta.url),
+    'utf8'
+  );
+  const version = require('electron/package.json').version;
+  assert.equal(version, '43.5.0');
+  assert.equal(desktop.devDependencies.electron, version);
+  assert.equal(builder.match(/^electronVersion:\s*(\S+)$/m)?.[1], version);
+  assert.doesNotMatch(workspaceManifest, /^\s+- electron@43\.4\.1$/m);
+});
+
+test('glob brace rewrite work is bounded while ordinary patterns still expand', () => {
+  const globRequire = createRequire(require.resolve('minimatch'));
+  const { expand, EXPANSION_MAX_REWRITES } = globRequire('brace-expansion');
+  assert.equal(EXPANSION_MAX_REWRITES, 1_000);
+  const pattern = '{a}' + '}'.repeat(2_000) + ',z}';
+  assert.deepEqual(expand(pattern), [pattern]);
+  assert.deepEqual(expand('{a},b}'), ['a}', 'b']);
 });

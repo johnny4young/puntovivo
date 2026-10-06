@@ -31,7 +31,7 @@ describe('useElectron — non-Electron environment', () => {
     expect(result.current.appInfo).toBeNull();
     expect(result.current.electron).toBeNull();
     expect(result.current.sync).toBeNull();
-    expect(result.current.db).toBeNull();
+    expect(result.current).not.toHaveProperty('db');
   });
 });
 
@@ -63,7 +63,7 @@ describe('useElectron — Electron environment', () => {
     expect(electronStub.getServerUrl).toHaveBeenCalledOnce();
     expect(result.current.electron).toBe(electronStub);
     expect(result.current.sync).toBe(syncStub);
-    expect(result.current.db).toBe(dbStub);
+    expect(result.current).not.toHaveProperty('db');
   });
 
   it('keeps appInfo=null and logs when the IPC bridge throws', async () => {
@@ -83,9 +83,6 @@ describe('useElectron — Electron environment', () => {
     });
     // appInfo never updates on the failure branch.
     expect(result.current.appInfo).toBeNull();
-    expect(consoleSpy).toHaveBeenCalledWith(
-      'Failed to load Electron app info:',
-      error
-    );
+    expect(consoleSpy).toHaveBeenCalledWith('Failed to load Electron app info:', error);
   });
 });
