@@ -16,7 +16,7 @@ import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 import { createServer } from 'node:net';
 import { setTimeout as delay } from 'node:timers/promises';
-import { dirname, resolve } from 'node:path';
+import { dirname, posix, resolve, win32 } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolvePnpmInvocation } from './lib/pnpm-command.mjs';
 
@@ -129,7 +129,12 @@ export function buildPreviewInvocation(
   options,
   { env = process.env, platform = process.platform, execPath = process.execPath } = {}
 ) {
-  const pnpmEntry = env.npm_execpath || (platform === 'win32' ? null : 'pnpm');
+  // npm/yarn also export npm_execpath. Only a pnpm entry understands the
+  // --filter/exec preview arguments; anything else falls back to PATH pnpm.
+  const execEntry = typeof env.npm_execpath === 'string' ? env.npm_execpath : '';
+  const entryName = (platform === 'win32' ? win32 : posix).basename(execEntry);
+  const launchedByPnpm = /^pnpm\b/i.test(entryName);
+  const pnpmEntry = launchedByPnpm ? execEntry : platform === 'win32' ? null : 'pnpm';
   if (!pnpmEntry) {
     throw new Error(
       'Run the memory gate via pnpm run perf:electron-memory:gate to provide its executable entry'

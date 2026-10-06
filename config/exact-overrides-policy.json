@@ -26,8 +26,8 @@
     },
     {
       "category": "security-floor",
-      "reviewedOn": "2026-09-08",
-      "reviewBy": "2026-10-08",
+      "reviewedOn": "2026-10-06",
+      "reviewBy": "2026-11-05",
       "reason": "Force vulnerable transitive versions to patched releases through the narrowest known selector instead of suppressing low-severity advisories.",
       "removalCriteria": "Remove a selector when the lockfile has no vulnerable path without it; otherwise advance the floor to the newest owner-compatible patched release and rerun the full dependency audit.",
       "pins": {
@@ -42,8 +42,8 @@
     },
     {
       "category": "deprecation-floor",
-      "reviewedOn": "2026-09-04",
-      "reviewBy": "2026-10-04",
+      "reviewedOn": "2026-10-06",
+      "reviewBy": "2026-11-05",
       "reason": "Replace upstream-deprecated runtime and packaging transitives with the narrowest maintained owner-compatible releases.",
       "removalCriteria": "Remove a selector after every owner resolves a non-deprecated release without it and the dependency, desktop packaging, and applicable workspace gates remain clean.",
       "pins": {
@@ -86,6 +86,17 @@
       "removalCriteria": "Remove this selector and the compatibility patch when app-builder-lib owns @electron/get 5 or later with fetch-compatible deadlines and proxy handling and the downloader plus packaging gates pass without them.",
       "pins": {
         "app-builder-lib>@electron/get": "5.1.0"
+      }
+    },
+    {
+      "category": "security-floor",
+      "reviewedOn": "2026-10-06",
+      "reviewBy": "2026-11-05",
+      "reason": "Patch source-map-js 1.2.1 (GHSA-68fv-2mgg-jv7q, indexed source-map section offsets, reachable through sanitize-html>postcss) and http-cache-semantics 4.2.0 (GHSA-ch52-4w7c-c8xp, max-stale cross-user disclosure in the Electron download cache) to their first patched releases on the same major lines.",
+      "removalCriteria": "Remove each vulnerable-version selector once postcss, @tailwindcss/node and cacheable-request resolve the patched floor without it and the full dependency audit plus all applicable workspace gates pass.",
+      "pins": {
+        "source-map-js@1.2.1": "1.2.2",
+        "http-cache-semantics@4.2.0": "4.3.0"
       }
     }
   ]
