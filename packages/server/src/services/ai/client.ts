@@ -20,6 +20,7 @@ import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../audit-logs.js';
 
 import { reserveAiBudget, settleAiBudget } from './budget.js';
+import { isDefinitiveProviderRejection } from './provider-rejection.js';
 import { getProvider } from './providers/registry.js';
 import type { AIProvider, TokenUsage } from './providers/types.js';
 import type {
@@ -36,7 +37,13 @@ export interface AIInvocationContext {
   tenantId: string;
   siteId: string | null;
   userId: string | null;
-  /** Request cancellation is propagated to the provider when available. */
+  /**
+   * Request cancellation (e.g. the HTTP client disconnected). It cancels only
+   * work that has not been dispatched: once a provider request is sent, it
+   * runs to its own bounded deadline and settles with its known cost, because
+   * aborting it would turn a priced call into an unknown-cost liability that
+   * holds the tenant's AI budget.
+   */
   abortSignal?: AbortSignal;
 }
 
@@ -329,8 +336,26 @@ interface UsageForPricing {
     | undefined;
 }
 
+function settleCompletion(...args: Parameters<typeof settleAiBudget>): { id: string } {
+  try {
+    return settleAiBudget(...args);
+  } catch {
+    // The kernel rolls back audit and settlement together. Keep its durable
+    // hold, but never expose a private persistence diagnostic to the caller.
+    return throwServerError({
+      trpcCode: 'BAD_GATEWAY',
+      errorCode: 'AI_PROVIDER_ERROR',
+      message: 'AI call could not be recorded',
+    });
+  }
+}
+
+function isKnownTokenCount(value: number | undefined): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+}
+
 function tokenCount(value: number | undefined): number {
-  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0;
+  return isKnownTokenCount(value) ? value : 0;
 }
 
 export function toBillableTokenUsage(usage: UsageForPricing): TokenUsage {
@@ -369,9 +394,22 @@ export async function completeAI(
     });
   }
 
-  const provider = factory(settings.providerId);
+  // Preparation hooks have not dispatched a request: sanitize their errors,
+  // but do not manufacture an unknown bill or reserve the tenant's budget.
+  let provider: AIProvider;
+  let configured: boolean;
+  try {
+    provider = factory(settings.providerId);
+    configured = provider.isConfigured();
+  } catch {
+    throwServerError({
+      trpcCode: 'BAD_GATEWAY',
+      errorCode: 'AI_PROVIDER_ERROR',
+      message: 'AI provider call failed',
+    });
+  }
 
-  if (!provider.isConfigured()) {
+  if (!configured) {
     throwServerError({
       trpcCode: 'BAD_REQUEST',
       errorCode: 'AI_PROVIDER_ERROR',
@@ -388,8 +426,19 @@ export async function completeAI(
   }
 
   const modelId = input.modelId ?? settings.modelId ?? provider.defaultModelId;
-  const model = provider.languageModel(modelId);
-  const providerOptions = provider.cacheControlForSystemPrompt();
+  let model: ReturnType<AIProvider['languageModel']>;
+  let providerOptions: ReturnType<AIProvider['cacheControlForSystemPrompt']>;
+  try {
+    model = provider.languageModel(modelId);
+    providerOptions = provider.cacheControlForSystemPrompt();
+  } catch {
+    throwServerError({
+      trpcCode: 'BAD_GATEWAY',
+      errorCode: 'AI_PROVIDER_ERROR',
+      message: 'AI provider call failed',
+    });
+  }
+  ctx.abortSignal?.throwIfAborted();
   const reservation = reserveAiBudget(ctx.db, ctx.tenantId);
   const startedAt = Date.now();
 
@@ -400,7 +449,7 @@ export async function completeAI(
       ...(input.system !== undefined ? { instructions: input.system } : {}),
       prompt: input.prompt,
       ...(input.maxOutputTokens !== undefined ? { maxOutputTokens: input.maxOutputTokens } : {}),
-      ...(ctx.abortSignal !== undefined ? { abortSignal: ctx.abortSignal } : {}),
+      // No client abort signal here (see AIInvocationContext.abortSignal).
       timeout: { totalMs: 60_000 },
       maxRetries: 0,
       ...(providerOptions !== undefined
@@ -409,10 +458,13 @@ export async function completeAI(
     });
   } catch (error) {
     const durationMs = Date.now() - startedAt;
-    // The SDK may have sent this request before failure or cancellation;
-    // zero is not evidence of a free provider call.
-    const uncertainRemoteCost = provider.id !== 'ollama';
-    settleAiBudget(
+    // The SDK may have sent this request before failure or our deadline;
+    // zero is not evidence of a free provider call. A definitive provider
+    // rejection (pre-inference 4xx answer) or a connection that was never
+    // established proves no billable work and releases the hold.
+    const notIncurred = isDefinitiveProviderRejection(error);
+    const uncertainRemoteCost = provider.id !== 'ollama' && !notIncurred;
+    settleCompletion(
       ctx.db,
       reservation,
       {
@@ -427,7 +479,8 @@ export async function completeAI(
         cacheReadTokens: 0,
         cacheWriteTokens: 0,
         costUsd: 0,
-        costState: uncertainRemoteCost ? 'unknown' : 'local_zero',
+        costState:
+          provider.id === 'ollama' ? 'local_zero' : notIncurred ? 'not_incurred' : 'unknown',
         durationMs,
         errorCode: 'AI_PROVIDER_ERROR',
       },
@@ -436,18 +489,20 @@ export async function completeAI(
     throwServerError({
       trpcCode: 'BAD_GATEWAY',
       errorCode: 'AI_PROVIDER_ERROR',
-      message: error instanceof Error ? error.message : 'AI provider call failed',
-      details: { cause: String(error) },
+      message: 'AI provider call failed',
     });
   }
 
-  const inputTokens = result.usage.inputTokens ?? 0;
-  const outputTokens = result.usage.outputTokens ?? 0;
-  const cacheReadTokens = result.usage.inputTokenDetails?.cacheReadTokens ?? 0;
-  const cacheWriteTokens = result.usage.inputTokenDetails?.cacheWriteTokens ?? 0;
+  // Invalid counters cannot be persisted as NaN/Infinity (SQLite maps NaN
+  // to NULL), nor may normalization turn them into a known free call.
+  // Retain each valid counter and keep the cost unknown if any is malformed.
+  const inputTokens = tokenCount(result.usage.inputTokens);
+  const outputTokens = tokenCount(result.usage.outputTokens);
+  const cacheReadTokens = tokenCount(result.usage.inputTokenDetails?.cacheReadTokens);
+  const cacheWriteTokens = tokenCount(result.usage.inputTokenDetails?.cacheWriteTokens);
   const durationMs = Date.now() - startedAt;
   const markUnpriceable = () => {
-    settleAiBudget(
+    settleCompletion(
       ctx.db,
       reservation,
       {
@@ -470,8 +525,13 @@ export async function completeAI(
     );
   };
   const hasUsableRemoteUsage =
-    result.usage.inputTokens !== undefined &&
-    result.usage.outputTokens !== undefined &&
+    isKnownTokenCount(result.usage.inputTokens) &&
+    isKnownTokenCount(result.usage.outputTokens) &&
+    [
+      result.usage.inputTokenDetails?.noCacheTokens,
+      result.usage.inputTokenDetails?.cacheReadTokens,
+      result.usage.inputTokenDetails?.cacheWriteTokens,
+    ].every(value => value === undefined || isKnownTokenCount(value)) &&
     inputTokens + outputTokens + cacheReadTokens + cacheWriteTokens > 0;
   if (provider.id !== 'ollama' && !hasUsableRemoteUsage) {
     markUnpriceable();
@@ -502,7 +562,7 @@ export async function completeAI(
     });
   }
 
-  const { id: auditLogId } = settleAiBudget(
+  const { id: auditLogId } = settleCompletion(
     ctx.db,
     reservation,
     {

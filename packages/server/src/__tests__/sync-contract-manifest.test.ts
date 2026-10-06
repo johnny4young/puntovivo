@@ -184,20 +184,21 @@ describe('sync contract manifest', () => {
     ).toEqual([]);
   });
 
-  it('routes the Electron IPC outbox writer through the shared status resolver', async () => {
-    // The desktop bridge is a second writer into sync_outbox that bypasses
-    // enqueueSync, so a hardcoded status there re-opens the leak regardless of
-    // what this manifest says. It cannot be exercised in the desktop
-    // node --test harness (its module graph uses runtime .js specifiers that
-    // --experimental-strip-types cannot resolve), so the guard is on the
-    // source: every status it writes must come from the shared resolver.
-    const bridge = path.resolve(
+  it('keeps Electron main from inserting sync_outbox rows outside enqueueSync', async () => {
+    // A second writer would bypass resolveSyncOutboxStatus and could queue
+    // regulated rows as transportable work, whatever this manifest says.
+    const mainDir = path.resolve(
       path.dirname(new URL(import.meta.url).pathname),
-      '../../../../apps/desktop/src/main/ipc/sync.ts'
+      '../../../../apps/desktop/src/main'
     );
-    const source = await readFile(bridge, 'utf-8');
-    expect(source).toContain('resolveSyncOutboxStatus');
-    const hardcoded = [...source.matchAll(/status:\s*'([a-z_]+)'/g)].map(match => match[1]);
-    expect(hardcoded, `hardcoded sync_outbox statuses: ${hardcoded.join(', ')}`).toEqual([]);
+    const writers: string[] = [];
+    for (const entry of await readdir(mainDir, { recursive: true })) {
+      if (!entry.endsWith('.ts') || entry.includes('__tests__')) continue;
+      const source = await readFile(path.join(mainDir, entry), 'utf-8');
+      if (/insert\(\s*syncOutbox\s*\)|INSERT\s+(OR\s+\w+\s+)?INTO\s+sync_outbox/i.test(source)) {
+        writers.push(entry);
+      }
+    }
+    expect(writers).toEqual([]);
   });
 });

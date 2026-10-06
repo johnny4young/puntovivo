@@ -336,19 +336,6 @@ export interface PeripheralsAPI {
  * vector 1 — tenantId is no longer a wire argument. Main
  * derives it from the registered desktopSession singleton.
  */
-export interface DatabaseAPI {
-  getAll: (table: string) => Promise<unknown[]>;
-  getById: (table: string, id: string) => Promise<unknown>;
-  insert: (table: string, data: Record<string, unknown>) => Promise<unknown>;
-  update: (table: string, id: string, data: Record<string, unknown>) => Promise<unknown>;
-  delete: (table: string, id: string) => Promise<boolean>;
-  getByField: (table: string, fieldName: string, value: unknown) => Promise<unknown[]>;
-  deleteByTenant: (table: string) => Promise<number>;
-  countByTenant: (table: string) => Promise<number>;
-  addToSyncQueue: (item: Record<string, unknown>) => Promise<void>;
-  getPendingSyncItems: () => Promise<unknown[]>;
-}
-
 export interface SyncAPI {
   getStatus: () => Promise<{
     isOnline: boolean;
@@ -436,7 +423,6 @@ export type HubAuthIpcResult<T = HubAccessGrant> =
     };
 
 export interface DesktopBridgeAPI extends ElectronAPI {
-  db: DatabaseAPI;
   sync: SyncAPI;
   session: SessionAPI;
 }
@@ -445,7 +431,6 @@ declare global {
   // explicit `| undefined` on optional fields.
   interface Window {
     electron?: ElectronAPI | undefined;
-    db?: DatabaseAPI | undefined;
     sync?: SyncAPI | undefined;
     session?: SessionAPI | undefined;
     api?: DesktopBridgeAPI | undefined;

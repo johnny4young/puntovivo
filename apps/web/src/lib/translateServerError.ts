@@ -9,6 +9,7 @@ import serverErrorNamespaces from '../i18n/server-error-namespaces.json';
  * server package's runtime entry point.
  */
 export const KNOWN_SERVER_ERROR_CODES = [
+  'TENANT_TIMEZONE_INVALID',
   'SETUP_ALREADY_COMPLETED',
   'SETUP_TOKEN_INVALID',
   'SETUP_BUSY',
@@ -439,6 +440,7 @@ export const KNOWN_SERVER_ERROR_CODES = [
   // ---  AI foundation ---
   'AI_DISABLED',
   'AI_BUDGET_EXCEEDED',
+  'AI_BUDGET_BUSY',
   'AI_PROVIDER_ERROR',
   'AI_COPILOT_SQL_REJECTED',
   'AI_COPILOT_QUERY_LIMIT_EXCEEDED',
@@ -488,6 +490,9 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'PAYMENT_RECONCILIATION_AI_DEGRADED',
   // ---  Operations Center payment admin actions ---
   'PAYMENT_OUTBOX_NOT_FOUND',
+  'PAYMENT_PROPOSAL_NOT_FOUND',
+  'PAYMENT_PROPOSAL_NOT_PENDING',
+  'PAYMENT_PROPOSAL_STALE',
   'PAYMENT_OUTBOX_NOT_RETRIABLE',
   // ---  sync contract v1 ---
   'SYNC_OUTBOX_NOT_FOUND',

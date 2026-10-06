@@ -58,7 +58,19 @@
     "budgetMeterBlocked": "Blocked · {{spent}} this month",
     "budgetMeterHint": "Amounts are provider-priced estimates. Local Ollama calls have US$0 external cost. Provider invoices and quotas are authoritative.",
     "unknownCostWarning_one": "1 call this month has no provider cost estimate and is not included in the amount.",
-    "unknownCostWarning_other": "{{count}} calls this month have no provider cost estimate and are not included in the amount."
+    "unknownCostWarning_other": "{{count}} calls this month have no provider cost estimate and are not included in the amount.",
+    "reconcile": {
+      "hint": "Unknown-cost calls hold the AI budget until an administrator records what the provider actually billed for them (provider invoice or console).",
+      "costLabel": "Billed amount (USD)",
+      "noteLabel": "Note",
+      "notePlaceholder": "Where the amount comes from",
+      "submit": "Record cost and release",
+      "submitting": "Recording…",
+      "successTitle": "AI budget released",
+      "successDescription_one": "1 call was reconciled.",
+      "successDescription_other": "{{count}} calls were reconciled.",
+      "errorTitle": "Could not release the AI budget"
+    }
   },
   "toast": {
     "saveSuccessTitle": "AI settings saved",

@@ -1,18 +1,25 @@
 #!/usr/bin/env node
 /**
- * pure tests for the Electron memory gate runner.
+ * contract tests for the Electron memory gate runner.
  *
  * The real launch is covered by `ci:desktop`; these tests pin argument/env
- * handling and the retry helper without starting Vite or Electron.
+ * handling, literal child-process arguments and readiness without starting
+ * Vite or Electron.
  *
  * @module scripts/run-electron-memory-gate.test
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   buildCheckArgs,
   buildCheckEnv,
   buildPreviewArgs,
+  buildPreviewInvocation,
   DEFAULT_PREVIEW_HOST,
   DEFAULT_PREVIEW_PORT,
   reserveLoopbackPort,
@@ -97,9 +104,92 @@ test('buildPreviewArgs starts Vite preview on a strict port', () => {
   ]);
 });
 
+test('the public memory-gate command runs through the pnpm script environment', () => {
+  const manifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+  assert.equal(
+    manifest.scripts['perf:electron-memory:gate'],
+    'node scripts/run-electron-memory-gate.mjs'
+  );
+});
+
+test('buildPreviewInvocation runs a pnpm script through the current Node on Windows', () => {
+  const entry = String.raw`C:\Program Files\pnpm\pnpm.cjs`;
+  assert.deepEqual(
+    buildPreviewInvocation(
+      { host: '127.0.0.1', port: 4444 },
+      { env: { npm_execpath: entry }, platform: 'win32', execPath: 'node.exe' }
+    ),
+    {
+      command: 'node.exe',
+      args: [entry, ...buildPreviewArgs({ host: '127.0.0.1', port: 4444 })],
+      shell: false,
+    }
+  );
+});
+
+test('buildPreviewInvocation launches the native standalone pnpm executable without a shell', () => {
+  const entry = String.raw`C:\Program Files\pnpm\pnpm.exe`;
+  const options = { host: '127.0.0.1', port: 4444 };
+  assert.deepEqual(
+    buildPreviewInvocation(options, { env: { npm_execpath: entry }, platform: 'win32' }),
+    { command: entry, args: buildPreviewArgs(options), shell: false }
+  );
+});
+
+test('buildPreviewInvocation preserves direct POSIX invocation and honors explicit pnpm entries', () => {
+  const options = { host: '127.0.0.1', port: 4444 };
+  assert.deepEqual(buildPreviewInvocation(options, { env: {}, platform: 'linux' }), {
+    command: 'pnpm',
+    args: buildPreviewArgs(options),
+    shell: false,
+  });
+  assert.deepEqual(
+    buildPreviewInvocation(options, { env: { npm_execpath: '/store/pnpm' }, platform: 'darwin' }),
+    {
+      command: '/store/pnpm',
+      args: buildPreviewArgs(options),
+      shell: false,
+    }
+  );
+});
+
+test('buildPreviewInvocation fails closed for a missing Windows entry or a shell wrapper', () => {
+  const options = { host: '127.0.0.1', port: 4444 };
+  for (const entry of [undefined, '', 'pnpm.cmd', 'pnpm.bat']) {
+    assert.throws(
+      () => buildPreviewInvocation(options, { env: { npm_execpath: entry }, platform: 'win32' }),
+      /Run the memory gate via pnpm/,
+      String(entry)
+    );
+  }
+});
+
+test('buildPreviewInvocation preserves literal arguments through a real child script without shell evaluation', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'puntovivo-pnpm-preview-'));
+  try {
+    const entry = join(dir, 'pnpm with spaces.cjs');
+    writeFileSync(entry, 'process.stdout.write(JSON.stringify(process.argv.slice(2)))');
+    const options = { host: '127.0.0.1 & echo unexpected', port: 4444 };
+    const invocation = buildPreviewInvocation(options, {
+      env: { npm_execpath: entry },
+      platform: 'win32',
+      execPath: process.execPath,
+    });
+    const result = spawnSync(invocation.command, invocation.args, {
+      shell: invocation.shell,
+      encoding: 'utf8',
+    });
+    assert.equal(result.error, undefined);
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(JSON.parse(result.stdout), buildPreviewArgs(options));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('buildCheckArgs forwards only check-electron-memory arguments', () => {
   const args = buildCheckArgs(['--strict', '--require-measurement']);
-  assert.match(args[0], /scripts\/check-electron-memory\.mjs$/);
+  assert.equal(args[0], fileURLToPath(new URL('./check-electron-memory.mjs', import.meta.url)));
   assert.deepEqual(args.slice(1), ['--strict', '--require-measurement']);
 });
 
