@@ -12,6 +12,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import { TRPCError } from '@trpc/server';
 import { eq } from 'drizzle-orm';
 import type { LanguageModelV4 } from '@ai-sdk/provider';
+import { APICallError, NoObjectGeneratedError } from 'ai';
 
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
@@ -410,13 +411,17 @@ describe('extractInvoiceFromImage', () => {
     expect(failure.message).toBe('Vision provider call failed');
     expectNoPublicDiagnostic(failure, secret);
     expect(generateObjectMock).not.toHaveBeenCalled();
-    const audit = await getDatabase()
-      .select()
-      .from(aiAuditLog)
-      .where(eq(aiAuditLog.tenantId, tenantId));
-    expect(audit).toHaveLength(1);
-    expect(audit[0]?.errorCode).toBe('AI_PROVIDER_ERROR');
-    expect(JSON.stringify(audit)).not.toContain(secret);
+    // Preparation runs before admission: no call happened, so there is no
+    // audit row and no budget hold (kernel contract, #279).
+    expect(
+      await getDatabase().select().from(aiAuditLog).where(eq(aiAuditLog.tenantId, tenantId))
+    ).toHaveLength(0);
+    expect(
+      await getDatabase()
+        .select()
+        .from(aiBudgetReservations)
+        .where(eq(aiBudgetReservations.tenantId, tenantId))
+    ).toHaveLength(0);
   });
 
   it('persists a failed-call audit row and surfaces AI_PROVIDER_ERROR for transport errors', async () => {
@@ -465,7 +470,7 @@ describe('extractInvoiceFromImage', () => {
       );
     const first = call();
     await vi.waitFor(() => expect(generateObjectMock).toHaveBeenCalledTimes(1));
-    await expectErrorCode(call(), 'AI_BUDGET_EXCEEDED');
+    await expectErrorCode(call(), 'AI_BUDGET_BUSY');
     expect(generateObjectMock).toHaveBeenCalledTimes(1);
     finish({ object: SAMPLE_INVOICE, usage: { inputTokens: 1200, outputTokens: 300 } });
     await expect(first).resolves.toMatchObject({ invoice: SAMPLE_INVOICE });
@@ -603,18 +608,16 @@ describe('extractInvoiceFromImage', () => {
     ).toHaveLength(0);
   });
 
-  it('bounds and cancels the provider call without SDK retries', async () => {
+  it('lets a dispatched extraction finish and settle its cost after a client abort', async () => {
     const tenantId = await seedTenant('abort');
     await enableAI(tenantId);
     const controller = new AbortController();
+    let finish!: () => void;
     generateObjectMock.mockImplementationOnce(
-      (options: { abortSignal: AbortSignal }) =>
-        new Promise((_resolve, reject) => {
-          options.abortSignal.addEventListener(
-            'abort',
-            () => reject(new Error('request cancelled')),
-            { once: true }
-          );
+      () =>
+        new Promise(resolve => {
+          finish = () =>
+            resolve({ object: SAMPLE_INVOICE, usage: { inputTokens: 1200, outputTokens: 300 } });
         })
     );
     const pending = extractInvoiceFromImage(
@@ -628,11 +631,94 @@ describe('extractInvoiceFromImage', () => {
       maxRetries?: number;
     };
     controller.abort();
-    await expectErrorCode(pending, 'AI_PROVIDER_ERROR');
-    expect(options.abortSignal?.aborted).toBe(true);
+    // The client signal is admission-only; only our own deadline bounds the call.
+    expect(options.abortSignal?.aborted).toBe(false);
     expect(options.maxRetries).toBe(0);
+    finish();
+    await expect(pending).resolves.toMatchObject({ invoice: SAMPLE_INVOICE });
     expect(
       await getDatabase().select().from(aiAuditLog).where(eq(aiAuditLog.tenantId, tenantId))
-    ).toMatchObject([{ costState: 'unknown' }]);
+    ).toMatchObject([{ costState: 'estimated', errorCode: null }]);
+  });
+
+  it('releases the hold when the provider rejects the request before inference', async () => {
+    const tenantId = await seedTenant('rate-limited');
+    await enableAI(tenantId);
+    generateObjectMock.mockRejectedValueOnce(
+      new APICallError({
+        message: 'rate limited',
+        url: 'https://provider.invalid/v1/messages',
+        requestBodyValues: {},
+        statusCode: 429,
+      })
+    );
+    await expectErrorCode(
+      extractInvoiceFromImage(
+        { db: getDatabase(), tenantId, siteId: null, userId: null },
+        { imageBase64: 'aGVsbG8=', mimeType: 'image/png' },
+        () => buildStubProvider()
+      ),
+      'AI_PROVIDER_ERROR'
+    );
+    expect(
+      await getDatabase().select().from(aiAuditLog).where(eq(aiAuditLog.tenantId, tenantId))
+    ).toMatchObject([{ costState: 'not_incurred', costUsd: 0 }]);
+    expect(
+      await getDatabase()
+        .select()
+        .from(aiBudgetReservations)
+        .where(eq(aiBudgetReservations.tenantId, tenantId))
+    ).toHaveLength(0);
+  });
+
+  it('books the priced tokens of an unparseable model answer instead of an unknown liability', async () => {
+    const tenantId = await seedTenant('parse-priced');
+    await enableAI(tenantId);
+    generateObjectMock.mockRejectedValueOnce(
+      new NoObjectGeneratedError({
+        message: 'No object generated: response did not match schema.',
+        text: '{}',
+        response: { id: 'r', timestamp: new Date(), modelId: 'test-vision-model' },
+        usage: {
+          inputTokens: 1200,
+          outputTokens: 300,
+          totalTokens: 1500,
+          inputTokenDetails: {
+            noCacheTokens: 1200,
+            cacheReadTokens: undefined,
+            cacheWriteTokens: undefined,
+          },
+          outputTokenDetails: { textTokens: 300, reasoningTokens: undefined },
+        },
+        finishReason: 'stop',
+      })
+    );
+    await expectErrorCode(
+      extractInvoiceFromImage(
+        { db: getDatabase(), tenantId, siteId: null, userId: null },
+        { imageBase64: 'aGVsbG8=', mimeType: 'image/png' },
+        () => buildStubProvider()
+      ),
+      'AI_VISION_PARSE_FAILED'
+    );
+    const rows = await getDatabase()
+      .select()
+      .from(aiAuditLog)
+      .where(eq(aiAuditLog.tenantId, tenantId));
+    expect(rows).toMatchObject([
+      {
+        costState: 'estimated',
+        errorCode: 'AI_VISION_PARSE_FAILED',
+        inputTokens: 1200,
+        outputTokens: 300,
+      },
+    ]);
+    expect(rows[0]?.costUsd).toBeCloseTo(1200 / 1_000_000 + (300 * 5) / 1_000_000, 10);
+    expect(
+      await getDatabase()
+        .select()
+        .from(aiBudgetReservations)
+        .where(eq(aiBudgetReservations.tenantId, tenantId))
+    ).toHaveLength(0);
   });
 });

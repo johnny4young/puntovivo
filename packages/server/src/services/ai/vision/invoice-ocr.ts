@@ -15,7 +15,13 @@
  *
  * @module services/ai/vision/invoice-ocr
  */
-import { JSONParseError, NoObjectGeneratedError, TypeValidationError, generateObject } from 'ai';
+import {
+  JSONParseError,
+  NoObjectGeneratedError,
+  TypeValidationError,
+  generateObject,
+  type LanguageModelUsage,
+} from 'ai';
 import type { ProviderOptions } from '@ai-sdk/provider-utils';
 import { z } from 'zod';
 
@@ -23,6 +29,7 @@ import type { DatabaseInstance } from '../../../db/index.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
 
 import { reserveAiBudget, settleAiBudget } from '../budget.js';
+import { isDefinitiveProviderRejection } from '../provider-rejection.js';
 import { toBillableTokenUsage } from '../client.js';
 import { getProvider } from '../providers/registry.js';
 import type { AIProvider } from '../providers/types.js';
@@ -219,13 +226,16 @@ export async function extractInvoiceFromImage(
   // completion kernel, its failures release the hold instead of retaining
   // a tenant-wide unknown liability for the rest of the month.
   const remoteCost = provider.id !== 'ollama';
-  const abortSignal = ctx.abortSignal
-    ? AbortSignal.any([ctx.abortSignal, AbortSignal.timeout(60_000)])
-    : AbortSignal.timeout(60_000);
-  abortSignal.throwIfAborted();
+  // The client signal is admission-only: it stops work before the budget is
+  // reserved, but a dispatched extraction runs to its own deadline and
+  // settles its known cost instead of becoming an unknown-cost liability.
+  ctx.abortSignal?.throwIfAborted();
   const reservation = reserveAiBudget(ctx.db, ctx.tenantId);
   const startedAt = Date.now();
-  const settleUnknown = (errorCode: 'AI_VISION_PARSE_FAILED' | 'AI_PROVIDER_ERROR') =>
+  const settleFailure = (
+    errorCode: 'AI_VISION_PARSE_FAILED' | 'AI_PROVIDER_ERROR',
+    notIncurred = false
+  ) =>
     settleAiBudget(
       ctx.db,
       reservation,
@@ -241,12 +251,33 @@ export async function extractInvoiceFromImage(
         cacheReadTokens: 0,
         cacheWriteTokens: 0,
         costUsd: 0,
-        costState: remoteCost ? 'unknown' : 'local_zero',
+        costState: !remoteCost ? 'local_zero' : notIncurred ? 'not_incurred' : 'unknown',
         durationMs: Date.now() - startedAt,
         errorCode,
       },
-      remoteCost
+      remoteCost && !notIncurred
     );
+
+  const isKnownCount = (value: unknown): value is number =>
+    typeof value === 'number' && Number.isFinite(value) && value >= 0;
+  /** Priced cost of complete, non-empty remote usage; null when unusable. */
+  const priceUsage = (usage: LanguageModelUsage | undefined): number | null => {
+    if (
+      !usage ||
+      !isKnownCount(usage.inputTokens) ||
+      !isKnownCount(usage.outputTokens) ||
+      usage.inputTokens + usage.outputTokens === 0
+    ) {
+      return null;
+    }
+    let cost: number;
+    try {
+      cost = provider.pricing.calculateCostUsd(modelId, toBillableTokenUsage(usage));
+    } catch {
+      return null;
+    }
+    return Number.isFinite(cost) && cost >= 0 ? cost : null;
+  };
 
   let result;
   try {
@@ -254,7 +285,7 @@ export async function extractInvoiceFromImage(
       model,
       instructions: EXTRACT_PROMPT_SYSTEM,
       schema: InvoiceOcrSchema,
-      abortSignal,
+      abortSignal: AbortSignal.timeout(60_000),
       // Retrying may bill twice after an ambiguous provider response.
       maxRetries: 0,
       messages: [
@@ -295,8 +326,37 @@ export async function extractInvoiceFromImage(
 
     const errorCode = isSchemaFailure ? 'AI_VISION_PARSE_FAILED' : 'AI_PROVIDER_ERROR';
 
-    // The provider may have billed before returning a parse, transport, or abort error.
-    settleUnknown(errorCode);
+    // A schema failure still consumed priced tokens: book them when the SDK
+    // reports usage. A pre-inference rejection (4xx) or a connection never
+    // established billed nothing. Anything else may have been billed.
+    const parseUsage =
+      isSchemaFailure && NoObjectGeneratedError.isInstance(error) ? error.usage : undefined;
+    const parseCost = remoteCost ? priceUsage(parseUsage) : null;
+    if (parseCost !== null && parseUsage) {
+      settleAiBudget(
+        ctx.db,
+        reservation,
+        {
+          tenantId: ctx.tenantId,
+          siteId: ctx.siteId,
+          userId: ctx.userId,
+          feature: 'invoiceOcr',
+          providerId: provider.id,
+          modelId,
+          inputTokens: parseUsage.inputTokens ?? 0,
+          outputTokens: parseUsage.outputTokens ?? 0,
+          cacheReadTokens: parseUsage.inputTokenDetails?.cacheReadTokens ?? 0,
+          cacheWriteTokens: parseUsage.inputTokenDetails?.cacheWriteTokens ?? 0,
+          costUsd: parseCost,
+          costState: 'estimated',
+          durationMs: Date.now() - startedAt,
+          errorCode,
+        },
+        false
+      );
+    } else {
+      settleFailure(errorCode, isDefinitiveProviderRejection(error));
+    }
 
     throwServerError({
       trpcCode: isSchemaFailure ? 'BAD_REQUEST' : 'BAD_GATEWAY',
@@ -308,8 +368,6 @@ export async function extractInvoiceFromImage(
   const usage = result.usage;
   const rawInputTokens = usage?.inputTokens;
   const rawOutputTokens = usage?.outputTokens;
-  const isKnownCount = (value: unknown): value is number =>
-    typeof value === 'number' && Number.isFinite(value) && value >= 0;
   const inputTokens = isKnownCount(rawInputTokens) ? rawInputTokens : 0;
   const outputTokens = isKnownCount(rawOutputTokens) ? rawOutputTokens : 0;
   // A remote response without complete usage cannot be priced. Keep the
@@ -321,7 +379,7 @@ export async function extractInvoiceFromImage(
       !isKnownCount(rawOutputTokens) ||
       inputTokens + outputTokens === 0)
   ) {
-    settleUnknown('AI_PROVIDER_ERROR');
+    settleFailure('AI_PROVIDER_ERROR');
     throwServerError({
       trpcCode: 'BAD_GATEWAY',
       errorCode: 'AI_PROVIDER_ERROR',
@@ -338,7 +396,7 @@ export async function extractInvoiceFromImage(
     costUsd = Number.NaN;
   }
   if (!Number.isFinite(costUsd) || costUsd < 0) {
-    settleUnknown('AI_PROVIDER_ERROR');
+    settleFailure('AI_PROVIDER_ERROR');
     throwServerError({
       trpcCode: 'BAD_GATEWAY',
       errorCode: 'AI_PROVIDER_ERROR',
