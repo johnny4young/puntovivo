@@ -16,7 +16,16 @@ export async function assertSinglePagePdf(documentBase64: string, abortSignal?: 
     const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs');
     signal.throwIfAborted();
     const bytes = new Uint8Array(Buffer.from(documentBase64, 'base64'));
-    const loadingTask = getDocument({ data: bytes, useWorkerFetch: false, stopAtErrors: true });
+    const loadingTask = getDocument({
+      data: bytes,
+      useWorkerFetch: false,
+      stopAtErrors: true,
+      // Defence in depth for untrusted uploads: the preflight only counts
+      // pages, so never install font faces or render XFA forms. (PDF.js 6 no
+      // longer compiles font programs with eval; cf. CVE-2024-4367.)
+      disableFontFace: true,
+      enableXfa: false,
+    });
     let onAbort: (() => void) | undefined;
     try {
       const aborted = new Promise<never>((_, reject) => {
@@ -35,7 +44,11 @@ export async function assertSinglePagePdf(documentBase64: string, abortSignal?: 
       if (onAbort) signal.removeEventListener('abort', onAbort);
       await loadingTask.destroy();
     }
-  } catch {
+  } catch (error) {
+    // A client that went away is a cancellation, not an invalid PDF; let the
+    // request boundary report it as such. Our own parse deadline still means
+    // the document could not be validated.
+    if (abortSignal?.aborted) throw abortSignal.reason ?? error;
     throwServerError({
       trpcCode: 'BAD_REQUEST',
       errorCode: 'AI_VISION_PDF_INVALID',
