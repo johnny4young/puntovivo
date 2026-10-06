@@ -35,17 +35,18 @@ test('dependency policy replaces deprecations instead of suppressing warnings', 
   );
 });
 
-test('global-agent receives the maintained boolean compatibility contract', () => {
-  const packageJsonPath = require.resolve('boolean/package.json');
-  const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
-  const { boolean, isBooleanable } = require('boolean');
-
-  assert.equal(packageJson.version, '3.2.1-puntovivo.0');
-  assert.match(workspaceManifest, /^\s+boolean: 'file:packages\/boolean-compat'$/m);
-  assert.equal(boolean('false'), false);
-  assert.equal(boolean('yes'), true);
-  assert.equal(isBooleanable('off'), true);
-  assert.equal(isBooleanable('maybe'), false);
+test('desktop tooling no longer retains the retired proxy, cache and glob graph', () => {
+  for (const name of [
+    'global-agent',
+    'got',
+    'http-cache-semantics',
+    'cacheable-request',
+    'braces',
+    'fast-glob',
+  ]) {
+    assert.doesNotMatch(lockfile, new RegExp(`^ {2}'?${name}@`, 'm'), name);
+  }
+  assert.doesNotMatch(workspaceManifest, /file:packages\/boolean-compat/);
 });
 
 test('deprecated lodash.isequal consumers receive a maintained equivalent call shape', () => {
@@ -339,7 +340,7 @@ test('the rate limiter subnet dependency rejects cross-family allowlist matches'
 
 test('HTTP consumers keep patched undici releases within their existing major lines', () => {
   const owners = [
-    ['@electron/get', '7.29.1'],
+    ['app-builder-lib', '7.29.1'],
     ['node-gyp', '6.28.1'],
     ['@ai-sdk/provider-utils', '7.29.1'],
     ['jsdom', '8.11.0'],
