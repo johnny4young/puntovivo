@@ -48,7 +48,9 @@ describe('SiteLocationAssignmentsModal', () => {
 
     await user.clear(screen.getByRole('textbox'));
     await user.click(screen.getByRole('checkbox'));
-    await user.click(screen.getByRole('button', { name: i18n.t('sites.locations.save', { ns: 'settings' }) }));
+    await user.click(
+      screen.getByRole('button', { name: i18n.t('sites.locations.save', { ns: 'settings' }) })
+    );
     expect(onSubmit).toHaveBeenCalledWith(['location-1']);
   });
 });

@@ -47,7 +47,9 @@ describe('ProviderCategoryAssignmentsModal', () => {
 
     await user.clear(screen.getByRole('textbox'));
     await user.click(screen.getByRole('checkbox'));
-    await user.click(screen.getByRole('button', { name: i18n.t('providers.categories.save', { ns: 'settings' }) }));
+    await user.click(
+      screen.getByRole('button', { name: i18n.t('providers.categories.save', { ns: 'settings' }) })
+    );
     expect(onSubmit).toHaveBeenCalledWith(['category-1']);
   });
 });
