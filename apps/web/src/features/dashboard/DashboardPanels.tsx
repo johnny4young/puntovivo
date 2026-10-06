@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '@puntovivo/server';
+import { formatCalendarDay } from '@/lib/utils';
 
 type DashboardSummary = inferRouterOutputs<AppRouter>['dashboard']['summary'];
 
@@ -18,7 +19,6 @@ interface DashboardStatsGridProps {
 interface RevenueTrendCardProps {
   points: DashboardSummary['revenueChart'];
   formatCurrency: (amount: number) => string;
-  formatDate: (date: Date | string) => string;
 }
 
 interface RecentSalesCardProps {
@@ -133,7 +133,7 @@ function buildChartGeometry(points: RevenueTrendCardProps['points']) {
   return { coordinates, line, area };
 }
 
-export function RevenueTrendCard({ points, formatCurrency, formatDate }: RevenueTrendCardProps) {
+export function RevenueTrendCard({ points, formatCurrency }: RevenueTrendCardProps) {
   const { t } = useTranslation('dashboard');
   const firstPoint = points.at(0);
   const lastPoint = points.at(-1);
@@ -191,7 +191,7 @@ export function RevenueTrendCard({ points, formatCurrency, formatDate }: Revenue
                   className="dashboard-chart-point"
                 >
                   <title>
-                    {formatDate(point.date)} · {formatCurrency(point.revenue)} ·{' '}
+                    {formatCalendarDay(point.date)} · {formatCurrency(point.revenue)} ·{' '}
                     {t('ordersCount', { count: point.orders })}
                   </title>
                 </circle>
@@ -199,8 +199,8 @@ export function RevenueTrendCard({ points, formatCurrency, formatDate }: Revenue
             </svg>
           )}
           <div className="dashboard-chart-axis" aria-hidden="true">
-            <span>{firstPoint ? formatDate(firstPoint.date) : ''}</span>
-            <span>{lastPoint ? formatDate(lastPoint.date) : ''}</span>
+            <span>{firstPoint ? formatCalendarDay(firstPoint.date) : ''}</span>
+            <span>{lastPoint ? formatCalendarDay(lastPoint.date) : ''}</span>
           </div>
         </div>
 
@@ -215,7 +215,7 @@ export function RevenueTrendCard({ points, formatCurrency, formatDate }: Revenue
           </div>
           <div>
             <span>{t('revenue.bestDay')}</span>
-            <strong>{bestPoint ? formatDate(bestPoint.date) : '—'}</strong>
+            <strong>{bestPoint ? formatCalendarDay(bestPoint.date) : '—'}</strong>
           </div>
         </div>
       </div>

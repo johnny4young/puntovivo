@@ -24,6 +24,7 @@ import {
 import { recordCall } from '../auditLog.js';
 import { reserveAiBudget, settleAiBudget } from '../budget.js';
 import type { AiBudgetReservation } from '../budget.js';
+import { isDefinitiveProviderRejection } from '../provider-rejection.js';
 import { resolveAISettings, toBillableTokenUsage } from '../client.js';
 import type { AIInvocationContext, ProviderFactory } from '../client.js';
 import { getProvider } from '../providers/registry.js';
@@ -132,11 +133,11 @@ export async function runCopilotChat(
   const responseMode = settings.features?.copilot.responseMode ?? 'guided';
   // An explicit body site filters the snapshot. A missing/null body site is
   // tenant-wide even when the UI has a selected site in the request header.
-  const auditSiteId = input.context?.siteId ?? null;
-  const promptSiteId = auditSiteId ?? ctx.siteId;
-  const scopeSiteIds =
-    options.scopeSiteIds ??
-    (await resolveCopilotQuotaSites(ctx.db, ctx.tenantId, input.context?.siteId));
+  const promptSiteId = input.context?.siteId ?? ctx.siteId;
+  // Scope preparation can fail before any provider dispatch. Keep its
+  // zero-usage failure audit, without attributing an unauthorized body site.
+  let auditSiteId: string | null = null;
+  let scopeSiteIds: string[] = [];
   const startedAt = Date.now();
   const sqlCapture: { results: CopilotSQLResult[]; attempts: number; overLimit: boolean } = {
     results: [],
@@ -154,6 +155,10 @@ export async function runCopilotChat(
 
   let snapshot: Awaited<ReturnType<typeof createCopilotSnapshot>> | undefined;
   try {
+    scopeSiteIds =
+      options.scopeSiteIds ??
+      (await resolveCopilotQuotaSites(ctx.db, ctx.tenantId, input.context?.siteId));
+    auditSiteId = input.context?.siteId ?? null;
     snapshot = await createCopilotSnapshot(ctx.db, ctx.tenantId, input.context, now, scopeSiteIds);
     const protectedSnapshot = snapshot;
     const providerOptions = provider.cacheControlForSystemPrompt();
@@ -173,7 +178,8 @@ export async function runCopilotChat(
       model,
       instructions: buildSystemPrompt(responseMode),
       prompt,
-      ...(ctx.abortSignal !== undefined ? { abortSignal: ctx.abortSignal } : {}),
+      // A client abort never reaches a dispatched call (admission-only signal):
+      // it runs to this deadline and settles its known cost.
       timeout: { totalMs: 60_000 },
       maxRetries: 0,
       tools: {
@@ -319,15 +325,21 @@ export async function runCopilotChat(
     // the provider; it must not create a usage row or unknown-cost hold.
     if (ctx.abortSignal?.aborted && reservation === null) throw error;
     const errorCode = serverErrorCodeFrom(error);
+    // A pre-inference provider rejection (4xx) or a connection that was never
+    // established proves no billable work; any other post-dispatch failure
+    // without priced usage keeps an unknown-cost hold.
+    const notIncurred =
+      reservation !== null && consumedUsage === null && isDefinitiveProviderRejection(error);
     const uncertainRemoteCost =
-      reservation !== null && consumedUsage === null && provider.id !== 'ollama';
-    const costState: 'local_zero' | 'estimated' | 'unknown' = consumedUsage
-      ? provider.id === 'ollama'
+      reservation !== null && consumedUsage === null && provider.id !== 'ollama' && !notIncurred;
+    const costState: 'local_zero' | 'estimated' | 'unknown' | 'not_incurred' =
+      provider.id === 'ollama'
         ? 'local_zero'
-        : 'estimated'
-      : provider.id === 'ollama'
-        ? 'local_zero'
-        : 'unknown';
+        : consumedUsage
+          ? 'estimated'
+          : notIncurred
+            ? 'not_incurred'
+            : 'unknown';
     const audit = {
       tenantId: ctx.tenantId,
       siteId: auditSiteId,
@@ -347,20 +359,35 @@ export async function runCopilotChat(
       errorCode,
     };
     if (reservation) {
-      settleAiBudget(ctx.db, reservation, audit, uncertainRemoteCost);
-    } else if (errorCode !== 'AI_BUDGET_EXCEEDED' && errorCode !== 'AI_QUOTA_EXCEEDED') {
+      try {
+        settleAiBudget(ctx.db, reservation, audit, uncertainRemoteCost);
+      } catch {
+        // The kernel rolls back audit and settlement together and keeps the
+        // hold; never surface its private persistence diagnostic.
+        return throwServerError({
+          trpcCode: 'BAD_GATEWAY',
+          errorCode: 'AI_PROVIDER_ERROR',
+          message: 'AI call could not be recorded',
+        });
+      }
+    } else if (
+      errorCode !== 'AI_BUDGET_EXCEEDED' &&
+      errorCode !== 'AI_BUDGET_BUSY' &&
+      errorCode !== 'AI_QUOTA_EXCEEDED'
+    ) {
       await recordCall(ctx.db, { ...audit, costState: 'not_incurred' });
     }
 
-    if (error instanceof TRPCError) {
+    // Only locally constructed domain errors carry our stable code. An SDK
+    // can also throw a TRPCError, whose message is untrusted provider data.
+    if (error instanceof TRPCError && error.cause instanceof ServerErrorWithCode) {
       throw error;
     }
 
     return throwServerError({
       trpcCode: 'BAD_GATEWAY',
       errorCode: 'AI_PROVIDER_ERROR',
-      message: error instanceof Error ? error.message : 'AI provider call failed',
-      details: { cause: String(error) },
+      message: 'AI provider call failed',
     });
   } finally {
     snapshot?.close();

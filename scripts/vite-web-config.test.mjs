@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-import viteWebConfig from '../apps/web/vite.config.ts';
+import viteWebConfig, { BOOT_FONT_FILES } from '../apps/web/vite.config.ts';
+import vitestWebConfig from '../apps/web/vitest.config.ts';
 import { SALES_INITIAL_NAMESPACES } from '../apps/web/src/features/sales/salesInitialNamespaces.ts';
 
 const config = viteWebConfig({
@@ -14,6 +15,12 @@ const config = viteWebConfig({
 const output = config.build.rolldownOptions.output;
 const dataGroup = output.codeSplitting.groups.find(group => typeof group.name === 'function');
 const groupName = dataGroup.name;
+
+test('production and tests share identity-sensitive React and CodeMirror modules', () => {
+  const identityModules = ['react', 'react-dom', '@codemirror/state', '@codemirror/view'];
+  assert.deepEqual(config.resolve.dedupe, identityModules);
+  assert.deepEqual(vitestWebConfig.resolve.dedupe, identityModules);
+});
 
 test('web chunks use native Rolldown grouping without recursive dependency overrides', () => {
   assert.equal(config.build.rollupOptions, undefined);
@@ -27,6 +34,45 @@ test('the shared Vite loader is claimed before any lazy vendor dependencies', ()
   assert.equal(helper.test('\0vite/preload-helper.js'), true);
   assert.equal(helper.test('/repo/src/preload-helper.js'), false);
   assert.ok(helper.priority > (dataGroup.priority ?? 0));
+});
+
+test('startup modules shared with lazy routes collect into one app-shell chunk', () => {
+  const groups = output.codeSplitting.groups;
+  const appShell = groups.find(group => group.name === 'app-shell');
+  // A negative priority outranks every group and would swallow the vendor splits.
+  assert.equal(appShell.priority, undefined);
+  assert.ok(groups.indexOf(appShell) > groups.indexOf(dataGroup));
+  assert.deepEqual(appShell.tags, ['$initial']);
+  assert.equal(appShell.minShareCount, 2);
+  assert.equal(appShell.includeDependenciesRecursively, undefined);
+  assert.equal(appShell.test('/repo/apps/web/src/main.tsx'), false);
+  assert.equal(appShell.test('/repo/apps/web/src/components/ui/Button.tsx'), true);
+});
+
+test('the built shell starts from a bounded, acyclic set of chunks', () => {
+  const manifest = JSON.parse(
+    readFileSync(new URL('../apps/web/dist/.vite/manifest.json', import.meta.url), 'utf8')
+  );
+  const closure = entry => {
+    const visited = new Set();
+    const visit = key => {
+      if (visited.has(key)) return;
+      visited.add(key);
+      for (const dependency of manifest[key].imports ?? []) visit(dependency);
+    };
+    visit(entry);
+    return visited;
+  };
+  const startup = closure('index.html');
+  // Each startup chunk costs a round trip before first paint.
+  assert.ok(startup.size <= 14, `startup loads ${startup.size} chunks`);
+  const appShell = [...startup].filter(key => /^_app-shell-/.test(key));
+  assert.equal(appShell.length, 1, 'startup must load exactly one app-shell chunk');
+  assert.equal(
+    closure(appShell[0]).has('index.html'),
+    false,
+    'app-shell must not import the entry'
+  );
 });
 
 test('Table and its private stores are separate from the eager query and virtualizer runtime', () => {
@@ -172,6 +218,24 @@ test('POS support copy remains dynamic and language-separated in the built artif
         'languages must not import each other'
       );
     }
+  }
+});
+
+test('the built shell preloads the exact display faces its stylesheet uses', () => {
+  const dist = new URL('../apps/web/dist/', import.meta.url);
+  const html = readFileSync(new URL('index.html', dist), 'utf8');
+  const hrefs = [...html.matchAll(/<link rel="preload" as="font"[^>]* href="([^"]+)"/g)].map(
+    match => match[1]
+  );
+  assert.equal(hrefs.length, BOOT_FONT_FILES.length);
+  const css = [...html.matchAll(/<link rel="stylesheet"[^>]* href="([^"]+)"/g)]
+    .map(match => readFileSync(new URL(match[1], dist), 'utf8'))
+    .join('\n');
+  for (const file of BOOT_FONT_FILES) {
+    const href = hrefs.find(value => value.includes(file.replace('.woff2', '-')));
+    // Relative so the protocol-backed desktop bundle resolves it too.
+    assert.match(href ?? '', /^\.\/assets\/[^/]+\.woff2$/, file);
+    assert.ok(css.includes(href.slice('./assets/'.length)), `${href} must be the CSS face`);
   }
 });
 

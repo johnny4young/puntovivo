@@ -120,6 +120,12 @@ export function validateModelAnalyticsSQL(query: string): string {
   // column-list or quoted CTE shadow from a base table. Fail closed here;
   // authorized local read-only SQL still retains WITH support.
   const inspected = stripQuotedStrings(normalized);
+  // SQLite bracket identifiers can contain fake FROM/JOIN tokens. The model
+  // source guard does not tokenize them, so never accept them as evidence.
+  // Keep this restriction separate from authorized local read-only SQL.
+  if (/[[\]]/.test(inspected)) {
+    rejectSQL('Model analytics bracket-quoted identifiers are not supported');
+  }
   if (/\bwith\b/i.test(inspected)) {
     rejectSQL('Model analytics CTE queries are not supported');
   }

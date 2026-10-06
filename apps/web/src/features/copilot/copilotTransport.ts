@@ -13,6 +13,8 @@ export interface CopilotTransportScope {
   mode: CopilotAnalyticsScope;
   siteId: string | null;
   ownerKey: string;
+  /** Monotonic context revision: an A-to-B-to-A switch cannot revive an old request. */
+  revision: number;
 }
 
 interface CopilotTransportOptions {
@@ -60,26 +62,36 @@ export function createCopilotTransport({
   getScope,
 }: CopilotTransportOptions): ChatTransport<UIMessage> {
   return {
-    async sendMessages({ messages }) {
+    async sendMessages({ messages, abortSignal }) {
       const scope = getScope();
+      const isCurrent = () => {
+        const currentScope = getScope();
+        return (
+          !abortSignal?.aborted &&
+          currentScope.revision === scope.revision &&
+          currentScope.ownerKey === scope.ownerKey &&
+          currentScope.mode === scope.mode &&
+          (scope.mode !== 'current' || currentScope.siteId === scope.siteId)
+        );
+      };
+      if (!isCurrent()) return textStream('');
       if (scope.mode === 'current' && !scope.siteId) {
         throw new Error('The current site is unavailable');
       }
-      const result = await vanillaClient.ai.copilot.chat.mutate({
-        messages: toCopilotMessages(messages),
-        context: { siteId: scope.mode === 'current' ? scope.siteId : null },
-      });
-      const currentScope = getScope();
-      if (
-        currentScope.ownerKey !== scope.ownerKey ||
-        currentScope.mode !== scope.mode ||
-        (scope.mode === 'current' && currentScope.siteId !== scope.siteId)
-      ) {
-        // A completed request cannot repopulate another tenant/site's panel.
-        return textStream('');
+      try {
+        const result = await vanillaClient.ai.copilot.chat.mutate({
+          messages: toCopilotMessages(messages),
+          context: { siteId: scope.mode === 'current' ? scope.siteId : null },
+        });
+        // This fences UI ownership, not provider execution or billing.
+        if (!isCurrent()) return textStream('');
+        onResult(result);
+        return textStream(result.answer);
+      } catch (error) {
+        // An old failure must not overwrite the new conversation's state either.
+        if (!isCurrent()) return textStream('');
+        throw error;
       }
-      onResult(result);
-      return textStream(result.answer);
     },
 
     async reconnectToStream() {

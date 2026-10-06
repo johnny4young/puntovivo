@@ -6,6 +6,7 @@
     "reload": "Recargar la aplicación"
   },
   "server": {
+    "TENANT_TIMEZONE_INVALID": "La zona horaria de la empresa no es válida. Pide a un administrador que corrija o borre la zona horaria personalizada en Empresa y vuelve a intentar.",
     "AUTH_INVALID_CREDENTIALS": "Correo o contraseña incorrectos.",
     "AUTH_USER_DISABLED": "Tu cuenta ha sido deshabilitada. Por favor contacta al administrador.",
     "AUTH_TENANT_DISABLED": "Tu organización ha sido deshabilitada. Por favor contacta a soporte.",
@@ -147,7 +148,8 @@
     "SYNC_LOCAL_RECORD_MISSING": "El registro local ya no existe. Descarta el cambio local para aceptar la versión remota.",
     "SYNC_REMOTE_APPLY_BLOCKED": "Este cambio protegido no puede reemplazarse desde aquí. Conserva la evidencia pendiente y revisa la operación original o vuelve a intentar su sincronización.",
     "AI_DISABLED": "Las funciones de IA están desactivadas para esta organización. Actívalas en Empresa → Configuración de IA.",
-    "AI_BUDGET_EXCEEDED": "El gasto de IA de este mes alcanzó el presupuesto configurado. Aumenta el presupuesto o espera al próximo mes.",
+    "AI_BUDGET_EXCEEDED": "El presupuesto mensual de IA no está disponible: se alcanzó el límite configurado o una llamada anterior con costo desconocido lo mantiene reservado. Un administrador puede registrar el costo facturado en la configuración de IA para liberarlo.",
+    "AI_BUDGET_BUSY": "Hay otra solicitud de IA en curso para esta organización. Intenta de nuevo en un momento.",
     "AI_PROVIDER_ERROR": "El proveedor de IA no está disponible o devolvió un error. Revisa la configuración del proveedor e intenta de nuevo.",
     "AI_COPILOT_SQL_REJECTED": "El co-pilot no pudo ejecutar ese análisis de forma segura. Haz una pregunta más simple o reduce los filtros.",
     "AI_COPILOT_QUERY_LIMIT_EXCEEDED": "Ese análisis cubre demasiados datos. Reduce el rango de fechas o selecciona una sede e intenta de nuevo.",
@@ -194,6 +196,9 @@
     "PAYMENT_RECONCILIATION_AI_DEGRADED": "El desempate por IA no estuvo disponible, así que el conciliador dejó la operación pendiente para revisión manual.",
     "PAYMENT_OUTBOX_NOT_FOUND": "Ese registro de pago ya no existe para este tenant. Actualiza el Centro de operaciones y vuelve a intentarlo.",
     "PAYMENT_OUTBOX_NOT_RETRIABLE": "Este pago no se puede reintentar en su estado actual. Solo los registros rechazados, vencidos, en reintento o marcados como dead letter pueden volver a la cola.",
+    "PAYMENT_PROPOSAL_NOT_FOUND": "Esta propuesta de pago con IA ya no está disponible. Actualiza Salud de pagos.",
+    "PAYMENT_PROPOSAL_NOT_PENDING": "Esta propuesta de pago ya se revisó con otra decisión.",
+    "PAYMENT_PROPOSAL_STALE": "El pago o la evidencia del proveedor cambió. No se liquidó nada; actualiza y revisa de nuevo el registro del proveedor.",
     "RESTAURANT_TABLE_NOT_FOUND": "Esa mesa ya no existe para este negocio. Actualiza la lista y vuelve a intentarlo.",
     "RESTAURANT_TABLE_NAME_DUPLICATE": "Otra mesa activa de esta sede ya usa este nombre. Elige uno distinto o archiva la mesa existente primero.",
     "RESTAURANT_TABLE_LIMIT_REACHED": "Esta sede ya tiene la cantidad máxima de mesas activas. Archiva una mesa que no uses antes de crear o reactivar otra.",

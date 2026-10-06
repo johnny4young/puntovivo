@@ -6,6 +6,7 @@
     "reload": "Reload App"
   },
   "server": {
+    "TENANT_TIMEZONE_INVALID": "The company time zone is invalid. Ask an administrator to correct or clear the time zone override in Company settings, then retry.",
     "AUTH_INVALID_CREDENTIALS": "Email or password is incorrect.",
     "AUTH_USER_DISABLED": "Your account has been disabled. Please contact an administrator.",
     "AUTH_TENANT_DISABLED": "Your organization has been disabled. Please contact support.",
@@ -147,7 +148,8 @@
     "SYNC_LOCAL_RECORD_MISSING": "The local record no longer exists. Discard the local change to accept the remote version.",
     "SYNC_REMOTE_APPLY_BLOCKED": "This protected change cannot be replaced here. Keep the pending evidence and review the original business operation or retry its synchronization.",
     "AI_DISABLED": "AI features are turned off for this organization. Enable them in Company → AI settings.",
-    "AI_BUDGET_EXCEEDED": "This month's AI spend has reached the configured budget. Raise the budget or wait until next month.",
+    "AI_BUDGET_EXCEEDED": "The monthly AI budget is unavailable: the configured limit was reached, or an earlier call with an unknown cost is holding it. An administrator can record the billed cost in AI settings to release it.",
+    "AI_BUDGET_BUSY": "Another AI request for this organization is in progress. Try again in a moment.",
     "AI_PROVIDER_ERROR": "The AI provider is unreachable or returned an error. Check the provider configuration and try again.",
     "AI_COPILOT_SQL_REJECTED": "The co-pilot could not run that analysis safely. Ask for a simpler question or narrow the filters.",
     "AI_COPILOT_QUERY_LIMIT_EXCEEDED": "That analysis covers too much data. Narrow the date range or select a site and try again.",
@@ -194,6 +196,9 @@
     "PAYMENT_RECONCILIATION_AI_DEGRADED": "The AI tie-break was unavailable, so the matcher fell back to a manual review suggestion.",
     "PAYMENT_OUTBOX_NOT_FOUND": "That payment row no longer exists for this tenant. Refresh the Operations Center and try again.",
     "PAYMENT_OUTBOX_NOT_RETRIABLE": "This payment cannot be retried in its current status. Only declined, timed out, retrying, or dead-letter rows can go back to the queue.",
+    "PAYMENT_PROPOSAL_NOT_FOUND": "This AI payment proposal is no longer available. Refresh Payment Health.",
+    "PAYMENT_PROPOSAL_NOT_PENDING": "This payment proposal has already been reviewed with a different decision.",
+    "PAYMENT_PROPOSAL_STALE": "The payment or provider evidence changed. No settlement was made; refresh and review the provider record again.",
     "RESTAURANT_TABLE_NOT_FOUND": "That table no longer exists for this business. Refresh the list and try again.",
     "RESTAURANT_TABLE_NAME_DUPLICATE": "Another active table for this site already uses this name. Pick a different name or archive the existing table first.",
     "RESTAURANT_TABLE_LIMIT_REACHED": "This site has reached its table limit. Archive an unused table first.",

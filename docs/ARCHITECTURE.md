@@ -52,6 +52,10 @@ surface to its renderer.
   they do not allocate HTTP ports.
 - Every operation accepting a site identifier validates that the site belongs
   to the active tenant.
+- The cashier voice screen reads only `ai.settings.voiceAvailability`, a
+  tenant-scoped, `semantic-search`-gated enabled flag. The full
+  `ai.settings.get` projection (provider, budget, spend, and quotas) remains
+  manager/admin-only; a UI capability check must not widen that contract.
 
 ### Companion boundary
 
@@ -128,6 +132,10 @@ display.
   cashier.
 - Versioned mutable resources use compare-and-swap updates and report conflicts
   rather than silently overwriting concurrent edits.
+- AI payment tie-breaks create durable, tenant-scoped review proposals, never
+  settlements. An admin decision revalidates the selected provider statement
+  and outbox row before an atomic status change and audit; see
+  [ADR-0031](architecture/0031-human-review-of-ai-payment-proposals.md).
 - Payment, hardware, and sync effects use dedicated durable outboxes. A
   fiscal-enabled completed sale first records a frozen emission intent in the
   sale transaction; the fiscal worker materializes that intent into the fiscal
@@ -480,6 +488,14 @@ the real AI SDK with an in-process fake model and inspect every serialized model
 call, including the calls following tool results and tool errors. These tests
 are not a live-provider certification.
 
+AI provider, SDK, and analytics SQLite exceptions are untrusted diagnostics:
+client-facing tRPC errors expose a fixed fallback and stable error code, never
+the raw exception message or a `cause` detail. Parse failures keep their
+distinct code from transport failures. The tenant audit records the code and
+call metadata, not exception text; only locally constructed domain errors may
+cross the Co-pilot boundary unchanged. This contract limits secondary leakage
+through the browser response and centralized error tracing.
+
 Every Co-pilot response requires at least one successful read-only SQL query
 against a provider-safe snapshot table. The model-facing tool rejects
 constant-only and CTE queries; authorized local SQL retains its separate WITH
@@ -497,23 +513,51 @@ Generic AI completions and Co-pilot chat admit one in-flight provider attempt
 per tenant through a shared, durable, local-calendar-month SQLite reservation
 acquired under `BEGIN IMMEDIATE`. Co-pilot checks every authorized snapshot
 site's remaining monthly quota inside that same write transaction, immediately
-before provider dispatch; its earlier router check only provides fast rejection.
-Successful estimated cost and reservation release commit with one audit row;
-an error, cancellation, or unpriceable remote result
-records one unknown-cost row and retains a month-scoped liability hold. An
-Ollama model-call failure cannot incur remote charges and releases its hold.
-Co-pilot also records priced provider usage when it rejects an answer without
-validated SQL, and preserves the call-time analytics site scope in its audit.
-The SDK's implicit retries are disabled on these paths, and calls have a bounded
-timeout. The Co-pilot chat and connection-test HTTP procedures also forward a
-prematurely closed response as an abort signal to the provider call; a normal
-completed response does not cancel it, and direct non-HTTP callers remain
-supported. Cancellation after remote dispatch retains the unknown-cost hold
-because disconnecting cannot prove that a provider did not bill. This is a
-conservative **local admission control**, not an exact USD
-invoice cap: a single call can exceed the remaining budget, and other AI entry
-points have not yet adopted this reservation path. Unknown liabilities require
-provider-invoice reconciliation; they are never automatically declared free.
+before provider dispatch; its earlier router check only provides fast
+rejection. A second request while a call is in flight receives
+`AI_BUDGET_BUSY` (retry shortly) before any quota is evaluated, because the
+in-flight call may still consume the last slot; `AI_BUDGET_EXCEEDED` means the
+limit was reached or an unknown-cost liability is held. Successful estimated cost and
+reservation release commit with one audit row. A failure records one audit row
+classified by what it proves:
+
+- a definitive provider rejection (HTTP 400/401/403/404/422/429) or a
+  connection that was never established (refused, DNS failure, connect
+  timeout, TLS handshake rejection) is `not_incurred` and releases the hold;
+- an Ollama model-call failure is `local_zero` and releases the hold;
+- every other remote failure (5xx, a reset after the request was sent, our
+  60 s deadline, an unpriceable or malformed result) is `unknown` and retains
+  a month-scoped liability hold.
+
+Client cancellation only cancels work that has not been dispatched. The
+Co-pilot chat and connection-test HTTP procedures turn a prematurely closed
+response into an abort signal (a normal completed response does not, and
+direct non-HTTP callers remain supported); it stops the request before
+admission, without an audit row or hold, but never reaches a dispatched
+provider call, which runs to its bounded deadline and settles its known cost
+rather than turning into an unknown liability. The SDK's implicit
+retries are disabled on these paths. Co-pilot also records priced provider
+usage when it rejects an answer without validated SQL, and preserves the
+call-time analytics site scope in its audit. This is a conservative **local
+admission control**, not an exact USD invoice cap: a single call can exceed
+the remaining budget, and other AI entry points adopt the reservation path
+separately. Unknown liabilities are never automatically declared free: an
+administrator books the provider-billed amount with
+`ai.reconcileBudgetHold({ costUsd, note })` (AI settings card), which marks
+the month's unknown rows `estimated`, releases the hold and writes an
+`ai.budget_hold.reconciled` row to the tenant audit chain. A live in-flight
+admission is never released. A `pending` admission older than 10 minutes
+(every dispatch is bounded at 60 s) was orphaned by a crash or restart; the
+next admission or reconciliation converts it into a visible `unknown`
+liability with a `budgetHoldRecovery` audit row instead of leaving it
+"in progress" forever. Preparation-hook failures occur before dispatch and
+are sanitized without creating a call or liability. Malformed remote token
+counters are not usable pricing evidence: valid counters remain auditable,
+invalid counters store zero only alongside an unknown cost and retained hold.
+A reservation remains in its original month across restart and rollover;
+admitting a later month is not a reconciliation or proof that the earlier
+provider call was free. Month boundaries use the server's local calendar,
+like the quota and spend reports; per-tenant time zones are a follow-up.
 
 ## Price-tier boundary
 
@@ -771,7 +815,7 @@ renderer -> contextBridge wrapper -> ipcRenderer.invoke
          -> validated ipcMain.handle -> main-process capability
 ```
 
-Preload wrappers stay narrow and declarative. Business data normally flows over
+Preload wrappers stay narrow and declarative. Business data flows over
 tRPC; IPC is reserved for desktop-only lifecycle, storage, updater, backup,
 printing, and local-device capabilities.
 
@@ -782,7 +826,11 @@ against the active authority before returning it and clears the singleton when
 it is expired, stale, or no longer belongs to the registered identity. The
 token is never written to disk and remains absent from session diagnostics.
 
-Database and sync IPC methods are constructed through an Electron-free handler
+The renderer has no raw database bridge: neither `window.db` nor
+`window.api.db` is exposed, and no `db:*` handlers are registered in main.
+Generic table CRUD and raw outbox enqueue/diagnostics cannot bypass tRPC use
+cases, role checks, audit, cash-session or fiscal invariants. Sync summary,
+trigger and configuration IPC methods remain in an Electron-free handler
 core that resolves the tenant from that verified main-process session before
 validation or persistence can run; renderer tenant hints are compatibility
 inputs only and never control scope. Workstation-settings writes and the
@@ -791,7 +839,7 @@ pre-login locale update remains structurally separate because it must translate
 the login window, tray, and updater before authentication. The read-only device
 id is needed to complete login; read-only workstation presentation preferences
 contain no tenant or business data. Node tests enumerate every authenticated
-db/sync channel and pin those bounded pre-login exceptions. Expected stale-session
+sync channel and pin those bounded pre-login exceptions. Expected stale-session
 failures cross the main/preload wire as a closed error envelope instead of a
 rejected `ipcMain.handle` call; preload recreates the renderer rejection without
 Electron's internal invoke wrapper or a main-process stack diagnostic.
@@ -878,6 +926,13 @@ selected operating profile. It reports factual configuration and catalog
 counts and links to existing self-service screens. It is advisory: it neither
 blocks checkout nor converts software evidence into legal, hardware, fiscal,
 or production certification.
+For a configured operating profile, when a persisted tenant timezone is
+unsupported, the projection returns only an actionable business-calendar
+attention item leading to Locale settings.
+It does not substitute another calendar day or report date-dependent pharmacy
+policy and authorization counts as ready until the timezone is repaired. Newly
+submitted timezone overrides reject unsupported named zones and bare numeric
+offset strings before persistence; clearing an invalid legacy override remains permitted.
 
 ## Durable decisions
 
