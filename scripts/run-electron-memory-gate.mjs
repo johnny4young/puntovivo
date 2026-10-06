@@ -12,6 +12,8 @@
  */
 
 import { spawn } from 'node:child_process';
+import { request as httpRequest } from 'node:http';
+import { request as httpsRequest } from 'node:https';
 import { createServer } from 'node:net';
 import { setTimeout as delay } from 'node:timers/promises';
 import { dirname, posix, resolve, win32 } from 'node:path';
@@ -225,13 +227,29 @@ async function stopChild(child) {
   }
 }
 
+// Readiness needs only HTTP headers, not fetch's optional QoS socket marking,
+// which can throw outside the fetch promise on macOS. Keep TLS verification
+// intact and stop reading immediately; the strict measurement runs afterwards.
+function probeUrl(url, { signal } = {}) {
+  return new Promise((resolvePromise, reject) => {
+    const parsed = new URL(url);
+    const transport = parsed.protocol === 'https:' ? httpsRequest : httpRequest;
+    const request = transport(parsed, { method: 'GET', signal }, response => {
+      resolvePromise({ status: response.statusCode });
+      response.destroy();
+    });
+    request.once('error', reject);
+    request.end();
+  });
+}
+
 /** Wait until a URL answers with any HTTP response (including SPA 404s). */
 export async function waitForUrl(
   url,
   {
     timeoutMs = DEFAULT_READY_TIMEOUT_MS,
     intervalMs = DEFAULT_POLL_INTERVAL_MS,
-    fetchImpl = fetch,
+    fetchImpl = probeUrl,
     shouldAbort = () => false,
   } = {}
 ) {
@@ -243,7 +261,10 @@ export async function waitForUrl(
       throw new Error(abortReason);
     }
     try {
-      const response = await fetchImpl(url, { method: 'GET' });
+      const response = await fetchImpl(url, {
+        method: 'GET',
+        signal: AbortSignal.timeout(Math.max(1, deadline - Date.now())),
+      });
       // A listening Vite preview returns 200 for `/`, but accepting any HTTP
       // response keeps this helper useful for tests and SPA fallback changes.
       if (response) {
