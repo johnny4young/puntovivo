@@ -46,7 +46,6 @@ overrides:
   ip-address@10.5.0: 10.7.1
   brace-expansion@5.0.9: 5.0.12
   source-map-js@1.2.1: 1.2.2
-  http-cache-semantics@4.2.0: 4.3.0
   '@aws-sdk/core@3.977.5': 3.977.6
 
 packageExtensionsChecksum: sha256-weka2x4UkNZy0xAaN9wQ3U7t5CSlBuzMDeOWPXu+/xo=

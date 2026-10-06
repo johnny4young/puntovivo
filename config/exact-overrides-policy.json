@@ -92,11 +92,10 @@
       "category": "security-floor",
       "reviewedOn": "2026-10-06",
       "reviewBy": "2026-11-05",
-      "reason": "Patch source-map-js 1.2.1 (GHSA-68fv-2mgg-jv7q, indexed source-map section offsets, reachable through sanitize-html>postcss) and http-cache-semantics 4.2.0 (GHSA-ch52-4w7c-c8xp, max-stale cross-user disclosure in the Electron download cache) to their first patched releases on the same major lines.",
-      "removalCriteria": "Remove each vulnerable-version selector once postcss, @tailwindcss/node and cacheable-request resolve the patched floor without it and the full dependency audit plus all applicable workspace gates pass.",
+      "reason": "Patch source-map-js 1.2.1 (GHSA-68fv-2mgg-jv7q, indexed source-map section offsets, reachable through sanitize-html>postcss) to its first patched release on the same major line. The http-cache-semantics floor carried on the base branch is not needed here: this graph no longer contains got, cacheable-request or http-cache-semantics.",
+      "removalCriteria": "Remove this selector once postcss and @tailwindcss/node resolve the patched floor without it and the full dependency audit plus all applicable workspace gates pass.",
       "pins": {
-        "source-map-js@1.2.1": "1.2.2",
-        "http-cache-semantics@4.2.0": "4.3.0"
+        "source-map-js@1.2.1": "1.2.2"
       }
     }
   ]
