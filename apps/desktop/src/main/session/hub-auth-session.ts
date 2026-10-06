@@ -681,6 +681,54 @@ export function createHubAuthSession(options: CreateHubAuthSessionOptions): HubA
     return { token: response.data.token };
   }
 
+  /**
+   * Call a cookie-bearing auth procedure. Only an explicit pre-handler CSRF
+   * rejection proves that no handler side effect (rotation, handoff, logout)
+   * ran, so only that response may repair the companion through one safe
+   * same-Hub read and retry once. A 401 replay response or an ambiguous
+   * network/server failure is never retried with a rotating credential.
+   */
+  async function callWithCsrfRepair<T>(
+    procedure: string,
+    input: unknown,
+    auth: { accessToken?: string; state: StoredHubAuthState; deviceId?: string },
+    expected: number
+  ): Promise<{ response: { data: T; headers: Headers }; state: StoredHubAuthState }> {
+    try {
+      return { response: await call<T>(procedure, input, auth), state: auth.state };
+    } catch (error) {
+      if (
+        !(error instanceof HubAuthRemoteError) ||
+        error.status !== 403 ||
+        !error.message.startsWith('CSRF_VALIDATION_FAILED:')
+      ) {
+        throw error;
+      }
+    }
+    requireGeneration(expected);
+    const bootstrap = await fetchImpl(`${hubUrl}/api/trpc/health.check`, {
+      method: 'GET',
+      redirect: 'error',
+      headers: { cookie: `${REFRESH_COOKIE_NAME}=${auth.state.refreshToken}` },
+    });
+    requireGeneration(expected);
+    if (!bootstrap.ok) {
+      throw new HubAuthRemoteError({
+        message: 'Store Hub session verification unavailable',
+        status: bootstrap.status,
+      });
+    }
+    const csrfToken = parseCookie(bootstrap.headers, CSRF_COOKIE_NAME);
+    if (!csrfToken || !/^v1\.[A-Za-z0-9_-]{43}$/.test(csrfToken)) {
+      throw new HubAuthRemoteError({
+        message: 'Store Hub session must sign in again',
+        status: 401,
+      });
+    }
+    const state = { ...auth.state, csrfToken };
+    return { response: await call<T>(procedure, input, { ...auth, state }), state };
+  }
+
   async function refresh(): Promise<HubAccessGrant> {
     if (refreshInFlight?.generation === generation) return refreshInFlight.promise;
     const expected = generation;
@@ -689,43 +737,14 @@ export function createHubAuthSession(options: CreateHubAuthSessionOptions): HubA
       if (!state)
         throw new HubAuthRemoteError({ message: 'Store Hub session is missing', status: 401 });
       try {
-        let response;
-        try {
-          response = await call<{ token: string }>('auth.refresh', undefined, { state });
-        } catch (error) {
-          // Only this pre-handler rejection proves no refresh rotation ran.
-          // Repair an old companion once; never retry a 401 replay response or
-          // an ambiguous network/server failure with a rotating credential.
-          if (
-            !(error instanceof HubAuthRemoteError) ||
-            error.status !== 403 ||
-            !error.message.startsWith('CSRF_VALIDATION_FAILED:')
-          ) {
-            throw error;
-          }
-          requireGeneration(expected);
-          const bootstrap = await fetchImpl(`${hubUrl}/api/trpc/health.check`, {
-            method: 'GET',
-            redirect: 'error',
-            headers: { cookie: `${REFRESH_COOKIE_NAME}=${state.refreshToken}` },
-          });
-          requireGeneration(expected);
-          if (!bootstrap.ok) {
-            throw new HubAuthRemoteError({
-              message: 'Store Hub session verification unavailable',
-              status: bootstrap.status,
-            });
-          }
-          const csrfToken = parseCookie(bootstrap.headers, CSRF_COOKIE_NAME);
-          if (!csrfToken || !/^v1\.[A-Za-z0-9_-]{43}$/.test(csrfToken)) {
-            throw new HubAuthRemoteError({
-              message: 'Store Hub session must sign in again',
-              status: 401,
-            });
-          }
-          state = { ...state, csrfToken };
-          response = await call<{ token: string }>('auth.refresh', undefined, { state });
-        }
+        const repaired = await callWithCsrfRepair<{ token: string }>(
+          'auth.refresh',
+          undefined,
+          { state },
+          expected
+        );
+        const response = repaired.response;
+        state = repaired.state;
         requireGeneration(expected);
         const cookies = updateCookies(response.headers, state);
         installGrant(
@@ -756,21 +775,28 @@ export function createHubAuthSession(options: CreateHubAuthSessionOptions): HubA
     }
     const deviceId = await options.getDeviceId?.();
     requireGeneration(expected);
-    const response = await call<{
+    // A companion minted before the Hub bound CSRF to refresh families is
+    // repaired once; the pre-handler rejection proves no handoff ran.
+    const { response, state: repairedState } = await callWithCsrfRepair<{
       token: string;
       user: HubAuthUser;
       sessionExpiresAt: string;
-    }>('auth.switchStaff', input, {
-      accessToken: token,
-      state,
-      ...(deviceId ? { deviceId } : {}),
-    });
+    }>(
+      'auth.switchStaff',
+      input,
+      {
+        accessToken: token,
+        state,
+        ...(deviceId ? { deviceId } : {}),
+      },
+      expected
+    );
     requireGeneration(expected);
     // Keep the prior operator's stream alive until the remote handoff has
     // committed. A rejected PIN or transient network failure must not strand
     // an otherwise valid session without realtime invalidations.
     closeRealtimeConnections();
-    const cookies = updateCookies(response.headers, state);
+    const cookies = updateCookies(response.headers, repairedState);
     const identity = toIdentity(response.data.user, response.data.token);
     installGrant(response.data.token, identity, cookies);
     generation += 1;
@@ -794,7 +820,7 @@ export function createHubAuthSession(options: CreateHubAuthSessionOptions): HubA
       // Preserve the sealed refresh credential when the remote transaction
       // fails. The renderer can clear its short-lived local grant while the
       // same operator later refreshes and recovers the still-claimed draft.
-      await call('auth.logout', undefined, { accessToken: token, state });
+      await callWithCsrfRepair('auth.logout', undefined, { accessToken: token, state }, expected);
     }
     requireGeneration(expected);
     clear();

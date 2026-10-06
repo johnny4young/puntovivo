@@ -373,6 +373,61 @@ describe('Store Hub main-process auth custody', () => {
     assert.equal((await auth.verifyAccessToken(accessToken(2)))?.sessionVersion, 2);
   });
 
+  for (const operation of ['switchStaff', 'logout'] as const) {
+    it(`repairs a pre-family CSRF companion once before ${operation}`, async () => {
+      const statePath = tempStatePath();
+      const repaired = `v1.${'r'.repeat(43)}`;
+      const attempts: string[] = [];
+      let bootstraps = 0;
+      const auth = createHubAuthSession({
+        hubUrl: 'https://hub.example.test',
+        getStatePath: () => statePath,
+        safeStorage,
+        fetchImpl: (async (input, init) => {
+          const url = String(input);
+          if (url.includes('auth.login')) return loginResponse(1);
+          if (url.includes('health.check')) {
+            bootstraps++;
+            assert.equal(init?.method, 'GET');
+            assert.equal(new Headers(init?.headers).get('cookie'), 'puntovivo_refresh=refresh-1');
+            return successResponse({}, { csrf: repaired });
+          }
+          const csrf = new Headers(init?.headers).get('x-csrf-token') ?? '';
+          attempts.push(csrf);
+          // The Hub rejects the legacy companion before any handler runs.
+          if (csrf !== repaired) return csrfRejection();
+          return operation === 'switchStaff'
+            ? successResponse(
+                {
+                  token: accessToken(2),
+                  user: {
+                    id: 'user-1',
+                    email: 'admin@example.test',
+                    role: 'admin',
+                    tenantId: 'tenant-1',
+                  },
+                  sessionExpiresAt: '2026-09-03T20:00:00.000Z',
+                },
+                { refresh: 'refresh-2' }
+              )
+            : successResponse({ success: true });
+        }) as typeof fetch,
+      });
+      await auth.login({ email: 'admin@example.test', password: 'secret' });
+      if (operation === 'switchStaff') {
+        await auth.switchStaff({ targetUserId: 'cashier-2', pin: '246810' });
+        const sealed = safeStorage.decryptString(readFileSync(statePath));
+        assert.match(sealed, /refresh-2/);
+        assert.match(sealed, new RegExp(repaired));
+      } else {
+        await auth.logout();
+        assert.equal(existsSync(statePath), false);
+      }
+      assert.equal(bootstraps, 1);
+      assert.deepEqual(attempts, ['csrf-1', repaired]);
+    });
+  }
+
   it('forwards the registered terminal on staff handoff', async () => {
     const statePath = tempStatePath();
     const initialToken = accessToken(1);
