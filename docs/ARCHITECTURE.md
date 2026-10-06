@@ -511,21 +511,43 @@ inspect SQL scope and columns before acting on any figure.
 
 The generic AI completion pipeline admits one in-flight provider attempt per
 tenant through a durable, local-calendar-month SQLite reservation acquired
-under `BEGIN IMMEDIATE`. Successful estimated cost and reservation release
-commit with one audit row; an error, cancellation, or unpriceable remote result
-records one unknown-cost row and retains a month-scoped liability hold. An
-Ollama model-call failure cannot incur remote charges and releases its hold. The SDK's
-implicit retries are disabled for this pipeline, and calls have a bounded
-timeout. This is a conservative **local admission control**, not an exact USD
-invoice cap: a single call can exceed the remaining budget, and other AI entry
-points have not yet adopted this reservation path. Unknown liabilities require
-provider-invoice reconciliation; they are never automatically declared free.
-Preparation-hook failures occur before dispatch and are sanitized without
-creating a call or liability. Malformed remote token counters are not usable
-pricing evidence: valid counters remain auditable, invalid counters store zero
-only alongside an unknown cost and retained hold. A reservation remains in its
-original month across restart and rollover; admitting a later month is not a
-reconciliation or proof that the earlier provider call was free.
+under `BEGIN IMMEDIATE`. A second request while a call is in flight receives
+`AI_BUDGET_BUSY` (retry shortly); `AI_BUDGET_EXCEEDED` means the limit was
+reached or an unknown-cost liability is held. Successful estimated cost and
+reservation release commit with one audit row. A failure records one audit row
+classified by what it proves:
+
+- a definitive provider rejection (HTTP 400/401/403/404/422/429) or a
+  connection that was never established (refused, DNS failure, connect
+  timeout, TLS handshake rejection) is `not_incurred` and releases the hold;
+- an Ollama model-call failure is `local_zero` and releases the hold;
+- every other remote failure (5xx, a reset after the request was sent, our
+  60 s deadline, an unpriceable or malformed result) is `unknown` and retains
+  a month-scoped liability hold.
+
+Client cancellation (an HTTP disconnect) only cancels work that has not been
+dispatched; a dispatched call runs to its bounded deadline and settles its
+known cost rather than turning into an unknown liability. The SDK's implicit
+retries are disabled for this pipeline. This is a conservative **local
+admission control**, not an exact USD invoice cap: a single call can exceed
+the remaining budget, and other AI entry points adopt the reservation path
+separately. Unknown liabilities are never automatically declared free: an
+administrator books the provider-billed amount with
+`ai.reconcileBudgetHold({ costUsd, note })` (AI settings card), which marks
+the month's unknown rows `estimated`, releases the hold and writes an
+`ai.budget_hold.reconciled` row to the tenant audit chain. A live in-flight
+admission is never released. A `pending` admission older than 10 minutes
+(every dispatch is bounded at 60 s) was orphaned by a crash or restart; the
+next admission or reconciliation converts it into a visible `unknown`
+liability with a `budgetHoldRecovery` audit row instead of leaving it
+"in progress" forever. Preparation-hook failures occur before dispatch and
+are sanitized without creating a call or liability. Malformed remote token
+counters are not usable pricing evidence: valid counters remain auditable,
+invalid counters store zero only alongside an unknown cost and retained hold.
+A reservation remains in its original month across restart and rollover;
+admitting a later month is not a reconciliation or proof that the earlier
+provider call was free. Month boundaries use the server's local calendar,
+like the quota and spend reports; per-tenant time zones are a follow-up.
 
 ## Price-tier boundary
 

@@ -20,6 +20,7 @@ import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../audit-logs.js';
 
 import { reserveAiBudget, settleAiBudget } from './budget.js';
+import { isDefinitiveProviderRejection } from './provider-rejection.js';
 import { getProvider } from './providers/registry.js';
 import type { AIProvider, TokenUsage } from './providers/types.js';
 import type {
@@ -36,7 +37,13 @@ export interface AIInvocationContext {
   tenantId: string;
   siteId: string | null;
   userId: string | null;
-  /** Request cancellation is propagated to the provider when available. */
+  /**
+   * Request cancellation (e.g. the HTTP client disconnected). It cancels only
+   * work that has not been dispatched: once a provider request is sent, it
+   * runs to its own bounded deadline and settles with its known cost, because
+   * aborting it would turn a priced call into an unknown-cost liability that
+   * holds the tenant's AI budget.
+   */
   abortSignal?: AbortSignal;
 }
 
@@ -431,6 +438,7 @@ export async function completeAI(
       message: 'AI provider call failed',
     });
   }
+  ctx.abortSignal?.throwIfAborted();
   const reservation = reserveAiBudget(ctx.db, ctx.tenantId);
   const startedAt = Date.now();
 
@@ -441,18 +449,21 @@ export async function completeAI(
       ...(input.system !== undefined ? { instructions: input.system } : {}),
       prompt: input.prompt,
       ...(input.maxOutputTokens !== undefined ? { maxOutputTokens: input.maxOutputTokens } : {}),
-      ...(ctx.abortSignal !== undefined ? { abortSignal: ctx.abortSignal } : {}),
+      // No client abort signal here (see AIInvocationContext.abortSignal).
       timeout: { totalMs: 60_000 },
       maxRetries: 0,
       ...(providerOptions !== undefined
         ? { providerOptions: providerOptions as ProviderOptions }
         : {}),
     });
-  } catch {
+  } catch (error) {
     const durationMs = Date.now() - startedAt;
-    // The SDK may have sent this request before failure or cancellation;
-    // zero is not evidence of a free provider call.
-    const uncertainRemoteCost = provider.id !== 'ollama';
+    // The SDK may have sent this request before failure or our deadline;
+    // zero is not evidence of a free provider call. A definitive provider
+    // rejection (pre-inference 4xx answer) or a connection that was never
+    // established proves no billable work and releases the hold.
+    const notIncurred = isDefinitiveProviderRejection(error);
+    const uncertainRemoteCost = provider.id !== 'ollama' && !notIncurred;
     settleCompletion(
       ctx.db,
       reservation,
@@ -468,7 +479,8 @@ export async function completeAI(
         cacheReadTokens: 0,
         cacheWriteTokens: 0,
         costUsd: 0,
-        costState: uncertainRemoteCost ? 'unknown' : 'local_zero',
+        costState:
+          provider.id === 'ollama' ? 'local_zero' : notIncurred ? 'not_incurred' : 'unknown',
         durationMs,
         errorCode: 'AI_PROVIDER_ERROR',
       },

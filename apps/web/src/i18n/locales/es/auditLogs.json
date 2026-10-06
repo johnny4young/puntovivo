@@ -124,6 +124,7 @@
     "ai.invoice_ocr.confirm": "Borrador OCR confirmado",
     "ai.copilot.query": "Consulta de Co-pilot",
     "ai.copilot.response_mode.updated": "Modo de respuesta de Co-pilot actualizado",
+    "ai.budget_hold.reconciled": "Reserva de presupuesto de IA conciliada",
     "ai.semantic_search.regenerate_embeddings": "Embeddings regenerados",
     "module.toggle": "Módulo actualizado",
     "module.preset_applied": "Preajuste de módulos aplicado",

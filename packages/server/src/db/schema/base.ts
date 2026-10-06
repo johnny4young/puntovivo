@@ -415,6 +415,9 @@ export const auditLogActionEnum = [
   'ai.invoice_ocr.confirm',
   'ai.copilot.query',
   'ai.copilot.response_mode.updated',
+  // Admin booked the provider-billed cost of unknown-cost AI calls and
+  // released the tenant's monthly AI admission hold.
+  'ai.budget_hold.reconciled',
   'ai.anomaly.silenced',
   'ai.semantic_search.regenerate_embeddings',
   // kitchen display lifecycle. `kds.order.ready` is the cook
