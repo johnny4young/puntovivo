@@ -202,7 +202,7 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
         '0090_inventory_value_constraints',
         // Co-pilot audit scope adds a column to a table that this exact
         // purchase-only legacy fixture does not contain.
-        '0091_ai_copilot_scope_sites',
+        '0092_ai_copilot_scope_sites',
       ].includes(entry.tag)
     ) {
       const tables = sqlite

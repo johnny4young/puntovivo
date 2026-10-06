@@ -33,7 +33,6 @@
  * @module services/ai/quotas
  */
 import { and, count, eq, gte, inArray, isNull, lt, or, sql } from 'drizzle-orm';
-import { TRPCError } from '@trpc/server';
 
 import type { DatabaseInstance } from '../../db/index.js';
 import { aiAuditLog, sites } from '../../db/schema.js';
@@ -264,7 +263,11 @@ export function assertInvoiceOcrQuotaForSite(args: {
     .where(and(eq(sites.id, siteId), eq(sites.tenantId, tenantId), eq(sites.isActive, true)))
     .get();
   if (!site) {
-    throw new TRPCError({ code: 'NOT_FOUND', message: 'Active invoice OCR site not found' });
+    throwServerError({
+      trpcCode: 'NOT_FOUND',
+      errorCode: 'AI_INVOICE_OCR_SITE_NOT_FOUND',
+      message: 'Active invoice OCR site not found',
+    });
   }
   const { start, end } = monthBounds(now);
   const row = db

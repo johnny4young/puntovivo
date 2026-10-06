@@ -19,6 +19,8 @@
 
 import { and, asc, eq } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
+import { canonicalTimeZone } from '../../lib/time-zone.js';
+import { throwServerError } from '../../lib/errorCodes.js';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { adminProcedure } from '../middleware/roles.js';
@@ -85,6 +87,19 @@ export const tenantLocaleRouter = router({
       }
     }
 
+    // Store one spelling per zone: the free-text field accepts aliases and any case.
+    const timezoneOverride =
+      input.timezoneOverride == null
+        ? input.timezoneOverride
+        : canonicalTimeZone(input.timezoneOverride);
+    if (input.timezoneOverride != null && timezoneOverride === null) {
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'TENANT_TIMEZONE_INVALID',
+        message: 'Choose a supported IANA time zone or clear the override in Company settings.',
+      });
+    }
+
     const now = new Date().toISOString();
     let effectiveCurrencyCode = country.defaultCurrencyCode;
     // Reserve the writer, then read the row and decide insert-vs-update under
@@ -125,9 +140,7 @@ export const tenantLocaleRouter = router({
                 input.localeOverride === undefined ? existing.localeOverride : input.localeOverride,
               currencyOverride: nextCurrencyOverride,
               timezoneOverride:
-                input.timezoneOverride === undefined
-                  ? existing.timezoneOverride
-                  : input.timezoneOverride,
+                timezoneOverride === undefined ? existing.timezoneOverride : timezoneOverride,
               firstDayOfWeekOverride:
                 input.firstDayOfWeekOverride === undefined
                   ? existing.firstDayOfWeekOverride
@@ -155,7 +168,7 @@ export const tenantLocaleRouter = router({
               countryCode: input.countryCode,
               localeOverride: input.localeOverride ?? null,
               currencyOverride: input.currencyOverride ?? null,
-              timezoneOverride: input.timezoneOverride ?? null,
+              timezoneOverride: timezoneOverride ?? null,
               firstDayOfWeekOverride: input.firstDayOfWeekOverride ?? null,
               // no row exists yet, so the resolved-locale fallback is
               // the virtual version 0. Persist the first real write as 1 so a
