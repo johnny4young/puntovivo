@@ -226,7 +226,11 @@ Packaged Electron databases use SQLCipher. The database key is obtained through
 Electron secure storage and never crosses into the renderer. Node and Electron
 share the target platform's bundled better-sqlite3 v13 Node-API binary. Runtime
 preflights execute a SQLCipher probe under Node or Electron, and desktop
-packaging prunes every non-target native binary before signing.
+packaging prunes every non-target native binary before signing. Forge and
+electron-builder do not recompile these portable addons; the runtime probe, not
+an ABI-specific rebuild, qualifies them. Production main/preload builds execute
+the public Forge Vite plugin hooks from the same configuration as development,
+without invoking Forge packaging or publication.
 
 Backups are encrypted bundles with integrity inspection. Creation checkpoints
 the WAL first, derives passphrase keys asynchronously through a bounded scrypt
