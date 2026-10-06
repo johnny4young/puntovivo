@@ -185,6 +185,9 @@ describe('ExpiryRadarPanel', () => {
       instantDate: '29/09/2026',
     },
   ])('renders lot calendar dates without a Bogota timezone shift ($language)', async scenario => {
+    // The radar now hides lots that expired on the live clock. Pin the clock
+    // before these fixed fixture dates so the test cannot age into a failure.
+    vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-09-20T15:00:00.000Z'));
     await i18n.changeLanguage(scenario.language);
     setActiveTenantLocale({
       locale: scenario.locale,
@@ -221,6 +224,8 @@ describe('ExpiryRadarPanel', () => {
   ])(
     'fails closed instead of crashing for a legacy invalid tenant zone ($language)',
     async scenario => {
+      // Keep the fixed-date lot unexpired regardless of the real date.
+      vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-09-20T15:00:00.000Z'));
       await i18n.changeLanguage(scenario.language);
       act(() =>
         __localeStoreForTests.getState().setResolved({
