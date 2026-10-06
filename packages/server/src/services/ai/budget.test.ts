@@ -332,7 +332,11 @@ describe('durable AI budget admission', () => {
     );
 
     const first = reserveAiBudget(db, tenantId, now, { copilotSiteIds: [siteId] });
-    expectBudgetDenied(() => reserveAiBudget(peer, tenantId, now, { copilotSiteIds: [siteId] }));
+    // The in-flight call may still take the last slot: busy, not over quota.
+    expectBudgetDenied(
+      () => reserveAiBudget(peer, tenantId, now, { copilotSiteIds: [siteId] }),
+      'AI_BUDGET_BUSY'
+    );
     settleAiBudget(db, first, { ...audit, siteId, feature: 'copilot' }, false);
     expectQuotaDenied(() => reserveAiBudget(peer, tenantId, now, { copilotSiteIds: [siteId] }));
     expect(await db.select().from(schema.aiBudgetReservations).all()).toHaveLength(0);
