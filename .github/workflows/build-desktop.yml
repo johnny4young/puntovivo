@@ -168,6 +168,14 @@ jobs:
         if: ${{ inputs.validate_only }}
         run: pnpm run ci:desktop
 
+      - name: Validate native Node glob inventory guard
+        if: ${{ inputs.validate_only }}
+        run: pnpm --filter @puntovivo/server exec vitest run src/__tests__/inventory-reserved-is-unused.test.ts
+
+      - name: Validate native Node glob money guard
+        if: ${{ inputs.validate_only }}
+        run: pnpm --filter @puntovivo/web exec vitest run src/features/__tests__/money-modal-submit-guard.test.ts
+
       - name: Build and package desktop app
         if: ${{ !inputs.validate_only }}
         run: |
@@ -316,6 +324,14 @@ jobs:
         if: ${{ inputs.validate_only }}
         run: pnpm run ci:desktop
 
+      - name: Validate native Node glob inventory guard
+        if: ${{ inputs.validate_only }}
+        run: pnpm --filter @puntovivo/server exec vitest run src/__tests__/inventory-reserved-is-unused.test.ts
+
+      - name: Validate native Node glob money guard
+        if: ${{ inputs.validate_only }}
+        run: pnpm --filter @puntovivo/web exec vitest run src/features/__tests__/money-modal-submit-guard.test.ts
+
       - name: Build and package desktop app
         if: ${{ !inputs.validate_only }}
         run: |
@@ -439,6 +455,14 @@ jobs:
       - name: Validate desktop workspace
         if: ${{ inputs.validate_only }}
         run: pnpm run ci:desktop
+
+      - name: Validate native Node glob inventory guard
+        if: ${{ inputs.validate_only }}
+        run: pnpm --filter @puntovivo/server exec vitest run src/__tests__/inventory-reserved-is-unused.test.ts
+
+      - name: Validate native Node glob money guard
+        if: ${{ inputs.validate_only }}
+        run: pnpm --filter @puntovivo/web exec vitest run src/features/__tests__/money-modal-submit-guard.test.ts
 
       - name: Build and package desktop app
         if: ${{ !inputs.validate_only }}
