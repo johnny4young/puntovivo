@@ -1,0 +1,135 @@
+diff --git a/out/binDownload.js b/out/binDownload.js
+index 287e8735e53970c9787253e85b5980988719a668..6574597fa33ac35ee51a060e5b0e35137b4fd541 100644
+--- a/out/binDownload.js
++++ b/out/binDownload.js
+@@ -10,6 +10,7 @@ const dynamicImport_1 = require("./util/dynamicImport");
+ const filename_1 = require("builder-util/out/filename");
+ const path = require("path");
+ const electronGet_1 = require("./util/electronGet");
++const { downloadWithFetch } = require("./util/fetchDownload");
+ const versionToPromise = new Map();
+ async function download(url, output, checksum) {
+     const filenameWithExt = path.basename(new URL(url).pathname);
+@@ -19,8 +20,8 @@ async function download(url, output, checksum) {
+         // Callers should supply a checksum whenever possible.
+         builder_util_1.log.warn({ url }, "downloading without an integrity checksum — the download is not verified against a known-good hash");
+     }
+-    const { downloadArtifact, ElectronDownloadCacheMode } = await (0, dynamicImport_1.dynamicImport)("@electron/get");
+-    const downloadedFile = await downloadArtifact({
++    const { ElectronDownloadCacheMode } = await (0, dynamicImport_1.dynamicImport)("@electron/get");
++    const downloadedFile = await downloadWithFetch({
+         version: "9.9.9",
+         artifactName: filenameWithExt,
+         cacheRoot: path.resolve((0, electronGet_1.getCacheDirectory)({ allowEnvVarOverride: true }), "downloads"),
+diff --git a/out/util/electronGet.js b/out/util/electronGet.js
+index 11a859bbabb4e6f3ec94734cdbe68f9557e89493..86cdba84c3d5b780988f903147072c82d2995800 100644
+--- a/out/util/electronGet.js
++++ b/out/util/electronGet.js
+@@ -13,8 +13,8 @@ exports.buildElectronArtifactConfig = buildElectronArtifactConfig;
+ exports.downloadElectronArtifactZip = downloadElectronArtifactZip;
+ exports.downloadElectronArtifact = downloadElectronArtifact;
+ exports.getBinariesMirrorUrl = getBinariesMirrorUrl;
+-const get = require("@electron/get");
+ const get_1 = require("@electron/get");
++const { downloadWithFetch } = require("./fetchDownload");
+ const builder_util_1 = require("builder-util");
+ const _7zip_1 = require("../toolsets/7zip");
+ const multiProgress_1 = require("electron-publish/out/multiProgress");
+@@ -272,7 +272,7 @@ async function extractArchive(file, dir) {
+     }
+ }
+ async function downloadArtifactToFile(config, label) {
+-    var _a, _b, _c, _d;
++    var _c, _d;
+     // Serialize concurrent downloads of the same artifact across vitest workers to prevent @electron/get's
+     // non-atomic putFileInCache (remove + move) from racing with a concurrent reader.
+     const artifactLockKey = crypto
+@@ -294,7 +294,6 @@ async function downloadArtifactToFile(config, label) {
+     const downloadOptions = {
+         timeout: { request: 10 * 60 * 1000 }, // prevent indefinite hang on stalled connections
+         ...config.downloadOptions,
+-        agent: (_b = (_a = config.downloadOptions) === null || _a === void 0 ? void 0 : _a.agent) !== null && _b !== void 0 ? _b : (0, builder_util_1.buildGotProxyAgent)(),
+         getProgressCallback: info => {
+             // @electron/get passes downloadOptions (including this callback) to its internal
+             // SHASUMS256.txt validation download. That file is tiny (<1 MB) and fires at 100%
+@@ -326,7 +325,7 @@ async function downloadArtifactToFile(config, label) {
+     try {
+         let filePath;
+         try {
+-            filePath = await (0, builder_util_runtime_1.retry)(() => get.downloadArtifact(configWithProgress), {
++            filePath = await (0, builder_util_runtime_1.retry)(() => downloadWithFetch(configWithProgress), {
+                 retries: 3,
+                 interval: 2000,
+                 backoff: 2000,
+@@ -344,7 +343,7 @@ async function downloadArtifactToFile(config, label) {
+         }
+         catch (err) {
+             if (typeof (err === null || err === void 0 ? void 0 : err.message) === "string" && err.message.includes("dest already exists")) {
+-                filePath = await get.downloadArtifact(configWithProgress);
++                filePath = await downloadWithFetch(configWithProgress);
+             }
+             else {
+                 throw err;
+diff --git a/out/util/fetchDownload.js b/out/util/fetchDownload.js
+new file mode 100644
+index 0000000000000000000000000000000000000000..0c5dc6d2c74146af3919ad473ae6d6bcda1e2533
+--- /dev/null
++++ b/out/util/fetchDownload.js
+@@ -0,0 +1,57 @@
++"use strict";
++const { downloadArtifact } = require("@electron/get");
++const { EnvHttpProxyAgent } = require("undici");
++
++// @electron/get 5 uses native fetch, not got. Never silently pass got's agent
++// or timeout objects to fetch: neither is honoured by the Fetch API.
++async function downloadWithFetch(config) {
++    const { timeout, agent, signal, dispatcher, ...options } = config.downloadOptions ?? {};
++    if (agent !== undefined) {
++        throw new Error("electronDownload.downloadOptions.agent is a legacy got option; use a fetch dispatcher or HTTP_PROXY/HTTPS_PROXY/NO_PROXY instead");
++    }
++    const fetchKeys = new Set(["quiet", "getProgressCallback", "headers", "method", "body", "cache", "credentials", "integrity", "keepalive", "mode", "redirect", "referrer", "referrerPolicy", "duplex", "priority"]);
++    for (const key of Object.keys(options)) {
++        if (!fetchKeys.has(key)) throw new Error(`Unsupported electronDownload fetch option: ${key}`);
++    }
++    if (dispatcher !== undefined && (!dispatcher || typeof dispatcher.dispatch !== "function")) {
++        throw new Error("electronDownload dispatcher must implement the fetch dispatch contract");
++    }
++    let requestTimeout = 10 * 60 * 1000;
++    if (timeout !== undefined) {
++        if (typeof timeout === "number") {
++            requestTimeout = timeout;
++        } else if (timeout && typeof timeout === "object" && Object.keys(timeout).length === 1 && "request" in timeout) {
++            requestTimeout = timeout.request;
++        } else {
++            throw new Error("electronDownload timeout must be a positive request deadline");
++        }
++    }
++    if (!Number.isSafeInteger(requestTimeout) || requestTimeout <= 0 || requestTimeout > 2147483647) {
++        throw new Error("electronDownload timeout must be a positive request deadline");
++    }
++    const deadline = AbortSignal.timeout(requestTimeout);
++    const combinedSignal = signal ? AbortSignal.any([signal, deadline]) : deadline;
++    const ownedDispatcher = dispatcher === undefined ? new EnvHttpProxyAgent() : undefined;
++    try {
++        return await downloadArtifact({
++            ...config,
++            downloadOptions: { ...options, signal: combinedSignal, dispatcher: dispatcher ?? ownedDispatcher },
++        });
++    } catch (error) {
++        // Preserve builder's existing bounded retry classification without
++        // turning a fetch status/timeout into an unbounded generic retry.
++        if (error?.name === "TimeoutError") {
++            const timeoutError = new Error(error.message, { cause: error });
++            timeoutError.name = "TimeoutError";
++            timeoutError.code = "ETIMEDOUT";
++            throw timeoutError;
++        }
++        if (error?.response && typeof error.response.status === "number") {
++            error.response.statusCode = error.response.status;
++        }
++        throw error;
++    } finally {
++        if (ownedDispatcher) await ownedDispatcher.close();
++    }
++}
++exports.downloadWithFetch = downloadWithFetch;

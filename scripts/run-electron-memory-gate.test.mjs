@@ -9,6 +9,7 @@
  * @module scripts/run-electron-memory-gate.test
  */
 import { test } from 'node:test';
+import { createServer } from 'node:http';
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
@@ -257,4 +258,50 @@ test('waitForUrl fails early when the caller aborts readiness', async () => {
     }),
     /preview exited/
   );
+});
+
+// Native fetch can throw outside its promise when macOS rejects the optional
+// QoS socket marking. Simulate that socket failure in a disposable child only.
+test('preview readiness does not invoke optional socket QoS marking', () => {
+  const moduleUrl = new URL('./run-electron-memory-gate.mjs', import.meta.url).href;
+  const child = spawnSync(
+    process.execPath,
+    [
+      '--input-type=module',
+      '-e',
+      `
+    import { createServer } from 'node:http';
+    import { Socket } from 'node:net';
+    import { waitForUrl } from ${JSON.stringify(moduleUrl)};
+    const server = createServer((_request, response) => response.writeHead(404).end());
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    Socket.prototype.setTypeOfService = () => {
+      throw Object.assign(new Error('setTypeOfService EINVAL'), { code: 'EINVAL' });
+    };
+    try {
+      await waitForUrl('http://127.0.0.1:' + server.address().port, { timeoutMs: 1000 });
+    } finally {
+      server.closeAllConnections();
+      await new Promise(resolve => server.close(resolve));
+    }
+  `,
+    ],
+    { encoding: 'utf8', timeout: 5000 }
+  );
+  assert.equal(child.status, 0, child.stderr);
+  assert.equal(child.signal, null);
+});
+
+test('preview readiness keeps the deadline when a server never sends headers', async () => {
+  const server = createServer(() => {});
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  try {
+    await assert.rejects(
+      waitForUrl(`http://127.0.0.1:${server.address().port}`, { timeoutMs: 50, intervalMs: 1 }),
+      /Timed out waiting/
+    );
+  } finally {
+    server.closeAllConnections();
+    await new Promise(resolve => server.close(resolve));
+  }
 });
