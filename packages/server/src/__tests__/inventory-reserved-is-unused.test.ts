@@ -24,10 +24,9 @@
  * @module __tests__/inventory-reserved-is-unused.test
  */
 
-import { readFileSync } from 'node:fs';
+import { globSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import fg from 'fast-glob';
 
 const SRC = path.resolve(process.cwd(), 'src');
 
@@ -35,9 +34,9 @@ const SRC = path.resolve(process.cwd(), 'src');
 function reservedAssignments(): Array<{ file: string; value: string }> {
   // The schema declaration and the DTO type are not writes; scanning them
   // would only add shapes the rule has to special-case.
-  const files = fg.sync('**/*.ts', {
+  const files = globSync('**/*.ts', {
     cwd: SRC,
-    ignore: ['**/__tests__/**', '**/*.test.ts', 'db/schema/**', '**/types.ts'],
+    exclude: ['**/__tests__/**', '**/*.test.ts', 'db/schema/**', '**/types.ts'],
   });
   const found: Array<{ file: string; value: string }> = [];
   for (const relative of files) {
@@ -81,9 +80,9 @@ describe('inventory_balances.reserved', () => {
   });
 
   it('has no writer that increments or decrements it', () => {
-    const files = fg.sync('**/*.ts', {
+    const files = globSync('**/*.ts', {
       cwd: SRC,
-      ignore: ['**/__tests__/**', '**/*.test.ts'],
+      exclude: ['**/__tests__/**', '**/*.test.ts'],
     });
     const offenders: string[] = [];
     for (const relative of files) {
