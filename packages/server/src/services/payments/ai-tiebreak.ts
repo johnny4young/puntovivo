@@ -135,10 +135,10 @@ export async function aiTiebreak(
 
   const modelId = settings.modelId ?? provider.defaultModelId;
   const startedAt = Date.now();
-  const providerOptions = provider.cacheControlForSystemPrompt();
 
   const userPrompt = buildUserPrompt(input);
   try {
+    const providerOptions = provider.cacheControlForSystemPrompt();
     const result = await generateObject({
       model: provider.languageModel(modelId),
       instructions: SYSTEM_PROMPT,

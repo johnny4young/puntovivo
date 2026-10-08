@@ -20,6 +20,7 @@ import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../audit-logs.js';
 
 import { currentMonthSpend, recordCall } from './auditLog.js';
+import { logProviderFailure } from './provider-error.js';
 import { getProvider } from './providers/registry.js';
 import type { AIProvider, TokenUsage } from './providers/types.js';
 import type {
@@ -444,8 +445,15 @@ export async function completeAI(
       model: modelId,
       auditLogId,
     };
-  } catch {
+  } catch (error) {
     const durationMs = Date.now() - startedAt;
+    logProviderFailure(error, {
+      tenantId: ctx.tenantId,
+      feature: input.feature,
+      providerId: provider.id,
+      modelId,
+      errorCode: 'AI_PROVIDER_ERROR',
+    });
     // Persist the failure so dashboards count it. Cost is zero — the
     // call never billed against the tenant's spend.
     await recordCall(ctx.db, {
