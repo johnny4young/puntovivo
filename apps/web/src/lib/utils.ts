@@ -126,10 +126,17 @@ export function getActiveTenantLocale(): ActiveTenantLocaleSnapshot | null {
 const currencyFormatterCache = new Map<string, Intl.NumberFormat>();
 const CURRENCY_FORMATTER_CACHE_CAP = 32;
 
-export function formatCurrency(amount: number, currency?: string, locale?: string): string {
+/** Evidence surfaces may pin precision without changing ordinary tenant/currency defaults. */
+export function formatCurrency(
+  amount: number,
+  currency?: string,
+  locale?: string,
+  fractionDigits?: number
+): string {
   const resolvedCurrency = currency ?? activeTenantLocale?.currency ?? 'USD';
   const resolvedLocale = locale ?? activeTenantLocale?.locale ?? getActiveLocale();
-  const displayDecimals = currency === undefined ? activeTenantLocale?.displayDecimals : undefined;
+  const displayDecimals =
+    fractionDigits ?? (currency === undefined ? activeTenantLocale?.displayDecimals : undefined);
   const cacheKey = `${resolvedLocale}|${resolvedCurrency}|${displayDecimals ?? ''}`;
   let formatter = currencyFormatterCache.get(cacheKey);
   if (!formatter) {

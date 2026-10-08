@@ -149,6 +149,51 @@ describe('migration replay against a non-empty database', () => {
     }, 180_000);
   }
 
+  it('adds the proposal inbox without changing existing payment state or inventing reviews', async () => {
+    workdir = mkdtempSync(join(tmpdir(), 'puntovivo-payment-upgrade-'));
+    const dbPath = join(workdir, 'payments.db');
+    await initDatabase({
+      dbPath,
+      seedData: false,
+      migrationsFolder: migrationsPrefix(90),
+    });
+    rawClient().exec(`
+      INSERT INTO tenants (id, name, slug)
+        VALUES ('payment-upgrade', 'Payment upgrade', 'payment-upgrade');
+      INSERT INTO payment_outbox
+        (id, tenant_id, rail_id, kind, status, amount, currency_code, reference,
+         provider_transaction_id, payload, attempts, idempotency_key, created_at, updated_at)
+      VALUES
+        ('unreviewed', 'payment-upgrade', 'wompi', 'charge', 'approved', 123.45, 'COP',
+         'POS-awaiting-review', NULL, '{"historical":true}', 2, 'original-attempt-a',
+         '2026-09-01T10:00:00.000Z', '2026-09-01T10:01:00.000Z'),
+        ('settled', 'payment-upgrade', 'wompi', 'charge', 'settled', 678.90, 'COP',
+         'POS-already-settled', 'provider-immutable', '{}', 1, 'original-attempt-b',
+         '2026-09-01T11:00:00.000Z', '2026-09-01T11:01:00.000Z');
+    `);
+    const paymentsBefore = rawClient().prepare('SELECT * FROM payment_outbox ORDER BY id').all();
+    expect(
+      rawClient()
+        .prepare("SELECT name FROM sqlite_master WHERE name = 'payment_reconciliation_proposals'")
+        .get()
+    ).toBeUndefined();
+    closeDatabase();
+
+    // Replay the real journal, then reopen it again: an upgrade must neither
+    // settle historical rows nor manufacture a human decision on restart.
+    for (let boot = 0; boot < 2; boot += 1) {
+      await initDatabase({ dbPath, seedData: false, migrationsFolder: MIGRATIONS });
+      expect(rawClient().prepare('SELECT * FROM payment_outbox ORDER BY id').all()).toEqual(
+        paymentsBefore
+      );
+      expect(rawClient().prepare('SELECT * FROM payment_reconciliation_proposals').all()).toEqual(
+        []
+      );
+      expect(rawClient().prepare('PRAGMA foreign_key_check').all()).toEqual([]);
+      closeDatabase();
+    }
+  }, 180_000);
+
   it('declares a fixture for every point the chain is seeded at', () => {
     // A fixture pinned past the end of the journal would silently replay
     // nothing at all.
