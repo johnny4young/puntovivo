@@ -316,7 +316,10 @@ export function SalesCheckoutPanel({
           <p className="text-[0.62rem] font-semibold uppercase tracking-[0.22em] text-secondary-500">
             {t('checkout.shortcuts')}
           </p>
-          <div className="mt-2 grid grid-cols-2 gap-1.5 text-[12px]">
+          <div
+            className="mt-2 grid grid-cols-2 gap-1.5 text-[12px]"
+            data-testid="checkout-shortcut-chips"
+          >
             {(
               [
                 ...(canOpenSearch
