@@ -7,6 +7,8 @@ import { attendanceDate } from './attendance-date.js';
 /** Runtime-specific navigation and actor login while the business flow stays target-agnostic. */
 interface AttendanceReconciliationJourneyTarget {
   singleFrameAxe?: boolean;
+  /** Expected tenant schedule zone; the journey still reads the UI policy. */
+  timeZone?: string;
   navigate: (route: string) => Promise<void>;
   signIn: (email: string) => Promise<void>;
   signInAdmin: () => Promise<void>;
@@ -82,6 +84,7 @@ export async function runAttendanceReconciliationJourney(
   // The unconfigured Electron tenant falls back to New York; the configured
   // Web scenario uses Bogota. Read the real UI policy before creating plans.
   const timeZone = (await timezoneLabel.innerText()).slice('Schedule timezone: '.length).trim();
+  if (target.timeZone) expect(timeZone).toBe(target.timeZone);
   const now = new Date();
   const today = attendanceDate(now, timeZone);
   const previousWeekDate = attendanceDate(now, timeZone, -7);
