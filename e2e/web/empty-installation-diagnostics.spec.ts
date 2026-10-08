@@ -41,3 +41,21 @@ test('empty-installation forwarding failure preserves a child crash without echo
   expect(diagnostic).toContain('childConnected=false');
   expect(diagnostic).not.toContain('secret-');
 });
+
+test('empty-installation forwarding failure reports a signal-terminated child as stopped', () => {
+  const diagnostic = describeEmptyInstallationForwardingFailure({
+    method: 'GET',
+    requestUrl: 'http://127.0.0.1:50829/api/trpc/auth.me,tenant.current?batch=1&input=private',
+    error: new Error('route.fetch: socket hang up ECONNRESET'),
+    // Node reports a signal termination as exitCode null plus signalCode.
+    childExitCode: null,
+    childSignalCode: 'SIGKILL',
+    childConnected: false,
+    stderrBytes: 0,
+  });
+
+  expect(diagnostic).toContain('GET auth.me,tenant.current');
+  expect(diagnostic).toContain('childExit=signaled');
+  expect(diagnostic).toContain('childSignal=SIGKILL');
+  expect(diagnostic).not.toContain('private');
+});

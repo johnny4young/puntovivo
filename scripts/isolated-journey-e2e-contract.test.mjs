@@ -16,7 +16,11 @@ test('the isolated-journey lane remains complete, serial, and single-attempt', (
 
   assert.equal(typeof ordinaryCommand, 'string');
   assert.match(ordinaryCommand, /--grep-invert ["']@long-shift-soak\|@isolated-journey["']/);
-  assert.match(ordinaryCommand, /--grep @isolated-journey --workers=1 --forbid-only/);
+  // The heavy lane must never pull an opt-in soak into the ordinary command.
+  assert.match(
+    ordinaryCommand,
+    /--grep @isolated-journey --grep-invert @long-shift-soak --workers=1 --forbid-only/
+  );
   assert.match(ordinaryCommand, /--config=playwright\.web-heavy\.config\.ts/);
   assert.doesNotMatch(ordinaryCommand, /--retries(?:=| )/);
 
@@ -45,4 +49,19 @@ test('the isolated-journey lane remains complete, serial, and single-attempt', (
   ]) {
     assert.match(pharmacy, new RegExp(journey));
   }
+});
+
+// A stacked fixture PR can target the dependency PR itself. GitHub filters
+// pull_request.branches against the base, not the source branch.
+test('stacked dependency PRs receive functional CI without expanding token authority', () => {
+  const workflow = readRepoFile('.github/workflows/ci.yml');
+  const triggers = workflow.split('\nenv:')[0];
+  const pullRequest = triggers.split('  pull_request:')[1];
+  assert.equal(typeof pullRequest, 'string');
+  const branchList = /^    branches: \[([^\]]+)\]$/m.exec(pullRequest)?.[1];
+  assert.equal(typeof branchList, 'string');
+  const branches = branchList.split(',').map(value => value.trim().replace(/^['"]|['"]$/g, ''));
+  assert.deepEqual(branches, ['main', 'codex/**', 'dependabot/**']);
+  assert.match(workflow, /^permissions:\n  contents: read$/m);
+  assert.doesNotMatch(triggers, /pull_request_target/);
 });

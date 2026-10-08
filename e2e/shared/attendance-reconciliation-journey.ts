@@ -2,12 +2,13 @@ import { randomUUID } from 'node:crypto';
 import { expect, type Page } from '@playwright/test';
 import { E2E_PASSWORD, ensureLanguage, type ClientIssueTracker } from '../web/support/app.js';
 import { runAxeOnPage } from '../web/support/a11y.js';
+import { attendanceDate } from './attendance-date.js';
 
 /** Runtime-specific navigation and actor login while the business flow stays target-agnostic. */
 interface AttendanceReconciliationJourneyTarget {
   singleFrameAxe?: boolean;
-  /** Effective scheduling timezone of this target's seeded tenant. */
-  timeZone: string;
+  /** Expected tenant schedule zone; the journey still reads the UI policy. */
+  timeZone?: string;
   navigate: (route: string) => Promise<void>;
   signIn: (email: string) => Promise<void>;
   signInAdmin: () => Promise<void>;
@@ -17,19 +18,6 @@ interface AttendanceReconciliationJourneyTarget {
 
 export function assertAttendanceReconciliationJourneyDiagnostics(tracker: ClientIssueTracker) {
   expect(tracker.getIssues()).toEqual([]);
-}
-
-/** Calendar day for the fixture tenant, not the host machine or another tenant. */
-export function tenantDate(timeZone: string, offsetDays = 0, now = new Date()): string {
-  const today = new Intl.DateTimeFormat('en-CA', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(now);
-  const date = new Date(`${today}T12:00:00.000Z`);
-  date.setUTCDate(date.getUTCDate() + offsetDays);
-  return date.toISOString().slice(0, 10);
 }
 
 async function dismissToasts(page: Page) {
@@ -74,9 +62,6 @@ export async function runAttendanceReconciliationJourney(
     email: `attendance.manager.${suffix}@example.test`,
     role: 'Manager',
   };
-  const now = new Date();
-  const today = tenantDate(target.timeZone, 0, now);
-  const previousWeekDate = tenantDate(target.timeZone, -7, now);
   const attendedReason = `Reviewed signed attendance evidence ${suffix}`;
   const noShowReason = `No clock evidence after supervisor review ${suffix}`;
 
@@ -94,9 +79,15 @@ export async function runAttendanceReconciliationJourney(
   }
 
   await target.navigate('/schedule');
-  await expect(
-    page.getByText(`Schedule timezone: ${target.timeZone}`, { exact: true })
-  ).toBeVisible();
+  const timezoneLabel = page.getByTestId('team-schedule-page').getByText(/^Schedule timezone: /);
+  await expect(timezoneLabel).toBeVisible();
+  // The unconfigured Electron tenant falls back to New York; the configured
+  // Web scenario uses Bogota. Read the real UI policy before creating plans.
+  const timeZone = (await timezoneLabel.innerText()).slice('Schedule timezone: '.length).trim();
+  if (target.timeZone) expect(timeZone).toBe(target.timeZone);
+  const now = new Date();
+  const today = attendanceDate(now, timeZone);
+  const previousWeekDate = attendanceDate(now, timeZone, -7);
   await page.getByRole('button', { name: 'Employment and assignments', exact: true }).click();
   const employment = page.getByTestId('employment-panel');
   await employment.getByRole('button', { name: 'Add employment terms' }).click();

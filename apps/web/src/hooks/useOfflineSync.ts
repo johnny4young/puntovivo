@@ -187,7 +187,7 @@ export function useOfflineSync() {
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [hasDesktopSync, refreshStatus, tenantId, t]);
+  }, [hasDesktopSync, refreshStatus, tenantId]);
 
   // Auto-sync when coming online. A known conflict requires operator review,
   // so it must never keep issuing background pushes. Successive automatic triggers are

@@ -27,7 +27,9 @@ export const test = base.extend<{ installation: EmptyInstallation }>({
         PUNTOVIVO_LOG_LEVEL: 'warn',
         PUNTOVIVO_SUPPRESS_CREDENTIAL_BANNER: 'true',
       },
-      stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
+      // Nothing reads stdout; a pipe would fill and block the server's
+      // synchronous NDJSON logger mid-journey.
+      stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
     });
     // Server stderr is failure evidence, but retaining its text would let a
     // Playwright assertion print credentials or request details on failure.
