@@ -117,8 +117,11 @@ jobs:
             web:
               - 'apps/web/**'
               - 'e2e/web/**'
+              # Web journeys and their fixtures import these shared modules.
+              - 'e2e/shared/**'
               - 'operator-journeys.json'
               - 'playwright.web.config.ts'
+              - 'playwright.web-heavy.config.ts'
               - 'packages/server/**'
               - 'perf-budget.json'
               - 'scripts/check-operator-journeys*.mjs'
@@ -133,6 +136,7 @@ jobs:
               - 'scripts/check-contrast*.mjs'
               - 'scripts/check-operator-deck-adoption*.mjs'
               - 'scripts/generate-companion-service-worker*.mjs'
+              - 'scripts/isolated-journey-e2e-contract.test.mjs'
               - 'scripts/long-shift-*'
             server:
               - 'packages/server/**'
@@ -168,6 +172,7 @@ jobs:
               - 'scripts/e2e-baseline-cleanup.test.mjs'
               - 'scripts/electron-fetch-download.test.mjs'
               - 'e2e/shared/baseline.ts'
+              - 'e2e/shared/attendance-date.ts'
               - 'scripts/check-exact-override-policy*.mjs'
               - 'scripts/check-format-policy.test.mjs'
               - 'scripts/check-lint-policy.test.mjs'

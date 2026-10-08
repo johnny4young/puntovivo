@@ -132,6 +132,10 @@ display.
   cashier.
 - Versioned mutable resources use compare-and-swap updates and report conflicts
   rather than silently overwriting concurrent edits.
+- AI payment tie-breaks create durable, tenant-scoped review proposals, never
+  settlements. An admin decision revalidates the selected provider statement
+  and outbox row before an atomic status change and audit; see
+  [ADR-0031](architecture/0031-human-review-of-ai-payment-proposals.md).
 - Payment, hardware, and sync effects use dedicated durable outboxes. A
   fiscal-enabled completed sale first records a frozen emission intent in the
   sale transaction; the fiscal worker materializes that intent into the fiscal
@@ -475,6 +479,31 @@ identity maps are not persisted to the AI audit log. Provider-boundary tests use
 the real AI SDK with an in-process fake model and inspect every serialized model
 call, including the calls following tool results and tool errors. These tests
 are not a live-provider certification.
+
+AI provider, SDK, and analytics SQLite exceptions are untrusted diagnostics:
+client-facing tRPC errors expose a fixed fallback and stable error code, never
+the raw exception message or a `cause` detail. Invoice OCR and voice
+transcription parse failures keep their distinct code from transport failures.
+The tenant audit records the code and call metadata, not exception text; only
+locally constructed domain errors may cross the Co-pilot boundary unchanged.
+Server logs carry only `summarizeProviderError` output (error class name,
+HTTP status, transport code; the AI SDK retry wrapper is unwrapped to its last
+provider answer) plus tenant, feature, provider, model and error code, never
+the raw error object. This contract limits secondary leakage through the
+browser response, centralized error tracing and server logs.
+
+Every Co-pilot response requires at least one successful read-only SQL query
+against a provider-safe snapshot table. The model-facing tool rejects
+constant-only and CTE queries; authorized local SQL retains its separate WITH
+contract. Up to five model SQL attempts are allowed, and every successful
+result is returned in order rather than hiding earlier queries. Neither mode
+displays model-authored prose. Guided mode adds only localized, deterministic
+review guidance; verified-results mode shows queries and rows without that
+guide. The provider's actual token usage is audited even when a response fails
+the SQL requirement. These checks establish a minimum source boundary, **not**
+semantic correctness: a SELECT can still produce a constant despite reading a
+table, choose the wrong metric, or omit relevant records. Operators must
+inspect SQL scope and columns before acting on any figure.
 
 ## Price-tier boundary
 
