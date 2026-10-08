@@ -221,6 +221,22 @@ describe('dashboard tenant calendar days', () => {
       '2026-09-21T15:00:00.000Z',
       '2026-09-22T15:00:00.000Z',
     ],
+    // Half-hour offset, thirty minutes after local midnight.
+    [
+      'Asia/Kolkata',
+      '2026-09-21T19:00:00.000Z',
+      '2026-09-22',
+      '2026-09-21T18:30:00.000Z',
+      '2026-09-22T18:30:00.000Z',
+    ],
+    // Half-hour offset on its 23-hour daylight-saving start day.
+    [
+      'Australia/Adelaide',
+      '2026-10-04T02:00:00.000Z',
+      '2026-10-04',
+      '2026-10-03T14:30:00.000Z',
+      '2026-10-04T13:30:00.000Z',
+    ],
   ])('uses half-open boundaries in %s at %s', async (zone, now, day, start, end) => {
     vi.setSystemTime(new Date(now));
     const fixture = await createTenant(zone);

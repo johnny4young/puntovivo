@@ -10,8 +10,6 @@
  */
 
 import { and, asc, desc, eq, lte, sql } from 'drizzle-orm';
-import { isSupportedTimeZone } from '../../lib/time-zone.js';
-import { throwServerError } from '../../lib/errorCodes.js';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { customers, products, sales } from '../../db/schema.js';
@@ -23,12 +21,8 @@ import {
   type WindowedProductTotalsRow,
   type DailyRevenueRow,
 } from '../../services/reports/net-sales.js';
-import { resolveTenantLocale } from '../../services/tenant-locale.js';
-import {
-  addCalendarDays,
-  calendarDayInTimeZone,
-  resolveUtcDayWindow,
-} from '../../services/reports/day-window.js';
+import { resolveTenantBusinessClock } from '../../services/pharmacy/business-clock.js';
+import { addCalendarDays, resolveUtcDayWindow } from '../../services/reports/day-window.js';
 
 function getRevenueEligibleSaleConditions(tenantId: string) {
   return [
@@ -41,23 +35,21 @@ function getRevenueEligibleSaleConditions(tenantId: string) {
 export const dashboardRouter = router({
   summary: tenantProcedure.query(async ({ ctx }) => {
     const now = new Date();
-    const { timezone } = await resolveTenantLocale(ctx.db, ctx.tenantId);
-    // Legacy persisted overrides predate write validation. Do not silently
-    // report another calendar's totals when the company configuration is invalid.
-    if (!isSupportedTimeZone(timezone)) {
-      throwServerError({
-        trpcCode: 'PRECONDITION_FAILED',
-        errorCode: 'TENANT_TIMEZONE_INVALID',
-        message: 'Correct or clear the company time zone override before loading the dashboard.',
-      });
-    }
-    const today = calendarDayInTimeZone(now, timezone);
+    // The shared business clock owns the tenant calendar: it fails closed with
+    // TENANT_TIMEZONE_INVALID for a legacy unsupported override instead of
+    // silently reporting another calendar's totals.
+    const { businessDate: today, timezone } = await resolveTenantBusinessClock(
+      ctx.db,
+      ctx.tenantId,
+      now
+    );
     const windows = Array.from({ length: 30 }, (_, offset) => {
       const date = addCalendarDays(today, offset - 29);
       return { date, ...resolveUtcDayWindow(date, timezone) };
     });
-    const { endExclusiveIso } = resolveUtcDayWindow(today, timezone);
-    const lastSevenDaysStart = resolveUtcDayWindow(addCalendarDays(today, -6), timezone).startIso;
+    // Reuse the chart's own boundaries so every figure shares one calendar.
+    const endExclusiveIso = windows[29]!.endExclusiveIso;
+    const lastSevenDaysStart = windows[23]!.startIso;
 
     const completedSaleConditions = getRevenueEligibleSaleConditions(ctx.tenantId);
     const netSaleTotal = netSaleTotalSql(ctx.tenantId);
