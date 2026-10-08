@@ -24,6 +24,7 @@ import {
 import { currentMonthSpend, recordCall } from '../auditLog.js';
 import { resolveAISettings, toBillableTokenUsage } from '../client.js';
 import type { AIInvocationContext, ProviderFactory } from '../client.js';
+import { logProviderFailure } from '../provider-error.js';
 import { getProvider } from '../providers/registry.js';
 import type { AIProvider } from '../providers/types.js';
 import type { AISettings } from '../types.js';
@@ -283,15 +284,23 @@ export async function runCopilotChat(
       errorCode,
     });
 
-    if (error instanceof TRPCError) {
+    // Only locally constructed domain errors carry our stable code. An SDK
+    // can also throw a TRPCError, whose message is untrusted provider data.
+    if (error instanceof TRPCError && error.cause instanceof ServerErrorWithCode) {
       throw error;
     }
 
+    logProviderFailure(error, {
+      tenantId: ctx.tenantId,
+      feature: 'copilot',
+      providerId: provider.id,
+      modelId,
+      errorCode: 'AI_PROVIDER_ERROR',
+    });
     return throwServerError({
       trpcCode: 'BAD_GATEWAY',
       errorCode: 'AI_PROVIDER_ERROR',
-      message: error instanceof Error ? error.message : 'AI provider call failed',
-      details: { cause: String(error) },
+      message: 'AI provider call failed',
     });
   } finally {
     snapshot?.close();
