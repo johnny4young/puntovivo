@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   assertNoGlobalDiagnostics,
+  assertRecognizedOutput,
   assertValidBaseline,
   buildBaseline,
   compareBaseline,
@@ -37,12 +38,45 @@ test('rejects a global diagnostic even beside known located debt', () => {
   );
 });
 
+test('rejects configuration diagnostics that stop every test file from being checked', () => {
+  for (const line of [
+    "tsconfig.tests.json(1,55): error TS5102: Option 'baseUrl' has been removed.",
+    'C:\\repo\\packages\\server\\tsconfig.json(3,5): error TS5101: Deprecated option.',
+  ]) {
+    assert.throws(
+      () => assertNoGlobalDiagnostics(line),
+      /unbaselineable global diagnostics:[\s\S]*TS510/
+    );
+  }
+  assert.doesNotThrow(() =>
+    assertNoGlobalDiagnostics('src/tsconfig-loader.test.ts(1,1): error TS2322: Type mismatch.')
+  );
+});
+
+test('rejects unindented compiler output that is not a primary diagnostic', () => {
+  assert.doesNotThrow(() =>
+    assertRecognizedOutput(
+      [
+        'src/example.test.ts(10,2): error TS2322: Type mismatch.',
+        "  Type 'string' is not assignable to type 'number'.",
+        '',
+      ].join('\n')
+    )
+  );
+  assert.throws(
+    () => assertRecognizedOutput('src/example.test.ts:10:2 - error TS2322: Type mismatch.'),
+    /unrecognized output:[\s\S]*src\/example\.test\.ts:10:2/
+  );
+});
+
 test('builds a deterministic baseline sorted by file and code', () => {
   const baseline = buildBaseline(
     '7.0.2',
     new Map([
       ['src/z.test.ts|TS7006', 1],
+      ['src/cashier.test.ts|TS2322', 1],
       ['src/a.test.ts|TS2322', 2],
+      ['src/cashSessions.test.ts|TS2769', 1],
     ])
   );
 
@@ -50,12 +84,21 @@ test('builds a deterministic baseline sorted by file and code', () => {
     schemaVersion: 1,
     compilerVersion: '7.0.2',
     config: 'tsconfig.tests.json',
-    total: 3,
+    total: 5,
     byFileAndCode: {
       'src/a.test.ts|TS2322': 2,
+      'src/cashSessions.test.ts|TS2769': 1,
+      'src/cashier.test.ts|TS2322': 1,
       'src/z.test.ts|TS7006': 1,
     },
   });
+  // deepEqual ignores key order, so pin the locale-independent code-unit order explicitly.
+  assert.deepEqual(Object.keys(baseline.byFileAndCode), [
+    'src/a.test.ts|TS2322',
+    'src/cashSessions.test.ts|TS2769',
+    'src/cashier.test.ts|TS2322',
+    'src/z.test.ts|TS7006',
+  ]);
 });
 
 test('accepts an exact per-file and diagnostic-code match', () => {

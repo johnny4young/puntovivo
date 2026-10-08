@@ -47,7 +47,8 @@ the required Node 24 runtime. It does not widen the production build config.
 The current test suite has a checked-in baseline of 241 diagnostics across 113
 files. `test-typecheck-baseline.json` records counts by file and diagnostic code,
 not line number. Invalid metadata, non-integer counters and inconsistent totals
-are rejected before comparison. A new file/code pair or a higher count fails, while a resolved
+are rejected before comparison, as are unlocated or `tsconfig` diagnostics and
+unrecognized compiler output, because those can stop or hide the whole check. A new file/code pair or a higher count fails, while a resolved
 diagnostic also fails until the baseline is deliberately reduced. This prevents
 new debt and ensures improvements cannot leave a stale allowance behind. After
 reviewing the raw compiler output, maintainers can regenerate the smaller

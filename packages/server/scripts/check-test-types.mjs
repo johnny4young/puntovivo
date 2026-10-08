@@ -1,22 +1,22 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { dirname, resolve } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 
-const scriptDirectory = dirname(fileURLToPath(import.meta.url));
-const serverDirectory = resolve(scriptDirectory, '..');
-const workspaceDirectory = resolve(serverDirectory, '../..');
+const scriptPath = fileURLToPath(import.meta.url);
+const serverDirectory = resolve(dirname(scriptPath), '..');
 const configPath = resolve(serverDirectory, 'tsconfig.tests.json');
 const baselinePath = resolve(serverDirectory, 'test-typecheck-baseline.json');
-const compilerPath = resolve(workspaceDirectory, 'node_modules/@typescript/native/bin/tsc');
+const primaryDiagnosticPattern = /^(.*?)\((\d+),(\d+)\): error (TS\d+):/;
+const configFilePattern = /(^|[\\/])tsconfig[^\\/]*\.json$/;
 
 /** Convert native TypeScript's primary diagnostic lines into a stable file/code counter. */
 export function parseDiagnostics(output) {
   const byFileAndCode = new Map();
-  const pattern = /^(.*?)\((\d+),(\d+)\): error (TS\d+):/;
 
   for (const line of output.split(/\r?\n/)) {
-    const match = line.match(pattern);
+    const match = line.match(primaryDiagnosticPattern);
     if (!match) continue;
 
     const [, file, , , code] = match;
@@ -27,13 +27,31 @@ export function parseDiagnostics(output) {
   return byFileAndCode;
 }
 
-/** Reject compiler diagnostics that have no file location and cannot enter the file/code ratchet. */
+/**
+ * Reject compiler diagnostics that cannot enter the file/code ratchet: unlocated
+ * diagnostics, and configuration diagnostics that can stop checking every test file.
+ */
 export function assertNoGlobalDiagnostics(output) {
-  const diagnostics = output.split(/\r?\n/).filter(line => /^error TS\d+:/.test(line));
+  const diagnostics = output.split(/\r?\n/).filter(line => {
+    if (/^error TS\d+:/.test(line)) return true;
+    const match = line.match(primaryDiagnosticPattern);
+    return match !== null && configFilePattern.test(match[1]);
+  });
   if (diagnostics.length > 0) {
     throw new Error(
       `TypeScript reported unbaselineable global diagnostics:\n${diagnostics.join('\n')}`
     );
+  }
+}
+
+/** Reject unindented compiler output that is not a primary diagnostic, so a format change cannot hide debt. */
+export function assertRecognizedOutput(output) {
+  const unrecognized = output
+    .split(/\r?\n/)
+    .filter(line => line.trim().length > 0 && !/^\s/.test(line))
+    .filter(line => !primaryDiagnosticPattern.test(line));
+  if (unrecognized.length > 0) {
+    throw new Error(`TypeScript printed unrecognized output:\n${unrecognized.join('\n')}`);
   }
 }
 
@@ -45,7 +63,9 @@ export function buildBaseline(compilerVersion, diagnostics) {
     config: 'tsconfig.tests.json',
     total: [...diagnostics.values()].reduce((sum, count) => sum + count, 0),
     byFileAndCode: Object.fromEntries(
-      [...diagnostics.entries()].sort(([left], [right]) => left.localeCompare(right))
+      [...diagnostics.entries()].sort(([left], [right]) =>
+        left < right ? -1 : left > right ? 1 : 0
+      )
     ),
   };
 }
@@ -98,7 +118,18 @@ export function compareBaseline(expected, actual) {
   return { regressions, improvements };
 }
 
-function runCompiler(args) {
+/** Resolve the native compiler the server package itself depends on. */
+function resolveCompiler() {
+  const packageJsonPath = createRequire(import.meta.url).resolve('@typescript/native/package.json');
+  const { version, bin } = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
+  const binPath = typeof bin === 'string' ? bin : bin?.tsc;
+  if (typeof version !== 'string' || typeof binPath !== 'string') {
+    throw new Error(`Unable to read native TypeScript metadata from ${packageJsonPath}`);
+  }
+  return { version, path: resolve(dirname(packageJsonPath), binPath) };
+}
+
+function runCompiler(compilerPath, args) {
   const result = spawnSync(process.execPath, [compilerPath, ...args], {
     cwd: serverDirectory,
     encoding: 'utf8',
@@ -106,33 +137,26 @@ function runCompiler(args) {
   });
 
   if (result.error) throw result.error;
+  const stdout = result.stdout ?? '';
+  const stderr = result.stderr ?? '';
   return {
     status: result.status,
     signal: result.signal,
-    output: `${result.stdout ?? ''}${result.stderr ?? ''}`,
+    stdout,
+    output: stderr ? `${stdout}\n${stderr}` : stdout,
   };
 }
 
-function readCompilerVersion() {
-  const result = runCompiler(['--version']);
-  const match = result.output.match(/Version\s+([^\s]+)/);
-  if (result.status !== 0 || result.signal || !match) {
-    throw new Error(`Unable to read native TypeScript version:\n${result.output}`);
-  }
-  return match[1];
-}
-
 function main() {
-  for (const requiredPath of [compilerPath, configPath]) {
-    if (!existsSync(requiredPath)) throw new Error(`Missing required file: ${requiredPath}`);
-  }
-
-  const compilerVersion = readCompilerVersion();
-  const result = runCompiler(['--project', configPath, '--pretty', 'false']);
+  if (!existsSync(configPath)) throw new Error(`Missing required file: ${configPath}`);
+  const compiler = resolveCompiler();
+  const compilerVersion = compiler.version;
+  const result = runCompiler(compiler.path, ['--project', configPath, '--pretty', 'false']);
   if (result.status === null || result.signal) {
     throw new Error(`TypeScript was interrupted by ${result.signal ?? 'an unknown signal'}`);
   }
   assertNoGlobalDiagnostics(result.output);
+  assertRecognizedOutput(result.stdout);
   const diagnostics = parseDiagnostics(result.output);
   const current = buildBaseline(compilerVersion, diagnostics);
 
@@ -161,7 +185,7 @@ function main() {
   }
 
   const { regressions, improvements } = compareBaseline(expected, diagnostics);
-  if (regressions.length > 0 || improvements.length > 0 || expected.total !== current.total) {
+  if (regressions.length > 0 || improvements.length > 0) {
     const sections = [
       `Test type baseline mismatch: expected ${expected.total}, observed ${current.total}`,
       regressions.length > 0 ? `New or increased diagnostics:\n- ${regressions.join('\n- ')}` : '',
@@ -176,7 +200,17 @@ function main() {
   console.log(`Server test type ratchet passed: ${current.total} known diagnostics, 0 new`);
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+/** Compare real paths so a symlinked or differently cased invocation cannot silently skip the gate. */
+function isEntrypoint() {
+  if (!process.argv[1]) return false;
+  try {
+    return realpathSync(process.argv[1]) === realpathSync(scriptPath);
+  } catch {
+    return false;
+  }
+}
+
+if (isEntrypoint()) {
   try {
     main();
   } catch (error) {
