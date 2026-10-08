@@ -1,13 +1,10 @@
 import { expect, test, type APIRequestContext } from '@playwright/test';
 import { login } from './support/app';
 import { seedAuthUser } from './support/db';
-import { resolveE2eApiOrigin } from './support/api-origin';
+import { e2eApiOrigin } from './support/api-origin';
 
 // Direct HTTP probes must use the same suite-owned server as the browser.
-const API_ORIGIN = resolveE2eApiOrigin(
-  process.env.PUNTOVIVO_E2E_API_ORIGIN,
-  'http://localhost:8090'
-);
+const API_ORIGIN = e2eApiOrigin();
 
 async function realtimeClientCount(request: APIRequestContext, bearer: string): Promise<number> {
   const response = await request.get(`${API_ORIGIN}/api/realtime/status`, {

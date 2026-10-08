@@ -58,8 +58,9 @@ defines `PUNTOVIVO_DB_KEY`: the plaintext fixture must not silently borrow an
 operator's SQLCipher setting. Run that validation in a clean worktree instead
 of weakening standalone encryption policy.
 `PUNTOVIVO_E2E_API_ORIGIN` can select another owned backend port. It must be an
-HTTP origin on `localhost` or `127.0.0.1`, with an explicit non-default port and
-no credentials, path, query or fragment. The renderer, health probe, backend
+HTTP origin on `localhost` or `127.0.0.1`, with an explicit non-default port
+other than the dedicated Web port 5173, and no credentials, path, query or
+fragment. The renderer, health probe, backend
 bind and direct HTTP/CLI probes use that same port. The owned Web origin uses
 the API hostname on port 5173 so strict refresh cookies survive full navigation;
 production cookie policy is not relaxed. Invalid overrides fail

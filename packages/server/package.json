@@ -21,6 +21,7 @@
     "build": "tsc && node ./scripts/copy-migrations.mjs",
     "typecheck": "tsc --noEmit && pnpm run typecheck:tests",
     "dev": "pnpm run native:ensure:node && tsx watch src/standalone-development.ts",
+    "dev:once": "pnpm run native:ensure:node && tsx src/standalone-development.ts",
     "start": "pnpm run native:ensure:node && node dist/standalone-production.js",
     "test": "pnpm run native:ensure:node && vitest run",
     "test:watch": "pnpm run native:ensure:node && vitest",

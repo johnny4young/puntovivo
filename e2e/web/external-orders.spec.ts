@@ -18,13 +18,10 @@ import {
 } from './support/app';
 import { seedExternalOrderScenario, getProductStock } from './support/db';
 import { runAxeOnPage } from './support/a11y';
-import { resolveE2eApiOrigin } from './support/api-origin';
+import { e2eApiOrigin } from './support/api-origin';
 
 // Direct HTTP and CLI probes must use the same suite-owned server as the browser.
-const API_ORIGIN = resolveE2eApiOrigin(
-  process.env.PUNTOVIVO_E2E_API_ORIGIN,
-  'http://127.0.0.1:8090'
-);
+const API_ORIGIN = e2eApiOrigin();
 
 /** The journey only reads SQLite; connector, inbox, stock and payment writes use UI or signed HTTP. */
 function evidence(tenantId: string) {

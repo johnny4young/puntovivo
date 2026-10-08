@@ -3,9 +3,11 @@
  *
  * Initializes the suite-owned standalone-server DB at
  * `packages/server/data/local.db` through the real migration/seed path before
- * opening it for direct fixture writes. Global setup can run before
- * Playwright's webServer, so it must not rely on server boot to create the
- * directory or schema. Delegates to `e2e/shared/baseline.ts` for tenant
+ * opening it for direct fixture writes. Playwright starts the owned webServer
+ * first, which migrates the same file with `seedData: false`; this setup adds
+ * the default seed through the server's own lifecycle (migrations re-run as an
+ * idempotent no-op) instead of importing ESM-only source seed modules into
+ * Playwright's CJS transform. Delegates to `e2e/shared/baseline.ts` for tenant
  * prep: cleanup prior E2E artefacts, ensure a secondary site, seed the
  * 4 template users. See that module for the semantics.
  *

@@ -46,6 +46,15 @@ test('E2E API origin rejects zero ports and components hidden by URL normalizati
   }
 });
 
+test('E2E API origin cannot claim the dedicated Web port', () => {
+  for (const host of ['localhost', '127.0.0.1']) {
+    assert.throws(
+      () => resolveE2eApiOrigin(`http://${host}:5173`, 'http://127.0.0.1:8090'),
+      /dedicated Web port 5173/
+    );
+  }
+});
+
 test('owned Web uses the API hostname at its dedicated port for strict cookie continuity', () => {
   for (const host of ['localhost', '127.0.0.1']) {
     assert.equal(resolveE2eWebOrigin(`http://${host}:18091`), `http://${host}:5173`);

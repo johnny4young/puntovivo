@@ -75,6 +75,12 @@ test('web E2E owns its servers and never borrows another worktree on the dev por
   assert.match(config, /--host \$\{webHost\} --port 5173 --strictPort/);
   assert.equal((config.match(/reuseExistingServer: false/g) ?? []).length, 2);
   assert.doesNotMatch(config, /dev-launcher\.mjs/);
+  // A watcher outlives an EADDRINUSE exit, letting the health probe reach a
+  // foreign listener; the owned backend must exit so Playwright fails closed.
+  assert.match(config, /command: 'pnpm --filter @puntovivo\/server run dev:once'/);
+  const serverPackage = JSON.parse(readRepoFile('packages/server/package.json'));
+  assert.match(serverPackage.scripts['dev:once'], /tsx src\/standalone-development\.ts$/);
+  assert.doesNotMatch(serverPackage.scripts['dev:once'], /\bwatch\b/);
   assert.match(config, /DATABASE_URL: e2eDbPath/);
   assert.match(config, /PUNTOVIVO_AUTHORITY_MODE: 'device_local'/);
   assert.match(config, /PUNTOVIVO_BIND_HOST: '127\.0\.0\.1'/);

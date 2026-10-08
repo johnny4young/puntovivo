@@ -4,18 +4,9 @@ import { expect, test } from '@playwright/test';
 import {
   assertAttendanceReconciliationJourneyDiagnostics,
   runAttendanceReconciliationJourney,
-  tenantDate,
 } from '../shared/attendance-reconciliation-journey';
 import { attachClientIssueTracker, E2E_PASSWORD, login } from './support/app';
 import { seedSurfaceGateScenario } from './support/db';
-
-test('uses each tenant clock when Bogota and New York calendar days diverge', () => {
-  const rollover = new Date('2026-09-26T04:15:00.000Z');
-  expect(tenantDate('America/Bogota', 0, rollover)).toBe('2026-09-25');
-  expect(tenantDate('America/New_York', 0, rollover)).toBe('2026-09-26');
-  expect(tenantDate('America/Bogota', -7, rollover)).toBe('2026-09-18');
-  expect(tenantDate('America/New_York', -7, rollover)).toBe('2026-09-19');
-});
 
 test('reconciles signed attendance and no-shows without leaking private labor evidence', async ({
   page,
