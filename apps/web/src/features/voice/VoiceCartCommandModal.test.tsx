@@ -28,6 +28,7 @@ const recorderState: {
   startMock: ReturnType<typeof vi.fn>;
   stopMock: ReturnType<typeof vi.fn>;
   resetMock: ReturnType<typeof vi.fn>;
+  cancelMock: ReturnType<typeof vi.fn>;
 } = {
   recording: false,
   supported: true,
@@ -37,6 +38,7 @@ const recorderState: {
   }),
   stopMock: vi.fn(async () => new Blob(['fake'], { type: 'audio/webm' })),
   resetMock: vi.fn(),
+  cancelMock: vi.fn(),
 };
 
 vi.mock('@/components/feedback/ToastProvider', () => ({
@@ -62,6 +64,7 @@ vi.mock('@/features/voice/useVoiceRecorder', async () => {
       start: recorderState.startMock,
       stop: recorderState.stopMock,
       reset: recorderState.resetMock,
+      cancel: recorderState.cancelMock,
     }),
   };
 });
@@ -98,6 +101,7 @@ beforeEach(async () => {
   });
   recorderState.stopMock = vi.fn(async () => new Blob(['fake'], { type: 'audio/webm' }));
   recorderState.resetMock = vi.fn();
+  recorderState.cancelMock = vi.fn();
   await i18n.changeLanguage('en');
 });
 
@@ -191,6 +195,19 @@ describe('VoiceCartCommandModal ( slice 3)', () => {
     expect(toastError).not.toHaveBeenCalled();
   });
 
+  it('cancels a pending microphone request when the parent hides a kept-mounted dialog', async () => {
+    recorderState.startMock = vi.fn(() => new Promise<void>(() => undefined));
+    const { rerender } = render(
+      <VoiceCartCommandModal isOpen={true} onClose={vi.fn()} onApply={vi.fn()} />
+    );
+    fireEvent.click(screen.getByTestId('voice-modal-record'));
+    expect(recorderState.startMock).toHaveBeenCalledTimes(1);
+    expect(recorderState.cancelMock).not.toHaveBeenCalled();
+
+    rerender(<VoiceCartCommandModal isOpen={false} onClose={vi.fn()} onApply={vi.fn()} />);
+    expect(recorderState.cancelMock).toHaveBeenCalledTimes(1);
+  });
+
   it('renders the idle state with the mic CTA + intro copy', () => {
     render(<VoiceCartCommandModal isOpen={true} onClose={vi.fn()} onApply={vi.fn()} />);
     expect(screen.getByTestId('voice-cart-modal')).toBeInTheDocument();
@@ -241,10 +258,9 @@ describe('VoiceCartCommandModal ( slice 3)', () => {
     expect(transcribeMutateAsyncMock).toHaveBeenCalledTimes(1);
   });
 
-  it('stops an active recording on close without forwarding audio', async () => {
+  it('cancels an active recording on close without forwarding audio', async () => {
     const onClose = vi.fn();
     recorderState.recording = true;
-    recorderState.stopMock = vi.fn(async () => new Blob(['discarded'], { type: 'audio/webm' }));
 
     render(<VoiceCartCommandModal isOpen={true} onClose={onClose} onApply={vi.fn()} />);
 
@@ -252,7 +268,8 @@ describe('VoiceCartCommandModal ( slice 3)', () => {
       fireEvent.click(screen.getByLabelText(/Close|Cerrar/));
     });
 
-    expect(recorderState.stopMock).toHaveBeenCalledTimes(1);
+    expect(recorderState.cancelMock).toHaveBeenCalled();
+    expect(recorderState.stopMock).not.toHaveBeenCalled();
     expect(transcribeMutateAsyncMock).not.toHaveBeenCalled();
     expect(parseMutateAsyncMock).not.toHaveBeenCalled();
     expect(onClose).toHaveBeenCalledTimes(1);

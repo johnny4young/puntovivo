@@ -213,6 +213,60 @@ describe('useVoiceRecorder ( slice 2)', () => {
     expect(FakeMediaRecorder.instances).toHaveLength(0);
   });
 
+  it('releases a late microphone grant after cancel while still mounted', async () => {
+    let grantMicrophone!: (stream: MediaStream) => void;
+    getUserMediaMock.mockImplementationOnce(
+      () =>
+        new Promise(resolve => {
+          grantMicrophone = resolve;
+        })
+    );
+    const { result } = renderHook(() => useVoiceRecorder());
+    let startPromise!: Promise<void>;
+    act(() => {
+      startPromise = result.current.start();
+    });
+
+    act(() => {
+      result.current.cancel();
+    });
+    await act(async () => {
+      grantMicrophone(buildFakeStream());
+      await startPromise;
+    });
+
+    expect(trackStopSpy).toHaveBeenCalledTimes(1);
+    expect(FakeMediaRecorder.instances).toHaveLength(0);
+    expect(result.current.recording).toBe(false);
+    expect(result.current.error).toBeNull();
+  });
+
+  it('cancel discards a live recording without a blob or error', async () => {
+    FakeMediaRecorder.deferStop = true;
+    const onAutoStop = vi.fn();
+    const { result } = renderHook(() => useVoiceRecorder({ onAutoStop }));
+    await act(async () => {
+      await result.current.start();
+    });
+    let stopped!: Promise<Blob>;
+    act(() => {
+      stopped = result.current.stop();
+    });
+    const outcome = stopped.catch(error => error);
+    act(() => {
+      result.current.cancel();
+    });
+    act(() => {
+      FakeMediaRecorder.instances[0]!.flushStop();
+    });
+
+    expect(await outcome).toBeInstanceOf(Error);
+    expect(onAutoStop).not.toHaveBeenCalled();
+    expect(result.current.recording).toBe(false);
+    expect(result.current.error).toBeNull();
+    expect(trackStopSpy).toHaveBeenCalledTimes(1);
+  });
+
   it('does not request two microphone streams on concurrent start clicks', async () => {
     let grantMicrophone!: (stream: MediaStream) => void;
     getUserMediaMock.mockImplementation(

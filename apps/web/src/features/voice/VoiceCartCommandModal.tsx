@@ -15,7 +15,7 @@
  *
  * @module features/voice/VoiceCartCommandModal
  */
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Mic, MicOff, Sparkles, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -152,9 +152,20 @@ export function VoiceCartCommandModal({
   const closingRef = useRef(false);
   const recordActionRef = useRef(false);
 
+  const recorder = useVoiceRecorder({
+    onAutoStop: blob => {
+      if (!activeRef.current || closingRef.current) return;
+      setRecordingSeconds(0);
+      void forwardBlob(blob);
+    },
+  });
+  const cancelRecording = recorder.cancel;
+
   // React Query's abortOnUnmount applies to queries, not mutations. These
   // requests use the same authenticated tRPC link through its vanilla client
   // so closing can abort the transport as well as discard late results.
+  // Hiding the dialog also discards capture, including a permission grant
+  // still pending, so a kept-mounted modal never records while closed.
   useEffect(() => {
     activeRef.current = isOpen;
     if (isOpen) closingRef.current = false;
@@ -162,14 +173,21 @@ export function VoiceCartCommandModal({
       activeRef.current = false;
       pipelineAbortRef.current?.abort();
       pipelineAbortRef.current = null;
+      cancelRecording();
     };
-  }, [isOpen]);
+  }, [isOpen, cancelRecording]);
+
+  // Keep the ESC handler identity stable so the dialog's keydown listener
+  // is not re-registered on every countdown render.
+  const handleCloseRef = useRef(handleClose);
+  useEffect(() => {
+    handleCloseRef.current = handleClose;
+  });
+  const requestClose = useCallback(() => handleCloseRef.current(), []);
 
   useDialogA11y({
     isOpen,
-    onClose: () => {
-      void handleClose();
-    },
+    onClose: requestClose,
     closeOnEsc: true,
     containerRef: panelRef,
     dialogRef,
@@ -181,11 +199,8 @@ export function VoiceCartCommandModal({
     pipelineAbortRef.current?.abort();
     const controller = new AbortController();
     pipelineAbortRef.current = controller;
-    const isCurrent = () =>
-      activeRef.current &&
-      !closingRef.current &&
-      pipelineAbortRef.current === controller &&
-      !controller.signal.aborted;
+    // Close, hide/unmount, and a newer recording all abort this controller.
+    const isCurrent = () => !controller.signal.aborted;
     try {
       const { base64, mimeType } = await blobToBase64(blob);
       if (!isCurrent()) return;
@@ -228,14 +243,6 @@ export function VoiceCartCommandModal({
     }
   }
 
-  const recorder = useVoiceRecorder({
-    onAutoStop: blob => {
-      if (!activeRef.current || closingRef.current) return;
-      setRecordingSeconds(0);
-      void forwardBlob(blob);
-    },
-  });
-
   function resetModal(): void {
     setPhase('idle');
     setRecordingSeconds(0);
@@ -245,21 +252,15 @@ export function VoiceCartCommandModal({
     recorder.reset();
   }
 
-  async function handleClose(): Promise<void> {
+  function handleClose(): void {
     if (closingRef.current) return;
     closingRef.current = true;
     pipelineAbortRef.current?.abort();
     pipelineAbortRef.current = null;
-    if (recorder.recording) {
-      try {
-        // Closing is a discard action. Stop the MediaRecorder so the
-        // microphone is released, but do not forward the discarded blob
-        // into the transcription/parser pipeline.
-        await recorder.stop();
-      } catch {
-        // Best-effort cleanup; resetModal still clears local UI state.
-      }
-    }
+    // Closing is a discard action. Release the microphone synchronously —
+    // including a permission grant that has not resolved yet — without
+    // waiting on final recorder events or forwarding the discarded blob.
+    recorder.cancel();
     resetModal();
     onClose();
   }
@@ -336,7 +337,7 @@ export function VoiceCartCommandModal({
     toast.success({
       title: t('voice:applySuccess', { count: items.length }),
     });
-    void handleClose();
+    handleClose();
   }
 
   if (!isOpen) return null;
@@ -382,9 +383,7 @@ export function VoiceCartCommandModal({
             type="button"
             className="btn-ghost btn-icon h-8 w-8"
             aria-label={t('voice:closeCta')}
-            onClick={() => {
-              void handleClose();
-            }}
+            onClick={handleClose}
           >
             <X className="h-4 w-4" />
           </button>
@@ -444,9 +443,7 @@ export function VoiceCartCommandModal({
             onRetry={() => {
               void handleRecordToggle();
             }}
-            onClose={() => {
-              void handleClose();
-            }}
+            onClose={handleClose}
           />
         )}
       </div>

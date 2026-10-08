@@ -83,8 +83,12 @@ export interface VoiceRecorderHook {
    * rejects if no recording is in flight. */
   stop: () => Promise<Blob>;
   /** Clear the last error + reset state. Does NOT stop a live
-   * recording — call `stop()` first if needed. */
+   * recording — call `stop()` or `cancel()` first if needed. */
   reset: () => void;
+  /** Discard the current capture: release the microphone, reject a
+   * pending `stop()`, never forward the blob, and release a permission
+   * grant that resolves after this call. Safe to call at any time. */
+  cancel: () => void;
 }
 
 export interface VoiceRecorderOptions {
@@ -153,6 +157,9 @@ export function useVoiceRecorder(options: VoiceRecorderOptions = {}): VoiceRecor
   const onAutoStopRef = useRef<VoiceRecorderOptions['onAutoStop']>(options.onAutoStop);
   const mountedRef = useRef(true);
   const permissionRequestRef = useRef(false);
+  // Bumped by cancel(); a start() whose permission request outlives a
+  // cancel compares generations and releases the late grant.
+  const startGenerationRef = useRef(0);
 
   useEffect(() => {
     onAutoStopRef.current = options.onAutoStop;
@@ -174,8 +181,11 @@ export function useVoiceRecorder(options: VoiceRecorderOptions = {}): VoiceRecor
     }
   }, []);
 
-  const failRecording = useCallback(
-    (err: Error) => {
+  // Revoke recorder ownership (so queued events are ignored), release
+  // tracks, and reject any waiting stop(). Returns the revoked recorder.
+  const discardRecording = useCallback(
+    (err: Error, reportError: boolean): MediaRecorder | null => {
+      const recorder = recorderRef.current;
       clearAutoStop();
       autoStopTriggeredRef.current = false;
       chunksRef.current = [];
@@ -187,12 +197,33 @@ export function useVoiceRecorder(options: VoiceRecorderOptions = {}): VoiceRecor
       stopRejecterRef.current = null;
       if (mountedRef.current) {
         setRecording(false);
-        setError({ kind: 'unknown', message: err.message });
+        if (reportError) setError({ kind: 'unknown', message: err.message });
       }
       reject?.(err);
+      return recorder;
     },
     [clearAutoStop, releaseStream]
   );
+
+  const failRecording = useCallback(
+    (err: Error) => {
+      discardRecording(err, true);
+    },
+    [discardRecording]
+  );
+
+  const cancel = useCallback(() => {
+    startGenerationRef.current += 1;
+    permissionRequestRef.current = false;
+    const recorder = discardRecording(new Error('Recording cancelled'), false);
+    if (recorder && recorder.state !== 'inactive') {
+      try {
+        recorder.stop();
+      } catch {
+        // Tracks were already released; no discarded blob may be forwarded.
+      }
+    }
+  }, [discardRecording]);
 
   const start = useCallback(async () => {
     if (!supported) {
@@ -225,21 +256,23 @@ export function useVoiceRecorder(options: VoiceRecorderOptions = {}): VoiceRecor
     }
 
     let stream: MediaStream;
+    const generation = startGenerationRef.current;
+    const isCurrentStart = () => mountedRef.current && generation === startGenerationRef.current;
     permissionRequestRef.current = true;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch (err) {
       const classified = classifyGetUserMediaError(err);
-      if (mountedRef.current) setError(classified);
+      if (isCurrentStart()) setError(classified);
       throw err instanceof Error ? err : new Error(classified.message);
     } finally {
-      permissionRequestRef.current = false;
+      if (generation === startGenerationRef.current) permissionRequestRef.current = false;
     }
 
-    // Permission can resolve after the consuming dialog has closed. Its
-    // unmount cleanup already ran before this local stream existed, so release
-    // the late grant here instead of starting an orphaned recorder.
-    if (!mountedRef.current) {
+    // Permission can resolve after the consumer cancelled or unmounted. That
+    // cleanup already ran before this local stream existed, so release the
+    // late grant here instead of starting an orphaned recorder.
+    if (!isCurrentStart()) {
       for (const track of stream.getTracks()) track.stop();
       return;
     }
@@ -247,65 +280,58 @@ export function useVoiceRecorder(options: VoiceRecorderOptions = {}): VoiceRecor
     streamRef.current = stream;
     chunksRef.current = [];
 
-    let recorder: MediaRecorder;
+    // Construction, handler wiring, and start share one failure path: any
+    // throw revokes ownership and releases the freshly granted tracks.
     try {
-      recorder = new MediaRecorder(stream, { mimeType });
-    } catch (err) {
-      releaseStream();
-      const classified = classifyGetUserMediaError(err);
-      setError(classified);
-      throw err instanceof Error ? err : new Error(classified.message);
-    }
-    recorderRef.current = recorder;
-    setRecordedMimeType(mimeType);
+      const recorder = new MediaRecorder(stream, { mimeType });
+      recorderRef.current = recorder;
 
-    recorder.ondataavailable = event => {
-      if (recorderRef.current !== recorder) return;
-      if (event.data && event.data.size > 0) {
-        chunksRef.current.push(event.data);
-      }
-    };
+      recorder.ondataavailable = event => {
+        if (recorderRef.current !== recorder) return;
+        if (event.data && event.data.size > 0) {
+          chunksRef.current.push(event.data);
+        }
+      };
 
-    recorder.onstop = () => {
-      if (recorderRef.current !== recorder) return;
-      clearAutoStop();
-      const blob = new Blob(chunksRef.current, { type: mimeType });
-      chunksRef.current = [];
-      releaseStream();
-      recorderRef.current = null;
-      if (mountedRef.current) setRecording(false);
-      const resolve = stopResolverRef.current;
-      const autoStopped = autoStopTriggeredRef.current;
-      autoStopTriggeredRef.current = false;
-      stopPromiseRef.current = null;
-      stopResolverRef.current = null;
-      stopRejecterRef.current = null;
-      if (resolve) {
-        resolve(blob);
-      } else if (autoStopped) {
-        void onAutoStopRef.current?.(blob);
-      }
-    };
+      recorder.onstop = () => {
+        if (recorderRef.current !== recorder) return;
+        clearAutoStop();
+        const blob = new Blob(chunksRef.current, { type: mimeType });
+        chunksRef.current = [];
+        releaseStream();
+        recorderRef.current = null;
+        if (mountedRef.current) setRecording(false);
+        const resolve = stopResolverRef.current;
+        const autoStopped = autoStopTriggeredRef.current;
+        autoStopTriggeredRef.current = false;
+        stopPromiseRef.current = null;
+        stopResolverRef.current = null;
+        stopRejecterRef.current = null;
+        if (resolve) {
+          resolve(blob);
+        } else if (autoStopped) {
+          void onAutoStopRef.current?.(blob);
+        }
+      };
 
-    recorder.onerror = event => {
-      if (recorderRef.current !== recorder) return;
-      const err =
-        event instanceof ErrorEvent && event.error instanceof Error
-          ? event.error
-          : new Error('MediaRecorder failed');
-      failRecording(err);
-    };
+      recorder.onerror = event => {
+        if (recorderRef.current !== recorder) return;
+        const err =
+          event instanceof ErrorEvent && event.error instanceof Error
+            ? event.error
+            : new Error('MediaRecorder failed');
+        failRecording(err);
+      };
 
-    try {
       recorder.start();
     } catch (err) {
       recorderRef.current = null;
       releaseStream();
-      setRecordedMimeType(null);
       const classified = classifyGetUserMediaError(err);
       setError(classified);
       throw err instanceof Error ? err : new Error(classified.message);
     }
+    setRecordedMimeType(mimeType);
     setRecording(true);
 
     // Hard cap: stop the recording at the 30-second budget so we
@@ -355,19 +381,11 @@ export function useVoiceRecorder(options: VoiceRecorderOptions = {}): VoiceRecor
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
-      const recorder = recorderRef.current;
       // Revoke ownership before stop can deliver events; discard, settle any
       // waiting caller, and release tracks even if browser stop throws.
-      failRecording(new Error('Recording cancelled'));
-      if (recorder && recorder.state !== 'inactive') {
-        try {
-          recorder.stop();
-        } catch {
-          // Tracks were already released; no discarded blob may be forwarded.
-        }
-      }
+      cancel();
     };
-  }, [failRecording]);
+  }, [cancel]);
 
   return {
     recording,
@@ -377,5 +395,6 @@ export function useVoiceRecorder(options: VoiceRecorderOptions = {}): VoiceRecor
     start,
     stop,
     reset,
+    cancel,
   };
 }
