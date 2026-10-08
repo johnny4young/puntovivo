@@ -316,7 +316,10 @@ export function SalesCheckoutPanel({
           <p className="text-[0.62rem] font-semibold uppercase tracking-[0.22em] text-secondary-500">
             {t('checkout.shortcuts')}
           </p>
-          <div className="mt-2 grid grid-cols-2 gap-1.5 text-[12px] sm:grid-cols-4">
+          <div
+            className="mt-2 grid grid-cols-2 gap-1.5 text-[12px]"
+            data-testid="checkout-shortcut-chips"
+          >
             {(
               [
                 ...(canOpenSearch
@@ -365,7 +368,7 @@ export function SalesCheckoutPanel({
                 className="flex items-center gap-2 rounded-xl border border-line/70 bg-surface px-2.5 py-1.5"
               >
                 <kbd className="pv-kbd">{keyLabel}</kbd>
-                <span className="truncate text-[11px] text-secondary-700">{action}</span>
+                <span className="whitespace-nowrap text-[11px] text-secondary-700">{action}</span>
               </div>
             ))}
           </div>
