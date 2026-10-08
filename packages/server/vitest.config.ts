@@ -65,15 +65,16 @@ export default defineConfig({
         'scripts/**',
         '*.config.{ts,js,mjs}',
       ],
-      // floor at current coverage with a small buffer so
-      // micro-fluctuations do not flake CI, but any real regression
-      // fails the build. Raising these is tracked as a follow-up; do
-      // not lower them without a documented rationale.
+      // Floors sit ~1.6-2.4 points below repeated hosted baselines
+      // (measured scope and numbers: docs/TESTING.md, Server coverage
+      // floors). No coverage.include is set, so only files the suite
+      // loads are measured. These floors run inside ci:server; do not
+      // lower them without a documented rationale.
       thresholds: {
-        statements: 80,
-        branches: 63,
-        functions: 77,
-        lines: 80,
+        statements: 85,
+        branches: 76,
+        functions: 82,
+        lines: 87,
       },
     },
     testTimeout: 10000,
