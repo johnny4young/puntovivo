@@ -120,10 +120,13 @@ never changes metrics, sampling, score floors, or the strict acceptance policy.
 
 LCP diagnostics expose only an allowlisted element tag and the four observed
 trace subparts from the pinned Lighthouse breakdown insight. Missing or invalid
-subparts remain null. Node text, selectors, labels, attributes, and resource
-URLs are never included. These observed timings are not additive to the
-simulation-adjusted LCP audit used by the score and budget gates; they do not
-change measurements, thresholds, or acceptance.
+subparts remain null; Lighthouse omits both resource subparts when the LCP
+element loads no resource, such as text. A test builds the details with the
+pinned Lighthouse producers, so revalidate it when upgrading Lighthouse. Node
+text, selectors, labels, attributes, and resource URLs are never included.
+These observed timings are not additive to the simulation-adjusted LCP audit
+used by the score and budget gates; they do not change measurements,
+thresholds, or acceptance.
 
 ### Data-scale UI contract
 

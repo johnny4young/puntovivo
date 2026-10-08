@@ -330,6 +330,75 @@ test('extractLcpDiagnostics stays bounded for private attributes and malformed i
   assert.equal(JSON.stringify(diagnostic).includes(secret), false);
 });
 
+test('extractLcpDiagnostics reads details built by the pinned Lighthouse insight', async () => {
+  // Build the details with the pinned Lighthouse producers so a subpart rename
+  // or list/table/node reshape on upgrade fails here instead of logging nulls.
+  const { default: LCPBreakdownInsight } =
+    await import('lighthouse/core/audits/insights/lcp-breakdown-insight.js');
+  const { Audit } = await import('lighthouse/core/audits/audit.js');
+  const secret = 'private-customer-456';
+  const node = Audit.makeNodeItem({
+    lhId: 'page-0-H1',
+    devtoolsNodePath: secret,
+    selector: `h1.${secret}`,
+    boundingRect: { top: 0, bottom: 1, left: 0, right: 1, width: 1, height: 1 },
+    snippet: `<h1 class="${secret}">`,
+    nodeLabel: secret,
+  });
+  const lhrFor = subparts => ({
+    audits: {
+      'lcp-breakdown-insight': {
+        details: Audit.makeListDetails([LCPBreakdownInsight.makeSubpartsTable(subparts), node]),
+      },
+    },
+  });
+
+  // Text LCP: Lighthouse omits both resource subparts.
+  const text = extractLcpDiagnostics(
+    lhrFor({ ttfb: { range: 120_400 }, renderDelay: { range: 300_600 } })
+  );
+  assert.deepEqual(text, {
+    lcpElementTag: 'h1',
+    lcpObservedBreakdownMs: {
+      timeToFirstByte: 120,
+      resourceLoadDelay: null,
+      resourceLoadDuration: null,
+      elementRenderDelay: 301,
+    },
+  });
+  assert.equal(JSON.stringify(text).includes(secret), false);
+
+  const image = extractLcpDiagnostics(
+    lhrFor({
+      ttfb: { range: 100_000 },
+      loadDelay: { range: 20_000 },
+      loadDuration: { range: 0 },
+      renderDelay: { range: 50_000 },
+    })
+  );
+  assert.deepEqual(image.lcpObservedBreakdownMs, {
+    timeToFirstByte: 100,
+    resourceLoadDelay: 20,
+    resourceLoadDuration: 0,
+    elementRenderDelay: 50,
+  });
+});
+
+test('extractLcpDiagnostics never reports a custom element as a built-in tag', () => {
+  const tagFor = snippet =>
+    extractLcpDiagnostics({
+      audits: {
+        'lcp-breakdown-insight': {
+          details: { type: 'list', items: [{ type: 'node', snippet }] },
+        },
+      },
+    }).lcpElementTag;
+  assert.equal(tagFor('<img->'), 'other');
+  assert.equal(tagFor('<svg:svg>'), 'other');
+  assert.equal(tagFor('<img\n  src="x">'), 'img');
+  assert.equal(tagFor('<br/>'), 'other');
+});
+
 test('compareToLighthouseBudget: a lower-is-better metric within ceiling is ok', () => {
   const result = compareToLighthouseBudget({
     measured: { authenticatedBoot: { lcpMs: 1500 } },

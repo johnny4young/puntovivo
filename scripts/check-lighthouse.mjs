@@ -277,20 +277,50 @@ export function extractDiagnostics(lhr) {
   };
 }
 
+const LCP_SUBPART_NAMES = [
+  'timeToFirstByte',
+  'resourceLoadDelay',
+  'resourceLoadDuration',
+  'elementRenderDelay',
+];
+const LCP_SAFE_ELEMENT_TAGS = new Set([
+  'a',
+  'article',
+  'body',
+  'button',
+  'canvas',
+  'div',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'header',
+  'img',
+  'li',
+  'main',
+  'p',
+  'picture',
+  'section',
+  'span',
+  'svg',
+  'table',
+  'td',
+  'th',
+  'video',
+]);
+
 /**
  * Bounded LCP insight diagnostics. Lighthouse node snippets may contain user
  * content, so publish only a small allowlisted HTML tag and numeric subparts.
  * Insight subparts are observed trace timings, not directly additive to the
  * simulation-adjusted largest-contentful-paint audit used by the score gate.
+ * Lighthouse omits the two resource subparts when the LCP element has no
+ * resource (for example text), so those remain null.
  */
 export function extractLcpDiagnostics(lhr) {
-  const subpartNames = [
-    'timeToFirstByte',
-    'resourceLoadDelay',
-    'resourceLoadDuration',
-    'elementRenderDelay',
-  ];
-  const lcpObservedBreakdownMs = Object.fromEntries(subpartNames.map(name => [name, null]));
+  const lcpObservedBreakdownMs = Object.fromEntries(LCP_SUBPART_NAMES.map(name => [name, null]));
   const details = lhr?.audits?.['lcp-breakdown-insight']?.details;
   const items = details?.type === 'list' && Array.isArray(details.items) ? details.items : [];
   const table = items.find(item => item?.type === 'table' && Array.isArray(item.items));
@@ -303,39 +333,12 @@ export function extractLcpDiagnostics(lhr) {
   }
 
   const node = items.find(item => item?.type === 'node');
-  const tag =
-    typeof node?.snippet === 'string'
-      ? /^\s*<([a-z][a-z0-9-]*)\b/i.exec(node.snippet)?.[1]?.toLowerCase()
-      : null;
-  const safeTags = new Set([
-    'a',
-    'article',
-    'body',
-    'button',
-    'canvas',
-    'div',
-    'h1',
-    'h2',
-    'h3',
-    'h4',
-    'h5',
-    'h6',
-    'header',
-    'img',
-    'li',
-    'main',
-    'p',
-    'picture',
-    'section',
-    'span',
-    'svg',
-    'table',
-    'td',
-    'th',
-    'video',
-  ]);
+  const snippet = typeof node?.snippet === 'string' ? node.snippet : '';
+  // The tag name must end at whitespace, `/`, or `>` so a custom element such
+  // as `<img->` is never reported as a built-in tag; anything else is `other`.
+  const tag = /^\s*<([a-z][a-z0-9-]*)(?=[\s/>]|$)/i.exec(snippet)?.[1]?.toLowerCase();
   return {
-    lcpElementTag: tag ? (safeTags.has(tag) ? tag : 'other') : null,
+    lcpElementTag: snippet ? (LCP_SAFE_ELEMENT_TAGS.has(tag) ? tag : 'other') : null,
     lcpObservedBreakdownMs,
   };
 }
