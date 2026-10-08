@@ -82,7 +82,7 @@ describe.each([
     const panelKeys = Array.from(container.querySelectorAll('aside kbd'), key => key.textContent);
     expect(panelKeys).toEqual(expect.arrayContaining(['Alt+P', 'Alt+C', 'Alt+D', 'Alt+U']));
     expect(container.textContent).not.toContain('`');
-    expect(hint.textContent).toContain(locale === 'en' ? 'Focus search' : 'Buscar');
+    expect(hint.textContent).toContain(locale === 'en' ? 'Focus search' : 'Ir a la búsqueda');
   });
 
   it('describes cart contents rather than claiming to identify the last scan', async () => {
@@ -100,6 +100,7 @@ describe.each([
   it('does not advertise editing shortcuts on a locked ticket', async () => {
     await i18n.changeLanguage(locale);
     const { container } = renderGuidance(2, true);
+    expect(screen.queryByText(help)).not.toBeInTheDocument();
     const keys = Array.from(container.querySelectorAll('kbd'), key => key.textContent);
     expect(keys).not.toEqual(expect.arrayContaining(['Alt+P']));
     expect(keys).not.toEqual(expect.arrayContaining(['Alt+C']));

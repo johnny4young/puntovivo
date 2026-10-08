@@ -14,7 +14,7 @@ import {
 } from '@/features/sales/CheckoutPreflightPanel';
 import { CashierPaceStrip } from '@/features/sales/CashierPaceStrip';
 import { SalesRegisterAssignmentField } from '@/features/sales/SalesRegisterAssignmentField';
-import { ariaKeyshortcutsFor, formatKeysForDisplay, getShortcutById } from '@/lib/shortcuts';
+import { ariaKeyshortcutsFor, shortcutDisplayFor } from '@/lib/shortcuts';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import type { PreflightItem } from '@/features/sales/useCheckoutPreflight';
 import type { SaleCartSummary } from '@/features/sales/saleCart';
@@ -82,10 +82,6 @@ interface SalesCheckoutPanelProps {
   showPrimaryAction?: boolean | undefined;
   /** Integrated SalesScreen surfaces one prioritized notice in its operation strip. */
   showPreflightPanel?: boolean | undefined;
-}
-function shortcutLabel(id: string): string {
-  const shortcut = getShortcutById(id);
-  return shortcut ? formatKeysForDisplay(shortcut.keys) : '';
 }
 export function SalesCheckoutPanel({
   currentSite,
@@ -209,19 +205,22 @@ export function SalesCheckoutPanel({
           </div>
         )}
 
-        <div className="card-inset px-4 py-4">
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[18px] bg-primary-50 text-primary-700">
-              <ScanLine className="h-4.5 w-4.5" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-secondary-950">
-                {t('checkout.searchProducts')}
-              </p>
-              <p className="mt-1 text-sm text-secondary-500">{t('checkout.searchHint')}</p>
+        {/* Locked tickets cannot add products; do not instruct the cashier to. */}
+        {canOpenSearch && (
+          <div className="card-inset px-4 py-4">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[18px] bg-primary-50 text-primary-700">
+                <ScanLine className="h-4.5 w-4.5" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-secondary-950">
+                  {t('checkout.searchProducts')}
+                </p>
+                <p className="mt-1 text-sm text-secondary-500">{t('checkout.searchHint')}</p>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         <div className="card-inset px-4 py-4 text-sm text-secondary-600">
           <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
@@ -323,7 +322,7 @@ export function SalesCheckoutPanel({
                 ...(canOpenSearch
                   ? [
                       [
-                        shortcutLabel('sales.productSearch'),
+                        shortcutDisplayFor('sales.productSearch'),
                         t('checkout.shortcut.search', {
                           defaultValue: 'Buscar',
                         }),
@@ -331,19 +330,19 @@ export function SalesCheckoutPanel({
                     ]
                   : []),
                 [
-                  shortcutLabel('sales.suspend'),
+                  shortcutDisplayFor('sales.suspend'),
                   t('checkout.shortcut.suspend', {
                     defaultValue: 'Pausar',
                   }),
                 ],
                 [
-                  shortcutLabel('sales.toggleSuspended'),
+                  shortcutDisplayFor('sales.toggleSuspended'),
                   t('checkout.shortcut.resume', {
                     defaultValue: 'Retomar',
                   }),
                 ],
                 [
-                  shortcutLabel('sales.charge'),
+                  shortcutDisplayFor('sales.charge'),
                   t('checkout.shortcut.charge', {
                     defaultValue: 'Cobrar',
                   }),
@@ -352,7 +351,7 @@ export function SalesCheckoutPanel({
                 // Cobrar chip so the cashier discovers the one-keystroke
                 // exact-cash flow without opening the Command Palette.
                 [
-                  shortcutLabel('sales.fastCash'),
+                  shortcutDisplayFor('sales.fastCash'),
                   t('checkout.shortcut.fastCash', {
                     defaultValue: 'Cobro rápido',
                   }),
@@ -374,14 +373,14 @@ export function SalesCheckoutPanel({
             <p className="mt-2 flex flex-wrap gap-x-3 gap-y-2 text-[11px] text-secondary-500">
               {(
                 [
-                  ['sales.focusProduct', t('checkout.shortcut.search')],
+                  ['sales.focusProduct', t('quickSearch.shortcut.focusSearch')],
                   ['sales.focusQuantity', t('checkout.shortcut.quantity')],
                   ['sales.focusDiscount', t('checkout.shortcut.discount')],
                   ['sales.focusUnit', t('checkout.shortcut.unitInDialog')],
                 ] as const
               ).map(([id, label]) => (
                 <span key={id} className="inline-flex items-center gap-1">
-                  <kbd className="pv-kbd">{shortcutLabel(id)}</kbd>
+                  <kbd className="pv-kbd">{shortcutDisplayFor(id)}</kbd>
                   <span>{label}</span>
                 </span>
               ))}

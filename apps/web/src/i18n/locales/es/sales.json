@@ -531,8 +531,8 @@
     "lockedState": "Edición de productos bloqueada",
     "lockedHint": "La búsqueda y el escáner están deshabilitados para este ticket bloqueado. Continúa con las acciones de cobro permitidas.",
     "shortcut": {
-      "focusSearch": "Buscar",
-      "openCatalog": "Catálogo"
+      "focusSearch": "Ir a la búsqueda",
+      "openCatalog": "Abrir catálogo"
     }
   },
   "paymentStatus": {

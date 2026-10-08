@@ -1,7 +1,7 @@
 import type { RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Search } from 'lucide-react';
-import { ariaKeyshortcutsFor, formatKeysForDisplay, getShortcutById } from '@/lib/shortcuts';
+import { ariaKeyshortcutsFor, shortcutDisplayFor } from '@/lib/shortcuts';
 
 interface SalesQuickSearchBarProps {
   query: string;
@@ -63,7 +63,7 @@ export function SalesQuickSearchBar({
           <span>{t('quickSearch.search')}</span>
           {!disabled && (
             <span className="sales-scan-submit-key" aria-hidden="true">
-              F5
+              {shortcutDisplayFor('sales.productSearch')}
             </span>
           )}
         </button>
@@ -79,9 +79,7 @@ export function SalesQuickSearchBar({
               ] as const
             ).map(([id, label]) => (
               <span key={id} className="inline-flex items-center gap-1">
-                <kbd className="pv-kbd">
-                  {formatKeysForDisplay(getShortcutById(id)?.keys ?? [])}
-                </kbd>
+                <kbd className="pv-kbd">{shortcutDisplayFor(id)}</kbd>
                 <span>{label}</span>
               </span>
             ))}

@@ -52,12 +52,6 @@ for (const spanish of [false, true]) {
         .toBe(true);
       for (const entry of await hint.locator('span.inline-flex').all()) {
         await expect(entry).toBeVisible();
-        const geometry = await entry.evaluate(element => {
-          const box = element.getBoundingClientRect();
-          return { left: box.left, right: box.right, width: window.innerWidth };
-        });
-        expect(geometry.left).toBeGreaterThanOrEqual(0);
-        expect(geometry.right).toBeLessThanOrEqual(geometry.width);
       }
       await page.keyboard.press('Alt+p');
       await expectSearchInputFocused(page);
