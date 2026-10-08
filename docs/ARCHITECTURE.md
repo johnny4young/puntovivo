@@ -876,6 +876,17 @@ multi-master cloud replication. Public readiness and known operational gaps are
 listed in [PROJECT-STATUS.md](./PROJECT-STATUS.md).
 
 The current sync push path acknowledges local queue work, not remote delivery.
+For each selected outbox ID, `sync.push` takes an IMMEDIATE SQLite writer
+transaction and rereads the tenant-owned row. Only a current `queued` or
+`retrying` row is processed; a deleted or completed row is skipped without
+claiming it as processed. Entity metadata, a conflict or failure record, outbox
+state, and the successful last-sync marker commit or roll back together for
+that row. Helpers use synchronous statements on the same connection; the
+transaction must not contain asynchronous work. The last-sync marker does not
+move backward if the clock does. This is per-row atomicity, not an all-or-nothing
+batch or an acknowledgement from a remote server, and does not rearm durable
+`submitting` claims.
+
 The v4 contract separately exposes operator recovery restrictions: inventory
 aggregates cannot be replaced or discarded through arbitrary JSON, and product
 recovery accepts only allowlisted metadata for an existing tenant product.
