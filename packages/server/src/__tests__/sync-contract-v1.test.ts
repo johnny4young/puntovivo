@@ -95,7 +95,10 @@ function contextWithInterleavedOutboxRead(id: string, onRead: () => void): Conte
     get(target, property, receiver) {
       const value = Reflect.get(target, property, receiver);
       if (property === 'select' && typeof value === 'function') {
-        return (...args: unknown[]) => interceptGet(Reflect.apply(value, target, args));
+        return (...args: unknown[]) => {
+          const builder: unknown = Reflect.apply(value, target, args);
+          return builder !== null && typeof builder === 'object' ? interceptGet(builder) : builder;
+        };
       }
       return typeof value === 'function' ? value.bind(target) : value;
     },
@@ -285,7 +288,7 @@ describe('sync contract v1 — retry', () => {
         entityType: 'products',
         entityId: 'changed-during-retry',
         operation: 'update',
-        conflictPolicy: 'lww',
+        conflictPolicy: 'auto_lww',
         payload: { id: 'changed-during-retry' },
         payloadVersion: 1,
         attempts: 3,
