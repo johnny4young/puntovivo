@@ -464,7 +464,8 @@ check the quota of every tenant site the snapshot can read and record one
 site-less audit row, so their cost is not duplicated across sites. A tenant-wide
 successful row stores its call-time site list and counts once in each listed
 site's monthly Co-pilot usage projection, without retroactively charging sites
-created later in the month.
+created later in the month. Successful site-less rows written before that list
+existed have unknown scope and conservatively count against every site.
 The web conversation explicitly selects all sites or the current site,
 clears earlier evidence when that selection changes, and discards responses
 that finish after the user or site context has changed.

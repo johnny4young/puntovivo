@@ -33,6 +33,10 @@ vi.mock('@/hooks', async () => {
 
 vi.mock('@/features/auth/AuthContext', () => ({
   useAuth: () => mocks.useAuthMock(),
+  useAuthOwnerKey: () => {
+    const { user } = mocks.useAuthMock() as { user?: { tenantId?: string; id?: string } | null };
+    return user ? `${user.tenantId}:${user.id}` : null;
+  },
 }));
 
 vi.mock('@/features/tenant/TenantContext', () => ({

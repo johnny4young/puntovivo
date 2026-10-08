@@ -13,7 +13,7 @@ import {
   Table2,
 } from 'lucide-react';
 import { Badge, Button } from '@/components/ui';
-import { useAuth } from '@/features/auth/AuthContext';
+import { useAuth, useAuthOwnerKey } from '@/features/auth/AuthContext';
 import { useTenant } from '@/features/tenant/TenantContext';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
@@ -480,7 +480,8 @@ export function CopilotPage() {
   const [input, setInput] = useState('');
   const [analyticsScope, setAnalyticsScope] = useState<CopilotAnalyticsScope>('all');
   const [latestResult, setLatestResult] = useState<CopilotChatResult | null>(null);
-  const ownerSiteKey = `${user?.tenantId ?? ''}:${user?.id ?? ''}:${currentSite?.id ?? ''}`;
+  const authOwnerKey = useAuthOwnerKey();
+  const ownerSiteKey = `${authOwnerKey ?? ''}:${currentSite?.id ?? ''}`;
   const [scopeCell] = useState(() =>
     createScopeCell({
       mode: analyticsScope,
