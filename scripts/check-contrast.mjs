@@ -10,12 +10,15 @@
  * floor for body text (>= 4.5:1). Exit code 1 on regression.
  *
  * The parser supports `oklch(L C H)` (the format the design system uses
- * today). Both `:root` and `.dark` must exist and expose a measurable
- * background/foreground pair; otherwise the gate fails instead of reporting
- * a false green. Every enforced pair in those theme scopes must remain
- * measurable; a missing token or unsupported color cannot silently pass.
- * Only opaque colors are supported: translucent contrast needs a compositing
- * backdrop that this static token-only check does not know.
+ * today) and resolves `var(--token)` aliases, with fallbacks, before
+ * parsing. Both `:root` and `.dark` must exist. The light theme is every
+ * `:root` block merged in source order; the dark theme is every `:root` and
+ * `.dark` block merged in source order, because the dark class is toggled on
+ * the root element and both selectors share one specificity. Every enforced
+ * pair in both themes must be measurable; a missing token or unsupported
+ * color fails the gate instead of reporting a false green. Only opaque colors
+ * are supported: translucent contrast needs a compositing backdrop that this
+ * static token-only check does not know.
  *
  * Wired into `ci:web` after the bundle-size gate.
  *
@@ -95,13 +98,34 @@ export function parseOklch(value) {
   // Never drop alpha: treating transparent text as opaque yields false green.
   if (match[4] !== undefined) {
     const alpha = match[4].endsWith('%') ? Number(match[4].slice(0, -1)) / 100 : Number(match[4]);
-    if (alpha !== 1) return null;
+    // CSS clamps alpha above 1 to opaque; anything lower (or NaN) is not.
+    if (!(alpha >= 1)) return null;
   }
   const [L, C, H] = match.slice(1, 4).map(Number);
   if (![L, C, H].every(Number.isFinite)) return null;
   // CSS clamps lightness and negative chroma before rendering. Treating
   // those values as unrestricted coordinates can produce false AA passes.
   return { L: Math.min(1, Math.max(0, L)), C: Math.max(0, C), H };
+}
+
+const VAR_REFERENCE = /^var\(\s*--([a-zA-Z0-9_-]+)\s*(?:,\s*([\s\S]*))?\)$/;
+
+/**
+ * Follow a `var(--token[, fallback])` chain through the given declarations.
+ * Returns the first non-`var()` value, or null for an undefined reference
+ * without fallback or a reference cycle (both invalid at computed time).
+ */
+export function resolveCustomProperty(value, declarations, seen = new Set()) {
+  const trimmed = value.trim();
+  const match = trimmed.match(VAR_REFERENCE);
+  if (!match) return trimmed;
+  const [, name, fallback] = match;
+  if (seen.has(name)) return null;
+  const referenced = declarations[name];
+  if (referenced !== undefined) {
+    return resolveCustomProperty(referenced, declarations, new Set([...seen, name]));
+  }
+  return fallback === undefined ? null : resolveCustomProperty(fallback, declarations, seen);
 }
 
 export function oklchToLinearRgb({ L, C, H }) {
@@ -165,7 +189,9 @@ export function extractScopes(cssSource) {
     const body = source.slice(openIdx + 1, closeIdx);
     if (selectorRaw && !selectorRaw.startsWith('@') && selectorRaw.match(/^[:.\[a-zA-Z][^{]*$/)) {
       const declarations = {};
-      const declMatcher = /--([a-zA-Z0-9_-]+)\s*:\s*([^;]+);/g;
+      // The final declaration in a block may omit its semicolon; it still
+      // wins the cascade, so it must not be dropped.
+      const declMatcher = /--([a-zA-Z0-9_-]+)\s*:\s*([^;{}]+)/g;
       let m;
       while ((m = declMatcher.exec(body)) !== null) {
         declarations[m[1]] = m[2].trim();
@@ -192,13 +218,27 @@ export function evaluateScope({ selector, declarations }) {
       });
       continue;
     }
-    const bgOkl = parseOklch(bgRaw);
-    const fgOkl = parseOklch(fgRaw);
+    const bgValue = resolveCustomProperty(bgRaw, declarations);
+    const fgValue = resolveCustomProperty(fgRaw, declarations);
+    if (bgValue === null || fgValue === null) {
+      warnings.push({
+        scope: selector,
+        pair: `${bg} / ${fg}`,
+        reason: `unresolvable var() reference (--${bgValue === null ? bg : fg}: ${
+          bgValue === null ? bgRaw : fgRaw
+        })`,
+      });
+      continue;
+    }
+    const bgOkl = parseOklch(bgValue);
+    const fgOkl = parseOklch(fgValue);
     if (!bgOkl || !fgOkl) {
       warnings.push({
         scope: selector,
         pair: `${bg} / ${fg}`,
-        reason: `non-oklch value (${!bgOkl ? bgRaw : fgRaw})`,
+        reason: `unmeasurable color (--${!bgOkl ? bg : fg}: ${
+          !bgOkl ? bgValue : fgValue
+        }); only opaque oklch(L C H) values are measured`,
       });
       continue;
     }
@@ -266,6 +306,30 @@ export function renderReport(perScopeResults) {
   return { text: lines.join('\n'), totalRegressions };
 }
 
+const THEME_SELECTORS = [':root', '.dark'];
+
+/**
+ * Compute the effective light and dark token maps. `.dark` is toggled on the
+ * root element, so every `:root` and `.dark` block applies to it in dark mode
+ * and, at equal specificity, the later block wins.
+ */
+export function resolveThemeScopes(scopes) {
+  const light = {};
+  const dark = {};
+  for (const { selector, declarations } of scopes) {
+    if (selector === ':root') {
+      Object.assign(light, declarations);
+      Object.assign(dark, declarations);
+    } else if (selector === '.dark') {
+      Object.assign(dark, declarations);
+    }
+  }
+  return [
+    { selector: ':root', declarations: light },
+    { selector: '.dark', declarations: dark },
+  ];
+}
+
 export async function runCli({ themeFile = DEFAULT_THEME_FILE } = {}) {
   let source;
   try {
@@ -275,7 +339,7 @@ export async function runCli({ themeFile = DEFAULT_THEME_FILE } = {}) {
     return 1;
   }
   const scopes = extractScopes(source);
-  const missingScopes = [':root', '.dark'].filter(
+  const missingScopes = THEME_SELECTORS.filter(
     required => !scopes.some(scope => scope.selector === required)
   );
   if (missingScopes.length > 0) {
@@ -284,30 +348,25 @@ export async function runCli({ themeFile = DEFAULT_THEME_FILE } = {}) {
     );
     return 1;
   }
-  const perScopeResults = scopes.map(scope => ({
+  const themeResults = resolveThemeScopes(scopes).map(scope => ({
     selector: scope.selector,
     ...evaluateScope(scope),
   }));
-  for (const required of [':root', '.dark']) {
-    const measuredBasePair = perScopeResults.some(
-      result =>
-        result.selector === required &&
-        [...result.ok, ...result.regressions].some(pair => pair.pair === 'background / foreground')
-    );
-    if (!measuredBasePair) {
-      console.error(`check-contrast: ${required} has no measurable background / foreground pair.`);
-      return 1;
-    }
-  }
-  const unmeasuredThemePairs = perScopeResults
-    .filter(result => result.selector === ':root' || result.selector === '.dark')
-    .flatMap(result => result.warnings.map(warning => `${result.selector}: ${warning.pair}`));
+  const unmeasuredThemePairs = themeResults.flatMap(result =>
+    result.warnings.map(warning => `  - ${result.selector}: ${warning.pair}: ${warning.reason}`)
+  );
   if (unmeasuredThemePairs.length > 0) {
     console.error(
-      `check-contrast: cannot verify enforced theme pair(s): ${unmeasuredThemePairs.join(', ')}.`
+      `check-contrast: cannot verify enforced theme pair(s) in ${themeFile}:\n${unmeasuredThemePairs.join('\n')}`
     );
     return 1;
   }
+  const perScopeResults = [
+    ...themeResults,
+    ...scopes
+      .filter(scope => !THEME_SELECTORS.includes(scope.selector))
+      .map(scope => ({ selector: scope.selector, ...evaluateScope(scope) })),
+  ];
   const report = renderReport(perScopeResults);
   if (report.totalRegressions > 0) {
     console.error(report.text);

@@ -27,17 +27,19 @@ import {
   contrastRatio,
   extractScopes,
   evaluateScope,
+  resolveCustomProperty,
+  resolveThemeScopes,
   runCli,
 } from './check-contrast.mjs';
 
-async function runWithTheme(source) {
+async function runWithTheme(source, errors = []) {
   const directory = mkdtempSync(join(tmpdir(), 'puntovivo-contrast-test-'));
   const themeFile = join(directory, 'theme.css');
   writeFileSync(themeFile, source);
   const originalLog = console.log;
   const originalError = console.error;
   console.log = () => {};
-  console.error = () => {};
+  console.error = message => errors.push(String(message));
   try {
     return await runCli({ themeFile });
   } finally {
@@ -70,6 +72,8 @@ test('parseOklch refuses transparency and malformed alpha instead of discarding 
     assert.equal(parseOklch(`oklch(0.5 0.1 220 / ${alpha})`), null, alpha);
   }
   assert.deepEqual(parseOklch('oklch(0.5 0.1 220 / 100%)'), { L: 0.5, C: 0.1, H: 220 });
+  // CSS clamps alpha above 1 to fully opaque.
+  assert.deepEqual(parseOklch('oklch(0.5 0.1 220 / 1.5)'), { L: 0.5, C: 0.1, H: 220 });
 });
 
 test('parseOklch clamps negative chroma to the CSS achromatic value', () => {
@@ -388,4 +392,98 @@ test('evaluateScope warns when one side of a pair is missing', () => {
   const warning = result.warnings.find(w => w.pair === 'background / foreground');
   assert.ok(warning);
   assert.match(warning.reason, /missing side/);
+});
+
+const REAL_THEME_URL = new URL('../apps/web/src/styles/theme.css', import.meta.url);
+
+test('extractScopes keeps a final declaration that omits its semicolon', () => {
+  const [scope] = extractScopes(
+    ':root { --background: oklch(1 0 0); --foreground: oklch(0.9 0 0) }'
+  );
+  assert.equal(scope.declarations.foreground, 'oklch(0.9 0 0)');
+});
+
+test('contrast gate measures a final unterminated declaration instead of an earlier value', async () => {
+  const source = readFileSync(REAL_THEME_URL, 'utf8');
+  const changed = source.replace(
+    '--print-paper: #fff;\n}',
+    '--print-paper: #fff;\n  --warning-700: oklch(0.93 0.11 72)\n}'
+  );
+  assert.notEqual(changed, source, 'the light theme must end with the print paper token');
+  assert.equal(await runWithTheme(changed), 1);
+});
+
+test('contrast gate catches a dark-only token regression in the real theme', async () => {
+  const source = readFileSync(REAL_THEME_URL, 'utf8');
+  const regressed = source.replace(
+    '--destructive-foreground: oklch(0.17 0.018 255);',
+    '--destructive-foreground: oklch(0.7 0.17 24);'
+  );
+  assert.notEqual(regressed, source, 'the dark destructive token must exist in the real theme');
+  assert.equal(await runWithTheme(regressed), 1);
+});
+
+test('resolveThemeScopes applies :root and .dark blocks in source order', () => {
+  const [light, dark] = resolveThemeScopes(
+    extractScopes(`
+      :root { --background: oklch(1 0 0); --foreground: oklch(0.2 0 0); --ring: oklch(0.5 0 0); }
+      .dark { --background: oklch(0.2 0 0); --foreground: oklch(1 0 0); }
+      :root { --foreground: oklch(0.1 0 0); }
+    `)
+  );
+  assert.equal(light.declarations.foreground, 'oklch(0.1 0 0)');
+  assert.equal(dark.declarations.background, 'oklch(0.2 0 0)');
+  // Both selectors match the root element at equal specificity: later wins.
+  assert.equal(dark.declarations.foreground, 'oklch(0.1 0 0)');
+  // Tokens the dark block does not redeclare inherit the light value.
+  assert.equal(dark.declarations.ring, 'oklch(0.5 0 0)');
+});
+
+test('contrast gate fails a dark pair overridden by a later :root block', async () => {
+  const source = readFileSync(REAL_THEME_URL, 'utf8');
+  // Restating the light foreground after `.dark` keeps light mode identical
+  // but wins the cascade on the root element in dark mode too.
+  assert.equal(await runWithTheme(`${source}\n:root { --foreground: oklch(0.24 0.02 255); }\n`), 1);
+});
+
+test('resolveCustomProperty follows var() chains, fallbacks, and rejects cycles', () => {
+  const declarations = {
+    surface: 'oklch(0.9 0 0)',
+    card: 'var(--surface)',
+    panel: 'var( --card )',
+    loop: 'var(--loop)',
+  };
+  assert.equal(resolveCustomProperty('var(--panel)', declarations), 'oklch(0.9 0 0)');
+  assert.equal(resolveCustomProperty('var(--missing, oklch(0 0 0))', declarations), 'oklch(0 0 0)');
+  assert.equal(resolveCustomProperty('var(--missing)', declarations), null);
+  assert.equal(resolveCustomProperty('var(--loop)', declarations), null);
+  assert.equal(resolveCustomProperty('oklch(1 0 0)', declarations), 'oklch(1 0 0)');
+});
+
+test('contrast gate measures enforced tokens declared as var() aliases', async () => {
+  const source = readFileSync(REAL_THEME_URL, 'utf8');
+  const aliased = source.replace('--card: oklch(0.225 0.018 255);', '--card: var(--surface);');
+  assert.notEqual(aliased, source, 'the dark card token must exist in the real theme');
+  assert.equal(await runWithTheme(aliased), 0);
+  const dangling = source.replace('--card: oklch(0.225 0.018 255);', '--card: var(--nope);');
+  const errors = [];
+  assert.equal(await runWithTheme(dangling, errors), 1);
+  assert.match(
+    errors.join('\n'),
+    /\.dark: card \/ card-foreground: unresolvable var\(\) reference/
+  );
+});
+
+test('contrast gate explains why an enforced theme pair cannot be measured', async () => {
+  const source = readFileSync(REAL_THEME_URL, 'utf8');
+  const translucent = source.replace(
+    '--destructive-foreground: oklch(0.985 0.005 84);',
+    '--destructive-foreground: oklch(0.985 0.005 84 / 0.5);'
+  );
+  const errors = [];
+  assert.equal(await runWithTheme(translucent, errors), 1);
+  assert.match(
+    errors.join('\n'),
+    /:root: destructive \/ destructive-foreground: unmeasurable color \(--destructive-foreground: oklch\(0\.985 0\.005 84 \/ 0\.5\)\)/
+  );
 });
