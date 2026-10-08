@@ -83,7 +83,7 @@ export async function createPurchase(ctx: CriticalPurchaseContext, input: Create
         productIds
       );
 
-      const purchaseNumber = allocateNextSequential(tx as unknown as typeof ctx.db, {
+      const purchaseNumber = allocateNextSequential(tx, {
         tenantId: ctx.tenantId,
         sequentialId: sequentialContext.id,
         updatedAt: now,
