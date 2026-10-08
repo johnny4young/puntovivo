@@ -133,7 +133,7 @@ export const IS_PACKAGED_RUN = PACKAGED_APP_DIR.length > 0;
 function resolveDevLaunchTarget(): { executablePath: string; args: string[] } {
   return {
     executablePath: requireFromDesktopWorkspace('electron') as string,
-    args: [ELECTRON_MAIN_ENTRY],
+    args: [ELECTRON_MAIN_ENTRY, ...credentialStoreArgs()],
   };
 }
 
@@ -200,11 +200,12 @@ export function packagedExecutablePath(): string {
 }
 
 /**
- * Isolate Chromium's own credential store for a packaged run.
+ * Isolate Chromium's credential store for every test-owned Electron launch.
  *
  * Chromium initialises cookie/password crypto before `app.whenReady`. On a
- * signed-but-not-notarized bundle macOS blocks on the global Chrome Safe
- * Storage item and the app never opens a window — the launch just times out —
+ * newly installed development runtime or signed-but-not-notarized bundle,
+ * macOS can block on the global Chrome Safe Storage item even after the
+ * window opens. Its IPC calls then stall behind the Keychain authorization —
  * and headless Linux runners may have no libsecret at all. The application's
  * own database key is already injected through PUNTOVIVO_DB_KEY, so this only
  * covers the layer underneath it. safeStorage itself has hermetic main-process
