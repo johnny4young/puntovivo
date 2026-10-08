@@ -68,6 +68,11 @@ export const syncContractProcedures = {
    * status back to `queued`, and set `nextRetryAt=null`.
    * `queued` / `submitting` / `synced` / `conflict` are no-ops so
    * an accepted row cannot be accidentally replayed.
+   * The reset compare-and-swaps on the observed status/attempts/updatedAt:
+   * if a push settles, fails or deletes the row between the read and the
+   * write, the call throws CONFLICT / `STALE_VERSION` instead of
+   * overwriting the newer attempt. A row already requeued by a concurrent
+   * retry is still a no-op success.
    * Admin-only.
    */
   retry: adminProcedure.input(retryOutboxInput).mutation(async ({ ctx, input }) => {
@@ -116,6 +121,16 @@ export const syncContractProcedures = {
       )
       .run();
     if (result.changes === 0) {
+      // A concurrent retry that already requeued the row reached the same
+      // terminal state; keep the queued no-op contract instead of a conflict.
+      const current = await ctx.db
+        .select({ status: syncOutbox.status })
+        .from(syncOutbox)
+        .where(and(eq(syncOutbox.id, input.id), eq(syncOutbox.tenantId, ctx.tenantId)))
+        .get();
+      if (current?.status === 'queued') {
+        return { ok: true as const, id: input.id };
+      }
       throwServerError({
         trpcCode: 'CONFLICT',
         errorCode: 'STALE_VERSION',

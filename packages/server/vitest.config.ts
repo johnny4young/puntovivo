@@ -22,7 +22,9 @@ export default defineConfig({
     // Each worker repeatedly migrates databases and hashes native credentials.
     // Bound that concurrency instead of multiplying it by the host core count;
     // all suites, assertions, coverage floors and timeout budgets remain intact.
-    maxWorkers: Math.min(4, availableParallelism()),
+    // Vitest's own `cores - 1` default stays the ceiling, so small hosts
+    // (4-vCPU CI runners, 2-core laptops) never gain a worker from this cap.
+    maxWorkers: Math.max(1, Math.min(4, availableParallelism() - 1)),
     environment: 'node',
     include: enabledProfileTest ? [enabledProfileTest] : ['src/**/*.test.ts'],
     exclude: enabledProfileTest

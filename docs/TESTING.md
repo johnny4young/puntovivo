@@ -5,8 +5,8 @@ reference, not a future-work tracker.
 
 ## Server fixture concurrency
 
-The server Vitest runner uses at most four workers, bounded further by available
-CPU parallelism. Each worker repeatedly migrates SQLite fixtures and performs
+The server Vitest runner uses at most four workers, and never more than Vitest's
+own default of one fewer than the available CPU parallelism. Each worker repeatedly migrates SQLite fixtures and performs
 native password hashing; letting host core count multiply that work can exhaust
 memory or time out otherwise bounded lifecycle checks. This controls fixture
 concurrency only: no suite, assertion, coverage floor or timeout is relaxed.
