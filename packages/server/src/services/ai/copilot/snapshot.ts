@@ -13,7 +13,7 @@
 import Database from 'better-sqlite3';
 import { createIdentityProjection } from './privacy.js';
 import { TRPCError } from '@trpc/server';
-import { and, desc, eq, gte, lte, type SQL } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, lte, type SQL } from 'drizzle-orm';
 
 import type { DatabaseInstance } from '../../../db/index.js';
 import {
@@ -112,7 +112,8 @@ async function loadSalesSnapshot(
   db: DatabaseInstance,
   tenantId: string,
   window: CopilotWindow,
-  siteId: string | null
+  siteId: string | null,
+  scopeSiteIds?: string[]
 ) {
   const filters: SQL[] = [
     eq(sales.tenantId, tenantId),
@@ -122,6 +123,9 @@ async function loadSalesSnapshot(
   ];
   if (siteId) {
     filters.push(eq(cashSessions.siteId, siteId));
+  }
+  if (scopeSiteIds) {
+    filters.push(inArray(cashSessions.siteId, scopeSiteIds));
   }
 
   const rows = await db
@@ -170,7 +174,8 @@ async function loadLineItemSnapshot(
   db: DatabaseInstance,
   tenantId: string,
   window: CopilotWindow,
-  siteId: string | null
+  siteId: string | null,
+  scopeSiteIds?: string[]
 ) {
   const filters: SQL[] = [
     eq(sales.tenantId, tenantId),
@@ -180,6 +185,9 @@ async function loadLineItemSnapshot(
   ];
   if (siteId) {
     filters.push(eq(cashSessions.siteId, siteId));
+  }
+  if (scopeSiteIds) {
+    filters.push(inArray(cashSessions.siteId, scopeSiteIds));
   }
 
   const rows = await db
@@ -317,14 +325,15 @@ async function loadSnapshot(
   db: DatabaseInstance,
   tenantId: string,
   context: SnapshotOptions['context'],
-  now: Date
+  now: Date,
+  scopeSiteIds?: string[]
 ) {
   const window = resolveWindow(context, now);
   const requestedSiteId = context?.siteId ?? null;
   if (requestedSiteId) await assertTenantSite(db, tenantId, requestedSiteId);
   const [saleRows, lineRows] = await Promise.all([
-    loadSalesSnapshot(db, tenantId, window, requestedSiteId),
-    loadLineItemSnapshot(db, tenantId, window, requestedSiteId),
+    loadSalesSnapshot(db, tenantId, window, requestedSiteId, scopeSiteIds),
+    loadLineItemSnapshot(db, tenantId, window, requestedSiteId, scopeSiteIds),
   ]);
   return { window, saleRows, lineRows };
 }
@@ -388,9 +397,16 @@ export async function createCopilotSnapshot(
   db: DatabaseInstance,
   tenantId: string,
   context: SnapshotOptions['context'],
-  now: Date
+  now: Date,
+  scopeSiteIds?: string[]
 ) {
-  const { window, saleRows, lineRows } = await loadSnapshot(db, tenantId, context, now);
+  const { window, saleRows, lineRows } = await loadSnapshot(
+    db,
+    tenantId,
+    context,
+    now,
+    scopeSiteIds
+  );
   const projection = createIdentityProjection(
     saleRows.flatMap(row => [row.cashierId, row.cashierName, row.customerName])
   );

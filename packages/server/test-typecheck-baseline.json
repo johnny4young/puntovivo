@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "compilerVersion": "7.0.2",
   "config": "tsconfig.tests.json",
-  "total": 241,
+  "total": 240,
   "byFileAndCode": {
     "src/__tests__/ai-match-invoice-lines.test.ts|TS2315": 1,
     "src/__tests__/ai-match-invoice-lines.test.ts|TS2769": 1,
@@ -10,7 +10,6 @@
     "src/__tests__/ai-parse-cart-command.test.ts|TS2769": 1,
     "src/__tests__/ai-parse-cart-command.test.ts|TS6133": 1,
     "src/__tests__/ai-quotas.test.ts|TS2379": 1,
-    "src/__tests__/ai-quotas.test.ts|TS6133": 1,
     "src/__tests__/ai-router.test.ts|TS18048": 3,
     "src/__tests__/ai-router.test.ts|TS2532": 2,
     "src/__tests__/ai-vision.test.ts|TS2379": 1,

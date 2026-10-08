@@ -27,6 +27,14 @@
     "starter": "Prueba: ¿cuánto vendí ayer en Sur?",
     "resultReady": "Los resultados de tu última pregunta están listos. Ver consultas y filas."
   },
+  "scope": {
+    "label": "Alcance de datos",
+    "allSites": "Todas las sedes",
+    "currentSite": "Sede actual: {{site}}",
+    "allHint": "Una pregunta exitosa consume una consulta de la cuota mensual de cada sede.",
+    "currentHint": "Usa solo los datos y la cuota mensual de esta sede.",
+    "unavailableHint": "Espera a que se confirme la sede actual."
+  },
   "composer": {
     "label": "Pregunta de analítica",
     "placeholder": "Pregúntale a tus datos...",

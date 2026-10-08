@@ -44,7 +44,7 @@ keeps all production strictness, expands `rootDir` only far enough to include
 the server's imported fixtures, and exposes the ES2024 library implemented by
 the required Node 24 runtime. It does not widen the production build config.
 
-The current test suite has a checked-in baseline of 241 diagnostics across 113
+The current test suite has a checked-in baseline of 240 diagnostics across 113
 files. `test-typecheck-baseline.json` records counts by file and diagnostic code,
 not line number. Invalid metadata, non-integer counters and inconsistent totals
 are rejected before comparison, as are unlocated or `tsconfig` diagnostics and
