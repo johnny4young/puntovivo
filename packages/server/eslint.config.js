@@ -33,5 +33,23 @@ export default tseslint.config(
       // a logger instead.
       'no-console': 'error',
     },
+  },
+  {
+    files: ['src/services/sequential-allocation.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              // Gitignore-style: each entry matches the directory itself
+              // (barrel imports) and every path below it.
+              group: ['../application', '../trpc'],
+              message: 'Keep document-number allocation below application and transport layers.',
+            },
+          ],
+        },
+      ],
+    },
   }
 );
