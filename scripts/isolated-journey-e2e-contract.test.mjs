@@ -16,7 +16,11 @@ test('the isolated-journey lane remains complete, serial, and single-attempt', (
 
   assert.equal(typeof ordinaryCommand, 'string');
   assert.match(ordinaryCommand, /--grep-invert ["']@long-shift-soak\|@isolated-journey["']/);
-  assert.match(ordinaryCommand, /--grep @isolated-journey --workers=1 --forbid-only/);
+  // The heavy lane must never pull an opt-in soak into the ordinary command.
+  assert.match(
+    ordinaryCommand,
+    /--grep @isolated-journey --grep-invert @long-shift-soak --workers=1 --forbid-only/
+  );
   assert.match(ordinaryCommand, /--config=playwright\.web-heavy\.config\.ts/);
   assert.doesNotMatch(ordinaryCommand, /--retries(?:=| )/);
 
