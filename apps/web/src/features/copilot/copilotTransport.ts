@@ -5,8 +5,22 @@ import { vanillaClient } from '@/lib/trpc';
 
 export type CopilotChatResult = inferRouterOutputs<AppRouter>['ai']['copilot']['chat'];
 
+/** Data scope selected by the operator; all-sites preserves the original UI default. */
+export type CopilotAnalyticsScope = 'all' | 'current';
+
+/** User/site ownership of one response; changing it invalidates an in-flight result. */
+export interface CopilotTransportScope {
+  mode: CopilotAnalyticsScope;
+  siteId: string | null;
+  ownerKey: string;
+  /** Monotonic context revision: an A-to-B-to-A switch cannot revive an old request. */
+  revision: number;
+}
+
 interface CopilotTransportOptions {
   onResult: (result: CopilotChatResult) => void;
+  /** Read at send time so a site switch cannot retain a stale transport closure. */
+  getScope: () => CopilotTransportScope;
 }
 
 function textFromMessage(message: UIMessage): string {
@@ -45,14 +59,32 @@ function textStream(text: string): ReadableStream<UIMessageChunk> {
 
 export function createCopilotTransport({
   onResult,
+  getScope,
 }: CopilotTransportOptions): ChatTransport<UIMessage> {
   return {
-    async sendMessages({ messages }) {
-      const result = await vanillaClient.ai.copilot.chat.mutate({
-        messages: toCopilotMessages(messages),
-      });
-      onResult(result);
-      return textStream(result.answer);
+    async sendMessages({ messages, abortSignal }) {
+      const scope = getScope();
+      // Every mode, site or owner change bumps the revision, so it alone
+      // identifies the conversation context this request belongs to.
+      const isCurrent = () => !abortSignal?.aborted && getScope().revision === scope.revision;
+      if (!isCurrent()) return textStream('');
+      if (scope.mode === 'current' && !scope.siteId) {
+        throw new Error('The current site is unavailable');
+      }
+      try {
+        const result = await vanillaClient.ai.copilot.chat.mutate({
+          messages: toCopilotMessages(messages),
+          context: { siteId: scope.mode === 'current' ? scope.siteId : null },
+        });
+        // This fences UI ownership, not provider execution or billing.
+        if (!isCurrent()) return textStream('');
+        onResult(result);
+        return textStream(result.answer);
+      } catch (error) {
+        // An old failure must not overwrite the new conversation's state either.
+        if (!isCurrent()) return textStream('');
+        throw error;
+      }
     },
 
     async reconnectToStream() {

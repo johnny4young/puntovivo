@@ -200,6 +200,13 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
         '0088_purchase_carrying_values',
         '0089_serial_carrying_values',
         '0090_inventory_value_constraints',
+        // Stamping 0092 makes Drizzle skip every earlier pending entry, so the
+        // intervening payment-proposal migration is recorded explicitly rather
+        // than silently skipped without a journal row.
+        '0091_puzzling_sunfire',
+        // Co-pilot audit scope adds a column to a table that this exact
+        // purchase-only legacy fixture does not contain.
+        '0092_ai_copilot_scope_sites',
       ].includes(entry.tag)
     ) {
       const tables = sqlite

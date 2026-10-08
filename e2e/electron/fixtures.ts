@@ -35,7 +35,7 @@ import {
 import type Database from 'better-sqlite3';
 import type { ChildProcess } from 'node:child_process';
 import { spawn, spawnSync } from 'node:child_process';
-import { cpSync, mkdtempSync, rmSync } from 'node:fs';
+import { cpSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { createRequire } from 'node:module';
 import { join, resolve } from 'node:path';
@@ -53,6 +53,7 @@ import {
   ELECTRON_E2E_API_HOST,
   ELECTRON_E2E_API_PORT,
   ELECTRON_E2E_API_URL,
+  devElectronSandboxArgs,
 } from '../../scripts/electron-e2e-runtime.mjs';
 
 /**
@@ -106,15 +107,16 @@ export function applyE2eSqlCipherKey(db: Database.Database): void {
 }
 
 /**
- * Compiled Electron main entry. Electron Forge's Vite plugin emits
- * this during `npm run dev:desktop` and `npm run package:desktop`.
- * `test:e2e:electron` verifies the artefact exists before Playwright
- * starts and prints the rebuild command when it is missing.
+ * Launch the desktop package directory, not the compiled main file directly.
+ * Its package.json points to that same Vite bundle and gives Electron the
+ * real app version; file-path launch selects Electron's default app metadata.
+ * `test:e2e:electron` checks the built main/preload artefacts first.
  */
-const ELECTRON_MAIN_ENTRY = resolve(process.cwd(), 'apps/desktop/.vite/build/index.cjs');
-const requireFromDesktopWorkspace = createRequire(
-  resolve(process.cwd(), 'apps/desktop/package.json')
-);
+const DESKTOP_APP_DIR = resolve(process.cwd(), 'apps/desktop');
+const DESKTOP_APP_VERSION = (
+  JSON.parse(readFileSync(join(DESKTOP_APP_DIR, 'package.json'), 'utf8')) as { version: string }
+).version;
+const requireFromDesktopWorkspace = createRequire(join(DESKTOP_APP_DIR, 'package.json'));
 
 /**
  * Packaging output to run against, when the operator wants the journeys proven
@@ -133,8 +135,15 @@ export const IS_PACKAGED_RUN = PACKAGED_APP_DIR.length > 0;
 function resolveDevLaunchTarget(): { executablePath: string; args: string[] } {
   return {
     executablePath: requireFromDesktopWorkspace('electron') as string,
-    args: [ELECTRON_MAIN_ENTRY, ...credentialStoreArgs()],
+    args: [DESKTOP_APP_DIR, ...devElectronSandboxArgs(), ...credentialStoreArgs()],
   };
+}
+
+async function assertDevAppVersion(electronApp: ElectronApplication): Promise<void> {
+  const observed = await electronApp.evaluate(({ app }) => app.getVersion());
+  if (observed !== DESKTOP_APP_VERSION) {
+    throw new Error(`Electron dev app version ${observed} differs from ${DESKTOP_APP_VERSION}`);
+  }
 }
 
 /**
@@ -175,6 +184,7 @@ export async function launchUpdaterSmokeElectron(userDataDir: string): Promise<{
   let disposed = false;
   try {
     const page = await electronApp.firstWindow();
+    await assertDevAppVersion(electronApp);
     return {
       page,
       dispose: async () => {
@@ -615,6 +625,35 @@ export const electronTest = base.extend<ElectronFixtures, ElectronWorkerFixtures
           page = await electronApp.firstWindow();
         } catch (error) {
           throw formatFirstWindowFailure(error, electronApp.process());
+        }
+        await assertDevAppVersion(electronApp);
+        if (process.platform === 'darwin') {
+          // CDP owns keyboard input in this dev fixture. A foreground native
+          // window can receive unrelated operator typing/shortcuts and corrupt
+          // identities during automation. This does not qualify native focus.
+          // Packaged targets and production window preferences remain unchanged.
+          const appForIsolation = electronApp;
+          await appForIsolation.evaluate(({ app, BrowserWindow }) => {
+            const isolate = (window: InstanceType<typeof BrowserWindow>) => {
+              window.setFocusable(false);
+              // Electron documents that setFocusable alone does not remove
+              // existing macOS focus. Explicitly relinquish that focus too.
+              window.blur();
+            };
+            BrowserWindow.getAllWindows().forEach(isolate);
+            app.on('browser-window-created', (_event, window) => isolate(window));
+          });
+          await base.expect
+            .poll(async () =>
+              appForIsolation.evaluate(({ BrowserWindow }) => {
+                const windows = BrowserWindow.getAllWindows();
+                return (
+                  windows.length > 0 &&
+                  windows.every(window => !window.isFocusable() && !window.isFocused())
+                );
+              })
+            )
+            .toBe(true);
         }
         await use(page);
       } finally {

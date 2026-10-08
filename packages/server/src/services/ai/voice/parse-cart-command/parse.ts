@@ -26,6 +26,7 @@ import { throwServerError } from '../../../../lib/errorCodes.js';
 import { currentMonthSpend, recordCall } from '../../auditLog.js';
 import { toBillableTokenUsage } from '../../client.js';
 import { resolveAISettings } from '../../client.js';
+import { logProviderFailure } from '../../provider-error.js';
 import { getProvider } from '../../providers/registry.js';
 import {
   SEMANTIC_SIMILARITY_FLOOR,
@@ -114,11 +115,11 @@ export async function parseVoiceCartCommand(
 
   const modelId = settings.modelId ?? provider.defaultModelId;
   const startedAt = Date.now();
-  const providerOptions = provider.cacheControlForSystemPrompt();
 
   let parsed: VoiceCartCommand;
   let costUsd = 0;
   try {
+    const providerOptions = provider.cacheControlForSystemPrompt();
     const result = await generateObject({
       model: provider.languageModel(modelId),
       instructions: SYSTEM_PROMPT,
@@ -133,7 +134,13 @@ export async function parseVoiceCartCommand(
     costUsd = provider.pricing.calculateCostUsd(modelId, billable);
   } catch (error) {
     const durationMs = Date.now() - startedAt;
-    const message = error instanceof Error ? error.message : 'Voice parser call failed';
+    logProviderFailure(error, {
+      tenantId: ctx.tenantId,
+      feature: 'voiceCartCommand',
+      providerId: provider.id,
+      modelId,
+      errorCode: 'AI_PROVIDER_ERROR',
+    });
     await recordCall(ctx.db, {
       tenantId: ctx.tenantId,
       siteId: ctx.siteId,
@@ -152,8 +159,7 @@ export async function parseVoiceCartCommand(
     throwServerError({
       trpcCode: 'BAD_GATEWAY',
       errorCode: 'AI_PROVIDER_ERROR',
-      message,
-      details: { cause: String(error) },
+      message: 'Voice parser call failed',
     });
   }
 

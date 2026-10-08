@@ -449,7 +449,7 @@ export const salesSplitDraftProcedures = {
             );
           }
 
-          newSaleNumber = allocateNextSequential(tx as unknown as typeof ctx.db, {
+          newSaleNumber = allocateNextSequential(tx, {
             tenantId: ctx.tenantId,
             sequentialId: sequentialContext.id,
             updatedAt: now,
