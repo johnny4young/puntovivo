@@ -108,7 +108,7 @@ query updates do not serialize the same Customer Display projection again.
 Heartbeat and reconnect publication are unchanged. Lighthouse also logs bounded
 renderer CPU events, with process-local opaque script IDs and no raw trace
 arguments or headers. Only canonical same-origin URLs verified against regular
-files in the current build receive an ID; missing builds, queries, fragments,
+top-level `assets/*.js` files in the current build receive an ID; missing builds, queries, fragments,
 external origins, and symlink assets remain unattributed. Bootup and CPU share
 the same resolver so IDs correlate within a run. The reverse mapping stays
 private, and IDs are not stable across processes. The isolated gate supplies

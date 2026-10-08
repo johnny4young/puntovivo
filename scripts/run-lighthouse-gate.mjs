@@ -301,10 +301,9 @@ export function buildGateEnv(
     PUNTOVIVO_LIGHTHOUSE_BASE_URL: options.previewUrl,
     PUNTOVIVO_LIGHTHOUSE_CDP_PORT: String(options.cdpPort),
     // The diagnostics must verify the actual isolated preview, not an older
-    // checkout dist. Explicit external-preview mode owns its separate build.
-    PUNTOVIVO_LIGHTHOUSE_BUILD_DIRECTORY: options.skipPreview
-      ? env.PUNTOVIVO_LIGHTHOUSE_BUILD_DIRECTORY || join(REPO_ROOT, 'apps/web/dist')
-      : webOutDir,
+    // checkout dist. Explicit external-preview mode owns its separate build:
+    // the inherited value (or check-lighthouse's checkout default) applies.
+    ...(options.skipPreview ? {} : { PUNTOVIVO_LIGHTHOUSE_BUILD_DIRECTORY: webOutDir }),
     VITE_API_URL: options.apiUrl,
     PUNTOVIVO_SQLITE_BUSY_TIMEOUT_MS: env.PUNTOVIVO_SQLITE_BUSY_TIMEOUT_MS || '15000',
     PUNTOVIVO_GLOBAL_RATE_LIMIT_MAX: env.PUNTOVIVO_GLOBAL_RATE_LIMIT_MAX || '10000',

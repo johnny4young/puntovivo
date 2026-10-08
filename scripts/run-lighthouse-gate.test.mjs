@@ -193,6 +193,12 @@ test('external-preview mode uses its explicitly supplied attribution build', () 
     '/unused/web-dist'
   );
   assert.equal(env.PUNTOVIVO_LIGHTHOUSE_BUILD_DIRECTORY, '/external/web-dist');
+  // Without an explicit build, check-lighthouse owns the single checkout default.
+  assert.equal(
+    buildGateEnv({}, options, '/owned/db', '/owned/browser', '/unused/web-dist')
+      .PUNTOVIVO_LIGHTHOUSE_BUILD_DIRECTORY,
+    undefined
+  );
 });
 
 test('buildProductionWebEnv isolates production mode from the seed runtime', () => {

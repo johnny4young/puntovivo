@@ -26,7 +26,7 @@
  * @module scripts/check-lighthouse
  */
 
-import { lstatSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync } from 'node:fs';
+import { lstatSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { dirname, join, resolve } from 'node:path';
 import { arch, cpus, platform, release, tmpdir, totalmem } from 'node:os';
@@ -37,6 +37,14 @@ const BUDGET_PATH = join(REPO_ROOT, 'perf-budget.json');
 
 /** Web dev server the e2e suite serves on. */
 const BASE_URL = process.env.PUNTOVIVO_LIGHTHOUSE_BASE_URL || 'http://localhost:3000';
+/**
+ * Build whose top-level `assets/*.js` files may receive opaque diagnostic IDs.
+ * The isolated gate points this at the preview bundle it built and serves.
+ */
+const BUILD_DIRECTORY =
+  process.env.PUNTOVIVO_LIGHTHOUSE_BUILD_DIRECTORY || join(REPO_ROOT, 'apps/web/dist');
+/** Hashed Vite chunk names eligible for an opaque ID; no nested paths. */
+const BUILD_SCRIPT_NAME = /^[A-Za-z0-9_.-]+\.js$/;
 /** CDP port Lighthouse attaches to (Playwright exposes it via the launch arg). */
 const CDP_PORT = Number(process.env.PUNTOVIVO_LIGHTHOUSE_CDP_PORT || 9222);
 /**
@@ -245,20 +253,13 @@ export function extractRunnerBenchmark(lhr) {
 }
 
 /**
- * Extra performance signals printed for diagnosis but not budgeted directly.
- * The score can regress while LCP/TTI/CLS remain healthy (for example, when
- * Total Blocking Time rises), so keeping these in the gate log makes the root
- * cause visible instead of leaving operators with only an opaque score.
- */
-/**
  * Verify scripts against regular files in this build, then assign private,
  * process-local IDs shared by bootup and CPU diagnostics. Never export the
  * reverse mapping. A missing build or untrusted URL produces null, not a
  * guessed asset name. Symlink entries and noncanonical URLs fail closed.
  */
 export function createBuildScriptIdResolver({
-  buildDirectory = process.env.PUNTOVIVO_LIGHTHOUSE_BUILD_DIRECTORY ||
-    join(REPO_ROOT, 'apps/web/dist'),
+  buildDirectory = BUILD_DIRECTORY,
   baseUrl = BASE_URL,
 } = {}) {
   const scripts = new Map();
@@ -270,14 +271,12 @@ export function createBuildScriptIdResolver({
     }
     origin = base.origin;
     const assets = join(buildDirectory, 'assets');
+    // lstat never follows the final component: a symlinked `assets` directory
+    // or asset entry is not a regular build file. Symlinked ancestors of the
+    // build root (macOS temp directories) remain acceptable.
     if (!lstatSync(assets).isDirectory()) return () => null;
-    // Canonicalize the trusted build root: macOS temp directories themselves
-    // may have symlink ancestors without making an asset entry a symlink.
-    const canonicalAssets = realpathSync(assets);
     for (const name of readdirSync(assets)) {
-      if (!/^[A-Za-z0-9_.-]+\.js$/.test(name)) continue;
-      const file = join(assets, name);
-      if (!lstatSync(file).isFile() || realpathSync(file) !== join(canonicalAssets, name)) continue;
+      if (!BUILD_SCRIPT_NAME.test(name) || !lstatSync(join(assets, name)).isFile()) continue;
       scripts.set(`/assets/${name}`, `script-${randomBytes(12).toString('hex')}`);
     }
   } catch {
@@ -304,6 +303,12 @@ export function createBuildScriptIdResolver({
   };
 }
 
+/**
+ * Extra performance signals printed for diagnosis but not budgeted directly.
+ * The score can regress while LCP/TTI/CLS remain healthy (for example, when
+ * Total Blocking Time rises), so keeping these in the gate log makes the root
+ * cause visible instead of leaving operators with only an opaque score.
+ */
 export function extractDiagnostics(lhr, resolveScriptId = () => null) {
   const audits = lhr?.audits ?? {};
   const rounded = id => {
