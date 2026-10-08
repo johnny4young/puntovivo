@@ -77,14 +77,14 @@ export const syncPushProcedures = {
           );
           if (existingConflictId) {
             const message = `Pending conflict blocks ${current.entityType}:${current.entityId}`;
-            markOutboxFailure(ctx.db, ctx.tenantId, item.id, message);
+            markOutboxFailure(ctx.db, ctx.tenantId, item.id, message, now);
             return { kind: 'failure', message, conflictId: existingConflictId } as const;
           }
 
           const config = getSyncEntityConfiguration(current.entityType);
           if (!config) {
             const message = `Unsupported sync entity type: ${current.entityType}`;
-            markOutboxFailure(ctx.db, ctx.tenantId, item.id, message);
+            markOutboxFailure(ctx.db, ctx.tenantId, item.id, message, now);
             return { kind: 'failure', message } as const;
           }
 
@@ -99,7 +99,7 @@ export const syncPushProcedures = {
                 localData: (current.payload ?? {}) as Record<string, unknown>,
                 remoteData: {},
               });
-              markOutboxFailure(ctx.db, ctx.tenantId, item.id, message);
+              markOutboxFailure(ctx.db, ctx.tenantId, item.id, message, now);
               return { kind: 'failure', message, conflictId } as const;
             }
 

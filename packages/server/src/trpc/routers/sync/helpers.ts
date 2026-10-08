@@ -23,9 +23,10 @@ export const LAST_SYNC_KEY_PREFIX = 'sync_last_sync:';
 
 /**
  * Statuses that count as "still pending" — local processing has not yet
- * reached a final state. These counts do not establish remote delivery. `submitting` is a transient mid-push
- * state; counting it as pending preserves the legacy semantics where
- * any non-final row blocked closeout flows.
+ * reached a final state. These counts do not establish remote delivery.
+ * `sync.push` never writes `submitting` (it settles each row inside one
+ * IMMEDIATE transaction); the status is still counted as pending so any
+ * legacy or kernel-claimed row keeps blocking closeout flows.
  */
 export const PENDING_STATUSES = ['queued', 'submitting', 'retrying'] as const;
 export type PendingStatus = (typeof PENDING_STATUSES)[number];
@@ -365,9 +366,9 @@ export function markOutboxFailure(
   db: DatabaseInstance,
   tenantId: string,
   outboxId: string,
-  message: string
+  message: string,
+  now: string = new Date().toISOString()
 ) {
-  const now = new Date().toISOString();
   db.update(syncOutbox)
     .set({
       status: 'retrying',
