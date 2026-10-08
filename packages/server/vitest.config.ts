@@ -60,10 +60,11 @@ export default defineConfig({
         'scripts/**',
         '*.config.{ts,js,mjs}',
       ],
-      // Keep a measurable buffer below repeated hosted baselines while
-      // protecting branch-heavy authorization and rollback paths.
-      // These floors run inside ci:server; do not lower them without
-      // a documented rationale.
+      // Floors sit ~1.6-2.4 points below repeated hosted baselines
+      // (measured scope and numbers: docs/TESTING.md, Server coverage
+      // floors). No coverage.include is set, so only files the suite
+      // loads are measured. These floors run inside ci:server; do not
+      // lower them without a documented rationale.
       thresholds: {
         statements: 85,
         branches: 76,

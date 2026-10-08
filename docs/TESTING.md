@@ -58,12 +58,23 @@ added relative to the snapshot, not that every server test is type-clean yet.
 
 ### Server coverage floors
 
-The server's `ci:server` coverage run enforces minimum statements, branches,
-functions and lines of **85%, 76%, 82% and 87%**, respectively. These thresholds
-apply to the existing production-code scope without adding exclusions or
-changing the V8 coverage provider. A green aggregate does
-not prove every tenant, fiscal or rollback path is covered; focused invariant
-tests remain mandatory for those changes.
+`pnpm --filter @puntovivo/server run test:coverage`, which `ci:server` runs,
+enforces the V8 floors declared in `packages/server/vitest.config.ts`: minimum
+statements, branches, functions and lines of **85%, 76%, 82% and 87%**,
+respectively. The floors retain roughly 1.6–2.4 percentage points of headroom
+below repeated backend measurements on the same scope (about 87%, 78.4%, 84%
+and 88.6%), enough to absorb run-to-run noise while failing a real regression.
+Raise them when the measured baseline climbs; do not lower them without a
+documented rationale.
+
+The measured scope is every server source file the suite loads, minus test
+files, generated migrations, `src/standalone.ts`, the package-level `scripts/`
+directory and config files. The config sets no `coverage.include`, so a module
+that no test imports is absent from the denominator rather than counted as
+uncovered: the floors catch regressions in exercised code, not an untested new
+file. Tested development CLIs under `src/scripts/` are part of the aggregate. A
+green aggregate does not prove every tenant, fiscal or rollback path is
+covered; focused invariant tests remain mandatory for those changes.
 
 ## Responsive operator shell
 
