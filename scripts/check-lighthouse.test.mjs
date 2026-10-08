@@ -10,11 +10,14 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 
 import {
   aggregateRouteSamples,
   extractDiagnostics,
+  createBuildScriptIdResolver,
   extractLcpDiagnostics,
   extractCpuDiagnostics,
   extractMetrics,
@@ -195,8 +198,8 @@ test('extractDiagnostics exposes blocking-time signals and the heaviest scripts'
     mainThreadWorkMs: 2501,
     bootupTimeMs: 1800,
     topBootupScripts: [
-      { url: '/assets/large.js', totalMs: 900, scriptingMs: 701 },
-      { url: '/assets/small.js', totalMs: 100, scriptingMs: 80 },
+      { scriptId: null, totalMs: 900, scriptingMs: 701 },
+      { scriptId: null, totalMs: 100, scriptingMs: 80 },
     ],
   });
 });
@@ -1109,19 +1112,139 @@ test('CPU diagnostics are bounded and never expose raw trace data', async () => 
   assert.deepEqual(result.topCpuEvents[0], {
     kind: 'Layout',
     durationMs: 20,
-    script: null,
+    scriptId: null,
     line: null,
     column: null,
   });
   assert.deepEqual(result.topCpuEvents[1], {
     kind: 'FunctionCall',
     durationMs: 12,
-    script: '/assets/app-A1.js',
-    line: 2,
-    column: 3,
+    scriptId: null,
+    line: null,
+    column: null,
   });
   assert.doesNotMatch(JSON.stringify(result), /secret|private|token|authorization|headers/);
   assert.deepEqual(trace, before);
+});
+
+test('verified build IDs correlate bootup and CPU without leaking paths or private data', async t => {
+  const buildDirectory = mkdtempSync(join(tmpdir(), 'puntovivo-script-ids-'));
+  t.after(() => rmSync(buildDirectory, { recursive: true, force: true }));
+  const assets = join(buildDirectory, 'assets');
+  mkdirSync(assets);
+  writeFileSync(join(assets, 'private-app-A1.js'), 'void 0;');
+  writeFileSync(join(assets, 'other-B2.js'), 'void 0;');
+  const resolveId = createBuildScriptIdResolver({
+    buildDirectory,
+    baseUrl: 'http://localhost:3000',
+  });
+  const url = 'http://localhost:3000/assets/private-app-A1.js';
+  const id = resolveId(url);
+  assert.match(id, /^script-[a-f0-9]{24}$/);
+  assert.equal(resolveId(url), id);
+  assert.notEqual(resolveId('http://localhost:3000/assets/other-B2.js'), id);
+  assert.notEqual(
+    createBuildScriptIdResolver({ buildDirectory, baseUrl: 'http://localhost:3000' })(url),
+    id
+  );
+  const bootup = extractDiagnostics(
+    {
+      audits: {
+        'bootup-time': {
+          details: {
+            items: [
+              { url, total: 7, scripting: 5 },
+              { url: `${url}?token=secret`, total: 2 },
+              { url, total: Infinity },
+              { url, total: -1 },
+            ],
+          },
+        },
+      },
+    },
+    resolveId
+  );
+  const cpu = await extractCpuDiagnostics(
+    cpuTrace([
+      cpuTask({
+        args: {
+          data: {
+            url,
+            lineNumber: 2,
+            columnNumber: 3,
+            headers: { authorization: 'secret' },
+          },
+        },
+      }),
+    ]),
+    resolveId
+  );
+  assert.equal(bootup.topBootupScripts.length, 2);
+  assert.equal(bootup.topBootupScripts[0].scriptId, id);
+  assert.equal(bootup.topBootupScripts[1].scriptId, null);
+  assert.deepEqual(cpu.topCpuEvents[0], {
+    kind: 'FunctionCall',
+    durationMs: 12,
+    scriptId: id,
+    line: 2,
+    column: 3,
+  });
+  assert.doesNotMatch(
+    JSON.stringify({ bootup, cpu }),
+    /private|assets|localhost|https?:|token|secret|headers|authorization/
+  );
+});
+
+test('build script IDs fail closed for missing, forged, external and symlink assets', t => {
+  const buildDirectory = mkdtempSync(join(tmpdir(), 'puntovivo-script-id-rejects-'));
+  t.after(() => rmSync(buildDirectory, { recursive: true, force: true }));
+  const assets = join(buildDirectory, 'assets');
+  mkdirSync(assets);
+  writeFileSync(join(assets, 'app-A1.js'), 'void 0;');
+  writeFileSync(join(buildDirectory, 'outside.js'), 'void 0;');
+  // A Windows junction does not require symlink elevation. Either shape is
+  // not a regular build file and must remain unattributed.
+  symlinkSync(
+    process.platform === 'win32' ? buildDirectory : join(buildDirectory, 'outside.js'),
+    join(assets, 'linked.js'),
+    process.platform === 'win32' ? 'junction' : 'file'
+  );
+  mkdirSync(join(assets, 'directory.js'));
+  const resolveId = createBuildScriptIdResolver({
+    buildDirectory,
+    baseUrl: 'http://localhost:3000',
+  });
+  for (const url of [
+    undefined,
+    {},
+    '',
+    '/assets/app-A1.js',
+    'http://localhost:3000/assets/missing.js',
+    'http://localhost:3000/assets/linked.js',
+    'http://localhost:3000/assets/directory.js',
+    'http://localhost:3000/assets/app-A1.js?token=secret',
+    'http://localhost:3000/assets/app-A1.js#secret',
+    'http://other.invalid/assets/app-A1.js',
+    'http://localhost:3001/assets/app-A1.js',
+    'http://user:pass@localhost:3000/assets/app-A1.js',
+    'http://localhost:3000/customer/secret',
+    'http://localhost:3000/assets/../assets/app-A1.js',
+    'http://localhost:3000/assets/%61pp-A1.js',
+    'data:text/javascript,secret',
+  ])
+    assert.equal(resolveId(url), null);
+  assert.equal(
+    createBuildScriptIdResolver({ buildDirectory: join(buildDirectory, 'missing') })(
+      'http://localhost:3000/assets/app-A1.js'
+    ),
+    null
+  );
+  assert.equal(
+    createBuildScriptIdResolver({ buildDirectory, baseUrl: 'file:///secret' })(
+      'http://localhost:3000/assets/app-A1.js'
+    ),
+    null
+  );
 });
 
 test('CPU diagnostics explicitly fail closed without frame or navigation identity', async () => {
