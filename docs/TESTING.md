@@ -3,6 +3,17 @@
 This document describes the current validation contract. It is an operational
 reference, not a future-work tracker.
 
+## Server fixture concurrency
+
+The server Vitest runner uses at most four workers, and never more than Vitest's
+own default of one fewer than the available CPU parallelism. Each worker repeatedly migrates SQLite fixtures and performs
+native password hashing; letting host core count multiply that work can exhaust
+memory or time out otherwise bounded lifecycle checks. This controls fixture
+concurrency only: no suite, assertion, coverage floor or timeout is relaxed.
+Strict performance profiles still run independently, without overlapping other
+workspace gates. Keyring lifecycle checks separate restart, replacement and each
+invalid-input contract rather than placing five server boots in one test budget.
+
 ## Required workspace gates
 
 Run commands from the repository root.
