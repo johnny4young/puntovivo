@@ -132,6 +132,10 @@ display.
   cashier.
 - Versioned mutable resources use compare-and-swap updates and report conflicts
   rather than silently overwriting concurrent edits.
+- AI payment tie-breaks create durable, tenant-scoped review proposals, never
+  settlements. An admin decision revalidates the selected provider statement
+  and outbox row before an atomic status change and audit; see
+  [ADR-0031](architecture/0031-human-review-of-ai-payment-proposals.md).
 - Payment, hardware, and sync effects use dedicated durable outboxes. A
   fiscal-enabled completed sale first records a frozen emission intent in the
   sale transaction; the fiscal worker materializes that intent into the fiscal
@@ -216,13 +220,42 @@ display.
   completed without an active template remains on the legacy renderer even if
   a template is configured later.
 
+## Reporting calendar boundary
+
+Dashboard today, its thirty-calendar-day revenue series, and its seven-day top
+products use the timezone resolved by `services/tenant-locale.ts`: explicit
+tenant override, country default, then the existing unconfigured fallback.
+`services/reports/day-window.ts` converts each calendar date into a half-open
+UTC interval, including DST days and skipped local midnights. Reporting never
+adds a fixed 24 hours to advance a local day or rewrites stored timestamps.
+
+Completed sales are attributed by `checkoutCompletedAt`, with `createdAt` only
+for historical rows without completion telemetry. Returns subtract immutable
+amounts on their own booking day, not the original sale day. Today's money and
+order count are the same aggregate as the final chart bucket. Fully returned
+orders remain excluded from throughput while both dated money events remain
+visible. Top products retain their positive-net-quantity policy and exclude
+both sale and return events outside the same bounded local reporting window.
+
+Calendar labels remain date-only values in the UI. A successful locale-setting
+change invalidates the dashboard aggregate as well as locale formatting; a
+cached old timezone must not survive a settings round trip. Locale writes reject
+unsupported named time zones and fixed numeric offsets. A legacy invalid override
+fails the dashboard closed with `TENANT_TIMEZONE_INVALID` and localized repair
+instructions; it never silently substitutes another calendar. Administrators can
+correct the override or clear it to restore country-default inheritance.
+
 ## Local storage and recovery
 
 Packaged Electron databases use SQLCipher. The database key is obtained through
 Electron secure storage and never crosses into the renderer. Node and Electron
 share the target platform's bundled better-sqlite3 v13 Node-API binary. Runtime
 preflights execute a SQLCipher probe under Node or Electron, and desktop
-packaging prunes every non-target native binary before signing.
+packaging prunes every non-target native binary before signing. Forge and
+electron-builder do not recompile these portable addons; the runtime probe, not
+an ABI-specific rebuild, qualifies them. Production main/preload builds execute
+the public Forge Vite plugin hooks from the same configuration as development,
+without invoking Forge packaging or publication.
 
 Backups are encrypted bundles with integrity inspection. Creation checkpoints
 the WAL first, derives passphrase keys asynchronously through a bounded scrypt
@@ -449,6 +482,19 @@ can compute aliases, substrings, encodings or aggregates. All tool steps use the
 same snapshot; it closes on success and failure. Joins additionally constrain
 the ownership of customers, users, sites, cash sessions and products.
 
+The analytics body site, when present, defines the filtered snapshot and the
+site charged by the Co-pilot quota; the selected UI site is only a prompt focus.
+An omitted or null body site retains tenant-wide analytics. Those requests
+check the quota of every tenant site the snapshot can read and record one
+site-less audit row, so their cost is not duplicated across sites. A tenant-wide
+successful row stores its call-time site list and counts once in each listed
+site's monthly Co-pilot usage projection, without retroactively charging sites
+created later in the month. Successful site-less rows written before that list
+existed have unknown scope and conservatively count against every site.
+The web conversation explicitly selects all sites or the current site,
+clears earlier evidence when that selection changes, and discards responses
+that finish after the user or site context has changed.
+
 The same dictionary protects matching whole values in every user and assistant
 message and in the snapshot's operational labels. This is not a general PII
 detector or anonymization. The dictionary covers only identities present in the
@@ -471,6 +517,31 @@ identity maps are not persisted to the AI audit log. Provider-boundary tests use
 the real AI SDK with an in-process fake model and inspect every serialized model
 call, including the calls following tool results and tool errors. These tests
 are not a live-provider certification.
+
+AI provider, SDK, and analytics SQLite exceptions are untrusted diagnostics:
+client-facing tRPC errors expose a fixed fallback and stable error code, never
+the raw exception message or a `cause` detail. Invoice OCR and voice
+transcription parse failures keep their distinct code from transport failures.
+The tenant audit records the code and call metadata, not exception text; only
+locally constructed domain errors may cross the Co-pilot boundary unchanged.
+Server logs carry only `summarizeProviderError` output (error class name,
+HTTP status, transport code; the AI SDK retry wrapper is unwrapped to its last
+provider answer) plus tenant, feature, provider, model and error code, never
+the raw error object. This contract limits secondary leakage through the
+browser response, centralized error tracing and server logs.
+
+Every Co-pilot response requires at least one successful read-only SQL query
+against a provider-safe snapshot table. The model-facing tool rejects
+constant-only and CTE queries; authorized local SQL retains its separate WITH
+contract. Up to five model SQL attempts are allowed, and every successful
+result is returned in order rather than hiding earlier queries. Neither mode
+displays model-authored prose. Guided mode adds only localized, deterministic
+review guidance; verified-results mode shows queries and rows without that
+guide. The provider's actual token usage is audited even when a response fails
+the SQL requirement. These checks establish a minimum source boundary, **not**
+semantic correctness: a SELECT can still produce a constant despite reading a
+table, choose the wrong metric, or omit relevant records. Operators must
+inspect SQL scope and columns before acting on any figure.
 
 ## Price-tier boundary
 

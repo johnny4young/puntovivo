@@ -22,7 +22,9 @@ export default defineConfig({
     // Each worker repeatedly migrates databases and hashes native credentials.
     // Bound that concurrency instead of multiplying it by the host core count;
     // all suites, assertions, coverage floors and timeout budgets remain intact.
-    maxWorkers: Math.min(4, availableParallelism()),
+    // Vitest's own `cores - 1` default stays the ceiling, so small hosts
+    // (4-vCPU CI runners, 2-core laptops) never gain a worker from this cap.
+    maxWorkers: Math.max(1, Math.min(4, availableParallelism() - 1)),
     environment: 'node',
     include: enabledProfileTest ? [enabledProfileTest] : ['src/**/*.test.ts'],
     exclude: enabledProfileTest
@@ -65,15 +67,16 @@ export default defineConfig({
         'scripts/**',
         '*.config.{ts,js,mjs}',
       ],
-      // floor at current coverage with a small buffer so
-      // micro-fluctuations do not flake CI, but any real regression
-      // fails the build. Raising these is tracked as a follow-up; do
-      // not lower them without a documented rationale.
+      // Floors sit ~1.6-2.4 points below repeated hosted baselines
+      // (measured scope and numbers: docs/TESTING.md, Server coverage
+      // floors). No coverage.include is set, so only files the suite
+      // loads are measured. These floors run inside ci:server; do not
+      // lower them without a documented rationale.
       thresholds: {
-        statements: 80,
-        branches: 63,
-        functions: 77,
-        lines: 80,
+        statements: 85,
+        branches: 76,
+        functions: 82,
+        lines: 87,
       },
     },
     testTimeout: 10000,

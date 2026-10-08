@@ -95,7 +95,10 @@ function contextWithInterleavedOutboxRead(id: string, onRead: () => void): Conte
     get(target, property, receiver) {
       const value = Reflect.get(target, property, receiver);
       if (property === 'select' && typeof value === 'function') {
-        return (...args: unknown[]) => interceptGet(Reflect.apply(value, target, args));
+        return (...args: unknown[]) => {
+          const builder: unknown = Reflect.apply(value, target, args);
+          return builder !== null && typeof builder === 'object' ? interceptGet(builder) : builder;
+        };
       }
       return typeof value === 'function' ? value.bind(target) : value;
     },
@@ -285,7 +288,7 @@ describe('sync contract v1 — retry', () => {
         entityType: 'products',
         entityId: 'changed-during-retry',
         operation: 'update',
-        conflictPolicy: 'lww',
+        conflictPolicy: 'auto_lww',
         payload: { id: 'changed-during-retry' },
         payloadVersion: 1,
         attempts: 3,
@@ -321,6 +324,44 @@ describe('sync contract v1 — retry', () => {
       }
     }
   );
+
+  it('treats a row requeued by a concurrent retry as an idempotent success', async () => {
+    const db = getDatabase();
+    const id = nanoid();
+    const now = '2026-09-20T00:00:00.000Z';
+    await db.insert(syncOutbox).values({
+      id,
+      tenantId,
+      status: 'dead_letter',
+      entityType: 'sales',
+      entityId: 'sale-retried-twice',
+      operation: 'create',
+      conflictPolicy: 'manual',
+      payload: { id: 'sale-retried-twice' },
+      payloadVersion: 1,
+      attempts: 3,
+      lastError: { errorCode: 'NETWORK_TIMEOUT', recoverable: true },
+      priority: 5,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const concurrentRetryAt = '2026-09-20T00:00:00.001Z';
+    let interleaved = false;
+    const context = contextWithInterleavedOutboxRead(id, () => {
+      interleaved = true;
+      db.update(syncOutbox)
+        .set({ status: 'queued', attempts: 0, lastError: null, updatedAt: concurrentRetryAt })
+        .where(and(eq(syncOutbox.id, id), eq(syncOutbox.tenantId, tenantId)))
+        .run();
+    });
+    await expect(appRouter.createCaller(context).sync.retry({ id })).resolves.toEqual({
+      ok: true,
+      id,
+    });
+    expect(interleaved).toBe(true);
+    const row = db.select().from(syncOutbox).where(eq(syncOutbox.id, id)).get();
+    expect(row).toMatchObject({ status: 'queued', attempts: 0, updatedAt: concurrentRetryAt });
+  });
 
   it.each(['retrying', 'dead_letter'] as const)(
     'manual sync.retry resets %s attempts, errors and claims',

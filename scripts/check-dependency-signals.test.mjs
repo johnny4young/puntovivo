@@ -35,17 +35,18 @@ test('dependency policy replaces deprecations instead of suppressing warnings', 
   );
 });
 
-test('global-agent receives the maintained boolean compatibility contract', () => {
-  const packageJsonPath = require.resolve('boolean/package.json');
-  const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
-  const { boolean, isBooleanable } = require('boolean');
-
-  assert.equal(packageJson.version, '3.2.1-puntovivo.0');
-  assert.match(workspaceManifest, /^\s+boolean: 'file:packages\/boolean-compat'$/m);
-  assert.equal(boolean('false'), false);
-  assert.equal(boolean('yes'), true);
-  assert.equal(isBooleanable('off'), true);
-  assert.equal(isBooleanable('maybe'), false);
+test('desktop tooling no longer retains the retired proxy, cache and glob graph', () => {
+  for (const name of [
+    'global-agent',
+    'got',
+    'http-cache-semantics',
+    'cacheable-request',
+    'braces',
+    'fast-glob',
+  ]) {
+    assert.doesNotMatch(lockfile, new RegExp(`^ {2}'?${name}@`, 'm'), name);
+  }
+  assert.doesNotMatch(workspaceManifest, /file:packages\/boolean-compat/);
 });
 
 test('deprecated lodash.isequal consumers receive a maintained equivalent call shape', () => {
@@ -263,8 +264,49 @@ test('TypeScript 7 compiler stays isolated from the TypeScript 6 tooling API', (
   assert.match(version.stdout, /^Version 7\.0\.2\s*$/);
   assert.equal(compatibilityPackage.name, '@typescript/typescript6');
   assert.equal(compatibilityPackage.version, '6.0.2');
-  assert.equal(typescriptEslintPackage.version, '8.68.0');
+  assert.equal(typeof require('typescript').createProgram, 'function');
+  assert.equal(typescriptEslintPackage.version, '8.70.1');
   assert.equal(typescriptEslintPackage.peerDependencies.typescript, '>=4.8.4 <6.1.0');
+});
+
+test('receipt editor dependencies share one CodeMirror state class identity', () => {
+  const state = require('@codemirror/state');
+  for (const owner of [
+    '@uiw/react-codemirror',
+    '@codemirror/search',
+    '@codemirror/theme-one-dark',
+    '@codemirror/commands',
+    '@codemirror/autocomplete',
+    '@codemirror/lint',
+    '@codemirror/language',
+  ]) {
+    // Separate compatible copies still break extension instanceof checks.
+    const ownerRequire = createRequire(require.resolve(owner));
+    assert.equal(ownerRequire('@codemirror/state').EditorState, state.EditorState, owner);
+    assert.equal(ownerRequire('@codemirror/state').Facet, state.Facet, owner);
+  }
+});
+
+test('Vitest 5 and its coverage provider share the reviewed Vite and Node contract', () => {
+  for (const workspace of ['apps/web', 'packages/server']) {
+    const ownerRequire = createRequire(
+      new URL('../' + workspace + '/package.json', import.meta.url)
+    );
+    const manifest = readJson(new URL('../' + workspace + '/package.json', import.meta.url));
+    const runner = ownerRequire('vitest/package.json');
+    const coverage = ownerRequire('@vitest/coverage-v8/package.json');
+    const vite = ownerRequire('vite/package.json');
+    assert.equal(manifest.devDependencies.vitest, '^5.0.1');
+    assert.equal(manifest.devDependencies['@vitest/coverage-v8'], '^5.0.1');
+    assert.equal(runner.version, '5.0.1');
+    assert.equal(coverage.version, runner.version);
+    assert.equal(coverage.peerDependencies.vitest, runner.version);
+    assert.equal(vite.version, '8.3.0');
+    // Node 24 remains a supported execution target, even with Node 26 declarations.
+    assert.equal(runner.engines.node, '^22.12.0 || ^24.0.0 || >=26.0.0');
+    assert.equal(runner.peerDependencies.vite, '^6.4.0 || ^7.0.0 || ^8.0.0');
+    assert.equal(ownerRequire('@types/node/package.json').version, '26.6.2');
+  }
 });
 
 // Resolve from the consuming package, not the hoisted root: the schema
@@ -298,10 +340,10 @@ test('the rate limiter subnet dependency rejects cross-family allowlist matches'
 
 test('HTTP consumers keep patched undici releases within their existing major lines', () => {
   const owners = [
-    ['@electron/get', '7.29.1'],
+    ['app-builder-lib', '7.29.1'],
     ['node-gyp', '6.28.1'],
     ['@ai-sdk/provider-utils', '7.29.1'],
-    ['jsdom', '8.10.2'],
+    ['jsdom', '8.11.0'],
   ];
   for (const [owner, version] of owners) {
     const ownerRequire = createRequire(require.resolve(owner + '/package.json'));
@@ -372,7 +414,9 @@ test('Electron development and production packaging share the reviewed patched r
   assert.equal(version, '43.5.0');
   assert.equal(desktop.devDependencies.electron, version);
   assert.equal(builder.match(/^electronVersion:\s*(\S+)$/m)?.[1], version);
-  assert.doesNotMatch(workspaceManifest, /^\s+- electron@43\.4\.1$/m);
+  // No Electron release may bypass the age policy; a literal old version here
+  // would let the next exact pin slip into minimumReleaseAgeExclude unnoticed.
+  assert.doesNotMatch(workspaceManifest, /^\s+- '?electron@/m);
 });
 
 test('glob brace rewrite work is bounded while ordinary patterns still expand', () => {
