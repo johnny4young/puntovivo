@@ -50,7 +50,9 @@ export default defineConfig({
     // which otherwise yields a second copy with a null hooks dispatcher
     // ("Cannot read properties of null (reading 'useReducer')"). Deduping
     // keeps every package on the workspace React.
-    dedupe: ['react', 'react-dom'],
+    // CodeMirror extensions also rely on shared state/view class identities.
+    // Compatible nested copies otherwise duplicate the editor runtime.
+    dedupe: ['react', 'react-dom', '@codemirror/state', '@codemirror/view'],
     alias: {
       '@': path.resolve(import.meta.dirname, './src'),
     },

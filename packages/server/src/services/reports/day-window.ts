@@ -47,17 +47,31 @@ export function addCalendarDays(day: string, amount: number): string {
   return next.toISOString().slice(0, 10);
 }
 
+// Constructing an Intl.DateTimeFormat dominates the cost of resolving a day
+// window; a 30-day report resolves hundreds of instants in the same zone.
+const formatterByZone = new Map<string, Intl.DateTimeFormat>();
+
+function zoneFormatter(timeZone: string): Intl.DateTimeFormat {
+  let formatter = formatterByZone.get(timeZone);
+  if (!formatter) {
+    // Throws RangeError for an unsupported zone before anything is cached.
+    formatter = new Intl.DateTimeFormat('en-CA-u-ca-iso8601', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hourCycle: 'h23',
+    });
+    formatterByZone.set(timeZone, formatter);
+  }
+  return formatter;
+}
+
 function partsInZone(instant: Date, timeZone: string): CalendarParts {
-  const formatter = new Intl.DateTimeFormat('en-CA-u-ca-iso8601', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hourCycle: 'h23',
-  });
+  const formatter = zoneFormatter(timeZone);
   const values = new Map(
     formatter
       .formatToParts(instant)

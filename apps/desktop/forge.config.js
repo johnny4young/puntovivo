@@ -11,8 +11,12 @@
 import { VitePlugin } from '@electron-forge/plugin-vite';
 
 const config = {
+  // Runtime preflight verifies portable Node-API addons under Electron. Forge
+  // must not replace those audited prebuilds with local ABI-specific builds.
+  rebuildConfig: { onlyModules: [] },
   plugins: [
     new VitePlugin({
+      concurrent: false,
       build: [
         {
           // `entry` is an alias for `build.lib.entry` in the corresponding config.

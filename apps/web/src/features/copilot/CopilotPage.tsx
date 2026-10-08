@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useChat } from '@ai-sdk/react';
 import type { UIMessage } from 'ai';
 import { useTranslation } from 'react-i18next';
@@ -13,15 +13,40 @@ import {
   Table2,
 } from 'lucide-react';
 import { Badge, Button } from '@/components/ui';
-import { useAuth } from '@/features/auth/AuthContext';
+import { useAuth, useAuthOwnerKey } from '@/features/auth/AuthContext';
+import { useTenant } from '@/features/tenant/TenantContext';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
 import { useTenantSettings } from '@/hooks';
 import { cn } from '@/lib/utils';
-import { createCopilotTransport, type CopilotChatResult } from './copilotTransport';
+import {
+  createCopilotTransport,
+  type CopilotAnalyticsScope,
+  type CopilotChatResult,
+  type CopilotTransportScope,
+} from './copilotTransport';
 
 type CopilotRow = CopilotChatResult['rows'][number];
 type CopilotResponseMode = CopilotChatResult['responseMode'];
+type CopilotQuery = CopilotChatResult['queries'][number];
+
+// The transport is stable for useChat, but its next request must read the
+// committed selection rather than the selection captured on its first render.
+function createScopeCell(initial: Omit<CopilotTransportScope, 'revision'>) {
+  let value = { ...initial, revision: 0 };
+  return {
+    read: () => value,
+    write: (next: Omit<CopilotTransportScope, 'revision'>) => {
+      if (
+        next.mode !== value.mode ||
+        next.siteId !== value.siteId ||
+        next.ownerKey !== value.ownerKey
+      ) {
+        value = { ...next, revision: value.revision + 1 };
+      }
+    },
+  };
+}
 
 function messageText(message: UIMessage): string {
   return message.parts
@@ -218,7 +243,7 @@ function ResultChart({
   result,
   formatCurrency,
 }: {
-  result: CopilotChatResult;
+  result: CopilotQuery;
   formatCurrency: (amount: number) => string;
 }) {
   const chart = result.chart;
@@ -273,7 +298,7 @@ function ResultTable({
   result,
   formatCurrency,
 }: {
-  result: CopilotChatResult;
+  result: CopilotQuery;
   formatCurrency: (amount: number) => string;
 }) {
   const { t } = useTranslation('copilot');
@@ -341,7 +366,7 @@ function ResultsPanel({
 
   if (!result) {
     return (
-      <section className="card p-6">
+      <section id="copilot-results" className="card p-6">
         <div className="flex h-56 flex-col items-center justify-center gap-3 text-center">
           <div className="glyph-tile glyph-tile-primary h-12 w-12">
             <Sparkles className="h-5 w-5" aria-hidden="true" />
@@ -363,28 +388,43 @@ function ResultsPanel({
   }
 
   return (
-    <div className="space-y-4">
+    <div id="copilot-results" className="min-w-0 space-y-4">
       {result.responseMode === 'verified' && (
         <div className="flex items-center gap-2 rounded-2xl border border-primary-500/25 bg-primary-50 px-4 py-3 text-sm font-medium text-primary-800">
           <ShieldCheck className="h-4 w-4 shrink-0" aria-hidden="true" />
           {t('copilot:mode.resultVerified')}
         </div>
       )}
-      <ResultChart result={result} formatCurrency={formatCurrency} />
-      <ResultTable result={result} formatCurrency={formatCurrency} />
-      {result.sql && (
-        <section className="card overflow-hidden">
-          <div className="flex items-center gap-2 border-b border-line/70 px-5 py-3">
-            <Database className="h-4 w-4 text-primary-700" aria-hidden="true" />
-            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-primary-700">
-              {t('results.sqlDisclosure')}
-            </p>
-          </div>
-          <pre className="overflow-x-auto bg-secondary-950 px-5 py-4 text-xs leading-6 text-secondary-50">
-            <code>{result.sql}</code>
-          </pre>
-        </section>
+      {result.responseMode === 'guided' && (
+        <div className="flex items-start gap-2 rounded-2xl border border-primary-500/25 bg-primary-50 px-4 py-3 text-sm font-medium text-primary-800">
+          <Database className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          {t('copilot:mode.resultGuided')}
+        </div>
       )}
+      {result.queries.map((query, index) => (
+        <section
+          key={`${index}:${query.sql}`}
+          className="space-y-4"
+          aria-label={t('copilot:results.queryLabel', { index: index + 1 })}
+        >
+          <h3 className="text-sm font-semibold text-secondary-950">
+            {t('copilot:results.queryLabel', { index: index + 1 })}
+          </h3>
+          <ResultChart result={query} formatCurrency={formatCurrency} />
+          <ResultTable result={query} formatCurrency={formatCurrency} />
+          <section className="card overflow-hidden">
+            <div className="flex items-center gap-2 border-b border-line/70 px-5 py-3">
+              <Database className="h-4 w-4 text-primary-700" aria-hidden="true" />
+              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-primary-700">
+                {t('results.sqlDisclosure')}
+              </p>
+            </div>
+            <pre className="overflow-x-auto bg-secondary-950 px-5 py-4 text-xs leading-6 text-secondary-50">
+              <code>{query.sql}</code>
+            </pre>
+          </section>
+        </section>
+      ))}
       <section className="card relative overflow-hidden p-4">
         <div className="grid gap-3 text-[11px] uppercase tracking-[0.18em] text-secondary-500 sm:grid-cols-[1fr_auto_auto_auto]">
           <div>
@@ -408,10 +448,10 @@ function ResultsPanel({
               {t('results.metaRowsLabel', { defaultValue: 'Filas' })}
             </p>
             <p className="mt-1 font-mono text-[12px] tabular-nums tracking-normal text-secondary-900 normal-case">
-              {result.rowCount}
+              {result.queries.reduce((total, query) => total + query.rowCount, 0)}
             </p>
           </div>
-          {result.truncated && (
+          {result.queries.some(query => query.truncated) && (
             <div>
               <p className="text-[9.5px] font-semibold tracking-[0.22em] text-warning-700">
                 {t('results.metaTruncatedLabel', { defaultValue: 'Truncado' })}
@@ -433,11 +473,29 @@ function ResultsPanel({
 export function CopilotPage() {
   const { t } = useTranslation(['copilot', 'errors']);
   const { user } = useAuth();
+  const { currentSite, isLoadingSites } = useTenant();
   const { formatCurrency } = useTenantSettings();
   const utils = trpc.useUtils();
   const settingsQuery = trpc.ai.settings.get.useQuery();
   const [input, setInput] = useState('');
+  const [analyticsScope, setAnalyticsScope] = useState<CopilotAnalyticsScope>('all');
   const [latestResult, setLatestResult] = useState<CopilotChatResult | null>(null);
+  const authOwnerKey = useAuthOwnerKey();
+  const ownerSiteKey = `${authOwnerKey ?? ''}:${currentSite?.id ?? ''}`;
+  const [scopeCell] = useState(() =>
+    createScopeCell({
+      mode: analyticsScope,
+      siteId: currentSite?.id ?? null,
+      ownerKey: ownerSiteKey,
+    })
+  );
+  useLayoutEffect(() => {
+    scopeCell.write({
+      mode: analyticsScope,
+      siteId: currentSite?.id ?? null,
+      ownerKey: ownerSiteKey,
+    });
+  }, [analyticsScope, currentSite?.id, ownerSiteKey, scopeCell]);
   const responseMode = settingsQuery.data?.features?.copilot.responseMode ?? 'guided';
   const responseModeMutation = trpc.ai.copilot.setResponseMode.useMutation({
     onSuccess: async () => {
@@ -445,9 +503,24 @@ export function CopilotPage() {
       await utils.ai.settings.get.invalidate();
     },
   });
-  const transport = useMemo(() => createCopilotTransport({ onResult: setLatestResult }), []);
-  const { messages, sendMessage, status, error } = useChat({ transport });
+  const [transport] = useState(() =>
+    createCopilotTransport({ onResult: setLatestResult, getScope: scopeCell.read })
+  );
+  const { messages, sendMessage, setMessages, clearError, stop, status, error } = useChat({
+    transport,
+  });
   const isBusy = status === 'submitted' || status === 'streaming';
+  const currentSiteUnavailable = analyticsScope === 'current' && (isLoadingSites || !currentSite);
+  const previousOwnerSiteKey = useRef(ownerSiteKey);
+  useEffect(() => {
+    if (previousOwnerSiteKey.current !== ownerSiteKey) {
+      previousOwnerSiteKey.current = ownerSiteKey;
+      stop();
+      setMessages([]);
+      clearError();
+      setLatestResult(null);
+    }
+  }, [ownerSiteKey, setMessages, clearError, stop]);
   const errorMessage = error ? translateServerError(error, t, t('errors:server.unknown')) : null;
   const responseModeError = responseModeMutation.error
     ? translateServerError(responseModeMutation.error, t, t('copilot:mode.updateError'))
@@ -458,12 +531,20 @@ export function CopilotPage() {
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const text = input.trim();
-    if (!text || isBusy) {
+    if (!text || isBusy || currentSiteUnavailable) {
       return;
     }
     setInput('');
     setLatestResult(null);
     void sendMessage({ text });
+  }
+
+  function changeScope(nextScope: CopilotAnalyticsScope) {
+    if (isBusy || (nextScope === 'current' && (isLoadingSites || !currentSite))) return;
+    setAnalyticsScope(nextScope);
+    setMessages([]);
+    clearError();
+    setLatestResult(null);
   }
 
   return (
@@ -488,7 +569,7 @@ export function CopilotPage() {
             <p className="mt-2 text-sm leading-6 text-secondary-600">
               {t('copilot:page.subtitle', {
                 defaultValue:
-                  'Pregúntale a tus datos. El SQL siempre se muestra abajo del resultado, auditado y descargable.',
+                  'Explora tus datos. Cuando se ejecuta una consulta, el SQL y sus filas quedan visibles para revisión.',
               })}
             </p>
           </div>
@@ -505,7 +586,7 @@ export function CopilotPage() {
       />
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-        <section className="card flex min-h-[35rem] flex-col overflow-hidden">
+        <section className="card flex min-h-[35rem] min-w-0 flex-col overflow-hidden">
           <div className="flex items-center gap-2 border-b border-line/70 px-5 py-4">
             <MessageSquareText className="h-4 w-4 text-primary-700" />
             <h2 className="text-sm font-semibold text-secondary-950">{t('copilot:chat.title')}</h2>
@@ -528,6 +609,24 @@ export function CopilotPage() {
                 </div>
               </div>
             )}
+            {latestResult && (
+              <div
+                role="status"
+                className="rounded-2xl border border-primary-500/25 bg-primary-50 px-4 py-3 text-sm text-primary-800"
+              >
+                {/* Not an href="#..." anchor: packaged desktop uses hash history,
+                    so a fragment link would navigate the router away. */}
+                <button
+                  type="button"
+                  className="text-left font-medium underline underline-offset-2"
+                  onClick={() =>
+                    document.getElementById('copilot-results')?.scrollIntoView({ block: 'start' })
+                  }
+                >
+                  {t('copilot:chat.resultReady')}
+                </button>
+              </div>
+            )}
           </div>
 
           {errorMessage && (
@@ -538,6 +637,32 @@ export function CopilotPage() {
           )}
 
           <form className="border-t border-line/70 p-4" onSubmit={handleSubmit}>
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <label className="text-sm font-medium text-secondary-800" htmlFor="copilot-scope">
+                {t('copilot:scope.label')}
+              </label>
+              <select
+                id="copilot-scope"
+                className="input w-auto min-w-0 max-w-full"
+                value={analyticsScope}
+                onChange={event => changeScope(event.target.value as CopilotAnalyticsScope)}
+                disabled={isBusy}
+              >
+                <option value="all">{t('copilot:scope.allSites')}</option>
+                <option value="current" disabled={isLoadingSites || !currentSite}>
+                  {t('copilot:scope.currentSite', { site: currentSite?.name ?? '' })}
+                </option>
+              </select>
+              <p className="text-xs text-secondary-600">
+                {t(
+                  analyticsScope === 'all'
+                    ? 'copilot:scope.allHint'
+                    : currentSiteUnavailable
+                      ? 'copilot:scope.unavailableHint'
+                      : 'copilot:scope.currentHint'
+                )}
+              </p>
+            </div>
             <label className="sr-only" htmlFor="copilot-prompt">
               {t('copilot:composer.label')}
             </label>
@@ -548,12 +673,12 @@ export function CopilotPage() {
                 value={input}
                 onChange={event => setInput(event.target.value)}
                 placeholder={t('copilot:composer.placeholder')}
-                disabled={isBusy}
+                disabled={isBusy || currentSiteUnavailable}
               />
               <button
                 type="submit"
                 className="btn-primary btn-icon h-12 w-12 shrink-0"
-                disabled={!input.trim() || isBusy}
+                disabled={!input.trim() || isBusy || currentSiteUnavailable}
                 aria-label={t('copilot:composer.send')}
                 title={t('copilot:composer.send')}
               >

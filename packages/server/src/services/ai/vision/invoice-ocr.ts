@@ -24,6 +24,7 @@ import { throwServerError } from '../../../lib/errorCodes.js';
 
 import { currentMonthSpend, recordCall } from '../auditLog.js';
 import { toBillableTokenUsage } from '../client.js';
+import { logProviderFailure } from '../provider-error.js';
 import { getProvider } from '../providers/registry.js';
 import type { AIProvider } from '../providers/types.js';
 import { resolveAISettings } from '../client.js';
@@ -210,9 +211,9 @@ export async function extractInvoiceFromImage(
 
   const modelId = settings.modelId ?? provider.defaultModelId;
   const startedAt = Date.now();
-  const providerOptions = provider.cacheControlForSystemPrompt();
 
   try {
+    const providerOptions = provider.cacheControlForSystemPrompt();
     const result = await generateObject({
       model: provider.visionModel(modelId),
       instructions: EXTRACT_PROMPT_SYSTEM,
@@ -271,7 +272,6 @@ export async function extractInvoiceFromImage(
     };
   } catch (error) {
     const durationMs = Date.now() - startedAt;
-    const message = error instanceof Error ? error.message : 'Vision provider call failed';
     // Identify schema-validation failures by SDK error class rather
     // than substring matching, which would misclassify provider HTTP
     // 4xx bodies containing the words "validation" / "parse" / etc as
@@ -291,6 +291,13 @@ export async function extractInvoiceFromImage(
       (error instanceof Error && /No object generated/i.test(error.message));
 
     const errorCode = isSchemaFailure ? 'AI_VISION_PARSE_FAILED' : 'AI_PROVIDER_ERROR';
+    logProviderFailure(error, {
+      tenantId: ctx.tenantId,
+      feature: 'invoiceOcr',
+      providerId: provider.id,
+      modelId,
+      errorCode,
+    });
 
     await recordCall(ctx.db, {
       tenantId: ctx.tenantId,
@@ -311,8 +318,7 @@ export async function extractInvoiceFromImage(
     throwServerError({
       trpcCode: isSchemaFailure ? 'BAD_REQUEST' : 'BAD_GATEWAY',
       errorCode,
-      message,
-      details: { cause: String(error) },
+      message: isSchemaFailure ? 'Invoice could not be parsed' : 'Vision provider call failed',
     });
   }
 }
