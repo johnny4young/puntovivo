@@ -55,9 +55,10 @@ What happens behind that command:
    `.playwright-browsers/` if the cache is cold (subsequent runs are free).
 2. `native:ensure:node` verifies that the bundled Node-API SQLite addon loads
    under Node before Playwright's `globalSetup` touches the database.
-3. Playwright spins up `pnpm run dev:server` (port 8090) and
-   `pnpm run dev:web` (port 3000) unless they are already listening
-   (`reuseExistingServer: !CI`).
+3. Playwright starts its own loopback standalone server (port 8090, or the
+   port in `PUNTOVIVO_E2E_API_ORIGIN`) and Vite renderer on port 5173. It
+   never reuses an existing listener; a port collision fails the run. See
+   `docs/TESTING.md` § Web browser-suite isolation.
 4. `e2e/web/global-setup.ts` prepares the tenant for testing:
    - Prunes artefacts from prior runs (old E2E products, providers,
      sales, purchases, transfers, cash sessions, audit rows, disposable

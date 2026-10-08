@@ -47,6 +47,36 @@ A registration test in `scripts/ci-path-filters.test.mjs` fails when any
 `scripts/*.test.mjs` or `scripts/*.test.mts` file is not run by a gate that some
 CI job reaches, so a new script test cannot silently skip CI.
 
+### Web browser-suite isolation
+
+The Web Playwright commands build the server before global setup. Global setup
+initializes the suite-owned, unencrypted `packages/server/data/local.db` through
+the server's migrations and default seed, then prepares E2E identities. This
+works on a fresh checkout without depending on server-start timing or a
+developer's shared database. Playwright starts its own loopback `device_local`
+standalone server on 8090 and Vite renderer on `http://localhost:5173` by default;
+inherited Hub mode or LAN bind settings cannot change that server. Both owned
+children explicitly use development mode for this plaintext test fixture,
+even if the operator shell marks production; production standalone startup
+still requires SQLCipher. Playwright neither reuses an existing listener nor
+runs the dev launcher, which could stop
+another worktree's app on port 3000. A port collision fails the run instead
+of borrowing another process. Keep the configured four-worker/zero-retry
+full-suite contract;
+the bounded critical subset remains serial in CI.
+The suite also fails before browser boot if the server-selected local `.env`
+defines `PUNTOVIVO_DB_KEY`: the plaintext fixture must not silently borrow an
+operator's SQLCipher setting. Run that validation in a clean worktree instead
+of weakening standalone encryption policy.
+`PUNTOVIVO_E2E_API_ORIGIN` can select another owned backend port. It must be an
+HTTP origin on `localhost` or `127.0.0.1`, with an explicit non-default port
+other than the dedicated Web port 5173, and no credentials, path, query or
+fragment. The renderer, health probe, backend
+bind and direct HTTP/CLI probes use that same port. The owned Web origin uses
+the API hostname on port 5173 so strict refresh cookies survive full navigation;
+production cookie policy is not relaxed. Invalid overrides fail
+before any test service starts.
+
 ### Server test type ratchet
 
 `ci:server` runs the production server typecheck and then a separate test
