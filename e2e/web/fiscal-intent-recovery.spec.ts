@@ -62,15 +62,7 @@ function seedBlockedObligation(scenario: ReturnType<typeof seedFiscalProfileScen
         `insert into sales (id, tenant_id, sale_number, subtotal, tax_amount, discount_amount, total,
         payment_method, payment_status, status, cash_session_id, created_by, created_at, updated_at)
         values (?, ?, ?, 100, 0, 0, 100, 'cash', 'paid', 'completed', ?, ?, ?, ?)`
-      ).run(
-        saleId,
-        scenario.tenantId,
-        saleNumber,
-        cashSessionId,
-        scenario.admin.id,
-        now,
-        now
-      );
+      ).run(saleId, scenario.tenantId, saleNumber, cashSessionId, scenario.admin.id, now, now);
       db.prepare(
         `insert into cash_movements (id, tenant_id, session_id, type, amount, reference_id, created_by)
         values (?, ?, ?, 'sale', 100, ?, ?)`
@@ -118,7 +110,7 @@ function readEvidence(tenantId: string, intentId: string) {
 }
 
 for (const language of ['en', 'es'] as const) {
-  test(`admin rechecks a frozen fiscal obligation without inventing a document (${language})`, async ({
+  test(`admin rechecks a frozen fiscal obligation without inventing a document (${language}) @isolated-journey`, async ({
     page,
   }, testInfo) => {
     const scenario = seedFiscalProfileScenario(`intent-${language}-${testInfo.parallelIndex}`);
