@@ -194,6 +194,90 @@ describe('migration replay against a non-empty database', () => {
     }
   }, 180_000);
 
+  it.each([90, 91])(
+    'preserves historical AI calls and payment evidence when upgrading from journal index %i',
+    async afterIdx => {
+      workdir = mkdtempSync(join(tmpdir(), 'puntovivo-ai-scope-upgrade-'));
+      const dbPath = join(workdir, 'scope.db');
+      await initDatabase({
+        dbPath,
+        seedData: false,
+        migrationsFolder: migrationsPrefix(afterIdx),
+      });
+      rawClient().exec(`
+        INSERT INTO tenants (id, name, slug) VALUES ('scope-upgrade', 'Scope upgrade', 'scope-upgrade');
+        INSERT INTO companies (id, tenant_id, name) VALUES ('scope-company', 'scope-upgrade', 'Scope');
+        INSERT INTO sites (id, tenant_id, company_id, name)
+          VALUES ('scope-site', 'scope-upgrade', 'scope-company', 'Original site');
+        INSERT INTO ai_audit_log
+          (id, tenant_id, site_id, feature, provider_id, model_id, input_tokens, output_tokens,
+           cost_usd, duration_ms, error_code, created_at)
+          VALUES ('historical-call', 'scope-upgrade', 'scope-site', 'copilot', 'ollama', 'local',
+            12, 7, 0.0123, 45, NULL, '2026-09-01T10:00:00.000Z');
+        INSERT INTO payment_outbox
+          (id, tenant_id, rail_id, kind, status, amount, currency_code, reference,
+           payload, attempts, idempotency_key, created_at, updated_at)
+          VALUES ('scope-payment', 'scope-upgrade', 'wompi', 'charge', 'approved', 123.45,
+            'COP', 'Unchanged evidence', '{}', 0, 'scope-payment-original',
+            '2026-09-01T10:00:00.000Z', '2026-09-01T10:00:00.000Z');
+      `);
+      const auditBefore = rawClient().prepare('SELECT * FROM ai_audit_log').get() as Record<
+        string,
+        unknown
+      >;
+      const paymentBefore = rawClient().prepare('SELECT * FROM payment_outbox').all();
+      closeDatabase();
+
+      for (let boot = 0; boot < 2; boot += 1) {
+        await initDatabase({ dbPath, seedData: false, migrationsFolder: MIGRATIONS });
+        expect(rawClient().prepare('SELECT * FROM ai_audit_log').get()).toEqual({
+          ...auditBefore,
+          scope_site_ids: null,
+        });
+        expect(rawClient().prepare('SELECT * FROM payment_outbox').all()).toEqual(paymentBefore);
+        expect(rawClient().prepare('SELECT * FROM payment_reconciliation_proposals').all()).toEqual(
+          []
+        );
+        expect(rawClient().prepare('PRAGMA integrity_check').get()).toEqual({
+          integrity_check: 'ok',
+        });
+        expect(rawClient().prepare('PRAGMA foreign_key_check').all()).toEqual([]);
+        closeDatabase();
+      }
+    },
+    180_000
+  );
+
+  it('extends the payment snapshot rather than replacing its migration with analytics scope', () => {
+    const previous = JSON.parse(readFileSync(join(MIGRATIONS, 'meta/0091_snapshot.json'), 'utf8'));
+    const current = JSON.parse(readFileSync(join(MIGRATIONS, 'meta/0092_snapshot.json'), 'utf8'));
+    expect(current.prevId).toBe(previous.id);
+    expect(previous.tables.payment_reconciliation_proposals).toBeDefined();
+    expect(Object.keys(current.tables).sort()).toEqual(Object.keys(previous.tables).sort());
+    for (const [name, table] of Object.entries(previous.tables)) {
+      if (name !== 'ai_audit_log') expect(current.tables[name]).toEqual(table);
+    }
+    expect(current.tables.payment_reconciliation_proposals).toEqual(
+      previous.tables.payment_reconciliation_proposals
+    );
+    expect(current.tables.ai_audit_log.columns.scope_site_ids).toMatchObject({
+      name: 'scope_site_ids',
+      type: 'text',
+      notNull: false,
+    });
+    expect(previous.tables.ai_audit_log.columns).not.toHaveProperty('scope_site_ids');
+    const journal = JSON.parse(readFileSync(join(MIGRATIONS, 'meta/_journal.json'), 'utf8')) as {
+      entries: Array<{ idx: number; tag: string; when: number }>;
+    };
+    expect(journal.entries[91]?.tag).toBe('0091_puzzling_sunfire');
+    expect(journal.entries[92]?.tag).toBe('0092_ai_copilot_scope_sites');
+    expect(journal.entries.map(entry => entry.idx)).toEqual(
+      journal.entries.map((_entry, index) => index)
+    );
+    expect(new Set(journal.entries.map(entry => entry.tag)).size).toBe(journal.entries.length);
+    expect(journal.entries[92]!.when).toBeGreaterThan(journal.entries[91]!.when);
+  });
+
   it('declares a fixture for every point the chain is seeded at', () => {
     // A fixture pinned past the end of the journal would silently replay
     // nothing at all.

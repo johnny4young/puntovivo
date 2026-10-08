@@ -220,6 +220,31 @@ display.
   completed without an active template remains on the legacy renderer even if
   a template is configured later.
 
+## Reporting calendar boundary
+
+Dashboard today, its thirty-calendar-day revenue series, and its seven-day top
+products use the timezone resolved by `services/tenant-locale.ts`: explicit
+tenant override, country default, then the existing unconfigured fallback.
+`services/reports/day-window.ts` converts each calendar date into a half-open
+UTC interval, including DST days and skipped local midnights. Reporting never
+adds a fixed 24 hours to advance a local day or rewrites stored timestamps.
+
+Completed sales are attributed by `checkoutCompletedAt`, with `createdAt` only
+for historical rows without completion telemetry. Returns subtract immutable
+amounts on their own booking day, not the original sale day. Today's money and
+order count are the same aggregate as the final chart bucket. Fully returned
+orders remain excluded from throughput while both dated money events remain
+visible. Top products retain their positive-net-quantity policy and exclude
+both sale and return events outside the same bounded local reporting window.
+
+Calendar labels remain date-only values in the UI. A successful locale-setting
+change invalidates the dashboard aggregate as well as locale formatting; a
+cached old timezone must not survive a settings round trip. Locale writes reject
+unsupported named time zones and fixed numeric offsets. A legacy invalid override
+fails the dashboard closed with `TENANT_TIMEZONE_INVALID` and localized repair
+instructions; it never silently substitutes another calendar. Administrators can
+correct the override or clear it to restore country-default inheritance.
+
 ## Local storage and recovery
 
 Packaged Electron databases use SQLCipher. The database key is obtained through
@@ -456,6 +481,19 @@ cashier names and cashier IDs with request-local opaque labels **before** SQL
 can compute aliases, substrings, encodings or aggregates. All tool steps use the
 same snapshot; it closes on success and failure. Joins additionally constrain
 the ownership of customers, users, sites, cash sessions and products.
+
+The analytics body site, when present, defines the filtered snapshot and the
+site charged by the Co-pilot quota; the selected UI site is only a prompt focus.
+An omitted or null body site retains tenant-wide analytics. Those requests
+check the quota of every tenant site the snapshot can read and record one
+site-less audit row, so their cost is not duplicated across sites. A tenant-wide
+successful row stores its call-time site list and counts once in each listed
+site's monthly Co-pilot usage projection, without retroactively charging sites
+created later in the month. Successful site-less rows written before that list
+existed have unknown scope and conservatively count against every site.
+The web conversation explicitly selects all sites or the current site,
+clears earlier evidence when that selection changes, and discards responses
+that finish after the user or site context has changed.
 
 The same dictionary protects matching whole values in every user and assistant
 message and in the snapshot's operational labels. This is not a general PII
