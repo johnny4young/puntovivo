@@ -67,11 +67,11 @@
     "axe-core": "^4.13.0",
     "better-sqlite3": "npm:better-sqlite3-multiple-ciphers@^13.0.3",
     "lighthouse": "^13.5.0",
+    "listr2": "^11.1.1",
     "nanoid": "^6.0.1",
     "oxlint": "^1.85.0",
     "prettier": "^3.9.8",
-    "typescript": "npm:@typescript/typescript6@^6.0.2",
-    "listr2": "^11.1.1"
+    "typescript": "npm:@typescript/typescript6@^6.0.2"
   },
   "engines": {
     "node": ">=24.0.0"
