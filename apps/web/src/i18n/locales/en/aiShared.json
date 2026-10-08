@@ -34,7 +34,7 @@
     "role": "Only an admin can turn AI on."
   },
   "disclaimer": {
-    "copilot": "AI-generated answer — review the SQL before acting.",
+    "copilot": "The AI selects a query, not a verified business conclusion. Review its SQL and rows before acting.",
     "anomaly": "Starting point for an investigation, not an accusation."
   },
   "privacy": {
