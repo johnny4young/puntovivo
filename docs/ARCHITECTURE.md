@@ -132,6 +132,10 @@ display.
   cashier.
 - Versioned mutable resources use compare-and-swap updates and report conflicts
   rather than silently overwriting concurrent edits.
+- AI payment tie-breaks create durable, tenant-scoped review proposals, never
+  settlements. An admin decision revalidates the selected provider statement
+  and outbox row before an atomic status change and audit; see
+  [ADR-0031](architecture/0031-human-review-of-ai-payment-proposals.md).
 - Payment, hardware, and sync effects use dedicated durable outboxes. A
   fiscal-enabled completed sale first records a frozen emission intent in the
   sale transaction; the fiscal worker materializes that intent into the fiscal
@@ -222,7 +226,11 @@ Packaged Electron databases use SQLCipher. The database key is obtained through
 Electron secure storage and never crosses into the renderer. Node and Electron
 share the target platform's bundled better-sqlite3 v13 Node-API binary. Runtime
 preflights execute a SQLCipher probe under Node or Electron, and desktop
-packaging prunes every non-target native binary before signing.
+packaging prunes every non-target native binary before signing. Forge and
+electron-builder do not recompile these portable addons; the runtime probe, not
+an ABI-specific rebuild, qualifies them. Production main/preload builds execute
+the public Forge Vite plugin hooks from the same configuration as development,
+without invoking Forge packaging or publication.
 
 Backups are encrypted bundles with integrity inspection. Creation checkpoints
 the WAL first, derives passphrase keys asynchronously through a bounded scrypt
@@ -471,6 +479,18 @@ identity maps are not persisted to the AI audit log. Provider-boundary tests use
 the real AI SDK with an in-process fake model and inspect every serialized model
 call, including the calls following tool results and tool errors. These tests
 are not a live-provider certification.
+
+AI provider, SDK, and analytics SQLite exceptions are untrusted diagnostics:
+client-facing tRPC errors expose a fixed fallback and stable error code, never
+the raw exception message or a `cause` detail. Invoice OCR and voice
+transcription parse failures keep their distinct code from transport failures.
+The tenant audit records the code and call metadata, not exception text; only
+locally constructed domain errors may cross the Co-pilot boundary unchanged.
+Server logs carry only `summarizeProviderError` output (error class name,
+HTTP status, transport code; the AI SDK retry wrapper is unwrapped to its last
+provider answer) plus tenant, feature, provider, model and error code, never
+the raw error object. This contract limits secondary leakage through the
+browser response, centralized error tracing and server logs.
 
 ## Price-tier boundary
 

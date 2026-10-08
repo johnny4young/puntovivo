@@ -391,6 +391,8 @@ export const auditLogActionEnum = [
   // attempts in `before` so forensics can replay the lifecycle.
   'payment.retry',
   'payment.mark_settled',
+  'payment.proposal_approved',
+  'payment.proposal_rejected',
   // restaurant table catalog admin gestures. Every CRUD on
   // a `restaurant_tables` row emits an audit entry carrying the row's
   // prior + post-action snapshot so forensics can replay the catalog
@@ -580,6 +582,7 @@ export const auditLogResourceTypeEnum = [
   'device',
   // payment_outbox rows targeted by admin retry / mark_settled.
   'payment_outbox',
+  'payment_reconciliation_proposal',
   'webhook_subscription',
   'webhook_outbox',
   'operational_alert',
