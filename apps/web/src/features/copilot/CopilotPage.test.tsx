@@ -325,10 +325,15 @@ describe('CopilotPage', () => {
     }
     expect(chunks.some(chunk => chunk.type === 'text-delta')).toBe(false);
     expect(screen.getByText(/Review the executed SQL and displayed rows/)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Results for your latest question/ })).toHaveAttribute(
-      'href',
-      '#copilot-results'
-    );
+    // A fragment href would navigate the hash router in packaged desktop.
+    const originalScrollIntoView = Element.prototype.scrollIntoView;
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    await userEvent.click(screen.getByRole('button', { name: /Results for your latest question/ }));
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+    expect(scrollIntoView.mock.contexts[0]).toHaveProperty('id', 'copilot-results');
+    Element.prototype.scrollIntoView = originalScrollIntoView;
+    expect(screen.queryByRole('link', { name: /Results for your latest question/ })).toBeNull();
     expect(screen.getByText('Executed SQL')).toBeInTheDocument();
   });
 

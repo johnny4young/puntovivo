@@ -138,10 +138,16 @@ export async function runCopilotChat(
   const { provider, modelId, settings } = await resolveConfiguredProvider(ctx, factory);
   const responseMode = settings.features?.copilot.responseMode ?? 'guided';
   const startedAt = Date.now();
-  const sqlCapture: { results: CopilotSQLResult[]; attempts: number; overLimit: boolean } = {
+  const sqlCapture: {
+    results: CopilotSQLResult[];
+    attempts: number;
+    overLimit: boolean;
+    rejected: boolean;
+  } = {
     results: [],
     attempts: 0,
     overLimit: false,
+    rejected: false,
   };
   let consumedUsage: {
     inputTokens: number;
@@ -191,9 +197,16 @@ export async function runCopilotChat(
               sqlCapture.overLimit = true;
               return { error: 'At most five analytics queries are supported per response' };
             }
-            const sqlResult = protectedSnapshot.query(validateModelAnalyticsSQL(query));
-            sqlCapture.results.push(sqlResult);
-            return sqlResult;
+            try {
+              const sqlResult = protectedSnapshot.query(validateModelAnalyticsSQL(query));
+              sqlCapture.results.push(sqlResult);
+              return sqlResult;
+            } catch (error) {
+              // The SDK hands tool errors back to the model as a tool-error
+              // part instead of throwing, so remember the rejection here.
+              sqlCapture.rejected = true;
+              throw error;
+            }
           },
         }),
       },
@@ -246,11 +259,21 @@ export async function runCopilotChat(
 
     const sqlResult = sqlCapture.results.at(-1);
     if (!sqlResult) {
-      throwServerError({
-        trpcCode: 'BAD_GATEWAY',
-        errorCode: 'AI_PROVIDER_ERROR',
-        message: 'Copilot requires a validated SQL result',
-      });
+      // A rejected model query is a request-scope problem, not a provider
+      // outage; keep the stable SQL code so the UI asks for a narrower question.
+      throwServerError(
+        sqlCapture.rejected
+          ? {
+              trpcCode: 'BAD_REQUEST',
+              errorCode: 'AI_COPILOT_SQL_REJECTED',
+              message: 'Copilot analytics SQL was rejected; narrow the analytics question',
+            }
+          : {
+              trpcCode: 'BAD_GATEWAY',
+              errorCode: 'AI_PROVIDER_ERROR',
+              message: 'Copilot requires a validated SQL result',
+            }
+      );
     }
     const durationMs = Date.now() - startedAt;
 
