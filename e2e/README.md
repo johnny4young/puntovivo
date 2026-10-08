@@ -38,6 +38,17 @@ exact preview Blob URL is revoked before the late response completes. The
 ordinary `test:e2e:web` command excludes this tagged soak so its functional
 journeys remain bounded.
 
+The complete local web command still runs every ordinary functional journey.
+It first runs the parallel suite without `@isolated-journey`, then starts a
+fresh single-worker Playwright invocation for the tagged long or
+fixture-intensive journeys. Three pharmacy journeys deliberately combine OTC
+custody with prescription privacy, recall, transfer, return, and expiry
+operations; first-owner retail exercises a separate empty-installation server;
+and fiscal recovery writes a direct database fixture before auth bootstrap.
+These seven complete tests passed alone but showed load-sensitive failures in
+parallel. Isolating their worker does not add retries, increase their per-test
+limits, or split away any end-state assertions.
+
 What happens behind that command:
 
 1. `scripts/ensure-playwright-browser.mjs` installs Chromium into
@@ -60,6 +71,15 @@ What happens behind that command:
    `seedPurchaseScenario`, `seedTransferScenario`,
    `seedCashSessionScenario`, `seedCashierWithoutSession`) so tests never
    share mutable state.
+
+Steps 3–5 run once for the parallel lane and once for the isolated
+`@isolated-journey` lane. Both invocations use the same zero-retry
+configuration and failure-artefact policy. The second lane writes to
+`test-results/playwright-web-heavy` and `playwright-report/web-heavy` so it
+does not erase the parallel lane's `playwright-web` and `web` reports.
+The empty-installation fixture reports forwarding failures with allowlisted
+transport and child-process fields; it never prints request headers, URL query
+data, or raw child stderr.
 
 ## Re-run a single test
 

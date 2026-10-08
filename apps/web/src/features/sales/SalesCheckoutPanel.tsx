@@ -14,7 +14,7 @@ import {
 } from '@/features/sales/CheckoutPreflightPanel';
 import { CashierPaceStrip } from '@/features/sales/CashierPaceStrip';
 import { SalesRegisterAssignmentField } from '@/features/sales/SalesRegisterAssignmentField';
-import { ariaKeyshortcutsFor, formatKeysForDisplay, getShortcutById } from '@/lib/shortcuts';
+import { ariaKeyshortcutsFor, shortcutDisplayFor } from '@/lib/shortcuts';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import type { PreflightItem } from '@/features/sales/useCheckoutPreflight';
 import type { SaleCartSummary } from '@/features/sales/saleCart';
@@ -83,10 +83,6 @@ interface SalesCheckoutPanelProps {
   /** Integrated SalesScreen surfaces one prioritized notice in its operation strip. */
   showPreflightPanel?: boolean | undefined;
 }
-function shortcutLabel(id: string): string {
-  const shortcut = getShortcutById(id);
-  return shortcut ? formatKeysForDisplay(shortcut.keys) : '';
-}
 export function SalesCheckoutPanel({
   currentSite,
   cashSession,
@@ -153,9 +149,7 @@ export function SalesCheckoutPanel({
           onClick={onOpenSearch}
           disabled={!canOpenSearch}
           aria-label={t('checkout.searchProducts')}
-          aria-keyshortcuts={
-            canOpenSearch ? ariaKeyshortcutsFor('sales.productSearch') : undefined
-          }
+          aria-keyshortcuts={canOpenSearch ? ariaKeyshortcutsFor('sales.productSearch') : undefined}
           variant="outline"
           size="icon"
           type="submit"
@@ -184,13 +178,8 @@ export function SalesCheckoutPanel({
       </div>
 
       <div className="mt-5 space-y-3 pos:min-h-0 pos:flex-1 pos:overflow-y-auto pos:scroll-pb-28 pos:pb-28">
-        {/*  V4 — "Último escaneado" + "Sugerencia rápida". When the
-         * cart is empty we surface a 4-tile dashed-border grid as a hint
-         * to the cashier (scan, scan again, search, suggest). When the
-         * cart has items, the dashed grid hides and the most-recent line
-         * surfaces as a one-row badge so the operator can verify the
-         * last scan at a glance. */}
-        {draftSummary.itemCount > 0 ? (
+        {/* This is a cart count, not the identity of the last scanned product. */}
+        {draftSummary.itemCount > 0 && (
           <div className="card-inset relative overflow-hidden px-4 py-3">
             <div
               aria-hidden="true"
@@ -203,13 +192,10 @@ export function SalesCheckoutPanel({
             <div className="relative flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-[9.5px] font-semibold uppercase tracking-[0.22em] text-primary-700">
-                  {t('checkout.lastScanned', {
-                    defaultValue: 'Último escaneado',
-                  })}
+                  {t('checkout.cartSummary')}
                 </p>
                 <p className="mt-1 truncate text-sm font-semibold text-secondary-950">
-                  {t('checkout.lastScannedHint', {
-                    defaultValue: '{{count}} ítems en carrito · revisa el total',
+                  {t('checkout.cartSummaryHint', {
                     count: draftSummary.itemCount,
                   })}
                 </p>
@@ -217,72 +203,24 @@ export function SalesCheckoutPanel({
               <ScanLine className="h-4 w-4 shrink-0 text-primary-700" aria-hidden="true" />
             </div>
           </div>
-        ) : (
-          <div className="rounded-2xl border border-dashed border-line bg-surface/40 px-3 py-3">
-            <p className="text-[9.5px] font-semibold uppercase tracking-[0.22em] text-secondary-500">
-              {t('checkout.quickSuggestionKicker', {
-                defaultValue: 'Sugerencia rápida',
-              })}
-            </p>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              {(
-                [
-                  [
-                    'scan',
-                    t('checkout.suggestionScan', {
-                      defaultValue: 'Escanea producto',
-                    }),
-                  ],
-                  [
-                    'barcode',
-                    t('checkout.suggestionBarcode', {
-                      defaultValue: 'Pega código',
-                    }),
-                  ],
-                  [
-                    'search',
-                    t('checkout.suggestionSearch', {
-                      defaultValue: 'Busca SKU',
-                    }),
-                  ],
-                  [
-                    'waiting',
-                    t('checkout.suggestionWaiting', {
-                      defaultValue: 'Esperando…',
-                    }),
-                  ],
-                ] as const
-              ).map(([key, label]) => (
-                <div
-                  key={key}
-                  className="rounded-xl border border-dashed border-line/70 bg-surface/70 px-2.5 py-2"
-                >
-                  <p className="text-[11px] leading-4 text-secondary-600">{label}</p>
-                </div>
-              ))}
-            </div>
-            <p className="mt-2 text-[10.5px] text-secondary-500">
-              {t('checkout.quickSuggestionHelper', {
-                defaultValue:
-                  'Las sugerencias por catálogo aparecen aquí cuando estén disponibles.',
-              })}
-            </p>
-          </div>
         )}
 
-        <div className="card-inset px-4 py-4">
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[18px] bg-primary-50 text-primary-700">
-              <ScanLine className="h-4.5 w-4.5" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-secondary-950">
-                {t('checkout.searchProducts')}
-              </p>
-              <p className="mt-1 text-sm text-secondary-500">{t('checkout.searchHint')}</p>
+        {/* Locked tickets cannot add products; do not instruct the cashier to. */}
+        {canOpenSearch && (
+          <div className="card-inset px-4 py-4">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[18px] bg-primary-50 text-primary-700">
+                <ScanLine className="h-4.5 w-4.5" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-secondary-950">
+                  {t('checkout.searchProducts')}
+                </p>
+                <p className="mt-1 text-sm text-secondary-500">{t('checkout.searchHint')}</p>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         <div className="card-inset px-4 py-4 text-sm text-secondary-600">
           <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-secondary-500">
@@ -384,7 +322,7 @@ export function SalesCheckoutPanel({
                 ...(canOpenSearch
                   ? [
                       [
-                        shortcutLabel('sales.productSearch'),
+                        shortcutDisplayFor('sales.productSearch'),
                         t('checkout.shortcut.search', {
                           defaultValue: 'Buscar',
                         }),
@@ -392,19 +330,19 @@ export function SalesCheckoutPanel({
                     ]
                   : []),
                 [
-                  shortcutLabel('sales.suspend'),
+                  shortcutDisplayFor('sales.suspend'),
                   t('checkout.shortcut.suspend', {
                     defaultValue: 'Pausar',
                   }),
                 ],
                 [
-                  shortcutLabel('sales.toggleSuspended'),
+                  shortcutDisplayFor('sales.toggleSuspended'),
                   t('checkout.shortcut.resume', {
                     defaultValue: 'Retomar',
                   }),
                 ],
                 [
-                  shortcutLabel('sales.charge'),
+                  shortcutDisplayFor('sales.charge'),
                   t('checkout.shortcut.charge', {
                     defaultValue: 'Cobrar',
                   }),
@@ -413,7 +351,7 @@ export function SalesCheckoutPanel({
                 // Cobrar chip so the cashier discovers the one-keystroke
                 // exact-cash flow without opening the Command Palette.
                 [
-                  shortcutLabel('sales.fastCash'),
+                  shortcutDisplayFor('sales.fastCash'),
                   t('checkout.shortcut.fastCash', {
                     defaultValue: 'Cobro rápido',
                   }),
@@ -431,7 +369,23 @@ export function SalesCheckoutPanel({
               </div>
             ))}
           </div>
-          <p className="mt-2 text-[11px] text-secondary-500">{t('checkout.shortcutsHint')}</p>
+          {canOpenSearch && (
+            <p className="mt-2 flex flex-wrap gap-x-3 gap-y-2 text-[11px] text-secondary-500">
+              {(
+                [
+                  ['sales.focusProduct', t('quickSearch.shortcut.focusSearch')],
+                  ['sales.focusQuantity', t('checkout.shortcut.quantity')],
+                  ['sales.focusDiscount', t('checkout.shortcut.discount')],
+                  ['sales.focusUnit', t('checkout.shortcut.unitInDialog')],
+                ] as const
+              ).map(([id, label]) => (
+                <span key={id} className="inline-flex items-center gap-1">
+                  <kbd className="pv-kbd">{shortcutDisplayFor(id)}</kbd>
+                  <span>{label}</span>
+                </span>
+              ))}
+            </p>
+          )}
         </div>
 
         {showPreflightPanel && preflightItems.length > 0 && (

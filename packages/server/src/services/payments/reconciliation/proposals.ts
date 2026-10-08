@@ -44,12 +44,15 @@ export function providerTransactionKey(
   return JSON.stringify([statement.railId, statement.providerTransactionId]);
 }
 
+/** Provider transaction id captured in a proposal's immutable statement evidence. */
+export const proposalProviderTransactionIdSql = sql`json_extract(${paymentReconciliationProposals.evidence}, '$.statement.providerTransactionId')`;
+
 /** Match immutable evidence without a new schema or rewriting historical proposals. */
 export function proposalProviderIdentity(tenantId: string, statement: StatementRow) {
   return and(
     eq(paymentReconciliationProposals.tenantId, tenantId),
     eq(paymentReconciliationProposals.railId, statement.railId),
-    sql`json_extract(${paymentReconciliationProposals.evidence}, '$.statement.providerTransactionId') = ${statement.providerTransactionId}`
+    sql`${proposalProviderTransactionIdSql} = ${statement.providerTransactionId}`
   );
 }
 
