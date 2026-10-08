@@ -22,7 +22,7 @@ index 287e8735e53970c9787253e85b5980988719a668..6574597fa33ac35ee51a060e5b0e3513
          artifactName: filenameWithExt,
          cacheRoot: path.resolve((0, electronGet_1.getCacheDirectory)({ allowEnvVarOverride: true }), "downloads"),
 diff --git a/out/util/electronGet.js b/out/util/electronGet.js
-index 11a859bbabb4e6f3ec94734cdbe68f9557e89493..86cdba84c3d5b780988f903147072c82d2995800 100644
+index 11a859bbabb4e6f3ec94734cdbe68f9557e89493..2b58e84443d0d9cae57f196a693463f17add536d 100644
 --- a/out/util/electronGet.js
 +++ b/out/util/electronGet.js
 @@ -13,8 +13,8 @@ exports.buildElectronArtifactConfig = buildElectronArtifactConfig;
@@ -70,15 +70,35 @@ index 11a859bbabb4e6f3ec94734cdbe68f9557e89493..86cdba84c3d5b780988f903147072c82
              }
              else {
                  throw err;
+@@ -352,7 +351,7 @@ async function downloadArtifactToFile(config, label) {
+         }
+         if (!(await (0, builder_util_1.exists)(filePath))) {
+             builder_util_1.log.warn({ filePath, label }, "cached artifact missing from disk; retrying with cache write");
+-            filePath = await get.downloadArtifact({ ...configWithProgress, cacheMode: get_1.ElectronDownloadCacheMode.WriteOnly });
++            filePath = await downloadWithFetch({ ...configWithProgress, cacheMode: get_1.ElectronDownloadCacheMode.WriteOnly });
+         }
+         if (!state.bar && lastLoggedMilestone === -1) {
+             builder_util_1.log.info({ label }, "using cached artifact");
 diff --git a/out/util/fetchDownload.js b/out/util/fetchDownload.js
 new file mode 100644
-index 0000000000000000000000000000000000000000..0c5dc6d2c74146af3919ad473ae6d6bcda1e2533
+index 0000000000000000000000000000000000000000..b2754beffa3bcd06dcfecf96ebf7ddf826c38929
 --- /dev/null
 +++ b/out/util/fetchDownload.js
-@@ -0,0 +1,57 @@
+@@ -0,0 +1,74 @@
 +"use strict";
 +const { downloadArtifact } = require("@electron/get");
 +const { EnvHttpProxyAgent } = require("undici");
++
++const FETCH_OPTION_KEYS = new Set(["quiet", "getProgressCallback", "headers", "method", "body", "cache", "credentials", "integrity", "keepalive", "mode", "redirect", "referrer", "referrerPolicy", "duplex", "priority"]);
++// fetch reports transport failures as TypeError("fetch failed" / "terminated")
++// with the socket error as its cause. Map them onto the errno codes builder's
++// bounded retry classification already recognises.
++const UNDICI_TRANSPORT_CODES = {
++    UND_ERR_SOCKET: "ECONNRESET",
++    UND_ERR_CONNECT_TIMEOUT: "ETIMEDOUT",
++    UND_ERR_HEADERS_TIMEOUT: "ETIMEDOUT",
++    UND_ERR_BODY_TIMEOUT: "ETIMEDOUT",
++};
 +
 +// @electron/get 5 uses native fetch, not got. Never silently pass got's agent
 +// or timeout objects to fetch: neither is honoured by the Fetch API.
@@ -87,9 +107,8 @@ index 0000000000000000000000000000000000000000..0c5dc6d2c74146af3919ad473ae6d6bc
 +    if (agent !== undefined) {
 +        throw new Error("electronDownload.downloadOptions.agent is a legacy got option; use a fetch dispatcher or HTTP_PROXY/HTTPS_PROXY/NO_PROXY instead");
 +    }
-+    const fetchKeys = new Set(["quiet", "getProgressCallback", "headers", "method", "body", "cache", "credentials", "integrity", "keepalive", "mode", "redirect", "referrer", "referrerPolicy", "duplex", "priority"]);
 +    for (const key of Object.keys(options)) {
-+        if (!fetchKeys.has(key)) throw new Error(`Unsupported electronDownload fetch option: ${key}`);
++        if (!FETCH_OPTION_KEYS.has(key)) throw new Error(`Unsupported electronDownload fetch option: ${key}`);
 +    }
 +    if (dispatcher !== undefined && (!dispatcher || typeof dispatcher.dispatch !== "function")) {
 +        throw new Error("electronDownload dispatcher must implement the fetch dispatch contract");
@@ -118,7 +137,9 @@ index 0000000000000000000000000000000000000000..0c5dc6d2c74146af3919ad473ae6d6bc
 +    } catch (error) {
 +        // Preserve builder's existing bounded retry classification without
 +        // turning a fetch status/timeout into an unbounded generic retry.
-+        if (error?.name === "TimeoutError") {
++        // Only this adapter's own deadline is a retryable timeout; a caller
++        // signal aborted with a TimeoutError reason stays a final cancellation.
++        if (error?.name === "TimeoutError" && deadline.aborted && !signal?.aborted) {
 +            const timeoutError = new Error(error.message, { cause: error });
 +            timeoutError.name = "TimeoutError";
 +            timeoutError.code = "ETIMEDOUT";
@@ -126,6 +147,11 @@ index 0000000000000000000000000000000000000000..0c5dc6d2c74146af3919ad473ae6d6bc
 +        }
 +        if (error?.response && typeof error.response.status === "number") {
 +            error.response.statusCode = error.response.status;
++            // An unread error body keeps its request open, which would stall the
++            // dispatcher close below until the deadline. Release it now.
++            await error.response.body?.cancel().catch(() => undefined);
++        } else if (error?.name === "TypeError" && error.code === undefined && typeof error.cause?.code === "string") {
++            error.code = UNDICI_TRANSPORT_CODES[error.cause.code] ?? error.cause.code;
 +        }
 +        throw error;
 +    } finally {
