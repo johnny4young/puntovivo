@@ -613,9 +613,17 @@ export function CopilotPage() {
                 role="status"
                 className="rounded-2xl border border-primary-500/25 bg-primary-50 px-4 py-3 text-sm text-primary-800"
               >
-                <a className="font-medium underline underline-offset-2" href="#copilot-results">
+                {/* Not an href="#..." anchor: packaged desktop uses hash history,
+                    so a fragment link would navigate the router away. */}
+                <button
+                  type="button"
+                  className="text-left font-medium underline underline-offset-2"
+                  onClick={() =>
+                    document.getElementById('copilot-results')?.scrollIntoView({ block: 'start' })
+                  }
+                >
                   {t('copilot:chat.resultReady')}
-                </a>
+                </button>
               </div>
             )}
           </div>
