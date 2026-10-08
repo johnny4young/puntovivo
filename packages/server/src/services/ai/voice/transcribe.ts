@@ -18,6 +18,7 @@ import type { DatabaseInstance } from '../../../db/index.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
 
 import { currentMonthSpend, recordCall } from '../auditLog.js';
+import { logProviderFailure } from '../provider-error.js';
 import { getProvider } from '../providers/registry.js';
 import type { AIProvider } from '../providers/types.js';
 import { resolveAISettings } from '../client.js';
@@ -244,7 +245,6 @@ export async function transcribeAudio(
     };
   } catch (error) {
     const durationMs = Date.now() - startedAt;
-    const message = error instanceof Error ? error.message : 'Voice provider call failed';
     // Identify parse-level failures by SDK error class so transport
     // errors don't get misclassified as parse failures. The substring
     // fallback covers SDK versions that wrap the typed error.
@@ -253,6 +253,13 @@ export async function transcribeAudio(
       (error instanceof Error && /No transcript generated/i.test(error.message));
 
     const errorCode = isParseFailure ? 'AI_VOICE_PARSE_FAILED' : 'AI_PROVIDER_ERROR';
+    logProviderFailure(error, {
+      tenantId: ctx.tenantId,
+      feature: 'voiceTranscribe',
+      providerId: provider.id,
+      modelId,
+      errorCode,
+    });
 
     await recordCall(ctx.db, {
       tenantId: ctx.tenantId,
@@ -273,8 +280,9 @@ export async function transcribeAudio(
     throwServerError({
       trpcCode: isParseFailure ? 'BAD_REQUEST' : 'BAD_GATEWAY',
       errorCode,
-      message,
-      details: { cause: String(error) },
+      message: isParseFailure
+        ? 'Voice transcription could not be parsed'
+        : 'Voice provider call failed',
     });
   }
 }

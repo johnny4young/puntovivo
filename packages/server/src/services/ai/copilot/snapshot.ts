@@ -356,7 +356,7 @@ function executeSnapshotQuery(
       (error instanceof Error && error.cause instanceof ServerErrorWithCode)
     )
       throw error;
-    rejectSQL(error instanceof Error ? error.message : 'Analytics SQL failed');
+    rejectSQL('Analytics SQL failed');
   }
 }
 
