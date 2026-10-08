@@ -12,9 +12,11 @@
  */
 
 import { spawn } from 'node:child_process';
+import { request as httpRequest } from 'node:http';
+import { request as httpsRequest } from 'node:https';
 import { createServer } from 'node:net';
 import { setTimeout as delay } from 'node:timers/promises';
-import { dirname, resolve } from 'node:path';
+import { dirname, posix, resolve, win32 } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolvePnpmInvocation } from './lib/pnpm-command.mjs';
 
@@ -127,7 +129,12 @@ export function buildPreviewInvocation(
   options,
   { env = process.env, platform = process.platform, execPath = process.execPath } = {}
 ) {
-  const pnpmEntry = env.npm_execpath || (platform === 'win32' ? null : 'pnpm');
+  // npm/yarn also export npm_execpath. Only a pnpm entry understands the
+  // --filter/exec preview arguments; anything else falls back to PATH pnpm.
+  const execEntry = typeof env.npm_execpath === 'string' ? env.npm_execpath : '';
+  const entryName = (platform === 'win32' ? win32 : posix).basename(execEntry);
+  const launchedByPnpm = /^pnpm\b/i.test(entryName);
+  const pnpmEntry = launchedByPnpm ? execEntry : platform === 'win32' ? null : 'pnpm';
   if (!pnpmEntry) {
     throw new Error(
       'Run the memory gate via pnpm run perf:electron-memory:gate to provide its executable entry'
@@ -220,13 +227,29 @@ async function stopChild(child) {
   }
 }
 
+// Readiness needs only HTTP headers, not fetch's optional QoS socket marking,
+// which can throw outside the fetch promise on macOS. Keep TLS verification
+// intact and stop reading immediately; the strict measurement runs afterwards.
+function probeUrl(url, { signal } = {}) {
+  return new Promise((resolvePromise, reject) => {
+    const parsed = new URL(url);
+    const transport = parsed.protocol === 'https:' ? httpsRequest : httpRequest;
+    const request = transport(parsed, { method: 'GET', signal }, response => {
+      resolvePromise({ status: response.statusCode });
+      response.destroy();
+    });
+    request.once('error', reject);
+    request.end();
+  });
+}
+
 /** Wait until a URL answers with any HTTP response (including SPA 404s). */
 export async function waitForUrl(
   url,
   {
     timeoutMs = DEFAULT_READY_TIMEOUT_MS,
     intervalMs = DEFAULT_POLL_INTERVAL_MS,
-    fetchImpl = fetch,
+    fetchImpl = probeUrl,
     shouldAbort = () => false,
   } = {}
 ) {
@@ -238,7 +261,10 @@ export async function waitForUrl(
       throw new Error(abortReason);
     }
     try {
-      const response = await fetchImpl(url, { method: 'GET' });
+      const response = await fetchImpl(url, {
+        method: 'GET',
+        signal: AbortSignal.timeout(Math.max(1, deadline - Date.now())),
+      });
       // A listening Vite preview returns 200 for `/`, but accepting any HTTP
       // response keeps this helper useful for tests and SPA fallback changes.
       if (response) {
