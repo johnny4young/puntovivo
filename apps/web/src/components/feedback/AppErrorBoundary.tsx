@@ -1,6 +1,7 @@
 import { AlertTriangle, RefreshCw } from 'lucide-react';
-import { Component, type ErrorInfo, type ReactNode, useState } from 'react';
+import { Component, type ErrorInfo, type ReactNode, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useLocation } from 'react-router';
 import { captureRenderError } from '@/lib/observability';
 import { Button } from '@/components/ui/Button';
 
@@ -17,6 +18,17 @@ interface AppErrorFallbackProps {
 function AppErrorFallback({ onRetry, variant = 'app' }: AppErrorFallbackProps) {
   // Diagnostics belong to captureRenderError, never the operator-facing fallback.
   const { t } = useTranslation('errors');
+  const headingRef = useRef<HTMLHeadingElement>(null);
+
+  useEffect(() => {
+    // The crash unmounted whatever held focus, which drops it to <body>.
+    // Land keyboard and screen-reader users on the fallback instead, but
+    // never steal focus from live shell chrome (a header search, a drawer)
+    // that survived a route-level crash.
+    const active = document.activeElement;
+    if (!active || active === document.body) headingRef.current?.focus();
+  }, []);
+
   return (
     <div
       className={
@@ -29,8 +41,14 @@ function AppErrorFallback({ onRetry, variant = 'app' }: AppErrorFallbackProps) {
         <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-danger-50">
           <AlertTriangle className="h-7 w-7 text-danger-600" />
         </div>
-        <div className="mt-6 space-y-2">
-          <h1 className="text-2xl font-semibold text-secondary-900">{t('boundary.title')}</h1>
+        <div role="alert" className="mt-6 space-y-2">
+          <h1
+            ref={headingRef}
+            tabIndex={-1}
+            className="text-2xl font-semibold text-secondary-900 focus:outline-none"
+          >
+            {t('boundary.title')}
+          </h1>
           <p className="text-sm text-secondary-600">{t('boundary.description')}</p>
         </div>
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
@@ -56,19 +74,37 @@ interface BoundaryInnerProps {
   children: ReactNode;
   onRetry: () => void;
   variant?: 'app' | 'route';
+  /**
+   * When this value changes while the fallback is showing, the boundary
+   * clears its error so the newly requested content renders. React Router
+   * reuses sibling route elements of the same type, so without it a crashed
+   * page's fallback would follow the operator to every other shell route.
+   */
+  resetKey?: string;
 }
 
 interface BoundaryInnerState {
-  error: Error | null;
+  // Only the fact of the failure is kept; the Error itself goes to
+  // captureRenderError and is never retained for rendering.
+  hasError: boolean;
+  resetKey: string | undefined;
 }
 
 class BoundaryInner extends Component<BoundaryInnerProps, BoundaryInnerState> {
   override state: BoundaryInnerState = {
-    error: null,
+    hasError: false,
+    resetKey: this.props.resetKey,
   };
 
-  static getDerivedStateFromError(error: Error): BoundaryInnerState {
-    return { error };
+  static getDerivedStateFromError(): Partial<BoundaryInnerState> {
+    return { hasError: true };
+  }
+
+  static getDerivedStateFromProps(
+    props: BoundaryInnerProps,
+    state: BoundaryInnerState
+  ): Partial<BoundaryInnerState> | null {
+    return props.resetKey === state.resetKey ? null : { hasError: false, resetKey: props.resetKey };
   }
 
   override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
@@ -83,7 +119,7 @@ class BoundaryInner extends Component<BoundaryInnerProps, BoundaryInnerState> {
   }
 
   override render() {
-    if (this.state.error) {
+    if (this.state.hasError) {
       return (
         <AppErrorFallback onRetry={this.props.onRetry} variant={this.props.variant ?? 'app'} />
       );
@@ -112,15 +148,18 @@ export function AppErrorBoundary({ children }: AppErrorBoundaryProps) {
  * render crash in one page so the navigation chrome — and any other
  * mounted state, like an open cash session's page — survives; without
  * it a crash anywhere bubbles to the root boundary and unmounts the
- * entire app. Retry remounts only the crashed page subtree.
+ * entire app. Retry remounts only the crashed page subtree, and navigating
+ * to another location clears the fallback so it never sticks to the shell.
  */
 export function RouteErrorBoundary({ children }: AppErrorBoundaryProps) {
   const [resetCount, setResetCount] = useState(0);
+  const { pathname, search } = useLocation();
 
   return (
     <BoundaryInner
       key={resetCount}
       variant="route"
+      resetKey={`${pathname}${search}`}
       onRetry={() => setResetCount(current => current + 1)}
     >
       {children}

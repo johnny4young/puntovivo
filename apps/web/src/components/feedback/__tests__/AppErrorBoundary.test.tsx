@@ -2,6 +2,7 @@ import { cleanup, screen } from '@testing-library/react';
 import { render } from '@/test/utils';
 import i18n from '@/i18n';
 import userEvent from '@testing-library/user-event';
+import { Link, Route, Routes } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AppErrorBoundary, RouteErrorBoundary } from '../AppErrorBoundary';
 import {
@@ -114,6 +115,8 @@ describe.each([
       </Boundary>
     );
     expect(screen.getByRole('heading', { name: title })).toBeVisible();
+    expect(screen.getByRole('alert')).toHaveTextContent(title);
+    expect(screen.getByRole('heading', { name: title })).toHaveFocus();
     expect(screen.getByRole('button', { name: reload })).toBeEnabled();
     // The app boundary may outlive ThemeProvider; its surface must follow global theme tokens.
     expect(container.querySelector('.bg-surface')).toBeInTheDocument();
@@ -166,6 +169,90 @@ it('keeps the shell and its draft mounted when retrying a crashed route', async 
     expect(draft).toHaveValue('Keep me unchanged');
     expect(screen.getByRole('navigation', { name: 'Store navigation' })).toBeVisible();
     expect(screen.getByText('Recovered route')).toBeVisible();
+  } finally {
+    consoleSpy.mockRestore();
+  }
+});
+
+it('clears a crashed route fallback when the operator navigates elsewhere', async () => {
+  const user = userEvent.setup();
+  function CrashingPage(): never {
+    throw new Error('private route failure');
+  }
+  const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  try {
+    render(
+      <>
+        <nav aria-label="Store navigation">
+          <Link to="/sales">Sales</Link>
+        </nav>
+        <Routes>
+          <Route
+            path="/reports"
+            element={
+              <RouteErrorBoundary>
+                <CrashingPage />
+              </RouteErrorBoundary>
+            }
+          />
+          <Route
+            path="/sales"
+            element={
+              <RouteErrorBoundary>
+                <p>Sales screen</p>
+              </RouteErrorBoundary>
+            }
+          />
+        </Routes>
+      </>,
+      { initialEntries: ['/reports'] }
+    );
+    expect(screen.getByRole('heading', { name: 'Something went wrong' })).toBeVisible();
+
+    await user.click(screen.getByRole('link', { name: 'Sales' }));
+
+    expect(screen.getByText('Sales screen')).toBeVisible();
+    expect(screen.queryByRole('heading', { name: 'Something went wrong' })).not.toBeInTheDocument();
+  } finally {
+    consoleSpy.mockRestore();
+  }
+});
+
+it('does not steal focus from surviving shell chrome when a route crashes', () => {
+  let broken = false;
+  function ProblemChild() {
+    if (broken) throw new Error('private route failure');
+    return <p>Route content</p>;
+  }
+  const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  try {
+    const view = render(
+      <>
+        <label>
+          Shell search
+          <input />
+        </label>
+        <RouteErrorBoundary>
+          <ProblemChild />
+        </RouteErrorBoundary>
+      </>
+    );
+    const search = screen.getByRole('textbox', { name: 'Shell search' });
+    search.focus();
+    broken = true;
+    view.rerender(
+      <>
+        <label>
+          Shell search
+          <input />
+        </label>
+        <RouteErrorBoundary>
+          <ProblemChild />
+        </RouteErrorBoundary>
+      </>
+    );
+    expect(screen.getByRole('heading', { name: 'Something went wrong' })).toBeVisible();
+    expect(search).toHaveFocus();
   } finally {
     consoleSpy.mockRestore();
   }
