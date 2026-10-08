@@ -146,6 +146,51 @@ describe('Sequentials tRPC Router', () => {
     });
   });
 
+  it('refuses to allocate when the sequential advances between read and guarded update', () => {
+    const db = getDatabase();
+    const scope = and(
+      eq(sequentials.tenantId, tenantId),
+      eq(sequentials.siteId, siteId),
+      eq(sequentials.documentType, 'purchase')
+    );
+    const before = db.select().from(sequentials).where(scope).get();
+    if (!before) throw new Error('Expected seeded purchase sequential');
+
+    let error: unknown;
+    try {
+      db.transaction(
+        tx => {
+          // Simulate another writer advancing the row after the allocator's
+          // read but before its expected-value update.
+          const racingUpdate: typeof tx.update = table => {
+            tx.update(sequentials)
+              .set({ currentValue: sql`${sequentials.currentValue} + 1` })
+              .where(eq(sequentials.id, before.id))
+              .run();
+            return tx.update(table);
+          };
+          allocateNextSequential(
+            { select: tx.select.bind(tx), update: racingUpdate, rollback: tx.rollback.bind(tx) },
+            { tenantId, sequentialId: before.id, updatedAt: new Date().toISOString() }
+          );
+        },
+        { behavior: 'immediate' }
+      );
+    } catch (caught) {
+      error = caught;
+    }
+    expect(error).toMatchObject({
+      code: 'CONFLICT',
+      cause: {
+        errorCode: 'DOCUMENT_SEQUENTIAL_CHANGED',
+        details: { sequentialId: before.id, expectedValue: before.currentValue },
+      },
+    });
+    expect(db.select().from(sequentials).where(scope).get()?.currentValue).toBe(
+      before.currentValue
+    );
+  });
+
   it('lists and updates seeded sequentials, creates a new one for another type, and deletes it', async () => {
     const caller = appRouter.createCaller(createTestContext());
 

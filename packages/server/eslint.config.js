@@ -42,7 +42,9 @@ export default tseslint.config(
         {
           patterns: [
             {
-              group: ['../application/**', '../trpc/**', '../../application/**', '../../trpc/**'],
+              // Gitignore-style: each entry matches the directory itself
+              // (barrel imports) and every path below it.
+              group: ['../application', '../trpc'],
               message: 'Keep document-number allocation below application and transport layers.',
             },
           ],
