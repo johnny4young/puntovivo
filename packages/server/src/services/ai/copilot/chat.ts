@@ -30,7 +30,7 @@ import type { AIProvider } from '../providers/types.js';
 import type { AISettings } from '../types.js';
 
 import { ALLOWED_TABLES, RESULT_ROW_LIMIT, SQL_MAX_LENGTH } from './constants.js';
-import { resolveWindow } from './sql.js';
+import { resolveWindow, validateModelAnalyticsSQL } from './sql.js';
 import { createCopilotSnapshot } from './snapshot.js';
 import {
   buildContextBlock,
@@ -138,7 +138,24 @@ export async function runCopilotChat(
   const { provider, modelId, settings } = await resolveConfiguredProvider(ctx, factory);
   const responseMode = settings.features?.copilot.responseMode ?? 'guided';
   const startedAt = Date.now();
-  let lastSQLResult: CopilotSQLResult | null = null;
+  const sqlCapture: {
+    results: CopilotSQLResult[];
+    attempts: number;
+    overLimit: boolean;
+    rejected: boolean;
+  } = {
+    results: [],
+    attempts: 0,
+    overLimit: false,
+    rejected: false,
+  };
+  let consumedUsage: {
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadTokens: number;
+    cacheWriteTokens: number;
+    costUsd: number;
+  } | null = null;
 
   let snapshot: Awaited<ReturnType<typeof createCopilotSnapshot>> | undefined;
   try {
@@ -170,13 +187,26 @@ export async function runCopilotChat(
         }),
         runReadOnlySQL: tool({
           description:
-            'Run a read-only SELECT/WITH query against tenant-scoped sales analytics snapshot tables.',
+            'Run one read-only SELECT query against tenant-scoped sales analytics snapshot tables. CTEs are unsupported.',
           inputSchema: z.object({
             query: z.string().min(1).max(SQL_MAX_LENGTH),
           }),
           execute: async ({ query }) => {
-            lastSQLResult = protectedSnapshot.query(query);
-            return lastSQLResult;
+            sqlCapture.attempts += 1;
+            if (sqlCapture.attempts > 5) {
+              sqlCapture.overLimit = true;
+              return { error: 'At most five analytics queries are supported per response' };
+            }
+            try {
+              const sqlResult = protectedSnapshot.query(validateModelAnalyticsSQL(query));
+              sqlCapture.results.push(sqlResult);
+              return sqlResult;
+            } catch (error) {
+              // The SDK hands tool errors back to the model as a tool-error
+              // part instead of throwing, so remember the rejection here.
+              sqlCapture.rejected = true;
+              throw error;
+            }
           },
         }),
       },
@@ -189,14 +219,6 @@ export async function runCopilotChat(
         ? { providerOptions: providerOptions as ProviderOptions }
         : {}),
     });
-
-    if (responseMode === 'verified' && !lastSQLResult) {
-      throwServerError({
-        trpcCode: 'BAD_GATEWAY',
-        errorCode: 'AI_PROVIDER_ERROR',
-        message: 'Verified-results mode requires a validated SQL result',
-      });
-    }
 
     const usage = result.usage as UsageShape;
     const inputTokens = usageNumber(usage.inputTokens);
@@ -225,6 +247,34 @@ export async function runCopilotChat(
         },
       })
     );
+    consumedUsage = { inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens, costUsd };
+
+    if (sqlCapture.overLimit) {
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'AI_COPILOT_SQL_REJECTED',
+        message: 'The request needs too many queries; narrow the analytics question',
+      });
+    }
+
+    const sqlResult = sqlCapture.results.at(-1);
+    if (!sqlResult) {
+      // A rejected model query is a request-scope problem, not a provider
+      // outage; keep the stable SQL code so the UI asks for a narrower question.
+      throwServerError(
+        sqlCapture.rejected
+          ? {
+              trpcCode: 'BAD_REQUEST',
+              errorCode: 'AI_COPILOT_SQL_REJECTED',
+              message: 'Copilot analytics SQL was rejected; narrow the analytics question',
+            }
+          : {
+              trpcCode: 'BAD_GATEWAY',
+              errorCode: 'AI_PROVIDER_ERROR',
+              message: 'Copilot requires a validated SQL result',
+            }
+      );
+    }
     const durationMs = Date.now() - startedAt;
 
     const { id: auditLogId } = await recordCall(ctx.db, {
@@ -244,20 +294,10 @@ export async function runCopilotChat(
       errorCode: null,
     });
 
-    const emptyResult: CopilotSQLResult = {
-      sql: '',
-      columns: [],
-      rows: [],
-      rowCount: 0,
-      truncated: false,
-      chart: null,
-      window,
-    };
-    const sqlResult = lastSQLResult ?? emptyResult;
-
     return {
       ...sqlResult,
-      answer: responseMode === 'verified' ? '' : result.text,
+      answer: '',
+      queries: sqlCapture.results,
       responseMode,
       costUsd,
       durationMs,
@@ -275,11 +315,11 @@ export async function runCopilotChat(
       responseMode,
       providerId: provider.id,
       modelId,
-      inputTokens: 0,
-      outputTokens: 0,
-      cacheReadTokens: 0,
-      cacheWriteTokens: 0,
-      costUsd: 0,
+      inputTokens: consumedUsage?.inputTokens ?? 0,
+      outputTokens: consumedUsage?.outputTokens ?? 0,
+      cacheReadTokens: consumedUsage?.cacheReadTokens ?? 0,
+      cacheWriteTokens: consumedUsage?.cacheWriteTokens ?? 0,
+      costUsd: consumedUsage?.costUsd ?? 0,
       durationMs: Date.now() - startedAt,
       errorCode,
     });

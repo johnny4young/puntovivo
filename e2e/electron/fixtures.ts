@@ -616,6 +616,34 @@ export const electronTest = base.extend<ElectronFixtures, ElectronWorkerFixtures
         } catch (error) {
           throw formatFirstWindowFailure(error, electronApp.process());
         }
+        if (process.platform === 'darwin') {
+          // CDP owns keyboard input in this dev fixture. A foreground native
+          // window can receive unrelated operator typing/shortcuts and corrupt
+          // identities during automation. This does not qualify native focus.
+          // Packaged targets and production window preferences remain unchanged.
+          const appForIsolation = electronApp;
+          await appForIsolation.evaluate(({ app, BrowserWindow }) => {
+            const isolate = (window: InstanceType<typeof BrowserWindow>) => {
+              window.setFocusable(false);
+              // Electron documents that setFocusable alone does not remove
+              // existing macOS focus. Explicitly relinquish that focus too.
+              window.blur();
+            };
+            BrowserWindow.getAllWindows().forEach(isolate);
+            app.on('browser-window-created', (_event, window) => isolate(window));
+          });
+          await base.expect
+            .poll(async () =>
+              appForIsolation.evaluate(({ BrowserWindow }) => {
+                const windows = BrowserWindow.getAllWindows();
+                return (
+                  windows.length > 0 &&
+                  windows.every(window => !window.isFocusable() && !window.isFocused())
+                );
+              })
+            )
+            .toBe(true);
+        }
         await use(page);
       } finally {
         if (electronApp) {
