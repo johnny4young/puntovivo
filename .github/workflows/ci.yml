@@ -117,6 +117,8 @@ jobs:
             web:
               - 'apps/web/**'
               - 'e2e/web/**'
+              # Web journeys and their fixtures import these shared modules.
+              - 'e2e/shared/**'
               - 'operator-journeys.json'
               - 'playwright.web.config.ts'
               - 'playwright.web-heavy.config.ts'

@@ -35,7 +35,7 @@
     "perf:electron-memory:gate": "node scripts/run-electron-memory-gate.mjs",
     "perf:lighthouse": "node scripts/check-lighthouse.mjs",
     "ci:server": "pnpm run ci:shared && pnpm run ci:audit && pnpm run lint:fast:server && pnpm --filter @puntovivo/server run typecheck && pnpm --filter @puntovivo/server run lint && pnpm --filter @puntovivo/server run format && pnpm --filter @puntovivo/server run test:coverage && pnpm --filter @puntovivo/server run test:perf:trpc && pnpm --filter @puntovivo/server run test:perf:store && pnpm --filter @puntovivo/server run test:perf:search && pnpm --filter @puntovivo/server run test:perf:audit",
-    "test:e2e:web": "node scripts/ensure-playwright-browser.mjs && pnpm --filter @puntovivo/server run build && pnpm --filter @puntovivo/server run native:ensure:node && playwright test --config=playwright.web.config.ts --grep-invert \"@long-shift-soak|@isolated-journey\" --forbid-only && playwright test --config=playwright.web-heavy.config.ts --grep @isolated-journey --workers=1 --forbid-only",
+    "test:e2e:web": "node scripts/ensure-playwright-browser.mjs && pnpm --filter @puntovivo/server run build && pnpm --filter @puntovivo/server run native:ensure:node && playwright test --config=playwright.web.config.ts --grep-invert \"@long-shift-soak|@isolated-journey\" --forbid-only && playwright test --config=playwright.web-heavy.config.ts --grep @isolated-journey --grep-invert @long-shift-soak --workers=1 --forbid-only",
     "test:e2e:web:critical": "node scripts/ensure-playwright-browser.mjs && pnpm --filter @puntovivo/server run native:ensure:node && playwright test --config=playwright.web.config.ts --grep @critical --workers=1 --forbid-only",
     "test:e2e:web:soak": "node scripts/ensure-playwright-browser.mjs && pnpm --filter @puntovivo/server run native:ensure:node && playwright test --config=playwright.web.config.ts --grep @long-shift-soak --workers=1 --forbid-only",
     "test:e2e:web:prerelease": "node scripts/ensure-playwright-browser.mjs && pnpm --filter @puntovivo/server run native:ensure:node && playwright test --config=playwright.web.config.ts --grep @prerelease-money --workers=1 --forbid-only",
@@ -67,11 +67,11 @@
     "axe-core": "^4.13.0",
     "better-sqlite3": "npm:better-sqlite3-multiple-ciphers@^13.0.3",
     "lighthouse": "^13.5.0",
+    "listr2": "^11.1.1",
     "nanoid": "^6.0.1",
     "oxlint": "^1.85.0",
     "prettier": "^3.9.8",
-    "typescript": "npm:@typescript/typescript6@^6.0.2",
-    "listr2": "^11.1.1"
+    "typescript": "npm:@typescript/typescript6@^6.0.2"
   },
   "engines": {
     "node": ">=24.0.0"
