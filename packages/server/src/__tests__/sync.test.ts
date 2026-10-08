@@ -176,7 +176,12 @@ describe('Sync tRPC Router', () => {
       get(target, property, receiver) {
         const value = Reflect.get(target, property, receiver);
         if (property === 'select' && typeof value === 'function') {
-          return (...args: unknown[]) => interceptAll(Reflect.apply(value, target, args));
+          return (...args: unknown[]) => {
+            const builder: unknown = Reflect.apply(value, target, args);
+            return builder !== null && typeof builder === 'object'
+              ? interceptAll(builder)
+              : builder;
+          };
         }
         return typeof value === 'function' ? value.bind(target) : value;
       },
