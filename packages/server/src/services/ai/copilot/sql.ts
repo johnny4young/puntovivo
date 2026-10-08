@@ -107,3 +107,104 @@ export function validateReadOnlySQL(query: string): string {
 
   return normalized;
 }
+
+/**
+ * Model-facing analytics must at least read an actual snapshot table. A
+ * constant SELECT or a CTE shadowing a table name is not source evidence.
+ * This is deliberately only a provenance floor: a table-reading query may
+ * still calculate the wrong KPI, which the UI must never call proof.
+ */
+export function validateModelAnalyticsSQL(query: string): string {
+  const normalized = validateReadOnlySQL(query);
+  // The lightweight SQL guard cannot reliably distinguish every recursive,
+  // column-list or quoted CTE shadow from a base table. Fail closed here;
+  // authorized local read-only SQL still retains WITH support.
+  const inspected = stripQuotedStrings(normalized);
+  // SQLite bracket identifiers can contain fake FROM/JOIN tokens. The model
+  // source guard does not tokenize them, so never accept them as evidence.
+  // Keep this restriction separate from authorized local read-only SQL.
+  if (/[[\]]/.test(inspected)) {
+    rejectSQL('Model analytics bracket-quoted identifiers are not supported');
+  }
+  if (/\bwith\b/i.test(inspected)) {
+    rejectSQL('Model analytics CTE queries are not supported');
+  }
+  // Quoted identifiers are collapsed by the string stripper above, so the
+  // table allow-list would never see `FROM "sqlite_master"`. Model SQL only
+  // needs plain identifiers; string literals use single quotes.
+  if (/["`]/.test(inspected)) {
+    rejectSQL('Model analytics quoted identifiers are not supported');
+  }
+  // Schema tables and table-valued pragmas are not analytics sources, even
+  // inside the isolated in-memory snapshot.
+  if (/\b(?:sqlite_\w+|pragma_\w+)\b/i.test(inspected)) {
+    rejectSQL('Model analytics query must read only snapshot source tables');
+  }
+  // The FROM/JOIN regex above cannot see single-quoted identifiers
+  // (`JOIN 'sqlite_master'`, which SQLite accepts as a table name), comma
+  // lists, or parenthesized table lists. Inspect every source position of
+  // every FROM clause instead: each must be a plain allow-listed table or a
+  // parenthesized SELECT subquery (whose own FROM is inspected separately).
+  const sources = fromClauseSources(inspected);
+  for (const source of sources) {
+    if (source.startsWith('(')) {
+      if (!/^\(\s*select\b/.test(source)) {
+        rejectSQL('Model analytics query must read only snapshot source tables');
+      }
+      continue;
+    }
+    const table = /^[a-z_][a-z0-9_]*/.exec(source)?.[0] ?? '';
+    const next = source.charAt(table.length);
+    if (!ALLOWED_TABLES.has(table) || (next !== '' && !/\s/.test(next))) {
+      rejectSQL('Model analytics query must read only snapshot source tables');
+    }
+  }
+  if (!sources.some(source => !source.startsWith('('))) {
+    rejectSQL('Model analytics query must read a snapshot source table');
+  }
+  return normalized;
+}
+
+const FROM_CLAUSE_KEYWORD =
+  /(where|group|order|limit|having|window|union|intersect|except|join)\b/y;
+
+/**
+ * Every source position of every FROM clause, lower-cased and trimmed: the
+ * first item, each top-level comma item and each top-level JOIN target. A
+ * FROM clause ends at an unmatched `)` or a clause keyword at depth zero.
+ */
+function fromClauseSources(inspected: string): string[] {
+  const lower = inspected.toLowerCase();
+  const sources: string[] = [];
+  for (const match of lower.matchAll(/\bfrom\b/g)) {
+    let depth = 0;
+    let current = '';
+    for (let index = match.index + match[0].length; index < lower.length; index += 1) {
+      const char = lower[index]!;
+      if (char === '(') depth += 1;
+      if (char === ')') {
+        if (depth === 0) break;
+        depth -= 1;
+      }
+      if (depth === 0) {
+        if (char === ',') {
+          sources.push(current.trim());
+          current = '';
+          continue;
+        }
+        FROM_CLAUSE_KEYWORD.lastIndex = index;
+        const keyword = /\w/.test(lower[index - 1] ?? '') ? null : FROM_CLAUSE_KEYWORD.exec(lower);
+        if (keyword?.[1] === 'join') {
+          sources.push(current.trim());
+          current = '';
+          index += keyword[0].length - 1;
+          continue;
+        }
+        if (keyword) break;
+      }
+      current += char;
+    }
+    sources.push(current.trim());
+  }
+  return sources;
+}
