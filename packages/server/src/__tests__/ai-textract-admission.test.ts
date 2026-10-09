@@ -1,5 +1,3 @@
-import { EventEmitter } from 'node:events';
-
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -51,16 +49,16 @@ let siteId: string;
 let otherSiteId: string;
 let uploadId: string;
 
-function caller(site: string | null = siteId, response?: EventEmitter) {
+function caller(site: string | null = siteId, signal?: AbortSignal) {
   const ctx: Context = {
     req: {} as Context['req'],
-    res: response ? ({ raw: response } as Context['res']) : ({} as Context['res']),
+    res: {} as Context['res'],
     db: getDatabase(),
     user: { id: userId, email: 'textract@example.com', role: 'admin', tenantId },
     tenantId,
     siteId: site,
   };
-  return appRouter.createCaller(ctx);
+  return appRouter.createCaller(ctx, signal ? { signal } : undefined);
 }
 
 async function seed() {
@@ -247,12 +245,10 @@ describe('active Textract invoice admission', () => {
   });
 
   it('does not reserve or dispatch after the HTTP response was already lost', async () => {
-    const response = Object.assign(new EventEmitter(), {
-      writableFinished: false,
-      destroyed: true,
-    });
+    const controller = new AbortController();
+    controller.abort();
     await expect(
-      caller(siteId, response).ai.invoiceOcr.extract({ uploadId })
+      caller(siteId, controller.signal).ai.invoiceOcr.extract({ uploadId })
     ).rejects.toMatchObject({ code: 'CLIENT_CLOSED_REQUEST' });
     expect(textractCall).not.toHaveBeenCalled();
     expect(
@@ -457,10 +453,7 @@ describe('active Textract invoice admission', () => {
   });
 
   it('lets a dispatched Textract call finish and settle its pages after a disconnect', async () => {
-    const response = Object.assign(new EventEmitter(), {
-      writableFinished: false,
-      destroyed: false,
-    });
+    const controller = new AbortController();
     let finish!: () => void;
     textractCall.mockImplementationOnce(
       () =>
@@ -475,11 +468,10 @@ describe('active Textract invoice admission', () => {
             });
         })
     );
-    const pending = caller(siteId, response).ai.invoiceOcr.extract({ uploadId });
+    const pending = caller(siteId, controller.signal).ai.invoiceOcr.extract({ uploadId });
     await vi.waitFor(() => expect(textractCall).toHaveBeenCalledTimes(1));
     const input = textractCall.mock.calls[0]?.[0] as { abortSignal?: AbortSignal };
-    response.destroyed = true;
-    response.emit('close');
+    controller.abort();
     // The client close is admission-only: the paid call is not abandoned.
     expect(input.abortSignal?.aborted).toBe(false);
     finish();

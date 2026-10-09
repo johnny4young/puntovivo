@@ -8,7 +8,7 @@ import { seedSurfaceGateScenario } from './support/db.js';
 
 test.use({ actionTimeout: 15_000 });
 
-test('pharmacy exact lots preserve quarantine through site receipt and supplier return', async ({
+test('pharmacy exact lots preserve quarantine through site receipt and supplier return @isolated-journey', async ({
   page,
 }, info) => {
   test.setTimeout(120_000);

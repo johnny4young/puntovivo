@@ -135,7 +135,7 @@ beforeEach(async () => {
 
 function expectBudgetDenied(
   action: () => unknown,
-  errorCode: 'AI_BUDGET_EXCEEDED' | 'AI_BUDGET_BUSY' = 'AI_BUDGET_EXCEEDED'
+  errorCode: 'AI_BUDGET_EXCEEDED' | 'AI_BUDGET_BUSY' | 'AI_QUOTA_EXCEEDED' = 'AI_BUDGET_EXCEEDED'
 ): void {
   let caught: unknown;
   try {
@@ -146,18 +146,6 @@ function expectBudgetDenied(
   expect(caught).toBeInstanceOf(TRPCError);
   expect((caught as TRPCError).cause).toBeInstanceOf(ServerErrorWithCode);
   expect(((caught as TRPCError).cause as ServerErrorWithCode).errorCode).toBe(errorCode);
-}
-
-function expectQuotaDenied(action: () => unknown): void {
-  let caught: unknown;
-  try {
-    action();
-  } catch (error) {
-    caught = error;
-  }
-  expect(caught).toBeInstanceOf(TRPCError);
-  expect((caught as TRPCError).cause).toBeInstanceOf(ServerErrorWithCode);
-  expect(((caught as TRPCError).cause as ServerErrorWithCode).errorCode).toBe('AI_QUOTA_EXCEEDED');
 }
 
 describe('durable AI budget admission', () => {
@@ -338,7 +326,10 @@ describe('durable AI budget admission', () => {
       'AI_BUDGET_BUSY'
     );
     settleAiBudget(db, first, { ...audit, siteId, feature: 'copilot' }, false);
-    expectQuotaDenied(() => reserveAiBudget(peer, tenantId, now, { copilotSiteIds: [siteId] }));
+    expectBudgetDenied(
+      () => reserveAiBudget(peer, tenantId, now, { copilotSiteIds: [siteId] }),
+      'AI_QUOTA_EXCEEDED'
+    );
     expect(await db.select().from(schema.aiBudgetReservations).all()).toHaveLength(0);
     expect(await db.select().from(schema.aiAuditLog).all()).toHaveLength(800);
   });
@@ -364,8 +355,9 @@ describe('durable AI budget admission', () => {
         createdAt: now.toISOString(),
       }))
     );
-    expectQuotaDenied(() =>
-      reserveAiBudget(db, tenantId, now, { copilotSiteIds: [siteId, secondSiteId] })
+    expectBudgetDenied(
+      () => reserveAiBudget(db, tenantId, now, { copilotSiteIds: [siteId, secondSiteId] }),
+      'AI_QUOTA_EXCEEDED'
     );
     const unaffected = reserveAiBudget(db, tenantId, now, { copilotSiteIds: [siteId] });
     await db

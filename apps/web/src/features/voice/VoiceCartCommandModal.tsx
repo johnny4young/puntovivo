@@ -15,13 +15,14 @@
  *
  * @module features/voice/VoiceCartCommandModal
  */
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Mic, MicOff, Sparkles, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { useToast } from '@/components/feedback/ToastProvider';
+import { useDialogA11y } from '@/components/feedback/useDialogA11y';
 import { onErrorToast } from '@/lib/mutationHelpers';
-import { trpc } from '@/lib/trpc';
+import { vanillaClient } from '@/lib/trpc';
 import { blobToBase64 } from '@/features/voice/blobToBase64';
 import {
   VoiceCartCommandReview,
@@ -144,13 +145,65 @@ export function VoiceCartCommandModal({
   const [transcript, setTranscript] = useState<string | null>(null);
   const [matches, setMatches] = useState<CartMatch[]>([]);
   const [unrecognizedReason, setUnrecognizedReason] = useState<string | null>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const pipelineAbortRef = useRef<AbortController | null>(null);
+  const activeRef = useRef(false);
+  const closingRef = useRef(false);
+  const recordActionRef = useRef(false);
 
-  const transcribeMutation = trpc.ai.transcribeAudio.useMutation();
-  const parseMutation = trpc.ai.parseCartCommand.useMutation();
+  const recorder = useVoiceRecorder({
+    onAutoStop: blob => {
+      if (!activeRef.current || closingRef.current) return;
+      setRecordingSeconds(0);
+      void forwardBlob(blob);
+    },
+  });
+  const cancelRecording = recorder.cancel;
+
+  // React Query's abortOnUnmount applies to queries, not mutations. These
+  // requests use the same authenticated tRPC link through its vanilla client
+  // so closing can abort the transport as well as discard late results.
+  // Hiding the dialog also discards capture, including a permission grant
+  // still pending, so a kept-mounted modal never records while closed.
+  useEffect(() => {
+    activeRef.current = isOpen;
+    if (isOpen) closingRef.current = false;
+    return () => {
+      activeRef.current = false;
+      pipelineAbortRef.current?.abort();
+      pipelineAbortRef.current = null;
+      cancelRecording();
+    };
+  }, [isOpen, cancelRecording]);
+
+  // Keep the ESC handler identity stable so the dialog's keydown listener
+  // is not re-registered on every countdown render.
+  const handleCloseRef = useRef(handleClose);
+  useEffect(() => {
+    handleCloseRef.current = handleClose;
+  });
+  const requestClose = useCallback(() => handleCloseRef.current(), []);
+
+  useDialogA11y({
+    isOpen,
+    onClose: requestClose,
+    closeOnEsc: true,
+    containerRef: panelRef,
+    dialogRef,
+    requireTopmost: true,
+  });
 
   async function forwardBlob(blob: Blob): Promise<void> {
+    if (!activeRef.current || closingRef.current) return;
+    pipelineAbortRef.current?.abort();
+    const controller = new AbortController();
+    pipelineAbortRef.current = controller;
+    // Close, hide/unmount, and a newer recording all abort this controller.
+    const isCurrent = () => !controller.signal.aborted;
     try {
       const { base64, mimeType } = await blobToBase64(blob);
+      if (!isCurrent()) return;
       const validatedMime = SERVER_MIME_LIST.find(m => m === mimeType);
       if (!validatedMime) {
         toast.error({
@@ -161,15 +214,18 @@ export function VoiceCartCommandModal({
         return;
       }
       setPhase('transcribing');
-      const transcribed = await transcribeMutation.mutateAsync({
-        audioBase64: base64,
-        mimeType: validatedMime,
-      });
+      const transcribed = await vanillaClient.ai.transcribeAudio.mutate(
+        { audioBase64: base64, mimeType: validatedMime },
+        { signal: controller.signal }
+      );
+      if (!isCurrent()) return;
       setTranscript(transcribed.transcript);
       setPhase('parsing');
-      const parsed = await parseMutation.mutateAsync({
-        transcript: transcribed.transcript,
-      });
+      const parsed = await vanillaClient.ai.parseCartCommand.mutate(
+        { transcript: transcribed.transcript },
+        { signal: controller.signal }
+      );
+      if (!isCurrent()) return;
       if (parsed.mode === 'unrecognized') {
         setMatches([]);
         setUnrecognizedReason(parsed.reason);
@@ -179,17 +235,13 @@ export function VoiceCartCommandModal({
       }
       setPhase('reviewing');
     } catch (err) {
+      if (!isCurrent()) return;
       onErrorToast(toast, t, { titleKey: 'voice:modalTitle' })(err);
       setPhase('idle');
+    } finally {
+      if (pipelineAbortRef.current === controller) pipelineAbortRef.current = null;
     }
   }
-
-  const recorder = useVoiceRecorder({
-    onAutoStop: blob => {
-      setRecordingSeconds(0);
-      void forwardBlob(blob);
-    },
-  });
 
   function resetModal(): void {
     setPhase('idle');
@@ -200,17 +252,15 @@ export function VoiceCartCommandModal({
     recorder.reset();
   }
 
-  async function handleClose(): Promise<void> {
-    if (recorder.recording) {
-      try {
-        // Closing is a discard action. Stop the MediaRecorder so the
-        // microphone is released, but do not forward the discarded blob
-        // into the transcription/parser pipeline.
-        await recorder.stop();
-      } catch {
-        // Best-effort cleanup; resetModal still clears local UI state.
-      }
-    }
+  function handleClose(): void {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    pipelineAbortRef.current?.abort();
+    pipelineAbortRef.current = null;
+    // Closing is a discard action. Release the microphone synchronously —
+    // including a permission grant that has not resolved yet — without
+    // waiting on final recorder events or forwarding the discarded blob.
+    recorder.cancel();
     resetModal();
     onClose();
   }
@@ -234,30 +284,40 @@ export function VoiceCartCommandModal({
   // Driving a state-reset effect from `isOpen` would trigger
   // `react-hooks/set-state-in-effect` cascades.
   async function handleRecordToggle(): Promise<void> {
-    if (recorder.recording) {
-      try {
-        const blob = await recorder.stop();
-        setRecordingSeconds(0);
-        await forwardBlob(blob);
-      } catch (err) {
-        onErrorToast(toast, t, { titleKey: 'voice:modalTitle' })(err);
-        setPhase('idle');
-        setRecordingSeconds(0);
-      }
-      return;
-    }
-    // Starting a new recording resets prior review state.
-    setPhase('recording');
-    setRecordingSeconds(0);
-    setTranscript(null);
-    setMatches([]);
-    setUnrecognizedReason(null);
+    if (closingRef.current || recordActionRef.current) return;
+    recordActionRef.current = true;
     try {
-      await recorder.start();
-    } catch {
-      // recorder.error carries the classified failure; the hint UI
-      // renders it. Swallow the throw and fall back to idle.
-      setPhase('idle');
+      if (recorder.recording) {
+        try {
+          const blob = await recorder.stop();
+          setRecordingSeconds(0);
+          await forwardBlob(blob);
+        } catch (err) {
+          if (closingRef.current || !activeRef.current) return;
+          onErrorToast(toast, t, { titleKey: 'voice:modalTitle' })(err);
+          setPhase('idle');
+          setRecordingSeconds(0);
+        }
+        return;
+      }
+      // Starting a new recording resets prior review state.
+      pipelineAbortRef.current?.abort();
+      pipelineAbortRef.current = null;
+      setPhase('recording');
+      setRecordingSeconds(0);
+      setTranscript(null);
+      setMatches([]);
+      setUnrecognizedReason(null);
+      try {
+        await recorder.start();
+      } catch {
+        if (closingRef.current || !activeRef.current) return;
+        // recorder.error carries the classified failure; the hint UI
+        // renders it. Swallow the throw and fall back to idle.
+        setPhase('idle');
+      }
+    } finally {
+      recordActionRef.current = false;
     }
   }
 
@@ -277,7 +337,7 @@ export function VoiceCartCommandModal({
     toast.success({
       title: t('voice:applySuccess', { count: items.length }),
     });
-    void handleClose();
+    handleClose();
   }
 
   if (!isOpen) return null;
@@ -291,18 +351,22 @@ export function VoiceCartCommandModal({
           ? t('voice:unsupportedHint')
           : null;
 
-  const recordDisabled =
-    !recorder.supported || transcribeMutation.isPending || parseMutation.isPending;
+  const recordDisabled = !recorder.supported || phase === 'transcribing' || phase === 'parsing';
 
   return (
     <div
+      ref={dialogRef}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="voice-modal-title"
       data-testid="voice-cart-modal"
     >
-      <div className="card max-h-full w-full max-w-lg overflow-auto p-6 space-y-4">
+      <div
+        ref={panelRef}
+        tabIndex={-1}
+        className="card max-h-full w-full max-w-lg overflow-auto p-6 space-y-4"
+      >
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-100">
@@ -319,9 +383,7 @@ export function VoiceCartCommandModal({
             type="button"
             className="btn-ghost btn-icon h-8 w-8"
             aria-label={t('voice:closeCta')}
-            onClick={() => {
-              void handleClose();
-            }}
+            onClick={handleClose}
           >
             <X className="h-4 w-4" />
           </button>
@@ -381,9 +443,7 @@ export function VoiceCartCommandModal({
             onRetry={() => {
               void handleRecordToggle();
             }}
-            onClose={() => {
-              void handleClose();
-            }}
+            onClose={handleClose}
           />
         )}
       </div>

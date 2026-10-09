@@ -4,6 +4,11 @@ import { promisify } from 'node:util';
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify';
 import { describe, expect, it, onTestFinished } from 'vitest';
 
+const HTTP2_CHILD_TIMEOUT_MS = 8000;
+// The test budget must outlast the child's own bound so a hang reports the
+// child's failure instead of the default 5 s Vitest timeout.
+const HTTP2_TEST_TIMEOUT_MS = HTTP2_CHILD_TIMEOUT_MS + 2000;
+
 function createApp() {
   const app = Fastify({ logger: false });
   onTestFinished(() => app.close());
@@ -162,11 +167,13 @@ describe('Fastify security contracts', () => {
     expect(privateCalls).toBe(1);
   });
 
-  it('serves HTTP/2 trailers without a connection-header crash', async () => {
-    // An affected version terminates the process. Isolate that failure in a
-    // bounded child; inject() cannot exercise Node's HTTP/2 header serializer.
-    // Loopback port 0 is test-owned; the application remains HTTP/1 + tRPC.
-    const script = `
+  it(
+    'serves HTTP/2 trailers without a connection-header crash',
+    async () => {
+      // An affected version terminates the process. Isolate that failure in a
+      // bounded child; inject() cannot exercise Node's HTTP/2 header serializer.
+      // Loopback port 0 is test-owned; the application remains HTTP/1 + tRPC.
+      const script = `
       import assert from 'node:assert/strict';
       import { connect } from 'node:http2';
       import { once } from 'node:events';
@@ -202,16 +209,18 @@ describe('Fastify security contracts', () => {
         await app.close();
       }
     `;
-    const result = await promisify(execFile)(
-      process.execPath,
-      ['--input-type=module', '--eval', script],
-      {
-        cwd: fileURLToPath(new URL('../../', import.meta.url)),
-        timeout: 8000,
-        maxBuffer: 64 * 1024,
-      }
-    );
-    expect(result.stderr).toBe('');
-    expect(result.stdout).toBe('');
-  });
+      const result = await promisify(execFile)(
+        process.execPath,
+        ['--input-type=module', '--eval', script],
+        {
+          cwd: fileURLToPath(new URL('../../', import.meta.url)),
+          timeout: HTTP2_CHILD_TIMEOUT_MS,
+          maxBuffer: 64 * 1024,
+        }
+      );
+      expect(result.stderr).toBe('');
+      expect(result.stdout).toBe('');
+    },
+    HTTP2_TEST_TIMEOUT_MS
+  );
 });

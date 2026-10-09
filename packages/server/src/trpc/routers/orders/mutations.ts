@@ -41,7 +41,7 @@ export const ordersMutationProcedures = {
       const total = subtotal;
       return ctx.db.transaction(
         tx => {
-          const orderNumber = allocateNextSequential(tx as unknown as typeof ctx.db, {
+          const orderNumber = allocateNextSequential(tx, {
             tenantId: ctx.tenantId,
             sequentialId: sequentialContext.id,
             updatedAt: now,
