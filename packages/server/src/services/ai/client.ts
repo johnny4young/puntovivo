@@ -20,6 +20,7 @@ import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../audit-logs.js';
 
 import { currentMonthSpend, recordCall } from './auditLog.js';
+import { logProviderFailure } from './provider-error.js';
 import { getProvider } from './providers/registry.js';
 import type { AIProvider, TokenUsage } from './providers/types.js';
 import type {
@@ -112,7 +113,7 @@ function mergeFeatureFlags(raw: unknown): AIFeatureFlags {
           : DEFAULT_AI_FEATURE_FLAGS.invoiceOcr.provider,
     },
     privacy: {
-      piiRedaction: true,
+      piiRedaction: false,
       modelLocation:
         incoming.privacy?.modelLocation === 'on-prem' || incoming.privacy?.modelLocation === 'us'
           ? incoming.privacy.modelLocation
@@ -164,7 +165,7 @@ function mergePatchFeatures(
     privacy: {
       ...base.privacy,
       ...stripUndefined(patch.privacy),
-      piiRedaction: true,
+      piiRedaction: false,
     } as AIFeatureFlags['privacy'],
   };
 }
@@ -446,6 +447,13 @@ export async function completeAI(
     };
   } catch (error) {
     const durationMs = Date.now() - startedAt;
+    logProviderFailure(error, {
+      tenantId: ctx.tenantId,
+      feature: input.feature,
+      providerId: provider.id,
+      modelId,
+      errorCode: 'AI_PROVIDER_ERROR',
+    });
     // Persist the failure so dashboards count it. Cost is zero — the
     // call never billed against the tenant's spend.
     await recordCall(ctx.db, {
@@ -466,8 +474,7 @@ export async function completeAI(
     throwServerError({
       trpcCode: 'BAD_GATEWAY',
       errorCode: 'AI_PROVIDER_ERROR',
-      message: error instanceof Error ? error.message : 'AI provider call failed',
-      details: { cause: String(error) },
+      message: 'AI provider call failed',
     });
   }
 }

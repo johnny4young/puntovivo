@@ -41,16 +41,11 @@ import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { prepareBaseline, prepareFirstSaleBaseline } from '../shared/baseline.js';
 import {
+  applyE2eSqlCipherKey,
   ELECTRON_E2E_DB_KEY,
   ELECTRON_E2E_TEMPLATE_DIR,
   ELECTRON_E2E_USER_DATA_ROOT,
 } from './fixtures.js';
-
-function applyE2eSqlCipherKey(db: Database.Database): void {
-  db.pragma("cipher='sqlcipher'");
-  db.pragma('legacy = 4');
-  db.pragma(`key = "x'${ELECTRON_E2E_DB_KEY}'"`);
-}
 
 export default async function globalSetup(_config: FullConfig) {
   // The template bootstrap intentionally exercises the real default seed, but

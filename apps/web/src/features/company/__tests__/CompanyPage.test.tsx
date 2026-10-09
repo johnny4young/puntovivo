@@ -172,6 +172,9 @@ describe('CompanyPage tab behavior', () => {
     expect(screen.queryByTestId('company-advanced-settings')).not.toBeInTheDocument();
     expect(screen.queryByTestId('company-tab-general')).not.toBeInTheDocument();
     expect(await screen.findByTestId('card-readiness')).toBeInTheDocument();
+    expect(screen.getByTestId('company-tab-readiness')).toHaveTextContent(
+      'Clear areas and one required decision at a time.'
+    );
     expect(screen.queryByLabelText(/company name/i)).not.toBeInTheDocument();
     expect(screen.queryByTestId('card-ai')).not.toBeInTheDocument();
   });

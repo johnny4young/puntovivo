@@ -4,8 +4,9 @@
  * The deterministic matcher in `reconciliation.ts` covers exact + epsilon
  * matches across (reference, providerTransactionId, amount). When two or
  * more POS tenders remain plausible candidates for the same provider
- * statement row, this module hands the decision off to the configured
- * language provider via `generateObject` against a tight schema.
+ * statement row, this module asks the configured
+ * language provider for a recommendation via `generateObject` against a tight schema.
+ * A recommendation is persisted for human review; it never settles money.
  *
  * Gating: every AI-side failure mode (disabled, over-budget, provider
  * outage) is caught and surfaced as `{ ok: false, reason }` so the matcher
@@ -27,6 +28,7 @@ import type { DatabaseInstance } from '../../db/index.js';
 import { createModuleLogger } from '../../logging/logger.js';
 import { currentMonthSpend, recordCall } from '../ai/auditLog.js';
 import { resolveAISettings, toBillableTokenUsage } from '../ai/client.js';
+import { summarizeProviderError } from '../ai/provider-error.js';
 import { getProvider } from '../ai/providers/registry.js';
 
 const log = createModuleLogger('services/payments/ai-tiebreak');
@@ -134,10 +136,10 @@ export async function aiTiebreak(
 
   const modelId = settings.modelId ?? provider.defaultModelId;
   const startedAt = Date.now();
-  const providerOptions = provider.cacheControlForSystemPrompt();
 
   const userPrompt = buildUserPrompt(input);
   try {
+    const providerOptions = provider.cacheControlForSystemPrompt();
     const result = await generateObject({
       model: provider.languageModel(modelId),
       instructions: SYSTEM_PROMPT,
@@ -192,7 +194,14 @@ export async function aiTiebreak(
   } catch (error) {
     const durationMs = Date.now() - startedAt;
     log.warn(
-      { err: error, tenantId: ctx.tenantId, providerId: provider.id, modelId },
+      // Provider errors carry the prompt (statement and tender data) and the
+      // response body as enumerable fields; log only a bounded summary.
+      {
+        provider: summarizeProviderError(error),
+        tenantId: ctx.tenantId,
+        providerId: provider.id,
+        modelId,
+      },
       'payment AI tie-break provider call failed'
     );
     let auditLogId: string | null = null;

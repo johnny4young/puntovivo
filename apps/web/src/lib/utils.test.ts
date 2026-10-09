@@ -1,8 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
   calendarDayAt,
   cn,
-  debounce,
   formatCalendarDay,
   formatCurrency,
   formatDate,
@@ -12,13 +11,10 @@ import {
   getErrorMessage,
   isOnline,
   setActiveTenantLocale,
-  sleep,
-  throttle,
 } from './utils';
 
 afterEach(() => {
   setActiveTenantLocale(null);
-  vi.useRealTimers();
 });
 
 describe('cn — tailwind-merge wrapper', () => {
@@ -28,14 +24,23 @@ describe('cn — tailwind-merge wrapper', () => {
 
   it('drops falsy class names from clsx input', () => {
     const flag = false as boolean;
-    expect(cn('a', undefined, flag && 'b', 'c')).toBe('a c');
+    expect(cn('a', undefined, null, '', flag && 'b', 'c')).toBe('a c');
+  });
+
+  it('keeps non-conflicting utilities in order', () => {
+    expect(cn('px-2 py-1', 'px-4')).toBe('py-1 px-4');
   });
 });
 
 describe('formatCurrency — locale resolution branches', () => {
-  it('falls back to USD when no tenant locale and no explicit currency', () => {
+  it('falls back to USD with two decimals when no tenant locale is set', () => {
     setActiveTenantLocale(null);
-    expect(formatCurrency(1234.5)).toMatch(/\$/);
+    expect(formatCurrency(1234.56)).toBe('$1,234.56');
+    expect(formatCurrency(0)).toBe('$0.00');
+    expect(formatCurrency(-100)).toBe('-$100.00');
+    expect(formatCurrency(1_000_000)).toBe('$1,000,000.00');
+    expect(formatCurrency(19.999)).toBe('$20.00');
+    expect(formatCurrency(0.99)).toBe('$0.99');
   });
 
   it('honours an explicit currency arg over the active tenant locale', () => {
@@ -49,6 +54,20 @@ describe('formatCurrency — locale resolution branches', () => {
     const out = formatCurrency(1000, 'EUR', 'en-US');
     expect(out).toMatch(/€/);
   });
+
+  it.each(['COP', 'CLP'])(
+    'isolates explicit evidence precision from default formatter cache (%s)',
+    currency => {
+      const defaults = new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(
+        123.45
+      );
+      expect(formatCurrency(123.45, currency, 'en-US')).toBe(defaults);
+      expect(formatCurrency(123.45, currency, 'en-US', 2)).toMatch(/123\.45$/);
+      expect(formatCurrency(123.45, currency, 'en-US')).toBe(defaults);
+      expect(formatCurrency(0, currency, 'en-US', 2)).toMatch(/0\.00$/);
+      expect(formatCurrency(-123.45, currency, 'en-US', 2)).toMatch(/123\.45$/);
+    }
+  );
 
   it('uses tenant displayDecimals when no explicit currency is given', () => {
     setActiveTenantLocale({
@@ -109,6 +128,39 @@ describe('formatCalendarDay — date-only business records', () => {
   });
 });
 
+describe('formatDate / formatDateTime — tenant formats', () => {
+  it('formats with the default medium date style when no tenant locale is set', () => {
+    expect(formatDate(new Date('2024-03-15T12:00:00'))).toMatch(/Mar.*15.*2024/);
+    expect(formatDate(new Date('2024-03-15T12:00:00'), { dateStyle: 'long' })).toContain('March');
+    expect(formatDateTime(new Date('2024-03-15T14:30:00'))).toMatch(/Mar.*15.*2024.*\d{1,2}:\d{2}/);
+  });
+
+  it('uses the active tenant short date format and timezone', () => {
+    setActiveTenantLocale({
+      locale: 'es-CO',
+      currency: 'COP',
+      displayDecimals: 0,
+      timezone: 'America/Bogota',
+      dateFormatShort: 'dd/MM/yyyy',
+    });
+
+    expect(formatDate('2026-04-23T23:30:00Z')).toBe('23/04/2026');
+    expect(formatDateTime('2026-04-23T23:30:00Z')).toMatch(/^23\/04\/2026\s/);
+  });
+
+  it('uses US ordering when the active tenant format is MM/dd/yyyy', () => {
+    setActiveTenantLocale({
+      locale: 'en-US',
+      currency: 'USD',
+      displayDecimals: 2,
+      timezone: 'America/New_York',
+      dateFormatShort: 'MM/dd/yyyy',
+    });
+
+    expect(formatDate('2026-04-23T23:30:00Z')).toBe('04/23/2026');
+  });
+});
+
 describe('formatDate / formatDateTime — invalid-input safety', () => {
   it('returns empty string for an empty input string (no Intl crash)', () => {
     expect(formatDate('')).toBe('');
@@ -162,53 +214,20 @@ describe('generateId', () => {
   });
 });
 
-describe('debounce / throttle', () => {
-  it('debounce coalesces rapid calls and invokes once after the delay', () => {
-    vi.useFakeTimers();
-    const spy = vi.fn();
-    const debounced = debounce(spy, 50);
-    debounced('a');
-    debounced('b');
-    debounced('c');
-    expect(spy).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(50);
-    expect(spy).toHaveBeenCalledTimes(1);
-    expect(spy).toHaveBeenCalledWith('c');
-  });
-
-  it('throttle invokes immediately, then suppresses calls inside the window', () => {
-    vi.useFakeTimers();
-    const spy = vi.fn();
-    const throttled = throttle(spy, 100);
-    throttled('a');
-    throttled('b');
-    throttled('c');
-    expect(spy).toHaveBeenCalledTimes(1);
-    expect(spy).toHaveBeenCalledWith('a');
-    vi.advanceTimersByTime(100);
-    throttled('d');
-    expect(spy).toHaveBeenCalledTimes(2);
-    expect(spy).toHaveBeenLastCalledWith('d');
-  });
-});
-
-describe('sleep', () => {
-  it('resolves after the requested delay', async () => {
-    vi.useFakeTimers();
-    const promise = sleep(20);
-    let resolved = false;
-    promise.then(() => {
-      resolved = true;
-    });
-    expect(resolved).toBe(false);
-    await vi.advanceTimersByTimeAsync(20);
-    expect(resolved).toBe(true);
-  });
-});
-
 describe('isOnline', () => {
-  it('reads navigator.onLine when available', () => {
-    expect(isOnline()).toBe(navigator.onLine);
+  const originalNavigator = globalThis.navigator;
+
+  afterEach(() => {
+    Object.defineProperty(globalThis, 'navigator', { value: originalNavigator, writable: true });
+  });
+
+  it.each([
+    [{ onLine: true }, true],
+    [{ onLine: false }, false],
+    [undefined, true],
+  ])('reads navigator.onLine and assumes online without a navigator (%o)', (value, expected) => {
+    Object.defineProperty(globalThis, 'navigator', { value, writable: true });
+    expect(isOnline()).toBe(expected);
   });
 });
 
@@ -221,14 +240,5 @@ describe('getErrorMessage', () => {
     expect(getErrorMessage('not an error', 'fb')).toBe('fb');
     expect(getErrorMessage(null, 'fb2')).toBe('fb2');
     expect(getErrorMessage({ message: 'fake' }, 'fb3')).toBe('fb3');
-  });
-});
-
-describe('teardown', () => {
-  beforeEach(() => {
-    setActiveTenantLocale(null);
-  });
-  it('clears the active tenant locale between suites', () => {
-    expect(getActiveTenantLocale()).toBeNull();
   });
 });
