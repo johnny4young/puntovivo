@@ -442,7 +442,11 @@ describe('invoice OCR confirmation integrity', () => {
   it('persists an operator-corrected net cost for a gross-price extraction', async () => {
     const reviewed = {
       ...input,
-      lines: input.lines.map(line => ({ ...line, unitPrice: 100, netCostConfirmed: true })),
+      lines: input.lines.map(line => ({
+        ...line,
+        unitPrice: 100,
+        netCostConfirmed: true as const,
+      })),
     };
     const first = await caller().ai.invoiceOcr.confirm(reviewed);
     const retry = await caller().ai.invoiceOcr.confirm(reviewed);
