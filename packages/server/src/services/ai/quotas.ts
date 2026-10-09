@@ -38,6 +38,8 @@ import type { DatabaseInstance } from '../../db/index.js';
 import { aiAuditLog } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 
+import { aiCostMonthWindow } from './auditLog.js';
+
 /**
  * Per-site monthly quota for each AI feature that the public website
  * makes a numeric promise about. Hardcoded by design: the values are
@@ -65,16 +67,11 @@ export interface CountMonthlyAiCallsArgs {
 }
 
 /**
- * Calendar-month boundary helper. Returns `[startOfMonth, startOfNextMonth]`
- * ISO strings in local time, matching the convention `currentMonthSpend`
- * uses so both readouts agree on what "this month" means.
+ * Calendar-month boundary helper. Shares the budget kernel's local-month
+ * window so quota and budget admission agree on what "this month" means
+ * inside the same write transaction.
  */
-function monthBounds(now: Date): { start: string; end: string } {
-  return {
-    start: new Date(now.getFullYear(), now.getMonth(), 1).toISOString(),
-    end: new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString(),
-  };
-}
+const monthBounds = aiCostMonthWindow;
 
 /**
  * Count successful calls of a feature within the current calendar
