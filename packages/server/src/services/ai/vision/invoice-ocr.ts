@@ -31,6 +31,7 @@ import { throwServerError } from '../../../lib/errorCodes.js';
 import { reserveAiBudget, settleAiBudget } from '../budget.js';
 import { isDefinitiveProviderRejection } from '../provider-rejection.js';
 import { toBillableTokenUsage } from '../client.js';
+import { logProviderFailure } from '../provider-error.js';
 import { getProvider } from '../providers/registry.js';
 import type { AIProvider } from '../providers/types.js';
 import { resolveAISettings } from '../client.js';
@@ -325,6 +326,13 @@ export async function extractInvoiceFromImage(
       (error instanceof Error && /No object generated/i.test(error.message));
 
     const errorCode = isSchemaFailure ? 'AI_VISION_PARSE_FAILED' : 'AI_PROVIDER_ERROR';
+    logProviderFailure(error, {
+      tenantId: ctx.tenantId,
+      feature: 'invoiceOcr',
+      providerId: provider.id,
+      modelId,
+      errorCode,
+    });
 
     // A schema failure still consumed priced tokens: book them when the SDK
     // reports usage. A pre-inference rejection (4xx) or a connection never

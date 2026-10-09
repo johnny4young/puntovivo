@@ -1765,6 +1765,8 @@
   }
 
   .pv-total {
+    /* Lets the total figure scale to the panel instead of the viewport. */
+    container-type: inline-size;
     border-radius: 18px;
     padding: 18px;
     background: var(--secondary-950);
@@ -1784,6 +1786,16 @@
     letter-spacing: -0.02em;
     margin-top: 6px;
     font-variant-numeric: tabular-nums;
+    /* Last resort for totals wider than any panel. */
+    overflow-wrap: anywhere;
+  }
+  /* A nine-digit COP total at 36px is wider than a 320px phone panel. Below
+   * the two-column layout, scale the figure with the panel; desktop columns
+   * keep the fixed display size. */
+  @media (max-width: 1023px) {
+    .pv-total .fig {
+      font-size: min(36px, 13cqi);
+    }
   }
   .pv-total .brk {
     margin-top: 12px;

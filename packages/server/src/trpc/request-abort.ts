@@ -1,17 +1,14 @@
 import { TRPCError } from '@trpc/server';
-import type { FastifyReply } from 'fastify';
 
 function isAbortError(error: unknown, signal: AbortSignal): boolean {
-  return (
-    error === signal.reason ||
-    (error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError'))
-  );
+  return error === signal.reason || (error instanceof Error && error.name === 'AbortError');
 }
 
 /**
- * Turn a lost HTTP response into an abort signal for AI work. IncomingMessage's
- * `close` only means the request body was read on modern Node; the response
- * remains open until the client has its answer or disconnects.
+ * Run AI work under the procedure's request signal. tRPC aborts that signal
+ * when the HTTP response closes (or the request is aborted) before the
+ * procedure has answered; direct `createCaller` users may pass one too, and
+ * callers without a signal run unchanged.
  *
  * The signal is admission-only downstream: services check it before they
  * reserve budget or dispatch, and never forward it to a provider call already
@@ -20,28 +17,18 @@ function isAbortError(error: unknown, signal: AbortSignal): boolean {
  * client rejection rather than a server incident.
  */
 export async function withClientAbortSignal<T>(
-  reply: FastifyReply,
+  signal: AbortSignal | undefined,
   work: (signal: AbortSignal | undefined) => Promise<T>
 ): Promise<T> {
-  const response = reply.raw;
-  // Direct tRPC callers in server tests have no Fastify transport.
-  if (!response || typeof response.once !== 'function') return work(undefined);
-
-  const controller = new AbortController();
-  const onClose = () => {
-    // ServerResponse emits close after a normal reply as well as a disconnect.
-    if (!response.writableFinished) controller.abort();
-  };
-  response.once('close', onClose);
-  if (response.destroyed && !response.writableFinished) controller.abort();
+  if (!signal) return work(undefined);
 
   try {
     // Authentication and quota reads may finish after the client has gone.
     // Do not enter provider work (or reserve its budget) in that case.
-    controller.signal.throwIfAborted();
-    return await work(controller.signal);
+    signal.throwIfAborted();
+    return await work(signal);
   } catch (error) {
-    if (controller.signal.aborted && isAbortError(error, controller.signal)) {
+    if (signal.aborted && isAbortError(error, signal)) {
       throw new TRPCError({
         code: 'CLIENT_CLOSED_REQUEST',
         message: 'The client closed the request before AI work was admitted',
@@ -49,7 +36,5 @@ export async function withClientAbortSignal<T>(
       });
     }
     throw error;
-  } finally {
-    response.off('close', onClose);
   }
 }
