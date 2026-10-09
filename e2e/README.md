@@ -55,9 +55,10 @@ What happens behind that command:
    `.playwright-browsers/` if the cache is cold (subsequent runs are free).
 2. `native:ensure:node` verifies that the bundled Node-API SQLite addon loads
    under Node before Playwright's `globalSetup` touches the database.
-3. Playwright spins up `pnpm run dev:server` (port 8090) and
-   `pnpm run dev:web` (port 3000) unless they are already listening
-   (`reuseExistingServer: !CI`).
+3. Playwright starts its own loopback standalone server (port 8090, or the
+   port in `PUNTOVIVO_E2E_API_ORIGIN`) and Vite renderer on port 5173. It
+   never reuses an existing listener; a port collision fails the run. See
+   `docs/TESTING.md` § Web browser-suite isolation.
 4. `e2e/web/global-setup.ts` prepares the tenant for testing:
    - Prunes artefacts from prior runs (old E2E products, providers,
      sales, purchases, transfers, cash sessions, audit rows, disposable
@@ -402,3 +403,15 @@ Mobile Waiter and Touch. `web/delivery.spec.ts` covers manual and sale-backed
 logistics. Electron counterparts run against the embedded server and encrypted
 per-test userData: the source adapter is HTTP, but operator writes stay in the UI.
 These journeys do not assert vendor certification, signed installation or hardware.
+
+### Native input versus desktop automation
+
+On macOS the development Electron fixture makes its own native windows
+non-focusable and explicitly blurs existing focus. Playwright still drives the
+real sandboxed renderer and embedded backend through CDP, including DOM keyboard
+and focus assertions. This prevents unrelated operator typing or shortcuts from
+entering a synthetic credential or checkout while automation runs. Each launch
+asserts the native isolation before the journey starts. Production window
+preferences, packaged targets, Linux and Windows are unchanged. These automated
+journeys do not qualify physical keyboard input or native-window focus behavior;
+those require a separate operator-owned smoke.

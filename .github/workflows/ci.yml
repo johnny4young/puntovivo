@@ -8,11 +8,12 @@ on:
     # main here left every intermediate layer of a stack with no functional
     # gate at all -- the PR showed a green check that came from external
     # scanners alone, never from typecheck, lint, test, or build. Accepting a
-    # codex/** base closes that hole. It does not multiply the minute budget:
+    # codex/** or dependabot/** base closes that hole: dependency updates also
+    # serve as stack foundations. It does not multiply the minute budget:
     # dorny/paths-filter diffs a pull_request against that PR's own base ref,
     # so each layer is filtered on its own delta rather than on the whole
     # stack, and the concurrency group below still cancels superseded runs.
-    branches: [main, 'codex/**']
+    branches: [main, 'codex/**', 'dependabot/**']
 
 env:
   NODE_VERSION: '24'
@@ -118,7 +119,8 @@ jobs:
             web:
               - 'apps/web/**'
               - 'e2e/web/**'
-              # Shared journeys also run in the web and Electron suites.
+              # Web journeys and their fixtures import these shared modules;
+              # shared journeys also run in the Electron suite.
               - 'e2e/shared/**'
               - 'operator-journeys.json'
               - 'playwright.web.config.ts'
@@ -142,21 +144,31 @@ jobs:
               - 'scripts/isolated-journey-e2e-contract.test.mjs'
               - 'scripts/long-shift-*'
             pharmacy_roles:
-              # Shared helpers and the Web harness can affect this untagged
-              # role-handoff test; scheduling Web alone never executes it.
+              # Shared helpers and the Web harness can affect this
+              # @isolated-journey role-handoff test, which is not @critical;
+              # scheduling Web alone never executes it.
               - 'e2e/shared/**'
               - 'e2e/web/pharmacy-roles.spec.ts'
+              - 'e2e/web/global-setup.ts'
+              - 'e2e/web/support/api-origin.ts'
               - 'e2e/web/support/app.ts'
+              - 'e2e/web/support/db.ts'
               - 'playwright.web.config.ts'
+              - 'scripts/web-e2e-env.mjs'
             pharmacy_electron_roles:
               - 'e2e/shared/**'
               - 'e2e/electron/pharmacy-roles.spec.ts'
               # Harness/config changes can break the same hosted launch.
               - 'e2e/electron/fixtures.ts'
               - 'e2e/electron/global-setup.ts'
+              - 'e2e/electron/support/**'
+              - 'e2e/web/support/app.ts'
               - 'playwright.electron.config.ts'
               - 'scripts/ensure-electron-main-build.mjs'
               - 'scripts/electron-e2e-runtime.mjs'
+              - 'scripts/electron-process-log-policy.mjs'
+              - 'scripts/lib/external-electron-e2e-evidence.mjs'
+              - 'scripts/lib/packaged-binary.mjs'
             server:
               - 'packages/server/**'
               - 'perf-budget.json'
@@ -167,6 +179,10 @@ jobs:
               - 'apps/desktop/**'
               - 'e2e/electron/**'
               - 'e2e/shared/**'
+              # The pharmacy Electron journey step lives in this job; its
+              # inputs outside the paths above must schedule the job too.
+              - 'e2e/web/support/app.ts'
+              - 'scripts/ensure-electron-main-build.mjs'
               - 'playwright.electron.config.ts'
               - 'packages/server/**'
               - 'perf-budget.json'
@@ -191,6 +207,9 @@ jobs:
               - 'scripts/check-dependency-signals.test.mjs'
               - 'scripts/check-e2e-awaited-helpers*.mjs'
               - 'scripts/e2e-baseline-cleanup.test.mjs'
+              - 'scripts/electron-fetch-download.test.mjs'
+              - 'e2e/shared/baseline.ts'
+              - 'e2e/shared/attendance-date.ts'
               - 'scripts/check-exact-override-policy*.mjs'
               - 'scripts/check-format-policy.test.mjs'
               - 'scripts/check-lint-policy.test.mjs'
@@ -220,6 +239,7 @@ jobs:
               - '.github/workflows/build-desktop.yml'
               - 'apps/desktop/package.json'
               - 'apps/desktop/electron-builder.yml'
+              - 'apps/desktop/forge.config.js'
               - 'apps/desktop/scripts/prune-native-prebuilds.mjs'
               - 'apps/web/vite.config.ts'
               # scripts/ci-path-filters.test.mjs fails when a script test that a

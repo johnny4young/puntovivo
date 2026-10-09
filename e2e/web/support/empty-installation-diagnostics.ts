@@ -29,7 +29,8 @@ export function describeEmptyInstallationForwardingFailure(
   let procedure = 'other-api';
   try {
     const pathname = new URL(context.requestUrl).pathname;
-    procedure = /^\/api\/trpc\/([A-Za-z0-9._-]+)$/.exec(pathname)?.[1] ?? procedure;
+    // httpBatchLink joins batched procedure names with commas.
+    procedure = /^\/api\/trpc\/([A-Za-z0-9._,-]+)$/.exec(pathname)?.[1] ?? procedure;
   } catch {
     // An invalid URL is itself diagnostic; do not echo the original string.
   }
@@ -37,11 +38,16 @@ export function describeEmptyInstallationForwardingFailure(
   const method = /^(GET|POST|PUT|PATCH|DELETE)$/.test(context.method) ? context.method : 'OTHER';
   const errorText = context.error instanceof Error ? context.error.message : '';
   const transport = TRANSPORT_CODES.find(code => errorText.includes(code)) ?? 'unknown';
-  const exit = Number.isInteger(context.childExitCode) ? context.childExitCode : 'running';
   const signal =
     context.childSignalCode && /^SIG[A-Z0-9]+$/.test(context.childSignalCode)
       ? context.childSignalCode
       : 'none';
+  // Node leaves exitCode null when a signal terminated the child.
+  const exit = Number.isInteger(context.childExitCode)
+    ? context.childExitCode
+    : context.childSignalCode
+      ? 'signaled'
+      : 'running';
   const stderrBytes =
     Number.isSafeInteger(context.stderrBytes) && context.stderrBytes >= 0 ? context.stderrBytes : 0;
 

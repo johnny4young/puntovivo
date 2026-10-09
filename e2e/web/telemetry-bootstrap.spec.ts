@@ -12,7 +12,10 @@ for (const session of [
   test(`initializes CSRF before first-paint telemetry with ${session} cookies`, async ({
     page,
     context,
+    baseURL,
   }, testInfo) => {
+    // Refresh/CSRF cookies are host-only; follow the owned Web/API hostname.
+    const cookieDomain = new URL(baseURL!).hostname;
     await page.addInitScript(() => localStorage.setItem('puntovivo-language-preference', 'en'));
     if (session === 'valid') {
       const fixture = seedSurfaceGateScenario(`rum-${Date.now()}-${testInfo.parallelIndex}`, {});
@@ -29,7 +32,7 @@ for (const session of [
           {
             name: 'puntovivo_refresh',
             value: 'synthetic-expired-refresh',
-            domain: 'localhost',
+            domain: cookieDomain,
             path: '/',
             httpOnly: true,
             sameSite: 'Strict',
@@ -41,7 +44,7 @@ for (const session of [
           {
             name: 'puntovivo_csrf',
             value: session === 'malformed-percent-csrf' ? '%' : 'invalid',
-            domain: 'localhost',
+            domain: cookieDomain,
             path: '/',
           },
         ]);
