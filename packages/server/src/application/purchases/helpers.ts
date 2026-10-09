@@ -50,14 +50,14 @@ export function getNormalizedPurchaseQuantity(quantity: number, equivalence: num
   }
 }
 
-export async function getPurchaseSiteContext(
+export function getPurchaseSiteContextInTransaction(
   db: DatabaseInstance,
   tenantId: string,
   preferredSiteId: string | null,
   fallbackSiteId: string
-): Promise<PurchaseSiteContext> {
+): PurchaseSiteContext {
   const resolvedSiteId = preferredSiteId ?? fallbackSiteId;
-  const site = await db
+  const site = db
     .select({
       id: sites.id,
       name: sites.name,
@@ -110,11 +110,11 @@ export function getInventoryBalanceStateForSite(
   return new Map(balances.map(balance => [balance.productId, balance.onHand]));
 }
 
-export async function getPurchaseSequentialContext(
+export function getPurchaseSequentialContextInTransaction(
   db: DatabaseInstance,
   tenantId: string,
   siteId: string | null
-): Promise<PurchaseSequentialContext> {
+): PurchaseSequentialContext {
   const baseConditions = [
     eq(sequentials.tenantId, tenantId),
     eq(sequentials.documentType, 'purchase'),
@@ -123,7 +123,7 @@ export async function getPurchaseSequentialContext(
   ];
 
   if (siteId) {
-    const siteScopedSequential = await db
+    const siteScopedSequential = db
       .select({
         id: sequentials.id,
         prefix: sequentials.prefix,
@@ -148,7 +148,7 @@ export async function getPurchaseSequentialContext(
     });
   }
 
-  const fallbackSequential = await db
+  const fallbackSequential = db
     .select({
       id: sequentials.id,
       prefix: sequentials.prefix,
@@ -173,8 +173,12 @@ export async function getPurchaseSequentialContext(
   return fallbackSequential;
 }
 
-export async function validateProvider(db: DatabaseInstance, tenantId: string, providerId: string) {
-  const provider = await db
+export function validateProviderInTransaction(
+  db: DatabaseInstance,
+  tenantId: string,
+  providerId: string
+) {
+  const provider = db
     .select({ id: providers.id, isActive: providers.isActive })
     .from(providers)
     .where(and(eq(providers.id, providerId), eq(providers.tenantId, tenantId)))
@@ -186,4 +190,31 @@ export async function validateProvider(db: DatabaseInstance, tenantId: string, p
       message: 'Selected provider was not found or is inactive',
     });
   }
+}
+
+// Keep the established Promise API for ordinary application callers and tests.
+// OCR confirmation uses the synchronous variants inside BEGIN IMMEDIATE.
+export async function getPurchaseSiteContext(
+  db: DatabaseInstance,
+  tenantId: string,
+  preferredSiteId: string | null,
+  fallbackSiteId: string
+): Promise<PurchaseSiteContext> {
+  return getPurchaseSiteContextInTransaction(db, tenantId, preferredSiteId, fallbackSiteId);
+}
+
+export async function getPurchaseSequentialContext(
+  db: DatabaseInstance,
+  tenantId: string,
+  siteId: string | null
+): Promise<PurchaseSequentialContext> {
+  return getPurchaseSequentialContextInTransaction(db, tenantId, siteId);
+}
+
+export async function validateProvider(
+  db: DatabaseInstance,
+  tenantId: string,
+  providerId: string
+): Promise<void> {
+  validateProviderInTransaction(db, tenantId, providerId);
 }

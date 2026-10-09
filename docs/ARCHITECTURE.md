@@ -551,11 +551,11 @@ authorized snapshot site's remaining monthly quota inside that same write
 transaction, immediately before provider dispatch. Textract extraction also
 rechecks the active site's invoice quota and tenant ownership under the writer
 lock; earlier router checks provide only fast rejection. Upload, extraction,
-and confirmation require the same active site. A second request while a call is in flight receives
-`AI_BUDGET_BUSY` (retry shortly) before any quota is evaluated, because the
+and confirmation require the same active site. A second request while a call
+is in flight receives `AI_BUDGET_BUSY` (retry shortly) before any quota is evaluated, because the
 in-flight call may still consume the last slot; `AI_BUDGET_EXCEEDED` means the
-limit was reached or an unknown-cost liability is held. Successful estimated cost and
-reservation release commit with one audit row. A failure records one audit row
+limit was reached or an unknown-cost liability is held. Successful estimated
+cost and reservation release commit with one audit row. A failure records one audit row
 classified by what it proves:
 
 - a definitive provider rejection (HTTP 400/401/403/404/422/429) or a
@@ -613,6 +613,21 @@ before any request is sent) release the hold; missing page
 metadata after dispatch keeps an unknown liability. The Textract client
 makes a single attempt. Month boundaries use the server's local calendar,
 like the quota and spend reports; per-tenant time zones are a follow-up.
+
+Invoice OCR confirmation accepts only a successful extraction audit linked to
+the same tenant, active site, upload and upload payload hash. One
+`BEGIN IMMEDIATE` transaction allocates the purchase number, creates the draft
+and items, enqueues its sync intent, and appends the confirmation audit. A
+tenant-scoped unique extraction claim and reviewed-input hash make an identical
+retry return the original draft without new side effects; a changed review
+conflicts. A committed retry remains available after extraction-audit metadata
+retention or feature disablement, while an uncommitted confirmation fails closed
+if its provenance is missing. The persisted draft uses net line costs, and
+confirmation rejects a mismatch between those costs, reviewed subtotal, tax,
+and invoice total. Textract does not indicate whether a line's unit price
+includes tax; a tax-inclusive line can therefore be rejected until an explicit
+tax-basis correction flow is implemented. Do not weaken reconciliation to make
+that invoice pass implicitly.
 
 ## Price-tier boundary
 
