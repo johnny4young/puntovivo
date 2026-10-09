@@ -175,6 +175,7 @@ export const invoiceOcrRouter = router({
             description: line.description,
             quantity: line.quantity ?? 1,
             unitPrice: line.unitPrice ?? 0,
+            netCostConfirmed: false,
             matchedProductId: match?.productId ?? null,
             matchedProductName: match?.productName ?? null,
             matchedProductSku: match?.productSku ?? null,

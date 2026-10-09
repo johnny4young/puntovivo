@@ -277,6 +277,7 @@ describe('active Textract invoice admission', () => {
           description: 'Artículo',
           quantity: 1,
           unitPrice: 100,
+          netCostConfirmed: true as const,
           matchedProductId: 'product-id',
           unitId: 'unit-id',
         },

@@ -38,7 +38,7 @@
   {
     "path": "ai.invoiceOcr.confirm",
     "kind": "mutation",
-    "input": "object{extractAuditId:string[minLength=1,maxLength=100],invoiceNumber:string[maxLength=80]|null,lines:array<object>[minItems=1,maxItems=500],providerId:string[minLength=1],supplier:object{name:string[minLength=0,maxLength=200],nit:string[maxLength=50]|null},totals:object{iva:number,linesSum:number,subtotal:number,total:number},uploadId:string[minLength=1,maxLength=100]}",
+    "input": "object{extractAuditId:string[minLength=1,maxLength=100],invoiceNumber:string[maxLength=80]|null,lines:array<object>[minItems=1,maxItems=500],providerId:string[minLength=1],supplier:object{name:string[minLength=0,maxLength=200],nit:string[maxLength=50]|null},totals:object{iva:number[min=0],linesSum:number[min=0],subtotal:number[min=0],total:number[min=0]},uploadId:string[minLength=1,maxLength=100]}",
     "output": "inferred"
   },
   {
