@@ -563,8 +563,9 @@ Client cancellation (an HTTP disconnect) only cancels work that has not been
 dispatched; a dispatched call runs to its bounded deadline and settles its
 known cost rather than turning into an unknown liability. The SDK's implicit
 retries are disabled on these paths. Co-pilot also records priced provider
-usage when it rejects an answer without validated SQL, and preserves the
-call-time analytics site scope in its audit. This is a conservative **local
+usage when it rejects an answer without validated SQL, preserves the
+call-time analytics site scope in its audit, and treats a definitive provider
+rejection as not incurred only when no earlier tool-loop step had returned. This is a conservative **local
 admission control**, not an exact USD invoice cap: a single call can exceed
 the remaining budget, and other AI entry points adopt the reservation path
 separately. Unknown liabilities are never automatically declared free: an

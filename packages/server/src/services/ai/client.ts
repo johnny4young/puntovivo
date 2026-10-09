@@ -340,7 +340,11 @@ interface UsageForPricing {
 
 const log = createModuleLogger('services/ai/client');
 
-function settleCompletion(...args: Parameters<typeof settleAiBudget>): { id: string } {
+/**
+ * Settle an admission and sanitize a persistence failure. Shared by every
+ * reservation entry point (generic completions and Co-pilot chat).
+ */
+export function settleCompletion(...args: Parameters<typeof settleAiBudget>): { id: string } {
   try {
     return settleAiBudget(...args);
   } catch (error) {
