@@ -575,9 +575,9 @@ retries are disabled on these paths. Voice transcription prices the returned
 audio duration; a missing duration or pricing row is not treated as a free
 transcript. Audio sent without a transcript coming back
 (`NoTranscriptGeneratedError`, e.g. silence) was still processed and billed
-per audio minute: it settles `estimated` at the duration measured locally
-from the uploaded audio, never as an unknown liability; when the duration
-cannot be measured it is held as unknown. Co-pilot also records priced provider
+per audio minute: it settles `estimated` at the audio duration the provider
+reported before the SDK rejected the empty text, never as an unknown
+liability; when no duration was reported it is held as unknown. Co-pilot also records priced provider
 usage when it rejects an answer without validated SQL, preserves the
 call-time analytics site scope in its audit, and treats a definitive provider
 rejection as not incurred only when no earlier tool-loop step had returned. This is a conservative **local

@@ -18,12 +18,12 @@ import { NoTranscriptGeneratedError, transcribe } from 'ai';
 import type { DatabaseInstance } from '../../../db/index.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
 
-import { reserveAiBudget, settleAiBudget } from '../budget.js';
+import { reserveAiBudget } from '../budget.js';
 import { isDefinitiveProviderRejection } from '../provider-rejection.js';
 import { logProviderFailure } from '../provider-error.js';
 import { getProvider } from '../providers/registry.js';
 import type { AIProvider } from '../providers/types.js';
-import { resolveAISettings } from '../client.js';
+import { resolveAISettings, settleCompletion } from '../client.js';
 
 /** Supported audio MIME types — covers MediaRecorder outputs across
  * Chrome / Firefox / Safari plus the common upload mime types Whisper
@@ -52,7 +52,11 @@ export interface VoiceTranscribeInvocationContext {
   tenantId: string;
   siteId: string | null;
   userId: string | null;
-  /** Lost HTTP response cancels pending provider work before another retry. */
+  /**
+   * Request cancellation (e.g. the HTTP client disconnected). Admission-only:
+   * it stops work before the budget is reserved, but never cancels a
+   * transcription already dispatched to the provider.
+   */
   abortSignal?: AbortSignal;
 }
 
@@ -205,11 +209,9 @@ export async function transcribeAudio(
       return generated;
     },
   };
-  const pricingRow =
-    provider.transcriptionPricing?.[modelId] ??
-    (provider.defaultTranscriptionModelId
-      ? provider.transcriptionPricing?.[provider.defaultTranscriptionModelId]
-      : undefined);
+  // Price only the model actually dispatched: borrowing another model's rate
+  // would misstate the estimate, and an unpriced model settles as unknown.
+  const pricingRow = provider.transcriptionPricing?.[modelId];
   const priceAudio = (seconds: unknown): number | null => {
     const perMinuteUsd = pricingRow?.perMinuteUsd;
     if (
@@ -234,10 +236,10 @@ export async function transcribeAudio(
   const settle = (
     costState: 'estimated' | 'unknown' | 'not_incurred',
     costUsd: number,
-    audioSeconds: number,
+    audioSeconds: unknown,
     errorCode: 'AI_VOICE_PARSE_FAILED' | 'AI_PROVIDER_ERROR' | null
   ) =>
-    settleAiBudget(
+    settleCompletion(
       ctx.db,
       reservation,
       {
@@ -248,8 +250,12 @@ export async function transcribeAudio(
         providerId: provider.id,
         modelId,
         // The audit schema stores rounded audio seconds in input_tokens until
-        // a typed audio-duration column exists.
-        inputTokens: Math.round(audioSeconds),
+        // a typed audio-duration column exists. A reported duration is kept
+        // even on an unknown-cost row as evidence for reconciliation.
+        inputTokens:
+          typeof audioSeconds === 'number' && Number.isFinite(audioSeconds) && audioSeconds >= 0
+            ? Math.round(audioSeconds)
+            : 0,
         outputTokens: 0,
         cacheReadTokens: 0,
         cacheWriteTokens: 0,
@@ -286,7 +292,7 @@ export async function transcribeAudio(
 
     if (parsedAudioCost !== null) {
       // Audio was processed without speech: billed, known cost.
-      settle('estimated', parsedAudioCost, reportedDurationSeconds as number, errorCode);
+      settle('estimated', parsedAudioCost, reportedDurationSeconds, errorCode);
     } else if (isDefinitiveProviderRejection(error)) {
       // A pre-inference rejection or a connection never established: no audio
       // was processed, so nothing was billed.
@@ -294,7 +300,7 @@ export async function transcribeAudio(
     } else {
       // The SDK may have sent the request before failure or our deadline.
       // Preserve the unknown invoice liability rather than allowing a free retry.
-      settle('unknown', 0, 0, errorCode);
+      settle('unknown', 0, reportedDurationSeconds, errorCode);
     }
 
     throwServerError({
@@ -316,7 +322,7 @@ export async function transcribeAudio(
   // A transcript without duration or a usable price cannot establish a
   // monetary estimate. Keep the reservation for invoice reconciliation.
   if (costUsd === null || typeof audioDurationSeconds !== 'number') {
-    settle('unknown', 0, 0, 'AI_PROVIDER_ERROR');
+    settle('unknown', 0, audioDurationSeconds, 'AI_PROVIDER_ERROR');
     throwServerError({
       trpcCode: 'BAD_GATEWAY',
       errorCode: 'AI_PROVIDER_ERROR',
