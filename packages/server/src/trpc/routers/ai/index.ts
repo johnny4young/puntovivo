@@ -4,6 +4,7 @@
  * Seven procedure groups:
  * - `ai.settings.get` — current AI configuration + provider availability
  * + this-month spend.
+ * - `ai.settings.voiceAvailability` — cashier-readable enabled flag for voice.
  * - `ai.settings.update` — partial patch on `tenants.settings.ai`.
  * Rejects setting `providerId` to a notImplemented stub.
  * - `ai.usage` — paginated audit-log read.

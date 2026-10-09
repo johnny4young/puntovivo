@@ -18,6 +18,8 @@ import {
 import { resolveModulesState } from '../../../services/modules/manifest.js';
 import { resolvePharmacyPolicy } from '../../../services/pharmacy/policy.js';
 import { wedgeScannerConfigSchema } from '../../../services/peripherals/drivers/keyboard-wedge-scanner.js';
+import { TRPCError } from '@trpc/server';
+import { ServerErrorWithCode } from '../../../lib/errorCodes.js';
 import { resolveTenantBusinessClock } from '../../../services/pharmacy/business-clock.js';
 import { inspectPharmacyAuthorizationSnapshot } from '../../../application/pharmacy/authorizations.js';
 import type {
@@ -63,14 +65,46 @@ export async function buildVerticalReadiness(args: {
   tenantId: string;
   businessDate?: string;
 }): Promise<VerticalReadinessOutput> {
-  const clock = await resolveTenantBusinessClock(args.db, args.tenantId);
+  const tenantRow = await args.db
+    .select({ settings: tenants.settings })
+    .from(tenants)
+    .where(eq(tenants.id, args.tenantId))
+    .get();
+  const settings =
+    tenantRow?.settings && typeof tenantRow.settings === 'object'
+      ? (tenantRow.settings as Record<string, unknown>)
+      : {};
+  const rawBusinessType = settings['businessType'];
+  const businessType = VERTICAL_PRESET_IDS.includes(rawBusinessType as VerticalPresetId)
+    ? (rawBusinessType as VerticalPresetId)
+    : null;
+  const profile = profileFor(businessType);
+  if (profile === null) {
+    return { businessType, profile, checks: [], readyCount: 0, attentionCount: 0 };
+  }
+
+  let clock;
+  try {
+    clock = await resolveTenantBusinessClock(args.db, args.tenantId);
+  } catch (error) {
+    const invalidTimezone =
+      error instanceof TRPCError &&
+      error.cause instanceof ServerErrorWithCode &&
+      error.cause.errorCode === 'TENANT_TIMEZONE_INVALID';
+    if (!invalidTimezone) throw error;
+    // Date-dependent policy and authorization signals are unknowable until
+    // the saved timezone is repaired. Never present them as ready or fall back
+    // to a different calendar day just to keep the checklist populated.
+    return {
+      businessType,
+      profile,
+      checks: [check('businessCalendar', 'attention', 0, { route: '/company', tab: 'locale' })],
+      readyCount: 0,
+      attentionCount: 1,
+    };
+  }
   const businessDate = args.businessDate ?? clock.businessDate;
-  const [tenantRow, productSignals, unitSignals, pharmacySignals, authSignals] = await Promise.all([
-    args.db
-      .select({ settings: tenants.settings })
-      .from(tenants)
-      .where(eq(tenants.id, args.tenantId))
-      .get(),
+  const [productSignals, unitSignals, pharmacySignals, authSignals] = await Promise.all([
     args.db
       .select({
         total: count(products.id),
@@ -168,19 +202,6 @@ export async function buildVerticalReadiness(args: {
       )
       .all(),
   ]);
-
-  const settings =
-    tenantRow?.settings && typeof tenantRow.settings === 'object'
-      ? (tenantRow.settings as Record<string, unknown>)
-      : {};
-  const rawBusinessType = settings['businessType'];
-  const businessType = VERTICAL_PRESET_IDS.includes(rawBusinessType as VerticalPresetId)
-    ? (rawBusinessType as VerticalPresetId)
-    : null;
-  const profile = profileFor(businessType);
-  if (profile === null) {
-    return { businessType, profile, checks: [], readyCount: 0, attentionCount: 0 };
-  }
 
   const modulesBlob =
     settings['modules'] && typeof settings['modules'] === 'object'

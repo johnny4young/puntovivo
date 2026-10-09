@@ -103,8 +103,11 @@
       "phone": "Phone",
       "status": "Status",
       "locations": "Locations",
-      "noAddress": "No address",
-      "manageLocations": "Manage site locations"
+      "noAddress": "No address"
+    },
+    "actions": {
+      "edit": "Edit {{name}}",
+      "delete": "Delete {{name}}"
     },
     "form": {
       "createTitle": "Create Site",
@@ -122,7 +125,7 @@
       }
     },
     "locations": {
-      "manage": "Manage Locations for",
+      "manage": "Manage Locations for {{name}}",
       "title": "Manage Site Locations",
       "loading": "Loading location assignments...",
       "error": "Unable to load location assignments",
@@ -176,7 +179,7 @@
     },
     "setupNavigation": {
       "guideTitle": "Guided setup",
-      "guideDescription": "Five clear areas and one required decision at a time.",
+      "guideDescription": "Clear areas and one required decision at a time.",
       "advancedTitle": "Advanced settings",
       "advancedDescription": "Policies, optional modules and workstation tools."
     },

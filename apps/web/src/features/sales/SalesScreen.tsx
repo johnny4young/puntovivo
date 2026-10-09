@@ -307,7 +307,7 @@ export function SalesScreen({
 
   return (
     <>
-      <div className="sales-pos-shell space-y-3 pb-24 lg:flex pos:min-h-0 lg:flex-col lg:gap-3 lg:space-y-0 pos:overflow-hidden pos:pb-0">
+      <div className="sales-pos-shell space-y-3 lg:pb-24 lg:flex pos:min-h-0 lg:flex-col lg:gap-3 lg:space-y-0 pos:overflow-hidden pos:pb-0">
         {/* el POS es la única superficie de /sales. En el
             breakpoint `pos:` (ancho desktop + >=900px alto), la barra de
             búsqueda y los accesos a Historial / Ventas suspendidas viven en

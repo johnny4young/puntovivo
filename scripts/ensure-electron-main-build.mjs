@@ -4,7 +4,8 @@
  * to run without the Vite main-process build in place.
  *
  * The Electron smoke suite (`playwright.electron.config.ts`) launches
- * `apps/desktop/.vite/build/index.cjs`. `pnpm run test:e2e:electron`
+ * `apps/desktop/`, whose package.json selects `.vite/build/index.cjs`.
+ * `pnpm run test:e2e:electron`
  * rebuilds these artefacts through
  * `pnpm --filter @puntovivo/desktop run build:main` before invoking
  * Playwright. This script remains as the fast failure path for direct

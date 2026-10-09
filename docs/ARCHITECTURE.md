@@ -52,6 +52,10 @@ surface to its renderer.
   they do not allocate HTTP ports.
 - Every operation accepting a site identifier validates that the site belongs
   to the active tenant.
+- The cashier voice screen reads only `ai.settings.voiceAvailability`, a
+  tenant-scoped, `semantic-search`-gated enabled flag. The full
+  `ai.settings.get` projection (provider, budget, spend, and quotas) remains
+  manager/admin-only; a UI capability check must not widen that contract.
 
 ### Companion boundary
 
@@ -128,6 +132,10 @@ display.
   cashier.
 - Versioned mutable resources use compare-and-swap updates and report conflicts
   rather than silently overwriting concurrent edits.
+- AI payment tie-breaks create durable, tenant-scoped review proposals, never
+  settlements. An admin decision revalidates the selected provider statement
+  and outbox row before an atomic status change and audit; see
+  [ADR-0031](architecture/0031-human-review-of-ai-payment-proposals.md).
 - Payment, hardware, and sync effects use dedicated durable outboxes. A
   fiscal-enabled completed sale first records a frozen emission intent in the
   sale transaction; the fiscal worker materializes that intent into the fiscal
@@ -212,13 +220,42 @@ display.
   completed without an active template remains on the legacy renderer even if
   a template is configured later.
 
+## Reporting calendar boundary
+
+Dashboard today, its thirty-calendar-day revenue series, and its seven-day top
+products use the timezone resolved by `services/tenant-locale.ts`: explicit
+tenant override, country default, then the existing unconfigured fallback.
+`services/reports/day-window.ts` converts each calendar date into a half-open
+UTC interval, including DST days and skipped local midnights. Reporting never
+adds a fixed 24 hours to advance a local day or rewrites stored timestamps.
+
+Completed sales are attributed by `checkoutCompletedAt`, with `createdAt` only
+for historical rows without completion telemetry. Returns subtract immutable
+amounts on their own booking day, not the original sale day. Today's money and
+order count are the same aggregate as the final chart bucket. Fully returned
+orders remain excluded from throughput while both dated money events remain
+visible. Top products retain their positive-net-quantity policy and exclude
+both sale and return events outside the same bounded local reporting window.
+
+Calendar labels remain date-only values in the UI. A successful locale-setting
+change invalidates the dashboard aggregate as well as locale formatting; a
+cached old timezone must not survive a settings round trip. Locale writes reject
+unsupported named time zones and fixed numeric offsets. A legacy invalid override
+fails the dashboard closed with `TENANT_TIMEZONE_INVALID` and localized repair
+instructions; it never silently substitutes another calendar. Administrators can
+correct the override or clear it to restore country-default inheritance.
+
 ## Local storage and recovery
 
 Packaged Electron databases use SQLCipher. The database key is obtained through
 Electron secure storage and never crosses into the renderer. Node and Electron
 share the target platform's bundled better-sqlite3 v13 Node-API binary. Runtime
 preflights execute a SQLCipher probe under Node or Electron, and desktop
-packaging prunes every non-target native binary before signing.
+packaging prunes every non-target native binary before signing. Forge and
+electron-builder do not recompile these portable addons; the runtime probe, not
+an ABI-specific rebuild, qualifies them. Production main/preload builds execute
+the public Forge Vite plugin hooks from the same configuration as development,
+without invoking Forge packaging or publication.
 
 Backups are encrypted bundles with integrity inspection. Creation checkpoints
 the WAL first, derives passphrase keys asynchronously through a bounded scrypt
@@ -435,6 +472,76 @@ and decode cost. The current Ollama default is the corpus-selected 768-dimension
 not imply compatible embedding spaces, so model changes require regeneration.
 [ADR-0011](./architecture/0011-product-search-vectors.md) owns the codec,
 benchmark, market comparison, and extension-adoption trigger.
+
+## AI analytics privacy boundary
+
+The co-pilot loads a tenant-scoped, time-bounded sales snapshot before its first
+model request. Its provider-only in-memory database replaces customer names,
+cashier names and cashier IDs with request-local opaque labels **before** SQL
+can compute aliases, substrings, encodings or aggregates. All tool steps use the
+same snapshot; it closes on success and failure. Joins additionally constrain
+the ownership of customers, users, sites, cash sessions and products.
+
+The analytics body site, when present, defines the filtered snapshot and the
+site charged by the Co-pilot quota; the selected UI site is only a prompt focus.
+An omitted or null body site retains tenant-wide analytics. Those requests
+check the quota of every tenant site the snapshot can read and record one
+site-less audit row, so their cost is not duplicated across sites. A tenant-wide
+successful row stores its call-time site list and counts once in each listed
+site's monthly Co-pilot usage projection, without retroactively charging sites
+created later in the month. Successful site-less rows written before that list
+existed have unknown scope and conservatively count against every site.
+The web conversation explicitly selects all sites or the current site,
+clears earlier evidence when that selection changes, and discards responses
+that finish after the user or site context has changed.
+
+The same dictionary protects matching whole values in every user and assistant
+message and in the snapshot's operational labels. This is not a general PII
+detector or anonymization. The dictionary covers only identities present in the
+selected analytics window/site; arbitrary text, partial names, embedded values,
+audio and documents are not universally redacted. Other AI workflows have their
+own egress paths. The legacy `privacy.piiRedaction` capability is therefore
+reported as `false`, including when reading a stored historical `true` value.
+
+Pseudonyms preserve exact name-value grouping (including homonyms), cashier-ID
+grouping, anonymous customer NULLs and monetary values. They do not preserve
+alphabetical ordering, partial-name searches or case-normalized name grouping.
+Their namespace changes for each invocation: an old label must never silently
+identify another person. The prompt asks for a restated name or aggregate
+criteria when a conversation refers to old labels; this instruction is not a
+deterministic semantic guarantee. Authorized local read-only SQL retains its
+identity-bearing contract and is not used as the model tool.
+
+The system prompt remains static for provider caching. Snapshot contents and
+identity maps are not persisted to the AI audit log. Provider-boundary tests use
+the real AI SDK with an in-process fake model and inspect every serialized model
+call, including the calls following tool results and tool errors. These tests
+are not a live-provider certification.
+
+AI provider, SDK, and analytics SQLite exceptions are untrusted diagnostics:
+client-facing tRPC errors expose a fixed fallback and stable error code, never
+the raw exception message or a `cause` detail. Invoice OCR and voice
+transcription parse failures keep their distinct code from transport failures.
+The tenant audit records the code and call metadata, not exception text; only
+locally constructed domain errors may cross the Co-pilot boundary unchanged.
+Server logs carry only `summarizeProviderError` output (error class name,
+HTTP status, transport code; the AI SDK retry wrapper is unwrapped to its last
+provider answer) plus tenant, feature, provider, model and error code, never
+the raw error object. This contract limits secondary leakage through the
+browser response, centralized error tracing and server logs.
+
+Every Co-pilot response requires at least one successful read-only SQL query
+against a provider-safe snapshot table. The model-facing tool rejects
+constant-only and CTE queries; authorized local SQL retains its separate WITH
+contract. Up to five model SQL attempts are allowed, and every successful
+result is returned in order rather than hiding earlier queries. Neither mode
+displays model-authored prose. Guided mode adds only localized, deterministic
+review guidance; verified-results mode shows queries and rows without that
+guide. The provider's actual token usage is audited even when a response fails
+the SQL requirement. These checks establish a minimum source boundary, **not**
+semantic correctness: a SELECT can still produce a constant despite reading a
+table, choose the wrong metric, or omit relevant records. Operators must
+inspect SQL scope and columns before acting on any figure.
 
 ## Price-tier boundary
 
@@ -692,7 +799,7 @@ renderer -> contextBridge wrapper -> ipcRenderer.invoke
          -> validated ipcMain.handle -> main-process capability
 ```
 
-Preload wrappers stay narrow and declarative. Business data normally flows over
+Preload wrappers stay narrow and declarative. Business data flows over
 tRPC; IPC is reserved for desktop-only lifecycle, storage, updater, backup,
 printing, and local-device capabilities.
 
@@ -703,7 +810,11 @@ against the active authority before returning it and clears the singleton when
 it is expired, stale, or no longer belongs to the registered identity. The
 token is never written to disk and remains absent from session diagnostics.
 
-Database and sync IPC methods are constructed through an Electron-free handler
+The renderer has no raw database bridge: neither `window.db` nor
+`window.api.db` is exposed, and no `db:*` handlers are registered in main.
+Generic table CRUD and raw outbox enqueue/diagnostics cannot bypass tRPC use
+cases, role checks, audit, cash-session or fiscal invariants. Sync summary,
+trigger and configuration IPC methods remain in an Electron-free handler
 core that resolves the tenant from that verified main-process session before
 validation or persistence can run; renderer tenant hints are compatibility
 inputs only and never control scope. Workstation-settings writes and the
@@ -712,7 +823,7 @@ pre-login locale update remains structurally separate because it must translate
 the login window, tray, and updater before authentication. The read-only device
 id is needed to complete login; read-only workstation presentation preferences
 contain no tenant or business data. Node tests enumerate every authenticated
-db/sync channel and pin those bounded pre-login exceptions. Expected stale-session
+sync channel and pin those bounded pre-login exceptions. Expected stale-session
 failures cross the main/preload wire as a closed error envelope instead of a
 rejected `ipcMain.handle` call; preload recreates the renderer rejection without
 Electron's internal invoke wrapper or a main-process stack diagnostic.
@@ -765,6 +876,17 @@ multi-master cloud replication. Public readiness and known operational gaps are
 listed in [PROJECT-STATUS.md](./PROJECT-STATUS.md).
 
 The current sync push path acknowledges local queue work, not remote delivery.
+For each selected outbox ID, `sync.push` takes an IMMEDIATE SQLite writer
+transaction and rereads the tenant-owned row. Only a current `queued` or
+`retrying` row is processed; a deleted or completed row is skipped without
+claiming it as processed. Entity metadata, a conflict or failure record, outbox
+state, and the successful last-sync marker commit or roll back together for
+that row. Helpers use synchronous statements on the same connection; the
+transaction must not contain asynchronous work. The last-sync marker does not
+move backward if the clock does. This is per-row atomicity, not an all-or-nothing
+batch or an acknowledgement from a remote server, and does not rearm durable
+`submitting` claims.
+
 The v4 contract separately exposes operator recovery restrictions: inventory
 aggregates cannot be replaced or discarded through arbitrary JSON, and product
 recovery accepts only allowlisted metadata for an existing tenant product.
@@ -799,6 +921,13 @@ selected operating profile. It reports factual configuration and catalog
 counts and links to existing self-service screens. It is advisory: it neither
 blocks checkout nor converts software evidence into legal, hardware, fiscal,
 or production certification.
+For a configured operating profile, when a persisted tenant timezone is
+unsupported, the projection returns only an actionable business-calendar
+attention item leading to Locale settings.
+It does not substitute another calendar day or report date-dependent pharmacy
+policy and authorization counts as ready until the timezone is repaired. Newly
+submitted timezone overrides reject unsupported named zones and bare numeric
+offset strings before persistence; clearing an invalid legacy override remains permitted.
 
 ## Durable decisions
 

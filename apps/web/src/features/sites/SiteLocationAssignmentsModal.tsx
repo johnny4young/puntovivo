@@ -72,7 +72,7 @@ export function SiteLocationAssignmentsModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={site ? `${t('sites.locations.manage')} ${site.name}` : t('sites.locations.title')}
+      title={site ? t('sites.locations.manage', { name: site.name }) : t('sites.locations.title')}
       size="lg"
       footer={
         <>

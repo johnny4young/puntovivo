@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
@@ -13,6 +13,7 @@ import {
   saleReturns,
   sales,
   sites,
+  tenantLocaleSettings,
   users,
 } from '../db/schema.js';
 import { seedCommittedSaleSession } from './utils/cashSessionFixture.js';
@@ -61,6 +62,8 @@ describe('Dashboard tRPC Router', () => {
       verbose: false,
     });
 
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-09-21T16:00:00.000Z'));
     const db = getDatabase();
     const seededUser = await db
       .select()
@@ -73,6 +76,14 @@ describe('Dashboard tRPC Router', () => {
 
     tenantId = seededUser.tenantId;
     userId = seededUser.id;
+    // These legacy eligibility cases use UTC fixtures; local-day edges live in the dedicated suite.
+    await db
+      .insert(tenantLocaleSettings)
+      .values({ tenantId, countryCode: 'CO', timezoneOverride: 'UTC' })
+      .onConflictDoUpdate({
+        target: tenantLocaleSettings.tenantId,
+        set: { timezoneOverride: 'UTC' },
+      });
 
     const seededSite = await db
       .select()
@@ -411,6 +422,7 @@ describe('Dashboard tRPC Router', () => {
   });
 
   afterAll(async () => {
+    vi.useRealTimers();
     await server.close();
   });
 
@@ -431,6 +443,8 @@ describe('Dashboard tRPC Router', () => {
     expect(result.lowStockItems[0]?.name).toBe('Sugar Pack');
 
     expect(result.revenueChart).toHaveLength(30);
+    // The web chart formats these as calendar-day keys and renders nothing for other shapes.
+    for (const point of result.revenueChart) expect(point.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(result.revenueChart[result.revenueChart.length - 1]?.revenue).toBe(59.5);
     expect(result.revenueChart[result.revenueChart.length - 7]?.revenue).toBe(15.75);
   });
