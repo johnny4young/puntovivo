@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { screen } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import i18n from '@/i18n';
 import { render } from '@/test/utils';
 
 const authMock = vi.hoisted(() => ({
   error: null as unknown,
   login: vi.fn(),
+  health: vi.fn(),
+  setup: vi.fn(),
 }));
 
 vi.mock('./AuthProvider', () => ({
@@ -18,11 +20,19 @@ vi.mock('./AuthProvider', () => ({
 
 vi.mock('@/lib/trpc', () => ({
   vanillaClient: {
-    auth: { setupStatus: { query: vi.fn(async () => ({ required: false, countries: [] })) } },
+    health: { check: { query: authMock.health } },
+    auth: { setupStatus: { query: authMock.setup } },
   },
 }));
 
 import { LoginPage } from './LoginPage';
+import { __resetApiBootstrapForTests, ensureApiBootstrap } from '@/lib/apiBootstrap';
+
+beforeEach(() => {
+  __resetApiBootstrapForTests();
+  authMock.health.mockReset().mockResolvedValue({ status: 'ok' });
+  authMock.setup.mockReset().mockResolvedValue({ required: false, countries: [] });
+});
 
 describe('LoginPage Store Hub errors', () => {
   beforeEach(() => {
@@ -64,3 +74,50 @@ it.each([
     expect(document.body).not.toHaveTextContent('AUTH_IDENTITY_CHANGED');
   }
 );
+
+describe('LoginPage safe bootstrap ordering', () => {
+  it('waits for the shared health response before requesting setup status', async () => {
+    let release!: () => void;
+    authMock.health.mockReturnValue(
+      new Promise<void>(resolve => {
+        release = resolve;
+      })
+    );
+    const authBootstrap = ensureApiBootstrap();
+    render(<LoginPage />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(authMock.setup).not.toHaveBeenCalled();
+    expect(authMock.health).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      release();
+      await authBootstrap;
+    });
+    await waitFor(() => expect(authMock.setup).toHaveBeenCalledTimes(1));
+    expect(authMock.health).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not issue setup or silently retry a failed bootstrap after remount', async () => {
+    authMock.health.mockRejectedValue(new Error('offline'));
+    await expect(ensureApiBootstrap()).rejects.toThrow('offline');
+    const first = render(<LoginPage />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    first.unmount();
+    render(<LoginPage />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(authMock.setup).not.toHaveBeenCalled();
+    expect(authMock.health).toHaveBeenCalledTimes(1);
+  });
+
+  it('reuses completed initialization for an ordinary setup status read', async () => {
+    await ensureApiBootstrap();
+    render(<LoginPage />);
+    await waitFor(() => expect(authMock.setup).toHaveBeenCalledTimes(1));
+    expect(authMock.health).toHaveBeenCalledTimes(1);
+  });
+});
