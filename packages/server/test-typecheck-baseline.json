@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "compilerVersion": "7.0.2",
   "config": "tsconfig.tests.json",
-  "total": 240,
+  "total": 236,
   "byFileAndCode": {
     "src/__tests__/ai-match-invoice-lines.test.ts|TS2315": 1,
     "src/__tests__/ai-match-invoice-lines.test.ts|TS2769": 1,
@@ -150,7 +150,6 @@
     "src/perf/product-embedding-benchmark.test.ts|TS2345": 1,
     "src/perf/product-embedding-benchmark.test.ts|TS7053": 1,
     "src/server/lifecycle-owner.test.ts|TS2322": 5,
-    "src/services/ai/client.test.ts|TS2322": 4,
     "src/services/ai/embeddings-accounting.test.ts|TS7006": 2,
     "src/services/ai/providers/registry.test.ts|TS18048": 3
   }

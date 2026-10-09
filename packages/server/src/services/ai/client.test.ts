@@ -7,7 +7,7 @@ import { TRPCError } from '@trpc/server';
 import { hash } from 'argon2';
 import { nanoid } from 'nanoid';
 import { eq, sql } from 'drizzle-orm';
-import { MockLanguageModelV4, mockId } from 'ai/test';
+import { MockLanguageModelV4 } from 'ai/test';
 import { APICallError, simulateReadableStream } from 'ai';
 
 import { ServerErrorWithCode } from '../../lib/errorCodes.js';
@@ -137,23 +137,23 @@ function buildMockProvider(overrides: Partial<AIProvider> = {}): AIProvider {
         modelId: 'claude-haiku-4-5',
         doGenerate: async () => ({
           content: [{ type: 'text', text: 'pong' }],
-          finishReason: 'stop',
+          finishReason: { unified: 'stop', raw: 'stop' },
           usage: {
             inputTokens: { total: 10, noCache: 10, cacheRead: 0, cacheWrite: 0 },
-            outputTokens: { total: 5 },
+            outputTokens: { total: 5, text: 5, reasoning: undefined },
           },
           warnings: [],
         }),
         doStream: async () => ({
           stream: simulateReadableStream({
             chunks: [
-              { type: 'text-delta', id: mockId(), delta: 'pong' },
+              { type: 'text-delta', id: 'text-1', delta: 'pong' },
               {
                 type: 'finish',
-                finishReason: 'stop',
+                finishReason: { unified: 'stop', raw: 'stop' },
                 usage: {
                   inputTokens: { total: 10, noCache: 10, cacheRead: 0, cacheWrite: 0 },
-                  outputTokens: { total: 5 },
+                  outputTokens: { total: 5, text: 5, reasoning: undefined },
                 },
               },
             ],
@@ -415,23 +415,23 @@ describe('client.completeAI', () => {
           modelId: 'cached-model',
           doGenerate: async () => ({
             content: [{ type: 'text', text: 'pong' }],
-            finishReason: 'stop',
+            finishReason: { unified: 'stop', raw: 'stop' },
             usage: {
               inputTokens: { total: 100, noCache: 50, cacheRead: 40, cacheWrite: 10 },
-              outputTokens: { total: 20 },
+              outputTokens: { total: 20, text: 20, reasoning: undefined },
             },
             warnings: [],
           }),
           doStream: async () => ({
             stream: simulateReadableStream({
               chunks: [
-                { type: 'text-delta', id: mockId(), delta: 'pong' },
+                { type: 'text-delta', id: 'text-1', delta: 'pong' },
                 {
                   type: 'finish',
-                  finishReason: 'stop',
+                  finishReason: { unified: 'stop', raw: 'stop' },
                   usage: {
                     inputTokens: { total: 100, noCache: 50, cacheRead: 40, cacheWrite: 10 },
-                    outputTokens: { total: 20 },
+                    outputTokens: { total: 20, text: 20, reasoning: undefined },
                   },
                 },
               ],
@@ -491,10 +491,10 @@ describe('client.completeAI', () => {
             }
             return {
               content: [{ type: 'text', text: 'pong' }],
-              finishReason: 'stop',
+              finishReason: { unified: 'stop', raw: 'stop' },
               usage: {
                 inputTokens: { total: 10, noCache: 10, cacheRead: 0, cacheWrite: 0 },
-                outputTokens: { total: 5 },
+                outputTokens: { total: 5, text: 5, reasoning: undefined },
               },
               warnings: [],
             };
@@ -544,10 +544,10 @@ describe('client.completeAI', () => {
             await gate;
             return {
               content: [{ type: 'text', text: 'pong' }],
-              finishReason: 'stop',
+              finishReason: { unified: 'stop', raw: 'stop' },
               usage: {
                 inputTokens: { total: 10, noCache: 10, cacheRead: 0, cacheWrite: 0 },
-                outputTokens: { total: 5 },
+                outputTokens: { total: 5, text: 5, reasoning: undefined },
               },
               warnings: [],
             };
@@ -746,7 +746,7 @@ describe('client.completeAI', () => {
         new MockLanguageModelV4({
           doGenerate: async () => ({
             content: [{ type: 'text', text: 'already dispatched' }],
-            finishReason: 'stop',
+            finishReason: { unified: 'stop', raw: 'stop' },
             usage: {
               inputTokens: {
                 total: usage.input,
@@ -754,7 +754,7 @@ describe('client.completeAI', () => {
                 cacheRead: usage.read,
                 cacheWrite: usage.write,
               },
-              outputTokens: { total: usage.output },
+              outputTokens: { total: usage.output, text: usage.output, reasoning: undefined },
             },
             warnings: [],
           }),
@@ -853,10 +853,10 @@ describe('client.completeAI', () => {
           modelId: 'claude-haiku-4-5',
           doGenerate: async () => ({
             content: [{ type: 'text', text: 'pong' }],
-            finishReason: 'stop',
+            finishReason: { unified: 'stop', raw: 'stop' },
             usage: {
               inputTokens: { total: 0, noCache: 0, cacheRead: 0, cacheWrite: 0 },
-              outputTokens: { total: 0 },
+              outputTokens: { total: 0, text: 0, reasoning: undefined },
             },
             warnings: [],
           }),
