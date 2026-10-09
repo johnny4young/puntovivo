@@ -196,7 +196,7 @@ export function confirmOcrDraftPurchase(ctx: PurchaseContext, input: ConfirmInvo
       }
       const now = new Date().toISOString();
       const id = nanoid();
-      const purchaseNumber = allocateNextSequential(writer, {
+      const purchaseNumber = allocateNextSequential(tx, {
         tenantId: ctx.tenantId,
         sequentialId: sequentialContext.id,
         updatedAt: now,

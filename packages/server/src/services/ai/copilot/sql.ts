@@ -140,40 +140,47 @@ export function validateModelAnalyticsSQL(query: string): string {
   if (/\b(?:sqlite_\w+|pragma_\w+)\b/i.test(inspected)) {
     rejectSQL('Model analytics query must read only snapshot source tables');
   }
-  // `FROM a, b` lists are not covered by the FROM/JOIN regex, which only
-  // inspects the first item. Every top-level item must be a source table
-  // or a parenthesized subquery (whose own FROM is checked separately).
-  for (const item of fromListItems(inspected)) {
-    if (item.startsWith('(')) continue;
-    const table = sanitizeTableName(item.split(/\s+/)[0] ?? '');
-    if (!ALLOWED_TABLES.has(table)) {
+  // The FROM/JOIN regex above cannot see single-quoted identifiers
+  // (`JOIN 'sqlite_master'`, which SQLite accepts as a table name), comma
+  // lists, or parenthesized table lists. Inspect every source position of
+  // every FROM clause instead: each must be a plain allow-listed table or a
+  // parenthesized SELECT subquery (whose own FROM is inspected separately).
+  const sources = fromClauseSources(inspected);
+  for (const source of sources) {
+    if (source.startsWith('(')) {
+      if (!/^\(\s*select\b/.test(source)) {
+        rejectSQL('Model analytics query must read only snapshot source tables');
+      }
+      continue;
+    }
+    const table = /^[a-z_][a-z0-9_]*/.exec(source)?.[0] ?? '';
+    const next = source.charAt(table.length);
+    if (!ALLOWED_TABLES.has(table) || (next !== '' && !/\s/.test(next))) {
       rejectSQL('Model analytics query must read only snapshot source tables');
     }
   }
-  const readsSource = Array.from(
-    inspected.matchAll(/\b(?:from|join)\s+([`"]?[a-zA-Z_][a-zA-Z0-9_."`]*\]?)/gi)
-  ).some(match => {
-    const table = sanitizeTableName(match[1]!);
-    return ALLOWED_TABLES.has(table);
-  });
-  if (!readsSource) {
+  if (!sources.some(source => !source.startsWith('('))) {
     rejectSQL('Model analytics query must read a snapshot source table');
   }
   return normalized;
 }
 
-const FROM_LIST_END =
-  /^(?:where|group|order|limit|having|window|union|intersect|except|join|inner|left|right|full|cross|natural|on|using)\b/i;
+const FROM_CLAUSE_KEYWORD =
+  /(where|group|order|limit|having|window|union|intersect|except|join)\b/y;
 
-/** Top-level comma-separated items of every FROM clause, lower-cased and trimmed. */
-function fromListItems(inspected: string): string[] {
-  const items: string[] = [];
-  for (const match of inspected.matchAll(/\bfrom\b/gi)) {
+/**
+ * Every source position of every FROM clause, lower-cased and trimmed: the
+ * first item, each top-level comma item and each top-level JOIN target. A
+ * FROM clause ends at an unmatched `)` or a clause keyword at depth zero.
+ */
+function fromClauseSources(inspected: string): string[] {
+  const lower = inspected.toLowerCase();
+  const sources: string[] = [];
+  for (const match of lower.matchAll(/\bfrom\b/g)) {
     let depth = 0;
     let current = '';
-    let index = match.index + match[0].length;
-    for (; index < inspected.length; index += 1) {
-      const char = inspected[index]!;
+    for (let index = match.index + match[0].length; index < lower.length; index += 1) {
+      const char = lower[index]!;
       if (char === '(') depth += 1;
       if (char === ')') {
         if (depth === 0) break;
@@ -181,18 +188,23 @@ function fromListItems(inspected: string): string[] {
       }
       if (depth === 0) {
         if (char === ',') {
-          items.push(current.trim().toLowerCase());
+          sources.push(current.trim());
           current = '';
           continue;
         }
-        if (/\s/.test(char) && FROM_LIST_END.test(inspected.slice(index + 1))) {
-          current += char;
-          break;
+        FROM_CLAUSE_KEYWORD.lastIndex = index;
+        const keyword = /\w/.test(lower[index - 1] ?? '') ? null : FROM_CLAUSE_KEYWORD.exec(lower);
+        if (keyword?.[1] === 'join') {
+          sources.push(current.trim());
+          current = '';
+          index += keyword[0].length - 1;
+          continue;
         }
+        if (keyword) break;
       }
       current += char;
     }
-    items.push(current.trim().toLowerCase());
+    sources.push(current.trim());
   }
-  return items.filter(item => item.length > 0);
+  return sources;
 }

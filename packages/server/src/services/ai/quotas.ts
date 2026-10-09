@@ -38,6 +38,8 @@ import type { DatabaseInstance } from '../../db/index.js';
 import { aiAuditLog, sites } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 
+import { aiCostMonthWindow } from './auditLog.js';
+
 /**
  * Per-site monthly quota for each AI feature that the public website
  * makes a numeric promise about. Hardcoded by design: the values are
@@ -65,16 +67,11 @@ export interface CountMonthlyAiCallsArgs {
 }
 
 /**
- * Calendar-month boundary helper. Returns `[startOfMonth, startOfNextMonth]`
- * ISO strings in local time, matching the convention `currentMonthSpend`
- * uses so both readouts agree on what "this month" means.
+ * Calendar-month boundary helper. Shares the budget kernel's local-month
+ * window so quota and budget admission agree on what "this month" means
+ * inside the same write transaction.
  */
-function monthBounds(now: Date): { start: string; end: string } {
-  return {
-    start: new Date(now.getFullYear(), now.getMonth(), 1).toISOString(),
-    end: new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString(),
-  };
-}
+const monthBounds = aiCostMonthWindow;
 
 /**
  * Count successful calls of a feature within the current calendar
@@ -82,9 +79,19 @@ function monthBounds(now: Date): { start: string; end: string } {
  * provider does not consume quota.
  */
 export async function countMonthlyAiCalls(args: CountMonthlyAiCallsArgs): Promise<number> {
+  return countMonthlyAiCallsSync(args);
+}
+
+/**
+ * Synchronous core of `countMonthlyAiCalls`, usable on a write-transaction
+ * handle inside the budget kernel's BEGIN IMMEDIATE admission.
+ */
+function countMonthlyAiCallsSync(
+  args: Omit<CountMonthlyAiCallsArgs, 'db'> & { db: Pick<DatabaseInstance, 'select'> }
+): number {
   const { db, tenantId, siteId, feature, now = new Date() } = args;
   const { start, end } = monthBounds(now);
-  const row = await db
+  const row = db
     .select({ total: count(aiAuditLog.id) })
     .from(aiAuditLog)
     .where(
@@ -269,22 +276,8 @@ export function assertInvoiceOcrQuotaForSite(args: {
       message: 'Active invoice OCR site not found',
     });
   }
-  const { start, end } = monthBounds(now);
-  const row = db
-    .select({ total: count(aiAuditLog.id) })
-    .from(aiAuditLog)
-    .where(
-      and(
-        eq(aiAuditLog.tenantId, tenantId),
-        eq(aiAuditLog.siteId, siteId),
-        eq(aiAuditLog.feature, 'invoiceOcr'),
-        isNull(aiAuditLog.errorCode),
-        gte(aiAuditLog.createdAt, start),
-        lt(aiAuditLog.createdAt, end)
-      )
-    )
-    .get();
-  const used = Number(row?.total ?? 0);
+  const { end } = monthBounds(now);
+  const used = countMonthlyAiCallsSync({ db, tenantId, siteId, feature: 'invoiceOcr', now });
   if (used >= AI_QUOTAS.invoiceOcr) {
     throwServerError({
       trpcCode: 'TOO_MANY_REQUESTS',

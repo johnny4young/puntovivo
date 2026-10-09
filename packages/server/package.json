@@ -19,8 +19,9 @@
     "native:node": "node ../../scripts/ensure-native-runtime.mjs node",
     "native:ensure:node": "node ../../scripts/ensure-native-runtime.mjs node",
     "build": "tsc && node ./scripts/copy-migrations.mjs",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && pnpm run typecheck:tests",
     "dev": "pnpm run native:ensure:node && tsx watch src/standalone-development.ts",
+    "dev:once": "pnpm run native:ensure:node && tsx src/standalone-development.ts",
     "start": "pnpm run native:ensure:node && node dist/standalone-production.js",
     "test": "pnpm run native:ensure:node && vitest run",
     "test:watch": "pnpm run native:ensure:node && vitest",
@@ -58,7 +59,9 @@
     "prebenchmark:invoice-ocr:regen": "node ../../scripts/ensure-shared-build.mjs",
     "prebenchmark:payment-reconciliation": "node ../../scripts/ensure-shared-build.mjs",
     "prebenchmark:product-embeddings": "node ../../scripts/ensure-shared-build.mjs",
-    "prebenchmark:vector-storage": "node ../../scripts/ensure-shared-build.mjs"
+    "prebenchmark:vector-storage": "node ../../scripts/ensure-shared-build.mjs",
+    "typecheck:tests": "node --test scripts/check-test-types.test.mjs && node scripts/check-test-types.mjs",
+    "typecheck:tests:update": "node scripts/check-test-types.mjs --write"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.44",

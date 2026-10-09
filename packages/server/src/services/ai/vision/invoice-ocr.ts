@@ -28,12 +28,18 @@ import { z } from 'zod';
 import type { DatabaseInstance } from '../../../db/index.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
 
-import { reserveAiBudget, settleAiBudget } from '../budget.js';
+import { reserveAiBudget } from '../budget.js';
 import { isDefinitiveProviderRejection } from '../provider-rejection.js';
-import { toBillableTokenUsage } from '../client.js';
+import {
+  hasUsableRemoteUsage,
+  resolveAISettings,
+  settleCompletion,
+  tokenCount,
+  toBillableTokenUsage,
+} from '../client.js';
+import { logProviderFailure } from '../provider-error.js';
 import { getProvider } from '../providers/registry.js';
 import type { AIProvider } from '../providers/types.js';
-import { resolveAISettings } from '../client.js';
 
 /** Supported upload MIME types for invoice OCR. */
 export const INVOICE_OCR_MIME_TYPES = [
@@ -43,6 +49,10 @@ export const INVOICE_OCR_MIME_TYPES = [
   'application/pdf',
 ] as const;
 export type InvoiceOcrMimeType = (typeof INVOICE_OCR_MIME_TYPES)[number];
+
+/** Subset accepted by the Textract AnalyzeExpense upload path (no WebP). */
+export const TEXTRACT_INVOICE_MIME_TYPES = ['image/jpeg', 'image/png', 'application/pdf'] as const;
+export type TextractInvoiceMimeType = (typeof TEXTRACT_INVOICE_MIME_TYPES)[number];
 
 /**
  * 10 MB raw budget after base64 decode. Textract accepts larger PDFs,
@@ -142,7 +152,7 @@ function decodedByteLength(base64: string): number {
 /**
  * Run an invoice OCR pass against the tenant's configured vision
  * provider. Throws via `throwServerError` for every gating failure
- * (`AI_DISABLED`, `AI_BUDGET_EXCEEDED`, `AI_PROVIDER_ERROR`,
+ * (`AI_DISABLED`, `AI_BUDGET_EXCEEDED`, `AI_BUDGET_BUSY`, `AI_PROVIDER_ERROR`,
  * `AI_VISION_NOT_AVAILABLE`, `AI_VISION_IMAGE_TOO_LARGE`,
  * `AI_VISION_PARSE_FAILED`); successful calls return the structured
  * invoice plus the audit-log row id.
@@ -215,7 +225,14 @@ export async function extractInvoiceFromImage(
   try {
     model = provider.visionModel(modelId);
     providerOptions = provider.cacheControlForSystemPrompt();
-  } catch {
+  } catch (error) {
+    logProviderFailure(error, {
+      tenantId: ctx.tenantId,
+      feature: 'invoiceOcr',
+      providerId: provider.id,
+      modelId,
+      errorCode: 'AI_PROVIDER_ERROR',
+    });
     throwServerError({
       trpcCode: 'BAD_GATEWAY',
       errorCode: 'AI_PROVIDER_ERROR',
@@ -232,11 +249,18 @@ export async function extractInvoiceFromImage(
   ctx.abortSignal?.throwIfAborted();
   const reservation = reserveAiBudget(ctx.db, ctx.tenantId);
   const startedAt = Date.now();
-  const settleFailure = (
-    errorCode: 'AI_VISION_PARSE_FAILED' | 'AI_PROVIDER_ERROR',
-    notIncurred = false
+  /**
+   * Settle the admission exactly once. Valid counters stay auditable even on
+   * an unknown-cost row; malformed ones are stored as zero (never NaN, which
+   * the NOT NULL columns would reject and strand the hold as pending).
+   */
+  const settle = (
+    costState: 'estimated' | 'unknown' | 'not_incurred' | 'local_zero',
+    costUsd: number,
+    usage: LanguageModelUsage | undefined,
+    errorCode: 'AI_VISION_PARSE_FAILED' | 'AI_PROVIDER_ERROR' | null
   ) =>
-    settleAiBudget(
+    settleCompletion(
       ctx.db,
       reservation,
       {
@@ -246,30 +270,20 @@ export async function extractInvoiceFromImage(
         feature: 'invoiceOcr',
         providerId: provider.id,
         modelId,
-        inputTokens: 0,
-        outputTokens: 0,
-        cacheReadTokens: 0,
-        cacheWriteTokens: 0,
-        costUsd: 0,
-        costState: !remoteCost ? 'local_zero' : notIncurred ? 'not_incurred' : 'unknown',
+        inputTokens: tokenCount(usage?.inputTokens),
+        outputTokens: tokenCount(usage?.outputTokens),
+        cacheReadTokens: tokenCount(usage?.inputTokenDetails?.cacheReadTokens),
+        cacheWriteTokens: tokenCount(usage?.inputTokenDetails?.cacheWriteTokens),
+        costUsd,
+        costState,
         durationMs: Date.now() - startedAt,
         errorCode,
       },
-      remoteCost && !notIncurred
+      costState === 'unknown'
     );
-
-  const isKnownCount = (value: unknown): value is number =>
-    typeof value === 'number' && Number.isFinite(value) && value >= 0;
   /** Priced cost of complete, non-empty remote usage; null when unusable. */
   const priceUsage = (usage: LanguageModelUsage | undefined): number | null => {
-    if (
-      !usage ||
-      !isKnownCount(usage.inputTokens) ||
-      !isKnownCount(usage.outputTokens) ||
-      usage.inputTokens + usage.outputTokens === 0
-    ) {
-      return null;
-    }
+    if (!usage || !hasUsableRemoteUsage(usage)) return null;
     let cost: number;
     try {
       cost = provider.pricing.calculateCostUsd(modelId, toBillableTokenUsage(usage));
@@ -325,6 +339,13 @@ export async function extractInvoiceFromImage(
       (error instanceof Error && /No object generated/i.test(error.message));
 
     const errorCode = isSchemaFailure ? 'AI_VISION_PARSE_FAILED' : 'AI_PROVIDER_ERROR';
+    logProviderFailure(error, {
+      tenantId: ctx.tenantId,
+      feature: 'invoiceOcr',
+      providerId: provider.id,
+      modelId,
+      errorCode,
+    });
 
     // A schema failure still consumed priced tokens: book them when the SDK
     // reports usage. A pre-inference rejection (4xx) or a connection never
@@ -332,30 +353,14 @@ export async function extractInvoiceFromImage(
     const parseUsage =
       isSchemaFailure && NoObjectGeneratedError.isInstance(error) ? error.usage : undefined;
     const parseCost = remoteCost ? priceUsage(parseUsage) : null;
-    if (parseCost !== null && parseUsage) {
-      settleAiBudget(
-        ctx.db,
-        reservation,
-        {
-          tenantId: ctx.tenantId,
-          siteId: ctx.siteId,
-          userId: ctx.userId,
-          feature: 'invoiceOcr',
-          providerId: provider.id,
-          modelId,
-          inputTokens: parseUsage.inputTokens ?? 0,
-          outputTokens: parseUsage.outputTokens ?? 0,
-          cacheReadTokens: parseUsage.inputTokenDetails?.cacheReadTokens ?? 0,
-          cacheWriteTokens: parseUsage.inputTokenDetails?.cacheWriteTokens ?? 0,
-          costUsd: parseCost,
-          costState: 'estimated',
-          durationMs: Date.now() - startedAt,
-          errorCode,
-        },
-        false
-      );
+    if (!remoteCost) {
+      settle('local_zero', 0, parseUsage, errorCode);
+    } else if (parseCost !== null) {
+      settle('estimated', parseCost, parseUsage, errorCode);
+    } else if (isDefinitiveProviderRejection(error)) {
+      settle('not_incurred', 0, undefined, errorCode);
     } else {
-      settleFailure(errorCode, isDefinitiveProviderRejection(error));
+      settle('unknown', 0, parseUsage, errorCode);
     }
 
     throwServerError({
@@ -365,67 +370,25 @@ export async function extractInvoiceFromImage(
     });
   }
 
-  const usage = result.usage;
-  const rawInputTokens = usage?.inputTokens;
-  const rawOutputTokens = usage?.outputTokens;
-  const inputTokens = isKnownCount(rawInputTokens) ? rawInputTokens : 0;
-  const outputTokens = isKnownCount(rawOutputTokens) ? rawOutputTokens : 0;
-  // A remote response without complete usage cannot be priced. Keep the
-  // admission hold instead of recording a misleading zero-dollar success.
-  // Local Ollama usage is informational only; its cost is zero regardless.
-  if (
-    remoteCost &&
-    (!isKnownCount(rawInputTokens) ||
-      !isKnownCount(rawOutputTokens) ||
-      inputTokens + outputTokens === 0)
-  ) {
-    settleFailure('AI_PROVIDER_ERROR');
+  // A remote response without complete, priceable usage cannot establish a
+  // monetary estimate. Keep the admission hold (with its valid counters)
+  // instead of recording a misleading zero-dollar success. Local Ollama usage
+  // is informational only; its cost is zero regardless.
+  const { usage } = result;
+  const costUsd = remoteCost ? priceUsage(usage) : 0;
+  if (costUsd === null) {
+    settle('unknown', 0, usage, 'AI_PROVIDER_ERROR');
     throwServerError({
       trpcCode: 'BAD_GATEWAY',
       errorCode: 'AI_PROVIDER_ERROR',
-      message: 'Vision provider returned missing or invalid token usage',
-    });
-  }
-
-  const cacheReadTokens = usage.inputTokenDetails?.cacheReadTokens ?? 0;
-  const cacheWriteTokens = usage.inputTokenDetails?.cacheWriteTokens ?? 0;
-  let costUsd: number;
-  try {
-    costUsd = provider.pricing.calculateCostUsd(modelId, toBillableTokenUsage(usage));
-  } catch {
-    costUsd = Number.NaN;
-  }
-  if (!Number.isFinite(costUsd) || costUsd < 0) {
-    settleFailure('AI_PROVIDER_ERROR');
-    throwServerError({
-      trpcCode: 'BAD_GATEWAY',
-      errorCode: 'AI_PROVIDER_ERROR',
-      message: 'Vision provider returned unpriceable token usage',
+      message: 'Vision provider returned missing or unpriceable token usage',
     });
   }
 
   const durationMs = Date.now() - startedAt;
-  const { id: auditLogId } = settleAiBudget(
-    ctx.db,
-    reservation,
-    {
-      tenantId: ctx.tenantId,
-      siteId: ctx.siteId,
-      userId: ctx.userId,
-      feature: 'invoiceOcr',
-      providerId: provider.id,
-      modelId,
-      inputTokens,
-      outputTokens,
-      cacheReadTokens,
-      cacheWriteTokens,
-      costUsd,
-      costState: remoteCost ? 'estimated' : 'local_zero',
-      durationMs,
-      errorCode: null,
-    },
-    false
-  );
+  const { id: auditLogId } = settle(remoteCost ? 'estimated' : 'local_zero', costUsd, usage, null);
+  const inputTokens = tokenCount(usage?.inputTokens);
+  const outputTokens = tokenCount(usage?.outputTokens);
 
   return {
     invoice: result.object,

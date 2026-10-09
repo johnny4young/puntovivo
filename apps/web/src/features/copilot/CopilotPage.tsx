@@ -13,7 +13,7 @@ import {
   Table2,
 } from 'lucide-react';
 import { Badge, Button } from '@/components/ui';
-import { useAuth } from '@/features/auth/AuthContext';
+import { useAuth, useAuthOwnerKey } from '@/features/auth/AuthContext';
 import { useTenant } from '@/features/tenant/TenantContext';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
@@ -480,7 +480,8 @@ export function CopilotPage() {
   const [input, setInput] = useState('');
   const [analyticsScope, setAnalyticsScope] = useState<CopilotAnalyticsScope>('all');
   const [latestResult, setLatestResult] = useState<CopilotChatResult | null>(null);
-  const ownerSiteKey = `${user?.tenantId ?? ''}:${user?.id ?? ''}:${currentSite?.id ?? ''}`;
+  const authOwnerKey = useAuthOwnerKey();
+  const ownerSiteKey = `${authOwnerKey ?? ''}:${currentSite?.id ?? ''}`;
   const [scopeCell] = useState(() =>
     createScopeCell({
       mode: analyticsScope,
@@ -613,9 +614,17 @@ export function CopilotPage() {
                 role="status"
                 className="rounded-2xl border border-primary-500/25 bg-primary-50 px-4 py-3 text-sm text-primary-800"
               >
-                <a className="font-medium underline underline-offset-2" href="#copilot-results">
+                {/* Not an href="#..." anchor: packaged desktop uses hash history,
+                    so a fragment link would navigate the router away. */}
+                <button
+                  type="button"
+                  className="text-left font-medium underline underline-offset-2"
+                  onClick={() =>
+                    document.getElementById('copilot-results')?.scrollIntoView({ block: 'start' })
+                  }
+                >
                   {t('copilot:chat.resultReady')}
-                </a>
+                </button>
               </div>
             )}
           </div>

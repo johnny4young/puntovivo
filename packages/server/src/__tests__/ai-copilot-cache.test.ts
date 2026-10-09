@@ -270,6 +270,14 @@ describe('model SQL evidence floor', () => {
       'SELECT * FROM sales_summary, `other_table`',
       "SELECT * FROM sales_summary, json_each('[1]')",
       'SELECT * FROM (SELECT * FROM sales_summary), sqlite_temp_master',
+      "SELECT m.sql FROM sales_summary JOIN 'sqlite_master' AS m",
+      "SELECT m.name FROM sales_summary CROSS JOIN 'main'.'sqlite_schema' m",
+      "SELECT * FROM sales_summary NATURAL JOIN 'pragma_table_info'('sales_summary')",
+      "SELECT * FROM ('sqlite_master') JOIN sales_summary",
+      "SELECT * FROM sales_summary, ('sqlite_master')",
+      "SELECT * FROM (json_each('[7]')) JOIN sales_summary",
+      "SELECT * FROM sales_summary JOIN sale_line_items ON 1, json_each('[7]')",
+      "SELECT * FROM (sales_summary JOIN 'sqlite_master') JOIN sale_line_items",
     ]) {
       expect(() => validateModelAnalyticsSQL(query), query).toThrow(TRPCError);
     }
@@ -279,6 +287,7 @@ describe('model SQL evidence floor', () => {
       "SELECT product_name FROM sale_line_items WHERE product_name LIKE '%from x, y%'",
       'SELECT t.n FROM (SELECT COUNT(*) AS n FROM sales_summary) t',
       'SELECT * FROM sales_summary JOIN sale_line_items ON sales_summary.sale_id = sale_line_items.sale_id',
+      'SELECT s.site_name FROM sales_summary s LEFT OUTER JOIN (SELECT sale_id FROM sale_line_items) l USING (sale_id) GROUP BY s.site_name ORDER BY 1, 2',
     ]) {
       expect(validateModelAnalyticsSQL(query), query).toBe(query);
     }
@@ -420,6 +429,24 @@ describe('runCopilotChat — generateText receives the static system + context-p
         .from(aiBudgetReservations)
         .where(eq(aiBudgetReservations.tenantId, tenantId))
         .all()
+    ).toHaveLength(0);
+  });
+  it('rethrows a cancellation with a custom abort reason instead of a provider error', async () => {
+    const { tenantId, siteId } = await seedTenantWithAI('pre-dispatch-abort-reason');
+    const controller = new AbortController();
+    const reason = new DOMException('client deadline', 'TimeoutError');
+    controller.abort(reason);
+
+    await expect(
+      runCopilotChat(
+        { db: getDatabase(), tenantId, siteId, userId: null, abortSignal: controller.signal },
+        { messages: [{ role: 'user', content: 'Show sales' }] },
+        { factory: () => buildStubProvider() }
+      )
+    ).rejects.toBe(reason);
+    expect(generateTextMock).not.toHaveBeenCalled();
+    expect(
+      await getDatabase().select().from(aiAuditLog).where(eq(aiAuditLog.tenantId, tenantId)).all()
     ).toHaveLength(0);
   });
   it('passes the static buildSystemPrompt() as system and a <context>-prefixed prompt for the Anthropic provider', async () => {
@@ -718,6 +745,29 @@ describe('runCopilotChat — generateText receives the static system + context-p
     expect(auditRow?.costUsd).toBeGreaterThan(0);
   });
 
+  it('reports a rejected model query as SQL rejection, not a provider failure', async () => {
+    const { tenantId, siteId } = await seedTenantWithAI('guided-rejected-sql');
+    generateTextMock.mockImplementation(
+      async (options: {
+        tools: { runReadOnlySQL: { execute?: (input: { query: string }) => Promise<unknown> } };
+      }) => {
+        // The real SDK turns a thrown tool error into a tool-error part.
+        await options.tools.runReadOnlySQL
+          .execute?.({ query: "SELECT m.sql FROM sales_summary JOIN 'sqlite_master' m" })
+          .catch(() => undefined);
+        return successfulGenerateTextResult('Ignored model prose.');
+      }
+    );
+    await expectErrorCode(
+      runCopilotChat(
+        { db: getDatabase(), tenantId, siteId, userId: null },
+        { messages: [{ role: 'user', content: 'Show the schema' }] },
+        { factory: () => buildStubProvider(), now: new Date('2026-05-13T12:00:00.000Z') }
+      ),
+      'AI_COPILOT_SQL_REJECTED'
+    );
+  });
+
   it('does not use guided prose to assert a conclusion when a query returns no rows', async () => {
     const { tenantId, siteId } = await seedTenantWithAI('guided-empty-rows');
     generateTextMock.mockImplementation(
@@ -985,6 +1035,70 @@ describe('runCopilotChat — generateText receives the static system + context-p
       expect(holds).toHaveLength(held ? 1 : 0);
     }
   );
+
+  it('keeps an unknown-cost hold when a later step is rejected after an earlier step returned', async () => {
+    const { tenantId, siteId } = await seedTenantWithAI('copilot-late-429');
+    generateTextMock.mockImplementationOnce(
+      async (options: { onLanguageModelCallEnd?: () => void }) => {
+        // Step 1 returned (and was billed) before step 2 hit a rate limit.
+        options.onLanguageModelCallEnd?.();
+        throw new APICallError({
+          message: 'provider answered 429',
+          url: 'https://provider.invalid/v1/messages',
+          requestBodyValues: {},
+          statusCode: 429,
+        });
+      }
+    );
+    await expectErrorCode(
+      runCopilotChat(
+        { db: getDatabase(), tenantId, siteId, userId: null },
+        { messages: [{ role: 'user', content: 'Sales?' }] },
+        { factory: () => buildStubProvider() }
+      ),
+      'AI_PROVIDER_ERROR'
+    );
+    expect(
+      await getDatabase().select().from(aiAuditLog).where(eq(aiAuditLog.tenantId, tenantId))
+    ).toMatchObject([{ costState: 'unknown', errorCode: 'AI_PROVIDER_ERROR' }]);
+    expect(
+      await getDatabase()
+        .select()
+        .from(aiBudgetReservations)
+        .where(eq(aiBudgetReservations.tenantId, tenantId))
+    ).toMatchObject([{ state: 'unknown' }]);
+  });
+
+  it('holds a remote liability when the provider omits a usage counter', async () => {
+    const { tenantId, siteId } = await seedTenantWithAI('copilot-missing-output-usage');
+    generateTextMock.mockImplementation(
+      async (options: {
+        tools: { runReadOnlySQL: { execute?: (input: { query: string }) => Promise<unknown> } };
+      }) => {
+        await options.tools.runReadOnlySQL.execute?.({
+          query: 'SELECT COUNT(*) AS sale_count FROM sales_summary',
+        });
+        return { text: 'Summary', usage: { inputTokens: 1200 } };
+      }
+    );
+    await expectErrorCode(
+      runCopilotChat(
+        { db: getDatabase(), tenantId, siteId, userId: null },
+        { messages: [{ role: 'user', content: 'Sales?' }] },
+        { factory: () => buildStubProvider() }
+      ),
+      'AI_PROVIDER_ERROR'
+    );
+    expect(
+      await getDatabase().select().from(aiAuditLog).where(eq(aiAuditLog.tenantId, tenantId))
+    ).toMatchObject([{ costState: 'unknown', inputTokens: 1200, costUsd: 0 }]);
+    expect(
+      await getDatabase()
+        .select()
+        .from(aiBudgetReservations)
+        .where(eq(aiBudgetReservations.tenantId, tenantId))
+    ).toMatchObject([{ state: 'unknown' }]);
+  });
 
   it('regenerates the context block on a follow-up call so the latest window flows through', async () => {
     const { tenantId, siteId } = await seedTenantWithAI('multi-turn');
