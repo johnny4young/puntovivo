@@ -39,7 +39,9 @@ export function DeepLinkFocusTarget({
         rect.bottom <= window.innerHeight - VIEWPORT_BOTTOM_GUTTER_PX;
 
       if ((force || !isFullyFramed) && typeof target.scrollIntoView === 'function') {
-        target.scrollIntoView({ block: 'start' });
+        // Focus moves immediately. Do not inherit the global smooth scroll:
+        // lazy-panel growth can retarget that animation after focus has moved.
+        target.scrollIntoView({ block: 'start', behavior: 'instant' });
       }
     };
 

@@ -1,8 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
+import {
+  extractDesktopIpcSessionErrorCode,
+  translateServerError,
+} from '@/lib/translateServerError';
 import { vanillaClient } from '@/lib/trpc';
 import { getErrorMessage, isOnline } from '@/lib/utils';
 import { getStoredAuthTenantId } from '@/features/auth/authStorage';
 
+/** Local sync presentation; an error blocks automatic pushes without discarding queue counts. */
 interface SyncStatus {
   isOnline: boolean;
   lastSync: Date | null;
@@ -13,6 +19,7 @@ interface SyncStatus {
 }
 
 export function useOfflineSync() {
+  const { t } = useTranslation('errors');
   const [status, setStatus] = useState<SyncStatus>({
     isOnline: isOnline(),
     lastSync: null,
@@ -64,6 +71,16 @@ export function useOfflineSync() {
         }));
         return;
       } catch (error) {
+        if (extractDesktopIpcSessionErrorCode(error)) {
+          // A closed desktop authority is an expected recovery state, not a
+          // transport outage. Do not bypass it via HTTP or expose raw IPC codes.
+          setStatus(prev => ({
+            ...prev,
+            isOnline: online,
+            error: translateServerError(error, t, t('server.unknown')),
+          }));
+          return;
+        }
         console.error('Failed to get sync status:', error);
       }
     }
@@ -85,7 +102,7 @@ export function useOfflineSync() {
         error: online ? getErrorMessage(error, 'Unable to load sync status') : prev.error,
       }));
     }
-  }, [hasDesktopSync]);
+  }, [hasDesktopSync, t]);
 
   // Trigger sync
   const triggerSync = useCallback(async () => {
@@ -138,10 +155,12 @@ export function useOfflineSync() {
       setStatus(prev => ({
         ...prev,
         isSyncing: false,
-        error: getErrorMessage(error, 'Sync failed'),
+        error: extractDesktopIpcSessionErrorCode(error)
+          ? translateServerError(error, t, t('server.unknown'))
+          : getErrorMessage(error, 'Sync failed'),
       }));
     }
-  }, [hasDesktopSync, refreshStatus, tenantId]);
+  }, [hasDesktopSync, refreshStatus, tenantId, t]);
 
   // Initial status fetch
   useEffect(() => {
@@ -228,16 +247,4 @@ export function useOfflineSync() {
     triggerSync,
     refreshStatus,
   };
-}
-
-// Hook to check if offline mode is available
-export function useOfflineCapability() {
-  // Check for Electron API or IndexedDB support on first render
-  const [hasCapability] = useState(() => {
-    const isElectron = typeof window !== 'undefined' && Boolean(window.api?.sync);
-    const hasIndexedDB = typeof indexedDB !== 'undefined';
-    return Boolean(isElectron) || hasIndexedDB;
-  });
-
-  return hasCapability;
 }

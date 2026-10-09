@@ -103,8 +103,11 @@
       "phone": "Teléfono",
       "status": "Estado",
       "locations": "Ubicaciones",
-      "noAddress": "Sin dirección",
-      "manageLocations": "Gestionar ubicaciones de la sede"
+      "noAddress": "Sin dirección"
+    },
+    "actions": {
+      "edit": "Editar {{name}}",
+      "delete": "Eliminar {{name}}"
     },
     "form": {
       "createTitle": "Crear sede",
@@ -122,7 +125,7 @@
       }
     },
     "locations": {
-      "manage": "Gestionar ubicaciones para",
+      "manage": "Gestionar ubicaciones para {{name}}",
       "title": "Gestionar ubicaciones de la sede",
       "loading": "Cargando asignaciones de ubicación...",
       "error": "No se pudieron cargar las asignaciones de ubicación",
@@ -176,7 +179,7 @@
     },
     "setupNavigation": {
       "guideTitle": "Configuración guiada",
-      "guideDescription": "Cinco áreas claras y una decisión obligatoria a la vez.",
+      "guideDescription": "Áreas claras y una decisión obligatoria a la vez.",
       "advancedTitle": "Configuración avanzada",
       "advancedDescription": "Políticas, módulos opcionales y herramientas del puesto."
     },

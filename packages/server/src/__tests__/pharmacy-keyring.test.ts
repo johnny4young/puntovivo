@@ -46,9 +46,23 @@ describe('pharmacy evidence keyring lifecycle', () => {
     expect(hasPharmacyEvidenceKey()).toBe(true);
   });
 
-  it('accepts the same configured seed and fails closed on replacement or weak input', async () => {
+  const configured = 'pharmacy-test-key-material-000000000001';
+
+  async function persistConfiguredKey(dbPath: string): Promise<void> {
+    server = await createServer({
+      dbPath,
+      seedData: false,
+      verbose: false,
+      pharmacyEvidenceKey: configured,
+    });
+    expect(await persistedSecret()).toBe(configured);
+    await server.close();
+    server = undefined;
+  }
+
+  it('accepts the same configured seed across restart', async () => {
     const dbPath = databasePath();
-    const configured = 'pharmacy-test-key-material-000000000001';
+    await persistConfiguredKey(dbPath);
     server = await createServer({
       dbPath,
       seedData: false,
@@ -56,19 +70,12 @@ describe('pharmacy evidence keyring lifecycle', () => {
       pharmacyEvidenceKey: configured,
     });
     expect(await persistedSecret()).toBe(configured);
-    await server.close();
-    server = undefined;
+    expect(hasPharmacyEvidenceKey()).toBe(true);
+  });
 
-    server = await createServer({
-      dbPath,
-      seedData: false,
-      verbose: false,
-      pharmacyEvidenceKey: configured,
-    });
-    expect(await persistedSecret()).toBe(configured);
-    await server.close();
-    server = undefined;
-
+  it('fails closed on replacement of the persisted configured seed', async () => {
+    const dbPath = databasePath();
+    await persistConfiguredKey(dbPath);
     await expect(
       createServer({
         dbPath,
@@ -78,27 +85,22 @@ describe('pharmacy evidence keyring lifecycle', () => {
       })
     ).rejects.toThrow('PHARMACY_EVIDENCE_KEY_MISMATCH');
     expect(hasPharmacyEvidenceKey()).toBe(false);
-
-    await expect(
-      createServer({
-        dbPath: databasePath(),
-        seedData: false,
-        verbose: false,
-        pharmacyEvidenceKey: 'too-short',
-      })
-    ).rejects.toThrow('PHARMACY_EVIDENCE_KEY_INVALID');
-    expect(hasPharmacyEvidenceKey()).toBe(false);
-
-    await expect(
-      createServer({
-        dbPath: databasePath(),
-        seedData: false,
-        verbose: false,
-        pharmacyEvidenceKey: ` ${configured}`,
-      })
-    ).rejects.toThrow('PHARMACY_EVIDENCE_KEY_INVALID');
-    expect(hasPharmacyEvidenceKey()).toBe(false);
   });
+
+  it.each(['too-short', ` ${configured}`])(
+    'fails closed on invalid configured input %s',
+    async pharmacyEvidenceKey => {
+      await expect(
+        createServer({
+          dbPath: databasePath(),
+          seedData: false,
+          verbose: false,
+          pharmacyEvidenceKey,
+        })
+      ).rejects.toThrow('PHARMACY_EVIDENCE_KEY_INVALID');
+      expect(hasPharmacyEvidenceKey()).toBe(false);
+    }
+  );
 
   it('measures configured key strength in bytes consistently with SQLite', async () => {
     const multibyteKey = '🔐'.repeat(8);

@@ -14,6 +14,7 @@ import { managerOrAdminRoles } from '@/features/auth/roleAccess';
 import { useIsModuleActive } from '@/features/modules';
 import { QueryErrorState } from '@/components/feedback/QueryErrorState';
 import { useTenantSettings } from '@/hooks';
+import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
 import {
   AlertTriangle,
@@ -51,8 +52,8 @@ function getStatMetric(
 }
 
 export function DashboardPage() {
-  const { formatCurrency, formatDate, formatDateTime } = useTenantSettings();
-  const { t } = useTranslation('dashboard');
+  const { formatCurrency, formatDateTime } = useTenantSettings();
+  const { t } = useTranslation(['dashboard', 'errors']);
   const { user } = useAuth();
   const anomalyModuleActive = useIsModuleActive('anomaly-detection');
   // + : anomaly detection is manager+ AND module-gated.
@@ -71,7 +72,7 @@ export function DashboardPage() {
     return (
       <QueryErrorState
         title={t('page.kicker')}
-        message={dashboardQuery.error.message}
+        message={translateServerError(dashboardQuery.error, t, t('errors:server.unknown'))}
         onRetry={() => {
           void dashboardQuery.refetch();
         }}
@@ -197,11 +198,7 @@ export function DashboardPage() {
       </section>
 
       <div className="dashboard-primary-grid pv-reveal pv-reveal-delay-1">
-        <RevenueTrendCard
-          points={revenueChart}
-          formatCurrency={formatCurrency}
-          formatDate={formatDate}
-        />
+        <RevenueTrendCard points={revenueChart} formatCurrency={formatCurrency} />
         <LowStockAlertsCard items={lowStockItems} />
       </div>
 

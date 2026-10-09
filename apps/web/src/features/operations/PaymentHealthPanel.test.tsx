@@ -57,6 +57,7 @@ vi.mock('@/lib/trpc', () => ({
   trpc: {
     useUtils: () => ({
       payments: {
+        listProposals: { invalidate: vi.fn(async () => undefined) },
         peekOutbox: { invalidate: peekOutboxInvalidate },
         reconciliation: { invalidate: reconciliationInvalidate },
         methodBreakdown: { invalidate: methodBreakdownInvalidate },
@@ -64,6 +65,8 @@ vi.mock('@/lib/trpc', () => ({
       operations: { needsAttention: { invalidate: attentionInvalidate } },
     }),
     payments: {
+      listProposals: { useQuery: () => ({ data: [], isLoading: false, error: null }) },
+      reviewProposal: { useMutation: () => ({ isPending: false, mutate: vi.fn() }) },
       reconciliation: {
         useQuery: () => ({
           data: {
