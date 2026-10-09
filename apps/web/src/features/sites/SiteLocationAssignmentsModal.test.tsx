@@ -53,4 +53,23 @@ describe('SiteLocationAssignmentsModal', () => {
     );
     expect(onSubmit).toHaveBeenCalledWith(['location-1']);
   });
+
+  it('renders the inactive badge with theme-defined warning tokens', () => {
+    render(
+      <SiteLocationAssignmentsModal
+        isOpen
+        site={null}
+        locations={[{ ...location, isActive: false }]}
+        initialLocationIds={[]}
+        isSaving={false}
+        error={null}
+        onClose={vi.fn()}
+        onSubmit={vi.fn<() => Promise<void>>().mockResolvedValue()}
+      />
+    );
+
+    const badge = screen.getByText(i18n.t('sites.locations.inactive', { ns: 'settings' }));
+    expect(badge).toHaveClass('bg-warning-50', 'text-warning-700');
+    expect(badge).not.toHaveClass('bg-warning-100');
+  });
 });

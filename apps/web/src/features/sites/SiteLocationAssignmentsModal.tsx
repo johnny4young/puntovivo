@@ -136,7 +136,7 @@ export function SiteLocationAssignmentsModal({
                       {location.code}
                     </span>
                     {!location.isActive && (
-                      <span className="rounded-full bg-warning-100 px-2 py-0.5 text-xs text-warning-800">
+                      <span className="rounded-full bg-warning-50 px-2 py-0.5 text-xs text-warning-700">
                         {t('sites.locations.inactive')}
                       </span>
                     )}
