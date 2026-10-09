@@ -11,6 +11,7 @@ import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import {
   aiAuditLog,
+  aiBudgetReservations,
   cashSessions,
   companies,
   customers,
@@ -496,6 +497,12 @@ describe('copilot provider boundary (real AI SDK, no remote calls)', () => {
   });
 
   it('does not trust a provider-originated TRPCError as an internal safe error', async () => {
+    // The previous provider-failure case legitimately leaves an unknown-cost
+    // hold on this shared tenant; start from a clear admission.
+    await getDatabase()
+      .delete(aiBudgetReservations)
+      .where(eq(aiBudgetReservations.tenantId, tenantId));
+    await getDatabase().delete(aiAuditLog).where(eq(aiAuditLog.tenantId, tenantId));
     const secret = 'PRIVATE_COPILOT_TRPC_IN_PROVIDER_ERROR';
     const model = new MockLanguageModelV4({
       doGenerate: async () => {

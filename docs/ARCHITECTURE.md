@@ -543,10 +543,10 @@ semantic correctness: a SELECT can still produce a constant despite reading a
 table, choose the wrong metric, or omit relevant records. Operators must
 inspect SQL scope and columns before acting on any figure.
 
-The generic AI completion pipeline admits one in-flight provider attempt per
-tenant through a durable, local-calendar-month SQLite reservation acquired
-under `BEGIN IMMEDIATE`. A second request while a call is in flight receives
-`AI_BUDGET_BUSY` (retry shortly); `AI_BUDGET_EXCEEDED` means the limit was
+Generic AI completions and Co-pilot chat admit one in-flight provider attempt
+per tenant through a shared, durable, local-calendar-month SQLite reservation
+acquired under `BEGIN IMMEDIATE`. A second request while a call is in flight
+receives `AI_BUDGET_BUSY` (retry shortly); `AI_BUDGET_EXCEEDED` means the limit was
 reached or an unknown-cost liability is held. Successful estimated cost and
 reservation release commit with one audit row. A failure records one audit row
 classified by what it proves:
@@ -562,7 +562,10 @@ classified by what it proves:
 Client cancellation (an HTTP disconnect) only cancels work that has not been
 dispatched; a dispatched call runs to its bounded deadline and settles its
 known cost rather than turning into an unknown liability. The SDK's implicit
-retries are disabled for this pipeline. This is a conservative **local
+retries are disabled on these paths. Co-pilot also records priced provider
+usage when it rejects an answer without validated SQL, preserves the
+call-time analytics site scope in its audit, and treats a definitive provider
+rejection as not incurred only when no earlier tool-loop step had returned. This is a conservative **local
 admission control**, not an exact USD invoice cap: a single call can exceed
 the remaining budget, and other AI entry points adopt the reservation path
 separately. Unknown liabilities are never automatically declared free: an

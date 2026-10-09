@@ -17,10 +17,11 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import { TRPCError } from '@trpc/server';
 import { eq } from 'drizzle-orm';
 import type { LanguageModelV4 } from '@ai-sdk/provider';
+import { APICallError } from 'ai';
 
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { aiAuditLog, companies, sites, tenants } from '../db/schema.js';
+import { aiAuditLog, aiBudgetReservations, companies, sites, tenants } from '../db/schema.js';
 import { ServerErrorWithCode, type ServerErrorCode } from '../lib/errorCodes.js';
 import {
   buildContextBlock,
@@ -395,6 +396,8 @@ describe('runCopilotChat — generateText receives the static system + context-p
       instructions: string;
       prompt: string;
       providerOptions?: unknown;
+      maxRetries?: number;
+      timeout?: unknown;
     };
 
     // System prompt MUST be the static instruction block; this is the
@@ -414,6 +417,8 @@ describe('runCopilotChat — generateText receives the static system + context-p
     expect(call.providerOptions).toEqual({
       anthropic: { cacheControl: { type: 'ephemeral' } },
     });
+    expect(call.maxRetries).toBe(0);
+    expect(call.timeout).toEqual({ totalMs: 60_000 });
   });
 
   it('omits providerOptions when the provider returns undefined (OpenAI path, no regression)', async () => {
@@ -736,6 +741,281 @@ describe('runCopilotChat — generateText receives the static system + context-p
       responseMode: 'verified',
       errorCode: 'AI_PROVIDER_ERROR',
     });
+    expect(
+      await getDatabase()
+        .select()
+        .from(aiBudgetReservations)
+        .where(eq(aiBudgetReservations.tenantId, tenantId))
+    ).toHaveLength(0);
+  });
+
+  it('does not dispatch a second Copilot provider call while the first holds the tenant budget', async () => {
+    const { tenantId, siteId } = await seedTenantWithAI('concurrent-budget');
+    let releaseFirst: (() => void) | undefined;
+    const firstGate = new Promise<void>(resolve => {
+      releaseFirst = resolve;
+    });
+    let calls = 0;
+    generateTextMock.mockImplementation(
+      async (options: {
+        tools: { runReadOnlySQL: { execute?: (input: { query: string }) => Promise<unknown> } };
+      }) => {
+        calls += 1;
+        if (calls === 1) await firstGate;
+        await options.tools.runReadOnlySQL.execute?.({
+          query: 'SELECT COUNT(*) AS sale_count FROM sales_summary',
+        });
+        return successfulGenerateTextResult('Summary');
+      }
+    );
+    const invoke = () =>
+      runCopilotChat(
+        { db: getDatabase(), tenantId, siteId, userId: null },
+        { messages: [{ role: 'user', content: 'Sales?' }] },
+        { factory: () => buildStubProvider() }
+      );
+    const first = invoke();
+    await vi.waitFor(() => expect(generateTextMock).toHaveBeenCalledTimes(1));
+    try {
+      await expectErrorCode(invoke(), 'AI_BUDGET_BUSY');
+      expect(generateTextMock).toHaveBeenCalledTimes(1);
+      // A busy rejection is not a call: it writes no audit row.
+      expect(
+        await getDatabase().select().from(aiAuditLog).where(eq(aiAuditLog.tenantId, tenantId))
+      ).toHaveLength(0);
+    } finally {
+      releaseFirst?.();
+    }
+    await first;
+    expect(
+      await getDatabase()
+        .select()
+        .from(aiBudgetReservations)
+        .where(eq(aiBudgetReservations.tenantId, tenantId))
+    ).toHaveLength(0);
+  });
+
+  it('retains an unknown-cost liability and rejects retry after a Copilot SDK failure', async () => {
+    const { tenantId, siteId } = await seedTenantWithAI('unknown-provider-cost');
+    generateTextMock.mockRejectedValue(new Error('provider timeout after dispatch'));
+    const invoke = () =>
+      runCopilotChat(
+        { db: getDatabase(), tenantId, siteId, userId: null },
+        { messages: [{ role: 'user', content: 'Sales?' }] },
+        { factory: () => buildStubProvider() }
+      );
+    await expectErrorCode(invoke(), 'AI_PROVIDER_ERROR');
+    const rows = await getDatabase()
+      .select()
+      .from(aiAuditLog)
+      .where(eq(aiAuditLog.tenantId, tenantId));
+    expect(rows).toMatchObject([
+      {
+        siteId: null,
+        scopeSiteIds: [siteId],
+        costState: 'unknown',
+        errorCode: 'AI_PROVIDER_ERROR',
+      },
+    ]);
+    expect(
+      await getDatabase()
+        .select()
+        .from(aiBudgetReservations)
+        .where(eq(aiBudgetReservations.tenantId, tenantId))
+    ).toMatchObject([{ state: 'unknown', auditLogId: rows[0]?.id }]);
+    await expectErrorCode(invoke(), 'AI_BUDGET_EXCEEDED');
+    expect(generateTextMock).toHaveBeenCalledTimes(1);
+    expect(
+      await getDatabase().select().from(aiAuditLog).where(eq(aiAuditLog.tenantId, tenantId))
+    ).toHaveLength(1);
+  });
+
+  it('holds a remote liability when a successful provider response has no usable usage', async () => {
+    const { tenantId, siteId } = await seedTenantWithAI('zero-provider-usage');
+    generateTextMock.mockImplementation(
+      async (options: {
+        tools: { runReadOnlySQL: { execute?: (input: { query: string }) => Promise<unknown> } };
+      }) => {
+        await options.tools.runReadOnlySQL.execute?.({
+          query: 'SELECT COUNT(*) AS sale_count FROM sales_summary',
+        });
+        return { text: 'Summary', usage: { inputTokens: 0, outputTokens: 0 } };
+      }
+    );
+    await expectErrorCode(
+      runCopilotChat(
+        { db: getDatabase(), tenantId, siteId, userId: null },
+        { messages: [{ role: 'user', content: 'Sales?' }] },
+        { factory: () => buildStubProvider() }
+      ),
+      'AI_PROVIDER_ERROR'
+    );
+    expect(
+      await getDatabase().select().from(aiAuditLog).where(eq(aiAuditLog.tenantId, tenantId))
+    ).toMatchObject([{ costState: 'unknown' }]);
+    expect(
+      await getDatabase()
+        .select()
+        .from(aiBudgetReservations)
+        .where(eq(aiBudgetReservations.tenantId, tenantId))
+    ).toMatchObject([{ state: 'unknown' }]);
+  });
+
+  it('never forwards the client abort signal to a dispatched provider call', async () => {
+    const { tenantId, siteId } = await seedTenantWithAI('cancelled-provider');
+    const controller = new AbortController();
+    generateTextMock.mockImplementation(
+      async (options: {
+        abortSignal?: AbortSignal;
+        tools: { runReadOnlySQL: { execute?: (input: { query: string }) => Promise<unknown> } };
+      }) => {
+        expect(options.abortSignal).toBeUndefined();
+        controller.abort();
+        await options.tools.runReadOnlySQL.execute?.({
+          query: 'SELECT COUNT(*) AS sale_count FROM sales_summary',
+        });
+        return successfulGenerateTextResult('Summary');
+      }
+    );
+    await expect(
+      runCopilotChat(
+        { db: getDatabase(), tenantId, siteId, userId: null, abortSignal: controller.signal },
+        { messages: [{ role: 'user', content: 'Sales?' }] },
+        { factory: () => buildStubProvider() }
+      )
+    ).resolves.toMatchObject({ rowCount: 1 });
+    expect(
+      await getDatabase().select().from(aiAuditLog).where(eq(aiAuditLog.tenantId, tenantId))
+    ).toMatchObject([{ costState: 'estimated', errorCode: null }]);
+    expect(
+      await getDatabase()
+        .select()
+        .from(aiBudgetReservations)
+        .where(eq(aiBudgetReservations.tenantId, tenantId))
+    ).toHaveLength(0);
+  });
+
+  it.each([
+    { label: '429 rate limit', statusCode: 429, costState: 'not_incurred', held: false },
+    { label: '401 credentials', statusCode: 401, costState: 'not_incurred', held: false },
+    { label: '503 unavailable', statusCode: 503, costState: 'unknown', held: true },
+  ] as const)(
+    'classifies a Copilot $label provider answer by what it proves',
+    async ({ statusCode, costState, held }) => {
+      const { tenantId, siteId } = await seedTenantWithAI(`copilot-status-${statusCode}`);
+      generateTextMock.mockRejectedValueOnce(
+        new APICallError({
+          message: `provider answered ${statusCode}`,
+          url: 'https://provider.invalid/v1/messages',
+          requestBodyValues: {},
+          statusCode,
+        })
+      );
+      await expectErrorCode(
+        runCopilotChat(
+          { db: getDatabase(), tenantId, siteId, userId: null },
+          { messages: [{ role: 'user', content: 'Sales?' }] },
+          { factory: () => buildStubProvider() }
+        ),
+        'AI_PROVIDER_ERROR'
+      );
+      expect(
+        await getDatabase().select().from(aiAuditLog).where(eq(aiAuditLog.tenantId, tenantId))
+      ).toMatchObject([{ costState, errorCode: 'AI_PROVIDER_ERROR' }]);
+      const holds = await getDatabase()
+        .select()
+        .from(aiBudgetReservations)
+        .where(eq(aiBudgetReservations.tenantId, tenantId));
+      expect(holds).toHaveLength(held ? 1 : 0);
+    }
+  );
+
+  it('keeps an unknown-cost hold when a later step is rejected after an earlier step returned', async () => {
+    const { tenantId, siteId } = await seedTenantWithAI('copilot-late-429');
+    generateTextMock.mockImplementationOnce(
+      async (options: { onLanguageModelCallEnd?: () => void }) => {
+        // Step 1 returned (and was billed) before step 2 hit a rate limit.
+        options.onLanguageModelCallEnd?.();
+        throw new APICallError({
+          message: 'provider answered 429',
+          url: 'https://provider.invalid/v1/messages',
+          requestBodyValues: {},
+          statusCode: 429,
+        });
+      }
+    );
+    await expectErrorCode(
+      runCopilotChat(
+        { db: getDatabase(), tenantId, siteId, userId: null },
+        { messages: [{ role: 'user', content: 'Sales?' }] },
+        { factory: () => buildStubProvider() }
+      ),
+      'AI_PROVIDER_ERROR'
+    );
+    expect(
+      await getDatabase().select().from(aiAuditLog).where(eq(aiAuditLog.tenantId, tenantId))
+    ).toMatchObject([{ costState: 'unknown', errorCode: 'AI_PROVIDER_ERROR' }]);
+    expect(
+      await getDatabase()
+        .select()
+        .from(aiBudgetReservations)
+        .where(eq(aiBudgetReservations.tenantId, tenantId))
+    ).toMatchObject([{ state: 'unknown' }]);
+  });
+
+  it('holds a remote liability when the provider omits a usage counter', async () => {
+    const { tenantId, siteId } = await seedTenantWithAI('copilot-missing-output-usage');
+    generateTextMock.mockImplementation(
+      async (options: {
+        tools: { runReadOnlySQL: { execute?: (input: { query: string }) => Promise<unknown> } };
+      }) => {
+        await options.tools.runReadOnlySQL.execute?.({
+          query: 'SELECT COUNT(*) AS sale_count FROM sales_summary',
+        });
+        return { text: 'Summary', usage: { inputTokens: 1200 } };
+      }
+    );
+    await expectErrorCode(
+      runCopilotChat(
+        { db: getDatabase(), tenantId, siteId, userId: null },
+        { messages: [{ role: 'user', content: 'Sales?' }] },
+        { factory: () => buildStubProvider() }
+      ),
+      'AI_PROVIDER_ERROR'
+    );
+    expect(
+      await getDatabase().select().from(aiAuditLog).where(eq(aiAuditLog.tenantId, tenantId))
+    ).toMatchObject([{ costState: 'unknown', inputTokens: 1200, costUsd: 0 }]);
+    expect(
+      await getDatabase()
+        .select()
+        .from(aiBudgetReservations)
+        .where(eq(aiBudgetReservations.tenantId, tenantId))
+    ).toMatchObject([{ state: 'unknown' }]);
+  });
+
+  it('does not reserve or dispatch when the client aborted before the provider call', async () => {
+    const { tenantId, siteId } = await seedTenantWithAI('copilot-aborted-before-dispatch');
+    const controller = new AbortController();
+    controller.abort();
+    await expectErrorCode(
+      runCopilotChat(
+        { db: getDatabase(), tenantId, siteId, userId: null, abortSignal: controller.signal },
+        { messages: [{ role: 'user', content: 'Sales?' }] },
+        { factory: () => buildStubProvider() }
+      ),
+      'AI_PROVIDER_ERROR'
+    );
+    expect(generateTextMock).not.toHaveBeenCalled();
+    expect(
+      await getDatabase().select().from(aiAuditLog).where(eq(aiAuditLog.tenantId, tenantId))
+    ).toHaveLength(0);
+    expect(
+      await getDatabase()
+        .select()
+        .from(aiBudgetReservations)
+        .where(eq(aiBudgetReservations.tenantId, tenantId))
+    ).toHaveLength(0);
   });
 
   it('regenerates the context block on a follow-up call so the latest window flows through', async () => {
