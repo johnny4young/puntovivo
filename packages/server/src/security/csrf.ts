@@ -9,7 +9,22 @@ export const CSRF_HEADER_NAME = 'x-csrf-token';
 const CSRF_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const SESSION_CSRF_TOKEN_PATTERN = /^v1\.[A-Za-z0-9_-]{43}$/;
 const SESSION_CSRF_KEY_CONTEXT = 'puntovivo/csrf/session/v1';
+const LEGACY_CSRF_KEY_CONTEXT = 'puntovivo/csrf/legacy-upgrade/v1';
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+// The HTTP hook mints/validates a companion on every cookie-bearing request.
+// Purpose-separated keys depend only on (secret, context), so derive each once.
+const derivedCsrfKeys = new Map<string, Buffer>();
+
+function deriveCsrfKey(jwtSecret: string, context: string): Buffer {
+  const cacheKey = `${context}\0${jwtSecret}`;
+  let key = derivedCsrfKeys.get(cacheKey);
+  if (!key) {
+    key = createHmac('sha256', jwtSecret).update(context).digest();
+    derivedCsrfKeys.set(cacheKey, key);
+  }
+  return key;
+}
 
 /** Refresh-family identity remains stable when its JWT jti rotates. */
 export interface SessionCsrfIdentity {
@@ -37,8 +52,7 @@ export function createSessionCsrfToken(jwtSecret: string, identity: SessionCsrfI
     throw new Error('A valid signing secret and refresh-family identity are required');
   }
 
-  const key = createHmac('sha256', jwtSecret).update(SESSION_CSRF_KEY_CONTEXT).digest();
-  const mac = createHmac('sha256', key);
+  const mac = createHmac('sha256', deriveCsrfKey(jwtSecret, SESSION_CSRF_KEY_CONTEXT));
   for (const value of [
     identity.familyId,
     identity.tenantId,
@@ -79,7 +93,7 @@ export function createLegacySessionCsrfToken(
   if (!jwtSecret || !verifiedRefreshToken) {
     throw new Error('A signing secret and verified legacy refresh token are required');
   }
-  const key = createHmac('sha256', jwtSecret).update('puntovivo/csrf/legacy-upgrade/v1').digest();
+  const key = deriveCsrfKey(jwtSecret, LEGACY_CSRF_KEY_CONTEXT);
   return `v1.${createHmac('sha256', key).update(verifiedRefreshToken).digest('base64url')}`;
 }
 
@@ -97,7 +111,8 @@ export function csrfTokensMatchLegacySession(
   );
 }
 
-function csrfTokensMatchExpected(
+/** Compare a cookie/header pair against an already minted companion. */
+export function csrfTokensMatchExpected(
   expectedToken: string,
   cookieToken: string | undefined | null,
   headerToken: string | null

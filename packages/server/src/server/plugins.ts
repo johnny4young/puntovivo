@@ -24,6 +24,7 @@ import {
   CSRF_HEADER_NAME,
   createSessionCsrfToken,
   createLegacySessionCsrfToken,
+  csrfTokensMatchExpected,
   csrfTokensMatchLegacySession,
   csrfTokensMatch,
   csrfTokensMatchSession,
@@ -184,8 +185,9 @@ export async function registerHttpPlugins(
           if (onlyRefresh) return;
         } else if (!unsafe) {
           const cookie = request.cookies[CSRF_COOKIE_NAME];
-          if (!csrfTokensMatchSession(jwtSecret, identity, cookie, cookie ?? null)) {
-            setSessionCsrfCookie(request, reply, app.mintSessionCsrfToken(identity));
+          const expected = createSessionCsrfToken(jwtSecret, identity);
+          if (!csrfTokensMatchExpected(expected, cookie, cookie ?? null)) {
+            setSessionCsrfCookie(request, reply, expected);
           }
           return;
         } else if (
@@ -205,12 +207,9 @@ export async function registerHttpPlugins(
           const legacyToken = request.cookies[REFRESH_COOKIE_NAME]!;
           if (!unsafe) {
             const cookie = request.cookies[CSRF_COOKIE_NAME];
-            if (!csrfTokensMatchLegacySession(jwtSecret, legacyToken, cookie, cookie ?? null)) {
-              setSessionCsrfCookie(
-                request,
-                reply,
-                createLegacySessionCsrfToken(jwtSecret, legacyToken)
-              );
+            const expected = createLegacySessionCsrfToken(jwtSecret, legacyToken);
+            if (!csrfTokensMatchExpected(expected, cookie, cookie ?? null)) {
+              setSessionCsrfCookie(request, reply, expected);
             }
             return;
           }
@@ -232,7 +231,6 @@ export async function registerHttpPlugins(
       }
 
       if (
-        !refresh &&
         onlyRefresh &&
         isSessionCsrfToken(request.cookies[CSRF_COOKIE_NAME]) &&
         request.cookies[CSRF_COOKIE_NAME] === csrfHeader

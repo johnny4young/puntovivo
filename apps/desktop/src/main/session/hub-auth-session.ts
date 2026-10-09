@@ -711,6 +711,8 @@ export function createHubAuthSession(options: CreateHubAuthSessionOptions): HubA
       redirect: 'error',
       headers: { cookie: `${REFRESH_COOKIE_NAME}=${auth.state.refreshToken}` },
     });
+    // Only the Set-Cookie header matters; release the connection immediately.
+    await bootstrap.body?.cancel().catch(() => {});
     requireGeneration(expected);
     if (!bootstrap.ok) {
       throw new HubAuthRemoteError({

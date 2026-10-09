@@ -65,12 +65,12 @@ import {
   rotateRefreshFamily,
 } from '../../../security/refreshTokenFamilies.js';
 import { rateLimitFor } from '../../middleware/procedureRateLimit.js';
-import { setRefreshCookie } from './helpers.js';
+import { setRefreshCookie, setSessionCsrfCookieForFamily } from './helpers.js';
 import { getDummyStaffPinHash, verifyStaffPin } from '../../../security/staffPins.js';
 import { writeAuditLog } from '../../../services/audit-logs.js';
 import { parkDraftsForIdentityChange } from '../../../application/sales/parkDraftsForIdentityChange.js';
 import { DEVICE_ID_HEADER } from '../../schemas/envelope.js';
-import { clearSessionCsrfCookie, setSessionCsrfCookie } from '../../../security/csrf.js';
+import { clearSessionCsrfCookie } from '../../../security/csrf.js';
 
 function readHeader(value: string | string[] | undefined): string | null {
   if (Array.isArray(value)) return value[0] ?? null;
@@ -262,16 +262,7 @@ export const authMutationProcedures = {
         sessionClaims
       );
       setRefreshCookie(ctx.req, ctx.res, refreshToken);
-      setSessionCsrfCookie(
-        ctx.req,
-        ctx.res,
-        ctx.req.server.mintSessionCsrfToken({
-          familyId: handoff.family.familyId,
-          tenantId: handoff.target.tenantId,
-          userId: handoff.target.id,
-          sessionVersion: handoff.target.sessionVersion,
-        })
-      );
+      setSessionCsrfCookieForFamily(ctx.req, ctx.res, handoff.target, handoff.family.familyId);
 
       return {
         token,
@@ -403,16 +394,7 @@ export const authMutationProcedures = {
     const token = signAccessToken(ctx.req.server, user);
     const refreshToken = signRefreshToken(ctx.req.server, user, family);
     setRefreshCookie(ctx.req, ctx.res, refreshToken);
-    setSessionCsrfCookie(
-      ctx.req,
-      ctx.res,
-      ctx.req.server.mintSessionCsrfToken({
-        familyId: family.familyId,
-        tenantId: user.tenantId,
-        userId: user.id,
-        sessionVersion: user.sessionVersion,
-      })
-    );
+    setSessionCsrfCookieForFamily(ctx.req, ctx.res, user, family.familyId);
 
     return {
       token,
@@ -562,16 +544,7 @@ export const authMutationProcedures = {
       const refreshToken = signRefreshToken(ctx.req.server, user, family, sessionClaims);
       setRefreshCookie(ctx.req, ctx.res, refreshToken);
       if (upgradedLegacy) {
-        setSessionCsrfCookie(
-          ctx.req,
-          ctx.res,
-          ctx.req.server.mintSessionCsrfToken({
-            familyId: family.familyId,
-            tenantId: user.tenantId,
-            userId: user.id,
-            sessionVersion: user.sessionVersion,
-          })
-        );
+        setSessionCsrfCookieForFamily(ctx.req, ctx.res, user, family.familyId);
       }
 
       return { token };
