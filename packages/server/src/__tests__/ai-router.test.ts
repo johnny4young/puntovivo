@@ -12,6 +12,7 @@ import { getDatabase } from '../db/index.js';
 import {
   aiAuditLog,
   aiAnomalySnoozes,
+  aiBudgetReservations,
   auditLogs,
   cashSessions,
   companies,
@@ -28,7 +29,9 @@ import {
   users,
 } from '../db/schema.js';
 import { ServerErrorWithCode } from '../lib/errorCodes.js';
+import { writeAuditLog } from '../services/audit-logs.js';
 import { runReadOnlySQL, validateReadOnlySQL } from '../services/ai/index.js';
+import { AI_QUOTAS } from '../services/ai/quotas.js';
 import { configureAuditAnchorKey } from '../services/audit-anchor.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
@@ -40,6 +43,7 @@ let adminId: string;
 let managerId: string;
 let cashierId: string;
 let siteId: string;
+let secondSiteId: string;
 
 function createCtx(opts: {
   tenantId: string;
@@ -157,6 +161,16 @@ beforeAll(async () => {
     createdAt: now,
     updatedAt: now,
   });
+  secondSiteId = nanoid();
+  await db.insert(sites).values({
+    id: secondSiteId,
+    tenantId,
+    companyId,
+    name: 'Second AI Site',
+    isActive: true,
+    createdAt: now,
+    updatedAt: now,
+  });
 });
 
 afterAll(async () => {
@@ -165,6 +179,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   const db = getDatabase();
+  await db.delete(aiBudgetReservations).run();
   await db.delete(aiAuditLog).run();
   await db.delete(auditLogs).where(eq(auditLogs.tenantId, tenantId)).run();
   await db.update(tenants).set({ settings: {} }).where(eq(tenants.id, tenantId));
@@ -488,6 +503,32 @@ describe('ai.invoiceOcr.confirm', () => {
       payloadHash: 'test-upload-hash',
       createdAt: now,
     });
+    await db.insert(aiAuditLog).values({
+      id: 'ai-audit-extract-1',
+      tenantId,
+      siteId,
+      userId: adminId,
+      feature: 'invoiceOcr',
+      providerId: 'textract',
+      modelId: 'aws-textract-analyze-expense',
+      inputTokens: 0,
+      outputTokens: 0,
+      costUsd: 0.01,
+      durationMs: 1,
+      errorCode: null,
+      createdAt: now,
+    });
+    db.transaction(tx =>
+      writeAuditLog({
+        tx,
+        tenantId,
+        actorId: adminId,
+        action: 'ai.invoice_ocr.extract',
+        resourceType: 'ai_feature',
+        resourceId: uploadId,
+        metadata: { aiAuditLogId: 'ai-audit-extract-1', payloadHash: 'test-upload-hash' },
+      })
+    );
 
     const caller = appRouter.createCaller(
       createCtx({ tenantId, userId: adminId, role: 'admin', siteId })
@@ -886,6 +927,109 @@ describe('ai.usageByBreakdown', () => {
   });
 });
 
+describe('ai.reconcileBudgetHold', () => {
+  async function seedUnknownHold(): Promise<string> {
+    const db = getDatabase();
+    await db
+      .update(tenants)
+      .set({ settings: { ai: { enabled: true, monthlyBudgetUsd: 5, providerId: 'anthropic' } } })
+      .where(eq(tenants.id, tenantId));
+    const auditId = nanoid();
+    const createdAt = new Date().toISOString();
+    await db.insert(aiAuditLog).values({
+      id: auditId,
+      tenantId,
+      siteId,
+      userId: adminId,
+      feature: 'completeTest',
+      providerId: 'anthropic',
+      modelId: 'claude-haiku-4-5',
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      costUsd: 0,
+      costState: 'unknown',
+      durationMs: 60_000,
+      errorCode: 'AI_PROVIDER_ERROR',
+      createdAt,
+    });
+    const now = new Date();
+    await db.insert(aiBudgetReservations).values({
+      id: nanoid(),
+      tenantId,
+      monthStart: new Date(now.getFullYear(), now.getMonth(), 1).toISOString(),
+      state: 'unknown',
+      auditLogId: auditId,
+      createdAt,
+    });
+    return auditId;
+  }
+
+  it('lets an admin book the billed cost and release the hold, with an audit row', async () => {
+    const auditId = await seedUnknownHold();
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: adminId, role: 'admin', siteId })
+    );
+    await expect(
+      caller.ai.reconcileBudgetHold({ costUsd: 0.04, note: 'Matched provider invoice line' })
+    ).resolves.toMatchObject({ reconciledCalls: 1, releasedReservation: true, costUsd: 0.04 });
+    const db = getDatabase();
+    expect(await db.select().from(aiAuditLog).where(eq(aiAuditLog.id, auditId))).toMatchObject([
+      { costState: 'estimated', costUsd: 0.04 },
+    ]);
+    expect(
+      await db
+        .select()
+        .from(aiBudgetReservations)
+        .where(eq(aiBudgetReservations.tenantId, tenantId))
+    ).toEqual([]);
+    expect(
+      await db
+        .select()
+        .from(auditLogs)
+        .where(
+          and(eq(auditLogs.tenantId, tenantId), eq(auditLogs.action, 'ai.budget_hold.reconciled'))
+        )
+    ).toHaveLength(1);
+  });
+
+  it.each(['manager', 'cashier'] as const)('forbids a %s from releasing the hold', async role => {
+    await seedUnknownHold();
+    const caller = appRouter.createCaller(
+      createCtx({
+        tenantId,
+        userId: role === 'manager' ? managerId : cashierId,
+        role,
+        siteId,
+      })
+    );
+    await expect(
+      caller.ai.reconcileBudgetHold({ costUsd: 0, note: 'Not my call to make' })
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    expect(
+      await getDatabase()
+        .select()
+        .from(aiBudgetReservations)
+        .where(eq(aiBudgetReservations.tenantId, tenantId))
+    ).toMatchObject([{ state: 'unknown' }]);
+  });
+
+  it('rejects a negative amount or a missing note at the boundary', async () => {
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: adminId, role: 'admin', siteId })
+    );
+    await expect(
+      caller.ai.reconcileBudgetHold({ costUsd: -1, note: 'negative' })
+    ).rejects.toMatchObject({
+      code: 'BAD_REQUEST',
+    });
+    await expect(caller.ai.reconcileBudgetHold({ costUsd: 1, note: '  ' })).rejects.toMatchObject({
+      code: 'BAD_REQUEST',
+    });
+  });
+});
+
 describe('ai.completeTest', () => {
   it('throws AI_DISABLED when the tenant has not enabled AI', async () => {
     const caller = appRouter.createCaller(
@@ -947,6 +1091,115 @@ describe('ai.completeTest', () => {
 });
 
 describe('ai.copilot.chat', () => {
+  async function fillCopilotQuota(chargedSiteId: string) {
+    const now = new Date().toISOString();
+    for (let index = 0; index < AI_QUOTAS.copilot; index++) {
+      await getDatabase().insert(aiAuditLog).values({
+        id: nanoid(),
+        tenantId,
+        siteId: chargedSiteId,
+        userId: adminId,
+        feature: 'copilot',
+        providerId: 'anthropic',
+        modelId: 'claude-haiku-4-5',
+        inputTokens: 1,
+        outputTokens: 1,
+        costUsd: 0,
+        durationMs: 1,
+        errorCode: null,
+        createdAt: now,
+      });
+    }
+  }
+
+  it('charges an explicit same-tenant analytics site instead of the header site', async () => {
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: adminId, role: 'admin', siteId })
+    );
+    await caller.ai.settings.update({
+      enabled: true,
+      monthlyBudgetUsd: 5,
+      features: { copilot: { enabled: true } },
+    });
+    await fillCopilotQuota(siteId);
+
+    const original = process.env.ANTHROPIC_API_KEY;
+    try {
+      delete process.env.ANTHROPIC_API_KEY;
+      await expect(
+        caller.ai.copilot.chat({
+          messages: [{ role: 'user', content: 'Show the second site sales' }],
+          context: { siteId: secondSiteId },
+        })
+      ).rejects.toMatchObject({ cause: { errorCode: 'AI_PROVIDER_ERROR' } });
+    } finally {
+      if (original === undefined) delete process.env.ANTHROPIC_API_KEY;
+      else process.env.ANTHROPIC_API_KEY = original;
+    }
+  });
+
+  it('checks every site quota for tenant-wide analytics', async () => {
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: adminId, role: 'admin', siteId })
+    );
+    await caller.ai.settings.update({
+      enabled: true,
+      monthlyBudgetUsd: 5,
+      features: { copilot: { enabled: true } },
+    });
+    await fillCopilotQuota(secondSiteId);
+
+    const original = process.env.ANTHROPIC_API_KEY;
+    try {
+      delete process.env.ANTHROPIC_API_KEY;
+      await expect(
+        caller.ai.copilot.chat({ messages: [{ role: 'user', content: 'Show all sales' }] })
+      ).rejects.toMatchObject({ cause: { errorCode: 'AI_QUOTA_EXCEEDED' } });
+    } finally {
+      if (original === undefined) delete process.env.ANTHROPIC_API_KEY;
+      else process.env.ANTHROPIC_API_KEY = original;
+    }
+  });
+
+  it('rejects a foreign analytics site before provider resolution', async () => {
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: adminId, role: 'admin', siteId })
+    );
+    await caller.ai.settings.update({
+      enabled: true,
+      monthlyBudgetUsd: 5,
+      features: { copilot: { enabled: true } },
+    });
+    const otherSiteId = nanoid();
+    const otherCompanyId = nanoid();
+    await getDatabase().insert(companies).values({
+      id: otherCompanyId,
+      tenantId: tenantOther,
+      name: 'Foreign AI Company',
+    });
+    await getDatabase().insert(sites).values({
+      id: otherSiteId,
+      tenantId: tenantOther,
+      companyId: otherCompanyId,
+      name: 'Foreign AI Site',
+      isActive: true,
+    });
+
+    const original = process.env.ANTHROPIC_API_KEY;
+    try {
+      delete process.env.ANTHROPIC_API_KEY;
+      await expect(
+        caller.ai.copilot.chat({
+          messages: [{ role: 'user', content: 'Show foreign sales' }],
+          context: { siteId: otherSiteId },
+        })
+      ).rejects.toMatchObject({ cause: { errorCode: 'AI_COPILOT_SQL_REJECTED' } });
+    } finally {
+      if (original === undefined) delete process.env.ANTHROPIC_API_KEY;
+      else process.env.ANTHROPIC_API_KEY = original;
+    }
+  });
+
   it('allows manager callers through the role guard and preserves AI_DISABLED', async () => {
     const caller = appRouter.createCaller(
       createCtx({ tenantId, userId: managerId, role: 'manager', siteId })

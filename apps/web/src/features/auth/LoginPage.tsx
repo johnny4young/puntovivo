@@ -1,6 +1,7 @@
 import { lazy, Suspense, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { vanillaClient } from '@/lib/trpc';
+import { ensureApiBootstrap } from '@/lib/apiBootstrap';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Eye, EyeOff, LogIn, ScanLine, ShieldCheck, Warehouse } from 'lucide-react';
@@ -18,7 +19,12 @@ export function LoginPage() {
   const [showExistingSignIn, setShowExistingSignIn] = useState(false);
   const setup = useQuery({
     queryKey: ['installation-setup-status'],
-    queryFn: () => vanillaClient.auth.setupStatus.query(),
+    queryFn: async () => {
+      // Concurrent pre-auth reads can replace a missing companion differently.
+      // Share the initial safe response before starting another cookie-bearing read.
+      await ensureApiBootstrap();
+      return vanillaClient.auth.setupStatus.query();
+    },
     retry: false,
     gcTime: 0,
     staleTime: 0,

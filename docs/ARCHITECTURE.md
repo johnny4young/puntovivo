@@ -132,6 +132,10 @@ display.
   cashier.
 - Versioned mutable resources use compare-and-swap updates and report conflicts
   rather than silently overwriting concurrent edits.
+- AI payment tie-breaks create durable, tenant-scoped review proposals, never
+  settlements. An admin decision revalidates the selected provider statement
+  and outbox row before an atomic status change and audit; see
+  [ADR-0031](architecture/0031-human-review-of-ai-payment-proposals.md).
 - Payment, hardware, and sync effects use dedicated durable outboxes. A
   fiscal-enabled completed sale first records a frozen emission intent in the
   sale transaction; the fiscal worker materializes that intent into the fiscal
@@ -216,13 +220,42 @@ display.
   completed without an active template remains on the legacy renderer even if
   a template is configured later.
 
+## Reporting calendar boundary
+
+Dashboard today, its thirty-calendar-day revenue series, and its seven-day top
+products use the timezone resolved by `services/tenant-locale.ts`: explicit
+tenant override, country default, then the existing unconfigured fallback.
+`services/reports/day-window.ts` converts each calendar date into a half-open
+UTC interval, including DST days and skipped local midnights. Reporting never
+adds a fixed 24 hours to advance a local day or rewrites stored timestamps.
+
+Completed sales are attributed by `checkoutCompletedAt`, with `createdAt` only
+for historical rows without completion telemetry. Returns subtract immutable
+amounts on their own booking day, not the original sale day. Today's money and
+order count are the same aggregate as the final chart bucket. Fully returned
+orders remain excluded from throughput while both dated money events remain
+visible. Top products retain their positive-net-quantity policy and exclude
+both sale and return events outside the same bounded local reporting window.
+
+Calendar labels remain date-only values in the UI. A successful locale-setting
+change invalidates the dashboard aggregate as well as locale formatting; a
+cached old timezone must not survive a settings round trip. Locale writes reject
+unsupported named time zones and fixed numeric offsets. A legacy invalid override
+fails the dashboard closed with `TENANT_TIMEZONE_INVALID` and localized repair
+instructions; it never silently substitutes another calendar. Administrators can
+correct the override or clear it to restore country-default inheritance.
+
 ## Local storage and recovery
 
 Packaged Electron databases use SQLCipher. The database key is obtained through
 Electron secure storage and never crosses into the renderer. Node and Electron
 share the target platform's bundled better-sqlite3 v13 Node-API binary. Runtime
 preflights execute a SQLCipher probe under Node or Electron, and desktop
-packaging prunes every non-target native binary before signing.
+packaging prunes every non-target native binary before signing. Forge and
+electron-builder do not recompile these portable addons; the runtime probe, not
+an ABI-specific rebuild, qualifies them. Production main/preload builds execute
+the public Forge Vite plugin hooks from the same configuration as development,
+without invoking Forge packaging or publication.
 
 Backups are encrypted bundles with integrity inspection. Creation checkpoints
 the WAL first, derives passphrase keys asynchronously through a bounded scrypt
@@ -449,6 +482,19 @@ can compute aliases, substrings, encodings or aggregates. All tool steps use the
 same snapshot; it closes on success and failure. Joins additionally constrain
 the ownership of customers, users, sites, cash sessions and products.
 
+The analytics body site, when present, defines the filtered snapshot and the
+site charged by the Co-pilot quota; the selected UI site is only a prompt focus.
+An omitted or null body site retains tenant-wide analytics. Those requests
+check the quota of every tenant site the snapshot can read and record one
+site-less audit row, so their cost is not duplicated across sites. A tenant-wide
+successful row stores its call-time site list and counts once in each listed
+site's monthly Co-pilot usage projection, without retroactively charging sites
+created later in the month. Successful site-less rows written before that list
+existed have unknown scope and conservatively count against every site.
+The web conversation explicitly selects all sites or the current site,
+clears earlier evidence when that selection changes, and discards responses
+that finish after the user or site context has changed.
+
 The same dictionary protects matching whole values in every user and assistant
 message and in the snapshot's operational labels. This is not a general PII
 detector or anonymization. The dictionary covers only identities present in the
@@ -471,6 +517,129 @@ identity maps are not persisted to the AI audit log. Provider-boundary tests use
 the real AI SDK with an in-process fake model and inspect every serialized model
 call, including the calls following tool results and tool errors. These tests
 are not a live-provider certification.
+
+AI provider, SDK, and analytics SQLite exceptions are untrusted diagnostics:
+client-facing tRPC errors expose a fixed fallback and stable error code, never
+the raw exception message or a `cause` detail. Invoice OCR and voice
+transcription parse failures keep their distinct code from transport failures.
+The tenant audit records the code and call metadata, not exception text; only
+locally constructed domain errors may cross the Co-pilot boundary unchanged.
+Server logs carry only `summarizeProviderError` output (error class name,
+HTTP status, transport code; the AI SDK retry wrapper is unwrapped to its last
+provider answer) plus tenant, feature, provider, model and error code, never
+the raw error object. This contract limits secondary leakage through the
+browser response, centralized error tracing and server logs.
+
+Every Co-pilot response requires at least one successful read-only SQL query
+against a provider-safe snapshot table. The model-facing tool rejects
+constant-only and CTE queries; authorized local SQL retains its separate WITH
+contract. Up to five model SQL attempts are allowed, and every successful
+result is returned in order rather than hiding earlier queries. Neither mode
+displays model-authored prose. Guided mode adds only localized, deterministic
+review guidance; verified-results mode shows queries and rows without that
+guide. The provider's actual token usage is audited even when a response fails
+the SQL requirement. These checks establish a minimum source boundary, **not**
+semantic correctness: a SELECT can still produce a constant despite reading a
+table, choose the wrong metric, or omit relevant records. Operators must
+inspect SQL scope and columns before acting on any figure.
+
+Generic AI completions, Co-pilot chat, voice transcription, legacy vision
+invoice extraction, and Textract-backed invoice extraction admit one in-flight
+provider attempt per tenant through a shared, durable, local-calendar-month
+SQLite reservation acquired under `BEGIN IMMEDIATE`. Co-pilot checks every
+authorized snapshot site's remaining monthly quota inside that same write
+transaction, immediately before provider dispatch. Textract extraction also
+rechecks the active site's invoice quota and tenant ownership under the writer
+lock; earlier router checks provide only fast rejection. Upload, extraction,
+and confirmation require the same active site. A second request while a call
+is in flight receives `AI_BUDGET_BUSY` (retry shortly) before any quota is evaluated, because the
+in-flight call may still consume the last slot; `AI_BUDGET_EXCEEDED` means the
+limit was reached or an unknown-cost liability is held. Successful estimated
+cost and reservation release commit with one audit row. A failure records one audit row
+classified by what it proves:
+
+- a definitive provider rejection (HTTP 400/401/403/404/422/429) or a
+  connection that was never established (refused, DNS failure, connect
+  timeout, TLS handshake rejection) is `not_incurred` and releases the hold;
+- an Ollama model-call failure is `local_zero` and releases the hold;
+- every other remote failure (5xx, a reset after the request was sent, our
+  60 s deadline, an unpriceable or malformed result) is `unknown` and retains
+  a month-scoped liability hold.
+
+Client cancellation only cancels work that has not been dispatched. The
+Co-pilot chat, connection-test, voice-transcription, legacy vision-invoice,
+and Textract invoice procedures pass tRPC's request signal (aborted when the
+HTTP response closes before the procedure answers; direct callers may omit it)
+to the service as an admission check; it stops the request before
+admission, without an audit row or hold, but never reaches a dispatched
+provider call, which runs to its bounded deadline and settles its known cost
+rather than turning into an unknown liability. The SDK's implicit
+retries are disabled on these paths. Voice transcription prices the returned
+audio duration; a missing duration or pricing row is not treated as a free
+transcript. Audio sent without a transcript coming back
+(`NoTranscriptGeneratedError`, e.g. silence) was still processed and billed
+per audio minute: it settles `estimated` at the audio duration the provider
+reported before the SDK rejected the empty text, never as an unknown
+liability; when no duration was reported it is held as unknown. Co-pilot also records priced provider
+usage when it rejects an answer without validated SQL, preserves the
+call-time analytics site scope in its audit, and treats a definitive provider
+rejection as not incurred only when no earlier tool-loop step had returned. This is a conservative **local
+admission control**, not an exact USD invoice cap: a single call can exceed
+the remaining budget, and other AI entry points adopt the reservation path
+separately. Unknown liabilities are never automatically declared free: an
+administrator books the provider-billed amount with
+`ai.reconcileBudgetHold({ costUsd, note })` (AI settings card), which marks
+the month's unknown rows `estimated`, releases the hold and writes an
+`ai.budget_hold.reconciled` row to the tenant audit chain. A live in-flight
+admission is never released. A `pending` admission older than 10 minutes
+(every dispatch is bounded at 60 s) was orphaned by a crash or restart; the
+next admission or reconciliation converts it into a visible `unknown`
+liability with a `budgetHoldRecovery` audit row instead of leaving it
+"in progress" forever. Preparation-hook failures occur before dispatch and
+are sanitized without creating a call or liability. Malformed remote token
+counters are not usable pricing evidence: valid counters remain auditable,
+invalid counters store zero only alongside an unknown cost and retained hold.
+A reservation remains in its original month across restart and rollover;
+admitting a later month is not a reconciliation or proof that the earlier
+provider call was free. Legacy vision invoice extraction settles token-priced usage like the
+completion pipeline, and a local Ollama vision call settles `local_zero` and
+releases its hold. Textract prices returned `DocumentMetadata.Pages` against an
+operator-configured USD-per-page estimate for the exact AWS region; missing
+price configuration blocks dispatch, and the estimate is not an AWS billing
+statement or a guaranteed cap across pricing tiers. AWS answers that prove
+no page was processed (throttling, access denied, unsupported document,
+invalid parameter and other 4xx client faults, or credentials that fail
+before any request is sent) release the hold; missing page
+metadata after dispatch keeps an unknown liability. The Textract client
+makes a single attempt. Month boundaries use the server's local calendar,
+like the quota and spend reports; per-tenant time zones are a follow-up.
+
+The synchronous Textract path preserves one-page PDF support, but parses PDF
+bytes locally before regional-price lookup, budget reservation, and provider
+dispatch. A ten-second preflight must find exactly one retrievable page;
+malformed, unreadable, or multi-page PDFs fail without a cost reservation or
+unknown-liability audit. This guard is not a promise that Textract accepts
+every syntactically valid PDF or that a provider-side failure is free after
+dispatch. JPEG and PNG do not load the PDF parser.
+
+The Electron main bundle must ship PDF.js's matching `pdf.worker.mjs` next to
+its generated PDF chunk; `build:main` parses a one-page fixture from the
+generated bundle so a missing worker fails CI and packaging before release.
+
+Invoice OCR confirmation accepts only a successful extraction audit linked to
+the same tenant, active site, upload and upload payload hash. One
+`BEGIN IMMEDIATE` transaction allocates the purchase number, creates the draft
+and items, enqueues its sync intent, and appends the confirmation audit. A
+tenant-scoped unique extraction claim and reviewed-input hash make an identical
+retry return the original draft without new side effects; a changed review
+conflicts. A committed retry remains available after extraction-audit metadata
+retention or feature disablement, while an uncommitted confirmation fails closed
+if its provenance is missing. The persisted draft uses net line costs, and
+confirmation rejects a mismatch between those costs, reviewed subtotal, tax,
+and invoice total. Textract does not indicate whether a line's unit price
+includes tax; a tax-inclusive line can therefore be rejected until an explicit
+tax-basis correction flow is implemented. Do not weaken reconciliation to make
+that invoice pass implicitly.
 
 ## Price-tier boundary
 
@@ -805,6 +974,17 @@ multi-master cloud replication. Public readiness and known operational gaps are
 listed in [PROJECT-STATUS.md](./PROJECT-STATUS.md).
 
 The current sync push path acknowledges local queue work, not remote delivery.
+For each selected outbox ID, `sync.push` takes an IMMEDIATE SQLite writer
+transaction and rereads the tenant-owned row. Only a current `queued` or
+`retrying` row is processed; a deleted or completed row is skipped without
+claiming it as processed. Entity metadata, a conflict or failure record, outbox
+state, and the successful last-sync marker commit or roll back together for
+that row. Helpers use synchronous statements on the same connection; the
+transaction must not contain asynchronous work. The last-sync marker does not
+move backward if the clock does. This is per-row atomicity, not an all-or-nothing
+batch or an acknowledgement from a remote server, and does not rearm durable
+`submitting` claims.
+
 The v4 contract separately exposes operator recovery restrictions: inventory
 aggregates cannot be replaced or discarded through arbitrary JSON, and product
 recovery accepts only allowlisted metadata for an existing tenant product.
@@ -913,3 +1093,25 @@ Electron accepts only the trusted main window's main frame and dispatches the
 fixed tRPC command through Fastify in-process transport, keeping capability and
 CSRF material in main. This is not a generic HTTP proxy. Safe IPC results never
 forward transport, SQLite or native invoke exception messages.
+
+## Session-bound CSRF companion
+
+Authenticated cookie requests use an opaque HMAC companion bound to the verified
+refresh family, tenant, user and session version. Cookie/header equality alone
+never authorizes a live session. Safe reads repair the companion deterministically;
+refresh rotation keeps it stable, while login and staff handoff replace it.
+Revocation clears it alongside the refresh cookie. The HTTP hook deliberately
+leaves stale-JTI classification to the existing refresh replay detector.
+
+A verified pre-family refresh JWT can bootstrap a separate, purpose-bound HMAC
+proof on a safe read. Only the standalone refresh endpoint accepts that proof
+and exchanges it for a new family; mixed batches and business mutations reject
+it. Invalid or partially family-tagged credentials cannot use this upgrade.
+Unverifiable sessions must sign in again; there is no equality-only authenticated
+compatibility mode. Pre-auth installation ownership retains its separate contract.
+
+The Web auth bootstrap performs its safe read before refresh. Store Hub keeps
+refresh/CSRF custody in Electron main. After an explicit pre-handler CSRF rejection,
+main may repair the companion through one safe same-Hub read and retry refresh
+once, fenced against identity changes. It never retries replay rejection or an
+ambiguous network/server failure. Hub HTTPS requirements remain unchanged.

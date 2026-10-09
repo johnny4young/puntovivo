@@ -10,14 +10,17 @@
  * here — the cart-command parser + audio-capture UI land in
  * follow-up slices.
  */
+import { expectNoPublicDiagnostic, withProviderFailureLog } from './utils/ai-error-privacy.js';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TRPCError } from '@trpc/server';
 import { eq } from 'drizzle-orm';
 import { hash } from 'argon2';
 import { nanoid } from 'nanoid';
 import type { TranscriptionModelV4 } from '@ai-sdk/provider';
+import { APICallError } from 'ai';
 
 const transcribeMock = vi.fn();
+const doGenerateMock = vi.fn();
 
 vi.mock('ai', async () => {
   const actual = await vi.importActual<typeof import('ai')>('ai');
@@ -40,16 +43,23 @@ vi.mock('../services/ai/providers/openai.js', async () => {
     openaiProvider: {
       ...actual.openaiProvider,
       isConfigured: () => true,
-      transcriptionModel: (_modelId: string) => ({}) as TranscriptionModelV4,
+      transcriptionModel: (modelId: string) =>
+        ({
+          specificationVersion: 'v4',
+          provider: 'openai.transcription',
+          modelId,
+          doGenerate: (...args: unknown[]) => doGenerateMock(...args),
+        }) as TranscriptionModelV4,
     },
   };
 });
 
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { aiAuditLog, tenants, users } from '../db/schema.js';
+import { aiAuditLog, aiBudgetReservations, tenants, users } from '../db/schema.js';
 import { ServerErrorWithCode } from '../lib/errorCodes.js';
 import { appRouter } from '../trpc/router.js';
+import { transcribeAudio as transcribeAudioService } from '../services/ai/voice/transcribe.js';
 import type { Context } from '../trpc/context.js';
 
 let server: PuntovivoServer;
@@ -175,6 +185,7 @@ afterAll(async () => {
 
 beforeEach(() => {
   transcribeMock.mockReset();
+  doGenerateMock.mockReset();
 });
 
 describe('ai.transcribeAudio ( slice 1)', () => {
@@ -310,23 +321,32 @@ describe('ai.transcribeAudio ( slice 1)', () => {
     // Plain Error matching the substring fallback the service narrows
     // on. Avoids constructing the typed `NoTranscriptGeneratedError`
     // which has a private constructor in some SDK versions.
-    transcribeMock.mockRejectedValue(new Error('No transcript generated from the provider'));
+    const secret = 'PRIVATE_AUDIO_IN_PROVIDER_ERROR';
+    transcribeMock.mockRejectedValue(
+      new Error(`No transcript generated from the provider ${secret}`)
+    );
 
     const caller = appRouter.createCaller(
       createCtx({ tenantId, userId: managerId, role: 'manager' })
     );
     let caught: unknown;
     try {
-      await caller.ai.transcribeAudio({
-        audioBase64: base64OfDecodedBytes(1024),
-        mimeType: 'audio/webm',
-      });
+      await withProviderFailureLog(() =>
+        caller.ai.transcribeAudio({
+          audioBase64: base64OfDecodedBytes(1024),
+          mimeType: 'audio/webm',
+        })
+      );
     } catch (error) {
       caught = error;
     }
     expect(caught).toBeInstanceOf(TRPCError);
     const cause = (caught as TRPCError).cause;
     expect((cause as ServerErrorWithCode).errorCode).toBe('AI_VOICE_PARSE_FAILED');
+    expect((caught as TRPCError).message).toBe('Voice transcription could not be parsed');
+    expect((caught as TRPCError).message).not.toContain(secret);
+    expectNoPublicDiagnostic(caught, secret);
+    expect((cause as ServerErrorWithCode).details).toBeUndefined();
 
     const audit = await getDatabase()
       .select()
@@ -336,6 +356,43 @@ describe('ai.transcribeAudio ( slice 1)', () => {
     expect(audit).toHaveLength(1);
     expect(audit[0]?.errorCode).toBe('AI_VOICE_PARSE_FAILED');
     expect(audit[0]?.costUsd).toBe(0);
+  });
+
+  it('does not expose voice provider transport diagnostics', async () => {
+    const { tenantId, managerId } = await seedTenant('provider-fail', { aiEnabled: true });
+    const secret = 'PRIVATE_AUDIO_IN_TRANSPORT_ERROR';
+    transcribeMock.mockRejectedValue(new Error(`Provider unavailable ${secret}`));
+
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: managerId, role: 'manager' })
+    );
+    let caught: unknown;
+    try {
+      await withProviderFailureLog(() =>
+        caller.ai.transcribeAudio({
+          audioBase64: base64OfDecodedBytes(1024),
+          mimeType: 'audio/webm',
+        })
+      );
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(TRPCError);
+    expect((caught as TRPCError).message).toBe('Voice provider call failed');
+    expect((caught as TRPCError).message).not.toContain(secret);
+    expectNoPublicDiagnostic(caught, secret);
+    expect(((caught as TRPCError).cause as ServerErrorWithCode).errorCode).toBe(
+      'AI_PROVIDER_ERROR'
+    );
+    expect(((caught as TRPCError).cause as ServerErrorWithCode).details).toBeUndefined();
+
+    const audit = await getDatabase()
+      .select()
+      .from(aiAuditLog)
+      .where(eq(aiAuditLog.tenantId, tenantId))
+      .all();
+    expect(audit).toHaveLength(1);
+    expect(audit[0]?.errorCode).toBe('AI_PROVIDER_ERROR');
   });
 
   it('throws AI_BUDGET_EXCEEDED before invoking the provider', async () => {
@@ -451,6 +508,261 @@ describe('ai.transcribeAudio ( slice 1)', () => {
       .where(eq(aiAuditLog.tenantId, tenantId))
       .all();
     expect(audit[0]?.modelId).toBe('whisper-1');
+  });
+
+  it('does not reserve or call the provider for an already aborted voice request', async () => {
+    const { tenantId, managerId } = await seedTenant('pre-aborted', { aiEnabled: true });
+    const controller = new AbortController();
+    controller.abort();
+    await expect(
+      transcribeAudioService(
+        {
+          db: getDatabase(),
+          tenantId,
+          siteId: null,
+          userId: managerId,
+          abortSignal: controller.signal,
+        },
+        { audioBase64: base64OfDecodedBytes(1024), mimeType: 'audio/webm' }
+      )
+    ).rejects.toMatchObject({ name: 'AbortError' });
+    expect(transcribeMock).not.toHaveBeenCalled();
+    expect(
+      await getDatabase().select().from(aiAuditLog).where(eq(aiAuditLog.tenantId, tenantId)).all()
+    ).toHaveLength(0);
+    expect(
+      await getDatabase()
+        .select()
+        .from(aiBudgetReservations)
+        .where(eq(aiBudgetReservations.tenantId, tenantId))
+        .all()
+    ).toHaveLength(0);
+  });
+
+  it('admits only one in-flight transcription for a tenant and settles its estimate', async () => {
+    const { tenantId, managerId } = await seedTenant('concurrent', { aiEnabled: true });
+    let finish!: (value: unknown) => void;
+    transcribeMock.mockImplementationOnce(
+      () =>
+        new Promise(resolve => {
+          finish = resolve;
+        })
+    );
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: managerId, role: 'manager' })
+    );
+    const input = { audioBase64: base64OfDecodedBytes(1024), mimeType: 'audio/webm' as const };
+    const first = caller.ai.transcribeAudio(input);
+    await vi.waitFor(() => expect(transcribeMock).toHaveBeenCalledTimes(1));
+
+    await expect(caller.ai.transcribeAudio(input)).rejects.toMatchObject({
+      cause: { errorCode: 'AI_BUDGET_BUSY' },
+    });
+    expect(transcribeMock).toHaveBeenCalledTimes(1);
+
+    finish({
+      text: 'hola',
+      language: 'es',
+      durationInSeconds: 4,
+      segments: [],
+      warnings: [],
+      responses: [],
+      providerMetadata: {},
+    });
+    await expect(first).resolves.toMatchObject({ transcript: 'hola' });
+    const audit = await getDatabase()
+      .select()
+      .from(aiAuditLog)
+      .where(eq(aiAuditLog.tenantId, tenantId))
+      .all();
+    expect(audit).toHaveLength(1);
+    expect(audit[0]?.costState).toBe('estimated');
+    expect(
+      await getDatabase()
+        .select()
+        .from(aiBudgetReservations)
+        .where(eq(aiBudgetReservations.tenantId, tenantId))
+        .all()
+    ).toHaveLength(0);
+  });
+
+  it('retains unknown remote liability after provider failure instead of treating retry as free', async () => {
+    const { tenantId, managerId } = await seedTenant('remote-failure', { aiEnabled: true });
+    transcribeMock.mockRejectedValueOnce(new Error('upstream connection reset'));
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: managerId, role: 'manager' })
+    );
+    const input = { audioBase64: base64OfDecodedBytes(1024), mimeType: 'audio/webm' as const };
+
+    await expect(caller.ai.transcribeAudio(input)).rejects.toMatchObject({
+      cause: { errorCode: 'AI_PROVIDER_ERROR' },
+    });
+    await expect(caller.ai.transcribeAudio(input)).rejects.toMatchObject({
+      cause: { errorCode: 'AI_BUDGET_EXCEEDED' },
+    });
+    expect(transcribeMock).toHaveBeenCalledTimes(1);
+    const audit = await getDatabase()
+      .select()
+      .from(aiAuditLog)
+      .where(eq(aiAuditLog.tenantId, tenantId))
+      .all();
+    expect(audit).toHaveLength(1);
+    expect(audit[0]?.costState).toBe('unknown');
+    expect(
+      await getDatabase()
+        .select()
+        .from(aiBudgetReservations)
+        .where(eq(aiBudgetReservations.tenantId, tenantId))
+        .all()
+    ).toMatchObject([{ state: 'unknown' }]);
+  });
+
+  it('does not report zero cost when a remote transcript omits billable duration', async () => {
+    const { tenantId, managerId } = await seedTenant('missing-duration', { aiEnabled: true });
+    transcribeMock.mockResolvedValueOnce({
+      text: 'hola',
+      language: 'es',
+      segments: [],
+      warnings: [],
+      responses: [],
+      providerMetadata: {},
+    });
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: managerId, role: 'manager' })
+    );
+
+    await expect(
+      caller.ai.transcribeAudio({ audioBase64: base64OfDecodedBytes(1024), mimeType: 'audio/webm' })
+    ).rejects.toMatchObject({
+      cause: { errorCode: 'AI_PROVIDER_ERROR' },
+    });
+    const audit = await getDatabase()
+      .select()
+      .from(aiAuditLog)
+      .where(eq(aiAuditLog.tenantId, tenantId))
+      .all();
+    expect(audit).toMatchObject([{ costState: 'unknown' }]);
+  });
+
+  it('lets a dispatched transcription finish and settle its cost after a disconnect', async () => {
+    const { tenantId, managerId } = await seedTenant('disconnect', { aiEnabled: true });
+    const controller = new AbortController();
+    const ctx = createCtx({ tenantId, userId: managerId, role: 'manager' });
+    let finish!: () => void;
+    transcribeMock.mockImplementationOnce(
+      () =>
+        new Promise(resolve => {
+          finish = () =>
+            resolve({
+              text: 'dos cocas',
+              language: 'es',
+              durationInSeconds: 3,
+              segments: [],
+              warnings: [],
+              responses: [],
+              providerMetadata: {},
+            });
+        })
+    );
+    const caller = appRouter.createCaller(ctx, { signal: controller.signal });
+    const pending = caller.ai.transcribeAudio({
+      audioBase64: base64OfDecodedBytes(1024),
+      mimeType: 'audio/webm',
+    });
+    await vi.waitFor(() => expect(transcribeMock).toHaveBeenCalledTimes(1));
+    const options = transcribeMock.mock.calls[0]?.[0] as {
+      abortSignal?: AbortSignal;
+      maxRetries?: number;
+    };
+    controller.abort();
+    // The client close is admission-only: the provider call keeps running.
+    expect(options.abortSignal?.aborted).toBe(false);
+    expect(options.maxRetries).toBe(0);
+    finish();
+    await expect(pending).resolves.toMatchObject({ transcript: 'dos cocas' });
+    const audit = await getDatabase()
+      .select()
+      .from(aiAuditLog)
+      .where(eq(aiAuditLog.tenantId, tenantId))
+      .all();
+    expect(audit).toMatchObject([{ costState: 'estimated', errorCode: null }]);
+    expect(
+      await getDatabase()
+        .select()
+        .from(aiBudgetReservations)
+        .where(eq(aiBudgetReservations.tenantId, tenantId))
+        .all()
+    ).toHaveLength(0);
+  });
+
+  it('books silent audio as a known, billed cost instead of an unknown liability', async () => {
+    const { tenantId, managerId } = await seedTenant('silent-audio', { aiEnabled: true });
+    doGenerateMock.mockResolvedValue({
+      text: '',
+      segments: [],
+      language: undefined,
+      durationInSeconds: 5,
+      warnings: [],
+      response: { timestamp: new Date(), modelId: 'whisper-1' },
+    });
+    // Behave like the SDK helper: call the model, then reject an empty text.
+    transcribeMock.mockImplementation(async (options: { model: TranscriptionModelV4 }) => {
+      const generated = await options.model.doGenerate({
+        audio: new Uint8Array([1]),
+        mediaType: 'audio/webm',
+      });
+      if (!generated.text) throw new Error('No transcript generated');
+      return generated;
+    });
+    const call = () =>
+      transcribeAudioService(
+        { db: getDatabase(), tenantId, siteId: null, userId: managerId },
+        { audioBase64: base64OfDecodedBytes(1024), mimeType: 'audio/webm' }
+      );
+    await expect(call()).rejects.toMatchObject({ cause: { errorCode: 'AI_VOICE_PARSE_FAILED' } });
+    const audit = await getDatabase()
+      .select()
+      .from(aiAuditLog)
+      .where(eq(aiAuditLog.tenantId, tenantId))
+      .all();
+    expect(audit).toHaveLength(1);
+    expect(audit[0]).toMatchObject({
+      costState: 'estimated',
+      errorCode: 'AI_VOICE_PARSE_FAILED',
+      inputTokens: 5,
+    });
+    expect(audit[0]?.costUsd).toBeCloseTo((5 / 60) * 0.006, 8);
+    // The hold is released, so the next recording is admitted.
+    await expect(call()).rejects.toMatchObject({ cause: { errorCode: 'AI_VOICE_PARSE_FAILED' } });
+    expect(doGenerateMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('releases the hold when the provider rejects the request before processing it', async () => {
+    const { tenantId, managerId } = await seedTenant('rate-limited', { aiEnabled: true });
+    transcribeMock.mockRejectedValueOnce(
+      new APICallError({
+        message: 'rate limited',
+        url: 'https://provider.invalid/v1/audio/transcriptions',
+        requestBodyValues: {},
+        statusCode: 429,
+      })
+    );
+    await expect(
+      transcribeAudioService(
+        { db: getDatabase(), tenantId, siteId: null, userId: managerId },
+        { audioBase64: base64OfDecodedBytes(1024), mimeType: 'audio/webm' }
+      )
+    ).rejects.toMatchObject({ cause: { errorCode: 'AI_PROVIDER_ERROR' } });
+    expect(
+      await getDatabase().select().from(aiAuditLog).where(eq(aiAuditLog.tenantId, tenantId)).all()
+    ).toMatchObject([{ costState: 'not_incurred', costUsd: 0 }]);
+    expect(
+      await getDatabase()
+        .select()
+        .from(aiBudgetReservations)
+        .where(eq(aiBudgetReservations.tenantId, tenantId))
+        .all()
+    ).toHaveLength(0);
   });
 
   it('isolates audit rows per tenant', async () => {

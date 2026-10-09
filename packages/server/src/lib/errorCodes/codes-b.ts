@@ -89,6 +89,12 @@ export const SERVER_ERROR_CODES_B = {
    */
   AI_BUDGET_EXCEEDED: 'AI_BUDGET_EXCEEDED',
   /**
+   * Another remote AI call for the tenant is still in flight. Admission is
+   * one call at a time per tenant; the caller can retry in a moment. Not a
+   * spend or billing problem.
+   */
+  AI_BUDGET_BUSY: 'AI_BUDGET_BUSY',
+  /**
    * the active site has already consumed the per-site
    * monthly quota for an AI feature (e.g. 800 Co-pilot questions or
    * 200 OCR invoices). Pre-checked BEFORE the provider call so a
@@ -137,6 +143,16 @@ export const SERVER_ERROR_CODES_B = {
    * renderer should re-encode or downscale before retrying.
    */
   AI_VISION_IMAGE_TOO_LARGE: 'AI_VISION_IMAGE_TOO_LARGE',
+  /** PDF bytes could not be parsed safely before the paid OCR request. */
+  AI_VISION_PDF_INVALID: 'AI_VISION_PDF_INVALID',
+  /** Synchronous Textract supports exactly one PDF page per invoice. */
+  AI_VISION_PDF_PAGE_LIMIT: 'AI_VISION_PDF_PAGE_LIMIT',
+  /**
+   * The active site used for invoice OCR is not an active site of this
+   * tenant (it was deactivated or does not belong to it). Re-checked under
+   * the budget writer lock before a paid Textract call.
+   */
+  AI_INVOICE_OCR_SITE_NOT_FOUND: 'AI_INVOICE_OCR_SITE_NOT_FOUND',
 
   // ---  slice 1 — voice / Whisper transcription ---
   /**
@@ -259,6 +275,9 @@ export const SERVER_ERROR_CODES_B = {
    * `{ outboxId, currentStatus }` for the UI hint.
    */
   PAYMENT_OUTBOX_NOT_RETRIABLE: 'PAYMENT_OUTBOX_NOT_RETRIABLE',
+  PAYMENT_PROPOSAL_NOT_FOUND: 'PAYMENT_PROPOSAL_NOT_FOUND',
+  PAYMENT_PROPOSAL_NOT_PENDING: 'PAYMENT_PROPOSAL_NOT_PENDING',
+  PAYMENT_PROPOSAL_STALE: 'PAYMENT_PROPOSAL_STALE',
   /**
    * admin tried to act on a `restaurant_tables` row that
    * does not exist for the active tenant. The lookup is tenant-scoped

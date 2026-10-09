@@ -17,9 +17,12 @@ import { eq } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
 import { tenants } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
+import { createModuleLogger } from '../../logging/logger.js';
 import { writeAuditLog } from '../audit-logs.js';
 
-import { currentMonthSpend, recordCall } from './auditLog.js';
+import { reserveAiBudget, settleAiBudget } from './budget.js';
+import { isDefinitiveProviderRejection } from './provider-rejection.js';
+import { logProviderFailure } from './provider-error.js';
 import { getProvider } from './providers/registry.js';
 import type { AIProvider, TokenUsage } from './providers/types.js';
 import type {
@@ -36,6 +39,14 @@ export interface AIInvocationContext {
   tenantId: string;
   siteId: string | null;
   userId: string | null;
+  /**
+   * Request cancellation (e.g. the HTTP client disconnected). It cancels only
+   * work that has not been dispatched: once a provider request is sent, it
+   * runs to its own bounded deadline and settles with its known cost, because
+   * aborting it would turn a priced call into an unknown-cost liability that
+   * holds the tenant's AI budget.
+   */
+  abortSignal?: AbortSignal;
 }
 
 /**
@@ -43,11 +54,8 @@ export interface AIInvocationContext {
  * `DEFAULT_AI_SETTINGS` for any field the row hasn't set yet. Returned
  * value is type-safe even when the JSON blob contains garbage.
  */
-export async function resolveAISettings(
-  db: DatabaseInstance,
-  tenantId: string
-): Promise<AISettings> {
-  const tenant = await db
+export function resolveAISettingsInTransaction(db: DatabaseInstance, tenantId: string): AISettings {
+  const tenant = db
     .select({ settings: tenants.settings })
     .from(tenants)
     .where(eq(tenants.id, tenantId))
@@ -67,6 +75,14 @@ export async function resolveAISettings(
     modelId: typeof ai.modelId === 'string' && ai.modelId.length > 0 ? ai.modelId : null,
     features: mergeFeatureFlags(ai.features),
   };
+}
+
+// Preserve the existing Promise API for callers outside a SQLite writer.
+export async function resolveAISettings(
+  db: DatabaseInstance,
+  tenantId: string
+): Promise<AISettings> {
+  return resolveAISettingsInTransaction(db, tenantId);
 }
 
 function mergeFeatureFlags(raw: unknown): AIFeatureFlags {
@@ -327,8 +343,64 @@ interface UsageForPricing {
     | undefined;
 }
 
-function tokenCount(value: number | undefined): number {
-  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0;
+const log = createModuleLogger('services/ai/client');
+
+/**
+ * Settle an admission and sanitize a persistence failure. Shared by every
+ * reservation entry point (generic completions and Co-pilot chat).
+ */
+export function settleCompletion(...args: Parameters<typeof settleAiBudget>): { id: string } {
+  try {
+    return settleAiBudget(...args);
+  } catch (error) {
+    // The kernel rolls back audit and settlement together. Keep its durable
+    // hold, but never expose a private persistence diagnostic to the caller.
+    // Operators still need a signal: the hold stays pending until orphan
+    // recovery, so log the failure class (never the raw error or SQL).
+    log.error(
+      {
+        tenantId: args[1].tenantId,
+        reservationId: args[1].id,
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+      },
+      'AI budget settlement failed'
+    );
+    return throwServerError({
+      trpcCode: 'BAD_GATEWAY',
+      errorCode: 'AI_PROVIDER_ERROR',
+      message: 'AI call could not be recorded',
+    });
+  }
+}
+
+function isKnownTokenCount(value: number | undefined): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+}
+
+/** A valid provider counter, or zero for a missing or malformed one. */
+export function tokenCount(value: number | undefined): number {
+  return isKnownTokenCount(value) ? value : 0;
+}
+
+/**
+ * Whether remote usage is complete and non-empty enough to price. Any
+ * malformed counter keeps the call's cost unknown instead of free.
+ */
+export function hasUsableRemoteUsage(usage: UsageForPricing): boolean {
+  return (
+    isKnownTokenCount(usage.inputTokens) &&
+    isKnownTokenCount(usage.outputTokens) &&
+    [
+      usage.inputTokenDetails?.noCacheTokens,
+      usage.inputTokenDetails?.cacheReadTokens,
+      usage.inputTokenDetails?.cacheWriteTokens,
+    ].every(value => value === undefined || isKnownTokenCount(value)) &&
+    tokenCount(usage.inputTokens) +
+      tokenCount(usage.outputTokens) +
+      tokenCount(usage.inputTokenDetails?.cacheReadTokens) +
+      tokenCount(usage.inputTokenDetails?.cacheWriteTokens) >
+      0
+  );
 }
 
 export function toBillableTokenUsage(usage: UsageForPricing): TokenUsage {
@@ -367,9 +439,22 @@ export async function completeAI(
     });
   }
 
-  const provider = factory(settings.providerId);
+  // Preparation hooks have not dispatched a request: sanitize their errors,
+  // but do not manufacture an unknown bill or reserve the tenant's budget.
+  let provider: AIProvider;
+  let configured: boolean;
+  try {
+    provider = factory(settings.providerId);
+    configured = provider.isConfigured();
+  } catch {
+    throwServerError({
+      trpcCode: 'BAD_GATEWAY',
+      errorCode: 'AI_PROVIDER_ERROR',
+      message: 'AI provider call failed',
+    });
+  }
 
-  if (!provider.isConfigured()) {
+  if (!configured) {
     throwServerError({
       trpcCode: 'BAD_REQUEST',
       errorCode: 'AI_PROVIDER_ERROR',
@@ -385,89 +470,173 @@ export async function completeAI(
     });
   }
 
-  const spent = await currentMonthSpend(ctx.db, ctx.tenantId);
-  if (spent >= settings.monthlyBudgetUsd) {
-    throwServerError({
-      trpcCode: 'BAD_REQUEST',
-      errorCode: 'AI_BUDGET_EXCEEDED',
-      message: `AI monthly budget exhausted ($${spent.toFixed(4)} of $${settings.monthlyBudgetUsd.toFixed(2)})`,
-    });
-  }
-
   const modelId = input.modelId ?? settings.modelId ?? provider.defaultModelId;
-  const startedAt = Date.now();
-
+  let model: ReturnType<AIProvider['languageModel']>;
+  let providerOptions: ReturnType<AIProvider['cacheControlForSystemPrompt']>;
   try {
-    const providerOptions = provider.cacheControlForSystemPrompt();
-    const result = await generateText({
-      model: provider.languageModel(modelId),
-      ...(input.system !== undefined ? { instructions: input.system } : {}),
-      prompt: input.prompt,
-      ...(input.maxOutputTokens !== undefined ? { maxOutputTokens: input.maxOutputTokens } : {}),
-      ...(providerOptions !== undefined
-        ? { providerOptions: providerOptions as ProviderOptions }
-        : {}),
-    });
-
-    const inputTokens = result.usage.inputTokens ?? 0;
-    const outputTokens = result.usage.outputTokens ?? 0;
-    const cacheReadTokens = result.usage.inputTokenDetails?.cacheReadTokens ?? 0;
-    const cacheWriteTokens = result.usage.inputTokenDetails?.cacheWriteTokens ?? 0;
-    const costUsd = provider.pricing.calculateCostUsd(modelId, toBillableTokenUsage(result.usage));
-    const durationMs = Date.now() - startedAt;
-
-    const { id: auditLogId } = await recordCall(ctx.db, {
-      tenantId: ctx.tenantId,
-      siteId: ctx.siteId,
-      userId: ctx.userId,
-      feature: input.feature,
-      providerId: provider.id,
-      modelId,
-      inputTokens,
-      outputTokens,
-      cacheReadTokens,
-      cacheWriteTokens,
-      costUsd,
-      durationMs,
-      errorCode: null,
-    });
-
-    return {
-      text: result.text,
-      inputTokens,
-      outputTokens,
-      cacheReadTokens,
-      cacheWriteTokens,
-      costUsd,
-      durationMs,
-      provider: provider.id,
-      model: modelId,
-      auditLogId,
-    };
+    model = provider.languageModel(modelId);
+    providerOptions = provider.cacheControlForSystemPrompt();
   } catch (error) {
-    const durationMs = Date.now() - startedAt;
-    // Persist the failure so dashboards count it. Cost is zero — the
-    // call never billed against the tenant's spend.
-    await recordCall(ctx.db, {
+    logProviderFailure(error, {
       tenantId: ctx.tenantId,
-      siteId: ctx.siteId,
-      userId: ctx.userId,
       feature: input.feature,
       providerId: provider.id,
       modelId,
-      inputTokens: 0,
-      outputTokens: 0,
-      cacheReadTokens: 0,
-      cacheWriteTokens: 0,
-      costUsd: 0,
-      durationMs,
       errorCode: 'AI_PROVIDER_ERROR',
     });
     throwServerError({
       trpcCode: 'BAD_GATEWAY',
       errorCode: 'AI_PROVIDER_ERROR',
-      message: error instanceof Error ? error.message : 'AI provider call failed',
-      details: { cause: String(error) },
+      message: 'AI provider call failed',
     });
   }
+  ctx.abortSignal?.throwIfAborted();
+  const reservation = reserveAiBudget(ctx.db, ctx.tenantId);
+  const startedAt = Date.now();
+  const auditBase = {
+    tenantId: ctx.tenantId,
+    siteId: ctx.siteId,
+    userId: ctx.userId,
+    feature: input.feature,
+    providerId: provider.id,
+    modelId,
+  };
+
+  let result;
+  try {
+    result = await generateText({
+      model,
+      ...(input.system !== undefined ? { instructions: input.system } : {}),
+      prompt: input.prompt,
+      ...(input.maxOutputTokens !== undefined ? { maxOutputTokens: input.maxOutputTokens } : {}),
+      // No client abort signal here (see AIInvocationContext.abortSignal).
+      timeout: { totalMs: 60_000 },
+      maxRetries: 0,
+      ...(providerOptions !== undefined
+        ? { providerOptions: providerOptions as ProviderOptions }
+        : {}),
+    });
+  } catch (error) {
+    const durationMs = Date.now() - startedAt;
+    logProviderFailure(error, {
+      tenantId: ctx.tenantId,
+      feature: input.feature,
+      providerId: provider.id,
+      modelId,
+      errorCode: 'AI_PROVIDER_ERROR',
+    });
+    // The SDK may have sent this request before failure or our deadline;
+    // zero is not evidence of a free provider call. A definitive provider
+    // rejection (pre-inference 4xx answer) or a connection that was never
+    // established proves no billable work and releases the hold.
+    const notIncurred = isDefinitiveProviderRejection(error);
+    const uncertainRemoteCost = provider.id !== 'ollama' && !notIncurred;
+    settleCompletion(
+      ctx.db,
+      reservation,
+      {
+        ...auditBase,
+        inputTokens: 0,
+        outputTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        costUsd: 0,
+        costState:
+          provider.id === 'ollama' ? 'local_zero' : notIncurred ? 'not_incurred' : 'unknown',
+        durationMs,
+        errorCode: 'AI_PROVIDER_ERROR',
+      },
+      uncertainRemoteCost
+    );
+    throwServerError({
+      trpcCode: 'BAD_GATEWAY',
+      errorCode: 'AI_PROVIDER_ERROR',
+      message: 'AI provider call failed',
+    });
+  }
+
+  // Invalid counters cannot be persisted as NaN/Infinity (SQLite maps NaN
+  // to NULL), nor may normalization turn them into a known free call.
+  // Retain each valid counter and keep the cost unknown if any is malformed.
+  const inputTokens = tokenCount(result.usage.inputTokens);
+  const outputTokens = tokenCount(result.usage.outputTokens);
+  const cacheReadTokens = tokenCount(result.usage.inputTokenDetails?.cacheReadTokens);
+  const cacheWriteTokens = tokenCount(result.usage.inputTokenDetails?.cacheWriteTokens);
+  const durationMs = Date.now() - startedAt;
+  const markUnpriceable = () => {
+    settleCompletion(
+      ctx.db,
+      reservation,
+      {
+        ...auditBase,
+        inputTokens,
+        outputTokens,
+        cacheReadTokens,
+        cacheWriteTokens,
+        costUsd: 0,
+        costState: 'unknown',
+        durationMs,
+        errorCode: 'AI_PROVIDER_ERROR',
+      },
+      true
+    );
+  };
+  if (provider.id !== 'ollama' && !hasUsableRemoteUsage(result.usage)) {
+    markUnpriceable();
+    throwServerError({
+      trpcCode: 'BAD_GATEWAY',
+      errorCode: 'AI_PROVIDER_ERROR',
+      message: 'AI provider returned no billable usage',
+    });
+  }
+
+  let costUsd: number;
+  try {
+    costUsd = provider.pricing.calculateCostUsd(modelId, toBillableTokenUsage(result.usage));
+  } catch {
+    markUnpriceable();
+    throwServerError({
+      trpcCode: 'BAD_GATEWAY',
+      errorCode: 'AI_PROVIDER_ERROR',
+      message: 'AI provider usage could not be priced',
+    });
+  }
+  if (!Number.isFinite(costUsd) || costUsd < 0) {
+    markUnpriceable();
+    throwServerError({
+      trpcCode: 'BAD_GATEWAY',
+      errorCode: 'AI_PROVIDER_ERROR',
+      message: 'AI provider returned unpriceable usage',
+    });
+  }
+
+  const { id: auditLogId } = settleCompletion(
+    ctx.db,
+    reservation,
+    {
+      ...auditBase,
+      inputTokens,
+      outputTokens,
+      cacheReadTokens,
+      cacheWriteTokens,
+      costUsd,
+      costState: provider.id === 'ollama' ? 'local_zero' : 'estimated',
+      durationMs,
+      errorCode: null,
+    },
+    false
+  );
+
+  return {
+    text: result.text,
+    inputTokens,
+    outputTokens,
+    cacheReadTokens,
+    cacheWriteTokens,
+    costUsd,
+    durationMs,
+    provider: provider.id,
+    model: modelId,
+    auditLogId,
+  };
 }

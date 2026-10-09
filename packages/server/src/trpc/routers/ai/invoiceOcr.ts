@@ -18,13 +18,14 @@ import { and, eq } from 'drizzle-orm';
 
 import { router } from '../../init.js';
 import { managerOrAdminProcedure } from '../../middleware/roles.js';
-import { recordCall, resolveAISettings } from '../../../services/ai/index.js';
+import { resolveAISettings } from '../../../services/ai/index.js';
 import { matchInvoiceLinesToProducts } from '../../../services/ai/vision/index.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
 import { normalizeColombianInvoice } from '../../../services/ai/invoice/normalize-co.js';
-import { extractInvoiceWithTextract } from '../../../services/ai/invoice/textract.js';
+import { extractInvoiceWithAdmission } from '../../../services/ai/invoice/admission.js';
 import { requireAiQuotaAvailable } from '../../../services/ai/quotas.js';
-import { createOcrDraftPurchase } from '../../../application/purchases/index.js';
+import { withClientAbortSignal } from '../../request-abort.js';
+import { confirmOcrDraftPurchase } from '../../../application/purchases/index.js';
 import { writeAuditLog } from '../../../services/audit-logs.js';
 import { confirmInvoiceDraftInput, extractInvoiceOcrInput } from '../../schemas/ai-vision.js';
 import { invoiceUploads } from '../../../db/schema.js';
@@ -33,7 +34,7 @@ import { findProviderIdForInvoice } from './helpers.js';
 export const invoiceOcrRouter = router({
   extract: managerOrAdminProcedure
     .input(extractInvoiceOcrInput)
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ ctx, input, signal }) => {
       const settings = await resolveAISettings(ctx.db, ctx.tenantId);
       if (!settings.enabled || settings.features?.invoiceOcr.enabled !== true) {
         throwServerError({
@@ -42,23 +43,31 @@ export const invoiceOcrRouter = router({
           message: 'Invoice OCR is disabled for this tenant',
         });
       }
-      // per-site monthly quota check fires BEFORE the
-      // OCR provider call so a blocked request never writes an
-      // audit row. Bypass when the request has no site context.
-      if (ctx.siteId) {
-        await requireAiQuotaAvailable({
-          db: ctx.db,
-          tenantId: ctx.tenantId,
-          siteId: ctx.siteId,
-          feature: 'invoiceOcr',
+      const siteId = ctx.siteId;
+      if (!siteId) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Select an active site before extracting an invoice',
         });
       }
+      // Fast quota rejection; reserveAiBudget repeats it under BEGIN IMMEDIATE
+      // so concurrent requests cannot both pass the last available slot.
+      await requireAiQuotaAvailable({
+        db: ctx.db,
+        tenantId: ctx.tenantId,
+        siteId,
+        feature: 'invoiceOcr',
+      });
 
       const upload = await ctx.db
         .select()
         .from(invoiceUploads)
         .where(
-          and(eq(invoiceUploads.id, input.uploadId), eq(invoiceUploads.tenantId, ctx.tenantId))
+          and(
+            eq(invoiceUploads.id, input.uploadId),
+            eq(invoiceUploads.tenantId, ctx.tenantId),
+            eq(invoiceUploads.siteId, siteId)
+          )
         )
         .get();
 
@@ -79,40 +88,33 @@ export const invoiceOcrRouter = router({
         });
       }
 
-      const result = await extractInvoiceWithTextract({
-        documentBase64: upload.payloadBase64,
-        mimeType: upload.mimeType as Parameters<typeof extractInvoiceWithTextract>[0]['mimeType'],
-      });
-
-      const { id: aiAuditLogId } = await recordCall(ctx.db, {
-        tenantId: ctx.tenantId,
-        siteId: ctx.siteId,
-        userId,
-        feature: 'invoiceOcr',
-        providerId: result.provider,
-        modelId: result.model,
-        inputTokens: 0,
-        outputTokens: 0,
-        cacheReadTokens: 0,
-        cacheWriteTokens: 0,
-        costUsd: result.costUsd,
-        durationMs: result.durationMs,
-        errorCode: null,
-      });
+      const { result: textractResult, auditLogId: aiAuditLogId } = await withClientAbortSignal(
+        signal,
+        abortSignal =>
+          extractInvoiceWithAdmission(
+            { db: ctx.db, tenantId: ctx.tenantId, siteId, userId, abortSignal },
+            {
+              documentBase64: upload.payloadBase64,
+              mimeType: upload.mimeType as Parameters<
+                typeof extractInvoiceWithAdmission
+              >[1]['mimeType'],
+            }
+          )
+      );
 
       const normalized = normalizeColombianInvoice({
-        supplierName: result.invoice.supplierName,
-        supplierTaxId: result.invoice.supplierTaxId,
-        invoiceNumber: result.invoice.invoiceNumber,
-        subtotal: result.invoice.subtotal,
-        taxAmount: result.invoice.taxAmount,
-        lines: result.invoice.lines.map(l => ({ totalLine: l.totalLine })),
+        supplierName: textractResult.invoice.supplierName,
+        supplierTaxId: textractResult.invoice.supplierTaxId,
+        invoiceNumber: textractResult.invoice.invoiceNumber,
+        subtotal: textractResult.invoice.subtotal,
+        taxAmount: textractResult.invoice.taxAmount,
+        lines: textractResult.invoice.lines.map(l => ({ totalLine: l.totalLine })),
       });
 
-      const lineMatches = result.invoice.lines.length
+      const lineMatches = textractResult.invoice.lines.length
         ? await matchInvoiceLinesToProducts(
             { db: ctx.db, tenantId: ctx.tenantId, siteId: ctx.siteId, userId },
-            result.invoice.lines.map(l => ({
+            textractResult.invoice.lines.map(l => ({
               description: l.description,
               quantity: l.quantity,
               unitPrice: l.unitPrice,
@@ -148,9 +150,9 @@ export const invoiceOcrRouter = router({
         });
       }
 
-      const subtotal = result.invoice.subtotal ?? 0;
-      const iva = result.invoice.taxAmount ?? 0;
-      const total = result.invoice.total ?? subtotal + iva;
+      const subtotal = textractResult.invoice.subtotal ?? 0;
+      const iva = textractResult.invoice.taxAmount ?? 0;
+      const total = textractResult.invoice.total ?? subtotal + iva;
       const linesSum =
         Math.abs(normalized.linesSum + iva - total) <= 100
           ? normalized.linesSum + iva
@@ -160,14 +162,14 @@ export const invoiceOcrRouter = router({
         supplier: {
           name: normalized.supplier.name,
           nit: normalized.supplier.nit,
-          confidence: result.invoice.supplierName ? 0.92 : 0.55,
+          confidence: textractResult.invoice.supplierName ? 0.92 : 0.55,
         },
         providerId: await findProviderIdForInvoice(ctx.db, ctx.tenantId, normalized.supplier),
         invoiceNumber: {
           value: normalized.invoiceNumber ?? '',
-          confidence: result.invoice.invoiceNumber ? 0.9 : 0.5,
+          confidence: textractResult.invoice.invoiceNumber ? 0.9 : 0.5,
         },
-        lines: result.invoice.lines.map((line, idx) => {
+        lines: textractResult.invoice.lines.map((line, idx) => {
           const match = matchedLookup.get(idx);
           return {
             description: line.description,
@@ -191,9 +193,9 @@ export const invoiceOcrRouter = router({
         },
         warnings: [] as string[],
         meta: {
-          costUsd: result.costUsd,
-          latencyMs: result.durationMs,
-          provider: result.provider,
+          costUsd: textractResult.costUsd,
+          latencyMs: textractResult.durationMs,
+          provider: textractResult.provider,
         },
         uploadId: upload.id,
         extractAuditId: aiAuditLogId,
@@ -211,10 +213,10 @@ export const invoiceOcrRouter = router({
           resourceType: 'ai_feature',
           resourceId: upload.id,
           metadata: {
-            provider: result.provider,
-            costUsd: result.costUsd,
-            latencyMs: result.durationMs,
-            model: result.model,
+            provider: textractResult.provider,
+            costUsd: textractResult.costUsd,
+            latencyMs: textractResult.durationMs,
+            model: textractResult.model,
             aiAuditLogId,
             payloadHash: upload.payloadHash,
             mimeType: upload.mimeType,
@@ -229,93 +231,8 @@ export const invoiceOcrRouter = router({
       return { ...draft, uploadAuditId };
     }),
 
-  confirm: managerOrAdminProcedure
-    .input(confirmInvoiceDraftInput)
-    .mutation(async ({ ctx, input }) => {
-      const settings = await resolveAISettings(ctx.db, ctx.tenantId);
-      if (!settings.enabled || settings.features?.invoiceOcr.enabled !== true) {
-        throwServerError({
-          trpcCode: 'BAD_REQUEST',
-          errorCode: 'AI_DISABLED',
-          message: 'Invoice OCR is disabled for this tenant',
-        });
-      }
-
-      if (Math.abs(input.totals.total - input.totals.linesSum) > 100) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'Invoice totals do not match the reviewed line totals',
-        });
-      }
-
-      const upload = await ctx.db
-        .select({
-          id: invoiceUploads.id,
-          payloadHash: invoiceUploads.payloadHash,
-          mimeType: invoiceUploads.mimeType,
-          sizeBytes: invoiceUploads.sizeBytes,
-        })
-        .from(invoiceUploads)
-        .where(
-          and(eq(invoiceUploads.id, input.uploadId), eq(invoiceUploads.tenantId, ctx.tenantId))
-        )
-        .get();
-
-      if (!upload) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Invoice upload not found',
-        });
-      }
-
-      const purchase = await createOcrDraftPurchase(
-        { ...ctx, user: ctx.user! },
-        {
-          providerId: input.providerId,
-          items: input.lines.map(line => ({
-            productId: line.matchedProductId,
-            unitId: line.unitId,
-            quantity: line.quantity,
-            costPerUnit: line.unitPrice,
-          })),
-          notes: [
-            'OCR invoice draft',
-            input.invoiceNumber ? `Invoice ${input.invoiceNumber}` : null,
-            input.supplier.name ? `Supplier ${input.supplier.name}` : null,
-          ]
-            .filter((part): part is string => part !== null)
-            .join(' · '),
-        }
-      );
-
-      const userId = ctx.user!.id;
-      // Same transactional requirement as the extract audit above.
-      ctx.db.transaction(tx =>
-        writeAuditLog({
-          tx,
-          tenantId: ctx.tenantId,
-          actorId: userId,
-          action: 'ai.invoice_ocr.confirm',
-          resourceType: 'ai_feature',
-          resourceId: input.uploadId,
-          metadata: {
-            extractAuditId: input.extractAuditId,
-            purchaseId: purchase.id,
-            purchaseNumber: purchase.purchaseNumber,
-            supplierName: input.supplier.name,
-            supplierNit: input.supplier.nit,
-            invoiceNumber: input.invoiceNumber,
-            subtotal: input.totals.subtotal,
-            total: input.totals.total,
-            linesSum: input.totals.linesSum,
-            payloadHash: upload.payloadHash,
-            mimeType: upload.mimeType,
-            sizeBytes: upload.sizeBytes,
-            lineCount: input.lines.length,
-            matchedLineCount: input.lines.length,
-          },
-        })
-      );
-      return { ok: true as const, purchase };
-    }),
+  confirm: managerOrAdminProcedure.input(confirmInvoiceDraftInput).mutation(({ ctx, input }) => ({
+    ok: true as const,
+    purchase: confirmOcrDraftPurchase({ ...ctx, user: ctx.user! }, input),
+  })),
 });
