@@ -1,4 +1,3 @@
-import { expectNoPublicDiagnostic } from './utils/ai-error-privacy.js';
 /**
  * slice 1 — `ai.transcribeAudio` integration tests.
  *
@@ -11,7 +10,7 @@ import { expectNoPublicDiagnostic } from './utils/ai-error-privacy.js';
  * here — the cart-command parser + audio-capture UI land in
  * follow-up slices.
  */
-import { EventEmitter } from 'node:events';
+import { expectNoPublicDiagnostic, withProviderFailureLog } from './utils/ai-error-privacy.js';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TRPCError } from '@trpc/server';
 import { eq } from 'drizzle-orm';
@@ -332,10 +331,12 @@ describe('ai.transcribeAudio ( slice 1)', () => {
     );
     let caught: unknown;
     try {
-      await caller.ai.transcribeAudio({
-        audioBase64: base64OfDecodedBytes(1024),
-        mimeType: 'audio/webm',
-      });
+      await withProviderFailureLog(() =>
+        caller.ai.transcribeAudio({
+          audioBase64: base64OfDecodedBytes(1024),
+          mimeType: 'audio/webm',
+        })
+      );
     } catch (error) {
       caught = error;
     }
@@ -367,10 +368,12 @@ describe('ai.transcribeAudio ( slice 1)', () => {
     );
     let caught: unknown;
     try {
-      await caller.ai.transcribeAudio({
-        audioBase64: base64OfDecodedBytes(1024),
-        mimeType: 'audio/webm',
-      });
+      await withProviderFailureLog(() =>
+        caller.ai.transcribeAudio({
+          audioBase64: base64OfDecodedBytes(1024),
+          mimeType: 'audio/webm',
+        })
+      );
     } catch (error) {
       caught = error;
     }
@@ -643,12 +646,8 @@ describe('ai.transcribeAudio ( slice 1)', () => {
 
   it('lets a dispatched transcription finish and settle its cost after a disconnect', async () => {
     const { tenantId, managerId } = await seedTenant('disconnect', { aiEnabled: true });
-    const response = Object.assign(new EventEmitter(), {
-      writableFinished: false,
-      destroyed: false,
-    });
+    const controller = new AbortController();
     const ctx = createCtx({ tenantId, userId: managerId, role: 'manager' });
-    ctx.res = { raw: response } as unknown as Context['res'];
     let finish!: () => void;
     transcribeMock.mockImplementationOnce(
       () =>
@@ -665,7 +664,7 @@ describe('ai.transcribeAudio ( slice 1)', () => {
             });
         })
     );
-    const caller = appRouter.createCaller(ctx);
+    const caller = appRouter.createCaller(ctx, { signal: controller.signal });
     const pending = caller.ai.transcribeAudio({
       audioBase64: base64OfDecodedBytes(1024),
       mimeType: 'audio/webm',
@@ -675,8 +674,7 @@ describe('ai.transcribeAudio ( slice 1)', () => {
       abortSignal?: AbortSignal;
       maxRetries?: number;
     };
-    response.destroyed = true;
-    response.emit('close');
+    controller.abort();
     // The client close is admission-only: the provider call keeps running.
     expect(options.abortSignal?.aborted).toBe(false);
     expect(options.maxRetries).toBe(0);

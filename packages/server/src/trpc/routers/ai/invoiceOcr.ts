@@ -34,7 +34,7 @@ import { findProviderIdForInvoice } from './helpers.js';
 export const invoiceOcrRouter = router({
   extract: managerOrAdminProcedure
     .input(extractInvoiceOcrInput)
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ ctx, input, signal }) => {
       const settings = await resolveAISettings(ctx.db, ctx.tenantId);
       if (!settings.enabled || settings.features?.invoiceOcr.enabled !== true) {
         throwServerError({
@@ -89,7 +89,7 @@ export const invoiceOcrRouter = router({
       }
 
       const { result: textractResult, auditLogId: aiAuditLogId } = await withClientAbortSignal(
-        ctx.res,
+        signal,
         abortSignal =>
           extractInvoiceWithAdmission(
             { db: ctx.db, tenantId: ctx.tenantId, siteId, userId, abortSignal },

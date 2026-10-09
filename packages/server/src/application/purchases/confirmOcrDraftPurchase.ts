@@ -5,10 +5,8 @@
  *
  * @module application/purchases/confirmOcrDraftPurchase
  */
-import { createHash } from 'node:crypto';
-
 import { TRPCError } from '@trpc/server';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 import type { DatabaseInstance } from '../../db/index.js';
@@ -23,6 +21,7 @@ import { throwServerError } from '../../lib/errorCodes.js';
 import { roundMoney } from '../../lib/money.js';
 import { resolveAISettingsInTransaction } from '../../services/ai/index.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
+import { hashCanonicalInput } from '../../services/idempotency/keyHasher.js';
 import { allocateNextSequential } from '../../services/sequential-allocation.js';
 import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import type { ConfirmInvoiceDraftInput } from '../../trpc/schemas/ai-vision.js';
@@ -76,23 +75,20 @@ function assertExtractionLink(
     .get();
   const linkedAudit = extraction
     ? db
-        .select({ metadata: auditLogs.metadata })
+        .select({ id: auditLogs.id })
         .from(auditLogs)
         .where(
           and(
             eq(auditLogs.tenantId, tenantId),
             eq(auditLogs.action, 'ai.invoice_ocr.extract'),
             eq(auditLogs.resourceType, 'ai_feature'),
-            eq(auditLogs.resourceId, input.uploadId)
+            eq(auditLogs.resourceId, input.uploadId),
+            sql`json_extract(${auditLogs.metadata}, '$.aiAuditLogId') = ${input.extractAuditId}`,
+            sql`json_extract(${auditLogs.metadata}, '$.payloadHash') = ${upload.payloadHash}`
           )
         )
-        .all()
-        .some(
-          row =>
-            row.metadata?.aiAuditLogId === input.extractAuditId &&
-            row.metadata.payloadHash === upload.payloadHash
-        )
-    : false;
+        .get()
+    : undefined;
   if (!linkedAudit) {
     throw new TRPCError({ code: 'NOT_FOUND', message: 'Invoice extraction not found' });
   }
@@ -107,9 +103,10 @@ export function confirmOcrDraftPurchase(ctx: PurchaseContext, input: ConfirmInvo
       message: 'Select an active site before confirming an invoice',
     });
   }
-  // Input is Zod-parsed by the router. Its stable shape includes every
-  // reviewed field, not just the rows persisted in the purchase aggregate.
-  const confirmationHash = createHash('sha256').update(JSON.stringify(input)).digest('hex');
+  // Input is Zod-parsed by the router. Its canonical (key-sorted) form
+  // includes every reviewed field, not just the rows persisted in the
+  // purchase aggregate, and does not depend on property insertion order.
+  const confirmationHash = hashCanonicalInput(input);
   const db = ctx.db;
   const purchaseId = db.transaction(
     tx => {
@@ -196,7 +193,7 @@ export function confirmOcrDraftPurchase(ctx: PurchaseContext, input: ConfirmInvo
       }
       const now = new Date().toISOString();
       const id = nanoid();
-      const purchaseNumber = allocateNextSequential(writer, {
+      const purchaseNumber = allocateNextSequential(tx, {
         tenantId: ctx.tenantId,
         sequentialId: sequentialContext.id,
         updatedAt: now,

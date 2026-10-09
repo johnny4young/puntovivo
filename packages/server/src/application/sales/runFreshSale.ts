@@ -574,7 +574,7 @@ export async function runFreshSale(
         }
       }
 
-      saleNumber = allocateNextSequential(tx as unknown as typeof ctx.db, {
+      saleNumber = allocateNextSequential(tx, {
         tenantId: ctx.tenantId,
         sequentialId: sequentialContext.id,
         updatedAt: now,

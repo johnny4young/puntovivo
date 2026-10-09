@@ -280,7 +280,13 @@ export function buildProductionWebEnv(env) {
   };
 }
 
-export function buildGateEnv(env, options, dbPath, browsersPath) {
+export function buildGateEnv(
+  env,
+  options,
+  dbPath,
+  browsersPath,
+  webOutDir = join(REPO_ROOT, 'apps/web/dist')
+) {
   const nextEnv = {
     ...env,
     // The gate owns an isolated throwaway database and deterministic dev seed.
@@ -294,6 +300,10 @@ export function buildGateEnv(env, options, dbPath, browsersPath) {
     PUNTOVIVO_BIND_PORT: String(options.apiPort),
     PUNTOVIVO_LIGHTHOUSE_BASE_URL: options.previewUrl,
     PUNTOVIVO_LIGHTHOUSE_CDP_PORT: String(options.cdpPort),
+    // The diagnostics must verify the actual isolated preview, not an older
+    // checkout dist. Explicit external-preview mode owns its separate build:
+    // the inherited value (or check-lighthouse's checkout default) applies.
+    ...(options.skipPreview ? {} : { PUNTOVIVO_LIGHTHOUSE_BUILD_DIRECTORY: webOutDir }),
     VITE_API_URL: options.apiUrl,
     PUNTOVIVO_SQLITE_BUSY_TIMEOUT_MS: env.PUNTOVIVO_SQLITE_BUSY_TIMEOUT_MS || '15000',
     PUNTOVIVO_GLOBAL_RATE_LIMIT_MAX: env.PUNTOVIVO_GLOBAL_RATE_LIMIT_MAX || '10000',
@@ -623,7 +633,7 @@ export async function runCli({ argv = process.argv.slice(2), env = process.env }
   const dbPath = env.PUNTOVIVO_LIGHTHOUSE_DATABASE_URL || join(tempDir, 'lighthouse.db');
   const webOutDir = join(tempDir, 'web-dist');
   const browsersPath = resolve(REPO_ROOT, '.playwright-browsers');
-  const gateEnv = buildGateEnv(env, options, dbPath, browsersPath);
+  const gateEnv = buildGateEnv(env, options, dbPath, browsersPath, webOutDir);
   const bundleNonce = randomUUID();
   let serverProcess;
   let previewProcess;

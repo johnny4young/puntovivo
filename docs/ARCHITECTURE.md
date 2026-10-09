@@ -220,6 +220,31 @@ display.
   completed without an active template remains on the legacy renderer even if
   a template is configured later.
 
+## Reporting calendar boundary
+
+Dashboard today, its thirty-calendar-day revenue series, and its seven-day top
+products use the timezone resolved by `services/tenant-locale.ts`: explicit
+tenant override, country default, then the existing unconfigured fallback.
+`services/reports/day-window.ts` converts each calendar date into a half-open
+UTC interval, including DST days and skipped local midnights. Reporting never
+adds a fixed 24 hours to advance a local day or rewrites stored timestamps.
+
+Completed sales are attributed by `checkoutCompletedAt`, with `createdAt` only
+for historical rows without completion telemetry. Returns subtract immutable
+amounts on their own booking day, not the original sale day. Today's money and
+order count are the same aggregate as the final chart bucket. Fully returned
+orders remain excluded from throughput while both dated money events remain
+visible. Top products retain their positive-net-quantity policy and exclude
+both sale and return events outside the same bounded local reporting window.
+
+Calendar labels remain date-only values in the UI. A successful locale-setting
+change invalidates the dashboard aggregate as well as locale formatting; a
+cached old timezone must not survive a settings round trip. Locale writes reject
+unsupported named time zones and fixed numeric offsets. A legacy invalid override
+fails the dashboard closed with `TENANT_TIMEZONE_INVALID` and localized repair
+instructions; it never silently substitutes another calendar. Administrators can
+correct the override or clear it to restore country-default inheritance.
+
 ## Local storage and recovery
 
 Packaged Electron databases use SQLCipher. The database key is obtained through
@@ -464,7 +489,8 @@ check the quota of every tenant site the snapshot can read and record one
 site-less audit row, so their cost is not duplicated across sites. A tenant-wide
 successful row stores its call-time site list and counts once in each listed
 site's monthly Co-pilot usage projection, without retroactively charging sites
-created later in the month.
+created later in the month. Successful site-less rows written before that list
+existed have unknown scope and conservatively count against every site.
 The web conversation explicitly selects all sites or the current site,
 clears earlier evidence when that selection changes, and discards responses
 that finish after the user or site context has changed.
@@ -494,11 +520,15 @@ are not a live-provider certification.
 
 AI provider, SDK, and analytics SQLite exceptions are untrusted diagnostics:
 client-facing tRPC errors expose a fixed fallback and stable error code, never
-the raw exception message or a `cause` detail. Parse failures keep their
-distinct code from transport failures. The tenant audit records the code and
-call metadata, not exception text; only locally constructed domain errors may
-cross the Co-pilot boundary unchanged. This contract limits secondary leakage
-through the browser response and centralized error tracing.
+the raw exception message or a `cause` detail. Invoice OCR and voice
+transcription parse failures keep their distinct code from transport failures.
+The tenant audit records the code and call metadata, not exception text; only
+locally constructed domain errors may cross the Co-pilot boundary unchanged.
+Server logs carry only `summarizeProviderError` output (error class name,
+HTTP status, transport code; the AI SDK retry wrapper is unwrapped to its last
+provider answer) plus tenant, feature, provider, model and error code, never
+the raw error object. This contract limits secondary leakage through the
+browser response, centralized error tracing and server logs.
 
 Every Co-pilot response requires at least one successful read-only SQL query
 against a provider-safe snapshot table. The model-facing tool rejects
@@ -538,9 +568,9 @@ classified by what it proves:
 
 Client cancellation only cancels work that has not been dispatched. The
 Co-pilot chat, connection-test, voice-transcription, legacy vision-invoice,
-and Textract invoice HTTP procedures turn a prematurely closed response into an
-abort signal (a normal completed response does not, and direct non-HTTP
-callers remain supported); it stops the request before
+and Textract invoice procedures pass tRPC's request signal (aborted when the
+HTTP response closes before the procedure answers; direct callers may omit it)
+to the service as an admission check; it stops the request before
 admission, without an audit row or hold, but never reaches a dispatched
 provider call, which runs to its bounded deadline and settles its known cost
 rather than turning into an unknown liability. The SDK's implicit
@@ -548,11 +578,12 @@ retries are disabled on these paths. Voice transcription prices the returned
 audio duration; a missing duration or pricing row is not treated as a free
 transcript. Audio sent without a transcript coming back
 (`NoTranscriptGeneratedError`, e.g. silence) was still processed and billed
-per audio minute: it settles `estimated` at the duration measured locally
-from the uploaded audio, never as an unknown liability; when the duration
-cannot be measured it is held as unknown. Co-pilot also records priced provider
-usage when it rejects an answer without validated SQL, and preserves the
-call-time analytics site scope in its audit. This is a conservative **local
+per audio minute: it settles `estimated` at the audio duration the provider
+reported before the SDK rejected the empty text, never as an unknown
+liability; when no duration was reported it is held as unknown. Co-pilot also records priced provider
+usage when it rejects an answer without validated SQL, preserves the
+call-time analytics site scope in its audit, and treats a definitive provider
+rejection as not incurred only when no earlier tool-loop step had returned. This is a conservative **local
 admission control**, not an exact USD invoice cap: a single call can exceed
 the remaining budget, and other AI entry points adopt the reservation path
 separately. Unknown liabilities are never automatically declared free: an
@@ -577,7 +608,8 @@ operator-configured USD-per-page estimate for the exact AWS region; missing
 price configuration blocks dispatch, and the estimate is not an AWS billing
 statement or a guaranteed cap across pricing tiers. AWS answers that prove
 no page was processed (throttling, access denied, unsupported document,
-invalid parameter and other 4xx answers) release the hold; missing page
+invalid parameter and other 4xx client faults, or credentials that fail
+before any request is sent) release the hold; missing page
 metadata after dispatch keeps an unknown liability. The Textract client
 makes a single attempt. Month boundaries use the server's local calendar,
 like the quota and spend reports; per-tenant time zones are a follow-up.
@@ -935,6 +967,17 @@ multi-master cloud replication. Public readiness and known operational gaps are
 listed in [PROJECT-STATUS.md](./PROJECT-STATUS.md).
 
 The current sync push path acknowledges local queue work, not remote delivery.
+For each selected outbox ID, `sync.push` takes an IMMEDIATE SQLite writer
+transaction and rereads the tenant-owned row. Only a current `queued` or
+`retrying` row is processed; a deleted or completed row is skipped without
+claiming it as processed. Entity metadata, a conflict or failure record, outbox
+state, and the successful last-sync marker commit or roll back together for
+that row. Helpers use synchronous statements on the same connection; the
+transaction must not contain asynchronous work. The last-sync marker does not
+move backward if the clock does. This is per-row atomicity, not an all-or-nothing
+batch or an acknowledgement from a remote server, and does not rearm durable
+`submitting` claims.
+
 The v4 contract separately exposes operator recovery restrictions: inventory
 aggregates cannot be replaced or discarded through arbitrary JSON, and product
 recovery accepts only allowlisted metadata for an existing tenant product.

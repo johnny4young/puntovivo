@@ -378,6 +378,18 @@ test.describe('Electron smoke', () => {
       await staleToastDismissals.first().click();
     }
     await page.evaluate(() => window.api?.session?.clear());
+    // Let the real sync poll observe the closed main authority before logout.
+    // This must stay localized and diagnostics-clean, without an HTTP fallback.
+    const syncStrip = page.getByTestId('global-status-strip');
+    await expect(syncStrip).toBeVisible({ timeout: 15_000 });
+    const syncDetails = syncStrip.locator('button[aria-controls="global-status-strip-detail"]');
+    if ((await syncDetails.getAttribute('aria-expanded')) === 'false') {
+      await syncDetails.click();
+    }
+    await expect(syncStrip).toContainText(
+      'Tu sesión ya no está activa en este equipo. Inicia sesión de nuevo y vuelve a intentarlo.',
+      { timeout: 15_000 }
+    );
     await trayPanel
       .getByRole('checkbox', { name: /show tray icon|mostrar ícono en la bandeja/i })
       .click();

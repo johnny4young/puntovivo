@@ -1,3 +1,4 @@
+import type Database from 'better-sqlite3';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -25,6 +26,11 @@ import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 import type { ConfirmInvoiceDraftInput } from '../trpc/schemas/ai-vision.js';
 import { confirmInvoiceDraftInput } from '../trpc/schemas/ai-vision.js';
+
+/** Raw better-sqlite3 handle for test-only triggers. */
+function sqliteClient(db: ReturnType<typeof getDatabase>): Database.Database {
+  return (db as typeof db & { $client: Database.Database }).$client;
+}
 
 let server: PuntovivoServer;
 let tenantId: string;
@@ -480,7 +486,10 @@ describe('invoice OCR confirmation integrity', () => {
     await db
       .update(tenants)
       .set({
-        settings: { ...tenant!.settings, ai: { ...tenant!.settings.ai, enabled: false } },
+        settings: {
+          ...tenant!.settings!,
+          ai: { ...(tenant!.settings!.ai as Record<string, unknown>), enabled: false },
+        },
       })
       .where(eq(tenants.id, tenantId));
     const retry = await caller().ai.invoiceOcr.confirm(input);
@@ -492,7 +501,7 @@ describe('invoice OCR confirmation integrity', () => {
 
   it('rolls back the outbox, purchase and number if confirm audit append fails', async () => {
     const db = getDatabase();
-    db.$client.exec(
+    sqliteClient(db).exec(
       `CREATE TRIGGER fail_ocr_confirm_audit BEFORE INSERT ON audit_logs WHEN NEW.tenant_id = '${tenantId}' AND NEW.action = 'ai.invoice_ocr.confirm' BEGIN SELECT RAISE(ABORT, 'audit unavailable'); END`
     );
     try {
@@ -513,7 +522,7 @@ describe('invoice OCR confirmation integrity', () => {
         .get();
       expect(sequential?.currentValue).toBe(0);
     } finally {
-      db.$client.exec('DROP TRIGGER fail_ocr_confirm_audit');
+      sqliteClient(db).exec('DROP TRIGGER fail_ocr_confirm_audit');
     }
     const retry = await caller().ai.invoiceOcr.confirm(input);
     expect(retry.purchase.status).toBe('draft');
@@ -524,7 +533,7 @@ describe('invoice OCR confirmation integrity', () => {
 
   it('rolls back purchase and number if sync enqueue fails', async () => {
     const db = getDatabase();
-    db.$client.exec(
+    sqliteClient(db).exec(
       `CREATE TRIGGER fail_ocr_sync BEFORE INSERT ON sync_outbox WHEN NEW.tenant_id = '${tenantId}' AND NEW.entity_type = 'purchases' BEGIN SELECT RAISE(ABORT, 'sync unavailable'); END`
     );
     try {
@@ -547,7 +556,7 @@ describe('invoice OCR confirmation integrity', () => {
           )
       ).toHaveLength(0);
     } finally {
-      db.$client.exec('DROP TRIGGER fail_ocr_sync');
+      sqliteClient(db).exec('DROP TRIGGER fail_ocr_sync');
     }
   });
 });
