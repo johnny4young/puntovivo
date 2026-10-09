@@ -1,4 +1,3 @@
-import { expectNoPublicDiagnostic } from './utils/ai-error-privacy.js';
 /**
  * slice 1 — `ai.transcribeAudio` integration tests.
  *
@@ -11,6 +10,7 @@ import { expectNoPublicDiagnostic } from './utils/ai-error-privacy.js';
  * here — the cart-command parser + audio-capture UI land in
  * follow-up slices.
  */
+import { expectNoPublicDiagnostic, withProviderFailureLog } from './utils/ai-error-privacy.js';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TRPCError } from '@trpc/server';
 import { eq } from 'drizzle-orm';
@@ -321,10 +321,12 @@ describe('ai.transcribeAudio ( slice 1)', () => {
     );
     let caught: unknown;
     try {
-      await caller.ai.transcribeAudio({
-        audioBase64: base64OfDecodedBytes(1024),
-        mimeType: 'audio/webm',
-      });
+      await withProviderFailureLog(() =>
+        caller.ai.transcribeAudio({
+          audioBase64: base64OfDecodedBytes(1024),
+          mimeType: 'audio/webm',
+        })
+      );
     } catch (error) {
       caught = error;
     }
@@ -356,10 +358,12 @@ describe('ai.transcribeAudio ( slice 1)', () => {
     );
     let caught: unknown;
     try {
-      await caller.ai.transcribeAudio({
-        audioBase64: base64OfDecodedBytes(1024),
-        mimeType: 'audio/webm',
-      });
+      await withProviderFailureLog(() =>
+        caller.ai.transcribeAudio({
+          audioBase64: base64OfDecodedBytes(1024),
+          mimeType: 'audio/webm',
+        })
+      );
     } catch (error) {
       caught = error;
     }

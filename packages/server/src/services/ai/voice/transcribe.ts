@@ -18,6 +18,7 @@ import type { DatabaseInstance } from '../../../db/index.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
 
 import { currentMonthSpend, recordCall } from '../auditLog.js';
+import { logProviderFailure } from '../provider-error.js';
 import { getProvider } from '../providers/registry.js';
 import type { AIProvider } from '../providers/types.js';
 import { resolveAISettings } from '../client.js';
@@ -252,6 +253,13 @@ export async function transcribeAudio(
       (error instanceof Error && /No transcript generated/i.test(error.message));
 
     const errorCode = isParseFailure ? 'AI_VOICE_PARSE_FAILED' : 'AI_PROVIDER_ERROR';
+    logProviderFailure(error, {
+      tenantId: ctx.tenantId,
+      feature: 'voiceTranscribe',
+      providerId: provider.id,
+      modelId,
+      errorCode,
+    });
 
     await recordCall(ctx.db, {
       tenantId: ctx.tenantId,

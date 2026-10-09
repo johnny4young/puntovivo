@@ -22,11 +22,12 @@ import {
 } from '../../../lib/errorCodes.js';
 
 import { recordCall } from '../auditLog.js';
-import { reserveAiBudget, settleAiBudget } from '../budget.js';
+import { reserveAiBudget } from '../budget.js';
 import type { AiBudgetReservation } from '../budget.js';
 import { isDefinitiveProviderRejection } from '../provider-rejection.js';
-import { resolveAISettings, toBillableTokenUsage } from '../client.js';
+import { resolveAISettings, settleCompletion, toBillableTokenUsage } from '../client.js';
 import type { AIInvocationContext, ProviderFactory } from '../client.js';
+import { logProviderFailure } from '../provider-error.js';
 import { getProvider } from '../providers/registry.js';
 import type { AIProvider } from '../providers/types.js';
 import type { AISettings } from '../types.js';
@@ -65,6 +66,12 @@ function usageNumber(value: unknown): number {
     return typeof total === 'number' && Number.isFinite(total) ? total : 0;
   }
   return 0;
+}
+
+/** A counter is known only when it is a finite, non-negative token count. */
+function isKnownUsageCount(value: unknown): boolean {
+  const total = asRecord(value)?.total ?? value;
+  return typeof total === 'number' && Number.isFinite(total) && total >= 0;
 }
 
 function usageNestedNumber(value: unknown, key: string): number {
@@ -139,10 +146,16 @@ export async function runCopilotChat(
   let auditSiteId: string | null = null;
   let scopeSiteIds: string[] = [];
   const startedAt = Date.now();
-  const sqlCapture: { results: CopilotSQLResult[]; attempts: number; overLimit: boolean } = {
+  const sqlCapture: {
+    results: CopilotSQLResult[];
+    attempts: number;
+    overLimit: boolean;
+    rejected: boolean;
+  } = {
     results: [],
     attempts: 0,
     overLimit: false,
+    rejected: false,
   };
   let consumedUsage: {
     inputTokens: number;
@@ -152,6 +165,22 @@ export async function runCopilotChat(
     costUsd: number;
   } | null = null;
   let reservation: AiBudgetReservation | null = null;
+  // Set once the dispatch gate is reached: a client abort, kernel denial or
+  // admission failure is not a call and writes no audit row (matching the
+  // generic pipeline).
+  let admissionAttempted = false;
+  // Multi-step chats dispatch one provider request per step. Once any step
+  // has returned, a later definitive rejection no longer proves the chat
+  // was free.
+  let completedModelCalls = 0;
+  // Counters observed on the response, kept on the audit even when the usage
+  // cannot be priced (the generic pipeline retains them the same way).
+  let observedUsage: {
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadTokens: number;
+    cacheWriteTokens: number;
+  } | null = null;
 
   let snapshot: Awaited<ReturnType<typeof createCopilotSnapshot>> | undefined;
   try {
@@ -172,6 +201,9 @@ export async function runCopilotChat(
     );
     const model = provider.languageModel(modelId);
     const prompt = buildPrompt(messagesWithContext);
+    admissionAttempted = true;
+    // The client signal only cancels undispatched work (see
+    // AIInvocationContext.abortSignal); check it before taking the hold.
     ctx.abortSignal?.throwIfAborted();
     reservation = reserveAiBudget(ctx.db, ctx.tenantId, now, { copilotSiteIds: scopeSiteIds });
     const result = await generateText({
@@ -182,6 +214,9 @@ export async function runCopilotChat(
       // it runs to this deadline and settles its known cost.
       timeout: { totalMs: 60_000 },
       maxRetries: 0,
+      onLanguageModelCallEnd: () => {
+        completedModelCalls += 1;
+      },
       tools: {
         getCurrentSiteContext: tool({
           description: 'Return the active site and bounded analytics window for this chat.',
@@ -205,9 +240,16 @@ export async function runCopilotChat(
               sqlCapture.overLimit = true;
               return { error: 'At most five analytics queries are supported per response' };
             }
-            const sqlResult = protectedSnapshot.query(validateModelAnalyticsSQL(query));
-            sqlCapture.results.push(sqlResult);
-            return sqlResult;
+            try {
+              const sqlResult = protectedSnapshot.query(validateModelAnalyticsSQL(query));
+              sqlCapture.results.push(sqlResult);
+              return sqlResult;
+            } catch (error) {
+              // The SDK hands tool errors back to the model as a tool-error
+              // part instead of throwing, so remember the rejection here.
+              sqlCapture.rejected = true;
+              throw error;
+            }
           },
         }),
       },
@@ -236,9 +278,21 @@ export async function runCopilotChat(
       usageNestedNumber(inputRecord, 'noCache') ||
       usageNestedNumber(detailsRecord, 'noCacheTokens') ||
       Math.max(inputTokens - cacheReadTokens - cacheWriteTokens, 0);
+    // Negative counters cannot be persisted as a known cost, and a missing
+    // input/output counter must not be priced as a free half of the call.
+    const hasUsableUsage =
+      isKnownUsageCount(usage.inputTokens) &&
+      isKnownUsageCount(usage.outputTokens) &&
+      [cacheReadTokens, cacheWriteTokens, noCacheTokens].every(count => count >= 0);
+    observedUsage = {
+      inputTokens: Math.max(inputTokens, 0),
+      outputTokens: Math.max(outputTokens, 0),
+      cacheReadTokens: Math.max(cacheReadTokens, 0),
+      cacheWriteTokens: Math.max(cacheWriteTokens, 0),
+    };
     if (
       provider.id !== 'ollama' &&
-      inputTokens + outputTokens + cacheReadTokens + cacheWriteTokens <= 0
+      (!hasUsableUsage || inputTokens + outputTokens + cacheReadTokens + cacheWriteTokens <= 0)
     ) {
       throwServerError({
         trpcCode: 'BAD_GATEWAY',
@@ -277,15 +331,25 @@ export async function runCopilotChat(
 
     const sqlResult = sqlCapture.results.at(-1);
     if (!sqlResult) {
-      throwServerError({
-        trpcCode: 'BAD_GATEWAY',
-        errorCode: 'AI_PROVIDER_ERROR',
-        message: 'Copilot requires a validated SQL result',
-      });
+      // A rejected model query is a request-scope problem, not a provider
+      // outage; keep the stable SQL code so the UI asks for a narrower question.
+      throwServerError(
+        sqlCapture.rejected
+          ? {
+              trpcCode: 'BAD_REQUEST',
+              errorCode: 'AI_COPILOT_SQL_REJECTED',
+              message: 'Copilot analytics SQL was rejected; narrow the analytics question',
+            }
+          : {
+              trpcCode: 'BAD_GATEWAY',
+              errorCode: 'AI_PROVIDER_ERROR',
+              message: 'Copilot requires a validated SQL result',
+            }
+      );
     }
     const durationMs = Date.now() - startedAt;
 
-    const { id: auditLogId } = settleAiBudget(
+    const { id: auditLogId } = settleCompletion(
       ctx.db,
       reservation,
       {
@@ -338,7 +402,10 @@ export async function runCopilotChat(
     // established proves no billable work; any other post-dispatch failure
     // without priced usage keeps an unknown-cost hold.
     const notIncurred =
-      reservation !== null && consumedUsage === null && isDefinitiveProviderRejection(error);
+      reservation !== null &&
+      consumedUsage === null &&
+      completedModelCalls === 0 &&
+      isDefinitiveProviderRejection(error);
     const uncertainRemoteCost =
       reservation !== null && consumedUsage === null && provider.id !== 'ollama' && !notIncurred;
     const costState: 'local_zero' | 'estimated' | 'unknown' | 'not_incurred' =
@@ -358,41 +425,40 @@ export async function runCopilotChat(
       responseMode,
       providerId: provider.id,
       modelId,
-      inputTokens: consumedUsage?.inputTokens ?? 0,
-      outputTokens: consumedUsage?.outputTokens ?? 0,
-      cacheReadTokens: consumedUsage?.cacheReadTokens ?? 0,
-      cacheWriteTokens: consumedUsage?.cacheWriteTokens ?? 0,
+      inputTokens: observedUsage?.inputTokens ?? 0,
+      outputTokens: observedUsage?.outputTokens ?? 0,
+      cacheReadTokens: observedUsage?.cacheReadTokens ?? 0,
+      cacheWriteTokens: observedUsage?.cacheWriteTokens ?? 0,
       costUsd: consumedUsage?.costUsd ?? 0,
       costState,
       durationMs: Date.now() - startedAt,
       errorCode,
     };
+    // Only locally constructed domain errors carry our stable code. An SDK
+    // can also throw a TRPCError, whose message is untrusted provider data.
+    const isDomainError = error instanceof TRPCError && error.cause instanceof ServerErrorWithCode;
+    if (!isDomainError) {
+      // Log before settling: a settlement failure throws its own sanitized
+      // error and must not hide the provider failure from operators.
+      logProviderFailure(error, {
+        tenantId: ctx.tenantId,
+        feature: 'copilot',
+        providerId: provider.id,
+        modelId,
+        errorCode: 'AI_PROVIDER_ERROR',
+      });
+    }
     if (reservation) {
-      try {
-        settleAiBudget(ctx.db, reservation, audit, uncertainRemoteCost);
-      } catch {
-        // The kernel rolls back audit and settlement together and keeps the
-        // hold; never surface its private persistence diagnostic.
-        return throwServerError({
-          trpcCode: 'BAD_GATEWAY',
-          errorCode: 'AI_PROVIDER_ERROR',
-          message: 'AI call could not be recorded',
-        });
-      }
-    } else if (
-      errorCode !== 'AI_BUDGET_EXCEEDED' &&
-      errorCode !== 'AI_BUDGET_BUSY' &&
-      errorCode !== 'AI_QUOTA_EXCEEDED'
-    ) {
+      // Throws a sanitized AI_PROVIDER_ERROR (and logs) if the kernel cannot
+      // record the call; the hold is then kept for orphan recovery.
+      settleCompletion(ctx.db, reservation, audit, uncertainRemoteCost);
+    } else if (!admissionAttempted) {
       await recordCall(ctx.db, { ...audit, costState: 'not_incurred' });
     }
 
-    // Only locally constructed domain errors carry our stable code. An SDK
-    // can also throw a TRPCError, whose message is untrusted provider data.
-    if (error instanceof TRPCError && error.cause instanceof ServerErrorWithCode) {
+    if (isDomainError) {
       throw error;
     }
-
     return throwServerError({
       trpcCode: 'BAD_GATEWAY',
       errorCode: 'AI_PROVIDER_ERROR',
