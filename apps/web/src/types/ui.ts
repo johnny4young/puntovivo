@@ -155,6 +155,7 @@ export type AuditLogAction =
   | 'ai.invoice_ocr.confirm'
   | 'ai.copilot.query'
   | 'ai.copilot.response_mode.updated'
+  | 'ai.budget_hold.reconciled'
   | 'ai.anomaly.silenced'
   | 'ai.semantic_search.regenerate_embeddings'
   // kitchen display Listo + recall actions.

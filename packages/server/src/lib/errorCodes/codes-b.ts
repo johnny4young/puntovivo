@@ -89,6 +89,12 @@ export const SERVER_ERROR_CODES_B = {
    */
   AI_BUDGET_EXCEEDED: 'AI_BUDGET_EXCEEDED',
   /**
+   * Another remote AI call for the tenant is still in flight. Admission is
+   * one call at a time per tenant; the caller can retry in a moment. Not a
+   * spend or billing problem.
+   */
+  AI_BUDGET_BUSY: 'AI_BUDGET_BUSY',
+  /**
    * the active site has already consumed the per-site
    * monthly quota for an AI feature (e.g. 800 Co-pilot questions or
    * 200 OCR invoices). Pre-checked BEFORE the provider call so a

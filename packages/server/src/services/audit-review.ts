@@ -111,6 +111,7 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
     'ai.invoice_ocr.confirm',
     'ai.copilot.query',
     'ai.copilot.response_mode.updated',
+    'ai.budget_hold.reconciled',
     'ai.semantic_search.regenerate_embeddings',
   ],
 } as const satisfies Record<AuditReviewCategory, readonly AuditLogAction[]>;
