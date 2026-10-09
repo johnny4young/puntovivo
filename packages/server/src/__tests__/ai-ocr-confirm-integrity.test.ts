@@ -439,6 +439,15 @@ describe('invoice OCR confirmation integrity', () => {
     ).toBe(false);
   });
 
+  it('rejects negative reviewed totals like the review form does', () => {
+    expect(
+      confirmInvoiceDraftInput.safeParse({
+        ...input,
+        totals: { ...input.totals, iva: -19, total: 81 },
+      }).success
+    ).toBe(false);
+  });
+
   it('persists an operator-corrected net cost for a gross-price extraction', async () => {
     const reviewed = {
       ...input,

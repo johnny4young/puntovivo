@@ -195,7 +195,8 @@ export function ExtractedFieldsForm({
                       {line.description}
                     </p>
                     <p className="text-[11px] text-secondary-500">
-                      {line.quantity} × {formatCurrency(line.unitPrice)}
+                      {line.quantity} ×{' '}
+                      {Number.isFinite(line.unitPrice) ? formatCurrency(line.unitPrice) : '—'}
                     </p>
                     <p
                       className={cn(
@@ -479,7 +480,10 @@ function MoneyInput({
     <input
       type="number"
       min="0"
-      step="0.01"
+      // OCR amounts can carry sub-cent digits; the reconciliation mirror
+      // rounds them like the writer, so native step validation must not
+      // silently block a submit that canConfirm already allows.
+      step="any"
       inputMode="decimal"
       value={Number.isFinite(value) ? value : ''}
       onChange={event =>

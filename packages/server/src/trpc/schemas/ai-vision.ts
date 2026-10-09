@@ -77,10 +77,10 @@ export const confirmInvoiceDraftInput = z.object({
   }),
   invoiceNumber: z.string().trim().max(80).nullable(),
   totals: z.object({
-    subtotal: z.number(),
-    iva: z.number(),
-    total: z.number(),
-    linesSum: z.number(),
+    subtotal: z.number().min(0),
+    iva: z.number().min(0),
+    total: z.number().min(0),
+    linesSum: z.number().min(0),
   }),
   lines: z
     .array(
