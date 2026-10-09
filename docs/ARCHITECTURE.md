@@ -614,6 +614,18 @@ metadata after dispatch keeps an unknown liability. The Textract client
 makes a single attempt. Month boundaries use the server's local calendar,
 like the quota and spend reports; per-tenant time zones are a follow-up.
 
+The synchronous Textract path preserves one-page PDF support, but parses PDF
+bytes locally before regional-price lookup, budget reservation, and provider
+dispatch. A ten-second preflight must find exactly one retrievable page;
+malformed, unreadable, or multi-page PDFs fail without a cost reservation or
+unknown-liability audit. This guard is not a promise that Textract accepts
+every syntactically valid PDF or that a provider-side failure is free after
+dispatch. JPEG and PNG do not load the PDF parser.
+
+The Electron main bundle must ship PDF.js's matching `pdf.worker.mjs` next to
+its generated PDF chunk; `build:main` parses a one-page fixture from the
+generated bundle so a missing worker fails CI and packaging before release.
+
 Invoice OCR confirmation accepts only a successful extraction audit linked to
 the same tenant, active site, upload and upload payload hash. One
 `BEGIN IMMEDIATE` transaction allocates the purchase number, creates the draft

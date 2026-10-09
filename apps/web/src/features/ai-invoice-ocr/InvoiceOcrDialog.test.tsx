@@ -1,9 +1,10 @@
 import type { ComponentProps } from 'react';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { render } from '@/test/utils';
+import i18next from '@/i18n';
 import { InvoiceOcrDialog } from './InvoiceOcrDialog';
 import type { PurchaseDraft } from './types';
 import type { Provider } from '@/types';
@@ -197,7 +198,31 @@ describe('InvoiceOcrDialog states', () => {
     await user.upload(uploadInput(document.body), pdfFile());
 
     expect(await screen.findByText('factura.pdf')).toBeInTheDocument();
-    expect(screen.getAllByText(/PDF/i).length).toBeGreaterThan(0);
+    expect(screen.getByTestId('invoice-ocr-preview')).toHaveTextContent('PDF');
+    expect(screen.getByTestId('invoice-ocr-preview')).not.toHaveTextContent(/1 page|1 página/i);
+  });
+
+  it('shows an actionable Spanish error when a PDF has more than one page', async () => {
+    try {
+      await i18next.changeLanguage('es');
+      uploadMutateAsync.mockResolvedValue({ uploadId: 'upload-1' });
+      extractMutateAsync.mockRejectedValue({
+        data: { errorCode: 'AI_VISION_PDF_PAGE_LIMIT' },
+        message: 'Synchronous invoice extraction accepts exactly one PDF page',
+      });
+      renderDialog();
+
+      expect(screen.getByText(/PDF \(1 página\)/i)).toBeInTheDocument();
+      await userEvent.upload(uploadInput(document.body), pdfFile());
+      expect(
+        await screen.findByText(/Solo se admiten PDF de una página/i)
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/Synchronous invoice extraction/i)).not.toBeInTheDocument();
+    } finally {
+      await act(async () => {
+        await i18next.changeLanguage('en');
+      });
+    }
   });
 
   it('renders the extracting state after upload succeeds while OCR is pending', async () => {
