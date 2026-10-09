@@ -564,9 +564,9 @@ classified by what it proves:
   a month-scoped liability hold.
 
 Client cancellation only cancels work that has not been dispatched. The
-Co-pilot chat and connection-test HTTP procedures turn a prematurely closed
-response into an abort signal (a normal completed response does not, and
-direct non-HTTP callers remain supported); it stops the request before
+Co-pilot chat and connection-test procedures pass tRPC's request signal
+(aborted when the HTTP response closes before the procedure answers; direct
+callers may omit it) to the service as an admission check; it stops the request before
 admission, without an audit row or hold, but never reaches a dispatched
 provider call, which runs to its bounded deadline and settles its known cost
 rather than turning into an unknown liability. The SDK's implicit

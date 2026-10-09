@@ -188,6 +188,8 @@ export async function runCopilotChat(
       options.scopeSiteIds ??
       (await resolveCopilotQuotaSites(ctx.db, ctx.tenantId, input.context?.siteId));
     auditSiteId = input.context?.siteId ?? null;
+    // Skip the snapshot load entirely when the client has already gone.
+    ctx.abortSignal?.throwIfAborted();
     snapshot = await createCopilotSnapshot(ctx.db, ctx.tenantId, input.context, now, scopeSiteIds);
     const protectedSnapshot = snapshot;
     const providerOptions = provider.cacheControlForSystemPrompt();
@@ -389,12 +391,7 @@ export async function runCopilotChat(
     // the provider; it must not create a usage row or unknown-cost hold. Only
     // the cancellation itself is rethrown: any other failure keeps the
     // sanitized path below even if the client has gone.
-    if (
-      reservation === null &&
-      ctx.abortSignal?.aborted &&
-      error instanceof Error &&
-      error.name === 'AbortError'
-    ) {
+    if (reservation === null && ctx.abortSignal?.aborted && error === ctx.abortSignal.reason) {
       throw error;
     }
     const errorCode = serverErrorCodeFrom(error);

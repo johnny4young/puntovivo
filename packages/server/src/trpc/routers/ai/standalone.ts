@@ -200,14 +200,14 @@ export const standaloneProcedures = {
    * row, returns the model output. Backs the AI Settings card's
    * "Test connection" button.
    */
-  completeTest: adminProcedure.mutation(async ({ ctx }) => {
+  completeTest: adminProcedure.mutation(async ({ ctx, signal }) => {
     // adminProcedure → tenantProcedure → protectedProcedure rejects
     // unauthenticated callers, but the middleware-chain narrowing
     // does not propagate to this handler's ctx type. Defensive guard
     // keeps TypeScript happy and produces a clearer 500 if the chain
     // is ever rewired.
     const userId = ctx.user?.id ?? null;
-    const result = await withClientAbortSignal(ctx.res, abortSignal =>
+    const result = await withClientAbortSignal(signal, abortSignal =>
       completeAI(
         {
           db: ctx.db,
