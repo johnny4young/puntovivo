@@ -97,6 +97,16 @@
       "pins": {
         "source-map-js@1.2.1": "1.2.2"
       }
+    },
+    {
+      "category": "security-floor",
+      "reviewedOn": "2026-10-09",
+      "reviewBy": "2026-11-08",
+      "reason": "Patch fast-jwt 6.3.2 (GHSA-x937-hj6v-793p, the verifier cache accepting expired tokens that carry no iat, runtime-reachable through @fastify/jwt in the server and the desktop-embedded server) to its first patched release on the same major line, inside the range @fastify/jwt already accepts.",
+      "removalCriteria": "Remove this selector once @fastify/jwt resolves fast-jwt 6.3.4 or later without it and the full dependency audit plus the server and desktop gates pass.",
+      "pins": {
+        "fast-jwt@6.3.2": "6.3.4"
+      }
     }
   ]
 }

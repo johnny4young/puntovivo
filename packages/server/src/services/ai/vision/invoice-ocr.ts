@@ -24,6 +24,7 @@ import { throwServerError } from '../../../lib/errorCodes.js';
 
 import { currentMonthSpend, recordCall } from '../auditLog.js';
 import { toBillableTokenUsage } from '../client.js';
+import { logProviderFailure } from '../provider-error.js';
 import { getProvider } from '../providers/registry.js';
 import type { AIProvider } from '../providers/types.js';
 import { resolveAISettings } from '../client.js';
@@ -290,6 +291,13 @@ export async function extractInvoiceFromImage(
       (error instanceof Error && /No object generated/i.test(error.message));
 
     const errorCode = isSchemaFailure ? 'AI_VISION_PARSE_FAILED' : 'AI_PROVIDER_ERROR';
+    logProviderFailure(error, {
+      tenantId: ctx.tenantId,
+      feature: 'invoiceOcr',
+      providerId: provider.id,
+      modelId,
+      errorCode,
+    });
 
     await recordCall(ctx.db, {
       tenantId: ctx.tenantId,

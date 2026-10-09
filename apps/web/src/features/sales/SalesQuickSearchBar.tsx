@@ -1,7 +1,7 @@
 import type { RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Search } from 'lucide-react';
-import { ariaKeyshortcutsFor } from '@/lib/shortcuts';
+import { ariaKeyshortcutsFor, shortcutDisplayFor } from '@/lib/shortcuts';
 
 interface SalesQuickSearchBarProps {
   query: string;
@@ -63,13 +63,26 @@ export function SalesQuickSearchBar({
           <span>{t('quickSearch.search')}</span>
           {!disabled && (
             <span className="sales-scan-submit-key" aria-hidden="true">
-              F5
+              {shortcutDisplayFor('sales.productSearch')}
             </span>
           )}
         </button>
       </div>
-      <p className="sales-scan-hint text-xs text-secondary-500">
-        {t(disabled ? 'quickSearch.lockedHint' : 'quickSearch.hint')}
+      <p className="sales-scan-hint flex flex-wrap gap-x-3 gap-y-2 text-xs text-secondary-500">
+        {disabled
+          ? t('quickSearch.lockedHint')
+          : (
+              [
+                ['sales.focusProduct', t('quickSearch.shortcut.focusSearch')],
+                ['sales.productSearch', t('quickSearch.shortcut.openCatalog')],
+                ['sales.charge', t('checkout.shortcut.charge')],
+              ] as const
+            ).map(([id, label]) => (
+              <span key={id} className="inline-flex items-center gap-1">
+                <kbd className="pv-kbd">{shortcutDisplayFor(id)}</kbd>
+                <span>{label}</span>
+              </span>
+            ))}
       </p>
     </form>
   );

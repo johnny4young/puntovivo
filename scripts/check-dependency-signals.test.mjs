@@ -414,7 +414,9 @@ test('Electron development and production packaging share the reviewed patched r
   assert.equal(version, '43.5.0');
   assert.equal(desktop.devDependencies.electron, version);
   assert.equal(builder.match(/^electronVersion:\s*(\S+)$/m)?.[1], version);
-  assert.doesNotMatch(workspaceManifest, /^\s+- electron@43\.4\.1$/m);
+  // No Electron release may bypass the age policy; a literal old version here
+  // would let the next exact pin slip into minimumReleaseAgeExclude unnoticed.
+  assert.doesNotMatch(workspaceManifest, /^\s+- '?electron@/m);
 });
 
 test('glob brace rewrite work is bounded while ordinary patterns still expand', () => {

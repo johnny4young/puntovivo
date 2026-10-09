@@ -106,7 +106,16 @@ Namespace preloading never starts business queries or bypasses site/role guards.
 Cart summaries are memoized by immutable items and pricing mode so unrelated
 query updates do not serialize the same Customer Display projection again.
 Heartbeat and reconnect publication are unchanged. Lighthouse also logs bounded
-renderer CPU events, with asset paths only and no raw trace arguments or headers.
+renderer CPU events, with process-local opaque script IDs and no raw trace
+arguments or headers. Only canonical same-origin URLs verified against regular
+top-level `assets/*.js` files in the current build receive an ID; missing builds, queries, fragments,
+external origins, and symlink assets remain unattributed. Bootup and CPU share
+the same resolver so IDs correlate within a run. The reverse mapping stays
+private, and IDs are not stable across processes. The isolated gate supplies
+its own preview build directory to the resolver rather than inspecting an
+older checkout dist; external-preview diagnostics can specify
+`PUNTOVIVO_LIGHTHOUSE_BUILD_DIRECTORY`. No script names or paths
+appear in either diagnostic channel.
 Each sample also records its score, LCP, TTI, and CLS before aggregation. CPU
 attribution uses the pinned Lighthouse trace processor to select the audited
 main frame's renderer threads, including process swaps; tasks starting before
@@ -117,6 +126,16 @@ identity/parsing is unavailable. No raw trace or parser errors are logged.
 This internal Lighthouse API is isolated to diagnostics and covered by synthetic
 multi-renderer trace tests; revalidate it when upgrading Lighthouse. Its failure
 never changes metrics, sampling, score floors, or the strict acceptance policy.
+
+LCP diagnostics expose only an allowlisted element tag and the four observed
+trace subparts from the pinned Lighthouse breakdown insight. Missing or invalid
+subparts remain null; Lighthouse omits both resource subparts when the LCP
+element loads no resource, such as text. A test builds the details with the
+pinned Lighthouse producers, so revalidate it when upgrading Lighthouse. Node
+text, selectors, labels, attributes, and resource URLs are never included.
+These observed timings are not additive to the simulation-adjusted LCP audit
+used by the score and budget gates; they do not change measurements,
+thresholds, or acceptance.
 
 ### Data-scale UI contract
 

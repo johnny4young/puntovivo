@@ -38,15 +38,27 @@ exact preview Blob URL is revoked before the late response completes. The
 ordinary `test:e2e:web` command excludes this tagged soak so its functional
 journeys remain bounded.
 
+The complete local web command still runs every ordinary functional journey.
+It first runs the parallel suite without `@isolated-journey`, then starts a
+fresh single-worker Playwright invocation for the tagged long or
+fixture-intensive journeys. Three pharmacy journeys deliberately combine OTC
+custody with prescription privacy, recall, transfer, return, and expiry
+operations; first-owner retail exercises a separate empty-installation server;
+and fiscal recovery writes a direct database fixture before auth bootstrap.
+These seven complete tests passed alone but showed load-sensitive failures in
+parallel. Isolating their worker does not add retries, increase their per-test
+limits, or split away any end-state assertions.
+
 What happens behind that command:
 
 1. `scripts/ensure-playwright-browser.mjs` installs Chromium into
    `.playwright-browsers/` if the cache is cold (subsequent runs are free).
 2. `native:ensure:node` verifies that the bundled Node-API SQLite addon loads
    under Node before Playwright's `globalSetup` touches the database.
-3. Playwright spins up `pnpm run dev:server` (port 8090) and
-   `pnpm run dev:web` (port 3000) unless they are already listening
-   (`reuseExistingServer: !CI`).
+3. Playwright starts its own loopback standalone server (port 8090, or the
+   port in `PUNTOVIVO_E2E_API_ORIGIN`) and Vite renderer on port 5173. It
+   never reuses an existing listener; a port collision fails the run. See
+   `docs/TESTING.md` § Web browser-suite isolation.
 4. `e2e/web/global-setup.ts` prepares the tenant for testing:
    - Prunes artefacts from prior runs (old E2E products, providers,
      sales, purchases, transfers, cash sessions, audit rows, disposable
@@ -60,6 +72,15 @@ What happens behind that command:
    `seedPurchaseScenario`, `seedTransferScenario`,
    `seedCashSessionScenario`, `seedCashierWithoutSession`) so tests never
    share mutable state.
+
+Steps 3–5 run once for the parallel lane and once for the isolated
+`@isolated-journey` lane. Both invocations use the same zero-retry
+configuration and failure-artefact policy. The second lane writes to
+`test-results/playwright-web-heavy` and `playwright-report/web-heavy` so it
+does not erase the parallel lane's `playwright-web` and `web` reports.
+The empty-installation fixture reports forwarding failures with allowlisted
+transport and child-process fields; it never prints request headers, URL query
+data, or raw child stderr.
 
 ## Re-run a single test
 

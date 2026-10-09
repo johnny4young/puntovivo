@@ -147,6 +147,24 @@ export async function loginAs(page: Page, user: UserKey, options?: { spanish?: b
   await login(page, E2E_USERS[user], options);
 }
 
+/**
+ * Pin products as Sales quick-access favorites for every listed site before
+ * the app boots, using the same storage key as `salesFavorites.ts`.
+ */
+export async function seedSalesFavorites(
+  page: Page,
+  favorites: { tenantId: string; siteIds: readonly string[]; productIds: readonly string[] }
+) {
+  await page.addInitScript(({ tenantId, siteIds, productIds }) => {
+    for (const siteId of siteIds) {
+      window.localStorage.setItem(
+        `puntovivo:sales-favorites:v1:${tenantId}:${siteId}`,
+        JSON.stringify({ productIds })
+      );
+    }
+  }, favorites);
+}
+
 export async function resetSession(page: Page) {
   await page.context().clearCookies();
   await page.goto('/login');
@@ -185,10 +203,29 @@ export async function ensureLanguage(page: Page, language: 'en' | 'es') {
 
   try {
     if (!(await languageTrigger.filter({ hasText: new RegExp(`^${targetLabel}$`) }).isVisible())) {
-      await languageTrigger.click();
-      await page.getByRole('option', { name: targetLabel, exact: true }).click();
+      // A failing trace showed document movement during option hit-testing.
+      // Use the control's keyboard contract to avoid pointer-scroll timing;
+      // this does not establish a defect in the production Select component.
+      // Pointer selection remains independently covered by the header test.
+      if ((await languageTrigger.getAttribute('aria-expanded')) === 'true') {
+        await languageTrigger.press('Escape');
+      }
+      await languageTrigger.press('Enter');
+      const listbox = page.locator('header').getByRole('listbox');
+      await expect(listbox.getByRole('option', { name: targetLabel, exact: true })).toBeVisible();
+      const labels = await listbox.getByRole('option').allTextContents();
+      const targetIndex = labels.findIndex(label => label.trim() === targetLabel);
+      expect(targetIndex).toBeGreaterThanOrEqual(0);
+      for (let index = 0; index < targetIndex; index += 1) {
+        await languageTrigger.press('ArrowDown');
+      }
+      await languageTrigger.press('Enter');
     }
     await expect(languageTrigger).toHaveText(targetLabel);
+    if ((await languageTrigger.getAttribute('aria-expanded')) === 'true') {
+      await languageTrigger.press('Escape');
+    }
+    await expect(languageTrigger).toHaveAttribute('aria-expanded', 'false');
 
     // Reloading also used to close transient header popovers. Preserve that
     // contract so callers can deterministically open the user menu after a

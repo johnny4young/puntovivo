@@ -1,4 +1,4 @@
-import { expectNoPublicDiagnostic } from './utils/ai-error-privacy.js';
+import { expectNoPublicDiagnostic, withProviderFailureLog } from './utils/ai-error-privacy.js';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import Database from 'better-sqlite3';
 import { TRPCError } from '@trpc/server';
@@ -462,20 +462,22 @@ describe('copilot provider boundary (real AI SDK, no remote calls)', () => {
     try {
       let caught: unknown;
       try {
-        await runCopilotChat(
-          { db: getDatabase(), tenantId, siteId, userId },
-          { messages: [{ role: 'user', content: CUSTOMER }] },
-          {
-            now: NOW,
-            factory: () => ({
-              id: 'anthropic',
-              defaultModelId: 'test',
-              isConfigured: () => true,
-              languageModel: () => model,
-              cacheControlForSystemPrompt: () => undefined,
-              pricing: { models: {}, calculateCostUsd: () => 0 },
-            }),
-          }
+        await withProviderFailureLog(() =>
+          runCopilotChat(
+            { db: getDatabase(), tenantId, siteId, userId },
+            { messages: [{ role: 'user', content: CUSTOMER }] },
+            {
+              now: NOW,
+              factory: () => ({
+                id: 'anthropic',
+                defaultModelId: 'test',
+                isConfigured: () => true,
+                languageModel: () => model,
+                cacheControlForSystemPrompt: () => undefined,
+                pricing: { models: {}, calculateCostUsd: () => 0 },
+              }),
+            }
+          )
         );
       } catch (error) {
         caught = error;
@@ -502,20 +504,22 @@ describe('copilot provider boundary (real AI SDK, no remote calls)', () => {
     });
     let caught: unknown;
     try {
-      await runCopilotChat(
-        { db: getDatabase(), tenantId, siteId, userId },
-        { messages: [{ role: 'user', content: CUSTOMER }] },
-        {
-          now: NOW,
-          factory: () => ({
-            id: 'anthropic',
-            defaultModelId: 'test',
-            isConfigured: () => true,
-            languageModel: () => model,
-            cacheControlForSystemPrompt: () => undefined,
-            pricing: { models: {}, calculateCostUsd: () => 0 },
-          }),
-        }
+      await withProviderFailureLog(() =>
+        runCopilotChat(
+          { db: getDatabase(), tenantId, siteId, userId },
+          { messages: [{ role: 'user', content: CUSTOMER }] },
+          {
+            now: NOW,
+            factory: () => ({
+              id: 'anthropic',
+              defaultModelId: 'test',
+              isConfigured: () => true,
+              languageModel: () => model,
+              cacheControlForSystemPrompt: () => undefined,
+              pricing: { models: {}, calculateCostUsd: () => 0 },
+            }),
+          }
+        )
       );
     } catch (error) {
       caught = error;

@@ -1,4 +1,7 @@
-import { expectNoPublicDiagnostic } from '../../__tests__/utils/ai-error-privacy.js';
+import {
+  expectNoPublicDiagnostic,
+  withProviderFailureLog,
+} from '../../__tests__/utils/ai-error-privacy.js';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { TRPCError } from '@trpc/server';
 import { hash } from 'argon2';
@@ -690,23 +693,25 @@ describe('client.completeAI', () => {
     const db = getDatabase();
     await writeAISettings(db, tenantId, { enabled: true, monthlyBudgetUsd: 1 });
     const secret = 'PRIVATE_CUSTOMER_IN_PROVIDER_ERROR';
-    const failure = await expectThrow(
-      completeAI({ db, tenantId, siteId, userId }, baseInput, () =>
-        buildMockProvider({
-          languageModel: () =>
-            new MockLanguageModelV4({
-              provider: 'anthropic',
-              modelId: 'claude-haiku-4-5',
-              doGenerate: async () => {
-                throw new Error(`synthetic provider failure ${secret}`);
-              },
-              doStream: async () => {
-                throw new Error(`synthetic provider failure ${secret}`);
-              },
-            }),
-        })
-      ),
-      'AI_PROVIDER_ERROR'
+    const failure = await withProviderFailureLog(() =>
+      expectThrow(
+        completeAI({ db, tenantId, siteId, userId }, baseInput, () =>
+          buildMockProvider({
+            languageModel: () =>
+              new MockLanguageModelV4({
+                provider: 'anthropic',
+                modelId: 'claude-haiku-4-5',
+                doGenerate: async () => {
+                  throw new Error(`synthetic provider failure ${secret}`);
+                },
+                doStream: async () => {
+                  throw new Error(`synthetic provider failure ${secret}`);
+                },
+              }),
+          })
+        ),
+        'AI_PROVIDER_ERROR'
+      )
     );
     expect(failure.message).toBe('AI provider call failed');
     expect(failure.message).not.toContain(secret);

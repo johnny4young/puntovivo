@@ -4,7 +4,7 @@
  * @module services/payments/reconciliation/pass
  */
 
-import { and, eq, gte, isNull, lte, ne, notExists, or } from 'drizzle-orm';
+import { and, eq, gte, inArray, isNull, lte, ne, notExists, or } from 'drizzle-orm';
 import { paymentOutbox, paymentReconciliationProposals, salePayments } from '../../../db/schema.js';
 import type { PaymentRailId } from '../../../db/schema.js';
 import type { DatabaseInstance } from '../../../db/index.js';
@@ -13,7 +13,9 @@ import { AMOUNT_EPSILON, RECONCILIATION_WINDOW_DAYS, TIEBREAK_WINDOW_MS } from '
 import { isRailCandidateTender } from './helpers.js';
 import type { PaymentOutboxRow } from './types.js';
 import {
+  isProposableCandidate,
   proposalProviderIdentity,
+  proposalProviderTransactionIdSql,
   providerTransactionKey,
   savePaymentProposal,
   statementKey,
@@ -140,6 +142,13 @@ export async function runReconciliationPass(
     }
   }
 
+  const batchProviderTransactionIds = [
+    ...new Set(
+      statementRows.flatMap(row =>
+        row.providerTransactionId.trim().length > 0 ? [row.providerTransactionId] : []
+      )
+    ),
+  ];
   const proposalRows = await db
     .select({
       statementKey: paymentReconciliationProposals.statementKey,
@@ -148,16 +157,27 @@ export async function runReconciliationPass(
       selectedOutboxId: paymentReconciliationProposals.selectedOutboxId,
     })
     .from(paymentReconciliationProposals)
-    .where(eq(paymentReconciliationProposals.tenantId, tenantId))
+    .where(
+      and(
+        eq(paymentReconciliationProposals.tenantId, tenantId),
+        // Pending rows reserve outbox candidates; reviewed rows only matter when
+        // this batch re-reports their provider transaction. Never load history.
+        batchProviderTransactionIds.length > 0
+          ? or(
+              eq(paymentReconciliationProposals.status, 'pending'),
+              inArray(proposalProviderTransactionIdSql, batchProviderTransactionIds)
+            )
+          : eq(paymentReconciliationProposals.status, 'pending')
+      )
+    )
     .all();
   const priorProposals = new Map(proposalRows.map(row => [row.statementKey, row]));
   const priorProviderTransactions = new Map(
     proposalRows.map(row => [providerTransactionKey(row.evidence.statement), row])
   );
-  const reservedOutboxIds = new Set(
+  const unavailableOutboxIds = new Set(
     proposalRows.filter(row => row.status === 'pending').map(row => row.selectedOutboxId)
   );
-  const unavailableOutboxIds = new Set(reservedOutboxIds);
   const mismatches: ReconciliationPassMismatch[] = [];
   const byKind: Record<ReconciliationMismatchKind, number> = {
     amount_mismatch: 0,
@@ -173,10 +193,18 @@ export async function runReconciliationPass(
   let tiebreakDegraded = 0;
 
   for (const statement of statementRows) {
+    const exactPriorProposal = priorProposals.get(statementKey(statement));
     const priorProposal =
-      priorProposals.get(statementKey(statement)) ??
-      priorProviderTransactions.get(providerTransactionKey(statement));
-    if (priorProposal) {
+      exactPriorProposal ?? priorProviderTransactions.get(providerTransactionKey(statement));
+    // Only a settled re-report stays behind the human review. A declined or
+    // pending re-report must still surface as `provider_issue`, and a corrected
+    // row after approval must reach the strict matcher so an amount or currency
+    // change against the settled outbox row is not silently dropped.
+    if (
+      priorProposal &&
+      statement.status === 'settled' &&
+      (priorProposal.status !== 'approved' || exactPriorProposal)
+    ) {
       // Re-imports must not re-call the model or settle a different candidate.
       // A rejected recommendation remains visible as an ambiguous statement.
       if (priorProposal.status !== 'approved') {
@@ -305,7 +333,14 @@ export async function runReconciliationPass(
     }
 
     // Multiple candidates — try the AI tie-break if wired.
-    if (opts.aiTiebreak && opts.aiContext) {
+    // Skip the paid model call when no candidate could ever become a proposal,
+    // including a corrected re-report of an already approved transaction.
+    if (
+      opts.aiTiebreak &&
+      opts.aiContext &&
+      !priorProposal &&
+      fuzzy.some(candidate => isProposableCandidate(candidate, statement))
+    ) {
       if (opts.aiContext.tenantId !== tenantId) {
         throw new Error('Payment AI tie-break context tenant does not match reconciliation tenant');
       }
@@ -349,7 +384,6 @@ export async function runReconciliationPass(
               providerTransactionKey(proposal.evidence.statement),
               proposal
             );
-            reservedOutboxIds.add(proposal.selectedOutboxId);
             unavailableOutboxIds.add(proposal.selectedOutboxId);
           }
         }

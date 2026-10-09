@@ -21,6 +21,7 @@ import { writeAuditLog } from '../audit-logs.js';
 
 import { reserveAiBudget, settleAiBudget } from './budget.js';
 import { isDefinitiveProviderRejection } from './provider-rejection.js';
+import { logProviderFailure } from './provider-error.js';
 import { getProvider } from './providers/registry.js';
 import type { AIProvider, TokenUsage } from './providers/types.js';
 import type {
@@ -458,6 +459,13 @@ export async function completeAI(
     });
   } catch (error) {
     const durationMs = Date.now() - startedAt;
+    logProviderFailure(error, {
+      tenantId: ctx.tenantId,
+      feature: input.feature,
+      providerId: provider.id,
+      modelId,
+      errorCode: 'AI_PROVIDER_ERROR',
+    });
     // The SDK may have sent this request before failure or our deadline;
     // zero is not evidence of a free provider call. A definitive provider
     // rejection (pre-inference 4xx answer) or a connection that was never
