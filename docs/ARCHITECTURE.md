@@ -626,6 +626,21 @@ The Electron main bundle must ship PDF.js's matching `pdf.worker.mjs` next to
 its generated PDF chunk; `build:main` parses a one-page fixture from the
 generated bundle so a missing worker fails CI and packaging before release.
 
+Invoice OCR confirmation accepts only a successful extraction audit linked to
+the same tenant, active site, upload and upload payload hash. One
+`BEGIN IMMEDIATE` transaction allocates the purchase number, creates the draft
+and items, enqueues its sync intent, and appends the confirmation audit. A
+tenant-scoped unique extraction claim and reviewed-input hash make an identical
+retry return the original draft without new side effects; a changed review
+conflicts. A committed retry remains available after extraction-audit metadata
+retention or feature disablement, while an uncommitted confirmation fails closed
+if its provenance is missing. The persisted draft uses net line costs, and
+confirmation rejects a mismatch between those costs, reviewed subtotal, tax,
+and invoice total. Textract does not indicate whether a line's unit price
+includes tax; a tax-inclusive line can therefore be rejected until an explicit
+tax-basis correction flow is implemented. Do not weaken reconciliation to make
+that invoice pass implicitly.
+
 ## Price-tier boundary
 
 Products expose a three-price grid for their base unit. Each alternate unit
@@ -1078,3 +1093,25 @@ Electron accepts only the trusted main window's main frame and dispatches the
 fixed tRPC command through Fastify in-process transport, keeping capability and
 CSRF material in main. This is not a generic HTTP proxy. Safe IPC results never
 forward transport, SQLite or native invoke exception messages.
+
+## Session-bound CSRF companion
+
+Authenticated cookie requests use an opaque HMAC companion bound to the verified
+refresh family, tenant, user and session version. Cookie/header equality alone
+never authorizes a live session. Safe reads repair the companion deterministically;
+refresh rotation keeps it stable, while login and staff handoff replace it.
+Revocation clears it alongside the refresh cookie. The HTTP hook deliberately
+leaves stale-JTI classification to the existing refresh replay detector.
+
+A verified pre-family refresh JWT can bootstrap a separate, purpose-bound HMAC
+proof on a safe read. Only the standalone refresh endpoint accepts that proof
+and exchanges it for a new family; mixed batches and business mutations reject
+it. Invalid or partially family-tagged credentials cannot use this upgrade.
+Unverifiable sessions must sign in again; there is no equality-only authenticated
+compatibility mode. Pre-auth installation ownership retains its separate contract.
+
+The Web auth bootstrap performs its safe read before refresh. Store Hub keeps
+refresh/CSRF custody in Electron main. After an explicit pre-handler CSRF rejection,
+main may repair the companion through one safe same-Hub read and retry refresh
+once, fenced against identity changes. It never retries replay rejection or an
+ambiguous network/server failure. Hub HTTPS requirements remain unchanged.

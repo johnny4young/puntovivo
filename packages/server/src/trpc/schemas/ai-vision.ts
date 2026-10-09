@@ -63,11 +63,9 @@ export const matchInvoiceLinesInput = z.object({
 export type MatchInvoiceLinesInput = z.infer<typeof matchInvoiceLinesInput>;
 
 /**
- * 2026-05-15 — confirm a reviewed PurchaseDraft. The procedure stores
- * an audit-log row (`ai.invoice_ocr.confirm`) so AiConfigPage can
- * surface the operator who approved a given OCR pass. The actual
- * purchase creation is delegated to `purchases.create` via the caller
- * this RPC stays narrow to keep the audit trail isolated.
+ * Reviewed OCR confirmation input. The procedure delegates to the atomic
+ * purchase writer, which binds this review to a successful extraction and
+ * commits the draft, sync intent and confirmation audit together.
  */
 export const confirmInvoiceDraftInput = z.object({
   uploadId: z.string().min(1).max(100),
