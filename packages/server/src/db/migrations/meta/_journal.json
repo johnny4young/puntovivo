@@ -638,6 +638,20 @@
       "when": 1788843503934,
       "tag": "0090_inventory_value_constraints",
       "breakpoints": true
+    },
+    {
+      "idx": 91,
+      "version": "6",
+      "when": 1790144918220,
+      "tag": "0091_puzzling_sunfire",
+      "breakpoints": true
+    },
+    {
+      "idx": 92,
+      "version": "6",
+      "when": 1790981029569,
+      "tag": "0092_ai_copilot_scope_sites",
+      "breakpoints": true
     }
   ]
 }

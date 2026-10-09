@@ -10,11 +10,15 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 
 import {
   aggregateRouteSamples,
   extractDiagnostics,
+  createBuildScriptIdResolver,
+  extractLcpDiagnostics,
   extractCpuDiagnostics,
   extractMetrics,
   compareToLighthouseBudget,
@@ -194,10 +198,208 @@ test('extractDiagnostics exposes blocking-time signals and the heaviest scripts'
     mainThreadWorkMs: 2501,
     bootupTimeMs: 1800,
     topBootupScripts: [
-      { url: '/assets/large.js', totalMs: 900, scriptingMs: 701 },
-      { url: '/assets/small.js', totalMs: 100, scriptingMs: 80 },
+      { scriptId: null, totalMs: 900, scriptingMs: 701 },
+      { scriptId: null, totalMs: 100, scriptingMs: 80 },
     ],
   });
+});
+
+test('extractLcpDiagnostics reads the current insight without leaking node details', () => {
+  const secret = 'private-customer-123';
+  const lhr = {
+    audits: {
+      'lcp-breakdown-insight': {
+        details: {
+          type: 'list',
+          items: [
+            {
+              type: 'table',
+              items: [
+                { subpart: 'timeToFirstByte', duration: 123.6 },
+                { subpart: 'resourceLoadDelay', duration: 45.4 },
+                { subpart: 'resourceLoadDuration', duration: 99.7 },
+                { subpart: 'elementRenderDelay', duration: 401.2 },
+              ],
+            },
+            {
+              type: 'node',
+              snippet: `<IMG alt=\"${secret}\">`,
+              selector: `#${secret}`,
+              nodeLabel: secret,
+            },
+          ],
+        },
+      },
+    },
+  };
+
+  const diagnostic = extractLcpDiagnostics(lhr);
+  assert.deepEqual(diagnostic, {
+    lcpElementTag: 'img',
+    lcpObservedBreakdownMs: {
+      timeToFirstByte: 124,
+      resourceLoadDelay: 45,
+      resourceLoadDuration: 100,
+      elementRenderDelay: 401,
+    },
+  });
+  assert.equal(JSON.stringify(diagnostic).includes(secret), false);
+});
+
+test('extractLcpDiagnostics rejects malformed values and unknown element tags', () => {
+  const lhr = {
+    audits: {
+      'lcp-breakdown-insight': {
+        details: {
+          type: 'list',
+          items: [
+            {
+              type: 'table',
+              items: [
+                null,
+                { subpart: 'timeToFirstByte', duration: -1 },
+                { subpart: 'elementRenderDelay', duration: Number.POSITIVE_INFINITY },
+              ],
+            },
+            { type: 'node', snippet: '<private-customer-record id=\"secret\">' },
+          ],
+        },
+      },
+    },
+  };
+  assert.deepEqual(extractLcpDiagnostics(lhr), {
+    lcpElementTag: 'other',
+    lcpObservedBreakdownMs: {
+      timeToFirstByte: null,
+      resourceLoadDelay: null,
+      resourceLoadDuration: null,
+      elementRenderDelay: null,
+    },
+  });
+  assert.deepEqual(extractLcpDiagnostics({ audits: {} }), {
+    lcpElementTag: null,
+    lcpObservedBreakdownMs: {
+      timeToFirstByte: null,
+      resourceLoadDelay: null,
+      resourceLoadDuration: null,
+      elementRenderDelay: null,
+    },
+  });
+});
+
+test('extractLcpDiagnostics stays bounded for private attributes and malformed insight shapes', () => {
+  const secret = 'https://private.invalid/customer?token=secret-canary';
+  for (const details of [undefined, null, {}, { type: 'table', items: [] }]) {
+    const diagnostic = extractLcpDiagnostics({ audits: { 'lcp-breakdown-insight': { details } } });
+    assert.equal(diagnostic.lcpElementTag, null);
+    assert.deepEqual(Object.values(diagnostic.lcpObservedBreakdownMs), [null, null, null, null]);
+  }
+  const diagnostic = extractLcpDiagnostics({
+    audits: {
+      'lcp-breakdown-insight': {
+        details: {
+          type: 'list',
+          items: [
+            {
+              type: 'table',
+              items: [
+                { subpart: 'resourceLoadDelay', duration: 0 },
+                { subpart: 'resourceLoadDuration', duration: '12' },
+                { subpart: secret, duration: 12 },
+              ],
+            },
+            {
+              type: 'node',
+              snippet: `<p data-private="${secret}">${secret}</p>`,
+              selector: secret,
+              nodeLabel: secret,
+              path: secret,
+              boundingRect: { private: secret },
+            },
+          ],
+        },
+      },
+    },
+  });
+  assert.deepEqual(diagnostic, {
+    lcpElementTag: 'p',
+    lcpObservedBreakdownMs: {
+      timeToFirstByte: null,
+      resourceLoadDelay: 0,
+      resourceLoadDuration: null,
+      elementRenderDelay: null,
+    },
+  });
+  assert.equal(JSON.stringify(diagnostic).includes(secret), false);
+});
+
+test('extractLcpDiagnostics reads details built by the pinned Lighthouse insight', async () => {
+  // Build the details with the pinned Lighthouse producers so a subpart rename
+  // or list/table/node reshape on upgrade fails here instead of logging nulls.
+  const { default: LCPBreakdownInsight } =
+    await import('lighthouse/core/audits/insights/lcp-breakdown-insight.js');
+  const { Audit } = await import('lighthouse/core/audits/audit.js');
+  const secret = 'private-customer-456';
+  const node = Audit.makeNodeItem({
+    lhId: 'page-0-H1',
+    devtoolsNodePath: secret,
+    selector: `h1.${secret}`,
+    boundingRect: { top: 0, bottom: 1, left: 0, right: 1, width: 1, height: 1 },
+    snippet: `<h1 class="${secret}">`,
+    nodeLabel: secret,
+  });
+  const lhrFor = subparts => ({
+    audits: {
+      'lcp-breakdown-insight': {
+        details: Audit.makeListDetails([LCPBreakdownInsight.makeSubpartsTable(subparts), node]),
+      },
+    },
+  });
+
+  // Text LCP: Lighthouse omits both resource subparts.
+  const text = extractLcpDiagnostics(
+    lhrFor({ ttfb: { range: 120_400 }, renderDelay: { range: 300_600 } })
+  );
+  assert.deepEqual(text, {
+    lcpElementTag: 'h1',
+    lcpObservedBreakdownMs: {
+      timeToFirstByte: 120,
+      resourceLoadDelay: null,
+      resourceLoadDuration: null,
+      elementRenderDelay: 301,
+    },
+  });
+  assert.equal(JSON.stringify(text).includes(secret), false);
+
+  const image = extractLcpDiagnostics(
+    lhrFor({
+      ttfb: { range: 100_000 },
+      loadDelay: { range: 20_000 },
+      loadDuration: { range: 0 },
+      renderDelay: { range: 50_000 },
+    })
+  );
+  assert.deepEqual(image.lcpObservedBreakdownMs, {
+    timeToFirstByte: 100,
+    resourceLoadDelay: 20,
+    resourceLoadDuration: 0,
+    elementRenderDelay: 50,
+  });
+});
+
+test('extractLcpDiagnostics never reports a custom element as a built-in tag', () => {
+  const tagFor = snippet =>
+    extractLcpDiagnostics({
+      audits: {
+        'lcp-breakdown-insight': {
+          details: { type: 'list', items: [{ type: 'node', snippet }] },
+        },
+      },
+    }).lcpElementTag;
+  assert.equal(tagFor('<img->'), 'other');
+  assert.equal(tagFor('<svg:svg>'), 'other');
+  assert.equal(tagFor('<img\n  src="x">'), 'img');
+  assert.equal(tagFor('<br/>'), 'other');
 });
 
 test('compareToLighthouseBudget: a lower-is-better metric within ceiling is ok', () => {
@@ -765,13 +967,59 @@ test('runCli does not accept login as a current-schema substitute for authentica
   assert.equal(code, 1);
 });
 
-test('CPU diagnostics are bounded to the renderer and never expose raw trace data', () => {
-  const events = Array.from({ length: 12 }, (_, index) => ({
+// Use the pinned Lighthouse trace processor, not a mocked renderer selector.
+function cpuTrace(events = []) {
+  return {
+    traceEvents: [
+      {
+        name: 'thread_name',
+        cat: '__metadata',
+        ph: 'M',
+        pid: 1,
+        tid: 2,
+        ts: 0,
+        args: { name: 'CrRendererMain' },
+      },
+      {
+        name: 'TracingStartedInBrowser',
+        cat: 'disabled-by-default-devtools.timeline',
+        ph: 'I',
+        pid: 10,
+        tid: 10,
+        ts: 0,
+        args: {
+          data: { frames: [{ frame: 'main', processId: 1, url: 'https://private.example/sales' }] },
+        },
+      },
+      {
+        name: 'navigationStart',
+        cat: 'blink.user_timing',
+        ph: 'R',
+        pid: 1,
+        tid: 2,
+        ts: 100,
+        args: {
+          frame: 'main',
+          data: {
+            documentLoaderURL: 'https://private.example/sales',
+            isLoadingMainFrame: true,
+          },
+        },
+      },
+      ...events,
+    ],
+  };
+}
+
+function cpuTask(overrides = {}) {
+  return {
     name: 'FunctionCall',
+    cat: 'devtools.timeline',
     ph: 'X',
     pid: 1,
     tid: 2,
-    dur: 1000 * (index + 1),
+    ts: 200,
+    dur: 12000,
     args: {
       data: {
         url: 'https://private.example/assets/app-A1.js?token=secret',
@@ -780,54 +1028,241 @@ test('CPU diagnostics are bounded to the renderer and never expose raw trace dat
         headers: { authorization: 'secret' },
       },
     },
-  }));
-  const trace = {
-    traceEvents: [
-      { name: 'thread_name', pid: 1, tid: 2, args: { name: 'CrRendererMain' } },
-      ...events,
-      { ...events[0], tid: 3, dur: 999000 },
-      {
-        ...events[0],
-        name: 'Layout',
-        dur: 20000,
-        args: { data: { url: 'https://private.example/customer/secret' } },
-      },
-      { ...events[0], dur: Infinity },
-    ],
+    ...overrides,
   };
-  const result = extractCpuDiagnostics(trace);
+}
+
+test('CPU diagnostics bind multiple renderers to the audited main frame', async () => {
+  const result = await extractCpuDiagnostics(
+    cpuTrace([
+      {
+        name: 'thread_name',
+        cat: '__metadata',
+        ph: 'M',
+        pid: 3,
+        tid: 4,
+        ts: 0,
+        args: { name: 'CrRendererMain' },
+      },
+      cpuTask(),
+      cpuTask({ pid: 3, tid: 4, dur: 999000 }),
+      cpuTask({ tid: 5, dur: 888000 }),
+      cpuTask({ ts: 99, dur: 777000 }),
+    ])
+  );
+  assert.equal(result.cpuAttribution, 'main-frame');
+  assert.equal(result.topCpuEvents.length, 1);
+  assert.equal(result.topCpuEvents[0].durationMs, 12);
+});
+
+test('CPU diagnostics follow a committed main-frame process swap', async () => {
+  const trace = cpuTrace([
+    {
+      name: 'thread_name',
+      cat: '__metadata',
+      ph: 'M',
+      pid: 3,
+      tid: 4,
+      ts: 0,
+      args: { name: 'CrRendererMain' },
+    },
+    {
+      name: 'FrameCommittedInBrowser',
+      cat: 'devtools.timeline',
+      ph: 'I',
+      pid: 10,
+      tid: 10,
+      ts: 110,
+      args: {
+        data: {
+          frame: 'main',
+          processId: 3,
+          url: 'https://private.example/sales',
+        },
+      },
+    },
+    cpuTask({ dur: 999000 }),
+    cpuTask({ pid: 3, tid: 4, dur: 23000 }),
+    cpuTask({ pid: 3, tid: 4, ts: 100, dur: 5000 }),
+    cpuTask({ pid: 3, tid: 4, ts: 99, dur: 888000 }),
+  ]);
+  const result = await extractCpuDiagnostics(trace);
+  assert.equal(result.cpuAttribution, 'main-frame');
+  assert.deepEqual(
+    result.topCpuEvents.map(event => event.durationMs),
+    [23, 5]
+  );
+});
+
+test('CPU diagnostics are bounded and never expose raw trace data', async () => {
+  const trace = cpuTrace([
+    ...Array.from({ length: 12 }, (_, index) => cpuTask({ dur: 1000 * (index + 1) })),
+    cpuTask({
+      name: 'Layout',
+      dur: 20000,
+      args: { data: { url: 'https://private.example/customer/secret' } },
+    }),
+    cpuTask({ dur: Infinity }),
+    cpuTask({ dur: -1 }),
+    cpuTask({ dur: 0 }),
+  ]);
+  const before = structuredClone(trace);
+  const result = await extractCpuDiagnostics(trace);
   assert.equal(result.topCpuEvents.length, 8);
   assert.deepEqual(result.topCpuEvents[0], {
     kind: 'Layout',
     durationMs: 20,
-    script: null,
+    scriptId: null,
     line: null,
     column: null,
   });
   assert.deepEqual(result.topCpuEvents[1], {
     kind: 'FunctionCall',
     durationMs: 12,
-    script: '/assets/app-A1.js',
+    scriptId: null,
+    line: null,
+    column: null,
+  });
+  assert.doesNotMatch(JSON.stringify(result), /secret|private|token|authorization|headers/);
+  assert.deepEqual(trace, before);
+});
+
+test('verified build IDs correlate bootup and CPU without leaking paths or private data', async t => {
+  const buildDirectory = mkdtempSync(join(tmpdir(), 'puntovivo-script-ids-'));
+  t.after(() => rmSync(buildDirectory, { recursive: true, force: true }));
+  const assets = join(buildDirectory, 'assets');
+  mkdirSync(assets);
+  writeFileSync(join(assets, 'private-app-A1.js'), 'void 0;');
+  writeFileSync(join(assets, 'other-B2.js'), 'void 0;');
+  const resolveId = createBuildScriptIdResolver({
+    buildDirectory,
+    baseUrl: 'http://localhost:3000',
+  });
+  const url = 'http://localhost:3000/assets/private-app-A1.js';
+  const id = resolveId(url);
+  assert.match(id, /^script-[a-f0-9]{24}$/);
+  assert.equal(resolveId(url), id);
+  assert.notEqual(resolveId('http://localhost:3000/assets/other-B2.js'), id);
+  assert.notEqual(
+    createBuildScriptIdResolver({ buildDirectory, baseUrl: 'http://localhost:3000' })(url),
+    id
+  );
+  const bootup = extractDiagnostics(
+    {
+      audits: {
+        'bootup-time': {
+          details: {
+            items: [
+              { url, total: 7, scripting: 5 },
+              { url: `${url}?token=secret`, total: 2 },
+              { url, total: Infinity },
+              { url, total: -1 },
+            ],
+          },
+        },
+      },
+    },
+    resolveId
+  );
+  const cpu = await extractCpuDiagnostics(
+    cpuTrace([
+      cpuTask({
+        args: {
+          data: {
+            url,
+            lineNumber: 2,
+            columnNumber: 3,
+            headers: { authorization: 'secret' },
+          },
+        },
+      }),
+    ]),
+    resolveId
+  );
+  assert.equal(bootup.topBootupScripts.length, 2);
+  assert.equal(bootup.topBootupScripts[0].scriptId, id);
+  assert.equal(bootup.topBootupScripts[1].scriptId, null);
+  assert.deepEqual(cpu.topCpuEvents[0], {
+    kind: 'FunctionCall',
+    durationMs: 12,
+    scriptId: id,
     line: 2,
     column: 3,
   });
-  assert.doesNotMatch(JSON.stringify(result), /secret|private|token|authorization|headers/);
-  assert.equal(trace.traceEvents.length, 16);
-  assert.deepEqual(extractCpuDiagnostics(undefined), { topCpuEvents: [] });
-  assert.deepEqual(extractCpuDiagnostics({ traceEvents: events }), { topCpuEvents: [] });
+  assert.doesNotMatch(
+    JSON.stringify({ bootup, cpu }),
+    /private|assets|localhost|https?:|token|secret|headers|authorization/
+  );
 });
 
-test('CPU diagnostics fail closed on ambiguous renderers after a process swap', () => {
-  const renderer = { name: 'thread_name', pid: 1, tid: 2, args: { name: 'CrRendererMain' } };
-  const task = { name: 'Layout', ph: 'X', pid: 1, tid: 2, dur: 50000 };
-  assert.deepEqual(
-    extractCpuDiagnostics({ traceEvents: [renderer, { ...renderer, pid: 3 }, task] }),
-    { topCpuEvents: [] }
+test('build script IDs fail closed for missing, forged, external and symlink assets', t => {
+  const buildDirectory = mkdtempSync(join(tmpdir(), 'puntovivo-script-id-rejects-'));
+  t.after(() => rmSync(buildDirectory, { recursive: true, force: true }));
+  const assets = join(buildDirectory, 'assets');
+  mkdirSync(assets);
+  writeFileSync(join(assets, 'app-A1.js'), 'void 0;');
+  writeFileSync(join(buildDirectory, 'outside.js'), 'void 0;');
+  // A Windows junction does not require symlink elevation. Either shape is
+  // not a regular build file and must remain unattributed.
+  symlinkSync(
+    process.platform === 'win32' ? buildDirectory : join(buildDirectory, 'outside.js'),
+    join(assets, 'linked.js'),
+    process.platform === 'win32' ? 'junction' : 'file'
+  );
+  mkdirSync(join(assets, 'directory.js'));
+  const resolveId = createBuildScriptIdResolver({
+    buildDirectory,
+    baseUrl: 'http://localhost:3000',
+  });
+  for (const url of [
+    undefined,
+    {},
+    '',
+    '/assets/app-A1.js',
+    'http://localhost:3000/assets/missing.js',
+    'http://localhost:3000/assets/linked.js',
+    'http://localhost:3000/assets/directory.js',
+    'http://localhost:3000/assets/app-A1.js?token=secret',
+    'http://localhost:3000/assets/app-A1.js#secret',
+    'http://other.invalid/assets/app-A1.js',
+    'http://localhost:3001/assets/app-A1.js',
+    'http://user:pass@localhost:3000/assets/app-A1.js',
+    'http://localhost:3000/customer/secret',
+    'http://localhost:3000/assets/../assets/app-A1.js',
+    'http://localhost:3000/assets/%61pp-A1.js',
+    'data:text/javascript,secret',
+  ])
+    assert.equal(resolveId(url), null);
+  assert.equal(
+    createBuildScriptIdResolver({ buildDirectory: join(buildDirectory, 'missing') })(
+      'http://localhost:3000/assets/app-A1.js'
+    ),
+    null
   );
   assert.equal(
-    extractCpuDiagnostics({ traceEvents: [renderer, renderer, task] }).topCpuEvents.length,
-    1
+    createBuildScriptIdResolver({ buildDirectory, baseUrl: 'file:///secret' })(
+      'http://localhost:3000/assets/app-A1.js'
+    ),
+    null
   );
+});
+
+test('CPU diagnostics explicitly fail closed without frame or navigation identity', async () => {
+  const trace = cpuTrace([cpuTask()]);
+  for (const invalid of [
+    undefined,
+    {},
+    { traceEvents: [] },
+    { traceEvents: [cpuTask()] },
+    { traceEvents: trace.traceEvents.filter(event => event.name !== 'TracingStartedInBrowser') },
+    { traceEvents: trace.traceEvents.filter(event => event.name !== 'navigationStart') },
+    { traceEvents: [null] },
+  ]) {
+    assert.deepEqual(await extractCpuDiagnostics(invalid), {
+      cpuAttribution: 'unavailable',
+      topCpuEvents: [],
+    });
+  }
 });
 
 test('extractRunnerBenchmark reads the host CPU calibration, or null', () => {

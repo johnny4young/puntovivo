@@ -3,6 +3,17 @@
 This document describes the current validation contract. It is an operational
 reference, not a future-work tracker.
 
+## Server fixture concurrency
+
+The server Vitest runner uses at most four workers, and never more than Vitest's
+own default of one fewer than the available CPU parallelism. Each worker repeatedly migrates SQLite fixtures and performs
+native password hashing; letting host core count multiply that work can exhaust
+memory or time out otherwise bounded lifecycle checks. This controls fixture
+concurrency only: no suite, assertion, coverage floor or timeout is relaxed.
+Strict performance profiles still run independently, without overlapping other
+workspace gates. Keyring lifecycle checks separate restart, replacement and each
+invalid-input contract rather than placing five server boots in one test budget.
+
 ## Required workspace gates
 
 Run commands from the repository root.
@@ -23,6 +34,88 @@ Run commands from the repository root.
 
 The workspace CI commands include type checking, linting, tests, dependency
 audit, and the build or runtime measurements appropriate to that workspace.
+
+`ci:release` includes the distribution-trust verdict and packaged-binary resolver
+contracts through `test:release-script`. Pull-request release automation runs
+when either test or its implementation changes, via the existing `scripts/**`
+path filter. Both contracts use injected trust tool results and temporary
+executable-layout fixtures; they do not sign, notarize, launch or certify a real
+distributable. Actual OS trust and packaged execution still require the
+release-candidate checks below.
+
+A registration test in `scripts/ci-path-filters.test.mjs` fails when any
+`scripts/*.test.mjs` or `scripts/*.test.mts` file is not run by a gate that some
+CI job reaches, so a new script test cannot silently skip CI.
+
+### Web browser-suite isolation
+
+The Web Playwright commands build the server before global setup. Global setup
+initializes the suite-owned, unencrypted `packages/server/data/local.db` through
+the server's migrations and default seed, then prepares E2E identities. This
+works on a fresh checkout without depending on server-start timing or a
+developer's shared database. Playwright starts its own loopback `device_local`
+standalone server on 8090 and Vite renderer on `http://localhost:5173` by default;
+inherited Hub mode or LAN bind settings cannot change that server. Both owned
+children explicitly use development mode for this plaintext test fixture,
+even if the operator shell marks production; production standalone startup
+still requires SQLCipher. Playwright neither reuses an existing listener nor
+runs the dev launcher, which could stop
+another worktree's app on port 3000. A port collision fails the run instead
+of borrowing another process. Keep the configured four-worker/zero-retry
+full-suite contract;
+the bounded critical subset remains serial in CI.
+The suite also fails before browser boot if the server-selected local `.env`
+defines `PUNTOVIVO_DB_KEY`: the plaintext fixture must not silently borrow an
+operator's SQLCipher setting. Run that validation in a clean worktree instead
+of weakening standalone encryption policy.
+`PUNTOVIVO_E2E_API_ORIGIN` can select another owned backend port. It must be an
+HTTP origin on `localhost` or `127.0.0.1`, with an explicit non-default port
+other than the dedicated Web port 5173, and no credentials, path, query or
+fragment. The renderer, health probe, backend
+bind and direct HTTP/CLI probes use that same port. The owned Web origin uses
+the API hostname on port 5173 so strict refresh cookies survive full navigation;
+production cookie policy is not relaxed. Invalid overrides fail
+before any test service starts.
+
+### Server test type ratchet
+
+`ci:server` runs the production server typecheck and then a separate test
+typecheck through `packages/server/tsconfig.tests.json`. The test configuration
+keeps all production strictness, expands `rootDir` only far enough to include
+the server's imported fixtures, and exposes the ES2024 library implemented by
+the required Node 24 runtime. It does not widen the production build config.
+
+The current test suite has a checked-in baseline of 240 diagnostics across 113
+files. `test-typecheck-baseline.json` records counts by file and diagnostic code,
+not line number. Invalid metadata, non-integer counters and inconsistent totals
+are rejected before comparison, as are unlocated or `tsconfig` diagnostics and
+unrecognized compiler output, because those can stop or hide the whole check. A new file/code pair or a higher count fails, while a resolved
+diagnostic also fails until the baseline is deliberately reduced. This prevents
+new debt and ensures improvements cannot leave a stale allowance behind. After
+reviewing the raw compiler output, maintainers can regenerate the smaller
+snapshot with `pnpm --filter @puntovivo/server run typecheck:tests:update`; CI
+never updates it automatically. Passing this ratchet means no type debt was
+added relative to the snapshot, not that every server test is type-clean yet.
+
+### Server coverage floors
+
+`pnpm --filter @puntovivo/server run test:coverage`, which `ci:server` runs,
+enforces the V8 floors declared in `packages/server/vitest.config.ts`: minimum
+statements, branches, functions and lines of **85%, 76%, 82% and 87%**,
+respectively. The floors retain roughly 1.6–2.4 percentage points of headroom
+below repeated backend measurements on the same scope (about 87%, 78.4%, 84%
+and 88.6%), enough to absorb run-to-run noise while failing a real regression.
+Raise them when the measured baseline climbs; do not lower them without a
+documented rationale.
+
+The measured scope is every server source file the suite loads, minus test
+files, generated migrations, `src/standalone.ts`, the package-level `scripts/`
+directory and config files. The config sets no `coverage.include`, so a module
+that no test imports is absent from the denominator rather than counted as
+uncovered: the floors catch regressions in exercised code, not an untested new
+file. Tested development CLIs under `src/scripts/` are part of the aggregate. A
+green aggregate does not prove every tenant, fiscal or rollback path is
+covered; focused invariant tests remain mandatory for those changes.
 
 ## Responsive operator shell
 
@@ -145,8 +238,8 @@ remain enforced.
 
 This is local candidate evidence, not representative-machine Gate 5 evidence.
 It does not prove signed clean installation, production-updater upgrade from
-v1.10.0, or downgrade refusal on Sequoia, Tahoe, Windows, and Linux, and it does
-not authorize moving the v1.11.0 rollout above 10 percent. Exact timings are
+the previous signed release, or downgrade refusal on Sequoia, Tahoe, Windows,
+and Linux, and it does not authorize promoting the current staged rollout. Exact timings are
 host-sensitive and remain in the command logs or ignored `.artifacts/` reports;
 the committed performance budgets, rather than this machine's measurements,
 remain the normative thresholds.
@@ -875,31 +968,32 @@ CI must not need Ollama or cloud credentials. See `PERF-BUDGETS.md` and
 The current product hardening baseline is represented by durable, executable
 contracts rather than by a standalone manual checklist:
 
-| Quality boundary                          | Canonical evidence                                                                                                                                           | Gate                                                                       |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
-| Operator Deck adoption                    | `scripts/check-operator-deck-adoption.mjs` and its regression tests                                                                                          | `ci:web`                                                                   |
-| Shift-defining operator journeys          | `operator-journeys.json`, its four tagged critical flows, eleven indexed browser journeys, and the ten target-agnostic Electron ports                        | `ci:web`, `test:e2e:web:critical`, `test:e2e:web`, and `test:e2e:electron` |
-| Accessibility and adaptive layouts        | `e2e/web/a11y.spec.ts`, `assistive-technology.spec.ts`, `navigation-responsive.spec.ts`, and `payment-drawer-responsive.spec.ts`                             | `test:e2e:web`                                                             |
-| Dense data behavior                       | `e2e/web/design-system-scale.spec.ts`, including the 1,000-row bounded table contract                                                                        | `test:e2e:web`                                                             |
-| Same-renderer retained memory             | `e2e/web/long-shift-soak.spec.ts`, its pure growth comparator, and `perf-budget.json::longShiftSoak`                                                         | `ci:web` contracts plus opt-in `test:e2e:web:soak`                         |
-| Migration journal integrity               | `migrations-parity.test.ts`, `migration-tracking.test.ts`, and `scripts/ensure-migrations-bundled.mjs`                                                       | `ci:server` plus `ci:desktop`                                              |
-| Query plans and store/search/audit scale  | `perf-store-profile.test.ts`, `perf-product-search-profile.test.ts`, `perf-audit-chain-profile.test.ts`, `perf-trpc-latency.test.ts`, and `perf-budget.json` | `ci:server`                                                                |
-| Promotions and customer-value liabilities | `promotions.test.ts`, `customer-value-tenders.test.ts`, and `e2e/web/retail-promotions-loyalty.spec.ts`                                                      | `ci:server`, `ci:web`, and `test:e2e:web`                                  |
-| Vertical profiles and site GS1 semantics  | shared profile/template/GS1 tests, module/catalog-safety tests, thousandth sale/procurement tests, barcode authority tests, and live UI evidence             | `ci:shared`, `ci:server`, `ci:web`, and `test:e2e:web`                     |
-| Exact lot procurement and transformations | exact lot purchase/return/transfer and transformation server suites, UI payload/detail regressions, migration `0056`, and ADR-0018                           | `ci:server`, `ci:web`, `ci:desktop`, plus live web/Electron smoke          |
-| Product vector/model selection            | `product-embedding-evidence.test.ts`, `vector-codec.test.ts`, retained corpus/reports, and ADR-0011                                                          | `ci:server` plus operator benchmarks                                       |
-| Desktop continuity and recovery           | `recovery-rehearsal.test.ts`, the encrypted recovery rehearsal, and the Electron runtime memory/launch gate                                                  | `ci:desktop` plus `rehearse:upgrade-recovery`                              |
-| Packaged encrypted recovery               | `packaged-recovery-rehearsal.test.ts`, `run-packaged-recovery-rehearsal.mjs`, and candidate evidence validation                                              | `ci:desktop`, `ci:release`, plus the full manual desktop matrix            |
-| Recovery ownership and executable actions | `packages/shared/src/operational-readiness.ts`, `scripts/check-operational-readiness.mjs`, and `e2e/web/operational-readiness.spec.ts`                       | `ci:web` plus `test:e2e:web`                                               |
-| Authenticated realtime continuity         | shared SSE parser tests, server SSE tests, Electron Store Hub tests, and `e2e/web/realtime-auth.spec.ts`                                                     | workspace CI plus `test:e2e:web`                                           |
-| Companion least-privilege PWA             | `companion-snapshot.test.ts`, generated-worker contracts, and `e2e/web/companion.spec.ts`                                                                    | `ci:server`, `ci:web`, and `test:e2e:web`                                  |
-| Vertical self-service readiness           | `vertical-readiness.test.ts`, `VerticalReadinessCard.test.tsx`, and `e2e/web/vertical-readiness.spec.ts`                                                     | `ci:server`, `ci:web`, and `test:e2e:web`                                  |
-| Customer Display least privilege          | projection/feed/shell tests, preload/window contracts, `e2e/web/customer-display.spec.ts`, and `e2e/electron/customer-display.spec.ts`                       | `ci:web`, `ci:desktop`, `test:e2e:web`, and `test:e2e:electron`            |
-| Quote conversion and supplier accounts    | atomic router tests, `e2e/web/quotations.spec.ts`, `e2e/web/provider-payables.spec.ts`, and the child-first baseline cleanup contract                        | `ci:server`, `ci:web`, `ci:shared`, and `test:e2e:web`                     |
-| Exact shortcuts and live task regressions | canonical shortcut/role tests, schema-v3 task measurement contracts, and `e2e/web/shortcuts.spec.ts`                                                         | `ci:web` and `test:e2e:web`                                                |
-| Full dependency-graph advisories          | `scripts/run-dependency-audit.mjs` plus pnpm's low-severity registry audit                                                                                   | each workspace CI gate; every advisory still fails closed                  |
-| Exact dependency-override lifecycle       | `config/exact-overrides-policy.json` and `scripts/check-exact-override-policy.mjs`                                                                           | `ci:shared` rejects missing, stale, duplicate, or expired review metadata  |
-| Runtime dependency reachability           | production graphs rooted at web, server, and desktop plus `config/runtime-dependency-reachability.json`                                                      | audit output classifies vulnerable installed versions by artifact path     |
+| Quality boundary                          | Canonical evidence                                                                                                                                                                                                                                                                                              | Gate                                                                       |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Operator Deck adoption                    | `scripts/check-operator-deck-adoption.mjs` and its regression tests                                                                                                                                                                                                                                             | `ci:web`                                                                   |
+| Shift-defining operator journeys          | `operator-journeys.json`, its four tagged critical flows, eleven indexed browser journeys, and the ten target-agnostic Electron ports                                                                                                                                                                           | `ci:web`, `test:e2e:web:critical`, `test:e2e:web`, and `test:e2e:electron` |
+| Accessibility and adaptive layouts        | `e2e/web/a11y.spec.ts`, `assistive-technology.spec.ts`, `navigation-responsive.spec.ts`, and `payment-drawer-responsive.spec.ts`                                                                                                                                                                                | `test:e2e:web`                                                             |
+| Light/dark theme token contrast           | `scripts/check-contrast.mjs` measures the cascaded light (`:root`) and dark (`:root` + `.dark`, source order) token maps after resolving `var()` aliases; tests reject missing scopes/pairs, unsupported or translucent colors, non-finite conversions, CSS clamp semantics and light- or dark-only regressions | `ci:web` static gate; not a substitute for rendered accessibility checks   |
+| Dense data behavior                       | `e2e/web/design-system-scale.spec.ts`, including the 1,000-row bounded table contract                                                                                                                                                                                                                           | `test:e2e:web`                                                             |
+| Same-renderer retained memory             | `e2e/web/long-shift-soak.spec.ts`, its pure growth comparator, and `perf-budget.json::longShiftSoak`                                                                                                                                                                                                            | `ci:web` contracts plus opt-in `test:e2e:web:soak`                         |
+| Migration journal integrity               | `migrations-parity.test.ts`, `migration-tracking.test.ts`, and `scripts/ensure-migrations-bundled.mjs`                                                                                                                                                                                                          | `ci:server` plus `ci:desktop`                                              |
+| Query plans and store/search/audit scale  | `perf-store-profile.test.ts`, `perf-product-search-profile.test.ts`, `perf-audit-chain-profile.test.ts`, `perf-trpc-latency.test.ts`, and `perf-budget.json`                                                                                                                                                    | `ci:server`                                                                |
+| Promotions and customer-value liabilities | `promotions.test.ts`, `customer-value-tenders.test.ts`, and `e2e/web/retail-promotions-loyalty.spec.ts`                                                                                                                                                                                                         | `ci:server`, `ci:web`, and `test:e2e:web`                                  |
+| Vertical profiles and site GS1 semantics  | shared profile/template/GS1 tests, module/catalog-safety tests, thousandth sale/procurement tests, barcode authority tests, and live UI evidence                                                                                                                                                                | `ci:shared`, `ci:server`, `ci:web`, and `test:e2e:web`                     |
+| Exact lot procurement and transformations | exact lot purchase/return/transfer and transformation server suites, UI payload/detail regressions, migration `0056`, and ADR-0018                                                                                                                                                                              | `ci:server`, `ci:web`, `ci:desktop`, plus live web/Electron smoke          |
+| Product vector/model selection            | `product-embedding-evidence.test.ts`, `vector-codec.test.ts`, retained corpus/reports, and ADR-0011                                                                                                                                                                                                             | `ci:server` plus operator benchmarks                                       |
+| Desktop continuity and recovery           | `recovery-rehearsal.test.ts`, the encrypted recovery rehearsal, and the Electron runtime memory/launch gate                                                                                                                                                                                                     | `ci:desktop` plus `rehearse:upgrade-recovery`                              |
+| Packaged encrypted recovery               | `packaged-recovery-rehearsal.test.ts`, `run-packaged-recovery-rehearsal.mjs`, and candidate evidence validation                                                                                                                                                                                                 | `ci:desktop`, `ci:release`, plus the full manual desktop matrix            |
+| Recovery ownership and executable actions | `packages/shared/src/operational-readiness.ts`, `scripts/check-operational-readiness.mjs`, and `e2e/web/operational-readiness.spec.ts`                                                                                                                                                                          | `ci:web` plus `test:e2e:web`                                               |
+| Authenticated realtime continuity         | shared SSE parser tests, server SSE tests, Electron Store Hub tests, and `e2e/web/realtime-auth.spec.ts`                                                                                                                                                                                                        | workspace CI plus `test:e2e:web`                                           |
+| Companion least-privilege PWA             | `companion-snapshot.test.ts`, generated-worker contracts, and `e2e/web/companion.spec.ts`                                                                                                                                                                                                                       | `ci:server`, `ci:web`, and `test:e2e:web`                                  |
+| Vertical self-service readiness           | `vertical-readiness.test.ts`, `VerticalReadinessCard.test.tsx`, and `e2e/web/vertical-readiness.spec.ts`                                                                                                                                                                                                        | `ci:server`, `ci:web`, and `test:e2e:web`                                  |
+| Customer Display least privilege          | projection/feed/shell tests, preload/window contracts, `e2e/web/customer-display.spec.ts`, and `e2e/electron/customer-display.spec.ts`                                                                                                                                                                          | `ci:web`, `ci:desktop`, `test:e2e:web`, and `test:e2e:electron`            |
+| Quote conversion and supplier accounts    | atomic router tests, `e2e/web/quotations.spec.ts`, `e2e/web/provider-payables.spec.ts`, and the child-first baseline cleanup contract                                                                                                                                                                           | `ci:server`, `ci:web`, `ci:shared`, and `test:e2e:web`                     |
+| Exact shortcuts and live task regressions | canonical shortcut/role tests, schema-v3 task measurement contracts, and `e2e/web/shortcuts.spec.ts`                                                                                                                                                                                                            | `ci:web` and `test:e2e:web`                                                |
+| Full dependency-graph advisories          | `scripts/run-dependency-audit.mjs` plus pnpm's low-severity registry audit                                                                                                                                                                                                                                      | each workspace CI gate; every advisory still fails closed                  |
+| Exact dependency-override lifecycle       | `config/exact-overrides-policy.json` and `scripts/check-exact-override-policy.mjs`                                                                                                                                                                                                                              | `ci:shared` rejects missing, stale, duplicate, or expired review metadata  |
+| Runtime dependency reachability           | production graphs rooted at web, server, and desktop plus `config/runtime-dependency-reachability.json`                                                                                                                                                                                                         | audit output classifies vulnerable installed versions by artifact path     |
 
 This map proves that the local development and automated validation baseline
 remains covered. It does not replace the multiplatform packaging, signing,
@@ -1064,7 +1158,7 @@ requires one fresh full workflow run for Linux, macOS, and Windows against the
 same 40-character SHA. Do not copy a report between platforms or translate a
 source-level rehearsal into packaged evidence.
 
-The most recent retained cross-platform proof is manual workflow
+The documented historical cross-platform encrypted-recovery baseline is manual workflow
 [run 31264233582](https://github.com/johnny4young/puntovivo/actions/runs/31264233582)
 from 2026-08-08 against the released candidate
 `c6aebb8ee27e1f6f73e593cbd0a4ff117fd8a567` (app `1.10.1`, database schema
@@ -1079,6 +1173,16 @@ signing, notarization, certification, or a production recovery-time commitment.
 The macOS job ran on Tahoe 26.5.2 arm64. It does not replace a separate
 Sequoia run or the representative-machine clean-install, real-updater upgrade,
 and downgrade-refusal checks required before rollout promotion.
+
+A later [four-target manual build run](https://github.com/johnny4young/puntovivo/actions/runs/34649168839)
+passed on 2026-09-11 for branch commit `ef85c941`, not a release candidate. It
+packaged, smoke-tested and rehearsed encrypted recovery on Linux, Windows,
+Sequoia and Tahoe. It predates published v1.14.4 and cannot be used as Gate 5
+evidence for that release. Neither run retains downloadable artifacts, so both
+are historical records rather than inspectable evidence. The
+[v1.14.4 release workflow](https://github.com/johnny4young/puntovivo/actions/runs/35138577582)
+passed on 2026-09-16 and published platform artifacts and an update feed; it
+also does not establish representative-machine Gate 5.
 
 ## Representative-machine Gate 5
 
@@ -1214,12 +1318,15 @@ pnpm run validate:gate5-evidence -- \
   --support-target macos-15-sequoia-arm64
 ```
 
-Important v1.11.0 limitation: source-level migration, sealed-floor unit tests,
+The historical v1.11.0 example illustrates the continuing limitation:
+source-level migration, sealed-floor unit tests,
 and deterministic updater E2E do **not** prove that the signed v1.10.0 → v1.11.0
 pair upgrades or that a representative machine refuses the previous signed
 installer. Gate 5 needs that observed updater round trip and visible refusal
-with unchanged database bytes. No such approved v1.11.0 manifest is retained
-today, so its rollout remains at 10 percent.
+with unchanged database bytes. No approved Gate 5 manifest for v1.14.4, the
+latest published release as of 2026-09-22, is linked here. Its
+[live update policy](https://johnny4young.github.io/puntovivo/update-policy.json)
+still specifies a 10 percent rollout as checked on 2026-09-22.
 
 If any recovery check fails, the host wrapper copies the bounded failure report
 before returning non-zero, and the artifact step still uploads it with the

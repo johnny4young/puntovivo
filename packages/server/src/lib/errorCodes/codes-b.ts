@@ -7,6 +7,8 @@
  * @module lib/errorCodes/codes-b
  */
 export const SERVER_ERROR_CODES_B = {
+  /** Unsupported company timezone; an administrator must correct or clear the override. */
+  TENANT_TIMEZONE_INVALID: 'TENANT_TIMEZONE_INVALID',
   // ---  sync resolve TOCTOU close-out ---
   /**
    * `sync.resolve` refused a `local_wins` or `merged` resolution because the
@@ -257,6 +259,9 @@ export const SERVER_ERROR_CODES_B = {
    * `{ outboxId, currentStatus }` for the UI hint.
    */
   PAYMENT_OUTBOX_NOT_RETRIABLE: 'PAYMENT_OUTBOX_NOT_RETRIABLE',
+  PAYMENT_PROPOSAL_NOT_FOUND: 'PAYMENT_PROPOSAL_NOT_FOUND',
+  PAYMENT_PROPOSAL_NOT_PENDING: 'PAYMENT_PROPOSAL_NOT_PENDING',
+  PAYMENT_PROPOSAL_STALE: 'PAYMENT_PROPOSAL_STALE',
   /**
    * admin tried to act on a `restaurant_tables` row that
    * does not exist for the active tenant. The lookup is tenant-scoped

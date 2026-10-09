@@ -80,7 +80,7 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
 
   const semanticSearchActive = useIsModuleActive('semantic-search');
   const dineInActive = useIsModuleActive('dine-in');
-  const aiSettingsQuery = trpc.ai.settings.get.useQuery(undefined, {
+  const voiceAvailabilityQuery = trpc.ai.settings.voiceAvailability.useQuery(undefined, {
     enabled: semanticSearchActive,
   });
   const activeCashSessionQuery = trpc.cashSessions.getActive.useQuery(
@@ -146,7 +146,7 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
   const nextRestaurantLineId = useRef(0);
 
   const cashSession = activeCashSessionQuery.data ?? null;
-  const aiEnabled = aiSettingsQuery.data?.enabled === true;
+  const aiEnabled = voiceAvailabilityQuery.data?.enabled === true;
   const micDisabledReason = (() => {
     if (!semanticSearchActive) return t('voice:disabledNoModule');
     if (!aiEnabled) return t('voice:disabledNoAi');

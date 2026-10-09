@@ -1,18 +1,26 @@
 #!/usr/bin/env node
 /**
- * pure tests for the Electron memory gate runner.
+ * contract tests for the Electron memory gate runner.
  *
  * The real launch is covered by `ci:desktop`; these tests pin argument/env
- * handling and the retry helper without starting Vite or Electron.
+ * handling, literal child-process arguments and readiness without starting
+ * Vite or Electron.
  *
  * @module scripts/run-electron-memory-gate.test
  */
 import { test } from 'node:test';
+import { createServer } from 'node:http';
 import assert from 'node:assert/strict';
+import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   buildCheckArgs,
   buildCheckEnv,
   buildPreviewArgs,
+  buildPreviewInvocation,
   DEFAULT_PREVIEW_HOST,
   DEFAULT_PREVIEW_PORT,
   reserveLoopbackPort,
@@ -97,9 +105,111 @@ test('buildPreviewArgs starts Vite preview on a strict port', () => {
   ]);
 });
 
+test('the public memory-gate command runs through the pnpm script environment', () => {
+  const manifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+  assert.equal(
+    manifest.scripts['perf:electron-memory:gate'],
+    'node scripts/run-electron-memory-gate.mjs'
+  );
+});
+
+test('buildPreviewInvocation runs a pnpm script through the current Node on Windows', () => {
+  const entry = String.raw`C:\Program Files\pnpm\pnpm.cjs`;
+  assert.deepEqual(
+    buildPreviewInvocation(
+      { host: '127.0.0.1', port: 4444 },
+      { env: { npm_execpath: entry }, platform: 'win32', execPath: 'node.exe' }
+    ),
+    {
+      command: 'node.exe',
+      args: [entry, ...buildPreviewArgs({ host: '127.0.0.1', port: 4444 })],
+      shell: false,
+    }
+  );
+});
+
+test('buildPreviewInvocation launches the native standalone pnpm executable without a shell', () => {
+  const entry = String.raw`C:\Program Files\pnpm\pnpm.exe`;
+  const options = { host: '127.0.0.1', port: 4444 };
+  assert.deepEqual(
+    buildPreviewInvocation(options, { env: { npm_execpath: entry }, platform: 'win32' }),
+    { command: entry, args: buildPreviewArgs(options), shell: false }
+  );
+});
+
+test('buildPreviewInvocation preserves direct POSIX invocation and honors explicit pnpm entries', () => {
+  const options = { host: '127.0.0.1', port: 4444 };
+  assert.deepEqual(buildPreviewInvocation(options, { env: {}, platform: 'linux' }), {
+    command: 'pnpm',
+    args: buildPreviewArgs(options),
+    shell: false,
+  });
+  assert.deepEqual(
+    buildPreviewInvocation(options, { env: { npm_execpath: '/store/pnpm' }, platform: 'darwin' }),
+    {
+      command: '/store/pnpm',
+      args: buildPreviewArgs(options),
+      shell: false,
+    }
+  );
+});
+
+test('buildPreviewInvocation never hands pnpm arguments to another package manager', () => {
+  const options = { host: '127.0.0.1', port: 4444 };
+  for (const entry of ['/usr/lib/node_modules/npm/bin/npm-cli.js', '/opt/yarn/bin/yarn.js']) {
+    assert.deepEqual(
+      buildPreviewInvocation(options, { env: { npm_execpath: entry }, platform: 'linux' }),
+      { command: 'pnpm', args: buildPreviewArgs(options), shell: false },
+      entry
+    );
+  }
+  assert.throws(
+    () =>
+      buildPreviewInvocation(options, {
+        env: { npm_execpath: String.raw`C:\npm\bin\npm-cli.js` },
+        platform: 'win32',
+      }),
+    /Run the memory gate via pnpm/
+  );
+});
+
+test('buildPreviewInvocation fails closed for a missing Windows entry or a shell wrapper', () => {
+  const options = { host: '127.0.0.1', port: 4444 };
+  for (const entry of [undefined, '', 'pnpm.cmd', 'pnpm.bat']) {
+    assert.throws(
+      () => buildPreviewInvocation(options, { env: { npm_execpath: entry }, platform: 'win32' }),
+      /Run the memory gate via pnpm/,
+      String(entry)
+    );
+  }
+});
+
+test('buildPreviewInvocation preserves literal arguments through a real child script without shell evaluation', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'puntovivo-pnpm-preview-'));
+  try {
+    const entry = join(dir, 'pnpm with spaces.cjs');
+    writeFileSync(entry, 'process.stdout.write(JSON.stringify(process.argv.slice(2)))');
+    const options = { host: '127.0.0.1 & echo unexpected', port: 4444 };
+    const invocation = buildPreviewInvocation(options, {
+      env: { npm_execpath: entry },
+      platform: 'win32',
+      execPath: process.execPath,
+    });
+    const result = spawnSync(invocation.command, invocation.args, {
+      shell: invocation.shell,
+      encoding: 'utf8',
+    });
+    assert.equal(result.error, undefined);
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(JSON.parse(result.stdout), buildPreviewArgs(options));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('buildCheckArgs forwards only check-electron-memory arguments', () => {
   const args = buildCheckArgs(['--strict', '--require-measurement']);
-  assert.match(args[0], /scripts\/check-electron-memory\.mjs$/);
+  assert.equal(args[0], fileURLToPath(new URL('./check-electron-memory.mjs', import.meta.url)));
   assert.deepEqual(args.slice(1), ['--strict', '--require-measurement']);
 });
 
@@ -148,4 +258,50 @@ test('waitForUrl fails early when the caller aborts readiness', async () => {
     }),
     /preview exited/
   );
+});
+
+// Native fetch can throw outside its promise when macOS rejects the optional
+// QoS socket marking. Simulate that socket failure in a disposable child only.
+test('preview readiness does not invoke optional socket QoS marking', () => {
+  const moduleUrl = new URL('./run-electron-memory-gate.mjs', import.meta.url).href;
+  const child = spawnSync(
+    process.execPath,
+    [
+      '--input-type=module',
+      '-e',
+      `
+    import { createServer } from 'node:http';
+    import { Socket } from 'node:net';
+    import { waitForUrl } from ${JSON.stringify(moduleUrl)};
+    const server = createServer((_request, response) => response.writeHead(404).end());
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    Socket.prototype.setTypeOfService = () => {
+      throw Object.assign(new Error('setTypeOfService EINVAL'), { code: 'EINVAL' });
+    };
+    try {
+      await waitForUrl('http://127.0.0.1:' + server.address().port, { timeoutMs: 1000 });
+    } finally {
+      server.closeAllConnections();
+      await new Promise(resolve => server.close(resolve));
+    }
+  `,
+    ],
+    { encoding: 'utf8', timeout: 5000 }
+  );
+  assert.equal(child.status, 0, child.stderr);
+  assert.equal(child.signal, null);
+});
+
+test('preview readiness keeps the deadline when a server never sends headers', async () => {
+  const server = createServer(() => {});
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  try {
+    await assert.rejects(
+      waitForUrl(`http://127.0.0.1:${server.address().port}`, { timeoutMs: 50, intervalMs: 1 }),
+      /Timed out waiting/
+    );
+  } finally {
+    server.closeAllConnections();
+    await new Promise(resolve => server.close(resolve));
+  }
 });
