@@ -18,14 +18,24 @@ import jwt from '@fastify/jwt';
 import type { FastifyInstance } from 'fastify';
 import { CORRELATION_ID_HEADER } from '../observability/index.js';
 import { ssePlugin } from '../realtime/sse.js';
-import { REFRESH_COOKIE_NAME } from '../security/authTokens.js';
+import { REFRESH_COOKIE_NAME, verifyRefreshToken } from '../security/authTokens.js';
 import {
+  CSRF_COOKIE_NAME,
   CSRF_HEADER_NAME,
+  createSessionCsrfToken,
+  createLegacySessionCsrfToken,
+  csrfTokensMatchExpected,
+  csrfTokensMatchLegacySession,
   csrfTokensMatch,
+  csrfTokensMatchSession,
   ensureCsrfCookie,
   getCsrfHeader,
+  isSessionCsrfToken,
   isUnsafeMethod,
+  setSessionCsrfCookie,
+  type SessionCsrfIdentity,
 } from '../security/csrf.js';
+import { isLiveRefreshFamily } from '../security/refreshTokenFamilies.js';
 import { buildRequestScopedLogger } from './request-logger.js';
 
 /** Inputs the HTTP plugin stack needs from the resolved server config. */
@@ -123,6 +133,11 @@ export async function registerHttpPlugins(
       expiresIn: '7d',
     },
   });
+  // Expose only the purpose-bound mint operation to auth mutations. The raw
+  // JWT secret stays in this boot-scoped closure, never on a request payload.
+  app.decorate('mintSessionCsrfToken', (identity: SessionCsrfIdentity) =>
+    createSessionCsrfToken(jwtSecret, identity)
+  );
 
   // request-scoped child logger so every log line emitted
   // during a request carries `requestId` (Fastify reqId) plus the
@@ -140,32 +155,113 @@ export async function registerHttpPlugins(
       return;
     }
 
-    const csrfToken = ensureCsrfCookie(request, reply);
     const hasRefreshCookie = typeof request.cookies[REFRESH_COOKIE_NAME] === 'string';
+    const unsafe = isUnsafeMethod(request.method);
+    const onlyRefresh = /^\/api\/trpc\/auth\.refresh(?:\?|$)/.test(request.url);
+    const csrfHeader = getCsrfHeader(request);
 
-    if (!hasRefreshCookie || !isUnsafeMethod(request.method)) {
+    if (hasRefreshCookie) {
+      const refresh = await verifyRefreshToken(request);
+      if (refresh?.familyId && refresh.jti) {
+        const identity: SessionCsrfIdentity = {
+          familyId: refresh.familyId,
+          tenantId: refresh.tenantId,
+          userId: refresh.userId,
+          sessionVersion: refresh.sessionVersion,
+        };
+        if (
+          !isLiveRefreshFamily(request.server.db, {
+            familyId: identity.familyId,
+            tenantId: identity.tenantId,
+            userId: identity.userId,
+          })
+        ) {
+          if (!unsafe) {
+            ensureCsrfCookie(request, reply);
+            return;
+          }
+          // Only the exact refresh procedure may reach its own invalid-family
+          // response. A batched URL must never bypass this gate.
+          if (onlyRefresh) return;
+        } else if (!unsafe) {
+          const cookie = request.cookies[CSRF_COOKIE_NAME];
+          const expected = createSessionCsrfToken(jwtSecret, identity);
+          if (!csrfTokensMatchExpected(expected, cookie, cookie ?? null)) {
+            setSessionCsrfCookie(request, reply, expected);
+          }
+          return;
+        } else if (
+          csrfTokensMatchSession(jwtSecret, identity, request.cookies[CSRF_COOKIE_NAME], csrfHeader)
+        ) {
+          // Do not precheck jti here: auth.refresh must retain its replay
+          // detector and revoke a stolen older-than-previous refresh token.
+          return;
+        }
+        return rejectCsrf(reply);
+      }
+
+      if (refresh) {
+        // Only fully legacy JWTs may upgrade. Partial family claims are not a
+        // legacy session, and no arbitrary cookie/header pair is accepted.
+        if (refresh.familyId === undefined && refresh.jti === undefined) {
+          const legacyToken = request.cookies[REFRESH_COOKIE_NAME]!;
+          if (!unsafe) {
+            const cookie = request.cookies[CSRF_COOKIE_NAME];
+            const expected = createLegacySessionCsrfToken(jwtSecret, legacyToken);
+            if (!csrfTokensMatchExpected(expected, cookie, cookie ?? null)) {
+              setSessionCsrfCookie(request, reply, expected);
+            }
+            return;
+          }
+          if (
+            onlyRefresh &&
+            csrfTokensMatchLegacySession(
+              jwtSecret,
+              legacyToken,
+              request.cookies[CSRF_COOKIE_NAME],
+              csrfHeader
+            )
+          ) {
+            return;
+          }
+        }
+        if (unsafe) return rejectCsrf(reply);
+        ensureCsrfCookie(request, reply);
+        return;
+      }
+
+      if (
+        onlyRefresh &&
+        isSessionCsrfToken(request.cookies[CSRF_COOKIE_NAME]) &&
+        request.cookies[CSRF_COOKIE_NAME] === csrfHeader
+      ) {
+        // The refresh mutation clears an invalid cookie and returns 401; no
+        // other procedure is allowed to share this URL-level exception. A
+        // malformed cookie/header pair still fails at the CSRF boundary.
+        return;
+      }
+    }
+
+    const csrfToken = ensureCsrfCookie(request, reply);
+
+    if (!hasRefreshCookie || !unsafe) {
       return;
     }
 
-    const csrfHeader = getCsrfHeader(request);
+    // A legacy or invalid ambient refresh cookie cannot authorize a bearer-
+    // authenticated mutation through the old equality-only predicate. The
+    // standalone auth.refresh path above can still upgrade a legacy session.
+    if (request.headers.authorization) {
+      return rejectCsrf(reply);
+    }
+
+    // Invalid ambient cookies have no session authority. Public pre-auth
+    // flows may recover; authenticated and legacy upgrades were handled above.
     if (csrfTokensMatch(csrfHeader, csrfToken)) {
       return;
     }
 
-    // follow-up — reply with a tRPC-shaped error envelope so
-    // the web client surfaces the real message instead of the cryptic
-    // 'Unable to transform response from server' it produced for the
-    // previous plain {error,message} body (the hook answers before the
-    // tRPC handler, so the shape must be hand-built; -32003 is the
-    // JSON-RPC code tRPC v11 assigns to FORBIDDEN). The stable
-    // CSRF_VALIDATION_FAILED token stays grep-able in the message.
-    reply.code(403).send({
-      error: {
-        message: 'CSRF_VALIDATION_FAILED: missing or invalid CSRF token',
-        code: -32003,
-        data: { code: 'FORBIDDEN', httpStatus: 403 },
-      },
-    });
+    return rejectCsrf(reply);
   });
 
   // vector 2 — global rate-limit on every HTTP surface
@@ -223,4 +319,22 @@ export async function registerHttpPlugins(
 
   // Register SSE plugin
   await app.register(ssePlugin, { corsOrigins: effectiveCorsOrigins });
+}
+
+function rejectCsrf(reply: import('fastify').FastifyReply): void {
+  // This hook answers before tRPC, so preserve its error envelope rather than
+  // returning a plain JSON object that the Web client cannot decode.
+  reply.code(403).send({
+    error: {
+      message: 'CSRF_VALIDATION_FAILED: missing or invalid CSRF token',
+      code: -32003,
+      data: { code: 'FORBIDDEN', httpStatus: 403 },
+    },
+  });
+}
+
+declare module 'fastify' {
+  interface FastifyInstance {
+    mintSessionCsrfToken: (identity: SessionCsrfIdentity) => string;
+  }
 }
