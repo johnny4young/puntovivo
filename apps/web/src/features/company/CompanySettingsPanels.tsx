@@ -32,7 +32,12 @@ import { CompanyTraySettingsCard } from './CompanyTraySettingsCard';
 
 // backup and recovery modals are needed only on the data tab.
 // Keep that security-heavy surface out of the initial Company route chunk.
-// loyalty program admin card, lazy for the same chunk reason.
+// Discount and loyalty policy editors are needed only on the general tab.
+const CompanyDiscountSettingsCard = lazy(() =>
+  import('./CompanyDiscountSettingsCard').then(module => ({
+    default: module.CompanyDiscountSettingsCard,
+  }))
+);
 const CompanyLoyaltySettingsCard = lazy(() =>
   import('./CompanyLoyaltySettingsCard').then(module => ({
     default: module.CompanyLoyaltySettingsCard,
@@ -63,6 +68,27 @@ const VerticalReadinessCard = lazy(() =>
     default: module.VerticalReadinessCard,
   }))
 );
+
+/** Pulse placeholder for a lazy settings card; announced by the card title. */
+function CardSkeleton({
+  heightClass,
+  label,
+  tone = 'flat',
+}: {
+  heightClass: string;
+  label: string;
+  tone?: 'flat' | 'raised';
+}): React.ReactElement {
+  return (
+    <div
+      className={`${heightClass} animate-pulse rounded-2xl border border-line ${
+        tone === 'raised' ? 'bg-surface-2' : 'bg-surface'
+      }`}
+      role="status"
+      aria-label={label}
+    />
+  );
+}
 
 interface CompanySettingsPanelsProps {
   activeTab: CompanyTabKey;
@@ -131,13 +157,12 @@ export function CompanySettingsPanels({
           />
           <CompanyPricingSettingsCard />
           <Suspense
-            fallback={
-              <div
-                className="h-48 animate-pulse rounded-2xl border border-line bg-surface"
-                role="status"
-                aria-label={t('company.loyalty.title')}
-              />
-            }
+            fallback={<CardSkeleton heightClass="h-48" label={t('company.discount.title')} />}
+          >
+            <CompanyDiscountSettingsCard />
+          </Suspense>
+          <Suspense
+            fallback={<CardSkeleton heightClass="h-48" label={t('company.loyalty.title')} />}
           >
             <CompanyLoyaltySettingsCard />
           </Suspense>
@@ -154,10 +179,10 @@ export function CompanySettingsPanels({
         <div className="space-y-6">
           <Suspense
             fallback={
-              <div
-                className="h-72 animate-pulse rounded-2xl border border-line bg-surface-2"
-                role="status"
-                aria-label={t('company.lossPrevention.loading')}
+              <CardSkeleton
+                heightClass="h-72"
+                tone="raised"
+                label={t('company.lossPrevention.loading')}
               />
             }
           >
@@ -172,11 +197,7 @@ export function CompanySettingsPanels({
           <CompanyDataRetentionCard />
           <Suspense
             fallback={
-              <div
-                className="h-56 animate-pulse rounded-2xl border border-line bg-surface-2"
-                role="status"
-                aria-label={t('company.backup.title')}
-              />
+              <CardSkeleton heightClass="h-56" tone="raised" label={t('company.backup.title')} />
             }
           >
             <CompanyBackupCard focusRestore={focusTarget === 'backup-restore'} />

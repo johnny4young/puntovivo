@@ -488,6 +488,92 @@ describe('runReconciliationPass — AI tie-break wiring', () => {
     expect(await db.select().from(paymentReconciliationProposals).all()).toHaveLength(1);
   });
 
+  it('still surfaces provider failures and corrections after a proposal is approved', async () => {
+    await cleanupTenant();
+    await seedFromFixture(bundle);
+    const db = getDatabase();
+    const candidateIds = ['approved-left', 'approved-right'];
+    for (const id of candidateIds) {
+      await db.insert(paymentOutbox).values({
+        id,
+        tenantId: TENANT_ID,
+        railId: 'wompi',
+        kind: 'charge',
+        status: 'approved',
+        amount: 943214.27,
+        currencyCode: 'COP',
+        reference: id,
+        providerTransactionId: null,
+        payload: { fixture: true },
+        createdAt: FIXED_NOW.toISOString(),
+        updatedAt: FIXED_NOW.toISOString(),
+      });
+    }
+    const statement = {
+      railId: 'wompi' as const,
+      reference: 'approved-unmatched',
+      providerTransactionId: 'approved-provider-tx',
+      amount: 943214.27,
+      currencyCode: 'COP',
+      status: 'settled' as const,
+      settledAt: FIXED_NOW.toISOString(),
+      fee: 0,
+    };
+    let calls = 0;
+    const options = {
+      now: FIXED_NOW,
+      aiContext: { db, tenantId: TENANT_ID, siteId: null, userId: null },
+      aiTiebreak: (async () => {
+        calls += 1;
+        return {
+          ok: true,
+          salePaymentId: candidateIds[0]!,
+          confidence: 'high',
+          explanation: 'Synthetic approved regression',
+          costUsd: 0,
+          auditLogId: 'stub-approved',
+        };
+      }) satisfies TiebreakFn,
+    };
+    expect(
+      (await runReconciliationPass(db, TENANT_ID, [statement], options)).tiebreakProposed
+    ).toBe(1);
+    // Simulate the human approval: proposal approved, outbox settled.
+    await db
+      .update(paymentReconciliationProposals)
+      .set({ status: 'approved' })
+      .where(eq(paymentReconciliationProposals.tenantId, TENANT_ID));
+    await db
+      .update(paymentOutbox)
+      .set({ status: 'settled', providerTransactionId: statement.providerTransactionId })
+      .where(eq(paymentOutbox.id, candidateIds[0]!));
+
+    const exactReplay = await runReconciliationPass(db, TENANT_ID, [statement], options);
+    expect(exactReplay.byKind.ambiguous).toBe(0);
+    expect(exactReplay.byKind.provider_issue).toBe(0);
+
+    const declined = await runReconciliationPass(
+      db,
+      TENANT_ID,
+      [{ ...statement, status: 'declined' }],
+      options
+    );
+    expect(declined.byKind.provider_issue).toBe(1);
+
+    const corrected = await runReconciliationPass(
+      db,
+      TENANT_ID,
+      [{ ...statement, amount: statement.amount - 1000 }],
+      options
+    );
+    expect(corrected.byKind.amount_mismatch).toBe(1);
+    expect(calls).toBe(1);
+    expect(
+      await db.select().from(paymentOutbox).where(eq(paymentOutbox.id, candidateIds[0]!)).get()
+    ).toMatchObject({ status: 'settled', amount: 943214.27 });
+    expect(await db.select().from(paymentReconciliationProposals).all()).toHaveLength(1);
+  });
+
   it('checks provider identity atomically when a proposal arrives after the pass snapshot', async () => {
     await cleanupTenant();
     await seedFromFixture(bundle);

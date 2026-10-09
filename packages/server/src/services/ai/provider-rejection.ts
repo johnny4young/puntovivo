@@ -22,7 +22,7 @@
  * @module services/ai/provider-rejection
  */
 
-const NOT_BILLED_STATUSES = new Set([400, 401, 403, 404, 422, 429]);
+export const NOT_BILLED_STATUSES: ReadonlySet<number> = new Set([400, 401, 403, 404, 422, 429]);
 
 const NOT_SENT_CODES = new Set([
   // Connection never established.

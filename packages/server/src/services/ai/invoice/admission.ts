@@ -1,15 +1,21 @@
 /** Tenant-wide admission and audit settlement for the paid Textract OCR route. */
 import type { DatabaseInstance } from '../../../db/index.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
-import { reserveAiBudget, settleAiBudget } from '../budget.js';
+import { reserveAiBudget } from '../budget.js';
+import { settleCompletion } from '../client.js';
+import { logProviderFailure } from '../provider-error.js';
+import { NOT_BILLED_STATUSES, isDefinitiveProviderRejection } from '../provider-rejection.js';
 import { assertSinglePagePdf } from './pdf-preflight.js';
-import { isDefinitiveProviderRejection } from '../provider-rejection.js';
 import { extractInvoiceWithTextract, resolveTextractPriceConfig } from './textract.js';
 import type { TextractInvoiceOcrInput } from './textract.js';
+import { TEXTRACT_INVOICE_MIME_TYPES } from '../vision/invoice-ocr.js';
 
 /**
  * AWS Textract exceptions that reject a request before any page is analyzed.
- * AWS bills only analyzed pages, so these release the admission hold.
+ * AWS bills only analyzed pages, so these release the admission hold. The
+ * name alone is decisive: the SDK models `ThrottlingException` as a server
+ * fault, yet a throttled request is never analyzed or billed.
+ * `CredentialsProviderError` is raised locally before any request is signed.
  */
 const TEXTRACT_NOT_BILLED_ERRORS = new Set([
   'ThrottlingException',
@@ -19,14 +25,26 @@ const TEXTRACT_NOT_BILLED_ERRORS = new Set([
   'BadDocumentException',
   'DocumentTooLargeException',
   'InvalidParameterException',
+  'CredentialsProviderError',
 ]);
 
 /** True when the Textract failure proves no page was analyzed or billed. */
 export function isTextractRequestRejected(error: unknown): boolean {
   if (error && typeof error === 'object') {
-    const record = error as { name?: unknown; $fault?: unknown };
+    const record = error as {
+      name?: unknown;
+      $fault?: unknown;
+      $metadata?: { httpStatusCode?: unknown };
+    };
     if (typeof record.name === 'string' && TEXTRACT_NOT_BILLED_ERRORS.has(record.name)) {
-      return record.$fault === undefined || record.$fault === 'client';
+      return true;
+    }
+    // Unmodeled AWS client rejections (UnrecognizedClientException,
+    // ExpiredTokenException, InvalidSignatureException, ...) carry the HTTP
+    // status in $metadata rather than the statusCode the shared check reads.
+    const status = record.$metadata?.httpStatusCode;
+    if (record.$fault === 'client' && typeof status === 'number') {
+      return NOT_BILLED_STATUSES.has(status);
     }
   }
   // A connection that was never established sent no document.
@@ -45,11 +63,7 @@ export async function extractInvoiceWithAdmission(
   ctx: TextractAdmissionContext,
   input: Pick<TextractInvoiceOcrInput, 'documentBase64' | 'mimeType'>
 ) {
-  if (
-    input.mimeType !== 'image/jpeg' &&
-    input.mimeType !== 'image/png' &&
-    input.mimeType !== 'application/pdf'
-  ) {
+  if (!(TEXTRACT_INVOICE_MIME_TYPES as readonly string[]).includes(input.mimeType)) {
     throwServerError({
       trpcCode: 'BAD_REQUEST',
       errorCode: 'AI_VISION_NOT_AVAILABLE',
@@ -79,7 +93,9 @@ export async function extractInvoiceWithAdmission(
     errorCode: 'AI_PROVIDER_ERROR' | null,
     durationMs: number
   ) =>
-    settleAiBudget(
+    // Shared wrapper: a failed settlement is sanitized and logged, never a raw
+    // persistence diagnostic, and the hold is kept for orphan recovery.
+    settleCompletion(
       ctx.db,
       reservation,
       {
@@ -109,6 +125,13 @@ export async function extractInvoiceWithAdmission(
       abortSignal: AbortSignal.timeout(60_000),
     });
   } catch (error) {
+    logProviderFailure(error, {
+      tenantId: ctx.tenantId,
+      feature: 'invoiceOcr',
+      providerId: 'textract',
+      modelId: 'aws-textract-analyze-expense',
+      errorCode: 'AI_PROVIDER_ERROR',
+    });
     if (isTextractRequestRejected(error)) {
       // AWS rejected the request before analyzing a page: nothing was billed.
       settle(0, 'not_incurred', 'AI_PROVIDER_ERROR', Date.now() - startedAt);
