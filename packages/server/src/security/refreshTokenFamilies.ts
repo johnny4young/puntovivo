@@ -25,7 +25,7 @@
  * @module security/refreshTokenFamilies
  */
 
-import { and, eq, lt, sql } from 'drizzle-orm';
+import { and, eq, gt, lt, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../db/index.js';
 import { authRefreshFamilies, users } from '../db/schema.js';
@@ -48,6 +48,44 @@ export const REFRESH_ROTATION_GRACE_MS = 20 * 1000;
 export interface RefreshFamilyGrant {
   familyId: string;
   jti: string;
+}
+
+/**
+ * Live-family lookup for a verified refresh JWT. The family id alone is not
+ * authority: tenant/user ownership and the fixed expiry must also match.
+ */
+export interface RefreshFamilyIdentity {
+  familyId: string;
+  tenantId: string;
+  userId: string;
+  /** Injectable clock for the exact expiry boundary; omitted in production. */
+  now?: () => number;
+}
+
+/**
+ * Check family-row liveness without rotating its jti. This does not classify
+ * a presented refresh jti as current, within grace, or replayed. The CSRF
+ * companion can stay stable across rotations, but a global HTTP prehook must
+ * not reject a stale auth.refresh request before its replay detector runs.
+ */
+export function isLiveRefreshFamily(
+  db: DatabaseInstance,
+  identity: RefreshFamilyIdentity
+): boolean {
+  const expiresAfter = new Date((identity.now ?? Date.now)()).toISOString();
+  const row = db
+    .select({ id: authRefreshFamilies.id })
+    .from(authRefreshFamilies)
+    .where(
+      and(
+        eq(authRefreshFamilies.id, identity.familyId),
+        eq(authRefreshFamilies.tenantId, identity.tenantId),
+        eq(authRefreshFamilies.userId, identity.userId),
+        gt(authRefreshFamilies.expiresAt, expiresAfter)
+      )
+    )
+    .get();
+  return row !== undefined;
 }
 
 export type RefreshRotationResult =
@@ -120,6 +158,8 @@ export function rotateRefreshFamily(
 ): RefreshRotationResult {
   const now = args.now ?? (() => Date.now());
   const nextJti = nanoid();
+  const atMs = now();
+  const atIso = new Date(atMs).toISOString();
 
   return db.transaction(tx => {
     const updated = tx
@@ -127,14 +167,15 @@ export function rotateRefreshFamily(
       .set({
         currentJti: nextJti,
         previousJti: args.presentedJti,
-        lastRotatedAt: nowIso(now),
-        expiresAt: new Date(now() + REFRESH_FAMILY_TTL_MS).toISOString(),
+        lastRotatedAt: atIso,
+        expiresAt: new Date(atMs + REFRESH_FAMILY_TTL_MS).toISOString(),
       })
       .where(
         and(
           eq(authRefreshFamilies.id, args.familyId),
           eq(authRefreshFamilies.userId, args.userId),
-          eq(authRefreshFamilies.currentJti, args.presentedJti)
+          eq(authRefreshFamilies.currentJti, args.presentedJti),
+          gt(authRefreshFamilies.expiresAt, atIso)
         )
       )
       .run() as { changes?: number };
@@ -150,12 +191,13 @@ export function rotateRefreshFamily(
         currentJti: authRefreshFamilies.currentJti,
         previousJti: authRefreshFamilies.previousJti,
         lastRotatedAt: authRefreshFamilies.lastRotatedAt,
+        expiresAt: authRefreshFamilies.expiresAt,
       })
       .from(authRefreshFamilies)
       .where(eq(authRefreshFamilies.id, args.familyId))
       .get();
 
-    if (!family || family.userId !== args.userId) {
+    if (!family || family.userId !== args.userId || family.expiresAt <= atIso) {
       return { status: 'missing' };
     }
 
@@ -167,7 +209,7 @@ export function rotateRefreshFamily(
     if (
       family.previousJti === args.presentedJti &&
       Number.isFinite(lastRotatedMs) &&
-      now() - lastRotatedMs <= REFRESH_ROTATION_GRACE_MS
+      atMs - lastRotatedMs <= REFRESH_ROTATION_GRACE_MS
     ) {
       return { status: 'reissued', familyId: family.id, jti: family.currentJti };
     }
