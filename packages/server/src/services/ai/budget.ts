@@ -1,5 +1,5 @@
 /** Durable, tenant-wide admission for remote AI calls. */
-import { and, asc, eq, gte, lt, lte, sql } from 'drizzle-orm';
+import { and, asc, eq, gte, lt, lte } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 import type { DatabaseInstance } from '../../db/index.js';
@@ -7,6 +7,8 @@ import { aiAuditLog, aiBudgetReservations, tenants } from '../../db/schema.js';
 import type { NewAIAuditLogRow } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../audit-logs.js';
+
+import { aiCostMonthWindow, readMonthCostSummary } from './auditLog.js';
 
 /**
  * No live call keeps an admission pending this long: every dispatch is
@@ -27,13 +29,6 @@ export interface AiBudgetReservation {
 type CallAudit = Omit<NewAIAuditLogRow, 'id' | 'createdAt'> & {
   costState: NonNullable<NewAIAuditLogRow['costState']>;
 };
-
-function monthWindow(now: Date): { start: string; end: string } {
-  return {
-    start: new Date(now.getFullYear(), now.getMonth(), 1).toISOString(),
-    end: new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString(),
-  };
-}
 
 function denyBudget(message: string): never {
   return throwServerError({
@@ -58,9 +53,13 @@ type WriteTx = Parameters<Parameters<DatabaseInstance['transaction']>[0]>[0];
  * The orphaned call may have been dispatched and billed, so the hold is kept
  * (fail-closed) but becomes reconcilable instead of an eternal "in progress".
  */
-function expireOrphanedHolds(tx: WriteTx, tenantId: string, now: Date): number {
+function selectOrphanedHolds(
+  db: Pick<DatabaseInstance, 'select'>,
+  tenantId: string,
+  now: Date
+): Array<{ id: string; createdAt: string }> {
   const cutoff = new Date(now.getTime() - AI_BUDGET_PENDING_TTL_MS).toISOString();
-  const orphaned = tx
+  return db
     .select({ id: aiBudgetReservations.id, createdAt: aiBudgetReservations.createdAt })
     .from(aiBudgetReservations)
     .where(
@@ -71,6 +70,10 @@ function expireOrphanedHolds(tx: WriteTx, tenantId: string, now: Date): number {
       )
     )
     .all();
+}
+
+function expireOrphanedHolds(tx: WriteTx, tenantId: string, now: Date): number {
+  const orphaned = selectOrphanedHolds(tx, tenantId, now);
   if (orphaned.length === 0) return 0;
   const tenant = tx
     .select({ settings: tenants.settings })
@@ -116,6 +119,10 @@ export function expireOrphanedAiBudgetHolds(
   tenantId: string,
   now: Date = new Date()
 ): number {
+  // Cheap unlocked probe first: the common case has nothing orphaned and must
+  // not pay for a second write lock on every admission. The locked pass
+  // re-selects, so a concurrent settle or recovery cannot be double-booked.
+  if (selectOrphanedHolds(db, tenantId, now).length === 0) return 0;
   return db.transaction(tx => expireOrphanedHolds(tx, tenantId, now), { behavior: 'immediate' });
 }
 
@@ -130,7 +137,7 @@ export function reserveAiBudget(
   tenantId: string,
   now: Date = new Date()
 ): AiBudgetReservation {
-  const month = monthWindow(now);
+  const month = aiCostMonthWindow(now);
   // Commit orphan recovery separately: the admission transaction below may
   // deny and roll back, and the recovered liability must survive that.
   expireOrphanedAiBudgetHolds(db, tenantId, now);
@@ -170,25 +177,14 @@ export function reserveAiBudget(
         denyBudget('AI monthly budget is held by an unreconciled call');
       }
 
-      const summary = tx
-        .select({
-          knownSpend: sql<
-            number | string
-          >`COALESCE(SUM(CASE WHEN ${aiAuditLog.costState} <> 'unknown' THEN ${aiAuditLog.costUsd} ELSE 0 END), 0)`,
-          unknownCalls: sql<number>`COALESCE(SUM(CASE WHEN ${aiAuditLog.costState} = 'unknown' THEN 1 ELSE 0 END), 0)`,
-        })
-        .from(aiAuditLog)
-        .where(
-          and(
-            eq(aiAuditLog.tenantId, tenantId),
-            gte(aiAuditLog.createdAt, month.start),
-            lt(aiAuditLog.createdAt, month.end)
-          )
-        )
-        .get();
-      const spent = Number(summary?.knownSpend ?? 0);
-      if (Number(summary?.unknownCalls ?? 0) > 0 || spent >= budget) {
-        denyBudget(`AI monthly budget unavailable ($${spent.toFixed(4)} of $${budget.toFixed(2)})`);
+      const { knownSpendUsd: spent, unknownCostCalls } = readMonthCostSummary(tx, tenantId, now);
+      if (unknownCostCalls > 0) {
+        denyBudget(
+          `AI monthly budget is held by ${unknownCostCalls} unknown-cost call(s) awaiting reconciliation`
+        );
+      }
+      if (spent >= budget) {
+        denyBudget(`AI monthly budget exhausted ($${spent.toFixed(4)} of $${budget.toFixed(2)})`);
       }
 
       const id = nanoid();
@@ -274,7 +270,7 @@ export function reconcileAiBudgetHold(
   args: { tenantId: string; actorId: string; costUsd: number; note: string; now?: Date }
 ): AiBudgetReconciliation {
   const now = args.now ?? new Date();
-  const month = monthWindow(now);
+  const month = aiCostMonthWindow(now);
   const note = args.note.trim();
   if (!Number.isFinite(args.costUsd) || args.costUsd < 0 || note.length === 0) {
     throw new Error('AI budget reconciliation requires a non-negative cost and a note');
@@ -334,7 +330,11 @@ export function reconcileAiBudgetHold(
           unknownCalls: unknownRows.length,
           reservationState: reservation?.state ?? null,
         },
-        after: { costUsd: args.costUsd, costState: 'estimated', reservationReleased: true },
+        after: {
+          costUsd: args.costUsd,
+          costState: 'estimated',
+          reservationReleased: reservation !== undefined,
+        },
         metadata: {
           monthStart: month.start,
           aiAuditLogIds: unknownRows.map(row => row.id),

@@ -17,6 +17,7 @@ import { eq } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
 import { tenants } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
+import { createModuleLogger } from '../../logging/logger.js';
 import { writeAuditLog } from '../audit-logs.js';
 
 import { reserveAiBudget, settleAiBudget } from './budget.js';
@@ -337,12 +338,24 @@ interface UsageForPricing {
     | undefined;
 }
 
+const log = createModuleLogger('services/ai/client');
+
 function settleCompletion(...args: Parameters<typeof settleAiBudget>): { id: string } {
   try {
     return settleAiBudget(...args);
-  } catch {
+  } catch (error) {
     // The kernel rolls back audit and settlement together. Keep its durable
     // hold, but never expose a private persistence diagnostic to the caller.
+    // Operators still need a signal: the hold stays pending until orphan
+    // recovery, so log the failure class (never the raw error or SQL).
+    log.error(
+      {
+        tenantId: args[1].tenantId,
+        reservationId: args[1].id,
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+      },
+      'AI budget settlement failed'
+    );
     return throwServerError({
       trpcCode: 'BAD_GATEWAY',
       errorCode: 'AI_PROVIDER_ERROR',
@@ -442,6 +455,14 @@ export async function completeAI(
   ctx.abortSignal?.throwIfAborted();
   const reservation = reserveAiBudget(ctx.db, ctx.tenantId);
   const startedAt = Date.now();
+  const auditBase = {
+    tenantId: ctx.tenantId,
+    siteId: ctx.siteId,
+    userId: ctx.userId,
+    feature: input.feature,
+    providerId: provider.id,
+    modelId,
+  };
 
   let result;
   try {
@@ -476,12 +497,7 @@ export async function completeAI(
       ctx.db,
       reservation,
       {
-        tenantId: ctx.tenantId,
-        siteId: ctx.siteId,
-        userId: ctx.userId,
-        feature: input.feature,
-        providerId: provider.id,
-        modelId,
+        ...auditBase,
         inputTokens: 0,
         outputTokens: 0,
         cacheReadTokens: 0,
@@ -514,12 +530,7 @@ export async function completeAI(
       ctx.db,
       reservation,
       {
-        tenantId: ctx.tenantId,
-        siteId: ctx.siteId,
-        userId: ctx.userId,
-        feature: input.feature,
-        providerId: provider.id,
-        modelId,
+        ...auditBase,
         inputTokens,
         outputTokens,
         cacheReadTokens,
@@ -574,12 +585,7 @@ export async function completeAI(
     ctx.db,
     reservation,
     {
-      tenantId: ctx.tenantId,
-      siteId: ctx.siteId,
-      userId: ctx.userId,
-      feature: input.feature,
-      providerId: provider.id,
-      modelId,
+      ...auditBase,
       inputTokens,
       outputTokens,
       cacheReadTokens,
