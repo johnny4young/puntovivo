@@ -538,6 +538,38 @@ describe('extractInvoiceFromImage', () => {
     ).toMatchObject([{ costState: 'unknown' }]);
   });
 
+  it('keeps valid counters on an unknown row when a cache counter is malformed', async () => {
+    const tenantId = await seedTenant('bad-cache-usage');
+    await enableAI(tenantId);
+    generateObjectMock.mockResolvedValueOnce({
+      object: SAMPLE_INVOICE,
+      usage: {
+        inputTokens: 1200,
+        outputTokens: 300,
+        inputTokenDetails: { cacheReadTokens: Number.NaN },
+      },
+    });
+    await expectErrorCode(
+      extractInvoiceFromImage(
+        { db: getDatabase(), tenantId, siteId: null, userId: null },
+        { imageBase64: 'aGVsbG8=', mimeType: 'image/png' },
+        () => buildStubProvider()
+      ),
+      'AI_PROVIDER_ERROR'
+    );
+    expect(
+      await getDatabase().select().from(aiAuditLog).where(eq(aiAuditLog.tenantId, tenantId))
+    ).toMatchObject([
+      { costState: 'unknown', inputTokens: 1200, outputTokens: 300, cacheReadTokens: 0 },
+    ]);
+    expect(
+      await getDatabase()
+        .select()
+        .from(aiBudgetReservations)
+        .where(eq(aiBudgetReservations.tenantId, tenantId))
+    ).toMatchObject([{ state: 'unknown' }]);
+  });
+
   it('releases a local Ollama failure instead of holding a remote liability', async () => {
     const tenantId = await seedTenant('ollama-local');
     await enableAI(tenantId);
