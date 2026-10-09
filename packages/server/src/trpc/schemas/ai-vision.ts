@@ -77,10 +77,10 @@ export const confirmInvoiceDraftInput = z.object({
   }),
   invoiceNumber: z.string().trim().max(80).nullable(),
   totals: z.object({
-    subtotal: z.number(),
-    iva: z.number(),
-    total: z.number(),
-    linesSum: z.number(),
+    subtotal: z.number().min(0),
+    iva: z.number().min(0),
+    total: z.number().min(0),
+    linesSum: z.number().min(0),
   }),
   lines: z
     .array(
@@ -88,6 +88,8 @@ export const confirmInvoiceDraftInput = z.object({
         description: z.string().trim().min(1).max(500),
         quantity: z.number().positive(),
         unitPrice: z.number().min(0),
+        /** The operator checked that unitPrice is a net cost without tax. */
+        netCostConfirmed: z.literal(true),
         matchedProductId: z.string().min(1),
         unitId: z.string().min(1),
       })

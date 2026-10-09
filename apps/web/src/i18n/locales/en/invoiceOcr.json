@@ -28,6 +28,11 @@
     "lines": "Lines",
     "subtotal": "Subtotal",
     "total": "Total",
+    "netUnitCost": "Net unit cost (excluding tax)",
+    "netUnitCostForLine": "Net unit cost for {{description}}",
+    "netCostAcknowledgment": "I verified the net cost for {{description}} excludes tax.",
+    "netCostGuidance": "OCR prices may include tax. Enter the net unit cost without tax and compare it with the invoice subtotal before confirming.",
+    "invoiceLinesTotal": "Invoice lines total",
     "unmatchedLine": "Product pending",
     "assignProduct": "Assign product",
     "changeProduct": "Change product",
@@ -39,7 +44,12 @@
     "disclaimer": "AI read the invoice. Review every field before registering the purchase.",
     "warning": {
       "totalsMismatch": "Total does not match the sum of lines (difference {{diff}}). Review before confirming.",
-      "unmatched": "{{count}} lines without a catalog match. Assign a product to each one before confirming.",
+      "netSubtotalMismatch": "The net line subtotal does not match the reviewed subtotal (difference {{diff}}). Correct the net unit costs or subtotal.",
+      "invoiceTotalMismatch": "Subtotal plus IVA does not match the invoice total. Correct the reviewed amounts.",
+      "invalidAmount": "Enter valid nonnegative amounts and positive quantities before confirming.",
+      "netCostReviewRequired": "Verify the net unit cost without tax for every line before confirming.",
+      "unmatched_one": "{{count}} line without a catalog match. Assign a product before confirming.",
+      "unmatched_other": "{{count}} lines without a catalog match. Assign a product to each one before confirming.",
       "providerRequired": "Select the catalog supplier before confirming."
     }
   },
@@ -48,7 +58,8 @@
     "tryAgain": "Try again",
     "unsupportedType": "Unsupported file type.",
     "tooLarge": "File too large (max 10 MB).",
-    "missingRequired": "Select supplier and product for every line before confirming."
+    "missingRequired": "Select supplier and product for every line before confirming.",
+    "netCostReviewRequired": "Verify the net unit cost without tax for every line before confirming."
   },
   "success": {
     "title": "Draft ready",

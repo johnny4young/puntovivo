@@ -15,7 +15,10 @@ export type MatchSource = 'sku' | 'embedding' | 'manual' | null;
 export interface DraftLine {
   description: string;
   quantity: number;
+  /** Reviewed net unit cost excluding invoice tax; never inferred from OCR. */
   unitPrice: number;
+  /** Operator acknowledgment required before persisting this line as net cost. */
+  netCostConfirmed: boolean;
   matchedProductId: string | null;
   matchedProductName: string | null;
   matchedProductSku: string | null;
