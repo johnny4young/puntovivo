@@ -157,7 +157,7 @@ describe('CompanyReadinessCard', () => {
       expect(progress.firstElementChild).toHaveStyle({ width: `${(ready / 6) * 100}%` });
       expect(screen.getByText(progressLabel(ready))).toBeInTheDocument();
       expect(
-        screen.getByText(language === 'en' ? /^6 clear areas cover/ : /^6 áreas claras reúnen/)
+        screen.getByText(language === 'en' ? /^There are 6 clear areas covering/ : /^Hay 6 áreas claras que reúnen/)
       ).toBeInTheDocument();
     }
 

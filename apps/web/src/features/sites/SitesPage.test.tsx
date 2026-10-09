@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
-import { render, screen, within, waitFor } from '@/test/utils';
+import { render, screen, waitFor } from '@/test/utils';
 import { SitesPage } from './SitesPage';
 
 const invalidateSites = vi.fn(async () => undefined);
@@ -86,10 +86,7 @@ describe('SitesPage readiness refresh', () => {
     const user = userEvent.setup();
     existingSiteActive = !isActive;
     render(<SitesPage />);
-    const buttons = within(screen.getByRole('row', { name: /Test Site/ })).getAllByRole('button');
-    const edit = buttons[1];
-    if (!edit) throw new Error('Missing site edit action');
-    await user.click(edit);
+    await user.click(screen.getByRole('button', { name: 'Edit Test Site' }));
     const checkbox = screen.getByRole('checkbox', { name: 'Site is active' });
     await user.click(checkbox);
     await user.click(screen.getByRole('button', { name: 'Save Changes' }));
@@ -101,10 +98,7 @@ describe('SitesPage readiness refresh', () => {
   it('refreshes the guide after a permitted site deletion', async () => {
     const user = userEvent.setup();
     render(<SitesPage />);
-    const buttons = within(screen.getByRole('row', { name: /Test Site/ })).getAllByRole('button');
-    const remove = buttons[2];
-    if (!remove) throw new Error('Missing site delete action');
-    await user.click(remove);
+    await user.click(screen.getByRole('button', { name: 'Delete Test Site' }));
     await user.click(screen.getByRole('button', { name: 'Delete' }));
 
     expect(deleteSite).toHaveBeenCalledWith({ id: 'site-1' });

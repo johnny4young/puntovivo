@@ -1,7 +1,7 @@
 {
   "kicker": "Configuración guiada",
   "title": "Prepara el negocio sin perderte",
-  "description": "{{total}} áreas claras reúnen lo que necesita la tienda. Mostramos una sola decisión obligatoria a la vez; lo opcional puede esperar.",
+  "description": "Hay {{total}} áreas claras que reúnen lo que necesita la tienda. Mostramos una sola decisión obligatoria a la vez; lo opcional puede esperar.",
   "progress": "{{ready}} de {{total}} áreas listas",
   "next": {
     "eyebrow": "Siguiente decisión obligatoria",

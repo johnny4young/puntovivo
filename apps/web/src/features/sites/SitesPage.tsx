@@ -48,10 +48,11 @@ export function SitesPage() {
 
   const invalidateSiteReads = async () => {
     // Site availability changes the guide even when no active site is selected.
-    await Promise.all([
-      utils.sites.list.invalidate(),
-      utils.setupReadiness.get.invalidate(),
-    ]);
+    // Readiness is recomputed server-side across many signals and is active in
+    // the global status strip here, so mark it stale without blocking the
+    // modal close and toast on that refetch.
+    void utils.setupReadiness.get.invalidate();
+    await utils.sites.list.invalidate();
   };
 
   const createMutation = trpc.sites.create.useMutation({
