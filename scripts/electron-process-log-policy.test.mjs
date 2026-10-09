@@ -105,6 +105,37 @@ describe('Electron process log policy', () => {
     );
   });
 
+  it('accepts the xvfb GPU probe pair once per process and bounds its repetition', () => {
+    const sandbox =
+      '[5872:1009/161929.092303:WARNING:sandbox/policy/linux/sandbox_linux.cc:405] InitializeSandbox() called with multiple threads in process gpu-process.';
+    const dri3 =
+      '[5872:1009/161929.095476:WARNING:ui/gfx/linux/gbm_support_x11.cc:48] dri3 extension not supported.';
+    assert.equal(classifyElectronStderrLine(sandbox), 'informational');
+    assert.equal(classifyElectronStderrLine(dri3), 'informational');
+    // Another process type, an adjacent line or another message stay blocking.
+    assert.equal(
+      classifyElectronStderrLine(sandbox.replace('gpu-process', 'renderer')),
+      'unexpected'
+    );
+    assert.equal(classifyElectronStderrLine(dri3.replace('.cc:48]', '.cc:49]')), 'unexpected');
+    assert.equal(
+      classifyElectronStderrLine(
+        dri3.replace('dri3 extension not supported.', 'gbm_create_device failed')
+      ),
+      'unexpected'
+    );
+    const classifier = createElectronStderrClassifier();
+    for (let index = 0; index < 2; index += 1) {
+      assert.equal(classifier.classify(sandbox), 'informational');
+      assert.equal(classifier.classify(dri3), 'informational');
+    }
+    assert.equal(classifier.classify(dri3), 'unexpected');
+    assert.deepEqual(
+      classifier.exceededLimits().map(({ id }) => id),
+      ['chromium-xvfb-gpu-probe']
+    );
+  });
+
   it('accepts the Sequoia backupd XPC refusal only for that exact service', () => {
     assert.equal(
       classifyElectronStderrLine(

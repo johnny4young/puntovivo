@@ -34,7 +34,7 @@ export const copilotRouter = router({
   // module deactivated sees FORBIDDEN with `MODULE_NOT_ACTIVATED`.
   chat: managerOrAdminProcedureWithModule('copilot')
     .input(copilotChatInput)
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ ctx, input, signal }) => {
       const settings = await resolveAISettings(ctx.db, ctx.tenantId);
       if (!settings.enabled || settings.features?.copilot.enabled !== true) {
         throwServerError({
@@ -57,7 +57,7 @@ export const copilotRouter = router({
         siteIds: quotaSiteIds,
       });
       const userId = ctx.user?.id ?? null;
-      return withClientAbortSignal(ctx.res, abortSignal =>
+      return withClientAbortSignal(signal, abortSignal =>
         runCopilotChat(
           {
             db: ctx.db,

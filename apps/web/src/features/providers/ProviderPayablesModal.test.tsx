@@ -186,6 +186,19 @@ describe('ProviderPayablesModal', () => {
     );
   });
 
+  it('keeps payment and credit allocation summaries on an adaptive surface', async () => {
+    const user = userEvent.setup();
+    render(<ProviderPayablesModal isOpen provider={provider} onClose={vi.fn()} />);
+
+    for (const open of ['Record payment', 'Supplier credit']) {
+      await user.click(screen.getByRole('button', { name: open }));
+      const summary = screen.getByText('Oldest invoices first').parentElement;
+      expect(summary).toHaveClass('bg-surface');
+      expect(summary).not.toHaveClass('bg-white');
+      await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    }
+  });
+
   it('requires an explicit note for an opening balance', async () => {
     const user = userEvent.setup();
     render(<ProviderPayablesModal isOpen provider={provider} onClose={vi.fn()} />);

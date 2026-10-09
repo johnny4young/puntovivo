@@ -26,6 +26,7 @@ import { throwServerError } from '../../../../lib/errorCodes.js';
 import { currentMonthSpend, recordCall } from '../../auditLog.js';
 import { toBillableTokenUsage } from '../../client.js';
 import { resolveAISettings } from '../../client.js';
+import { logProviderFailure } from '../../provider-error.js';
 import { getProvider } from '../../providers/registry.js';
 import {
   SEMANTIC_SIMILARITY_FLOOR,
@@ -131,8 +132,15 @@ export async function parseVoiceCartCommand(
     parsed = result.object;
     const billable = toBillableTokenUsage(result.usage);
     costUsd = provider.pricing.calculateCostUsd(modelId, billable);
-  } catch {
+  } catch (error) {
     const durationMs = Date.now() - startedAt;
+    logProviderFailure(error, {
+      tenantId: ctx.tenantId,
+      feature: 'voiceCartCommand',
+      providerId: provider.id,
+      modelId,
+      errorCode: 'AI_PROVIDER_ERROR',
+    });
     await recordCall(ctx.db, {
       tenantId: ctx.tenantId,
       siteId: ctx.siteId,

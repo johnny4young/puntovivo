@@ -20,6 +20,7 @@ import { throwServerError } from '../../../lib/errorCodes.js';
 
 import { reserveAiBudget, settleAiBudget } from '../budget.js';
 import { isDefinitiveProviderRejection } from '../provider-rejection.js';
+import { logProviderFailure } from '../provider-error.js';
 import { getProvider } from '../providers/registry.js';
 import type { AIProvider } from '../providers/types.js';
 import { resolveAISettings } from '../client.js';
@@ -275,6 +276,13 @@ export async function transcribeAudio(
       (error instanceof Error && /No transcript generated/i.test(error.message));
     const errorCode = isParseFailure ? 'AI_VOICE_PARSE_FAILED' : 'AI_PROVIDER_ERROR';
     const parsedAudioCost = isParseFailure ? priceAudio(reportedDurationSeconds) : null;
+    logProviderFailure(error, {
+      tenantId: ctx.tenantId,
+      feature: 'voiceTranscribe',
+      providerId: provider.id,
+      modelId,
+      errorCode,
+    });
 
     if (parsedAudioCost !== null) {
       // Audio was processed without speech: billed, known cost.

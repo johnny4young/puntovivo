@@ -29,6 +29,12 @@ before(async () => {
       response.writeHead(302, { location: '/artifact' }).end();
     } else if (request.url === '/missing') {
       response.writeHead(404).end();
+    } else if (request.url === '/server-error') {
+      // Larger than the stream buffers, so an unread body cannot complete.
+      const body = Buffer.alloc(4 * 1024 * 1024, 120);
+      response.writeHead(500, { 'content-length': body.length }).end(body);
+    } else if (request.url === '/reset') {
+      request.socket.destroy();
     } else if (request.url === '/slow') {
       response.writeHead(200);
       response.write('partial');
@@ -118,6 +124,39 @@ test(
   }
 );
 
+test(
+  'an unread server-error body is released instead of stalling until the deadline',
+  { timeout: 15000 },
+  async () => {
+    const started = Date.now();
+    await assert.rejects(
+      downloadWithFetch(config('server-error', '/server-error', { timeout: 10000 })),
+      error => error.response?.statusCode === 500
+    );
+    assert.ok(Date.now() - started < 5000, 'dispatcher close waited for the unread body');
+  }
+);
+
+test('transport failures keep a retryable errno-style code', { timeout: 15000 }, async () => {
+  await assert.rejects(
+    downloadWithFetch(config('reset', '/reset')),
+    error => error.code === 'ECONNRESET'
+  );
+});
+
+test(
+  'the electron-builder cache-miss fallback uses the adapter, not a removed binding',
+  { timeout: 15000 },
+  async () => {
+    const source = await readFile(builderRequire.resolve('./out/util/electronGet.js'), 'utf8');
+    assert.doesNotMatch(source, /\bget\.downloadArtifact\(/);
+    assert.match(
+      source,
+      /downloadWithFetch\(\{ \.\.\.configWithProgress, cacheMode: get_1\.ElectronDownloadCacheMode\.WriteOnly \}\)/
+    );
+  }
+);
+
 test('deadline and caller cancellation abort a stalled body', { timeout: 15000 }, async () => {
   await assert.rejects(
     downloadWithFetch(config('timeout', '/slow', { timeout: { request: 100 } })),
@@ -127,6 +166,11 @@ test('deadline and caller cancellation abort a stalled body', { timeout: 15000 }
   const task = downloadWithFetch(config('cancel', '/slow', { signal: controller.signal }));
   controller.abort();
   await assert.rejects(task, error => error.name === 'AbortError');
+  // A caller's own timeout signal is a final cancellation, not a retryable deadline.
+  await assert.rejects(
+    downloadWithFetch(config('caller-timeout', '/slow', { signal: AbortSignal.timeout(50) })),
+    error => error.name === 'TimeoutError' && error.code !== 'ETIMEDOUT'
+  );
 });
 
 test('caller cancellation preserves a null abort reason', { timeout: 15000 }, async () => {
