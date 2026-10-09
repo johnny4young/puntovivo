@@ -449,7 +449,14 @@ export async function completeAI(
   try {
     model = provider.languageModel(modelId);
     providerOptions = provider.cacheControlForSystemPrompt();
-  } catch {
+  } catch (error) {
+    logProviderFailure(error, {
+      tenantId: ctx.tenantId,
+      feature: input.feature,
+      providerId: provider.id,
+      modelId,
+      errorCode: 'AI_PROVIDER_ERROR',
+    });
     throwServerError({
       trpcCode: 'BAD_GATEWAY',
       errorCode: 'AI_PROVIDER_ERROR',
