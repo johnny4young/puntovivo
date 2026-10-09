@@ -488,33 +488,42 @@ describe('active Textract invoice admission', () => {
   });
 
   it.each([
-    'ThrottlingException',
-    'AccessDeniedException',
-    'UnsupportedDocumentException',
-    'InvalidParameterException',
-  ])('releases the hold when AWS answers %s (no page analyzed)', async name => {
-    textractCall.mockRejectedValueOnce(
-      Object.assign(new Error(`${name}: rejected`), {
-        name,
-        $fault: 'client',
-        $metadata: { httpStatusCode: 400 },
-      })
-    );
-    await expect(caller().ai.invoiceOcr.extract({ uploadId })).rejects.toMatchObject({
-      cause: { errorCode: 'AI_PROVIDER_ERROR' },
-    });
-    expect(
-      await getDatabase().select().from(aiAuditLog).where(eq(aiAuditLog.tenantId, tenantId))
-    ).toMatchObject([{ costState: 'not_incurred', costUsd: 0, errorCode: 'AI_PROVIDER_ERROR' }]);
-    expect(
-      await getDatabase()
-        .select()
-        .from(aiBudgetReservations)
-        .where(eq(aiBudgetReservations.tenantId, tenantId))
-    ).toHaveLength(0);
-    // The released admission serves the next invoice.
-    await expect(caller().ai.invoiceOcr.extract({ uploadId })).resolves.toBeDefined();
-  });
+    // The Textract SDK models throttling as a server fault; it is still never billed.
+    { name: 'ThrottlingException', fault: 'server', status: 400 },
+    { name: 'AccessDeniedException', fault: 'client', status: 400 },
+    { name: 'UnsupportedDocumentException', fault: 'client', status: 400 },
+    { name: 'InvalidParameterException', fault: 'client', status: 400 },
+    // Unmodeled AWS credential rejections only expose $metadata.httpStatusCode.
+    { name: 'UnrecognizedClientException', fault: 'client', status: 400 },
+    { name: 'ExpiredTokenException', fault: 'client', status: 400 },
+    // No credentials: the SDK fails before signing or sending a request.
+    { name: 'CredentialsProviderError', fault: undefined, status: undefined },
+  ])(
+    'releases the hold when AWS answers $name (no page analyzed)',
+    async ({ name, fault, status }) => {
+      textractCall.mockRejectedValueOnce(
+        Object.assign(new Error(`${name}: rejected`), {
+          name,
+          ...(fault ? { $fault: fault } : {}),
+          ...(status ? { $metadata: { httpStatusCode: status } } : {}),
+        })
+      );
+      await expect(caller().ai.invoiceOcr.extract({ uploadId })).rejects.toMatchObject({
+        cause: { errorCode: 'AI_PROVIDER_ERROR' },
+      });
+      expect(
+        await getDatabase().select().from(aiAuditLog).where(eq(aiAuditLog.tenantId, tenantId))
+      ).toMatchObject([{ costState: 'not_incurred', costUsd: 0, errorCode: 'AI_PROVIDER_ERROR' }]);
+      expect(
+        await getDatabase()
+          .select()
+          .from(aiBudgetReservations)
+          .where(eq(aiBudgetReservations.tenantId, tenantId))
+      ).toHaveLength(0);
+      // The released admission serves the next invoice.
+      await expect(caller().ai.invoiceOcr.extract({ uploadId })).resolves.toBeDefined();
+    }
+  );
 
   it('keeps an AWS server fault as an unknown liability', async () => {
     textractCall.mockRejectedValueOnce(

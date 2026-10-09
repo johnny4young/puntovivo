@@ -79,9 +79,19 @@ const monthBounds = aiCostMonthWindow;
  * provider does not consume quota.
  */
 export async function countMonthlyAiCalls(args: CountMonthlyAiCallsArgs): Promise<number> {
+  return countMonthlyAiCallsSync(args);
+}
+
+/**
+ * Synchronous core of `countMonthlyAiCalls`, usable on a write-transaction
+ * handle inside the budget kernel's BEGIN IMMEDIATE admission.
+ */
+function countMonthlyAiCallsSync(
+  args: Omit<CountMonthlyAiCallsArgs, 'db'> & { db: Pick<DatabaseInstance, 'select'> }
+): number {
   const { db, tenantId, siteId, feature, now = new Date() } = args;
   const { start, end } = monthBounds(now);
-  const row = await db
+  const row = db
     .select({ total: count(aiAuditLog.id) })
     .from(aiAuditLog)
     .where(
@@ -266,22 +276,8 @@ export function assertInvoiceOcrQuotaForSite(args: {
       message: 'Active invoice OCR site not found',
     });
   }
-  const { start, end } = monthBounds(now);
-  const row = db
-    .select({ total: count(aiAuditLog.id) })
-    .from(aiAuditLog)
-    .where(
-      and(
-        eq(aiAuditLog.tenantId, tenantId),
-        eq(aiAuditLog.siteId, siteId),
-        eq(aiAuditLog.feature, 'invoiceOcr'),
-        isNull(aiAuditLog.errorCode),
-        gte(aiAuditLog.createdAt, start),
-        lt(aiAuditLog.createdAt, end)
-      )
-    )
-    .get();
-  const used = Number(row?.total ?? 0);
+  const { end } = monthBounds(now);
+  const used = countMonthlyAiCallsSync({ db, tenantId, siteId, feature: 'invoiceOcr', now });
   if (used >= AI_QUOTAS.invoiceOcr) {
     throwServerError({
       trpcCode: 'TOO_MANY_REQUESTS',

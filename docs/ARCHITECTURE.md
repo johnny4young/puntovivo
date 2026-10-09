@@ -608,7 +608,8 @@ operator-configured USD-per-page estimate for the exact AWS region; missing
 price configuration blocks dispatch, and the estimate is not an AWS billing
 statement or a guaranteed cap across pricing tiers. AWS answers that prove
 no page was processed (throttling, access denied, unsupported document,
-invalid parameter and other 4xx answers) release the hold; missing page
+invalid parameter and other 4xx client faults, or credentials that fail
+before any request is sent) release the hold; missing page
 metadata after dispatch keeps an unknown liability. The Textract client
 makes a single attempt. Month boundaries use the server's local calendar,
 like the quota and spend reports; per-tenant time zones are a follow-up.
