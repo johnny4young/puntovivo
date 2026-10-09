@@ -3,17 +3,17 @@
   "dialog": {
     "kicker": "Invoice OCR",
     "title": "Upload a photo, AI reads the invoice",
-    "subtitle": "Supports JPG, PNG, and PDF up to 10 MB. Review every field before registering the purchase.",
+    "subtitle": "Supports JPG, PNG, and one-page PDF up to 10 MB. Review every field before registering the purchase.",
     "close": "Close"
   },
   "preview": {
-    "pdfOnePage": "PDF · 1 page"
+    "pdfFile": "PDF"
   },
   "upload": {
     "help": "Pick the supplier invoice or snap a photo from the tablet.",
     "upload": "Upload file",
     "camera": "Take photo",
-    "fileTypes": "JPG · PNG · PDF — max 10 MB"
+    "fileTypes": "JPG · PNG · PDF (1 page) — max 10 MB"
   },
   "stage": {
     "uploading": "Preparing image...",

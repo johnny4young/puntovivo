@@ -143,6 +143,10 @@ export const SERVER_ERROR_CODES_B = {
    * renderer should re-encode or downscale before retrying.
    */
   AI_VISION_IMAGE_TOO_LARGE: 'AI_VISION_IMAGE_TOO_LARGE',
+  /** PDF bytes could not be parsed safely before the paid OCR request. */
+  AI_VISION_PDF_INVALID: 'AI_VISION_PDF_INVALID',
+  /** Synchronous Textract supports exactly one PDF page per invoice. */
+  AI_VISION_PDF_PAGE_LIMIT: 'AI_VISION_PDF_PAGE_LIMIT',
   /**
    * The active site used for invoice OCR is not an active site of this
    * tenant (it was deactivated or does not belong to it). Re-checked under

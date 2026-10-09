@@ -5,6 +5,7 @@ import { reserveAiBudget } from '../budget.js';
 import { settleCompletion } from '../client.js';
 import { logProviderFailure } from '../provider-error.js';
 import { NOT_BILLED_STATUSES, isDefinitiveProviderRejection } from '../provider-rejection.js';
+import { assertSinglePagePdf } from './pdf-preflight.js';
 import { extractInvoiceWithTextract, resolveTextractPriceConfig } from './textract.js';
 import type { TextractInvoiceOcrInput } from './textract.js';
 import { TEXTRACT_INVOICE_MIME_TYPES } from '../vision/invoice-ocr.js';
@@ -69,12 +70,17 @@ export async function extractInvoiceWithAdmission(
       message: 'Textract accepts JPEG, PNG, and single-page PDF invoices',
     });
   }
+  // The client signal is admission-only: it may cancel the local PDF
+  // preflight and stops work before the budget is reserved, but a dispatched
+  // Textract call runs to its own deadline and settles its known page cost
+  // instead of becoming an unknown liability.
+  ctx.abortSignal?.throwIfAborted();
+  if (input.mimeType === 'application/pdf') {
+    await assertSinglePagePdf(input.documentBase64, ctx.abortSignal);
+  }
   // A missing or stale regional page price blocks the paid request before it
   // occupies the tenant's budget reservation.
   const price = resolveTextractPriceConfig();
-  // The client signal is admission-only: it stops work before the budget is
-  // reserved, but a dispatched Textract call runs to its own deadline and
-  // settles its known page cost instead of becoming an unknown liability.
   ctx.abortSignal?.throwIfAborted();
   const reservation = reserveAiBudget(ctx.db, ctx.tenantId, new Date(), {
     invoiceOcrSiteId: ctx.siteId,
