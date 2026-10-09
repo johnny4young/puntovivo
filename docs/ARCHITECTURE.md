@@ -543,13 +543,15 @@ semantic correctness: a SELECT can still produce a constant despite reading a
 table, choose the wrong metric, or omit relevant records. Operators must
 inspect SQL scope and columns before acting on any figure.
 
-Generic AI completions, Co-pilot chat, voice transcription, and legacy
-vision-based invoice extraction admit one in-flight provider attempt per
-tenant through a shared, durable, local-calendar-month SQLite reservation
-acquired under `BEGIN IMMEDIATE`. Co-pilot checks every authorized snapshot
-site's remaining monthly quota inside that same write transaction, immediately
-before provider dispatch; its earlier router check only provides fast
-rejection. A second request while a call is in flight receives
+Generic AI completions, Co-pilot chat, voice transcription, legacy vision
+invoice extraction, and Textract-backed invoice extraction admit one in-flight
+provider attempt per tenant through a shared, durable, local-calendar-month
+SQLite reservation acquired under `BEGIN IMMEDIATE`. Co-pilot checks every
+authorized snapshot site's remaining monthly quota inside that same write
+transaction, immediately before provider dispatch. Textract extraction also
+rechecks the active site's invoice quota and tenant ownership under the writer
+lock; earlier router checks provide only fast rejection. Upload, extraction,
+and confirmation require the same active site. A second request while a call is in flight receives
 `AI_BUDGET_BUSY` (retry shortly) before any quota is evaluated, because the
 in-flight call may still consume the last slot; `AI_BUDGET_EXCEEDED` means the
 limit was reached or an unknown-cost liability is held. Successful estimated cost and
@@ -565,10 +567,10 @@ classified by what it proves:
   a month-scoped liability hold.
 
 Client cancellation only cancels work that has not been dispatched. The
-Co-pilot chat, connection-test, voice-transcription, and legacy
-vision-invoice procedures pass tRPC's request signal (aborted when the HTTP
-response closes before the procedure answers; direct callers may omit it) to
-the service as an admission check; it stops the request before
+Co-pilot chat, connection-test, voice-transcription, legacy vision-invoice,
+and Textract invoice procedures pass tRPC's request signal (aborted when the
+HTTP response closes before the procedure answers; direct callers may omit it)
+to the service as an admission check; it stops the request before
 admission, without an audit row or hold, but never reaches a dispatched
 provider call, which runs to its bounded deadline and settles its known cost
 rather than turning into an unknown liability. The SDK's implicit
@@ -601,8 +603,15 @@ A reservation remains in its original month across restart and rollover;
 admitting a later month is not a reconciliation or proof that the earlier
 provider call was free. Legacy vision invoice extraction settles token-priced usage like the
 completion pipeline, and a local Ollama vision call settles `local_zero` and
-releases its hold. The separate Textract-backed `ai.invoiceOcr.extract` route
-adopts the reservation separately. Month boundaries use the server's local calendar,
+releases its hold. Textract prices returned `DocumentMetadata.Pages` against an
+operator-configured USD-per-page estimate for the exact AWS region; missing
+price configuration blocks dispatch, and the estimate is not an AWS billing
+statement or a guaranteed cap across pricing tiers. AWS answers that prove
+no page was processed (throttling, access denied, unsupported document,
+invalid parameter and other 4xx client faults, or credentials that fail
+before any request is sent) release the hold; missing page
+metadata after dispatch keeps an unknown liability. The Textract client
+makes a single attempt. Month boundaries use the server's local calendar,
 like the quota and spend reports; per-tenant time zones are a follow-up.
 
 ## Price-tier boundary

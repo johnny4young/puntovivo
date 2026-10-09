@@ -12,14 +12,15 @@ import { z } from 'zod';
 
 import {
   INVOICE_OCR_MAX_BYTES,
-  INVOICE_OCR_MIME_TYPES,
+  TEXTRACT_INVOICE_MIME_TYPES,
 } from '../../services/ai/vision/invoice-ocr.js';
 
 const dataUrlPrefix = /^data:[^;]+;base64,/;
 
 export const uploadInvoiceInput = z.object({
   fileName: z.string().trim().min(1).max(240).optional(),
-  mimeType: z.enum(INVOICE_OCR_MIME_TYPES),
+  // This upload belongs to the Textract path, which does not accept WebP.
+  mimeType: z.enum(TEXTRACT_INVOICE_MIME_TYPES),
   imageBase64: z
     .string()
     .min(1)

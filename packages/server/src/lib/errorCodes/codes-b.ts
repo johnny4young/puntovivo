@@ -143,6 +143,12 @@ export const SERVER_ERROR_CODES_B = {
    * renderer should re-encode or downscale before retrying.
    */
   AI_VISION_IMAGE_TOO_LARGE: 'AI_VISION_IMAGE_TOO_LARGE',
+  /**
+   * The active site used for invoice OCR is not an active site of this
+   * tenant (it was deactivated or does not belong to it). Re-checked under
+   * the budget writer lock before a paid Textract call.
+   */
+  AI_INVOICE_OCR_SITE_NOT_FOUND: 'AI_INVOICE_OCR_SITE_NOT_FOUND',
 
   // ---  slice 1 — voice / Whisper transcription ---
   /**

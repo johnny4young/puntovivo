@@ -50,6 +50,10 @@ export const INVOICE_OCR_MIME_TYPES = [
 ] as const;
 export type InvoiceOcrMimeType = (typeof INVOICE_OCR_MIME_TYPES)[number];
 
+/** Subset accepted by the Textract AnalyzeExpense upload path (no WebP). */
+export const TEXTRACT_INVOICE_MIME_TYPES = ['image/jpeg', 'image/png', 'application/pdf'] as const;
+export type TextractInvoiceMimeType = (typeof TEXTRACT_INVOICE_MIME_TYPES)[number];
+
 /**
  * 10 MB raw budget after base64 decode. Textract accepts larger PDFs,
  * but the product contract caps OCR uploads at 10 MB before a provider

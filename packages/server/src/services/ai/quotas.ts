@@ -35,7 +35,7 @@
 import { and, count, eq, gte, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 
 import type { DatabaseInstance } from '../../db/index.js';
-import { aiAuditLog } from '../../db/schema.js';
+import { aiAuditLog, sites } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 
 import { aiCostMonthWindow } from './auditLog.js';
@@ -79,9 +79,19 @@ const monthBounds = aiCostMonthWindow;
  * provider does not consume quota.
  */
 export async function countMonthlyAiCalls(args: CountMonthlyAiCallsArgs): Promise<number> {
+  return countMonthlyAiCallsSync(args);
+}
+
+/**
+ * Synchronous core of `countMonthlyAiCalls`, usable on a write-transaction
+ * handle inside the budget kernel's BEGIN IMMEDIATE admission.
+ */
+function countMonthlyAiCallsSync(
+  args: Omit<CountMonthlyAiCallsArgs, 'db'> & { db: Pick<DatabaseInstance, 'select'> }
+): number {
   const { db, tenantId, siteId, feature, now = new Date() } = args;
   const { start, end } = monthBounds(now);
-  const row = await db
+  const row = db
     .select({ total: count(aiAuditLog.id) })
     .from(aiAuditLog)
     .where(
@@ -243,6 +253,38 @@ export function assertCopilotQuotasForSites(args: {
         },
       });
     }
+  }
+}
+
+/** Repeat the invoice quota and site ownership check under the budget writer lock. */
+export function assertInvoiceOcrQuotaForSite(args: {
+  db: Pick<DatabaseInstance, 'select'>;
+  tenantId: string;
+  siteId: string;
+  now?: Date;
+}): void {
+  const { db, tenantId, siteId, now = new Date() } = args;
+  const site = db
+    .select({ id: sites.id })
+    .from(sites)
+    .where(and(eq(sites.id, siteId), eq(sites.tenantId, tenantId), eq(sites.isActive, true)))
+    .get();
+  if (!site) {
+    throwServerError({
+      trpcCode: 'NOT_FOUND',
+      errorCode: 'AI_INVOICE_OCR_SITE_NOT_FOUND',
+      message: 'Active invoice OCR site not found',
+    });
+  }
+  const { end } = monthBounds(now);
+  const used = countMonthlyAiCallsSync({ db, tenantId, siteId, feature: 'invoiceOcr', now });
+  if (used >= AI_QUOTAS.invoiceOcr) {
+    throwServerError({
+      trpcCode: 'TOO_MANY_REQUESTS',
+      errorCode: 'AI_QUOTA_EXCEEDED',
+      message: 'Monthly invoice OCR quota exhausted for this site',
+      details: { feature: 'invoiceOcr', siteId, used, limit: AI_QUOTAS.invoiceOcr, resetsAt: end },
+    });
   }
 }
 
