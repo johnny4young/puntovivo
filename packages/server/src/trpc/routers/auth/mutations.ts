@@ -65,11 +65,12 @@ import {
   rotateRefreshFamily,
 } from '../../../security/refreshTokenFamilies.js';
 import { rateLimitFor } from '../../middleware/procedureRateLimit.js';
-import { setRefreshCookie } from './helpers.js';
+import { setRefreshCookie, setSessionCsrfCookieForFamily } from './helpers.js';
 import { getDummyStaffPinHash, verifyStaffPin } from '../../../security/staffPins.js';
 import { writeAuditLog } from '../../../services/audit-logs.js';
 import { parkDraftsForIdentityChange } from '../../../application/sales/parkDraftsForIdentityChange.js';
 import { DEVICE_ID_HEADER } from '../../schemas/envelope.js';
+import { clearSessionCsrfCookie } from '../../../security/csrf.js';
 
 function readHeader(value: string | string[] | undefined): string | null {
   if (Array.isArray(value)) return value[0] ?? null;
@@ -261,6 +262,7 @@ export const authMutationProcedures = {
         sessionClaims
       );
       setRefreshCookie(ctx.req, ctx.res, refreshToken);
+      setSessionCsrfCookieForFamily(ctx.req, ctx.res, handoff.target, handoff.family.familyId);
 
       return {
         token,
@@ -392,6 +394,7 @@ export const authMutationProcedures = {
     const token = signAccessToken(ctx.req.server, user);
     const refreshToken = signRefreshToken(ctx.req.server, user, family);
     setRefreshCookie(ctx.req, ctx.res, refreshToken);
+    setSessionCsrfCookieForFamily(ctx.req, ctx.res, user, family.familyId);
 
     return {
       token,
@@ -457,6 +460,7 @@ export const authMutationProcedures = {
       { behavior: 'immediate' }
     );
     clearRefreshCookie(ctx.req, ctx.res);
+    clearSessionCsrfCookie(ctx.req, ctx.res);
     return { success: true, message: 'Logged out successfully' };
   }),
 
@@ -476,6 +480,7 @@ export const authMutationProcedures = {
         // browser and generate the same incident on every application boot.
         if (typeof ctx.req.cookies[REFRESH_COOKIE_NAME] === 'string') {
           clearRefreshCookie(ctx.req, ctx.res);
+          clearSessionCsrfCookie(ctx.req, ctx.res);
         }
         throwServerError({
           trpcCode: 'UNAUTHORIZED',
@@ -509,6 +514,7 @@ export const authMutationProcedures = {
       // fresh family (the grace closes itself when those tokens age out at
       // 7 days).
       let family: { familyId: string; jti: string };
+      let upgradedLegacy = false;
       if (refreshPayload.familyId && refreshPayload.jti) {
         const rotation = rotateRefreshFamily(ctx.db, {
           familyId: refreshPayload.familyId,
@@ -517,6 +523,7 @@ export const authMutationProcedures = {
         });
         if (rotation.status !== 'rotated' && rotation.status !== 'reissued') {
           clearRefreshCookie(ctx.req, ctx.res);
+          clearSessionCsrfCookie(ctx.req, ctx.res);
           throwServerError({
             trpcCode: 'UNAUTHORIZED',
             errorCode: 'AUTH_REFRESH_INVALID',
@@ -529,12 +536,16 @@ export const authMutationProcedures = {
           tenantId: user.tenantId,
           userId: user.id,
         });
+        upgradedLegacy = true;
       }
 
       const sessionClaims = getAuthSessionClaims(refreshPayload);
       const token = signAccessToken(ctx.req.server, user, sessionClaims);
       const refreshToken = signRefreshToken(ctx.req.server, user, family, sessionClaims);
       setRefreshCookie(ctx.req, ctx.res, refreshToken);
+      if (upgradedLegacy) {
+        setSessionCsrfCookieForFamily(ctx.req, ctx.res, user, family.familyId);
+      }
 
       return { token };
     }),
@@ -689,6 +700,7 @@ export const authMutationProcedures = {
         { behavior: 'immediate' }
       );
       clearRefreshCookie(ctx.req, ctx.res);
+      clearSessionCsrfCookie(ctx.req, ctx.res);
 
       return result;
     }),

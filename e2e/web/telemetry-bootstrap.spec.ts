@@ -1,8 +1,14 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Request } from '@playwright/test';
 import { login } from './support/app';
 import { seedSurfaceGateScenario } from './support/db';
 
-for (const session of ['anonymous', 'stale', 'valid', 'malformed-csrf'] as const) {
+for (const session of [
+  'anonymous',
+  'stale',
+  'valid',
+  'malformed-csrf',
+  'malformed-percent-csrf',
+] as const) {
   test(`initializes CSRF before first-paint telemetry with ${session} cookies`, async ({
     page,
     context,
@@ -33,14 +39,21 @@ for (const session of ['anonymous', 'stale', 'valid', 'malformed-csrf'] as const
           },
         ]);
       }
-      if (session === 'malformed-csrf') {
+      if (session === 'malformed-csrf' || session === 'malformed-percent-csrf') {
         await context.addCookies([
-          { name: 'puntovivo_csrf', value: 'invalid', domain: cookieDomain, path: '/' },
+          {
+            name: 'puntovivo_csrf',
+            value: session === 'malformed-percent-csrf' ? '%' : 'invalid',
+            domain: cookieDomain,
+            path: '/',
+          },
         ]);
       }
     }
 
     const requestsBeforeHealth: string[] = [];
+    const setupRequestsBeforeHealth: string[] = [];
+    const telemetryRequests: Request[] = [];
     const forbidden: string[] = [];
     const telemetryResults: unknown[] = [];
     let healthFinished = false;
@@ -53,6 +66,12 @@ for (const session of ['anonymous', 'stale', 'valid', 'malformed-csrf'] as const
       await route.continue();
     });
     page.on('request', request => {
+      if (!healthFinished && request.url().includes('/api/trpc/auth.setupStatus')) {
+        setupRequestsBeforeHealth.push(new URL(request.url()).pathname);
+      }
+      if (request.url().includes('observability.reportWebVital')) {
+        telemetryRequests.push(request);
+      }
       if (!healthFinished && request.method() === 'POST') {
         requestsBeforeHealth.push(new URL(request.url()).pathname);
       }
@@ -83,6 +102,11 @@ for (const session of ['anonymous', 'stale', 'valid', 'malformed-csrf'] as const
             requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
           )
       );
+      if (session !== 'valid') {
+        // The mounted form starts its query, but that query must still wait for health.
+        await expect(page.getByRole('textbox', { name: 'Email', exact: true })).toBeVisible();
+      }
+      expect(setupRequestsBeforeHealth).toEqual([]);
       expect(requestsBeforeHealth).toEqual([]);
     } finally {
       releaseHealth();
@@ -94,6 +118,13 @@ for (const session of ['anonymous', 'stale', 'valid', 'malformed-csrf'] as const
     for (const result of telemetryResults) {
       expect(result).toMatchObject({ result: { data: { accepted: expect.any(Boolean) } } });
       expect(result).not.toHaveProperty('error');
+    }
+    // Public RUM uses only explicit bearer authority when present. A browser
+    // Cookie on this path would recreate the login-transition CSRF race.
+    for (const request of telemetryRequests) {
+      const headers = await request.allHeaders();
+      expect(headers.cookie).toBeUndefined();
+      expect(headers['x-csrf-token']).toBeUndefined();
     }
     if (session === 'valid') {
       await expect(page.locator('header').first()).toBeVisible();
