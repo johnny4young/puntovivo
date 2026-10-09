@@ -118,7 +118,7 @@ export function InvoiceOcrDialog({ open, onClose, providers, onConfirmed }: Invo
       setStage('review');
     } catch (err) {
       if (operationGeneration !== operationGenerationRef.current) return;
-      setErrorMsg(translateServerError(err, t, t('invoiceOcr:error.title')));
+      setErrorMsg(translateServerError(err, t, t('errors:server.unknown')));
       setStage('error');
     }
   }

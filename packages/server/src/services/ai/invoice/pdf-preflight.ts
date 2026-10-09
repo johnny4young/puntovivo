@@ -1,4 +1,8 @@
 import { throwServerError } from '../../../lib/errorCodes.js';
+import { createModuleLogger } from '../../../logging/logger.js';
+import { summarizeProviderError } from '../provider-error.js';
+
+const log = createModuleLogger('services/ai/invoice/pdf-preflight');
 
 /**
  * Validate the PDF page tree before a paid synchronous Textract attempt.
@@ -13,7 +17,7 @@ export async function assertSinglePagePdf(documentBase64: string, abortSignal?: 
   let pageCount: number;
   try {
     // Load only for PDFs: image OCR does not pay the parser's startup cost.
-    const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    const { getDocument, VerbosityLevel } = await import('pdfjs-dist/legacy/build/pdf.mjs');
     signal.throwIfAborted();
     const bytes = new Uint8Array(Buffer.from(documentBase64, 'base64'));
     const loadingTask = getDocument({
@@ -25,6 +29,9 @@ export async function assertSinglePagePdf(documentBase64: string, abortSignal?: 
       // longer compiles font programs with eval; cf. CVE-2024-4367.)
       disableFontFace: true,
       enableXfa: false,
+      // Malformed uploads are attacker-shaped input: keep PDF.js recovery
+      // warnings out of the process stdout instead of one line per object.
+      verbosity: VerbosityLevel.ERRORS,
     });
     let onAbort: (() => void) | undefined;
     try {
@@ -49,6 +56,13 @@ export async function assertSinglePagePdf(documentBase64: string, abortSignal?: 
     // request boundary report it as such. Our own parse deadline still means
     // the document could not be validated.
     if (abortSignal?.aborted) throw abortSignal.reason ?? error;
+    // Keep the bounded failure class (InvalidPDFException, TimeoutError, a
+    // missing worker module, ...) so a packaging fault that rejects every PDF
+    // is diagnosable instead of indistinguishable from a bad upload.
+    log.info(
+      { failure: summarizeProviderError(error).name },
+      'Invoice PDF preflight could not validate the document'
+    );
     throwServerError({
       trpcCode: 'BAD_REQUEST',
       errorCode: 'AI_VISION_PDF_INVALID',

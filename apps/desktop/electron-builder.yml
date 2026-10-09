@@ -52,6 +52,14 @@ files:
   - '!node_modules/zod/**'
   - '!node_modules/@trpc/**'
   - '!node_modules/dayjs/**'
+  # PDF.js is inlined into a .vite/build chunk and its fake worker ships as
+  # .vite/build/pdf.worker.mjs (vite.main.config.ts), so the 35 MB package is
+  # dead weight. @napi-rs/canvas is only PDF.js's optional rendering polyfill;
+  # the page-count preflight never renders, and its native addon would
+  # otherwise be unpacked next to the real natives.
+  - '!node_modules/pdfjs-dist/**'
+  - '!node_modules/@napi-rs/canvas/**'
+  - '!node_modules/@napi-rs/canvas-*/**'
 # Pin a flat, predictable artifact name on every platform. Without it the linux
 # zip target falls back to the scoped package name (@puntovivo/desktop-x.y.z.zip),
 # which nests the file under out-builder/@puntovivo/ and slips past the
