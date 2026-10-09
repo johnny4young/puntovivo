@@ -205,7 +205,7 @@ export async function runCopilotChat(
     // The client signal only cancels undispatched work (see
     // AIInvocationContext.abortSignal); check it before taking the hold.
     ctx.abortSignal?.throwIfAborted();
-    reservation = reserveAiBudget(ctx.db, ctx.tenantId, now);
+    reservation = reserveAiBudget(ctx.db, ctx.tenantId, now, { copilotSiteIds: scopeSiteIds });
     const result = await generateText({
       model,
       instructions: buildSystemPrompt(responseMode),

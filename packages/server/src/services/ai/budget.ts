@@ -7,6 +7,7 @@ import { aiAuditLog, aiBudgetReservations, tenants } from '../../db/schema.js';
 import type { NewAIAuditLogRow } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../audit-logs.js';
+import { assertCopilotQuotasForSites } from './quotas.js';
 
 import { aiCostMonthWindow, readMonthCostSummary } from './auditLog.js';
 
@@ -24,6 +25,11 @@ export const AI_BUDGET_ORPHAN_FEATURE = 'budgetHoldRecovery';
 export interface AiBudgetReservation {
   id: string;
   tenantId: string;
+}
+
+export interface AiBudgetAdmissionOptions {
+  /** Check every site that the pending Copilot snapshot may read under the same write lock. */
+  copilotSiteIds?: string[];
 }
 
 type CallAudit = Omit<NewAIAuditLogRow, 'id' | 'createdAt'> & {
@@ -135,7 +141,8 @@ export function expireOrphanedAiBudgetHolds(
 export function reserveAiBudget(
   db: DatabaseInstance,
   tenantId: string,
-  now: Date = new Date()
+  now: Date = new Date(),
+  options: AiBudgetAdmissionOptions = {}
 ): AiBudgetReservation {
   const month = aiCostMonthWindow(now);
   // Commit orphan recovery separately: the admission transaction below may
@@ -185,6 +192,10 @@ export function reserveAiBudget(
       }
       if (spent >= budget) {
         denyBudget(`AI monthly budget exhausted ($${spent.toFixed(4)} of $${budget.toFixed(2)})`);
+      }
+
+      if (options.copilotSiteIds !== undefined) {
+        assertCopilotQuotasForSites({ db: tx, tenantId, siteIds: options.copilotSiteIds, now });
       }
 
       const id = nanoid();

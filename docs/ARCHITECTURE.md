@@ -545,9 +545,13 @@ inspect SQL scope and columns before acting on any figure.
 
 Generic AI completions and Co-pilot chat admit one in-flight provider attempt
 per tenant through a shared, durable, local-calendar-month SQLite reservation
-acquired under `BEGIN IMMEDIATE`. A second request while a call is in flight
-receives `AI_BUDGET_BUSY` (retry shortly); `AI_BUDGET_EXCEEDED` means the limit was
-reached or an unknown-cost liability is held. Successful estimated cost and
+acquired under `BEGIN IMMEDIATE`. Co-pilot checks every authorized snapshot
+site's remaining monthly quota inside that same write transaction, immediately
+before provider dispatch; its earlier router check only provides fast
+rejection. A second request while a call is in flight receives
+`AI_BUDGET_BUSY` (retry shortly) before any quota is evaluated, because the
+in-flight call may still consume the last slot; `AI_BUDGET_EXCEEDED` means the
+limit was reached or an unknown-cost liability is held. Successful estimated cost and
 reservation release commit with one audit row. A failure records one audit row
 classified by what it proves:
 

@@ -26,6 +26,9 @@ import { writeAISettings } from './client.js';
 const directory = mkdtempSync(join(tmpdir(), 'puntovivo-ai-budget-'));
 const dbPath = join(directory, 'budget.db');
 const tenantId = nanoid();
+const companyId = nanoid();
+const siteId = nanoid();
+const secondSiteId = nanoid();
 const otherTenantId = nanoid();
 const adminId = nanoid();
 let server: PuntovivoServer;
@@ -61,6 +64,35 @@ beforeAll(async () => {
       createdAt: now,
       updatedAt: now,
     });
+  await getDatabase().insert(schema.companies).values({
+    id: companyId,
+    tenantId,
+    name: 'Budget company',
+    createdAt: now,
+    updatedAt: now,
+  });
+  await getDatabase()
+    .insert(schema.sites)
+    .values([
+      {
+        id: siteId,
+        tenantId,
+        companyId,
+        name: 'Budget site',
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: secondSiteId,
+        tenantId,
+        companyId,
+        name: 'Second budget site',
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
   await getDatabase()
     .insert(schema.tenants)
     .values({
@@ -103,7 +135,7 @@ beforeEach(async () => {
 
 function expectBudgetDenied(
   action: () => unknown,
-  errorCode: 'AI_BUDGET_EXCEEDED' | 'AI_BUDGET_BUSY' = 'AI_BUDGET_EXCEEDED'
+  errorCode: 'AI_BUDGET_EXCEEDED' | 'AI_BUDGET_BUSY' | 'AI_QUOTA_EXCEEDED' = 'AI_BUDGET_EXCEEDED'
 ): void {
   let caught: unknown;
   try {
@@ -263,6 +295,107 @@ describe('durable AI budget admission', () => {
     await peer
       .delete(schema.aiBudgetReservations)
       .where(eq(schema.aiBudgetReservations.id, next.id));
+  });
+
+  it('rechecks a last Copilot site slot on the peer connection after settlement', async () => {
+    const db = getDatabase();
+    const peer = drizzle(peerNative, { schema });
+    const now = new Date();
+    await db.insert(schema.aiAuditLog).values(
+      Array.from({ length: 799 }, () => ({
+        id: nanoid(),
+        tenantId,
+        siteId,
+        userId: null,
+        feature: 'copilot',
+        providerId: 'anthropic',
+        modelId: 'fake-model',
+        inputTokens: 1,
+        outputTokens: 1,
+        costUsd: 0,
+        durationMs: 1,
+        errorCode: null,
+        createdAt: now.toISOString(),
+      }))
+    );
+
+    const first = reserveAiBudget(db, tenantId, now, { copilotSiteIds: [siteId] });
+    // The in-flight call may still take the last slot: busy, not over quota.
+    expectBudgetDenied(
+      () => reserveAiBudget(peer, tenantId, now, { copilotSiteIds: [siteId] }),
+      'AI_BUDGET_BUSY'
+    );
+    settleAiBudget(db, first, { ...audit, siteId, feature: 'copilot' }, false);
+    expectBudgetDenied(
+      () => reserveAiBudget(peer, tenantId, now, { copilotSiteIds: [siteId] }),
+      'AI_QUOTA_EXCEEDED'
+    );
+    expect(await db.select().from(schema.aiBudgetReservations).all()).toHaveLength(0);
+    expect(await db.select().from(schema.aiAuditLog).all()).toHaveLength(800);
+  });
+
+  it('rejects tenant-wide Copilot admission when one scoped site is exhausted', async () => {
+    const db = getDatabase();
+    const now = new Date();
+    await db.insert(schema.aiAuditLog).values(
+      Array.from({ length: 800 }, () => ({
+        id: nanoid(),
+        tenantId,
+        siteId: null,
+        scopeSiteIds: [secondSiteId],
+        userId: null,
+        feature: 'copilot',
+        providerId: 'anthropic',
+        modelId: 'fake-model',
+        inputTokens: 1,
+        outputTokens: 1,
+        costUsd: 0,
+        durationMs: 1,
+        errorCode: null,
+        createdAt: now.toISOString(),
+      }))
+    );
+    expectBudgetDenied(
+      () => reserveAiBudget(db, tenantId, now, { copilotSiteIds: [siteId, secondSiteId] }),
+      'AI_QUOTA_EXCEEDED'
+    );
+    const unaffected = reserveAiBudget(db, tenantId, now, { copilotSiteIds: [siteId] });
+    await db
+      .delete(schema.aiBudgetReservations)
+      .where(eq(schema.aiBudgetReservations.id, unaffected.id));
+  });
+
+  it('does not carry Copilot site quota into the next local calendar month', async () => {
+    const db = getDatabase();
+    const previousMonth = new Date(2026, 8, 30, 23, 59, 59, 999);
+    const nextMonth = new Date(2026, 9, 1, 0, 0, 0, 0);
+    await db.insert(schema.aiAuditLog).values(
+      Array.from({ length: 800 }, () => ({
+        id: nanoid(),
+        tenantId,
+        siteId,
+        userId: null,
+        feature: 'copilot',
+        providerId: 'anthropic',
+        modelId: 'fake-model',
+        inputTokens: 1,
+        outputTokens: 1,
+        costUsd: 0,
+        durationMs: 1,
+        errorCode: null,
+        createdAt: previousMonth.toISOString(),
+      }))
+    );
+    const reservation = reserveAiBudget(db, tenantId, nextMonth, { copilotSiteIds: [siteId] });
+    const settled = settleAiBudget(
+      db,
+      reservation,
+      { ...audit, siteId, feature: 'copilot' },
+      false
+    );
+    expect(
+      await db.select().from(schema.aiAuditLog).where(eq(schema.aiAuditLog.id, settled.id))
+    ).toMatchObject([{ createdAt: nextMonth.toISOString() }]);
   });
 
   it('rolls back both audit and reservation settlement if the audit insert fails', async () => {
