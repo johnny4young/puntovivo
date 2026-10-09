@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { shouldUseSecureCookies } from '../security/cookies.js';
 import { clearRefreshCookie } from '../security/authTokens.js';
-import { ensureCsrfCookie } from '../security/csrf.js';
+import {
+  clearSessionCsrfCookie,
+  ensureCsrfCookie,
+  setSessionCsrfCookie,
+} from '../security/csrf.js';
 import { setRefreshCookie } from '../trpc/routers/auth/helpers.js';
 
 // shouldUseSecureCookies must ride exclusively on Fastify's
@@ -81,5 +85,37 @@ describe('secure attribute reaches the emitted cookie options', () => {
 
     expect(captured).toHaveLength(1);
     expect(captured[0]?.options).toMatchObject({ secure, sameSite: 'lax' });
+  });
+
+  it.each([
+    ['https', true],
+    ['http', false],
+  ] as const)('setSessionCsrfCookie on %s emits secure: %s', (protocol, secure) => {
+    const captured: CapturedCookie[] = [];
+    setSessionCsrfCookie(makeRequest(protocol), makeReply(captured), 'v1.test-token');
+
+    expect(captured).toHaveLength(1);
+    expect(captured[0]?.options).toMatchObject({
+      secure,
+      httpOnly: false,
+      sameSite: 'lax',
+      path: '/',
+    });
+  });
+
+  it.each([
+    ['https', true],
+    ['http', false],
+  ] as const)('clearSessionCsrfCookie on %s emits secure: %s', (protocol, secure) => {
+    const captured: CapturedCookie[] = [];
+    clearSessionCsrfCookie(makeRequest(protocol), makeReply(captured));
+
+    expect(captured).toHaveLength(1);
+    expect(captured[0]?.options).toMatchObject({
+      secure,
+      httpOnly: false,
+      sameSite: 'lax',
+      path: '/',
+    });
   });
 });
