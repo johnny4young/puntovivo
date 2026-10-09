@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
 import { Minus, Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { ariaKeyshortcutsFor } from '@/lib/shortcuts';
+import { ariaKeyshortcutsFor, shortcutDisplayFor } from '@/lib/shortcuts';
 import { formatCurrency } from '@/lib/utils';
 import {
   getSaleMinimumQuantity,
@@ -84,17 +84,17 @@ export function SaleCartTable({
     <p className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-fg3">
       <span>{t('cart.shortcuts.label')}</span>
       <span className="inline-flex items-center gap-1">
-        <kbd className="pv-kbd">Alt+P</kbd>
+        <kbd className="pv-kbd">{shortcutDisplayFor('sales.focusProduct')}</kbd>
         <span>{t('cart.shortcuts.search')}</span>
       </span>
       <span aria-hidden="true">·</span>
       <span className="inline-flex items-center gap-1">
-        <kbd className="pv-kbd">Alt+C</kbd>
+        <kbd className="pv-kbd">{shortcutDisplayFor('sales.focusQuantity')}</kbd>
         <span>{t('cart.shortcuts.quantity')}</span>
       </span>
       <span aria-hidden="true">·</span>
       <span className="inline-flex items-center gap-1">
-        <kbd className="pv-kbd">Alt+D</kbd>
+        <kbd className="pv-kbd">{shortcutDisplayFor('sales.focusDiscount')}</kbd>
         <span>{t('cart.shortcuts.discount')}</span>
       </span>
     </p>

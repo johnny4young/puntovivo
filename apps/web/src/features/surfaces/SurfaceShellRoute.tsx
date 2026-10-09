@@ -8,9 +8,8 @@ import type { ClientModuleId } from '@/features/modules';
 import type { UserRole } from '@/types';
 
 /**
- * Route wrapper for the full-screen surfaces (POS Touch, KDS, Customer
- * Display, Mobile Waiter) that live outside `MainLayout` and own their
- * viewport.
+ * Route wrapper for the full-screen surfaces (POS Touch, KDS, Mobile Waiter,
+ * Companion) that live outside `MainLayout` and own their viewport.
  *
  * gates by role AND module at the ROUTE level, BEFORE the lazy
  * surface bundle loads, so a hidden module never fetches its chunk or

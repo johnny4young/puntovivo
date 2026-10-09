@@ -29,6 +29,7 @@ import {
 } from '../db/schema.js';
 import { ServerErrorWithCode } from '../lib/errorCodes.js';
 import { runReadOnlySQL, validateReadOnlySQL } from '../services/ai/index.js';
+import { AI_QUOTAS } from '../services/ai/quotas.js';
 import { configureAuditAnchorKey } from '../services/audit-anchor.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
@@ -40,11 +41,12 @@ let adminId: string;
 let managerId: string;
 let cashierId: string;
 let siteId: string;
+let secondSiteId: string;
 
 function createCtx(opts: {
   tenantId: string;
   userId: string;
-  role: 'admin' | 'cashier' | 'manager';
+  role: 'admin' | 'cashier' | 'manager' | 'viewer';
   siteId?: string | null;
 }): Context {
   const db = getDatabase();
@@ -153,6 +155,16 @@ beforeAll(async () => {
     tenantId,
     companyId,
     name: 'Main Site',
+    isActive: true,
+    createdAt: now,
+    updatedAt: now,
+  });
+  secondSiteId = nanoid();
+  await db.insert(sites).values({
+    id: secondSiteId,
+    tenantId,
+    companyId,
+    name: 'Second AI Site',
     isActive: true,
     createdAt: now,
     updatedAt: now,
@@ -344,6 +356,77 @@ describe('ai.settings.get', () => {
     }
     expect(caught).toBeInstanceOf(TRPCError);
     expect((caught as TRPCError).code).toBe('FORBIDDEN');
+  });
+});
+
+describe('ai.settings.voiceAvailability', () => {
+  it('lets a cashier read only the tenant voice-enabled flag', async () => {
+    const db = getDatabase();
+    await db
+      .update(tenants)
+      .set({
+        settings: {
+          modules: { 'semantic-search': true },
+          ai: { enabled: true, monthlyBudgetUsd: 73, providerId: 'openai' },
+        },
+      })
+      .where(eq(tenants.id, tenantId));
+
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: cashierId, role: 'cashier', siteId })
+    );
+    expect(await caller.ai.settings.voiceAvailability()).toEqual({ enabled: true });
+    await expect(caller.ai.settings.get()).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  });
+
+  it('uses the current tenant settings without leaking another tenant configuration', async () => {
+    const db = getDatabase();
+    await db
+      .update(tenants)
+      .set({ settings: { modules: { 'semantic-search': true }, ai: { enabled: true } } })
+      .where(eq(tenants.id, tenantId));
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId: tenantOther, userId: cashierId, role: 'cashier', siteId: null })
+    );
+    expect(await caller.ai.settings.voiceAvailability()).toEqual({ enabled: false });
+  });
+
+  it('rejects a cashier when the tenant semantic-search module is disabled', async () => {
+    const db = getDatabase();
+    await db
+      .update(tenants)
+      .set({
+        settings: {
+          modules: { 'semantic-search': false },
+          ai: { enabled: true },
+        },
+      })
+      .where(eq(tenants.id, tenantId));
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: cashierId, role: 'cashier', siteId })
+    );
+    const error = await caller.ai.settings.voiceAvailability().catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(TRPCError);
+    expect((error as TRPCError).code).toBe('FORBIDDEN');
+    expect((error as TRPCError).cause).toBeInstanceOf(ServerErrorWithCode);
+    expect(((error as TRPCError).cause as ServerErrorWithCode).errorCode).toBe(
+      'MODULE_NOT_ACTIVATED'
+    );
+  });
+
+  it('rejects a viewer even when voice is enabled for the tenant', async () => {
+    const db = getDatabase();
+    await db
+      .update(tenants)
+      .set({ settings: { modules: { 'semantic-search': true }, ai: { enabled: true } } })
+      .where(eq(tenants.id, tenantId));
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: cashierId, role: 'viewer', siteId })
+    );
+    const error = await caller.ai.settings.voiceAvailability().catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(TRPCError);
+    expect((error as TRPCError).code).toBe('FORBIDDEN');
+    expect((error as TRPCError).cause).not.toBeInstanceOf(ServerErrorWithCode);
   });
 });
 
@@ -876,6 +959,115 @@ describe('ai.completeTest', () => {
 });
 
 describe('ai.copilot.chat', () => {
+  async function fillCopilotQuota(chargedSiteId: string) {
+    const now = new Date().toISOString();
+    for (let index = 0; index < AI_QUOTAS.copilot; index++) {
+      await getDatabase().insert(aiAuditLog).values({
+        id: nanoid(),
+        tenantId,
+        siteId: chargedSiteId,
+        userId: adminId,
+        feature: 'copilot',
+        providerId: 'anthropic',
+        modelId: 'claude-haiku-4-5',
+        inputTokens: 1,
+        outputTokens: 1,
+        costUsd: 0,
+        durationMs: 1,
+        errorCode: null,
+        createdAt: now,
+      });
+    }
+  }
+
+  it('charges an explicit same-tenant analytics site instead of the header site', async () => {
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: adminId, role: 'admin', siteId })
+    );
+    await caller.ai.settings.update({
+      enabled: true,
+      monthlyBudgetUsd: 5,
+      features: { copilot: { enabled: true } },
+    });
+    await fillCopilotQuota(siteId);
+
+    const original = process.env.ANTHROPIC_API_KEY;
+    try {
+      delete process.env.ANTHROPIC_API_KEY;
+      await expect(
+        caller.ai.copilot.chat({
+          messages: [{ role: 'user', content: 'Show the second site sales' }],
+          context: { siteId: secondSiteId },
+        })
+      ).rejects.toMatchObject({ cause: { errorCode: 'AI_PROVIDER_ERROR' } });
+    } finally {
+      if (original === undefined) delete process.env.ANTHROPIC_API_KEY;
+      else process.env.ANTHROPIC_API_KEY = original;
+    }
+  });
+
+  it('checks every site quota for tenant-wide analytics', async () => {
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: adminId, role: 'admin', siteId })
+    );
+    await caller.ai.settings.update({
+      enabled: true,
+      monthlyBudgetUsd: 5,
+      features: { copilot: { enabled: true } },
+    });
+    await fillCopilotQuota(secondSiteId);
+
+    const original = process.env.ANTHROPIC_API_KEY;
+    try {
+      delete process.env.ANTHROPIC_API_KEY;
+      await expect(
+        caller.ai.copilot.chat({ messages: [{ role: 'user', content: 'Show all sales' }] })
+      ).rejects.toMatchObject({ cause: { errorCode: 'AI_QUOTA_EXCEEDED' } });
+    } finally {
+      if (original === undefined) delete process.env.ANTHROPIC_API_KEY;
+      else process.env.ANTHROPIC_API_KEY = original;
+    }
+  });
+
+  it('rejects a foreign analytics site before provider resolution', async () => {
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: adminId, role: 'admin', siteId })
+    );
+    await caller.ai.settings.update({
+      enabled: true,
+      monthlyBudgetUsd: 5,
+      features: { copilot: { enabled: true } },
+    });
+    const otherSiteId = nanoid();
+    const otherCompanyId = nanoid();
+    await getDatabase().insert(companies).values({
+      id: otherCompanyId,
+      tenantId: tenantOther,
+      name: 'Foreign AI Company',
+    });
+    await getDatabase().insert(sites).values({
+      id: otherSiteId,
+      tenantId: tenantOther,
+      companyId: otherCompanyId,
+      name: 'Foreign AI Site',
+      isActive: true,
+    });
+
+    const original = process.env.ANTHROPIC_API_KEY;
+    try {
+      delete process.env.ANTHROPIC_API_KEY;
+      await expect(
+        caller.ai.copilot.chat({
+          messages: [{ role: 'user', content: 'Show foreign sales' }],
+          context: { siteId: otherSiteId },
+        })
+      ).rejects.toMatchObject({ cause: { errorCode: 'AI_COPILOT_SQL_REJECTED' } });
+    } finally {
+      if (original === undefined) delete process.env.ANTHROPIC_API_KEY;
+      else process.env.ANTHROPIC_API_KEY = original;
+    }
+  });
+
   it('allows manager callers through the role guard and preserves AI_DISABLED', async () => {
     const caller = appRouter.createCaller(
       createCtx({ tenantId, userId: managerId, role: 'manager', siteId })

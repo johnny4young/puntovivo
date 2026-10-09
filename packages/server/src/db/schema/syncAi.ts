@@ -326,6 +326,8 @@ export const aiAuditLog = sqliteTable(
       .notNull()
       .references(() => tenants.id),
     siteId: text('site_id').references(() => sites.id),
+    /** Call-time site scope for tenant-wide Co-pilot; null on older rows and other features. */
+    scopeSiteIds: text('scope_site_ids', { mode: 'json' }).$type<string[] | null>(),
     userId: text('user_id').references(() => users.id),
     /** AI feature label (`completeTest`, `copilot`, `autoCategorize`, `embeddings`). */
     feature: text('feature').notNull(),
