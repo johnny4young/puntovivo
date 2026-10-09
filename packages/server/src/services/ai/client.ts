@@ -372,8 +372,30 @@ function isKnownTokenCount(value: number | undefined): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0;
 }
 
-function tokenCount(value: number | undefined): number {
+/** A valid provider counter, or zero for a missing or malformed one. */
+export function tokenCount(value: number | undefined): number {
   return isKnownTokenCount(value) ? value : 0;
+}
+
+/**
+ * Whether remote usage is complete and non-empty enough to price. Any
+ * malformed counter keeps the call's cost unknown instead of free.
+ */
+export function hasUsableRemoteUsage(usage: UsageForPricing): boolean {
+  return (
+    isKnownTokenCount(usage.inputTokens) &&
+    isKnownTokenCount(usage.outputTokens) &&
+    [
+      usage.inputTokenDetails?.noCacheTokens,
+      usage.inputTokenDetails?.cacheReadTokens,
+      usage.inputTokenDetails?.cacheWriteTokens,
+    ].every(value => value === undefined || isKnownTokenCount(value)) &&
+    tokenCount(usage.inputTokens) +
+      tokenCount(usage.outputTokens) +
+      tokenCount(usage.inputTokenDetails?.cacheReadTokens) +
+      tokenCount(usage.inputTokenDetails?.cacheWriteTokens) >
+      0
+  );
 }
 
 export function toBillableTokenUsage(usage: UsageForPricing): TokenUsage {
@@ -449,7 +471,14 @@ export async function completeAI(
   try {
     model = provider.languageModel(modelId);
     providerOptions = provider.cacheControlForSystemPrompt();
-  } catch {
+  } catch (error) {
+    logProviderFailure(error, {
+      tenantId: ctx.tenantId,
+      feature: input.feature,
+      providerId: provider.id,
+      modelId,
+      errorCode: 'AI_PROVIDER_ERROR',
+    });
     throwServerError({
       trpcCode: 'BAD_GATEWAY',
       errorCode: 'AI_PROVIDER_ERROR',
@@ -547,16 +576,7 @@ export async function completeAI(
       true
     );
   };
-  const hasUsableRemoteUsage =
-    isKnownTokenCount(result.usage.inputTokens) &&
-    isKnownTokenCount(result.usage.outputTokens) &&
-    [
-      result.usage.inputTokenDetails?.noCacheTokens,
-      result.usage.inputTokenDetails?.cacheReadTokens,
-      result.usage.inputTokenDetails?.cacheWriteTokens,
-    ].every(value => value === undefined || isKnownTokenCount(value)) &&
-    inputTokens + outputTokens + cacheReadTokens + cacheWriteTokens > 0;
-  if (provider.id !== 'ollama' && !hasUsableRemoteUsage) {
+  if (provider.id !== 'ollama' && !hasUsableRemoteUsage(result.usage)) {
     markUnpriceable();
     throwServerError({
       trpcCode: 'BAD_GATEWAY',

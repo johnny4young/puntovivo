@@ -53,7 +53,7 @@ export const standaloneProcedures = {
    */
   extractInvoiceLines: managerOrAdminProcedure
     .input(extractInvoiceLinesInput)
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ ctx, input, signal }) => {
       const userId = ctx.user?.id ?? null;
       // legacy OCR still writes `feature: invoiceOcr`
       // audit rows, so it must share the same per-site quota gate as
@@ -66,17 +66,20 @@ export const standaloneProcedures = {
           feature: 'invoiceOcr',
         });
       }
-      const result = await extractInvoiceFromImage(
-        {
-          db: ctx.db,
-          tenantId: ctx.tenantId,
-          siteId: ctx.siteId,
-          userId,
-        },
-        {
-          imageBase64: input.imageBase64,
-          mimeType: input.mimeType,
-        }
+      const result = await withClientAbortSignal(signal, abortSignal =>
+        extractInvoiceFromImage(
+          {
+            db: ctx.db,
+            tenantId: ctx.tenantId,
+            siteId: ctx.siteId,
+            userId,
+            abortSignal,
+          },
+          {
+            imageBase64: input.imageBase64,
+            mimeType: input.mimeType,
+          }
+        )
       );
       return {
         invoice: result.invoice,

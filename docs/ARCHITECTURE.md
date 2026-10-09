@@ -543,9 +543,10 @@ semantic correctness: a SELECT can still produce a constant despite reading a
 table, choose the wrong metric, or omit relevant records. Operators must
 inspect SQL scope and columns before acting on any figure.
 
-Generic AI completions, Co-pilot chat, and voice transcription admit one
-in-flight provider attempt per tenant through a shared, durable,
-local-calendar-month SQLite reservation acquired under `BEGIN IMMEDIATE`. Co-pilot checks every authorized snapshot
+Generic AI completions, Co-pilot chat, voice transcription, and legacy
+vision-based invoice extraction admit one in-flight provider attempt per
+tenant through a shared, durable, local-calendar-month SQLite reservation
+acquired under `BEGIN IMMEDIATE`. Co-pilot checks every authorized snapshot
 site's remaining monthly quota inside that same write transaction, immediately
 before provider dispatch; its earlier router check only provides fast
 rejection. A second request while a call is in flight receives
@@ -564,10 +565,10 @@ classified by what it proves:
   a month-scoped liability hold.
 
 Client cancellation only cancels work that has not been dispatched. The
-Co-pilot chat, connection-test, and voice-transcription procedures pass
-tRPC's request signal (aborted when the HTTP response closes before the
-procedure answers; direct callers may omit it) to the service as an admission
-check; it stops the request before
+Co-pilot chat, connection-test, voice-transcription, and legacy
+vision-invoice procedures pass tRPC's request signal (aborted when the HTTP
+response closes before the procedure answers; direct callers may omit it) to
+the service as an admission check; it stops the request before
 admission, without an audit row or hold, but never reaches a dispatched
 provider call, which runs to its bounded deadline and settles its known cost
 rather than turning into an unknown liability. The SDK's implicit
@@ -598,7 +599,10 @@ counters are not usable pricing evidence: valid counters remain auditable,
 invalid counters store zero only alongside an unknown cost and retained hold.
 A reservation remains in its original month across restart and rollover;
 admitting a later month is not a reconciliation or proof that the earlier
-provider call was free. Month boundaries use the server's local calendar,
+provider call was free. Legacy vision invoice extraction settles token-priced usage like the
+completion pipeline, and a local Ollama vision call settles `local_zero` and
+releases its hold. The separate Textract-backed `ai.invoiceOcr.extract` route
+adopts the reservation separately. Month boundaries use the server's local calendar,
 like the quota and spend reports; per-tenant time zones are a follow-up.
 
 ## Price-tier boundary
