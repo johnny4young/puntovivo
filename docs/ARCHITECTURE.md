@@ -543,9 +543,9 @@ semantic correctness: a SELECT can still produce a constant despite reading a
 table, choose the wrong metric, or omit relevant records. Operators must
 inspect SQL scope and columns before acting on any figure.
 
-Generic AI completions and Co-pilot chat admit one in-flight provider attempt
-per tenant through a shared, durable, local-calendar-month SQLite reservation
-acquired under `BEGIN IMMEDIATE`. Co-pilot checks every authorized snapshot
+Generic AI completions, Co-pilot chat, and voice transcription admit one
+in-flight provider attempt per tenant through a shared, durable,
+local-calendar-month SQLite reservation acquired under `BEGIN IMMEDIATE`. Co-pilot checks every authorized snapshot
 site's remaining monthly quota inside that same write transaction, immediately
 before provider dispatch; its earlier router check only provides fast
 rejection. A second request while a call is in flight receives
@@ -564,13 +564,20 @@ classified by what it proves:
   a month-scoped liability hold.
 
 Client cancellation only cancels work that has not been dispatched. The
-Co-pilot chat and connection-test procedures pass tRPC's request signal
-(aborted when the HTTP response closes before the procedure answers; direct
-callers may omit it) to the service as an admission check; it stops the request before
+Co-pilot chat, connection-test, and voice-transcription procedures pass
+tRPC's request signal (aborted when the HTTP response closes before the
+procedure answers; direct callers may omit it) to the service as an admission
+check; it stops the request before
 admission, without an audit row or hold, but never reaches a dispatched
 provider call, which runs to its bounded deadline and settles its known cost
 rather than turning into an unknown liability. The SDK's implicit
-retries are disabled on these paths. Co-pilot also records priced provider
+retries are disabled on these paths. Voice transcription prices the returned
+audio duration; a missing duration or pricing row is not treated as a free
+transcript. Audio sent without a transcript coming back
+(`NoTranscriptGeneratedError`, e.g. silence) was still processed and billed
+per audio minute: it settles `estimated` at the audio duration the provider
+reported before the SDK rejected the empty text, never as an unknown
+liability; when no duration was reported it is held as unknown. Co-pilot also records priced provider
 usage when it rejects an answer without validated SQL, preserves the
 call-time analytics site scope in its audit, and treats a definitive provider
 rejection as not incurred only when no earlier tool-loop step had returned. This is a conservative **local

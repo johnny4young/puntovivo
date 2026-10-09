@@ -130,30 +130,33 @@ export const standaloneProcedures = {
    */
   transcribeAudio: cashierManagerOrAdminProcedureWithModule('semantic-search')
     .input(transcribeAudioInput)
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ ctx, input, signal }) => {
       const userId = ctx.user?.id ?? null;
-      const result = await transcribeAudio(
-        {
-          db: ctx.db,
-          tenantId: ctx.tenantId,
-          siteId: ctx.siteId,
-          userId,
-        },
-        {
-          audioBase64: input.audioBase64,
-          mimeType: input.mimeType,
-        }
-      );
-      return {
-        transcript: result.transcript,
-        language: result.language,
-        audioDurationSeconds: result.audioDurationSeconds,
-        costUsd: result.costUsd,
-        durationMs: result.durationMs,
-        provider: result.provider,
-        model: result.model,
-        auditLogId: result.auditLogId,
-      };
+      return withClientAbortSignal(signal, async abortSignal => {
+        const result = await transcribeAudio(
+          {
+            db: ctx.db,
+            tenantId: ctx.tenantId,
+            siteId: ctx.siteId,
+            userId,
+            ...(abortSignal !== undefined ? { abortSignal } : {}),
+          },
+          {
+            audioBase64: input.audioBase64,
+            mimeType: input.mimeType,
+          }
+        );
+        return {
+          transcript: result.transcript,
+          language: result.language,
+          audioDurationSeconds: result.audioDurationSeconds,
+          costUsd: result.costUsd,
+          durationMs: result.durationMs,
+          provider: result.provider,
+          model: result.model,
+          auditLogId: result.auditLogId,
+        };
+      });
     }),
 
   /**
