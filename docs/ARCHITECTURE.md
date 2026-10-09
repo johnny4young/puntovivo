@@ -563,9 +563,13 @@ classified by what it proves:
   60 s deadline, an unpriceable or malformed result) is `unknown` and retains
   a month-scoped liability hold.
 
-Client cancellation (an HTTP disconnect) only cancels work that has not been
-dispatched; a dispatched call runs to its bounded deadline and settles its
-known cost rather than turning into an unknown liability. The SDK's implicit
+Client cancellation only cancels work that has not been dispatched. The
+Co-pilot chat and connection-test procedures pass tRPC's request signal
+(aborted when the HTTP response closes before the procedure answers; direct
+callers may omit it) to the service as an admission check; it stops the request before
+admission, without an audit row or hold, but never reaches a dispatched
+provider call, which runs to its bounded deadline and settles its known cost
+rather than turning into an unknown liability. The SDK's implicit
 retries are disabled on these paths. Co-pilot also records priced provider
 usage when it rejects an answer without validated SQL, preserves the
 call-time analytics site scope in its audit, and treats a definitive provider

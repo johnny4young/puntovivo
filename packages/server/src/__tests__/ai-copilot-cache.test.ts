@@ -407,6 +407,48 @@ describe('injectContextIntoMessages — latest-user-turn prepend', () => {
 });
 
 describe('runCopilotChat — generateText receives the static system + context-prefixed prompt', () => {
+  it('skips provider dispatch, audit and reservation when cancelled before admission', async () => {
+    const { tenantId, siteId } = await seedTenantWithAI('pre-dispatch-abort');
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(
+      runCopilotChat(
+        { db: getDatabase(), tenantId, siteId, userId: null, abortSignal: controller.signal },
+        { messages: [{ role: 'user', content: 'Show sales' }] },
+        { factory: () => buildStubProvider() }
+      )
+    ).rejects.toMatchObject({ name: 'AbortError' });
+    expect(generateTextMock).not.toHaveBeenCalled();
+    expect(
+      await getDatabase().select().from(aiAuditLog).where(eq(aiAuditLog.tenantId, tenantId)).all()
+    ).toHaveLength(0);
+    expect(
+      await getDatabase()
+        .select()
+        .from(aiBudgetReservations)
+        .where(eq(aiBudgetReservations.tenantId, tenantId))
+        .all()
+    ).toHaveLength(0);
+  });
+  it('rethrows a cancellation with a custom abort reason instead of a provider error', async () => {
+    const { tenantId, siteId } = await seedTenantWithAI('pre-dispatch-abort-reason');
+    const controller = new AbortController();
+    const reason = new DOMException('client deadline', 'TimeoutError');
+    controller.abort(reason);
+
+    await expect(
+      runCopilotChat(
+        { db: getDatabase(), tenantId, siteId, userId: null, abortSignal: controller.signal },
+        { messages: [{ role: 'user', content: 'Show sales' }] },
+        { factory: () => buildStubProvider() }
+      )
+    ).rejects.toBe(reason);
+    expect(generateTextMock).not.toHaveBeenCalled();
+    expect(
+      await getDatabase().select().from(aiAuditLog).where(eq(aiAuditLog.tenantId, tenantId)).all()
+    ).toHaveLength(0);
+  });
   it('passes the static buildSystemPrompt() as system and a <context>-prefixed prompt for the Anthropic provider', async () => {
     const { tenantId, siteId } = await seedTenantWithAI('anthropic');
     mockGenerateTextWithSQL('Summary ready.');
@@ -1056,30 +1098,6 @@ describe('runCopilotChat — generateText receives the static system + context-p
         .from(aiBudgetReservations)
         .where(eq(aiBudgetReservations.tenantId, tenantId))
     ).toMatchObject([{ state: 'unknown' }]);
-  });
-
-  it('does not reserve or dispatch when the client aborted before the provider call', async () => {
-    const { tenantId, siteId } = await seedTenantWithAI('copilot-aborted-before-dispatch');
-    const controller = new AbortController();
-    controller.abort();
-    await expectErrorCode(
-      runCopilotChat(
-        { db: getDatabase(), tenantId, siteId, userId: null, abortSignal: controller.signal },
-        { messages: [{ role: 'user', content: 'Sales?' }] },
-        { factory: () => buildStubProvider() }
-      ),
-      'AI_PROVIDER_ERROR'
-    );
-    expect(generateTextMock).not.toHaveBeenCalled();
-    expect(
-      await getDatabase().select().from(aiAuditLog).where(eq(aiAuditLog.tenantId, tenantId))
-    ).toHaveLength(0);
-    expect(
-      await getDatabase()
-        .select()
-        .from(aiBudgetReservations)
-        .where(eq(aiBudgetReservations.tenantId, tenantId))
-    ).toHaveLength(0);
   });
 
   it('regenerates the context block on a follow-up call so the latest window flows through', async () => {

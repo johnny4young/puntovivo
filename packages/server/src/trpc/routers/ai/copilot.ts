@@ -20,6 +20,7 @@ import { throwServerError } from '../../../lib/errorCodes.js';
 import { requireCopilotQuotasForSites } from '../../../services/ai/quotas.js';
 import { resolveCopilotQuotaSites } from '../../../services/ai/copilot/scope.js';
 import { copilotChatInput, copilotResponseModeInput } from '../../schemas/ai.js';
+import { withClientAbortSignal } from '../../request-abort.js';
 
 export const copilotRouter = router({
   setResponseMode: adminProcedure
@@ -33,7 +34,7 @@ export const copilotRouter = router({
   // module deactivated sees FORBIDDEN with `MODULE_NOT_ACTIVATED`.
   chat: managerOrAdminProcedureWithModule('copilot')
     .input(copilotChatInput)
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ ctx, input, signal }) => {
       const settings = await resolveAISettings(ctx.db, ctx.tenantId);
       if (!settings.enabled || settings.features?.copilot.enabled !== true) {
         throwServerError({
@@ -56,15 +57,18 @@ export const copilotRouter = router({
         siteIds: quotaSiteIds,
       });
       const userId = ctx.user?.id ?? null;
-      return runCopilotChat(
-        {
-          db: ctx.db,
-          tenantId: ctx.tenantId,
-          siteId: ctx.siteId,
-          userId,
-        },
-        input,
-        { scopeSiteIds: quotaSiteIds }
+      return withClientAbortSignal(signal, abortSignal =>
+        runCopilotChat(
+          {
+            db: ctx.db,
+            tenantId: ctx.tenantId,
+            siteId: ctx.siteId,
+            userId,
+            ...(abortSignal ? { abortSignal } : {}),
+          },
+          input,
+          { scopeSiteIds: quotaSiteIds }
+        )
       );
     }),
 });
