@@ -168,7 +168,7 @@ export function SaleCartTable({
                   )}
                 </button>
 
-                <div className="flex items-center justify-between gap-2 sm:shrink-0">
+                <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
                   <Button
                     type="button"
                     className="disabled:cursor-not-allowed disabled:opacity-45"
@@ -249,7 +249,7 @@ export function SaleCartTable({
                     <Plus className="h-4 w-4" aria-hidden="true" />
                   </Button>
 
-                  <span className="mono w-[78px] text-right text-[14px] font-semibold text-fg1">
+                  <span className="mono ml-auto min-w-[78px] whitespace-nowrap text-right text-[14px] font-semibold text-fg1">
                     {formatCurrency(lineTotals.total)}
                   </span>
                 </div>

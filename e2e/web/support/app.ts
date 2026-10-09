@@ -147,6 +147,24 @@ export async function loginAs(page: Page, user: UserKey, options?: { spanish?: b
   await login(page, E2E_USERS[user], options);
 }
 
+/**
+ * Pin products as Sales quick-access favorites for every listed site before
+ * the app boots, using the same storage key as `salesFavorites.ts`.
+ */
+export async function seedSalesFavorites(
+  page: Page,
+  favorites: { tenantId: string; siteIds: readonly string[]; productIds: readonly string[] }
+) {
+  await page.addInitScript(({ tenantId, siteIds, productIds }) => {
+    for (const siteId of siteIds) {
+      window.localStorage.setItem(
+        `puntovivo:sales-favorites:v1:${tenantId}:${siteId}`,
+        JSON.stringify({ productIds })
+      );
+    }
+  }, favorites);
+}
+
 export async function resetSession(page: Page) {
   await page.context().clearCookies();
   await page.goto('/login');
