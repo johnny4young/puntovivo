@@ -101,7 +101,7 @@ test('explicit re-entry survives reload and establishes CSRF before a new login'
         status: 503,
         headers: {
           'content-type': 'application/json',
-          'access-control-allow-origin': 'http://localhost:3000',
+          'access-control-allow-origin': new URL(page.url()).origin,
           'access-control-allow-credentials': 'true',
         },
         body: JSON.stringify([

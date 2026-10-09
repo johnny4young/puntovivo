@@ -84,6 +84,14 @@ export async function runPharmacyRolePrivacyJourney(
   await signOut(page);
   await target.signInAs(people[0]!.email);
   const site = page.locator('header button[name="site"]');
+  // Login can finish before the site query does. A single-site selector stays
+  // disabled even after hydration, so wait for either the expected site label
+  // or an enabled multi-site selector rather than clicking "Loading sites...".
+  await expect
+    .poll(async () => (await site.isEnabled()) || (await site.innerText()).trim() === originName, {
+      timeout: 15_000,
+    })
+    .toBe(true);
   if ((await site.innerText()).trim() !== originName) {
     await site.click();
     await page.getByRole('option', { name: originName, exact: true }).click();
