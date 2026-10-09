@@ -337,7 +337,9 @@ describe('InventoryTransformationsPanel', () => {
         timezone: 'Unsupported/Legacy_Zone',
       })
     );
-    expect(dialog.getByRole('alert')).toBeVisible();
+    expect(dialog.getByRole('alert')).toHaveTextContent(
+      'Correct the business timezone in Company settings.'
+    );
     expect(dialog.queryByLabelText('Quantity from lot RAW-TODAY')).not.toBeInTheDocument();
 
     act(() =>
@@ -389,6 +391,22 @@ describe('InventoryTransformationsPanel', () => {
       )
     ).toBeVisible();
     expect(dialog.queryByLabelText('Quantity from lot RAW-TODAY')).not.toBeInTheDocument();
+
+    // The expired lot's hidden allocation is dropped, so re-allocating to a
+    // still-sellable lot lets the same open modal submit.
+    await user.type(dialog.getByLabelText('Quantity from lot RAW-A'), '1');
+    await user.click(dialog.getByRole('button', { name: 'Execute' }));
+    await waitFor(() => expect(executeMutate).toHaveBeenCalledTimes(1));
+    expect(executeMutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        inputs: [
+          expect.objectContaining({
+            recipeInputId: 'recipe-input',
+            lotAllocations: [{ lotId: 'lot-a', baseQuantity: 1 }],
+          }),
+        ],
+      })
+    );
   });
 
   it('creates a site-scoped recipe from the inventory UI', async () => {

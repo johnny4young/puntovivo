@@ -598,6 +598,21 @@ function TransformationInputEditor({
     onOptionsChange(input.id, options);
   }, [input.id, onOptionsChange, options]);
 
+  // A lot can leave the offer while the modal is open (the live clock crosses
+  // its expiry or a refetch drops it). Its allocation would otherwise stay in
+  // the draft with no visible row to clear it, failing every submit.
+  useEffect(() => {
+    if (!input.tracksLots || (!lotsQuery.data && businessDate !== null)) return;
+    const availableIds = new Set(options.map(option => option.id));
+    const entries = Object.entries(value.allocations);
+    const nextAllocations = Object.fromEntries(
+      entries.filter(([lotId]) => availableIds.has(lotId))
+    );
+    if (Object.keys(nextAllocations).length !== entries.length) {
+      onChange({ ...value, allocations: nextAllocations });
+    }
+  }, [businessDate, input.tracksLots, lotsQuery.data, onChange, options, value]);
+
   useEffect(() => {
     if (!input.tracksLots) return;
     const availableIds = new Set(wasteOptions.map(option => option.id));
@@ -635,7 +650,7 @@ function TransformationInputEditor({
       )}
       {input.tracksLots && (lotsQuery.error || businessDate === null) && (
         <p className="mt-3 text-sm text-danger-700" role="alert">
-          {t('transformations.execute.lotsError')}
+          {businessDate === null ? t('expiry.invalidZone') : t('transformations.execute.lotsError')}
         </p>
       )}
       {input.tracksLots ? (
@@ -721,7 +736,7 @@ function ExecuteModal({
   const { t } = useTranslation('inventory');
   const { timezone } = useResolvedLocale();
   const { now, refreshNow } = useLiveNow();
-  const businessDate = resolveLotBusinessDate(now, timezone);
+  const businessDate = useMemo(() => resolveLotBusinessDate(now, timezone), [now, timezone]);
   const [inputs, setInputs] = useState<Record<string, ExecutionInputDraft>>(() =>
     Object.fromEntries(
       recipe.inputs.map(input => [
