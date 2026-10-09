@@ -64,16 +64,9 @@ export function createCopilotTransport({
   return {
     async sendMessages({ messages, abortSignal }) {
       const scope = getScope();
-      const isCurrent = () => {
-        const currentScope = getScope();
-        return (
-          !abortSignal?.aborted &&
-          currentScope.revision === scope.revision &&
-          currentScope.ownerKey === scope.ownerKey &&
-          currentScope.mode === scope.mode &&
-          (scope.mode !== 'current' || currentScope.siteId === scope.siteId)
-        );
-      };
+      // Every mode, site or owner change bumps the revision, so it alone
+      // identifies the conversation context this request belongs to.
+      const isCurrent = () => !abortSignal?.aborted && getScope().revision === scope.revision;
       if (!isCurrent()) return textStream('');
       if (scope.mode === 'current' && !scope.siteId) {
         throw new Error('The current site is unavailable');

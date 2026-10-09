@@ -1,6 +1,11 @@
 export const ELECTRON_E2E_API_HOST = '127.0.0.1';
 export const DEFAULT_ELECTRON_E2E_API_PORT = 18091;
 
+/** CI's Linux Electron zip has no configured setuid sandbox helper. Test-only. */
+export function devElectronSandboxArgs(platform = process.platform) {
+  return platform === 'linux' ? ['--no-sandbox'] : [];
+}
+
 export function resolveElectronE2eApiPort(env = process.env) {
   const raw = env.PUNTOVIVO_E2E_API_PORT?.trim();
   if (!raw) return DEFAULT_ELECTRON_E2E_API_PORT;

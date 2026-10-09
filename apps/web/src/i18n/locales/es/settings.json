@@ -179,7 +179,7 @@
     },
     "setupNavigation": {
       "guideTitle": "Configuración guiada",
-      "guideDescription": "Cinco áreas claras y una decisión obligatoria a la vez.",
+      "guideDescription": "Áreas claras y una decisión obligatoria a la vez.",
       "advancedTitle": "Configuración avanzada",
       "advancedDescription": "Políticas, módulos opcionales y herramientas del puesto."
     },
@@ -711,7 +711,7 @@
       "addTier": "Agregar nivel",
       "removeTier": "Quitar el nivel {{position}}",
       "save": "Guardar escala",
-      "sessionNote": "El radar toma la escala nueva en el próximo inicio de sesión o al refrescar la página.",
+      "sessionNote": "El radar se actualiza al guardar; en otros puestos, recarga la página.",
       "toast": {
         "saved": "Escala de descuentos guardada",
         "saveError": "No se pudo guardar la escala de descuentos"

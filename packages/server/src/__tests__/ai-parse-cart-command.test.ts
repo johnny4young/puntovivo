@@ -1,4 +1,3 @@
-import { expectNoPublicDiagnostic } from './utils/ai-error-privacy.js';
 /**
  * slice 3 — `ai.parseCartCommand` integration tests.
  *
@@ -10,6 +9,7 @@ import { expectNoPublicDiagnostic } from './utils/ai-error-privacy.js';
  * vectors seeded directly into `products.embedding` so each test
  * controls which hints map to which products.
  */
+import { expectNoPublicDiagnostic, withProviderFailureLog } from './utils/ai-error-privacy.js';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TRPCError } from '@trpc/server';
 import { and, eq } from 'drizzle-orm';
@@ -319,7 +319,9 @@ describe('ai.parseCartCommand ( slice 3)', () => {
       );
       let caught: unknown;
       try {
-        await caller.ai.parseCartCommand({ transcript: 'agrega una coca' });
+        await withProviderFailureLog(() =>
+          caller.ai.parseCartCommand({ transcript: 'agrega una coca' })
+        );
       } catch (error) {
         caught = error;
       }
@@ -362,7 +364,9 @@ describe('ai.parseCartCommand ( slice 3)', () => {
     );
     let caught: unknown;
     try {
-      await caller.ai.parseCartCommand({ transcript: 'agrega una coca' });
+      await withProviderFailureLog(() =>
+        caller.ai.parseCartCommand({ transcript: 'agrega una coca' })
+      );
     } catch (error) {
       caught = error;
     }

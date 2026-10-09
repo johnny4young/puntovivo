@@ -6,7 +6,7 @@ import { attachClientIssueTracker, expectNoClientIssues } from './support/app.js
 test.use({ actionTimeout: 15_000 });
 
 for (const language of ['en', 'es'] as const) {
-  test(`a real first owner configures, imports, sells and reconciles an unseeded store (${language})`, async ({
+  test(`a real first owner configures, imports, sells and reconciles an unseeded store (${language}) @isolated-journey`, async ({
     page,
     installation,
   }, info) => {

@@ -46,13 +46,14 @@ overrides:
   ip-address@10.5.0: 10.7.1
   brace-expansion@5.0.9: 5.0.12
   source-map-js@1.2.1: 1.2.2
+  fast-jwt@6.3.2: 6.3.4
   '@aws-sdk/core@3.977.5': 3.977.6
 
 packageExtensionsChecksum: sha256-weka2x4UkNZy0xAaN9wQ3U7t5CSlBuzMDeOWPXu+/xo=
 
 patchedDependencies:
   '@electron/asar@4.2.1': 7b17b5bf017952acdc62c343d6e2aada73c5aa99c6ccf4e05b530c850335732b
-  app-builder-lib@26.16.1: 65cdfa55ac529ef81f90e09427f509109d7c4cbe0dc6f687cad5362e2a0f6c2e
+  app-builder-lib@26.16.1: 5555381ab394a94cef7a8d9681085a6a9c6771612fb112832a62f88ae54aa1ad
 
 importers:
 
@@ -3376,8 +3377,8 @@ packages:
   fast-json-stringify@7.0.1:
     resolution: {integrity: sha512-eRSayARSbbwlBjpP4vnTTIRD5QPcIrmihPxDeN1DtKnHPg66UuJLx+8hlK1kaFdjvzyQ/dzALoi4vwAQ+T+iZA==}
 
-  fast-jwt@6.3.2:
-    resolution: {integrity: sha512-JTQImpkXVvj+eq7tJImtsHRt1K6ngloEzIx62Qbf9x4tEM2P2EqGpYJSeUoPf/kMn78rImSHfhf08KShR8PauA==}
+  fast-jwt@6.3.4:
+    resolution: {integrity: sha512-wq1bK/Pi0OARHYrEkXyTH793Xbqx4dHxBVxYWWHymqFxSEmhllkDj5ZCvbYZcfwUQmitjnBKSgy7nv7Duxg2BQ==}
     engines: {node: '>=20'}
 
   fast-levenshtein@2.0.6:
@@ -3849,8 +3850,8 @@ packages:
     resolution: {integrity: sha512-b94GiNHQNy6JNTrt5w6zNyffMrNkXZb3KTkCZJb2V1xaEGCk093vkZ2jk3tpaeP33/OiXC+WvK9AxUebnf5nbw==}
     engines: {node: '>= 0.6.3'}
 
-  legacy-javascript@0.0.1:
-    resolution: {integrity: sha512-lPyntS4/aS7jpuvOlitZDFifBCb4W8L/3QU0PLbUTUj+zYah8rfVjYic88yG7ZKTxhS5h9iz7duT8oUXKszLhg==}
+  legacy-javascript@0.0.3:
+    resolution: {integrity: sha512-1r6MT4dVaJyXt4G07Cm2cQ0AUaLJdefiEp4SmIAylA++gnEQ82YvmzE58RkM5EP0fk5hROLCslUPGnwIYdZQVA==}
 
   levn@0.4.1:
     resolution: {integrity: sha512-+bT2uH4E5LGE7h/n3evcS/sQlJXCpIp6ym8OWJ5eV6+67Dsql/LaaT7qJBAt2rzfoa/5QBGBhxDix1dMt2kQKQ==}
@@ -6300,7 +6301,7 @@ snapshots:
     dependencies:
       '@fastify/error': 4.2.0
       '@lukeed/ms': 2.0.2
-      fast-jwt: 6.3.2
+      fast-jwt: 6.3.4
       fastify-plugin: 6.0.0
       steed: 1.1.3
 
@@ -6572,7 +6573,7 @@ snapshots:
 
   '@paulirish/trace_engine@0.0.65':
     dependencies:
-      legacy-javascript: 0.0.1
+      legacy-javascript: 0.0.3
       third-party-web: 0.30.0
 
   '@peculiar/asn1-schema@2.9.4':
@@ -7337,7 +7338,7 @@ snapshots:
 
   anynum@1.0.1: {}
 
-  app-builder-lib@26.16.1(patch_hash=65cdfa55ac529ef81f90e09427f509109d7c4cbe0dc6f687cad5362e2a0f6c2e)(dmg-builder@26.16.1):
+  app-builder-lib@26.16.1(patch_hash=5555381ab394a94cef7a8d9681085a6a9c6771612fb112832a62f88ae54aa1ad)(dmg-builder@26.16.1):
     dependencies:
       '@electron/asar': 4.2.1(patch_hash=7b17b5bf017952acdc62c343d6e2aada73c5aa99c6ccf4e05b530c850335732b)
       '@electron/fuses': 1.8.0
@@ -7840,7 +7841,7 @@ snapshots:
 
   dmg-builder@26.16.1:
     dependencies:
-      app-builder-lib: 26.16.1(patch_hash=65cdfa55ac529ef81f90e09427f509109d7c4cbe0dc6f687cad5362e2a0f6c2e)(dmg-builder@26.16.1)
+      app-builder-lib: 26.16.1(patch_hash=5555381ab394a94cef7a8d9681085a6a9c6771612fb112832a62f88ae54aa1ad)(dmg-builder@26.16.1)
       builder-util: 26.16.0
       fs-extra: 10.1.0
       js-yaml: 4.3.2
@@ -7936,7 +7937,7 @@ snapshots:
 
   electron-builder@26.16.1:
     dependencies:
-      app-builder-lib: 26.16.1(patch_hash=65cdfa55ac529ef81f90e09427f509109d7c4cbe0dc6f687cad5362e2a0f6c2e)(dmg-builder@26.16.1)
+      app-builder-lib: 26.16.1(patch_hash=5555381ab394a94cef7a8d9681085a6a9c6771612fb112832a62f88ae54aa1ad)(dmg-builder@26.16.1)
       builder-util: 26.16.0
       builder-util-runtime: 9.7.0
       chalk: 4.1.2
@@ -8245,7 +8246,7 @@ snapshots:
       json-schema-ref-resolver: 3.0.0
       rfdc: 1.4.1
 
-  fast-jwt@6.3.2:
+  fast-jwt@6.3.4:
     dependencies:
       '@lukeed/ms': 2.0.2
       asn1.js: 5.4.1
@@ -8761,7 +8762,7 @@ snapshots:
     dependencies:
       readable-stream: 2.3.8
 
-  legacy-javascript@0.0.1: {}
+  legacy-javascript@0.0.3: {}
 
   levn@0.4.1:
     dependencies:
