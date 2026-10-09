@@ -1,9 +1,10 @@
 /**
  * Admin-only card for the tenant's expiry-discount ladder.
  *
- * Sits inside `CompanyPage`'s "general" tab next to the cash-close card.
- * Reads `discountSettings.get`, writes via `discountSettings.update`, and
- * invalidates on success so admins see the persisted ladder immediately.
+ * Sits inside the admin "general" tab of `CompanySettingsPanels`, next to
+ * the pricing card. Reads `discountSettings.get`, writes via
+ * `discountSettings.update`, and invalidates once the save settles so admins
+ * see the persisted ladder immediately.
  *
  * The ladder drives the  expiry radar: a lot expiring within
  * `maxDays` earns `pct`, first match wins. The editor is deliberately a
@@ -188,7 +189,9 @@ export function CompanyDiscountSettingsCard() {
             className="btn-primary"
             disabled={!canSave}
             data-testid="discount-save-tiers"
-            onClick={() => void updateMutation.mutateAsync({ expiryTiers: draft })}
+            // mutate (not mutateAsync): onError owns the toast, and a floating
+            // mutateAsync rejection would hit the global unhandledrejection pipe.
+            onClick={() => updateMutation.mutate({ expiryTiers: draft })}
           >
             {t('settings:company.discount.save')}
           </button>

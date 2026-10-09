@@ -69,6 +69,27 @@ const VerticalReadinessCard = lazy(() =>
   }))
 );
 
+/** Pulse placeholder for a lazy settings card; announced by the card title. */
+function CardSkeleton({
+  heightClass,
+  label,
+  tone = 'flat',
+}: {
+  heightClass: string;
+  label: string;
+  tone?: 'flat' | 'raised';
+}): React.ReactElement {
+  return (
+    <div
+      className={`${heightClass} animate-pulse rounded-2xl border border-line ${
+        tone === 'raised' ? 'bg-surface-2' : 'bg-surface'
+      }`}
+      role="status"
+      aria-label={label}
+    />
+  );
+}
+
 interface CompanySettingsPanelsProps {
   activeTab: CompanyTabKey;
   focusTarget: CompanyFocusTarget | null;
@@ -136,24 +157,12 @@ export function CompanySettingsPanels({
           />
           <CompanyPricingSettingsCard />
           <Suspense
-            fallback={
-              <div
-                className="h-48 animate-pulse rounded-2xl border border-line bg-surface"
-                role="status"
-                aria-label={t('company.discount.title')}
-              />
-            }
+            fallback={<CardSkeleton heightClass="h-48" label={t('company.discount.title')} />}
           >
             <CompanyDiscountSettingsCard />
           </Suspense>
           <Suspense
-            fallback={
-              <div
-                className="h-48 animate-pulse rounded-2xl border border-line bg-surface"
-                role="status"
-                aria-label={t('company.loyalty.title')}
-              />
-            }
+            fallback={<CardSkeleton heightClass="h-48" label={t('company.loyalty.title')} />}
           >
             <CompanyLoyaltySettingsCard />
           </Suspense>
@@ -170,10 +179,10 @@ export function CompanySettingsPanels({
         <div className="space-y-6">
           <Suspense
             fallback={
-              <div
-                className="h-72 animate-pulse rounded-2xl border border-line bg-surface-2"
-                role="status"
-                aria-label={t('company.lossPrevention.loading')}
+              <CardSkeleton
+                heightClass="h-72"
+                tone="raised"
+                label={t('company.lossPrevention.loading')}
               />
             }
           >
@@ -188,11 +197,7 @@ export function CompanySettingsPanels({
           <CompanyDataRetentionCard />
           <Suspense
             fallback={
-              <div
-                className="h-56 animate-pulse rounded-2xl border border-line bg-surface-2"
-                role="status"
-                aria-label={t('company.backup.title')}
-              />
+              <CardSkeleton heightClass="h-56" tone="raised" label={t('company.backup.title')} />
             }
           >
             <CompanyBackupCard focusRestore={focusTarget === 'backup-restore'} />
