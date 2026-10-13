@@ -5,10 +5,10 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { composeCudeInput, computeCude } from '../services/fiscal/cude.js';
+import { composeCudeInput, computeCude, type CudeInput } from '../services/fiscal/cude.js';
 import { composeCufeInput } from '../services/fiscal/cufe.js';
 
-const DIAN_EXAMPLE = {
+const DIAN_EXAMPLE: CudeInput = {
   documentNumber: '8110007871',
   issueDate: '2019-01-12',
   issueTime: '07:00:00-05:00',
@@ -20,7 +20,7 @@ const DIAN_EXAMPLE = {
   issuerNit: '900373076',
   buyerIdNumber: '8355990',
   softwarePin: '12301',
-  environment: '1' as const,
+  environment: '1',
 };
 
 describe('computeCude', () => {
@@ -45,7 +45,7 @@ describe('computeCude', () => {
 
   it('reacts to every CUDE input field (avalanche test)', () => {
     const reference = computeCude(DIAN_EXAMPLE);
-    const mutations: Array<Partial<typeof DIAN_EXAMPLE>> = [
+    const mutations: Array<Partial<CudeInput>> = [
       { documentNumber: '8110007872' },
       { issueDate: '2019-01-13' },
       { issueTime: '07:00:01-05:00' },
@@ -57,7 +57,7 @@ describe('computeCude', () => {
       { issuerNit: '900373077' },
       { buyerIdNumber: '8355991' },
       { softwarePin: '12302' },
-      { environment: '2' as const },
+      { environment: '2' },
     ];
     for (const mutation of mutations) {
       expect(
