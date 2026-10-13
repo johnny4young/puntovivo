@@ -57,7 +57,10 @@ test('kitchen routing, structured preparation and versioned transitions survive 
   await page.keyboard.press('Escape');
   await page.goto('/restaurants/tables');
   await page.getByTestId('restaurant-tables-create-cta').click();
-  const tableName = `E2E Kitchen ${Date.now()}`;
+  // The table label deliberately carries the modifier price digits: the card
+  // header shows it, so the price assertion below only stays green while it is
+  // scoped to the preparation line rather than the whole card.
+  const tableName = `E2E Kitchen 1500 ${Date.now()}`;
   const table = page.getByRole('dialog', { name: 'Create table' });
   await table.getByTestId('restaurant-table-name').fill(tableName);
   await table.getByTestId('restaurant-table-seat-count').fill('2');
@@ -85,13 +88,20 @@ test('kitchen routing, structured preparation and versioned transitions survive 
   const card = page.getByTestId('kds-order-card').filter({ hasText: scenario.product.name });
   await expect(card).toBeVisible();
   await expect(card).toContainText('Course: Starter');
-  await expect(card).toContainText('Extra cheese');
-  await expect(card).not.toContainText('1500');
+  const preparationLine = card
+    .getByTestId('kds-order-card-item')
+    .filter({ hasText: scenario.product.name });
+  await expect(preparationLine.getByText('1 × Extra cheese', { exact: true })).toBeVisible();
+  // Bare, grouped or space-grouped renderings of the 1500 modifier price.
+  const modifierPrice = /\b1[.,\s']?500\b/;
+  await expect(preparationLine).not.toContainText(modifierPrice);
   await expect(card).toContainText('No onions <script>not executable</script>');
   await runAxeOnPage(page, { include: '[data-testid="kds-board"]' });
   const before = readKitchenEvidence(scenario.tenantId, scenario.product.id);
   expect(before.tickets).toHaveLength(1);
   expect(before.tickets[0]!.station).toBe(code);
+  const [frozenItem] = JSON.parse(before.tickets[0]!.snapshot) as Array<{ modifiers: unknown }>;
+  expect(frozenItem!.modifiers).toEqual([{ name: 'Extra cheese', quantity: 1 }]);
   // Actual browser connectivity loss, not a mocked navigator flag. No kitchen
   // mutation may be queued from stale preparation while the device is offline.
   let offlineWrites = 0;
@@ -144,6 +154,7 @@ test('kitchen routing, structured preparation and versioned transitions survive 
   await ensureLanguage(page, 'es');
   await page.goto('/kds');
   await expect(card).toContainText('Tiempo: Entrada');
+  await expect(preparationLine).not.toContainText(modifierPrice);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(
     `Cocina · ${scenario.sites[0]!.name}`
   );

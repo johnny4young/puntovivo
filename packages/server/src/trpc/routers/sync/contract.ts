@@ -68,11 +68,21 @@ export const syncContractProcedures = {
    * status back to `queued`, and set `nextRetryAt=null`.
    * `queued` / `submitting` / `synced` / `conflict` are no-ops so
    * an accepted row cannot be accidentally replayed.
+   * The reset compare-and-swaps on the observed status/attempts/updatedAt:
+   * if a push settles, fails or deletes the row between the read and the
+   * write, the call throws CONFLICT / `STALE_VERSION` instead of
+   * overwriting the newer attempt. A row already requeued by a concurrent
+   * retry is still a no-op success.
    * Admin-only.
    */
   retry: adminProcedure.input(retryOutboxInput).mutation(async ({ ctx, input }) => {
     const existing = await ctx.db
-      .select({ id: syncOutbox.id, status: syncOutbox.status })
+      .select({
+        id: syncOutbox.id,
+        status: syncOutbox.status,
+        attempts: syncOutbox.attempts,
+        updatedAt: syncOutbox.updatedAt,
+      })
       .from(syncOutbox)
       .where(and(eq(syncOutbox.id, input.id), eq(syncOutbox.tenantId, ctx.tenantId)))
       .get();
@@ -87,7 +97,7 @@ export const syncContractProcedures = {
       return { ok: true as const, id: input.id };
     }
     const now = new Date().toISOString();
-    await ctx.db
+    const result = await ctx.db
       .update(syncOutbox)
       .set({
         status: 'queued',
@@ -98,7 +108,35 @@ export const syncContractProcedures = {
         lockedAt: null,
         updatedAt: now,
       })
-      .where(and(eq(syncOutbox.id, input.id), eq(syncOutbox.tenantId, ctx.tenantId)));
+      // A push can settle or fail this row after the read above. Retry only
+      // the exact observed attempt; never requeue a later successful push.
+      .where(
+        and(
+          eq(syncOutbox.id, input.id),
+          eq(syncOutbox.tenantId, ctx.tenantId),
+          eq(syncOutbox.status, existing.status),
+          eq(syncOutbox.attempts, existing.attempts),
+          eq(syncOutbox.updatedAt, existing.updatedAt)
+        )
+      )
+      .run();
+    if (result.changes === 0) {
+      // A concurrent retry that already requeued the row reached the same
+      // terminal state; keep the queued no-op contract instead of a conflict.
+      const current = await ctx.db
+        .select({ status: syncOutbox.status })
+        .from(syncOutbox)
+        .where(and(eq(syncOutbox.id, input.id), eq(syncOutbox.tenantId, ctx.tenantId)))
+        .get();
+      if (current?.status === 'queued') {
+        return { ok: true as const, id: input.id };
+      }
+      throwServerError({
+        trpcCode: 'CONFLICT',
+        errorCode: 'STALE_VERSION',
+        message: 'Sync outbox row changed during retry; refresh before retrying again',
+      });
+    }
     return { ok: true as const, id: input.id };
   }),
 };

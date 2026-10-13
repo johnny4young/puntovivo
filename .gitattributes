@@ -1,0 +1,3 @@
+# Keep text checkouts consistent with the strict LF formatter on every host.
+# Automatic text detection leaves binary assets unchanged.
+* text=auto eol=lf

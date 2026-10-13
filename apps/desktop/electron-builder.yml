@@ -1,9 +1,13 @@
 appId: com.puntovivo.pos
 productName: Puntovivo
 executableName: puntovivo
-# package.json pins electron with a caret range; electron-builder needs the exact
-# release to fetch its platform binaries. Keep in sync with the electron devDep.
-electronVersion: 43.4.1
+# Keep development and production packaging on the same exact reviewed
+# runtime; a caret range could promote an unqualified release on reinstall.
+electronVersion: 43.5.0
+# Runtime verification precedes packaging; retain the audited Node-API binaries
+# rather than recompiling them in the checkout for an Electron ABI.
+npmRebuild: false
+nodeGypRebuild: false
 # The auto-update feed (latest*.yml) is self-hosted on GitHub Pages: this generic
 # provider embeds that base URL into app-update.yml so the packaged app's
 # electron-updater fetches the feed from github.io. The installers themselves are
@@ -48,6 +52,14 @@ files:
   - '!node_modules/zod/**'
   - '!node_modules/@trpc/**'
   - '!node_modules/dayjs/**'
+  # PDF.js is inlined into a .vite/build chunk and its fake worker ships as
+  # .vite/build/pdf.worker.mjs (vite.main.config.ts), so the 35 MB package is
+  # dead weight. @napi-rs/canvas is only PDF.js's optional rendering polyfill;
+  # the page-count preflight never renders, and its native addon would
+  # otherwise be unpacked next to the real natives.
+  - '!node_modules/pdfjs-dist/**'
+  - '!node_modules/@napi-rs/canvas/**'
+  - '!node_modules/@napi-rs/canvas-*/**'
 # Pin a flat, predictable artifact name on every platform. Without it the linux
 # zip target falls back to the scoped package name (@puntovivo/desktop-x.y.z.zip),
 # which nests the file under out-builder/@puntovivo/ and slips past the

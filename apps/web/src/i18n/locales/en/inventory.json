@@ -600,6 +600,7 @@
       "paused": "Promotion paused -{{pct}}%",
       "archived": "Promotion archived -{{pct}}%"
     },
+    "invalidZone": "Correct the business timezone in Company settings.",
     "promotionLookupError": "Approved expiry promotions could not be verified. Actions remain unavailable to prevent duplicate offers.",
     "dismiss": "Dismiss",
     "search": "Search product...",

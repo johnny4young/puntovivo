@@ -12,9 +12,10 @@
  * blind close). With `includeProfit: false` the summary strips `margin` to
  * null and the top products carry revenue only, re-ranked by revenue.
  *
- * Day boundaries are UTC calendar days over `closed_at` / `created_at` —
- * deliberately consistent with `dashboard.summary` today; the tenant-timezone
- * cut is a tracked follow-up.
+ * Day boundaries are UTC calendar days over `closed_at` / `created_at`.
+ * `dashboard.summary` now reports tenant business days on completion time,
+ * so the two can attribute a sale near local midnight to different days
+ * until day close adopts the tenant calendar as well.
  *
  * @module services/reports/day-close
  */

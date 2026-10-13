@@ -6,10 +6,14 @@
  * module is off so a normal dashboard load does not 403.
  */
 
-import { render, screen } from '@/test/utils';
+import { act, render, screen } from '@/test/utils';
+import i18n from '@/i18n';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { useAuthMock, useIsModuleActiveMock } = vi.hoisted(() => ({
+const { useAuthMock, useIsModuleActiveMock, dashboardError, refetchMock } = vi.hoisted(() => ({
+  dashboardError: { current: null as null | { message: string; data: { errorCode: string } } },
+  refetchMock: vi.fn(),
   useAuthMock: vi.fn(),
   useIsModuleActiveMock: vi.fn(),
 }));
@@ -47,9 +51,9 @@ vi.mock('@/lib/trpc', () => ({
             topProducts: [],
             generatedAt: '2026-05-07T00:00:00.000Z',
           },
-          error: null,
+          error: dashboardError.current,
           isLoading: false,
-          refetch: vi.fn(),
+          refetch: refetchMock,
         }),
       },
     },
@@ -71,15 +75,17 @@ vi.mock('@/features/dashboard/AnomalyDetectionCard', () => ({
 
 import { DashboardPage } from './DashboardPage';
 
-describe('DashboardPage module gates', () => {
-  beforeEach(() => {
-    useAuthMock.mockReset();
-    useIsModuleActiveMock.mockReset();
-    useAuthMock.mockReturnValue({
-      user: { id: 'u-1', role: 'manager' },
-    });
+beforeEach(() => {
+  dashboardError.current = null;
+  refetchMock.mockReset();
+  useAuthMock.mockReset();
+  useIsModuleActiveMock.mockReset();
+  useAuthMock.mockReturnValue({
+    user: { id: 'u-1', role: 'manager' },
   });
+});
 
+describe('DashboardPage module gates', () => {
   it('hides the anomaly card when anomaly-detection is deactivated', () => {
     useIsModuleActiveMock.mockReturnValue(false);
 
@@ -96,4 +102,43 @@ describe('DashboardPage module gates', () => {
 
     expect(screen.getByTestId('anomaly-card')).toBeInTheDocument();
   });
+});
+
+describe('DashboardPage timezone recovery', () => {
+  it.each([
+    [
+      'en',
+      'The company time zone is invalid. Ask an administrator to correct or clear the time zone override in Company settings, then retry.',
+    ],
+    [
+      'es',
+      'La zona horaria de la empresa no es válida. Pide a un administrador que corrija o borre la zona horaria personalizada en Empresa y vuelve a intentar.',
+    ],
+  ])(
+    'shows actionable localized configuration errors in %s, not stale totals',
+    async (locale, message) => {
+      await act(async () => {
+        await i18n.changeLanguage(locale);
+      });
+      dashboardError.current = {
+        message: 'Private timezone diagnostic',
+        data: { errorCode: 'TENANT_TIMEZONE_INVALID' },
+      };
+      try {
+        const user = userEvent.setup();
+        render(<DashboardPage />);
+        expect(screen.getByText(message)).toBeInTheDocument();
+        expect(screen.queryByText('Private timezone diagnostic')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('dashboard-stats')).not.toBeInTheDocument();
+        await user.click(screen.getByRole('button'));
+        expect(refetchMock).toHaveBeenCalledOnce();
+      } finally {
+        dashboardError.current = null;
+        refetchMock.mockReset();
+        await act(async () => {
+          await i18n.changeLanguage('en');
+        });
+      }
+    }
+  );
 });

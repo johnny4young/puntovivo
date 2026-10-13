@@ -1,5 +1,4 @@
 export { useOfflineSync } from './useOfflineSync';
 export { useTenantSettings } from './useTenantSettings';
 export { useTableExport } from './useTableExport';
-export { useElectron } from './useElectron';
 export { useDebouncedValue } from './useDebouncedValue';

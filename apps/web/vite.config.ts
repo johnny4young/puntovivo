@@ -95,7 +95,9 @@ export default defineConfig(({ mode }) => {
       // keep a single React instance across the app and every
       // hooks-based dependency (e.g. @tanstack/react-virtual). Prevents a
       // duplicate React copy from breaking the hooks dispatcher.
-      dedupe: ['react', 'react-dom'],
+      // CodeMirror extensions also rely on shared state/view class identities.
+      // Compatible nested copies otherwise duplicate the editor runtime.
+      dedupe: ['react', 'react-dom', '@codemirror/state', '@codemirror/view'],
       alias: {
         '@': path.resolve(import.meta.dirname, './src'),
       },

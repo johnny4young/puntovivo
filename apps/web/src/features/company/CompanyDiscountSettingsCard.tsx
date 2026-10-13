@@ -1,9 +1,10 @@
 /**
  * Admin-only card for the tenant's expiry-discount ladder.
  *
- * Sits inside `CompanyPage`'s "general" tab next to the cash-close card.
- * Reads `discountSettings.get`, writes via `discountSettings.update`, and
- * invalidates on success so admins see the persisted ladder immediately.
+ * Sits inside the admin "general" tab of `CompanySettingsPanels`, next to
+ * the pricing card. Reads `discountSettings.get`, writes via
+ * `discountSettings.update`, and invalidates once the save settles so admins
+ * see the persisted ladder immediately.
  *
  * The ladder drives the  expiry radar: a lot expiring within
  * `maxDays` earns `pct`, first match wins. The editor is deliberately a
@@ -13,15 +14,16 @@
  * re-validates whatever arrives, so a mis-ordered edit is impossible to
  * persist.
  *
- * Note: like the cash-close flag, the value that drives the radar's row
- * preview flows through the `auth.me` session payload, so a change lands
- * on the next login / refresh for other users.
+ * The radar reads the `auth.me` tenant snapshot. Mirror only the committed
+ * server response into this session; other registers refresh their preview
+ * on the next page load or login.
  */
 import { useState } from 'react';
 import { BadgePercent, Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { useToast } from '@/components/feedback/ToastProvider';
+import { useAuth } from '@/features/auth/AuthProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 
@@ -59,6 +61,7 @@ function nextTierMaxDays(rows: TierDraft[]): number {
 export function CompanyDiscountSettingsCard() {
   const { t } = useTranslation(['settings', 'errors']);
   const toast = useToast();
+  const { updateTenantSettings } = useAuth();
   const utils = trpc.useUtils();
 
   const settingsQuery = trpc.discountSettings.get.useQuery();
@@ -80,7 +83,8 @@ export function CompanyDiscountSettingsCard() {
   }
 
   const updateMutation = trpc.discountSettings.update.useMutation({
-    onSuccess: () => {
+    onSuccess: result => {
+      updateTenantSettings({ discount: { expiryTiers: result.expiryTiers } });
       toast.success({ title: t('settings:company.discount.toast.saved') });
     },
     onError: onErrorToast(toast, t, {
@@ -185,7 +189,9 @@ export function CompanyDiscountSettingsCard() {
             className="btn-primary"
             disabled={!canSave}
             data-testid="discount-save-tiers"
-            onClick={() => void updateMutation.mutateAsync({ expiryTiers: draft })}
+            // mutate (not mutateAsync): onError owns the toast, and a floating
+            // mutateAsync rejection would hit the global unhandledrejection pipe.
+            onClick={() => updateMutation.mutate({ expiryTiers: draft })}
           >
             {t('settings:company.discount.save')}
           </button>

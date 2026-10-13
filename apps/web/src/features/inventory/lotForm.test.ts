@@ -70,6 +70,22 @@ describe('lot form normalization', () => {
     expect(isLotExpiredAt('2027-02-28T00:00:00.000Z', now)).toBe(false);
   });
 
+  it('uses the tenant business day for date-only eligibility across UTC boundaries', () => {
+    const bogotaEvening = Date.parse('2026-09-26T00:30:00.000Z');
+    expect(isLotExpiredAt('2026-09-25', bogotaEvening, '2026-09-25')).toBe(false);
+    expect(isLotExpiredAt('2026-09-24', bogotaEvening, '2026-09-25')).toBe(true);
+
+    const tokyoMorning = Date.parse('2026-09-25T15:30:00.000Z');
+    expect(isLotExpiredAt('2026-09-25', tokyoMorning, '2026-09-26')).toBe(true);
+    expect(isLotExpiredAt('2026-09-26', tokyoMorning, '2026-09-26')).toBe(false);
+
+    // A timestamp is an instant, not a calendar day, even when a business day is supplied.
+    expect(isLotExpiredAt('2026-09-26T00:30:00.001Z', bogotaEvening, '2026-09-25')).toBe(false);
+    expect(isLotExpiredAt('2026-09-26T00:30:00.000Z', bogotaEvening, '2026-09-25')).toBe(true);
+    expect(isLotExpiredAt('2026-09-25', Number.NaN, '2026-09-25')).toBe(true);
+    expect(isLotExpiredAt('2026-09-26T00:30:00.001Z', Number.NaN, '2026-09-25')).toBe(true);
+  });
+
   it('keeps expiry and option equality fail-closed at the allocation boundary', () => {
     const now = Date.parse('2026-09-01T12:00:00.000Z');
     expect(isLotExpiredAt('2026-08-31', now)).toBe(true);

@@ -18,6 +18,8 @@ test('reconciles signed attendance and no-shows without leaking private labor ev
   const tracker = attachClientIssueTracker(page);
   await login(page, { ...scenario.admin, defaultPath: '/company' });
   const result = await runAttendanceReconciliationJourney(page, {
+    // seedSurfaceGateScenario provisions a CO locale row for this isolated tenant.
+    timeZone: 'America/Bogota',
     navigate: route => page.goto(route),
     signIn: email => login(page, { email, password: E2E_PASSWORD, defaultPath: '/sales' }),
     signInAdmin: () => login(page, { ...scenario.admin, defaultPath: '/company' }),

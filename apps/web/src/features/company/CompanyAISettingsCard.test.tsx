@@ -12,7 +12,7 @@
  * base64 + MIME payload.
  * (d) Mutation success renders the transcript panel inline.
  */
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import i18n from '@/i18n';
 
@@ -139,6 +139,7 @@ const defaultSettings: SettingsPayload = {
 };
 
 let mockSettingsState: SettingsPayload = { ...defaultSettings };
+const reconcileMutate = vi.fn();
 
 vi.mock('@/lib/trpc', () => ({
   trpc: {
@@ -158,6 +159,15 @@ vi.mock('@/lib/trpc', () => ({
       },
       completeTest: {
         useMutation: () => ({ mutate: vi.fn(), isPending: false }),
+      },
+      reconcileBudgetHold: {
+        useMutation: (options: { onSuccess?: (data: unknown) => void }) => ({
+          mutate: (input: unknown) => {
+            reconcileMutate(input);
+            options.onSuccess?.({ reconciledCalls: 2, releasedReservation: true, costUsd: 0.5 });
+          },
+          isPending: false,
+        }),
       },
       transcribeAudio: {
         useMutation: (options: {
@@ -355,6 +365,31 @@ describe('CompanyAISettingsCard ( slice 2 — Test transcription)', () => {
       '2 calls this month have no provider cost estimate'
     );
     expect(screen.getByTestId('ai-spend-reading')).toHaveTextContent('$0.24');
+  });
+
+  it('lets the admin book the billed cost of unknown-cost calls to release the hold', async () => {
+    mockSettingsState = { ...defaultSettings, currentMonthUnknownCostCalls: 2 };
+    render(<CompanyAISettingsCard />);
+    const form = screen.getByTestId('ai-budget-hold-reconcile');
+    const submit = within(form).getByRole('button', { name: 'Record cost and release' });
+    expect(submit).toBeDisabled();
+    fireEvent.change(within(form).getByLabelText('Billed amount (USD)'), {
+      target: { value: '0.5' },
+    });
+    expect(submit).toBeDisabled();
+    fireEvent.change(within(form).getByLabelText('Note'), {
+      target: { value: '  Provider invoice for March  ' },
+    });
+    fireEvent.click(submit);
+    expect(reconcileMutate).toHaveBeenCalledWith({
+      costUsd: 0.5,
+      note: 'Provider invoice for March',
+    });
+  });
+
+  it('hides the reconciliation form when every call has a known cost', () => {
+    render(<CompanyAISettingsCard />);
+    expect(screen.queryByTestId('ai-budget-hold-reconcile')).not.toBeInTheDocument();
   });
 
   it('labels a zero monthly budget as blocked instead of unlimited', async () => {

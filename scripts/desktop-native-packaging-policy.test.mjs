@@ -1,5 +1,9 @@
 import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
+import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
 import { test } from 'node:test';
 
@@ -143,5 +147,73 @@ test('Electron native preparation verifies Node-API without rebuilding SQLite', 
     desktopPackage.scripts.rebuild,
     'pnpm run native:ensure:electron',
     'the compatibility command must verify the shared Node-API binary without rebuilding it'
+  );
+});
+
+test(
+  'Forge selects no native rebuild candidates, even when a binding is present',
+  { timeout: 15000 },
+  async () => {
+    const { default: forgeConfig } = await import('../apps/desktop/forge.config.js');
+    assert.deepEqual(forgeConfig.rebuildConfig.onlyModules, []);
+    const desktopRequire = createRequire(new URL('../apps/desktop/package.json', import.meta.url));
+    const { rebuild } = await import(pathToFileURL(desktopRequire.resolve('@electron/rebuild')));
+    const root = await mkdtemp(join(tmpdir(), 'puntovivo-forge-selection-'));
+    try {
+      const dependency = join(root, 'node_modules', 'native-fixture');
+      await mkdir(dependency, { recursive: true });
+      await writeFile(
+        join(root, 'package.json'),
+        JSON.stringify({ dependencies: { 'native-fixture': '1.0.0' } })
+      );
+      await writeFile(
+        join(dependency, 'package.json'),
+        JSON.stringify({ name: 'native-fixture', version: '1.0.0' })
+      );
+      await writeFile(join(dependency, 'binding.gyp'), '{}');
+      const options = { buildPath: root, projectRootPath: root, electronVersion: '43.5.0' };
+      // Positive control stops at enumeration, before any compilation/download.
+      const stop = new Error('stop after positive-control native enumeration');
+      const unguarded = rebuild(options);
+      unguarded.lifecycle.on('modules-found', paths => {
+        assert.deepEqual(paths, ['native-fixture']);
+        throw stop;
+      });
+      await assert.rejects(unguarded, error => error === stop);
+      const guarded = rebuild({ ...options, ...forgeConfig.rebuildConfig });
+      let observed;
+      guarded.lifecycle.on('modules-found', paths => {
+        observed = paths;
+      });
+      await guarded;
+      assert.deepEqual(observed, []);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  }
+);
+
+test('builder retains verified Node-API binaries rather than entering its rebuild path', async () => {
+  assert.match(builderConfig, /^npmRebuild: false$/m);
+  assert.match(builderConfig, /^nodeGypRebuild: false$/m);
+  const rootRequire = createRequire(import.meta.url);
+  const builderRequire = createRequire(rootRequire.resolve('electron-builder'));
+  const { Packager } = builderRequire('app-builder-lib/out/packager.js');
+  const stop = new Error('rebuild path entered');
+  const context = {
+    options: {},
+    appInfo: { type: 'module' },
+    framework: { isNpmRebuildRequired: true, version: '43.5.0' },
+    config: { npmRebuild: false, nodeGypRebuild: false },
+    getWorkspaceRoot: async () => {
+      throw stop;
+    },
+  };
+  await Packager.prototype.installAppDependencies.call(context, { nodeName: process.platform }, 0);
+  // A missing guard reaches the installer boundary; stop before any mutation.
+  context.config = {};
+  await assert.rejects(
+    Packager.prototype.installAppDependencies.call(context, { nodeName: process.platform }, 0),
+    error => error === stop
   );
 });

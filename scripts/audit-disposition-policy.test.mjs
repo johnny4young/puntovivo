@@ -85,12 +85,7 @@ function advisory(overrides = {}) {
   };
 }
 
-function decide({
-  advisories,
-  policy = policyWith([]),
-  auditStatus = 1,
-  productionVersions = {},
-}) {
+function decide({ advisories, policy = policyWith([]), auditStatus = 1, productionVersions = {} }) {
   return decideAuditOutcome({
     advisories,
     reachability: reachabilityIndex(productionVersions),
@@ -118,7 +113,10 @@ test('disposition metadata is mandatory and bounded', () => {
     [{ removalCriteria: 'nope' }, /requires removal criteria/],
     [{ reachabilityArgument: 'unreachable, trust me' }, /requires a reachability argument/],
     [{ advisories: {} }, /requires advisories/],
-    [{ advisories: { 'not-an-advisory': 'demo-tool' } }, /must be an advisory id the audit reports/],
+    [
+      { advisories: { 'not-an-advisory': 'demo-tool' } },
+      /must be an advisory id the audit reports/,
+    ],
     [{ advisories: { unknown: 'demo-tool' } }, /must be an advisory id the audit reports/],
     [{ advisories: { 'GHSA-aaaa-bbbb-cccc': '' } }, /requires the affected package name/],
     [{ reviewedOn: '2026-02-31' }, /reviewedOn is invalid/],

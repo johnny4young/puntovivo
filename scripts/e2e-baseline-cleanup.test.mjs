@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import Database from 'better-sqlite3';
+import { attendanceDate } from '../e2e/shared/attendance-date.ts';
 
 import {
   cleanupRestaurantArtifacts,
@@ -874,4 +875,20 @@ test('E2E table cleanup preserves retained kitchen original and relocated destin
   assert.equal(db.prepare("select table_id from sales where id='deleted'").get().table_id, null);
   assert.deepEqual(db.pragma('foreign_key_check'), []);
   db.close();
+});
+
+// The default Electron tenant uses New York, while configured Web fixtures
+// use Bogota. They differ after New York midnight and must not share a date.
+test('attendance fixture dates follow the observed tenant timezone across midnight', () => {
+  const instant = new Date('2026-10-03T04:00:16.000Z');
+  assert.equal(attendanceDate(instant, 'America/New_York'), '2026-10-03');
+  assert.equal(attendanceDate(instant, 'America/Bogota'), '2026-10-02');
+  assert.equal(attendanceDate(instant, 'America/New_York', -7), '2026-09-26');
+  assert.equal(attendanceDate(instant, 'America/Bogota', -7), '2026-09-25');
+  assert.equal(attendanceDate(new Date('2027-01-01T00:30:00.000Z'), 'UTC', -7), '2026-12-25');
+  assert.equal(
+    attendanceDate(new Date('2026-03-09T03:30:00.000Z'), 'America/New_York'),
+    '2026-03-08'
+  );
+  assert.throws(() => attendanceDate(instant, 'Invalid/Timezone'), RangeError);
 });

@@ -59,6 +59,11 @@ async function removeCashierPin(page: Page, cashier: E2EUserProfile): Promise<vo
   const dialog = page.getByRole('dialog', { name: 'Manage staff PIN' });
   await expect(dialog).toBeVisible();
   await dialog.getByRole('button', { name: 'Remove PIN' }).click();
+  // Both phases share a title and button name. Require the confirmation body
+  // so the second action cannot target the outgoing, animated enrollment panel.
+  await expect(
+    dialog.getByText(`Remove the staff PIN for ${cashier.name}?`, { exact: true })
+  ).toBeVisible();
   await dialog.getByRole('button', { name: 'Remove PIN' }).click();
   await expect(dialog).toBeHidden({ timeout: 15_000 });
   await expect(row).toContainText('Not configured');

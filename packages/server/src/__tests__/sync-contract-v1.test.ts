@@ -61,6 +61,51 @@ function buildContext(role: 'admin' | 'manager' | 'cashier' = 'admin'): Context 
   };
 }
 
+function contextWithInterleavedOutboxRead(id: string, onRead: () => void): Context {
+  const context = buildContext('admin');
+  let intercepted = false;
+  function interceptGet<T extends object>(query: T): T {
+    return new Proxy(query, {
+      get(target, property, receiver) {
+        const value = Reflect.get(target, property, receiver);
+        if (typeof value !== 'function') return value;
+        if (property === 'get') {
+          return async (...args: unknown[]) => {
+            const row: unknown = await Reflect.apply(value, target, args);
+            if (
+              !intercepted &&
+              row !== null &&
+              typeof row === 'object' &&
+              Reflect.get(row, 'id') === id
+            ) {
+              intercepted = true;
+              onRead();
+            }
+            return row;
+          };
+        }
+        return (...args: unknown[]) => {
+          const result: unknown = Reflect.apply(value, target, args);
+          return result !== null && typeof result === 'object' ? interceptGet(result) : result;
+        };
+      },
+    });
+  }
+  const racedDb = new Proxy(context.db, {
+    get(target, property, receiver) {
+      const value = Reflect.get(target, property, receiver);
+      if (property === 'select' && typeof value === 'function') {
+        return (...args: unknown[]) => {
+          const builder: unknown = Reflect.apply(value, target, args);
+          return builder !== null && typeof builder === 'object' ? interceptGet(builder) : builder;
+        };
+      }
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+  });
+  return { ...context, db: racedDb };
+}
+
 beforeAll(async () => {
   server = await createServer({ dbPath: ':memory:', verbose: false });
   const db = getDatabase();
@@ -150,35 +195,210 @@ describe('sync contract v1 — ordering', () => {
 });
 
 describe('sync contract v1 — retry', () => {
-  it('manual sync.retry resets attempts + clears lastError + status back to queued', async () => {
+  it('does not requeue a row that becomes synced after retry reads it', async () => {
     const db = getDatabase();
     const id = nanoid();
     const now = new Date().toISOString();
     await db.insert(syncOutbox).values({
       id,
       tenantId,
-      status: 'retrying' as SyncOutboxStatus,
+      status: 'retrying',
       entityType: 'sales',
-      entityId: 'sale-stuck',
+      entityId: 'sale-synced-during-retry',
       operation: 'create',
       conflictPolicy: 'manual',
-      payload: { id: 'sale-stuck' },
+      payload: { id: 'sale-synced-during-retry' },
       payloadVersion: 1,
       attempts: 3,
-      nextRetryAt: '2027-01-01T00:00:00.000Z',
-      lastError: { errorCode: 'NETWORK_TIMEOUT', providerMessage: 'stuck', recoverable: true },
+      lastError: { errorCode: 'NETWORK_TIMEOUT', recoverable: true },
       priority: 5,
       createdAt: now,
       updatedAt: now,
     });
-    const caller = appRouter.createCaller(buildContext('admin'));
-    await caller.sync.retry({ id });
+
+    let syncedBetweenReadAndWrite = false;
+    const context = contextWithInterleavedOutboxRead(id, () => {
+      syncedBetweenReadAndWrite = true;
+      db.update(syncOutbox)
+        .set({ status: 'synced' })
+        .where(and(eq(syncOutbox.id, id), eq(syncOutbox.tenantId, tenantId)))
+        .run();
+    });
+    const caller = appRouter.createCaller(context);
+    await expect(caller.sync.retry({ id })).rejects.toMatchObject({
+      code: 'CONFLICT',
+      cause: { errorCode: 'STALE_VERSION' },
+    });
+    expect(syncedBetweenReadAndWrite).toBe(true);
     const row = await db.select().from(syncOutbox).where(eq(syncOutbox.id, id)).get();
-    expect(row?.status).toBe('queued');
-    expect(row?.attempts).toBe(0);
-    expect(row?.nextRetryAt).toBeNull();
-    expect(row?.lastError).toBeNull();
+    expect(row).toMatchObject({ status: 'synced', attempts: 3 });
   });
+
+  it('preserves a newer failure attempt even while the row remains retrying', async () => {
+    const db = getDatabase();
+    const id = nanoid();
+    const now = new Date().toISOString();
+    await db.insert(syncOutbox).values({
+      id,
+      tenantId,
+      status: 'retrying',
+      entityType: 'sales',
+      entityId: 'sale-failed-again-during-retry',
+      operation: 'create',
+      conflictPolicy: 'manual',
+      payload: { id: 'sale-failed-again-during-retry' },
+      payloadVersion: 1,
+      attempts: 3,
+      lastError: { errorCode: 'NETWORK_TIMEOUT', recoverable: true },
+      priority: 5,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    let failedBetweenReadAndWrite = false;
+    const laterError = { errorCode: 'REMOTE_UNAVAILABLE', recoverable: true };
+    const context = contextWithInterleavedOutboxRead(id, () => {
+      failedBetweenReadAndWrite = true;
+      db.update(syncOutbox)
+        .set({ attempts: 4, lastError: laterError })
+        .where(and(eq(syncOutbox.id, id), eq(syncOutbox.tenantId, tenantId)))
+        .run();
+    });
+    const caller = appRouter.createCaller(context);
+    await expect(caller.sync.retry({ id })).rejects.toMatchObject({
+      code: 'CONFLICT',
+      cause: { errorCode: 'STALE_VERSION' },
+    });
+    expect(failedBetweenReadAndWrite).toBe(true);
+    const row = await db.select().from(syncOutbox).where(eq(syncOutbox.id, id)).get();
+    expect(row).toMatchObject({ status: 'retrying', attempts: 4, lastError: laterError });
+  });
+
+  it.each(['timestamp', 'deletion'] as const)(
+    'reports STALE_VERSION for concurrent %s instead of false success',
+    async change => {
+      const db = getDatabase();
+      const id = nanoid();
+      const now = '2026-09-20T00:00:00.000Z';
+      const later = '2026-09-20T00:00:00.001Z';
+      await db.insert(syncOutbox).values({
+        id,
+        tenantId,
+        status: 'dead_letter',
+        entityType: 'products',
+        entityId: 'changed-during-retry',
+        operation: 'update',
+        conflictPolicy: 'auto_lww',
+        payload: { id: 'changed-during-retry' },
+        payloadVersion: 1,
+        attempts: 3,
+        lastError: { errorCode: 'NETWORK_TIMEOUT', recoverable: true },
+        createdAt: now,
+        updatedAt: now,
+      });
+      let interleaved = false;
+      const context = contextWithInterleavedOutboxRead(id, () => {
+        interleaved = true;
+        const scope = and(eq(syncOutbox.id, id), eq(syncOutbox.tenantId, tenantId));
+        if (change === 'deletion') {
+          db.delete(syncOutbox).where(scope).run();
+        } else {
+          db.update(syncOutbox).set({ updatedAt: later }).where(scope).run();
+        }
+      });
+      await expect(appRouter.createCaller(context).sync.retry({ id })).rejects.toMatchObject({
+        code: 'CONFLICT',
+        cause: { errorCode: 'STALE_VERSION' },
+      });
+      expect(interleaved).toBe(true);
+      const row = db.select().from(syncOutbox).where(eq(syncOutbox.id, id)).get();
+      if (change === 'deletion') {
+        expect(row).toBeUndefined();
+      } else {
+        expect(row).toMatchObject({
+          status: 'dead_letter',
+          attempts: 3,
+          updatedAt: later,
+          lastError: { errorCode: 'NETWORK_TIMEOUT', recoverable: true },
+        });
+      }
+    }
+  );
+
+  it('treats a row requeued by a concurrent retry as an idempotent success', async () => {
+    const db = getDatabase();
+    const id = nanoid();
+    const now = '2026-09-20T00:00:00.000Z';
+    await db.insert(syncOutbox).values({
+      id,
+      tenantId,
+      status: 'dead_letter',
+      entityType: 'sales',
+      entityId: 'sale-retried-twice',
+      operation: 'create',
+      conflictPolicy: 'manual',
+      payload: { id: 'sale-retried-twice' },
+      payloadVersion: 1,
+      attempts: 3,
+      lastError: { errorCode: 'NETWORK_TIMEOUT', recoverable: true },
+      priority: 5,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const concurrentRetryAt = '2026-09-20T00:00:00.001Z';
+    let interleaved = false;
+    const context = contextWithInterleavedOutboxRead(id, () => {
+      interleaved = true;
+      db.update(syncOutbox)
+        .set({ status: 'queued', attempts: 0, lastError: null, updatedAt: concurrentRetryAt })
+        .where(and(eq(syncOutbox.id, id), eq(syncOutbox.tenantId, tenantId)))
+        .run();
+    });
+    await expect(appRouter.createCaller(context).sync.retry({ id })).resolves.toEqual({
+      ok: true,
+      id,
+    });
+    expect(interleaved).toBe(true);
+    const row = db.select().from(syncOutbox).where(eq(syncOutbox.id, id)).get();
+    expect(row).toMatchObject({ status: 'queued', attempts: 0, updatedAt: concurrentRetryAt });
+  });
+
+  it.each(['retrying', 'dead_letter'] as const)(
+    'manual sync.retry resets %s attempts, errors and claims',
+    async status => {
+      const db = getDatabase();
+      const id = nanoid();
+      const now = new Date().toISOString();
+      await db.insert(syncOutbox).values({
+        id,
+        tenantId,
+        status,
+        entityType: 'sales',
+        entityId: 'sale-stuck',
+        operation: 'create',
+        conflictPolicy: 'manual',
+        payload: { id: 'sale-stuck' },
+        payloadVersion: 1,
+        attempts: 3,
+        claimToken: 'old-claim',
+        lockedAt: now,
+        nextRetryAt: '2027-01-01T00:00:00.000Z',
+        lastError: { errorCode: 'NETWORK_TIMEOUT', providerMessage: 'stuck', recoverable: true },
+        priority: 5,
+        createdAt: now,
+        updatedAt: now,
+      });
+      const caller = appRouter.createCaller(buildContext('admin'));
+      await expect(caller.sync.retry({ id })).resolves.toEqual({ ok: true, id });
+      const row = await db.select().from(syncOutbox).where(eq(syncOutbox.id, id)).get();
+      expect(row?.status).toBe('queued');
+      expect(row?.attempts).toBe(0);
+      expect(row?.nextRetryAt).toBeNull();
+      expect(row?.lastError).toBeNull();
+      expect(row?.claimToken).toBeNull();
+      expect(row?.lockedAt).toBeNull();
+    }
+  );
 
   it('sync.retry returns NOT_FOUND for unknown row id', async () => {
     const caller = appRouter.createCaller(buildContext('admin'));
@@ -191,36 +411,82 @@ describe('sync contract v1 — retry', () => {
     }
   });
 
-  it('sync.retry does not requeue rows that already synced', async () => {
+  it("sync.retry cannot inspect or reset another tenant's retrying row", async () => {
     const db = getDatabase();
-    const id = nanoid();
+    const foreignTenantId = `tenant-${nanoid(8)}`;
     const now = new Date().toISOString();
+    await db.insert(tenants).values({
+      id: foreignTenantId,
+      name: 'Foreign Tenant',
+      slug: `foreign-${nanoid(6)}`,
+      settings: {},
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const id = nanoid();
     await db.insert(syncOutbox).values({
       id,
-      tenantId,
-      status: 'synced' as SyncOutboxStatus,
+      tenantId: foreignTenantId,
+      status: 'retrying',
       entityType: 'sales',
-      entityId: 'sale-synced',
+      entityId: 'foreign-sale',
       operation: 'create',
       conflictPolicy: 'manual',
-      payload: { id: 'sale-synced' },
+      payload: { id: 'foreign-sale' },
       payloadVersion: 1,
-      attempts: 1,
-      nextRetryAt: null,
-      lastError: null,
+      attempts: 2,
       priority: 5,
       createdAt: now,
       updatedAt: now,
     });
-    const caller = appRouter.createCaller(buildContext('admin'));
-    await caller.sync.retry({ id });
-    const row = await db.select().from(syncOutbox).where(eq(syncOutbox.id, id)).get();
-    expect(row?.status).toBe('synced');
-    expect(row?.attempts).toBe(1);
+
+    try {
+      const caller = appRouter.createCaller(buildContext('admin'));
+      await expect(caller.sync.retry({ id })).rejects.toMatchObject({ code: 'NOT_FOUND' });
+      const row = await db.select().from(syncOutbox).where(eq(syncOutbox.id, id)).get();
+      expect(row).toMatchObject({ tenantId: foreignTenantId, status: 'retrying', attempts: 2 });
+    } finally {
+      await db.delete(syncOutbox).where(eq(syncOutbox.id, id));
+      await db.delete(tenants).where(eq(tenants.id, foreignTenantId));
+    }
   });
 
-  it('sync.retry rejects cashier with FORBIDDEN', async () => {
-    const caller = appRouter.createCaller(buildContext('cashier'));
+  it.each(['queued', 'submitting', 'synced', 'conflict'] as const)(
+    'sync.retry leaves %s rows unchanged',
+    async status => {
+      const db = getDatabase();
+      const id = nanoid();
+      const now = new Date().toISOString();
+      await db.insert(syncOutbox).values({
+        id,
+        tenantId,
+        status,
+        entityType: 'sales',
+        entityId: 'sale-synced',
+        operation: 'create',
+        conflictPolicy: 'manual',
+        payload: { id: 'sale-synced' },
+        payloadVersion: 1,
+        attempts: 1,
+        nextRetryAt: null,
+        lastError: null,
+        priority: 5,
+        createdAt: now,
+        updatedAt: now,
+      });
+      const caller = appRouter.createCaller(buildContext('admin'));
+      const before = db.select().from(syncOutbox).where(eq(syncOutbox.id, id)).get();
+      await expect(caller.sync.retry({ id })).resolves.toEqual({ ok: true, id });
+      const row = await db.select().from(syncOutbox).where(eq(syncOutbox.id, id)).get();
+      expect(row).toEqual(before);
+      expect(row?.status).toBe(status);
+      expect(row?.attempts).toBe(1);
+    }
+  );
+
+  it.each(['cashier', 'manager'] as const)('sync.retry rejects %s with FORBIDDEN', async role => {
+    const caller = appRouter.createCaller(buildContext(role));
     try {
       await caller.sync.retry({ id: 'whatever' });
       throw new Error('should have thrown');

@@ -326,6 +326,8 @@ export const aiAuditLog = sqliteTable(
       .notNull()
       .references(() => tenants.id),
     siteId: text('site_id').references(() => sites.id),
+    /** Call-time site scope for tenant-wide Co-pilot; null on older rows and other features. */
+    scopeSiteIds: text('scope_site_ids', { mode: 'json' }).$type<string[] | null>(),
     userId: text('user_id').references(() => users.id),
     /** AI feature label (`completeTest`, `copilot`, `autoCategorize`, `embeddings`). */
     feature: text('feature').notNull(),
@@ -370,6 +372,28 @@ export const aiAuditLogRelations = relations(aiAuditLog, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+/**
+ * One outstanding remote AI admission per tenant and local calendar month.
+ * A failed/aborted remote request retains its original-month liability.
+ * Month rollover does not delete it or prove that the provider charged zero.
+ */
+export const aiBudgetReservations = sqliteTable(
+  'ai_budget_reservations',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    monthStart: text('month_start').notNull(),
+    state: text('state', { enum: ['pending', 'unknown'] }).notNull(),
+    auditLogId: text('audit_log_id').references(() => aiAuditLog.id),
+    createdAt: text('created_at').notNull().$defaultFn(nowIso),
+  },
+  table => [
+    uniqueIndex('idx_ai_budget_reservations_tenant_month').on(table.tenantId, table.monthStart),
+  ]
+);
 
 export type AIAuditLogRow = typeof aiAuditLog.$inferSelect;
 export type NewAIAuditLogRow = typeof aiAuditLog.$inferInsert;

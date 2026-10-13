@@ -69,7 +69,10 @@ describe('shared build freshness', () => {
     const root = await createSharedFixture();
     const files = runtimeSourceFiles(path.join(root, 'src')).map(file => path.relative(root, file));
 
-    assert.deepEqual(files.sort(), ['src/money.ts', 'src/nested/units.ts']);
+    assert.deepEqual(files.sort(), [
+      path.join('src', 'money.ts'),
+      path.join('src', 'nested', 'units.ts'),
+    ]);
   });
 
   it('requires every public runtime and declaration output', async () => {

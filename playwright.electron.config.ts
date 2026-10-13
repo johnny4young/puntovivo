@@ -1,10 +1,11 @@
 /**
  * Step 3 — Playwright config for the Electron smoke suite.
  *
- * Launches Electron directly from `apps/desktop/.vite/build/index.cjs`
- * via the `_electron` fixture (see `e2e/electron/fixtures.ts`). The
- * webServer block serves the renderer dev bundle only; Electron still
- * embeds its own Fastify server in-process.
+ * Launches the desktop package directory through the `_electron` fixture
+ * (see `e2e/electron/fixtures.ts`); its package.json selects the built
+ * `.vite/build/index.cjs` entry and supplies the app version. The webServer
+ * block serves the renderer dev bundle only; Electron still embeds its own
+ * Fastify server in-process.
  *
  * Parallelism: workers=1. The Electron smoke boots the embedded
  * server against a single tmpdir DB (`test-results/electron-userdata/`);

@@ -77,6 +77,7 @@ vi.mock('@/lib/trpc', () => ({
       peripherals: { peekHardwareOutbox: { invalidate: vi.fn() } },
       authority: { status: { invalidate: vi.fn() } },
       payments: {
+        listProposals: { invalidate: vi.fn() },
         peekOutbox: { invalidate: vi.fn() },
         reconciliation: { invalidate: vi.fn() },
         methodBreakdown: { invalidate: vi.fn() },
@@ -140,6 +141,8 @@ vi.mock('@/lib/trpc', () => ({
       },
     },
     payments: {
+      listProposals: { useQuery: () => ({ data: [], isLoading: false, error: null }) },
+      reviewProposal: { useMutation: () => ({ isPending: false, mutate: vi.fn() }) },
       reconciliation: {
         useQuery: () => ({
           data: {

@@ -18,6 +18,10 @@ import {
 } from './support/app';
 import { seedExternalOrderScenario, getProductStock } from './support/db';
 import { runAxeOnPage } from './support/a11y';
+import { e2eApiOrigin } from './support/api-origin';
+
+// Direct HTTP and CLI probes must use the same suite-owned server as the browser.
+const API_ORIGIN = e2eApiOrigin();
 
 /** The journey only reads SQLite; connector, inbox, stock and payment writes use UI or signed HTTP. */
 function evidence(tenantId: string) {
@@ -110,7 +114,7 @@ async function send(connector: { secret: string; connectorId: string }, event: u
     connector.secret,
     JSON.stringify(event)
   );
-  const result = await sendSandboxEnvelope('http://127.0.0.1:8090', envelope);
+  const result = await sendSandboxEnvelope(API_ORIGIN, envelope);
   expect(result.status, JSON.stringify(result.body)).toBe(200);
   return envelope;
 }
@@ -133,7 +137,7 @@ async function exerciseSimulatorCli(
         require.resolve('tsx'),
         path.join(process.cwd(), 'packages/server/src/scripts/simulate-external-order.ts'),
         '--origin',
-        'http://127.0.0.1:8090',
+        API_ORIGIN,
         `--connector=${connector.connectorId}`,
         '--secret-file',
         keyPath,
@@ -189,7 +193,7 @@ test('signed request, duplicate delivery, explicit prices and real checkout reco
   const connector = await setupConnector(page),
     event = creation(scenario.product.sku);
   const envelope = await send(connector, event);
-  const duplicate = await sendSandboxEnvelope('http://127.0.0.1:8090', envelope);
+  const duplicate = await sendSandboxEnvelope(API_ORIGIN, envelope);
   expect(duplicate.status).toBe(200);
   await send(connector, event); // Fresh nonce, same immutable event identity.
   await exerciseSimulatorCli(connector, event);
@@ -303,7 +307,7 @@ test('signed cancellation cannot silently refund; UI discard restores stock and 
     connector.secret,
     JSON.stringify(creation(scenario.product.sku, 'old-key'))
   );
-  expect((await sendSandboxEnvelope('http://127.0.0.1:8090', old)).status).toBe(401);
+  expect((await sendSandboxEnvelope(API_ORIGIN, old)).status).toBe(401);
   const tombstone = {
     schemaVersion: 1,
     eventId: 'early-cancel',

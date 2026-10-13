@@ -142,7 +142,7 @@ The canonical capability inventory, remaining gaps, and release gates live in
 
 | Layer    | Choice                                                 | Notes                                                         |
 | -------- | ------------------------------------------------------ | ------------------------------------------------------------- |
-| Desktop  | Electron 43.4.1 + electron-builder packaging           | SQLite uses one bundled Node-API binary per target platform.  |
+| Desktop  | Electron 43.5.0 + electron-builder packaging           | SQLite uses one bundled Node-API binary per target platform.  |
 | Web      | React 19 + Vite 8 + TypeScript 7 (TS 6 API for ESLint) | Browser target and Electron renderer share the app code.      |
 | API      | Fastify + tRPC 11                                      | `/api/trpc` is the canonical application API.                 |
 | Database | SQLite via better-sqlite3-multiple-ciphers             | SQLCipher path is wired; dev modes can share an encrypted DB. |
@@ -177,7 +177,7 @@ pnpm 11 blocks dependency build scripts unless they are allowlisted. The repo
 allowlist lives in [pnpm-workspace.yaml](./pnpm-workspace.yaml) and covers the
 runtime pieces that still expose lifecycle hooks: argon2 and esbuild.
 better-sqlite3-multiple-ciphers v13 ships integrity-checked Node-API binaries
-and its implicit pnpm build is explicitly denied. Electron 43.4.1, like the 42
+and its implicit pnpm build is explicitly denied. Electron 43.5.0, like the 42
 line before it, has no install hook; Puntovivo installs its development runtime
 lazily during the desktop preflight. If install prints
 `ERR_PNPM_IGNORED_BUILDS`, review the package and record an explicit true/false

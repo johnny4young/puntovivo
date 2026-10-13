@@ -14,6 +14,7 @@ import { managerOrAdminRoles } from '@/features/auth/roleAccess';
 import { useIsModuleActive } from '@/features/modules';
 import { QueryErrorState } from '@/components/feedback/QueryErrorState';
 import { useTenantSettings } from '@/hooks';
+import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
 import {
   AlertTriangle,
@@ -52,7 +53,7 @@ function getStatMetric(
 
 export function DashboardPage() {
   const { formatCurrency, formatDateTime } = useTenantSettings();
-  const { t } = useTranslation('dashboard');
+  const { t } = useTranslation(['dashboard', 'errors']);
   const { user } = useAuth();
   const anomalyModuleActive = useIsModuleActive('anomaly-detection');
   // + : anomaly detection is manager+ AND module-gated.
@@ -71,7 +72,7 @@ export function DashboardPage() {
     return (
       <QueryErrorState
         title={t('page.kicker')}
-        message={dashboardQuery.error.message}
+        message={translateServerError(dashboardQuery.error, t, t('errors:server.unknown'))}
         onRetry={() => {
           void dashboardQuery.refetch();
         }}

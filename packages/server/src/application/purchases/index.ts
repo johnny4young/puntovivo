@@ -11,10 +11,9 @@ export { createPurchase } from './createPurchase.js';
 export { createPurchaseFromOrder } from './receiveFromOrder.js';
 export { returnPurchase } from './returnPurchase.js';
 export { voidPurchase } from './voidPurchase.js';
-export { createOcrDraftPurchase } from './createOcrDraftPurchase.js';
+export { confirmOcrDraftPurchase } from './confirmOcrDraftPurchase.js';
 export { getPurchaseRecord } from './purchase-read.js';
 export type {
-  CreateOcrDraftPurchaseInput,
   PurchaseContext,
   CriticalPurchaseContext,
   PurchaseSequentialContext,

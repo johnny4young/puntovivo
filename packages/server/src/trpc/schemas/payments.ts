@@ -85,3 +85,19 @@ export const paymentMethodBreakdownInput = z
   })
   .strict();
 export type PaymentMethodBreakdownInput = z.infer<typeof paymentMethodBreakdownInput>;
+
+/** Bounded operations-panel query; review status is optional for audit history. */
+export const listPaymentProposalsInput = z
+  .object({
+    limit: z.number().int().positive().max(200).default(50),
+    status: z.enum(['pending', 'approved', 'rejected']).optional(),
+  })
+  .strict();
+
+/** The server, not the client, supplies every statement and tender value. */
+export const reviewPaymentProposalInput = z
+  .object({
+    proposalId: z.string().min(1).max(64),
+    decision: z.enum(['approve', 'reject']),
+  })
+  .strict();

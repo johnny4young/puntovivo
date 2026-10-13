@@ -57,7 +57,47 @@ describe('DeepLinkFocusTarget', () => {
     expect(target).toHaveFocus();
     expect(target).toHaveAttribute('role', 'region');
     expect(target).toHaveAccessibleName('Registered devices');
-    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start' });
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start', behavior: 'instant' });
+  });
+
+  it('aligns focus instantly despite global smooth scrolling, including lazy-panel realignment', () => {
+    const originalBehavior = document.documentElement.style.scrollBehavior;
+    document.documentElement.style.scrollBehavior = 'smooth';
+    const requestFrame = vi.spyOn(window, 'requestAnimationFrame').mockReturnValue(42);
+    try {
+      const { unmount } = render(
+        <DeepLinkFocusTarget
+          active
+          id="backup-restore"
+          label="Restore backup"
+          testId="backup-restore-target"
+        >
+          <p>Restore controls</p>
+        </DeepLinkFocusTarget>
+      );
+      const target = screen.getByTestId('backup-restore-target');
+      vi.spyOn(target, 'getBoundingClientRect').mockReturnValue({
+        bottom: window.innerHeight + 220,
+        height: 120,
+        left: 0,
+        right: 400,
+        top: window.innerHeight + 100,
+        width: 400,
+        x: 0,
+        y: window.innerHeight + 100,
+        toJSON: () => undefined,
+      });
+      resizeCallback([], {} as ResizeObserver);
+      expect(target).toHaveFocus();
+      expect(scrollIntoView).toHaveBeenCalledTimes(2);
+      for (const [options] of scrollIntoView.mock.calls) {
+        expect(options).toEqual({ block: 'start', behavior: 'instant' });
+      }
+      unmount();
+    } finally {
+      document.documentElement.style.scrollBehavior = originalBehavior;
+      requestFrame.mockRestore();
+    }
   });
 
   it('does not move focus for an ordinary tab visit', () => {

@@ -1,0 +1,1 @@
+ALTER TABLE `ai_audit_log` ADD `scope_site_ids` text;

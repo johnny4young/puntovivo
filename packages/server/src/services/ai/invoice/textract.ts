@@ -7,10 +7,14 @@ import {
 } from '@aws-sdk/client-textract';
 
 import type { InvoiceOcr, InvoiceOcrMimeType } from '../vision/invoice-ocr.js';
+import { throwServerError } from '../../../lib/errorCodes.js';
 
 export interface TextractInvoiceOcrInput {
   documentBase64: string;
   mimeType: InvoiceOcrMimeType;
+  region: string;
+  usdPerPage: number;
+  abortSignal?: AbortSignal | undefined;
 }
 
 export interface TextractInvoiceOcrResult {
@@ -19,6 +23,32 @@ export interface TextractInvoiceOcrResult {
   durationMs: number;
   provider: 'textract';
   model: 'aws-textract-analyze-expense';
+}
+
+export function resolveTextractPriceConfig(env: NodeJS.ProcessEnv = process.env): {
+  region: string;
+  usdPerPage: number;
+} {
+  const region = env.AWS_REGION ?? env.AWS_DEFAULT_REGION ?? 'us-east-1';
+  const raw = env.PUNTOVIVO_TEXTRACT_ANALYZE_EXPENSE_PRICES_USD;
+  let prices: unknown;
+  try {
+    prices = raw ? JSON.parse(raw) : null;
+  } catch {
+    prices = null;
+  }
+  const usdPerPage =
+    prices && typeof prices === 'object' && !Array.isArray(prices)
+      ? (prices as Record<string, unknown>)[region]
+      : undefined;
+  if (typeof usdPerPage !== 'number' || !Number.isFinite(usdPerPage) || usdPerPage <= 0) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'AI_PROVIDER_ERROR',
+      message: `Textract AnalyzeExpense page price is not configured for AWS region ${region}`,
+    });
+  }
+  return { region, usdPerPage };
 }
 
 function normalizeKey(value: string | undefined): string {
@@ -133,7 +163,9 @@ function toInvoice(doc: ExpenseDocument): InvoiceOcr {
 export async function extractInvoiceWithTextract(
   input: TextractInvoiceOcrInput,
   client = new TextractClient({
-    region: process.env.AWS_REGION ?? process.env.AWS_DEFAULT_REGION ?? 'us-east-1',
+    region: input.region,
+    // An SDK retry can submit and bill the same document more than once.
+    maxAttempts: 1,
   })
 ): Promise<TextractInvoiceOcrResult> {
   const startedAt = Date.now();
@@ -142,12 +174,17 @@ export async function extractInvoiceWithTextract(
       Document: {
         Bytes: Buffer.from(input.documentBase64, 'base64'),
       },
-    })
+    }),
+    input.abortSignal ? { abortSignal: input.abortSignal } : {}
   );
+  const pages = output.DocumentMetadata?.Pages;
+  if (typeof pages !== 'number' || !Number.isInteger(pages) || pages <= 0) {
+    throw new Error('Textract returned missing or invalid billed page count');
+  }
   const firstDoc = output.ExpenseDocuments?.[0] ?? {};
   return {
     invoice: toInvoice(firstDoc),
-    costUsd: 0,
+    costUsd: pages * input.usdPerPage,
     durationMs: Date.now() - startedAt,
     provider: 'textract',
     model: 'aws-textract-analyze-expense',

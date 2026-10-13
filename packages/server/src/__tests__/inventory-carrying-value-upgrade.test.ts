@@ -43,6 +43,10 @@ describe('exact inventory value historical adoption', () => {
           '0088_purchase_carrying_values',
           '0089_serial_carrying_values',
           '0090_inventory_value_constraints',
+          // Stamping the later Co-pilot scope marker must record, not skip,
+          // the intervening payment-proposal migration.
+          '0091_puzzling_sunfire',
+          '0092_ai_copilot_scope_sites',
         ]) {
           const hash = createHash('sha256')
             .update(readFileSync(join(folder, `${name}.sql`)))

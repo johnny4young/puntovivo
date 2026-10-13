@@ -88,8 +88,10 @@ test('rejects dead relative Markdown links and allows anchors and URLs', () => {
   );
 });
 
-test('detect-changes fetches the push base before running paths-filter', () => {
-  const workflow = readFileSync(join(REPO_ROOT, '.github', 'workflows', 'ci.yml'), 'utf8');
+function assertDetectChangesPushBase(source) {
+  // Git checkouts may use CRLF on Windows; the invariant is the checkout
+  // configuration, not the host's line-ending convention.
+  const workflow = source.replace(/\r\n/gu, '\n');
   const jobStart = workflow.indexOf('  detect-changes:\n');
   assert.notEqual(jobStart, -1, 'detect-changes job must exist');
 
@@ -106,7 +108,29 @@ test('detect-changes fetches the push base before running paths-filter', () => {
     /^\s+fetch-depth:\s*0\s*$/mu,
     'detect-changes must fetch full history so github.event.before resolves without fatal output'
   );
-});
+}
+
+for (const [label, lineEnding] of [
+  ['LF', '\n'],
+  ['CRLF', '\r\n'],
+]) {
+  test('detect-changes fetches the push base before paths-filter with ' + label, () => {
+    const workflow = readFileSync(
+      join(REPO_ROOT, '.github', 'workflows', 'ci.yml'),
+      'utf8'
+    ).replace(/\r?\n/gu, lineEnding);
+    assertDetectChangesPushBase(workflow);
+    // Normalize transport only: missing full history must still fail closed.
+    assert.throws(
+      () => assertDetectChangesPushBase(workflow.replace('fetch-depth: 0', 'fetch-depth: 1')),
+      /detect-changes must fetch full history/
+    );
+    assert.throws(
+      () => assertDetectChangesPushBase(workflow.replace('detect-changes:', 'other-job:')),
+      /detect-changes job must exist/
+    );
+  });
+}
 
 test('architecture diagram reports the live domain-router count', () => {
   const routerSource = readFileSync(

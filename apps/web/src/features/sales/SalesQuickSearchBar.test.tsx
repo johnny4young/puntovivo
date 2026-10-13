@@ -31,7 +31,7 @@ describe('SalesQuickSearchBar', () => {
       'aria-keyshortcuts',
       'F5'
     );
-    expect(screen.getByText('F5')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Search' })).toHaveTextContent('F5');
   });
 
   it('does not advertise or dispatch product input for a locked ticket', () => {

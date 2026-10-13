@@ -364,6 +364,16 @@ export function formatKeysForDisplay(keys: ShortcutKey[], mac: boolean = isMacPl
 }
 
 /**
+ * Return the platform-aware display label for a catalogue id, or an
+ * empty string when the id is not registered. Visible `<kbd>` hints use
+ * this so they never hardcode a key the catalogue could change.
+ */
+export function shortcutDisplayFor(id: string, mac: boolean = isMacPlatform()): string {
+  const def = getShortcutById(id);
+  return def ? formatKeysForDisplay(def.keys, mac) : '';
+}
+
+/**
  * Render a key combination as a value suitable for
  * `aria-keyshortcuts`. The WAI-ARIA spec requires modifier names
  * in canonical CamelCase (`Control`, `Shift`, `Alt`, `Meta`) and

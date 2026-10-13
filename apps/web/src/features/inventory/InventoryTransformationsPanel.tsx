@@ -7,6 +7,8 @@ import { useTranslation } from 'react-i18next';
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { Modal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
+import { useResolvedLocale } from '@/features/locale/LocaleProvider';
+import { resolveLotBusinessDate, useLiveNow } from '@/hooks/useLiveNow';
 import { TablePagination } from '@/components/tables/TablePagination';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
@@ -548,6 +550,8 @@ function TransformationInputEditor({
   input,
   value,
   disabled,
+  now,
+  businessDate,
   onChange,
   onOptionsChange,
 }: {
@@ -555,28 +559,28 @@ function TransformationInputEditor({
   input: TransformationRecipe['inputs'][number];
   value: ExecutionInputDraft;
   disabled: boolean;
+  now: number;
+  businessDate: string | null;
   onChange: (value: ExecutionInputDraft) => void;
   onOptionsChange: (recipeInputId: string, options: ExactLotOption[]) => void;
 }) {
   const { t } = useTranslation('inventory');
-  const [now] = useState(() => Date.now());
   const lotsQuery = trpc.inventoryLots.list.useQuery(
     { siteId, productId: input.productId, activeOnly: true },
     { enabled: input.tracksLots }
   );
-  const options: ExactLotOption[] = useMemo(
-    () =>
-      (lotsQuery.data?.items ?? [])
-        .filter(lot => lot.onHand > 0 && !isLotExpiredAt(lot.expiresAt, now))
-        .map(lot => ({
-          id: lot.id,
-          lotNumber: lot.lotNumber,
-          expiresAt: lot.expiresAt,
-          status: lot.status,
-          availableQuantity: lot.onHand,
-        })),
-    [lotsQuery.data, now]
-  );
+  const options: ExactLotOption[] = useMemo(() => {
+    if (businessDate === null) return [];
+    return (lotsQuery.data?.items ?? [])
+      .filter(lot => lot.onHand > 0 && !isLotExpiredAt(lot.expiresAt, now, businessDate))
+      .map(lot => ({
+        id: lot.id,
+        lotNumber: lot.lotNumber,
+        expiresAt: lot.expiresAt,
+        status: lot.status,
+        availableQuantity: lot.onHand,
+      }));
+  }, [lotsQuery.data, now, businessDate]);
   const allocatedLotIds = useMemo(
     () => options.filter(option => parsePositiveQuantity(value.allocations[option.id] ?? '') > 0),
     [options, value.allocations]
@@ -593,6 +597,21 @@ function TransformationInputEditor({
   useEffect(() => {
     onOptionsChange(input.id, options);
   }, [input.id, onOptionsChange, options]);
+
+  // A lot can leave the offer while the modal is open (the live clock crosses
+  // its expiry or a refetch drops it). Its allocation would otherwise stay in
+  // the draft with no visible row to clear it, failing every submit.
+  useEffect(() => {
+    if (!input.tracksLots || (!lotsQuery.data && businessDate !== null)) return;
+    const availableIds = new Set(options.map(option => option.id));
+    const entries = Object.entries(value.allocations);
+    const nextAllocations = Object.fromEntries(
+      entries.filter(([lotId]) => availableIds.has(lotId))
+    );
+    if (Object.keys(nextAllocations).length !== entries.length) {
+      onChange({ ...value, allocations: nextAllocations });
+    }
+  }, [businessDate, input.tracksLots, lotsQuery.data, onChange, options, value]);
 
   useEffect(() => {
     if (!input.tracksLots) return;
@@ -619,7 +638,7 @@ function TransformationInputEditor({
           onChange={baseQuantity => onChange({ ...value, baseQuantity })}
         />
       </div>
-      {input.tracksLots && !lotsQuery.error && (
+      {input.tracksLots && !lotsQuery.error && businessDate !== null && (
         <ExactLotAllocationEditor
           idPrefix={`transformation-${input.id}`}
           options={options}
@@ -629,9 +648,9 @@ function TransformationInputEditor({
           onChange={allocations => onChange({ ...value, allocations })}
         />
       )}
-      {input.tracksLots && lotsQuery.error && (
+      {input.tracksLots && (lotsQuery.error || businessDate === null) && (
         <p className="mt-3 text-sm text-danger-700" role="alert">
-          {t('transformations.execute.lotsError')}
+          {businessDate === null ? t('expiry.invalidZone') : t('transformations.execute.lotsError')}
         </p>
       )}
       {input.tracksLots ? (
@@ -715,6 +734,9 @@ function ExecuteModal({
   }) => Promise<void>;
 }) {
   const { t } = useTranslation('inventory');
+  const { timezone } = useResolvedLocale();
+  const { now, refreshNow } = useLiveNow();
+  const businessDate = useMemo(() => resolveLotBusinessDate(now, timezone), [now, timezone]);
   const [inputs, setInputs] = useState<Record<string, ExecutionInputDraft>>(() =>
     Object.fromEntries(
       recipe.inputs.map(input => [
@@ -756,6 +778,8 @@ function ExecuteModal({
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormError(null);
+    const submitNow = refreshNow();
+    const submitBusinessDate = resolveLotBusinessDate(submitNow, timezone);
     const normalizedInputs = [];
     const waste = [];
     for (const input of recipe.inputs) {
@@ -766,8 +790,13 @@ function ExecuteModal({
         return;
       }
       const options = lotOptionsByInput[input.id] ?? [];
+      const sellableOptions = options.filter(
+        lot =>
+          submitBusinessDate !== null &&
+          !isLotExpiredAt(lot.expiresAt, submitNow, submitBusinessDate)
+      );
       const allocations = input.tracksLots
-        ? normalizeExactLotAllocations(options, draft.allocations)
+        ? normalizeExactLotAllocations(sellableOptions, draft.allocations)
         : null;
       if (
         input.tracksLots &&
@@ -910,6 +939,8 @@ function ExecuteModal({
               input={input}
               value={inputs[input.id]!}
               disabled={saving}
+              now={now}
+              businessDate={businessDate}
               onChange={value => setInputs(current => ({ ...current, [input.id]: value }))}
               onOptionsChange={handleLotOptionsChange}
             />

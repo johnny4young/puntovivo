@@ -23,15 +23,8 @@ export default defineConfig({
       // terminal, json for programmatic checks, html for drill-down).
       reporter: ['text', 'text-summary', 'json', 'html', 'lcov'],
       exclude: ['node_modules/', 'src/test/', '**/*.d.ts', '**/*.config.*', '**/types/**'],
-      // floored the gate at 65/65/68/60 to match the actual
-      // suite at the time and tracked the lift back to 70 as .
-      // shipped 13 new + 6 extended test files (roleAccess,
-      // useElectron, siteSelection, siteStorage, authStorage,
-      // AuthProvider, TenantProvider, sale/purchase/quotation/audit-logs
-      // exports, useTableExport, exportService CSV+printTable, pricing,
-      // checkoutPayment, providerState, saleCart, defaultLayouts, utils)
-      // closing the gap on every axis. Do not lower these without an
-      // accompanying documented rationale.
+      // Native feature, auth, export, pricing and checkout tests support these floors.
+      // Removing obsolete tests must not lower them without a documented rationale.
       thresholds: {
         statements: 70,
         branches: 70,
@@ -57,7 +50,9 @@ export default defineConfig({
     // which otherwise yields a second copy with a null hooks dispatcher
     // ("Cannot read properties of null (reading 'useReducer')"). Deduping
     // keeps every package on the workspace React.
-    dedupe: ['react', 'react-dom'],
+    // CodeMirror extensions also rely on shared state/view class identities.
+    // Compatible nested copies otherwise duplicate the editor runtime.
+    dedupe: ['react', 'react-dom', '@codemirror/state', '@codemirror/view'],
     alias: {
       '@': path.resolve(import.meta.dirname, './src'),
     },

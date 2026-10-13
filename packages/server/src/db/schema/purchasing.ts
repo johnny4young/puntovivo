@@ -57,6 +57,10 @@ export const purchases = sqliteTable(
       .notNull()
       .references(() => providers.id),
     orderId: text('order_id').references(() => orders.id),
+    // Nullable for ordinary purchases; one successful OCR extraction can
+    // produce at most one reviewed draft within a tenant.
+    ocrExtractAuditId: text('ocr_extract_audit_id'),
+    ocrConfirmationHash: text('ocr_confirmation_hash'),
     siteId: text('site_id')
       .notNull()
       .references(() => sites.id),
@@ -79,6 +83,9 @@ export const purchases = sqliteTable(
     index('idx_purchases_site').on(table.siteId),
     index('idx_purchases_created_by').on(table.createdBy),
     uniqueIndex('idx_purchases_tenant_number').on(table.tenantId, table.purchaseNumber),
+    uniqueIndex('idx_purchases_tenant_ocr_extract')
+      .on(table.tenantId, table.ocrExtractAuditId)
+      .where(sql`ocr_extract_audit_id IS NOT NULL`),
     // purchase totals are always positive (a refund creates a
     // separate purchase_returns row, never a negative purchase).
     ...moneyPositiveChecks('purchases_subtotal', table.subtotal),

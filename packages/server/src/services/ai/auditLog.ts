@@ -40,19 +40,28 @@ export interface CurrentMonthCostSummary {
 }
 
 /**
- * Return the honest monthly cost view for a tenant. Unknown remote costs
- * remain visible as a count instead of being silently folded into a numeric
- * zero. The known amount is still the value used by the local budget guard;
- * provider invoices and quotas remain authoritative.
+ * Local-calendar month window `[start, end)` as ISO strings. Shared by the
+ * spend readout and the reservation kernel so both agree on "this month".
  */
-export async function currentMonthCostSummary(
-  db: DatabaseInstance,
+export function aiCostMonthWindow(now: Date): { start: string; end: string } {
+  return {
+    start: new Date(now.getFullYear(), now.getMonth(), 1).toISOString(),
+    end: new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString(),
+  };
+}
+
+/**
+ * Synchronous monthly cost view over a database handle or an open write
+ * transaction (better-sqlite3 queries are synchronous), so the reservation
+ * kernel can read it inside `BEGIN IMMEDIATE`.
+ */
+export function readMonthCostSummary(
+  db: Pick<DatabaseInstance, 'select'>,
   tenantId: string,
   now: Date = new Date()
-): Promise<CurrentMonthCostSummary> {
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-  const startOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
-  const result = await db
+): CurrentMonthCostSummary {
+  const month = aiCostMonthWindow(now);
+  const result = db
     .select({
       knownSpend: sql<
         number | string
@@ -63,8 +72,8 @@ export async function currentMonthCostSummary(
     .where(
       and(
         eq(aiAuditLog.tenantId, tenantId),
-        gte(aiAuditLog.createdAt, startOfMonth),
-        lt(aiAuditLog.createdAt, startOfNextMonth)
+        gte(aiAuditLog.createdAt, month.start),
+        lt(aiAuditLog.createdAt, month.end)
       )
     )
     .get();
@@ -75,6 +84,20 @@ export async function currentMonthCostSummary(
   const unknownRaw = result?.unknownCostCalls;
   const unknownCostCalls = typeof unknownRaw === 'number' ? unknownRaw : Number(unknownRaw) || 0;
   return { knownSpendUsd, unknownCostCalls };
+}
+
+/**
+ * Return the honest monthly cost view for a tenant. Unknown remote costs
+ * remain visible as a count instead of being silently folded into a numeric
+ * zero. The known amount is still the value used by the local budget guard;
+ * provider invoices and quotas remain authoritative.
+ */
+export async function currentMonthCostSummary(
+  db: DatabaseInstance,
+  tenantId: string,
+  now: Date = new Date()
+): Promise<CurrentMonthCostSummary> {
+  return readMonthCostSummary(db, tenantId, now);
 }
 
 export async function currentMonthSpend(

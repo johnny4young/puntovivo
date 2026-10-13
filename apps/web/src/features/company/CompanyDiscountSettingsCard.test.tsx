@@ -4,20 +4,29 @@
  * mirrors, and never sends a partial edit the operator did not confirm.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18n from '@/i18n';
 import { render } from '@/test/utils';
 import { CompanyDiscountSettingsCard } from './CompanyDiscountSettingsCard';
 
-const updateMutate = vi.fn(async () => undefined);
-let mockTiers: Array<{ maxDays: number; pct: number }>;
+type Tier = { maxDays: number; pct: number };
+const updateMutate = vi.fn(async (_input: { expiryTiers: Tier[] }) => undefined);
+const updateTenantSettings = vi.fn();
+const invalidateDiscountSettings = vi.fn(async () => undefined);
+let mockServerReply: Tier[] | null = null;
+let mockServerError: Error | null = null;
+let mockTiers: Tier[];
 let mockIsLoading = false;
+
+vi.mock('@/features/auth/AuthProvider', () => ({
+  useAuth: () => ({ updateTenantSettings }),
+}));
 
 vi.mock('@/lib/trpc', () => ({
   trpc: {
     useUtils: () => ({
-      discountSettings: { get: { invalidate: vi.fn(async () => undefined) } },
+      discountSettings: { get: { invalidate: invalidateDiscountSettings } },
     }),
     discountSettings: {
       get: {
@@ -30,7 +39,24 @@ vi.mock('@/lib/trpc', () => ({
         }),
       },
       update: {
-        useMutation: () => ({ mutateAsync: updateMutate, isPending: false }),
+        useMutation: (options: {
+          onSuccess?: (result: { expiryTiers: Tier[] }) => void;
+          onError?: (error: unknown) => void;
+          onSettled?: () => void;
+        }) => ({
+          mutate: (input: { expiryTiers: Tier[] }) => {
+            void (async () => {
+              await updateMutate(input);
+              if (mockServerError) {
+                options.onError?.(mockServerError);
+              } else {
+                options.onSuccess?.({ expiryTiers: mockServerReply ?? input.expiryTiers });
+              }
+              options.onSettled?.();
+            })();
+          },
+          isPending: false,
+        }),
       },
     },
   },
@@ -45,6 +71,8 @@ describe('CompanyDiscountSettingsCard', () => {
     await i18n.changeLanguage('en');
     vi.clearAllMocks();
     mockIsLoading = false;
+    mockServerReply = null;
+    mockServerError = null;
     mockTiers = [
       { maxDays: 7, pct: 30 },
       { maxDays: 15, pct: 20 },
@@ -99,6 +127,7 @@ describe('CompanyDiscountSettingsCard', () => {
     await user.type(days, '3');
     await user.click(screen.getByTestId('discount-save-tiers'));
 
+    await waitFor(() => expect(updateMutate).toHaveBeenCalled());
     expect(updateMutate).toHaveBeenCalledWith({
       expiryTiers: [
         { maxDays: 3, pct: 30 },
@@ -106,6 +135,42 @@ describe('CompanyDiscountSettingsCard', () => {
         { maxDays: 30, pct: 10 },
       ],
     });
+  });
+
+  it('mirrors the committed server ladder to the live radar without a new login', async () => {
+    const user = userEvent.setup();
+    mockServerReply = [
+      { maxDays: 3, pct: 34 },
+      { maxDays: 15, pct: 20 },
+      { maxDays: 30, pct: 10 },
+    ];
+    render(<CompanyDiscountSettingsCard />);
+
+    const days = screen.getByLabelText('Days left for tier 1');
+    await user.clear(days);
+    await user.type(days, '3');
+    expect(updateTenantSettings).not.toHaveBeenCalled();
+    await user.click(screen.getByTestId('discount-save-tiers'));
+
+    await waitFor(() =>
+      expect(updateTenantSettings).toHaveBeenCalledWith({
+        discount: { expiryTiers: mockServerReply },
+      })
+    );
+  });
+
+  it('leaves the live radar untouched when the save is rejected', async () => {
+    const user = userEvent.setup();
+    mockServerError = new Error('FORBIDDEN');
+    render(<CompanyDiscountSettingsCard />);
+
+    const days = screen.getByLabelText('Days left for tier 1');
+    await user.clear(days);
+    await user.type(days, '3');
+    await user.click(screen.getByTestId('discount-save-tiers'));
+
+    await waitFor(() => expect(invalidateDiscountSettings).toHaveBeenCalled());
+    expect(updateTenantSettings).not.toHaveBeenCalled();
   });
 
   it('adds and removes rows within the server bounds', async () => {

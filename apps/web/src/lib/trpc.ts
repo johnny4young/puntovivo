@@ -49,7 +49,13 @@ function getCsrfCookie(): string | null {
       continue;
     }
 
-    return decodeURIComponent(trimmedCookie.slice(encodedName.length));
+    try {
+      return decodeURIComponent(trimmedCookie.slice(encodedName.length));
+    } catch {
+      // A malformed cookie is untrusted input, not a reason to abort the
+      // first safe request that lets the server replace its CSRF companion.
+      return null;
+    }
   }
 
   return null;
@@ -283,13 +289,33 @@ function getDefaultApiFetch(): typeof fetch {
   return isHubClientAuth() ? createHubApiFetch() : fetch;
 }
 
-export function createTrpcFetch(fetchImpl: typeof fetch = getDefaultApiFetch()): typeof fetch {
+/** Reconcile the JS header with the browser's cookie at network dispatch. */
+function withCurrentCsrfHeader(init: RequestInit): RequestInit {
+  if (init.credentials === 'omit') {
+    // Public bearer-only requests must not carry a stale double-submit header.
+    const headers = new Headers(init.headers);
+    headers.delete(CSRF_HEADER_NAME);
+    return { ...init, headers };
+  }
+  // A queued tRPC batch can capture its header before login replaces the
+  // pre-auth cookie, while the browser attaches the new Cookie on dispatch.
+  // Hub auth uses a sealed main-process transport, not renderer cookies.
+  if (isHubClientAuth()) return init;
+
+  const headers = new Headers(init.headers);
+  const csrfToken = getCsrfCookie();
+  if (csrfToken) headers.set(CSRF_HEADER_NAME, csrfToken);
+  else headers.delete(CSRF_HEADER_NAME);
+  return { ...init, headers };
+}
+
+export function createTrpcFetch(
+  fetchImpl: typeof fetch = getDefaultApiFetch(),
+  credentials: RequestCredentials = 'include'
+): typeof fetch {
   return async (input, init) => {
     const epoch = authEpoch;
-    const response = await fetchImpl(input, {
-      ...init,
-      credentials: 'include',
-    });
+    const response = await fetchImpl(input, withCurrentCsrfHeader({ ...init, credentials }));
 
     if (response.status !== 401 || !accessToken || epoch !== authEpoch) {
       return response;
@@ -308,11 +334,7 @@ export function createTrpcFetch(fetchImpl: typeof fetch = getDefaultApiFetch()):
     const retryHeaders = new Headers(init?.headers);
     retryHeaders.set('authorization', `Bearer ${nextToken}`);
 
-    return fetchImpl(input, {
-      ...init,
-      credentials: 'include',
-      headers: retryHeaders,
-    });
+    return fetchImpl(input, withCurrentCsrfHeader({ ...init, credentials, headers: retryHeaders }));
   };
 }
 
@@ -352,13 +374,25 @@ export function createTrpcBatchLink(extraHeaders?: HeaderFactory) {
     },
   };
   const typedOptions = linkOptions as unknown as Parameters<typeof httpBatchLink<AppRouter>>[0];
-  return splitLink<AppRouter>({
+  const standardLink = splitLink<AppRouter>({
     // Return previews can carry up to 200 lines with lot and serial
     // allocations. Keep their read-only query semantics while using POST so
     // browser, proxy and Store Hub URL limits cannot truncate the selection.
     condition: operation => operation.path === 'sales.previewReturn',
     true: httpBatchLink<AppRouter>({ ...typedOptions, methodOverride: 'POST' }),
     false: httpBatchLink<AppRouter>(typedOptions),
+  });
+  const telemetryOptions = {
+    ...typedOptions,
+    // Web Vitals are public. Send an explicit bearer token when available,
+    // but never the ambient refresh cookie: a login may rotate that cookie
+    // after JS prepares a batch and before the browser dispatches it.
+    fetch: createTrpcFetch(getDefaultApiFetch(), 'omit'),
+  } as unknown as Parameters<typeof httpBatchLink<AppRouter>>[0];
+  return splitLink<AppRouter>({
+    condition: operation => operation.path === 'observability.reportWebVital',
+    true: httpBatchLink<AppRouter>(telemetryOptions),
+    false: standardLink,
   });
 }
 

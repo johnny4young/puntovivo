@@ -55,6 +55,20 @@ describe('formatCurrency — locale resolution branches', () => {
     expect(out).toMatch(/€/);
   });
 
+  it.each(['COP', 'CLP'])(
+    'isolates explicit evidence precision from default formatter cache (%s)',
+    currency => {
+      const defaults = new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(
+        123.45
+      );
+      expect(formatCurrency(123.45, currency, 'en-US')).toBe(defaults);
+      expect(formatCurrency(123.45, currency, 'en-US', 2)).toMatch(/123\.45$/);
+      expect(formatCurrency(123.45, currency, 'en-US')).toBe(defaults);
+      expect(formatCurrency(0, currency, 'en-US', 2)).toMatch(/0\.00$/);
+      expect(formatCurrency(-123.45, currency, 'en-US', 2)).toMatch(/123\.45$/);
+    }
+  );
+
   it('uses tenant displayDecimals when no explicit currency is given', () => {
     setActiveTenantLocale({
       locale: 'es-CO',

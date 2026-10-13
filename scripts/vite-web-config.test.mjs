@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import viteWebConfig, { BOOT_FONT_FILES } from '../apps/web/vite.config.ts';
+import vitestWebConfig from '../apps/web/vitest.config.ts';
 import { SALES_INITIAL_NAMESPACES } from '../apps/web/src/features/sales/salesInitialNamespaces.ts';
 
 const config = viteWebConfig({
@@ -14,6 +15,12 @@ const config = viteWebConfig({
 const output = config.build.rolldownOptions.output;
 const dataGroup = output.codeSplitting.groups.find(group => typeof group.name === 'function');
 const groupName = dataGroup.name;
+
+test('production and tests share identity-sensitive React and CodeMirror modules', () => {
+  const identityModules = ['react', 'react-dom', '@codemirror/state', '@codemirror/view'];
+  assert.deepEqual(config.resolve.dedupe, identityModules);
+  assert.deepEqual(vitestWebConfig.resolve.dedupe, identityModules);
+});
 
 test('web chunks use native Rolldown grouping without recursive dependency overrides', () => {
   assert.equal(config.build.rollupOptions, undefined);

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AlarmClock, BadgePercent, CalendarClock, Package } from 'lucide-react';
 import type { DataTableColumnDef } from '@/components/tables/DataTable';
@@ -8,12 +8,16 @@ import { TableLoadingState } from '@/components/tables/TableLoadingState';
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { KpiTile, Badge } from '@/components/ui';
 import { useToast } from '@/components/feedback/ToastProvider';
+import { useResolvedLocale } from '@/features/locale/LocaleProvider';
+import { resolveLotBusinessDate, useLiveNow } from '@/hooks/useLiveNow';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
-import { cn, formatCurrency, formatDate } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
 import { roundMoney } from '@/lib/money';
+import { ISO_DATE_ONLY_PATTERN } from '@puntovivo/shared/iso-date';
+import { formatLotExpiryDate, isLotExpiredAt } from './lotForm';
 
 /** The radar's fixed look-ahead window (days). A selector is a captured
  * follow-up; 30 days covers every discount tier. */
@@ -64,6 +68,17 @@ function previewPctForDays(
 }
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+/** Match the server's tenant-calendar tier rule for date-only lots. Timestamp
+ * expiries keep their elapsed-day ceiling instead of gaining a calendar day. */
+function daysLeftForExpiry(expiresAt: string, now: number, businessDate: string): number {
+  if (ISO_DATE_ONLY_PATTERN.test(expiresAt)) {
+    const expiryDay = Date.parse(`${expiresAt}T00:00:00.000Z`);
+    const currentDay = Date.parse(`${businessDate}T00:00:00.000Z`);
+    return Math.max(0, Math.round((expiryDay - currentDay) / DAY_MS));
+  }
+  return Math.max(0, Math.ceil((Date.parse(expiresAt) - now) / DAY_MS));
+}
+
 /** One radar row: an expiring lot joined with its active suggestion (if any). */
 interface ExpiryRadarRow {
   lotId: string;
@@ -103,6 +118,7 @@ function urgencyTone(daysLeft: number): 'danger' | 'warning' | 'neutral' {
  */
 export function ExpiryRadarPanel() {
   const { t } = useTranslation(['inventory', 'promotions']);
+  const { timezone } = useResolvedLocale();
   // the tenant's tuned ladder rides the auth.me session payload
   // (same channel as the  blind-close flag); fall back to the
   // defaults when the tenant never tuned it.
@@ -170,11 +186,17 @@ export function ExpiryRadarPanel() {
     onError: onErrorToast(toast, t),
   });
 
-  // Frozen at mount ( precedent): day distances are day-granular and
-  // the panel remounts per tab visit, so a per-render clock read buys
-  // nothing and trips react-hooks/purity.
-  const [now] = useState(() => Date.now());
+  const { now, refreshNow } = useLiveNow();
+  const businessDate = useMemo(() => resolveLotBusinessDate(now, timezone), [now, timezone]);
+  const previousBusinessDate = useRef(businessDate);
+  useEffect(() => {
+    if (businessDate === previousBusinessDate.current) return;
+    previousBusinessDate.current = businessDate;
+    // Server membership/cutoff must move with the tenant day, not just badges.
+    void utils.inventoryLots.expiring.invalidate();
+  }, [businessDate, utils.inventoryLots.expiring]);
   const rows = useMemo<ExpiryRadarRow[]>(() => {
+    if (businessDate === null) return [];
     const items = expiringQuery.data?.items ?? [];
     const byLot = new Map(
       (suggestionsQuery.data?.items ?? []).map(item => [
@@ -193,32 +215,53 @@ export function ExpiryRadarPanel() {
           { id: item.id, status: item.status, discountPct: item.discountPct },
         ])
     );
-    return items.map(item => {
-      const daysLeft = item.expiresAt
-        ? Math.max(0, Math.ceil((Date.parse(item.expiresAt) - now) / DAY_MS))
-        : 0;
-      return {
-        lotId: item.id,
-        productName: item.productName,
-        isPharmacyMedicine: item.isPharmacyMedicine,
-        lotNumber: item.lotNumber,
-        expiresAt: item.expiresAt,
-        daysLeft,
-        onHand: item.onHand,
-        unitCost: item.unitCost,
-        valueAtRisk: roundMoney(
-          item.carryingValueCents == null
-            ? item.onHand * item.unitCost
-            : item.carryingValueCents / 100
-        ),
-        previewPct: previewPctForDays(daysLeft, tiers),
-        suggestion: byLot.get(item.id) ?? null,
-        promotion: promotionByLot.get(item.id) ?? null,
-      };
-    });
-  }, [expiringQuery.data, expiryPromotionsQuery.data, suggestionsQuery.data, now, tiers]);
+    return items
+      .filter(item => !isLotExpiredAt(item.expiresAt, now, businessDate))
+      .map(item => {
+        const daysLeft = item.expiresAt ? daysLeftForExpiry(item.expiresAt, now, businessDate) : 0;
+        return {
+          lotId: item.id,
+          productName: item.productName,
+          isPharmacyMedicine: item.isPharmacyMedicine,
+          lotNumber: item.lotNumber,
+          expiresAt: item.expiresAt,
+          daysLeft,
+          onHand: item.onHand,
+          unitCost: item.unitCost,
+          valueAtRisk: roundMoney(
+            item.carryingValueCents == null
+              ? item.onHand * item.unitCost
+              : item.carryingValueCents / 100
+          ),
+          previewPct: previewPctForDays(daysLeft, tiers),
+          suggestion: byLot.get(item.id) ?? null,
+          promotion: promotionByLot.get(item.id) ?? null,
+        };
+      });
+  }, [
+    expiringQuery.data,
+    expiryPromotionsQuery.data,
+    suggestionsQuery.data,
+    now,
+    tiers,
+    businessDate,
+  ]);
   const totalValueAtRisk = rows.reduce((sum, row) => roundMoney(sum + row.valueAtRisk), 0);
   const activeCount = rows.filter(row => row.suggestion !== null).length;
+  const runIfLotStillValid = useCallback(
+    (expiresAt: string | null, action: () => void) => {
+      const current = refreshNow();
+      const currentBusinessDate = resolveLotBusinessDate(current, timezone);
+      if (currentBusinessDate === null || isLotExpiredAt(expiresAt, current, currentBusinessDate)) {
+        // A click can arrive before the minute timer. Remove the stale row
+        // locally and refresh server membership instead of sending a doomed mutation.
+        void utils.inventoryLots.expiring.invalidate();
+        return;
+      }
+      action();
+    },
+    [refreshNow, timezone, utils.inventoryLots.expiring]
+  );
   const isMutating =
     suggestMutation.isPending || dismissMutation.isPending || activateMutation.isPending;
   const columns = useMemo<DataTableColumnDef<ExpiryRadarRow>[]>(
@@ -245,7 +288,9 @@ export function ExpiryRadarPanel() {
         size: 190,
         cell: ({ row }) => (
           <div className="flex items-center gap-2">
-            <span>{row.original.expiresAt ? formatDate(row.original.expiresAt) : '—'}</span>
+            <span>
+              {row.original.expiresAt ? formatLotExpiryDate(row.original.expiresAt) : '—'}
+            </span>
             <Badge
               data-testid={`expiry-days-${row.original.lotId}`}
               variant={urgencyTone(row.original.daysLeft)}
@@ -328,7 +373,9 @@ export function ExpiryRadarPanel() {
                   disabled={isMutating}
                   data-testid={`expiry-activate-${row.original.lotId}`}
                   onClick={() =>
-                    activateMutation.mutate({ suggestionId: row.original.suggestion!.id })
+                    runIfLotStillValid(row.original.expiresAt, () =>
+                      activateMutation.mutate({ suggestionId: row.original.suggestion!.id })
+                    )
                   }
                 >
                   {t('expiry.activate')}
@@ -354,9 +401,9 @@ export function ExpiryRadarPanel() {
               disabled={isMutating}
               data-testid={`expiry-suggest-${row.original.lotId}`}
               onClick={() =>
-                suggestMutation.mutate({
-                  lotId: row.original.lotId,
-                })
+                runIfLotStillValid(row.original.expiresAt, () =>
+                  suggestMutation.mutate({ lotId: row.original.lotId })
+                )
               }
             >
               {t('expiry.suggest', {
@@ -368,8 +415,23 @@ export function ExpiryRadarPanel() {
           ),
       },
     ],
-    [t, isMutating, pharmacyMode, activateMutation, dismissMutation, suggestMutation]
+    [
+      t,
+      isMutating,
+      pharmacyMode,
+      activateMutation,
+      dismissMutation,
+      suggestMutation,
+      runIfLotStillValid,
+    ]
   );
+  if (businessDate === null) {
+    return (
+      <div data-testid="expiry-radar-panel">
+        <TableErrorState title={t('common:status.error')} message={t('expiry.invalidZone')} />
+      </div>
+    );
+  }
   return (
     <div className="space-y-4" data-testid="expiry-radar-panel">
       {/* window sweep selector. A segmented control (not a select)

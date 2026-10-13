@@ -58,7 +58,19 @@
     "budgetMeterBlocked": "Bloqueado · {{spent}} este mes",
     "budgetMeterHint": "Los montos son estimaciones basadas en precios del proveedor. Las llamadas locales de Ollama tienen un costo externo de US$0. Las facturas y cuotas del proveedor son la referencia definitiva.",
     "unknownCostWarning_one": "1 llamada de este mes no tiene una estimación de costo del proveedor y no está incluida en el monto.",
-    "unknownCostWarning_other": "{{count}} llamadas de este mes no tienen una estimación de costo del proveedor y no están incluidas en el monto."
+    "unknownCostWarning_other": "{{count}} llamadas de este mes no tienen una estimación de costo del proveedor y no están incluidas en el monto.",
+    "reconcile": {
+      "hint": "Las llamadas con costo desconocido mantienen reservado el presupuesto de IA hasta que un administrador registre lo que el proveedor realmente facturó (factura o consola del proveedor).",
+      "costLabel": "Monto facturado (USD)",
+      "noteLabel": "Nota",
+      "notePlaceholder": "De dónde sale el monto",
+      "submit": "Registrar costo y liberar",
+      "submitting": "Registrando…",
+      "successTitle": "Presupuesto de IA liberado",
+      "successDescription_one": "Se concilió 1 llamada.",
+      "successDescription_other": "Se conciliaron {{count}} llamadas.",
+      "errorTitle": "No se pudo liberar el presupuesto de IA"
+    }
   },
   "toast": {
     "saveSuccessTitle": "Configuración de IA guardada",

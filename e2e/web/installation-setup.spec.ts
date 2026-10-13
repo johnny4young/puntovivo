@@ -30,14 +30,22 @@ for (const language of ['en', 'es'] as const) {
     await page
       .getByRole('button', { name: language === 'es' ? 'Volver' : 'Back', exact: true })
       .click();
+    await expect(page.locator('#setup-businessName')).toBeFocused();
     await expect(page.locator('#setup-businessName')).toHaveValue(`UI Retail ${language}`);
     await page
       .getByRole('button', { name: language === 'es' ? 'Continuar' : 'Continue', exact: true })
       .click();
+    // Wait for the step's promised focus before typing; a late focus effect
+    // must not redirect password input into the administrator's name.
+    await expect(page.locator('#setup-ownerName')).toBeFocused();
     await page.locator('#setup-ownerName').fill('UI Owner');
     await page.locator('#setup-email').fill(`ui-owner-${language}@example.com`);
     await page.locator('#setup-password').fill('OwnerPassword42!');
     await page.locator('#setup-confirmPassword').fill('OwnerPassword42!');
+    await expect(page.locator('#setup-ownerName')).toHaveValue('UI Owner');
+    await expect(page.locator('#setup-email')).toHaveValue(`ui-owner-${language}@example.com`);
+    await expect(page.locator('#setup-password')).toHaveValue('OwnerPassword42!');
+    await expect(page.locator('#setup-confirmPassword')).toHaveValue('OwnerPassword42!');
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
     ).toBe(true);

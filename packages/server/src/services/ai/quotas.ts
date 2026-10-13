@@ -7,8 +7,10 @@
  *
  * - `AI_QUOTAS` carries the v1 hardcoded limits per feature.
  * - `countMonthlyAiCalls` counts SUCCESSFUL calls (`errorCode IS NULL`)
- * in the current calendar month for a given (tenant, site, feature)
- * using the `idx_ai_audit_log_tenant_site_created` composite index.
+ * in the current calendar month for a given (tenant, site, feature).
+ * A tenant-wide Co-pilot audit row has no site id and carries the call-time
+ * site list, so it counts once in each relevant bucket while one provider
+ * call still has one cost row.
  * Failed calls (provider 5xx, AI_DISABLED short-circuits, quota
  * rejections themselves) do NOT consume quota — a flaky upstream
  * cannot cook the tenant.
@@ -30,11 +32,13 @@
  *
  * @module services/ai/quotas
  */
-import { and, count, eq, gte, isNull, lt } from 'drizzle-orm';
+import { and, count, eq, gte, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 
 import type { DatabaseInstance } from '../../db/index.js';
-import { aiAuditLog } from '../../db/schema.js';
+import { aiAuditLog, sites } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
+
+import { aiCostMonthWindow } from './auditLog.js';
 
 /**
  * Per-site monthly quota for each AI feature that the public website
@@ -63,16 +67,11 @@ export interface CountMonthlyAiCallsArgs {
 }
 
 /**
- * Calendar-month boundary helper. Returns `[startOfMonth, startOfNextMonth]`
- * ISO strings in local time, matching the convention `currentMonthSpend`
- * uses so both readouts agree on what "this month" means.
+ * Calendar-month boundary helper. Shares the budget kernel's local-month
+ * window so quota and budget admission agree on what "this month" means
+ * inside the same write transaction.
  */
-function monthBounds(now: Date): { start: string; end: string } {
-  return {
-    start: new Date(now.getFullYear(), now.getMonth(), 1).toISOString(),
-    end: new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString(),
-  };
-}
+const monthBounds = aiCostMonthWindow;
 
 /**
  * Count successful calls of a feature within the current calendar
@@ -80,15 +79,41 @@ function monthBounds(now: Date): { start: string; end: string } {
  * provider does not consume quota.
  */
 export async function countMonthlyAiCalls(args: CountMonthlyAiCallsArgs): Promise<number> {
+  return countMonthlyAiCallsSync(args);
+}
+
+/**
+ * Synchronous core of `countMonthlyAiCalls`, usable on a write-transaction
+ * handle inside the budget kernel's BEGIN IMMEDIATE admission.
+ */
+function countMonthlyAiCallsSync(
+  args: Omit<CountMonthlyAiCallsArgs, 'db'> & { db: Pick<DatabaseInstance, 'select'> }
+): number {
   const { db, tenantId, siteId, feature, now = new Date() } = args;
   const { start, end } = monthBounds(now);
-  const row = await db
+  const row = db
     .select({ total: count(aiAuditLog.id) })
     .from(aiAuditLog)
     .where(
       and(
         eq(aiAuditLog.tenantId, tenantId),
-        eq(aiAuditLog.siteId, siteId),
+        // A tenant-wide Co-pilot snapshot is auditable with site_id NULL and
+        // consumes one use from every call-time site it could read. OCR has no
+        // tenant-wide analytics mode, so NULL OCR rows do not enter its count.
+        feature === 'copilot'
+          ? or(
+              eq(aiAuditLog.siteId, siteId),
+              and(
+                isNull(aiAuditLog.siteId),
+                or(
+                  // Pre-migration site-less rows have unknown scope, so retain
+                  // their conservative all-site accounting.
+                  isNull(aiAuditLog.scopeSiteIds),
+                  sql`EXISTS (SELECT 1 FROM json_each(${aiAuditLog.scopeSiteIds}) AS scoped_site WHERE scoped_site.value = ${siteId})`
+                )
+              )
+            )
+          : eq(aiAuditLog.siteId, siteId),
         eq(aiAuditLog.feature, feature),
         isNull(aiAuditLog.errorCode),
         gte(aiAuditLog.createdAt, start),
@@ -142,9 +167,9 @@ export function projectEmptyAiQuotas(
  * client toast can render "750/800 — renews on 2026-06-01" without an
  * extra round trip.
  *
- * Site-less calls are bypassed by the router because the quota is
- * explicitly per site; `projectEmptyAiQuotas` handles the read-side
- * payload for that admin context.
+ * The Co-pilot router checks every site visible to a tenant-wide snapshot.
+ * OCR's existing site-less path remains separate pending unified admission;
+ * `projectEmptyAiQuotas` only handles the settings read-side payload.
  */
 export async function requireAiQuotaAvailable(
   args: RequireAiQuotaAvailableArgs
@@ -162,6 +187,115 @@ export async function requireAiQuotaAvailable(
     });
   }
   return { feature, used, limit, resetsAt };
+}
+
+/**
+ * Check a Co-pilot snapshot's complete call-time site scope in two bounded
+ * reads, rather than rescanning every site-less audit row once per site.
+ * The router uses this for an early rejection; the budget reservation repeats
+ * it on its transaction handle under BEGIN IMMEDIATE so a stale router read
+ * cannot authorize an extra provider call.
+ */
+export function assertCopilotQuotasForSites(args: {
+  db: Pick<DatabaseInstance, 'select'>;
+  tenantId: string;
+  siteIds: string[];
+  now?: Date;
+}): void {
+  const { db, tenantId, siteIds, now = new Date() } = args;
+  if (siteIds.length === 0) return;
+  const { start, end } = monthBounds(now);
+  const targetSites = new Set(siteIds);
+  const used = new Map(siteIds.map(siteId => [siteId, 0]));
+  const baseFilters = [
+    eq(aiAuditLog.tenantId, tenantId),
+    eq(aiAuditLog.feature, 'copilot'),
+    isNull(aiAuditLog.errorCode),
+    gte(aiAuditLog.createdAt, start),
+    lt(aiAuditLog.createdAt, end),
+  ];
+  const siteRows = db
+    .select({ siteId: aiAuditLog.siteId, total: count(aiAuditLog.id) })
+    .from(aiAuditLog)
+    .where(and(...baseFilters, inArray(aiAuditLog.siteId, siteIds)))
+    .groupBy(aiAuditLog.siteId)
+    .all();
+  const tenantWideRows = db
+    .select({ scopeSiteIds: aiAuditLog.scopeSiteIds })
+    .from(aiAuditLog)
+    .where(and(...baseFilters, isNull(aiAuditLog.siteId)))
+    .all();
+
+  for (const row of siteRows) {
+    if (row.siteId) used.set(row.siteId, row.total);
+  }
+  for (const row of tenantWideRows) {
+    // Historical site-less audits predate the scoped JSON column. Retain
+    // conservative accounting for them instead of silently forgiving usage.
+    for (const siteId of new Set(row.scopeSiteIds ?? siteIds)) {
+      if (targetSites.has(siteId)) used.set(siteId, (used.get(siteId) ?? 0) + 1);
+    }
+  }
+
+  for (const siteId of siteIds) {
+    const siteUsed = used.get(siteId) ?? 0;
+    if (siteUsed >= AI_QUOTAS.copilot) {
+      throwServerError({
+        trpcCode: 'TOO_MANY_REQUESTS',
+        errorCode: 'AI_QUOTA_EXCEEDED',
+        message: 'Monthly copilot quota exhausted for this site',
+        details: {
+          feature: 'copilot',
+          siteId,
+          used: siteUsed,
+          limit: AI_QUOTAS.copilot,
+          resetsAt: end,
+        },
+      });
+    }
+  }
+}
+
+/** Repeat the invoice quota and site ownership check under the budget writer lock. */
+export function assertInvoiceOcrQuotaForSite(args: {
+  db: Pick<DatabaseInstance, 'select'>;
+  tenantId: string;
+  siteId: string;
+  now?: Date;
+}): void {
+  const { db, tenantId, siteId, now = new Date() } = args;
+  const site = db
+    .select({ id: sites.id })
+    .from(sites)
+    .where(and(eq(sites.id, siteId), eq(sites.tenantId, tenantId), eq(sites.isActive, true)))
+    .get();
+  if (!site) {
+    throwServerError({
+      trpcCode: 'NOT_FOUND',
+      errorCode: 'AI_INVOICE_OCR_SITE_NOT_FOUND',
+      message: 'Active invoice OCR site not found',
+    });
+  }
+  const { end } = monthBounds(now);
+  const used = countMonthlyAiCallsSync({ db, tenantId, siteId, feature: 'invoiceOcr', now });
+  if (used >= AI_QUOTAS.invoiceOcr) {
+    throwServerError({
+      trpcCode: 'TOO_MANY_REQUESTS',
+      errorCode: 'AI_QUOTA_EXCEEDED',
+      message: 'Monthly invoice OCR quota exhausted for this site',
+      details: { feature: 'invoiceOcr', siteId, used, limit: AI_QUOTAS.invoiceOcr, resetsAt: end },
+    });
+  }
+}
+
+/** Keep the router's early rejection while admission repeats it under BEGIN IMMEDIATE. */
+export async function requireCopilotQuotasForSites(args: {
+  db: DatabaseInstance;
+  tenantId: string;
+  siteIds: string[];
+  now?: Date;
+}): Promise<void> {
+  assertCopilotQuotasForSites(args);
 }
 
 /**

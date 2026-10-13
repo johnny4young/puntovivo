@@ -19,6 +19,7 @@ import { trpc } from '@/lib/trpc';
 import { cn, formatCurrency } from '@/lib/utils';
 import { useAiSettings } from '@/features/ai-shared';
 import { useAiTranscriptionTest } from './useAiTranscriptionTest';
+import { AiBudgetHoldReconcile } from './AiBudgetHoldReconcile';
 import { AiQuotaSection } from './AiQuotaSection';
 import { AiTranscriptResult } from './AiTranscriptResult';
 export function CompanyAISettingsCard() {
@@ -268,9 +269,12 @@ export function CompanyAISettingsCard() {
             >
               !
             </span>
-            <p className="text-xs leading-relaxed">
-              {t('aiSettings:card.unknownCostWarning', { count: unknownCostCalls })}
-            </p>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs leading-relaxed">
+                {t('aiSettings:card.unknownCostWarning', { count: unknownCostCalls })}
+              </p>
+              <AiBudgetHoldReconcile />
+            </div>
           </div>
         )}
       </div>

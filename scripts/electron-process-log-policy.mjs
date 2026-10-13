@@ -31,6 +31,23 @@ const BOUNDED_STDERR_DIAGNOSTICS = [
       /^\[[^\]\r\n]+:ERROR:base\/process\/process_mac\.cc:98\] task_policy_set TASK_SUPPRESSION_POLICY: \(os\/kern\) invalid argument \(4\)$/,
     ],
   },
+  {
+    // Under xvfb the GPU process probes GBM on X11 and finds no DRI3, because
+    // Xvfb never offers it, then logs that its sandbox started after that probe
+    // spawned threads. Chromium falls back to software rendering and the app is
+    // unaffected. The pair arrived once, at GPU process start, on the
+    // ubuntu-latest pharmacy Electron journey (2026-10-09, job 113913120166);
+    // earlier runners did not probe GBM. A GPU process that keeps restarting
+    // would repeat the pair, so it shares one bounded budget. Line numbers are
+    // pinned ON PURPOSE to Chromium 150 (Electron 43) so a rebase re-verifies.
+    id: 'chromium-xvfb-gpu-probe',
+    description: 'Chromium xvfb GPU probe messages',
+    limit: 4,
+    patterns: [
+      /^\[[^\]\r\n]+:WARNING:sandbox\/policy\/linux\/sandbox_linux\.cc:405\] InitializeSandbox\(\) called with multiple threads in process gpu-process\.$/,
+      /^\[[^\]\r\n]+:WARNING:ui\/gfx\/linux\/gbm_support_x11\.cc:48\] dri3 extension not supported\.$/,
+    ],
+  },
 ];
 
 function boundedStderrDiagnostic(line) {

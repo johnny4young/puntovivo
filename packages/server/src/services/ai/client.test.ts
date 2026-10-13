@@ -1,17 +1,29 @@
+import {
+  expectNoPublicDiagnostic,
+  withProviderFailureLog,
+} from '../../__tests__/utils/ai-error-privacy.js';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { TRPCError } from '@trpc/server';
 import { hash } from 'argon2';
 import { nanoid } from 'nanoid';
-import { eq } from 'drizzle-orm';
-import { MockLanguageModelV4, mockId } from 'ai/test';
-import { simulateReadableStream } from 'ai';
+import { eq, sql } from 'drizzle-orm';
+import { MockLanguageModelV4 } from 'ai/test';
+import { APICallError, simulateReadableStream } from 'ai';
 
 import { ServerErrorWithCode } from '../../lib/errorCodes.js';
 import { createServer, type PuntovivoServer } from '../../index.js';
 import { getDatabase } from '../../db/index.js';
-import { aiAuditLog, companies, sites, tenants, users } from '../../db/schema.js';
+import {
+  aiAuditLog,
+  aiBudgetReservations,
+  companies,
+  sites,
+  tenants,
+  users,
+} from '../../db/schema.js';
 
 import { completeAI, resolveAISettings, writeAISettings } from './client.js';
+import { reserveAiBudget } from './budget.js';
 import type { AIProvider } from './providers/types.js';
 
 let server: PuntovivoServer;
@@ -86,6 +98,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   const db = getDatabase();
+  await db.delete(aiBudgetReservations).run();
   await db.delete(aiAuditLog).run();
   await db.update(tenants).set({ settings: {} }).where(eq(tenants.id, tenantId));
 });
@@ -124,23 +137,23 @@ function buildMockProvider(overrides: Partial<AIProvider> = {}): AIProvider {
         modelId: 'claude-haiku-4-5',
         doGenerate: async () => ({
           content: [{ type: 'text', text: 'pong' }],
-          finishReason: 'stop',
+          finishReason: { unified: 'stop', raw: 'stop' },
           usage: {
             inputTokens: { total: 10, noCache: 10, cacheRead: 0, cacheWrite: 0 },
-            outputTokens: { total: 5 },
+            outputTokens: { total: 5, text: 5, reasoning: undefined },
           },
           warnings: [],
         }),
         doStream: async () => ({
           stream: simulateReadableStream({
             chunks: [
-              { type: 'text-delta', id: mockId(), delta: 'pong' },
+              { type: 'text-delta', id: 'text-1', delta: 'pong' },
               {
                 type: 'finish',
-                finishReason: 'stop',
+                finishReason: { unified: 'stop', raw: 'stop' },
                 usage: {
                   inputTokens: { total: 10, noCache: 10, cacheRead: 0, cacheWrite: 0 },
-                  outputTokens: { total: 5 },
+                  outputTokens: { total: 5, text: 5, reasoning: undefined },
                 },
               },
             ],
@@ -154,7 +167,18 @@ function buildMockProvider(overrides: Partial<AIProvider> = {}): AIProvider {
   return { ...base, ...overrides };
 }
 
-async function expectThrow(promise: Promise<unknown>, errorCode: string): Promise<void> {
+function apiError(statusCode: number): APICallError {
+  return new APICallError({
+    message: `provider answered ${statusCode}`,
+    url: 'https://provider.invalid/v1/messages',
+    requestBodyValues: {},
+    statusCode,
+    responseBody: '{}',
+    isRetryable: false,
+  });
+}
+
+async function expectThrow(promise: Promise<unknown>, errorCode: string): Promise<TRPCError> {
   let caught: unknown;
   try {
     await promise;
@@ -165,9 +189,117 @@ async function expectThrow(promise: Promise<unknown>, errorCode: string): Promis
   const cause = (caught as TRPCError).cause;
   expect(cause).toBeInstanceOf(ServerErrorWithCode);
   expect((cause as ServerErrorWithCode).errorCode).toBe(errorCode);
+  return caught as TRPCError;
 }
 
 describe('client.completeAI', () => {
+  it.each(['success', 'provider failure', 'pricing failure'] as const)(
+    'keeps the pending hold and public privacy when completion audit fails: %s',
+    async outcome => {
+      const db = getDatabase();
+      await writeAISettings(db, tenantId, { enabled: true, monthlyBudgetUsd: 1 });
+      const provider = buildMockProvider({
+        ...(outcome === 'provider failure'
+          ? {
+              languageModel: () =>
+                new MockLanguageModelV4({
+                  doGenerate: async () => {
+                    throw new Error('PRIVATE_SDK_CANARY');
+                  },
+                }),
+            }
+          : {}),
+        ...(outcome === 'pricing failure'
+          ? {
+              pricing: {
+                models: {},
+                calculateCostUsd: () => {
+                  throw new Error('PRIVATE_PRICE_CANARY');
+                },
+              },
+            }
+          : {}),
+      });
+      db.run(
+        sql`CREATE TRIGGER fail_completion_audit BEFORE INSERT ON ai_audit_log BEGIN SELECT RAISE(ABORT, 'PRIVATE_COMPLETION_AUDIT_CANARY'); END`
+      );
+      try {
+        const error = await expectThrow(
+          completeAI({ db, tenantId, siteId, userId }, baseInput, () => provider),
+          'AI_PROVIDER_ERROR'
+        );
+        expectNoPublicDiagnostic(error, 'PRIVATE_COMPLETION_AUDIT_CANARY');
+        expect(
+          await db.select().from(aiAuditLog).where(eq(aiAuditLog.tenantId, tenantId))
+        ).toHaveLength(0);
+        expect(
+          await db
+            .select()
+            .from(aiBudgetReservations)
+            .where(eq(aiBudgetReservations.tenantId, tenantId))
+        ).toMatchObject([{ tenantId, state: 'pending', auditLogId: null }]);
+        // Until the orphan TTL elapses the unsettled admission reads as in flight.
+        await expectThrow(
+          completeAI({ db, tenantId, siteId, userId }, baseInput, () => buildMockProvider()),
+          'AI_BUDGET_BUSY'
+        );
+      } finally {
+        db.run(sql`DROP TRIGGER fail_completion_audit`);
+      }
+    }
+  );
+
+  it.each(['factory', 'isConfigured', 'languageModel', 'cacheControlForSystemPrompt'] as const)(
+    'sanitizes a throwing %s hook before reserving or dispatching a provider call',
+    async hook => {
+      const db = getDatabase();
+      await writeAISettings(db, tenantId, { enabled: true, monthlyBudgetUsd: 1 });
+      const privateError = new Error('PREPARATION_SECRET_CANARY provider-key private-payload');
+      let dispatched = false;
+      const model = new MockLanguageModelV4({
+        doGenerate: async () => {
+          dispatched = true;
+          throw new Error('A preparation failure must not dispatch');
+        },
+      });
+      const provider = buildMockProvider({
+        isConfigured: () => {
+          if (hook === 'isConfigured') throw privateError;
+          return true;
+        },
+        languageModel: () => {
+          if (hook === 'languageModel') throw privateError;
+          return model;
+        },
+        cacheControlForSystemPrompt: () => {
+          if (hook === 'cacheControlForSystemPrompt') throw privateError;
+          return undefined;
+        },
+      });
+      let caught: unknown;
+      try {
+        await completeAI({ db, tenantId, siteId, userId }, baseInput, () => {
+          if (hook === 'factory') throw privateError;
+          return provider;
+        });
+      } catch (error) {
+        caught = error;
+      }
+      expect(caught).toBeInstanceOf(TRPCError);
+      expect((caught as TRPCError).code).toBe('BAD_GATEWAY');
+      expect((caught as TRPCError).message).toBe('AI provider call failed');
+      const cause = (caught as TRPCError).cause;
+      expect(cause).toBeInstanceOf(ServerErrorWithCode);
+      expect((cause as ServerErrorWithCode).errorCode).toBe('AI_PROVIDER_ERROR');
+      expect((cause as ServerErrorWithCode).details ?? null).toBeNull();
+      expect(cause).not.toBe(privateError);
+      expect(JSON.stringify(caught)).not.toContain('PREPARATION_SECRET_CANARY');
+      expect(dispatched).toBe(false);
+      expect(await db.select().from(aiBudgetReservations).all()).toHaveLength(0);
+      expect(await db.select().from(aiAuditLog).all()).toHaveLength(0);
+    }
+  );
+
   it('throws AI_DISABLED when ai.enabled is false (default)', async () => {
     const db = getDatabase();
     await expectThrow(
@@ -283,23 +415,23 @@ describe('client.completeAI', () => {
           modelId: 'cached-model',
           doGenerate: async () => ({
             content: [{ type: 'text', text: 'pong' }],
-            finishReason: 'stop',
+            finishReason: { unified: 'stop', raw: 'stop' },
             usage: {
               inputTokens: { total: 100, noCache: 50, cacheRead: 40, cacheWrite: 10 },
-              outputTokens: { total: 20 },
+              outputTokens: { total: 20, text: 20, reasoning: undefined },
             },
             warnings: [],
           }),
           doStream: async () => ({
             stream: simulateReadableStream({
               chunks: [
-                { type: 'text-delta', id: mockId(), delta: 'pong' },
+                { type: 'text-delta', id: 'text-1', delta: 'pong' },
                 {
                   type: 'finish',
-                  finishReason: 'stop',
+                  finishReason: { unified: 'stop', raw: 'stop' },
                   usage: {
                     inputTokens: { total: 100, noCache: 50, cacheRead: 40, cacheWrite: 10 },
-                    outputTokens: { total: 20 },
+                    outputTokens: { total: 20, text: 20, reasoning: undefined },
                   },
                 },
               ],
@@ -334,7 +466,171 @@ describe('client.completeAI', () => {
     expect(rows[0]?.siteId).toBeNull();
   });
 
-  it('records a failure row with cost_usd=0 and AI_PROVIDER_ERROR when the SDK throws', async () => {
+  it('admits only one remote call while another tenant-month call is in flight', async () => {
+    const db = getDatabase();
+    await writeAISettings(db, tenantId, { enabled: true, monthlyBudgetUsd: 0.01 });
+    let enterFirst!: () => void;
+    let finishFirst!: () => void;
+    const firstEntered = new Promise<void>(resolve => {
+      enterFirst = resolve;
+    });
+    const firstGate = new Promise<void>(resolve => {
+      finishFirst = resolve;
+    });
+    let providerCalls = 0;
+    const provider = buildMockProvider({
+      languageModel: () =>
+        new MockLanguageModelV4({
+          provider: 'anthropic',
+          modelId: 'claude-haiku-4-5',
+          doGenerate: async () => {
+            providerCalls += 1;
+            if (providerCalls === 1) {
+              enterFirst();
+              await firstGate;
+            }
+            return {
+              content: [{ type: 'text', text: 'pong' }],
+              finishReason: { unified: 'stop', raw: 'stop' },
+              usage: {
+                inputTokens: { total: 10, noCache: 10, cacheRead: 0, cacheWrite: 0 },
+                outputTokens: { total: 5, text: 5, reasoning: undefined },
+              },
+              warnings: [],
+            };
+          },
+          doStream: async () => {
+            throw new Error('unexpected streaming call');
+          },
+        }),
+    });
+
+    const first = completeAI({ db, tenantId, siteId, userId }, baseInput, () => provider);
+    await firstEntered;
+    try {
+      await expectThrow(
+        completeAI({ db, tenantId, siteId, userId }, baseInput, () => provider),
+        'AI_BUDGET_BUSY'
+      );
+      expect(providerCalls).toBe(1);
+    } finally {
+      finishFirst();
+      await first;
+    }
+    expect(await db.select().from(aiAuditLog).all()).toHaveLength(1);
+  });
+
+  it('lets a dispatched call finish and settle its known cost when the client disconnects', async () => {
+    const db = getDatabase();
+    await writeAISettings(db, tenantId, { enabled: true, monthlyBudgetUsd: 1 });
+    const controller = new AbortController();
+    let enterCall!: () => void;
+    let finishCall!: () => void;
+    const entered = new Promise<void>(resolve => {
+      enterCall = resolve;
+    });
+    const gate = new Promise<void>(resolve => {
+      finishCall = resolve;
+    });
+    let providerSignal: AbortSignal | undefined;
+    const provider = buildMockProvider({
+      languageModel: () =>
+        new MockLanguageModelV4({
+          provider: 'anthropic',
+          modelId: 'claude-haiku-4-5',
+          doGenerate: async ({ abortSignal }) => {
+            providerSignal = abortSignal;
+            enterCall();
+            await gate;
+            return {
+              content: [{ type: 'text', text: 'pong' }],
+              finishReason: { unified: 'stop', raw: 'stop' },
+              usage: {
+                inputTokens: { total: 10, noCache: 10, cacheRead: 0, cacheWrite: 0 },
+                outputTokens: { total: 5, text: 5, reasoning: undefined },
+              },
+              warnings: [],
+            };
+          },
+          doStream: async () => {
+            throw new Error('unexpected streaming call');
+          },
+        }),
+    });
+
+    const call = completeAI(
+      { db, tenantId, siteId, userId, abortSignal: controller.signal },
+      baseInput,
+      () => provider
+    );
+    await entered;
+    controller.abort();
+    // The client signal never reaches the provider; only our own deadline does.
+    expect(providerSignal?.aborted ?? false).toBe(false);
+    finishCall();
+    await expect(call).resolves.toMatchObject({ text: 'pong' });
+    expect(await db.select().from(aiAuditLog).all()).toMatchObject([
+      { costState: 'estimated', errorCode: null },
+    ]);
+    expect(await db.select().from(aiBudgetReservations).all()).toEqual([]);
+  });
+
+  it('does not reserve or dispatch a request cancelled before admission', async () => {
+    const db = getDatabase();
+    await writeAISettings(db, tenantId, { enabled: true, monthlyBudgetUsd: 1 });
+    const controller = new AbortController();
+    controller.abort();
+    let providerCalls = 0;
+    const provider = buildMockProvider({
+      languageModel: () =>
+        new MockLanguageModelV4({
+          provider: 'anthropic',
+          modelId: 'claude-haiku-4-5',
+          doGenerate: async () => {
+            providerCalls += 1;
+            throw new Error('must not dispatch');
+          },
+          doStream: async () => {
+            throw new Error('unexpected streaming call');
+          },
+        }),
+    });
+    await expect(
+      completeAI(
+        { db, tenantId, siteId, userId, abortSignal: controller.signal },
+        baseInput,
+        () => provider
+      )
+    ).rejects.toMatchObject({ name: 'AbortError' });
+    expect(providerCalls).toBe(0);
+    expect(await db.select().from(aiAuditLog).all()).toEqual([]);
+    expect(await db.select().from(aiBudgetReservations).all()).toEqual([]);
+  });
+
+  it.each([
+    { label: '429 rate limit', error: () => apiError(429), notIncurred: true },
+    { label: '401 credentials', error: () => apiError(401), notIncurred: true },
+    { label: '400 invalid request', error: () => apiError(400), notIncurred: true },
+    {
+      label: 'connection refused',
+      error: () =>
+        new TypeError('fetch failed', {
+          cause: Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' }),
+        }),
+      notIncurred: true,
+    },
+    { label: '500 server error', error: () => apiError(500), notIncurred: false },
+    { label: '529 overloaded', error: () => apiError(529), notIncurred: false },
+    { label: '408 timeout', error: () => apiError(408), notIncurred: false },
+    {
+      label: 'reset after dispatch',
+      error: () =>
+        new TypeError('terminated', {
+          cause: Object.assign(new Error('socket hang up'), { code: 'ECONNRESET' }),
+        }),
+      notIncurred: false,
+    },
+  ])('classifies $label as a billed-or-not provider failure', async ({ error, notIncurred }) => {
     const db = getDatabase();
     await writeAISettings(db, tenantId, { enabled: true, monthlyBudgetUsd: 1 });
     await expectThrow(
@@ -345,10 +641,10 @@ describe('client.completeAI', () => {
               provider: 'anthropic',
               modelId: 'claude-haiku-4-5',
               doGenerate: async () => {
-                throw new Error('synthetic provider failure');
+                throw error();
               },
               doStream: async () => {
-                throw new Error('synthetic provider failure');
+                throw new Error('unexpected streaming call');
               },
             }),
         })
@@ -356,9 +652,229 @@ describe('client.completeAI', () => {
       'AI_PROVIDER_ERROR'
     );
     const rows = await db.select().from(aiAuditLog).all();
+    expect(rows).toMatchObject([
+      { costUsd: 0, costState: notIncurred ? 'not_incurred' : 'unknown' },
+    ]);
+    const holds = await db.select().from(aiBudgetReservations).all();
+    if (notIncurred) {
+      expect(holds).toEqual([]);
+      // The released admission serves the next call.
+      await expect(
+        completeAI({ db, tenantId, siteId, userId }, baseInput, () => buildMockProvider())
+      ).resolves.toMatchObject({ text: 'pong' });
+    } else {
+      expect(holds).toMatchObject([{ state: 'unknown', auditLogId: rows[0]?.id }]);
+      await expectThrow(
+        completeAI({ db, tenantId, siteId, userId }, baseInput, () => buildMockProvider()),
+        'AI_BUDGET_EXCEEDED'
+      );
+    }
+  });
+
+  it('does not block a different tenant on the first tenant budget reservation', async () => {
+    const db = getDatabase();
+    await writeAISettings(db, tenantId, { enabled: true, monthlyBudgetUsd: 1 });
+    await writeAISettings(db, tenantOther, { enabled: true, monthlyBudgetUsd: 1 });
+    const reservation = reserveAiBudget(db, tenantId);
+    try {
+      const other = await completeAI(
+        { db, tenantId: tenantOther, siteId: null, userId: null },
+        baseInput,
+        () => buildMockProvider()
+      );
+      expect(other.text).toBe('pong');
+      expect(await db.select().from(aiAuditLog).all()).toHaveLength(1);
+    } finally {
+      await db.delete(aiBudgetReservations).where(eq(aiBudgetReservations.id, reservation.id));
+    }
+  });
+
+  it('records an unknown-cost failure and blocks an unsafe retry after the SDK throws', async () => {
+    const db = getDatabase();
+    await writeAISettings(db, tenantId, { enabled: true, monthlyBudgetUsd: 1 });
+    const secret = 'PRIVATE_CUSTOMER_IN_PROVIDER_ERROR';
+    const failure = await withProviderFailureLog(() =>
+      expectThrow(
+        completeAI({ db, tenantId, siteId, userId }, baseInput, () =>
+          buildMockProvider({
+            languageModel: () =>
+              new MockLanguageModelV4({
+                provider: 'anthropic',
+                modelId: 'claude-haiku-4-5',
+                doGenerate: async () => {
+                  throw new Error(`synthetic provider failure ${secret}`);
+                },
+                doStream: async () => {
+                  throw new Error(`synthetic provider failure ${secret}`);
+                },
+              }),
+          })
+        ),
+        'AI_PROVIDER_ERROR'
+      )
+    );
+    expect(failure.message).toBe('AI provider call failed');
+    expect(failure.message).not.toContain(secret);
+    expectNoPublicDiagnostic(failure, secret);
+    expect((failure.cause as ServerErrorWithCode).details).toBeUndefined();
+    const rows = await db.select().from(aiAuditLog).all();
     expect(rows).toHaveLength(1);
     expect(rows[0]?.errorCode).toBe('AI_PROVIDER_ERROR');
     expect(rows[0]?.costUsd).toBe(0);
+    expect(rows[0]?.costState).toBe('unknown');
+    await expectThrow(
+      completeAI({ db, tenantId, siteId, userId }, baseInput, () => buildMockProvider()),
+      'AI_BUDGET_EXCEEDED'
+    );
+    expect(await db.select().from(aiAuditLog).all()).toHaveLength(1);
+  });
+
+  it.each([
+    { label: 'negative input', input: -1, output: 5, read: 0, write: 0, noCache: 10 },
+    { label: 'infinite input', input: Infinity, output: 5, read: 0, write: 0, noCache: 10 },
+    { label: 'NaN input', input: NaN, output: 5, read: 0, write: 0, noCache: 10 },
+    { label: 'negative output', input: 10, output: -1, read: 0, write: 0, noCache: 10 },
+    { label: 'negative cache read', input: 10, output: 5, read: -1, write: 0, noCache: 10 },
+    { label: 'infinite cache write', input: 10, output: 5, read: 0, write: Infinity, noCache: 10 },
+    { label: 'negative uncached input', input: 10, output: 5, read: 0, write: 0, noCache: -1 },
+  ])('holds unknown cost without pricing malformed usage: $label', async usage => {
+    const db = getDatabase();
+    await writeAISettings(db, tenantId, { enabled: true, monthlyBudgetUsd: 1 });
+    let priced = false;
+    const provider = buildMockProvider({
+      languageModel: () =>
+        new MockLanguageModelV4({
+          doGenerate: async () => ({
+            content: [{ type: 'text', text: 'already dispatched' }],
+            finishReason: { unified: 'stop', raw: 'stop' },
+            usage: {
+              inputTokens: {
+                total: usage.input,
+                noCache: usage.noCache,
+                cacheRead: usage.read,
+                cacheWrite: usage.write,
+              },
+              outputTokens: { total: usage.output, text: usage.output, reasoning: undefined },
+            },
+            warnings: [],
+          }),
+        }),
+      pricing: {
+        models: {},
+        calculateCostUsd: () => {
+          priced = true;
+          return 0.001;
+        },
+      },
+    });
+    await expectThrow(
+      completeAI({ db, tenantId, siteId, userId }, baseInput, () => provider),
+      'AI_PROVIDER_ERROR'
+    );
+    expect(priced).toBe(false);
+    const rows = await db.select().from(aiAuditLog).all();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      tenantId,
+      siteId,
+      userId,
+      costState: 'unknown',
+      costUsd: 0,
+      inputTokens: Number.isFinite(usage.input) && usage.input >= 0 ? usage.input : 0,
+      outputTokens: Number.isFinite(usage.output) && usage.output >= 0 ? usage.output : 0,
+      cacheReadTokens: Number.isFinite(usage.read) && usage.read >= 0 ? usage.read : 0,
+      cacheWriteTokens: Number.isFinite(usage.write) && usage.write >= 0 ? usage.write : 0,
+      errorCode: 'AI_PROVIDER_ERROR',
+    });
+    expect(await db.select().from(aiBudgetReservations).all()).toMatchObject([
+      { tenantId, state: 'unknown', auditLogId: rows[0]?.id },
+    ]);
+    await expectThrow(
+      completeAI({ db, tenantId, siteId, userId }, baseInput, () => buildMockProvider()),
+      'AI_BUDGET_EXCEEDED'
+    );
+    expect(await db.select().from(aiAuditLog).all()).toHaveLength(1);
+  });
+
+  it('keeps provider success auditable when local pricing throws after the billable call', async () => {
+    const db = getDatabase();
+    await writeAISettings(db, tenantId, { enabled: true, monthlyBudgetUsd: 1 });
+    const provider = buildMockProvider({
+      pricing: {
+        models: {},
+        calculateCostUsd: () => {
+          throw new Error('missing price');
+        },
+      },
+    });
+    await expectThrow(
+      completeAI({ db, tenantId, siteId, userId }, baseInput, () => provider),
+      'AI_PROVIDER_ERROR'
+    );
+    const rows = await db.select().from(aiAuditLog).all();
+    expect(rows).toMatchObject([{ costState: 'unknown', errorCode: 'AI_PROVIDER_ERROR' }]);
+    expect(await db.select().from(aiBudgetReservations).all()).toMatchObject([
+      { state: 'unknown', auditLogId: rows[0]?.id },
+    ]);
+  });
+
+  it.each([-1, Infinity, NaN])('holds unknown cost when pricing returns %s', async cost => {
+    const db = getDatabase();
+    await writeAISettings(db, tenantId, { enabled: true, monthlyBudgetUsd: 1 });
+    const provider = buildMockProvider({ pricing: { models: {}, calculateCostUsd: () => cost } });
+    const failure = await expectThrow(
+      completeAI({ db, tenantId, siteId, userId }, baseInput, () => provider),
+      'AI_PROVIDER_ERROR'
+    );
+    expect(failure.message).toBe('AI provider returned unpriceable usage');
+    const rows = await db.select().from(aiAuditLog).all();
+    expect(rows).toMatchObject([
+      {
+        tenantId,
+        inputTokens: 10,
+        outputTokens: 5,
+        costState: 'unknown',
+        costUsd: 0,
+        errorCode: 'AI_PROVIDER_ERROR',
+      },
+    ]);
+    expect(await db.select().from(aiBudgetReservations).all()).toMatchObject([
+      { tenantId, state: 'unknown', auditLogId: rows[0]?.id },
+    ]);
+  });
+
+  it('does not treat a remote success with zero reported usage as free', async () => {
+    const db = getDatabase();
+    await writeAISettings(db, tenantId, { enabled: true, monthlyBudgetUsd: 1 });
+    const provider = buildMockProvider({
+      languageModel: () =>
+        new MockLanguageModelV4({
+          provider: 'anthropic',
+          modelId: 'claude-haiku-4-5',
+          doGenerate: async () => ({
+            content: [{ type: 'text', text: 'pong' }],
+            finishReason: { unified: 'stop', raw: 'stop' },
+            usage: {
+              inputTokens: { total: 0, noCache: 0, cacheRead: 0, cacheWrite: 0 },
+              outputTokens: { total: 0, text: 0, reasoning: undefined },
+            },
+            warnings: [],
+          }),
+          doStream: async () => {
+            throw new Error('unexpected streaming call');
+          },
+        }),
+    });
+    await expectThrow(
+      completeAI({ db, tenantId, siteId, userId }, baseInput, () => provider),
+      'AI_PROVIDER_ERROR'
+    );
+    expect(await db.select().from(aiAuditLog).all()).toMatchObject([
+      { costState: 'unknown', costUsd: 0 },
+    ]);
+    expect(await db.select().from(aiBudgetReservations).all()).toMatchObject([
+      { state: 'unknown' },
+    ]);
   });
 
   it('does not let one tenant see another tenant spend during budget pre-check', async () => {

@@ -56,6 +56,7 @@ export interface CopilotSQLResult {
 
 export interface CopilotChatResult extends CopilotSQLResult {
   answer: string;
+  queries: CopilotSQLResult[];
   responseMode: CopilotResponseMode;
   costUsd: number;
   durationMs: number;
@@ -82,4 +83,6 @@ export interface UsageShape {
 export interface CopilotRunOptions {
   factory?: ProviderFactory;
   now?: Date;
+  /** Authorized call-time site IDs already checked for quota by the router. */
+  scopeSiteIds?: string[];
 }

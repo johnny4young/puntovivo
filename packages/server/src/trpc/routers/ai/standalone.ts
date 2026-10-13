@@ -3,8 +3,10 @@
  *
  * `ai.usage` / `ai.usageByBreakdown` (admin) audit reads, the legacy
  * `ai.extractInvoiceLines` + `ai.matchInvoiceLines` invoice surfaces, the
- * `ai.transcribeAudio` + `ai.parseCartCommand` voice flows, and the
- * `ai.completeTest` end-to-end smoke. Spread into the router barrel.
+ * `ai.transcribeAudio` + `ai.parseCartCommand` voice flows, the
+ * `ai.completeTest` end-to-end smoke, and the admin
+ * `ai.reconcileBudgetHold` recovery for unknown-cost AI calls. Spread into
+ * the router barrel.
  *
  * @module trpc/routers/ai/standalone
  */
@@ -21,9 +23,11 @@ import {
 } from '../../../services/ai/vision/index.js';
 import { parseVoiceCartCommand, transcribeAudio } from '../../../services/ai/voice/index.js';
 import { requireAiQuotaAvailable } from '../../../services/ai/quotas.js';
-import { aiBreakdownInput, aiUsageInput } from '../../schemas/ai.js';
+import { reconcileAiBudgetHold } from '../../../services/ai/budget.js';
+import { aiBreakdownInput, aiReconcileBudgetHoldInput, aiUsageInput } from '../../schemas/ai.js';
 import { extractInvoiceLinesInput, matchInvoiceLinesInput } from '../../schemas/ai-vision.js';
 import { parseCartCommandInput, transcribeAudioInput } from '../../schemas/ai-voice.js';
+import { withClientAbortSignal } from '../../request-abort.js';
 
 export const standaloneProcedures = {
   usage: adminProcedure.input(aiUsageInput).query(async ({ ctx, input }) => {
@@ -49,7 +53,7 @@ export const standaloneProcedures = {
    */
   extractInvoiceLines: managerOrAdminProcedure
     .input(extractInvoiceLinesInput)
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ ctx, input, signal }) => {
       const userId = ctx.user?.id ?? null;
       // legacy OCR still writes `feature: invoiceOcr`
       // audit rows, so it must share the same per-site quota gate as
@@ -62,17 +66,20 @@ export const standaloneProcedures = {
           feature: 'invoiceOcr',
         });
       }
-      const result = await extractInvoiceFromImage(
-        {
-          db: ctx.db,
-          tenantId: ctx.tenantId,
-          siteId: ctx.siteId,
-          userId,
-        },
-        {
-          imageBase64: input.imageBase64,
-          mimeType: input.mimeType,
-        }
+      const result = await withClientAbortSignal(signal, abortSignal =>
+        extractInvoiceFromImage(
+          {
+            db: ctx.db,
+            tenantId: ctx.tenantId,
+            siteId: ctx.siteId,
+            userId,
+            abortSignal,
+          },
+          {
+            imageBase64: input.imageBase64,
+            mimeType: input.mimeType,
+          }
+        )
       );
       return {
         invoice: result.invoice,
@@ -126,30 +133,33 @@ export const standaloneProcedures = {
    */
   transcribeAudio: cashierManagerOrAdminProcedureWithModule('semantic-search')
     .input(transcribeAudioInput)
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ ctx, input, signal }) => {
       const userId = ctx.user?.id ?? null;
-      const result = await transcribeAudio(
-        {
-          db: ctx.db,
-          tenantId: ctx.tenantId,
-          siteId: ctx.siteId,
-          userId,
-        },
-        {
-          audioBase64: input.audioBase64,
-          mimeType: input.mimeType,
-        }
-      );
-      return {
-        transcript: result.transcript,
-        language: result.language,
-        audioDurationSeconds: result.audioDurationSeconds,
-        costUsd: result.costUsd,
-        durationMs: result.durationMs,
-        provider: result.provider,
-        model: result.model,
-        auditLogId: result.auditLogId,
-      };
+      return withClientAbortSignal(signal, async abortSignal => {
+        const result = await transcribeAudio(
+          {
+            db: ctx.db,
+            tenantId: ctx.tenantId,
+            siteId: ctx.siteId,
+            userId,
+            ...(abortSignal !== undefined ? { abortSignal } : {}),
+          },
+          {
+            audioBase64: input.audioBase64,
+            mimeType: input.mimeType,
+          }
+        );
+        return {
+          transcript: result.transcript,
+          language: result.language,
+          audioDurationSeconds: result.audioDurationSeconds,
+          costUsd: result.costUsd,
+          durationMs: result.durationMs,
+          provider: result.provider,
+          model: result.model,
+          auditLogId: result.auditLogId,
+        };
+      });
     }),
 
   /**
@@ -196,27 +206,30 @@ export const standaloneProcedures = {
    * row, returns the model output. Backs the AI Settings card's
    * "Test connection" button.
    */
-  completeTest: adminProcedure.mutation(async ({ ctx }) => {
+  completeTest: adminProcedure.mutation(async ({ ctx, signal }) => {
     // adminProcedure → tenantProcedure → protectedProcedure rejects
     // unauthenticated callers, but the middleware-chain narrowing
     // does not propagate to this handler's ctx type. Defensive guard
     // keeps TypeScript happy and produces a clearer 500 if the chain
     // is ever rewired.
     const userId = ctx.user?.id ?? null;
-    const result = await completeAI(
-      {
-        db: ctx.db,
-        tenantId: ctx.tenantId,
-        siteId: ctx.siteId,
-        userId,
-      },
-      {
-        feature: 'completeTest',
-        system:
-          'You are the connection-test endpoint of the Puntovivo POS. Reply with a one-line confirmation.',
-        prompt: 'Reply with the single word: pong',
-        maxOutputTokens: 32,
-      }
+    const result = await withClientAbortSignal(signal, abortSignal =>
+      completeAI(
+        {
+          db: ctx.db,
+          tenantId: ctx.tenantId,
+          siteId: ctx.siteId,
+          userId,
+          ...(abortSignal ? { abortSignal } : {}),
+        },
+        {
+          feature: 'completeTest',
+          system:
+            'You are the connection-test endpoint of the Puntovivo POS. Reply with a one-line confirmation.',
+          prompt: 'Reply with the single word: pong',
+          maxOutputTokens: 32,
+        }
+      )
     );
     return {
       text: result.text,
@@ -226,4 +239,18 @@ export const standaloneProcedures = {
       model: result.model,
     };
   }),
+
+  /**
+   * Book the provider-billed cost of the month's unknown-cost AI calls and
+   * release the tenant's AI admission hold. Admin-only and recorded in the
+   * tenant audit chain; a live in-flight call is never released.
+   */
+  reconcileBudgetHold: adminProcedure.input(aiReconcileBudgetHoldInput).mutation(({ ctx, input }) =>
+    reconcileAiBudgetHold(ctx.db, {
+      tenantId: ctx.tenantId,
+      actorId: ctx.user!.id,
+      costUsd: input.costUsd,
+      note: input.note,
+    })
+  ),
 };

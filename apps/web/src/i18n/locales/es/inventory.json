@@ -600,6 +600,7 @@
       "paused": "Promoción pausada -{{pct}}%",
       "archived": "Promoción archivada -{{pct}}%"
     },
+    "invalidZone": "Ajusta la zona horaria en Empresa.",
     "promotionLookupError": "No se pudieron verificar las promociones por vencimiento aprobadas. Las acciones permanecen bloqueadas para evitar ofertas duplicadas.",
     "dismiss": "Descartar",
     "search": "Buscar producto...",

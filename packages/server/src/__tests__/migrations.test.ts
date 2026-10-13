@@ -507,6 +507,7 @@ describe('Versioned Drizzle migrations', () => {
       '0060_slimy_silver_centurion',
       '0061_bent_masque',
       '0062_wakeful_jack_murdock',
+      '0092_ai_copilot_scope_sites',
       '0063_clever_maddog',
     ]) {
       const migration = readExpectedMigrations().find(entry => entry.tag === tag);

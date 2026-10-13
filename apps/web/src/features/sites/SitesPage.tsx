@@ -46,9 +46,18 @@ export function SitesPage() {
     { enabled: !!siteForLocations?.id }
   );
 
+  const invalidateSiteReads = async () => {
+    // Site availability changes the guide even when no active site is selected.
+    // Readiness is recomputed server-side across many signals and is active in
+    // the global status strip here, so mark it stale without blocking the
+    // modal close and toast on that refetch.
+    void utils.setupReadiness.get.invalidate();
+    await utils.sites.list.invalidate();
+  };
+
   const createMutation = trpc.sites.create.useMutation({
     onSuccess: async () => {
-      await utils.sites.list.invalidate();
+      await invalidateSiteReads();
       handleCloseModal();
       toast.success({ title: t('sites.toast.created') });
     },
@@ -57,7 +66,7 @@ export function SitesPage() {
 
   const updateMutation = trpc.sites.update.useMutation({
     onSuccess: async () => {
-      await utils.sites.list.invalidate();
+      await invalidateSiteReads();
       handleCloseModal();
       toast.success({ title: t('sites.toast.updated') });
     },
@@ -66,7 +75,7 @@ export function SitesPage() {
 
   const deleteMutation = trpc.sites.delete.useMutation({
     onSuccess: async () => {
-      await utils.sites.list.invalidate();
+      await invalidateSiteReads();
       setSiteToDelete(null);
       toast.success({ title: t('sites.toast.deleted') });
     },

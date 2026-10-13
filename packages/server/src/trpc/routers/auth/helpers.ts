@@ -9,6 +9,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { REFRESH_COOKIE_NAME } from '../../../security/authTokens.js';
 import { shouldUseSecureCookies } from '../../../security/cookies.js';
+import { setSessionCsrfCookie } from '../../../security/csrf.js';
 
 const REFRESH_TOKEN_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
 
@@ -28,4 +29,27 @@ export function setRefreshCookie(
     path: '/',
     maxAge: REFRESH_TOKEN_MAX_AGE_SECONDS,
   });
+}
+
+/**
+ * Replace the CSRF companion with one bound to a newly issued refresh family.
+ * Every path that issues a new family (login, staff handoff, legacy upgrade)
+ * must call this next to `setRefreshCookie`.
+ */
+export function setSessionCsrfCookieForFamily(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  user: { id: string; tenantId: string; sessionVersion: number },
+  familyId: string
+): void {
+  setSessionCsrfCookie(
+    request,
+    reply,
+    request.server.mintSessionCsrfToken({
+      familyId,
+      tenantId: user.tenantId,
+      userId: user.id,
+      sessionVersion: user.sessionVersion,
+    })
+  );
 }

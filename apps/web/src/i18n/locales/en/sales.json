@@ -23,17 +23,15 @@
     "chargeSite": "Charging site",
     "noSite": "No site selected",
     "shortcuts": "Shortcuts",
-    "shortcutsHint": "`Alt+P` search, `Alt+C` quantity, `Alt+D` discount, `Alt+U` unit in dialog",
     "chargeSale": "Charge sale",
     "hubGatedHint": "Sale completion is paused until the store hub is reachable again. Verify the hub is on and connected.",
     "addProduct": "Add product",
     "activeSite": "Active site",
     "activeSiteHint": "The selected site controls sequential numbering and stock validation.",
     "noSiteWarning": "Select an active site before charging so the correct sequential and stock scope are used.",
-    "keyboardHint": "Keyboard-first workflow: `F5` catalog, `F1` charge, `Delete` remove current line",
     "addToCart": "Add to cart",
     "itemCount": "Items",
-    "searchHint": "Search reuses the existing catalog dialog with unit selection and stock-aware validation.",
+    "searchHint": "Scan a barcode or search by name or SKU to add a product.",
     "activeTicket": "Active ticket",
     "currentCart": "Current cart",
     "adjustHint": "Adjust quantities, discounts, and totals before sending the sale to payment.",
@@ -49,23 +47,20 @@
       "tier2Title": "Price 2",
       "tier3Title": "Price 3"
     },
-    "lastScanned": "Last scanned",
-    "lastScannedHint_one": "{{count}} item in cart · review total",
-    "lastScannedHint_other": "{{count}} items in cart · review total",
-    "quickSuggestionKicker": "Quick suggestion",
-    "suggestionScan": "Scan product",
-    "suggestionBarcode": "Paste barcode",
-    "suggestionSearch": "Search SKU",
-    "suggestionWaiting": "Waiting…",
-    "quickSuggestionHelper": "Catalog-based suggestions surface here when wired.",
     "shortcut": {
       "search": "Search",
       "suspend": "Suspend",
       "resume": "Resume",
       "charge": "Charge",
-      "fastCash": "Fast cash"
+      "fastCash": "Fast cash",
+      "quantity": "Quantity",
+      "discount": "Discount",
+      "unitInDialog": "Unit in dialog"
     },
-    "itemsWithCount": "Items ({{value}})"
+    "itemsWithCount": "Items ({{value}})",
+    "cartSummary": "Cart summary",
+    "cartSummaryHint_one": "{{count}} item in cart · review total",
+    "cartSummaryHint_other": "{{count}} items in cart · review total"
   },
   "cart": {
     "empty": "Search and add products to start a sale.",
@@ -533,9 +528,12 @@
     "ready": "Scanner ready",
     "placeholder": "Scan barcode or type SKU / name",
     "search": "Search",
-    "hint": "`Alt+P` focus search, `F5` open catalog, `F1` charge.",
     "lockedState": "Product editing locked",
-    "lockedHint": "Product search and scanner input are disabled for this locked ticket. Continue with the permitted checkout actions."
+    "lockedHint": "Product search and scanner input are disabled for this locked ticket. Continue with the permitted checkout actions.",
+    "shortcut": {
+      "focusSearch": "Focus search",
+      "openCatalog": "Open catalog"
+    }
   },
   "paymentStatus": {
     "pending": "Pending",

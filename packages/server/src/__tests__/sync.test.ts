@@ -13,6 +13,7 @@ import { TRPCError } from '@trpc/server';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import {
+  appSettings,
   companies,
   inventoryLots,
   products,
@@ -22,10 +23,11 @@ import {
   tenants,
   users,
 } from '../db/schema.js';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { hash } from 'argon2';
 import { nanoid } from 'nanoid';
 import { appRouter } from '../trpc/router.js';
+import { getLastSyncKey, saveLastSyncAt } from '../trpc/routers/sync/helpers.js';
 import type { Context } from '../trpc/context.js';
 
 let server: PuntovivoServer;
@@ -121,6 +123,10 @@ describe('Sync tRPC Router', () => {
 
     await db.delete(syncConflicts).where(eq(syncConflicts.tenantId, testTenantId)).run();
     await db.delete(syncOutbox).where(eq(syncOutbox.tenantId, testTenantId)).run();
+    await db
+      .delete(appSettings)
+      .where(eq(appSettings.key, getLastSyncKey(testTenantId)))
+      .run();
   });
 
   afterAll(async () => {
@@ -136,6 +142,52 @@ describe('Sync tRPC Router', () => {
       role,
       tenantId: testTenantId,
     });
+
+  function contextWithInterleavedPushBatch(id: string, onRead: () => void): Context {
+    const context = userCtx();
+    let intercepted = false;
+    function interceptAll<T extends object>(query: T): T {
+      return new Proxy(query, {
+        get(target, property, receiver) {
+          const value = Reflect.get(target, property, receiver);
+          if (typeof value !== 'function') return value;
+          if (property === 'all') {
+            return async (...args: unknown[]) => {
+              const rows: unknown = await Reflect.apply(value, target, args);
+              if (
+                !intercepted &&
+                Array.isArray(rows) &&
+                rows.some(row => row !== null && typeof row === 'object' && row.id === id)
+              ) {
+                intercepted = true;
+                onRead();
+              }
+              return rows;
+            };
+          }
+          return (...args: unknown[]) => {
+            const result: unknown = Reflect.apply(value, target, args);
+            return result !== null && typeof result === 'object' ? interceptAll(result) : result;
+          };
+        },
+      });
+    }
+    const racedDb = new Proxy(context.db, {
+      get(target, property, receiver) {
+        const value = Reflect.get(target, property, receiver);
+        if (property === 'select' && typeof value === 'function') {
+          return (...args: unknown[]) => {
+            const builder: unknown = Reflect.apply(value, target, args);
+            return builder !== null && typeof builder === 'object'
+              ? interceptAll(builder)
+              : builder;
+          };
+        }
+        return typeof value === 'function' ? value.bind(target) : value;
+      },
+    });
+    return { ...context, db: racedDb };
+  }
 
   async function insertSyncProduct(entityId: string, name = 'Sync Product') {
     const now = new Date().toISOString();
@@ -308,6 +360,300 @@ describe('Sync tRPC Router', () => {
   });
 
   describe('sync.push', () => {
+    it.each(['synced', 'deleted'] as const)(
+      'does not process a row %s after batch selection',
+      async transition => {
+        const db = getDatabase();
+        const entityId = nanoid();
+        const queued = await enqueueSync(
+          { db, tenantId: testTenantId },
+          {
+            entityType: 'products',
+            entityId,
+            operation: 'update',
+            data: { id: entityId },
+          }
+        );
+        let completedAfterRead = false;
+        const context = contextWithInterleavedPushBatch(queued.id, () => {
+          completedAfterRead = true;
+          const scope = and(eq(syncOutbox.id, queued.id), eq(syncOutbox.tenantId, testTenantId));
+          if (transition === 'deleted') {
+            db.delete(syncOutbox).where(scope).run();
+          } else {
+            db.update(syncOutbox).set({ status: 'synced' }).where(scope).run();
+          }
+        });
+        const caller = appRouter.createCaller(context);
+        const result = await caller.sync.push({ limit: 50 });
+        expect(completedAfterRead).toBe(true);
+        const row = await db.select().from(syncOutbox).where(eq(syncOutbox.id, queued.id)).get();
+        if (transition === 'deleted') expect(row).toBeUndefined();
+        else expect(row?.status).toBe('synced');
+        expect(result.synced).toBe(0);
+        expect(result.processedIds).toEqual([]);
+        expect(result.lastSyncAt).toBeNull();
+        expect(result.conflictIds).toEqual([]);
+      }
+    );
+
+    it('uses a coalesced payload even when its timestamp remains in the same millisecond', async () => {
+      const db = getDatabase();
+      const entityId = nanoid();
+      const queued = await enqueueSync(
+        { db, tenantId: testTenantId },
+        {
+          entityType: 'products',
+          entityId,
+          operation: 'update',
+          data: { id: entityId, revision: 1 },
+        }
+      );
+      const original = await db.select().from(syncOutbox).where(eq(syncOutbox.id, queued.id)).get();
+      if (!original) throw new Error('Expected queued outbox row');
+
+      let coalescedAfterRead = false;
+      const context = contextWithInterleavedPushBatch(queued.id, () => {
+        coalescedAfterRead = true;
+        db.update(syncOutbox)
+          .set({ payload: { id: entityId, revision: 2 }, updatedAt: original.updatedAt })
+          .where(and(eq(syncOutbox.id, queued.id), eq(syncOutbox.tenantId, testTenantId)))
+          .run();
+      });
+      const result = await appRouter.createCaller(context).sync.push({ limit: 50 });
+      expect(coalescedAfterRead).toBe(true);
+      expect(result.conflictIds).toHaveLength(1);
+      const conflict = await db
+        .select()
+        .from(syncConflicts)
+        .where(eq(syncConflicts.id, result.conflictIds[0]!))
+        .get();
+      expect(conflict?.localData).toMatchObject({ id: entityId, revision: 2 });
+    });
+
+    it('rolls back entity metadata when the outbox completion write fails', async () => {
+      const db = getDatabase();
+      const productId = nanoid();
+      const now = new Date().toISOString();
+      await db.insert(products).values({
+        id: productId,
+        tenantId: testTenantId,
+        name: 'Rollback Sync Product',
+        sku: `sync-${nanoid(6)}`,
+        syncStatus: 'pending',
+        syncVersion: 0,
+        createdAt: now,
+        updatedAt: now,
+      });
+      const queued = await enqueueSync(
+        { db, tenantId: testTenantId },
+        {
+          entityType: 'products',
+          entityId: productId,
+          operation: 'update',
+          data: { id: productId },
+        }
+      );
+      db.run(
+        sql.raw(`CREATE TEMP TRIGGER reject_sync_completion
+        BEFORE UPDATE OF status ON sync_outbox
+        WHEN NEW.id = '${queued.id}' AND NEW.status = 'synced'
+        BEGIN SELECT RAISE(ABORT, 'forced sync completion failure'); END`)
+      );
+
+      try {
+        const caller = appRouter.createCaller(userCtx());
+        await expect(caller.sync.push({ limit: 50 })).rejects.toThrow();
+        const product = await db.select().from(products).where(eq(products.id, productId)).get();
+        const row = await db.select().from(syncOutbox).where(eq(syncOutbox.id, queued.id)).get();
+        expect(product).toMatchObject({ syncStatus: 'pending', syncVersion: 0 });
+        expect(row?.status).toBe('queued');
+      } finally {
+        db.run(sql.raw('DROP TRIGGER reject_sync_completion'));
+      }
+    });
+
+    it('rolls back a new conflict when marking the outbox failure is rejected', async () => {
+      const db = getDatabase();
+      const entityId = nanoid();
+      const queued = await enqueueSync(
+        { db, tenantId: testTenantId },
+        { entityType: 'products', entityId, operation: 'update', data: { id: entityId } }
+      );
+      const before = db.select().from(syncOutbox).where(eq(syncOutbox.id, queued.id)).get();
+      db.run(
+        sql.raw(`CREATE TEMP TRIGGER reject_sync_failure
+        BEFORE UPDATE OF status ON sync_outbox
+        WHEN NEW.id = '${queued.id}' AND NEW.status = 'retrying'
+        BEGIN SELECT RAISE(ABORT, 'forced sync failure write'); END`)
+      );
+      try {
+        await expect(appRouter.createCaller(userCtx()).sync.push({ limit: 50 })).rejects.toThrow();
+        expect(db.select().from(syncOutbox).where(eq(syncOutbox.id, queued.id)).get()).toEqual(
+          before
+        );
+        expect(
+          db
+            .select()
+            .from(syncConflicts)
+            .where(
+              and(eq(syncConflicts.tenantId, testTenantId), eq(syncConflicts.entityId, entityId))
+            )
+            .all()
+        ).toEqual([]);
+        expect(
+          db
+            .select()
+            .from(appSettings)
+            .where(eq(appSettings.key, getLastSyncKey(testTenantId)))
+            .get()
+        ).toBeUndefined();
+      } finally {
+        db.run(sql.raw('DROP TRIGGER reject_sync_failure'));
+      }
+    });
+
+    it.each(['INSERT', 'UPDATE'] as const)(
+      'rolls back completion when last sync %s fails',
+      async action => {
+        const db = getDatabase();
+        const productId = nanoid();
+        const now = new Date().toISOString();
+        await db.insert(products).values({
+          id: productId,
+          tenantId: testTenantId,
+          name: 'Last Sync Rollback Product',
+          sku: `sync-${nanoid(6)}`,
+          syncStatus: 'pending',
+          syncVersion: 0,
+          createdAt: now,
+          updatedAt: now,
+        });
+        const queued = await enqueueSync(
+          { db, tenantId: testTenantId },
+          {
+            entityType: 'products',
+            entityId: productId,
+            operation: 'update',
+            data: { id: productId },
+          }
+        );
+        const key = getLastSyncKey(testTenantId);
+        if (action === 'UPDATE') {
+          db.insert(appSettings)
+            .values({ key, value: '2020-01-01T00:00:00.000Z', updatedAt: now })
+            .run();
+        }
+        const before = await db.select().from(appSettings).where(eq(appSettings.key, key)).get();
+        db.run(
+          sql.raw(`CREATE TEMP TRIGGER reject_last_sync_update
+        BEFORE ${action} ON app_settings
+        WHEN NEW.key = '${key}'
+        BEGIN SELECT RAISE(ABORT, 'forced last sync failure'); END`)
+        );
+
+        try {
+          await expect(
+            appRouter.createCaller(userCtx()).sync.push({ limit: 50 })
+          ).rejects.toThrow();
+          const product = await db.select().from(products).where(eq(products.id, productId)).get();
+          const row = await db.select().from(syncOutbox).where(eq(syncOutbox.id, queued.id)).get();
+          const after = await db.select().from(appSettings).where(eq(appSettings.key, key)).get();
+          expect(product).toMatchObject({ syncStatus: 'pending', syncVersion: 0 });
+          expect(row?.status).toBe('queued');
+          expect(after).toEqual(before);
+        } finally {
+          db.run(sql.raw('DROP TRIGGER reject_last_sync_update'));
+        }
+      }
+    );
+
+    it('ignores another tenant conflict and leaves its outbox and marker unchanged', async () => {
+      const db = getDatabase();
+      const foreignTenantId = nanoid();
+      const entityId = nanoid();
+      const now = new Date().toISOString();
+      await db.insert(tenants).values({
+        id: foreignTenantId,
+        name: 'Foreign sync tenant',
+        slug: `foreign-${nanoid()}`,
+        settings: {},
+        createdAt: now,
+        updatedAt: now,
+      });
+      await insertSyncProduct(entityId);
+      const queued = await enqueueSync(
+        { db, tenantId: testTenantId },
+        {
+          entityType: 'products',
+          entityId,
+          operation: 'update',
+          data: { id: entityId },
+        }
+      );
+      const foreign = await enqueueSync(
+        { db, tenantId: foreignTenantId },
+        {
+          entityType: 'products',
+          entityId,
+          operation: 'update',
+          data: { id: entityId },
+        }
+      );
+      const conflictId = nanoid();
+      await db.insert(syncConflicts).values({
+        id: conflictId,
+        tenantId: foreignTenantId,
+        entityType: 'products',
+        entityId,
+        localData: { id: entityId },
+        remoteData: {},
+        status: 'pending',
+        createdAt: now,
+      });
+      const before = db.select().from(syncOutbox).where(eq(syncOutbox.id, foreign.id)).get();
+      try {
+        const result = await appRouter.createCaller(userCtx()).sync.push({ limit: 50 });
+        expect(result.processedIds).toEqual([queued.id]);
+        expect(result.conflictIds).toEqual([]);
+        expect(result.synced).toBe(1);
+        expect(db.select().from(syncOutbox).where(eq(syncOutbox.id, foreign.id)).get()).toEqual(
+          before
+        );
+        expect(
+          db.select().from(syncConflicts).where(eq(syncConflicts.id, conflictId)).get()
+        ).toMatchObject({ status: 'pending' });
+        expect(
+          db
+            .select()
+            .from(appSettings)
+            .where(eq(appSettings.key, getLastSyncKey(foreignTenantId)))
+            .get()
+        ).toBeUndefined();
+      } finally {
+        db.delete(syncConflicts).where(eq(syncConflicts.tenantId, foreignTenantId)).run();
+        db.delete(syncOutbox).where(eq(syncOutbox.tenantId, foreignTenantId)).run();
+        db.delete(appSettings)
+          .where(eq(appSettings.key, getLastSyncKey(foreignTenantId)))
+          .run();
+        db.delete(tenants).where(eq(tenants.id, foreignTenantId)).run();
+      }
+    });
+
+    it('does not regress the last-sync marker when an older timestamp commits later', async () => {
+      const db = getDatabase();
+      const newer = '2099-01-02T00:00:00.000Z';
+      const older = '2099-01-01T00:00:00.000Z';
+      db.transaction(() => saveLastSyncAt(db, testTenantId, newer), { behavior: 'immediate' });
+      db.transaction(() => saveLastSyncAt(db, testTenantId, older), { behavior: 'immediate' });
+      const row = await db
+        .select({ value: appSettings.value })
+        .from(appSettings)
+        .where(eq(appSettings.key, getLastSyncKey(testTenantId)))
+        .get();
+      expect(row?.value).toBe(newer);
+    });
+
     it('processes queued product changes and records the last successful sync', async () => {
       const caller = appRouter.createCaller(userCtx());
       const db = getDatabase();

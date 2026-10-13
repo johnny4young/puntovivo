@@ -12,6 +12,8 @@ test('reconciles signed attendance and no-shows through the embedded backend', a
   const tracker = attachClientIssueTracker(page);
   await signIn(page, 'e2e.admin@local.test');
   await runAttendanceReconciliationJourney(page, {
+    // The fresh template's primary tenant has no locale row; use its fallback.
+    timeZone: 'America/New_York',
     singleFrameAxe: true,
     navigate: route => goToRoute(page, route),
     signIn: email => signIn(page, email),

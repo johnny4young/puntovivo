@@ -79,12 +79,16 @@ export interface VoiceRecorderHook {
   /** Start a recording. Rejects with a `VoiceRecorderError` if mic
    * permission is denied or hardware is missing. */
   start: () => Promise<void>;
-  /** Stop the active recording. Resolves with the captured Blob;
+  /** Stop the active recording. Concurrent calls share its final Blob;
    * rejects if no recording is in flight. */
   stop: () => Promise<Blob>;
   /** Clear the last error + reset state. Does NOT stop a live
-   * recording — call `stop()` first if needed. */
+   * recording — call `stop()` or `cancel()` first if needed. */
   reset: () => void;
+  /** Discard the current capture: release the microphone, reject a
+   * pending `stop()`, never forward the blob, and release a permission
+   * grant that resolves after this call. Safe to call at any time. */
+  cancel: () => void;
 }
 
 export interface VoiceRecorderOptions {
@@ -145,11 +149,17 @@ export function useVoiceRecorder(options: VoiceRecorderOptions = {}): VoiceRecor
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const stopPromiseRef = useRef<Promise<Blob> | null>(null);
   const stopResolverRef = useRef<((blob: Blob) => void) | null>(null);
   const stopRejecterRef = useRef<((err: Error) => void) | null>(null);
   const autoStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoStopTriggeredRef = useRef<boolean>(false);
   const onAutoStopRef = useRef<VoiceRecorderOptions['onAutoStop']>(options.onAutoStop);
+  const mountedRef = useRef(true);
+  const permissionRequestRef = useRef(false);
+  // Bumped by cancel(); a start() whose permission request outlives a
+  // cancel compares generations and releases the late grant.
+  const startGenerationRef = useRef(0);
 
   useEffect(() => {
     onAutoStopRef.current = options.onAutoStop;
@@ -171,6 +181,50 @@ export function useVoiceRecorder(options: VoiceRecorderOptions = {}): VoiceRecor
     }
   }, []);
 
+  // Revoke recorder ownership (so queued events are ignored), release
+  // tracks, and reject any waiting stop(). Returns the revoked recorder.
+  const discardRecording = useCallback(
+    (err: Error, reportError: boolean): MediaRecorder | null => {
+      const recorder = recorderRef.current;
+      clearAutoStop();
+      autoStopTriggeredRef.current = false;
+      chunksRef.current = [];
+      recorderRef.current = null;
+      releaseStream();
+      const reject = stopRejecterRef.current;
+      stopPromiseRef.current = null;
+      stopResolverRef.current = null;
+      stopRejecterRef.current = null;
+      if (mountedRef.current) {
+        setRecording(false);
+        if (reportError) setError({ kind: 'unknown', message: err.message });
+      }
+      reject?.(err);
+      return recorder;
+    },
+    [clearAutoStop, releaseStream]
+  );
+
+  const failRecording = useCallback(
+    (err: Error) => {
+      discardRecording(err, true);
+    },
+    [discardRecording]
+  );
+
+  const cancel = useCallback(() => {
+    startGenerationRef.current += 1;
+    permissionRequestRef.current = false;
+    const recorder = discardRecording(new Error('Recording cancelled'), false);
+    if (recorder && recorder.state !== 'inactive') {
+      try {
+        recorder.stop();
+      } catch {
+        // Tracks were already released; no discarded blob may be forwarded.
+      }
+    }
+  }, [discardRecording]);
+
   const start = useCallback(async () => {
     if (!supported) {
       const next: VoiceRecorderError = {
@@ -180,11 +234,12 @@ export function useVoiceRecorder(options: VoiceRecorderOptions = {}): VoiceRecor
       setError(next);
       throw new Error(next.message);
     }
-    if (recorderRef.current && recorderRef.current.state === 'recording') {
-      // Caller asked to start while a recording is already live; treat
-      // as a no-op rather than spinning up a second recorder.
+    if (recorderRef.current) {
+      // An inactive recorder can still own queued final data/stop events.
+      // Do not replace its stream or result until those events settle.
       return;
     }
+    if (permissionRequestRef.current) return;
     setError(null);
 
     const mimeType = detectSupportedMimeType();
@@ -201,63 +256,82 @@ export function useVoiceRecorder(options: VoiceRecorderOptions = {}): VoiceRecor
     }
 
     let stream: MediaStream;
+    const generation = startGenerationRef.current;
+    const isCurrentStart = () => mountedRef.current && generation === startGenerationRef.current;
+    permissionRequestRef.current = true;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch (err) {
       const classified = classifyGetUserMediaError(err);
-      setError(classified);
+      if (isCurrentStart()) setError(classified);
       throw err instanceof Error ? err : new Error(classified.message);
+    } finally {
+      if (generation === startGenerationRef.current) permissionRequestRef.current = false;
+    }
+
+    // Permission can resolve after the consumer cancelled or unmounted. That
+    // cleanup already ran before this local stream existed, so release the
+    // late grant here instead of starting an orphaned recorder.
+    if (!isCurrentStart()) {
+      for (const track of stream.getTracks()) track.stop();
+      return;
     }
 
     streamRef.current = stream;
     chunksRef.current = [];
 
-    const recorder = new MediaRecorder(stream, { mimeType });
-    recorderRef.current = recorder;
+    // Construction, handler wiring, and start share one failure path: any
+    // throw revokes ownership and releases the freshly granted tracks.
+    try {
+      const recorder = new MediaRecorder(stream, { mimeType });
+      recorderRef.current = recorder;
+
+      recorder.ondataavailable = event => {
+        if (recorderRef.current !== recorder) return;
+        if (event.data && event.data.size > 0) {
+          chunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = () => {
+        if (recorderRef.current !== recorder) return;
+        clearAutoStop();
+        const blob = new Blob(chunksRef.current, { type: mimeType });
+        chunksRef.current = [];
+        releaseStream();
+        recorderRef.current = null;
+        if (mountedRef.current) setRecording(false);
+        const resolve = stopResolverRef.current;
+        const autoStopped = autoStopTriggeredRef.current;
+        autoStopTriggeredRef.current = false;
+        stopPromiseRef.current = null;
+        stopResolverRef.current = null;
+        stopRejecterRef.current = null;
+        if (resolve) {
+          resolve(blob);
+        } else if (autoStopped) {
+          void onAutoStopRef.current?.(blob);
+        }
+      };
+
+      recorder.onerror = event => {
+        if (recorderRef.current !== recorder) return;
+        const err =
+          event instanceof ErrorEvent && event.error instanceof Error
+            ? event.error
+            : new Error('MediaRecorder failed');
+        failRecording(err);
+      };
+
+      recorder.start();
+    } catch (err) {
+      recorderRef.current = null;
+      releaseStream();
+      const classified = classifyGetUserMediaError(err);
+      setError(classified);
+      throw err instanceof Error ? err : new Error(classified.message);
+    }
     setRecordedMimeType(mimeType);
-
-    recorder.ondataavailable = event => {
-      if (event.data && event.data.size > 0) {
-        chunksRef.current.push(event.data);
-      }
-    };
-
-    recorder.onstop = () => {
-      clearAutoStop();
-      const blob = new Blob(chunksRef.current, { type: mimeType });
-      chunksRef.current = [];
-      releaseStream();
-      recorderRef.current = null;
-      setRecording(false);
-      const resolve = stopResolverRef.current;
-      const autoStopped = autoStopTriggeredRef.current;
-      autoStopTriggeredRef.current = false;
-      stopResolverRef.current = null;
-      stopRejecterRef.current = null;
-      if (resolve) {
-        resolve(blob);
-      } else if (autoStopped) {
-        void onAutoStopRef.current?.(blob);
-      }
-    };
-
-    recorder.onerror = event => {
-      clearAutoStop();
-      releaseStream();
-      recorderRef.current = null;
-      setRecording(false);
-      const err =
-        event instanceof ErrorEvent && event.error instanceof Error
-          ? event.error
-          : new Error('MediaRecorder failed');
-      setError({ kind: 'unknown', message: err.message });
-      const reject = stopRejecterRef.current;
-      stopResolverRef.current = null;
-      stopRejecterRef.current = null;
-      if (reject) reject(err);
-    };
-
-    recorder.start();
     setRecording(true);
 
     // Hard cap: stop the recording at the 30-second budget so we
@@ -267,22 +341,34 @@ export function useVoiceRecorder(options: VoiceRecorderOptions = {}): VoiceRecor
     autoStopTimerRef.current = setTimeout(() => {
       if (recorderRef.current && recorderRef.current.state === 'recording') {
         autoStopTriggeredRef.current = true;
-        recorderRef.current.stop();
+        try {
+          recorderRef.current.stop();
+        } catch (err) {
+          failRecording(err instanceof Error ? err : new Error('MediaRecorder stop failed'));
+        }
       }
     }, MAX_TEST_RECORDING_MS);
-  }, [clearAutoStop, releaseStream, supported]);
+  }, [clearAutoStop, failRecording, releaseStream, supported]);
 
   const stop = useCallback((): Promise<Blob> => {
-    if (!recorderRef.current || recorderRef.current.state !== 'recording') {
-      return Promise.reject(new Error('No active recording to stop'));
-    }
-    return new Promise<Blob>((resolve, reject) => {
-      autoStopTriggeredRef.current = false;
+    if (stopPromiseRef.current) return stopPromiseRef.current;
+    const recorder = recorderRef.current;
+    if (!recorder) return Promise.reject(new Error('No active recording to stop'));
+    autoStopTriggeredRef.current = false;
+    const promise = new Promise<Blob>((resolve, reject) => {
       stopResolverRef.current = resolve;
       stopRejecterRef.current = reject;
-      recorderRef.current?.stop();
     });
-  }, []);
+    // Assign before stop(): synchronous test doubles and queued browser events
+    // must settle the same result without overwriting it after onstop runs.
+    stopPromiseRef.current = promise;
+    try {
+      if (recorder.state !== 'inactive') recorder.stop();
+    } catch (err) {
+      failRecording(err instanceof Error ? err : new Error('MediaRecorder stop failed'));
+    }
+    return promise;
+  }, [failRecording]);
 
   const reset = useCallback(() => {
     setError(null);
@@ -292,15 +378,14 @@ export function useVoiceRecorder(options: VoiceRecorderOptions = {}): VoiceRecor
   // Cleanup on unmount: stop the recorder and release the stream so
   // the mic indicator turns off when the operator navigates away.
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
-      clearAutoStop();
-      autoStopTriggeredRef.current = false;
-      if (recorderRef.current && recorderRef.current.state === 'recording') {
-        recorderRef.current.stop();
-      }
-      releaseStream();
+      mountedRef.current = false;
+      // Revoke ownership before stop can deliver events; discard, settle any
+      // waiting caller, and release tracks even if browser stop throws.
+      cancel();
     };
-  }, [clearAutoStop, releaseStream]);
+  }, [cancel]);
 
   return {
     recording,
@@ -310,5 +395,6 @@ export function useVoiceRecorder(options: VoiceRecorderOptions = {}): VoiceRecor
     start,
     stop,
     reset,
+    cancel,
   };
 }

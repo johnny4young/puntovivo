@@ -10,6 +10,7 @@ import {
   employmentContracts,
   employmentContractEvents,
   idempotencyKeys,
+  operationEffects,
   operationEvents,
   syncOutbox,
   users,
@@ -71,6 +72,101 @@ function evidence() {
     audit: db.select().from(auditLogs).all(),
     outbox: db.select().from(syncOutbox).all(),
   };
+}
+
+/** Generic evidence envelopes whose payloads must never carry private compensation. */
+type GenericEvidence = {
+  audit: (typeof auditLogs.$inferSelect)[];
+  outbox: (typeof syncOutbox.$inferSelect)[];
+  keys: (typeof idempotencyKeys.$inferSelect)[];
+  journal: (typeof operationEvents.$inferSelect)[];
+};
+
+/**
+ * Known top-level opaque metadata per channel. Only these named envelope
+ * fields are excluded; nested payloads and any future content columns remain
+ * visible to the disclosure scan.
+ */
+const OPAQUE_METADATA = {
+  audit: [
+    'id',
+    'tenantId',
+    'actorId',
+    'resourceId',
+    'operationId',
+    'contentHash',
+    'prevHash',
+    'chainHash',
+    'redactedAt',
+    'createdAt',
+  ],
+  outbox: [
+    'id',
+    'tenantId',
+    'entityId',
+    'idempotencyKey',
+    'deviceId',
+    'dependsOnOperationId',
+    'operationEventId',
+    'claimToken',
+    'lockedAt',
+    'nextRetryAt',
+    'createdAt',
+    'updatedAt',
+  ],
+  keys: [
+    'id',
+    'tenantId',
+    'deviceId',
+    'idempotencyKey',
+    'requestHash',
+    'lockedAt',
+    'completedAt',
+    'createdAt',
+    'expiresAt',
+  ],
+  journal: [
+    'id',
+    'tenantId',
+    'operationId',
+    'deviceId',
+    'userId',
+    'requestHash',
+    'startedAt',
+    'completedAt',
+    'createdAt',
+  ],
+} as const satisfies {
+  [C in keyof GenericEvidence]: readonly (keyof GenericEvidence[C][number])[];
+};
+const GENERIC_CHANNELS = Object.keys(OPAQUE_METADATA) as (keyof GenericEvidence)[];
+
+/** Exclude only named envelope fields, never nested keys or newly added content. */
+function withoutOpaqueMetadata(row: object, keys: readonly string[]) {
+  const opaque = new Set(keys);
+  return Object.fromEntries(Object.entries(row).filter(([key]) => !opaque.has(key)));
+}
+
+function expectPrivateValuesOutOfGenericEvidence(rows: GenericEvidence) {
+  const generic = JSON.stringify(
+    Object.fromEntries(
+      GENERIC_CHANNELS.map(channel => [
+        channel,
+        rows[channel].map(row => withoutOpaqueMetadata(row, OPAQUE_METADATA[channel])),
+      ])
+    )
+  );
+  for (const secret of [
+    '31987.65',
+    // Minor-unit serialization of the same salary (35000 already covers 3500000).
+    '3198765',
+    '35000',
+    input().reason,
+    input().terms.position,
+    'payAmount',
+    'costingHourlyRate',
+  ])
+    expect(generic).not.toContain(secret);
 }
 
 beforeEach(async () => {
@@ -169,14 +265,9 @@ describe('workforce contracts transport', () => {
     expect(
       current.events.filter(row => row.contractId === replacement.id).map(row => row.kind)
     ).toEqual(['created', 'ended', 'voided']);
-    expect(getDatabase().select().from(idempotencyKeys).all()).toHaveLength(4);
-    expect(
-      getDatabase()
-        .select()
-        .from(idempotencyKeys)
-        .all()
-        .every(row => row.status === 'succeeded')
-    ).toBe(true);
+    const keys = getDatabase().select().from(idempotencyKeys).all();
+    expect(keys).toHaveLength(4);
+    expect(keys.every(row => row.status === 'succeeded')).toBe(true);
     const journal = getDatabase().select().from(operationEvents).all();
     expect(journal).toHaveLength(4);
     expect(journal.every(row => row.status === 'succeeded')).toBe(true);
@@ -184,23 +275,80 @@ describe('workforce contracts transport', () => {
     // journal directly; it does not insert the asynchronous effects projection.
     for (const row of current.outbox)
       expect(journal.map(event => event.id)).toContain(row.operationEventId);
-    const generic = JSON.stringify({
+    // operation_effects.effectData is not part of the scan below; any future
+    // effect written for this flow must be added to the disclosure scan.
+    expect(getDatabase().select().from(operationEffects).all()).toEqual([]);
+    expectPrivateValuesOutOfGenericEvidence({
       audit: current.audit,
       outbox: current.outbox,
-      keys: getDatabase().select().from(idempotencyKeys).all(),
-      journal: getDatabase().select().from(operationEvents).all(),
+      keys,
+      journal,
     });
-    for (const secret of [
-      '31987.65',
-      '35000',
-      input().reason,
-      input().terms.position,
-      'payAmount',
-      'costingHourlyRate',
-    ])
-      expect(generic).not.toContain(secret);
     expect(resolveSyncTransportPolicy('employment_contracts')).toBe('local_only');
     expect(isRemoteSyncApplyBlocked('employment_contracts')).toBe(true);
+  });
+
+  it('ignores opaque envelope collisions but detects salary in every generic payload channel', async () => {
+    await caller().workforce.contracts.create(input());
+    const current = evidence();
+    // Pinned independently of OPAQUE_METADATA so dropping a randomly valued
+    // field from the allowlist makes this collision fail.
+    const rows: GenericEvidence = {
+      audit: current.audit.map(row => ({
+        ...row,
+        operationId: '00000000-0000-4000-8000-000000035000',
+        contentHash: 'a'.repeat(59) + '35000',
+        prevHash: 'b'.repeat(59) + '35000',
+        chainHash: 'c'.repeat(59) + '35000',
+      })),
+      outbox: current.outbox.map(row => ({ ...row, idempotencyKey: 'opaque-35000' })),
+      keys: getDatabase()
+        .select()
+        .from(idempotencyKeys)
+        .all()
+        .map(row => ({ ...row, requestHash: 'd'.repeat(59) + '35000' })),
+      journal: getDatabase()
+        .select()
+        .from(operationEvents)
+        .all()
+        .map(row => ({ ...row, requestHash: 'e'.repeat(59) + '35000' })),
+    };
+    expect(JSON.stringify(rows)).toContain('35000');
+    expectPrivateValuesOutOfGenericEvidence(rows);
+
+    // Negative controls inject the value alone, without a forbidden property
+    // name, into copies of the real persisted rows. No database mutation.
+    const leaked = { nested: { value: input().terms.pay.amount } };
+    // Only the disclosure assertion for the salary itself satisfies a control.
+    const SALARY_DETECTED = /not to (?:contain|include) '31987\.65'/;
+    for (const channel of GENERIC_CHANNELS) {
+      const dirty = {
+        ...rows,
+        [channel]: rows[channel].map(row => ({ ...row, futureContent: leaked })),
+      };
+      expect(() => expectPrivateValuesOutOfGenericEvidence(dirty)).toThrow(SALARY_DETECTED);
+    }
+
+    for (const field of ['before', 'after', 'metadata'] as const) {
+      const dirty = { ...rows, audit: rows.audit.map(row => ({ ...row, [field]: leaked })) };
+      expect(() => expectPrivateValuesOutOfGenericEvidence(dirty)).toThrow(SALARY_DETECTED);
+    }
+    for (const field of ['payload', 'lastError'] as const) {
+      const dirty = { ...rows, outbox: rows.outbox.map(row => ({ ...row, [field]: leaked })) };
+      expect(() => expectPrivateValuesOutOfGenericEvidence(dirty)).toThrow(SALARY_DETECTED);
+    }
+    expect(() =>
+      expectPrivateValuesOutOfGenericEvidence({
+        ...rows,
+        keys: rows.keys.map(row => ({ ...row, resultRef: leaked })),
+      })
+    ).toThrow(SALARY_DETECTED);
+    expect(() =>
+      expectPrivateValuesOutOfGenericEvidence({
+        ...rows,
+        journal: rows.journal.map(row => ({ ...row, summary: leaked })),
+      })
+    ).toThrow(SALARY_DETECTED);
   });
 
   it('rejects a changed salary under a replay key rather than mutating compensation twice', async () => {

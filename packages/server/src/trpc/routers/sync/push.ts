@@ -1,10 +1,9 @@
 /**
- * Sync router — outbox push processing ( split).
+ * Sync router — local outbox push processing.
  *
  * `sync.push` (tenant): process pending `sync_outbox` rows, mark them synced
  * locally, or open a conflict / bump to retrying when the local record is
- * missing or unsupported. Operator-driven; the periodic worker daemon lands in
- * .
+ * missing or unsupported. This is local bookkeeping, not delivery to a remote peer.
  *
  * @module trpc/routers/sync/push
  */
@@ -27,19 +26,12 @@ import {
 export const syncPushProcedures = {
   /**
    * Process pending sync_outbox rows and mark them as synced
-   * locally. Operator-driven; the periodic worker daemon lands in
-   * .
+   * locally; this does not deliver to a remote peer.
    */
   push: tenantProcedure.input(pushSyncInput).mutation(async ({ ctx, input }) => {
     const items = await ctx.db
       .select({
         id: syncOutbox.id,
-        entityType: syncOutbox.entityType,
-        entityId: syncOutbox.entityId,
-        operation: syncOutbox.operation,
-        payload: syncOutbox.payload,
-        attempts: syncOutbox.attempts,
-        priority: syncOutbox.priority,
       })
       .from(syncOutbox)
       .where(
@@ -55,66 +47,84 @@ export const syncPushProcedures = {
     const processedIds: string[] = [];
     const conflictIds: string[] = [];
     const errors: string[] = [];
-    const now = new Date().toISOString();
-
     for (const item of items) {
-      const existingConflictId = await hasPendingConflict(
-        ctx.db,
-        ctx.tenantId,
-        item.entityType,
-        item.entityId
+      // Processing is local SQLite work. An IMMEDIATE writer transaction lets us
+      // recheck the selected row and commit every resulting effect atomically,
+      // without introducing a durable `submitting` claim that needs crash replay.
+      const outcome = ctx.db.transaction(
+        () => {
+          const current = ctx.db
+            .select({
+              status: syncOutbox.status,
+              entityType: syncOutbox.entityType,
+              entityId: syncOutbox.entityId,
+              operation: syncOutbox.operation,
+              payload: syncOutbox.payload,
+            })
+            .from(syncOutbox)
+            .where(and(eq(syncOutbox.id, item.id), eq(syncOutbox.tenantId, ctx.tenantId)))
+            .get();
+          if (!current || (current.status !== 'queued' && current.status !== 'retrying')) {
+            return { kind: 'skipped' } as const;
+          }
+          const now = new Date().toISOString();
+
+          const existingConflictId = hasPendingConflict(
+            ctx.db,
+            ctx.tenantId,
+            current.entityType,
+            current.entityId
+          );
+          if (existingConflictId) {
+            const message = `Pending conflict blocks ${current.entityType}:${current.entityId}`;
+            markOutboxFailure(ctx.db, ctx.tenantId, item.id, message, now);
+            return { kind: 'failure', message, conflictId: existingConflictId } as const;
+          }
+
+          const config = getSyncEntityConfiguration(current.entityType);
+          if (!config) {
+            const message = `Unsupported sync entity type: ${current.entityType}`;
+            markOutboxFailure(ctx.db, ctx.tenantId, item.id, message, now);
+            return { kind: 'failure', message } as const;
+          }
+
+          if (current.operation !== 'delete') {
+            const entity = findEntity(ctx.db, config, ctx.tenantId, current.entityId);
+            if (!entity) {
+              const message = `Unable to sync ${current.entityType}:${current.entityId} because the local record is missing`;
+              const conflictId = ensureSyncConflict(ctx.db, {
+                tenantId: ctx.tenantId,
+                entityType: current.entityType,
+                entityId: current.entityId,
+                localData: (current.payload ?? {}) as Record<string, unknown>,
+                remoteData: {},
+              });
+              markOutboxFailure(ctx.db, ctx.tenantId, item.id, message, now);
+              return { kind: 'failure', message, conflictId } as const;
+            }
+
+            // Raw entity helpers use the root SQLite handle, which shares this
+            // connection's active writer transaction (see sync.resolve).
+            markEntityAsSynced(ctx.db, config, ctx.tenantId, current.entityId, now);
+          }
+
+          ctx.db
+            .update(syncOutbox)
+            .set({ status: 'synced', lastError: null, updatedAt: now })
+            .where(and(eq(syncOutbox.id, item.id), eq(syncOutbox.tenantId, ctx.tenantId)))
+            .run();
+          saveLastSyncAt(ctx.db, ctx.tenantId, now);
+          return { kind: 'processed' } as const;
+        },
+        { behavior: 'immediate' }
       );
 
-      if (existingConflictId) {
-        const message = `Pending conflict blocks ${item.entityType}:${item.entityId}`;
-        await markOutboxFailure(ctx.db, ctx.tenantId, item.id, message);
-        conflictIds.push(existingConflictId);
-        errors.push(message);
-        continue;
+      if (outcome.kind === 'processed') {
+        processedIds.push(item.id);
+      } else if (outcome.kind === 'failure') {
+        errors.push(outcome.message);
+        if ('conflictId' in outcome) conflictIds.push(outcome.conflictId);
       }
-
-      const config = getSyncEntityConfiguration(item.entityType);
-      if (!config) {
-        const message = `Unsupported sync entity type: ${item.entityType}`;
-        await markOutboxFailure(ctx.db, ctx.tenantId, item.id, message);
-        errors.push(message);
-        continue;
-      }
-
-      if (item.operation !== 'delete') {
-        const entity = findEntity(ctx.db, config, ctx.tenantId, item.entityId);
-        if (!entity) {
-          const message = `Unable to sync ${item.entityType}:${item.entityId} because the local record is missing`;
-          const conflictId = await ensureSyncConflict(ctx.db, {
-            tenantId: ctx.tenantId,
-            entityType: item.entityType,
-            entityId: item.entityId,
-            localData: (item.payload ?? {}) as Record<string, unknown>,
-            remoteData: {},
-          });
-          await markOutboxFailure(ctx.db, ctx.tenantId, item.id, message);
-          conflictIds.push(conflictId);
-          errors.push(message);
-          continue;
-        }
-
-        markEntityAsSynced(ctx.db, config, ctx.tenantId, item.entityId, now);
-      }
-
-      await ctx.db
-        .update(syncOutbox)
-        .set({
-          status: 'synced',
-          lastError: null,
-          updatedAt: now,
-        })
-        .where(and(eq(syncOutbox.id, item.id), eq(syncOutbox.tenantId, ctx.tenantId)))
-        .run();
-      processedIds.push(item.id);
-    }
-
-    if (processedIds.length > 0) {
-      await saveLastSyncAt(ctx.db, ctx.tenantId, now);
     }
 
     const overview = await getSyncOverview(ctx.db, ctx.tenantId);

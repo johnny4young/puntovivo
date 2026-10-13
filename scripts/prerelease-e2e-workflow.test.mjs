@@ -35,6 +35,9 @@ test('prerelease command selects exactly the three tagged money flows serially',
   assert.match(command, /--grep @prerelease-money/);
   assert.match(command, /--workers=1/);
   assert.match(command, /--forbid-only/);
+  const build = command.indexOf('pnpm --filter @puntovivo/server run build');
+  assert.notEqual(build, -1, 'prerelease E2E must build the server imported by global setup');
+  assert.ok(build < command.indexOf('playwright test'), 'the build must precede Playwright');
   assert.match(businessSpec, /const PRERELEASE_MONEY_TAG = '@prerelease-money';/);
   assert.equal((businessSpec.match(/tag: PRERELEASE_MONEY_TAG/g) ?? []).length, 3);
 });

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { test } from 'node:test';
 import {
   PACKAGED_RENDERER_ENTRY_URL,
@@ -65,7 +66,7 @@ test('registers a secure standard renderer scheme before app readiness', () => {
 });
 
 test('resolves only assets inside the packaged renderer root', () => {
-  const root = '/Applications/Puntovivo.app/Contents/Resources/dist';
+  const root = resolve('/Applications/Puntovivo.app/Contents/Resources/dist');
   assert.equal(
     resolvePackagedRendererPath(root, PACKAGED_RENDERER_ENTRY_URL),
     join(root, 'index.html')
@@ -82,9 +83,10 @@ test('resolves only assets inside the packaged renderer root', () => {
 test('serves packaged assets through net.fetch and rejects foreign hosts', async () => {
   let handler: ((request: Request) => Promise<Response> | Response) | undefined;
   let fetched = '';
+  const rendererRoot = resolve('/opt/puntovivo/dist');
 
   await installPackagedRendererProtocol({
-    rendererRoot: '/opt/puntovivo/dist',
+    rendererRoot,
     protocol: {
       handle: async (scheme, nextHandler) => {
         assert.equal(scheme, PACKAGED_RENDERER_SCHEME);
@@ -102,7 +104,7 @@ test('serves packaged assets through net.fetch and rejects foreign hosts', async
   assert.ok(handler);
   const response = await handler(new Request('puntovivo-app://app/assets/index.js'));
   assert.equal(await response.text(), 'asset');
-  assert.match(fetched, /^file:\/\/\/opt\/puntovivo\/dist\/assets\/index\.js$/);
+  assert.equal(fetched, pathToFileURL(join(rendererRoot, 'assets', 'index.js')).href);
 
   const rejected = await handler(new Request('puntovivo-app://foreign/index.html'));
   assert.equal(rejected.status, 404);

@@ -436,10 +436,3 @@ declare global {
     api?: DesktopBridgeAPI | undefined;
   }
 }
-
-/**
- * Check if running inside Electron
- */
-export function isElectron(): boolean {
-  return typeof window !== 'undefined' && window.electron !== undefined;
-}

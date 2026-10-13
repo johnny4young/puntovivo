@@ -97,9 +97,20 @@ export async function signIn(page: Page, email: string, password = E2E_PASSWORD)
   await page.reload();
   await expect(emailInput).toBeVisible({ timeout: 30_000 });
 
+  const submit = page.getByRole('button', {
+    name: /enter workspace|entrar al espacio de trabajo/i,
+  });
+  // Reload exposes the form while auth bootstrap still owns its disabled
+  // submit. Establish that boundary before editing the next actor's identity.
+  await expect(submit).toBeEnabled({ timeout: 30_000 });
+  const passwordInput = page.getByRole('textbox', { name: /password/i });
   await emailInput.fill(email);
-  await page.getByRole('textbox', { name: /password/i }).fill(password);
-  await page.getByRole('button', { name: /enter workspace|entrar al espacio de trabajo/i }).click();
+  await passwordInput.fill(password);
+  // Assert the exact actor input before a request; never retry login with a
+  // corrected credential or accept a different identity to hide a fill race.
+  await expect(emailInput).toHaveValue(email);
+  await expect(passwordInput).toHaveValue(password);
+  await submit.click();
 
   // Wait for the post-login redirect to settle before returning. Without this
   // the caller's own navigation races it: the app finishes authenticating,

@@ -1,5 +1,7 @@
 import { createHash } from 'node:crypto';
 
+import { TRPCError } from '@trpc/server';
+
 import { nanoid } from 'nanoid';
 
 import { invoiceUploads } from '../../db/schema.js';
@@ -18,6 +20,12 @@ export const uploadRouter = router({
   uploadInvoice: managerOrAdminProcedure
     .input(uploadInvoiceInput)
     .mutation(async ({ ctx, input }) => {
+      if (!ctx.siteId) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Select an active site before uploading an invoice',
+        });
+      }
       const sizeBytes = decodedByteLength(input.imageBase64);
       if (sizeBytes > INVOICE_OCR_MAX_BYTES) {
         throwServerError({

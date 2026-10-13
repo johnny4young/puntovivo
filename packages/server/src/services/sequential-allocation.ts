@@ -8,9 +8,23 @@
  * expected-value guard so every committed document owns a distinct number.
  */
 import { and, eq } from 'drizzle-orm';
-import type { DatabaseInstance } from '../db/index.js';
+import type { DatabaseInstance } from '../db/types.js';
 import { sequentials } from '../db/schema.js';
 import { throwServerError } from '../lib/errorCodes.js';
+
+type DatabaseTransaction = Parameters<Parameters<DatabaseInstance['transaction']>[0]>[0];
+
+/**
+ * The only Drizzle operations needed while allocating a document number, plus
+ * `rollback`, which only a transaction handle exposes. Requiring it makes the
+ * compiler reject the root connection, so allocation cannot run outside the
+ * caller's write transaction (where the read and the guarded advance could
+ * interleave with another writer's commit).
+ */
+export type SequentialAllocationExecutor = Pick<
+  DatabaseTransaction,
+  'select' | 'update' | 'rollback'
+>;
 
 export interface AllocatedSequential {
   value: number;
@@ -18,7 +32,7 @@ export interface AllocatedSequential {
 }
 
 export function allocateNextSequential(
-  db: DatabaseInstance,
+  db: SequentialAllocationExecutor,
   args: {
     tenantId: string;
     sequentialId: string;

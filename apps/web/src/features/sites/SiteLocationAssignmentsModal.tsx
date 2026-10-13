@@ -105,7 +105,7 @@ export function SiteLocationAssignmentsModal({
 
         <div className="max-h-[360px] space-y-3 overflow-y-auto pr-1">
           {filteredLocations.length === 0 && (
-            <div className="rounded-xl border border-secondary-200 bg-white px-4 py-6 text-center text-sm text-secondary-500">
+            <div className="rounded-xl border border-secondary-200 bg-surface px-4 py-6 text-center text-sm text-secondary-500">
               {t('sites.locations.noMatch')}
             </div>
           )}
@@ -119,7 +119,7 @@ export function SiteLocationAssignmentsModal({
                 className={`flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-4 transition ${
                   isSelected
                     ? 'border-primary-300 bg-primary-50'
-                    : 'border-secondary-200 bg-white hover:border-secondary-300'
+                    : 'border-secondary-200 bg-surface hover:border-secondary-300'
                 }`}
               >
                 <input
@@ -136,7 +136,7 @@ export function SiteLocationAssignmentsModal({
                       {location.code}
                     </span>
                     {!location.isActive && (
-                      <span className="rounded-full bg-warning-100 px-2 py-0.5 text-xs text-warning-800">
+                      <span className="rounded-full bg-warning-50 px-2 py-0.5 text-xs text-warning-700">
                         {t('sites.locations.inactive')}
                       </span>
                     )}

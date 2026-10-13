@@ -1,7 +1,27 @@
 import { defineConfig } from 'vite';
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+
+const serverRequire = createRequire(new URL('../../packages/server/package.json', import.meta.url));
+const pdfWorkerPath = serverRequire.resolve('pdfjs-dist/legacy/build/pdf.worker.mjs');
 
 // https://vitejs.dev/config
 export default defineConfig(({ mode }) => ({
+  plugins: [
+    {
+      name: 'pdfjs-node-worker-asset',
+      generateBundle() {
+        // PDF.js uses a fake worker under Node and imports this exact sibling
+        // filename from its bundled chunk. A server-only dependency is not
+        // available under node_modules in the packaged Electron application.
+        this.emitFile({
+          type: 'asset',
+          fileName: 'pdf.worker.mjs',
+          source: readFileSync(pdfWorkerPath),
+        });
+      },
+    },
+  ],
   // The output is CommonJS, so preserve the standard ESM module URL with the
   // equivalent Node value instead of allowing import.meta to degrade to {}.
   define: {

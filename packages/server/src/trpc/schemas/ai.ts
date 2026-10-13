@@ -49,6 +49,15 @@ export const aiUsageInput = z.object({
   cursor: z.string().min(1).optional(),
 });
 
+/**
+ * Admin reconciliation of unknown-cost AI calls: the amount the provider
+ * actually billed (from its invoice or console) plus a mandatory note.
+ */
+export const aiReconcileBudgetHoldInput = z.object({
+  costUsd: z.number().min(0).max(100_000),
+  note: z.string().trim().min(3).max(500),
+});
+
 export const aiBreakdownInput = z.object({
   scope: z.enum(['site', 'user', 'feature', 'provider']),
   from: z.string().datetime().optional(),

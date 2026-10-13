@@ -15,6 +15,7 @@ import i18n from '@/i18n';
 const toastSuccess = vi.fn();
 const toastError = vi.fn();
 const mutate = vi.fn();
+const invalidateDashboard = vi.fn(async () => undefined);
 const invalidate = vi.fn(async () => undefined);
 
 vi.mock('@/components/feedback/ToastProvider', () => ({
@@ -123,6 +124,7 @@ let mockCurrentLocale = defaultCurrentLocale;
 vi.mock('@/lib/trpc', () => ({
   trpc: {
     useUtils: () => ({
+      dashboard: { summary: { invalidate: invalidateDashboard } },
       tenantLocale: {
         get: { invalidate },
       },
@@ -163,6 +165,17 @@ describe('CompanyLocaleSettingsCard', () => {
     vi.clearAllMocks();
     mockCurrentLocale = defaultCurrentLocale;
     await i18n.changeLanguage('en');
+  });
+
+  it('invalidates dashboard calendar aggregates only after a successful locale save', async () => {
+    render(<CompanyLocaleSettingsCard />);
+    fireEvent.change(screen.getByTestId('locale-country-select'), { target: { value: 'US' } });
+    fireEvent.click(screen.getByTestId('locale-save'));
+    expect(invalidateDashboard).not.toHaveBeenCalled();
+    const [callbacks, variables] = mutate.mock.calls[0]!;
+    await callbacks.onSuccess(undefined, variables);
+    expect(invalidateDashboard).toHaveBeenCalledOnce();
+    expect(toastSuccess).toHaveBeenCalledOnce();
   });
 
   it('renders the card, seeds the picker from the current tenant locale, and shows a live preview', async () => {
