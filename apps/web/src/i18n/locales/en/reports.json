@@ -266,7 +266,7 @@
       "paymentMethods": "Payments",
       "currency": "Currency",
       "fiscalDocument": "Fiscal document",
-      "fiscalCufe": "CUFE",
+      "fiscalCufe": "CUFE/CUDE",
       "fiscalStatus": "Fiscal status"
     },
     "unreconciled": "{{count}} sale(s) have taxes that do not match their lines ({{sales}}). Exporting them would misclassify tax as income; resolve them before exporting.",

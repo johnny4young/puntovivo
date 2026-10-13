@@ -25,7 +25,8 @@ import { PAYMENT_RAIL_IDS } from '../payments/manifest.js';
 /**
  * Resolved fiscal config state for Colombia. `enabled` is the legacy
  * `fiscal_dian_enabled` master flag; `configured` is true once NIT +
- * resolution + a valid numbering range are captured (presence probe).
+ * resolution + a valid numbering range + the DIAN software ID and PIN are
+ * captured (presence probe).
  */
 export interface FiscalConfigState {
   enabled: boolean;

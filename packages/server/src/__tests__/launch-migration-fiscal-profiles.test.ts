@@ -288,6 +288,8 @@ describe(' fiscal profile migration', () => {
       rangeFrom: 1,
       rangeTo: 5000,
       environment: 'habilitacion',
+      softwareId: null,
+      softwarePin: null,
     });
 
     const audit = await db

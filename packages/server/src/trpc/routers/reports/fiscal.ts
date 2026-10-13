@@ -38,6 +38,7 @@ import {
   fiscalNumberingResolutions,
   fiscalOutbox,
   sales,
+  tenants,
 } from '../../../db/schema.js';
 import {
   getFiscalDocumentByCufeInput,
@@ -52,6 +53,7 @@ import { roundMoney } from '../../../lib/money.js';
 import { describeFiscalProvider } from '../../../services/fiscal/registry.js';
 import type { FiscalAdapterMaturity } from '../../../services/fiscal/adapter.js';
 import { getDefaultFiscalWorker } from '../../../services/fiscal/fiscal-worker.js';
+import { refreshBlockedIntentIssuerContract } from '../../../services/fiscal/orchestrator.js';
 
 /**
  * resolve a stored `providerId` to its pack maturity so the
@@ -521,9 +523,12 @@ export const fiscalReportsRouter = router({
 
   /**
    * Explicitly re-arm a pre-document fiscal intent using its frozen payload.
-   * No current tenant setting, provider or numbering resolution is substituted;
-   * materialization validates the frozen resolution again and returns to
-   * `blocked` if the original contract is still unavailable or changed.
+   * No provider or numbering resolution is substituted. Only an intent
+   * blocked by its pack configuration re-reads the issuer contract from the
+   * current settings, so fixing the configuration can unblock it; fiscal
+   * secrets are always read live at emission. Materialization validates the
+   * frozen resolution again and returns to `blocked` if it is still
+   * unavailable or changed.
    */
   retryIntent: adminProcedure
     .input(retryFiscalEmissionIntentInput)
@@ -535,6 +540,8 @@ export const fiscalReportsRouter = router({
             id: fiscalEmissionIntents.id,
             status: fiscalEmissionIntents.status,
             attempts: fiscalEmissionIntents.attempts,
+            payload: fiscalEmissionIntents.payload,
+            lastError: fiscalEmissionIntents.lastError,
           })
           .from(fiscalEmissionIntents)
           .where(
@@ -554,9 +561,22 @@ export const fiscalReportsRouter = router({
         if (row.status === 'materialized' || row.status === 'materializing') {
           return { rearmed: false as const, status: row.status };
         }
+        const liveSettings = (tx
+          .select({ settings: tenants.settings })
+          .from(tenants)
+          .where(eq(tenants.id, ctx.tenantId))
+          .get()?.settings ?? {}) as Record<string, unknown>;
+        const refreshedPayload = refreshBlockedIntentIssuerContract(
+          row.payload,
+          row.lastError,
+          liveSettings
+        );
         const updated = tx
           .update(fiscalEmissionIntents)
           .set({
+            ...(refreshedPayload
+              ? { payload: refreshedPayload as unknown as Record<string, unknown> }
+              : {}),
             status: 'queued',
             attempts: row.status === 'dead_letter' ? 0 : row.attempts,
             nextRetryAt: null,
@@ -581,7 +601,11 @@ export const fiscalReportsRouter = router({
           resourceType: 'fiscal_emission_intent',
           resourceId: row.id,
           before: { status: row.status, attempts: row.attempts },
-          after: { status: 'queued', attempts: row.status === 'dead_letter' ? 0 : row.attempts },
+          after: {
+            status: 'queued',
+            attempts: row.status === 'dead_letter' ? 0 : row.attempts,
+            issuerContractRefreshed: refreshedPayload !== null,
+          },
         });
         return { rearmed: true as const, status: 'queued' as const };
       });

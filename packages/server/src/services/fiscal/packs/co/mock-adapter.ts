@@ -1,18 +1,16 @@
 /**
- * `ColombiaMockAdapter` (formerly `MockAdapter`).
- * moved to `packs/co/` and renamed; the CUFE algorithm
- * encoded by `services/fiscal/cufe.ts` is Colombia-specific, so the
- * old generic name was misleading.  will swap the mock body
- * for `FactureAdapter` / `HkaAdapter` once a Proveedor Tecnológico
- * contract lands; this file remains the Colombia pack entry point.
+ * `ColombiaMockAdapter` (formerly `MockAdapter`). A real Proveedor
+ * Tecnológico adapter will replace the mock body; this file remains the
+ * Colombia pack entry point.
  *
  * Characteristics:
  *
- * - **Deterministic CUFE**: routes through `computeCufe` so the
- * resulting hex string matches what DIAN would compute from the
- * same payload. Re-running the same input produces the same CUFE
- * the orchestrator can rely on the uniqueness index to fail fast
- * when the same sale is emitted twice.
+ * - **Deterministic CUFE / CUDE**: a sales invoice (FEV) gets a CUFE
+ * keyed by the resolution technical key; the POS documento equivalente
+ * (DEE) and every note get a CUDE keyed by the tenant's DIAN software
+ * PIN. Both hash the issuer NIT from `fiscal.co.nit`. Re-running the
+ * same input produces the same code, so the orchestrator can rely on
+ * the uniqueness index to fail fast when a sale is emitted twice.
  * - **No network**: resolves immediately with `status='sent'` by
  * default. Contingency simulation is opt-in via the
  * `MockAdapterOptions.contingencyOracle` hook so tests can assert
@@ -20,15 +18,17 @@
  * - **Void semantics**: issuing a `NC` (credit note) returns the same
  * shape as a regular issue; the orchestrator is responsible for
  * storing `originalCufe` on the new `fiscal_documents` row.
- * - **`validateConfig`**: returns `ok=true` unconditionally — the
- * mock has no real configuration to probe.  will replace
- * this with NIT / certificate / resolution / environment checks
- * against `tenants.settings.fiscal.co.*`.
+ * - **`validateConfig`**: requires a valid issuer NIT and the DIAN
+ * software ID + PIN, so a sale never mints a code DIAN cannot verify;
+ * otherwise the intent stays `blocked`.
  *
  * @module services/fiscal/packs/co/mock-adapter
  */
 
-import { computeCufe, type FiscalEnvironment } from '../../cufe.js';
+import { computeCufe, type DianDocumentHashFields, type FiscalEnvironment } from '../../cufe.js';
+import { computeCude } from '../../cude.js';
+import { FiscalProviderError } from '../../errors.js';
+import { resolveFiscalIssuerTaxId } from '../../issuer-context.js';
 import type {
   FiscalAdapter,
   FiscalAdapterCapabilities,
@@ -39,6 +39,8 @@ import type {
   FiscalAdapterVoidInput,
 } from '../../adapter.js';
 import type { FiscalDocumentStatus } from '../../../../db/schema.js';
+import { validateNit } from './nit.js';
+import { readCoFiscalSettings, validateCoEmissionConfig } from './settings.js';
 import { buildColombiaUbl21DraftXml } from './ubl21-xml.js';
 
 export interface MockAdapterOptions {
@@ -59,11 +61,12 @@ export interface MockAdapterOptions {
    * provider rejections.
    */
   throwOracle?: (input: FiscalAdapterIssueInput) => Error | undefined;
-  /** Stringly-typed environment flag forwarded to CUFE compute. Default '2' (sandbox). */
+  /** Environment flag forwarded to the CUFE / CUDE hash. Default '2' (test). */
   environment?: FiscalEnvironment;
 }
 
 const COLOMBIA_PROVIDER_ID = 'mock-co';
+const NIT_ID_TYPE_CODE = '31';
 
 const COLOMBIA_CAPABILITIES: FiscalAdapterCapabilities = {
   supportsVoid: true,
@@ -75,16 +78,13 @@ export class ColombiaMockAdapter implements FiscalAdapter {
   readonly providerId = COLOMBIA_PROVIDER_ID;
   readonly countryCode = 'CO';
   readonly capabilities = COLOMBIA_CAPABILITIES;
-  // mock: deterministic CUFE, no signing, no DIAN transmission.
-  // The real Proveedor Tecnologico swap is gated as .
+  // mock: deterministic CUFE / CUDE, no signing, no DIAN transmission.
   readonly maturity = 'mock' as const;
 
   constructor(private readonly options: MockAdapterOptions = {}) {}
 
-  async validateConfig(_input: FiscalAdapterConfig): Promise<FiscalAdapterValidationResult> {
-    // Mock has no real configuration — always ready.  replaces
-    // this with NIT / certificate / resolution / environment checks.
-    return { ok: true, issues: [] };
+  async validateConfig(input: FiscalAdapterConfig): Promise<FiscalAdapterValidationResult> {
+    return validateCoEmissionConfig(readCoFiscalSettings(input.settings));
   }
 
   async issue(input: FiscalAdapterIssueInput): Promise<FiscalAdapterIssueResult> {
@@ -92,8 +92,8 @@ export class ColombiaMockAdapter implements FiscalAdapter {
     if (thrown) {
       throw thrown;
     }
-    const environment = this.options.environment ?? input.environment ?? '2';
-    const cufe = computeCufe({
+    const settings = readCoFiscalSettings(input.tenantSettings);
+    const fields: DianDocumentHashFields = {
       documentNumber: input.resolution.documentNumber,
       issueDate: input.issueDate,
       issueTime: input.issueTime,
@@ -102,12 +102,24 @@ export class ColombiaMockAdapter implements FiscalAdapter {
       incAmount: input.incAmount,
       icaAmount: input.icaAmount,
       totalAmount: input.totalAmount,
-      issuerNit: input.issuerNit,
-      buyerIdTypeCode: input.buyer.taxIdTypeCode,
-      buyerIdNumber: input.buyer.taxId,
-      technicalKey: input.resolution.technicalKey,
-      environment,
-    });
+      issuerNit: resolveFiscalIssuerTaxId('CO', input.tenantSettings, input.issuerNit),
+      buyerIdNumber: normalizeBuyerId(input.buyer.taxIdTypeCode, input.buyer.taxId),
+      environment: this.options.environment ?? input.environment ?? '2',
+    };
+    // Only the sales invoice is a CUFE document; DIAN keys the POS
+    // documento equivalente and every note by the software PIN (CUDE).
+    // The PIN is read live at emission, so it can vanish after the intent
+    // was validated: refuse rather than persist a code DIAN cannot verify.
+    if (input.kind !== 'FEV' && !settings.softwarePin) {
+      throw new FiscalProviderError('MALFORMED_REQUEST', {
+        message: 'DIAN software PIN is missing',
+        providerCode: 'MISSING_SOFTWARE',
+      });
+    }
+    const cufe =
+      input.kind === 'FEV'
+        ? computeCufe({ ...fields, technicalKey: input.resolution.technicalKey })
+        : computeCude({ ...fields, softwarePin: settings.softwarePin! });
 
     const override = this.options.contingencyOracle?.(input);
     const status: FiscalDocumentStatus = override ?? 'sent';
@@ -123,17 +135,26 @@ export class ColombiaMockAdapter implements FiscalAdapter {
         certified: false,
         ublVersion: '2.1',
       },
-      xmlRef: buildColombiaUbl21DraftXml(input),
+      // The draft names the same issuer and buyer the hash covers.
+      xmlRef: buildColombiaUbl21DraftXml(
+        {
+          ...input,
+          environment: fields.environment,
+          issuerNit: fields.issuerNit,
+          buyer: { ...input.buyer, taxId: fields.buyerIdNumber },
+        },
+        cufe
+      ),
     };
   }
 
   async voidDocument(input: FiscalAdapterVoidInput): Promise<FiscalAdapterIssueResult> {
-    // The mock cannot re-compose the full CUFE input without the
+    // The mock cannot re-compose the full hash input without the
     // original header + lines; instead it derives a deterministic
-    // "void CUFE" from the original hash and the reason so the result
-    // is still idempotent + unique. Real adapters () will call
-    // the PT's void endpoint and return the PT-issued CUFE.
-    const voidCufe = computeCufe({
+    // "void CUDE" from the original code and the reason so the result
+    // is still idempotent + unique. Real adapters will call the PT's
+    // void endpoint and return the PT-issued code.
+    const voidCufe = computeCude({
       documentNumber: `VOID-${input.cufe}`,
       issueDate: new Date().toISOString().slice(0, 10),
       issueTime: new Date().toISOString().slice(11, 19) + '-05:00',
@@ -143,9 +164,8 @@ export class ColombiaMockAdapter implements FiscalAdapter {
       icaAmount: 0,
       totalAmount: 0,
       issuerNit: input.tenantId,
-      buyerIdTypeCode: '31',
       buyerIdNumber: '222222222222',
-      technicalKey: input.reasonCode,
+      softwarePin: input.reasonCode,
       environment: this.options.environment ?? '2',
     });
     return {
@@ -162,4 +182,14 @@ export class ColombiaMockAdapter implements FiscalAdapter {
     // implement async polling to DIAN.
     return 'accepted';
   }
+}
+
+/** DIAN wants the buyer ID without dots, dashes or the NIT verification digit. */
+function normalizeBuyerId(taxIdTypeCode: string, taxId: string): string {
+  if (taxIdTypeCode === NIT_ID_TYPE_CODE) {
+    // A wrong DV still marks where the base number ends.
+    const parsed = validateNit(taxId);
+    if (parsed.valid || parsed.reason === 'dv_mismatch') return parsed.nit;
+  }
+  return taxId.replace(/[.\s-]/g, '');
 }

@@ -28,6 +28,12 @@ import {
 import { throwServerError } from '../../../lib/errorCodes.js';
 import type { PuntovivoLogger } from '../../../logging/logger.js';
 import { resolveTenantLocale } from '../../tenant-locale.js';
+import {
+  resolveFiscalHashEnvironment,
+  resolveFiscalIssuerTaxId,
+  withLiveFiscalSecrets,
+  withoutFiscalSecrets,
+} from '../issuer-context.js';
 import type { FiscalAdapterIssueInput } from '../adapter.js';
 import { CONSUMIDOR_FINAL, type FiscalEnvironment } from '../cufe.js';
 import { allocateNextFolio } from '../packs/cl/caf-allocator.js';
@@ -45,6 +51,8 @@ import {
   checkResolutionUsable,
   isCountryFiscalEnabled,
   isDianEnabled,
+  isPlainRecord,
+  readLiveTenantSettings,
   splitIssueTimestamp,
 } from './helpers.js';
 import { resolveBuyer, type FiscalMonetarySnapshot } from './snapshots.js';
@@ -247,8 +255,11 @@ export async function prepareSaleFiscalIntent(
       )
       .get(),
   ]);
-  const frozenSettings = fiscalSettingsSnapshot(tenantSettings, locale.countryCode);
-  const { issueDate, issueTime } = splitIssueTimestamp(new Date(completedAt));
+  // Secrets stay out of the durable payload; the worker re-attaches them.
+  const frozenSettings = withoutFiscalSecrets(
+    fiscalSettingsSnapshot(tenantSettings, locale.countryCode)
+  );
+  const { issueDate, issueTime } = splitIssueTimestamp(new Date(completedAt), locale.timezone);
   const headerTaxTotals = sumTaxTotals(lines);
   // A line whose sale-time description was never recorded. Resolved here, ahead
   // of the adapter input, because the intent has to BLOCK on it rather than
@@ -266,8 +277,9 @@ export async function prepareSaleFiscalIntent(
     kind,
     issueDate,
     issueTime,
-    environment: args.environment ?? '2',
-    issuerNit: tenantId,
+    environment:
+      args.environment ?? resolveFiscalHashEnvironment(locale.countryCode, tenantSettings),
+    issuerNit: resolveFiscalIssuerTaxId(locale.countryCode, tenantSettings, tenantId),
     issuerName: companyRow?.name ?? undefined,
     tenantSettings: frozenSettings,
     currencyCode: locale.currency,
@@ -338,7 +350,7 @@ export async function prepareSaleFiscalIntent(
       const validation = await adapter.validateConfig({
         tenantId,
         countryCode: adapter.countryCode,
-        settings: frozenSettings,
+        settings: withLiveFiscalSecrets(frozenSettings, tenantSettings) ?? frozenSettings,
       });
       if (!validation.ok) {
         status = 'blocked';
@@ -435,6 +447,32 @@ export function insertFiscalIntentInTransaction(
     })
     .run();
   return intent.id;
+}
+
+/**
+ * Re-arming an intent blocked by its pack configuration re-reads the
+ * issuer contract (fiscal settings branch, issuer id, environment) from
+ * the tenant's current settings: that frozen contract was the defect.
+ * Amounts, lines, buyer, numbering and the sale timestamp stay frozen.
+ * Returns null when the payload must be kept as is.
+ */
+export function refreshBlockedIntentIssuerContract(
+  payload: unknown,
+  lastError: unknown,
+  liveSettings: Record<string, unknown>
+): FiscalEmissionIntentPayloadV1 | null {
+  const reason = isPlainRecord(lastError) ? lastError.reason : undefined;
+  if (reason !== 'adapter_configuration_invalid' || !isIntentPayloadV1(payload)) return null;
+  const { countryCode, adapterInput } = payload;
+  return {
+    ...payload,
+    adapterInput: {
+      ...adapterInput,
+      tenantSettings: withoutFiscalSecrets(fiscalSettingsSnapshot(liveSettings, countryCode)),
+      issuerNit: resolveFiscalIssuerTaxId(countryCode, liveSettings, adapterInput.tenantId),
+      environment: resolveFiscalHashEnvironment(countryCode, liveSettings),
+    },
+  };
 }
 
 function isIntentPayloadV1(value: unknown): value is FiscalEmissionIntentPayloadV1 {
@@ -885,7 +923,10 @@ function safeMaterializationError(error: unknown): Record<string, unknown> {
   };
 }
 
-async function validateFrozenAdapterContract(row: FiscalEmissionIntentRow): Promise<void> {
+async function validateFrozenAdapterContract(
+  db: DatabaseInstance,
+  row: FiscalEmissionIntentRow
+): Promise<void> {
   if (row.payloadVersion !== INTENT_PAYLOAD_VERSION || !isIntentPayloadV1(row.payload)) return;
   const payload = row.payload;
   const adapter = getFiscalAdapter(payload.countryCode);
@@ -897,7 +938,11 @@ async function validateFrozenAdapterContract(row: FiscalEmissionIntentRow): Prom
   const validation = await adapter.validateConfig({
     tenantId: row.tenantId,
     countryCode: payload.countryCode,
-    settings: payload.adapterInput.tenantSettings ?? {},
+    settings:
+      withLiveFiscalSecrets(
+        payload.adapterInput.tenantSettings,
+        await readLiveTenantSettings(db, row.tenantId)
+      ) ?? {},
   });
   if (!validation.ok) {
     throw new FiscalIntentBlockedError('adapter_configuration_invalid', validation.issues);
@@ -951,8 +996,9 @@ export async function materializeFiscalEmissionIntent(args: {
 
   try {
     // A manual re-arm never substitutes live tenant configuration or a new
-    // provider. Validate the exact frozen contract before allocating a number.
-    await validateFrozenAdapterContract(existing);
+    // provider; only fiscal secrets, which are never frozen, are read live.
+    // Validate the frozen contract before allocating a number.
+    await validateFrozenAdapterContract(args.db, existing);
     return materializeClaimedIntent(args.db, existing, claimToken);
   } catch (error) {
     if (error instanceof FiscalIntentBlockedError) {

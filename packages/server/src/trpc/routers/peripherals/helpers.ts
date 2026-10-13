@@ -71,6 +71,7 @@ export function toSaleReceiptFiscalDocuments(
 ): NonNullable<SaleReceiptInput['fiscalDocuments']> {
   return documents.map(document => ({
     documentNumber: document.documentNumber,
+    kind: document.kind,
     status: document.status,
     maturity: document.maturity,
     identifier: document.cufe,

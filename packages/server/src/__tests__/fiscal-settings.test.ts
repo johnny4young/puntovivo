@@ -179,10 +179,18 @@ describe('fiscalSettings.getByCountry', () => {
       rangeFrom: null,
       rangeTo: null,
       environment: 'habilitacion',
+      softwareId: null,
+      softwarePinConfigured: false,
     });
+    expect(result.settings).not.toHaveProperty('softwarePin');
     expect(result.validation.ok).toBe(false);
     const codes = result.validation.issues.map(i => i.code).sort();
-    expect(codes).toEqual(['MISSING_NIT', 'MISSING_RANGE', 'MISSING_RESOLUTION']);
+    expect(codes).toEqual([
+      'MISSING_NIT',
+      'MISSING_RANGE',
+      'MISSING_RESOLUTION',
+      'MISSING_SOFTWARE',
+    ]);
   });
 
   it('CL devuelve readiness rojo con MISSING_RUT/MISSING_RESOLUTION/MISSING_CERTIFICATE', async () => {
@@ -444,6 +452,8 @@ describe('fiscalSettings.updateCo', () => {
       rangeFrom: 1,
       rangeTo: 5000,
       environment: 'produccion',
+      softwareId: 'sw-1',
+      softwarePin: '12301',
     });
     expect(result.ok).toBe(true);
     expect(result.settings).toMatchObject({
@@ -454,7 +464,10 @@ describe('fiscalSettings.updateCo', () => {
       rangeFrom: 1,
       rangeTo: 5000,
       environment: 'produccion',
+      softwareId: 'sw-1',
+      softwarePinConfigured: true,
     });
+    expect(result.settings).not.toHaveProperty('softwarePin');
     expect(result.validation.ok).toBe(true);
 
     // El subsequent get refleja lo persistido + el flag legacy.
@@ -465,7 +478,9 @@ describe('fiscalSettings.updateCo', () => {
       enabled: true,
       nit: '900123456-8',
       prefix: 'SETP',
+      softwarePinConfigured: true,
     });
+    expect(JSON.stringify(fetched)).not.toContain('12301');
 
     // El switch maestro se persistió en el flag legacy fiscal_dian_enabled.
     const db = getDatabase();
@@ -476,6 +491,21 @@ describe('fiscalSettings.updateCo', () => {
       .get();
     const settings = (row?.settings ?? {}) as Record<string, unknown>;
     expect(settings.fiscal_dian_enabled).toBe(true);
+    expect(settings).toMatchObject({ fiscal: { co: { softwarePin: '12301' } } });
+  });
+
+  it('software PIN: omitido lo conserva, null lo borra', async () => {
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId: tenantA, userId: adminA, role: 'admin' })
+    );
+    await caller.fiscalSettings.updateCo({ softwareId: 'sw-1', softwarePin: '12301' });
+
+    const kept = await caller.fiscalSettings.updateCo({ prefix: 'SETP' });
+    expect(kept.settings.softwarePinConfigured).toBe(true);
+
+    const cleared = await caller.fiscalSettings.updateCo({ softwarePin: null });
+    expect(cleared.settings.softwarePinConfigured).toBe(false);
+    expect(cleared.settings.softwareId).toBe('sw-1');
   });
 
   it('config incompleta → readiness rojo con los issues faltantes', async () => {
@@ -488,7 +518,7 @@ describe('fiscalSettings.updateCo', () => {
     });
     expect(result.validation.ok).toBe(false);
     const codes = result.validation.issues.map(i => i.code).sort();
-    expect(codes).toEqual(['MISSING_RANGE', 'MISSING_RESOLUTION']);
+    expect(codes).toEqual(['MISSING_RANGE', 'MISSING_RESOLUTION', 'MISSING_SOFTWARE']);
   });
 
   it('NIT inválido → tira FISCAL_NIT_INVALID', async () => {

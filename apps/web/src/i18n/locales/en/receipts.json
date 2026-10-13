@@ -7,6 +7,7 @@
     "maturityLabel": "Fiscal mode",
     "sourceLabel": "Source",
     "cufeLabel": "CUFE",
+    "cudeLabel": "CUDE",
     "localIdentifierLabel": "Local fiscal identifier",
     "uuidLabel": "Fiscal folio (UUID)",
     "tedLabel": "TED",

@@ -46,6 +46,7 @@ vi.mock('./FiscalDocumentXmlModal', () => ({ FiscalDocumentXmlModal: () => null 
 
 vi.mock('@/lib/trpc', () => ({
   trpc: {
+    tenantLocale: { get: { useQuery: () => ({ data: { countryCode: 'CO' } }) } },
     reports: {
       fiscal: {
         list: {

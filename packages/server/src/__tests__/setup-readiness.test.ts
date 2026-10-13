@@ -497,6 +497,8 @@ describe('setupReadiness — Colombia profile + checkout', () => {
           dianResolutionNumber: '18760000001',
           rangeFrom: 1,
           rangeTo: 5000,
+          softwareId: 'sw-1',
+          softwarePin: '12301',
         },
       },
     });

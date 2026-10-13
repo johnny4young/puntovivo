@@ -55,7 +55,8 @@ function documentShape(kind: FiscalAdapterIssueInput['kind']) {
       line: 'CreditNoteLine',
       quantity: 'CreditedQuantity',
       typeElement: 'CreditNoteTypeCode',
-      typeCode: '91',
+      // 94 = nota de ajuste crédito al documento equivalente.
+      typeCode: '94',
     } as const;
   }
   if (kind === 'ND') {
@@ -65,7 +66,8 @@ function documentShape(kind: FiscalAdapterIssueInput['kind']) {
       line: 'DebitNoteLine',
       quantity: 'DebitedQuantity',
       typeElement: 'DebitNoteTypeCode',
-      typeCode: '92',
+      // 93 = nota de ajuste débito al documento equivalente.
+      typeCode: '93',
     } as const;
   }
   return {
@@ -74,7 +76,8 @@ function documentShape(kind: FiscalAdapterIssueInput['kind']) {
     line: 'InvoiceLine',
     quantity: 'InvoicedQuantity',
     typeElement: 'InvoiceTypeCode',
-    typeCode: kind === 'FEV' ? '01' : '02',
+    // 20 = documento equivalente electrónico tiquete POS.
+    typeCode: kind === 'FEV' ? '01' : '20',
   } as const;
 }
 
@@ -82,8 +85,13 @@ function documentShape(kind: FiscalAdapterIssueInput['kind']) {
  * Local UBL 2.1 draft for inspection/interchange only. It is intentionally
  * unsigned and never submitted to DIAN by the mock adapter.
  */
-export function buildColombiaUbl21DraftXml(input: FiscalAdapterIssueInput): string {
+export function buildColombiaUbl21DraftXml(
+  input: FiscalAdapterIssueInput,
+  documentCode: string
+): string {
   const shape = documentShape(input.kind);
+  const scheme = input.kind === 'FEV' ? 'CUFE-SHA384' : 'CUDE-SHA384';
+  const uuid = `<cbc:UUID schemeID="${escapeXml(input.environment)}" schemeName="${scheme}">${escapeXml(documentCode)}</cbc:UUID>`;
   const currency = escapeXml(input.currencyCode);
   const totalTax = roundMoney(input.ivaAmount + input.incAmount + input.icaAmount);
   const lines = input.lines
@@ -95,5 +103,5 @@ export function buildColombiaUbl21DraftXml(input: FiscalAdapterIssueInput): stri
     })
     .join('');
 
-  return `<?xml version="1.0" encoding="UTF-8"?><${shape.root} xmlns="${shape.namespace}" xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2" xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2"><cbc:UBLVersionID>2.1</cbc:UBLVersionID><cbc:CustomizationID>local-unsigned-draft</cbc:CustomizationID><cbc:ProfileID>Puntovivo local inspection draft</cbc:ProfileID><cbc:ProfileExecutionID>${escapeXml(input.environment)}</cbc:ProfileExecutionID><cbc:ID>${escapeXml(input.resolution.documentNumber)}</cbc:ID><cbc:IssueDate>${escapeXml(input.issueDate)}</cbc:IssueDate><cbc:IssueTime>${escapeXml(input.issueTime)}</cbc:IssueTime><cbc:${shape.typeElement}>${shape.typeCode}</cbc:${shape.typeElement}><cbc:DocumentCurrencyCode>${currency}</cbc:DocumentCurrencyCode><cac:AccountingSupplierParty><cac:Party><cac:PartyName><cbc:Name>${escapeXml(input.issuerName ?? input.issuerNit)}</cbc:Name></cac:PartyName><cac:PartyTaxScheme><cbc:RegistrationName>${escapeXml(input.issuerName ?? input.issuerNit)}</cbc:RegistrationName><cbc:CompanyID>${escapeXml(input.issuerNit)}</cbc:CompanyID>${taxScheme('01')}</cac:PartyTaxScheme></cac:Party></cac:AccountingSupplierParty><cac:AccountingCustomerParty><cac:Party><cac:PartyName><cbc:Name>${escapeXml(input.buyer.name)}</cbc:Name></cac:PartyName><cac:PartyTaxScheme><cbc:RegistrationName>${escapeXml(input.buyer.name)}</cbc:RegistrationName><cbc:CompanyID>${escapeXml(input.buyer.taxId)}</cbc:CompanyID>${taxScheme('01')}</cac:PartyTaxScheme></cac:Party></cac:AccountingCustomerParty><cac:TaxTotal><cbc:TaxAmount currencyID="${currency}">${amount(totalTax)}</cbc:TaxAmount></cac:TaxTotal><cac:LegalMonetaryTotal><cbc:LineExtensionAmount currencyID="${currency}">${amount(input.subtotal)}</cbc:LineExtensionAmount><cbc:TaxExclusiveAmount currencyID="${currency}">${amount(input.subtotal)}</cbc:TaxExclusiveAmount><cbc:TaxInclusiveAmount currencyID="${currency}">${amount(input.totalAmount)}</cbc:TaxInclusiveAmount><cbc:AllowanceTotalAmount currencyID="${currency}">${amount(input.discountAmount)}</cbc:AllowanceTotalAmount><cbc:PayableAmount currencyID="${currency}">${amount(input.totalAmount)}</cbc:PayableAmount></cac:LegalMonetaryTotal>${lines}</${shape.root}>`;
+  return `<?xml version="1.0" encoding="UTF-8"?><${shape.root} xmlns="${shape.namespace}" xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2" xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2"><cbc:UBLVersionID>2.1</cbc:UBLVersionID><cbc:CustomizationID>local-unsigned-draft</cbc:CustomizationID><cbc:ProfileID>Puntovivo local inspection draft</cbc:ProfileID><cbc:ProfileExecutionID>${escapeXml(input.environment)}</cbc:ProfileExecutionID><cbc:ID>${escapeXml(input.resolution.documentNumber)}</cbc:ID>${uuid}<cbc:IssueDate>${escapeXml(input.issueDate)}</cbc:IssueDate><cbc:IssueTime>${escapeXml(input.issueTime)}</cbc:IssueTime><cbc:${shape.typeElement}>${shape.typeCode}</cbc:${shape.typeElement}><cbc:DocumentCurrencyCode>${currency}</cbc:DocumentCurrencyCode><cac:AccountingSupplierParty><cac:Party><cac:PartyName><cbc:Name>${escapeXml(input.issuerName ?? input.issuerNit)}</cbc:Name></cac:PartyName><cac:PartyTaxScheme><cbc:RegistrationName>${escapeXml(input.issuerName ?? input.issuerNit)}</cbc:RegistrationName><cbc:CompanyID>${escapeXml(input.issuerNit)}</cbc:CompanyID>${taxScheme('01')}</cac:PartyTaxScheme></cac:Party></cac:AccountingSupplierParty><cac:AccountingCustomerParty><cac:Party><cac:PartyName><cbc:Name>${escapeXml(input.buyer.name)}</cbc:Name></cac:PartyName><cac:PartyTaxScheme><cbc:RegistrationName>${escapeXml(input.buyer.name)}</cbc:RegistrationName><cbc:CompanyID>${escapeXml(input.buyer.taxId)}</cbc:CompanyID>${taxScheme('01')}</cac:PartyTaxScheme></cac:Party></cac:AccountingCustomerParty><cac:TaxTotal><cbc:TaxAmount currencyID="${currency}">${amount(totalTax)}</cbc:TaxAmount></cac:TaxTotal><cac:LegalMonetaryTotal><cbc:LineExtensionAmount currencyID="${currency}">${amount(input.subtotal)}</cbc:LineExtensionAmount><cbc:TaxExclusiveAmount currencyID="${currency}">${amount(input.subtotal)}</cbc:TaxExclusiveAmount><cbc:TaxInclusiveAmount currencyID="${currency}">${amount(input.totalAmount)}</cbc:TaxInclusiveAmount><cbc:AllowanceTotalAmount currencyID="${currency}">${amount(input.discountAmount)}</cbc:AllowanceTotalAmount><cbc:PayableAmount currencyID="${currency}">${amount(input.totalAmount)}</cbc:PayableAmount></cac:LegalMonetaryTotal>${lines}</${shape.root}>`;
 }

@@ -78,6 +78,9 @@ export const updateCoFiscalSettingsInput = z.object({
   rangeFrom: z.number().int().positive().optional().nullable(),
   rangeTo: z.number().int().positive().optional().nullable(),
   environment: z.enum(['habilitacion', 'produccion']).optional(),
+  softwareId: z.string().trim().min(1).max(100).optional().nullable(),
+  /** Write-only: reads expose only `softwarePinConfigured`. */
+  softwarePin: z.string().trim().min(1).max(100).optional().nullable(),
 });
 
 /**

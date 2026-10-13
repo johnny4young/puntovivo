@@ -34,6 +34,11 @@ import {
 } from '../../../db/schema.js';
 import type { PuntovivoLogger } from '../../../logging/logger.js';
 import { resolveTenantLocale } from '../../tenant-locale.js';
+import {
+  resolveFiscalHashEnvironment,
+  resolveFiscalIssuerTaxId,
+  withoutFiscalSecrets,
+} from '../issuer-context.js';
 import type { FiscalAdapterIssueInput, FiscalAdapterLine } from '../adapter.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
 import { CONSUMIDOR_FINAL, type FiscalEnvironment } from '../cufe.js';
@@ -257,7 +262,7 @@ export async function enqueueFiscalEmission(args: {
 
   const consecutive = resolution.currentNumber + 1;
   const documentNumber = `${resolution.prefix}${consecutive.toString().padStart(10, '0')}`;
-  const { issueDate, issueTime } = splitIssueTimestamp(new Date());
+  const { issueDate, issueTime } = splitIssueTimestamp(new Date(), locale.timezone);
 
   const adapterInput: FiscalAdapterIssueInput = {
     tenantId,
@@ -266,10 +271,12 @@ export async function enqueueFiscalEmission(args: {
     kind,
     issueDate,
     issueTime,
-    environment: args.environment ?? '2',
-    issuerNit: tenantId,
+    environment:
+      args.environment ?? resolveFiscalHashEnvironment(adapter.countryCode, tenantSettings),
+    issuerNit: resolveFiscalIssuerTaxId(adapter.countryCode, tenantSettings, tenantId),
     issuerName: issuerName ?? undefined,
-    tenantSettings,
+    // Persisted in the outbox payload: secrets are re-attached at emission.
+    tenantSettings: withoutFiscalSecrets(tenantSettings),
     currencyCode: locale.currency,
     localeCode: locale.locale,
     paymentMethod: sale.paymentMethod,

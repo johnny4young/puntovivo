@@ -283,6 +283,7 @@ describe('buildSaleReceiptDocument', () => {
       fiscalDocuments: [
         {
           documentNumber: 'A112-28607',
+          kind: 'DEE',
           status: 'accepted',
           maturity: 'mock',
           identifier: 'local-cufe-demo',
@@ -310,6 +311,32 @@ describe('buildSaleReceiptDocument', () => {
     expect(indexOf(bytes, new Uint8Array([0x1d, 0x28, 0x6b]))).toBe(-1);
   });
 
+  it('labels a certified POS documento equivalente with its CUDE', () => {
+    const doc = buildSaleReceiptDocument({
+      header: { tenantName: 'Bodega Certificada' },
+      saleNumber: 'POS-7',
+      items: [],
+      subtotal: 100,
+      total: 100,
+      totalLabel: 'TOTAL',
+      fiscalDocuments: [
+        {
+          documentNumber: 'POS-7',
+          kind: 'DEE',
+          status: 'accepted',
+          maturity: 'certified',
+          identifier: 'certified-cude',
+          resolution: null,
+          qrPayload: null,
+          countryCode: 'CO',
+        },
+      ],
+      formatCurrency: value => `$ ${value}`,
+    });
+
+    expect(doc.lines.map(line => line.text)).toContain('CUDE: certified-cude');
+  });
+
   it('emits the authority QR command only for certified fiscal evidence', () => {
     const verificationUrl =
       'https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey=certified-cufe';
@@ -323,6 +350,7 @@ describe('buildSaleReceiptDocument', () => {
       fiscalDocuments: [
         {
           documentNumber: 'FEV-42',
+          kind: 'FEV',
           status: 'accepted',
           maturity: 'certified',
           identifier: 'certified-cufe',

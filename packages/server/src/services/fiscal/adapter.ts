@@ -203,6 +203,7 @@ export type FiscalValidationIssueCode =
   | 'MISSING_RUT'
   | 'MISSING_RESOLUTION'
   | 'MISSING_RANGE'
+  | 'MISSING_SOFTWARE'
   | 'MISSING_CERTIFICATE'
   | 'INVALID_ENVIRONMENT';
 
@@ -247,10 +248,10 @@ export interface FiscalAdapter {
    */
   readonly maturity: FiscalAdapterMaturity;
   /**
-   * Pre-flight readiness check. ColombiaMockAdapter returns ok=true
-   * unconditionally; real adapters probe required settings (NIT,
-   * RFC, RUT, certificate, resolution, environment) and report
-   * missing fields so the admin UI can render a friendly hint.
+   * Pre-flight readiness check. Adapters probe the settings emission
+   * needs (NIT + DIAN software for CO, RFC, RUT, certificate,
+   * resolution, environment) and report missing fields; a failure
+   * leaves the intent `blocked` with those issues.
    */
   validateConfig(input: FiscalAdapterConfig): Promise<FiscalAdapterValidationResult>;
   issue(input: FiscalAdapterIssueInput): Promise<FiscalAdapterIssueResult>;

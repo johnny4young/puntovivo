@@ -22,6 +22,7 @@ import {
 } from '@/components/fiscal/FiscalStatusBadge';
 import { FiscalMaturityBadge } from '@/components/fiscal/FiscalMaturityBadge';
 import type { FiscalDocumentListItem } from '@/types';
+import { fiscalIdentifierLabelKey } from './identifierLabel';
 
 /**
  * Props for {@link FiscalDocumentDetailsDrawer}. The Drawer is open exactly
@@ -38,6 +39,8 @@ export interface FiscalDocumentDetailsDrawerProps {
    * `FiscalDocumentXmlModal`.
    */
   onViewXml?: ((item: FiscalDocumentListItem) => void) | undefined;
+  /** Tenant country; names the authority identifier (CUFE, CUDE, UUID, TED). */
+  countryCode?: string | undefined;
 }
 
 /** One label/value row in the read-only detail list. */
@@ -54,8 +57,9 @@ export function FiscalDocumentDetailsDrawer({
   item,
   onClose,
   onViewXml,
+  countryCode = 'CO',
 }: FiscalDocumentDetailsDrawerProps) {
-  const { t } = useTranslation('fiscal');
+  const { t } = useTranslation(['fiscal', 'receipts']);
 
   const footer = item ? (
     <div className="flex justify-end gap-2">
@@ -111,7 +115,7 @@ export function FiscalDocumentDetailsDrawer({
             <DetailField
               label={
                 item.maturity === 'certified'
-                  ? t('list.columns.cufe')
+                  ? t(fiscalIdentifierLabelKey(countryCode, item.kind))
                   : t('list.columns.localIdentifier')
               }
               value={<span className="break-all font-mono text-xs">{item.cufe}</span>}

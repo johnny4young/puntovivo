@@ -67,7 +67,11 @@ async function seedHarness(suffix: string): Promise<Harness> {
     id: tenantId,
     name: `Reports Tenant ${suffix}`,
     slug: `rpt-${suffix}`,
-    settings: { fiscal_dian_enabled: true },
+    settings: {
+      fiscal_dian_enabled: true,
+      // No NIT: each fixture tenant hashes its own id, so their codes never collide.
+      fiscal: { co: { softwareId: 'sw-test', softwarePin: '12301' } },
+    },
     isActive: true,
     createdAt: now,
     updatedAt: now,

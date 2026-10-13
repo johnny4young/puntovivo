@@ -8,8 +8,9 @@
  *
  * DIAN is OPTIONAL: a merchant can keep selling without it. This card
  * captures the issuer config so they are "ready to activate" whenever
- * they choose. Real CUFE signing + provider transmission stay mock /
- * gated behind  — this card only captures + probes presence.
+ * they choose. Real signing + provider transmission stay mock — this
+ * card only captures + probes presence. The software PIN is write-only:
+ * the server reports `softwarePinConfigured`, never the PIN itself.
  *
  * Mirrors the structure of `CompanyMxFiscalCard` (uncontrolled FormData
  * + tRPC + readiness badge + EmptyState/reveal). When the tenant is not
@@ -114,7 +115,9 @@ export function CompanyCoFiscalCard() {
       coSettings.dianResolutionNumber ||
       coSettings.prefix ||
       coSettings.rangeFrom !== null ||
-      coSettings.rangeTo !== null)
+      coSettings.rangeTo !== null ||
+      coSettings.softwareId ||
+      coSettings.softwarePinConfigured)
   );
   const [revealed, setRevealed] = useState(false);
   const showForm = isConfigured || revealed;
@@ -128,6 +131,8 @@ export function CompanyCoFiscalCard() {
         coSettings.rangeFrom ?? '',
         coSettings.rangeTo ?? '',
         coSettings.environment,
+        coSettings.softwareId ?? '',
+        coSettings.softwarePinConfigured,
       ].join('|')
     : 'empty';
   const updateMutation = trpc.fiscalSettings.updateCo.useMutation({
@@ -167,6 +172,8 @@ export function CompanyCoFiscalCard() {
     const nextRangeFrom = parsePositiveInt(getFormString(formData, 'rangeFrom'));
     const nextRangeTo = parsePositiveInt(getFormString(formData, 'rangeTo'));
     const nextEnvironment = getFormString(formData, 'environment');
+    const nextSoftwareId = getFormString(formData, 'softwareId').trim();
+    const nextSoftwarePin = getFormString(formData, 'softwarePin').trim();
     await updateMutation.mutateAsync({
       enabled: formData.get('enabled') === 'on',
       nit: nextNit.length > 0 ? nextNit : null,
@@ -175,6 +182,9 @@ export function CompanyCoFiscalCard() {
       rangeFrom: nextRangeFrom,
       rangeTo: nextRangeTo,
       environment: nextEnvironment === 'produccion' ? 'produccion' : 'habilitacion',
+      softwareId: nextSoftwareId.length > 0 ? nextSoftwareId : null,
+      // Blank keeps the stored PIN: the form never receives it back.
+      ...(nextSoftwarePin.length > 0 ? { softwarePin: nextSoftwarePin } : {}),
     });
   };
 
@@ -346,6 +356,42 @@ export function CompanyCoFiscalCard() {
                 defaultValue={coSettings?.rangeTo ?? ''}
                 placeholder={t('fiscal:settings.co.fields.rangeToPlaceholder')}
                 className="pv-input"
+              />
+            </SimpleFormField>
+
+            <SimpleFormField
+              label={t('fiscal:settings.co.fields.softwareId')}
+              htmlFor="fiscal-co-software-id"
+              helperText={t('fiscal:settings.co.fields.softwareIdHelp')}
+            >
+              <input
+                id="fiscal-co-software-id"
+                name="softwareId"
+                type="text"
+                defaultValue={coSettings?.softwareId ?? ''}
+                placeholder={t('fiscal:settings.co.fields.softwareIdPlaceholder')}
+                className="pv-input"
+                maxLength={100}
+              />
+            </SimpleFormField>
+
+            <SimpleFormField
+              label={t('fiscal:settings.co.fields.softwarePin')}
+              htmlFor="fiscal-co-software-pin"
+              helperText={t('fiscal:settings.co.fields.softwarePinHelp')}
+            >
+              <input
+                id="fiscal-co-software-pin"
+                name="softwarePin"
+                type="password"
+                autoComplete="new-password"
+                placeholder={
+                  coSettings?.softwarePinConfigured
+                    ? t('fiscal:settings.co.fields.softwarePinConfiguredPlaceholder')
+                    : t('fiscal:settings.co.fields.softwarePinPlaceholder')
+                }
+                className="pv-input"
+                maxLength={100}
               />
             </SimpleFormField>
           </div>

@@ -2,18 +2,11 @@
  * `computeCufe` tests.
  *
  * Coverage:
- * - Deterministic hash for canonical sandbox input (known-good vector).
- * - Different inputs produce different hashes (sensitivity).
+ * - The worked CUFE example published in the DIAN UBL 2.1 Anexo Técnico.
  * - Changing any single field mutates the hash (avalanche).
+ * - The buyer ID type is not part of the hash.
  * - Non-finite numbers collapse to `0.00` (malformed-input safety).
  * - Consumidor final constants match DIAN convention.
- *
- * Note: the "known-good" hash below is a RECONSTRUCTED vector — it
- * was computed from the official Resolución 165/2023 algorithm
- * against a synthetic sandbox input. When  (Fase B) integrates
- * a real PT this test should be replaced with the PT's Anexo 1.9
- * canonical vectors. Until then, the reconstructed vector locks the
- * implementation against accidental refactors.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -29,13 +22,32 @@ const BASE_INPUT = {
   icaAmount: 0,
   totalAmount: 119,
   issuerNit: '900100200',
-  buyerIdTypeCode: '31',
   buyerIdNumber: '800123456',
   technicalKey: 'fc8eac422eba16e22ffd8c6f94b3f40a6e38162c',
   environment: '2' as const,
 };
 
 describe('computeCufe', () => {
+  it('reproduces the DIAN Anexo Técnico worked example', () => {
+    const cufe = computeCufe({
+      documentNumber: '323200000129',
+      issueDate: '2019-01-16',
+      issueTime: '10:53:10-05:00',
+      subtotal: 1_500_000,
+      ivaAmount: 285_000,
+      incAmount: 0,
+      icaAmount: 0,
+      totalAmount: 1_785_000,
+      issuerNit: '700085371',
+      buyerIdNumber: '800199436',
+      technicalKey: '693ff6f2a553c3646a063436fd4dd9ded0311471',
+      environment: '1',
+    });
+    expect(cufe).toBe(
+      '8bb918b19ba22a694f1da11c643b5e9de39adf60311cf179179e9b33381030bcd4c3c3f156c506ed5908f9276f5bd9b4'
+    );
+  });
+
   it('produces a 96-character lowercase hex string', () => {
     const cufe = computeCufe(BASE_INPUT);
     expect(cufe).toMatch(/^[0-9a-f]{96}$/);
@@ -62,7 +74,6 @@ describe('computeCufe', () => {
       { icaAmount: 0.01 },
       { totalAmount: 119.01 },
       { issuerNit: '900100201' },
-      { buyerIdTypeCode: '13' },
       { buyerIdNumber: '800123457' },
       { technicalKey: 'fc8eac422eba16e22ffd8c6f94b3f40a6e38162d' },
       { environment: '1' as const },
@@ -95,9 +106,9 @@ describe('computeCufe', () => {
   it('concatenates the canonical input in the documented order', () => {
     const canonical = composeCufeInput(BASE_INPUT);
     // Field order: document, date, time, subtotal, '01', iva, '04',
-    // inc, '03', ica, total, nit, buyerType, buyerNum, technicalKey,
-    // environment. Hand-rolled so a refactor that reorders the
-    // concatenation trips the assertion.
+    // inc, '03', ica, total, nit, buyerNum, technicalKey, environment.
+    // Hand-rolled so a refactor that reorders the concatenation trips
+    // the assertion.
     expect(canonical).toBe(
       'SETP9900000001' +
         '2026-04-24' +
@@ -111,7 +122,6 @@ describe('computeCufe', () => {
         '0.00' +
         '119.00' +
         '900100200' +
-        '31' +
         '800123456' +
         'fc8eac422eba16e22ffd8c6f94b3f40a6e38162c' +
         '2'

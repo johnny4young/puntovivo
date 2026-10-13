@@ -13,8 +13,8 @@
  * issuer fields live under `tenants.settings.fiscal.co.*`, mirroring
  * where MX/CL keep theirs.
  *
- * Real DIAN transmission, certificate and CUFE crypto validation stay
- * mock / gated behind  — `validateCoFiscalConfig` here is a
+ * Real DIAN transmission, certificate and CUFE/CUDE validation stay
+ * mock / gated — `validateCoFiscalConfig` here is a
  * PRESENCE probe only (are NIT / resolution / numbering range filled?),
  * never a cryptographic check.
  *
@@ -22,6 +22,7 @@
  */
 
 import type { FiscalAdapterValidationIssue, FiscalAdapterValidationResult } from '../../adapter.js';
+import { validateNit } from './nit.js';
 
 /**
  * Resolved Colombia fiscal config. `enabled` mirrors the legacy
@@ -45,10 +46,16 @@ export interface CoFiscalSettings {
   rangeTo: number | null;
   /**
    * DIAN environment. `habilitacion` = the DIAN test/enablement set
-   * (CUFE environment `2`); `produccion` = live (CUFE environment `1`).
-   * maps this to the provider's naming at transmission time.
+   * (hash TipoAmbiente `2`); `produccion` = live (TipoAmbiente `1`).
    */
   environment: 'habilitacion' | 'produccion';
+  /** Software identifier registered with DIAN. `null` until captured. */
+  softwareId: string | null;
+  /**
+   * Software PIN registered with DIAN; the CUDE security code. Restricted
+   * value: never return it to a client. `null` until captured.
+   */
+  softwarePin: string | null;
 }
 
 const DEFAULT_CO_SETTINGS: CoFiscalSettings = {
@@ -59,6 +66,8 @@ const DEFAULT_CO_SETTINGS: CoFiscalSettings = {
   rangeFrom: null,
   rangeTo: null,
   environment: 'habilitacion',
+  softwareId: null,
+  softwarePin: null,
 };
 
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
@@ -102,7 +111,19 @@ export function readCoFiscalSettings(
     rangeFrom: readPositiveInt(co.rangeFrom),
     rangeTo: readPositiveInt(co.rangeTo),
     environment,
+    softwareId: readString(co.softwareId),
+    softwarePin: readString(co.softwarePin),
   };
+}
+
+/** Client-safe view: the software PIN is reduced to a presence flag. */
+export type CoFiscalSettingsView = Omit<CoFiscalSettings, 'softwarePin'> & {
+  softwarePinConfigured: boolean;
+};
+
+export function toCoFiscalSettingsView(settings: CoFiscalSettings): CoFiscalSettingsView {
+  const { softwarePin, ...rest } = settings;
+  return { ...rest, softwarePinConfigured: softwarePin !== null };
 }
 
 /**
@@ -141,18 +162,50 @@ export function mergeCoFiscalSettingsIntoTenantSettings(
   if (patch.rangeFrom !== undefined) coBranch.rangeFrom = patch.rangeFrom;
   if (patch.rangeTo !== undefined) coBranch.rangeTo = patch.rangeTo;
   if (patch.environment !== undefined) coBranch.environment = patch.environment;
+  if (patch.softwareId !== undefined) coBranch.softwareId = patch.softwareId;
+  if (patch.softwarePin !== undefined) coBranch.softwarePin = patch.softwarePin;
 
   base.fiscal = { ...fiscalBranch, co: coBranch };
   return base;
 }
 
 /**
+ * What emission itself needs: a valid issuer NIT (hashed as NitOFE) and
+ * the DIAN software ID + PIN (the CUDE security code). Missing either
+ * blocks the intent instead of minting an identifier DIAN cannot verify.
+ */
+export function validateCoEmissionConfig(
+  settings: CoFiscalSettings
+): FiscalAdapterValidationResult {
+  const issues: FiscalAdapterValidationIssue[] = [];
+  if (!settings.nit || !validateNit(settings.nit).valid) {
+    issues.push({
+      code: 'MISSING_NIT',
+      message: 'Issuer NIT is missing or invalid',
+      field: 'fiscal.co.nit',
+    });
+  }
+  const software = missingSoftwareIssue(settings);
+  if (software) issues.push(software);
+  return { ok: issues.length === 0, issues };
+}
+
+function missingSoftwareIssue(settings: CoFiscalSettings): FiscalAdapterValidationIssue | null {
+  if (settings.softwareId && settings.softwarePin) return null;
+  return {
+    code: 'MISSING_SOFTWARE',
+    message: 'DIAN software ID or PIN is missing',
+    field: settings.softwareId ? 'fiscal.co.softwarePin' : 'fiscal.co.softwareId',
+  };
+}
+
+/**
  * Presence-only readiness probe for the Colombia fiscal config. Reports
  * which mandatory issuer fields are still missing so the config card
  * can paint an honest badge. This is NOT a cryptographic / transmission
- * check — certificate, CUFE signing and provider connectivity land with
- * . `ok` is true once NIT + resolution + a valid numbering range
- * are captured (independent of the `enabled` toggle: the merchant can
+ * check — certificate, signing and provider connectivity are not probed.
+ * `ok` is true once NIT + resolution + a valid numbering range + the
+ * DIAN software ID and PIN are captured (independent of the `enabled` toggle: the merchant can
  * complete the config before flipping DIAN on).
  */
 export function validateCoFiscalConfig(settings: CoFiscalSettings): FiscalAdapterValidationResult {
@@ -183,6 +236,8 @@ export function validateCoFiscalConfig(settings: CoFiscalSettings): FiscalAdapte
       field: 'fiscal.co.rangeFrom',
     });
   }
+  const software = missingSoftwareIssue(settings);
+  if (software) issues.push(software);
 
   return { ok: issues.length === 0, issues };
 }

@@ -193,7 +193,7 @@ export function buildDefaultLayouts(
         { type: 'totalsBlock', show: ['subtotal', 'taxTotal', 'grandTotal'] },
         { type: 'separator' },
         { type: 'qr', source: '{{fiscal.qrUrl}}', sizeMm: 25 },
-        { type: 'text', value: 'CUFE {{fiscal.cufe}}', style: 'monospace', align: 'center' },
+        { type: 'text', value: 'CUDE {{fiscal.cufe}}', style: 'monospace', align: 'center' },
         { type: 'appFooter', show: true, align: 'center' },
       ],
     },
