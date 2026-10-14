@@ -41,10 +41,31 @@ function withAutoPrint(receiptHtml: string): string {
  * shape (and the existing 10 tests in receiptPrinter.test.ts that
  * never imported tRPC continue to pass untouched).
  */
-export async function printSaleReceipt(
+export type ReceiptPrintOutcome = 'printed' | 'dialog-opened' | 'cancelled';
+
+// Collapse concurrent gestures for the same receipt, while allowing a later
+// deliberate reprint after the previous attempt settles.
+const inFlightPrints = new Map<string, Promise<ReceiptPrintOutcome>>();
+
+export function printSaleReceipt(
   sale: ReceiptSale,
   options: PrintSaleReceiptOptions = {}
-): Promise<void> {
+): Promise<ReceiptPrintOutcome> {
+  const key = sale.id;
+  if (!key) return dispatchSaleReceipt(sale, options);
+  const pending = inFlightPrints.get(key);
+  if (pending) return pending;
+  const attempt = dispatchSaleReceipt(sale, options).finally(() => {
+    inFlightPrints.delete(key);
+  });
+  inFlightPrints.set(key, attempt);
+  return attempt;
+}
+
+async function dispatchSaleReceipt(
+  sale: ReceiptSale,
+  options: PrintSaleReceiptOptions = {}
+): Promise<ReceiptPrintOutcome> {
   const { escposDispatcher, onEscposFallback, htmlProvider } = options;
 
   // server-side ESC/POS branch. When the active printer
@@ -53,7 +74,7 @@ export async function printSaleReceipt(
   if (escposDispatcher) {
     try {
       const outcome = await escposDispatcher();
-      if (outcome.status === 'printed') return;
+      if (outcome.status === 'printed') return 'printed';
       if (outcome.status === 'fallback') {
         onEscposFallback?.({
           error: outcome.error,
@@ -85,14 +106,16 @@ export async function printSaleReceipt(
     const result = await window.electron.printReceipt(html);
 
     if (!result.success) {
+      if (result.errorCode === 'PRINT_CANCELLED') return 'cancelled';
       throw new Error(result.error || 'Unable to print the receipt');
     }
 
-    return;
+    return 'printed';
   }
 
   const html = templateHtml
     ? withAutoPrint(templateHtml)
     : await buildSaleReceiptHtml(sale, { autoPrint: true });
   await openBrowserPrintWindow(html);
+  return 'dialog-opened';
 }

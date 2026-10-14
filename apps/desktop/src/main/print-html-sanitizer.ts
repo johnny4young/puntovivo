@@ -83,6 +83,12 @@ const ALLOWED_TAGS = [
   'td',
   'col',
   'colgroup',
+  // Receipt QR/barcode encoders emit only static SVG paths. Keep those
+  // shapes while continuing to reject scripts, foreignObject and external use.
+  'svg',
+  'path',
+  'rect',
+  'text',
   // Images (constrained to data URLs only via the allowedSchemes below).
   'img',
 ];
@@ -99,6 +105,21 @@ const ALLOWED_ATTRIBUTES: Record<string, string[]> = {
   th: ['colspan', 'rowspan', 'align', 'valign', 'width', 'scope'],
   col: ['span', 'width'],
   colgroup: ['span'],
+  svg: [
+    'xmlns',
+    'viewBox',
+    'width',
+    'height',
+    'fill',
+    'stroke',
+    'preserveAspectRatio',
+    'shape-rendering',
+    'role',
+    'aria-label',
+  ],
+  path: ['d', 'fill', 'stroke', 'stroke-width'],
+  rect: ['width', 'height', 'fill'],
+  text: ['x', 'y', 'text-anchor', 'font-family', 'font-size', 'fill'],
 };
 
 const ALLOWED_SCHEMES = ['data'];
@@ -130,6 +151,7 @@ export function sanitisePrintHtml(input: string): string {
     return '';
   }
   const sanitised = sanitizeHtml(input, {
+    parser: { lowerCaseAttributeNames: false },
     allowedTags: ALLOWED_TAGS,
     allowedAttributes: ALLOWED_ATTRIBUTES,
     // Style preserved verbatim — receipt CSS is operator-authored and
@@ -153,6 +175,20 @@ export function sanitisePrintHtml(input: string): string {
     // the allowlist so a `<script>alert(1)</script>` is removed
     // wholesale, not unwrapped to `alert(1)`.
     disallowedTagsMode: 'discard',
+    nonTextTags: [
+      'script',
+      'style',
+      'textarea',
+      'option',
+      'iframe',
+      'foreignobject',
+      'foreignObject',
+      'object',
+      'embed',
+      'use',
+      'animate',
+      'set',
+    ],
   });
   return injectPrintWindowCsp(sanitised);
 }

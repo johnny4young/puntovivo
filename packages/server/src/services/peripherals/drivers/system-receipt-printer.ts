@@ -1,21 +1,13 @@
 /**
  * `system` receipt printer driver.
  *
- * The default printer driver. The actual print continues to flow
- * through the legacy `apps/desktop/src/main/index.ts:1933`
- * `ipcMain.handle('print-receipt')` path — this adapter exists to
- * identify "this site uses the system driver" so the registry can
- * dispatch `escpos` () as a sibling without rewriting the
- * receipt-printer.ts call site.
+ * This adapter identifies the active system route; the renderer drives
+ * actual printing through the desktop print-receipt IPC or browser dialog.
+ * An adapter acknowledgement therefore does not mean paper was produced.
  *
- * The `print(job)` method returns a synchronous `{status: 'ok'}`
- * because the renderer (not this adapter) drives the actual print
- * via `window.electron.printReceipt(html)`. Future 's
- * `EscPosReceiptPrinterAdapter` will intercept here, build the
- * ESC/POS bytes, and call a new IPC channel.
- *
- * Config schema is intentionally empty `{}` — the system driver has
- * no configurable channel; it just defers to the OS print dialog.
+ * The system driver has no transport channel. Its opt-in completion flag
+ * lets the renderer open the print dialog (or desktop silent print) after a
+ * successful sale, without requiring an ESC/POS transport.
  *
  * @module services/peripherals/drivers/system-receipt-printer
  */
@@ -24,7 +16,11 @@ import { z } from 'zod';
 import type { ReceiptPrinterAdapter, PrintJob, PrintResult } from '../contracts/receipt-printer.js';
 import type { TestResult } from '../types.js';
 
-export const systemReceiptPrinterConfigSchema = z.object({}).strict();
+export const systemReceiptPrinterConfigSchema = z
+  .object({
+    autoPrintOnComplete: z.boolean().default(false),
+  })
+  .strict();
 export type SystemReceiptPrinterConfig = z.infer<typeof systemReceiptPrinterConfigSchema>;
 
 export class SystemReceiptPrinterAdapter implements ReceiptPrinterAdapter {
@@ -35,8 +31,7 @@ export class SystemReceiptPrinterAdapter implements ReceiptPrinterAdapter {
     readonly tenantId: string,
     readonly siteId: string,
     readonly peripheralId: string,
-    // Config is parsed/empty; we store it for forward compatibility
-    // but never read it today.
+    // The renderer consumes the validated opt-in completion flag.
     private readonly _config: SystemReceiptPrinterConfig
   ) {
     void this._config;

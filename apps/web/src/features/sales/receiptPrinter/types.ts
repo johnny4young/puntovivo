@@ -32,6 +32,7 @@ export interface ReceiptFiscalDocument {
 }
 
 export type ReceiptSale = {
+  id?: string;
   saleNumber: string;
   customerName?: string | null;
   customerNameSnapshot?: string | null;

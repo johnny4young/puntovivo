@@ -1,6 +1,10 @@
 import { beforeEach, describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { handlePrintReceiptRequest, type PrintReceiptHandlerDeps } from '../ipc/print-handler.ts';
+import {
+  handlePrintReceiptRequest,
+  ReceiptPrintCancelledError,
+  type PrintReceiptHandlerDeps,
+} from '../ipc/print-handler.ts';
 import { __resetForTests, SESSION_NOT_REGISTERED } from '../session/desktopSession.ts';
 import { registerRole } from './helpers/desktop-session.ts';
 
@@ -79,5 +83,21 @@ describe('print-receipt IPC handler', () => {
 
     assert.deepEqual(result, { success: false, error: 'spooler unavailable' });
     assert.equal(errors.length, 1);
+  });
+
+  it('reports cancellation without logging a spooler failure', async () => {
+    await registerRole('cashier');
+    const errors: unknown[] = [];
+    const deps = makeDeps({
+      printReceipt: async () => {
+        throw new ReceiptPrintCancelledError();
+      },
+      logError: error => errors.push(error),
+    });
+    assert.deepEqual(await handlePrintReceiptRequest('<p>ticket</p>', deps), {
+      success: false,
+      errorCode: 'PRINT_CANCELLED',
+    });
+    assert.equal(errors.length, 0);
   });
 });

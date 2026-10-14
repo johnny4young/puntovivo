@@ -154,12 +154,20 @@ export function SaleDetailsModal({
       setIsPrinting(true);
       setPrintError(null);
       try {
-        await printSaleReceipt(refreshed, {
+        const outcome = await printSaleReceipt(refreshed, {
           escposDispatcher: buildEscposDispatcher(refreshed.id),
           onEscposFallback: handleEscposFallback,
           htmlProvider: buildReceiptHtmlProvider(refreshed.id),
         });
-        toast.success({ title: t('sales:reprint.toastSuccessTitle') });
+        if (outcome !== 'cancelled') {
+          toast.success({
+            title: t(
+              outcome === 'dialog-opened'
+                ? 'sales:reprint.toastDialogOpened'
+                : 'sales:reprint.toastSuccessTitle'
+            ),
+          });
+        }
       } catch (error) {
         const message =
           error instanceof Error ? error.message : t('sales:details.toast.printErrorFallback');
@@ -248,9 +256,7 @@ export function SaleDetailsModal({
   // A void reverses the entire original ticket. Once any quantity has been
   // returned, allowing a void would restore the already-returned stock and
   // money twice; the server enforces the same fail-closed rule.
-  const canVoidEntireSale =
-    sale?.status === 'completed' &&
-    sale.returnState === null;
+  const canVoidEntireSale = sale?.status === 'completed' && sale.returnState === null;
   const refundBaselineNeedsApproval =
     isSalesRole &&
     canContinueReturn &&

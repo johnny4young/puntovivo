@@ -13,6 +13,13 @@ import type { ReceiptPrintSettings } from './settings.ts';
 
 export type PrintErrorTranslationKey = 'print.sessionRequired' | 'print.documentRequired';
 
+export class ReceiptPrintCancelledError extends Error {
+  constructor() {
+    super('Print job canceled');
+    this.name = 'ReceiptPrintCancelledError';
+  }
+}
+
 export interface PrintReceiptResult {
   success: boolean;
   error?: string;
@@ -62,6 +69,9 @@ export async function handlePrintReceiptRequest(
     await deps.printReceipt(sanitisedHtml, settings);
     return { success: true };
   } catch (error) {
+    if (error instanceof ReceiptPrintCancelledError) {
+      return { success: false, errorCode: 'PRINT_CANCELLED' };
+    }
     const message = error instanceof Error ? error.message : 'Receipt printing failed';
     deps.logError(error);
     return {

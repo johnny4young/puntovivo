@@ -10,22 +10,36 @@ export interface OpenHtmlPrintWindowOptions {
  * Open a self-contained printable HTML document without `document.write`.
  *
  * Blob URLs keep the print payload out of the current document's DOM, allow the
- * browser to apply the usual navigation security model, and pair naturally with
- * `noopener,noreferrer` so print popups cannot retain access to the opener.
+ * browser to apply the usual navigation security model. Detach the blank
+ * window's opener before navigating: the noopener feature returns null even
+ * when a popup opens, so it cannot be used to detect blocked print windows.
  */
 export function openHtmlInPrintWindow(
   html: string,
   options: OpenHtmlPrintWindowOptions = {}
 ): Window | null {
-  const blob = new Blob([html], { type: 'text/html' });
+  const policy = '<meta name="referrer" content="no-referrer">';
+  const privateHtml = /<head\b[^>]*>/i.test(html)
+    ? html.replace(/<head\b[^>]*>/i, `$&${policy}`)
+    : `${policy}${html}`;
+  const blob = new Blob([privateHtml], { type: 'text/html' });
   const url = URL.createObjectURL(blob);
-  const printWindow = window.open(
-    url,
-    options.target ?? '_blank',
-    options.features ?? 'noopener,noreferrer'
-  );
+  const features = (options.features ?? '')
+    .split(',')
+    .filter(feature => !/^\s*(noopener|noreferrer)(\s*=.*)?\s*$/i.test(feature))
+    .join(',');
+  const printWindow = window.open('', options.target ?? '_blank', features);
 
   if (!printWindow) {
+    URL.revokeObjectURL(url);
+    return null;
+  }
+
+  try {
+    printWindow.opener = null;
+    printWindow.location.replace(url);
+  } catch {
+    printWindow.close();
     URL.revokeObjectURL(url);
     return null;
   }

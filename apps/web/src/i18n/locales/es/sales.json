@@ -619,7 +619,8 @@
     "noPermission": "Los cajeros solo pueden reimprimir ventas de su turno activo.",
     "toastSuccessTitle": "Recibo reimpreso",
     "toastErrorTitle": "No se pudo reimprimir el recibo",
-    "shortcut": "Ctrl+Shift+P"
+    "shortcut": "Ctrl+Shift+P",
+    "toastDialogOpened": "Diálogo de impresión abierto"
   },
   "scanner": {
     "notFound": "No encontré el producto con ese código",

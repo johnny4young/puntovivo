@@ -759,7 +759,7 @@ describe('Receipt Templates (Iter 2)', () => {
       expect(result.html).toContain('background:#fff');
     });
 
-    it('uses the real thermal dot widths from PRINT_TOKENS', () => {
+    it('uses physical printable widths independently of head dots', () => {
       const data = buildPreviewData('sale');
       const baseBlocks = [{ type: 'text' as const, value: '{{sale.saleNumber}}' }];
 
@@ -772,8 +772,8 @@ describe('Receipt Templates (Iter 2)', () => {
         data
       ).html;
 
-      expect(thermal58).toContain('width:384px');
-      expect(thermal80).toContain('width:576px');
+      expect(thermal58).toContain('width:48mm');
+      expect(thermal80).toContain('width:72mm');
     });
 
     it('fits screen previews without changing the print-media contract', () => {
@@ -786,9 +786,9 @@ describe('Receipt Templates (Iter 2)', () => {
         data
       ).html;
 
-      expect(html).toContain('width:576px');
-      expect(html).toContain('@media screen{body{box-sizing:border-box;max-width:100%;}}');
-      expect(html).toContain('@media print{body{padding:0;}}');
+      expect(html).toContain('width:72mm');
+      expect(html).toContain('max-width:100%');
+      expect(html).toContain('@media print{body{padding:0;margin:0 auto;}');
     });
 
     it('Zod schema accepts wordmark + metaTable blocks; rejects empty rows + unknown keys', () => {

@@ -1,11 +1,9 @@
 /**
  * Receipt renderer HTML block renderers + document builder.
  *
- * extracted verbatim from the former single-file
- * `services/receipt-renderer.ts`. The per-block `render*BlockHtml` functions
- * stay module-private (only `renderBlockHtml` dispatches to them); the
- * dispatcher + `buildHtmlDocument` are exported for the orchestrator.
- * thermal CSS,  logo re-escape, and  QR fallback move byte-for-byte.
+ * Per-block renderers stay private; the dispatcher and document builder are
+ * exported for the orchestrator. Thermal documents use physical printable
+ * widths and preserve full receipt text within that area.
  *
  * @module services/receipt-renderer/html-blocks
  */
@@ -17,7 +15,7 @@ import type { ReceiptRenderLabels, RenderData } from './types.js';
 import { APP_FOOTER_METADATA, WORDMARK_TAGLINE } from './labels.js';
 import { escapeHtml, resolveAndEscape } from './escape-resolve.js';
 import {
-  PAPER_WIDTH_PX,
+  PAPER_WIDTH_CSS,
   alignClass,
   formatItemCell,
   formatReceiptAmount,
@@ -126,7 +124,7 @@ function renderItemsTableHtml(
       const cells = block.columns
         .map(col => {
           const text = formatItemCell(col, item, data.locale);
-          return `<td class="col-${col}">${escapeHtml(text)}</td>`;
+          return `<td class="col-${col}">${showHeader ? `<span class="item-cell-label">${escapeHtml(itemColumnLabel(col, labels))}</span>` : ''}<span class="item-cell-value">${escapeHtml(text)}</span></td>`;
         })
         .join('');
       // The rule that priced the line, on its own row underneath, spanning
@@ -139,7 +137,7 @@ function renderItemsTableHtml(
             )}</td></tr>`
         )
         .join('');
-      return `<tr>${cells}</tr>${promotionRows}`;
+      return `<tr class="item-row">${cells}</tr>${promotionRows}`;
     })
     .join('');
   return `<div class="block block-items"><table>${headerCells}<tbody>${rowCells}</tbody></table></div>`;
@@ -337,7 +335,8 @@ export function buildHtmlDocument(
   documentTitle: string,
   documentLocale = 'en'
 ): string {
-  const widthPx = PAPER_WIDTH_PX[layout.paperWidth] ?? 300;
+  const widthCss = PAPER_WIDTH_CSS[layout.paperWidth];
+  const isThermal = layout.paperWidth === '58mm' || layout.paperWidth === '80mm';
   const is80mm = layout.paperWidth === '80mm';
   // adopt the design-system thermal preview rules
   // (`preview/25-print-thermal.html` from the print specification):
@@ -355,7 +354,7 @@ export function buildHtmlDocument(
   const wordmarkSize = is80mm ? '28px' : '22px';
   return `<!DOCTYPE html>
 <html lang="${escapeHtml(documentLocale)}"><head><meta charset="utf-8" /><title>${escapeHtml(documentTitle)}</title><style>
-  body{margin:0;padding:8px;font-family:${mono};font-size:${PRINT_TOKENS.bodySize};line-height:1.35;color:${PRINT_TOKENS.ink};background:${PRINT_TOKENS.paper};width:${widthPx}px;font-variant-numeric:tabular-nums;}
+  body{margin:0;padding:8px;box-sizing:border-box;font-family:${mono};font-size:${PRINT_TOKENS.bodySize};line-height:1.35;color:${PRINT_TOKENS.ink};background:${PRINT_TOKENS.paper};width:${widthCss};max-width:100%;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;}
   .block{margin-bottom:6px;}
   .align-left{text-align:left;}.align-center{text-align:center;}.align-right{text-align:right;}
   .style-title{font-size:13pt;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;}
@@ -365,11 +364,28 @@ export function buildHtmlDocument(
   .bold{font-weight:700;}
   table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;}
   td,th{padding:2px 0;vertical-align:top;}
+  .item-cell-label{display:none;}
+  .thermal .block-items thead,.thermal .block-tenders thead{display:none;}
+  .thermal .block-items table,.thermal .block-items tbody,.thermal .block-items tr,.thermal .block-items td,.thermal .block-tenders table,.thermal .block-tenders tbody,.thermal .block-tenders tr,.thermal .block-tenders td{display:block;width:100%;box-sizing:border-box;}
+  .thermal .block-items .item-row{margin-bottom:6px;break-inside:avoid;}
+  .thermal .block-items td:not(.col-name){display:flex;flex-wrap:wrap;justify-content:space-between;column-gap:8px;text-align:left;}
+  .thermal .block-items .item-cell-label{display:inline;min-width:0;flex:1;}
+  .thermal .block-items .col-name .item-cell-label{display:none;}
+  .thermal .block-items .col-name{font-weight:700;}
+  .thermal .block-items .item-cell-value{min-width:0;text-align:right;flex:0 0 auto;max-width:100%;margin-left:auto;}
+  .thermal .block-items .col-name .item-cell-value{text-align:left;}
+  .thermal .block-totals tr{display:flex;flex-wrap:wrap;justify-content:space-between;column-gap:8px;}
+  .thermal .block-totals td{display:block;max-width:100%;box-sizing:border-box;flex:0 0 auto;}
+  .thermal .block-totals .totals-value{margin-left:auto;}
+  .thermal .block-totals tr.grand-total{border-top:1px solid ${PRINT_TOKENS.ink};border-bottom:1px solid ${PRINT_TOKENS.ink};padding:4px 0;}
+  .thermal .block-totals tr.grand-total td{border:0;padding-top:0;padding-bottom:0;}
+  .thermal .block-tenders tr{margin-bottom:6px;break-inside:avoid;}
+  .thermal .block-tenders .tender-amount{font-weight:700;}
   .col-qty,.col-unitPrice,.col-taxPercent,.col-discount,.col-total,.totals-value,.tender-amount{text-align:right;font-variant-numeric:tabular-nums;}
   .block-totals td{padding-top:1px;padding-bottom:1px;}
   .block-totals tr.grand-total td{border-top:1px solid ${PRINT_TOKENS.ink};border-bottom:1px solid ${PRINT_TOKENS.ink};font-size:${PRINT_TOKENS.totalSize};font-weight:700;padding-top:4px;padding-bottom:4px;letter-spacing:0.02em;}
-  .block-separator{font-family:${mono};letter-spacing:0;}
-  .qr-svg{display:inline-block;line-height:0;background:${PRINT_TOKENS.paper};color:${PRINT_TOKENS.ink};}
+  .block-separator{font-family:${mono};letter-spacing:0;white-space:nowrap;overflow:hidden;}
+  .qr-svg{display:inline-block;max-width:100%;height:auto!important;aspect-ratio:1;line-height:0;background:${PRINT_TOKENS.paper};color:${PRINT_TOKENS.ink};}
   .qr-svg svg{width:100%;height:100%;display:block;shape-rendering:crispEdges;}
   .qr-placeholder{display:inline-block;position:relative;width:78px;height:78px;border:4px solid ${PRINT_TOKENS.paper};outline:1px solid ${PRINT_TOKENS.ink};background:${PRINT_TOKENS.paper};}
   .qr-placeholder-empty{background:${PRINT_TOKENS.paper};}
@@ -384,7 +400,8 @@ export function buildHtmlDocument(
   .block-logo img{max-width:100%;image-rendering:pixelated;}
   .block-logo-empty{min-height:8px;}
   .block-fiscal-evidence{margin-top:8px;padding-top:8px;border-top:1px dashed ${PRINT_TOKENS.ink};font-size:${PRINT_TOKENS.minSize};}
-  .fiscal-evidence-row{display:flex;justify-content:space-between;gap:8px;margin-bottom:3px;}
+  .fiscal-evidence-row{display:flex;flex-wrap:wrap;justify-content:space-between;column-gap:8px;margin-bottom:3px;}
+  .fiscal-evidence-row>*{min-width:0;max-width:100%;}
   .fiscal-evidence-row span,.fiscal-evidence-identifier span{color:${PRINT_TOKENS.ink};}
   .fiscal-evidence-identifier{display:grid;gap:2px;margin-top:5px;}
   .fiscal-evidence-identifier code{font-family:${mono};font-size:9px;overflow-wrap:anywhere;}
@@ -395,9 +412,9 @@ export function buildHtmlDocument(
   .wordmark-dot{display:inline-block;width:${dotSize};height:${dotSize};background:${PRINT_TOKENS.ink};margin-left:4px;vertical-align:middle;}
   .wordmark-tagline{font-family:${brand};font-size:${PRINT_TOKENS.minSize};font-weight:700;letter-spacing:0;margin-top:4px;}
   .block-meta .meta-grid{display:grid;grid-template-columns:auto 1fr;column-gap:8px;row-gap:2px;margin:0;font-size:${PRINT_TOKENS.minSize};}
+  .thermal .block-meta .meta-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr);}
   .block-meta .meta-key{font-weight:700;}
   .block-meta .meta-value{margin:0;text-align:right;font-variant-numeric:tabular-nums;}
-  @media screen{body{box-sizing:border-box;max-width:100%;}}
-  @media print{body{padding:0;}}
-</style></head><body>${body}</body></html>`;
+  @media print{body{padding:0;margin:0 auto;} .block{break-inside:avoid;}.block-items,.block-tenders{break-inside:auto;}}
+</style></head><body${isThermal ? ' class="thermal"' : ''}>${body}</body></html>`;
 }

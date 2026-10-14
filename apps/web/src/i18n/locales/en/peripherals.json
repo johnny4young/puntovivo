@@ -40,7 +40,8 @@
     "configInvalidJson": "The configuration is not valid JSON. Check for missing quotes, commas, or braces.",
     "autoPrintOnComplete": {
       "label": "Print automatically when a sale closes",
-      "help": "Sends the receipt to this printer when the cashier confirms the sale. The drawer also opens when you enable that option in the printer's advanced configuration."
+      "help": "Sends the receipt to this printer when the cashier confirms the sale. The drawer also opens when you enable that option in the printer's advanced configuration.",
+      "systemHelp": "Open the system print dialog after each completed sale. In the desktop app, enable silent printing in business settings to use the default printer without a dialog."
     },
     "gs1": {
       "title": "GS1 weight and price labels",
@@ -60,7 +61,10 @@
         "weight": "Weight",
         "price": "Price"
       }
-    }
+    },
+    "paperWidthLabel": "Paper width",
+    "paperWidthInvalid": "Choose a supported width",
+    "paperWidthHelp": "Match the printer roll: 58 mm uses 32 columns; 80 mm uses 48. Configure the receipt template separately."
   },
   "actions": {
     "test": "Test",

@@ -1,23 +1,26 @@
 /**
  * Receipt renderer ESC/POS byte builders + block renderer.
  *
- * extracted verbatim from the former single-file
- * `services/receipt-renderer.ts`. The control-byte primitives stay
- * module-private; `ESC` / `LF` / `escposCut` / `renderBlockEscPos` /
- * `paperWidthCharsFor` gain `export` for the orchestrator. The byte output is
- * unchanged ( `GS ( k` QR sequence + the same scanner-scheme guard).
+ * Text fields wrap to the configured character columns without truncating
+ * receipt evidence. Interpolated text cannot emit control commands; binary
+ * QR/barcode commands remain owned by their dedicated encoders.
  *
  * @module services/receipt-renderer/escpos
  */
 import type { ReceiptBlock, ReceiptLayout } from '../../trpc/schemas/receiptTemplates.js';
 import { encodeCode128EscposBytes } from '../barcode128-encoder.js';
 import { encodeQrEscposBytes } from '../qr-encoder.js';
-import { encodeForCharset, type EscPosCharset } from '../peripherals/escpos/byte-builder.js';
+import {
+  encodeForCharset,
+  wrapToColumns,
+  type EscPosCharset,
+} from '../peripherals/escpos/byte-builder.js';
 import type { ReceiptRenderLabels, RenderData } from './types.js';
 import { APP_FOOTER_METADATA, WORDMARK_TAGLINE } from './labels.js';
 import { resolvePlain } from './escape-resolve.js';
 import {
-  formatNumber,
+  formatItemCell,
+  itemColumnLabel,
   formatReceiptAmount,
   formatWholeCount,
   tenderMethodLabel,
@@ -30,6 +33,12 @@ const GS = 0x1d;
 export const LF = 0x0a;
 
 function bytesFromString(value: string, characterSet?: EscPosCharset): number[] {
+  // Interpolated text must not become printer commands. Commands are emitted
+  // only by the byte builders, never by product/customer/template strings.
+  value = Array.from(value, character => {
+    const code = character.charCodeAt(0);
+    return (code < 32 && code !== LF) || code === 127 || character === '\u00a0' ? ' ' : character;
+  }).join('');
   if (characterSet) {
     return Array.from(encodeForCharset(value, characterSet));
   }
@@ -39,6 +48,10 @@ function bytesFromString(value: string, characterSet?: EscPosCharset): number[] 
     out.push(code < 128 ? code : 0x3f); // non-ASCII collapses to '?'
   }
   return out;
+}
+
+function textLines(value: string, cols: number, characterSet?: EscPosCharset): number[] {
+  return wrapToColumns(value, cols).flatMap(line => [...bytesFromString(line, characterSet), LF]);
 }
 
 const CHARSET_CODES: Record<EscPosCharset, number> = {
@@ -73,7 +86,8 @@ function escposLine(): number[] {
 
 export function renderFiscalEvidenceEscPos(
   data: RenderData,
-  characterSet?: EscPosCharset
+  characterSet?: EscPosCharset,
+  paperWidthChars = 48
 ): number[] {
   const documents = data.fiscalDocuments ?? (data.fiscal ? [data.fiscal] : []);
   if (documents.length === 0) return [];
@@ -96,11 +110,11 @@ export function renderFiscalEvidenceEscPos(
       [evidenceLabels.identifier, document.cufe],
     ] as const) {
       if (!value) continue;
-      out.push(...bytesFromString(`${label}: ${value}`, characterSet), ...escposLine());
+      out.push(...textLines(`${label}: ${value}`, paperWidthChars, characterSet));
     }
     if (document.nonCertifiedNotice) {
       out.push(...escposBoldOn());
-      out.push(...bytesFromString(document.nonCertifiedNotice, characterSet), ...escposLine());
+      out.push(...textLines(document.nonCertifiedNotice, paperWidthChars, characterSet));
       out.push(...escposBoldOff());
     }
   }
@@ -121,9 +135,8 @@ export function renderBlockEscPos(
       out.push(...escposAlign(block.align));
       const bold = block.bold || block.style === 'title' || block.style === 'subtitle';
       if (bold) out.push(...escposBoldOn());
-      out.push(...bytesFromString(text, characterSet));
+      out.push(...textLines(text, paperWidthChars, characterSet));
       if (bold) out.push(...escposBoldOff());
-      out.push(...escposLine());
       return out;
     }
     case 'logo': {
@@ -137,23 +150,26 @@ export function renderBlockEscPos(
       const out: number[] = [];
       out.push(...escposAlign('left'));
       for (const item of data.sale.items) {
-        const namePiece = item.name
-          .padEnd(Math.max(0, paperWidthChars - 16))
-          .slice(0, paperWidthChars - 16);
-        const qtyPiece = formatNumber(item.qty).padStart(6);
-        const totalPiece = formatReceiptAmount(item.total, data.locale).padStart(10);
-        out.push(...bytesFromString(`${namePiece}${qtyPiece}${totalPiece}`, characterSet));
-        out.push(...escposLine());
+        // Thermal receipts have too few columns for a full name plus several
+        // monetary values. Preserve configured fields and complete evidence
+        // as labelled lines instead of silently slicing names or amounts.
+        for (const column of block.columns) {
+          const value = formatItemCell(column, item, data.locale);
+          const line = column === 'name' ? value : `${itemColumnLabel(column, labels)}: ${value}`;
+          out.push(...textLines(line, paperWidthChars, characterSet));
+        }
         // The rule that priced the line, beneath the line. A discounted total
         // on its own is not evidence of which promotion produced it, and a
         // reprint after the rule changes must still show the frozen one.
         for (const promotion of item.promotions ?? []) {
           const amount = formatReceiptAmount(promotion.discountAmount, data.locale);
-          const label = `  ${promotion.name} (v${promotion.version})`
-            .padEnd(Math.max(0, paperWidthChars - 10))
-            .slice(0, paperWidthChars - 10);
-          out.push(...bytesFromString(`${label}${`-${amount}`.padStart(10)}`, characterSet));
-          out.push(...escposLine());
+          out.push(
+            ...textLines(
+              `${promotion.name} (v${promotion.version}) -${amount}`,
+              paperWidthChars,
+              characterSet
+            )
+          );
         }
       }
       return out;
@@ -164,8 +180,7 @@ export function renderBlockEscPos(
       for (const row of totalsRows(block.show, data, labels)) {
         const value = formatReceiptAmount(row.value, data.locale);
         const padded = `${row.label}: ${value}`;
-        out.push(...bytesFromString(padded, characterSet));
-        out.push(...escposLine());
+        out.push(...textLines(padded, paperWidthChars, characterSet));
       }
       return out;
     }
@@ -179,21 +194,30 @@ export function renderBlockEscPos(
           ? `${tenderMethodLabel(tender.method, labels)} ${formatWholeCount(tender.points)}${labels.tendersTable.points}`
           : tenderMethodLabel(tender.method, labels);
         out.push(
-          ...bytesFromString(
+          ...textLines(
             `${methodLabel.padEnd(14)} ${formatReceiptAmount(tender.amount, data.locale).padStart(10)}`,
+            paperWidthChars,
             characterSet
           )
         );
-        out.push(...escposLine());
+        if (tender.reference) {
+          out.push(
+            ...textLines(
+              `${labels.tendersTable.reference}: ${tender.reference}`,
+              paperWidthChars,
+              characterSet
+            )
+          );
+        }
       }
       if (block.showChange && data.sale.changeDue && data.sale.changeDue > 0) {
         out.push(
-          ...bytesFromString(
+          ...textLines(
             `${labels.tendersTable.change.padEnd(8)} ${formatReceiptAmount(data.sale.changeDue, data.locale).padStart(10)}`,
+            paperWidthChars,
             characterSet
           )
         );
-        out.push(...escposLine());
       }
       return out;
     }
@@ -281,8 +305,11 @@ export function renderBlockEscPos(
         const resolvedKey = resolvePlain(row.key, data);
         const gap = Math.max(1, paperWidthChars - resolvedKey.length - resolvedValue.length);
         const line = `${resolvedKey}${' '.repeat(gap)}${resolvedValue}`;
-        out.push(...bytesFromString(line.slice(0, paperWidthChars), characterSet));
-        out.push(...escposLine());
+        if (line.length <= paperWidthChars) {
+          out.push(...bytesFromString(line, characterSet), LF);
+        } else {
+          out.push(...textLines(`${resolvedKey}: ${resolvedValue}`, paperWidthChars, characterSet));
+        }
       }
       return out;
     }

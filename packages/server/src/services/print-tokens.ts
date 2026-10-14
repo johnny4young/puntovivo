@@ -22,13 +22,13 @@
  * - Monospace numerics with `font-variant-numeric: tabular-nums` so
  * columns line up under poor ESC/POS rasterization.
  * - Borders ≥ 1 px. Hairlines disappear on the print head.
- * - Fixed pixel widths at the real DPI — never percentages.
+ * - Physical CSS widths; head dots belong only to raster/ESC/POS output.
  * - Text ≥ 10 pt; the driver rounds anything below.
  * - Wordmark belongs in the header band, not as a watermark.
  *
  * The dot counts (`58mm-dots`, `80mm-dots`) match the `203 dpi`
- * spec: 58 mm × 203 dpi ÷ 25.4 mm/in ≈ 384 dots,
- * 80 mm × 203 dpi ÷ 25.4 mm/in ≈ 576 dots.
+ * heads: 384 dots ≈ 48 mm and 576 dots ≈ 72 mm at 203 dpi.
+ * The 58/80 mm roll includes unprintable edges, not additional head dots.
  *
  * @module services/print-tokens
  */
@@ -40,6 +40,9 @@ export const PRINT_TOKENS = {
   paper58mmDots: 384,
   /** Live printable width for an 80 mm roll, in dots. */
   paper80mmDots: 576,
+  /** Conservative common printable areas; independent of CSS pixel density. */
+  paper58mmPrintableMm: 48,
+  paper80mmPrintableMm: 72,
   /**
    * Monospace stack used everywhere on the receipt. IBM Plex Mono is
    * the preferred face; JetBrains Mono / Menlo / Consolas /

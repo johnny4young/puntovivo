@@ -619,7 +619,8 @@
     "noPermission": "Cashiers can only reprint sales from their active cash session.",
     "toastSuccessTitle": "Receipt reprinted",
     "toastErrorTitle": "Unable to reprint receipt",
-    "shortcut": "Ctrl+Shift+P"
+    "shortcut": "Ctrl+Shift+P",
+    "toastDialogOpened": "Print dialog opened"
   },
   "scanner": {
     "notFound": "No product matches that barcode",

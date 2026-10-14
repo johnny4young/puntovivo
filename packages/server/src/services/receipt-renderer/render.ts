@@ -52,7 +52,7 @@ export function renderReceipt(
   for (const block of layout.blocks) {
     escposBytes.push(...renderBlockEscPos(block, data, widthChars, labels, options.characterSet));
   }
-  escposBytes.push(...renderFiscalEvidenceEscPos(data, options.characterSet));
+  escposBytes.push(...renderFiscalEvidenceEscPos(data, options.characterSet, widthChars));
   // Feed a few lines and cut
   escposBytes.push(LF, LF, LF, ...escposCut());
   return {

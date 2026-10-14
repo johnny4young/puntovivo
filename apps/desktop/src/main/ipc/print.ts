@@ -14,7 +14,7 @@
 import { BrowserWindow, ipcMain } from 'electron';
 import { createModuleLogger } from '@puntovivo/server';
 import { t } from '../i18n';
-import { handlePrintReceiptRequest } from './print-handler.js';
+import { handlePrintReceiptRequest, ReceiptPrintCancelledError } from './print-handler.js';
 import { getReceiptPrintSettings, type ReceiptPrintSettings } from './settings.js';
 
 // `print` is one of the frequent-error surfaces split out of
@@ -53,9 +53,15 @@ async function printReceipt(receiptHtml: string, settings: ReceiptPrintSettings)
         {
           silent: settings.silent,
           printBackground: settings.printBackground,
+          usePrinterDefaultPageSize: true,
+          margins: { marginType: 'printableArea' },
         },
         (success, failureReason) => {
           if (!success) {
+            if (failureReason === 'Print job canceled') {
+              reject(new ReceiptPrintCancelledError());
+              return;
+            }
             reject(new Error(failureReason || t('print.receiptFailed')));
             return;
           }

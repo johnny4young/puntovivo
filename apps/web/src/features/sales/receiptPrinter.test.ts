@@ -43,6 +43,56 @@ const sale: Sale = {
   ],
 };
 
+describe('receipt print attempts', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    delete (window as { electron?: unknown }).electron;
+  });
+  it('collapses concurrent requests and permits a later intentional print', async () => {
+    let finish!: (result: { success: boolean }) => void;
+    const printReceipt = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise(resolve => {
+            finish = resolve;
+          })
+      )
+      .mockResolvedValue({ success: true });
+    (window as unknown as { electron: { printReceipt: typeof printReceipt } }).electron = {
+      printReceipt,
+    };
+    const options = { htmlProvider: async () => '<html><body>DEMO</body></html>' };
+    const first = printSaleReceipt(sale, options);
+    const duplicate = printSaleReceipt(sale, options);
+    expect(first).toBe(duplicate);
+    await Promise.resolve();
+    finish({ success: true });
+    await expect(first).resolves.toBe('printed');
+    expect(printReceipt).toHaveBeenCalledOnce();
+    await printSaleReceipt(sale, options);
+    expect(printReceipt).toHaveBeenCalledTimes(2);
+  });
+  it('treats native cancellation as an outcome rather than a print failure', async () => {
+    const printReceipt = vi
+      .fn()
+      .mockResolvedValue({ success: false, errorCode: 'PRINT_CANCELLED' });
+    (window as unknown as { electron: { printReceipt: typeof printReceipt } }).electron = {
+      printReceipt,
+    };
+    await expect(printSaleReceipt(sale, { htmlProvider: async () => '<p>DEMO</p>' })).resolves.toBe(
+      'cancelled'
+    );
+  });
+  it('keeps the compatibility receipt at a physical printable width with black ink', async () => {
+    const html = await buildSaleReceiptHtml(sale, { autoPrint: false });
+    expect(html).toContain('width: 48mm');
+    expect(html).toContain('font-size: 11pt');
+    expect(html).toContain('color: #000 !important');
+    expect(html).toContain('max-width: 100%');
+  });
+});
+
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
@@ -171,16 +221,14 @@ describe('receiptPrinter', () => {
         return 'blob:sale-receipt';
       });
     const revokeSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
-    const openSpy = vi.spyOn(window, 'open').mockReturnValue({} as Window);
+    const openSpy = vi
+      .spyOn(window, 'open')
+      .mockReturnValue({ location: { replace: vi.fn() }, close: vi.fn() } as unknown as Window);
 
     await printSaleReceipt(sale);
 
     expect(createUrlSpy).toHaveBeenCalledOnce();
-    expect(openSpy).toHaveBeenCalledWith(
-      'blob:sale-receipt',
-      '_blank',
-      'noopener,noreferrer,width=420,height=720'
-    );
+    expect(openSpy).toHaveBeenCalledWith('', '_blank', 'width=420,height=720');
     expect(captured).not.toBeNull();
     await expect(captured!.text()).resolves.toContain('window.print()');
     expect(revokeSpy).not.toHaveBeenCalled();
@@ -196,7 +244,10 @@ describe('receiptPrinter', () => {
       return 'blob:template-receipt';
     });
     vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
-    vi.spyOn(window, 'open').mockReturnValue({} as Window);
+    vi.spyOn(window, 'open').mockReturnValue({
+      location: { replace: vi.fn() },
+      close: vi.fn(),
+    } as unknown as Window);
 
     await printSaleReceipt(sale, {
       htmlProvider: async () => '<html><body><main>ACTIVE TEMPLATE</main></body></html>',
@@ -229,7 +280,10 @@ describe('receiptPrinter', () => {
       return 'blob:legacy-receipt';
     });
     vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
-    vi.spyOn(window, 'open').mockReturnValue({} as Window);
+    vi.spyOn(window, 'open').mockReturnValue({
+      location: { replace: vi.fn() },
+      close: vi.fn(),
+    } as unknown as Window);
 
     await printSaleReceipt(sale, { htmlProvider: async () => null });
 

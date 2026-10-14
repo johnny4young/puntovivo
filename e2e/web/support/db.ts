@@ -1031,6 +1031,50 @@ export function seedSurfaceGateScenario(
   return seedIsolatedAdminTenant(seed, 'surface', modules);
 }
 
+/** Printer settings must never enable auto-print for another parallel checkout. */
+export function seedReceiptPrintingScenario(seed: string): SeededSaleScenario {
+  const scenario = seedSurfaceGateScenario(seed, {});
+  const db = openDb();
+  try {
+    const now = nowIso();
+    const sites = [scenario.site];
+    const unitId = makeId('e2e_print_unit');
+    db.prepare(
+      `insert into units (
+        id, tenant_id, name, abbreviation, dimension, standard_code,
+        reference_factor, is_active, created_at, updated_at
+      ) values (?, ?, 'Unit', 'u', 'count', 'H87', 1, 1, ?, ?)`
+    ).run(unitId, scenario.tenantId, now, now);
+    db.prepare(
+      'insert into sequentials (id, tenant_id, site_id, document_type, prefix) values (?, ?, ?, ?, ?)'
+    ).run(makeId('e2e_print_sequence'), scenario.tenantId, scenario.site.id, 'sale', 'PRINT-');
+    const cashier = seedBusinessUser(db, {
+      tenantId: scenario.tenantId,
+      sites,
+      role: 'cashier',
+      templateEmail: 'e2e.cashier@local.test',
+      seed: normalizeSeed(seed),
+    });
+    const product = seedBusinessProduct(db, {
+      tenantId: scenario.tenantId,
+      sites,
+      unitId,
+      seed: normalizeSeed(seed),
+      siteStocks: [SITE_STOCK],
+    });
+    return {
+      tenantId: scenario.tenantId,
+      sites,
+      admin: scenario.admin,
+      manager: scenario.admin,
+      cashier,
+      product,
+    };
+  } finally {
+    db.close();
+  }
+}
+
 /** Isolated pharmacy setup evidence for the live vertical-readiness journey. */
 export function seedVerticalReadinessScenario(seed: string): SeededFiscalProfileScenario {
   const scenario = seedSurfaceGateScenario(seed, {});

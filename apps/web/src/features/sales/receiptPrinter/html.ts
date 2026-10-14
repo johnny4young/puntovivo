@@ -341,8 +341,29 @@ export async function buildSaleReceiptHtml(
 
           @media print {
             body {
-              padding: 10px;
+              padding: 0;
+              margin: 0 auto;
+              width: 48mm;
+              max-width: 100%;
+              color: #000;
+              font-size: 11pt;
+              overflow-wrap: anywhere;
             }
+            .receipt { max-width: none; }
+            .receipt * { color: #000 !important; border-color: #000 !important; background: transparent !important; }
+            th, .muted, .footer, .tender-reference, .receipt-fiscal-notice { font-size: 10pt; }
+            .total-row { font-size: 14pt; }
+            .receipt table, .receipt tbody, .receipt tr, .receipt td { display: block; width: 100%; box-sizing: border-box; }
+            .receipt thead { display: none; }
+            .receipt tr { margin-bottom: 8px; break-inside: avoid; }
+            .receipt td { border: 0; }
+            .item-name { width: auto; font-weight: 700; padding-right: 0; }
+            .item-qty, .item-price, .item-total { display: flex !important; flex-wrap: wrap; justify-content: space-between; column-gap: 8px; white-space: normal; }
+            .item-qty::before { content: 'Qty'; }
+            .item-price::before { content: 'Price'; }
+            .item-total::before { content: 'Total'; }
+            .meta-row, .summary-row { flex-wrap: wrap; }
+            .meta-row > :last-child, .summary-row > :last-child { margin-left: auto; max-width: 100%; }
           }
         </style>
       </head>

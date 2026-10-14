@@ -419,6 +419,8 @@
   --print-dpi: 203;
   --print-58mm-dots: 384;
   --print-80mm-dots: 576;
+  --print-58mm-printable-mm: 48;
+  --print-80mm-printable-mm: 72;
   --print-mono-face:
     'IBM Plex Mono', 'JetBrains Mono', 'Menlo', 'Consolas', ui-monospace, monospace;
   --print-min-size: 10pt;
