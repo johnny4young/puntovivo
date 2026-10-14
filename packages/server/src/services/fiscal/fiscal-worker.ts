@@ -61,9 +61,11 @@ import { WorkerActivityTracker } from '../../lib/worker-activity.js';
 import { normalizeFiscalError } from './error-normalizer.js';
 import { toOutboxError } from './errors.js';
 import { getFiscalAdapter } from './registry.js';
+import { withLiveFiscalSecrets } from './issuer-context.js';
 import { enqueueWebhook } from '../events/enqueue-webhook.js';
 import { projectFiscalDocumentAccepted } from '../events/projector.js';
 import { isModuleActiveInSettings } from '../modules/manifest.js';
+import { readLiveTenantSettings } from './orchestrator/helpers.js';
 import {
   materializeNextFiscalEmissionIntent,
   sweepStaleFiscalIntentClaims,
@@ -220,8 +222,13 @@ export function createFiscalWorker(opts: CreateFiscalWorkerOptions): FiscalWorke
       if (adapter.providerId !== payload.providerId) {
         throw new TypeError('Frozen fiscal provider no longer matches the active country adapter');
       }
+      // Fiscal secrets are never frozen into the payload; read them live.
+      const tenantSettings = withLiveFiscalSecrets(
+        payload.adapterInput.tenantSettings,
+        await readLiveTenantSettings(db, payload.adapterInput.tenantId)
+      );
       const issued = await withAdapterTimeout(
-        adapter.issue(payload.adapterInput),
+        adapter.issue({ ...payload.adapterInput, tenantSettings }),
         ADAPTER_TIMEOUT_MS
       );
 

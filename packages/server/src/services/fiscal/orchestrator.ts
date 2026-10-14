@@ -26,6 +26,7 @@ export {
   materializeFiscalEmissionIntent,
   materializeNextFiscalEmissionIntent,
   prepareSaleFiscalIntent,
+  refreshBlockedIntentIssuerContract,
   sweepStaleFiscalIntentClaims,
 } from './orchestrator/intents.js';
 export type {

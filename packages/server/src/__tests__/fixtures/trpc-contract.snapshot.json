@@ -956,7 +956,7 @@
   {
     "path": "fiscalSettings.updateCo",
     "kind": "mutation",
-    "input": "object{dianResolutionNumber?:string[minLength=1,maxLength=40]|null,enabled?:boolean,environment?:enum(\"habilitacion\"|\"produccion\"),nit?:string[minLength=1,maxLength=20]|null,prefix?:string[minLength=1,maxLength=10]|null,rangeFrom?:integer[max=9007199254740991,min>0]|null,rangeTo?:integer[max=9007199254740991,min>0]|null}",
+    "input": "object{dianResolutionNumber?:string[minLength=1,maxLength=40]|null,enabled?:boolean,environment?:enum(\"habilitacion\"|\"produccion\"),nit?:string[minLength=1,maxLength=20]|null,prefix?:string[minLength=1,maxLength=10]|null,rangeFrom?:integer[max=9007199254740991,min>0]|null,rangeTo?:integer[max=9007199254740991,min>0]|null,softwareId?:string[minLength=1,maxLength=100]|null,softwarePin?:string[minLength=1,maxLength=100]|null}",
     "output": "inferred"
   },
   {

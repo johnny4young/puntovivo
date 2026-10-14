@@ -49,6 +49,7 @@ const SOURCE_OPTIONS: readonly FiscalSource[] = ['sale', 'void', 'return'];
  */
 export function FiscalDocumentListPage() {
   const { t } = useTranslation('fiscal');
+  const tenantCountryCode = trpc.tenantLocale.get.useQuery().data?.countryCode;
 
   const [kind, setKind] = useState<FiscalKind | ''>('');
   const [status, setStatus] = useState<FiscalDocumentStatus | ''>('');
@@ -268,6 +269,7 @@ export function FiscalDocumentListPage() {
 
       <FiscalDocumentDetailsDrawer
         item={detailsDoc}
+        countryCode={tenantCountryCode}
         onClose={() => setDetailsDoc(null)}
         onViewXml={doc => {
           setDetailsDoc(null);

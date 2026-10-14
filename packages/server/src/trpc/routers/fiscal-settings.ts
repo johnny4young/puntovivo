@@ -56,6 +56,7 @@ import { peekActiveCaf } from '../../services/fiscal/packs/cl/caf-allocator.js';
 import {
   mergeCoFiscalSettingsIntoTenantSettings,
   readCoFiscalSettings,
+  toCoFiscalSettingsView,
   validateCoFiscalConfig,
   type CoFiscalSettingsPatch,
 } from '../../services/fiscal/packs/co/settings.js';
@@ -124,15 +125,14 @@ export const fiscalSettingsRouter = router({
       };
     }
 
-    // CO: proyección de settings y readiness basado en presencia.
-    // readiness. The mock adapter's `validateConfig` is always-ok (it
-    // owns CUFE/transmission validation); for the
-    // config card we surface a PRESENCE probe instead so the badge is
-    // honest about whether NIT / resolution / numbering are captured.
+    // CO: proyección de settings y readiness basado en presencia. The
+    // adapter's `validateConfig` only gates emission (NIT + DIAN software);
+    // the config card surfaces the fuller PRESENCE probe so the badge also
+    // covers resolution and numbering.
     const co = readCoFiscalSettings(tenantSettings);
     return {
       countryCode: 'CO' as const,
-      settings: co,
+      settings: toCoFiscalSettingsView(co),
       validation: validateCoFiscalConfig(co),
       providerId: adapter.providerId,
       maturity: adapter.maturity,
@@ -361,6 +361,8 @@ export const fiscalSettingsRouter = router({
     if (input.rangeFrom !== undefined) partial.rangeFrom = input.rangeFrom;
     if (input.rangeTo !== undefined) partial.rangeTo = input.rangeTo;
     if (input.environment !== undefined) partial.environment = input.environment;
+    if (input.softwareId !== undefined) partial.softwareId = input.softwareId;
+    if (input.softwarePin !== undefined) partial.softwarePin = input.softwarePin;
 
     const nextSettings = mergeCoFiscalSettingsIntoTenantSettings(tenantSettings, partial);
     const nextCo = readCoFiscalSettings(nextSettings);
@@ -384,7 +386,7 @@ export const fiscalSettingsRouter = router({
 
     return {
       ok: true as const,
-      settings: nextCo,
+      settings: toCoFiscalSettingsView(nextCo),
       validation: validateCoFiscalConfig(nextCo),
     };
   }),

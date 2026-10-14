@@ -1,35 +1,30 @@
 /**
- * CUFE (Código Único de Factura Electrónica) compute helper.
+ * CUFE (Código Único de Factura Electrónica) compute helper, plus the
+ * DIAN hash layout shared with the CUDE (`./cude.ts`).
  *
- * CUFE is the deterministic 96-character hexadecimal hash DIAN requires
- * on every electronic fiscal document. The algorithm is spelled out in
- * Colombia's Resolución DIAN 165/2023 §12.1 and Anexo Técnico 1.9
- * §A.2.5:
+ * CUFE identifies an electronic sales invoice (FEV). It is the
+ * deterministic 96-character hexadecimal SHA-384 digest defined by the
+ * DIAN UBL 2.1 Anexo Técnico:
  *
  * cufe = SHA-384(
- * numFactura ||
- * fechaFactura ||           // YYYY-MM-DD
- * horaFactura ||            // HH:mm:ssZZ (ISO offset)
- * valorSubtotal ||          // two-decimal fixed, dot separator
- * codigoImpuesto1 ||        // '01' IVA by default
- * valorImpuesto1 ||
- * codigoImpuesto2 ||        // '04' INC, '0.00' when absent
- * valorImpuesto2 ||
- * codigoImpuesto3 ||        // '03' ICA, '0.00' when absent
- * valorImpuesto3 ||
- * valorTotal ||
- * nitEmisor ||
- * tipoAdquiriente ||        // '31' for NIT, '13' for CC, …
- * numeroAdquiriente ||
- * claveTecnica ||           // DIAN-issued resolution technical key
- * tipoAmbiente              // '1' production, '2' sandbox
+ * NumFac ||
+ * FecFac ||                 // YYYY-MM-DD
+ * HorFac ||                 // HH:mm:ssZZ (ISO offset)
+ * ValFac ||                 // two-decimal fixed, dot separator
+ * '01' || ValImp1 ||        // IVA
+ * '04' || ValImp2 ||        // INC, '0.00' when absent
+ * '03' || ValImp3 ||        // ICA, '0.00' when absent
+ * ValTot ||
+ * NitOFE ||                 // issuer NIT, digits only, no DV
+ * NumAdq ||                 // buyer ID, digits only, no DV
+ * ClTec ||                  // resolution technical key
+ * TipoAmbiente              // '1' production, '2' test
  * )
  *
- * This module holds the PURE algorithm so the MockAdapter, the
- * architectural-lint tests, and any future FactureAdapter/HkaAdapter
- * can reuse it without duplicating the concatenation format. No
- * side effects, no database access, no `console` output — just a
- * hashing function.
+ * The CUDE uses the same layout with the software PIN in place of ClTec.
+ * The buyer ID type is NOT part of either hash.
+ *
+ * Pure: no side effects, no database access, no `console` output.
  *
  * @module services/fiscal/cufe
  */
@@ -38,12 +33,12 @@ import { createHash } from 'node:crypto';
 
 /**
  * Environment flag DIAN uses to distinguish production ('1') from
- * sandbox ('2') CUFE inputs. The MockAdapter always uses '2';
- * will flip to '1' when the real PT integration ships.
+ * test ('2') hash inputs. The MockAdapter defaults to '2'.
  */
 export type FiscalEnvironment = '1' | '2';
 
-export interface CufeInput {
+/** Document fields shared by the CUFE and CUDE layouts. */
+export interface DianDocumentHashFields {
   /** Consecutive document number — the full string with prefix (e.g. "SETP9900000001"). */
   documentNumber: string;
   /** ISO date (YYYY-MM-DD) in the issuer's timezone. */
@@ -60,13 +55,14 @@ export interface CufeInput {
   totalAmount: number;
   /** Issuer NIT — digits only, DV stripped. */
   issuerNit: string;
-  /** Buyer ID type DIAN code (e.g. '31' NIT, '13' CC). */
-  buyerIdTypeCode: string;
   /** Buyer ID number — digits only, DV stripped. */
   buyerIdNumber: string;
-  /** Resolution technical key DIAN assigned to the issuer. */
-  technicalKey: string;
   environment: FiscalEnvironment;
+}
+
+export interface CufeInput extends DianDocumentHashFields {
+  /** Resolution technical key DIAN assigned to the numbering range. */
+  technicalKey: string;
 }
 
 function formatAmount(value: number): string {
@@ -78,29 +74,39 @@ function formatAmount(value: number): string {
 }
 
 /**
- * Compose the canonical CUFE input string per DIAN Resolución
- * 165/2023. Exposed separately from `computeCufe` so tests can
- * inspect the exact bytes that went into the hash.
+ * Concatenate the DIAN hash layout. `securityCode` is the resolution
+ * technical key for a CUFE and the software PIN for a CUDE.
+ */
+export function composeDianHashInput(fields: DianDocumentHashFields, securityCode: string): string {
+  return (
+    fields.documentNumber +
+    fields.issueDate +
+    fields.issueTime +
+    formatAmount(fields.subtotal) +
+    '01' +
+    formatAmount(fields.ivaAmount) +
+    '04' +
+    formatAmount(fields.incAmount) +
+    '03' +
+    formatAmount(fields.icaAmount) +
+    formatAmount(fields.totalAmount) +
+    fields.issuerNit +
+    fields.buyerIdNumber +
+    securityCode +
+    fields.environment
+  );
+}
+
+export function sha384Hex(canonical: string): string {
+  return createHash('sha384').update(canonical).digest('hex');
+}
+
+/**
+ * Compose the canonical CUFE input string. Exposed separately from
+ * `computeCufe` so tests can inspect the exact bytes that went into the hash.
  */
 export function composeCufeInput(input: CufeInput): string {
-  return (
-    input.documentNumber +
-    input.issueDate +
-    input.issueTime +
-    formatAmount(input.subtotal) +
-    '01' +
-    formatAmount(input.ivaAmount) +
-    '04' +
-    formatAmount(input.incAmount) +
-    '03' +
-    formatAmount(input.icaAmount) +
-    formatAmount(input.totalAmount) +
-    input.issuerNit +
-    input.buyerIdTypeCode +
-    input.buyerIdNumber +
-    input.technicalKey +
-    input.environment
-  );
+  return composeDianHashInput(input, input.technicalKey);
 }
 
 /**
@@ -109,8 +115,7 @@ export function composeCufeInput(input: CufeInput): string {
  * string (SHA-384 output size is 384 bits = 48 bytes = 96 hex chars).
  */
 export function computeCufe(input: CufeInput): string {
-  const canonical = composeCufeInput(input);
-  return createHash('sha384').update(canonical).digest('hex');
+  return sha384Hex(composeCufeInput(input));
 }
 
 /**

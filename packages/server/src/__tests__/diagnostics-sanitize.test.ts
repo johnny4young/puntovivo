@@ -276,6 +276,17 @@ describe('SENSITIVE_KEYS lock — anti-regression', () => {
     expect(__TEST_SENSITIVE_KEYS.has('merchantid')).toBe(true);
     expect(__TEST_SENSITIVE_KEYS.has('customerid')).toBe(true);
     expect(__TEST_SENSITIVE_KEYS.has('pkey')).toBe(true);
+    expect(__TEST_SENSITIVE_KEYS.has('softwarepin')).toBe(true);
+  });
+
+  it('redacts the DIAN software PIN frozen into a fiscal intent payload', () => {
+    const { clean } = sanitizePayload({
+      tenantSettings: { fiscal: { co: { softwareId: 'sw-1', softwarePin: '12301' } } },
+    });
+    expect(clean.tenantSettings.fiscal.co).toEqual({
+      softwareId: 'sw-1',
+      softwarePin: REDACTED_PLACEHOLDER,
+    });
   });
 
   it('redacts every payment credential field name when nested under tenants.settings.payments.*', () => {

@@ -10,13 +10,43 @@ import { eq } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../../db/index.js';
 import { tenants } from '../../../db/schema.js';
 
-/** ISO `YYYY-MM-DD` + `HH:mm:ssZZ` pair for the emission timestamp. */
-export function splitIssueTimestamp(now: Date): { issueDate: string; issueTime: string } {
-  const iso = now.toISOString();
-  return {
-    issueDate: iso.slice(0, 10),
-    issueTime: iso.slice(11, 19) + 'Z',
-  };
+/**
+ * Wall-clock `YYYY-MM-DD` + `HH:mm:ss±HH:MM` pair for the emission
+ * timestamp in the tenant's timezone (DIAN expects Colombian legal time,
+ * e.g. `10:53:10-05:00`). An unknown timezone falls back to UTC (`Z`).
+ */
+export function splitIssueTimestamp(
+  now: Date,
+  timeZone = 'UTC'
+): { issueDate: string; issueTime: string } {
+  const instant = Math.floor(now.getTime() / 1000) * 1000;
+  let parts: Intl.DateTimeFormatPart[];
+  try {
+    parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hourCycle: 'h23',
+    }).formatToParts(new Date(instant));
+  } catch {
+    const iso = new Date(instant).toISOString();
+    return { issueDate: iso.slice(0, 10), issueTime: iso.slice(11, 19) + 'Z' };
+  }
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find(entry => entry.type === type)?.value ?? '00';
+  const date = `${part('year')}-${part('month')}-${part('day')}`;
+  const time = `${part('hour')}:${part('minute')}:${part('second')}`;
+  const wallMs = Date.parse(`${date}T${time}Z`);
+  const offsetMinutes = Math.round((wallMs - instant) / 60_000);
+  if (offsetMinutes === 0) return { issueDate: date, issueTime: `${time}Z` };
+  const sign = offsetMinutes < 0 ? '-' : '+';
+  const abs = Math.abs(offsetMinutes);
+  const offset = `${sign}${String(Math.floor(abs / 60)).padStart(2, '0')}:${String(abs % 60).padStart(2, '0')}`;
+  return { issueDate: date, issueTime: `${time}${offset}` };
 }
 
 /**
@@ -65,6 +95,19 @@ export function isCountryFiscalEnabled(
   if (!isPlainRecord(countrySettings)) return true;
 
   return countrySettings.enabled !== false;
+}
+
+/** Current `tenants.settings` blob, `{}` when the tenant row is missing. */
+export async function readLiveTenantSettings(
+  tx: DatabaseInstance,
+  tenantId: string
+): Promise<Record<string, unknown>> {
+  const row = await tx
+    .select({ settings: tenants.settings })
+    .from(tenants)
+    .where(eq(tenants.id, tenantId))
+    .get();
+  return (row?.settings ?? {}) as Record<string, unknown>;
 }
 
 /**

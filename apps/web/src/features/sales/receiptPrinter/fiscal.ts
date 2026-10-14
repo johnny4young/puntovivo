@@ -3,6 +3,7 @@
 import i18next from 'i18next';
 import type { TFunction } from 'i18next';
 import type { FiscalDocumentStatus } from '@/components/fiscal/FiscalStatusBadge';
+import { fiscalIdentifierLabelKey } from '@/features/fiscal/identifierLabel';
 import { escapeHtml } from './escape';
 import type { ReceiptFiscalDocument } from './types';
 
@@ -30,17 +31,6 @@ function getFiscalAuthorityLabel(t: TFunction, countryCode: string): string {
   return t(`receipts:fiscal.authority.${normalized}`, {
     defaultValue: normalized,
   });
-}
-
-function getFiscalIdentifierLabelKey(countryCode: string): string {
-  switch (normalizeFiscalCountryCode(countryCode)) {
-    case 'MX':
-      return 'receipts:fiscal.uuidLabel';
-    case 'CL':
-      return 'receipts:fiscal.tedLabel';
-    default:
-      return 'receipts:fiscal.cufeLabel';
-  }
 }
 
 /**
@@ -90,7 +80,7 @@ export async function buildFiscalSection(docs: ReceiptFiscalDocument[]): Promise
     const showIdentifier =
       hasFinalIdentifier && (!isCertified || CUFE_ELIGIBLE_STATUSES.has(doc.status));
     const identifierLabel = isCertified
-      ? t(getFiscalIdentifierLabelKey(doc.countryCode))
+      ? t(fiscalIdentifierLabelKey(doc.countryCode, doc.kind))
       : t('receipts:fiscal.localIdentifierLabel');
     const identifierText = showIdentifier ? doc.cufe : `(${statusLabel})`;
     const maturityLabel = isCertified ? null : t(`fiscal:maturity.${doc.maturity}`);

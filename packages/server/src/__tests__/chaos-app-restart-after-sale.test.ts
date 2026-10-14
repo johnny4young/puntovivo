@@ -180,7 +180,15 @@ describe('chaos: app restart after sale', () => {
         resolution: null,
         amounts: {},
         lines: [],
-        adapterInput: { tenantId, source: 'sale', sourceId: `sale-${rowId}`, kind: 'DEE' },
+        adapterInput: {
+          tenantId,
+          source: 'sale',
+          sourceId: `sale-${rowId}`,
+          kind: 'DEE',
+          tenantSettings: {
+            fiscal: { co: { nit: '900373115-3', softwareId: 'sw-test', softwarePin: '12301' } },
+          },
+        },
       },
       payloadVersion: 1,
       attempts: 1,

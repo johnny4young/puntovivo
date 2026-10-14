@@ -26,7 +26,7 @@
     },
     "intent": {
       "title": "Facturas aún no creadas",
-      "description": "Obligaciones durables de ventas que esperan numeración fiscal. No se inventan número ni CUFE antes de completar este paso.",
+      "description": "Obligaciones durables de ventas que esperan numeración fiscal. No se inventan número ni código fiscal (CUFE o CUDE) antes de completar este paso.",
       "empty": "Todas las obligaciones fiscales ya generaron un documento.",
       "retryCta": "Verificar de nuevo",
       "retrySuccess": "Obligación fiscal encolada para una nueva verificación",
@@ -52,7 +52,7 @@
         "numbering_resolution_exhausted": "El rango de numeración está agotado.",
         "sale_lines_missing": "La venta congelada no tiene líneas fiscales.",
         "tax_header_mismatch": "El encabezado fiscal no concilia con sus líneas congeladas.",
-        "adapter_configuration_invalid": "La configuración congelada del proveedor no es válida.",
+        "adapter_configuration_invalid": "Falta configuración fiscal (por ejemplo, el NIT o el software DIAN). Complétala y verifica de nuevo.",
         "adapter_configuration_validation_failed": "No se pudo validar la configuración del proveedor.",
         "fiscal_provider_changed": "El proveedor activo ya no coincide con el contrato congelado de la venta.",
         "original_dee_not_accepted": "Esperando la aceptación de la factura original antes de emitir la nota crédito.",

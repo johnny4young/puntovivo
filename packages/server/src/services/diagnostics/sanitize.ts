@@ -82,6 +82,8 @@ const SENSITIVE_KEYS: ReadonlySet<string> = new Set([
   'certificate',
   'pfx',
   'p12',
+  // DIAN software PIN, frozen into fiscal emission intent payloads.
+  'softwarepin',
   // OAuth / payment tokens
   'oauthtoken',
   'paymenttoken',

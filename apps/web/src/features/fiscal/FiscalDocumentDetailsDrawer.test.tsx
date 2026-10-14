@@ -62,6 +62,18 @@ describe('FiscalDocumentDetailsDrawer', () => {
     expect(screen.getByRole('heading', { name: 'FEV-000990' })).toBeInTheDocument();
   });
 
+  it('names a certified POS documento equivalente identifier CUDE', () => {
+    render(
+      <FiscalDocumentDetailsDrawer
+        item={makeDoc({ maturity: 'certified', kind: 'DEE' })}
+        onClose={vi.fn()}
+      />
+    );
+
+    const drawer = screen.getByTestId('fiscal-document-details-drawer');
+    expect(within(drawer).getByText('CUDE')).toBeInTheDocument();
+  });
+
   it('uses the authority identifier label and omits the demo notice for certified evidence', () => {
     render(
       <FiscalDocumentDetailsDrawer item={makeDoc({ maturity: 'certified' })} onClose={vi.fn()} />

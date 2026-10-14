@@ -5,9 +5,9 @@
  * fiscal va a consumir para pintar el badge verde/rojo por país.
  * Cada pack reporta sus propios issue codes:
  *
- * - ColombiaMockAdapter → ok=true, sin issues (mock no tiene config
- * real;  lo reemplaza con probe de NIT / certificado /
- * resolución / ambiente).
+ * - ColombiaMockAdapter → ok=false con MISSING_NIT / MISSING_SOFTWARE
+ * mientras falten el NIT válido o el software DIAN (ID + PIN) que
+ * entran al CUDE; ok=true con ambos.
  * - MexicoCFDIAdapter () → ok=false con MISSING_RFC /
  * MISSING_RESOLUTION / MISSING_CERTIFICATE cuando los settings
  * están vacíos; ok=true cuando RFC válido + régimen válido +
@@ -20,6 +20,10 @@
 
 import { describe, expect, it } from 'vitest';
 import { ColombiaMockAdapter } from '../services/fiscal/packs/co/mock-adapter.js';
+import {
+  readCoFiscalSettings,
+  validateCoFiscalConfig,
+} from '../services/fiscal/packs/co/settings.js';
 import { MexicoCFDIAdapter } from '../services/fiscal/packs/mx/mexico-adapter.js';
 import { ChileSIIAdapter } from '../services/fiscal/packs/cl/chile-adapter.js';
 import type { FiscalAdapterConfig } from '../services/fiscal/adapter.js';
@@ -34,11 +38,53 @@ const baseConfig = (
 });
 
 describe('validateConfig ( + )', () => {
-  it('ColombiaMockAdapter reporta ok=true sin issues', async () => {
+  it('ColombiaMockAdapter bloquea sin NIT ni software DIAN', async () => {
     const adapter = new ColombiaMockAdapter();
     const result = await adapter.validateConfig(baseConfig('CO'));
-    expect(result.ok).toBe(true);
-    expect(result.issues).toEqual([]);
+    expect(result.ok).toBe(false);
+    expect(result.issues.map(issue => issue.code)).toEqual(['MISSING_NIT', 'MISSING_SOFTWARE']);
+  });
+
+  it('ColombiaMockAdapter rechaza un NIT con DV incorrecto y un PIN faltante', async () => {
+    const adapter = new ColombiaMockAdapter();
+    const result = await adapter.validateConfig(
+      baseConfig('CO', { fiscal: { co: { nit: '900373115-9', softwareId: 'sw-1' } } })
+    );
+    expect(result.issues).toEqual([
+      expect.objectContaining({ code: 'MISSING_NIT', field: 'fiscal.co.nit' }),
+      expect.objectContaining({ code: 'MISSING_SOFTWARE', field: 'fiscal.co.softwarePin' }),
+    ]);
+  });
+
+  it('ColombiaMockAdapter reporta ok=true con NIT válido y software DIAN', async () => {
+    const adapter = new ColombiaMockAdapter();
+    const result = await adapter.validateConfig(
+      baseConfig('CO', {
+        fiscal: { co: { nit: '900373115-3', softwareId: 'sw-1', softwarePin: '12301' } },
+      })
+    );
+    expect(result).toEqual({ ok: true, issues: [] });
+  });
+});
+
+describe('validateCoFiscalConfig', () => {
+  it('flags a NIT with a wrong verification digit, as emission does', () => {
+    const complete = {
+      dianResolutionNumber: '18760000001',
+      rangeFrom: 1,
+      rangeTo: 5000,
+      softwareId: 'sw-1',
+      softwarePin: '12301',
+    };
+    const wrongDv = validateCoFiscalConfig(
+      readCoFiscalSettings({ fiscal: { co: { ...complete, nit: '900373115-9' } } })
+    );
+    expect(wrongDv.issues.map(issue => issue.code)).toEqual(['MISSING_NIT']);
+    expect(
+      validateCoFiscalConfig(
+        readCoFiscalSettings({ fiscal: { co: { ...complete, nit: '900373115-3' } } })
+      )
+    ).toEqual({ ok: true, issues: [] });
   });
 });
 

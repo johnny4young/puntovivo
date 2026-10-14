@@ -30,7 +30,7 @@
  */
 
 import { encodeQrEscposBytes } from '../../qr-encoder.js';
-import type { FiscalDocumentStatus } from '../../../db/schema.js';
+import type { FiscalDocumentKind, FiscalDocumentStatus } from '../../../db/schema.js';
 
 // =============================================================================
 // Types
@@ -360,6 +360,7 @@ export interface SaleReceiptInput {
   fiscalDocuments?:
     | Array<{
         documentNumber: string;
+        kind: FiscalDocumentKind;
         status: FiscalDocumentStatus;
         maturity: 'mock' | 'draft' | 'certified';
         identifier: string;
@@ -456,7 +457,7 @@ export function buildSaleReceiptDocument(
     const isCertified = fiscal.maturity === 'certified';
     const authority = fiscalAuthorityLabel(fiscal.countryCode);
     const identifierLabel = isCertified
-      ? fiscalAuthorityIdentifierLabel(fiscal.countryCode)
+      ? fiscalAuthorityIdentifierLabel(fiscal.countryCode, fiscal.kind)
       : 'Identificador fiscal local';
     const hasFinalIdentifier =
       fiscal.identifier.trim().length > 0 && !fiscal.identifier.startsWith('pending-');
@@ -518,14 +519,15 @@ function fiscalAuthorityLabel(countryCode: string): string {
   }
 }
 
-function fiscalAuthorityIdentifierLabel(countryCode: string): string {
+function fiscalAuthorityIdentifierLabel(countryCode: string, kind: FiscalDocumentKind): string {
   switch (countryCode.toUpperCase()) {
     case 'MX':
       return 'Folio fiscal UUID';
     case 'CL':
       return 'TED';
     default:
-      return 'CUFE';
+      // DIAN: only the sales invoice carries a CUFE.
+      return kind === 'FEV' ? 'CUFE' : 'CUDE';
   }
 }
 

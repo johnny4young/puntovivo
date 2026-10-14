@@ -47,7 +47,6 @@
       "kind": "Tipo",
       "status": "Estado",
       "documentNumber": "Número",
-      "cufe": "CUFE",
       "localIdentifier": "Identificador fiscal local",
       "resolution": "Resolución de numeración",
       "buyer": "Comprador",
@@ -167,14 +166,22 @@
         "environment": "Ambiente",
         "environmentHabilitacion": "Habilitación (pruebas)",
         "environmentProduccion": "Producción",
+        "softwareId": "Identificador del software DIAN",
+        "softwareIdHelp": "El ID que te asignó la DIAN al registrar tu software de facturación.",
+        "softwareIdPlaceholder": "ej. 56f2ae4e-9812-4fad-9255-08fcfcd5ccb0",
+        "softwarePin": "PIN del software DIAN",
+        "softwarePinHelp": "El PIN que definiste al registrar el software. Se usa para calcular el CUDE y nunca se vuelve a mostrar.",
+        "softwarePinPlaceholder": "ej. 12345",
+        "softwarePinConfiguredPlaceholder": "Configurado. Déjalo vacío para conservarlo.",
         "nitDvSuggest": "Dígito de verificación de {{nit}}: {{dv}}. Escríbelo como {{nit}}-{{dv}}.",
         "nitDvMatch": "El dígito de verificación es correcto.",
         "nitDvMismatch": "Dígito de verificación incorrecto — el correcto es {{dv}}. La DIAN lo rechazaría."
       },
       "issueCodes": {
-        "MISSING_NIT": "Falta el NIT del emisor",
+        "MISSING_NIT": "Falta el NIT del emisor o su dígito de verificación no es válido",
         "MISSING_RESOLUTION": "Falta la resolución de numeración DIAN",
-        "MISSING_RANGE": "El rango de numeración DIAN falta o es inválido"
+        "MISSING_RANGE": "El rango de numeración DIAN falta o es inválido",
+        "MISSING_SOFTWARE": "Falta el identificador o el PIN del software DIAN"
       },
       "actions": {
         "save": "Guardar",

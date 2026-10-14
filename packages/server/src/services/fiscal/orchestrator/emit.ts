@@ -28,6 +28,7 @@ import {
   tenants,
 } from '../../../db/schema.js';
 import { resolveTenantLocale } from '../../tenant-locale.js';
+import { resolveFiscalHashEnvironment, resolveFiscalIssuerTaxId } from '../issuer-context.js';
 import type { FiscalAdapterIssueInput, FiscalAdapterLine } from '../adapter.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
 import type { EmitFiscalDocumentArgs, EmitFiscalDocumentResult } from './types.js';
@@ -203,7 +204,7 @@ export async function emitFiscalDocument(
 
   const consecutive = resolution.currentNumber + 1;
   const documentNumber = `${resolution.prefix}${consecutive.toString().padStart(10, '0')}`;
-  const { issueDate, issueTime } = splitIssueTimestamp(new Date());
+  const { issueDate, issueTime } = splitIssueTimestamp(new Date(), locale.timezone);
 
   const adapterInput: FiscalAdapterIssueInput = {
     tenantId,
@@ -212,8 +213,9 @@ export async function emitFiscalDocument(
     kind,
     issueDate,
     issueTime,
-    environment: args.environment ?? '2',
-    issuerNit: tenantId,
+    environment:
+      args.environment ?? resolveFiscalHashEnvironment(adapter.countryCode, tenantSettings),
+    issuerNit: resolveFiscalIssuerTaxId(adapter.countryCode, tenantSettings, tenantId),
     issuerName: issuerName ?? undefined,
     tenantSettings,
     currencyCode: locale.currency,

@@ -6,7 +6,9 @@
  * Colombia and the entry point every orchestrator test routes
  * through. Coverage:
  *
- * - `issue()` produces a valid CUFE matching `computeCufe` directly.
+ * - `issue()` emits a CUDE (software PIN) for the POS documento
+ * equivalente and notes, and a CUFE (technical key) only for the FEV.
+ * - The hashed issuer NIT comes from `fiscal.co.nit` without its DV.
  * - Default status is `'sent'`; the contingencyOracle hook can force
  * `'contingency'` for offline-path tests.
  * - `voidDocument()` returns a distinct CUFE from the original so the
@@ -15,16 +17,22 @@
  * - `capabilities` are stable.
  */
 
-import { describe, expect, it } from 'vitest';
-import { computeCufe } from '../services/fiscal/cufe.js';
+import { describe, expect, it, vi } from 'vitest';
+import { computeCude } from '../services/fiscal/cude.js';
+import { computeCufe, type DianDocumentHashFields } from '../services/fiscal/cufe.js';
 import { ColombiaMockAdapter } from '../services/fiscal/packs/co/mock-adapter.js';
 import type { FiscalAdapterIssueInput } from '../services/fiscal/adapter.js';
+
+const CO_SETTINGS = {
+  fiscal: { co: { nit: '900.373.115-3', softwareId: 'sw-1', softwarePin: '12301' } },
+};
 
 function buildIssueInput(
   overrides: Partial<FiscalAdapterIssueInput> = {}
 ): FiscalAdapterIssueInput {
   return {
     tenantId: 'tenant-1',
+    tenantSettings: CO_SETTINGS,
     source: 'sale',
     sourceId: 'sale-1',
     kind: 'DEE',
@@ -77,28 +85,114 @@ function buildIssueInput(
   };
 }
 
-describe('ColombiaMockAdapter.issue ( + )', () => {
-  it('returns a CUFE that matches the pure computeCufe result', async () => {
+function hashFields(input: FiscalAdapterIssueInput, issuerNit: string): DianDocumentHashFields {
+  return {
+    documentNumber: input.resolution.documentNumber,
+    issueDate: input.issueDate,
+    issueTime: input.issueTime,
+    subtotal: input.subtotal,
+    ivaAmount: input.ivaAmount,
+    incAmount: input.incAmount,
+    icaAmount: input.icaAmount,
+    totalAmount: input.totalAmount,
+    issuerNit,
+    buyerIdNumber: input.buyer.taxId,
+    environment: input.environment,
+  };
+}
+
+describe('ColombiaMockAdapter.issue', () => {
+  it('keys the POS documento equivalente by the software PIN (CUDE)', async () => {
     const adapter = new ColombiaMockAdapter();
-    const input = buildIssueInput();
+    const input = buildIssueInput({ tenantSettings: CO_SETTINGS });
     const result = await adapter.issue(input);
 
-    const expectedCufe = computeCufe({
-      documentNumber: input.resolution.documentNumber,
-      issueDate: input.issueDate,
-      issueTime: input.issueTime,
-      subtotal: input.subtotal,
-      ivaAmount: input.ivaAmount,
-      incAmount: input.incAmount,
-      icaAmount: input.icaAmount,
-      totalAmount: input.totalAmount,
-      issuerNit: input.issuerNit,
-      buyerIdTypeCode: input.buyer.taxIdTypeCode,
-      buyerIdNumber: input.buyer.taxId,
-      technicalKey: input.resolution.technicalKey,
-      environment: input.environment,
-    });
-    expect(result.cufe).toBe(expectedCufe);
+    expect(result.cufe).toBe(
+      computeCude({ ...hashFields(input, '900373115'), softwarePin: '12301' })
+    );
+    expect(result.cufe).not.toBe(
+      computeCufe({
+        ...hashFields(input, '900373115'),
+        technicalKey: input.resolution.technicalKey,
+      })
+    );
+    expect(result.xmlRef).toContain('<cbc:InvoiceTypeCode>20</cbc:InvoiceTypeCode>');
+    expect(result.xmlRef).toContain(
+      `<cbc:UUID schemeID="2" schemeName="CUDE-SHA384">${result.cufe}</cbc:UUID>`
+    );
+  });
+
+  it('keys the sales invoice by the resolution technical key (CUFE)', async () => {
+    const adapter = new ColombiaMockAdapter();
+    const input = buildIssueInput({ kind: 'FEV', tenantSettings: CO_SETTINGS });
+    const result = await adapter.issue(input);
+
+    expect(result.cufe).toBe(
+      computeCufe({
+        ...hashFields(input, '900373115'),
+        technicalKey: input.resolution.technicalKey,
+      })
+    );
+    expect(result.xmlRef).toContain('<cbc:InvoiceTypeCode>01</cbc:InvoiceTypeCode>');
+    expect(result.xmlRef).toContain(
+      `<cbc:UUID schemeID="2" schemeName="CUFE-SHA384">${result.cufe}</cbc:UUID>`
+    );
+  });
+
+  it('keys credit and debit notes by the software PIN (CUDE)', async () => {
+    const adapter = new ColombiaMockAdapter();
+    const adjustmentCodes = {
+      NC: '<cbc:CreditNoteTypeCode>94</cbc:CreditNoteTypeCode>',
+      ND: '<cbc:DebitNoteTypeCode>93</cbc:DebitNoteTypeCode>',
+    };
+    for (const kind of ['NC', 'ND'] as const) {
+      const input = buildIssueInput({ kind, tenantSettings: CO_SETTINGS });
+      const result = await adapter.issue(input);
+      expect(result.xmlRef).toContain(adjustmentCodes[kind]);
+      expect(result.cufe).toBe(
+        computeCude({ ...hashFields(input, '900373115'), softwarePin: '12301' })
+      );
+    }
+  });
+
+  it('hashes the buyer NIT without separators or verification digit', async () => {
+    const adapter = new ColombiaMockAdapter();
+    const plain = await adapter.issue(buildIssueInput({ tenantSettings: CO_SETTINGS }));
+    const base = buildIssueInput();
+    const formatted = await adapter.issue(
+      buildIssueInput({
+        tenantSettings: CO_SETTINGS,
+        buyer: { ...base.buyer, taxId: '800.123.456-5' },
+      })
+    );
+    expect(formatted.cufe).toBe(plain.cufe);
+
+    // A stored NIT with a wrong DV must not glue the DV onto the number.
+    const wrongDv = await adapter.issue(
+      buildIssueInput({
+        tenantSettings: CO_SETTINGS,
+        buyer: { ...base.buyer, taxId: '800123456-0' },
+      })
+    );
+    expect(wrongDv.cufe).toBe(plain.cufe);
+  });
+
+  it('writes the hashed issuer and buyer ids into the draft XML', async () => {
+    const adapter = new ColombiaMockAdapter();
+    const base = buildIssueInput();
+    const result = await adapter.issue(
+      buildIssueInput({
+        tenantSettings: CO_SETTINGS,
+        buyer: { ...base.buyer, taxId: '800.123.456-5' },
+      })
+    );
+    expect(result.xmlRef).toContain('<cbc:CompanyID>900373115</cbc:CompanyID>');
+    expect(result.xmlRef).toContain('<cbc:CompanyID>800123456</cbc:CompanyID>');
+    expect(result.xmlRef).not.toContain('900100200');
+  });
+
+  it('emits the unsigned local draft shape', async () => {
+    const result = await new ColombiaMockAdapter().issue(buildIssueInput());
     expect(result.status).toBe('sent');
     expect(result.providerId).toBe('mock-co');
     expect(result.xmlRef).toContain('local-unsigned-draft');
@@ -109,6 +203,29 @@ describe('ColombiaMockAdapter.issue ( + )', () => {
       transmitted: false,
       certified: false,
     });
+  });
+
+  it('falls back to the orchestrator issuer id when no NIT is configured', async () => {
+    const input = buildIssueInput({
+      tenantSettings: { fiscal: { co: { softwareId: 'sw-1', softwarePin: '12301' } } },
+    });
+    const result = await new ColombiaMockAdapter().issue(input);
+    expect(result.cufe).toBe(
+      computeCude({ ...hashFields(input, input.issuerNit), softwarePin: '12301' })
+    );
+  });
+
+  it('refuses a CUDE without a software PIN instead of hashing an empty one', async () => {
+    const adapter = new ColombiaMockAdapter();
+    await expect(adapter.issue(buildIssueInput({ tenantSettings: {} }))).rejects.toMatchObject({
+      name: 'FiscalProviderError',
+      normalizedKind: 'MALFORMED_REQUEST',
+      providerCode: 'MISSING_SOFTWARE',
+    });
+    // The sales invoice is keyed by the resolution technical key instead.
+    await expect(
+      adapter.issue(buildIssueInput({ kind: 'FEV', tenantSettings: {} }))
+    ).resolves.toMatchObject({ status: 'sent' });
   });
 
   it('routes the contingencyOracle hook to the emitted status', async () => {
@@ -217,6 +334,36 @@ describe('ColombiaMockAdapter.issue ( + )', () => {
     expect(voided.cufe).not.toBe(original.cufe);
     expect(voided.status).toBe('sent');
     expect(voided.providerId).toBe('mock-co');
+  });
+
+  it('stamps the void code with Colombian legal time', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-10-14T03:30:15.000Z'));
+      const voided = await new ColombiaMockAdapter().voidDocument({
+        tenantId: 'tenant-1',
+        cufe: 'abc',
+        reasonCode: 'ERR-01',
+      });
+      expect(voided.cufe).toBe(
+        computeCude({
+          documentNumber: 'VOID-abc',
+          issueDate: '2026-10-13',
+          issueTime: '22:30:15-05:00',
+          subtotal: 0,
+          ivaAmount: 0,
+          incAmount: 0,
+          icaAmount: 0,
+          totalAmount: 0,
+          issuerNit: 'tenant-1',
+          buyerIdNumber: '222222222222',
+          softwarePin: 'ERR-01',
+          environment: '2',
+        })
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('fetchStatus reports the mock terminal state', async () => {

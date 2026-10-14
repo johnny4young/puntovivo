@@ -26,7 +26,7 @@
     },
     "intent": {
       "title": "Invoices not created yet",
-      "description": "Durable sale obligations waiting for fiscal numbering. No number or CUFE is invented before this step succeeds.",
+      "description": "Durable sale obligations waiting for fiscal numbering. No number or fiscal code (CUFE or CUDE) is invented before this step succeeds.",
       "empty": "Every fiscal obligation has produced a document.",
       "retryCta": "Recheck",
       "retrySuccess": "Fiscal obligation queued for recheck",
@@ -52,7 +52,7 @@
         "numbering_resolution_exhausted": "The numbering range is exhausted.",
         "sale_lines_missing": "The frozen sale has no fiscal lines.",
         "tax_header_mismatch": "The fiscal header does not reconcile with its frozen lines.",
-        "adapter_configuration_invalid": "The frozen provider configuration is invalid.",
+        "adapter_configuration_invalid": "Fiscal configuration is incomplete (for example the NIT or the DIAN software). Complete it and recheck.",
         "adapter_configuration_validation_failed": "Provider configuration could not be validated.",
         "fiscal_provider_changed": "The active provider no longer matches the frozen sale contract.",
         "original_dee_not_accepted": "Waiting for the original invoice to be accepted before issuing the credit note.",

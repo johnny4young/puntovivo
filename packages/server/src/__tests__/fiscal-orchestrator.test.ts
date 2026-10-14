@@ -2,12 +2,13 @@
  * `emitFiscalDocument` integration tests.
  *
  * Runs HTTP-less against the in-memory sqlite DB seeded by `createServer`.
- * Uses `ColombiaMockAdapter` directly so the CUFE stays deterministic and we
- * can assert byte-for-byte equality with `computeCufe`.
+ * Uses `ColombiaMockAdapter` directly so the CUDE stays deterministic and we
+ * can assert byte-for-byte equality with `computeCude`.
  *
  * Coverage:
  * - Feature flag off → returns null, no fiscal document row inserted.
- * - Happy path → CUFE matches pure `computeCufe`; buyer + line snapshots
+ * - Happy path → CUDE matches pure `computeCude` with the tenant NIT and
+ * software PIN; buyer + line snapshots
  * land on the fiscal_documents / fiscal_document_items rows.
  * - Consumidor final (customerId null) → buyer defaults to DIAN constants
  * (222222222222, '31', 'Consumidor final') without touching customers.
@@ -21,7 +22,7 @@
  * - Resolution consecutive advancement after each emission.
  */
 
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { and, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
@@ -33,6 +34,7 @@ import {
   fiscalDocumentItems,
   fiscalDocuments,
   fiscalNumberingResolutions,
+  fiscalOutbox,
   products,
   saleItems,
   sales,
@@ -41,7 +43,9 @@ import {
   tenants,
   users,
 } from '../db/schema.js';
-import { CONSUMIDOR_FINAL, computeCufe } from '../services/fiscal/cufe.js';
+import { computeCude } from '../services/fiscal/cude.js';
+import { splitIssueTimestamp } from '../services/fiscal/orchestrator/helpers.js';
+import { CONSUMIDOR_FINAL } from '../services/fiscal/cufe.js';
 import { ColombiaMockAdapter } from '../services/fiscal/packs/co/mock-adapter.js';
 import { emitFiscalDocument, enqueueFiscalEmission } from '../services/fiscal/orchestrator.js';
 import { ServerErrorWithCode } from '../lib/errorCodes.js';
@@ -59,6 +63,8 @@ interface TenantHarness {
   resolutionId: string;
 }
 
+const CO_FISCAL = { nit: '900373115-3', softwareId: 'sw-test', softwarePin: '12301' };
+
 async function seedFiscalTenant(slugSuffix: string, enableFlag: boolean): Promise<TenantHarness> {
   const db = getDatabase();
   const now = new Date().toISOString();
@@ -75,7 +81,7 @@ async function seedFiscalTenant(slugSuffix: string, enableFlag: boolean): Promis
     id: tenantId,
     name: `Fiscal Tenant ${slugSuffix}`,
     slug: `fiscal-${slugSuffix}`,
-    settings: enableFlag ? { fiscal_dian_enabled: true } : {},
+    settings: enableFlag ? { fiscal_dian_enabled: true, fiscal: { co: CO_FISCAL } } : {},
     isActive: true,
     createdAt: now,
     updatedAt: now,
@@ -379,7 +385,7 @@ describe('emitFiscalDocument', () => {
     // Restore the flag for the rest of the suite.
     await db
       .update(tenants)
-      .set({ settings: { fiscal_dian_enabled: true } })
+      .set({ settings: { fiscal_dian_enabled: true, fiscal: { co: CO_FISCAL } } })
       .where(eq(tenants.id, harness.tenantId));
   });
 
@@ -424,6 +430,101 @@ describe('emitFiscalDocument', () => {
         .update(tenantLocaleSettings)
         .set({ countryCode: 'CO' })
         .where(eq(tenantLocaleSettings.tenantId, harness.tenantId));
+    }
+  });
+
+  it('freezes only the fiscal branch into the outbox payload, never secrets', async () => {
+    const db = getDatabase();
+    const fullSettings = {
+      fiscal_dian_enabled: true,
+      fiscal: { co: CO_FISCAL, mx: { rfc: 'AAA010101AAA' } },
+      payments: { wompi: { credentials: { privateKey: 'prv_test_must_not_freeze' } } },
+      modules: { copilot: true },
+    };
+    await db
+      .update(tenants)
+      .set({ settings: fullSettings })
+      .where(eq(tenants.id, harness.tenantId));
+    try {
+      const saleId = await seedCompletedSale({
+        harness,
+        saleNumber: 'FREEZE-0001',
+        customerId: harness.customerId,
+      });
+      await enqueueFiscalEmission({
+        db,
+        tenantId: harness.tenantId,
+        userId: harness.userId,
+        source: 'sale',
+        sourceId: saleId,
+        saleId,
+        kind: 'DEE',
+        log: {
+          debug: () => undefined,
+          info: () => undefined,
+          warn: () => undefined,
+          error: () => undefined,
+        },
+      });
+      const doc = await db
+        .select({ id: fiscalDocuments.id })
+        .from(fiscalDocuments)
+        .where(eq(fiscalDocuments.sourceId, saleId))
+        .get();
+      const outbox = await db
+        .select({ payload: fiscalOutbox.payload })
+        .from(fiscalOutbox)
+        .where(eq(fiscalOutbox.fiscalDocumentId, doc!.id))
+        .get();
+      const frozen = (outbox!.payload as { adapterInput: { tenantSettings: unknown } }).adapterInput
+        .tenantSettings;
+      expect(frozen).toEqual({
+        fiscal_dian_enabled: true,
+        fiscal: { co: { nit: CO_FISCAL.nit, softwareId: CO_FISCAL.softwareId } },
+      });
+    } finally {
+      await db
+        .update(tenants)
+        .set({ settings: { fiscal_dian_enabled: true, fiscal: { co: CO_FISCAL } } })
+        .where(eq(tenants.id, harness.tenantId));
+    }
+  });
+
+  it('warns when the pack configuration makes enqueue skip the obligation', async () => {
+    const db = getDatabase();
+    await db
+      .update(tenants)
+      .set({ settings: { fiscal_dian_enabled: true, fiscal: { co: { nit: CO_FISCAL.nit } } } })
+      .where(eq(tenants.id, harness.tenantId));
+    const warn = vi.fn();
+    try {
+      const saleId = await seedCompletedSale({
+        harness,
+        saleNumber: 'SKIP-0001',
+        customerId: harness.customerId,
+      });
+      const result = await enqueueFiscalEmission({
+        db,
+        tenantId: harness.tenantId,
+        userId: harness.userId,
+        source: 'sale',
+        sourceId: saleId,
+        saleId,
+        kind: 'DEE',
+        log: { debug: () => undefined, info: () => undefined, warn, error: () => undefined },
+      });
+      expect(result).toBeNull();
+      expect(warn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          issues: [expect.objectContaining({ code: 'MISSING_SOFTWARE' })],
+        }),
+        'fiscal pack validateConfig rejected; skipping enqueue'
+      );
+    } finally {
+      await db
+        .update(tenants)
+        .set({ settings: { fiscal_dian_enabled: true, fiscal: { co: CO_FISCAL } } })
+        .where(eq(tenants.id, harness.tenantId));
     }
   });
 
@@ -492,7 +593,7 @@ describe('emitFiscalDocument', () => {
     ).toEqual({ currentNumber: 0 });
   });
 
-  it('emits a fiscal_document with a deterministic CUFE matching computeCufe', async () => {
+  it('emits a fiscal_document with a deterministic CUDE matching computeCude', async () => {
     const db = getDatabase();
     const saleId = await seedCompletedSale({
       harness,
@@ -558,28 +659,26 @@ describe('emitFiscalDocument', () => {
       .get();
     expect(refreshed?.currentNumber).toBe(1);
 
-    // CUFE equals the pure helper for the same inputs. We re-derive it
+    // CUDE equals the pure helper for the same inputs. We re-derive it
     // from the stored snapshot so we don't rebuild the adapter input
     // lookup logic here.
-    const expectedCufe = computeCufe({
+    const expectedCufe = computeCude({
       documentNumber: stored!.documentNumber,
-      issueDate: stored!.emittedAt.slice(0, 10),
-      issueTime: stored!.emittedAt.slice(11, 19) + 'Z',
+      ...splitIssueTimestamp(new Date(stored!.emittedAt), 'America/Bogota'),
       subtotal: stored!.subtotal,
       ivaAmount: stored!.taxAmount,
       incAmount: 0,
       icaAmount: 0,
       totalAmount: stored!.totalAmount,
-      issuerNit: harness.tenantId,
-      buyerIdTypeCode: stored!.buyerTaxIdTypeCode,
+      issuerNit: '900373115',
       buyerIdNumber: stored!.buyerTaxId,
-      technicalKey: 'fc8eac422eba16e22ffd8c6f94b3f40a6e38162c',
+      softwarePin: CO_FISCAL.softwarePin,
       environment: '2',
     });
     expect(stored!.cufe).toBe(expectedCufe);
   });
 
-  it('classifies an INC sale as category 04 and hashes the tax into the CUFE incAmount slot', async () => {
+  it('classifies an INC sale as category 04 and hashes the tax into the CUDE incAmount slot', async () => {
     const db = getDatabase();
     const saleId = await seedCompletedSale({
       harness,
@@ -614,39 +713,35 @@ describe('emitFiscalDocument', () => {
       .where(eq(fiscalDocuments.id, result!.id))
       .get();
 
-    // The end-to-end CUFE must carry the tax in the INC bucket ('04')
+    // The end-to-end CUDE must carry the tax in the INC bucket ('04')
     // with the IVA slot at zero - swapping the buckets in tax-lines.ts
     // would produce a different hash and fail here.
-    const expectedCufe = computeCufe({
+    const expectedCufe = computeCude({
       documentNumber: stored!.documentNumber,
-      issueDate: stored!.emittedAt.slice(0, 10),
-      issueTime: stored!.emittedAt.slice(11, 19) + 'Z',
+      ...splitIssueTimestamp(new Date(stored!.emittedAt), 'America/Bogota'),
       subtotal: stored!.subtotal,
       ivaAmount: 0,
       incAmount: stored!.taxAmount,
       icaAmount: 0,
       totalAmount: stored!.totalAmount,
-      issuerNit: harness.tenantId,
-      buyerIdTypeCode: stored!.buyerTaxIdTypeCode,
+      issuerNit: '900373115',
       buyerIdNumber: stored!.buyerTaxId,
-      technicalKey: 'fc8eac422eba16e22ffd8c6f94b3f40a6e38162c',
+      softwarePin: CO_FISCAL.softwarePin,
       environment: '2',
     });
     expect(stored!.cufe).toBe(expectedCufe);
 
-    const wrongBucketCufe = computeCufe({
+    const wrongBucketCufe = computeCude({
       documentNumber: stored!.documentNumber,
-      issueDate: stored!.emittedAt.slice(0, 10),
-      issueTime: stored!.emittedAt.slice(11, 19) + 'Z',
+      ...splitIssueTimestamp(new Date(stored!.emittedAt), 'America/Bogota'),
       subtotal: stored!.subtotal,
       ivaAmount: stored!.taxAmount,
       incAmount: 0,
       icaAmount: 0,
       totalAmount: stored!.totalAmount,
-      issuerNit: harness.tenantId,
-      buyerIdTypeCode: stored!.buyerTaxIdTypeCode,
+      issuerNit: '900373115',
       buyerIdNumber: stored!.buyerTaxId,
-      technicalKey: 'fc8eac422eba16e22ffd8c6f94b3f40a6e38162c',
+      softwarePin: CO_FISCAL.softwarePin,
       environment: '2',
     });
     expect(stored!.cufe).not.toBe(wrongBucketCufe);

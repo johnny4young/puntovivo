@@ -396,9 +396,8 @@ export async function seedDevData(
   // ----- 3b. Fiscal placeholders () --------------------------------
   // The orchestrator skips emission when no active numbering resolution
   // exists for the sale site. Seed one DEE range per site so the dev
-  // environment can exercise the full CUFE round-trip across both
-  // registers.  swaps the technicalKey for a DIAN-issued value
-  // and plugs a real Proveedor Tecnológico certificate.
+  // environment can exercise the full CUDE round-trip across both
+  // registers.
   const devFiscalValidFrom = new Date();
   const devFiscalValidUntil = new Date(devFiscalValidFrom);
   devFiscalValidUntil.setFullYear(devFiscalValidUntil.getFullYear() + 1);
@@ -932,8 +931,9 @@ interface PresetTarget {
  * Build the `tenants.settings` JSON blob for the demo tenant
  * depending on `SEED_COUNTRY`. Three branches:
  *
- * - 'CO' (default): fiscal_dian_enabled flag + the 5 demo modules
- * ON. Existing CO tests + smokes assume this shape.
+ * - 'CO' (default): fiscal_dian_enabled flag + `fiscal.co.*` with a
+ * test NIT and DIAN software ID/PIN (so the POS documento equivalente
+ * gets a CUDE) + the 5 demo modules ON.
  * - 'MX': fiscal_dian_enabled flag + `fiscal.mx.*` namespace with
  * test RFC + régimen + lugar de expedición + sandbox env (so
  * MexicoCFDIAdapter can emit CFDI 4.0 drafts) + 5 modules.
@@ -985,6 +985,14 @@ function buildTenantSettings(countryCode: 'CO' | 'MX' | 'CL'): Record<string, un
   }
   return {
     fiscal_dian_enabled: true,
+    fiscal: {
+      co: {
+        nit: '900373115-3',
+        softwareId: 'puntovivo-dev-software',
+        softwarePin: '12345',
+        environment: 'habilitacion',
+      },
+    },
     modules,
   };
 }
@@ -2558,7 +2566,7 @@ function buildDefaultReceiptLayouts(): Record<
           { type: 'totalsBlock', show: ['subtotal', 'taxTotal', 'grandTotal'] },
           { type: 'separator' },
           { type: 'qr', source: '{{fiscal.qrUrl}}', sizeMm: 25 },
-          { type: 'text', value: 'CUFE {{fiscal.cufe}}', style: 'monospace', align: 'center' },
+          { type: 'text', value: 'CUDE {{fiscal.cufe}}', style: 'monospace', align: 'center' },
           { type: 'appFooter', show: true, align: 'center' },
         ],
       },

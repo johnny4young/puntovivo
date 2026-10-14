@@ -493,10 +493,12 @@ describe('setupReadiness — Colombia profile + checkout', () => {
       fiscal_dian_enabled: true,
       fiscal: {
         co: {
-          nit: '900123456-7',
+          nit: '900123456-8',
           dianResolutionNumber: '18760000001',
           rangeFrom: 1,
           rangeTo: 5000,
+          softwareId: 'sw-1',
+          softwarePin: '12301',
         },
       },
     });

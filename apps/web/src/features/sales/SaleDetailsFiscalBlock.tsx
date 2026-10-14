@@ -21,6 +21,7 @@ import {
   type FiscalDocumentStatus,
 } from '@/components/fiscal/FiscalStatusBadge';
 import { FiscalDocumentXmlModal } from '@/features/fiscal/FiscalDocumentXmlModal';
+import { fiscalIdentifierLabelKey } from '@/features/fiscal/identifierLabel';
 
 export interface SaleFiscalDocumentSummary {
   id: string;
@@ -65,17 +66,6 @@ function getFiscalAuthorityLabel(t: TFunction, countryCode: string): string {
   });
 }
 
-function getFiscalIdentifierLabelKey(countryCode: string): string {
-  switch (normalizeCountryCode(countryCode)) {
-    case 'MX':
-      return 'receipts:fiscal.uuidLabel';
-    case 'CL':
-      return 'receipts:fiscal.tedLabel';
-    default:
-      return 'receipts:fiscal.cufeLabel';
-  }
-}
-
 export function SaleDetailsFiscalBlock({ fiscalDocuments, isAdmin }: SaleDetailsFiscalBlockProps) {
   const { t } = useTranslation(['receipts', 'fiscal']);
   const [selectedXmlDoc, setSelectedXmlDoc] = useState<SaleFiscalDocumentSummary | null>(null);
@@ -92,7 +82,7 @@ export function SaleDetailsFiscalBlock({ fiscalDocuments, isAdmin }: SaleDetails
           const showIdentifier =
             hasFinalIdentifier && (!isCertified || CUFE_ELIGIBLE_STATUSES.has(doc.status));
           const identifierLabel = isCertified
-            ? t(getFiscalIdentifierLabelKey(doc.countryCode))
+            ? t(fiscalIdentifierLabelKey(doc.countryCode, doc.kind))
             : t('receipts:fiscal.localIdentifierLabel');
 
           return (

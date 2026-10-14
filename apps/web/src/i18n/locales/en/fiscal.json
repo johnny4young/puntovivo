@@ -47,7 +47,6 @@
       "kind": "Kind",
       "status": "Status",
       "documentNumber": "Document number",
-      "cufe": "CUFE",
       "localIdentifier": "Local fiscal identifier",
       "resolution": "Numbering resolution",
       "buyer": "Buyer",
@@ -167,14 +166,22 @@
         "environment": "Environment",
         "environmentHabilitacion": "Enablement (testing)",
         "environmentProduccion": "Production",
+        "softwareId": "DIAN software ID",
+        "softwareIdHelp": "The ID the DIAN assigned when you registered your invoicing software.",
+        "softwareIdPlaceholder": "e.g. 56f2ae4e-9812-4fad-9255-08fcfcd5ccb0",
+        "softwarePin": "DIAN software PIN",
+        "softwarePinHelp": "The PIN you set when registering the software. It is used to compute the CUDE and is never shown again.",
+        "softwarePinPlaceholder": "e.g. 12345",
+        "softwarePinConfiguredPlaceholder": "Configured. Leave blank to keep it.",
         "nitDvSuggest": "Verification digit for {{nit}}: {{dv}}. Add it as {{nit}}-{{dv}}.",
         "nitDvMatch": "Verification digit is correct.",
         "nitDvMismatch": "Wrong verification digit — the correct one is {{dv}}. The DIAN would reject this."
       },
       "issueCodes": {
-        "MISSING_NIT": "Issuer NIT is missing",
+        "MISSING_NIT": "Issuer NIT is missing or its verification digit is invalid",
         "MISSING_RESOLUTION": "DIAN numbering resolution is missing",
-        "MISSING_RANGE": "DIAN numbering range is missing or invalid"
+        "MISSING_RANGE": "DIAN numbering range is missing or invalid",
+        "MISSING_SOFTWARE": "DIAN software ID or PIN is missing"
       },
       "actions": {
         "save": "Save",

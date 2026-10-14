@@ -64,6 +64,7 @@ import type {
   FiscalAdapterValidationResult,
   FiscalAdapterVoidInput,
 } from '../services/fiscal/adapter.js';
+import { computeCude } from '../services/fiscal/cude.js';
 import { computeCufe } from '../services/fiscal/cufe.js';
 import { registerDevice } from '../services/devices/devicesService.js';
 import { makeFreshContextFactory } from './utils/criticalCommandFixture.js';
@@ -132,7 +133,6 @@ class StubAdapter implements FiscalAdapter {
       icaAmount: input.icaAmount,
       totalAmount: input.totalAmount,
       issuerNit: input.issuerNit,
-      buyerIdTypeCode: input.buyer.taxIdTypeCode,
       buyerIdNumber: input.buyer.taxId,
       technicalKey: input.resolution.technicalKey,
       environment: '2',
@@ -191,6 +191,7 @@ beforeAll(async () => {
       settings: {
         ...((tenant?.settings as Record<string, unknown>) ?? {}),
         fiscal_dian_enabled: true,
+        fiscal: { co: { nit: '900373115-3', softwareId: 'sw-test', softwarePin: '12301' } },
       },
     })
     .where(eq(tenants.id, tenantId))
@@ -1180,6 +1181,194 @@ describe('fiscal outbox — pending checks integration', () => {
 });
 
 describe('durable credit notes with the real Colombia mock', () => {
+  it('blocks a sale without DIAN software and recovers it once the config is fixed', async () => {
+    const db = getDatabase();
+    const original = db
+      .select({ settings: tenants.settings })
+      .from(tenants)
+      .where(eq(tenants.id, tenantId))
+      .get()!.settings as Record<string, unknown>;
+    const setCoFiscal = (co: Record<string, unknown>) =>
+      db
+        .update(tenants)
+        .set({ settings: { ...original, fiscal: { co } } })
+        .where(eq(tenants.id, tenantId))
+        .run();
+
+    setCoFiscal({ nit: '900373115-3' });
+    try {
+      const { saleId } = await seedProductAndSale({
+        sku: `BLOCK-${nanoid()}`,
+        productName: 'Blocked config product',
+      });
+      const blocked = db
+        .select()
+        .from(fiscalEmissionIntents)
+        .where(eq(fiscalEmissionIntents.sourceId, saleId))
+        .get();
+      expect(blocked).toMatchObject({
+        status: 'blocked',
+        lastError: { reason: 'adapter_configuration_invalid' },
+      });
+
+      setCoFiscal({ nit: '900373115-3', softwareId: 'sw-fixed', softwarePin: '55555' });
+      const fresh = makeFreshContextFactory({
+        db,
+        serverApp: server.app,
+        tenantId,
+        userId,
+        email: 'admin@localhost',
+        siteId,
+        deviceId: testDeviceId,
+        defaultRole: 'admin',
+      });
+      await expect(
+        appRouter.createCaller(fresh()).reports.fiscal.retryIntent({ intentId: blocked!.id })
+      ).resolves.toEqual({ rearmed: true, status: 'queued' });
+      await server.fiscalWorker.tickOnce(tenantId);
+      await server.fiscalWorker.tickOnce(tenantId);
+
+      const { doc, outbox } = await waitForFiscalDocument(saleId);
+      const input = (outbox!.payload as { adapterInput: FiscalAdapterIssueInput }).adapterInput;
+      expect(input.tenantSettings).toMatchObject({ fiscal: { co: { softwareId: 'sw-fixed' } } });
+      expect(JSON.stringify(outbox!.payload)).not.toContain('55555');
+      expect(doc!.cufe).toBe(
+        computeCude({
+          documentNumber: input.resolution.documentNumber,
+          issueDate: input.issueDate,
+          issueTime: input.issueTime,
+          subtotal: input.subtotal,
+          ivaAmount: input.ivaAmount,
+          incAmount: input.incAmount,
+          icaAmount: input.icaAmount,
+          totalAmount: input.totalAmount,
+          issuerNit: '900373115',
+          buyerIdNumber: input.buyer.taxId,
+          softwarePin: '55555',
+          environment: '2',
+        })
+      );
+    } finally {
+      db.update(tenants)
+        .set({
+          settings: {
+            ...original,
+            fiscal: {
+              co: { nit: '900373115-3', softwareId: 'sw-test', softwarePin: '12301' },
+            },
+          },
+        })
+        .where(eq(tenants.id, tenantId))
+        .run();
+    }
+  });
+
+  it('hashes the live PIN at emission and dead-letters once it disappears', async () => {
+    const db = getDatabase();
+    const baseSettings = db
+      .select({ settings: tenants.settings })
+      .from(tenants)
+      .where(eq(tenants.id, tenantId))
+      .get()!.settings as Record<string, unknown>;
+    const setPin = (softwarePin: string | null) =>
+      db
+        .update(tenants)
+        .set({
+          settings: {
+            ...baseSettings,
+            fiscal: { co: { nit: '900373115-3', softwareId: 'sw-test', softwarePin } },
+          },
+        })
+        .where(eq(tenants.id, tenantId))
+        .run();
+    const setOutboxStatus = (id: string, status: 'queued' | 'rejected') =>
+      db.update(fiscalOutbox).set({ status }).where(eq(fiscalOutbox.id, id)).run();
+
+    // Materialize both documents while the worker cannot emit them.
+    await server.fiscalWorker.stop();
+    let restarted = false;
+    try {
+      const rotated = await seedProductAndSale({ sku: `ROT-${nanoid()}`, productName: 'Rotated' });
+      const cleared = await seedProductAndSale({ sku: `CLR-${nanoid()}`, productName: 'Cleared' });
+      const rotatedRow = await waitForFiscalDocument(rotated.saleId);
+      const clearedRow = await waitForFiscalDocument(cleared.saleId);
+      expect(rotatedRow.doc!.cufe).toMatch(/^pending-/);
+      setOutboxStatus(clearedRow.outbox!.id, 'rejected');
+
+      setPin('77777');
+      server.fiscalWorker.start();
+      restarted = true;
+      await server.fiscalWorker.tickOnce(tenantId);
+      const { doc, outbox } = await readFiscalDocAndOutbox(rotated.saleId);
+      const input = (outbox!.payload as { adapterInput: FiscalAdapterIssueInput }).adapterInput;
+      expect(doc!.cufe).toBe(
+        computeCude({
+          documentNumber: input.resolution.documentNumber,
+          issueDate: input.issueDate,
+          issueTime: input.issueTime,
+          subtotal: input.subtotal,
+          ivaAmount: input.ivaAmount,
+          incAmount: input.incAmount,
+          icaAmount: input.icaAmount,
+          totalAmount: input.totalAmount,
+          issuerNit: '900373115',
+          buyerIdNumber: input.buyer.taxId,
+          softwarePin: '77777',
+          environment: '2',
+        })
+      );
+
+      setPin(null);
+      setOutboxStatus(clearedRow.outbox!.id, 'queued');
+      await server.fiscalWorker.tickOnce(tenantId);
+      const after = await readFiscalDocAndOutbox(cleared.saleId);
+      expect(after.outbox?.status).toBe('dead_letter');
+      expect(after.doc!.cufe).toMatch(/^pending-/);
+    } finally {
+      setPin('12301');
+      if (!restarted) server.fiscalWorker.start();
+    }
+  });
+
+  it('keeps the software PIN out of persisted payloads but hashes it at emission', async () => {
+    const db = getDatabase();
+    const { saleId } = await seedProductAndSale({
+      sku: `PIN-${nanoid()}`,
+      productName: 'PIN secrecy product',
+    });
+    await server.fiscalWorker.tickOnce(tenantId);
+    const { doc, outbox } = await readFiscalDocAndOutbox(saleId);
+    const intent = db
+      .select()
+      .from(fiscalEmissionIntents)
+      .where(eq(fiscalEmissionIntents.sourceId, saleId))
+      .get();
+
+    expect(JSON.stringify(intent?.payload)).not.toContain('12301');
+    expect(JSON.stringify(outbox?.payload)).not.toContain('12301');
+
+    const input = (outbox!.payload as { adapterInput: FiscalAdapterIssueInput }).adapterInput;
+    expect(input.issuerNit).toBe('900373115');
+    expect(input.issueTime).toMatch(/-05:00$/);
+    expect(doc!.cufe).toBe(
+      computeCude({
+        documentNumber: input.resolution.documentNumber,
+        issueDate: input.issueDate,
+        issueTime: input.issueTime,
+        subtotal: input.subtotal,
+        ivaAmount: input.ivaAmount,
+        incAmount: input.incAmount,
+        icaAmount: input.icaAmount,
+        totalAmount: input.totalAmount,
+        issuerNit: '900373115',
+        buyerIdNumber: input.buyer.taxId,
+        softwarePin: '12301',
+        environment: '2',
+      })
+    );
+    expect(doc!.xmlRef).toContain('schemeName="CUDE-SHA384"');
+  });
+
   it('waits for original fiscal evidence without exhausting the transient retry budget', async () => {
     const db = getDatabase();
     const { saleId } = await seedProductAndSale({

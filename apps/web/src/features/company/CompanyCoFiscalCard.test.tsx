@@ -9,6 +9,7 @@
  * - The "Set up DIAN" CTA reveals the form from the optional EmptyState.
  * - Submitting the form calls `fiscalSettings.updateCo` with the right
  * shape (numbers parsed for the range bounds).
+ * - The software PIN is write-only: blank keeps the stored PIN.
  */
 
 import { fireEvent, render, screen } from '@testing-library/react';
@@ -42,6 +43,8 @@ type CoSettingsResponse = {
     rangeFrom: number | null;
     rangeTo: number | null;
     environment: 'habilitacion' | 'produccion';
+    softwareId: string | null;
+    softwarePinConfigured: boolean;
   } | null;
   validation: {
     ok: boolean;
@@ -60,6 +63,8 @@ const UNCONFIGURED_CO: CoSettingsResponse = {
     rangeFrom: null,
     rangeTo: null,
     environment: 'habilitacion',
+    softwareId: null,
+    softwarePinConfigured: false,
   },
   validation: {
     ok: false,
@@ -159,6 +164,8 @@ describe('CompanyCoFiscalCard', () => {
         rangeFrom: 1,
         rangeTo: 5000,
         environment: 'produccion',
+        softwareId: 'sw-1',
+        softwarePinConfigured: true,
       },
     };
     render(<CompanyCoFiscalCard />);
@@ -183,6 +190,8 @@ describe('CompanyCoFiscalCard', () => {
         rangeFrom: 1,
         rangeTo: 5000,
         environment: 'produccion',
+        softwareId: 'sw-1',
+        softwarePinConfigured: true,
       },
     };
     rerender(<CompanyCoFiscalCard />);
@@ -222,6 +231,44 @@ describe('CompanyCoFiscalCard', () => {
       rangeTo: 5000,
       environment: 'habilitacion',
     });
+  });
+
+  it('submit sends the software ID and PIN when both are typed', () => {
+    render(<CompanyCoFiscalCard />);
+    fireEvent.click(screen.getByTestId('fiscal-co-configure'));
+    fireEvent.change(screen.getByLabelText(/DIAN software ID/i), {
+      target: { value: 'sw-1' },
+    });
+    fireEvent.change(screen.getByLabelText(/DIAN software PIN/i), {
+      target: { value: '12301' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Save/i }));
+
+    expect(updateMutate.mock.calls.at(-1)?.[1]).toMatchObject({
+      softwareId: 'sw-1',
+      softwarePin: '12301',
+    });
+  });
+
+  it('never echoes a stored PIN and keeps it when the field is left blank', () => {
+    mockSettingsResponse = {
+      ...UNCONFIGURED_CO,
+      settings: {
+        ...UNCONFIGURED_CO.settings!,
+        softwareId: 'sw-1',
+        softwarePinConfigured: true,
+      },
+    };
+    render(<CompanyCoFiscalCard />);
+    const pin = screen.getByLabelText(/DIAN software PIN/i);
+    expect(pin).toHaveValue('');
+    expect(pin).toHaveAttribute('type', 'password');
+    expect(pin).toHaveAttribute('placeholder', 'Configured. Leave blank to keep it.');
+
+    fireEvent.click(screen.getByRole('button', { name: /Save/i }));
+    const patch = updateMutate.mock.calls.at(-1)?.[1] as Record<string, unknown>;
+    expect(patch.softwareId).toBe('sw-1');
+    expect(patch).not.toHaveProperty('softwarePin');
   });
 
   // A-33 — live verification-digit hint on the NIT field.

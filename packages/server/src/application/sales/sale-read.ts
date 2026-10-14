@@ -51,6 +51,7 @@ import { detectPriceOverrides } from './item-resolution.js';
 import { buildFiscalQrPayload } from '../../services/fiscal/qr-builder.js';
 import type { FiscalAdapterMaturity } from '../../services/fiscal/adapter.js';
 import { describeFiscalProvider } from '../../services/fiscal/registry.js';
+import { resolveFiscalIssuerTaxId } from '../../services/fiscal/issuer-context.js';
 import { readClFiscalSettings } from '../../services/fiscal/packs/cl/settings.js';
 import { readCoFiscalSettings } from '../../services/fiscal/packs/co/settings.js';
 import { readMxFiscalSettings } from '../../services/fiscal/packs/mx/settings.js';
@@ -786,7 +787,7 @@ async function loadFiscalDocumentsForSale(
           providerResponse: doc.providerResponse,
         },
         tenant: {
-          taxId: resolveIssuerTaxId(countryCode, tenantSettings, tenantId),
+          taxId: resolveFiscalIssuerTaxId(countryCode, tenantSettings, tenantId),
         },
       }),
     };
@@ -799,23 +800,6 @@ function resolveFiscalDocumentCountryCode(
 ): string {
   const match = localeCode?.match(/-([A-Za-z]{2})(?:-|$)/);
   return (match?.[1] ?? fallbackCountryCode).toUpperCase();
-}
-
-function resolveIssuerTaxId(
-  countryCode: string,
-  tenantSettings: Record<string, unknown>,
-  fallbackTenantId: string
-): string {
-  switch (countryCode.toUpperCase()) {
-    case 'CO':
-      return readCoFiscalSettings(tenantSettings).nit ?? fallbackTenantId;
-    case 'MX':
-      return readMxFiscalSettings(tenantSettings).rfc ?? fallbackTenantId;
-    case 'CL':
-      return readClFiscalSettings(tenantSettings).rut ?? fallbackTenantId;
-    default:
-      return fallbackTenantId;
-  }
 }
 
 function resolveFiscalVerificationEnvironment(
