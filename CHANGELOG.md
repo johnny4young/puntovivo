@@ -52,6 +52,15 @@ is usable from source, but it is not a new packaged release yet.
   a real alert receiver with ownership, and an observed retail pilot remain
   open gates.
 
+## [1.15.1](https://github.com/johnny4young/puntovivo/compare/v1.15.0...v1.15.1) (2026-10-14)
+
+
+### Bug Fixes
+
+* **fiscal:** address review of the CUDE change ([7095080](https://github.com/johnny4young/puntovivo/commit/70950802d86b03c3ab66a6ec13d9df1b5842cd4c))
+* **fiscal:** key the Colombian POS documento equivalente by CUDE ([aaff2f5](https://github.com/johnny4young/puntovivo/commit/aaff2f5b70183bd9779744087bda778fe6fbf0c2))
+* **fiscal:** key the Colombian POS documento equivalente by CUDE ([474fbea](https://github.com/johnny4young/puntovivo/commit/474fbea15dd71823481baad30f064ba9de39fd1c))
+
 ## [1.15.0](https://github.com/johnny4young/puntovivo/compare/v1.14.4...v1.15.0) (2026-10-09)
 
 
