@@ -20,6 +20,10 @@
 
 import { describe, expect, it } from 'vitest';
 import { ColombiaMockAdapter } from '../services/fiscal/packs/co/mock-adapter.js';
+import {
+  readCoFiscalSettings,
+  validateCoFiscalConfig,
+} from '../services/fiscal/packs/co/settings.js';
 import { MexicoCFDIAdapter } from '../services/fiscal/packs/mx/mexico-adapter.js';
 import { ChileSIIAdapter } from '../services/fiscal/packs/cl/chile-adapter.js';
 import type { FiscalAdapterConfig } from '../services/fiscal/adapter.js';
@@ -60,6 +64,27 @@ describe('validateConfig ( + )', () => {
       })
     );
     expect(result).toEqual({ ok: true, issues: [] });
+  });
+});
+
+describe('validateCoFiscalConfig', () => {
+  it('flags a NIT with a wrong verification digit, as emission does', () => {
+    const complete = {
+      dianResolutionNumber: '18760000001',
+      rangeFrom: 1,
+      rangeTo: 5000,
+      softwareId: 'sw-1',
+      softwarePin: '12301',
+    };
+    const wrongDv = validateCoFiscalConfig(
+      readCoFiscalSettings({ fiscal: { co: { ...complete, nit: '900373115-9' } } })
+    );
+    expect(wrongDv.issues.map(issue => issue.code)).toEqual(['MISSING_NIT']);
+    expect(
+      validateCoFiscalConfig(
+        readCoFiscalSettings({ fiscal: { co: { ...complete, nit: '900373115-3' } } })
+      )
+    ).toEqual({ ok: true, issues: [] });
   });
 });
 

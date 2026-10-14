@@ -211,10 +211,12 @@ function missingSoftwareIssue(settings: CoFiscalSettings): FiscalAdapterValidati
 export function validateCoFiscalConfig(settings: CoFiscalSettings): FiscalAdapterValidationResult {
   const issues: FiscalAdapterValidationIssue[] = [];
 
-  if (!settings.nit) {
+  // Same NIT rule emission applies, so the badge never reads ready while
+  // every sale would be blocked.
+  if (!settings.nit || !validateNit(settings.nit).valid) {
     issues.push({
       code: 'MISSING_NIT',
-      message: 'Issuer NIT is missing',
+      message: 'Issuer NIT is missing or invalid',
       field: 'fiscal.co.nit',
     });
   }

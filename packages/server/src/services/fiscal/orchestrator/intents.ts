@@ -32,7 +32,7 @@ import {
   resolveFiscalHashEnvironment,
   resolveFiscalIssuerTaxId,
   withLiveFiscalSecrets,
-  withoutFiscalSecrets,
+  freezeFiscalSettings,
 } from '../issuer-context.js';
 import type { FiscalAdapterIssueInput } from '../adapter.js';
 import { CONSUMIDOR_FINAL, type FiscalEnvironment } from '../cufe.js';
@@ -120,29 +120,6 @@ export interface PrepareSaleFiscalIntentArgs {
   originalCufe?: string | undefined;
   reasonCode?: string | undefined;
   environment?: FiscalEnvironment | undefined;
-}
-
-function fiscalSettingsSnapshot(
-  settings: Record<string, unknown>,
-  countryCode: string
-): Record<string, unknown> {
-  const countryKey = countryCode.toLowerCase();
-  const fiscal = settings.fiscal;
-  const countrySettings =
-    typeof fiscal === 'object' && fiscal !== null && !Array.isArray(fiscal)
-      ? (fiscal as Record<string, unknown>)[countryKey]
-      : undefined;
-  const snapshot: Record<string, unknown> = {};
-  if (settings.fiscal_dian_enabled !== undefined) {
-    snapshot.fiscal_dian_enabled = settings.fiscal_dian_enabled;
-  }
-  if (settings.fiscalDianEnabled !== undefined) {
-    snapshot.fiscalDianEnabled = settings.fiscalDianEnabled;
-  }
-  if (countrySettings !== undefined) {
-    snapshot.fiscal = { [countryKey]: countrySettings };
-  }
-  return snapshot;
 }
 
 function blockedError(reason: string, details?: unknown): Record<string, unknown> {
@@ -256,9 +233,7 @@ export async function prepareSaleFiscalIntent(
       .get(),
   ]);
   // Secrets stay out of the durable payload; the worker re-attaches them.
-  const frozenSettings = withoutFiscalSecrets(
-    fiscalSettingsSnapshot(tenantSettings, locale.countryCode)
-  );
+  const frozenSettings = freezeFiscalSettings(tenantSettings, locale.countryCode);
   const { issueDate, issueTime } = splitIssueTimestamp(new Date(completedAt), locale.timezone);
   const headerTaxTotals = sumTaxTotals(lines);
   // A line whose sale-time description was never recorded. Resolved here, ahead
@@ -468,7 +443,7 @@ export function refreshBlockedIntentIssuerContract(
     ...payload,
     adapterInput: {
       ...adapterInput,
-      tenantSettings: withoutFiscalSecrets(fiscalSettingsSnapshot(liveSettings, countryCode)),
+      tenantSettings: freezeFiscalSettings(liveSettings, countryCode),
       issuerNit: resolveFiscalIssuerTaxId(countryCode, liveSettings, adapterInput.tenantId),
       environment: resolveFiscalHashEnvironment(countryCode, liveSettings),
     },

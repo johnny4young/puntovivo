@@ -22,7 +22,7 @@
  * - Resolution consecutive advancement after each emission.
  */
 
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { and, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
@@ -34,6 +34,7 @@ import {
   fiscalDocumentItems,
   fiscalDocuments,
   fiscalNumberingResolutions,
+  fiscalOutbox,
   products,
   saleItems,
   sales,
@@ -429,6 +430,101 @@ describe('emitFiscalDocument', () => {
         .update(tenantLocaleSettings)
         .set({ countryCode: 'CO' })
         .where(eq(tenantLocaleSettings.tenantId, harness.tenantId));
+    }
+  });
+
+  it('freezes only the fiscal branch into the outbox payload, never secrets', async () => {
+    const db = getDatabase();
+    const fullSettings = {
+      fiscal_dian_enabled: true,
+      fiscal: { co: CO_FISCAL, mx: { rfc: 'AAA010101AAA' } },
+      payments: { wompi: { credentials: { privateKey: 'prv_test_must_not_freeze' } } },
+      modules: { copilot: true },
+    };
+    await db
+      .update(tenants)
+      .set({ settings: fullSettings })
+      .where(eq(tenants.id, harness.tenantId));
+    try {
+      const saleId = await seedCompletedSale({
+        harness,
+        saleNumber: 'FREEZE-0001',
+        customerId: harness.customerId,
+      });
+      await enqueueFiscalEmission({
+        db,
+        tenantId: harness.tenantId,
+        userId: harness.userId,
+        source: 'sale',
+        sourceId: saleId,
+        saleId,
+        kind: 'DEE',
+        log: {
+          debug: () => undefined,
+          info: () => undefined,
+          warn: () => undefined,
+          error: () => undefined,
+        },
+      });
+      const doc = await db
+        .select({ id: fiscalDocuments.id })
+        .from(fiscalDocuments)
+        .where(eq(fiscalDocuments.sourceId, saleId))
+        .get();
+      const outbox = await db
+        .select({ payload: fiscalOutbox.payload })
+        .from(fiscalOutbox)
+        .where(eq(fiscalOutbox.fiscalDocumentId, doc!.id))
+        .get();
+      const frozen = (outbox!.payload as { adapterInput: { tenantSettings: unknown } }).adapterInput
+        .tenantSettings;
+      expect(frozen).toEqual({
+        fiscal_dian_enabled: true,
+        fiscal: { co: { nit: CO_FISCAL.nit, softwareId: CO_FISCAL.softwareId } },
+      });
+    } finally {
+      await db
+        .update(tenants)
+        .set({ settings: { fiscal_dian_enabled: true, fiscal: { co: CO_FISCAL } } })
+        .where(eq(tenants.id, harness.tenantId));
+    }
+  });
+
+  it('warns when the pack configuration makes enqueue skip the obligation', async () => {
+    const db = getDatabase();
+    await db
+      .update(tenants)
+      .set({ settings: { fiscal_dian_enabled: true, fiscal: { co: { nit: CO_FISCAL.nit } } } })
+      .where(eq(tenants.id, harness.tenantId));
+    const warn = vi.fn();
+    try {
+      const saleId = await seedCompletedSale({
+        harness,
+        saleNumber: 'SKIP-0001',
+        customerId: harness.customerId,
+      });
+      const result = await enqueueFiscalEmission({
+        db,
+        tenantId: harness.tenantId,
+        userId: harness.userId,
+        source: 'sale',
+        sourceId: saleId,
+        saleId,
+        kind: 'DEE',
+        log: { debug: () => undefined, info: () => undefined, warn, error: () => undefined },
+      });
+      expect(result).toBeNull();
+      expect(warn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          issues: [expect.objectContaining({ code: 'MISSING_SOFTWARE' })],
+        }),
+        'fiscal pack validateConfig rejected; skipping enqueue'
+      );
+    } finally {
+      await db
+        .update(tenants)
+        .set({ settings: { fiscal_dian_enabled: true, fiscal: { co: CO_FISCAL } } })
+        .where(eq(tenants.id, harness.tenantId));
     }
   });
 

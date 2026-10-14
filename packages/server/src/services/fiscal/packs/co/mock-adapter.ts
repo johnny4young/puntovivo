@@ -39,6 +39,7 @@ import type {
   FiscalAdapterVoidInput,
 } from '../../adapter.js';
 import type { FiscalDocumentStatus } from '../../../../db/schema.js';
+import { splitIssueTimestamp } from '../../orchestrator/helpers.js';
 import { validateNit } from './nit.js';
 import { readCoFiscalSettings, validateCoEmissionConfig } from './settings.js';
 import { buildColombiaUbl21DraftXml } from './ubl21-xml.js';
@@ -110,16 +111,18 @@ export class ColombiaMockAdapter implements FiscalAdapter {
     // documento equivalente and every note by the software PIN (CUDE).
     // The PIN is read live at emission, so it can vanish after the intent
     // was validated: refuse rather than persist a code DIAN cannot verify.
-    if (input.kind !== 'FEV' && !settings.softwarePin) {
+    const softwarePin = settings.softwarePin;
+    let cufe: string;
+    if (input.kind === 'FEV') {
+      cufe = computeCufe({ ...fields, technicalKey: input.resolution.technicalKey });
+    } else if (softwarePin) {
+      cufe = computeCude({ ...fields, softwarePin });
+    } else {
       throw new FiscalProviderError('MALFORMED_REQUEST', {
         message: 'DIAN software PIN is missing',
         providerCode: 'MISSING_SOFTWARE',
       });
     }
-    const cufe =
-      input.kind === 'FEV'
-        ? computeCufe({ ...fields, technicalKey: input.resolution.technicalKey })
-        : computeCude({ ...fields, softwarePin: settings.softwarePin! });
 
     const override = this.options.contingencyOracle?.(input);
     const status: FiscalDocumentStatus = override ?? 'sent';
@@ -156,8 +159,7 @@ export class ColombiaMockAdapter implements FiscalAdapter {
     // void endpoint and return the PT-issued code.
     const voidCufe = computeCude({
       documentNumber: `VOID-${input.cufe}`,
-      issueDate: new Date().toISOString().slice(0, 10),
-      issueTime: new Date().toISOString().slice(11, 19) + '-05:00',
+      ...splitIssueTimestamp(new Date(), 'America/Bogota'),
       subtotal: 0,
       ivaAmount: 0,
       incAmount: 0,

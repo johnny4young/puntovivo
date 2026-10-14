@@ -37,7 +37,7 @@ import { resolveTenantLocale } from '../../tenant-locale.js';
 import {
   resolveFiscalHashEnvironment,
   resolveFiscalIssuerTaxId,
-  withoutFiscalSecrets,
+  freezeFiscalSettings,
 } from '../issuer-context.js';
 import type { FiscalAdapterIssueInput, FiscalAdapterLine } from '../adapter.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
@@ -235,7 +235,9 @@ export async function enqueueFiscalEmission(args: {
       settings: tenantSettings,
     });
     if (!validation.ok) {
-      args.log.debug(
+      // No intent backs this path, so the log is the only trace of the
+      // skipped obligation.
+      args.log.warn(
         { tenantId, countryCode: adapter.countryCode, issues: validation.issues },
         'fiscal pack validateConfig rejected; skipping enqueue'
       );
@@ -275,8 +277,8 @@ export async function enqueueFiscalEmission(args: {
       args.environment ?? resolveFiscalHashEnvironment(adapter.countryCode, tenantSettings),
     issuerNit: resolveFiscalIssuerTaxId(adapter.countryCode, tenantSettings, tenantId),
     issuerName: issuerName ?? undefined,
-    // Persisted in the outbox payload: secrets are re-attached at emission.
-    tenantSettings: withoutFiscalSecrets(tenantSettings),
+    // Persisted in the outbox payload: only the fiscal branch, never secrets.
+    tenantSettings: freezeFiscalSettings(tenantSettings, adapter.countryCode),
     currencyCode: locale.currency,
     localeCode: locale.locale,
     paymentMethod: sale.paymentMethod,

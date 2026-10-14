@@ -178,7 +178,7 @@
         "nitDvMismatch": "Dígito de verificación incorrecto — el correcto es {{dv}}. La DIAN lo rechazaría."
       },
       "issueCodes": {
-        "MISSING_NIT": "Falta el NIT del emisor",
+        "MISSING_NIT": "Falta el NIT del emisor o su dígito de verificación no es válido",
         "MISSING_RESOLUTION": "Falta la resolución de numeración DIAN",
         "MISSING_RANGE": "El rango de numeración DIAN falta o es inválido",
         "MISSING_SOFTWARE": "Falta el identificador o el PIN del software DIAN"

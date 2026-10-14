@@ -58,6 +58,30 @@ function asRecord(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
+/**
+ * The part of `tenants.settings` an emission payload freezes: the DIAN
+ * master flag and the country's fiscal branch, minus its secrets. Payment
+ * credentials and every other namespace stay out of persisted payloads.
+ */
+export function freezeFiscalSettings(
+  settings: Record<string, unknown>,
+  countryCode: string
+): Record<string, unknown> {
+  const countryKey = countryCode.toLowerCase();
+  const countrySettings = asRecord(settings.fiscal)?.[countryKey];
+  const snapshot: Record<string, unknown> = {};
+  if (settings.fiscal_dian_enabled !== undefined) {
+    snapshot.fiscal_dian_enabled = settings.fiscal_dian_enabled;
+  }
+  if (settings.fiscalDianEnabled !== undefined) {
+    snapshot.fiscalDianEnabled = settings.fiscalDianEnabled;
+  }
+  if (countrySettings !== undefined) {
+    snapshot.fiscal = { [countryKey]: countrySettings };
+  }
+  return withoutFiscalSecrets(snapshot);
+}
+
 /** Copy of the settings blob without fiscal secrets, safe to persist. */
 export function withoutFiscalSecrets(settings: Record<string, unknown>): Record<string, unknown> {
   const fiscal = asRecord(settings.fiscal);

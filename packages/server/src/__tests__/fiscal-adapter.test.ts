@@ -17,7 +17,7 @@
  * - `capabilities` are stable.
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { computeCude } from '../services/fiscal/cude.js';
 import { computeCufe, type DianDocumentHashFields } from '../services/fiscal/cufe.js';
 import { ColombiaMockAdapter } from '../services/fiscal/packs/co/mock-adapter.js';
@@ -334,6 +334,36 @@ describe('ColombiaMockAdapter.issue', () => {
     expect(voided.cufe).not.toBe(original.cufe);
     expect(voided.status).toBe('sent');
     expect(voided.providerId).toBe('mock-co');
+  });
+
+  it('stamps the void code with Colombian legal time', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-10-14T03:30:15.000Z'));
+      const voided = await new ColombiaMockAdapter().voidDocument({
+        tenantId: 'tenant-1',
+        cufe: 'abc',
+        reasonCode: 'ERR-01',
+      });
+      expect(voided.cufe).toBe(
+        computeCude({
+          documentNumber: 'VOID-abc',
+          issueDate: '2026-10-13',
+          issueTime: '22:30:15-05:00',
+          subtotal: 0,
+          ivaAmount: 0,
+          incAmount: 0,
+          icaAmount: 0,
+          totalAmount: 0,
+          issuerNit: 'tenant-1',
+          buyerIdNumber: '222222222222',
+          softwarePin: 'ERR-01',
+          environment: '2',
+        })
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('fetchStatus reports the mock terminal state', async () => {
