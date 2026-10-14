@@ -58,3 +58,19 @@ test('manual rollout workflow promotes archived feeds and cannot publish a remot
   assert.match(workflow, /^  group: pages$/m);
   assert.match(workflow, /^  cancel-in-progress: false$/m);
 });
+
+test('a re-run of a Pages publish deploys its own artifact', () => {
+  for (const file of ['.github/workflows/release.yml', '.github/workflows/update-rollout.yml']) {
+    const workflow = readRepoFile(file);
+    const perAttempt = 'github-pages-${{ github.run_attempt }}';
+
+    assert.ok(
+      workflow.includes(`name: ${perAttempt}`),
+      `${file} must name the artifact per attempt`
+    );
+    assert.ok(
+      workflow.includes(`artifact_name: ${perAttempt}`),
+      `${file} must deploy that artifact`
+    );
+  }
+});
