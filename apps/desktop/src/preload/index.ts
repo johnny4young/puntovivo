@@ -90,6 +90,18 @@ export interface ElectronAPI {
   updateThemePreference: (
     preference: 'light' | 'dark' | 'system'
   ) => Promise<'light' | 'dark' | 'system'>;
+  /** Lists OS queues and this tenant's selection on this device; optional for older preload compatibility. */
+  getSystemPrinters?: () => Promise<{
+    printers: Array<{ name: string; displayName: string }>;
+    selectedDeviceName: string | null;
+  }>;
+  /** Only an enumerated system name or null (ask in dialog) is accepted. */
+  selectSystemPrinter?: (name: string | null) => Promise<{
+    printers: Array<{ name: string; displayName: string }>;
+    selectedDeviceName: string | null;
+  }>;
+  /** Opens a real print dialog for a synthetic test receipt; never records a sale. */
+  testSystemPrinter?: () => Promise<{ success: boolean; errorCode?: string; error?: string }>;
   getReceiptPrintSettings: () => Promise<{
     silent: boolean;
     printBackground: boolean;
@@ -371,6 +383,9 @@ const electronAPI: ElectronAPI = {
   getThemePreference: () => ipcRenderer.invoke('get-theme-preference'),
   updateThemePreference: preference =>
     invokeSessionProtected('update-theme-preference', preference),
+  getSystemPrinters: () => invokeSessionProtected('list-system-printers'),
+  selectSystemPrinter: name => invokeSessionProtected('select-system-printer', name),
+  testSystemPrinter: () => ipcRenderer.invoke('test-system-printer'),
   getReceiptPrintSettings: () => ipcRenderer.invoke('get-receipt-print-settings'),
   updateReceiptPrintSettings: settings =>
     invokeSessionProtected('update-receipt-print-settings', settings),

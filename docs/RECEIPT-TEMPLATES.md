@@ -333,9 +333,20 @@ apps/web/src/lib/translateServerError.ts                         # KNOWN_SERVER_
   oversized pixel layout down to fit the roll.
 - In **Devices**, a system printer or an ESC/POS printer can opt into automatic
   printing after a completed sale. This is off by default. System printing
-  opens the OS dialog; the desktop silent-print preference uses the system's
-  default printer and its paper size. ESC/POS has a visible 58/80 mm selector,
+  opens the OS dialog. Desktop operators can select an enumerated OS printer
+  locally for this business and computer; silent printing requires that
+  selection. Existing profiles without one open the dialog. A missing saved
+  queue fails instead of silently selecting another printer. ESC/POS has a visible 58/80 mm selector,
   synchronized with its advanced JSON configuration.
+- ESC/POS network configuration requires the printer's real private network
+  address. Example addresses are placeholders, never saved defaults. Direct
+  USB and serial ESC/POS transports are not implemented; a USB-attached printer
+  uses **System** with its OS driver. Switching printer methods preserves the
+  automatic-print opt-in and keeps method-specific configuration separate.
+- **Check registration** does not print. **Print a test ticket** in the desktop
+  system-printer controls opens a real OS dialog for a synthetic document,
+  without creating a sale. Failed tests show their diagnosis and are not
+  announced as success. See [Printer setup](./PRINTER-SETUP.md) / [Configuración de impresoras](./es/PRINTER-SETUP.md).
 - Electron uses the printer's default page size and printable area. Static
   SVG QR/barcode shapes survive print sanitization; active SVG constructs and
   external resources remain blocked. Canceling the native print dialog is a
@@ -345,7 +356,10 @@ apps/web/src/lib/translateServerError.ts                         # KNOWN_SERVER_
   retry only after the server persists it; transport/bridge failures without
   confirmation ask the operator to check the printer and queue before reprinting.
   Explicit System printing and the no-ESC/POS route still use HTML. Hub-client
-  local bridge failures have no durable retry queue.
+  local bridge failures have no durable retry queue. If a queued ESC/POS job
+  finds that its printer was changed to System, it stops with a diagnostic
+  dead letter and preserves its bytes. Registration never completes that job;
+  review the queue before deliberately printing through another route.
 - Concurrent print requests for one sale share the active attempt. A later
   deliberate reprint remains available. Browser confirmation means the print
   dialog opened, not that paper was produced.

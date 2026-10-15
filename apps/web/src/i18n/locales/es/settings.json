@@ -225,7 +225,7 @@
       "description": "Configura cómo funciona la impresión de recibos en esta estación de trabajo.",
       "desktopOnly": "La configuración de impresión está disponible en la app de escritorio Electron.",
       "silentPrinting": "Impresión silenciosa",
-      "silentPrintingDescription": "Imprime recibos sin mostrar el diálogo de impresión del sistema operativo.",
+      "silentPrintingDescription": "Imprime sin diálogo en la impresora del sistema seleccionada en este equipo.",
       "printBackground": "Imprimir gráficos de fondo",
       "printBackgroundDescription": "Incluye estilos de fondo y sombreado del recibo en la salida impresa.",
       "saving": "Guardando configuración de impresión...",

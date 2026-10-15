@@ -27,6 +27,7 @@ project. Read the right file for the question, not the whole directory.
 | ------------------------------------------------ | ------------------------------------------------------------------- |
 | [`MODULE-ACTIVATION.md`](./MODULE-ACTIVATION.md) | Per-tenant module gating.                                           |
 | [`HARDWARE-POS.md`](./HARDWARE-POS.md)           | ESC/POS, cash drawer, scanner, peripherals.                         |
+| [Printer setup (English)](./PRINTER-SETUP.md) · [Configuración de impresoras (Español)](./es/PRINTER-SETUP.md) | USB/System, network ESC/POS, local queues and physical acceptance / USB/Sistema, ESC/POS de red, colas locales y aceptación física. |
 | [`WEBHOOKS.md`](./WEBHOOKS.md)                   | Outbound event schema, signatures, retries, examples, and recovery. |
 
 ## UX & design system

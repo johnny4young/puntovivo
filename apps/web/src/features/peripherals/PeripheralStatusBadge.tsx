@@ -11,11 +11,13 @@ import { Badge } from '@/components/ui/Badge';
 interface PeripheralStatusBadgeProps {
   lastTestResult: 'ok' | 'failed' | null;
   lastTestedAt: string | null;
+  lastTestDetails?: Record<string, unknown> | null;
 }
 
 export function PeripheralStatusBadge({
   lastTestResult,
   lastTestedAt,
+  lastTestDetails,
 }: PeripheralStatusBadgeProps) {
   const { t, i18n } = useTranslation('peripherals');
 
@@ -24,7 +26,7 @@ export function PeripheralStatusBadge({
 
   const label =
     lastTestResult === 'ok'
-      ? t('status.ok')
+      ? t(lastTestDetails?.kind === 'REGISTRATION_ONLY' ? 'status.registered' : 'status.ok')
       : lastTestResult === 'failed'
         ? t('status.failed')
         : t('status.untested');
@@ -36,6 +38,13 @@ export function PeripheralStatusBadge({
   return (
     <div className="flex flex-col items-start gap-1">
       <Badge variant={variant}>{label}</Badge>
+      {lastTestResult === 'failed' && lastTestDetails && (
+        <p className="max-w-sm text-xs text-danger-700">
+          {[lastTestDetails.kind ?? lastTestDetails.code, lastTestDetails.message]
+            .filter(value => typeof value === 'string')
+            .join(': ')}
+        </p>
+      )}
       {formattedTimestamp && (
         <span className="text-[0.7rem] text-secondary-500">
           {t('status.lastTestedAt', { when: formattedTimestamp })}

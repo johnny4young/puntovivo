@@ -41,7 +41,7 @@
     "autoPrintOnComplete": {
       "label": "Print automatically when a sale closes",
       "help": "Sends the receipt to this printer when the cashier confirms the sale. The drawer also opens when you enable that option in the printer's advanced configuration.",
-      "systemHelp": "Open the system print dialog after each completed sale. In the desktop app, enable silent printing in business settings to use the default printer without a dialog."
+      "systemHelp": "Open the system print dialog after each sale. Select a local system printer in desktop settings before enabling silent printing."
     },
     "gs1": {
       "title": "GS1 weight and price labels",
@@ -64,7 +64,19 @@
     },
     "paperWidthLabel": "Paper width",
     "paperWidthInvalid": "Choose a supported width",
-    "paperWidthHelp": "Match the printer roll: 58 mm uses 32 columns; 80 mm uses 48. Configure the receipt template separately."
+    "paperWidthHelp": "Match the printer roll: 58 mm uses 32 columns; 80 mm uses 48. Configure the receipt template separately.",
+    "transportLabel": "ESC/POS connection",
+    "tcp": "Network (TCP)",
+    "usbUnavailable": "Direct USB — not implemented",
+    "serialUnavailable": "Serial — not implemented",
+    "mockOnly": "Simulation (tests only; no physical output)",
+    "unsupportedTransport": "Direct USB and serial ESC/POS are not implemented. For a USB printer, use System with its operating system driver.",
+    "hostLabel": "Printer network address",
+    "hostPlaceholder": "Enter the printer’s actual private IP address",
+    "hostRequired": "Enter the printer’s actual network address. A USB cable does not provide a TCP address.",
+    "portLabel": "Printer network port",
+    "networkOnly": "Network printers only. Enter the address shown by your printer or network administrator. Connecting a USB cable does not make this network configuration work.",
+    "systemRoute": "For USB printers, install the operating system driver and use System. Choose the local printer and send a test ticket in the system-printer section. Match the OS paper size to the receipt template."
   },
   "actions": {
     "test": "Test",
@@ -73,13 +85,15 @@
     "activate": "Activate",
     "deactivate": "Deactivate",
     "save": "Save",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "checkRegistration": "Check registration"
   },
   "status": {
     "ok": "OK",
     "failed": "Failed",
     "untested": "Not tested",
-    "lastTestedAt": "Last tested {{when}}"
+    "lastTestedAt": "Last tested {{when}}",
+    "registered": "Registered (not printed)"
   },
   "toast": {
     "registered": "Device added",
@@ -89,12 +103,29 @@
     "deactivated": "Device deactivated",
     "activated": "Device activated",
     "errorTitle": "Could not save device",
-    "errorBody": "Review the configuration and try again."
+    "errorBody": "Review the configuration and try again.",
+    "testFailed": "Device test failed",
+    "registrationChecked": "Device registration checked — no paper test",
+    "testStale": "The connection changed while this test was running. Test the current connection again."
   },
   "confirmRemove": {
     "title": "Remove device",
     "body": "Are you sure you want to remove this device? Puntovivo will use the default checkout settings when it is no longer available.",
     "confirm": "Remove",
     "cancel": "Keep"
+  },
+  "systemPrinter": {
+    "askEachTime": "Choose in the print dialog (safe default)",
+    "localSelection": "This selection is saved only for this business on this computer. It does not discover a printer from a display name or network example.",
+    "missingQueue": "The saved printer is missing. Printing will not silently switch to another queue. Reconnect it or select another printer.",
+    "noQueues": "No printers found. Install the OS driver, connect the printer, and refresh this list.",
+    "printTest": "Print a test ticket",
+    "printerError": "Could not access or print to the system printer.",
+    "refreshPrinters": "Refresh printers",
+    "testCancelled": "Print test canceled. No automatic retry was scheduled.",
+    "testHelp": "Opens the system dialog for a synthetic ticket. This is separate from registering a device. Check the physical output and paper width; accepting a job does not prove it printed.",
+    "testSubmitted": "Test accepted by the system. Check the printer and queue to confirm the paper output.",
+    "unavailable": "Unavailable",
+    "title": "System printer on this computer"
   }
 }

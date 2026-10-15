@@ -41,7 +41,7 @@
     "autoPrintOnComplete": {
       "label": "Imprimir automáticamente al cerrar la venta",
       "help": "Envía el recibo a esta impresora cuando el cajero confirma la venta. El cajón también se abre si activas esa opción en la configuración avanzada de la impresora.",
-      "systemHelp": "Abre el diálogo del sistema al completar cada venta. En la app de escritorio, activa la impresión silenciosa en la configuración del negocio para usar la impresora predeterminada sin diálogo."
+      "systemHelp": "Abre el diálogo del sistema después de cada venta. Selecciona una impresora local en los ajustes de escritorio antes de activar la impresión silenciosa."
     },
     "gs1": {
       "title": "Etiquetas GS1 de peso y precio",
@@ -64,7 +64,19 @@
     },
     "paperWidthLabel": "Ancho del papel",
     "paperWidthInvalid": "Elige un ancho válido",
-    "paperWidthHelp": "Elige el rollo de la impresora: 58 mm usa 32 columnas; 80 mm usa 48. Configura la plantilla del recibo por separado."
+    "paperWidthHelp": "Elige el rollo de la impresora: 58 mm usa 32 columnas; 80 mm usa 48. Configura la plantilla del recibo por separado.",
+    "transportLabel": "Conexión ESC/POS",
+    "tcp": "Red (TCP)",
+    "usbUnavailable": "USB directo: no implementado",
+    "serialUnavailable": "Puerto serie: no implementado",
+    "mockOnly": "Simulación (solo pruebas; no imprime en papel)",
+    "unsupportedTransport": "ESC/POS por USB directo y puerto serie no está implementado. Para una impresora USB, usa Sistema con el controlador del sistema operativo.",
+    "hostLabel": "Dirección de red de la impresora",
+    "hostPlaceholder": "Ingresa la IP privada real de la impresora",
+    "hostRequired": "Ingresa la dirección de red real de la impresora. Un cable USB no proporciona una dirección TCP.",
+    "portLabel": "Puerto de red de la impresora",
+    "networkOnly": "Solo para impresoras conectadas por red. Ingresa la dirección indicada por tu impresora o administrador de red. Conectar un cable USB no habilita esta configuración de red.",
+    "systemRoute": "Para una impresora USB, instala el controlador del sistema operativo y usa Sistema. Selecciona la impresora local y envía un ticket de prueba en la sección de impresora del sistema. Configura el papel del sistema operativo según la plantilla del recibo."
   },
   "actions": {
     "test": "Probar",
@@ -73,13 +85,15 @@
     "activate": "Activar",
     "deactivate": "Desactivar",
     "save": "Guardar",
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "checkRegistration": "Verificar registro"
   },
   "status": {
     "ok": "OK",
     "failed": "Falló",
     "untested": "Sin probar",
-    "lastTestedAt": "Última prueba {{when}}"
+    "lastTestedAt": "Última prueba {{when}}",
+    "registered": "Registrado (sin impresión)"
   },
   "toast": {
     "registered": "Dispositivo agregado",
@@ -89,12 +103,29 @@
     "deactivated": "Dispositivo desactivado",
     "activated": "Dispositivo activado",
     "errorTitle": "No se pudo guardar el dispositivo",
-    "errorBody": "Revisa la configuración e inténtalo de nuevo."
+    "errorBody": "Revisa la configuración e inténtalo de nuevo.",
+    "testFailed": "La prueba del dispositivo falló",
+    "registrationChecked": "Registro del dispositivo verificado: no se probó impresión en papel",
+    "testStale": "La conexión cambió durante la prueba. Vuelve a probar la conexión actual."
   },
   "confirmRemove": {
     "title": "Eliminar dispositivo",
     "body": "¿Quieres eliminar este dispositivo? Puntovivo usará la configuración predeterminada cuando ya no esté disponible.",
     "confirm": "Eliminar",
     "cancel": "Conservar"
+  },
+  "systemPrinter": {
+    "askEachTime": "Elegir en el diálogo de impresión (opción segura)",
+    "localSelection": "Esta selección se guarda solo para este negocio en este equipo. No se detecta una impresora a partir de un nombre descriptivo ni una dirección de ejemplo.",
+    "missingQueue": "La impresora guardada no está disponible. No se cambiará a otra cola silenciosamente. Vuelve a conectarla o selecciona otra impresora.",
+    "noQueues": "No se encontraron impresoras. Instala el controlador, conecta la impresora y actualiza esta lista.",
+    "printTest": "Imprimir ticket de prueba",
+    "printerError": "No se pudo acceder o imprimir en la impresora del sistema.",
+    "refreshPrinters": "Actualizar impresoras",
+    "testCancelled": "Prueba de impresión cancelada. No se programó un reintento automático.",
+    "testHelp": "Abre el diálogo del sistema para un ticket sintético. Esta acción es distinta de registrar un dispositivo. Verifica el papel y su ancho; aceptar un trabajo no confirma que salió impreso.",
+    "testSubmitted": "El sistema aceptó la prueba. Revisa la impresora y la cola para confirmar la impresión en papel.",
+    "unavailable": "No disponible",
+    "title": "Impresora del sistema en este equipo"
   }
 }
