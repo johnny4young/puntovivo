@@ -293,8 +293,12 @@
   }
 
   .btn-primary:disabled {
+    color: var(--fg3);
+    background: var(--surface-2);
+    border-color: var(--line);
     opacity: 1;
     box-shadow: none;
+    cursor: not-allowed;
   }
 
   .btn-secondary {
@@ -2705,7 +2709,7 @@
   .dark .sales-ledger-card,
   .dark .sales-settlement-dock {
     color: var(--secondary-950);
-    background: rgb(248 245 239 / 0.96);
+    background: var(--operator-panel);
   }
 }
 
@@ -2851,7 +2855,7 @@
   .app-shell:has(.sales-pos-shell) header > div {
     border-radius: 1rem;
     border-color: rgb(32 67 89 / 0.14);
-    background: rgb(249 251 250 / 0.96);
+    background: var(--operator-panel);
     box-shadow:
       inset 4px 0 0 var(--pos-command, #f2a563),
       inset 0 -2px 0 rgb(20 45 63 / 0.07),
@@ -2870,14 +2874,14 @@
   .sales-scan-input .input {
     border-radius: 0.72rem;
     border-color: rgb(24 73 104 / 0.28);
-    background: #f1f5f4;
+    background: var(--pos-panel-muted);
     box-shadow:
       inset 4px 0 0 var(--pos-signal),
       inset 0 -2px 0 rgb(18 47 67 / 0.08);
   }
 
   .sales-scan-input .input:focus {
-    background: white;
+    background: var(--pos-panel);
     box-shadow:
       inset 4px 0 0 var(--pos-signal),
       0 0 0 0.2rem rgb(38 173 122 / 0.14);
@@ -2891,7 +2895,7 @@
   .sales-utility-dock {
     border-radius: 1.05rem;
     border: 1px solid rgb(24 57 79 / 0.13);
-    background: #e8eded;
+    background: var(--pos-panel-muted);
     box-shadow:
       inset 0 2px 0 rgb(17 46 66 / 0.055),
       inset 0 -1px 0 white;
@@ -2901,7 +2905,7 @@
   .sales-utility-dock > button:hover {
     border-color: rgb(24 57 79 / 0.14);
     border-radius: 0.68rem;
-    background: #f9fbfa;
+    background: var(--pos-panel);
   }
 
   .sales-utility-dock > button[aria-pressed='true'] {
@@ -2968,7 +2972,7 @@
 
   .sales-empty-tape {
     border-radius: 0.78rem;
-    background: linear-gradient(135deg, rgb(238 243 242 / 0.92), rgb(249 251 250 / 0.98));
+    background: var(--pos-panel-muted);
   }
 }
 

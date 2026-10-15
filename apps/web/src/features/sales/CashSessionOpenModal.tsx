@@ -28,12 +28,13 @@ interface CashSessionOpenModalProps {
 }
 
 function createDefaultValues(
+  defaultRegisterName: string,
   defaultRegisterAssignment?: RegisterAssignment | null
 ): CashSessionOpenValues {
   const assignmentDenominations = defaultRegisterAssignment?.denominations ?? [];
 
   return {
-    registerName: defaultRegisterAssignment?.registerName ?? 'Main register',
+    registerName: defaultRegisterAssignment?.registerName ?? defaultRegisterName,
     openingFloat: defaultRegisterAssignment?.openingFloat ?? 0,
     denominations:
       assignmentDenominations.length > 0
@@ -52,7 +53,10 @@ export function CashSessionOpenModal({
 }: CashSessionOpenModalProps) {
   const { t } = useTranslation('sales');
   const form = useForm<CashSessionOpenValues>({
-    defaultValues: createDefaultValues(defaultRegisterAssignment),
+    defaultValues: createDefaultValues(
+      t('cashSession.form.defaultRegisterName'),
+      defaultRegisterAssignment
+    ),
   });
   const denominationFieldArray = useFieldArray({
     control: form.control,

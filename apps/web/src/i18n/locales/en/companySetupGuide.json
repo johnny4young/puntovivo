@@ -6,7 +6,7 @@
   "next": {
     "eyebrow": "Next required decision",
     "title": "Complete {{section}}",
-    "description": "This is the only setup decision blocking the store right now.",
+    "description": "Resolve this decision to continue preparing the store. The remaining required decisions will appear next.",
     "action": "Resolve now"
   },
   "ready": {

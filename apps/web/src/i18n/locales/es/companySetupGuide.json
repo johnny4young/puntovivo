@@ -6,7 +6,7 @@
   "next": {
     "eyebrow": "Siguiente decisión obligatoria",
     "title": "Completa {{section}}",
-    "description": "Esta es la única decisión de configuración que bloquea la tienda en este momento.",
+    "description": "Resuelve esta decisión para continuar preparando la tienda. Después aparecerán las demás decisiones obligatorias.",
     "action": "Resolver ahora"
   },
   "ready": {

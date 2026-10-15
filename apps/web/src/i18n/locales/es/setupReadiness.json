@@ -91,6 +91,16 @@
       "completed": "Pasos completados",
       "optional": "Opcionales",
       "attention": "Requiere atención"
+    },
+    "numbering": {
+      "hint": "Cada sede activa necesita numeración de ventas. Puedes configurar compras, pedidos y cotizaciones cuando uses esos documentos.",
+      "missing": "{{site}} — pendiente: {{types}}",
+      "types": {
+        "sale": "Ventas (obligatorio)",
+        "purchase": "Compras",
+        "order": "Pedidos",
+        "quotation": "Cotizaciones"
+      }
     }
   },
   "emptyState": {

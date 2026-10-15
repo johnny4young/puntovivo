@@ -1,8 +1,7 @@
 import type { inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '@puntovivo/server';
 
-export type CompanyReadiness =
-  inferRouterOutputs<AppRouter>['setupReadiness']['get'];
+export type CompanyReadiness = inferRouterOutputs<AppRouter>['setupReadiness']['get'];
 export type CompanyReadinessSection = CompanyReadiness['sections'][number];
 export type CompanyReadinessStatus = CompanyReadinessSection['status'];
 
@@ -20,11 +19,7 @@ export const COMPANY_GUIDED_STEP_IDS = [
 
 export type CompanyGuidedStepId = (typeof COMPANY_GUIDED_STEP_IDS)[number];
 export type CompanyGuidedStepStatus =
-  | 'ready'
-  | 'blocker'
-  | 'warning'
-  | 'optional'
-  | 'not-applicable';
+  'ready' | 'blocker' | 'warning' | 'optional' | 'not-applicable';
 
 interface GuidedStepDefinition {
   id: CompanyGuidedStepId;
@@ -50,7 +45,7 @@ const GUIDED_STEP_DEFINITIONS: readonly GuidedStepDefinition[] = [
   },
   {
     id: 'selling',
-    sectionIds: ['catalog', 'cashSession'],
+    sectionIds: ['catalog', 'sequentials', 'cashSession'],
     optionalAffectsStatus: false,
     fallbackCta: { route: '/sales' },
   },
@@ -78,6 +73,7 @@ const REQUIRED_SECTION_ORDER: readonly CompanyReadinessSection['id'][] = [
   'locale',
   'sites',
   'catalog',
+  'sequentials',
   'fiscal',
 ];
 
@@ -102,10 +98,7 @@ function resolveStepStatus(
   if (sections.length > 0 && sections.every(section => section.status === 'not-applicable')) {
     return 'not-applicable';
   }
-  if (
-    optionalAffectsStatus &&
-    sections.some(section => section.status === 'optional-pending')
-  ) {
+  if (optionalAffectsStatus && sections.some(section => section.status === 'optional-pending')) {
     return 'optional';
   }
   return 'ready';
@@ -125,17 +118,12 @@ function resolveNextSection(
   );
 }
 
-export function buildCompanyGuidedSteps(
-  sections: CompanyReadinessSection[]
-): CompanyGuidedStep[] {
+export function buildCompanyGuidedSteps(sections: CompanyReadinessSection[]): CompanyGuidedStep[] {
   return GUIDED_STEP_DEFINITIONS.map(definition => {
     const stepSections = definition.sectionIds
       .map(id => sections.find(section => section.id === id))
       .filter((section): section is CompanyReadinessSection => section !== undefined);
-    const nextSection = resolveNextSection(
-      stepSections,
-      definition.optionalAffectsStatus
-    );
+    const nextSection = resolveNextSection(stepSections, definition.optionalAffectsStatus);
 
     return {
       id: definition.id,
@@ -163,9 +151,8 @@ export function findGuidedStepForSection(
   sectionId: CompanyReadinessSection['id']
 ): CompanyGuidedStepId | null {
   return (
-    GUIDED_STEP_DEFINITIONS.find(definition =>
-      definition.sectionIds.includes(sectionId)
-    )?.id ?? null
+    GUIDED_STEP_DEFINITIONS.find(definition => definition.sectionIds.includes(sectionId))?.id ??
+    null
   );
 }
 
@@ -185,11 +172,6 @@ export function resolveInitialGuidedStep(
   );
 }
 
-export function isCompanyGuidedStepId(
-  value: string | null
-): value is CompanyGuidedStepId {
-  return (
-    value !== null &&
-    (COMPANY_GUIDED_STEP_IDS as readonly string[]).includes(value)
-  );
+export function isCompanyGuidedStepId(value: string | null): value is CompanyGuidedStepId {
+  return value !== null && (COMPANY_GUIDED_STEP_IDS as readonly string[]).includes(value);
 }

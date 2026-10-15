@@ -91,6 +91,16 @@
       "completed": "Completed steps",
       "optional": "Optional",
       "attention": "Needs attention"
+    },
+    "numbering": {
+      "hint": "Sales numbering is required at each active site. Purchase, order and quotation numbering can be configured when you use those documents.",
+      "missing": "{{site}} — missing: {{types}}",
+      "types": {
+        "sale": "Sales (required)",
+        "purchase": "Purchases",
+        "order": "Orders",
+        "quotation": "Quotations"
+      }
     }
   },
   "emptyState": {

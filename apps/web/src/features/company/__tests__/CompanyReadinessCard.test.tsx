@@ -97,6 +97,7 @@ function setReadiness(overrides: Partial<CompanyReadiness> = {}): CompanyReadine
     // step zero already answered by default: the suites here exercise the
     // later steps, and the picker owns its own test.
     businessType: 'retail',
+    numberingGaps: [],
     ...overrides,
   };
   readinessQueryRef.current = {
@@ -134,6 +135,26 @@ describe('CompanyReadinessCard', () => {
     };
     render(<CompanyReadinessCard />);
     expect(screen.getByRole('button', { name: /retry|reintentar/i })).toBeInTheDocument();
+  });
+
+  it('lists missing numbering per site and hides the panel when every site is covered', () => {
+    setReadiness({
+      numberingGaps: [
+        { siteId: 'north', siteName: 'North store', documentTypes: ['sale', 'quotation'] },
+      ],
+    });
+    const { unmount } = render(<CompanyReadinessCard />);
+    expect(
+      screen.getByText('North store — missing: Sales (required), Quotations')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/^Sales numbering is required at each active site/)
+    ).toBeInTheDocument();
+    unmount();
+
+    setReadiness({ numberingGaps: [] });
+    render(<CompanyReadinessCard />);
+    expect(screen.queryByText(/^Sales numbering is required at each active site/)).toBeNull();
   });
 
   it('does not report completed setup before a payload exists', () => {

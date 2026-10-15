@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import i18n from '@/i18n';
 import { render } from '@/test/utils';
 
@@ -119,5 +119,25 @@ describe('LoginPage safe bootstrap ordering', () => {
     render(<LoginPage />);
     await waitFor(() => expect(authMock.setup).toHaveBeenCalledTimes(1));
     expect(authMock.health).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('LoginPage language validation', () => {
+  it('translates existing validation errors and clears them when corrected', async () => {
+    authMock.error = null;
+    await i18n.changeLanguage('en');
+    render(<LoginPage />);
+    fireEvent.submit(screen.getByLabelText('Email').closest('form')!);
+    await screen.findByText('Email is required');
+    await act(async () => {
+      await i18n.changeLanguage('es');
+    });
+    await waitFor(() => expect(screen.queryByText('Email is required')).not.toBeInTheDocument());
+    const email = screen.getByLabelText(i18n.t('auth:login.emailLabel'));
+    fireEvent.change(email, { target: { value: 'synthetic@example.test' } });
+    await waitFor(() =>
+      expect(screen.queryByText(i18n.t('auth:login.emailRequired'))).not.toBeInTheDocument()
+    );
+    expect(email).toHaveValue('synthetic@example.test');
   });
 });

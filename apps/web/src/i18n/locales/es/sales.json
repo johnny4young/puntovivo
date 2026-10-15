@@ -182,7 +182,8 @@
       "firstDay": "Primer día",
       "differenceLabel": "Diferencia",
       "incrementCount": "Sumar",
-      "decrementCount": "Restar"
+      "decrementCount": "Restar",
+      "defaultRegisterName": "Caja principal"
     },
     "closeForm": {
       "title": "Cerrar caja",

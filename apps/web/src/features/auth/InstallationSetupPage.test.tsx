@@ -15,6 +15,11 @@ const savedApi = window.api;
 
 beforeEach(async () => {
   await i18n.changeLanguage('en');
+  window.localStorage.removeItem('puntovivo-language-preference');
+  Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+    configurable: true,
+    value: vi.fn(),
+  });
   mocks.login.mockReset().mockResolvedValue(undefined);
   mocks.claim.mockReset().mockResolvedValue({ created: true });
   mocks.native.mockReset().mockResolvedValue({ ok: true });
@@ -39,6 +44,25 @@ function owner() {
 }
 
 describe('first-use ownership UI', () => {
+  it('switches before ownership, translates existing errors and clears corrected fields', async () => {
+    render(<InstallationSetupPage countries={countries} onSignIn={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    await screen.findAllByText('Complete this field.');
+    fireEvent.click(screen.getByRole('button', { name: 'Language' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Español' }));
+    await screen.findByRole('heading', { name: 'Empieza con tu negocio.' });
+    await waitFor(() => expect(screen.queryByText('Complete this field.')).not.toBeInTheDocument());
+    expect(window.localStorage.getItem('puntovivo-language-preference')).toBe('es');
+    fill('businessName', 'Negocio sintético');
+    await waitFor(() =>
+      expect(screen.getByLabelText('Nombre del negocio')).not.toHaveAttribute(
+        'aria-invalid',
+        'true'
+      )
+    );
+    expect(mocks.claim).not.toHaveBeenCalled();
+  });
+
   it.each([
     ['en', 'Start with your business.', 'Business name'],
     ['es', 'Empieza con tu negocio.', 'Nombre del negocio'],

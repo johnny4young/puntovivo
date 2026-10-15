@@ -84,6 +84,14 @@ export const setupReadinessSectionSchema = z.object({
 export type SetupReadinessSection = z.infer<typeof setupReadinessSectionSchema>;
 
 export const setupReadinessOutputSchema = z.object({
+  /** Missing document sequences by active site; only a missing sale sequence blocks selling. */
+  numberingGaps: z.array(
+    z.object({
+      siteId: z.string(),
+      siteName: z.string(),
+      documentTypes: z.array(z.enum(['sale', 'purchase', 'order', 'quotation'])),
+    })
+  ),
   /** 0-100 integer. Excludes not-applicable sections from denominator. */
   score: z.number().int().min(0).max(100),
   blockerCount: z.number().int().nonnegative(),

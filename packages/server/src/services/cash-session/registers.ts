@@ -17,7 +17,12 @@ import {
   type CashSessionDenomination,
 } from '../../db/schema.js';
 import { roundMoney } from '../../lib/money.js';
-import { REGISTER_ASSIGNMENT_BACKFILL_LIMIT, DEFAULT_REGISTER_NAME } from './constants.js';
+import { resolveTenantLocale } from '../tenant-locale.js';
+import {
+  REGISTER_ASSIGNMENT_BACKFILL_LIMIT,
+  DEFAULT_REGISTER_NAME,
+  DEFAULT_REGISTER_NAME_ES,
+} from './constants.js';
 import { createDefaultCashSessionDenominations, normalizeRegisterName } from './denominations.js';
 
 async function getNextRegisterTemplateSortOrder(db: DatabaseInstance, siteId: string) {
@@ -143,10 +148,11 @@ export async function ensureRegisterAssignmentTemplatesForSite(
     }
 
     if (knownRegisterNames.size === 0) {
+      const locale = await resolveTenantLocale(db, args.tenantId);
       await ensureRegisterAssignmentTemplate(db, {
         tenantId: args.tenantId,
         siteId: args.siteId,
-        registerName: DEFAULT_REGISTER_NAME,
+        registerName: locale.language === 'es' ? DEFAULT_REGISTER_NAME_ES : DEFAULT_REGISTER_NAME,
         openingFloat: 0,
         denominations: createDefaultCashSessionDenominations(),
       });

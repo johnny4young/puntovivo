@@ -17,10 +17,7 @@ function section(
   return {
     id,
     status,
-    cta:
-      status === 'not-applicable'
-        ? null
-        : { route, ...(tab ? { tab } : {}) },
+    cta: status === 'not-applicable' ? null : { route, ...(tab ? { tab } : {}) },
   };
 }
 
@@ -72,9 +69,7 @@ describe('companyGuidedSetup', () => {
 
     expect(nextRequired?.id).toBe('locale');
     expect(resolveInitialGuidedStep(steps, nextRequired)).toBe('business');
-    expect(steps.find(step => step.id === 'business')?.nextSection?.id).toBe(
-      'locale'
-    );
+    expect(steps.find(step => step.id === 'business')?.nextSection?.id).toBe('locale');
   });
 
   it('promotes warnings before optional configuration when no blocker remains', () => {
@@ -88,6 +83,24 @@ describe('companyGuidedSetup', () => {
 
     expect(resolveInitialGuidedStep(steps, null)).toBe('fiscal');
     expect(steps.find(step => step.id === 'fiscal')?.status).toBe('warning');
+  });
+
+  it('keeps selling blocked and selects its numbering decision until sale numbering exists', () => {
+    const sections = [
+      section('catalog', 'ready', '/products'),
+      section('sequentials', 'blocker', '/sequentials'),
+    ];
+    const steps = buildCompanyGuidedSteps(sections);
+    expect(steps.find(step => step.id === 'selling')).toMatchObject({
+      status: 'blocker',
+      nextSection: { id: 'sequentials' },
+    });
+    expect(resolveInitialGuidedStep(steps, findNextRequiredSection(sections))).toBe('selling');
+    const optionalDocuments = buildCompanyGuidedSteps([
+      section('catalog', 'ready'),
+      section('sequentials', 'optional-pending'),
+    ]);
+    expect(optionalDocuments.find(step => step.id === 'selling')?.status).toBe('ready');
   });
 
   it('keeps an empty readiness payload deterministic', () => {

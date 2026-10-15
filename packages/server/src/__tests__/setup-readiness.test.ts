@@ -264,8 +264,25 @@ describe('setupReadiness', () => {
         cta: { route: '/sequentials' },
       });
 
+      await db.insert(sequentials).values({
+        id: nanoid(),
+        tenantId,
+        siteId: branchId,
+        documentType: 'sale',
+        prefix: 'BS-',
+        currentValue: 0,
+      });
+      const saleOnly = await caller.setupReadiness.get();
+      expect(saleOnly.sections.find(section => section.id === 'sequentials')?.status).toBe(
+        'optional-pending'
+      );
+      expect(saleOnly.numberingGaps).toContainEqual({
+        siteId: branchId,
+        siteName: 'Readiness branch without numbering',
+        documentTypes: ['purchase', 'order', 'quotation'],
+      });
       await db.insert(sequentials).values(
-        (['sale', 'purchase', 'order', 'quotation'] as const).map(documentType => ({
+        (['purchase', 'order', 'quotation'] as const).map(documentType => ({
           id: nanoid(),
           tenantId,
           siteId: branchId,

@@ -3,8 +3,10 @@ import type { LucideIcon } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 
-export interface QuickFormSectionProps
-  extends Omit<HTMLAttributes<HTMLElement>, 'children' | 'title'> {
+export interface QuickFormSectionProps extends Omit<
+  HTMLAttributes<HTMLElement>,
+  'children' | 'title'
+> {
   icon: LucideIcon;
   eyebrow?: string | undefined;
   title: string;
@@ -49,7 +51,7 @@ export function QuickFormSection({
       {...props}
     >
       <div className="flex items-start gap-3 border-b border-line/80 bg-surface-2/55 px-4 py-3.5">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-primary-100 bg-white text-primary-800 shadow-sm">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-primary-100 bg-surface text-primary-800 shadow-sm">
           <Icon className="h-5 w-5" aria-hidden="true" />
         </span>
         <div className="min-w-0">
@@ -68,9 +70,7 @@ export function QuickFormSection({
           >
             {title}
           </Heading>
-          <p className="mt-1 max-w-[64ch] text-sm leading-5 text-secondary-600">
-            {description}
-          </p>
+          <p className="mt-1 max-w-[64ch] text-sm leading-5 text-secondary-600">{description}</p>
         </div>
       </div>
       <div className={cn('grid gap-4 p-4', contentClassName)}>{children}</div>

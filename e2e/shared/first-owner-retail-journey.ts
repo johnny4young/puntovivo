@@ -81,6 +81,15 @@ export async function runFirstOwnerRetailJourney({
   await expect(taxDialog).toBeHidden();
 
   await goTo('/sequentials');
+  await expect(
+    page.getByText(
+      copy(
+        'Business setup: 2 required items still need attention.',
+        'Configuración del negocio: quedan 2 requisitos pendientes.'
+      ),
+      { exact: true }
+    )
+  ).toBeVisible();
   for (const [documentType, prefix] of [
     ['sale', 'OWN-'],
     ['purchase', 'BUY-'],
@@ -105,13 +114,13 @@ export async function runFirstOwnerRetailJourney({
       .click();
     await expect(sequence).toBeHidden();
     if (documentType === 'sale') {
-      // Purchase/order/quotation setup is still pending, but the global
-      // overview must not misrepresent it as a prohibition on every sale.
+      // Only the catalog remains required. Purchase/order/quotation numbering
+      // is optional and the mutation must refresh this count immediately.
       await expect(
         page.getByText(
           copy(
-            'Business setup: 2 required items still need attention.',
-            'Configuración del negocio: quedan 2 requisitos pendientes.'
+            'Business setup: 1 required item still needs attention.',
+            'Configuración del negocio: queda 1 requisito pendiente.'
           ),
           { exact: true }
         )

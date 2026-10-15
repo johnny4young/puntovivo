@@ -3,6 +3,8 @@ import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, ArrowRight, Check, Eye, EyeOff, ShieldCheck, Store } from 'lucide-react';
 import { VERTICAL_PRESET_IDS, type VerticalPresetId } from '@puntovivo/shared/vertical-presets';
+import { LanguageSelector } from '@/components/form-controls/LanguageSelector';
+import { useRevalidateOnLanguageChange } from '@/hooks/useRevalidateOnLanguageChange';
 import { BrandMark } from '@/components/brand/BrandMark';
 import { vanillaClient } from '@/lib/trpc';
 import { translateServerError } from '@/lib/translateServerError';
@@ -45,6 +47,7 @@ export function InstallationSetupPage({ countries, onSignIn }: InstallationSetup
   const submitting = useRef(false);
   const nativeClaim = window.api?.session?.completeSetup;
   const form = useForm<SetupValues>({
+    mode: 'onChange',
     defaultValues: {
       businessName: '',
       siteName: '',
@@ -65,6 +68,8 @@ export function InstallationSetupPage({ countries, onSignIn }: InstallationSetup
   useEffect(() => {
     if (isReady) setFocus(step === 0 ? 'businessName' : 'ownerName');
   }, [step, setFocus, isReady]);
+
+  useRevalidateOnLanguageChange(errors, form.trigger);
 
   const textField = (name: 'businessName' | 'siteName' | 'ownerName') => (
     <div className="space-y-2" key={name}>
@@ -151,6 +156,9 @@ export function InstallationSetupPage({ countries, onSignIn }: InstallationSetup
           <div>
             <p className="page-kicker">Puntovivo</p>
             <p className="text-sm text-fg2">{t('setup.kicker')}</p>
+          </div>
+          <div className="ml-auto">
+            <LanguageSelector />
           </div>
         </header>
         <div className="grid gap-8 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">

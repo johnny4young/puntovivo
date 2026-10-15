@@ -670,12 +670,9 @@ export function DataTable<TData extends RowData>({
             {table.getFilteredRowModel().rows.length === 0
               ? t('table.noEntries')
               : t('table.showing', {
-                  from:
-                    table.state.pagination.pageIndex * table.state.pagination.pageSize +
-                    1,
+                  from: table.state.pagination.pageIndex * table.state.pagination.pageSize + 1,
                   to: Math.min(
-                    (table.state.pagination.pageIndex + 1) *
-                      table.state.pagination.pageSize,
+                    (table.state.pagination.pageIndex + 1) * table.state.pagination.pageSize,
                     table.getFilteredRowModel().rows.length
                   ),
                   total: table.getFilteredRowModel().rows.length,
@@ -702,7 +699,7 @@ export function DataTable<TData extends RowData>({
             </Button>
             <span className="text-sm text-secondary-600">
               {t('table.page', {
-                current: table.state.pagination.pageIndex + 1,
+                current: table.getPageCount() === 0 ? 0 : table.state.pagination.pageIndex + 1,
                 total: table.getPageCount(),
               })}
             </span>

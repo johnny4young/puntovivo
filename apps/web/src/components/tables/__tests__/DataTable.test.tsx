@@ -6,6 +6,12 @@ import { DataTable } from '../DataTable';
 import { render, createMockProduct } from '@/test/utils';
 import type { Product } from '@/types';
 
+it('does not show a first page that exceeds the empty page count', () => {
+  render(<DataTable columns={columns} data={[]} />);
+  expect(screen.getByText('Page 0 of 0')).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Go to next page' })).toBeDisabled();
+});
+
 // ============================================================================
 // Test Data & Setup
 // ============================================================================

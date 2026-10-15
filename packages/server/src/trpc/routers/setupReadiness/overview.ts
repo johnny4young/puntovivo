@@ -77,7 +77,7 @@ export async function buildReadiness(args: {
     .get();
 
   const activeSites = await db
-    .select({ id: sites.id })
+    .select({ id: sites.id, name: sites.name })
     .from(sites)
     .where(and(eq(sites.tenantId, tenantId), eq(sites.isActive, true)))
     .all();
@@ -102,11 +102,15 @@ export async function buildReadiness(args: {
     configuredBySite.set(row.siteId, configured);
   }
   const requiredDocumentTypes = ['sale', 'purchase', 'order', 'quotation'] as const;
-  const everyActiveSiteHasDocumentNumbering =
-    activeSites.length > 0 &&
-    activeSites.every(site =>
-      requiredDocumentTypes.every(type => configuredBySite.get(site.id)?.has(type) === true)
+  const numberingGaps = activeSites.flatMap(site => {
+    const documentTypes = requiredDocumentTypes.filter(
+      type => configuredBySite.get(site.id)?.has(type) !== true
     );
+    return documentTypes.length > 0
+      ? [{ siteId: site.id, siteName: site.name, documentTypes }]
+      : [];
+  });
+  const missingSaleNumbering = numberingGaps.some(gap => gap.documentTypes.includes('sale'));
 
   const productsRow = await db
     .select({ total: count(products.id) })
@@ -153,9 +157,12 @@ export async function buildReadiness(args: {
   const localeStatus: SetupReadinessSection['status'] =
     localeRow?.countryCode && localeRow.countryCode.trim().length > 0 ? 'ready' : 'blocker';
   const sitesStatus: SetupReadinessSection['status'] = siteCount >= 1 ? 'ready' : 'blocker';
-  const sequentialsStatus: SetupReadinessSection['status'] = everyActiveSiteHasDocumentNumbering
-    ? 'ready'
-    : 'blocker';
+  const sequentialsStatus: SetupReadinessSection['status'] =
+    activeSites.length === 0 || missingSaleNumbering
+      ? 'blocker'
+      : numberingGaps.length > 0
+        ? 'optional-pending'
+        : 'ready';
 
   // fiscal readiness depends on the market profile. Colombia keeps
   // DIAN optional and never blocks selling; other markets retain the legacy
@@ -275,5 +282,5 @@ export async function buildReadiness(args: {
       ? (settings['setupAcknowledgedAt'] as string)
       : null;
 
-  return { score, blockerCount, sections, acknowledgedAt, businessType };
+  return { score, blockerCount, sections, acknowledgedAt, businessType, numberingGaps };
 }

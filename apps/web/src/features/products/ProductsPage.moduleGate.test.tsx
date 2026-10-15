@@ -92,6 +92,7 @@ vi.mock('@/lib/trpc', async () => ({
   ...(await vi.importActual<typeof import('@/lib/trpc')>('@/lib/trpc')),
   trpc: {
     useUtils: () => ({
+      setupReadiness: { get: { invalidate: vi.fn() } },
       products: {
         list: { invalidate: vi.fn() },
         semanticSearch: { invalidate: semanticSearchInvalidateMock },

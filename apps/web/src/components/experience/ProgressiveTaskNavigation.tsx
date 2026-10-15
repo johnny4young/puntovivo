@@ -94,7 +94,7 @@ export function ProgressiveTaskNavigation<ItemId extends string>({
           onClick={openPrimary}
           data-testid={primary.testId}
         >
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary-950 text-white shadow-sm">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground shadow-sm">
             <PrimaryIcon className="h-5 w-5" aria-hidden="true" />
           </span>
           <span className="min-w-0">
@@ -118,7 +118,7 @@ export function ProgressiveTaskNavigation<ItemId extends string>({
           onClick={toggleAdvanced}
           data-testid={advanced.toggleTestId}
         >
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-secondary-200 bg-white text-secondary-700 shadow-sm">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-secondary-200 bg-surface text-secondary-700 shadow-sm">
             <AdvancedIcon className="h-5 w-5" aria-hidden="true" />
           </span>
           <span className="min-w-0 flex-1">
@@ -149,12 +149,7 @@ export function ProgressiveTaskNavigation<ItemId extends string>({
           {advanced.groups.map(group => {
             const groupLabelId = `${advanced.disclosureId}-group-${group.id}`;
             return (
-              <div
-                key={group.id}
-                role="group"
-                aria-labelledby={groupLabelId}
-                className="min-w-0"
-              >
+              <div key={group.id} role="group" aria-labelledby={groupLabelId} className="min-w-0">
                 <p
                   id={groupLabelId}
                   className="text-[0.66rem] font-bold uppercase tracking-[0.16em] text-secondary-500"
@@ -171,8 +166,8 @@ export function ProgressiveTaskNavigation<ItemId extends string>({
                         className={cn(
                           'min-h-11 rounded-xl border px-3.5 py-2 text-sm font-medium transition-colors',
                           isActive
-                            ? 'border-primary-800 bg-primary-950 text-white'
-                            : 'border-secondary-200 bg-white text-secondary-700 hover:border-primary-200 hover:text-primary-900'
+                            ? 'border-primary bg-primary text-primary-foreground'
+                            : 'border-secondary-200 bg-surface text-secondary-700 hover:border-primary-200 hover:text-primary-900'
                         )}
                         aria-current={isActive ? 'page' : undefined}
                         onClick={() => onItemChange(item.id)}

@@ -160,6 +160,7 @@ export function QuickCreateProductGate({
       utils.products.list.invalidate(),
       utils.products.search.invalidate(),
       utils.setupReadiness.firstSale.invalidate(),
+      utils.setupReadiness.get.invalidate(),
     ]);
     toast.success({ title: t('toast.created') });
     return created;

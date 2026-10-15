@@ -189,7 +189,7 @@ test('signed request, duplicate delivery, explicit prices and real checkout reco
 }, info) => {
   const scenario = seedExternalOrderScenario(`external-${info.parallelIndex}-${Date.now()}`);
   const tracker = attachClientIssueTracker(page);
-  await login(page, { ...scenario.admin, defaultPath: '/company' });
+  await login(page, { ...scenario.admin, defaultPath: '/dashboard' });
   const connector = await setupConnector(page),
     event = creation(scenario.product.sku);
   const envelope = await send(connector, event);
@@ -256,7 +256,7 @@ test('signed cancellation cannot silently refund; UI discard restores stock and 
 }, info) => {
   const scenario = seedExternalOrderScenario(`external-cancel-${info.parallelIndex}-${Date.now()}`);
   const tracker = attachClientIssueTracker(page);
-  await login(page, { ...scenario.admin, defaultPath: '/company' });
+  await login(page, { ...scenario.admin, defaultPath: '/dashboard' });
   const connector = await setupConnector(page),
     event = creation(scenario.product.sku, 'order-ui-cancel');
   await send(connector, event);
