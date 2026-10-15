@@ -92,6 +92,11 @@ export interface PrintSaleReceiptOptions {
    * printing. Null keeps the legacy hardcoded receipt as an upgrade fallback.
    */
   htmlProvider?: (() => Promise<string | null>) | undefined;
+  /**
+   * False for an audited reprint: it is recorded server-side, so it always
+   * prints its own copy instead of joining a pending attempt for the sale.
+   */
+  shareInFlight?: boolean | undefined;
 }
 
 /** Server `peripherals.buildReceiptBytes` query result projection. */

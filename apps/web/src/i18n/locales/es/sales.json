@@ -620,7 +620,9 @@
     "toastSuccessTitle": "Recibo reimpreso",
     "toastErrorTitle": "No se pudo reimprimir el recibo",
     "shortcut": "Ctrl+Shift+P",
-    "toastDialogOpened": "Diálogo de impresión abierto"
+    "toastDialogOpened": "Diálogo de impresión abierto",
+    "toastCancelledTitle": "Reimpresión cancelada",
+    "toastCancelledDescription": "No se imprimió nada. La solicitud de reimpresión quedó registrada."
   },
   "scanner": {
     "notFound": "No encontré el producto con ese código",

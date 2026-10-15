@@ -620,7 +620,9 @@
     "toastSuccessTitle": "Receipt reprinted",
     "toastErrorTitle": "Unable to reprint receipt",
     "shortcut": "Ctrl+Shift+P",
-    "toastDialogOpened": "Print dialog opened"
+    "toastDialogOpened": "Print dialog opened",
+    "toastCancelledTitle": "Reprint cancelled",
+    "toastCancelledDescription": "Nothing was printed. The reprint request was still recorded."
   },
   "scanner": {
     "notFound": "No product matches that barcode",

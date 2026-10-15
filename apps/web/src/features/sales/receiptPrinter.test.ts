@@ -73,6 +73,29 @@ describe('receipt print attempts', () => {
     await printSaleReceipt(sale, options);
     expect(printReceipt).toHaveBeenCalledTimes(2);
   });
+  it('starts an audited reprint as its own attempt while another print is pending', async () => {
+    let finish!: (result: { success: boolean }) => void;
+    const printReceipt = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise(resolve => {
+            finish = resolve;
+          })
+      )
+      .mockResolvedValue({ success: true });
+    (window as unknown as { electron: { printReceipt: typeof printReceipt } }).electron = {
+      printReceipt,
+    };
+    const options = { htmlProvider: async () => '<html><body>DEMO</body></html>' };
+    const pending = printSaleReceipt(sale, options);
+    const reprint = printSaleReceipt(sale, { ...options, shareInFlight: false });
+    expect(reprint).not.toBe(pending);
+    await expect(reprint).resolves.toBe('printed');
+    expect(printReceipt).toHaveBeenCalledTimes(2);
+    finish({ success: true });
+    await expect(pending).resolves.toBe('printed');
+  });
   it('treats native cancellation as an outcome rather than a print failure', async () => {
     const printReceipt = vi
       .fn()

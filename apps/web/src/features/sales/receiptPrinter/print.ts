@@ -33,7 +33,7 @@ export function printSaleReceipt(
   options: PrintSaleReceiptOptions = {}
 ): Promise<ReceiptPrintOutcome> {
   const key = sale.id;
-  if (!key) return dispatchSaleReceipt(sale, options);
+  if (!key || options.shareInFlight === false) return dispatchSaleReceipt(sale, options);
   const pending = inFlightPrints.get(key);
   if (pending) return pending;
   const attempt = dispatchSaleReceipt(sale, options).finally(() => {

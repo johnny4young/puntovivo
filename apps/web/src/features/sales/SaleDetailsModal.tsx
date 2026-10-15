@@ -166,7 +166,14 @@ export function SaleDetailsModal({
           escposDispatcher: buildEscposDispatcher(refreshed.id),
           onEscposFailure: handleEscposFailure,
           htmlProvider: buildReceiptHtmlProvider(refreshed.id),
+          shareInFlight: false,
         });
+        if (outcome === 'cancelled') {
+          toast.info({
+            title: t('sales:reprint.toastCancelledTitle'),
+            description: t('sales:reprint.toastCancelledDescription'),
+          });
+        }
         if (outcome === 'printed' || outcome === 'dialog-opened') {
           toast.success({
             title: t(

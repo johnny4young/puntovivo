@@ -36,6 +36,7 @@ const mocks = vi.hoisted(() => ({
   printSaleReceipt: vi.fn(),
   reprintSuccess: vi.fn(),
   toastSuccess: vi.fn(),
+  toastInfo: vi.fn(),
   saleQueryError: null as Error | null,
   sale: {
     id: 'sale-1',
@@ -67,7 +68,12 @@ vi.mock('@/features/approvals/useManagerApproval', () => ({
 }));
 
 vi.mock('@/components/feedback/ToastProvider', () => ({
-  useToast: () => ({ success: mocks.toastSuccess, warning: vi.fn(), error: vi.fn() }),
+  useToast: () => ({
+    success: mocks.toastSuccess,
+    info: mocks.toastInfo,
+    warning: vi.fn(),
+    error: vi.fn(),
+  }),
 }));
 
 vi.mock('@/lib/useCriticalMutation', () => ({
@@ -204,6 +210,7 @@ describe('SaleDetailsModal shift policy', () => {
       await options.htmlProvider?.();
     });
     mocks.toastSuccess.mockReset();
+    mocks.toastInfo.mockReset();
     mocks.saleQueryError = null;
     mocks.sale.paymentStatus = 'paid';
   });
@@ -342,6 +349,29 @@ describe('SaleDetailsModal shift policy', () => {
       expect(mocks.toastSuccess).not.toHaveBeenCalled();
     }
   );
+
+  it('prints an audited reprint as its own copy and explains a cancelled dialog', async () => {
+    mocks.printSaleReceipt.mockResolvedValueOnce('cancelled');
+    render(
+      <SaleDetailsModal
+        saleId="sale-1"
+        isOpen
+        onClose={vi.fn()}
+        receiptShareSection={receiptShareSection}
+      />
+    );
+    await act(async () => {
+      await mocks.reprintSuccess(mocks.sale);
+    });
+    expect(mocks.printSaleReceipt).toHaveBeenCalledWith(
+      mocks.sale,
+      expect.objectContaining({ shareInFlight: false })
+    );
+    expect(mocks.toastInfo).toHaveBeenCalledWith({
+      title: 'Reprint cancelled',
+      description: 'Nothing was printed. The reprint request was still recorded.',
+    });
+  });
 
   it('never exposes an internal sale-load error to the operator', () => {
     mocks.saleQueryError = Object.assign(new Error('SQLITE_CORRUPT: internal table detail'), {
