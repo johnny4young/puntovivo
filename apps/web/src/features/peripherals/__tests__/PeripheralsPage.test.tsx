@@ -147,8 +147,15 @@ vi.mock('@/lib/trpc', () => ({
         }),
       },
       test: {
-        useMutation: () => ({
-          mutate: vi.fn(),
+        useMutation: (handlers: {
+          onSuccess?: (result: { status: string; message?: string }) => Promise<void> | void;
+        }) => ({
+          mutate: vi.fn(async () => {
+            await handlers.onSuccess?.({
+              status: 'failed',
+              message: 'DEVICE_TIMEOUT: Check network address',
+            });
+          }),
           mutateAsync: vi.fn(),
           isPending: false,
           error: null,
@@ -238,7 +245,7 @@ describe('PeripheralsPage', () => {
     peripheralRows = [printerRow];
     render(<PeripheralsPage />);
 
-    expect(screen.getByRole('button', { name: 'Test' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Check registration' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
     // Active row → button label says Deactivate.
     expect(screen.getByRole('button', { name: 'Deactivate' })).toBeInTheDocument();
@@ -298,7 +305,7 @@ describe('PeripheralsPage', () => {
     ).toBeInTheDocument();
     expect(
       (screen.getByLabelText('Advanced configuration (JSON)') as HTMLTextAreaElement).value
-    ).toContain('"host": "192.168.1.50"');
+    ).toContain('"host": ""');
   });
 
   it('writes the auto-print flag into the config JSON when toggled on', async () => {
@@ -375,5 +382,26 @@ describe('PeripheralsPage', () => {
     expect(screen.getByText(/Assign at least one prefix/)).toBeVisible();
     expect(config.value).toContain('"20"');
     expect(screen.getByTestId('peripheral-gs1-prefix-20')).toHaveValue('weight');
+  });
+  it('reports a failed adapter response as failure, not a successful paper test', async () => {
+    const user = userEvent.setup();
+    peripheralRows = [
+      {
+        ...printerRow,
+        driver: 'escpos',
+        lastTestResult: 'failed',
+        lastTestDetails: { kind: 'DEVICE_TIMEOUT', message: 'Check network address' },
+      },
+    ];
+    render(<PeripheralsPage />);
+    expect(screen.getByText('DEVICE_TIMEOUT: Check network address')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Test' }));
+    expect(toastError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Device test failed',
+        description: 'DEVICE_TIMEOUT: Check network address',
+      })
+    );
+    expect(toastSuccess).not.toHaveBeenCalled();
   });
 });

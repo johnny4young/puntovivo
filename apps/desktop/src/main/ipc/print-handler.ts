@@ -7,11 +7,17 @@
  * @module main/ipc/print-handler
  */
 
+import {
+  SystemPrinterError,
+  type SystemPrinterTranslationKey,
+} from '../system-printer-selection.ts';
 import { sanitisePrintHtml } from '../print-html-sanitizer.ts';
 import { sessionGateFailure } from './session-gate.ts';
+import * as desktopSession from '../session/desktopSession.ts';
 import type { ReceiptPrintSettings } from './settings.ts';
 
-export type PrintErrorTranslationKey = 'print.sessionRequired' | 'print.documentRequired';
+export type PrintErrorTranslationKey =
+  'print.sessionRequired' | 'print.documentRequired' | SystemPrinterTranslationKey;
 
 export class ReceiptPrintCancelledError extends Error {
   constructor() {
@@ -68,14 +74,26 @@ export async function handlePrintReceiptRequest(
   // wraps non-empty input in an html scaffold, so it cannot return an
   // empty string here.)
   const sanitisedHtml = sanitisePrintHtml(receiptHtml);
+  const assertSession = desktopSession.captureSessionGuard();
 
   try {
     const settings = await deps.loadSettings();
+    assertSession();
     await deps.printReceipt(sanitisedHtml, settings);
     return { success: true };
   } catch (error) {
+    if (error instanceof Error && error.message === 'SESSION_NOT_REGISTERED')
+      return {
+        success: false,
+        errorCode: 'SESSION_NOT_REGISTERED',
+        error: deps.t('print.sessionRequired'),
+      };
     if (error instanceof ReceiptPrintCancelledError) {
       return { success: false, errorCode: 'PRINT_CANCELLED' };
+    }
+    if (error instanceof SystemPrinterError) {
+      deps.logError(error);
+      return { success: false, errorCode: error.code, error: deps.t(error.translationKey) };
     }
     const message = error instanceof Error ? error.message : 'Receipt printing failed';
     deps.logError(error);

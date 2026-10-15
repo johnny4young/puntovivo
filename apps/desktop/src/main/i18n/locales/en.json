@@ -34,7 +34,13 @@
   "print": {
     "receiptFailed": "Receipt printing failed",
     "sessionRequired": "Log in before printing receipts",
-    "documentRequired": "A receipt document is required before printing"
+    "documentRequired": "A receipt document is required before printing",
+    "noSystemPrinters": "No system printers are available. Install the printer in your operating system, then refresh the printer list.",
+    "printerUnavailable": "The selected printer is unavailable. Check its USB connection, driver and print queue, or select another printer. No job was sent to another printer.",
+    "invalidPrinter": "Select a printer from the system list.",
+    "systemJobFailed": "The system could not submit this print job. Check the printer, paper and operating system queue before retrying.",
+    "systemTimeout": "The print dialog or queue did not respond in time. Check the queue before retrying to avoid a duplicate.",
+    "testReceipt": "Printer test only — no sale or payment was recorded."
   },
   "autoUpdate": {
     "notInitialized": "Automatic updates have not been initialized yet.",

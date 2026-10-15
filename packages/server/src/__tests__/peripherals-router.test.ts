@@ -326,6 +326,31 @@ describe('peripherals.test', () => {
     expect(result.status).toBe('ok');
     expect(result.peripheral.lastTestResult).toBe('ok');
     expect(result.peripheral.lastTestedAt).not.toBeNull();
+    expect(result.peripheral.lastTestDetails).toMatchObject({ kind: 'REGISTRATION_ONLY' });
+    const updated = await caller.peripherals.update({
+      id: row.id,
+      driver: 'system',
+      config: { autoPrintOnComplete: true },
+    });
+    expect(updated.lastTestResult).toBeNull();
+    expect(updated.lastTestDetails).toBeNull();
+  });
+
+  it('persists a failed USB test code and message rather than a false success', async () => {
+    const caller = appRouter.createCaller(buildContext());
+    const row = await caller.peripherals.register({
+      siteId,
+      kind: 'printer',
+      driver: 'escpos',
+      config: { channel: 'usb' },
+    });
+    const result = await caller.peripherals.test({ id: row.id });
+    expect(result.status).toBe('failed');
+    expect(result.peripheral.lastTestResult).toBe('failed');
+    expect(result.peripheral.lastTestDetails).toMatchObject({
+      kind: 'DRIVER_NOT_IMPLEMENTED',
+      message: expect.stringContaining('USB'),
+    });
   });
 
   it('stamps last_test_result=ok for the manual payment terminal', async () => {

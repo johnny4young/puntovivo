@@ -192,6 +192,67 @@ describe('peripherals.printReceipt', () => {
     expect(result).toEqual({ status: 'system-fallback' });
   });
 
+  it('preserves a queued receipt when switching to System and retries the same bytes only explicitly', async () => {
+    const db = getDatabase();
+    const admin = appRouter.createCaller(buildContext('admin'));
+    const printer = await admin.peripherals.register({
+      siteId,
+      kind: 'printer',
+      driver: 'escpos',
+      config: { channel: 'mock' },
+    });
+    const bytes = [0x1b, 0x40, 0x54, 0x45, 0x53, 0x54, 0x0a];
+    const job = await hardwareEnqueue.enqueueHardware(
+      { db, tenantId },
+      {
+        kind: 'print-receipt',
+        peripheralId: printer.id,
+        payload: {
+          kind: 'print-receipt',
+          siteId,
+          saleId,
+          document: { lines: [{ text: 'Synthetic queued receipt' }] },
+          escposBytes: bytes,
+        },
+        idempotencyKey: 'printer-method-change',
+      }
+    );
+    await admin.peripherals.update({
+      id: printer.id,
+      driver: 'system',
+      config: { autoPrintOnComplete: true },
+    });
+    const transport = new MockEscPosTransport();
+    __setEscPosTransportForTest(transport);
+    const worker = createHardwareWorker({
+      db,
+      log: { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} } as never,
+    });
+    expect(await worker.tickOnce(tenantId)).toMatchObject({ outcome: 'dead_letter' });
+    const stopped = await db
+      .select()
+      .from(hardwareOutbox)
+      .where(eq(hardwareOutbox.id, job.id))
+      .get();
+    expect(stopped?.status).toBe('dead_letter');
+    expect(stopped?.lastError).toMatchObject({ errorCode: 'INVALID_CONFIG' });
+    expect(stopped?.payload).toMatchObject({ escposBytes: bytes });
+    expect(transport.buffer()).toHaveLength(0);
+    await admin.peripherals.update({
+      id: printer.id,
+      driver: 'escpos',
+      config: { channel: 'mock' },
+    });
+    expect(await worker.tickOnce(tenantId)).toMatchObject({ processed: false });
+    await admin.peripherals.retryHardwareOutbox({ id: job.id });
+    expect(await worker.tickOnce(tenantId)).toMatchObject({ outcome: 'completed' });
+    expect(Array.from(transport.buffer())).toEqual(bytes);
+    expect(await worker.tickOnce(tenantId)).toMatchObject({ processed: false });
+    expect(
+      await db.select().from(hardwareOutbox).where(eq(hardwareOutbox.tenantId, tenantId))
+    ).toHaveLength(1);
+  });
+
   it('returns printed and writes bytes to the transport when escpos succeeds', async () => {
     const mock = new MockEscPosTransport();
     __setEscPosTransportForTest(mock);

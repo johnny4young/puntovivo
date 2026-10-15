@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   DEFAULT_GS1_PREFIX_CONFIG,
@@ -67,7 +67,7 @@ function defaultConfigFor(kind: PeripheralKind, driver: string): Record<string, 
   if ((kind === 'printer' || kind === 'cash_drawer') && driver === 'escpos') {
     return {
       channel: 'tcp',
-      host: '192.168.1.50',
+      host: '',
       port: 9100,
       ...(kind === 'printer' ? { paperWidth: '80mm' } : {}),
     };
@@ -238,11 +238,26 @@ export function PeripheralForm({
     }
   }
 
+  const printerDrafts = useRef<Record<string, Record<string, unknown>>>({});
   function handleDriverChange(nextDriver: string) {
-    setDriver(nextDriver);
-    if (!isEditing) {
+    if (kind === 'printer' && (nextDriver === 'system' || nextDriver === 'escpos')) {
+      const current = parsedConfig ?? {};
+      printerDrafts.current[driver] = current;
+      const next =
+        nextDriver === 'system'
+          ? {}
+          : { ...(printerDrafts.current[nextDriver] ?? defaultConfigFor(kind, nextDriver)) };
+      // Only the shared opt-in crosses methods; TCP/USB fields never enter the strict System schema.
+      const converted: Record<string, unknown> = next;
+      if (typeof current.autoPrintOnComplete === 'boolean')
+        converted.autoPrintOnComplete = current.autoPrintOnComplete;
+      else delete converted.autoPrintOnComplete;
+      setConfigRaw(formatConfigForInput(converted));
+    } else if (!isEditing) {
       setConfigRaw(formatConfigForInput(defaultConfigFor(kind, nextDriver)));
     }
+    setDriver(nextDriver);
+    setValidationError(null);
   }
 
   function handleSubmit() {
@@ -270,6 +285,19 @@ export function PeripheralForm({
     ) {
       setValidationError(t('fields.gs1.invalid'));
       return;
+    }
+    if (driver === 'escpos') {
+      if (parsedConfig.channel === 'usb' || parsedConfig.channel === 'serial') {
+        setValidationError(t('fields.unsupportedTransport'));
+        return;
+      }
+      if (
+        (parsedConfig.channel ?? 'tcp') === 'tcp' &&
+        (typeof parsedConfig.host !== 'string' || !parsedConfig.host.trim())
+      ) {
+        setValidationError(t('fields.hostRequired'));
+        return;
+      }
     }
     setValidationError(null);
     const submission = onSubmit({
@@ -461,6 +489,70 @@ export function PeripheralForm({
               <p className="mt-2 text-sm text-danger-600">{t('fields.gs1.invalid')}</p>
             )}
           </fieldset>
+        )}
+
+        {driver === 'escpos' && (
+          <fieldset className="rounded border border-line p-3 space-y-2">
+            <label className="label" htmlFor="peripheral-channel">
+              {t('fields.transportLabel')}
+            </label>
+            <select
+              id="peripheral-channel"
+              className="input"
+              value={String(parsedConfig?.channel ?? 'tcp')}
+              disabled={isSaving || parsedConfig === null}
+              onChange={event => updateParsedConfig({ channel: event.target.value })}
+            >
+              <option value="tcp">{t('fields.tcp')}</option>
+              <option value="usb" disabled>
+                {t('fields.usbUnavailable')}
+              </option>
+              <option value="serial" disabled>
+                {t('fields.serialUnavailable')}
+              </option>
+              {parsedConfig?.channel === 'mock' && (
+                <option value="mock">{t('fields.mockOnly')}</option>
+              )}
+            </select>
+            {(parsedConfig?.channel === 'usb' || parsedConfig?.channel === 'serial') && (
+              <p role="alert" className="text-sm text-danger-700">
+                {t('fields.unsupportedTransport')}
+              </p>
+            )}
+            {(parsedConfig?.channel ?? 'tcp') === 'tcp' && (
+              <>
+                <label className="label" htmlFor="peripheral-host">
+                  {t('fields.hostLabel')}
+                </label>
+                <input
+                  id="peripheral-host"
+                  className="input"
+                  placeholder={t('fields.hostPlaceholder')}
+                  value={typeof parsedConfig?.host === 'string' ? parsedConfig.host : ''}
+                  disabled={isSaving || parsedConfig === null}
+                  onChange={event => updateParsedConfig({ host: event.target.value })}
+                />
+                <label className="label" htmlFor="peripheral-port">
+                  {t('fields.portLabel')}
+                </label>
+                <input
+                  id="peripheral-port"
+                  className="input"
+                  type="number"
+                  min={9100}
+                  max={9103}
+                  value={typeof parsedConfig?.port === 'number' ? parsedConfig.port : 9100}
+                  disabled={isSaving || parsedConfig === null}
+                  onChange={event => updateParsedConfig({ port: Number(event.target.value) })}
+                />
+                <p className="text-sm text-fg3">{t('fields.networkOnly')}</p>
+              </>
+            )}
+          </fieldset>
+        )}
+
+        {driver === 'system' && kind === 'printer' && (
+          <p className="text-sm text-fg3">{t('fields.systemRoute')}</p>
         )}
 
         {showPaperWidthControl && (

@@ -52,7 +52,10 @@ The current validated candidate includes:
   128 symbols, immutable fiscal evidence, sale-time display, business identity,
   template-layout, logo-source, and locale snapshots for ordinary reprints,
   configured printer code pages, and a safe legacy fallback for sales completed
-  without a configured template;
+  without a configured template; authenticated desktop system-printer selection
+  saved per business on each computer, explicit test tickets, and network-only
+  ESC/POS setup guidance. Direct USB/serial ESC/POS and physical-printer
+  certification remain unavailable;
 - cash-session accountability, blind close, audited movements, day-close
   evidence, anomaly signals, and immutable manager sign-off;
 - site-owned inventory, units, lots, FEFO, expiry suggestions that remain

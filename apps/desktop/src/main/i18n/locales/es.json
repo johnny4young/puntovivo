@@ -34,7 +34,13 @@
   "print": {
     "receiptFailed": "No se pudo imprimir el recibo",
     "sessionRequired": "Inicia sesión antes de imprimir recibos",
-    "documentRequired": "Se requiere un documento de recibo antes de imprimir"
+    "documentRequired": "Se requiere un documento de recibo antes de imprimir",
+    "noSystemPrinters": "No hay impresoras del sistema disponibles. Instala la impresora en tu sistema operativo y actualiza la lista.",
+    "printerUnavailable": "La impresora seleccionada no está disponible. Revisa su conexión USB, el controlador y la cola de impresión, o selecciona otra impresora. No se envió el trabajo a otra impresora.",
+    "invalidPrinter": "Selecciona una impresora de la lista del sistema.",
+    "systemJobFailed": "El sistema no pudo enviar este trabajo de impresión. Revisa la impresora, el papel y la cola del sistema operativo antes de reintentar.",
+    "systemTimeout": "El diálogo o la cola de impresión no respondió a tiempo. Revisa la cola antes de reintentar para evitar un duplicado.",
+    "testReceipt": "Solo prueba de impresora: no se registró ninguna venta ni pago."
   },
   "autoUpdate": {
     "notInitialized": "Las actualizaciones automáticas aún no se han inicializado.",

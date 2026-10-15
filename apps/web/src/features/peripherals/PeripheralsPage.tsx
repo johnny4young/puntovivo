@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { SystemPrinterSettings } from '@/features/company/SystemPrinterSettings';
 import { Pencil, Plus, Power, Trash2 } from 'lucide-react';
 import { ConfirmModal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
@@ -121,9 +122,18 @@ export function PeripheralsPage() {
   });
 
   const testMutation = trpc.peripherals.test.useMutation({
-    onSuccess: async () => {
+    onSuccess: async result => {
       await utils.peripherals.list.invalidate();
-      toast.success({ title: t('toast.tested') });
+      if (result.status === 'failed')
+        toast.error({ title: t('toast.testFailed'), description: result.message });
+      else
+        toast.success({
+          title: t(
+            result.details?.kind === 'REGISTRATION_ONLY'
+              ? 'toast.registrationChecked'
+              : 'toast.tested'
+          ),
+        });
     },
     onError: onErrorToast(toast, t, { titleKey: 'peripherals:toast.errorTitle' }),
   });
@@ -209,6 +219,8 @@ export function PeripheralsPage() {
           {t('peripherals:addButton')}
         </button>
       </div>
+
+      {window.electron?.getSystemPrinters && <SystemPrinterSettings />}
 
       <div className="card p-6">
         <label htmlFor="peripherals-site" className="label">
@@ -369,6 +381,7 @@ function PeripheralKindSection({
                 <PeripheralStatusBadge
                   lastTestResult={row.lastTestResult}
                   lastTestedAt={row.lastTestedAt}
+                  lastTestDetails={row.lastTestDetails}
                 />
               </td>
               <td className="text-right">
@@ -379,7 +392,11 @@ function PeripheralKindSection({
                     onClick={() => onTest(row.id)}
                     disabled={isTestPending}
                   >
-                    {t('peripherals:actions.test')}
+                    {t(
+                      row.kind === 'printer' && row.driver === 'system'
+                        ? 'peripherals:actions.checkRegistration'
+                        : 'peripherals:actions.test'
+                    )}
                   </button>
                   <button
                     type="button"

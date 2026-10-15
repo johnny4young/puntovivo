@@ -92,6 +92,9 @@ export const peripheralsCrudProcedures = {
       .set({
         driver,
         config: config as Record<string, unknown>,
+        ...(input.config !== undefined || input.driver !== undefined
+          ? { lastTestedAt: null, lastTestResult: null, lastTestDetails: null }
+          : {}),
         displayName: input.displayName === undefined ? existing.displayName : input.displayName,
         updatedAt: now,
       })
@@ -131,7 +134,10 @@ export const peripheralsCrudProcedures = {
       .set({
         lastTestedAt: now,
         lastTestResult: result.status === 'ok' ? 'ok' : 'failed',
-        lastTestDetails: (result.details ?? null) as Record<string, unknown> | null,
+        lastTestDetails: {
+          ...result.details,
+          ...(result.message ? { message: result.message.slice(0, 512) } : {}),
+        },
         updatedAt: now,
       })
       .where(and(eq(sitePeripherals.id, input.id), eq(sitePeripherals.tenantId, ctx.tenantId)));
