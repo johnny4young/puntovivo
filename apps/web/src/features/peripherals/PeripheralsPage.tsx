@@ -125,7 +125,11 @@ export function PeripheralsPage() {
     onSuccess: async result => {
       await utils.peripherals.list.invalidate();
       if (result.status === 'failed')
-        toast.error({ title: t('toast.testFailed'), description: result.message });
+        toast.error({
+          title: t('toast.testFailed'),
+          description:
+            result.details?.kind === 'STALE_CONFIG' ? t('toast.testStale') : result.message,
+        });
       else
         toast.success({
           title: t(

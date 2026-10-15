@@ -105,7 +105,8 @@
     "errorTitle": "No se pudo guardar el dispositivo",
     "errorBody": "Revisa la configuración e inténtalo de nuevo.",
     "testFailed": "La prueba del dispositivo falló",
-    "registrationChecked": "Registro del dispositivo verificado: no se probó impresión en papel"
+    "registrationChecked": "Registro del dispositivo verificado: no se probó impresión en papel",
+    "testStale": "La conexión cambió durante la prueba. Vuelve a probar la conexión actual."
   },
   "confirmRemove": {
     "title": "Eliminar dispositivo",

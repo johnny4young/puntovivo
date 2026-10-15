@@ -83,9 +83,7 @@ export interface ElectronAPI {
     selectedDeviceName: string | null;
   }>;
   /** Only an enumerated system name or null (ask in dialog) is accepted. */
-  selectSystemPrinter?: (
-    name: string | null
-  ) => Promise<{
+  selectSystemPrinter?: (name: string | null) => Promise<{
     printers: Array<{ name: string; displayName: string }>;
     selectedDeviceName: string | null;
   }>;

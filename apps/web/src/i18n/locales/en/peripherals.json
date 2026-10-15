@@ -105,7 +105,8 @@
     "errorTitle": "Could not save device",
     "errorBody": "Review the configuration and try again.",
     "testFailed": "Device test failed",
-    "registrationChecked": "Device registration checked — no paper test"
+    "registrationChecked": "Device registration checked — no paper test",
+    "testStale": "The connection changed while this test was running. Test the current connection again."
   },
   "confirmRemove": {
     "title": "Remove device",

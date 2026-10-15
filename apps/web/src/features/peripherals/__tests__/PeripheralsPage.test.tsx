@@ -63,6 +63,10 @@ const printerRow: PeripheralRow = {
 
 let peripheralRows: PeripheralRow[] = [];
 
+let testResponse: { status: string; message: string; details?: { kind: string } } = {
+  status: 'failed',
+  message: 'DEVICE_TIMEOUT: Check network address',
+};
 const toastSuccess = vi.fn();
 const toastError = vi.fn();
 const { activeForSiteInvalidate } = vi.hoisted(() => ({
@@ -148,13 +152,14 @@ vi.mock('@/lib/trpc', () => ({
       },
       test: {
         useMutation: (handlers: {
-          onSuccess?: (result: { status: string; message?: string }) => Promise<void> | void;
+          onSuccess?: (result: {
+            status: string;
+            message?: string;
+            details?: { kind: string };
+          }) => Promise<void> | void;
         }) => ({
           mutate: vi.fn(async () => {
-            await handlers.onSuccess?.({
-              status: 'failed',
-              message: 'DEVICE_TIMEOUT: Check network address',
-            });
+            await handlers.onSuccess?.(testResponse);
           }),
           mutateAsync: vi.fn(),
           isPending: false,
@@ -180,6 +185,7 @@ describe('PeripheralsPage', () => {
     vi.clearAllMocks();
     await i18next.changeLanguage('en');
     peripheralRows = [];
+    testResponse = { status: 'failed', message: 'DEVICE_TIMEOUT: Check network address' };
   });
 
   it('refreshes the active checkout configuration after registering a device', async () => {
@@ -400,6 +406,21 @@ describe('PeripheralsPage', () => {
       expect.objectContaining({
         title: 'Device test failed',
         description: 'DEVICE_TIMEOUT: Check network address',
+      })
+    );
+    expect(toastSuccess).not.toHaveBeenCalled();
+  });
+  it('explains a stale test result without announcing successful connection', async () => {
+    const user = userEvent.setup();
+    peripheralRows = [printerRow];
+    testResponse = { status: 'failed', message: 'Old result', details: { kind: 'STALE_CONFIG' } };
+    render(<PeripheralsPage />);
+    await user.click(screen.getByRole('button', { name: 'Check registration' }));
+    expect(toastError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Device test failed',
+        description:
+          'The connection changed while this test was running. Test the current connection again.',
       })
     );
     expect(toastSuccess).not.toHaveBeenCalled();

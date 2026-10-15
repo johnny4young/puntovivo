@@ -129,7 +129,8 @@ export const peripheralsCrudProcedures = {
     const adapter = instantiateAdapter(row);
     const result = await runAdapterTest(adapter);
     const now = new Date().toISOString();
-    await ctx.db
+    // Stamp only the exact configuration tested; a concurrent method edit wins.
+    const stamp = ctx.db
       .update(sitePeripherals)
       .set({
         lastTestedAt: now,
@@ -140,7 +141,25 @@ export const peripheralsCrudProcedures = {
         },
         updatedAt: now,
       })
-      .where(and(eq(sitePeripherals.id, input.id), eq(sitePeripherals.tenantId, ctx.tenantId)));
+      .where(
+        and(
+          eq(sitePeripherals.id, input.id),
+          eq(sitePeripherals.tenantId, ctx.tenantId),
+          eq(sitePeripherals.driver, row.driver),
+          eq(sitePeripherals.config, row.config),
+          eq(sitePeripherals.updatedAt, row.updatedAt)
+        )
+      )
+      .run();
+    if (stamp.changes === 0) {
+      return {
+        status: 'failed' as const,
+        message:
+          'Configuration changed while the test was running. Test the current connection again.',
+        details: { kind: 'STALE_CONFIG' },
+        peripheral: await loadPeripheralOrThrow(ctx.db, ctx.tenantId, input.id),
+      };
+    }
     return {
       ...result,
       peripheral: await loadPeripheralOrThrow(ctx.db, ctx.tenantId, input.id),
