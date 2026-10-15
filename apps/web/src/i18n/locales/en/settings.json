@@ -225,7 +225,7 @@
       "description": "Configure how desktop receipt printing behaves for this workstation.",
       "desktopOnly": "Receipt print settings are available in the Electron desktop app.",
       "silentPrinting": "Silent Printing",
-      "silentPrintingDescription": "Print receipts without showing the operating system print dialog.",
+      "silentPrintingDescription": "Print without a dialog to the system printer selected on this computer.",
       "printBackground": "Print Background Graphics",
       "printBackgroundDescription": "Include receipt background styles and shading in the printed output.",
       "saving": "Saving print settings...",

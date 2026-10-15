@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { SystemPrinterSettings } from './SystemPrinterSettings';
 import { Printer } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '@/components/feedback/ToastProvider';
@@ -147,6 +148,8 @@ export function CompanyPrintSettingsCard() {
       <div className="mt-4">
         {isDesktop ? toggles : <DisabledControl>{toggles}</DisabledControl>}
       </div>
+
+      {isDesktop && <SystemPrinterSettings />}
 
       {updateSettingsMutation.isPending && (
         <p className="mt-3 text-xs text-fg3">{t('company.print.saving')}</p>

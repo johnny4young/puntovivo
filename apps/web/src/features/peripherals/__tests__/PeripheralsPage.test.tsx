@@ -63,6 +63,10 @@ const printerRow: PeripheralRow = {
 
 let peripheralRows: PeripheralRow[] = [];
 
+let testResponse: { status: string; message: string; details?: { kind: string } } = {
+  status: 'failed',
+  message: 'DEVICE_TIMEOUT: Check network address',
+};
 const toastSuccess = vi.fn();
 const toastError = vi.fn();
 const { activeForSiteInvalidate } = vi.hoisted(() => ({
@@ -147,8 +151,16 @@ vi.mock('@/lib/trpc', () => ({
         }),
       },
       test: {
-        useMutation: () => ({
-          mutate: vi.fn(),
+        useMutation: (handlers: {
+          onSuccess?: (result: {
+            status: string;
+            message?: string;
+            details?: { kind: string };
+          }) => Promise<void> | void;
+        }) => ({
+          mutate: vi.fn(async () => {
+            await handlers.onSuccess?.(testResponse);
+          }),
           mutateAsync: vi.fn(),
           isPending: false,
           error: null,
@@ -173,6 +185,7 @@ describe('PeripheralsPage', () => {
     vi.clearAllMocks();
     await i18next.changeLanguage('en');
     peripheralRows = [];
+    testResponse = { status: 'failed', message: 'DEVICE_TIMEOUT: Check network address' };
   });
 
   it('refreshes the active checkout configuration after registering a device', async () => {
@@ -180,6 +193,7 @@ describe('PeripheralsPage', () => {
     render(<PeripheralsPage />);
 
     await user.click(screen.getByTestId('peripherals-add-button'));
+    await screen.findByLabelText('Connection method');
     await user.selectOptions(screen.getByLabelText('Device type'), 'scanner');
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
@@ -238,7 +252,7 @@ describe('PeripheralsPage', () => {
     peripheralRows = [printerRow];
     render(<PeripheralsPage />);
 
-    expect(screen.getByRole('button', { name: 'Test' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Check registration' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
     // Active row → button label says Deactivate.
     expect(screen.getByRole('button', { name: 'Deactivate' })).toBeInTheDocument();
@@ -251,6 +265,7 @@ describe('PeripheralsPage', () => {
     render(<PeripheralsPage />);
 
     await user.click(screen.getByTestId('peripherals-add-button'));
+    await screen.findByLabelText('Connection method');
     await user.type(screen.getByLabelText('Display name'), 'Scratch printer');
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
     await user.click(screen.getByRole('button', { name: 'Edit' }));
@@ -270,6 +285,7 @@ describe('PeripheralsPage', () => {
     peripheralRows = [];
     render(<PeripheralsPage />);
     await user.click(screen.getByTestId('peripherals-add-button'));
+    await screen.findByLabelText('Connection method');
     // Default new-entry pair is (printer, system) — no ESC/POS-only guidance.
     expect(screen.getByTestId('peripheral-auto-print-toggle')).toBeInTheDocument();
     expect(screen.queryByLabelText('Paper width')).not.toBeInTheDocument();
@@ -285,6 +301,7 @@ describe('PeripheralsPage', () => {
     peripheralRows = [];
     render(<PeripheralsPage />);
     await user.click(screen.getByTestId('peripherals-add-button'));
+    await screen.findByLabelText('Connection method');
     // Switch the driver to escpos — the toggle must appear.
     const driverSelect = screen.getByLabelText('Connection method');
     await user.selectOptions(driverSelect, 'escpos');
@@ -298,7 +315,7 @@ describe('PeripheralsPage', () => {
     ).toBeInTheDocument();
     expect(
       (screen.getByLabelText('Advanced configuration (JSON)') as HTMLTextAreaElement).value
-    ).toContain('"host": "192.168.1.50"');
+    ).toContain('"host": ""');
   });
 
   it('writes the auto-print flag into the config JSON when toggled on', async () => {
@@ -306,6 +323,7 @@ describe('PeripheralsPage', () => {
     peripheralRows = [];
     render(<PeripheralsPage />);
     await user.click(screen.getByTestId('peripherals-add-button'));
+    await screen.findByLabelText('Connection method');
     await user.selectOptions(screen.getByLabelText('Connection method'), 'escpos');
     const toggle = screen.getByTestId('peripheral-auto-print-toggle') as HTMLInputElement;
     await user.click(toggle);
@@ -321,6 +339,7 @@ describe('PeripheralsPage', () => {
     const user = userEvent.setup();
     render(<PeripheralsPage />);
     await user.click(screen.getByTestId('peripherals-add-button'));
+    await screen.findByLabelText('Connection method');
     await user.selectOptions(screen.getByLabelText('Device type'), 'scanner');
 
     expect(screen.getByLabelText('Label scheme')).toHaveValue('generic');
@@ -338,6 +357,7 @@ describe('PeripheralsPage', () => {
     const user = userEvent.setup();
     render(<PeripheralsPage />);
     await user.click(screen.getByTestId('peripherals-add-button'));
+    await screen.findByLabelText('Connection method');
     await user.selectOptions(screen.getByLabelText('Device type'), 'scanner');
     await user.selectOptions(screen.getByLabelText('Label scheme'), 'none');
 
@@ -351,6 +371,7 @@ describe('PeripheralsPage', () => {
     const user = userEvent.setup();
     render(<PeripheralsPage />);
     await user.click(screen.getByTestId('peripherals-add-button'));
+    await screen.findByLabelText('Connection method');
     await user.selectOptions(screen.getByLabelText('Device type'), 'scanner');
     const config = screen.getByLabelText('Advanced configuration (JSON)') as HTMLTextAreaElement;
     fireEvent.change(config, {
@@ -375,5 +396,41 @@ describe('PeripheralsPage', () => {
     expect(screen.getByText(/Assign at least one prefix/)).toBeVisible();
     expect(config.value).toContain('"20"');
     expect(screen.getByTestId('peripheral-gs1-prefix-20')).toHaveValue('weight');
+  });
+  it('reports a failed adapter response as failure, not a successful paper test', async () => {
+    const user = userEvent.setup();
+    peripheralRows = [
+      {
+        ...printerRow,
+        driver: 'escpos',
+        lastTestResult: 'failed',
+        lastTestDetails: { kind: 'DEVICE_TIMEOUT', message: 'Check network address' },
+      },
+    ];
+    render(<PeripheralsPage />);
+    expect(screen.getByText('DEVICE_TIMEOUT: Check network address')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Test' }));
+    expect(toastError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Device test failed',
+        description: 'DEVICE_TIMEOUT: Check network address',
+      })
+    );
+    expect(toastSuccess).not.toHaveBeenCalled();
+  });
+  it('explains a stale test result without announcing successful connection', async () => {
+    const user = userEvent.setup();
+    peripheralRows = [printerRow];
+    testResponse = { status: 'failed', message: 'Old result', details: { kind: 'STALE_CONFIG' } };
+    render(<PeripheralsPage />);
+    await user.click(screen.getByRole('button', { name: 'Check registration' }));
+    expect(toastError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Device test failed',
+        description:
+          'The connection changed while this test was running. Test the current connection again.',
+      })
+    );
+    expect(toastSuccess).not.toHaveBeenCalled();
   });
 });

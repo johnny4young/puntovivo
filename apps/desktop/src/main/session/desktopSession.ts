@@ -171,6 +171,19 @@ export function peek(): Readonly<DesktopSessionState> | null {
 }
 
 /**
+ * Capture this verified registration for an asynchronous native operation.
+ * A logout, staff switch or newer registration invalidates it, including an
+ * A-to-B-to-A transition with identical tenant/user fields.
+ */
+export function captureSessionGuard(): () => void {
+  requireTenantId();
+  const snapshot = current;
+  return () => {
+    if (current !== snapshot) throw new Error(SESSION_NOT_REGISTERED);
+  };
+}
+
+/**
  * Return the active tenant id. Throws `SESSION_NOT_REGISTERED` when
  * no session is loaded — IPC handlers MUST gate on this rather than
  * accept a tenant id from the renderer.

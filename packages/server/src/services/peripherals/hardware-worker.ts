@@ -264,6 +264,20 @@ export function createHardwareWorker(opts: CreateHardwareWorkerOptions): Hardwar
           : { ok: false, error: toOutboxError(result.error ?? { message: 'kick failed' }) };
       }
 
+      // System acknowledges registration only. A queued ESC/POS job must never
+      // become a successful paper print merely because its method was changed.
+      if (peripheralRow.driver !== 'escpos') {
+        return {
+          ok: false,
+          error: {
+            errorCode: 'INVALID_CONFIG',
+            providerMessage:
+              'Queued ESC/POS print requires an active ESC/POS printer; review the queue before printing through System',
+            recoverable: false,
+          },
+        };
+      }
+
       // print-* kinds
       if (adapter.kind !== 'printer') {
         return {

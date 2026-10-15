@@ -6,7 +6,7 @@
  * stamping of `last_tested_at` + `last_test_result`.
  */
 
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { TRPCError } from '@trpc/server';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -14,6 +14,7 @@ import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import { ServerErrorWithCode } from '../lib/errorCodes.js';
 import { sites, sitePeripherals, users } from '../db/schema.js';
+import * as peripheralHelpers from '../trpc/routers/peripherals/helpers.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 
@@ -77,6 +78,7 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
+  vi.restoreAllMocks();
   await getDatabase().delete(sitePeripherals).where(eq(sitePeripherals.tenantId, tenantId));
 });
 
@@ -326,6 +328,79 @@ describe('peripherals.test', () => {
     expect(result.status).toBe('ok');
     expect(result.peripheral.lastTestResult).toBe('ok');
     expect(result.peripheral.lastTestedAt).not.toBeNull();
+    expect(result.peripheral.lastTestDetails).toMatchObject({ kind: 'REGISTRATION_ONLY' });
+    const updated = await caller.peripherals.update({
+      id: row.id,
+      driver: 'system',
+      config: { autoPrintOnComplete: true },
+    });
+    expect(updated.lastTestResult).toBeNull();
+    expect(updated.lastTestDetails).toBeNull();
+  });
+
+  it('persists a failed USB test code and message rather than a false success', async () => {
+    const caller = appRouter.createCaller(buildContext());
+    const row = await caller.peripherals.register({
+      siteId,
+      kind: 'printer',
+      driver: 'escpos',
+      config: { channel: 'usb' },
+    });
+    const result = await caller.peripherals.test({ id: row.id });
+    expect(result.status).toBe('failed');
+    expect(result.peripheral.lastTestResult).toBe('failed');
+    expect(result.peripheral.lastTestDetails).toMatchObject({
+      kind: 'DRIVER_NOT_IMPLEMENTED',
+      message: expect.stringContaining('USB'),
+    });
+  });
+
+  it('stores null details when the adapter reports neither details nor a message', async () => {
+    const caller = appRouter.createCaller(buildContext());
+    const row = await caller.peripherals.register({
+      siteId,
+      kind: 'printer',
+      driver: 'system',
+      config: {},
+    });
+    vi.spyOn(peripheralHelpers, 'runAdapterTest').mockResolvedValueOnce({
+      status: 'failed',
+    } as Awaited<ReturnType<typeof peripheralHelpers.runAdapterTest>>);
+    const result = await caller.peripherals.test({ id: row.id });
+    expect(result.peripheral.lastTestResult).toBe('failed');
+    expect(result.peripheral.lastTestDetails).toBeNull();
+  });
+
+  it('does not stamp or announce the previous method after configuration changes during a test', async () => {
+    const caller = appRouter.createCaller(buildContext());
+    const row = await caller.peripherals.register({
+      siteId,
+      kind: 'printer',
+      driver: 'system',
+      config: {},
+    });
+    let finish!: (result: { status: 'ok'; message: string }) => void;
+    const deferred = new Promise<{ status: 'ok'; message: string }>(resolve => {
+      finish = resolve;
+    });
+    const spy = vi
+      .spyOn(peripheralHelpers, 'runAdapterTest')
+      .mockImplementationOnce(() => deferred);
+    const pending = caller.peripherals.test({ id: row.id });
+    await vi.waitFor(() => expect(spy).toHaveBeenCalledTimes(1));
+    await caller.peripherals.update({
+      id: row.id,
+      driver: 'escpos',
+      config: { channel: 'mock', paperWidth: '58mm' },
+    });
+    finish({ status: 'ok', message: 'Old system registration' });
+    const result = await pending;
+    expect(result.status).toBe('failed');
+    expect(result.details).toMatchObject({ kind: 'STALE_CONFIG' });
+    expect(result.peripheral.driver).toBe('escpos');
+    expect(result.peripheral.lastTestedAt).toBeNull();
+    expect(result.peripheral.lastTestResult).toBeNull();
+    expect(result.peripheral.lastTestDetails).toBeNull();
   });
 
   it('stamps last_test_result=ok for the manual payment terminal', async () => {

@@ -51,6 +51,7 @@ export class SystemReceiptPrinterAdapter implements ReceiptPrinterAdapter {
     // actual paper test.
     return {
       status: 'ok',
+      details: { kind: 'REGISTRATION_ONLY' },
       message:
         'System printer registered. Use Ctrl+P or the Reimprimir flow to print a real receipt.',
     };

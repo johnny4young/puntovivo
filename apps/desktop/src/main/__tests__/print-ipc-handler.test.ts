@@ -1,3 +1,4 @@
+import { SystemPrinterError } from '../system-printer-selection.ts';
 import { beforeEach, describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
@@ -121,5 +122,53 @@ describe('print-receipt IPC handler', () => {
       errorCode: 'PRINT_CANCELLED',
     });
     assert.equal(errors.length, 0);
+  });
+  it('does not print the previous operator receipt when identity changes while settings load', async () => {
+    await registerRole('cashier');
+    const deps = makeDeps({
+      loadSettings: async () => {
+        await registerRole('manager');
+        return { silent: true, printBackground: false };
+      },
+    });
+    {
+      const result = await handlePrintReceiptRequest('<p>private receipt</p>', deps);
+      assert.equal(result.success, false);
+      assert.equal(result.errorCode, 'SESSION_NOT_REGISTERED');
+    }
+    assert.equal(deps.printed.length, 0);
+  });
+  it('preserves missing-printer and disconnection codes across IPC without a second print', async () => {
+    await registerRole('cashier');
+    for (const [code, key] of [
+      ['PRINT_NO_PRINTERS', 'print.noSystemPrinters'],
+      ['PRINT_PRINTER_UNAVAILABLE', 'print.printerUnavailable'],
+    ] as const) {
+      const deps = makeDeps({
+        printReceipt: async () => {
+          throw new SystemPrinterError(code, key);
+        },
+      });
+      assert.deepEqual(await handlePrintReceiptRequest('<p>ticket</p>', deps), {
+        success: false,
+        errorCode: code,
+        error: key,
+      });
+    }
+  });
+  it('rejects an A-to-B-to-A registration while the receipt settings are loading', async () => {
+    await registerRole('cashier');
+    const deps = makeDeps({
+      loadSettings: async () => {
+        await registerRole('manager');
+        await registerRole('cashier');
+        return { silent: true, printBackground: false };
+      },
+    });
+    assert.equal(
+      (await handlePrintReceiptRequest('<p>old receipt</p>', deps)).errorCode,
+      'SESSION_NOT_REGISTERED'
+    );
+    assert.equal(deps.printed.length, 0);
   });
 });
