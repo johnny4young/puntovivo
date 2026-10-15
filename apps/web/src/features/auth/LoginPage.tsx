@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { vanillaClient } from '@/lib/trpc';
 import { ensureApiBootstrap } from '@/lib/apiBootstrap';
@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { Eye, EyeOff, LogIn, ScanLine, ShieldCheck, Warehouse } from 'lucide-react';
 import { useAuth } from './AuthProvider';
 import { LanguageSelector } from '@/components/form-controls/LanguageSelector';
+import { useRevalidateOnLanguageChange } from '@/hooks/useRevalidateOnLanguageChange';
 import { BrandMark } from '@/components/brand/BrandMark';
 import { translateServerError } from '@/lib/translateServerError';
 import type { LoginCredentials } from '@/types';
@@ -32,7 +33,7 @@ export function LoginPage() {
     refetchOnWindowFocus: false,
   });
   const { login, isLoading, error } = useAuth();
-  const { t, i18n } = useTranslation(['auth', 'errors']);
+  const { t } = useTranslation(['auth', 'errors']);
   const errorMessage = isDeviceIdentityChanged(error)
     ? t('login.previousOperatorActive')
     : error
@@ -46,13 +47,7 @@ export function LoginPage() {
     formState: { errors },
   } = useForm<LoginCredentials>({ mode: 'onChange' });
 
-  const validationLanguage = useRef(i18n.resolvedLanguage);
-  useEffect(() => {
-    if (validationLanguage.current === i18n.resolvedLanguage) return;
-    validationLanguage.current = i18n.resolvedLanguage;
-    const invalidFields = Object.keys(errors) as Array<keyof LoginCredentials>;
-    if (invalidFields.length > 0) void trigger(invalidFields);
-  }, [i18n.resolvedLanguage, errors, trigger]);
+  useRevalidateOnLanguageChange(errors, trigger);
 
   const onSubmit = async (data: LoginCredentials) => {
     try {

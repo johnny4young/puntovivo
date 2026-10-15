@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { ArrowLeft, ArrowRight, Check, Eye, EyeOff, ShieldCheck, Store } from 'lucide-react';
 import { VERTICAL_PRESET_IDS, type VerticalPresetId } from '@puntovivo/shared/vertical-presets';
 import { LanguageSelector } from '@/components/form-controls/LanguageSelector';
+import { useRevalidateOnLanguageChange } from '@/hooks/useRevalidateOnLanguageChange';
 import { BrandMark } from '@/components/brand/BrandMark';
 import { vanillaClient } from '@/lib/trpc';
 import { translateServerError } from '@/lib/translateServerError';
@@ -68,13 +69,7 @@ export function InstallationSetupPage({ countries, onSignIn }: InstallationSetup
     if (isReady) setFocus(step === 0 ? 'businessName' : 'ownerName');
   }, [step, setFocus, isReady]);
 
-  const validationLanguage = useRef(i18n.resolvedLanguage);
-  useEffect(() => {
-    if (validationLanguage.current === i18n.resolvedLanguage) return;
-    validationLanguage.current = i18n.resolvedLanguage;
-    const invalidFields = Object.keys(errors) as Array<keyof SetupValues>;
-    if (invalidFields.length > 0) void form.trigger(invalidFields);
-  }, [i18n.resolvedLanguage, errors, form]);
+  useRevalidateOnLanguageChange(errors, form.trigger);
 
   const textField = (name: 'businessName' | 'siteName' | 'ownerName') => (
     <div className="space-y-2" key={name}>

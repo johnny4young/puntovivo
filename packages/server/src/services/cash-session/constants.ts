@@ -13,6 +13,7 @@ import { cashMovementTypeEnum } from '../../db/schema.js';
 
 export const CASH_SESSION_EPSILON = 1e-6;
 export const DEFAULT_REGISTER_NAME = 'Main register';
+export const DEFAULT_REGISTER_NAME_ES = 'Caja principal';
 export const REGISTER_ASSIGNMENT_BACKFILL_LIMIT = 100;
 export const DEFAULT_CASH_SESSION_DENOMINATION_VALUES = [
   100000, 50000, 20000, 10000, 5000, 2000, 1000, 500, 200, 100, 50,

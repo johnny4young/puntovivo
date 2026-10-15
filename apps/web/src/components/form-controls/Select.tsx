@@ -20,6 +20,8 @@ export interface SelectProps {
   placeholder?: string;
   /** Label for the select */
   label?: string;
+  /** Accessible name when no visible label is rendered */
+  'aria-label'?: string;
   /** Error message */
   error?: string;
   /** Enable search/filter functionality */
@@ -49,6 +51,7 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(
       // resolved below rather than defaulted to English here.
       placeholder,
       label,
+      'aria-label': ariaLabel,
       error,
       searchable = false,
       clearable = false,
@@ -187,6 +190,7 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(
           <button
             ref={ref}
             id={triggerId}
+            aria-label={label ? undefined : ariaLabel}
             type="button"
             name={name}
             disabled={disabled}
