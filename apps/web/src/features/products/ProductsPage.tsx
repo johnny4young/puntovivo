@@ -131,6 +131,7 @@ export function ProductsPage() {
       await Promise.all([
         utils.products.list.invalidate(),
         utils.setupReadiness.firstSale.invalidate(),
+        utils.setupReadiness.get.invalidate(),
       ]);
       createProductMeasurement.finish('success');
       handleCloseModal();
@@ -143,6 +144,7 @@ export function ProductsPage() {
       await Promise.all([
         utils.products.list.invalidate(),
         utils.products.getById.invalidate({ id: variables.id }),
+        utils.setupReadiness.get.invalidate(),
       ]);
       handleCloseModal();
       toast.success({ title: t('toast.updated') });

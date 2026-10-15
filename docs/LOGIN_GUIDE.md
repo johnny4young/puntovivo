@@ -30,6 +30,11 @@ The login screen offers two steps: business/location/country/profile, then the
 owner's name, email and strong password. The owner signs in through the same
 normal authentication flow used by existing accounts.
 
+The language selector is available before either step and on the sign-in screen.
+English, Spanish or the workstation default can be selected without creating an
+account. The choice survives sign-out and restart; changing it preserves entered
+form values and translates validation messages.
+
 - **Electron:** use the main Puntovivo window. Its narrowly scoped IPC bridge
   submits the fixed tRPC setup command; the installation secret never enters
   the renderer. Auxiliary windows, frames and remote Hub clients cannot claim

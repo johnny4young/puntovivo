@@ -20,15 +20,15 @@ export interface NextActionCardProps {
 const ICON_TONE: Record<NextActionTone, { light: string; inverse: string }> = {
   neutral: {
     light: 'bg-primary-50 text-primary-800',
-    inverse: 'bg-white/12 text-primary-50',
+    inverse: 'bg-white/12 text-white',
   },
   critical: {
     light: 'bg-danger-50 text-danger-700',
-    inverse: 'bg-danger-400/20 text-danger-100',
+    inverse: 'bg-white/12 text-white',
   },
   ready: {
     light: 'bg-success-50 text-success-700',
-    inverse: 'bg-success-400/20 text-success-100',
+    inverse: 'bg-white/12 text-white',
   },
 };
 
@@ -68,7 +68,7 @@ export function NextActionCard({
           <p
             className={cn(
               'text-[0.66rem] font-bold uppercase tracking-[0.18em]',
-              inverse ? 'text-primary-100/75' : 'text-secondary-500'
+              inverse ? 'text-white/80' : 'text-secondary-500'
             )}
           >
             {eyebrow}
@@ -84,7 +84,7 @@ export function NextActionCard({
           <p
             className={cn(
               'mt-1 max-w-[64ch] text-sm leading-5',
-              inverse ? 'text-primary-50/75' : 'text-secondary-600'
+              inverse ? 'text-white/85' : 'text-secondary-600'
             )}
           >
             {description}

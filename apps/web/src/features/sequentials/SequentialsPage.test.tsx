@@ -57,6 +57,10 @@ vi.mock('@/components/feedback/ToastProvider', () => ({
 vi.mock('@/lib/trpc', () => ({
   trpc: {
     useUtils: () => ({
+      setupReadiness: {
+        get: { invalidate: vi.fn(async () => undefined) },
+        checkout: { invalidate: vi.fn(async () => undefined) },
+      },
       sequentials: {
         list: { invalidate: vi.fn(async () => undefined) },
       },

@@ -216,7 +216,7 @@ export function createInstallationSetup(db: DatabaseInstance): InstallationSetup
               .values({
                 id: nanoid(),
                 tenantId,
-                name: 'Unit',
+                name: country.generalLocale === 'es' ? 'Unidad' : 'Unit',
                 abbreviation: 'UN',
                 dimension: 'count',
                 standardCode: 'EA',

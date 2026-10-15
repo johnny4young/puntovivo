@@ -65,7 +65,11 @@ export function SequentialsPage(): React.ReactElement {
 
   const upsertMutation = trpc.sequentials.upsert.useMutation({
     onSuccess: async () => {
-      await utils.sequentials.list.invalidate();
+      await Promise.all([
+        utils.sequentials.list.invalidate(),
+        utils.setupReadiness.get.invalidate(),
+        utils.setupReadiness.checkout.invalidate(),
+      ]);
       handleCloseModal();
       toast.success({
         title: editingSequential ? t('toast.updated') : t('toast.created'),
@@ -80,7 +84,11 @@ export function SequentialsPage(): React.ReactElement {
   });
   const deleteMutation = trpc.sequentials.delete.useMutation({
     onSuccess: async () => {
-      await utils.sequentials.list.invalidate();
+      await Promise.all([
+        utils.sequentials.list.invalidate(),
+        utils.setupReadiness.get.invalidate(),
+        utils.setupReadiness.checkout.invalidate(),
+      ]);
       setSequentialToDelete(null);
       toast.success({ title: t('toast.deleted') });
     },

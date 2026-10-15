@@ -54,12 +54,18 @@ describe('SalesRegisterAssignmentField', () => {
       />
     );
 
-    await user.click(screen.getByRole('button', { name: 'Front register' }));
+    const selector = screen.getByRole('button', { name: 'Assigned register' });
+    expect(selector).toHaveTextContent('Front register');
+    await user.click(selector);
 
     expect(screen.getAllByText('Front register')).toHaveLength(2);
-    expect(screen.getByRole('option', { name: 'Back register · Open by Ana Perez' })).toBeInTheDocument();
     expect(
-      screen.getByText('The opening dialog will preload the standard denomination template for this register.')
+      screen.getByRole('option', { name: 'Back register · Open by Ana Perez' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'The opening dialog will preload the standard denomination template for this register.'
+      )
     ).toBeInTheDocument();
 
     await user.click(screen.getByRole('option', { name: 'Front register' }));

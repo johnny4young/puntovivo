@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from 'react';
 import {
   ThemeContext,
   type ResolvedTheme,
@@ -19,6 +26,13 @@ function getSystemTheme(): ResolvedTheme {
   }
 
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+/** Observe the effective native theme even while an explicit UI override is selected. */
+function subscribeSystemTheme(onChange: () => void): () => void {
+  const query = window.matchMedia('(prefers-color-scheme: dark)');
+  query.addEventListener('change', onChange);
+  return () => query.removeEventListener('change', onChange);
 }
 
 function readStoredPreference(): ThemePreference {
@@ -44,7 +58,11 @@ interface ThemeProviderProps {
 
 export function ThemeProvider({ children }: ThemeProviderProps) {
   const [preference, setThemePreference] = useState<ThemePreference>(() => readStoredPreference());
-  const [systemTheme, setSystemTheme] = useState<ResolvedTheme>(() => getSystemTheme());
+  const systemTheme = useSyncExternalStore<ResolvedTheme>(
+    subscribeSystemTheme,
+    getSystemTheme,
+    () => 'light'
+  );
   const [isLoading, setIsLoading] = useState(
     () => typeof window !== 'undefined' && typeof window.electron?.getThemePreference === 'function'
   );
@@ -83,23 +101,6 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
       isMounted = false;
     };
   }, []);
-
-  useEffect(() => {
-    if (preference !== 'system') {
-      return;
-    }
-
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleChange = () => {
-      setSystemTheme(getSystemTheme());
-    };
-
-    mediaQuery.addEventListener('change', handleChange);
-
-    return () => {
-      mediaQuery.removeEventListener('change', handleChange);
-    };
-  }, [preference]);
 
   const setPreference = useCallback(async (nextPreference: ThemePreference) => {
     // Persist through the session-gated desktop channel FIRST: if main

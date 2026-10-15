@@ -65,6 +65,7 @@ vi.mock('@/lib/trpc', () => ({
         search: { invalidate: searchInvalidateMock },
       },
       setupReadiness: {
+        get: { invalidate: vi.fn() },
         firstSale: { invalidate: readinessInvalidateMock },
       },
     }),
@@ -200,9 +201,9 @@ describe('QuickCreateProductGate', () => {
       productFormPropsRef.current?.onExperienceChange?.('advanced');
     });
 
-    expect(advancedQueryEnabledMock.mock.calls.slice(-4).every(([enabled]) => enabled === true)).toBe(
-      true
-    );
+    expect(
+      advancedQueryEnabledMock.mock.calls.slice(-4).every(([enabled]) => enabled === true)
+    ).toBe(true);
   });
 
   it('opens the complete regulated form and lookup catalogs for a pharmacy tenant', () => {

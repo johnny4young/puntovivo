@@ -10,6 +10,7 @@ import * as schema from '../db/schema.js';
 import * as passwords from '../security/passwords.js';
 import { createInstallationSetup } from '../services/installation/setup.js';
 import { completeInstallationInput } from '../trpc/schemas/installation.js';
+import { ensureRegisterAssignmentTemplatesForSite } from '../services/cash-session/registers.js';
 
 const claim = {
   ownerName: 'New Owner',
@@ -170,6 +171,11 @@ describe('first-use ownership over real tRPC and SQLite', () => {
       companyId: company.id,
       name: claim.siteName,
     });
+    expect(server.db.select().from(schema.units).get()).toMatchObject({
+      tenantId: tenant.id,
+      name: 'Unidad',
+      standardCode: 'EA',
+    });
     expect(company.taxId).toBeNull();
     expect(server.db.select().from(schema.vatRates).all()).toHaveLength(0);
     const audit = server.db.select().from(schema.auditLogs).all();
@@ -204,6 +210,42 @@ describe('first-use ownership over real tRPC and SQLite', () => {
     await boot();
     expect(server.getSetupToken()).toBeNull();
   });
+
+  it.each([
+    ['es', 'Caja principal'],
+    ['en', 'Main register'],
+  ])(
+    'localizes a new default register in %s and preserves custom names',
+    async (language, expected) => {
+      expect((await submit()).statusCode).toBe(200);
+      const tenant = server.db.select().from(schema.tenants).get()!;
+      const site = server.db.select().from(schema.sites).get()!;
+      server.db
+        .update(schema.tenantLocaleSettings)
+        .set({ localeOverride: language })
+        .where(eq(schema.tenantLocaleSettings.tenantId, tenant.id))
+        .run();
+      const [created] = await ensureRegisterAssignmentTemplatesForSite(server.db, {
+        tenantId: tenant.id,
+        siteId: site.id,
+      });
+      expect(created).toMatchObject({ registerName: expected, label: expected });
+      server.db
+        .update(schema.denominationTemplates)
+        .set({ registerName: 'Custom register', label: 'Custom register' })
+        .where(eq(schema.denominationTemplates.id, created!.id))
+        .run();
+      const [retained] = await ensureRegisterAssignmentTemplatesForSite(server.db, {
+        tenantId: tenant.id,
+        siteId: site.id,
+      });
+      expect(retained).toMatchObject({
+        id: created!.id,
+        registerName: 'Custom register',
+        label: 'Custom register',
+      });
+    }
+  );
 
   it('rotates an unconsumed capability after restart and rejects the prior process token', async () => {
     const old = server.getSetupToken()!;

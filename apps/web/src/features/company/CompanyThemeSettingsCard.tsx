@@ -56,7 +56,9 @@ export function CompanyThemeSettingsCard() {
         description:
           nextPreference === 'system'
             ? t('company.theme.toast.systemDescription')
-            : t('company.theme.toast.themeDescription', { theme: nextPreference }),
+            : t('company.theme.toast.themeDescription', {
+                theme: t(`company.theme.options.${nextPreference}.label`),
+              }),
       });
     } catch (error) {
       onErrorToast(toast, t, {
@@ -122,7 +124,9 @@ export function CompanyThemeSettingsCard() {
 
       <p className="mt-4 text-sm text-fg3">
         {t('company.theme.activeAppearance')}{' '}
-        <span className="font-medium capitalize text-fg1">{resolvedTheme}</span>
+        <span className="font-medium capitalize text-fg1">
+          {t(`company.theme.options.${resolvedTheme}.label`)}
+        </span>
       </p>
     </section>
   );

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, forwardRef, type ReactNode, useCallback } from 'react';
+import { useState, useId, useRef, useEffect, forwardRef, type ReactNode, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, Check, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -62,6 +62,7 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(
     ref
   ) => {
     const { t } = useTranslation('common');
+    const triggerId = useId();
     const resolvedPlaceholder = placeholder ?? t('form.selectPlaceholder');
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
@@ -171,6 +172,7 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(
       <div className={cn('w-full', wrapperClassName)} ref={containerRef}>
         {label && (
           <label
+            htmlFor={triggerId}
             className={cn(
               'label mb-2',
               hasError && 'text-danger-700',
@@ -184,6 +186,7 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(
         <div className="relative">
           <button
             ref={ref}
+            id={triggerId}
             type="button"
             name={name}
             disabled={disabled}
@@ -257,7 +260,7 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(
               >
                 {filteredOptions.length === 0 ? (
                   <li className="px-3 py-4 text-center text-sm text-secondary-500">
-                    No options found
+                    {t('status.noResults')}
                   </li>
                 ) : (
                   filteredOptions.map((option, index) => (

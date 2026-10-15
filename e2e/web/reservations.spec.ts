@@ -99,7 +99,7 @@ test('future booking selects its day and conflicting booking shows the real loca
     `future-reservation-${info.parallelIndex}-${Date.now()}`
   );
   const tracker = attachClientIssueTracker(page);
-  await login(page, { ...scenario.admin, defaultPath: '/company' });
+  await login(page, { ...scenario.admin, defaultPath: '/dashboard' });
   await ensureLanguage(page, 'en');
   await createTable(page, 'Tomorrow table');
   await page.goto('/reservations');
@@ -175,7 +175,7 @@ test('reservation arrival, explicit traditional check, settlement and reload rec
 }, info) => {
   const scenario = seedReservationSaleScenario(`reservation-${info.parallelIndex}-${Date.now()}`);
   const tracker = attachClientIssueTracker(page);
-  await login(page, { ...scenario.admin, defaultPath: '/company' });
+  await login(page, { ...scenario.admin, defaultPath: '/dashboard' });
   await ensureLanguage(page, 'en');
   const tableName = 'Reservation Patio',
     guestName = 'Ada <script>text only</script>';
@@ -234,7 +234,7 @@ for (const surface of ['/m', '/touch/voice'] as const) {
       `reservation-surface-${info.parallelIndex}-${Date.now()}`
     );
     const tracker = attachClientIssueTracker(page);
-    await login(page, { ...scenario.admin, defaultPath: '/company' });
+    await login(page, { ...scenario.admin, defaultPath: '/dashboard' });
     await ensureLanguage(page, 'en');
     const tableName = 'Surface reservation';
     await createTable(page, tableName);

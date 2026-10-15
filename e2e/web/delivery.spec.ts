@@ -144,7 +144,7 @@ test('a real completed sale creates a linked delivery without charging or deduct
 }, info) => {
   const scenario = seedDeliverySaleScenario(`delivery-sale-${info.parallelIndex}-${Date.now()}`);
   const tracker = attachClientIssueTracker(page);
-  await login(page, { ...scenario.admin, defaultPath: '/company' });
+  await login(page, { ...scenario.admin, defaultPath: '/dashboard' });
   await ensureLanguage(page, 'en');
   await page.goto('/sales');
   await page.locator('#sales-product-search-input').fill(scenario.product.sku);

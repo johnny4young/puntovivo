@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { vanillaClient } from '@/lib/trpc';
 import { ensureApiBootstrap } from '@/lib/apiBootstrap';
@@ -6,6 +6,7 @@ import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Eye, EyeOff, LogIn, ScanLine, ShieldCheck, Warehouse } from 'lucide-react';
 import { useAuth } from './AuthProvider';
+import { LanguageSelector } from '@/components/form-controls/LanguageSelector';
 import { BrandMark } from '@/components/brand/BrandMark';
 import { translateServerError } from '@/lib/translateServerError';
 import type { LoginCredentials } from '@/types';
@@ -31,7 +32,7 @@ export function LoginPage() {
     refetchOnWindowFocus: false,
   });
   const { login, isLoading, error } = useAuth();
-  const { t } = useTranslation(['auth', 'errors']);
+  const { t, i18n } = useTranslation(['auth', 'errors']);
   const errorMessage = isDeviceIdentityChanged(error)
     ? t('login.previousOperatorActive')
     : error
@@ -41,8 +42,17 @@ export function LoginPage() {
   const {
     register,
     handleSubmit,
+    trigger,
     formState: { errors },
-  } = useForm<LoginCredentials>();
+  } = useForm<LoginCredentials>({ mode: 'onChange' });
+
+  const validationLanguage = useRef(i18n.resolvedLanguage);
+  useEffect(() => {
+    if (validationLanguage.current === i18n.resolvedLanguage) return;
+    validationLanguage.current = i18n.resolvedLanguage;
+    const invalidFields = Object.keys(errors) as Array<keyof LoginCredentials>;
+    if (invalidFields.length > 0) void trigger(invalidFields);
+  }, [i18n.resolvedLanguage, errors, trigger]);
 
   const onSubmit = async (data: LoginCredentials) => {
     try {
@@ -117,6 +127,9 @@ export function LoginPage() {
 
         <section className="shell-panel flex min-h-[38rem] flex-col justify-between px-6 py-8 sm:px-8 lg:min-h-full lg:px-10">
           <div>
+            <div className="mb-6 flex justify-end">
+              <LanguageSelector />
+            </div>
             <div className="flex items-center gap-3">
               <BrandMark
                 className="h-12 w-12 shrink-0 drop-shadow-[0_18px_40px_color-mix(in_oklch,var(--primary)_30%,transparent)]"

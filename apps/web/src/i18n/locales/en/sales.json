@@ -182,7 +182,8 @@
       "firstDay": "First day",
       "differenceLabel": "Difference",
       "incrementCount": "Increment",
-      "decrementCount": "Decrement"
+      "decrementCount": "Decrement",
+      "defaultRegisterName": "Main register"
     },
     "closeForm": {
       "title": "Close cash session",

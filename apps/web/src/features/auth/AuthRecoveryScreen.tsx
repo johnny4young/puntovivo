@@ -24,7 +24,7 @@ export function AuthRecoveryScreen({ recovery }: Props) {
   return (
     <main className="flex min-h-screen items-center justify-center bg-secondary-50 px-5 py-10">
       <section
-        className="w-full max-w-lg rounded-3xl border border-secondary-200 bg-white p-6 shadow-soft sm:p-8"
+        className="w-full max-w-lg rounded-3xl border border-secondary-200 bg-surface p-6 shadow-soft sm:p-8"
         aria-labelledby="auth-recovery-title"
         aria-busy={busy}
       >

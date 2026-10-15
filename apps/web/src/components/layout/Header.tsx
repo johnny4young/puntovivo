@@ -21,12 +21,7 @@ import { FiscalContingencyIndicator } from '@/features/fiscal/FiscalContingencyI
 import { TimeClockControl } from '@/features/staff/TimeClockControl';
 import { useCommandPalette } from '@/components/feedback/CommandPaletteProvider';
 import { Button } from '@/components/ui';
-import {
-  persistLanguagePreference,
-  readLanguagePreference,
-  resolveBootLocale,
-  type LanguagePreference,
-} from '@/i18n/resolveLocale';
+import { LanguageSelector } from '@/components/form-controls/LanguageSelector';
 import { isOnline } from '@/lib/utils';
 import { ariaKeyshortcutsFor, formatKeysForDisplay, getShortcutById } from '@/lib/shortcuts';
 import { useHeaderTitle } from './useHeaderTitle';
@@ -57,7 +52,7 @@ interface HeaderProps {
 export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
   const { user, logout } = useAuth();
   const { currentSite, currentTenant, isLoadingSites, sites, switchSite } = useTenant();
-  const { t, i18n } = useTranslation(['common', 'nav', 'auth', 'setup']);
+  const { t } = useTranslation(['common', 'nav', 'auth', 'setup']);
   const { kickerKey, titleKey } = useHeaderTitle();
   const { openPalette } = useCommandPalette();
   const navigate = useNavigate();
@@ -65,9 +60,6 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isStaffSwitchOpen, setIsStaffSwitchOpen] = useState(false);
-  const [languagePreference, setLanguagePreference] = useState<LanguagePreference>(() =>
-    readLanguagePreference()
-  );
   const userMenuId = 'header-user-menu';
   const accountRef = useRef<HTMLDivElement>(null);
   const accountButtonRef = useRef<HTMLButtonElement>(null);
@@ -112,24 +104,6 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
     value: site.id,
     label: site.name,
   }));
-
-  const languageOptions = [
-    { value: 'system', label: t('common:language.options.system') },
-    { value: 'es', label: t('common:language.options.es') },
-    { value: 'en', label: t('common:language.options.en') },
-  ] satisfies Array<{ value: LanguagePreference; label: string }>;
-
-  const handleLanguageChange = (value: string | number | null) => {
-    if (value !== 'system' && value !== 'es' && value !== 'en') {
-      return;
-    }
-    setLanguagePreference(value);
-    persistLanguagePreference(value);
-    // Persist FIRST, then resolve through the same precedence the boot
-    // uses, so picking "system" lands on the tenant language now instead
-    // of showing the OS language until the next launch disagrees.
-    void i18n.changeLanguage(resolveBootLocale());
-  };
 
   return (
     <header className="sticky top-0 z-30 px-4 pt-4 sm:px-6 xl:px-[22px]">
@@ -178,7 +152,7 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
             onClick={openPalette}
             aria-label={t('common:quickSearchAria')}
             aria-keyshortcuts={ariaKeyshortcutsFor('palette.open')}
-            className="pv-command-trigger flex h-10 w-full items-center border border-line-strong/55 bg-surface-2/70 px-0 xl:px-3.5 xl:pl-10 text-left text-[13px] text-secondary-500 outline-none transition hover:border-primary-200 hover:bg-white focus:border-primary-300 focus:bg-white focus:ring-4 focus:ring-primary-100/60"
+            className="pv-command-trigger flex h-10 w-full items-center border border-line-strong/55 bg-surface-2/70 px-0 xl:px-3.5 xl:pl-10 text-left text-[13px] text-secondary-500 outline-none transition hover:border-primary-200 hover:bg-surface-2 focus:border-primary-300 focus:bg-surface-2 focus:ring-4 focus:ring-primary-100/60"
           >
             <span className="hidden min-w-0 flex-1 truncate xl:block">
               {t('common:quickSearch')}
@@ -193,14 +167,7 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
 
         <div className="col-span-4 row-start-2 flex min-w-0 items-center gap-2 md:w-64 md:flex-none xl:w-72">
           <div className="w-28 min-w-0 flex-none">
-            <Select
-              options={languageOptions}
-              value={languagePreference}
-              onChange={handleLanguageChange}
-              placeholder={t('common:language.placeholder')}
-              className="pv-control-select h-10 border-line/70 bg-surface-2/70 px-3 text-[12.5px]"
-              triggerLabelClassName="max-w-[3.4rem]"
-            />
+            <LanguageSelector compact />
           </div>
 
           <div className="min-w-0 flex-1">

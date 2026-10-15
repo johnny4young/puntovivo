@@ -191,13 +191,13 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
       <section className="overflow-hidden rounded-[1.75rem] border border-primary-200/70 bg-[linear-gradient(135deg,#08263a_0%,#0d3a54_62%,#12506b_100%)] text-white shadow-[0_28px_70px_-48px_rgba(3,15,25,0.8)]">
         <div className="grid gap-6 p-5 sm:p-6 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.72fr)] lg:items-end">
           <div className="max-w-[48rem]">
-            <p className="text-[0.68rem] font-bold uppercase tracking-[0.2em] text-primary-200">
+            <p className="text-[0.68rem] font-bold uppercase tracking-[0.2em] text-sky-200">
               {tGuide('kicker')}
             </p>
             <h2 className="mt-2 max-w-[24ch] font-display text-[1.75rem] leading-[1.02] text-white sm:text-[2.2rem]">
               {tGuide('title')}
             </h2>
-            <p className="mt-3 max-w-[62ch] text-sm leading-6 text-primary-50/80">
+            <p className="mt-3 max-w-[62ch] text-sm leading-6 text-white/85">
               {tGuide('description', { total: stepCount })}
             </p>
           </div>
@@ -208,7 +208,7 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
               </span>
               {hasBlockers && (
                 <span
-                  className="rounded-full bg-danger-500/95 px-2.5 py-1 text-xs font-bold text-white"
+                  className="rounded-full bg-red-700 px-2.5 py-1 text-xs font-bold text-white"
                   data-testid="company-readiness-blocker-count"
                 >
                   {t('readiness.blocker.count', {
@@ -226,7 +226,7 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
               aria-label={tGuide('progress', { ready: resolvedCount, total: stepCount })}
             >
               <div
-                className="h-full rounded-full bg-primary-200 transition-[width]"
+                className="h-full rounded-full bg-sky-200 transition-[width]"
                 style={{ width: `${(resolvedCount / stepCount) * 100}%` }}
               />
             </div>
@@ -256,7 +256,7 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
           action={
             hasBlockers && nextRequired?.cta ? (
               <PrimaryTaskButton
-                className="shrink-0 bg-white text-primary-950 hover:bg-primary-50"
+                className="shrink-0 bg-white text-slate-950 hover:bg-slate-100"
                 onClick={() => goTo(nextRequired.cta!)}
                 data-testid={`company-readiness-cta-${nextRequired.id}`}
               >
@@ -265,7 +265,7 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
               </PrimaryTaskButton>
             ) : (
               <PrimaryTaskButton
-                className="shrink-0 bg-white text-primary-950 hover:bg-primary-50"
+                className="shrink-0 bg-white text-slate-950 hover:bg-slate-100"
                 onClick={continueToSales}
                 disabled={acknowledgeMutation.isPending}
                 data-testid={
@@ -280,6 +280,23 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
             )
           }
         />
+        {(readinessQuery.data.numberingGaps?.length ?? 0) > 0 && (
+          <div className="border-t border-white/15 px-5 py-4 text-sm text-white/85 sm:px-6">
+            <p>{t('readiness.numbering.hint')}</p>
+            <ul className="mt-2 list-inside list-disc space-y-1">
+              {readinessQuery.data.numberingGaps?.map(gap => (
+                <li key={gap.siteId}>
+                  {t('readiness.numbering.missing', {
+                    site: gap.siteName,
+                    types: gap.documentTypes
+                      .map(type => t(`readiness.numbering.types.${type}`))
+                      .join(', '),
+                  })}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </section>
 
       <section

@@ -21,7 +21,7 @@ for (const spanish of [false, true]) {
       },
       spanish ? 'es' : 'en'
     );
-    await login(page, { ...scenario.admin, defaultPath: '/company' }, { spanish });
+    await login(page, { ...scenario.admin, defaultPath: '/dashboard' }, { spanish });
     await page.goto('/peripherals');
     await page
       .getByRole('button', { name: /add device|agregar dispositivo/i })
@@ -78,7 +78,7 @@ for (const spanish of [false, true]) {
         },
         spanish ? 'es' : 'en'
       );
-      await login(page, { ...scenario.admin, defaultPath: '/company' }, { spanish });
+      await login(page, { ...scenario.admin, defaultPath: '/dashboard' }, { spanish });
       await page.goto('/peripherals');
       await page
         .getByRole('button', { name: /add device|agregar dispositivo/i })
