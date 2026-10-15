@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { randomUUID } from 'node:crypto';
-import { createServer, verifyTokenWithServer } from '@puntovivo/server';
+import { createServer, verifyTokenWithServer, type PuntovivoServer } from '@puntovivo/server';
 import { createHubAuthSession, HubAuthRemoteError } from '../session/hub-auth-session.ts';
 import { createEmbeddedAuthFetch, EMBEDDED_AUTH_ORIGIN } from '../session/embedded-auth-fetch.ts';
 
@@ -29,6 +29,18 @@ describe('embedded main-memory auth custody', () => {
       ).status,
       503
     );
+  });
+
+  it('returns null-body statuses without a body', async () => {
+    const server = {
+      app: { inject: async () => ({ statusCode: 204, body: '', headers: {} }) },
+    } as unknown as PuntovivoServer;
+    const response = await createEmbeddedAuthFetch(() => server)(
+      `${EMBEDDED_AUTH_ORIGIN}/api/trpc/auth.logout`,
+      { method: 'POST' }
+    );
+    assert.equal(response.status, 204);
+    assert.equal(response.body, null);
   });
 
   it('renews after the unchanged access TTL, shares rotation and rejects revocation', async t => {

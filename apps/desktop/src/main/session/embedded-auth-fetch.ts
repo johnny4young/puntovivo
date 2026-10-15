@@ -37,6 +37,10 @@ export function createEmbeddedAuthFetch(getServer: () => PuntovivoServer | null)
       if (Array.isArray(value)) for (const item of value) responseHeaders.append(name, item);
       else responseHeaders.set(name, String(value));
     }
-    return new Response(result.body, { status: result.statusCode, headers: responseHeaders });
+    const nullBody = [204, 205, 304].includes(result.statusCode);
+    return new Response(nullBody ? null : result.body, {
+      status: result.statusCode,
+      headers: responseHeaders,
+    });
   };
 }

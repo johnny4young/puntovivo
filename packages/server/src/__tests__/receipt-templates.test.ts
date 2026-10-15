@@ -1405,6 +1405,26 @@ describe('Receipt Templates (Iter 2)', () => {
           },
         }).success
       ).toBe(false);
+      for (const received of ['   ', 'x'.repeat(51)]) {
+        expect(
+          renderPreviewReceiptTemplateInput.safeParse({
+            ...input,
+            labels: {
+              ...legacyLabels,
+              tendersTable: { ...legacyLabels.tendersTable, received },
+            },
+          }).success
+        ).toBe(false);
+      }
+      expect(
+        renderPreviewReceiptTemplateInput.parse({
+          ...input,
+          labels: {
+            ...legacyLabels,
+            tendersTable: { ...legacyLabels.tendersTable, received: ' Efectivo recibido ' },
+          },
+        }).labels?.tendersTable.received
+      ).toBe('Efectivo recibido');
     });
 
     it('localizes fiscal preview authority from the tenant country', async () => {

@@ -371,6 +371,20 @@ describe('receiptPrinter', () => {
     await expect(captured!.text()).resolves.toContain('POS-000123');
   });
 
+  it('prints frozen cash received and change only when the sale captured them', async () => {
+    const cash = await buildSaleReceiptHtml({
+      ...sale,
+      cashReceivedSnapshot: 150,
+      cashChangeSnapshot: 36,
+    });
+    expect(cash).toContain('<span>Cash received</span><span>$150.00</span>');
+    expect(cash).toContain('<span>Change</span><span>$36.00</span>');
+
+    for (const nonCash of [{ ...sale, cashReceivedSnapshot: null }, sale]) {
+      expect(await buildSaleReceiptHtml(nonCash)).not.toContain('Cash received');
+    }
+  });
+
   it('skips the Tenders section for a single-tender sale', async () => {
     const html = await buildSaleReceiptHtml({
       ...sale,

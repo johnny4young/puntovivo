@@ -79,11 +79,10 @@ export async function handlePrintReceiptRequest(
       return { success: false, errorCode: 'PRINT_CANCELLED' };
     }
     const message = error instanceof Error ? error.message : 'Receipt printing failed';
+    deps.logError(error);
     if (/\bno printers? (?:available|found|installed)\b/i.test(message)) {
-      deps.logError(error);
       return { success: false, errorCode: 'PRINT_NO_PRINTERS', error: deps.t('print.noPrinters') };
     }
-    deps.logError(error);
     return {
       success: false,
       error: message,

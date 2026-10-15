@@ -15,6 +15,12 @@ function localAuth() {
     : (window.api?.session ?? window.session)?.localAuth;
 }
 
+function requireLocalAuth() {
+  const api = localAuth();
+  if (!api) throw new Error('Embedded authentication bridge is unavailable');
+  return api;
+}
+
 export function usesNativeAuthCustody(): boolean {
   return isHubClientAuth() || Boolean(localAuth());
 }
@@ -34,21 +40,15 @@ function unwrap<T>(result: HubAuthIpcResult<T>): T {
 
 export async function loginNative(input: { email: string; password: string }) {
   if (isHubClientAuth()) return loginToHub(input);
-  const api = localAuth();
-  if (!api) throw new Error('Embedded authentication bridge is unavailable');
-  return unwrap(await api.login(input));
+  return unwrap(await requireLocalAuth().login(input));
 }
 export async function refreshNative() {
   if (isHubClientAuth()) return refreshHubSession();
-  const api = localAuth();
-  if (!api) throw new Error('Embedded authentication bridge is unavailable');
-  return unwrap(await api.refresh());
+  return unwrap(await requireLocalAuth().refresh());
 }
 export async function switchStaffNative(input: { targetUserId: string; pin: string }) {
   if (isHubClientAuth()) return switchHubStaff(input);
-  const api = localAuth();
-  if (!api) throw new Error('Embedded authentication bridge is unavailable');
-  return unwrap(await api.switchStaff(input));
+  return unwrap(await requireLocalAuth().switchStaff(input));
 }
 export async function logoutNative() {
   if (isHubClientAuth()) return logoutFromHub();
