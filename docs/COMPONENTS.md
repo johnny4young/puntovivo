@@ -1,5 +1,7 @@
 # Components Guide
 
+**Language:** English · [Español](es/COMPONENTS.md)
+
 > Updated: April 9, 2026
 
 ## Overview

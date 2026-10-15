@@ -1,5 +1,7 @@
 # Human-first release notes
 
+**Language:** English · [Español](../es/releases/README.md)
+
 GitHub releases are product communication, not a copy of the commit log. Keep
 `CHANGELOG.md` as the technical, generated history and add one curated file here
 for every public tag.

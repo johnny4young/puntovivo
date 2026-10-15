@@ -1,5 +1,7 @@
 # tRPC Testing Guide
 
+**Language:** English · [Español](es/TRPC_TESTING_GUIDE.md)
+
 > Updated: June 1, 2026
 
 ## Current Testing Approach
@@ -17,12 +19,12 @@ The fastest reliable way to validate tRPC behavior in this repo is:
 
 Use Node 24+ from the repo root requirement.
 
-### Native rebuilds
+### Portable native verification
 
-After install:
+After install, verify the bundled Node-API prebuild; do not rebuild it:
 
 ```bash
-pnpm --filter @puntovivo/desktop run rebuild
+pnpm --filter @puntovivo/desktop run native:ensure:electron
 ```
 
 To prepare the current shell/runtime for server-side tests:
@@ -88,12 +90,16 @@ curl http://localhost:8090/api/health
 curl http://localhost:8090/api/trpc/health.check
 ```
 
-### Authenticated login example
+### Explicit disposable-fixture login example
+
+These credentials apply only to an explicitly seeded, owned disposable fixture.
+Use the actual owner account for an interactive installation; see
+[LOGIN_GUIDE.md](./LOGIN_GUIDE.md). The server uses plain JSON, not a transformer envelope.
 
 ```bash
 curl -X POST "http://localhost:8090/api/trpc/auth.login?batch=1" \
   -H "Content-Type: application/json" \
-  -d '{"0":{"json":{"email":"admin@localhost","password":"Admin123!Dev"}}}'
+  -d '{"0":{"email":"admin@localhost","password":"Admin123!Dev"}}'
 ```
 
 ### Hybrid auth smoke flow
@@ -106,14 +112,14 @@ curl -i -c cookies.txt "http://localhost:8090/api/trpc/health.check"
 curl -i -b cookies.txt -c cookies.txt \
   -X POST "http://localhost:8090/api/trpc/auth.login?batch=1" \
   -H "Content-Type: application/json" \
-  -d '{"0":{"json":{"email":"admin@localhost","password":"Admin123!Dev"}}}'
+  -d '{"0":{"email":"admin@localhost","password":"Admin123!Dev"}}'
 
-# 3. Call auth.refresh with refresh cookie + matching CSRF header
-curl -i -b cookies.txt \
+# 3. Read the updated CSRF token from the jar after login; refresh and save rotated cookies
+curl -i -b cookies.txt -c cookies.txt \
   -X POST "http://localhost:8090/api/trpc/auth.refresh?batch=1" \
   -H "x-csrf-token: <csrf-token-from-cookie-jar>" \
   -H "Content-Type: application/json" \
-  -d '{"0":{"json":null}}'
+  -d '{"0":null}'
 ```
 
 ## What to Validate for Typical Changes

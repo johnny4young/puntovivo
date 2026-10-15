@@ -1,5 +1,7 @@
 # Fiscal Integration
 
+**Language:** English · [Español](es/FISCAL-INTEGRATION.md)
+
 Puntovivo models fiscal documents as immutable operational evidence and keeps
 country-specific behavior behind a typed adapter boundary. Fiscal maturity is
 reported explicitly; a draft or mock pack must never appear certified.

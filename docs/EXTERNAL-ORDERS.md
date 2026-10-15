@@ -1,5 +1,7 @@
 # External orders: local sandbox operation
 
+**Language:** English · [Español](es/EXTERNAL-ORDERS.md)
+
 ## What this feature does
 
 With the Delivery module enabled, managers and administrators can open **External

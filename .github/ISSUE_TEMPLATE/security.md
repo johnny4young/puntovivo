@@ -6,6 +6,10 @@ labels: security
 assignees: ''
 ---
 
+# Security concern template
+
+**Language:** English · [Español](../../docs/es/repository/SECURITY-ISSUE-TEMPLATE.md)
+
 ## Do not publish exploitable details here
 
 Security vulnerabilities must be reported through a private maintainer channel

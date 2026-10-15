@@ -1,5 +1,7 @@
 # Module activation
 
+**Language:** English · [Español](es/MODULE-ACTIVATION.md)
+
 Puntovivo ships one codebase whose optional capability bundles can be enabled
 per tenant without deleting historical data or forking the product.
 

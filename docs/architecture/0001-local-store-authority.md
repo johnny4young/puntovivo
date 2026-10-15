@@ -1,5 +1,7 @@
 # 0001 — Local Store Authority
 
+**Language:** English · [Español](../es/architecture/0001-local-store-authority.md)
+
 > Status: Accepted
 > Date: 2026-05-02
 
@@ -21,24 +23,25 @@ writers.
 The embedded Fastify server runs **in-process** inside the Electron
 main process (`apps/desktop/src/main/` imports `@puntovivo/server`
 directly). This is not a deployment detail; it is the root of the authority
-model. Every operational mutation has the same physical guarantee as
-a local SQLite transaction, even when the network is offline.
+model. At the Authority Node, every operational mutation has the same physical
+guarantee as a local SQLite transaction, even when the external network is
+offline. A remote Hub client still requires a connection to its authority.
 
 Three runtime shapes share this rule:
 
 - **Desktop** — the deployed shape. Electron main embeds Fastify; the
   renderer talks to it through tRPC over HTTP loopback.
 - **Web development** — Vite serves the React app and Fastify runs
-  separately from `packages/server`. The local store is still the
-  developer's `packages/server/data/local.db`.
+  separately from `packages/server`. Bare server/E2E uses
+  `packages/server/data/local.db`; integrated development launchers select
+  `packages/server/data/shared.db` unless explicitly overridden.
 - **Standalone server** — the server package can run without
   Electron for tests. Tests treat the in-memory or tmpdir SQLite as
   the same kind of authority a real cashier device would have.
 
 The tenant-isolation invariant sits on top of this: every operational mutation is
 scoped by `ctx.tenantId`, derived server-side from the validated
-session — never from a renderer-supplied tenant id. already
-shipped this through the `desktopSession` singleton in
+session — never from a renderer-supplied tenant id. This is enforced through the `desktopSession` singleton in
 `apps/desktop/src/main/session/desktopSession.ts`; the Electron-free data-bridge
 handler core resolves that identity before any DB or sync operation runs.
 
@@ -52,8 +55,8 @@ handler core resolves that identity before any DB or sync operation runs.
   POS retail. Conflicts on money, fiscal, and cash require human
   resolution (see ADR-0004), not eventual convergence.
 - **Shared SQLite over a network share or remote file system** —
-  every multi-writer SQLite-over-NFS deployment we know of corrupts
-  under load and adds latency to the hot path of a sale.
+  violates the single-authority file boundary and adds remote-filesystem
+  availability and latency to the sale hot path.
 - **Migrate from Electron + SQLite to a fully cloud-native stack** —
   invalidates the local-first moat ("Local-first IS the moat. Moving
   to edge invalidates the privacy + latency story.").
@@ -77,9 +80,8 @@ handler core resolves that identity before any DB or sync operation runs.
   (`sales`, `sale_payments`, `sale_returns`, `cash_sessions`,
   `cash_movements`, `inventory_movements`, `inventory_balances`,
   `fiscal_documents`, `fiscal_document_items`, `audit_logs`) carry
-  `tenant_id` and the cashier-device-aware columns introduced by
-  (see ADR-0002). The future central server reads these
-  rows through a sync contract (), not by direct write.
+  `tenant_id` and the cashier-device-aware columns (see ADR-0002). The future central server reads these
+  rows through a sync contract (ADR-0005), not by direct write.
 - **Contract for the central server**: any sync architecture
   (libSQL embedded replicas spike) MUST preserve
   the local-write-first semantics. The replica may push into a cloud

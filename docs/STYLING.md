@@ -1,5 +1,7 @@
 # Styling Guide
 
+**Language:** English · [Español](es/STYLING.md)
+
 > Updated: April 9, 2026
 
 ## Current Styling Stack
@@ -7,13 +9,14 @@
 Puntovivo currently uses:
 
 - Tailwind CSS v4 via the Vite plugin
-- CSS variables in `index.css`
+- CSS variables in `styles/theme.css`, imported by `index.css`
 - `class-variance-authority` for component variants
 - `tailwind-merge` through the shared `cn()` helper
 
 Primary files:
 
 - [index.css](../apps/web/src/index.css)
+- [theme.css](../apps/web/src/styles/theme.css)
 - [utils.ts](../apps/web/src/lib/utils.ts)
 
 ## Theme Model
@@ -35,9 +38,9 @@ Behavior:
 
 ## Color System
 
-`index.css` defines:
+`styles/theme.css` defines:
 
-- semantic HSL variables for background, foreground, border, etc.
+- semantic OKLCH variables for background, foreground, border, etc.
 - custom palettes for:
   - primary
   - secondary
@@ -49,7 +52,7 @@ These are consumed directly in Tailwind utility classes such as:
 
 - `bg-primary-50`
 - `text-secondary-700`
-- `border-warning-200`
+- `border-warning-500`
 
 ## Typography and Layout Tokens
 

@@ -64,6 +64,78 @@
     {
       "en": "docs/OBSERVABILITY.md",
       "es": "docs/es/OBSERVABILITY.md"
+    },
+    {
+      "en": "docs/TRPC_ARCHITECTURE.md",
+      "es": "docs/es/TRPC_ARCHITECTURE.md"
+    },
+    {
+      "en": "docs/TRPC_TESTING_GUIDE.md",
+      "es": "docs/es/TRPC_TESTING_GUIDE.md"
+    },
+    {
+      "en": "docs/MODULE-ACTIVATION.md",
+      "es": "docs/es/MODULE-ACTIVATION.md"
+    },
+    {
+      "en": "docs/FISCAL-INTEGRATION.md",
+      "es": "docs/es/FISCAL-INTEGRATION.md"
+    },
+    {
+      "en": "docs/EXTERNAL-ORDERS.md",
+      "es": "docs/es/EXTERNAL-ORDERS.md"
+    },
+    {
+      "en": "docs/COMPONENTS.md",
+      "es": "docs/es/COMPONENTS.md"
+    },
+    {
+      "en": "docs/STYLING.md",
+      "es": "docs/es/STYLING.md"
+    },
+    {
+      "en": "docs/WEBHOOKS.md",
+      "es": "docs/es/WEBHOOKS.md"
+    },
+    {
+      "en": "docs/releases/README.md",
+      "es": "docs/es/releases/README.md"
+    },
+    {
+      "en": "packages/server/__fixtures__/invoice-ocr/README.md",
+      "es": "packages/server/__fixtures__/invoice-ocr/README.es.md"
+    },
+    {
+      "en": "packages/server/src/application/README.md",
+      "es": "packages/server/src/application/README.es.md"
+    },
+    {
+      "en": ".github/ISSUE_TEMPLATE/security.md",
+      "es": "docs/es/repository/SECURITY-ISSUE-TEMPLATE.md"
+    },
+    {
+      "en": ".github/pull_request_template.md",
+      "es": "docs/es/repository/PULL-REQUEST-TEMPLATE.md"
+    },
+    {
+      "en": "docs/INVENTORY-MODEL.md",
+      "es": "docs/es/INVENTORY-MODEL.md"
+    },
+    {
+      "en": "docs/architecture/0001-local-store-authority.md",
+      "es": "docs/es/architecture/0001-local-store-authority.md"
+    },
+    {
+      "en": "docs/architecture/0005-sync-payload-contract.md",
+      "es": "docs/es/architecture/0005-sync-payload-contract.md"
+    },
+    {
+      "en": "docs/architecture/0010-labor-overtime-policy.md",
+      "es": "docs/es/architecture/0010-labor-overtime-policy.md"
+    },
+    {
+      "en": "docs/architecture/README.md",
+      "es": "docs/es/architecture/README.md"
     }
   ],
   "bilingual": ["docs/TRANSLATIONS.md"],
