@@ -4,19 +4,49 @@ import { resolve, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 
-const fences = text =>
-  [...text.matchAll(/^```([^\n]*)\n([\s\S]*?)^```\s*$/gm)].map(match => [
-    match[1],
-    match[2].trimEnd(),
-  ]);
-const prose = text => text.replace(/^```[^\n]*\n[\s\S]*?^```\s*$/gm, '');
+function splitFences(text) {
+  const blocks = [];
+  const outside = [];
+  const lines = text.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const opening = lines[i].match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+    if (!opening || (opening[1][0] === '`' && opening[2].includes('`'))) {
+      outside.push(lines[i]);
+      continue;
+    }
+    const marker = opening[1][0];
+    const closing = new RegExp(`^ {0,3}${marker}{${opening[1].length},}\\s*$`);
+    const body = [];
+    while (++i < lines.length && !closing.test(lines[i])) body.push(lines[i]);
+    blocks.push([opening[2].trim(), body.join('\n').trimEnd()]);
+    outside.push('');
+  }
+  return { blocks, outside: outside.join('\n') };
+}
+const fences = text => splitFences(text).blocks;
+const prose = text => splitFences(text).outside;
 const identifiers = text =>
   [...prose(text).matchAll(/(?<!`)`([^`\n]+)`(?!`)/g)].map(match => match[1]).sort();
 const headings = text => [...prose(text).matchAll(/^(#{1,6})\s+(.+)$/gm)];
-const targets = text =>
-  [...prose(text).matchAll(/\]\(([^)]+)\)|(?:src|href)=["']([^"']+)["']/g)].map(match =>
+function targets(text) {
+  const content = prose(text);
+  const result = [...content.matchAll(/\]\(([^)]+)\)|(?:src|href)=["']([^"']+)["']/g)].map(match =>
     (match[1] ?? match[2]).replace(/^<|>$/g, '')
   );
+  const normalize = label => label.trim().replace(/\s+/g, ' ').toLowerCase();
+  const references = new Map(
+    [...content.matchAll(/^ {0,3}\[([^\]\n]+)\]:\s*(?:<([^>]+)>|(\S+))/gm)].map(
+      ([, label, bracketed, bare]) => [normalize(label), bracketed ?? bare]
+    )
+  );
+  for (const match of content.matchAll(/\[([^\]\n]+)\](?:\[([^\]\n]*)\])?/g)) {
+    const next = content[match.index + match[0].length];
+    if (next === '(' || next === ':') continue;
+    const destination = references.get(normalize(match[2] || match[1]));
+    if (destination) result.push(destination);
+  }
+  return result;
+}
 const equal = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 function slug(text) {
@@ -28,14 +58,17 @@ function slug(text) {
 }
 function anchors(text) {
   const seen = new Map();
-  return new Set(
-    headings(text).map(([, , title]) => {
+  return new Set([
+    ...headings(text).map(([, , title]) => {
       const base = slug(title);
       const count = seen.get(base) ?? 0;
       seen.set(base, count + 1);
       return count ? `${base}-${count}` : base;
-    })
-  );
+    }),
+    ...[...prose(text).matchAll(/<[a-z][^>]*\s(?:id|name)=["']([^"']+)["'][^>]*>/gi)].map(
+      match => match[1]
+    ),
+  ]);
 }
 function localTarget(root, file, target) {
   if (/^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(target)) return null;
@@ -143,10 +176,18 @@ export function inventory(root, registry) {
   };
 }
 
+/** A newly tracked current guide must be registered, alongside pair/link validation. */
+export function checkDocumentation(root, registry) {
+  return [
+    ...checkTranslations(root, registry),
+    ...inventory(root, registry).uncovered.map(file => `Untranslated current document: ${file}`),
+  ];
+}
+
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
   const registry = JSON.parse(readFileSync(resolve(root, 'docs/translations.json'), 'utf8'));
-  const errors = checkTranslations(root, registry);
+  const errors = checkDocumentation(root, registry);
   if (errors.length) {
     errors.forEach(error => console.error(error));
     process.exitCode = 1;

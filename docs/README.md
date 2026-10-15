@@ -4,8 +4,8 @@
 
 This directory holds the design docs, runbooks, and reference material for the
 project. Read the right file for the question, not the whole directory.
-The [bilingual coverage](./TRANSLATIONS.md) identifies maintained translations;
-untranslated links in the Spanish index are explicitly marked as English.
+All maintained guides have English and Spanish counterparts. Use the language
+selector in each guide or the [bilingual index](./TRANSLATIONS.md).
 
 ---
 

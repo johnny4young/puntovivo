@@ -24,7 +24,8 @@ saldos iniciales o documentos externos.
 - Solo `sales.create` convierte. La entrada normal lleva cotización y línea de
   origen; series requeridas son despacho, no cambio de términos comerciales.
 - Bajo `BEGIN IMMEDIATE`, relee cotización del negocio y exige aceptada,
-  instante ISO válido no vencido, misma sede/cliente/nivel/moneda e identidad,
+  instante ISO válido no vencido cuando existe `validUntil` (null significa sin
+  vencimiento), misma sede/cliente/nivel/moneda e identidad,
   cantidad, unidad, precio, descuento e impuesto exactos.
 - Venta, inventario/caja, auditoría, estado de cotización y fila inmutable
   `quotation_sale_links` confirman juntos. Índices únicos de cotización y venta

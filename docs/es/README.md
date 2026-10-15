@@ -3,9 +3,8 @@
 **Idioma:** Español · [English](../README.md)
 
 Este directorio contiene diseños, procedimientos operativos y referencias del
-proyecto. Elige el archivo que responda tu pregunta. Los enlaces marcados como
-«inglés» todavía no tienen traducción; la [cobertura bilingüe](../TRANSLATIONS.md)
-identifica las versiones mantenidas.
+proyecto. Elige el archivo que responda tu pregunta. Todas las guías vigentes tienen versiones en inglés y español. Usa el selector
+de idioma de cada guía o el [índice bilingüe](../TRANSLATIONS.md).
 
 ---
 

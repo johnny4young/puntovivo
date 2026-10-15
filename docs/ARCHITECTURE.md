@@ -1,5 +1,7 @@
 # Puntovivo Architecture
 
+**Language:** English · [Español](es/ARCHITECTURE.md)
+
 Puntovivo is a local-first modular monolith. The browser and Electron renderer
 share one React application; Fastify and tRPC own business APIs; SQLite is the
 operational authority. In Electron, the Fastify server runs in-process inside
@@ -416,9 +418,11 @@ Splits, moves and voids update operational state without rewriting or duplicatin
 food already sent. Observed-version CAS protects kitchen transitions; recall and
 resend retain ticket identity. [ADR-0021](./architecture/0021-durable-kitchen-preparation.md)
 defines the bounded read, legacy adoption and at-least-once notification contracts.
-The current restaurant UI still lacks a manager-authored modifier catalog:
-free-form positive modifier prices are bounded and frozen, but not yet
-policy-authorized per catalog entry.
+Managers configure a versioned, site-local modifier catalog in the UI. Cashier
+surcharges require an exact active catalog reference validated inside the sale
+transaction; free-form zero-price instructions remain available, while custom
+charges and restricted add-ons require a manager or administrator. Catalog edits
+and archival never rewrite accepted orders.
 
 ## Reservation and external fulfillment boundary
 
@@ -778,7 +782,8 @@ changes the currently open drawer only at the original sale site; a credit-sale
 portion reduces the same customer balance; external tenders require an operator
 reference. Store-credit issuance requires the original sale customer and posts
 one immutable movement to the tenant/customer/currency account with a
-compare-and-swap balance update. Store credit is not yet a checkout tender.
+compare-and-swap balance update. Store credit is also a checkout tender under
+the shared customer-value payment contract.
 
 Stock restoration is equally evidence driven. A return restores only the exact
 lot quantities and serial identities frozen on the selected sale lines. A
@@ -791,10 +796,11 @@ independently completed replacement sale. The replacement uses the normal sale
 rules and, when the original sale has a customer, must retain that customer.
 Return domain rows, inventory/customer effects, audit, the version-2 sync
 aggregate, independent mutable-resource outboxes, and command completion commit
-atomically. Fiscal emission, realtime notification, and journal presentation
-run after commit and still need an explicit repair queue before they can be
-claimed as self-healing. The sync payload is durable local intent, not evidence
-of complete causal convergence between devices.
+atomically. Fiscal-enabled returns also record a durable credit-note intent in
+that transaction; a restartable worker materializes it and its provider outbox
+after commit. Realtime notification and journal presentation remain best-effort
+effects rather than guaranteed self-healing delivery. The sync payload is
+durable local intent, not evidence of complete causal convergence between devices.
 
 [ADR-0014](./architecture/0014-normalized-sale-returns-and-store-credit.md)
 owns this boundary and its compatibility rules.

@@ -1,5 +1,7 @@
 # Explicit attendance reconciliation and operational cost
 
+**Language:** English · [Español](../es/architecture/0029-attendance-reconciliation-and-operational-cost.md)
+
 Status: Accepted
 
 ## Decision

@@ -1,5 +1,7 @@
 # Consent-bound employee shift exchanges
 
+**Language:** English · [Español](../es/architecture/0028-employee-shift-exchanges.md)
+
 Status: Accepted
 
 ## Decision

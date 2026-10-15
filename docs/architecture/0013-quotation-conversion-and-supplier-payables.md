@@ -30,7 +30,8 @@ could not represent opening balances or documents received outside Puntovivo.
   fulfillment input, not a commercial-term override.
 - Inside the sale's `BEGIN IMMEDIATE` transaction, the server re-reads the
   tenant-owned quotation and requires accepted state, a valid unexpired ISO
-  instant, the same site/customer/tier/currency, and exact line identity,
+  instant when `validUntil` is present (null means no expiry), the same
+  site/customer/tier/currency, and exact line identity,
   quantity, unit, price, discount, and tax snapshots.
 - The sale, inventory and cash effects, audit evidence, quotation status, and
   one immutable `quotation_sale_links` row commit together. Unique indexes on

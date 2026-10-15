@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { checkTranslations } from './check-documentation-translations.mjs';
+import { execFileSync } from 'node:child_process';
+import { checkTranslations, checkDocumentation } from './check-documentation-translations.mjs';
 
 const registry = { pairs: [{ en: 'en.md', es: 'es.md' }], bilingual: [] };
 function fixture(t, change = text => text) {
@@ -63,6 +64,56 @@ test('validates fragments on the current document and refuses repository travers
 test('catches identifier occurrence drift even when the unique names still match', t => {
   const root = fixture(t, text => text + '\n`PORT`\n');
   assert.ok(checkTranslations(root, registry).some(error => error.startsWith('Identifier drift')));
+});
+
+for (const marker of ['   ```', '~~~']) {
+  test(`catches command drift inside valid ${JSON.stringify(marker)} fences`, t => {
+    const root = fixture(t);
+    for (const [file, command] of [
+      ['en.md', 'pnpm test'],
+      ['es.md', 'curl example.invalid'],
+    ])
+      writeFileSync(
+        join(root, file),
+        readFileSync(join(root, file), 'utf8') + `\n${marker}sh\n${command}\n${marker}\n`
+      );
+    assert.ok(
+      checkTranslations(root, registry).some(error => error.startsWith('Code block drift'))
+    );
+  });
+}
+
+test('validates full, collapsed and shortcut reference destinations', t => {
+  const root = fixture(
+    t,
+    text =>
+      text +
+      '\n[Full][guide]\n[collapsed][]\n[shortcut]\n' +
+      '[guide]: missing-full.md\n[collapsed]: <missing-collapsed.md>\n[shortcut]: missing-shortcut.md\n'
+  );
+  const errors = checkTranslations(root, registry);
+  for (const destination of ['missing-full.md', 'missing-collapsed.md', 'missing-shortcut.md'])
+    assert.ok(errors.some(error => error === `Broken local link: es.md -> ${destination}`));
+});
+
+test('accepts stable explicit HTML anchors alongside translated headings', t => {
+  const root = fixture(t, text => text + '\n<a id="recovery"></a>\n[Recover](#recovery)\n');
+  assert.deepEqual(checkTranslations(root, registry), []);
+});
+
+test('rejects newly tracked current guides while allowing registered bilingual and historical files', t => {
+  const root = fixture(t);
+  const completeRegistry = { ...registry, bilingual: ['policy.md'], historical: ['release-*.md'] };
+  writeFileSync(join(root, 'policy.md'), '# English / Español\n');
+  writeFileSync(join(root, 'release-v1.md'), '# Historical release\n');
+  writeFileSync(join(root, 'new-guide.md'), '# New maintained guide\n');
+  execFileSync('git', ['init', '-q'], { cwd: root });
+  execFileSync('git', ['add', '.'], { cwd: root });
+  assert.deepEqual(checkDocumentation(root, completeRegistry), [
+    'Untranslated current document: new-guide.md',
+  ]);
+  completeRegistry.bilingual.push('new-guide.md');
+  assert.deepEqual(checkDocumentation(root, completeRegistry), []);
 });
 
 test('CI schedules the documentation contract for Markdown, registry and checker changes', () => {

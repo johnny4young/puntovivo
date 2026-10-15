@@ -1,5 +1,7 @@
 # Performance Budgets
 
+**Language:** English · [Español](es/PERF-BUDGETS.md)
+
 > Status: shipped engine (bundle-size + fixture/store-sized tRPC p95 latency + 1k/10k/50k product-search profile + 100k audit-chain verification/redaction + data-scale UI + same-renderer long-shift soak + launch import + encrypted backup + bounded recovery queue + Electron memory/launch + Lighthouse web vitals).
 > Source of truth: `perf-budget.json` at the repo root.
 
@@ -8,11 +10,16 @@ and what to do when a build trips a regression. The principle is the
 same as the coverage floor: every regression is a deliberate choice,
 documented in the same PR that produces it.
 
-The lazy employment workspace is tracked at a 5.55 kB gzip baseline (measured
-5.54 kB), and the audit locale namespace at 5.05 kB (measured 5.03 kB). These are
-new tracked chunks after crossing the existing 5 kB admission threshold; no
-existing chunk ceiling or tolerance is increased. Employment forms and private
-history load only when opening the employment workspace, not at application boot.
+The lazy employment workspace retains its 5.55 kB gzip baseline (historically
+measured at 5.54 kB). The audit locale namespace was initially tracked at
+5.05 kB (measured 5.03 kB); its current ceiling is 5.5 kB after accumulated
+lazy audit copy measured 5.33 kB. The current source of truth is the JSON
+budget, not an earlier measurement. Employment forms and private history
+load only when opening the employment workspace, not at application boot.
+
+Measurements cited below are retained historical references, not new runtime
+qualification from this documentation update. Where a retained observation has
+no date, it does not establish current candidate or hosted-runner readiness.
 
 ## Startup chunk reachability
 
@@ -187,7 +194,7 @@ flight, closes the dialog, and requires the created preview URL to be revoked
 before the successful response is released. This catches resource ownership
 and stale-async regressions that a heap number alone cannot diagnose.
 
-The live soak is opt-in and excluded from the ordinary 107-test suite and push
+The live soak is opt-in and excluded from the ordinary functional suite and push
 CI. `ci:web` does run `long-shift-memory.test.mts` and
 `long-shift-soak-contract.test.mjs`, pinning comparison math, metric coverage,
 budget shape, tags, serial execution, and that the soak cannot silently enter
@@ -199,7 +206,7 @@ separate built-runtime gate below.
 `__tests__/perf-store-profile.test.ts` turns the deterministic `mega` seed into
 a server-CI contract rather than a visual demo. The test refuses to benchmark
 until one tenant contains at least 500 products, 80 customers, 800 sales, 2,500
-inventory movements, 900 audit events, and 150 customer-ledger entries. The
+inventory movements, 12 orders, 900 audit events, and 150 customer-ledger entries. The
 seed also proves that every credit sale has an append-only receivable entry and
 that refunded or voided credit sales net to zero through reversal rows.
 
@@ -212,7 +219,8 @@ this isolated profile fails.
 
 After five warmups, the suite measures 20 real tRPC caller invocations for each
 hot read and computes p95. The checked-in baselines are 10 ms for sales and
-inventory movements; 15 ms for stock and audit; 8 ms for ledger list/balance;
+inventory movements; 15 ms for stock and audit; 20 ms for replenishment
+suggestions; 8 ms for ledger list/balance;
 and 60 ms for day-close preview. The complete seed has a 4,000 ms elapsed-time
 baseline. Every value receives the store profile's 30% runner-jitter allowance.
 
@@ -376,8 +384,7 @@ adding provider or host noise to ordinary CI:
   ranking over the production 200-candidate ceiling. It covers 384–4,096
   dimensions, 30 samples, storage bytes, p95, recall@10, and maximum similarity
   error.
-- `pnpm --filter @puntovivo/server run benchmark:product-embeddings --
---models=<comma-separated-models>` embeds the versioned 36-product,
+- `pnpm --filter @puntovivo/server run benchmark:product-embeddings -- --models=<comma-separated-models>` embeds the versioned 36-product,
   24-query corpus with local Ollama. It records nDCG@10, recall@3, MRR, top-1,
   full top-ten evidence, dimensions, observed batch/warmup latency, installed
   model digest, and JSON/PVEC storage.
@@ -425,7 +432,8 @@ reads:
   embedded-server startup, window creation, renderer load, the measurement
   settle period, and orderly quit.
 
-These values share a 35% runner-jitter allowance. They are regression budgets,
+Elapsed-time baselines share a 35% runner-jitter allowance; the streaming RSS
+ceilings and queue bound are exact. These are regression budgets,
 not service promises. Signed installer startup and production-volume recovery
 on Linux, macOS, and Windows remain release-candidate evidence because CI's
 built runtime is not a packaged or signed artifact.
@@ -484,8 +492,7 @@ run before the live memory launch in `ci:desktop`.
 Playwright Chromium is present, seeds an isolated demo SQLite database, builds
 a private web bundle pointed at a dedicated API port, starts the standalone API
 server plus Vite preview on ports separate from the normal dev stack, and
-invokes `scripts/check-lighthouse.mjs --strict
---require-measurement`. The check measures the front-end load experience —
+invokes `scripts/check-lighthouse.mjs --strict --require-measurement`. The check measures the front-end load experience —
 LCP, TTI, CLS, and the Lighthouse performance score — for the top
 user-facing routes (`authenticatedBoot`, `/dashboard`, `/sales`, `/products`).
 `authenticatedBoot` navigates an already authenticated browser to `/login` and
@@ -521,8 +528,9 @@ How a run works:
    lands in an httpOnly cookie; the in-memory access token is re-minted via
    `auth.refresh` on each navigation, so authenticated routes measure correctly
    with `disableStorageReset:true`.
-4. Warm up each route (the Vite dev server compiles route modules on first hit —
-   a cold visit is 10s+, a warm one ~3s; measuring cold would be meaningless).
+4. Warm up each route before the measured audits. The isolated runner serves a
+   production preview; the direct diagnostic command can also target a dev
+   server. Keep those host and build contexts distinct when comparing results.
 5. Run Lighthouse `samplesPerRoute` times per route. The policy requires an odd
    sample count from 5 through 9; the checked configuration uses five complete
    audits per route.
@@ -545,7 +553,7 @@ How a run works:
    distribution is judged instead, so a partial count never passes as
    complete evidence.
 8. Compare timings and CLS with their percentage variance and score with its
-   two-point absolute band. Fail missing evidence or a high-IQR score range that
+   current five-point absolute band. Fail missing evidence or a high-IQR score range that
    crosses the enforced floor; report high-IQR same-side ranges as conclusive
    volatility.
 
@@ -555,8 +563,9 @@ memory size. It deliberately omits the hostname. Keep that line when comparing
 local and shared-runner calibration; a score without its host class is not
 portable evidence.
 
-The two-point score band is calibrated from release-line evidence rather than
-the developer machine alone. Earlier shared runners measured the sales route at
+The score band is calibrated from release-line evidence rather than the
+developer machine alone. The following two-point-band observations describe
+earlier budget versions, not the current five-point acceptance band. Earlier shared runners measured the sales route at
 69, 71, and 72, including a 69/71 rerun pair for the same PR commit, while
 repeated local medians were 74–75. On 2026-08-25 the release-only PR 202 then
 produced two conclusive medians of 67 on AMD EPYC 7763 runners: a five-sample
@@ -566,11 +575,19 @@ EPYC 9V74 runner, and the exact PR 202 head measured 77 locally; the remote
 sales LCP medians remained healthy at 3.06 s and 3.05 s.
 
 Budget version 5 lowered only the declared sales floor from 70 to 69 while
-preserving the two-point band, so the enforced floor is 67. Budget version 6
-renames `login` to `authenticatedBoot` without changing any threshold. This is a
-route-specific slow-runner calibration, not a broader tolerance increase or a
-CPU-model exception: other routes retain their floors, and a sales median below
-67 still fails. The report prints both the declared and enforced limits. An IQR
+preserving the then-current two-point band, so its enforced floor was 67. Budget version 6
+renames `login` to `authenticatedBoot` without changing any threshold. That historical change was a
+route-specific slow-runner calibration, not a CPU-model exception. The current
+budget version 8 instead uses a five-point absolute band and retains the declared
+sales floor of 69, so a sales median below 64 fails. The retained version-8
+calibration records consecutive scores of 73 and 66 for a byte-identical web build
+in PR 230, with IQR 1 in both runs, and adjacent unchanged sales bundles scoring
+70 and 65. The record supplies no measurement date. This between-run shift moved
+the whole distribution and was not visible to the within-run IQR rule. The current
+band therefore catches large score regressions; bundle and timing budgets keep
+their independent coverage. The checker also records Lighthouse CPU benchmark
+indices per sample to support future same-host comparisons. The report prints
+both the declared and enforced limits. An IQR
 above four points rejects the run only when samples straddle that enforced
 floor; this targets decision uncertainty rather than punishing harmless
 variance far away from the boundary.
@@ -625,7 +642,7 @@ when the PR lands, not when a customer complains.
 
 `pnpm run ci:web` chains:
 
-1. `pnpm audit --audit-level low` across production and development dependencies,
+1. Shared checks and the owned dependency-audit runner (`pnpm run ci:audit`),
    then typecheck, lint, unit tests with coverage, and build.
 2. `node --test scripts/check-bundle-size.test.mjs` — pins the
    strip-hash regex + compare logic.
@@ -680,7 +697,7 @@ Mitigations against runner jitter:
 
 The bundle-size and tRPC-latency gates above are synthetic — they measure the
 build and the server in isolation. They cannot see what the cashier's actual
-browser experiences on the actual hardware. closes that gap with
+browser experiences on the actual hardware. RUM closes that gap with
 field measurement.
 
 `apps/web/src/lib/observability.ts::installWebVitalsReporter()` hooks the
@@ -734,8 +751,8 @@ cashier hits hundreds of times a day.
 | `/login`                               |   <= 2.0 s |  <= 200 ms | First impression; no auth round-trip yet.            |
 | `/sales`                               |   <= 2.5 s |  <= 200 ms | The hot path — checkout responsiveness matters most. |
 | `/dashboard`                           |   <= 2.5 s |  <= 200 ms | First screen after sign-in.                          |
-| `/products`, `/inventory`, list routes |   <= 2.5 s |  <= 200 ms | Large DataTables; virtualised since .                |
-| CLS (all routes)                       |     <= 0.1 |          — | Image dimensions hardened in .                       |
+| `/products`, `/inventory`, list routes |   <= 2.5 s |  <= 200 ms | Large DataTables with virtualised rows.              |
+| CLS (all routes)                       |     <= 0.1 |          — | Explicit image dimensions reduce layout shifts.      |
 
 When the dashboard change lands it will compute per-tenant medians + p95 per
 `(route, metric)` and flag routes whose p95 breaches the target above.
@@ -783,14 +800,12 @@ changed.
    regex-based — your chunk's name (without the `-<hash>.js`
    suffix) must match the budget key verbatim.
 
-Exception — conditional chunks: a chunk that only exists in some
-builds gets NO budget entry, because the entry would emit a
-"chunk in budget but absent" warning on every build that lacks it.
-The one case today is `sentry`: the lazy adapter chunk
-(~28 kB gz) only exists when the build ran with
-`VITE_PUNTOVIVO_SENTRY_DSN` set; a DSN-less build (the CI default)
-dead-code-eliminates it entirely. A DSN build surfaces it under
-the gate's "new chunks" warning, which does not fail.
+Conditional chunks follow the same fail-closed contract. A chunk that exists only
+in some builds cannot keep an unconditional budget entry if other supported
+builds omit it: a missing budgeted chunk fails. Conversely, any emitted chunk
+at or above 5 kB gzip needs a deliberate matching baseline, including optional
+integrations. Do not treat an unbudgeted conditional chunk as a warning-only
+exception.
 
 ## Capturing baselines from scratch
 
@@ -803,10 +818,10 @@ The PASS report at the end of the script lists each tracked chunk
 with budget vs actual. Copy the actual values into
 `perf-budget.json`.
 
-For latency:
+For latency, run the dedicated profile with no other performance gate active:
 
 ```
-pnpm --filter @puntovivo/server run test:coverage -- perf-trpc-latency
+pnpm --filter @puntovivo/server run test:perf:trpc
 ```
 
 When the test fails it prints the measured p95 in the error
@@ -852,13 +867,7 @@ The runner owns a temporary database and web build by default, so the CI proof
 does not depend on the operator's local `packages/server/data/local.db`, open
 browser tabs, or ports 3000/8090.
 
-## Out-of-scope follow-ups
-
-- **Operations Center surface** of the latest measured baseline so
-  the operator can see the current state without opening the JSON
-  file. Will land alongside supportability so the surface
-  consolidates with the attention queue instead of growing a
-  parallel panel.
+## Runtime memory and search invariants
 
 ### SQLite read-mapping envelope
 

@@ -1,5 +1,7 @@
 # 0020 — Restaurant service and check model
 
+**Language:** English · [Español](../es/architecture/0020-restaurant-service-check-model.md)
+
 > Status: Accepted
 > Date: 2026-09-03
 

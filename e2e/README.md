@@ -1,5 +1,7 @@
 # End-to-end validation
 
+**Language:** English · [Español](README.es.md)
+
 Playwright tests that drive the real web app (`apps/web`) against the real
 backend (`packages/server`) with `better-sqlite3` storage, plus a serial
 Electron suite that drives the real desktop runtime in development or from a
@@ -53,7 +55,7 @@ What happens behind that command:
 
 1. `scripts/ensure-playwright-browser.mjs` installs Chromium into
    `.playwright-browsers/` if the cache is cold (subsequent runs are free).
-2. `native:ensure:node` verifies that the bundled Node-API SQLite addon loads
+2. The server workspace is built, then `native:ensure:node` verifies that the bundled Node-API SQLite addon loads
    under Node before Playwright's `globalSetup` touches the database.
 3. Playwright starts its own loopback standalone server (port 8090, or the
    port in `PUNTOVIVO_E2E_API_ORIGIN`) and Vite renderer on port 5173. It
@@ -278,8 +280,7 @@ exceptions. The session UUID is an evidence correlation id, not a machine
 identity; use the same value in the Gate 5 draft.
 
 `--candidate-root` is especially important for a released historical SHA: the
-wrapper lives in the current tooling checkout but executes `pnpm run
-test:e2e:electron:packaged` inside the separate clean candidate worktree while
+wrapper lives in the current tooling checkout but executes `pnpm run test:e2e:electron:packaged` inside the separate clean candidate worktree while
 `PUNTOVIVO_PACKAGED_APP` points at the installed artifact. Install that
 worktree's dependencies and native bindings first. See the representative Gate
 5 section in `docs/TESTING.md` for the signed-install/upgrade/downgrade artifact
@@ -289,40 +290,48 @@ What happens:
 
 1. `@puntovivo/server` is built so the compiled DB bootstrap helpers
    are importable.
-2. The desktop preflight verifies the Electron runtime binary exists
+2. For development runs, `electron:ensure:binary` verifies the Electron runtime binary exists
    and has a valid macOS code signature when running on macOS. It can
    also repair a corrupt local Electron.app with a fresh install plus
    ad-hoc signing.
-3. `build:main --workspace=@puntovivo/desktop` rebuilds the Vite main
-   - preload bundles that Electron launches and copies Drizzle
-     migrations beside the bundled server.
-4. `ensure-electron-main-build.mjs` verifies the rebuilt bundles are
-   present.
+3. For development runs, `pnpm --filter @puntovivo/desktop run build:main`
+   rebuilds the Vite main + preload bundles that Electron launches and copies
+   Drizzle migrations beside the bundled server.
+4. For development runs, `ensure-electron-main-build.mjs` verifies the rebuilt
+   bundles are present. Packaged runs drive the supplied artifact without
+   rebuilding its main/preload bundles or installing a development runtime.
 5. The shared Node-API SQLite binary is verified under Node so Playwright
    `globalSetup` can seed the DB.
-6. Playwright starts the web workspace's `dev` command to serve the renderer
-   bundle.
-   Electron still starts its own embedded Fastify server; the web
-   server is not the application backend for this suite.
+6. Development runs start the web workspace's `dev` command to serve the
+   renderer on port 3000, refusing to reuse an existing server. Packaged runs
+   use the artifact's `puntovivo-app://` renderer and start no Vite server.
+   Electron starts its own embedded Fastify server on loopback port 18091
+   (overridable with `PUNTOVIVO_E2E_API_PORT`); the renderer server is not the
+   application backend for this suite.
 7. `playwright.electron.config.ts` runs `e2e/electron/global-setup.ts`
    which:
-   - Wipes `test-results/electron-userdata/` from prior runs.
-   - Calls `initDatabase({ dbPath: <tmpdir>/data/local.db })` so the
-     fresh DB runs the full drizzle migrations + default-data seed.
+   - Wipes `test-results/electron-userdata/` and
+     `test-results/electron-userdata-template/` from prior runs.
+   - Calls `initDatabase` to create an encrypted template database under
+     `test-results/electron-userdata-template/data/local.db` with the explicit
+     E2E key, full Drizzle migrations, and default-data seed.
    - Runs `prepareBaseline()` from `e2e/shared/baseline.ts` to upsert
      the 4 template users and ensure the secondary site exists.
 8. For each test, the `electronApp` fixture in
-   `e2e/electron/fixtures.ts` verifies the same Node-API addon under Electron,
-   launches Electron with `--user-data-dir=<tmpdir>`, and forwards Electron
-   stdout/stderr/exit status into the Playwright output. The `page` fixture
-   yields `electronApp.firstWindow()`.
-9. Workers=1 (the Electron suite serialises — two concurrent launches
-   would race the WAL on the tmpdir DB).
+   `e2e/electron/fixtures.ts` copies the encrypted template into a unique
+   per-test userData directory (empty-installation journeys start empty).
+   Development runs verify the same Node-API addon under Electron and launch
+   with `--user-data-dir=<tmpdir>`; packaged runs launch the selected artifact
+   and attach over CDP. Process diagnostics remain part of the proof. The
+   `page` fixture exposes the real renderer; the development path uses
+   `electronApp.firstWindow()`.
+9. Workers=1 and retries=0. The Electron suite stays serial because launches
+   share the isolated API port, even though each test owns its database.
 
 ### Coverage
 
-The suite contains one platform smoke plus ten target-agnostic operator
-journeys:
+The suite includes the following platform smoke and target-agnostic operator
+journeys; this list highlights core coverage rather than a fixed test count:
 
 - `smoke.spec.ts` — launch, login, application shell, device configuration,
   audit history, backup, cloud-vault, and restore readiness.
@@ -377,9 +386,7 @@ If `--version` exits with `SIGABRT` from a sandboxed agent session but works in
 a normal terminal, the ordinary suite can be rerun from a session that has
 permission to launch GUI apps. For retained representative evidence, use the
 external wrapper above; do not copy the ordinary run's result into its report.
-If the runtime fails in a normal terminal too, run `pnpm --filter
-@puntovivo/desktop run electron:ensure:binary` followed by `pnpm --filter
-@puntovivo/desktop run rebuild`.
+If the runtime fails in a normal terminal too, run `pnpm --filter @puntovivo/desktop run electron:ensure:binary` followed by `pnpm --filter @puntovivo/desktop run rebuild`.
 
 ### Not in CI
 

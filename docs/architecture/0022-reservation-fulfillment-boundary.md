@@ -1,5 +1,7 @@
 # ADR-0022: Reservation and fulfillment boundaries
 
+**Language:** English · [Español](../es/architecture/0022-reservation-fulfillment-boundary.md)
+
 Status: Accepted
 
 ## Context

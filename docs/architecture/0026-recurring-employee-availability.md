@@ -1,5 +1,7 @@
 # Effective recurring employee availability
 
+**Language:** English · [Español](../es/architecture/0026-recurring-employee-availability.md)
+
 Status: Accepted
 
 ## Decision
