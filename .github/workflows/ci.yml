@@ -8,12 +8,12 @@ on:
     # main here left every intermediate layer of a stack with no functional
     # gate at all -- the PR showed a green check that came from external
     # scanners alone, never from typecheck, lint, test, or build. Accepting a
-    # codex/** or dependabot/** base closes that hole: dependency updates also
+    # codex/**, fix/** or dependabot/** base closes that hole: dependency updates also
     # serve as stack foundations. It does not multiply the minute budget:
     # dorny/paths-filter diffs a pull_request against that PR's own base ref,
     # so each layer is filtered on its own delta rather than on the whole
     # stack, and the concurrency group below still cancels superseded runs.
-    branches: [main, 'codex/**', 'dependabot/**']
+    branches: [main, 'codex/**', 'fix/**', 'dependabot/**']
 
 env:
   NODE_VERSION: '24'
@@ -77,6 +77,7 @@ jobs:
       contents: read
       pull-requests: read
     outputs:
+      docs: ${{ steps.filter.outputs.docs }}
       web: ${{ steps.filter.outputs.web }}
       server: ${{ steps.filter.outputs.server }}
       desktop: ${{ steps.filter.outputs.desktop }}
@@ -116,6 +117,10 @@ jobs:
               # policy; config-only edits must run their owning gates too.
               - '.gitattributes'
               - '.prettierrc'
+            docs:
+              - '**/*.md'
+              - 'docs/translations.json'
+              - 'scripts/check-documentation-translations*.mjs'
             web:
               - 'apps/web/**'
               - 'e2e/web/**'
@@ -245,6 +250,29 @@ jobs:
               # scripts/ci-path-filters.test.mjs fails when a script test that a
               # CI gate runs, or a file it references statically, is outside
               # every filter of the jobs that run that gate.
+
+  documentation:
+    name: Documentation Languages
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.docs == 'true' || needs.detect-changes.outputs.shared == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          standalone: true
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Validate documentation languages and local links
+        # This gate needs only Node built-ins; do not auto-install application dependencies.
+        env:
+          pnpm_config_verify_deps_before_run: 'false'
+        run: pnpm run ci:docs
 
   # ============================================================================
   # Release Automation Tests

@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "pairs": [
+    { "en": "README.md", "es": "README.es.md" },
+    { "en": "CONTRIBUTING.md", "es": "CONTRIBUTING.es.md" },
+    { "en": "docs/README.md", "es": "docs/es/README.md" },
+    { "en": "docs/ENVIRONMENT_CONFIGURATION.md", "es": "docs/es/ENVIRONMENT_CONFIGURATION.md" },
+    { "en": "docs/TROUBLESHOOTING.md", "es": "docs/es/TROUBLESHOOTING.md" },
+    { "en": "docs/PRINTER-SETUP.md", "es": "docs/es/PRINTER-SETUP.md" }
+  ],
+  "bilingual": ["docs/TRANSLATIONS.md"],
+  "historical": ["CHANGELOG.md", "docs/releases/v*.md"]
+}

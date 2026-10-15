@@ -1,5 +1,7 @@
 # Environment Configuration
 
+**Language:** English · [Español](./es/ENVIRONMENT_CONFIGURATION.md)
+
 > Updated: August 27, 2026
 
 ## Overview
@@ -69,12 +71,12 @@ Relevant files:
 
 These are bundled by Vite and must be present as `VITE_*`.
 
-| Variable              | Default                 | Purpose                                 |
-| --------------------- | ----------------------- | --------------------------------------- |
-| `VITE_API_URL`        | `http://localhost:8090` | Base server URL used by the tRPC client |
-| `VITE_ENABLE_OFFLINE` | `true`                  | UI/feature toggle for offline support   |
-| `VITE_SYNC_INTERVAL`  | `30000`                 | Sync polling interval in browser mode   |
-| `VITE_APP_NAME`       | `Puntovivo`             | Display label                           |
+| Variable              | Default                 | Purpose                                                                                              |
+| --------------------- | ----------------------- | ---------------------------------------------------------------------------------------------------- |
+| `VITE_API_URL`        | `http://localhost:8090` | Base server URL used by the tRPC client                                                              |
+| `VITE_ENABLE_OFFLINE` | `true`                  | Legacy example value; current web runtime does not read it, so it does not control offline support.  |
+| `VITE_SYNC_INTERVAL`  | `30000`                 | Legacy example value; current web runtime does not read it, so it does not configure sync polling.   |
+| `VITE_APP_NAME`       | `Puntovivo`             | Legacy example value; current web runtime does not read it, so it does not change the display label. |
 
 Relevant file:
 [trpc.ts](../apps/web/src/lib/trpc.ts)

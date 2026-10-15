@@ -1,5 +1,7 @@
 # Troubleshooting
 
+**Language:** English · [Español](./es/TROUBLESHOOTING.md)
+
 > Updated: August 27, 2026
 
 ## 1. Native module fails to load
