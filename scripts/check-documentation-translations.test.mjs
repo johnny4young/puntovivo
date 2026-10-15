@@ -144,3 +144,18 @@ test('CI schedules the documentation contract for Markdown, registry and checker
   );
   assert.doesNotMatch(job, /pnpm install|test:e2e|dev:desktop/);
 });
+test('accepts titled, query and heading-link forms that GitHub renders', t => {
+  const errors = checkTranslations(
+    fixture(t, text =>
+      text
+        .replace('# Guía', '# Guía ##')
+        .replace('[English](en.md)', '[English](en.md "English") [raw](en.md?plain=1)')
+        .replace(
+          '## Entorno',
+          '## El [entorno](https://example.com) local\n\n[ir](#guía) [ver](#el-entorno-local)'
+        )
+    ),
+    registry
+  );
+  assert.deepEqual(errors, []);
+});

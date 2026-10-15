@@ -30,8 +30,13 @@ const identifiers = text =>
 const headings = text => [...prose(text).matchAll(/^(#{1,6})\s+(.+)$/gm)];
 function targets(text) {
   const content = prose(text);
+  // An inline destination may carry a quoted title after whitespace.
+  const destination = raw => {
+    const value = raw.trim();
+    return value.startsWith('<') ? value.slice(1, value.indexOf('>')) : value.split(/\s+/)[0];
+  };
   const result = [...content.matchAll(/\]\(([^)]+)\)|(?:src|href)=["']([^"']+)["']/g)].map(match =>
-    (match[1] ?? match[2]).replace(/^<|>$/g, '')
+    destination(match[1] ?? match[2])
   );
   const normalize = label => label.trim().replace(/\s+/g, ' ').toLowerCase();
   const references = new Map(
@@ -52,6 +57,7 @@ const equal = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 function slug(text) {
   return text
     .toLowerCase()
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replace(/<[^>]*>/g, '')
     .replace(/[^\p{L}\p{N}_\-\s]/gu, '')
     .replace(/\s/g, '-');
@@ -60,7 +66,7 @@ function anchors(text) {
   const seen = new Map();
   return new Set([
     ...headings(text).map(([, , title]) => {
-      const base = slug(title);
+      const base = slug(title.replace(/\s+#+\s*$/, ''));
       const count = seen.get(base) ?? 0;
       seen.set(base, count + 1);
       return count ? `${base}-${count}` : base;
@@ -72,7 +78,8 @@ function anchors(text) {
 }
 function localTarget(root, file, target) {
   if (/^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(target)) return null;
-  const [path, fragment] = target.split('#');
+  const [beforeFragment, fragment] = target.split('#');
+  const path = beforeFragment.split('?')[0];
   return {
     path: path
       ? resolve(
