@@ -1,3 +1,4 @@
+import { prepareLogoutCommit } from './logout-commit.js';
 import { randomUUID } from 'node:crypto';
 import { expect, type Page } from '@playwright/test';
 import { E2E_PASSWORD, ensureLanguage, type ClientIssueTracker } from '../web/support/app.js';
@@ -33,11 +34,9 @@ async function signOut(page: Page) {
       .getByRole('button', { name: /^(?:open user menu for|abre el menú de usuario de) /i })
       .click();
   }
-  const response = page.waitForResponse(
-    candidate => candidate.url().includes('/api/trpc/auth.logout') && candidate.status() === 200
-  );
+  const response = await prepareLogoutCommit(page);
   await menu.getByRole('button', { name: /^(?:sign out|cerrar sesión)$/i }).click();
-  await response;
+  await response();
   await expect(page).toHaveURL(/\/login$/);
 }
 

@@ -240,15 +240,22 @@ export async function runFreshSale(
   // payment status, change, and cash collected. `collectCash` carries
   // the fresh-only gate: a fresh sale persisted as a draft never hits
   // the drawer, so cash collected stays 0 until it lands `completed`.
-  const { resolvedPayments, creditSaleAmount, paymentStatus, change, cashCollectedAmount } =
-    resolveSalePaymentPlan({
-      amountReceived: input.amountReceived,
-      payments: input.payments,
-      paymentMethod: input.paymentMethod,
-      requestedStatus: input.paymentStatus,
-      total,
-      collectCash: input.status === 'completed',
-    });
+  const {
+    resolvedPayments,
+    creditSaleAmount,
+    paymentStatus,
+    change,
+    cashCollectedAmount,
+    cashReceivedSnapshot,
+    cashChangeSnapshot,
+  } = resolveSalePaymentPlan({
+    amountReceived: input.amountReceived,
+    payments: input.payments,
+    paymentMethod: input.paymentMethod,
+    requestedStatus: input.paymentStatus,
+    total,
+    collectCash: input.status === 'completed',
+  });
   const loyaltySettings = await resolveLoyaltySettings(ctx.db, ctx.tenantId);
   assertCustomerValueTenderInputs({
     customerId: resolvedCustomer.customerId,
@@ -608,6 +615,8 @@ export async function runFreshSale(
                 receiptTemplateLayoutSnapshot: headerReceiptSnapshots.receiptTemplateLayoutSnapshot,
                 receiptLogoUrlSnapshot: headerReceiptSnapshots.receiptLogoUrlSnapshot,
                 receiptLocaleSnapshot: headerReceiptSnapshots.receiptLocaleSnapshot,
+                cashReceivedSnapshot,
+                cashChangeSnapshot,
               }
             : {}),
           // restaurant table FK passed through from the

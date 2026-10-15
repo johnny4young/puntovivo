@@ -1,3 +1,4 @@
+import { prepareLogoutCommit } from './logout-commit.js';
 import { randomUUID } from 'node:crypto';
 import { expect, type Page, type Request } from '@playwright/test';
 import { E2E_PASSWORD, ensureLanguage } from '../web/support/app.js';
@@ -29,17 +30,12 @@ async function signOut(page: Page) {
     .locator('header')
     .getByRole('button', { name: /^(?:open user menu for|abre el menú de usuario de) /i })
     .click();
-  const response = page.waitForResponse(
-    candidate =>
-      candidate.request().method() === 'POST' &&
-      candidate.url().includes('/api/trpc/auth.logout') &&
-      candidate.status() !== 401
-  );
+  const response = await prepareLogoutCommit(page);
   await page
     .locator('#header-user-menu')
     .getByRole('button', { name: /^(?:sign out|cerrar sesión)$/i })
     .click();
-  expect((await response).status()).toBe(200);
+  await response();
   await expect(page.getByLabel(/email/i)).toBeVisible();
 }
 

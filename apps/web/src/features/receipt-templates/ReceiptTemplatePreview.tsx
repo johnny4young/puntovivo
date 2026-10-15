@@ -88,6 +88,7 @@ export function ReceiptTemplatePreview({ layout, kind, className }: ReceiptTempl
         reference: t('preview.tendersTable.reference'),
         amount: t('preview.tendersTable.amount'),
         change: t('preview.tendersTable.change'),
+        received: t('preview.tendersTable.received'),
         methods: {
           cash: t('preview.tendersTable.methods.cash'),
           card: t('preview.tendersTable.methods.card'),

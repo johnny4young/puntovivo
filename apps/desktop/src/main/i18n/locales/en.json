@@ -34,7 +34,8 @@
   "print": {
     "receiptFailed": "Receipt printing failed",
     "sessionRequired": "Log in before printing receipts",
-    "documentRequired": "A receipt document is required before printing"
+    "documentRequired": "A receipt document is required before printing",
+    "noPrinters": "No system printer is available. Add a printer in your operating system settings, select its paper size, then try again. For ESC/POS, configure a receipt printer in Company > Peripherals."
   },
   "autoUpdate": {
     "notInitialized": "Automatic updates have not been initialized yet.",

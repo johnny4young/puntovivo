@@ -45,6 +45,8 @@ export type ReceiptSale = {
   companyPhoneSnapshot?: string | null;
   companyEmailSnapshot?: string | null;
   customerTaxIdSnapshot?: string | null;
+  cashReceivedSnapshot?: number | null;
+  cashChangeSnapshot?: number | null;
   subtotal: number;
   taxAmount: number;
   discountAmount: number;

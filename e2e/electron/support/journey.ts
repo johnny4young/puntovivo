@@ -1,3 +1,4 @@
+import { prepareLogoutCommit } from '../../shared/logout-commit.js';
 /**
  * Shared steps for the desktop operator journeys.
  *
@@ -70,19 +71,9 @@ export async function signOut(page: Page): Promise<void> {
       .getByRole('button', { name: /^(?:open user menu for|abre el menú de usuario de) /i })
       .click();
   }
-  const logoutResponse = page.waitForResponse(
-    response =>
-      response.url().includes('/api/trpc/auth.logout') &&
-      response.request().method() === 'POST' &&
-      // A stale access token may recover through the existing refresh/retry
-      // transport. Still require the final logout to commit successfully.
-      response.status() !== 401
-  );
+  const logoutResponse = await prepareLogoutCommit(page);
   await userMenu.getByRole('button', { name: /^(?:sign out|cerrar sesión)$/i }).click();
-  expect(
-    (await logoutResponse).status(),
-    'the server logout must commit before changing actors'
-  ).toBe(200);
+  await logoutResponse();
   await expect(page.getByLabel(/email/i)).toBeVisible({ timeout: 30_000 });
 }
 

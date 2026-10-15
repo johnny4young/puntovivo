@@ -181,3 +181,19 @@ curl -X POST "http://localhost:8090/api/trpc/auth.login?batch=1" \
 - password changes and admin resets now invalidate older sessions through per-user session versioning
 - tokens are also revoked when the signed-in user's `email` or `role` changes, or when the tenant is disabled
 - site-aware business flows also depend on `x-site-id` once a site is selected in the app
+
+## Desktop renewable sessions
+
+The packaged renderer uses a custom origin, while the embedded authority serves
+HTTP on the local device. Strict refresh cookies therefore remain in Electron
+main rather than relying on cross-site browser cookie delivery. The embedded
+session keeps refresh and CSRF credentials in process memory only; quitting the
+app ends that custody. A Hub client continues using its existing OS-encrypted
+credential envelope. Only short-lived access tokens cross the preload bridge.
+
+Local login, renewal, staff switching and logout call the same fixed tRPC
+procedures through the embedded server's normal authentication, CSRF and rate
+limit handlers. The bridge exposes no general local HTTP proxy. Token lifetimes,
+revocation checks, tenant/site guards and native-session verification are
+unchanged. A transient authority outage remains a recovery state; explicit
+account changes and confirmed revocation clear renewable custody.

@@ -153,10 +153,11 @@ function renderTotalsBlockHtml(
   const rows = totalsRows(block.show, data, labels)
     .map(row => {
       // flag the grand-total row so the thermal CSS can apply
-      // the 1pt black top/bottom border + 14pt weight from the
-      // design-system thermal preview rules.
+      // the print hierarchy. Long thermal totals can step down to the
+      // minimum readable print size instead of splitting a final digit.
       const rowClass = row.isGrandTotal ? ' class="grand-total"' : '';
-      return `<tr${rowClass}><td class="totals-label">${escapeHtml(row.label)}</td><td class="totals-value">${escapeHtml(formatReceiptAmount(row.value, data.locale))}</td></tr>`;
+      const amount = formatReceiptAmount(row.value, data.locale);
+      return `<tr${rowClass}><td class="totals-label">${escapeHtml(row.label)}</td><td class="totals-value" style="--receipt-amount-characters:${amount.length}">${escapeHtml(amount)}</td></tr>`;
     })
     .join('');
   return `<div class="block block-totals"><table><tbody>${rows}</tbody></table></div>`;
@@ -180,11 +181,15 @@ function renderTendersTableHtml(
       return `<tr><td>${escapeHtml(method)}</td><td class="tender-reference">${reference}</td><td class="tender-amount">${escapeHtml(formatReceiptAmount(tender.amount, data.locale))}</td></tr>`;
     })
     .join('');
+  const received =
+    block.showChange && data.sale.cashReceived != null
+      ? `<tr class="received-row"><td>${escapeHtml(labels.tendersTable.received ?? labels.tendersTable.amount)}</td><td></td><td class="tender-amount">${escapeHtml(formatReceiptAmount(data.sale.cashReceived, data.locale))}</td></tr>`
+      : '';
   const change =
     block.showChange && data.sale.changeDue && data.sale.changeDue > 0
       ? `<tr class="change-row"><td>${escapeHtml(labels.tendersTable.change)}</td><td></td><td class="tender-amount">${escapeHtml(formatReceiptAmount(data.sale.changeDue, data.locale))}</td></tr>`
       : '';
-  return `<div class="block block-tenders"><table><thead><tr><th>${escapeHtml(labels.tendersTable.method)}</th><th>${escapeHtml(labels.tendersTable.reference)}</th><th class="tender-amount">${escapeHtml(labels.tendersTable.amount)}</th></tr></thead><tbody>${rows}${change}</tbody></table></div>`;
+  return `<div class="block block-tenders"><table><thead><tr><th>${escapeHtml(labels.tendersTable.method)}</th><th>${escapeHtml(labels.tendersTable.reference)}</th><th class="tender-amount">${escapeHtml(labels.tendersTable.amount)}</th></tr></thead><tbody>${rows}${received}${change}</tbody></table></div>`;
 }
 
 function renderQrBlockHtml(block: Extract<ReceiptBlock, { type: 'qr' }>, data: RenderData): string {
@@ -359,7 +364,7 @@ export function buildHtmlDocument(
   const wordmarkSize = is80mm ? '28px' : '22px';
   return `<!DOCTYPE html>
 <html lang="${escapeHtml(documentLocale)}"><head><meta charset="utf-8" /><title>${escapeHtml(documentTitle)}</title><style>
-  body{margin:0;padding:8px;box-sizing:border-box;font-family:${mono};font-size:${PRINT_TOKENS.bodySize};line-height:1.35;color:${PRINT_TOKENS.ink};background:${PRINT_TOKENS.paper};width:${widthCss};max-width:100%;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;}
+  body{--receipt-text-width:calc(${widthCss} - 16px);margin:0;padding:8px;box-sizing:border-box;font-family:${mono};font-size:${PRINT_TOKENS.bodySize};line-height:1.35;color:${PRINT_TOKENS.ink};background:${PRINT_TOKENS.paper};width:${widthCss};max-width:100%;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;}
   .block{margin-bottom:6px;}
   .align-left{text-align:left;}.align-center{text-align:center;}.align-right{text-align:right;}
   .style-title{font-size:13pt;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;}
@@ -374,7 +379,7 @@ export function buildHtmlDocument(
   .thermal .block-items table,.thermal .block-items tbody,.thermal .block-items tr,.thermal .block-items td,.thermal .block-tenders table,.thermal .block-tenders tbody,.thermal .block-tenders tr,.thermal .block-tenders td{display:block;width:100%;box-sizing:border-box;}
   .thermal .block-items .item-row{margin-bottom:6px;break-inside:avoid;}
   .thermal .block-items td:not(.col-name){display:flex;flex-wrap:wrap;justify-content:space-between;column-gap:8px;text-align:left;}
-  .thermal .block-items .item-cell-label{display:inline;min-width:0;flex:1;}
+  .thermal .block-items .item-cell-label{display:inline;min-width:0;flex:0 0 auto;max-width:100%;}
   .thermal .block-items .col-name .item-cell-label{display:none;}
   .thermal .block-items .col-name{font-weight:700;}
   .thermal .block-items .item-cell-value{min-width:0;text-align:right;flex:0 0 auto;max-width:100%;margin-left:auto;}
@@ -391,6 +396,7 @@ export function buildHtmlDocument(
   .col-qty,.col-unitPrice,.col-taxPercent,.col-discount,.col-total,.totals-value,.tender-amount{text-align:right;font-variant-numeric:tabular-nums;}
   .block-totals td{padding-top:1px;padding-bottom:1px;}
   .block-totals tr.grand-total td{border-top:1px solid ${PRINT_TOKENS.ink};border-bottom:1px solid ${PRINT_TOKENS.ink};font-size:${PRINT_TOKENS.totalSize};font-weight:700;padding-top:4px;padding-bottom:4px;letter-spacing:0.02em;}
+  .thermal .block-totals tr.grand-total .totals-value{letter-spacing:0;font-size:clamp(${PRINT_TOKENS.minSize},calc(var(--receipt-text-width) / (var(--receipt-amount-characters) * 0.65)),${PRINT_TOKENS.totalSize});}
   .block-separator{font-family:${mono};letter-spacing:0;white-space:nowrap;overflow:hidden;}
   .qr-svg{display:inline-block;max-width:100%;height:auto!important;aspect-ratio:1;line-height:0;background:${PRINT_TOKENS.paper};color:${PRINT_TOKENS.ink};}
   .qr-svg svg{width:100%;height:100%;display:block;shape-rendering:crispEdges;}
@@ -421,7 +427,7 @@ export function buildHtmlDocument(
   .block-meta .meta-grid{display:grid;grid-template-columns:auto 1fr;column-gap:8px;row-gap:2px;margin:0;font-size:${PRINT_TOKENS.minSize};}
   .thermal .block-meta .meta-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr);}
   .block-meta .meta-key{font-weight:700;}
-  .block-meta .meta-value{margin:0;text-align:right;font-variant-numeric:tabular-nums;}
-  @media print{body{padding:0;margin:0 auto;} .block{break-inside:avoid;}.block-items,.block-tenders{break-inside:auto;}}
+  .block-meta .meta-value{min-width:0;margin:0;text-align:right;font-variant-numeric:tabular-nums;}
+  @media print{body{--receipt-text-width:${widthCss};padding:0;margin:0 auto;} .block{break-inside:avoid;}.block-items,.block-tenders{break-inside:auto;}}
 </style></head><body${isThermal ? ' class="thermal"' : ''}>${body}</body></html>`;
 }

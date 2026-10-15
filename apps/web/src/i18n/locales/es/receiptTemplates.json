@@ -154,7 +154,7 @@
       "heightMm": "Altura (mm)",
       "char": "Carácter",
       "showHeader": "Mostrar encabezado",
-      "showChange": "Mostrar fila de cambio",
+      "showChange": "Mostrar efectivo recibido y cambio",
       "columns": "Columnas",
       "columnsHelp": "Elige las columnas a imprimir, en orden.",
       "totalsLines": "Líneas",
@@ -242,7 +242,8 @@
         "loyalty": "Puntos de fidelidad",
         "storeCredit": "Crédito de tienda",
         "other": "Otro"
-      }
+      },
+      "received": "Efectivo recibido"
     }
   },
   "duplicate": {

@@ -154,6 +154,8 @@ export function SalePaymentModal({
     onSubmit,
   });
 
+  const isPartialPayment = !splitMode && !isCredit && outstanding > 0;
+
   const paymentSummary = (
     <div
       className="rounded-xl border border-primary-200 bg-primary-50 px-4 py-4 shadow-sm"
@@ -243,12 +245,25 @@ export function SalePaymentModal({
             id="sale-payment-confirm"
             className="disabled:bg-secondary-200 disabled:text-secondary-500"
           >
-            {isSaving ? t('payment.processing') : t('payment.confirm')}
+            {isSaving
+              ? t('payment.processing')
+              : t(isPartialPayment ? 'payment.confirmPartial' : 'payment.confirm')}
           </ModalButton>
         </>
       }
     >
       <form id="sale-payment-form" className="space-y-4" onSubmit={handleSubmit}>
+        {isPartialPayment && (
+          <div
+            className="rounded-xl border border-warning-300 bg-warning-50 p-4 text-warning-900"
+            role="alert"
+          >
+            <p className="font-semibold">{t('payment.partialTitle')}</p>
+            <p className="mt-1 text-sm">
+              {t('payment.partialWarning', { amount: formatCurrency(outstanding, currencyCode) })}
+            </p>
+          </div>
+        )}
         {promotionQuoteUnavailable && (
           <div className="rounded-xl border border-danger-200 bg-danger-50 p-4" role="alert">
             <p className="text-sm text-danger-700">{t('promotions:checkout.unavailable')}</p>

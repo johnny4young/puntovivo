@@ -1,3 +1,4 @@
+import { prepareLogoutCommit } from './logout-commit.js';
 import { randomUUID } from 'node:crypto';
 import { expect, type Page } from '@playwright/test';
 import { E2E_PASSWORD, ensureLanguage, type ClientIssueTracker } from '../web/support/app.js';
@@ -44,11 +45,9 @@ export async function runAvailabilityJourney(page: Page, target: AvailabilityJou
     await expect(page.locator('tr').filter({ hasText: person.email })).toBeVisible();
   }
   await page.getByRole('button', { name: /open user menu/i }).click();
-  const logout = page.waitForResponse(
-    response => response.url().includes('/api/trpc/auth.logout') && response.status() === 200
-  );
+  const logout = await prepareLogoutCommit(page);
   await page.getByRole('button', { name: 'Sign out', exact: true }).click();
-  await logout;
+  await logout();
   await expect(page).toHaveURL(/\/login$/);
   await target.signInManager(managerEmail);
   const managerRequests: string[] = [];

@@ -348,6 +348,7 @@ const receiptRenderLabelsInput = z.object({
     method: z.string().trim().min(1).max(50),
     reference: z.string().trim().min(1).max(50),
     amount: z.string().trim().min(1).max(50),
+    received: z.string().min(1).max(100).optional(),
     change: z.string().trim().min(1).max(50),
     // Defaulted rather than required: a tenant's stored label set predates
     // this key, and making it mandatory would fail validation on every

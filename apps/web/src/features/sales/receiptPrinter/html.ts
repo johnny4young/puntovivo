@@ -445,6 +445,8 @@ export async function buildSaleReceiptHtml(
             </div>
           </section>
 
+          ${sale.cashReceivedSnapshot != null ? `<section class="summary"><div class="summary-row"><span>Cash received</span><span>${escapeHtml(formatCurrency(sale.cashReceivedSnapshot))}</span></div><div class="summary-row"><span>Change</span><span>${escapeHtml(formatCurrency(sale.cashChangeSnapshot ?? 0))}</span></div></section>` : ''}
+
           ${buildSplitPaymentSection(sale.payments)}
 
           ${fiscalSection}

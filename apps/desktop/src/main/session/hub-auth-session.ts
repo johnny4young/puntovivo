@@ -1,10 +1,10 @@
 /**
- * Store Hub authentication custody for Electron hub clients.
+ * Renewable authentication custody for Electron main.
  *
- * A packaged renderer is loaded from `file://`, so it cannot safely or
- * reliably own a remote hub's strict refresh cookie. This module keeps the
- * long-lived refresh + CSRF pair in Electron main, sealed with `safeStorage`,
- * and returns only short-lived access tokens across the preload bridge.
+ * A packaged renderer uses a custom origin, so it cannot reliably own the
+ * authority's strict refresh cookie. Main keeps refresh + CSRF together and
+ * returns only short-lived access tokens. Hub clients seal credentials with
+ * safeStorage; the embedded authority uses memory only, ending at app exit.
  */
 import {
   chmodSync,
@@ -123,16 +123,24 @@ export class HubAuthRemoteError extends Error {
   }
 }
 
-export interface CreateHubAuthSessionOptions {
+interface AuthSessionBaseOptions {
   hubUrl: string;
-  getStatePath: () => string;
   /** Registered terminal id forwarded on device-scoped identity handoffs. */
   getDeviceId?: () => Promise<string | null>;
-  safeStorage: SafeStorageLike;
   allowInsecureLoopback?: boolean;
   platform?: NodeJS.Platform;
   fetchImpl?: typeof fetch;
 }
+
+export type CreateHubAuthSessionOptions = AuthSessionBaseOptions &
+  (
+    | { credentialPersistence: 'memory' }
+    | {
+        credentialPersistence?: 'encrypted';
+        getStatePath: () => string;
+        safeStorage: SafeStorageLike;
+      }
+  );
 
 export interface HubAuthSession {
   login(input: HubLoginInput): Promise<HubAccessGrant>;
@@ -365,7 +373,13 @@ export function createHubAuthSession(options: CreateHubAuthSessionOptions): HubA
     realtimeClosers.clear();
   }
 
+  let memoryState: StoredHubAuthState | null = null;
+
   function removeStateFile(): void {
+    if (options.credentialPersistence === 'memory') {
+      memoryState = null;
+      return;
+    }
     const path = options.getStatePath();
     for (const candidate of [path, `${path}.tmp`, `${path}.bak`]) {
       if (existsSync(candidate)) unlinkSync(candidate);
@@ -373,6 +387,10 @@ export function createHubAuthSession(options: CreateHubAuthSessionOptions): HubA
   }
 
   function saveState(state: StoredHubAuthState): void {
+    if (options.credentialPersistence === 'memory') {
+      memoryState = state;
+      return;
+    }
     assertSafeStorage(options.safeStorage, platform);
     const path = options.getStatePath();
     mkdirSync(dirname(path), { recursive: true });
@@ -416,6 +434,7 @@ export function createHubAuthSession(options: CreateHubAuthSessionOptions): HubA
   }
 
   function loadState(): StoredHubAuthState | null {
+    if (options.credentialPersistence === 'memory') return memoryState;
     const path = options.getStatePath();
     const tmpPath = `${path}.tmp`;
     const backupPath = `${path}.bak`;
@@ -769,6 +788,9 @@ export function createHubAuthSession(options: CreateHubAuthSessionOptions): HubA
   }
 
   async function switchStaff(input: HubSwitchStaffInput): Promise<HubAccessGrant> {
+    // These native operations bypass the renderer's HTTP 401 retry transport.
+    // Renew first so an idle embedded terminal can hand off after access expiry.
+    if (options.credentialPersistence === 'memory' && memoryState) await refresh();
     const expected = generation;
     const token = currentAccessToken;
     const state = loadState();
@@ -806,6 +828,7 @@ export function createHubAuthSession(options: CreateHubAuthSessionOptions): HubA
   }
 
   async function logout(): Promise<void> {
+    if (options.credentialPersistence === 'memory' && memoryState) await refresh();
     const expected = generation;
     closeRealtimeConnections();
     let state: StoredHubAuthState | null;
