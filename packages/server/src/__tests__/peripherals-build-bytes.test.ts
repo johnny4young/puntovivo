@@ -674,6 +674,25 @@ describe('peripherals.buildReceiptBytes', () => {
     expect(await countHardwareOutbox()).toBe(before);
   });
 
+  it('rejects invalid ESC/POS configuration without switching to System printing', async () => {
+    await getDatabase()
+      .insert(sitePeripherals)
+      .values({
+        id: nanoid(),
+        tenantId,
+        siteId,
+        kind: 'printer',
+        driver: 'escpos',
+        config: { channel: 'invalid' },
+        isActive: true,
+      });
+    const caller = appRouter.createCaller(buildContext());
+    await expect(
+      caller.peripherals.buildReceiptBytes({ saleId: seededSaleId, siteId })
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+    expect(await countHardwareOutbox()).toBe(0);
+  });
+
   it('returns ready bytes with transport hint when an escpos printer is registered', async () => {
     await getDatabase()
       .insert(sitePeripherals)

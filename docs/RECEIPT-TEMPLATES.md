@@ -340,6 +340,12 @@ apps/web/src/lib/translateServerError.ts                         # KNOWN_SERVER_
   SVG QR/barcode shapes survive print sanitization; active SVG constructs and
   external resources remain blocked. Canceling the native print dialog is a
   separate result, not a spooler error.
+- Failed ESC/POS writes keep the durable hardware queue and automatic retry.
+  They never open a second HTML/System print. The warning confirms a queued
+  retry only after the server persists it; transport/bridge failures without
+  confirmation ask the operator to check the printer and queue before reprinting.
+  Explicit System printing and the no-ESC/POS route still use HTML. Hub-client
+  local bridge failures have no durable retry queue.
 - Concurrent print requests for one sale share the active attempt. A later
   deliberate reprint remains available. Browser confirmation means the print
   dialog opened, not that paper was produced.

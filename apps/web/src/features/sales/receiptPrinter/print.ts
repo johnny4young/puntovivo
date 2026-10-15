@@ -21,27 +21,8 @@ function withAutoPrint(receiptHtml: string): string {
     : `${receiptHtml}${script}`;
 }
 
-/**
- * receipt print dispatcher with ESC/POS branch + system
- * fallback. The renderer first asks the server (`printReceipt`)
- * which path to take based on the registered printer driver:
- *
- * - `system-fallback`: no escpos peripheral registered → print
- * via the legacy HTML path exactly like before.
- * - `printed`: server-side ESC/POS bytes flushed; nothing else
- * to do here.
- * - `fallback`: ESC/POS attempt failed (USB unplug / TCP
- * unreachable) → fall through to the legacy HTML path so the
- * cashier never loses a receipt; the caller (SalesPage) is
- * responsible for surfacing a translated toast about the
- * fallback.
- *
- * `escposDispatcher` is supplied by the caller as a thin tRPC
- * mutation wrapper so this module stays unaware of the trpc client
- * shape (and the existing 10 tests in receiptPrinter.test.ts that
- * never imported tRPC continue to pass untouched).
- */
-export type ReceiptPrintOutcome = 'printed' | 'dialog-opened' | 'cancelled';
+/** ESC/POS failures never open a second print surface: the server may retry. */
+export type ReceiptPrintOutcome = 'printed' | 'dialog-opened' | 'cancelled' | 'queued' | 'failed';
 
 // Collapse concurrent gestures for the same receipt, while allowing a later
 // deliberate reprint after the previous attempt settles.
@@ -66,29 +47,23 @@ async function dispatchSaleReceipt(
   sale: ReceiptSale,
   options: PrintSaleReceiptOptions = {}
 ): Promise<ReceiptPrintOutcome> {
-  const { escposDispatcher, onEscposFallback, htmlProvider } = options;
+  const { escposDispatcher, onEscposFailure, htmlProvider } = options;
 
-  // server-side ESC/POS branch. When the active printer
-  // is escpos and the bytes flush, we are done; otherwise we fall
-  // through to the legacy HTML path that has shipped since .
   if (escposDispatcher) {
+    let outcome;
     try {
-      const outcome = await escposDispatcher();
-      if (outcome.status === 'printed') return 'printed';
-      if (outcome.status === 'fallback') {
-        onEscposFallback?.({
-          error: outcome.error,
-          errorMessage: outcome.errorMessage,
-        });
-      }
-      // For system-fallback (and the fallback case above) we
-      // continue into the legacy HTML path below.
+      outcome = await escposDispatcher();
     } catch {
-      // The server-side dispatcher itself rejected (network, schema,
-      // etc.). Treat as fallback so the cashier still gets a
-      // printed receipt via the legacy path.
-      onEscposFallback?.({ error: 'DISPATCHER_REJECTED' });
+      // A lost response can hide a successful write or a durable retry.
+      onEscposFailure?.({ error: 'DISPATCHER_REJECTED', retryQueued: false });
+      return 'failed';
     }
+    if (outcome.status === 'printed') return 'printed';
+    if (outcome.status === 'fallback') {
+      onEscposFailure?.(outcome);
+      return outcome.retryQueued ? 'queued' : 'failed';
+    }
+    // Only an explicit System/no-ESC/POS route proceeds to HTML.
   }
 
   let templateHtml: string | null = null;

@@ -18,8 +18,7 @@ import {
 // - device_local / site_hub → server-managed (existing path).
 // - hub_client + IPC bridge → fetch bytes from hub + pipe through
 // `window.electron.peripherals.dispatchLocalEscpos`.
-// - hub_client + IPC missing → graceful fallback so the legacy
-// HTML print path still runs.
+// - hub_client + IPC missing → failure without automatic HTML printing.
 
 type BridgeIpcFn = (payload: {
   bytes: number[];
@@ -155,7 +154,11 @@ describe('createEscposReceiptDispatcher', () => {
       deviceId: 'dev_1',
     });
     // No setBridgeIpc — peripherals key is absent.
-    const fetchHubReceiptBytes = vi.fn();
+    const fetchHubReceiptBytes = vi.fn(async (): Promise<HubReceiptBytesPayload> => ({
+      status: 'ready',
+      bytes: [0x41],
+      transportHint: { channel: 'mock' },
+    }));
     const serverPrint = vi.fn();
     const dispatcher = createEscposReceiptDispatcher({
       serverPrint,
@@ -166,31 +169,48 @@ describe('createEscposReceiptDispatcher', () => {
       status: 'fallback',
       error: 'BRIDGE_UNAVAILABLE',
     });
-    expect(fetchHubReceiptBytes).not.toHaveBeenCalled();
+    expect(fetchHubReceiptBytes).toHaveBeenCalledOnce();
     expect(serverPrint).not.toHaveBeenCalled();
   });
 
-  it('hub_client + system-fallback payload → system-fallback outcome', async () => {
+  it.each([false, true])(
+    'hub_client + explicit System works (ESC/POS bridge=%s)',
+    async hasBridge => {
+      setBridgeRuntime({
+        authorityMode: 'hub_client',
+        hubUrl: 'http://hub.local:8090',
+        siteId: 'site_1',
+        deviceId: 'dev_1',
+      });
+      const dispatchSpy = vi.fn();
+      if (hasBridge) setBridgeIpc(dispatchSpy);
+      const fetchHubReceiptBytes = vi.fn(async (): Promise<HubReceiptBytesPayload> => ({
+        status: 'system-fallback',
+        bytes: [],
+        transportHint: null,
+      }));
+      const dispatcher = createEscposReceiptDispatcher({
+        serverPrint: vi.fn(),
+        fetchHubReceiptBytes,
+      });
+      const result = await dispatcher();
+      expect(result).toEqual({ status: 'system-fallback' });
+      expect(dispatchSpy).not.toHaveBeenCalled();
+    }
+  );
+
+  it('does not route malformed ESC/POS bytes to System printing', async () => {
     setBridgeRuntime({
       authorityMode: 'hub_client',
       hubUrl: 'http://hub.local:8090',
       siteId: 'site_1',
       deviceId: 'dev_1',
     });
-    const dispatchSpy = vi.fn();
-    setBridgeIpc(dispatchSpy);
-    const fetchHubReceiptBytes = vi.fn(async (): Promise<HubReceiptBytesPayload> => ({
-      status: 'system-fallback',
-      bytes: [],
-      transportHint: null,
-    }));
     const dispatcher = createEscposReceiptDispatcher({
       serverPrint: vi.fn(),
-      fetchHubReceiptBytes,
+      fetchHubReceiptBytes: async () => ({ status: 'ready', bytes: [], transportHint: null }),
     });
-    const result = await dispatcher();
-    expect(result).toEqual({ status: 'system-fallback' });
-    expect(dispatchSpy).not.toHaveBeenCalled();
+    expect(await dispatcher()).toEqual({ status: 'fallback', error: 'EMPTY_PAYLOAD' });
   });
 
   it('hub_client + ready bytes + bridge write fails → fallback with errorCode', async () => {

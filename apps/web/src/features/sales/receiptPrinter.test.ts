@@ -84,6 +84,63 @@ describe('receipt print attempts', () => {
       'cancelled'
     );
   });
+  it.each([true, false, undefined])(
+    'stops failed ESC/POS without any HTML print (retryQueued=%s)',
+    async retryQueued => {
+      const printReceipt = vi.fn();
+      (window as unknown as { electron: { printReceipt: typeof printReceipt } }).electron = {
+        printReceipt,
+      };
+      const open = vi.spyOn(window, 'open');
+      const htmlProvider = vi.fn();
+      const onEscposFailure = vi.fn();
+      const failure = { status: 'fallback' as const, error: 'DEVICE_OFFLINE', retryQueued };
+      await expect(
+        printSaleReceipt(sale, {
+          escposDispatcher: async () => failure,
+          htmlProvider,
+          onEscposFailure,
+        })
+      ).resolves.toBe(retryQueued ? 'queued' : 'failed');
+      expect(onEscposFailure).toHaveBeenCalledWith(failure);
+      expect(htmlProvider).not.toHaveBeenCalled();
+      expect(printReceipt).not.toHaveBeenCalled();
+      expect(open).not.toHaveBeenCalled();
+    }
+  );
+  it('never prints HTML after a lost dispatcher response', async () => {
+    const open = vi.spyOn(window, 'open');
+    const htmlProvider = vi.fn();
+    const onEscposFailure = vi.fn();
+    await expect(
+      printSaleReceipt(sale, {
+        escposDispatcher: async () => {
+          throw new Error('Response lost');
+        },
+        htmlProvider,
+        onEscposFailure,
+      })
+    ).resolves.toBe('failed');
+    expect(onEscposFailure).toHaveBeenCalledWith({
+      error: 'DISPATCHER_REJECTED',
+      retryQueued: false,
+    });
+    expect(htmlProvider).not.toHaveBeenCalled();
+    expect(open).not.toHaveBeenCalled();
+  });
+  it('preserves explicitly selected System printing', async () => {
+    const printReceipt = vi.fn().mockResolvedValue({ success: true });
+    (window as unknown as { electron: { printReceipt: typeof printReceipt } }).electron = {
+      printReceipt,
+    };
+    await expect(
+      printSaleReceipt(sale, {
+        escposDispatcher: async () => ({ status: 'system-fallback' }),
+        htmlProvider: async () => '<p>EXPLICIT SYSTEM</p>',
+      })
+    ).resolves.toBe('printed');
+    expect(printReceipt).toHaveBeenCalledExactlyOnceWith('<p>EXPLICIT SYSTEM</p>');
+  });
   it('keeps the compatibility receipt at a physical printable width with black ink', async () => {
     const html = await buildSaleReceiptHtml(sale, { autoPrint: false });
     expect(html).toContain('width: 48mm');

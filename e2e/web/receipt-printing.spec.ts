@@ -58,3 +58,84 @@ for (const spanish of [false, true]) {
     await expectNoClientIssues(tracker);
   });
 }
+
+for (const spanish of [false, true]) {
+  for (const retryQueued of [true, false]) {
+    test(`ESC/POS failure keeps one print surface (queued=${retryQueued}, ${spanish ? 'es' : 'en'})`, async ({
+      page,
+      context,
+    }, testInfo) => {
+      const scenario = seedReceiptPrintingScenario(
+        `failure-${testInfo.parallelIndex}-${Date.now()}`
+      );
+      const tracker = attachClientIssueTracker(page);
+      await context.addInitScript(
+        language => {
+          window.localStorage.setItem('puntovivo-language-preference', language);
+          window.print = () => {
+            throw new Error('Unexpected HTML print after ESC/POS failure');
+          };
+        },
+        spanish ? 'es' : 'en'
+      );
+      await login(page, { ...scenario.admin, defaultPath: '/company' }, { spanish });
+      await page.goto('/peripherals');
+      await page
+        .getByRole('button', { name: /add device|agregar dispositivo/i })
+        .first()
+        .click();
+      const config = page.getByRole('dialog');
+      await config.locator('#peripheral-driver').selectOption('escpos');
+      // Mock transport only. Failure response below is synthetic; the real
+      // durable enqueue + retry is exercised by the server integration test.
+      await config
+        .locator('#peripheral-config')
+        .fill(JSON.stringify({ channel: 'mock', autoPrintOnComplete: true, paperWidth: '58mm' }));
+      await config.getByRole('button', { name: /^(save|guardar)$/i }).click();
+      await expect(config).toBeHidden();
+      await resetSession(page);
+      await login(page, { ...scenario.cashier, defaultPath: '/sales' }, { spanish });
+      let dispatches = 0;
+      let htmlRequests = 0;
+      const popups: string[] = [];
+      page.on('popup', popup => {
+        popups.push(popup.url());
+      });
+      await page.route('**/api/trpc/**', async route => {
+        const methods =
+          decodeURIComponent(new URL(route.request().url()).pathname)
+            .split('/')
+            .pop()
+            ?.split(',') ?? [];
+        if (methods.includes('peripherals.renderReceiptHtml')) htmlRequests++;
+        if (!methods.includes('peripherals.printReceipt')) return route.continue();
+        dispatches++;
+        expect(methods).toEqual(['peripherals.printReceipt']);
+        await route.fulfill({
+          json: [
+            { result: { data: { status: 'fallback', error: 'DEVICE_OFFLINE', retryQueued } } },
+          ],
+        });
+      });
+      await addProductToCartViaKeyboard(page, scenario.product.sku);
+      await page.keyboard.press('F2');
+      const payment = page.getByRole('dialog', { name: /charge sale|cobrar venta/i });
+      await payment.locator('#sale-payment-confirm').click();
+      const warning = retryQueued
+        ? spanish
+          ? 'La impresión ESC/POS quedó en cola y se reintentará automáticamente. No imprimas otra copia.'
+          : 'ESC/POS printing is queued and will retry automatically. Do not print another copy.'
+        : spanish
+          ? 'No se pudo confirmar la impresión ESC/POS. Revisa la impresora y la cola antes de reimprimir.'
+          : 'ESC/POS printing could not be confirmed. Check the printer and queue before reprinting.';
+      await expect(page.getByText(warning, { exact: true })).toBeVisible();
+      await expect(payment).toBeHidden();
+      await expect(page.getByRole('status').filter({ hasText: warning })).toHaveCSS('opacity', '1');
+      expect(dispatches).toBe(1);
+      expect(htmlRequests).toBe(0);
+      expect(popups).toEqual([]);
+      await page.screenshot({ path: testInfo.outputPath('escpos-warning.png') });
+      await expectNoClientIssues(tracker);
+    });
+  }
+}

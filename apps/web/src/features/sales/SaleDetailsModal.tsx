@@ -16,6 +16,7 @@ import {
   createEscposReceiptDispatcher,
   printSaleReceipt,
   type EscPosDispatchOutcome,
+  type EscPosFailure,
   type HubReceiptBytesPayload,
 } from '@/features/sales/receiptPrinter';
 import { useTenant } from '@/features/tenant/TenantProvider';
@@ -99,9 +100,16 @@ export function SaleDetailsModal({
     },
     [currentSite, utils]
   );
-  const handleEscposFallback = useCallback(() => {
-    toast.warning({ title: t('sales:printer.escposFailedFallback') });
-  }, [t, toast]);
+  const handleEscposFailure = useCallback(
+    (outcome: EscPosFailure) => {
+      toast.warning({
+        title: t(
+          outcome.retryQueued ? 'sales:printer.escposRetryQueued' : 'sales:printer.escposFailed'
+        ),
+      });
+    },
+    [t, toast]
+  );
   const [printError, setPrintError] = useState<string | null>(null);
   const [isPrinting, setIsPrinting] = useState(false);
   const [isReturnConfirmOpen, setIsReturnConfirmOpen] = useState(false);
@@ -156,10 +164,10 @@ export function SaleDetailsModal({
       try {
         const outcome = await printSaleReceipt(refreshed, {
           escposDispatcher: buildEscposDispatcher(refreshed.id),
-          onEscposFallback: handleEscposFallback,
+          onEscposFailure: handleEscposFailure,
           htmlProvider: buildReceiptHtmlProvider(refreshed.id),
         });
-        if (outcome !== 'cancelled') {
+        if (outcome === 'printed' || outcome === 'dialog-opened') {
           toast.success({
             title: t(
               outcome === 'dialog-opened'
@@ -331,7 +339,7 @@ export function SaleDetailsModal({
     try {
       await printSaleReceipt(sale, {
         escposDispatcher: buildEscposDispatcher(sale.id),
-        onEscposFallback: handleEscposFallback,
+        onEscposFailure: handleEscposFailure,
         htmlProvider: buildReceiptHtmlProvider(sale.id),
       });
     } catch (error) {

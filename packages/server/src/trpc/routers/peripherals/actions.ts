@@ -54,8 +54,8 @@ export const peripheralsActionProcedures = {
    * 3. If driver=escpos, build the ReceiptDocument server-side and
    * synchronously call `adapter.print(job)`. On success →
    * `{status:'printed'}`. On error → enqueue a hardware_outbox
-   * row + return `{status:'fallback', error}` so the renderer
-   * falls back to the legacy HTML path AND surfaces a toast.
+   * row + return `{status:'fallback', retryQueued:true, error}`. The renderer
+   * warns and stops, leaving recovery to the queue without an HTML copy.
    *
    * `tenantProcedure` because cashiers print receipts. Cross-tenant
    * isolation comes from `getSaleRecord(tenantId, saleId)`.
@@ -170,6 +170,7 @@ export const peripheralsActionProcedures = {
     // a tRPC retry of the same logical print attempt collapses to
     // one row instead of stacking duplicates. Helper handles the
     // partial-unique-idx UNIQUE conflict gracefully.
+    let retryQueued = false;
     try {
       await enqueueHardware(
         { db: ctx.db, tenantId: ctx.tenantId },
@@ -194,6 +195,7 @@ export const peripheralsActionProcedures = {
           idempotencyKey: input.idempotencyKey ?? null,
         }
       );
+      retryQueued = true;
       // Fire-and-forget tick so the next periodic interval isn't
       // the only retry chance.
       void tickDefaultHardwareWorker(ctx.tenantId).catch(err => {
@@ -203,12 +205,10 @@ export const peripheralsActionProcedures = {
         );
       });
     } catch (err) {
-      // Enqueue failure does not change the user-visible outcome —
-      // we already know the print failed and the renderer will
-      // fall back. Just log.
+      // Do not promise an automatic retry if durable storage failed.
       ctx.req.log.warn(
         { err, saleId: input.saleId },
-        'hardware outbox enqueue failed; renderer fallback still fires'
+        'hardware outbox enqueue failed; no automatic retry confirmed'
       );
     }
 
@@ -216,6 +216,7 @@ export const peripheralsActionProcedures = {
       status: 'fallback' as const,
       error: result.error?.kind ?? 'UNKNOWN',
       errorMessage: result.error?.message ?? 'ESC/POS print failed',
+      retryQueued,
     };
   }),
 

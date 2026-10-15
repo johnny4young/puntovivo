@@ -17,7 +17,7 @@
  * - peekHardwareOutbox: rejects cashier role
  */
 
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { TRPCError } from '@trpc/server';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -33,6 +33,8 @@ import {
   sites,
   users,
 } from '../db/schema.js';
+import { createHardwareWorker } from '../services/peripherals/hardware-worker.js';
+import * as hardwareEnqueue from '../services/peripherals/enqueue-hardware.js';
 import { appRouter } from '../trpc/router.js';
 import {
   ESCPOS_BYTES,
@@ -164,6 +166,7 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
+  vi.restoreAllMocks();
   __setEscPosTransportForTest(null);
   await getDatabase().delete(hardwareOutbox).where(eq(hardwareOutbox.tenantId, tenantId));
   await getDatabase().delete(sitePeripherals).where(eq(sitePeripherals.tenantId, tenantId));
@@ -224,7 +227,7 @@ describe('peripherals.printReceipt', () => {
     expect(rows).toHaveLength(0);
   });
 
-  it('returns fallback and enqueues a retry row when the transport fails', async () => {
+  it('confirms a durable retry and drains it once after transport recovery', async () => {
     const failing: EscPosTransport = {
       async write() {
         throw new EscPosTransportError('TCP refused', {
@@ -247,6 +250,7 @@ describe('peripherals.printReceipt', () => {
     expect(result.status).toBe('fallback');
     if (result.status === 'fallback') {
       expect(result.error).toBe('DEVICE_OFFLINE');
+      expect(result.retryQueued).toBe(true);
     }
 
     const rows = await getDatabase()
@@ -254,7 +258,7 @@ describe('peripherals.printReceipt', () => {
       .from(hardwareOutbox)
       .where(eq(hardwareOutbox.tenantId, tenantId))
       .all();
-    expect(rows.length).toBeGreaterThanOrEqual(1);
+    expect(rows).toHaveLength(1);
     const row = rows[0]!;
     expect(row.kind).toBe('print-receipt');
     expect(row.status).toBe('retrying');
@@ -265,6 +269,66 @@ describe('peripherals.printReceipt', () => {
       .map(byte => (byte >= 0x20 && byte < 0x7f ? String.fromCharCode(byte) : ''))
       .join('');
     expect(printable).toContain('RUNTIME TEST-VTA-1');
+    // Advance only this synthetic row's due time; keep production backoff intact.
+    await getDatabase()
+      .update(hardwareOutbox)
+      .set({ nextRetryAt: new Date(0).toISOString() })
+      .where(eq(hardwareOutbox.id, row.id));
+    const recovered = new MockEscPosTransport();
+    __setEscPosTransportForTest(recovered);
+    const worker = createHardwareWorker({ db: getDatabase() });
+    try {
+      expect(await worker.tickOnce(tenantId)).toMatchObject({
+        processed: true,
+        outcome: 'completed',
+        rowId: row.id,
+      });
+      expect(recovered.buffer()).toEqual(Uint8Array.from(payload.escposBytes ?? []));
+      const completed = await getDatabase()
+        .select()
+        .from(hardwareOutbox)
+        .where(eq(hardwareOutbox.id, row.id))
+        .get();
+      expect(completed?.status).toBe('printed');
+      const bytesAfterRetry = recovered.buffer();
+      expect(await worker.tickOnce(tenantId)).toMatchObject({ processed: false });
+      expect(recovered.buffer()).toEqual(bytesAfterRetry);
+    } finally {
+      await worker.stop();
+    }
+  });
+  it('does not claim a queued retry if durable enqueue fails', async () => {
+    __setEscPosTransportForTest({
+      async write() {
+        throw new EscPosTransportError('Offline', { kind: 'DEVICE_OFFLINE', message: 'Offline' });
+      },
+      async close() {},
+    });
+    const caller = appRouter.createCaller(buildContext('admin'));
+    await caller.peripherals.register({
+      siteId,
+      kind: 'printer',
+      driver: 'escpos',
+      config: { channel: 'mock' },
+    });
+    // Match Fastify's production request logger in this direct caller fixture.
+    const context = buildContext('admin');
+    context.req.log = server.app.log;
+    const failedEnqueueCaller = appRouter.createCaller(context);
+    vi.spyOn(hardwareEnqueue, 'enqueueHardware').mockRejectedValueOnce(
+      new Error('Synthetic storage failure')
+    );
+    expect(await failedEnqueueCaller.peripherals.printReceipt({ saleId, siteId })).toMatchObject({
+      status: 'fallback',
+      retryQueued: false,
+    });
+    expect(
+      await getDatabase()
+        .select()
+        .from(hardwareOutbox)
+        .where(eq(hardwareOutbox.tenantId, tenantId))
+        .all()
+    ).toHaveLength(0);
   });
 });
 

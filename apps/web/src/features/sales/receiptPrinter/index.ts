@@ -9,6 +9,7 @@
 export type {
   ReceiptFiscalDocument,
   EscPosDispatchOutcome,
+  EscPosFailure,
   PrintSaleReceiptOptions,
   HubReceiptBytesPayload,
   HubDrawerBytesPayload,

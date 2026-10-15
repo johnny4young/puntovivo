@@ -631,7 +631,8 @@
     "resumedCartLocked": "Discard the resumed cart to add new items"
   },
   "printer": {
-    "escposFailedFallback": "ESC/POS print failed; printed via the system printer",
+    "escposRetryQueued": "ESC/POS printing is queued and will retry automatically. Do not print another copy.",
+    "escposFailed": "ESC/POS printing could not be confirmed. Check the printer and queue before reprinting.",
     "autoPrintFailed": "Auto-print failed; reprint manually from the sale details",
     "kickDrawerCta": "Open cash drawer",
     "kickDrawerSuccess": "Cash drawer opened",

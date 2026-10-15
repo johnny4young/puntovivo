@@ -67,26 +67,26 @@ export type ReceiptSale = {
 };
 
 export type EscPosDispatchOutcome =
-  | { status: 'printed' }
-  | { status: 'system-fallback' }
-  | { status: 'fallback'; error?: string | undefined; errorMessage?: string | undefined };
+  { status: 'printed' } | { status: 'system-fallback' } | ({ status: 'fallback' } & EscPosFailure);
+
+export interface EscPosFailure {
+  error?: string | undefined;
+  errorMessage?: string | undefined;
+  /** True only after the authority confirms a durable retry row. */
+  retryQueued?: boolean | undefined;
+}
 
 // explicit `| undefined` on optional fields.
 export interface PrintSaleReceiptOptions {
   /**
    * When supplied, called first to attempt the ESC/POS path. Returns
-   * the server's dispatch outcome which steers whether to also
-   * trigger the legacy HTML path.
+   * the server's dispatch outcome. Only System/no-printer proceeds to HTML.
    */
   escposDispatcher?: (() => Promise<EscPosDispatchOutcome>) | undefined;
   /**
-   * Called when the ESC/POS attempt fails and the renderer falls
-   * back to the legacy HTML path. The SalesPage uses this to fire a
-   * translated toast.
+   * Called when ESC/POS fails. No automatic HTML print follows.
    */
-  onEscposFallback?:
-    | ((outcome: { error?: string | undefined; errorMessage?: string | undefined }) => void)
-    | undefined;
+  onEscposFailure?: ((outcome: EscPosFailure) => void) | undefined;
   /**
    * Fetches the server-rendered active receipt template for system/browser
    * printing. Null keeps the legacy hardcoded receipt as an upgrade fallback.
