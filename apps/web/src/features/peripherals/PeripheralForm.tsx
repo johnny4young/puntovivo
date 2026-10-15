@@ -242,7 +242,7 @@ export function PeripheralForm({
   function handleDriverChange(nextDriver: string) {
     if (kind === 'printer' && (nextDriver === 'system' || nextDriver === 'escpos')) {
       const current = parsedConfig ?? {};
-      printerDrafts.current[driver] = current;
+      if (parsedConfig !== null) printerDrafts.current[driver] = parsedConfig;
       const next =
         nextDriver === 'system'
           ? {}
@@ -541,9 +541,13 @@ export function PeripheralForm({
                   type="number"
                   min={9100}
                   max={9103}
-                  value={typeof parsedConfig?.port === 'number' ? parsedConfig.port : 9100}
+                  value={typeof parsedConfig?.port === 'number' ? parsedConfig.port : ''}
                   disabled={isSaving || parsedConfig === null}
-                  onChange={event => updateParsedConfig({ port: Number(event.target.value) })}
+                  onChange={event =>
+                    updateParsedConfig({
+                      port: event.target.value === '' ? undefined : Number(event.target.value),
+                    })
+                  }
                 />
                 <p className="text-sm text-fg3">{t('fields.networkOnly')}</p>
               </>

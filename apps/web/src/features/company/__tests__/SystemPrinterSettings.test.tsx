@@ -60,4 +60,30 @@ describe('local system printer controls', () => {
     expect(await screen.findByText(/No printers found/)).toBeVisible();
     expect(screen.getByRole('button', { name: 'Print a test ticket' })).toBeDisabled();
   });
+  it('shows the localized main-process reason without the IPC wrapper and refreshes the list', async () => {
+    const user = userEvent.setup();
+    const { select } = setup();
+    const list = window.electron!.getSystemPrinters as ReturnType<typeof vi.fn>;
+    select.mockRejectedValueOnce(
+      new Error(
+        "Error invoking remote method 'select-system-printer': Error: The selected printer is unavailable."
+      )
+    );
+    const picker = await screen.findByLabelText('System printer on this computer');
+    await waitFor(() => expect(picker).toBeEnabled());
+    await user.selectOptions(picker, 'os_two');
+    const alert = await screen.findByText(/The selected printer is unavailable\./);
+    expect(alert.textContent).not.toContain('Error invoking remote method');
+    await waitFor(() => expect(list).toHaveBeenCalledTimes(2));
+  });
+  it('keeps raw session codes out of the operator message', async () => {
+    const user = userEvent.setup();
+    const { select } = setup();
+    select.mockRejectedValueOnce(new Error('SESSION_ROLE_FORBIDDEN'));
+    const picker = await screen.findByLabelText('System printer on this computer');
+    await waitFor(() => expect(picker).toBeEnabled());
+    await user.selectOptions(picker, 'os_two');
+    const alert = await screen.findByText(/Could not access or print/);
+    expect(alert.textContent).not.toContain('SESSION_ROLE_FORBIDDEN');
+  });
 });

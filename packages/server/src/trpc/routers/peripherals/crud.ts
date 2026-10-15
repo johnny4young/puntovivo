@@ -129,16 +129,17 @@ export const peripheralsCrudProcedures = {
     const adapter = instantiateAdapter(row);
     const result = await runAdapterTest(adapter);
     const now = new Date().toISOString();
+    const details = {
+      ...result.details,
+      ...(result.message ? { message: result.message.slice(0, 512) } : {}),
+    };
     // Stamp only the exact configuration tested; a concurrent method edit wins.
     const stamp = ctx.db
       .update(sitePeripherals)
       .set({
         lastTestedAt: now,
         lastTestResult: result.status === 'ok' ? 'ok' : 'failed',
-        lastTestDetails: {
-          ...result.details,
-          ...(result.message ? { message: result.message.slice(0, 512) } : {}),
-        },
+        lastTestDetails: Object.keys(details).length > 0 ? details : null,
         updatedAt: now,
       })
       .where(
