@@ -280,11 +280,11 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
             )
           }
         />
-        {(readinessQuery.data.numberingGaps?.length ?? 0) > 0 && (
+        {readinessQuery.data.numberingGaps.length > 0 && (
           <div className="border-t border-white/15 px-5 py-4 text-sm text-white/85 sm:px-6">
             <p>{t('readiness.numbering.hint')}</p>
             <ul className="mt-2 list-inside list-disc space-y-1">
-              {readinessQuery.data.numberingGaps?.map(gap => (
+              {readinessQuery.data.numberingGaps.map(gap => (
                 <li key={gap.siteId}>
                   {t('readiness.numbering.missing', {
                     site: gap.siteName,

@@ -15,7 +15,7 @@ export function LanguageSelector({ compact = false }: { compact?: boolean }) {
   return (
     <Select
       name="language"
-      {...(compact ? {} : { label: t('language.label') })}
+      {...(compact ? { 'aria-label': t('language.label') } : { label: t('language.label') })}
       options={[
         { value: 'system', label: t('language.options.system') },
         { value: 'es', label: t('language.options.es') },
