@@ -1,0 +1,273 @@
+/* Task documentation shares the site's type, color and spacing tokens. */
+.manual {
+  padding-bottom: 80px;
+}
+.manual-skip {
+  position: fixed;
+  top: -100px;
+  left: 16px;
+  z-index: 200;
+  background: var(--surface);
+  color: var(--fg1);
+  padding: 14px;
+}
+.manual-skip:focus {
+  top: 12px;
+}
+.manual-layout {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 64px;
+  padding-top: 40px;
+  align-items: start;
+}
+.manual-index {
+  position: sticky;
+  top: 90px;
+  max-height: calc(100svh - 110px);
+  overflow: auto;
+  padding: 4px;
+  font-size: 13px;
+}
+.manual-index summary {
+  cursor: pointer;
+  min-height: 44px;
+  display: list-item;
+  padding-top: 10px;
+}
+.manual-index ol {
+  margin: 12px 0 24px;
+  padding-left: 22px;
+}
+.manual-index li {
+  padding: 3px 0;
+}
+.manual-index a {
+  display: inline-block;
+  padding: 7px 0;
+  color: var(--fg2);
+  text-decoration: none;
+  line-height: 1.5;
+}
+.manual-index a:hover {
+  color: var(--primary-700);
+  text-decoration: underline;
+}
+.manual-resources {
+  list-style: none;
+  padding: 14px 0 0;
+  border-top: 1px solid var(--border);
+}
+.manual-body {
+  min-width: 0;
+  max-width: 800px;
+  font-size: 15px;
+  line-height: 1.8;
+  color: var(--fg2);
+}
+.manual-body h2 {
+  font-family: var(--font-display);
+  font-size: clamp(26px, 3vw, 34px);
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+  color: var(--fg1);
+  margin: 0 0 16px;
+}
+.manual-body h3 {
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--fg1);
+  margin: 24px 0 12px;
+}
+.manual-body p {
+  margin: 0 0 14px;
+}
+.manual-body a {
+  color: var(--primary-700);
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+}
+.manual-version {
+  padding: 24px;
+  background: var(--surface-2);
+  border-left: 3px solid var(--primary-600);
+}
+.manual-version h2 {
+  font-family: var(--font-ui);
+  font-size: 18px;
+}
+.manual-platforms {
+  margin: 36px 0;
+}
+.manual-body dl {
+  margin: 0;
+}
+.manual-body dl > div {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.manual-body dt {
+  color: var(--fg1);
+  font-weight: 650;
+}
+.manual-body dd {
+  margin: 4px 0 0;
+}
+.manual-search {
+  margin: 0 0 36px;
+  padding: 24px 0;
+  border-block: 1px solid var(--border);
+}
+.manual-search label {
+  display: block;
+  font-weight: 650;
+  color: var(--fg1);
+  margin-bottom: 8px;
+}
+.manual-search input {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid var(--fg3);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font: inherit;
+  background: var(--surface);
+  color: var(--fg1);
+  box-sizing: border-box;
+}
+.manual-search p {
+  margin: 8px 0 0;
+  font-size: 13px;
+}
+.manual-search-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+}
+.manual-search-actions button {
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--fg3);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--fg1);
+  font: inherit;
+  cursor: pointer;
+}
+.manual article {
+  padding: 48px 0;
+  border-bottom: 1px solid var(--border);
+  scroll-margin-top: 100px;
+}
+.manual article:target h2 {
+  text-decoration: underline;
+  text-decoration-color: var(--primary-600);
+  text-underline-offset: 8px;
+}
+.manual .pv-kicker {
+  line-height: 1.7;
+}
+.manual-intro {
+  font-size: 17px;
+}
+.manual-steps {
+  padding-left: 24px;
+}
+.manual-steps li {
+  padding-left: 6px;
+  margin: 0 0 16px;
+}
+.manual-check {
+  border-left: 3px solid var(--fg3);
+  padding: 0 0 0 20px;
+  margin: 28px 0;
+}
+.manual-check h3 {
+  margin: 0 0 8px;
+}
+.manual-task-footer {
+  font-size: 13px;
+}
+.manual-help {
+  margin-top: 48px;
+}
+.manual :focus-visible {
+  outline: 3px solid var(--primary-600);
+  outline-offset: 4px;
+}
+.manual article:focus {
+  outline: none;
+}
+@media (max-width: 900px) {
+  .manual-layout {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+  .manual-index {
+    position: static;
+    max-height: none;
+    padding: 0;
+  }
+  .manual-index ol {
+    columns: 2;
+    column-gap: 28px;
+  }
+  .manual-index li {
+    break-inside: avoid;
+  }
+}
+@media (max-width: 540px) {
+  .manual-index ol {
+    columns: 1;
+  }
+  .manual-body {
+    font-size: 15px;
+  }
+  .manual-version {
+    padding: 18px;
+  }
+  .manual article {
+    padding: 36px 0;
+  }
+}
+@media print {
+  .pv-nav-wrap,
+  .pv-foot,
+  .manual-index,
+  .manual-search,
+  .manual-skip {
+    display: none;
+  }
+  .manual-layout {
+    display: block;
+  }
+  .manual-body {
+    max-width: none;
+  }
+  .manual article[hidden] {
+    display: block !important;
+  }
+}
+
+/* Keep the shared header within the manual's narrow reading viewport. */
+@media (max-width: 540px) {
+  .pv-nav .pv-cta-row > .pv-link,
+  .pv-nav .pv-cta-row > .pv-btn {
+    display: none;
+  }
+  .pv-nav {
+    justify-content: space-between;
+    gap: 8px;
+    padding-left: 12px;
+  }
+  .pv-nav .brand {
+    gap: 6px;
+    padding-right: 8px;
+  }
+  .pv-nav .brand .word {
+    font-size: 20px;
+  }
+}

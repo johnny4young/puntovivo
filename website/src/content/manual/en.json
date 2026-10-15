@@ -1,0 +1,320 @@
+{
+  "ui": {
+    "kicker": "User manual",
+    "title": "Run your business, step by step.",
+    "lead": "Set up Puntovivo, prepare your register and handle everyday tasks. A guide for owners, managers and cashiers.",
+    "home": "Home",
+    "index": "Choose a task",
+    "resources": [
+      ["/migracion", "Import a catalog"],
+      ["/atajos", "Keyboard shortcuts"],
+      ["/releases", "Releases"],
+      ["/estado", "Product status"],
+      ["/roadmap", "Future work"]
+    ],
+    "skip": "Skip to tasks",
+    "search": "Search the manual",
+    "placeholder": "E.g. open register, printer, taxes…",
+    "searchHint": "Search titles and content in this language. Queries stay in your browser.",
+    "clear": "Show all tasks",
+    "results": "{count} tasks found",
+    "empty": "No matching tasks. Try register, products or backup.",
+    "steps": "What to do",
+    "check": "Before you continue",
+    "related": "Continue with",
+    "source": "Technical reference",
+    "versionTitle": "Check your version",
+    "version": "Reference: v1.15.1, published October 14, 2026. Reviewed October 15, 2026. Screens can vary by role, site, modules and installed version. Later printing changes are identified in that task.",
+    "help": "Need help?",
+    "helpText": "Note the version, platform, site, action and error message. Share redacted diagnostics only; omit passwords, keys and customer data.",
+    "contact": "View contact channels",
+    "nojs": "Without JavaScript, every task remains readable. Use the index or your browser’s find command.",
+    "platformTitle": "Choose the right surface",
+    "platforms": [
+      [
+        "Desktop",
+        "Local installation for macOS 15+ Apple Silicon, Windows and Linux according to the published installers. Local operation works without internet; external services, synchronization and network devices need their connection."
+      ],
+      [
+        "Web",
+        "Requires an accessible Puntovivo server. Prints through the browser or the server’s configured transport; native backup and restore controls are used in desktop."
+      ],
+      [
+        "Phone / Companion",
+        "Live monitoring is a read-only PWA for admin, manager and viewer roles with the module enabled. Operational data is hidden offline. It does not replace an offline register."
+      ]
+    ],
+    "resultsOne": "1 task found",
+    "otherLanguage": "Leer este manual en español"
+  },
+  "tasks": [
+    {
+      "id": "start",
+      "title": "Install and create your business",
+      "where": "First launch · administrator",
+      "intro": "A new installation asks you to create the business and its owner. If a business already exists, sign in with an active account.",
+      "steps": [
+        "Download the installer for your platform from Releases. Preserve the installation and backups when updating; do not delete data to reopen setup.",
+        "Choose the language at first launch. Enter the business name, first site, country and business profile. Country selection proposes currency and locale; it does not create fiscal authorizations.",
+        "Enter the owner’s name and email. Create and confirm a password with at least 12 characters, including uppercase, lowercase, a number and a special character.",
+        "On desktop, use the main window. For web, the operator must start the server and open Puntovivo on that same computer; use the private installation code shown at startup. This is not remote registration.",
+        "Sign in with the account you chose. If the setup response was lost, try signing in before repeating the process."
+      ],
+      "check": "Ownership does not mean the business is ready to sell. Continue through guided setup. For a forgotten password, ask another authorized administrator or the installation operator; do not delete the database.",
+      "related": ["setup", "users"],
+      "source": "docs/LOGIN_GUIDE.md"
+    },
+    {
+      "id": "setup",
+      "title": "Complete initial setup",
+      "where": "Company → Guided setup · administrator",
+      "intro": "The guide covers Business type, Business, Sales, Fiscal, Payments and Devices. Resolve each decision marked as required.",
+      "steps": [
+        "Open Company and review guided setup. Use Resolve now to reach the missing setting.",
+        "Check country, currency, identity and contact details in Company; review the first site and its status in Sites.",
+        "Prepare Products and Sequentials. Check each site’s prefix and numbering before the first payment.",
+        "Prepare users and site access. In Sales, select the site and register you will operate, then record the cash opening.",
+        "Review Fiscal using actual business information and authorizations. Set up additional payment methods and devices when needed; the guide separates optional settings from required ones."
+      ],
+      "check": "The operational readiness indicator helps with setup; it does not certify legal compliance, electronic invoicing or hardware. Review sample tax catalogs before use.",
+      "related": ["profiles", "products", "cash"],
+      "source": "apps/web/src/features/company/companyGuidedSetup.ts"
+    },
+    {
+      "id": "profiles",
+      "title": "Choose or enable a business profile",
+      "where": "Company → Modules · administrator",
+      "intro": "There are seven profiles. A profile adjusts visible tools; it does not create another business, transform the catalog or grant certification.",
+      "steps": [
+        "Use What do you sell? in guided setup or open Company → Modules. Choose the profile that matches your operation.",
+        "Review the switches after applying the profile. You can enable available modules individually. A control marked Unavailable cannot enable that feature.",
+        "Configure each tool’s resources: enabling a screen does not create tables, products, recipes, lots or professional authorizations.",
+        "For mixed activities, choose a base profile and adjust its modules. Applying another profile can change several switches; check them before operating.",
+        "Resolve open table work before disabling Dine-in. Disabling a module keeps its data and history, but hides its screen and blocks its use."
+      ],
+      "check": "Profiles preserve your AI and events settings. Customer Display is off in every profile and must be enabled explicitly. Role permissions still apply.",
+      "related": ["products", "inventory", "users"],
+      "source": "packages/server/src/services/modules/presets.ts",
+      "details": [
+        [
+          "Retail / minimarket",
+          "Counter sales and Operations Center; disables quotations and restaurant surfaces."
+        ],
+        [
+          "Restaurant",
+          "Enables Touch POS, KDS, Mobile Waiter and Dine-in. Configure tables, stations and kitchen routing. Mobile Waiter and Voice Ordering also require Dine-in."
+        ],
+        [
+          "Quick service / café",
+          "Enables Touch POS and KDS; disables tables, Mobile Waiter and delivery."
+        ],
+        ["Wholesale", "Enables quotations and Operations Center; disables restaurant surfaces."],
+        [
+          "Hardware store",
+          "Enables quotations. Product creation offers length, serial or lot templates; the profile does not change stock."
+        ],
+        [
+          "Butchery",
+          "Enables Touch POS. Explicitly configure mass units, products, lots and weight/price labels; recipes and transformations are not created by choosing the profile."
+        ],
+        [
+          "Drugstore / pharmacy",
+          "Counter profile. Configure medicine details, lots, country policy, prescription evidence and authorized staff where applicable. Controlled medicines remain blocked, as does prescription operation without a reviewed country adapter. This does not grant a healthcare license."
+        ]
+      ]
+    },
+    {
+      "id": "products",
+      "title": "Create products, prices and taxes",
+      "where": "Products · administrator / manager according to action",
+      "intro": "Prepare a small catalog and check a sale before loading the whole business.",
+      "steps": [
+        "Create a product with its name, code or barcode and base unit. Choose whether it tracks stock; non-stock services can be sold and are excluded from merchandise procurement.",
+        "Set price, cost, applicable taxes and whether the price includes tax. Use rates verified for your business; sample catalogs do not determine your obligations.",
+        "If selling by package or measure, configure alternate units and conversions. Review the three price tiers when using them.",
+        "For customers with a price tier, apply it explicitly to the ticket. Selecting a customer never silently reprices an open ticket.",
+        "To import, open the migration guide: prepare CSV or Excel, map columns, review the preview and confirm. The limit is 500 rows per file."
+      ],
+      "check": "Selling price, cost and physical balance are different values. Check units, taxes and totals before confirming; a price adjustment is not an inventory correction.",
+      "related": ["inventory", "sales"],
+      "source": "docs/INVENTORY-MODEL.md"
+    },
+    {
+      "id": "inventory",
+      "title": "Receive and control inventory",
+      "where": "Inventory, Purchases and Transfers · manager / administrator",
+      "intro": "Stock belongs to a site. Stock at another site does not increase the active site’s balance.",
+      "steps": [
+        "Confirm the active site before viewing stock, movements or receiving goods.",
+        "Record incoming stock through a purchase or order receipt. For lot-tracked products, capture the actual lot identity and expiry where applicable; for serialized products, record exact serials.",
+        "Use Transfers to move goods between sites. Review sent and received quantities and discrepancies; do not simulate a transfer with a sale.",
+        "Use a physical count to compare storage with the system. Count the requested units, lots or serials and submit; approval requires its underlying state to remain current.",
+        "Check movements for discrepancies. For a supplier return, open the purchase and review both the unreturned quantity and the quantity physically available at that site."
+      ],
+      "check": "Do not switch tracking modes to bypass lots, serials or goods in transit. Blocked or quarantined lots do not become sellable through a return. Replenishment suggestions create drafts only when an operator chooses.",
+      "related": ["purchasing", "sales"],
+      "source": "docs/INVENTORY-MODEL.md"
+    },
+    {
+      "id": "purchasing",
+      "title": "Purchase, quote and review accounts",
+      "where": "Purchases, Suppliers and Quotations · manager / administrator",
+      "intro": "An unreceived order is not available stock. Historical purchases do not automatically become debt.",
+      "steps": [
+        "Review or create the supplier, then create a direct purchase or purchase order. Check the receiving site and costs.",
+        "Submit the order explicitly and record receipt when goods arrive. Capture lots or serials as required by the product.",
+        "If using minimum-stock suggestions, choose a supplier and review the draft before submitting; orders are not placed automatically.",
+        "In supplier accounts, explicitly record invoices, opening balances, payments or credits, and review aging and the statement.",
+        "Enable Quotations in Modules if needed. An accepted quotation can enter the register and convert once into a sale under its agreed terms."
+      ],
+      "check": "Review quantities and costs before receipt. To correct goods already received, use the supplier-return workflow and preserve the purchase link.",
+      "related": ["inventory", "cash"],
+      "source": "docs/PROJECT-STATUS.md"
+    },
+    {
+      "id": "cash",
+      "title": "Open, move and close cash",
+      "where": "Sales → Cash session · cashier, manager or administrator",
+      "intro": "Charging or refunding requires an active cash session at the correct site and for the correct user.",
+      "steps": [
+        "In Sales, select an available register. If none can be assigned, ask an administrator to review register and site configuration.",
+        "Choose Open register. Enter the opening float and counts of notes and coins; the counted total must match the float.",
+        "During the shift, use Record movement for paid-in, paid-out, skims or change replenishment and retain the reason.",
+        "At shift end, choose Close register and count the whole drawer by denomination. Blind close hides the expected balance until submission; a manager or administrator may have supervised close.",
+        "Submit the count and review balanced, over or short status. The responsible person reviews the cash-control report and shift movements."
+      ],
+      "check": "A register occupied by another person cannot be opened a second time. For discrepancies, review cash, refunds and movements; do not record a fictitious sale to balance the drawer.",
+      "related": ["sales", "returns"],
+      "source": "apps/web/src/i18n/locales/en/sales.json"
+    },
+    {
+      "id": "sales",
+      "title": "Take payment and recover a parked sale",
+      "where": "Sales · cashier, manager or administrator",
+      "intro": "Confirm the site and cash session before starting. Permissions and modules can change available actions.",
+      "steps": [
+        "Search or scan the product and confirm quantity, unit and price. Select the required lot or serial identity.",
+        "Add the customer when needed. Review taxes, discounts and total; request manager approval when the action requires it.",
+        "To continue later, suspend the sale and recover it from pending work. Check that you resumed the correct ticket before charging.",
+        "At checkout, choose a payment method or split between available methods. Confirm cash received and change.",
+        "Check that the sale is completed and keep its number. Print or reprint from its details. WhatsApp sharing prepares text and an optional local PNG; you decide and send it manually."
+      ],
+      "check": "A manual terminal records the payment method; it is not proof of bank authorization. If printing fails after payment, check and reprint the saved sale before charging again.",
+      "related": ["returns", "printing"],
+      "source": "docs/PROJECT-STATUS.md"
+    },
+    {
+      "id": "returns",
+      "title": "Return, exchange or void a sale",
+      "where": "Sale details · subject to permissions and approval",
+      "intro": "Start from the original sale to preserve quantities, lots, serials and refund evidence.",
+      "steps": [
+        "Find the original sale and open its details. Verify number, site, customer and lines.",
+        "For a return, select eligible lines and quantities; returns can be full or partial. Review quantities already returned.",
+        "Confirm the reason and the refund method offered by the workflow. For cash effects, check the active cash session.",
+        "For an exchange, use the linked replacement sale. When using store credit, verify the customer and credit issued or redeemed.",
+        "Use Void for a complete reversal when appropriate and permitted. Then review status, stock and cash movements."
+      ],
+      "check": "A return does not authorize reselling an expired or blocked lot. After a connection error, check the sale’s state before issuing another refund.",
+      "related": ["cash", "inventory"],
+      "source": "docs/PROJECT-STATUS.md"
+    },
+    {
+      "id": "users",
+      "title": "Create users and limit access",
+      "where": "Users and Employees · administrator",
+      "intro": "Included roles are admin, manager, cashier and viewer. There is no general custom-role editor.",
+      "steps": [
+        "In Users, create an individual account with its role and a strong password. Avoid sharing the owner account among cashiers.",
+        "Review employee and site assignments for their work. Select the correct site before operating.",
+        "Use admin for users, configuration and modules. Managers handle operational tasks; cashiers work in sales and cash; viewers access permitted read-only screens.",
+        "To change your password, open the user menu and choose Change password. Sign in again after saving; an administrator can also reset passwords.",
+        "When employee PIN switching is configured, check the displayed identity before continuing. Sign out when leaving the workstation."
+      ],
+      "check": "For a missing menu, check role, site and enabled modules first. An employee PIN does not replace the owner-account recovery process.",
+      "related": ["profiles", "backup"],
+      "source": "docs/LOGIN_GUIDE.md"
+    },
+    {
+      "id": "printing",
+      "title": "Configure receipts and printing",
+      "where": "Receipt templates and Peripherals · administrator",
+      "intro": "Choose the transport your printer actually has. A USB printer installed in the operating system uses its system driver; that does not imply direct USB ESC/POS.",
+      "steps": [
+        "Install and test the printer in the operating system first. Confirm model, paper width and queue name.",
+        "In Receipt templates, create or edit the template, choose 58 mm, 80 mm or letter as appropriate, review blocks and preview, and set the active default for its kind.",
+        "In Peripherals, check the site, register the printer and select System or ESC/POS for its real connection. v1.15.1 uses JSON configuration: for TCP, replace the example 192.168.1.50 with the real IP and verify the device’s port, commonly 9100.",
+        "Test printing from the peripheral, then review a receipt from a sale’s details. In web, allow the print popup and confirm the destination in the browser dialog.",
+        "After a post-payment failure, check job and sale status before retrying. Reprinting does not require another charge; control physical copies to avoid duplicates."
+      ],
+      "check": "Direct USB ESC/POS and direct serial are not implemented. TCP requires reachability from the server or appropriate local bridge. A system-visible printer does not guarantee cutting or an RJ11 drawer pulse. Physical Windows Xprinter validation by the user remains pending until after release.",
+      "related": ["sales", "backup"],
+      "source": "docs/HARDWARE-POS.md",
+      "details": [
+        [
+          "Published version: v1.15.1",
+          "This is the reference for the steps above. The old form preloads an example TCP address; it does not automatically detect the printer."
+        ],
+        [
+          "Merged, not yet published",
+          "The 58/80 mm thermal formatting fixes in #329 and changes in #331/#332 are on main, but not in v1.15.1. Updating to the latest published release does not yet include them."
+        ],
+        [
+          "Under review: #333",
+          "Proposes validated connection fields and system-printer selection. Do not treat those screens as instructions for the published version until merged and released."
+        ]
+      ]
+    },
+    {
+      "id": "backup",
+      "title": "Back up and recover the business",
+      "where": "Company → Data · administrator · native controls on desktop",
+      "intro": "A product CSV is not a complete backup. Keep the encrypted bundle and its recovery material outside the workstation.",
+      "steps": [
+        "On desktop, open Company → Data. Review schedule, last successful backup, encryption protection and remote vault if used.",
+        "Create a manual backup and check its result and location. You can protect it with a passphrase: store it securely; for another device, retain the passphrase or source key required by the bundle.",
+        "Configure scheduling if needed and review the last success time. For cloud storage, configure the S3-compatible vault and confirm upload; a successful local backup does not mean upload has completed.",
+        "Run the non-destructive restore drill and review integrity and counts before restoring over active data.",
+        "For damaged storage, stop using the workstation and preserve its data. From Operations → Support, follow recovery to Company → Data; verify the backup, then use Restore backup and its confirmation."
+      ],
+      "check": "Restoring replaces installation data: check business, date and key before confirming. Without a valid snapshot, or after integrity failure, preserve the device and seek support. In web, these native controls are marked desktop only.",
+      "related": ["users", "faq"],
+      "source": "docs/OPERATIONS-RUNBOOKS.md"
+    },
+    {
+      "id": "optional",
+      "title": "Set up optional tools and recognize limits",
+      "where": "Company, Modules and Operations · administrator",
+      "intro": "Enable tools you intend to configure. This manual describes product functions, not legal permission to operate.",
+      "steps": [
+        "For restaurants, configure tables, stations and kitchen routing after enabling modules. KDS preserves local preparation state; it does not certify delivery to physical printers.",
+        "For AI, review provider and credentials in Company before use. Features may send data to the configured provider and incur costs; choosing a business profile does not configure AI.",
+        "For Customer Display, enable the module and open the second screen from the sale. This is a local cart projection, not a certified hardware driver.",
+        "For live monitoring, enable Companion and sign in with a permitted read role. Do not use it to take payment or as a current balance while disconnected.",
+        "In Operations, review sync, fiscal, device or payment incidents and follow the area’s recovery workflow. Check saved results before retrying an action."
+      ],
+      "check": "Electronic invoicing requires real configuration, a provider and certification; local drafts do not replace them. Payment-terminal adapters and external connectors do not establish certified-provider support. See Status and Roadmap for limitations and future work.",
+      "related": ["profiles", "faq"],
+      "source": "docs/PROJECT-STATUS.md"
+    },
+    {
+      "id": "faq",
+      "title": "Troubleshoot common problems",
+      "where": "Diagnosis · start with version, user and site",
+      "intro": "Check what was saved before repeating an operation. An error does not prove that a sale or payment did not occur.",
+      "steps": [
+        "Cannot sign in: use your owner account or an active account, check keyboard language and password. There is no universal production account. Ask an authorized administrator for a reset.",
+        "Missing feature: check role, active site and Company → Modules. Unavailable means that control cannot enable the feature.",
+        "Cannot take payment: review cash opening, available register, numbering, stock, lot/serial selection and any approval requested by the screen.",
+        "Cannot print: first confirm the saved sale, then check paper, power, system queue or TCP IP/port and peripheral site. In browser, check popups. Switching to direct USB is not a solution.",
+        "Inventory mismatch: review site, units and conversions, pending receipts, transfers and returns. Check movements before a count or adjustment.",
+        "Cannot disable Dine-in: complete or resolve open table work before disabling it.",
+        "No internet: desktop keeps local operation, while network devices, cloud, sync and providers may remain pending. Web needs access to its server and Companion hides operational data offline.",
+        "Cannot restore: confirm desktop, administrator access, the correct business bundle and its passphrase or key. Do not force restoration after an integrity failure."
+      ],
+      "check": "If the issue persists, collect version, platform and the exact error; export redacted support diagnostics when available. Never share databases, installation codes or backup keys on a public channel.",
+      "related": ["start", "printing", "backup"],
+      "source": "docs/TROUBLESHOOTING.md"
+    }
+  ]
+}
