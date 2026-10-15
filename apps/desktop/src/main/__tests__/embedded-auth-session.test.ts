@@ -43,6 +43,52 @@ describe('embedded main-memory auth custody', () => {
     assert.equal(response.body, null);
   });
 
+  it('hands off and logs out with a valid access token even when refresh is unavailable', async () => {
+    const fixturePassword = `Aa!${randomUUID()}`;
+    const previous = process.env.PUNTOVIVO_DEV_ADMIN_PASSWORD;
+    process.env.PUNTOVIVO_DEV_ADMIN_PASSWORD = fixturePassword;
+    const server = await (async () => {
+      try {
+        return await createServer({ dbPath: ':memory:', verbose: false });
+      } finally {
+        if (previous === undefined) delete process.env.PUNTOVIVO_DEV_ADMIN_PASSWORD;
+        else process.env.PUNTOVIVO_DEV_ADMIN_PASSWORD = previous;
+      }
+    })();
+    const injectAuth = createEmbeddedAuthFetch(() => server);
+    let refreshCalls = 0;
+    const auth = createHubAuthSession({
+      hubUrl: EMBEDDED_AUTH_ORIGIN,
+      credentialPersistence: 'memory',
+      fetchImpl: async (input, init) => {
+        if (String(input).includes('/auth.refresh')) {
+          refreshCalls++;
+          return new Response('{}', { status: 503 });
+        }
+        return injectAuth(input, init);
+      },
+    });
+    try {
+      const login = await auth.login({ email: 'admin@localhost', password: fixturePassword });
+      const claims = JSON.parse(Buffer.from(login.token.split('.')[1]!, 'base64url').toString());
+      await assert.rejects(
+        auth.switchStaff({ targetUserId: 'missing-cashier', pin: '000000' }),
+        error => error instanceof HubAuthRemoteError && error.errorCode === 'AUTH_STAFF_PIN_INVALID'
+      );
+      await auth.logout();
+      assert.equal(refreshCalls, 0);
+      const families = (
+        server.db as typeof server.db & { $client: import('better-sqlite3').Database }
+      ).$client
+        .prepare('SELECT count(*) AS count FROM auth_refresh_families WHERE user_id = ?')
+        .get(claims.userId) as { count: number };
+      assert.equal(families.count, 0);
+    } finally {
+      auth.clear();
+      await server.close();
+    }
+  });
+
   it('renews after the unchanged access TTL, shares rotation and rejects revocation', async t => {
     const fixturePassword = `Aa!${randomUUID()}`;
     const previous = process.env.PUNTOVIVO_DEV_ADMIN_PASSWORD;

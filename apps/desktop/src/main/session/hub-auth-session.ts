@@ -277,6 +277,22 @@ function toIdentity(user: HubAuthUser, accessToken: string): DesktopSessionIdent
   };
 }
 
+const ACCESS_RENEWAL_SKEW_MS = 30_000;
+
+/** True when the access token is absent, unreadable, or about to expire. */
+function accessTokenNeedsRenewal(accessToken: string | null): boolean {
+  const payloadPart = accessToken?.split('.')[1];
+  if (!payloadPart) return true;
+  try {
+    const { exp } = JSON.parse(Buffer.from(payloadPart, 'base64url').toString('utf8')) as {
+      exp?: unknown;
+    };
+    return typeof exp !== 'number' || exp * 1000 - Date.now() <= ACCESS_RENEWAL_SKEW_MS;
+  } catch {
+    return true;
+  }
+}
+
 function refreshIdentity(
   previous: DesktopSessionIdentity,
   accessToken: string
@@ -788,9 +804,7 @@ export function createHubAuthSession(options: CreateHubAuthSessionOptions): HubA
   }
 
   async function switchStaff(input: HubSwitchStaffInput): Promise<HubAccessGrant> {
-    // These native operations bypass the renderer's HTTP 401 retry transport.
-    // Renew first so an idle embedded terminal can hand off after access expiry.
-    if (options.credentialPersistence === 'memory' && memoryState) await refresh();
+    await renewExpiredMemoryAccess();
     const expected = generation;
     const token = currentAccessToken;
     const state = loadState();
@@ -827,8 +841,20 @@ export function createHubAuthSession(options: CreateHubAuthSessionOptions): HubA
     return { token: response.data.token, sessionExpiresAt: response.data.sessionExpiresAt };
   }
 
+  // Native operations bypass the renderer's HTTP 401 retry transport. Renew
+  // only an expired access token: a still-valid one must not depend on refresh.
+  async function renewExpiredMemoryAccess(): Promise<void> {
+    if (
+      options.credentialPersistence === 'memory' &&
+      memoryState &&
+      accessTokenNeedsRenewal(currentAccessToken)
+    ) {
+      await refresh();
+    }
+  }
+
   async function logout(): Promise<void> {
-    if (options.credentialPersistence === 'memory' && memoryState) await refresh();
+    await renewExpiredMemoryAccess();
     const expected = generation;
     closeRealtimeConnections();
     let state: StoredHubAuthState | null;

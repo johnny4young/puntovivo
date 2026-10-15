@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import i18next from '@/i18n';
 import { buildSaleReceiptHtml, printSaleReceipt } from '@/features/sales/receiptPrinter';
 import type { Sale } from '@/types';
 
@@ -382,6 +383,39 @@ describe('receiptPrinter', () => {
 
     for (const nonCash of [{ ...sale, cashReceivedSnapshot: null }, sale]) {
       expect(await buildSaleReceiptHtml(nonCash)).not.toContain('Cash received');
+    }
+  });
+
+  it('localizes every fallback label, payment state and print column to Spanish', async () => {
+    await i18next.changeLanguage('es');
+    try {
+      const html = await buildSaleReceiptHtml({
+        ...sale,
+        customerName: null,
+        cashReceivedSnapshot: 150,
+        cashChangeSnapshot: 36,
+      });
+      expect(html).toContain('<html lang="es">');
+      expect(html).toContain('<title>Recibo POS-000123</title>');
+      for (const label of [
+        'Datos de la venta',
+        'Cliente ocasional',
+        'Efectivo / Pagado',
+        'Completada',
+        'Totales',
+        'Descuento',
+        'Efectivo recibido',
+        'Cambio',
+        'Notas',
+        'Productos: 1',
+        'Gracias por tu compra.',
+      ]) {
+        expect(html).toContain(label);
+      }
+      expect(html).toContain('.item-qty::before { content: "Cant."; }');
+      expect(html).not.toMatch(/>(?:Sale Info|Customer|Totals|Notes|Cash received)</);
+    } finally {
+      await i18next.changeLanguage('en');
     }
   });
 
