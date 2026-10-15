@@ -56,6 +56,14 @@
     {
       "en": "CODE_OF_CONDUCT.md",
       "es": "CODE_OF_CONDUCT.es.md"
+    },
+    {
+      "en": "docs/OPERATIONS-RUNBOOKS.md",
+      "es": "docs/es/OPERATIONS-RUNBOOKS.md"
+    },
+    {
+      "en": "docs/OBSERVABILITY.md",
+      "es": "docs/es/OBSERVABILITY.md"
     }
   ],
   "bilingual": ["docs/TRANSLATIONS.md"],

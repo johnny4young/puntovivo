@@ -1,5 +1,7 @@
 # Production observability
 
+**Language:** English · [Español](./es/OBSERVABILITY.md)
+
 Puntovivo keeps structured device-local logs and can forward redacted errors and
 spans to a Sentry-compatible sink when the deployment and tenant consent gates
 allow it.

@@ -53,10 +53,11 @@ identifica las versiones mantenidas.
 | [`SECURITY.md` (español)](./SECURITY.md)                                   | Autenticación, endurecimiento, límites de solicitudes y catálogo de auditoría.                                                         |
 | [`DEBUGGING.md` (español)](./DEBUGGING.md)                                 | Problemas habituales de desarrollo.                                                                                                    |
 | [`TROUBLESHOOTING.md` (español)](./TROUBLESHOOTING.md)                     | Procedimientos de recuperación para el operador.                                                                                       |
+| [`OPERATIONS-RUNBOOKS.md` (español)](./OPERATIONS-RUNBOOKS.md)             | Recuperación operativa, responsables y umbrales de escalamiento.                                                                       |
 | [`TESTING.md` (inglés)](../TESTING.md)                                     | Contrato de CI, E2E, comprobaciones en vivo y validación de candidatos a release.                                                      |
 | [`PERF-BUDGETS.md` (inglés)](../PERF-BUDGETS.md)                           | Presupuestos de tamaño del bundle y latencia p95 tRPC de CI definidos en `perf-budget.json`.                                           |
 | [`A11Y.md` (inglés)](../A11Y.md)                                           | Contrato de accesibilidad: auxiliar axe-core, contraste de tokens y convenciones ARIA.                                                 |
-| [`OBSERVABILITY.md` (inglés)](../OBSERVABILITY.md)                         | Observabilidad de producción: sink compartido, captureException/withSpan, trazas tRPC por negocio, auditoría y errores de renderizado. |
+| [`OBSERVABILITY.md` (español)](./OBSERVABILITY.md)                         | Observabilidad de producción: sink compartido, captureException/withSpan, trazas tRPC por negocio, auditoría y errores de renderizado. |
 | [`SHORTCUTS.md` (español)](./SHORTCUTS.md)                                 | Catálogo canónico de atajos y experiencia de la paleta global de comandos.                                                             |
 
 ---

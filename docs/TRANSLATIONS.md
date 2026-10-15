@@ -24,6 +24,8 @@ current guides remain in English and must not be presented as translated.
 | Keyboard / Teclado                                                      | [Shortcuts](./SHORTCUTS.md)                   | [Atajos](./es/SHORTCUTS.md)                      |
 | Debugging / Depuración                                                  | [Debugging](./DEBUGGING.md)                   | [Depuración](./es/DEBUGGING.md)                  |
 | Community / Comunidad                                                   | [Code of conduct](../CODE_OF_CONDUCT.md)      | [Código de conducta](../CODE_OF_CONDUCT.es.md)   |
+| Recovery operations / Recuperación operativa                            | [Runbooks](./OPERATIONS-RUNBOOKS.md)          | [Procedimientos](./es/OPERATIONS-RUNBOOKS.md)    |
+| Observability / Observabilidad                                          | [Observability](./OBSERVABILITY.md)           | [Observabilidad](./es/OBSERVABILITY.md)          |
 
 New public guides need both languages, either as a registered pair or a complete
 bilingual document. Maintain both versions when changing a listed guide. Keep code blocks, commands,

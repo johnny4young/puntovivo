@@ -1,5 +1,7 @@
 # Operations Recovery Runbooks
 
+**Language:** English · [Español](./es/OPERATIONS-RUNBOOKS.md)
+
 These runbooks are the safe first response for signals shown in **Operations →
 Needs attention**. They are intentionally provider-neutral: the application
 names the first owner, the response target, and the recovery surface without
