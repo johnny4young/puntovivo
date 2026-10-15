@@ -346,7 +346,7 @@ apps/web/src/lib/translateServerError.ts                         # KNOWN_SERVER_
 - **Check registration** does not print. **Print a test ticket** in the desktop
   system-printer controls opens a real OS dialog for a synthetic document,
   without creating a sale. Failed tests show their diagnosis and are not
-  announced as success. See [Printer setup](./PRINTER-SETUP.md).
+  announced as success. See [Printer setup](./PRINTER-SETUP.md) / [Configuración de impresoras](./es/PRINTER-SETUP.md).
 - Electron uses the printer's default page size and printable area. Static
   SVG QR/barcode shapes survive print sanitization; active SVG constructs and
   external resources remain blocked. Canceling the native print dialog is a

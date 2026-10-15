@@ -1,5 +1,7 @@
 # Receipt printer setup
 
+**Language:** English · [Español](./es/PRINTER-SETUP.md)
+
 ## USB printers on Windows
 
 1. Install the operating system driver appropriate for the printer model.
