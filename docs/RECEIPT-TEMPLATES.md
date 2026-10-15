@@ -173,8 +173,10 @@ The page has two modes kept in local state:
      headers so the preview language matches the admin UI instead of
      freezing English strings into Spanish sessions. On screen, the generated
      document contracts to the available pane width so all receipt columns
-     remain visible on smaller workspaces. Print media retains the exact
-     configured paper width and removes preview padding.
+     remain visible on smaller workspaces. Thermal HTML uses physical
+     printable widths (48 mm on a 58 mm roll, 72 mm on an 80 mm roll),
+     independently of head dots. Print media removes preview padding and
+     contracts to the available page area without shrinking the font.
 
 ### Constraints (Zod + UI)
 
@@ -323,6 +325,30 @@ apps/web/src/lib/translateServerError.ts                         # KNOWN_SERVER_
 ```
 
 ## Current print integration
+
+- A thermal item keeps its full description and shows its configured numeric
+  fields on labelled lines. Long identifiers wrap instead of expanding a
+  table beyond the printable area; totals move to another line when needed.
+  Receipt fonts stay at their physical point sizes rather than scaling an
+  oversized pixel layout down to fit the roll.
+- In **Devices**, a system printer or an ESC/POS printer can opt into automatic
+  printing after a completed sale. This is off by default. System printing
+  opens the OS dialog; the desktop silent-print preference uses the system's
+  default printer and its paper size. ESC/POS has a visible 58/80 mm selector,
+  synchronized with its advanced JSON configuration.
+- Electron uses the printer's default page size and printable area. Static
+  SVG QR/barcode shapes survive print sanitization; active SVG constructs and
+  external resources remain blocked. Canceling the native print dialog is a
+  separate result, not a spooler error.
+- Failed ESC/POS writes keep the durable hardware queue and automatic retry.
+  They never open a second HTML/System print. The warning confirms a queued
+  retry only after the server persists it; transport/bridge failures without
+  confirmation ask the operator to check the printer and queue before reprinting.
+  Explicit System printing and the no-ESC/POS route still use HTML. Hub-client
+  local bridge failures have no durable retry queue.
+- Concurrent print requests for one sale share the active attempt. A later
+  deliberate reprint remains available. Browser confirmation means the print
+  dialog opened, not that paper was produced.
 
 - The active default `fiscal_dee` template is selected when a sale has fiscal
   documents; otherwise the active default `sale` template is selected. A

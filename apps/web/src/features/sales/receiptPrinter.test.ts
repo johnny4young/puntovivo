@@ -43,6 +43,136 @@ const sale: Sale = {
   ],
 };
 
+describe('receipt print attempts', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    delete (window as { electron?: unknown }).electron;
+  });
+  it('collapses concurrent requests and permits a later intentional print', async () => {
+    let finish!: (result: { success: boolean }) => void;
+    const printReceipt = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise(resolve => {
+            finish = resolve;
+          })
+      )
+      .mockResolvedValue({ success: true });
+    (window as unknown as { electron: { printReceipt: typeof printReceipt } }).electron = {
+      printReceipt,
+    };
+    const options = { htmlProvider: async () => '<html><body>DEMO</body></html>' };
+    const first = printSaleReceipt(sale, options);
+    const duplicate = printSaleReceipt(sale, options);
+    expect(first).toBe(duplicate);
+    await Promise.resolve();
+    finish({ success: true });
+    await expect(first).resolves.toBe('printed');
+    expect(printReceipt).toHaveBeenCalledOnce();
+    await printSaleReceipt(sale, options);
+    expect(printReceipt).toHaveBeenCalledTimes(2);
+  });
+  it('starts an audited reprint as its own attempt while another print is pending', async () => {
+    let finish!: (result: { success: boolean }) => void;
+    const printReceipt = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise(resolve => {
+            finish = resolve;
+          })
+      )
+      .mockResolvedValue({ success: true });
+    (window as unknown as { electron: { printReceipt: typeof printReceipt } }).electron = {
+      printReceipt,
+    };
+    const options = { htmlProvider: async () => '<html><body>DEMO</body></html>' };
+    const pending = printSaleReceipt(sale, options);
+    const reprint = printSaleReceipt(sale, { ...options, shareInFlight: false });
+    expect(reprint).not.toBe(pending);
+    await expect(reprint).resolves.toBe('printed');
+    expect(printReceipt).toHaveBeenCalledTimes(2);
+    finish({ success: true });
+    await expect(pending).resolves.toBe('printed');
+  });
+  it('treats native cancellation as an outcome rather than a print failure', async () => {
+    const printReceipt = vi
+      .fn()
+      .mockResolvedValue({ success: false, errorCode: 'PRINT_CANCELLED' });
+    (window as unknown as { electron: { printReceipt: typeof printReceipt } }).electron = {
+      printReceipt,
+    };
+    await expect(printSaleReceipt(sale, { htmlProvider: async () => '<p>DEMO</p>' })).resolves.toBe(
+      'cancelled'
+    );
+  });
+  it.each([true, false, undefined])(
+    'stops failed ESC/POS without any HTML print (retryQueued=%s)',
+    async retryQueued => {
+      const printReceipt = vi.fn();
+      (window as unknown as { electron: { printReceipt: typeof printReceipt } }).electron = {
+        printReceipt,
+      };
+      const open = vi.spyOn(window, 'open');
+      const htmlProvider = vi.fn();
+      const onEscposFailure = vi.fn();
+      const failure = { status: 'fallback' as const, error: 'DEVICE_OFFLINE', retryQueued };
+      await expect(
+        printSaleReceipt(sale, {
+          escposDispatcher: async () => failure,
+          htmlProvider,
+          onEscposFailure,
+        })
+      ).resolves.toBe(retryQueued ? 'queued' : 'failed');
+      expect(onEscposFailure).toHaveBeenCalledWith(failure);
+      expect(htmlProvider).not.toHaveBeenCalled();
+      expect(printReceipt).not.toHaveBeenCalled();
+      expect(open).not.toHaveBeenCalled();
+    }
+  );
+  it('never prints HTML after a lost dispatcher response', async () => {
+    const open = vi.spyOn(window, 'open');
+    const htmlProvider = vi.fn();
+    const onEscposFailure = vi.fn();
+    await expect(
+      printSaleReceipt(sale, {
+        escposDispatcher: async () => {
+          throw new Error('Response lost');
+        },
+        htmlProvider,
+        onEscposFailure,
+      })
+    ).resolves.toBe('failed');
+    expect(onEscposFailure).toHaveBeenCalledWith({
+      error: 'DISPATCHER_REJECTED',
+      retryQueued: false,
+    });
+    expect(htmlProvider).not.toHaveBeenCalled();
+    expect(open).not.toHaveBeenCalled();
+  });
+  it('preserves explicitly selected System printing', async () => {
+    const printReceipt = vi.fn().mockResolvedValue({ success: true });
+    (window as unknown as { electron: { printReceipt: typeof printReceipt } }).electron = {
+      printReceipt,
+    };
+    await expect(
+      printSaleReceipt(sale, {
+        escposDispatcher: async () => ({ status: 'system-fallback' }),
+        htmlProvider: async () => '<p>EXPLICIT SYSTEM</p>',
+      })
+    ).resolves.toBe('printed');
+    expect(printReceipt).toHaveBeenCalledExactlyOnceWith('<p>EXPLICIT SYSTEM</p>');
+  });
+  it('keeps the compatibility receipt at a physical printable width with black ink', async () => {
+    const html = await buildSaleReceiptHtml(sale, { autoPrint: false });
+    expect(html).toContain('width: 48mm');
+    expect(html).toContain('font-size: 11pt');
+    expect(html).toContain('color: #000 !important');
+    expect(html).toContain('max-width: 100%');
+  });
+});
+
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
@@ -171,16 +301,14 @@ describe('receiptPrinter', () => {
         return 'blob:sale-receipt';
       });
     const revokeSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
-    const openSpy = vi.spyOn(window, 'open').mockReturnValue({} as Window);
+    const openSpy = vi
+      .spyOn(window, 'open')
+      .mockReturnValue({ location: { replace: vi.fn() }, close: vi.fn() } as unknown as Window);
 
     await printSaleReceipt(sale);
 
     expect(createUrlSpy).toHaveBeenCalledOnce();
-    expect(openSpy).toHaveBeenCalledWith(
-      'blob:sale-receipt',
-      '_blank',
-      'noopener,noreferrer,width=420,height=720'
-    );
+    expect(openSpy).toHaveBeenCalledWith('', '_blank', 'width=420,height=720');
     expect(captured).not.toBeNull();
     await expect(captured!.text()).resolves.toContain('window.print()');
     expect(revokeSpy).not.toHaveBeenCalled();
@@ -196,7 +324,10 @@ describe('receiptPrinter', () => {
       return 'blob:template-receipt';
     });
     vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
-    vi.spyOn(window, 'open').mockReturnValue({} as Window);
+    vi.spyOn(window, 'open').mockReturnValue({
+      location: { replace: vi.fn() },
+      close: vi.fn(),
+    } as unknown as Window);
 
     await printSaleReceipt(sale, {
       htmlProvider: async () => '<html><body><main>ACTIVE TEMPLATE</main></body></html>',
@@ -229,7 +360,10 @@ describe('receiptPrinter', () => {
       return 'blob:legacy-receipt';
     });
     vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
-    vi.spyOn(window, 'open').mockReturnValue({} as Window);
+    vi.spyOn(window, 'open').mockReturnValue({
+      location: { replace: vi.fn() },
+      close: vi.fn(),
+    } as unknown as Window);
 
     await printSaleReceipt(sale, { htmlProvider: async () => null });
 

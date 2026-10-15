@@ -97,6 +97,7 @@ export function ReceiptTemplateBasics({
           </select>
         </label>
       </div>
+      <p className="text-sm text-secondary-600">{t('editor.fields.paperWidthHelp')}</p>
     </section>
   );
 }

@@ -179,12 +179,15 @@ describe('printTable', () => {
       createdUrl = 'blob:print-table';
       return createdUrl;
     });
-    const fakeWindow = {} as Window;
+    const replace = vi.fn();
+    const fakeWindow = { opener: window, location: { replace } } as unknown as Window;
     const openSpy = vi.spyOn(window, 'open').mockReturnValue(fakeWindow);
 
     printTable(sample, columns, { title: 'Rows <Report> "A"' });
 
-    expect(openSpy).toHaveBeenCalledWith('blob:print-table', '_blank', 'noopener,noreferrer');
+    expect(openSpy).toHaveBeenCalledWith('', '_blank', '');
+    expect(fakeWindow.opener).toBeNull();
+    expect(replace).toHaveBeenCalledWith('blob:print-table');
     expect(captured).not.toBeNull();
     const html = await captured!.text();
     // Title is HTML-escaped in both the document title and visible header.
@@ -223,7 +226,9 @@ describe('printTable', () => {
       createdUrl = 'blob:print-table-no-title';
       return createdUrl;
     });
-    vi.spyOn(window, 'open').mockReturnValue({} as Window);
+    vi.spyOn(window, 'open').mockReturnValue({
+      location: { replace: vi.fn() },
+    } as unknown as Window);
     printTable(sample, columns);
     const html = await captured!.text();
     expect(html).toContain('<title>Print</title>');

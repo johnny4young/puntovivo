@@ -423,6 +423,7 @@ describe('peripherals.buildReceiptBytes', () => {
     };
     const currentLayout = {
       ...snapshottedLayout,
+      paperWidth: '58mm' as const,
       blocks: [
         { type: 'text' as const, value: 'CURRENT TEMPLATE' },
         ...snapshottedLayout.blocks.slice(1),
@@ -484,6 +485,7 @@ describe('peripherals.buildReceiptBytes', () => {
       if (snapshotted.status !== 'ready') throw new Error('Expected snapshotted receipt HTML');
       expect(snapshotted.templateId).toBe(saleTemplateId);
       expect(snapshotted.html).toContain('FROZEN TEMPLATE');
+      expect(snapshotted.html).toContain('width:72mm');
       expect(snapshotted.html).not.toContain('CURRENT TEMPLATE');
       expect(snapshotted.html).toContain(originalCompanyLogoUrl);
       expect(snapshotted.html).not.toContain('current-renamed-logo.png');
@@ -560,6 +562,7 @@ describe('peripherals.buildReceiptBytes', () => {
       expect(historical.status).toBe('ready');
       if (historical.status !== 'ready') throw new Error('Expected historical receipt HTML');
       expect(historical.html).toContain('CURRENT TEMPLATE');
+      expect(historical.html).toContain('width:48mm');
       expect(historical.html).not.toContain('FROZEN TEMPLATE');
       expect(historical.html).toContain('current-renamed-logo.png');
       expect(historical.html).not.toContain(originalCompanyLogoUrl);
@@ -669,6 +672,25 @@ describe('peripherals.buildReceiptBytes', () => {
     });
     expect(result.status).toBe('system-fallback');
     expect(await countHardwareOutbox()).toBe(before);
+  });
+
+  it('rejects invalid ESC/POS configuration without switching to System printing', async () => {
+    await getDatabase()
+      .insert(sitePeripherals)
+      .values({
+        id: nanoid(),
+        tenantId,
+        siteId,
+        kind: 'printer',
+        driver: 'escpos',
+        config: { channel: 'invalid' },
+        isActive: true,
+      });
+    const caller = appRouter.createCaller(buildContext());
+    await expect(
+      caller.peripherals.buildReceiptBytes({ saleId: seededSaleId, siteId })
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+    expect(await countHardwareOutbox()).toBe(0);
   });
 
   it('returns ready bytes with transport hint when an escpos printer is registered', async () => {

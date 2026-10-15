@@ -69,6 +69,7 @@ function defaultConfigFor(kind: PeripheralKind, driver: string): Record<string, 
       channel: 'tcp',
       host: '192.168.1.50',
       port: 9100,
+      ...(kind === 'printer' ? { paperWidth: '80mm' } : {}),
     };
   }
   if (kind === 'scanner' && driver === 'wedge') {
@@ -174,13 +175,15 @@ export function PeripheralForm({
       return null;
     }
   }, [configRaw]);
-  const showAutoPrintToggle = kind === 'printer' && driver === 'escpos';
+  const showAutoPrintToggle = kind === 'printer' && (driver === 'escpos' || driver === 'system');
+  const showPaperWidthControl = kind === 'printer' && driver === 'escpos';
   const showConfigHelp = driver === 'escpos';
   const showGs1Controls = kind === 'scanner' && driver === 'wedge';
   const gs1Scheme = parsedConfig ? readGs1Scheme(parsedConfig) : null;
   const gs1Prefixes = parsedConfig ? readGs1Prefixes(parsedConfig) : null;
   const autoPrintChecked = showAutoPrintToggle && parsedConfig?.autoPrintOnComplete === true;
   const autoPrintToggleDisabled = isSaving || parsedConfig === null;
+  const paperWidth = parsedConfig?.paperWidth ?? '80mm';
 
   function handleAutoPrintToggle(nextChecked: boolean) {
     if (parsedConfig === null) return;
@@ -387,7 +390,11 @@ export function PeripheralForm({
               <span className="flex flex-col">
                 <span className="font-medium">{t('fields.autoPrintOnComplete.label')}</span>
                 <span className="text-xs text-secondary-600">
-                  {t('fields.autoPrintOnComplete.help')}
+                  {t(
+                    driver === 'system'
+                      ? 'fields.autoPrintOnComplete.systemHelp'
+                      : 'fields.autoPrintOnComplete.help'
+                  )}
                 </span>
               </span>
             </label>
@@ -454,6 +461,31 @@ export function PeripheralForm({
               <p className="mt-2 text-sm text-danger-600">{t('fields.gs1.invalid')}</p>
             )}
           </fieldset>
+        )}
+
+        {showPaperWidthControl && (
+          <div>
+            <label htmlFor="peripheral-paper-width" className="label">
+              {t('fields.paperWidthLabel')}
+            </label>
+            <select
+              id="peripheral-paper-width"
+              className="input mt-1"
+              value={paperWidth === '58mm' || paperWidth === '80mm' ? paperWidth : ''}
+              disabled={isSaving || parsedConfig === null}
+              onChange={event => updateParsedConfig({ paperWidth: event.target.value })}
+              aria-describedby="peripheral-paper-width-help"
+            >
+              <option value="" disabled>
+                {t('fields.paperWidthInvalid')}
+              </option>
+              <option value="58mm">58 mm</option>
+              <option value="80mm">80 mm</option>
+            </select>
+            <p id="peripheral-paper-width-help" className="mt-1 text-xs text-secondary-500">
+              {t('fields.paperWidthHelp')}
+            </p>
+          </div>
         )}
 
         <div>

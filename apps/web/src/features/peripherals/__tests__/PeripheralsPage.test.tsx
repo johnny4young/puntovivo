@@ -265,16 +265,14 @@ describe('PeripheralsPage', () => {
     expect(screen.getAllByText('Not tested').length).toBeGreaterThanOrEqual(1);
   });
 
-  // the auto-print toggle ships only for the ESC/POS printer
-  // driver pair. Other (kind, driver) combinations must not surface it
-  // so cashier UI hooks never read a flag from an unrelated peripheral.
-  it('hides ESC/POS-only controls and help for the system printer driver', async () => {
+  it('offers automatic system printing without ESC/POS transport controls', async () => {
     const user = userEvent.setup();
     peripheralRows = [];
     render(<PeripheralsPage />);
     await user.click(screen.getByTestId('peripherals-add-button'));
     // Default new-entry pair is (printer, system) — no ESC/POS-only guidance.
-    expect(screen.queryByTestId('peripheral-auto-print-toggle')).not.toBeInTheDocument();
+    expect(screen.getByTestId('peripheral-auto-print-toggle')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Paper width')).not.toBeInTheDocument();
     expect(
       screen.queryByText(
         'For a network-connected ESC/POS printer, use a private IP address and a port from 9100 to 9103.'

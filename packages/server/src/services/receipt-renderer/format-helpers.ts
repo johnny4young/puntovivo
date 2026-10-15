@@ -20,11 +20,14 @@ import type {
   RenderSaleItem,
 } from './types.js';
 
-export const PAPER_WIDTH_PX: Record<ReceiptLayout['paperWidth'], number> = {
-  '58mm': PRINT_TOKENS.paper58mmDots,
-  '80mm': PRINT_TOKENS.paper80mmDots,
-  letter: 612,
-  a4: 595,
+// CSS pixels are 96/inch, regardless of the thermal head's dot resolution.
+// Keep the common 384/576-dot printable areas in physical units, separately
+// from the nominal 58/80 mm roll and from ESC/POS raster dimensions.
+export const PAPER_WIDTH_CSS: Record<ReceiptLayout['paperWidth'], string> = {
+  '58mm': `${PRINT_TOKENS.paper58mmPrintableMm}mm`,
+  '80mm': `${PRINT_TOKENS.paper80mmPrintableMm}mm`,
+  letter: '8.5in',
+  a4: '210mm',
 };
 
 export function alignClass(align?: string): string {

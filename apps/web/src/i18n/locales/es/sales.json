@@ -619,7 +619,10 @@
     "noPermission": "Los cajeros solo pueden reimprimir ventas de su turno activo.",
     "toastSuccessTitle": "Recibo reimpreso",
     "toastErrorTitle": "No se pudo reimprimir el recibo",
-    "shortcut": "Ctrl+Shift+P"
+    "shortcut": "Ctrl+Shift+P",
+    "toastDialogOpened": "Diálogo de impresión abierto",
+    "toastCancelledTitle": "Reimpresión cancelada",
+    "toastCancelledDescription": "No se imprimió nada. La solicitud de reimpresión quedó registrada."
   },
   "scanner": {
     "notFound": "No encontré el producto con ese código",
@@ -630,7 +633,8 @@
     "resumedCartLocked": "Descarta el carrito retomado para agregar productos nuevos"
   },
   "printer": {
-    "escposFailedFallback": "La impresora ESC/POS falló; imprimimos por la del sistema",
+    "escposRetryQueued": "La impresión ESC/POS quedó en cola y se reintentará automáticamente. No imprimas otra copia.",
+    "escposFailed": "No se pudo confirmar la impresión ESC/POS. Revisa la impresora y la cola antes de reimprimir.",
     "autoPrintFailed": "La impresión automática falló; reimprime desde el detalle de la venta",
     "kickDrawerCta": "Abrir cajón",
     "kickDrawerSuccess": "Cajón monedero abierto",

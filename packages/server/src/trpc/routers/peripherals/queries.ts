@@ -7,6 +7,7 @@
  *
  * @module trpc/routers/peripherals/queries
  */
+import { TRPCError } from '@trpc/server';
 import { and, asc, desc, eq } from 'drizzle-orm';
 import { hardwareOutbox, sitePeripherals, tenants } from '../../../db/schema.js';
 import {
@@ -238,13 +239,11 @@ export const peripheralsQueryProcedures = {
 
     const parsed = escposReceiptPrinterConfigSchema.safeParse(printerRow.config);
     if (!parsed.success) {
-      return {
-        status: 'system-fallback' as const,
-        bytes: [] as number[],
-        paperWidth: null,
-        characterSet: null,
-        transportHint: null,
-      };
+      // An invalid ESC/POS setup is a failure, not a request to print HTML.
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Invalid ESC/POS printer configuration',
+      });
     }
 
     const config = parsed.data;

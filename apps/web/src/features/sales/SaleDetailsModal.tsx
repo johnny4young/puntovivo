@@ -16,6 +16,7 @@ import {
   createEscposReceiptDispatcher,
   printSaleReceipt,
   type EscPosDispatchOutcome,
+  type EscPosFailure,
   type HubReceiptBytesPayload,
 } from '@/features/sales/receiptPrinter';
 import { useTenant } from '@/features/tenant/TenantProvider';
@@ -99,9 +100,16 @@ export function SaleDetailsModal({
     },
     [currentSite, utils]
   );
-  const handleEscposFallback = useCallback(() => {
-    toast.warning({ title: t('sales:printer.escposFailedFallback') });
-  }, [t, toast]);
+  const handleEscposFailure = useCallback(
+    (outcome: EscPosFailure) => {
+      toast.warning({
+        title: t(
+          outcome.retryQueued ? 'sales:printer.escposRetryQueued' : 'sales:printer.escposFailed'
+        ),
+      });
+    },
+    [t, toast]
+  );
   const [printError, setPrintError] = useState<string | null>(null);
   const [isPrinting, setIsPrinting] = useState(false);
   const [isReturnConfirmOpen, setIsReturnConfirmOpen] = useState(false);
@@ -154,12 +162,27 @@ export function SaleDetailsModal({
       setIsPrinting(true);
       setPrintError(null);
       try {
-        await printSaleReceipt(refreshed, {
+        const outcome = await printSaleReceipt(refreshed, {
           escposDispatcher: buildEscposDispatcher(refreshed.id),
-          onEscposFallback: handleEscposFallback,
+          onEscposFailure: handleEscposFailure,
           htmlProvider: buildReceiptHtmlProvider(refreshed.id),
+          shareInFlight: false,
         });
-        toast.success({ title: t('sales:reprint.toastSuccessTitle') });
+        if (outcome === 'cancelled') {
+          toast.info({
+            title: t('sales:reprint.toastCancelledTitle'),
+            description: t('sales:reprint.toastCancelledDescription'),
+          });
+        }
+        if (outcome === 'printed' || outcome === 'dialog-opened') {
+          toast.success({
+            title: t(
+              outcome === 'dialog-opened'
+                ? 'sales:reprint.toastDialogOpened'
+                : 'sales:reprint.toastSuccessTitle'
+            ),
+          });
+        }
       } catch (error) {
         const message =
           error instanceof Error ? error.message : t('sales:details.toast.printErrorFallback');
@@ -248,9 +271,7 @@ export function SaleDetailsModal({
   // A void reverses the entire original ticket. Once any quantity has been
   // returned, allowing a void would restore the already-returned stock and
   // money twice; the server enforces the same fail-closed rule.
-  const canVoidEntireSale =
-    sale?.status === 'completed' &&
-    sale.returnState === null;
+  const canVoidEntireSale = sale?.status === 'completed' && sale.returnState === null;
   const refundBaselineNeedsApproval =
     isSalesRole &&
     canContinueReturn &&
@@ -325,7 +346,7 @@ export function SaleDetailsModal({
     try {
       await printSaleReceipt(sale, {
         escposDispatcher: buildEscposDispatcher(sale.id),
-        onEscposFallback: handleEscposFallback,
+        onEscposFailure: handleEscposFailure,
         htmlProvider: buildReceiptHtmlProvider(sale.id),
       });
     } catch (error) {

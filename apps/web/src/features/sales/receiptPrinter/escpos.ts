@@ -16,8 +16,8 @@
 // - bridge success → `printed`
 // - hub returned no peripheral → `system-fallback`
 // - bridge missing OR hub fetch failed OR write failed
-// → `fallback` (caller's `onEscposFallback` toasts a translated
-// message; the legacy HTML path runs anyway).
+// → `fallback` (caller's `onEscposFailure` warns; no HTML copy runs).
+// The local bridge has no durable queue, so it never claims retryQueued.
 //
 // Per ADR-0008 rule 6, the helpers themselves NEVER write to any
 // operational table. They are a pure routing decision plus an IPC
@@ -47,10 +47,6 @@ export function createEscposReceiptDispatcher({
     if (cfg.authorityMode !== 'hub_client') {
       return serverPrint();
     }
-    const bridge = window.electron?.peripherals?.dispatchLocalEscpos;
-    if (!bridge) {
-      return { status: 'fallback', error: 'BRIDGE_UNAVAILABLE' };
-    }
     let payload: HubReceiptBytesPayload;
     try {
       payload = await fetchHubReceiptBytes();
@@ -61,9 +57,12 @@ export function createEscposReceiptDispatcher({
         errorMessage: err instanceof Error ? err.message : undefined,
       };
     }
-    if (payload.status !== 'ready' || payload.bytes.length === 0 || !payload.transportHint) {
-      return { status: 'system-fallback' };
+    if (payload.status === 'system-fallback') return { status: 'system-fallback' };
+    if (payload.bytes.length === 0 || !payload.transportHint) {
+      return { status: 'fallback', error: 'EMPTY_PAYLOAD' };
     }
+    const bridge = window.electron?.peripherals?.dispatchLocalEscpos;
+    if (!bridge) return { status: 'fallback', error: 'BRIDGE_UNAVAILABLE' };
     const result = await bridge({
       bytes: payload.bytes,
       transport: payload.transportHint,

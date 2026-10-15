@@ -52,32 +52,49 @@ for (const language of ['en', 'es'] as const) {
     // Editing hints are a separate set; these assertions own the five action chips.
     const chips = page.getByTestId('checkout-shortcut-chips').locator('kbd');
     await expect(chips).toHaveCount(5);
+    // The header preference settles before the lazy sales namespace renders.
+    // Measure the intended language, not the preceding frame's labels.
+    await expect
+      .poll(async () => (await chips.evaluateAll(measureChips)).map(chip => chip.text))
+      .toEqual(shortcutLabels[language]);
 
     // 1024px is the narrowest side-column dock (lg: 18-20rem); 1280/1440 are xl.
     for (const width of [1440, 1280, 1024]) {
       await page.setViewportSize({ width, height: 900 });
-      const labels = await chips.evaluateAll(measureChips);
-      expect(
-        labels.map(({ text, clipped, escapedChip, escapedCard }) => ({
-          text,
-          clipped,
-          escapedChip,
-          escapedCard,
-        })),
-        `${language} shortcut labels at ${width}px`
-      ).toEqual(
-        shortcutLabels[language].map(text => ({
-          text,
-          clipped: false,
-          escapedChip: false,
-          escapedCard: false,
-        }))
-      );
+      await expect
+        .poll(
+          async () =>
+            (await chips.evaluateAll(measureChips)).map(
+              ({ text, clipped, escapedChip, escapedCard }) => ({
+                text,
+                clipped,
+                escapedChip,
+                escapedCard,
+              })
+            ),
+          { message: `${language} shortcut labels at ${width}px` }
+        )
+        .toEqual(
+          shortcutLabels[language].map(text => ({
+            text,
+            clipped: false,
+            escapedChip: false,
+            escapedCard: false,
+          }))
+        );
     }
 
     // The mobile checkout uses a separate action bar. Preserve the dock's
     // two-column order without asserting the broader Sales panel's viewport fit.
     await page.setViewportSize({ width: 375, height: 812 });
+    // Sidebar motion may still be responding to the desktop-to-mobile resize.
+    await expect
+      .poll(async () =>
+        (await chips.evaluateAll(measureChips)).every(
+          chip => !chip.clipped && !chip.escapedChip && !chip.escapedCard
+        )
+      )
+      .toBe(true);
     const mobileChips = await chips.evaluateAll(measureChips);
     expect(mobileChips).toHaveLength(5);
     expect(mobileChips.every(chip => !chip.clipped && !chip.escapedChip && !chip.escapedCard)).toBe(

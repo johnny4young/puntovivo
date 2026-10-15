@@ -12,6 +12,15 @@ import { sanitisePrintHtml } from '../print-html-sanitizer.ts';
 // --experimental-strip-types). The import path uses `.ts` because
 // strip-types consumes the source directly.
 describe('sanitisePrintHtml', () => {
+  it('preserves static QR/barcode SVG paths without executable or external constructs', () => {
+    const out = sanitisePrintHtml(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 21 21" onload="evil()"><path d="M0 0h7v7H0z" stroke="#000" stroke-width="1"/><script>evil()</script><foreignObject><iframe src="https://evil"></iframe></foreignObject><use href="https://evil/code.svg"></use></svg>'
+    );
+    assert.match(out, /viewBox="0 0 21 21"/);
+    assert.match(out, /<path d="M0 0h7v7H0z"/);
+    assert.doesNotMatch(out, /onload|<script|foreignObject|<iframe|<use|https:\/\/evil/);
+    assert.match(out, /script-src 'none'/);
+  });
   it('strips <script> tags wholesale, not just unwrapping them', () => {
     const out = sanitisePrintHtml('<div>Total: $100</div><script>alert(1)</script>');
     assert.match(out, /<div>Total: \$100<\/div>/);

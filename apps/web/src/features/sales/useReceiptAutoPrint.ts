@@ -6,6 +6,7 @@ import {
   createEscposReceiptDispatcher,
   printSaleReceipt,
   type EscPosDispatchOutcome,
+  type EscPosFailure,
   type HubReceiptBytesPayload,
 } from '@/features/sales/receiptPrinter';
 import { trpc } from '@/lib/trpc';
@@ -40,11 +41,8 @@ interface UseReceiptAutoPrintParams {
  * tenants do not get surprise prints — opt-in is explicit per site at the
  * peripheral config level.
  *
- * Failures fall through the existing fallback chain (system print →
- * browser print window) inside `printSaleReceipt`. We surface a warning
- * toast when the ESC/POS path fails so the cashier knows the receipt
- * landed on a different surface; the operator can diagnose via the
- * hardware_outbox surface in Operations.
+ * ESC/POS failures stop this attempt and surface a warning. Confirmed
+ * server retries remain in hardware_outbox; no HTML copy is started.
  *
  * Returns `maybeAutoPrint(sale)`, invoked by the sales-mutation success
  * paths after the completion toast. Acyclic leaf: it depends only on
@@ -57,9 +55,16 @@ export function useReceiptAutoPrint({ autoPrintEnabled }: UseReceiptAutoPrintPar
   const { currentSite } = useTenant();
   const printReceiptMutation = trpc.peripherals.printReceipt.useMutation();
   const printReceiptMutateAsync = printReceiptMutation.mutateAsync;
-  const handleAutoPrintFallback = useCallback(() => {
-    toast.warning({ title: t('sales:printer.escposFailedFallback') });
-  }, [t, toast]);
+  const handleAutoPrintFailure = useCallback(
+    (outcome: EscPosFailure) => {
+      toast.warning({
+        title: t(
+          outcome.retryQueued ? 'sales:printer.escposRetryQueued' : 'sales:printer.escposFailed'
+        ),
+      });
+    },
+    [t, toast]
+  );
   const maybeAutoPrint = useCallback(
     async (sale: Sale) => {
       if (!autoPrintEnabled || !currentSite) return;
@@ -83,7 +88,7 @@ export function useReceiptAutoPrint({ autoPrintEnabled }: UseReceiptAutoPrintPar
       try {
         await printSaleReceipt(sale, {
           escposDispatcher: dispatcher,
-          onEscposFallback: handleAutoPrintFallback,
+          onEscposFailure: handleAutoPrintFailure,
           htmlProvider: async () => {
             const result = await utils.peripherals.renderReceiptHtml.fetch(
               {
@@ -106,7 +111,7 @@ export function useReceiptAutoPrint({ autoPrintEnabled }: UseReceiptAutoPrintPar
     [
       autoPrintEnabled,
       currentSite,
-      handleAutoPrintFallback,
+      handleAutoPrintFailure,
       printReceiptMutateAsync,
       t,
       toast,

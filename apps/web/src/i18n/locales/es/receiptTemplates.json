@@ -62,7 +62,8 @@
       "name": "Nombre de la plantilla",
       "namePlaceholder": "ej. Recibo de venta — 80mm",
       "kind": "Tipo de documento",
-      "paperWidth": "Ancho del papel"
+      "paperWidth": "Ancho del papel",
+      "paperWidthHelp": "El formato térmico usa 48 mm útiles en rollos de 58 mm y 72 mm en rollos de 80 mm. Elige el mismo papel en la impresora. Las ventas completadas conservan su plantilla al reimprimir."
     },
     "guidedSetup": {
       "createEyebrow": "Configuración básica",

@@ -123,6 +123,20 @@ describe('peripherals.list', () => {
 });
 
 describe('peripherals.register', () => {
+  it('persists the system printer opt-in for automatic sale receipts', async () => {
+    const caller = appRouter.createCaller(buildContext());
+    const registered = await caller.peripherals.register({
+      siteId,
+      kind: 'printer',
+      driver: 'system',
+      config: { autoPrintOnComplete: true },
+    });
+    expect(registered.config).toEqual({ autoPrintOnComplete: true });
+    const active = await caller.peripherals.activeForSite({ siteId });
+    expect(active.find(row => row.kind === 'printer')?.config).toEqual({
+      autoPrintOnComplete: true,
+    });
+  });
   it('persists a system printer with empty config', async () => {
     const caller = appRouter.createCaller(buildContext());
     const row = await caller.peripherals.register({

@@ -62,7 +62,8 @@
       "name": "Template name",
       "namePlaceholder": "e.g. Sale receipt — 80mm",
       "kind": "Document type",
-      "paperWidth": "Paper width"
+      "paperWidth": "Paper width",
+      "paperWidthHelp": "Thermal layouts use printable areas of 48 mm (58 mm roll) or 72 mm (80 mm roll). Match the printer paper size. Completed sales keep their saved template when reprinted."
     },
     "guidedSetup": {
       "createEyebrow": "Basic setup",

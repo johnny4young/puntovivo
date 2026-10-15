@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import i18next from 'i18next';
 import { render } from '@/test/utils';
 
@@ -34,6 +34,9 @@ const mocks = vi.hoisted(() => ({
   },
   receiptHtmlFetch: vi.fn(),
   printSaleReceipt: vi.fn(),
+  reprintSuccess: vi.fn(),
+  toastSuccess: vi.fn(),
+  toastInfo: vi.fn(),
   saleQueryError: null as Error | null,
   sale: {
     id: 'sale-1',
@@ -65,11 +68,23 @@ vi.mock('@/features/approvals/useManagerApproval', () => ({
 }));
 
 vi.mock('@/components/feedback/ToastProvider', () => ({
-  useToast: () => ({ success: vi.fn(), warning: vi.fn(), error: vi.fn() }),
+  useToast: () => ({
+    success: mocks.toastSuccess,
+    info: mocks.toastInfo,
+    warning: vi.fn(),
+    error: vi.fn(),
+  }),
 }));
 
 vi.mock('@/lib/useCriticalMutation', () => ({
-  useCriticalMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useCriticalMutation: (
+    name: string,
+    options: { onSuccess?: (sale: typeof mocks.sale) => Promise<void> }
+  ) => {
+    if (name === 'sales.getForReprint' && options.onSuccess)
+      mocks.reprintSuccess.mockImplementation(options.onSuccess);
+    return { mutateAsync: vi.fn(), isPending: false };
+  },
 }));
 
 vi.mock('@/features/sales/receiptPrinter', () => ({
@@ -194,6 +209,8 @@ describe('SaleDetailsModal shift policy', () => {
     mocks.printSaleReceipt.mockReset().mockImplementation(async (_sale, options) => {
       await options.htmlProvider?.();
     });
+    mocks.toastSuccess.mockReset();
+    mocks.toastInfo.mockReset();
     mocks.saleQueryError = null;
     mocks.sale.paymentStatus = 'paid';
   });
@@ -311,6 +328,49 @@ describe('SaleDetailsModal shift policy', () => {
 
     expect(await screen.findByRole('button', { name: 'Refund Sale' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Void Sale' })).not.toBeInTheDocument();
+  });
+
+  it.each(['queued', 'failed', 'cancelled'])(
+    'does not announce a reprint as successful for %s',
+    async outcome => {
+      mocks.printSaleReceipt.mockResolvedValueOnce(outcome);
+      render(
+        <SaleDetailsModal
+          saleId="sale-1"
+          isOpen
+          onClose={vi.fn()}
+          receiptShareSection={receiptShareSection}
+        />
+      );
+      await act(async () => {
+        await mocks.reprintSuccess(mocks.sale);
+      });
+      expect(mocks.printSaleReceipt).toHaveBeenCalledOnce();
+      expect(mocks.toastSuccess).not.toHaveBeenCalled();
+    }
+  );
+
+  it('prints an audited reprint as its own copy and explains a cancelled dialog', async () => {
+    mocks.printSaleReceipt.mockResolvedValueOnce('cancelled');
+    render(
+      <SaleDetailsModal
+        saleId="sale-1"
+        isOpen
+        onClose={vi.fn()}
+        receiptShareSection={receiptShareSection}
+      />
+    );
+    await act(async () => {
+      await mocks.reprintSuccess(mocks.sale);
+    });
+    expect(mocks.printSaleReceipt).toHaveBeenCalledWith(
+      mocks.sale,
+      expect.objectContaining({ shareInFlight: false })
+    );
+    expect(mocks.toastInfo).toHaveBeenCalledWith({
+      title: 'Reprint cancelled',
+      description: 'Nothing was printed. The reprint request was still recorded.',
+    });
   });
 
   it('never exposes an internal sale-load error to the operator', () => {

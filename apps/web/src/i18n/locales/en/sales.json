@@ -619,7 +619,10 @@
     "noPermission": "Cashiers can only reprint sales from their active cash session.",
     "toastSuccessTitle": "Receipt reprinted",
     "toastErrorTitle": "Unable to reprint receipt",
-    "shortcut": "Ctrl+Shift+P"
+    "shortcut": "Ctrl+Shift+P",
+    "toastDialogOpened": "Print dialog opened",
+    "toastCancelledTitle": "Reprint cancelled",
+    "toastCancelledDescription": "Nothing was printed. The reprint request was still recorded."
   },
   "scanner": {
     "notFound": "No product matches that barcode",
@@ -630,7 +633,8 @@
     "resumedCartLocked": "Discard the resumed cart to add new items"
   },
   "printer": {
-    "escposFailedFallback": "ESC/POS print failed; printed via the system printer",
+    "escposRetryQueued": "ESC/POS printing is queued and will retry automatically. Do not print another copy.",
+    "escposFailed": "ESC/POS printing could not be confirmed. Check the printer and queue before reprinting.",
     "autoPrintFailed": "Auto-print failed; reprint manually from the sale details",
     "kickDrawerCta": "Open cash drawer",
     "kickDrawerSuccess": "Cash drawer opened",
