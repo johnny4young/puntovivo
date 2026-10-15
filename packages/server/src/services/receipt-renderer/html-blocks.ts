@@ -124,7 +124,9 @@ function renderItemsTableHtml(
       const cells = block.columns
         .map(col => {
           const text = formatItemCell(col, item, data.locale);
-          return `<td class="col-${col}">${showHeader ? `<span class="item-cell-label">${escapeHtml(itemColumnLabel(col, labels))}</span>` : ''}<span class="item-cell-value">${escapeHtml(text)}</span></td>`;
+          // Thermal rows stack their cells, so the label is shown there even
+          // without a header row; other paper sizes keep it hidden.
+          return `<td class="col-${col}"><span class="item-cell-label">${escapeHtml(itemColumnLabel(col, labels))}</span><span class="item-cell-value">${escapeHtml(text)}</span></td>`;
         })
         .join('');
       // The rule that priced the line, on its own row underneath, spanning
@@ -172,7 +174,10 @@ function renderTendersTableHtml(
       const method = tender.points
         ? `${tenderMethodLabel(tender.method, labels)} (${formatWholeCount(tender.points)} ${labels.tendersTable.points})`
         : tenderMethodLabel(tender.method, labels);
-      return `<tr><td>${escapeHtml(method)}</td><td>${escapeHtml(tender.reference ?? '')}</td><td class="tender-amount">${escapeHtml(formatReceiptAmount(tender.amount, data.locale))}</td></tr>`;
+      const reference = tender.reference
+        ? `<span class="tender-cell-label">${escapeHtml(labels.tendersTable.reference)}: </span>${escapeHtml(tender.reference)}`
+        : '';
+      return `<tr><td>${escapeHtml(method)}</td><td class="tender-reference">${reference}</td><td class="tender-amount">${escapeHtml(formatReceiptAmount(tender.amount, data.locale))}</td></tr>`;
     })
     .join('');
   const change =
@@ -364,7 +369,7 @@ export function buildHtmlDocument(
   .bold{font-weight:700;}
   table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;}
   td,th{padding:2px 0;vertical-align:top;}
-  .item-cell-label{display:none;}
+  .item-cell-label,.tender-cell-label{display:none;}
   .thermal .block-items thead,.thermal .block-tenders thead{display:none;}
   .thermal .block-items table,.thermal .block-items tbody,.thermal .block-items tr,.thermal .block-items td,.thermal .block-tenders table,.thermal .block-tenders tbody,.thermal .block-tenders tr,.thermal .block-tenders td{display:block;width:100%;box-sizing:border-box;}
   .thermal .block-items .item-row{margin-bottom:6px;break-inside:avoid;}
@@ -381,6 +386,8 @@ export function buildHtmlDocument(
   .thermal .block-totals tr.grand-total td{border:0;padding-top:0;padding-bottom:0;}
   .thermal .block-tenders tr{margin-bottom:6px;break-inside:avoid;}
   .thermal .block-tenders .tender-amount{font-weight:700;}
+  .thermal .block-tenders .tender-cell-label{display:inline;}
+  .thermal .block-tenders td:empty{display:none;}
   .col-qty,.col-unitPrice,.col-taxPercent,.col-discount,.col-total,.totals-value,.tender-amount{text-align:right;font-variant-numeric:tabular-nums;}
   .block-totals td{padding-top:1px;padding-bottom:1px;}
   .block-totals tr.grand-total td{border-top:1px solid ${PRINT_TOKENS.ink};border-bottom:1px solid ${PRINT_TOKENS.ink};font-size:${PRINT_TOKENS.totalSize};font-weight:700;padding-top:4px;padding-bottom:4px;letter-spacing:0.02em;}

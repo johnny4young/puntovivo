@@ -54,6 +54,46 @@ describe('thermal output completeness', () => {
       expect(rendered.html).toContain('152407296.15');
     });
   }
+  it('keeps tender column padding and text spacing when the line already fits', () => {
+    const data = buildPreviewData('sale');
+    delete data.fiscal;
+    data.fiscalDocuments = [];
+    const lines = printableLines(
+      renderReceipt(
+        {
+          paperWidth: '58mm',
+          blocks: [
+            { type: 'tendersTable', showChange: true },
+            { type: 'text', value: 'NIT:      900.123' },
+          ],
+        },
+        data
+      ).escpos
+    );
+    expect(lines).toContain(`${'Cash'.padEnd(14)} ${'60000.00'.padStart(10)}`);
+    expect(lines).toContain(`${'Change'.padEnd(8)} ${'1000.00'.padStart(10)}`);
+    expect(lines).toContain('NIT:      900.123');
+  });
+  it('labels stacked thermal item and tender cells even without a header row', () => {
+    const data = buildPreviewData('sale');
+    delete data.fiscal;
+    data.fiscalDocuments = [];
+    const html = renderReceipt(
+      {
+        paperWidth: '58mm',
+        blocks: [
+          { type: 'itemsTable', columns: ['name', 'qty', 'total'], showHeader: false },
+          { type: 'tendersTable', showChange: true },
+        ],
+      },
+      data
+    ).html;
+    expect(html).not.toContain('<thead><tr><th class="col-qty">');
+    expect(html).toContain('<span class="item-cell-label">Qty</span>');
+    expect(html).toContain('<span class="item-cell-label">Total</span>');
+    expect(html).toContain('<span class="tender-cell-label">Reference: </span>AUTH-887766');
+    expect(html).toContain('.thermal .block-tenders td:empty{display:none;}');
+  });
   it('never interprets interpolated text as ESC/POS actuator commands', () => {
     const data = buildPreviewData('sale');
     delete data.fiscal;

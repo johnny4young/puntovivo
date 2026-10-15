@@ -20,6 +20,11 @@ export class ReceiptPrintCancelledError extends Error {
   }
 }
 
+// Electron reports dialog cancellation only through its failure message text.
+export function isPrintCancellationReason(failureReason: string | undefined): boolean {
+  return /\bcancel(?:l)?ed\b/i.test(failureReason ?? '');
+}
+
 export interface PrintReceiptResult {
   success: boolean;
   error?: string;

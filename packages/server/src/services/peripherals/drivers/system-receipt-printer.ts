@@ -31,7 +31,7 @@ export class SystemReceiptPrinterAdapter implements ReceiptPrinterAdapter {
     readonly tenantId: string,
     readonly siteId: string,
     readonly peripheralId: string,
-    // The renderer consumes the validated opt-in completion flag.
+    // Validated on register; the renderer reads the stored opt-in flag directly.
     private readonly _config: SystemReceiptPrinterConfig
   ) {
     void this._config;

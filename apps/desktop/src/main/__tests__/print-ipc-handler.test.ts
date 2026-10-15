@@ -2,6 +2,7 @@ import { beforeEach, describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
   handlePrintReceiptRequest,
+  isPrintCancellationReason,
   ReceiptPrintCancelledError,
   type PrintReceiptHandlerDeps,
 } from '../ipc/print-handler.ts';
@@ -83,6 +84,13 @@ describe('print-receipt IPC handler', () => {
 
     assert.deepEqual(result, { success: false, error: 'spooler unavailable' });
     assert.equal(errors.length, 1);
+  });
+
+  it('recognizes native cancellation wording without matching other failures', () => {
+    assert.equal(isPrintCancellationReason('Print job canceled'), true);
+    assert.equal(isPrintCancellationReason('Print job cancelled'), true);
+    assert.equal(isPrintCancellationReason('Print job failed'), false);
+    assert.equal(isPrintCancellationReason(undefined), false);
   });
 
   it('reports cancellation without logging a spooler failure', async () => {

@@ -51,7 +51,11 @@ function bytesFromString(value: string, characterSet?: EscPosCharset): number[] 
 }
 
 function textLines(value: string, cols: number, characterSet?: EscPosCharset): number[] {
-  return wrapToColumns(value, cols).flatMap(line => [...bytesFromString(line, characterSet), LF]);
+  // Lines that already fit keep their column padding; only overflow is re-wrapped.
+  return value
+    .split('\n')
+    .flatMap(line => (line.length <= cols ? [line] : wrapToColumns(line, cols)))
+    .flatMap(line => [...bytesFromString(line, characterSet), LF]);
 }
 
 const CHARSET_CODES: Record<EscPosCharset, number> = {
