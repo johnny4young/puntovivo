@@ -90,6 +90,7 @@ export interface RenderSale {
   serviceChargeRate?: number | null;
   grandTotal: number;
   changeDue?: number | null;
+  cashReceived?: number | null;
   notes?: string | null;
   items: RenderSaleItem[];
   tenders: RenderTender[];
@@ -215,6 +216,7 @@ export interface ReceiptRenderLabels {
     reference: string;
     amount: string;
     change: string;
+    received?: string | undefined;
     /** Unit suffix for the point count on a loyalty tender. */
     points: string;
     methods: {

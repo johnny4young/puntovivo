@@ -32,5 +32,33 @@
       "void": "Nota crédito por anulación",
       "return": "Nota crédito por devolución"
     }
+  },
+  "fallback": {
+    "title": "Recibo {{number}}",
+    "taxId": "Identificación tributaria {{value}}",
+    "saleInfo": "Datos de la venta",
+    "customer": "Cliente",
+    "walkIn": "Cliente ocasional",
+    "customerTaxId": "Identificación tributaria del cliente",
+    "payment": "Pago",
+    "status": "Estado",
+    "item": "Producto",
+    "qty": "Cant.",
+    "price": "Precio",
+    "total": "Total",
+    "totals": "Totales",
+    "subtotal": "Subtotal",
+    "tax": "Impuesto",
+    "discount": "Descuento",
+    "cashReceived": "Efectivo recibido",
+    "change": "Cambio",
+    "tenders": "Medios de pago",
+    "method": "Método",
+    "reference": "Referencia",
+    "amount": "Monto",
+    "notes": "Notas",
+    "itemCount": "Productos: {{count}}",
+    "thanks": "Gracias por tu compra.",
+    "unit": "unidad"
   }
 }

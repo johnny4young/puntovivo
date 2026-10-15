@@ -87,6 +87,8 @@ export async function getSaleRecord(db: DatabaseInstance, tenantId: string, sale
       receiptTemplateLayoutSnapshot: sales.receiptTemplateLayoutSnapshot,
       receiptLogoUrlSnapshot: sales.receiptLogoUrlSnapshot,
       receiptLocaleSnapshot: sales.receiptLocaleSnapshot,
+      cashReceivedSnapshot: sales.cashReceivedSnapshot,
+      cashChangeSnapshot: sales.cashChangeSnapshot,
       subtotal: sales.subtotal,
       taxAmount: sales.taxAmount,
       discountAmount: sales.discountAmount,

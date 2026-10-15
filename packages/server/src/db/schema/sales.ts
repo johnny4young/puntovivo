@@ -88,6 +88,10 @@ export const sales = sqliteTable(
     }).$type<Record<string, unknown>>(),
     receiptLogoUrlSnapshot: text('receipt_logo_url_snapshot'),
     receiptLocaleSnapshot: text('receipt_locale_snapshot'),
+    // Receipt evidence is separate from net tenders and drawer movements.
+    // Null identifies historical/non-cash receipts with no captured evidence.
+    cashReceivedSnapshot: real('cash_received_snapshot'),
+    cashChangeSnapshot: real('cash_change_snapshot'),
     // optional restaurant-table FK. When non-null the draft
     // is "open" on that physical table; `listWithDraftStatus` reads
     // this column to surface occupancy. Nullable so non-restaurant

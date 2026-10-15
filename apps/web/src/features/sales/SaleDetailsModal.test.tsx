@@ -48,6 +48,7 @@ const mocks = vi.hoisted(() => ({
     // every assertion below pass for the wrong reason: `undefined !== null`
     // hid the void button without any return having happened.
     returnState: null as null | 'partially_refunded' | 'refunded',
+    receiptPresentationSnapshotVersion: null as number | null,
     total: 125,
     currencyCode: 'COP',
     items: [],
@@ -213,6 +214,7 @@ describe('SaleDetailsModal shift policy', () => {
     mocks.toastInfo.mockReset();
     mocks.saleQueryError = null;
     mocks.sale.paymentStatus = 'paid';
+    mocks.sale.receiptPresentationSnapshotVersion = null;
   });
 
   it('fails closed while checking a manager refund cap and until its exact grant is approved', async () => {
@@ -296,6 +298,26 @@ describe('SaleDetailsModal shift policy', () => {
         { staleTime: 0 }
       );
     });
+  });
+
+  it('explains frozen receipt presentation only for snapshotted sales', async () => {
+    const view = render(
+      <SaleDetailsModal
+        saleId="sale-1"
+        isOpen
+        onClose={vi.fn()}
+        receiptShareSection={receiptShareSection}
+      />
+    );
+    await screen.findByRole('button', { name: 'Share receipt' });
+    expect(screen.queryByTestId('receipt-snapshot-guidance')).not.toBeInTheDocument();
+    view.unmount();
+
+    mocks.sale.receiptPresentationSnapshotVersion = 1;
+    render(<SaleDetailsModal saleId="sale-1" isOpen onClose={vi.fn()} />);
+    expect(await screen.findByTestId('receipt-snapshot-guidance')).toHaveTextContent(
+      'This receipt keeps its original template and width.'
+    );
   });
 
   it('exposes customer receipt sharing for a completed historical sale', async () => {

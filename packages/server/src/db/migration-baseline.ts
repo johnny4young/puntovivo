@@ -151,7 +151,89 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
         'Fresh databases can run the full journal, but existing pre-migration databases need a squashed baseline marker to avoid replaying CREATE TABLE statements.'
     );
   }
+  const isExactPurchaseOnlySchema = (): boolean => {
+    const tables = sqlite
+      .prepare(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name <> '__drizzle_migrations'"
+      )
+      .all() as Array<{ name: string }>;
+    return (
+      tables.length === 2 &&
+      tables.every(table => ['purchases', 'purchase_items'].includes(table.name))
+    );
+  };
+  const hasMaterializedOcrConfirmation = (): boolean => {
+    const columns = sqlite.prepare('PRAGMA table_info(purchases)').all() as Array<{
+      name: string;
+      type: string;
+      notnull: number;
+      dflt_value: unknown;
+    }>;
+    if (
+      !['ocr_extract_audit_id', 'ocr_confirmation_hash'].every(name =>
+        columns.some(
+          column =>
+            column.name === name &&
+            column.type.toUpperCase() === 'TEXT' &&
+            column.notnull === 0 &&
+            column.dflt_value === null
+        )
+      )
+    ) {
+      return false;
+    }
+    const indexName = 'idx_purchases_tenant_ocr_extract';
+    const indexes = sqlite.prepare('PRAGMA index_list(purchases)').all() as Array<{
+      name: string;
+      unique: number;
+      partial: number;
+    }>;
+    if (
+      !indexes.some(index => index.name === indexName && index.unique === 1 && index.partial === 1)
+    )
+      return false;
+    const indexColumns = (
+      sqlite.prepare(`PRAGMA index_xinfo(${indexName})`).all() as Array<{
+        name: string;
+        key: number;
+        cid: number;
+        coll: string | null;
+        desc: number;
+      }>
+    ).filter(column => column.key === 1);
+    if (
+      indexColumns.length !== 2 ||
+      indexColumns[0]?.name !== 'tenant_id' ||
+      indexColumns[1]?.name !== 'ocr_extract_audit_id' ||
+      indexColumns.some(
+        column => column.cid < 0 || column.coll?.toUpperCase() !== 'BINARY' || column.desc !== 0
+      )
+    ) {
+      return false;
+    }
+    const index = sqlite
+      .prepare("SELECT sql FROM sqlite_master WHERE type = 'index' AND name = ?")
+      .get(indexName) as { sql: string } | undefined;
+    const normalized = index?.sql
+      .replace(/["`[\]]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    return normalized !== undefined && / WHERE ocr_extract_audit_id IS NOT NULL$/i.test(normalized);
+  };
   const shouldSeedPostBaselineMigration = (entry: DrizzleJournalEntry): boolean => {
+    if (
+      [
+        '0093_ai_budget_reservations',
+        '0094_ocr_confirmation_idempotency',
+        '0095_mighty_raza',
+      ].includes(entry.tag)
+    ) {
+      // A later marker skips every earlier entry in Drizzle. The exact
+      // purchase-only post-transitional shape has no identity parents for 0093
+      // or sales target for 0095, but 0094 DOES alter purchases. Advance only
+      // when its complete column/index contract is already materialized.
+      return isExactPurchaseOnlySchema() && hasMaterializedOcrConfirmation();
+    }
     // These migrations create tenant/fiscal/kitchen/fulfillment children or
     // rebuild their operational parents. The delivery rebuild reads an existing
     // queue, so it cannot run against a purchase-only schema with no such table.
@@ -209,15 +291,7 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
         '0092_ai_copilot_scope_sites',
       ].includes(entry.tag)
     ) {
-      const tables = sqlite
-        .prepare(
-          "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name <> '__drizzle_migrations'"
-        )
-        .all() as Array<{ name: string }>;
-      return (
-        tables.length === 2 &&
-        tables.every(table => ['purchases', 'purchase_items'].includes(table.name))
-      );
+      return isExactPurchaseOnlySchema();
     }
 
     // if a partial adopted DB does not even have `sales`,

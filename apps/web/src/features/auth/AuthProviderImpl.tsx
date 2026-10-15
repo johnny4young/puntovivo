@@ -44,13 +44,13 @@ import { useCartWorkspaceStore } from '@/features/sales/useCartWorkspaceStore';
 import { useQuickCreateStore } from '@/features/sales/useQuickCreateStore';
 import { setActiveTenantId } from '@/lib/observability';
 import {
-  clearHubSession,
-  isHubClientAuth,
-  loginToHub,
-  logoutFromHub,
-  refreshHubSession,
-  switchHubStaff,
-} from './hubAuthTransport';
+  clearNative,
+  usesNativeAuthCustody,
+  loginNative,
+  logoutNative,
+  refreshNative,
+  switchStaffNative,
+} from './nativeAuthTransport';
 import { AuthContext, type AuthContextType } from './AuthContext';
 
 /**
@@ -232,9 +232,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setIsChangingAccount(true);
     setAccountChangeFailed(false);
     try {
-      // Hub's sealed refresh credential is separate from the desktop singleton.
+      // Main's renewable credential is separate from the desktop singleton.
       // Forget it only for an explicit account change, not during an outage.
-      if (isHubClientAuth()) await clearHubSession();
+      if (usesNativeAuthCustody()) await clearNative();
       else await clearDesktopSession();
       if (generation !== bootGeneration.current) return;
       // The browser's httpOnly cookie cannot be deleted offline by the renderer.
@@ -338,8 +338,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         await ensureApiBootstrap({ retryAfterFailure: bootAttempt > 0 });
         if (!isCurrent()) return;
         let refreshResult: { token: string };
-        if (isHubClientAuth()) {
-          refreshResult = await refreshHubSession();
+        if (usesNativeAuthCustody()) {
+          refreshResult = await refreshNative();
         } else {
           // A packaged or development Electron renderer is intentionally not
           // cookie-same-site with its loopback authority. Resume the already
@@ -425,8 +425,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // needs the shared safe bootstrap to establish the CSRF cookie first.
         await ensureApiBootstrap({ retryAfterFailure: true });
         if (!isCurrent()) return;
-        const authData = isHubClientAuth()
-          ? await loginToHub({
+        const authData = usesNativeAuthCustody()
+          ? await loginNative({
               email: credentials.email,
               password: credentials.password,
             })
@@ -556,11 +556,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
           // A new password login does not authorize silently taking over an
           // active terminal. Keep the prior owner's recoverable workspace.
           clearLocalSession({ preserveWorkspaces: true });
-          if (isHubClientAuth()) {
+          if (usesNativeAuthCustody()) {
             try {
-              await clearHubSession();
+              await clearNative();
             } catch (clearError) {
-              console.warn('Store Hub clear failed after rejected device adoption:', clearError);
+              console.warn('Native auth clear failed after rejected device adoption:', clearError);
             }
           }
           if (!isCurrent()) return;
@@ -587,8 +587,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       // Do not mutate local identity until the server has verified the PIN.
       // A rejected attempt must leave the current operator fully intact.
-      const authData = isHubClientAuth()
-        ? await switchHubStaff(input)
+      const authData = usesNativeAuthCustody()
+        ? await switchStaffNative(input)
         : await vanillaClient.auth.switchStaff.mutate(input);
 
       if (!isCurrent()) return;
@@ -633,11 +633,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // The server already replaced the httpOnly refresh cookie. Keeping the
         // old UI identity after a local adoption failure would create a split
         // brain, so fail closed to the full login screen.
-        if (isHubClientAuth()) {
+        if (usesNativeAuthCustody()) {
           try {
-            await clearHubSession();
+            await clearNative();
           } catch (clearErr) {
-            console.warn('Store Hub session clear failed after staff handoff:', clearErr);
+            console.warn('Native auth session clear failed after staff handoff:', clearErr);
           }
         }
         if (!isCurrent()) return;
@@ -659,8 +659,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setIsLoading(true);
     let parkingCommitted = false;
     try {
-      if (isHubClientAuth()) {
-        await logoutFromHub();
+      if (usesNativeAuthCustody()) {
+        await logoutNative();
       } else {
         await vanillaClient.auth.logout.mutate();
       }
@@ -668,7 +668,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } catch (err) {
       if (!isCurrent()) return;
       // Local auth still closes fail-safe, but the owner-keyed workspace (and
-      // Hub refresh credential in Electron main) must survive until the same
+      // renewable credential in Electron main) must survive until the same
       // operator can reconnect. The server transaction may have rolled back,
       // leaving an active claim that listDrafts can recover after re-login.
       console.warn('auth.logout server call failed; preserving draft recovery state:', err);
@@ -706,7 +706,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         console.warn('Session revocation notification failed:', error);
       }
       try {
-        if (isHubClientAuth()) await clearHubSession();
+        if (usesNativeAuthCustody()) await clearNative();
         else await clearDesktopSession();
       } catch (error) {
         // The server has already revoked this credential and parked its work.

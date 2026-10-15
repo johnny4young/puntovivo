@@ -386,7 +386,10 @@
       "grandTotalBreakdownOnly": "Base {{base}} + servicio {{service}}",
       "grandTotalBreakdownWithTip": "Base {{base}} + servicio {{service}} + propina {{tip}}"
     },
-    "lockedCustomer": "Cliente de la cotización"
+    "lockedCustomer": "Cliente de la cotización",
+    "confirmPartial": "Confirmar venta con pago parcial",
+    "partialTitle": "Esta venta quedará con pago parcial",
+    "partialWarning": "El saldo pendiente es {{amount}}. Confirma solo si deseas dejar este saldo sin pagar."
   },
   "history": {
     "title": "Historial de ventas",
@@ -623,7 +626,8 @@
     "shortcut": "Ctrl+Shift+P",
     "toastDialogOpened": "Diálogo de impresión abierto",
     "toastCancelledTitle": "Reimpresión cancelada",
-    "toastCancelledDescription": "No se imprimió nada. La solicitud de reimpresión quedó registrada."
+    "toastCancelledDescription": "No se imprimió nada. La solicitud de reimpresión quedó registrada.",
+    "frozenPresentation": "Este recibo conserva su plantilla y ancho originales. Los cambios afectan a ventas nuevas. Ajusta el papel de la impresora del sistema a ese ancho."
   },
   "scanner": {
     "notFound": "No encontré el producto con ese código",
@@ -634,7 +638,7 @@
     "resumedCartLocked": "Descarta el carrito retomado para agregar productos nuevos"
   },
   "printer": {
-    "escposRetryQueued": "La impresión ESC/POS quedó en cola y se reintentará automáticamente. No imprimas otra copia.",
+    "escposRetryQueued": "La impresión ESC/POS está en cola. Revisa la impresora y el estado de la tarea antes de imprimir otra copia.",
     "escposFailed": "No se pudo confirmar la impresión ESC/POS. Revisa la impresora y la cola antes de reimprimir.",
     "autoPrintFailed": "La impresión automática falló; reimprime desde el detalle de la venta",
     "kickDrawerCta": "Abrir cajón",

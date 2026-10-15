@@ -54,6 +54,7 @@ import { completeSale } from '../application/sales/completeSale.js';
 import { resolveSaleHeaderReceiptSnapshots } from '../application/sales/receipt-snapshots.js';
 import { getProductStockTotal } from '../services/inventory-balances.js';
 import { resolveTenantLocale } from '../services/tenant-locale.js';
+import { resolveSaleReceiptTemplateContext } from '../services/receipt-renderer/sale-context.js';
 import type { CompleteSaleContext } from '../application/sales/types.js';
 import { makeFreshContextFactory } from './utils/criticalCommandFixture.js';
 
@@ -352,6 +353,8 @@ describe('completeSale (fresh path)', () => {
       receiptTemplateLayoutSnapshot: saleTemplateLayout,
       receiptLogoUrlSnapshot: companyLogoUrl,
       receiptLocaleSnapshot: receiptLocale,
+      cashReceivedSnapshot: 24,
+      cashChangeSnapshot: 0.2,
       paymentStatus: 'paid',
       status: 'completed',
       items: [
@@ -362,6 +365,20 @@ describe('completeSale (fresh path)', () => {
       ],
     });
     expect(result.change).toBeCloseTo(0.2, 2);
+    const receipt = await resolveSaleReceiptTemplateContext({
+      db: getDatabase(),
+      tenantId,
+      fallbackSiteId: siteId,
+      sale: result.sale,
+    });
+    expect(receipt?.data.sale).toMatchObject({ cashReceived: 24, changeDue: 0.2 });
+    const legacy = await resolveSaleReceiptTemplateContext({
+      db: getDatabase(),
+      tenantId,
+      fallbackSiteId: siteId,
+      sale: { ...result.sale, cashReceivedSnapshot: null, cashChangeSnapshot: null },
+    });
+    expect(legacy?.data.sale).toMatchObject({ cashReceived: null, changeDue: 0 });
     expect(result.journalEventId).toBeNull();
 
     const productStock = getProductStockTotal(getDatabase(), tenantId, productId);
@@ -979,6 +996,8 @@ describe('completeSale (fromDraft path)', () => {
       receiptTemplateLayoutSnapshot: saleTemplateLayout,
       receiptLogoUrlSnapshot: companyLogoUrl,
       receiptLocaleSnapshot: receiptLocale,
+      cashReceivedSnapshot: null,
+      cashChangeSnapshot: null,
       items: [
         expect.objectContaining({
           productNameSnapshot: 'CS Draft Complete at checkout',
@@ -1162,7 +1181,7 @@ describe('completeSale (fromDraft path)', () => {
       saleId: draftId,
       paymentMethod: 'cash',
       paymentStatus: 'paid',
-      amountReceived: 10.11,
+      amountReceived: 20,
       tipAmount: 0.105,
       tipMethod: 'fixed',
     });
@@ -1171,6 +1190,8 @@ describe('completeSale (fromDraft path)', () => {
       .select({
         tipAmount: sales.tipAmount,
         total: sales.total,
+        cashReceivedSnapshot: sales.cashReceivedSnapshot,
+        cashChangeSnapshot: sales.cashChangeSnapshot,
       })
       .from(sales)
       .where(eq(sales.id, draftId))
@@ -1183,6 +1204,8 @@ describe('completeSale (fromDraft path)', () => {
 
     expect(persisted?.tipAmount).toBe(0.11);
     expect(persisted?.total).toBe(10.11);
+    expect(persisted?.cashReceivedSnapshot).toBe(20);
+    expect(persisted?.cashChangeSnapshot).toBe(9.89);
     expect(payment?.amount).toBe(10.11);
   });
 });

@@ -34,7 +34,9 @@ import {
 // sync:* handler (see ./register.ts) throws SESSION_NOT_REGISTERED so
 // the renderer can never reach the SQLite store with a tenantId of its
 // choosing.
-export function registerSessionIpc(options: { hubAuthSession?: HubAuthSession } = {}): void {
+export function registerSessionIpc(
+  options: { hubAuthSession?: HubAuthSession; localAuthSession?: HubAuthSession } = {}
+): void {
   const realtimeHandles = new Map<
     string,
     { handle: HubRealtimeHandle; removeDestroyedListener: () => void }
@@ -96,6 +98,38 @@ export function registerSessionIpc(options: { hubAuthSession?: HubAuthSession } 
     closeRealtimeHandles();
     desktopSession.clear();
     return { ok: true };
+  });
+  // Fixed authentication operations only: local main custody is not a general
+  // HTTP proxy and does not replace server verification for native authority.
+  ipcMain.handle('session:local-login', (_event, input: HubLoginInput) =>
+    captureHubAuthIpc(async () => {
+      if (!options.localAuthSession) throw new Error('Embedded authentication is unavailable');
+      return options.localAuthSession.login(input);
+    })
+  );
+  ipcMain.handle('session:local-refresh', () =>
+    captureHubAuthIpc(async () => {
+      if (!options.localAuthSession) throw new Error('Embedded authentication is unavailable');
+      return options.localAuthSession.refresh();
+    })
+  );
+  ipcMain.handle('session:local-switch-staff', (_event, input: HubSwitchStaffInput) =>
+    captureHubAuthIpc(async () => {
+      if (!options.localAuthSession) throw new Error('Embedded authentication is unavailable');
+      return options.localAuthSession.switchStaff(input);
+    })
+  );
+  ipcMain.handle('session:local-logout', () =>
+    captureHubAuthIpc(async () => {
+      if (options.localAuthSession) await options.localAuthSession.logout();
+      desktopSession.clear();
+      return { ok: true as const };
+    })
+  );
+  ipcMain.handle('session:local-clear', () => {
+    desktopSession.clear();
+    options.localAuthSession?.clear();
+    return { ok: true as const };
   });
   ipcMain.handle('session:hub-login', (_event, input: HubLoginInput) =>
     captureHubAuthIpc(async () => {

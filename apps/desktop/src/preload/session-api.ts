@@ -30,6 +30,19 @@ export interface SessionAPI {
   register: (accessToken: string) => Promise<{ ok: true }>;
   resume: () => Promise<{ token: string | null }>;
   clear: () => Promise<{ ok: true }>;
+  localAuth?: {
+    login: (input: {
+      email: string;
+      password: string;
+    }) => Promise<HubAuthIpcResult<HubAccessGrant>>;
+    refresh: () => Promise<HubAuthIpcResult<HubAccessGrant>>;
+    switchStaff: (input: {
+      targetUserId: string;
+      pin: string;
+    }) => Promise<HubAuthIpcResult<HubAccessGrant>>;
+    logout: () => Promise<HubAuthIpcResult<{ ok: true }>>;
+    clear: () => Promise<{ ok: true }>;
+  };
   loginHub: (input: HubLoginInput) => Promise<HubAuthIpcResult<HubAccessGrant>>;
   refreshHub: () => Promise<HubAuthIpcResult<HubAccessGrant>>;
   switchStaffHub: (input: HubSwitchStaffInput) => Promise<HubAuthIpcResult<HubAccessGrant>>;
@@ -70,6 +83,13 @@ export function createSessionApi(): SessionAPI {
     register: (accessToken: string) => ipcRenderer.invoke('session:register', accessToken),
     resume: () => ipcRenderer.invoke('session:resume'),
     clear: () => ipcRenderer.invoke('session:clear'),
+    localAuth: {
+      login: input => ipcRenderer.invoke('session:local-login', input),
+      refresh: () => ipcRenderer.invoke('session:local-refresh'),
+      switchStaff: input => ipcRenderer.invoke('session:local-switch-staff', input),
+      logout: () => ipcRenderer.invoke('session:local-logout'),
+      clear: () => ipcRenderer.invoke('session:local-clear'),
+    },
     loginHub: input => ipcRenderer.invoke('session:hub-login', input),
     refreshHub: () => ipcRenderer.invoke('session:hub-refresh'),
     switchStaffHub: input => ipcRenderer.invoke('session:hub-switch-staff', input),

@@ -17,7 +17,10 @@ import * as desktopSession from '../session/desktopSession.ts';
 import type { ReceiptPrintSettings } from './settings.ts';
 
 export type PrintErrorTranslationKey =
-  'print.sessionRequired' | 'print.documentRequired' | SystemPrinterTranslationKey;
+  | 'print.sessionRequired'
+  | 'print.documentRequired'
+  | 'print.noPrinters'
+  | SystemPrinterTranslationKey;
 
 export class ReceiptPrintCancelledError extends Error {
   constructor() {
@@ -97,6 +100,9 @@ export async function handlePrintReceiptRequest(
     }
     const message = error instanceof Error ? error.message : 'Receipt printing failed';
     deps.logError(error);
+    if (/\bno printers? (?:available|found|installed)\b/i.test(message)) {
+      return { success: false, errorCode: 'PRINT_NO_PRINTERS', error: deps.t('print.noPrinters') };
+    }
     return {
       success: false,
       error: message,

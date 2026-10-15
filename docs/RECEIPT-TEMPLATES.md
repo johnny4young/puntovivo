@@ -727,3 +727,23 @@ to load a realistic test-data set so developers, QA, and early
 customers can exercise the whole app without building the catalog
 manually. Captured in its own design doc:
 **[DEV-SEED.md](./DEV-SEED.md)**.
+
+## Cash handover evidence and historical widths
+
+At completion, a single cash payment freezes the amount handed over and the
+change returned separately from the net payment and cash-session income.
+The tenders block with `showChange` displays this evidence in HTML, ESC/POS
+and shared text. Drafts do not capture a handover; split and non-cash payments
+do not infer one. Receipts created before these nullable snapshots retain their
+legacy behavior without an invented cash-received amount.
+
+An ordinary receipt keeps the presentation and paper width saved when its sale
+completed. Selecting a new 58mm template affects new sales; it does not rewrite
+an existing 80mm receipt. For system printing, select matching paper dimensions
+in the operating system printer settings. Software PDF measurements do not
+establish the printable width or feed behavior of a physical printer.
+
+ESC/POS uses the selected peripheral's configured paper width to reflow the
+saved receipt content into 32 or 48 columns. That rendering override does not
+rewrite the sale's presentation snapshot. A queued job retains the bytes
+captured when it was enqueued; changing a template does not regenerate it.

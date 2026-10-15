@@ -136,6 +136,29 @@ describe('Electron process log policy', () => {
     );
   });
 
+  it('accepts one transient GPU command buffer failure and bounds its repetition', () => {
+    const transient =
+      '[6654:1015/180521.291223:ERROR:gpu/ipc/client/command_buffer_proxy_impl.cc:285] ContextResult::kTransientFailure: Failed to send GpuControl.CreateCommandBuffer.';
+    assert.equal(classifyElectronStderrLine(transient), 'informational');
+    // A fatal result, another line or another GPU message stay blocking.
+    for (const variant of [
+      transient.replace('kTransientFailure', 'kFatalFailure'),
+      transient.replace('.cc:285]', '.cc:286]'),
+      transient.replace('CreateCommandBuffer', 'DestroyCommandBuffer'),
+    ]) {
+      assert.equal(classifyElectronStderrLine(variant), 'unexpected');
+    }
+    const classifier = createElectronStderrClassifier();
+    for (let index = 0; index < 2; index += 1) {
+      assert.equal(classifier.classify(transient), 'informational');
+    }
+    assert.equal(classifier.classify(transient), 'unexpected');
+    assert.deepEqual(
+      classifier.exceededLimits().map(({ id }) => id),
+      ['chromium-gpu-command-buffer-transient']
+    );
+  });
+
   it('accepts the Sequoia backupd XPC refusal only for that exact service', () => {
     assert.equal(
       classifyElectronStderrLine(

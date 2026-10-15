@@ -60,31 +60,25 @@ describe('restaurant catalog historical upgrade', () => {
           migrationsFolder: prefix,
           ...encryption,
         });
+        const oldSqlite = (old as typeof old & { $client: Database.Database }).$client;
         const owner = old.select().from(users).get()!,
           site = old.select().from(sites).get()!,
           tenantId = owner.tenantId;
         // Historical fixtures use the historical column list, not today's
         // Drizzle insert shape (which also supplies newly nullable columns).
-        old.$client
+        oldSqlite
           .prepare('INSERT INTO products(id, tenant_id, name, sku, price) VALUES (?, ?, ?, ?, ?)')
           .run('plate', tenantId, 'Plate', 'OLD-PLATE', 10);
         old
           .insert(restaurantTables)
           .values({ id: 'table', tenantId, siteId: site.id, name: 'Historical table' })
           .run();
-        old
-          .insert(sales)
-          .values({
-            id: 'sale',
-            tenantId,
-            siteId: site.id,
-            createdBy: owner.id,
-            saleNumber: 'HISTORICAL-MODIFIER',
-            total: 13,
-            subtotal: 13,
-          })
-          .run();
-        old.$client
+        oldSqlite
+          .prepare(
+            'INSERT INTO sales(id, tenant_id, created_by, sale_number, total, subtotal) VALUES (?, ?, ?, ?, ?, ?)'
+          )
+          .run('sale', tenantId, owner.id, 'HISTORICAL-MODIFIER', 13, 13);
+        oldSqlite
           .prepare(
             'INSERT INTO sale_items(id, sale_id, product_id, quantity, unit_price, restaurant_modifier_amount) VALUES (?, ?, ?, ?, ?, ?)'
           )
@@ -113,25 +107,30 @@ describe('restaurant catalog historical upgrade', () => {
           .insert(restaurantCheckLines)
           .values({ id: 'line', tenantId, checkId: 'check', saleItemId: 'item' })
           .run();
-        old.$client
+        oldSqlite
           .prepare(
             'INSERT INTO restaurant_line_modifiers(id,tenant_id,check_line_id,name,quantity,unit_price_delta,position,created_at) VALUES (?,?,?,?,?,?,?,?)'
           )
           .run('modifier', tenantId, 'line', 'Historical cheese', 2, 1.5, 0, '2026-09-01');
-        const before = old.$client.prepare('SELECT * FROM restaurant_line_modifiers').all();
-        expect(old.$client.pragma('foreign_key_check')).toEqual([]);
+        const before = oldSqlite.prepare('SELECT * FROM restaurant_line_modifiers').all();
+        expect(oldSqlite.pragma('foreign_key_check')).toEqual([]);
         closeDatabase();
         for (let boot = 0; boot < 2; boot++) {
           const current = await initDatabase({ dbPath, seedData: false, ...encryption });
-          const rows = current.$client
+          const currentSqlite = (current as typeof current & { $client: Database.Database })
+            .$client;
+          const rows = currentSqlite
             .prepare('SELECT * FROM restaurant_line_modifiers')
             .all() as Array<Record<string, unknown>>;
           expect(rows).toEqual(
             before.map(row => ({ ...(row as object), catalog_id: null, catalog_version: null }))
           );
           expect(current.select().from(restaurantModifierCatalog).all()).toEqual([]);
-          expect(current.$client.pragma('foreign_key_check')).toEqual([]);
-          expect(current.select().from(sales).get()!.total).toBe(13);
+          expect(currentSqlite.pragma('foreign_key_check')).toEqual([]);
+          const migratedSale = current.select().from(sales).get()!;
+          expect(migratedSale.total).toBe(13);
+          expect(migratedSale.cashReceivedSnapshot).toBeNull();
+          expect(migratedSale.cashChangeSnapshot).toBeNull();
           closeDatabase();
         }
       } finally {

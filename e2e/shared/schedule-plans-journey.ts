@@ -1,3 +1,4 @@
+import { prepareLogoutCommit } from './logout-commit.js';
 import { randomUUID } from 'node:crypto';
 import { expect, type Page } from '@playwright/test';
 import { E2E_PASSWORD, ensureLanguage, type ClientIssueTracker } from '../web/support/app.js';
@@ -46,11 +47,9 @@ export async function runSchedulePlansJourney(page: Page, target: SchedulePlansJ
     await expect(page.locator('tr').filter({ hasText: person.email })).toBeVisible();
   }
   await page.getByRole('button', { name: /open user menu/i }).click();
-  const logout = page.waitForResponse(
-    r => r.url().includes('/api/trpc/auth.logout') && r.status() === 200
-  );
+  const logout = await prepareLogoutCommit(page);
   await page.getByRole('button', { name: 'Sign out', exact: true }).click();
-  await logout;
+  await logout();
   await expect(page).toHaveURL(/\/login$/);
   await target.signInManager(managerEmail);
   const managerRequests: string[] = [];
@@ -214,11 +213,9 @@ export async function runSchedulePlansAdminAudit(
   await ensureLanguage(page, 'en');
   if (target.signInAdmin) {
     await page.getByRole('button', { name: /open user menu/i }).click();
-    const adminLogout = page.waitForResponse(
-      r => r.url().includes('/api/trpc/auth.logout') && r.status() === 200
-    );
+    const adminLogout = await prepareLogoutCommit(page);
     await page.getByRole('button', { name: 'Sign out', exact: true }).click();
-    await adminLogout;
+    await adminLogout();
     await expect(page).toHaveURL(/\/login$/);
     await target.signInAdmin();
   }

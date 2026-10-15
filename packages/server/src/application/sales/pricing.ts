@@ -160,6 +160,8 @@ export interface SalePaymentPlan {
   change: number;
   /** Cash that hits the active session balance; 0 for non-collecting paths. */
   cashCollectedAmount: number;
+  cashReceivedSnapshot: number | null;
+  cashChangeSnapshot: number | null;
 }
 
 /**
@@ -269,5 +271,10 @@ export function resolveSalePaymentPlan(args: {
     paymentStatus,
     change,
     cashCollectedAmount,
+    // Split rows already represent exact net settlement amounts. Do not infer
+    // a physical handover from them or from a non-cash payment method.
+    cashReceivedSnapshot:
+      collectCash && !isSplitPayment && paymentMethod === 'cash' ? (amountReceived ?? total) : null,
+    cashChangeSnapshot: collectCash && !isSplitPayment && paymentMethod === 'cash' ? change : null,
   };
 }

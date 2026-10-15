@@ -15,8 +15,10 @@ import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 import {
   APP_FOOTER_METADATA,
+  DEFAULT_RECEIPT_RENDER_LABELS,
   buildPreviewData,
   renderReceipt,
+  renderReceiptPlainText,
 } from '../services/receipt-renderer/index.js';
 import {
   receiptLayoutSchema,
@@ -759,6 +761,42 @@ describe('Receipt Templates (Iter 2)', () => {
       expect(result.html).toContain('background:#fff');
     });
 
+    it.each(['58mm', '80mm'] as const)(
+      'renders captured cash handover on %s without inventing legacy evidence',
+      paperWidth => {
+        const data = buildPreviewData('sale');
+        data.sale.cashReceived = 20000;
+        data.sale.changeDue = 10000;
+        const layout = {
+          paperWidth,
+          blocks: [{ type: 'tendersTable' as const, showChange: true }],
+        };
+        const result = renderReceipt(layout, data);
+        expect(result.html).toContain('class="received-row"');
+        expect(result.html).toContain('Cash received');
+        expect(result.html).toContain('class="change-row"');
+        const strip = Buffer.from(result.escpos).toString('ascii');
+        expect(strip).toContain('Cash received');
+        expect(strip).toContain('Change');
+        expect(renderReceiptPlainText(layout, data, DEFAULT_RECEIPT_RENDER_LABELS)).toContain(
+          'Cash received'
+        );
+        data.sale.cashReceived = null;
+        data.sale.changeDue = 0;
+        const legacy = renderReceipt(layout, data);
+        expect(legacy.html).not.toContain('class="received-row"');
+        expect(renderReceiptPlainText(layout, data, DEFAULT_RECEIPT_RENDER_LABELS)).not.toContain(
+          'Cash received'
+        );
+        const hidden = renderReceipt(
+          { paperWidth, blocks: [{ type: 'tendersTable', showChange: false }] },
+          { ...data, sale: { ...data.sale, cashReceived: 20000, changeDue: 10000 } }
+        );
+        expect(hidden.html).not.toContain('class="received-row"');
+        expect(hidden.html).not.toContain('class="change-row"');
+      }
+    );
+
     it('uses physical printable widths independently of head dots', () => {
       const data = buildPreviewData('sale');
       const baseBlocks = [{ type: 'text' as const, value: '{{sale.saleNumber}}' }];
@@ -788,7 +826,7 @@ describe('Receipt Templates (Iter 2)', () => {
 
       expect(html).toContain('width:72mm');
       expect(html).toContain('max-width:100%');
-      expect(html).toContain('@media print{body{padding:0;margin:0 auto;}');
+      expect(html).toMatch(/@media print\{body\{[^}]*padding:0;[^}]*margin:0 auto;/);
     });
 
     it('Zod schema accepts wordmark + metaTable blocks; rejects empty rows + unknown keys', () => {
@@ -1367,6 +1405,26 @@ describe('Receipt Templates (Iter 2)', () => {
           },
         }).success
       ).toBe(false);
+      for (const received of ['   ', 'x'.repeat(51)]) {
+        expect(
+          renderPreviewReceiptTemplateInput.safeParse({
+            ...input,
+            labels: {
+              ...legacyLabels,
+              tendersTable: { ...legacyLabels.tendersTable, received },
+            },
+          }).success
+        ).toBe(false);
+      }
+      expect(
+        renderPreviewReceiptTemplateInput.parse({
+          ...input,
+          labels: {
+            ...legacyLabels,
+            tendersTable: { ...legacyLabels.tendersTable, received: ' Efectivo recibido ' },
+          },
+        }).labels?.tendersTable.received
+      ).toBe('Efectivo recibido');
     });
 
     it('localizes fiscal preview authority from the tenant country', async () => {

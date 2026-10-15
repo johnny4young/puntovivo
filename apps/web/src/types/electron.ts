@@ -385,6 +385,19 @@ export interface SessionAPI {
   register: (accessToken: string) => Promise<{ ok: true }>;
   resume: () => Promise<{ token: string | null }>;
   clear: () => Promise<{ ok: true }>;
+  localAuth?: {
+    login: (input: {
+      email: string;
+      password: string;
+    }) => Promise<HubAuthIpcResult<HubAccessGrant>>;
+    refresh: () => Promise<HubAuthIpcResult<HubAccessGrant>>;
+    switchStaff: (input: {
+      targetUserId: string;
+      pin: string;
+    }) => Promise<HubAuthIpcResult<HubAccessGrant>>;
+    logout: () => Promise<HubAuthIpcResult<{ ok: true }>>;
+    clear: () => Promise<{ ok: true }>;
+  };
   loginHub: (input: { email: string; password: string }) => Promise<HubAuthIpcResult>;
   refreshHub: () => Promise<HubAuthIpcResult>;
   switchStaffHub: (input: { targetUserId: string; pin: string }) => Promise<HubAuthIpcResult>;

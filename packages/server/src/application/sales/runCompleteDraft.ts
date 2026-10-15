@@ -408,15 +408,22 @@ export async function runCompleteDraft(
   // resolve the tender list (split or legacy),
   // payment status, change, and cash collected. The draft is always
   // completing, so `collectCash` is unconditionally true.
-  const { resolvedPayments, creditSaleAmount, paymentStatus, change, cashCollectedAmount } =
-    resolveSalePaymentPlan({
-      amountReceived: input.amountReceived,
-      payments: input.payments,
-      paymentMethod: input.paymentMethod,
-      requestedStatus: input.paymentStatus,
-      total,
-      collectCash: true,
-    });
+  const {
+    resolvedPayments,
+    creditSaleAmount,
+    paymentStatus,
+    change,
+    cashCollectedAmount,
+    cashReceivedSnapshot,
+    cashChangeSnapshot,
+  } = resolveSalePaymentPlan({
+    amountReceived: input.amountReceived,
+    payments: input.payments,
+    paymentMethod: input.paymentMethod,
+    requestedStatus: input.paymentStatus,
+    total,
+    collectCash: true,
+  });
 
   const persistedTaxComponents = await ctx.db
     .select({
@@ -793,6 +800,8 @@ export async function runCompleteDraft(
             // an older client that never sends it is a no-op.
             customerId: finalCustomerId,
             ...headerReceiptSnapshots,
+            cashReceivedSnapshot,
+            cashChangeSnapshot,
             // Re-bind to the active session so cash reports show the
             // income where it physically arrived.
             cashSessionId: activeCashSession.id,

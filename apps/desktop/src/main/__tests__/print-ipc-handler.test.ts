@@ -87,6 +87,20 @@ describe('print-receipt IPC handler', () => {
     assert.equal(errors.length, 1);
   });
 
+  it('identifies missing system printers with actionable translated copy', async () => {
+    await registerRole('cashier');
+    const deps = makeDeps({
+      printReceipt: async () => {
+        throw new Error('No printers available on the network');
+      },
+    });
+    assert.deepEqual(await handlePrintReceiptRequest('<p>ticket</p>', deps), {
+      success: false,
+      errorCode: 'PRINT_NO_PRINTERS',
+      error: 'print.noPrinters',
+    });
+  });
+
   it('recognizes native cancellation wording without matching other failures', () => {
     assert.equal(isPrintCancellationReason('Print job canceled'), true);
     assert.equal(isPrintCancellationReason('Print job cancelled'), true);

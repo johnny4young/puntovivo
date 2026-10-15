@@ -123,8 +123,8 @@ for (const spanish of [false, true]) {
       await payment.locator('#sale-payment-confirm').click();
       const warning = retryQueued
         ? spanish
-          ? 'La impresión ESC/POS quedó en cola y se reintentará automáticamente. No imprimas otra copia.'
-          : 'ESC/POS printing is queued and will retry automatically. Do not print another copy.'
+          ? 'La impresión ESC/POS está en cola. Revisa la impresora y el estado de la tarea antes de imprimir otra copia.'
+          : 'ESC/POS printing is saved in the queue. Check the printer and task status before printing another copy.'
         : spanish
           ? 'No se pudo confirmar la impresión ESC/POS. Revisa la impresora y la cola antes de reimprimir.'
           : 'ESC/POS printing could not be confirmed. Check the printer and queue before reprinting.';
