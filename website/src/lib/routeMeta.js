@@ -45,9 +45,9 @@ export const ROUTE_META = {
         'Qué hace hoy, qué no hace todavía y por qué se construye en abierto. Sin clientes inventados ni promesas fiscales sin sello.',
     },
     '/docs': {
-      title: 'Documentación de Puntovivo · guías para dueños y cajeros',
+      title: 'Manual de usuario de Puntovivo · guía de operación',
       description:
-        'Guías de caja, cierre ciego, inventario y migración. En construcción: el código es la referencia mientras las guías llegan.',
+        'Manual de usuario: configura tu negocio y sus módulos, productos, caja, ventas, inventario, impresión y respaldos. Pasos y diagnóstico en español.',
     },
     '/roadmap': {
       title: 'Roadmap público de Puntovivo · evidencia y trabajo real',
@@ -97,9 +97,9 @@ export const ROUTE_META = {
         'What it does today, what it does not do yet, and why it is built in the open. No invented customers and no unstamped fiscal promises.',
     },
     '/docs': {
-      title: 'Puntovivo documentation · guides for owners and cashiers',
+      title: 'Puntovivo user manual · setup and daily operations',
       description:
-        'Guides for the register, blind close, inventory and migration. Under construction: the code is the reference while the guides catch up.',
+        'User manual: set up your business and modules, products, cash sessions, sales, inventory, printing and backups. Steps and troubleshooting in English.',
     },
     '/roadmap': {
       title: 'Puntovivo public roadmap · evidence and tracked work',

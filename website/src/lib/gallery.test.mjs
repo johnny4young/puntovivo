@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -38,6 +38,44 @@ for (const base of ['/', '/puntovivo', '/puntovivo/']) {
       );
 
       for (const lang of ['es', 'en']) {
+        const manual = JSON.parse(
+          readFileSync(path.join(website, `src/content/manual/${lang}.json`), 'utf8')
+        );
+        const manualHtml = readFileSync(
+          path.join(output, lang === 'es' ? 'docs/index.html' : 'en/docs/index.html'),
+          'utf8'
+        );
+        assert.ok(manualHtml.includes(`<html lang="${lang}"`));
+        assert.equal(
+          [...manualHtml.matchAll(/<article\b[^>]*data-manual-task/g)].length,
+          manual.tasks.length
+        );
+        assert.equal([...manualHtml.matchAll(/<h1\b/g)].length, 1);
+        assert.ok(manualHtml.includes('data-manual-search hidden'));
+        assert.ok(manualHtml.includes(manual.ui.title));
+        for (const task of manual.tasks) {
+          assert.ok(manualHtml.includes(`id="${task.id}"`));
+          assert.ok(manualHtml.includes(task.title));
+        }
+        // Validate all same-site targets, including translation and task hashes.
+        for (const [, rawHref] of manualHtml.matchAll(/href="([^"?#]*)(?:\?[^"#]*)?(#[^"]*)?"/g)) {
+          if (!rawHref.startsWith('/') || rawHref.startsWith('//')) continue;
+          const prefix = base.replace(/\/$/, '');
+          assert.ok(
+            rawHref === prefix || rawHref.startsWith(`${prefix}/`),
+            `${lang}: ${rawHref} lacks base ${base}`
+          );
+          const route = rawHref.slice(prefix.length).replace(/^\//, '');
+          const target = path.join(output, route);
+          assert.ok(
+            existsSync(target) || existsSync(path.join(target, 'index.html')),
+            `${lang}: missing ${rawHref}`
+          );
+        }
+        for (const [, hash] of manualHtml.matchAll(/href="#([^"]+)"/g)) {
+          assert.ok(manualHtml.includes(`id="${hash}"`), `${lang}: missing #${hash}`);
+        }
+
         const locale = JSON.parse(
           readFileSync(path.join(website, `src/i18n/${lang}.json`), 'utf8')
         );
