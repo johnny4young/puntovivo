@@ -30,7 +30,7 @@ identifica las versiones mantenidas.
 | Archivo                                                                                                      | Uso                                                                         |
 | ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------- |
 | [`MODULE-ACTIVATION.md` (inglés)](../MODULE-ACTIVATION.md)                                                   | Activación de módulos por negocio.                                          |
-| [`HARDWARE-POS.md` (inglés)](../HARDWARE-POS.md)                                                             | ESC/POS, cajón, lector y periféricos.                                       |
+| [`HARDWARE-POS.md` (español)](./HARDWARE-POS.md)                                                             | ESC/POS, cajón, lector y periféricos.                                       |
 | [Printer setup (English)](../PRINTER-SETUP.md) · [Configuración de impresoras (Español)](./PRINTER-SETUP.md) | USB/Sistema, ESC/POS de red, colas locales y aceptación física.             |
 | [`WEBHOOKS.md` (inglés)](../WEBHOOKS.md)                                                                     | Esquemas de eventos salientes, firmas, reintentos, ejemplos y recuperación. |
 
@@ -40,26 +40,33 @@ identifica las versiones mantenidas.
 | ---------------------------------------------------------- | --------------------------------------------------------------- |
 | [`COMPONENTS.md` (inglés)](../COMPONENTS.md)               | Catálogo de componentes compartidos.                            |
 | [`STYLING.md` (inglés)](../STYLING.md)                     | Tokens del sistema de diseño y componentes básicos de Tailwind. |
-| [`RECEIPT-TEMPLATES.md` (inglés)](../RECEIPT-TEMPLATES.md) | Editor y renderizado de plantillas de recibos.                  |
+| [`RECEIPT-TEMPLATES.md` (español)](./RECEIPT-TEMPLATES.md) | Editor y renderizado de plantillas de recibos.                  |
 
 ## Operaciones y procedimientos
 
 | Archivo                                                                    | Uso                                                                                                                                    |
 | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | [`PROJECT-STATUS.md` (inglés)](../PROJECT-STATUS.md)                       | Inventario canónico de capacidades disponibles, brechas y preparación para releases.                                                   |
-| [`DEV-SEED.md` (inglés)](../DEV-SEED.md)                                   | Usuarios y contraseñas de prueba; variables SEED_PRESET / SEED_RESET / SEED_COUNTRY. **Nunca inventes credenciales: lee esta guía.**   |
-| [`LOGIN_GUIDE.md` (inglés)](../LOGIN_GUIDE.md)                             | Inicio de sesión durante la primera ejecución.                                                                                         |
+| [`DEV-SEED.md` (español)](./DEV-SEED.md)                                   | Usuarios y contraseñas de prueba; variables SEED_PRESET / SEED_RESET / SEED_COUNTRY. **Nunca inventes credenciales: lee esta guía.**   |
+| [`LOGIN_GUIDE.md` (español)](./LOGIN_GUIDE.md)                             | Inicio de sesión durante la primera ejecución.                                                                                         |
 | [`ENVIRONMENT_CONFIGURATION.md` (español)](./ENVIRONMENT_CONFIGURATION.md) | Referencia de variables de entorno.                                                                                                    |
-| [`SECURITY.md` (inglés)](../SECURITY.md)                                   | Autenticación, endurecimiento, límites de solicitudes y catálogo de auditoría.                                                         |
-| [`DEBUGGING.md` (inglés)](../DEBUGGING.md)                                 | Problemas habituales de desarrollo.                                                                                                    |
+| [`SECURITY.md` (español)](./SECURITY.md)                                   | Autenticación, endurecimiento, límites de solicitudes y catálogo de auditoría.                                                         |
+| [`DEBUGGING.md` (español)](./DEBUGGING.md)                                 | Problemas habituales de desarrollo.                                                                                                    |
 | [`TROUBLESHOOTING.md` (español)](./TROUBLESHOOTING.md)                     | Procedimientos de recuperación para el operador.                                                                                       |
 | [`TESTING.md` (inglés)](../TESTING.md)                                     | Contrato de CI, E2E, comprobaciones en vivo y validación de candidatos a release.                                                      |
 | [`PERF-BUDGETS.md` (inglés)](../PERF-BUDGETS.md)                           | Presupuestos de tamaño del bundle y latencia p95 tRPC de CI definidos en `perf-budget.json`.                                           |
 | [`A11Y.md` (inglés)](../A11Y.md)                                           | Contrato de accesibilidad: auxiliar axe-core, contraste de tokens y convenciones ARIA.                                                 |
 | [`OBSERVABILITY.md` (inglés)](../OBSERVABILITY.md)                         | Observabilidad de producción: sink compartido, captureException/withSpan, trazas tRPC por negocio, auditoría y errores de renderizado. |
-| [`SHORTCUTS.md` (inglés)](../SHORTCUTS.md)                                 | Catálogo canónico de atajos y experiencia de la paleta global de comandos.                                                             |
+| [`SHORTCUTS.md` (español)](./SHORTCUTS.md)                                 | Catálogo canónico de atajos y experiencia de la paleta global de comandos.                                                             |
 
 ---
+
+## Contribución y comunidad
+
+| Archivo                                                       | Uso                                                        |
+| ------------------------------------------------------------- | ---------------------------------------------------------- |
+| [`CONTRIBUTING.md` (español)](../../CONTRIBUTING.es.md)       | Preparación, convenciones y verificaciones para colaborar. |
+| [`CODE_OF_CONDUCT.md` (español)](../../CODE_OF_CONDUCT.es.md) | Compromisos, estándares y contacto de la comunidad.        |
 
 ## Mantenimiento
 

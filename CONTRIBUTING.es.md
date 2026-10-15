@@ -59,4 +59,4 @@ compilan. Si un cambio afecta al frontend y al backend, deben pasar tanto
 ## Informar problemas de seguridad
 
 No abras issues públicos para reportar vulnerabilidades. Consulta
-[SECURITY (inglés)](./docs/SECURITY.md) para conocer el procedimiento responsable.
+[SECURITY (español)](./docs/es/SECURITY.md) para conocer el procedimiento responsable.

@@ -104,14 +104,13 @@ rendimiento pendiente, salvo que `vite build` termine con un código distinto de
 
 Comprueba lo siguiente:
 
-- El correo del usuario de desarrollo es `admin@localhost`.
-- En desarrollo o fuera de producción, prueba `Admin123!Dev`, salvo que hayas
-  configurado otro valor en `PUNTOVIVO_DEV_ADMIN_PASSWORD`.
-- En producción, copia la contraseña generada que se muestra durante el primer inicio.
+- Una instalación interactiva nueva crea a su primer propietario desde la pantalla de acceso; usa esa cuenta real.
+- `admin@localhost` solo existe en un fixture cargado explícitamente; su contraseña inicial es `Admin123!Dev` o `PUNTOVIVO_DEV_ADMIN_PASSWORD` solo si al menos uno de `NODE_ENV` y `PUNTOVIVO_RUNTIME_ENV` está declarado y cada marcador declarado vale `development` o `test`; de lo contrario, la carga la genera.
+- Las credenciales de prueba no recuperan acceso a una instalación existente.
 - El negocio y el usuario están activos.
 
 Consulta:
-[LOGIN_GUIDE.md (inglés)](../LOGIN_GUIDE.md)
+[LOGIN_GUIDE.md](./LOGIN_GUIDE.md)
 
 ## 9. El servidor independiente de producción no inicia sin una clave de base de datos
 

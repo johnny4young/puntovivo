@@ -1,5 +1,7 @@
 # Security
 
+**Language:** English · [Español](./es/SECURITY.md)
+
 Puntovivo protects local retail operations through tenant isolation, explicit
 role and site guards, short-lived sessions, a sandboxed renderer, encrypted
 storage, bounded external effects, and auditable administrative actions.

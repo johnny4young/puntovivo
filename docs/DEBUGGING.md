@@ -1,5 +1,7 @@
 # Debugging Guide
 
+**Language:** English · [Español](./es/DEBUGGING.md)
+
 > Updated: June 1, 2026
 
 ## Quick Start
@@ -121,4 +123,4 @@ pnpm --filter @puntovivo/desktop run typecheck
 - forgetting that Fastify runs inside Electron main in desktop mode
 - expecting new app functionality under REST instead of tRPC
 - changing `apps/web/.env` without restarting or rebuilding the web app
-- hitting native module mismatch after switching between Electron and Node runtimes
+- treating a native-module failure as an ABI swap instead of verifying the bundled portable Node-API prebuild for the active runtime

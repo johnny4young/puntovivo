@@ -193,16 +193,22 @@ pnpm run dev:desktop   # web dev server + Electron desktop
 pnpm run dev:web-stack # web app + standalone backend, in the browser
 ```
 
-Then sign in with the seeded development admin:
+On a fresh interactive installation, create the business and its first owner
+from the login screen. Standalone web ownership can only be claimed from the
+same computer with the private installation code shown by the server. If the
+database is already owned, use its real account. See the
+[login guide](./docs/LOGIN_GUIDE.md).
 
-- Email: `admin@localhost`
-- Password: `Admin123!Dev` (unless `PUNTOVIVO_DEV_ADMIN_PASSWORD` was set before
-  the first seed)
+### Explicit development fixtures
 
-For a populated demo tenant (products, sales, cash sessions), seed and use
-`admin@demo.co` with the same password. Production first-run credentials are
-generated and shown once in the server console — see
-[docs/LOGIN_GUIDE.md](./docs/LOGIN_GUIDE.md).
+Fixture credentials are not enabled automatically when the app starts. Explicit
+disposable-data tooling can create `admin@localhost`. Its initial password is
+`Admin123!Dev` (or `PUNTOVIVO_DEV_ADMIN_PASSWORD`) only when at least one of
+`NODE_ENV` and `PUNTOVIVO_RUNTIME_ENV` is declared and every declared marker is
+`development` or `test`; otherwise it is generated. The populated demo dataset
+uses `admin@demo.co`. Before running `pnpm run seed:dev`,
+choose your own disposable database and read [DEV-SEED.md](./docs/DEV-SEED.md).
+These credentials are not a recovery path for an actual installation.
 
 ## Development commands
 

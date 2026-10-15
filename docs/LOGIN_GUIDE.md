@@ -1,6 +1,8 @@
 # Login and Access Guide
 
-> Updated: September 6, 2026
+**Language:** English · [Español](./es/LOGIN_GUIDE.md)
+
+> Updated: October 15, 2026
 
 ## Authentication Model
 
@@ -63,8 +65,10 @@ no debts, stock, tax identifiers or regulatory authorizations are invented.
 ### Explicit development fixtures
 
 The seed tooling and automated test templates can still create `admin@localhost`.
-Their non-production default is `Admin123!Dev`, configurable before seeding with
-`PUNTOVIVO_DEV_ADMIN_PASSWORD`. Interactive standalone and desktop entrypoints
+Its initial default is `Admin123!Dev`, configurable before seeding with
+`PUNTOVIVO_DEV_ADMIN_PASSWORD`, only when at least one of `NODE_ENV` and
+`PUNTOVIVO_RUNTIME_ENV` is declared and every declared marker is `development`
+or `test`. Otherwise the seed generates a password. Interactive standalone and desktop entrypoints
 never enable this fixture seed automatically. See [DEV-SEED.md](./DEV-SEED.md)
 for disposable demonstration data, not production access recovery.
 
@@ -124,7 +128,7 @@ Source:
 
 ```bash
 pnpm install
-pnpm --filter @puntovivo/desktop run rebuild
+pnpm --filter @puntovivo/desktop run native:ensure:electron
 pnpm run dev:desktop
 ```
 
@@ -177,7 +181,9 @@ curl -X POST "http://localhost:8090/api/trpc/auth.login?batch=1" \
 
 ## Notes
 
-- logout is effectively client-side token clearing plus a lightweight API call
+- `auth.logout` invalidates older access/refresh tokens by advancing the user's
+  `sessionVersion`, revokes refresh families and clears refresh/CSRF cookies;
+  the client or Electron main also clears its local session custody
 - password changes and admin resets now invalidate older sessions through per-user session versioning
 - tokens are also revoked when the signed-in user's `email` or `role` changes, or when the tenant is disabled
 - site-aware business flows also depend on `x-site-id` once a site is selected in the app

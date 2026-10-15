@@ -61,6 +61,13 @@ untranslated links in the Spanish index are explicitly marked as English.
 
 ---
 
+## Contribution and community
+
+| File                                          | Use                                                 |
+| --------------------------------------------- | --------------------------------------------------- |
+| [`CONTRIBUTING.md`](../CONTRIBUTING.md)       | Contributor setup, conventions and required checks. |
+| [`CODE_OF_CONDUCT.md`](../CODE_OF_CONDUCT.md) | Community pledge, standards and contact.            |
+
 ## Maintenance
 
 Register every new public `docs/*.md` reference in the right section of this

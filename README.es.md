@@ -194,16 +194,23 @@ pnpm run dev:desktop   # web dev server + Electron desktop
 pnpm run dev:web-stack # web app + standalone backend, in the browser
 ```
 
-Inicia sesión con el administrador generado para desarrollo:
+En una instalación interactiva nueva, crea la empresa y su primer propietario
+desde la pantalla de acceso. En web independiente, la creación solo se admite
+desde el mismo equipo y requiere el código privado de instalación que muestra
+el servidor. Si la base ya tiene propietario, usa su cuenta real. Consulta
+[la guía de acceso](./docs/es/LOGIN_GUIDE.md).
 
-- Correo: `admin@localhost`
-- Contraseña: `Admin123!Dev`, salvo que se haya configurado
-  `PUNTOVIVO_DEV_ADMIN_PASSWORD` antes de la primera carga de datos.
+### Fixtures de desarrollo explícitos
 
-Para una demostración con productos, ventas y sesiones de caja, carga los
-fixtures y usa `admin@demo.co` con la misma contraseña. Las credenciales del
-primer inicio en producción se generan y se muestran una sola vez en la consola
-del servidor; consulta [docs/LOGIN_GUIDE.md (inglés)](./docs/LOGIN_GUIDE.md).
+Las credenciales de prueba no se habilitan automáticamente al iniciar la
+aplicación. El tooling explícito para datos desechables puede crear
+`admin@localhost`. Su contraseña inicial es `Admin123!Dev` (o
+`PUNTOVIVO_DEV_ADMIN_PASSWORD`) solo si al menos uno de `NODE_ENV` y
+`PUNTOVIVO_RUNTIME_ENV` está declarado y cada marcador declarado vale
+`development` o `test`; de lo contrario, se genera. El conjunto de demostración
+usa `admin@demo.co`. Antes de ejecutar `pnpm run seed:dev`, elige
+una base desechable propia y lee [DEV-SEED.md](./docs/es/DEV-SEED.md). Estas
+credenciales no sirven para recuperar el acceso a una instalación real.
 
 ## Comandos de desarrollo
 
@@ -249,13 +256,13 @@ Comienza por [docs/README.md (índice en español)](./docs/es/README.md). Resume
 - [docs/TESTING.md (inglés)](./docs/TESTING.md): contrato de validación y verificaciones de candidatos a release.
 - [docs/ENVIRONMENT_CONFIGURATION.md (español)](./docs/es/ENVIRONMENT_CONFIGURATION.md): referencia de variables de entorno.
 - [docs/DESKTOP_RUNTIME_GUIDE.md (inglés)](./docs/DESKTOP_RUNTIME_GUIDE.md): entorno de ejecución de Electron.
-- [docs/SECURITY.md (inglés)](./docs/SECURITY.md): autenticación, endurecimiento y política de auditoría.
+- [docs/SECURITY.md (español)](./docs/es/SECURITY.md): autenticación, endurecimiento y política de auditoría.
 
 ## Contribuir
 
 Las contribuciones son bienvenidas. Lee primero
 [CONTRIBUTING.md (español)](./CONTRIBUTING.es.md) y el
-[Código de conducta (inglés)](./CODE_OF_CONDUCT.md), y ejecuta la validación de CI
+[Código de conducta (español)](./CODE_OF_CONDUCT.es.md), y ejecuta la validación de CI
 del área modificada:
 
 | Área                                                  | Comando                      |
@@ -268,7 +275,7 @@ del área modificada:
 
 Todo cambio visible en la interfaz requiere además una comprobación en vivo de
 web o Electron. Para problemas de seguridad, consulta
-[docs/SECURITY.md (inglés)](./docs/SECURITY.md); no abras un issue público para una
+[docs/SECURITY.md (español)](./docs/es/SECURITY.md); no abras un issue público para una
 vulnerabilidad.
 
 ## Licencia

@@ -16,6 +16,14 @@ current guides remain in English and must not be presented as translated.
 | Environment / Entorno                                                   | [Environment](./ENVIRONMENT_CONFIGURATION.md) | [Entorno](./es/ENVIRONMENT_CONFIGURATION.md)     |
 | Recovery / Recuperación                                                 | [Troubleshooting](./TROUBLESHOOTING.md)       | [Solución de problemas](./es/TROUBLESHOOTING.md) |
 | Printing / Impresión                                                    | [Printer setup](./PRINTER-SETUP.md)           | [Impresoras](./es/PRINTER-SETUP.md)              |
+| Login and ownership / Acceso y propietario                              | [Login](./LOGIN_GUIDE.md)                     | [Acceso](./es/LOGIN_GUIDE.md)                    |
+| Receipt templates / Plantillas de recibos                               | [Templates](./RECEIPT-TEMPLATES.md)           | [Plantillas](./es/RECEIPT-TEMPLATES.md)          |
+| POS hardware / Hardware POS                                             | [Hardware](./HARDWARE-POS.md)                 | [Hardware](./es/HARDWARE-POS.md)                 |
+| Disposable data / Datos desechables                                     | [Development seed](./DEV-SEED.md)             | [Datos de desarrollo](./es/DEV-SEED.md)          |
+| Security / Seguridad                                                    | [Security](./SECURITY.md)                     | [Seguridad](./es/SECURITY.md)                    |
+| Keyboard / Teclado                                                      | [Shortcuts](./SHORTCUTS.md)                   | [Atajos](./es/SHORTCUTS.md)                      |
+| Debugging / Depuración                                                  | [Debugging](./DEBUGGING.md)                   | [Depuración](./es/DEBUGGING.md)                  |
+| Community / Comunidad                                                   | [Code of conduct](../CODE_OF_CONDUCT.md)      | [Código de conducta](../CODE_OF_CONDUCT.es.md)   |
 
 New public guides need both languages, either as a registered pair or a complete
 bilingual document. Maintain both versions when changing a listed guide. Keep code blocks, commands,
@@ -65,7 +73,7 @@ notas históricas del producto. `docs/releases/README.md`, que explica cómo
 redactar releases, sigue siendo documentación vigente.
 
 El registro está en [translations.json](./translations.json). Ejecuta desde la
-raíz los dos comandos anteriores para comprobar enlaces, selectores recíprocos,
+raíz los comandos anteriores para comprobar enlaces, selectores recíprocos,
 estructura de títulos y paridad de código e identificadores.
 
 CI ejecuta estas comprobaciones al cambiar Markdown del proyecto, el registro

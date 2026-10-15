@@ -1,5 +1,7 @@
 # Keyboard shortcuts
 
+**Language:** English · [Español](./es/SHORTCUTS.md)
+
 > Status: shipped and regression-tested. The canonical runtime catalogue is
 > `apps/web/src/lib/shortcuts.ts`.
 
