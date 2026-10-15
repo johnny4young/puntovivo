@@ -61,7 +61,7 @@ test('stacked dependency PRs receive functional CI without expanding token autho
   const branchList = /^    branches: \[([^\]]+)\]$/m.exec(pullRequest)?.[1];
   assert.equal(typeof branchList, 'string');
   const branches = branchList.split(',').map(value => value.trim().replace(/^['"]|['"]$/g, ''));
-  assert.deepEqual(branches, ['main', 'codex/**', 'dependabot/**']);
+  assert.deepEqual(branches, ['main', 'codex/**', 'fix/**', 'dependabot/**']);
   assert.match(workflow, /^permissions:\n  contents: read$/m);
   assert.doesNotMatch(triggers, /pull_request_target/);
 });
