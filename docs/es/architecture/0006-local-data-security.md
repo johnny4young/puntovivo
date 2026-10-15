@@ -38,7 +38,7 @@ Staging debe pasar `PRAGMA integrity_check` con clave y resultado `ok` antes
 de publicar. El manifiesto v2 lleva hashes y MAC de clave de instalación;
 una contraseña opcional envuelve la clave de respaldo sin volver la base texto
 plano. Manifiesto/identidad son metadatos que el ZIP no necesariamente cifra.
-Consulta [Seguridad](../../SECURITY.md).
+Consulta [Seguridad](../SECURITY.md).
 
 Instantáneas manuales detienen/reinician Fastify mediante `runWithServerRestart`.
 Las programadas se serializan por la cola de backup y usan instantáneas seguras
@@ -144,4 +144,4 @@ cada columna/payload nuevo contra esta política y el saneamiento de exportació
   ningún consumidor debe depender del secreto original.
 - El export actual incluye `webhook_outbox`, no un placeholder pendiente.
   Recuperación física y proveedor de producción requieren evidencia separada.
-  Sigue [Pruebas](../../TESTING.md) y [Procedimientos operativos](../../OPERATIONS-RUNBOOKS.md).
+  Sigue [Pruebas](../TESTING.md) y [Procedimientos operativos](../OPERATIONS-RUNBOOKS.md).

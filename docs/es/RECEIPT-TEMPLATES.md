@@ -317,7 +317,7 @@ apps/web/src/lib/translateServerError.ts                         # KNOWN_SERVER_
 - **Verificar registro** no imprime. **Imprimir ticket de prueba** abre el
   diálogo del sistema para un documento sintético sin crear una venta. Una
   prueba fallida muestra diagnóstico y no se anuncia como exitosa. Consulta
-  [Printer setup](../PRINTER-SETUP.md) / [Configuración de impresoras](./PRINTER-SETUP.md).
+  [Printer setup](PRINTER-SETUP.md) / [Configuración de impresoras](./PRINTER-SETUP.md).
 - Electron usa el papel y área imprimible predeterminados de la impresora.
   El saneamiento conserva SVG estático de QR/códigos de barras y bloquea
   construcciones activas o recursos externos. Cancelar es un resultado separado,

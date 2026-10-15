@@ -200,6 +200,94 @@
     {
       "en": "docs/architecture/0018-lot-procurement-and-transformations.md",
       "es": "docs/es/architecture/0018-lot-procurement-and-transformations.md"
+    },
+    {
+      "en": "docs/A11Y.md",
+      "es": "docs/es/A11Y.md"
+    },
+    {
+      "en": "docs/ARCHITECTURE.md",
+      "es": "docs/es/ARCHITECTURE.md"
+    },
+    {
+      "en": "docs/DESKTOP_RUNTIME_GUIDE.md",
+      "es": "docs/es/DESKTOP_RUNTIME_GUIDE.md"
+    },
+    {
+      "en": "docs/PERF-BUDGETS.md",
+      "es": "docs/es/PERF-BUDGETS.md"
+    },
+    {
+      "en": "docs/PROJECT-STATUS.md",
+      "es": "docs/es/PROJECT-STATUS.md"
+    },
+    {
+      "en": "docs/TESTING.md",
+      "es": "docs/es/TESTING.md"
+    },
+    {
+      "en": "docs/architecture/0020-restaurant-service-check-model.md",
+      "es": "docs/es/architecture/0020-restaurant-service-check-model.md"
+    },
+    {
+      "en": "docs/architecture/0021-durable-kitchen-preparation.md",
+      "es": "docs/es/architecture/0021-durable-kitchen-preparation.md"
+    },
+    {
+      "en": "docs/architecture/0022-reservation-fulfillment-boundary.md",
+      "es": "docs/es/architecture/0022-reservation-fulfillment-boundary.md"
+    },
+    {
+      "en": "docs/architecture/0023-signed-external-order-inbox.md",
+      "es": "docs/es/architecture/0023-signed-external-order-inbox.md"
+    },
+    {
+      "en": "docs/architecture/0024-effective-employment-terms.md",
+      "es": "docs/es/architecture/0024-effective-employment-terms.md"
+    },
+    {
+      "en": "docs/architecture/0025-operational-employee-absences.md",
+      "es": "docs/es/architecture/0025-operational-employee-absences.md"
+    },
+    {
+      "en": "docs/architecture/0026-recurring-employee-availability.md",
+      "es": "docs/es/architecture/0026-recurring-employee-availability.md"
+    },
+    {
+      "en": "docs/architecture/0027-recurring-schedule-publication.md",
+      "es": "docs/es/architecture/0027-recurring-schedule-publication.md"
+    },
+    {
+      "en": "docs/architecture/0028-employee-shift-exchanges.md",
+      "es": "docs/es/architecture/0028-employee-shift-exchanges.md"
+    },
+    {
+      "en": "docs/architecture/0029-attendance-reconciliation-and-operational-cost.md",
+      "es": "docs/es/architecture/0029-attendance-reconciliation-and-operational-cost.md"
+    },
+    {
+      "en": "docs/architecture/0030-colombia-pre-payroll-evidence.md",
+      "es": "docs/es/architecture/0030-colombia-pre-payroll-evidence.md"
+    },
+    {
+      "en": "docs/architecture/0031-human-review-of-ai-payment-proposals.md",
+      "es": "docs/es/architecture/0031-human-review-of-ai-payment-proposals.md"
+    },
+    {
+      "en": "docs/architecture/patterns/operation-journal.md",
+      "es": "docs/es/architecture/patterns/operation-journal.md"
+    },
+    {
+      "en": "docs/architecture/patterns/outbox-kernel.md",
+      "es": "docs/es/architecture/patterns/outbox-kernel.md"
+    },
+    {
+      "en": "e2e/README.md",
+      "es": "e2e/README.es.md"
+    },
+    {
+      "en": "website/MANUAL.md",
+      "es": "website/MANUAL.es.md"
     }
   ],
   "bilingual": ["docs/TRANSLATIONS.md"],

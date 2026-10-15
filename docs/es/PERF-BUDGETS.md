@@ -440,7 +440,7 @@ y p95 de decodificación/clasificación de 0.4993 ms por grupo de 200 vectores p
 1.0. El corpus de dominio conservado seleccionó `embeddinggemma` con nDCG@10
 0.961299 y recall@3 1.0. Son observaciones para seleccionar arquitectura, no
 clasificaciones universales de modelos ni promesas de nivel de servicio para
-usuarios. Consulta [ADR-0011](../architecture/0011-product-search-vectors.md).
+usuarios. Consulta [ADR-0011](architecture/0011-product-search-vectors.md).
 
 ### Contrato de continuidad operativa
 

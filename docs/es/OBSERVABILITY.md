@@ -137,7 +137,7 @@ sesiones sin fallos. El ciclo local de incidentes, reconocimiento, retención
 acotada, evidencia de entrega, tablero de responsables y procedimientos de
 recuperación están disponibles; observar un proceso de guardia externo sigue
 siendo un requisito pendiente para release en
-[`PROJECT-STATUS.md` (inglés)](../PROJECT-STATUS.md).
+[`PROJECT-STATUS.md`](PROJECT-STATUS.md).
 
 ## Verificación específica
 

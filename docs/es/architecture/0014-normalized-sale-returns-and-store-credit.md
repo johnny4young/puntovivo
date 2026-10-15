@@ -5,7 +5,7 @@
 > Estado: aceptada
 > Fecha: 31 de agosto de 2026
 >
-> [ADR-0016](../../architecture/0016-server-authoritative-promotions-and-customer-value.md) completó después uso al cobrar y restauración exacta ligada al origen.
+> [ADR-0016](0016-server-authoritative-promotions-and-customer-value.md) completó después uso al cobrar y restauración exacta ligada al origen.
 
 ## Contexto
 

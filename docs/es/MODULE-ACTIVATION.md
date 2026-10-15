@@ -9,7 +9,7 @@ capacidades que pueden activarse por negocio sin borrar historia ni bifurcar el 
 
 - Manifiesto: `packages/server/src/services/modules/manifest.ts`.
 - Sobrescrituras del negocio: `tenants.settings.modules`.
-- Decisión: [`architecture/0007-module-activation.md`](../architecture/0007-module-activation.md).
+- Decisión: [`architecture/0007-module-activation.md`](architecture/0007-module-activation.md).
 
 No existe tabla `tenant_modules`. Los valores predeterminados vienen del
 manifiesto, las sobrescrituras viven en ajustes del negocio y desactivar es una baja lógica.

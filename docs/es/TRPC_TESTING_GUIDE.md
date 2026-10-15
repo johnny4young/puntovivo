@@ -94,7 +94,7 @@ curl http://localhost:8090/api/trpc/health.check
 
 Estas credenciales solo corresponden a un fixture propio desechable cargado
 explícitamente. En una instalación interactiva usa la cuenta real del propietario;
-consulta [LOGIN_GUIDE.md](../LOGIN_GUIDE.md). El servidor usa JSON simple, sin sobre de transformador.
+consulta [LOGIN_GUIDE.md](LOGIN_GUIDE.md). El servidor usa JSON simple, sin sobre de transformador.
 
 ```bash
 curl -X POST "http://localhost:8090/api/trpc/auth.login?batch=1" \

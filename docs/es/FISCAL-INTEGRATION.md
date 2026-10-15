@@ -71,4 +71,4 @@ Ningún pack está certificado para producción actualmente. Colombia requiere t
 7. Pruebas de reinicio, timeout, rechazo, entrega duplicada y colas grandes.
 8. Respaldo/restauración que incluya documentos, bandejas, identificadores y artefactos retenidos.
 
-El veredicto público se mantiene en [PROJECT-STATUS.md](../PROJECT-STATUS.md).
+El veredicto público se mantiene en [PROJECT-STATUS.md](PROJECT-STATUS.md).

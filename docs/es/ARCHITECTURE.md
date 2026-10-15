@@ -148,7 +148,7 @@ conserva la pantalla activa.
 - Los desempates de pagos por IA crean propuestas duraderas de revisión por
   negocio, nunca liquidaciones. Una decisión administrativa revalida el extracto
   seleccionado del proveedor y la fila de outbox antes de un cambio de estado
-  atómico con auditoría; consulta [ADR-0031](../architecture/0031-human-review-of-ai-payment-proposals.md).
+  atómico con auditoría; consulta [ADR-0031](architecture/0031-human-review-of-ai-payment-proposals.md).
 - Los efectos de pagos, hardware y sincronización usan outboxes duraderos
   dedicados. Una venta completada con fiscalidad habilitada registra primero
   una intención congelada de emisión dentro de la transacción de venta; el
@@ -322,7 +322,7 @@ la unidad falta o es incompatible. Una plantilla de corte no consume stock ni
 crea evidencia de transformación por sí misma. Los gerentes configuran y ejecutan
 esas entradas, salidas, rendimiento, desperdicio, remanentes y costos distribuidos
 en la superficie separada de Transformación de inventario definida por
-[ADR-0018](../architecture/0018-lot-procurement-and-transformations.md).
+[ADR-0018](architecture/0018-lot-procurement-and-transformations.md).
 
 La constante compartida `0.001` es el menor incremento expuesto por los controles
 actuales de productos, unidades alternativas, carrito, compras y pedidos. No es
@@ -358,7 +358,7 @@ de esquemas de país comparten actualmente el diseño genérico de SKU de cinco
 dígitos/carga de cinco dígitos y no certifican ninguna balanza física ni
 convención nacional de etiquetas.
 
-[ADR-0017](../architecture/0017-vertical-profiles-site-gs1.md) define estas decisiones
+[ADR-0017](architecture/0017-vertical-profiles-site-gs1.md) define estas decisiones
 de perfiles, plantillas, precisión y autoridad del lector.
 
 ## Límite del servicio de restaurante
@@ -465,7 +465,7 @@ confirman juntos. Las estaciones configurables por sede y el enrutamiento por
 producto/categoría aplican solo a envíos futuros. Divisiones, movimientos y
 anulaciones actualizan el estado operativo sin reescribir ni duplicar comida ya
 enviada. CAS sobre versión observada protege transiciones de cocina; recuperación
-y reenvío conservan la identidad del ticket. [ADR-0021](../architecture/0021-durable-kitchen-preparation.md)
+y reenvío conservan la identidad del ticket. [ADR-0021](architecture/0021-durable-kitchen-preparation.md)
 define contratos de lectura acotada, adopción heredada y notificación al menos
 una vez. Los gerentes configuran un catálogo de modificadores versionado por
 sede en la UI. Los recargos de cajeros requieren una referencia exacta de
@@ -481,7 +481,7 @@ alternativos de venta. La llegada retiene una mesa sin crear una venta; sentar
 al cliente vincula una versión explícita de reserva dentro de la primera
 transacción real de cuenta. La entrega usa un ciclo de vida estricto y versionado
 y nunca cobra ni reembolsa una venta silenciosamente.
-[ADR-0022](../architecture/0022-reservation-fulfillment-boundary.md) define estos límites.
+[ADR-0022](architecture/0022-reservation-fulfillment-boundary.md) define estos límites.
 
 La bandeja externa firmada autentica la intención de origen y elimina duplicados
 de eventos/nonces de forma duradera. Una revisión explícita de precios locales
@@ -490,7 +490,7 @@ Las solicitudes de cancelación del origen bloquean cobro y cumplimiento, pero
 exigen la vía ordinaria del operador de descarte/devolución para revertir efectos
 comerciales. La gestión de credenciales y las proyecciones de bandeja se limitan
 a negocio/sede; los grafos permanecen solo locales.
-[ADR-0023](../architecture/0023-signed-external-order-inbox.md) define contratos de
+[ADR-0023](architecture/0023-signed-external-order-inbox.md) define contratos de
 firma, clave sellada, repetición y autoridad comercial.
 
 ## Límite de búsqueda de productos
@@ -533,7 +533,7 @@ y costo de decodificación del conjunto retenido de 200 vectores. El valor
 predeterminado actual de Ollama es `embeddinggemma`, de 768 dimensiones,
 seleccionado mediante el corpus; OpenAI conserva `text-embedding-3-small`.
 Dimensiones iguales no implican espacios de embeddings compatibles, por lo que
-cambiar de modelo exige regeneración. [ADR-0011](../architecture/0011-product-search-vectors.md)
+cambiar de modelo exige regeneración. [ADR-0011](architecture/0011-product-search-vectors.md)
 define códec, benchmark, comparación de mercado y condición para adoptar extensiones.
 
 ## Límite de privacidad del análisis con IA
@@ -803,7 +803,7 @@ El cobro de borradores resuelve nombres y SKU de productos una vez tanto para
 la instantánea de artículos completados como para su intención fiscal. Editar
 el catálogo después de completar no cambia ninguna instantánea ni la identidad
 usada en devoluciones posteriores. Esto no rellena descripciones desconocidas
-de ventas históricas completadas. [ADR-0016](../architecture/0016-server-authoritative-promotions-and-customer-value.md)
+de ventas históricas completadas. [ADR-0016](architecture/0016-server-authoritative-promotions-and-customer-value.md)
 define el límite completo.
 
 ## Límite de conversión de cotizaciones y cuentas por pagar a proveedores
@@ -849,7 +849,7 @@ atómicamente su fila, asignaciones, evento de auditoría, efectos de outbox de
 sincronización y resultado canónico de repetición. Gerentes y administradores
 pueden operar este libro; crear, editar, eliminar y gestionar categorías de
 proveedores sigue siendo capacidad administrativa en otra ruta.
-[ADR-0013](../architecture/0013-quotation-conversion-and-supplier-payables.md)
+[ADR-0013](architecture/0013-quotation-conversion-and-supplier-payables.md)
 define la justificación duradera y el límite de migración.
 
 ## Límite de devoluciones y cambios normalizados
@@ -893,7 +893,7 @@ presentación del diario siguen siendo efectos de mejor esfuerzo, sin entrega
 con recuperación automática garantizada. La carga de sincronización es intención
 local duradera, no evidencia de convergencia causal completa entre dispositivos.
 
-[ADR-0014](../architecture/0014-normalized-sale-returns-and-store-credit.md)
+[ADR-0014](architecture/0014-normalized-sale-returns-and-store-credit.md)
 define este límite y sus reglas de compatibilidad.
 
 ## Límite de impuestos normalizados por línea
@@ -1087,7 +1087,7 @@ en desarrollo solo se permite HTTP en dirección de bucle local.
 
 El núcleo de sincronización está implementado, pero no promete replicación
 multimaestro en la nube alojada y sin conexión. La preparación pública y las
-brechas operativas conocidas se enumeran en [PROJECT-STATUS.md](../PROJECT-STATUS.md).
+brechas operativas conocidas se enumeran en [PROJECT-STATUS.md](PROJECT-STATUS.md).
 
 La vía actual de envío de sincronización reconoce trabajo de la cola local, no
 entrega remota. Para cada ID seleccionado de outbox, `sync.push` toma una
@@ -1108,7 +1108,7 @@ producto existente del negocio. Las capacidades de conflicto se calculan en el
 servidor y se vuelven a comprobar con la evidencia original encolada dentro de
 la misma transacción inmediata que resuelve y encola el reemplazo. Los incidentes
 bloqueados siguen pendientes; todavía puede reintentarse la intención original
-del dominio. Consulta [ADR-0005](../architecture/0005-sync-payload-contract.md).
+del dominio. Consulta [ADR-0005](architecture/0005-sync-payload-contract.md).
 
 ## Arquitectura de módulos y UI
 
@@ -1146,7 +1146,7 @@ sin más antes de persistir; sigue permitido borrar una excepción heredada inv�
 
 ## Decisiones duraderas
 
-Los registros de decisiones de arquitectura de [architecture/](../architecture/README.md)
+Los registros de decisiones de arquitectura de [architecture/](architecture/README.md)
 definen decisiones que los cambios futuros deben conservar:
 
 - autoridad local de tienda;
@@ -1159,14 +1159,14 @@ definen decisiones que los cambios futuros deben conservar:
 - modos de ejecución del Nodo de autoridad;
 - almacenamiento y validación de dinero;
 - evidencia de horas extra laborales;
-- [condiciones laborales con vigencia](../architecture/0024-effective-employment-terms.md)
+- [condiciones laborales con vigencia](architecture/0024-effective-employment-terms.md)
   con historial privado de compensación;
-- [ausencias operativas de empleados](../architecture/0025-operational-employee-absences.md)
-  y [disponibilidad con vigencia](../architecture/0026-recurring-employee-availability.md);
-- [borradores recurrentes de horarios y publicación explícita](../architecture/0027-recurring-schedule-publication.md);
-- [intercambios de turno de empleados ligados al consentimiento](../architecture/0028-employee-shift-exchanges.md);
-- [conciliación explícita de planificación y asistencia y costo operativo regular](../architecture/0029-attendance-reconciliation-and-operational-cost.md);
-- [evidencia y aprobación de prenómina en Colombia](../architecture/0030-colombia-pre-payroll-evidence.md),
+- [ausencias operativas de empleados](architecture/0025-operational-employee-absences.md)
+  y [disponibilidad con vigencia](architecture/0026-recurring-employee-availability.md);
+- [borradores recurrentes de horarios y publicación explícita](architecture/0027-recurring-schedule-publication.md);
+- [intercambios de turno de empleados ligados al consentimiento](architecture/0028-employee-shift-exchanges.md);
+- [conciliación explícita de planificación y asistencia y costo operativo regular](architecture/0029-attendance-reconciliation-and-operational-cost.md);
+- [evidencia y aprobación de prenómina en Colombia](architecture/0030-colombia-pre-payroll-evidence.md),
   con autoridad de cálculo dentro de la transacción y límite explícito sin certificación;
 - almacenamiento de vectores de búsqueda de productos y selección de modelo;
 - vigencia externa de cadena de auditoría;
@@ -1181,13 +1181,13 @@ definen decisiones que los cambios futuros deben conservar:
 
 ## Referencias relacionadas
 
-- [TRPC_ARCHITECTURE.md](../TRPC_ARCHITECTURE.md)
-- [TRPC_TESTING_GUIDE.md](../TRPC_TESTING_GUIDE.md)
-- [DESKTOP_RUNTIME_GUIDE.md](../DESKTOP_RUNTIME_GUIDE.md)
-- [SECURITY.md](../SECURITY.md)
-- [FISCAL-INTEGRATION.md](../FISCAL-INTEGRATION.md)
-- [HARDWARE-POS.md](../HARDWARE-POS.md)
-- [TESTING.md](../TESTING.md)
+- [TRPC_ARCHITECTURE.md](TRPC_ARCHITECTURE.md)
+- [TRPC_TESTING_GUIDE.md](TRPC_TESTING_GUIDE.md)
+- [DESKTOP_RUNTIME_GUIDE.md](DESKTOP_RUNTIME_GUIDE.md)
+- [SECURITY.md](SECURITY.md)
+- [FISCAL-INTEGRATION.md](FISCAL-INTEGRATION.md)
+- [HARDWARE-POS.md](HARDWARE-POS.md)
+- [TESTING.md](TESTING.md)
 
 ## Límite de propiedad de la instalación
 

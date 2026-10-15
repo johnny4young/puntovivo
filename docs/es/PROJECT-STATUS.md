@@ -534,4 +534,4 @@ reclamación de una sola vez no establece preparación fiscal, saldos, stock ni
 autorización de productos regulados; siguen siendo asuntos explícitos de
 configuración del gerente y validación externa. La reclamación independiente
 es solo local y requiere un código privado de arranque; Electron conserva la
-prueba en su proceso principal de confianza. Consulta la [Guía de inicio de sesión y acceso](../LOGIN_GUIDE.md).
+prueba en su proceso principal de confianza. Consulta la [Guía de inicio de sesión y acceso](LOGIN_GUIDE.md).

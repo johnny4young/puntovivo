@@ -112,7 +112,7 @@ Puntovivo está en desarrollo activo. Condiciones de preparación:
 | Venta en producción        | No                                  | Requiere certificación fiscal, evidencia legal de conservación, validación de hardware, alertas entregadas externamente, política de terminales de pago y un piloto observado.                                                                                                                                             |
 
 El inventario canónico de capacidades, las brechas pendientes y los requisitos
-para releases están en [docs/PROJECT-STATUS.md (inglés)](./docs/PROJECT-STATUS.md).
+para releases están en [docs/PROJECT-STATUS.md](docs/es/PROJECT-STATUS.md).
 
 ### Validaciones externas pendientes
 
@@ -150,7 +150,7 @@ para releases están en [docs/PROJECT-STATUS.md (inglés)](./docs/PROJECT-STATUS
 | Base de datos | SQLite mediante better-sqlite3-multiple-ciphers         | SQLCipher está integrado; los modos de desarrollo pueden compartir una base cifrada. |
 | ORM           | Drizzle                                                 | Las migraciones son la única vía de cambios de esquema.                              |
 | Estado        | TanStack Query + Zustand                                | Se separan el estado del servidor y el de la interfaz.                               |
-| Estilos       | Tailwind CSS v4 + CVA                                   | Consulta [docs/STYLING.md (inglés)](./docs/STYLING.md).                              |
+| Estilos       | Tailwind CSS v4 + CVA                                   | Consulta [docs/STYLING.md](docs/es/STYLING.md).                                      |
 | Tiempo real   | SSE                                                     | `/api/realtime/*` sigue disponible para actualizaciones en vivo.                     |
 
 <div align="center">
@@ -251,11 +251,11 @@ correspondientes, y falla si ese binario no está disponible.
 
 Comienza por [docs/README.md (índice en español)](./docs/es/README.md). Resumen:
 
-- [docs/PROJECT-STATUS.md (inglés)](./docs/PROJECT-STATUS.md): capacidades disponibles, brechas y preparación para releases.
-- [docs/ARCHITECTURE.md (inglés)](./docs/ARCHITECTURE.md): estructura actual del sistema.
-- [docs/TESTING.md (inglés)](./docs/TESTING.md): contrato de validación y verificaciones de candidatos a release.
+- [docs/PROJECT-STATUS.md](docs/es/PROJECT-STATUS.md): capacidades disponibles, brechas y preparación para releases.
+- [docs/ARCHITECTURE.md](docs/es/ARCHITECTURE.md): estructura actual del sistema.
+- [docs/TESTING.md](docs/es/TESTING.md): contrato de validación y verificaciones de candidatos a release.
 - [docs/ENVIRONMENT_CONFIGURATION.md (español)](./docs/es/ENVIRONMENT_CONFIGURATION.md): referencia de variables de entorno.
-- [docs/DESKTOP_RUNTIME_GUIDE.md (inglés)](./docs/DESKTOP_RUNTIME_GUIDE.md): entorno de ejecución de Electron.
+- [docs/DESKTOP_RUNTIME_GUIDE.md](docs/es/DESKTOP_RUNTIME_GUIDE.md): entorno de ejecución de Electron.
 - [docs/SECURITY.md (español)](./docs/es/SECURITY.md): autenticación, endurecimiento y política de auditoría.
 
 ## Contribuir

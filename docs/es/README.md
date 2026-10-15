@@ -10,42 +10,42 @@ de idioma de cada guía o el [índice bilingüe](../TRANSLATIONS.md).
 
 ## Arquitectura y tecnologías
 
-| Archivo                                                                                                                   | Uso                                                                                                                                                                                                                                           |
-| ------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`ARCHITECTURE.md` (inglés)](../ARCHITECTURE.md)                                                                          | Estructura general de Electron + Fastify + tRPC + SQLite.                                                                                                                                                                                     |
-| [`architecture/` (inglés)](../architecture/README.md)                                                                     | **Registros de decisiones de arquitectura (ADR)**: decisiones duraderas sobre autoridad local, comandos, contratos de sincronización, bandejas, conflictos, seguridad, módulos, modos de ejecución, dinero, personal y búsqueda de productos. |
-| [`TRPC_ARCHITECTURE.md` (inglés)](../TRPC_ARCHITECTURE.md) + [`TRPC_TESTING_GUIDE.md` (inglés)](../TRPC_TESTING_GUIDE.md) | Diseño de procedimientos tRPC, esquemas y pruebas sin HTTP.                                                                                                                                                                                   |
-| [`DESKTOP_RUNTIME_GUIDE.md` (inglés)](../DESKTOP_RUNTIME_GUIDE.md)                                                        | Notas de Electron: sandbox, backend integrado y módulos nativos Node-API.                                                                                                                                                                     |
-| `architecture.mmd` + `architecture.svg`                                                                                   | Diagrama Mermaid y versión renderizada del sistema.                                                                                                                                                                                           |
+| Archivo                                                                                           | Uso                                                                                                                                                                                                                                           |
+| ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`ARCHITECTURE.md`](ARCHITECTURE.md)                                                              | Estructura general de Electron + Fastify + tRPC + SQLite.                                                                                                                                                                                     |
+| [`architecture/`](architecture/README.md)                                                         | **Registros de decisiones de arquitectura (ADR)**: decisiones duraderas sobre autoridad local, comandos, contratos de sincronización, bandejas, conflictos, seguridad, módulos, modos de ejecución, dinero, personal y búsqueda de productos. |
+| [`TRPC_ARCHITECTURE.md`](TRPC_ARCHITECTURE.md) + [`TRPC_TESTING_GUIDE.md`](TRPC_TESTING_GUIDE.md) | Diseño de procedimientos tRPC, esquemas y pruebas sin HTTP.                                                                                                                                                                                   |
+| [`DESKTOP_RUNTIME_GUIDE.md`](DESKTOP_RUNTIME_GUIDE.md)                                            | Notas de Electron: sandbox, backend integrado y módulos nativos Node-API.                                                                                                                                                                     |
+| `architecture.mmd` + `architecture.svg`                                                           | Diagrama Mermaid y versión renderizada del sistema.                                                                                                                                                                                           |
 
 ## Motor fiscal para Latinoamérica
 
-| Archivo                                                      | Uso                                                                      |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------ |
-| [`FISCAL-INTEGRATION.md` (inglés)](../FISCAL-INTEGRATION.md) | Madurez de adaptadores por país, invariantes y requisitos de producción. |
+| Archivo                                          | Uso                                                                      |
+| ------------------------------------------------ | ------------------------------------------------------------------------ |
+| [`FISCAL-INTEGRATION.md`](FISCAL-INTEGRATION.md) | Madurez de adaptadores por país, invariantes y requisitos de producción. |
 
 ## Alcance por vertical
 
 | Archivo                                                                                                      | Uso                                                                         |
 | ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------- |
-| [`MODULE-ACTIVATION.md` (inglés)](../MODULE-ACTIVATION.md)                                                   | Activación de módulos por negocio.                                          |
+| [`MODULE-ACTIVATION.md`](MODULE-ACTIVATION.md)                                                               | Activación de módulos por negocio.                                          |
 | [`HARDWARE-POS.md` (español)](./HARDWARE-POS.md)                                                             | ESC/POS, cajón, lector y periféricos.                                       |
 | [Printer setup (English)](../PRINTER-SETUP.md) · [Configuración de impresoras (Español)](./PRINTER-SETUP.md) | USB/Sistema, ESC/POS de red, colas locales y aceptación física.             |
-| [`WEBHOOKS.md` (inglés)](../WEBHOOKS.md)                                                                     | Esquemas de eventos salientes, firmas, reintentos, ejemplos y recuperación. |
+| [`WEBHOOKS.md`](WEBHOOKS.md)                                                                                 | Esquemas de eventos salientes, firmas, reintentos, ejemplos y recuperación. |
 
 ## Experiencia de usuario y sistema de diseño
 
 | Archivo                                                    | Uso                                                             |
 | ---------------------------------------------------------- | --------------------------------------------------------------- |
-| [`COMPONENTS.md` (inglés)](../COMPONENTS.md)               | Catálogo de componentes compartidos.                            |
-| [`STYLING.md` (inglés)](../STYLING.md)                     | Tokens del sistema de diseño y componentes básicos de Tailwind. |
+| [`COMPONENTS.md`](COMPONENTS.md)                           | Catálogo de componentes compartidos.                            |
+| [`STYLING.md`](STYLING.md)                                 | Tokens del sistema de diseño y componentes básicos de Tailwind. |
 | [`RECEIPT-TEMPLATES.md` (español)](./RECEIPT-TEMPLATES.md) | Editor y renderizado de plantillas de recibos.                  |
 
 ## Operaciones y procedimientos
 
 | Archivo                                                                    | Uso                                                                                                                                    |
 | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| [`PROJECT-STATUS.md` (inglés)](../PROJECT-STATUS.md)                       | Inventario canónico de capacidades disponibles, brechas y preparación para releases.                                                   |
+| [`PROJECT-STATUS.md`](PROJECT-STATUS.md)                                   | Inventario canónico de capacidades disponibles, brechas y preparación para releases.                                                   |
 | [`DEV-SEED.md` (español)](./DEV-SEED.md)                                   | Usuarios y contraseñas de prueba; variables SEED_PRESET / SEED_RESET / SEED_COUNTRY. **Nunca inventes credenciales: lee esta guía.**   |
 | [`LOGIN_GUIDE.md` (español)](./LOGIN_GUIDE.md)                             | Inicio de sesión durante la primera ejecución.                                                                                         |
 | [`ENVIRONMENT_CONFIGURATION.md` (español)](./ENVIRONMENT_CONFIGURATION.md) | Referencia de variables de entorno.                                                                                                    |
@@ -53,9 +53,9 @@ de idioma de cada guía o el [índice bilingüe](../TRANSLATIONS.md).
 | [`DEBUGGING.md` (español)](./DEBUGGING.md)                                 | Problemas habituales de desarrollo.                                                                                                    |
 | [`TROUBLESHOOTING.md` (español)](./TROUBLESHOOTING.md)                     | Procedimientos de recuperación para el operador.                                                                                       |
 | [`OPERATIONS-RUNBOOKS.md` (español)](./OPERATIONS-RUNBOOKS.md)             | Recuperación operativa, responsables y umbrales de escalamiento.                                                                       |
-| [`TESTING.md` (inglés)](../TESTING.md)                                     | Contrato de CI, E2E, comprobaciones en vivo y validación de candidatos a release.                                                      |
-| [`PERF-BUDGETS.md` (inglés)](../PERF-BUDGETS.md)                           | Presupuestos de tamaño del bundle y latencia p95 tRPC de CI definidos en `perf-budget.json`.                                           |
-| [`A11Y.md` (inglés)](../A11Y.md)                                           | Contrato de accesibilidad: auxiliar axe-core, contraste de tokens y convenciones ARIA.                                                 |
+| [`TESTING.md`](TESTING.md)                                                 | Contrato de CI, E2E, comprobaciones en vivo y validación de candidatos a release.                                                      |
+| [`PERF-BUDGETS.md`](PERF-BUDGETS.md)                                       | Presupuestos de tamaño del bundle y latencia p95 tRPC de CI definidos en `perf-budget.json`.                                           |
+| [`A11Y.md`](A11Y.md)                                                       | Contrato de accesibilidad: auxiliar axe-core, contraste de tokens y convenciones ARIA.                                                 |
 | [`OBSERVABILITY.md` (español)](./OBSERVABILITY.md)                         | Observabilidad de producción: sink compartido, captureException/withSpan, trazas tRPC por negocio, auditoría y errores de renderizado. |
 | [`SHORTCUTS.md` (español)](./SHORTCUTS.md)                                 | Catálogo canónico de atajos y experiencia de la paleta global de comandos.                                                             |
 

@@ -16,7 +16,7 @@ Las vulnerabilidades se reportan por un canal privado del mantenedor para
 coordinar contención y divulgación. No incluyas credenciales, datos de clientes,
 payloads de prueba de concepto ni pasos que expongan un exploit funcional en un issue público.
 
-Lee [`docs/SECURITY.md`](../../SECURITY.md#security-issue-reporting) antes de
+Lee [`docs/SECURITY.md`](../SECURITY.md#reportar-problemas-de-seguridad) antes de
 reportar. Incluye versión afectada, plataforma, impacto y reproducción mínima
 únicamente en el informe privado.
 

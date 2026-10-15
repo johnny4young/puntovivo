@@ -601,6 +601,6 @@ Sigue esta ruta:
 - Entrada del renderizador:
   [main.tsx](../../apps/web/src/main.tsx)
 - Resumen de arquitectura:
-  [ARCHITECTURE.md](../ARCHITECTURE.md)
+  [ARCHITECTURE.md](ARCHITECTURE.md)
 - Notas de depuración:
-  [DEBUGGING.md](../DEBUGGING.md)
+  [DEBUGGING.md](DEBUGGING.md)

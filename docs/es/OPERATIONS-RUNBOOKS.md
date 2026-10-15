@@ -13,7 +13,7 @@ Usa **Operaciones → Alertas externas** para conectar un receptor HTTPS públic
 del comerciante o de su proveedor de monitoreo. Guarda en el receptor el secreto
 de firma que se muestra una sola vez y verifica `X-Puntovivo-Signature` antes de
 actuar sobre un payload. El contrato completo y la política de reintentos están
-en [`WEBHOOKS.md` (inglés)](../WEBHOOKS.md).
+en [`WEBHOOKS.md`](WEBHOOKS.md).
 
 Si la entrega se detiene:
 
@@ -191,4 +191,4 @@ El contrato de responsables lo verifica `scripts/check-operational-readiness.mjs
 Falla si un servicio pierde responsable, umbral, ancla de recuperación o evidencia
 exacta de ensayo ejecutable. `pnpm run rehearse:upgrade-recovery` también registra
 el punto de recuperación de la instantánea cifrada y el tiempo de restauración
-en un informe saneado. Consulta [Pruebas y validación de releases (inglés)](../TESTING.md).
+en un informe saneado. Consulta [Pruebas y validación de releases](TESTING.md).

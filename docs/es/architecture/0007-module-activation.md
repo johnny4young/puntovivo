@@ -18,7 +18,7 @@ El estado efectivo combina valores del manifiesto y sobrescrituras del negocio.
 minorista nuevo. Los existentes sin sobrescritura conservan el manifiesto.
 Los cinco módulos originales están activos inicialmente allí; no significa
 IA opcional activa para todo negocio nuevo. Superficies, Companion, mesas y
-eventos públicos requieren elección. Consulta [catálogo completo](../../MODULE-ACTIVATION.md).
+eventos públicos requieren elección. Consulta [catálogo completo](../MODULE-ACTIVATION.md).
 
 Desactivar conserva filas históricas y controla comportamiento. Un procedimiento
 inactivo devuelve `FORBIDDEN`, `MODULE_NOT_ACTIVATED` y `details.moduleId`,
@@ -110,8 +110,8 @@ no revierte el negocio autoritativo confirmado.
 fallos definitivos están implementados; no son trabajo futuro de v1.
 `events.getContract` y `events.peekOutbox` siguen siendo lecturas acotadas de
 manager/admin. Alertas operativas exigen destino explícito y conservan ciclo/
-intentos mínimos propios. Consulta [Webhooks](../../WEBHOOKS.md) y
-[Observabilidad](../../OBSERVABILITY.md) para entrega y privacidad.
+intentos mínimos propios. Consulta [Webhooks](../WEBHOOKS.md) y
+[Observabilidad](../OBSERVABILITY.md) para entrega y privacidad.
 
 ## Invariantes acopladas y alternativas
 

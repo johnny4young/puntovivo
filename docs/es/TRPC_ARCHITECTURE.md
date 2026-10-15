@@ -58,5 +58,5 @@ módulos del servidor directamente y Electron permanece aislado tras IPC preload
 Las pruebas del servidor llaman a `appRouter.createCaller(...)` contra SQLite
 en memoria; no asignan puertos. Reutiliza los patrones de varios negocios y
 roles de las pruebas existentes. Los comandos y requisitos de comprobación en
-vivo están en [`TESTING.md`](../TESTING.md); los ejemplos específicos, en
-[`TRPC_TESTING_GUIDE.md`](../TRPC_TESTING_GUIDE.md).
+vivo están en [`TESTING.md`](TESTING.md); los ejemplos específicos, en
+[`TRPC_TESTING_GUIDE.md`](TRPC_TESTING_GUIDE.md).

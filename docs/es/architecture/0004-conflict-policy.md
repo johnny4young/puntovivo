@@ -27,7 +27,7 @@ sin cambiar stock, valor ni custodia. Todos sus payloads originales deben ser
 seguros antes de reemplazar/borrar; un conflicto descriptivo no oculta un comando
 protegido. Conflicto y nueva intención confirman juntos. Comandos de dominio y
 reintento original son distintos de editar payloads manualmente. Consulta
-[ADR-0005](../../architecture/0005-sync-payload-contract.md), contrato v4 y límite de confirmación local.
+[ADR-0005](0005-sync-payload-contract.md), contrato v4 y límite de confirmación local.
 
 ---
 

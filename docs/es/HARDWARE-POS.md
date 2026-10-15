@@ -52,6 +52,6 @@ Un dispositivo solo tiene soporte validado cuando un candidato a release demuest
 5. Modelo, firmware, sistema operativo, conexión y pasos de recuperación en una matriz de soporte mantenida.
 6. Cancelación, tiempo de espera, respuesta duplicada y política de riesgo sin conexión para cada proveedor de pagos anunciado como soportado.
 
-Sigue las verificaciones de candidatos a release de [TESTING.md (inglés)](../TESTING.md).
+Sigue las verificaciones de candidatos a release de [TESTING.md](TESTING.md).
 Los requisitos pendientes de hardware y pagos se resumen en
-[PROJECT-STATUS.md (inglés)](../PROJECT-STATUS.md).
+[PROJECT-STATUS.md](PROJECT-STATUS.md).

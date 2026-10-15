@@ -239,7 +239,7 @@ identidad, sede, empleado y reloj antes de confirmar solicitud, evento privado,
 auditoría/bandeja local mínima y finalización juntos. Motivos/fechas no entran en
 transporte genérico. Aprobación y programación aplican exclusiones recíprocas
 entre sedes dentro de transacción; ninguna edita silenciosamente la otra.
-Consulta [ausencias operativas](../../architecture/0025-operational-employee-absences.md).
+Consulta [ausencias operativas](0025-operational-employee-absences.md).
 
 **Disponibilidad recurrente**
 
@@ -252,7 +252,7 @@ comprueba horarios existentes; el escritor inmediato verifica fingerprint y
 autoridad antes de persistir ambos lados del reemplazo, evidencia privada,
 transporte local mínimo y comando. Franjas semanales y motivos nunca entran en
 auditoría/bandeja genéricas. Consulta
-[disponibilidad recurrente efectiva](../../architecture/0026-recurring-employee-availability.md).
+[disponibilidad recurrente efectiva](0026-recurring-employee-availability.md).
 
 **Intercambios de turnos**
 
@@ -305,7 +305,7 @@ Conciliar congela el plan exacto en la primera decisión. Vincula una asistencia
 admisible del mismo empleado o marca ausencia explícita después de terminar el
 plan. Proyección, evento privado motivado, auditoría mínima, bandeja local y
 comando confirman juntos. Transportes genéricos omiten motivos, reloj y remuneración.
-Consulta [conciliación explícita y costo operativo](../../architecture/0029-attendance-reconciliation-and-operational-cost.md).
+Consulta [conciliación explícita y costo operativo](0029-attendance-reconciliation-and-operational-cost.md).
 
 **Aprobaciones de gerente**
 

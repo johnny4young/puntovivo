@@ -112,4 +112,4 @@ firmada vale cinco minutos. No hay bucle automático de reintento ni campo de pa
 La autoridad es la base local de la tienda. Los grafos de bandeja y conectores
 no se aplican remotamente por sincronización genérica. Adaptadores de proveedores
 reales, retención legal, conciliación, hardware y despliegue firmado requieren
-validación externa. Consulta [la decisión arquitectónica](../architecture/0023-signed-external-order-inbox.md).
+validación externa. Consulta [la decisión arquitectónica](architecture/0023-signed-external-order-inbox.md).

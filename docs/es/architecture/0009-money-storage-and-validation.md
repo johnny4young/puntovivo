@@ -39,7 +39,7 @@ explícita antes de admitir liquidación multimoneda segura.
 La moneda registra denominación; todavía no aporta origen de tasas, flujo FX,
 contabilidad de spread ni informes multimoneda. CLP y otras monedas sin dos
 decimales requieren evolucionar `roundMoney` según exponente. Las brechas están
-en [`../PROJECT-STATUS.md`](../../PROJECT-STATUS.md).
+en [`../PROJECT-STATUS.md`](../PROJECT-STATUS.md).
 
 ## Valores exactos de inventario
 

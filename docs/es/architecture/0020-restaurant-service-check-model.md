@@ -48,7 +48,7 @@ Una cuenta de restaurante sigue sujeta a las reglas habituales de venta, inventa
 
 ### Límite de KDS
 
-El hook original de compatibilidad posterior a la confirmación queda reemplazado por [ADR-0021](../../architecture/0021-durable-kitchen-preparation.md). El envío a cocina, la preparación inmutable, el historial de eventos y la outbox de invalidación ahora participan en el escritor de ventas. Esta decisión sobre servicio/cuentas sigue sin implicar entrega física a cocina ni certificación de hardware; el contrato de preparación persistente se define por separado.
+El hook original de compatibilidad posterior a la confirmación queda reemplazado por [ADR-0021](0021-durable-kitchen-preparation.md). El envío a cocina, la preparación inmutable, el historial de eventos y la outbox de invalidación ahora participan en el escritor de ventas. Esta decisión sobre servicio/cuentas sigue sin implicar entrega física a cocina ni certificación de hardware; el contrato de preparación persistente se define por separado.
 
 ## Consecuencias
 

@@ -3,7 +3,7 @@
 **Idioma:** Español · [English](../../../architecture/patterns/operation-journal.md)
 
 > Estado: Activo
-> ADR relacionados: [ADR-0001](../../../architecture/0001-local-store-authority.md), [ADR-0002](../../../architecture/0002-command-envelope.md), [ADR-0003](../../../architecture/0003-outbox-taxonomy.md)
+> ADR relacionados: [ADR-0001](../0001-local-store-authority.md), [ADR-0002](../0002-command-envelope.md), [ADR-0003](../0003-outbox-taxonomy.md)
 > Código: `packages/server/src/services/operation-journal/journal.ts`
 
 El **diario de operaciones** correlaciona el ciclo de vida de cada comando crítico: el clic que lo inició, los efectos secundarios que produjo y cualquier fallo posterior a la confirmación que sobrevivió a la transacción principal. Las filas de efectos y errores se agregan; la fila del evento contiene un resumen actualizable y un estado de ciclo de vida.
@@ -46,7 +46,7 @@ operation_errors:  errorCode = INVENTORY_INSUFFICIENT, recoverable = false
 
 Sin el diario, depurar "¿por qué este clic no produjo X?" requiere buscar en registros, relacionar marcas de tiempo entre más de 5 tablas y adivinar qué fila de auditoría corresponde a cada intención del usuario. Con el diario, **una llamada a un helper**, `getOperationTrail`, carga el evento limitado al tenant y sus efectos y errores ordenados. Una consulta directa `SELECT * FROM operation_events WHERE operation_id = ?` lee solo el encabezado del evento y omite el predicado de tenant; no es una consulta de aplicación completa ni segura para obtener el rastro.
 
-El patrón también apoya al [núcleo de outbox](../../../architecture/patterns/outbox-kernel.md): los trabajadores pueden correlacionar una fila fallida mediante su `operation_id` y agregar una entrada de `operation_errors` al evento original del diario. Cada integración debe emitir esa evidencia explícitamente; una fila de outbox por sí sola no llena el rastro. El Centro de operaciones expone superficies de outbox y atención; el router actual de operaciones no expone un procedimiento dedicado al detalle completo del diario.
+El patrón también apoya al [núcleo de outbox](outbox-kernel.md): los trabajadores pueden correlacionar una fila fallida mediante su `operation_id` y agregar una entrada de `operation_errors` al evento original del diario. Cada integración debe emitir esa evidencia explícitamente; una fila de outbox por sí sola no llena el rastro. El Centro de operaciones expone superficies de outbox y atención; el router actual de operaciones no expone un procedimiento dedicado al detalle completo del diario.
 
 ## Cuándo usarlo
 
@@ -178,5 +178,5 @@ async function completeSale(ctx: Context, input: CompleteSaleInput) {
 ## Relación con otros patrones
 
 - **Command Envelope (ADR-0002)**: las escrituras del diario se identifican mediante el `operationId` del sobre. Sin sobre no hay evento del diario, y eso es deliberado: solo los comandos críticos necesitan este rastro.
-- **[Núcleo de outbox](../../../architecture/patterns/outbox-kernel.md)**: la outbox almacena efectos secundarios reintentables; el diario almacena el registro histórico de QUÉ se intentó y QUÉ ocurrió. Los trabajadores que procesan filas de outbox pueden agregar explícitamente `operation_effects` (éxito) u `operation_errors` (fallo) al evento de origen.
+- **[Núcleo de outbox](outbox-kernel.md)**: la outbox almacena efectos secundarios reintentables; el diario almacena el registro histórico de QUÉ se intentó y QUÉ ocurrió. Los trabajadores que procesan filas de outbox pueden agregar explícitamente `operation_effects` (éxito) u `operation_errors` (fallo) al evento de origen.
 - **Autoridad del almacén local (ADR-0001)**: el diario pertenece a la autoridad local. La correlación con una outbox de sincronización no demuestra que los eventos completos del diario se publiquen remotamente. Cualquier publicación futura necesita un contrato de transporte explícito y debe conservar la autoridad local.

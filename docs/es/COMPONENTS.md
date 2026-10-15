@@ -148,4 +148,4 @@ Los principales módulos construidos sobre componentes compartidos son:
 - Divide diálogos/páginas grandes cuando acumulen demasiada lógica de flujo.
 
 Para la estructura en ejecución y rutas, consulta:
-[ARCHITECTURE.md](../ARCHITECTURE.md).
+[ARCHITECTURE.md](ARCHITECTURE.md).

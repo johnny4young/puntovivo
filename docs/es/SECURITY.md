@@ -231,7 +231,7 @@ atómicamente un borrador sin pagar mediante el escritor existente. Una
 cancelación posterior bloquea cobro/despacho pero no devuelve dinero ni
 existencias silenciosamente. El adaptador es un contrato sandbox; no valida un
 agregador comercial ni sus pagos. Consulta
-[el límite de la bandeja firmada (inglés)](../architecture/0023-signed-external-order-inbox.md).
+[el límite de la bandeja firmada](architecture/0023-signed-external-order-inbox.md).
 
 ## Auditoría
 
@@ -323,8 +323,8 @@ El argumento del artefacto está en `reachabilityArgument`, se revisa mediante
 su vencimiento y no constituye prueba automática. El archivo debería estar
 vacío en estado estable.
 
-Ejecuta las comprobaciones de [TESTING.md (inglés)](../TESTING.md). Los requisitos
-pendientes de producción se concentran en [PROJECT-STATUS.md (inglés)](../PROJECT-STATUS.md).
+Ejecuta las comprobaciones de [TESTING.md](TESTING.md). Los requisitos
+pendientes de producción se concentran en [PROJECT-STATUS.md](PROJECT-STATUS.md).
 
 ## Reportar problemas de seguridad
 

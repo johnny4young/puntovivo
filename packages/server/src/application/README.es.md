@@ -3,7 +3,7 @@
 **Idioma:** Español · [English](README.md)
 
 > Estado: activo
-> ADR complementarios: [ADR-0001](../../../../docs/architecture/0001-local-store-authority.md), [ADR-0002](../../../../docs/architecture/0002-command-envelope.md)
+> ADR complementarios: [ADR-0001](../../../../docs/es/architecture/0001-local-store-authority.md), [ADR-0002](../../../../docs/es/architecture/0002-command-envelope.md)
 
 `application/` aloja el **límite estable de casos de uso** de operaciones críticas.
 Cada subcarpeta controla un contexto acotado (`sales/`, `cash-sessions/`,

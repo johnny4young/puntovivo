@@ -64,7 +64,7 @@ sin decisión humana. Ignorar órdenes abiertas duplicaría sugerencias ya plane
 - Borradores activos suprimen sugerencia duplicada; descartar la devuelve si sigue faltante.
 - No hay conteos físicos por lote/serie, compras automáticas, pronóstico,
   optimización de proveedor ni aceptación externa.
-- [ADR-0018](../../architecture/0018-lot-procurement-and-transformations.md) controla procedencia
+- [ADR-0018](0018-lot-procurement-and-transformations.md) controla procedencia
   de recepción/devolución/transferencia/transformación, sin cambiar exclusión del conteo agregado.
 
 ## Alternativas rechazadas

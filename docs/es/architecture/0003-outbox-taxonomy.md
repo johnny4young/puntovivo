@@ -51,7 +51,7 @@ KDS usa worker propio protegido por claim y no agrega un tipo al enum genérico
 `OutboxKind`. `outbox_metadata` agrega actualmente cinco tipos: `sync`, `fiscal`,
 `payment`, `webhook` y `hardware`; no demuestra que incluya toda cola dedicada.
 Las alertas operativas también tienen cola dedicada y registro inmutable de
-intentos; consulta [observabilidad](../../OBSERVABILITY.md) y [webhooks](../../WEBHOOKS.md).
+intentos; consulta [observabilidad](../OBSERVABILITY.md) y [webhooks](../WEBHOOKS.md).
 
 Dinero, fiscalidad y caja no heredan reintentos de sincronización visual.
 Operaciones ofrece recuperación por dominio sin exigir éxito de red para
@@ -88,12 +88,12 @@ Progreso intermedio por suscriptor e intentos de alerta usan el mismo límite.
 La red queda fuera del escritor. Un error SQL local no es rechazo de proveedor.
 Eventos públicos/metadatos opcionales fallan dentro de savepoints de mejor
 esfuerzo sin provocar otra transmisión fiscal. Consulta
-[el patrón del núcleo](../../architecture/patterns/outbox-kernel.md#fenced-settlement-and-intermediate-progress).
+[el patrón del núcleo](patterns/outbox-kernel.md#liquidación-protegida-por-propiedad-y-progreso-intermedio).
 
 Los efectos externos se entregan al menos una vez: puede perderse propiedad
 después de aceptar el proveedor. Ni `delivered` ni `printed` homologan recepción
 física de pantalla/impresora. Polling y reconexión KDS recuperan pantallas
-sin crear otra preparación. Consulta [ADR-0021](../../architecture/0021-durable-kitchen-preparation.md).
+sin crear otra preparación. Consulta [ADR-0021](0021-durable-kitchen-preparation.md).
 
 ## Alternativas rechazadas
 
@@ -123,6 +123,6 @@ sin crear otra preparación. Consulta [ADR-0021](../../architecture/0021-durable
 - `operation_events`, `operation_effects` y `operation_errors` ofrecen
   observabilidad en `packages/server/src/services/operation-journal/`; no sustituyen
   auditoría autoritativa ni escritura de bandeja del dominio.
-- Los detalles reutilizables están en [Diario de operaciones](../../architecture/patterns/operation-journal.md)
-  y [Núcleo de bandejas](../../architecture/patterns/outbox-kernel.md). Proveedores/terminales y
+- Los detalles reutilizables están en [Diario de operaciones](patterns/operation-journal.md)
+  y [Núcleo de bandejas](patterns/outbox-kernel.md). Proveedores/terminales y
   hardware físico requieren evidencia separada de release.

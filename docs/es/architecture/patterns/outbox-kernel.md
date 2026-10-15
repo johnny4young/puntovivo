@@ -3,7 +3,7 @@
 **Idioma:** Español · [English](../../../architecture/patterns/outbox-kernel.md)
 
 > Estado: Activo
-> ADR complementarios: [ADR-0003](../../../architecture/0003-outbox-taxonomy.md)
+> ADR complementarios: [ADR-0003](../0003-outbox-taxonomy.md)
 > Código: `packages/server/src/lib/outbox/`
 
 El **núcleo de outbox** extrae el ciclo de vida mecánico de una cola asíncrona de distribución a varios destinos (tomar → procesar → completar | reintentar | enviar a cola de fallos definitivos) en una fábrica reutilizable. Las outboxes concretas fiscales, de hardware, de webhooks y de alertas operativas componen el núcleo con su propia tabla, enumeración de estados y política de reintentos; la invalidación de cocina usa su ruta separada de entrega síncrona protegida por propiedad. ADR-0003 también describe las outboxes de sincronización y pagos, cuyos workers actuales no componen este núcleo.
@@ -208,6 +208,6 @@ El núcleo expone las funciones auxiliares `recordSuccess`, `recordFailure` y `r
 
 ## Relación con otros patrones
 
-- **[Diario de operaciones](../../../architecture/patterns/operation-journal.md)**: las filas de outbox contienen `operationId` en su carga; los workers que escriben `operation_effects` (éxito) u `operation_errors` (fallo) contra el evento de origen completan la trazabilidad de extremo a extremo.
+- **[Diario de operaciones](operation-journal.md)**: las filas de outbox contienen `operationId` en su carga; los workers que escriben `operation_effects` (éxito) u `operation_errors` (fallo) contra el evento de origen completan la trazabilidad de extremo a extremo.
 - **Sobre de comando (ADR-0002)**: las mutaciones críticas encolan filas duraderas de outbox del dominio DENTRO de la transacción principal mediante servicios. La entrega al proveedor y la activación del worker ocurren después de confirmar.
 - **Autoridad del almacenamiento local (ADR-0001)**: las filas de outbox viven en SQLite local. Los workers las procesan localmente. Cualquier sincronización hacia el servidor sigue el contrato separado de admisión de sincronización; el propio núcleo nunca accede a la red.

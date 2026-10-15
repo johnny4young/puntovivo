@@ -33,7 +33,7 @@ positivas ser más finas que los nuevos valores de interfaz.
   compatible. Pesados exigen factor de masa positivo igual al validado por lector.
 - Solo configuran artículo vendible; no consumen ni afirman rendimiento,
   desperdicio, corte, receta, remanente o transformación. Eso usa el motor
-  transaccional de [ADR-0018](../../architecture/0018-lot-procurement-and-transformations.md);
+  transaccional de [ADR-0018](0018-lot-procurement-and-transformations.md);
   aplicar plantilla no crea receta ni ejecuta stock.
 
 ### Precisión de cantidades
