@@ -1,5 +1,7 @@
 # 0018 — Exact lot procurement and inventory transformations
 
+**Language:** English · [Español](../es/architecture/0018-lot-procurement-and-transformations.md)
+
 > Status: Accepted
 > Date: 2026-09-01
 

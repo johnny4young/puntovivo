@@ -1,19 +1,21 @@
 # 0008 - Authority Node Runtime Modes
 
+**Language:** English · [Español](../es/architecture/0008-authority-node-runtime-modes.md)
+
 > Status: Accepted
 > Date: 2026-05-08
 > Supersedes: none; amends ADR-0001 by making "local store authority" a runtime mode, not only a per-cashier-machine rule.
 
 ## Decision
 
-Puntovivo will model operational truth through an **Authority Node**:
+Puntovivo models operational truth through an **Authority Node**:
 the runtime process that owns the SQLite write path for a site or
 single cashier device.
 
 The default Authority Node mode remains `device_local`, matching the
 current Electron deployment: one cashier device runs Electron, embeds
 Fastify in the main process, owns a local SQLite file, and emits outbox
-rows from that file. A second supported mode, `site_hub`, will let one
+rows from that file. A second supported mode, `site_hub`, lets one
 machine in a store own the site SQLite file while other terminals run
 as `hub_client` devices and send commands over LAN. A `hub_client` is
 not an Authority Node; it does not write operational tables directly
@@ -42,8 +44,8 @@ authoritative for the operation. It is not required for local selling.
   machinery for money, fiscal, cash and inventory flows, where conflicts
   require explicit policy and operator visibility.
 - **Hub clients with offline satellite writes in v1** - useful later,
-  but it introduces a second sync plane from terminal to hub. Initial
-  hub support will fail closed when the hub is unavailable.
+  but it introduces a second sync plane from terminal to hub. Current
+  hub support fails closed when the hub is unavailable.
 - **Separate codebase for hub before in-repo runtime support** - a
   future `puntovivo-store-hub` package is possible, but the first
   implementation should reuse `@puntovivo/server` and the existing
@@ -51,8 +53,7 @@ authoritative for the operation. It is not required for local selling.
 
 ## Implementation Impact
 
-- Add a local runtime config resolver shared by Electron and standalone
-  server. The config owns `authorityMode`, `hubUrl`, `bindHost`,
+- Electron and standalone server share a local runtime config resolver. The config owns `authorityMode`, `hubUrl`, `bindHost`,
   `bindPort`, `siteId`, `deviceId`, and `allowedLanOrigins`.
 - Keep `device_local` as the default when no config exists. Existing
   desktop installs must keep booting on loopback with no setup wizard.
@@ -81,8 +82,9 @@ authoritative for the operation. It is not required for local selling.
   through a client-local hardware bridge after the hub authorizes the
   command or returns the printable payload. That bridge never writes
   operational tables and never becomes the Authority Node.
-- Critical command envelopes continue to carry `deviceId`,
-  `operationId`, `idempotencyKey`, `tenantId`, `siteId`, and `actorId`.
+- Critical command context binds `deviceId`, `operationId`, `idempotencyKey`,
+  `tenantId`, `siteId`, and `actorId`. Tenant and actor authority come from
+  authenticated server context, not free-form renderer envelope fields.
   The hub stores the caller device id for audit, journal, outbox and
   anomaly attribution.
 - Sync/fiscal/hardware/webhook outboxes remain attached to the
@@ -94,11 +96,11 @@ authoritative for the operation. It is not required for local selling.
 
 ## Implementation map
 
-- - Authority Node ADR + runtime config contract.
-- - Device-local default hardening.
-- - Store Hub server mode.
-- - Hub Client mode.
-- - Device pairing and authority health.
-- - Satellite offline fallback spike.
+- Authority Node ADR + runtime config contract.
+- Device-local default hardening.
+- Store Hub server mode.
+- Hub Client mode.
+- Device pairing and authority health.
+- Satellite offline writes remain unsupported; hub reachability is required.
 
 Updated: 2026-07-22 - recorded authenticated, revocable Store Hub realtime.

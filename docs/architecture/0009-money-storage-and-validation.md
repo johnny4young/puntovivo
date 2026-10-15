@@ -1,5 +1,7 @@
 # 0009 — Money storage and validation
 
+**Language:** English · [Español](../es/architecture/0009-money-storage-and-validation.md)
+
 > Status: Accepted
 > Date: 2026-05-25
 

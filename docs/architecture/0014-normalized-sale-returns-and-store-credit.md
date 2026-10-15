@@ -1,5 +1,7 @@
 # 0014 — Normalized sale returns and store credit
 
+**Language:** English · [Español](../es/architecture/0014-normalized-sale-returns-and-store-credit.md)
+
 > Status: Accepted
 > Date: 2026-08-31
 >

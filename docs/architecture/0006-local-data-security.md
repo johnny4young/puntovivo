@@ -1,171 +1,155 @@
-# 0006 — Local data security: backup, restore, and the "no PAN/CVV" invariant
+# 0006 — Local data security, recovery and card-data boundaries
 
-> Status: **Accepted** (2026-05-07); encrypted-storage posture updated
-> 2026-08-27 to include the fail-closed standalone SQLCipher boundary.
-> Affects: backup/restore IPC handlers in `apps/desktop/src/main/`; `reports.diagnostics.export` payload sanitization; `db/schema.ts` column lint; future payment integration; future webhook foundation.
-> Predecessor ADRs: 0001 (Local Store Authority), 0002 (Command Envelope), 0003 (Outbox Taxonomy), 0004 (Conflict Policy), 0005 (Sync Payload Contract).
+**Language:** English · [Español](../es/architecture/0006-local-data-security.md)
+
+> Status: Accepted
+> Initial decision: 2026-05-07
+> Current implementation reviewed: 2026-10-15
+> Predecessors: ADR-0001 through ADR-0005
 
 ## Threat model
 
-Puntovivo POS deploys to retail terminals that range from a single owner-operated tablet to a multi-cashier desktop in a chain store. The local SQLite DB at `${userData}/data/local.db` plus the device identity at `${userData}/device-id.txt` together form the **authoritative store of operational state** (per ADR-0001). The threats this ADR addresses, and what each can or cannot see:
+The operational database at `${userData}/data/local.db` and identity at
+`${userData}/device-id.txt` belong to the local Authority Node. Protection must
+cover a copied disk/backup, authorized role boundaries and support exports,
+without claiming to defeat an attacker who has the running installation key.
 
-| Actor                                                                                          | Trusted?              | Sees                                                                  | Cannot see without a separate secret or authorization boundary                                   |
-| ---------------------------------------------------------------------------------------------- | --------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| **Logged-in cashier on the box**                                                               | Yes (per role)        | Data exposed by authorized tRPC procedures                            | Data outside their tenant; admin-only diagnostics; database and backup keys                      |
-| **Local admin user (OS account)**                                                              | Privileged locally    | Application files and operating-system account data                   | SQLCipher rows without the installation key; renderer write-only secrets                         |
-| **Attacker with file-system read** (stolen disk image, careless backup, leaked support ticket) | No                    | Encrypted database or backup bytes and any separately exported bundle | Decrypted business rows; PAN/CVV (schema-banned); credentials removed from sanitized diagnostics |
-| **Ex-employee with a copy of disk image**                                                      | No                    | Same encrypted artifacts as the file-system attacker                  | Current installation secrets unless key custody was compromised separately                       |
-| **External SaaS receiving a diagnostic ZIP**                                                   | No (least-privileged) | Export payload after sanitization                                     | Sensitive values redacted by the sanitizer; the manifest records which key names were stripped   |
+| Actor                                                  | Access boundary                                                                                                                              |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Authenticated cashier                                  | Authorized tenant/role tRPC projections; not admin diagnostics or database/backup keys.                                                      |
+| Privileged local OS account                            | Application files, process and key-store access depend on OS privileges; SQLCipher is not protection after the installation key is obtained. |
+| File-system reader or former employee with a disk copy | Encrypted database/backup bytes; plaintext identity/manifest metadata can remain visible. Decrypting rows requires separate key custody.     |
+| Support service receiving diagnostics                  | Sanitized exported projections only, not the database or a promise that arbitrary business content is anonymous.                             |
 
-Packaged installations no longer rely on the OS account as the sole data
-boundary. The operational database uses SQLCipher with a key obtained through
-Electron secure storage. Production-like standalone deployments supply the
-same 32-byte raw-key contract through `PUNTOVIVO_DB_KEY`; startup fails before
-opening SQLite when that key is absent or malformed. Only development/test
-standalone runtimes may opt into an unkeyed file. Backup bundles remain
-encrypted, and cross-device restore verifies the source key before rekeying
-only the staged copy to the destination installation key. OS account isolation
-still matters for access to the running application and key store, but a copied
-database or bundle is not cleartext by default. Legacy cleartext databases
-remain supported only as an upgrade/import boundary and are never silently
-opened as production standalone state.
+Packaged storage uses SQLCipher and Electron secure storage. Production-like
+standalone startup requires the 32-byte raw-key contract through
+`PUNTOVIVO_DB_KEY` and rejects a missing/malformed key before opening SQLite.
+Only explicit development/test standalone operation permits an unkeyed file.
+Legacy cleartext import is an upgrade boundary, not a silent production mode.
 
-## Decision
+## Backup and integrity
 
-Three structural guarantees, each with a concrete enforcement mechanism:
+A backup ZIP contains `local.db`, `device-id.txt` and `manifest.json`. The
+SQLite file is an atomic snapshot: legacy cleartext uses the online backup API;
+SQLCipher uses keyed `VACUUM INTO`, keeping the staged copy encrypted under the
+source installation key. WAL/SHM sidecars do not travel.
 
-### 1. Atomic, integrity-checked backups
+The staging file must pass keyed `PRAGMA integrity_check` with `ok` before the
+bundle is published. Current v2 manifest evidence includes hashes and an
+installation-key MAC; an optional passphrase wraps the backup key rather than
+making a plaintext database. Manifest/device identity are metadata, not secrets
+that the ZIP necessarily encrypts. See [Security](../SECURITY.md).
 
-Backups produce a single ZIP file at the operator-chosen path. The ZIP contains:
+Manual snapshots stop/restart embedded Fastify through `runWithServerRestart`.
+Scheduled snapshots serialize through the backup-operation queue and rely on
+concurrent-write-safe snapshot creation without stopping the server.
+Creation/extraction stream through private staging files and bounded buffers.
+Cancellation and I/O failure close owned streams before temporary-file removal;
+partial output is not published as a successful backup.
 
-- `local.db` — an atomic snapshot of the live SQLite DB. Cleartext legacy DBs
-  use `better-sqlite3`'s online backup API; SQLCipher DBs use keyed
-  `VACUUM INTO` so the staged file stays encrypted under the source
-  installation key. No WAL/SHM sidecars travel.
-- `device-id.txt` — the device identity from `${userData}/device-id.txt`. Travels with the data so a full-disk-failure recovery on new hardware can restore "the same device" from the server's perspective. Per ADR-0001's local-store-authority promise, the device IS the authoritative identity holder.
-- `manifest.json` — `{schemaVersion, generatedAt, appVersion?, tenantSlug?, dbBytes}`.
-  Interactive restore treats it as operator metadata; automated restore drills
-  and release rehearsals validate its supported schema, version, and byte
-  evidence before claiming recovery readiness.
+## Restore and identity
 
-After either snapshot path produces the staging file, the helper runs keyed
-`PRAGMA integrity_check` against the staging copy. If the result is not `ok`,
-the helper throws and no ZIP is written. This catches the rare case where the
-snapshot API succeeds but produces an inconsistent file.
+`detectBackupFormat` recognizes ZIP magic `50 4b 03 04`, legacy raw SQLite magic
+`53 51 4c 69`, or rejects an unknown format. A raw encrypted SQLCipher file does
+not expose the SQLite magic and is not a supported standalone replacement for
+a backup ZIP.
 
-The manual backup operation runs inside `runWithServerRestart` so embedded
-Fastify is stopped while the operator-requested snapshot is created. Scheduled
-snapshots instead serialize through the backup-operation queue and rely on the
-snapshot helper's concurrent-write safety; they do not interrupt the embedded
-server.
+Extraction validates the archive directory and local headers before publication.
+Duplicate/unknown entries, traversal, symlinks, overlap, unsupported ZIP features,
+truncation and CRC/hash/MAC mismatches reject the bundle. Limits are explicit:
+64 GiB database, 4 KiB device identity, 64 KiB manifest and 16 KiB key wrap.
+Legacy compressed entries and current stored entries share integrity and atomic
+publication requirements.
 
-### 2. Validated restore with corruption rejection
+The staged database passes integrity before the live swap. Cross-installation
+restore requires the source backup key or a valid passphrase wrap, verifies it,
+rekeys only staging to the destination key and verifies again. The source key
+must stop opening the rekeyed copy. Failure preserves the destination and returns
+a translated error. ZIP restore restores the bundled device identity; raw legacy
+`.db` restore preserves the destination identity. This is recovery, not a safe
+way to clone a second independently selling register.
 
-Restore detects format from the first four magic bytes:
+Restore drills validate metadata, integrity and tenant-scoped fingerprints
+without replacing the live database. Representative signed-install, upgrade,
+downgrade and cross-key recovery acceptance remains release-candidate evidence,
+not something proved by unit tests alone.
 
-- `50 4b 03 04` → ZIP. Extract `local.db` + `device-id.txt` to a staging directory.
-- `53 51 4c 69` → "SQLite format 3" header (legacy raw `.db` from before ). Treat as the DB to swap in; the destination's `device-id.txt` stays untouched.
-- Anything else → reject as "Backup file format is unrecognized".
+## Diagnostic sanitization
 
-The staging DB MUST pass keyed `PRAGMA integrity_check` BEFORE the swap. A
-bundle from another installation is first verified with the source backup key,
-rekeyed in staging to the destination installation key, and verified again.
-The source key must stop working after rekey. If any check fails, the live
-state stays untouched and the operator sees a translated error toast.
+`reports.diagnostics.export` sanitizes JSON-shaped `payload`, `summary` and
+`effectData` from operation journals and outboxes at the export boundary.
+`sanitizePayload`/`sanitizeRows` recursively replace sensitive-key values with
+`[REDACTED]` and record stripped key names in `redactedKeysByTable`; the manifest
+marks `sanitized: true`.
 
-For ZIP bundles, the bundled `device-id.txt` overwrites the destination's identity. For raw `.db` legacy bundles, the destination's identity is preserved (the legacy backup didn't carry one). This matches the operator intent: a ZIP bundle is "this is the device, now living on this hardware"; a raw `.db` is "I just want the data".
+`isSensitiveKey()` normalizes case/separators and uses anchored `SENSITIVE_KEYS`
+membership in `packages/server/src/services/diagnostics/sanitize.ts`. It does
+not use substring matching: `pan` is sensitive, `pancake_count` and
+`panel_layout` are not. Current keys cover authentication/PIN, provider secrets,
+card values, fiscal certificates/software PIN and payment/OAuth credentials.
+`sessionid` is intentionally retained because it denotes a cash-session business
+identity here; authentication uses sensitive token keys. Reapplying the sanitizer
+is idempotent. A new sensitive writer must extend the canonical key set and tests.
+A denylist is bounded protection, not a proof that all free-form personal data
+is absent from every export.
 
-### 3. Diagnostic export sanitization
+## Card-data policy and verification limits
 
-`reports.diagnostics.export` () returned raw `payload` / `summary` / `effectData` JSON blobs from `operation_events`, `operation_effects`, `sync_outbox`, `fiscal_outbox`, `hardware_outbox`. Any future writer that landed a JWT, an OpenAI API key, or a fiscal certificate path in any of those JSON columns would have shipped that secret to the support ticket.
-
-splices a recursive sanitizer at the export boundary. The sanitizer walks each JSON-shaped column, replaces values whose KEY matches a denylist with the literal `'[REDACTED]'`, and aggregates the set of redacted keys per source. The bundle's manifest gains:
-
-```json
-{
-  "sanitized": true,
-  "redactedKeysByTable": {
-    "operation_events": ["api_key"],
-    "sync_outbox": ["password", "token"],
-    "fiscal_outbox": ["clientSecret", "certificate"],
-    "...": "..."
-  }
-}
-```
-
-The denylist (canonical names, lowercased + separator-stripped):
-
-```
-password, passwordhash, passwords,
-token, accesstoken, refreshtoken, jwt, sessiontoken, cookie, cookies,
-authorization, authheader,
-apikey, apisecret, clientsecret, clientid, secret, secrets, privatekey, publickey, signingkey,
-pan, cvv, cvc, cardnumber, primaryaccountnumber,
-certificatepath, certpath, certificate, pfx, p12,
-oauthtoken, paymenttoken, capturetoken, authorizationcode
-```
-
-Matching is **anchored**: `pan` matches `pan` exactly (after normalization) but NOT `pancake_count` or `panel_layout`. The sanitizer's `isSensitiveKey()` predicate uses a `Set` lookup against the canonicalized name, not substring matching.
-
-The `[REDACTED]` literal does not match any pattern in the list, so re-applying the sanitizer to already-sanitized output is a no-op (idempotent).
-
-**Extending the list**: when a customer-site reports a leak via a non-listed key, OR when a new payload writer lands a field the threat model classifies as sensitive, add the canonical (lowercased + de-separated) form to `SENSITIVE_KEYS` in `packages/server/src/services/diagnostics/sanitize.ts`. The lock test in `__tests__/diagnostics-sanitize.test.ts` asserts a minimum count so a silent removal triggers CI failure.
-
-### 4. Schema-level "no PAN/CVV" invariant
-
-`db/schema.ts` MUST NOT declare any column whose name matches the forbidden list:
+No operational schema may store these card-data columns:
 
 ```
 pan, cvv, cvc, card_number, cardnumber, primary_account_number,
 primaryaccountnumber, cardholder_name, cardholdername
 ```
 
-Enforced by an architectural-lint test in `packages/server/src/__tests__/architectural-lint.test.ts`. The lint regex extracts every column name from `text(...)`, `integer(...)`, `real(...)`, `blob(...)`, `numeric(...)` declarations and fails CI when any match lands. Lookalike benign names (`panel_layout`, `pancake_count`, `password_hash`) pass.
+`packages/server/src/__tests__/architectural-lint.test.ts` extracts literal
+names from `text(...)`, `integer(...)`, `real(...)`, `blob(...)` and
+`numeric(...)`, rejecting exact forbidden names while allowing benign
+`panel_layout`, `pancake_count` and `password_hash`.
 
-The `sale_payments.reference` column stays as-is. It is documented as "free-form reference (e.g. card authorization code, transfer receipt number) — purely descriptive audit context" and never carries a PAN. 's payment integration (when it ships) MUST audit any new column it adds against this list before committing.
+Its current test reads only `db/schema.ts`, which is now an export barrel;
+it does not recursively prove the split `db/schema/` modules. A separate
+read-only source check performed for this documentation review found no
+forbidden names in those modules, but the maintained regression gate still
+needs that coverage. Do not advertise the existing test as complete schema
+coverage. This is a verification gap, not evidence of stored card data.
 
-## Alternatives Rejected
+`sale_payments.reference` is descriptive provider/transfer reference only,
+never PAN/CVV. Payment adapters must retain token references and check every
+new column and queue payload against this policy and export sanitization.
 
-- **Keep the OS user account as the only at-rest boundary.** Rejected by the
-  later storage-hardening implementation: packaged databases and backup
-  snapshots now use SQLCipher, while safeStorage protects the local key
-  envelope. Recovery therefore requires explicit backup-key custody and
-  cross-installation rekey rather than relying on filesystem permissions.
-- **Allowlist-based sanitization (only these specific keys ship).** More conservative but requires per-table schemas and updates every time a new payload field lands. The denylist with anchored matching is the right v1; a future change can promote to allowlist if the denylist proves insufficient.
-- **Skip the device-id.txt in backups; force re-registration on restore.** Considered for the "operator clones a device for a second register" use case. Rejected for the more common "full-disk failure → restore on new hardware" path. Operators who genuinely want to clone a device need a separate "Reset device identity" admin action — out of scope.
-- **Implement per-OS keychain integration in this change.** Deferred at the time this ADR was written. The payment terminal adapter is the first caller that needs persistent secrets (Bold OAuth tokens, Wompi credentials). Pinning the abstraction without a caller risked being wrong. (Superseded: `safeStorage` per-OS secure storage is in production today — see line 127 and the cloud-vault / backup-protection code.)
-- **Audit log entry on every backup.** The DB swap during restore is followed by a renderer reload; the audit row would have to be written to the _new_ DB with the _old_ user as actor, which means crossing a session boundary. v1 logs to the structured `backup` module logger only; can land an audit row when the renderer's first post-restore session arrives.
+## Alternatives and consequences
 
-## Implementation Impact
+- **OS account as the only storage boundary:** insufficient for copied files;
+  SQLCipher plus key custody and explicit cross-installation rekey are required.
+- **Allowlist-only diagnostics:** stronger but requires per-table projection
+  maintenance. The current anchored denylist is the implemented boundary;
+  adding fields must not silently weaken it.
+- **Always regenerate device identity on restore:** loses full-device recovery.
+  Cloning and identity reset require a separately designed administrative action.
+- **Defer secure storage indefinitely:** superseded; Electron `safeStorage`
+  already protects installation/vault envelopes.
+- **Claim an authoritative audit row for every backup/restore:** not current
+  behavior. Creation logs through the structured backup logger; post-restore
+  actor attribution needs an explicit session-aware design. Key revelation
+  has its own audited administrator boundary.
 
-### Files added
+## Implementation and compatibility
 
-- `packages/server/src/services/diagnostics/sanitize.ts` — `sanitizePayload`, `sanitizeRows`, `isSensitiveKey`, `REDACTED_PLACEHOLDER`, denylist.
-- `apps/desktop/src/main/backup/backup-bundle/` — bundle creation, extraction,
-  SQLCipher integrity/rekey, format detection, allowlisted ZIP contents, and
-  staging cleanup.
-- `packages/server/src/__tests__/diagnostics-sanitize.test.ts` — 15 unit cases.
-- `packages/server/src/__tests__/diagnostics-export-sanitization.test.ts` — 4 integration cases against the tRPC caller.
-- `apps/desktop/src/main/__tests__/backup-restore.test.ts` — focused bundle,
-  encryption, extraction, traversal, rekey, and staging-cleanup coverage.
-
-### Files modified
-
-- `packages/server/src/trpc/routers/reports/diagnostics/` — wire the sanitizer into `export`; manifest gains `sanitized: true` + `redactedKeysByTable`.
-- `packages/server/src/__tests__/architectural-lint.test.ts` — extend with the PAN/CVV column scan.
-- `apps/desktop/src/main/index.ts` — `handleCreateDatabaseBackup` + `handleRestoreDatabaseBackup` route through the new helpers.
-- `apps/desktop/package.json` — adds `jszip`.
-
-### Backwards compatibility
-
-- **Restore is backwards-compatible**: a new desktop binary reads OLD raw `.db` backups (legacy format detected via the SQLite magic header).
-- **Restore is forwards-incompatible**: an OLD desktop binary trying to restore a NEW ZIP backup will see the dialog's `extensions: ['db', 'sqlite', 'sqlite3']` reject the `.zip` selection, OR (if filtered out) `copyFile`-overwrite the live DB with the ZIP file → the next server restart fails with "file is not a database". The release notes for the version that lands must call this out.
-- **Diagnostic export shape is additive**: existing consumers that don't read `sanitized` / `redactedKeysByTable` keep working unchanged. The `tables.*` row payloads carry `[REDACTED]` instead of the original sensitive value — this is a SEMANTIC change for any consumer that was relying on the original value, but no such consumer exists today (the bundle goes to support tickets).
-
-## Implementation map
-
-- **Payment terminal adapter (gated)** — when it ships, it MUST add any new column to the architectural-lint forbidden list if applicable AND audit any new outbox payload through the sanitizer.
-- **Event-based public API + webhook foundation** — shipped; the diagnostic export includes `webhook_outbox` and its payloads flow through the sanitizer. The bundle's `manifest.counts` keyset reserves `webhook_outbox: 0`.
-- **Potential follow-up** — audit log entry on backup/restore action, written to the post-restore DB with proper actor attribution. Out of v1 scope.
-
-Updated: 2026-08-27 (production standalone key enforcement).
+- `apps/desktop/src/main/backup/backup-bundle/`: streaming ZIP, key wrap,
+  authenticity, integrity/rekey, format detection, bounded extraction and cleanup.
+- `apps/desktop/src/main/ipc/backup/`: authenticated backup, restore, key,
+  schedule, vault and drill handlers; desktop sessions authorize these actions.
+- `packages/server/src/services/diagnostics/sanitize.ts` and
+  `packages/server/src/trpc/routers/reports/diagnostics/`: sanitizer and export wiring.
+- `packages/server/src/__tests__/diagnostics-sanitize.test.ts`,
+  `packages/server/src/__tests__/diagnostics-export-sanitization.test.ts` and
+  `apps/desktop/src/main/__tests__/backup-restore.test.ts`: focused regression evidence.
+- Old raw `.db` import remains supported; old binaries may not understand new
+  ZIP/key-wrap formats. Never test downgrade by replacing a live database.
+- Diagnostic metadata is additive, but sensitive values become `[REDACTED]`;
+  consumers must not rely on receiving the original secret.
+- Current export includes `webhook_outbox`; it is not an unimplemented placeholder.
+  Physical recovery and production provider qualification remain separate from
+  this software contract. Follow [Testing](../TESTING.md) and
+  [Operations runbooks](../OPERATIONS-RUNBOOKS.md).

@@ -136,6 +136,70 @@
     {
       "en": "docs/architecture/README.md",
       "es": "docs/es/architecture/README.md"
+    },
+    {
+      "en": "docs/architecture/0002-command-envelope.md",
+      "es": "docs/es/architecture/0002-command-envelope.md"
+    },
+    {
+      "en": "docs/architecture/0003-outbox-taxonomy.md",
+      "es": "docs/es/architecture/0003-outbox-taxonomy.md"
+    },
+    {
+      "en": "docs/architecture/0006-local-data-security.md",
+      "es": "docs/es/architecture/0006-local-data-security.md"
+    },
+    {
+      "en": "docs/architecture/0004-conflict-policy.md",
+      "es": "docs/es/architecture/0004-conflict-policy.md"
+    },
+    {
+      "en": "docs/architecture/0008-authority-node-runtime-modes.md",
+      "es": "docs/es/architecture/0008-authority-node-runtime-modes.md"
+    },
+    {
+      "en": "docs/architecture/0007-module-activation.md",
+      "es": "docs/es/architecture/0007-module-activation.md"
+    },
+    {
+      "en": "docs/architecture/0009-money-storage-and-validation.md",
+      "es": "docs/es/architecture/0009-money-storage-and-validation.md"
+    },
+    {
+      "en": "docs/architecture/0012-audit-chain-external-freshness.md",
+      "es": "docs/es/architecture/0012-audit-chain-external-freshness.md"
+    },
+    {
+      "en": "docs/architecture/0011-product-search-vectors.md",
+      "es": "docs/es/architecture/0011-product-search-vectors.md"
+    },
+    {
+      "en": "docs/architecture/0013-quotation-conversion-and-supplier-payables.md",
+      "es": "docs/es/architecture/0013-quotation-conversion-and-supplier-payables.md"
+    },
+    {
+      "en": "docs/architecture/0014-normalized-sale-returns-and-store-credit.md",
+      "es": "docs/es/architecture/0014-normalized-sale-returns-and-store-credit.md"
+    },
+    {
+      "en": "docs/architecture/0015-retail-counts-and-replenishment.md",
+      "es": "docs/es/architecture/0015-retail-counts-and-replenishment.md"
+    },
+    {
+      "en": "docs/architecture/0016-server-authoritative-promotions-and-customer-value.md",
+      "es": "docs/es/architecture/0016-server-authoritative-promotions-and-customer-value.md"
+    },
+    {
+      "en": "docs/architecture/0017-vertical-profiles-site-gs1.md",
+      "es": "docs/es/architecture/0017-vertical-profiles-site-gs1.md"
+    },
+    {
+      "en": "docs/architecture/0019-pharmacy-policy-evidence-and-lot-custody.md",
+      "es": "docs/es/architecture/0019-pharmacy-policy-evidence-and-lot-custody.md"
+    },
+    {
+      "en": "docs/architecture/0018-lot-procurement-and-transformations.md",
+      "es": "docs/es/architecture/0018-lot-procurement-and-transformations.md"
     }
   ],
   "bilingual": ["docs/TRANSLATIONS.md"],

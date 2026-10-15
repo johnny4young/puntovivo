@@ -1,8 +1,10 @@
 # 0002 — Command Envelope
 
+**Language:** English · [Español](../es/architecture/0002-command-envelope.md)
+
 > Status: Accepted
 > Date: 2026-05-02
-> Updated: 2026-09-03
+> Updated: 2026-10-15 (documented command inventory verified against the current client contract)
 
 ## Decision
 
@@ -53,8 +55,8 @@ The envelope is mandatory only on operations that mutate money,
 fiscal, cash, stock, or durable fulfillment state. Read queries, preference toggles, and
 catalog management (products, customers, providers, units, vat
 rates, receipt templates, locale settings) do not require it because
-they are idempotent at the row level and do not flow through the
-outboxes.
+their row-level constraints are separate from the critical-command contract.
+Catalog writes may still emit tenant-scoped synchronization intent.
 
 ## Alternatives Rejected
 
@@ -124,7 +126,7 @@ idempotency_key, operation_kind)`. Replaying a key with a
 
 ### Closed list of critical commands
 
-The Command Envelope applies to exactly these procedures as of 2026-09-04.
+The Command Envelope applies to exactly these procedures as verified on 2026-10-15.
 Adding to this list requires a superseding ADR or a documented amendment here.
 
 **Sales lifecycle**
@@ -217,6 +219,14 @@ header or return ledger. Cancelling a delivery never cancels/refunds the financi
 - `providerPayables.recordPayment`
 - `providerPayables.recordCredit`
 
+**Customer ledger**
+
+- `customerLedger.addPayment`
+- `customerLedger.addAdjustment`
+
+Both change the customer balance and require one retained logical intent so a
+repeated confirmation cannot debit the debt twice.
+
 **Peripherals**
 
 - `peripherals.kickCashDrawer` (audited physical dispatch)
@@ -225,7 +235,7 @@ header or return ledger. Cancelling a delivery never cancels/refunds the financi
 **Users / security**
 
 - `users.create`
-- `users.update` (when changing `role` or `isActive`)
+- `users.update` (administrative identity changes, including `role` or `isActive`)
 - `users.setStaffPin` (staff credential rotation or removal)
 - `auth.changePassword`
 
@@ -243,6 +253,24 @@ Private history remains in the tenant-scoped employment event ledger.
 The administrator guard precedes replay. Safe error mapping surrounds the command
 envelope to cover reservation/recovery failures and also wraps the resolver so
 private storage details do not enter the operation journal.
+
+**Private payroll evidence**
+
+- `workforce.payroll.profiles.create`
+- `workforce.payroll.profiles.end`
+- `workforce.payroll.profiles.replace`
+- `workforce.payroll.profiles.void`
+- `workforce.payroll.periods.create`
+- `workforce.payroll.periods.close`
+- `workforce.payroll.runs.create`
+- `workforce.payroll.runs.recalculate`
+- `workforce.payroll.runs.review`
+- `workforce.payroll.runs.approve`
+
+These administrator-only commands retain private payroll evidence in its own
+ledger and use minimal generic audit/outbox/result projections. Calculation,
+review and approval are separate explicit steps; they do not transmit payroll
+or authorize a payment provider.
 
 **Employee absences**
 

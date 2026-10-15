@@ -1,286 +1,137 @@
-# 0003 — Outbox Taxonomy
+# 0003 — Outbox taxonomy
+
+**Language:** English · [Español](../es/architecture/0003-outbox-taxonomy.md)
 
 > Status: Accepted
 > Date: 2026-05-02
+> Current worker and schema contract reviewed: 2026-10-15
 
 ## Decision
 
-**Operational fan-out from the local store splits into six
-purpose-specific outboxes — `sync_outbox`, `fiscal_outbox`,
-`payment_outbox`, `webhook_outbox`, `hardware_outbox`, `kds_outbox`. They share a
-common kernel (the `Outbox` shape) but never a single table. Retry
-policies, lifecycle states, and operator escalation paths are
-defined per outbox so a stuck job in one stream cannot block another.**
+Operational fan-out uses six purpose-specific queues: `sync_outbox`,
+`fiscal_outbox`, `payment_outbox`, `webhook_outbox`, `hardware_outbox` and
+`kds_outbox`. Their physical tables, lifecycle states, retry policies and
+operator recovery remain separate. A stalled provider must not block another
+stream or roll back an already committed sale.
 
-The shared kernel exposes the same shape:
+The generic implementation at `packages/server/src/lib/outbox/` shares the
+`OutboxRow<TPayload>` projection, `createOutboxKernel`, `tickOutbox` and
+ownership-fenced settlement. It does not force every domain through one table
+or one status enum. The row projection is:
 
-```
-{
-  id: string                // local row id
-  tenantId: string          // multi-tenant scope
-  kind: string              // outbox-specific subtype
-  status: enum              // outbox-specific lifecycle
-  attempts: integer         // retry counter
-  nextRetryAt: ISO timestamp // backoff schedule
-  payloadVersion: integer   // for forward compatibility
-  payload: json             // text-backed JSON in SQLite
-  lastError: json | null    // normalized error from the last attempt
-  createdAt, updatedAt: ISO timestamps
+```ts
+interface OutboxRow<TPayload, TStatus extends string = string> {
+  id: string;
+  tenantId: string;
+  status: TStatus;
+  payload: TPayload;
+  payloadVersion: number;
+  attempts: number;
+  nextRetryAt: string | null;
+  lastError: NormalizedOutboxError | null;
+  priority: number;
+  claimToken: string | null;
+  lockedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 ```
 
-ships the kernel as `packages/server/src/lib/outbox/` plus
-shared metadata table (`outbox_metadata`) for cross-outbox stats,
-without forcing one physical table for everything.
+## Queue boundaries
 
-The six outboxes — and why each gets its own physical home:
+| Queue             | Purpose and current boundary                                                                                                                                                   | Lifecycle vocabulary                                                                                                              |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| `sync_outbox`     | Tenant-scoped domain intent for synchronization; the current push acknowledges local intent, not atomic delivery into another database. Manual recovery follows ADR-0004/0005. | `queued`, `submitting`, `synced`, `conflict`, `retrying`, `dead_letter`, plus terminal `local_only` where transport is forbidden. |
+| `fiscal_outbox`   | Provider communication for an immutable fiscal document; local mock/draft operation does not establish authority certification.                                                | `queued`, `submitting`, `accepted`, `rejected`, `contingency`, `retrying`, `dead_letter`.                                         |
+| `payment_outbox`  | Payment-rail intent and reconciliation. The software contract does not certify a live terminal or provider.                                                                    | `queued`, `submitting`, `approved`, `declined`, `timeout`, `retrying`, `settled`, `dead_letter`.                                  |
+| `webhook_outbox`  | Signed outbound events to a provisioned HTTPS receiver; the HTTP delivery worker is implemented.                                                                               | `queued`, `submitting`, `delivered`, `failed`, `retrying`, `dead_letter`.                                                         |
+| `hardware_outbox` | Recoverable receipt/drawer effects after the business transaction; direct USB/serial support is not implied.                                                                   | `queued`, `submitting`, `printed`, `failed`, `retrying`, `dead_letter`.                                                           |
+| `kds_outbox`      | Kitchen invalidation for an already persisted preparation event, never a second sale or preparation.                                                                           | `queued`, `submitting`, `delivered`, `retrying`, `dead_letter`.                                                                   |
 
-1. **`sync_outbox`** — entity sync to a future central server.
-   Replaced the legacy `sync_queue` in (table introduced)
-   - (writer cutover + drop of `sync_queue`). Lifecycle:
-     `queued → submitting → synced | conflict | retrying →
-dead_letter`. Retry policy is defensive; conflicts route to
-     manual resolution per ADR-0004.
-2. **`payment_outbox`** — software payment rail effects
-   (charge / refund / status check for Wompi, Bold, ePayco,
-   Mercado Pago, Nequi and Daviplata) plus future terminal effects.
-   The initial implementation introduced the table and read-only reconciliation
-   surface; real provider workers and terminal device handshakes land
-   in later payment slices. Lifecycle: `queued → submitting →
-approved | declined | timeout | retrying | settled |
-dead_letter`. Failed payments do not roll back the sale; the
-   outbox surfaces them in the Operations Center.
-3. **`webhook_outbox`** — public webhook delivery to integrators.
-   Backed by 's event-based public API. Lifecycle:
-   `queued → delivering → delivered | failed | dead_letter`.
-   Retry policy is exponential with a low priority — a webhook
-   delay never blocks a sale.
-4. **`hardware_outbox`** — printer / cash drawer / scanner jobs
-   that can wait without affecting the sale (e.g. queueing a
-   reprint after a paper jam). Lifecycle: `queued → printing →
-done | hardware_error | cancelled`. Lives device-local; never
-   syncs upstream.
-5. **`fiscal_outbox`** — see Spanish section below.
-6. **`kds_outbox`** — kitchen-only realtime invalidation. Preparation, event
-   and outbox commit inside the sale/transition writer. Lifecycle:
-   `queued → submitting → delivered | retrying → dead_letter`. Claim-token
-   fencing and stale-claim recovery protect retry ownership; payloads identify
-   the persisted event rather than copying a sale. At-least-once broadcast is
-   safe because it does not create another preparation. Polling/reconnect
-   recovers disconnected displays; delivered does not certify physical screen
-   or printer receipt. See [ADR-0021](./0021-durable-kitchen-preparation.md).
+KDS has its own claim-fenced worker and does not add a kind to the generic
+`OutboxKind` metadata enum. `outbox_metadata` currently aggregates the five
+kinds `sync`, `fiscal`, `payment`, `webhook` and `hardware`; do not treat it as
+proof that every dedicated queue is represented there. Operational alert
+transitions also have a dedicated delivery queue and immutable attempt ledger;
+see [observability](../OBSERVABILITY.md) and [webhooks](../WEBHOOKS.md).
 
-The split is not aesthetic. **Money / fiscal / cash never block on
-or inherit retry policy from UI sync.** A `fiscal_document` in
-contingency does not wait for a customer avatar to upload; an
-unfinished `webhook` retry does not stall the next sale. The
-Operations Center () renders one panel per outbox so the
-operator sees independent health indicators.
+Money, fiscal and cash state never inherit the retry policy of UI sync. The
+Operations Center exposes domain recovery without making network success a
+prerequisite for committing the original local business command.
 
----
+## Fiscal boundary
 
-## Fiscal outbox _(en español por convención fiscal)_
+`fiscal_documents` remains the document evidence; `fiscal_outbox` orchestrates
+provider communication. Its `kind` distinguishes `emit`, `cancel`,
+`retry_contingency` and `fetch_status`. `contingency` preserves the local sale
+while provider work is pending; it is not proof of legal contingency
+certification for a country pack.
 
-El `fiscal_outbox` es la cola más sensible — toca dinero, retención,
-DIAN / SAT / SII y trazabilidad legal. Por eso:
+The bounded generic backoff is 1 minute, 5 minutes, 15 minutes, 1 hour, 6 hours
+and 24 hours, with a finite attempt budget and `dead_letter` recovery. A
+concrete worker owns its policy; hardware currently uses
+`BOUNDED_EXPONENTIAL_BACKOFF`, while webhooks use their documented separate
+schedule. Do not infer hardware behavior from an old no-backoff comment in a
+shared type file.
 
-- **Tabla dedicada**: `fiscal_outbox` con `kind` ∈ `{emit, cancel,
-retry_contingency, fetch_status}`. Convive con
-  `fiscal_documents` que sigue siendo la fuente de verdad de cada
-  comprobante; el outbox sólo orquesta el lifecycle de la
-  comunicación con el proveedor.
-- **Lifecycle**: `queued → submitting → accepted | rejected |
-contingency | retrying → dead_letter`. El estado `contingency`
-  es el clave — corresponde al modo offline DIAN / SAT donde la
-  venta se cierra localmente pero el comprobante queda pendiente
-  de timbrado. Al recuperarse el proveedor, el daemon retoma
-  desde `retrying`.
-- **Política de reintentos**: backoff exponencial bounded
-  (1m → 5m → 15m → 1h → 6h → 24h). Después del último intento
-  cae a `dead_letter` y dispara una notificación al admin del
-  tenant. El operator puede forzar un reintento manual desde el
-  Operations Center.
-- **Errores normalizados**: `lastError` es un objeto
-  `{ providerCode, providerMessage, normalizedKind, recoverable }`.
-  `normalizedKind` mapea los códigos del proveedor (Facture, HKA,
-  PAC, SII) a un set cerrado para que la UI muestre mensajes
-  consistentes sin importar el adapter activo.
-- **Migración del estado actual**: hoy `fiscal_documents.status`
-  ya cubre `pending | sent | accepted | rejected | contingency`.
-  promueve estos estados a `fiscal_outbox.status` y deja
-  `fiscal_documents.status` como espejo derivado del último
-  evento del outbox. Sin pérdida de información histórica.
-- **Convivencia con `services/fiscal/**`**: el adapter sigue
-  retornando el shape de `FiscalAdapterIssueResult` ( +
-  ). El outbox lo persiste y orquesta el reintento;
-  el adapter no conoce el outbox. Esto preserva la separación
-  Strategy/Factory de .
-- **No mezclar con `sync_outbox`**: aunque ambos pueden tener
-  `tenant_id` y `kind`, las columnas de `fiscal_outbox` incluyen
-  `fiscal_document_id`, `provider_id`, `cufe`, `xml_ref` que el
-  sync genérico no necesita. Mezclarlos haría el schema más débil
-  y forzaría joins que la `architectural-lint.test.ts` ya prohíbe
-  para `routers/reports/fiscal*`.
-
----
+The normalized error projection carries `errorCode`, `providerMessage`,
+`recoverable` and optional `details`. Public errors and diagnostic exports must
+still apply their redaction boundary. A fiscal adapter returns
+`FiscalAdapterIssueResult`; it does not own the queue. Provider identity,
+`fiscal_document_id` and `cufe` remain fiscal data, not generic sync columns.
+Document mirrors and accepted-event evidence advance only under the current
+claim's settlement transaction.
 
 ## Lease ownership and settlement
 
 Generic fiscal, hardware, webhook and operational-alert workers acknowledge
-only their current tenant-local processing claim. The row id alone is not an
-ownership credential. A late result returns `lost_claim` without changing retry
-counters, delivery evidence, fiscal mirrors, CUFE or health metadata.
+only their current tenant-local processing claim. A row id alone is not an
+ownership credential. A late result returns `lost_claim` without changing
+retry counts, delivery evidence, document mirrors, CUFE or health metadata.
 
 Final effects and acknowledgment share a synchronous immediate SQLite
-transaction. Intermediate webhook subscriber progress and alert attempt creation
-use the same ownership-fenced transaction boundary. Network calls stay outside
-SQLite writers. Fiscal SQL errors cannot be classified as provider rejection;
-optional public-event/metadata failures remain best-effort in savepoints so they
-do not induce another fiscal submission. See the
-[outbox kernel pattern](./patterns/outbox-kernel.md#fenced-settlement-and-intermediate-progress)
-for contracts and the at-least-once external-delivery limitation.
+transaction. Intermediate webhook subscriber progress and alert attempt
+creation use the same fence. Network calls run outside SQLite writers. A
+local SQL failure is not a provider rejection. Optional public-event/metadata
+failures stay best-effort in savepoints so they cannot provoke a second fiscal
+submission. See the [outbox kernel pattern](./patterns/outbox-kernel.md#fenced-settlement-and-intermediate-progress).
 
-## Alternatives Rejected
+External effects are at-least-once: a process can lose ownership after the
+provider accepted a request. Neither `delivered` nor `printed` certifies
+physical screen/printer receipt. KDS polling/reconnect recovers disconnected
+displays; it does not create another preparation. See [ADR-0021](./0021-durable-kitchen-preparation.md).
 
-- **One monolithic outbox table with a `kind` discriminator** — the
-  shape the legacy `sync_queue` carried. Forces every consumer to
-  filter by kind, hurts query plans on growing tables, and (worst)
-  makes it hard to apply different retry policies per stream. A
-  stuck DIAN document would share a row in the same table with a
-  queued customer-avatar update.
-- **In-memory event bus only** — does not survive process restart,
-  which is the exact failure mode the outboxes exist to handle
-  (Electron crash mid-sale, OS reboot, dev server kill).
-- **One outbox per procedure** — combinatorial explosion. Forty-plus
-  critical commands would need their own table; the operator could
-  not reason about overall health.
-- **External queue infrastructure (Kafka, RabbitMQ, Redis Streams)**
-  — invalidates the local-first authority of ADR-0001. Cashier
-  devices cannot depend on a network broker for a sale to close.
+## Alternatives rejected
 
-## Implementation Impact
+- **One monolithic table with a `kind` discriminator:** couples query plans,
+  lifecycle and recovery for unrelated streams.
+- **In-memory bus only:** loses intent after Electron crash, OS reboot or process exit.
+- **One queue per procedure:** multiplies tables and obscures domain health.
+- **External Kafka/RabbitMQ/Redis dependency for local completion:** violates
+  ADR-0001; a cashier must not need a network broker to close the local sale.
 
-- **Kernel** (): `packages/server/src/lib/outbox/` exports
-  the shared `Outbox<TPayload>` type, an `OutboxKernel` factory,
-  and a worker base class. Each concrete outbox composes the
-  kernel with its own table, `kind` enum, and retry policy.
-- **Six physical tables**: `sync_outbox`, `fiscal_outbox`,
-  `payment_outbox`, `webhook_outbox`, `hardware_outbox`, `kds_outbox`. Each
-  carries its own status enum and any extra columns its kind
-  requires (e.g. `fiscal_document_id` on `fiscal_outbox`,
-  `peripheral_id` on `hardware_outbox`).
-- **One shared metadata table**: `outbox_metadata` collects
-  cross-outbox stats (`outbox_kind`, `tenant_id`, `pending_count`,
-  `last_success_at`, `last_failure_at`, `oldest_pending_at`)
-  refreshed periodically by a background job. The Operations
-  Center reads this for its dashboard.
-- **Migration plan**:
-  1.  lands the kernel + `outbox_metadata`.
-  2.  introduces `fiscal_outbox` and migrates the
-      `fiscal_documents.status='contingency'` rows.
-  3.  (Shipped 2026-05-05) introduced `sync_outbox` via
-      migration `0016_sync_contract_v1.sql` with a one-shot
-      `INSERT OR IGNORE` data migration that copied pending
-      `sync_queue` rows over, plus the contract foundation
-      (per-entity manifest at `services/sync/contract.ts`,
-      `enqueueSync` helper, three new procedures
-      `sync.{getContract, peekOutbox, retry}`). (Shipped
-      2026-05-05) closed the cutover: the 19 router inline writers
-  - 4 application services + dev seed all route through
-    `enqueueSync`, the eight legacy `sync.*` procedures
-    (`status / listQueue / addToQueue / removeFromQueue /
-listConflicts / push / pull / resolve`) read/write
-    `sync_outbox`, migration `0017_drop_sync_queue.sql` removes
-    the legacy table, and the web client
-    `services/storage/syncQueue.ts` is renamed to
-    `offlineQueue.ts` to clear the file-name collision.
-  4.  slice 1 (Shipped 2026-05-11) introduced
-      `payment_outbox` via migration `0022_payment_outbox.sql` with
-      the kernel projection plus rail id, provider transaction id,
-      sale-payment linkage and partial idempotency index. and
-      later slices add live terminal/provider workers on top of
-      this table.
-  5.  introduces `webhook_outbox` (migration
-      `0020_webhook_outbox.sql`, **shipped 2026-05-08**) — the 5th
-      and last outbox in the taxonomy. Kernel-projection shape
-      (status/attempts/next_retry_at/claim_token/locked_at) +
-      partial unique idx
-      `(tenant_id, event_type, idempotency_key) WHERE idempotency_key IS NOT NULL`
-      mirrors 's `hardware_outbox.idempotency_key` shape so
-      envelope replays collapse to one row. v1 ships ONLY the
-      enqueue path (operation-journal hook + fiscal-worker hook for
-      `fiscal_document.accepted`); the HTTP delivery worker that
-      drains the outbox lands in . The 5-keyset
-      `manifest.counts` shape locked stays unchanged — the
-      diagnostic export now surfaces real `webhook_outbox` rows
-      instead of the placeholder `0`.
-  6.  introduces `hardware_outbox` (migration
-      `0015_hardware_outbox.sql`) together with the ESC/POS printer
-  - RJ11 cash drawer adapters — the first peripheral drivers
-    with real device I/O that can fail recoverably (USB unplug,
-    paper out, TCP-host unreachable). The hardware worker
-    (`services/peripherals/hardware-worker.ts`) mirrors the
-    fiscal worker structurally; the kernel + retry policy are
-    reused from `lib/outbox/`.
-- **Backward compatibility**: the legacy `sync_queue` was retired
-  in (migration `0017_drop_sync_queue.sql`); the
-  `fiscal_documents.status` mirror is owned by `fiscal_outbox`
-  per . No data loss along the way — the backfill
-  already copied pending rows before drop.
+## Implementation and compatibility
 
-## Implementation map
-
-- Operation journal + outbox kernel. Builds the shared
-  primitives.
-- Fiscal outbox + contingency engine. First concrete
-  consumer of the kernel; ships the fiscal lifecycle described in
-  the Spanish section above.
-- Receipt fiscal finalization. Reads `fiscal_outbox`
-  status to decide between `accepted | pending | contingency |
-rejected` rendering on the receipt.
-- Peripheral registry + hardware ports. Introduces
-  `hardware_outbox`.
-- (Partial 2026-05-11) — LATAM payment rails. Introduced
-  `payment_outbox`, the deterministic rail contract and Operations
-  payment reconciliation baseline.
-- Payment terminal adapter. Adds terminal-specific live
-  provider/device workers on top of `payment_outbox`.
-- (Shipped 2026-05-05) — Sync contract v1. Introduced
-  `sync_outbox` via migration `0016_sync_contract_v1.sql` plus the
-  per-entity manifest + `enqueueSync` helper + three new procedures
-  (`getContract` / `peekOutbox` / `retry`).
-- (Shipped 2026-05-05) — Sync writer cutover. Routed
-  every inline writer through `enqueueSync`, cut the eight legacy
-  `sync.*` procedures over to `sync_outbox`, dropped the legacy
-  `sync_queue` table via migration `0017_drop_sync_queue.sql`, and
-  renamed the web client offline queue file to clear the name
-  collision.
-- Operations Center. Reads `outbox_metadata` and
-  renders one panel per outbox.
-- Event-based public API + webhook foundation.
-  Introduces `webhook_outbox`.
-
-Updated: 2026-05-02 (initial ADR set).
-Updated: 2026-05-03 (outbox kernel shipped at
-`packages/server/src/lib/outbox/`, exposing `createOutboxKernel`
-factory + `tickOutbox` worker base + `outbox_metadata` helpers.
-Operation journal triplet — `operation_events` + `operation_effects`
-
-- `operation_errors` — also shipped at
-  `packages/server/src/services/operation-journal/`. The six
-  concrete outboxes (sync / fiscal / payment / webhook / hardware / kds)
-  remain isolated behind their domain-specific workers. Pattern docs:
-  `patterns/operation-journal.md` + `patterns/outbox-kernel.md`).
-
-Updated: 2026-05-06 (`hardware_outbox` reaches
-idempotency parity with `sync_outbox`. Migration
-`0018_hardware_outbox_idempotency.sql` adds a nullable
-`idempotency_key` column and a partial unique index
-`(tenant_id, kind, idempotency_key) WHERE idempotency_key IS
-NOT NULL`. New helper
-`packages/server/src/services/peripherals/enqueue-hardware.ts`
-mirrors `enqueueSync` semantics: same-envelope retries collapse
-to one row and return `{deduped: true}`, while null-keyed legacy
-writes stay independent. The `peripherals.printReceipt` +
-`peripherals.kickCashDrawer` fallback paths now route through
-the helper.).
+- `packages/server/src/lib/outbox/` owns generic claims, retries, settlement and
+  metadata helpers. Concrete workers select their table/status/policy.
+- `services/sync/contract.ts` and `enqueueSync` own synchronization intent;
+  `sync.{getContract, peekOutbox, retry}` expose bounded operator reads/recovery.
+- `0016_sync_contract_v1.sql` copied pending `sync_queue` rows with
+  `INSERT OR IGNORE`; `0017_drop_sync_queue.sql` removed the retired table after
+  the writer/procedure cutover. The web queue moved from
+  `services/storage/syncQueue.ts` to `offlineQueue.ts`; its IndexedDB store name
+  stayed compatible.
+- `0018_hardware_outbox_idempotency.sql` added `idempotency_key` and the partial
+  unique index `(tenant_id, kind, idempotency_key) WHERE idempotency_key IS NOT NULL`.
+  `packages/server/src/services/peripherals/enqueue-hardware.ts` returns
+  `{deduped: true}` for same-envelope retries; null-keyed legacy work remains
+  independent. `peripherals.printReceipt` and `peripherals.kickCashDrawer` use
+  this boundary where they enqueue server-side work.
+- `services/peripherals/hardware-worker.ts` preserves queued bytes across retry.
+  A route change cannot silently complete an ESC/POS job as a System print.
+- `operation_events`, `operation_effects` and `operation_errors` provide
+  observability in `packages/server/src/services/operation-journal/`; they do
+  not replace authoritative domain audit or outbox writes.
+- Detailed reusable contracts live in [Operation Journal](./patterns/operation-journal.md)
+  and [Outbox Kernel](./patterns/outbox-kernel.md). Provider/terminal and physical
+  hardware qualification remain separate release evidence.

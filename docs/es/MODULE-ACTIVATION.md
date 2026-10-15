@@ -41,6 +41,8 @@ usa el mapa efectivo mediante el store de módulos, `useIsModuleActive` y
 | `kds`               | opcional |      2 | inactivo                      | inactivo                | Pantalla de cocina                 |
 | `customer-display`  | opcional |      2 | inactivo                      | inactivo                | Segunda pantalla con datos mínimos |
 | `mobile-waiter`     | opcional |      2 | inactivo                      | inactivo                | Mesero móvil                       |
+| `companion`         | opcional |      2 | inactivo                      | inactivo                | Panel móvil del propietario        |
+| `dine-in`           | opcional |      2 | inactivo                      | inactivo                | Servicio de mesas                  |
 | `delivery`          | opcional |      2 | inactivo                      | inactivo                | Entregas                           |
 
 `RING1_RETAIL_PROFILE` es el perfil explícito de un negocio minorista nuevo.

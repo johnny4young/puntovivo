@@ -1,5 +1,7 @@
 # 0013 — Quotation conversion and supplier payables
 
+**Language:** English · [Español](../es/architecture/0013-quotation-conversion-and-supplier-payables.md)
+
 > Status: Accepted
 > Date: 2026-08-31
 
@@ -33,11 +35,10 @@ could not represent opening balances or documents received outside Puntovivo.
 - The sale, inventory and cash effects, audit evidence, quotation status, and
   one immutable `quotation_sale_links` row commit together. Unique indexes on
   both quote and sale make the relationship one-to-one. A competing converter
-  loses without a partial write. The existing sale sync enqueue and legacy
-  sales Command Envelope completion remain post-commit and are not described
-  as part of this SQLite transaction; a crash in that window cannot create a
-  second sale, but exact replay of the original response still requires the
-  sales lifecycle to adopt transactional idempotency completion.
+  loses without a partial write. The sale sync intent and canonical Command Envelope completion now also
+  occur under that writer, before commit. A replication-intent failure rolls
+  back conversion with the sale; replay returns the committed result without
+  creating another sale.
 - `converted` is no longer a manual status transition. Historical converted
   quotations remain readable, but no link is invented for them.
 
@@ -90,9 +91,9 @@ use the authenticated active site or the linked purchase's proven site.
   immutable source rows while making every source fully allocated and
   idempotent.
 - A committed quotation-backed sale is discoverable through its unique link
-  even if the process exits during legacy post-commit sale orchestration. Until
-  the sales lifecycle adopts transactional Command Envelope completion, this
-  is recovery evidence rather than a claim of exact response replay.
+  even if the process exits during post-commit notifications. The migrated
+  sale lifecycle also preserves transactional idempotency and exact public
+  response replay; the link is independent recovery evidence.
 - The current account UI allocates payments and credits oldest-first. Source
   rows are immutable and there is no dedicated void/reversal command yet, so an
   incorrect entry cannot be silently offset with an invented supplier document;
