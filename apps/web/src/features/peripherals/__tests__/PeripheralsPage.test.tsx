@@ -193,6 +193,7 @@ describe('PeripheralsPage', () => {
     render(<PeripheralsPage />);
 
     await user.click(screen.getByTestId('peripherals-add-button'));
+    await screen.findByLabelText('Connection method');
     await user.selectOptions(screen.getByLabelText('Device type'), 'scanner');
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
@@ -264,6 +265,7 @@ describe('PeripheralsPage', () => {
     render(<PeripheralsPage />);
 
     await user.click(screen.getByTestId('peripherals-add-button'));
+    await screen.findByLabelText('Connection method');
     await user.type(screen.getByLabelText('Display name'), 'Scratch printer');
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
     await user.click(screen.getByRole('button', { name: 'Edit' }));
@@ -283,6 +285,7 @@ describe('PeripheralsPage', () => {
     peripheralRows = [];
     render(<PeripheralsPage />);
     await user.click(screen.getByTestId('peripherals-add-button'));
+    await screen.findByLabelText('Connection method');
     // Default new-entry pair is (printer, system) — no ESC/POS-only guidance.
     expect(screen.getByTestId('peripheral-auto-print-toggle')).toBeInTheDocument();
     expect(screen.queryByLabelText('Paper width')).not.toBeInTheDocument();
@@ -298,6 +301,7 @@ describe('PeripheralsPage', () => {
     peripheralRows = [];
     render(<PeripheralsPage />);
     await user.click(screen.getByTestId('peripherals-add-button'));
+    await screen.findByLabelText('Connection method');
     // Switch the driver to escpos — the toggle must appear.
     const driverSelect = screen.getByLabelText('Connection method');
     await user.selectOptions(driverSelect, 'escpos');
@@ -319,6 +323,7 @@ describe('PeripheralsPage', () => {
     peripheralRows = [];
     render(<PeripheralsPage />);
     await user.click(screen.getByTestId('peripherals-add-button'));
+    await screen.findByLabelText('Connection method');
     await user.selectOptions(screen.getByLabelText('Connection method'), 'escpos');
     const toggle = screen.getByTestId('peripheral-auto-print-toggle') as HTMLInputElement;
     await user.click(toggle);
@@ -334,6 +339,7 @@ describe('PeripheralsPage', () => {
     const user = userEvent.setup();
     render(<PeripheralsPage />);
     await user.click(screen.getByTestId('peripherals-add-button'));
+    await screen.findByLabelText('Connection method');
     await user.selectOptions(screen.getByLabelText('Device type'), 'scanner');
 
     expect(screen.getByLabelText('Label scheme')).toHaveValue('generic');
@@ -351,6 +357,7 @@ describe('PeripheralsPage', () => {
     const user = userEvent.setup();
     render(<PeripheralsPage />);
     await user.click(screen.getByTestId('peripherals-add-button'));
+    await screen.findByLabelText('Connection method');
     await user.selectOptions(screen.getByLabelText('Device type'), 'scanner');
     await user.selectOptions(screen.getByLabelText('Label scheme'), 'none');
 
@@ -364,6 +371,7 @@ describe('PeripheralsPage', () => {
     const user = userEvent.setup();
     render(<PeripheralsPage />);
     await user.click(screen.getByTestId('peripherals-add-button'));
+    await screen.findByLabelText('Connection method');
     await user.selectOptions(screen.getByLabelText('Device type'), 'scanner');
     const config = screen.getByLabelText('Advanced configuration (JSON)') as HTMLTextAreaElement;
     fireEvent.change(config, {

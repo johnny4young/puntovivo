@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { lazy, Suspense, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SystemPrinterSettings } from '@/features/company/SystemPrinterSettings';
 import { Pencil, Plus, Power, Trash2 } from 'lucide-react';
@@ -9,12 +9,13 @@ import { usePaginatedRows } from '@/components/tables/usePaginatedRows';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 import type { Site } from '@/types';
-import {
-  PeripheralForm,
-  type PeripheralFormInitial,
-  type PeripheralFormValues,
-} from './PeripheralForm';
+import type { PeripheralFormInitial, PeripheralFormValues } from './PeripheralForm';
 import { PeripheralStatusBadge } from './PeripheralStatusBadge';
+
+// Connection forms are only needed after an explicit Add/Edit gesture.
+const PeripheralForm = lazy(() =>
+  import('./PeripheralForm').then(module => ({ default: module.PeripheralForm }))
+);
 
 /**
  * Per-site peripherals admin page.
@@ -291,14 +292,18 @@ export function PeripheralsPage() {
         )}
       </div>
 
-      <PeripheralForm
-        key={dialog.mode === 'edit' ? `edit-${dialog.row.id}` : dialog.mode}
-        isOpen={dialog.mode !== 'closed'}
-        initial={dialogInitial}
-        isSaving={isFormSaving}
-        onClose={() => setDialog({ mode: 'closed' })}
-        onSubmit={handleSubmit}
-      />
+      {dialog.mode !== 'closed' && (
+        <Suspense fallback={<p role="status">{t('common:loading')}</p>}>
+          <PeripheralForm
+            key={dialog.mode === 'edit' ? `edit-${dialog.row.id}` : dialog.mode}
+            isOpen
+            initial={dialogInitial}
+            isSaving={isFormSaving}
+            onClose={() => setDialog({ mode: 'closed' })}
+            onSubmit={handleSubmit}
+          />
+        </Suspense>
+      )}
 
       <ConfirmModal
         isOpen={pendingDelete !== null}

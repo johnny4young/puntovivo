@@ -113,5 +113,19 @@
     "body": "Are you sure you want to remove this device? Puntovivo will use the default checkout settings when it is no longer available.",
     "confirm": "Remove",
     "cancel": "Keep"
+  },
+  "systemPrinter": {
+    "askEachTime": "Choose in the print dialog (safe default)",
+    "localSelection": "This selection is saved only for this business on this computer. It does not discover a printer from a display name or network example.",
+    "missingQueue": "The saved printer is missing. Printing will not silently switch to another queue. Reconnect it or select another printer.",
+    "noQueues": "No printers found. Install the OS driver, connect the printer, and refresh this list.",
+    "printTest": "Print a test ticket",
+    "printerError": "Could not access or print to the system printer.",
+    "refreshPrinters": "Refresh printers",
+    "testCancelled": "Print test canceled. No automatic retry was scheduled.",
+    "testHelp": "Opens the system dialog for a synthetic ticket. This is separate from registering a device. Check the physical output and paper width; accepting a job does not prove it printed.",
+    "testSubmitted": "Test accepted by the system. Check the printer and queue to confirm the paper output.",
+    "unavailable": "Unavailable",
+    "title": "System printer on this computer"
   }
 }

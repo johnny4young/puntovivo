@@ -113,5 +113,19 @@
     "body": "¿Quieres eliminar este dispositivo? Puntovivo usará la configuración predeterminada cuando ya no esté disponible.",
     "confirm": "Eliminar",
     "cancel": "Conservar"
+  },
+  "systemPrinter": {
+    "askEachTime": "Elegir en el diálogo de impresión (opción segura)",
+    "localSelection": "Esta selección se guarda solo para este negocio en este equipo. No se detecta una impresora a partir de un nombre descriptivo ni una dirección de ejemplo.",
+    "missingQueue": "La impresora guardada no está disponible. No se cambiará a otra cola silenciosamente. Vuelve a conectarla o selecciona otra impresora.",
+    "noQueues": "No se encontraron impresoras. Instala el controlador, conecta la impresora y actualiza esta lista.",
+    "printTest": "Imprimir ticket de prueba",
+    "printerError": "No se pudo acceder o imprimir en la impresora del sistema.",
+    "refreshPrinters": "Actualizar impresoras",
+    "testCancelled": "Prueba de impresión cancelada. No se programó un reintento automático.",
+    "testHelp": "Abre el diálogo del sistema para un ticket sintético. Esta acción es distinta de registrar un dispositivo. Verifica el papel y su ancho; aceptar un trabajo no confirma que salió impreso.",
+    "testSubmitted": "El sistema aceptó la prueba. Revisa la impresora y la cola para confirmar la impresión en papel.",
+    "unavailable": "No disponible",
+    "title": "Impresora del sistema en este equipo"
   }
 }

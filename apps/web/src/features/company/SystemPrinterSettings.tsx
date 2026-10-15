@@ -10,7 +10,7 @@ export function SystemPrinterSettings() {
 }
 
 function SystemPrinterSettingsForOwner({ owner }: { owner: string | null }) {
-  const { t } = useTranslation('settings');
+  const { t } = useTranslation('peripherals');
   const queryClient = useQueryClient();
   const [testResult, setTestResult] = useState<{
     success: boolean;
@@ -44,10 +44,10 @@ function SystemPrinterSettingsForOwner({ owner }: { owner: string | null }) {
   const error = query.error || select.error || test.error;
   return (
     <fieldset className="mt-4 space-y-3 rounded-xl border border-line p-4">
-      <legend className="text-sm font-semibold">{t('company.print.systemPrinter')}</legend>
-      <p className="text-sm text-fg3">{t('company.print.localSelection')}</p>
+      <legend className="text-sm font-semibold">{t('systemPrinter.title')}</legend>
+      <p className="text-sm text-fg3">{t('systemPrinter.localSelection')}</p>
       <label htmlFor="system-printer-name" className="label">
-        {t('company.print.systemPrinter')}
+        {t('systemPrinter.title')}
       </label>
       <select
         id="system-printer-name"
@@ -56,10 +56,10 @@ function SystemPrinterSettingsForOwner({ owner }: { owner: string | null }) {
         disabled={!state || select.isPending || test.isPending || query.isFetching}
         onChange={event => select.mutate(event.target.value || null)}
       >
-        <option value="">{t('company.print.askEachTime')}</option>
+        <option value="">{t('systemPrinter.askEachTime')}</option>
         {missing && (
           <option value={selected}>
-            {selected} — {t('company.print.unavailable')}
+            {selected} — {t('systemPrinter.unavailable')}
           </option>
         )}
         {state?.printers.map(printer => (
@@ -70,12 +70,12 @@ function SystemPrinterSettingsForOwner({ owner }: { owner: string | null }) {
       </select>
       {state?.printers.length === 0 && (
         <p role="status" className="text-sm text-warning-700">
-          {t('company.print.noQueues')}
+          {t('systemPrinter.noQueues')}
         </p>
       )}
       {missing && (
         <p role="alert" className="text-sm text-danger-700">
-          {t('company.print.missingQueue')}
+          {t('systemPrinter.missingQueue')}
         </p>
       )}
       <div className="flex flex-wrap gap-2">
@@ -87,7 +87,7 @@ function SystemPrinterSettingsForOwner({ owner }: { owner: string | null }) {
             void query.refetch();
           }}
         >
-          {t('company.print.refreshPrinters')}
+          {t('systemPrinter.refreshPrinters')}
         </button>
         <button
           type="button"
@@ -104,22 +104,22 @@ function SystemPrinterSettingsForOwner({ owner }: { owner: string | null }) {
             test.mutate();
           }}
         >
-          {t('company.print.printTest')}
+          {t('systemPrinter.printTest')}
         </button>
       </div>
-      <p className="text-xs text-fg3">{t('company.print.testHelp')}</p>
+      <p className="text-xs text-fg3">{t('systemPrinter.testHelp')}</p>
       {error && (
         <p role="alert" className="text-sm text-danger-700">
-          {t('company.print.printerError')} {error instanceof Error ? error.message : ''}
+          {t('systemPrinter.printerError')} {error instanceof Error ? error.message : ''}
         </p>
       )}
       {testResult && (
         <p role="status" className="text-sm">
           {testResult.success
-            ? t('company.print.testSubmitted')
+            ? t('systemPrinter.testSubmitted')
             : testResult.errorCode === 'PRINT_CANCELLED'
-              ? t('company.print.testCancelled')
-              : testResult.error || t('company.print.printerError')}
+              ? t('systemPrinter.testCancelled')
+              : testResult.error || t('systemPrinter.printerError')}
         </p>
       )}
     </fieldset>
