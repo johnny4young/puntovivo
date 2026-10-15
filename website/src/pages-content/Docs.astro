@@ -11,9 +11,8 @@ const { ui, tasks } = lang === 'en' ? en : es;
 const base = import.meta.env.BASE_URL;
 const href = route => localizedHref(base, lang, route);
 const names = new Map(tasks.map(task => [task.id, task.title]));
-const resources = lang === 'en'
-  ? [['/migracion', 'Import a catalog'], ['/atajos', 'Keyboard shortcuts'], ['/releases', 'Releases'], ['/estado', 'Product status'], ['/roadmap', 'Future work']]
-  : [['/migracion', 'Importar un catálogo'], ['/atajos', 'Atajos de teclado'], ['/releases', 'Versiones'], ['/estado', 'Estado del producto'], ['/roadmap', 'Trabajo futuro']];
+const otherLang = lang === 'es' ? 'en' : 'es';
+const RELEASE_TAG = 'v1.15.1';
 ---
 
 <main class="manual" id="manual">
@@ -22,8 +21,8 @@ const resources = lang === 'en'
     { label: ui.home, href: href('/') }, { label: ui.kicker },
   ]}>
     <Fragment slot="title">{ui.title}</Fragment>
-    <a class="pv-link" href={localizedHref(base, lang === 'es' ? 'en' : 'es', '/docs')} data-manual-language data-lang-switch={lang === 'es' ? 'en' : 'es'} hreflang={lang === 'es' ? 'en' : 'es'} lang={lang === 'es' ? 'en' : 'es'}>
-      {lang === 'es' ? 'Read this manual in English' : 'Leer este manual en español'} →
+    <a class="pv-link" href={localizedHref(base, otherLang, '/docs')} data-manual-language data-lang-switch={otherLang} hreflang={otherLang} lang={otherLang}>
+      {ui.otherLanguage} →
     </a>
   </PageHeader>
 
@@ -34,7 +33,7 @@ const resources = lang === 'en'
         <nav aria-label={ui.index}>
         <ol>{tasks.map(task => <li><a href={`#${task.id}`} data-manual-jump>{task.title}</a></li>)}</ol>
       </nav>
-      <ul class="manual-resources">{resources.map(([route, label]) => <li><a href={href(route)}>{label} →</a></li>)}</ul>
+      <ul class="manual-resources">{ui.resources.map(([route, label]) => <li><a href={href(route)}>{label} →</a></li>)}</ul>
       </details>
     </aside>
 
@@ -52,7 +51,7 @@ const resources = lang === 'en'
       <section class="manual-version" aria-labelledby="manual-version-title">
         <h2 id="manual-version-title">{ui.versionTitle}</h2>
         <p>{ui.version}</p>
-        <a href={`${REPO_URL}/releases/tag/v1.15.1`}>v1.15.1 →</a>
+        <a href={`${REPO_URL}/releases/tag/${RELEASE_TAG}`}>{RELEASE_TAG} →</a>
       </section>
 
       <section aria-labelledby="manual-platforms-title" class="manual-platforms">
@@ -78,7 +77,7 @@ const resources = lang === 'en'
             <aside class="manual-check"><h3>{ui.check}</h3><p>{task.check}</p></aside>
             <footer class="manual-task-footer">
               <p>{ui.related}: {task.related.map((id, i) => <><a href={`#${id}`} data-manual-jump>{names.get(id)}</a>{i < task.related.length - 1 ? ' · ' : ''}</>)}</p>
-              <a href={`${REPO_URL}/blob/v1.15.1/${task.source}`}>{ui.source} ↗</a>
+              <a href={`${REPO_URL}/blob/${RELEASE_TAG}/${task.source}`}>{ui.source} ↗</a>
             </footer>
           </article>
         ))}

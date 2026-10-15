@@ -5,6 +5,13 @@
     "lead": "Configura Puntovivo, prepara tu caja y resuelve las tareas del día. Guía para dueños, gerentes y cajeros.",
     "home": "Inicio",
     "index": "Elige una tarea",
+    "resources": [
+      ["/migracion", "Importar un catálogo"],
+      ["/atajos", "Atajos de teclado"],
+      ["/releases", "Versiones"],
+      ["/estado", "Estado del producto"],
+      ["/roadmap", "Trabajo futuro"]
+    ],
     "skip": "Ir a las tareas",
     "search": "Buscar en el manual",
     "placeholder": "Ej.: abrir caja, impresora, impuestos…",
@@ -37,7 +44,8 @@
         "Seguimiento en vivo es una PWA de solo lectura para administrador, gerente y consulta, con el módulo activo. Oculta datos operativos sin conexión. No reemplaza una caja offline."
       ]
     ],
-    "resultsOne": "1 tarea encontrada"
+    "resultsOne": "1 tarea encontrada",
+    "otherLanguage": "Read this manual in English"
   },
   "tasks": [
     {

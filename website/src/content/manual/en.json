@@ -5,6 +5,13 @@
     "lead": "Set up Puntovivo, prepare your register and handle everyday tasks. A guide for owners, managers and cashiers.",
     "home": "Home",
     "index": "Choose a task",
+    "resources": [
+      ["/migracion", "Import a catalog"],
+      ["/atajos", "Keyboard shortcuts"],
+      ["/releases", "Releases"],
+      ["/estado", "Product status"],
+      ["/roadmap", "Future work"]
+    ],
     "skip": "Skip to tasks",
     "search": "Search the manual",
     "placeholder": "E.g. open register, printer, taxes…",
@@ -37,7 +44,8 @@
         "Live monitoring is a read-only PWA for admin, manager and viewer roles with the module enabled. Operational data is hidden offline. It does not replace an offline register."
       ]
     ],
-    "resultsOne": "1 task found"
+    "resultsOne": "1 task found",
+    "otherLanguage": "Leer este manual en español"
   },
   "tasks": [
     {

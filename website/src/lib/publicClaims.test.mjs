@@ -103,15 +103,17 @@ test('receipt sharing copy preserves the manual WhatsApp handoff boundary', () =
   }
 });
 
-test('documentation presents shipped webhooks without implying a general public API', () => {
-  for (const locale of Object.values(locales)) {
-    const integrations = locale.docs.categories.at(-1);
-    assert.match(integrations.d, /signatures|firma/i);
-    assert.match(
-      integrations.d,
-      /not a general public REST API|no es una API REST pública general/i
+test('the user manual does not imply a general public API or custom roles', () => {
+  for (const lang of ['es', 'en']) {
+    const manual = readFileSync(path.join(here, `../content/manual/${lang}.json`), 'utf8');
+    assert.doesNotMatch(manual, /public (REST )?API|API (REST )?pública/i);
+    assert.doesNotMatch(
+      manual.replace(
+        /no general custom-role editor|no hay un editor general de roles personalizados/gi,
+        ''
+      ),
+      /custom.roles?|roles personalizados/i
     );
-    assert.doesNotMatch(JSON.stringify(locale.docs.popular), /custom roles|roles personalizados/i);
   }
 });
 

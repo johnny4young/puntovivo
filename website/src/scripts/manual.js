@@ -60,7 +60,6 @@ if (form instanceof HTMLFormElement) {
     for (const [link, path] of languagePaths) link.setAttribute('href', `${path}${hash}`);
   }
   window.addEventListener('hashchange', updateLanguageLinks);
-  update();
   revealHash();
   updateLanguageLinks();
 }

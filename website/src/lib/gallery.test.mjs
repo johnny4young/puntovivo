@@ -59,8 +59,13 @@ for (const base of ['/', '/puntovivo', '/puntovivo/']) {
         }
         // Validate all same-site targets, including translation and task hashes.
         for (const [, rawHref] of manualHtml.matchAll(/href="([^"?#]*)(?:\?[^"#]*)?(#[^"]*)?"/g)) {
-          if (!rawHref.startsWith('/')) continue;
-          const route = rawHref.slice(base.replace(/\/$/, '').length).replace(/^\//, '');
+          if (!rawHref.startsWith('/') || rawHref.startsWith('//')) continue;
+          const prefix = base.replace(/\/$/, '');
+          assert.ok(
+            rawHref === prefix || rawHref.startsWith(`${prefix}/`),
+            `${lang}: ${rawHref} lacks base ${base}`
+          );
+          const route = rawHref.slice(prefix.length).replace(/^\//, '');
           const target = path.join(output, route);
           assert.ok(
             existsSync(target) || existsSync(path.join(target, 'index.html')),
