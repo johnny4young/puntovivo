@@ -1,6 +1,8 @@
-# Inventory & Units Model — target design and phased migration
+# Inventory and units model
 
-Status: living design doc (updated 2026-08-31). The units foundation, stock
+**Language:** English · [Español](es/INVENTORY-MODEL.md)
+
+Status: current implementation reference (reviewed 2026-10-15). The units foundation, stock
 authority, packaging barcodes, lots, FEFO consumption, realized COGS, serial
 logistics, variant matrices, blind physical counts, and operator-approved
 replenishment drafts are shipped. Location/bin-level stock remains future work.
@@ -55,7 +57,7 @@ production gate — a standardized unit code on every fiscal e-invoice line.
    number, not a live re-derivation.
 3. **Fractional stock with guardrails** — `real` stock + fraction policy.
 
-## Target model
+## Model structure
 
 ```
 unit_dimension  (mass|volume|length|area|count|time|other)
@@ -91,7 +93,7 @@ Additive, zero-rewrite. Migration `0003_unit_dimension_standard_code`.
   CL pack's `mapUnitToUnmdItem` string-matching is the anti-pattern this
   replaces); `dimensionsAreCoherent()` flags nonsensical unit sets.
 - `units.create` backfills all three from the catalog when omitted, so a plain
-  "KG" lands fiscal-ready. Explicit input always wins.
+  "KG" receives catalog-backed standard metadata. Explicit input always wins.
 
 ## Phase B — stock authority + packaging barcodes (SHIPPED)
 
@@ -159,9 +161,9 @@ Additive, zero-rewrite. Migration `0003_unit_dimension_standard_code`.
    product below `min_stock` receives a suggested quantity, but the manager must
    choose a supplier and create a draft. The draft has no stock or supplier-
    payable effect, cannot be received, and can be discarded safely; explicit
-   submission activates the existing receipt path. Lot-tracked products remain
-   visible as blocked until lot-aware purchase receipt ships. Puntovivo does not
-   order or forecast demand automatically.
+   submission activates the existing receipt path. Lot-tracked shortages may create a draft order; concrete lot identity is
+   required at receipt, not invented during planning. Puntovivo does not order
+   or forecast demand automatically.
 
 ## Phase C — lots, expiry, costing, and serial logistics (SHIPPED)
 

@@ -1,5 +1,7 @@
 # Puntovivo Project Status
 
+**Language:** English · [Español](es/PROJECT-STATUS.md)
+
 > Updated: 2026-09-22. This is the public source of truth for shipped
 > capabilities and release readiness. Internal prioritization, estimates, and
 > execution notes stay in an ignored private planning artifact.
@@ -405,10 +407,10 @@ The current validated candidate includes:
   engine now supports exact input-lot consumption, remnants, recipes, yield,
   waste, distributed cost, output-lot traceability, and guarded reversal, but
   it is not manufacturing planning, serial transformation, legal production
-  certification. Physical counts use their own exact-identity workflow. An execution freezes its
-  exact allocated cost, but a lot's unit cost remains a two-decimal value;
-  fractional allocations that cannot be represented per unit are not yet
-  qualified as exact cost accounting across a later chain of transformations.
+  certification. Physical counts use their own exact-identity workflow. Exact
+  integer-cent carrying values preserve fractional allocation residuals through
+  supported stock mutations; a lot's displayed unit cost remains a two-decimal
+  value and must not be used to reconstruct that authoritative carrying value.
   Physical scales, scanners, variable-measure label layouts, and legal metrology still require
   representative-device validation; country labels in configuration currently
   share the generic parser and do not certify a national convention. A scale's

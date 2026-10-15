@@ -1,5 +1,7 @@
 # Contributing to Puntovivo
 
+**Language:** English · [Español](./CONTRIBUTING.es.md)
+
 Thanks for your interest in Puntovivo. This guide covers the essentials for
 working on the codebase.
 
@@ -47,6 +49,10 @@ touches both frontend and backend should pass both `ci:web` and `ci:server`.
 - Make sure the relevant CI gate passes locally.
 - All user-facing strings must be internationalized (English + Spanish);
   Spanish copy uses neutral Latin American Spanish in the `tú` register.
+- New public guides need English and Spanish versions with reciprocal language links.
+  Register pairs in `docs/translations.json` and run
+  `node scripts/check-documentation-translations.mjs`; see
+  [documentation language rules](./docs/TRANSLATIONS.md).
 
 ## Reporting security issues
 

@@ -1,5 +1,7 @@
 # 0016 — Server-authoritative promotions and customer-value tenders
 
+**Language:** English · [Español](../es/architecture/0016-server-authoritative-promotions-and-customer-value.md)
+
 > Status: Accepted
 > Date: 2026-09-01
 

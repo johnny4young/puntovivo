@@ -4,6 +4,8 @@
 
 # Puntovivo
 
+**Language:** English · [Español](./README.es.md)
+
 ### Local-first, fiscal-native POS for Latin American retail
 
 Fast checkout, cash accountability, site-owned stock, and fiscal readiness —
@@ -102,12 +104,12 @@ retail POS sellability.
 
 Puntovivo is under active development. Honest gates:
 
-| Stage                    | Verdict                   | Why                                                                                                                                                                                                                                                                                                                                       |
-| ------------------------ | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Development demo         | Ready                     | The retail core, workforce, serialized inventory, launch import, privacy, backup, and operations surfaces are demonstrable and covered by automated tests.                                                                                                                                                                                |
-| Controlled internal beta | Ready with release checks | v1.14.4 is published and, as checked on 2026-09-22, its live desktop update feed offers a 10 percent staged rollout. The documented v1.10.1 packaged/recovery matrix is historical regression evidence, not proof for v1.14.4. Representative-host clean install, production-updater upgrade, and downgrade refusal remain release gates. |
-| Private retail pilot     | Not yet                   | Fiscal contingency, certified provider transmission, final fiscal receipt proof, and physical POS hardware still need to close.                                                                                                                                                                                                           |
-| Production sale          | No                        | Requires fiscal certification, legal retention evidence, hardware validation, externally delivered alerts, payment-terminal policy, and an observed pilot.                                                                                                                                                                                |
+| Stage                    | Verdict                   | Why                                                                                                                                                                                                                                                      |
+| ------------------------ | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Development demo         | Ready                     | The retail core, workforce, serialized inventory, launch import, privacy, backup, and operations surfaces are demonstrable and covered by automated tests.                                                                                               |
+| Controlled internal beta | Ready with release checks | Published desktop releases still require representative-host clean install, production-updater upgrade, and downgrade-refusal checks. The documented v1.10.1 packaged/recovery matrix is historical regression evidence, not proof of current artifacts. |
+| Private retail pilot     | Not yet                   | Fiscal contingency, certified provider transmission, final fiscal receipt proof, and physical POS hardware still need to close.                                                                                                                          |
+| Production sale          | No                        | Requires fiscal certification, legal retention evidence, hardware validation, externally delivered alerts, payment-terminal policy, and an observed pilot.                                                                                               |
 
 The canonical capability inventory, remaining gaps, and release gates live in
 [docs/PROJECT-STATUS.md](./docs/PROJECT-STATUS.md).
@@ -122,7 +124,7 @@ The canonical capability inventory, remaining gaps, and release gates live in
   encrypted recovery checks on Linux, macOS, and Windows in
   [run 31264233582](https://github.com/johnny4young/puntovivo/actions/runs/31264233582).
   That validation-only matrix is regression evidence for v1.10.1, not proof of
-  the current v1.14.4 binary, release signing, or a production recovery-time
+  later binaries, release signing, or a production recovery-time
   promise. The [v1.14.4 release](https://github.com/johnny4young/puntovivo/releases/tag/v1.14.4)
   and [live update policy](https://johnny4young.github.io/puntovivo/update-policy.json)
   do not substitute for representative-machine Gate 5 evidence.
@@ -191,16 +193,22 @@ pnpm run dev:desktop   # web dev server + Electron desktop
 pnpm run dev:web-stack # web app + standalone backend, in the browser
 ```
 
-Then sign in with the seeded development admin:
+On a fresh interactive installation, create the business and its first owner
+from the login screen. Standalone web ownership can only be claimed from the
+same computer with the private installation code shown by the server. If the
+database is already owned, use its real account. See the
+[login guide](./docs/LOGIN_GUIDE.md).
 
-- Email: `admin@localhost`
-- Password: `Admin123!Dev` (unless `PUNTOVIVO_DEV_ADMIN_PASSWORD` was set before
-  the first seed)
+### Explicit development fixtures
 
-For a populated demo tenant (products, sales, cash sessions), seed and use
-`admin@demo.co` with the same password. Production first-run credentials are
-generated and shown once in the server console — see
-[docs/LOGIN_GUIDE.md](./docs/LOGIN_GUIDE.md).
+Fixture credentials are not enabled automatically when the app starts. Explicit
+disposable-data tooling can create `admin@localhost`. Its initial password is
+`Admin123!Dev` (or `PUNTOVIVO_DEV_ADMIN_PASSWORD`) only when at least one of
+`NODE_ENV` and `PUNTOVIVO_RUNTIME_ENV` is declared and every declared marker is
+`development` or `test`; otherwise it is generated. The populated demo dataset
+uses `admin@demo.co`. Before running `pnpm run seed:dev`,
+choose your own disposable database and read [DEV-SEED.md](./docs/DEV-SEED.md).
+These credentials are not a recovery path for an actual installation.
 
 ## Development commands
 
@@ -214,6 +222,7 @@ Run workspace commands from the repo root.
 | Web + standalone backend    | `pnpm run dev:web-stack`     |
 | Backend only                | `pnpm run dev:server`        |
 | Stop dev-launcher processes | `pnpm run dev:stop`          |
+| Documentation languages     | `pnpm run ci:docs`           |
 | Web CI gate                 | `pnpm run ci:web`            |
 | Server CI gate              | `pnpm run ci:server`         |
 | Desktop CI gate             | `pnpm run ci:desktop`        |

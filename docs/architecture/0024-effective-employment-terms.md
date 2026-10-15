@@ -1,5 +1,7 @@
 # ADR-0024: Effective employment terms and private evidence
 
+**Language:** English · [Español](../es/architecture/0024-effective-employment-terms.md)
+
 Status: Accepted
 
 ## Context

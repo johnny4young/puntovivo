@@ -1,5 +1,7 @@
 # POS Hardware
 
+**Language:** English · [Español](./es/HARDWARE-POS.md)
+
 Puntovivo keeps hardware effects outside the sale transaction. A completed sale
 is durable before printing, drawer, scanner, or terminal work is attempted.
 Hardware failures are queued, observable, and recoverable.

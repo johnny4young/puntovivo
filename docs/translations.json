@@ -1,0 +1,295 @@
+{
+  "version": 1,
+  "pairs": [
+    {
+      "en": "README.md",
+      "es": "README.es.md"
+    },
+    {
+      "en": "CONTRIBUTING.md",
+      "es": "CONTRIBUTING.es.md"
+    },
+    {
+      "en": "docs/README.md",
+      "es": "docs/es/README.md"
+    },
+    {
+      "en": "docs/ENVIRONMENT_CONFIGURATION.md",
+      "es": "docs/es/ENVIRONMENT_CONFIGURATION.md"
+    },
+    {
+      "en": "docs/TROUBLESHOOTING.md",
+      "es": "docs/es/TROUBLESHOOTING.md"
+    },
+    {
+      "en": "docs/PRINTER-SETUP.md",
+      "es": "docs/es/PRINTER-SETUP.md"
+    },
+    {
+      "en": "docs/LOGIN_GUIDE.md",
+      "es": "docs/es/LOGIN_GUIDE.md"
+    },
+    {
+      "en": "docs/HARDWARE-POS.md",
+      "es": "docs/es/HARDWARE-POS.md"
+    },
+    {
+      "en": "docs/RECEIPT-TEMPLATES.md",
+      "es": "docs/es/RECEIPT-TEMPLATES.md"
+    },
+    {
+      "en": "docs/DEV-SEED.md",
+      "es": "docs/es/DEV-SEED.md"
+    },
+    {
+      "en": "docs/SECURITY.md",
+      "es": "docs/es/SECURITY.md"
+    },
+    {
+      "en": "docs/SHORTCUTS.md",
+      "es": "docs/es/SHORTCUTS.md"
+    },
+    {
+      "en": "docs/DEBUGGING.md",
+      "es": "docs/es/DEBUGGING.md"
+    },
+    {
+      "en": "CODE_OF_CONDUCT.md",
+      "es": "CODE_OF_CONDUCT.es.md"
+    },
+    {
+      "en": "docs/OPERATIONS-RUNBOOKS.md",
+      "es": "docs/es/OPERATIONS-RUNBOOKS.md"
+    },
+    {
+      "en": "docs/OBSERVABILITY.md",
+      "es": "docs/es/OBSERVABILITY.md"
+    },
+    {
+      "en": "docs/TRPC_ARCHITECTURE.md",
+      "es": "docs/es/TRPC_ARCHITECTURE.md"
+    },
+    {
+      "en": "docs/TRPC_TESTING_GUIDE.md",
+      "es": "docs/es/TRPC_TESTING_GUIDE.md"
+    },
+    {
+      "en": "docs/MODULE-ACTIVATION.md",
+      "es": "docs/es/MODULE-ACTIVATION.md"
+    },
+    {
+      "en": "docs/FISCAL-INTEGRATION.md",
+      "es": "docs/es/FISCAL-INTEGRATION.md"
+    },
+    {
+      "en": "docs/EXTERNAL-ORDERS.md",
+      "es": "docs/es/EXTERNAL-ORDERS.md"
+    },
+    {
+      "en": "docs/COMPONENTS.md",
+      "es": "docs/es/COMPONENTS.md"
+    },
+    {
+      "en": "docs/STYLING.md",
+      "es": "docs/es/STYLING.md"
+    },
+    {
+      "en": "docs/WEBHOOKS.md",
+      "es": "docs/es/WEBHOOKS.md"
+    },
+    {
+      "en": "docs/releases/README.md",
+      "es": "docs/es/releases/README.md"
+    },
+    {
+      "en": "packages/server/__fixtures__/invoice-ocr/README.md",
+      "es": "packages/server/__fixtures__/invoice-ocr/README.es.md"
+    },
+    {
+      "en": "packages/server/src/application/README.md",
+      "es": "packages/server/src/application/README.es.md"
+    },
+    {
+      "en": ".github/ISSUE_TEMPLATE/security.md",
+      "es": "docs/es/repository/SECURITY-ISSUE-TEMPLATE.md"
+    },
+    {
+      "en": ".github/pull_request_template.md",
+      "es": "docs/es/repository/PULL-REQUEST-TEMPLATE.md"
+    },
+    {
+      "en": "docs/INVENTORY-MODEL.md",
+      "es": "docs/es/INVENTORY-MODEL.md"
+    },
+    {
+      "en": "docs/architecture/0001-local-store-authority.md",
+      "es": "docs/es/architecture/0001-local-store-authority.md"
+    },
+    {
+      "en": "docs/architecture/0005-sync-payload-contract.md",
+      "es": "docs/es/architecture/0005-sync-payload-contract.md"
+    },
+    {
+      "en": "docs/architecture/0010-labor-overtime-policy.md",
+      "es": "docs/es/architecture/0010-labor-overtime-policy.md"
+    },
+    {
+      "en": "docs/architecture/README.md",
+      "es": "docs/es/architecture/README.md"
+    },
+    {
+      "en": "docs/architecture/0002-command-envelope.md",
+      "es": "docs/es/architecture/0002-command-envelope.md"
+    },
+    {
+      "en": "docs/architecture/0003-outbox-taxonomy.md",
+      "es": "docs/es/architecture/0003-outbox-taxonomy.md"
+    },
+    {
+      "en": "docs/architecture/0006-local-data-security.md",
+      "es": "docs/es/architecture/0006-local-data-security.md"
+    },
+    {
+      "en": "docs/architecture/0004-conflict-policy.md",
+      "es": "docs/es/architecture/0004-conflict-policy.md"
+    },
+    {
+      "en": "docs/architecture/0008-authority-node-runtime-modes.md",
+      "es": "docs/es/architecture/0008-authority-node-runtime-modes.md"
+    },
+    {
+      "en": "docs/architecture/0007-module-activation.md",
+      "es": "docs/es/architecture/0007-module-activation.md"
+    },
+    {
+      "en": "docs/architecture/0009-money-storage-and-validation.md",
+      "es": "docs/es/architecture/0009-money-storage-and-validation.md"
+    },
+    {
+      "en": "docs/architecture/0012-audit-chain-external-freshness.md",
+      "es": "docs/es/architecture/0012-audit-chain-external-freshness.md"
+    },
+    {
+      "en": "docs/architecture/0011-product-search-vectors.md",
+      "es": "docs/es/architecture/0011-product-search-vectors.md"
+    },
+    {
+      "en": "docs/architecture/0013-quotation-conversion-and-supplier-payables.md",
+      "es": "docs/es/architecture/0013-quotation-conversion-and-supplier-payables.md"
+    },
+    {
+      "en": "docs/architecture/0014-normalized-sale-returns-and-store-credit.md",
+      "es": "docs/es/architecture/0014-normalized-sale-returns-and-store-credit.md"
+    },
+    {
+      "en": "docs/architecture/0015-retail-counts-and-replenishment.md",
+      "es": "docs/es/architecture/0015-retail-counts-and-replenishment.md"
+    },
+    {
+      "en": "docs/architecture/0016-server-authoritative-promotions-and-customer-value.md",
+      "es": "docs/es/architecture/0016-server-authoritative-promotions-and-customer-value.md"
+    },
+    {
+      "en": "docs/architecture/0017-vertical-profiles-site-gs1.md",
+      "es": "docs/es/architecture/0017-vertical-profiles-site-gs1.md"
+    },
+    {
+      "en": "docs/architecture/0019-pharmacy-policy-evidence-and-lot-custody.md",
+      "es": "docs/es/architecture/0019-pharmacy-policy-evidence-and-lot-custody.md"
+    },
+    {
+      "en": "docs/architecture/0018-lot-procurement-and-transformations.md",
+      "es": "docs/es/architecture/0018-lot-procurement-and-transformations.md"
+    },
+    {
+      "en": "docs/A11Y.md",
+      "es": "docs/es/A11Y.md"
+    },
+    {
+      "en": "docs/ARCHITECTURE.md",
+      "es": "docs/es/ARCHITECTURE.md"
+    },
+    {
+      "en": "docs/DESKTOP_RUNTIME_GUIDE.md",
+      "es": "docs/es/DESKTOP_RUNTIME_GUIDE.md"
+    },
+    {
+      "en": "docs/PERF-BUDGETS.md",
+      "es": "docs/es/PERF-BUDGETS.md"
+    },
+    {
+      "en": "docs/PROJECT-STATUS.md",
+      "es": "docs/es/PROJECT-STATUS.md"
+    },
+    {
+      "en": "docs/TESTING.md",
+      "es": "docs/es/TESTING.md"
+    },
+    {
+      "en": "docs/architecture/0020-restaurant-service-check-model.md",
+      "es": "docs/es/architecture/0020-restaurant-service-check-model.md"
+    },
+    {
+      "en": "docs/architecture/0021-durable-kitchen-preparation.md",
+      "es": "docs/es/architecture/0021-durable-kitchen-preparation.md"
+    },
+    {
+      "en": "docs/architecture/0022-reservation-fulfillment-boundary.md",
+      "es": "docs/es/architecture/0022-reservation-fulfillment-boundary.md"
+    },
+    {
+      "en": "docs/architecture/0023-signed-external-order-inbox.md",
+      "es": "docs/es/architecture/0023-signed-external-order-inbox.md"
+    },
+    {
+      "en": "docs/architecture/0024-effective-employment-terms.md",
+      "es": "docs/es/architecture/0024-effective-employment-terms.md"
+    },
+    {
+      "en": "docs/architecture/0025-operational-employee-absences.md",
+      "es": "docs/es/architecture/0025-operational-employee-absences.md"
+    },
+    {
+      "en": "docs/architecture/0026-recurring-employee-availability.md",
+      "es": "docs/es/architecture/0026-recurring-employee-availability.md"
+    },
+    {
+      "en": "docs/architecture/0027-recurring-schedule-publication.md",
+      "es": "docs/es/architecture/0027-recurring-schedule-publication.md"
+    },
+    {
+      "en": "docs/architecture/0028-employee-shift-exchanges.md",
+      "es": "docs/es/architecture/0028-employee-shift-exchanges.md"
+    },
+    {
+      "en": "docs/architecture/0029-attendance-reconciliation-and-operational-cost.md",
+      "es": "docs/es/architecture/0029-attendance-reconciliation-and-operational-cost.md"
+    },
+    {
+      "en": "docs/architecture/0030-colombia-pre-payroll-evidence.md",
+      "es": "docs/es/architecture/0030-colombia-pre-payroll-evidence.md"
+    },
+    {
+      "en": "docs/architecture/0031-human-review-of-ai-payment-proposals.md",
+      "es": "docs/es/architecture/0031-human-review-of-ai-payment-proposals.md"
+    },
+    {
+      "en": "docs/architecture/patterns/operation-journal.md",
+      "es": "docs/es/architecture/patterns/operation-journal.md"
+    },
+    {
+      "en": "docs/architecture/patterns/outbox-kernel.md",
+      "es": "docs/es/architecture/patterns/outbox-kernel.md"
+    },
+    {
+      "en": "e2e/README.md",
+      "es": "e2e/README.es.md"
+    },
+    {
+      "en": "website/MANUAL.md",
+      "es": "website/MANUAL.es.md"
+    }
+  ],
+  "bilingual": ["docs/TRANSLATIONS.md"],
+  "historical": ["CHANGELOG.md", "docs/releases/v*.md"]
+}

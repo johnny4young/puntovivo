@@ -1,5 +1,7 @@
 # 0010 — Labor Overtime Policy Evidence
 
+**Language:** English · [Español](../es/architecture/0010-labor-overtime-policy.md)
+
 > Status: Accepted
 > Date: 2026-07-15
 
@@ -32,4 +34,4 @@ Calculations cover all of an employee's shifts inside the tenant and complete la
 - tip distribution by hours must consume the same net-work evidence boundaries.
 - Colombia electronic payroll is gated but will consume classified duration plus payroll-specific data.
 
-Updated: 2026-07-15 — accepted with .
+Updated: 2026-07-15 — accepted.

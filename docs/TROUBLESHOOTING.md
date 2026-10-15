@@ -1,5 +1,7 @@
 # Troubleshooting
 
+**Language:** English · [Español](./es/TROUBLESHOOTING.md)
+
 > Updated: August 27, 2026
 
 ## 1. Native module fails to load
@@ -100,13 +102,13 @@ Treat them as a performance follow-up unless `vite build` exits non-zero.
 
 Check:
 
-- seeded email is `admin@localhost`
-- in development/non-production, try `Admin123!Dev` unless you overrode `PUNTOVIVO_DEV_ADMIN_PASSWORD`
-- in production, copy the generated password from first-run output
+- a fresh interactive installation creates its first owner from the login screen; use that actual account
+- `admin@localhost` exists only in an explicitly seeded fixture; its initial password is `Admin123!Dev` or `PUNTOVIVO_DEV_ADMIN_PASSWORD` only when at least one of `NODE_ENV` and `PUNTOVIVO_RUNTIME_ENV` is declared and every declared marker is `development` or `test`; otherwise the seed generates it
+- fixture credentials do not recover access to an existing installation
 - the tenant and user are active
 
 See:
-[LOGIN_GUIDE.md](../docs/LOGIN_GUIDE.md)
+[LOGIN_GUIDE.md](./LOGIN_GUIDE.md)
 
 ## 9. Standalone production refuses to start without a database key
 

@@ -1,5 +1,7 @@
 # Human review of AI payment proposals
 
+**Language:** English · [Español](../es/architecture/0031-human-review-of-ai-payment-proposals.md)
+
 Status: Accepted
 
 ## Context

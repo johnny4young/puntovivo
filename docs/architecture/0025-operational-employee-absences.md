@@ -1,5 +1,7 @@
 # ADR-0025: Explicit employee absences and scheduling exclusions
 
+**Language:** English · [Español](../es/architecture/0025-operational-employee-absences.md)
+
 Status: Accepted
 
 ## Context

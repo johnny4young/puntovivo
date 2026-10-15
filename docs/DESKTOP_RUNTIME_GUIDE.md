@@ -1,6 +1,8 @@
 # Desktop Runtime Guide
 
-> Updated: August 28, 2026
+**Language:** English · [Español](es/DESKTOP_RUNTIME_GUIDE.md)
+
+> Updated: October 15, 2026
 > Audience: developers who need to understand Electron runtime behavior in Puntovivo
 
 ## Supported macOS contract
@@ -15,6 +17,16 @@ runner instead of the moving `macos-latest` label.
 Future macOS majors enter the support contract only after native-module,
 packaged-runtime, renderer, recovery, and representative-machine checks pass.
 Do not translate one Tahoe result into Sequoia or future-version evidence.
+
+The current toolchain uses Node 24+, Electron 43.5.0, and
+`better-sqlite3-multiple-ciphers` 13.0.3. SQLite uses portable Node-API
+prebuilds shared by standalone Node and Electron. Verify the installed
+binary with `pnpm --filter @puntovivo/server run native:ensure:node` and
+`pnpm --filter @puntovivo/desktop run native:ensure:electron`; do not rebuild
+it or swap binaries between runtimes. The desktop `rebuild` script is a
+compatibility alias for verification. Packaging verifies the Electron runtime
+and prunes prebuilds inside its staging directory, without replacing the
+checkout binary.
 
 ## Why This Document Exists
 
@@ -80,7 +92,7 @@ In this project, lifecycle refers to the runtime sequence of the Electron deskto
 3. embedded Fastify server starts
 4. desktop preferences are loaded from SQLite
 5. main browser window is created
-6. renderer loads either Vite dev server or packaged `dist/index.html`
+6. renderer loads either Vite dev server or `puntovivo-app://app/index.html` from packaged assets
 7. tray / theme / update / print / backup capabilities remain available through main
 8. on quit, main tears down tray and shuts down the embedded server
 
@@ -93,13 +105,13 @@ The key lifecycle path is:
 
 1. `app.whenReady()` waits until Electron is ready.
 2. `initAutoUpdater()` initializes desktop update state.
-3. `createServerLifecycle({...}).start()` starts Fastify on the embedded loopback port (default 127.0.0.1:8090).
+3. `serverLifecycle.start()` starts Fastify on the embedded loopback port (default 127.0.0.1:8090).
 4. theme and tray settings are loaded from `app_settings`.
-5. `createWindow()` creates the main `BrowserWindow`.
-6. `refreshTray()` creates or updates the tray if enabled.
+5. `windowLifecycle.create()` creates the main `BrowserWindow`.
+6. `trayController.refresh()` creates or updates the tray if enabled.
 7. `app.on('activate')` restores or recreates the main window on macOS behavior.
 8. `app.on('before-quit')` marks the app as intentionally quitting.
-9. `app.on('will-quit')` destroys tray resources and stops the embedded server.
+9. `app.on('will-quit')` destroys tray resources, stops the updater, and runs graceful shutdown: stop the backup scheduler, drain queued backup operations, stop the embedded server, and clear pending restore staging.
 
 Relevant source:
 
@@ -117,17 +129,17 @@ sequenceDiagram
 
     E->>M: app.whenReady()
     M->>M: initAutoUpdater()
-    M->>S: createServerLifecycle().start()
+    M->>S: serverLifecycle.start()
     S-->>M: server.listen() complete
     M->>M: load theme + tray settings
-    M->>W: createWindow()
-    W->>R: load URL / loadFile
+    M->>W: windowLifecycle.create()
+    W->>R: loadURL (Vite / secure packaged origin)
     R->>S: /api/trpc requests
     E->>M: before-quit
     M->>M: isQuitting = true
     E->>M: will-quit
     M->>M: trayController.destroy()
-    M->>S: stopEmbeddedServer()
+    M->>S: serverLifecycle.stop()
 ```
 
 ### Why the backend is embedded in main
@@ -182,7 +194,7 @@ If tray is enabled and `closeToTray` is enabled:
 
 If `closeToTray` is disabled:
 
-- close behaves like a normal quit flow
+- the window is allowed to close; `window-all-closed` quits on non-macOS platforms, while macOS keeps the app available for activation
 
 Why this is used:
 
@@ -191,14 +203,15 @@ Why this is used:
 
 ### Why backup/restore uses a server restart
 
-Backup and restore do not try to copy the SQLite file while the server is actively using it.
+Manual backup and destructive restore stop the embedded server around the file operation.
+Scheduled snapshots use the shared snapshot helper and do not all require a server restart.
 
 The project uses:
 
-- `runWithServerRestart(...)`
-- `stopEmbeddedServer()`
+- `runWithServerRestart(...)` (injected as `serverLifecycle.restartAround`)
+- `serverLifecycle.stop()`
 - file operation
-- `createServerLifecycle().start()` (alias `stopEmbeddedServer` retained for shutdown)
+- `serverLifecycle.start()`
 - optional renderer reload
 
 Why this is used:
@@ -249,6 +262,7 @@ Relevant files:
 
 The renderer runs with:
 
+- `sandbox: true`
 - `contextIsolation: true`
 - `nodeIntegration: false`
 
@@ -406,26 +420,25 @@ In practice, this phrase maps to three different patterns:
 
 1. React local state watched by the component render cycle
 2. TanStack Query watching server state
-3. `form.watch(...)` from React Hook Form watching form field changes
+3. `useWatch(...)` from React Hook Form watching form field changes
 
 If you were looking specifically for a desktop runtime watcher, that is not a major architectural primitive in this project today.
 
 ### The main "watch-state" pattern actually used in the repo
 
-The most explicit "watch" API in the codebase is React Hook Form's `form.watch(...)`.
+The most explicit "watch" API in the codebase is React Hook Form's `useWatch(...)`.
 
 Examples:
 
-- [ProductFormModal.tsx](../apps/web/src/features/products/ProductFormModal.tsx)
+- [useProductForm.ts](../apps/web/src/features/products/useProductForm.ts)
 - [InventoryEntryModal.tsx](../apps/web/src/features/inventory/InventoryEntryModal.tsx)
 - [InventoryAdjustmentModal.tsx](../apps/web/src/features/inventory/InventoryAdjustmentModal.tsx)
-- [SalePaymentModal.tsx](../apps/web/src/features/sales/SalePaymentModal.tsx)
 - [SiteLocationAssignmentsModal.tsx](../apps/web/src/features/sites/SiteLocationAssignmentsModal.tsx)
 - [ProviderCategoryAssignmentsModal.tsx](../apps/web/src/features/providers/ProviderCategoryAssignmentsModal.tsx)
 
-### What `form.watch(...)` is doing
+### What `useWatch(...)` is doing
 
-`form.watch(...)` is used when one field needs to react to another field's current value during render.
+`useWatch(...)` is used when one field needs to react to another field's current value during render.
 
 Typical examples:
 
@@ -452,7 +465,7 @@ This is consistent with the repo's general style:
 flowchart LR
     Input[Form Input]
     RHF[React Hook Form state]
-    Watch[form.watch(...)]
+    Watch[useWatch(...)]
     UI[Conditional UI / derived preview]
 
     Input --> RHF
@@ -471,7 +484,7 @@ It relies on TanStack Query subscriptions through hooks like:
 
 So the renderer has two clear state ownership patterns:
 
-- form-local transient state: React Hook Form + `watch`
+- form-local transient state: React Hook Form + `useWatch`
 - server state: TanStack Query + tRPC
 
 This separation is technically useful because it avoids mixing:
@@ -484,7 +497,7 @@ This separation is technically useful because it avoids mixing:
 Preferred rules:
 
 1. if the value comes from the server, keep TanStack Query as the source of truth
-2. if the value is form-local, prefer `form.watch(...)` over copied mirror state
+2. if the value is form-local, prefer `useWatch(...)` over copied mirror state
 3. if the value is cheap to derive, compute it during render
 4. avoid `useEffect` whose only job is to synchronize one state value into another
 
@@ -495,7 +508,7 @@ Good pattern:
 
 Bad pattern:
 
-- `watch(field)` and then copy it into `useState`
+- `useWatch({ control, name })` and then copy it into `useState`
 - or `useEffect(() => setX(watchedField), [watchedField])`
 
 Why the bad pattern is discouraged:
@@ -535,7 +548,7 @@ Use this decision table:
 | ------------------------------------------- | -------------------------------- |
 | CRUD or business rules                      | tRPC router in `packages/server` |
 | OS dialog / tray / print / backup / updater | Electron IPC via preload + main  |
-| Local form reactivity                       | React Hook Form `watch(...)`     |
+| Local form reactivity                       | React Hook Form `useWatch(...)`  |
 | Cached server UI state                      | TanStack Query                   |
 | DB file replacement or server restart       | Electron main lifecycle helper   |
 

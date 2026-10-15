@@ -1,5 +1,7 @@
 # Colombia pre-payroll evidence and approval boundary
 
+**Language:** English · [Español](../es/architecture/0030-colombia-pre-payroll-evidence.md)
+
 Status: Accepted
 
 ## Decision

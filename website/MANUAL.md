@@ -1,5 +1,7 @@
 # Maintaining the user manual
 
+**Language:** English · [Español](MANUAL.es.md)
+
 The existing `/docs` and `/en/docs` routes render `src/pages-content/Docs.astro`.
 User copy lives in `src/content/manual/es.json` and `en.json`, separate from the
 marketing locale bundles. Keep stable task IDs and related links identical in

@@ -1,19 +1,23 @@
 # Puntovivo · Docs Index
 
+**Language:** English · [Español](./es/README.md)
+
 This directory holds the design docs, runbooks, and reference material for the
 project. Read the right file for the question, not the whole directory.
+All maintained guides have English and Spanish counterparts. Use the language
+selector in each guide or the [bilingual index](./TRANSLATIONS.md).
 
 ---
 
 ## Architecture & stack
 
-| File                                                                                                  | Use                                                                                                                                                                         |
-| ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`ARCHITECTURE.md`](./ARCHITECTURE.md)                                                                | Top-level Electron + Fastify + tRPC + SQLite layout.                                                                                                                        |
+| File                                                                                                  | Use                                                                                                                                                                                                                        |
+| ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`ARCHITECTURE.md`](./ARCHITECTURE.md)                                                                | Top-level Electron + Fastify + tRPC + SQLite layout.                                                                                                                                                                       |
 | [`architecture/`](./architecture/README.md)                                                           | **Architecture Decision Records (ADRs)** — durable decisions for local authority, commands, sync payload contract, outboxes, conflicts, security, modules, runtime modes, money, labor policy, and product search vectors. |
-| [`TRPC_ARCHITECTURE.md`](./TRPC_ARCHITECTURE.md) + [`TRPC_TESTING_GUIDE.md`](./TRPC_TESTING_GUIDE.md) | tRPC procedure design, schema patterns, and HTTP-less testing.                                                                                                              |
-| [`DESKTOP_RUNTIME_GUIDE.md`](./DESKTOP_RUNTIME_GUIDE.md)                                              | Electron-specific runtime notes (sandbox, embedded backend, Node-API native modules).                                                                                       |
-| `architecture.mmd` + `architecture.svg`                                                               | Mermaid + rendered diagram of the system.                                                                                                                                   |
+| [`TRPC_ARCHITECTURE.md`](./TRPC_ARCHITECTURE.md) + [`TRPC_TESTING_GUIDE.md`](./TRPC_TESTING_GUIDE.md) | tRPC procedure design, schema patterns, and HTTP-less testing.                                                                                                                                                             |
+| [`DESKTOP_RUNTIME_GUIDE.md`](./DESKTOP_RUNTIME_GUIDE.md)                                              | Electron-specific runtime notes (sandbox, embedded backend, Node-API native modules).                                                                                                                                      |
+| `architecture.mmd` + `architecture.svg`                                                               | Mermaid + rendered diagram of the system.                                                                                                                                                                                  |
 
 ## Fiscal engine (LATAM)
 
@@ -23,12 +27,12 @@ project. Read the right file for the question, not the whole directory.
 
 ## Vertical scope
 
-| File                                             | Use                                                                 |
-| ------------------------------------------------ | ------------------------------------------------------------------- |
-| [`MODULE-ACTIVATION.md`](./MODULE-ACTIVATION.md) | Per-tenant module gating.                                           |
-| [`HARDWARE-POS.md`](./HARDWARE-POS.md)           | ESC/POS, cash drawer, scanner, peripherals.                         |
+| File                                                                                                           | Use                                                                                                                                 |
+| -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| [`MODULE-ACTIVATION.md`](./MODULE-ACTIVATION.md)                                                               | Per-tenant module gating.                                                                                                           |
+| [`HARDWARE-POS.md`](./HARDWARE-POS.md)                                                                         | ESC/POS, cash drawer, scanner, peripherals.                                                                                         |
 | [Printer setup (English)](./PRINTER-SETUP.md) · [Configuración de impresoras (Español)](./es/PRINTER-SETUP.md) | USB/System, network ESC/POS, local queues and physical acceptance / USB/Sistema, ESC/POS de red, colas locales y aceptación física. |
-| [`WEBHOOKS.md`](./WEBHOOKS.md)                   | Outbound event schema, signatures, retries, examples, and recovery. |
+| [`WEBHOOKS.md`](./WEBHOOKS.md)                                                                                 | Outbound event schema, signatures, retries, examples, and recovery.                                                                 |
 
 ## UX & design system
 
@@ -49,6 +53,7 @@ project. Read the right file for the question, not the whole directory.
 | [`SECURITY.md`](./SECURITY.md)                                   | Auth hardening, rate-limit policy, audit log catalog.                                                                                                                    |
 | [`DEBUGGING.md`](./DEBUGGING.md)                                 | Common dev gotchas.                                                                                                                                                      |
 | [`TROUBLESHOOTING.md`](./TROUBLESHOOTING.md)                     | Operator-facing recovery procedures.                                                                                                                                     |
+| [`OPERATIONS-RUNBOOKS.md`](./OPERATIONS-RUNBOOKS.md)             | Operational recovery, ownership and escalation thresholds.                                                                                                               |
 | [`TESTING.md`](./TESTING.md)                                     | Current CI, E2E, live-smoke, and release-candidate validation contract.                                                                                                  |
 | [`PERF-BUDGETS.md`](./PERF-BUDGETS.md)                           | Performance budgets contract: bundle-size + tRPC p95 latency CI gates anchored on `perf-budget.json`.                                                                    |
 | [`A11Y.md`](./A11Y.md)                                           | Accessibility contract: axe-core component helper, contrast CI gate on theme tokens, ARIA conventions.                                                                   |
@@ -57,9 +62,18 @@ project. Read the right file for the question, not the whole directory.
 
 ---
 
+## Contribution and community
+
+| File                                          | Use                                                 |
+| --------------------------------------------- | --------------------------------------------------- |
+| [`CONTRIBUTING.md`](../CONTRIBUTING.md)       | Contributor setup, conventions and required checks. |
+| [`CODE_OF_CONDUCT.md`](../CODE_OF_CONDUCT.md) | Community pledge, standards and contact.            |
+
 ## Maintenance
 
 Register every new public `docs/*.md` reference in the right section of this
 index in the same commit. Public guides describe current behavior and durable
 architecture only. Internal planning, estimates, ticket maps, and handoffs
 belong in an ignored private planning artifact.
+
+See [translation coverage and maintenance rules](./TRANSLATIONS.md).

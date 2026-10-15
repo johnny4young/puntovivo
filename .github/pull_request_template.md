@@ -1,3 +1,7 @@
+# Pull request template
+
+**Language:** English · [Español](../docs/es/repository/PULL-REQUEST-TEMPLATE.md)
+
 ## What
 
 <!-- What does this PR change? -->

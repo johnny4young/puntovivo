@@ -1,5 +1,7 @@
 # Webhooks
 
+**Language:** English · [Español](es/WEBHOOKS.md)
+
 Puntovivo can deliver a small, versioned set of business events and
 privacy-bounded operational alert transitions to an HTTPS endpoint owned by
 the merchant. This is outbound delivery, not a general REST API: Puntovivo
@@ -33,13 +35,13 @@ Contract version: **1**
 
 Every POST includes:
 
-| Header                   | Meaning                                                                   |
-| ------------------------ | ------------------------------------------------------------------------- |
-| `Idempotency-Key`        | Stable delivery identity; store it before applying an event.              |
-| `X-Puntovivo-Event-Id`   | Stable event identifier.                                                  |
-| `X-Puntovivo-Event-Type` | Event type from the manifest below.                                       |
-| `X-Puntovivo-Timestamp`  | ISO 8601 signing timestamp.                                               |
-| `X-Puntovivo-Signature`  | `v1=` plus the lowercase HMAC-SHA256 digest.                              |
+| Header                   | Meaning                                                      |
+| ------------------------ | ------------------------------------------------------------ |
+| `Idempotency-Key`        | Stable delivery identity; store it before applying an event. |
+| `X-Puntovivo-Event-Id`   | Stable event identifier.                                     |
+| `X-Puntovivo-Event-Type` | Event type from the manifest below.                          |
+| `X-Puntovivo-Timestamp`  | ISO 8601 signing timestamp.                                  |
+| `X-Puntovivo-Signature`  | `v1=` plus the lowercase HMAC-SHA256 digest.                 |
 
 The signed bytes are exactly `timestamp + "." + rawRequestBody`. Verify the
 signature against the raw body before parsing JSON, compare in constant time,

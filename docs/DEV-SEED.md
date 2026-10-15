@@ -1,138 +1,109 @@
-# Developer Seed — Test Data Command
+# Developer seed — disposable test data
 
-> Status: Shipped — April 22, 2026
-> Spec originally captured April 22, 2026; landed same day.
+**Language:** English · [Español](./es/DEV-SEED.md)
 
-A single command that populates a fresh Puntovivo install with a rich
-but deterministic set of test data so developers, QA, and demo
-sessions can exercise the whole app without clicking through every
-catalog form. The command is dev-only — production installs never
-run it.
+The explicit seed command creates demonstration data for development, tests and
+QA. Interactive desktop and standalone entrypoints use `seedData: false`; a
+normal new installation creates its first owner through the login screen.
+Fixture accounts are not a production recovery mechanism.
 
 ## Invocation
 
-From the repo root:
+Run from the repository root against a database you own for disposable testing:
 
-```
-# Default dataset (50 products, ~20 sales, 2 sites, 6 users)
+```bash
+# Default dataset
 pnpm run seed:dev
 
-# Bigger catalog and history
+# Larger catalog
 SEED_PRESET=large pnpm run seed:dev
 
-# MEGA: 90+ days of historical operational data + every page
-# populated for visual UI testing
+# Large catalog plus 90+ days of operational history
 SEED_PRESET=mega pnpm run seed:dev
 
-# Wipe the demo tenant first and reseed (destructive)
+# Replace the demo tenant in the selected disposable database (destructive)
 SEED_RESET=true pnpm run seed:dev
 
-# Combine
+# Combine options
 SEED_PRESET=large SEED_RESET=true pnpm run seed:dev
 SEED_PRESET=mega SEED_RESET=true pnpm run seed:dev
 
-# Print help
+# Country fixtures (default CO)
+SEED_COUNTRY=MX pnpm run seed:dev
+SEED_COUNTRY=CL pnpm run seed:dev
+
+# Help and equivalent direct-workspace flags
 pnpm --filter @puntovivo/server run seed:dev -- --help
-```
-
-### `mega` preset
-
-`SEED_PRESET=mega` builds on `default` and bulk-inserts 90+ days of
-historical operational data so every page has realistic content for
-visual testing. Every timestamp is computed RELATIVE to the seed
-execution time — re-running the seed any future day produces a fresh
-90-day window centered on "today". No hardcoded dates anywhere.
-
-What MEGA fills (counts will vary slightly by run):
-
-| Surface                      | Volume                               | Notes                                               |
-| ---------------------------- | ------------------------------------ | --------------------------------------------------- |
-| Cash sessions                | ~135 closed + 2 open                 | 1 per active cashier per day across 90d             |
-| Sales                        | ~785 historical + ~6 recent via tRPC | Mix of cash / card / transfer / credit              |
-| Refunds (`sales.returnSale`) | ~80                                  | 10% of completed sales                              |
-| Voids (`sales.void`)         | ~45                                  | 5% of completed sales                               |
-| Suspended drafts             | 12                                   | Distributed 0-7 days back                           |
-| Cash movements               | ~175                                 | paid_in / paid_out / skim / replenishment           |
-| Inventory movements          | ~2500                                | sale + purchase + transfer + adjustment + return    |
-| Purchases                    | ~40                                  | + 2 supplier returns                                |
-| Transfers                    | ~27                                  | 2 in_transit, rest completed with discrepancy notes |
-| Quotations                   | ~55                                  | All 5 states (draft/sent/accepted/rejected/expired) |
-| Purchase orders              | 12                                   | submitted / partial_received / received / voided    |
-| Audit logs                   | ~900                                 | sale.create + sale.return + sale.void + others      |
-| Sync queue                   | 5 pending                            | mix of attempts > 0                                 |
-| Sync conflicts               | 4                                    | 2 pending + 2 resolved (different resolutions)      |
-| AI audit log                 | 12                                   | mix of providers + features + 1 failure             |
-| AI anomaly snoozes           | 3                                    | per cashier or aggregate                            |
-| Login attempts               | 8                                    | rate-limit observability data                       |
-| Logos                        | 1                                    | placeholder data URL                                |
-| Category × Provider links    | ~16                                  | populates filter dropdowns                          |
-| Recent sales via tRPC        | ~6                                   | exercises envelope path end-to-end                  |
-
-Run time: ~1-2 seconds on a modern laptop. Bulk SQL inserts dominate;
-the recent-via-tRPC pass is small by design (it's there to verify
-the live envelope path, not pump volume).
-
-The equivalent `--flag` form works when invoking the workspace
-directly (workspace argument forwarding is less portable than env vars,
-which is why env vars are the default
-recipe):
-
-```
 pnpm --filter @puntovivo/server run seed:dev -- --preset=large --reset
 ```
 
-### Which database file does it target?
+The accepted presets are `default`, `large` and `mega`; country values are `CO`,
+`MX` and `CL`. Explicit CLI flags override the environment. Reset deletes the
+`demo-co` tenant and its dependent fixture records before reseeding. The target
+path is not an ownership check: never aim this command at a real business or
+another task's database.
 
-The seed CLI resolves the DB path in this order:
+## Database target and encryption
 
-1. **`DATABASE_URL`** — explicit override, always wins.
-2. **`SEED_TARGET=desktop`** — the per-user Electron data directory
-   (`app.getPath('userData')`), which is what `pnpm run dev:desktop`
-   reads. Use this when you want `dev:desktop` to see the seed.
-3. **Default** — `packages/server/data/local.db`, the same file
-   `pnpm run dev:server` writes to.
+The CLI resolves its file in this order:
 
-Concretely:
+1. `DATABASE_URL`: an explicit override always wins.
+2. `SEED_TARGET=desktop`: the CLI computes its legacy per-user path for
+   `@puntovivo/desktop`; it does not query a running Electron application.
+3. Default: `packages/server/data/local.db`.
 
-| Your next command                        | Seed against                                      |
-| ---------------------------------------- | ------------------------------------------------- |
-| `pnpm run dev:server` (standalone / web) | `pnpm run seed:dev`                               |
-| `pnpm run dev:desktop` (Electron)        | `SEED_TARGET=desktop pnpm run seed:dev`           |
-| Any custom setup                         | `DATABASE_URL=/path/to/your.db pnpm run seed:dev` |
+The legacy computed paths are:
 
-Electron's `app.getPath('userData')` is platform-specific; the
-CLI replicates the logic so you don't have to look it up:
+| Platform | CLI path                                                                                            |
+| -------- | --------------------------------------------------------------------------------------------------- |
+| macOS    | `~/Library/Application Support/@puntovivo/desktop/data/local.db`                                    |
+| Linux    | `$XDG_CONFIG_HOME/@puntovivo/desktop/data/local.db` or `~/.config/@puntovivo/desktop/data/local.db` |
+| Windows  | `%APPDATA%/@puntovivo/desktop/data/local.db`                                                        |
 
-- **macOS**: `~/Library/Application Support/@puntovivo/desktop/data/local.db`
-- **Linux**: `$XDG_CONFIG_HOME/@puntovivo/desktop/data/local.db` (or `~/.config/...`)
-- **Windows**: `%APPDATA%/@puntovivo/desktop/data/local.db`
+These paths do not establish the location of a packaged installation or a
+launcher-managed development database. Prefer an explicit disposable path.
 
-**Heads-up**: quit the Electron app (or stop `dev:desktop`) before
-seeding its DB. SQLite will reject the lock otherwise and the CLI
-will exit with a clear error — but the half-finished seed can leave
-orphan rows.
+The integrated `dev:desktop`, `dev:desktop-shell` and `dev:web-stack` launchers
+normally inject `DATABASE_URL=packages/server/data/shared.db` and a private
+`PUNTOVIVO_DB_KEY`. Their generated key is held in the ignored
+`packages/server/data/shared-db-key.local`. The seed CLI does not automatically
+inherit environment changes made inside a separate launcher process.
+`SEED_TARGET=desktop` therefore does not automatically seed the shared file.
 
-## Authentication after running the seed
+For the same encrypted fixture to be read by seed and development runtime,
+provide both processes with the same explicit database path and the same private
+64-hex-character key through their environment. The CLI honors the key and
+configures the matching audit anchor. Do not print or commit it. Seeding a
+plaintext file and later opening it with a different encryption configuration
+can fail with `SQLITE_NOTADB`; it does not convert the file.
 
-Two independent tenants share the same DB file after seeding — one is
-the baseline `default` tenant the regular server bootstrap creates on
-every fresh install, and the other is the `demo-co` tenant the dev
-seed adds on top. Every login resolves the user's `tenantId` and the
-query builder scopes every subsequent query by that tenant, so the
-two datasets never mix.
+After configuring that private key in both environments, the explicit-path form
+is:
 
-**All seeded accounts share the dev password `Admin123!Dev`** (hashed
-with argon2). Development mode uses this fixed password by default;
-set `PUNTOVIVO_DEV_ADMIN_PASSWORD` before the first boot if you want
-a different baseline admin password.
+```bash
+DATABASE_URL=/absolute/path/to/owned-disposable.db pnpm run seed:dev
+DATABASE_URL=/absolute/path/to/owned-disposable.db pnpm run dev:desktop
+```
 
-### Demo tenant — `demo-co` (Demo Retail Colombia)
+Stop your own app/server using that fixture before seeding or resetting it.
+For bare standalone development, the same path can be selected explicitly:
 
-Log in with any of these to see the rich seed data (50 products,
-30 customers, 20 historical sales, 6 purchases, 5 quotations,
-receipt templates, etc.):
+```bash
+DATABASE_URL=/absolute/path/to/owned-disposable.db pnpm run dev:server
+```
 
-| Email                   | Role      | Name                    |
+## Fixture accounts and tenant isolation
+
+The CLI explicitly initializes the baseline fixture tenant `default`, then adds
+`demo-co`. Business reads resolve the authenticated user's tenant; the two
+datasets do not become one business.
+
+### Demo tenant
+
+The demo accounts use `Admin123!Dev`, hashed with Argon2. This fixed fixture
+password is defined by `DEV_USER_PASSWORD`; it is not a production credential.
+
+| Email                   | Role      | Fixture name            |
 | ----------------------- | --------- | ----------------------- |
 | `admin@demo.co`         | `admin`   | Administrador Demo      |
 | `manager.norte@demo.co` | `manager` | María Manager (Norte)   |
@@ -141,308 +112,110 @@ receipt templates, etc.):
 | `cashier.sur@demo.co`   | `cashier` | Camilo Cajero (Sur)     |
 | `viewer@demo.co`        | `viewer`  | Visor Demo              |
 
-### Default tenant — `default` (Default Business)
+Use the admin for populated screenshots and configuration, and the other roles
+for permission checks. The baseline `admin@localhost` belongs to the separate
+fixture tenant. Its initial password defaults to `Admin123!Dev` and accepts
+`PUNTOVIVO_DEV_ADMIN_PASSWORD` only when at least one of `NODE_ENV` and
+`PUNTOVIVO_RUNTIME_ENV` is declared and every declared marker is `development`
+or `test`. With unset or incompatible markers it generates a password instead;
+the CLI does not set a development marker automatically. This does not change
+the demo constant. Existing baseline accounts and operational
+data are not reset when the demo tenant is replaced.
 
-Untouched by the dev seed. Survives every run of `seed:dev` and
-every `--reset`:
+A first-owner installation test must instead start with an unowned, isolated
+installation. An empty-looking baseline fixture already has an owner and is
+not equivalent to that flow. See [LOGIN_GUIDE.md](./LOGIN_GUIDE.md).
 
-| Email             | Role    | Tenant data                                      |
-| ----------------- | ------- | ------------------------------------------------ |
-| `admin@localhost` | `admin` | Empty — 1 site, 0 products, 0 customers, 0 sales |
+## Dataset coverage
 
-Useful when you want to test a fresh-install / first-day flow without
-losing the demo data, or to compare "populated vs empty" UI states
-side by side.
+The ordinary catalog uses stable fixture names, SKUs and prices. Generated ids,
+password hashes and execution-relative dates mean two database files are not
+promised to be byte-identical.
 
-### Which login to use when
+| Preset    | Coverage                                                                                                                                       |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `default` | 50 products, two sites, six demo users, customers, providers, categories, unit assignments, stock, receipt templates and operational examples. |
+| `large`   | 500 products with the larger catalog/history paths for search and list testing.                                                                |
+| `mega`    | The large foundation plus 90+ days of historical operations and a small recent-sales pass through tRPC.                                        |
 
-- **Demos, QA of populated-UI flows, screenshots**: `admin@demo.co`.
-- **Testing empty-tenant states, first-run wizards, migrations on a
-  clean slate**: `admin@localhost`.
-- **Role-gating QA** (making sure a cashier cannot open Setup, etc.):
-  `cashier.norte@demo.co` / `manager.norte@demo.co` / `viewer@demo.co`
-  against the demo tenant.
+The fixtures include company, geography, tax/identification catalogs, two-site
+numbering prefixes, customers, stock, purchases, quotations, cash sessions and
+receipt templates. Prefixes such as `VTA-N-` and `VTA-S-` avoid collisions between
+site sequences under tenant-wide uniqueness constraints. Actual counts of
+completed sales can vary when a fixture hits stock guards.
 
-### Verify the two-tenant split
+The mega path adds historical sales, returns, voids, drafts, cash movements,
+inventory movements, purchases and supplier returns, transfers, quotations,
+purchase orders, audit evidence, sync queue/conflicts, AI audit, login attempts
+and a placeholder logo. Its dates are relative to execution, not a frozen
+calendar window. Development country profiles and fiscal fixtures are software
+test data; they do not demonstrate authority transmission or certification.
 
-```bash
-sqlite3 packages/server/data/local.db \
-  "SELECT tenants.slug, COUNT(products.id) FROM tenants
-   LEFT JOIN products ON products.tenant_id = tenants.id
-   GROUP BY tenants.slug"
-```
+The canonical builders are
+[seed-dev.ts](../packages/server/src/db/seed-dev.ts) and
+[seed-mega/](../packages/server/src/db/seed-mega/).
 
-Expected output after a fresh `pnpm run seed:dev`:
+## Repeating and resetting
 
-```
-default|0
-demo-co|50
-```
+Without `SEED_RESET=true`, an existing demo tenant makes the data builder a
+no-op; the CLI can still print its fixture credentials. With reset, the demo
+and its dependent records are removed before rebuilding. Do not interpret
+idempotency as permission to run against an unknown database.
 
-### Resetting
+For a clean full fixture, choose a new owned disposable file and seed it.
+Do not delete an existing installation database to obtain a fresh state or to
+recover an account. This guide provides no production data-erasure procedure.
 
-- **Just the demo tenant** (keeps `admin@localhost` intact):
-  `SEED_RESET=true pnpm run seed:dev`.
-- **Everything — nuclear**: delete the DB file and let the baseline
-  regenerate. Works when `DATABASE_URL` is not set (defaults to
-  `packages/server/data/local.db`):
+## Production boundary
 
-  ```bash
-  rm -f packages/server/data/local.db
-  pnpm run seed:dev
-  ```
-
-  The server's `initDatabase()` recreates the schema and runs the
-  baseline seed (creating the `default` tenant + `admin@localhost`)
-  before `seedDevData()` adds the demo tenant on top.
-
-## What it creates
-
-All data is deterministic (fixed names, SKUs, prices) so two runs
-produce byte-identical output. This keeps snapshot-style tests
-stable and makes bug repros reproducible.
-
-### Tenant + users
-
-See [Authentication after running the seed](#authentication-after-running-the-seed)
-above — that section is the canonical list of tenants, users, roles,
-passwords, and which login to use for what. Everything below ("Company
-
-- sites", catalogs, historical data) lives inside the `demo-co`
-  tenant; the `default` tenant the baseline seed creates stays empty
-  and untouched.
-
-### Company + sites + locations
-
-- 1 company: `Demo Retail Colombia S.A.S.`, NIT `900.123.456-7`,
-  Bogotá address + phone.
-- 2 active sites: `Sede Norte` (Calle 100 #10-23) and `Sede Sur`
-  (Cra 13 #38-45).
-- 4 locations (tenant-wide): `Principal`, `Bodega`, `Exhibición`,
-  `Dañados`, each with a unique `LOC-NN` code.
-
-### Geography
-
-- 1 country (Colombia), 1 department (Cundinamarca), 1 city
-  (Bogotá D.C.) so customer addresses resolve cleanly.
-
-### Catalog masters
-
-- **3 VAT rates**: IVA 0%, 5%, 19%.
-- **5 units**: Unidad (UND), Kilogramo (KG), Litro (LT), Gramo (GR),
-  Paquete (PQTE).
-- **5 identification types**: CC, NIT, CE, PA, TI.
-- **2 person types**: Persona natural, Persona jurídica.
-- **2 regime types**: Responsable de IVA, No responsable de IVA.
-- **2 client types**: Minorista, Mayorista.
-- **2 commercial activities**: comercio retail (CIIU 4711 y 4723).
-- **8 document-sequential rows per site**: sale / purchase / order
-  / quotation, each with a site-specific prefix so the tenant-scoped
-  `(tenant_id, sale_number)` / `(tenant_id, purchase_number)` unique
-  constraints never collide across sites. Sede Norte gets `VTA-N-`,
-  Sede Sur gets `VTA-S-`, etc.
-
-### Categories + providers
-
-- **8 categories** covering a Colombian tienda: Abarrotes, Bebidas,
-  Lácteos, Panadería, Carnicería, Limpieza, Papelería, Licores.
-- **5 providers** (one per category group-ish) with Colombian NITs
-  and realistic contacts.
-
-### Customers
-
-30 customers mixing natural persons, juridical entities, and
-passport-holders:
-
-- 20 `CC` (natural) — realistic Colombian names (`Juan Pérez`,
-  `María López`, ...).
-- 7 `NIT` (juridical) — store / service companies (`Ferretería La
-13 S.A.S.`, `Restaurante Doña Lucha`, ...).
-- 2 `PA` (passport) — foreign visitors.
-- 1 `Consumidor final` placeholder (NIT `222222222222`) for
-  anonymous sales.
-
-### Products
-
-Default preset: **50 products** across the 8 categories, with unit
-assignments, barcodes (half of them EAN-13), provider references, and
-initial stock split 60/40 between Sede Norte and Sede Sur.
-
-Stock is deterministically distributed so every category has:
-
-- One SKU with **0 stock** (exercises the stock-out banner and the
-  sales-time insufficient-stock error).
-- A few SKUs with moderate stock (10–50 units).
-- A few SKUs with high stock (100–200 units).
-
-VAT rates are assigned by category (abarrotes: 0% / 5%; bebidas:
-mostly 19%; lácteos + panadería + carnicería: 0%; limpieza +
-papelería + licores: 19%) so a typical sale has a mix of rates.
-
-`--preset=large` bumps the catalog to **500 products** (same category
-distribution, with synthetic `v2`, `v3`, ... name suffixes) for stress
-tests of list views and search.
-
-### Receipt templates
-
-- 1 template per kind (sale / quotation / fiscal_dee), built from
-  the default layouts in
-  `apps/web/src/features/receipt-templates/defaultLayouts.ts` so the
-  editor never opens blank.
-
-### Historical operational data
-
-Populated via the tRPC caller so every row lands through the same
-service transaction path the UI uses — this guarantees
-`products.stock = Σ(inventory_balances.on_hand)` and every other
-invariant the production code enforces.
-
-- **Historical purchases**: `preset * 3` per site (6 default, 12
-  large), spread across providers with 2–4 items each.
-- **Historical sales**: 10 per cashier in the closed historical
-  session + 10 per cashier in the currently-open session (20 per
-  cashier, 40 large). About a third are split tenders (cash + card
-  with a fake auth code); about a fifth are `consumidor final`
-  (no customer linked).
-- **Cash sessions**: each cashier has one closed session and one
-  open session, so the dashboard renders both active and
-  historical balances.
-- **Quotations**: 5 (default) / 10 (large) distributed across the
-  `draft` / `sent` / `accepted` / `rejected` / `expired` states so
-  every filter chip in the quotations page has results.
-- **Inventory transfers**: 3 (default) / 5 (large) between the two
-  sites with random origin/destination.
-- **Stock adjustments**: 4 (default) / 6 (large) hitting
-  `inventory.adjustStock` so the `inventory.adjust_stock` audit
-  row gets populated.
-
-## Production guard
-
-The CLI refuses to run when `NODE_ENV=production` or
-`PUNTOVIVO_RUNTIME_ENV=production`:
-
-```
-$ NODE_ENV=production pnpm run seed:dev
-[seed-dev] refusing to run: NODE_ENV / PUNTOVIVO_RUNTIME_ENV is production.
-[seed-dev] If you really want demo data in production (you do not), unset the env var first.
-```
-
-The underlying `seedDevData()` function has no such guard — it is
-safe to call from tests that run against `:memory:`. The guard lives
-on the CLI entry only.
-
-## Idempotency
-
-- Without `SEED_RESET=true`, a second invocation on a DB that already
-  contains the demo tenant is a **no-op**. The CLI still prints the
-  credentials so the operator can copy them.
-- With `SEED_RESET=true`, the CLI wipes the demo tenant + all FK
-  children in safe order and then reseeds. Cascades on `products`,
-  `sale_items`, `sale_payments`, `quotation_items`, `purchase_items`,
-  `transfer_order_items`, and `unit_x_product` / `product_x_provider`
-  do most of the deletion; the CLI deletes the remaining parent
-  tables scoped by `tenant_id`.
+Do not run this CLI on production data. Its current production guard checks
+`PUNTOVIVO_RUNTIME_ENV` when non-empty, otherwise `NODE_ENV`, and refuses the
+literal value `production`. This is not an independent proof that a selected
+file is a development database. Do not change production markers to bypass a
+refusal. The underlying `seedDevData()` is also used directly by isolated tests;
+its caller must provide the correct data boundary.
 
 ## Troubleshooting
 
-### `pnpm run seed:dev` exits with code 137 (SIGKILL)
+### Exit 137
 
-Exit 137 = 128 + 9 (SIGKILL). The seed itself is small (~2 MB of data
-in total) so it never runs out of memory on its own; when the CLI
-dies with 137 the usual culprit is **file-lock contention against the
-DB**. SQLite in WAL mode allows concurrent readers, but the seed takes
-an exclusive write lock at migration / transaction time and will be
-killed by the OS if it cannot acquire it within the SQLite busy timeout.
+Exit 137 indicates SIGKILL (128 + signal 9). It does not establish why the
+process was killed and is not proof of SQLite contention. Check the owning
+supervisor/test timeout, operating-system memory pressure and available logs.
+A SQLite busy error is a separate diagnostic.
 
-Check for zombie `dev:server` processes first — `tsx watch` keeps
-them alive across terminal sessions and they hold the DB file open:
+Inspect only the processes that use your chosen fixture:
 
 ```bash
-ps aux | grep -E "tsx watch|standalone" | grep -v grep
-lsof packages/server/data/local.db  # shows PIDs holding the file
+lsof /absolute/path/to/owned-disposable.db
 ```
 
-If anything is listed, kill it before running the seed:
+Stop only processes you own through their normal shutdown. Do not sweep other
+worktrees' servers with a broad kill command. If another app owns the selected
+file, use a different disposable target.
+
+### Numbering collisions
+
+The fixtures create per-site prefixes. If manually inserted sequences collide,
+inspect the selected database and the failing constraint. Do not reset a real
+business to bypass a numbering error.
+
+### Unexpected data under the baseline account
+
+The baseline tenant retains prior development activity. Demo reset does not
+clear it. Choose a new disposable file to compare a clean baseline with the
+populated demo, rather than deleting the old file.
+
+## Implementation and tests
+
+- [CLI](../packages/server/src/scripts/seed-dev.ts): options, target selection and guard.
+- [Audit-key setup](../packages/server/src/scripts/seed-dev-security.ts): matching encrypted audit anchors.
+- [Builder tests](../packages/server/src/__tests__/seed-dev.test.ts): fixture rows, idempotency, monetary/stock invariants and tenant isolation.
+- [Server scripts](../packages/server/package.json) and [root scripts](../package.json).
 
 ```bash
-pkill -f "tsx watch src/standalone-development.ts"
-pkill -f "dev-launcher.mjs server"
+pnpm --filter @puntovivo/server run test -- seed-dev
 ```
 
-Other rare causes:
-
-- **Another Electron instance** (`pnpm run dev:desktop` or a packaged build)
-  pointing at the same DB path. Either close it or point the seed at
-  a different `DATABASE_URL`.
-- **Actual macOS memory pressure** killing node processes during a
-  heavy test run. Usually clears after 30s; re-try.
-
-### `"UNIQUE constraint failed: purchases.tenant_id, purchases.purchase_number"`
-
-The seed per-site prefixes (`VTA-N-`, `VTA-S-`) prevent this inside a
-single run, but if you already ran the seed once and then called it
-again **without** `SEED_RESET=true` while the demo tenant exists, it
-short-circuits cleanly. The error only shows up if you manually
-insert sequentials with colliding prefixes outside the seed.
-
-### The default tenant is not empty on my machine
-
-The baseline seed only creates `admin@localhost`, but
-`packages/server/data/local.db` also accumulates data from every
-prior `pnpm run dev:server` session, E2E test run, and manual QA click.
-`seed:dev` never touches the default tenant, so any demo data you
-created under `admin@localhost` in earlier runs survives.
-
-If you want a truly empty `default` tenant alongside the populated
-`demo-co`:
-
-```bash
-rm -f packages/server/data/local.db
-pnpm run seed:dev
-```
-
-The nuclear reset recreates both from scratch.
-
-## Implementation files
-
-```
-packages/server/src/db/seed-dev.ts              # seedDevData() — the data builder
-packages/server/src/scripts/seed-dev.ts         # CLI entry (production guard, args, banner)
-packages/server/src/__tests__/seed-dev.test.ts  # vitest suite (row counts, invariants, isolation)
-packages/server/package.json                    # "seed:dev" npm script
-package.json                                    # root "seed:dev" shortcut
-```
-
-## Tests
-
-Run with `pnpm --filter @puntovivo/server run test -- seed-dev`:
-
-- Demo tenant created with slug `demo-co`.
-- 6 users tagged to the demo tenant, argon2 hash verifies
-  `Admin123!Dev`.
-- 50 products + 30 customers + 5 providers + 2 sites + 8 categories +
-  3 receipt templates.
-- Invariant `products.stock = Σ(inventory_balances.on_hand)` per
-  product.
-- At least 10 historical sales (allowing stockout skips).
-- Second `seedDevData()` call on the same DB returns
-  `{ seeded: false }`.
-- Default tenant sees zero of the demo data (cross-tenant isolation).
-
-## Out of scope
-
-- **Multi-tenant seed** (2+ tenants in one run). The seed intentionally
-  creates one tenant (`demo-co`) so it mirrors the Electron
-  single-install reality. Future `--multi-tenant` flag could add a
-  second tenant for tests that exercise isolation.
-- **Generating real logo images** — the seed leaves `logos` empty; the
-  receipt preview renders an empty placeholder where the logo block
-  would sit.
-- **Seeding fiscal documents**. Waits for
-  `fiscal_documents` / `fiscal_document_items` to land.
-- **Backdating history** — all seeded rows currently have the same
-  `created_at` timestamp (`now`). The dashboard's time filters will
-  show everything under "Today". Adding a backdating pass is a
-  follow-up: after seeding, issue one `UPDATE sales SET created_at = ?
-WHERE id = ?` per sale with a deterministic distribution across the
-  last 14 days.
+The test suite uses isolated data. No production seed, reset or physical-device
+acceptance is implied by those tests.

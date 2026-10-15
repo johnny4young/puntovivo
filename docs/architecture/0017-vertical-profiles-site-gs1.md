@@ -1,5 +1,7 @@
 # 0017 — Vertical profiles, operational precision, and site GS1 authority
 
+**Language:** English · [Español](../es/architecture/0017-vertical-profiles-site-gs1.md)
+
 > Status: Accepted
 > Date: 2026-09-01
 

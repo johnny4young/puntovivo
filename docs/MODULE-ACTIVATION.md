@@ -1,5 +1,7 @@
 # Module activation
 
+**Language:** English · [Español](es/MODULE-ACTIVATION.md)
+
 Puntovivo ships one codebase whose optional capability bundles can be enabled
 per tenant without deleting historical data or forking the product.
 
@@ -39,6 +41,8 @@ and `RequireModule`; routes and navigation must apply the same gate.
 | `kds`               | optional |    2 | off              | off               | Kitchen display               |
 | `customer-display`  | optional |    2 | off              | off               | Privacy-minimal second screen |
 | `mobile-waiter`     | optional |    2 | off              | off               | Mobile waiter                 |
+| `companion`         | optional |    2 | off              | off               | Owner mobile companion        |
+| `dine-in`           | optional |    2 | off              | off               | Table service                 |
 | `delivery`          | optional |    2 | off              | off               | Delivery                      |
 
 `RING1_RETAIL_PROFILE` is the explicit profile written for a fresh retail

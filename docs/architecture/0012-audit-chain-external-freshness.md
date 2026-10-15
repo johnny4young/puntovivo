@@ -1,5 +1,7 @@
 # 0012 — Audit Chain External Freshness
 
+**Language:** English · [Español](../es/architecture/0012-audit-chain-external-freshness.md)
+
 > Status: Accepted
 > Date: 2026-08-28
 

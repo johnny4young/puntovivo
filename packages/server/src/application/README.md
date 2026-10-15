@@ -1,6 +1,8 @@
 # `application/` — use-case boundary
 
-> Status: Active (introduced by )
+**Language:** English · [Español](README.es.md)
+
+> Status: Active
 > Companion ADRs: [ADR-0001](../../../../docs/architecture/0001-local-store-authority.md), [ADR-0002](../../../../docs/architecture/0002-command-envelope.md)
 
 The `application/` directory hosts the **stable use-case boundary** for
@@ -11,9 +13,7 @@ all call without re-implementing the orchestration.
 
 ## Why this layer exists
 
-Before , the orchestration for sales lived inline inside the
-tRPC router (`packages/server/src/trpc/routers/sales.ts`). The router
-file grew past 2670 lines because each procedure inlined:
+Keeping orchestration inline in a transport router couples these responsibilities:
 
 - input shaping (resolving items, payments, tenders)
 - pre-checks (cash session open, customer valid, ownership)
@@ -34,7 +34,7 @@ the use-case input and returns whatever the use-case returns.
 | Location       | What lives there                                                   | Examples                                                                                                                          |
 | -------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
 | `services/`    | **Primitives** invoked by multiple use-cases                       | `audit-logs.ts`, `idempotency/`, `operation-journal/`, `cash-session.ts` (helpers), `fraction-policy.ts`, `inventory-balances.ts` |
-| `application/` | **Use-cases** that orchestrate primitives behind a stable boundary | `sales/completeSale.ts`, future `sales/voidSale.ts`, `sales/returnSale.ts`, `cash-sessions/openSession.ts`, ...                   |
+| `application/` | **Use-cases** that orchestrate primitives behind a stable boundary | `sales/completeSale.ts`, `sales/voidSale.ts`, `sales/returnSale.ts`, `cash-sessions/openSession.ts`, ...                          |
 
 A use-case typically:
 
@@ -78,17 +78,9 @@ codes) but no longer carry the orchestration coverage.
 
 ## Related implementation
 
-- created this layer with `sales/completeSale`.
-- will add `sales/voidSale`, `sales/returnSale`,
-  `sales/discardDraft` and shared sale lifecycle policies.
-- introduced `cash-sessions/` for the cash session aggregate
-  boundary.
-- promoted inventory entry, movement, adjustment and transfer
-  mutations into `inventory/`, while transfer/read queries remain in
-  `services/`.
-- promoted product create/update orchestration into `products/`;
-  catalog assignment and hydration primitives live in `services/products/`,
-  while the tRPC write adapter retains only role/input guards and soft delete.
-- promoted manual customer-ledger payments and adjustments into
-  `customers/`; balance and entry queries remain in the tRPC router, which
-  retains the manager/admin and admin-only write guards.
+- `sales/completeSale` handles sale completion.
+- `sales/voidSale`, `sales/returnSale` and `sales/discardDraft` own their lifecycle transitions.
+- `cash-sessions/` owns the cash session aggregate boundary.
+- `inventory/` owns entry, movement, adjustment and transfer mutations; transfer/read queries remain in `services/`.
+- `products/` owns create/update orchestration; catalog assignment/hydration primitives live in `services/products/`; the tRPC adapter retains role/input guards and soft delete.
+- `customers/` owns manual ledger payments and adjustments; balance/entry queries remain in the router with manager/admin and admin-only write guards.

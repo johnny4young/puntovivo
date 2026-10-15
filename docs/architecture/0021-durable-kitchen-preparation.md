@@ -1,5 +1,7 @@
 # ADR-0021 — Durable kitchen preparation
 
+**Language:** English · [Español](../es/architecture/0021-durable-kitchen-preparation.md)
+
 - Status: Accepted
 - Date: 2026-09-03
 - Supersedes: the post-commit KDS boundary in ADR-0020

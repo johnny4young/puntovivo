@@ -1,5 +1,7 @@
 # 0004 — Conflict Policy
 
+**Language:** English · [Español](../es/architecture/0004-conflict-policy.md)
+
 > Status: Accepted
 > Date: 2026-05-02
 
@@ -33,21 +35,20 @@ local-acknowledgement limitation.
 
 ---
 
-## Entidades de alto riesgo _(en español por convención fiscal y contable)_
+## High-risk entities
 
-Las siguientes entidades **nunca** aceptan resolución automática.
-Cualquier conflicto detectado por el sync queda en estado
-`pending` y exige acción humana:
+The following core families never accept automatic resolution. Conflicts remain
+`pending` and need human review; the complete classification is maintained in
+`SYNC_CONFLICT_POLICY`, not inferred from this illustrative list.
 
-**Ventas y devoluciones**
+**Sales and returns**
 
 - `sales`
 - `sale_payments`
 - `sale_returns`
-- `sale_items` _(snapshot inmutable; un conflicto aquí indica
-  corrupción y debe inspeccionarse, no resolverse)_
+- `sale_items` (immutable snapshot; a conflict requires corruption investigation, not overwrite)
 
-**Caja**
+**Cash**
 
 - `cash_sessions`
 - `cash_movements`
@@ -58,9 +59,9 @@ Cualquier conflicto detectado por el sync queda en estado
 - `fiscal_document_items`
 - `fiscal_numbering_resolutions`
 - `fiscal_certificates`
-- `fiscal_outbox` _(introducida por )_
+- `fiscal_outbox`
 
-**Inventario operacional**
+**Operational inventory**
 
 - `inventory_movements`
 - `inventory_balances`
@@ -68,24 +69,14 @@ Cualquier conflicto detectado por el sync queda en estado
 - `transfer_order_items`
 - `stock_adjustments`
 
-**Auditoría**
+**Audit**
 
-- `audit_logs` _(snapshot inmutable; nunca se sobreescribe)_
+- `audit_logs` (immutable snapshot; never overwritten)
 
-**Razón**: estas entidades son la base contable y legal del
-tenant. Una resolución automática podría:
-
-- Duplicar un cobro (sales + sale_payments).
-- Borrar una nota de crédito ya emitida al SAT (fiscal_documents).
-- Desbalancear una sesión de caja cerrada (cash_sessions +
-  cash_movements).
-- Romper la trazabilidad de stock entre sedes (transfer_orders).
-- Romper la cadena legal de auditoría (audit_logs).
-
-El daño en cualquiera de estos casos es **irreversible sin
-intervención humana**. La política de conflictos automática
-"último escritor gana" es matemáticamente correcta para datos sin
-significado contable; aquí no.
+These rows form the tenant's accounting and fiscal evidence. An automatic winner
+could duplicate a charge, erase a fiscal credit note, unbalance closed cash,
+lose inter-site stock provenance, or break the audit chain. Human intervention
+is required to preserve business meaning; timestamp ordering alone cannot do so.
 
 ---
 
@@ -122,7 +113,7 @@ boundaries before using a timestamp:
 
 - `sites`
 - `locations`
-- `site_peripherals` _(when ships)_
+- `site_peripherals`
 
 **Sync metadata itself**
 
@@ -155,15 +146,13 @@ implemented undo action or permission to mutate committed business evidence.
 
 ## Alternatives Rejected
 
-- **Last-write-wins universal** — corrupts contabilidad y rompe
-  trazabilidad fiscal. Un timing accidental haría que una
-  cancelación SAT sobreescriba el comprobante original.
+- **Universal last-write-wins** — corrupts accounting and fiscal provenance;
+  accidental ordering could overwrite an original document with cancellation.
 - **CRDT merge for everything** — insufficient for financial
   integrity. Money and tax fields cannot be merged by additive
   semantics; conflicting amounts always require human judgment.
-- **Block all entities for manual review** — lentitud operacional
-  insostenible. Un operator no debería revisar conflictos de
-  catálogo de productos cuando el sync trae un cambio menor.
+- **Block every entity for manual review** — creates unnecessary operational
+  work for minor safe catalog metadata changes.
 - **Use timestamps with vector clocks** — adds complexity without
   fixing the integrity problem. Even with perfect ordering, a
   conflict on `sale_payments` still requires human review to

@@ -1,278 +1,142 @@
-# 0007 — Module Activation Kernel
+# 0007 — Module activation kernel
+
+**Language:** English · [Español](../es/architecture/0007-module-activation.md)
 
 > Status: Accepted
-> Date: 2026-05-07
-> Updated: 2026-09-03
+> Initial decision: 2026-05-07
+> Current manifest, store and delivery boundaries reviewed: 2026-10-15
 
 ## Decision
 
-Per-tenant module activation lives in the existing `tenants.settings`
-JSON column under the key `modules`, NOT in a dedicated `tenant_modules`
-table. The single source of truth for module ids, default state, role
-visibility, and i18n key mapping is the manifest at
-`packages/server/src/services/modules/manifest.ts`.
+Activation lives in the existing `tenants.settings` JSON under `modules`, not a
+`tenant_modules` table. `packages/server/src/services/modules/manifest.ts` owns
+`MODULE_IDS`, `MODULES_MANIFEST`, defaults, classification, role visibility and
+i18n descriptors. `Record<ModuleId, ...>` makes the mapping exhaustive.
 
-The renderer reads the effective state once per session via
-`modules.getEffective` (a `tenantProcedure` query) and exposes it
-through `useIsModuleActive(moduleId)` from
-`apps/web/src/features/modules/`. Server-side procedures gate via
-`createModuleGuard(moduleId)` middleware composed onto the standard
-role factories — `adminProcedureWithModule`,
-`managerOrAdminProcedureWithModule`, etc.
+Effective state combines manifest defaults with explicit tenant overrides.
+`RING1_RETAIL_PROFILE` writes a deliberate core-only profile for a fresh retail
+tenant. Existing tenants without overrides retain manifest defaults. The five
+original modules default on in the manifest; that does not mean optional AI is
+on for every new retail tenant. Surfaces, Companion, table service and public
+events are opt-in. See the complete [module catalog](../MODULE-ACTIVATION.md).
 
-When a deactivated module's procedure is called, the server returns
-`FORBIDDEN` with structured error code `MODULE_NOT_ACTIVATED` and a
-`details.moduleId` payload so the renderer can show a translated
-"feature not available" toast distinct from a role-FORBIDDEN. Module
-deactivation is **soft** — rows persist; reading is gated, not
-deleted.
+Deactivation is soft: historical rows survive, but protected behavior is gated.
+A disabled procedure returns `FORBIDDEN` with `MODULE_NOT_ACTIVATED` and
+`details.moduleId`, distinguishable from a role denial. Unknown identifiers
+return `MODULE_UNKNOWN`. Module state never substitutes for tenant or role authority.
 
-Soft deactivation must not hide live operational work. Disabling `dine-in`,
-including through a vertical preset, is rejected while the tenant has an open
-normalized restaurant service or any table-linked draft. The guard, settings
-write, audit row, canonical result, and idempotency completion share one
-`BEGIN IMMEDIATE` transaction so a check cannot open between the decision and
-the module update. Legacy sales commands are not an escape hatch: creating,
-suspending, moving, or splitting a draft onto a physical table revalidates
-`dine-in` inside its own writer transaction and fails closed when disabled.
+## Server and command boundaries
 
-The kernel ships with five demo modules wired end-to-end so future
-work can light up vertical packs () and the public API
-() by registering more entries in the manifest:
+`createModuleGuard(moduleId)` composes with `adminProcedureWithModule`,
+`managerOrAdminProcedureWithModule`, `cashierManagerOrAdminProcedureWithModule`
+and `tenantProcedureWithModule`. Ordinary `adminProcedure` and
+`managerOrAdminProcedure` remain separate for non-module procedures.
 
-- `copilot` — `/co-pilot` route + `ai.copilot.chat`.
-- `operations-center` — `/operations` route + `reports.diagnostics.*`.
-- `quotations` — `/quotations` route + `quotations.*`.
-- `anomaly-detection` — dashboard tile + `ai.anomalies.{list,snooze}`.
-- `semantic-search` — sparkles toggle on Products + `products.semanticSearch`,
-  `products.regenerateEmbeddings`, `products.suggestCategory`.
+The current namespace exposes `modules.list` for manager/admin, authenticated
+`modules.getEffective`, and administrator critical commands `modules.setActive`
+and `modules.applyPreset`. Writes use the Command Envelope/device identity and
+complete settings, audit, canonical result and idempotency inside the domain
+transaction. Atomic JSON updates preserve sibling fiscal/AI/locale settings.
 
-Default state for every demo module is `enabled: true`. Tenants that
-have never been toggled see no behavior change after the kernel lands.
+Disabling `dine-in`, including through a preset, rejects an open normalized
+restaurant service or any table-linked draft. The check and update share
+`BEGIN IMMEDIATE`; no service can open between them. Creating, suspending,
+moving or splitting a draft onto a physical table independently revalidates
+`dine-in` under its own writer. Legacy sale paths cannot bypass the gate.
 
-## Alternatives Rejected
+Presets apply a server-owned patch rather than replacing arbitrary settings.
+Existing optional choices outside the patch survive. Company controls invalidate
+both `modules.list` and `modules.getEffective` after a successful change.
+Audit records distinguish `'module.toggle'` and `'module.preset_applied'` with
+resource type `'tenant_module'`, without exposing secret settings.
 
-- **Dedicated `tenant_modules` table** — Would require a schema
-  migration plus a per-call join for every gate. Adding or removing
-  a module would require migration plus role-gated CRUD over the
-  table. The JSON blob already exists, the existing fiscal/AI gate
-  precedent (`fiscal_dian_enabled`, `fiscal.mx.enabled`,
-  `fiscal.cl.enabled`, `ai.enabled`) shows the pattern works, and
-  the manifest's TypeScript exhaustiveness check guards typos at
-  compile time.
-- **Module-id enum at the DB level** — Too rigid. A new module
-  would require migration before the application layer could use it.
-  Manifest-as-source-of-truth + JSON storage gives the same type
-  safety on the application side without the ALTER TABLE round-trip.
-- **Per-module compile-time flag** — Would force a rebuild for
-  SaaS-style activation. Runtime JSON read is the right tradeoff:
-  a single in-memory hit per request, and the `ai.enabled` /
-  `fiscal_dian_enabled` precedents already pay this cost without
-  measurable latency.
-- **Hard disable on toggle-off** (data export + scrubbed) — Out of
-  scope for v1. Acceptance criteria says "deactivation hides
-  behavior without deleting rows"; soft disable matches. A future
-  change can add hard disable for compliance scenarios where the
-  tenant must demonstrate data scrubbing.
+## Renderer state and routes
 
-## Implementation Impact
+`apps/web/src/features/modules/ModulesContext.ts` now owns a Zustand store,
+not the old React provider. `ModulesSync` mounts once inside authenticated
+application context and `useModulesSync()` bridges `modules.getEffective` into
+that store. The query uses a five-minute stale time and no window-focus refetch;
+admin mutations invalidate it explicitly. Logout resets the store so another
+tenant does not inherit its flags.
 
-- New manifest at `packages/server/src/services/modules/manifest.ts`
-  — `MODULE_IDS` tuple, `MODULES_MANIFEST` record, helpers
-  `isModuleId`, `resolveModulesState`, `visibleDescriptors`,
-  `buildModulesBlob`. `Record<ModuleId, ...>` exhaustiveness blocks
-  forgotten arms at compile time.
-- New middleware factory at
-  `packages/server/src/trpc/middleware/modules.ts` — exports
-  `createModuleGuard(moduleId)`, plus pre-composed factories
-  `adminProcedureWithModule`, `managerOrAdminProcedureWithModule`,
-  `cashierManagerOrAdminProcedureWithModule`,
-  `tenantProcedureWithModule`. Existing `adminProcedure` /
-  `managerOrAdminProcedure` stay untouched so non-module routes do
-  not pay the JSON-read cost.
-- New tRPC namespace `modules.*` with three procedures (`list`,
-  `getEffective`, `setActive`). `setActive` is composed under
-  `criticalCommandAdminProcedure` (ADR-0002) so each toggle ships an
-  envelope + device id and lands in the audit log
-  (`action='module.toggle'`, `resourceType='tenant_module'`).
-- New error codes `MODULE_NOT_ACTIVATED` + `MODULE_UNKNOWN` in
-  `packages/server/src/lib/errorCodes.ts`, mirrored in
-  `apps/web/src/lib/translateServerError.ts` so the renderer
-  surfaces a translated toast distinct from role-FORBIDDEN.
-- Audit-log enum extension — `auditLogActionEnum` gains
-  `'module.toggle'`, `auditLogResourceTypeEnum` gains
-  `'tenant_module'`. The renderer's `AuditLogAction` /
-  `AuditLogResourceType` mirror the change so the audit-logs page
-  picker shows the new entry.
-- Renderer kernel at `apps/web/src/features/modules/` —
-  `ModulesProvider` mounted between `TenantProvider` and the route
-  tree, exposing `useIsModuleActive(moduleId)` +
-  `useModulesSnapshot()`. `RequireModule` component for routes,
-  sidebar entries, and dashboard cards. While the
-  `modules.getEffective` query is in flight, the manifest defaults
-  apply (every demo module defaults to `true` today, so this is
-  optimistic-with-redirect — no flash of hidden routes on cold boot).
-- Route gating in `apps/web/src/App.tsx` — `<ShellRoute>` accepts
-  `allowedModule?: ClientModuleId`. When the module is off, the
-  route redirects to `/dashboard`. Sidebar entries in
-  `apps/web/src/components/layout/Sidebar.tsx` accept
-  `requiredModule?: ClientModuleId`; the filter step hides the entry
-  when the module is off.
-- Admin tab `/company?tab=modules` — `CompanyModulesCard` lists
-  every module from `modules.list`, each row has a toggle that
-  fires `modules.setActive` (critical mutation). On success, the
-  card invalidates both `modules.list` and `modules.getEffective`
-  so the admin tab + the renderer-wide context refetch on the same
-  tick.
-- Dev seed at `packages/server/src/db/seed-dev.ts` — initializes
-  `settings.modules` with every demo module ON for the demo tenant.
+`useIsModuleActive(moduleId)` and `useModulesSnapshot()` retain their public
+signatures. Known manifest defaults fill a cold snapshot; the placeholder state
+is not authoritative permission. Server guards still enforce every request.
+`RequireModule` controls subtree/fallback rendering. `<ShellRoute>` uses
+`allowedModule?: ClientModuleId`; sidebar descriptors use
+`requiredModule?: ClientModuleId`. A disabled route redirects to `/dashboard`.
 
-## Coupled invariants
-
-- **`ai.enabled` flag** — Stays as-is. The `copilot` module is a
-  SEPARATE gate (controls visibility of `/co-pilot`); `ai.enabled` is
-  a runtime gate (controls whether the LLM provider is configured).
-  Both gates can be on/off independently. When `copilot=false` the
-  route hides; when `ai.enabled=false` but `copilot=true`, the route
-  shows but the chat returns "configure AI in settings".
-- **Locale parity** — The new `modules` namespace lands in both `en`
-  and `es`. The locale-parity test gates the contract.
-- **CompanyPage tabs** — Extending `TAB_KEYS` from
-  `[general, locale, data, device, ai, fiscal]` to add `modules` keeps
-  existing `?tab=` deep links working (the `isTabKey` guard tolerates
-  the new entry; older URLs that omit `tab` fall back to `general`).
-- **Stale clients** — `resolveModulesState` discards unknown ids
-  silently. If the operator removes a module from the manifest, a
-  tenant whose JSON still carries the stale toggle just stops seeing
-  it. Forwards-compat for the SaaS lifecycle.
-
-## Implementation map
-
-- module activation kernel (this ADR's owner).
-- multi-surface POS shell. Each surface (mobile, kiosk,
-  ipad) registers as a module so a tenant can opt-in/out per
-  vertical pack.
-- event-based public API. Each event type (sale.created,
-  inventory.adjusted, ...) registers as a module so a tenant can
-  control which events leak into outbound webhooks.
-- (potential follow-up) — migrate the existing fiscal +
-  AI flags (`fiscal_dian_enabled`, `fiscal.mx.enabled`,
-  `fiscal.cl.enabled`, `ai.enabled`) into the `modules` manifold.
-  Out of scope here because every reader for those flags would have
-  to flip in the same diff; the kernel + 5 modules is the right v1
-  cut.
-
-Updated: 2026-05-07 — initial entry.
+`/company?tab=modules` hosts `CompanyModulesCard`. `TAB_KEYS`/`isTabKey` retain
+existing `?tab=` links and use `general` when absent. Unknown stored module ids
+are ignored by `resolveModulesState`; helpers `isModuleId`, `visibleDescriptors`
+and `buildModulesBlob` keep catalog and JSON handling consistent.
 
 ## Surfaces
 
-The surface implementation lifted the surface-as-module pattern named in the
-implementation map above. The kernel did not need a structural
-extension — a "surface" is just a render target gated by the same
-module manifold + the existing `<RequireModule>` + role guard
-composition.
+`packages/server/src/services/surfaces/manifest.ts` owns `SURFACE_IDS` and
+`SURFACES_MANIFEST`. POS Desktop has `moduleId: null`; POS Touch, KDS, Customer
+Display, Mobile Waiter and Companion refer to real module ids.
+`assertSurfaceManifestIntegrity()` checks every non-null reference. The server
+manifest is canonical; a separate renderer surface catalog must not drift.
+`surfaces.list` combines descriptors and effective module state for manager/admin.
 
-Concretely:
+`SurfaceShellRoute` composes role/module guards and `<Suspense>` before loading
+lazy shells outside `MainLayout`. Restaurant Voice Ordering at `/touch/voice`
+requires both `pos-touch` and `dine-in`; `/m` requires `mobile-waiter` and
+`dine-in`. A viewport module alone cannot authorize table-service commands.
 
-- New manifest `packages/server/src/services/surfaces/manifest.ts` —
-  `SURFACE_IDS` tuple + `SURFACES_MANIFEST` record. POS Desktop is
-  the implicit default (`moduleId: null`); the four new surfaces
-  (POS Touch, KDS, Customer Display, Mobile Waiter) each carry a
-  `moduleId` from the modules manifest. The cross-manifest invariant
-  (`every non-null moduleId references a real ModuleId`) is checked
-  at module load time via `assertSurfaceManifestIntegrity()` and
-  pinned by a Vitest case.
-- Modules manifest gained 4 new ids — `pos-touch`, `kds`,
-  `customer-display`, `mobile-waiter` — all `defaultEnabled: false`
-  so existing tenants do not see new sidebar entries appear after the
-  kernel ships. Operators flip them on per tenant via
-  `/company?tab=modules`.
-- New tRPC `surfaces.list` (managerOrAdmin) joins the manifest with
-  the resolved module state so a future surfaces admin tab does not
-  need a second `modules.list` round-trip.
-- The server manifest is the canonical surface catalog; there is no renderer
-  mirror. `SurfaceShellRoute` composes role and module guards with
-  `<Suspense>` at the route level, before loading the lazy POS Touch, KDS,
-  Mobile Waiter, and Companion shells in `App.tsx`. Those routes sit outside
-  `MainLayout`, so each shell owns its viewport. Customer Display instead
-  boots in an isolated root/window; in-app navigation to
-  `/customer-display` redirects to Sales.
-- The restaurant vertical plugs real workflows into the existing shells
-  without forking the App component. Voice Ordering and Mobile Waiter share
-  the normalized sale-backed service/check command, while KDS keeps its own
-  module-gated projection. `/touch/voice` therefore requires both `pos-touch`
-  and `dine-in`, and `/m` requires both `mobile-waiter` and `dine-in`; enabling
-  a viewport shell alone cannot bypass the restaurant-domain gate. The server
-  manifest and route-level guards remain the seam.
-
-The surface-as-module pattern adds zero new architectural primitives —
-it composes the module guard, role guard, and lazy route exactly
-the same way the existing demo modules do. Documented here so future
-contributors find the pattern + the manifests in one place.
-
-Customer Display is now the operational exception to the original placeholder
-shell: it remains opt-in for every preset, an administrator enables it, and a
-sales role opens it as a named browser window or one reusable sandboxed
-Electron window. Its tenant/site/cash-session-scoped, versioned projection is
-privacy-minimal and fail-closed when stale, offline, malformed, or logged out.
-The Electron window uses a dedicated minimum-privilege preload. None of this is
-a physical monitor driver or a hardware certification claim.
+Customer Display is opt-in for every preset. An administrator enables it and a
+sales role opens a named browser window or one reusable sandboxed Electron
+window with a dedicated minimum-privilege preload. Its versioned tenant/site/
+cash-session projection fails closed when stale, offline, malformed or logged
+out. Navigation to `/customer-display` redirects to Sales; this is neither a
+monitor driver nor physical hardware qualification.
 
 ## Public events
 
-The public-event implementation lifted the event-as-module pattern named in the
-implementation map above. Events are the second non-route
-consumer of the manifold (the first being feature toggles like
-`copilot`); like surfaces, the kernel did not need a structural
-extension — events compose the same module guard the procedures use.
+`events-api` gates business-event projection. `PUBLIC_EVENT_TYPES` and the Zod
+schemas in `packages/server/src/services/events/manifest.ts` define five
+business events (`sale.completed`, `sale.refunded`, `inventory.adjusted`,
+`cash_session.closed`, `fiscal_document.accepted`) plus four privacy-bounded
+operational transitions. `PUBLIC_EVENTS_VERSION = 1` changes for breaking
+contracts, not every additive event.
 
-Concretely:
+`services/events/projector.ts::projectOperationEvent(op)` maps succeeded
+`operation_events`: `sales.create`/`sales.completeDraft` to `sale.completed`,
+`sales.returnSale` to `sale.refunded`, `inventory.adjustStock` to
+`inventory.adjusted`, and `cashSessions.close` to `cash_session.closed`.
+`projectFiscalDocumentAccepted` handles `fiscal_document.accepted` from the
+worker. `markOperationCompleted` performs projection/enqueue best-effort;
+a webhook failure never rolls back the authoritative business commit.
 
-- New manifest `packages/server/src/services/events/manifest.ts` —
-  `PUBLIC_EVENT_TYPES` tuple closing the 5 events v1 ships
-  (`sale.completed`, `sale.refunded`, `inventory.adjusted`,
-  `cash_session.closed`, `fiscal_document.accepted`) + a Zod payload
-  schema per event under `Record<PublicEventType, z.ZodSchema>` for
-  compile-time exhaustiveness. `PUBLIC_EVENTS_VERSION = 1` is bumped
-  only on breaking contract changes.
-- New module id `events-api` in MODULES_MANIFEST,
-  `defaultEnabled: false`. Existing tenants do NOT start emitting
-  webhook events on the kernel ship — operators opt-in per tenant
-  via `/company?tab=modules`. The journal hook reads the module
-  state via `isModuleActiveInSettings(blob, 'events-api')`
-  (single indexed select on `tenants.id`) and short-circuits when
-  off, so the cost of having the module installed but not active
-  is sub-millisecond.
-- Pure projector `services/events/projector.ts::projectOperationEvent(op)`
-  maps an `operation_events` row (status='succeeded') to a
-  `PublicEvent` or null. Mapping table:
-  `sales.create`/`sales.completeDraft` → `sale.completed`;
-  `sales.returnSale` → `sale.refunded`;
-  `inventory.adjustStock` → `inventory.adjusted`;
-  `cashSessions.close` → `cash_session.closed`. The fifth event
-  `fiscal_document.accepted` is special-cased through
-  `projectFiscalDocumentAccepted` because the trigger is a worker
-  UPDATE rather than a critical-command success.
-- New `webhook_outbox` table — see ADR-0003 for the kernel-projection
-  shape + the partial unique idx that collapses envelope replays.
-- Hook in `markOperationCompleted` runs the projector + enqueue
-  best-effort: a webhook projection failure NEVER blocks the
-  original commit. The wrapper try/catch logs the failure but lets
-  the journal transition land cleanly.
-- New tRPC `events.{getContract, peekOutbox}` (managerOrAdmin)
-  read-only — `getContract` exposes the manifest + per-field metadata
-  for integrators who need to discover the contract; `peekOutbox`
-  returns the tail of `webhook_outbox` ordered by priority + age
-  for forensics + the future Operations Center events tab.
-- HTTP delivery worker (POST to subscriber URLs + retry policy +
-  signing + dead-letter handling) + the subscriber URL config UI
-  are deliberately out of scope for v1; lands the
-  delivery side. v1's deliverable is the kernel — exactly
-  what the AC asks for ("design public events ... for the future
-  central server").
+`isModuleActiveInSettings(blob, 'events-api')` checks the tenant's choice.
+`webhook_outbox`, signed HTTPS delivery, subscriber configuration, retries and
+dead-letter recovery are implemented; they are not future-only v1 work.
+`events.getContract` and `events.peekOutbox` remain bounded manager/admin reads.
+Operational alerts require explicit destination provisioning and retain their
+own minimal lifecycle/attempt evidence. See [Webhooks](../WEBHOOKS.md) and
+[Observability](../OBSERVABILITY.md) for delivery and privacy limits.
 
-The event-as-module pattern, like the surface-as-module pattern,
-composes 's module guard against a non-route consumer. Future
-integrations (a webhook subscriber config UI, 's restaurant
-events, 's payment-rail events) extend the same manifest
-without touching the kernel.
+## Coupled invariants and alternatives
+
+- `ai.enabled` is independent of `copilot`: module visibility does not prove a
+  provider is configured. With `copilot=false` the route hides; with
+  `ai.enabled=false` and `copilot=true` it can request configuration rather than chat.
+- Fiscal flags (`fiscal_dian_enabled`, `fiscal.mx.enabled`, `fiscal.cl.enabled`)
+  remain distinct; do not imply the module kernel migrated every existing gate.
+- Module text and errors ship in both `en` and `es`; locale parity is required.
+- A dedicated `tenant_modules` table or DB enum would require migration and
+  extra joins for a manifest-driven setting already represented by tenant JSON.
+- Compile-time feature flags require rebuilding for tenant activation. Runtime
+  selection is the implemented contract; no unmeasured latency claim is needed.
+- Hard deletion on deactivate would destroy history. Soft disable does not
+  constitute a compliance erasure workflow.
+
+## Verification
+
+Manifest/state, active/inactive server guards, role/tenant boundaries, preset
+atomicity, live restaurant work exclusions and renderer routes need regression
+coverage. User-visible changes require a live active/inactive smoke. Surface or
+event additions extend their manifest and the same guards; they do not create a
+new authority model. No module toggle certifies a fiscal provider, display or
+external monitoring service.

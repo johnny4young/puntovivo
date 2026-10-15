@@ -1,5 +1,7 @@
 # 0011 — Product Search Vector Storage and Model Selection
 
+**Language:** English · [Español](../es/architecture/0011-product-search-vectors.md)
+
 > Status: Accepted
 > Date: 2026-08-08
 
@@ -7,8 +9,9 @@
 
 Interactive product search is a latency- and memory-sensitive operator path in
 a local-first desktop application. ADR-0001 keeps the local SQLite database as
-the store authority, while Electron and standalone Node use different native
-ABIs. Adding a vector extension therefore affects encryption, migrations,
+the store authority, while Electron and standalone Node require separate runtime verification
+even though the current SQLite package shares a portable Node-API prebuild.
+Adding a vector extension therefore affects encryption, migrations,
 packaging, Node 24, Electron 43, macOS, Linux, and Windows rather than only one
 SQL query.
 
@@ -103,26 +106,14 @@ The retained reports and corpus hash are pinned by tests:
 
 ## Market comparison
 
-The shortlist uses official product documentation and remains a discovery
-list, not a claimed Puntovivo benchmark result:
+Primary documentation is a discovery input, not retained Puntovivo benchmark
+proof. Verify current provider/model specifications before any new evaluation:
 
-- [Ollama embeddings](https://docs.ollama.com/capabilities/embeddings) recommends
-  `embeddinggemma`, `qwen3-embedding`, and `all-minilm` for local generation.
-- [OpenAI embeddings](https://developers.openai.com/api/docs/guides/embeddings)
-  offers the 1,536-dimension `text-embedding-3-small` and 3,072-dimension
-  `text-embedding-3-large`, with optional dimension reduction and normalized
-  outputs.
-- [Google Gemini embeddings](https://ai.google.dev/gemini-api/docs/embeddings)
-  provides task-specific inputs and configurable output dimensions; the
-  [`gemini-embedding-2` model](https://ai.google.dev/gemini-api/docs/models/gemini-embedding-2)
-  supports multilingual embedding spaces that are incompatible with earlier
-  models.
-- [Voyage embeddings](https://docs.voyageai.com/docs/embeddings) exposes the
-  Voyage 4 family with query/document input types, configurable dimensions,
-  and quantized output formats.
-- [Cohere Embed](https://docs.cohere.com/docs/cohere-embed) supports multilingual
-  retrieval, explicit search-query/search-document input types, configurable
-  dimensions, and quantized output.
+- [Ollama embeddings](https://docs.ollama.com/capabilities/embeddings).
+- [OpenAI embeddings](https://developers.openai.com/api/docs/guides/embeddings).
+- [Google Gemini embeddings](https://ai.google.dev/gemini-api/docs/embeddings).
+- [Voyage embeddings](https://docs.voyageai.com/docs/embeddings).
+- [Cohere Embed](https://docs.cohere.com/docs/cohere-embed).
 
 No cloud alternative is selected from marketing specifications or public
 leaderboards alone. It must run the same corpus with real credentials, record
@@ -137,7 +128,7 @@ replacing an active default.
   and dimensions would be implicit, making corrupt or incompatible payloads
   difficult to reject safely.
 - **Adopt [sqlite-vec](https://github.com/asg017/sqlite-vec)** — it is a useful
-  SQLite-native direction but remains pre-v1/alpha and adds another native
+  SQLite-native direction but adds another native
   extension to every Node/Electron/OS packaging target. The current bounded
   pool does not demonstrate a need for that risk.
 - **Replace SQLite with [libSQL](https://docs.turso.tech/libsql)** — vector
@@ -145,7 +136,7 @@ replacing an active default.
   engine, Drizzle/migration behavior, backup/recovery proof, and desktop ABI
   matrix.
 - **Move search to [pgvector](https://github.com/pgvector/pgvector)** — its
-  HNSW and IVFFlat indexes are mature options for a PostgreSQL service, but a
+  indexes belong to a PostgreSQL service, while a
   remote/server authority would violate the current offline local-authority
   boundary and add operational dependency to each keystroke.
 
@@ -167,7 +158,7 @@ replacing an active default.
 - Reconsider an indexed vector extension only when production-like evidence
   shows the 200-candidate lane missing relevance or exceeding its budget at the
   50,000-product tier. Adoption then requires the same benchmark plus clean
-  rebuild, packaging, migration, backup/restore, and smoke evidence on Node 24,
+  installation, native verification, packaging, migration, backup/restore, and smoke evidence on Node 24,
   Electron 43, Linux, Windows, and supported macOS Sequoia/Tahoe targets.
 - Treat repeated meaning-only misses as relevance evidence for that revisit,
   not as justification to scan and decode an unbounded tenant catalog.

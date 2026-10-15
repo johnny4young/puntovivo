@@ -1,5 +1,7 @@
 # Architecture Decision Records
 
+**Language:** English · [Español](../es/architecture/README.md)
+
 This directory contains durable decisions that constrain the implementation.
 Use [`../ARCHITECTURE.md`](../ARCHITECTURE.md) for the current system overview
 and these records for the reasoning behind boundaries that remain active.

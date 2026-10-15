@@ -1,18 +1,21 @@
 # Pattern: Outbox Kernel
 
+**Language:** English · [Español](../../es/architecture/patterns/outbox-kernel.md)
+
 > Status: Active
 > Companion ADRs: [ADR-0003](../0003-outbox-taxonomy.md)
 > Code: `packages/server/src/lib/outbox/`
 
 The **outbox kernel** factors the mechanical lifecycle of an
 asynchronous fan-out queue (claim → process → complete | retry |
-dead-letter) into a reusable factory. Concrete outboxes (sync,
-fiscal, payment, webhook, hardware — see ADR-0003) compose the
-kernel with their own table, status enum, and retry policy.
+dead-letter) into a reusable factory. Concrete fiscal, hardware, webhook and operational-alert outboxes compose the
+kernel with their own table, status enum, and retry policy; kitchen invalidation
+uses its separate synchronous fenced path. ADR-0003 also describes sync and
+payment outboxes, whose current workers do not compose this kernel.
 
 ## What
 
-A factory + worker base class that abstracts:
+A factory and worker function that abstract:
 
 - **Atomic claim** via the `status` + `claim_token` predicate —
   two workers can poll the same outbox concurrently and only one
@@ -23,14 +26,14 @@ A factory + worker base class that abstracts:
   status (`submitting`, `processing`, etc.) while also setting the
   worker lock.
 - **Retry budget** with a per-outbox `OutboxRetryPolicy` —
-  exponential backoff for fiscal/sync, immediate-retry for
-  hardware, etc.
+  bounded exponential backoff by default for fiscal and hardware,
+  and a separate webhook schedule.
 - **Lifecycle terminals** — once a row is in a terminal state
   (`succeeded`, `dead_letter`, etc.), the kernel refuses further
   transitions.
 - **Recoverable vs permanent** failure handling — non-recoverable
   errors dead-letter immediately regardless of remaining budget.
-- **Worker base class** — `tickOutbox()` runs one claim → process →
+- **Worker function** — `tickOutbox()` runs one claim → process →
   complete | fail cycle and exposes the outcome to the caller, including
   `lost_claim` when a response has been superseded.
 
@@ -41,29 +44,27 @@ The kernel does NOT own:
   nextRetryAt, lastError, claimToken, lockedAt, etc.) plus
   per-outbox extras (`fiscal_document_id`, `peripheral_id`, etc.).
 - The status enum — concrete outboxes ship their own (fiscal has
-  `contingency`, payment has `settled`, hardware has `cancelled`).
+  `contingency`, payment has `settled`, hardware has `failed`).
 - The wall-clock loop — workers can run on `setInterval`, after
   each enqueue, or on a Bull-style scheduler. The kernel just
   exposes `tickOutbox()` as the unit of work.
 
 ## Why
 
-The five outboxes share 90% of their lifecycle code: claim, retry,
-backoff, dead-letter, last-error normalization. ADR-0003 explicitly
+Concrete outboxes share lifecycle mechanics: claim, retry,
+backoff, dead-letter and last-error normalization. ADR-0003 explicitly
 rejected "one outbox per procedure" and "one monolithic outbox
 table" — the kernel is the third path. Each outbox keeps its own
 table (so the schema is honest about each lifecycle's quirks) but
-inherits the shared mechanics (so a stuck DIAN row doesn't share
-code with a stuck webhook delivery).
+inherits the shared mechanics while retaining domain-specific provider handling.
 
-Without the kernel, the sync, fiscal, payment, webhook, and hardware workers
-would each reimplement attempts++, nextRetryAt math, claim_token
-guards, and dead-letter transitions — five copies that drift over
-time. With the kernel, the mechanics live once and concrete outboxes
-focus on their domain logic (the actual fiscal emit, the payment
-charge, the webhook POST).
+Without the kernel, each adopting worker would reimplement attempts++,
+nextRetryAt math, claim_token guards and dead-letter transitions, creating
+copies that drift over time. With the kernel, the mechanics live once and concrete outboxes
+focus on their domain logic (the actual fiscal emit, hardware delivery or
+webhook POST).
 
-## Lifecycle (canonical fiscal shape from ADR-0003)
+## Lifecycle (illustrative fiscal shape from ADR-0003)
 
 ```
        enqueue
@@ -93,11 +94,13 @@ charge, the webhook POST).
                      └─► claimNext picks it up again
 ```
 
-Terminal states (no further transitions allowed):
+The diagram uses generic success terminology; the fiscal kernel maps success
+to accepted. Terminal states are configured per outbox (no further transitions
+allowed), for example:
 
 - `succeeded`
 - `dead_letter`
-- `cancelled` (only some outboxes; e.g. hardware)
+- `failed` (only some outboxes; e.g. hardware)
 
 ## When to use it
 
@@ -206,8 +209,10 @@ must not wrap the later persistence transaction.
 
 ## Retry policies
 
-The kernel ships `BOUNDED_EXPONENTIAL_BACKOFF` as the canonical
-default — `1m → 5m → 15m → 1h → 6h → 24h`, then dead-letter:
+The kernel ships `BOUNDED_EXPONENTIAL_BACKOFF` as the canonical default, with
+stages `1m → 5m → 15m → 1h → 6h → 24h` and a six-attempt cap. The kernel
+increments attempts before checking that cap: the sixth failed attempt moves
+to dead-letter, so the default cap prevents scheduling the final 24-hour stage:
 
 ```ts
 import { BOUNDED_EXPONENTIAL_BACKOFF } from '../../lib/outbox/index.js';
@@ -216,13 +221,12 @@ import { BOUNDED_EXPONENTIAL_BACKOFF } from '../../lib/outbox/index.js';
 
 Each concrete outbox can ship its own:
 
-- **Hardware**: no backoff (`nextDelayMs(_) => 0`), low maxAttempts
-  (3) — a stuck printer either works on the next tick or gets
-  cancelled.
-- **Webhook**: exponential up to 24h with maxAttempts 10 — public
-  integrators are slower to recover than fiscal providers.
-- **Payment**: tighter window (10s → 30s → 90s, dead-letter at 4)
-  — payment auth windows expire fast.
+- **Hardware**: defaults to the same bounded exponential policy, with an
+  injectable policy for the concrete worker; exhausted failures dead-letter.
+- **Webhook**: uses 30s → 2m → 10m → 1h → 6h, with a six-attempt cap.
+- **Payment**: the current worker performs housekeeping and injected statement
+  imports, not charge dispatch through this kernel. A live charge retry policy
+  is not an implemented capability.
 
 ## Multi-tenant invariant
 
@@ -292,18 +296,16 @@ Kitchen invalidation retains its separate synchronous fenced delivery path.
 `outbox_metadata` is the cross-outbox health surface. Each
 concrete outbox refreshes its row periodically with
 `pendingCount`, `oldestPendingAt`, `lastSuccessAt`, and
-`lastFailureAt`. The Operations Center () reads ONLY this
-table for its dashboard — never the concrete outbox tables — so
-the panel grid is a single query regardless of how many outboxes
-exist.
+`lastFailureAt`. This is a shared health snapshot, not an exclusive read
+contract for the Operations Center. Operations also reads concrete domain
+tables for attention counts and payment health.
 
 The kernel exposes `recordSuccess`, `recordFailure`, and
 `refreshPendingCount` helpers. Success/failure writes are synchronous and belong
 in the owning `onSettled` transaction; periodic pending-count refresh is separate.
 These are NOT called automatically — concrete outboxes opt in.
-That keeps the kernel decoupled from the metadata table during
-early integration ( ships the metadata table; +
-turns on metadata refresh as each outbox lands).
+That keeps the kernel decoupled from the metadata table; each concrete worker
+owns its integration.
 
 ## Relation to other patterns
 
@@ -315,6 +317,6 @@ turns on metadata refresh as each outbox lands).
   durable domain outbox rows INSIDE the primary transaction through services.
   Provider delivery and worker wake-up happen after commit.
 - **Local Store Authority (ADR-0001)** — outbox rows live in the
-  local SQLite. Workers process them locally; results sync upstream
-  via the future sync_outbox (). The kernel itself never
+  local SQLite. Workers process them locally. Any upstream synchronization
+  follows the separate sync admission contract; the kernel itself never
   reaches over the network.

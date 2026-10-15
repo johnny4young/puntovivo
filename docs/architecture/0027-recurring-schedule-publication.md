@@ -1,5 +1,7 @@
 # Recurring schedule drafts and atomic publication
 
+**Language:** English · [Español](../es/architecture/0027-recurring-schedule-publication.md)
+
 Status: Accepted
 
 ## Decision

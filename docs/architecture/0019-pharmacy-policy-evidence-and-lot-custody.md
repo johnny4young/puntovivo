@@ -1,5 +1,7 @@
 # 0019 — Pharmacy policy, evidence, and lot custody
 
+**Language:** English · [Español](../es/architecture/0019-pharmacy-policy-evidence-and-lot-custody.md)
+
 > Status: Accepted
 > Date: 2026-09-02
 

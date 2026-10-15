@@ -1,5 +1,7 @@
 # ADR-0023: Signed external order intent and local sale authority
 
+**Language:** English · [Español](../es/architecture/0023-signed-external-order-inbox.md)
+
 Status: Accepted
 
 ## Context

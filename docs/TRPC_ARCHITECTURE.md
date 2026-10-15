@@ -1,5 +1,7 @@
 # tRPC architecture
 
+**Language:** English · [Español](es/TRPC_ARCHITECTURE.md)
+
 `/api/trpc` is Puntovivo's canonical application API. Fastify owns the runtime,
 tRPC owns typed procedures, and the React client infers request and response
 types from `AppRouter`.

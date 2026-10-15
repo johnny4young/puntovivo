@@ -1,5 +1,7 @@
 # 0015 — Retail counts and replenishment
 
+**Language:** English · [Español](../es/architecture/0015-retail-counts-and-replenishment.md)
+
 > Status: Accepted
 > Date: 2026-08-31
 

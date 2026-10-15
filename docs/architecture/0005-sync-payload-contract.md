@@ -1,5 +1,7 @@
 # 0005 — Sync payload contract
 
+**Language:** English · [Español](../es/architecture/0005-sync-payload-contract.md)
+
 > Status: **Accepted** — v1 2026-05-05; v3 transport-policy extension 2026-09-02; v4 operator recovery boundary 2026-09-06
 > Affects: every router that emits an entity change for replication; (Operations Center) read surfaces; (chaos suite) acceptance assertions; + multi-store sync negotiation.
 > Predecessor ADRs: 0002 (command envelope), 0003 (outbox taxonomy), 0004 (conflict policy).
@@ -55,17 +57,17 @@ delivery or atomic application to another database.
 
 - **Free-form payload column with policy inferred at consumer side.** Pushes the routing decision out of the source-of-truth tenant, opening a window where two consumers disagree on whether a `customers` row is `manual` or `auto_lww`. The manifest closes that window: the policy is decided at emit time and travels with the row.
 - **Separate `sync_outbox_manual` + `sync_outbox_auto_lww` tables.** Doubles the kernel plumbing without buying anything — the same kernel + the same retry policy + the same metadata table apply to both. A single column with an enum is sufficient.
-- **Renaming `sync_queue` to `sync_outbox` in this slice.** ADR-0003 mandates the rename eventually, but doing it in v1 would require rewriting 19 router writers + the entire 731-line `routers/sync.ts` in the same commit. v1 ships the contract foundation + the new table sibling; the writer + procedure cutover is deferred to .
+- **Combining the initial contract and every legacy writer cutover.** The original v1 isolated the contract foundation from the `sync_queue` to `sync_outbox` migration. That cutover subsequently shipped through `0017_drop_sync_queue.sql`; it is not pending work.
 
 ## Implementation Impact
 
-- **Migration `0016_sync_contract_v1.sql`** creates `sync_outbox` mirroring the `fiscal_outbox` / `hardware_outbox` shape (kernel projection + 6 contract columns + 4 indexes including the partial unique on idempotency_key). A one-shot `INSERT OR IGNORE` copies pending `sync_queue` rows over with sensible defaults so consumer state survives the upgrade. **Migration `0017_drop_sync_queue.sql` (, 2026-05-05)** drops the legacy table once every writer routes through `enqueueSync` and the eight `sync.*` procedures cut over to `sync_outbox`.
+- **Migration `0016_sync_contract_v1.sql`** creates `sync_outbox` mirroring the `fiscal_outbox` / `hardware_outbox` shape (kernel projection + 6 contract columns + 4 indexes including the partial unique on idempotency_key). A one-shot `INSERT OR IGNORE` copies pending `sync_queue` rows over with sensible defaults so consumer state survives the upgrade. **Migration `0017_drop_sync_queue.sql` (2026-05-05)** drops the legacy table once every writer routes through `enqueueSync` and the eight `sync.*` procedures cut over to `sync_outbox`.
 - **`services/sync/contract.ts`** holds the manifest plus
   `resolveConflictPolicy(entityType)`, `resolveSyncTransportPolicy(entityType)`,
   `resolveDefaultPriority(entityType)`, and `buildSyncContractManifest()`.
 - **`services/sync/enqueue.ts`** ships `enqueueSync(ctx, args)` — the helper every writer should call instead of inlining `db.insert(syncQueue)`. Reads the envelope context (`ctx.envelope?.{operationId, idempotencyKey}` + `ctx.deviceId`) when present, looks up `operation_event_id` via the operation_events index, populates the contract, writes one row + one `operation_effects` trail.
 - **tRPC procedures** (`sync.getContract` / `sync.peekOutbox` / `sync.retry`) operate on `sync_outbox`. `sync.retry` re-arms only `retrying` / `dead_letter` rows; `queued` / `submitting` / `synced` / `conflict` are no-ops so a drained row is not replayed accidentally. The reset compare-and-swaps on the observed `status` / `attempts` / `updatedAt`; a push that settles, fails or deletes the row between the read and the write turns the call into `CONFLICT` / `STALE_VERSION` instead of overwriting the newer attempt, while a row already requeued by a concurrent retry stays a no-op success. The existing procedures (`status / listQueue / addToQueue / removeFromQueue / listConflicts / push / pull / resolve`) also use `sync_outbox`. Operator writes validate the recovery policy before calling the enqueue helper; trusted domain writers do not pass through this manual recovery surface. `sync.listQueue` + `sync.pull` retain the `payload→data` and `payloadVersion→localVersion` projection for compatibility.
-- **19 acceptance tests** at `packages/server/src/__tests__/sync-contract-v1.test.ts` cover ordering, retry, duplicate suppression, and manual-conflict-on-high-risk; 8 manifest exhaustiveness tests at `sync-contract-manifest.test.ts` lock the entity → policy mapping against the writer file scan.
+- **Acceptance tests** at `packages/server/src/__tests__/sync-contract-v1.test.ts` cover ordering, retry, duplicate suppression, and manual-conflict-on-high-risk; manifest exhaustiveness tests at `sync-contract-manifest.test.ts` lock the entity → policy mapping against the writer file scan.
 
 ## Implementation map
 

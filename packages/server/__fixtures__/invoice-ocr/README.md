@@ -1,4 +1,6 @@
-# OCR benchmark fixtures ()
+# OCR benchmark fixtures
+
+**Language:** English · [Español](README.es.md)
 
 10 synthetic invoice fixtures used by the `benchmark:invoice-ocr` script in
 `packages/server/scripts/benchmark-invoice-ocr.ts`. Each fixture is a triple:
@@ -40,10 +42,15 @@ and writes the matching `*.png` next to it via Chromium's screenshot API.
 
 ## Running the benchmark
 
+Provide the API key through a private process environment before running. Never
+commit or include its value in a command, screenshot or report. This is an opt-in
+live provider benchmark, not a required offline documentation check.
+
 ```
-OPENAI_API_KEY=sk-... npm run benchmark:invoice-ocr --workspace=@puntovivo/server
+pnpm --filter @puntovivo/server run benchmark:invoice-ocr
 ```
 
 Acceptance: aggregate accuracy ≥ 0.80 (sum-of-matched / sum-of-truth across all
 10 fixtures). Exit code `0` on pass, `1` on fail. Real OpenAI vision calls
-consume the demo tenant's monthly budget; ~$0.05-0.15 per full run.
+use an isolated in-memory benchmark tenant and its configured budget. Actual
+provider charges depend on the selected model and usage; the CLI reports measured cost.

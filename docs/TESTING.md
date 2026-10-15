@@ -1,7 +1,11 @@
 # Testing and Release Validation
 
+**Language:** English · [Español](es/TESTING.md)
+
 This document describes the current validation contract. It is an operational
-reference, not a future-work tracker.
+reference, not a future-work tracker. Qualification counts and measurements below
+are historical evidence for the candidate described, not fresh validation of the
+current checkout.
 
 ## Server fixture concurrency
 
@@ -85,7 +89,7 @@ keeps all production strictness, expands `rootDir` only far enough to include
 the server's imported fixtures, and exposes the ES2024 library implemented by
 the required Node 24 runtime. It does not widen the production build config.
 
-The current test suite has a checked-in baseline of 240 diagnostics across 113
+The current test suite has a checked-in baseline of 227 diagnostics across 111
 files. `test-typecheck-baseline.json` records counts by file and diagnostic code,
 not line number. Invalid metadata, non-integer counters and inconsistent totals
 are rejected before comparison, as are unlocated or `tsconfig` diagnostics and
@@ -737,8 +741,8 @@ records used JS heap plus live document, DOM-node, and event-listener counts;
 only final-minus-baseline retained growth is gated, because a transient peak is
 not a leak. The same running-target proof closes the purchase OCR dialog while
 upload persistence is deliberately held in flight and asserts that its exact
-Blob preview URL is revoked before the late response completes. The normal 153-
-test browser suite excludes `@long-shift-soak`; `ci:web` still runs the pure
+Blob preview URL is revoked before the late response completes. The normal
+browser suite excludes `@long-shift-soak`; `ci:web` still runs the pure
 growth comparator and the command/budget contract.
 
 The operational recovery contract is defined in
@@ -1078,8 +1082,7 @@ startup path. This exact-name contract prevents stale local output from being
 reported as current evidence.
 
 Distribution trust is now measured rather than declared. On macOS the collector
-runs the host's own tooling against the packaged bundle — `codesign --verify
---deep --strict`, `xcrun stapler validate` and `spctl --assess` — and records
+runs the host's own tooling against the packaged bundle — `codesign --verify --deep --strict`, `xcrun stapler validate` and `spctl --assess` — and records
 one of four verdicts plus the per-check evidence:
 
 - `trusted` — signed, notarized, and accepted by Gatekeeper.
