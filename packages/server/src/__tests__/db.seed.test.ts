@@ -3,7 +3,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { count, eq } from 'drizzle-orm';
 import * as argon2 from 'argon2';
 import { rm } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+import { readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { closeDatabase, initDatabase } from '../db/index.js';
 import { companies, sequentials, sites, tenants, units, users, vatRates } from '../db/schema.js';
@@ -150,6 +151,15 @@ describe('database foundation seed', () => {
     runDdl(
       'CREATE INDEX idx_purchase_items_source_order_item ' +
         'ON purchase_items (source_order_item_id)'
+    );
+    // This post-transitional purchase shape includes the complete canonical
+    // OCR confirmation migration. A newer absent-sales marker must never
+    // suppress these applicable purchase changes.
+    legacyDb.exec(
+      readFileSync(
+        resolve(process.cwd(), 'src/db/migrations/0094_ocr_confirmation_idempotency.sql'),
+        'utf8'
+      )
     );
     legacyDb.close();
 

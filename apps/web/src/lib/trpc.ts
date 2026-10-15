@@ -4,6 +4,7 @@
  * Configured tRPC client for Puntovivo web app
  */
 
+import { usesNativeAuthCustody, refreshNative } from '@/features/auth/nativeAuthTransport';
 import { createTRPCClient, httpBatchLink, splitLink, TRPCClientError } from '@trpc/client';
 import { createTRPCReact } from '@trpc/react-query';
 import type { AppRouter } from '@puntovivo/server';
@@ -12,11 +13,7 @@ import { DEVICE_ID_HEADER, generateUuid as generateCorrelationId } from './comma
 import { getCachedDeviceIdSync } from './deviceId';
 import { resolveApiBaseUrl } from './runtimeConfigClient';
 import { isUnauthorizedAuthFailure } from '@/features/auth/authBootstrapFailure';
-import {
-  createHubApiFetch,
-  isHubClientAuth,
-  refreshHubSession,
-} from '@/features/auth/hubAuthTransport';
+import { createHubApiFetch, isHubClientAuth } from '@/features/auth/hubAuthTransport';
 
 // `API_URL` is resolved through the runtime config client
 // at module init. In `hub_client` mode the renderer points at the
@@ -187,9 +184,9 @@ async function requestAccessTokenRefresh(
   const controller = new AbortController();
 
   const promise = (async () => {
-    if (isHubClientAuth()) {
+    if (usesNativeAuthCustody()) {
       try {
-        const result = await refreshHubSession();
+        const result = await refreshNative();
         if (!isCurrent()) return null;
         accessToken = result.token;
         await window.api?.session?.register?.(result.token);

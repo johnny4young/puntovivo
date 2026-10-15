@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "compilerVersion": "7.0.2",
   "config": "tsconfig.tests.json",
-  "total": 236,
+  "total": 227,
   "byFileAndCode": {
     "src/__tests__/ai-match-invoice-lines.test.ts|TS2315": 1,
     "src/__tests__/ai-match-invoice-lines.test.ts|TS2769": 1,
@@ -129,9 +129,6 @@
     "src/__tests__/reservations.test.ts|TS2352": 1,
     "src/__tests__/reservations.test.ts|TS2769": 1,
     "src/__tests__/restaurant-modifier-catalog.test.ts|TS2769": 2,
-    "src/__tests__/restaurant-modifier-upgrade.test.ts|TS2339": 7,
-    "src/__tests__/restaurant-modifier-upgrade.test.ts|TS2769": 1,
-    "src/__tests__/restaurant-modifier-upgrade.test.ts|TS7006": 1,
     "src/__tests__/restaurant-services.test.ts|TS2379": 1,
     "src/__tests__/sale-item-notes.test.ts|TS2375": 1,
     "src/__tests__/sales-park-and-reprint.test.ts|TS2769": 1,

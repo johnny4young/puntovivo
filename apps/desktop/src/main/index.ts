@@ -33,6 +33,7 @@ import {
 } from './auto-updater';
 import { installProcessCrashHandlers } from './crash-telemetry.js';
 import { createEncryptionSetup } from './encryption-setup.js';
+import { createGracefulQuitHandler } from './graceful-quit.js';
 import { setMainLocale, normalizeMainLocale, t } from './i18n';
 import { buildApplicationMenuTemplate } from './application-menu.js';
 import { registerAppLifecycleIpc } from './ipc/app-lifecycle.js';
@@ -47,6 +48,7 @@ import { registerSessionIpc } from './ipc/session-ipc.js';
 import { createInstallationClaimHandler } from './session/installation-claim.js';
 import { registerWindowIpc } from './ipc/window.js';
 import { createHubAuthSession, HUB_AUTH_STATE_FILE } from './session/hub-auth-session.js';
+import { createEmbeddedAuthFetch, EMBEDDED_AUTH_ORIGIN } from './session/embedded-auth-fetch.js';
 import {
   registerSettingsIpc,
   applyThemePreference,
@@ -128,8 +130,19 @@ const hubAuthSession = (() => {
   });
 })();
 
+// The embedded authority keeps renewable credentials only for this process.
+// No cookie flags, token lifetimes or server checks are relaxed.
+const localAuthSession =
+  authorityRuntime.authorityMode !== 'hub_client'
+    ? createHubAuthSession({
+        hubUrl: EMBEDDED_AUTH_ORIGIN,
+        credentialPersistence: 'memory',
+        getDeviceId: () => readDeviceIdFromDir(app.getPath('userData')),
+        fetchImpl: createEmbeddedAuthFetch(getServer),
+      })
+    : undefined;
+
 let isQuitting = false;
-let serverShutdownComplete = false;
 
 const encryptionSetup = createEncryptionSetup({
   app,
@@ -312,7 +325,10 @@ registerSettingsIpc({
   refreshTray: trayController.refresh,
 });
 registerDeviceIpc({ log: mainLog });
-registerSessionIpc({ ...(hubAuthSession ? { hubAuthSession } : {}) });
+registerSessionIpc({
+  ...(hubAuthSession ? { hubAuthSession } : {}),
+  ...(localAuthSession ? { localAuthSession } : {}),
+});
 ipcMain.handle(
   'session:complete-setup',
   createInstallationClaimHandler({
@@ -455,6 +471,7 @@ app.whenReady().then(async () => {
   trayInitialized = true;
 
   app.on('activate', () => {
+    if (isQuitting) return;
     if (BrowserWindow.getAllWindows().length === 0) {
       windowLifecycle.create();
       trayController.refresh();
@@ -472,27 +489,25 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
+const handleGracefulQuit = createGracefulQuitHandler({
+  quit: () => app.quit(),
+  onError: err => mainLog.error({ err }, 'unexpected graceful shutdown failure'),
+  shutdown: async () => {
+    await backupScheduler
+      .stop()
+      .then(() => backupOperationQueue.drain())
+      .then(() => serverLifecycle.stop())
+      .catch(err => {
+        mainLog.error({ err }, 'failed to stop embedded server during shutdown');
+      });
+    await clearPendingRestore().catch(err => {
+      backupLog.warn({ err }, 'failed to discard pending restore staging during shutdown');
+    });
+  },
+});
+
 app.on('will-quit', event => {
   trayController.destroy();
   stopAutoUpdater();
-  if (serverShutdownComplete) return;
-
-  // Electron quit listeners are synchronous. Defer exit until the embedded
-  // server, pending restore staging, and SQLite handles have closed.
-  event.preventDefault();
-  void backupScheduler
-    .stop()
-    .then(() => backupOperationQueue.drain())
-    .then(() => serverLifecycle.stop())
-    .catch(err => {
-      mainLog.error({ err }, 'failed to stop embedded server during shutdown');
-    })
-    .then(() => clearPendingRestore())
-    .catch(err => {
-      backupLog.warn({ err }, 'failed to discard pending restore staging during shutdown');
-    })
-    .finally(() => {
-      serverShutdownComplete = true;
-      app.quit();
-    });
+  handleGracefulQuit(event);
 });

@@ -86,6 +86,11 @@ function renderBlockText(
           .filter(Boolean)
           .join(' | ')
       );
+      if (block.showChange && data.sale.cashReceived != null) {
+        rows.push(
+          `${labels.tendersTable.received ?? labels.tendersTable.amount}: ${formatReceiptAmount(data.sale.cashReceived, data.locale)}`
+        );
+      }
       if (block.showChange && data.sale.changeDue && data.sale.changeDue > 0) {
         rows.push(
           `${labels.tendersTable.change}: ${formatReceiptAmount(data.sale.changeDue, data.locale)}`

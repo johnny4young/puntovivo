@@ -214,6 +214,15 @@ export function renderBlockEscPos(
           );
         }
       }
+      if (block.showChange && data.sale.cashReceived != null) {
+        out.push(
+          ...textLines(
+            `${labels.tendersTable.received ?? labels.tendersTable.amount}: ${formatReceiptAmount(data.sale.cashReceived, data.locale)}`,
+            paperWidthChars,
+            characterSet
+          )
+        );
+      }
       if (block.showChange && data.sale.changeDue && data.sale.changeDue > 0) {
         out.push(
           ...textLines(

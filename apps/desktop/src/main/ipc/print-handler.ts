@@ -11,7 +11,8 @@ import { sanitisePrintHtml } from '../print-html-sanitizer.ts';
 import { sessionGateFailure } from './session-gate.ts';
 import type { ReceiptPrintSettings } from './settings.ts';
 
-export type PrintErrorTranslationKey = 'print.sessionRequired' | 'print.documentRequired';
+export type PrintErrorTranslationKey =
+  'print.sessionRequired' | 'print.documentRequired' | 'print.noPrinters';
 
 export class ReceiptPrintCancelledError extends Error {
   constructor() {
@@ -79,6 +80,9 @@ export async function handlePrintReceiptRequest(
     }
     const message = error instanceof Error ? error.message : 'Receipt printing failed';
     deps.logError(error);
+    if (/\bno printers? (?:available|found|installed)\b/i.test(message)) {
+      return { success: false, errorCode: 'PRINT_NO_PRINTERS', error: deps.t('print.noPrinters') };
+    }
     return {
       success: false,
       error: message,

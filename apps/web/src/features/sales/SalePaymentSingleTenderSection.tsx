@@ -173,10 +173,10 @@ export function SalePaymentSingleTenderSection({
           </div>
           <div className="mt-2 flex items-center justify-between">
             <span className="text-secondary-500">
-              {isCash ? t('payment.change') : t('payment.balance')}
+              {isCash && outstanding <= 0 ? t('payment.change') : t('payment.balance')}
             </span>
             <span className="font-medium text-secondary-900">
-              {formatCurrency(isCash ? change : outstanding)}
+              {formatCurrency(isCash && outstanding <= 0 ? change : outstanding)}
             </span>
           </div>
         </div>

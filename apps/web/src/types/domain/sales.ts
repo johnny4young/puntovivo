@@ -23,6 +23,8 @@ export interface Sale {
   companyPhoneSnapshot?: string | null;
   companyEmailSnapshot?: string | null;
   customerTaxIdSnapshot?: string | null;
+  cashReceivedSnapshot?: number | null;
+  cashChangeSnapshot?: number | null;
   customer?: Customer;
   items?: SaleItem[];
   payments?: SalePayment[];

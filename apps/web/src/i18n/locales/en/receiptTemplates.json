@@ -154,7 +154,7 @@
       "heightMm": "Height (mm)",
       "char": "Character",
       "showHeader": "Show header",
-      "showChange": "Show change row",
+      "showChange": "Show received cash and change",
       "columns": "Columns",
       "columnsHelp": "Pick the columns to print, in order.",
       "totalsLines": "Lines",
@@ -242,7 +242,8 @@
         "loyalty": "Loyalty points",
         "storeCredit": "Store credit",
         "other": "Other"
-      }
+      },
+      "received": "Cash received"
     }
   },
   "duplicate": {

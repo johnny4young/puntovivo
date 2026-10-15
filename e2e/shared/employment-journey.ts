@@ -1,3 +1,4 @@
+import { prepareLogoutCommit } from './logout-commit.js';
 import { randomUUID } from 'node:crypto';
 import { expect, type Page } from '@playwright/test';
 import { E2E_PASSWORD, ensureLanguage } from '../web/support/app.js';
@@ -131,11 +132,9 @@ export async function runEmploymentJourney(page: Page, target: EmploymentJourney
   await expect(original).toHaveCount(0);
   await ensureLanguage(page, 'en');
   await page.getByRole('button', { name: /open user menu/i }).click();
-  const loggedOut = page.waitForResponse(
-    response => response.url().includes('/api/trpc/auth.logout') && response.status() === 200
-  );
+  const loggedOut = await prepareLogoutCommit(page);
   await page.getByRole('button', { name: 'Sign out', exact: true }).click();
-  await loggedOut;
+  await loggedOut();
   await expect(page).toHaveURL(/\/login$/);
   await target.signInManager(managerEmail);
   const managerRequests: string[] = [];

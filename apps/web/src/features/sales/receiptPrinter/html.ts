@@ -1,6 +1,8 @@
 // Sale-receipt HTML builder + line/payment helpers ( slice 29).
 // The fiscal section lives in `./fiscal`; the XSS guard in `./escape`.
 
+import i18next from 'i18next';
+import type { TFunction } from 'i18next';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import { roundMoney } from '@/lib/money';
 import type { SaleItem, SalePayment } from '@/types';
@@ -12,35 +14,36 @@ type ReceiptHtmlOptions = {
   autoPrint: boolean;
 };
 
-function getItemDescription(item: SaleItem): string {
+/** Quote a trusted label for a CSS `content` string inside the receipt <style>. */
+function cssString(value: string): string {
+  return `"${value.replace(/["\\\n<]/g, char => `\\${char.charCodeAt(0).toString(16)} `)}"`;
+}
+
+function getItemDescription(item: SaleItem, t: TFunction): string {
   const productLabel =
     item.productNameSnapshot ??
     item.productName ??
     item.productSkuSnapshot ??
     item.productSku ??
     item.productId;
-  const unitLabel = item.unitAbbreviation ?? item.unitName ?? item.unitId ?? 'unit';
+  const unitLabel =
+    item.unitAbbreviation ?? item.unitName ?? item.unitId ?? t('receipts:fallback.unit');
   return `${productLabel} (${unitLabel})`;
 }
 
-function buildSplitPaymentSection(payments: SalePayment[] | undefined): string {
+function buildSplitPaymentSection(payments: SalePayment[] | undefined, t: TFunction): string {
   // Only render a tender breakdown when the sale was actually split. A single
   // payment row is already fully described by the existing "Payment" meta
   // line — printing a one-row table would be noise.
-  //
-  // NOTE: the receipt HTML is intentionally English-only for now (mirroring
-  // "Customer", "Subtotal", "Tax", "Totals", "Notes", "Items", etc. elsewhere
-  // in this file). When the receipt path gets localized, translate these
-  // hardcoded strings (Tenders / Method / Reference / Amount) alongside
-  // everything else — the TSX side already uses `details.payments*` keys
-  // from `sales.json`.
   if (!payments || payments.length <= 1) {
     return '';
   }
 
   const rows = payments
     .map(payment => {
-      const method = escapeHtml(payment.method);
+      const method = escapeHtml(
+        t(`sales:payment.${payment.method}`, { defaultValue: payment.method })
+      );
       const amount = escapeHtml(formatCurrency(payment.amount));
       const reference = escapeHtml(payment.reference?.trim() ?? '');
       return `
@@ -55,13 +58,13 @@ function buildSplitPaymentSection(payments: SalePayment[] | undefined): string {
 
   return `
     <section class="tenders">
-      <span class="section-label">Tenders</span>
+      <span class="section-label">${escapeHtml(t('receipts:fallback.tenders'))}</span>
       <table>
         <thead>
           <tr>
-            <th>Method</th>
-            <th>Reference</th>
-            <th class="tender-amount">Amount</th>
+            <th>${escapeHtml(t('receipts:fallback.method'))}</th>
+            <th>${escapeHtml(t('receipts:fallback.reference'))}</th>
+            <th class="tender-amount">${escapeHtml(t('receipts:fallback.amount'))}</th>
           </tr>
         </thead>
         <tbody>
@@ -72,10 +75,10 @@ function buildSplitPaymentSection(payments: SalePayment[] | undefined): string {
   `;
 }
 
-function buildReceiptRows(items: SaleItem[]): string {
+function buildReceiptRows(items: SaleItem[], t: TFunction): string {
   return items
     .map(item => {
-      const description = escapeHtml(getItemDescription(item));
+      const description = escapeHtml(getItemDescription(item, t));
       const quantity = escapeHtml(String(item.quantity));
       const unitPrice = escapeHtml(formatCurrency(item.unitPrice));
       const total = escapeHtml(formatCurrency(item.total));
@@ -92,12 +95,12 @@ function buildReceiptRows(items: SaleItem[]): string {
     .join('');
 }
 
-function buildTaxSummaryRows(items: SaleItem[], compatibilityTotal: number): string {
+function buildTaxSummaryRows(items: SaleItem[], compatibilityTotal: number, t: TFunction): string {
   if (
     items.length === 0 ||
     items.some(item => !item.taxComponents?.length && item.taxKind === undefined)
   ) {
-    return `<div class="summary-row"><span class="muted">Tax</span><span>${escapeHtml(formatCurrency(compatibilityTotal))}</span></div>`;
+    return `<div class="summary-row"><span class="muted">${escapeHtml(t('receipts:fallback.tax'))}</span><span>${escapeHtml(formatCurrency(compatibilityTotal))}</span></div>`;
   }
 
   const totals: Record<'iva' | 'inc', number | null> = { iva: null, inc: null };
@@ -126,6 +129,10 @@ export async function buildSaleReceiptHtml(
   sale: ReceiptSale,
   { autoPrint }: ReceiptHtmlOptions = { autoPrint: false }
 ): Promise<string> {
+  // Same language source as the fiscal section: the operator's active locale.
+  await i18next.loadNamespaces(['receipts', 'sales']);
+  const t = i18next.getFixedT(null, ['receipts', 'sales']);
+  const language = i18next.resolvedLanguage ?? i18next.language ?? 'en';
   const items = sale.items ?? [];
   const fiscalSection = sale.fiscalDocuments?.length
     ? await buildFiscalSection(sale.fiscalDocuments)
@@ -136,7 +143,9 @@ export async function buildSaleReceiptHtml(
     hasIdentitySnapshot && sale.companyNameSnapshot ? sale.companyNameSnapshot : 'Puntovivo';
   const companyDetails = hasIdentitySnapshot
     ? [
-        sale.companyTaxIdSnapshot ? `Tax ID ${sale.companyTaxIdSnapshot}` : null,
+        sale.companyTaxIdSnapshot
+          ? t('receipts:fallback.taxId', { value: sale.companyTaxIdSnapshot })
+          : null,
         sale.companyAddressSnapshot,
         sale.companyPhoneSnapshot,
         sale.companyEmailSnapshot,
@@ -145,7 +154,7 @@ export async function buildSaleReceiptHtml(
   const notesSection = sale.notes
     ? `
       <section class="notes">
-        <div class="section-label">Notes</div>
+        <div class="section-label">${escapeHtml(t('receipts:fallback.notes'))}</div>
         <p>${escapeHtml(sale.notes)}</p>
       </section>
     `
@@ -153,11 +162,11 @@ export async function buildSaleReceiptHtml(
 
   return `
     <!DOCTYPE html>
-    <html lang="en">
+    <html lang="${escapeHtml(language)}">
       <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>${escapeHtml(`Receipt ${sale.saleNumber}`)}</title>
+        <title>${escapeHtml(t('receipts:fallback.title', { number: sale.saleNumber }))}</title>
         <style>
           :root {
             color-scheme: light;
@@ -359,9 +368,9 @@ export async function buildSaleReceiptHtml(
             .receipt td { border: 0; }
             .item-name { width: auto; font-weight: 700; padding-right: 0; }
             .item-qty, .item-price, .item-total { display: flex !important; flex-wrap: wrap; justify-content: space-between; column-gap: 8px; white-space: normal; }
-            .item-qty::before { content: 'Qty'; }
-            .item-price::before { content: 'Price'; }
-            .item-total::before { content: 'Total'; }
+            .item-qty::before { content: ${cssString(t('receipts:fallback.qty'))}; }
+            .item-price::before { content: ${cssString(t('receipts:fallback.price'))}; }
+            .item-total::before { content: ${cssString(t('receipts:fallback.total'))}; }
             .meta-row, .summary-row { flex-wrap: wrap; }
             .meta-row > :last-child, .summary-row > :last-child { margin-left: auto; max-width: 100%; }
           }
@@ -379,29 +388,29 @@ export async function buildSaleReceiptHtml(
           </header>
 
           <section class="meta">
-            <span class="section-label">Sale Info</span>
+            <span class="section-label">${escapeHtml(t('receipts:fallback.saleInfo'))}</span>
             <div class="meta-grid">
               <div class="meta-row">
-                <span class="muted">Customer</span>
-                <span>${escapeHtml(sale.customerNameSnapshot ?? sale.customerName ?? 'Walk-in')}</span>
+                <span class="muted">${escapeHtml(t('receipts:fallback.customer'))}</span>
+                <span>${escapeHtml(sale.customerNameSnapshot ?? sale.customerName ?? t('receipts:fallback.walkIn'))}</span>
               </div>
               ${
                 hasIdentitySnapshot && sale.customerTaxIdSnapshot
                   ? `
                     <div class="meta-row">
-                      <span class="muted">Customer tax ID</span>
+                      <span class="muted">${escapeHtml(t('receipts:fallback.customerTaxId'))}</span>
                       <span>${escapeHtml(sale.customerTaxIdSnapshot)}</span>
                     </div>
                   `
                   : ''
               }
               <div class="meta-row">
-                <span class="muted">Payment</span>
-                <span>${escapeHtml(sale.paymentMethod)} / ${escapeHtml(sale.paymentStatus)}</span>
+                <span class="muted">${escapeHtml(t('receipts:fallback.payment'))}</span>
+                <span>${escapeHtml(t(`sales:payment.${sale.paymentMethod}`, { defaultValue: sale.paymentMethod }))} / ${escapeHtml(t(`sales:paymentStatus.${sale.paymentStatus}`, { defaultValue: sale.paymentStatus }))}</span>
               </div>
               <div class="meta-row">
-                <span class="muted">Status</span>
-                <span>${escapeHtml(sale.status)}</span>
+                <span class="muted">${escapeHtml(t('receipts:fallback.status'))}</span>
+                <span>${escapeHtml(t(`sales:status.${sale.status}`, { defaultValue: sale.status }))}</span>
               </div>
             </div>
           </section>
@@ -409,51 +418,53 @@ export async function buildSaleReceiptHtml(
           <table>
             <thead>
               <tr>
-                <th>Item</th>
-                <th>Qty</th>
-                <th>Price</th>
-                <th>Total</th>
+                <th>${escapeHtml(t('receipts:fallback.item'))}</th>
+                <th>${escapeHtml(t('receipts:fallback.qty'))}</th>
+                <th>${escapeHtml(t('receipts:fallback.price'))}</th>
+                <th>${escapeHtml(t('receipts:fallback.total'))}</th>
               </tr>
             </thead>
             <tbody>
-              ${buildReceiptRows(items)}
+              ${buildReceiptRows(items, t)}
             </tbody>
           </table>
 
           <section class="summary">
-            <span class="section-label">Totals</span>
+            <span class="section-label">${escapeHtml(t('receipts:fallback.totals'))}</span>
             <div class="summary-grid">
               <div class="summary-row">
-                <span class="muted">Subtotal</span>
+                <span class="muted">${escapeHtml(t('receipts:fallback.subtotal'))}</span>
                 <span>${escapeHtml(formatCurrency(sale.subtotal))}</span>
               </div>
-              ${buildTaxSummaryRows(items, sale.taxAmount)}
+              ${buildTaxSummaryRows(items, sale.taxAmount, t)}
               ${
                 discountAmount > 0
                   ? `
                     <div class="summary-row">
-                      <span class="muted">Discount</span>
+                      <span class="muted">${escapeHtml(t('receipts:fallback.discount'))}</span>
                       <span>- ${escapeHtml(formatCurrency(discountAmount))}</span>
                     </div>
                   `
                   : ''
               }
               <div class="summary-row total-row">
-                <span>Total</span>
+                <span>${escapeHtml(t('receipts:fallback.total'))}</span>
                 <span>${escapeHtml(formatCurrency(sale.total))}</span>
               </div>
             </div>
           </section>
 
-          ${buildSplitPaymentSection(sale.payments)}
+          ${sale.cashReceivedSnapshot != null ? `<section class="summary"><div class="summary-row"><span>${escapeHtml(t('receipts:fallback.cashReceived'))}</span><span>${escapeHtml(formatCurrency(sale.cashReceivedSnapshot))}</span></div><div class="summary-row"><span>${escapeHtml(t('receipts:fallback.change'))}</span><span>${escapeHtml(formatCurrency(sale.cashChangeSnapshot ?? 0))}</span></div></section>` : ''}
+
+          ${buildSplitPaymentSection(sale.payments, t)}
 
           ${fiscalSection}
 
           ${notesSection}
 
           <footer class="footer">
-            <p>Items: ${items.length}</p>
-            <p>Thank you for your purchase.</p>
+            <p>${escapeHtml(t('receipts:fallback.itemCount', { count: items.length }))}</p>
+            <p>${escapeHtml(t('receipts:fallback.thanks'))}</p>
           </footer>
         </main>
         ${

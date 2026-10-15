@@ -148,9 +148,9 @@ export async function finalizeFreshSale(
   }
 
   return {
-    // `change` is orchestration metadata, not part of the persisted sale
-    // resource. Keep it on CompleteSaleResult so internal callers can render
-    // it without leaking a transient field through sales.create or replay.
+    // Keep the orchestration result for internal callers. Receipt evidence is
+    // persisted separately as cash snapshots; net payments and drawer income
+    // must never count the overage handed back to the customer.
     sale: created as CompleteSaleSaleRecord,
     change: payment.change,
     journalEventId,

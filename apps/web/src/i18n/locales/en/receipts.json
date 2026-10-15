@@ -32,5 +32,33 @@
       "void": "Voided sale credit note",
       "return": "Return credit note"
     }
+  },
+  "fallback": {
+    "title": "Receipt {{number}}",
+    "taxId": "Tax ID {{value}}",
+    "saleInfo": "Sale info",
+    "customer": "Customer",
+    "walkIn": "Walk-in",
+    "customerTaxId": "Customer tax ID",
+    "payment": "Payment",
+    "status": "Status",
+    "item": "Item",
+    "qty": "Qty",
+    "price": "Price",
+    "total": "Total",
+    "totals": "Totals",
+    "subtotal": "Subtotal",
+    "tax": "Tax",
+    "discount": "Discount",
+    "cashReceived": "Cash received",
+    "change": "Change",
+    "tenders": "Tenders",
+    "method": "Method",
+    "reference": "Reference",
+    "amount": "Amount",
+    "notes": "Notes",
+    "itemCount": "Items: {{count}}",
+    "thanks": "Thank you for your purchase.",
+    "unit": "unit"
   }
 }

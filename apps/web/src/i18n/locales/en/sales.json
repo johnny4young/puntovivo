@@ -386,7 +386,10 @@
       "grandTotalBreakdownOnly": "Base {{base}} + service {{service}}",
       "grandTotalBreakdownWithTip": "Base {{base}} + service {{service}} + tip {{tip}}"
     },
-    "lockedCustomer": "Quotation customer"
+    "lockedCustomer": "Quotation customer",
+    "confirmPartial": "Confirm partial sale",
+    "partialTitle": "This sale will remain partially paid",
+    "partialWarning": "The outstanding balance is {{amount}}. Confirm only if you intend to leave this balance unpaid."
   },
   "history": {
     "title": "Sales history",
@@ -623,7 +626,8 @@
     "shortcut": "Ctrl+Shift+P",
     "toastDialogOpened": "Print dialog opened",
     "toastCancelledTitle": "Reprint cancelled",
-    "toastCancelledDescription": "Nothing was printed. The reprint request was still recorded."
+    "toastCancelledDescription": "Nothing was printed. The reprint request was still recorded.",
+    "frozenPresentation": "This receipt keeps its original template and width. Template changes apply to new sales. Match the system printer paper size to this receipt."
   },
   "scanner": {
     "notFound": "No product matches that barcode",
@@ -634,7 +638,7 @@
     "resumedCartLocked": "Discard the resumed cart to add new items"
   },
   "printer": {
-    "escposRetryQueued": "ESC/POS printing is queued and will retry automatically. Do not print another copy.",
+    "escposRetryQueued": "ESC/POS printing is saved in the queue. Check the printer and task status before printing another copy.",
     "escposFailed": "ESC/POS printing could not be confirmed. Check the printer and queue before reprinting.",
     "autoPrintFailed": "Auto-print failed; reprint manually from the sale details",
     "kickDrawerCta": "Open cash drawer",

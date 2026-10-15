@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import i18next from '@/i18n';
 import { buildSaleReceiptHtml, printSaleReceipt } from '@/features/sales/receiptPrinter';
 import type { Sale } from '@/types';
 
@@ -369,6 +370,53 @@ describe('receiptPrinter', () => {
 
     expect(captured).not.toBeNull();
     await expect(captured!.text()).resolves.toContain('POS-000123');
+  });
+
+  it('prints frozen cash received and change only when the sale captured them', async () => {
+    const cash = await buildSaleReceiptHtml({
+      ...sale,
+      cashReceivedSnapshot: 150,
+      cashChangeSnapshot: 36,
+    });
+    expect(cash).toContain('<span>Cash received</span><span>$150.00</span>');
+    expect(cash).toContain('<span>Change</span><span>$36.00</span>');
+
+    for (const nonCash of [{ ...sale, cashReceivedSnapshot: null }, sale]) {
+      expect(await buildSaleReceiptHtml(nonCash)).not.toContain('Cash received');
+    }
+  });
+
+  it('localizes every fallback label, payment state and print column to Spanish', async () => {
+    await i18next.changeLanguage('es');
+    try {
+      const html = await buildSaleReceiptHtml({
+        ...sale,
+        customerName: null,
+        cashReceivedSnapshot: 150,
+        cashChangeSnapshot: 36,
+      });
+      expect(html).toContain('<html lang="es">');
+      expect(html).toContain('<title>Recibo POS-000123</title>');
+      for (const label of [
+        'Datos de la venta',
+        'Cliente ocasional',
+        'Efectivo / Pagado',
+        'Completada',
+        'Totales',
+        'Descuento',
+        'Efectivo recibido',
+        'Cambio',
+        'Notas',
+        'Productos: 1',
+        'Gracias por tu compra.',
+      ]) {
+        expect(html).toContain(label);
+      }
+      expect(html).toContain('.item-qty::before { content: "Cant."; }');
+      expect(html).not.toMatch(/>(?:Sale Info|Customer|Totals|Notes|Cash received)</);
+    } finally {
+      await i18next.changeLanguage('en');
+    }
   });
 
   it('skips the Tenders section for a single-tender sale', async () => {

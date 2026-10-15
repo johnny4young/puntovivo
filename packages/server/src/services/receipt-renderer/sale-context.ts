@@ -86,6 +86,7 @@ const RECEIPT_LABELS: Record<'en' | 'es', ReceiptRenderLabels> = {
       reference: 'Reference',
       amount: 'Amount',
       change: 'Change',
+      received: 'Cash received',
       points: 'pts',
       methods: {
         cash: 'Cash',
@@ -123,6 +124,7 @@ const RECEIPT_LABELS: Record<'en' | 'es', ReceiptRenderLabels> = {
       reference: 'Referencia',
       amount: 'Monto',
       change: 'Cambio',
+      received: 'Efectivo recibido',
       points: 'pts',
       methods: {
         cash: 'Efectivo',
@@ -578,7 +580,8 @@ export async function resolveSaleReceiptTemplateContext(args: {
       serviceCharge: sale.serviceChargeAmount,
       serviceChargeRate: sale.serviceChargeRate,
       grandTotal: receiptHeader?.totalAmount ?? sale.total,
-      changeDue: Math.max(0, tenderTotal - sale.total),
+      cashReceived: sale.cashReceivedSnapshot,
+      changeDue: sale.cashChangeSnapshot ?? Math.max(0, tenderTotal - sale.total),
       notes: sale.notes,
       items: receiptItems,
       tenders: sale.payments.map(payment => ({

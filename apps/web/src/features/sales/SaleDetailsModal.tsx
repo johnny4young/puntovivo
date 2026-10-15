@@ -520,6 +520,15 @@ export function SaleDetailsModal({
           </p>
         )}
 
+        {sale && sale.receiptPresentationSnapshotVersion != null && (
+          <p
+            className="mb-4 rounded-md border border-line bg-surface-2 px-3 py-2 text-sm text-fg2"
+            data-testid="receipt-snapshot-guidance"
+          >
+            {t('sales:reprint.frozenPresentation')}
+          </p>
+        )}
+
         {sale && reprintCount > 0 && (
           <div
             className="mb-4 rounded-md border border-secondary-200 bg-secondary-50 px-3 py-2 text-sm text-secondary-700"

@@ -34,7 +34,8 @@
   "print": {
     "receiptFailed": "No se pudo imprimir el recibo",
     "sessionRequired": "Inicia sesión antes de imprimir recibos",
-    "documentRequired": "Se requiere un documento de recibo antes de imprimir"
+    "documentRequired": "Se requiere un documento de recibo antes de imprimir",
+    "noPrinters": "No hay una impresora del sistema disponible. Agrega una en los ajustes de tu sistema operativo, selecciona el tamaño de papel e intenta de nuevo. Para ESC/POS, configura una impresora de recibos en Empresa > Periféricos."
   },
   "autoUpdate": {
     "notInitialized": "Las actualizaciones automáticas aún no se han inicializado.",

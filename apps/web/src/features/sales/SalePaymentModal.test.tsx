@@ -48,7 +48,13 @@ vi.mock('@/lib/trpc', () => ({
     pharmacy: {
       checkoutRequirements: {
         useQuery: () => ({
-          data: { countryCode: 'CO', businessDate: '2026-09-02', customerValid: null, requirements: [], ready: true },
+          data: {
+            countryCode: 'CO',
+            businessDate: '2026-09-02',
+            customerValid: null,
+            requirements: [],
+            ready: true,
+          },
           isLoading: false,
           isFetching: false,
           isError: false,
@@ -340,9 +346,7 @@ describe('SalePaymentModal — split payments', () => {
     // Enable split mode (adds one initial tender at amount=total=100).
     await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
     // Adjust the amount below total — confirm must go disabled.
-    const firstAmount = (await screen.findByLabelText(
-      'Amount for tender 1'
-    )) as HTMLInputElement;
+    const firstAmount = (await screen.findByLabelText('Amount for tender 1')) as HTMLInputElement;
     await user.clear(firstAmount);
     await user.type(firstAmount, '40');
 
@@ -358,9 +362,7 @@ describe('SalePaymentModal — split payments', () => {
     await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
 
     // First tender already seeded to 100. Lower it to 60 (cash).
-    const firstAmount = (await screen.findByLabelText(
-      'Amount for tender 1'
-    )) as HTMLInputElement;
+    const firstAmount = (await screen.findByLabelText('Amount for tender 1')) as HTMLInputElement;
     fireEvent.change(firstAmount, { target: { value: '60' } });
 
     // Add a second tender row and fill it in (card, 40, reference).
@@ -396,9 +398,7 @@ describe('SalePaymentModal — split payments', () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
 
-    const firstMethod = (await screen.findByLabelText(
-      'Method for tender 1'
-    )) as HTMLSelectElement;
+    const firstMethod = (await screen.findByLabelText('Method for tender 1')) as HTMLSelectElement;
     expect(Array.from(firstMethod.options).map(option => option.value)).not.toContain('credit');
   });
 
@@ -486,9 +486,7 @@ describe('SalePaymentModal — tip / propina', () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
 
-    const firstAmount = (await screen.findByLabelText(
-      'Amount for tender 1'
-    )) as HTMLInputElement;
+    const firstAmount = (await screen.findByLabelText('Amount for tender 1')) as HTMLInputElement;
     expect(firstAmount.value).toBe('100');
 
     await user.click(screen.getByRole('button', { name: '10%' }));
@@ -508,9 +506,7 @@ describe('SalePaymentModal — tip / propina', () => {
     await user.click(screen.getByRole('button', { name: '10%' }));
     await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
 
-    const firstAmount = (await screen.findByLabelText(
-      'Amount for tender 1'
-    )) as HTMLInputElement;
+    const firstAmount = (await screen.findByLabelText('Amount for tender 1')) as HTMLInputElement;
     // The seeded amount mirrors base + tip (= grandTotal).
     expect(firstAmount.value).toBe('110');
 
@@ -590,9 +586,7 @@ describe('SalePaymentModal — service charge / propina sugerida', () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
 
-    const firstAmount = (await screen.findByLabelText(
-      'Amount for tender 1'
-    )) as HTMLInputElement;
+    const firstAmount = (await screen.findByLabelText('Amount for tender 1')) as HTMLInputElement;
     expect(firstAmount.value).toBe('110');
   });
 });
@@ -655,5 +649,37 @@ describe('SalePaymentModal —  fast-cash', () => {
     await waitFor(() => {
       expect(toastSuccessMock).toHaveBeenCalledTimes(1);
     });
+  });
+});
+
+describe('SalePaymentModal — explicit partial settlement', () => {
+  beforeEach(async () => {
+    await i18next.changeLanguage('en');
+  });
+  it('announces the unpaid balance and submits a deliberate partial sale', async () => {
+    const props = createProps({ total: 30000 });
+    render(<SalePaymentModal {...props} />);
+    const user = userEvent.setup();
+    const amount = await screen.findByLabelText(/Amount received/i);
+    await user.clear(amount);
+    await user.type(amount, '20000');
+    expect(screen.getByRole('alert')).toHaveTextContent('outstanding balance');
+    expect(screen.getByRole('alert')).toHaveTextContent('10,000');
+    await user.click(screen.getByRole('button', { name: 'Confirm partial sale' }));
+    expect(props.onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ amountReceived: 20000, paymentMethod: 'cash', tenders: [] })
+    );
+  });
+  it('removes the partial warning when the received amount covers the sale', async () => {
+    render(<SalePaymentModal {...createProps()} />);
+    const user = userEvent.setup();
+    const amount = await screen.findByLabelText(/Amount received/i);
+    await user.clear(amount);
+    await user.type(amount, '50');
+    expect(screen.getByRole('button', { name: 'Confirm partial sale' })).toBeVisible();
+    await user.clear(amount);
+    await user.type(amount, '200');
+    expect(screen.queryByText('This sale will remain partially paid')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Confirm Sale' })).toBeVisible();
   });
 });

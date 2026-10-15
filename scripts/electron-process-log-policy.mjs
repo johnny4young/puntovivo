@@ -48,6 +48,19 @@ const BOUNDED_STDERR_DIAGNOSTICS = [
       /^\[[^\]\r\n]+:WARNING:ui\/gfx\/linux\/gbm_support_x11\.cc:48\] dri3 extension not supported\.$/,
     ],
   },
+  {
+    // The xvfb GPU process can drop one CreateCommandBuffer IPC while it starts;
+    // Chromium reports the transient result and retries the context. Seen once on
+    // the ubuntu-latest pharmacy Electron journey (2026-10-15) and gone on rerun.
+    // A GPU channel that keeps failing repeats it past the limit, and the line
+    // number stays pinned to Chromium 150 (Electron 43) so a rebase re-verifies.
+    id: 'chromium-gpu-command-buffer-transient',
+    description: 'Chromium transient GPU command buffer messages',
+    limit: 2,
+    patterns: [
+      /^\[[^\]\r\n]+:ERROR:gpu\/ipc\/client\/command_buffer_proxy_impl\.cc:285\] ContextResult::kTransientFailure: Failed to send GpuControl\.CreateCommandBuffer\.$/,
+    ],
+  },
 ];
 
 function boundedStderrDiagnostic(line) {
