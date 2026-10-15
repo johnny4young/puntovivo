@@ -2,6 +2,13 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useAuthOwnerKey } from '@/features/auth/AuthContext';
+import { extractDesktopIpcSessionErrorCode } from '@/lib/translateServerError';
+
+/** Electron prefixes main-process rejections; session codes stay behind the generic copy. */
+function printerErrorDetail(error: unknown): string {
+  if (!(error instanceof Error) || extractDesktopIpcSessionErrorCode(error)) return '';
+  return error.message.replace(/^Error invoking remote method '[^']+': (?:Error: )?/, '');
+}
 
 /** Device-local OS queue selection and explicit synthetic print; neither action records a sale. */
 export function SystemPrinterSettings() {
@@ -30,6 +37,9 @@ function SystemPrinterSettingsForOwner({ owner }: { owner: string | null }) {
     onSuccess: state => {
       queryClient.setQueryData(queryKey, state);
       setTestResult(null);
+    },
+    onError: () => {
+      void query.refetch();
     },
   });
   const test = useMutation({
@@ -84,6 +94,8 @@ function SystemPrinterSettingsForOwner({ owner }: { owner: string | null }) {
           className="btn-outline"
           disabled={query.isFetching || select.isPending || test.isPending}
           onClick={() => {
+            select.reset();
+            test.reset();
             void query.refetch();
           }}
         >
@@ -110,7 +122,7 @@ function SystemPrinterSettingsForOwner({ owner }: { owner: string | null }) {
       <p className="text-xs text-fg3">{t('systemPrinter.testHelp')}</p>
       {error && (
         <p role="alert" className="text-sm text-danger-700">
-          {t('systemPrinter.printerError')} {error instanceof Error ? error.message : ''}
+          {t('systemPrinter.printerError')} {printerErrorDetail(error)}
         </p>
       )}
       {testResult && (

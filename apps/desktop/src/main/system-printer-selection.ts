@@ -9,7 +9,6 @@ export interface SystemPrinter {
   displayName: string;
 }
 
-/** Stable failures returned across IPC; acceptance by the spooler is not physical delivery. */
 /** Main-process translation keys for stable device and spooler failures. */
 export type SystemPrinterTranslationKey =
   | 'print.noSystemPrinters'

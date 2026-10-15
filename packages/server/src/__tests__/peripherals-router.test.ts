@@ -355,6 +355,22 @@ describe('peripherals.test', () => {
     });
   });
 
+  it('stores null details when the adapter reports neither details nor a message', async () => {
+    const caller = appRouter.createCaller(buildContext());
+    const row = await caller.peripherals.register({
+      siteId,
+      kind: 'printer',
+      driver: 'system',
+      config: {},
+    });
+    vi.spyOn(peripheralHelpers, 'runAdapterTest').mockResolvedValueOnce({
+      status: 'failed',
+    } as Awaited<ReturnType<typeof peripheralHelpers.runAdapterTest>>);
+    const result = await caller.peripherals.test({ id: row.id });
+    expect(result.peripheral.lastTestResult).toBe('failed');
+    expect(result.peripheral.lastTestDetails).toBeNull();
+  });
+
   it('does not stamp or announce the previous method after configuration changes during a test', async () => {
     const caller = appRouter.createCaller(buildContext());
     const row = await caller.peripherals.register({
