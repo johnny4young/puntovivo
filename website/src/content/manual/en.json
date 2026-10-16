@@ -24,7 +24,7 @@
     "related": "Continue with",
     "source": "Technical reference",
     "versionTitle": "Check your version",
-    "version": "Reference: v1.15.1, published October 14, 2026. Reviewed October 15, 2026. Screens can vary by role, site, modules and installed version. Later printing changes are identified in that task.",
+    "version": "Reference: v1.15.2, published October 15, 2026. Reviewed October 15, 2026. Screens can vary by role, site, modules and installed version. If you still run v1.15.1, the printing task notes what changes when you update.",
     "help": "Need help?",
     "helpText": "Note the version, platform, site, action and error message. Share redacted diagnostics only; omit passwords, keys and customer data.",
     "contact": "View contact channels",
@@ -196,7 +196,7 @@
         "Search or scan the product and confirm quantity, unit and price. Select the required lot or serial identity.",
         "Add the customer when needed. Review taxes, discounts and total; request manager approval when the action requires it.",
         "To continue later, suspend the sale and recover it from pending work. Check that you resumed the correct ticket before charging.",
-        "At checkout, choose a payment method or split between available methods. Confirm cash received and change.",
+        "At checkout, choose a payment method or split between available methods. Confirm cash received and change; a single cash payment keeps both on the receipt. A partial payment shows the outstanding balance and asks you to confirm it explicitly.",
         "Check that the sale is completed and keep its number. Print or reprint from its details. WhatsApp sharing prepares text and an optional local PNG; you decide and send it manually."
       ],
       "check": "A manual terminal records the payment method; it is not proof of bank authorization. If printing fails after payment, check and reprint the saved sale before charging again.",
@@ -238,30 +238,31 @@
     {
       "id": "printing",
       "title": "Configure receipts and printing",
-      "where": "Receipt templates and Peripherals · administrator",
-      "intro": "Choose the transport your printer actually has. A USB printer installed in the operating system uses its system driver; that does not imply direct USB ESC/POS.",
+      "where": "Receipt templates and Devices · administrator",
+      "intro": "Choose the connection your printer actually has. A USB printer installed in the operating system uses its system driver; that does not imply direct USB ESC/POS.",
       "steps": [
         "Install and test the printer in the operating system first. Confirm model, paper width and queue name.",
         "In Receipt templates, create or edit the template, choose 58 mm, 80 mm or letter as appropriate, review blocks and preview, and set the active default for its kind.",
-        "In Peripherals, check the site, register the printer and select System or ESC/POS for its real connection. v1.15.1 uses JSON configuration: for TCP, replace the example 192.168.1.50 with the real IP and verify the device’s port, commonly 9100.",
-        "Test printing from the peripheral, then review a receipt from a sale’s details. In web, allow the print popup and confirm the destination in the browser dialog.",
-        "After a post-payment failure, check job and sale status before retrying. Reprinting does not require another charge; control physical copies to avoid duplicates."
+        "In Devices, check the site, add the printer and choose its connection method. For a USB printer choose System; direct USB and serial ESC/POS are labelled not implemented. For a network ESC/POS printer, enter its real private IP address, a port from 9100 to 9103 and the roll’s paper width; the form does not fill in an example address.",
+        "On desktop, in System printer on this computer, refresh the list, choose the exact printer for this computer and use Print a test ticket; it records no sale. If the saved printer goes missing, printing stops with a message instead of using another printer.",
+        "Use Test on an ESC/POS device: a failed test shows as failed with its reason. For a System device the button reads Check registration and does not print paper. Then review a receipt from a sale’s details; in web, allow the print popup and confirm the destination in the browser dialog.",
+        "After a post-payment failure, check the print queue and the sale before retrying. A failed ESC/POS job stays queued for its retry and no second print opens through the system dialog. Reprint from the sale details without charging again; an audited reprint prints its own copy, and cancelling its dialog prints nothing but still records the reprint."
       ],
-      "check": "Direct USB ESC/POS and direct serial are not implemented. TCP requires reachability from the server or appropriate local bridge. A system-visible printer does not guarantee cutting or an RJ11 drawer pulse. Physical Windows Xprinter validation by the user remains pending until after release.",
+      "check": "Direct USB and serial ESC/POS are not implemented. TCP requires reachability from the server or the appropriate local bridge. A job accepted by the system does not prove paper output, cutting or an RJ11 drawer pulse. Physical printer qualification, including a Windows thermal printer, is still pending: confirm a test ticket on your own printer before a shift.",
       "related": ["sales", "backup"],
       "source": "docs/HARDWARE-POS.md",
       "details": [
         [
-          "Published version: v1.15.1",
-          "This is the reference for the steps above. The old form preloads an example TCP address; it does not automatically detect the printer."
+          "Receipts that fit the paper",
+          "58 mm and 80 mm receipts use the printable width of the roll. A reprint keeps the template and width of the original receipt; new ESC/POS output uses the paper width configured on the printer."
         ],
         [
-          "Merged, not yet published",
-          "The 58/80 mm thermal formatting fixes in #329 and changes in #331/#332 are on main, but not in v1.15.1. Updating to the latest published release does not yet include them."
+          "Cash received and change",
+          "A completed single-cash sale stores the amount handed over and the change, and new receipts and reprints show both. Receipts from earlier versions never invent a cash-received amount."
         ],
         [
-          "Under review: #333",
-          "Proposes validated connection fields and system-printer selection. Do not treat those screens as instructions for the published version until merged and released."
+          "Updating from v1.15.1",
+          "If silent printing was on, choose the system printer on each desktop computer. Until you do, receipts open the print dialog. Automatic printing after a sale through a system printer is opt-in and off by default."
         ]
       ]
     },
@@ -306,7 +307,7 @@
         "Cannot sign in: use your owner account or an active account, check keyboard language and password. There is no universal production account. Ask an authorized administrator for a reset.",
         "Missing feature: check role, active site and Company → Modules. Unavailable means that control cannot enable the feature.",
         "Cannot take payment: review cash opening, available register, numbering, stock, lot/serial selection and any approval requested by the screen.",
-        "Cannot print: first confirm the saved sale, then check paper, power, system queue or TCP IP/port and peripheral site. In browser, check popups. Switching to direct USB is not a solution.",
+        "Cannot print: first confirm the saved sale and the print queue, then check paper, power, the system printer selected on this computer or the TCP IP/port, and the device site. Read the reason of a failed test. In browser, check popups. Direct USB ESC/POS is not implemented, so switching to it is not a solution.",
         "Inventory mismatch: review site, units and conversions, pending receipts, transfers and returns. Check movements before a count or adjustment.",
         "Cannot disable Dine-in: complete or resolve open table work before disabling it.",
         "No internet: desktop keeps local operation, while network devices, cloud, sync and providers may remain pending. Web needs access to its server and Companion hides operational data offline.",

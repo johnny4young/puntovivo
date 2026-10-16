@@ -24,7 +24,7 @@
     "related": "Continúa con",
     "source": "Referencia técnica",
     "versionTitle": "Comprueba tu versión",
-    "version": "Referencia: v1.15.1, publicada el 14 de octubre de 2026. Revisado el 15 de octubre de 2026. Las pantallas pueden variar según tu rol, sede, módulos y versión instalada. Los cambios de impresión posteriores se distinguen en su tarea.",
+    "version": "Referencia: v1.15.2, publicada el 15 de octubre de 2026. Revisado el 15 de octubre de 2026. Las pantallas pueden variar según tu rol, sede, módulos y versión instalada. Si todavía usas v1.15.1, la tarea de impresión indica qué cambia al actualizar.",
     "help": "¿Necesitas ayuda?",
     "helpText": "Anota la versión, plataforma, sede, acción y mensaje de error. Comparte solo diagnósticos redactados; omite contraseñas, claves y datos de clientes.",
     "contact": "Ver canales de contacto",
@@ -199,7 +199,7 @@
         "Busca o escanea el producto y confirma cantidad, unidad y precio. Para lotes o series selecciona la identidad solicitada.",
         "Agrega el cliente cuando corresponda. Revisa impuestos, descuentos y total; solicita aprobación de gerente si la acción la requiere.",
         "Para continuar después usa Suspender y luego recupera la venta desde las pendientes. Comprueba que retomaste el ticket correcto antes de cobrar.",
-        "Al cobrar elige el medio de pago o divide el pago entre medios disponibles. Confirma el efectivo recibido y el cambio.",
+        "Al cobrar elige el medio de pago o divide el pago entre medios disponibles. Confirma el efectivo recibido y el cambio; un pago único en efectivo conserva ambos en el recibo. Un pago parcial muestra el saldo pendiente y te pide confirmarlo de forma explícita.",
         "Comprueba que la venta quedó completada y conserva su número. Imprime o vuelve a imprimir desde el detalle. Compartir por WhatsApp prepara texto y un PNG local opcional; tú decides y haces el envío."
       ],
       "check": "Un terminal manual registra el medio de pago; no prueba una autorización bancaria. Si falla la impresión después de cobrar, revisa y reimprime la venta guardada antes de volver a cobrar.",
@@ -241,30 +241,31 @@
     {
       "id": "printing",
       "title": "Configurar recibos e impresión",
-      "where": "Plantillas de recibo y Periféricos · administrador",
-      "intro": "Elige el transporte que realmente tiene tu impresora. Una impresora USB instalada en el sistema usa el controlador del sistema; no implica USB ESC/POS directo.",
+      "where": "Plantillas de recibo y Dispositivos · administrador",
+      "intro": "Elige la conexión que realmente tiene tu impresora. Una impresora USB instalada en el sistema usa el controlador del sistema; no implica USB ESC/POS directo.",
       "steps": [
         "Instala y prueba la impresora en el sistema operativo antes de configurarla en Puntovivo. Confirma modelo, ancho de papel y nombre de la cola.",
         "En Plantillas de recibo crea o edita la plantilla, elige 58 mm, 80 mm o carta según el caso, revisa bloques y vista previa, y marca la plantilla activa por defecto para su tipo.",
-        "En Periféricos revisa la sede, registra la impresora y elige Sistema o ESC/POS según la conexión real. En v1.15.1 la configuración usa JSON: para TCP sustituye la IP de ejemplo 192.168.1.50 por la IP real y verifica el puerto del equipo, habitualmente 9100.",
-        "Prueba la impresión desde el periférico y después revisa un recibo desde el detalle de una venta. En web permite la ventana emergente de impresión y confirma el destino en el diálogo del navegador.",
-        "Si falla después de cobrar, verifica el estado del trabajo y de la venta antes de reintentar. Reimprimir no requiere volver a cobrar; controla las copias físicas para evitar duplicados."
+        "En Dispositivos revisa la sede, agrega la impresora y elige su método de conexión. Para una impresora USB elige Sistema; USB directo y puerto serie ESC/POS aparecen como no implementados. Para una impresora ESC/POS en red ingresa su IP privada real, un puerto entre 9100 y 9103 y el ancho del rollo; el formulario no rellena una dirección de ejemplo.",
+        "En escritorio, en Impresora del sistema en este equipo, actualiza la lista, elige la impresora exacta para este equipo y usa Imprimir ticket de prueba; no registra ninguna venta. Si la impresora guardada deja de estar disponible, la impresión se detiene con un mensaje en lugar de usar otra impresora.",
+        "Usa Probar en un dispositivo ESC/POS: una prueba fallida aparece como fallida y muestra su motivo. En un dispositivo Sistema el botón dice Verificar registro y no imprime en papel. Después revisa un recibo desde el detalle de una venta; en web permite la ventana emergente de impresión y confirma el destino en el diálogo del navegador.",
+        "Si falla después de cobrar, revisa la cola de impresión y la venta antes de reintentar. Un trabajo ESC/POS fallido queda en cola para su reintento y no se abre una segunda impresión por el diálogo del sistema. Reimprime desde el detalle de la venta sin volver a cobrar; una reimpresión auditada imprime su propia copia y, si cancelas su diálogo, no se imprime nada pero la reimpresión queda registrada."
       ],
-      "check": "USB ESC/POS directo y serie directo no están implementados. TCP requiere que la impresora sea accesible desde el servidor o puente local correspondiente. Una impresora visible en el sistema no garantiza corte ni apertura RJ11. Xprinter física en Windows sigue pendiente de validación del usuario después del release.",
+      "check": "USB directo y puerto serie ESC/POS no están implementados. TCP requiere que la impresora sea accesible desde el servidor o el puente local correspondiente. Que el sistema acepte un trabajo no prueba la salida en papel, el corte ni la apertura del cajón RJ11. La validación con impresoras físicas, incluida una térmica en Windows, sigue pendiente: confirma un ticket de prueba en tu propia impresora antes de un turno.",
       "related": ["sales", "backup"],
       "source": "docs/HARDWARE-POS.md",
       "details": [
         [
-          "Versión publicada: v1.15.1",
-          "Es la referencia de los pasos anteriores. El formulario antiguo precarga una dirección TCP de ejemplo; no es detección automática de la impresora."
+          "Recibos que caben en el papel",
+          "Los recibos de 58 mm y 80 mm usan el ancho imprimible del rollo. Una reimpresión conserva la plantilla y el ancho del recibo original; la salida ESC/POS nueva usa el ancho de papel configurado en la impresora."
         ],
         [
-          "Integrado, aún no publicado",
-          "Las correcciones de formato térmico 58/80 mm de #329 y los cambios de #331/#332 ya están en main, pero no en v1.15.1. No supongas que actualizar a la última release ya los incluye."
+          "Efectivo recibido y cambio",
+          "Una venta completada con un solo pago en efectivo guarda el monto entregado y el cambio, y los recibos nuevos y las reimpresiones muestran ambos. Los recibos de versiones anteriores nunca inventan un efectivo recibido."
         ],
         [
-          "En revisión: #333",
-          "Propone campos de conexión validados y selección de impresoras del sistema. No uses esas pantallas como instrucciones de la versión publicada hasta que se integren y publiquen."
+          "Si actualizas desde v1.15.1",
+          "Si tenías activa la impresión silenciosa, elige la impresora del sistema en cada equipo de escritorio. Mientras no lo hagas, los recibos abren el diálogo de impresión. La impresión automática al cerrar una venta con una impresora del sistema se activa por opción y viene apagada."
         ]
       ]
     },
@@ -309,7 +310,7 @@
         "No puedo entrar: usa tu cuenta propietaria o una cuenta activa, confirma idioma del teclado y contraseña. No hay una cuenta universal de producción. Pide restablecimiento a un administrador autorizado.",
         "No veo una función: confirma rol, sede activa y Empresa → Módulos. No disponible identifica una función que ese control no puede activar.",
         "No puedo cobrar: revisa apertura de caja, registro disponible, numeración, existencias, lotes/series y cualquier aprobación que pida la pantalla.",
-        "No imprime: confirma primero la venta guardada, luego papel, alimentación, cola del sistema o IP/puerto TCP y sede del periférico. En navegador revisa ventanas emergentes. No cambies a USB directo como solución.",
+        "No imprime: confirma primero la venta guardada y la cola de impresión, luego papel, alimentación, la impresora del sistema elegida en este equipo o la IP/puerto TCP, y la sede del dispositivo. Lee el motivo de una prueba fallida. En navegador revisa ventanas emergentes. USB ESC/POS directo no está implementado, así que cambiar a esa opción no es una solución.",
         "No coincide el inventario: revisa sede, unidad y conversiones, recepciones pendientes, transferencias y devoluciones. Consulta movimientos antes de un conteo o ajuste.",
         "No puedo apagar Servicio en mesa: completa o resuelve los trabajos de mesa abiertos antes de desactivarlo.",
         "No hay internet: escritorio conserva la operación local, pero red, nube, sincronización y proveedores pueden quedar pendientes. Web necesita acceso a su servidor y Companion oculta datos al quedar offline.",
