@@ -52,6 +52,39 @@ is usable from source, but it is not a new packaged release yet.
   a real alert receiver with ownership, and an observed retail pilot remain
   open gates.
 
+## [1.15.2](https://github.com/johnny4young/puntovivo/compare/v1.15.1...v1.15.2) (2026-10-16)
+
+
+### Bug Fixes
+
+* **ci:** validate fix branch stack foundations ([b2dd220](https://github.com/johnny4young/puntovivo/commit/b2dd220112f4968d248c5090a3d8ad8e3261cc20))
+* **desktop:** harden embedded auth adapter and receipt label contract ([565666e](https://github.com/johnny4young/puntovivo/commit/565666e02d88e086c8dc539de1dca827865529b9))
+* **desktop:** preserve cash receipts and renewable local sessions ([35b4223](https://github.com/johnny4young/puntovivo/commit/35b42232f78ac4e461a31427b4bc56112f6550c4))
+* **desktop:** preserve cash receipts and renewable local sessions ([c3a7564](https://github.com/johnny4young/puntovivo/commit/c3a75646f3bdb8f9009c368580a63e6add577759))
+* **desktop:** renew embedded auth only on expiry and localize fallback receipts ([d41b975](https://github.com/johnny4young/puntovivo/commit/d41b975f88816a40331256ea39876d730b909a52))
+* **docs:** accept valid link and heading forms in the translation checker ([ab50c7e](https://github.com/johnny4young/puntovivo/commit/ab50c7e422b2aebe90abd58a244e3be58b0f0549))
+* **onboarding:** restore readable setup and readiness flows ([433a4d1](https://github.com/johnny4young/puntovivo/commit/433a4d177ad2fc249b1f48b2a176f5b31816f66f))
+* **onboarding:** restore readable setup and readiness flows ([70f0b1e](https://github.com/johnny4young/puntovivo/commit/70f0b1e2877761372e95c31d58a23c437f2485c5))
+* **printing:** address review findings on printer setup ([1677c03](https://github.com/johnny4young/puntovivo/commit/1677c038d46b3c87d244858153ec0ebb9c84618f))
+* **printing:** discard tests after connection changes ([32e781a](https://github.com/johnny4young/puntovivo/commit/32e781a1e277fb28211abfcd677fc2e119f55c46))
+* **printing:** fit thermal receipts and enable system auto-print ([dc63013](https://github.com/johnny4young/puntovivo/commit/dc63013b20952ee043d4efdfcd17871c1b845856))
+* **printing:** fit thermal receipts and prevent duplicate fallback prints ([0f11a67](https://github.com/johnny4young/puntovivo/commit/0f11a674609d0d1a9eccb66c5c68b04d2e90f99e))
+* **printing:** keep ESC/POS padding and label stacked thermal cells ([f83ebad](https://github.com/johnny4young/puntovivo/commit/f83ebad3534a551a3bb2c0902b077ad4f6042f1d))
+* **printing:** retain ESC/POS retry without HTML fallback ([b9db420](https://github.com/johnny4young/puntovivo/commit/b9db420232affc5248cc9a24ff19799bf002271d))
+* **printing:** validate connections and select system printers ([cfb5ce6](https://github.com/johnny4young/puntovivo/commit/cfb5ce601a5972f4c2d44d2e71669b132c51b726))
+* **printing:** validate connections and select system printers ([0358f0c](https://github.com/johnny4young/puntovivo/commit/0358f0c24635c9d32303ab98cdede044077563d8))
+* **sales:** give audited reprints their own copy and explain cancellation ([2b62f2f](https://github.com/johnny4young/puntovivo/commit/2b62f2f7844c37466f6a5f0f3a7f9be5df0320f7))
+
+
+### Performance
+
+* **printing:** defer connection forms and isolate device copy ([ce555fe](https://github.com/johnny4young/puntovivo/commit/ce555fe5b6593d70af37ce825af5765925062f95))
+
+
+### Refactors
+
+* **onboarding:** share language revalidation and tighten readiness contract ([fc6ddd2](https://github.com/johnny4young/puntovivo/commit/fc6ddd2d880fb25d8f503b2d334b10164add65f3))
+
 ## [1.15.1](https://github.com/johnny4young/puntovivo/compare/v1.15.0...v1.15.1) (2026-10-14)
 
 
