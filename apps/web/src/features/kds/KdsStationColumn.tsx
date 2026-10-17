@@ -31,7 +31,7 @@ export function KdsStationColumn({
   const stationNameDisputed = frozenNames.size > 1;
   return (
     <section className="flex flex-col gap-4" data-testid="kds-station-column">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-secondary-200">
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
         {label} · {t('station.orderCount', { count: orders.length })}
       </h2>
       <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(280px,1fr))]">

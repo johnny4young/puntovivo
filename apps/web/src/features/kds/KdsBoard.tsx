@@ -20,7 +20,7 @@ export function KdsBoard() {
   const { t } = useTranslation('kds');
   if (!currentSite)
     return (
-      <p data-testid="kds-no-site" className="p-8 text-secondary-200">
+      <p data-testid="kds-no-site" className="p-8 text-muted-foreground">
         {t('errors.noSiteSelected')}
       </p>
     );
@@ -101,14 +101,14 @@ function KitchenBoard({
   if (station && !availableStations.has(station)) availableStations.set(station, station);
   return (
     <div className="flex flex-col gap-6" data-testid="kds-board">
-      <h1 className="text-xl font-semibold text-secondary-100">
+      <h1 className="text-xl font-semibold text-ink">
         {t('boardTitle', { site: siteName })}
       </h1>
-      <div className="flex flex-wrap items-end justify-between gap-4 text-secondary-100">
+      <div className="flex flex-wrap items-end justify-between gap-4 text-ink">
         <label className="flex flex-col gap-1">
           {t('config.stationFilter')}
           <select
-            className="rounded-lg border bg-secondary-900 p-2"
+            className="rounded-lg border border-line-strong bg-surface p-2 text-ink"
             value={station}
             onChange={event => setStation(event.target.value)}
             disabled={busy}
@@ -126,7 +126,7 @@ function KitchenBoard({
         <div className="flex gap-3">
           <button
             type="button"
-            className="min-h-11 rounded-lg border px-3"
+            className="min-h-11 rounded-lg border border-line-strong bg-surface px-3 text-ink"
             onClick={() => {
               void list.refetch();
               void stations.refetch();
@@ -138,7 +138,7 @@ function KitchenBoard({
           {canManage && (
             <button
               type="button"
-              className="min-h-11 rounded-lg border px-3"
+              className="min-h-11 rounded-lg border border-line-strong bg-surface px-3 text-ink"
               onClick={() => setConfigurationOpen(true)}
               disabled={busy}
             >
@@ -148,7 +148,7 @@ function KitchenBoard({
         </div>
       </div>
       {!online && (
-        <p role="status" className="rounded-lg bg-amber-100 p-4 text-amber-950">
+        <p role="status" className="rounded-lg bg-warning-50 p-4 text-warning-700">
           {t('errors.offline')}
         </p>
       )}
@@ -156,20 +156,20 @@ function KitchenBoard({
         <p
           role="alert"
           data-testid="kds-load-error"
-          className="rounded-lg bg-amber-100 p-4 text-amber-950"
+          className="rounded-lg bg-warning-50 p-4 text-warning-700"
         >
           {t('errors.loadFailed')}
         </p>
       )}
       {list.isLoading ? (
-        <p role="status" className="text-secondary-200">
+        <p role="status" className="text-muted-foreground">
           {t('config.loading')}
         </p>
       ) : !list.isError && groups.size === 0 ? (
         <KdsEmptyState />
       ) : null}
       {list.data?.hasMore && (
-        <p role="status" className="rounded-lg bg-amber-100 p-4 text-amber-950">
+        <p role="status" className="rounded-lg bg-warning-50 p-4 text-warning-700">
           {t('errors.hasMore')}
         </p>
       )}

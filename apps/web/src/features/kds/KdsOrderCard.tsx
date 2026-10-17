@@ -15,7 +15,7 @@ export interface KdsOrderCardProps extends KdsActions {
   showFrozenStation?: boolean;
 }
 const actionClass =
-  'min-h-11 rounded-lg border border-secondary-400 px-3 py-2 text-sm font-medium disabled:opacity-50';
+  'min-h-11 rounded-lg border border-line-strong px-3 py-2 text-sm font-medium disabled:opacity-50';
 export function KdsOrderCard({
   order,
   onReady,
@@ -44,13 +44,13 @@ export function KdsOrderCard({
   const ready = order.status === 'ready';
   return (
     <article
-      className="flex flex-col gap-4 rounded-2xl border border-secondary-700 bg-secondary-50 p-5 text-secondary-950 shadow-lg"
+      className="flex flex-col gap-4 rounded-2xl border border-line bg-surface p-5 text-ink shadow-lg"
       data-testid="kds-order-card"
       data-order-status={order.status}
     >
       {showFrozenStation && order.stationName ? (
         <span
-          className="text-xs font-medium uppercase tracking-wide text-secondary-600"
+          className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
           data-testid="kds-order-frozen-station"
         >
           {order.stationName}
@@ -73,7 +73,7 @@ export function KdsOrderCard({
           {order.items.map(item => (
             <li
               key={item.saleItemId}
-              className="border-t border-secondary-200 pt-3"
+              className="border-t border-line pt-3"
               data-testid="kds-order-card-item"
             >
               <div className="flex gap-3 text-lg">
@@ -160,7 +160,7 @@ export function KdsOrderCard({
         </ul>
       )}
       {valid && order.notes && (
-        <p className="rounded-lg bg-secondary-100 p-3 text-sm">
+        <p className="rounded-lg bg-surface-3 p-3 text-sm">
           <strong>{t('card.noteLabel')}: </strong>
           {order.notes}
         </p>
@@ -179,7 +179,7 @@ export function KdsOrderCard({
           </span>
         ) : (
           <span
-            className={minutes >= 10 ? 'font-medium text-amber-800' : 'text-sm'}
+            className={minutes >= 10 ? 'font-medium text-warning-700' : 'text-sm'}
             data-testid="kds-order-elapsed"
           >
             {minutes <= 0 ? t('card.elapsedJustNow') : t('card.elapsedMinutes', { count: minutes })}
