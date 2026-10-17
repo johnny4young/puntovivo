@@ -1,7 +1,9 @@
 /**
  * KDS (Kitchen Display Screen) shell.
  *
- * Fullscreen black backdrop sized for a kitchen-mounted TV. No
+ * Fullscreen backdrop sized for a kitchen-mounted TV. It follows the
+ * active light/dark theme through the semantic surface tokens (the
+ * secondary-* scale flips under .dark, so it cannot pin a fixed tone). No
  * sidebar / no Header — the kitchen station does not need
  * navigation chrome. v1 shipped the chrome only; the real ticket
  * queue landed with  (kitchen display surface, 2026-05-19).
@@ -24,7 +26,7 @@ export function KdsShell() {
 
   return (
     <div
-      className="flex min-h-screen flex-col bg-secondary-950 text-secondary-50"
+      className="flex min-h-screen flex-col bg-background text-ink"
       data-testid="kds-shell"
     >
       <main className="flex-1 px-6 py-6">

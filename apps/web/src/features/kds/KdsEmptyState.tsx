@@ -14,12 +14,12 @@ export function KdsEmptyState() {
   const { t } = useTranslation('kds');
   return (
     <div
-      className="flex min-h-[40vh] flex-col items-center justify-center gap-3 text-secondary-200"
+      className="flex min-h-[40vh] flex-col items-center justify-center gap-3 text-muted-foreground"
       data-testid="kds-empty-state"
     >
       <ChefHat className="h-12 w-12 opacity-60" aria-hidden="true" />
       <p className="text-xl font-medium">{t('empty.title')}</p>
-      <p className="text-sm text-secondary-300">{t('empty.description')}</p>
+      <p className="text-sm text-muted-foreground">{t('empty.description')}</p>
     </div>
   );
 }

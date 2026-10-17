@@ -135,7 +135,9 @@ describe('KDS surface gate', () => {
     renderSurface(KdsShell, 'kds', '/kds');
     const shell = screen.getByTestId('kds-shell');
     expect(shell).toBeInTheDocument();
-    expect(shell.className).toMatch(/bg-secondary-950/);
+    expect(shell.className).toMatch(/\bbg-background\b/);
+    expect(shell.className).toMatch(/\btext-ink\b/);
+    expect(shell.className).not.toMatch(/secondary-\d+/);
     expect(screen.getByTestId('outlet-child')).toBeInTheDocument();
   });
 
