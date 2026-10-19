@@ -31,7 +31,7 @@ function PulseComparisonIcon({
 }: {
   direction: ReturnType<typeof pulseComparisonDirection>;
 }) {
-  const iconClass = 'mt-0.5 h-4 w-4 shrink-0 text-primary-300';
+  const iconClass = 'mt-0.5 h-4 w-4 shrink-0 text-primary-700';
   if (direction === 'up') return <TrendingUp className={iconClass} aria-hidden="true" />;
   if (direction === 'down') return <TrendingDown className={iconClass} aria-hidden="true" />;
   return <Sparkles className={iconClass} aria-hidden="true" />;
@@ -114,23 +114,23 @@ export function DayClosePulseCard({
   }
   return (
     <section
-      className="overflow-hidden rounded-[18px] border border-primary-400/25 bg-gradient-to-br from-primary-500/15 via-secondary-900/80 to-secondary-950"
+      className="overflow-hidden rounded-[18px] border border-primary-400/25 bg-gradient-to-br from-primary-500/15 via-surface-2 to-surface-3"
       data-testid="day-close-pulse"
       aria-busy={isGenerating}
     >
       <div className="flex flex-col gap-4 p-4 sm:p-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-primary-300">
+            <p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-primary-700">
               <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
               {t('cashSession.dayClose.pulse.eyebrow')}
             </p>
-            <h3 className="mt-1.5 font-display text-xl tracking-[-0.02em] text-white">
+            <h3 className="mt-1.5 font-display text-xl tracking-[-0.02em] text-ink">
               {model.title}
             </h3>
-            <p className="mt-1 text-[12px] text-secondary-300">{model.date}</p>
+            <p className="mt-1 text-[12px] text-muted-foreground">{model.date}</p>
           </div>
-          <span className="rounded-full border border-primary-400/20 bg-primary-500/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-primary-200">
+          <span className="rounded-full border border-primary-400/20 bg-primary-500/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-primary-700">
             {t('cashSession.dayClose.pulse.ownerOnly')}
           </span>
         </div>
@@ -149,19 +149,19 @@ export function DayClosePulseCard({
           <PulseMetric label={model.averageTicketLabel} value={model.averageTicketValue} />
         </div>
 
-        <div className="flex items-start gap-3 rounded-[14px] border border-secondary-700/70 bg-secondary-950/55 px-3.5 py-3">
+        <div className="flex items-start gap-3 rounded-[14px] border border-line bg-surface px-3.5 py-3">
           <PulseComparisonIcon direction={direction} />
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-secondary-400">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
               {model.comparisonLabel}
             </p>
-            <p className="mt-1 text-[12.5px] leading-5 text-secondary-100">
+            <p className="mt-1 text-[12.5px] leading-5 text-ink">
               {model.comparisonValue}
             </p>
           </div>
         </div>
 
-        <p className="text-[11px] leading-4 text-secondary-400">{model.privacyNote}</p>
+        <p className="text-[11px] leading-4 text-muted-foreground">{model.privacyNote}</p>
 
         <div className="flex flex-col gap-2 sm:flex-row">
           <Button
@@ -194,7 +194,7 @@ export function DayClosePulseCard({
         </div>
 
         {imageError && (
-          <p role="alert" className="text-[11.5px] text-warning-200">
+          <p role="alert" className="text-[11.5px] text-warning-700">
             {t('cashSession.dayClose.pulse.imageError')}
           </p>
         )}
@@ -204,14 +204,14 @@ export function DayClosePulseCard({
 }
 function PulseMetric({ label, value, detail }: { label: string; value: string; detail?: string }) {
   return (
-    <div className="rounded-[14px] border border-secondary-700/60 bg-secondary-950/50 px-3.5 py-3">
-      <p className="text-[9.5px] font-semibold uppercase tracking-[0.15em] text-secondary-400">
+    <div className="rounded-[14px] border border-line bg-surface px-3.5 py-3">
+      <p className="text-[9.5px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
         {label}
       </p>
-      <p className="mt-1 font-display text-xl tabular-nums tracking-[-0.02em] text-white">
+      <p className="mt-1 font-display text-xl tabular-nums tracking-[-0.02em] text-ink">
         {value}
       </p>
-      {detail && <p className="mt-0.5 text-[10.5px] text-secondary-400">{detail}</p>}
+      {detail && <p className="mt-0.5 text-[10.5px] text-muted-foreground">{detail}</p>}
     </div>
   );
 }

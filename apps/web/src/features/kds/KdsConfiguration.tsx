@@ -10,8 +10,8 @@ import { trpc } from '@/lib/trpc';
 import { useKitchenOnline } from './useKitchenOnline';
 import type { KitchenInputs, KitchenOutputs } from './types';
 const fieldClass =
-  'min-h-11 w-full rounded-lg border border-secondary-400 bg-white px-3 text-secondary-950';
-const buttonClass = 'min-h-11 rounded-lg border border-secondary-400 px-3 py-2 disabled:opacity-50';
+  'min-h-11 w-full rounded-lg border border-line-strong bg-surface px-3 text-ink';
+const buttonClass = 'min-h-11 rounded-lg border border-line-strong px-3 py-2 disabled:opacity-50';
 /** Snapshot of the station generation when the manager opens the edit form. */
 type StationDraft = Omit<KitchenInputs['saveStation'], 'siteId'>;
 const newStation = (): StationDraft => ({
@@ -98,7 +98,7 @@ export function KdsConfiguration({ siteId, onClose }: { siteId: string; onClose:
           >
             <fieldset
               disabled={unavailable}
-              className="grid gap-3 rounded-xl border border-secondary-300 p-4 sm:grid-cols-2"
+              className="grid gap-3 rounded-xl border border-line p-4 sm:grid-cols-2"
             >
               <legend className="px-2 font-semibold">
                 {t(draft.expectedVersion ? 'config.editStation' : 'config.newStation')}
@@ -324,7 +324,7 @@ function RoutingTarget({
     >
       <fieldset
         disabled={disabled || pending}
-        className="flex flex-wrap items-end gap-3 rounded-lg border border-secondary-300 p-3"
+        className="flex flex-wrap items-end gap-3 rounded-lg border border-line p-3"
       >
         <label className="min-w-48 flex-1">
           {target.name}
