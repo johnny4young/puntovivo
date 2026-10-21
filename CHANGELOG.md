@@ -52,6 +52,15 @@ is usable from source, but it is not a new packaged release yet.
   a real alert receiver with ownership, and an observed retail pilot remain
   open gates.
 
+## [1.15.3](https://github.com/johnny4young/puntovivo/compare/v1.15.2...v1.15.3) (2026-10-19)
+
+
+### Bug Fixes
+
+* **kds:** follow the active theme instead of inverting it ([4fe36e6](https://github.com/johnny4young/puntovivo/commit/4fe36e657a88231376da36a35ae14bba19423a90))
+* **kds:** follow the active theme instead of inverting it ([3387c40](https://github.com/johnny4young/puntovivo/commit/3387c40fe4990c8a1d696d9fc6b6a5111d23a056))
+* **sales:** make cash close panels legible in dark mode ([c55e527](https://github.com/johnny4young/puntovivo/commit/c55e5278c8fe68192b6666a22ccfd1dd0ff06fb3))
+
 ## [1.15.2](https://github.com/johnny4young/puntovivo/compare/v1.15.1...v1.15.2) (2026-10-16)
 
 
