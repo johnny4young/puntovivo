@@ -556,9 +556,9 @@
       "source": "https://github.com/advisories/GHSA-374f-7chj-9948",
       "package": "sanitize-html",
       "severity": "low",
-      "remediationOwner": "PR340",
-      "selectedPatchedVersions": ["2.18.0"],
-      "applicability": "Runtime receipt sanitizer. App uses tag/scheme filtering and print CSP; the three advisories concern noscript discard, prefixed SVG animation and meta refresh. No live malicious print was attempted. PR340 supplies the maintained floor.",
+      "remediationOwner": "PR340 manifest floor plus dependency-gap follow-on2.18.1",
+      "selectedPatchedVersions": ["2.18.1"],
+      "applicability": "Runtime receipt sanitizer. App uses tag/scheme filtering and print CSP; the three advisories concern noscript discard, prefixed SVG animation and meta refresh. No live malicious print was attempted. PR340 supplies the maintained floor. The selected composition must advance beyond2.18.0 because of its separate recursion advisory.",
       "baselineInstances": [
         {
           "affectedRange": ">=2.17.7 <2.18.0",
@@ -578,9 +578,9 @@
       "source": "https://github.com/advisories/GHSA-cv27-6wvh-8x7j",
       "package": "sanitize-html",
       "severity": "moderate",
-      "remediationOwner": "PR340",
-      "selectedPatchedVersions": ["2.18.0"],
-      "applicability": "Runtime receipt sanitizer. App uses tag/scheme filtering and print CSP; the three advisories concern noscript discard, prefixed SVG animation and meta refresh. No live malicious print was attempted. PR340 supplies the maintained floor.",
+      "remediationOwner": "PR340 manifest floor plus dependency-gap follow-on2.18.1",
+      "selectedPatchedVersions": ["2.18.1"],
+      "applicability": "Runtime receipt sanitizer. App uses tag/scheme filtering and print CSP; the three advisories concern noscript discard, prefixed SVG animation and meta refresh. No live malicious print was attempted. PR340 supplies the maintained floor. The selected composition must advance beyond2.18.0 because of its separate recursion advisory.",
       "baselineInstances": [
         {
           "affectedRange": "<2.18.0",
@@ -600,9 +600,9 @@
       "source": "https://github.com/advisories/GHSA-x3q4-9hxx-gx8m",
       "package": "sanitize-html",
       "severity": "moderate",
-      "remediationOwner": "PR340",
-      "selectedPatchedVersions": ["2.18.0"],
-      "applicability": "Runtime receipt sanitizer. App uses tag/scheme filtering and print CSP; the three advisories concern noscript discard, prefixed SVG animation and meta refresh. No live malicious print was attempted. PR340 supplies the maintained floor.",
+      "remediationOwner": "PR340 manifest floor plus dependency-gap follow-on2.18.1",
+      "selectedPatchedVersions": ["2.18.1"],
+      "applicability": "Runtime receipt sanitizer. App uses tag/scheme filtering and print CSP; the three advisories concern noscript discard, prefixed SVG animation and meta refresh. No live malicious print was attempted. PR340 supplies the maintained floor. The selected composition must advance beyond2.18.0 because of its separate recursion advisory.",
       "baselineInstances": [
         {
           "affectedRange": "<2.18.0",
@@ -897,8 +897,8 @@
       "source": "https://github.com/advisories/GHSA-587h-7wmj-h5pm",
       "package": "vite",
       "severity": "high",
-      "remediationOwner": "PR341",
-      "selectedPatchedVersions": ["8.3.3"],
+      "remediationOwner": "PR341 compatible range, frozen composition8.3.5",
+      "selectedPatchedVersions": ["8.3.5"],
       "applicability": "Development/build server and editor-launch tooling, not the production browser bundle itself. Conditions include Windows editor escaping/flags, custom middleware CORS, path-root checks and wasm instance file reads. PR341 supplies the maintained floor.",
       "baselineInstances": [
         {
@@ -936,8 +936,8 @@
       "source": "https://github.com/advisories/GHSA-698v-4r3x-3vcv",
       "package": "vite",
       "severity": "moderate",
-      "remediationOwner": "PR341",
-      "selectedPatchedVersions": ["8.3.3"],
+      "remediationOwner": "PR341 compatible range, frozen composition8.3.5",
+      "selectedPatchedVersions": ["8.3.5"],
       "applicability": "Development/build server and editor-launch tooling, not the production browser bundle itself. Conditions include Windows editor escaping/flags, custom middleware CORS, path-root checks and wasm instance file reads. PR341 supplies the maintained floor.",
       "baselineInstances": [
         {
@@ -975,8 +975,8 @@
       "source": "https://github.com/advisories/GHSA-9jrq-w75r-8gcw",
       "package": "vite",
       "severity": "low",
-      "remediationOwner": "PR341",
-      "selectedPatchedVersions": ["8.3.3"],
+      "remediationOwner": "PR341 compatible range, frozen composition8.3.5",
+      "selectedPatchedVersions": ["8.3.5"],
       "applicability": "Development/build server and editor-launch tooling, not the production browser bundle itself. Conditions include Windows editor escaping/flags, custom middleware CORS, path-root checks and wasm instance file reads. PR341 supplies the maintained floor.",
       "baselineInstances": [
         {
@@ -1014,8 +1014,8 @@
       "source": "https://github.com/advisories/GHSA-r825-w8mm-5pxw",
       "package": "vite",
       "severity": "moderate",
-      "remediationOwner": "PR341",
-      "selectedPatchedVersions": ["8.3.3"],
+      "remediationOwner": "PR341 compatible range, frozen composition8.3.5",
+      "selectedPatchedVersions": ["8.3.5"],
       "applicability": "Development/build server and editor-launch tooling, not the production browser bundle itself. Conditions include Windows editor escaping/flags, custom middleware CORS, path-root checks and wasm instance file reads. PR341 supplies the maintained floor.",
       "baselineInstances": [
         {
@@ -1053,8 +1053,8 @@
       "source": "https://github.com/advisories/GHSA-rq7h-c2jc-7f22",
       "package": "vite",
       "severity": "moderate",
-      "remediationOwner": "PR341",
-      "selectedPatchedVersions": ["8.3.3"],
+      "remediationOwner": "PR341 compatible range, frozen composition8.3.5",
+      "selectedPatchedVersions": ["8.3.5"],
       "applicability": "Development/build server and editor-launch tooling, not the production browser bundle itself. Conditions include Windows editor escaping/flags, custom middleware CORS, path-root checks and wasm instance file reads. PR341 supplies the maintained floor.",
       "baselineInstances": [
         {
@@ -1092,8 +1092,8 @@
       "source": "https://github.com/advisories/GHSA-vfpm-58rq-9qcg",
       "package": "vite",
       "severity": "moderate",
-      "remediationOwner": "PR341",
-      "selectedPatchedVersions": ["8.3.3"],
+      "remediationOwner": "PR341 compatible range, frozen composition8.3.5",
+      "selectedPatchedVersions": ["8.3.5"],
       "applicability": "Development/build server and editor-launch tooling, not the production browser bundle itself. Conditions include Windows editor escaping/flags, custom middleware CORS, path-root checks and wasm instance file reads. PR341 supplies the maintained floor.",
       "baselineInstances": [
         {
