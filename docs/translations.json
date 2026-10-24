@@ -288,6 +288,10 @@
     {
       "en": "website/MANUAL.md",
       "es": "website/MANUAL.es.md"
+    },
+    {
+      "en": "docs/CATALOG-ATOMICITY.md",
+      "es": "docs/es/CATALOG-ATOMICITY.md"
     }
   ],
   "bilingual": ["docs/TRANSLATIONS.md"],
