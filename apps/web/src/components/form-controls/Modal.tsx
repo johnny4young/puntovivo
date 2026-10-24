@@ -215,6 +215,7 @@ export function ModalButton({
 
 // Confirmation modal helper
 export interface ConfirmModalProps {
+  restoreFocusTo?: ModalProps['restoreFocusTo'];
   isOpen: boolean;
   onClose: () => void;
   onConfirm: () => void;
@@ -229,6 +230,7 @@ export interface ConfirmModalProps {
 }
 
 export function ConfirmModal({
+  restoreFocusTo,
   isOpen,
   onClose,
   onConfirm,
@@ -253,6 +255,7 @@ export function ConfirmModal({
       isOpen={isOpen}
       onClose={onClose}
       title={resolvedTitle}
+      restoreFocusTo={restoreFocusTo}
       size="sm"
       footer={
         <>

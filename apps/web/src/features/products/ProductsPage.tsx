@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, Plus, RefreshCw, Search, Sparkles } from 'lucide-react';
 import { isProductTemplateVerticalId } from '@puntovivo/shared/vertical-presets';
@@ -45,6 +45,8 @@ function createMarginWindow() {
   const from = new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000);
   return { fromDate: from.toISOString(), toDate: to.toISOString(), limit: 500 };
 }
+
+const getProductRowId = (product: DisplayProduct) => product.id;
 
 export function ProductsPage() {
   // `semanticSearch` is referenced via bare `i18next.t('semanticSearch:…')`
@@ -110,6 +112,9 @@ export function ProductsPage() {
   const [editAbortController, setEditAbortController] = useState<AbortController | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalInstanceKey, setModalInstanceKey] = useState(0);
+  const [deleteOpener, setDeleteOpener] = useState<HTMLButtonElement | null>(null);
+  const productSearchRef = useRef<HTMLInputElement | null>(null);
+  const pageHeadingRef = useRef<HTMLHeadingElement | null>(null);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   // row-detail Drawer for the columns trimmed off the default
   // table (provider / location / tier-2 / tier-3 prices, SKU, min stock).
@@ -352,7 +357,9 @@ export function ProductsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-secondary-900">{t('page.title')}</h1>
+        <h1 ref={pageHeadingRef} tabIndex={-1} className="text-2xl font-bold text-secondary-900">
+          {t('page.title')}
+        </h1>
         <button
           className="btn-primary flex items-center gap-2"
           onClick={handleOpenCreate}
@@ -436,6 +443,7 @@ export function ProductsPage() {
                         type="text"
                         className="input pl-10"
                         placeholder={t('table.searchSemantic')}
+                        ref={productSearchRef}
                         value={semantic.semanticQuery}
                         onChange={event => semantic.setSemanticQuery(event.target.value)}
                         aria-label={t('table.searchSemantic')}
@@ -481,13 +489,18 @@ export function ProductsPage() {
               columns={productsColumns(
                 handleOpenDetails,
                 handleOpenEdit,
-                product => setProductToDelete(product),
+                (product, opener) => {
+                  setDeleteOpener(opener);
+                  setProductToDelete(product);
+                },
                 canManage,
                 canDelete,
                 semantic.semanticIsActive,
                 marginByProduct
               )}
               data={displayProducts}
+              getRowId={getProductRowId}
+              searchInputRef={productSearchRef}
               searchValue={semantic.semanticModeEnabled ? undefined : semantic.literalQuery}
               onSearchChange={semantic.semanticModeEnabled ? undefined : semantic.setLiteralQuery}
               searchPlaceholder={t('table.search')}
@@ -603,6 +616,13 @@ export function ProductsPage() {
 
       <ConfirmModal
         isOpen={!!productToDelete}
+        restoreFocusTo={() => {
+          // Preserve the real opener. Only use a workflow destination when that
+          // row was removed, filtered out or left the virtual window.
+          if (deleteOpener?.isConnected) return null;
+          if (productSearchRef.current?.isConnected) return productSearchRef.current;
+          return pageHeadingRef.current;
+        }}
         title={t('deactivate.title')}
         message={t('deactivate.description')}
         confirmText={

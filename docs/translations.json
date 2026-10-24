@@ -292,6 +292,10 @@
     {
       "en": "docs/PRODUCT-DEACTIVATION-UI.md",
       "es": "docs/es/PRODUCT-DEACTIVATION-UI.md"
+    },
+    {
+      "en": "docs/PRODUCT-DIALOG-FOCUS.md",
+      "es": "docs/es/PRODUCT-DIALOG-FOCUS.md"
     }
   ],
   "bilingual": ["docs/TRANSLATIONS.md"],

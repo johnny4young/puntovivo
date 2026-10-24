@@ -23,7 +23,7 @@ import {
   tableFeatures,
   useTable,
 } from '@tanstack/react-table';
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type Ref, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
@@ -128,6 +128,10 @@ type DataTableRow<TData extends RowData> = Row<typeof features, TData>;
 interface DataTableProps<TData extends RowData> {
   columns: DataTableColumnDef<TData>[];
   data: TData[];
+  /** Stable entity identity; omitted callers keep the default index identity. */
+  getRowId?: ((row: TData) => string) | undefined;
+  /** Owner-controlled focus destination if a dialog's row is no longer mounted. */
+  searchInputRef?: Ref<HTMLInputElement> | undefined;
   /**
    * Column id to filter CLIENT-SIDE as the user types. Correct only when
    * `data` already holds every row the user could match — with a paged
@@ -206,6 +210,8 @@ interface DataTableProps<TData extends RowData> {
 export function DataTable<TData extends RowData>({
   columns,
   data,
+  getRowId,
+  searchInputRef,
   searchKey,
   // no English default here: a default in the signature cannot
   // call t(). Resolved at the use site below.
@@ -266,6 +272,7 @@ export function DataTable<TData extends RowData>({
     features,
     data,
     columns,
+    ...(getRowId ? { getRowId } : {}),
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
@@ -273,14 +280,10 @@ export function DataTable<TData extends RowData>({
       const newSelection = typeof updater === 'function' ? updater(rowSelection) : updater;
       setRowSelection(newSelection);
       if (onRowSelectionChange) {
-        // Selection keys are array indices stringified by react-table.
-        // Under `noUncheckedIndexedAccess`, `data[i]` is `TData | undefined`;
-        // a stale key (race between data update + selection map) would
-        // produce undefined. Filter those out so the callback contract
-        // (`TData[]`) is honored.
+        const rowsById = getRowId ? new Map(data.map(row => [getRowId(row), row])) : null;
         const selectedRows = Object.keys(newSelection)
           .filter(key => newSelection[key])
-          .map(key => data[parseInt(key)])
+          .map(key => (rowsById ? rowsById.get(key) : data[parseInt(key)]))
           .filter((row): row is TData => row !== undefined);
         onRowSelectionChange(selectedRows);
       }
@@ -324,6 +327,7 @@ export function DataTable<TData extends RowData>({
   // eslint-disable-next-line react-hooks/incompatible-library -- isolated third-party compiler boundary
   const rowVirtualizer = useVirtualizer({
     count: visibleRows.length,
+    ...(getRowId ? { getItemKey: (index: number) => visibleRows[index]?.id ?? index } : {}),
     getScrollElement: () => tableWrapperRef.current,
     estimateSize: () => VIRTUAL_ESTIMATED_ROW_PX,
     overscan: VIRTUAL_OVERSCAN_ROWS,
@@ -525,6 +529,7 @@ export function DataTable<TData extends RowData>({
       <div className="data-table-toolbar">
         {isControlledSearch ? (
           <input
+            ref={searchInputRef}
             type="text"
             placeholder={searchPlaceholder ?? t('table.searchPlaceholder')}
             aria-label={searchPlaceholder ?? t('table.searchPlaceholder')}
@@ -537,6 +542,7 @@ export function DataTable<TData extends RowData>({
         ) : (
           searchKey && (
             <input
+              ref={searchInputRef}
               type="text"
               placeholder={searchPlaceholder ?? t('table.searchPlaceholder')}
               aria-label={searchPlaceholder ?? t('table.searchPlaceholder')}
