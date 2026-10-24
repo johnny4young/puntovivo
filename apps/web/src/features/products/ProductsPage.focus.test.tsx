@@ -1,10 +1,13 @@
 /** Synthetic query/mutation fixtures with real DataTable, ConfirmModal and focus isolation.
  * Preserve the actual opener across renders; use a workflow fallback only for missing rows.
  */
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import i18next from '@/i18n';
 import userEvent from '@testing-library/user-event';
+import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
+import type { Product } from '@/types';
+import { createMockProduct } from '@/test/utils';
 
 const {
   useAuthMock,
@@ -106,7 +109,7 @@ vi.mock('@/lib/trpc', async () => ({
     }),
     products: {
       list: {
-        useQuery: (input: unknown) => productsListUseQueryMock(input),
+        useQuery: (input: unknown, options: unknown) => productsListUseQueryMock(input, options),
       },
       semanticSearch: { useQuery: () => ({ data: null, isFetching: false }) },
       embeddingHealth: { useQuery: () => ({ data: null, isLoading: false }) },
@@ -242,6 +245,71 @@ describe('ProductsPage retains the logical deactivation opener', () => {
       expect(opener).toHaveFocus();
     }
   );
+
+  it('preserves the opener through a pending debounced server search with real query state', async () => {
+    await i18next.changeLanguage('en');
+    const queryProduct = createMockProduct({
+      id: product.id,
+      name: product.name,
+      sku: product.sku,
+    });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+    let releaseSearch!: (value: { items: Product[] }) => void;
+    const response = new Promise<{ items: Product[] }>(resolve => {
+      releaseSearch = resolve;
+    });
+    function usePendingList(
+      input: { search?: string },
+      options: {
+        placeholderData?: (
+          previous: { items: Product[] } | undefined
+        ) => { items: Product[] } | undefined;
+      }
+    ) {
+      return useQuery({
+        queryKey: ['synthetic-products', input.search],
+        queryFn: () => {
+          if (input.search) {
+            return response;
+          }
+          return Promise.resolve({ items: [queryProduct] });
+        },
+        ...options,
+      });
+    }
+    productsListUseQueryMock.mockImplementation(usePendingList);
+    const user = userEvent.setup();
+    const { container, unmount } = render(
+      <QueryClientProvider client={client}>
+        <ProductsPage />
+      </QueryClientProvider>
+    );
+    try {
+      await waitFor(() =>
+        expect(container.querySelector(`[data-row-id="${product.id}"]`)).not.toBeNull()
+      );
+      const opener = rowDelete(container, product.id, 'en');
+      fireEvent.change(screen.getByTestId('data-table-search'), {
+        target: { value: 'pending product' },
+      });
+      await user.click(opener);
+      await waitFor(() => expect(container.querySelector('[aria-busy="true"]')).not.toBeNull());
+      expect(opener.isConnected).toBe(true);
+      expect(rowDelete(container, product.id, 'en')).toBe(opener);
+      expect(container.querySelector('[aria-busy="true"]')).not.toBeNull();
+      await act(async () => {
+        releaseSearch({ items: [{ ...queryProduct, name: 'Refreshed pending product' }] });
+      });
+      await waitFor(() => expect(container.querySelector('[aria-busy="true"]')).toBeNull());
+      expect(rowDelete(container, product.id, 'en')).toBe(opener);
+      await user.click(screen.getByRole('button', { name: 'Cancel' }));
+      expect(opener).toHaveFocus();
+    } finally {
+      releaseSearch({ items: [] });
+      unmount();
+      client.clear();
+    }
+  });
 
   it('keeps the same product action when refreshed rows change order', async () => {
     await i18next.changeLanguage('en');

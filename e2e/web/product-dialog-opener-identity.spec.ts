@@ -112,10 +112,24 @@ for (const language of ['en', 'es'] as const) {
   test(`mouse rejection, cancel and retry preserve the original product control (${language})`, async ({
     page,
     context,
-  }) => {
+  }, testInfo) => {
     const scenario = seedReceiptPrintingScenario(`mouse-focus-${Date.now()}`);
-    await context.route('**/*', route => {
+    let releaseSearch!: () => void;
+    let markSearchStarted!: () => void;
+    const searchGate = new Promise<void>(resolve => {
+      releaseSearch = resolve;
+    });
+    const searchStarted = new Promise<void>(resolve => {
+      markSearchStarted = resolve;
+    });
+    const isProductSearch = (url: string) =>
+      url.includes('products.list') && decodeURIComponent(url).includes(scenario.product.sku);
+    await context.route('**/*', async route => {
       const url = new URL(route.request().url());
+      if (isProductSearch(url.href)) {
+        markSearchStarted();
+        await searchGate;
+      }
       return ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname) ||
         ['blob:', 'data:', 'about:'].includes(url.protocol)
         ? route.continue()
@@ -161,6 +175,19 @@ for (const language of ['en', 'es'] as const) {
         name: language === 'en' ? 'Deactivate Product' : 'Desactivar producto',
         exact: true,
       });
+      await expect(dialog).toBeVisible();
+      await searchStarted;
+      await testInfo.attach('pending-search-opener', {
+        body: JSON.stringify({
+          connected: await opener!.evaluate(el => el.isConnected),
+          tablePresent: await page.locator('table').count(),
+        }),
+        contentType: 'application/json',
+      });
+      expect(
+        await opener!.evaluate(el => el.isConnected),
+        'pending search must not unmount the opener'
+      ).toBe(true);
       const confirm = dialog.getByRole('button', {
         name: language === 'en' ? 'Deactivate' : 'Desactivar',
         exact: true,
@@ -177,6 +204,13 @@ for (const language of ['en', 'es'] as const) {
       expect(await opener!.evaluate(el => el.isConnected)).toBe(true);
       expect(await page.locator('#root').evaluate(el => (el as HTMLElement).inert)).toBe(true);
       expect(snapshot()).toEqual(before);
+      const searched = page.waitForResponse(
+        response => isProductSearch(response.url()) && response.status() === 200
+      );
+      releaseSearch();
+      await searched;
+      expect(await opener!.evaluate(el => el.isConnected)).toBe(true);
+
       await dialog
         .getByRole('button', { name: language === 'en' ? 'Cancel' : 'Cancelar', exact: true })
         .click();
@@ -195,6 +229,7 @@ for (const language of ['en', 'es'] as const) {
       expect(snapshot().outbox).toEqual({ n: (before.outbox as { n: number }).n + 1 });
       expect(errors).toEqual([]);
     } finally {
+      releaseSearch();
       db.exec('DROP TRIGGER IF EXISTS lab_mouse_focus_rejection');
       db.close();
     }

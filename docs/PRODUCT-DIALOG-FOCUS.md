@@ -8,6 +8,8 @@ On app1.15.3/main404b5d7294ea021a5863d2149c79bf483a498b73, opening a product dea
 
 The action renderer now has a stable module-level type and reads current callbacks, permissions and product data from its column definition. Products opt into entity IDs for table rows, cells, selection mapping and virtual item keys; other tables retain default index IDs. Reordering rows therefore preserves the control for the same product. No blanket memoization captures stale callbacks.
 
+A second unmount came from the debounced search query: changing its key put the page into isLoading and removed the entire table even with confirmation open. The query now uses the existing repository keepPreviousData pattern, retaining rows/search while the response is pending and exposing aria-busy. A response that actually removes the product still uses the missing-row fallback. A real QueryClient fixture and EN/ES browser tests hold that response behind a gate; before this correction both browser cases disconnect the opener while pending. No sleeps or weaker focus assertion replace the gate.
+
 Normal close restores the original, connected opener through the existing dialog hook. Only a genuinely missing opener (removed/filter/virtual window) uses product search, or the visible page heading if the table/search has disappeared. The heading has programmatic tabindex=-1, outside the normal tab order. ConfirmModal forwards the existing Modal restoration option. Global inert, focus trapping and toast isolation remain enforced.
 
 ## Scope and dependencies

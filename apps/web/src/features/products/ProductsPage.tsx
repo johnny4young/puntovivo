@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { keepPreviousData } from '@tanstack/react-query';
 import { AlertTriangle, Plus, RefreshCw, Search, Sparkles } from 'lucide-react';
 import { isProductTemplateVerticalId } from '@puntovivo/shared/vertical-presets';
 import { ConfirmModal, Modal } from '@/components/form-controls/Modal';
@@ -93,12 +94,20 @@ export function ProductsPage() {
   // hook's debounced `literalFallbackSearch`) and the trivial displayProducts merge.
   const semantic = useProductsSemanticSearch({ canManage, canRegenerate });
 
-  const productsQuery = trpc.products.list.useQuery({
-    page: 1,
-    perPage: 50,
-    search: semantic.literalFallbackSearch,
-    includeVariantParents: true,
-  });
+  const productsQuery = trpc.products.list.useQuery(
+    {
+      page: 1,
+      perPage: 50,
+      search: semantic.literalFallbackSearch,
+      includeVariantParents: true,
+    },
+    {
+      // A debounced term changes the query key even while confirmation is open.
+      // Preserve the mounted rows/search until that response replaces them;
+      // otherwise isLoading unmounts the captured opener during the request.
+      placeholderData: keepPreviousData,
+    }
+  );
 
   const categoriesQuery = trpc.categories.tree.useQuery();
   const providersQuery = trpc.providers.list.useQuery({ page: 1, perPage: 200 });
@@ -385,7 +394,7 @@ export function ProductsPage() {
         !semantic.hasActiveSearch &&
         products.length === 0 && <EmptyStateReadinessNudge scope="products" />}
 
-      <div className="card p-6">
+      <div className="card p-6" aria-busy={productsQuery.isFetching}>
         {productsQuery.isLoading && <TableLoadingState message={t('table.loading')} />}
         {productsQuery.error && (
           <TableErrorState

@@ -8,6 +8,8 @@ En app1.15.3/main404b5d7294ea021a5863d2149c79bf483a498b73, abrir la confirmació
 
 El renderer de acciones tiene ahora un tipo estable de módulo y lee callbacks, permisos y datos actuales desde la definición de columna. Productos usa IDs de entidad para filas, celdas, selección y keys virtuales; las demás tablas conservan sus índices. Reordenar mantiene el control del mismo producto. No se memorizan closures con callbacks antiguos.
 
+Un segundo desmontaje proviene de la búsqueda con debounce: cambiar la key pone la consulta en isLoading y elimina toda la tabla aunque siga abierta la confirmación. Se aplica el patrón keepPreviousData existente en el repositorio para conservar filas/buscador mientras llega la respuesta, con aria-busy. Si la respuesta retira realmente el producto se usa el fallback. Un fixture con QueryClient real y casos EN/ES de navegador retienen esa respuesta mediante un gate; antes de esta corrección ambos casos desconectan el opener durante la espera. No se sustituyen las aserciones por sleeps ni se debilita la comprobación del foco.
+
 El cierre normal devuelve el foco al mismo opener conectado usando el hook existente. Solo si desapareció realmente por eliminación, filtrado o ventana virtual se usa el buscador de productos, o el título visible si la tabla y el buscador desaparecieron. El título tiene tabindex=-1 programático, fuera del recorrido normal. ConfirmModal propaga la opción existente de Modal. Se conservan inert global, el confinamiento de foco y el aislamiento del toast.
 
 ## Alcance y dependencias
