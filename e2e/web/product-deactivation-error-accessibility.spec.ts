@@ -10,6 +10,7 @@ for (const language of ['en', 'es'] as const) {
       page,
       context,
     }, testInfo) => {
+      if (theme === 'dark') await page.setViewportSize({ width: 390, height: 844 });
       const scenario = seedReceiptPrintingScenario(
         `deactivation-${testInfo.workerIndex}-${Date.now()}`
       );
@@ -106,6 +107,14 @@ for (const language of ['en', 'es'] as const) {
         expect(await page.locator('#root').getAttribute('aria-hidden')).toBe('true');
         expect(await page.locator('#root').evaluate(el => (el as HTMLElement).inert)).toBe(true);
         await expect(confirm).toBeFocused();
+        const alertBounds = await page.getByRole('alert').boundingBox();
+        const viewport = page.viewportSize();
+        expect(alertBounds).not.toBeNull();
+        expect(viewport).not.toBeNull();
+        expect(alertBounds!.x).toBeGreaterThanOrEqual(0);
+        expect(alertBounds!.y).toBeGreaterThanOrEqual(0);
+        expect(alertBounds!.x + alertBounds!.width).toBeLessThanOrEqual(viewport!.width);
+        expect(alertBounds!.y + alertBounds!.height).toBeLessThanOrEqual(viewport!.height);
         await testInfo.attach('localized-error-announcement', {
           body: await page.getByRole('alert').ariaSnapshot(),
           contentType: 'text/plain',
