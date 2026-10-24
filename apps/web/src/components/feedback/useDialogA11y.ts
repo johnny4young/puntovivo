@@ -16,6 +16,7 @@
  * @module components/feedback/useDialogA11y
  */
 import { useCallback, useEffect, useRef, type RefObject } from 'react';
+import { registerDialogFeedbackSurface } from './dialogFeedbackHost';
 
 /** Focusable-descendant selector shared by the focus-in + Tab-trap logic. */
 const FOCUSABLE_SELECTOR =
@@ -180,6 +181,13 @@ export function useDialogA11y({
     const activeDialog =
       dialogRef?.current ?? containerRef.current?.closest<HTMLElement>(MODAL_DIALOG_SELECTOR);
     if (!activeDialog) return;
+    const container = containerRef.current;
+    if (!container) return;
+    const focusedBeforeRegistration = document.activeElement as HTMLElement | null;
+    const focusCameFromOutside = Boolean(
+      focusedBeforeRegistration && !activeDialog.contains(focusedBeforeRegistration)
+    );
+    const unregisterFeedback = registerDialogFeedbackSurface(container);
 
     const activeIsTopmost = isTopmostModalDialog(activeDialog);
     const targets = new Set<HTMLElement>();
@@ -201,14 +209,19 @@ export function useDialogA11y({
 
     const targetList = Array.from(targets);
     const focusedElement = document.activeElement as HTMLElement | null;
-    if (focusedElement && targetList.some(target => target.contains(focusedElement))) {
-      previousActiveElement.current = focusedElement;
-      const container = containerRef.current;
+    if (
+      focusedElement &&
+      (focusCameFromOutside || targetList.some(target => target.contains(focusedElement)))
+    ) {
+      previousActiveElement.current = focusedBeforeRegistration;
       const focusTarget = container?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR) ?? container;
       focusTarget?.focus();
     }
     targetList.forEach(acquireIsolation);
-    return () => targetList.forEach(releaseIsolation);
+    return () => {
+      targetList.forEach(releaseIsolation);
+      unregisterFeedback();
+    };
   }, [isOpen, containerRef, dialogRef]);
 
   // Focus management: focus first element on open, restore on close.

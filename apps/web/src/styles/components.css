@@ -475,6 +475,16 @@
    * All three inner sections use z-10 to layer above the ::before gradient.
    * ======================================================================== */
 
+  /* A dialog-scoped notification participates in the panel's focus boundary.
+   * Keep it in flow rather than clipping a fixed viewport behind the shell. */
+  [data-dialog-toast-host] {
+    @apply relative z-20 max-h-[28dvh] shrink-0 overflow-y-auto px-5 py-3 sm:px-6;
+  }
+
+  [data-dialog-toast-host]:empty {
+    display: none;
+  }
+
   .modal-shell {
     @apply relative flex w-full flex-col overflow-hidden rounded-[18px] border border-line/80 bg-surface/96 text-secondary-950 backdrop-blur-xl;
     box-shadow: var(--shadow-panel);

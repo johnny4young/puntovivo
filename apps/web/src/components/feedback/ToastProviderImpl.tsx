@@ -1,6 +1,16 @@
 import { CheckCircle2, Info, TriangleAlert, X, XCircle } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useLayoutEffect,
+  type ReactNode,
+} from 'react';
 import { useTranslation } from 'react-i18next';
+import { createPortal } from 'react-dom';
+import { focusDialogFeedbackSurface, registerDialogFeedbackHost } from './dialogFeedbackHost';
 import { cn } from '@/lib/utils';
 import {
   ToastContext,
@@ -62,15 +72,17 @@ function ToastViewport({
   onDismiss: (toastId: string) => void;
 }) {
   const { t } = useTranslation('common');
+  if (toasts.length === 0) return null;
 
   return (
-    <div className="pointer-events-none fixed left-4 right-4 top-4 z-50 ml-auto flex max-h-[calc(100dvh-2rem)] max-w-sm flex-col gap-3 overflow-y-auto overscroll-contain sm:left-auto sm:w-full">
+    <div className="pointer-events-none fixed left-4 right-4 top-4 z-50 ml-auto flex max-h-[calc(100dvh-2rem)] max-w-sm flex-col gap-3 overflow-y-auto overscroll-contain sm:left-auto sm:w-full [[data-dialog-toast-host]_&]:static [[data-dialog-toast-host]_&]:m-0 [[data-dialog-toast-host]_&]:w-full [[data-dialog-toast-host]_&]:max-w-none [[data-dialog-toast-host]_&]:max-h-none [[data-dialog-toast-host]_&]:overflow-visible">
       {toasts.map(toast => {
         const Icon = getToastIcon(toast.tone);
 
         return (
           <div
             key={toast.id}
+            data-toast-id={toast.id}
             role={toast.tone === 'error' ? 'alert' : 'status'}
             className={cn(
               'pointer-events-auto break-words rounded-2xl border p-4 shadow-soft animate-fade-in backdrop-blur',
@@ -120,17 +132,37 @@ interface ToastProviderProps {
 
 export function ToastProvider({ children }: ToastProviderProps) {
   const [toasts, setToasts] = useState<ToastRecord[]>([]);
+  // A stable portal container preserves notification identity/timers and focused
+  // action openers while the DOM host follows the active dialog surface.
+  const [host] = useState(() =>
+    typeof document === 'undefined' ? null : document.createElement('div')
+  );
+  useLayoutEffect(() => {
+    if (host) return registerDialogFeedbackHost(host);
+  }, [host]);
   const timeoutIdsRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
-  const dismiss = useCallback((toastId: string) => {
-    const timeoutId = timeoutIdsRef.current.get(toastId);
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-      timeoutIdsRef.current.delete(toastId);
-    }
+  const dismiss = useCallback(
+    (toastId: string) => {
+      const timeoutId = timeoutIdsRef.current.get(toastId);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutIdsRef.current.delete(toastId);
+      }
 
-    setToasts(currentToasts => currentToasts.filter(toast => toast.id !== toastId));
-  }, []);
+      const active = document.activeElement;
+      if (
+        host &&
+        active instanceof HTMLElement &&
+        host.contains(active) &&
+        active.closest('[data-toast-id]')?.getAttribute('data-toast-id') === toastId
+      ) {
+        focusDialogFeedbackSurface(host);
+      }
+      setToasts(currentToasts => currentToasts.filter(toast => toast.id !== toastId));
+    },
+    [host]
+  );
 
   const show = useCallback(
     ({
@@ -177,7 +209,7 @@ export function ToastProvider({ children }: ToastProviderProps) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <ToastViewport toasts={toasts} onDismiss={dismiss} />
+      {host && createPortal(<ToastViewport toasts={toasts} onDismiss={dismiss} />, host)}
     </ToastContext.Provider>
   );
 }
