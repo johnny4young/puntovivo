@@ -73,8 +73,17 @@ node node_modules/vitest/vitest.mjs run --root packages/server --config vitest.c
 corepack pnpm --filter @puntovivo/server run typecheck
 corepack pnpm --filter @puntovivo/web run typecheck
 node --test scripts/check-lighthouse.test.mjs scripts/run-lighthouse-gate.test.mjs scripts/electron-fetch-download.test.mjs scripts/run-dependency-audit.test.mjs scripts/runtime-dependency-reachability.test.mjs scripts/check-exact-override-policy.test.mjs
-node --experimental-strip-types --test apps/desktop/src/main/print-html-sanitizer.test.ts
+node --experimental-strip-types --test apps/desktop/src/main/__tests__/print-html-sanitizer.test.ts
 ```
+
+A refreshed lock also records deprecated `@opentelemetry/sdk-trace-base` wrappers
+used by Sentry 10. The latest compatible owner, Sentry 10.76.2, still requires
+that wrapper. Direct aliasing to the renamed `@opentelemetry/sdk-trace` was
+rejected: legacy `BasicTracerProvider` is absent. No incompatible alias or
+deprecation suppression is shipped. The strict deprecation gate remains a
+known blocker requiring a separately validated telemetry migration. The
+preexisting missing curated 1.15.3 release note is another release gate; this
+dependency patch does not invent release evidence.
 
 ## Qualification limits
 

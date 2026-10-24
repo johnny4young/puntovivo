@@ -8,7 +8,7 @@
   },
   "productFix": "c32011ac8a80cc07a0ced556fcfe6f074ce0ccc3",
   "lockfile": "scripts/fixtures/dependency-composition/pnpm-lock.yaml",
-  "lockfileSha256": "16d76af08b0dbe3c54cffaa0ce6456c025705f3fe8a0e3d8a622774d8701c480",
+  "lockfileSha256": "4fd1fc220079bcae324d0d9d47aa57bf7c7fb3a03a3f0905094c75f777de3a1a",
   "manifestChanges": {
     "apps/desktop/package.json": {
       "dependencies": {
