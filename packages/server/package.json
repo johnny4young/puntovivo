@@ -75,14 +75,14 @@
     "@fastify/jwt": "^10.2.2",
     "@fastify/rate-limit": "^11.2.0",
     "@puntovivo/shared": "workspace:*",
-    "@sentry/node": "^10.71.0",
+    "@sentry/node": "11.9.0",
     "@trpc/server": "^11.18.0",
     "ai": "^7.0.83",
     "argon2": "^0.45.1",
     "better-sqlite3": "npm:better-sqlite3-multiple-ciphers@^13.0.3",
     "drizzle-orm": "^0.45.2",
     "fast-xml-parser": "^5.11.0",
-    "fastify": "^5.12.5",
+    "fastify": "5.12.6",
     "fastify-plugin": "^6.0.0",
     "jspdf": "^4.2.1",
     "nanoid": "^6.0.1",
@@ -90,14 +90,14 @@
     "pdfjs-dist": "^6.3.289",
     "pino": "^10.3.1",
     "qrcode": "^1.5.4",
-    "zod": "^4.4.3"
+    "zod": "4.6.6"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^26.6.2",
     "@types/qrcode": "^1.5.6",
     "@typescript/native": "npm:typescript@^7.0.2",
-    "@vitest/coverage-v8": "^5.0.1",
+    "@vitest/coverage-v8": "5.0.3",
     "drizzle-kit": "^0.31.11",
     "eslint": "^10.11.0",
     "fast-check": "^4.10.2",
@@ -107,7 +107,7 @@
     "tsx": "^4.23.15",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
     "typescript-eslint": "^8.70.1",
-    "vitest": "^5.0.1"
+    "vitest": "5.0.3"
   },
   "peerDependencies": {
     "electron": ">=30.0.0"

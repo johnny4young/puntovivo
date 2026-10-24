@@ -1,0 +1,54 @@
+{
+  "reviewedOn": "2026-10-24",
+  "base": "404b5d7294ea021a5863d2149c79bf483a498b73",
+  "dependabotHeads": {
+    "340": "f37c9adbd8093622f62c31f865ea2bd08c30a01c",
+    "341": "dc31bb6193ecdcd9304bb61e09ca1a6edb1421f5",
+    "342": "09ee4ef20456cb61eb0c46c6aa6db44f737d01d5"
+  },
+  "productFix": "c32011ac8a80cc07a0ced556fcfe6f074ce0ccc3",
+  "lockfile": "scripts/fixtures/dependency-composition/pnpm-lock.yaml",
+  "lockfileSha256": "e990b3abbf795cfbd885a4ac7aaa10fcd1cfecbc5743104b072cd15d879780de",
+  "manifestChanges": {
+    "apps/desktop/package.json": {
+      "dependencies": {
+        "sanitize-html": "^2.18.0"
+      },
+      "devDependencies": {
+        "vite": "^8.3.3"
+      }
+    },
+    "apps/web/package.json": {
+      "devDependencies": {
+        "vite": "^8.3.3"
+      }
+    }
+  },
+  "resolvedComposition": {
+    "sanitize-html": "2.18.1",
+    "vite": "8.3.5",
+    "electron": "43.8.1",
+    "zod": "4.6.6",
+    "fastify": "5.12.6",
+    "vitest": "5.0.3",
+    "puppeteer-core": "25.16.0",
+    "sentry-node": "11.9.0",
+    "sentry-browser": "10.71.0"
+  },
+  "qualification": "Private frozen composition; see PR for actual command outcomes. It does not change PR343 head or historical CI and is not merge/release qualification.",
+  "documentationFix": {
+    "commit": "769c1f8d49b7e772ca0ea33465535f6a67aaf80d",
+    "files": ["docs/releases/v1.15.3.md", "docs/es/releases/v1.15.3.md"],
+    "translationPair": {
+      "en": "docs/releases/v1.15.3.md",
+      "es": "docs/es/releases/v1.15.3.md"
+    }
+  },
+  "reviewOrder": [
+    "345: independent historical release-note repair; removes release gate without version/tag changes",
+    "341: Vite prerequisite; the gap branch intentionally does not duplicate it",
+    "340 plus344: review together because sanitize-html2.18.0 introduces a new advisory patched by344",
+    "342 then344: parent Electron branch;344 raises43.7.0 to43.8.1 and supplies remaining fixes",
+    "343: product atomicity; qualify only with the frozen dependency/documentation composition"
+  ]
+}

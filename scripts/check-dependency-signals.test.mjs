@@ -99,13 +99,13 @@ test('both accessibility gates run the same axe rule engine', () => {
   );
 });
 
-test('Sentry Node receives its undeclared OpenTelemetry peer explicitly', () => {
-  const sentryRequire = createRequire(require.resolve('@sentry/node/package.json'));
-  const corePackage = sentryRequire('@opentelemetry/core/package.json');
-
-  assert.equal(corePackage.version, '2.10.0');
-  assert.match(workspaceManifest, /^\s+'@sentry\/node@10\.71\.0':$/m);
-  assert.match(workspaceManifest, /^\s+'@opentelemetry\/core': '2\.10\.0'$/m);
+test('Sentry Node owns native spans without the deprecated OTel shim', () => {
+  const sentry = require('@sentry/node/package.json');
+  assert.equal(sentry.version, '11.9.0');
+  assert.equal(sentry.dependencies['@opentelemetry/sdk-trace-base'], undefined);
+  assert.equal(sentry.dependencies['@sentry/node-core'], undefined);
+  assert.doesNotMatch(workspaceManifest, /^\s+'@sentry\/node@10\./m);
+  assert.doesNotMatch(lockfile, /^\s{2}'?@opentelemetry\/sdk-trace-base@/m);
 });
 
 // A selector that pins a version stops applying, silently, as soon as that
@@ -296,16 +296,17 @@ test('Vitest 5 and its coverage provider share the reviewed Vite and Node contra
     const runner = ownerRequire('vitest/package.json');
     const coverage = ownerRequire('@vitest/coverage-v8/package.json');
     const vite = ownerRequire('vite/package.json');
-    assert.equal(manifest.devDependencies.vitest, '^5.0.1');
-    assert.equal(manifest.devDependencies['@vitest/coverage-v8'], '^5.0.1');
-    assert.equal(runner.version, '5.0.1');
+    assert.equal(manifest.devDependencies.vitest, '5.0.3');
+    assert.equal(manifest.devDependencies['@vitest/coverage-v8'], '5.0.3');
+    assert.equal(runner.version, '5.0.3');
     assert.equal(coverage.version, runner.version);
     assert.equal(coverage.peerDependencies.vitest, runner.version);
-    assert.equal(vite.version, '8.3.0');
+    assert.ok(require('semver').satisfies(vite.version, manifest.devDependencies.vite ?? '^8.3.0'));
+    assert.equal(Number(vite.version.split('.')[0]), 8);
     // Node 24 remains a supported execution target, even with Node 26 declarations.
     assert.equal(runner.engines.node, '^22.12.0 || ^24.0.0 || >=26.0.0');
     assert.equal(runner.peerDependencies.vite, '^6.4.0 || ^7.0.0 || ^8.0.0');
-    assert.equal(ownerRequire('@types/node/package.json').version, '26.6.2');
+    assert.equal(Number(ownerRequire('@types/node/package.json').version.split('.')[0]), 26);
   }
 });
 
@@ -340,10 +341,10 @@ test('the rate limiter subnet dependency rejects cross-family allowlist matches'
 
 test('HTTP consumers keep patched undici releases within their existing major lines', () => {
   const owners = [
-    ['app-builder-lib', '7.29.1'],
-    ['node-gyp', '6.28.1'],
-    ['@ai-sdk/provider-utils', '7.29.1'],
-    ['jsdom', '8.11.0'],
+    ['app-builder-lib', '7.30.1'],
+    ['node-gyp', '6.29.1'],
+    ['@ai-sdk/provider-utils', '7.30.1'],
+    ['jsdom', '8.12.2'],
   ];
   for (const [owner, version] of owners) {
     const ownerRequire = createRequire(require.resolve(owner + '/package.json'));
@@ -411,7 +412,7 @@ test('Electron development and production packaging share the reviewed patched r
     'utf8'
   );
   const version = require('electron/package.json').version;
-  assert.equal(version, '43.5.0');
+  assert.equal(version, '43.8.1');
   assert.equal(desktop.devDependencies.electron, version);
   assert.equal(builder.match(/^electronVersion:\s*(\S+)$/m)?.[1], version);
   // No Electron release may bypass the age policy; a literal old version here

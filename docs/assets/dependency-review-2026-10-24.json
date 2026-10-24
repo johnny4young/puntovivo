@@ -1,0 +1,1323 @@
+{
+  "reviewedOn": "2026-10-24",
+  "base": "404b5d7294ea021a5863d2149c79bf483a498b73",
+  "auditEntryCount": 41,
+  "distinctAdvisoryCount": 32,
+  "method": "Dependency reachability and checked-in callers were reviewed; public upstream advisory conditions are distinguished from demonstrated app exploits. Full audit remains mandatory with no exceptions.",
+  "advisories": [
+    {
+      "advisory": "GHSA-qxg6-89mg-rqv8",
+      "source": "https://github.com/advisories/GHSA-qxg6-89mg-rqv8",
+      "package": "@vitest/mocker",
+      "severity": "moderate",
+      "remediationOwner": "dependency-gap PR (depends on PR342)",
+      "selectedPatchedVersions": [
+        "5.0.3"
+      ],
+      "applicability": "Development test-server mock registration and redirect handling; not shipped application code. Run mode is used for validation; no assertion that every developer server configuration is safe.",
+      "baselineInstances": [
+        {
+          "affectedRange": ">=5.0.0-beta.1 <5.0.3",
+          "upstreamPatchedRange": ">=5.0.3",
+          "findings": [
+            {
+              "version": "5.0.1",
+              "dev": true,
+              "paths": [
+                "apps__web>@testing-library/jest-dom>vitest>@vitest/mocker",
+                "apps__web>@vitest/coverage-v8>vitest>@vitest/mocker",
+                "apps__web>vitest>@vitest/mocker",
+                "packages__server>@vitest/coverage-v8>vitest>@vitest/mocker",
+                "packages__server>vitest>@vitest/mocker"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "advisory": "GHSA-xp26-3454-mjgp",
+      "source": "https://github.com/advisories/GHSA-xp26-3454-mjgp",
+      "package": "@vitest/mocker",
+      "severity": "moderate",
+      "remediationOwner": "dependency-gap PR (depends on PR342)",
+      "selectedPatchedVersions": [
+        "5.0.3"
+      ],
+      "applicability": "Development test-server mock registration and redirect handling; not shipped application code. Run mode is used for validation; no assertion that every developer server configuration is safe.",
+      "baselineInstances": [
+        {
+          "affectedRange": ">=5.0.0-rc.2 <5.0.3",
+          "upstreamPatchedRange": ">=5.0.3",
+          "findings": [
+            {
+              "version": "5.0.1",
+              "dev": true,
+              "paths": [
+                "apps__web>@testing-library/jest-dom>vitest>@vitest/mocker",
+                "apps__web>@vitest/coverage-v8>vitest>@vitest/mocker",
+                "apps__web>vitest>@vitest/mocker",
+                "packages__server>@vitest/coverage-v8>vitest>@vitest/mocker",
+                "packages__server>vitest>@vitest/mocker"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "advisory": "GHSA-c6gr-qvv4-5v3f",
+      "source": "https://github.com/advisories/GHSA-c6gr-qvv4-5v3f",
+      "package": "dompurify",
+      "severity": "low",
+      "remediationOwner": "dependency-gap PR (depends on PR342)",
+      "selectedPatchedVersions": [
+        "3.4.17"
+      ],
+      "applicability": "Runtime dependency of jsPDF in web/server. Reviewed application PDF paths use text/autotable rather than direct DOM/SAFE_FOR_TEMPLATES/IN_PLACE calls; advisory preconditions are not established as an application exploit. Patch remains required for shipped optional HTML capabilities.",
+      "baselineInstances": [
+        {
+          "affectedRange": "<=3.4.16",
+          "upstreamPatchedRange": ">=3.4.17",
+          "findings": [
+            {
+              "version": "3.4.16",
+              "dev": false,
+              "paths": [
+                "apps__web>jspdf>dompurify",
+                "apps__web>jspdf-autotable>jspdf>dompurify",
+                "packages__server>jspdf>dompurify"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "advisory": "GHSA-cg2g-xh64-v4q7",
+      "source": "https://github.com/advisories/GHSA-cg2g-xh64-v4q7",
+      "package": "dompurify",
+      "severity": "critical",
+      "remediationOwner": "dependency-gap PR (depends on PR342)",
+      "selectedPatchedVersions": [
+        "3.4.17"
+      ],
+      "applicability": "Runtime dependency of jsPDF in web/server. Reviewed application PDF paths use text/autotable rather than direct DOM/SAFE_FOR_TEMPLATES/IN_PLACE calls; advisory preconditions are not established as an application exploit. Patch remains required for shipped optional HTML capabilities.",
+      "baselineInstances": [
+        {
+          "affectedRange": ">=3.4.4 <=3.4.16",
+          "upstreamPatchedRange": ">=3.4.17",
+          "findings": [
+            {
+              "version": "3.4.16",
+              "dev": false,
+              "paths": [
+                "apps__web>jspdf>dompurify",
+                "apps__web>jspdf-autotable>jspdf>dompurify",
+                "packages__server>jspdf>dompurify"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "advisory": "GHSA-mrv2-3pqr-j5jr",
+      "source": "https://github.com/advisories/GHSA-mrv2-3pqr-j5jr",
+      "package": "dompurify",
+      "severity": "high",
+      "remediationOwner": "dependency-gap PR (depends on PR342)",
+      "selectedPatchedVersions": [
+        "3.4.17"
+      ],
+      "applicability": "Runtime dependency of jsPDF in web/server. Reviewed application PDF paths use text/autotable rather than direct DOM/SAFE_FOR_TEMPLATES/IN_PLACE calls; advisory preconditions are not established as an application exploit. Patch remains required for shipped optional HTML capabilities.",
+      "baselineInstances": [
+        {
+          "affectedRange": "<=3.4.16",
+          "upstreamPatchedRange": ">=3.4.17",
+          "findings": [
+            {
+              "version": "3.4.16",
+              "dev": false,
+              "paths": [
+                "apps__web>jspdf>dompurify",
+                "apps__web>jspdf-autotable>jspdf>dompurify",
+                "packages__server>jspdf>dompurify"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "advisory": "GHSA-2p8c-gr87-2676",
+      "source": "https://github.com/advisories/GHSA-2p8c-gr87-2676",
+      "package": "electron",
+      "severity": "moderate",
+      "remediationOwner": "dependency-gap PR (depends on PR342)",
+      "selectedPatchedVersions": [
+        "43.8.1"
+      ],
+      "applicability": "Declared as a development package but its executable is the delivered desktop runtime. Browser permissions, popup/cookie isolation, extension metadata, GPU geometry and TLS trust can affect packaged apps conditionally. Native exploitation and physical OS validation are not claimed.",
+      "baselineInstances": [
+        {
+          "affectedRange": ">=43.0.0-alpha.1 <43.7.0",
+          "upstreamPatchedRange": ">=43.7.0",
+          "findings": [
+            {
+              "version": "43.5.0",
+              "dev": true,
+              "paths": [
+                "apps__desktop>electron"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "advisory": "GHSA-3qxv-5xgr-q7w9",
+      "source": "https://github.com/advisories/GHSA-3qxv-5xgr-q7w9",
+      "package": "electron",
+      "severity": "low",
+      "remediationOwner": "dependency-gap PR (depends on PR342)",
+      "selectedPatchedVersions": [
+        "43.8.1"
+      ],
+      "applicability": "Declared as a development package but its executable is the delivered desktop runtime. Browser permissions, popup/cookie isolation, extension metadata, GPU geometry and TLS trust can affect packaged apps conditionally. Native exploitation and physical OS validation are not claimed.",
+      "baselineInstances": [
+        {
+          "affectedRange": ">=43.0.0-alpha.1 <43.7.3",
+          "upstreamPatchedRange": ">=43.7.3",
+          "findings": [
+            {
+              "version": "43.5.0",
+              "dev": true,
+              "paths": [
+                "apps__desktop>electron"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "advisory": "GHSA-98mx-cjp9-gchm",
+      "source": "https://github.com/advisories/GHSA-98mx-cjp9-gchm",
+      "package": "electron",
+      "severity": "low",
+      "remediationOwner": "dependency-gap PR (depends on PR342)",
+      "selectedPatchedVersions": [
+        "43.8.1"
+      ],
+      "applicability": "Declared as a development package but its executable is the delivered desktop runtime. Browser permissions, popup/cookie isolation, extension metadata, GPU geometry and TLS trust can affect packaged apps conditionally. Native exploitation and physical OS validation are not claimed.",
+      "baselineInstances": [
+        {
+          "affectedRange": ">=43.0.0-alpha.1 <43.5.1",
+          "upstreamPatchedRange": ">=43.5.1",
+          "findings": [
+            {
+              "version": "43.5.0",
+              "dev": true,
+              "paths": [
+                "apps__desktop>electron"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "advisory": "GHSA-997q-gvvc-jwmx",
+      "source": "https://github.com/advisories/GHSA-997q-gvvc-jwmx",
+      "package": "electron",
+      "severity": "moderate",
+      "remediationOwner": "dependency-gap PR (depends on PR342)",
+      "selectedPatchedVersions": [
+        "43.8.1"
+      ],
+      "applicability": "Declared as a development package but its executable is the delivered desktop runtime. Browser permissions, popup/cookie isolation, extension metadata, GPU geometry and TLS trust can affect packaged apps conditionally. Native exploitation and physical OS validation are not claimed.",
+      "baselineInstances": [
+        {
+          "affectedRange": ">=43.0.0-alpha.1 <43.7.0",
+          "upstreamPatchedRange": ">=43.7.0",
+          "findings": [
+            {
+              "version": "43.5.0",
+              "dev": true,
+              "paths": [
+                "apps__desktop>electron"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "advisory": "GHSA-fw47-9c62-h3vw",
+      "source": "https://github.com/advisories/GHSA-fw47-9c62-h3vw",
+      "package": "electron",
+      "severity": "moderate",
+      "remediationOwner": "dependency-gap PR (depends on PR342)",
+      "selectedPatchedVersions": [
+        "43.8.1"
+      ],
+      "applicability": "Declared as a development package but its executable is the delivered desktop runtime. Browser permissions, popup/cookie isolation, extension metadata, GPU geometry and TLS trust can affect packaged apps conditionally. Native exploitation and physical OS validation are not claimed.",
+      "baselineInstances": [
+        {
+          "affectedRange": ">=43.0.0-alpha.1 <43.7.0",
+          "upstreamPatchedRange": ">=43.7.0",
+          "findings": [
+            {
+              "version": "43.5.0",
+              "dev": true,
+              "paths": [
+                "apps__desktop>electron"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "advisory": "GHSA-h3v5-h239-pg29",
+      "source": "https://github.com/advisories/GHSA-h3v5-h239-pg29",
+      "package": "electron",
+      "severity": "low",
+      "remediationOwner": "dependency-gap PR (depends on PR342)",
+      "selectedPatchedVersions": [
+        "43.8.1"
+      ],
+      "applicability": "Declared as a development package but its executable is the delivered desktop runtime. Browser permissions, popup/cookie isolation, extension metadata, GPU geometry and TLS trust can affect packaged apps conditionally. Native exploitation and physical OS validation are not claimed.",
+      "baselineInstances": [
+        {
+          "affectedRange": ">=43.0.0-alpha.1 <43.7.3",
+          "upstreamPatchedRange": ">=43.7.3",
+          "findings": [
+            {
+              "version": "43.5.0",
+              "dev": true,
+              "paths": [
+                "apps__desktop>electron"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "advisory": "GHSA-jr5w-w6x2-84p9",
+      "source": "https://github.com/advisories/GHSA-jr5w-w6x2-84p9",
+      "package": "electron",
+      "severity": "high",
+      "remediationOwner": "dependency-gap PR (depends on PR342)",
+      "selectedPatchedVersions": [
+        "43.8.1"
+      ],
+      "applicability": "Declared as a development package but its executable is the delivered desktop runtime. Browser permissions, popup/cookie isolation, extension metadata, GPU geometry and TLS trust can affect packaged apps conditionally. Native exploitation and physical OS validation are not claimed.",
+      "baselineInstances": [
+        {
+          "affectedRange": ">=43.0.0-alpha.1 <43.8.1",
+          "upstreamPatchedRange": ">=43.8.1",
+          "findings": [
+            {
+              "version": "43.5.0",
+              "dev": true,
+              "paths": [
+                "apps__desktop>electron"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "advisory": "GHSA-x562-297c-g43g",
+      "source": "https://github.com/advisories/GHSA-x562-297c-g43g",
+      "package": "electron",
+      "severity": "moderate",
+      "remediationOwner": "dependency-gap PR (depends on PR342)",
+      "selectedPatchedVersions": [
+        "43.8.1"
+      ],
+      "applicability": "Declared as a development package but its executable is the delivered desktop runtime. Browser permissions, popup/cookie isolation, extension metadata, GPU geometry and TLS trust can affect packaged apps conditionally. Native exploitation and physical OS validation are not claimed.",
+      "baselineInstances": [
+        {
+          "affectedRange": ">=43.0.0-alpha.1 <43.7.6",
+          "upstreamPatchedRange": ">=43.7.6",
+          "findings": [
+            {
+              "version": "43.5.0",
+              "dev": true,
+              "paths": [
+                "apps__desktop>electron"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "advisory": "GHSA-333x-w4r6-6crp",
+      "source": "https://github.com/advisories/GHSA-333x-w4r6-6crp",
+      "package": "fast-uri",
+      "severity": "low",
+      "remediationOwner": "dependency-gap PR (depends on PR342)",
+      "selectedPatchedVersions": [
+        "3.1.9",
+        "4.2.3"
+      ],
+      "applicability": "Runtime paths through Fastify/AJV/JSON serialization. URI decoding, path equivalence, WHATWG-host and suffix-colon cases affect callers relying on those normalization/security decisions; no application exploit is asserted.",
+      "baselineInstances": [
+        {
+          "affectedRange": ">=4.0.0 <4.2.3",
+          "upstreamPatchedRange": ">=4.2.3",
+          "findings": [
+            {
+              "version": "4.1.5",
+              "dev": false,
+              "paths": [
+                "packages__server>fastify>@fastify/ajv-compiler>fast-uri",
+                "packages__server>fastify>@fastify/fast-json-stringify-compiler>fast-json-stringify>fast-uri",
+                "packages__server>fastify>fast-json-stringify>fast-uri"
+              ]
+            }
+          ]
+        },
+        {
+          "affectedRange": ">=3.0.0 <3.1.9",
+          "upstreamPatchedRange": ">=3.1.9",
+          "findings": [
+            {
+              "version": "3.1.8",
+              "dev": false,
+              "paths": [
+                ".>lighthouse>ajv>fast-uri",
+                ".>lighthouse>ajv-formats>ajv>fast-uri",
+                "apps__desktop>electron-builder>app-builder-lib>ajv>fast-uri",
+                "apps__desktop>electron-builder>dmg-builder>app-builder-lib>ajv>fast-uri",
+                "packages__server>fastify>@fastify/ajv-compiler>ajv>fast-uri",
+                "packages__server>fastify>@fastify/ajv-compiler>ajv-formats>ajv>fast-uri",
+                "packages__server>fastify>@fastify/fast-json-stringify-compiler>fast-json-stringify>ajv>fast-uri",
+                "packages__server>fastify>@fastify/fast-json-stringify-compiler>fast-json-stringify>ajv-formats>ajv>fast-uri",
+                "packages__server>fastify>fast-json-stringify>ajv>fast-uri",
+                "packages__server>fastify>fast-json-stringify>ajv-formats>ajv>fast-uri"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "advisory": "GHSA-w74x-v6f9-j3xg",
+      "source": "https://github.com/advisories/GHSA-w74x-v6f9-j3xg",
+      "package": "fast-uri",
+      "severity": "moderate",
+      "remediationOwner": "dependency-gap PR (depends on PR342)",
+      "selectedPatchedVersions": [
+        "3.1.9",
+        "4.2.3"
+      ],
+      "applicability": "Runtime paths through Fastify/AJV/JSON serialization. URI decoding, path equivalence, WHATWG-host and suffix-colon cases affect callers relying on those normalization/security decisions; no application exploit is asserted.",
+      "baselineInstances": [
+        {
+          "affectedRange": ">=4.0.0 <4.2.3",
+          "upstreamPatchedRange": ">=4.2.3",
+          "findings": [
+            {
+              "version": "4.1.5",
+              "dev": false,
+              "paths": [
+                "packages__server>fastify>@fastify/ajv-compiler>fast-uri",
+                "packages__server>fastify>@fastify/fast-json-stringify-compiler>fast-json-stringify>fast-uri",
+                "packages__server>fastify>fast-json-stringify>fast-uri"
+              ]
+            }
+          ]
+        },
+        {
+          "affectedRange": ">=3.0.0 <3.1.9",
+          "upstreamPatchedRange": ">=3.1.9",
+          "findings": [
+            {
+              "version": "3.1.8",
+              "dev": false,
+              "paths": [
+                ".>lighthouse>ajv>fast-uri",
+                ".>lighthouse>ajv-formats>ajv>fast-uri",
+                "apps__desktop>electron-builder>app-builder-lib>ajv>fast-uri",
+                "apps__desktop>electron-builder>dmg-builder>app-builder-lib>ajv>fast-uri",
+                "packages__server>fastify>@fastify/ajv-compiler>ajv>fast-uri",
+                "packages__server>fastify>@fastify/ajv-compiler>ajv-formats>ajv>fast-uri",
+                "packages__server>fastify>@fastify/fast-json-stringify-compiler>fast-json-stringify>ajv>fast-uri",
+                "packages__server>fastify>@fastify/fast-json-stringify-compiler>fast-json-stringify>ajv-formats>ajv>fast-uri",
+                "packages__server>fastify>fast-json-stringify>ajv>fast-uri",
+                "packages__server>fastify>fast-json-stringify>ajv-formats>ajv>fast-uri"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "advisory": "GHSA-wjr9-j795-jxcr",
+      "source": "https://github.com/advisories/GHSA-wjr9-j795-jxcr",
+      "package": "fast-uri",
+      "severity": "moderate",
+      "remediationOwner": "dependency-gap PR (depends on PR342)",
+      "selectedPatchedVersions": [
+        "3.1.9",
+        "4.2.3"
+      ],
+      "applicability": "Runtime paths through Fastify/AJV/JSON serialization. URI decoding, path equivalence, WHATWG-host and suffix-colon cases affect callers relying on those normalization/security decisions; no application exploit is asserted.",
+      "baselineInstances": [
+        {
+          "affectedRange": ">=4.0.1 <4.2.3",
+          "upstreamPatchedRange": ">=4.2.3",
+          "findings": [
+            {
+              "version": "4.1.5",
+              "dev": false,
+              "paths": [
+                "packages__server>fastify>@fastify/ajv-compiler>fast-uri",
+                "packages__server>fastify>@fastify/fast-json-stringify-compiler>fast-json-stringify>fast-uri",
+                "packages__server>fastify>fast-json-stringify>fast-uri"
+              ]
+            }
+          ]
+        },
+        {
+          "affectedRange": ">=3.1.3 <3.1.9",
+          "upstreamPatchedRange": ">=3.1.9",
+          "findings": [
+            {
+              "version": "3.1.8",
+              "dev": false,
+              "paths": [
+                ".>lighthouse>ajv>fast-uri",
+                ".>lighthouse>ajv-formats>ajv>fast-uri",
+                "apps__desktop>electron-builder>app-builder-lib>ajv>fast-uri",
+                "apps__desktop>electron-builder>dmg-builder>app-builder-lib>ajv>fast-uri",
+                "packages__server>fastify>@fastify/ajv-compiler>ajv>fast-uri",
+                "packages__server>fastify>@fastify/ajv-compiler>ajv-formats>ajv>fast-uri",
+                "packages__server>fastify>@fastify/fast-json-stringify-compiler>fast-json-stringify>ajv>fast-uri",
+                "packages__server>fastify>@fastify/fast-json-stringify-compiler>fast-json-stringify>ajv-formats>ajv>fast-uri",
+                "packages__server>fastify>fast-json-stringify>ajv>fast-uri",
+                "packages__server>fastify>fast-json-stringify>ajv-formats>ajv>fast-uri"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "advisory": "GHSA-xhq7-xmqj-769h",
+      "source": "https://github.com/advisories/GHSA-xhq7-xmqj-769h",
+      "package": "fast-uri",
+      "severity": "low",
+      "remediationOwner": "dependency-gap PR (depends on PR342)",
+      "selectedPatchedVersions": [
+        "3.1.9",
+        "4.2.3"
+      ],
+      "applicability": "Runtime paths through Fastify/AJV/JSON serialization. URI decoding, path equivalence, WHATWG-host and suffix-colon cases affect callers relying on those normalization/security decisions; no application exploit is asserted.",
+      "baselineInstances": [
+        {
+          "affectedRange": ">=4.0.0 <4.2.3",
+          "upstreamPatchedRange": ">=4.2.3",
+          "findings": [
+            {
+              "version": "4.1.5",
+              "dev": false,
+              "paths": [
+                "packages__server>fastify>@fastify/ajv-compiler>fast-uri",
+                "packages__server>fastify>@fastify/fast-json-stringify-compiler>fast-json-stringify>fast-uri",
+                "packages__server>fastify>fast-json-stringify>fast-uri"
+              ]
+            }
+          ]
+        },
+        {
+          "affectedRange": ">=3.0.0 <3.1.9",
+          "upstreamPatchedRange": ">=3.1.9",
+          "findings": [
+            {
+              "version": "3.1.8",
+              "dev": false,
+              "paths": [
+                ".>lighthouse>ajv>fast-uri",
+                ".>lighthouse>ajv-formats>ajv>fast-uri",
+                "apps__desktop>electron-builder>app-builder-lib>ajv>fast-uri",
+                "apps__desktop>electron-builder>dmg-builder>app-builder-lib>ajv>fast-uri",
+                "packages__server>fastify>@fastify/ajv-compiler>ajv>fast-uri",
+                "packages__server>fastify>@fastify/ajv-compiler>ajv-formats>ajv>fast-uri",
+                "packages__server>fastify>@fastify/fast-json-stringify-compiler>fast-json-stringify>ajv>fast-uri",
+                "packages__server>fastify>@fastify/fast-json-stringify-compiler>fast-json-stringify>ajv-formats>ajv>fast-uri",
+                "packages__server>fastify>fast-json-stringify>ajv>fast-uri",
+                "packages__server>fastify>fast-json-stringify>ajv-formats>ajv>fast-uri"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "advisory": "GHSA-389g-gv7q-r4x8",
+      "source": "https://github.com/advisories/GHSA-389g-gv7q-r4x8",
+      "package": "fastify",
+      "severity": "low",
+      "remediationOwner": "dependency-gap PR (depends on PR342)",
+      "selectedPatchedVersions": [
+        "5.12.6"
+      ],
+      "applicability": "Runtime server and embedded desktop server. Header-schema propertyNames validation is conditional on the route schema; changing the library closes the case handling defect without declaring all routes exploited.",
+      "baselineInstances": [
+        {
+          "affectedRange": ">=5.12.2 <5.12.6",
+          "upstreamPatchedRange": ">=5.12.6",
+          "findings": [
+            {
+              "version": "5.12.5",
+              "dev": false,
+              "paths": [
+                "packages__server>fastify"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "advisory": "GHSA-rxp7-6hxx-x8q5",
+      "source": "https://github.com/advisories/GHSA-rxp7-6hxx-x8q5",
+      "package": "ip-address",
+      "severity": "moderate",
+      "remediationOwner": "dependency-gap PR (depends on PR342)",
+      "selectedPatchedVersions": [
+        "10.7.4"
+      ],
+      "applicability": "Runtime through @fastify/rate-limit. Malformed IPv6 zone input can hit quadratic parsing before the length guard. The patch stays on major10 and existing rate-limit tests exercise admission behavior.",
+      "baselineInstances": [
+        {
+          "affectedRange": "<=10.7.3",
+          "upstreamPatchedRange": ">=10.7.4",
+          "findings": [
+            {
+              "version": "10.7.1",
+              "dev": false,
+              "paths": [
+                "packages__server>@fastify/rate-limit>ip-address"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "advisory": "GHSA-374f-7chj-9948",
+      "source": "https://github.com/advisories/GHSA-374f-7chj-9948",
+      "package": "sanitize-html",
+      "severity": "low",
+      "remediationOwner": "PR340 manifest floor plus dependency-gap follow-on2.18.1",
+      "selectedPatchedVersions": [
+        "2.18.1"
+      ],
+      "applicability": "Runtime receipt sanitizer. App uses tag/scheme filtering and print CSP; the three advisories concern noscript discard, prefixed SVG animation and meta refresh. No live malicious print was attempted. PR340 supplies the maintained floor. The selected composition must advance beyond2.18.0 because of its separate recursion advisory.",
+      "baselineInstances": [
+        {
+          "affectedRange": ">=2.17.7 <2.18.0",
+          "upstreamPatchedRange": ">=2.18.0",
+          "findings": [
+            {
+              "version": "2.17.7",
+              "dev": false,
+              "paths": [
+                "apps__desktop>sanitize-html"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "advisory": "GHSA-cv27-6wvh-8x7j",
+      "source": "https://github.com/advisories/GHSA-cv27-6wvh-8x7j",
+      "package": "sanitize-html",
+      "severity": "moderate",
+      "remediationOwner": "PR340 manifest floor plus dependency-gap follow-on2.18.1",
+      "selectedPatchedVersions": [
+        "2.18.1"
+      ],
+      "applicability": "Runtime receipt sanitizer. App uses tag/scheme filtering and print CSP; the three advisories concern noscript discard, prefixed SVG animation and meta refresh. No live malicious print was attempted. PR340 supplies the maintained floor. The selected composition must advance beyond2.18.0 because of its separate recursion advisory.",
+      "baselineInstances": [
+        {
+          "affectedRange": "<2.18.0",
+          "upstreamPatchedRange": ">=2.18.0",
+          "findings": [
+            {
+              "version": "2.17.7",
+              "dev": false,
+              "paths": [
+                "apps__desktop>sanitize-html"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "advisory": "GHSA-x3q4-9hxx-gx8m",
+      "source": "https://github.com/advisories/GHSA-x3q4-9hxx-gx8m",
+      "package": "sanitize-html",
+      "severity": "moderate",
+      "remediationOwner": "PR340 manifest floor plus dependency-gap follow-on2.18.1",
+      "selectedPatchedVersions": [
+        "2.18.1"
+      ],
+      "applicability": "Runtime receipt sanitizer. App uses tag/scheme filtering and print CSP; the three advisories concern noscript discard, prefixed SVG animation and meta refresh. No live malicious print was attempted. PR340 supplies the maintained floor. The selected composition must advance beyond2.18.0 because of its separate recursion advisory.",
+      "baselineInstances": [
+        {
+          "affectedRange": "<2.18.0",
+          "upstreamPatchedRange": ">=2.18.0",
+          "findings": [
+            {
+              "version": "2.17.7",
+              "dev": false,
+              "paths": [
+                "apps__desktop>sanitize-html"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "advisory": "GHSA-4qv8-2p9j-2685",
+      "source": "https://github.com/advisories/GHSA-4qv8-2p9j-2685",
+      "package": "undici",
+      "severity": "moderate",
+      "remediationOwner": "dependency-gap PR (depends on PR342)",
+      "selectedPatchedVersions": [
+        "6.29.1",
+        "7.30.1",
+        "8.12.2"
+      ],
+      "applicability": "Major7 is reachable through runtime AI SDK/provider utilities and packaging fetch; major6 is node-gyp tooling, major8 is JSDOM test tooling. Remote-response excessive encoding, EventSource growth and integrity-token conditions vary by API. No live provider or attacker service was contacted.",
+      "baselineInstances": [
+        {
+          "affectedRange": ">=8.0.0 <8.12.2",
+          "upstreamPatchedRange": ">=8.12.2",
+          "findings": [
+            {
+              "version": "8.11.0",
+              "dev": true,
+              "paths": [
+                "apps__web>@testing-library/jest-dom>vitest>jsdom>undici",
+                "apps__web>@vitest/coverage-v8>vitest>jsdom>undici",
+                "apps__web>jsdom>undici",
+                "apps__web>vitest>jsdom>undici",
+                "packages__server>@vitest/coverage-v8>vitest>jsdom>undici",
+                "packages__server>vitest>jsdom>undici"
+              ]
+            }
+          ]
+        },
+        {
+          "affectedRange": ">=7.0.0 <7.30.1",
+          "upstreamPatchedRange": ">=7.30.1",
+          "findings": [
+            {
+              "version": "7.29.1",
+              "dev": false,
+              "paths": [
+                "apps__desktop>@electron-forge/cli>@electron-forge/core>@electron-forge/core-utils>@electron-forge/shared-types>@electron/packager>@electron/get>undici",
+                "apps__desktop>@electron-forge/cli>@electron-forge/core>@electron-forge/maker-base>@electron-forge/shared-types>@electron/packager>@electron/get>undici",
+                "apps__desktop>@electron-forge/cli>@electron-forge/core>@electron-forge/plugin-base>@electron-forge/shared-types>@electron/packager>@electron/get>undici",
+                "apps__desktop>@electron-forge/cli>@electron-forge/core>@electron-forge/publisher-base>@electron-forge/shared-types>@electron/packager>@electron/get>undici",
+                "apps__desktop>@electron-forge/cli>@electron-forge/core>@electron-forge/shared-types>@electron/packager>@electron/get>undici",
+                "apps__desktop>@electron-forge/cli>@electron-forge/core>@electron/get>undici",
+                "apps__desktop>@electron-forge/cli>@electron-forge/core>@electron/packager>@electron/get>undici",
+                "apps__desktop>@electron-forge/cli>@electron-forge/core-utils>@electron-forge/shared-types>@electron/packager>@electron/get>undici",
+                "apps__desktop>@electron-forge/cli>@electron-forge/shared-types>@electron/packager>@electron/get>undici",
+                "apps__desktop>@electron-forge/cli>@electron/get>undici",
+                "apps__desktop>@electron-forge/plugin-vite>@electron-forge/core-utils>@electron-forge/shared-types>@electron/packager>@electron/get>undici",
+                "apps__desktop>@electron-forge/plugin-vite>@electron-forge/plugin-base>@electron-forge/shared-types>@electron/packager>@electron/get>undici",
+                "apps__desktop>@electron-forge/plugin-vite>@electron-forge/shared-types>@electron/packager>@electron/get>undici",
+                "apps__desktop>electron>@electron/get>undici",
+                "apps__desktop>electron-builder>app-builder-lib>@electron/get>undici",
+                "apps__desktop>electron-builder>app-builder-lib>undici",
+                "apps__desktop>electron-builder>dmg-builder>app-builder-lib>@electron/get>undici",
+                "apps__desktop>electron-builder>dmg-builder>app-builder-lib>undici",
+                "apps__web>@ai-sdk/react>@ai-sdk/mcp>@ai-sdk/provider-utils>undici",
+                "apps__web>@ai-sdk/react>@ai-sdk/provider-utils>undici",
+                "apps__web>@ai-sdk/react>ai>@ai-sdk/gateway>@ai-sdk/provider-utils>undici",
+                "apps__web>@ai-sdk/react>ai>@ai-sdk/provider-utils>undici",
+                "apps__web>ai>@ai-sdk/gateway>@ai-sdk/provider-utils>undici",
+                "apps__web>ai>@ai-sdk/provider-utils>undici",
+                "packages__server>@ai-sdk/anthropic>@ai-sdk/provider-utils>undici",
+                "packages__server>@ai-sdk/openai>@ai-sdk/provider-utils>undici",
+                "packages__server>@ai-sdk/provider-utils>undici",
+                "packages__server>ai>@ai-sdk/gateway>@ai-sdk/provider-utils>undici",
+                "packages__server>ai>@ai-sdk/provider-utils>undici",
+                "packages__server>ollama-ai-provider-v2>@ai-sdk/provider-utils>undici",
+                "packages__server>ollama-ai-provider-v2>ai>@ai-sdk/gateway>@ai-sdk/provider-utils>undici",
+                "packages__server>ollama-ai-provider-v2>ai>@ai-sdk/provider-utils>undici"
+              ]
+            }
+          ]
+        },
+        {
+          "affectedRange": ">=6.5.0 <6.29.1",
+          "upstreamPatchedRange": ">=6.29.1",
+          "findings": [
+            {
+              "version": "6.28.1",
+              "dev": false,
+              "paths": [
+                "apps__desktop>@electron/rebuild>node-gyp>undici",
+                "apps__desktop>@electron-forge/cli>@electron-forge/core>@electron-forge/core-utils>@electron-forge/shared-types>@electron/rebuild>node-gyp>undici",
+                "apps__desktop>@electron-forge/cli>@electron-forge/core>@electron-forge/core-utils>@electron/rebuild>node-gyp>undici",
+                "apps__desktop>@electron-forge/cli>@electron-forge/core>@electron-forge/maker-base>@electron-forge/shared-types>@electron/rebuild>node-gyp>undici",
+                "apps__desktop>@electron-forge/cli>@electron-forge/core>@electron-forge/plugin-base>@electron-forge/shared-types>@electron/rebuild>node-gyp>undici",
+                "apps__desktop>@electron-forge/cli>@electron-forge/core>@electron-forge/publisher-base>@electron-forge/shared-types>@electron/rebuild>node-gyp>undici",
+                "apps__desktop>@electron-forge/cli>@electron-forge/core>@electron-forge/shared-types>@electron/rebuild>node-gyp>undici",
+                "apps__desktop>@electron-forge/cli>@electron-forge/core-utils>@electron-forge/shared-types>@electron/rebuild>node-gyp>undici",
+                "apps__desktop>@electron-forge/cli>@electron-forge/core-utils>@electron/rebuild>node-gyp>undici",
+                "apps__desktop>@electron-forge/cli>@electron-forge/shared-types>@electron/rebuild>node-gyp>undici",
+                "apps__desktop>@electron-forge/plugin-vite>@electron-forge/core-utils>@electron-forge/shared-types>@electron/rebuild>node-gyp>undici",
+                "apps__desktop>@electron-forge/plugin-vite>@electron-forge/core-utils>@electron/rebuild>node-gyp>undici",
+                "apps__desktop>@electron-forge/plugin-vite>@electron-forge/plugin-base>@electron-forge/shared-types>@electron/rebuild>node-gyp>undici",
+                "apps__desktop>@electron-forge/plugin-vite>@electron-forge/shared-types>@electron/rebuild>node-gyp>undici",
+                "apps__desktop>electron-builder>app-builder-lib>@electron/rebuild>node-gyp>undici",
+                "apps__desktop>electron-builder>dmg-builder>app-builder-lib>@electron/rebuild>node-gyp>undici"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "advisory": "GHSA-f72v-6w45-q472",
+      "source": "https://github.com/advisories/GHSA-f72v-6w45-q472",
+      "package": "undici",
+      "severity": "moderate",
+      "remediationOwner": "dependency-gap PR (depends on PR342)",
+      "selectedPatchedVersions": [
+        "6.29.1",
+        "7.30.1",
+        "8.12.2"
+      ],
+      "applicability": "Major7 is reachable through runtime AI SDK/provider utilities and packaging fetch; major6 is node-gyp tooling, major8 is JSDOM test tooling. Remote-response excessive encoding, EventSource growth and integrity-token conditions vary by API. No live provider or attacker service was contacted.",
+      "baselineInstances": [
+        {
+          "affectedRange": ">=8.0.0 <8.12.2",
+          "upstreamPatchedRange": ">=8.12.2",
+          "findings": [
+            {
+              "version": "8.11.0",
+              "dev": true,
+              "paths": [
+                "apps__web>@testing-library/jest-dom>vitest>jsdom>undici",
+                "apps__web>@vitest/coverage-v8>vitest>jsdom>undici",
+                "apps__web>jsdom>undici",
+                "apps__web>vitest>jsdom>undici",
+                "packages__server>@vitest/coverage-v8>vitest>jsdom>undici",
+                "packages__server>vitest>jsdom>undici"
+              ]
+            }
+          ]
+        },
+        {
+          "affectedRange": ">=7.15.0 <7.30.1",
+          "upstreamPatchedRange": ">=7.30.1",
+          "findings": [
+            {
+              "version": "7.29.1",
+              "dev": false,
+              "paths": [
+                "apps__desktop>@electron-forge/cli>@electron-forge/core>@electron-forge/core-utils>@electron-forge/shared-types>@electron/packager>@electron/get>undici",
+                "apps__desktop>@electron-forge/cli>@electron-forge/core>@electron-forge/maker-base>@electron-forge/shared-types>@electron/packager>@electron/get>undici",
+                "apps__desktop>@electron-forge/cli>@electron-forge/core>@electron-forge/plugin-base>@electron-forge/shared-types>@electron/packager>@electron/get>undici",
+                "apps__desktop>@electron-forge/cli>@electron-forge/core>@electron-forge/publisher-base>@electron-forge/shared-types>@electron/packager>@electron/get>undici",
+                "apps__desktop>@electron-forge/cli>@electron-forge/core>@electron-forge/shared-types>@electron/packager>@electron/get>undici",
+                "apps__desktop>@electron-forge/cli>@electron-forge/core>@electron/get>undici",
+                "apps__desktop>@electron-forge/cli>@electron-forge/core>@electron/packager>@electron/get>undici",
+                "apps__desktop>@electron-forge/cli>@electron-forge/core-utils>@electron-forge/shared-types>@electron/packager>@electron/get>undici",
+                "apps__desktop>@electron-forge/cli>@electron-forge/shared-types>@electron/packager>@electron/get>undici",
+                "apps__desktop>@electron-forge/cli>@electron/get>undici",
+                "apps__desktop>@electron-forge/plugin-vite>@electron-forge/core-utils>@electron-forge/shared-types>@electron/packager>@electron/get>undici",
+                "apps__desktop>@electron-forge/plugin-vite>@electron-forge/plugin-base>@electron-forge/shared-types>@electron/packager>@electron/get>undici",
+                "apps__desktop>@electron-forge/plugin-vite>@electron-forge/shared-types>@electron/packager>@electron/get>undici",
+                "apps__desktop>electron>@electron/get>undici",
+                "apps__desktop>electron-builder>app-builder-lib>@electron/get>undici",
+                "apps__desktop>electron-builder>app-builder-lib>undici",
+                "apps__desktop>electron-builder>dmg-builder>app-builder-lib>@electron/get>undici",
+                "apps__desktop>electron-builder>dmg-builder>app-builder-lib>undici",
+                "apps__web>@ai-sdk/react>@ai-sdk/mcp>@ai-sdk/provider-utils>undici",
+                "apps__web>@ai-sdk/react>@ai-sdk/provider-utils>undici",
+                "apps__web>@ai-sdk/react>ai>@ai-sdk/gateway>@ai-sdk/provider-utils>undici",
+                "apps__web>@ai-sdk/react>ai>@ai-sdk/provider-utils>undici",
+                "apps__web>ai>@ai-sdk/gateway>@ai-sdk/provider-utils>undici",
+                "apps__web>ai>@ai-sdk/provider-utils>undici",
+                "packages__server>@ai-sdk/anthropic>@ai-sdk/provider-utils>undici",
+                "packages__server>@ai-sdk/openai>@ai-sdk/provider-utils>undici",
+                "packages__server>@ai-sdk/provider-utils>undici",
+                "packages__server>ai>@ai-sdk/gateway>@ai-sdk/provider-utils>undici",
+                "packages__server>ai>@ai-sdk/provider-utils>undici",
+                "packages__server>ollama-ai-provider-v2>@ai-sdk/provider-utils>undici",
+                "packages__server>ollama-ai-provider-v2>ai>@ai-sdk/gateway>@ai-sdk/provider-utils>undici",
+                "packages__server>ollama-ai-provider-v2>ai>@ai-sdk/provider-utils>undici"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "advisory": "GHSA-xjj6-f33q-929c",
+      "source": "https://github.com/advisories/GHSA-xjj6-f33q-929c",
+      "package": "undici",
+      "severity": "high",
+      "remediationOwner": "dependency-gap PR (depends on PR342)",
+      "selectedPatchedVersions": [
+        "6.29.1",
+        "7.30.1",
+        "8.12.2"
+      ],
+      "applicability": "Major7 is reachable through runtime AI SDK/provider utilities and packaging fetch; major6 is node-gyp tooling, major8 is JSDOM test tooling. Remote-response excessive encoding, EventSource growth and integrity-token conditions vary by API. No live provider or attacker service was contacted.",
+      "baselineInstances": [
+        {
+          "affectedRange": ">=8.0.0 <8.12.2",
+          "upstreamPatchedRange": ">=8.12.2",
+          "findings": [
+            {
+              "version": "8.11.0",
+              "dev": true,
+              "paths": [
+                "apps__web>@testing-library/jest-dom>vitest>jsdom>undici",
+                "apps__web>@vitest/coverage-v8>vitest>jsdom>undici",
+                "apps__web>jsdom>undici",
+                "apps__web>vitest>jsdom>undici",
+                "packages__server>@vitest/coverage-v8>vitest>jsdom>undici",
+                "packages__server>vitest>jsdom>undici"
+              ]
+            }
+          ]
+        },
+        {
+          "affectedRange": ">=7.18.0 <7.30.1",
+          "upstreamPatchedRange": ">=7.30.1",
+          "findings": [
+            {
+              "version": "7.29.1",
+              "dev": false,
+              "paths": [
+                "apps__desktop>@electron-forge/cli>@electron-forge/core>@electron-forge/core-utils>@electron-forge/shared-types>@electron/packager>@electron/get>undici",
+                "apps__desktop>@electron-forge/cli>@electron-forge/core>@electron-forge/maker-base>@electron-forge/shared-types>@electron/packager>@electron/get>undici",
+                "apps__desktop>@electron-forge/cli>@electron-forge/core>@electron-forge/plugin-base>@electron-forge/shared-types>@electron/packager>@electron/get>undici",
+                "apps__desktop>@electron-forge/cli>@electron-forge/core>@electron-forge/publisher-base>@electron-forge/shared-types>@electron/packager>@electron/get>undici",
+                "apps__desktop>@electron-forge/cli>@electron-forge/core>@electron-forge/shared-types>@electron/packager>@electron/get>undici",
+                "apps__desktop>@electron-forge/cli>@electron-forge/core>@electron/get>undici",
+                "apps__desktop>@electron-forge/cli>@electron-forge/core>@electron/packager>@electron/get>undici",
+                "apps__desktop>@electron-forge/cli>@electron-forge/core-utils>@electron-forge/shared-types>@electron/packager>@electron/get>undici",
+                "apps__desktop>@electron-forge/cli>@electron-forge/shared-types>@electron/packager>@electron/get>undici",
+                "apps__desktop>@electron-forge/cli>@electron/get>undici",
+                "apps__desktop>@electron-forge/plugin-vite>@electron-forge/core-utils>@electron-forge/shared-types>@electron/packager>@electron/get>undici",
+                "apps__desktop>@electron-forge/plugin-vite>@electron-forge/plugin-base>@electron-forge/shared-types>@electron/packager>@electron/get>undici",
+                "apps__desktop>@electron-forge/plugin-vite>@electron-forge/shared-types>@electron/packager>@electron/get>undici",
+                "apps__desktop>electron>@electron/get>undici",
+                "apps__desktop>electron-builder>app-builder-lib>@electron/get>undici",
+                "apps__desktop>electron-builder>app-builder-lib>undici",
+                "apps__desktop>electron-builder>dmg-builder>app-builder-lib>@electron/get>undici",
+                "apps__desktop>electron-builder>dmg-builder>app-builder-lib>undici",
+                "apps__web>@ai-sdk/react>@ai-sdk/mcp>@ai-sdk/provider-utils>undici",
+                "apps__web>@ai-sdk/react>@ai-sdk/provider-utils>undici",
+                "apps__web>@ai-sdk/react>ai>@ai-sdk/gateway>@ai-sdk/provider-utils>undici",
+                "apps__web>@ai-sdk/react>ai>@ai-sdk/provider-utils>undici",
+                "apps__web>ai>@ai-sdk/gateway>@ai-sdk/provider-utils>undici",
+                "apps__web>ai>@ai-sdk/provider-utils>undici",
+                "packages__server>@ai-sdk/anthropic>@ai-sdk/provider-utils>undici",
+                "packages__server>@ai-sdk/openai>@ai-sdk/provider-utils>undici",
+                "packages__server>@ai-sdk/provider-utils>undici",
+                "packages__server>ai>@ai-sdk/gateway>@ai-sdk/provider-utils>undici",
+                "packages__server>ai>@ai-sdk/provider-utils>undici",
+                "packages__server>ollama-ai-provider-v2>@ai-sdk/provider-utils>undici",
+                "packages__server>ollama-ai-provider-v2>ai>@ai-sdk/gateway>@ai-sdk/provider-utils>undici",
+                "packages__server>ollama-ai-provider-v2>ai>@ai-sdk/provider-utils>undici"
+              ]
+            }
+          ]
+        },
+        {
+          "affectedRange": ">=6.23.0 <6.29.1",
+          "upstreamPatchedRange": ">=6.29.1",
+          "findings": [
+            {
+              "version": "6.28.1",
+              "dev": false,
+              "paths": [
+                "apps__desktop>@electron/rebuild>node-gyp>undici",
+                "apps__desktop>@electron-forge/cli>@electron-forge/core>@electron-forge/core-utils>@electron-forge/shared-types>@electron/rebuild>node-gyp>undici",
+                "apps__desktop>@electron-forge/cli>@electron-forge/core>@electron-forge/core-utils>@electron/rebuild>node-gyp>undici",
+                "apps__desktop>@electron-forge/cli>@electron-forge/core>@electron-forge/maker-base>@electron-forge/shared-types>@electron/rebuild>node-gyp>undici",
+                "apps__desktop>@electron-forge/cli>@electron-forge/core>@electron-forge/plugin-base>@electron-forge/shared-types>@electron/rebuild>node-gyp>undici",
+                "apps__desktop>@electron-forge/cli>@electron-forge/core>@electron-forge/publisher-base>@electron-forge/shared-types>@electron/rebuild>node-gyp>undici",
+                "apps__desktop>@electron-forge/cli>@electron-forge/core>@electron-forge/shared-types>@electron/rebuild>node-gyp>undici",
+                "apps__desktop>@electron-forge/cli>@electron-forge/core-utils>@electron-forge/shared-types>@electron/rebuild>node-gyp>undici",
+                "apps__desktop>@electron-forge/cli>@electron-forge/core-utils>@electron/rebuild>node-gyp>undici",
+                "apps__desktop>@electron-forge/cli>@electron-forge/shared-types>@electron/rebuild>node-gyp>undici",
+                "apps__desktop>@electron-forge/plugin-vite>@electron-forge/core-utils>@electron-forge/shared-types>@electron/rebuild>node-gyp>undici",
+                "apps__desktop>@electron-forge/plugin-vite>@electron-forge/core-utils>@electron/rebuild>node-gyp>undici",
+                "apps__desktop>@electron-forge/plugin-vite>@electron-forge/plugin-base>@electron-forge/shared-types>@electron/rebuild>node-gyp>undici",
+                "apps__desktop>@electron-forge/plugin-vite>@electron-forge/shared-types>@electron/rebuild>node-gyp>undici",
+                "apps__desktop>electron-builder>app-builder-lib>@electron/rebuild>node-gyp>undici",
+                "apps__desktop>electron-builder>dmg-builder>app-builder-lib>@electron/rebuild>node-gyp>undici"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "advisory": "GHSA-587h-7wmj-h5pm",
+      "source": "https://github.com/advisories/GHSA-587h-7wmj-h5pm",
+      "package": "vite",
+      "severity": "high",
+      "remediationOwner": "PR341 compatible range, frozen composition8.3.5",
+      "selectedPatchedVersions": [
+        "8.3.5"
+      ],
+      "applicability": "Development/build server and editor-launch tooling, not the production browser bundle itself. Conditions include Windows editor escaping/flags, custom middleware CORS, path-root checks and wasm instance file reads. PR341 supplies the maintained floor.",
+      "baselineInstances": [
+        {
+          "affectedRange": ">=8.3.0 <=8.3.2",
+          "upstreamPatchedRange": ">=8.3.3",
+          "findings": [
+            {
+              "version": "8.3.0",
+              "dev": true,
+              "paths": [
+                "apps__desktop>@tailwindcss/vite>vite",
+                "apps__desktop>@vitejs/plugin-react>vite",
+                "apps__desktop>vite",
+                "apps__web>@tailwindcss/vite>vite",
+                "apps__web>@testing-library/jest-dom>vitest>@vitest/mocker>vite",
+                "apps__web>@testing-library/jest-dom>vitest>vite",
+                "apps__web>@vitejs/plugin-react>vite",
+                "apps__web>@vitest/coverage-v8>vitest>@vitest/mocker>vite",
+                "apps__web>@vitest/coverage-v8>vitest>vite",
+                "apps__web>vite",
+                "apps__web>vitest>@vitest/mocker>vite",
+                "apps__web>vitest>vite",
+                "packages__server>@vitest/coverage-v8>vitest>@vitest/mocker>vite",
+                "packages__server>@vitest/coverage-v8>vitest>vite",
+                "packages__server>vitest>@vitest/mocker>vite",
+                "packages__server>vitest>vite"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "advisory": "GHSA-698v-4r3x-3vcv",
+      "source": "https://github.com/advisories/GHSA-698v-4r3x-3vcv",
+      "package": "vite",
+      "severity": "moderate",
+      "remediationOwner": "PR341 compatible range, frozen composition8.3.5",
+      "selectedPatchedVersions": [
+        "8.3.5"
+      ],
+      "applicability": "Development/build server and editor-launch tooling, not the production browser bundle itself. Conditions include Windows editor escaping/flags, custom middleware CORS, path-root checks and wasm instance file reads. PR341 supplies the maintained floor.",
+      "baselineInstances": [
+        {
+          "affectedRange": ">=8.3.0 <=8.3.2",
+          "upstreamPatchedRange": ">=8.3.3",
+          "findings": [
+            {
+              "version": "8.3.0",
+              "dev": true,
+              "paths": [
+                "apps__desktop>@tailwindcss/vite>vite",
+                "apps__desktop>@vitejs/plugin-react>vite",
+                "apps__desktop>vite",
+                "apps__web>@tailwindcss/vite>vite",
+                "apps__web>@testing-library/jest-dom>vitest>@vitest/mocker>vite",
+                "apps__web>@testing-library/jest-dom>vitest>vite",
+                "apps__web>@vitejs/plugin-react>vite",
+                "apps__web>@vitest/coverage-v8>vitest>@vitest/mocker>vite",
+                "apps__web>@vitest/coverage-v8>vitest>vite",
+                "apps__web>vite",
+                "apps__web>vitest>@vitest/mocker>vite",
+                "apps__web>vitest>vite",
+                "packages__server>@vitest/coverage-v8>vitest>@vitest/mocker>vite",
+                "packages__server>@vitest/coverage-v8>vitest>vite",
+                "packages__server>vitest>@vitest/mocker>vite",
+                "packages__server>vitest>vite"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "advisory": "GHSA-9jrq-w75r-8gcw",
+      "source": "https://github.com/advisories/GHSA-9jrq-w75r-8gcw",
+      "package": "vite",
+      "severity": "low",
+      "remediationOwner": "PR341 compatible range, frozen composition8.3.5",
+      "selectedPatchedVersions": [
+        "8.3.5"
+      ],
+      "applicability": "Development/build server and editor-launch tooling, not the production browser bundle itself. Conditions include Windows editor escaping/flags, custom middleware CORS, path-root checks and wasm instance file reads. PR341 supplies the maintained floor.",
+      "baselineInstances": [
+        {
+          "affectedRange": ">=8.3.0 <=8.3.2",
+          "upstreamPatchedRange": ">=8.3.3",
+          "findings": [
+            {
+              "version": "8.3.0",
+              "dev": true,
+              "paths": [
+                "apps__desktop>@tailwindcss/vite>vite",
+                "apps__desktop>@vitejs/plugin-react>vite",
+                "apps__desktop>vite",
+                "apps__web>@tailwindcss/vite>vite",
+                "apps__web>@testing-library/jest-dom>vitest>@vitest/mocker>vite",
+                "apps__web>@testing-library/jest-dom>vitest>vite",
+                "apps__web>@vitejs/plugin-react>vite",
+                "apps__web>@vitest/coverage-v8>vitest>@vitest/mocker>vite",
+                "apps__web>@vitest/coverage-v8>vitest>vite",
+                "apps__web>vite",
+                "apps__web>vitest>@vitest/mocker>vite",
+                "apps__web>vitest>vite",
+                "packages__server>@vitest/coverage-v8>vitest>@vitest/mocker>vite",
+                "packages__server>@vitest/coverage-v8>vitest>vite",
+                "packages__server>vitest>@vitest/mocker>vite",
+                "packages__server>vitest>vite"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "advisory": "GHSA-r825-w8mm-5pxw",
+      "source": "https://github.com/advisories/GHSA-r825-w8mm-5pxw",
+      "package": "vite",
+      "severity": "moderate",
+      "remediationOwner": "PR341 compatible range, frozen composition8.3.5",
+      "selectedPatchedVersions": [
+        "8.3.5"
+      ],
+      "applicability": "Development/build server and editor-launch tooling, not the production browser bundle itself. Conditions include Windows editor escaping/flags, custom middleware CORS, path-root checks and wasm instance file reads. PR341 supplies the maintained floor.",
+      "baselineInstances": [
+        {
+          "affectedRange": ">=8.3.0 <=8.3.2",
+          "upstreamPatchedRange": ">=8.3.3",
+          "findings": [
+            {
+              "version": "8.3.0",
+              "dev": true,
+              "paths": [
+                "apps__desktop>@tailwindcss/vite>vite",
+                "apps__desktop>@vitejs/plugin-react>vite",
+                "apps__desktop>vite",
+                "apps__web>@tailwindcss/vite>vite",
+                "apps__web>@testing-library/jest-dom>vitest>@vitest/mocker>vite",
+                "apps__web>@testing-library/jest-dom>vitest>vite",
+                "apps__web>@vitejs/plugin-react>vite",
+                "apps__web>@vitest/coverage-v8>vitest>@vitest/mocker>vite",
+                "apps__web>@vitest/coverage-v8>vitest>vite",
+                "apps__web>vite",
+                "apps__web>vitest>@vitest/mocker>vite",
+                "apps__web>vitest>vite",
+                "packages__server>@vitest/coverage-v8>vitest>@vitest/mocker>vite",
+                "packages__server>@vitest/coverage-v8>vitest>vite",
+                "packages__server>vitest>@vitest/mocker>vite",
+                "packages__server>vitest>vite"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "advisory": "GHSA-rq7h-c2jc-7f22",
+      "source": "https://github.com/advisories/GHSA-rq7h-c2jc-7f22",
+      "package": "vite",
+      "severity": "moderate",
+      "remediationOwner": "PR341 compatible range, frozen composition8.3.5",
+      "selectedPatchedVersions": [
+        "8.3.5"
+      ],
+      "applicability": "Development/build server and editor-launch tooling, not the production browser bundle itself. Conditions include Windows editor escaping/flags, custom middleware CORS, path-root checks and wasm instance file reads. PR341 supplies the maintained floor.",
+      "baselineInstances": [
+        {
+          "affectedRange": ">=8.3.0 <=8.3.2",
+          "upstreamPatchedRange": ">=8.3.3",
+          "findings": [
+            {
+              "version": "8.3.0",
+              "dev": true,
+              "paths": [
+                "apps__desktop>@tailwindcss/vite>vite",
+                "apps__desktop>@vitejs/plugin-react>vite",
+                "apps__desktop>vite",
+                "apps__web>@tailwindcss/vite>vite",
+                "apps__web>@testing-library/jest-dom>vitest>@vitest/mocker>vite",
+                "apps__web>@testing-library/jest-dom>vitest>vite",
+                "apps__web>@vitejs/plugin-react>vite",
+                "apps__web>@vitest/coverage-v8>vitest>@vitest/mocker>vite",
+                "apps__web>@vitest/coverage-v8>vitest>vite",
+                "apps__web>vite",
+                "apps__web>vitest>@vitest/mocker>vite",
+                "apps__web>vitest>vite",
+                "packages__server>@vitest/coverage-v8>vitest>@vitest/mocker>vite",
+                "packages__server>@vitest/coverage-v8>vitest>vite",
+                "packages__server>vitest>@vitest/mocker>vite",
+                "packages__server>vitest>vite"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "advisory": "GHSA-vfpm-58rq-9qcg",
+      "source": "https://github.com/advisories/GHSA-vfpm-58rq-9qcg",
+      "package": "vite",
+      "severity": "moderate",
+      "remediationOwner": "PR341 compatible range, frozen composition8.3.5",
+      "selectedPatchedVersions": [
+        "8.3.5"
+      ],
+      "applicability": "Development/build server and editor-launch tooling, not the production browser bundle itself. Conditions include Windows editor escaping/flags, custom middleware CORS, path-root checks and wasm instance file reads. PR341 supplies the maintained floor.",
+      "baselineInstances": [
+        {
+          "affectedRange": ">=8.3.0 <=8.3.2",
+          "upstreamPatchedRange": ">=8.3.3",
+          "findings": [
+            {
+              "version": "8.3.0",
+              "dev": true,
+              "paths": [
+                "apps__desktop>@tailwindcss/vite>vite",
+                "apps__desktop>@vitejs/plugin-react>vite",
+                "apps__desktop>vite",
+                "apps__web>@tailwindcss/vite>vite",
+                "apps__web>@testing-library/jest-dom>vitest>@vitest/mocker>vite",
+                "apps__web>@testing-library/jest-dom>vitest>vite",
+                "apps__web>@vitejs/plugin-react>vite",
+                "apps__web>@vitest/coverage-v8>vitest>@vitest/mocker>vite",
+                "apps__web>@vitest/coverage-v8>vitest>vite",
+                "apps__web>vite",
+                "apps__web>vitest>@vitest/mocker>vite",
+                "apps__web>vitest>vite",
+                "packages__server>@vitest/coverage-v8>vitest>@vitest/mocker>vite",
+                "packages__server>@vitest/coverage-v8>vitest>vite",
+                "packages__server>vitest>@vitest/mocker>vite",
+                "packages__server>vitest>vite"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "advisory": "GHSA-mrhx-c7xc-m3w5",
+      "source": "https://github.com/advisories/GHSA-mrhx-c7xc-m3w5",
+      "package": "zod",
+      "severity": "high",
+      "remediationOwner": "dependency-gap PR (depends on PR342)",
+      "selectedPatchedVersions": [
+        "4.6.6"
+      ],
+      "applicability": "Runtime tRPC/AI SDK schema validation plus development ESLint and Lighthouse/BiDi consumers. Oversized invalid collections are an availability risk. Older4.4.3 peers are patched within major4; the major3 BiDi consumer is removed through upstream Puppeteer25 migration rather than a forced Zod major override.",
+      "baselineInstances": [
+        {
+          "affectedRange": "<4.6.6",
+          "upstreamPatchedRange": ">=4.6.6",
+          "findings": [
+            {
+              "version": "3.25.76",
+              "dev": true,
+              "paths": [
+                ".>lighthouse>puppeteer-core>chromium-bidi>zod"
+              ]
+            },
+            {
+              "version": "4.4.3",
+              "dev": false,
+              "paths": [
+                "apps__desktop>eslint-plugin-react-hooks>zod",
+                "apps__desktop>eslint-plugin-react-hooks>zod-validation-error>zod",
+                "apps__web>@ai-sdk/react>@ai-sdk/mcp>@ai-sdk/provider-utils>zod",
+                "apps__web>@ai-sdk/react>@ai-sdk/mcp>zod",
+                "apps__web>@ai-sdk/react>@ai-sdk/provider-utils>zod",
+                "apps__web>@ai-sdk/react>ai>@ai-sdk/gateway>@ai-sdk/provider-utils>zod",
+                "apps__web>@ai-sdk/react>ai>@ai-sdk/gateway>zod",
+                "apps__web>@ai-sdk/react>ai>@ai-sdk/provider-utils>zod",
+                "apps__web>@ai-sdk/react>ai>zod",
+                "apps__web>ai>@ai-sdk/gateway>@ai-sdk/provider-utils>zod",
+                "apps__web>ai>@ai-sdk/gateway>zod",
+                "apps__web>ai>@ai-sdk/provider-utils>zod",
+                "apps__web>ai>zod",
+                "apps__web>eslint-plugin-react-hooks>zod",
+                "apps__web>eslint-plugin-react-hooks>zod-validation-error>zod",
+                "packages__server>@ai-sdk/anthropic>@ai-sdk/provider-utils>zod",
+                "packages__server>@ai-sdk/anthropic>zod",
+                "packages__server>@ai-sdk/openai>@ai-sdk/provider-utils>zod",
+                "packages__server>@ai-sdk/openai>zod",
+                "packages__server>@ai-sdk/provider-utils>zod",
+                "packages__server>ai>@ai-sdk/gateway>@ai-sdk/provider-utils>zod",
+                "packages__server>ai>@ai-sdk/gateway>zod",
+                "packages__server>ai>@ai-sdk/provider-utils>zod",
+                "packages__server>ai>zod",
+                "packages__server>ollama-ai-provider-v2>@ai-sdk/provider-utils>zod",
+                "packages__server>ollama-ai-provider-v2>ai>@ai-sdk/gateway>@ai-sdk/provider-utils>zod",
+                "packages__server>ollama-ai-provider-v2>ai>@ai-sdk/gateway>zod",
+                "packages__server>ollama-ai-provider-v2>ai>@ai-sdk/provider-utils>zod",
+                "packages__server>ollama-ai-provider-v2>ai>zod",
+                "packages__server>ollama-ai-provider-v2>zod",
+                "packages__server>zod"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "compositionAdditionalAdvisories": [
+    {
+      "advisory": "GHSA-c9rx-x947-fp3h",
+      "source": "https://github.com/advisories/GHSA-c9rx-x947-fp3h",
+      "package": "sanitize-html",
+      "severity": "moderate",
+      "introducedBy": "PR340 selected version2.18.0; absent on baseline2.17.7",
+      "patchedVersion": "2.18.1",
+      "applicability": "Receipt sanitizer discards iframes. Upstream2.18.0 re-sanitizes discarded iframe fallback recursively and resets nesting limits; no live printed payload is required to reproduce library behavior. The gap selector patches this same-major follow-on rather than duplicating PR340."
+    }
+  ],
+  "telemetryMigration": {
+    "deprecatedBefore": "@opentelemetry/sdk-trace-base@2.10.0",
+    "ownersBefore": {
+      "app": "@sentry/node@10.71.0",
+      "lighthouse": "@sentry/node@10.75.2"
+    },
+    "targetNode": "11.9.0",
+    "browserUnchanged": "10.71.0",
+    "guide": "https://github.com/getsentry/sentry-javascript/blob/11.9.0/MIGRATION.md#upgrading-from-10x-to-11x",
+    "majorMigration": true,
+    "safeguards": [
+      "Typed real SDK adapter",
+      "Explicit restrictive dataCollection",
+      "No automatic integrations or OTel provider",
+      "Static transaction envelopes",
+      "Real memory-transport SDK/owner/adapter tests",
+      "Lighthouse reporting explicitly disabled in runner"
+    ],
+    "rejectedAlternative": "Direct sdk-trace rename alias lacks BasicTracerProvider; not shipped",
+    "qualificationLimit": "No live collector, GlitchTip instance, native Electron binary, or full browser gate qualification."
+  }
+}

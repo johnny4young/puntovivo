@@ -54,27 +54,27 @@
     },
     {
       "category": "security-floor",
-      "reviewedOn": "2026-09-30",
-      "reviewBy": "2026-10-30",
-      "reason": "Patch the existing undici 6/7/8, fast-uri 3/4, ip-address 10, brace-expansion 5 and DOMPurify 3 lines for current HTTP, URI normalization, subnet-family, bounded glob parsing and sanitization advisories without broad major overrides or audit exclusions.",
+      "reviewedOn": "2026-10-24",
+      "reviewBy": "2026-11-23",
+      "reason": "Re-review the existing undici6/7/8, fast-uri3/4, ip-address10 and DOMPurify3 floors against the October24 advisories; retain current major APIs and the existing bounded glob fixes without advisory exclusions.",
       "removalCriteria": "Remove each vulnerable-version or parent selector when every owning package resolves the patched floor without it and the full dependency audit and all applicable workspace gates pass.",
       "pins": {
-        "node-gyp@12.4.0>undici": "6.28.1",
-        "fast-uri@3.1.2": "3.1.8",
-        "fast-uri@3.1.3": "3.1.8",
-        "fast-uri@3.1.4": "3.1.8",
-        "fast-uri@3.1.5": "3.1.8",
-        "fast-uri@4.1.0": "4.1.5",
-        "fast-uri@4.1.1": "4.1.5",
-        "fast-uri@4.1.2": "4.1.5",
-        "undici@7.28.0": "7.29.1",
-        "fast-uri@3.1.6": "3.1.8",
-        "fast-uri@4.1.3": "4.1.5",
-        "undici@7.29.0": "7.29.1",
-        "undici@8.10.0": "8.10.2",
-        "ip-address@10.5.0": "10.7.1",
+        "node-gyp@12.4.0>undici": "6.29.1",
+        "fast-uri@3.1.2": "3.1.9",
+        "fast-uri@3.1.3": "3.1.9",
+        "fast-uri@3.1.4": "3.1.9",
+        "fast-uri@3.1.5": "3.1.9",
+        "fast-uri@4.1.0": "4.2.3",
+        "fast-uri@4.1.1": "4.2.3",
+        "fast-uri@4.1.2": "4.2.3",
+        "undici@7.28.0": "7.30.1",
+        "fast-uri@3.1.6": "3.1.9",
+        "fast-uri@4.1.3": "4.2.3",
+        "undici@7.29.0": "7.30.1",
+        "undici@8.10.0": "8.12.2",
+        "ip-address@10.5.0": "10.7.4",
         "minimatch@10.2.5>brace-expansion": "5.0.12",
-        "jspdf>dompurify": "3.4.16",
+        "jspdf>dompurify": "3.4.17",
         "brace-expansion@5.0.9": "5.0.12"
       }
     },
@@ -106,6 +106,33 @@
       "removalCriteria": "Remove this selector once @fastify/jwt resolves fast-jwt 6.3.4 or later without it and the full dependency audit plus the server and desktop gates pass.",
       "pins": {
         "fast-jwt@6.3.2": "6.3.4"
+      }
+    },
+    {
+      "category": "security-floor",
+      "reviewedOn": "2026-10-24",
+      "reviewBy": "2026-11-23",
+      "reason": "Close the remaining October advisories on the existing undici 7/8, fast-uri 3/4 and ip-address 10 lines. Owner-specific and vulnerable-version selectors retain current major APIs; no advisory is suppressed. Also repair the older Zod peer copy retained by browser AI SDK packages. Keep Puppeteer on major 25 through its owning Lighthouse range, so Chromium BiDi uses its upstream Zod4 migration instead of overriding a Zod3 consumer across majors. Patch the recursive iframe fallback regression introduced by the existing sanitize-html2.18.0 PR through a same-line vulnerable-version selector.",
+      "removalCriteria": "Remove each selector once all owning dependencies resolve a patched version without it and the complete dependency audit and applicable workspace gates pass.",
+      "pins": {
+        "undici@7.29.1": "7.30.1",
+        "undici@8.11.0": "8.12.2",
+        "fast-uri@3.1.8": "3.1.9",
+        "fast-uri@4.1.5": "4.2.3",
+        "ip-address@10.7.1": "10.7.4",
+        "zod@4.4.3": "4.6.6",
+        "lighthouse>puppeteer-core": "25.16.0",
+        "sanitize-html@2.18.0": "2.18.1"
+      }
+    },
+    {
+      "category": "compatibility",
+      "reviewedOn": "2026-10-24",
+      "reviewBy": "2026-11-23",
+      "reason": "Lighthouse13.5.0 still requests Sentry10 and its deprecated OTel legacy wrapper. Migrate its error-only owner surface to Sentry11.9.0 after real in-memory SDK/owner tests. The app adapter explicitly retains restrictive data collection, static transactions and no OTel setup; browser SDK stays10. Runner error reporting is explicitly disabled.",
+      "removalCriteria": "Remove when Lighthouse owns Sentry11 or later and real SDK, owner and workspace gates pass without this selector. Reassess owner API use on Lighthouse updates.",
+      "pins": {
+        "lighthouse>@sentry/node": "11.9.0"
       }
     }
   ]
