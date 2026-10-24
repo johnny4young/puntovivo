@@ -1746,3 +1746,52 @@ These tests qualify the exercised local flows, not remote multi-master sync,
 signed installation, hardware, or regulatory certification. Fresh runs must
 identify their candidate; historical successful logs do not validate a later
 reconstructed or edited checkout.
+
+## Product deactivation atomicity regression
+
+`packages/server/src/__tests__/products-deactivation.test.ts` is a self-contained
+synthetic, file-backed reproduction for a rejected catalog deactivation and a
+stale active edit submitted after deactivation. It boots the server without
+`listen()`, creates its own temporary SQLite database per test, and deletes only
+that owned temporary directory in teardown. It never invokes DIAN, sync delivery
+or a physical printer. Run in a disposable clone with a clean child environment
+(no inherited provider, database, signing or telemetry settings), Node 24.21.0
+and the pinned pnpm 11.7.0; do not reuse an operator database.
+
+From the repository root:
+
+Ensure nested `pnpm` commands also resolve to 11.7.0; a project-local PATH shim
+is sufficient, without changing global tooling.
+
+```sh
+corepack pnpm --version
+corepack pnpm install --frozen-lockfile --ignore-scripts
+corepack pnpm --filter @puntovivo/shared run build
+node node_modules/vitest/vitest.mjs run --root packages/server --config vitest.config.ts src/__tests__/products-deactivation.test.ts src/__tests__/products.test.ts src/__tests__/optimistic-version.test.ts src/__tests__/tenant-isolation-mutations.test.ts --maxWorkers=1
+corepack pnpm --filter @puntovivo/server run typecheck
+corepack pnpm run lint:fast:server
+corepack pnpm --filter @puntovivo/server run lint
+corepack pnpm --filter @puntovivo/server run format
+```
+
+The fault test creates an active zero-stock product and installs a trigger scoped
+to that product's update insert into `sync_outbox`. The trigger raises a synthetic
+SQLite abort. Rejected deletion must preserve the entire product row (including
+business/sync versions and timestamp) and all existing outbox rows, immediately
+and after closing/reopening the file. A success control requires one matching
+update payload and advancing business/sync versions. A stale form control retains
+the create version, deletes, reopens, and submits `isActive: true` with that old
+version: expect `CONFLICT`, unchanged row/outbox, and the same state after another
+reopen. A freshly loaded version must still allow deliberate reactivation.
+
+To compare against the original app 1.15.3 baseline
+`404b5d7294ea021a5863d2149c79bf483a498b73`, copy only this test file unchanged into
+a separate checkout of that commit and run its three tests. All three fail on
+that baseline: partial persisted deactivation, missing version advancement and
+accepted stale reactivation. The corrected focused run passed all 51 tests in
+four files on Node 24.21.0, pnpm 11.7.0, Vitest 5.0.1 and SQLite fork 13.0.3.
+
+This bounded regression is not full `ci:server`, browser/UI, performance, remote
+sync or release qualification. The renderer's rejected confirmation handling,
+other catalog entities' outbox boundaries and the ambiguous monetary midpoint
+policy are separate follow-ups; this change does not choose a rounding rule.
