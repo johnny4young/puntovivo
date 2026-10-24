@@ -296,6 +296,10 @@
     {
       "en": "docs/PRODUCT-DIALOG-FOCUS.md",
       "es": "docs/es/PRODUCT-DIALOG-FOCUS.md"
+    },
+    {
+      "en": "docs/CONFIRMATION-PENDING-FOCUS.md",
+      "es": "docs/es/CONFIRMATION-PENDING-FOCUS.md"
     }
   ],
   "bilingual": ["docs/TRANSLATIONS.md"],

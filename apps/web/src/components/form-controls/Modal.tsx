@@ -262,9 +262,21 @@ export function ConfirmModal({
           <ModalButton onClick={onClose} disabled={loading}>
             {resolvedCancelText}
           </ModalButton>
-          <ModalButton variant={variant} onClick={onConfirm} disabled={loading || confirmDisabled}>
+          <Button
+            type="button"
+            variant={variant}
+            className="w-full aria-disabled:cursor-not-allowed aria-disabled:opacity-45 sm:w-auto sm:min-w-[9rem]"
+            disabled={confirmDisabled}
+            aria-disabled={loading || confirmDisabled}
+            aria-busy={loading}
+            onClick={() => {
+              // A pending action remains a stable focus destination. Aria-disabled
+              // needs an explicit guard for both pointer and keyboard activation.
+              if (!loading && !confirmDisabled) onConfirm();
+            }}
+          >
             {loading ? `${loadingText}…` : resolvedConfirmText}
-          </ModalButton>
+          </Button>
         </>
       }
     >
