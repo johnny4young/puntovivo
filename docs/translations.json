@@ -288,6 +288,10 @@
     {
       "en": "website/MANUAL.md",
       "es": "website/MANUAL.es.md"
+    },
+    {
+      "en": "docs/DEPENDENCY-REMEDIATION-2026-10-24.md",
+      "es": "docs/es/DEPENDENCY-REMEDIATION-2026-10-24.md"
     }
   ],
   "bilingual": ["docs/TRANSLATIONS.md"],

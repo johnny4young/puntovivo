@@ -11,9 +11,7 @@
       "package": "@vitest/mocker",
       "severity": "moderate",
       "remediationOwner": "dependency-gap PR (depends on PR342)",
-      "selectedPatchedVersions": [
-        "5.0.3"
-      ],
+      "selectedPatchedVersions": ["5.0.3"],
       "applicability": "Development test-server mock registration and redirect handling; not shipped application code. Run mode is used for validation; no assertion that every developer server configuration is safe.",
       "baselineInstances": [
         {
@@ -41,9 +39,7 @@
       "package": "@vitest/mocker",
       "severity": "moderate",
       "remediationOwner": "dependency-gap PR (depends on PR342)",
-      "selectedPatchedVersions": [
-        "5.0.3"
-      ],
+      "selectedPatchedVersions": ["5.0.3"],
       "applicability": "Development test-server mock registration and redirect handling; not shipped application code. Run mode is used for validation; no assertion that every developer server configuration is safe.",
       "baselineInstances": [
         {
@@ -71,9 +67,7 @@
       "package": "dompurify",
       "severity": "low",
       "remediationOwner": "dependency-gap PR (depends on PR342)",
-      "selectedPatchedVersions": [
-        "3.4.17"
-      ],
+      "selectedPatchedVersions": ["3.4.17"],
       "applicability": "Runtime dependency of jsPDF in web/server. Reviewed application PDF paths use text/autotable rather than direct DOM/SAFE_FOR_TEMPLATES/IN_PLACE calls; advisory preconditions are not established as an application exploit. Patch remains required for shipped optional HTML capabilities.",
       "baselineInstances": [
         {
@@ -99,9 +93,7 @@
       "package": "dompurify",
       "severity": "critical",
       "remediationOwner": "dependency-gap PR (depends on PR342)",
-      "selectedPatchedVersions": [
-        "3.4.17"
-      ],
+      "selectedPatchedVersions": ["3.4.17"],
       "applicability": "Runtime dependency of jsPDF in web/server. Reviewed application PDF paths use text/autotable rather than direct DOM/SAFE_FOR_TEMPLATES/IN_PLACE calls; advisory preconditions are not established as an application exploit. Patch remains required for shipped optional HTML capabilities.",
       "baselineInstances": [
         {
@@ -127,9 +119,7 @@
       "package": "dompurify",
       "severity": "high",
       "remediationOwner": "dependency-gap PR (depends on PR342)",
-      "selectedPatchedVersions": [
-        "3.4.17"
-      ],
+      "selectedPatchedVersions": ["3.4.17"],
       "applicability": "Runtime dependency of jsPDF in web/server. Reviewed application PDF paths use text/autotable rather than direct DOM/SAFE_FOR_TEMPLATES/IN_PLACE calls; advisory preconditions are not established as an application exploit. Patch remains required for shipped optional HTML capabilities.",
       "baselineInstances": [
         {
@@ -155,9 +145,7 @@
       "package": "electron",
       "severity": "moderate",
       "remediationOwner": "dependency-gap PR (depends on PR342)",
-      "selectedPatchedVersions": [
-        "43.8.1"
-      ],
+      "selectedPatchedVersions": ["43.8.1"],
       "applicability": "Declared as a development package but its executable is the delivered desktop runtime. Browser permissions, popup/cookie isolation, extension metadata, GPU geometry and TLS trust can affect packaged apps conditionally. Native exploitation and physical OS validation are not claimed.",
       "baselineInstances": [
         {
@@ -167,9 +155,7 @@
             {
               "version": "43.5.0",
               "dev": true,
-              "paths": [
-                "apps__desktop>electron"
-              ]
+              "paths": ["apps__desktop>electron"]
             }
           ]
         }
@@ -181,9 +167,7 @@
       "package": "electron",
       "severity": "low",
       "remediationOwner": "dependency-gap PR (depends on PR342)",
-      "selectedPatchedVersions": [
-        "43.8.1"
-      ],
+      "selectedPatchedVersions": ["43.8.1"],
       "applicability": "Declared as a development package but its executable is the delivered desktop runtime. Browser permissions, popup/cookie isolation, extension metadata, GPU geometry and TLS trust can affect packaged apps conditionally. Native exploitation and physical OS validation are not claimed.",
       "baselineInstances": [
         {
@@ -193,9 +177,7 @@
             {
               "version": "43.5.0",
               "dev": true,
-              "paths": [
-                "apps__desktop>electron"
-              ]
+              "paths": ["apps__desktop>electron"]
             }
           ]
         }
@@ -207,9 +189,7 @@
       "package": "electron",
       "severity": "low",
       "remediationOwner": "dependency-gap PR (depends on PR342)",
-      "selectedPatchedVersions": [
-        "43.8.1"
-      ],
+      "selectedPatchedVersions": ["43.8.1"],
       "applicability": "Declared as a development package but its executable is the delivered desktop runtime. Browser permissions, popup/cookie isolation, extension metadata, GPU geometry and TLS trust can affect packaged apps conditionally. Native exploitation and physical OS validation are not claimed.",
       "baselineInstances": [
         {
@@ -219,9 +199,7 @@
             {
               "version": "43.5.0",
               "dev": true,
-              "paths": [
-                "apps__desktop>electron"
-              ]
+              "paths": ["apps__desktop>electron"]
             }
           ]
         }
@@ -233,9 +211,7 @@
       "package": "electron",
       "severity": "moderate",
       "remediationOwner": "dependency-gap PR (depends on PR342)",
-      "selectedPatchedVersions": [
-        "43.8.1"
-      ],
+      "selectedPatchedVersions": ["43.8.1"],
       "applicability": "Declared as a development package but its executable is the delivered desktop runtime. Browser permissions, popup/cookie isolation, extension metadata, GPU geometry and TLS trust can affect packaged apps conditionally. Native exploitation and physical OS validation are not claimed.",
       "baselineInstances": [
         {
@@ -245,9 +221,7 @@
             {
               "version": "43.5.0",
               "dev": true,
-              "paths": [
-                "apps__desktop>electron"
-              ]
+              "paths": ["apps__desktop>electron"]
             }
           ]
         }
@@ -259,9 +233,7 @@
       "package": "electron",
       "severity": "moderate",
       "remediationOwner": "dependency-gap PR (depends on PR342)",
-      "selectedPatchedVersions": [
-        "43.8.1"
-      ],
+      "selectedPatchedVersions": ["43.8.1"],
       "applicability": "Declared as a development package but its executable is the delivered desktop runtime. Browser permissions, popup/cookie isolation, extension metadata, GPU geometry and TLS trust can affect packaged apps conditionally. Native exploitation and physical OS validation are not claimed.",
       "baselineInstances": [
         {
@@ -271,9 +243,7 @@
             {
               "version": "43.5.0",
               "dev": true,
-              "paths": [
-                "apps__desktop>electron"
-              ]
+              "paths": ["apps__desktop>electron"]
             }
           ]
         }
@@ -285,9 +255,7 @@
       "package": "electron",
       "severity": "low",
       "remediationOwner": "dependency-gap PR (depends on PR342)",
-      "selectedPatchedVersions": [
-        "43.8.1"
-      ],
+      "selectedPatchedVersions": ["43.8.1"],
       "applicability": "Declared as a development package but its executable is the delivered desktop runtime. Browser permissions, popup/cookie isolation, extension metadata, GPU geometry and TLS trust can affect packaged apps conditionally. Native exploitation and physical OS validation are not claimed.",
       "baselineInstances": [
         {
@@ -297,9 +265,7 @@
             {
               "version": "43.5.0",
               "dev": true,
-              "paths": [
-                "apps__desktop>electron"
-              ]
+              "paths": ["apps__desktop>electron"]
             }
           ]
         }
@@ -311,9 +277,7 @@
       "package": "electron",
       "severity": "high",
       "remediationOwner": "dependency-gap PR (depends on PR342)",
-      "selectedPatchedVersions": [
-        "43.8.1"
-      ],
+      "selectedPatchedVersions": ["43.8.1"],
       "applicability": "Declared as a development package but its executable is the delivered desktop runtime. Browser permissions, popup/cookie isolation, extension metadata, GPU geometry and TLS trust can affect packaged apps conditionally. Native exploitation and physical OS validation are not claimed.",
       "baselineInstances": [
         {
@@ -323,9 +287,7 @@
             {
               "version": "43.5.0",
               "dev": true,
-              "paths": [
-                "apps__desktop>electron"
-              ]
+              "paths": ["apps__desktop>electron"]
             }
           ]
         }
@@ -337,9 +299,7 @@
       "package": "electron",
       "severity": "moderate",
       "remediationOwner": "dependency-gap PR (depends on PR342)",
-      "selectedPatchedVersions": [
-        "43.8.1"
-      ],
+      "selectedPatchedVersions": ["43.8.1"],
       "applicability": "Declared as a development package but its executable is the delivered desktop runtime. Browser permissions, popup/cookie isolation, extension metadata, GPU geometry and TLS trust can affect packaged apps conditionally. Native exploitation and physical OS validation are not claimed.",
       "baselineInstances": [
         {
@@ -349,9 +309,7 @@
             {
               "version": "43.5.0",
               "dev": true,
-              "paths": [
-                "apps__desktop>electron"
-              ]
+              "paths": ["apps__desktop>electron"]
             }
           ]
         }
@@ -363,10 +321,7 @@
       "package": "fast-uri",
       "severity": "low",
       "remediationOwner": "dependency-gap PR (depends on PR342)",
-      "selectedPatchedVersions": [
-        "3.1.9",
-        "4.2.3"
-      ],
+      "selectedPatchedVersions": ["3.1.9", "4.2.3"],
       "applicability": "Runtime paths through Fastify/AJV/JSON serialization. URI decoding, path equivalence, WHATWG-host and suffix-colon cases affect callers relying on those normalization/security decisions; no application exploit is asserted.",
       "baselineInstances": [
         {
@@ -414,10 +369,7 @@
       "package": "fast-uri",
       "severity": "moderate",
       "remediationOwner": "dependency-gap PR (depends on PR342)",
-      "selectedPatchedVersions": [
-        "3.1.9",
-        "4.2.3"
-      ],
+      "selectedPatchedVersions": ["3.1.9", "4.2.3"],
       "applicability": "Runtime paths through Fastify/AJV/JSON serialization. URI decoding, path equivalence, WHATWG-host and suffix-colon cases affect callers relying on those normalization/security decisions; no application exploit is asserted.",
       "baselineInstances": [
         {
@@ -465,10 +417,7 @@
       "package": "fast-uri",
       "severity": "moderate",
       "remediationOwner": "dependency-gap PR (depends on PR342)",
-      "selectedPatchedVersions": [
-        "3.1.9",
-        "4.2.3"
-      ],
+      "selectedPatchedVersions": ["3.1.9", "4.2.3"],
       "applicability": "Runtime paths through Fastify/AJV/JSON serialization. URI decoding, path equivalence, WHATWG-host and suffix-colon cases affect callers relying on those normalization/security decisions; no application exploit is asserted.",
       "baselineInstances": [
         {
@@ -516,10 +465,7 @@
       "package": "fast-uri",
       "severity": "low",
       "remediationOwner": "dependency-gap PR (depends on PR342)",
-      "selectedPatchedVersions": [
-        "3.1.9",
-        "4.2.3"
-      ],
+      "selectedPatchedVersions": ["3.1.9", "4.2.3"],
       "applicability": "Runtime paths through Fastify/AJV/JSON serialization. URI decoding, path equivalence, WHATWG-host and suffix-colon cases affect callers relying on those normalization/security decisions; no application exploit is asserted.",
       "baselineInstances": [
         {
@@ -567,9 +513,7 @@
       "package": "fastify",
       "severity": "low",
       "remediationOwner": "dependency-gap PR (depends on PR342)",
-      "selectedPatchedVersions": [
-        "5.12.6"
-      ],
+      "selectedPatchedVersions": ["5.12.6"],
       "applicability": "Runtime server and embedded desktop server. Header-schema propertyNames validation is conditional on the route schema; changing the library closes the case handling defect without declaring all routes exploited.",
       "baselineInstances": [
         {
@@ -579,9 +523,7 @@
             {
               "version": "5.12.5",
               "dev": false,
-              "paths": [
-                "packages__server>fastify"
-              ]
+              "paths": ["packages__server>fastify"]
             }
           ]
         }
@@ -593,9 +535,7 @@
       "package": "ip-address",
       "severity": "moderate",
       "remediationOwner": "dependency-gap PR (depends on PR342)",
-      "selectedPatchedVersions": [
-        "10.7.4"
-      ],
+      "selectedPatchedVersions": ["10.7.4"],
       "applicability": "Runtime through @fastify/rate-limit. Malformed IPv6 zone input can hit quadratic parsing before the length guard. The patch stays on major10 and existing rate-limit tests exercise admission behavior.",
       "baselineInstances": [
         {
@@ -605,9 +545,7 @@
             {
               "version": "10.7.1",
               "dev": false,
-              "paths": [
-                "packages__server>@fastify/rate-limit>ip-address"
-              ]
+              "paths": ["packages__server>@fastify/rate-limit>ip-address"]
             }
           ]
         }
@@ -619,9 +557,7 @@
       "package": "sanitize-html",
       "severity": "low",
       "remediationOwner": "PR340",
-      "selectedPatchedVersions": [
-        "2.18.0"
-      ],
+      "selectedPatchedVersions": ["2.18.0"],
       "applicability": "Runtime receipt sanitizer. App uses tag/scheme filtering and print CSP; the three advisories concern noscript discard, prefixed SVG animation and meta refresh. No live malicious print was attempted. PR340 supplies the maintained floor.",
       "baselineInstances": [
         {
@@ -631,9 +567,7 @@
             {
               "version": "2.17.7",
               "dev": false,
-              "paths": [
-                "apps__desktop>sanitize-html"
-              ]
+              "paths": ["apps__desktop>sanitize-html"]
             }
           ]
         }
@@ -645,9 +579,7 @@
       "package": "sanitize-html",
       "severity": "moderate",
       "remediationOwner": "PR340",
-      "selectedPatchedVersions": [
-        "2.18.0"
-      ],
+      "selectedPatchedVersions": ["2.18.0"],
       "applicability": "Runtime receipt sanitizer. App uses tag/scheme filtering and print CSP; the three advisories concern noscript discard, prefixed SVG animation and meta refresh. No live malicious print was attempted. PR340 supplies the maintained floor.",
       "baselineInstances": [
         {
@@ -657,9 +589,7 @@
             {
               "version": "2.17.7",
               "dev": false,
-              "paths": [
-                "apps__desktop>sanitize-html"
-              ]
+              "paths": ["apps__desktop>sanitize-html"]
             }
           ]
         }
@@ -671,9 +601,7 @@
       "package": "sanitize-html",
       "severity": "moderate",
       "remediationOwner": "PR340",
-      "selectedPatchedVersions": [
-        "2.18.0"
-      ],
+      "selectedPatchedVersions": ["2.18.0"],
       "applicability": "Runtime receipt sanitizer. App uses tag/scheme filtering and print CSP; the three advisories concern noscript discard, prefixed SVG animation and meta refresh. No live malicious print was attempted. PR340 supplies the maintained floor.",
       "baselineInstances": [
         {
@@ -683,9 +611,7 @@
             {
               "version": "2.17.7",
               "dev": false,
-              "paths": [
-                "apps__desktop>sanitize-html"
-              ]
+              "paths": ["apps__desktop>sanitize-html"]
             }
           ]
         }
@@ -697,11 +623,7 @@
       "package": "undici",
       "severity": "moderate",
       "remediationOwner": "dependency-gap PR (depends on PR342)",
-      "selectedPatchedVersions": [
-        "6.29.1",
-        "7.30.1",
-        "8.12.2"
-      ],
+      "selectedPatchedVersions": ["6.29.1", "7.30.1", "8.12.2"],
       "applicability": "Major7 is reachable through runtime AI SDK/provider utilities and packaging fetch; major6 is node-gyp tooling, major8 is JSDOM test tooling. Remote-response excessive encoding, EventSource growth and integrity-token conditions vary by API. No live provider or attacker service was contacted.",
       "baselineInstances": [
         {
@@ -802,11 +724,7 @@
       "package": "undici",
       "severity": "moderate",
       "remediationOwner": "dependency-gap PR (depends on PR342)",
-      "selectedPatchedVersions": [
-        "6.29.1",
-        "7.30.1",
-        "8.12.2"
-      ],
+      "selectedPatchedVersions": ["6.29.1", "7.30.1", "8.12.2"],
       "applicability": "Major7 is reachable through runtime AI SDK/provider utilities and packaging fetch; major6 is node-gyp tooling, major8 is JSDOM test tooling. Remote-response excessive encoding, EventSource growth and integrity-token conditions vary by API. No live provider or attacker service was contacted.",
       "baselineInstances": [
         {
@@ -879,11 +797,7 @@
       "package": "undici",
       "severity": "high",
       "remediationOwner": "dependency-gap PR (depends on PR342)",
-      "selectedPatchedVersions": [
-        "6.29.1",
-        "7.30.1",
-        "8.12.2"
-      ],
+      "selectedPatchedVersions": ["6.29.1", "7.30.1", "8.12.2"],
       "applicability": "Major7 is reachable through runtime AI SDK/provider utilities and packaging fetch; major6 is node-gyp tooling, major8 is JSDOM test tooling. Remote-response excessive encoding, EventSource growth and integrity-token conditions vary by API. No live provider or attacker service was contacted.",
       "baselineInstances": [
         {
@@ -984,9 +898,7 @@
       "package": "vite",
       "severity": "high",
       "remediationOwner": "PR341",
-      "selectedPatchedVersions": [
-        "8.3.3"
-      ],
+      "selectedPatchedVersions": ["8.3.3"],
       "applicability": "Development/build server and editor-launch tooling, not the production browser bundle itself. Conditions include Windows editor escaping/flags, custom middleware CORS, path-root checks and wasm instance file reads. PR341 supplies the maintained floor.",
       "baselineInstances": [
         {
@@ -1025,9 +937,7 @@
       "package": "vite",
       "severity": "moderate",
       "remediationOwner": "PR341",
-      "selectedPatchedVersions": [
-        "8.3.3"
-      ],
+      "selectedPatchedVersions": ["8.3.3"],
       "applicability": "Development/build server and editor-launch tooling, not the production browser bundle itself. Conditions include Windows editor escaping/flags, custom middleware CORS, path-root checks and wasm instance file reads. PR341 supplies the maintained floor.",
       "baselineInstances": [
         {
@@ -1066,9 +976,7 @@
       "package": "vite",
       "severity": "low",
       "remediationOwner": "PR341",
-      "selectedPatchedVersions": [
-        "8.3.3"
-      ],
+      "selectedPatchedVersions": ["8.3.3"],
       "applicability": "Development/build server and editor-launch tooling, not the production browser bundle itself. Conditions include Windows editor escaping/flags, custom middleware CORS, path-root checks and wasm instance file reads. PR341 supplies the maintained floor.",
       "baselineInstances": [
         {
@@ -1107,9 +1015,7 @@
       "package": "vite",
       "severity": "moderate",
       "remediationOwner": "PR341",
-      "selectedPatchedVersions": [
-        "8.3.3"
-      ],
+      "selectedPatchedVersions": ["8.3.3"],
       "applicability": "Development/build server and editor-launch tooling, not the production browser bundle itself. Conditions include Windows editor escaping/flags, custom middleware CORS, path-root checks and wasm instance file reads. PR341 supplies the maintained floor.",
       "baselineInstances": [
         {
@@ -1148,9 +1054,7 @@
       "package": "vite",
       "severity": "moderate",
       "remediationOwner": "PR341",
-      "selectedPatchedVersions": [
-        "8.3.3"
-      ],
+      "selectedPatchedVersions": ["8.3.3"],
       "applicability": "Development/build server and editor-launch tooling, not the production browser bundle itself. Conditions include Windows editor escaping/flags, custom middleware CORS, path-root checks and wasm instance file reads. PR341 supplies the maintained floor.",
       "baselineInstances": [
         {
@@ -1189,9 +1093,7 @@
       "package": "vite",
       "severity": "moderate",
       "remediationOwner": "PR341",
-      "selectedPatchedVersions": [
-        "8.3.3"
-      ],
+      "selectedPatchedVersions": ["8.3.3"],
       "applicability": "Development/build server and editor-launch tooling, not the production browser bundle itself. Conditions include Windows editor escaping/flags, custom middleware CORS, path-root checks and wasm instance file reads. PR341 supplies the maintained floor.",
       "baselineInstances": [
         {
@@ -1230,9 +1132,7 @@
       "package": "zod",
       "severity": "high",
       "remediationOwner": "dependency-gap PR (depends on PR342)",
-      "selectedPatchedVersions": [
-        "4.6.6"
-      ],
+      "selectedPatchedVersions": ["4.6.6"],
       "applicability": "Runtime tRPC/AI SDK schema validation plus development ESLint and Lighthouse/BiDi consumers. Oversized invalid collections are an availability risk. Older4.4.3 peers are patched within major4; the major3 BiDi consumer is removed through upstream Puppeteer25 migration rather than a forced Zod major override.",
       "baselineInstances": [
         {
@@ -1242,9 +1142,7 @@
             {
               "version": "3.25.76",
               "dev": true,
-              "paths": [
-                ".>lighthouse>puppeteer-core>chromium-bidi>zod"
-              ]
+              "paths": [".>lighthouse>puppeteer-core>chromium-bidi>zod"]
             },
             {
               "version": "4.4.3",
@@ -1286,6 +1184,17 @@
           ]
         }
       ]
+    }
+  ],
+  "compositionAdditionalAdvisories": [
+    {
+      "advisory": "GHSA-c9rx-x947-fp3h",
+      "source": "https://github.com/advisories/GHSA-c9rx-x947-fp3h",
+      "package": "sanitize-html",
+      "severity": "moderate",
+      "introducedBy": "PR340 selected version2.18.0; absent on baseline2.17.7",
+      "patchedVersion": "2.18.1",
+      "applicability": "Receipt sanitizer discards iframes. Upstream2.18.0 re-sanitizes discarded iframe fallback recursively and resets nesting limits; no live printed payload is required to reproduce library behavior. The gap selector patches this same-major follow-on rather than duplicating PR340."
     }
   ]
 }
