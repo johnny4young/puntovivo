@@ -53,8 +53,9 @@ metadatos y pruebas Node no califican el binario nuevo ni su comportamiento de S
 
 La [receta](../assets/dependency-composition-2026-10-24.json) fija heads revisados,
 cambios de manifests y el checksum del lock combinado. El helper clona solo código
-versionado a una carpeta nueva, aplica el cambio fijado de #343 y reconstruye la
-intención de manifests de #340/#341 con el lock revisado. No instala, prueba,
+versionado a una carpeta nueva, aplica el cambio fijado de #343, reconstruye la
+intención de manifests de #340/#341 con el lock revisado y copia las notas fijadas
+de #345, combinando su par de traducción sin sobrescribir el de esta guía. No instala, prueba,
 publica ni hace merge y rechaza destinos existentes. Así se evita escoger a mano
 un lado de snapshots peer en conflicto.
 
@@ -68,6 +69,7 @@ node scripts/reproduce-dependency-composition.mjs ../puntovivo-composition
 cd ../puntovivo-composition
 corepack pnpm install --frozen-lockfile --ignore-scripts
 corepack pnpm run ci:audit
+corepack pnpm run ci:release
 corepack pnpm --filter @puntovivo/shared run build
 node node_modules/vitest/vitest.mjs run --root packages/server --config vitest.config.ts src/__tests__/products-deactivation.test.ts src/__tests__/products.test.ts src/__tests__/optimistic-version.test.ts src/__tests__/tenant-isolation-mutations.test.ts --maxWorkers=1
 corepack pnpm --filter @puntovivo/server run typecheck
@@ -131,3 +133,19 @@ Sus gates de cobertura, build, navegador/runtime y mediciones siguen siendo
 obligatorios. No uses Electron nativo, impresoras físicas, proveedores fiscales ni
 datos de operadores sin la frontera aislada documentada. Los seguimientos de
 atomicidad/UI y la política monetaria ambigua son trabajos separados.
+
+## Orden de revisión y reconstrucción exacta
+
+Revisa primero #345 como reparación independiente de la nota histórica y después
+el prerrequisito Vite de #341. Revisa #340 junto con este parche: su grafo intermedio
+2.18.0 introduce una advisory corregida aquí. #342 es la base Electron de este PR;
+#344 avanza ese runtime y completa los otros fixes de dependencias. Califica #343
+solo después de reconciliar el grafo completo. Es un orden de revisión/integración,
+no una instrucción ni autorización para hacer merge.
+
+El helper incluye ahora #345 fijado sin cherry-pick del registro de traducciones
+en conflicto. Escribe `.composition-reproduction.json` en el checkout NUEVO con el
+head fuente, commits exactos343/345/Dependabot y checksum del lock. Inspecciona ese
+recibo, instala frozen y ejecuta audit/shared/release y los controles por workspace.
+El CI rojo histórico de #344 describe su rama aislada; que la composición privada
+pase controles no vuelve verde aquella ejecución histórica.

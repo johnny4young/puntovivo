@@ -35,5 +35,20 @@
     "sentry-node": "11.9.0",
     "sentry-browser": "10.71.0"
   },
-  "qualification": "Private frozen composition; see PR for actual command outcomes. It does not change PR343 head or historical CI and is not merge/release qualification."
+  "qualification": "Private frozen composition; see PR for actual command outcomes. It does not change PR343 head or historical CI and is not merge/release qualification.",
+  "documentationFix": {
+    "commit": "769c1f8d49b7e772ca0ea33465535f6a67aaf80d",
+    "files": ["docs/releases/v1.15.3.md", "docs/es/releases/v1.15.3.md"],
+    "translationPair": {
+      "en": "docs/releases/v1.15.3.md",
+      "es": "docs/es/releases/v1.15.3.md"
+    }
+  },
+  "reviewOrder": [
+    "345: independent historical release-note repair; removes release gate without version/tag changes",
+    "341: Vite prerequisite; the gap branch intentionally does not duplicate it",
+    "340 plus344: review together because sanitize-html2.18.0 introduces a new advisory patched by344",
+    "342 then344: parent Electron branch;344 raises43.7.0 to43.8.1 and supplies remaining fixes",
+    "343: product atomicity; qualify only with the frozen dependency/documentation composition"
+  ]
 }

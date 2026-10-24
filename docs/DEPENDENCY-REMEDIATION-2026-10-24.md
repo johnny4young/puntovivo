@@ -53,8 +53,9 @@ metadata and Node tests do not qualify its new binary or OS behavior.
 
 The [recipe](assets/dependency-composition-2026-10-24.json) pins reviewed PR heads,
 manifest changes and a checksum-verified combined lockfile. The helper clones only
-tracked source into a new directory, applies the pinned #343 change and reconstructs
-#340/#341's manifest intent with the reviewed lock. It performs no installation,
+tracked source into a new directory, applies the pinned #343 change, reconstructs
+#340/#341's manifest intent with the reviewed lock, and copies #345's pinned historical
+notes while combining its translation pair without overwriting this guide's pair. It performs no installation,
 tests, publication or merge and refuses an existing destination. This avoids
 manually selecting one side of conflicting peer snapshots.
 
@@ -68,6 +69,7 @@ node scripts/reproduce-dependency-composition.mjs ../puntovivo-composition
 cd ../puntovivo-composition
 corepack pnpm install --frozen-lockfile --ignore-scripts
 corepack pnpm run ci:audit
+corepack pnpm run ci:release
 corepack pnpm --filter @puntovivo/shared run build
 node node_modules/vitest/vitest.mjs run --root packages/server --config vitest.config.ts src/__tests__/products-deactivation.test.ts src/__tests__/products.test.ts src/__tests__/optimistic-version.test.ts src/__tests__/tenant-isolation-mutations.test.ts --maxWorkers=1
 corepack pnpm --filter @puntovivo/server run typecheck
@@ -131,3 +133,19 @@ completed run. A clean audit alone does not pass `ci:server`, `ci:web` or
 required. Native Electron, physical printers, fiscal providers and operator data
 must not be used without the documented isolated runtime boundary. Product
 atomicity/UI follow-ups and the unresolved monetary midpoint policy are separate.
+
+## Review order and exact reconstruction
+
+Review #345 first as the independent historical-note repair, then #341's Vite
+prerequisite. Review #340 together with this patch: its2.18.0 intermediate graph
+introduces an advisory fixed here. #342 is this PR's Electron parent; #344 advances
+its runtime and completes the other dependency fixes. Qualify #343 only after
+reconciling that full graph. This is a review/integration dependency order, not an
+instruction or authorization to merge any branch.
+
+The helper now includes pinned #345 without cherry-picking the conflicting
+translation registry. It writes `.composition-reproduction.json` in the NEW
+checkout with the source head, exact343/345/Dependabot commits and lock checksum.
+Inspect that receipt, use a frozen installation, then run audit/shared/release and
+the workspace controls. Historical red #344 CI describes its isolated branch; a
+private composition passing controls does not turn that historical run green.
