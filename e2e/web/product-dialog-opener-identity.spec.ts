@@ -167,14 +167,12 @@ for (const language of ['en', 'es'] as const) {
       });
       await confirm.click();
       await expect(
-        page
-          .getByRole('alert')
-          .filter({
-            hasText:
-              language === 'en'
-                ? 'Unable to deactivate product'
-                : 'No se pudo desactivar el producto',
-          })
+        page.getByRole('alert').filter({
+          hasText:
+            language === 'en'
+              ? 'Unable to deactivate product'
+              : 'No se pudo desactivar el producto',
+        })
       ).toHaveCount(1);
       expect(await opener!.evaluate(el => el.isConnected)).toBe(true);
       expect(await page.locator('#root').evaluate(el => (el as HTMLElement).inert)).toBe(true);
