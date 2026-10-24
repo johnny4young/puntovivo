@@ -149,3 +149,35 @@ head fuente, commits exactos343/345/Dependabot y checksum del lock. Inspecciona 
 recibo, instala frozen y ejecuta audit/shared/release y los controles por workspace.
 El CI rojo histórico de #344 describe su rama aislada; que la composición privada
 pase controles no vuelve verde aquella ejecución histórica.
+
+## Regresión CodeMirror hallada en la calificación conjunta
+
+El build original404b5d7294ea021a5863d2149c79bf483a498b73 pasa el límite gzip
+CodeMirror sin modificar (129.89kB; techo134.40kB). La primera composición de
+dependencias64e5c02a434aba8fd0f18996100d7f4b728c3ae1 y la conjunta346/347
+bcaa47a81c709e926b688dee37b2214622ab8662 miden135.49kB y fallan. Es una regresión
+de la propuesta de dependencias; no es un fallo preexistente de la base.
+
+El lock renovado asigna al tema One Dark otro runtime language6.13.1/streamparser
+junto al language6.12.4 de la aplicación. Tema y aplicación tienen constructores
+HighlightStyle distintos. Un límite solo para ese owner restaura6.12.4 dentro de
+su rango declarado^6.0.0. Conserva revisión de14días y criterio de retiro. No cambia
+API del editor ni presupuesto. Audit y tamaño siguen siendo obligatorios;
+consulta resultados medidos después del parche en el PR.
+
+Reproduce antes copiando la misma prueba de identidad a la composición congelada
+anterior; después usa el helper de checkout NUEVO y el lock de este PR:
+
+```sh
+node --test scripts/codemirror-runtime-identity.test.mjs
+corepack pnpm --filter @puntovivo/web run build
+node scripts/check-bundle-size.mjs
+corepack pnpm run ci:audit
+```
+
+Secuencia de revisión:345 →341 →342 →340junto con344 →343 →346/347. Ordena nota
+histórica independiente, prerrequisito Vite, base Electron, reparación conjunta
+del sanitizador y demás dependencias, y calificación de producto/catálogos/UI.
+No decide el orden de merge: lo elige el usuario. No se modifica ninguna rama
+ajena. Un grafo nuevo requiere baseline de rendimiento nuevo con las mismas
+dependencias que el candidato; el plan anterior se conserva sin mediciones.

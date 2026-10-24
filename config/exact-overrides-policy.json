@@ -134,6 +134,16 @@
       "pins": {
         "lighthouse>@sentry/node": "11.9.0"
       }
+    },
+    {
+      "category": "regression-ceiling",
+      "reviewedOn": "2026-10-24",
+      "reviewBy": "2026-11-07",
+      "reason": "The advisory repair lock refresh resolves One Dark to language6.13.1 beside the application language6.12.4. This duplicates HighlightStyle and streamparser in the editor chunk and fails the unchanged134.40kB gzip limit. Align only the theme owner inside its declared ^6.0.0 range; both ESM/CJS identity and editor state contracts cover the boundary.",
+      "removalCriteria": "Remove when a reviewed editor update unifies all language owners without the selector, retains ESM/CJS HighlightStyle identity, passes editor tests and the unchanged bundle budget, and has a clean complete audit.",
+      "pins": {
+        "@codemirror/theme-one-dark>@codemirror/language": "6.12.4"
+      }
     }
   ]
 }

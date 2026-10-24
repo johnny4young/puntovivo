@@ -149,3 +149,36 @@ checkout with the source head, exact343/345/Dependabot commits and lock checksum
 Inspect that receipt, use a frozen installation, then run audit/shared/release and
 the workspace controls. Historical red #344 CI describes its isolated branch; a
 private composition passing controls does not turn that historical run green.
+
+## CodeMirror regression found during joint qualification
+
+The original404b5d7294ea021a5863d2149c79bf483a498b73 build passes the unchanged
+CodeMirror gzip ceiling (129.89kB; ceiling134.40kB). The first dependency composition
+64e5c02a434aba8fd0f18996100d7f4b728c3ae1 and joint346/347 composition
+bcaa47a81c709e926b688dee37b2214622ab8662 measure135.49kB and fail. This is a
+regression of the dependency proposal, not a preexisting base failure.
+
+The refreshed lock gives One Dark a second language6.13.1/streamparser runtime
+beside the application's language6.12.4. The theme and app then have distinct
+HighlightStyle constructors. A narrow theme-owner ceiling restores6.12.4 inside
+its declared^6.0.0 range. It carries a14day regression review/removal criterion.
+No application/editor API or performance budget is changed. Audit and bundle
+checks remain mandatory; see the PR for measured post-fix results.
+
+Reproduce before with the same identity fixture copied into the old frozen
+composition; reproduce after with this PR's NEW-checkout helper and frozen lock:
+
+```sh
+node --test scripts/codemirror-runtime-identity.test.mjs
+corepack pnpm --filter @puntovivo/web run build
+node scripts/check-bundle-size.mjs
+corepack pnpm run ci:audit
+```
+
+Review sequence:345 →341 →342 →340together with344 →343 →346/347. This sequences
+independent note repair, Vite prerequisite, Electron parent, jointly safe sanitizer
+and remaining dependency repair, then product and catalog/UI qualification. It is
+not a merge order: the user decides whether and how to integrate. No foreign
+branch is changed. A new dependency graph requires a new controlled performance
+baseline with the same graph as its candidate; the old prepared plan is retained
+as unmeasured evidence.

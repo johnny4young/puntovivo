@@ -8,7 +8,7 @@
   },
   "productFix": "c32011ac8a80cc07a0ced556fcfe6f074ce0ccc3",
   "lockfile": "scripts/fixtures/dependency-composition/pnpm-lock.yaml",
-  "lockfileSha256": "e990b3abbf795cfbd885a4ac7aaa10fcd1cfecbc5743104b072cd15d879780de",
+  "lockfileSha256": "0591d735e229b4b43d2a4e2989da1542b6bc3400f377e1b3a9c94becec3fbb13",
   "manifestChanges": {
     "apps/desktop/package.json": {
       "dependencies": {
@@ -45,10 +45,11 @@
     }
   },
   "reviewOrder": [
-    "345: independent historical release-note repair; removes release gate without version/tag changes",
-    "341: Vite prerequisite; the gap branch intentionally does not duplicate it",
-    "340 plus344: review together because sanitize-html2.18.0 introduces a new advisory patched by344",
-    "342 then344: parent Electron branch;344 raises43.7.0 to43.8.1 and supplies remaining fixes",
-    "343: product atomicity; qualify only with the frozen dependency/documentation composition"
+    "345: independent historical release-note repair; no version/tag changes",
+    "341: Vite prerequisite already owned by Dependabot",
+    "342: Electron parent of344; advance43.7.0 with the43.8.1 repair",
+    "340 together with344: avoid the vulnerable intermediate sanitize-html2.18.0 graph",
+    "343: product backend atomicity/versioning on the reconciled dependency/doc graph",
+    "346/347: catalog atomicity and renderer rejection on that same graph; user decides actual merges"
   ]
 }

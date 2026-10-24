@@ -211,6 +211,7 @@ jobs:
               - 'scripts/audit-disposition-policy.test.mjs'
               - 'scripts/check-dependency-signals.test.mjs'
               - 'scripts/sentry-sdk-compatibility.test.mjs'
+              - 'scripts/codemirror-runtime-identity.test.mjs'
               - 'scripts/check-e2e-awaited-helpers*.mjs'
               - 'scripts/e2e-baseline-cleanup.test.mjs'
               - 'scripts/electron-fetch-download.test.mjs'

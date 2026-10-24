@@ -75,6 +75,9 @@ packageExtensions:
 # package.json). "exceljs>uuid" is the pnpm selector for the npm nested
 # { exceljs: { uuid } } form.
 overrides:
+  # Keep One Dark on the editor's existing language runtime: a second copy
+  # duplicates HighlightStyle and inflates the canonical renderer chunk.
+  '@codemirror/theme-one-dark>@codemirror/language': '6.12.4'
   # Lighthouse13 uses only the reviewed error-reporting API. Its CLI opt-in
   # stays off in our runner; the real SDK contract covers the owner surface.
   'lighthouse>@sentry/node': '11.9.0'
