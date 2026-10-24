@@ -76,14 +76,52 @@ node --test scripts/check-lighthouse.test.mjs scripts/run-lighthouse-gate.test.m
 node --experimental-strip-types --test apps/desktop/src/main/__tests__/print-html-sanitizer.test.ts
 ```
 
-El lock actualizado también registra wrappers deprecated de
-`@opentelemetry/sdk-trace-base` usados por Sentry 10. El owner compatible más
-reciente, Sentry 10.76.2, aún los requiere. Se rechazó el alias directo al paquete
-renombrado `@opentelemetry/sdk-trace`: no incluye `BasicTracerProvider`. No se
-publica un alias incompatible ni se suprime la deprecación. Ese gate estricto
-sigue bloqueado y requiere una migración de telemetría validada por separado.
-La nota curada 1.15.3 que falta desde la base es otro gate de release; este
-parche de dependencias no inventa evidencia de lanzamiento.
+## Migración de telemetría que cierra el gate estricto de deprecación
+
+El grafo actualizado expuso exactamente `@opentelemetry/sdk-trace-base@2.10.0`,
+por Sentry Node10.71.0 de la app y Node10.75.2 de Lighthouse. Sentry10.76.2 aún
+requiere ese wrapper. Se rechazó el alias al paquete renombrado porque no incluye
+`BasicTracerProvider`; no se publica.
+
+Se revisó la [guía oficial de migración Sentry11](https://github.com/getsentry/sentry-javascript/blob/11.9.0/MIGRATION.md#upgrading-from-10x-to-11x)
+antes de elegir Node11.9.0. Es una migración major deliberada, no un parche de la
+misma línea: Node11 elimina el provider legacy y cambia valores de telemetría.
+Node24.21.0 satisface sus engines. El SDK del navegador permanece en10; no cambian
+su compatibilidad de navegador ni la política de datos del renderer.
+
+El adaptador del servidor usa el tipo real del SDK instalado y elimina el cast
+sin comprobación. Deshabilita explícitamente captura adicional y setupOTel,
+apaga la inyección de canales e integraciones automáticas y usa transacciones estáticas en vez
+del formato nuevo de spans en streaming. Se conservan las puertas de DSN y opt-in
+por tenant. Se conserva el envelope Sentry/GlitchTip probado; no se contactó un
+colector ni backend propio. Upstream soporta Sentry self-hosted26.4.2+; verificar
+el formato no certifica una versión concreta de GlitchTip.
+
+Lighthouse13.5.0 aún declara Node^10. Un override del owner usa11.9.0 tras probar
+su wrapper real de init/tags/extras/breadcrumb/scope/error con SDK real y
+transporte solo en memoria. El runner deshabilita explícitamente el reporte de
+errores. Esto no califica cualquier configuración externa de la CLI Lighthouse.
+El override conserva propietario, plazo y criterio de retiro; no se oculta
+metadata ni se suprime la regla de deprecación.
+
+Reproduce los controles nuevos en la composición congelada:
+
+```sh
+corepack pnpm run ci:shared
+node --test scripts/sentry-sdk-compatibility.test.mjs
+node node_modules/vitest/vitest.mjs run --root packages/server --config vitest.config.ts src/__tests__/observability-sentry-sdk.test.ts src/__tests__/observability-sentry.test.ts --maxWorkers=1
+```
+
+Antes: el gate compartido rechazaba el wrapper deprecado. Después: no hay entradas
+deprecated; contratos de transporte real y prueba del adaptador verifican captura
+en memoria propia, atributos primitivos, flush, opciones restrictivas y envelopes
+de transacción estática. Se conservan las pruebas anteriores con mock. Consulta
+el PR para cantidades finales y CI.
+
+La nota curada1.15.3 faltante es una dependencia documental separada: [draft#345](https://github.com/johnny4young/puntovivo/pull/345). El tag y la
+release existen; una nota retrospectiva debe usar evidencia histórica sin
+atribuirles estas reparaciones nuevas de dependencias o productos. Esta rama no
+reescribe el tag ni publica una release nueva.
 
 ## Límites de calificación
 

@@ -75,7 +75,7 @@
     "@fastify/jwt": "^10.2.2",
     "@fastify/rate-limit": "^11.2.0",
     "@puntovivo/shared": "workspace:*",
-    "@sentry/node": "^10.71.0",
+    "@sentry/node": "11.9.0",
     "@trpc/server": "^11.18.0",
     "ai": "^7.0.83",
     "argon2": "^0.45.1",

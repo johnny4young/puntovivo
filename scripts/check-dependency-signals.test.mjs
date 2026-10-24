@@ -99,13 +99,13 @@ test('both accessibility gates run the same axe rule engine', () => {
   );
 });
 
-test('Sentry Node receives its undeclared OpenTelemetry peer explicitly', () => {
-  const sentryRequire = createRequire(require.resolve('@sentry/node/package.json'));
-  const corePackage = sentryRequire('@opentelemetry/core/package.json');
-
-  assert.equal(corePackage.version, '2.10.0');
-  assert.match(workspaceManifest, /^\s+'@sentry\/node@10\.71\.0':$/m);
-  assert.match(workspaceManifest, /^\s+'@opentelemetry\/core': '2\.10\.0'$/m);
+test('Sentry Node owns native spans without the deprecated OTel shim', () => {
+  const sentry = require('@sentry/node/package.json');
+  assert.equal(sentry.version, '11.9.0');
+  assert.equal(sentry.dependencies['@opentelemetry/sdk-trace-base'], undefined);
+  assert.equal(sentry.dependencies['@sentry/node-core'], undefined);
+  assert.doesNotMatch(workspaceManifest, /^\s+'@sentry\/node@10\./m);
+  assert.doesNotMatch(lockfile, /^\s{2}'?@opentelemetry\/sdk-trace-base@/m);
 });
 
 // A selector that pins a version stops applying, silently, as soon as that

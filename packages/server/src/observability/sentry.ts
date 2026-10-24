@@ -36,26 +36,10 @@ const log = createModuleLogger('observability');
  * SDK major bump only has to keep these four members stable for the
  * adapter to survive untouched.
  */
-interface SentryNodeLike {
-  init(options: {
-    dsn: string;
-    environment: string;
-    release: string;
-    defaultIntegrations: false;
-    tracesSampleRate: number;
-  }): unknown;
-  captureException(err: unknown, context: { extra: Record<string, unknown> }): unknown;
-  startInactiveSpan(options: {
-    name: string;
-    op: string;
-    startTime: Date;
-    attributes: Record<string, string | number | boolean>;
-  }): {
-    setStatus(status: { code: number; message?: string }): unknown;
-    end(endTime: Date): unknown;
-  };
-  flush(timeoutMs: number): Promise<boolean>;
-}
+type SentryNodeLike = Pick<
+  typeof import('@sentry/node'),
+  'init' | 'captureException' | 'startInactiveSpan' | 'flush'
+>;
 
 /**
  * Options for {@link initServerTelemetryAdapter}. `env` is injectable
@@ -185,12 +169,30 @@ export async function initServerTelemetryAdapter(
     return true;
   }
   try {
-    const sdk = (await import('@sentry/node')) as unknown as SentryNodeLike;
+    const sdk: SentryNodeLike = await import('@sentry/node');
     sdk.init({
       dsn,
       environment: env.PUNTOVIVO_RUNTIME_ENV ?? env.NODE_ENV ?? 'development',
       release: options.appVersion ?? 'unknown',
       defaultIntegrations: false,
+      // v11 otherwise broadens collection and streams spans by default.
+      // Keep our consent boundary and Sentry/GlitchTip transaction protocol.
+      enableOpenTelemetrySetup: false,
+      enableRuntimeChannelInjection: false,
+      traceLifecycle: 'static',
+      dataCollection: {
+        userInfo: false,
+        cookies: false,
+        httpHeaders: false,
+        httpBodies: [],
+        urlQueryParams: false,
+        genAI: { inputs: false, outputs: false },
+        databaseQueryData: false,
+        queues: false,
+        graphQL: { document: false, variables: false },
+        stackFrameVariables: false,
+        frameContextLines: 0,
+      },
       tracesSampleRate: resolveTracesSampleRate(env.PUNTOVIVO_SENTRY_TRACES_SAMPLE_RATE),
     });
     registerTelemetrySink(buildSink(sdk));

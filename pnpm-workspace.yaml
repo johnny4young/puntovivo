@@ -70,17 +70,14 @@ packageExtensions:
     peerDependenciesMeta:
       electron-builder-squirrel-windows:
         optional: true
-  # Sentry's Node bundle wires @sentry/opentelemetry at runtime but does not
-  # declare its required @opentelemetry/core peer. Supply that exact sibling
-  # version at the owning package boundary instead of leaving a peer warning.
-  '@sentry/node@10.71.0':
-    dependencies:
-      '@opentelemetry/core': '2.10.0'
 
 # Migrated from the npm "overrides" field (pnpm 11 reads overrides here, not in
 # package.json). "exceljs>uuid" is the pnpm selector for the npm nested
 # { exceljs: { uuid } } form.
 overrides:
+  # Lighthouse13 uses only the reviewed error-reporting API. Its CLI opt-in
+  # stays off in our runner; the real SDK contract covers the owner surface.
+  'lighthouse>@sentry/node': '11.9.0'
   # Every exact registry target below is registered with an owner, reason,
   # removal criteria, and bounded review date in
   # config/exact-overrides-policy.json. ci:shared fails when metadata is

@@ -124,6 +124,16 @@
         "lighthouse>puppeteer-core": "25.16.0",
         "sanitize-html@2.18.0": "2.18.1"
       }
+    },
+    {
+      "category": "compatibility",
+      "reviewedOn": "2026-10-24",
+      "reviewBy": "2026-11-23",
+      "reason": "Lighthouse13.5.0 still requests Sentry10 and its deprecated OTel legacy wrapper. Migrate its error-only owner surface to Sentry11.9.0 after real in-memory SDK/owner tests. The app adapter explicitly retains restrictive data collection, static transactions and no OTel setup; browser SDK stays10. Runner error reporting is explicitly disabled.",
+      "removalCriteria": "Remove when Lighthouse owns Sentry11 or later and real SDK, owner and workspace gates pass without this selector. Reassess owner API use on Lighthouse updates.",
+      "pins": {
+        "lighthouse>@sentry/node": "11.9.0"
+      }
     }
   ]
 }

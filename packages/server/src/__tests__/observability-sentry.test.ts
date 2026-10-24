@@ -99,6 +99,22 @@ describe('initServerTelemetryAdapter', () => {
       environment: 'production',
       release: '1.2.3',
       defaultIntegrations: false,
+      enableOpenTelemetrySetup: false,
+      enableRuntimeChannelInjection: false,
+      traceLifecycle: 'static',
+      dataCollection: {
+        userInfo: false,
+        cookies: false,
+        httpHeaders: false,
+        httpBodies: [],
+        urlQueryParams: false,
+        genAI: { inputs: false, outputs: false },
+        databaseQueryData: false,
+        queues: false,
+        graphQL: { document: false, variables: false },
+        stackFrameVariables: false,
+        frameContextLines: 0,
+      },
       tracesSampleRate: 0,
     });
     expect(getActiveTelemetrySink()).not.toBe(noopSink);

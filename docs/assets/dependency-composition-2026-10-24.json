@@ -8,7 +8,7 @@
   },
   "productFix": "c32011ac8a80cc07a0ced556fcfe6f074ce0ccc3",
   "lockfile": "scripts/fixtures/dependency-composition/pnpm-lock.yaml",
-  "lockfileSha256": "4fd1fc220079bcae324d0d9d47aa57bf7c7fb3a03a3f0905094c75f777de3a1a",
+  "lockfileSha256": "e990b3abbf795cfbd885a4ac7aaa10fcd1cfecbc5743104b072cd15d879780de",
   "manifestChanges": {
     "apps/desktop/package.json": {
       "dependencies": {
@@ -31,7 +31,9 @@
     "zod": "4.6.6",
     "fastify": "5.12.6",
     "vitest": "5.0.3",
-    "puppeteer-core": "25.16.0"
+    "puppeteer-core": "25.16.0",
+    "sentry-node": "11.9.0",
+    "sentry-browser": "10.71.0"
   },
   "qualification": "Private frozen composition; see PR for actual command outcomes. It does not change PR343 head or historical CI and is not merge/release qualification."
 }

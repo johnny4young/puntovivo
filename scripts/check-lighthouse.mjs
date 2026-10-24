@@ -834,7 +834,7 @@ export async function launchAndMeasure({
         try {
           const runnerResult = await lighthouse(
             `${BASE_URL}${route.path}`,
-            { port: CDP_PORT, output: 'json', logLevel: 'error' },
+            { port: CDP_PORT, output: 'json', logLevel: 'error', enableErrorReporting: false },
             {
               extends: 'lighthouse:default',
               settings: {
