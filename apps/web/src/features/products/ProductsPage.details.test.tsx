@@ -10,8 +10,9 @@
  *
  * @module features/products/ProductsPage.details.test
  */
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import i18next from '@/i18n';
 
 const {
   useAuthMock,
@@ -23,6 +24,10 @@ const {
   productsListInvalidateMock,
   updateMutationOptionsRef,
   productFormModalMock,
+  deleteResultMock,
+  toastErrorMock,
+  toastSuccessMock,
+  confirmPropsRef,
 } = vi.hoisted(() => ({
   useAuthMock: vi.fn(),
   useIsModuleActiveMock: vi.fn(),
@@ -37,6 +42,18 @@ const {
     },
   },
   productFormModalMock: vi.fn(),
+  deleteResultMock: vi.fn(),
+  toastErrorMock: vi.fn(),
+  toastSuccessMock: vi.fn(),
+  confirmPropsRef: {
+    current: null as null | {
+      isOpen: boolean;
+      title?: string;
+      confirmText?: string;
+      onConfirm: () => void | Promise<void>;
+      onClose: () => void;
+    },
+  },
 }));
 
 vi.mock('@/features/auth/AuthProvider', () => ({ useAuth: useAuthMock }));
@@ -46,7 +63,12 @@ vi.mock('@/features/modules', () => ({
 }));
 
 vi.mock('@/components/feedback/ToastProvider', () => ({
-  useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() }),
+  useToast: () => ({
+    success: toastSuccessMock,
+    error: toastErrorMock,
+    info: vi.fn(),
+    warning: vi.fn(),
+  }),
 }));
 
 // Stub only the heavy form / confirm modals; DataTable + ProductDetailsDrawer
@@ -81,7 +103,14 @@ vi.mock('@/components/form-controls/Modal', () => ({
         {children}
       </div>
     ) : null,
-  ConfirmModal: () => null,
+  ConfirmModal: (props: NonNullable<typeof confirmPropsRef.current>) => {
+    confirmPropsRef.current = props;
+    return props.isOpen ? (
+      <div role="dialog" aria-label={props.title} data-testid="product-delete-confirmation">
+        {props.confirmText}
+      </div>
+    ) : null;
+  },
 }));
 vi.mock('@/components/tables/TableExportActions', () => ({ TableExportActions: () => null }));
 
@@ -133,7 +162,24 @@ vi.mock('@/lib/trpc', async () => ({
           return { mutateAsync: vi.fn(), reset: vi.fn() };
         },
       },
-      delete: { useMutation: () => ({ mutateAsync: vi.fn() }) },
+      delete: {
+        useMutation: (options: {
+          onSuccess?: () => Promise<void>;
+          onError?: (error: unknown) => void;
+        }) => ({
+          isPending: false,
+          mutateAsync: async (variables: { id: string }) => {
+            try {
+              const result = await deleteResultMock(variables);
+              await options.onSuccess?.();
+              return result;
+            } catch (error) {
+              options.onError?.(error);
+              throw error;
+            }
+          },
+        }),
+      },
       createVariantMatrix: {
         useMutation: () => ({ mutateAsync: vi.fn(), reset: vi.fn(), isPending: false }),
       },
@@ -163,6 +209,10 @@ describe('ProductsPage default column set', () => {
     productsListInvalidateMock.mockReset();
     updateMutationOptionsRef.current = null;
     productFormModalMock.mockReset();
+    deleteResultMock.mockReset();
+    toastErrorMock.mockReset();
+    toastSuccessMock.mockReset();
+    confirmPropsRef.current = null;
     useAuthMock.mockReturnValue({ user: { id: 'u-1', role: 'manager' } });
     useIsModuleActiveMock.mockReturnValue(false); // semantic off → simplest table
     useModulesSnapshotMock.mockReturnValue({
@@ -271,4 +321,56 @@ describe('ProductsPage default column set', () => {
     expect(productsListInvalidateMock).toHaveBeenCalledTimes(1);
     expect(productDetailInvalidateMock).toHaveBeenCalledWith({ id: product.id });
   });
+  afterEach(async () => {
+    await act(async () => {
+      await i18next.changeLanguage('en');
+    });
+  });
+
+  for (const language of ['en', 'es'] as const) {
+    it(`handles rejected deactivation, keeps retry available and succeeds on retry (${language})`, async () => {
+      await i18next.changeLanguage(language);
+      useAuthMock.mockReturnValue({ user: { id: 'synthetic-admin', role: 'admin' } });
+      deleteResultMock.mockRejectedValueOnce(new Error('Synthetic rejected deactivation'));
+      render(<ProductsPage />);
+      fireEvent.click(screen.getByRole('button', { name: i18next.t('common:actions.delete') }));
+      expect(screen.getByTestId('product-delete-confirmation')).toBeInTheDocument();
+      await act(async () => {
+        await expect(confirmPropsRef.current!.onConfirm()).resolves.toBeUndefined();
+      });
+      expect(deleteResultMock).toHaveBeenCalledWith({ id: product.id });
+      expect(toastErrorMock).toHaveBeenCalledTimes(1);
+      expect(toastErrorMock).toHaveBeenCalledWith(
+        expect.objectContaining({ title: i18next.t('products:toast.deactivateError') })
+      );
+      expect(toastSuccessMock).not.toHaveBeenCalled();
+      expect(productsListInvalidateMock).not.toHaveBeenCalled();
+      expect(screen.getByTestId('product-delete-confirmation')).toBeInTheDocument();
+      expect(screen.getByText(product.name)).toBeInTheDocument();
+
+      deleteResultMock.mockResolvedValueOnce({ success: true, id: product.id });
+      await act(async () => {
+        await expect(confirmPropsRef.current!.onConfirm()).resolves.toBeUndefined();
+      });
+      expect(deleteResultMock).toHaveBeenCalledTimes(2);
+      expect(productsListInvalidateMock).toHaveBeenCalledTimes(1);
+      expect(toastErrorMock).toHaveBeenCalledTimes(1);
+      expect(toastSuccessMock).toHaveBeenCalledWith({
+        title: i18next.t('products:toast.deactivated'),
+      });
+      expect(screen.queryByTestId('product-delete-confirmation')).not.toBeInTheDocument();
+    });
+
+    it(`cancels deactivation without a request (${language})`, async () => {
+      await i18next.changeLanguage(language);
+      useAuthMock.mockReturnValue({ user: { id: 'synthetic-admin', role: 'admin' } });
+      render(<ProductsPage />);
+      fireEvent.click(screen.getByRole('button', { name: i18next.t('common:actions.delete') }));
+      act(() => confirmPropsRef.current!.onClose());
+      expect(screen.queryByTestId('product-delete-confirmation')).not.toBeInTheDocument();
+      expect(deleteResultMock).not.toHaveBeenCalled();
+      expect(toastErrorMock).not.toHaveBeenCalled();
+      expect(toastSuccessMock).not.toHaveBeenCalled();
+    });
+  }
 });

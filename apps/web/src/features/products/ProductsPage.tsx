@@ -614,7 +614,12 @@ export function ProductsPage() {
             return;
           }
 
-          await deleteMutation.mutateAsync({ id: productToDelete.id });
+          try {
+            await deleteMutation.mutateAsync({ id: productToDelete.id });
+          } catch {
+            // The mutation already renders the error toast. Handle its promise
+            // here so the confirmation remains available for retry or cancel.
+          }
         }}
         loading={deleteMutation.isPending}
         variant="danger"
