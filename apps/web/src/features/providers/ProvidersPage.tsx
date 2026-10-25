@@ -13,6 +13,7 @@ import { onErrorToast } from '@/lib/mutationHelpers';
 import { extractServerErrorCode, translateServerError } from '@/lib/translateServerError';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { trpc } from '@/lib/trpc';
+import { CATALOG_METADATA_INVALIDATIONS, invalidateGroups } from '@/lib/invalidateGroups';
 import type { Category, City, Provider, UserRole } from '@/types';
 
 const ProviderFormModal = lazy(() =>
@@ -70,7 +71,7 @@ export function ProvidersPage() {
   });
   const updateMutation = trpc.providers.update.useMutation({
     onSuccess: async () => {
-      await utils.providers.list.invalidate();
+      await invalidateGroups(utils, [...CATALOG_METADATA_INVALIDATIONS, u => u.providers.list]);
       handleCloseModal();
       toast.success({ title: t('providers.toast.updated') });
     },
@@ -79,7 +80,7 @@ export function ProvidersPage() {
       titleKey: 'settings:providers.toast.updateError',
       extra: (_description, error) => {
         if (extractServerErrorCode(error) === 'STALE_VERSION') {
-          void utils.providers.list.invalidate();
+          void invalidateGroups(utils, [...CATALOG_METADATA_INVALIDATIONS, u => u.providers.list]);
         }
       },
     }),
@@ -266,17 +267,9 @@ export function ProvidersPage() {
             isSaving={createMutation.isPending || updateMutation.isPending}
             error={
               createMutation.error
-                ? translateServerError(
-                    createMutation.error,
-                    t,
-                    t('providers.toast.createError')
-                  )
+                ? translateServerError(createMutation.error, t, t('providers.toast.createError'))
                 : updateMutation.error
-                  ? translateServerError(
-                      updateMutation.error,
-                      t,
-                      t('providers.toast.updateError')
-                    )
+                  ? translateServerError(updateMutation.error, t, t('providers.toast.updateError'))
                   : null
             }
             onClose={handleCloseModal}
