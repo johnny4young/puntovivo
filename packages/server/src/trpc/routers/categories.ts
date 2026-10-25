@@ -31,35 +31,32 @@ import {
   updateCategoryInput,
   deleteCategoryInput,
 } from '../schemas/categories.js';
-import type { Context } from '../context.js';
+import type { DatabaseInstance } from '../../db/index.js';
 
-async function getCategoryForTenant(ctx: Context, id: string) {
-  if (!ctx.tenantId) {
-    throw new TRPCError({
-      code: 'UNAUTHORIZED',
-      message: 'Tenant context is required',
-    });
-  }
-
-  return ctx.db
+function findTenantCategory(db: DatabaseInstance, tenantId: string, id: string) {
+  return db
     .select()
     .from(categories)
-    .where(and(eq(categories.id, id), eq(categories.tenantId, ctx.tenantId)))
+    .where(and(eq(categories.id, id), eq(categories.tenantId, tenantId)))
     .get();
 }
 
-async function assertValidParentCategory({
-  ctx,
-  categoryId,
-  parentId,
-}: {
-  ctx: Context;
-  // explicit `| undefined` on Zod-optional fields.
-  categoryId?: string | undefined;
-  parentId?: string | null | undefined;
-}) {
+// Runs on the transaction handle so the parent chain cannot change between
+// the check and the write.
+function assertValidParentCategory(
+  db: DatabaseInstance,
+  tenantId: string,
+  {
+    categoryId,
+    parentId,
+  }: {
+    // explicit `| undefined` on Zod-optional fields.
+    categoryId?: string | undefined;
+    parentId?: string | null | undefined;
+  }
+) {
   if (!parentId) {
-    return null;
+    return;
   }
 
   if (categoryId && parentId === categoryId) {
@@ -69,7 +66,7 @@ async function assertValidParentCategory({
     });
   }
 
-  const parent = await getCategoryForTenant(ctx, parentId);
+  const parent = findTenantCategory(db, tenantId, parentId);
 
   if (!parent) {
     throw new TRPCError({
@@ -79,7 +76,7 @@ async function assertValidParentCategory({
   }
 
   if (!categoryId) {
-    return parent;
+    return;
   }
 
   let currentParentId = parent.parentId;
@@ -92,11 +89,8 @@ async function assertValidParentCategory({
       });
     }
 
-    const ancestor = await getCategoryForTenant(ctx, currentParentId);
-    currentParentId = ancestor?.parentId ?? null;
+    currentParentId = findTenantCategory(db, tenantId, currentParentId)?.parentId ?? null;
   }
-
-  return parent;
 }
 
 export const categoriesRouter = router({
@@ -152,13 +146,10 @@ export const categoriesRouter = router({
     const now = new Date().toISOString();
     const id = nanoid();
 
-    await assertValidParentCategory({
-      ctx,
-      parentId: input.parentId,
-    });
-
     return ctx.db.transaction(
       tx => {
+        assertValidParentCategory(tx, ctx.tenantId, { parentId: input.parentId });
+
         tx.insert(categories)
           .values({
             id,
@@ -205,12 +196,6 @@ export const categoriesRouter = router({
       throw new TRPCError({ code: 'NOT_FOUND', message: 'Category not found' });
     }
 
-    await assertValidParentCategory({
-      ctx,
-      categoryId: id,
-      parentId: updates.parentId,
-    });
-
     const now = new Date().toISOString();
     // optimistic-concurrency bump (see the versioned WHERE below).
     const updateData: Record<string, unknown> = {
@@ -226,6 +211,8 @@ export const categoriesRouter = router({
     // another tab bumped the version first.
     return ctx.db.transaction(
       tx => {
+        assertValidParentCategory(tx, ctx.tenantId, { categoryId: id, parentId: updates.parentId });
+
         const versionedUpdate = tx
           .update(categories)
           .set(updateData)

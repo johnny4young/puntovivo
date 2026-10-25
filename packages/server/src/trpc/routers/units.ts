@@ -158,10 +158,15 @@ export const unitsRouter = router({
     try {
       return ctx.db.transaction(
         tx => {
-          tx.update(units)
+          const result = tx
+            .update(units)
             .set(updateData)
             .where(and(eq(units.id, id), eq(units.tenantId, ctx.tenantId)))
-            .run();
+            .run() as { changes?: number };
+          // A concurrent delete since the existence check must not leave an intent.
+          if (!result.changes) {
+            throw new TRPCError({ code: 'NOT_FOUND', message: 'Unit not found' });
+          }
 
           enqueueSyncInTransaction(
             { ...ctx, db: tx },
@@ -197,9 +202,13 @@ export const unitsRouter = router({
 
     return ctx.db.transaction(
       tx => {
-        tx.delete(units)
+        const result = tx
+          .delete(units)
           .where(and(eq(units.id, input.id), eq(units.tenantId, ctx.tenantId)))
-          .run();
+          .run() as { changes?: number };
+        if (!result.changes) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Unit not found' });
+        }
 
         enqueueSyncInTransaction(
           { ...ctx, db: tx },

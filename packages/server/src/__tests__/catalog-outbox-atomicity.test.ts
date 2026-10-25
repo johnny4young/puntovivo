@@ -123,6 +123,21 @@ const scenarios: Scenario[] = [
         });
     },
   },
+  {
+    name: 'provider category removal',
+    entityType: 'category_x_provider',
+    operation: 'delete',
+    prepare: async api => {
+      const provider = await api.providers.create({ name: 'Synthetic unassigned provider' });
+      const previous = await api.categories.create({ name: 'Synthetic removed category' });
+      await api.providers.replaceCategoryAssignments({
+        providerId: provider.id,
+        categoryIds: [previous.id],
+      });
+      return () =>
+        api.providers.replaceCategoryAssignments({ providerId: provider.id, categoryIds: [] });
+    },
+  },
 ];
 
 // A new owned SQLite file per test. No listener, delivery worker or fiscal/printer call.
