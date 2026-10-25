@@ -174,6 +174,11 @@ export interface ModalButtonProps {
   onClick?: () => void;
   variant?: 'primary' | 'secondary' | 'danger';
   disabled?: boolean;
+  /**
+   * Busy with a request: activation is blocked but the button stays focusable,
+   * unlike `disabled`, which would drop keyboard focus to the page.
+   */
+  pending?: boolean;
   type?: 'button' | 'submit';
   className?: string;
   /**
@@ -189,6 +194,7 @@ export function ModalButton({
   onClick,
   variant = 'secondary',
   disabled = false,
+  pending = false,
   type = 'button',
   className,
   id,
@@ -202,11 +208,13 @@ export function ModalButton({
   return (
     <Button
       type={type}
-      onClick={onClick}
+      onClick={pending ? undefined : onClick}
       disabled={disabled}
+      aria-disabled={pending || undefined}
+      aria-busy={pending || undefined}
       id={id}
       variant={buttonVariant[variant]}
-      className={cn('w-full sm:w-auto sm:min-w-[9rem]', className)}
+      className={cn('w-full sm:w-auto sm:min-w-[9rem]', pending && 'cursor-progress', className)}
     >
       {children}
     </Button>
@@ -262,21 +270,14 @@ export function ConfirmModal({
           <ModalButton onClick={onClose} disabled={loading}>
             {resolvedCancelText}
           </ModalButton>
-          <Button
-            type="button"
+          <ModalButton
             variant={variant}
-            className="w-full aria-disabled:cursor-not-allowed aria-disabled:opacity-45 sm:w-auto sm:min-w-[9rem]"
+            onClick={onConfirm}
             disabled={confirmDisabled}
-            aria-disabled={loading || confirmDisabled}
-            aria-busy={loading}
-            onClick={() => {
-              // A pending action remains a stable focus destination. Aria-disabled
-              // needs an explicit guard for both pointer and keyboard activation.
-              if (!loading && !confirmDisabled) onConfirm();
-            }}
+            pending={loading}
           >
             {loading ? `${loadingText}…` : resolvedConfirmText}
-          </Button>
+          </ModalButton>
         </>
       }
     >
