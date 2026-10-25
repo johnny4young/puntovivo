@@ -42,6 +42,8 @@ export function VatRatesPage() {
   });
   const updateMutation = trpc.vatRates.update.useMutation({
     onSuccess: async () => {
+      // Product reads serialize the joined metadata name, including cached detail.
+      await utils.products.invalidate();
       await utils.vatRates.list.invalidate();
       handleCloseModal();
       toast.success({ title: t('toast.updated') });

@@ -47,6 +47,8 @@ export function UnitsPage() {
   });
   const updateMutation = trpc.units.update.useMutation({
     onSuccess: async () => {
+      // Product reads serialize the joined metadata name, including cached detail.
+      await utils.products.invalidate();
       await utils.units.list.invalidate();
       handleCloseModal();
       toast.success({

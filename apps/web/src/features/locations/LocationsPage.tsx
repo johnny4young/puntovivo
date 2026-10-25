@@ -116,6 +116,8 @@ export function LocationsPage() {
   });
   const updateMutation = trpc.locations.update.useMutation({
     onSuccess: async () => {
+      // Product reads serialize the joined metadata name, including cached detail.
+      await utils.products.invalidate();
       await utils.locations.list.invalidate();
       handleCloseModal();
       toast.success({
