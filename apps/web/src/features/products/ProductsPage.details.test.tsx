@@ -83,6 +83,7 @@ vi.mock('@/features/products/ProductFormModal', () => ({
   ProductFormModal: (props: {
     isOpen: boolean;
     product: { name?: string; version?: number } | null;
+    onClose: () => void;
   }) => {
     productFormModalMock(props);
     return props.isOpen ? (
@@ -232,6 +233,34 @@ describe('ProductsPage default column set', () => {
       isLoading: false,
       error: null,
     });
+  });
+
+  it('keeps the editing form uninitialized during read-only listing and details', () => {
+    render(<ProductsPage />);
+    expect(screen.getByText('CAF-001')).toBeInTheDocument();
+    expect(productFormModalMock).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: /view details|ver detalle/i }));
+    expect(screen.getByTestId('product-details-drawer')).toBeInTheDocument();
+    expect(screen.getByText('Proveedor Norte')).toBeInTheDocument();
+    expect(productFormModalMock).not.toHaveBeenCalled();
+  });
+
+  it('mounts a fresh editor on each open and unmounts it on close', () => {
+    render(<ProductsPage />);
+    const openCreate = () =>
+      fireEvent.click(screen.getByRole('button', { name: i18next.t('products:page.add') }));
+
+    openCreate();
+    expect(screen.getByTestId('product-form-modal')).toBeInTheDocument();
+    const firstOpen = productFormModalMock.mock.calls.at(-1)?.[0];
+    expect(firstOpen).toMatchObject({ isOpen: true, product: null });
+
+    act(() => firstOpen.onClose());
+    expect(screen.queryByTestId('product-form-modal')).not.toBeInTheDocument();
+
+    openCreate();
+    expect(screen.getByTestId('product-form-modal')).toBeInTheDocument();
   });
 
   it('renders the smallest useful column set (provider / location / tier-2 / tier-3 trimmed)', () => {
