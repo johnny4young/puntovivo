@@ -164,7 +164,7 @@ export function CustomerLoyaltyPanel({ customerId }: { customerId: string }) {
               disabled={!canSubmit}
               data-testid="customer-loyalty-adjust-submit"
               onClick={() =>
-                void adjustMutation.mutateAsync({
+                adjustMutation.mutate({
                   customerId,
                   points: parsedPoints,
                   note: note.trim(),

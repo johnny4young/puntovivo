@@ -10,6 +10,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import type { LocationFormValues } from '@/features/locations/locationForm.types';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
+import { CATALOG_METADATA_INVALIDATIONS, invalidateGroups } from '@/lib/invalidateGroups';
 import type { Location, UserRole } from '@/types';
 import { Badge } from '@/components/ui';
 
@@ -116,7 +117,7 @@ export function LocationsPage() {
   });
   const updateMutation = trpc.locations.update.useMutation({
     onSuccess: async () => {
-      await utils.locations.list.invalidate();
+      await invalidateGroups(utils, [...CATALOG_METADATA_INVALIDATIONS, u => u.locations.list]);
       handleCloseModal();
       toast.success({
         title: t('toast.updated'),
@@ -228,9 +229,7 @@ export function LocationsPage() {
                   className="h-6 w-6 animate-spin text-primary-700"
                   aria-hidden="true"
                 />
-                <p className="text-sm font-medium text-secondary-700">
-                  {t('form.loadingMessage')}
-                </p>
+                <p className="text-sm font-medium text-secondary-700">{t('form.loadingMessage')}</p>
               </div>
             </Modal>
           }
@@ -251,17 +250,13 @@ export function LocationsPage() {
         isOpen={!!locationToDelete}
         title={t('delete.title')}
         message={locationToDelete ? t('delete.description') : ''}
-        confirmText={
-          deleteMutation.isPending
-            ? t('delete.submitting')
-            : t('delete.confirm')
-        }
+        confirmText={deleteMutation.isPending ? t('delete.submitting') : t('delete.confirm')}
         cancelText={t('common:actions.cancel')}
         variant="danger"
         loading={deleteMutation.isPending}
         onConfirm={() => {
           if (locationToDelete) {
-            void deleteMutation.mutateAsync({
+            deleteMutation.mutate({
               id: locationToDelete.id,
             });
           }

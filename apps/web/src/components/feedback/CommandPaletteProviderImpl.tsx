@@ -12,22 +12,12 @@
  * @module components/feedback/CommandPaletteProvider
  */
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { isEditableShortcutTarget } from '@/features/sales/salesKeyboard';
 import { getShortcutById, hasOpenModalDialog, matchesShortcut } from '@/lib/shortcuts';
 import { CommandPalette } from './CommandPalette';
-import {
-  CommandPaletteContext,
-  type CommandPaletteContextValue,
-} from './CommandPaletteContext';
+import { CommandPaletteContext, type CommandPaletteContextValue } from './CommandPaletteContext';
 const SALES_PRODUCT_SEARCH_ID = 'sales-product-search-input';
 
 export function CommandPaletteProvider({ children }: { children: ReactNode }) {

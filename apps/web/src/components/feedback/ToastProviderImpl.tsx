@@ -1,9 +1,20 @@
 import { CheckCircle2, Info, TriangleAlert, X, XCircle } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
+import { isTopmostModalDialog, MODAL_DIALOG_SELECTOR } from './useDialogA11y';
 import {
   ToastContext,
+  ToastOutletContext,
   type ToastContextValue,
   type ToastInput,
   type ToastRecord,
@@ -11,6 +22,14 @@ import {
 } from './ToastContext';
 
 const defaultDurationMs = 4000;
+
+interface PlacedToast extends ToastRecord {
+  // undefined until placed after commit; null renders in the page viewport.
+  outlet?: HTMLElement | null | undefined;
+  outletKey?: string | undefined;
+  // A toast moved out of a closed dialog was already announced there.
+  relocated?: boolean;
+}
 
 function getToastClasses(tone: ToastTone): string {
   if (tone === 'success') {
@@ -54,24 +73,28 @@ async function runToastAction(toast: ToastRecord, onDismiss: (toastId: string) =
   }
 }
 
-function ToastViewport({
+function ToastList({
   toasts,
   onDismiss,
 }: {
-  toasts: ToastRecord[];
+  toasts: PlacedToast[];
   onDismiss: (toastId: string) => void;
 }) {
   const { t } = useTranslation('common');
 
   return (
-    <div className="pointer-events-none fixed left-4 right-4 top-4 z-50 ml-auto flex max-h-[calc(100dvh-2rem)] max-w-sm flex-col gap-3 overflow-y-auto overscroll-contain sm:left-auto sm:w-full">
+    <>
       {toasts.map(toast => {
         const Icon = getToastIcon(toast.tone);
 
         return (
           <div
             key={toast.id}
-            role={toast.tone === 'error' ? 'alert' : 'status'}
+            data-toast-id={toast.id}
+            // A relocated toast was announced where it was raised; keep it
+            // findable as a status without announcing it again.
+            role={toast.tone === 'error' && !toast.relocated ? 'alert' : 'status'}
+            aria-live={toast.relocated ? 'off' : undefined}
             className={cn(
               'pointer-events-auto break-words rounded-2xl border p-4 shadow-soft animate-fade-in backdrop-blur',
               getToastClasses(toast.tone)
@@ -110,7 +133,17 @@ function ToastViewport({
           </div>
         );
       })}
-    </div>
+    </>
+  );
+}
+
+function topmostOutlet(outlets: HTMLElement[]): HTMLElement | null {
+  return (
+    outlets.find(
+      outlet =>
+        outlet.isConnected &&
+        isTopmostModalDialog(outlet.closest<HTMLElement>(MODAL_DIALOG_SELECTOR))
+    ) ?? null
   );
 }
 
@@ -119,8 +152,41 @@ interface ToastProviderProps {
 }
 
 export function ToastProvider({ children }: ToastProviderProps) {
-  const [toasts, setToasts] = useState<ToastRecord[]>([]);
+  const [toasts, setToasts] = useState<PlacedToast[]>([]);
   const timeoutIdsRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const outletsRef = useRef<HTMLElement[]>([]);
+  const outletKeysRef = useRef(new Map<HTMLElement, string>());
+  const nextOutletKeyRef = useRef(0);
+
+  const registerOutlet = useCallback((outlet: HTMLElement) => {
+    outletsRef.current.push(outlet);
+    nextOutletKeyRef.current += 1;
+    outletKeysRef.current.set(outlet, `outlet-${nextOutletKeyRef.current}`);
+    return () => {
+      outletsRef.current = outletsRef.current.filter(candidate => candidate !== outlet);
+      outletKeysRef.current.delete(outlet);
+      setToasts(currentToasts =>
+        currentToasts.some(toast => toast.outlet === outlet)
+          ? currentToasts.map(toast =>
+              toast.outlet === outlet ? { ...toast, outlet: undefined, relocated: true } : toast
+            )
+          : currentToasts
+      );
+    };
+  }, []);
+
+  // Place new toasts after commit, when a dialog closed in the same update is
+  // already gone and a dialog opened in it has registered its outlet.
+  useLayoutEffect(() => {
+    if (!toasts.some(toast => toast.outlet === undefined)) return;
+    const outlet = topmostOutlet(outletsRef.current);
+    const outletKey = outlet ? outletKeysRef.current.get(outlet) : undefined;
+    setToasts(currentToasts =>
+      currentToasts.map(toast =>
+        toast.outlet === undefined ? { ...toast, outlet, outletKey } : toast
+      )
+    );
+  }, [toasts]);
 
   const dismiss = useCallback((toastId: string) => {
     const timeoutId = timeoutIdsRef.current.get(toastId);
@@ -128,6 +194,11 @@ export function ToastProvider({ children }: ToastProviderProps) {
       clearTimeout(timeoutId);
       timeoutIdsRef.current.delete(toastId);
     }
+
+    // Keep keyboard focus inside the dialog when its focused toast goes away.
+    const focusedToast = document.activeElement?.closest(`[data-toast-id="${toastId}"]`);
+    const dialog = focusedToast?.closest<HTMLElement>(MODAL_DIALOG_SELECTOR);
+    dialog?.querySelector<HTMLElement>('[tabindex="-1"]')?.focus();
 
     setToasts(currentToasts => currentToasts.filter(toast => toast.id !== toastId));
   }, []);
@@ -174,10 +245,24 @@ export function ToastProvider({ children }: ToastProviderProps) {
     [dismiss, show]
   );
 
+  const pageToasts = toasts.filter(toast => toast.outlet === null);
+  const toastsByOutlet = new Map<string, { outlet: HTMLElement; toasts: PlacedToast[] }>();
+  for (const toast of toasts) {
+    if (!toast.outlet || !toast.outletKey) continue;
+    const group = toastsByOutlet.get(toast.outletKey) ?? { outlet: toast.outlet, toasts: [] };
+    group.toasts.push(toast);
+    toastsByOutlet.set(toast.outletKey, group);
+  }
+
   return (
     <ToastContext.Provider value={value}>
-      {children}
-      <ToastViewport toasts={toasts} onDismiss={dismiss} />
+      <ToastOutletContext.Provider value={registerOutlet}>{children}</ToastOutletContext.Provider>
+      <div className="pointer-events-none fixed left-4 right-4 top-4 z-50 ml-auto flex max-h-[calc(100dvh-2rem)] max-w-sm flex-col gap-3 overflow-y-auto overscroll-contain sm:left-auto sm:w-full">
+        <ToastList toasts={pageToasts} onDismiss={dismiss} />
+      </div>
+      {Array.from(toastsByOutlet, ([key, group]) =>
+        createPortal(<ToastList toasts={group.toasts} onDismiss={dismiss} />, group.outlet, key)
+      )}
     </ToastContext.Provider>
   );
 }

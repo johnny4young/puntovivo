@@ -288,17 +288,8 @@
     {
       "en": "website/MANUAL.md",
       "es": "website/MANUAL.es.md"
-    },
-    {
-      "en": "docs/qa/CATALOG-METADATA-FRESHNESS.md",
-      "es": "docs/es/qa/CATALOG-METADATA-FRESHNESS.md"
     }
   ],
-  "bilingual": [
-    "docs/TRANSLATIONS.md"
-  ],
-  "historical": [
-    "CHANGELOG.md",
-    "docs/releases/v*.md"
-  ]
+  "bilingual": ["docs/TRANSLATIONS.md"],
+  "historical": ["CHANGELOG.md", "docs/releases/v*.md"]
 }

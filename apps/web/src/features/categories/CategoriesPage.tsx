@@ -7,6 +7,7 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { ResourcePage } from '@/components/resources/ResourcePage';
 import type { Category } from '@/types';
 import { trpc } from '@/lib/trpc';
+import { CATALOG_METADATA_INVALIDATIONS, invalidateGroups } from '@/lib/invalidateGroups';
 import { useAuth } from '@/features/auth/AuthProvider';
 import type { CategoryFormValues } from '@/features/categories/categoryForm.types';
 import {
@@ -53,10 +54,11 @@ export function CategoriesPage() {
   });
   const updateMutation = trpc.categories.update.useMutation({
     onSuccess: async () => {
-      // Product reads serialize the joined metadata name, including cached detail.
-      await utils.products.invalidate();
-      await utils.categories.tree.invalidate();
-      await utils.categories.list.invalidate();
+      await invalidateGroups(utils, [
+        ...CATALOG_METADATA_INVALIDATIONS,
+        u => u.categories.tree,
+        u => u.categories.list,
+      ]);
       handleCloseModal();
       toast.success({ title: t('toast.updated') });
     },
@@ -65,8 +67,11 @@ export function CategoriesPage() {
       titleKey: 'categories:toast.updateError',
       extra: (_description, error) => {
         if (extractServerErrorCode(error) === 'STALE_VERSION') {
-          void utils.categories.tree.invalidate();
-          void utils.categories.list.invalidate();
+          void invalidateGroups(utils, [
+            ...CATALOG_METADATA_INVALIDATIONS,
+            u => u.categories.tree,
+            u => u.categories.list,
+          ]);
         }
       },
     }),
@@ -274,7 +279,7 @@ export function CategoriesPage() {
         onClose={() => setCategoryToDelete(null)}
         onConfirm={() => {
           if (categoryToDelete) {
-            void deleteMutation.mutateAsync({ id: categoryToDelete.id });
+            deleteMutation.mutate({ id: categoryToDelete.id });
           }
         }}
         title={t('delete.title')}

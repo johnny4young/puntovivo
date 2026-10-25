@@ -15,7 +15,7 @@ import {
   updateProduct,
 } from '../../../application/products/index.js';
 import { products } from '../../../db/schema.js';
-import { enqueueSync } from '../../../services/sync/enqueue.js';
+import { enqueueSyncInTransaction } from '../../../services/sync/enqueue.js';
 import { adminProcedure, managerOrAdminProcedure } from '../../middleware/roles.js';
 import {
   createProductInput,
@@ -37,35 +37,52 @@ export const productMutationProcedures = {
     .input(createProductVariantMatrixInput)
     .mutation(({ ctx, input }) => createProductVariantMatrix({ ...ctx, user: ctx.user! }, input)),
 
-  delete: adminProcedure.input(deleteProductInput).mutation(async ({ ctx, input }) => {
-    const existing = await ctx.db
-      .select()
-      .from(products)
-      .where(and(eq(products.id, input.id), eq(products.tenantId, ctx.tenantId)))
-      .get();
+  delete: adminProcedure.input(deleteProductInput).mutation(({ ctx, input }) => {
+    // Reserve the writer before reading versions. The business row and its
+    // authoritative sync intent must either both commit or both roll back.
+    return ctx.db.transaction(
+      tx => {
+        const existing = tx
+          .select()
+          .from(products)
+          .where(and(eq(products.id, input.id), eq(products.tenantId, ctx.tenantId)))
+          .get();
 
-    if (!existing) {
-      throw new TRPCError({ code: 'NOT_FOUND', message: 'Product not found' });
-    }
+        if (!existing) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Product not found' });
+        }
 
-    const now = new Date().toISOString();
-    await ctx.db
-      .update(products)
-      .set({
-        isActive: false,
-        updatedAt: now,
-        syncStatus: 'pending',
-        syncVersion: (existing.syncVersion ?? 0) + 1,
-      })
-      .where(and(eq(products.id, input.id), eq(products.tenantId, ctx.tenantId)));
+        // Deactivation is idempotent: a repeated confirm must not advance the
+        // version under an open edit form or enqueue a duplicate intent.
+        if (!existing.isActive) {
+          return { success: true, id: input.id };
+        }
 
-    await enqueueSync(ctx, {
-      entityType: 'products',
-      entityId: input.id,
-      operation: 'update',
-      data: { id: input.id, isActive: false, updatedAt: now },
-    });
+        const changes = {
+          isActive: false,
+          updatedAt: new Date().toISOString(),
+          version: existing.version + 1,
+          syncStatus: 'pending' as const,
+          syncVersion: (existing.syncVersion ?? 0) + 1,
+        };
+        tx.update(products)
+          .set(changes)
+          .where(and(eq(products.id, input.id), eq(products.tenantId, ctx.tenantId)))
+          .run();
 
-    return { success: true, id: input.id };
+        enqueueSyncInTransaction(
+          { ...ctx, db: tx },
+          {
+            entityType: 'products',
+            entityId: input.id,
+            operation: 'update',
+            data: { id: input.id, ...changes },
+          }
+        );
+
+        return { success: true, id: input.id };
+      },
+      { behavior: 'immediate' }
+    );
   }),
 };

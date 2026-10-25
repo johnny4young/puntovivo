@@ -20,7 +20,7 @@ import { useCallback, useEffect, useRef, type RefObject } from 'react';
 /** Focusable-descendant selector shared by the focus-in + Tab-trap logic. */
 const FOCUSABLE_SELECTOR =
   'button:not(:disabled):not([hidden]), [href]:not([hidden]), input:not(:disabled):not([hidden]), select:not(:disabled):not([hidden]), textarea:not(:disabled):not([hidden]), [tabindex]:not([tabindex="-1"]):not([hidden])';
-const MODAL_DIALOG_SELECTOR = '[role="dialog"][aria-modal="true"]';
+export const MODAL_DIALOG_SELECTOR = '[role="dialog"][aria-modal="true"]';
 
 interface IsolationState {
   count: number;
@@ -92,7 +92,7 @@ export interface UseDialogA11yOptions {
   requireTopmost?: boolean | undefined;
 }
 
-function isTopmostModalDialog(dialog: HTMLElement | null): boolean {
+export function isTopmostModalDialog(dialog: HTMLElement | null): boolean {
   if (!dialog) return false;
   const dialogs = Array.from(document.querySelectorAll<HTMLElement>(MODAL_DIALOG_SELECTOR));
   return dialogs.at(-1) === dialog;
