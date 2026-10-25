@@ -2,18 +2,19 @@ import { CheckCircle2, Info, TriangleAlert, X, XCircle } from 'lucide-react';
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
-  useLayoutEffect,
   type ReactNode,
 } from 'react';
-import { useTranslation } from 'react-i18next';
 import { createPortal } from 'react-dom';
-import { focusDialogFeedbackSurface, registerDialogFeedbackHost } from './dialogFeedbackHost';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
+import { isTopmostModalDialog, MODAL_DIALOG_SELECTOR } from './useDialogA11y';
 import {
   ToastContext,
+  ToastOutletContext,
   type ToastContextValue,
   type ToastInput,
   type ToastRecord,
@@ -21,6 +22,14 @@ import {
 } from './ToastContext';
 
 const defaultDurationMs = 4000;
+
+interface PlacedToast extends ToastRecord {
+  // undefined until placed after commit; null renders in the page viewport.
+  outlet?: HTMLElement | null | undefined;
+  outletKey?: string | undefined;
+  // A toast moved out of a closed dialog was already announced there.
+  relocated?: boolean;
+}
 
 function getToastClasses(tone: ToastTone): string {
   if (tone === 'success') {
@@ -64,18 +73,17 @@ async function runToastAction(toast: ToastRecord, onDismiss: (toastId: string) =
   }
 }
 
-function ToastViewport({
+function ToastList({
   toasts,
   onDismiss,
 }: {
-  toasts: ToastRecord[];
+  toasts: PlacedToast[];
   onDismiss: (toastId: string) => void;
 }) {
   const { t } = useTranslation('common');
-  if (toasts.length === 0) return null;
 
   return (
-    <div className="pointer-events-none fixed left-4 right-4 top-4 z-50 ml-auto flex max-h-[calc(100dvh-2rem)] max-w-sm flex-col gap-3 overflow-y-auto overscroll-contain sm:left-auto sm:w-full [[data-dialog-toast-host]_&]:static [[data-dialog-toast-host]_&]:m-0 [[data-dialog-toast-host]_&]:w-full [[data-dialog-toast-host]_&]:max-w-none [[data-dialog-toast-host]_&]:max-h-none [[data-dialog-toast-host]_&]:overflow-visible">
+    <>
       {toasts.map(toast => {
         const Icon = getToastIcon(toast.tone);
 
@@ -83,7 +91,7 @@ function ToastViewport({
           <div
             key={toast.id}
             data-toast-id={toast.id}
-            role={toast.tone === 'error' ? 'alert' : 'status'}
+            role={toast.relocated ? undefined : toast.tone === 'error' ? 'alert' : 'status'}
             className={cn(
               'pointer-events-auto break-words rounded-2xl border p-4 shadow-soft animate-fade-in backdrop-blur',
               getToastClasses(toast.tone)
@@ -122,7 +130,17 @@ function ToastViewport({
           </div>
         );
       })}
-    </div>
+    </>
+  );
+}
+
+function topmostOutlet(outlets: HTMLElement[]): HTMLElement | null {
+  return (
+    outlets.find(
+      outlet =>
+        outlet.isConnected &&
+        isTopmostModalDialog(outlet.closest<HTMLElement>(MODAL_DIALOG_SELECTOR))
+    ) ?? null
   );
 }
 
@@ -131,38 +149,53 @@ interface ToastProviderProps {
 }
 
 export function ToastProvider({ children }: ToastProviderProps) {
-  const [toasts, setToasts] = useState<ToastRecord[]>([]);
-  // A stable portal container preserves notification identity/timers and focused
-  // action openers while the DOM host follows the active dialog surface.
-  const [host] = useState(() =>
-    typeof document === 'undefined' ? null : document.createElement('div')
-  );
-  useLayoutEffect(() => {
-    if (host) return registerDialogFeedbackHost(host);
-  }, [host]);
+  const [toasts, setToasts] = useState<PlacedToast[]>([]);
   const timeoutIdsRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const outletsRef = useRef<HTMLElement[]>([]);
+  const outletKeysRef = useRef(new WeakMap<HTMLElement, string>());
 
-  const dismiss = useCallback(
-    (toastId: string) => {
-      const timeoutId = timeoutIdsRef.current.get(toastId);
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-        timeoutIdsRef.current.delete(toastId);
-      }
+  const registerOutlet = useCallback((outlet: HTMLElement) => {
+    outletsRef.current.push(outlet);
+    outletKeysRef.current.set(outlet, crypto.randomUUID());
+    return () => {
+      outletsRef.current = outletsRef.current.filter(candidate => candidate !== outlet);
+      setToasts(currentToasts =>
+        currentToasts.some(toast => toast.outlet === outlet)
+          ? currentToasts.map(toast =>
+              toast.outlet === outlet ? { ...toast, outlet: undefined, relocated: true } : toast
+            )
+          : currentToasts
+      );
+    };
+  }, []);
 
-      const active = document.activeElement;
-      if (
-        host &&
-        active instanceof HTMLElement &&
-        host.contains(active) &&
-        active.closest('[data-toast-id]')?.getAttribute('data-toast-id') === toastId
-      ) {
-        focusDialogFeedbackSurface(host);
-      }
-      setToasts(currentToasts => currentToasts.filter(toast => toast.id !== toastId));
-    },
-    [host]
-  );
+  // Place new toasts after commit, when a dialog closed in the same update is
+  // already gone and a dialog opened in it has registered its outlet.
+  useLayoutEffect(() => {
+    if (!toasts.some(toast => toast.outlet === undefined)) return;
+    const outlet = topmostOutlet(outletsRef.current);
+    const outletKey = outlet ? outletKeysRef.current.get(outlet) : undefined;
+    setToasts(currentToasts =>
+      currentToasts.map(toast =>
+        toast.outlet === undefined ? { ...toast, outlet, outletKey } : toast
+      )
+    );
+  }, [toasts]);
+
+  const dismiss = useCallback((toastId: string) => {
+    const timeoutId = timeoutIdsRef.current.get(toastId);
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      timeoutIdsRef.current.delete(toastId);
+    }
+
+    // Keep keyboard focus inside the dialog when its focused toast goes away.
+    const focusedToast = document.activeElement?.closest(`[data-toast-id="${toastId}"]`);
+    const outlet = focusedToast?.closest('.dialog-toast-outlet');
+    if (outlet?.parentElement instanceof HTMLElement) outlet.parentElement.focus();
+
+    setToasts(currentToasts => currentToasts.filter(toast => toast.id !== toastId));
+  }, []);
 
   const show = useCallback(
     ({
@@ -206,10 +239,24 @@ export function ToastProvider({ children }: ToastProviderProps) {
     [dismiss, show]
   );
 
+  const pageToasts = toasts.filter(toast => toast.outlet === null);
+  const toastsByOutlet = new Map<string, { outlet: HTMLElement; toasts: PlacedToast[] }>();
+  for (const toast of toasts) {
+    if (!toast.outlet || !toast.outletKey) continue;
+    const group = toastsByOutlet.get(toast.outletKey) ?? { outlet: toast.outlet, toasts: [] };
+    group.toasts.push(toast);
+    toastsByOutlet.set(toast.outletKey, group);
+  }
+
   return (
     <ToastContext.Provider value={value}>
-      {children}
-      {host && createPortal(<ToastViewport toasts={toasts} onDismiss={dismiss} />, host)}
+      <ToastOutletContext.Provider value={registerOutlet}>{children}</ToastOutletContext.Provider>
+      <div className="pointer-events-none fixed left-4 right-4 top-4 z-50 ml-auto flex max-h-[calc(100dvh-2rem)] max-w-sm flex-col gap-3 overflow-y-auto overscroll-contain sm:left-auto sm:w-full">
+        <ToastList toasts={pageToasts} onDismiss={dismiss} />
+      </div>
+      {Array.from(toastsByOutlet, ([key, group]) =>
+        createPortal(<ToastList toasts={group.toasts} onDismiss={dismiss} />, group.outlet, key)
+      )}
     </ToastContext.Provider>
   );
 }

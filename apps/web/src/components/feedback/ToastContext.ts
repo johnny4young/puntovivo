@@ -30,6 +30,11 @@ export interface ToastContextValue {
 
 export const ToastContext = createContext<ToastContextValue | undefined>(undefined);
 
+/** Registers a dialog's toast outlet with the provider; returns the unregister. */
+export const ToastOutletContext = createContext<((outlet: HTMLElement) => () => void) | undefined>(
+  undefined
+);
+
 export function useToast(): ToastContextValue {
   const context = useContext(ToastContext);
   if (!context) {

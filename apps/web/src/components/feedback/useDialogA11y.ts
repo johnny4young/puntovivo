@@ -16,12 +16,11 @@
  * @module components/feedback/useDialogA11y
  */
 import { useCallback, useEffect, useRef, type RefObject } from 'react';
-import { registerDialogFeedbackSurface } from './dialogFeedbackHost';
 
 /** Focusable-descendant selector shared by the focus-in + Tab-trap logic. */
 const FOCUSABLE_SELECTOR =
   'button:not(:disabled):not([hidden]), [href]:not([hidden]), input:not(:disabled):not([hidden]), select:not(:disabled):not([hidden]), textarea:not(:disabled):not([hidden]), [tabindex]:not([tabindex="-1"]):not([hidden])';
-const MODAL_DIALOG_SELECTOR = '[role="dialog"][aria-modal="true"]';
+export const MODAL_DIALOG_SELECTOR = '[role="dialog"][aria-modal="true"]';
 
 interface IsolationState {
   count: number;
@@ -93,7 +92,7 @@ export interface UseDialogA11yOptions {
   requireTopmost?: boolean | undefined;
 }
 
-function isTopmostModalDialog(dialog: HTMLElement | null): boolean {
+export function isTopmostModalDialog(dialog: HTMLElement | null): boolean {
   if (!dialog) return false;
   const dialogs = Array.from(document.querySelectorAll<HTMLElement>(MODAL_DIALOG_SELECTOR));
   return dialogs.at(-1) === dialog;
@@ -181,13 +180,6 @@ export function useDialogA11y({
     const activeDialog =
       dialogRef?.current ?? containerRef.current?.closest<HTMLElement>(MODAL_DIALOG_SELECTOR);
     if (!activeDialog) return;
-    const container = containerRef.current;
-    if (!container) return;
-    const focusedBeforeRegistration = document.activeElement as HTMLElement | null;
-    const focusCameFromOutside = Boolean(
-      focusedBeforeRegistration && !activeDialog.contains(focusedBeforeRegistration)
-    );
-    const unregisterFeedback = registerDialogFeedbackSurface(container);
 
     const activeIsTopmost = isTopmostModalDialog(activeDialog);
     const targets = new Set<HTMLElement>();
@@ -209,19 +201,14 @@ export function useDialogA11y({
 
     const targetList = Array.from(targets);
     const focusedElement = document.activeElement as HTMLElement | null;
-    if (
-      focusedElement &&
-      (focusCameFromOutside || targetList.some(target => target.contains(focusedElement)))
-    ) {
-      previousActiveElement.current = focusedBeforeRegistration;
+    if (focusedElement && targetList.some(target => target.contains(focusedElement))) {
+      previousActiveElement.current = focusedElement;
+      const container = containerRef.current;
       const focusTarget = container?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR) ?? container;
       focusTarget?.focus();
     }
     targetList.forEach(acquireIsolation);
-    return () => {
-      targetList.forEach(releaseIsolation);
-      unregisterFeedback();
-    };
+    return () => targetList.forEach(releaseIsolation);
   }, [isOpen, containerRef, dialogRef]);
 
   // Focus management: focus first element on open, restore on close.
