@@ -106,7 +106,7 @@ vi.mock('@/lib/trpc', () => ({
         useMutation: (options?: { onSuccess?: () => void | Promise<void> }) => {
           archiveOnSuccess = options?.onSuccess;
           return {
-            mutateAsync: archiveMutateAsync,
+            mutate: archiveMutateAsync,
             isPending: false,
             reset: vi.fn(),
             error: null,

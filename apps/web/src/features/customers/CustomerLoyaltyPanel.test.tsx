@@ -40,7 +40,7 @@ vi.mock('@/lib/trpc', () => ({
         useQuery: () => ({ data: mockData, isLoading: false, error: null }),
       },
       adjust: {
-        useMutation: () => ({ mutateAsync: adjustMock, isPending: false }),
+        useMutation: () => ({ mutate: adjustMock, isPending: false }),
       },
     },
   },

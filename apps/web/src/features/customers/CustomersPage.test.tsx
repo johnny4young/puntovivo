@@ -130,7 +130,7 @@ vi.mock('@/lib/trpc', () => ({
       },
       disposePersonalData: {
         useMutation: () => ({
-          mutateAsync: disposePersonalDataMock,
+          mutate: disposePersonalDataMock,
           isPending: false,
           error: null,
           reset: vi.fn(),

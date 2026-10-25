@@ -57,7 +57,7 @@ vi.mock('@/lib/trpc', () => ({
           onSuccess?: () => Promise<void> | void;
           onError?: (err: unknown) => void;
         }) => ({
-          mutateAsync: async (input: unknown) => {
+          mutate: async (input: unknown) => {
             try {
               const result = await updateMutate(input);
               await options.onSuccess?.();
