@@ -193,7 +193,12 @@ function RailSection({ rail, isOpen, onToggle, isSaving, onSubmit }: RailSection
       // strings are forwarded so the server can clear a stored value.
       credentials[credential.key] = value;
     }
-    await onSubmit(credentials);
+    try {
+      await onSubmit(credentials);
+    } catch {
+      // The mutation's onError reports the failure; keep the typed values for a retry.
+      return;
+    }
     form.reset();
     setTouchedCredentials({});
     setRevealed({});

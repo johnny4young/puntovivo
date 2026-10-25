@@ -638,16 +638,9 @@ export function ProductsPage() {
           deleteMutation.isPending ? t('deactivate.submitting') : t('deactivate.confirm')
         }
         onClose={() => setProductToDelete(null)}
-        onConfirm={async () => {
-          if (!productToDelete) {
-            return;
-          }
-
-          try {
-            await deleteMutation.mutateAsync({ id: productToDelete.id });
-          } catch {
-            // The mutation already renders the error toast. Handle its promise
-            // here so the confirmation remains available for retry or cancel.
+        onConfirm={() => {
+          if (productToDelete) {
+            deleteMutation.mutate({ id: productToDelete.id });
           }
         }}
         loading={deleteMutation.isPending}

@@ -21,15 +21,19 @@ vi.mock('@/components/feedback/ToastProvider', () => ({
 
 vi.mock('@/lib/trpc', () => {
   const mutation = (write: (input: unknown) => void) => ({
-    useMutation: (options: { onSuccess: () => Promise<void> }) => ({
-      mutateAsync: async (input: unknown) => {
+    useMutation: (options: { onSuccess: () => Promise<void> }) => {
+      const run = async (input: unknown) => {
         write(input);
         await options.onSuccess();
-      },
-      isPending: false,
-      error: null,
-      reset: vi.fn(),
-    }),
+      };
+      return {
+        mutateAsync: run,
+        mutate: (input: unknown) => void run(input),
+        isPending: false,
+        error: null,
+        reset: vi.fn(),
+      };
+    },
   });
   return {
     trpc: {

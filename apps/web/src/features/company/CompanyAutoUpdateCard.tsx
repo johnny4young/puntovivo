@@ -169,7 +169,7 @@ export function CompanyAutoUpdateCard() {
           status.state === 'checking'
         }
         onClick={() => {
-          void checkMutation.mutateAsync();
+          checkMutation.mutate();
         }}
         variant="outline"
       >
@@ -218,7 +218,7 @@ export function CompanyAutoUpdateCard() {
             restartMutation.isPending
           }
           onClick={() => {
-            void restartMutation.mutateAsync();
+            restartMutation.mutate();
           }}
           variant="primary"
         >

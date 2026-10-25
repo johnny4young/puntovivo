@@ -332,7 +332,7 @@ export function DeviceHealthPanel() {
                               title={!isAdmin ? t('device.retry.noPermission') : undefined}
                               onClick={() => {
                                 if (!isAdmin) return;
-                                void retryMutation.mutateAsync({
+                                retryMutation.mutate({
                                   id: row.id,
                                 });
                               }}

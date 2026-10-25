@@ -261,7 +261,7 @@ export function LocationsPage() {
         loading={deleteMutation.isPending}
         onConfirm={() => {
           if (locationToDelete) {
-            void deleteMutation.mutateAsync({
+            deleteMutation.mutate({
               id: locationToDelete.id,
             });
           }

@@ -14,7 +14,7 @@ const toastSuccess = vi.fn();
 const toastError = vi.fn();
 const createMutateAsync = vi.fn();
 const updateMutateAsync = vi.fn();
-const archiveMutateAsync = vi.fn();
+const archiveMutate = vi.fn();
 const listInvalidate = vi.fn();
 
 let mockUserRole: 'admin' | 'manager' = 'admin';
@@ -106,7 +106,7 @@ vi.mock('@/lib/trpc', () => ({
         useMutation: (options?: { onSuccess?: () => void | Promise<void> }) => {
           archiveOnSuccess = options?.onSuccess;
           return {
-            mutateAsync: archiveMutateAsync,
+            mutate: archiveMutate,
             isPending: false,
             reset: vi.fn(),
             error: null,
@@ -139,8 +139,8 @@ beforeEach(() => {
   createMutateAsync.mockResolvedValue(undefined);
   updateMutateAsync.mockClear();
   updateMutateAsync.mockResolvedValue(undefined);
-  archiveMutateAsync.mockClear();
-  archiveMutateAsync.mockResolvedValue(undefined);
+  archiveMutate.mockClear();
+  archiveMutate.mockResolvedValue(undefined);
   listInvalidate.mockClear();
   lastTableListInput = null;
   tableListInputs = [];
@@ -221,7 +221,7 @@ describe('RestaurantTablesPage — admin', () => {
     fireEvent.click(screen.getByTestId('restaurant-table-archive-rt-1'));
     fireEvent.click(screen.getByRole('button', { name: /Archive$/i }));
     await waitFor(() => {
-      expect(archiveMutateAsync).toHaveBeenCalledWith({ id: 'rt-1' });
+      expect(archiveMutate).toHaveBeenCalledWith({ id: 'rt-1' });
     });
   });
 

@@ -366,7 +366,7 @@ export function ProvidersPage() {
         variant="danger"
         onConfirm={() => {
           if (providerToDelete) {
-            void deleteMutation.mutateAsync({ id: providerToDelete.id });
+            deleteMutation.mutate({ id: providerToDelete.id });
           }
         }}
         onClose={() => {

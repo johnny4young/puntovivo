@@ -266,7 +266,7 @@ export function SitesPage() {
         onClose={() => setSiteToDelete(null)}
         onConfirm={() => {
           if (siteToDelete) {
-            void deleteMutation.mutateAsync({ id: siteToDelete.id });
+            deleteMutation.mutate({ id: siteToDelete.id });
           }
         }}
         title={t('sites.delete.title')}

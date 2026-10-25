@@ -65,7 +65,7 @@ export function CompanyRestaurantSettingsCard() {
   function handleSave(): void {
     if (rangeError) return;
     const next = clampRateInput(inputValue);
-    void updateMutation.mutateAsync({
+    updateMutation.mutate({
       serviceChargeRate: next,
     });
   }
