@@ -283,7 +283,7 @@ export function SequentialsPage(): React.ReactElement {
         }}
         onConfirm={() => {
           if (sequentialToDelete) {
-            void deleteMutation.mutateAsync({ id: sequentialToDelete.id });
+            deleteMutation.mutate({ id: sequentialToDelete.id });
           }
         }}
         title={t('delete.title')}

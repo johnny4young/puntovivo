@@ -418,7 +418,7 @@ export function CustomersPage() {
         onConfirm={() => {
           const preview = privacyPreviewQuery.data;
           if (preview && privacyConfirmation === preview.customer.name) {
-            void disposePersonalDataMutation.mutateAsync({
+            disposePersonalDataMutation.mutate({
               id: preview.customer.id,
               version: preview.customer.version,
               confirmation: privacyConfirmation,

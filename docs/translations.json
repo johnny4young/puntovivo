@@ -288,10 +288,6 @@
     {
       "en": "website/MANUAL.md",
       "es": "website/MANUAL.es.md"
-    },
-    {
-      "en": "docs/PRODUCT-DEACTIVATION-UI.md",
-      "es": "docs/es/PRODUCT-DEACTIVATION-UI.md"
     }
   ],
   "bilingual": ["docs/TRANSLATIONS.md"],

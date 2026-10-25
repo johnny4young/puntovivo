@@ -128,7 +128,7 @@ export function CompanyDataRetentionCard(): React.ReactElement {
         className="space-y-4"
         onSubmit={event => {
           event.preventDefault();
-          if (!validationError) void saveMutation.mutateAsync(policy);
+          if (!validationError) saveMutation.mutate(policy);
         }}
       >
         <div className="grid gap-4 md:grid-cols-2">
@@ -241,7 +241,7 @@ export function CompanyDataRetentionCard(): React.ReactElement {
       <ConfirmModal
         isOpen={confirmOpen}
         onClose={() => setConfirmOpen(false)}
-        onConfirm={() => void runMutation.mutateAsync()}
+        onConfirm={() => runMutation.mutate()}
         title={t('dataRetention:confirm.title')}
         message={t('dataRetention:confirm.message', {
           count: preview?.total ?? 0,

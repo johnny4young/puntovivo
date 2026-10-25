@@ -37,6 +37,13 @@ const NO_LITERAL_JSX_ATTRS = [
     message:
       'Use `onErrorToast(toast, t, options)` from `@/lib/mutationHelpers` instead of inline `onError` that calls `toast.*` directly.  — single funnel for translation + tracing.',
   },
+  // `void` silences the floating-promise lint but not the rejection: a failed
+  // mutation escapes as an unhandled rejection. `mutate` routes it to onError.
+  {
+    selector: 'UnaryExpression[operator="void"] > CallExpression[callee.property.name="mutateAsync"]',
+    message:
+      'Use `mutation.mutate(...)` for fire-and-forget calls; `void mutation.mutateAsync(...)` leaves the rejection unhandled.',
+  },
 ];
 
 export default tseslint.config(
