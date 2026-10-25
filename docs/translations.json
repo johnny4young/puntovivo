@@ -292,6 +292,10 @@
     {
       "en": "docs/qa/CATALOG-METADATA-FRESHNESS.md",
       "es": "docs/es/qa/CATALOG-METADATA-FRESHNESS.md"
+    },
+    {
+      "en": "docs/qa/CATALOG-EDITOR-LIFECYCLE.md",
+      "es": "docs/es/qa/CATALOG-EDITOR-LIFECYCLE.md"
     }
   ],
   "bilingual": [
