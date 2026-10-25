@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
+import { CATALOG_METADATA_INVALIDATIONS, invalidateGroups } from '@/lib/invalidateGroups';
 import type { UserRole, VatRate } from '@/types';
 import type { VatRateFormValues } from './vatRateForm.types';
 
@@ -42,9 +43,7 @@ export function VatRatesPage() {
   });
   const updateMutation = trpc.vatRates.update.useMutation({
     onSuccess: async () => {
-      // Product reads serialize the joined metadata name, including cached detail.
-      await utils.products.invalidate();
-      await utils.vatRates.list.invalidate();
+      await invalidateGroups(utils, [...CATALOG_METADATA_INVALIDATIONS, u => u.vatRates.list]);
       handleCloseModal();
       toast.success({ title: t('toast.updated') });
     },
