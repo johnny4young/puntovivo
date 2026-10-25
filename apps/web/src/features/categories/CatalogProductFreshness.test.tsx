@@ -21,7 +21,7 @@ vi.mock('@/features/providers/ProviderCategoryAssignmentsModal', () => ({
 }));
 vi.mock('@/features/providers/providerColumns', () => ({ createProviderColumns: () => [] }));
 vi.mock('@/lib/trpc', () => {
-  const query = { useQuery: () => ({ data: { items: [] }, isLoading: false }) };
+  const query = { useQuery: () => ({ data: { items: [], categoryIds: [] }, isLoading: false }) };
   const invalidatable = { invalidate: async () => undefined };
   const mutation = (key: string) => ({
     useMutation: (options: { onSuccess: () => Promise<void> }) => {
