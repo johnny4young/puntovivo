@@ -211,13 +211,17 @@ export function ModalButton({
   return (
     <Button
       type={type}
-      onClick={pending ? undefined : onClick}
+      // preventDefault also stops a pending submit button from submitting its form.
+      onClick={pending ? event => event.preventDefault() : onClick}
       disabled={disabled}
       aria-disabled={pending || undefined}
-      aria-busy={pending || undefined}
       id={id}
       variant={buttonVariant[variant]}
-      className={cn('w-full sm:w-auto sm:min-w-[9rem]', pending && 'cursor-progress', className)}
+      className={cn(
+        'w-full sm:w-auto sm:min-w-[9rem]',
+        pending && 'pointer-events-none opacity-45',
+        className
+      )}
     >
       {children}
     </Button>
@@ -261,10 +265,15 @@ export function ConfirmModal({
   const resolvedConfirmText = confirmText ?? t('actions.confirm');
   const resolvedCancelText = cancelText ?? t('actions.cancel');
   const loadingText = t('actions.loading');
+  // While the request runs, Cancel, the close button, Escape and the backdrop
+  // all wait for it, so the outcome always lands in this dialog.
+  const handleClose = () => {
+    if (!loading) onClose();
+  };
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleClose}
       title={resolvedTitle}
       restoreFocusTo={restoreFocusTo}
       size="sm"

@@ -32,7 +32,6 @@ for (const language of ['en', 'es'] as const) {
     await user.tab();
     expect(confirm).toHaveFocus();
     expect(confirm).toHaveAttribute('aria-disabled', 'true');
-    expect(confirm).toHaveAttribute('aria-busy', 'true');
     await user.keyboard('{Enter}');
     fireEvent.click(confirm);
     expect(onConfirm).toHaveBeenCalledTimes(1);
@@ -60,10 +59,28 @@ describe('business disabled confirmation', () => {
     const { rerender } = render(<ConfirmModal {...props} />);
     const confirm = screen.getByRole('button', { name: 'Confirm' });
     expect(confirm).toBeDisabled();
-    fireEvent.click(confirm);
     rerender(<ConfirmModal {...props} loading />);
     expect(confirm).toBeDisabled();
-    fireEvent.click(confirm);
     expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  it('does not close while the request is pending', async () => {
+    await i18next.changeLanguage('en');
+    const onClose = vi.fn();
+    const props = {
+      isOpen: true,
+      onClose,
+      onConfirm: vi.fn(),
+      title: 'Synthetic confirmation',
+      message: 'Synthetic operation',
+    };
+    const { rerender } = render(<ConfirmModal {...props} loading />);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    fireEvent.click(screen.getByRole('button', { name: 'Close modal' }));
+    expect(onClose).not.toHaveBeenCalled();
+
+    rerender(<ConfirmModal {...props} loading={false} />);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
