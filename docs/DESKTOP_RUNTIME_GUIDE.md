@@ -18,7 +18,7 @@ Future macOS majors enter the support contract only after native-module,
 packaged-runtime, renderer, recovery, and representative-machine checks pass.
 Do not translate one Tahoe result into Sequoia or future-version evidence.
 
-The current toolchain uses Node 24+, Electron 43.5.0, and
+The current toolchain uses Node 24+, Electron 43.8.3, and
 `better-sqlite3-multiple-ciphers` 13.0.3. SQLite uses portable Node-API
 prebuilds shared by standalone Node and Electron. Verify the installed
 binary with `pnpm --filter @puntovivo/server run native:ensure:node` and

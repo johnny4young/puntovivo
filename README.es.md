@@ -144,7 +144,7 @@ para releases están en [docs/PROJECT-STATUS.md](docs/es/PROJECT-STATUS.md).
 
 | Capa          | Elección                                                | Notas                                                                                |
 | ------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| Escritorio    | Electron 43.5.0 + empaquetado con electron-builder      | SQLite usa un binario Node-API incluido por plataforma.                              |
+| Escritorio    | Electron 43.8.3 + empaquetado con electron-builder      | SQLite usa un binario Node-API incluido por plataforma.                              |
 | Web           | React 19 + Vite 8 + TypeScript 7 (API TS 6 para ESLint) | El navegador y el renderer de Electron comparten el código de la aplicación.         |
 | API           | Fastify + tRPC 11                                       | `/api/trpc` es la API canónica de la aplicación.                                     |
 | Base de datos | SQLite mediante better-sqlite3-multiple-ciphers         | SQLCipher está integrado; los modos de desarrollo pueden compartir una base cifrada. |
@@ -180,7 +180,7 @@ permitidos. La lista está en [pnpm-workspace.yaml](./pnpm-workspace.yaml) y cub
 los componentes que aún tienen hooks de ciclo de vida: argon2 y esbuild.
 better-sqlite3-multiple-ciphers v13 incluye binarios Node-API con integridad
 verificada y su compilación implícita en pnpm se deniega explícitamente.
-Electron 43.5.0, como la línea 42 anterior, no tiene hook de instalación:
+Electron 43.8.3, como la línea 42 anterior, no tiene hook de instalación:
 Puntovivo instala su entorno de desarrollo cuando lo necesita, durante la
 verificación previa de escritorio. Si la instalación muestra
 `ERR_PNPM_IGNORED_BUILDS`, revisa el paquete y registra una política explícita

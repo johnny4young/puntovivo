@@ -132,13 +132,13 @@ vi.mock('@/lib/trpc', async () => ({
       },
       delete: {
         useMutation: (options: {
-          onSuccess?: () => Promise<void>;
+          onSuccess?: (data: unknown, variables: { id: string }) => Promise<void>;
           onError?: (error: unknown) => void;
         }) => ({
           isPending: false,
           mutate: (variables: { id: string }) => {
             void Promise.resolve(deleteResultMock(variables)).then(
-              () => options.onSuccess?.(),
+              data => options.onSuccess?.(data, variables),
               error => options.onError?.(error)
             );
           },
