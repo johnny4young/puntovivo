@@ -99,6 +99,16 @@
       "pins": {
         "fast-jwt@6.3.2": "6.3.4"
       }
+    },
+    {
+      "category": "compatibility",
+      "reviewedOn": "2026-10-25",
+      "reviewBy": "2026-11-24",
+      "reason": "Keep the One Dark theme on the application's @codemirror/language copy. A fresh resolution otherwise installs a second language runtime for the theme, duplicating the highlight and lezer packages and exceeding the codemirror bundle budget.",
+      "removalCriteria": "Remove the selector when the application moves its @codemirror/language range and a fresh install resolves a single copy for every owner, with the receipt-template editor tests and bundle-size gate passing.",
+      "pins": {
+        "@codemirror/theme-one-dark>@codemirror/language": "6.12.4"
+      }
     }
   ]
 }

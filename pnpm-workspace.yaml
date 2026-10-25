@@ -103,6 +103,9 @@ overrides:
   'app-builder-lib>plist': '3.1.1'
   # Fetch migration is paired with the integrity-pinned app-builder-lib patch.
   'app-builder-lib>@electron/get': '5.1.0'
+  # One Dark accepts any language 6.x; keep it on the app's copy so the editor
+  # bundle carries a single highlight runtime.
+  '@codemirror/theme-one-dark>@codemirror/language': '6.12.4'
   'plist>@xmldom/xmldom': '0.9.12'
   filelist: '2.0.2'
   'readdir-glob@1.1.3>minimatch': '10.2.5'
