@@ -22,6 +22,7 @@ const {
   productDetailInvalidateMock,
   productsListInvalidateMock,
   updateMutationOptionsRef,
+  deleteMutationOptionsRef,
   productFormModalMock,
 } = vi.hoisted(() => ({
   useAuthMock: vi.fn(),
@@ -32,6 +33,11 @@ const {
   productDetailInvalidateMock: vi.fn(),
   productsListInvalidateMock: vi.fn(),
   updateMutationOptionsRef: {
+    current: null as null | {
+      onSuccess?: (data: unknown, variables: { id: string }) => Promise<void>;
+    },
+  },
+  deleteMutationOptionsRef: {
     current: null as null | {
       onSuccess?: (data: unknown, variables: { id: string }) => Promise<void>;
     },
@@ -133,7 +139,14 @@ vi.mock('@/lib/trpc', async () => ({
           return { mutateAsync: vi.fn(), reset: vi.fn() };
         },
       },
-      delete: { useMutation: () => ({ mutateAsync: vi.fn() }) },
+      delete: {
+        useMutation: (options: {
+          onSuccess?: (data: unknown, variables: { id: string }) => Promise<void>;
+        }) => {
+          deleteMutationOptionsRef.current = options;
+          return { mutateAsync: vi.fn() };
+        },
+      },
       createVariantMatrix: {
         useMutation: () => ({ mutateAsync: vi.fn(), reset: vi.fn(), isPending: false }),
       },
@@ -162,6 +175,7 @@ describe('ProductsPage default column set', () => {
     productDetailInvalidateMock.mockReset();
     productsListInvalidateMock.mockReset();
     updateMutationOptionsRef.current = null;
+    deleteMutationOptionsRef.current = null;
     productFormModalMock.mockReset();
     useAuthMock.mockReturnValue({ user: { id: 'u-1', role: 'manager' } });
     useIsModuleActiveMock.mockReturnValue(false); // semantic off → simplest table
@@ -267,6 +281,15 @@ describe('ProductsPage default column set', () => {
     render(<ProductsPage />);
 
     await updateMutationOptionsRef.current?.onSuccess?.(undefined, { id: product.id });
+
+    expect(productsListInvalidateMock).toHaveBeenCalledTimes(1);
+    expect(productDetailInvalidateMock).toHaveBeenCalledWith({ id: product.id });
+  });
+
+  it('invalidates the deactivated product detail so a later edit loads the new version', async () => {
+    render(<ProductsPage />);
+
+    await deleteMutationOptionsRef.current?.onSuccess?.(undefined, { id: product.id });
 
     expect(productsListInvalidateMock).toHaveBeenCalledTimes(1);
     expect(productDetailInvalidateMock).toHaveBeenCalledWith({ id: product.id });
