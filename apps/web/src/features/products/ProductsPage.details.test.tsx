@@ -177,6 +177,17 @@ describe('ProductsPage default column set', () => {
     });
   });
 
+  it('keeps the editing form uninitialized during read-only listing and details', () => {
+    render(<ProductsPage />);
+    expect(screen.getByText('CAF-001')).toBeInTheDocument();
+    expect(productFormModalMock).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: /view details|ver detalle/i }));
+    expect(screen.getByTestId('product-details-drawer')).toBeInTheDocument();
+    expect(screen.getByText('Proveedor Norte')).toBeInTheDocument();
+    expect(productFormModalMock).not.toHaveBeenCalled();
+  });
+
   it('renders the smallest useful column set (provider / location / tier-2 / tier-3 trimmed)', () => {
     render(<ProductsPage />);
 

@@ -560,7 +560,7 @@ export function ProductsPage() {
         )}
       </Modal>
 
-      {(!editingProduct || editingProductSnapshot) && (
+      {isModalOpen && (!editingProduct || editingProductSnapshot) && (
         <div
           className="contents"
           onChangeCapture={() => {
