@@ -23,7 +23,7 @@ import {
   tableFeatures,
   useTable,
 } from '@tanstack/react-table';
-import { useEffect, useRef, useState, type Ref, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type Ref, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
@@ -132,6 +132,8 @@ interface DataTableProps<TData extends RowData> {
   getRowId?: ((row: TData) => string) | undefined;
   /** Owner-controlled focus destination if a dialog's row is no longer mounted. */
   searchInputRef?: Ref<HTMLInputElement> | undefined;
+  /** Rows are a placeholder while newer results load: dims and marks the table busy. */
+  busy?: boolean | undefined;
   /**
    * Column id to filter CLIENT-SIDE as the user types. Correct only when
    * `data` already holds every row the user could match — with a paged
@@ -212,6 +214,7 @@ export function DataTable<TData extends RowData>({
   data,
   getRowId,
   searchInputRef,
+  busy = false,
   searchKey,
   // no English default here: a default in the signature cannot
   // call t(). Resolved at the use site below.
@@ -280,10 +283,13 @@ export function DataTable<TData extends RowData>({
       const newSelection = typeof updater === 'function' ? updater(rowSelection) : updater;
       setRowSelection(newSelection);
       if (onRowSelectionChange) {
-        const rowsById = getRowId ? new Map(data.map(row => [getRowId(row), row])) : null;
+        // Selection keys are row ids (indices unless getRowId is set). A stale
+        // key from a data update racing the selection map resolves to no row;
+        // drop it so the callback contract (`TData[]`) is honored.
+        const { rowsById } = table.getCoreRowModel();
         const selectedRows = Object.keys(newSelection)
           .filter(key => newSelection[key])
-          .map(key => (rowsById ? rowsById.get(key) : data[parseInt(key)]))
+          .map(key => rowsById[key]?.original)
           .filter((row): row is TData => row !== undefined);
         onRowSelectionChange(selectedRows);
       }
@@ -310,6 +316,12 @@ export function DataTable<TData extends RowData>({
   // Keyboard navigation, the empty state, and the roving tabindex all index
   // into this single `visibleRows` array regardless of mode.
   const visibleRows = isVirtual ? table.getSortedRowModel().rows : table.getRowModel().rows;
+  // Memoized: a new key function makes the virtualizer rebuild every
+  // measurement. The row model is itself memoized across unrelated renders.
+  const getItemKey = useCallback(
+    (index: number) => (getRowId ? (visibleRows[index]?.id ?? index) : index),
+    [getRowId, visibleRows]
+  );
   const searchColumn = searchKey ? table.getColumn(searchKey) : undefined;
   const selectedRowCount = Object.keys(rowSelection).filter(key => rowSelection[key]).length;
   const resolvedFocusedRowIndex =
@@ -327,7 +339,7 @@ export function DataTable<TData extends RowData>({
   // eslint-disable-next-line react-hooks/incompatible-library -- isolated third-party compiler boundary
   const rowVirtualizer = useVirtualizer({
     count: visibleRows.length,
-    ...(getRowId ? { getItemKey: (index: number) => visibleRows[index]?.id ?? index } : {}),
+    getItemKey,
     getScrollElement: () => tableWrapperRef.current,
     estimateSize: () => VIRTUAL_ESTIMATED_ROW_PX,
     overscan: VIRTUAL_OVERSCAN_ROWS,
@@ -586,9 +598,15 @@ export function DataTable<TData extends RowData>({
           // natural content height. `data-virtualised` lets tests + the live
           // smoke assert the mode flipped without depending on layout math.
           data-virtualised={isVirtual ? 'true' : undefined}
+          aria-busy={busy || undefined}
           style={isVirtual ? { maxHeight: VIRTUAL_MAX_HEIGHT_PX, overflowY: 'auto' } : undefined}
         >
-          <table className={variant === 'dense' ? 'pv-table' : 'data-table'}>
+          <table
+            className={cn(
+              variant === 'dense' ? 'pv-table' : 'data-table',
+              busy && 'opacity-60 transition-opacity'
+            )}
+          >
             <thead>
               {table.getHeaderGroups().map(headerGroup => (
                 <tr key={headerGroup.id}>
