@@ -288,10 +288,6 @@
     {
       "en": "website/MANUAL.md",
       "es": "website/MANUAL.es.md"
-    },
-    {
-      "en": "docs/DIALOG-TOAST-ACCESSIBILITY.md",
-      "es": "docs/es/DIALOG-TOAST-ACCESSIBILITY.md"
     }
   ],
   "bilingual": ["docs/TRANSLATIONS.md"],
