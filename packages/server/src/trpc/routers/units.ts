@@ -21,7 +21,7 @@ import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { adminProcedure } from '../middleware/roles.js';
 import { units } from '../../db/schema.js';
-import { enqueueSync } from '../../services/sync/enqueue.js';
+import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import { lookupUnitStandard } from '../../services/units/unit-standards.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { paginatedList } from '../lib/paginatedList.js';
@@ -34,7 +34,7 @@ import {
   updateUnitInput,
 } from '../schemas/units.js';
 
-function rethrowUnitAbbreviationConflict(error: unknown, abbreviation: string): void {
+function rethrowUnitAbbreviationConflict(error: unknown, abbreviation: string): never {
   if (
     error instanceof Error &&
     /UNIQUE constraint failed: units\.tenant_id, units\.abbreviation/i.test(error.message)
@@ -94,32 +94,42 @@ export const unitsRouter = router({
     const referenceFactor = input.referenceFactor ?? standard?.referenceFactor ?? null;
 
     try {
-      await ctx.db.insert(units).values({
-        id,
-        tenantId: ctx.tenantId,
-        name: input.name,
-        abbreviation: input.abbreviation,
-        dimension,
-        standardCode,
-        referenceFactor,
-        isActive: input.isActive,
-        createdAt: now,
-        updatedAt: now,
-      });
+      return ctx.db.transaction(
+        tx => {
+          tx.insert(units)
+            .values({
+              id,
+              tenantId: ctx.tenantId,
+              name: input.name,
+              abbreviation: input.abbreviation,
+              dimension,
+              standardCode,
+              referenceFactor,
+              isActive: input.isActive,
+              createdAt: now,
+              updatedAt: now,
+            })
+            .run();
+
+          enqueueSyncInTransaction(
+            { ...ctx, db: tx },
+            {
+              entityType: 'units',
+              entityId: id,
+              operation: 'create',
+              data: { id, ...input, dimension, standardCode, referenceFactor },
+            }
+          );
+
+          const created = tx.select().from(units).where(eq(units.id, id)).get();
+
+          return created!;
+        },
+        { behavior: 'immediate' }
+      );
     } catch (error) {
       rethrowUnitAbbreviationConflict(error, input.abbreviation);
     }
-
-    await enqueueSync(ctx, {
-      entityType: 'units',
-      entityId: id,
-      operation: 'create',
-      data: { id, ...input, dimension, standardCode, referenceFactor },
-    });
-
-    const created = await ctx.db.select().from(units).where(eq(units.id, id)).get();
-
-    return created!;
   }),
 
   update: adminProcedure.input(updateUnitInput).mutation(async ({ ctx, input }) => {
@@ -146,24 +156,37 @@ export const unitsRouter = router({
     if (updates.isActive !== undefined) updateData.isActive = updates.isActive;
 
     try {
-      await ctx.db
-        .update(units)
-        .set(updateData)
-        .where(and(eq(units.id, id), eq(units.tenantId, ctx.tenantId)));
+      return ctx.db.transaction(
+        tx => {
+          const result = tx
+            .update(units)
+            .set(updateData)
+            .where(and(eq(units.id, id), eq(units.tenantId, ctx.tenantId)))
+            .run() as { changes?: number };
+          // A concurrent delete since the existence check must not leave an intent.
+          if (!result.changes) {
+            throw new TRPCError({ code: 'NOT_FOUND', message: 'Unit not found' });
+          }
+
+          enqueueSyncInTransaction(
+            { ...ctx, db: tx },
+            {
+              entityType: 'units',
+              entityId: id,
+              operation: 'update',
+              data: { id, ...updateData },
+            }
+          );
+
+          const updated = tx.select().from(units).where(eq(units.id, id)).get();
+
+          return updated!;
+        },
+        { behavior: 'immediate' }
+      );
     } catch (error) {
       rethrowUnitAbbreviationConflict(error, updates.abbreviation ?? existing.abbreviation);
     }
-
-    await enqueueSync(ctx, {
-      entityType: 'units',
-      entityId: id,
-      operation: 'update',
-      data: { id, ...updateData },
-    });
-
-    const updated = await ctx.db.select().from(units).where(eq(units.id, id)).get();
-
-    return updated!;
   }),
 
   delete: adminProcedure.input(deleteUnitInput).mutation(async ({ ctx, input }) => {
@@ -177,16 +200,30 @@ export const unitsRouter = router({
       throw new TRPCError({ code: 'NOT_FOUND', message: 'Unit not found' });
     }
 
-    await ctx.db.delete(units).where(and(eq(units.id, input.id), eq(units.tenantId, ctx.tenantId)));
+    return ctx.db.transaction(
+      tx => {
+        const result = tx
+          .delete(units)
+          .where(and(eq(units.id, input.id), eq(units.tenantId, ctx.tenantId)))
+          .run() as { changes?: number };
+        if (!result.changes) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Unit not found' });
+        }
 
-    await enqueueSync(ctx, {
-      entityType: 'units',
-      entityId: input.id,
-      operation: 'delete',
-      data: { id: input.id },
-    });
+        enqueueSyncInTransaction(
+          { ...ctx, db: tx },
+          {
+            entityType: 'units',
+            entityId: input.id,
+            operation: 'delete',
+            data: { id: input.id },
+          }
+        );
 
-    return { success: true, id: input.id };
+        return { success: true, id: input.id };
+      },
+      { behavior: 'immediate' }
+    );
   }),
 
   search: tenantProcedure.input(searchUnitsInput).query(async ({ ctx, input }) => {
