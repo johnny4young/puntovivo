@@ -3,7 +3,7 @@ productName: Puntovivo
 executableName: puntovivo
 # Keep development and production packaging on the same exact reviewed
 # runtime; a caret range could promote an unqualified release on reinstall.
-electronVersion: 43.5.0
+electronVersion: 43.8.3
 # Runtime verification precedes packaging; retain the audited Node-API binaries
 # rather than recompiling them in the checkout for an Electron ABI.
 npmRebuild: false
