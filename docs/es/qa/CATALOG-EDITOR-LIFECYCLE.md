@@ -4,9 +4,9 @@
 
 ## Objetivo y alcance
 
-ProductsPage montaba ProductFormModal con snapshot listo incluso en `editingProduct=null, isOpen=false`. El modal oculta su DOM después de ejecutar hooks y solicitar el namespace diferido productQuickCreate. La condición nueva exige isModalOpen, conservando snapshot completo, key y callbacks. La key ya reinicia el formulario en cada apertura; mantenerlo cerrado no era un contrato de conservar borradores.
+ProductsPage montaba ProductFormModal con snapshot listo incluso en `editingProduct=null, isOpen=false`. El modal oculta su DOM después de ejecutar hooks y solicitar el namespace diferido productQuickCreate. La condición nueva exige `isModalOpen`, conservando snapshot completo, key y callbacks. La key ya reinicia el formulario en cada apertura; mantenerlo cerrado no era un contrato de conservar borradores.
 
-Sin cambios de memoización, consultas/TTL, autenticación, fiscalidad, redondeo o servidor. El módulo sigue importado estáticamente: se difiere el lifecycle, no todo el código. Se apila sobre #351 `02161ea 343a 6ef 6997043f 7de 9e 0856517e 59f 5c` para reutilizar fixtures/guardas saneados sin duplicarlos; #351 no cambia. Main verificado `404b 5d 7294ea 021a 5863d 2149c 79bf 483a 498b 73`, app 1.15.3. Revisa remotos antes de componer.
+Sin cambios de memoización, consultas/TTL, autenticación, fiscalidad, redondeo o servidor. El módulo sigue importado estáticamente: se difiere el lifecycle, no todo el código. Se apila sobre #351 `02161ea343a6ef6997043f7de9e0856517e59f5c` para reutilizar fixtures/guardas saneados sin duplicarlos; #351 no cambia. Main verificado `404b5d7294ea021a5863d2149c79bf483a498b73`, app 1.15.3. Revisa remotos antes de componer.
 
 ## Regresión rápida y gates
 
@@ -45,11 +45,11 @@ El build usa la configuración Vite normal con un contador test-only al entrar a
 
 Cada muestra usa contexto nuevo con manager existente: Dashboard autenticado estable→Products mediante enlace real→Dashboard→Products caliente. El shell común ya está cargado; no mide arranque del navegador. Valida SKU/categoría, products.list 1 frío/0 caliente, detalle, selección de edición, conservar/descartar borrador, fila intacta y crear/cancelar limpio. No envía mutaciones de producto. El routing desactiva caché HTTP; módulos y QueryClient sí se reutilizan. Mantén ese contrato en ambos lados.
 
-Click capture y MutationObserver con siguiente animation frame miden fila visible; networkidle más dos frames delimita conteos. Cinco muestras secuenciales antes y después, sin aleatorización ABBA. Host/V 8/cachés/automatización limitan la comparación. Conserva outliers y hashes de fuente/lock/fixture. lab-catalog-state.mjs registra hash/conteos del catálogo e invariantes fiscales, sin filas/credenciales; compara antes/después.
+Click capture y MutationObserver con siguiente animation frame miden fila visible; networkidle más dos frames delimita conteos. Cinco muestras secuenciales antes y después, sin aleatorización ABBA. Host/V 8/cachés/automatización limitan la comparación. Conserva outliers y hashes de fuente/lock/fixture. `lab-catalog-state.mjs` registra hash/conteos del catálogo e invariantes fiscales, sin filas/credenciales; compara antes/después.
 
 ## Evidencia y límites
 
-| Métrica,5 muestras                         | Antes                 | Después                |
+| Métrica, 5 muestras                         | Antes                 | Después                |
 | ------------------------------------------ | --------------------- | ---------------------- |
 | Invocaciones cerradas frías                | 4,4,4,4,4             | 0,0,0,0,0              |
 | Invocaciones cerradas calientes            | 2,2,2,2,2             | 0,0,0,0,0              |
@@ -59,6 +59,6 @@ Click capture y MutationObserver con siguiente animation frame miden fila visibl
 | JS caliente;procedimientos products.list   | 0;0                   | 0;0                    |
 | Muestras funcionales;pageerrors            | 5 PASS;0              | 5 PASS;0               |
 
-El recurso ausente es productQuickCreate en inglés,972 bytes; los 9 bytes restantes son detalles del output. No se afirma mejora general de bundle. El namespace sigue disponible al abrir el editor. Catálogo hash `331fa 1e 943c 60faf 99249f 5a 97114f 0f 413a 507d 9bbc 90dc 2c 394dbd 33e 0e 126`,32 usuarios y 0 documentos/outbox/flags fiscales. Fixture origen `d 4adb 6658e 7cf 19590b 1d 72a 881af 7c 6469696d 47b 07cf 5a 002603de 54957159`.
+El recurso ausente es productQuickCreate en inglés, 972 bytes; los 9 bytes restantes son detalles del output. No se afirma mejora general de bundle. El namespace sigue disponible al abrir el editor. Catálogo hash `331fa1e943c60faf99249f5a97114f0f413a507d9bbc90dc2c394dbd33e0e126`,32 usuarios y 0 documentos/outbox/flags fiscales. Fixture origen `d4adb6658e7cf19590b1d72a881af7c6469696d47b07cf5a002603de54957159`.
 
-Se sostiene la eliminación de trabajo cerrado y una petición innecesaria en este flujo. Latencia inconclusa: se conserva el outlier 349.4ms y rangos superpuestos. Sin afirmaciones de p 95, CPU/memoria, guardado, UI española o producción. No se repite N+1. Lazy loading completo sería otra hipótesis con oráculos de foco/fallback; no se inicia aquí ni se extrae la abstracción de 16 campos.
+Se sostiene la eliminación de trabajo cerrado y una petición innecesaria en este flujo. Latencia inconclusa: se conserva el outlier 349.4 ms y rangos superpuestos. Sin afirmaciones de p95, CPU/memoria, guardado, UI española o producción. No se repite N+1. Lazy loading completo sería otra hipótesis con oráculos de foco/fallback; no se inicia aquí ni se extrae la abstracción de 16 campos.

@@ -8,7 +8,7 @@ Avoid running ProductFormModal while the operator only views the product list or
 
 The production change adds `isModalOpen` to the existing mount condition. It preserves the complete edit snapshot guard, modalInstanceKey, callbacks and all exports. A new key already resets the form on each open; the closed mounted instance is not a preserved-draft contract. No memo comparator, callback cache, query invalidation, TTL, auth, fiscal, rounding or server behavior changes. The form module remains statically imported; this is lifecycle deferral, not full form code splitting.
 
-This change is stacked on #351 `02161ea 343a 6ef 6997043f 7de 9e 0856517e 59f 5c` to reuse its sanitized fixture/server/guard recipes rather than duplicate them. #351 itself is untouched. The production guard is independent of metadata invalidation. Main was `404b 5d 7294ea 021a 5863d 2149c 79bf 483a 498b 73`, app 1.15.3; review current remote heads before composing.
+This change is stacked on #351 `02161ea343a6ef6997043f7de9e0856517e59f5c` to reuse its sanitized fixture/server/guard recipes rather than duplicate them. #351 itself is untouched. The production guard is independent of metadata invalidation. Main was `404b5d7294ea021a5863d2149c79bf483a498b73`, app 1.15.3; review current remote heads before composing.
 
 ## Fast regression versus broader gates
 
@@ -51,7 +51,7 @@ A click-capture timestamp and MutationObserver/next-animation-frame record first
 
 ## Measured baseline and candidate
 
-| Metric,5samples each                      | Before                | After                  |
+| Metric, 5samples each                      | Before                | After                  |
 | ----------------------------------------- | --------------------- | ---------------------- |
 | Closed-form invocations, cold             | 4,4,4,4,4             | 0,0,0,0,0              |
 | Closed-form invocations, warm             | 2,2,2,2,2             | 0,0,0,0,0              |
@@ -61,6 +61,6 @@ A click-capture timestamp and MutationObserver/next-animation-frame record first
 | Warm JS bytes;products.list procedures    | 0;0                   | 0;0                    |
 | Functional samples;pageerrors             | 5 PASS;0              | 5 PASS;0               |
 
-The missing cold resource is the 972-byte productQuickCreate English namespace; the remaining 9 bytes of aggregate difference come from emitted chunk details. This does not establish a general bundle-size improvement. The namespace remains available when the editor opens. Open/editor oracles are preserved. Catalog data hash remains `331fa 1e 943c 60faf 99249f 5a 97114f 0f 413a 507d 9bbc 90dc 2c 394dbd 33e 0e 126`; users 32, fiscal documents/outbox/enabled 0 throughout. Source fixture hash was `d 4adb 6658e 7cf 19590b 1d 72a 881af 7c 6469696d 47b 07cf 5a 002603de 54957159`.
+The missing cold resource is the 972-byte productQuickCreate English namespace; the remaining 9 bytes of aggregate difference come from emitted chunk details. This does not establish a general bundle-size improvement. The namespace remains available when the editor opens. Open/editor oracles are preserved. Catalog data hash remains `331fa1e943c60faf99249f5a97114f0f413a507d9bbc90dc2c394dbd33e0e126`; users 32, fiscal documents/outbox/enabled 0 throughout. Source fixture hash was `d4adb6658e7cf19590b1d72a881af7c6469696d47b07cf5a002603de54957159`.
 
-The supported result is removal of closed-editor work and one unnecessary namespace request in this measured flow. Latency improvement is inconclusive: retain the 349.4ms candidate outlier and overlapping ranges; do not claim p 95, CPU, memory, save-path throughput, Spanish-browser or production gains. No N+1 bank was repeated. Future full form lazy loading would be a separate hypothesis, requiring its own focus/fallback oracles. No 16-field projection abstraction is included.
+The supported result is removal of closed-editor work and one unnecessary namespace request in this measured flow. Latency improvement is inconclusive: retain the 349.4 ms candidate outlier and overlapping ranges; do not claim p95, CPU, memory, save-path throughput, Spanish-browser or production gains. No N+1 bank was repeated. Future full form lazy loading would be a separate hypothesis, requiring its own focus/fallback oracles. No 16-field projection abstraction is included.
