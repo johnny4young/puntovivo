@@ -1,6 +1,6 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { keepPreviousData } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { AlertTriangle, Plus, RefreshCw, Search, Sparkles } from 'lucide-react';
 import { isProductTemplateVerticalId } from '@puntovivo/shared/vertical-presets';
 import { ConfirmModal, Modal } from '@/components/form-controls/Modal';
@@ -46,8 +46,6 @@ function createMarginWindow() {
   const from = new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000);
   return { fromDate: from.toISOString(), toDate: to.toISOString(), limit: 500 };
 }
-
-const getProductRowId = (product: DisplayProduct) => product.id;
 
 export function ProductsPage() {
   // `semanticSearch` is referenced via bare `i18next.t('semanticSearch:…')`
@@ -101,12 +99,9 @@ export function ProductsPage() {
       search: semantic.literalFallbackSearch,
       includeVariantParents: true,
     },
-    {
-      // A debounced term changes the query key even while confirmation is open.
-      // Preserve the mounted rows/search until that response replaces them;
-      // otherwise isLoading unmounts the captured opener during the request.
-      placeholderData: keepPreviousData,
-    }
+    // Keep the rows mounted while a debounced search refetches, so an open
+    // dialog's opener survives the request.
+    { placeholderData: keepPreviousData }
   );
 
   const categoriesQuery = trpc.categories.tree.useQuery();
@@ -118,13 +113,13 @@ export function ProductsPage() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editingProductSnapshot, setEditingProductSnapshot] = useState<Product | null>(null);
   const [editingProductLoadError, setEditingProductLoadError] = useState<unknown>(null);
-  const [editAbortController, setEditAbortController] = useState<AbortController | null>(null);
+  const editAbortRef = useRef<AbortController | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalInstanceKey, setModalInstanceKey] = useState(0);
-  const [deleteOpener, setDeleteOpener] = useState<HTMLButtonElement | null>(null);
-  const productSearchRef = useRef<HTMLInputElement | null>(null);
-  const pageHeadingRef = useRef<HTMLHeadingElement | null>(null);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const deleteOpenerRef = useRef<HTMLButtonElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
   // row-detail Drawer for the columns trimmed off the default
   // table (provider / location / tier-2 / tier-3 prices, SKU, min stock).
   const [detailsProduct, setDetailsProduct] = useState<Product | null>(null);
@@ -244,8 +239,8 @@ export function ProductsPage() {
     }
     createProductMeasurement.recordInteraction();
     createProductMeasurement.finish('abandoned');
-    editAbortController?.abort();
-    setEditAbortController(null);
+    editAbortRef.current?.abort();
+    editAbortRef.current = null;
     setIsModalOpen(false);
     setEditingProduct(null);
     setEditingProductSnapshot(null);
@@ -257,8 +252,8 @@ export function ProductsPage() {
   const handleOpenCreate = () => {
     createProductMeasurement.start('create_product');
     createProductMeasurement.recordInteraction();
-    editAbortController?.abort();
-    setEditAbortController(null);
+    editAbortRef.current?.abort();
+    editAbortRef.current = null;
     setEditingProduct(null);
     setEditingProductSnapshot(null);
     setEditingProductLoadError(null);
@@ -266,51 +261,84 @@ export function ProductsPage() {
     setIsModalOpen(true);
   };
 
-  const loadEditingProduct = async (product: Product, controller: AbortController) => {
-    setEditingProductLoadError(null);
-    setEditingProductSnapshot(null);
+  const loadEditingProduct = useCallback(
+    async (product: Product, controller: AbortController) => {
+      setEditingProductLoadError(null);
+      setEditingProductSnapshot(null);
 
-    try {
-      const detail = await utils.products.getById.fetch({ id: product.id });
-      if (controller.signal.aborted) {
-        return;
-      }
+      try {
+        const detail = await utils.products.getById.fetch({ id: product.id });
+        if (controller.signal.aborted) {
+          return;
+        }
 
-      // Capture one complete immutable snapshot for the form lifetime. Cache
-      // refreshes cannot erase operator input or silently advance the version
-      // used by the optimistic update.
-      setEditingProductSnapshot({
-        ...detail,
-        isActive: detail.isActive ?? false,
-        syncStatus: detail.syncStatus ?? undefined,
-        syncVersion: detail.syncVersion ?? undefined,
-        unitAssignments: (detail.unitAssignments ?? []).map(assignment => ({
-          ...assignment,
-          isBase: assignment.isBase ?? false,
-        })),
-        providerAssignments: detail.providerAssignments ?? [],
-      });
-    } catch (error) {
-      if (!controller.signal.aborted) {
-        setEditingProductLoadError(error);
+        // Capture one complete immutable snapshot for the form lifetime. Cache
+        // refreshes cannot erase operator input or silently advance the version
+        // used by the optimistic update.
+        setEditingProductSnapshot({
+          ...detail,
+          isActive: detail.isActive ?? false,
+          syncStatus: detail.syncStatus ?? undefined,
+          syncVersion: detail.syncVersion ?? undefined,
+          unitAssignments: (detail.unitAssignments ?? []).map(assignment => ({
+            ...assignment,
+            isBase: assignment.isBase ?? false,
+          })),
+          providerAssignments: detail.providerAssignments ?? [],
+        });
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          setEditingProductLoadError(error);
+        }
       }
-    }
-  };
+    },
+    [utils]
+  );
 
   // shared edit entry point used by the table (Pencil button +
   // onRowActivate, ) AND the row-detail Drawer's Edit footer.
-  const handleOpenEdit = (product: Product) => {
-    editAbortController?.abort();
-    const controller = new AbortController();
-    setEditAbortController(controller);
-    setEditingProduct(product);
-    setModalInstanceKey(current => current + 1);
-    setIsModalOpen(true);
-    void loadEditingProduct(product, controller);
-  };
+  const handleOpenEdit = useCallback(
+    (product: Product) => {
+      editAbortRef.current?.abort();
+      const controller = new AbortController();
+      editAbortRef.current = controller;
+      setEditingProduct(product);
+      setModalInstanceKey(current => current + 1);
+      setIsModalOpen(true);
+      void loadEditingProduct(product, controller);
+    },
+    [loadEditingProduct]
+  );
 
   // read-only product detail Drawer (holds the trimmed columns).
-  const handleOpenDetails = (product: Product) => setDetailsProduct(product);
+  const handleOpenDetails = useCallback((product: Product) => setDetailsProduct(product), []);
+  const handleRequestDelete = useCallback((product: Product, opener: HTMLButtonElement) => {
+    deleteOpenerRef.current = opener;
+    setProductToDelete(product);
+  }, []);
+  // Stable columns keep each row's cells mounted across page renders, so the
+  // action that opened a dialog is still the element focus returns to.
+  const columns = useMemo(
+    () =>
+      productsColumns(
+        handleOpenDetails,
+        handleOpenEdit,
+        handleRequestDelete,
+        canManage,
+        canDelete,
+        semantic.semanticIsActive,
+        marginByProduct
+      ),
+    [
+      handleOpenDetails,
+      handleOpenEdit,
+      handleRequestDelete,
+      canManage,
+      canDelete,
+      semantic.semanticIsActive,
+      marginByProduct,
+    ]
+  );
   const handleCloseDetails = () => setDetailsProduct(null);
   const handleEditFromDetails = (product: Product) => {
     setDetailsProduct(null);
@@ -366,7 +394,7 @@ export function ProductsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 ref={pageHeadingRef} tabIndex={-1} className="text-2xl font-bold text-secondary-900">
+        <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-bold text-secondary-900">
           {t('page.title')}
         </h1>
         <button
@@ -452,7 +480,7 @@ export function ProductsPage() {
                         type="text"
                         className="input pl-10"
                         placeholder={t('table.searchSemantic')}
-                        ref={productSearchRef}
+                        ref={searchInputRef}
                         value={semantic.semanticQuery}
                         onChange={event => semantic.setSemanticQuery(event.target.value)}
                         aria-label={t('table.searchSemantic')}
@@ -495,21 +523,10 @@ export function ProductsPage() {
 
             <DataTable
               variant="dense"
-              columns={productsColumns(
-                handleOpenDetails,
-                handleOpenEdit,
-                (product, opener) => {
-                  setDeleteOpener(opener);
-                  setProductToDelete(product);
-                },
-                canManage,
-                canDelete,
-                semantic.semanticIsActive,
-                marginByProduct
-              )}
+              columns={columns}
               data={displayProducts}
-              getRowId={getProductRowId}
-              searchInputRef={productSearchRef}
+              getRowId={product => product.id}
+              searchInputRef={searchInputRef}
               searchValue={semantic.semanticModeEnabled ? undefined : semantic.literalQuery}
               onSearchChange={semantic.semanticModeEnabled ? undefined : semantic.setLiteralQuery}
               searchPlaceholder={t('table.search')}
@@ -625,19 +642,18 @@ export function ProductsPage() {
 
       <ConfirmModal
         isOpen={!!productToDelete}
-        restoreFocusTo={() => {
-          // Preserve the real opener. Only use a workflow destination when that
-          // row was removed, filtered out or left the virtual window.
-          if (deleteOpener?.isConnected) return null;
-          if (productSearchRef.current?.isConnected) return productSearchRef.current;
-          return pageHeadingRef.current;
-        }}
         title={t('deactivate.title')}
         message={t('deactivate.description')}
         confirmText={
           deleteMutation.isPending ? t('deactivate.submitting') : t('deactivate.confirm')
         }
         onClose={() => setProductToDelete(null)}
+        // The opener, or the search or heading when its row is gone.
+        restoreFocusTo={() =>
+          deleteOpenerRef.current?.isConnected
+            ? deleteOpenerRef.current
+            : (searchInputRef.current ?? headingRef.current)
+        }
         onConfirm={() => {
           if (productToDelete) {
             deleteMutation.mutate({ id: productToDelete.id });
