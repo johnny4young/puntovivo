@@ -54,28 +54,20 @@
     },
     {
       "category": "security-floor",
-      "reviewedOn": "2026-09-30",
-      "reviewBy": "2026-10-30",
+      "reviewedOn": "2026-10-25",
+      "reviewBy": "2026-11-24",
       "reason": "Patch the existing undici 6/7/8, fast-uri 3/4, ip-address 10, brace-expansion 5 and DOMPurify 3 lines for current HTTP, URI normalization, subnet-family, bounded glob parsing and sanitization advisories without broad major overrides or audit exclusions.",
       "removalCriteria": "Remove each vulnerable-version or parent selector when every owning package resolves the patched floor without it and the full dependency audit and all applicable workspace gates pass.",
       "pins": {
-        "node-gyp@12.4.0>undici": "6.28.1",
-        "fast-uri@3.1.2": "3.1.8",
-        "fast-uri@3.1.3": "3.1.8",
-        "fast-uri@3.1.4": "3.1.8",
-        "fast-uri@3.1.5": "3.1.8",
-        "fast-uri@4.1.0": "4.1.5",
-        "fast-uri@4.1.1": "4.1.5",
-        "fast-uri@4.1.2": "4.1.5",
-        "undici@7.28.0": "7.29.1",
-        "fast-uri@3.1.6": "3.1.8",
-        "fast-uri@4.1.3": "4.1.5",
-        "undici@7.29.0": "7.29.1",
-        "undici@8.10.0": "8.10.2",
-        "ip-address@10.5.0": "10.7.1",
         "minimatch@10.2.5>brace-expansion": "5.0.12",
-        "jspdf>dompurify": "3.4.16",
-        "brace-expansion@5.0.9": "5.0.12"
+        "jspdf>dompurify": "3.4.17",
+        "brace-expansion@5.0.9": "5.0.12",
+        "fast-uri@>=3.0.0 <3.1.9": "3.1.9",
+        "fast-uri@>=4.0.0 <4.2.3": "4.2.3",
+        "undici@>=6.0.0 <6.29.1": "6.29.1",
+        "undici@>=7.0.0 <7.30.1": "7.30.1",
+        "undici@>=8.0.0 <8.12.3": "8.12.3",
+        "ip-address@>=10.0.0 <10.7.4": "10.7.4"
       }
     },
     {
@@ -106,6 +98,16 @@
       "removalCriteria": "Remove this selector once @fastify/jwt resolves fast-jwt 6.3.4 or later without it and the full dependency audit plus the server and desktop gates pass.",
       "pins": {
         "fast-jwt@6.3.2": "6.3.4"
+      }
+    },
+    {
+      "category": "compatibility",
+      "reviewedOn": "2026-10-25",
+      "reviewBy": "2026-11-24",
+      "reason": "Keep the One Dark theme on the application's @codemirror/language copy. A fresh resolution otherwise installs a second language runtime for the theme, duplicating the highlight and lezer packages and exceeding the codemirror bundle budget.",
+      "removalCriteria": "Remove the selector when the application moves its @codemirror/language range and a fresh install resolves a single copy for every owner, with the receipt-template editor tests and bundle-size gate passing.",
+      "pins": {
+        "@codemirror/theme-one-dark>@codemirror/language": "6.12.4"
       }
     }
   ]
