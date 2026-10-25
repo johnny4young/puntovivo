@@ -53,6 +53,8 @@ export function CategoriesPage() {
   });
   const updateMutation = trpc.categories.update.useMutation({
     onSuccess: async () => {
+      // Product reads serialize the joined metadata name, including cached detail.
+      await utils.products.invalidate();
       await utils.categories.tree.invalidate();
       await utils.categories.list.invalidate();
       handleCloseModal();

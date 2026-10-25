@@ -70,6 +70,8 @@ export function ProvidersPage() {
   });
   const updateMutation = trpc.providers.update.useMutation({
     onSuccess: async () => {
+      // Product reads serialize the joined metadata name, including cached detail.
+      await utils.products.invalidate();
       await utils.providers.list.invalidate();
       handleCloseModal();
       toast.success({ title: t('providers.toast.updated') });
