@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
+import { ToastOutlet } from '@/components/feedback/ToastOutlet';
 import { useDialogA11y } from '@/components/feedback/useDialogA11y';
 import { Button } from '@/components/ui/Button';
 import type { ButtonVariant } from '@/components/ui/Button.variants';
@@ -154,6 +155,8 @@ export function Modal({
             )}
           </div>
         )}
+
+        <ToastOutlet />
 
         {/* Body */}
         <div className={cn('modal-body', contentClassName)}>{children}</div>

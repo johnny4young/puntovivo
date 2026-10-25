@@ -47,6 +47,8 @@ function createMarginWindow() {
   return { fromDate: from.toISOString(), toDate: to.toISOString(), limit: 500 };
 }
 
+const getProductRowId = (product: DisplayProduct) => product.id;
+
 export function ProductsPage() {
   // `semanticSearch` is referenced via bare `i18next.t('semanticSearch:…')`
   // in the match column; declare it here so the lazy namespace loads (and the page
@@ -113,11 +115,11 @@ export function ProductsPage() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editingProductSnapshot, setEditingProductSnapshot] = useState<Product | null>(null);
   const [editingProductLoadError, setEditingProductLoadError] = useState<unknown>(null);
-  const editAbortRef = useRef<AbortController | null>(null);
+  const [editAbortController, setEditAbortController] = useState<AbortController | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalInstanceKey, setModalInstanceKey] = useState(0);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
-  const deleteOpenerRef = useRef<HTMLButtonElement | null>(null);
+  const [deleteOpener, setDeleteOpener] = useState<HTMLButtonElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   // row-detail Drawer for the columns trimmed off the default
@@ -171,8 +173,13 @@ export function ProductsPage() {
     }),
   });
   const deleteMutation = trpc.products.delete.useMutation({
-    onSuccess: async () => {
-      await utils.products.list.invalidate();
+    onSuccess: async (_result, { id }) => {
+      // Deactivation advances the version; a cached detail would reopen the
+      // editor with a stale one.
+      await Promise.all([
+        utils.products.list.invalidate(),
+        utils.products.getById.invalidate({ id }),
+      ]);
       setProductToDelete(null);
       toast.success({ title: t('toast.deactivated') });
     },
@@ -239,8 +246,8 @@ export function ProductsPage() {
     }
     createProductMeasurement.recordInteraction();
     createProductMeasurement.finish('abandoned');
-    editAbortRef.current?.abort();
-    editAbortRef.current = null;
+    editAbortController?.abort();
+    setEditAbortController(null);
     setIsModalOpen(false);
     setEditingProduct(null);
     setEditingProductSnapshot(null);
@@ -252,8 +259,8 @@ export function ProductsPage() {
   const handleOpenCreate = () => {
     createProductMeasurement.start('create_product');
     createProductMeasurement.recordInteraction();
-    editAbortRef.current?.abort();
-    editAbortRef.current = null;
+    editAbortController?.abort();
+    setEditAbortController(null);
     setEditingProduct(null);
     setEditingProductSnapshot(null);
     setEditingProductLoadError(null);
@@ -299,25 +306,23 @@ export function ProductsPage() {
   // onRowActivate, ) AND the row-detail Drawer's Edit footer.
   const handleOpenEdit = useCallback(
     (product: Product) => {
-      editAbortRef.current?.abort();
+      editAbortController?.abort();
       const controller = new AbortController();
-      editAbortRef.current = controller;
+      setEditAbortController(controller);
       setEditingProduct(product);
       setModalInstanceKey(current => current + 1);
       setIsModalOpen(true);
       void loadEditingProduct(product, controller);
     },
-    [loadEditingProduct]
+    [editAbortController, loadEditingProduct]
   );
 
   // read-only product detail Drawer (holds the trimmed columns).
   const handleOpenDetails = useCallback((product: Product) => setDetailsProduct(product), []);
   const handleRequestDelete = useCallback((product: Product, opener: HTMLButtonElement) => {
-    deleteOpenerRef.current = opener;
+    setDeleteOpener(opener);
     setProductToDelete(product);
   }, []);
-  // Stable columns keep each row's cells mounted across page renders, so the
-  // action that opened a dialog is still the element focus returns to.
   const columns = useMemo(
     () =>
       productsColumns(
@@ -422,7 +427,7 @@ export function ProductsPage() {
         !semantic.hasActiveSearch &&
         products.length === 0 && <EmptyStateReadinessNudge scope="products" />}
 
-      <div className="card p-6" aria-busy={productsQuery.isFetching}>
+      <div className="card p-6">
         {productsQuery.isLoading && <TableLoadingState message={t('table.loading')} />}
         {productsQuery.error && (
           <TableErrorState
@@ -525,7 +530,8 @@ export function ProductsPage() {
               variant="dense"
               columns={columns}
               data={displayProducts}
-              getRowId={product => product.id}
+              getRowId={getProductRowId}
+              busy={productsQuery.isPlaceholderData}
               searchInputRef={searchInputRef}
               searchValue={semantic.semanticModeEnabled ? undefined : semantic.literalQuery}
               onSearchChange={semantic.semanticModeEnabled ? undefined : semantic.setLiteralQuery}
@@ -650,9 +656,7 @@ export function ProductsPage() {
         onClose={() => setProductToDelete(null)}
         // The opener, or the search or heading when its row is gone.
         restoreFocusTo={() =>
-          deleteOpenerRef.current?.isConnected
-            ? deleteOpenerRef.current
-            : (searchInputRef.current ?? headingRef.current)
+          deleteOpener?.isConnected ? deleteOpener : (searchInputRef.current ?? headingRef.current)
         }
         onConfirm={() => {
           if (productToDelete) {

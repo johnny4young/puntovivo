@@ -158,3 +158,23 @@ export const CASH_SESSION_CLOSE_INVALIDATIONS: ReadonlyArray<InvalidationPicker>
   u => u.employeeShifts.current,
   u => u.employeeShifts.attendance.list,
 ];
+
+/**
+ * Reads that serialize a joined catalog name (category, provider, location,
+ * VAT rate or unit). Renaming one must refresh them all, or cached screens keep
+ * the old label until their stale time expires. Semantic product search is left
+ * out on purpose: refetching it re-embeds the query.
+ */
+export const CATALOG_METADATA_INVALIDATIONS: ReadonlyArray<InvalidationPicker> = [
+  u => u.products.list,
+  u => u.products.getById,
+  u => u.products.search,
+  u => u.products.lookupByBarcode,
+  u => u.inventory,
+  u => u.inventoryTransformations,
+  u => u.purchases,
+  u => u.orders,
+  u => u.quotations,
+  u => u.sales,
+  u => u.promotions,
+];

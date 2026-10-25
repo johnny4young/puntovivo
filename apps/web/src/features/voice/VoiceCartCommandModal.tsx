@@ -20,6 +20,7 @@ import { Mic, MicOff, Sparkles, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { useToast } from '@/components/feedback/ToastProvider';
+import { ToastOutlet } from '@/components/feedback/ToastOutlet';
 import { useDialogA11y } from '@/components/feedback/useDialogA11y';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { vanillaClient } from '@/lib/trpc';
@@ -388,6 +389,8 @@ export function VoiceCartCommandModal({
             <X className="h-4 w-4" />
           </button>
         </div>
+
+        <ToastOutlet className="px-0 pt-0 sm:px-0" />
 
         {errorHint !== null && (
           <p className="text-xs text-warning-700" data-testid="voice-modal-hint">

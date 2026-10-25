@@ -11,7 +11,7 @@ La versión de escritorio es compatible con **Apple Silicon en macOS 15 Sequoia 
 
 Las futuras versiones mayores de macOS entrarán en el contrato de soporte solo cuando aprueben las comprobaciones de módulos nativos, runtime empaquetado, renderizador, recuperación y máquinas representativas. No extrapoles un resultado de Tahoe a Sequoia ni a versiones futuras.
 
-La cadena de herramientas actual usa Node 24+, Electron 43.5.0 y `better-sqlite3-multiple-ciphers` 13.0.3. SQLite usa binarios precompilados portables de Node-API compartidos por Node independiente y Electron. Verifica el binario instalado con `pnpm --filter @puntovivo/server run native:ensure:node` y `pnpm --filter @puntovivo/desktop run native:ensure:electron`; no lo recompiles ni intercambies binarios entre runtimes. El script de escritorio `rebuild` es un alias de compatibilidad para la verificación. El empaquetado verifica el runtime de Electron y elimina los binarios precompilados innecesarios dentro de su directorio de preparación, sin reemplazar el binario del checkout.
+La cadena de herramientas actual usa Node 24+, Electron 43.8.3 y `better-sqlite3-multiple-ciphers` 13.0.3. SQLite usa binarios precompilados portables de Node-API compartidos por Node independiente y Electron. Verifica el binario instalado con `pnpm --filter @puntovivo/server run native:ensure:node` y `pnpm --filter @puntovivo/desktop run native:ensure:electron`; no lo recompiles ni intercambies binarios entre runtimes. El script de escritorio `rebuild` es un alias de compatibilidad para la verificación. El empaquetado verifica el runtime de Electron y elimina los binarios precompilados innecesarios dentro de su directorio de preparación, sin reemplazar el binario del checkout.
 
 ## Por qué existe este documento
 

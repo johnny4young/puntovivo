@@ -24,7 +24,7 @@ import {
   providers,
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
-import { enqueueSync } from '../../services/sync/enqueue.js';
+import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import { ensureCityExists } from '../../services/geography/city-validation.js';
 import { adminProcedure } from '../middleware/roles.js';
 import { tenantProcedure } from '../middleware/tenant.js';
@@ -212,36 +212,44 @@ export const providersRouter = router({
     // optimistic-concurrency guard. `ensureTenantProvider` above
     // already established existence + tenant scope, so a zero-change result
     // here means another tab bumped the version first.
-    const versionedUpdate = ctx.db
-      .update(providers)
-      .set(updateData)
-      .where(
-        and(
-          eq(providers.id, id),
-          eq(providers.tenantId, ctx.tenantId),
-          eq(providers.version, input.version)
-        )
-      )
-      .run() as { changes?: number };
-    assertVersionedWriteApplied('provider', versionedUpdate.changes ?? 0, input.version);
+    return ctx.db.transaction(
+      tx => {
+        const versionedUpdate = tx
+          .update(providers)
+          .set(updateData)
+          .where(
+            and(
+              eq(providers.id, id),
+              eq(providers.tenantId, ctx.tenantId),
+              eq(providers.version, input.version)
+            )
+          )
+          .run() as { changes?: number };
+        assertVersionedWriteApplied('provider', versionedUpdate.changes ?? 0, input.version);
 
-    await enqueueSync(ctx, {
-      entityType: 'providers',
-      entityId: id,
-      operation: 'update',
-      data: { id, ...updateData },
-    });
+        enqueueSyncInTransaction(
+          { ...ctx, db: tx },
+          {
+            entityType: 'providers',
+            entityId: id,
+            operation: 'update',
+            data: { id, ...updateData },
+          }
+        );
 
-    const updated = await ctx.db
-      .select(buildProviderSelection())
-      .from(providers)
-      .leftJoin(cities, eq(providers.cityId, cities.id))
-      .leftJoin(departments, eq(cities.departmentId, departments.id))
-      .leftJoin(countries, eq(departments.countryId, countries.id))
-      .where(and(eq(providers.id, id), eq(providers.tenantId, ctx.tenantId)))
-      .get();
+        const updated = tx
+          .select(buildProviderSelection())
+          .from(providers)
+          .leftJoin(cities, eq(providers.cityId, cities.id))
+          .leftJoin(departments, eq(cities.departmentId, departments.id))
+          .leftJoin(countries, eq(departments.countryId, countries.id))
+          .where(and(eq(providers.id, id), eq(providers.tenantId, ctx.tenantId)))
+          .get();
 
-    return updated!;
+        return updated!;
+      },
+      { behavior: 'immediate' }
+    );
   }),
 
   listCategoryAssignments: adminProcedure
@@ -283,97 +291,94 @@ export const providersRouter = router({
       await ensureTenantProvider(ctx.db, ctx.tenantId, input.providerId);
 
       const uniqueCategoryIds = [...new Set(input.categoryIds)];
-      const availableCategories =
-        uniqueCategoryIds.length > 0
-          ? await ctx.db
-              .select({ id: categories.id })
-              .from(categories)
-              .where(
-                and(
-                  eq(categories.tenantId, ctx.tenantId),
-                  inArray(categories.id, uniqueCategoryIds)
-                )
-              )
-              .all()
-          : [];
-
-      if (availableCategories.length !== uniqueCategoryIds.length) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'One or more selected categories were not found',
-        });
-      }
-
-      const existingAssignments = await ctx.db
-        .select({
-          id: categoryXProvider.id,
-          categoryId: categoryXProvider.categoryId,
-        })
-        .from(categoryXProvider)
-        .where(
-          and(
-            eq(categoryXProvider.tenantId, ctx.tenantId),
-            eq(categoryXProvider.providerId, input.providerId)
-          )
-        )
-        .all();
-
-      const existingByCategoryId = new Map(
-        existingAssignments.map(assignment => [assignment.categoryId, assignment.id])
-      );
-      const nextCategoryIds = new Set(uniqueCategoryIds);
-      const removedAssignments = existingAssignments.filter(
-        assignment => !nextCategoryIds.has(assignment.categoryId)
-      );
-      const addedCategoryIds = uniqueCategoryIds.filter(
-        categoryId => !existingByCategoryId.has(categoryId)
-      );
-
       const now = new Date().toISOString();
-      const addedAssignmentIds = addedCategoryIds.map(categoryId => ({
-        assignmentId: nanoid(),
-        categoryId,
-      }));
-      ctx.db.transaction(tx => {
-        for (const assignment of removedAssignments) {
-          tx.delete(categoryXProvider).where(eq(categoryXProvider.id, assignment.id)).run();
-        }
 
-        for (const { assignmentId, categoryId } of addedAssignmentIds) {
-          tx.insert(categoryXProvider)
-            .values({
-              id: assignmentId,
-              tenantId: ctx.tenantId,
-              providerId: input.providerId,
-              categoryId,
-              createdAt: now,
-              updatedAt: now,
+      // Read the current assignments inside the write lock so the diff and its
+      // intents describe exactly what this transaction changes.
+      ctx.db.transaction(
+        tx => {
+          const availableCategories =
+            uniqueCategoryIds.length > 0
+              ? tx
+                  .select({ id: categories.id })
+                  .from(categories)
+                  .where(
+                    and(
+                      eq(categories.tenantId, ctx.tenantId),
+                      inArray(categories.id, uniqueCategoryIds)
+                    )
+                  )
+                  .all()
+              : [];
+
+          if (availableCategories.length !== uniqueCategoryIds.length) {
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message: 'One or more selected categories were not found',
+            });
+          }
+
+          const existingAssignments = tx
+            .select({
+              id: categoryXProvider.id,
+              categoryId: categoryXProvider.categoryId,
             })
-            .run();
-        }
-      });
+            .from(categoryXProvider)
+            .where(
+              and(
+                eq(categoryXProvider.tenantId, ctx.tenantId),
+                eq(categoryXProvider.providerId, input.providerId)
+              )
+            )
+            .all();
 
-      for (const assignment of removedAssignments) {
-        await enqueueSync(ctx, {
-          entityType: 'category_x_provider',
-          entityId: assignment.id,
-          operation: 'delete',
-          data: {
-            id: assignment.id,
-            providerId: input.providerId,
-            categoryId: assignment.categoryId,
-          },
-        });
-      }
+          const existingCategoryIds = new Set(
+            existingAssignments.map(assignment => assignment.categoryId)
+          );
+          const nextCategoryIds = new Set(uniqueCategoryIds);
+          const removedAssignments = existingAssignments.filter(
+            assignment => !nextCategoryIds.has(assignment.categoryId)
+          );
+          const addedAssignments = uniqueCategoryIds
+            .filter(categoryId => !existingCategoryIds.has(categoryId))
+            .map(categoryId => ({ assignmentId: nanoid(), categoryId }));
+          const syncCtx = { ...ctx, db: tx };
 
-      for (const { assignmentId, categoryId } of addedAssignmentIds) {
-        await enqueueSync(ctx, {
-          entityType: 'category_x_provider',
-          entityId: assignmentId,
-          operation: 'create',
-          data: { id: assignmentId, providerId: input.providerId, categoryId },
-        });
-      }
+          for (const assignment of removedAssignments) {
+            tx.delete(categoryXProvider).where(eq(categoryXProvider.id, assignment.id)).run();
+            enqueueSyncInTransaction(syncCtx, {
+              entityType: 'category_x_provider',
+              entityId: assignment.id,
+              operation: 'delete',
+              data: {
+                id: assignment.id,
+                providerId: input.providerId,
+                categoryId: assignment.categoryId,
+              },
+            });
+          }
+
+          for (const { assignmentId, categoryId } of addedAssignments) {
+            tx.insert(categoryXProvider)
+              .values({
+                id: assignmentId,
+                tenantId: ctx.tenantId,
+                providerId: input.providerId,
+                categoryId,
+                createdAt: now,
+                updatedAt: now,
+              })
+              .run();
+            enqueueSyncInTransaction(syncCtx, {
+              entityType: 'category_x_provider',
+              entityId: assignmentId,
+              operation: 'create',
+              data: { id: assignmentId, providerId: input.providerId, categoryId },
+            });
+          }
+        },
+        { behavior: 'immediate' }
+      );
 
       return {
         success: true,
@@ -462,19 +467,26 @@ export const providersRouter = router({
           });
         }
 
-        tx.delete(providers)
+        const result = tx
+          .delete(providers)
           .where(and(eq(providers.id, input.id), eq(providers.tenantId, ctx.tenantId)))
-          .run();
+          .run() as { changes?: number };
+        if (!result.changes) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Provider not found' });
+        }
+
+        enqueueSyncInTransaction(
+          { ...ctx, db: tx },
+          {
+            entityType: 'providers',
+            entityId: input.id,
+            operation: 'delete',
+            data: { id: input.id },
+          }
+        );
       },
       { behavior: 'immediate' }
     );
-
-    await enqueueSync(ctx, {
-      entityType: 'providers',
-      entityId: input.id,
-      operation: 'delete',
-      data: { id: input.id },
-    });
 
     return { success: true, id: input.id };
   }),

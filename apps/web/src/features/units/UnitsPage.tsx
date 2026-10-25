@@ -7,6 +7,7 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { ResourcePage } from '@/components/resources/ResourcePage';
 import type { Unit, UserRole } from '@/types';
 import { trpc } from '@/lib/trpc';
+import { CATALOG_METADATA_INVALIDATIONS, invalidateGroups } from '@/lib/invalidateGroups';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
@@ -47,7 +48,7 @@ export function UnitsPage() {
   });
   const updateMutation = trpc.units.update.useMutation({
     onSuccess: async () => {
-      await utils.units.list.invalidate();
+      await invalidateGroups(utils, [...CATALOG_METADATA_INVALIDATIONS, u => u.units.list]);
       handleCloseModal();
       toast.success({
         title: t('units.toast.updated'),
