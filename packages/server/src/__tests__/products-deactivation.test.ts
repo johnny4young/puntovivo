@@ -122,6 +122,7 @@ describe('Product deactivation transaction and edit version', () => {
         id: product.id,
         isActive: false,
         version: after.version,
+        syncVersion: after.syncVersion,
         updatedAt: after.updatedAt,
       });
       expect(db.pragma('integrity_check', { simple: true })).toBe('ok');
@@ -161,5 +162,43 @@ describe('Product deactivation transaction and edit version', () => {
       isActive: true,
     });
     expect(reactivated).toMatchObject({ isActive: true, version: fresh.version + 1 });
+  });
+
+  it('treats a repeated deactivation as a no-op', async () => {
+    const product = await caller().products.create({
+      name: 'Synthetic repeat',
+      sku: 'REPEAT',
+      price: 10,
+      cost: 5,
+      stock: 0,
+    });
+    await caller().products.delete({ id: product.id });
+    const deactivated = snapshot(product.id);
+    await expect(caller().products.delete({ id: product.id })).resolves.toEqual({
+      success: true,
+      id: product.id,
+    });
+    expect(snapshot(product.id)).toEqual(deactivated);
+  });
+
+  it('does not deactivate a product owned by another tenant', async () => {
+    const product = await caller().products.create({
+      name: 'Synthetic tenant',
+      sku: 'TENANT',
+      price: 10,
+      cost: 5,
+      stock: 0,
+    });
+    const before = snapshot(product.id);
+    const foreign = appRouter.createCaller({
+      ...context,
+      db: getDatabase(),
+      tenantId: 'other-tenant',
+      user: { ...context.user!, tenantId: 'other-tenant' },
+    });
+    await expect(foreign.products.delete({ id: product.id })).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    });
+    expect(snapshot(product.id)).toEqual(before);
   });
 });

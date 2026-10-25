@@ -52,17 +52,21 @@ export const productMutationProcedures = {
           throw new TRPCError({ code: 'NOT_FOUND', message: 'Product not found' });
         }
 
+        // Deactivation is idempotent: a repeated confirm must not advance the
+        // version under an open edit form or enqueue a duplicate intent.
+        if (!existing.isActive) {
+          return { success: true, id: input.id };
+        }
+
         const changes = {
           isActive: false,
           updatedAt: new Date().toISOString(),
           version: existing.version + 1,
+          syncStatus: 'pending' as const,
+          syncVersion: (existing.syncVersion ?? 0) + 1,
         };
         tx.update(products)
-          .set({
-            ...changes,
-            syncStatus: 'pending',
-            syncVersion: (existing.syncVersion ?? 0) + 1,
-          })
+          .set(changes)
           .where(and(eq(products.id, input.id), eq(products.tenantId, ctx.tenantId)))
           .run();
 
