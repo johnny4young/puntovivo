@@ -10,7 +10,7 @@
     "test": "node --test \"src/**/*.test.mjs\""
   },
   "devDependencies": {
-    "astro": "^7.2.8",
+    "astro": "^7.3.3",
     "lucide-static": "1.27.0"
   },
   "engines": {
