@@ -377,7 +377,7 @@ que aparezca el formulario de inicio de sesión, verifica primero el entorno de 
 node_modules/electron/dist/Electron.app/Contents/MacOS/Electron --version
 ```
 
-En macOS debe imprimir la versión fijada de Electron, actualmente `v43.5.0`.
+En macOS debe imprimir la versión fijada de Electron, actualmente `v43.8.3`.
 
 Tanto los inicios E2E de desarrollo como los empaquetados aíslan el almacenamiento
 de credenciales de Chromium (`--use-mock-keychain` en macOS,

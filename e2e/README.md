@@ -370,7 +370,7 @@ before the login form renders, first verify the Electron runtime itself:
 node_modules/electron/dist/Electron.app/Contents/MacOS/Electron --version
 ```
 
-On macOS this must print the pinned Electron version, currently `v43.5.0`.
+On macOS this must print the pinned Electron version, currently `v43.8.3`.
 
 Both development and packaged E2E launches isolate Chromium credential storage
 (`--use-mock-keychain` on macOS, `--password-store=basic` on Linux). This
