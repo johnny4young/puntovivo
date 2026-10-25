@@ -105,7 +105,8 @@ describe('Drawer', () => {
 
     const pinned = screen.getByText('Stable total').parentElement;
     expect(pinned).toHaveClass('drawer-pinned-content', 'shrink-0');
-    expect(pinned?.nextElementSibling).toHaveClass('modal-body', 'min-h-0');
+    expect(pinned?.nextElementSibling).toHaveClass('dialog-toast-outlet');
+    expect(pinned?.nextElementSibling?.nextElementSibling).toHaveClass('modal-body', 'min-h-0');
     expect(pinned?.previousElementSibling).toHaveClass('modal-header', 'shrink-0');
     expect(screen.getByRole('button', { name: 'Confirm' }).parentElement).toHaveClass(
       'modal-footer',

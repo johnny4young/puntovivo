@@ -24,6 +24,7 @@ import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
+import { ToastOutlet } from './ToastOutlet';
 import { useDialogA11y } from './useDialogA11y';
 import { Button } from '@/components/ui/Button';
 
@@ -155,6 +156,7 @@ export function Drawer({
           </div>
         )}
         {pinnedContent && <div className="drawer-pinned-content shrink-0">{pinnedContent}</div>}
+        <ToastOutlet />
         <div className={cn('modal-body min-h-0', contentClassName)}>{children}</div>
         {footer && <div className="modal-footer shrink-0">{footer}</div>}
       </div>
