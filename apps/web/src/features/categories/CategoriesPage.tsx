@@ -272,7 +272,7 @@ export function CategoriesPage() {
         onClose={() => setCategoryToDelete(null)}
         onConfirm={() => {
           if (categoryToDelete) {
-            void deleteMutation.mutateAsync({ id: categoryToDelete.id });
+            deleteMutation.mutate({ id: categoryToDelete.id });
           }
         }}
         title={t('delete.title')}

@@ -614,12 +614,10 @@ export function ProductsPage() {
           deleteMutation.isPending ? t('deactivate.submitting') : t('deactivate.confirm')
         }
         onClose={() => setProductToDelete(null)}
-        onConfirm={async () => {
-          if (!productToDelete) {
-            return;
+        onConfirm={() => {
+          if (productToDelete) {
+            deleteMutation.mutate({ id: productToDelete.id });
           }
-
-          await deleteMutation.mutateAsync({ id: productToDelete.id });
         }}
         loading={deleteMutation.isPending}
         variant="danger"

@@ -85,7 +85,7 @@ export function CompanyCashCloseSettingsCard() {
             disabled={disabled}
             data-testid="cash-close-blind-toggle"
             onChange={event =>
-              void updateMutation.mutateAsync({ blindClose: event.target.checked })
+              updateMutation.mutate({ blindClose: event.target.checked })
             }
           />
           <span>

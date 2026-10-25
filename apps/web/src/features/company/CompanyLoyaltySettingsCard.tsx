@@ -127,7 +127,7 @@ export function CompanyLoyaltySettingsCard() {
           checked={enabled}
           disabled={disabled}
           data-testid="loyalty-enabled-toggle"
-          onChange={event => void updateMutation.mutateAsync({ enabled: event.target.checked })}
+          onChange={event => updateMutation.mutate({ enabled: event.target.checked })}
         />
         <span>
           <span className="text-sm font-medium text-fg">
@@ -179,7 +179,7 @@ export function CompanyLoyaltySettingsCard() {
           disabled={!canSaveRate}
           data-testid="loyalty-save-rate"
           onClick={() =>
-            void updateMutation.mutateAsync({ pointsPerUnit: toPointsPerUnit(draftRate) })
+            updateMutation.mutate({ pointsPerUnit: toPointsPerUnit(draftRate) })
           }
         >
           {t('settings:company.loyalty.save')}
@@ -195,7 +195,7 @@ export function CompanyLoyaltySettingsCard() {
             disabled={disabled}
             data-testid="loyalty-redemption-toggle"
             onChange={event =>
-              void updateMutation.mutateAsync({ redemptionEnabled: event.target.checked })
+              updateMutation.mutate({ redemptionEnabled: event.target.checked })
             }
           />
           <span>
@@ -242,7 +242,7 @@ export function CompanyLoyaltySettingsCard() {
           className="btn-primary mt-3"
           disabled={!redemptionValueIsValid || !redemptionValueIsDirty || disabled}
           data-testid="loyalty-save-redemption-value"
-          onClick={() => void updateMutation.mutateAsync({ valuePerPoint: draftRedemptionValue })}
+          onClick={() => updateMutation.mutate({ valuePerPoint: draftRedemptionValue })}
         >
           {t('settings:company.loyalty.saveRedemptionValue')}
         </button>
