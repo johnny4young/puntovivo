@@ -85,9 +85,9 @@ vi.mock('@/lib/trpc', () => ({
       },
       update: {
         useMutation: (options: { onSuccess?: () => Promise<void> }) => ({
-          mutate: async (input: unknown) => {
+          mutate: (input: unknown) => {
             mocks.save(input);
-            await options.onSuccess?.();
+            void options.onSuccess?.();
           },
           isPending: mocks.savePending,
         }),
@@ -96,9 +96,9 @@ vi.mock('@/lib/trpc', () => ({
         useMutation: (options: {
           onSuccess?: (result: { deleted: { total: number } }) => Promise<void>;
         }) => ({
-          mutate: async () => {
+          mutate: () => {
             mocks.run();
-            await options.onSuccess?.({ deleted: { total: mocks.previewTotal } });
+            void options.onSuccess?.({ deleted: { total: mocks.previewTotal } });
           },
           isPending: false,
         }),

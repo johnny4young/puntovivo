@@ -62,9 +62,8 @@ vi.mock('@/lib/trpc', () => ({
       retryHardwareOutbox: {
         useMutation: (options: { onSuccess?: () => Promise<void> | void }) => ({
           isPending: false,
-          mutate: async (input: { id: string }) => {
-            await retryMutate(input);
-            await options.onSuccess?.();
+          mutate: (input: { id: string }) => {
+            void Promise.resolve(retryMutate(input)).then(() => options.onSuccess?.());
           },
           variables: undefined,
         }),

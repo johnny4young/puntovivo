@@ -447,11 +447,7 @@ export function CustomersPage() {
         }}
         onExportData={
           canManagePrivacy
-            ? async customer => {
-                await exportPersonalDataMutation.mutateAsync({
-                  id: customer.id,
-                });
-              }
+            ? customer => exportPersonalDataMutation.mutate({ id: customer.id })
             : undefined
         }
         isExporting={exportPersonalDataMutation.isPending}
