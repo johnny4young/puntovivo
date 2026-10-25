@@ -49,6 +49,7 @@ function createMarginWindow() {
   return { fromDate: from.toISOString(), toDate: to.toISOString(), limit: 500 };
 }
 
+const PRODUCTS_PAGE_SIZE = 50;
 const getProductRowId = (product: DisplayProduct) => product.id;
 
 export function ProductsPage() {
@@ -113,7 +114,7 @@ export function ProductsPage() {
   const productsQuery = trpc.products.list.useQuery(
     {
       page,
-      perPage: 50,
+      perPage: PRODUCTS_PAGE_SIZE,
       search: semantic.literalFallbackSearch,
       includeVariantParents: true,
     },
@@ -585,8 +586,11 @@ export function ProductsPage() {
                 page={displayPage - 1}
                 pageCount={productsQuery.data?.totalPages ?? 1}
                 total={productsQuery.data?.totalItems ?? 0}
-                rangeStart={(displayPage - 1) * 50 + 1}
-                rangeEnd={Math.min(displayPage * 50, productsQuery.data?.totalItems ?? 0)}
+                rangeStart={(displayPage - 1) * PRODUCTS_PAGE_SIZE + 1}
+                rangeEnd={Math.min(
+                  displayPage * PRODUCTS_PAGE_SIZE,
+                  productsQuery.data?.totalItems ?? 0
+                )}
                 onPageChange={nextPage => setPageSelection({ search, mode, page: nextPage + 1 })}
               />
             )}
