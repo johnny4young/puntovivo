@@ -66,6 +66,33 @@ describe('DataTable', () => {
     return within(tbody).getAllByRole('row');
   }
 
+  it.each([15, 30])(
+    'renders all %i supplied rows without a client pager when the owner paginates',
+    count => {
+      render(
+        <DataTable columns={columns} data={createTestProducts(count)} clientPagination={false} />
+      );
+      expect(getBodyRows()).toHaveLength(count);
+      expect(screen.getByText(`Product ${count}`)).toBeVisible();
+      expect(screen.queryByRole('button', { name: 'Go to next page' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Go to previous page' })).not.toBeInTheDocument();
+      expect(screen.queryByText(/^Showing /)).not.toBeInTheDocument();
+    }
+  );
+
+  it('scrolls back to the first row when the owner page changes', () => {
+    const data = createTestProducts(40);
+    const { container, rerender } = render(
+      <DataTable columns={columns} data={data} clientPagination={false} scrollResetKey={1} />
+    );
+    const wrapper = container.querySelector<HTMLElement>('.data-table-scroll')!;
+    wrapper.scrollTop = 500;
+    rerender(
+      <DataTable columns={columns} data={data} clientPagination={false} scrollResetKey={2} />
+    );
+    expect(wrapper.scrollTop).toBe(0);
+  });
+
   describe('Rendering', () => {
     it('should render table with data', () => {
       const products = createTestProducts(3);
