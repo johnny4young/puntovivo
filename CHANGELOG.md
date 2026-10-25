@@ -52,6 +52,25 @@ is usable from source, but it is not a new packaged release yet.
   a real alert receiver with ownership, and an observed retail pilot remain
   open gates.
 
+## [1.15.4](https://github.com/johnny4young/puntovivo/compare/v1.15.3...v1.15.4) (2026-10-25)
+
+
+### Bug Fixes
+
+* **a11y:** keep focus on a confirmation while its request runs ([#350](https://github.com/johnny4young/puntovivo/issues/350)) ([199b5d4](https://github.com/johnny4young/puntovivo/commit/199b5d46849093d24bfbb19fa8a81b40ef898312))
+* **a11y:** render dialog-time toasts inside the active dialog ([#348](https://github.com/johnny4young/puntovivo/issues/348)) ([b5778f7](https://github.com/johnny4young/puntovivo/commit/b5778f73c293e2bbf5712d75384a8473a246a640))
+* **catalog:** commit catalog mutations with their sync intents ([#346](https://github.com/johnny4young/puntovivo/issues/346)) ([06f83e5](https://github.com/johnny4young/puntovivo/commit/06f83e5e5864ad63dc257ba82c7b6b76d9aca8e6))
+* **catalog:** refresh every read that joins a renamed catalog name ([#351](https://github.com/johnny4young/puntovivo/issues/351)) ([ba7ded1](https://github.com/johnny4young/puntovivo/commit/ba7ded1651e0d7980302d762e5668e84773c6c1f))
+* **products:** make deactivation atomic, idempotent and version-safe ([#343](https://github.com/johnny4young/puntovivo/issues/343)) ([0c5c158](https://github.com/johnny4young/puntovivo/commit/0c5c158660dd06bb7e36928b4c1f267d38a6a1be))
+* **products:** paginate server-backed catalog results ([#356](https://github.com/johnny4young/puntovivo/issues/356)) ([831aa74](https://github.com/johnny4young/puntovivo/commit/831aa7475a9a1553155c8e8932af27f178b77bc0))
+* **products:** return focus to the row action that opened a dialog ([#349](https://github.com/johnny4young/puntovivo/issues/349)) ([e9a3731](https://github.com/johnny4young/puntovivo/commit/e9a3731f5addce30d99892f334064d39796b171b))
+* **web:** route fire-and-forget mutation failures to onError ([#347](https://github.com/johnny4young/puntovivo/issues/347)) ([c797f9f](https://github.com/johnny4young/puntovivo/commit/c797f9f4f954d484e04c8c6365e0772ef7760d53))
+
+
+### Performance
+
+* **products:** mount the product editor only when it is opened ([#352](https://github.com/johnny4young/puntovivo/issues/352)) ([b096890](https://github.com/johnny4young/puntovivo/commit/b096890d8d645cd53e618e01abd19c585292d18d))
+
 ## [1.15.3](https://github.com/johnny4young/puntovivo/compare/v1.15.2...v1.15.3) (2026-10-19)
 
 
