@@ -288,17 +288,8 @@
     {
       "en": "website/MANUAL.md",
       "es": "website/MANUAL.es.md"
-    },
-    {
-      "en": "docs/releases/v1.15.3.md",
-      "es": "docs/es/releases/v1.15.3.md"
     }
   ],
-  "bilingual": [
-    "docs/TRANSLATIONS.md"
-  ],
-  "historical": [
-    "CHANGELOG.md",
-    "docs/releases/v*.md"
-  ]
+  "bilingual": ["docs/TRANSLATIONS.md"],
+  "historical": ["CHANGELOG.md", "docs/releases/v*.md"]
 }
