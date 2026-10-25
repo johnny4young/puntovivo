@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import i18next from '@/i18n';
 import { AlertTriangle, Plus, RefreshCw, Search, Sparkles } from 'lucide-react';
 import { isProductTemplateVerticalId } from '@puntovivo/shared/vertical-presets';
 import { ConfirmModal, Modal } from '@/components/form-controls/Modal';
@@ -65,6 +66,10 @@ export function ProductsPage() {
   const canRegenerate = user?.role === 'admin';
   const isAdmin = user?.role === 'admin';
   const createProductMeasurement = useTaskMeasurementController();
+  // Head start for the editor's namespace so the first open rarely suspends.
+  useEffect(() => {
+    void i18next.loadNamespaces('productQuickCreate').catch(() => {});
+  }, []);
   const templateVertical = isProductTemplateVerticalId(tenant?.settings.businessType)
     ? tenant.settings.businessType
     : null;
@@ -566,44 +571,48 @@ export function ProductsPage() {
       </Modal>
 
       {isModalOpen && (!editingProduct || editingProductSnapshot) && (
-        <div
-          className="contents"
-          onChangeCapture={() => {
-            if (!editingProduct) {
-              createProductMeasurement.recordInteraction();
-              createProductMeasurement.markFirstProgress();
-            }
-          }}
-        >
-          <ProductFormModal
-            key={`${editingProduct?.id ?? 'new-product'}-${modalInstanceKey}`}
-            mode={editingProduct ? 'edit' : 'create'}
-            isOpen={isModalOpen}
-            product={editingProduct ? editingProductSnapshot : null}
-            categories={categories}
-            locations={locations}
-            providers={providers}
-            units={units}
-            vatRates={vatRates}
-            isSaving={createMutation.isPending || updateMutation.isPending}
-            error={
-              createMutation.error
-                ? translateServerError(createMutation.error, t, t('errors:server.unknown'))
-                : updateMutation.error
-                  ? translateServerError(updateMutation.error, t, t('errors:server.unknown'))
-                  : null
-            }
-            onClose={handleCloseModal}
-            onSubmit={handleSubmit}
-            initialExperience={editingProduct || pharmacyMode ? 'advanced' : 'quick'}
-            origin="catalog"
-            templateVertical={templateVertical}
-            pharmacyMode={pharmacyMode}
-            onInvalid={
-              editingProduct ? undefined : () => createProductMeasurement.recordValidationError()
-            }
-          />
-        </div>
+        // The editor mounts on open; its own namespace may still be loading, so
+        // suspend here instead of replacing the whole page with the route fallback.
+        <Suspense fallback={null}>
+          <div
+            className="contents"
+            onChangeCapture={() => {
+              if (!editingProduct) {
+                createProductMeasurement.recordInteraction();
+                createProductMeasurement.markFirstProgress();
+              }
+            }}
+          >
+            <ProductFormModal
+              key={`${editingProduct?.id ?? 'new-product'}-${modalInstanceKey}`}
+              mode={editingProduct ? 'edit' : 'create'}
+              isOpen
+              product={editingProduct ? editingProductSnapshot : null}
+              categories={categories}
+              locations={locations}
+              providers={providers}
+              units={units}
+              vatRates={vatRates}
+              isSaving={createMutation.isPending || updateMutation.isPending}
+              error={
+                createMutation.error
+                  ? translateServerError(createMutation.error, t, t('errors:server.unknown'))
+                  : updateMutation.error
+                    ? translateServerError(updateMutation.error, t, t('errors:server.unknown'))
+                    : null
+              }
+              onClose={handleCloseModal}
+              onSubmit={handleSubmit}
+              initialExperience={editingProduct || pharmacyMode ? 'advanced' : 'quick'}
+              origin="catalog"
+              templateVertical={templateVertical}
+              pharmacyMode={pharmacyMode}
+              onInvalid={
+                editingProduct ? undefined : () => createProductMeasurement.recordValidationError()
+              }
+            />
+          </div>
+        </Suspense>
       )}
 
       <ConfirmModal
