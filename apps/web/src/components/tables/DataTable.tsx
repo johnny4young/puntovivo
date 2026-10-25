@@ -158,6 +158,8 @@ interface DataTableProps<TData extends RowData> {
   pageSize?: number | undefined;
   /** Render the supplied rows without a local pager when the owner paginates them. */
   clientPagination?: boolean | undefined;
+  /** Changing this value scrolls the table back to its first row (owner page changes). */
+  scrollResetKey?: string | number | undefined;
   /**
    * Fires when the keyboard-focused row changes (click, ArrowUp/Down,
    * Home/End). `null` is emitted when focus leaves the table body. Used
@@ -227,6 +229,7 @@ export function DataTable<TData extends RowData>({
   onRowSelectionChange,
   pageSize = 10,
   clientPagination = true,
+  scrollResetKey,
   onRowFocusChange,
   isRowSelected,
   onRowActivate,
@@ -267,6 +270,9 @@ export function DataTable<TData extends RowData>({
   // another row / intra-row" (keep selection) from "focus left the
   // table entirely" (clear selection via onRowFocusChange(null)).
   const tableWrapperRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (tableWrapperRef.current) tableWrapperRef.current.scrollTop = 0;
+  }, [scrollResetKey]);
 
   // TanStack Table returns an intentionally stateful instance whose methods
   // cannot be memoized safely. The component-level `use no memo` directive

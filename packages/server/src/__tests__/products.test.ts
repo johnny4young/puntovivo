@@ -238,6 +238,30 @@ describe('Products tRPC Router', () => {
     ).resolves.toMatchObject({ page: 1, perPage: 20 });
   });
 
+  it('pages catalog results in a stable order without overlap', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+    const suffix = nanoid(8);
+    for (let index = 0; index < 5; index += 1) {
+      await caller.products.create({
+        name: `Paged ${suffix} ${index}`,
+        sku: `PAGED-${suffix}-${index}`,
+        price: 10,
+        stock: 1,
+      });
+    }
+
+    const pages = await Promise.all(
+      [1, 2, 3].map(page => caller.products.list({ page, perPage: 2, search: suffix }))
+    );
+    const ids = pages.flatMap(page => page.items.map(item => item.id));
+    expect(ids).toHaveLength(5);
+    expect(new Set(ids).size).toBe(5);
+    expect(pages[0]!.items.map(item => item.name)).toEqual([
+      `Paged ${suffix} 0`,
+      `Paged ${suffix} 1`,
+    ]);
+  });
+
   it('treats LIKE wildcard characters as literal catalog search text', async () => {
     const caller = appRouter.createCaller(createTestContext());
     const suffix = nanoid(8);

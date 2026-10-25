@@ -114,6 +114,9 @@ export const productQueryProcedures = {
         // it probes only rows that already passed the product filters.
         .leftJoin(pharmacyProductProfiles, pharmacyProfileJoin)
         .where(where)
+        // Stable page boundaries in the existing insertion order; without an
+        // ORDER BY, SQLite may return a row on two pages or on none.
+        .orderBy(sql`${products}.rowid`)
         .limit(perPage)
         .offset(offset)
         .all(),

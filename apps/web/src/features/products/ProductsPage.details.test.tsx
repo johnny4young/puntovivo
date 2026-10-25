@@ -296,6 +296,18 @@ describe('ProductsPage default column set', () => {
     };
   }
 
+  it('shows the result count when everything fits on one server page', () => {
+    productsListUseQueryMock.mockReturnValue({
+      data: cataloguePage(25, 1),
+      isSuccess: true,
+      isLoading: false,
+      error: null,
+    });
+    render(<ProductsPage />);
+    expect(screen.getByText('Showing 1-25 of 25')).toBeVisible();
+    expect(screen.queryByRole('navigation', { name: 'Pagination' })).not.toBeInTheDocument();
+  });
+
   it('reconciles a shrinking page and query changes finitely under StrictMode', async () => {
     let total = 65;
     productsListUseQueryMock.mockImplementation(({ page }: { page: number }) => ({
@@ -418,8 +430,9 @@ describe('ProductsPage default column set', () => {
       await waitFor(() =>
         expect(latest).toMatchObject({ search: 'A', page: 2, placeholder: true })
       );
+      // The footer follows the requested page while its rows load.
       expect(screen.getByRole('navigation', { name: 'Pagination' })).toHaveTextContent(
-        'Showing 1-50 of 65'
+        'Showing 51-65 of 65'
       );
       fireEvent.change(search, { target: { value: 'B' } });
       await waitFor(() =>

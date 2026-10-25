@@ -122,7 +122,9 @@ export function ProductsPage() {
     // dialog's opener survives the request.
     { placeholderData: keepPreviousData }
   );
-  const lastPage = Math.max(1, productsQuery.data?.totalPages ?? 0);
+  const totalPages = productsQuery.data?.totalPages ?? 1;
+  const totalItems = productsQuery.data?.totalItems ?? 0;
+  const lastPage = Math.max(1, totalPages);
   if (
     productsQuery.isSuccess &&
     !productsQuery.isFetching &&
@@ -131,8 +133,6 @@ export function ProductsPage() {
   ) {
     setPageSelection({ search, mode, page: lastPage });
   }
-
-  const displayPage = productsQuery.data?.page ?? page;
 
   const categoriesQuery = trpc.categories.tree.useQuery();
   const providersQuery = trpc.providers.list.useQuery({ page: 1, perPage: 200 });
@@ -452,6 +452,7 @@ export function ProductsPage() {
           nudge toward the readiness checklist for admins. */}
       {!productsQuery.isLoading &&
         !productsQuery.error &&
+        !productsQuery.isPlaceholderData &&
         !semantic.hasActiveSearch &&
         products.length === 0 && <EmptyStateReadinessNudge scope="products" />}
 
@@ -566,6 +567,7 @@ export function ProductsPage() {
               searchPlaceholder={t('table.search')}
               pageSize={10}
               clientPagination={semantic.semanticIsActive}
+              scrollResetKey={page}
               // keyboard row-activate mirrors the Pencil (edit)
               // action for manager / admin; viewer / cashier have no
               // editable row so it stays a no-op.  added a separate
@@ -581,18 +583,26 @@ export function ProductsPage() {
               }
             />
 
-            {!semantic.semanticIsActive && (
+            {/* Navigation follows the requested page, never a placeholder
+                response that may belong to the previous search. */}
+            {!semantic.semanticIsActive && totalPages > 1 && (
               <TablePagination
-                page={displayPage - 1}
-                pageCount={productsQuery.data?.totalPages ?? 1}
-                total={productsQuery.data?.totalItems ?? 0}
-                rangeStart={(displayPage - 1) * PRODUCTS_PAGE_SIZE + 1}
-                rangeEnd={Math.min(
-                  displayPage * PRODUCTS_PAGE_SIZE,
-                  productsQuery.data?.totalItems ?? 0
-                )}
+                page={page - 1}
+                pageCount={totalPages}
+                total={totalItems}
+                rangeStart={(page - 1) * PRODUCTS_PAGE_SIZE + 1}
+                rangeEnd={Math.min(page * PRODUCTS_PAGE_SIZE, totalItems)}
                 onPageChange={nextPage => setPageSelection({ search, mode, page: nextPage + 1 })}
               />
+            )}
+            {!semantic.semanticIsActive && totalPages <= 1 && totalItems > 0 && (
+              <p className="text-[13px] text-fg3">
+                {t('common:pagination.showing', {
+                  rangeStart: 1,
+                  rangeEnd: totalItems,
+                  total: totalItems,
+                })}
+              </p>
             )}
 
             {semantic.semanticIsActive && displayProducts.length === 0 && !semantic.isSearching && (
