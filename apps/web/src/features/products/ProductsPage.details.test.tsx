@@ -13,12 +13,21 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import i18next from '@/i18n';
+import { StrictMode, useEffect } from 'react';
+import {
+  keepPreviousData,
+  QueryClient,
+  QueryClientProvider,
+  useQuery,
+} from '@tanstack/react-query';
 
 const {
   useAuthMock,
   useIsModuleActiveMock,
   useModulesSnapshotMock,
   productsListUseQueryMock,
+  semanticSearchUseQueryMock,
+  productsListOptionsRef,
   productDetailFetchMock,
   productDetailInvalidateMock,
   productsListInvalidateMock,
@@ -34,6 +43,8 @@ const {
   useIsModuleActiveMock: vi.fn(),
   useModulesSnapshotMock: vi.fn(),
   productsListUseQueryMock: vi.fn(),
+  semanticSearchUseQueryMock: vi.fn(),
+  productsListOptionsRef: { current: null as null | { placeholderData?: typeof keepPreviousData } },
   productDetailFetchMock: vi.fn(),
   productDetailInvalidateMock: vi.fn(),
   productsListInvalidateMock: vi.fn(),
@@ -152,9 +163,12 @@ vi.mock('@/lib/trpc', async () => ({
     }),
     products: {
       list: {
-        useQuery: (input: unknown) => productsListUseQueryMock(input),
+        useQuery: (input: unknown, options?: { placeholderData?: typeof keepPreviousData }) => {
+          productsListOptionsRef.current = options ?? null;
+          return productsListUseQueryMock(input);
+        },
       },
-      semanticSearch: { useQuery: () => ({ data: null, isFetching: false }) },
+      semanticSearch: { useQuery: semanticSearchUseQueryMock },
       embeddingHealth: { useQuery: () => ({ data: null, isLoading: false }) },
       regenerateEmbeddings: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
       getVariantMatrix: {
@@ -211,6 +225,9 @@ describe('ProductsPage default column set', () => {
     useIsModuleActiveMock.mockReset();
     useModulesSnapshotMock.mockReset();
     productsListUseQueryMock.mockReset();
+    semanticSearchUseQueryMock.mockReset();
+    semanticSearchUseQueryMock.mockReturnValue({ data: null, isFetching: false });
+    productsListOptionsRef.current = null;
     productDetailFetchMock.mockReset();
     productDetailInvalidateMock.mockReset();
     productsListInvalidateMock.mockReset();
@@ -261,6 +278,328 @@ describe('ProductsPage default column set', () => {
 
     openCreate();
     expect(screen.getByTestId('product-form-modal')).toBeInTheDocument();
+  });
+
+  function cataloguePage(total: number, page: number) {
+    const items = Array.from({ length: total }, (_, index) => ({
+      ...product,
+      id: `catalogue-${index}`,
+      name: `A B Catalogue ${index}`,
+      sku: `CAT-${String(index).padStart(3, '0')}`,
+    }));
+    return {
+      items: items.slice((page - 1) * 50, page * 50),
+      page,
+      perPage: 50,
+      totalItems: total,
+      totalPages: Math.ceil(total / 50),
+    };
+  }
+
+  it('reconciles a shrinking page and query changes finitely under StrictMode', async () => {
+    let total = 65;
+    productsListUseQueryMock.mockImplementation(({ page }: { page: number }) => ({
+      data: cataloguePage(total, page),
+      isLoading: false,
+      error: null,
+    }));
+    const view = render(
+      <StrictMode>
+        <ProductsPage />
+      </StrictMode>
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+    total = 0;
+    view.rerender(
+      <StrictMode>
+        <ProductsPage />
+      </StrictMode>
+    );
+    expect(productsListUseQueryMock).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1 }));
+    expect(screen.getByText('No results.')).toBeVisible();
+  });
+
+  it.each([
+    [61, 11],
+    [65, 15],
+    [80, 30],
+  ])(
+    'exposes all %i products through the final block of %i, without a hidden client subpage',
+    async (total, remaining) => {
+      productsListUseQueryMock.mockImplementation(({ page }: { page: number }) => ({
+        data: cataloguePage(total, page),
+        isLoading: false,
+        error: null,
+      }));
+      render(<ProductsPage />);
+      fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+      const body = within(screen.getByRole('table')).getAllByRole('rowgroup')[1]!;
+      expect(within(body).getAllByRole('row')).toHaveLength(remaining);
+      expect(screen.getByText(`CAT-${String(total - 1).padStart(3, '0')}`)).toBeVisible();
+      expect(screen.queryByRole('button', { name: 'Go to next page' })).not.toBeInTheDocument();
+      expect(screen.getByRole('navigation', { name: 'Pagination' })).toHaveTextContent(
+        `Showing 51-${total} of ${total}`
+      );
+    }
+  );
+
+  it('does not clamp a requested page using placeholder metadata from another search', async () => {
+    let placeholder = true;
+    productsListUseQueryMock.mockImplementation(({ page }: { page: number }) => ({
+      data: cataloguePage(page === 2 && placeholder ? 40 : 65, page),
+      isPlaceholderData: page === 2 && placeholder,
+      isLoading: false,
+      error: null,
+    }));
+    const view = render(<ProductsPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+    await waitFor(() =>
+      expect(productsListUseQueryMock).toHaveBeenLastCalledWith(
+        expect.objectContaining({ page: 2 })
+      )
+    );
+    placeholder = false;
+    view.rerender(<ProductsPage />);
+    expect(screen.getByRole('navigation', { name: 'Pagination' })).toHaveTextContent(
+      'Showing 51-65 of 65'
+    );
+    expect(screen.getByText('CAT-064')).toBeVisible();
+  });
+
+  it('keeps a late A-page response out of a pending B search with the real QueryClient', async () => {
+    type Input = { page: number; search?: string };
+    type Data = ReturnType<typeof cataloguePage>;
+    function deferredPage() {
+      let resolve: (data: Data) => void;
+      const promise = new Promise<Data>(r => {
+        resolve = r;
+      });
+      return { promise, resolve: (data: Data) => resolve(data) };
+    }
+    const oldA = deferredPage(),
+      currentB = deferredPage();
+    let latest: { page: number; search: string | undefined; placeholder: boolean } | undefined;
+    function useListQuery(input: Input) {
+      const result = useQuery({
+        queryKey: ['pagination-race', input],
+        queryFn: () =>
+          input.search === 'A' && input.page === 2
+            ? oldA.promise
+            : input.search === 'B'
+              ? currentB.promise
+              : Promise.resolve(cataloguePage(65, input.page)),
+        retry: false,
+        staleTime: 300_000,
+        ...(productsListOptionsRef.current ?? {}),
+      });
+      useEffect(() => {
+        latest = { page: input.page, search: input.search, placeholder: result.isPlaceholderData };
+      }, [input.page, input.search, result.isPlaceholderData]);
+      return result;
+    }
+    productsListUseQueryMock.mockImplementation(useListQuery);
+    const client = new QueryClient();
+    const view = render(
+      <QueryClientProvider client={client}>
+        <ProductsPage />
+      </QueryClientProvider>
+    );
+    try {
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Next page' })).toBeEnabled());
+      const search = screen.getByPlaceholderText('Search products...');
+      fireEvent.change(search, { target: { value: 'A' } });
+      await waitFor(() =>
+        expect(latest).toMatchObject({ search: 'A', page: 1, placeholder: false })
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+      await waitFor(() =>
+        expect(latest).toMatchObject({ search: 'A', page: 2, placeholder: true })
+      );
+      expect(screen.getByRole('navigation', { name: 'Pagination' })).toHaveTextContent(
+        'Showing 1-50 of 65'
+      );
+      fireEvent.change(search, { target: { value: 'B' } });
+      await waitFor(() =>
+        expect(latest).toMatchObject({ search: 'B', page: 1, placeholder: true })
+      );
+      await act(async () => {
+        oldA.resolve(cataloguePage(0, 2));
+        await Promise.resolve();
+      });
+      expect(latest).toMatchObject({ search: 'B', page: 1, placeholder: true });
+      await act(async () => {
+        currentB.resolve(cataloguePage(65, 1));
+      });
+      await waitFor(() =>
+        expect(latest).toMatchObject({ search: 'B', page: 1, placeholder: false })
+      );
+      expect(screen.getByRole('navigation', { name: 'Pagination' })).toHaveTextContent(
+        'Showing 1-50 of 65'
+      );
+    } finally {
+      view.unmount();
+      client.clear();
+    }
+  });
+
+  it.each([50, 40, 0])(
+    'recovers page one after a matching-edit refresh reduces total to %i',
+    async total => {
+      let matchingTotal = 65;
+      productsListUseQueryMock.mockImplementation(({ page }: { page: number }) => ({
+        data: cataloguePage(matchingTotal, page),
+        isLoading: false,
+        error: null,
+      }));
+      const view = render(<ProductsPage />);
+      fireEvent.change(screen.getByPlaceholderText('Search products...'), {
+        target: { value: 'A' },
+      });
+      await waitFor(() =>
+        expect(productsListUseQueryMock).toHaveBeenLastCalledWith(
+          expect.objectContaining({ search: 'A' })
+        )
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+      // Model the query notification after an edit no longer matches A. Deactivation
+      // is intentionally not used: products.list does not filter inactive rows.
+      matchingTotal = total;
+      await act(async () => {
+        await updateMutationOptionsRef.current?.onSuccess?.({}, { id: product.id });
+      });
+      view.rerender(<ProductsPage />);
+      await waitFor(() =>
+        expect(productsListUseQueryMock).toHaveBeenLastCalledWith(
+          expect.objectContaining({ search: 'A', page: 1 })
+        )
+      );
+      expect(screen.queryByRole('navigation', { name: 'Pagination' })).not.toBeInTheDocument();
+      if (total === 0) expect(screen.getByText('No results.')).toBeVisible();
+    }
+  );
+
+  it.each([false, true])('resets A→B→A consistently when B was paged: %s', async pageB => {
+    productsListUseQueryMock.mockImplementation(({ page }: { page: number }) => ({
+      data: cataloguePage(80, page),
+      isLoading: false,
+      error: null,
+    }));
+    render(<ProductsPage />);
+    const search = screen.getByPlaceholderText('Search products...');
+    fireEvent.change(search, { target: { value: 'A' } });
+    await waitFor(() =>
+      expect(productsListUseQueryMock).toHaveBeenLastCalledWith(
+        expect.objectContaining({ search: 'A', page: 1 })
+      )
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+    fireEvent.change(search, { target: { value: 'B' } });
+    await waitFor(() =>
+      expect(productsListUseQueryMock).toHaveBeenLastCalledWith(
+        expect.objectContaining({ search: 'B', page: 1 })
+      )
+    );
+    if (pageB) fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+    fireEvent.change(search, { target: { value: 'A' } });
+    await waitFor(() =>
+      expect(productsListUseQueryMock).toHaveBeenLastCalledWith(
+        expect.objectContaining({ search: 'A', page: 1 })
+      )
+    );
+  });
+
+  it('pages unavailable semantic fallback and resets between literal, fallback and ranked rows', async () => {
+    useIsModuleActiveMock.mockReturnValue(true);
+    useModulesSnapshotMock.mockReturnValue({
+      modules: { 'semantic-search': true },
+      isLoading: false,
+      isPlaceholder: false,
+    });
+    semanticSearchUseQueryMock.mockReturnValue({
+      data: { mode: 'unavailable' },
+      isFetching: false,
+    });
+    productsListUseQueryMock.mockImplementation(({ page }: { page: number }) => ({
+      data: cataloguePage(65, page),
+      isLoading: false,
+      error: null,
+    }));
+    const view = render(<ProductsPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'Semantic' }));
+    expect(productsListUseQueryMock).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1 }));
+    expect(screen.getByRole('button', { name: 'Next page' })).toBeEnabled();
+    fireEvent.change(
+      screen.getByPlaceholderText('Combine text and meaning (e.g. coffee for brewing)'),
+      { target: { value: 'A' } }
+    );
+    await waitFor(() =>
+      expect(productsListUseQueryMock).toHaveBeenLastCalledWith(
+        expect.objectContaining({ search: 'A', page: 1 })
+      )
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+    semanticSearchUseQueryMock.mockReturnValue({
+      data: { mode: 'semantic', results: [{ ...product, similarity: 0.9 }] },
+      isFetching: false,
+    });
+    view.rerender(<ProductsPage />);
+    expect(screen.queryByRole('navigation', { name: 'Pagination' })).not.toBeInTheDocument();
+    semanticSearchUseQueryMock.mockReturnValue({
+      data: { mode: 'unavailable' },
+      isFetching: false,
+    });
+    view.rerender(<ProductsPage />);
+    expect(productsListUseQueryMock).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1 }));
+    expect(screen.getByRole('button', { name: 'Next page' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'Semantic' }));
+    expect(productsListUseQueryMock).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1 }));
+  });
+
+  it('browses the second server page when the catalogue exceeds 50 products', async () => {
+    const second = { ...product, id: 'p-51', name: 'Second server page', sku: 'PAGE-051' };
+    productsListUseQueryMock.mockImplementation(({ page }: { page: number }) => ({
+      data: {
+        items: [page === 2 ? second : product],
+        page,
+        perPage: 50,
+        totalItems: 100,
+        totalPages: 2,
+      },
+      isLoading: false,
+      error: null,
+    }));
+    render(<ProductsPage />);
+    expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+    await waitFor(() =>
+      expect(productsListUseQueryMock).toHaveBeenLastCalledWith(
+        expect.objectContaining({ page: 2, perPage: 50 })
+      )
+    );
+    expect(screen.getByText('PAGE-051')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Previous page' }));
+    expect(screen.getByText('CAF-001')).toBeInTheDocument();
+  });
+
+  it('starts a changed server search at page one after browsing page two', async () => {
+    productsListUseQueryMock.mockReturnValue({
+      data: { items: [product], perPage: 50, totalItems: 100, totalPages: 2 },
+      isLoading: false,
+      error: null,
+    });
+    render(<ProductsPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+    fireEvent.change(screen.getByPlaceholderText('Search products...'), {
+      target: { value: 'CAF' },
+    });
+    await waitFor(() =>
+      expect(productsListUseQueryMock).toHaveBeenLastCalledWith(
+        expect.objectContaining({ search: 'CAF', page: 1 })
+      )
+    );
   });
 
   it('renders the smallest useful column set (provider / location / tier-2 / tier-3 trimmed)', () => {

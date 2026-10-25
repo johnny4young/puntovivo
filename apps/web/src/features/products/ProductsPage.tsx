@@ -8,6 +8,7 @@ import { ConfirmModal, Modal } from '@/components/form-controls/Modal';
 import { QueryErrorState } from '@/components/feedback/QueryErrorState';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { DataTable } from '@/components/tables/DataTable';
+import { TablePagination } from '@/components/tables/TablePagination';
 import { TableErrorState } from '@/components/tables/TableErrorState';
 import { TableLoadingState } from '@/components/tables/TableLoadingState';
 import { TableExportActions } from '@/components/tables/TableExportActions';
@@ -98,10 +99,20 @@ export function ProductsPage() {
   // its own hook; the page keeps the literal `products.list` query (fed by the
   // hook's debounced `literalFallbackSearch`) and the trivial displayProducts merge.
   const semantic = useProductsSemanticSearch({ canManage, canRegenerate });
+  const search = semantic.literalFallbackSearch ?? '';
+  const mode = semantic.semanticIsActive
+    ? 'semantic'
+    : semantic.semanticModeEnabled
+      ? 'fallback'
+      : 'literal';
+  const [pageSelection, setPageSelection] = useState({ search, mode, page: 1 });
+  const contextChanged = pageSelection.search !== search || pageSelection.mode !== mode;
+  if (contextChanged) setPageSelection({ search, mode, page: 1 });
+  const page = contextChanged ? 1 : pageSelection.page;
 
   const productsQuery = trpc.products.list.useQuery(
     {
-      page: 1,
+      page,
       perPage: 50,
       search: semantic.literalFallbackSearch,
       includeVariantParents: true,
@@ -110,6 +121,12 @@ export function ProductsPage() {
     // dialog's opener survives the request.
     { placeholderData: keepPreviousData }
   );
+  const lastPage = Math.max(1, productsQuery.data?.totalPages ?? 0);
+  if (productsQuery.data && !productsQuery.isPlaceholderData && page > lastPage) {
+    setPageSelection({ search, mode, page: lastPage });
+  }
+
+  const displayPage = productsQuery.data?.page ?? page;
 
   const categoriesQuery = trpc.categories.tree.useQuery();
   const providersQuery = trpc.providers.list.useQuery({ page: 1, perPage: 200 });
@@ -542,6 +559,7 @@ export function ProductsPage() {
               onSearchChange={semantic.semanticModeEnabled ? undefined : semantic.setLiteralQuery}
               searchPlaceholder={t('table.search')}
               pageSize={10}
+              clientPagination={semantic.semanticIsActive}
               // keyboard row-activate mirrors the Pencil (edit)
               // action for manager / admin; viewer / cashier have no
               // editable row so it stays a no-op.  added a separate
@@ -556,6 +574,17 @@ export function ProductsPage() {
                   : undefined
               }
             />
+
+            {!semantic.semanticIsActive && (
+              <TablePagination
+                page={displayPage - 1}
+                pageCount={productsQuery.data?.totalPages ?? 1}
+                total={productsQuery.data?.totalItems ?? 0}
+                rangeStart={(displayPage - 1) * 50 + 1}
+                rangeEnd={Math.min(displayPage * 50, productsQuery.data?.totalItems ?? 0)}
+                onPageChange={nextPage => setPageSelection({ search, mode, page: nextPage + 1 })}
+              />
+            )}
 
             {semantic.semanticIsActive && displayProducts.length === 0 && !semantic.isSearching && (
               <p className="text-sm text-secondary-500">{t('semantic.noResults')}</p>
