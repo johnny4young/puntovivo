@@ -162,8 +162,13 @@ export function ProductsPage() {
     }),
   });
   const deleteMutation = trpc.products.delete.useMutation({
-    onSuccess: async () => {
-      await utils.products.list.invalidate();
+    onSuccess: async (_result, { id }) => {
+      // Deactivation advances the version; a cached detail would reopen the
+      // editor with a stale one.
+      await Promise.all([
+        utils.products.list.invalidate(),
+        utils.products.getById.invalidate({ id }),
+      ]);
       setProductToDelete(null);
       toast.success({ title: t('toast.deactivated') });
     },
@@ -609,12 +614,10 @@ export function ProductsPage() {
           deleteMutation.isPending ? t('deactivate.submitting') : t('deactivate.confirm')
         }
         onClose={() => setProductToDelete(null)}
-        onConfirm={async () => {
-          if (!productToDelete) {
-            return;
+        onConfirm={() => {
+          if (productToDelete) {
+            deleteMutation.mutate({ id: productToDelete.id });
           }
-
-          await deleteMutation.mutateAsync({ id: productToDelete.id });
         }}
         loading={deleteMutation.isPending}
         variant="danger"

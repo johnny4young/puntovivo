@@ -57,15 +57,12 @@ vi.mock('@/lib/trpc', () => ({
           onSuccess?: () => Promise<void> | void;
           onError?: (err: unknown) => void;
         }) => ({
-          mutateAsync: async (input: unknown) => {
-            try {
-              const result = await updateMutate(input);
-              await options.onSuccess?.();
-              return result;
-            } catch (err) {
-              options.onError?.(err);
-              throw err;
-            }
+          // Like TanStack's mutate: failures reach onError, never the caller.
+          mutate: (input: unknown) => {
+            void Promise.resolve(updateMutate(input)).then(
+              () => options.onSuccess?.(),
+              err => options.onError?.(err)
+            );
           },
           isPending: updatePending,
         }),

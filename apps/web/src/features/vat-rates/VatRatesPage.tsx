@@ -243,7 +243,7 @@ export function VatRatesPage() {
         }}
         onConfirm={() => {
           if (vatRateToDelete) {
-            void deleteMutation.mutateAsync({ id: vatRateToDelete.id });
+            deleteMutation.mutate({ id: vatRateToDelete.id });
           }
         }}
         title={t('delete.title')}

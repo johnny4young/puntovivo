@@ -278,7 +278,7 @@ export function UnitsPage() {
         onClose={() => setUnitToDelete(null)}
         onConfirm={() => {
           if (unitToDelete) {
-            void deleteMutation.mutateAsync({
+            deleteMutation.mutate({
               id: unitToDelete.id,
             });
           }

@@ -438,7 +438,7 @@ export function RestaurantTablesPage() {
         loading={archiveMutation.isPending}
         onConfirm={() => {
           if (archiveTarget) {
-            void archiveMutation.mutateAsync({
+            archiveMutation.mutate({
               id: archiveTarget.id,
             });
           }

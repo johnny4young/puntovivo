@@ -23,7 +23,7 @@ import { paginatedList } from '../lib/paginatedList.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { adminProcedure } from '../middleware/roles.js';
 import { categories, categoryXProvider } from '../../db/schema.js';
-import { enqueueSync } from '../../services/sync/enqueue.js';
+import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import {
   listCategoriesInput,
   getCategoryInput,
@@ -31,35 +31,32 @@ import {
   updateCategoryInput,
   deleteCategoryInput,
 } from '../schemas/categories.js';
-import type { Context } from '../context.js';
+import type { DatabaseInstance } from '../../db/index.js';
 
-async function getCategoryForTenant(ctx: Context, id: string) {
-  if (!ctx.tenantId) {
-    throw new TRPCError({
-      code: 'UNAUTHORIZED',
-      message: 'Tenant context is required',
-    });
-  }
-
-  return ctx.db
+function findTenantCategory(db: DatabaseInstance, tenantId: string, id: string) {
+  return db
     .select()
     .from(categories)
-    .where(and(eq(categories.id, id), eq(categories.tenantId, ctx.tenantId)))
+    .where(and(eq(categories.id, id), eq(categories.tenantId, tenantId)))
     .get();
 }
 
-async function assertValidParentCategory({
-  ctx,
-  categoryId,
-  parentId,
-}: {
-  ctx: Context;
-  // explicit `| undefined` on Zod-optional fields.
-  categoryId?: string | undefined;
-  parentId?: string | null | undefined;
-}) {
+// Runs on the transaction handle so the parent chain cannot change between
+// the check and the write.
+function assertValidParentCategory(
+  db: DatabaseInstance,
+  tenantId: string,
+  {
+    categoryId,
+    parentId,
+  }: {
+    // explicit `| undefined` on Zod-optional fields.
+    categoryId?: string | undefined;
+    parentId?: string | null | undefined;
+  }
+) {
   if (!parentId) {
-    return null;
+    return;
   }
 
   if (categoryId && parentId === categoryId) {
@@ -69,7 +66,7 @@ async function assertValidParentCategory({
     });
   }
 
-  const parent = await getCategoryForTenant(ctx, parentId);
+  const parent = findTenantCategory(db, tenantId, parentId);
 
   if (!parent) {
     throw new TRPCError({
@@ -79,7 +76,7 @@ async function assertValidParentCategory({
   }
 
   if (!categoryId) {
-    return parent;
+    return;
   }
 
   let currentParentId = parent.parentId;
@@ -92,11 +89,8 @@ async function assertValidParentCategory({
       });
     }
 
-    const ancestor = await getCategoryForTenant(ctx, currentParentId);
-    currentParentId = ancestor?.parentId ?? null;
+    currentParentId = findTenantCategory(db, tenantId, currentParentId)?.parentId ?? null;
   }
-
-  return parent;
 }
 
 export const categoriesRouter = router({
@@ -152,31 +146,38 @@ export const categoriesRouter = router({
     const now = new Date().toISOString();
     const id = nanoid();
 
-    await assertValidParentCategory({
-      ctx,
-      parentId: input.parentId,
-    });
+    return ctx.db.transaction(
+      tx => {
+        assertValidParentCategory(tx, ctx.tenantId, { parentId: input.parentId });
 
-    await ctx.db.insert(categories).values({
-      id,
-      tenantId: ctx.tenantId,
-      name: input.name,
-      description: input.description,
-      parentId: input.parentId,
-      createdAt: now,
-      updatedAt: now,
-    });
+        tx.insert(categories)
+          .values({
+            id,
+            tenantId: ctx.tenantId,
+            name: input.name,
+            description: input.description,
+            parentId: input.parentId,
+            createdAt: now,
+            updatedAt: now,
+          })
+          .run();
 
-    await enqueueSync(ctx, {
-      entityType: 'categories',
-      entityId: id,
-      operation: 'create',
-      data: { id, ...input },
-    });
+        enqueueSyncInTransaction(
+          { ...ctx, db: tx },
+          {
+            entityType: 'categories',
+            entityId: id,
+            operation: 'create',
+            data: { id, ...input },
+          }
+        );
 
-    const created = await ctx.db.select().from(categories).where(eq(categories.id, id)).get();
+        const created = tx.select().from(categories).where(eq(categories.id, id)).get();
 
-    return created!;
+        return created!;
+      },
+      { behavior: 'immediate' }
+    );
   }),
 
   /**
@@ -195,12 +196,6 @@ export const categoriesRouter = router({
       throw new TRPCError({ code: 'NOT_FOUND', message: 'Category not found' });
     }
 
-    await assertValidParentCategory({
-      ctx,
-      categoryId: id,
-      parentId: updates.parentId,
-    });
-
     const now = new Date().toISOString();
     // optimistic-concurrency bump (see the versioned WHERE below).
     const updateData: Record<string, unknown> = {
@@ -214,88 +209,106 @@ export const categoriesRouter = router({
     // optimistic-concurrency guard. The NOT_FOUND pre-check above
     // established existence + tenant scope, so a zero-change result means
     // another tab bumped the version first.
-    const versionedUpdate = ctx.db
-      .update(categories)
-      .set(updateData)
-      .where(
-        and(
-          eq(categories.id, id),
-          eq(categories.tenantId, ctx.tenantId),
-          eq(categories.version, input.version)
-        )
-      )
-      .run() as { changes?: number };
-    assertVersionedWriteApplied('category', versionedUpdate.changes ?? 0, input.version);
+    return ctx.db.transaction(
+      tx => {
+        assertValidParentCategory(tx, ctx.tenantId, { categoryId: id, parentId: updates.parentId });
 
-    await enqueueSync(ctx, {
-      entityType: 'categories',
-      entityId: id,
-      operation: 'update',
-      data: { id, ...updateData },
-    });
+        const versionedUpdate = tx
+          .update(categories)
+          .set(updateData)
+          .where(
+            and(
+              eq(categories.id, id),
+              eq(categories.tenantId, ctx.tenantId),
+              eq(categories.version, input.version)
+            )
+          )
+          .run() as { changes?: number };
+        assertVersionedWriteApplied('category', versionedUpdate.changes ?? 0, input.version);
 
-    const updated = await ctx.db.select().from(categories).where(eq(categories.id, id)).get();
+        enqueueSyncInTransaction(
+          { ...ctx, db: tx },
+          {
+            entityType: 'categories',
+            entityId: id,
+            operation: 'update',
+            data: { id, ...updateData },
+          }
+        );
 
-    return updated!;
+        const updated = tx.select().from(categories).where(eq(categories.id, id)).get();
+
+        return updated!;
+      },
+      { behavior: 'immediate' }
+    );
   }),
 
   /**
    * Delete a category (admin only)
    */
   delete: adminProcedure.input(deleteCategoryInput).mutation(async ({ ctx, input }) => {
-    const existing = await ctx.db
-      .select()
-      .from(categories)
-      .where(and(eq(categories.id, input.id), eq(categories.tenantId, ctx.tenantId)))
-      .get();
+    return ctx.db.transaction(
+      tx => {
+        const existing = tx
+          .select()
+          .from(categories)
+          .where(and(eq(categories.id, input.id), eq(categories.tenantId, ctx.tenantId)))
+          .get();
 
-    if (!existing) {
-      throw new TRPCError({ code: 'NOT_FOUND', message: 'Category not found' });
-    }
+        if (!existing) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Category not found' });
+        }
 
-    const childCategory = await ctx.db
-      .select({ id: categories.id })
-      .from(categories)
-      .where(and(eq(categories.parentId, input.id), eq(categories.tenantId, ctx.tenantId)))
-      .get();
+        const childCategory = tx
+          .select({ id: categories.id })
+          .from(categories)
+          .where(and(eq(categories.parentId, input.id), eq(categories.tenantId, ctx.tenantId)))
+          .get();
 
-    if (childCategory) {
-      throw new TRPCError({
-        code: 'BAD_REQUEST',
-        message: 'Delete or reassign child categories before removing this category',
-      });
-    }
+        if (childCategory) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Delete or reassign child categories before removing this category',
+          });
+        }
 
-    const providerAssignment = await ctx.db
-      .select({ id: categoryXProvider.id })
-      .from(categoryXProvider)
-      .where(
-        and(
-          eq(categoryXProvider.tenantId, ctx.tenantId),
-          eq(categoryXProvider.categoryId, input.id)
-        )
-      )
-      .get();
+        const providerAssignment = tx
+          .select({ id: categoryXProvider.id })
+          .from(categoryXProvider)
+          .where(
+            and(
+              eq(categoryXProvider.tenantId, ctx.tenantId),
+              eq(categoryXProvider.categoryId, input.id)
+            )
+          )
+          .get();
 
-    if (providerAssignment) {
-      throw new TRPCError({
-        code: 'BAD_REQUEST',
-        message: 'Remove provider assignments before deleting this category',
-      });
-    }
+        if (providerAssignment) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Remove provider assignments before deleting this category',
+          });
+        }
 
-    await ctx.db
-      .delete(categories)
-      .where(and(eq(categories.id, input.id), eq(categories.tenantId, ctx.tenantId)));
+        tx.delete(categories)
+          .where(and(eq(categories.id, input.id), eq(categories.tenantId, ctx.tenantId)))
+          .run();
 
-    await enqueueSync(ctx, {
-      entityType: 'categories',
-      entityId: input.id,
-      operation: 'delete',
-      data: { id: input.id },
-    });
+        enqueueSyncInTransaction(
+          { ...ctx, db: tx },
+          {
+            entityType: 'categories',
+            entityId: input.id,
+            operation: 'delete',
+            data: { id: input.id },
+          }
+        );
 
-    return { success: true, id: input.id };
+        return { success: true, id: input.id };
+      },
+      { behavior: 'immediate' }
+    );
   }),
 
   /**
