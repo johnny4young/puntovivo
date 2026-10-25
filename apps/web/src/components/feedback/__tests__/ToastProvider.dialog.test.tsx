@@ -1,15 +1,20 @@
-import { useState } from 'react';
+import { StrictMode, useState } from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { Modal } from '@/components/form-controls/Modal';
 import { Drawer } from '../Drawer';
 import { ToastProvider, useToast } from '../ToastProvider';
 
-function Harness({ withDrawer = false }: { withDrawer?: boolean }) {
+function Harness({ withDrawer = false, onRetry }: { withDrawer?: boolean; onRetry?: () => void }) {
   const toast = useToast();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
-  const raise = (title: string) => toast.error({ title, durationMs: 60_000 });
+  const raise = (title: string) =>
+    toast.error({
+      title,
+      durationMs: 60_000,
+      ...(onRetry ? { action: { label: 'Retry', onClick: onRetry } } : {}),
+    });
   return (
     <>
       <button onClick={() => raise('Page error')}>Raise on page</button>
@@ -26,13 +31,15 @@ function Harness({ withDrawer = false }: { withDrawer?: boolean }) {
   );
 }
 
-function renderHarness(props?: { withDrawer?: boolean }) {
+function renderHarness(props?: { withDrawer?: boolean; onRetry?: () => void }) {
   return render(
-    <ToastProvider>
-      <div id="app-root">
-        <Harness {...props} />
-      </div>
-    </ToastProvider>
+    <StrictMode>
+      <ToastProvider>
+        <div id="app-root">
+          <Harness {...props} />
+        </div>
+      </ToastProvider>
+    </StrictMode>
   );
 }
 
@@ -80,7 +87,8 @@ describe('toasts raised while a dialog is open', () => {
 
     const toast = screen.getByText('Modal error').closest('[data-toast-id]')!;
     expect(screen.getByRole('dialog', { name: 'Drawer' })).toContainElement(toast as HTMLElement);
-    expect(toast).not.toHaveAttribute('role');
+    expect(toast).toHaveAttribute('role', 'status');
+    expect(toast).toHaveAttribute('aria-live', 'off');
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
@@ -97,5 +105,18 @@ describe('toasts raised while a dialog is open', () => {
     expect(screen.getByRole('dialog', { name: 'Confirmation' })).toContainElement(
       document.activeElement as HTMLElement
     );
+  });
+
+  it('keep a toast action reachable inside the dialog', async () => {
+    let retried = 0;
+    renderHarness({ onRetry: () => void retried++ });
+    fireEvent.click(screen.getByText('Open'));
+    fireEvent.click(screen.getByText('Raise in modal'));
+
+    const retry = screen.getByRole('button', { name: 'Retry' });
+    expect(screen.getByRole('dialog', { name: 'Confirmation' })).toContainElement(retry);
+    expect(isolated(retry)).toBe(false);
+    await act(async () => fireEvent.click(retry));
+    expect(retried).toBe(1);
   });
 });

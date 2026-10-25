@@ -91,7 +91,10 @@ function ToastList({
           <div
             key={toast.id}
             data-toast-id={toast.id}
-            role={toast.relocated ? undefined : toast.tone === 'error' ? 'alert' : 'status'}
+            // A relocated toast was announced where it was raised; keep it
+            // findable as a status without announcing it again.
+            role={toast.tone === 'error' && !toast.relocated ? 'alert' : 'status'}
+            aria-live={toast.relocated ? 'off' : undefined}
             className={cn(
               'pointer-events-auto break-words rounded-2xl border p-4 shadow-soft animate-fade-in backdrop-blur',
               getToastClasses(toast.tone)
@@ -152,13 +155,16 @@ export function ToastProvider({ children }: ToastProviderProps) {
   const [toasts, setToasts] = useState<PlacedToast[]>([]);
   const timeoutIdsRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const outletsRef = useRef<HTMLElement[]>([]);
-  const outletKeysRef = useRef(new WeakMap<HTMLElement, string>());
+  const outletKeysRef = useRef(new Map<HTMLElement, string>());
+  const nextOutletKeyRef = useRef(0);
 
   const registerOutlet = useCallback((outlet: HTMLElement) => {
     outletsRef.current.push(outlet);
-    outletKeysRef.current.set(outlet, crypto.randomUUID());
+    nextOutletKeyRef.current += 1;
+    outletKeysRef.current.set(outlet, `outlet-${nextOutletKeyRef.current}`);
     return () => {
       outletsRef.current = outletsRef.current.filter(candidate => candidate !== outlet);
+      outletKeysRef.current.delete(outlet);
       setToasts(currentToasts =>
         currentToasts.some(toast => toast.outlet === outlet)
           ? currentToasts.map(toast =>
@@ -191,8 +197,8 @@ export function ToastProvider({ children }: ToastProviderProps) {
 
     // Keep keyboard focus inside the dialog when its focused toast goes away.
     const focusedToast = document.activeElement?.closest(`[data-toast-id="${toastId}"]`);
-    const outlet = focusedToast?.closest('.dialog-toast-outlet');
-    if (outlet?.parentElement instanceof HTMLElement) outlet.parentElement.focus();
+    const dialog = focusedToast?.closest<HTMLElement>(MODAL_DIALOG_SELECTOR);
+    dialog?.querySelector<HTMLElement>('[tabindex="-1"]')?.focus();
 
     setToasts(currentToasts => currentToasts.filter(toast => toast.id !== toastId));
   }, []);
