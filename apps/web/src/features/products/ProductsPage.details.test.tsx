@@ -23,6 +23,7 @@ const {
   productDetailInvalidateMock,
   productsListInvalidateMock,
   updateMutationOptionsRef,
+  deleteMutationOptionsRef,
   productFormModalMock,
   deleteResultMock,
   toastErrorMock,
@@ -37,6 +38,11 @@ const {
   productDetailInvalidateMock: vi.fn(),
   productsListInvalidateMock: vi.fn(),
   updateMutationOptionsRef: {
+    current: null as null | {
+      onSuccess?: (data: unknown, variables: { id: string }) => Promise<void>;
+    },
+  },
+  deleteMutationOptionsRef: {
     current: null as null | {
       onSuccess?: (data: unknown, variables: { id: string }) => Promise<void>;
     },
@@ -164,18 +170,21 @@ vi.mock('@/lib/trpc', async () => ({
       },
       delete: {
         useMutation: (options: {
-          onSuccess?: () => Promise<void>;
+          onSuccess?: (data: unknown, variables: { id: string }) => Promise<void>;
           onError?: (error: unknown) => void;
-        }) => ({
-          isPending: false,
-          // Mirrors TanStack's mutate: failures reach onError, never the caller.
-          mutate: (variables: { id: string }) => {
-            void Promise.resolve(deleteResultMock(variables)).then(
-              () => options.onSuccess?.(),
-              error => options.onError?.(error)
-            );
-          },
-        }),
+        }) => {
+          deleteMutationOptionsRef.current = options;
+          return {
+            isPending: false,
+            // Mirrors TanStack's mutate: failures reach onError, never the caller.
+            mutate: (variables: { id: string }) => {
+              void Promise.resolve(deleteResultMock(variables)).then(
+                () => options.onSuccess?.(undefined, variables),
+                error => options.onError?.(error)
+              );
+            },
+          };
+        },
       },
       createVariantMatrix: {
         useMutation: () => ({ mutateAsync: vi.fn(), reset: vi.fn(), isPending: false }),
@@ -205,6 +214,7 @@ describe('ProductsPage default column set', () => {
     productDetailInvalidateMock.mockReset();
     productsListInvalidateMock.mockReset();
     updateMutationOptionsRef.current = null;
+    deleteMutationOptionsRef.current = null;
     productFormModalMock.mockReset();
     deleteResultMock.mockReset();
     toastErrorMock.mockReset();
@@ -351,5 +361,14 @@ describe('ProductsPage default column set', () => {
     act(() => confirmPropsRef.current!.onClose());
     expect(screen.queryByTestId('product-delete-confirmation')).not.toBeInTheDocument();
     expect(deleteResultMock).not.toHaveBeenCalled();
+  });
+
+  it('invalidates the deactivated product detail so a later edit loads the new version', async () => {
+    render(<ProductsPage />);
+
+    await deleteMutationOptionsRef.current?.onSuccess?.(undefined, { id: product.id });
+
+    expect(productsListInvalidateMock).toHaveBeenCalledTimes(1);
+    expect(productDetailInvalidateMock).toHaveBeenCalledWith({ id: product.id });
   });
 });

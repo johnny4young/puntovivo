@@ -171,7 +171,7 @@ test(
         JSON.stringify({ name: 'native-fixture', version: '1.0.0' })
       );
       await writeFile(join(dependency, 'binding.gyp'), '{}');
-      const options = { buildPath: root, projectRootPath: root, electronVersion: '43.5.0' };
+      const options = { buildPath: root, projectRootPath: root, electronVersion: '43.8.3' };
       // Positive control stops at enumeration, before any compilation/download.
       const stop = new Error('stop after positive-control native enumeration');
       const unguarded = rebuild(options);
@@ -203,7 +203,7 @@ test('builder retains verified Node-API binaries rather than entering its rebuil
   const context = {
     options: {},
     appInfo: { type: 'module' },
-    framework: { isNpmRebuildRequired: true, version: '43.5.0' },
+    framework: { isNpmRebuildRequired: true, version: '43.8.3' },
     config: { npmRebuild: false, nodeGypRebuild: false },
     getWorkspaceRoot: async () => {
       throw stop;
