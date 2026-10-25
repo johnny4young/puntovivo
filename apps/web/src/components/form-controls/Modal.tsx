@@ -177,6 +177,11 @@ export interface ModalButtonProps {
   onClick?: () => void;
   variant?: 'primary' | 'secondary' | 'danger';
   disabled?: boolean;
+  /**
+   * Busy with a request: activation is blocked but the button stays focusable,
+   * unlike `disabled`, which would drop keyboard focus to the page.
+   */
+  pending?: boolean;
   type?: 'button' | 'submit';
   className?: string;
   /**
@@ -192,6 +197,7 @@ export function ModalButton({
   onClick,
   variant = 'secondary',
   disabled = false,
+  pending = false,
   type = 'button',
   className,
   id,
@@ -205,11 +211,17 @@ export function ModalButton({
   return (
     <Button
       type={type}
-      onClick={onClick}
+      // preventDefault also stops a pending submit button from submitting its form.
+      onClick={pending ? event => event.preventDefault() : onClick}
       disabled={disabled}
+      aria-disabled={pending || undefined}
       id={id}
       variant={buttonVariant[variant]}
-      className={cn('w-full sm:w-auto sm:min-w-[9rem]', className)}
+      className={cn(
+        'w-full sm:w-auto sm:min-w-[9rem]',
+        pending && 'pointer-events-none opacity-45',
+        className
+      )}
     >
       {children}
     </Button>
@@ -253,10 +265,15 @@ export function ConfirmModal({
   const resolvedConfirmText = confirmText ?? t('actions.confirm');
   const resolvedCancelText = cancelText ?? t('actions.cancel');
   const loadingText = t('actions.loading');
+  // While the request runs, Cancel, the close button, Escape and the backdrop
+  // all wait for it, so the outcome always lands in this dialog.
+  const handleClose = () => {
+    if (!loading) onClose();
+  };
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleClose}
       title={resolvedTitle}
       restoreFocusTo={restoreFocusTo}
       size="sm"
@@ -265,7 +282,12 @@ export function ConfirmModal({
           <ModalButton onClick={onClose} disabled={loading}>
             {resolvedCancelText}
           </ModalButton>
-          <ModalButton variant={variant} onClick={onConfirm} disabled={loading || confirmDisabled}>
+          <ModalButton
+            variant={variant}
+            onClick={onConfirm}
+            disabled={confirmDisabled}
+            pending={loading}
+          >
             {loading ? `${loadingText}…` : resolvedConfirmText}
           </ModalButton>
         </>
