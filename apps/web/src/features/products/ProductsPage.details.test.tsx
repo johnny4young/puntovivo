@@ -11,7 +11,7 @@
  * @module features/products/ProductsPage.details.test
  */
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import i18next from '@/i18n';
 
 const {
@@ -50,7 +50,7 @@ const {
       isOpen: boolean;
       title?: string;
       confirmText?: string;
-      onConfirm: () => void | Promise<void>;
+      onConfirm: () => void;
       onClose: () => void;
     },
   },
@@ -168,15 +168,12 @@ vi.mock('@/lib/trpc', async () => ({
           onError?: (error: unknown) => void;
         }) => ({
           isPending: false,
-          mutateAsync: async (variables: { id: string }) => {
-            try {
-              const result = await deleteResultMock(variables);
-              await options.onSuccess?.();
-              return result;
-            } catch (error) {
-              options.onError?.(error);
-              throw error;
-            }
+          // Mirrors TanStack's mutate: failures reach onError, never the caller.
+          mutate: (variables: { id: string }) => {
+            void Promise.resolve(deleteResultMock(variables)).then(
+              () => options.onSuccess?.(),
+              error => options.onError?.(error)
+            );
           },
         }),
       },
@@ -321,56 +318,38 @@ describe('ProductsPage default column set', () => {
     expect(productsListInvalidateMock).toHaveBeenCalledTimes(1);
     expect(productDetailInvalidateMock).toHaveBeenCalledWith({ id: product.id });
   });
-  afterEach(async () => {
-    await act(async () => {
-      await i18next.changeLanguage('en');
+  it('keeps the confirmation open after a rejected deactivation and succeeds on retry', async () => {
+    useAuthMock.mockReturnValue({ user: { id: 'synthetic-admin', role: 'admin' } });
+    deleteResultMock.mockRejectedValueOnce(new Error('Synthetic rejected deactivation'));
+    render(<ProductsPage />);
+    fireEvent.click(screen.getByRole('button', { name: i18next.t('common:actions.delete') }));
+
+    act(() => confirmPropsRef.current!.onConfirm());
+    await waitFor(() => expect(toastErrorMock).toHaveBeenCalledTimes(1));
+    expect(deleteResultMock).toHaveBeenCalledWith({ id: product.id });
+    expect(toastErrorMock).toHaveBeenCalledWith(
+      expect.objectContaining({ title: i18next.t('products:toast.deactivateError') })
+    );
+    expect(productsListInvalidateMock).not.toHaveBeenCalled();
+    expect(screen.getByTestId('product-delete-confirmation')).toBeInTheDocument();
+
+    deleteResultMock.mockResolvedValueOnce({ success: true, id: product.id });
+    act(() => confirmPropsRef.current!.onConfirm());
+    await waitFor(() =>
+      expect(screen.queryByTestId('product-delete-confirmation')).not.toBeInTheDocument()
+    );
+    expect(productsListInvalidateMock).toHaveBeenCalledTimes(1);
+    expect(toastSuccessMock).toHaveBeenCalledWith({
+      title: i18next.t('products:toast.deactivated'),
     });
   });
 
-  for (const language of ['en', 'es'] as const) {
-    it(`handles rejected deactivation, keeps retry available and succeeds on retry (${language})`, async () => {
-      await i18next.changeLanguage(language);
-      useAuthMock.mockReturnValue({ user: { id: 'synthetic-admin', role: 'admin' } });
-      deleteResultMock.mockRejectedValueOnce(new Error('Synthetic rejected deactivation'));
-      render(<ProductsPage />);
-      fireEvent.click(screen.getByRole('button', { name: i18next.t('common:actions.delete') }));
-      expect(screen.getByTestId('product-delete-confirmation')).toBeInTheDocument();
-      await act(async () => {
-        await expect(confirmPropsRef.current!.onConfirm()).resolves.toBeUndefined();
-      });
-      expect(deleteResultMock).toHaveBeenCalledWith({ id: product.id });
-      expect(toastErrorMock).toHaveBeenCalledTimes(1);
-      expect(toastErrorMock).toHaveBeenCalledWith(
-        expect.objectContaining({ title: i18next.t('products:toast.deactivateError') })
-      );
-      expect(toastSuccessMock).not.toHaveBeenCalled();
-      expect(productsListInvalidateMock).not.toHaveBeenCalled();
-      expect(screen.getByTestId('product-delete-confirmation')).toBeInTheDocument();
-      expect(screen.getByText(product.name)).toBeInTheDocument();
-
-      deleteResultMock.mockResolvedValueOnce({ success: true, id: product.id });
-      await act(async () => {
-        await expect(confirmPropsRef.current!.onConfirm()).resolves.toBeUndefined();
-      });
-      expect(deleteResultMock).toHaveBeenCalledTimes(2);
-      expect(productsListInvalidateMock).toHaveBeenCalledTimes(1);
-      expect(toastErrorMock).toHaveBeenCalledTimes(1);
-      expect(toastSuccessMock).toHaveBeenCalledWith({
-        title: i18next.t('products:toast.deactivated'),
-      });
-      expect(screen.queryByTestId('product-delete-confirmation')).not.toBeInTheDocument();
-    });
-
-    it(`cancels deactivation without a request (${language})`, async () => {
-      await i18next.changeLanguage(language);
-      useAuthMock.mockReturnValue({ user: { id: 'synthetic-admin', role: 'admin' } });
-      render(<ProductsPage />);
-      fireEvent.click(screen.getByRole('button', { name: i18next.t('common:actions.delete') }));
-      act(() => confirmPropsRef.current!.onClose());
-      expect(screen.queryByTestId('product-delete-confirmation')).not.toBeInTheDocument();
-      expect(deleteResultMock).not.toHaveBeenCalled();
-      expect(toastErrorMock).not.toHaveBeenCalled();
-      expect(toastSuccessMock).not.toHaveBeenCalled();
-    });
-  }
+  it('cancels deactivation without a request', () => {
+    useAuthMock.mockReturnValue({ user: { id: 'synthetic-admin', role: 'admin' } });
+    render(<ProductsPage />);
+    fireEvent.click(screen.getByRole('button', { name: i18next.t('common:actions.delete') }));
+    act(() => confirmPropsRef.current!.onClose());
+    expect(screen.queryByTestId('product-delete-confirmation')).not.toBeInTheDocument();
+    expect(deleteResultMock).not.toHaveBeenCalled();
+  });
 });

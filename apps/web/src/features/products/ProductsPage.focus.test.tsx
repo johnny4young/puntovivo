@@ -94,19 +94,23 @@ const product = {
   isActive: true,
 };
 
+// tRPC's useUtils returns a stable object; a fresh one per render would
+// recreate the memoized columns and hide the identity this suite pins.
+const utils = {
+  setupReadiness: { get: { invalidate: vi.fn() } },
+  products: {
+    list: { invalidate: productsListInvalidateMock },
+    semanticSearch: { invalidate: vi.fn() },
+    embeddingHealth: { invalidate: vi.fn() },
+    getById: { invalidate: productDetailInvalidateMock, fetch: productDetailFetchMock },
+    getVariantMatrix: { invalidate: vi.fn() },
+  },
+};
+
 vi.mock('@/lib/trpc', async () => ({
   ...(await vi.importActual<typeof import('@/lib/trpc')>('@/lib/trpc')),
   trpc: {
-    useUtils: () => ({
-      setupReadiness: { get: { invalidate: vi.fn() } },
-      products: {
-        list: { invalidate: productsListInvalidateMock },
-        semanticSearch: { invalidate: vi.fn() },
-        embeddingHealth: { invalidate: vi.fn() },
-        getById: { invalidate: productDetailInvalidateMock, fetch: productDetailFetchMock },
-        getVariantMatrix: { invalidate: vi.fn() },
-      },
-    }),
+    useUtils: () => utils,
     products: {
       list: {
         useQuery: (input: unknown, options: unknown) => productsListUseQueryMock(input, options),
@@ -132,15 +136,11 @@ vi.mock('@/lib/trpc', async () => ({
           onError?: (error: unknown) => void;
         }) => ({
           isPending: false,
-          mutateAsync: async (variables: { id: string }) => {
-            try {
-              const result = await deleteResultMock(variables);
-              await options.onSuccess?.();
-              return result;
-            } catch (error) {
-              options.onError?.(error);
-              throw error;
-            }
+          mutate: (variables: { id: string }) => {
+            void Promise.resolve(deleteResultMock(variables)).then(
+              () => options.onSuccess?.(),
+              error => options.onError?.(error)
+            );
           },
         }),
       },

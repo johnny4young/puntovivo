@@ -251,7 +251,7 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
                       {isSelected ? (
                         <Button
                           onClick={() =>
-                            void selectLogoMutation.mutateAsync({
+                            selectLogoMutation.mutate({
                               logoId: null,
                             })
                           }
@@ -264,7 +264,7 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
                       ) : (
                         <Button
                           onClick={() =>
-                            void selectLogoMutation.mutateAsync({
+                            selectLogoMutation.mutate({
                               logoId: logo.id,
                             })
                           }
@@ -311,7 +311,7 @@ export function CompanyLogoLibraryCard({ company, canEdit }: CompanyLogoLibraryC
         variant="danger"
         onConfirm={() => {
           if (logoToDelete) {
-            void deleteMutation.mutateAsync({
+            deleteMutation.mutate({
               id: logoToDelete.id,
             });
           }

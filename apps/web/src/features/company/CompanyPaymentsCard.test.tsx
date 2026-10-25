@@ -9,7 +9,7 @@
  * - Server error fallback renders when the query errors out.
  */
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import i18n from '@/i18n';
 
@@ -170,6 +170,18 @@ describe('CompanyPaymentsCard ( slice 2)', () => {
       },
     });
     await waitFor(() => expect(publicKeyInput.value).toBe(''));
+  });
+
+  it('keeps the typed credentials when the save is rejected', async () => {
+    updateMutate.mockRejectedValueOnce(new Error('Synthetic rejected save'));
+    render(<CompanyPaymentsCard />);
+    const publicKeyInput = screen.getByTestId('payments-wompi-publicKey-input') as HTMLInputElement;
+    fireEvent.change(publicKeyInput, { target: { value: 'pub_test_retry' } });
+    fireEvent.click(screen.getByTestId('payments-rail-wompi-save'));
+
+    await waitFor(() => expect(updateMutate).toHaveBeenCalledTimes(1));
+    await act(async () => {});
+    expect(publicKeyInput.value).toBe('pub_test_retry');
   });
 
   it('does not resubmit masked stored credentials when an unchanged rail is saved', async () => {

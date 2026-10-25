@@ -418,7 +418,7 @@ export function CustomersPage() {
         onConfirm={() => {
           const preview = privacyPreviewQuery.data;
           if (preview && privacyConfirmation === preview.customer.name) {
-            void disposePersonalDataMutation.mutateAsync({
+            disposePersonalDataMutation.mutate({
               id: preview.customer.id,
               version: preview.customer.version,
               confirmation: privacyConfirmation,
@@ -447,11 +447,7 @@ export function CustomersPage() {
         }}
         onExportData={
           canManagePrivacy
-            ? async customer => {
-                await exportPersonalDataMutation.mutateAsync({
-                  id: customer.id,
-                });
-              }
+            ? customer => exportPersonalDataMutation.mutate({ id: customer.id })
             : undefined
         }
         isExporting={exportPersonalDataMutation.isPending}
