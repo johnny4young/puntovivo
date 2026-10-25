@@ -300,6 +300,7 @@ describe('ProductsPage default column set', () => {
     let total = 65;
     productsListUseQueryMock.mockImplementation(({ page }: { page: number }) => ({
       data: cataloguePage(total, page),
+      isSuccess: true,
       isLoading: false,
       error: null,
     }));
@@ -328,6 +329,7 @@ describe('ProductsPage default column set', () => {
     async (total, remaining) => {
       productsListUseQueryMock.mockImplementation(({ page }: { page: number }) => ({
         data: cataloguePage(total, page),
+        isSuccess: true,
         isLoading: false,
         error: null,
       }));
@@ -347,6 +349,7 @@ describe('ProductsPage default column set', () => {
     let placeholder = true;
     productsListUseQueryMock.mockImplementation(({ page }: { page: number }) => ({
       data: cataloguePage(page === 2 && placeholder ? 40 : 65, page),
+      isSuccess: true,
       isPlaceholderData: page === 2 && placeholder,
       isLoading: false,
       error: null,
@@ -442,12 +445,120 @@ describe('ProductsPage default column set', () => {
     }
   });
 
+  it.each(['success', 'error'] as const)(
+    'keeps a cached out-of-range page selected while its refetch finishes with %s',
+    async outcome => {
+      type Input = {
+        page: number;
+        perPage: number;
+        search?: string | undefined;
+        includeVariantParents: boolean;
+      };
+      type Data = ReturnType<typeof cataloguePage>;
+      const input = (page: number): Input => ({
+        page,
+        perPage: 50,
+        search: undefined,
+        includeVariantParents: true,
+      });
+      const key = (value: Input) => ['cached-pagination', value];
+      let resolve!: (data: Data) => void;
+      let reject!: (error: Error) => void;
+      const response = new Promise<Data>((yes, no) => {
+        resolve = yes;
+        reject = no;
+      });
+      const options = (value: Input) => ({
+        queryKey: key(value),
+        queryFn: () =>
+          value.page === 2 ? response : Promise.resolve(cataloguePage(65, value.page)),
+        retry: false,
+        staleTime: 300_000,
+      });
+      function useListQuery(value: Input) {
+        return useQuery({ ...options(value), ...(productsListOptionsRef.current ?? {}) });
+      }
+      productsListUseQueryMock.mockImplementation(useListQuery);
+      const client = new QueryClient();
+      // A contracted page remains cached after the user returns to page one.
+      client.setQueryData(key(input(2)), cataloguePage(40, 2));
+      const view = render(
+        <QueryClientProvider client={client}>
+          <ProductsPage />
+        </QueryClientProvider>
+      );
+      let request: Promise<Data> | undefined;
+      try {
+        // The expanded total has reached page one, but page two still holds the old total.
+        await waitFor(() =>
+          expect(screen.getByRole('navigation', { name: 'Pagination' })).toHaveTextContent(
+            'Showing 1-50 of 65'
+          )
+        );
+        request = client.fetchQuery({ ...options(input(2)), staleTime: 0 });
+        void request.catch(() => undefined);
+        expect(client.getQueryState(key(input(2)))).toMatchObject({
+          fetchStatus: 'fetching',
+          data: { totalItems: 40 },
+        });
+        fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+        const index = productsListUseQueryMock.mock.calls.findIndex(([value]) => value.page === 2);
+        expect(index).toBeGreaterThanOrEqual(0);
+        expect(productsListUseQueryMock.mock.results[index]?.value).toMatchObject({
+          isFetching: true,
+          isPlaceholderData: false,
+          isSuccess: true,
+          data: { page: 2, totalPages: 1 },
+        });
+        expect
+          .soft(productsListUseQueryMock)
+          .toHaveBeenLastCalledWith(expect.objectContaining({ page: 2 }));
+        await act(async () => {
+          if (outcome === 'success') resolve(cataloguePage(65, 2));
+          else reject(new Error('Synthetic page refetch failure'));
+          await request?.catch(() => undefined);
+        });
+        await waitFor(() =>
+          expect(client.getQueryState(key(input(2)))).toMatchObject({
+            fetchStatus: 'idle',
+            status: outcome === 'success' ? 'success' : 'error',
+          })
+        );
+        expect(productsListUseQueryMock).toHaveBeenLastCalledWith(
+          expect.objectContaining({ page: 2 })
+        );
+        if (outcome === 'success') {
+          await waitFor(() => expect(screen.getByText('CAT-064')).toBeVisible());
+          expect(screen.getByRole('navigation', { name: 'Pagination' })).toHaveTextContent(
+            'Showing 51-65 of 65'
+          );
+        } else {
+          expect(client.getQueryData(key(input(2)))).toMatchObject({
+            totalItems: 40,
+            totalPages: 1,
+          });
+          expect(productsListUseQueryMock.mock.results.at(-1)?.value).toMatchObject({
+            isError: true,
+            isFetching: false,
+            isPlaceholderData: false,
+          });
+        }
+      } finally {
+        resolve(cataloguePage(65, 2));
+        await request?.catch(() => undefined);
+        view.unmount();
+        client.clear();
+      }
+    }
+  );
+
   it.each([50, 40, 0])(
     'recovers page one after a matching-edit refresh reduces total to %i',
     async total => {
       let matchingTotal = 65;
       productsListUseQueryMock.mockImplementation(({ page }: { page: number }) => ({
         data: cataloguePage(matchingTotal, page),
+        isSuccess: true,
         isLoading: false,
         error: null,
       }));
@@ -481,6 +592,7 @@ describe('ProductsPage default column set', () => {
   it.each([false, true])('resets A→B→A consistently when B was paged: %s', async pageB => {
     productsListUseQueryMock.mockImplementation(({ page }: { page: number }) => ({
       data: cataloguePage(80, page),
+      isSuccess: true,
       isLoading: false,
       error: null,
     }));
@@ -521,6 +633,7 @@ describe('ProductsPage default column set', () => {
     });
     productsListUseQueryMock.mockImplementation(({ page }: { page: number }) => ({
       data: cataloguePage(65, page),
+      isSuccess: true,
       isLoading: false,
       error: null,
     }));

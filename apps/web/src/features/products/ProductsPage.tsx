@@ -122,7 +122,12 @@ export function ProductsPage() {
     { placeholderData: keepPreviousData }
   );
   const lastPage = Math.max(1, productsQuery.data?.totalPages ?? 0);
-  if (productsQuery.data && !productsQuery.isPlaceholderData && page > lastPage) {
+  if (
+    productsQuery.isSuccess &&
+    !productsQuery.isFetching &&
+    !productsQuery.isPlaceholderData &&
+    page > lastPage
+  ) {
     setPageSelection({ search, mode, page: lastPage });
   }
 
