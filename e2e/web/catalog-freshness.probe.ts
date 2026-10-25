@@ -4,6 +4,17 @@ import D from 'better-sqlite3';
 import { loginAs } from './support/app';
 const kinds = ['category', 'provider', 'unit'] as const;
 type Kind = (typeof kinds)[number];
+type Observation = {
+  label?: string;
+  at?: number;
+  paths?: string[];
+  pageerror?: string;
+  stage?: string;
+  kind?: Kind;
+  text?: string;
+  selected?: string;
+  options?: string[];
+};
 const plural = { category: 'categories', provider: 'providers', unit: 'units' };
 const original = (kind: Kind, n: number) =>
   `Lab ${kind[0].toUpperCase() + kind.slice(1)} ${String(n).padStart(2, '0')}`;
@@ -34,7 +45,7 @@ async function prepare(
   p: Page,
   c: BrowserContext,
   role: 'admin' | 'manager',
-  records: unknown[],
+  records: Observation[],
   label: string
 ) {
   await c.addInitScript(() => localStorage.setItem('puntovivo-language-preference', 'en'));
@@ -133,7 +144,7 @@ for (const [index, kind] of kinds.entries()) {
     page,
     context,
   }, info) => {
-    const records: unknown[] = [];
+    const records: Observation[] = [];
     const n = index;
     const name = original(kind, n);
     try {
@@ -176,7 +187,7 @@ for (const [index, kind] of kinds.entries()) {
     context,
     browser,
   }, info) => {
-    const records: unknown[] = [];
+    const records: Observation[] = [];
     const n = index + 3;
     const name = original(kind, n);
     const start = Date.now();
@@ -200,8 +211,8 @@ for (const [index, kind] of kinds.entries()) {
       expect(fresh.options).not.toContain(name + ' Updated');
       const freshRequests = records
         .slice(beforeFresh)
-        .filter((x: any) => x.label === 'reader-' + kind && x.paths)
-        .flatMap((x: any) => x.paths);
+        .filter(x => x.label === 'reader-' + kind && x.paths)
+        .flatMap(x => x.paths ?? []);
       expect(
         freshRequests.filter((p: string) =>
           ['categories.tree', 'providers.list', 'units.list', 'products.list'].includes(p)
@@ -236,7 +247,7 @@ for (const [index, kind] of kinds.entries()) {
       records.push({ stage: 'expired-reconnect', kind, ...staleDelete });
       expect(staleDelete.options).not.toContain(deletedName);
       expect(staleDelete.selected).toBe(id(kind, n));
-      expect(records.filter((x: any) => x.pageerror)).toEqual([]);
+      expect(records.filter(x => x.pageerror)).toEqual([]);
     } finally {
       await info.attach('freshness', {
         body: JSON.stringify(records),
