@@ -30,12 +30,14 @@ else
     exit 1
 fi
 
+FAILED=0
+
 echo ""
 echo "Checking if dependencies are installed..."
 if [ -d "node_modules" ]; then
     echo "✓ Dependencies installed"
 else
-    echo "✗ Dependencies not installed. Run: pnpm install"
+    echo "✗ Dependencies not installed. Run: pnpm install --frozen-lockfile"
     exit 1
 fi
 
@@ -58,16 +60,23 @@ PROJECT_IGNORE=$(pnpm config get ignore-scripts 2>/dev/null || echo "")
 if [ "$GLOBAL_IGNORE" = "true" ] && [ "$PROJECT_IGNORE" != "false" ]; then
     echo "⚠ Your global ~/.npmrc has ignore-scripts=true and this repo's"
     echo "   .npmrc override is not being picked up."
-    echo "   Re-run: pnpm install (and check pnpm-workspace.yaml allowBuilds)"
+    echo "   Re-run: pnpm install --frozen-lockfile (and check pnpm-workspace.yaml allowBuilds)"
 fi
 
 # Electron's runtime is installed lazily by the desktop preflight, not by an
 # npm postinstall hook. Missing is normal immediately after dependency install.
-if [ -f "node_modules/electron/path.txt" ] || [ -f "apps/desktop/node_modules/electron/path.txt" ]; then
-    echo "✓ Electron runtime installed (node_modules/electron/path.txt)"
-else
+ELECTRON_DIR="node_modules/electron"
+[ -f "$ELECTRON_DIR/path.txt" ] || ELECTRON_DIR="apps/desktop/node_modules/electron"
+if [ ! -f "$ELECTRON_DIR/path.txt" ]; then
     echo "ℹ Electron runtime not prepared yet (pnpm run dev:desktop installs it)"
     echo "  Prepare now:   node scripts/ensure-electron-binary.mjs"
+elif [ -e "$ELECTRON_DIR/dist/$(tr -d '[:space:]' < "$ELECTRON_DIR/path.txt")" ]; then
+    echo "✓ Electron runtime installed ($ELECTRON_DIR)"
+else
+    echo "✗ Electron runtime incomplete: path.txt points to a missing executable."
+    echo "  Auto-repair:   node scripts/ensure-electron-binary.mjs"
+    echo "  Nuclear:       rm -rf node_modules/electron && pnpm install --frozen-lockfile"
+    FAILED=1
 fi
 
 # better-sqlite3-multiple-ciphers v13 bundles one Node-API binary per target.
@@ -78,6 +87,7 @@ else
     echo "✗ better-sqlite3 Node-API binding missing or unusable."
     echo "  Diagnose:      pnpm --filter @puntovivo/server run native:ensure:node"
     echo "  Recovery:      pnpm install --frozen-lockfile"
+    FAILED=1
 fi
 
 echo ""
@@ -122,3 +132,5 @@ echo "  Existing installations: sign in with an account already created for that
 echo "  Explicit demo/test seeds are separate; see docs/DEV-SEED.md."
 echo ""
 echo "======================================"
+
+exit $FAILED

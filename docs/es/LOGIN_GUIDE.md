@@ -136,7 +136,7 @@ Código fuente:
 ### Escritorio
 
 ```bash
-pnpm install
+pnpm install --frozen-lockfile
 pnpm --filter @puntovivo/desktop run native:ensure:electron
 pnpm run dev:desktop
 ```

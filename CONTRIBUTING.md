@@ -7,7 +7,8 @@ working on the codebase.
 
 ## Development setup
 
-Requirements: Node.js `>=24`, pnpm `11.7.0` (via Corepack).
+Requirements: Node.js `>=24`, pnpm `11.7.0` (via Corepack; Node 25+ no longer bundles it:
+`npm install --global corepack`).
 
 ```bash
 corepack enable
@@ -15,7 +16,7 @@ pnpm install --frozen-lockfile
 pnpm --filter @puntovivo/desktop run native:ensure:electron   # verify the bundled Node-API prebuild loads under Electron
 ```
 
-After `pnpm install`, verify that the bundled native modules load under
+After `pnpm install --frozen-lockfile`, verify that the bundled native modules load under
 Electron. `better-sqlite3` and `argon2` ship Node-API prebuilds, so there is no
 source rebuild and no `NODE_MODULE_VERSION` mismatch to chase across Node and
 Electron majors; the command above only proves the prebuild loads. See the

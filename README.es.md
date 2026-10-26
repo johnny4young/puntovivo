@@ -167,7 +167,7 @@ proceso principal de Electron; no inicia el servidor como un proceso hijo.
 ### Requisitos
 
 - Node.js `>=24.0.0`
-- pnpm `11.7.0` mediante Corepack o una instalación local compatible
+- pnpm `11.7.0` mediante Corepack (Node 25+ ya no lo incluye: `npm install --global corepack`) o una instalación local compatible
 
 ```bash
 git clone https://github.com/johnny4young/puntovivo.git

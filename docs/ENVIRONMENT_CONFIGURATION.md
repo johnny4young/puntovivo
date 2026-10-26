@@ -86,7 +86,7 @@ Relevant file:
 ### Local desktop development
 
 ```bash
-pnpm install
+pnpm install --frozen-lockfile
 pnpm --filter @puntovivo/desktop run rebuild
 pnpm run dev:desktop
 ```
