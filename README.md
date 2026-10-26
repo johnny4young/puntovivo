@@ -167,11 +167,13 @@ process — it is not a spawned child server process.
 ### Prerequisites
 
 - Node.js `>=24.0.0`
-- pnpm `11.x` through Corepack or a matching local install
+- pnpm `11.7.0` through Corepack (Node 25+ no longer bundles it: `npm install --global corepack`) or a matching local install
 
 ```bash
+git clone https://github.com/johnny4young/puntovivo.git
+cd puntovivo
 corepack enable
-pnpm install
+pnpm install --frozen-lockfile
 ./scripts/check-setup.sh
 ```
 

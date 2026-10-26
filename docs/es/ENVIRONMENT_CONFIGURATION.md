@@ -87,7 +87,7 @@ Archivo relacionado:
 ### Desarrollo local de escritorio
 
 ```bash
-pnpm install
+pnpm install --frozen-lockfile
 pnpm --filter @puntovivo/desktop run rebuild
 pnpm run dev:desktop
 ```

@@ -7,15 +7,16 @@ en el código del proyecto.
 
 ## Preparar el entorno de desarrollo
 
-Requisitos: Node.js `>=24`, pnpm `11.x` (mediante Corepack).
+Requisitos: Node.js `>=24`, pnpm `11.7.0` (mediante Corepack; Node 25+ ya no lo incluye:
+`npm install --global corepack`).
 
 ```bash
 corepack enable
-pnpm install
+pnpm install --frozen-lockfile
 pnpm --filter @puntovivo/desktop run native:ensure:electron   # verify the bundled Node-API prebuild loads under Electron
 ```
 
-Después de `pnpm install`, verifica que los módulos nativos incluidos carguen en
+Después de `pnpm install --frozen-lockfile`, verifica que los módulos nativos incluidos carguen en
 Electron. `better-sqlite3` y `argon2` distribuyen binarios Node-API precompilados:
 no se recompilan desde el código fuente ni hay que resolver diferencias de
 `NODE_MODULE_VERSION` entre las versiones principales de Node y Electron. El

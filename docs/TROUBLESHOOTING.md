@@ -146,7 +146,7 @@ If needed, use the sync center in the Company page to:
 
 ```bash
 node --version
-pnpm install
+pnpm install --frozen-lockfile
 pnpm --filter @puntovivo/desktop run native:ensure:electron
 curl http://localhost:8090/api/health
 pnpm --filter @puntovivo/web run test -- --run

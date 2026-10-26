@@ -30,12 +30,14 @@ else
     exit 1
 fi
 
+FAILED=0
+
 echo ""
 echo "Checking if dependencies are installed..."
 if [ -d "node_modules" ]; then
     echo "✓ Dependencies installed"
 else
-    echo "✗ Dependencies not installed. Run: pnpm install"
+    echo "✗ Dependencies not installed. Run: pnpm install --frozen-lockfile"
     exit 1
 fi
 
@@ -58,17 +60,23 @@ PROJECT_IGNORE=$(pnpm config get ignore-scripts 2>/dev/null || echo "")
 if [ "$GLOBAL_IGNORE" = "true" ] && [ "$PROJECT_IGNORE" != "false" ]; then
     echo "⚠ Your global ~/.npmrc has ignore-scripts=true and this repo's"
     echo "   .npmrc override is not being picked up."
-    echo "   Re-run: pnpm install (and check pnpm-workspace.yaml allowBuilds)"
+    echo "   Re-run: pnpm install --frozen-lockfile (and check pnpm-workspace.yaml allowBuilds)"
 fi
 
 # Electron's runtime is installed lazily by the desktop preflight, not by an
 # npm postinstall hook. Missing is normal immediately after dependency install.
-if [ -f "node_modules/electron/path.txt" ] || [ -f "apps/desktop/node_modules/electron/path.txt" ]; then
-    echo "✓ Electron runtime installed (node_modules/electron/path.txt)"
+ELECTRON_DIR="node_modules/electron"
+[ -f "$ELECTRON_DIR/path.txt" ] || ELECTRON_DIR="apps/desktop/node_modules/electron"
+if [ ! -f "$ELECTRON_DIR/path.txt" ]; then
+    echo "ℹ Electron runtime not prepared yet (pnpm run dev:desktop installs it)"
+    echo "  Prepare now:   node scripts/ensure-electron-binary.mjs"
+elif [ -e "$ELECTRON_DIR/dist/$(tr -d '[:space:]' < "$ELECTRON_DIR/path.txt")" ]; then
+    echo "✓ Electron runtime installed ($ELECTRON_DIR)"
 else
-    echo "✗ Electron runtime binary missing."
+    echo "✗ Electron runtime incomplete: path.txt points to a missing executable."
     echo "  Auto-repair:   node scripts/ensure-electron-binary.mjs"
-    echo "  Nuclear:       rm -rf node_modules/electron && pnpm install"
+    echo "  Nuclear:       rm -rf node_modules/electron && pnpm install --frozen-lockfile"
+    FAILED=1
 fi
 
 # better-sqlite3-multiple-ciphers v13 bundles one Node-API binary per target.
@@ -79,6 +87,7 @@ else
     echo "✗ better-sqlite3 Node-API binding missing or unusable."
     echo "  Diagnose:      pnpm --filter @puntovivo/server run native:ensure:node"
     echo "  Recovery:      pnpm install --frozen-lockfile"
+    FAILED=1
 fi
 
 echo ""
@@ -92,8 +101,7 @@ echo "Checking backend server (port 8090)..."
 if curl -s http://localhost:8090/api/health > /dev/null 2>&1; then
     echo "✓ Backend server is running at http://localhost:8090"
 else
-    echo "✗ Backend server is NOT running"
-    echo "  Start it with: pnpm run dev:server"
+    echo "ℹ Backend server not running. Start it with: pnpm run dev:server"
 fi
 
 # Check frontend server
@@ -101,8 +109,7 @@ echo "Checking frontend server (port 3000)..."
 if curl -s http://localhost:3000 > /dev/null 2>&1; then
     echo "✓ Frontend server is running at http://localhost:3000"
 else
-    echo "✗ Frontend server is NOT running"
-    echo "  Start it with: pnpm run dev:web"
+    echo "ℹ Frontend server not running. Start it with: pnpm run dev:web"
 fi
 
 echo ""
@@ -125,3 +132,5 @@ echo "  Existing installations: sign in with an account already created for that
 echo "  Explicit demo/test seeds are separate; see docs/DEV-SEED.md."
 echo ""
 echo "======================================"
+
+exit $FAILED
