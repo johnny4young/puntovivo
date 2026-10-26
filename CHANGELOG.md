@@ -52,6 +52,13 @@ is usable from source, but it is not a new packaged release yet.
   a real alert receiver with ownership, and an observed retail pilot remain
   open gates.
 
+## [1.15.5](https://github.com/johnny4young/puntovivo/compare/v1.15.4...v1.15.5) (2026-10-26)
+
+
+### Bug Fixes
+
+* **setup:** make the bilingual source setup reproducible ([#358](https://github.com/johnny4young/puntovivo/issues/358)) ([5180002](https://github.com/johnny4young/puntovivo/commit/51800028287b25dcaad5bf9b347326f7707831d0))
+
 ## [1.15.4](https://github.com/johnny4young/puntovivo/compare/v1.15.3...v1.15.4) (2026-10-25)
 
 
