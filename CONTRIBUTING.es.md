@@ -7,11 +7,11 @@ en el código del proyecto.
 
 ## Preparar el entorno de desarrollo
 
-Requisitos: Node.js `>=24`, pnpm `11.x` (mediante Corepack).
+Requisitos: Node.js `>=24`, pnpm `11.7.0` (mediante Corepack).
 
 ```bash
 corepack enable
-pnpm install
+pnpm install --frozen-lockfile
 pnpm --filter @puntovivo/desktop run native:ensure:electron   # verify the bundled Node-API prebuild loads under Electron
 ```
 

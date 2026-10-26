@@ -167,13 +167,17 @@ process — it is not a spawned child server process.
 ### Prerequisites
 
 - Node.js `>=24.0.0`
-- pnpm `11.x` through Corepack or a matching local install
+- pnpm `11.7.0` through Corepack or a matching local install
 
 ```bash
+git clone https://github.com/johnny4young/puntovivo.git
+cd puntovivo
 corepack enable
-pnpm install
-./scripts/check-setup.sh
+pnpm install --frozen-lockfile
 ```
+
+`package.json#packageManager` pins pnpm 11.7.0. The install is the dependency
+step; the desktop preflight installs Electron's runtime when you first launch it.
 
 pnpm 11 blocks dependency build scripts unless they are allowlisted. The repo
 allowlist lives in [pnpm-workspace.yaml](./pnpm-workspace.yaml) and covers the
@@ -198,6 +202,11 @@ from the login screen. Standalone web ownership can only be claimed from the
 same computer with the private installation code shown by the server. If the
 database is already owned, use its real account. See the
 [login guide](./docs/LOGIN_GUIDE.md).
+
+After starting the desired stack, `./scripts/check-setup.sh` can print local
+diagnostics. It checks running services as well as installed dependencies, so
+reports about stopped servers or an Electron runtime not yet prepared are
+expected before the corresponding launch. It is not a dependency-install gate.
 
 ### Explicit development fixtures
 

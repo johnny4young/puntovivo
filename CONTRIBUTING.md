@@ -7,11 +7,11 @@ working on the codebase.
 
 ## Development setup
 
-Requirements: Node.js `>=24`, pnpm `11.x` (via Corepack).
+Requirements: Node.js `>=24`, pnpm `11.7.0` (via Corepack).
 
 ```bash
 corepack enable
-pnpm install
+pnpm install --frozen-lockfile
 pnpm --filter @puntovivo/desktop run native:ensure:electron   # verify the bundled Node-API prebuild loads under Electron
 ```
 

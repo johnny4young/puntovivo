@@ -167,13 +167,18 @@ proceso principal de Electron; no inicia el servidor como un proceso hijo.
 ### Requisitos
 
 - Node.js `>=24.0.0`
-- pnpm `11.x` mediante Corepack o una instalación local compatible
+- pnpm `11.7.0` mediante Corepack o una instalación local compatible
 
 ```bash
+git clone https://github.com/johnny4young/puntovivo.git
+cd puntovivo
 corepack enable
-pnpm install
-./scripts/check-setup.sh
+pnpm install --frozen-lockfile
 ```
+
+`package.json#packageManager` fija pnpm 11.7.0. Este paso instala las
+dependencias; la verificación previa de escritorio prepara el entorno de
+Electron cuando lo inicias por primera vez.
 
 pnpm 11 bloquea los scripts de compilación de dependencias que no estén
 permitidos. La lista está en [pnpm-workspace.yaml](./pnpm-workspace.yaml) y cubre
@@ -199,6 +204,12 @@ desde la pantalla de acceso. En web independiente, la creación solo se admite
 desde el mismo equipo y requiere el código privado de instalación que muestra
 el servidor. Si la base ya tiene propietario, usa su cuenta real. Consulta
 [la guía de acceso](./docs/es/LOGIN_GUIDE.md).
+
+Después de iniciar el entorno elegido, `./scripts/check-setup.sh` puede mostrar
+diagnósticos locales. Comprueba servicios en ejecución además de dependencias,
+por lo que los avisos sobre servidores detenidos o Electron todavía sin preparar
+son esperables antes del inicio correspondiente. No es una validación de la
+instalación de dependencias.
 
 ### Fixtures de desarrollo explícitos
 
