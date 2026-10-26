@@ -66,9 +66,8 @@ fi
 if [ -f "node_modules/electron/path.txt" ] || [ -f "apps/desktop/node_modules/electron/path.txt" ]; then
     echo "✓ Electron runtime installed (node_modules/electron/path.txt)"
 else
-    echo "✗ Electron runtime binary missing."
-    echo "  Auto-repair:   node scripts/ensure-electron-binary.mjs"
-    echo "  Nuclear:       rm -rf node_modules/electron && pnpm install"
+    echo "ℹ Electron runtime not prepared yet (pnpm run dev:desktop installs it)"
+    echo "  Prepare now:   node scripts/ensure-electron-binary.mjs"
 fi
 
 # better-sqlite3-multiple-ciphers v13 bundles one Node-API binary per target.
@@ -92,8 +91,7 @@ echo "Checking backend server (port 8090)..."
 if curl -s http://localhost:8090/api/health > /dev/null 2>&1; then
     echo "✓ Backend server is running at http://localhost:8090"
 else
-    echo "✗ Backend server is NOT running"
-    echo "  Start it with: pnpm run dev:server"
+    echo "ℹ Backend server not running. Start it with: pnpm run dev:server"
 fi
 
 # Check frontend server
@@ -101,8 +99,7 @@ echo "Checking frontend server (port 3000)..."
 if curl -s http://localhost:3000 > /dev/null 2>&1; then
     echo "✓ Frontend server is running at http://localhost:3000"
 else
-    echo "✗ Frontend server is NOT running"
-    echo "  Start it with: pnpm run dev:web"
+    echo "ℹ Frontend server not running. Start it with: pnpm run dev:web"
 fi
 
 echo ""
