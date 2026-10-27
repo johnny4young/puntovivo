@@ -12,7 +12,7 @@
       "pharmacy": "Seguridad farmacéutica"
     },
     "permissionNote": "Solo administradores y gestores pueden registrar entradas o ajustar stock. Las vistas de inventario siguen disponibles.",
-    "stockNote": "Los totales de esta pantalla abarcan todo el negocio y se mantienen sincronizados con la suma de los saldos de cada sede. Los ajustes, las entradas y las transferencias actualizan ambas vistas al mismo tiempo."
+    "stockNote": "Los totales de stock incluyen todos los productos que coinciden con los filtros actuales en todas las páginas y suman los saldos de cada sede. Los ajustes, las entradas y las transferencias actualizan ambas vistas al mismo tiempo."
   },
   "pharmacy": {
     "loading": "Cargando las operaciones de seguridad farmacéutica..."

@@ -1,5 +1,6 @@
 import { act, fireEvent, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
+import i18n from '@/i18n';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from '@/test/utils';
 import { InventoryPage } from './InventoryPage';
@@ -8,6 +9,7 @@ const {
   authState,
   currentSiteState,
   listMovementsUseQuery,
+  listStockUseQuery,
   pharmacyContextUseQuery,
   criticalMutationUse,
 } = vi.hoisted(() => ({
@@ -21,6 +23,7 @@ const {
     value: { id: 'site-main', name: 'Main Store' } as { id: string; name: string } | null,
   },
   listMovementsUseQuery: vi.fn(),
+  listStockUseQuery: vi.fn(),
   pharmacyContextUseQuery: vi.fn(),
   criticalMutationUse: vi.fn(),
 }));
@@ -78,7 +81,7 @@ vi.mock('@/lib/trpc', () => ({
     sites: { list: { useQuery: () => emptyQuery } },
     inventory: {
       listMovements: { useQuery: listMovementsUseQuery },
-      listStock: { useQuery: () => emptyQuery },
+      listStock: { useQuery: listStockUseQuery },
       listEntries: { useQuery: () => emptyQuery },
       recordEntry: { useMutation: () => mutation },
     },
@@ -103,12 +106,20 @@ vi.mock('@/features/inventory/InventoryHeader', () => ({
     ) : null,
 }));
 vi.mock('@/features/inventory/InventorySummaryCards', () => ({
-  InventorySummaryCards: () => null,
+  InventorySummaryCards: ({ totalUnits }: { totalUnits: number }) => (
+    <output aria-label="Stock total units">{totalUnits}</output>
+  ),
 }));
 vi.mock('@/features/inventory/InventoryDataPanel', () => ({
-  InventoryDataPanel: ({ movementFilters }: { movementFilters: ReactNode }) => (
-    <div>{movementFilters}</div>
-  ),
+  InventoryDataPanel: ({
+    activeView,
+    movementFilters,
+    stockFilters,
+  }: {
+    activeView: string;
+    movementFilters: ReactNode;
+    stockFilters: ReactNode;
+  }) => <div>{activeView === 'stock' ? stockFilters : movementFilters}</div>,
 }));
 vi.mock('@/features/inventory/SerialWarrantyLookup', () => ({
   SerialWarrantyLookup: () => null,
@@ -132,13 +143,16 @@ vi.mock('@/features/inventory/PharmacyOperationsPanel', () => ({
   PharmacyOperationsPanel: () => <div>Pharmacy operations loaded</div>,
 }));
 
-describe('InventoryPage movement site scope', () => {
-  beforeEach(() => {
+describe('InventoryPage', () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage('en');
     authState.value = {
       user: { role: 'admin' },
       tenant: { settings: { businessType: 'retail' } },
     };
     currentSiteState.value = { id: 'site-main', name: 'Main Store' };
+    listStockUseQuery.mockReset();
+    listStockUseQuery.mockReturnValue(emptyQuery);
     listMovementsUseQuery.mockReset();
     listMovementsUseQuery.mockReturnValue(emptyQuery);
     pharmacyContextUseQuery.mockReset();
@@ -147,6 +161,50 @@ describe('InventoryPage movement site scope', () => {
       error: null,
     });
     criticalMutationUse.mockClear();
+  });
+
+  it.each([
+    [
+      'en',
+      "Stock totals include all products matching the current filters across all pages and sum each site's balances.",
+    ],
+    [
+      'es',
+      'Los totales de stock incluyen todos los productos que coinciden con los filtros actuales en todas las páginas y suman los saldos de cada sede.',
+    ],
+  ])('explains the filtered all-pages stock summary in %s', async (language, scopeNote) => {
+    await i18n.changeLanguage(language);
+    listStockUseQuery.mockImplementation(({ lowStockOnly }: { lowStockOnly: boolean }) => ({
+      ...emptyQuery,
+      data: {
+        // A page may contain fewer units than the server's filtered all-pages summary.
+        items: lowStockOnly ? [] : [{ id: 'stock-page-item', stock: 7 }],
+        totalItems: lowStockOnly ? 0 : 2,
+        summary: { totalUnits: lowStockOnly ? 0 : 20, totalValue: 0, lowStockCount: 0 },
+      },
+    }));
+    await act(async () => {
+      render(<InventoryPage />, { initialEntries: ['/inventory?view=stock'] });
+      await Promise.resolve();
+    });
+
+    const totalUnits = screen.getByLabelText('Stock total units');
+    const filter = screen.getByRole('switch');
+    expect(totalUnits).toHaveTextContent(/^20$/);
+    expect(screen.getByText(scopeNote, { exact: false })).toBeVisible();
+
+    fireEvent.click(filter);
+    expect(listStockUseQuery).toHaveBeenLastCalledWith(
+      expect.objectContaining({ lowStockOnly: true })
+    );
+    expect(totalUnits).toHaveTextContent(/^0$/);
+    expect(screen.getByText(scopeNote, { exact: false })).toBeVisible();
+
+    fireEvent.click(filter);
+    expect(listStockUseQuery).toHaveBeenLastCalledWith(
+      expect.objectContaining({ lowStockOnly: false })
+    );
+    expect(totalUnits).toHaveTextContent(/^20$/);
   });
 
   it('keeps pharmacy safety reachable after a tenant with durable records changes preset', async () => {
