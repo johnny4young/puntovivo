@@ -82,7 +82,10 @@ export function SalesQuickAccess({
     return [...byId.values()];
   }, [productsQuery.data, favoriteQueries]);
   const favoritesLoading = favoriteQueries.some(query => query.isLoading);
-  const favoritesError = favoriteQueries.some(query => query.isError);
+  // A favorite that no longer resolves drops out like an inactive one; retrying cannot restore it.
+  const favoritesError = favoriteQueries.some(
+    query => query.isError && query.error?.data?.code !== 'NOT_FOUND'
+  );
   const categories = categoriesQuery.data?.items ?? [];
   const suggestedIds = useMemo(
     () => products.slice(0, Math.min(6, MAX_SALES_FAVORITES)).map(product => product.id),
@@ -120,7 +123,8 @@ export function SalesQuickAccess({
 
     setLoadingProductId(product.id);
     try {
-      const hydrated = await utils.products.getById.fetch({ id: product.id });
+      // The favorite lookups share this cache entry; the cart must use the current product.
+      const hydrated = await utils.products.getById.fetch({ id: product.id }, { staleTime: 0 });
       const selection = selectionFromHydratedProduct(hydrated as unknown as Product);
       if (!selection) {
         toast.error({ title: t('noSaleUnit') });

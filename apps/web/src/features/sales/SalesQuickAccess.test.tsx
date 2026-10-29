@@ -32,7 +32,7 @@ const remoteProduct = {
   name: 'Remote Favorite',
   sku: 'REMOTE-1',
 } as Product;
-let favoriteLookupError = false;
+let favoriteLookupError: false | 'INTERNAL_SERVER_ERROR' | 'NOT_FOUND' = false;
 const favoriteRefetch = vi.fn(async () => undefined);
 function favoriteQuery({ id }: { id: string }) {
   return {
@@ -40,7 +40,8 @@ function favoriteQuery({ id }: { id: string }) {
       ? undefined
       : [...products, remoteProduct].find(product => product.id === id),
     isLoading: false,
-    isError: favoriteLookupError,
+    isError: favoriteLookupError !== false,
+    error: favoriteLookupError ? { data: { code: favoriteLookupError } } : null,
     refetch: favoriteRefetch,
   };
 }
@@ -148,7 +149,7 @@ describe('SalesQuickAccess', () => {
 
   it('keeps failed favorite loading recoverable without changing the saved IDs', async () => {
     writeSalesFavoriteIds(baseProps.scopeKey, [remoteProduct.id]);
-    favoriteLookupError = true;
+    favoriteLookupError = 'INTERNAL_SERVER_ERROR';
     const user = userEvent.setup();
     const view = render(<SalesQuickAccess {...baseProps} />);
     expect(screen.getByRole('alert')).toHaveTextContent(
@@ -163,6 +164,16 @@ describe('SalesQuickAccess', () => {
     expect(
       window.localStorage.getItem('puntovivo:sales-favorites:v1:' + baseProps.scopeKey)
     ).toContain(remoteProduct.id);
+  });
+
+  it('drops a favorite that no longer exists without a retry alert', () => {
+    writeSalesFavoriteIds(baseProps.scopeKey, [remoteProduct.id]);
+    favoriteLookupError = 'NOT_FOUND';
+    render(<SalesQuickAccess {...baseProps} />);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Add Remote Favorite to cart' })
+    ).not.toBeInTheDocument();
   });
 
   it('shows suggested products and filters them by category', async () => {
@@ -187,7 +198,7 @@ describe('SalesQuickAccess', () => {
 
     await user.click(screen.getByRole('button', { name: 'Add House Coffee to cart' }));
 
-    expect(getById).toHaveBeenCalledWith({ id: 'p-coffee' });
+    expect(getById).toHaveBeenCalledWith({ id: 'p-coffee' }, { staleTime: 0 });
     expect(onSelectProduct).toHaveBeenCalledWith(
       expect.objectContaining({
         product: expect.objectContaining({ id: 'p-coffee' }),
