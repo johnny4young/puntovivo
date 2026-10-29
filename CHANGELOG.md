@@ -52,6 +52,15 @@ is usable from source, but it is not a new packaged release yet.
   a real alert receiver with ownership, and an observed retail pilot remain
   open gates.
 
+## [1.15.6](https://github.com/johnny4young/puntovivo/compare/v1.15.5...v1.15.6) (2026-10-29)
+
+
+### Bug Fixes
+
+* **inventory:** align stock search with filtered totals ([#361](https://github.com/johnny4young/puntovivo/issues/361)) ([7e777c6](https://github.com/johnny4young/puntovivo/commit/7e777c616ece17e2572fdc5487b68775dc6f8550))
+* **quotations:** search the full catalog and retain selected lines ([#364](https://github.com/johnny4young/puntovivo/issues/364)) ([2540bf2](https://github.com/johnny4young/puntovivo/commit/2540bf2e774a86a4d8f44d6e8d88a99bdf4707d4))
+* **sales:** resolve saved favorites outside the first catalog page ([#363](https://github.com/johnny4young/puntovivo/issues/363)) ([88384e8](https://github.com/johnny4young/puntovivo/commit/88384e8884d89ca4cf593529c81ecf903f10f833))
+
 ## [1.15.5](https://github.com/johnny4young/puntovivo/compare/v1.15.4...v1.15.5) (2026-10-26)
 
 
