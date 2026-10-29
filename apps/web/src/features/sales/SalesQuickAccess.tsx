@@ -60,15 +60,31 @@ export function SalesQuickAccess({
     staleTime: 60_000,
   });
 
-  const products = useMemo<Product[]>(
-    () =>
-      (productsQuery.data?.items ?? []).map(item => ({
+  const favoriteQueries = trpc.useQueries(t =>
+    (shouldLoadCatalog ? [...new Set(configuredIds ?? [])].slice(0, MAX_SALES_FAVORITES) : []).map(
+      id => t.products.getById({ id }, { staleTime: 60_000, retry: false })
+    )
+  );
+  const products = useMemo<Product[]>(() => {
+    const byId = new Map<string, Product>();
+    for (const item of [
+      ...(productsQuery.data?.items ?? []),
+      ...favoriteQueries.flatMap(query => (query.data ? [query.data] : [])),
+    ]) {
+      if (!item.isActive || item.catalogType === 'variant_parent') continue;
+      byId.set(item.id, {
         ...item,
         isActive: item.isActive ?? false,
         syncStatus: item.syncStatus ?? undefined,
         syncVersion: item.syncVersion ?? undefined,
-      })) as Product[],
-    [productsQuery.data]
+      } as Product);
+    }
+    return [...byId.values()];
+  }, [productsQuery.data, favoriteQueries]);
+  const favoritesLoading = favoriteQueries.some(query => query.isLoading);
+  // A favorite that no longer resolves drops out like an inactive one; retrying cannot restore it.
+  const favoritesError = favoriteQueries.some(
+    query => query.isError && query.error?.data?.code !== 'NOT_FOUND'
   );
   const categories = categoriesQuery.data?.items ?? [];
   const suggestedIds = useMemo(
@@ -80,7 +96,9 @@ export function SalesQuickAccess({
     ? products.filter(product => product.categoryId === activeCategoryId)
     : products;
   const visibleProducts = isEditing
-    ? filteredProducts.slice(0, 24)
+    ? [...filteredProducts]
+        .sort((a, b) => Number(selectedIds.includes(b.id)) - Number(selectedIds.includes(a.id)))
+        .slice(0, 24)
     : filteredProducts
         .filter(product => selectedIds.includes(product.id))
         .sort((a, b) => selectedIds.indexOf(a.id) - selectedIds.indexOf(b.id))
@@ -105,7 +123,8 @@ export function SalesQuickAccess({
 
     setLoadingProductId(product.id);
     try {
-      const hydrated = await utils.products.getById.fetch({ id: product.id });
+      // The favorite lookups share this cache entry; the cart must use the current product.
+      const hydrated = await utils.products.getById.fetch({ id: product.id }, { staleTime: 0 });
       const selection = selectionFromHydratedProduct(hydrated as unknown as Product);
       if (!selection) {
         toast.error({ title: t('noSaleUnit') });
@@ -224,7 +243,23 @@ export function SalesQuickAccess({
         </div>
       )}
 
-      {productsQuery.isLoading ? (
+      {favoritesError && (
+        <div className="mt-3 rounded-lg border border-line p-3 text-sm" role="alert">
+          <p>{t('favoritesLoadError')}</p>
+          <button
+            type="button"
+            className="btn-outline mt-2"
+            onClick={() => {
+              for (const query of favoriteQueries) {
+                if (query.isError) void query.refetch();
+              }
+            }}
+          >
+            {t('retryFavorites')}
+          </button>
+        </div>
+      )}
+      {productsQuery.isLoading || favoritesLoading ? (
         <div className="mt-3 grid min-h-24 place-items-center text-sm text-fg2" role="status">
           <LoaderCircle className="h-5 w-5 animate-spin" aria-hidden="true" />
           <span className="sr-only">{t('loading')}</span>

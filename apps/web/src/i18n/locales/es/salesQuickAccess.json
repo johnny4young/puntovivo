@@ -19,5 +19,7 @@
   "removeFavorite": "Quitar {{name}} de favoritos",
   "added": "{{name}} se agregó al carrito",
   "addFailed": "No pudimos agregar el producto. Intenta nuevamente.",
-  "noSaleUnit": "Este producto no tiene una unidad lista para vender."
+  "noSaleUnit": "Este producto no tiene una unidad lista para vender.",
+  "favoritesLoadError": "No se pudieron cargar algunos favoritos. Reintenta o busca en el catálogo.",
+  "retryFavorites": "Reintentar favoritos"
 }
