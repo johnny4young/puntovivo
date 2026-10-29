@@ -58,6 +58,7 @@ async function fillQuotationLine(
   dialog: ReturnType<Page['locator']>,
   args: {
     productId: string;
+    searchTerm: string;
     quantity: number;
   }
 ) {
@@ -65,6 +66,7 @@ async function fillQuotationLine(
   // (`useState([emptyLine()])` in QuotationCreateModal). Tests fill that
   // first row directly — clicking "Add product" would duplicate the row
   // and trip strict-mode multiplicity on `getByLabel('Product')`.
+  await dialog.getByRole('searchbox', { name: 'Search catalog' }).fill(args.searchTerm);
   await dialog.getByLabel('Product').first().selectOption(args.productId);
   await dialog.getByLabel('Qty').first().fill(String(args.quantity));
 }
@@ -109,7 +111,11 @@ test.describe('web quotations', () => {
     });
 
     const createDialog = await openNewQuotationModal(page);
-    await fillQuotationLine(createDialog, { productId: scenario.product.id, quantity: 2 });
+    await fillQuotationLine(createDialog, {
+      productId: scenario.product.id,
+      searchTerm: scenario.product.sku,
+      quantity: 2,
+    });
     await createDialog.getByRole('button', { name: 'Save quotation' }).click();
     await expect(createDialog).toBeHidden({ timeout: 15_000 });
     await expectSuccessToast(page, 'Quotation saved');

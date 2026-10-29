@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react';
+import { keepPreviousData } from '@tanstack/react-query';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useTranslation } from 'react-i18next';
 import { Modal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
@@ -40,13 +42,19 @@ export function QuotationCreateModal({ isOpen, onClose, onCreated }: QuotationCr
   const [priceTier, setPriceTier] = useState<PriceTier>(1);
   const [validUntil, setValidUntil] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
+  const [catalogSearch, setCatalogSearch] = useState('');
+  const search = useDebouncedValue(catalogSearch.trim(), 250);
+  const [selectedProducts, setSelectedProducts] = useState<ProductOption[]>([]);
   const [lines, setLines] = useState<DraftLine[]>(() => [createEmptyQuotationLine()]);
 
   const customersQuery = trpc.customers.list.useQuery(
     { page: 1, perPage: 100, isActive: true },
     { enabled: isOpen }
   );
-  const productsQuery = trpc.products.list.useQuery({ page: 1, perPage: 200 }, { enabled: isOpen });
+  const productsQuery = trpc.products.list.useQuery(
+    { page: 1, perPage: 200, search: search || undefined },
+    { enabled: isOpen, placeholderData: keepPreviousData }
+  );
 
   const createMutation = trpc.quotations.create.useMutation({
     onSuccess: async result => {
@@ -61,7 +69,7 @@ export function QuotationCreateModal({ isOpen, onClose, onCreated }: QuotationCr
     onError: onErrorToast(toast, t, { titleKey: 'quotations:toast.createError' }),
   });
 
-  const productOptions: ProductOption[] = useMemo(
+  const currentProducts: ProductOption[] = useMemo(
     () =>
       (productsQuery.data?.items ?? [])
         .filter(product => product.isActive !== false)
@@ -75,6 +83,17 @@ export function QuotationCreateModal({ isOpen, onClose, onCreated }: QuotationCr
           price3: product.price3,
         })),
     [productsQuery.data]
+  );
+  const productOptions = useMemo(
+    () => [
+      ...new Map(
+        [
+          ...selectedProducts.filter(product => lines.some(line => line.productId === product.id)),
+          ...currentProducts,
+        ].map(product => [product.id, product])
+      ).values(),
+    ],
+    [selectedProducts, currentProducts, lines]
   );
   const productById = useMemo(
     () => new Map(productOptions.map(product => [product.id, product])),
@@ -104,6 +123,13 @@ export function QuotationCreateModal({ isOpen, onClose, onCreated }: QuotationCr
   const canSubmit = !createMutation.isPending && !hasFieldError && hasAnyValidLine;
 
   function updateLine(rowId: string, patch: Partial<DraftLine>) {
+    const selected = patch.productId ? productById.get(patch.productId) : undefined;
+    if (selected) {
+      setSelectedProducts(previous => [
+        ...previous.filter(item => item.id !== selected.id),
+        selected,
+      ]);
+    }
     setLines(previous =>
       previous.map(line => (line.rowId === rowId ? { ...line, ...patch } : line))
     );
@@ -131,6 +157,8 @@ export function QuotationCreateModal({ isOpen, onClose, onCreated }: QuotationCr
     setPriceTier(1);
     setValidUntil('');
     setNotes('');
+    setCatalogSearch('');
+    setSelectedProducts([]);
     setLines([createEmptyQuotationLine()]);
     createMutation.reset();
     onClose();
@@ -267,6 +295,41 @@ export function QuotationCreateModal({ isOpen, onClose, onCreated }: QuotationCr
           <p className="mt-2 text-xs text-secondary-500">{t('create.priceTierHelp')}</p>
         </fieldset>
 
+        <div>
+          <label className="label" htmlFor="quotation-catalog-search">
+            {t('create.catalogSearch')}
+          </label>
+          <input
+            id="quotation-catalog-search"
+            type="search"
+            className="input mt-1"
+            value={catalogSearch}
+            onChange={event => setCatalogSearch(event.target.value)}
+            placeholder={t('create.catalogSearchPlaceholder')}
+            aria-describedby="quotation-catalog-status"
+          />
+          <div id="quotation-catalog-status" className="mt-1 text-sm text-fg2" role="status">
+            {productsQuery.isFetching || search !== catalogSearch.trim()
+              ? t('create.catalogLoading')
+              : !productsQuery.isError && currentProducts.length === 0
+                ? t('create.catalogEmpty')
+                : null}
+          </div>
+          {productsQuery.isError && (
+            <div className="mt-2 text-sm" role="alert">
+              <p>{t('create.catalogError')}</p>
+              <button
+                type="button"
+                className="btn-outline mt-2"
+                onClick={() => {
+                  void productsQuery.refetch();
+                }}
+              >
+                {t('create.catalogRetry')}
+              </button>
+            </div>
+          )}
+        </div>
         <QuotationLinesEditor
           lines={lines}
           resolvedLines={resolvedLines}

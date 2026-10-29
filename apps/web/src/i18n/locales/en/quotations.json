@@ -136,7 +136,13 @@
       "lineQuantity": "Each line quantity must be greater than zero.",
       "lineUnitPrice": "Each line unit price cannot be negative.",
       "lineDiscount": "Discount must be between 0 and 100."
-    }
+    },
+    "catalogSearch": "Search catalog",
+    "catalogSearchPlaceholder": "Name or SKU",
+    "catalogLoading": "Searching catalog…",
+    "catalogEmpty": "No matching products. Try another name or SKU.",
+    "catalogError": "The catalog could not be loaded. Retry your search.",
+    "catalogRetry": "Retry catalog"
   },
   "toast": {
     "createSuccess": "Quotation saved",

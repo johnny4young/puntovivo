@@ -136,7 +136,13 @@
       "lineQuantity": "La cantidad de cada línea debe ser mayor que cero.",
       "lineUnitPrice": "El precio unitario de cada línea no puede ser negativo.",
       "lineDiscount": "El descuento debe estar entre 0 y 100."
-    }
+    },
+    "catalogSearch": "Buscar en catálogo",
+    "catalogSearchPlaceholder": "Nombre o SKU",
+    "catalogLoading": "Buscando en el catálogo…",
+    "catalogEmpty": "Sin productos coincidentes. Prueba otro nombre o SKU.",
+    "catalogError": "No se pudo cargar el catálogo. Reintenta la búsqueda.",
+    "catalogRetry": "Reintentar catálogo"
   },
   "toast": {
     "createSuccess": "Cotización guardada",
