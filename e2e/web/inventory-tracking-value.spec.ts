@@ -211,7 +211,7 @@ test.describe('inventory tracking value recovery', () => {
             }),
           }),
         ]);
-        const alert = dialog.getByRole('alert');
+        const alert = dialog.locator('form').getByRole('alert');
         await expect(alert).toHaveText(
           es
             ? 'Antes de cambiar el seguimiento, concilia las existencias, reservas y el valor de inventario de este producto en todas las sedes. Incluso una cantidad pequeña puede conservar valor.'

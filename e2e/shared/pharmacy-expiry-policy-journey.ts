@@ -57,11 +57,11 @@ export async function runPharmacyExpiryPolicyJourney(
     act: () => dialog.locator('#sale-payment-confirm').click(),
   });
   await expect(dialog).toBeVisible();
-  await expect(
-    dialog.getByText('Lot stock or provenance is inconsistent. Reconcile it before continuing.', {
-      exact: true,
-    })
-  ).toBeVisible();
+  const stockError = dialog.locator('#sale-payment-form').getByRole('alert');
+  await expect(stockError).toBeVisible();
+  await expect(stockError).toHaveText(
+    'Lot stock or provenance is inconsistent. Reconcile it before continuing.'
+  );
   await target.screenshot('pharmacy-expired-lot-sale-rejected');
   await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(dialog).toBeHidden();

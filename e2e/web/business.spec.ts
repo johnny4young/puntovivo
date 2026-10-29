@@ -1397,7 +1397,7 @@ test.describe('web business flows', () => {
     let editDialog = page.getByRole('dialog', { name: 'Edit Product' });
     await editDialog.getByRole('checkbox', { name: 'Track serial numbers' }).check();
     await editDialog.getByRole('button', { name: 'Save Changes' }).click();
-    await expect(editDialog.getByRole('alert')).toContainText(
+    await expect(editDialog.locator('form').getByRole('alert')).toContainText(
       'Inventory tracking cannot change while this product has stock in transit. Receive or void the transfer first.'
     );
     expect(getProductInventoryModes(scenario.product.id)).toEqual({
@@ -1423,7 +1423,7 @@ test.describe('web business flows', () => {
     editDialog = page.getByRole('dialog', { name: 'Editar producto' });
     await editDialog.getByRole('checkbox', { name: 'Ítem de servicio (sin inventario)' }).check();
     await editDialog.getByRole('button', { name: 'Guardar cambios' }).click();
-    const spanishConflictAlert = editDialog.getByRole('alert');
+    const spanishConflictAlert = editDialog.locator('form').getByRole('alert');
     await expect(spanishConflictAlert).toContainText(
       'No puedes cambiar el control de inventario mientras este producto tenga stock en tránsito. Recibe o anula el traslado primero.'
     );

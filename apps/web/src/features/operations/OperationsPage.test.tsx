@@ -13,7 +13,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useLocation } from 'react-router';
-import { act, render, screen, fireEvent } from '@/test/utils';
+import { act, render, screen, fireEvent, waitFor } from '@/test/utils';
 import { OperationsPage } from './OperationsPage';
 
 let mockRole: 'admin' | 'manager' = 'admin';
@@ -398,7 +398,7 @@ describe('OperationsPage', () => {
     await renderOperationsPage(['/operations?tab=authority&focus=registered-devices']);
 
     const target = await screen.findByTestId('authority-registered-devices-target');
-    expect(target).toHaveFocus();
+    await waitFor(() => expect(target).toHaveFocus());
     expect(target).toHaveAccessibleName('Registered devices');
 
     fireEvent.click(screen.getByTestId('operations-tab-fiscal'));
