@@ -11,7 +11,7 @@ import {
 } from './support/app';
 
 for (const language of ['en', 'es'] as const) {
-  test(`filtered total spans table pages and both sites without changing stock (${language})`, async ({
+  test(`filtered total spans API and table pages and both sites without changing stock (${language})`, async ({
     page,
   }, info) => {
     const scenario = seedSaleScenario(`filtered-${language}-${Date.now()}`);
@@ -35,7 +35,7 @@ for (const language of ['en', 'es'] as const) {
         db.prepare(
           'UPDATE inventory_balances SET on_hand=10 WHERE product_id=? AND tenant_id=?'
         ).run(scenario.product.id, scenario.tenantId);
-        for (let index = 0; index < 50; index++) {
+        for (let index = 0; index < 150; index++) {
           const id = randomUUID(),
             now = new Date().toISOString();
           db.prepare(
@@ -62,7 +62,7 @@ for (const language of ['en', 'es'] as const) {
         db
           .prepare('SELECT COUNT(*) AS n FROM products WHERE tenant_id=? AND name LIKE ?')
           .get(scenario.tenantId, `${prefix}%`)
-      ).toEqual({ n: 51 });
+      ).toEqual({ n: 151 });
       const before = snapshot();
       const issues = attachClientIssueTracker(page);
       await login(page, {
@@ -78,7 +78,23 @@ for (const language of ['en', 'es'] as const) {
         name: language === 'en' ? 'Search stock by product...' : 'Buscar stock por producto...',
         exact: true,
       });
+      const stockResponse = page.waitForResponse(
+        response =>
+          response.url().includes('inventory.listStock') &&
+          decodeURIComponent(response.url()).includes(prefix) &&
+          response.ok()
+      );
       await search.fill(prefix);
+      const response = await stockResponse;
+      const payload = await response.json();
+      const procedures = new URL(response.url()).pathname.split('/').at(-1)!.split(',');
+      const result = (Array.isArray(payload) ? payload : [payload])[
+        procedures.indexOf('inventory.listStock')
+      ].result.data;
+      const stockPage = result.json ?? result;
+      expect(stockPage.items).toHaveLength(100);
+      expect(stockPage.totalItems).toBe(151);
+      expect(stockPage.totalPages).toBe(2);
       const note =
         language === 'en'
           ? "Stock totals include all products matching the current filters across all pages and sum each site's balances."
@@ -126,7 +142,7 @@ for (const language of ['en', 'es'] as const) {
       });
       await info.attach('stock-oracle', {
         body: JSON.stringify({
-          matchingProducts: 51,
+          matchingProducts: 151,
           namePrefix: prefix,
           sites: scenario.sites.length,
           total: 20,
