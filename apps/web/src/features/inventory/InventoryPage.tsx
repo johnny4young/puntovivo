@@ -1,4 +1,5 @@
 import { lazy, Suspense, useState } from 'react';
+import { keepPreviousData } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { type TFunction } from 'i18next';
 import { useSearchParams } from 'react-router';
@@ -30,6 +31,7 @@ import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { cn } from '@/lib/utils';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import type {
   Category,
   InitialInventoryEntry,
@@ -186,6 +188,9 @@ export function InventoryPage() {
   const [showAllMovementSites, setShowAllMovementSites] = useState(false);
   const [stockCategoryId, setStockCategoryId] = useState('');
   const [lowStockOnly, setLowStockOnly] = useState(false);
+  const [stockSearch, setStockSearch] = useState('');
+  const stockSearchTerm = useDebouncedValue(stockSearch.trim(), 250);
+  const stockSearchPending = stockSearch.trim() !== stockSearchTerm;
   const [searchMode, setSearchMode] = useState<SearchMode | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false);
@@ -218,12 +223,17 @@ export function InventoryPage() {
       enabled: true,
     }
   );
-  const stockQuery = trpc.inventory.listStock.useQuery({
-    page: 1,
-    perPage: 100,
-    categoryId: stockCategoryId || undefined,
-    lowStockOnly,
-  });
+  const stockQuery = trpc.inventory.listStock.useQuery(
+    {
+      page: 1,
+      perPage: 100,
+      search: stockSearchTerm || undefined,
+      categoryId: stockCategoryId || undefined,
+      lowStockOnly,
+    },
+    { placeholderData: keepPreviousData }
+  );
+  const stockRefreshing = stockQuery.isPlaceholderData || stockSearchPending;
   const entriesQuery = trpc.inventory.listEntries.useQuery({
     page: 1,
     perPage: 50,
@@ -466,7 +476,7 @@ export function InventoryPage() {
       />
 
       <InventorySummaryCards
-        isLoading={stockQuery.isLoading}
+        isLoading={stockQuery.isLoading || stockRefreshing}
         totalUnits={stockSummary?.totalUnits ?? 0}
         totalValue={stockSummary?.totalValue ?? 0}
         lowStockCount={stockSummary?.lowStockCount ?? 0}
@@ -560,6 +570,9 @@ export function InventoryPage() {
             }}
             movements={movements}
             stockItems={stockItems}
+            stockSearch={stockSearch}
+            onStockSearchChange={setStockSearch}
+            stockBusy={stockRefreshing}
             entries={entries}
             canManage={canManage}
             onAdjust={product => openAdjustmentModal(mapStockItemToAdjustmentProduct(product))}

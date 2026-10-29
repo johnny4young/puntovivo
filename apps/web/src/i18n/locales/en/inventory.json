@@ -12,7 +12,7 @@
       "pharmacy": "Pharmacy safety"
     },
     "permissionNote": "Only administrators and managers can record entries or adjust stock. Inventory views remain available.",
-    "stockNote": "The totals on this screen cover the whole business and stay synchronized with the sum of each site's balances. Adjustments, entries, and transfers update both views together."
+    "stockNote": "Stock totals include all products matching the current filters across all pages and sum each site's balances. Adjustments, entries, and transfers update both views together."
   },
   "pharmacy": {
     "loading": "Loading pharmacy safety operations..."
