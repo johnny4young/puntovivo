@@ -41,24 +41,27 @@ vi.mock('@/lib/trpc', () => ({
     },
     products: {
       list: {
-        useQuery: (input: { search?: string }) => ({
+        useQuery: (input: { search?: string; isActive?: boolean }) => ({
           isError: catalogError,
           refetch: retryCatalog,
           data: {
-            items: input.search?.includes('REMOTE')
-              ? [remoteProduct]
-              : [
-                  {
-                    id: 'product-1',
-                    name: 'Coffee',
-                    sku: 'COFFEE-1',
-                    price: 119,
-                    price2: 100,
-                    price3: 90,
-                    taxRate: 19,
-                    isActive: true,
-                  },
-                ],
+            // The server filters inactive rows before paging; without it they take page slots.
+            items: !input.isActive
+              ? []
+              : input.search?.includes('REMOTE')
+                ? [remoteProduct]
+                : [
+                    {
+                      id: 'product-1',
+                      name: 'Coffee',
+                      sku: 'COFFEE-1',
+                      price: 119,
+                      price2: 100,
+                      price3: 90,
+                      taxRate: 19,
+                      isActive: true,
+                    },
+                  ],
           },
           isLoading: false,
         }),

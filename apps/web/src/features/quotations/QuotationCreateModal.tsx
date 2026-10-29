@@ -52,7 +52,7 @@ export function QuotationCreateModal({ isOpen, onClose, onCreated }: QuotationCr
     { enabled: isOpen }
   );
   const productsQuery = trpc.products.list.useQuery(
-    { page: 1, perPage: 200, search: search || undefined },
+    { page: 1, perPage: 200, isActive: true, search: search || undefined },
     { enabled: isOpen, placeholderData: keepPreviousData }
   );
 
