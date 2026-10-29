@@ -142,7 +142,7 @@ describe('QuotationCreateModal price tiers', () => {
     await user.type(search, 'REMOTE-201');
     await screen.findAllByRole('option', { name: /Remote Tea/ });
     expect(search).toHaveFocus();
-    await user.selectOptions(screen.getAllByLabelText('Product')[1], 'remote');
+    await user.selectOptions(screen.getAllByLabelText('Product')[1]!, 'remote');
     await user.clear(search);
     await user.type(search, 'Coffee');
     await waitFor(() => expect(screen.getAllByLabelText('Unit price')[1]).toHaveValue(50));
