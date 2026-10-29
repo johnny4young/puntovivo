@@ -1,4 +1,4 @@
-import { act, fireEvent, screen } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import i18n from '@/i18n';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -115,11 +115,30 @@ vi.mock('@/features/inventory/InventoryDataPanel', () => ({
     activeView,
     movementFilters,
     stockFilters,
+    stockSearch,
+    onStockSearchChange,
   }: {
     activeView: string;
     movementFilters: ReactNode;
     stockFilters: ReactNode;
-  }) => <div>{activeView === 'stock' ? stockFilters : movementFilters}</div>,
+    stockSearch?: string;
+    onStockSearchChange?: (value: string) => void;
+  }) => (
+    <div>
+      {activeView === 'stock' ? (
+        <>
+          {stockFilters}
+          <input
+            aria-label="Stock search"
+            value={stockSearch ?? ''}
+            onChange={event => onStockSearchChange?.(event.target.value)}
+          />
+        </>
+      ) : (
+        movementFilters
+      )}
+    </div>
+  ),
 }));
 vi.mock('@/features/inventory/SerialWarrantyLookup', () => ({
   SerialWarrantyLookup: () => null,
@@ -195,17 +214,65 @@ describe('InventoryPage', () => {
 
     fireEvent.click(filter);
     expect(listStockUseQuery).toHaveBeenLastCalledWith(
-      expect.objectContaining({ lowStockOnly: true })
+      expect.objectContaining({ lowStockOnly: true }),
+      expect.anything()
     );
     expect(totalUnits).toHaveTextContent(/^0$/);
     expect(screen.getByText(scopeNote, { exact: false })).toBeVisible();
 
     fireEvent.click(filter);
     expect(listStockUseQuery).toHaveBeenLastCalledWith(
-      expect.objectContaining({ lowStockOnly: false })
+      expect.objectContaining({ lowStockOnly: false }),
+      expect.anything()
     );
     expect(totalUnits).toHaveTextContent(/^20$/);
   });
+
+  it.each(['en', 'es'])(
+    'keeps search and all-pages summary in the same query in %s',
+    async language => {
+      await i18n.changeLanguage(language);
+      listStockUseQuery.mockImplementation(
+        ({ search, lowStockOnly }: { search?: string; lowStockOnly: boolean }) => ({
+          ...emptyQuery,
+          data: {
+            items: [],
+            summary: {
+              totalUnits: lowStockOnly ? 0 : search === 'Needle' ? 20 : 80,
+              totalValue: 0,
+              lowStockCount: 0,
+            },
+          },
+        })
+      );
+      await act(async () => {
+        render(<InventoryPage />, { initialEntries: ['/inventory?view=stock'] });
+        await Promise.resolve();
+      });
+      const total = screen.getByLabelText('Stock total units');
+      expect(total).toHaveTextContent(/^80$/);
+      const search = screen.getByRole('textbox', { name: 'Stock search' });
+      fireEvent.change(search, { target: { value: ' Needle ' } });
+      expect(search).toHaveValue(' Needle ');
+      await waitFor(() =>
+        expect(listStockUseQuery.mock.lastCall?.[0]).toEqual(
+          expect.objectContaining({ search: 'Needle' })
+        )
+      );
+      expect(total).toHaveTextContent(/^20$/);
+      fireEvent.click(screen.getByRole('switch'));
+      expect(total).toHaveTextContent(/^0$/);
+      fireEvent.click(screen.getByRole('switch'));
+      expect(total).toHaveTextContent(/^20$/);
+      fireEvent.change(search, { target: { value: '   ' } });
+      await waitFor(() =>
+        expect(listStockUseQuery.mock.lastCall?.[0]).toEqual(
+          expect.objectContaining({ search: undefined })
+        )
+      );
+      expect(total).toHaveTextContent(/^80$/);
+    }
+  );
 
   it('keeps pharmacy safety reachable after a tenant with durable records changes preset', async () => {
     pharmacyContextUseQuery.mockReturnValue({

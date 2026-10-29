@@ -32,6 +32,9 @@ interface InventoryDataPanelProps {
   onRetryEntries: () => void;
   movements: InventoryMovement[];
   stockItems: InventoryStockItem[];
+  stockSearch: string;
+  onStockSearchChange: (value: string) => void;
+  stockBusy: boolean;
   entries: InitialInventoryEntry[];
   canManage: boolean;
   onAdjust: (product: InventoryStockItem) => void;
@@ -55,6 +58,9 @@ export function InventoryDataPanel({
   onRetryEntries,
   movements,
   stockItems,
+  stockSearch,
+  onStockSearchChange,
+  stockBusy,
   entries,
   canManage,
   onAdjust,
@@ -123,7 +129,9 @@ export function InventoryDataPanel({
                 variant="dense"
                 columns={getStockColumns(onViewStockDetails, onAdjust, canManage)}
                 data={stockItems}
-                searchKey="name"
+                searchValue={stockSearch}
+                onSearchChange={onStockSearchChange}
+                busy={stockBusy}
                 searchPlaceholder={t('stock.search')}
                 pageSize={10}
               />
