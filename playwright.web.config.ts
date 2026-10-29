@@ -59,12 +59,11 @@ const webServerEnv = Object.fromEntries(
 export default defineConfig({
   testDir: './e2e/web',
   fullyParallel: true,
-  // The suite shares one SQLite-backed server and exercises Argon2-backed
-  // staff-PIN decisions. Playwright's host-derived default (7 workers on the
-  // current 14-core dev machine) can starve auth refresh and queue
-  // invalidation long enough to create false retries. Four workers preserves
-  // parallel coverage without oversubscribing that shared operational state.
-  workers: 4,
+  // These workers share a SQLite-backed server and Argon2 staff-PIN work.
+  // Four simultaneous browsers can stall settings/route recovery and browser
+  // context teardown on the desktop runner. Bound the runner's resource use
+  // while keeping all cases, assertions, timeouts and zero retries unchanged.
+  workers: 2,
   globalSetup: './e2e/web/global-setup.ts',
   outputDir: 'test-results/playwright-web',
   reporter: [['list'], ['html', { open: 'never', outputFolder: 'playwright-report/web' }]],
