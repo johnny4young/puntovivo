@@ -103,6 +103,7 @@ test('CO product freezes IVA + INC through quotation, sale and receipt', async (
     .locator('[role="dialog"]')
     .filter({ has: page.getByRole('heading', { name: 'New quotation' }) })
     .last();
+  await quotationDialog.getByRole('searchbox', { name: 'Search catalog' }).fill(productSku);
   await quotationDialog.getByLabel('Product').first().selectOption(persistedProduct!.id);
   await quotationDialog.getByLabel('Qty').first().fill('1');
   await quotationDialog.getByRole('button', { name: 'Save quotation' }).click();
