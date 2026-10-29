@@ -19,5 +19,7 @@
   "removeFavorite": "Remove {{name}} from favorites",
   "added": "{{name}} was added to the cart",
   "addFailed": "The product could not be added. Try again.",
-  "noSaleUnit": "This product does not have a sellable unit."
+  "noSaleUnit": "This product does not have a sellable unit.",
+  "favoritesLoadError": "Some favorite products could not be loaded. Retry or use catalog search.",
+  "retryFavorites": "Retry favorites"
 }

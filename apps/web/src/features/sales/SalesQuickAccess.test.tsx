@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { render, screen } from '@/test/utils';
 import { SalesQuickAccess } from './SalesQuickAccess';
 import type { Product } from '@/types';
+import { writeSalesFavoriteIds } from './salesFavorites';
 
 const products = [
   {
@@ -25,10 +26,29 @@ const products = [
   },
 ] as Product[];
 
+const remoteProduct = {
+  ...products[0],
+  id: 'p-remote',
+  name: 'Remote Favorite',
+  sku: 'REMOTE-1',
+} as Product;
+let favoriteLookupError = false;
+const favoriteRefetch = vi.fn(async () => undefined);
+function favoriteQuery({ id }: { id: string }) {
+  return {
+    data: favoriteLookupError
+      ? undefined
+      : [...products, remoteProduct].find(product => product.id === id),
+    isLoading: false,
+    isError: favoriteLookupError,
+    refetch: favoriteRefetch,
+  };
+}
+
 const toastSuccess = vi.fn();
 const toastError = vi.fn();
 const getById = vi.fn(async ({ id }: { id: string }): Promise<Product> => {
-  const product = products.find(candidate => candidate.id === id);
+  const product = [...products, remoteProduct].find(candidate => candidate.id === id);
   if (!product) throw new Error('missing');
   return {
     ...product,
@@ -48,6 +68,11 @@ const getById = vi.fn(async ({ id }: { id: string }): Promise<Product> => {
 
 vi.mock('@/lib/trpc', () => ({
   trpc: {
+    useQueries: (
+      select: (api: {
+        products: { getById: typeof favoriteQuery };
+      }) => ReturnType<typeof favoriteQuery>[]
+    ) => select({ products: { getById: favoriteQuery } }),
     products: {
       list: {
         useQuery: (_input: unknown, options: { enabled?: boolean }) => ({
@@ -101,9 +126,43 @@ const baseProps = {
 describe('SalesQuickAccess', () => {
   beforeEach(() => {
     window.localStorage.clear();
+    favoriteLookupError = false;
+    favoriteRefetch.mockClear();
     toastSuccess.mockClear();
     toastError.mockClear();
     getById.mockClear();
+  });
+
+  it('loads a configured favorite outside the first catalog page and adds it once', async () => {
+    writeSalesFavoriteIds(baseProps.scopeKey, [remoteProduct.id]);
+    const user = userEvent.setup();
+    const onSelectProduct = vi.fn();
+    render(<SalesQuickAccess {...baseProps} onSelectProduct={onSelectProduct} />);
+    await user.click(screen.getByRole('button', { name: 'Add Remote Favorite to cart' }));
+    expect(getById).toHaveBeenCalledTimes(1);
+    expect(onSelectProduct).toHaveBeenCalledTimes(1);
+    expect(onSelectProduct).toHaveBeenCalledWith(
+      expect.objectContaining({ product: expect.objectContaining({ id: remoteProduct.id }) })
+    );
+  });
+
+  it('keeps failed favorite loading recoverable without changing the saved IDs', async () => {
+    writeSalesFavoriteIds(baseProps.scopeKey, [remoteProduct.id]);
+    favoriteLookupError = true;
+    const user = userEvent.setup();
+    const view = render(<SalesQuickAccess {...baseProps} />);
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Some favorite products could not be loaded. Retry or use catalog search.'
+    );
+    await user.click(screen.getByRole('button', { name: 'Retry favorites' }));
+    expect(favoriteRefetch).toHaveBeenCalledTimes(1);
+    favoriteLookupError = false;
+    view.rerender(<SalesQuickAccess {...baseProps} />);
+    expect(screen.getByRole('button', { name: 'Add Remote Favorite to cart' })).toBeEnabled();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(
+      window.localStorage.getItem('puntovivo:sales-favorites:v1:' + baseProps.scopeKey)
+    ).toContain(remoteProduct.id);
   });
 
   it('shows suggested products and filters them by category', async () => {
@@ -217,5 +276,16 @@ describe('SalesQuickAccess', () => {
 
     await user.click(screen.getByTestId('sales-open-last-receipt'));
     expect(onOpenLastReceipt).toHaveBeenCalledOnce();
+  });
+  it('keeps a saved favorite outside the first page editable', async () => {
+    const user = userEvent.setup();
+    writeSalesFavoriteIds(baseProps.scopeKey, [remoteProduct.id]);
+    render(<SalesQuickAccess {...baseProps} />);
+    await user.click(screen.getByRole('button', { name: 'Configure' }));
+    await user.click(screen.getByRole('button', { name: 'Remove Remote Favorite from favorites' }));
+    await user.click(screen.getByRole('button', { name: 'Finish' }));
+    expect(
+      screen.queryByRole('button', { name: 'Add Remote Favorite to cart' })
+    ).not.toBeInTheDocument();
   });
 });
