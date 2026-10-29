@@ -15,7 +15,7 @@ for (const language of ['en', 'es'] as const) {
     page,
   }, info) => {
     const scenario = seedSaleScenario(`filtered-${language}-${Date.now()}`);
-    const prefix = `QA-FILTER-${language}-${randomUUID().slice(0, 8)}`;
+    const prefix = `E2E QA-FILTER-${language}-${randomUUID().slice(0, 8)}`;
     const targetName = `${prefix} ZZZ Stock Target`;
     const db = new Database(path.join(process.cwd(), 'packages/server/data/local.db'));
     db.pragma('busy_timeout = 5000');

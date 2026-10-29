@@ -233,6 +233,7 @@ export function InventoryPage() {
     },
     { placeholderData: keepPreviousData }
   );
+  const stockRefreshing = stockQuery.isPlaceholderData || stockSearchPending;
   const entriesQuery = trpc.inventory.listEntries.useQuery({
     page: 1,
     perPage: 50,
@@ -475,7 +476,7 @@ export function InventoryPage() {
       />
 
       <InventorySummaryCards
-        isLoading={stockQuery.isLoading || stockQuery.isPlaceholderData || stockSearchPending}
+        isLoading={stockQuery.isLoading || stockRefreshing}
         totalUnits={stockSummary?.totalUnits ?? 0}
         totalValue={stockSummary?.totalValue ?? 0}
         lowStockCount={stockSummary?.lowStockCount ?? 0}
@@ -571,7 +572,7 @@ export function InventoryPage() {
             stockItems={stockItems}
             stockSearch={stockSearch}
             onStockSearchChange={setStockSearch}
-            stockBusy={stockQuery.isPlaceholderData || stockSearchPending}
+            stockBusy={stockRefreshing}
             entries={entries}
             canManage={canManage}
             onAdjust={product => openAdjustmentModal(mapStockItemToAdjustmentProduct(product))}
