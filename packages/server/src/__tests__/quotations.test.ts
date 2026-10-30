@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { TRPCError } from '@trpc/server';
 import { and, eq } from 'drizzle-orm';
@@ -5,18 +6,28 @@ import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
-import { makeEnvelopeHeadersProxy } from './utils/criticalCommandFixture.js';
+import { freshCriticalContext, makeEnvelopeHeadersProxy } from './utils/criticalCommandFixture.js';
 import {
+  auditLogs,
+  cashMovements,
+  cashSessions,
   categories,
   customers,
+  idempotencyKeys,
+  inventoryBalances,
+  inventoryMovements,
   providers,
   products,
   quotationItemTaxComponents,
   quotationItems,
   quotationSaleLinks,
   quotations,
+  saleItems,
+  salePayments,
   sales,
+  sequentials,
   sites,
+  syncOutbox,
   unitXProduct,
   units,
   users,
@@ -26,6 +37,7 @@ import { ServerErrorWithCode } from '../lib/errorCodes.js';
 import { getProductStockTotal } from '../services/inventory-balances.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
+import { __withExpectedTestLogs } from '../logging/logger.js';
 
 let server: PuntovivoServer;
 let tenantId: string;
@@ -851,6 +863,150 @@ describe('Quotations tRPC Router', () => {
           .from(quotationSaleLinks)
           .where(eq(quotationSaleLinks.quotationId, quote.id))
       ).toHaveLength(0);
+    });
+
+    it('rolls back a late conversion-link failure and retries the same checkout exactly once', async () => {
+      const db = getDatabase();
+      const { product, quote, detail } = await createAcceptedQuote();
+      const input = saleInput(detail);
+      const commandEnvelope = {
+        operationId: randomUUID(),
+        idempotencyKey: randomUUID(),
+        clientCreatedAt: new Date().toISOString(),
+      };
+      const checkout = () =>
+        appRouter
+          .createCaller(
+            freshCriticalContext({
+              db,
+              serverApp: server.app,
+              tenantId,
+              userId,
+              email: 'admin@localhost',
+              role: 'admin',
+              siteId: primarySiteId,
+              deviceId: testDeviceId,
+              envelope: commandEnvelope,
+            })
+          )
+          .sales.create(input);
+      const snapshot = () => ({
+        sales: db.select({ id: sales.id }).from(sales).all(),
+        items: db.select({ id: saleItems.id }).from(saleItems).all(),
+        payments: db.select({ id: salePayments.id }).from(salePayments).all(),
+        cash: db.select().from(cashMovements).all(),
+        cashSession: db
+          .select()
+          .from(cashSessions)
+          .where(
+            and(
+              eq(cashSessions.tenantId, tenantId),
+              eq(cashSessions.siteId, primarySiteId),
+              eq(cashSessions.status, 'open')
+            )
+          )
+          .get(),
+        stock: db
+          .select()
+          .from(inventoryBalances)
+          .where(eq(inventoryBalances.productId, product.id))
+          .all(),
+        inventory: db
+          .select()
+          .from(inventoryMovements)
+          .where(eq(inventoryMovements.productId, product.id))
+          .all(),
+        quotation: db.select().from(quotations).where(eq(quotations.id, quote.id)).get(),
+        links: db
+          .select()
+          .from(quotationSaleLinks)
+          .where(eq(quotationSaleLinks.quotationId, quote.id))
+          .all(),
+        sequential: db
+          .select()
+          .from(sequentials)
+          .where(
+            and(
+              eq(sequentials.tenantId, tenantId),
+              eq(sequentials.siteId, primarySiteId),
+              eq(sequentials.documentType, 'sale')
+            )
+          )
+          .get(),
+        sync: db
+          .select()
+          .from(syncOutbox)
+          .where(eq(syncOutbox.idempotencyKey, commandEnvelope.idempotencyKey))
+          .all(),
+        audit: db
+          .select()
+          .from(auditLogs)
+          .where(and(eq(auditLogs.resourceId, quote.id), eq(auditLogs.action, 'quotation.convert')))
+          .all(),
+      });
+      const before = snapshot();
+      const stockBefore = getProductStockTotal(db, tenantId, product.id);
+      expect(before.quotation?.status).toBe('accepted');
+      expect(before.cashSession).toBeDefined();
+      expect(before.sequential).toBeDefined();
+      // The link is written after the sale, stock, cash and quotation status,
+      // so this exercises a storage failure after financial writes began.
+      const sqlite = (db as unknown as { $client: { exec(sql: string): void } }).$client;
+      sqlite.exec(`
+        CREATE TEMP TRIGGER fail_quotation_conversion_link
+        BEFORE INSERT ON quotation_sale_links
+        BEGIN
+          SELECT RAISE(ABORT, 'forced quotation conversion link failure');
+        END;
+      `);
+      try {
+        await expect(
+          __withExpectedTestLogs(
+            [
+              { level: 'error', module: 'trpc-tracing', message: 'trpc procedure error' },
+              { level: 'error', module: 'observability', message: 'captured exception' },
+            ],
+            checkout
+          )
+        ).rejects.toThrow(/forced quotation conversion link failure/);
+      } finally {
+        sqlite.exec('DROP TRIGGER fail_quotation_conversion_link');
+      }
+      expect(snapshot()).toEqual(before);
+
+      const first = await checkout();
+      const committed = snapshot();
+      expect(first.total).toBe(detail.total);
+      expect(committed.sales).toHaveLength(before.sales.length + 1);
+      expect(committed.items).toHaveLength(before.items.length + 1);
+      expect(committed.payments).toHaveLength(before.payments.length + 1);
+      expect(getProductStockTotal(db, tenantId, product.id)).toBe(stockBefore - 1);
+      expect(committed.inventory).toHaveLength(before.inventory.length + 1);
+      expect(committed.cash).toHaveLength(before.cash.length + 1);
+      expect(committed.cash.find(row => row.referenceId === first.id)).toMatchObject({
+        type: 'sale',
+        amount: detail.total,
+      });
+      expect(committed.cashSession?.expectedBalance).toBe(
+        before.cashSession!.expectedBalance + detail.total
+      );
+      expect(committed.sequential?.currentValue).toBe(before.sequential!.currentValue + 1);
+      expect(committed.quotation?.status).toBe('converted');
+      expect(committed.links).toMatchObject([{ saleId: first.id }]);
+      expect(committed.audit).toHaveLength(1);
+      expect(committed.sync).toMatchObject([
+        { entityType: 'sales', entityId: first.id, operation: 'create' },
+      ]);
+      expect(
+        db
+          .select({ status: idempotencyKeys.status, resultRef: idempotencyKeys.resultRef })
+          .from(idempotencyKeys)
+          .where(eq(idempotencyKeys.idempotencyKey, commandEnvelope.idempotencyKey))
+          .get()
+      ).toEqual({ status: 'succeeded', resultRef: first });
+
+      expect(await checkout()).toEqual(first);
+      expect(snapshot()).toEqual(committed);
     });
 
     it('fails closed for expired and historically ambiguous unit snapshots', async () => {
