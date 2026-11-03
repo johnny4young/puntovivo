@@ -6,7 +6,10 @@ import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
-import { freshCriticalContext, makeEnvelopeHeadersProxy } from './utils/criticalCommandFixture.js';
+import {
+  makeEnvelopeHeadersProxy,
+  makeFreshContextFactory,
+} from './utils/criticalCommandFixture.js';
 import {
   auditLogs,
   cashMovements,
@@ -16,12 +19,14 @@ import {
   idempotencyKeys,
   inventoryBalances,
   inventoryMovements,
+  operationEvents,
   providers,
   products,
   quotationItemTaxComponents,
   quotationItems,
   quotationSaleLinks,
   quotations,
+  saleItemTaxComponents,
   saleItems,
   salePayments,
   sales,
@@ -874,26 +879,34 @@ describe('Quotations tRPC Router', () => {
         idempotencyKey: randomUUID(),
         clientCreatedAt: new Date().toISOString(),
       };
+      const fresh = makeFreshContextFactory({
+        db,
+        serverApp: server.app,
+        tenantId,
+        userId,
+        email: 'admin@localhost',
+        siteId: primarySiteId,
+        deviceId: testDeviceId,
+      });
       const checkout = () =>
-        appRouter
-          .createCaller(
-            freshCriticalContext({
-              db,
-              serverApp: server.app,
-              tenantId,
-              userId,
-              email: 'admin@localhost',
-              role: 'admin',
-              siteId: primarySiteId,
-              deviceId: testDeviceId,
-              envelope: commandEnvelope,
-            })
-          )
-          .sales.create(input);
+        appRouter.createCaller(fresh({ envelope: commandEnvelope })).sales.create(input);
+      const journal = () => ({
+        key: db
+          .select({ status: idempotencyKeys.status })
+          .from(idempotencyKeys)
+          .where(eq(idempotencyKeys.idempotencyKey, commandEnvelope.idempotencyKey))
+          .get()?.status,
+        event: db
+          .select({ status: operationEvents.status })
+          .from(operationEvents)
+          .where(eq(operationEvents.operationId, commandEnvelope.operationId))
+          .get()?.status,
+      });
       const snapshot = () => ({
-        sales: db.select({ id: sales.id }).from(sales).all(),
-        items: db.select({ id: saleItems.id }).from(saleItems).all(),
-        payments: db.select({ id: salePayments.id }).from(salePayments).all(),
+        sales: db.select().from(sales).all(),
+        items: db.select().from(saleItems).all(),
+        taxComponents: db.select().from(saleItemTaxComponents).all(),
+        payments: db.select().from(salePayments).all(),
         cash: db.select().from(cashMovements).all(),
         cashSession: db
           .select()
@@ -906,6 +919,8 @@ describe('Quotations tRPC Router', () => {
             )
           )
           .get(),
+        product: db.select().from(products).where(eq(products.id, product.id)).get(),
+        stockTotal: getProductStockTotal(db, tenantId, product.id),
         stock: db
           .select()
           .from(inventoryBalances)
@@ -945,7 +960,6 @@ describe('Quotations tRPC Router', () => {
           .all(),
       });
       const before = snapshot();
-      const stockBefore = getProductStockTotal(db, tenantId, product.id);
       expect(before.quotation?.status).toBe('accepted');
       expect(before.cashSession).toBeDefined();
       expect(before.sequential).toBeDefined();
@@ -955,6 +969,7 @@ describe('Quotations tRPC Router', () => {
       sqlite.exec(`
         CREATE TEMP TRIGGER fail_quotation_conversion_link
         BEFORE INSERT ON quotation_sale_links
+        WHEN NEW.quotation_id = '${quote.id}'
         BEGIN
           SELECT RAISE(ABORT, 'forced quotation conversion link failure');
         END;
@@ -973,6 +988,7 @@ describe('Quotations tRPC Router', () => {
         sqlite.exec('DROP TRIGGER fail_quotation_conversion_link');
       }
       expect(snapshot()).toEqual(before);
+      expect(journal()).toEqual({ key: 'failed', event: 'failed' });
 
       const first = await checkout();
       const committed = snapshot();
@@ -980,7 +996,7 @@ describe('Quotations tRPC Router', () => {
       expect(committed.sales).toHaveLength(before.sales.length + 1);
       expect(committed.items).toHaveLength(before.items.length + 1);
       expect(committed.payments).toHaveLength(before.payments.length + 1);
-      expect(getProductStockTotal(db, tenantId, product.id)).toBe(stockBefore - 1);
+      expect(committed.stockTotal).toBe(before.stockTotal - 1);
       expect(committed.inventory).toHaveLength(before.inventory.length + 1);
       expect(committed.cash).toHaveLength(before.cash.length + 1);
       expect(committed.cash.find(row => row.referenceId === first.id)).toMatchObject({
@@ -1005,8 +1021,11 @@ describe('Quotations tRPC Router', () => {
           .get()
       ).toEqual({ status: 'succeeded', resultRef: first });
 
+      expect(journal()).toEqual({ key: 'succeeded', event: 'succeeded' });
+
       expect(await checkout()).toEqual(first);
       expect(snapshot()).toEqual(committed);
+      expect(journal()).toEqual({ key: 'succeeded', event: 'succeeded' });
     });
 
     it('fails closed for expired and historically ambiguous unit snapshots', async () => {
