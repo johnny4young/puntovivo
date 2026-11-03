@@ -84,6 +84,11 @@
       "types": "./src/iso-date.ts",
       "import": "./dist/iso-date.js",
       "default": "./dist/iso-date.js"
+    },
+    "./sentry-data-collection": {
+      "types": "./src/sentry-data-collection.ts",
+      "import": "./dist/sentry-data-collection.js",
+      "default": "./dist/sentry-data-collection.js"
     }
   },
   "scripts": {

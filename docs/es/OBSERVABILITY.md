@@ -79,6 +79,15 @@ Los logs estructurados locales permanecen activos en ambos casos. Los atributos
 remotos pasan por `redactErrorAttrs`, que oculta claves de contraseña, token,
 autorización, cookie, correo y otras credenciales sin modificar la entrada.
 
+Ambos adaptadores de Sentry desactivan la recolección propia del SDK de datos de
+usuario, cookies, encabezados, cuerpos, parámetros de consulta y variables de la
+pila, y el adaptador del servidor omite el nombre de la máquina. Los eventos
+siguen incluyendo el tipo de la excepción y su mensaje sin redactar, los marcos
+de la pila con rutas de archivo, la versión del runtime y la versión publicada.
+El adaptador del servidor conserva los spans como transacciones; confirma que tu
+receptor las acepta antes de depender de las trazas. El SDK 11 de Sentry requiere
+Sentry autoalojado 26.4.2 o posterior y ya no es compatible con Safari 14.
+
 ### Medición agregada de tareas
 
 La medición de usabilidad está autenticada, se limita al negocio, muestrea una

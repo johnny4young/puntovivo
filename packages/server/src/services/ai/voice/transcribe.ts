@@ -276,6 +276,10 @@ export async function transcribeAudio(
       // Retry may bill twice even when the first response was lost.
       maxRetries: 0,
     });
+    // The SDK resolves silent audio with empty text; there is still no usable transcript.
+    if (!result.text.trim()) {
+      throw new NoTranscriptGeneratedError({ responses: result.responses });
+    }
   } catch (error) {
     const isParseFailure =
       NoTranscriptGeneratedError.isInstance(error) ||

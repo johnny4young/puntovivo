@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { SENTRY_DATA_COLLECTION } from '@puntovivo/shared/sentry-data-collection';
 
 // pins the renderer-side adapter contract:
 //
@@ -91,6 +92,8 @@ describe('initSentryRenderSink', () => {
       environment: 'test',
       defaultIntegrations: false,
       integrations: [{ name: 'Dedupe' }],
+      dataCollection: SENTRY_DATA_COLLECTION,
+      attachStacktrace: false,
     });
   });
 
