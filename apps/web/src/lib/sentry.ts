@@ -18,6 +18,7 @@
  * errors arrives with the opt-in-aware follow-up.
  */
 
+import { SENTRY_DATA_COLLECTION } from '@puntovivo/shared/sentry-data-collection';
 import * as Sentry from '@sentry/browser';
 import { registerRenderTelemetrySink, type RenderErrorContext } from './observability';
 
@@ -37,20 +38,7 @@ export function initSentryRenderSink(dsn: string): void {
     environment: import.meta.env.MODE,
     defaultIntegrations: false,
     integrations: [Sentry.dedupeIntegration()],
-    // Sentry 11 collects these by default; only tenant-less render context may leave.
-    dataCollection: {
-      userInfo: false,
-      cookies: false,
-      httpHeaders: false,
-      httpBodies: [],
-      urlQueryParams: false,
-      graphQL: { document: false, variables: false },
-      genAI: { inputs: false, outputs: false },
-      mcp: { inputs: false, outputs: false },
-      databaseQueryData: false,
-      queues: false,
-      stackFrameVariables: false,
-    },
+    dataCollection: SENTRY_DATA_COLLECTION,
     attachStacktrace: false,
   });
   registerRenderTelemetrySink({

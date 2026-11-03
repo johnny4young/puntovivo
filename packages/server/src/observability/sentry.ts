@@ -24,6 +24,8 @@
  * fiscal stance).
  */
 
+import { SENTRY_DATA_COLLECTION } from '@puntovivo/shared/sentry-data-collection';
+import type { NodeOptions } from '@sentry/node';
 import { createModuleLogger } from '../logging/logger.js';
 import { registerTelemetrySink, type TelemetrySink } from './sink.js';
 import type { TelemetryEventAttrs } from './capture.js';
@@ -37,16 +39,7 @@ const log = createModuleLogger('observability');
  * adapter to survive untouched.
  */
 interface SentryNodeLike {
-  init(options: {
-    dsn: string;
-    environment: string;
-    release: string;
-    defaultIntegrations: false;
-    tracesSampleRate: number;
-    dataCollection: Record<string, unknown>;
-    traceLifecycle: 'static';
-    attachStacktrace: false;
-  }): unknown;
+  init(options: NodeOptions): unknown;
   captureException(err: unknown, context: { extra: Record<string, unknown> }): unknown;
   startInactiveSpan(options: {
     name: string;
@@ -69,20 +62,6 @@ export interface ServerTelemetryAdapterOptions {
   env?: Record<string, string | undefined>;
   appVersion?: string;
 }
-
-const SENTRY_DATA_COLLECTION = {
-  userInfo: false,
-  cookies: false,
-  httpHeaders: false,
-  httpBodies: [],
-  urlQueryParams: false,
-  graphQL: { document: false, variables: false },
-  genAI: { inputs: false, outputs: false },
-  mcp: { inputs: false, outputs: false },
-  databaseQueryData: false,
-  queues: false,
-  stackFrameVariables: false,
-};
 
 /** Module-level handle to the imported SDK while the adapter is active. */
 let activeSdk: SentryNodeLike | null = null;
@@ -209,11 +188,13 @@ export async function initServerTelemetryAdapter(
       release: options.appVersion ?? 'unknown',
       defaultIntegrations: false,
       tracesSampleRate: resolveTracesSampleRate(env.PUNTOVIVO_SENTRY_TRACES_SAMPLE_RATE),
-      // Sentry 11 collects these by default; only redacted capture attrs may leave.
       dataCollection: SENTRY_DATA_COLLECTION,
       attachStacktrace: false,
-      // GlitchTip ingests transactions, not the streamed spans Sentry 11 defaults to.
+      includeServerName: false,
+      // Keeps spans as transactions; streamed spans are unverified on GlitchTip.
       traceLifecycle: 'static',
+      // Otherwise init hooks the module loader even with defaultIntegrations off.
+      enableRuntimeChannelInjection: false,
     });
     registerTelemetrySink(buildSink(sdk));
     activeSdk = sdk;

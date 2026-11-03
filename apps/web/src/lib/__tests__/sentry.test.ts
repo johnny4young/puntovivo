@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { SENTRY_DATA_COLLECTION } from '@puntovivo/shared/sentry-data-collection';
 
 // pins the renderer-side adapter contract:
 //
@@ -91,19 +92,7 @@ describe('initSentryRenderSink', () => {
       environment: 'test',
       defaultIntegrations: false,
       integrations: [{ name: 'Dedupe' }],
-      dataCollection: {
-        userInfo: false,
-        cookies: false,
-        httpHeaders: false,
-        httpBodies: [],
-        urlQueryParams: false,
-        graphQL: { document: false, variables: false },
-        genAI: { inputs: false, outputs: false },
-        mcp: { inputs: false, outputs: false },
-        databaseQueryData: false,
-        queues: false,
-        stackFrameVariables: false,
-      },
+      dataCollection: SENTRY_DATA_COLLECTION,
       attachStacktrace: false,
     });
   });

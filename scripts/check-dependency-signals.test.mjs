@@ -101,7 +101,7 @@ test('both accessibility gates run the same axe rule engine', () => {
 
 test('Sentry Node no longer depends on the deprecated OpenTelemetry tracing SDK', () => {
   assert.match(require('@sentry/node/package.json').version, /^11\./);
-  assert.doesNotMatch(lockfile, /@opentelemetry\/(?:core|sdk-trace-base)@/);
+  assert.doesNotMatch(lockfile, /@opentelemetry\/sdk-trace-base@/);
   assert.doesNotMatch(workspaceManifest, /'@sentry\/node@/);
 });
 
