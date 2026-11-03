@@ -77,6 +77,14 @@ Local structured logging remains enabled in both cases. Remote attributes pass
 through `redactErrorAttrs`, which masks password, token, authorization, cookie,
 email, and related credential keys without mutating the input.
 
+Both Sentry adapters disable the SDK's own collection of user info, cookies,
+headers, bodies, query strings, and stack-frame variables, and the server
+adapter omits the machine hostname. Events still carry the exception type and
+unredacted message, stack frames with file paths, the runtime version, and the
+release. The server adapter keeps spans as transactions; confirm that your
+receiver accepts them before relying on traces. Sentry SDK 11 needs self-hosted
+Sentry 26.4.2 or newer and no longer supports Safari 14.
+
 ### Aggregate task measurement
 
 Usability measurement is authenticated, tenant-scoped, sampled once per task

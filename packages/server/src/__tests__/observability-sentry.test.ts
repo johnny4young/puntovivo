@@ -25,6 +25,7 @@
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { SENTRY_DATA_COLLECTION } from '@puntovivo/shared/sentry-data-collection';
 import {
   initServerTelemetryAdapter,
   flushServerTelemetry,
@@ -100,6 +101,11 @@ describe('initServerTelemetryAdapter', () => {
       release: '1.2.3',
       defaultIntegrations: false,
       tracesSampleRate: 0,
+      dataCollection: SENTRY_DATA_COLLECTION,
+      attachStacktrace: false,
+      includeServerName: false,
+      traceLifecycle: 'static',
+      enableRuntimeChannelInjection: false,
     });
     expect(getActiveTelemetrySink()).not.toBe(noopSink);
     expect(isServerTelemetryAdapterActive()).toBe(true);

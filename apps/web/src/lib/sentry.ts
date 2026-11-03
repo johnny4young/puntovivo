@@ -18,6 +18,7 @@
  * errors arrives with the opt-in-aware follow-up.
  */
 
+import { SENTRY_DATA_COLLECTION } from '@puntovivo/shared/sentry-data-collection';
 import * as Sentry from '@sentry/browser';
 import { registerRenderTelemetrySink, type RenderErrorContext } from './observability';
 
@@ -37,6 +38,8 @@ export function initSentryRenderSink(dsn: string): void {
     environment: import.meta.env.MODE,
     defaultIntegrations: false,
     integrations: [Sentry.dedupeIntegration()],
+    dataCollection: SENTRY_DATA_COLLECTION,
+    attachStacktrace: false,
   });
   registerRenderTelemetrySink({
     captureRenderError(err: unknown, context: RenderErrorContext) {

@@ -705,15 +705,9 @@ describe('ai.transcribeAudio ( slice 1)', () => {
       warnings: [],
       response: { timestamp: new Date(), modelId: 'whisper-1' },
     });
-    // Behave like the SDK helper: call the model, then reject an empty text.
-    transcribeMock.mockImplementation(async (options: { model: TranscriptionModelV4 }) => {
-      const generated = await options.model.doGenerate({
-        audio: new Uint8Array([1]),
-        mediaType: 'audio/webm',
-      });
-      if (!generated.text) throw new Error('No transcript generated');
-      return generated;
-    });
+    // The real helper: its handling of empty text is the contract under test.
+    const { transcribe } = await vi.importActual<typeof import('ai')>('ai');
+    transcribeMock.mockImplementation(transcribe);
     const call = () =>
       transcribeAudioService(
         { db: getDatabase(), tenantId, siteId: null, userId: managerId },

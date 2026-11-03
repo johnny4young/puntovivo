@@ -99,13 +99,10 @@ test('both accessibility gates run the same axe rule engine', () => {
   );
 });
 
-test('Sentry Node receives its undeclared OpenTelemetry peer explicitly', () => {
-  const sentryRequire = createRequire(require.resolve('@sentry/node/package.json'));
-  const corePackage = sentryRequire('@opentelemetry/core/package.json');
-
-  assert.equal(corePackage.version, '2.10.0');
-  assert.match(workspaceManifest, /^\s+'@sentry\/node@10\.71\.0':$/m);
-  assert.match(workspaceManifest, /^\s+'@opentelemetry\/core': '2\.10\.0'$/m);
+test('Sentry Node no longer depends on the deprecated OpenTelemetry tracing SDK', () => {
+  assert.match(require('@sentry/node/package.json').version, /^11\./);
+  assert.doesNotMatch(lockfile, /@opentelemetry\/sdk-trace-base@/);
+  assert.doesNotMatch(workspaceManifest, /'@sentry\/node@/);
 });
 
 // A selector that pins a version stops applying, silently, as soon as that
@@ -234,7 +231,7 @@ test('native install uses the bundled Node-API SQLite contract', () => {
 test('React 19 virtualizer batches lifecycle updates without flushSync', () => {
   const packageJson = require('@tanstack/react-virtual/package.json');
 
-  assert.equal(packageJson.version, '3.14.10');
+  assert.equal(packageJson.version, '3.14.25');
   assert.doesNotMatch(workspaceManifest, /^\s+'@tanstack\/react-virtual': '3\.14\.8'$/m);
   assert.match(dataTableSource, /useFlushSync:\s*false/);
 });
@@ -265,7 +262,7 @@ test('TypeScript 7 compiler stays isolated from the TypeScript 6 tooling API', (
   assert.equal(compatibilityPackage.name, '@typescript/typescript6');
   assert.equal(compatibilityPackage.version, '6.0.2');
   assert.equal(typeof require('typescript').createProgram, 'function');
-  assert.equal(typescriptEslintPackage.version, '8.70.1');
+  assert.equal(typescriptEslintPackage.version, '8.72.1');
   assert.equal(typescriptEslintPackage.peerDependencies.typescript, '>=4.8.4 <6.1.0');
 });
 
@@ -305,7 +302,7 @@ test('Vitest 5 and its coverage provider share the reviewed Vite and Node contra
     // Node 24 remains a supported execution target, even with Node 26 declarations.
     assert.equal(runner.engines.node, '^22.12.0 || ^24.0.0 || >=26.0.0');
     assert.equal(runner.peerDependencies.vite, '^6.4.0 || ^7.0.0 || ^8.0.0');
-    assert.equal(ownerRequire('@types/node/package.json').version, '26.6.2');
+    assert.equal(ownerRequire('@types/node/package.json').version, '26.6.6');
   }
 });
 
