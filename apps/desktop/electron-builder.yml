@@ -43,8 +43,8 @@ files:
   # never loaded. KEPT on purpose: better-sqlite3 / argon2 (vite externals,
   # native), fastify / ajv / fast-json-stringify / fast-querystring / sonic-boom /
   # pako / @aws-sdk / @smithy (runtime require()d by the bundle), and @sentry +
-  # @opentelemetry (Sentry's DSN-gated init dynamically require()s the OTel
-  # instrumentation, which the boot smoke cannot exercise — keep both).
+  # @opentelemetry/api (Sentry's DSN-gated init requires them at runtime, which
+  # the boot smoke cannot exercise — keep both).
   - '!node_modules/@puntovivo/server/**'
   - '!node_modules/drizzle-orm/**'
   - '!node_modules/@ai-sdk/**'

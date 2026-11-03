@@ -75,7 +75,11 @@ Two independent gates apply:
 
 Local structured logging remains enabled in both cases. Remote attributes pass
 through `redactErrorAttrs`, which masks password, token, authorization, cookie,
-email, and related credential keys without mutating the input.
+email, and related credential keys without mutating the input. Both Sentry
+adapters also disable the SDK's own collection of user info, cookies, headers,
+bodies, query strings, and stack-frame variables, so only these explicit
+attributes leave the process. The server adapter keeps the static trace
+lifecycle because GlitchTip ingests transactions rather than streamed spans.
 
 ### Aggregate task measurement
 

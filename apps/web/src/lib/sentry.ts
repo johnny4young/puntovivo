@@ -37,6 +37,21 @@ export function initSentryRenderSink(dsn: string): void {
     environment: import.meta.env.MODE,
     defaultIntegrations: false,
     integrations: [Sentry.dedupeIntegration()],
+    // Sentry 11 collects these by default; only tenant-less render context may leave.
+    dataCollection: {
+      userInfo: false,
+      cookies: false,
+      httpHeaders: false,
+      httpBodies: [],
+      urlQueryParams: false,
+      graphQL: { document: false, variables: false },
+      genAI: { inputs: false, outputs: false },
+      mcp: { inputs: false, outputs: false },
+      databaseQueryData: false,
+      queues: false,
+      stackFrameVariables: false,
+    },
+    attachStacktrace: false,
   });
   registerRenderTelemetrySink({
     captureRenderError(err: unknown, context: RenderErrorContext) {

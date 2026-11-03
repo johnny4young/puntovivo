@@ -43,6 +43,9 @@ interface SentryNodeLike {
     release: string;
     defaultIntegrations: false;
     tracesSampleRate: number;
+    dataCollection: Record<string, unknown>;
+    traceLifecycle: 'static';
+    attachStacktrace: false;
   }): unknown;
   captureException(err: unknown, context: { extra: Record<string, unknown> }): unknown;
   startInactiveSpan(options: {
@@ -66,6 +69,20 @@ export interface ServerTelemetryAdapterOptions {
   env?: Record<string, string | undefined>;
   appVersion?: string;
 }
+
+const SENTRY_DATA_COLLECTION = {
+  userInfo: false,
+  cookies: false,
+  httpHeaders: false,
+  httpBodies: [],
+  urlQueryParams: false,
+  graphQL: { document: false, variables: false },
+  genAI: { inputs: false, outputs: false },
+  mcp: { inputs: false, outputs: false },
+  databaseQueryData: false,
+  queues: false,
+  stackFrameVariables: false,
+};
 
 /** Module-level handle to the imported SDK while the adapter is active. */
 let activeSdk: SentryNodeLike | null = null;
@@ -192,6 +209,11 @@ export async function initServerTelemetryAdapter(
       release: options.appVersion ?? 'unknown',
       defaultIntegrations: false,
       tracesSampleRate: resolveTracesSampleRate(env.PUNTOVIVO_SENTRY_TRACES_SAMPLE_RATE),
+      // Sentry 11 collects these by default; only redacted capture attrs may leave.
+      dataCollection: SENTRY_DATA_COLLECTION,
+      attachStacktrace: false,
+      // GlitchTip ingests transactions, not the streamed spans Sentry 11 defaults to.
+      traceLifecycle: 'static',
     });
     registerTelemetrySink(buildSink(sdk));
     activeSdk = sdk;

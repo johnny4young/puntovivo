@@ -78,6 +78,11 @@ Se aplican dos condiciones independientes:
 Los logs estructurados locales permanecen activos en ambos casos. Los atributos
 remotos pasan por `redactErrorAttrs`, que oculta claves de contraseña, token,
 autorización, cookie, correo y otras credenciales sin modificar la entrada.
+Ambos adaptadores de Sentry también desactivan la recolección propia del SDK de
+datos de usuario, cookies, encabezados, cuerpos, parámetros de consulta y
+variables de la pila, de modo que solo estos atributos explícitos salen del
+proceso. El adaptador del servidor conserva el ciclo de vida estático de trazas
+porque GlitchTip recibe transacciones y no spans por streaming.
 
 ### Medición agregada de tareas
 
