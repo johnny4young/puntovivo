@@ -58,6 +58,16 @@ describe('formatNumber', () => {
       dateFormatShort: 'dd/MM/yyyy',
     });
     expect(formatPercent(28.9)).toMatch(/^28,9\s?%$/);
+    expect(formatPercent(28.94, 2)).toMatch(/^28,94\s?%$/);
+
+    setActiveTenantLocale({
+      locale: 'en-US',
+      currency: 'USD',
+      displayDecimals: 2,
+      timezone: 'America/New_York',
+      dateFormatShort: 'MM/dd/yyyy',
+    });
+    expect(formatPercent(28.9)).toBe('28.9%');
   });
 
   it('renders nothing for a missing value and keeps zero', () => {

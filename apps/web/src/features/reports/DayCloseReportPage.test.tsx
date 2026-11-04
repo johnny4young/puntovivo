@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@/test/utils';
 import { DayCloseReportPage } from './DayCloseReportPage';
 import { setActiveTenantLocale } from '@/lib/utils';
@@ -173,6 +173,8 @@ beforeEach(() => {
 });
 
 describe('DayCloseReportPage (-141b)', () => {
+  afterEach(() => setActiveTenantLocale(null));
+
   it('renders loading and error states', () => {
     mockPending = true;
     const { rerender } = render(<DayCloseReportPage />);
@@ -245,7 +247,6 @@ describe('DayCloseReportPage (-141b)', () => {
     expect(cash).toHaveTextContent('1.491.700');
     expect(cash).not.toHaveTextContent('1.491.700,00');
     expect(cash).toHaveTextContent('200.000,50');
-    setActiveTenantLocale(null);
   });
 
   it('renders the verified frozen snapshot instead of a mutable preview', () => {

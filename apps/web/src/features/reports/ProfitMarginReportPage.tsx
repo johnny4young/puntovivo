@@ -63,8 +63,6 @@ export function ProfitMarginReportPage() {
   const summary = data?.summary;
   const products = data?.products ?? [];
 
-  const formatPct = (value: number) => formatPercent(value, 1);
-
   return (
     <div className="space-y-6">
       <header>
@@ -144,7 +142,7 @@ export function ProfitMarginReportPage() {
             <KpiTile
               icon={BadgePercent}
               label={t('margin.summary.grossMargin')}
-              value={formatPct(summary.grossMarginPct)}
+              value={formatPercent(summary.grossMarginPct)}
               tone={profitTone(summary.grossProfit)}
               mono
             />
@@ -182,7 +180,7 @@ export function ProfitMarginReportPage() {
                         <td className="num">{formatCurrency(row.revenue)}</td>
                         <td className="num">{formatCurrency(row.cogs)}</td>
                         <td className="num">{formatCurrency(row.grossProfit)}</td>
-                        <td className="num">{formatPct(row.grossMarginPct)}</td>
+                        <td className="num">{formatPercent(row.grossMarginPct)}</td>
                       </tr>
                     ))}
                   </tbody>
