@@ -511,6 +511,8 @@ describe('Cash sessions tRPC Router', () => {
     expect(movements[0]?.id).toBe(skim.id);
     expect(movements[0]?.createdByName).toBe('Cashier Movements');
     expect(movements[1]?.id).toBe(paidIn.id);
+    expect(movements[0]?.signedAmount).toBe(-skim.amount);
+    expect(movements[1]?.signedAmount).toBe(paidIn.amount);
 
     const updatedSession = await caller.cashSessions.getActive();
     expect(updatedSession?.expectedBalance).toBeNull();
