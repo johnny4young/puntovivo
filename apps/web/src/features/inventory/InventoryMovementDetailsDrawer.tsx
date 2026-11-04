@@ -12,7 +12,7 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Drawer } from '@/components/feedback/Drawer';
-import { cn, formatDateTime } from '@/lib/utils';
+import { cn, formatDateTime, formatNumber } from '@/lib/utils';
 import type { InventoryMovement } from '@/types';
 import {
   getMovementDelta,
@@ -82,11 +82,11 @@ export function InventoryMovementDetailsDrawer({
             value={
               <span className={cn('pv-mv', delta > 0 && 'up', delta < 0 && 'down')}>
                 {delta > 0 ? '+' : ''}
-                {delta.toLocaleString()}
+                {formatNumber(delta)}
               </span>
             }
           />
-          <DetailField label={t('table.stockAfter')} value={item.newStock.toLocaleString()} />
+          <DetailField label={t('table.stockAfter')} value={formatNumber(item.newStock)} />
           <DetailField label={t('table.reference')} value={item.reference || '—'} />
           <DetailField label={t('table.notes')} value={item.notes || '—'} />
         </dl>

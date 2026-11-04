@@ -9,6 +9,7 @@ import { StatusStrip, Button } from '@/components/ui';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { downloadFile } from '@/services/export/exportService';
+import { formatNumber } from '@/lib/utils';
 
 /**
  * Operations Center: Diagnostic Export panel.
@@ -325,7 +326,7 @@ export function DiagnosticExportPanel() {
                     </p>
                   </div>
                   <span className="font-mono text-sm font-semibold tabular-nums text-secondary-900">
-                    {check.count.toLocaleString()}
+                    {formatNumber(check.count)}
                   </span>
                 </div>
               );
