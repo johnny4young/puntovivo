@@ -155,6 +155,7 @@ export function SalePaymentModal({
   });
 
   const isPartialPayment = !splitMode && !isCredit && outstanding > 0;
+  const showsBalance = isPartialPayment || !isCash;
 
   const paymentSummary = (
     <div
@@ -234,22 +235,52 @@ export function SalePaymentModal({
       testId="sale-payment-drawer"
       pinnedContent={paymentSummary}
       footer={
-        <>
-          <ModalButton onClick={onClose} disabled={isSaving}>
-            {t('payment.cancel')}
-          </ModalButton>
-          <ModalButton
-            variant="primary"
-            onClick={handleSubmit}
-            disabled={!canSubmit}
-            id="sale-payment-confirm"
-            className="disabled:bg-secondary-200 disabled:text-secondary-500"
-          >
-            {isSaving
-              ? t('payment.processing')
-              : t(isPartialPayment ? 'payment.confirmPartial' : 'payment.confirm')}
-          </ModalButton>
-        </>
+        <div className="w-full space-y-3">
+          {!splitMode && !isCredit && (
+            <dl
+              data-testid="payment-settlement"
+              className="grid grid-cols-2 items-end gap-3 text-left"
+            >
+              <div className="min-w-0">
+                <dt className="text-xs text-secondary-500">{t('payment.amountReceived')}</dt>
+                <dd className="text-base font-medium tabular-nums wrap-anywhere text-secondary-900 sm:text-lg">
+                  {formatCurrency(amountReceivedValue)}
+                </dd>
+              </div>
+              <div className="min-w-0">
+                <dt className="text-xs text-secondary-500">
+                  {showsBalance ? t('payment.balance') : t('payment.change')}
+                </dt>
+                <dd
+                  data-testid="payment-settlement-amount"
+                  className={`text-xl font-semibold tabular-nums wrap-anywhere sm:text-2xl ${
+                    isPartialPayment ? 'text-warning-700' : 'text-success-700'
+                  }`}
+                >
+                  {formatCurrency(showsBalance ? outstanding : change)}
+                </dd>
+              </div>
+            </dl>
+          )}
+          <div className="flex gap-3 sm:justify-end">
+            <ModalButton onClick={onClose} disabled={isSaving} className="w-auto shrink-0">
+              {t('payment.cancel')}
+            </ModalButton>
+            <ModalButton
+              variant="primary"
+              onClick={handleSubmit}
+              disabled={!canSubmit}
+              id="sale-payment-confirm"
+              className="w-auto min-w-0 flex-1 disabled:bg-secondary-200 disabled:text-secondary-500 sm:flex-none"
+            >
+              {isSaving
+                ? t('payment.processing')
+                : isPartialPayment
+                  ? t('payment.confirmPartialAmount', { amount: formatCurrency(outstanding) })
+                  : t('payment.confirm')}
+            </ModalButton>
+          </div>
+        </div>
       }
     >
       <form id="sale-payment-form" className="space-y-4" onSubmit={handleSubmit}>
@@ -260,7 +291,7 @@ export function SalePaymentModal({
           >
             <p className="font-semibold">{t('payment.partialTitle')}</p>
             <p className="mt-1 text-sm">
-              {t('payment.partialWarning', { amount: formatCurrency(outstanding, currencyCode) })}
+              {t('payment.partialWarning', { amount: formatCurrency(outstanding) })}
             </p>
           </div>
         )}
@@ -413,8 +444,6 @@ export function SalePaymentModal({
               isCredit={isCredit}
               grandTotal={grandTotal}
               amountReceivedValue={amountReceivedValue}
-              change={change}
-              outstanding={outstanding}
               handleEnableSplit={handleEnableSplit}
             />
           </Suspense>
