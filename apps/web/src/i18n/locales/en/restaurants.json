@@ -81,7 +81,10 @@
     "removeModifier": "Remove modifier {{name}}",
     "duplicateModifiers": "Each modifier needs a different name. Rename or remove the duplicate before saving.",
     "modifiersLimit": "Maximum {{count}} modifiers per line.",
-    "modifiersLoading": "Loading modifiers…"
+    "modifiersLoading": "Loading modifiers…",
+    "guests_one": "{{count}} guest",
+    "guests_other": "{{count}} guests",
+    "repeatModifiers": "Repeat modifiers"
   },
   "actions": {
     "voiceCTA": "Voice order",
@@ -164,8 +167,9 @@
       "selectPlaceholder": "Pick a table",
       "customOption": "— Custom label —",
       "emptyHint": "No tables in the catalog. Ask an administrator to add one.",
-      "emptyOperationalHint": "Create at least one active table before opening a dine-in service.",
-      "moduleDisabledHint": "Dine-in service is disabled. Ask an administrator to enable it before taking table orders."
+      "emptyOperationalHint": "Create at least one active table before opening a dine-in service. Ask an administrator, or create them now if you have access.",
+      "moduleDisabledHint": "Dine-in service is disabled. Ask an administrator to enable it before taking table orders.",
+      "createTables": "Create tables"
     },
     "draftStatus": {
       "badgeLabel": "{{tableName}}",

@@ -162,7 +162,10 @@ test.describe('restaurant service lifecycle', () => {
         'data-variant',
         'mobile'
       );
-      await page.getByTestId('voice-ordering-table-select').selectOption({ label: tableName });
+      await page
+        .getByTestId('voice-ordering-table-grid')
+        .getByRole('button', { name: tableName, exact: true })
+        .click();
       await page.getByTestId('voice-ordering-guest-count').fill('2');
       await page.getByTestId('voice-ordering-check-label').fill(checkLabel);
       expect(modifierRequests).toHaveLength(0);
@@ -217,7 +220,10 @@ test.describe('restaurant service lifecycle', () => {
           : `Se guardó la orden de ${tableName} con 1 producto.`
       );
 
-      await page.getByTestId('voice-ordering-table-select').selectOption({ label: tableName });
+      await page
+        .getByTestId('voice-ordering-table-grid')
+        .getByRole('button', { name: tableName, exact: true })
+        .click();
       const openChecks = page.getByTestId('voice-ordering-open-checks');
       await expect(openChecks).toContainText(
         language === 'en' ? '1 open check' : '1 cuenta abierta'
@@ -260,7 +266,10 @@ test.describe('restaurant service lifecycle', () => {
       // A reload must reconstruct the check from SQLite, not from the local cart.
       await page.reload();
       await expect(page.getByTestId('voice-ordering-screen')).toBeVisible({ timeout: 30_000 });
-      await page.getByTestId('voice-ordering-table-select').selectOption({ label: tableName });
+      await page
+        .getByTestId('voice-ordering-table-grid')
+        .getByRole('button', { name: tableName, exact: true })
+        .click();
       await expect(page.getByTestId('voice-ordering-open-checks')).toContainText(checkLabel);
 
       // Resume through the ordinary till and settle with the existing payment
@@ -290,7 +299,10 @@ test.describe('restaurant service lifecycle', () => {
         });
 
       await page.goto('/m');
-      await page.getByTestId('voice-ordering-table-select').selectOption({ label: tableName });
+      await page
+        .getByTestId('voice-ordering-table-grid')
+        .getByRole('button', { name: tableName, exact: true })
+        .click();
       await expect(page.getByTestId('voice-ordering-table-state-loading')).toHaveCount(0, {
         timeout: 15_000,
       });
