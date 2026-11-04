@@ -59,6 +59,7 @@ describe('CashSessionCloseModal', () => {
     );
 
     expect(screen.queryByText('Expected balance')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('close-session-expected')).not.toBeInTheDocument();
     // V6 reskin () now renders "Blind close" both as a header
     // badge and as an inline label inside the form, so use the
     // multi-match query to verify the term surfaces at least once.
@@ -182,6 +183,26 @@ describe('CashSessionCloseModal', () => {
       expect(strip.textContent).toContain(delta);
     }
   );
+
+  it('pins counted, expected and difference beside the close action for a manager', () => {
+    mockRole = 'manager';
+    render(
+      <CashSessionCloseModal
+        isOpen
+        cashSession={activeCashSession}
+        isSaving={false}
+        error={null}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+      />
+    );
+
+    const totals = screen.getByTestId('close-session-totals');
+    expect(totals).toHaveTextContent('Denomination total');
+    expect(screen.getByTestId('close-session-expected')).toHaveTextContent('140');
+    expect(screen.getByTestId('close-session-live-delta')).toBeInTheDocument();
+    expect(screen.getAllByTestId(/^close-session-denomination-/).length).toBeGreaterThan(9);
+  });
 
   it('shows a manager the full shortfall when the valid count is zero', () => {
     mockRole = 'manager';
