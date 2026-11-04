@@ -165,18 +165,20 @@ describe('CompanyReadinessCard', () => {
   });
 
   describe.each(['en', 'es'] as const)('progress in %s', language => {
-    const progressLabel = (ready: number) =>
-      language === 'en' ? `${ready} of 6 areas ready` : `${ready} de 6 áreas listas`;
+    const progressLabel = (ready: number, total: number) =>
+      language === 'en'
+        ? `${ready} of ${total} required areas done`
+        : `${ready} de ${total} áreas obligatorias listas`;
 
-    function expectProgress(ready: number) {
-      const progress = screen.getByRole('progressbar', { name: progressLabel(ready) });
-      const renderedSteps = screen.getAllByTestId(/^company-guided-step-/);
-      expect(renderedSteps).toHaveLength(6);
+    function expectProgress(ready: number, total = 2) {
+      const label = progressLabel(ready, total);
+      const progress = screen.getByRole('progressbar', { name: new RegExp(`^${label}`) });
+      expect(screen.getAllByTestId(/^company-guided-step-/)).toHaveLength(6);
       expect(progress).toHaveAttribute('aria-valuemin', '0');
-      expect(progress).toHaveAttribute('aria-valuemax', String(renderedSteps.length));
+      expect(progress).toHaveAttribute('aria-valuemax', String(total));
       expect(progress).toHaveAttribute('aria-valuenow', String(ready));
-      expect(progress.firstElementChild).toHaveStyle({ width: `${(ready / 6) * 100}%` });
-      expect(screen.getByText(progressLabel(ready))).toBeInTheDocument();
+      expect(progress.firstElementChild).toHaveStyle({ width: `${(ready / total) * 100}%` });
+      expect(screen.getByTestId('company-readiness-progress')).toHaveTextContent(label);
       expect(
         screen.getByText(language === 'en' ? /^There are 6 clear areas covering/ : /^Hay 6 áreas claras que reúnen/)
       ).toBeInTheDocument();
@@ -186,7 +188,7 @@ describe('CompanyReadinessCard', () => {
       await i18next.changeLanguage(language);
     });
 
-    it('counts ready and unused areas, but not optional, warning or blocked areas', () => {
+    it('counts only required areas as progress and lists the rest apart', () => {
       setReadiness({
         businessType: null,
         blockerCount: 1,
@@ -199,7 +201,10 @@ describe('CompanyReadinessCard', () => {
       });
       render(<CompanyReadinessCard />, { initialEntries: ['/company?step=business'] });
 
-      expectProgress(2);
+      expectProgress(1);
+      expect(screen.getByTestId('company-readiness-progress')).toHaveTextContent(
+        language === 'en' ? '1 to review · 3 optional' : '1 por revisar · 3 opcionales'
+      );
       for (const [id, status] of [
         ['businessType', 'optional'],
         ['business', 'ready'],
@@ -242,7 +247,7 @@ describe('CompanyReadinessCard', () => {
       });
       render(<CompanyReadinessCard />, { initialEntries: ['/company?step=business'] });
 
-      expectProgress(6);
+      expectProgress(2);
       expect(screen.getByTestId('company-readiness-ready')).toHaveTextContent(
         language === 'en' ? 'Operational base ready' : 'Base operativa lista'
       );
@@ -260,7 +265,7 @@ describe('CompanyReadinessCard', () => {
       const { rerender } = render(<CompanyReadinessCard />, {
         initialEntries: ['/company?step=business'],
       });
-      expectProgress(4);
+      expectProgress(2);
       expect(screen.getByTestId('company-readiness-ready')).toBeInTheDocument();
 
       setReadiness({
@@ -271,7 +276,7 @@ describe('CompanyReadinessCard', () => {
         ),
       });
       rerender(<CompanyReadinessCard />);
-      expectProgress(5);
+      expectProgress(2);
 
       setReadiness({
         businessType: 'retail',
@@ -283,7 +288,7 @@ describe('CompanyReadinessCard', () => {
         }),
       });
       rerender(<CompanyReadinessCard />);
-      expectProgress(4);
+      expectProgress(1);
       expect(screen.getByTestId('company-readiness-cta-sites')).toBeInTheDocument();
       expect(screen.queryByTestId('company-readiness-ready')).not.toBeInTheDocument();
     });
@@ -296,7 +301,7 @@ describe('CompanyReadinessCard', () => {
     for (const step of ['businessType', 'business', 'selling', 'fiscal', 'payments', 'devices']) {
       expect(screen.getByTestId(`company-guided-step-${step}`)).toBeInTheDocument();
     }
-    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuemax', '6');
+    expect(screen.getAllByTestId(/^company-guided-step-/)).toHaveLength(6);
     expect(screen.getByTestId('company-guided-step-selling')).toHaveAttribute(
       'data-status',
       'blocker'
