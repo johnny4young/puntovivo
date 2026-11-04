@@ -313,5 +313,31 @@
   },
   "server": {
     "PRODUCT_TRACKING_REQUIRES_EMPTY_INVENTORY": "Before changing inventory tracking, reconcile this product's stock, reservations and inventory value at every site. Even a small remaining quantity may still carry value."
+  },
+  "filters": {
+    "label": "Filter products",
+    "category": "Category",
+    "allCategories": "All categories",
+    "status": "Status",
+    "allStatuses": "All statuses",
+    "active": "Active",
+    "inactive": "Inactive",
+    "lowStock": "Low stock",
+    "lowMargin": "Margin under {{percent}}%"
+  },
+  "bulk": {
+    "label": "Bulk actions",
+    "selected_one": "{{count}} selected",
+    "selected_other": "{{count}} selected",
+    "moveCategory": "Move to category",
+    "archive": "Archive",
+    "clear": "Clear",
+    "selectRow": "Select {{name}}",
+    "done_one": "{{count}} product updated",
+    "done_other": "{{count}} products updated",
+    "partial": "{{done}} updated, {{failed}} could not change. Refresh and try again.",
+    "archiveTitle_one": "Archive {{count}} product?",
+    "archiveTitle_other": "Archive {{count}} products?",
+    "archiveMessage": "They stop appearing in sales. Their history stays."
   }
 }
