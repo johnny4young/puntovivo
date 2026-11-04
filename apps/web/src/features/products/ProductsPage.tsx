@@ -427,7 +427,12 @@ export function ProductsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-bold text-secondary-900">
+        <h1
+          data-shell-title
+          ref={headingRef}
+          tabIndex={-1}
+          className="text-2xl font-bold text-secondary-900"
+        >
           {t('page.title')}
         </h1>
         <button

@@ -22,12 +22,13 @@ export function GeographyHeader(): React.ReactElement {
           <p className="text-[0.65rem] font-bold uppercase tracking-[0.18em] text-primary-800">
             {t('eyebrow')}
           </p>
-          <h1 className="mt-1 font-display text-3xl leading-tight text-secondary-950">
+          <h1
+            data-shell-title
+            className="mt-1 font-display text-3xl leading-tight text-secondary-950"
+          >
             {t('title')}
           </h1>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-secondary-600">
-            {t('description')}
-          </p>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-secondary-600">{t('description')}</p>
         </div>
       </div>
     </header>

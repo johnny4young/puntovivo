@@ -211,7 +211,9 @@ export function PurchasesPage() {
     >
       <div className="space-y-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <h1 className="text-2xl font-bold text-secondary-900">{t('page.title')}</h1>
+          <h1 data-shell-title className="text-2xl font-bold text-secondary-900">
+            {t('page.title')}
+          </h1>
 
           <div className="flex flex-wrap items-center gap-3">
             <div className="rounded-lg border border-secondary-200 px-3 py-2 text-sm">

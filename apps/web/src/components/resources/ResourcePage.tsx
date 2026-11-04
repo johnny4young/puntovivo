@@ -84,7 +84,12 @@ export function ResourcePage<TData extends RowData>({
     <div className="space-y-6">
       <div className="page-header-row">
         <div className="min-w-0">
-          <Heading className="text-2xl font-bold text-secondary-900">{title}</Heading>
+          <Heading
+            className="text-2xl font-bold text-secondary-900"
+            {...(headingLevel === 1 ? { 'data-shell-title': '' } : {})}
+          >
+            {title}
+          </Heading>
           {description && <p className="mt-1 text-sm text-secondary-500">{description}</p>}
         </div>
         <div className="page-header-actions">{action}</div>
