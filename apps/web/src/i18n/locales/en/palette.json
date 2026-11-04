@@ -77,6 +77,15 @@
     "sellQuery": {
       "label": "Sell {{query}}",
       "description": "Add to the active cart and open the register"
+    },
+    "sellProduct": {
+      "label": "Sell {{name}}",
+      "description": "{{price}} · {{stock}} in stock",
+      "descriptionNoStock": "{{price}}"
+    },
+    "askCopilot": {
+      "label": "Ask the co-pilot: {{query}}",
+      "description": "Open the co-pilot with this question"
     }
   },
   "descriptions": {

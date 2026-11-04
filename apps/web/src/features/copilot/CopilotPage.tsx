@@ -1,3 +1,4 @@
+import { useSearchParams } from 'react-router';
 import { FormEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useChat } from '@ai-sdk/react';
 import type { UIMessage } from 'ai';
@@ -477,7 +478,15 @@ export function CopilotPage() {
   const { formatCurrency } = useTenantSettings();
   const utils = trpc.useUtils();
   const settingsQuery = trpc.ai.settings.get.useQuery();
-  const [input, setInput] = useState('');
+  const [searchParams] = useSearchParams();
+  // A question from the command palette waits for the operator to send it.
+  const paletteQuestion = searchParams.get('q');
+  const [input, setInput] = useState(paletteQuestion ?? '');
+  const [seenQuestion, setSeenQuestion] = useState(paletteQuestion);
+  if (paletteQuestion !== seenQuestion) {
+    setSeenQuestion(paletteQuestion);
+    if (paletteQuestion) setInput(paletteQuestion);
+  }
   const [analyticsScope, setAnalyticsScope] = useState<CopilotAnalyticsScope>('all');
   const [latestResult, setLatestResult] = useState<CopilotChatResult | null>(null);
   const authOwnerKey = useAuthOwnerKey();

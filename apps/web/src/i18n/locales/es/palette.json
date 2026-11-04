@@ -77,6 +77,15 @@
     "sellQuery": {
       "label": "Vender {{query}}",
       "description": "Agrega al carrito activo y abre la caja"
+    },
+    "sellProduct": {
+      "label": "Vender {{name}}",
+      "description": "{{price}} · {{stock}} en existencias",
+      "descriptionNoStock": "{{price}}"
+    },
+    "askCopilot": {
+      "label": "Preguntar al copiloto: {{query}}",
+      "description": "Abre el copiloto con esta pregunta"
     }
   },
   "descriptions": {
