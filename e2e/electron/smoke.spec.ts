@@ -117,7 +117,6 @@ test.describe('Electron smoke', () => {
     // data tab. A fresh E2E userData directory establishes the installed
     // version baseline without inventing a last-updated timestamp; development
     // builds also have no release rollout policy to report.
-    await page.getByTestId('company-advanced-toggle').click();
     await page.getByTestId('company-tab-device').click();
     await expect(page).toHaveURL(/\/company\?tab=device/);
     const updaterPanel = page
@@ -363,7 +362,6 @@ test.describe('Electron smoke', () => {
     // UX, never Electron's raw invoke wrapper, and its explicit action must run
     // the normal auth purge before returning to login.
     await goToRoute(page, '/company');
-    await page.getByTestId('company-advanced-toggle').click();
     await page.getByTestId('company-tab-device').click();
     const trayPanel = page
       .getByTestId('company-tabpanel-device')

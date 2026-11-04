@@ -282,17 +282,14 @@ test.describe('web smoke', () => {
       await expect(page.getByTestId(`company-guided-step-${step}`)).toBeVisible();
     }
     await expect(page.getByRole('progressbar')).toHaveAttribute('aria-valuemax', '6');
-    await expect(page.getByTestId('company-advanced-toggle')).toHaveAttribute(
-      'aria-expanded',
-      'false'
-    );
-    await expect(page.getByTestId('company-tab-ai')).toHaveCount(0);
+    // The section rail lists every destination from the first paint on desktop.
+    await expect(page.getByTestId('company-advanced-toggle')).toBeHidden();
+    await expect(page.getByTestId('company-tab-ai')).toBeVisible();
 
     await page.getByTestId('company-guided-step-devices').click();
     await expect(page).toHaveURL(/\/company\?step=devices$/);
     await expect(page.getByTestId('company-guided-detail-devices')).toBeVisible();
 
-    await page.getByTestId('company-advanced-toggle').click();
     await expect(page.getByTestId('company-advanced-settings')).toBeVisible();
     await page.getByTestId('company-tab-locale').click();
     await expect(page).toHaveURL(/\/company\?tab=locale$/);
