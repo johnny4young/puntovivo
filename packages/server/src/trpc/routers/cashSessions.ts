@@ -470,7 +470,9 @@ export const cashSessionsRouter = router({
       .then(rows =>
         rows.map(row => ({
           ...row,
-          signedAmount: getCashMovementSignedAmount(row.type, row.amount),
+          // Reading must survive old rows that stored a signed or zero amount.
+          signedAmount:
+            row.amount === 0 ? 0 : getCashMovementSignedAmount(row.type, Math.abs(row.amount)),
         }))
       );
   }),

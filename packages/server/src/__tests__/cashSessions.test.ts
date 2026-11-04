@@ -514,6 +514,18 @@ describe('Cash sessions tRPC Router', () => {
     expect(movements[0]?.signedAmount).toBe(-skim.amount);
     expect(movements[1]?.signedAmount).toBe(paidIn.amount);
 
+    // A row written before amounts were always positive must not break the read.
+    await db
+      .update(cashMovements)
+      .set({ amount: -skim.amount })
+      .where(eq(cashMovements.id, skim.id));
+    const legacy = await caller.cashSessions.movements({ sessionId: opened.id, limit: 10 });
+    expect(legacy.find(row => row.id === skim.id)?.signedAmount).toBe(-skim.amount);
+    await db
+      .update(cashMovements)
+      .set({ amount: skim.amount })
+      .where(eq(cashMovements.id, skim.id));
+
     const updatedSession = await caller.cashSessions.getActive();
     expect(updatedSession?.expectedBalance).toBeNull();
 
