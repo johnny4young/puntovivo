@@ -16,9 +16,7 @@ import { AlertTriangle, RefreshCw } from 'lucide-react';
 
 import { PrimaryTaskButton, PrioritizedBanner } from '@/components/experience';
 import { useAuth } from '@/features/auth/AuthProvider';
-import { useToast } from '@/components/feedback/ToastProvider';
-import { onErrorToast } from '@/lib/mutationHelpers';
-import { trpc } from '@/lib/trpc';
+import { useRegenerateEmbeddings } from '@/features/products/useRegenerateEmbeddings';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '@puntovivo/server';
 
@@ -35,28 +33,11 @@ interface EmbeddingDriftBannerProps {
 }
 
 export function EmbeddingDriftBanner({ data }: EmbeddingDriftBannerProps) {
-  const { t } = useTranslation(['products', 'errors']);
+  const { t } = useTranslation('products');
   const { user } = useAuth();
-  const toast = useToast();
-  const utils = trpc.useUtils();
   const canRegenerate = user?.role === 'admin';
 
-  const regenerateMutation = trpc.products.regenerateEmbeddings.useMutation({
-    onSuccess: async result => {
-      if (!result.ok) {
-        toast.warning({ title: t('semantic.regenerateUnavailable') });
-        return;
-      }
-      toast.success({
-        title: t('semantic.regenerated', { count: result.embedded }),
-      });
-      await Promise.all([
-        utils.products.embeddingHealth.invalidate(),
-        utils.products.semanticSearch.invalidate(),
-      ]);
-    },
-    onError: onErrorToast(toast, t, { titleKey: 'products:semantic.regenerateError' }),
-  });
+  const regenerateMutation = useRegenerateEmbeddings();
 
   // The outer live-region shell stays in the DOM whenever the parent
   // is past loading (data !== null), so screen readers track the

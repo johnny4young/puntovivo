@@ -10,6 +10,7 @@ import {
   parseVariantAxes,
   type VariantAxisDraft,
 } from './productVariantMatrix';
+import { formatNumber } from '@/lib/utils';
 interface VariantMatrixData {
   axes: ProductVariantAxis[];
   variants: Product[];
@@ -279,9 +280,7 @@ function VariantRows({
             <tr key={variant.sku}>
               <td className="px-4 py-3 font-medium text-secondary-900">{variant.name}</td>
               <td className="px-4 py-3 font-mono text-xs text-secondary-600">{variant.sku}</td>
-              <td className="px-4 py-3 text-right tabular-nums">
-                {variant.stock.toLocaleString()}
-              </td>
+              <td className="px-4 py-3 text-right tabular-nums">{formatNumber(variant.stock)}</td>
               <td className="px-4 py-3">
                 <Badge variant={variant.isActive ? 'success' : 'neutral'}>
                   {variant.isActive ? t('table.active') : t('table.inactive')}

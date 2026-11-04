@@ -278,6 +278,17 @@ describe('SalePaymentModal — customer price tier', () => {
 });
 
 describe('SalePaymentModal — stable drawer shell', () => {
+  it('asks for the tender before the customer and the tip', async () => {
+    render(<SalePaymentModal {...createProps({ allowTip: true })} />);
+
+    const amount = await screen.findByLabelText('Amount received');
+    const customer = screen.getByLabelText('Customer');
+    const tip = await screen.findByLabelText('Custom amount');
+
+    expect(amount.compareDocumentPosition(customer)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(customer.compareDocumentPosition(tip)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
   beforeAll(async () => {
     await i18next.changeLanguage('en');
   });

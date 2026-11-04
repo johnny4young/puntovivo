@@ -362,11 +362,9 @@
     "notesHint": "Optional comments for the sale",
     "tip": {
       "heading": "Tip",
-      "helper": "Optional. Calculated on the pre-tip total.",
       "presetZero": "No tip",
       "presetPercentage": "{{percentage}}%",
       "customLabel": "Custom amount",
-      "customPlaceholder": "0.00",
       "grandTotalBreakdown": "Base {{base}} + tip {{tip}}"
     },
     "serviceCharge": {
@@ -565,7 +563,10 @@
     "suspendedAt": "{{when}}",
     "items_one": "{{count}} item",
     "items_other": "{{count}} items",
-    "closedSessionWarning": "You have {{count}} suspended sales. They remain as drafts and will survive the close, but will not produce a receipt until resumed.",
+    "closedSessionWarning_one": "You have {{count}} suspended sale. It remains as a draft and will survive the close, but it will not issue a receipt until it is resumed.",
+    "closedSessionWarning_other": "You have {{count}} suspended sales. They remain as drafts and will survive the close, but will not produce a receipt until resumed.",
+    "reviewSuspended_one": "Review {{count}} suspended sale",
+    "reviewSuspended_other": "Review {{count}} suspended sales",
     "confirmDiscardTitle": "Discard draft?",
     "confirmDiscardMessage": "The suspended draft will be cancelled and every item returns to inventory. This cannot be undone.",
     "toastSuspendTitle": "Sale suspended",

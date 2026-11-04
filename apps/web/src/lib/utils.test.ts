@@ -4,6 +4,8 @@ import {
   cn,
   formatCalendarDay,
   formatCurrency,
+  formatNumber,
+  formatPercent,
   formatDate,
   formatDateTime,
   generateId,
@@ -29,6 +31,49 @@ describe('cn — tailwind-merge wrapper', () => {
 
   it('keeps non-conflicting utilities in order', () => {
     expect(cn('px-2 py-1', 'px-4')).toBe('py-1 px-4');
+  });
+});
+
+describe('formatNumber', () => {
+  afterEach(() => setActiveTenantLocale(null));
+
+  it('groups digits with the tenant locale, like money on the same screen', () => {
+    setActiveTenantLocale({
+      locale: 'es-CO',
+      currency: 'COP',
+      displayDecimals: 0,
+      timezone: 'America/Bogota',
+      dateFormatShort: 'dd/MM/yyyy',
+    });
+    expect(formatNumber(32534)).toBe('32.534');
+    expect(formatCurrency(365451400)).toContain('365.451.400');
+  });
+
+  it('writes percentages with the same locale', () => {
+    setActiveTenantLocale({
+      locale: 'es-CO',
+      currency: 'COP',
+      displayDecimals: 0,
+      timezone: 'America/Bogota',
+      dateFormatShort: 'dd/MM/yyyy',
+    });
+    expect(formatPercent(28.9)).toMatch(/^28,9\s?%$/);
+    expect(formatPercent(28.94, 2)).toMatch(/^28,94\s?%$/);
+
+    setActiveTenantLocale({
+      locale: 'en-US',
+      currency: 'USD',
+      displayDecimals: 2,
+      timezone: 'America/New_York',
+      dateFormatShort: 'MM/dd/yyyy',
+    });
+    expect(formatPercent(28.9)).toBe('28.9%');
+  });
+
+  it('renders nothing for a missing value and keeps zero', () => {
+    expect(formatNumber(null)).toBe('');
+    expect(formatNumber(undefined)).toBe('');
+    expect(formatNumber(0)).toBe('0');
   });
 });
 

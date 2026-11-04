@@ -317,127 +317,6 @@ export function SalePaymentModal({
             </button>
           </div>
         )}
-        {/* read-only service charge line. Hidden when the
-          tenant has no rate configured so non-restaurant operators see
-          no extra surface. The amount is derived from the prop rate;
-          the server re-validates at submit time.
-        */}
-        {serviceChargeRate > 0 && (
-          <div
-            className="rounded-xl border border-secondary-200 p-4"
-            aria-label={t('payment.serviceCharge.heading')}
-          >
-            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm font-medium text-secondary-900">
-                {t('payment.serviceCharge.heading')}
-              </p>
-              <p className="text-xs text-secondary-500">{t('payment.serviceCharge.helper')}</p>
-            </div>
-            <div className="mt-2 flex items-center justify-between">
-              <span className="text-sm text-secondary-500">
-                {t('payment.serviceCharge.rateLabel', { rate: serviceChargeRate })}
-              </span>
-              <span className="text-sm font-medium text-secondary-900">
-                {formatCurrency(serviceChargeAmount)}
-              </span>
-            </div>
-          </div>
-        )}
-
-        <div>
-          <label htmlFor="sale-payment-customer" className="label">
-            {t('payment.customer')}
-          </label>
-          <select
-            id="sale-payment-customer"
-            className="input mt-1"
-            disabled={customerLocked || approvalSaleId !== null}
-            {...form.register('customerId')}
-          >
-            <option value="">{t('payment.walkIn')}</option>
-            {approvalCustomerId &&
-              !customers.some(customer => customer.id === approvalCustomerId) && (
-                <option value={approvalCustomerId}>
-                  {lockedCustomerName ?? t('payment.lockedCustomer')}
-                </option>
-              )}
-            {customers.map(customer => (
-              <option key={customer.id} value={customer.id}>
-                {customer.name}
-              </option>
-            ))}
-          </select>
-          {/* the picked customer's point balance; silent for
-           * walk-ins and for customers without points. */}
-          {selectedCustomer && (
-            <Suspense fallback={null}>
-              <CustomerLoyaltyChip customerId={selectedCustomer.id} />
-            </Suspense>
-          )}
-          {!customerLocked &&
-            approvalSaleId === null &&
-            onCustomerPriceTierChange &&
-            (selectedCustomer?.priceTier ?? 1) !== activePriceTier && (
-              <button
-                type="button"
-                className="btn-secondary mt-2 w-full"
-                onClick={() => onCustomerPriceTierChange(selectedCustomer?.priceTier ?? 1)}
-              >
-                {selectedCustomer
-                  ? t('payment.priceTier.applyCustomer', {
-                      tier: selectedCustomer.priceTier ?? 1,
-                    })
-                  : t('payment.priceTier.applyWalkIn')}
-              </button>
-            )}
-        </div>
-
-        {pharmacyCheckout.enabled && (
-          <Suspense
-            fallback={
-              <p className="text-sm text-secondary-500" role="status">
-                {t('common:status.loading')}
-              </p>
-            }
-          >
-            <SalePharmacyEvidenceSection
-              enabled
-              isLoading={pharmacyCheckout.isLoading}
-              isUnavailable={pharmacyCheckout.isUnavailable}
-              countryCode={pharmacyCheckout.countryCode}
-              businessDate={pharmacyCheckout.businessDate}
-              customerId={form.getValues('customerId') ?? ''}
-              customerValid={pharmacyCheckout.customerValid}
-              canApproveEvidence={pharmacyCheckout.canApproveEvidence}
-              requirements={pharmacyCheckout.requirements}
-              selectedEvidenceIds={pharmacyCheckout.selectedEvidenceIds}
-              ready={pharmacyCheckout.ready}
-              onToggleEvidence={pharmacyCheckout.toggleEvidence}
-              onEvidenceApproved={pharmacyCheckout.selectEvidence}
-              onRefetch={pharmacyCheckout.refetch}
-            />
-          </Suspense>
-        )}
-
-        {allowTip && (
-          <Suspense
-            fallback={
-              <div
-                className="min-h-24 motion-safe:animate-pulse rounded-xl border border-secondary-200 bg-surface-2/50"
-                role="status"
-                aria-label={t('common:status.loading')}
-              />
-            }
-          >
-            <SalePaymentTipSection
-              form={form}
-              presetActive={presetActive}
-              handleTipPreset={handleTipPreset}
-              syncPaymentInputsForTip={syncPaymentInputsForTip}
-            />
-          </Suspense>
-        )}
-
         {!splitMode && (
           <Suspense
             fallback={
@@ -489,6 +368,56 @@ export function SalePaymentModal({
           </Suspense>
         )}
 
+        <div>
+          <div className="sm:grid sm:grid-cols-[7rem_minmax(0,1fr)] sm:items-center sm:gap-3">
+            <label htmlFor="sale-payment-customer" className="label">
+              {t('payment.customer')}
+            </label>
+            <select
+              id="sale-payment-customer"
+              className="input mt-1 sm:mt-0"
+              disabled={customerLocked || approvalSaleId !== null}
+              {...form.register('customerId')}
+            >
+              <option value="">{t('payment.walkIn')}</option>
+              {approvalCustomerId &&
+                !customers.some(customer => customer.id === approvalCustomerId) && (
+                  <option value={approvalCustomerId}>
+                    {lockedCustomerName ?? t('payment.lockedCustomer')}
+                  </option>
+                )}
+              {customers.map(customer => (
+                <option key={customer.id} value={customer.id}>
+                  {customer.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          {/* the picked customer's point balance; silent for
+           * walk-ins and for customers without points. */}
+          {selectedCustomer && (
+            <Suspense fallback={null}>
+              <CustomerLoyaltyChip customerId={selectedCustomer.id} />
+            </Suspense>
+          )}
+          {!customerLocked &&
+            approvalSaleId === null &&
+            onCustomerPriceTierChange &&
+            (selectedCustomer?.priceTier ?? 1) !== activePriceTier && (
+              <button
+                type="button"
+                className="btn-secondary mt-2 w-full"
+                onClick={() => onCustomerPriceTierChange(selectedCustomer?.priceTier ?? 1)}
+              >
+                {selectedCustomer
+                  ? t('payment.priceTier.applyCustomer', {
+                      tier: selectedCustomer.priceTier ?? 1,
+                    })
+                  : t('payment.priceTier.applyWalkIn')}
+              </button>
+            )}
+        </div>
+
         {/* V10 credit-sale customer card. Shows the
             customer's current balance, cupo, projected balance
             after this sale, and either an admin override checkbox or
@@ -535,6 +464,79 @@ export function SalePaymentModal({
             void checkoutApprovals.refetch();
           }}
         />
+
+        {pharmacyCheckout.enabled && (
+          <Suspense
+            fallback={
+              <p className="text-sm text-secondary-500" role="status">
+                {t('common:status.loading')}
+              </p>
+            }
+          >
+            <SalePharmacyEvidenceSection
+              enabled
+              isLoading={pharmacyCheckout.isLoading}
+              isUnavailable={pharmacyCheckout.isUnavailable}
+              countryCode={pharmacyCheckout.countryCode}
+              businessDate={pharmacyCheckout.businessDate}
+              customerId={form.getValues('customerId') ?? ''}
+              customerValid={pharmacyCheckout.customerValid}
+              canApproveEvidence={pharmacyCheckout.canApproveEvidence}
+              requirements={pharmacyCheckout.requirements}
+              selectedEvidenceIds={pharmacyCheckout.selectedEvidenceIds}
+              ready={pharmacyCheckout.ready}
+              onToggleEvidence={pharmacyCheckout.toggleEvidence}
+              onEvidenceApproved={pharmacyCheckout.selectEvidence}
+              onRefetch={pharmacyCheckout.refetch}
+            />
+          </Suspense>
+        )}
+
+        {allowTip && (
+          <Suspense
+            fallback={
+              <div
+                className="min-h-24 motion-safe:animate-pulse rounded-xl border border-secondary-200 bg-surface-2/50"
+                role="status"
+                aria-label={t('common:status.loading')}
+              />
+            }
+          >
+            <SalePaymentTipSection
+              form={form}
+              presetActive={presetActive}
+              handleTipPreset={handleTipPreset}
+              syncPaymentInputsForTip={syncPaymentInputsForTip}
+            />
+          </Suspense>
+        )}
+
+        {/* read-only service charge line. Hidden when the
+          tenant has no rate configured so non-restaurant operators see
+          no extra surface. The amount is derived from the prop rate;
+          the server re-validates at submit time.
+        */}
+        {serviceChargeRate > 0 && (
+          <div
+            className="rounded-xl border border-secondary-200 p-4"
+            aria-label={t('payment.serviceCharge.heading')}
+          >
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm font-medium text-secondary-900">
+                {t('payment.serviceCharge.heading')}
+              </p>
+              <p className="text-xs text-secondary-500">{t('payment.serviceCharge.helper')}</p>
+            </div>
+            <div className="mt-2 flex items-center justify-between">
+              <span className="text-sm text-secondary-500">
+                {t('payment.serviceCharge.rateLabel', { rate: serviceChargeRate })}
+              </span>
+              <span className="text-sm font-medium text-secondary-900">
+                {formatCurrency(serviceChargeAmount)}
+              </span>
+            </div>
+          </div>
+        )}
 
         <div>
           <label htmlFor="sale-payment-notes" className="label">
