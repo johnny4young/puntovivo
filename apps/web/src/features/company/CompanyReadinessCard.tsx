@@ -35,7 +35,9 @@ import {
   buildCompanyGuidedSteps,
   findNextRequiredSection,
   isCompanyGuidedStepId,
+  isGuidedStepRequired,
   resolveInitialGuidedStep,
+  summarizeGuidedSteps,
   type CompanyGuidedStep,
   type CompanyGuidedStepId,
 } from './companyGuidedSetup';
@@ -132,10 +134,13 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
     return <></>;
   }
 
-  const resolvedCount = guidedState.steps.filter(
-    step => step.status === 'ready' || step.status === 'not-applicable'
-  ).length;
   const stepCount = guidedState.steps.length;
+  const summary = summarizeGuidedSteps(guidedState.steps);
+  const progressLabel = [
+    tGuide('progress', { ready: summary.requiredReady, total: summary.requiredTotal }),
+    ...(summary.toReview > 0 ? [tGuide('progressReview', { count: summary.toReview })] : []),
+    ...(summary.optional > 0 ? [tGuide('progressOptional', { count: summary.optional })] : []),
+  ].join(' · ');
   const hasBlockers = guidedState.nextRequired !== null;
   const nextRequired = guidedState.nextRequired;
   const selectedSection = activeStep.nextSection;
@@ -203,8 +208,11 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
           </div>
           <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
             <div className="flex items-center justify-between gap-4">
-              <span className="text-sm font-semibold text-white">
-                {tGuide('progress', { ready: resolvedCount, total: stepCount })}
+              <span
+                className="text-sm font-semibold text-white"
+                data-testid="company-readiness-progress"
+              >
+                {progressLabel}
               </span>
               {hasBlockers && (
                 <span
@@ -221,13 +229,13 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
               className="mt-3 h-2 overflow-hidden rounded-full bg-white/15"
               role="progressbar"
               aria-valuemin={0}
-              aria-valuemax={stepCount}
-              aria-valuenow={resolvedCount}
-              aria-label={tGuide('progress', { ready: resolvedCount, total: stepCount })}
+              aria-valuemax={summary.requiredTotal}
+              aria-valuenow={summary.requiredReady}
+              aria-label={progressLabel}
             >
               <div
                 className="h-full rounded-full bg-sky-200 transition-[width]"
-                style={{ width: `${(resolvedCount / stepCount) * 100}%` }}
+                style={{ width: `${(summary.requiredReady / summary.requiredTotal) * 100}%` }}
               />
             </div>
           </div>
@@ -313,7 +321,7 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
                 icon={Icon}
                 index={String(index + 1).padStart(2, '0')}
                 title={tGuide(`steps.${step.id}.title`)}
-                statusLabel={tGuide(`status.${step.status}`)}
+                statusLabel={`${tGuide(isGuidedStepRequired(step) ? 'kind.required' : 'kind.optional')} · ${tGuide(`status.${step.status}`)}`}
                 tone={STEP_TONES[step.status]}
                 active={isActive}
                 status={step.status}
