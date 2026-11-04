@@ -12,7 +12,7 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Drawer } from '@/components/feedback/Drawer';
-import { formatCurrency, formatDateTime } from '@/lib/utils';
+import { formatCurrency, formatDateTime, formatNumber } from '@/lib/utils';
 import type { InitialInventoryEntry } from '@/types';
 
 /**
@@ -69,13 +69,13 @@ export function InventoryEntryDetailsDrawer({ item, onClose }: InventoryEntryDet
             label={t('table.unit')}
             value={item.unitAbbreviation ?? item.unitName ?? '—'}
           />
-          <DetailField label={t('table.countedQty')} value={item.quantity.toLocaleString()} />
+          <DetailField label={t('table.countedQty')} value={formatNumber(item.quantity)} />
           <DetailField
             label={t('table.normalized')}
-            value={item.normalizedQuantity.toLocaleString()}
+            value={formatNumber(item.normalizedQuantity)}
           />
           <DetailField label={t('table.cost')} value={formatCurrency(item.cost)} />
-          <DetailField label={t('table.stockAfter')} value={item.newStock.toLocaleString()} />
+          <DetailField label={t('table.stockAfter')} value={formatNumber(item.newStock)} />
           <DetailField label={t('table.notes')} value={item.notes || '—'} />
         </dl>
       )}

@@ -5,7 +5,7 @@
 import type { DataTableColumnDef } from '@/components/tables/DataTable';
 import { Tag } from 'lucide-react';
 import i18next from 'i18next';
-import { cn, formatCurrency } from '@/lib/utils';
+import { cn, formatCurrency, formatNumber, formatPercent } from '@/lib/utils';
 import type { Product } from '@/types';
 
 // when ProductsPage runs in semantic-search mode the rows
@@ -130,7 +130,7 @@ export const productsColumns = (
           className={cn('pv-stock', isLow && 'low')}
           title={isLow ? i18next.t('products:table.low') : undefined}
         >
-          <span>{stock.toLocaleString()}</span>
+          <span>{formatNumber(stock)}</span>
           <span className="bar">
             <i
               style={{
@@ -200,7 +200,7 @@ export const productsColumns = (
                 data-testid="product-margin-badge"
                 variant={tone}
               >
-                {pct.toFixed(1)}%
+                {formatPercent(pct)}
               </Badge>
             );
           },
