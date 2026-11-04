@@ -41,6 +41,8 @@ export interface Product {
   // false = service / non-inventory item. Optional: rows cached
   // before the column shipped lack it; readers treat absent as true.
   tracksStock?: boolean;
+  /** On-hand balance at the requested site; `stock` is the tenant-wide total. */
+  siteStock?: number | null;
   tracksLots: boolean;
   tracksSerials?: boolean | undefined;
   catalogType?: 'standard' | 'variant_parent' | 'variant' | undefined;

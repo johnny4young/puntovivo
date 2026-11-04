@@ -112,6 +112,8 @@ export const listProductsInput = paginationInput.extend({
   // operational consumers keep the safe default and never receive
   // catalog-only matrix parents. The catalog page opts in explicitly.
   includeVariantParents: z.boolean().default(false),
+  // Adds the on-hand balance of this site; `stock` stays the tenant-wide total.
+  siteId: z.string().min(1).optional(),
 });
 
 export const getProductInput = z.object({

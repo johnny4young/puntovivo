@@ -18,7 +18,13 @@
     "empty": "Aún no hay productos en esta categoría.",
     "noResults": "No hay productos en el catálogo. Primero agrega productos desde Configuración.",
     "tileAriaLabel": "Agregar {{name}} por {{price}}",
-    "truncated": "Mostrando {{shown}} de {{total}} productos. Usa una categoría más específica o el buscador para ver el resto."
+    "truncated": "Mostrando {{shown}} de {{total}} productos. Usa una categoría más específica o el buscador para ver el resto.",
+    "inCart": "{{count}} en el carrito",
+    "stock": {
+      "ok": "{{count}} en stock",
+      "low": "Bajo · {{count}}",
+      "out": "Agotado"
+    }
   },
   "cart": {
     "title": "Carrito activo",
