@@ -228,6 +228,46 @@ describe('DayCloseReportPage (-141b)', () => {
     );
   });
 
+  it('turns each check into a row with its state and a way to resolve it', () => {
+    mockData = {
+      ...reportFixture(),
+      cash: { ...reportFixture().cash, openSessions: 2, expected: 1000, counted: 700 },
+      readiness: {
+        readyToSign: false,
+        blockers: ['open_sessions'],
+        warnings: ['fiscal_rejected', 'waste_not_tracked'],
+      },
+    };
+    render(<DayCloseReportPage />);
+
+    const open = screen.getByTestId('day-close-check-open_sessions');
+    expect(open).toHaveAttribute('data-state', 'blocker');
+    expect(open).toHaveTextContent('2 registers still open');
+    expect(screen.getByTestId('day-close-check-link-open_sessions')).toHaveAttribute(
+      'href',
+      '/operations?tab=cash'
+    );
+    expect(screen.getByTestId('day-close-check-fiscal_rejected')).toHaveAttribute(
+      'data-state',
+      'warning'
+    );
+    expect(screen.getByTestId('day-close-check-link-fiscal_rejected')).toHaveAttribute(
+      'href',
+      '/fiscal-documents'
+    );
+    expect(screen.getByTestId('day-close-check-high_anomalies')).toHaveAttribute(
+      'data-state',
+      'done'
+    );
+    expect(screen.queryByTestId('day-close-check-link-high_anomalies')).not.toBeInTheDocument();
+    expect(screen.getByTestId('day-close-check-waste_not_tracked')).toBeInTheDocument();
+    expect(screen.getByTestId('day-close-checklist-summary')).toHaveTextContent(
+      '3 of 5 checks clear'
+    );
+    expect(screen.getByText(/Counted .*700.* − Expected .*1,000/)).toBeInTheDocument();
+    expect(screen.getByText(/2 open sessions not counted yet/)).toBeInTheDocument();
+  });
+
   it('drops empty cents on whole amounts and keeps real cents visible', () => {
     setActiveTenantLocale({
       locale: 'es-CO',

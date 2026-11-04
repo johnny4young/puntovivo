@@ -87,9 +87,11 @@
       "refunds_one": "{{count}} devolución · {{amount}}",
       "refunds_other": "{{count}} devoluciones · {{amount}}",
       "cashVariance": "Diferencia de caja",
-      "cashSessions": "Cerradas: {{closed}} · Abiertas: {{open}}",
       "fiscal": "Documentos fiscales",
-      "fiscalNet": "Monto fiscal neto {{amount}}"
+      "fiscalNet": "Monto fiscal neto {{amount}}",
+      "cashFormula": "Contado {{counted}} − Esperado {{expected}}",
+      "cashOpenNote_one": "{{count}} sesión abierta aún sin contar",
+      "cashOpenNote_other": "{{count}} sesiones abiertas aún sin contar"
     },
     "sections": {
       "sales": "Composición de ventas",
@@ -162,6 +164,23 @@
       "waste_not_tracked": {
         "title": "Mermas",
         "description": "Los eventos de merma aún no están modelados, por lo que el reporte marca la sección como no disponible en vez de ocultar el vacío."
+      }
+    },
+    "checklist": {
+      "summary": "{{clear}} de {{total}} verificaciones listas",
+      "done": "Listo",
+      "review": "Revisar",
+      "details": {
+        "open_sessions_one": "{{count}} caja sigue abierta",
+        "open_sessions_other": "{{count}} cajas siguen abiertas",
+        "cash_discrepancies_one": "{{count}} sesión cerrada con diferencia · {{amount}}",
+        "cash_discrepancies_other": "{{count}} sesiones cerradas con diferencia · {{amount}}",
+        "fiscal_pending_one": "{{count}} documento espera respuesta",
+        "fiscal_pending_other": "{{count}} documentos esperan respuesta",
+        "fiscal_rejected_one": "{{count}} documento rechazado",
+        "fiscal_rejected_other": "{{count}} documentos rechazados",
+        "high_anomalies_one": "{{count}} señal por revisar",
+        "high_anomalies_other": "{{count}} señales por revisar"
       }
     }
   },
