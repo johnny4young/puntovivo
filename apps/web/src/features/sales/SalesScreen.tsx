@@ -311,10 +311,10 @@ export function SalesScreen({
   return (
     <>
       <div className="sales-pos-shell space-y-3 lg:pb-24 lg:flex pos:min-h-0 lg:flex-col lg:gap-3 lg:space-y-0 pos:overflow-hidden pos:pb-0">
-        {/* el POS es la única superficie de /sales. En el
-            breakpoint `pos:` (ancho desktop + >=900px alto), la barra de
-            búsqueda y los accesos a Historial / Ventas suspendidas viven en
-            una fila de acción de altura fija (shrink-0); el carrito y el
+        {/* el POS es la única superficie de /sales. Desde `lg:` la barra de
+            búsqueda, los tickets abiertos y los accesos a Historial / Ventas
+            suspendidas viven en una sola fila de altura fija. En el breakpoint
+            `pos:` (ancho desktop + >=900px alto) el carrito y el
             panel de cobro toman el resto de la altura y hacen scroll por
             dentro, de modo que cobrar no exige scroll de página a 1440x900.
             Por debajo de `pos:` vuelve el scroll natural de página para que
@@ -349,12 +349,13 @@ export function SalesScreen({
           isResumedCart={isResumedCart}
           itemsLocked={itemsLocked}
           activeWorkspace={activeWorkspace ?? null}
-        />
-
-        <WorkspaceTabsSection
-          ownedWorkspaces={ownedWorkspaces}
-          activeWorkspaceId={activeWorkspace?.id}
-          onSelectWorkspace={handleSelectWorkspace}
+          workspaceTabs={
+            <WorkspaceTabsSection
+              ownedWorkspaces={ownedWorkspaces}
+              activeWorkspaceId={activeWorkspace?.id}
+              onSelectWorkspace={handleSelectWorkspace}
+            />
+          }
         />
 
         <section className="sales-workbench-grid grid grid-cols-1 gap-4 pos:min-h-0 pos:flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,20rem)] pos:grid-rows-[minmax(0,1fr)] xl:grid-cols-[minmax(0,2fr)_minmax(320px,360px)]">
@@ -439,8 +440,7 @@ export function SalesScreen({
             onToggleSuspendedPanel={handleToggleSuspendedPanel}
             hubReachable={hubReachable}
             preflightItems={preflightItems}
-            showPrimaryAction={false}
-            showPreflightPanel={false}
+            onFastCash={() => handleOpenPaymentModal(true)}
           />
         </section>
       </div>

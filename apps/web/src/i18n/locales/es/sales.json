@@ -14,7 +14,6 @@
   "checkout": {
     "kicker": "Caja",
     "chargeSummary": "Resumen de cobro",
-    "chargeSummaryDescription": "Revisa los valores finales antes de finalizar el recibo.",
     "searchProducts": "Buscar productos",
     "totalDue": "Total a pagar",
     "items": "Artículos",
@@ -31,10 +30,7 @@
     "noSiteWarning": "Selecciona una sede activa antes de cobrar para usar el consecutivo y el alcance de stock correctos.",
     "addToCart": "Agregar al carrito",
     "itemCount": "Artículos",
-    "searchHint": "Escanea un código de barras o busca por nombre o SKU para agregar un producto.",
     "activeTicket": "Ticket activo",
-    "currentCart": "Carrito actual",
-    "adjustHint": "Ajusta cantidades, descuentos y totales antes de enviar la venta al cobro.",
     "lineItems_one": "{{count}} artículo",
     "lineItems_other": "{{count}} artículos",
     "clearCart": "Limpiar carrito",
@@ -57,10 +53,7 @@
       "discount": "Descuento",
       "unitInDialog": "Unidad en diálogo"
     },
-    "itemsWithCount": "Ítems ({{value}})",
-    "cartSummary": "Resumen del carrito",
-    "cartSummaryHint_one": "{{count}} ítem en carrito · revisa el total",
-    "cartSummaryHint_other": "{{count}} ítems en carrito · revisa el total"
+    "itemsWithCount": "Ítems ({{value}})"
   },
   "cart": {
     "empty": "Busca y agrega productos para iniciar una venta.",
