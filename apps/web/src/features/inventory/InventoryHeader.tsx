@@ -2,7 +2,7 @@
 // new-adjustment buttons, extracted from InventoryPage.tsx ( slice 33).
 
 import { useTranslation } from 'react-i18next';
-import { ClipboardList, Search } from 'lucide-react';
+import { ClipboardList, SlidersHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   viewKeys,
@@ -33,11 +33,18 @@ export function InventoryHeader({
       <h1 className="text-2xl font-bold text-secondary-900">{t('page.title')}</h1>
 
       <div className="page-header-actions">
-        <div className="segmented-control">
+        <div
+          data-testid="inventory-tabs"
+          className="segmented-control max-w-full flex-nowrap overflow-x-auto scrollbar-thin"
+        >
           {visibleInventoryViews({ canManage, showPharmacy }).map(view => (
             <button
               key={view}
-              className={cn('segmented-tab', activeView === view ? 'segmented-tab-active' : '')}
+              data-testid={`inventory-tab-${view}`}
+              className={cn(
+                'segmented-tab shrink-0 whitespace-nowrap',
+                activeView === view ? 'segmented-tab-active' : ''
+              )}
               onClick={() => onViewChange(view)}
             >
               {t(viewKeys[view])}
@@ -58,7 +65,7 @@ export function InventoryHeader({
           onClick={onNewAdjustment}
           disabled={!canManage}
         >
-          <Search className="h-4 w-4" />
+          <SlidersHorizontal className="h-4 w-4" />
           {t('newAdjustment')}
         </button>
       </div>

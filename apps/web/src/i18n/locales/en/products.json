@@ -56,15 +56,13 @@
     "serviceItemDisabled": "Physical product"
   },
   "semantic": {
-    "toggleLabel": "Semantic",
+    "toggleLabel": "Smart search",
     "toggleHint": "Use AI to rank a bounded list of text matches by meaning. Keeps literal search when AI is off.",
     "modeBadge": "Text matches ranked by AI",
     "modeLiteral": "Literal text match",
     "unavailable": "Semantic search needs AI enabled and embeddings generated. Falling back to text search.",
     "searching": "Searching...",
     "noResults": "No hybrid matches were found for your query.",
-    "regenerate": "Regenerate embeddings",
-    "regenerating": "Regenerating...",
     "regenerated_one": "Embedded {{count}} product. Semantic search is ready.",
     "regenerated_other": "Embedded {{count}} products. Semantic search is ready.",
     "regenerateUnavailable": "Cannot regenerate: enable AI in Company settings and make sure the selected provider is available.",
