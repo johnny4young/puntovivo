@@ -31,15 +31,7 @@
  * the badge + "Sumar puntos" CTA stay invisible because
  * `loyaltyProfile` is `undefined`.
  */
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type Dispatch,
-  type SetStateAction,
-} from 'react';
+import { useCallback, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
 import { useBarcodeProductScanner } from '@/features/sales/useBarcodeProductScanner';
 import { deriveScannerConfig } from '@/features/sales/useBarcodeWedgeListener';
@@ -168,9 +160,7 @@ export function PosTouchScreen() {
   const catalogPages = productsQuery.data?.totalPages ?? 1;
   const currentCatalogPage = Math.min(catalogPage, Math.max(catalogPages, 1));
   // The catalog can shrink under an open page; follow it instead of showing an empty grid.
-  useEffect(() => {
-    if (catalogPage > currentCatalogPage) setCatalogPage(currentCatalogPage);
-  }, [catalogPage, currentCatalogPage]);
+  if (catalogPage > currentCatalogPage) setCatalogPage(currentCatalogPage);
 
   // `sales.create` is a critical command (idempotency +
   // command envelope), so we ride the same `useCriticalMutation`
