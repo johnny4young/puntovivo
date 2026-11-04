@@ -487,4 +487,23 @@ describe('CommandPalette', () => {
     expect(row).toHaveTextContent('28 in stock');
     mockProducts.items = [];
   });
+
+  it('offers the question to the co-pilot only when the role and module allow it', async () => {
+    mockModules = { ...mockModules, copilot: true };
+    const onClose = vi.fn();
+    const allowed = render(<CommandPalette isOpen onClose={onClose} />);
+    fireEvent.change(await screen.findByTestId('command-palette-search'), {
+      target: { value: 'ventas de ayer' },
+    });
+    fireEvent.click(screen.getByTestId('command-palette-item-copilot.ask'));
+    expect(navigateMock).toHaveBeenCalledWith('/co-pilot?q=ventas%20de%20ayer');
+    allowed.unmount();
+
+    mockUserRole = 'cashier';
+    render(<CommandPalette isOpen onClose={vi.fn()} />);
+    fireEvent.change(await screen.findByTestId('command-palette-search'), {
+      target: { value: 'ventas de ayer' },
+    });
+    expect(screen.queryByTestId('command-palette-item-copilot.ask')).not.toBeInTheDocument();
+  });
 });

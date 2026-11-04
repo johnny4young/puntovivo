@@ -82,6 +82,10 @@
       "label": "Vender {{name}}",
       "description": "{{price}} · {{stock}} en existencias",
       "descriptionNoStock": "{{price}}"
+    },
+    "askCopilot": {
+      "label": "Preguntar al copiloto: {{query}}",
+      "description": "Abre el copiloto con esta pregunta"
     }
   },
   "descriptions": {
