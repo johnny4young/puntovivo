@@ -278,8 +278,6 @@
     "queuedChanges_other": "{{count}} cambios pendientes se sincronizarán cuando regrese la conexión.",
     "localChanges": "Los cambios hechos en la app de escritorio se mantendrán locales hasta que regrese la conexión.",
     "conflictsTitle": "Conflictos de sincronización requieren revisión",
-    "conflictsDesc_one": "{{count}} conflicto debe resolverse antes de que todos los cambios pendientes se sincronicen correctamente.",
-    "conflictsDesc_other": "{{count}} conflictos deben resolverse antes de que todos los cambios pendientes se sincronicen correctamente.",
     "attentionTitle": "La sincronización necesita atención",
     "hubUnreachableTitle": "El hub de la tienda no responde",
     "hubUnreachableDesc": "Tu terminal no puede comunicarse con el hub de la tienda. Verifica que la computadora del hub esté encendida y conectada a la red. La finalización de ventas queda pausada hasta que vuelva la conexión.",
@@ -288,7 +286,9 @@
     "pendingDesc_other": "{{count}} cambios pendientes se sincronizarán automáticamente.",
     "lastSync": "Última sincronización exitosa: {{date}}",
     "syncing": "Sincronizando...",
-    "retrySync": "Reintentar sincronización"
+    "retrySync": "Reintentar sincronización",
+    "conflictsPill_one": "{{count}} conflicto de sincronización",
+    "conflictsPill_other": "{{count}} conflictos de sincronización"
   },
   "productSearch": {
     "search": "Buscar",
