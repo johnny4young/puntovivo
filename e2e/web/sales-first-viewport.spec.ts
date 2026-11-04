@@ -90,12 +90,14 @@ test.describe('sales first viewport', () => {
     await expect(tickets).toHaveCount(2);
     await expect(bar.getByTestId('sales-open-suspended')).toBeVisible();
     await expect(bar.getByTestId('sales-open-history')).toHaveAccessibleName('History');
-    expect((await bar.boundingBox())!.height).toBeLessThanOrEqual(72);
+    const barBox = (await bar.boundingBox())!;
+    expect(barBox.height).toBeLessThanOrEqual(72);
 
     await bar.locator('[data-testid="cart-workspace-switcher-item"][aria-pressed="false"]').click();
     const line = page.getByTestId(`sale-cart-item-${scenario.product.sku}`);
     await expect(line).toBeVisible();
-    expect((await line.boundingBox())!.y).toBeLessThan(380);
+    // Relative to the bar, because a shell status strip can sit above it.
+    expect((await line.boundingBox())!.y - (barBox.y + barBox.height)).toBeLessThan(220);
 
     await page.setViewportSize(FIRST_VIEWPORT);
     await expectFullyInsideViewport(page.getByTestId('checkout-primary-action'), page);
