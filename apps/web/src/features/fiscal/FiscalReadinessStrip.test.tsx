@@ -5,24 +5,26 @@ import { FiscalReadinessStrip } from './FiscalReadinessStrip';
 const h = vi.hoisted(() => ({
   country: 'CO' as string | null,
   fiscal: null as Record<string, unknown> | null,
-  totals: { pending: 0, sent: 0 } as Record<string, number>,
+  totals: {} as Record<string, number>,
+  loading: false,
 }));
 
 vi.mock('@/lib/trpc', () => ({
   trpc: {
+    useQueries: (
+      build: (t: {
+        reports: { fiscal: { list: (input: { status: string }) => unknown } };
+      }) => Array<{ status: string }>
+    ) =>
+      build({ reports: { fiscal: { list: input => input } } }).map(input => ({
+        data: h.loading ? undefined : { total: h.totals[input.status] ?? 0 },
+      })),
     tenantLocale: { get: { useQuery: () => ({ data: { countryCode: h.country } }) } },
     fiscalSettings: {
       getByCountry: {
         useQuery: (_input: unknown, options: { enabled: boolean }) => ({
           data: options.enabled ? h.fiscal : undefined,
         }),
-      },
-    },
-    reports: {
-      fiscal: {
-        list: {
-          useQuery: (input: { status: string }) => ({ data: { total: h.totals[input.status] } }),
-        },
       },
     },
   },
@@ -32,6 +34,7 @@ describe('FiscalReadinessStrip', () => {
   beforeEach(() => {
     h.country = 'CO';
     h.totals = { pending: 40, sent: 6 };
+    h.loading = false;
     h.fiscal = {
       countryCode: 'CO',
       settings: { environment: 'habilitacion', dianResolutionNumber: null },
@@ -78,6 +81,21 @@ describe('FiscalReadinessStrip', () => {
 
     expect(screen.queryByTestId('fiscal-readiness-numbering')).not.toBeInTheDocument();
     expect(screen.getByTestId('fiscal-readiness-profile')).toHaveTextContent('Mexico');
+  });
+
+  it('counts rejected and contingency documents as needing attention', () => {
+    h.totals = { rejected: 2, contingency: 1 };
+    render(<FiscalReadinessStrip />);
+
+    expect(screen.getByTestId('fiscal-readiness-pending')).toHaveTextContent('3');
+  });
+
+  it('never shows a clean zero before the counts arrive', () => {
+    h.loading = true;
+    h.totals = {};
+    render(<FiscalReadinessStrip />);
+
+    expect(screen.getByTestId('fiscal-readiness-pending')).toHaveTextContent('—');
   });
 
   it('renders nothing for a country without a fiscal pack', () => {

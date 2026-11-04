@@ -6,6 +6,15 @@ import { formatNumber } from '@/lib/utils';
 import { trpc } from '@/lib/trpc';
 
 const SETUP_LINK = '/company?tab=fiscal';
+// Every state that still needs an answer or a decision, not only the two most common.
+const ATTENTION_STATUSES = [
+  'pending',
+  'sent',
+  'rejected',
+  'contingency',
+  'notified_correction',
+  'partial_send',
+] as const;
 const NUMBERING_ISSUES = new Set(['MISSING_RESOLUTION', 'MISSING_RANGE']);
 
 function isFiscalCountry(code: string | null | undefined): code is 'CO' | 'MX' | 'CL' {
@@ -54,12 +63,11 @@ export function FiscalReadinessStrip() {
     { countryCode: isFiscalCountry(countryCode) ? countryCode : 'CO' },
     { enabled: isFiscalCountry(countryCode) }
   );
-  const pendingQuery = trpc.reports.fiscal.list.useQuery({
-    limit: 1,
-    offset: 0,
-    status: 'pending',
-  });
-  const sentQuery = trpc.reports.fiscal.list.useQuery({ limit: 1, offset: 0, status: 'sent' });
+  const attentionQueries = trpc.useQueries(t =>
+    ATTENTION_STATUSES.map(status =>
+      t.reports.fiscal.list({ limit: 1, offset: 0, status }, { staleTime: 30_000 })
+    )
+  );
 
   const fiscal = settingsQuery.data;
   if (!fiscal) return null;
@@ -69,7 +77,8 @@ export function FiscalReadinessStrip() {
   const profileMissing = issues.some(issue => !NUMBERING_ISSUES.has(issue.code));
   const environment = fiscal.settings.environment;
   const isProduction = environment === 'produccion' || environment === 'production';
-  const pending = (pendingQuery.data?.total ?? 0) + (sentQuery.data?.total ?? 0);
+  const attentionLoaded = attentionQueries.every(query => query.data !== undefined);
+  const attention = attentionQueries.reduce((sum, query) => sum + (query.data?.total ?? 0), 0);
 
   return (
     <section
@@ -112,8 +121,8 @@ export function FiscalReadinessStrip() {
       />
       <ReadinessCell
         label={t('readiness.pending')}
-        value={formatNumber(pending)}
-        ok={pending === 0}
+        value={attentionLoaded ? formatNumber(attention) : '—'}
+        ok={attentionLoaded && attention === 0}
         link={{ to: '/fiscal-documents', label: t('readiness.viewQueue') }}
         testId="fiscal-readiness-pending"
       />
