@@ -50,3 +50,24 @@ export function toggleSalesFavoriteId(
   }
   return [...current, productId];
 }
+
+const DISMISSED_PREFIX = 'puntovivo:sales-favorite-suggestions-dismissed:v1';
+
+export function readDismissedSuggestions(scopeKey: string): string[] {
+  try {
+    const parsed: unknown = JSON.parse(
+      window.localStorage.getItem(`${DISMISSED_PREFIX}:${scopeKey}`) ?? '[]'
+    );
+    return Array.isArray(parsed) ? parsed.filter(id => typeof id === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+export function writeDismissedSuggestions(scopeKey: string, productIds: readonly string[]): void {
+  try {
+    window.localStorage.setItem(`${DISMISSED_PREFIX}:${scopeKey}`, JSON.stringify(productIds));
+  } catch {
+    // Without storage the dismissal lasts until the next reload.
+  }
+}

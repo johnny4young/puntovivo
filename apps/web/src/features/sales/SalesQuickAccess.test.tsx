@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { render, screen } from '@/test/utils';
 import { SalesQuickAccess } from './SalesQuickAccess';
 import type { Product } from '@/types';
-import { writeSalesFavoriteIds } from './salesFavorites';
+import { readSalesFavoriteIds, writeSalesFavoriteIds } from './salesFavorites';
 
 const products = [
   {
@@ -67,6 +67,10 @@ const getById = vi.fn(async ({ id }: { id: string }): Promise<Product> => {
   } as Product;
 });
 
+const mockTopSelling = vi.hoisted(() => ({
+  items: [] as Array<{ productId: string; name: string; quantity: number }>,
+}));
+
 vi.mock('@/lib/trpc', () => ({
   trpc: {
     useQueries: (
@@ -79,6 +83,11 @@ vi.mock('@/lib/trpc', () => ({
         useQuery: (_input: unknown, options: { enabled?: boolean }) => ({
           data: options.enabled === false ? undefined : { items: products },
           isLoading: false,
+        }),
+      },
+      topSelling: {
+        useQuery: (_input: unknown, options: { enabled?: boolean }) => ({
+          data: options.enabled === false ? undefined : mockTopSelling.items,
         }),
       },
     },
@@ -126,6 +135,7 @@ const baseProps = {
 
 describe('SalesQuickAccess', () => {
   beforeEach(() => {
+    mockTopSelling.items = [];
     window.localStorage.clear();
     favoriteLookupError = false;
     favoriteRefetch.mockClear();
@@ -164,6 +174,32 @@ describe('SalesQuickAccess', () => {
     expect(
       window.localStorage.getItem('puntovivo:sales-favorites:v1:' + baseProps.scopeKey)
     ).toContain(remoteProduct.id);
+  });
+
+  it('suggests what sold this week until the cashier adds or dismisses it', async () => {
+    mockTopSelling.items = [{ productId: 'p-remote', name: 'Remote tea', quantity: 84 }];
+    const user = userEvent.setup();
+    const view = render(<SalesQuickAccess {...baseProps} />);
+
+    expect(screen.getByTestId('sales-quick-suggestion')).toHaveTextContent('Remote tea');
+    expect(screen.getByTestId('sales-quick-suggestion')).toHaveTextContent('84 times');
+    await user.click(screen.getByTestId('sales-quick-suggestion-dismiss'));
+    expect(screen.queryByTestId('sales-quick-suggestion')).not.toBeInTheDocument();
+    view.unmount();
+
+    render(<SalesQuickAccess {...baseProps} />);
+    expect(screen.queryByTestId('sales-quick-suggestion')).not.toBeInTheDocument();
+  });
+
+  it('adds a suggestion to the saved quick keys', async () => {
+    writeSalesFavoriteIds(baseProps.scopeKey, ['p-coffee']);
+    mockTopSelling.items = [{ productId: 'p-bread', name: 'Bread', quantity: 5 }];
+    const user = userEvent.setup();
+    render(<SalesQuickAccess {...baseProps} />);
+
+    await user.click(screen.getByTestId('sales-quick-suggestion-add'));
+    expect(readSalesFavoriteIds(baseProps.scopeKey)).toEqual(['p-coffee', 'p-bread']);
+    expect(screen.queryByTestId('sales-quick-suggestion')).not.toBeInTheDocument();
   });
 
   it('drops a favorite that no longer exists without a retry alert', () => {
