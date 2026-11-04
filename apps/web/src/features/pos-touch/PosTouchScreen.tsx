@@ -390,7 +390,10 @@ export function PosTouchScreen() {
         isDisabled={checkoutLocked}
       />
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr),22rem]">
+      <div
+        data-testid="pos-touch-layout"
+        className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]"
+      >
         <div className="min-w-0">
           {catalogTotal > products.length && (
             <p

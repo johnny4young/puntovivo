@@ -18,9 +18,8 @@
  * - Every interactive element ≥ 44 × 44 px.
  * - Line rows truncate the product name so no horizontal
  * overflow at 320 px.
- * - Cobrar CTA stays sticky at the bottom of the rail on tall
- * viewports via `sticky bottom-0` so the cashier can always
- * reach it.
+ * - The rail scrolls on its own on large screens and the Cobrar CTA
+ * stays reachable via `sticky bottom-0` when the lines overflow it.
  */
 import { useTranslation } from 'react-i18next';
 import { CreditCard, Sparkles, Trash2, X } from 'lucide-react';
@@ -96,7 +95,7 @@ export function PosTouchCartSidebar({
     <aside
       data-testid="pos-touch-cart"
       aria-busy={isCharging}
-      className="flex flex-col gap-3 rounded-xl border border-line/70 bg-surface-1 p-4"
+      className="flex flex-col gap-3 rounded-xl border border-line/70 bg-surface-1 p-4 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] lg:self-start lg:overflow-y-auto lg:overscroll-contain scrollbar-thin"
     >
       <header className="space-y-1">
         <p className="text-xs uppercase tracking-[0.18em] text-secondary-500">{t('cart.title')}</p>
@@ -177,7 +176,7 @@ export function PosTouchCartSidebar({
         ) : null}
       </section>
 
-      <section className="flex-1 space-y-1 overflow-y-auto">
+      <section className="space-y-1">
         {items.length === 0 ? (
           <div
             data-testid="pos-touch-cart-empty"
