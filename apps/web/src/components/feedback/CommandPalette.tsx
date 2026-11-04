@@ -185,7 +185,8 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
         stock: formatNumber(product.stock),
       },
       roles: SELL_QUERY_ROLES as CommandAction['roles'],
-      perform: ctx => ctx.sellQuery?.(product.sku),
+      // The sell path resolves barcodes; without one it opens the search on the SKU.
+      perform: ctx => ctx.sellQuery?.(product.barcode ?? product.sku),
       group: 'command',
     }));
   }, [products]);

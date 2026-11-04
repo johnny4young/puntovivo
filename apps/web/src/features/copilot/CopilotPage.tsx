@@ -480,7 +480,13 @@ export function CopilotPage() {
   const settingsQuery = trpc.ai.settings.get.useQuery();
   const [searchParams] = useSearchParams();
   // A question from the command palette waits for the operator to send it.
-  const [input, setInput] = useState(() => searchParams.get('q') ?? '');
+  const paletteQuestion = searchParams.get('q');
+  const [input, setInput] = useState(paletteQuestion ?? '');
+  const [seenQuestion, setSeenQuestion] = useState(paletteQuestion);
+  if (paletteQuestion !== seenQuestion) {
+    setSeenQuestion(paletteQuestion);
+    if (paletteQuestion) setInput(paletteQuestion);
+  }
   const [analyticsScope, setAnalyticsScope] = useState<CopilotAnalyticsScope>('all');
   const [latestResult, setLatestResult] = useState<CopilotChatResult | null>(null);
   const authOwnerKey = useAuthOwnerKey();

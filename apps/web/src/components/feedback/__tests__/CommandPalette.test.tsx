@@ -476,7 +476,15 @@ describe('CommandPalette', () => {
 
   it('lists matching products with price and stock', () => {
     mockProducts.items = [
-      { id: 'p-1', name: 'Aceite 1L', sku: 'ABR-3', price: 11900, stock: 28, tracksStock: true },
+      {
+        id: 'p-1',
+        name: 'Aceite 1L',
+        sku: 'ABR-3',
+        barcode: '7701',
+        price: 11900,
+        stock: 28,
+        tracksStock: true,
+      },
     ];
     render(<CommandPalette isOpen onClose={vi.fn()} />);
 
