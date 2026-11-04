@@ -511,9 +511,9 @@
   --operator-canvas: var(--background);
   --operator-panel: var(--surface);
   --operator-panel-muted: var(--surface-2);
-  --operator-commit: oklch(0.72 0.12 244);
-  --operator-commit-hover: oklch(0.78 0.11 244);
-  --operator-commit-foreground: oklch(0.19 0.018 255);
+  --operator-commit: oklch(0.46 0.11 244);
+  --operator-commit-hover: oklch(0.52 0.11 244);
+  --operator-commit-foreground: #f8fbfb;
   --operator-signal: oklch(0.72 0.16 154);
   --operator-command: oklch(0.82 0.15 78);
   --operator-positive-control: oklch(0.78 0.085 154);
