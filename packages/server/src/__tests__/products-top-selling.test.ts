@@ -3,16 +3,7 @@ import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import {
-  cashSessions,
-  products,
-  saleItems,
-  sales,
-  sites,
-  tenants,
-  units,
-  users,
-} from '../db/schema.js';
+import { cashSessions, products, saleItems, sales, sites, tenants, users } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 
@@ -87,8 +78,6 @@ describe('products.topSelling', () => {
     const db = getDatabase();
     const now = new Date().toISOString();
     const longAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-    const unit = db.select().from(units).where(eq(units.tenantId, tenantId)).get();
-    if (!unit) throw new Error('Expected seeded unit');
     const secondSiteId = nanoid();
     const site = db.select().from(sites).where(eq(sites.id, siteId)).get();
     db.insert(sites)
@@ -112,7 +101,7 @@ describe('products.topSelling', () => {
           cashierId: userId,
           registerName: `R-${id.slice(0, 4)}`,
           status: 'closed',
-          openingBalance: 0,
+          openingFloat: 0,
           openingCountDenominations: [],
           openedAt: now,
           createdAt: now,
@@ -163,12 +152,9 @@ describe('products.topSelling', () => {
           id: nanoid(),
           saleId,
           productId,
-          productName: 'x',
+          productNameSnapshot: 'x',
           quantity,
           unitPrice: 10,
-          subtotal: 10,
-          createdAt: now,
-          updatedAt: now,
         })
         .run();
     };
