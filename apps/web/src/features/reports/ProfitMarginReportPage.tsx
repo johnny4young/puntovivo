@@ -67,7 +67,9 @@ export function ProfitMarginReportPage() {
     <div className="space-y-6">
       <header>
         <p className="pv-kicker">{t('margin.kicker')}</p>
-        <h1 className="pv-title text-2xl">{t('margin.title')}</h1>
+        <h1 data-shell-title className="pv-title text-2xl">
+          {t('margin.title')}
+        </h1>
         <p className="mt-2 text-sm text-secondary-500">{t('margin.description')}</p>
       </header>
 

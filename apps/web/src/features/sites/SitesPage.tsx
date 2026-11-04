@@ -167,10 +167,10 @@ export function SitesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-secondary-900">{t('sites.title')}</h1>
-          <p className="mt-1 text-sm text-secondary-500">
-            {t('sites.description')}
-          </p>
+          <h1 data-shell-title className="text-2xl font-bold text-secondary-900">
+            {t('sites.title')}
+          </h1>
+          <p className="mt-1 text-sm text-secondary-500">{t('sites.description')}</p>
         </div>
         <button
           className="btn-primary flex items-center gap-2"
@@ -271,7 +271,9 @@ export function SitesPage() {
         }}
         title={t('sites.delete.title')}
         message={siteToDelete ? t('sites.delete.description') : ''}
-        confirmText={deleteMutation.isPending ? t('sites.delete.submitting') : t('sites.delete.confirm')}
+        confirmText={
+          deleteMutation.isPending ? t('sites.delete.submitting') : t('sites.delete.confirm')
+        }
         loading={deleteMutation.isPending}
       />
     </div>

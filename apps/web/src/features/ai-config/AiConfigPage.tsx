@@ -109,7 +109,10 @@ export default function AiConfigPage() {
       <section className="card p-6 sm:p-8">
         <div>
           <p className="page-kicker">{t('aiShared:disabled.role')}</p>
-          <h1 className="mt-1 font-display text-3xl tracking-[-0.02em] text-secondary-950">
+          <h1
+            data-shell-title
+            className="mt-1 font-display text-3xl tracking-[-0.02em] text-secondary-950"
+          >
             {t('aiSettings:card.title')}
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-secondary-600">

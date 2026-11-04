@@ -16,6 +16,28 @@ export interface KdsOrderCardProps extends KdsActions {
 }
 const actionClass =
   'min-h-11 rounded-lg border border-line-strong px-3 py-2 text-sm font-medium disabled:opacity-50';
+const AGE_WARNING_MINUTES = 8;
+const AGE_LATE_MINUTES = 15;
+
+type TicketAge = 'none' | 'warning' | 'late';
+
+const AGE_BORDER: Record<TicketAge, string> = {
+  none: 'border-t-line-strong',
+  warning: 'border-t-warning-500',
+  late: 'border-t-danger-500',
+};
+
+const AGE_TEXT: Record<TicketAge, string> = {
+  none: 'text-sm',
+  warning: 'font-medium text-warning-700',
+  late: 'font-semibold text-danger-700',
+};
+
+function getTicketAge(minutes: number): TicketAge {
+  if (minutes >= AGE_LATE_MINUTES) return 'late';
+  return minutes >= AGE_WARNING_MINUTES ? 'warning' : 'none';
+}
+
 export function KdsOrderCard({
   order,
   onReady,
@@ -42,11 +64,13 @@ export function KdsOrderCard({
   const valid = order.integrity === 'valid';
   const cancelled = order.status === 'cancelled';
   const ready = order.status === 'ready';
+  const age = ready || cancelled ? 'none' : getTicketAge(minutes);
   return (
     <article
-      className="flex flex-col gap-4 rounded-2xl border border-line bg-surface p-5 text-ink shadow-lg"
+      className={`flex flex-col gap-4 rounded-2xl border border-t-4 border-line bg-surface p-5 text-ink shadow-lg ${AGE_BORDER[age]}`}
       data-testid="kds-order-card"
       data-order-status={order.status}
+      data-ticket-age={age}
     >
       {showFrozenStation && order.stationName ? (
         <span
@@ -178,10 +202,7 @@ export function KdsOrderCard({
             })}
           </span>
         ) : (
-          <span
-            className={minutes >= 10 ? 'font-medium text-warning-700' : 'text-sm'}
-            data-testid="kds-order-elapsed"
-          >
+          <span className={AGE_TEXT[age]} data-testid="kds-order-elapsed">
             {minutes <= 0 ? t('card.elapsedJustNow') : t('card.elapsedMinutes', { count: minutes })}
           </span>
         )}

@@ -177,7 +177,8 @@ test('an open peer kitchen receives station configuration changes without reload
   const tracker = attachClientIssueTracker(peer);
   try {
     await peer.goto('/kds');
-    await expect(peer.getByRole('combobox', { name: 'Station', exact: true })).toBeVisible();
+    const stationFilter = peer.getByRole('group', { name: 'Station', exact: true });
+    await expect(stationFilter).toBeVisible();
     await page.getByRole('button', { name: 'Kitchen settings', exact: true }).click();
     const config = page.getByRole('dialog', { name: 'Kitchen settings' });
     await config.getByLabel(/Code \(/).fill(`peer-${Date.now()}`);
@@ -188,7 +189,7 @@ test('an open peer kitchen receives station configuration changes without reload
     ).toBeVisible();
     // Configuration changes do not emit order events. A separate open display
     // must still converge within the board's 30-second freshness contract.
-    await expect(peer.getByRole('option', { name: stationName, exact: true })).toHaveCount(1, {
+    await expect(stationFilter.getByRole('button', { name: `${stationName} 0` })).toHaveCount(1, {
       timeout: 35_000,
     });
     await expectNoClientIssues(tracker);
