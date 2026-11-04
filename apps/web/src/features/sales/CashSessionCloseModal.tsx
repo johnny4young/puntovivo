@@ -187,6 +187,7 @@ export function CashSessionCloseModal({
               <div
                 data-testid="close-session-live-delta"
                 aria-live="polite"
+                aria-atomic="true"
                 className={`col-span-2 min-w-0 sm:col-span-1 ${
                   liveDeltaState === 'balanced'
                     ? 'text-success-700'

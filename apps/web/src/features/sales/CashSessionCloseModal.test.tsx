@@ -177,7 +177,8 @@ describe('CashSessionCloseModal', () => {
       await user.type(fiftyCountInput, fifties);
 
       const strip = screen.getByTestId('close-session-live-delta');
-      expect(strip).toHaveAttribute('role', 'status');
+      expect(strip).toHaveAttribute('aria-live', 'polite');
+      expect(strip).toHaveAttribute('aria-atomic', 'true');
       expect(screen.getAllByText('Supervised close').length).toBeGreaterThan(0);
       expect(strip.textContent).toMatch(message);
       expect(strip.textContent).toContain(delta);
