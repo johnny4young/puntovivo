@@ -11,6 +11,10 @@
     "customerDisplayOpenErrorTitle": "Customer display did not open",
     "customerDisplayOpenErrorDescription": "Allow the popup or retry after the desktop window is available. Checkout remains unchanged."
   },
+  "saleComplete": {
+    "receipt": "Print or share receipt",
+    "dismiss": "Dismiss"
+  },
   "checkout": {
     "kicker": "Checkout",
     "chargeSummary": "Charge summary",

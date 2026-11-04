@@ -10,6 +10,7 @@ import type { SalesModals } from '@/features/sales/SalesModals';
 import { WorkspaceTabsSection } from '@/features/sales/WorkspaceTabsSection';
 import { SalesMobileCheckoutBar } from '@/features/sales/SalesMobileCheckoutBar';
 import type { SuspendedSalesPanel } from '@/features/sales/SuspendedSalesPanel';
+import { SaleCompleteStrip, type CompletedSaleSummary } from './SaleCompleteStrip';
 
 const LazySalesQuickAccess = lazy(() =>
   import('@/features/sales/SalesQuickAccess').then(module => ({ default: module.SalesQuickAccess }))
@@ -127,6 +128,8 @@ export interface SalesScreenProps {
   // History drawer
   isHistoryDrawerOpen: boolean;
   lastCompletedSaleId: string | null;
+  completedSale: CompletedSaleSummary | null;
+  onDismissCompletedSale: () => void;
   setSelectedSaleId: Dispatch<SetStateAction<string | null>>;
   selectedHistorySaleId: string | null;
   setSelectedHistorySaleId: Dispatch<SetStateAction<string | null>>;
@@ -250,6 +253,8 @@ export function SalesScreen({
   preflightItems,
   isHistoryDrawerOpen,
   lastCompletedSaleId,
+  completedSale,
+  onDismissCompletedSale,
   setSelectedSaleId,
   selectedHistorySaleId,
   setSelectedHistorySaleId,
@@ -356,6 +361,14 @@ export function SalesScreen({
           activeWorkspaceId={activeWorkspace?.id}
           onSelectWorkspace={handleSelectWorkspace}
         />
+
+        {completedSale && cartItems.length === 0 && (
+          <SaleCompleteStrip
+            sale={completedSale}
+            onOpenReceipt={() => setSelectedSaleId(completedSale.id)}
+            onDismiss={onDismissCompletedSale}
+          />
+        )}
 
         <section className="sales-workbench-grid grid grid-cols-1 gap-4 pos:min-h-0 pos:flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,20rem)] pos:grid-rows-[minmax(0,1fr)] xl:grid-cols-[minmax(0,2fr)_minmax(320px,360px)]">
           <SalesCartWorkspace
