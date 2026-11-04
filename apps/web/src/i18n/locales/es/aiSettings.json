@@ -70,7 +70,10 @@
       "successDescription_one": "Se concilió 1 llamada.",
       "successDescription_other": "Se conciliaron {{count}} llamadas.",
       "errorTitle": "No se pudo liberar el presupuesto de IA"
-    }
+    },
+    "searchIndexLabel": "Índice de búsqueda de productos",
+    "searchIndexUpdate": "Actualizar índice",
+    "searchIndexUpdating": "Actualizando…"
   },
   "toast": {
     "saveSuccessTitle": "Configuración de IA guardada",

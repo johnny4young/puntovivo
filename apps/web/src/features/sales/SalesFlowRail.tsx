@@ -25,11 +25,11 @@ interface SalesFlowRailProps {
 }
 
 /**
- * Compact operational summary for the first POS viewport.
+ * Operational summary for the first POS viewport.
  *
- * The former three-stage hero explained the whole sale on every visit. This
- * strip instead exposes only current state, total, and the next valid action.
- * Technical readiness reminders stay behind an explicit disclosure.
+ * Below `lg` it is the only place with state, total and next action. From `lg`
+ * the checkout rail owns those, so only a closed register or an unreachable hub
+ * still need the strip, and the rail keeps the single primary action.
  */
 export function SalesFlowRail({
   itemCount,
@@ -140,6 +140,7 @@ export function SalesFlowRail({
       density="compact"
       aria-label={tOperation('ariaLabel')}
       testId="sales-operation-strip"
+      className={isHubBlocked || !hasCashSession ? undefined : 'lg:hidden'}
       metaClassName="w-full @xl:w-auto"
       meta={
         <div
@@ -165,14 +166,14 @@ export function SalesFlowRail({
           </div>
         </div>
       }
-      actionClassName="hidden h-full min-w-40 @2xl:block"
+      actionClassName="hidden h-full min-w-40 max-lg:@2xl:block"
       action={
         <PrimaryTaskButton
           className="h-full min-h-12 w-full justify-center shadow-[inset_4px_0_0_var(--success-500),inset_0_-3px_0_rgba(3,15,25,0.48)]"
           onClick={action}
           disabled={actionDisabled}
           aria-keyshortcuts={shortcutId ? ariaKeyshortcutsFor(shortcutId) : undefined}
-          data-testid="checkout-primary-action"
+          data-testid="sales-operation-action"
           type="button"
         >
           <ActionIcon className="h-4 w-4" aria-hidden="true" />

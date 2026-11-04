@@ -32,7 +32,9 @@ export function DataImportPage() {
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary-700">
           {t('kicker')}
         </p>
-        <h1 className="mt-1 text-2xl font-bold text-secondary-900">{t('title')}</h1>
+        <h1 data-shell-title className="mt-1 text-2xl font-bold text-secondary-900">
+          {t('title')}
+        </h1>
         <p className="mt-2 max-w-3xl text-sm text-secondary-600">{t('description')}</p>
       </header>
 

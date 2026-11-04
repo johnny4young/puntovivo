@@ -101,7 +101,9 @@ export function ReceiptTemplatesPage() {
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h1 className="text-2xl font-semibold text-secondary-900">{t('editor.editTitle')}</h1>
+              <h1 data-shell-title className="text-2xl font-semibold text-secondary-900">
+                {t('editor.editTitle')}
+              </h1>
             </div>
             <button type="button" className="btn-outline" onClick={() => setMode({ kind: 'list' })}>
               {t('actions.back')}
@@ -134,7 +136,9 @@ export function ReceiptTemplatesPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="max-w-3xl">
-          <h1 className="text-2xl font-semibold text-secondary-900">{t('page.title')}</h1>
+          <h1 data-shell-title className="text-2xl font-semibold text-secondary-900">
+            {t('page.title')}
+          </h1>
           <p className="mt-1 text-sm leading-6 text-secondary-600">{t('page.description')}</p>
         </div>
         <button type="button" className="btn-primary" onClick={() => setMode({ kind: 'create' })}>

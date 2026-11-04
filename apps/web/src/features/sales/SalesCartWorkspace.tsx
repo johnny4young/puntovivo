@@ -81,17 +81,9 @@ export function SalesCartWorkspace({
     // becomes a bounded flex column so the line-item table scrolls internally
     // and the page itself does not scroll while completing a sale. Below `pos:`
     // it is plain flow so short cashier viewports can reach every control.
-    <div className="sales-ledger-card card p-4 sm:p-5 lg:flex pos:h-full pos:min-h-0 lg:flex-col pos:overflow-hidden">
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between lg:shrink-0">
-        <div>
-          <p className="page-kicker text-[0.62rem] tracking-[0.24em]">
-            {t('checkout.activeTicket')}
-          </p>
-          <h2 className="mt-2 font-display text-3xl text-secondary-950">
-            {t('checkout.currentCart')}
-          </h2>
-          <p className="mt-2 max-w-2xl text-sm text-secondary-600">{t('checkout.adjustHint')}</p>
-        </div>
+    <div className="sales-ledger-card card p-4 sm:p-5 lg:flex lg:px-4 lg:py-3 pos:h-full pos:min-h-0 lg:flex-col pos:overflow-hidden">
+      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between lg:shrink-0">
+        <h2 className="font-display text-xl text-secondary-950">{t('checkout.activeTicket')}</h2>
         <div className="flex flex-wrap items-center gap-2">
           {priceTier !== undefined && onPriceTierChange && (
             <div

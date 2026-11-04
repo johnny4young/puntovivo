@@ -5,6 +5,8 @@ import {
   findGuidedStepForSection,
   isCompanyGuidedStepId,
   resolveInitialGuidedStep,
+  summarizeGuidedSteps,
+  type CompanyGuidedStep,
   type CompanyReadinessSection,
 } from './companyGuidedSetup';
 
@@ -116,5 +118,38 @@ describe('companyGuidedSetup', () => {
     expect(isCompanyGuidedStepId('ai')).toBe(false);
     expect(isCompanyGuidedStepId(null)).toBe(false);
     expect(findGuidedStepForSection('modules')).toBeNull();
+  });
+
+  it('counts only required steps as progress', () => {
+    const step = (id: CompanyGuidedStep['id'], status: CompanyGuidedStep['status']) =>
+      ({ id, status, sections: [], nextSection: null, cta: { route: '/' } }) as CompanyGuidedStep;
+
+    expect(
+      summarizeGuidedSteps([
+        step('businessType', 'optional'),
+        step('business', 'ready'),
+        step('selling', 'ready'),
+        step('fiscal', 'warning'),
+        step('payments', 'optional'),
+        step('devices', 'optional'),
+      ])
+    ).toEqual({ requiredReady: 2, requiredTotal: 2, toReview: 1, optional: 3 });
+  });
+
+  it('treats a blocked step as required even when it usually is not', () => {
+    const fiscal = {
+      id: 'fiscal',
+      status: 'blocker',
+      sections: [],
+      nextSection: null,
+      cta: { route: '/' },
+    } as CompanyGuidedStep;
+
+    expect(summarizeGuidedSteps([fiscal])).toEqual({
+      requiredReady: 0,
+      requiredTotal: 1,
+      toReview: 0,
+      optional: 0,
+    });
   });
 });
