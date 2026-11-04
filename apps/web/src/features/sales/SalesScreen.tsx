@@ -447,12 +447,10 @@ export function SalesScreen({
         cashSession={activeCashSession}
         canCharge={canCharge}
         canOpenCashSession={canOpenCashSession}
-        canCloseCashSession={canCloseCashSession}
         canOpenSearch={!itemsLocked}
         onOpenSearch={() => handleOpenProductSearch()}
         onCharge={handleOpenPaymentModal}
         onOpenCashSession={handleOpenCashSessionModal}
-        onCloseCashSession={handleOpenCloseCashSessionModal}
         canSuspend={canSuspendActiveCart}
         onSuspend={handleOpenSuspendPrompt}
         onNewSale={handleNewSale}

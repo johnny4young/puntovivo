@@ -234,7 +234,10 @@ export function SalesPage() {
     (!activeWorkspace?.sourceQuotationSiteId ||
       activeWorkspace.sourceQuotationSiteId === currentSite.id);
   const canCloseCashSession =
-    !!currentSite && hasActiveCashSession && !closeCashSessionMutation.isPending;
+    !!currentSite &&
+    hasActiveCashSession &&
+    !closeCashSessionMutation.isPending &&
+    hubReachability.reachable !== false;
   const customerDisplayAccessId = useMemo(
     () =>
       customerDisplayEnabled && currentTenant?.id && currentSite?.id

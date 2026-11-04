@@ -297,7 +297,7 @@ export function SalesCheckoutPanel({
                       type="button"
                       className="btn-outline"
                       onClick={onCloseCashSession}
-                      disabled={!canCloseCashSession}
+                      disabled={isHubGated || !canCloseCashSession}
                       aria-keyshortcuts={ariaKeyshortcutsFor('sales.closeCashSession')}
                     >
                       <WalletCards className="h-4 w-4" />

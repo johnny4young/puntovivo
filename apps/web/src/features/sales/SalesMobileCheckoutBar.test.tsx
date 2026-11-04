@@ -44,11 +44,9 @@ describe('SalesMobileCheckoutBar', () => {
           cashSession={null}
           canCharge={false}
           canOpenCashSession
-          canCloseCashSession={false}
           onOpenSearch={vi.fn()}
           onCharge={vi.fn()}
           onOpenCashSession={vi.fn()}
-          onCloseCashSession={vi.fn()}
         />
       );
       expect(observe).toHaveBeenCalledWith(screen.getByTestId('mobile-checkout-bar'), {
@@ -79,11 +77,9 @@ describe('SalesMobileCheckoutBar', () => {
         cashSession={activeCashSession}
         canCharge
         canOpenCashSession={false}
-        canCloseCashSession
         onOpenSearch={vi.fn()}
         onCharge={vi.fn()}
         onOpenCashSession={vi.fn()}
-        onCloseCashSession={vi.fn()}
       />
     );
 
@@ -102,12 +98,11 @@ describe('SalesMobileCheckoutBar', () => {
     );
   });
 
-  it('shows the close action when the register is open but the cart is empty', async () => {
+  it('leads with search and leaves closing to the checkout panel when the cart is empty', async () => {
     await i18next.changeLanguage('es');
 
     const user = userEvent.setup();
     const onOpenSearch = vi.fn();
-    const onCloseCashSession = vi.fn();
 
     render(
       <SalesMobileCheckoutBar
@@ -115,23 +110,36 @@ describe('SalesMobileCheckoutBar', () => {
         cashSession={activeCashSession}
         canCharge={false}
         canOpenCashSession={false}
-        canCloseCashSession
         onOpenSearch={onOpenSearch}
         onCharge={vi.fn()}
         onOpenCashSession={vi.fn()}
-        onCloseCashSession={onCloseCashSession}
       />
     );
 
     await user.click(screen.getByRole('button', { name: 'Buscar' }));
     expect(onOpenSearch).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('mobile-checkout-search')).toHaveClass('btn-primary');
+    expect(screen.queryByTestId('mobile-checkout-primary')).not.toBeInTheDocument();
 
-    const closeButton = screen.getByRole('button', { name: 'Cerrar caja' });
-    expect(closeButton).toBeEnabled();
-    expect(closeButton).toHaveAttribute('aria-keyshortcuts', 'Alt+Shift+C');
+    expect(screen.queryByRole('button', { name: 'Cerrar caja' })).not.toBeInTheDocument();
+  });
 
-    await user.click(closeButton);
-    expect(onCloseCashSession).toHaveBeenCalledTimes(1);
+  it('makes charge the primary action and hides closing once the cart has items', () => {
+    render(
+      <SalesMobileCheckoutBar
+        draftSummary={{ itemCount: 2, subtotal: 8000, taxAmount: 0, total: 8000 }}
+        cashSession={activeCashSession}
+        canCharge
+        canOpenCashSession={false}
+        onOpenSearch={vi.fn()}
+        onCharge={vi.fn()}
+        onOpenCashSession={vi.fn()}
+      />
+    );
+
+    expect(screen.getByTestId('mobile-checkout-primary')).toHaveClass('btn-primary');
+    expect(screen.getByTestId('mobile-checkout-search')).toHaveClass('btn-outline');
+    expect(screen.queryByRole('button', { name: 'Close cash session' })).not.toBeInTheDocument();
   });
 
   it('disables product search for an immutable cart', async () => {
@@ -143,12 +151,10 @@ describe('SalesMobileCheckoutBar', () => {
         cashSession={activeCashSession}
         canCharge
         canOpenCashSession={false}
-        canCloseCashSession
         canOpenSearch={false}
         onOpenSearch={vi.fn()}
         onCharge={vi.fn()}
         onOpenCashSession={vi.fn()}
-        onCloseCashSession={vi.fn()}
       />
     );
 
@@ -170,11 +176,9 @@ describe('SalesMobileCheckoutBar', () => {
         cashSession={null}
         canCharge={false}
         canOpenCashSession
-        canCloseCashSession={false}
         onOpenSearch={vi.fn()}
         onCharge={onCharge}
         onOpenCashSession={onOpenCashSession}
-        onCloseCashSession={vi.fn()}
       />
     );
 
@@ -202,11 +206,9 @@ describe('SalesMobileCheckoutBar', () => {
         cashSession={activeCashSession}
         canCharge
         canOpenCashSession={false}
-        canCloseCashSession
         onOpenSearch={vi.fn()}
         onCharge={vi.fn()}
         onOpenCashSession={vi.fn()}
-        onCloseCashSession={vi.fn()}
         canSuspend
         onSuspend={onSuspend}
         onNewSale={onNewSale}
@@ -242,11 +244,9 @@ describe('SalesMobileCheckoutBar', () => {
         cashSession={activeCashSession}
         canCharge
         canOpenCashSession={false}
-        canCloseCashSession
         onOpenSearch={vi.fn()}
         onCharge={vi.fn()}
         onOpenCashSession={vi.fn()}
-        onCloseCashSession={vi.fn()}
         canSuspend={false}
         onSuspend={vi.fn()}
         onNewSale={vi.fn()}
@@ -266,11 +266,9 @@ describe('SalesMobileCheckoutBar', () => {
         cashSession={activeCashSession}
         canCharge
         canOpenCashSession={false}
-        canCloseCashSession
         onOpenSearch={vi.fn()}
         onCharge={vi.fn()}
         onOpenCashSession={vi.fn()}
-        onCloseCashSession={vi.fn()}
         suspendedDraftsCount={0}
         onToggleSuspendedPanel={vi.fn()}
       />
