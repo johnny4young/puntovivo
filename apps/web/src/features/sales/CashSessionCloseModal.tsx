@@ -42,6 +42,8 @@ interface CashSessionCloseModalProps {
    * Defaults to 0 when the caller does not wire it.
    */
   suspendedDraftsCount?: number;
+  /** Opens the suspended sales without losing what was already counted. */
+  onReviewSuspended?: (() => void) | undefined;
 }
 
 function createDefaultValues(): CashSessionCloseValues {
@@ -60,6 +62,7 @@ export function CashSessionCloseModal({
   onClose,
   onSubmit,
   suspendedDraftsCount = 0,
+  onReviewSuspended,
 }: CashSessionCloseModalProps) {
   const { t } = useTranslation('sales');
   const { user } = useAuth();
@@ -237,6 +240,16 @@ export function CashSessionCloseModal({
             data-testid="close-session-suspended-warning"
           >
             {t('park.closedSessionWarning', { count: suspendedDraftsCount })}
+            {onReviewSuspended && (
+              <button
+                type="button"
+                data-testid="close-session-review-suspended"
+                className="btn-outline mt-2 flex min-h-11"
+                onClick={onReviewSuspended}
+              >
+                {t('park.reviewSuspended', { count: suspendedDraftsCount })}
+              </button>
+            )}
           </div>
         )}
 

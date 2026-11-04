@@ -70,6 +70,11 @@ export function SalePaymentSplitTenderSection({
   const storeCreditAvailable =
     hasCustomer && !customerValueLoading && !customerValueUnavailable && storeCreditBalance > 0;
 
+  const isSettled = Math.abs(tenderDelta) < TENDER_SUM_EPSILON;
+  const isOver = !isSettled && tenderDelta > 0;
+  const coveredPercent =
+    grandTotal > 0 ? Math.min(100, Math.round((tenderSum / grandTotal) * 100)) : 100;
+
   return (
     <div className="space-y-3 rounded-xl border border-secondary-200 p-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -283,23 +288,40 @@ export function SalePaymentSplitTenderSection({
         {t('payment.splitAddTender')}
       </button>
 
-      <div className="surface-panel-muted text-sm">
+      <div className="surface-panel-muted text-sm" data-testid="split-meter">
         <div className="flex items-center justify-between">
           <span className="text-secondary-500">{t('payment.splitSum')}</span>
-          <span className="font-medium text-secondary-900">{formatCurrency(tenderSum)}</span>
+          <span className="font-medium tabular-nums text-secondary-900">
+            {formatCurrency(tenderSum)}
+          </span>
         </div>
         <div className="mt-1 flex items-center justify-between">
-          <span className="text-secondary-500">{t('payment.splitDelta')}</span>
-          <span
-            className={
-              Math.abs(tenderDelta) < TENDER_SUM_EPSILON
-                ? 'font-medium text-success-600'
-                : 'font-medium text-danger-600'
-            }
-          >
-            {tenderDelta >= 0 ? '+' : ''}
-            {formatCurrency(tenderDelta)}
+          <span className="font-medium text-secondary-700">
+            {isOver ? t('payment.splitOver') : t('payment.splitRemaining')}
           </span>
+          <span
+            data-testid="split-remaining"
+            className={`text-base font-semibold tabular-nums ${
+              isSettled ? 'text-success-700' : 'text-danger-600'
+            }`}
+          >
+            {formatCurrency(Math.abs(isSettled ? 0 : tenderDelta))}
+          </span>
+        </div>
+        <div
+          role="progressbar"
+          aria-label={t('payment.splitSum')}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={coveredPercent}
+          className="mt-2 h-2 overflow-hidden rounded-full bg-secondary-200"
+        >
+          <div
+            className={`h-full rounded-full ${
+              isSettled ? 'bg-success-500' : isOver ? 'bg-danger-500' : 'bg-primary-500'
+            }`}
+            style={{ width: `${coveredPercent}%` }}
+          />
         </div>
       </div>
 
