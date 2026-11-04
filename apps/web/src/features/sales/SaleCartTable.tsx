@@ -3,7 +3,7 @@ import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
 import { Minus, Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ariaKeyshortcutsFor, shortcutDisplayFor } from '@/lib/shortcuts';
-import { cn, formatCurrency } from '@/lib/utils';
+import { formatCurrency } from '@/lib/utils';
 import {
   getSaleMinimumQuantity,
   getSaleQuantityStep,
@@ -292,10 +292,7 @@ export function SaleCartTable({
               <div
                 data-testid={`sale-cart-line-details-${item.productSku}`}
                 hidden={!isSelected}
-                className={cn(
-                  'mt-2 flex flex-wrap items-center justify-between gap-3 border-t border-line/55 pt-2 text-[11px] text-secondary-500',
-                  !isSelected && 'hidden'
-                )}
+                className="mt-2 flex flex-wrap items-center justify-between gap-3 border-t border-line/55 pt-2 text-[11px] text-secondary-500"
               >
                 <label className="flex flex-wrap items-center gap-2">
                   <span>{t('cart.discount')}</span>
