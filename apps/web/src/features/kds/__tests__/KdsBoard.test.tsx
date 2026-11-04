@@ -365,3 +365,20 @@ it('labels the active site and refreshes both queue and station configuration', 
   expect(h.refetch).toHaveBeenCalledOnce();
   expect(h.stationRefetch).toHaveBeenCalledOnce();
 });
+it('colours active tickets by age and leaves finished ones neutral', () => {
+  const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
+  h.items = [
+    card({ id: 'fresh', createdAt: minutesAgo(7) }),
+    card({ id: 'warm', createdAt: minutesAgo(8) }),
+    card({ id: 'late', createdAt: minutesAgo(15) }),
+    card({ id: 'done', status: 'ready', readyAt: minutesAgo(1), createdAt: minutesAgo(30) }),
+  ];
+  render(<KdsBoard />);
+
+  const ages = screen
+    .getAllByTestId('kds-order-card')
+    .map(node => [node.getAttribute('data-order-status'), node.getAttribute('data-ticket-age')]);
+  expect(ages.filter(([, age]) => age === 'late')).toHaveLength(1);
+  expect(ages.filter(([, age]) => age === 'warning')).toHaveLength(1);
+  expect(ages.filter(([status]) => status === 'ready')).toEqual([['ready', 'none']]);
+});
