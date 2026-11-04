@@ -448,6 +448,22 @@ describe('PosTouchScreen', () => {
     await waitFor(() => expect(search).toHaveValue(''));
   });
 
+  it('moves back to the last page when the catalog shrinks under it', async () => {
+    const user = userEvent.setup();
+    const base = mockProducts[0]!;
+    const bulk = (length: number) =>
+      Array.from({ length }, (_, index) => ({ ...base, id: `bulk-${index}` }));
+    mockProducts = bulk(30);
+    const { rerender } = render(<PosTouchScreen />);
+    await user.click(screen.getByTestId('pos-touch-page-next'));
+
+    mockProducts = bulk(5);
+    rerender(<PosTouchScreen />);
+
+    expect(await screen.findAllByTestId(/^pos-touch-tile-/)).toHaveLength(5);
+    expect(screen.queryByTestId('pos-touch-grid-empty')).not.toBeInTheDocument();
+  });
+
   it('searches the catalog and says when nothing matches', async () => {
     const user = userEvent.setup();
     render(<PosTouchScreen />);
