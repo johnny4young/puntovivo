@@ -14,7 +14,7 @@ import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 import { translateServerError } from '@/lib/translateServerError';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
-import { formatCurrency, formatDateTime } from '@/lib/utils';
+import { formatCurrency, formatDateTime, formatNumber } from '@/lib/utils';
 import type { Provider } from '@/types';
 
 /**
@@ -255,13 +255,9 @@ function ReplenishmentTable({
                   </p>
                 )}
               </td>
-              <td className="px-4 py-3 text-right tabular-nums">
-                {item.available.toLocaleString()}
-              </td>
-              <td className="px-4 py-3 text-right tabular-nums">{item.onOrder.toLocaleString()}</td>
-              <td className="px-4 py-3 text-right tabular-nums">
-                {item.minStock.toLocaleString()}
-              </td>
+              <td className="px-4 py-3 text-right tabular-nums">{formatNumber(item.available)}</td>
+              <td className="px-4 py-3 text-right tabular-nums">{formatNumber(item.onOrder)}</td>
+              <td className="px-4 py-3 text-right tabular-nums">{formatNumber(item.minStock)}</td>
               <td className="px-4 py-3 text-right">
                 <input
                   type="number"

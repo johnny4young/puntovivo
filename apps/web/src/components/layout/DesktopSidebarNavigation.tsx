@@ -47,7 +47,7 @@ function NavigationLink({
           'operator-nav-link group flex items-center gap-3 rounded-[12px] px-3 py-2 text-sm font-medium transition-all duration-200',
           collapsed && 'justify-center px-0',
           isActive
-            ? 'bg-primary text-primary-foreground'
+            ? 'bg-primary text-primary-foreground dark:bg-[var(--operator-commit)] dark:text-[var(--operator-commit-foreground)]'
             : //  slice B: text-secondary-600 (oklch L=0.48)
               // sat below WCAG AA 4.5:1 at body text size. text-fg2
               // (semantic mid-contrast foreground, L=0.37) is the
@@ -353,7 +353,7 @@ function PrimaryTaskLink({
           'operator-nav-link group flex min-h-11 items-center gap-3 rounded-[13px] px-3 py-2 text-sm font-semibold transition-all duration-200',
           collapsed && 'justify-center px-0',
           isActive
-            ? 'bg-primary text-primary-foreground shadow-[0_16px_32px_-24px_color-mix(in_oklch,var(--primary)_80%,transparent)]'
+            ? 'bg-primary text-primary-foreground dark:bg-[var(--operator-commit)] dark:text-[var(--operator-commit-foreground)] shadow-[0_16px_32px_-24px_color-mix(in_oklch,var(--primary)_80%,transparent)]'
             : 'text-secondary-800 hover:bg-secondary-100/80 hover:text-secondary-950'
         )
       }
