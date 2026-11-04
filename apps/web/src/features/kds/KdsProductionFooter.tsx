@@ -3,7 +3,7 @@ import { formatNumber } from '@/lib/utils';
 import type { KdsCardData } from './types';
 
 /** Adds up what is still to make across the visible tickets, by product. */
-export function getProductionTotals(orders: readonly KdsCardData[]) {
+function getProductionTotals(orders: readonly KdsCardData[]) {
   const totals = new Map<string, { key: string; name: string; quantity: number }>();
   for (const order of orders) {
     if (order.status !== 'pending' || order.integrity !== 'valid') continue;
