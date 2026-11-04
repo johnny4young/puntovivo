@@ -164,7 +164,7 @@ describe('KdsBoard', () => {
     expect(
       within(screen.getByTestId('kds-order-card')).getByText('Bandeja paisa')
     ).toBeInTheDocument();
-    expect(screen.getByText('0.001 kg')).toBeInTheDocument();
+    expect(within(screen.getByTestId('kds-order-card')).getByText('0.001 kg')).toBeInTheDocument();
     expect(screen.getByText('Round: Ronda 2')).toBeInTheDocument();
     expect(screen.getByText('Guest: Ana')).toBeInTheDocument();
     expect(screen.getByText('2 × Salsa')).toBeInTheDocument();
@@ -430,7 +430,7 @@ it('totals what is still to make on the visible station', () => {
   render(<KdsBoard />);
 
   const footer = screen.getByTestId('kds-production-footer');
-  expect(footer).toHaveTextContent('5 Bandeja');
+  expect(footer).toHaveTextContent('5 kg Bandeja');
   expect(footer).not.toHaveTextContent('Listo');
 });
 
