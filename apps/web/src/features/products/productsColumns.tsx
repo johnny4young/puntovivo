@@ -55,8 +55,30 @@ export const productsColumns = (
   // reports.profit.margin). Null hides the column entirely (non-admin
   // viewers); a map without the product renders an em dash (no sales in
   // the window).
-  marginByProduct: Map<string, number> | null = null
+  marginByProduct: Map<string, number> | null = null,
+  selection: { selectedIds: ReadonlySet<string>; onToggle: (id: string) => void } | null = null
 ): DataTableColumnDef<DisplayProduct>[] => [
+  ...(selection
+    ? ([
+        {
+          id: 'select',
+          header: () => <span className="sr-only">{i18next.t('products:bulk.label')}</span>,
+          size: 44,
+          enableSorting: false,
+          cell: ({ row }) => (
+            <input
+              type="checkbox"
+              className="h-5 w-5"
+              checked={selection.selectedIds.has(row.original.id)}
+              aria-label={i18next.t('products:bulk.selectRow', { name: row.original.name })}
+              onClick={event => event.stopPropagation()}
+              onChange={() => selection.onToggle(row.original.id)}
+              data-testid={`products-select-${row.original.sku}`}
+            />
+          ),
+        },
+      ] satisfies DataTableColumnDef<DisplayProduct>[])
+    : []),
   {
     accessorKey: 'name',
     header: () => i18next.t('products:table.product'),

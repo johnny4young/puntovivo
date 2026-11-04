@@ -34,6 +34,7 @@ import { translateServerError, extractServerErrorCode } from '@/lib/translateSer
 import { trpc } from '@/lib/trpc';
 import { useTaskMeasurementController } from '@/lib/taskMeasurement';
 import type { Product, UserRole } from '@/types';
+import { ProductBulkBar } from './ProductBulkBar';
 import { LOW_MARGIN_PERCENT, NO_PRODUCT_FILTERS, ProductListFilters } from './ProductListFilters';
 
 const VariantMatrixModal = lazy(() =>
@@ -108,6 +109,7 @@ export function ProductsPage() {
       ? 'fallback'
       : 'literal';
   const [filters, setFilters] = useState(NO_PRODUCT_FILTERS);
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
   const [pageSelection, setPageSelection] = useState({ search, mode, page: 1 });
   const contextChanged = pageSelection.search !== search || pageSelection.mode !== mode;
   if (contextChanged) setPageSelection({ search, mode, page: 1 });
@@ -357,6 +359,13 @@ export function ProductsPage() {
     setDeleteOpener(opener);
     setProductToDelete(product);
   }, []);
+  const toggleSelected = useCallback((id: string) => {
+    setSelectedIds(current => {
+      const next = new Set(current);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  }, []);
   const columns = useMemo(
     () =>
       productsColumns(
@@ -366,7 +375,8 @@ export function ProductsPage() {
         canManage,
         canDelete,
         semantic.semanticIsActive,
-        marginByProduct
+        marginByProduct,
+        canManage ? { selectedIds, onToggle: toggleSelected } : null
       ),
     [
       handleOpenDetails,
@@ -376,6 +386,8 @@ export function ProductsPage() {
       canDelete,
       semantic.semanticIsActive,
       marginByProduct,
+      selectedIds,
+      toggleSelected,
     ]
   );
   const handleCloseDetails = () => setDetailsProduct(null);
@@ -484,6 +496,14 @@ export function ProductsPage() {
                   setFilters(next);
                   setPageSelection({ search, mode, page: 1 });
                 }}
+              />
+            )}
+            {canManage && selectedIds.size > 0 && (
+              <ProductBulkBar
+                selected={products.filter(product => selectedIds.has(product.id))}
+                categories={categoriesQuery.data?.items ?? []}
+                canArchive={canDelete}
+                onDone={() => setSelectedIds(new Set())}
               />
             )}
             <TableExportActions

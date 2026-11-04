@@ -326,5 +326,20 @@
     "inactive": "Inactivos",
     "lowStock": "Stock bajo",
     "lowMargin": "Margen menor a {{percent}} %"
+  },
+  "bulk": {
+    "label": "Acciones masivas",
+    "selected_one": "{{count}} seleccionado",
+    "selected_other": "{{count}} seleccionados",
+    "moveCategory": "Mover a categoría",
+    "archive": "Archivar",
+    "clear": "Limpiar",
+    "selectRow": "Seleccionar {{name}}",
+    "done_one": "{{count}} producto actualizado",
+    "done_other": "{{count}} productos actualizados",
+    "partial": "{{done}} actualizados, {{failed}} no se pudieron cambiar. Actualiza e intenta de nuevo.",
+    "archiveTitle_one": "¿Archivar {{count}} producto?",
+    "archiveTitle_other": "¿Archivar {{count}} productos?",
+    "archiveMessage": "Dejan de aparecer en ventas. Su historial se conserva."
   }
 }
