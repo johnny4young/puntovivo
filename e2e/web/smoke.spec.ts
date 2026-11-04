@@ -281,10 +281,28 @@ test.describe('web smoke', () => {
     for (const step of guidedSteps) {
       await expect(page.getByTestId(`company-guided-step-${step}`)).toBeVisible();
     }
+<<<<<<< HEAD
     await expect(page.getByRole('progressbar')).toHaveAttribute('aria-valuemax', '6');
     // The section rail lists every destination from the first paint on desktop.
     await expect(page.getByTestId('company-advanced-toggle')).toBeHidden();
     await expect(page.getByTestId('company-tab-ai')).toBeVisible();
+||||||| 935580d7
+    await expect(page.getByRole('progressbar')).toHaveAttribute('aria-valuemax', '6');
+    await expect(page.getByTestId('company-advanced-toggle')).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    );
+    await expect(page.getByTestId('company-tab-ai')).toHaveCount(0);
+=======
+    await expect(page.getByTestId('company-readiness-progress')).toContainText(
+      /of \d+ required areas done/
+    );
+    await expect(page.getByTestId('company-advanced-toggle')).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    );
+    await expect(page.getByTestId('company-tab-ai')).toHaveCount(0);
+>>>>>>> origin/main
 
     await page.getByTestId('company-guided-step-devices').click();
     await expect(page).toHaveURL(/\/company\?step=devices$/);

@@ -22,25 +22,25 @@ export function SalesQuickSearchBar({
 
   return (
     <form
-      className="sales-scan-runway flex flex-col gap-2 px-4 py-4"
+      className="@container sales-scan-runway flex flex-col gap-2 px-4 py-4 lg:flex-row lg:flex-wrap lg:items-center lg:gap-x-3 lg:gap-y-0 lg:px-2.5 lg:py-2"
       onSubmit={event => {
         event.preventDefault();
         if (!disabled) onSubmit();
       }}
     >
-      <div className="sales-scan-label-row">
+      <div className="sales-scan-label-row lg:order-1 lg:shrink-0">
         <label
           htmlFor="sales-product-search-input"
-          className="text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-secondary-500"
+          className="text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-secondary-500 lg:sr-only"
         >
           {t('quickSearch.label')}
         </label>
-        <span className="sales-scanner-ready">
+        <span className="sales-scanner-ready lg:hidden lg:@[38rem]:inline-flex">
           <span aria-hidden="true" />
           {t(disabled ? 'quickSearch.lockedState' : 'quickSearch.ready')}
         </span>
       </div>
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center lg:min-w-0 lg:flex-1">
         <div className="sales-scan-input relative flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-secondary-400" />
           <input
@@ -68,7 +68,9 @@ export function SalesQuickSearchBar({
           )}
         </button>
       </div>
-      <p className="sales-scan-hint flex flex-wrap gap-x-3 gap-y-2 text-xs text-secondary-500">
+      <p
+        className={`sales-scan-hint flex flex-wrap gap-x-3 gap-y-2 text-xs text-secondary-500 ${disabled ? 'lg:order-2 lg:mt-2 lg:w-full' : 'lg:hidden'}`}
+      >
         {disabled
           ? t('quickSearch.lockedHint')
           : (

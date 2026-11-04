@@ -87,9 +87,11 @@
       "refunds_one": "{{count}} refund · {{amount}}",
       "refunds_other": "{{count}} refunds · {{amount}}",
       "cashVariance": "Cash variance",
-      "cashSessions": "Closed: {{closed}} · Open: {{open}}",
       "fiscal": "Fiscal documents",
-      "fiscalNet": "Net fiscal amount {{amount}}"
+      "fiscalNet": "Net fiscal amount {{amount}}",
+      "cashFormula": "Counted {{counted}} − Expected {{expected}}",
+      "cashOpenNote_one": "{{count}} open session not counted yet",
+      "cashOpenNote_other": "{{count}} open sessions not counted yet"
     },
     "sections": {
       "sales": "Sales composition",
@@ -162,6 +164,23 @@
       "waste_not_tracked": {
         "title": "Waste",
         "description": "Waste events are not modeled yet, so this report marks the section unavailable instead of hiding the gap."
+      }
+    },
+    "checklist": {
+      "summary": "{{clear}} of {{total}} checks clear",
+      "done": "Done",
+      "review": "Review",
+      "details": {
+        "open_sessions_one": "{{count}} register still open",
+        "open_sessions_other": "{{count}} registers still open",
+        "cash_discrepancies_one": "{{count}} closed session with a difference · net {{amount}}",
+        "cash_discrepancies_other": "{{count}} closed sessions with a difference · net {{amount}}",
+        "fiscal_pending_one": "{{count}} document waiting for a response",
+        "fiscal_pending_other": "{{count}} documents waiting for a response",
+        "fiscal_rejected_one": "{{count}} document rejected",
+        "fiscal_rejected_other": "{{count}} documents rejected",
+        "high_anomalies_one": "{{count}} signal to review",
+        "high_anomalies_other": "{{count}} signals to review"
       }
     }
   },

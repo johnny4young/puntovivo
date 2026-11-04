@@ -89,7 +89,9 @@ export function CompanyPage(): React.ReactElement {
   return (
     <div className="space-y-6">
       {!companyQuery.isLoading && !companyQuery.error && (
-        <h1 className="text-2xl font-bold text-secondary-900">{t('company.title')}</h1>
+        <h1 data-shell-title className="text-2xl font-bold text-secondary-900">
+          {t('company.title')}
+        </h1>
       )}
 
       {companyQuery.isLoading && (
