@@ -560,4 +560,10 @@ describe('CopilotPage', () => {
       screen.getByText('SELECT COUNT(*) AS sale_count FROM sales_summary')
     ).toBeInTheDocument();
   });
+
+  it('prefills a question from the command palette without sending it', async () => {
+    render(<CopilotPage />, { initialEntries: ['/co-pilot?q=ventas%20de%20ayer'] });
+
+    expect(await screen.findByDisplayValue('ventas de ayer')).toBeInTheDocument();
+  });
 });

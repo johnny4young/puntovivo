@@ -67,7 +67,10 @@ test('kitchen routing, structured preparation and versioned transitions survive 
   await table.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(table).toBeHidden();
   await page.goto('/m');
-  await page.getByTestId('voice-ordering-table-select').selectOption({ label: tableName });
+  await page
+    .getByTestId('voice-ordering-table-grid')
+    .getByRole('button', { name: tableName, exact: true })
+    .click();
   await page.getByTestId('voice-ordering-guest-count').fill('2');
   await page.getByTestId('voice-ordering-manual-add').click();
   const search = page.getByRole('dialog', { name: 'Search', exact: true });

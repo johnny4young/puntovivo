@@ -64,8 +64,9 @@ test('explicit reservation seating survives reload and settles through an ordina
   await expect(card).toContainText('Arrived');
   await goToRoute(page, '/m');
   await page
-    .getByTestId('voice-ordering-table-select')
-    .selectOption({ label: 'E2E Reservation Patio' });
+    .getByTestId('voice-ordering-table-grid')
+    .getByRole('button', { name: 'E2E Reservation Patio', exact: true })
+    .click();
   await page.getByTestId('voice-ordering-manual-add').click();
   const search = page.getByRole('dialog', { name: 'Search', exact: true });
   await search.getByPlaceholder('Search by SKU, name, or barcode').fill('E2E-RESERVED-PLATE');

@@ -49,6 +49,7 @@ export interface CommandAction {
    * synthetic action render the live query inside its label (e.g.
    * "Vender «7702001»") without a bespoke render path.
    */
+  descriptionArgs?: Record<string, string> | undefined;
   labelArgs?: Record<string, string>;
   /**
    * Reference to a `SHORTCUTS` entry id — when present the

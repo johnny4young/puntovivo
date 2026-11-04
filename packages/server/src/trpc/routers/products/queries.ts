@@ -48,6 +48,7 @@ import { hasPharmacyProductProfiles } from '../../../services/pharmacy/operation
 import { findExactProductMatches } from '../../../services/products/exact-search.js';
 import { findFtsProductMatches } from '../../../services/products/fts-search.js';
 import { hydrateSearchProducts } from '../../../services/products/search-hydration.js';
+import { productStockTotalSql } from '../../../services/inventory-balances/derive.js';
 
 function literalContains(column: AnySQLiteColumn, value: string) {
   // The compatibility fallback is a literal substring search, not an SQL
@@ -71,6 +72,8 @@ export const productQueryProcedures = {
       includeVariantParents,
       pharmacyOnly,
       siteId,
+      lowStock,
+      maxMarginPercent,
     } = input;
     const offset = (page - 1) * perPage;
     if (siteId) {
@@ -120,6 +123,20 @@ export const productQueryProcedures = {
     }
     if (pharmacyOnly) {
       conditions.push(isNotNull(pharmacyProductProfiles.productId));
+    }
+    if (lowStock) {
+      conditions.push(
+        eq(products.tracksStock, true),
+        sql`${productStockTotalSql} <= ${products.minStock}`
+      );
+    }
+    if (
+      maxMarginPercent !== undefined &&
+      (ctx.user?.role === 'admin' || ctx.user?.role === 'manager')
+    ) {
+      conditions.push(
+        sql`${products.price} > 0 and (${products.price} - ${products.cost}) * 100.0 / ${products.price} < ${maxMarginPercent}`
+      );
     }
 
     const where = and(...conditions);

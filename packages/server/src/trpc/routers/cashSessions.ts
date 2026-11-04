@@ -11,6 +11,7 @@ import {
 import {
   ensureRegisterAssignmentTemplatesForSite,
   getActiveCashSessionForCashier,
+  getCashMovementSignedAmount,
   normalizeRegisterName,
 } from '../../services/cash-session.js';
 import type { Context } from '../context.js';
@@ -465,7 +466,15 @@ export const cashSessionsRouter = router({
         )
       )
       .orderBy(desc(cashMovements.createdAt))
-      .limit(input.limit);
+      .limit(input.limit)
+      .then(rows =>
+        rows.map(row => ({
+          ...row,
+          // Reading must survive old rows that stored a signed or zero amount.
+          signedAmount:
+            row.amount === 0 ? 0 : getCashMovementSignedAmount(row.type, Math.abs(row.amount)),
+        }))
+      );
   }),
 
   pendingChecks: tenantProcedure.input(pendingChecksInput).query(async ({ ctx, input }) => {

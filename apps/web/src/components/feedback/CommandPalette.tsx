@@ -28,8 +28,9 @@ import {
 } from '@/lib/commandPaletteActions';
 import { loadPaletteUsage, rankRecentActions, recordPaletteActionUsage } from '@/lib/paletteUsage';
 import { formatKeysForDisplay, getShortcutById } from '@/lib/shortcuts';
-import { cn } from '@/lib/utils';
+import { cn, formatCurrency, formatNumber } from '@/lib/utils';
 import { useOmniboxSell } from '@/features/sales/useOmniboxSell';
+import { useProductPaletteResults } from '@/features/sales/useProductPaletteResults';
 
 /**
  * synthetic omnibox row id. Never recorded into the Recent
@@ -37,6 +38,9 @@ import { useOmniboxSell } from '@/features/sales/useOmniboxSell';
  * would render meaninglessly) and never part of the static catalogue.
  */
 const SELL_QUERY_ACTION_ID = 'sales.sellQuery';
+const SELL_PRODUCT_ACTION_PREFIX = 'sales.sellProduct.';
+const ASK_COPILOT_ACTION_ID = 'copilot.ask';
+const ASK_COPILOT_ROLES: ReadonlyArray<string> = ['admin', 'manager'];
 
 /** Roles allowed to push a product into the active cart from anywhere. */
 const SELL_QUERY_ROLES: ReadonlyArray<string> = ['admin', 'manager', 'cashier'];
@@ -96,7 +100,9 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
   const resolveDescription = useMemo(
     () =>
       (action: CommandAction): string =>
-        action.descriptionKey ? t(`palette:${action.descriptionKey}`, { defaultValue: '' }) : '',
+        action.descriptionKey
+          ? t(`palette:${action.descriptionKey}`, { defaultValue: '', ...action.descriptionArgs })
+          : '',
     [t]
   );
   const resolveKeywords = useMemo(
@@ -163,6 +169,43 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
     };
   }, [query, user?.role]);
 
+  const canSellProducts = SELL_QUERY_ROLES.includes(user?.role ?? '');
+  const products = useProductPaletteResults(query, canSellProducts);
+  const productActions = useMemo<CommandAction[]>(() => {
+    return products.map(product => ({
+      id: `${SELL_PRODUCT_ACTION_PREFIX}${product.id}`,
+      labelKey: 'actions.sellProduct.label',
+      labelArgs: { name: product.name },
+      descriptionKey:
+        product.tracksStock === false
+          ? 'actions.sellProduct.descriptionNoStock'
+          : 'actions.sellProduct.description',
+      descriptionArgs: {
+        price: formatCurrency(product.price),
+        stock: formatNumber(product.stock),
+      },
+      roles: SELL_QUERY_ROLES as CommandAction['roles'],
+      // The sell path resolves barcodes; without one it opens the search on the SKU.
+      perform: ctx => ctx.sellQuery?.(product.barcode ?? product.sku),
+      group: 'command',
+    }));
+  }, [products]);
+  const askCopilotAction = useMemo<CommandAction | null>(() => {
+    const trimmed = query.trim();
+    if (trimmed === '' || !ASK_COPILOT_ROLES.includes(user?.role ?? '') || !modules.copilot) {
+      return null;
+    }
+    return {
+      id: ASK_COPILOT_ACTION_ID,
+      labelKey: 'actions.askCopilot.label',
+      descriptionKey: 'actions.askCopilot.description',
+      labelArgs: { query: trimmed },
+      roles: ASK_COPILOT_ROLES as CommandAction['roles'],
+      perform: ctx => ctx.navigate(`/co-pilot?q=${encodeURIComponent(trimmed)}`),
+      group: 'command',
+    };
+  }, [query, user?.role, modules]);
+
   const orderedActions = useMemo(() => {
     const catalogue = (() => {
       if (recentActions.length === 0) {
@@ -171,8 +214,13 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
       const recentIds = new Set(recentActions.map(action => action.id));
       return [...recentActions, ...filtered.filter(action => !recentIds.has(action.id))];
     })();
-    return sellQueryAction ? [...catalogue, sellQueryAction] : catalogue;
-  }, [recentActions, filtered, sellQueryAction]);
+    return [
+      ...catalogue,
+      ...(sellQueryAction ? [sellQueryAction] : []),
+      ...productActions,
+      ...(askCopilotAction ? [askCopilotAction] : []),
+    ];
+  }, [recentActions, filtered, sellQueryAction, productActions, askCopilotAction]);
 
   // Derive a clamped selection at render time — when the filter
   // shrinks, the index automatically follows without a setState in
@@ -217,7 +265,11 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
     // next open ranks this action into the Recent section. The synthetic
     // sell row is excluded: its label depends on the live query, so a
     // remembered entry would render meaninglessly.
-    if (action.id !== SELL_QUERY_ACTION_ID) {
+    if (
+      action.id !== SELL_QUERY_ACTION_ID &&
+      action.id !== ASK_COPILOT_ACTION_ID &&
+      !action.id.startsWith(SELL_PRODUCT_ACTION_PREFIX)
+    ) {
       recordPaletteActionUsage(action.id, tenantId);
     }
     onClose();

@@ -405,6 +405,8 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
       <div className={containerLayout}>
         <div className="space-y-4">
           <VoiceOrderingControls
+            tablePicker={variant === 'mobile' ? 'grid' : 'dropdown'}
+            canCreateTables={user?.role === 'admin'}
             dineInActive={dineInActive}
             tableLabel={tableLabel}
             tableCatalog={tableCatalog}
@@ -489,6 +491,7 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
           onNoteChange={handleNoteChange}
           onLineDetailsChange={handleLineDetailsChange}
           onSave={() => void handleSave()}
+          compactCheck={variant === 'mobile'}
         />
       </div>
 
