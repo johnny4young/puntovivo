@@ -11,6 +11,10 @@
     "customerDisplayOpenErrorTitle": "No se pudo abrir la pantalla cliente",
     "customerDisplayOpenErrorDescription": "Permite la ventana emergente o intenta de nuevo cuando la ventana de escritorio esté disponible. La venta no cambia."
   },
+  "saleComplete": {
+    "receipt": "Imprimir o compartir recibo",
+    "dismiss": "Cerrar"
+  },
   "checkout": {
     "kicker": "Caja",
     "chargeSummary": "Resumen de cobro",
