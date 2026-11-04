@@ -1,8 +1,9 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { render } from '@/test/utils';
+import { formatCurrency } from '@/lib/utils';
 import type { Customer } from '@/types';
 import { SalePaymentModal, type SalePaymentValues } from './SalePaymentModal';
 import { useCartWorkspaceStore } from './useCartWorkspaceStore';
@@ -665,18 +666,43 @@ describe('SalePaymentModal — explicit partial settlement', () => {
     await user.type(amount, '20000');
     expect(screen.getByRole('alert')).toHaveTextContent('outstanding balance');
     expect(screen.getByRole('alert')).toHaveTextContent('10,000');
-    await user.click(screen.getByRole('button', { name: 'Confirm partial sale' }));
+    await user.click(
+      screen.getByRole('button', { name: /Confirm partial sale .*10,000.* missing/ })
+    );
     expect(props.onSubmit).toHaveBeenCalledWith(
       expect.objectContaining({ amountReceived: 20000, paymentMethod: 'cash', tenders: [] })
     );
   });
+  it('pins received and change next to confirm, and the balance when short', async () => {
+    render(<SalePaymentModal {...createProps({ total: 30000 })} />);
+    const user = userEvent.setup();
+    const amount = await screen.findByLabelText(/Amount received/i);
+    await user.clear(amount);
+    await user.type(amount, '50000');
+
+    const settlement = within(screen.getByTestId('payment-settlement'));
+    expect(settlement.getByText('Change')).toBeVisible();
+    expect(screen.getByTestId('payment-settlement-amount')).toHaveTextContent('20,000');
+
+    await user.clear(amount);
+    await user.type(amount, '20000');
+    expect(settlement.getByText('Outstanding balance')).toBeVisible();
+    // Same tenant formatting as the total, never the drawer's unwired currency default.
+    expect(screen.getByTestId('payment-settlement-amount')).toHaveTextContent(
+      formatCurrency(10000)
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Split payment across tenders' }));
+    expect(screen.queryByTestId('payment-settlement')).not.toBeInTheDocument();
+  });
+
   it('removes the partial warning when the received amount covers the sale', async () => {
     render(<SalePaymentModal {...createProps()} />);
     const user = userEvent.setup();
     const amount = await screen.findByLabelText(/Amount received/i);
     await user.clear(amount);
     await user.type(amount, '50');
-    expect(screen.getByRole('button', { name: 'Confirm partial sale' })).toBeVisible();
+    expect(screen.getByRole('button', { name: /Confirm partial sale/ })).toBeVisible();
     await user.clear(amount);
     await user.type(amount, '200');
     expect(screen.queryByText('This sale will remain partially paid')).not.toBeInTheDocument();

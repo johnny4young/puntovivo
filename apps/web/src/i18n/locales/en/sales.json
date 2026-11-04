@@ -387,7 +387,7 @@
       "grandTotalBreakdownWithTip": "Base {{base}} + service {{service}} + tip {{tip}}"
     },
     "lockedCustomer": "Quotation customer",
-    "confirmPartial": "Confirm partial sale",
+    "confirmPartialAmount": "Confirm partial sale · {{amount}} missing",
     "partialTitle": "This sale will remain partially paid",
     "partialWarning": "The outstanding balance is {{amount}}. Confirm only if you intend to leave this balance unpaid."
   },

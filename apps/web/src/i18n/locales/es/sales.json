@@ -387,7 +387,7 @@
       "grandTotalBreakdownWithTip": "Base {{base}} + servicio {{service}} + propina {{tip}}"
     },
     "lockedCustomer": "Cliente de la cotización",
-    "confirmPartial": "Confirmar venta con pago parcial",
+    "confirmPartialAmount": "Confirmar venta con pago parcial · faltan {{amount}}",
     "partialTitle": "Esta venta quedará con pago parcial",
     "partialWarning": "El saldo pendiente es {{amount}}. Confirma solo si deseas dejar este saldo sin pagar."
   },
