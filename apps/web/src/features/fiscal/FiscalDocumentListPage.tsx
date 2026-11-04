@@ -13,6 +13,7 @@ import { TablePagination } from '@/components/tables/TablePagination';
 import type { FiscalDocumentListItem } from '@/types';
 import { FiscalDocumentXmlModal } from './FiscalDocumentXmlModal';
 import { FiscalDocumentDetailsDrawer } from './FiscalDocumentDetailsDrawer';
+import { FiscalReadinessStrip } from './FiscalReadinessStrip';
 
 type FiscalKind = 'DEE' | 'FEV' | 'NC' | 'ND';
 type FiscalSource = 'sale' | 'void' | 'return';
@@ -102,7 +103,11 @@ export function FiscalDocumentListPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold text-secondary-900">{t('page.title')}</h1>
+      <h1 data-shell-title className="text-2xl font-semibold text-secondary-900">
+        {t('page.title')}
+      </h1>
+
+      <FiscalReadinessStrip />
 
       <div className="card p-6">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">

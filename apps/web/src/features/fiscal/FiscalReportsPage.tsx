@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { FiscalHabilitationWizard } from './FiscalHabilitationWizard';
+import { FiscalReadinessStrip } from './FiscalReadinessStrip';
 
 /**
  * estado actual — shell for the future fiscal reports page.
@@ -14,7 +15,11 @@ export function FiscalReportsPage() {
   const { t } = useTranslation('fiscal');
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold text-secondary-900">{t('reports.title')}</h1>
+      <h1 data-shell-title className="text-2xl font-semibold text-secondary-900">
+        {t('reports.title')}
+      </h1>
+
+      <FiscalReadinessStrip />
 
       <FiscalHabilitationWizard />
 

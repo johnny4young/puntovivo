@@ -89,7 +89,9 @@ export function CompanyPage(): React.ReactElement {
   return (
     <div className="space-y-6">
       {!companyQuery.isLoading && !companyQuery.error && (
-        <h1 className="text-2xl font-bold text-secondary-900">{t('company.title')}</h1>
+        <h1 data-shell-title className="text-2xl font-bold text-secondary-900">
+          {t('company.title')}
+        </h1>
       )}
 
       {companyQuery.isLoading && (
@@ -123,21 +125,25 @@ export function CompanyPage(): React.ReactElement {
             <>
               {/* The guided path stays dominant; legacy deep links remain
                   reachable through the explicit advanced disclosure. */}
-              <CompanySetupNavigation activeTab={activeTab} onTabChange={handleTabChange} />
-              <CompanySettingsPanels
-                activeTab={activeTab}
-                focusTarget={focusTarget}
-                company={company}
-                isSaving={upsertMutation.isPending}
-                saveError={saveError}
-                tenantCountryCode={tenantCountryCode}
-                isLocaleLoading={localeQuery.isLoading}
-                localeError={localeQuery.error}
-                onLocaleRetry={() => {
-                  void localeQuery.refetch();
-                }}
-                onSubmit={handleSubmit}
-              />
+              <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[14rem_minmax(0,1fr)] lg:items-start lg:gap-6">
+                <CompanySetupNavigation activeTab={activeTab} onTabChange={handleTabChange} />
+                <div className="min-w-0">
+                  <CompanySettingsPanels
+                    activeTab={activeTab}
+                    focusTarget={focusTarget}
+                    company={company}
+                    isSaving={upsertMutation.isPending}
+                    saveError={saveError}
+                    tenantCountryCode={tenantCountryCode}
+                    isLocaleLoading={localeQuery.isLoading}
+                    localeError={localeQuery.error}
+                    onLocaleRetry={() => {
+                      void localeQuery.refetch();
+                    }}
+                    onSubmit={handleSubmit}
+                  />
+                </div>
+              </div>
             </>
           )}
         </>

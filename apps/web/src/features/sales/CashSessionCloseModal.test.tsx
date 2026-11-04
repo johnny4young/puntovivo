@@ -8,6 +8,10 @@ import { CashSessionCloseModal } from './CashSessionCloseModal';
 // cashier so the pre-existing blind-close assertions exercise the strict
 // (no-feedback) path.
 let mockRole = 'cashier';
+vi.mock('./CashMovementTimeline', () => ({
+  CashMovementTimeline: () => <div data-testid="close-session-timeline" />,
+}));
+
 vi.mock('@/features/auth/AuthProvider', () => ({
   useAuth: () => ({ user: { id: 'user-1', role: mockRole } }),
 }));
@@ -151,6 +155,24 @@ describe('CashSessionCloseModal', () => {
   });
 
   // live over/short semaphore, role-gated.
+  it('shows the movement timeline only on a supervised close', () => {
+    const props = {
+      cashSession: activeCashSession,
+      isOpen: true,
+      isSaving: false,
+      error: null,
+      onClose: vi.fn(),
+      onSubmit: vi.fn(),
+    };
+    const blind = render(<CashSessionCloseModal {...props} />);
+    expect(screen.queryByTestId('close-session-timeline')).not.toBeInTheDocument();
+    blind.unmount();
+
+    mockRole = 'manager';
+    render(<CashSessionCloseModal {...props} />);
+    expect(screen.getByTestId('close-session-timeline')).toBeInTheDocument();
+  });
+
   it('never shows the live delta to a cashier, even while counting', async () => {
     mockRole = 'cashier';
     const user = userEvent.setup();

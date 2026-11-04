@@ -89,7 +89,10 @@ for (const language of ['en', 'es'] as const)
       await login(till, { ...scenario.cashier, defaultPath: '/sales' });
       await ensureLanguage(till, language);
       await till.goto('/m');
-      await till.getByTestId('voice-ordering-table-select').selectOption({ label: tableName });
+      await till
+        .getByTestId('voice-ordering-table-grid')
+        .getByRole('button', { name: tableName, exact: true })
+        .click();
       await till.getByTestId('voice-ordering-check-label').fill(label);
       await addProduct(till, scenario.product.sku);
       await expect(till.getByTestId('voice-ordering-modifier-price')).toHaveAttribute(
@@ -173,7 +176,10 @@ for (const language of ['en', 'es'] as const)
           .getByText(es ? 'Archivado' : 'Archived', { exact: true })
       ).toBeVisible();
       await till.reload();
-      await till.getByTestId('voice-ordering-table-select').selectOption({ label: tableName });
+      await till
+        .getByTestId('voice-ordering-table-grid')
+        .getByRole('button', { name: tableName, exact: true })
+        .click();
       await expect(till.getByTestId('voice-ordering-open-checks')).toContainText(/14[.,]500/);
       await till.setViewportSize({ width: 1280, height: 900 });
       await till.goto('/sales');

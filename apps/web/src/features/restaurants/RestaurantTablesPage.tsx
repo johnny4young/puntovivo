@@ -8,6 +8,7 @@
 import { useMemo, useState } from 'react';
 import type { DataTableColumnDef } from '@/components/tables/DataTable';
 import { Archive, Pencil, Plus, Table2 } from 'lucide-react';
+import { useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { ConfirmModal } from '@/components/form-controls/Modal';
@@ -24,7 +25,7 @@ import {
   type RestaurantTableFormInitial,
   type RestaurantTableFormPayload,
 } from './RestaurantTableFormModal';
-import { RestaurantFloorMapPreview } from './RestaurantFloorMapPreview';
+import { RestaurantFloorMapPreview, type FloorTableStatus } from './RestaurantFloorMapPreview';
 import { Badge } from '@/components/ui';
 
 const RESTAURANT_TABLE_PAGE_SIZE = 100;
@@ -162,6 +163,8 @@ export function RestaurantTablesPage() {
     }
     return sites[0]?.id ?? '';
   }, [siteOverride, sites, currentSite]);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const view = searchParams.get('view') === 'list' ? 'list' : 'map';
   const [includeArchived, setIncludeArchived] = useState(false);
   const [tableOffset, setTableOffset] = useState(0);
   const [tableSearch, setTableSearch] = useState('');
@@ -197,9 +200,49 @@ export function RestaurantTablesPage() {
       enabled: selectedSiteId.length > 0,
     }
   );
+  const occupancyQuery = trpc.restaurantTables.listWithDraftStatus.useQuery(
+    { siteId: selectedSiteId || 'placeholder', includeArchived: false, limit: 500, offset: 0 },
+    { enabled: selectedSiteId.length > 0 }
+  );
+  const [reservationWindow] = useState(() => {
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+    return { from: new Date().toISOString(), to: endOfDay.toISOString() };
+  });
+  const reservationsQuery = trpc.reservations.list.useQuery(
+    { siteId: selectedSiteId || 'placeholder', ...reservationWindow, limit: 100 },
+    { enabled: selectedSiteId.length > 0, retry: false }
+  );
+  const floorStatuses = useMemo(() => {
+    const statuses = new Map<string, FloorTableStatus>();
+    if (!occupancyQuery.data) return statuses;
+    const nextReservation = new Map<string, string>();
+    for (const reservation of reservationsQuery.data?.rows ?? []) {
+      if (
+        reservation.tableId &&
+        (reservation.status === 'booked' || reservation.status === 'arrived') &&
+        !nextReservation.has(reservation.tableId)
+      ) {
+        nextReservation.set(reservation.tableId, reservation.startsAt);
+      }
+    }
+    for (const table of occupancyQuery.data.items) {
+      const startsAt = nextReservation.get(table.id);
+      statuses.set(
+        table.id,
+        table.openDrafts.length > 0
+          ? { kind: 'occupied', openChecks: table.openDrafts.length }
+          : startsAt
+            ? { kind: 'reserved', startsAt }
+            : { kind: 'free' }
+      );
+    }
+    return statuses;
+  }, [occupancyQuery.data, reservationsQuery.data]);
   const createMutation = trpc.restaurantTables.create.useMutation({
     onSuccess: async () => {
       await utils.restaurantTables.list.invalidate();
+      await utils.restaurantTables.listWithDraftStatus.invalidate();
       toast.success({
         title: t('tables.toast.created'),
       });
@@ -212,6 +255,7 @@ export function RestaurantTablesPage() {
   const updateMutation = trpc.restaurantTables.update.useMutation({
     onSuccess: async () => {
       await utils.restaurantTables.list.invalidate();
+      await utils.restaurantTables.listWithDraftStatus.invalidate();
       toast.success({
         title: t('tables.toast.updated'),
       });
@@ -224,6 +268,7 @@ export function RestaurantTablesPage() {
   const archiveMutation = trpc.restaurantTables.archive.useMutation({
     onSuccess: async () => {
       await utils.restaurantTables.list.invalidate();
+      await utils.restaurantTables.listWithDraftStatus.invalidate();
       toast.success({
         title: t('tables.toast.archived'),
       });
@@ -295,83 +340,119 @@ export function RestaurantTablesPage() {
   const modalErrorMessage = modalError
     ? translateServerError(modalError, t, t('tables.form.errorFallback'))
     : null;
+  const toolbar = (
+    <div className="flex flex-wrap items-center gap-3">
+      <label className="flex items-center gap-2 text-sm text-secondary-700">
+        <span className="text-xs uppercase tracking-wide text-secondary-500">
+          {t('tables.siteSelector')}
+        </span>
+        <select
+          className="input"
+          value={selectedSiteId}
+          onChange={event => {
+            setSiteOverride(event.target.value);
+            setTableOffset(0);
+          }}
+          data-testid="restaurant-tables-site-select"
+        >
+          {sites.length === 0 && <option value="">—</option>}
+          {sites.map(site => (
+            <option key={site.id} value={site.id}>
+              {site.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      {view === 'list' && (
+        <label className="flex items-center gap-2 text-sm text-secondary-700">
+          <input
+            type="checkbox"
+            className="h-4 w-4 rounded border-secondary-300"
+            checked={includeArchived}
+            onChange={event => {
+              setIncludeArchived(event.target.checked);
+              setTableOffset(0);
+            }}
+            data-testid="restaurant-tables-show-archived"
+          />
+          {t('tables.toolbar.showArchived')}
+        </label>
+      )}
+      <button
+        type="button"
+        className="btn-primary flex items-center gap-2"
+        onClick={handleOpenCreate}
+        disabled={!isAdmin || selectedSiteId.length === 0}
+        data-testid="restaurant-tables-create-cta"
+      >
+        <Plus className="h-5 w-5" />
+        {t('tables.toolbar.createCta')}
+      </button>
+    </div>
+  );
   return (
     <>
-      <RestaurantFloorMapPreview
-        tables={floorMapItems}
-        onSelect={id => {
-          const row = floorMapItems.find(r => r.id === id);
-          if (row) handleOpenEdit(row);
-        }}
-      />
-      <ResourcePage
-        title={t('tables.title')}
-        description={t('tables.description')}
-        action={
-          <div className="flex flex-wrap items-center gap-3">
-            <label className="flex items-center gap-2 text-sm text-secondary-700">
-              <span className="text-xs uppercase tracking-wide text-secondary-500">
-                {t('tables.siteSelector')}
-              </span>
-              <select
-                className="input"
-                value={selectedSiteId}
-                onChange={event => {
-                  setSiteOverride(event.target.value);
-                  setTableOffset(0);
-                }}
-                data-testid="restaurant-tables-site-select"
-              >
-                {sites.length === 0 && <option value="">—</option>}
-                {sites.map(site => (
-                  <option key={site.id} value={site.id}>
-                    {site.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex items-center gap-2 text-sm text-secondary-700">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-secondary-300"
-                checked={includeArchived}
-                onChange={event => {
-                  setIncludeArchived(event.target.checked);
-                  setTableOffset(0);
-                }}
-                data-testid="restaurant-tables-show-archived"
-              />
-              {t('tables.toolbar.showArchived')}
-            </label>
-            <button
-              type="button"
-              className="btn-primary flex items-center gap-2"
-              onClick={handleOpenCreate}
-              disabled={!isAdmin || selectedSiteId.length === 0}
-              data-testid="restaurant-tables-create-cta"
-            >
-              <Plus className="h-5 w-5" />
-              {t('tables.toolbar.createCta')}
-            </button>
+      <div
+        className="segmented-control mb-4 w-fit"
+        role="group"
+        aria-label={t('tables.viewLabel')}
+        data-testid="restaurant-tables-view"
+      >
+        {(['map', 'list'] as const).map(option => (
+          <button
+            key={option}
+            type="button"
+            aria-pressed={view === option}
+            className={`segmented-tab ${view === option ? 'segmented-tab-active' : ''}`}
+            onClick={() =>
+              setSearchParams(option === 'list' ? { view: 'list' } : {}, { replace: true })
+            }
+            data-testid={`restaurant-tables-view-${option}`}
+          >
+            {t(`tables.views.${option}`)}
+          </button>
+        ))}
+      </div>
+      {view === 'map' ? (
+        <>
+          <div className="page-header-row">
+            <div>
+              <h1 className="text-2xl font-bold text-secondary-900">{t('tables.title')}</h1>
+            </div>
+            <div className="page-header-actions">{toolbar}</div>
           </div>
-        }
-        columns={buildColumns(t, handleOpenEdit, setArchiveTarget, isAdmin)}
-        data={items}
-        isLoading={tablesQuery.isLoading}
-        error={tableListError}
-        searchValue={tableSearch}
-        onSearchChange={value => {
-          setTableSearch(value);
-          setTableOffset(0);
-        }}
-        searchPlaceholder={t('tables.title')}
-        loadingMessage={t('tables.loading')}
-        onRetry={() => {
-          void tablesQuery.refetch();
-        }}
-      />
+          <RestaurantFloorMapPreview
+            tables={floorMapItems}
+            statuses={floorStatuses}
+            onSelect={id => {
+              const row = floorMapItems.find(r => r.id === id);
+              if (row) handleOpenEdit(row);
+            }}
+          />
+        </>
+      ) : (
+        <ResourcePage
+          title={t('tables.title')}
+          description={t('tables.description')}
+          action={toolbar}
+          columns={buildColumns(t, handleOpenEdit, setArchiveTarget, isAdmin)}
+          data={items}
+          isLoading={tablesQuery.isLoading}
+          error={tableListError}
+          searchValue={tableSearch}
+          onSearchChange={value => {
+            setTableSearch(value);
+            setTableOffset(0);
+          }}
+          searchPlaceholder={t('tables.title')}
+          loadingMessage={t('tables.loading')}
+          onRetry={() => {
+            void tablesQuery.refetch();
+          }}
+        />
+      )}
 
-      {(tableOffset > 0 || totalTables > RESTAURANT_TABLE_PAGE_SIZE) && (
+      {view === 'list' && (tableOffset > 0 || totalTables > RESTAURANT_TABLE_PAGE_SIZE) && (
         <nav
           className="mt-4 flex flex-wrap items-center justify-end gap-3 text-sm text-secondary-600"
           aria-label={t('tables.pagination.ariaLabel')}

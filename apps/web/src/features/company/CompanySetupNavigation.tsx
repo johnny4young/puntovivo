@@ -49,7 +49,7 @@ export function CompanySetupNavigation({
         disclosureId: 'company-advanced-settings',
         toggleTestId: 'company-advanced-toggle',
         panelTestId: 'company-advanced-settings',
-        columnsClassName: 'lg:grid-cols-3',
+        columnsClassName: 'sm:grid-cols-3 lg:grid-cols-1',
         groups: COMPANY_SETUP_TAB_GROUPS.map(group => ({
           id: group.id,
           label: t(group.labelKey),
@@ -61,6 +61,7 @@ export function CompanySetupNavigation({
         })).filter(group => group.items.length > 0),
       }}
       onItemChange={onTabChange}
+      layout="rail"
     />
   );
 }
