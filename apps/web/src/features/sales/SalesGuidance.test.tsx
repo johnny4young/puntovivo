@@ -50,24 +50,23 @@ function renderGuidance(itemCount = 0, locked = false) {
 describe.each([
   {
     locale: 'en',
-    help: 'Scan a barcode or search by name or SKU to add a product.',
-    summary: 'Cart summary',
+    search: 'Search products',
+    items: 'Items (2)',
     obsolete: /Quick suggestion|Waiting…|when wired|reuses the existing|Last scanned/,
   },
   {
     locale: 'es',
-    help: 'Escanea un código de barras o busca por nombre o SKU para agregar un producto.',
-    summary: 'Resumen del carrito',
+    search: 'Buscar productos',
+    items: 'Ítems (2)',
     obsolete:
       /Sugerencia rápida|Esperando…|cuando estén disponibles|reutiliza el diálogo|Último escaneado/,
   },
-])('sales guidance in $locale', ({ locale, help, summary, obsolete }) => {
+])('sales guidance in $locale', ({ locale, search, items, obsolete }) => {
   it('keeps empty checkout actionable without inert suggestions or internal copy', async () => {
     await i18n.changeLanguage(locale);
     const { container } = renderGuidance();
-    expect(screen.getByText(help)).toBeVisible();
+    expect(screen.getByRole('button', { name: search })).toBeEnabled();
     expect(container.textContent).not.toMatch(obsolete);
-    expect(screen.queryByText(summary)).not.toBeInTheDocument();
   });
 
   it('renders shortcut keys as keyboard input, not literal Markdown', async () => {
@@ -88,19 +87,14 @@ describe.each([
   it('describes cart contents rather than claiming to identify the last scan', async () => {
     await i18n.changeLanguage(locale);
     const { container } = renderGuidance(2);
-    expect(screen.getByText(summary)).toBeVisible();
+    expect(screen.getByTestId('checkout-total')).toHaveTextContent(items);
     expect(container.textContent).not.toMatch(obsolete);
-    expect(
-      screen.getByText(
-        locale === 'en' ? '2 items in cart · review total' : '2 ítems en carrito · revisa el total'
-      )
-    ).toBeVisible();
   });
 
   it('does not advertise editing shortcuts on a locked ticket', async () => {
     await i18n.changeLanguage(locale);
     const { container } = renderGuidance(2, true);
-    expect(screen.queryByText(help)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: search })).toBeDisabled();
     const keys = Array.from(container.querySelectorAll('kbd'), key => key.textContent);
     expect(keys).not.toEqual(expect.arrayContaining(['Alt+P']));
     expect(keys).not.toEqual(expect.arrayContaining(['Alt+C']));

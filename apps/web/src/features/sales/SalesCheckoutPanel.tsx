@@ -1,10 +1,10 @@
 import {
+  Banknote,
   FilePlus2,
   ListTree,
   PauseCircle,
   Plus,
   Receipt,
-  ScanLine,
   WalletCards,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -78,10 +78,8 @@ interface SalesCheckoutPanelProps {
    * existing tests) rendering exactly like before.
    */
   preflightItems?: readonly PreflightItem[] | undefined;
-  /** Integrated SalesScreen moves the primary action into its operation strip. */
-  showPrimaryAction?: boolean | undefined;
-  /** Integrated SalesScreen surfaces one prioritized notice in its operation strip. */
-  showPreflightPanel?: boolean | undefined;
+  /** Opens the payment drawer in the exact-cash flow. */
+  onFastCash?: (() => void) | undefined;
 }
 export function SalesCheckoutPanel({
   currentSite,
@@ -110,8 +108,7 @@ export function SalesCheckoutPanel({
   onToggleSuspendedPanel,
   hubReachable,
   preflightItems = [],
-  showPrimaryAction = true,
-  showPreflightPanel = true,
+  onFastCash,
 }: SalesCheckoutPanelProps) {
   const { t } = useTranslation('sales');
   const hasSupervisedClose = userRole === 'admin' || userRole === 'manager';
@@ -124,6 +121,12 @@ export function SalesCheckoutPanel({
   // preflight gate. Any blocker disables Cobrar; warnings
   // do not (the operator still controls the call).
   const preflightHasBlockers = preflightItems.some(item => item.severity === 'blocker');
+  // The closed register and the sync backlog already have their own surfaces.
+  const visiblePreflightItems = preflightItems.filter(
+    item =>
+      item.id !== 'sync_backlog' && (cashSession !== null || item.id !== 'cash_session_required')
+  );
+  const hasVisibleBlocker = visiblePreflightItems.some(item => item.severity === 'blocker');
   const primaryAction = cashSession ? onCharge : onOpenCashSession;
   const primaryActionLabel = cashSession ? t('checkout.chargeSale') : t('cashSession.openAction');
   const primaryActionDisabled =
@@ -132,7 +135,9 @@ export function SalesCheckoutPanel({
   // already owns discovery, and disabled button opacity fails contrast here.
   const showSuspendAction = !!onSuspend && canSuspend;
   const showNewSaleAction = !!onNewSale;
-  const showSuspendControls = showSuspendAction || showNewSaleAction;
+  const showFastCashAction =
+    !!onFastCash && !!cashSession && canCharge && !isHubGated && !preflightHasBlockers;
+  const showSuspendControls = showSuspendAction || showNewSaleAction || showFastCashAction;
   const showSuspendedToggle = !!onToggleSuspendedPanel;
   return (
     <aside className="sales-settlement-dock card p-4 sm:p-5 lg:flex pos:h-full pos:min-h-0 lg:flex-col pos:overflow-hidden">
@@ -140,9 +145,6 @@ export function SalesCheckoutPanel({
         <div>
           <p className="pv-kicker">{t('checkout.kicker')}</p>
           <h2 className="pv-title text-xl">{t('checkout.chargeSummary')}</h2>
-          <p className="mt-2 text-sm text-secondary-600">
-            {t('checkout.chargeSummaryDescription')}
-          </p>
         </div>
         <Button
           className="pv-control-key pv-control-key-icon"
@@ -158,7 +160,7 @@ export function SalesCheckoutPanel({
         </Button>
       </div>
 
-      <div className="pv-total mt-6 xl:shrink-0">
+      <div className="pv-total mt-4 lg:shrink-0" data-testid="checkout-total">
         <div className="lbl">{t('checkout.totalDue')}</div>
         <div className="fig">{formatCurrency(draftSummary.total)}</div>
         <div className="brk">
@@ -177,48 +179,89 @@ export function SalesCheckoutPanel({
         </div>
       </div>
 
-      <div className="mt-5 space-y-3 pos:min-h-0 pos:flex-1 pos:overflow-y-auto pos:scroll-pb-28 pos:pb-28">
-        {/* This is a cart count, not the identity of the last scanned product. */}
-        {draftSummary.itemCount > 0 && (
-          <div className="card-inset relative overflow-hidden px-4 py-3">
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0"
-              style={{
-                background:
-                  'radial-gradient(circle at 92% 0%, color-mix(in oklch, var(--primary) 12%, transparent), transparent 55%)',
-              }}
-            />
-            <div className="relative flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[9.5px] font-semibold uppercase tracking-[0.22em] text-primary-700">
-                  {t('checkout.cartSummary')}
-                </p>
-                <p className="mt-1 truncate text-sm font-semibold text-secondary-950">
-                  {t('checkout.cartSummaryHint', {
-                    count: draftSummary.itemCount,
-                  })}
-                </p>
-              </div>
-              <ScanLine className="h-4 w-4 shrink-0 text-primary-700" aria-hidden="true" />
-            </div>
-          </div>
+      <p className="sr-only hidden lg:block" aria-live="polite" aria-atomic="true">
+        {t('checkout.itemsWithCount', { value: draftSummary.itemCount })} ·{' '}
+        {formatCurrency(draftSummary.total)}
+      </p>
+
+      {/* Stays right under the total so short registers never scroll to charge. */}
+      <div className="mt-5 space-y-3 lg:shrink-0">
+        <Button
+          className="pv-control-key pv-control-key-primary sales-primary-control hidden min-h-12 w-full justify-center px-6 lg:inline-flex"
+          onClick={primaryAction}
+          disabled={primaryActionDisabled}
+          data-testid="checkout-primary-action"
+          aria-keyshortcuts={ariaKeyshortcutsFor(
+            cashSession ? 'sales.charge' : 'sales.openCashSession'
+          )}
+          aria-describedby={hasVisibleBlocker ? PREFLIGHT_PRIMARY_ELEMENT_ID : undefined}
+          variant="primary"
+          type="submit"
+        >
+          {cashSession ? <Receipt className="h-4 w-4" /> : <WalletCards className="h-4 w-4" />}
+          {primaryActionLabel}
+          {cashSession && !primaryActionDisabled && (
+            <kbd className="pv-kbd ml-1" aria-hidden="true">
+              {shortcutDisplayFor('sales.charge')}
+            </kbd>
+          )}
+        </Button>
+
+        {isHubGated && (
+          <p
+            className="hidden text-xs text-danger-600 lg:block"
+            data-testid="checkout-hub-gate-hint"
+          >
+            {t('checkout.hubGatedHint')}
+          </p>
         )}
 
-        {/* Locked tickets cannot add products; do not instruct the cashier to. */}
-        {canOpenSearch && (
-          <div className="card-inset px-4 py-4">
-            <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[18px] bg-primary-50 text-primary-700">
-                <ScanLine className="h-4.5 w-4.5" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-secondary-950">
-                  {t('checkout.searchProducts')}
-                </p>
-                <p className="mt-1 text-sm text-secondary-500">{t('checkout.searchHint')}</p>
-              </div>
-            </div>
+        {showSuspendControls && (
+          <div className="hidden flex-wrap gap-2 lg:flex" data-testid="checkout-park-controls">
+            {showSuspendAction && (
+              <button
+                type="button"
+                className="pv-control-key btn-outline flex-1 justify-center whitespace-nowrap"
+                onClick={onSuspend}
+                data-testid="checkout-suspend"
+                aria-keyshortcuts={ariaKeyshortcutsFor('sales.suspend')}
+              >
+                <PauseCircle className="h-4 w-4" />
+                {t('park.suspend')}
+              </button>
+            )}
+            {showFastCashAction && (
+              <button
+                type="button"
+                className="pv-control-key btn-outline flex-1 justify-center whitespace-nowrap"
+                onClick={onFastCash}
+                data-testid="checkout-fast-cash"
+                aria-keyshortcuts={ariaKeyshortcutsFor('sales.fastCash')}
+              >
+                <Banknote className="h-4 w-4" />
+                {t('checkout.shortcut.fastCash')}
+              </button>
+            )}
+            {showNewSaleAction && (
+              <button
+                type="button"
+                className="pv-control-key btn-outline flex-1 justify-center whitespace-nowrap"
+                onClick={onNewSale}
+                data-testid="checkout-new-sale"
+                aria-keyshortcuts={ariaKeyshortcutsFor('sales.newSale')}
+              >
+                <FilePlus2 className="h-4 w-4" />
+                {t('park.newSale')}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-5 space-y-3 pos:min-h-0 pos:flex-1 pos:overflow-y-auto pos:scroll-pb-28 pos:pb-28">
+        {visiblePreflightItems.length > 0 && (
+          <div className="hidden lg:block">
+            <CheckoutPreflightPanel items={visiblePreflightItems} />
           </div>
         )}
 
@@ -391,77 +434,13 @@ export function SalesCheckoutPanel({
           )}
         </div>
 
-        {showPreflightPanel && preflightItems.length > 0 && (
-          <CheckoutPreflightPanel items={preflightItems} />
-        )}
       </div>
 
-      {/*  (review follow-up) — in the `pos:` lockup this is the
-          pinned action footer so Cobrar stays in view while the block above it
-          scrolls. At xl-but-short viewports it remains in normal page flow so
-          cash controls are reachable. Below xl these actions are hidden (the
-          SalesMobileCheckoutBar owns mobile), so the footer is inert there. */}
-      <div className="space-y-3 xl:shrink-0 xl:border-t xl:border-line/70 xl:pt-4">
-        {showPrimaryAction && (
-          <Button
-            className="pv-control-key pv-control-key-primary sales-primary-control min-h-12 px-6 hidden w-full justify-center xl:inline-flex"
-            onClick={primaryAction}
-            disabled={primaryActionDisabled}
-            data-testid="checkout-primary-action"
-            aria-keyshortcuts={ariaKeyshortcutsFor(
-              cashSession ? 'sales.charge' : 'sales.openCashSession'
-            )}
-            aria-describedby={preflightHasBlockers ? PREFLIGHT_PRIMARY_ELEMENT_ID : undefined}
-            variant="primary"
-            type="submit"
-          >
-            {cashSession ? <Receipt className="h-4 w-4" /> : <WalletCards className="h-4 w-4" />}
-            {primaryActionLabel}
-          </Button>
-        )}
-
-        {showPrimaryAction && isHubGated && (
-          <p
-            className="hidden text-xs text-danger-600 xl:block"
-            data-testid="checkout-hub-gate-hint"
-          >
-            {t('checkout.hubGatedHint')}
-          </p>
-        )}
-
-        {showSuspendControls && (
-          <div className="hidden gap-2 xl:flex" data-testid="checkout-park-controls">
-            {showSuspendAction && (
-              <button
-                type="button"
-                className="pv-control-key btn-outline flex-1 justify-center"
-                onClick={onSuspend}
-                data-testid="checkout-suspend"
-                aria-keyshortcuts={ariaKeyshortcutsFor('sales.suspend')}
-              >
-                <PauseCircle className="h-4 w-4" />
-                {t('park.suspend')}
-              </button>
-            )}
-            {showNewSaleAction && (
-              <button
-                type="button"
-                className="pv-control-key btn-outline flex-1 justify-center"
-                onClick={onNewSale}
-                data-testid="checkout-new-sale"
-                aria-keyshortcuts={ariaKeyshortcutsFor('sales.newSale')}
-              >
-                <FilePlus2 className="h-4 w-4" />
-                {t('park.newSale')}
-              </button>
-            )}
-          </div>
-        )}
-
+      <div className="lg:shrink-0 lg:border-t lg:border-line/70 lg:pt-4">
         {showSuspendedToggle && (
           <button
             type="button"
-            className="pv-control-key pv-control-key-ghost btn-ghost hidden w-full justify-between xl:inline-flex"
+            className="pv-control-key pv-control-key-ghost btn-ghost hidden w-full justify-between lg:inline-flex"
             onClick={onToggleSuspendedPanel}
             data-testid="checkout-open-suspended-panel"
             aria-keyshortcuts={

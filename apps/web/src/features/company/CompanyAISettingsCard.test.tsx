@@ -24,6 +24,8 @@ const transcribeMutationState: {
   onSuccessRef: ((data: unknown) => void) | null;
 } = { isPending: false, onSuccessRef: null };
 
+vi.mock('./ProductSearchIndexAction', () => ({ ProductSearchIndexAction: () => null }));
+
 vi.mock('@/components/feedback/ToastProvider', () => ({
   useToast: () => ({
     success: toastSuccess,
