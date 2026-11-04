@@ -92,7 +92,7 @@ vi.mock('@/lib/trpc', () => ({
     products: {
       list: {
         useQuery: (
-          input: { categoryId?: string; isActive?: boolean },
+          input: { categoryId?: string; isActive?: boolean; siteId?: string },
           options?: { enabled?: boolean }
         ) => {
           if (options?.enabled === false) {
@@ -104,8 +104,11 @@ vi.mock('@/lib/trpc', () => ({
             }
             return input.categoryId ? product.categoryId === input.categoryId : true;
           });
+          const items = input.siteId
+            ? filtered.map(product => ({ ...product, siteStock: 7 }))
+            : filtered;
           return {
-            data: { items: filtered, total: filtered.length },
+            data: { items, total: filtered.length },
             isLoading: false,
             error: null,
           };
@@ -378,7 +381,8 @@ describe('PosTouchScreen', () => {
 
     const stock = screen.getByTestId('pos-touch-stock-p-1');
     expect(stock).toHaveAttribute('data-stock-state', 'ok');
-    expect(stock).toHaveTextContent('50 in stock');
+    // The mock only returns a site balance when the screen asks for its site.
+    expect(stock).toHaveTextContent('7 in stock');
     expect(screen.queryByTestId('pos-touch-quantity-p-1')).not.toBeInTheDocument();
 
     await user.click(screen.getByTestId('pos-touch-tile-p-1'));
