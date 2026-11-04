@@ -281,7 +281,9 @@ test.describe('web smoke', () => {
     for (const step of guidedSteps) {
       await expect(page.getByTestId(`company-guided-step-${step}`)).toBeVisible();
     }
-    await expect(page.getByRole('progressbar')).toHaveAttribute('aria-valuemax', '6');
+    await expect(page.getByTestId('company-readiness-progress')).toContainText(
+      /of \d+ required areas done/
+    );
     await expect(page.getByTestId('company-advanced-toggle')).toHaveAttribute(
       'aria-expanded',
       'false'

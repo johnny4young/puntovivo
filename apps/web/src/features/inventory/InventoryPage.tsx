@@ -26,7 +26,7 @@ import {
   viewKeys,
   type InventoryView,
 } from '@/features/inventory/inventoryViews';
-import { getMovementDelta } from '@/features/inventory/inventoryMovementColumns';
+import { getMovementDelta } from '@/features/inventory/inventoryMovementDelta';
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { onErrorToast } from '@/lib/mutationHelpers';
@@ -482,8 +482,6 @@ export function InventoryPage() {
         lowStockCount={stockSummary?.lowStockCount ?? 0}
         recentInbound={recentInbound}
         recentOutbound={recentOutbound}
-        entriesCount={entries.length}
-        entriesLoading={entriesQuery.isLoading}
       />
 
       <Suspense fallback={null}>
@@ -553,6 +551,7 @@ export function InventoryPage() {
         activeView !== 'pharmacy' && (
           <InventoryDataPanel
             activeView={activeView}
+            entriesLoading={entriesQuery.isLoading}
             movementsLoading={movementsQuery.isLoading}
             movementsError={movementsQuery.error?.message ?? null}
             onRetryMovements={() => {
@@ -563,7 +562,6 @@ export function InventoryPage() {
             onRetryStock={() => {
               void stockQuery.refetch();
             }}
-            entriesLoading={entriesQuery.isLoading}
             entriesError={entriesQuery.error?.message ?? null}
             onRetryEntries={() => {
               void entriesQuery.refetch();

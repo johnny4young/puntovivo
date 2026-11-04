@@ -15,6 +15,19 @@ const baseProps = {
 };
 
 describe('SalesFlowRail', () => {
+  it('stays on wide screens only while the register or the hub needs attention', () => {
+    const closed = render(<SalesFlowRail {...baseProps} />);
+    expect(screen.getByTestId('sales-operation-strip')).not.toHaveClass('lg:hidden');
+    closed.unmount();
+
+    const blocked = render(<SalesFlowRail {...baseProps} hasCashSession hubReachable={false} />);
+    expect(screen.getByTestId('sales-operation-strip')).not.toHaveClass('lg:hidden');
+    blocked.unmount();
+
+    render(<SalesFlowRail {...baseProps} hasCashSession itemCount={2} canCharge />);
+    expect(screen.getByTestId('sales-operation-strip')).toHaveClass('lg:hidden');
+  });
+
   it('shows only the next valid step for a closed register', async () => {
     const user = userEvent.setup();
     const onOpenCashSession = vi.fn();
@@ -22,7 +35,7 @@ describe('SalesFlowRail', () => {
 
     expect(screen.getByText('Open the register to begin')).toBeInTheDocument();
     expect(screen.getByText('Register closed')).toBeInTheDocument();
-    const action = screen.getByTestId('checkout-primary-action');
+    const action = screen.getByTestId('sales-operation-action');
     expect(action).toHaveAttribute('aria-keyshortcuts', 'Alt+A');
     await user.click(action);
     expect(onOpenCashSession).toHaveBeenCalledOnce();
@@ -41,7 +54,7 @@ describe('SalesFlowRail', () => {
     );
 
     expect(screen.getByText('Scan or choose a product')).toBeInTheDocument();
-    const action = screen.getByTestId('checkout-primary-action');
+    const action = screen.getByTestId('sales-operation-action');
     expect(action).toHaveAttribute('aria-keyshortcuts', 'F5');
     await user.click(action);
     expect(onOpenSearch).toHaveBeenCalledOnce();
@@ -57,7 +70,7 @@ describe('SalesFlowRail', () => {
       />
     );
 
-    const action = screen.getByTestId('checkout-primary-action');
+    const action = screen.getByTestId('sales-operation-action');
     expect(action).toBeDisabled();
     expect(action).not.toHaveAttribute('aria-keyshortcuts');
   });
@@ -79,7 +92,7 @@ describe('SalesFlowRail', () => {
     expect(screen.getByText('Review and charge')).toBeInTheDocument();
     expect(screen.getByText('3 items')).toBeInTheDocument();
     expect(screen.getByText(/\$284\.90/)).toBeInTheDocument();
-    const action = screen.getByTestId('checkout-primary-action');
+    const action = screen.getByTestId('sales-operation-action');
     expect(action).toHaveAttribute('aria-keyshortcuts', 'F1');
     await user.click(action);
     expect(onCharge).toHaveBeenCalledOnce();
@@ -111,7 +124,7 @@ describe('SalesFlowRail', () => {
     );
 
     expect(screen.getByText('Review this item before charging')).toBeInTheDocument();
-    const action = screen.getByTestId('checkout-primary-action');
+    const action = screen.getByTestId('sales-operation-action');
     expect(action).not.toHaveAttribute('aria-keyshortcuts');
     await user.click(action);
     expect(onRecover).toHaveBeenCalledOnce();
@@ -155,6 +168,6 @@ describe('SalesFlowRail', () => {
     expect(
       screen.getByText('Your cart is safe. Restore the connection to continue.')
     ).toBeInTheDocument();
-    expect(screen.getByTestId('checkout-primary-action')).toBeDisabled();
+    expect(screen.getByTestId('sales-operation-action')).toBeDisabled();
   });
 });

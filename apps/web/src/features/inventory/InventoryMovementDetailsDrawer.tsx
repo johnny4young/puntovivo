@@ -14,10 +14,8 @@ import { useTranslation } from 'react-i18next';
 import { Drawer } from '@/components/feedback/Drawer';
 import { cn, formatDateTime, formatNumber } from '@/lib/utils';
 import type { InventoryMovement } from '@/types';
-import {
-  getMovementDelta,
-  movementBadgeTones,
-} from '@/features/inventory/inventoryMovementColumns';
+import { movementBadgeTones } from '@/features/inventory/inventoryMovementColumns';
+import { getMovementDelta } from './inventoryMovementDelta';
 
 /**
  * Props for {@link InventoryMovementDetailsDrawer}. The Drawer is open exactly

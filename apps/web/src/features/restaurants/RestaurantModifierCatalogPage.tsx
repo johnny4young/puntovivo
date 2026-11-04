@@ -64,7 +64,9 @@ function CatalogSite({ siteId, siteName }: { siteId: string; siteName: string })
     <section className="space-y-6" data-testid="modifier-catalog-page">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl">{t('catalog.title')}</h1>
+          <h1 data-shell-title className="font-display text-3xl">
+            {t('catalog.title')}
+          </h1>
           <p className="mt-1 text-sm text-fg2">{siteName}</p>
           <p className="mt-2 max-w-2xl text-sm text-fg3">{t('catalog.description')}</p>
         </div>
