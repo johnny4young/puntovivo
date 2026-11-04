@@ -3,7 +3,7 @@ import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
 import { Minus, Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ariaKeyshortcutsFor, shortcutDisplayFor } from '@/lib/shortcuts';
-import { formatCurrency } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
 import {
   getSaleMinimumQuantity,
   getSaleQuantityStep,
@@ -109,7 +109,7 @@ export function SaleCartTable({
   }
   return (
     <div>
-      <ul className="flex flex-col gap-[10px]" aria-label={t('cart.items')}>
+      <ul className="flex flex-col gap-1.5" aria-label={t('cart.items')}>
         {items.map(item => {
           const lineTotals = getLineTotals(item, priceIncludesTax);
           const isSelected = selectedItemKey === item.key;
@@ -129,7 +129,7 @@ export function SaleCartTable({
               key={item.key}
               data-testid={`sale-cart-item-${item.productSku}`}
               className={[
-                'rounded-[14px] border bg-card p-3 transition-colors',
+                'rounded-[12px] border bg-card p-3 transition-colors sm:px-3 sm:py-1.5',
                 isSelected ? 'border-primary-300 ring-1 ring-primary-200/70' : 'border-line/70',
               ].join(' ')}
             >
@@ -156,22 +156,21 @@ export function SaleCartTable({
                       </Badge>
                     )}
                   </span>
-                  <span className="mono mt-0.5 block text-[11px] text-secondary-500">
+                  <span className="mono mt-0.5 block truncate text-[11px] text-secondary-500">
                     {item.productSku}
-                    {' · '}
-                    {t('cart.tax')} {item.taxRate}%
+                    {item.tracksStock !== false && ` · ${t('cart.stock')} ${item.availableStock}`}
+                    {!isSelected && item.discount > 0 && (
+                      <span data-testid={`cart-line-discount-${item.productSku}`}>
+                        {` · ${t('cart.discount')} ${item.discount}%`}
+                      </span>
+                    )}
                   </span>
-                  {item.tracksStock !== false && (
-                    <span className="mono mt-0.5 block text-[11px] text-secondary-500">
-                      {t('cart.stock')} {item.availableStock}
-                    </span>
-                  )}
                 </button>
 
                 <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
                   <Button
                     type="button"
-                    className="disabled:cursor-not-allowed disabled:opacity-45"
+                    className="disabled:cursor-not-allowed disabled:opacity-45 sm:h-9 sm:min-h-9 sm:w-9"
                     aria-label={t('cart.decrement', {
                       name: item.productName,
                     })}
@@ -238,6 +237,7 @@ export function SaleCartTable({
                     aria-label={t('cart.increment', {
                       name: item.productName,
                     })}
+                    className="sm:h-9 sm:min-h-9 sm:w-9"
                     onClick={() => {
                       onSelectItem(item.key);
                       onQuantityChange(item.key, item.quantity + quantityStep);
@@ -250,8 +250,24 @@ export function SaleCartTable({
                   </Button>
 
                   <span className="mono ml-auto min-w-[78px] whitespace-nowrap text-right text-[14px] font-semibold text-fg1">
+                    <span className="sr-only">{t('cart.lineTotal')} </span>
                     {formatCurrency(lineTotals.total)}
                   </span>
+                  {!itemsLocked && (
+                    <button
+                      type="button"
+                      className="btn-ghost btn-icon h-11 w-11 text-danger-500 hover:text-danger-700 sm:h-9 sm:min-h-9 sm:w-9"
+                      aria-label={t('cart.removeItem', {
+                        name: item.productName,
+                      })}
+                      aria-keyshortcuts={
+                        isSelected ? ariaKeyshortcutsFor('sales.removeItem') : undefined
+                      }
+                      onClick={() => onRemove(item.key)}
+                    >
+                      <Trash2 className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -271,10 +287,16 @@ export function SaleCartTable({
                 />
               )}
 
-              {/* Descuento + base + eliminar: controles secundarios, fuera de
-               * la fila táctil principal. El input conserva el ref para Alt+D
-               * y el handler onDiscountChange intactos. */}
-              <div className="mt-2 flex flex-wrap items-center justify-between gap-3 border-t border-line/55 pt-2 text-[11px] text-secondary-500">
+              {/* Discount and base quantity open with the selected line. The input stays
+               * mounted because the Alt+D shortcut focuses it through its ref. */}
+              <div
+                data-testid={`sale-cart-line-details-${item.productSku}`}
+                hidden={!isSelected}
+                className={cn(
+                  'mt-2 flex flex-wrap items-center justify-between gap-3 border-t border-line/55 pt-2 text-[11px] text-secondary-500',
+                  !isSelected && 'hidden'
+                )}
+              >
                 <label className="flex flex-wrap items-center gap-2">
                   <span>{t('cart.discount')}</span>
                   <input
@@ -315,30 +337,10 @@ export function SaleCartTable({
                   />
                   <span className="mono text-fg2">
                     {t('cart.baseQty')} {lineTotals.normalizedQuantity}
+                    {' · '}
+                    {t('cart.tax')} {item.taxRate}%
                   </span>
                 </label>
-
-                <div className="ml-auto flex items-center gap-2">
-                  <span className="flex items-center gap-1">
-                    <span>{t('cart.lineTotal')}</span>
-                    <span className="mono">{formatCurrency(lineTotals.total)}</span>
-                  </span>
-                  {!itemsLocked && (
-                    <button
-                      type="button"
-                      className="btn-ghost btn-icon h-9 w-9 text-danger-500 hover:text-danger-700"
-                      aria-label={t('cart.removeItem', {
-                        name: item.productName,
-                      })}
-                      aria-keyshortcuts={
-                        isSelected ? ariaKeyshortcutsFor('sales.removeItem') : undefined
-                      }
-                      onClick={() => onRemove(item.key)}
-                    >
-                      <Trash2 className="h-4 w-4" aria-hidden="true" />
-                    </button>
-                  )}
-                </div>
               </div>
             </li>
           );
