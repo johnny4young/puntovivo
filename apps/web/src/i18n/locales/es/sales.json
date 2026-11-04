@@ -355,7 +355,8 @@
     "splitReferenceLabel": "Referencia del pago {{index}}",
     "splitReferencePlaceholder": "Referencia (opcional)",
     "splitSum": "Pagado",
-    "splitDelta": "Diferencia",
+    "splitRemaining": "Restante",
+    "splitOver": "Excedente",
     "splitMustMatch": "Los pagos deben sumar el total antes de confirmar.",
     "notes": "Notas",
     "notesHint": "Comentarios opcionales para la venta",
@@ -375,6 +376,8 @@
     },
     "lockedCustomer": "Cliente de la cotización",
     "confirmPartialAmount": "Confirmar venta con pago parcial · faltan {{amount}}",
+    "confirmSplitMissing": "Confirmar venta · faltan {{amount}}",
+    "confirmSplitOver": "Confirmar venta · sobran {{amount}}",
     "partialTitle": "Esta venta quedará con pago parcial",
     "partialWarning": "El saldo pendiente es {{amount}}. Confirma solo si deseas dejar este saldo sin pagar."
   },

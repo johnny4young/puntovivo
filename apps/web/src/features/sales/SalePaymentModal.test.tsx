@@ -366,6 +366,35 @@ describe('SalePaymentModal — split payments', () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
+  it('shows what is left to cover until the split reaches zero', async () => {
+    render(<SalePaymentModal {...createProps()} />);
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
+    const remaining = await screen.findByTestId('split-remaining');
+    const meter = screen.getByRole('progressbar');
+    expect(meter).toHaveAttribute('aria-valuenow', '100');
+
+    const firstAmount = (await screen.findByLabelText('Amount for tender 1')) as HTMLInputElement;
+    await user.clear(firstAmount);
+    await user.type(firstAmount, '40');
+    expect(screen.getByText('Remaining')).toBeInTheDocument();
+    expect(remaining).toHaveTextContent(/60/);
+    expect(meter).toHaveAttribute('aria-valuenow', '40');
+    expect(screen.getByRole('button', { name: /missing/i })).toBeDisabled();
+
+    await user.clear(firstAmount);
+    await user.type(firstAmount, '130');
+    expect(screen.getByText('Over')).toBeInTheDocument();
+    expect(remaining).toHaveTextContent(/30/);
+    expect(screen.getByRole('button', { name: /over$/i })).toBeDisabled();
+
+    await user.clear(firstAmount);
+    await user.type(firstAmount, '100');
+    expect(remaining).toHaveTextContent(/0/);
+    expect(screen.getByRole('button', { name: /^Confirm Sale$/i })).toBeInTheDocument();
+  });
+
   it('accepts a balanced two-tender split and forwards the tenders array on submit', async () => {
     const onSubmit = vi.fn(async () => undefined);
     render(<SalePaymentModal {...createProps({ onSubmit })} />);
