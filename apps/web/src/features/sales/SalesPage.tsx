@@ -28,6 +28,7 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { isTaskActivationKey, useTaskMeasurementController } from '@/lib/taskMeasurement';
 import { readExternalSaleEntry } from './externalSaleEntry';
 import { useTranslation } from 'react-i18next';
+import type { CompletedSaleSummary } from './SaleCompleteStrip';
 
 const LazyCashDrawerApprovalModal = lazy(() =>
   import('@/features/sales/CashDrawerApprovalModal').then(module => ({
@@ -96,6 +97,7 @@ export function SalesPage() {
   const [isSuspending, setIsSuspending] = useState(false);
   const [selectedHistorySaleId, setSelectedHistorySaleId] = useState<string | null>(null);
   const [lastCompletedSaleId, setLastCompletedSaleId] = useState<string | null>(null);
+  const [completedSale, setCompletedSale] = useState<CompletedSaleSummary | null>(null);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isCashSessionModalOpen, setIsCashSessionModalOpen] = useState(false);
   const [isCashSessionCloseModalOpen, setIsCashSessionCloseModalOpen] = useState(false);
@@ -154,6 +156,9 @@ export function SalesPage() {
       saleMeasurement.markUsableControl();
     }
   }, [currentSite, productInputRef, saleMeasurement]);
+
+  // The next sale has started, so the last one's summary no longer applies.
+  if (completedSale && cartItems.length > 0) setCompletedSale(null);
 
   useEffect(() => {
     if (cartItems.length > 0) {
@@ -215,8 +220,9 @@ export function SalesPage() {
     setCashSessionMovementError,
     setIsCashSessionMovementModalOpen,
     setDayCloseSessionId,
-    onSaleCompleted: saleId => {
-      setLastCompletedSaleId(saleId);
+    onSaleCompleted: sale => {
+      setLastCompletedSaleId(sale.id);
+      setCompletedSale(sale);
       saleMeasurement.finish('success');
     },
     onCashSessionRecoverySucceeded: () => saleMeasurement.recordRecoveryOutcome('succeeded'),
@@ -560,6 +566,8 @@ export function SalesPage() {
         preflightItems={preflight.items}
         isHistoryDrawerOpen={isHistoryDrawerOpen}
         lastCompletedSaleId={lastCompletedSaleId}
+        completedSale={completedSale}
+        onDismissCompletedSale={() => setCompletedSale(null)}
         setSelectedSaleId={setSelectedSaleId}
         selectedHistorySaleId={selectedHistorySaleId}
         setSelectedHistorySaleId={setSelectedHistorySaleId}

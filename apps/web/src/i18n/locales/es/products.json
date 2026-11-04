@@ -5,15 +5,13 @@
     "add": "Agregar producto"
   },
   "semantic": {
-    "toggleLabel": "Semántica",
+    "toggleLabel": "Búsqueda inteligente",
     "toggleHint": "Usa IA para ordenar por significado una lista acotada de coincidencias textuales. Conserva la búsqueda literal cuando la IA está apagada.",
     "modeBadge": "Coincidencias textuales ordenadas por IA",
     "modeLiteral": "Coincidencia de texto literal",
     "unavailable": "La búsqueda semántica necesita la IA activada y embeddings generados. Volviendo a búsqueda literal.",
     "searching": "Buscando...",
     "noResults": "No se encontraron coincidencias híbridas para tu consulta.",
-    "regenerate": "Regenerar embeddings",
-    "regenerating": "Regenerando...",
     "regenerated_one": "Se generó embedding de {{count}} producto. La búsqueda semántica está lista.",
     "regenerated_other": "Se generaron embeddings de {{count}} productos. La búsqueda semántica está lista.",
     "regenerateUnavailable": "No se puede regenerar: activa la IA en Configuración de empresa y verifica que el proveedor seleccionado esté disponible.",

@@ -74,8 +74,38 @@ describe('SaleCartTable', () => {
 
     const mobileList = screen.getByRole('list', { name: 'Cart items' });
     expect(within(mobileList).getByText('Sparkling Water')).toBeInTheDocument();
-    expect(within(mobileList).getByText('Stock 18')).toBeInTheDocument();
+    expect(within(mobileList).getByText(/Stock 18/)).toBeInTheDocument();
     expect(within(mobileList).getByText('Line total')).toBeInTheDocument();
+  });
+
+  it('opens discount and base quantity only on the selected line', () => {
+    render(
+      <SaleCartTable
+        items={[
+          createCartItem(),
+          createCartItem({
+            key: 'product-2:unit-1',
+            productId: 'product-2',
+            productName: 'Still Water',
+            productSku: 'SKU-002',
+            discount: 10,
+          }),
+        ]}
+        selectedItemKey="product-1:unit-1"
+        onQuantityChange={vi.fn()}
+        onDiscountChange={vi.fn()}
+        onRemove={vi.fn()}
+        onSelectItem={vi.fn()}
+        quantityInputRefFor={quantityInputRefFor}
+        discountInputRefFor={discountInputRefFor}
+      />
+    );
+
+    expect(screen.getByTestId('sale-cart-line-details-SKU-001')).toBeVisible();
+    expect(screen.getByTestId('sale-cart-line-details-SKU-002')).not.toBeVisible();
+    // A collapsed line must still say it carries a discount.
+    expect(screen.getByTestId('cart-line-discount-SKU-002')).toHaveTextContent('10%');
+    expect(screen.queryByTestId('cart-line-discount-SKU-001')).not.toBeInTheDocument();
   });
 
   it('updates quantity, discount, selection, and removal from the card layout', async () => {
