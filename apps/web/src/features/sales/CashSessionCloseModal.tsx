@@ -186,7 +186,6 @@ export function CashSessionCloseModal({
             {canSeeLiveDelta && liveDelta !== null && liveDeltaState && (
               <div
                 data-testid="close-session-live-delta"
-                role="status"
                 aria-live="polite"
                 className={`col-span-2 min-w-0 sm:col-span-1 ${
                   liveDeltaState === 'balanced'
