@@ -3039,6 +3039,16 @@
   }
 }
 
+/* The shell header owns the page title; the heading stays for assistive tech and in-page focus. */
+.app-shell main h1[data-shell-title] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .sales-scan-submit,
   .sales-scan-submit-key,

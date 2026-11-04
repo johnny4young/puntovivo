@@ -39,6 +39,8 @@ interface VoiceOrderingCartProps {
   onNoteChange: (itemKey: string, value: string) => void;
   onLineDetailsChange: (itemKey: string, value: RestaurantLineDraft) => void;
   onSave: () => void;
+  /** Phones keep the check summary and the send action in thumb reach. */
+  compactCheck?: boolean | undefined;
 }
 
 /** Presentational cart preview and save controls for voice ordering. */
@@ -57,6 +59,7 @@ export function VoiceOrderingCart({
   onNoteChange,
   onLineDetailsChange,
   onSave,
+  compactCheck = false,
 }: VoiceOrderingCartProps): React.ReactElement {
   const priceIncludesTax = usePriceIncludesTax();
   const { t } = useTranslation('restaurants');
@@ -71,6 +74,17 @@ export function VoiceOrderingCart({
 
   return (
     <section className="space-y-3">
+      {compactCheck && cartItems.length > 0 && (
+        <p
+          className="sticky top-0 z-10 flex items-center justify-between gap-3 rounded-xl border border-line bg-surface px-3 py-2 text-sm font-semibold text-secondary-950 shadow-sm"
+          data-testid="voice-ordering-check-summary"
+        >
+          <span className="min-w-0 truncate">
+            {tableLabel.trim() || t('tableLabel.label')} · {t('cart.guests', { count: guestCount })}
+          </span>
+          <span className="shrink-0 tabular-nums">{formatCurrency(cartSummary.total)}</span>
+        </p>
+      )}
       <div className="card overflow-hidden">
         <header className="flex items-center justify-between border-b border-line/60 px-4 py-3">
           <h2 className="font-display text-lg text-secondary-950">{t('cart.heading')}</h2>
@@ -87,8 +101,14 @@ export function VoiceOrderingCart({
           </div>
         ) : (
           <ul className="divide-y divide-line/40">
-            {cartItems.map(item => {
+            {cartItems.map((item, index) => {
               const note = itemNotes[item.key] ?? '';
+              const previous = cartItems[index - 1];
+              const previousModifiers = previous
+                ? (lineDetails[previous.key] ?? DEFAULT_LINE_DETAILS).modifiers.filter(modifier =>
+                    modifier.name.trim()
+                  )
+                : [];
               const detail = lineDetails[item.key] ?? DEFAULT_LINE_DETAILS;
               const effectiveUnitPrice = roundMoney(
                 item.unitPrice + getRestaurantModifierPriceDelta(detail.modifiers)
@@ -207,6 +227,26 @@ export function VoiceOrderingCart({
                       </select>
                     </label>
                   </div>
+                  {previousModifiers.length > 0 &&
+                    !detail.modifiers.some(modifier => modifier.name.trim()) && (
+                      <button
+                        type="button"
+                        className="btn-ghost min-h-11 text-xs"
+                        disabled={interactionDisabled}
+                        onClick={() =>
+                          onLineDetailsChange(item.key, {
+                            ...detail,
+                            modifiers: previousModifiers.map(modifier => ({
+                              ...modifier,
+                              id: `${item.key}-${modifier.id}`,
+                            })),
+                          })
+                        }
+                        data-testid="voice-ordering-repeat-modifiers"
+                      >
+                        {t('cart.repeatModifiers')}
+                      </button>
+                    )}
                   <Suspense
                     fallback={
                       <p role="status" className="text-xs text-fg3">
@@ -250,7 +290,7 @@ export function VoiceOrderingCart({
 
       <button
         type="button"
-        className="btn-primary w-full text-base"
+        className={`btn-primary w-full text-base ${compactCheck ? 'sticky bottom-3 z-10 min-h-12' : ''}`}
         onClick={onSave}
         disabled={saveDisabled}
         data-testid="voice-ordering-save"

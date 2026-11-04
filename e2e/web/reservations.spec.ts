@@ -240,7 +240,14 @@ for (const surface of ['/m', '/touch/voice'] as const) {
     await createTable(page, tableName);
     const id = await reserveAndArrive(page, scenario.tenantId, tableName, 'Grace');
     await page.goto(surface);
-    await page.getByTestId('voice-ordering-table-select').selectOption({ label: tableName });
+    if (surface === '/m') {
+      await page
+        .getByTestId('voice-ordering-table-grid')
+        .getByRole('button', { name: tableName, exact: true })
+        .click();
+    } else {
+      await page.getByTestId('voice-ordering-table-select').selectOption({ label: tableName });
+    }
     await page.getByTestId('voice-ordering-manual-add').click();
     const search = page.getByRole('dialog', { name: 'Search', exact: true });
     await search.getByPlaceholder('Search by SKU, name, or barcode').fill(scenario.product.sku);

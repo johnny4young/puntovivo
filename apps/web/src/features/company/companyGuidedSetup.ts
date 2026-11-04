@@ -77,6 +77,9 @@ const REQUIRED_SECTION_ORDER: readonly CompanyReadinessSection['id'][] = [
   'fiscal',
 ];
 
+// Every other step can wait until the business needs it.
+const REQUIRED_STEP_IDS: readonly CompanyGuidedStepId[] = ['business', 'selling'];
+
 export interface CompanyGuidedStep {
   id: CompanyGuidedStepId;
   status: CompanyGuidedStepStatus;
@@ -133,6 +136,23 @@ export function buildCompanyGuidedSteps(sections: CompanyReadinessSection[]): Co
       cta: nextSection?.cta ?? definition.fallbackCta,
     };
   });
+}
+
+export function isGuidedStepRequired(step: CompanyGuidedStep): boolean {
+  return REQUIRED_STEP_IDS.includes(step.id) || step.status === 'blocker';
+}
+
+/** Only required steps count as progress; the rest never reads as missing work. */
+export function summarizeGuidedSteps(steps: readonly CompanyGuidedStep[]) {
+  const required = steps.filter(isGuidedStepRequired);
+  const others = steps.filter(step => !isGuidedStepRequired(step));
+  const toReview = others.filter(step => step.status === 'warning').length;
+  return {
+    requiredReady: required.filter(step => step.status === 'ready').length,
+    requiredTotal: required.length,
+    toReview,
+    optional: others.length - toReview,
+  };
 }
 
 export function findNextRequiredSection(

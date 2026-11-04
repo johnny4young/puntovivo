@@ -103,7 +103,9 @@ export function FiscalDocumentListPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold text-secondary-900">{t('page.title')}</h1>
+      <h1 data-shell-title className="text-2xl font-semibold text-secondary-900">
+        {t('page.title')}
+      </h1>
 
       <FiscalReadinessStrip />
 

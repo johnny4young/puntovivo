@@ -297,7 +297,9 @@ export function AccountingExportPage() {
     <div className="space-y-6">
       <header>
         <p className="pv-kicker">{t('accounting.kicker')}</p>
-        <h1 className="pv-title text-2xl">{t('accounting.title')}</h1>
+        <h1 data-shell-title className="pv-title text-2xl">
+          {t('accounting.title')}
+        </h1>
         <p className="mt-2 text-sm text-secondary-500">{t('accounting.description')}</p>
       </header>
 

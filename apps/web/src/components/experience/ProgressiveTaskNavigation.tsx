@@ -37,6 +37,8 @@ export interface ProgressiveTaskNavigationProps<ItemId extends string> {
     columnsClassName?: string | undefined;
   };
   onItemChange: (item: ItemId) => void;
+  /** `rail` keeps every destination listed from `lg` up; narrower screens still disclose. */
+  layout?: 'stacked' | 'rail' | undefined;
   className?: string | undefined;
 }
 
@@ -52,6 +54,7 @@ export function ProgressiveTaskNavigation<ItemId extends string>({
   primary,
   advanced,
   onItemChange,
+  layout = 'stacked',
   className,
 }: ProgressiveTaskNavigationProps<ItemId>): React.ReactElement {
   const [advancedExpanded, setAdvancedExpanded] = useState(false);
@@ -59,6 +62,7 @@ export function ProgressiveTaskNavigation<ItemId extends string>({
   const advancedOpen = isAdvancedItem || advancedExpanded;
   const PrimaryIcon = primary.icon;
   const AdvancedIcon = advanced.icon;
+  const isRail = layout === 'rail';
 
   const openPrimary = (): void => {
     setAdvancedExpanded(false);
@@ -77,15 +81,17 @@ export function ProgressiveTaskNavigation<ItemId extends string>({
     <nav
       className={cn(
         'rounded-[1.5rem] border border-line bg-card p-3 shadow-[0_20px_60px_-52px_rgba(15,23,42,0.75)]',
+        isRail && 'lg:sticky lg:top-24 lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto lg:p-2',
         className
       )}
       aria-label={ariaLabel}
     >
-      <div className="grid gap-2 lg:grid-cols-2">
+      <div className={cn('grid gap-2', isRail ? 'lg:grid-cols-1' : 'lg:grid-cols-2')}>
         <button
           type="button"
           className={cn(
             'flex min-h-20 items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-colors',
+            isRail && 'lg:min-h-11 lg:px-2 lg:py-1.5',
             activeItem === primary.id
               ? 'border-primary-300 bg-primary-50/80 text-primary-950'
               : 'border-transparent bg-surface-2/60 text-secondary-700 hover:border-line hover:bg-surface-2'
@@ -99,7 +105,12 @@ export function ProgressiveTaskNavigation<ItemId extends string>({
           </span>
           <span className="min-w-0">
             <span className="block text-sm font-semibold">{primary.title}</span>
-            <span className="mt-0.5 block text-xs leading-5 text-secondary-500">
+            <span
+              className={cn(
+                'mt-0.5 block text-xs leading-5 text-secondary-500',
+                isRail && 'lg:hidden'
+              )}
+            >
               {primary.description}
             </span>
           </span>
@@ -109,6 +120,7 @@ export function ProgressiveTaskNavigation<ItemId extends string>({
           type="button"
           className={cn(
             'flex min-h-20 items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-colors',
+            isRail && 'lg:hidden',
             isAdvancedItem
               ? 'border-secondary-300 bg-secondary-100/80 text-secondary-950'
               : 'border-transparent bg-surface-2/60 text-secondary-700 hover:border-line hover:bg-surface-2'
@@ -137,12 +149,14 @@ export function ProgressiveTaskNavigation<ItemId extends string>({
         </button>
       </div>
 
-      {advancedOpen && (
+      {(advancedOpen || isRail) && (
         <div
           id={advanced.disclosureId}
           className={cn(
             'mt-3 grid gap-4 rounded-2xl border border-line bg-surface-2/50 p-4',
-            advanced.columnsClassName
+            advanced.columnsClassName,
+            isRail && 'lg:mt-2 lg:border-0 lg:bg-transparent lg:p-1',
+            isRail && !advancedOpen && 'hidden lg:grid'
           )}
           data-testid={advanced.panelTestId}
         >
@@ -156,7 +170,7 @@ export function ProgressiveTaskNavigation<ItemId extends string>({
                 >
                   {group.label}
                 </p>
-                <div className="mt-2 flex flex-wrap gap-2">
+                <div className={cn('mt-2 flex flex-wrap gap-2', isRail && 'lg:flex-col lg:gap-1')}>
                   {group.items.map(item => {
                     const isActive = activeItem === item.id;
                     return (

@@ -210,7 +210,9 @@ export function PeripheralsPage() {
     <div className="space-y-6" data-testid="peripherals-page">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-secondary-900">{t('peripherals:title')}</h1>
+          <h1 data-shell-title className="text-2xl font-bold text-secondary-900">
+            {t('peripherals:title')}
+          </h1>
           <p className="mt-1 text-sm text-secondary-500">{t('peripherals:description')}</p>
         </div>
         <button
