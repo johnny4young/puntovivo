@@ -53,8 +53,11 @@ export function InventorySummaryCards({
         icon={ClipboardList}
         tone="ink"
         label={t('stats.recentFlow')}
-        value={`+${recentInbound} / -${recentOutbound}`}
-        context={t('stats.recentFlowDetail', { in: recentInbound, out: recentOutbound })}
+        value={`+${formatNumber(recentInbound)} / -${formatNumber(recentOutbound)}`}
+        context={t('stats.recentFlowDetail', {
+          in: formatNumber(recentInbound),
+          out: formatNumber(recentOutbound),
+        })}
       />
     </div>
   );
