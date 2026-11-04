@@ -321,7 +321,11 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
                 icon={Icon}
                 index={String(index + 1).padStart(2, '0')}
                 title={tGuide(`steps.${step.id}.title`)}
-                statusLabel={`${tGuide(isGuidedStepRequired(step) ? 'kind.required' : 'kind.optional')} · ${tGuide(`status.${step.status}`)}`}
+                statusLabel={
+                  step.status === 'optional'
+                    ? tGuide('kind.optional')
+                    : `${tGuide(isGuidedStepRequired(step) ? 'kind.required' : 'kind.optional')} · ${tGuide(`status.${step.status}`)}`
+                }
                 tone={STEP_TONES[step.status]}
                 active={isActive}
                 status={step.status}
