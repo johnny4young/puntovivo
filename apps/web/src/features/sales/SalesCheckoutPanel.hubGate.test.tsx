@@ -139,6 +139,15 @@ describe('SalesCheckoutPanel hub gate', () => {
     expect(screen.queryByText('F5')).not.toBeInTheDocument();
   });
 
+  it('disables closing the cash session only while the hub is unreachable', () => {
+    const { unmount } = renderPanel({ hubReachable: false });
+    expect(screen.getByRole('button', { name: 'Close cash session' })).toBeDisabled();
+    unmount();
+
+    renderPanel({ hubReachable: undefined });
+    expect(screen.getByRole('button', { name: 'Close cash session' })).toBeEnabled();
+  });
+
   it('enables the primary action when hubReachable is undefined (device_local default)', () => {
     renderPanel({ hubReachable: undefined });
     const button = screen.getByTestId('checkout-primary-action');

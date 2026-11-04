@@ -56,9 +56,10 @@ for (const spanish of [false, true]) {
       for (const button of await bar.getByRole('button').all()) await expectUnclipped(button, page);
     }
     await page.setViewportSize({ width: 375, height: 812 });
-    await expect(
-      bar.getByRole('button', { name: spanish ? 'Cerrar caja' : 'Close cash session', exact: true })
-    ).toBeEnabled();
+    const closeName = spanish ? 'Cerrar caja' : 'Close cash session';
+    await expect(bar.getByTestId('mobile-checkout-search')).toHaveClass(/btn-primary/);
+    await expect(bar.getByRole('button', { name: closeName, exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: closeName, exact: true })).toBeEnabled();
     await addProductToCartViaKeyboard(page, scenario.product.sku);
     await expect(total).toContainText(/123[.,]456[.,]789/);
     const search = bar.getByRole('button', { name: spanish ? 'Buscar' : 'Search', exact: true });
