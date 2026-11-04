@@ -1922,7 +1922,7 @@
   {
     "path": "products.list",
     "kind": "query",
-    "input": "object{categoryId?:string,includeVariantParents?:boolean=false,isActive?:boolean,page?:integer[min=1,max=9007199254740991]=1,perPage?:integer[min=1,max=200]=50,pharmacyOnly?:boolean,search?:string[maxLength=120],siteId?:string[minLength=1]}",
+    "input": "object{categoryId?:string,includeVariantParents?:boolean=false,isActive?:boolean,lowStock?:boolean,maxMarginPercent?:number[min=0,max=100],page?:integer[min=1,max=9007199254740991]=1,perPage?:integer[min=1,max=200]=50,pharmacyOnly?:boolean,search?:string[maxLength=120],siteId?:string[minLength=1]}",
     "output": "inferred"
   },
   {
@@ -1953,6 +1953,12 @@
     "path": "products.suggestCategory",
     "kind": "mutation",
     "input": "object{description?:string[maxLength=2000]|null,name:string[minLength=1,maxLength=200]}",
+    "output": "inferred"
+  },
+  {
+    "path": "products.topSelling",
+    "kind": "query",
+    "input": "object{days?:integer[min=1,max=30]=7,limit?:integer[min=1,max=20]=10,siteId:string[minLength=1]}",
     "output": "inferred"
   },
   {

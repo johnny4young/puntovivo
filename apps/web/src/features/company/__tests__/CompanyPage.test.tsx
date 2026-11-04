@@ -178,8 +178,7 @@ describe('CompanyPage tab behavior', () => {
 
     expect(screen.getByTestId('company-tab-readiness')).toHaveAttribute('aria-current', 'page');
     expect(screen.getByTestId('company-advanced-toggle')).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.queryByTestId('company-advanced-settings')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('company-tab-general')).not.toBeInTheDocument();
+    expect(screen.getByTestId('company-advanced-settings')).toHaveClass('hidden', 'lg:grid');
     expect(await screen.findByTestId('card-readiness')).toBeInTheDocument();
     expect(screen.getByTestId('company-tab-readiness')).toHaveTextContent(
       'Clear areas and one required decision at a time.'
@@ -244,7 +243,7 @@ describe('CompanyPage tab behavior', () => {
 
     expect(screen.getByTestId('company-tab-readiness')).toHaveAttribute('aria-current', 'page');
     expect(screen.getByTestId('company-advanced-toggle')).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.queryByTestId('company-advanced-settings')).not.toBeInTheDocument();
+    expect(screen.getByTestId('company-advanced-settings')).toHaveClass('hidden', 'lg:grid');
     expect(await screen.findByTestId('card-readiness')).toBeInTheDocument();
   });
 

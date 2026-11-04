@@ -6,7 +6,9 @@ import { useDiscountSuggestions } from '@/features/sales/useDiscountSuggestions'
 import { selectionFromHydratedProduct } from '@/features/sales/productSelection';
 import {
   MAX_SALES_FAVORITES,
+  readDismissedSuggestions,
   readSalesFavoriteIds,
+  writeDismissedSuggestions,
   toggleSalesFavoriteId,
   writeSalesFavoriteIds,
 } from '@/features/sales/salesFavorites';
@@ -81,6 +83,13 @@ export function SalesQuickAccess({
     }
     return [...byId.values()];
   }, [productsQuery.data, favoriteQueries]);
+  const topSellingQuery = trpc.products.topSelling.useQuery(
+    { siteId },
+    { enabled: shouldLoadCatalog, staleTime: 5 * 60_000 }
+  );
+  const [dismissedSuggestions, setDismissedSuggestions] = useState(() =>
+    readDismissedSuggestions(scopeKey)
+  );
   const favoritesLoading = favoriteQueries.some(query => query.isLoading);
   // A favorite that no longer resolves drops out like an inactive one; retrying cannot restore it.
   const favoritesError = favoriteQueries.some(
@@ -107,6 +116,19 @@ export function SalesQuickAccess({
     shouldLoadCatalog && visibleProducts.length > 0,
     siteId
   );
+
+  const suggestion =
+    selectedIds.length < MAX_SALES_FAVORITES
+      ? topSellingQuery.data?.find(
+          item =>
+            !selectedIds.includes(item.productId) && !dismissedSuggestions.includes(item.productId)
+        )
+      : undefined;
+  const dismissSuggestion = (productId: string) => {
+    const next = [...dismissedSuggestions, productId];
+    setDismissedSuggestions(next);
+    writeDismissedSuggestions(scopeKey, next);
+  };
 
   const persistSelection = (productId: string) => {
     const base = configuredIds ?? suggestedIds;
@@ -218,6 +240,36 @@ export function SalesQuickAccess({
           </button>
         </div>
       </div>
+
+      {suggestion && (
+        <div
+          className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-sm text-primary-900"
+          data-testid="sales-quick-suggestion"
+        >
+          <p className="min-w-0 flex-1">
+            {t('suggestion.text', {
+              name: suggestion.name,
+              count: Math.round(suggestion.quantity),
+            })}
+          </p>
+          <button
+            type="button"
+            className="btn-outline min-h-11"
+            onClick={() => persistSelection(suggestion.productId)}
+            data-testid="sales-quick-suggestion-add"
+          >
+            {t('suggestion.add')}
+          </button>
+          <button
+            type="button"
+            className="btn-ghost min-h-11"
+            onClick={() => dismissSuggestion(suggestion.productId)}
+            data-testid="sales-quick-suggestion-dismiss"
+          >
+            {t('suggestion.dismiss')}
+          </button>
+        </div>
+      )}
 
       {categories.length > 0 && (
         <div className="mt-3 flex gap-2 overflow-x-auto pb-1" aria-label={t('categories')}>

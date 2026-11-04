@@ -34,6 +34,9 @@ import { translateServerError, extractServerErrorCode } from '@/lib/translateSer
 import { trpc } from '@/lib/trpc';
 import { useTaskMeasurementController } from '@/lib/taskMeasurement';
 import type { Product, UserRole } from '@/types';
+import { ProductBulkBar } from './ProductBulkBar';
+import { LOW_MARGIN_PERCENT, NO_PRODUCT_FILTERS } from './productFilters';
+import { ProductListFilters } from './ProductListFilters';
 
 const VariantMatrixModal = lazy(() =>
   import('./VariantMatrixModal').then(module => ({ default: module.VariantMatrixModal }))
@@ -105,9 +108,14 @@ export function ProductsPage() {
     : semantic.semanticModeEnabled
       ? 'fallback'
       : 'literal';
+  const [filters, setFilters] = useState(NO_PRODUCT_FILTERS);
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
   const [pageSelection, setPageSelection] = useState({ search, mode, page: 1 });
   const contextChanged = pageSelection.search !== search || pageSelection.mode !== mode;
-  if (contextChanged) setPageSelection({ search, mode, page: 1 });
+  if (contextChanged) {
+    setPageSelection({ search, mode, page: 1 });
+    setSelectedIds(new Set());
+  }
   const page = contextChanged ? 1 : pageSelection.page;
 
   const productsQuery = trpc.products.list.useQuery(
@@ -116,6 +124,10 @@ export function ProductsPage() {
       perPage: PRODUCTS_PAGE_SIZE,
       search: semantic.literalFallbackSearch,
       includeVariantParents: true,
+      ...(filters.categoryId ? { categoryId: filters.categoryId } : {}),
+      ...(filters.status === 'all' ? {} : { isActive: filters.status === 'active' }),
+      ...(filters.lowStock ? { lowStock: true } : {}),
+      ...(filters.lowMargin ? { maxMarginPercent: LOW_MARGIN_PERCENT } : {}),
     },
     // Keep the rows mounted while a debounced search refetches, so an open
     // dialog's opener survives the request.
@@ -350,6 +362,13 @@ export function ProductsPage() {
     setDeleteOpener(opener);
     setProductToDelete(product);
   }, []);
+  const toggleSelected = useCallback((id: string) => {
+    setSelectedIds(current => {
+      const next = new Set(current);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  }, []);
   const columns = useMemo(
     () =>
       productsColumns(
@@ -359,7 +378,8 @@ export function ProductsPage() {
         canManage,
         canDelete,
         semantic.semanticIsActive,
-        marginByProduct
+        marginByProduct,
+        canManage ? { selectedIds, onToggle: toggleSelected } : null
       ),
     [
       handleOpenDetails,
@@ -369,6 +389,8 @@ export function ProductsPage() {
       canDelete,
       semantic.semanticIsActive,
       marginByProduct,
+      selectedIds,
+      toggleSelected,
     ]
   );
   const handleCloseDetails = () => setDetailsProduct(null);
@@ -473,6 +495,26 @@ export function ProductsPage() {
         )}
         {!productsQuery.isLoading && !productsQuery.error && (
           <div className="space-y-4">
+            {!semantic.semanticIsActive && (
+              <ProductListFilters
+                filters={filters}
+                categories={categoriesQuery.data?.items ?? []}
+                canSeeMargin={canManage}
+                onChange={next => {
+                  setFilters(next);
+                  setSelectedIds(new Set());
+                  setPageSelection({ search, mode, page: 1 });
+                }}
+              />
+            )}
+            {canManage && selectedIds.size > 0 && (
+              <ProductBulkBar
+                selected={products.filter(product => selectedIds.has(product.id))}
+                categories={categoriesQuery.data?.items ?? []}
+                canArchive={canDelete}
+                onDone={() => setSelectedIds(new Set())}
+              />
+            )}
             <TableExportActions
               data={products}
               columns={productExportColumns}
@@ -580,7 +622,10 @@ export function ProductsPage() {
                 total={totalItems}
                 rangeStart={(page - 1) * PRODUCTS_PAGE_SIZE + 1}
                 rangeEnd={Math.min(page * PRODUCTS_PAGE_SIZE, totalItems)}
-                onPageChange={nextPage => setPageSelection({ search, mode, page: nextPage + 1 })}
+                onPageChange={nextPage => {
+                  setSelectedIds(new Set());
+                  setPageSelection({ search, mode, page: nextPage + 1 });
+                }}
               />
             )}
             {!semantic.semanticIsActive && totalPages <= 1 && totalItems > 0 && (

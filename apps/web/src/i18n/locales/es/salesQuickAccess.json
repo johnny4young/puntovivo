@@ -21,5 +21,11 @@
   "addFailed": "No pudimos agregar el producto. Intenta nuevamente.",
   "noSaleUnit": "Este producto no tiene una unidad lista para vender.",
   "favoritesLoadError": "No se pudieron cargar algunos favoritos. Reintenta o busca en el catálogo.",
-  "retryFavorites": "Reintentar favoritos"
+  "retryFavorites": "Reintentar favoritos",
+  "suggestion": {
+    "text_one": "¿Agregar {{name}}? Se vendió {{count}} vez esta semana aquí.",
+    "text_other": "¿Agregar {{name}}? Se vendió {{count}} veces esta semana aquí.",
+    "add": "Agregar a teclas rápidas",
+    "dismiss": "Ahora no"
+  }
 }

@@ -114,6 +114,15 @@ export const listProductsInput = paginationInput.extend({
   includeVariantParents: z.boolean().default(false),
   // Adds the on-hand balance of this site; `stock` stays the tenant-wide total.
   siteId: z.string().min(1).optional(),
+  lowStock: z.boolean().optional(),
+  // Catalog margin from price and cost; ignored for roles that cannot see cost.
+  maxMarginPercent: z.number().min(0).max(100).optional(),
+});
+
+export const topSellingProductsInput = z.object({
+  siteId: z.string().min(1),
+  days: z.number().int().min(1).max(30).default(7),
+  limit: z.number().int().min(1).max(20).default(10),
 });
 
 export const getProductInput = z.object({
