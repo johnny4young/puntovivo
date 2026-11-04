@@ -1,21 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
-
-export interface ProductFilters {
-  categoryId: string;
-  status: 'all' | 'active' | 'inactive';
-  lowStock: boolean;
-  lowMargin: boolean;
-}
-
-export const NO_PRODUCT_FILTERS: ProductFilters = {
-  categoryId: '',
-  status: 'all',
-  lowStock: false,
-  lowMargin: false,
-};
-
-export const LOW_MARGIN_PERCENT = 20;
+import { LOW_MARGIN_PERCENT, type ProductFilters } from './productFilters';
 
 function chipClass(active: boolean) {
   return cn(

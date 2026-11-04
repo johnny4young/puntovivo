@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { render, screen } from '@/test/utils';
-import { NO_PRODUCT_FILTERS, ProductListFilters } from './ProductListFilters';
+import { NO_PRODUCT_FILTERS } from './productFilters';
+import { ProductListFilters } from './ProductListFilters';
 
 const categories = [{ id: 'c-1', name: 'Groceries' }];
 

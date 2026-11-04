@@ -35,7 +35,8 @@ import { trpc } from '@/lib/trpc';
 import { useTaskMeasurementController } from '@/lib/taskMeasurement';
 import type { Product, UserRole } from '@/types';
 import { ProductBulkBar } from './ProductBulkBar';
-import { LOW_MARGIN_PERCENT, NO_PRODUCT_FILTERS, ProductListFilters } from './ProductListFilters';
+import { LOW_MARGIN_PERCENT, NO_PRODUCT_FILTERS } from './productFilters';
+import { ProductListFilters } from './ProductListFilters';
 
 const VariantMatrixModal = lazy(() =>
   import('./VariantMatrixModal').then(module => ({ default: module.VariantMatrixModal }))
