@@ -132,8 +132,10 @@ export function GlobalStatusStrip() {
     const list: StatusIssue[] = [];
 
     // --- Aviso de sincronización / conectividad ---
+    // Conflicts do not block a sale: the header pill reports them, and queued
+    // changes cannot sync past them, so neither takes this strip on its own.
     const showSync =
-      isHubUnreachable || !isOnline || pendingItems > 0 || conflicts > 0 || Boolean(error);
+      isHubUnreachable || !isOnline || Boolean(error) || (pendingItems > 0 && conflicts === 0);
     if (showSync) {
       let severity: StripSeverity;
       let icon: LucideIcon;
@@ -153,11 +155,6 @@ export function GlobalStatusStrip() {
           pendingItems > 0
             ? t('offline.queuedChanges', { count: pendingItems })
             : t('offline.localChanges');
-      } else if (conflicts > 0) {
-        severity = 'danger';
-        icon = AlertTriangle;
-        title = t('offline.conflictsTitle');
-        detail = t('offline.conflictsDesc', { count: conflicts });
       } else if (error) {
         severity = 'danger';
         icon = AlertTriangle;
