@@ -5,7 +5,7 @@
  * operator-visible state machine: catalog gating, session/AI permissions,
  * service-state loading, structured line metadata and atomic check opening.
  */
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -96,12 +96,13 @@ vi.mock('@/components/feedback/ToastProvider', () => ({
   }),
 }));
 
+let mockAuthRole = 'cashier';
 vi.mock('@/features/auth/AuthProvider', () => ({
   useAuth: () => ({
     user: {
       id: 'user-1',
       name: 'Waiter Wendy',
-      role: 'cashier',
+      role: mockAuthRole,
       email: 'w@x.com',
       tenantId: 't-1',
     },
@@ -462,6 +463,62 @@ describe('VoiceOrderingScreen', () => {
     );
     expect(screen.getByTestId('voice-ordering-save')).toBeDisabled();
     expect(openCheckMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('offers table creation in the empty state only to those who can create them', () => {
+    restaurantTablesMock.mockReturnValue({ data: { items: [] }, isLoading: false, error: null });
+    const cashier = renderScreen('mobile');
+    expect(screen.queryByTestId('voice-ordering-create-tables')).not.toBeInTheDocument();
+    cashier.unmount();
+
+    mockAuthRole = 'admin';
+    renderScreen('mobile');
+    expect(screen.getByTestId('voice-ordering-create-tables')).toHaveAttribute(
+      'href',
+      '/restaurants/tables'
+    );
+    mockAuthRole = 'cashier';
+  });
+
+  it('lets the waiter pick a table from a grid while the till keeps the dropdown', () => {
+    const phone = renderScreen('mobile');
+    expect(screen.queryByTestId('voice-ordering-table-select')).not.toBeInTheDocument();
+    const option = within(screen.getByTestId('voice-ordering-table-grid')).getByRole('button', {
+      name: 'Mesa 1',
+    });
+    fireEvent.click(option);
+    expect(option).toHaveAttribute('aria-pressed', 'true');
+    phone.unmount();
+
+    renderScreen('touch');
+    expect(screen.getByTestId('voice-ordering-table-select')).toBeInTheDocument();
+    expect(screen.queryByTestId('voice-ordering-table-grid')).not.toBeInTheDocument();
+  });
+
+  it('keeps the check summary on phones and copies modifiers to the next line', async () => {
+    renderScreen('mobile');
+    await addVoiceItem();
+    await addVoiceItem(makeSelection({ productId: 'p-agua', productName: 'Agua' }));
+    expect(screen.getByTestId('voice-ordering-check-summary')).toHaveTextContent(
+      /1 (guest|comensal)/
+    );
+    expect(screen.queryByTestId('voice-ordering-repeat-modifiers')).not.toBeInTheDocument();
+
+    const [firstName] = screen.getAllByTestId('voice-ordering-modifier-name');
+    fireEvent.change(firstName!, { target: { value: 'Sin hielo' } });
+    fireEvent.click(screen.getByTestId('voice-ordering-repeat-modifiers'));
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId('voice-ordering-modifier-name')[1]).toHaveValue('Sin hielo');
+    });
+    // A line with its own modifiers keeps them: the copy would overwrite the waiter's work.
+    expect(screen.queryByTestId('voice-ordering-repeat-modifiers')).not.toBeInTheDocument();
+  });
+
+  it('leaves the till layout without the phone summary', async () => {
+    renderScreen('touch');
+    await addVoiceItem();
+    expect(screen.queryByTestId('voice-ordering-check-summary')).not.toBeInTheDocument();
   });
 
   it('fails closed when the table catalog cannot be loaded', () => {
@@ -837,6 +894,11 @@ describe('VoiceOrderingScreen', () => {
       'aria-label',
       expect.stringMatching(/Orden por voz|Voice order/)
     );
+    expect(screen.getByTestId('voice-ordering-table-grid')).toHaveAccessibleName(/Mesa|Table/);
+  });
+
+  it('marks the till table dropdown as required', () => {
+    renderScreen('touch');
     expect(screen.getByTestId('voice-ordering-table-select')).toHaveAttribute(
       'aria-required',
       'true'

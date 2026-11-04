@@ -232,5 +232,24 @@
       },
       "kicker": "Perfil fiscal"
     }
+  },
+  "readiness": {
+    "label": "Preparación fiscal",
+    "profile": "Perfil fiscal",
+    "numbering": "Resolución de numeración",
+    "environment": "Ambiente",
+    "pending": "Documentos por atender",
+    "missing": "Falta",
+    "complete": "Completar perfil",
+    "edit": "Editar",
+    "addResolution": "Agregar resolución",
+    "production": "Producción",
+    "testing": "Pruebas",
+    "viewQueue": "Ver cola",
+    "countries": {
+      "CO": "Colombia — DIAN",
+      "MX": "México — SAT",
+      "CL": "Chile — SII"
+    }
   }
 }

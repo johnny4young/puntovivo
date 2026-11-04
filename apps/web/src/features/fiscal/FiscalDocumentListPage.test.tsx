@@ -42,6 +42,7 @@ const { doc } = vi.hoisted(() => ({
 
 // Stub only the heavy XML modal; the custom table + FiscalDocumentDetailsDrawer
 // stay REAL so the column set and the drawer round-trip are exercised.
+vi.mock('./FiscalReadinessStrip', () => ({ FiscalReadinessStrip: () => null }));
 vi.mock('./FiscalDocumentXmlModal', () => ({ FiscalDocumentXmlModal: () => null }));
 
 vi.mock('@/lib/trpc', () => ({

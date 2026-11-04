@@ -2,7 +2,15 @@
   "kicker": "Guided setup",
   "title": "Prepare the business without getting lost",
   "description": "There are {{total}} clear areas covering what the store needs. We show one required decision at a time; optional tools can wait.",
-  "progress": "{{ready}} of {{total}} areas ready",
+  "progress": "{{ready}} of {{total}} required areas done",
+  "progressReview_one": "{{count}} to review",
+  "progressReview_other": "{{count}} to review",
+  "progressOptional_one": "{{count}} optional",
+  "progressOptional_other": "{{count}} optional",
+  "kind": {
+    "required": "Required",
+    "optional": "Optional"
+  },
   "next": {
     "eyebrow": "Next required decision",
     "title": "Complete {{section}}",
