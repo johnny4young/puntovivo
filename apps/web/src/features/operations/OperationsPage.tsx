@@ -159,7 +159,9 @@ export function OperationsPage() {
         </span>
         <div>
           <p className="pv-kicker">{t('header.kicker')}</p>
-          <h1 className="pv-title text-2xl">{t('header.title')}</h1>
+          <h1 data-shell-title className="pv-title text-2xl">
+            {t('header.title')}
+          </h1>
           <p className="mt-1 text-sm text-secondary-500">{t('header.subtitle')}</p>
         </div>
       </header>
