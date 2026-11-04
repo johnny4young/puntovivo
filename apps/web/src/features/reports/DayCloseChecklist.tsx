@@ -1,6 +1,7 @@
 import { AlertTriangle, ArrowRight, CheckCircle2, CircleSlash, XCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
+import { useAuth } from '@/features/auth/AuthProvider';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '@puntovivo/server';
 
@@ -17,6 +18,8 @@ const CHECK_LINKS: Record<CheckCode, string> = {
   fiscal_rejected: '/fiscal-documents',
   high_anomalies: '/dashboard',
 };
+// Fiscal documents are admin only, so managers see the count without a dead link.
+const ADMIN_ONLY_CHECKS: ReadonlySet<CheckCode> = new Set(['fiscal_pending', 'fiscal_rejected']);
 
 const STATE_STYLE: Record<CheckState, { icon: typeof XCircle; tone: string }> = {
   blocker: { icon: XCircle, tone: 'text-danger-700' },
@@ -55,6 +58,8 @@ export function DayCloseChecklist({
   cashDifference: string;
 }) {
   const { t } = useTranslation('reports');
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const { blockers, warnings } = report.readiness;
   const checks = (Object.keys(CHECK_LINKS) as CheckCode[]).map(code => ({
     code,
@@ -99,7 +104,8 @@ export function DayCloseChecklist({
                   {t('dayClose.checklist.done')}
                 </span>
               ) : (
-                !frozen && (
+                !frozen &&
+                (isAdmin || !ADMIN_ONLY_CHECKS.has(code)) && (
                   <Link
                     to={CHECK_LINKS[code]}
                     className="ml-auto inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-primary-700 hover:underline"

@@ -14,6 +14,11 @@ let mockSignoff: ReturnType<typeof signoffFixture> | null = null;
 let mockSignoffPending = false;
 let mockSignoffError: Error | null = null;
 
+let mockUserRole = 'admin';
+vi.mock('@/features/auth/AuthProvider', () => ({
+  useAuth: () => ({ user: { id: 'u-1', role: mockUserRole } }),
+}));
+
 vi.mock('@/lib/trpc', async () => ({
   ...(await vi.importActual<typeof import('@/lib/trpc')>('@/lib/trpc')),
   fetchProtectedApi: vi.fn(),
@@ -266,6 +271,24 @@ describe('DayCloseReportPage (-141b)', () => {
     );
     expect(screen.getByText(/Counted .*700.* − Expected .*1,000/)).toBeInTheDocument();
     expect(screen.getByText(/2 open sessions not counted yet/)).toBeInTheDocument();
+  });
+
+  it('keeps fiscal links away from managers, who cannot open those pages', () => {
+    mockUserRole = 'manager';
+    mockData = {
+      ...reportFixture(),
+      readiness: {
+        readyToSign: false,
+        blockers: ['open_sessions'],
+        warnings: ['fiscal_rejected'],
+      },
+    };
+    render(<DayCloseReportPage />);
+
+    expect(screen.getByTestId('day-close-check-fiscal_rejected')).toBeInTheDocument();
+    expect(screen.queryByTestId('day-close-check-link-fiscal_rejected')).not.toBeInTheDocument();
+    expect(screen.getByTestId('day-close-check-link-open_sessions')).toBeInTheDocument();
+    mockUserRole = 'admin';
   });
 
   it('drops empty cents on whole amounts and keeps real cents visible', () => {

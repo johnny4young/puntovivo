@@ -173,8 +173,8 @@
       "details": {
         "open_sessions_one": "{{count}} register still open",
         "open_sessions_other": "{{count}} registers still open",
-        "cash_discrepancies_one": "{{count}} closed session with a difference · {{amount}}",
-        "cash_discrepancies_other": "{{count}} closed sessions with a difference · {{amount}}",
+        "cash_discrepancies_one": "{{count}} closed session with a difference · net {{amount}}",
+        "cash_discrepancies_other": "{{count}} closed sessions with a difference · net {{amount}}",
         "fiscal_pending_one": "{{count}} document waiting for a response",
         "fiscal_pending_other": "{{count}} documents waiting for a response",
         "fiscal_rejected_one": "{{count}} document rejected",

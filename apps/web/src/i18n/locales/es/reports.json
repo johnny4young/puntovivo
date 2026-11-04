@@ -173,8 +173,8 @@
       "details": {
         "open_sessions_one": "{{count}} caja sigue abierta",
         "open_sessions_other": "{{count}} cajas siguen abiertas",
-        "cash_discrepancies_one": "{{count}} sesión cerrada con diferencia · {{amount}}",
-        "cash_discrepancies_other": "{{count}} sesiones cerradas con diferencia · {{amount}}",
+        "cash_discrepancies_one": "{{count}} sesión cerrada con diferencia · neto {{amount}}",
+        "cash_discrepancies_other": "{{count}} sesiones cerradas con diferencia · neto {{amount}}",
         "fiscal_pending_one": "{{count}} documento espera respuesta",
         "fiscal_pending_other": "{{count}} documentos esperan respuesta",
         "fiscal_rejected_one": "{{count}} documento rechazado",
