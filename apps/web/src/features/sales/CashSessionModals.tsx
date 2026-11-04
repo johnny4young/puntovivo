@@ -52,6 +52,9 @@ interface CashSessionModalsProps {
   onCloseCloseModal: () => void;
   onSubmitClose: (values: CashSessionCloseValues) => Promise<void>;
   suspendedDraftsCount: number;
+  /** Keeps the close form mounted, and its counts, while it is out of view. */
+  isCloseModalHidden?: boolean | undefined;
+  onReviewSuspended?: (() => void) | undefined;
   isCashSessionMovementModalOpen: boolean;
   cashSessionMovementModalKey: number;
   isRecordingMovement: boolean;
@@ -79,6 +82,8 @@ export function CashSessionModals({
   onCloseCloseModal,
   onSubmitClose,
   suspendedDraftsCount,
+  isCloseModalHidden = false,
+  onReviewSuspended,
   isCashSessionMovementModalOpen,
   cashSessionMovementModalKey,
   isRecordingMovement,
@@ -105,12 +110,13 @@ export function CashSessionModals({
         <LazyCashSessionCloseModal
           key={cashSessionCloseModalKey}
           cashSession={activeCashSession}
-          isOpen={isCashSessionCloseModalOpen}
+          isOpen={isCashSessionCloseModalOpen && !isCloseModalHidden}
           isSaving={isClosingCashSession}
           error={cashSessionCloseError}
           onClose={onCloseCloseModal}
           onSubmit={onSubmitClose}
           suspendedDraftsCount={suspendedDraftsCount}
+          onReviewSuspended={onReviewSuspended}
         />
       )}
       {isCashSessionMovementModalOpen && (

@@ -1,15 +1,12 @@
 // the ProductsPage semantic-search feature, extracted from
 // ProductsPage.tsx ( slice 32). Owns the toggle/query state, the 300ms
 // debounce, the module-gate, the semanticSearch + embeddingHealth queries, and
-// the regenerateEmbeddings mutation. The page keeps `products.list` (fed by
+// the page keeps `products.list` (fed by
 // `literalFallbackSearch`) and the trivial `displayProducts` merge — the hook
 // never touches the literal product list, so there is no render cycle.
 
 import { useEffect, useMemo, useState } from 'react';
-import { useTranslation } from 'react-i18next';
-import { useToast } from '@/components/feedback/ToastProvider';
 import { useIsModuleActive, useModulesSnapshot } from '@/features/modules';
-import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 import type { Product } from '@/types';
 import type { DisplayProduct } from './productsColumns';
@@ -17,8 +14,6 @@ import type { DisplayProduct } from './productsColumns';
 interface UseProductsSemanticSearchArgs {
   /** Manager+ — the semantic surface is hidden for read-only roles. */
   canManage: boolean;
-  /** Admin-only — gates the regenerate-embeddings button. */
-  canRegenerate: boolean;
 }
 
 /**
@@ -32,14 +27,7 @@ interface UseProductsSemanticSearchArgs {
  * show the "Match" column; `semanticModeEnabled` toggles the DataTable's
  * built-in search off.
  */
-export function useProductsSemanticSearch({
-  canManage,
-  canRegenerate,
-}: UseProductsSemanticSearchArgs) {
-  const { t } = useTranslation(['products', 'errors']);
-  const toast = useToast();
-  const utils = trpc.useUtils();
-
+export function useProductsSemanticSearch({ canManage }: UseProductsSemanticSearchArgs) {
   const semanticModuleActive = useIsModuleActive('semantic-search');
   const modulesSnapshot = useModulesSnapshot();
   // do not trust manifest-default module state for server-gated
@@ -56,10 +44,6 @@ export function useProductsSemanticSearch({
   // server-side literal product query and the cosine-similarity ranking
   // exposed by `products.semanticSearch`. We debounce by 300ms so each
   // keystroke does not trigger a network roundtrip or OpenAI embed call.
-  // The mutation `regenerateEmbeddings` is admin-only and is the way to
-  // bring a freshly seeded catalog (or one whose products have been
-  // edited heavily) up to date — the UI surfaces "X embedded" toast on
-  // success and a translated warning when AI is disabled / unconfigured.
   const [semanticEnabled, setSemanticEnabled] = useState(false);
   const [literalQuery, setLiteralQuery] = useState('');
   const [debouncedLiteralQuery, setDebouncedLiteralQuery] = useState('');
@@ -110,25 +94,6 @@ export function useProductsSemanticSearch({
     enabled: canUseSemantic,
   });
 
-  const regenerateMutation = trpc.products.regenerateEmbeddings.useMutation({
-    onSuccess: async data => {
-      if (!data.ok) {
-        toast.warning({ title: t('semantic.regenerateUnavailable') });
-        return;
-      }
-      toast.success({
-        title: t('semantic.regenerated', { count: data.embedded }),
-      });
-      // Refresh both semantic search results and the drift banner, so the
-      // existing toolbar CTA clears the same health signal as the banner CTA.
-      await Promise.all([
-        utils.products.embeddingHealth.invalidate(),
-        utils.products.semanticSearch.invalidate(),
-      ]);
-    },
-    onError: onErrorToast(toast, t, { titleKey: 'products:semantic.regenerateError' }),
-  });
-
   // when semantic mode is active and the server returned
   // results, replace the rendered rows; the rest of the UI keeps
   // working unchanged because the row shape matches the standard list
@@ -162,7 +127,6 @@ export function useProductsSemanticSearch({
     semanticQuery,
     setSemanticQuery,
     canUseSemantic,
-    canRegenerate,
     semanticModeEnabled,
     literalFallbackSearch,
     hasActiveSearch,
@@ -171,7 +135,5 @@ export function useProductsSemanticSearch({
     semanticResults,
     isSearching: semanticSearchQuery.isFetching,
     embeddingHealthData: embeddingHealthQuery.data,
-    regenerate: () => regenerateMutation.mutate(),
-    isRegenerating: regenerateMutation.isPending,
   };
 }
