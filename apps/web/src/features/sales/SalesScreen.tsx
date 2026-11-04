@@ -305,6 +305,9 @@ export function SalesScreen({
   // park here would silently turn the exchange into an unrelated sale.
   const canSuspendActiveCart = canCharge && !itemsLocked && activeWorkspace?.sourceReturnId == null;
 
+  // Buttons pass their click event, which must not read as the fast cash flag.
+  const handleCharge = () => handleOpenPaymentModal();
+
   return (
     <>
       <div className="sales-pos-shell space-y-3 lg:pb-24 lg:flex pos:min-h-0 lg:flex-col lg:gap-3 lg:space-y-0 pos:overflow-hidden pos:pb-0">
@@ -330,7 +333,7 @@ export function SalesScreen({
           preflightItems={preflightItems}
           onOpenCashSession={handleOpenCashSessionModal}
           onOpenSearch={() => handleOpenProductSearch()}
-          onCharge={handleOpenPaymentModal}
+          onCharge={handleCharge}
         />
 
         <SalesHeaderSection
@@ -422,7 +425,7 @@ export function SalesScreen({
             userRole={userRole}
             canOpenSearch={!itemsLocked}
             onOpenSearch={() => handleOpenProductSearch()}
-            onCharge={handleOpenPaymentModal}
+            onCharge={handleCharge}
             onOpenCashSession={handleOpenCashSessionModal}
             onCloseCashSession={handleOpenCloseCashSessionModal}
             onOpenMovement={handleOpenCashSessionMovementModal}
@@ -449,7 +452,7 @@ export function SalesScreen({
         canOpenCashSession={canOpenCashSession}
         canOpenSearch={!itemsLocked}
         onOpenSearch={() => handleOpenProductSearch()}
-        onCharge={handleOpenPaymentModal}
+        onCharge={handleCharge}
         onOpenCashSession={handleOpenCashSessionModal}
         canSuspend={canSuspendActiveCart}
         onSuspend={handleOpenSuspendPrompt}
