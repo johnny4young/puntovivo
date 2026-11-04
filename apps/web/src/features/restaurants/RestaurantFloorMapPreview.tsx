@@ -1,8 +1,10 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Table2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, formatDateTime } from '@/lib/utils';
 import { Badge } from '@/components/ui';
+const STATUS_VARIANT = { free: 'success', occupied: 'warning', reserved: 'primary' } as const;
+
 interface MesaPreview {
   id: string;
   name: string;
@@ -10,8 +12,15 @@ interface MesaPreview {
   area: string | null;
   isActive: boolean;
 }
+/** Live table state; absent while occupancy is unknown, so a table never reads free by default. */
+export type FloorTableStatus =
+  | { kind: 'free' }
+  | { kind: 'occupied'; openChecks: number }
+  | { kind: 'reserved'; startsAt: string };
+
 interface RestaurantFloorMapPreviewProps {
   tables: readonly MesaPreview[];
+  statuses?: ReadonlyMap<string, FloorTableStatus>;
   /**
    * Currently selected mesa — surfaced visually with the V2 primary
    * border tint. When undefined the grid renders without a selection.
@@ -21,23 +30,11 @@ interface RestaurantFloorMapPreviewProps {
 }
 
 /**
- * V2 floor map preview from the design specification.
- *
- * Sits above the admin CRUD table on RestaurantTablesPage and
- * visualises the mesa catalog as a grid of cards grouped by area.
- * Each card carries:
- * - the mesa name in a large display font
- * - a status pill (libre · archivada — derived from `isActive`
- * until  adds live order state)
- * - a seat-count line ("Cupo · N pers.")
- *
- * This is read-only today; clicking a card surfaces a selection so
- * the CRUD form below can pre-focus the right row. The richer comanda
- * timeline and live status (en servicio · cuenta · limpieza) ride on
- * top of the existing restaurantTables schema in a follow-up.
+ * The main view of the tables page: tables grouped by area with their live state.
  */
 export function RestaurantFloorMapPreview({
   tables,
+  statuses,
   selectedId,
   onSelect,
 }: RestaurantFloorMapPreviewProps) {
@@ -57,7 +54,14 @@ export function RestaurantFloorMapPreview({
     return [...map.entries()];
   }, [tables, t]);
   if (tables.length === 0) {
-    return null;
+    return (
+      <p
+        className="card p-6 text-center text-sm text-secondary-600"
+        data-testid="restaurant-floor-map-empty"
+      >
+        {t('tables.empty')}
+      </p>
+    );
   }
   return (
     <section
@@ -102,6 +106,7 @@ export function RestaurantFloorMapPreview({
             <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
               {mesas.map(mesa => {
                 const selected = mesa.id === selectedId;
+                const status = statuses?.get(mesa.id);
                 return (
                   <button
                     key={mesa.id}
@@ -118,15 +123,20 @@ export function RestaurantFloorMapPreview({
                       <span className="glyph-tile glyph-tile-primary h-9 w-9">
                         <Table2 className="h-4 w-4" aria-hidden="true" />
                       </span>
-                      <Badge variant={mesa.isActive ? 'success' : 'neutral'}>
-                        {mesa.isActive
-                          ? t('floorMap.status.free', {
-                              defaultValue: 'Libre',
-                            })
-                          : t('floorMap.status.archived', {
-                              defaultValue: 'Archivada',
-                            })}
-                      </Badge>
+                      {status && (
+                        <Badge
+                          variant={STATUS_VARIANT[status.kind]}
+                          data-testid={`restaurant-floor-status-${status.kind}`}
+                        >
+                          {status.kind === 'occupied'
+                            ? t('floorMap.status.occupied', { count: status.openChecks })
+                            : status.kind === 'reserved'
+                              ? t('floorMap.status.reserved', {
+                                  time: formatDateTime(status.startsAt),
+                                })
+                              : t('floorMap.status.free')}
+                        </Badge>
+                      )}
                     </div>
                     <p className="mt-3 text-lg font-semibold tracking-[-0.01em] text-secondary-950">
                       {mesa.name}

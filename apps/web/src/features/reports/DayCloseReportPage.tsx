@@ -21,6 +21,7 @@ import { KpiTile, StatusStrip, Button } from '@/components/ui';
 import { useResolvedLocale } from '@/features/locale/LocaleProvider';
 import { calendarDayAt, formatCurrency, formatDate, getActiveTenantLocale } from '@/lib/utils';
 import { translateServerError } from '@/lib/translateServerError';
+import { DayCloseChecklist } from './DayCloseChecklist';
 import { fetchProtectedApi, trpc } from '@/lib/trpc';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { isTaskActivationKey, useTaskMeasurementController } from '@/lib/taskMeasurement';
@@ -176,7 +177,9 @@ export function DayCloseReportPage() {
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="pv-kicker">{t('dayClose.kicker')}</p>
-          <h1 className="pv-title text-2xl">{t('dayClose.title')}</h1>
+          <h1 data-shell-title className="pv-title text-2xl">
+            {t('dayClose.title')}
+          </h1>
           <p className="mt-2 max-w-3xl text-sm text-secondary-500">{t('dayClose.description')}</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
@@ -272,18 +275,11 @@ export function DayCloseReportPage() {
                 </p>
               </div>
             </div>
-            {(report.readiness.blockers.length > 0 || report.readiness.warnings.length > 0) && (
-              <ul className="mt-3 flex flex-wrap gap-2">
-                {[...report.readiness.blockers, ...report.readiness.warnings].map(code => (
-                  <li
-                    key={code}
-                    className="rounded-full border border-current/20 bg-white/45 px-2.5 py-1 text-[11px] font-medium"
-                  >
-                    {t(`dayClose.readiness.codes.${code}`)}
-                  </li>
-                ))}
-              </ul>
-            )}
+            <DayCloseChecklist
+              report={report}
+              frozen={signoff !== null}
+              cashDifference={formatReportMoney(report.cash.overShort, report.currencyCode)}
+            />
           </section>
 
           <div className="pv-kpis grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
@@ -312,10 +308,15 @@ export function DayCloseReportPage() {
               icon={Scale}
               label={t('dayClose.kpis.cashVariance')}
               value={formatReportMoney(report.cash.overShort, report.currencyCode)}
-              context={t('dayClose.kpis.cashSessions', {
-                closed: report.cash.closedSessions,
-                open: report.cash.openSessions,
-              })}
+              context={[
+                t('dayClose.kpis.cashFormula', {
+                  counted: formatReportMoney(report.cash.counted, report.currencyCode),
+                  expected: formatReportMoney(report.cash.expected, report.currencyCode),
+                }),
+                ...(report.cash.openSessions > 0
+                  ? [t('dayClose.kpis.cashOpenNote', { count: report.cash.openSessions })]
+                  : []),
+              ].join(' · ')}
               tone={report.cash.discrepancySessions > 0 ? 'warning' : 'success'}
               mono
             />

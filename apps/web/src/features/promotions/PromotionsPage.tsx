@@ -251,7 +251,9 @@ export function PromotionsPage() {
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="pv-kicker">{t('promotions:kicker')}</p>
-          <h1 className="pv-title mt-1 text-3xl">{t('promotions:title')}</h1>
+          <h1 data-shell-title className="pv-title mt-1 text-3xl">
+            {t('promotions:title')}
+          </h1>
           <p className="mt-2 max-w-3xl text-sm text-fg3">{t('promotions:description')}</p>
         </div>
         <button

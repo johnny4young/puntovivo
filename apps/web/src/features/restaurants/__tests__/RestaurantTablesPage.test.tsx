@@ -20,6 +20,8 @@ const listInvalidate = vi.fn();
 let mockUserRole: 'admin' | 'manager' = 'admin';
 let mockTables: Array<Record<string, unknown>> = [];
 let mockFloorTables: Array<Record<string, unknown>> = [];
+let mockOccupancy: Array<{ id: string; openDrafts: unknown[] }> | null = null;
+let mockReservations: Array<Record<string, unknown>> = [];
 let mockTotalItems = 0;
 let mockHasMore = false;
 let lastTableListInput: Record<string, unknown> | null = null;
@@ -50,7 +52,10 @@ vi.mock('@/features/tenant/TenantProvider', () => ({
 vi.mock('@/lib/trpc', () => ({
   trpc: {
     useUtils: () => ({
-      restaurantTables: { list: { invalidate: listInvalidate } },
+      restaurantTables: {
+        list: { invalidate: listInvalidate },
+        listWithDraftStatus: { invalidate: vi.fn() },
+      },
     }),
     sites: {
       list: {
@@ -66,7 +71,13 @@ vi.mock('@/lib/trpc', () => ({
         }),
       },
     },
+    reservations: {
+      list: { useQuery: () => ({ data: { rows: mockReservations } }) },
+    },
     restaurantTables: {
+      listWithDraftStatus: {
+        useQuery: () => ({ data: mockOccupancy ? { items: mockOccupancy } : undefined }),
+      },
       list: {
         useQuery: (input: Record<string, unknown>) => {
           tableListInputs.push(input);
@@ -119,13 +130,13 @@ vi.mock('@/lib/trpc', () => ({
 
 import { RestaurantTablesPage } from '../RestaurantTablesPage';
 
-function renderPage() {
+function renderPage(path = '/restaurants/tables?view=list') {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[path]}>
         <RestaurantTablesPage />
       </MemoryRouter>
     </QueryClientProvider>
@@ -175,6 +186,8 @@ beforeEach(() => {
   mockTotalItems = mockTables.length;
   mockFloorTables = mockTables;
   mockHasMore = false;
+  mockOccupancy = null;
+  mockReservations = [];
   void i18n.changeLanguage('en');
 });
 
@@ -248,6 +261,43 @@ describe('RestaurantTablesPage — admin', () => {
     expect(screen.getByTestId('restaurant-tables-previous-page')).not.toBeDisabled();
   });
 
+  it('opens on the floor map with each table state and keeps the list one tab away', () => {
+    mockOccupancy = [
+      { id: 'rt-1', openDrafts: [{ saleId: 's-1' }, { saleId: 's-2' }] },
+      { id: 'rt-2', openDrafts: [] },
+    ];
+    mockReservations = [
+      { tableId: 'rt-2', status: 'booked', startsAt: '2026-05-10T20:00:00.000Z' },
+    ];
+    renderPage('/restaurants/tables');
+
+    const map = screen.getByTestId('restaurant-floor-map-preview');
+    expect(map).toHaveTextContent('2 open checks');
+    expect(map).toHaveTextContent('Reserved');
+    expect(screen.queryByTestId('restaurant-tables-pagination')).not.toBeInTheDocument();
+    expect(screen.getByTestId('restaurant-tables-create-cta')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('restaurant-tables-view-list'));
+    expect(screen.getByTestId('restaurant-table-archive-rt-1')).toBeInTheDocument();
+    expect(screen.queryByTestId('restaurant-floor-map-preview')).not.toBeInTheDocument();
+  });
+
+  it('never claims a table is free while occupancy is unknown', () => {
+    renderPage('/restaurants/tables');
+
+    expect(screen.getByTestId('restaurant-floor-map-preview')).not.toHaveTextContent('Free');
+  });
+
+  it('marks a table free once occupancy confirms it', () => {
+    mockOccupancy = [
+      { id: 'rt-1', openDrafts: [] },
+      { id: 'rt-2', openDrafts: [] },
+    ];
+    renderPage('/restaurants/tables');
+
+    expect(screen.getAllByTestId('restaurant-floor-status-free')).toHaveLength(2);
+  });
+
   it('searches on the server and keeps the complete active catalog in the floor map', async () => {
     mockFloorTables = [
       ...mockTables,
@@ -257,9 +307,10 @@ describe('RestaurantTablesPage — admin', () => {
         name: 'Mesa Terraza 101',
       },
     ];
-    renderPage();
+    renderPage('/restaurants/tables');
 
     expect(screen.getByText('Mesa Terraza 101')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('restaurant-tables-view-list'));
     fireEvent.change(screen.getByPlaceholderText('Restaurant tables'), {
       target: { value: 'Terraza 101' },
     });

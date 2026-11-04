@@ -563,7 +563,10 @@ export function CopilotPage() {
             <p className="page-kicker">
               {t('copilot:page.kicker', { defaultValue: 'Inteligencia · Co-pilot' })}
             </p>
-            <h1 className="mt-1 font-display text-3xl tracking-[-0.02em] text-secondary-950">
+            <h1
+              data-shell-title
+              className="mt-1 font-display text-3xl tracking-[-0.02em] text-secondary-950"
+            >
               {t('copilot:page.title')}
             </h1>
             <p className="mt-2 text-sm leading-6 text-secondary-600">
