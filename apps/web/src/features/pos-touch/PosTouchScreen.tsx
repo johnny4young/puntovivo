@@ -357,7 +357,7 @@ export function PosTouchScreen() {
   }
 
   return (
-    <section data-testid="pos-touch-page" className="flex flex-col gap-4">
+    <section data-testid="pos-touch-page" className="flex flex-col gap-4 lg:h-[calc(100dvh-4rem)]">
       <header className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-xs uppercase tracking-[0.18em] text-secondary-500">
@@ -390,8 +390,14 @@ export function PosTouchScreen() {
         isDisabled={checkoutLocked}
       />
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr),22rem]">
-        <div className="min-w-0">
+      <div
+        data-testid="pos-touch-layout"
+        className="grid grid-cols-1 gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_22rem] lg:grid-rows-[minmax(0,1fr)]"
+      >
+        <div
+          data-testid="pos-touch-catalog"
+          className="min-w-0 lg:-m-1 lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain lg:p-1 scrollbar-thin"
+        >
           {catalogTotal > products.length && (
             <p
               data-testid="pos-touch-grid-truncated"
