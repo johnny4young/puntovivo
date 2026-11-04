@@ -77,6 +77,7 @@ export function PosTouchScreen() {
       perPage: 200,
       categoryId: activeCategoryId ?? undefined,
       isActive: true,
+      siteId,
     },
     { enabled: siteId.length > 0, staleTime: 30_000 }
   );
@@ -144,6 +145,14 @@ export function PosTouchScreen() {
     }));
   }, [categoriesQuery.data, allProducts]);
 
+  const cartQuantities = useMemo(() => {
+    const quantities = new Map<string, number>();
+    for (const item of cartItems) {
+      quantities.set(item.productId, (quantities.get(item.productId) ?? 0) + item.quantity);
+    }
+    return quantities;
+  }, [cartItems]);
+
   const summary = useMemo(
     () => getCartSummary(cartItems, priceIncludesTax),
     [cartItems, priceIncludesTax]
@@ -193,9 +202,8 @@ export function PosTouchScreen() {
   });
   const checkoutLocked = isCheckoutLocked || createMutation.isPending;
 
-  // useCallback keeps the memoized product grid from re-rendering its
-  // ≤200 tiles on every cart tick — the handler identity is the only
-  // grid prop that would otherwise change.
+  // useCallback keeps every memoized tile from re-rendering on a cart tick;
+  // only the tile whose quantity changed renders again.
   const handleAddToCart = useCallback(
     async (product: Product) => {
       if (checkoutLockedRef.current) return;
@@ -416,6 +424,7 @@ export function PosTouchScreen() {
             isError={Boolean(productsQuery.error)}
             isDisabled={checkoutLocked}
             onSelect={handleAddToCart}
+            cartQuantities={cartQuantities}
           />
         </div>
         <PosTouchCartSidebar
