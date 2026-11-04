@@ -15,7 +15,7 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Boxes, Pencil } from 'lucide-react';
 import { Drawer } from '@/components/feedback/Drawer';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatNumber } from '@/lib/utils';
 import type { Product } from '@/types';
 
 /**
@@ -118,9 +118,7 @@ export function ProductDetailsDrawer({
           <DetailField label={t('table.tier3')} value={formatCurrency(product.price3)} />
           <DetailField
             label={t('table.stock')}
-            value={
-              product.tracksStock === false ? t('table.service') : product.stock.toLocaleString()
-            }
+            value={product.tracksStock === false ? t('table.service') : formatNumber(product.stock)}
           />
           <DetailField
             label={t('details.serviceItem')}
@@ -152,7 +150,7 @@ export function ProductDetailsDrawer({
               </Badge>
             }
           />
-          <DetailField label={t('details.minStock')} value={product.minStock.toLocaleString()} />
+          <DetailField label={t('details.minStock')} value={formatNumber(product.minStock)} />
           <DetailField
             label={t('table.status')}
             value={

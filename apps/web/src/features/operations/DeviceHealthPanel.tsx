@@ -6,7 +6,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
-import { formatDateTime } from '@/lib/utils';
+import { formatDateTime, formatNumber } from '@/lib/utils';
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { Badge, KpiTile, Button } from '@/components/ui';
 import { usePaginatedRows } from '@/components/tables/usePaginatedRows';
@@ -258,14 +258,14 @@ export function DeviceHealthPanel() {
             icon={RefreshCw}
             tone={problemCount > 0 ? 'danger' : 'success'}
             label={t('device.outbox.kpi.problemsLabel')}
-            value={outboxQuery.isLoading ? '—' : problemCount.toLocaleString()}
+            value={outboxQuery.isLoading ? '—' : formatNumber(problemCount)}
             context={t('device.outbox.kpi.problemsContext')}
           />
           <KpiTile
             icon={Inbox}
             tone="ink"
             label={t('device.outbox.kpi.totalLabel')}
-            value={outboxQuery.isLoading ? '—' : allOutboxRows.length.toLocaleString()}
+            value={outboxQuery.isLoading ? '—' : formatNumber(allOutboxRows.length)}
             context={t('device.outbox.kpi.totalContext')}
           />
         </div>

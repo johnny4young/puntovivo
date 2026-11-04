@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
+import { formatDateTime } from '@/lib/utils';
 
 type PromotionStatus = 'draft' | 'active' | 'paused' | 'archived';
 type PromotionTargetKind = 'all' | 'product' | 'category';
@@ -358,8 +359,8 @@ export function PromotionsPage() {
                 <p className="mt-3 flex items-center gap-2 text-xs text-fg3">
                   <CalendarClock className="h-4 w-4" aria-hidden="true" />
                   {t('promotions:window', {
-                    start: record.startsAt ? new Date(record.startsAt).toLocaleString() : '—',
-                    end: record.endsAt ? new Date(record.endsAt).toLocaleString() : '—',
+                    start: record.startsAt ? formatDateTime(new Date(record.startsAt)) : '—',
+                    end: record.endsAt ? formatDateTime(new Date(record.endsAt)) : '—',
                   })}
                 </p>
               )}
