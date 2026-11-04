@@ -355,7 +355,8 @@
     "splitReferenceLabel": "Reference for tender {{index}}",
     "splitReferencePlaceholder": "Reference (optional)",
     "splitSum": "Tendered",
-    "splitDelta": "Over / short",
+    "splitRemaining": "Remaining",
+    "splitOver": "Over",
     "splitMustMatch": "Tenders must sum to the sale total before you can confirm.",
     "notes": "Notes",
     "notesHint": "Optional comments for the sale",
@@ -377,6 +378,8 @@
     },
     "lockedCustomer": "Quotation customer",
     "confirmPartialAmount": "Confirm partial sale · {{amount}} missing",
+    "confirmSplitMissing": "Confirm sale · {{amount}} missing",
+    "confirmSplitOver": "Confirm sale · {{amount}} over",
     "partialTitle": "This sale will remain partially paid",
     "partialWarning": "The outstanding balance is {{amount}}. Confirm only if you intend to leave this balance unpaid."
   },
