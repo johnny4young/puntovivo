@@ -9,7 +9,7 @@ import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 import { translateServerError } from '@/lib/translateServerError';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
-import { cn, formatDateTime } from '@/lib/utils';
+import { cn, formatDateTime, formatNumber } from '@/lib/utils';
 import { CountIdentityEditor, CountIdentityReview } from './CountIdentityEditor';
 import { countStatusTone } from './countPresentation';
 
@@ -344,7 +344,7 @@ export function CountSessionModal({
                     </td>
                     {session.status !== 'counting' && (
                       <td className="px-4 py-3 text-right tabular-nums">
-                        {line.expectedQuantity?.toLocaleString()}
+                        {formatNumber(line.expectedQuantity)}
                       </td>
                     )}
                     <td className="px-4 py-3 text-right">
@@ -390,7 +390,7 @@ export function CountSessionModal({
                           })}
                         />
                       ) : (
-                        line.countedQuantity?.toLocaleString()
+                        formatNumber(line.countedQuantity)
                       )}
                     </td>
                     {session.status !== 'counting' && (
@@ -402,7 +402,7 @@ export function CountSessionModal({
                         )}
                       >
                         {(line.discrepancy ?? 0) > 0 ? '+' : ''}
-                        {line.discrepancy?.toLocaleString()}
+                        {formatNumber(line.discrepancy)}
                       </td>
                     )}
                   </tr>

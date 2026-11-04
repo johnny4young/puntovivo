@@ -11,6 +11,7 @@ import {
   type ExactLotAllocationDraft,
   type ExactLotOption,
 } from './lotForm';
+import { formatNumber } from '@/lib/utils';
 
 export interface InventoryTransferFormValues {
   fromSiteId: string;
@@ -138,7 +139,7 @@ export function InventoryTransferModal({
     if (selectedBalance && parsedQuantity > selectedBalance.onHand) {
       setFormError(
         t('transferModal.errors.quantityExceedsOnHand', {
-          available: selectedBalance.onHand.toLocaleString(),
+          available: formatNumber(selectedBalance.onHand),
         })
       );
       return;
@@ -240,7 +241,7 @@ export function InventoryTransferModal({
               <option key={option.value} value={option.value}>
                 {option.label} ·{' '}
                 {t('transferModal.onHand', {
-                  amount: option.onHand.toLocaleString(),
+                  amount: formatNumber(option.onHand),
                 })}
               </option>
             ))}
@@ -270,7 +271,7 @@ export function InventoryTransferModal({
           {selectedBalance && (
             <p className="mt-1 text-sm text-secondary-500">
               {t('transferModal.available', {
-                amount: selectedBalance.onHand.toLocaleString(),
+                amount: formatNumber(selectedBalance.onHand),
               })}
             </p>
           )}

@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { ArrowRight } from 'lucide-react';
 import { Modal } from '@/components/form-controls/Modal';
 import { trpc } from '@/lib/trpc';
-import { formatDateTime } from '@/lib/utils';
+import { formatDateTime, formatNumber } from '@/lib/utils';
 import { translateServerError } from '@/lib/translateServerError';
 import type { TransferHistoryStatus } from '@/types';
 
@@ -184,12 +184,12 @@ export function InventoryTransferDetailsModal({
                           {item.productSku}
                         </td>
                         <td className="px-3 py-2 text-right font-medium text-secondary-900">
-                          {item.quantity.toLocaleString()}
+                          {formatNumber(item.quantity)}
                         </td>
                         <td className="px-3 py-2 text-right text-secondary-900">
                           {received === null
                             ? t('transferDetails.variancePending')
-                            : received.toLocaleString()}
+                            : formatNumber(received)}
                         </td>
                         <td className="px-3 py-2 text-right">
                           {variance === null ? (
@@ -200,7 +200,7 @@ export function InventoryTransferDetailsModal({
                             <span className="text-xs text-secondary-500">0</span>
                           ) : (
                             <span className="inline-flex items-center rounded-full bg-warning-100 px-2 py-0.5 text-xs font-medium text-warning-800">
-                              {variance.toLocaleString()}
+                              {formatNumber(variance)}
                             </span>
                           )}
                         </td>

@@ -1,4 +1,4 @@
-import { formatCurrency, formatDate, formatDateTime } from '@/lib/utils';
+import { formatCurrency, formatDate, formatDateTime, formatNumber } from '@/lib/utils';
 import { openHtmlInPrintWindow } from '@/lib/printWindow';
 import type { QuotationDetail, QuotationStatus } from '@/types';
 import { formatQuotationTaxLabel } from './quotationTaxLabel';
@@ -79,7 +79,7 @@ function buildQuotationRows(items: PrintableQuotation['items']): string {
     .map(item => {
       const productLabel = item.productName || item.productSku || item.productId;
       const description = escapeHtml(productLabel);
-      const quantity = escapeHtml(item.quantity.toLocaleString());
+      const quantity = escapeHtml(formatNumber(item.quantity));
       const unitPrice = escapeHtml(formatCurrency(item.unitPrice));
       const taxLabel = formatQuotationTaxLabel(item);
       const total = escapeHtml(formatCurrency(item.total));

@@ -5,6 +5,7 @@ import { openHtmlInPrintWindow } from '@/lib/printWindow';
 import { escapeHtml } from './escape';
 import { formatValue, getNestedValue } from './format';
 import type { ExportColumn, ExportOptions } from './types';
+import { formatDateTime } from '@/lib/utils';
 
 /**
  * Print table data in a new window
@@ -107,7 +108,7 @@ export function printTable<T extends object>(
     <body>
       <div class="header">
         ${escapedTitle ? `<div class="title">${escapedTitle}</div>` : ''}
-        <div class="timestamp">Generated: ${new Date().toLocaleString()}</div>
+        <div class="timestamp">Generated: ${formatDateTime(new Date())}</div>
       </div>
       <table>
         <thead>
