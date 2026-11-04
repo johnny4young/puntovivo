@@ -154,19 +154,76 @@ export function CashSessionCloseModal({
         </span>
       }
       footer={
-        <>
-          <ModalButton onClick={onClose} disabled={isSaving} className="sm:min-w-[8.5rem]">
-            {t('cashSession.closeForm.cancel')}
-          </ModalButton>
-          <ModalButton
-            variant="primary"
-            onClick={handleSubmit}
-            disabled={isSaving || !cashSession || !!mismatchMessage}
-            className="sm:min-w-[10rem]"
+        <div className="w-full space-y-3">
+          <dl
+            data-testid="close-session-totals"
+            className="grid grid-cols-2 items-end gap-3 text-left sm:grid-cols-3"
           >
-            {isSaving ? t('cashSession.closeForm.closing') : t('cashSession.closeForm.confirm')}
-          </ModalButton>
-        </>
+            <div className="min-w-0">
+              <dt className="text-xs text-muted-foreground">
+                {t('cashSession.closeForm.countedTotal')}
+              </dt>
+              <dd
+                data-testid="close-session-counted"
+                className="text-lg font-semibold tabular-nums wrap-anywhere text-ink"
+              >
+                {formatCurrency(countedTotal)}
+              </dd>
+            </div>
+            {canSeeLiveDelta && typeof cashSession?.expectedBalance === 'number' && (
+              <div className="min-w-0">
+                <dt className="text-xs text-muted-foreground">
+                  {t('cashSession.closeForm.expected')}
+                </dt>
+                <dd
+                  data-testid="close-session-expected"
+                  className="text-lg font-medium tabular-nums wrap-anywhere text-ink"
+                >
+                  {formatCurrency(cashSession.expectedBalance)}
+                </dd>
+              </div>
+            )}
+            {canSeeLiveDelta && liveDelta !== null && liveDeltaState && (
+              <div
+                data-testid="close-session-live-delta"
+                aria-live="polite"
+                aria-atomic="true"
+                className={`col-span-2 min-w-0 sm:col-span-1 ${
+                  liveDeltaState === 'balanced'
+                    ? 'text-success-700'
+                    : liveDeltaState === 'over'
+                      ? 'text-warning-700'
+                      : 'text-danger-700'
+                }`}
+              >
+                <dt className="inline-flex items-center gap-1 text-xs">
+                  <Scale className="h-3 w-3" aria-hidden="true" />
+                  {t(`cashSession.closeForm.liveDelta.${liveDeltaState}`)}
+                </dt>
+                <dd className="text-lg font-semibold tabular-nums wrap-anywhere">
+                  {formatCurrency(liveDelta)}
+                </dd>
+              </div>
+            )}
+          </dl>
+          <div className="flex gap-3 sm:justify-end">
+            <ModalButton
+              onClick={onClose}
+              disabled={isSaving}
+              className="w-auto shrink-0 sm:min-w-[8.5rem]"
+            >
+              {t('cashSession.closeForm.cancel')}
+            </ModalButton>
+            <ModalButton
+              variant="primary"
+              onClick={handleSubmit}
+              disabled={isSaving || !cashSession || !!mismatchMessage}
+              className="w-auto min-w-0 flex-1 sm:min-w-[10rem] sm:flex-none"
+            >
+              {isSaving ? t('cashSession.closeForm.closing') : t('cashSession.closeForm.confirm')}
+            </ModalButton>
+          </div>
+        </div>
       }
     >
       <form
@@ -195,6 +252,13 @@ export function CashSessionCloseModal({
               <p className="mt-1 text-[12px] text-muted-foreground">
                 {t('cashSession.closeForm.openedAt')}{' '}
                 {cashSession ? formatDateTime(cashSession.openedAt) : '—'}
+              </p>
+              <p className="mt-1 text-[11.5px] leading-5 text-muted-foreground">
+                {t(
+                  canSeeLiveDelta
+                    ? 'cashSession.closeForm.supervisedCloseHint'
+                    : 'cashSession.closeForm.blindCloseHint'
+                )}
               </p>
             </div>
 
@@ -228,125 +292,18 @@ export function CashSessionCloseModal({
           </div>
         </section>
 
-        <section className="grid gap-3 rounded-[16px] border border-line bg-surface p-4 sm:grid-cols-3 sm:p-5">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-              {t('cashSession.closeForm.countedTotal')}
-            </p>
-            <p className="mt-1.5 font-display text-2xl tabular-nums tracking-[-0.02em] text-ink">
-              {formatCurrency(countedTotal)}
-            </p>
-          </div>
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-              {actualCountLabel}
-            </p>
-            <p className="mt-1.5 font-display text-xl tabular-nums tracking-[-0.02em] text-ink">
-              {formatCurrency(actualCount || 0)}
-            </p>
-          </div>
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-              {t(
-                canSeeLiveDelta
-                  ? 'cashSession.closeForm.supervisedClose'
-                  : 'cashSession.closeForm.blindClose'
-              )}
-            </p>
-            <p className="mt-1.5 text-[11.5px] leading-5 text-muted-foreground">
-              {t(
-                canSeeLiveDelta
-                  ? 'cashSession.closeForm.supervisedCloseHint'
-                  : 'cashSession.closeForm.blindCloseHint'
-              )}
-            </p>
-          </div>
-        </section>
-
         {mismatchMessage && (
           <p className="rounded-2xl border border-warning-500/40 bg-warning-500/15 px-3 py-2 text-[12.5px] text-warning-700">
             {mismatchMessage}
           </p>
         )}
 
-        {/*  V6 — 5-col per-payment-method strip. Cash gets the
-         * counted value live; the other four methods surface as "—"
-         * pending server-side aggregation in  (extend
-         * cashSessions.summary with sales-by-method rollups). Keeping
-         * the chrome in place now lets the operator see the structure
-         * before the wiring lands. */}
-        <section className="rounded-[16px] border border-line bg-surface p-4">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-            {t('cashSession.closeForm.byMethodTitle', { defaultValue: 'Por método de pago' })}
-          </p>
-          <div className="mt-2.5 grid gap-2 sm:grid-cols-5">
-            {(
-              [
-                [
-                  'cash',
-                  t('cashSession.closeForm.method.cash', { defaultValue: 'Efectivo' }),
-                  formatCurrency(countedTotal),
-                  true,
-                ],
-                [
-                  'card',
-                  t('cashSession.closeForm.method.card', { defaultValue: 'Tarjeta' }),
-                  '—',
-                  false,
-                ],
-                [
-                  'transfer',
-                  t('cashSession.closeForm.method.transfer', { defaultValue: 'Transferencia' }),
-                  '—',
-                  false,
-                ],
-                [
-                  'credit',
-                  t('cashSession.closeForm.method.credit', { defaultValue: 'Crédito' }),
-                  '—',
-                  false,
-                ],
-                [
-                  'other',
-                  t('cashSession.closeForm.method.other', { defaultValue: 'Otro' }),
-                  '—',
-                  false,
-                ],
-              ] as const
-            ).map(([key, label, value, isPrimary]) => (
-              <div
-                key={key}
-                className={`rounded-[10px] border px-2.5 py-2 ${
-                  isPrimary
-                    ? 'border-primary-300/40 bg-primary-400/10'
-                    : 'border-line bg-surface'
-                }`}
-              >
-                <p className="text-[9.5px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                  {label}
-                </p>
-                <p
-                  className={`mt-1 font-mono text-[12px] tabular-nums ${isPrimary ? 'text-ink' : 'text-muted-foreground'}`}
-                >
-                  {value}
-                </p>
-              </div>
-            ))}
-          </div>
-          <p className="mt-2 text-[10.5px] text-muted-foreground">
-            {t('cashSession.closeForm.byMethodHint', {
-              defaultValue:
-                'Tarjeta · Transferencia · Crédito · Otro aparecen cuando  sume las ventas por método.',
-            })}
-          </p>
-        </section>
-
         <section className="space-y-3">
           <h3 className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
             {t('cashSession.closeForm.denominations')}
           </h3>
 
-          <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-x-3 gap-y-1.5 sm:grid-cols-2">
             {denominationFieldArray.fields.map((field, index) => {
               const watchedCount = denominations?.[index]?.count;
               const currentCount = Number.isFinite(watchedCount) ? (watchedCount ?? 0) : 0;
@@ -358,7 +315,8 @@ export function CashSessionCloseModal({
               return (
                 <div
                   key={field.value}
-                  className="rounded-[14px] border border-line bg-surface px-3 py-3"
+                  data-testid={`close-session-denomination-${index}`}
+                  className="flex min-h-11 items-center gap-2 rounded-[10px] border border-line bg-surface px-3 py-1"
                 >
                   <input
                     type="hidden"
@@ -366,15 +324,10 @@ export function CashSessionCloseModal({
                       valueAsNumber: true,
                     })}
                   />
-                  <p className="text-[13px] font-semibold tabular-nums text-ink">
+                  <p className="w-20 shrink-0 text-[13px] font-semibold tabular-nums text-ink">
                     {formatCurrency(field.value)}
                   </p>
-                  <p className="mt-0.5 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-                    {t('cashSession.closeForm.lineTotal', {
-                      total: formatCurrency(lineTotal),
-                    })}
-                  </p>
-                  <div className="mt-2.5 flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5">
                     <button
                       type="button"
                       aria-label={t('cashSession.form.decrementCount', { defaultValue: 'Restar' })}
@@ -409,35 +362,14 @@ export function CashSessionCloseModal({
                       <Plus className="h-3.5 w-3.5" aria-hidden="true" />
                     </button>
                   </div>
+                  <p className="ml-auto truncate text-right text-[12px] tabular-nums text-muted-foreground">
+                    {formatCurrency(lineTotal)}
+                  </p>
                 </div>
               );
             })}
           </div>
         </section>
-
-        {/* live over/short semaphore, manager/admin only (the
-         * cashier keeps the blind close). Reacts per keystroke because
-         * `denominations` is a useWatch subscription. */}
-        {canSeeLiveDelta && liveDelta !== null && liveDeltaState && (
-          <section
-            data-testid="close-session-live-delta"
-            role="status"
-            aria-live="polite"
-            className={`flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-sm ${
-              liveDeltaState === 'balanced'
-                ? 'border-success-500/30 bg-success-500/15 text-success-700'
-                : liveDeltaState === 'over'
-                  ? 'border-warning-500/40 bg-warning-500/15 text-warning-700'
-                  : 'border-danger-500/40 bg-danger-500/15 text-danger-700'
-            }`}
-          >
-            <span className="inline-flex items-center gap-2">
-              <Scale className="h-4 w-4" aria-hidden="true" />
-              {t(`cashSession.closeForm.liveDelta.${liveDeltaState}`)}
-            </span>
-            <span className="font-mono tabular-nums">{formatCurrency(liveDelta)}</span>
-          </section>
-        )}
 
         <section>
           <label
