@@ -38,8 +38,6 @@ export const movementBadgeTones: Record<
   transformation: 'primary',
 };
 
-export { getMovementDelta };
-
 export function isFutureDated(createdAt: string, now: number = Date.now()): boolean {
   const time = new Date(createdAt).getTime();
   return Number.isFinite(time) && time > now;

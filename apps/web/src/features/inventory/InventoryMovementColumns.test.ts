@@ -11,7 +11,8 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import type { InventoryMovement } from '@/types';
-import { getMovementColumns, getMovementDelta, isFutureDated } from './inventoryMovementColumns';
+import { getMovementColumns, isFutureDated } from './inventoryMovementColumns';
+import { getMovementDelta } from './inventoryMovementDelta';
 
 function makeMovement(overrides?: Partial<InventoryMovement>): InventoryMovement {
   return {

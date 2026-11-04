@@ -26,7 +26,7 @@ import {
   viewKeys,
   type InventoryView,
 } from '@/features/inventory/inventoryViews';
-import { getMovementDelta } from '@/features/inventory/inventoryMovementColumns';
+import { getMovementDelta } from '@/features/inventory/inventoryMovementDelta';
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { onErrorToast } from '@/lib/mutationHelpers';
