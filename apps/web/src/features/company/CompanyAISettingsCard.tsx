@@ -22,6 +22,7 @@ import { useAiTranscriptionTest } from './useAiTranscriptionTest';
 import { AiBudgetHoldReconcile } from './AiBudgetHoldReconcile';
 import { AiQuotaSection } from './AiQuotaSection';
 import { AiTranscriptResult } from './AiTranscriptResult';
+import { ProductSearchIndexAction } from './ProductSearchIndexAction';
 export function CompanyAISettingsCard() {
   const { t } = useTranslation(['aiSettings', 'errors', 'common']);
   const toast = useToast();
@@ -386,6 +387,8 @@ export function CompanyAISettingsCard() {
           onClear={transcription.onClearTranscript}
         />
       )}
+
+      <ProductSearchIndexAction />
     </section>
   );
 }

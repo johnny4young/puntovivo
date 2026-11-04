@@ -14,7 +14,7 @@ import { useTenant } from '@/features/tenant/TenantProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
-import { cn, formatCurrency } from '@/lib/utils';
+import { cn, formatCurrency, formatNumber } from '@/lib/utils';
 import { roundMoney } from '@/lib/money';
 import { ISO_DATE_ONLY_PATTERN } from '@puntovivo/shared/iso-date';
 import { formatLotExpiryDate, isLotExpiredAt } from './lotForm';
@@ -312,7 +312,7 @@ export function ExpiryRadarPanel() {
           cellClassName: 'num',
           headerClassName: 'num',
         },
-        cell: ({ row }) => row.original.onHand.toLocaleString(),
+        cell: ({ row }) => formatNumber(row.original.onHand),
       },
       {
         accessorKey: 'unitCost',
@@ -464,7 +464,7 @@ export function ExpiryRadarPanel() {
           icon={CalendarClock}
           tone={rows.length > 0 ? 'warning' : 'ink'}
           label={t('expiry.summary.lots')}
-          value={rows.length.toLocaleString()}
+          value={formatNumber(rows.length)}
           context={t('expiry.summary.window', {
             days: windowDays,
           })}
@@ -480,7 +480,7 @@ export function ExpiryRadarPanel() {
           icon={BadgePercent}
           tone={activeCount > 0 ? 'success' : 'ink'}
           label={t('expiry.summary.activeSuggestions')}
-          value={activeCount.toLocaleString()}
+          value={formatNumber(activeCount)}
         />
       </div>
 

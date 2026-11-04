@@ -14,7 +14,7 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { useTenantSettings } from '@/hooks';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
-import { cn } from '@/lib/utils';
+import { cn, formatNumber, formatPercent } from '@/lib/utils';
 
 export type AnomalyKind = 'ticketsPerHourSpike' | 'voidRate' | 'refundAmount' | 'noSaleSessions';
 
@@ -63,10 +63,10 @@ function formatMetric(
     case 'refundAmount':
       return formatCurrency(value);
     case 'voidRate':
-      return `${(value * 100).toFixed(1)}%`;
+      return formatPercent(value * 100);
     case 'ticketsPerHourSpike':
     case 'noSaleSessions':
-      return Math.round(value).toLocaleString();
+      return formatNumber(Math.round(value));
     default:
       return value.toFixed(2);
   }

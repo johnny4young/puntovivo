@@ -17,7 +17,7 @@
 import type { DataTableColumnDef } from '@/components/tables/DataTable';
 import i18next from 'i18next';
 import { Eye } from 'lucide-react';
-import { cn, formatDateTime } from '@/lib/utils';
+import { cn, formatDateTime, formatNumber } from '@/lib/utils';
 import type { InventoryMovement, MovementType } from '@/types';
 
 /**
@@ -96,7 +96,7 @@ export function getMovementColumns(
         return (
           <span className={cn('pv-mv text-base', delta > 0 && 'up', delta < 0 && 'down')}>
             {delta > 0 ? '+' : ''}
-            {delta.toLocaleString()}
+            {formatNumber(delta)}
           </span>
         );
       },
