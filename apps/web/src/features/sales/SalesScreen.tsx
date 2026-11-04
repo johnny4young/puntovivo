@@ -1,4 +1,11 @@
-import { lazy, Suspense, type ComponentProps, type Dispatch, type SetStateAction } from 'react';
+import {
+  lazy,
+  Suspense,
+  useState,
+  type ComponentProps,
+  type Dispatch,
+  type SetStateAction,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { Drawer } from '@/components/feedback/Drawer';
 import { SalesCartWorkspace } from '@/features/sales/SalesCartWorkspace';
@@ -308,6 +315,22 @@ export function SalesScreen({
   // Buttons pass their click event, which must not read as the fast cash flag.
   const handleCharge = () => handleOpenPaymentModal();
 
+  const [isReviewingSuspendedForClose, setIsReviewingSuspendedForClose] = useState(false);
+  const handleReviewSuspendedForClose = () => {
+    setIsReviewingSuspendedForClose(true);
+    setIsSuspendedPanelOpen(true);
+  };
+  const handleCloseSuspendedPanel = () => {
+    setIsReviewingSuspendedForClose(false);
+    setIsSuspendedPanelOpen(false);
+  };
+  // Resuming a sale means the shift is not ending yet, so the close stops here.
+  const handleResumeSuspended: typeof handleResumeFromPanel = draft => {
+    setIsReviewingSuspendedForClose(false);
+    setIsCashSessionCloseModalOpen(false);
+    return handleResumeFromPanel(draft);
+  };
+
   return (
     <>
       <div className="sales-pos-shell space-y-3 lg:pb-24 lg:flex pos:min-h-0 lg:flex-col lg:gap-3 lg:space-y-0 pos:overflow-hidden pos:pb-0">
@@ -494,7 +517,7 @@ export function SalesScreen({
       {isSuspendedPanelOpen && (
         <Drawer
           isOpen
-          onClose={() => setIsSuspendedPanelOpen(false)}
+          onClose={handleCloseSuspendedPanel}
           ariaLabel={t('park.panelTitle')}
           showCloseButton={false}
           size="lg"
@@ -505,8 +528,8 @@ export function SalesScreen({
           <Suspense fallback={null}>
             <LazySuspendedSalesPanel
               isOpen
-              onClose={() => setIsSuspendedPanelOpen(false)}
-              onResume={handleResumeFromPanel}
+              onClose={handleCloseSuspendedPanel}
+              onResume={handleResumeSuspended}
             />
           </Suspense>
         </Drawer>
@@ -596,6 +619,8 @@ export function SalesScreen({
             onCloseCloseModal={() => setIsCashSessionCloseModalOpen(false)}
             onSubmitClose={handleCloseCashSession}
             suspendedDraftsCount={suspendedDraftsCount}
+            isCloseModalHidden={isReviewingSuspendedForClose}
+            onReviewSuspended={handleReviewSuspendedForClose}
             isCashSessionMovementModalOpen={isCashSessionMovementModalOpen}
             cashSessionMovementModalKey={cashSessionMovementModalKey}
             isRecordingMovement={isRecordingMovement}
