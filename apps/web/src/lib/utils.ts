@@ -158,6 +158,39 @@ export function formatCurrency(
   return formatter.format(amount);
 }
 
+const numberFormatterCache = new Map<string, Intl.NumberFormat>();
+const percentFormatterCache = new Map<string, Intl.NumberFormat>();
+
+/** Quantities and counts in the same locale as money on the screen; blank when absent. */
+export function formatNumber(value: number | null | undefined): string {
+  if (value === null || value === undefined) return '';
+  const locale = activeTenantLocale?.locale ?? getActiveLocale();
+  let formatter = numberFormatterCache.get(locale);
+  if (!formatter) {
+    if (numberFormatterCache.size >= CURRENCY_FORMATTER_CACHE_CAP) numberFormatterCache.clear();
+    formatter = new Intl.NumberFormat(locale);
+    numberFormatterCache.set(locale, formatter);
+  }
+  return formatter.format(value);
+}
+
+/** Takes whole percentage points, so 28.9 reads as 28,9 % under es-CO. */
+export function formatPercent(points: number, fractionDigits = 1): string {
+  const locale = activeTenantLocale?.locale ?? getActiveLocale();
+  const key = `${locale}|${fractionDigits}`;
+  let formatter = percentFormatterCache.get(key);
+  if (!formatter) {
+    if (percentFormatterCache.size >= CURRENCY_FORMATTER_CACHE_CAP) percentFormatterCache.clear();
+    formatter = new Intl.NumberFormat(locale, {
+      style: 'percent',
+      minimumFractionDigits: fractionDigits,
+      maximumFractionDigits: fractionDigits,
+    });
+    percentFormatterCache.set(key, formatter);
+  }
+  return formatter.format(points / 100);
+}
+
 /**
  * The calendar day an instant falls on IN A GIVEN TIME ZONE, as the
  * YYYY-MM-DD shape every tenant-local report input expects.

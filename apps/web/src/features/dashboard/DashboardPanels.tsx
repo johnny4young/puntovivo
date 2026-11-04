@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '@puntovivo/server';
-import { formatCalendarDay } from '@/lib/utils';
+import { formatCalendarDay, formatNumber } from '@/lib/utils';
 
 type DashboardSummary = inferRouterOutputs<AppRouter>['dashboard']['summary'];
 
@@ -211,7 +211,7 @@ export function RevenueTrendCard({ points, formatCurrency }: RevenueTrendCardPro
           </div>
           <div>
             <span>{t('revenue.periodOrders')}</span>
-            <strong>{totalOrders.toLocaleString()}</strong>
+            <strong>{formatNumber(totalOrders)}</strong>
           </div>
           <div>
             <span>{t('revenue.bestDay')}</span>

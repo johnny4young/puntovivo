@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Sparkles } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
-import { cn } from '@/lib/utils';
+import { cn, formatDateTime } from '@/lib/utils';
 import { useAiSettings } from '@/features/ai-shared';
 import { Badge } from '@/components/ui';
 type FeatureKey = 'copilot' | 'anomalies' | 'semanticSearch' | 'invoiceOcr';
@@ -243,7 +243,7 @@ export default function AiConfigPage() {
                   return (
                     <tr key={row.id}>
                       <td className="px-3 py-2 font-mono text-xs text-secondary-700">
-                        {new Date(row.createdAt).toLocaleString()}
+                        {formatDateTime(new Date(row.createdAt))}
                       </td>
                       <td className="px-3 py-2 text-secondary-800">{row.actorId}</td>
                       <td className="px-3 py-2 font-mono text-xs text-secondary-800">

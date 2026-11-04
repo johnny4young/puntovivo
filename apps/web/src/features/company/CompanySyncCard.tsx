@@ -18,7 +18,7 @@ import { useSyncSnapshot } from '@/features/company/useSyncSnapshot';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc, vanillaClient } from '@/lib/trpc';
 import { translateServerError } from '@/lib/translateServerError';
-import { formatDateTime } from '@/lib/utils';
+import { formatDateTime, formatNumber } from '@/lib/utils';
 
 const syncPreviewLimit = 5;
 
@@ -59,7 +59,7 @@ function SyncKpi({ icon: Icon, label, value, alarming = false, mono = false }: S
 }
 
 function formatCount(value: number | undefined): string {
-  return typeof value === 'number' ? value.toLocaleString() : '—';
+  return typeof value === 'number' ? formatNumber(value) : '—';
 }
 
 export function CompanySyncCard() {
