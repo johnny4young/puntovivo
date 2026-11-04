@@ -1,6 +1,6 @@
 /**
  * Single-tender section of the sale payment modal (method tiles + amount +
- * change/outstanding + split-enable). Rediseño §06 / .
+ * split-enable). Rediseño §06 / .
  *
  * JSX extracted verbatim from the former single-file
  * `SalePaymentModal.tsx`. Presentational: receives the RHF `form` + derived
@@ -14,7 +14,6 @@ import { useTranslation } from 'react-i18next';
 import type { UseFormReturn } from 'react-hook-form';
 
 import { Button } from '@/components/ui';
-import { formatCurrency } from '@/lib/utils';
 import type { PaymentMethod } from '@/types';
 import { QuickDenominationSelector } from './QuickDenominationSelector';
 import type { SalePaymentValues } from './salePaymentModal.types';
@@ -28,8 +27,6 @@ interface SalePaymentSingleTenderSectionProps {
   isCredit: boolean;
   grandTotal: number;
   amountReceivedValue: number;
-  change: number;
-  outstanding: number;
   handleEnableSplit: () => void;
 }
 
@@ -41,8 +38,6 @@ export function SalePaymentSingleTenderSection({
   isCredit,
   grandTotal,
   amountReceivedValue,
-  change,
-  outstanding,
   handleEnableSplit,
 }: SalePaymentSingleTenderSectionProps) {
   const { t } = useTranslation('sales');
@@ -157,29 +152,6 @@ export function SalePaymentSingleTenderSection({
             })
           }
         />
-      )}
-
-      {/* the change/outstanding overlay does not
-          apply to credit sales (the entire total is deferred
-          onto the ledger). The credit customer card above
-          already carries the relevant amounts. */}
-      {!isCredit && (
-        <div className="surface-panel-muted text-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-secondary-500">{t('payment.amountReceived')}</span>
-            <span className="font-medium text-secondary-900">
-              {formatCurrency(amountReceivedValue)}
-            </span>
-          </div>
-          <div className="mt-2 flex items-center justify-between">
-            <span className="text-secondary-500">
-              {isCash && outstanding <= 0 ? t('payment.change') : t('payment.balance')}
-            </span>
-            <span className="font-medium text-secondary-900">
-              {formatCurrency(isCash && outstanding <= 0 ? change : outstanding)}
-            </span>
-          </div>
-        </div>
       )}
 
       {/* when the single-tender method is already
