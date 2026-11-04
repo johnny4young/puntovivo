@@ -12,6 +12,7 @@ import { KdsEmptyState } from './KdsEmptyState';
 import { KdsStationColumn } from './KdsStationColumn';
 import { KdsConfiguration } from './KdsConfiguration';
 import { useKitchenOnline } from './useKitchenOnline';
+import { KdsProductionFooter } from './KdsProductionFooter';
 import type { KdsCardData, KitchenInputs } from './types';
 
 export function KdsBoard() {
@@ -220,6 +221,7 @@ function KitchenBoard({
       {canManage && configurationOpen && (
         <KdsConfiguration siteId={siteId} onClose={() => setConfigurationOpen(false)} />
       )}
+      <KdsProductionFooter orders={[...groups.values()].flat()} />
     </div>
   );
 }
