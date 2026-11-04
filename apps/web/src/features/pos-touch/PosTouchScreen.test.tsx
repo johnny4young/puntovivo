@@ -424,7 +424,10 @@ describe('PosTouchScreen', () => {
     );
     expect(screen.getByTestId('pos-touch-page-previous')).toBeDisabled();
 
+    const catalog = screen.getByTestId('pos-touch-catalog');
+    catalog.scrollTop = 200;
     await user.click(screen.getByTestId('pos-touch-page-next'));
+    expect(catalog.scrollTop).toBe(0);
     expect(screen.getAllByTestId(/^pos-touch-tile-/)).toHaveLength(6);
     expect(screen.getByTestId('pos-touch-page-next')).toBeDisabled();
 

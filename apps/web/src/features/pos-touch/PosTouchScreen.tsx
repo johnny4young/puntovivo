@@ -312,7 +312,7 @@ export function PosTouchScreen() {
 
   function handleCatalogPageChange(page: number) {
     setCatalogPage(page);
-    catalogRef.current?.scrollTo({ top: 0 });
+    if (catalogRef.current) catalogRef.current.scrollTop = 0;
   }
 
   function deriveChargeDisabledReason(): 'noSite' | 'noSession' | 'noItems' | null {
