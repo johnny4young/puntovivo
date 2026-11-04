@@ -6,7 +6,7 @@ import type { AppRouter } from '@puntovivo/server';
 import { AlertTriangle, Banknote, BadgePercent, PieChart, Receipt, TrendingUp } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { translateServerError } from '@/lib/translateServerError';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatPercent } from '@/lib/utils';
 import { KpiTile, StatusStrip } from '@/components/ui';
 import { EmptyState } from '@/components/feedback/EmptyState';
 
@@ -62,8 +62,6 @@ export function ProfitMarginReportPage() {
   const data: ProfitMarginReport | undefined = marginQuery.data;
   const summary = data?.summary;
   const products = data?.products ?? [];
-
-  const formatPct = (value: number) => `${value.toFixed(1)}%`;
 
   return (
     <div className="space-y-6">
@@ -144,7 +142,7 @@ export function ProfitMarginReportPage() {
             <KpiTile
               icon={BadgePercent}
               label={t('margin.summary.grossMargin')}
-              value={formatPct(summary.grossMarginPct)}
+              value={formatPercent(summary.grossMarginPct)}
               tone={profitTone(summary.grossProfit)}
               mono
             />
@@ -182,7 +180,7 @@ export function ProfitMarginReportPage() {
                         <td className="num">{formatCurrency(row.revenue)}</td>
                         <td className="num">{formatCurrency(row.cogs)}</td>
                         <td className="num">{formatCurrency(row.grossProfit)}</td>
-                        <td className="num">{formatPct(row.grossMarginPct)}</td>
+                        <td className="num">{formatPercent(row.grossMarginPct)}</td>
                       </tr>
                     ))}
                   </tbody>

@@ -4,7 +4,7 @@
 import { useTranslation } from 'react-i18next';
 import { ArrowDownCircle, Boxes, ClipboardList, RefreshCw } from 'lucide-react';
 import { KpiTile } from '@/components/ui';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatNumber } from '@/lib/utils';
 
 interface InventorySummaryProps {
   isLoading: boolean;
@@ -13,8 +13,6 @@ interface InventorySummaryProps {
   lowStockCount: number;
   recentInbound: number;
   recentOutbound: number;
-  entriesCount: number;
-  entriesLoading: boolean;
 }
 
 export function InventorySummaryCards({
@@ -24,8 +22,6 @@ export function InventorySummaryCards({
   lowStockCount,
   recentInbound,
   recentOutbound,
-  entriesCount,
-  entriesLoading,
 }: InventorySummaryProps) {
   const { t } = useTranslation('inventory');
   // receta KpiTile compartida (igual que Dashboard / POS):
@@ -38,7 +34,7 @@ export function InventorySummaryCards({
         icon={Boxes}
         tone="primary"
         label={t('stats.totalUnits')}
-        value={isLoading ? '—' : totalUnits.toLocaleString()}
+        value={isLoading ? '—' : formatNumber(totalUnits)}
       />
       <KpiTile
         icon={ArrowDownCircle}
@@ -51,18 +47,17 @@ export function InventorySummaryCards({
         icon={RefreshCw}
         tone="danger"
         label={t('stats.lowStockItems')}
-        value={isLoading ? '—' : lowStockCount.toLocaleString()}
+        value={isLoading ? '—' : formatNumber(lowStockCount)}
       />
       <KpiTile
         icon={ClipboardList}
         tone="ink"
         label={t('stats.recentFlow')}
-        value={`+${recentInbound} / -${recentOutbound}`}
-        context={
-          entriesLoading
-            ? t('entries.loadingShort')
-            : t('stats.recentFlowDetail', { count: entriesCount })
-        }
+        value={`+${formatNumber(recentInbound)} / -${formatNumber(recentOutbound)}`}
+        context={t('stats.recentFlowDetail', {
+          in: formatNumber(recentInbound),
+          out: formatNumber(recentOutbound),
+        })}
       />
     </div>
   );

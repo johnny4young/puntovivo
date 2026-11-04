@@ -27,6 +27,8 @@ interface PosTouchProductGridProps {
   isError: boolean;
   isDisabled?: boolean;
   onSelect: (product: Product) => void;
+  /** Replaces the default empty copy, for example while searching. */
+  emptyMessage?: string | undefined;
   /** Cart quantity per product id, summed across lines. */
   cartQuantities?: ReadonlyMap<string, number>;
 }
@@ -76,7 +78,7 @@ interface PosTouchTileProps {
   onSelect: (product: Product) => void;
 }
 
-// memo: a cart tap changes one quantity, so only that tile re-renders out of up to 200.
+// memo: a cart tap changes one quantity, so only that tile re-renders.
 const PosTouchTile = memo(function PosTouchTile({
   product,
   quantity,
@@ -150,12 +152,13 @@ const PosTouchTile = memo(function PosTouchTile({
   );
 });
 
-// memo: skips the 200 prop lookups on screen renders that leave the cart alone.
+// memo: skips the tile prop lookups on screen renders that leave the cart alone.
 export const PosTouchProductGrid = memo(function PosTouchProductGrid({
   products,
   isLoading,
   isError,
   isDisabled = false,
+  emptyMessage,
   cartQuantities,
   onSelect,
 }: PosTouchProductGridProps) {
@@ -190,7 +193,7 @@ export const PosTouchProductGrid = memo(function PosTouchProductGrid({
         data-testid="pos-touch-grid-empty"
         className="rounded-xl border border-dashed border-line bg-surface-1 p-8 text-center text-sm text-secondary-500"
       >
-        {t('grid.empty')}
+        {emptyMessage ?? t('grid.empty')}
       </div>
     );
   }

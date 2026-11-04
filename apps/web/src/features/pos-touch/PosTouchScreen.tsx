@@ -35,8 +35,11 @@ import { useCallback, useMemo, useRef, useState, type Dispatch, type SetStateAct
 import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
 import { useBarcodeProductScanner } from '@/features/sales/useBarcodeProductScanner';
 import { deriveScannerConfig } from '@/features/sales/useBarcodeWedgeListener';
+import { keepPreviousData } from '@tanstack/react-query';
+import { Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
+import { useDebouncedValue } from '@/hooks';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { invalidateCommittedGroups, SALE_COMPLETION_INVALIDATIONS } from '@/lib/invalidateGroups';
@@ -53,16 +56,24 @@ import { PosTouchCategoryTabs, type PosTouchCategoryOption } from './PosTouchCat
 import { PosTouchProductGrid } from './PosTouchProductGrid';
 import { PosTouchCartSidebar, type PosTouchCustomer } from './PosTouchCartSidebar';
 
+const CATALOG_PAGE_SIZE = 24;
+const CATALOG_SEARCH_DEBOUNCE_MS = 250;
+
 export function PosTouchScreen() {
   const priceIncludesTax = usePriceIncludesTax();
   const { t } = useTranslation(['posTouch', 'common', 'fulfillmentErrors']);
   const { currentSite } = useTenant();
   const toast = useToast();
   const utils = trpc.useUtils();
+  const catalogRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const siteId = currentSite?.id ?? '';
   const dineInActive = useIsModuleActive('dine-in');
 
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
+  const [searchText, setSearchText] = useState('');
+  const [catalogPage, setCatalogPage] = useState(1);
+  const search = useDebouncedValue(searchText.trim(), CATALOG_SEARCH_DEBOUNCE_MS);
   const [cartItems, setCartItems] = useState<SaleCartItem[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<PosTouchCustomer | null>(null);
   const [activePriceTier, setActivePriceTier] = useState<1 | 2 | 3>(1);
@@ -73,21 +84,19 @@ export function PosTouchScreen() {
 
   const productsQuery = trpc.products.list.useQuery(
     {
-      page: 1,
-      perPage: 200,
+      page: catalogPage,
+      perPage: CATALOG_PAGE_SIZE,
       categoryId: activeCategoryId ?? undefined,
       isActive: true,
       siteId,
+      search: search || undefined,
     },
-    { enabled: siteId.length > 0, staleTime: 30_000 }
+    { enabled: siteId.length > 0, staleTime: 30_000, placeholderData: keepPreviousData }
   );
-  // Unfiltered list — drives the All-tab count + the per-category
-  // count math below. Fetched once per session and reused. Keep it
-  // active-only so unavailable products never show as touch-saleable.
-  const allProductsQuery = trpc.products.list.useQuery(
-    { page: 1, perPage: 200, isActive: true },
-    { enabled: siteId.length > 0, staleTime: 60_000 }
-  );
+  const categoryCountsQuery = trpc.products.categoryCounts.useQuery(undefined, {
+    enabled: siteId.length > 0,
+    staleTime: 60_000,
+  });
   const categoriesQuery = trpc.categories.tree.useQuery(undefined, {
     enabled: siteId.length > 0,
     staleTime: 60_000,
@@ -120,30 +129,17 @@ export function PosTouchScreen() {
       })) as Product[],
     [productsQuery.data]
   );
-  const allProducts = useMemo<Product[]>(
-    () =>
-      (allProductsQuery.data?.items ?? []).map(item => ({
-        ...item,
-        isActive: item.isActive ?? false,
-        syncStatus: item.syncStatus ?? undefined,
-        syncVersion: item.syncVersion ?? undefined,
-      })) as Product[],
-    [allProductsQuery.data]
-  );
-
   const categoryOptions = useMemo<PosTouchCategoryOption[]>(() => {
     const tree = categoriesQuery.data?.items ?? [];
-    const counts = new Map<string, number>();
-    for (const p of allProducts) {
-      if (!p.categoryId) continue;
-      counts.set(p.categoryId, (counts.get(p.categoryId) ?? 0) + 1);
-    }
+    const counts = new Map(
+      (categoryCountsQuery.data?.categories ?? []).map(entry => [entry.categoryId, entry.count])
+    );
     return tree.map(node => ({
       id: node.id,
       name: node.name,
       count: counts.get(node.id) ?? 0,
     }));
-  }, [categoriesQuery.data, allProducts]);
+  }, [categoriesQuery.data, categoryCountsQuery.data]);
 
   const cartQuantities = useMemo(() => {
     const quantities = new Map<string, number>();
@@ -161,6 +157,10 @@ export function PosTouchScreen() {
   // The grid query is capped at perPage: 200 — surface the truncation
   // instead of silently hiding the tail of a bigger catalog.
   const catalogTotal = productsQuery.data?.totalItems ?? products.length;
+  const catalogPages = productsQuery.data?.totalPages ?? 1;
+  const currentCatalogPage = Math.min(catalogPage, Math.max(catalogPages, 1));
+  // The catalog can shrink under an open page; follow it instead of showing an empty grid.
+  if (catalogPage > currentCatalogPage) setCatalogPage(currentCatalogPage);
 
   // `sales.create` is a critical command (idempotency +
   // command envelope), so we ride the same `useCriticalMutation`
@@ -263,7 +263,6 @@ export function PosTouchScreen() {
     { enabled: siteId.length > 0, staleTime: 5 * 60 * 1000 }
   );
   const scannerConfig = deriveScannerConfig(peripheralsForSiteQuery.data);
-  const scannerNullInputRef = useRef<HTMLInputElement | null>(null);
   // The hook toasts every scan failure itself and only ever CLEARS the
   // sale error (setSaleError(null)); the touch surface has no sale-error
   // banner, so an honest no-op is the whole adapter.
@@ -279,7 +278,8 @@ export function PosTouchScreen() {
     isCashSessionModalOpen: false,
     isCashSessionCloseModalOpen: false,
     isCashSessionMovementModalOpen: false,
-    productInputRef: scannerNullInputRef,
+    // The search field stays focused between scans; a scan must not land in it as text.
+    productInputRef: searchInputRef,
     setCartItems: setTieredCartItems,
     setSelectedCartItemKey: () => {},
     setProductSearchQuery: () => {},
@@ -304,6 +304,17 @@ export function PosTouchScreen() {
   function handleCategoryChange(categoryId: string | null) {
     if (checkoutLockedRef.current) return;
     setActiveCategoryId(categoryId);
+    setCatalogPage(1);
+  }
+
+  function handleSearchChange(value: string) {
+    setSearchText(value);
+    setCatalogPage(1);
+  }
+
+  function handleCatalogPageChange(page: number) {
+    setCatalogPage(page);
+    if (catalogRef.current) catalogRef.current.scrollTop = 0;
   }
 
   function deriveChargeDisabledReason(): 'noSite' | 'noSession' | 'noItems' | null {
@@ -394,7 +405,7 @@ export function PosTouchScreen() {
         categories={categoryOptions}
         activeCategoryId={activeCategoryId}
         onSelectCategory={handleCategoryChange}
-        totalCount={allProducts.length}
+        totalCount={categoryCountsQuery.data?.total ?? 0}
         isDisabled={checkoutLocked}
       />
 
@@ -403,21 +414,29 @@ export function PosTouchScreen() {
         className="grid grid-cols-1 gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_22rem] lg:grid-rows-[minmax(0,1fr)]"
       >
         <div
+          ref={catalogRef}
           data-testid="pos-touch-catalog"
           className="min-w-0 lg:-m-1 lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain lg:p-1 scrollbar-thin"
         >
-          {catalogTotal > products.length && (
-            <p
-              data-testid="pos-touch-grid-truncated"
-              role="status"
-              className="mb-2 rounded-xl border border-warning-300 bg-warning-50 px-3 py-2 text-xs text-warning-800"
-            >
-              {t('grid.truncated', {
-                shown: products.length,
-                total: catalogTotal,
-              })}
-            </p>
-          )}
+          <label className="mb-2 block">
+            <span className="sr-only">{t('grid.searchLabel')}</span>
+            <span className="relative block">
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-secondary-500"
+                aria-hidden="true"
+              />
+              <input
+                ref={searchInputRef}
+                type="search"
+                data-testid="pos-touch-search"
+                className="input min-h-[44px] w-full pl-9"
+                placeholder={t('grid.searchPlaceholder')}
+                value={searchText}
+                disabled={checkoutLocked}
+                onChange={event => handleSearchChange(event.target.value)}
+              />
+            </span>
+          </label>
           <PosTouchProductGrid
             products={products}
             isLoading={productsQuery.isLoading}
@@ -425,7 +444,45 @@ export function PosTouchScreen() {
             isDisabled={checkoutLocked}
             onSelect={handleAddToCart}
             cartQuantities={cartQuantities}
+            emptyMessage={search ? t('grid.noMatches') : undefined}
           />
+          {catalogPages > 1 && (
+            <nav
+              aria-label={t('grid.paginationLabel')}
+              data-testid="pos-touch-pagination"
+              className="mt-3 flex items-center justify-between gap-2"
+            >
+              <button
+                type="button"
+                data-testid="pos-touch-page-previous"
+                className="btn-outline min-h-[44px]"
+                disabled={currentCatalogPage <= 1 || checkoutLocked}
+                onClick={() => handleCatalogPageChange(currentCatalogPage - 1)}
+              >
+                {t('grid.previous')}
+              </button>
+              <p
+                data-testid="pos-touch-page-status"
+                className="text-xs tabular-nums text-secondary-600"
+                aria-live="polite"
+              >
+                {t('grid.pagination', {
+                  page: currentCatalogPage,
+                  pages: catalogPages,
+                  count: catalogTotal,
+                })}
+              </p>
+              <button
+                type="button"
+                data-testid="pos-touch-page-next"
+                className="btn-outline min-h-[44px]"
+                disabled={currentCatalogPage >= catalogPages || checkoutLocked}
+                onClick={() => handleCatalogPageChange(currentCatalogPage + 1)}
+              >
+                {t('grid.next')}
+              </button>
+            </nav>
+          )}
         </div>
         <PosTouchCartSidebar
           items={cartItems}

@@ -18,6 +18,7 @@ import { StaffSwitchModal } from '@/features/auth/StaffSwitchModal';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { FiscalContingencyIndicator } from '@/features/fiscal/FiscalContingencyIndicator';
+import { SyncConflictsPill } from './SyncConflictsPill';
 import { TimeClockControl } from '@/features/staff/TimeClockControl';
 import { useCommandPalette } from '@/components/feedback/CommandPaletteProvider';
 import { Button } from '@/components/ui';
@@ -195,6 +196,7 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
         </div>
 
         <div className="col-start-4 row-start-1 flex shrink-0 items-center gap-2">
+          <SyncConflictsPill />
           <div
             className={
               online

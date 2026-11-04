@@ -11,7 +11,7 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
-import { cn } from '@/lib/utils';
+import { cn, formatNumber } from '@/lib/utils';
 import type { InventoryBalanceListItem } from '@/types';
 import type { InventoryTransferFormValues } from './InventoryTransferModal';
 import { InventoryTransferHistory } from './InventoryTransferHistory';
@@ -62,7 +62,7 @@ function buildBalanceColumns(
         cellClassName: 'num',
         headerClassName: 'num',
       },
-      cell: ({ row }) => row.original.onHand.toLocaleString(),
+      cell: ({ row }) => formatNumber(row.original.onHand),
     },
     {
       accessorKey: 'reserved',
@@ -72,7 +72,7 @@ function buildBalanceColumns(
         cellClassName: 'num',
         headerClassName: 'num',
       },
-      cell: ({ row }) => row.original.reserved.toLocaleString(),
+      cell: ({ row }) => formatNumber(row.original.reserved),
     },
     {
       accessorKey: 'available',
@@ -84,7 +84,7 @@ function buildBalanceColumns(
       },
       cell: ({ row }) => (
         <span className={cn(row.original.isLowStock && 'text-danger-700')}>
-          {row.original.available.toLocaleString()}
+          {formatNumber(row.original.available)}
         </span>
       ),
     },
@@ -241,20 +241,20 @@ export function InventoryBalancesPanel({ sites, sitesLoading }: InventoryBalance
           tone="primary"
           mono
           label={t('balances.summary.onHand')}
-          value={summary.totalOnHand.toLocaleString()}
+          value={formatNumber(summary.totalOnHand)}
         />
         <KpiTile
           icon={CheckCircle2}
           tone="success"
           mono
           label={t('balances.summary.available')}
-          value={summary.totalAvailable.toLocaleString()}
+          value={formatNumber(summary.totalAvailable)}
         />
         <KpiTile
           icon={Package}
           tone={summary.lowStockCount > 0 ? 'danger' : 'ink'}
           label={t('balances.summary.lowStock')}
-          value={summary.lowStockCount.toLocaleString()}
+          value={formatNumber(summary.lowStockCount)}
         />
       </div>
 

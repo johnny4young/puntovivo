@@ -199,34 +199,23 @@
       "supervisedActualCount": "Total de cierre",
       "actualCountRequired": "El conteo de cierre no puede ser negativo.",
       "countedTotal": "Total por denominaciones",
-      "blindClose": "Cierre ciego",
       "blindCloseHint": "El saldo esperado permanece oculto hasta que envías el conteo.",
-      "supervisedClose": "Cierre supervisado",
       "supervisedCloseHint": "El cuadre en vivo está visible para gerentes y administradores.",
       "mismatch": "El total ciego de cierre debe coincidir con el total contado por denominaciones.",
       "supervisedMismatch": "El total de cierre debe coincidir con el total contado por denominaciones.",
       "denominations": "Conteo final por denominaciones",
       "denominationsHint": "Usa cantidades enteras para cada billete o moneda que quede en el cajón.",
-      "lineTotal": "Total de la línea: {{total}}",
       "countFor": "Cantidad para la denominación {{denomination}}",
       "blindBadge": "Cierre ciego",
       "supervisedBadge": "Cierre supervisado",
       "justificationLabel": "Justificación (opcional)",
       "justificationPlaceholder": "Explica cualquier sobrante o faltante…",
-      "byMethodTitle": "Por método de pago",
-      "byMethodHint": "Tarjeta · Transferencia · Crédito · Otro aparecen cuando se sumen las ventas por método.",
-      "method": {
-        "cash": "Efectivo",
-        "card": "Tarjeta",
-        "transfer": "Transferencia",
-        "credit": "Crédito",
-        "other": "Otro"
-      },
       "liveDelta": {
         "balanced": "Cuadrada — lo contado coincide con lo esperado",
         "over": "Sobrante — lo contado supera lo esperado",
         "short": "Faltante — lo contado está por debajo de lo esperado"
-      }
+      },
+      "expected": "Esperado"
     },
     "dayClose": {
       "kicker": "Cierre de día",
@@ -573,7 +562,10 @@
     "suspendedAt": "{{when}}",
     "items_one": "{{count}} artículo",
     "items_other": "{{count}} artículos",
-    "closedSessionWarning": "Tienes {{count}} ventas suspendidas. Permanecerán como borradores y sobrevivirán al cierre, pero no generarán recibo hasta que se retomen.",
+    "closedSessionWarning_one": "Tienes {{count}} venta suspendida. Permanecerá como borrador y sobrevivirá al cierre, pero no generará recibo hasta que se retome.",
+    "closedSessionWarning_other": "Tienes {{count}} ventas suspendidas. Permanecerán como borradores y sobrevivirán al cierre, pero no generarán recibo hasta que se retomen.",
+    "reviewSuspended_one": "Revisar {{count}} venta suspendida",
+    "reviewSuspended_other": "Revisar {{count}} ventas suspendidas",
     "confirmDiscardTitle": "¿Descartar borrador?",
     "confirmDiscardMessage": "El borrador suspendido se cancelará y los artículos vuelven al inventario. Esta acción no se puede deshacer.",
     "toastSuspendTitle": "Venta suspendida",

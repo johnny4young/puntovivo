@@ -5,7 +5,7 @@ import { Modal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { trpc } from '@/lib/trpc';
 import { translateServerError } from '@/lib/translateServerError';
-import { formatCurrency, formatDate, formatDateTime } from '@/lib/utils';
+import { formatCurrency, formatDate, formatDateTime, formatNumber } from '@/lib/utils';
 import { QUOTATION_STATUS_BADGE_CLASSES } from './quotationStatus';
 import { QuotationPrintError, printQuotationReceipt } from './quotationPrinter';
 import { formatQuotationTaxLabel } from './quotationTaxLabel';
@@ -334,7 +334,7 @@ export function QuotationDetailsModal({
                         {item.productSku}
                       </td>
                       <td className="px-3 py-2 text-right text-secondary-900">
-                        {item.quantity.toLocaleString()}
+                        {formatNumber(item.quantity)}
                       </td>
                       <td className="px-3 py-2 text-right text-secondary-900">
                         {formatCurrency(item.unitPrice)}

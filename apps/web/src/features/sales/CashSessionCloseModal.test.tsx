@@ -59,6 +59,7 @@ describe('CashSessionCloseModal', () => {
     );
 
     expect(screen.queryByText('Expected balance')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('close-session-expected')).not.toBeInTheDocument();
     // V6 reskin () now renders "Blind close" both as a header
     // badge and as an inline label inside the form, so use the
     // multi-match query to verify the term surfaces at least once.
@@ -112,6 +113,26 @@ describe('CashSessionCloseModal', () => {
     const warning = screen.getByTestId('close-session-suspended-warning');
     expect(warning).toBeInTheDocument();
     expect(warning.textContent).toContain('3');
+  });
+
+  it('offers the suspended sales from the warning when the screen can open them', async () => {
+    const onReviewSuspended = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <CashSessionCloseModal
+        cashSession={activeCashSession}
+        isOpen
+        isSaving={false}
+        error={null}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+        suspendedDraftsCount={3}
+        onReviewSuspended={onReviewSuspended}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Review 3 suspended sales' }));
+    expect(onReviewSuspended).toHaveBeenCalledTimes(1);
   });
 
   it('does not render the suspended-drafts warning when the count is zero', () => {
@@ -176,12 +197,33 @@ describe('CashSessionCloseModal', () => {
       await user.type(fiftyCountInput, fifties);
 
       const strip = screen.getByTestId('close-session-live-delta');
-      expect(strip).toHaveAttribute('role', 'status');
+      expect(strip).toHaveAttribute('aria-live', 'polite');
+      expect(strip).toHaveAttribute('aria-atomic', 'true');
       expect(screen.getAllByText('Supervised close').length).toBeGreaterThan(0);
       expect(strip.textContent).toMatch(message);
       expect(strip.textContent).toContain(delta);
     }
   );
+
+  it('pins counted, expected and difference beside the close action for a manager', () => {
+    mockRole = 'manager';
+    render(
+      <CashSessionCloseModal
+        isOpen
+        cashSession={activeCashSession}
+        isSaving={false}
+        error={null}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+      />
+    );
+
+    const totals = screen.getByTestId('close-session-totals');
+    expect(totals).toHaveTextContent('Denomination total');
+    expect(screen.getByTestId('close-session-expected')).toHaveTextContent('140');
+    expect(screen.getByTestId('close-session-live-delta')).toBeInTheDocument();
+    expect(screen.getAllByTestId(/^close-session-denomination-/).length).toBeGreaterThan(9);
+  });
 
   it('shows a manager the full shortfall when the valid count is zero', () => {
     mockRole = 'manager';
