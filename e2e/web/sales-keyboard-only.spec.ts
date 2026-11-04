@@ -181,6 +181,41 @@ test.describe('keyboard-only /sales smoke', () => {
       await expectNoClientIssues(tracker);
     });
 
+    for (const surface of [
+      { name: 'desktop', width: 1440, height: 900, testId: 'checkout-primary-action' },
+      { name: 'phone', width: 390, height: 844, testId: 'mobile-checkout-primary' },
+    ]) {
+      test(`clicking charge on ${surface.name} leaves the tender choice to the cashier`, async ({
+        page,
+      }, testInfo) => {
+        const tracker = attachClientIssueTracker(page);
+        const scenario = seedSaleScenario(
+          `charge-click-${surface.name}-${testInfo.parallelIndex}-${Date.now()}`
+        );
+        await page.setViewportSize({ width: surface.width, height: surface.height });
+
+        await login(page, {
+          email: scenario.cashier.email,
+          password: scenario.cashier.password,
+          defaultPath: '/sales',
+        });
+        await addProductToCartViaKeyboard(page, scenario.product.sku);
+
+        await page.getByTestId(surface.testId).click();
+        const paymentDialog = page.getByRole('dialog', { name: /charge sale|cobrar venta/i });
+        await expect(paymentDialog).toBeVisible({ timeout: 10_000 });
+        await expect(paymentDialog.locator('#sale-payment-confirm')).toBeVisible();
+
+        // Fast cash announces itself and moves focus to confirm; a plain click does neither.
+        await expect(page.getByText(/exact cash ready|cobro exacto preparado/i)).toHaveCount(0);
+        await expect
+          .poll(() => page.evaluate(() => document.activeElement?.id ?? ''))
+          .not.toBe('sale-payment-confirm');
+
+        await expectNoClientIssues(tracker);
+      });
+    }
+
     test('tab order is sane on /sales empty state', async ({ page }) => {
       const tracker = attachClientIssueTracker(page);
       await loginAs(page, 'cashier');
