@@ -81,7 +81,7 @@ export function ProgressiveTaskNavigation<ItemId extends string>({
     <nav
       className={cn(
         'rounded-[1.5rem] border border-line bg-card p-3 shadow-[0_20px_60px_-52px_rgba(15,23,42,0.75)]',
-        isRail && 'lg:sticky lg:top-24 lg:p-2',
+        isRail && 'lg:sticky lg:top-24 lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto lg:p-2',
         className
       )}
       aria-label={ariaLabel}
