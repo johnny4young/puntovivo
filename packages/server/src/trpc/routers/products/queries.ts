@@ -9,7 +9,7 @@
  */
 import { TRPCError } from '@trpc/server';
 import { roundQuantity } from '@puntovivo/shared/unit-math';
-import { and, eq, isNotNull, ne, or, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, isNotNull, ne, or, sql } from 'drizzle-orm';
 import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 
 import { tenantProcedure } from '../../middleware/tenant.js';
@@ -23,6 +23,9 @@ import {
   providers,
   unitXProduct,
   vatRates,
+  cashSessions,
+  saleItems,
+  sales,
 } from '../../../db/schema.js';
 import {
   listProductsInput,
@@ -30,6 +33,7 @@ import {
   getProductVariantMatrixInput,
   searchProductsInput,
   lookupByBarcodeInput,
+  topSellingProductsInput,
 } from '../../schemas/products.js';
 import { resolveSiteGs1ParseOptions } from '../../../services/peripherals/barcode/config.js';
 import { parseScan } from '../../../services/peripherals/barcode/parser.js';
@@ -169,6 +173,35 @@ export const productQueryProcedures = {
    * Active sellable products per category, so a catalog page can label its
    * filters without downloading every product.
    */
+  topSelling: tenantProcedure.input(topSellingProductsInput).query(async ({ ctx, input }) => {
+    await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+    const since = new Date(Date.now() - input.days * 24 * 60 * 60 * 1000).toISOString();
+    const quantity = sql<number>`sum(${saleItems.quantity})`;
+    return ctx.db
+      .select({ productId: products.id, name: products.name, quantity })
+      .from(saleItems)
+      .innerJoin(sales, eq(saleItems.saleId, sales.id))
+      .innerJoin(cashSessions, eq(sales.cashSessionId, cashSessions.id))
+      .innerJoin(
+        products,
+        and(eq(saleItems.productId, products.id), eq(products.tenantId, ctx.tenantId))
+      )
+      .where(
+        and(
+          eq(sales.tenantId, ctx.tenantId),
+          eq(cashSessions.tenantId, ctx.tenantId),
+          eq(cashSessions.siteId, input.siteId),
+          eq(sales.status, 'completed'),
+          gte(sales.createdAt, since),
+          eq(products.isActive, true)
+        )
+      )
+      .groupBy(products.id, products.name)
+      .orderBy(desc(quantity))
+      .limit(input.limit)
+      .all();
+  }),
+
   categoryCounts: tenantProcedure.query(({ ctx }) => {
     const rows = ctx.db
       .select({ categoryId: products.categoryId, count: sql<number>`count(*)` })

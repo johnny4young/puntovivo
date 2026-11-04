@@ -21,5 +21,11 @@
   "addFailed": "The product could not be added. Try again.",
   "noSaleUnit": "This product does not have a sellable unit.",
   "favoritesLoadError": "Some favorite products could not be loaded. Retry or use catalog search.",
-  "retryFavorites": "Retry favorites"
+  "retryFavorites": "Retry favorites",
+  "suggestion": {
+    "text_one": "Add {{name}}? Sold {{count}} time this week here.",
+    "text_other": "Add {{name}}? Sold {{count}} times this week here.",
+    "add": "Add to quick keys",
+    "dismiss": "Not now"
+  }
 }

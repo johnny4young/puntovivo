@@ -116,6 +116,12 @@ export const listProductsInput = paginationInput.extend({
   siteId: z.string().min(1).optional(),
 });
 
+export const topSellingProductsInput = z.object({
+  siteId: z.string().min(1),
+  days: z.number().int().min(1).max(30).default(7),
+  limit: z.number().int().min(1).max(20).default(10),
+});
+
 export const getProductInput = z.object({
   id: z.string().min(1, 'ID is required'),
 });
