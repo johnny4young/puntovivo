@@ -112,7 +112,10 @@ export function ProductsPage() {
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
   const [pageSelection, setPageSelection] = useState({ search, mode, page: 1 });
   const contextChanged = pageSelection.search !== search || pageSelection.mode !== mode;
-  if (contextChanged) setPageSelection({ search, mode, page: 1 });
+  if (contextChanged) {
+    setPageSelection({ search, mode, page: 1 });
+    setSelectedIds(new Set());
+  }
   const page = contextChanged ? 1 : pageSelection.page;
 
   const productsQuery = trpc.products.list.useQuery(
@@ -499,6 +502,7 @@ export function ProductsPage() {
                 canSeeMargin={canManage}
                 onChange={next => {
                   setFilters(next);
+                  setSelectedIds(new Set());
                   setPageSelection({ search, mode, page: 1 });
                 }}
               />
@@ -618,7 +622,10 @@ export function ProductsPage() {
                 total={totalItems}
                 rangeStart={(page - 1) * PRODUCTS_PAGE_SIZE + 1}
                 rangeEnd={Math.min(page * PRODUCTS_PAGE_SIZE, totalItems)}
-                onPageChange={nextPage => setPageSelection({ search, mode, page: nextPage + 1 })}
+                onPageChange={nextPage => {
+                  setSelectedIds(new Set());
+                  setPageSelection({ search, mode, page: nextPage + 1 });
+                }}
               />
             )}
             {!semantic.semanticIsActive && totalPages <= 1 && totalItems > 0 && (

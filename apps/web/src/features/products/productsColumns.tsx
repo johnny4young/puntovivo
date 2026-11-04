@@ -65,17 +65,19 @@ export const productsColumns = (
           header: () => <span className="sr-only">{i18next.t('products:bulk.label')}</span>,
           size: 44,
           enableSorting: false,
-          cell: ({ row }) => (
-            <input
-              type="checkbox"
-              className="h-5 w-5"
-              checked={selection.selectedIds.has(row.original.id)}
-              aria-label={i18next.t('products:bulk.selectRow', { name: row.original.name })}
-              onClick={event => event.stopPropagation()}
-              onChange={() => selection.onToggle(row.original.id)}
-              data-testid={`products-select-${row.original.sku}`}
-            />
-          ),
+          // Parents have no stock of their own, so a bulk change would miss their variants.
+          cell: ({ row }) =>
+            row.original.catalogType === 'variant_parent' ? null : (
+              <input
+                type="checkbox"
+                className="h-5 w-5"
+                checked={selection.selectedIds.has(row.original.id)}
+                aria-label={i18next.t('products:bulk.selectRow', { name: row.original.name })}
+                onClick={event => event.stopPropagation()}
+                onChange={() => selection.onToggle(row.original.id)}
+                data-testid={`products-select-${row.original.sku}`}
+              />
+            ),
         },
       ] satisfies DataTableColumnDef<DisplayProduct>[])
     : []),

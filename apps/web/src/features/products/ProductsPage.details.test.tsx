@@ -1,3 +1,4 @@
+import userEvent from '@testing-library/user-event';
 /**
  * ProductsPage column-trim + row-detail integration.
  *
@@ -295,6 +296,30 @@ describe('ProductsPage default column set', () => {
       totalPages: Math.ceil(total / 50),
     };
   }
+
+  it('forgets the selection when the filters change and never selects a variant parent', async () => {
+    const user = userEvent.setup();
+    productsListUseQueryMock.mockReturnValue({
+      data: {
+        ...cataloguePage(1, 1),
+        items: [
+          product,
+          { ...product, id: 'parent', sku: 'PARENT-1', catalogType: 'variant_parent' },
+        ],
+      },
+      isSuccess: true,
+      isLoading: false,
+      error: null,
+    });
+    render(<ProductsPage />);
+
+    expect(screen.queryByTestId('products-select-PARENT-1')).not.toBeInTheDocument();
+    await user.click(screen.getByTestId(`products-select-${product.sku}`));
+    expect(screen.getByTestId('products-bulk-count')).toHaveTextContent('1 selected');
+
+    await user.click(screen.getByTestId('products-filter-low-stock'));
+    expect(screen.queryByTestId('products-bulk-bar')).not.toBeInTheDocument();
+  });
 
   it('shows the result count when everything fits on one server page', () => {
     productsListUseQueryMock.mockReturnValue({
