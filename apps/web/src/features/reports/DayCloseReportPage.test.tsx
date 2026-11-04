@@ -14,6 +14,11 @@ let mockSignoff: ReturnType<typeof signoffFixture> | null = null;
 let mockSignoffPending = false;
 let mockSignoffError: Error | null = null;
 
+let mockUserRole = 'admin';
+vi.mock('@/features/auth/AuthProvider', () => ({
+  useAuth: () => ({ user: { id: 'u-1', role: mockUserRole } }),
+}));
+
 vi.mock('@/lib/trpc', async () => ({
   ...(await vi.importActual<typeof import('@/lib/trpc')>('@/lib/trpc')),
   fetchProtectedApi: vi.fn(),
@@ -226,6 +231,64 @@ describe('DayCloseReportPage (-141b)', () => {
     expect(screen.getByTestId('day-close-payments-section')).toHaveTextContent(
       /Sin pagos|No settled/i
     );
+  });
+
+  it('turns each check into a row with its state and a way to resolve it', () => {
+    mockData = {
+      ...reportFixture(),
+      cash: { ...reportFixture().cash, openSessions: 2, expected: 1000, counted: 700 },
+      readiness: {
+        readyToSign: false,
+        blockers: ['open_sessions'],
+        warnings: ['fiscal_rejected', 'waste_not_tracked'],
+      },
+    };
+    render(<DayCloseReportPage />);
+
+    const open = screen.getByTestId('day-close-check-open_sessions');
+    expect(open).toHaveAttribute('data-state', 'blocker');
+    expect(open).toHaveTextContent('2 registers still open');
+    expect(screen.getByTestId('day-close-check-link-open_sessions')).toHaveAttribute(
+      'href',
+      '/operations?tab=cash'
+    );
+    expect(screen.getByTestId('day-close-check-fiscal_rejected')).toHaveAttribute(
+      'data-state',
+      'warning'
+    );
+    expect(screen.getByTestId('day-close-check-link-fiscal_rejected')).toHaveAttribute(
+      'href',
+      '/fiscal-documents'
+    );
+    expect(screen.getByTestId('day-close-check-high_anomalies')).toHaveAttribute(
+      'data-state',
+      'done'
+    );
+    expect(screen.queryByTestId('day-close-check-link-high_anomalies')).not.toBeInTheDocument();
+    expect(screen.getByTestId('day-close-check-waste_not_tracked')).toBeInTheDocument();
+    expect(screen.getByTestId('day-close-checklist-summary')).toHaveTextContent(
+      '3 of 5 checks clear'
+    );
+    expect(screen.getByText(/Counted .*700.* − Expected .*1,000/)).toBeInTheDocument();
+    expect(screen.getByText(/2 open sessions not counted yet/)).toBeInTheDocument();
+  });
+
+  it('keeps fiscal links away from managers, who cannot open those pages', () => {
+    mockUserRole = 'manager';
+    mockData = {
+      ...reportFixture(),
+      readiness: {
+        readyToSign: false,
+        blockers: ['open_sessions'],
+        warnings: ['fiscal_rejected'],
+      },
+    };
+    render(<DayCloseReportPage />);
+
+    expect(screen.getByTestId('day-close-check-fiscal_rejected')).toBeInTheDocument();
+    expect(screen.queryByTestId('day-close-check-link-fiscal_rejected')).not.toBeInTheDocument();
+    expect(screen.getByTestId('day-close-check-link-open_sessions')).toBeInTheDocument();
+    mockUserRole = 'admin';
   });
 
   it('drops empty cents on whole amounts and keeps real cents visible', () => {

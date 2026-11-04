@@ -30,7 +30,9 @@ export function InventoryHeader({
   const { t } = useTranslation('inventory');
   return (
     <div className="page-header-row">
-      <h1 className="text-2xl font-bold text-secondary-900">{t('page.title')}</h1>
+      <h1 data-shell-title className="text-2xl font-bold text-secondary-900">
+        {t('page.title')}
+      </h1>
 
       <div className="page-header-actions">
         <div

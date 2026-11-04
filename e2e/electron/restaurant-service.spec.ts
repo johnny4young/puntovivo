@@ -115,7 +115,10 @@ test.describe('restaurant service on the desktop app', () => {
       'data-variant',
       'mobile'
     );
-    await page.getByTestId('voice-ordering-table-select').selectOption({ label: TABLE_NAME });
+    await page
+      .getByTestId('voice-ordering-table-grid')
+      .getByRole('button', { name: TABLE_NAME, exact: true })
+      .click();
     await page.getByTestId('voice-ordering-guest-count').fill('2');
     await page.getByTestId('voice-ordering-check-label').fill(CHECK_LABEL);
     await addRestaurantProduct(page);
@@ -135,14 +138,20 @@ test.describe('restaurant service on the desktop app', () => {
     await expect(cartRow.getByTestId('voice-ordering-modifier-price')).toHaveValue('1500');
     await page.getByTestId('voice-ordering-save').click();
     await expect(page.getByTestId('voice-ordering-cart-empty')).toBeVisible({ timeout: 15_000 });
-    await page.getByTestId('voice-ordering-table-select').selectOption({ label: TABLE_NAME });
+    await page
+      .getByTestId('voice-ordering-table-grid')
+      .getByRole('button', { name: TABLE_NAME, exact: true })
+      .click();
     await expect(page.getByTestId('voice-ordering-open-checks')).toContainText(CHECK_LABEL);
     await captureEvidence(page, 'restaurant-service-open-electron');
 
     // A renderer reload keeps the encrypted SQLite projection authoritative.
     await page.reload();
     await expect(page.getByTestId('voice-ordering-screen')).toBeVisible({ timeout: 30_000 });
-    await page.getByTestId('voice-ordering-table-select').selectOption({ label: TABLE_NAME });
+    await page
+      .getByTestId('voice-ordering-table-grid')
+      .getByRole('button', { name: TABLE_NAME, exact: true })
+      .click();
     await expect(page.getByTestId('voice-ordering-open-checks')).toContainText(CHECK_LABEL);
 
     await goToRoute(page, '/restaurants/modifiers');
@@ -197,7 +206,10 @@ test.describe('restaurant service on the desktop app', () => {
     await expect(paymentDialog).toBeHidden({ timeout: 15_000 });
 
     await goToRoute(page, '/m');
-    await page.getByTestId('voice-ordering-table-select').selectOption({ label: TABLE_NAME });
+    await page
+      .getByTestId('voice-ordering-table-grid')
+      .getByRole('button', { name: TABLE_NAME, exact: true })
+      .click();
     await expect(page.getByTestId('voice-ordering-table-state-loading')).toHaveCount(0, {
       timeout: 15_000,
     });
