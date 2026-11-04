@@ -315,5 +315,16 @@
   },
   "server": {
     "PRODUCT_TRACKING_REQUIRES_EMPTY_INVENTORY": "Before changing inventory tracking, reconcile this product's stock, reservations and inventory value at every site. Even a small remaining quantity may still carry value."
+  },
+  "filters": {
+    "label": "Filter products",
+    "category": "Category",
+    "allCategories": "All categories",
+    "status": "Status",
+    "allStatuses": "All statuses",
+    "active": "Active",
+    "inactive": "Inactive",
+    "lowStock": "Low stock",
+    "lowMargin": "Margin under {{percent}}%"
   }
 }

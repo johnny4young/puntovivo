@@ -315,5 +315,16 @@
   },
   "server": {
     "PRODUCT_TRACKING_REQUIRES_EMPTY_INVENTORY": "Antes de cambiar el seguimiento, concilia las existencias, reservas y el valor de inventario de este producto en todas las sedes. Incluso una cantidad pequeña puede conservar valor."
+  },
+  "filters": {
+    "label": "Filtrar productos",
+    "category": "Categoría",
+    "allCategories": "Todas las categorías",
+    "status": "Estado",
+    "allStatuses": "Todos los estados",
+    "active": "Activos",
+    "inactive": "Inactivos",
+    "lowStock": "Stock bajo",
+    "lowMargin": "Margen menor a {{percent}} %"
   }
 }
