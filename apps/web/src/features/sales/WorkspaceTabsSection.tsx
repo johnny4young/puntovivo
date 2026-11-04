@@ -1,3 +1,4 @@
+import { Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
 import { getCartSummary } from '@/features/sales/saleCartTotals';
@@ -15,6 +16,11 @@ interface WorkspaceTabsSectionProps {
   ownedWorkspaces: CartWorkspace[];
   activeWorkspaceId: string | undefined;
   onSelectWorkspace: (workspaceId: string) => void;
+}
+
+// The strip scrolls on wide screens, so the current ticket must not stay off to the side.
+function scrollIntoRow(node: HTMLButtonElement | null) {
+  node?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
 }
 
 export function WorkspaceTabsSection({
@@ -77,10 +83,14 @@ export function WorkspaceTabsSection({
               }
               onClick={() => onSelectWorkspace(workspace.id)}
               aria-pressed={isActive}
+              ref={isActive ? scrollIntoRow : undefined}
               aria-label={t('park.localWorkspaceSelect', { label })}
               data-testid="cart-workspace-switcher-item"
             >
-              <span className="block whitespace-nowrap font-semibold">{label}</span>
+              <span className="flex items-center gap-1 whitespace-nowrap font-semibold">
+                {isActive && <Check className="hidden h-4 w-4 lg:block" aria-hidden="true" />}
+                {label}
+              </span>
               <span className="mt-1 block whitespace-nowrap text-xs opacity-75 lg:mt-0">
                 <span className="lg:hidden">
                   {t('park.items', { count: workspaceSummary.itemCount })} ·{' '}
