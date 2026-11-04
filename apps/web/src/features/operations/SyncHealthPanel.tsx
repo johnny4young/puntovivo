@@ -10,7 +10,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { translateServerError } from '@/lib/translateServerError';
-import { formatDateTime } from '@/lib/utils';
+import { formatDateTime, formatNumber } from '@/lib/utils';
 import { Badge, KpiTile, StatusStrip } from '@/components/ui';
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { computeConflictDiff } from '@/features/company/companySyncDisplay';
@@ -138,25 +138,25 @@ export function SyncHealthPanel() {
             icon={Clock}
             tone="ink"
             label={t('sync.summary.pending')}
-            value={pendingCount.toLocaleString()}
+            value={formatNumber(pendingCount)}
           />
           <KpiTile
             icon={RotateCw}
             tone="ink"
             label={t('sync.summary.retrying')}
-            value={retryingCount.toLocaleString()}
+            value={formatNumber(retryingCount)}
           />
           <KpiTile
             icon={XCircle}
             tone={failedCount > 0 ? 'danger' : 'ink'}
             label={t('sync.summary.failures')}
-            value={failedCount.toLocaleString()}
+            value={formatNumber(failedCount)}
           />
           <KpiTile
             icon={AlertTriangle}
             tone={conflictsCount > 0 ? 'danger' : 'ink'}
             label={t('sync.summary.conflicts')}
-            value={conflictsCount.toLocaleString()}
+            value={formatNumber(conflictsCount)}
           />
           <KpiTile
             icon={RefreshCw}

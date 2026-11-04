@@ -70,7 +70,10 @@
       "successDescription_one": "1 call was reconciled.",
       "successDescription_other": "{{count}} calls were reconciled.",
       "errorTitle": "Could not release the AI budget"
-    }
+    },
+    "searchIndexLabel": "Product search index",
+    "searchIndexUpdate": "Update index",
+    "searchIndexUpdating": "Updating…"
   },
   "toast": {
     "saveSuccessTitle": "AI settings saved",

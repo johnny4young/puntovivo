@@ -11,7 +11,7 @@ import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
-import { formatDateTime } from '@/lib/utils';
+import { formatDateTime, formatNumber } from '@/lib/utils';
 import { formatQuantity, roundQuantity } from '@puntovivo/shared/unit-math';
 import type { TransferHistoryEntry, TransferHistoryStatus } from '@/types';
 import { InventoryTransferDetailsModal } from './InventoryTransferDetailsModal';
@@ -171,12 +171,12 @@ export function InventoryTransferHistory() {
       {
         accessorKey: 'itemCount',
         header: () => t('transferHistory.columns.items'),
-        cell: ({ row }) => row.original.itemCount.toLocaleString(),
+        cell: ({ row }) => formatNumber(row.original.itemCount),
       },
       {
         accessorKey: 'totalQuantity',
         header: () => t('transferHistory.columns.totalQty'),
-        cell: ({ row }) => row.original.totalQuantity.toLocaleString(),
+        cell: ({ row }) => formatNumber(row.original.totalQuantity),
       },
       {
         accessorKey: 'status',

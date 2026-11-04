@@ -25,6 +25,7 @@ import {
   ShoppingCart,
 } from 'lucide-react';
 import { Link } from 'react-router';
+import { formatNumber } from '@/lib/utils';
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -101,7 +102,7 @@ export function DashboardPage() {
     },
     {
       title: t('metrics.ordersToday.title'),
-      value: getMetricValue(getStatMetric(stats, 'todayOrders', 'orders')).toLocaleString(),
+      value: formatNumber(getMetricValue(getStatMetric(stats, 'todayOrders', 'orders'))),
       label: getMetricLabel(
         getStatMetric(stats, 'todayOrders', 'orders'),
         t('metrics.ordersToday.fallbackLabel')
@@ -111,7 +112,7 @@ export function DashboardPage() {
     },
     {
       title: t('metrics.lowStockAlerts.title'),
-      value: getMetricValue(getStatMetric(stats, 'lowStockCount', 'products')).toLocaleString(),
+      value: formatNumber(getMetricValue(getStatMetric(stats, 'lowStockCount', 'products'))),
       label: getMetricLabel(
         getStatMetric(stats, 'lowStockCount', 'products'),
         t('metrics.lowStockAlerts.fallbackLabel')

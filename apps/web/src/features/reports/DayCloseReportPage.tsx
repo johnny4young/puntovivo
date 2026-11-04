@@ -19,7 +19,7 @@ import { EmptyState } from '@/components/feedback/EmptyState';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { KpiTile, StatusStrip, Button } from '@/components/ui';
 import { useResolvedLocale } from '@/features/locale/LocaleProvider';
-import { calendarDayAt, formatCurrency, formatDate } from '@/lib/utils';
+import { calendarDayAt, formatCurrency, formatDate, getActiveTenantLocale } from '@/lib/utils';
 import { translateServerError } from '@/lib/translateServerError';
 import { fetchProtectedApi, trpc } from '@/lib/trpc';
 import { onErrorToast } from '@/lib/mutationHelpers';
@@ -31,6 +31,16 @@ type DayCloseReport = inferRouterOutputs<AppRouter>['reports']['dayClose']['prev
 type ReadinessCode = DayCloseReport['readiness']['warnings'][number];
 const SECTION_CLASS = 'card space-y-4 p-5 sm:p-6';
 const METRIC_CLASS = 'rounded-2xl border border-secondary-200 bg-secondary-50/70 p-4';
+// A whole amount drops the empty cents, and real cents always stay visible on this evidence.
+function formatReportMoney(amount: number, currencyCode: string): string {
+  return formatCurrency(
+    amount,
+    currencyCode,
+    undefined,
+    Number.isInteger(amount) ? getActiveTenantLocale()?.displayDecimals : 2
+  );
+}
+
 function Metric({ label, value, detail }: { label: string; value: string; detail?: string }) {
   return (
     <div className={METRIC_CLASS}>
@@ -280,9 +290,9 @@ export function DayCloseReportPage() {
             <KpiTile
               icon={Banknote}
               label={t('dayClose.kpis.netRevenue')}
-              value={formatCurrency(report.sales.netRevenue, report.currencyCode)}
+              value={formatReportMoney(report.sales.netRevenue, report.currencyCode)}
               context={t('dayClose.kpis.netRevenueContext', {
-                gross: formatCurrency(report.sales.grossRevenue, report.currencyCode),
+                gross: formatReportMoney(report.sales.grossRevenue, report.currencyCode),
               })}
               tone="primary"
               mono
@@ -293,7 +303,7 @@ export function DayCloseReportPage() {
               value={String(report.sales.count)}
               context={t('dayClose.kpis.refunds', {
                 count: report.adjustments.refunds.count,
-                amount: formatCurrency(report.adjustments.refunds.amount, report.currencyCode),
+                amount: formatReportMoney(report.adjustments.refunds.amount, report.currencyCode),
               })}
               tone="ink"
               mono
@@ -301,7 +311,7 @@ export function DayCloseReportPage() {
             <KpiTile
               icon={Scale}
               label={t('dayClose.kpis.cashVariance')}
-              value={formatCurrency(report.cash.overShort, report.currencyCode)}
+              value={formatReportMoney(report.cash.overShort, report.currencyCode)}
               context={t('dayClose.kpis.cashSessions', {
                 closed: report.cash.closedSessions,
                 open: report.cash.openSessions,
@@ -314,7 +324,7 @@ export function DayCloseReportPage() {
               label={t('dayClose.kpis.fiscal')}
               value={String(report.fiscal.total)}
               context={t('dayClose.kpis.fiscalNet', {
-                amount: formatCurrency(report.fiscal.totalAmount, report.currencyCode),
+                amount: formatReportMoney(report.fiscal.totalAmount, report.currencyCode),
               })}
               tone={report.fiscal.byStatus.rejected > 0 ? 'danger' : 'success'}
               mono
@@ -327,27 +337,27 @@ export function DayCloseReportPage() {
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <Metric
                   label={t('dayClose.metrics.subtotal')}
-                  value={formatCurrency(report.sales.subtotal, report.currencyCode)}
+                  value={formatReportMoney(report.sales.subtotal, report.currencyCode)}
                 />
                 <Metric
                   label={t('dayClose.metrics.discounts')}
-                  value={formatCurrency(report.sales.discounts, report.currencyCode)}
+                  value={formatReportMoney(report.sales.discounts, report.currencyCode)}
                 />
                 <Metric
                   label={t('dayClose.metrics.taxes')}
-                  value={formatCurrency(report.sales.taxes, report.currencyCode)}
+                  value={formatReportMoney(report.sales.taxes, report.currencyCode)}
                 />
                 <Metric
                   label={t('dayClose.metrics.tips')}
-                  value={formatCurrency(report.sales.tips, report.currencyCode)}
+                  value={formatReportMoney(report.sales.tips, report.currencyCode)}
                 />
                 <Metric
                   label={t('dayClose.metrics.serviceCharges')}
-                  value={formatCurrency(report.sales.serviceCharges, report.currencyCode)}
+                  value={formatReportMoney(report.sales.serviceCharges, report.currencyCode)}
                 />
                 <Metric
                   label={t('dayClose.metrics.refunds')}
-                  value={formatCurrency(report.sales.refundAmount, report.currencyCode)}
+                  value={formatReportMoney(report.sales.refundAmount, report.currencyCode)}
                 />
               </div>
             </section>
@@ -379,7 +389,7 @@ export function DayCloseReportPage() {
                           </td>
                           <td className="num">{payment.transactionCount}</td>
                           <td className="num">
-                            {formatCurrency(payment.amount, report.currencyCode)}
+                            {formatReportMoney(payment.amount, report.currencyCode)}
                           </td>
                         </tr>
                       ))}
@@ -394,11 +404,11 @@ export function DayCloseReportPage() {
               <div className="grid gap-3 sm:grid-cols-2">
                 <Metric
                   label={t('dayClose.metrics.expectedCash')}
-                  value={formatCurrency(report.cash.expected, report.currencyCode)}
+                  value={formatReportMoney(report.cash.expected, report.currencyCode)}
                 />
                 <Metric
                   label={t('dayClose.metrics.countedCash')}
-                  value={formatCurrency(report.cash.counted, report.currencyCode)}
+                  value={formatReportMoney(report.cash.counted, report.currencyCode)}
                 />
                 <Metric
                   label={t('dayClose.metrics.balancedSessions')}
@@ -440,14 +450,14 @@ export function DayCloseReportPage() {
               <div className="grid gap-3 sm:grid-cols-2">
                 <Metric
                   label={t('dayClose.metrics.voids')}
-                  value={formatCurrency(report.adjustments.voids.amount, report.currencyCode)}
+                  value={formatReportMoney(report.adjustments.voids.amount, report.currencyCode)}
                   detail={t('dayClose.metrics.events', {
                     count: report.adjustments.voids.count,
                   })}
                 />
                 <Metric
                   label={t('dayClose.metrics.refunds')}
-                  value={formatCurrency(report.adjustments.refunds.amount, report.currencyCode)}
+                  value={formatReportMoney(report.adjustments.refunds.amount, report.currencyCode)}
                   detail={t('dayClose.metrics.events', {
                     count: report.adjustments.refunds.count,
                   })}

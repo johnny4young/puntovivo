@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
-import { screen } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import { render } from '@/test/utils';
 import { SalesCheckoutPanel } from './SalesCheckoutPanel';
 
@@ -71,6 +71,7 @@ function renderPanel(
     userRole?: UserRole;
     cashSession?: CashSession | null;
     canOpenSearch?: boolean;
+    onFastCash?: () => void;
   } = {}
 ) {
   return render(
@@ -98,6 +99,7 @@ function renderPanel(
       onToggleSuspendedPanel={overrides.onToggleSuspendedPanel}
       hubReachable={overrides.hubReachable}
       preflightItems={overrides.preflightItems}
+      onFastCash={overrides.onFastCash}
     />
   );
 }
@@ -123,7 +125,9 @@ describe('SalesCheckoutPanel hub gate', () => {
     expect(screen.getByText('F5')).toBeInTheDocument();
     expect(screen.getByText('Ctrl+P')).toBeInTheDocument();
     expect(screen.getByText('Ctrl+R')).toBeInTheDocument();
-    expect(screen.getByText('F1')).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId('checkout-shortcut-chips')).getByText('F1')
+    ).toBeInTheDocument();
     expect(screen.getByTestId('checkout-primary-action')).toHaveAttribute(
       'aria-keyshortcuts',
       'F1'
@@ -218,6 +222,59 @@ describe('SalesCheckoutPanel hub gate', () => {
     const button = screen.getByTestId('checkout-primary-action');
     expect(button).not.toBeDisabled();
     expect(button).not.toHaveAttribute('aria-describedby');
+  });
+
+  it('labels the primary action with its shortcut without changing its accessible name', () => {
+    renderPanel();
+
+    const button = screen.getByRole('button', { name: 'Charge sale' });
+    expect(within(button).getByText('F1')).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.getAllByTestId('checkout-primary-action')).toHaveLength(1);
+  });
+
+  it('offers fast cash only while the sale can be charged', () => {
+    const onFastCash = vi.fn();
+    const ready = renderPanel({ onFastCash });
+    fireEvent.click(screen.getByTestId('checkout-fast-cash'));
+    expect(onFastCash).toHaveBeenCalledOnce();
+    ready.unmount();
+
+    const gated = renderPanel({ onFastCash, hubReachable: false });
+    expect(screen.queryByTestId('checkout-fast-cash')).not.toBeInTheDocument();
+    gated.unmount();
+
+    renderPanel({
+      onFastCash,
+      preflightItems: [
+        {
+          id: 'discount_exceeds_total',
+          severity: 'blocker',
+          messageKey: 'preflight.items.cash_session_required.message',
+        },
+      ],
+    });
+    expect(screen.queryByTestId('checkout-fast-cash')).not.toBeInTheDocument();
+  });
+
+  it('leaves the closed register and sync backlog to their own surfaces', () => {
+    renderPanel({
+      cashSession: null,
+      preflightItems: [
+        {
+          id: 'cash_session_required',
+          severity: 'blocker',
+          messageKey: 'preflight.items.cash_session_required.message',
+        },
+        {
+          id: 'sync_backlog',
+          severity: 'warning',
+          messageKey: 'preflight.items.cash_session_required.message',
+        },
+      ],
+    });
+
+    expect(screen.queryByTestId('checkout-preflight-panel')).not.toBeInTheDocument();
+    expect(screen.getByTestId('checkout-primary-action')).not.toHaveAttribute('aria-describedby');
   });
 
   it('hides Suspend when it is wired but unavailable', () => {

@@ -313,13 +313,19 @@ export function SalesScreen({
   // Buttons pass their click event, which must not read as the fast cash flag.
   const handleCharge = () => handleOpenPaymentModal();
 
+  // Resuming a sale means the shift is not ending yet, so the close stops here.
+  const handleResumeSuspended: typeof handleResumeFromPanel = draft => {
+    setIsCashSessionCloseModalOpen(false);
+    return handleResumeFromPanel(draft);
+  };
+
   return (
     <>
       <div className="sales-pos-shell space-y-3 lg:pb-24 lg:flex pos:min-h-0 lg:flex-col lg:gap-3 lg:space-y-0 pos:overflow-hidden pos:pb-0">
-        {/* el POS es la única superficie de /sales. En el
-            breakpoint `pos:` (ancho desktop + >=900px alto), la barra de
-            búsqueda y los accesos a Historial / Ventas suspendidas viven en
-            una fila de acción de altura fija (shrink-0); el carrito y el
+        {/* el POS es la única superficie de /sales. Desde `lg:` la barra de
+            búsqueda, los tickets abiertos y los accesos a Historial / Ventas
+            suspendidas viven en una sola fila de altura fija. En el breakpoint
+            `pos:` (ancho desktop + >=900px alto) el carrito y el
             panel de cobro toman el resto de la altura y hacen scroll por
             dentro, de modo que cobrar no exige scroll de página a 1440x900.
             Por debajo de `pos:` vuelve el scroll natural de página para que
@@ -354,12 +360,13 @@ export function SalesScreen({
           isResumedCart={isResumedCart}
           itemsLocked={itemsLocked}
           activeWorkspace={activeWorkspace ?? null}
-        />
-
-        <WorkspaceTabsSection
-          ownedWorkspaces={ownedWorkspaces}
-          activeWorkspaceId={activeWorkspace?.id}
-          onSelectWorkspace={handleSelectWorkspace}
+          workspaceTabs={
+            <WorkspaceTabsSection
+              ownedWorkspaces={ownedWorkspaces}
+              activeWorkspaceId={activeWorkspace?.id}
+              onSelectWorkspace={handleSelectWorkspace}
+            />
+          }
         />
 
         {completedSale && cartItems.length === 0 && (
@@ -456,8 +463,7 @@ export function SalesScreen({
             onToggleSuspendedPanel={handleToggleSuspendedPanel}
             hubReachable={hubReachable}
             preflightItems={preflightItems}
-            showPrimaryAction={false}
-            showPreflightPanel={false}
+            onFastCash={() => handleOpenPaymentModal(true)}
           />
         </section>
       </div>
@@ -523,7 +529,7 @@ export function SalesScreen({
             <LazySuspendedSalesPanel
               isOpen
               onClose={() => setIsSuspendedPanelOpen(false)}
-              onResume={handleResumeFromPanel}
+              onResume={handleResumeSuspended}
             />
           </Suspense>
         </Drawer>
@@ -613,6 +619,8 @@ export function SalesScreen({
             onCloseCloseModal={() => setIsCashSessionCloseModalOpen(false)}
             onSubmitClose={handleCloseCashSession}
             suspendedDraftsCount={suspendedDraftsCount}
+            isCloseModalHidden={isSuspendedPanelOpen}
+            onReviewSuspended={() => setIsSuspendedPanelOpen(true)}
             isCashSessionMovementModalOpen={isCashSessionMovementModalOpen}
             cashSessionMovementModalKey={cashSessionMovementModalKey}
             isRecordingMovement={isRecordingMovement}
