@@ -232,5 +232,24 @@
       },
       "kicker": "Fiscal profile"
     }
+  },
+  "readiness": {
+    "label": "Fiscal readiness",
+    "profile": "Fiscal profile",
+    "numbering": "Numbering resolution",
+    "environment": "Environment",
+    "pending": "Pending documents",
+    "missing": "Missing",
+    "complete": "Complete profile",
+    "edit": "Edit",
+    "addResolution": "Add resolution",
+    "production": "Production",
+    "testing": "Testing",
+    "viewQueue": "View queue",
+    "countries": {
+      "CO": "Colombia — DIAN",
+      "MX": "Mexico — SAT",
+      "CL": "Chile — SII"
+    }
   }
 }
