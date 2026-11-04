@@ -43,7 +43,7 @@ function KitchenBoard({
   siteName: string;
   canManage: boolean;
 }) {
-  const { t } = useTranslation('kds');
+  const { t } = useTranslation(['kds', 'common']);
   const toast = useToast();
   const utils = trpc.useUtils();
   const online = useKitchenOnline();
@@ -51,10 +51,7 @@ function KitchenBoard({
   const [station, setStation] = useState('');
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
-  const list = trpc.kds.list.useQuery(
-    { siteId, ...(station ? { station } : {}), limit: 500 },
-    { refetchInterval: 30_000 }
-  );
+  const list = trpc.kds.list.useQuery({ siteId, limit: 500 }, { refetchInterval: 30_000 });
   // Order SSE events do not cover configuration edits on another display.
   // Keep station ordering/filter choices fresh even without new submissions.
   const stations = trpc.kds.stations.useQuery({ siteId }, { refetchInterval: 30_000 });
@@ -84,8 +81,14 @@ function KitchenBoard({
     },
   });
   const groups = new Map<string, KdsCardData[]>();
-  for (const order of list.data?.items ?? [])
-    groups.set(order.station, [...(groups.get(order.station) ?? []), order]);
+  const stationCounts = new Map<string, number>();
+  const allOrders = list.data?.items ?? [];
+  // Chips count every station, so the filter applies here and not in the query.
+  for (const order of allOrders) {
+    stationCounts.set(order.station, (stationCounts.get(order.station) ?? 0) + 1);
+    if (!station || order.station === station)
+      groups.set(order.station, [...(groups.get(order.station) ?? []), order]);
+  }
   const configuredStations = [...(stations.data ?? [])];
   const stationPositions = new Map(configuredStations.map(item => [item.code, item.position]));
   if (!stationPositions.has('main')) stationPositions.set('main', 0);
@@ -96,33 +99,55 @@ function KitchenBoard({
     configuredStations.map(item => [item.code, resolveStationLabel(item, t('station.main'))])
   );
   if (!availableStations.has('main')) availableStations.set('main', t('station.main'));
-  for (const [code, orders] of groups)
-    if (!availableStations.has(code)) availableStations.set(code, orders[0]?.stationName ?? code);
+  for (const order of allOrders)
+    if (!availableStations.has(order.station))
+      availableStations.set(order.station, order.stationName ?? order.station);
   if (station && !availableStations.has(station)) availableStations.set(station, station);
   return (
     <div className="flex flex-col gap-6" data-testid="kds-board">
-      <h1 className="text-xl font-semibold text-ink">
-        {t('boardTitle', { site: siteName })}
-      </h1>
-      <div className="flex flex-wrap items-end justify-between gap-4 text-ink">
-        <label className="flex flex-col gap-1">
-          {t('config.stationFilter')}
-          <select
-            className="rounded-lg border border-line-strong bg-surface p-2 text-ink"
-            value={station}
-            onChange={event => setStation(event.target.value)}
-            disabled={busy}
-          >
-            <option value="">{t('config.allStations')}</option>
-            {[...availableStations]
+      <h1 className="text-xl font-semibold text-ink">{t('boardTitle', { site: siteName })}</h1>
+      <div className="flex flex-wrap items-center justify-between gap-4 text-ink">
+        <div
+          role="group"
+          aria-label={t('config.stationFilter')}
+          className="flex min-w-0 flex-wrap gap-2"
+        >
+          {[
+            ['', t('config.allStations'), allOrders.length] as const,
+            ...[...availableStations]
               .sort(([a], [b]) => compareStations(a, b))
-              .map(([code, name]) => (
-                <option key={code} value={code}>
-                  {name}
-                </option>
-              ))}
-          </select>
-        </label>
+              .map(([code, name]) => [code, name, stationCounts.get(code) ?? 0] as const),
+          ].map(([code, name, count]) => (
+            <button
+              key={code || 'all'}
+              type="button"
+              data-testid={`kds-station-chip-${code || 'all'}`}
+              aria-pressed={station === code}
+              disabled={busy}
+              onClick={() => setStation(code)}
+              className={`inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-sm font-medium ${
+                station === code
+                  ? 'border-primary-500 bg-primary-50 text-primary-900'
+                  : 'border-line-strong bg-surface text-ink hover:bg-surface-2'
+              }`}
+            >
+              {name}
+              <span className="tabular-nums text-muted-foreground">{count}</span>
+            </button>
+          ))}
+        </div>
+        <span
+          data-testid="kds-connection-status"
+          className={`inline-flex min-h-11 items-center gap-2 text-sm font-medium ${
+            online ? 'text-success-700' : 'text-warning-700'
+          }`}
+        >
+          <span
+            aria-hidden="true"
+            className={`h-2 w-2 rounded-full ${online ? 'bg-success-500' : 'bg-warning-500'}`}
+          />
+          {online ? t('common:status.online') : t('common:status.offline')}
+        </span>
         <div className="flex gap-3">
           <button
             type="button"
@@ -173,20 +198,25 @@ function KitchenBoard({
           {t('errors.hasMore')}
         </p>
       )}
-      {[...groups]
-        .sort(([a], [b]) => compareStations(a, b))
-        .map(([code, orders]) => (
-          <KdsStationColumn
-            key={code}
-            stationKey={code}
-            orders={orders}
-            disabled={busy || !online || list.isError}
-            onReady={(input: KitchenInputs['markReady']) => act(ready.mutate, input)}
-            onRecall={(input: KitchenInputs['recall']) => act(recall.mutate, input)}
-            onResend={(input: KitchenInputs['resend']) => act(resend.mutate, input)}
-            onLine={(input: KitchenInputs['transitionLine']) => act(line.mutate, input)}
-          />
-        ))}
+      <div
+        data-testid="kds-station-columns"
+        className="flex flex-col gap-6 lg:grid lg:auto-cols-[minmax(20rem,1fr)] lg:grid-flow-col lg:items-start lg:overflow-x-auto"
+      >
+        {[...groups]
+          .sort(([a], [b]) => compareStations(a, b))
+          .map(([code, orders]) => (
+            <KdsStationColumn
+              key={code}
+              stationKey={code}
+              orders={orders}
+              disabled={busy || !online || list.isError}
+              onReady={(input: KitchenInputs['markReady']) => act(ready.mutate, input)}
+              onRecall={(input: KitchenInputs['recall']) => act(recall.mutate, input)}
+              onResend={(input: KitchenInputs['resend']) => act(resend.mutate, input)}
+              onLine={(input: KitchenInputs['transitionLine']) => act(line.mutate, input)}
+            />
+          ))}
+      </div>
       {canManage && configurationOpen && (
         <KdsConfiguration siteId={siteId} onClose={() => setConfigurationOpen(false)} />
       )}
