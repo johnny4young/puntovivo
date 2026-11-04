@@ -366,7 +366,11 @@ export function SalesScreen({
           <SaleCompleteStrip
             sale={completedSale}
             onOpenReceipt={() => setSelectedSaleId(completedSale.id)}
-            onDismiss={onDismissCompletedSale}
+            onDismiss={() => {
+              onDismissCompletedSale();
+              // The button disappears with the strip; the cashier goes back to scanning.
+              productInputRef.current?.focus();
+            }}
           />
         )}
 

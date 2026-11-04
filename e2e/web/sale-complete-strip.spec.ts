@@ -31,6 +31,10 @@ test('keeps the finished sale and its receipt in reach until the next one starts
   await expect(receipt).toBeHidden();
   await expect(strip).toBeVisible();
 
+  await strip.getByTestId('sale-complete-dismiss').click();
+  await expect(strip).toBeHidden();
+  await expect(page.locator('#sales-product-search-input')).toBeFocused();
+
   await addProductToCartViaKeyboard(page, scenario.product.sku);
   await expect(strip).toBeHidden();
   await page
