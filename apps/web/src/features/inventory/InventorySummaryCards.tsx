@@ -13,8 +13,6 @@ interface InventorySummaryProps {
   lowStockCount: number;
   recentInbound: number;
   recentOutbound: number;
-  entriesCount: number;
-  entriesLoading: boolean;
 }
 
 export function InventorySummaryCards({
@@ -24,8 +22,6 @@ export function InventorySummaryCards({
   lowStockCount,
   recentInbound,
   recentOutbound,
-  entriesCount,
-  entriesLoading,
 }: InventorySummaryProps) {
   const { t } = useTranslation('inventory');
   // receta KpiTile compartida (igual que Dashboard / POS):
@@ -58,11 +54,7 @@ export function InventorySummaryCards({
         tone="ink"
         label={t('stats.recentFlow')}
         value={`+${recentInbound} / -${recentOutbound}`}
-        context={
-          entriesLoading
-            ? t('entries.loadingShort')
-            : t('stats.recentFlowDetail', { count: entriesCount })
-        }
+        context={t('stats.recentFlowDetail', { in: recentInbound, out: recentOutbound })}
       />
     </div>
   );

@@ -45,12 +45,19 @@ export const movementBadgeTones: Record<
  */
 export function getMovementDelta(movement: InventoryMovement): number {
   if (movement.type === 'sale' || movement.type === 'transfer') {
-    return movement.previousStock - movement.newStock > 0 ? -movement.quantity : movement.quantity;
+    // Some rows store an outbound quantity as negative, so only the stock direction sets the sign.
+    const units = Math.abs(movement.quantity);
+    return movement.previousStock - movement.newStock > 0 ? -units : units;
   }
   if (movement.type === 'adjustment') {
     return movement.newStock - movement.previousStock;
   }
   return movement.quantity;
+}
+
+export function isFutureDated(createdAt: string, now: number = Date.now()): boolean {
+  const time = new Date(createdAt).getTime();
+  return Number.isFinite(time) && time > now;
 }
 
 /**
@@ -66,7 +73,16 @@ export function getMovementColumns(
       accessorKey: 'createdAt',
       header: () => i18next.t('inventory:table.date'),
       size: 180,
-      cell: ({ row }) => formatDateTime(row.original.createdAt),
+      cell: ({ row }) => (
+        <span className="inline-flex flex-wrap items-center gap-1.5">
+          {formatDateTime(row.original.createdAt)}
+          {isFutureDated(row.original.createdAt) && (
+            <Badge variant="warning" data-testid="inventory-movement-future-date">
+              {i18next.t('inventory:movements.futureDated')}
+            </Badge>
+          )}
+        </span>
+      ),
     },
     {
       accessorKey: 'productName',

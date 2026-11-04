@@ -1,18 +1,7 @@
 import type { ExportColumn } from '@/services/export/exportService';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
+import { getMovementDelta } from './inventoryMovementColumns';
 import type { InitialInventoryEntry, InventoryMovement, InventoryStockItem } from '@/types';
-
-function getMovementDelta(movement: InventoryMovement): number {
-  if (movement.type === 'sale' || movement.type === 'transfer') {
-    return movement.previousStock - movement.newStock > 0 ? -movement.quantity : movement.quantity;
-  }
-
-  if (movement.type === 'adjustment') {
-    return movement.newStock - movement.previousStock;
-  }
-
-  return movement.quantity;
-}
 
 export const inventoryMovementExportColumns: ExportColumn<InventoryMovement>[] = [
   {

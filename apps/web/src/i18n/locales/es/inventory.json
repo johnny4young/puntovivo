@@ -22,8 +22,7 @@
     "inventoryValue": "Valor del inventario",
     "lowStockItems": "Productos con stock bajo",
     "recentFlow": "Flujo reciente",
-    "recentFlowDetail_one": "{{count}} entrada reciente · ajustes",
-    "recentFlowDetail_other": "{{count}} entradas recientes · ajustes"
+    "recentFlowDetail": "{{in}} unidades entraron · {{out}} salieron"
   },
   "movements": {
     "loading": "Cargando movimientos de inventario...",
@@ -47,7 +46,8 @@
       "unattributedSite": "Movimiento histórico sin sede atribuida",
       "viewAria": "Ver detalle",
       "close": "Cerrar"
-    }
+    },
+    "futureDated": "Fecha futura"
   },
   "stock": {
     "loading": "Cargando balances de stock...",

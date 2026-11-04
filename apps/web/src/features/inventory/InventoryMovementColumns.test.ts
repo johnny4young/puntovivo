@@ -11,7 +11,7 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import type { InventoryMovement } from '@/types';
-import { getMovementColumns, getMovementDelta } from './inventoryMovementColumns';
+import { getMovementColumns, getMovementDelta, isFutureDated } from './inventoryMovementColumns';
 
 function makeMovement(overrides?: Partial<InventoryMovement>): InventoryMovement {
   return {
@@ -57,6 +57,24 @@ describe('getMovementDelta sign convention', () => {
     expect(
       getMovementDelta(makeMovement({ type: 'sale', quantity: 4, previousStock: 23, newStock: 19 }))
     ).toBe(-4);
+  });
+
+  it('keeps outbound rows negative when their quantity is stored as negative', () => {
+    expect(
+      getMovementDelta(
+        makeMovement({ type: 'transfer', quantity: -6, previousStock: 20, newStock: 14 })
+      )
+    ).toBe(-6);
+    expect(
+      getMovementDelta(makeMovement({ type: 'sale', quantity: -1, previousStock: 5, newStock: 4 }))
+    ).toBe(-1);
+  });
+
+  it('flags only movements dated after now', () => {
+    const now = Date.parse('2026-10-17T12:00:00.000Z');
+    expect(isFutureDated('2026-10-21T12:57:00.000Z', now)).toBe(true);
+    expect(isFutureDated('2026-10-17T11:59:00.000Z', now)).toBe(false);
+    expect(isFutureDated('not a date', now)).toBe(false);
   });
 
   it('uses the raw difference for an adjustment', () => {
