@@ -113,7 +113,8 @@ test.describe('assistive-technology sweep', () => {
     ]);
     expect(cancelBox).not.toBeNull();
     expect(confirmBox).not.toBeNull();
-    expect(cancelBox!.y).toBeLessThan(confirmBox!.y);
+    // Side by side in the pinned footer, with Confirm as the trailing action.
+    expect(cancelBox!.x).toBeLessThan(confirmBox!.x);
 
     await captureAuditEvidence(page, dialog, 'cashier-mobile-payment-drawer-en');
     await page.keyboard.press('Escape');

@@ -14,7 +14,6 @@
   "checkout": {
     "kicker": "Checkout",
     "chargeSummary": "Charge summary",
-    "chargeSummaryDescription": "Review the final amounts before finalizing the receipt.",
     "searchProducts": "Search products",
     "totalDue": "Total due",
     "items": "Items",
@@ -31,10 +30,7 @@
     "noSiteWarning": "Select an active site before charging so the correct sequential and stock scope are used.",
     "addToCart": "Add to cart",
     "itemCount": "Items",
-    "searchHint": "Scan a barcode or search by name or SKU to add a product.",
     "activeTicket": "Active ticket",
-    "currentCart": "Current cart",
-    "adjustHint": "Adjust quantities, discounts, and totals before sending the sale to payment.",
     "lineItems_one": "{{count}} line item",
     "lineItems_other": "{{count}} line items",
     "clearCart": "Clear cart",
@@ -57,10 +53,7 @@
       "discount": "Discount",
       "unitInDialog": "Unit in dialog"
     },
-    "itemsWithCount": "Items ({{value}})",
-    "cartSummary": "Cart summary",
-    "cartSummaryHint_one": "{{count}} item in cart · review total",
-    "cartSummaryHint_other": "{{count}} items in cart · review total"
+    "itemsWithCount": "Items ({{value}})"
   },
   "cart": {
     "empty": "Search and add products to start a sale.",
