@@ -1,5 +1,6 @@
 import { Mic, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router';
 
 const TABLE_LABEL_MAX = 80;
 
@@ -12,6 +13,9 @@ interface RestaurantTableOption {
 
 /** Controlled table, party and item-entry state for the ordering surface. */
 interface VoiceOrderingControlsProps {
+  /** Phones pick a table from a grid; the till keeps the compact dropdown. */
+  tablePicker: 'grid' | 'dropdown';
+  canCreateTables: boolean;
   dineInActive: boolean;
   tableLabel: string;
   tableCatalog: RestaurantTableOption[];
@@ -34,6 +38,8 @@ interface VoiceOrderingControlsProps {
 
 /** Presentational table and item-entry controls for voice ordering. */
 export function VoiceOrderingControls({
+  tablePicker,
+  canCreateTables,
   dineInActive,
   tableLabel,
   tableCatalog,
@@ -59,12 +65,46 @@ export function VoiceOrderingControls({
     <section className="space-y-4">
       <div className="card p-4">
         <label
-          htmlFor="voice-ordering-table-label"
+          id={tablePicker === 'grid' ? 'voice-ordering-table-label' : undefined}
+          htmlFor={tablePicker === 'grid' ? undefined : 'voice-ordering-table-label'}
           className="text-xs font-medium uppercase tracking-wide text-secondary-500"
         >
           {t('restaurants:tableLabel.label')}
         </label>
-        {useCatalogDropdown ? (
+        {useCatalogDropdown && tablePicker === 'grid' ? (
+          <div
+            role="group"
+            aria-labelledby="voice-ordering-table-label"
+            className="mt-2 grid max-h-[50vh] grid-cols-2 gap-2 overflow-y-auto"
+            data-testid="voice-ordering-table-grid"
+          >
+            {tableCatalog.map(row => {
+              const selected = row.name === tableLabel;
+              return (
+                <button
+                  key={row.id}
+                  type="button"
+                  aria-pressed={selected}
+                  aria-label={row.name}
+                  disabled={interactionDisabled}
+                  onClick={() => onTableLabelChange(row.name)}
+                  className={`min-h-14 rounded-xl border px-3 py-2 text-left text-sm font-semibold ${
+                    selected
+                      ? 'border-primary-500 bg-primary-50 text-primary-900'
+                      : 'border-line-strong bg-surface text-ink'
+                  }`}
+                >
+                  {row.name}
+                  {row.seatCount != null && (
+                    <span className="block text-xs font-normal text-secondary-600">
+                      {t('restaurants:floorMap.seatCount', { count: row.seatCount })}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        ) : useCatalogDropdown ? (
           <select
             id="voice-ordering-table-label"
             data-testid="voice-ordering-table-select"
@@ -95,6 +135,19 @@ export function VoiceOrderingControls({
                   : t('restaurants:tables.dropdown.emptyOperationalHint')}
           </p>
         )}
+        {!useCatalogDropdown &&
+          dineInActive &&
+          !tableCatalogLoading &&
+          !tableCatalogError &&
+          canCreateTables && (
+            <Link
+              to="/restaurants/tables"
+              className="btn-primary mt-2 inline-flex min-h-11 items-center"
+              data-testid="voice-ordering-create-tables"
+            >
+              {t('restaurants:tables.dropdown.createTables')}
+            </Link>
+          )}
         {tableLabel.trim().length === 0 && (
           <p className="mt-1 text-xs text-warning-700">{t('restaurants:tableLabel.required')}</p>
         )}
