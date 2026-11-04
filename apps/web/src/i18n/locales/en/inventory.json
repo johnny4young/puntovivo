@@ -81,7 +81,6 @@
   },
   "entries": {
     "loading": "Loading inventory entries...",
-    "loadingShort": "Loading entries…",
     "error": "Unable to load inventory entries",
     "search": "Search entries by product...",
     "exportTitle": "Initial Inventory Entries",

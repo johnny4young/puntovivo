@@ -81,7 +81,6 @@
   },
   "entries": {
     "loading": "Cargando entradas de inventario...",
-    "loadingShort": "Cargando entradas…",
     "error": "No se pudieron cargar las entradas de inventario",
     "search": "Buscar entradas por producto...",
     "exportTitle": "Entradas de inventario inicial",

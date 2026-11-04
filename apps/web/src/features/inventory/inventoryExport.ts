@@ -1,6 +1,6 @@
 import type { ExportColumn } from '@/services/export/exportService';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
-import { getMovementDelta } from './inventoryMovementColumns';
+import { getMovementDelta } from './inventoryMovementDelta';
 import type { InitialInventoryEntry, InventoryMovement, InventoryStockItem } from '@/types';
 
 export const inventoryMovementExportColumns: ExportColumn<InventoryMovement>[] = [
