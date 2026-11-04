@@ -77,6 +77,10 @@
     "sellQuery": {
       "label": "Sell {{query}}",
       "description": "Add to the active cart and open the register"
+    },
+    "askCopilot": {
+      "label": "Ask the co-pilot: {{query}}",
+      "description": "Open the co-pilot with this question"
     }
   },
   "descriptions": {

@@ -37,6 +37,8 @@ import { useOmniboxSell } from '@/features/sales/useOmniboxSell';
  * would render meaninglessly) and never part of the static catalogue.
  */
 const SELL_QUERY_ACTION_ID = 'sales.sellQuery';
+const ASK_COPILOT_ACTION_ID = 'copilot.ask';
+const ASK_COPILOT_ROLES: ReadonlyArray<string> = ['admin', 'manager'];
 
 /** Roles allowed to push a product into the active cart from anywhere. */
 const SELL_QUERY_ROLES: ReadonlyArray<string> = ['admin', 'manager', 'cashier'];
@@ -163,6 +165,22 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
     };
   }, [query, user?.role]);
 
+  const askCopilotAction = useMemo<CommandAction | null>(() => {
+    const trimmed = query.trim();
+    if (trimmed === '' || !ASK_COPILOT_ROLES.includes(user?.role ?? '') || !modules.copilot) {
+      return null;
+    }
+    return {
+      id: ASK_COPILOT_ACTION_ID,
+      labelKey: 'actions.askCopilot.label',
+      descriptionKey: 'actions.askCopilot.description',
+      labelArgs: { query: trimmed },
+      roles: ASK_COPILOT_ROLES as CommandAction['roles'],
+      perform: ctx => ctx.navigate(`/co-pilot?q=${encodeURIComponent(trimmed)}`),
+      group: 'command',
+    };
+  }, [query, user?.role, modules]);
+
   const orderedActions = useMemo(() => {
     const catalogue = (() => {
       if (recentActions.length === 0) {
@@ -171,8 +189,12 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
       const recentIds = new Set(recentActions.map(action => action.id));
       return [...recentActions, ...filtered.filter(action => !recentIds.has(action.id))];
     })();
-    return sellQueryAction ? [...catalogue, sellQueryAction] : catalogue;
-  }, [recentActions, filtered, sellQueryAction]);
+    return [
+      ...catalogue,
+      ...(sellQueryAction ? [sellQueryAction] : []),
+      ...(askCopilotAction ? [askCopilotAction] : []),
+    ];
+  }, [recentActions, filtered, sellQueryAction, askCopilotAction]);
 
   // Derive a clamped selection at render time — when the filter
   // shrinks, the index automatically follows without a setState in
@@ -217,7 +239,7 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
     // next open ranks this action into the Recent section. The synthetic
     // sell row is excluded: its label depends on the live query, so a
     // remembered entry would render meaninglessly.
-    if (action.id !== SELL_QUERY_ACTION_ID) {
+    if (action.id !== SELL_QUERY_ACTION_ID && action.id !== ASK_COPILOT_ACTION_ID) {
       recordPaletteActionUsage(action.id, tenantId);
     }
     onClose();
