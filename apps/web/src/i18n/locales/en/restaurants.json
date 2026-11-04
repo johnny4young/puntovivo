@@ -167,7 +167,7 @@
       "selectPlaceholder": "Pick a table",
       "customOption": "— Custom label —",
       "emptyHint": "No tables in the catalog. Ask an administrator to add one.",
-      "emptyOperationalHint": "Create at least one active table before opening a dine-in service.",
+      "emptyOperationalHint": "Create at least one active table before opening a dine-in service. Ask an administrator, or create them now if you have access.",
       "moduleDisabledHint": "Dine-in service is disabled. Ask an administrator to enable it before taking table orders.",
       "createTables": "Create tables"
     },

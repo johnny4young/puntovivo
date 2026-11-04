@@ -511,6 +511,8 @@ describe('VoiceOrderingScreen', () => {
     await waitFor(() => {
       expect(screen.getAllByTestId('voice-ordering-modifier-name')[1]).toHaveValue('Sin hielo');
     });
+    // A line with its own modifiers keeps them: the copy would overwrite the waiter's work.
+    expect(screen.queryByTestId('voice-ordering-repeat-modifiers')).not.toBeInTheDocument();
   });
 
   it('leaves the till layout without the phone summary', async () => {

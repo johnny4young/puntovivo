@@ -167,7 +167,7 @@
       "selectPlaceholder": "Elige una mesa",
       "customOption": "— Etiqueta personalizada —",
       "emptyHint": "No hay mesas en el catálogo. Pide al administrador que cree una.",
-      "emptyOperationalHint": "Crea al menos una mesa activa antes de abrir un servicio en salón.",
+      "emptyOperationalHint": "Crea al menos una mesa activa antes de abrir un servicio en salón. Pide ayuda a un administrador, o créalas ahora si tienes acceso.",
       "moduleDisabledHint": "El servicio en salón está desactivado. Pide a un administrador que lo habilite antes de tomar órdenes por mesa.",
       "createTables": "Crear mesas"
     },

@@ -227,25 +227,26 @@ export function VoiceOrderingCart({
                       </select>
                     </label>
                   </div>
-                  {previousModifiers.length > 0 && (
-                    <button
-                      type="button"
-                      className="btn-ghost min-h-11 text-xs"
-                      disabled={interactionDisabled}
-                      onClick={() =>
-                        onLineDetailsChange(item.key, {
-                          ...detail,
-                          modifiers: previousModifiers.map(modifier => ({
-                            ...modifier,
-                            id: `${item.key}-${modifier.id}`,
-                          })),
-                        })
-                      }
-                      data-testid="voice-ordering-repeat-modifiers"
-                    >
-                      {t('cart.repeatModifiers')}
-                    </button>
-                  )}
+                  {previousModifiers.length > 0 &&
+                    !detail.modifiers.some(modifier => modifier.name.trim()) && (
+                      <button
+                        type="button"
+                        className="btn-ghost min-h-11 text-xs"
+                        disabled={interactionDisabled}
+                        onClick={() =>
+                          onLineDetailsChange(item.key, {
+                            ...detail,
+                            modifiers: previousModifiers.map(modifier => ({
+                              ...modifier,
+                              id: `${item.key}-${modifier.id}`,
+                            })),
+                          })
+                        }
+                        data-testid="voice-ordering-repeat-modifiers"
+                      >
+                        {t('cart.repeatModifiers')}
+                      </button>
+                    )}
                   <Suspense
                     fallback={
                       <p role="status" className="text-xs text-fg3">
