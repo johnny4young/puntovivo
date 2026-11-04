@@ -115,6 +115,26 @@ describe('CashSessionCloseModal', () => {
     expect(warning.textContent).toContain('3');
   });
 
+  it('offers the suspended sales from the warning when the screen can open them', async () => {
+    const onReviewSuspended = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <CashSessionCloseModal
+        cashSession={activeCashSession}
+        isOpen
+        isSaving={false}
+        error={null}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+        suspendedDraftsCount={3}
+        onReviewSuspended={onReviewSuspended}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Review 3 suspended sales' }));
+    expect(onReviewSuspended).toHaveBeenCalledTimes(1);
+  });
+
   it('does not render the suspended-drafts warning when the count is zero', () => {
     render(
       <CashSessionCloseModal
