@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef } from 'react';
 import { FilePlus2, ListTree, PauseCircle, Receipt, Search, WalletCards } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { formatCurrency } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
 import { ariaKeyshortcutsFor } from '@/lib/shortcuts';
 import type { SaleCartSummary } from '@/features/sales/saleCart';
 import type { CashSession } from '@/types';
@@ -12,12 +12,10 @@ interface SalesMobileCheckoutBarProps {
   cashSession: CashSession | null;
   canCharge: boolean;
   canOpenCashSession: boolean;
-  canCloseCashSession: boolean;
   canOpenSearch?: boolean | undefined;
   onOpenSearch: () => void;
   onCharge: () => void;
   onOpenCashSession: () => void;
-  onCloseCashSession: () => void;
   canSuspend?: boolean | undefined;
   onSuspend?: (() => void) | undefined;
   onNewSale?: (() => void) | undefined;
@@ -37,12 +35,10 @@ export function SalesMobileCheckoutBar({
   cashSession,
   canCharge,
   canOpenCashSession,
-  canCloseCashSession,
   canOpenSearch = true,
   onOpenSearch,
   onCharge,
   onOpenCashSession,
-  onCloseCashSession,
   canSuspend = false,
   onSuspend,
   onNewSale,
@@ -73,23 +69,11 @@ export function SalesMobileCheckoutBar({
   // terminal on a phone or tablet cannot bypass the hub-unreachable
   // state by triggering checkout from the mobile bar.
   const isHubGated = hubReachable === false;
-  const primaryAction = cashSession
-    ? hasDraftItems
-      ? onCharge
-      : onCloseCashSession
-    : onOpenCashSession;
-  const primaryActionLabel = cashSession
-    ? hasDraftItems
-      ? t('checkout.chargeSale')
-      : t('cashSession.closeAction')
-    : t('cashSession.openAction');
-  const primaryActionDisabled = isHubGated
-    ? true
-    : cashSession
-      ? hasDraftItems
-        ? !canCharge
-        : !canCloseCashSession
-      : !canOpenCashSession;
+  // Closing ends the shift and lives in the checkout panel, so an empty cart leads with search.
+  const searchIsPrimary = Boolean(cashSession) && !hasDraftItems;
+  const primaryAction = cashSession ? onCharge : onOpenCashSession;
+  const primaryActionLabel = cashSession ? t('checkout.chargeSale') : t('cashSession.openAction');
+  const primaryActionDisabled = isHubGated || (cashSession ? !canCharge : !canOpenCashSession);
   const showSuspendAction = Boolean(onSuspend && canSuspend);
   const showNewSaleAction = Boolean(onNewSale);
   const showParkActions = showSuspendAction || showNewSaleAction || Boolean(onToggleSuspendedPanel);
@@ -117,7 +101,11 @@ export function SalesMobileCheckoutBar({
           </div>
           <button
             type="button"
-            className="btn-outline min-w-0 justify-center"
+            data-testid="mobile-checkout-search"
+            className={cn(
+              'min-w-0 justify-center',
+              searchIsPrimary ? 'btn-primary col-span-2' : 'btn-outline'
+            )}
             onClick={onOpenSearch}
             disabled={!canOpenSearch}
             aria-keyshortcuts={
@@ -127,26 +115,25 @@ export function SalesMobileCheckoutBar({
             <Search className="h-4 w-4 shrink-0" />
             {t('quickSearch.search')}
           </button>
-          <button
-            type="button"
-            className="btn-primary min-w-0 justify-center"
-            onClick={primaryAction}
-            disabled={primaryActionDisabled}
-            aria-keyshortcuts={ariaKeyshortcutsFor(
-              cashSession
-                ? hasDraftItems
-                  ? 'sales.charge'
-                  : 'sales.closeCashSession'
-                : 'sales.openCashSession'
-            )}
-          >
-            {cashSession && hasDraftItems ? (
-              <Receipt className="h-4 w-4 shrink-0" />
-            ) : (
-              <WalletCards className="h-4 w-4 shrink-0" />
-            )}
-            {primaryActionLabel}
-          </button>
+          {!searchIsPrimary && (
+            <button
+              type="button"
+              data-testid="mobile-checkout-primary"
+              className="btn-primary min-w-0 justify-center"
+              onClick={primaryAction}
+              disabled={primaryActionDisabled}
+              aria-keyshortcuts={ariaKeyshortcutsFor(
+                cashSession ? 'sales.charge' : 'sales.openCashSession'
+              )}
+            >
+              {cashSession ? (
+                <Receipt className="h-4 w-4 shrink-0" />
+              ) : (
+                <WalletCards className="h-4 w-4 shrink-0" />
+              )}
+              {primaryActionLabel}
+            </button>
+          )}
         </div>
         {showParkActions && (
           <div
