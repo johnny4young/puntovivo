@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@/test/utils';
 import { DayCloseReportPage } from './DayCloseReportPage';
+import { setActiveTenantLocale } from '@/lib/utils';
 
 const refetch = vi.fn();
 const signoffRefetch = vi.fn();
@@ -223,6 +224,28 @@ describe('DayCloseReportPage (-141b)', () => {
     expect(screen.getByTestId('day-close-payments-section')).toHaveTextContent(
       /Sin pagos|No settled/i
     );
+  });
+
+  it('drops empty cents on whole amounts and keeps real cents visible', () => {
+    setActiveTenantLocale({
+      locale: 'es-CO',
+      currency: 'COP',
+      displayDecimals: 0,
+      timezone: 'America/Bogota',
+      dateFormatShort: 'dd/MM/yyyy',
+    });
+    mockData = {
+      ...reportFixture(),
+      currencyCode: 'COP',
+      cash: { ...reportFixture().cash, expected: 1491700, counted: 200000.5 },
+    };
+    render(<DayCloseReportPage />);
+
+    const cash = screen.getByTestId('day-close-cash-section');
+    expect(cash).toHaveTextContent('1.491.700');
+    expect(cash).not.toHaveTextContent('1.491.700,00');
+    expect(cash).toHaveTextContent('200.000,50');
+    setActiveTenantLocale(null);
   });
 
   it('renders the verified frozen snapshot instead of a mutable preview', () => {

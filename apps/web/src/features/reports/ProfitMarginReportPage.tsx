@@ -6,7 +6,7 @@ import type { AppRouter } from '@puntovivo/server';
 import { AlertTriangle, Banknote, BadgePercent, PieChart, Receipt, TrendingUp } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { translateServerError } from '@/lib/translateServerError';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatPercent } from '@/lib/utils';
 import { KpiTile, StatusStrip } from '@/components/ui';
 import { EmptyState } from '@/components/feedback/EmptyState';
 
@@ -63,7 +63,7 @@ export function ProfitMarginReportPage() {
   const summary = data?.summary;
   const products = data?.products ?? [];
 
-  const formatPct = (value: number) => `${value.toFixed(1)}%`;
+  const formatPct = (value: number) => formatPercent(value, 1);
 
   return (
     <div className="space-y-6">

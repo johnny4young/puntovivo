@@ -4,7 +4,7 @@
 import { useTranslation } from 'react-i18next';
 import { ArrowDownCircle, Boxes, ClipboardList, RefreshCw } from 'lucide-react';
 import { KpiTile } from '@/components/ui';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatNumber } from '@/lib/utils';
 
 interface InventorySummaryProps {
   isLoading: boolean;
@@ -38,7 +38,7 @@ export function InventorySummaryCards({
         icon={Boxes}
         tone="primary"
         label={t('stats.totalUnits')}
-        value={isLoading ? '—' : totalUnits.toLocaleString()}
+        value={isLoading ? '—' : formatNumber(totalUnits)}
       />
       <KpiTile
         icon={ArrowDownCircle}
@@ -51,7 +51,7 @@ export function InventorySummaryCards({
         icon={RefreshCw}
         tone="danger"
         label={t('stats.lowStockItems')}
-        value={isLoading ? '—' : lowStockCount.toLocaleString()}
+        value={isLoading ? '—' : formatNumber(lowStockCount)}
       />
       <KpiTile
         icon={ClipboardList}
