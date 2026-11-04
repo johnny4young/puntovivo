@@ -15,7 +15,7 @@
 import type { DataTableColumnDef } from '@/components/tables/DataTable';
 import i18next from 'i18next';
 import { Eye, Package, SlidersHorizontal } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, formatNumber } from '@/lib/utils';
 import type { InventoryStockItem } from '@/types';
 import { Badge } from '@/components/ui';
 export function getStockColumns(
@@ -69,7 +69,7 @@ export function getStockColumns(
             className={cn('pv-stock', isLowStock && 'low')}
             title={isLowStock ? i18next.t('inventory:stock.status.lowStock') : undefined}
           >
-            <span>{stock.toLocaleString()}</span>
+            <span>{formatNumber(stock)}</span>
             <span className="bar">
               <i
                 style={{

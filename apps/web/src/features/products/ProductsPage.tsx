@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { keepPreviousData } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import i18next from '@/i18n';
-import { AlertTriangle, Plus, RefreshCw, Search, Sparkles } from 'lucide-react';
+import { AlertTriangle, Plus, Search, Sparkles } from 'lucide-react';
 import { isProductTemplateVerticalId } from '@puntovivo/shared/vertical-presets';
 import { ConfirmModal, Modal } from '@/components/form-controls/Modal';
 import { QueryErrorState } from '@/components/feedback/QueryErrorState';
@@ -68,7 +68,6 @@ export function ProductsPage() {
   const utils = trpc.useUtils();
   const canManage = canManageProducts(user?.role);
   const canDelete = user?.role === 'admin';
-  const canRegenerate = user?.role === 'admin';
   const isAdmin = user?.role === 'admin';
   const createProductMeasurement = useTaskMeasurementController();
   // Head start for the editor's namespace so the first open rarely suspends.
@@ -99,7 +98,7 @@ export function ProductsPage() {
   // the semantic-search toggle/state machine + module gate lives in
   // its own hook; the page keeps the literal `products.list` query (fed by the
   // hook's debounced `literalFallbackSearch`) and the trivial displayProducts merge.
-  const semantic = useProductsSemanticSearch({ canManage, canRegenerate });
+  const semantic = useProductsSemanticSearch({ canManage });
   const search = semantic.literalFallbackSearch ?? '';
   const mode = semantic.semanticIsActive
     ? 'semantic'
@@ -487,7 +486,7 @@ export function ProductsPage() {
 
             {semantic.canUseSemantic && (
               <>
-                {/* semantic toolbar: toggle, dedicated input, regen button */}
+                {/* semantic toolbar: toggle and dedicated input */}
                 <div className="flex flex-wrap items-center gap-3">
                   <button
                     type="button"
@@ -520,22 +519,6 @@ export function ProductsPage() {
                         aria-label={t('table.searchSemantic')}
                       />
                     </div>
-                  )}
-
-                  {semantic.canRegenerate && (
-                    <button
-                      type="button"
-                      onClick={() => semantic.regenerate()}
-                      disabled={semantic.isRegenerating}
-                      className="btn-outline flex items-center gap-2"
-                    >
-                      <RefreshCw
-                        className={cn('h-4 w-4', semantic.isRegenerating && 'animate-spin')}
-                      />
-                      {semantic.isRegenerating
-                        ? t('semantic.regenerating')
-                        : t('semantic.regenerate')}
-                    </button>
                   )}
                 </div>
 

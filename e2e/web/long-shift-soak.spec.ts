@@ -107,7 +107,7 @@ async function navigateInApp(page: Page, route: '/products' | '/purchases' | '/s
   // History changes before the lazy React route commits. Purchases and products
   // both expose Add Product, so URL-only readiness can click the previous page.
   if (route === '/sales') {
-    await expect(page.getByTestId('sales-operation-strip')).toBeVisible();
+    await expect(page.locator('#sales-product-search-input')).toBeVisible();
   } else {
     const name = route === '/products' ? /^(products|productos)$/i : /^(purchases|compras)$/i;
     await expect(page.getByRole('main').getByRole('heading', { level: 1, name })).toBeVisible();

@@ -15,7 +15,7 @@
 import type { DataTableColumnDef } from '@/components/tables/DataTable';
 import i18next from 'i18next';
 import { Eye, Package } from 'lucide-react';
-import { formatDateTime } from '@/lib/utils';
+import { formatDateTime, formatNumber } from '@/lib/utils';
 import type { InitialInventoryEntry } from '@/types';
 
 /**
@@ -71,7 +71,7 @@ export function getEntryColumns(
         cellClassName: 'num',
         headerClassName: 'num',
       },
-      cell: ({ row }) => row.original.quantity.toLocaleString(),
+      cell: ({ row }) => formatNumber(row.original.quantity),
     },
     // unit / normalized / cost / stock-after / notes trimmed into the
     // row-detail Drawer (`onViewDetails`); date + mode + product + qty carry the scan.

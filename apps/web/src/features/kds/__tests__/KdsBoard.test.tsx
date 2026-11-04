@@ -209,8 +209,28 @@ describe('KdsBoard', () => {
     const subscription = h.realtime.mock.calls.at(-1)![0] as { onEvent: () => void };
     subscription.onEvent();
     expect(h.invalidate).toHaveBeenCalled();
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'main' } });
-    expect(h.query).toHaveBeenLastCalledWith({ siteId: 'site-1', station: 'main', limit: 500 });
+  });
+  it('counts every station on its chip and filters the columns without refetching', () => {
+    h.items = [
+      card({ id: 'a', station: 'main' }),
+      card({ id: 'b', station: 'hot', stationName: 'Hot' }),
+      card({ id: 'c', station: 'hot', stationName: 'Hot' }),
+    ];
+    render(<KdsBoard />);
+    expect(screen.getByTestId('kds-station-chip-all')).toHaveTextContent('All stations3');
+    expect(screen.getByTestId('kds-station-chip-hot')).toHaveTextContent('Hot2');
+    expect(screen.getAllByTestId('kds-station-column')).toHaveLength(2);
+
+    fireEvent.click(screen.getByTestId('kds-station-chip-hot'));
+
+    expect(screen.getByTestId('kds-station-chip-hot')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getAllByTestId('kds-station-column')).toHaveLength(1);
+    expect(screen.getByTestId('kds-station-chip-all')).toHaveTextContent('All stations3');
+    expect(h.query).toHaveBeenLastCalledWith({ siteId: 'site-1', limit: 500 });
+  });
+  it('states the connection beside the stations', () => {
+    render(<KdsBoard />);
+    expect(screen.getByTestId('kds-connection-status')).toHaveTextContent('Online');
   });
   it('shows offline feedback, prevents actions and unsubscribes on unmount', () => {
     h.items = [card()];
@@ -304,11 +324,9 @@ it('honors configured station order instead of oldest ticket order, including ma
       .getAllByTestId('kds-station-column')
       .map(column => within(column).getByRole('heading').textContent)
   ).toEqual(['Hot · 1 order', 'Kitchen · 1 order']);
-  expect(screen.getAllByRole('option').map(option => option.textContent)).toEqual([
-    'All stations',
-    'Hot',
-    'Kitchen',
-  ]);
+  expect(
+    screen.getAllByTestId(/^kds-station-chip-/).map(chip => chip.firstChild?.textContent)
+  ).toEqual(['All stations', 'Hot', 'Kitchen']);
 });
 it("never labels a column with one ticket's frozen name when they disagree", () => {
   // Station labels are frozen on the ticket at dispatch, so renaming a station
