@@ -13,8 +13,10 @@ import { and, eq, isNotNull, ne, or, sql } from 'drizzle-orm';
 import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 
 import { tenantProcedure } from '../../middleware/tenant.js';
+import { ensureTenantSite } from '../../middleware/tenantSite.js';
 import {
   categories,
+  inventoryBalances,
   locations,
   pharmacyProductProfiles,
   products,
@@ -56,9 +58,26 @@ export const productQueryProcedures = {
    * List products for the current tenant with pagination and filtering
    */
   list: tenantProcedure.input(listProductsInput).query(async ({ ctx, input }) => {
-    const { page, perPage, search, categoryId, isActive, includeVariantParents, pharmacyOnly } =
-      input;
+    const {
+      page,
+      perPage,
+      search,
+      categoryId,
+      isActive,
+      includeVariantParents,
+      pharmacyOnly,
+      siteId,
+    } = input;
     const offset = (page - 1) * perPage;
+    if (siteId) {
+      await ensureTenantSite(ctx.db, ctx.tenantId, siteId);
+    }
+    const siteStock = siteId
+      ? sql<number>`coalesce((select ${inventoryBalances.onHand} from ${inventoryBalances}
+          where ${inventoryBalances.tenantId} = ${ctx.tenantId}
+            and ${inventoryBalances.siteId} = ${siteId}
+            and ${inventoryBalances.productId} = ${products.id}), 0)`
+      : sql<number | null>`null`;
     // Regulated metadata can only match a tenant that owns pharmacy profiles.
     // Everyone else skips the per-row join probe and four extra LIKE scans,
     // with identical results.
@@ -104,7 +123,7 @@ export const productQueryProcedures = {
 
     const [items, countResult] = await Promise.all([
       ctx.db
-        .select(productSelection)
+        .select({ ...productSelection, siteStock })
         .from(products)
         .leftJoin(categories, eq(products.categoryId, categories.id))
         .leftJoin(locations, eq(products.locationId, locations.id))

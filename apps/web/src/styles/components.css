@@ -207,6 +207,16 @@
     @apply inline-flex shrink-0 items-center justify-center rounded-[10px];
   }
 
+  .pos-touch-tile-initial {
+    background: oklch(0.93 0.035 var(--tile-hue));
+    color: oklch(0.36 0.09 var(--tile-hue));
+  }
+
+  .dark .pos-touch-tile-initial {
+    background: oklch(0.33 0.05 var(--tile-hue));
+    color: oklch(0.9 0.06 var(--tile-hue));
+  }
+
   .glyph-tile-primary {
     @apply bg-primary-50 text-primary-700;
   }

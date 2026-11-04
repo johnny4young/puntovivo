@@ -18,6 +18,8 @@ import i18next from '@/i18n';
 import { render, screen, waitFor, within } from '@/test/utils';
 import { PosTouchScreen } from './PosTouchScreen';
 import { PosTouchCartSidebar, type PosTouchCustomer } from './PosTouchCartSidebar';
+import { PosTouchProductGrid } from './PosTouchProductGrid';
+import type { Product } from '@/types';
 
 interface MockProduct {
   id: string;
@@ -368,6 +370,46 @@ describe('PosTouchScreen', () => {
     const tiles = screen.getAllByTestId(/^pos-touch-tile-/);
     expect(tiles.length).toBe(1);
     expect(tiles[0]).toHaveAttribute('data-testid', 'pos-touch-tile-p-3');
+  });
+
+  it('shows stock state on tiles and a quantity badge once in the cart', async () => {
+    const user = userEvent.setup();
+    render(<PosTouchScreen />);
+
+    const stock = screen.getByTestId('pos-touch-stock-p-1');
+    expect(stock).toHaveAttribute('data-stock-state', 'ok');
+    expect(stock).toHaveTextContent('50 in stock');
+    expect(screen.queryByTestId('pos-touch-quantity-p-1')).not.toBeInTheDocument();
+
+    await user.click(screen.getByTestId('pos-touch-tile-p-1'));
+    await user.click(screen.getByTestId('pos-touch-tile-p-1'));
+
+    expect(screen.getByTestId('pos-touch-quantity-p-1')).toHaveTextContent('2');
+    expect(screen.getByTestId('pos-touch-tile-p-1')).toHaveAccessibleName(/2 in cart/);
+  });
+
+  it('marks low and out of stock tiles and skips products without stock tracking', () => {
+    const product = (overrides: Partial<Product>) =>
+      ({ ...mockProducts[0], ...overrides }) as unknown as Product;
+    render(
+      <PosTouchProductGrid
+        isLoading={false}
+        isError={false}
+        onSelect={vi.fn()}
+        products={[
+          product({ id: 'low', stock: 3, minStock: 5, tracksStock: true }),
+          product({ id: 'out', stock: 0, minStock: 5, tracksStock: true }),
+          product({ id: 'service', stock: 0, minStock: 0, tracksStock: false }),
+          product({ id: 'other-site', stock: 40, siteStock: 0, minStock: 5, tracksStock: true }),
+        ]}
+      />
+    );
+
+    expect(screen.getByTestId('pos-touch-stock-low')).toHaveAttribute('data-stock-state', 'low');
+    expect(screen.getByTestId('pos-touch-stock-out')).toHaveTextContent('Out of stock');
+    expect(screen.queryByTestId('pos-touch-stock-service')).not.toBeInTheDocument();
+    // Stock held only at another site must not read as available here.
+    expect(screen.getByTestId('pos-touch-stock-other-site')).toHaveTextContent('Out of stock');
   });
 
   it('adds a product to the cart on tile tap', async () => {
