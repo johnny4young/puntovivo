@@ -2,7 +2,15 @@
   "kicker": "Configuración guiada",
   "title": "Prepara el negocio sin perderte",
   "description": "Hay {{total}} áreas claras que reúnen lo que necesita la tienda. Mostramos una sola decisión obligatoria a la vez; lo opcional puede esperar.",
-  "progress": "{{ready}} de {{total}} áreas listas",
+  "progress": "{{ready}} de {{total}} áreas obligatorias listas",
+  "progressReview_one": "{{count}} por revisar",
+  "progressReview_other": "{{count}} por revisar",
+  "progressOptional_one": "{{count}} opcional",
+  "progressOptional_other": "{{count}} opcionales",
+  "kind": {
+    "required": "Obligatoria",
+    "optional": "Opcional"
+  },
   "next": {
     "eyebrow": "Siguiente decisión obligatoria",
     "title": "Completa {{section}}",

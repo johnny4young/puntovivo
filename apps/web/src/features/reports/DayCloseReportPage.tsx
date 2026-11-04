@@ -177,7 +177,9 @@ export function DayCloseReportPage() {
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="pv-kicker">{t('dayClose.kicker')}</p>
-          <h1 className="pv-title text-2xl">{t('dayClose.title')}</h1>
+          <h1 data-shell-title className="pv-title text-2xl">
+            {t('dayClose.title')}
+          </h1>
           <p className="mt-2 max-w-3xl text-sm text-secondary-500">{t('dayClose.description')}</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end">

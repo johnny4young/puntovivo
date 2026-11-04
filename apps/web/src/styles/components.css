@@ -3003,6 +3003,31 @@
   }
 }
 
+@media (min-width: 1024px) {
+  .sales-scan-input .input,
+  .sales-scan-submit {
+    height: 2.75rem;
+    min-height: 2.75rem;
+  }
+
+  .sales-scan-submit {
+    padding-block: 0;
+  }
+
+  .sales-utility-dock {
+    display: flex;
+    min-width: 0;
+    flex-shrink: 0;
+    padding: 0.25rem;
+  }
+
+  .sales-utility-dock > button {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    padding-inline: 0.5rem;
+  }
+}
+
 @media (max-width: 767px) {
   .sales-utility-dock {
     min-width: 0;
@@ -3012,6 +3037,16 @@
   .sales-settlement-dock {
     border-radius: 1.65rem;
   }
+}
+
+/* The shell header owns the page title; the heading stays for assistive tech and in-page focus. */
+.app-shell main h1[data-shell-title] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 @media (prefers-reduced-motion: reduce) {

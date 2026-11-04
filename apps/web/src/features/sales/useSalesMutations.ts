@@ -15,6 +15,21 @@ import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { formatCurrency } from '@/lib/utils';
 import type { Sale } from '@/types';
+import type { CompletedSaleSummary } from './SaleCompleteStrip';
+
+function toCompletedSale(sale: {
+  id: string;
+  saleNumber: string;
+  total: number;
+  cashChangeSnapshot?: number | null;
+}): CompletedSaleSummary {
+  return {
+    id: sale.id,
+    saleNumber: sale.saleNumber,
+    total: sale.total,
+    change: sale.cashChangeSnapshot ?? 0,
+  };
+}
 
 /**
  * Params for {@link useSalesMutations}.
@@ -47,7 +62,7 @@ interface UseSalesMutationsParams {
    */
   setDayCloseSessionId: Dispatch<SetStateAction<string | null>>;
   /** Hands the completed sale id to the shell for task metrics and receipt access. */
-  onSaleCompleted: (saleId: string) => void;
+  onSaleCompleted: (sale: CompletedSaleSummary) => void;
   onCashSessionRecoverySucceeded: () => void;
   onCashSessionRecoveryFailed: () => void;
 }
@@ -87,7 +102,7 @@ export function useSalesMutations({
   // to invalidate the same query set and both want the workspace to
   // reset to a fresh blank draft.
   const finishSaleEpilogue = useCallback(
-    async (saleId: string, itemCount: number, loyaltyPointsEarned = 0) => {
+    async (sale: CompletedSaleSummary, itemCount: number, loyaltyPointsEarned = 0) => {
       // The financial command is already committed when this callback runs.
       // Clear the chargeable workspace first so a read-cache failure cannot
       // leave merchandise on screen and invite a duplicate sale.
@@ -102,7 +117,7 @@ export function useSalesMutations({
       setSaleError(null);
       setIsPaymentModalOpen(false);
       playSaleComplete();
-      onSaleCompleted(saleId);
+      onSaleCompleted(sale);
       const refreshed = await invalidateCommittedGroups(utils, SALE_COMPLETION_INVALIDATIONS);
       // when the sale accrued points, the cashier should be able
       // to tell the customer without opening another screen. The base copy
@@ -148,7 +163,11 @@ export function useSalesMutations({
       if (variables.status !== 'completed') {
         return;
       }
-      await finishSaleEpilogue(data.id, variables.items.length, data.loyaltyPointsEarned);
+      await finishSaleEpilogue(
+        toCompletedSale(data),
+        variables.items.length,
+        data.loyaltyPointsEarned
+      );
       // best-effort auto-print after the epilogue toast so
       // the cashier sees "Sale completed" before any printer fallback
       // warning lands.
@@ -162,7 +181,11 @@ export function useSalesMutations({
   // notes at this point.
   const completeDraftMutation = useCriticalMutation('sales.completeDraft', {
     onSuccess: async result => {
-      await finishSaleEpilogue(result.id, result.items.length, result.loyaltyPointsEarned);
+      await finishSaleEpilogue(
+        toCompletedSale(result),
+        result.items.length,
+        result.loyaltyPointsEarned
+      );
       // auto-print mirror of the fresh-create path.
       await maybeAutoPrint(result as Sale);
     },
