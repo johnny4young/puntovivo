@@ -49,7 +49,7 @@ function PrimaryTaskLink({
         cn(
           'group flex min-h-[4.25rem] items-center gap-3 rounded-[16px] border px-3 py-2.5 text-left transition-all',
           isActive
-            ? 'border-primary-300 bg-primary text-primary-foreground shadow-[0_18px_42px_-30px_color-mix(in_oklch,var(--primary)_80%,transparent)]'
+            ? 'border-primary-300 bg-primary text-primary-foreground dark:bg-[var(--operator-commit)] dark:text-[var(--operator-commit-foreground)] shadow-[0_18px_42px_-30px_color-mix(in_oklch,var(--primary)_80%,transparent)]'
             : 'border-line/70 bg-surface-2/65 text-secondary-900 hover:border-primary-200 hover:bg-primary-50/55'
         )
       }
@@ -114,7 +114,7 @@ function MobileNavigationLink({
         cn(
           'flex min-h-11 items-center gap-3 rounded-[18px] px-3 py-2.5 text-sm font-medium transition-colors',
           isActive
-            ? 'bg-primary text-primary-foreground shadow-[0_18px_40px_-28px_color-mix(in_oklch,var(--primary)_75%,transparent)]'
+            ? 'bg-primary text-primary-foreground dark:bg-[var(--operator-commit)] dark:text-[var(--operator-commit-foreground)] shadow-[0_18px_40px_-28px_color-mix(in_oklch,var(--primary)_75%,transparent)]'
             : 'text-fg2 hover:bg-secondary-100/80 hover:text-secondary-950'
         )
       }
