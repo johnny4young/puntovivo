@@ -18,8 +18,9 @@
  * - Every interactive element ≥ 44 × 44 px.
  * - Line rows truncate the product name so no horizontal
  * overflow at 320 px.
- * - The rail scrolls on its own on large screens and the Cobrar CTA
- * stays reachable via `sticky bottom-0` when the lines overflow it.
+ * - On large screens the rail and the catalog scroll separately inside a
+ * viewport-height page, and `sticky bottom-0` keeps the Cobrar CTA visible
+ * when the lines overflow the rail.
  */
 import { useTranslation } from 'react-i18next';
 import { CreditCard, Sparkles, Trash2, X } from 'lucide-react';
@@ -95,7 +96,7 @@ export function PosTouchCartSidebar({
     <aside
       data-testid="pos-touch-cart"
       aria-busy={isCharging}
-      className="flex flex-col gap-3 rounded-xl border border-line/70 bg-surface-1 p-4 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] lg:self-start lg:overflow-y-auto lg:overscroll-contain scrollbar-thin"
+      className="flex flex-col gap-3 rounded-xl border border-line/70 bg-surface-1 p-4 lg:max-h-full lg:self-start lg:overflow-y-auto lg:overscroll-contain lg:scroll-pb-36 scrollbar-thin"
     >
       <header className="space-y-1">
         <p className="text-xs uppercase tracking-[0.18em] text-secondary-500">{t('cart.title')}</p>
