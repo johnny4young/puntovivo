@@ -34,7 +34,7 @@ export function KdsStationColumn({
       <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
         {label} · {t('station.orderCount', { count: orders.length })}
       </h2>
-      <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(280px,1fr))]">
+      <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(280px,1fr))] lg:grid-cols-1">
         {orders.map(order => (
           <KdsOrderCard
             key={order.id}
