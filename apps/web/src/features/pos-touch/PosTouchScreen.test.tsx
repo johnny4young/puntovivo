@@ -329,6 +329,14 @@ describe('PosTouchScreen', () => {
     expect(screen.getByTestId('pos-touch-no-site')).toBeInTheDocument();
   });
 
+  it('declares a two-track grid so the cart renders as a right rail', () => {
+    render(<PosTouchScreen />);
+    // A comma between tracks compiles to an invalid template that browsers drop silently.
+    expect(screen.getByTestId('pos-touch-layout')).toHaveClass(
+      'lg:grid-cols-[minmax(0,1fr)_22rem]'
+    );
+  });
+
   it('disables Charge sale when no cash session is open', () => {
     mockActiveSession = null;
     render(<PosTouchScreen />);
