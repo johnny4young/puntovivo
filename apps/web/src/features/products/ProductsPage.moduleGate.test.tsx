@@ -175,6 +175,7 @@ vi.mock('@/lib/trpc', async () => ({
 }));
 
 import { ProductsPage } from './ProductsPage';
+import { ProductSearchIndexAction } from '@/features/company/ProductSearchIndexAction';
 
 describe('ProductsPage semantic-search module gate', () => {
   beforeEach(() => {
@@ -303,14 +304,30 @@ describe('ProductsPage semantic-search module gate', () => {
     );
   });
 
-  it('keeps regenerate embeddings available only to admins when module is active', async () => {
+  it('keeps the index rebuild out of the operator toolbar and away from managers', () => {
+    useAuthMock.mockReturnValue({
+      user: { id: 'u-1', role: 'admin' },
+    });
+    useIsModuleActiveMock.mockReturnValue(true);
+    const { unmount } = render(<ProductsPage />);
+    expect(screen.queryByRole('button', { name: /regenerate|regenerar/i })).not.toBeInTheDocument();
+    unmount();
+
+    useAuthMock.mockReturnValue({
+      user: { id: 'u-2', role: 'manager' },
+    });
+    render(<ProductSearchIndexAction />);
+    expect(screen.queryByTestId('ai-search-index-update')).not.toBeInTheDocument();
+  });
+
+  it('rebuilds the index for admins from AI settings and refreshes search health', async () => {
     useAuthMock.mockReturnValue({
       user: { id: 'u-1', role: 'admin' },
     });
     useIsModuleActiveMock.mockReturnValue(true);
 
-    render(<ProductsPage />);
-    fireEvent.click(screen.getByRole('button', { name: /regenerate|regenerar/i }));
+    render(<ProductSearchIndexAction />);
+    fireEvent.click(screen.getByTestId('ai-search-index-update'));
 
     expect(regenerateMutateMock).toHaveBeenCalled();
     await waitFor(() => {
@@ -326,8 +343,8 @@ describe('ProductsPage semantic-search module gate', () => {
     useIsModuleActiveMock.mockReturnValue(true);
     regenerateResultMock.mockReturnValue({ ok: false, embedded: 0 });
 
-    render(<ProductsPage />);
-    fireEvent.click(screen.getByRole('button', { name: /regenerate|regenerar/i }));
+    render(<ProductSearchIndexAction />);
+    fireEvent.click(screen.getByTestId('ai-search-index-update'));
 
     await waitFor(() => {
       expect(toastWarningMock).toHaveBeenCalledWith({

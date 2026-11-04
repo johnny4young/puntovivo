@@ -308,6 +308,12 @@ export function SalesScreen({
   // Buttons pass their click event, which must not read as the fast cash flag.
   const handleCharge = () => handleOpenPaymentModal();
 
+  // Resuming a sale means the shift is not ending yet, so the close stops here.
+  const handleResumeSuspended: typeof handleResumeFromPanel = draft => {
+    setIsCashSessionCloseModalOpen(false);
+    return handleResumeFromPanel(draft);
+  };
+
   return (
     <>
       <div className="sales-pos-shell space-y-3 lg:pb-24 lg:flex pos:min-h-0 lg:flex-col lg:gap-3 lg:space-y-0 pos:overflow-hidden pos:pb-0">
@@ -506,7 +512,7 @@ export function SalesScreen({
             <LazySuspendedSalesPanel
               isOpen
               onClose={() => setIsSuspendedPanelOpen(false)}
-              onResume={handleResumeFromPanel}
+              onResume={handleResumeSuspended}
             />
           </Suspense>
         </Drawer>
@@ -596,6 +602,8 @@ export function SalesScreen({
             onCloseCloseModal={() => setIsCashSessionCloseModalOpen(false)}
             onSubmitClose={handleCloseCashSession}
             suspendedDraftsCount={suspendedDraftsCount}
+            isCloseModalHidden={isSuspendedPanelOpen}
+            onReviewSuspended={() => setIsSuspendedPanelOpen(true)}
             isCashSessionMovementModalOpen={isCashSessionMovementModalOpen}
             cashSessionMovementModalKey={cashSessionMovementModalKey}
             isRecordingMovement={isRecordingMovement}

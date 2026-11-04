@@ -22,8 +22,7 @@
     "inventoryValue": "Inventory Value",
     "lowStockItems": "Low Stock Items",
     "recentFlow": "Recent Flow",
-    "recentFlowDetail_one": "{{count}} recent entry · adjustments",
-    "recentFlowDetail_other": "{{count}} recent entries · adjustments"
+    "recentFlowDetail": "{{in}} units in · {{out}} out"
   },
   "movements": {
     "loading": "Loading inventory movements...",
@@ -47,7 +46,8 @@
       "unattributedSite": "Historical movement without site attribution",
       "viewAria": "View details",
       "close": "Close"
-    }
+    },
+    "futureDated": "Future date"
   },
   "stock": {
     "loading": "Loading stock balances...",
@@ -81,7 +81,6 @@
   },
   "entries": {
     "loading": "Loading inventory entries...",
-    "loadingShort": "Loading entries…",
     "error": "Unable to load inventory entries",
     "search": "Search entries by product...",
     "exportTitle": "Initial Inventory Entries",

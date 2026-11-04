@@ -15,7 +15,7 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SlidersHorizontal } from 'lucide-react';
 import { Drawer } from '@/components/feedback/Drawer';
-import { formatCurrency, formatDateTime } from '@/lib/utils';
+import { formatCurrency, formatDateTime, formatNumber } from '@/lib/utils';
 import type { InventoryStockItem } from '@/types';
 
 /**
@@ -80,8 +80,8 @@ export function InventoryStockDetailsDrawer({
         <dl data-testid="inventory-stock-details-fields">
           <DetailField label={t('stock.details.sku')} value={item.sku} />
           <DetailField label={t('stock.details.category')} value={item.categoryName || '-'} />
-          <DetailField label={t('stock.columns.stock')} value={item.stock.toLocaleString()} />
-          <DetailField label={t('stock.columns.minStock')} value={item.minStock.toLocaleString()} />
+          <DetailField label={t('stock.columns.stock')} value={formatNumber(item.stock)} />
+          <DetailField label={t('stock.columns.minStock')} value={formatNumber(item.minStock)} />
           <DetailField label={t('stock.columns.sellPrice')} value={formatCurrency(item.price)} />
           <DetailField
             label={t('stock.columns.valuation')}

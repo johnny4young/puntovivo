@@ -3,6 +3,7 @@
 import { generateFilename } from './filename';
 import { formatValue, getNestedValue } from './format';
 import type { ExportColumn, ExportOptions } from './types';
+import { formatDateTime } from '@/lib/utils';
 
 /**
  * Export data to PDF format using jspdf library
@@ -55,7 +56,7 @@ export async function exportToPDF<T extends object>(
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(128);
-  doc.text(`Generated: ${new Date().toLocaleString()}`, 14, startY);
+  doc.text(`Generated: ${formatDateTime(new Date())}`, 14, startY);
   startY += 8;
 
   // Prepare table data

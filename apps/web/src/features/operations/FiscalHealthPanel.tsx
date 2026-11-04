@@ -6,7 +6,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
-import { formatCurrency, formatDateTime } from '@/lib/utils';
+import { formatCurrency, formatDateTime, formatNumber } from '@/lib/utils';
 import { FiscalStatusBadge } from '@/components/fiscal/FiscalStatusBadge';
 import { FiscalMaturityBadge } from '@/components/fiscal/FiscalMaturityBadge';
 import { EmptyState } from '@/components/feedback/EmptyState';
@@ -111,14 +111,14 @@ export function FiscalHealthPanel() {
           icon={needsAction ? RefreshCw : FileCheck2}
           tone={actionCount > 0 ? 'danger' : needsAction ? 'success' : 'primary'}
           label={t(`fiscal.statusFilter.${statusFilter}`)}
-          value={listQuery.isLoading ? '—' : actionCount.toLocaleString()}
+          value={listQuery.isLoading ? '—' : formatNumber(actionCount)}
           context={t(`fiscal.kpi.context.${statusFilter}`)}
         />
         <KpiTile
           icon={FileCheck2}
           tone="ink"
           label={t('fiscal.kpi.windowLabel')}
-          value={listQuery.isLoading ? '—' : items.length.toLocaleString()}
+          value={listQuery.isLoading ? '—' : formatNumber(items.length)}
           context={t('fiscal.kpi.windowContext')}
         />
       </div>

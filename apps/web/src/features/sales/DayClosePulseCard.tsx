@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Download, MessageCircle, Sparkles, TrendingDown, TrendingUp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { formatCurrency, formatDate, cn } from '@/lib/utils';
+import { formatCurrency, formatDate, cn, formatPercent } from '@/lib/utils';
 import { downloadFile } from '@/services/export/exportService';
 import {
   buildDayCloseWhatsAppUrl,
@@ -75,7 +75,7 @@ export function DayClosePulseCard({
         count: salesCount,
       }),
       marginLabel: t('cashSession.dayClose.pulse.marginLabel'),
-      marginValue: `${grossMarginPct.toFixed(1)}%`,
+      marginValue: formatPercent(grossMarginPct),
       marginDetail: t('cashSession.dayClose.pulse.marginDetail', {
         amount: formatCurrency(grossProfit),
       }),
@@ -155,9 +155,7 @@ export function DayClosePulseCard({
             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
               {model.comparisonLabel}
             </p>
-            <p className="mt-1 text-[12.5px] leading-5 text-ink">
-              {model.comparisonValue}
-            </p>
+            <p className="mt-1 text-[12.5px] leading-5 text-ink">{model.comparisonValue}</p>
           </div>
         </div>
 
@@ -208,9 +206,7 @@ function PulseMetric({ label, value, detail }: { label: string; value: string; d
       <p className="text-[9.5px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
         {label}
       </p>
-      <p className="mt-1 font-display text-xl tabular-nums tracking-[-0.02em] text-ink">
-        {value}
-      </p>
+      <p className="mt-1 font-display text-xl tabular-nums tracking-[-0.02em] text-ink">{value}</p>
       {detail && <p className="mt-0.5 text-[10.5px] text-muted-foreground">{detail}</p>}
     </div>
   );

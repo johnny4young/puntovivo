@@ -17,7 +17,7 @@
 import type { DataTableColumnDef } from '@/components/tables/DataTable';
 import i18next from 'i18next';
 import { Eye } from 'lucide-react';
-import { cn, formatDateTime } from '@/lib/utils';
+import { cn, formatDateTime, formatNumber } from '@/lib/utils';
 import type { InventoryMovement, MovementType } from '@/types';
 
 /**
@@ -25,6 +25,7 @@ import type { InventoryMovement, MovementType } from '@/types';
  * success, outbound reads danger, adjustment warning, transfer primary.
  */
 import { Badge } from '@/components/ui';
+import { getMovementDelta } from './inventoryMovementDelta';
 export const movementBadgeTones: Record<
   MovementType,
   'success' | 'danger' | 'warning' | 'primary'
@@ -37,20 +38,9 @@ export const movementBadgeTones: Record<
   transformation: 'primary',
 };
 
-/**
- * Signed stock delta for a movement row. Sale / transfer rows infer the sign
- * from the previous→new stock direction; adjustments use the raw difference;
- * other movement types preserve their recorded signed quantity. Shared by the table cell and
- * the page-level recent-flow summary so the sign convention lives in one place.
- */
-export function getMovementDelta(movement: InventoryMovement): number {
-  if (movement.type === 'sale' || movement.type === 'transfer') {
-    return movement.previousStock - movement.newStock > 0 ? -movement.quantity : movement.quantity;
-  }
-  if (movement.type === 'adjustment') {
-    return movement.newStock - movement.previousStock;
-  }
-  return movement.quantity;
+export function isFutureDated(createdAt: string, now: number = Date.now()): boolean {
+  const time = new Date(createdAt).getTime();
+  return Number.isFinite(time) && time > now;
 }
 
 /**
@@ -66,7 +56,16 @@ export function getMovementColumns(
       accessorKey: 'createdAt',
       header: () => i18next.t('inventory:table.date'),
       size: 180,
-      cell: ({ row }) => formatDateTime(row.original.createdAt),
+      cell: ({ row }) => (
+        <span className="inline-flex flex-wrap items-center gap-1.5">
+          {formatDateTime(row.original.createdAt)}
+          {isFutureDated(row.original.createdAt) && (
+            <Badge variant="warning" data-testid="inventory-movement-future-date">
+              {i18next.t('inventory:movements.futureDated')}
+            </Badge>
+          )}
+        </span>
+      ),
     },
     {
       accessorKey: 'productName',
@@ -97,7 +96,7 @@ export function getMovementColumns(
         return (
           <span className={cn('pv-mv text-base', delta > 0 && 'up', delta < 0 && 'down')}>
             {delta > 0 ? '+' : ''}
-            {delta.toLocaleString()}
+            {formatNumber(delta)}
           </span>
         );
       },
