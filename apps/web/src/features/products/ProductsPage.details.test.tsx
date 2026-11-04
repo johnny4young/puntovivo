@@ -652,7 +652,7 @@ describe('ProductsPage default column set', () => {
     }));
     const view = render(<ProductsPage />);
     fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
-    fireEvent.click(screen.getByRole('switch', { name: 'Semantic' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'Smart search' }));
     expect(productsListUseQueryMock).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1 }));
     expect(screen.getByRole('button', { name: 'Next page' })).toBeEnabled();
     fireEvent.change(
@@ -679,7 +679,7 @@ describe('ProductsPage default column set', () => {
     expect(productsListUseQueryMock).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1 }));
     expect(screen.getByRole('button', { name: 'Next page' })).toBeEnabled();
     fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
-    fireEvent.click(screen.getByRole('switch', { name: 'Semantic' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'Smart search' }));
     expect(productsListUseQueryMock).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1 }));
   });
 
