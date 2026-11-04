@@ -361,11 +361,9 @@
     "notesHint": "Optional comments for the sale",
     "tip": {
       "heading": "Tip",
-      "helper": "Optional. Calculated on the pre-tip total.",
       "presetZero": "No tip",
       "presetPercentage": "{{percentage}}%",
       "customLabel": "Custom amount",
-      "customPlaceholder": "0.00",
       "grandTotalBreakdown": "Base {{base}} + tip {{tip}}"
     },
     "serviceCharge": {
