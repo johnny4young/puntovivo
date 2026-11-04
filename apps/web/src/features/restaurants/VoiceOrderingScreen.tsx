@@ -491,6 +491,7 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
           onNoteChange={handleNoteChange}
           onLineDetailsChange={handleLineDetailsChange}
           onSave={() => void handleSave()}
+          compactCheck={variant === 'mobile'}
         />
       </div>
 

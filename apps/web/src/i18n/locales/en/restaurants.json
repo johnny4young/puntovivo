@@ -79,7 +79,10 @@
     "removeModifier": "Remove modifier {{name}}",
     "duplicateModifiers": "Each modifier needs a different name. Rename or remove the duplicate before saving.",
     "modifiersLimit": "Maximum {{count}} modifiers per line.",
-    "modifiersLoading": "Loading modifiers…"
+    "modifiersLoading": "Loading modifiers…",
+    "guests_one": "{{count}} guest",
+    "guests_other": "{{count}} guests",
+    "repeatModifiers": "Repeat modifiers"
   },
   "actions": {
     "voiceCTA": "Voice order",

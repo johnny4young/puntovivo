@@ -79,7 +79,10 @@
     "removeModifier": "Eliminar modificador {{name}}",
     "duplicateModifiers": "Cada modificador necesita un nombre distinto. Cambia el nombre o elimina el duplicado antes de guardar.",
     "modifiersLimit": "Máximo {{count}} modificadores por línea.",
-    "modifiersLoading": "Cargando modificadores…"
+    "modifiersLoading": "Cargando modificadores…",
+    "guests_one": "{{count}} comensal",
+    "guests_other": "{{count}} comensales",
+    "repeatModifiers": "Repetir modificadores"
   },
   "actions": {
     "voiceCTA": "Orden por voz",

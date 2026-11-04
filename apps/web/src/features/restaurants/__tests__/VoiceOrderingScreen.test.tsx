@@ -495,6 +495,30 @@ describe('VoiceOrderingScreen', () => {
     expect(screen.queryByTestId('voice-ordering-table-grid')).not.toBeInTheDocument();
   });
 
+  it('keeps the check summary on phones and copies modifiers to the next line', async () => {
+    renderScreen('mobile');
+    await addVoiceItem();
+    await addVoiceItem(makeSelection({ productId: 'p-agua', productName: 'Agua' }));
+    expect(screen.getByTestId('voice-ordering-check-summary')).toHaveTextContent(
+      /1 (guest|comensal)/
+    );
+    expect(screen.queryByTestId('voice-ordering-repeat-modifiers')).not.toBeInTheDocument();
+
+    const [firstName] = screen.getAllByTestId('voice-ordering-modifier-name');
+    fireEvent.change(firstName!, { target: { value: 'Sin hielo' } });
+    fireEvent.click(screen.getByTestId('voice-ordering-repeat-modifiers'));
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId('voice-ordering-modifier-name')[1]).toHaveValue('Sin hielo');
+    });
+  });
+
+  it('leaves the till layout without the phone summary', async () => {
+    renderScreen('touch');
+    await addVoiceItem();
+    expect(screen.queryByTestId('voice-ordering-check-summary')).not.toBeInTheDocument();
+  });
+
   it('fails closed when the table catalog cannot be loaded', () => {
     restaurantTablesMock.mockReturnValue({
       data: undefined,
