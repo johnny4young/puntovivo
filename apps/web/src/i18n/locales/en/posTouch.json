@@ -18,13 +18,19 @@
     "empty": "No products match this category yet.",
     "noResults": "No products in the catalog. Add products from Setup first.",
     "tileAriaLabel": "Add {{name}} for {{price}}",
-    "truncated": "Showing {{shown}} of {{total}} products. Use a more specific category or the search dialog to reach the rest.",
     "inCart": "{{count}} in cart",
     "stock": {
       "ok": "{{count}} in stock",
       "low": "Low · {{count}}",
       "out": "Out of stock"
-    }
+    },
+    "searchLabel": "Search products",
+    "searchPlaceholder": "Search by name or SKU",
+    "noMatches": "No products match your search.",
+    "paginationLabel": "Product pages",
+    "pagination": "Page {{page}} of {{pages}} · {{count}} products",
+    "previous": "Previous",
+    "next": "More"
   },
   "cart": {
     "title": "Active cart",

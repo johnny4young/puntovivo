@@ -1878,6 +1878,12 @@
     "output": "inferred"
   },
   {
+    "path": "products.categoryCounts",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
     "path": "products.create",
     "kind": "mutation",
     "input": "object{barcode?:string|null,categoryId?:string|null,cost?:number[min=0]=0,description?:string|null,fractionMinimum?:number[min>0]|null,fractionStep?:number[min>0]|null,imageUrl?:string|null,initialCost?:number[min=0]=0,isActive?:boolean=true,locationId?:string|null,marginAmount1?:number[min=0]=0,marginAmount2?:number[min=0]=0,marginAmount3?:number[min=0]=0,marginPercent1?:number[min=0]=0,marginPercent2?:number[min=0]=0,marginPercent3?:number[min=0]=0,minStock?:number[min=0]=0,name:string[minLength=1,maxLength=255],pharmacy?:object{activeIngredient?:string[minLength=1,maxLength=255]|null,administrationRoute?:string[minLength=1,maxLength=120]|null,authorizationHolder?:string[minLength=1,maxLength=255]|null,classification?:enum(\"otc\"|\"prescription\"|\"controlled\"),concentration?:string[minLength=1,maxLength=120]|null,dosageForm?:string[minLength=1,maxLength=120]|null,genericName?:string[minLength=1,maxLength=255]|null,manufacturer?:string[minLength=1,maxLength=255]|null,presentation?:string[minLength=1,maxLength=255]|null,registrationExpiresAt?:string[format=date]|null,requiresColdChain?:boolean=false,sanitaryRegistration?:string[minLength=1,maxLength=160]|null,storageConditions?:string[minLength=1,maxLength=500]|null}|null,price?:number[min=0]=0,price2?:number[min=0]=0,price3?:number[min=0]=0,providerAssignments?:array<object>,providerId?:string|null,sellByFraction?:boolean=false,sku:string[minLength=1,maxLength=100],stock?:number[min=0]=0,taxComponents?:array<object>[minItems=1,maxItems=4],taxRate?:number[min=0,max=100]=0,tracksLots?:boolean=false,tracksSerials?:boolean=false,tracksStock?:boolean=true,unitAssignments?:array<object>[minItems=1],vatRateId?:string|null}",

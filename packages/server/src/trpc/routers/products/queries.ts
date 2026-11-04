@@ -166,6 +166,32 @@ export const productQueryProcedures = {
   }),
 
   /**
+   * Active sellable products per category, so a catalog page can label its
+   * filters without downloading every product.
+   */
+  categoryCounts: tenantProcedure.query(({ ctx }) => {
+    const rows = ctx.db
+      .select({ categoryId: products.categoryId, count: sql<number>`count(*)` })
+      .from(products)
+      .where(
+        and(
+          eq(products.tenantId, ctx.tenantId),
+          eq(products.isActive, true),
+          ne(products.catalogType, 'variant_parent')
+        )
+      )
+      .groupBy(products.categoryId)
+      .all();
+
+    return {
+      total: rows.reduce((sum, row) => sum + row.count, 0),
+      categories: rows.flatMap(row =>
+        row.categoryId ? [{ categoryId: row.categoryId, count: row.count }] : []
+      ),
+    };
+  }),
+
+  /**
    * Get a single product by ID
    */
   getById: tenantProcedure.input(getProductInput).query(async ({ ctx, input }) => {

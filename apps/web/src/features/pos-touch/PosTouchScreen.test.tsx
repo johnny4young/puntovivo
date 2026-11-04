@@ -13,7 +13,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
-import { act } from '@testing-library/react';
+import { act, fireEvent } from '@testing-library/react';
 import i18next from '@/i18n';
 import { render, screen, waitFor, within } from '@/test/utils';
 import { PosTouchScreen } from './PosTouchScreen';
@@ -92,7 +92,14 @@ vi.mock('@/lib/trpc', () => ({
     products: {
       list: {
         useQuery: (
-          input: { categoryId?: string; isActive?: boolean; siteId?: string },
+          input: {
+            categoryId?: string;
+            isActive?: boolean;
+            siteId?: string;
+            search?: string;
+            page?: number;
+            perPage?: number;
+          },
           options?: { enabled?: boolean }
         ) => {
           if (options?.enabled === false) {
@@ -104,13 +111,39 @@ vi.mock('@/lib/trpc', () => ({
             }
             return input.categoryId ? product.categoryId === input.categoryId : true;
           });
-          const items = input.siteId
-            ? filtered.map(product => ({ ...product, siteStock: 7 }))
+          const matching = input.search
+            ? filtered.filter(product => product.name.includes(input.search ?? ''))
             : filtered;
+          const page = input.page ?? 1;
+          const perPage = input.perPage ?? 50;
+          const pageItems = matching.slice((page - 1) * perPage, page * perPage);
+          const items = input.siteId
+            ? pageItems.map(product => ({ ...product, siteStock: 7 }))
+            : pageItems;
           return {
-            data: { items, total: filtered.length },
+            data: {
+              items,
+              totalItems: matching.length,
+              totalPages: Math.ceil(matching.length / perPage),
+            },
             isLoading: false,
             error: null,
+          };
+        },
+      },
+      categoryCounts: {
+        useQuery: () => {
+          const active = mockProducts.filter(product => product.isActive);
+          const counts = new Map<string, number>();
+          for (const product of active) {
+            if (!product.categoryId) continue;
+            counts.set(product.categoryId, (counts.get(product.categoryId) ?? 0) + 1);
+          }
+          return {
+            data: {
+              total: active.length,
+              categories: [...counts].map(([categoryId, count]) => ({ categoryId, count })),
+            },
           };
         },
       },
@@ -373,6 +406,54 @@ describe('PosTouchScreen', () => {
     const tiles = screen.getAllByTestId(/^pos-touch-tile-/);
     expect(tiles.length).toBe(1);
     expect(tiles[0]).toHaveAttribute('data-testid', 'pos-touch-tile-p-3');
+  });
+
+  it('pages the catalog and returns to the first page on a new filter', async () => {
+    const user = userEvent.setup();
+    const base = mockProducts[0]!;
+    mockProducts = Array.from({ length: 30 }, (_, index) => ({
+      ...base,
+      id: `bulk-${index}`,
+      name: `Bulk ${index}`,
+    }));
+    render(<PosTouchScreen />);
+
+    expect(screen.getAllByTestId(/^pos-touch-tile-/)).toHaveLength(24);
+    expect(screen.getByTestId('pos-touch-page-status')).toHaveTextContent(
+      'Page 1 of 2 · 30 products'
+    );
+    expect(screen.getByTestId('pos-touch-page-previous')).toBeDisabled();
+
+    await user.click(screen.getByTestId('pos-touch-page-next'));
+    expect(screen.getAllByTestId(/^pos-touch-tile-/)).toHaveLength(6);
+    expect(screen.getByTestId('pos-touch-page-next')).toBeDisabled();
+
+    await user.click(screen.getByTestId('pos-touch-category-all'));
+    expect(screen.getByTestId('pos-touch-page-status')).toHaveTextContent('Page 1 of 2');
+  });
+
+  it('clears a scanner burst that lands in the focused search field', async () => {
+    render(<PosTouchScreen />);
+    const search = screen.getByTestId<HTMLInputElement>('pos-touch-search');
+    search.focus();
+
+    // A wedge scanner types into the focused field before its end-of-scan key.
+    fireEvent.change(search, { target: { value: '7701234567890' } });
+    for (const key of '7701234567890') fireEvent.keyDown(search, { key });
+    fireEvent.keyDown(search, { key: 'Enter' });
+
+    await waitFor(() => expect(search).toHaveValue(''));
+  });
+
+  it('searches the catalog and says when nothing matches', async () => {
+    const user = userEvent.setup();
+    render(<PosTouchScreen />);
+
+    await user.type(screen.getByTestId('pos-touch-search'), 'zzz-none');
+    expect(await screen.findByTestId('pos-touch-grid-empty')).toHaveTextContent(
+      'No products match your search.'
+    );
+    expect(screen.queryByTestId('pos-touch-pagination')).not.toBeInTheDocument();
   });
 
   it('shows stock state on tiles and a quantity badge once in the cart', async () => {
