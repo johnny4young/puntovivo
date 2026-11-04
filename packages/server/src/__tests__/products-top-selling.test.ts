@@ -130,7 +130,12 @@ describe('products.topSelling', () => {
       productId: string,
       quantity: number,
       cashSessionId: string,
-      overrides: { status?: 'completed' | 'draft'; createdAt?: string } = {}
+      overrides: {
+        status?: 'completed' | 'draft';
+        createdAt?: string;
+        returnState?: 'refunded';
+        unitEquivalence?: number;
+      } = {}
     ) => {
       const saleId = nanoid();
       db.insert(sales)
@@ -140,6 +145,7 @@ describe('products.topSelling', () => {
           saleNumber: `S-${saleId.slice(0, 8)}`,
           cashSessionId,
           status: overrides.status ?? 'completed',
+          returnState: overrides.returnState ?? null,
           subtotal: 10,
           total: 10,
           createdBy: userId,
@@ -154,6 +160,7 @@ describe('products.topSelling', () => {
           productId,
           productNameSnapshot: 'x',
           quantity,
+          unitEquivalence: overrides.unitEquivalence ?? 1,
           unitPrice: 10,
         })
         .run();
@@ -171,11 +178,18 @@ describe('products.topSelling', () => {
     sell(hidden, 99, elsewhere);
     sell(old, 99, here, { createdAt: longAgo });
     sell(draft, 99, here, { status: 'draft' });
+    const refunded = product('Refunded only');
+    sell(refunded, 99, here, { returnState: 'refunded' });
+    const cases = product('Sold by the case');
+    sell(cases, 1, here, { unitEquivalence: 4 });
+    const fraction = product('Under one unit');
+    sell(fraction, 0.4, here);
 
     const result = await caller().products.topSelling({ siteId });
 
     expect(result.map(row => [row.name, row.quantity])).toEqual([
       ['Best seller', 9],
+      ['Sold by the case', 4],
       ['Second seller', 3],
     ]);
   });
