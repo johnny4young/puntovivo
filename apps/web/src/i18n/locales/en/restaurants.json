@@ -30,7 +30,9 @@
     "seatCountUnknown": "Seats not set",
     "status": {
       "free": "Free",
-      "archived": "Archived"
+      "occupied_one": "{{count}} open check",
+      "occupied_other": "{{count}} open checks",
+      "reserved": "Reserved · {{time}}"
     }
   },
   "tableLabel": {
@@ -172,6 +174,11 @@
     "draftStatus": {
       "badgeLabel": "{{tableName}}",
       "badgeTooltip": "Open draft on {{tableName}}"
+    },
+    "viewLabel": "View",
+    "views": {
+      "map": "Floor map",
+      "list": "List"
     }
   },
   "transfer": {

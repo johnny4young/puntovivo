@@ -88,17 +88,19 @@ test.describe('restaurant service lifecycle', () => {
     await page.goto('/restaurants/tables');
 
     await expect(page.getByRole('heading', { name: 'Restaurant tables' })).toBeVisible();
+    await expect(
+      page
+        .getByTestId('restaurant-floor-map-preview')
+        .getByText(catalog.targetName, { exact: true })
+    ).toBeVisible();
+
+    await page.getByTestId('restaurant-tables-view-list').click();
     await expect(page.getByTestId('restaurant-tables-pagination')).toContainText(
       `Showing 1–100 of ${catalog.totalTables} tables`
     );
     await expect(page.locator('tbody').getByText(catalog.targetName, { exact: true })).toHaveCount(
       0
     );
-    await expect(
-      page
-        .getByTestId('restaurant-floor-map-preview')
-        .getByText(catalog.targetName, { exact: true })
-    ).toBeVisible();
 
     await page.getByTestId('data-table-search').fill('%_!');
     await expect(page.locator('tbody').getByText(catalog.targetName, { exact: true })).toBeVisible({

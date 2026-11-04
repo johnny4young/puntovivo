@@ -1,4 +1,4 @@
-import { type RefObject } from 'react';
+import { type ReactNode, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { History, MonitorUp, PauseCircle } from 'lucide-react';
 import { SalesQuickSearchBar } from '@/features/sales/SalesQuickSearchBar';
@@ -27,6 +27,8 @@ interface SalesHeaderSectionProps {
   isResumedCart: boolean;
   itemsLocked: boolean;
   activeWorkspace: CartWorkspace | null;
+  /** Open tickets, kept in the command bar on wide screens. */
+  workspaceTabs?: ReactNode;
 }
 
 export function SalesHeaderSection({
@@ -42,12 +44,16 @@ export function SalesHeaderSection({
   isResumedCart,
   itemsLocked,
   activeWorkspace,
+  workspaceTabs,
 }: SalesHeaderSectionProps) {
   const { t } = useTranslation('sales');
 
   return (
     <>
-      <div className="sales-scan-stage flex flex-col gap-3 sm:flex-row sm:items-stretch xl:shrink-0">
+      <div
+        className="sales-scan-stage flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-stretch lg:flex-nowrap lg:items-center lg:shrink-0"
+        data-testid="sales-command-bar"
+      >
         <div className="min-w-0 flex-1">
           <SalesQuickSearchBar
             query={productSearchQuery}
@@ -57,6 +63,7 @@ export function SalesHeaderSection({
             disabled={itemsLocked}
           />
         </div>
+        {workspaceTabs}
         <div
           className={`pv-control-cluster sales-utility-dock${customerDisplayEnabled ? ' sales-utility-dock-has-display' : ''}`}
         >
@@ -65,21 +72,23 @@ export function SalesHeaderSection({
             className="pv-control-key sales-utility-action btn-outline flex flex-1 items-center justify-center gap-2 whitespace-nowrap sm:flex-none"
             onClick={onOpenHistory}
             data-testid="sales-open-history"
+            title={t('view.history')}
           >
             <History className="h-4 w-4" aria-hidden="true" />
-            {t('view.history')}
+            <span className="lg:sr-only">{t('view.history')}</span>
           </button>
           <button
             type="button"
             className="pv-control-key sales-utility-action btn-outline flex flex-1 items-center justify-center gap-2 whitespace-nowrap sm:flex-none"
             onClick={onOpenSuspended}
             data-testid="sales-open-suspended"
+            title={t('park.panelTitle')}
             aria-keyshortcuts={
               suspendedDraftsCount > 0 ? ariaKeyshortcutsFor('sales.toggleSuspended') : undefined
             }
           >
             <PauseCircle className="h-4 w-4" aria-hidden="true" />
-            {t('park.panelTitle')}
+            <span className="lg:sr-only">{t('park.panelTitle')}</span>
             {suspendedDraftsCount > 0 && (
               <span
                 className="inline-flex min-w-5 items-center justify-center rounded-full bg-primary-100 px-1.5 text-xs font-semibold text-primary-700"

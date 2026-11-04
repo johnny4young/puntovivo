@@ -444,7 +444,9 @@ export function UsersPage() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-secondary-900">{t('users.title')}</h1>
+          <h1 data-shell-title className="text-2xl font-bold text-secondary-900">
+            {t('users.title')}
+          </h1>
           <p className="mt-1 text-sm text-secondary-500">{t('users.description')}</p>
         </div>
         <div className="rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-700">
@@ -457,7 +459,9 @@ export function UsersPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-secondary-900">{t('users.title')}</h1>
+          <h1 data-shell-title className="text-2xl font-bold text-secondary-900">
+            {t('users.title')}
+          </h1>
           <p className="mt-1 text-sm text-secondary-500">{t('users.description')}</p>
         </div>
         <button

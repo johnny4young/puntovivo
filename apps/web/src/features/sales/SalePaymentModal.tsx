@@ -18,6 +18,7 @@ import { useTranslation } from 'react-i18next';
 import { Drawer } from '@/components/feedback/Drawer';
 import { ModalButton } from '@/components/form-controls/Modal';
 import { formatCurrency } from '@/lib/utils';
+import { TENDER_SUM_EPSILON } from './salePaymentModal.constants';
 import { useSalePaymentModal } from './useSalePaymentModal';
 import { CheckoutApprovalPanel } from './CheckoutApprovalPanel';
 import type { SalePaymentModalProps } from './salePaymentModal.types';
@@ -277,7 +278,16 @@ export function SalePaymentModal({
                 ? t('payment.processing')
                 : isPartialPayment
                   ? t('payment.confirmPartialAmount', { amount: formatCurrency(outstanding) })
-                  : t('payment.confirm')}
+                  : splitMode && Math.abs(tenderDelta) >= TENDER_SUM_EPSILON
+                    ? t(
+                        tenderDelta < 0
+                          ? 'payment.confirmSplitMissing'
+                          : 'payment.confirmSplitOver',
+                        {
+                          amount: formatCurrency(Math.abs(tenderDelta)),
+                        }
+                      )
+                    : t('payment.confirm')}
             </ModalButton>
           </div>
         </div>

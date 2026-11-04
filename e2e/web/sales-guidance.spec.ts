@@ -15,29 +15,23 @@ for (const spanish of [false, true]) {
       `guidance-${language}-${testInfo.parallelIndex}-${Date.now()}`
     );
     await login(page, { ...scenario.cashier, defaultPath: '/sales' }, { spanish });
-    const summary = page.getByText(spanish ? 'Resumen del carrito' : 'Cart summary', {
-      exact: true,
-    });
-    await expect(summary).toHaveCount(0);
-    await expect(
-      page.getByText(
-        spanish
-          ? 'Escanea un código de barras o busca por nombre o SKU para agregar un producto.'
-          : 'Scan a barcode or search by name or SKU to add a product.',
-        { exact: true }
-      )
-    ).toBeVisible();
+    await expect(page.getByTestId('checkout-total')).toContainText(
+      spanish ? 'Ítems (0)' : 'Items (0)'
+    );
     await expect(page.locator('body')).not.toContainText(
       spanish ? 'Sugerencia rápida' : 'Quick suggestion'
     );
     const hint = page.locator('.sales-scan-hint');
     // The UI formats actual browser-platform keys, not the Node host name.
     const searchKey = await page.evaluate(() => (/Mac/i.test(navigator.platform) ? '⌥P' : 'Alt+P'));
-    await expect(hint.locator('kbd')).toHaveText([searchKey, 'F5', 'F1']);
-    await expect(hint).not.toContainText('`');
+    // The desktop command bar keeps these keys in the checkout rail instead.
+    await expect(hint).toBeHidden();
+    await expect(page.getByTestId('checkout-shortcut-chips')).toContainText('F1');
 
     for (const width of [320, 375, 768]) {
       await page.setViewportSize({ width, height: 1024 });
+      await expect(hint.locator('kbd')).toHaveText([searchKey, 'F5', 'F1']);
+      await expect(hint).not.toContainText('`');
       // Responsive sidebar motion must finish before measuring visible hints.
       // Keep the viewport assertion: a persistent overflow still fails.
       await expect
@@ -71,13 +65,9 @@ for (const spanish of [false, true]) {
     }
 
     await addProductToCartViaKeyboard(page, scenario.product.sku);
-    await expect(summary).toBeVisible();
-    await expect(
-      page.getByText(
-        spanish ? '1 ítem en carrito · revisa el total' : '1 item in cart · review total',
-        { exact: true }
-      )
-    ).toBeVisible();
+    await expect(page.getByTestId('checkout-total')).toContainText(
+      spanish ? 'Ítems (1)' : 'Items (1)'
+    );
     await expect(page.locator('body')).not.toContainText(
       spanish ? 'Último escaneado' : 'Last scanned'
     );

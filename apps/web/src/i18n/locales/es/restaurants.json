@@ -30,7 +30,9 @@
     "seatCountUnknown": "Cupo sin definir",
     "status": {
       "free": "Libre",
-      "archived": "Archivada"
+      "occupied_one": "{{count}} cuenta abierta",
+      "occupied_other": "{{count}} cuentas abiertas",
+      "reserved": "Reservada · {{time}}"
     }
   },
   "tableLabel": {
@@ -172,6 +174,11 @@
     "draftStatus": {
       "badgeLabel": "{{tableName}}",
       "badgeTooltip": "Borrador abierto en {{tableName}}"
+    },
+    "viewLabel": "Vista",
+    "views": {
+      "map": "Plano",
+      "list": "Lista"
     }
   },
   "transfer": {
