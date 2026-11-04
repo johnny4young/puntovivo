@@ -45,6 +45,11 @@ vi.mock('@/features/auth/AuthProvider', () => ({
   }),
 }));
 
+const mockProducts = vi.hoisted(() => ({ items: [] as Array<Record<string, unknown>> }));
+vi.mock('@/features/sales/useProductPaletteResults', () => ({
+  useProductPaletteResults: () => mockProducts.items,
+}));
+
 vi.mock('@/features/modules', () => ({
   useModulesSnapshot: () => ({
     modules: mockModules,
@@ -467,5 +472,19 @@ describe('CommandPalette', () => {
       >;
       expect(stored['navigate.sales']?.count).toBe(1);
     });
+  });
+
+  it('lists matching products with price and stock', () => {
+    mockProducts.items = [
+      { id: 'p-1', name: 'Aceite 1L', sku: 'ABR-3', price: 11900, stock: 28, tracksStock: true },
+    ];
+    render(<CommandPalette isOpen onClose={vi.fn()} />);
+
+    fireEvent.change(screen.getByTestId('command-palette-search'), { target: { value: 'ace' } });
+    const row = screen.getByTestId('command-palette-item-sales.sellProduct.p-1');
+    expect(row).toHaveTextContent('Sell Aceite 1L');
+    expect(row).toHaveTextContent(/11[,.]900/);
+    expect(row).toHaveTextContent('28 in stock');
+    mockProducts.items = [];
   });
 });
