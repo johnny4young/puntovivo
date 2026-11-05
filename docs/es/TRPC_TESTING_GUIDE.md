@@ -17,7 +17,7 @@ La forma rápida y confiable de validar tRPC en este repositorio es:
 
 ### Versión de Node
 
-Usa Node 24 o posterior, como exige la raíz del repositorio.
+Usa Node 26 o posterior, como exige la raíz del repositorio.
 
 ### Verificación nativa portable
 
