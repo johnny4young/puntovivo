@@ -41,7 +41,12 @@ let dummyHashPromise: Promise<string> | null = null;
 /** Timing equalizer for unavailable/unenrolled switch targets. */
 export function getDummyStaffPinHash(): Promise<string> {
   if (!dummyHashPromise) {
-    dummyHashPromise = hashStaffPin('000000');
+    const pending = hashStaffPin('000000');
+    // A failed hash must not stay cached: every PIN check awaits this promise.
+    pending.catch(() => {
+      if (dummyHashPromise === pending) dummyHashPromise = null;
+    });
+    dummyHashPromise = pending;
   }
   return dummyHashPromise;
 }
