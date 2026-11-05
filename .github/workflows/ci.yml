@@ -355,8 +355,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-playwright-chromium-
 
-      - name: Run web validation
-        run: pnpm run ci:web
+      - name: Run web build and browser gates
+        run: pnpm run ci:web:gates
 
       - name: Run critical web journeys
         run: pnpm run test:e2e:web:critical
@@ -378,11 +378,36 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
-      # ci:web now runs vitest with --coverage and the
-      # thresholds declared in apps/web/vitest.config.ts. A regression
-      # below those floors fails this job. LCOV is uploaded as an
-      # artifact so downstream tooling (Codecov, local inspection) can
-      # consume it without re-running the suite.
+  # Unit tests and the browser gates share nothing but the install. Apart, each fits a
+  # third less than the serial job did, and neither hides the other's failure.
+  web-unit:
+    name: Web Unit
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.web == 'true' || needs.detect-changes.outputs.shared == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          standalone: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          check-latest: true
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run web static and unit gates
+        run: pnpm run ci:web:unit
+
       - name: Upload web LCOV coverage
         if: always()
         uses: actions/upload-artifact@v7
@@ -531,12 +556,92 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run backend validation
-        run: pnpm run ci:server
+      - name: Run backend gates
+        run: pnpm run ci:server:gates
 
-      # ci:server now runs vitest with --coverage and the
-      # thresholds declared in packages/server/vitest.config.ts. LCOV
-      # is uploaded as an artifact for downstream coverage tooling.
+  # Each file migrates its own databases and the suite is CPU bound, so three runners
+  # cut the longest job of this workflow. Floors apply once, on the merged report.
+  backend-tests:
+    name: Backend tests ${{ matrix.shard }}/3
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.server == 'true' || needs.detect-changes.outputs.shared == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          standalone: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          check-latest: true
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Instrumented server tests
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: |
+          pnpm --filter @puntovivo/shared run build
+          pnpm --filter @puntovivo/server run test:coverage --shard="$SHARD/3" --reporter=default --reporter=blob
+
+      - name: Upload coverage blob
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: server-blob-${{ matrix.shard }}
+          path: packages/server/.vitest/blob/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
+  backend-coverage:
+    name: Backend coverage floors
+    needs: backend-tests
+    if: ${{ !cancelled() && needs.backend-tests.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          standalone: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          check-latest: true
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: server-blob-*
+          path: packages/server/.vitest/blob
+          merge-multiple: true
+
+      - name: Require every shard blob
+        run: test "$(find packages/server/.vitest/blob -name 'blob-*.json' | wc -l)" -eq 3
+
+      - name: Coverage floors on the merged report
+        run: pnpm --filter @puntovivo/server exec vitest run --merge-reports=.vitest/blob --coverage
+
       - name: Upload backend LCOV coverage
         if: always()
         uses: actions/upload-artifact@v7
