@@ -169,7 +169,7 @@ export function SalesFlowRail({
       actionClassName="hidden h-full min-w-40 max-lg:@2xl:block"
       action={
         <PrimaryTaskButton
-          className="h-full min-h-12 w-full justify-center shadow-[inset_4px_0_0_var(--success-500),inset_0_-3px_0_rgba(3,15,25,0.48)]"
+          className="h-full min-h-12 w-full justify-center shadow-[inset_0_-3px_0_rgba(3,15,25,0.48)]"
           onClick={action}
           disabled={actionDisabled}
           aria-keyshortcuts={shortcutId ? ariaKeyshortcutsFor(shortcutId) : undefined}

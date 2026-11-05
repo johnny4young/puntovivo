@@ -90,7 +90,8 @@
 .manual-version {
   padding: 24px;
   background: var(--surface-2);
-  border-left: 3px solid var(--primary-600);
+  border: 1px solid var(--border);
+  border-radius: 8px;
 }
 .manual-version h2 {
   font-family: var(--font-ui);
@@ -181,8 +182,10 @@
   margin: 0 0 16px;
 }
 .manual-check {
-  border-left: 3px solid var(--fg3);
-  padding: 0 0 0 20px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px 20px;
   margin: 28px 0;
 }
 .manual-check h3 {

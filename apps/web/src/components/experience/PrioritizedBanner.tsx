@@ -24,13 +24,13 @@ export interface PrioritizedBannerProps
 
 const SURFACE_TONE: Record<PrioritizedBannerTone, string> = {
   neutral:
-    'border-primary-100 bg-[linear-gradient(100deg,rgba(14,165,233,0.07),transparent_34%),var(--surface)] shadow-[inset_4px_0_0_var(--primary-700),0_18px_42px_-38px_rgba(15,23,42,0.62)]',
+    'border-primary-100 bg-[linear-gradient(100deg,rgba(14,165,233,0.07),transparent_34%),var(--surface)] shadow-[0_18px_42px_-38px_rgba(15,23,42,0.62)]',
   ready:
-    'border-success-200 bg-[linear-gradient(100deg,rgba(38,173,122,0.1),transparent_34%),var(--surface)] shadow-[inset_4px_0_0_var(--success-600),0_18px_42px_-38px_rgba(15,23,42,0.62)]',
+    'border-success-200 bg-[linear-gradient(100deg,rgba(38,173,122,0.1),transparent_34%),var(--surface)] shadow-[0_18px_42px_-38px_rgba(15,23,42,0.62)]',
   warning:
-    'border-warning-200 bg-[linear-gradient(100deg,rgba(245,158,11,0.11),transparent_38%),var(--surface)] shadow-[inset_4px_0_0_var(--warning-600),0_18px_42px_-38px_rgba(15,23,42,0.62)]',
+    'border-warning-200 bg-[linear-gradient(100deg,rgba(245,158,11,0.11),transparent_38%),var(--surface)] shadow-[0_18px_42px_-38px_rgba(15,23,42,0.62)]',
   critical:
-    'border-danger-200 bg-[linear-gradient(100deg,rgba(220,38,38,0.09),transparent_38%),var(--surface)] shadow-[inset_4px_0_0_var(--danger-600),0_18px_42px_-38px_rgba(15,23,42,0.62)]',
+    'border-danger-200 bg-[linear-gradient(100deg,rgba(220,38,38,0.09),transparent_38%),var(--surface)] shadow-[0_18px_42px_-38px_rgba(15,23,42,0.62)]',
 };
 
 const ICON_TONE: Record<PrioritizedBannerTone, string> = {
