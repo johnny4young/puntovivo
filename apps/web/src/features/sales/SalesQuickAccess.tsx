@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { keepPreviousData } from '@tanstack/react-query';
 import { FilePlus2, LoaderCircle, Percent, Search, Settings2, Star } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '@/components/feedback/ToastProvider';
@@ -30,6 +31,10 @@ interface SalesQuickAccessProps {
   onNewSale: () => void;
 }
 
+// The register boot only shows suggested tiles; the wider catalog is for the favorites editor.
+const SUGGESTION_CATALOG_SIZE = 12;
+const EDITOR_CATALOG_SIZE = 80;
+
 export function SalesQuickAccess({
   scopeKey,
   siteId,
@@ -54,8 +59,8 @@ export function SalesQuickAccess({
   const shouldLoadCatalog = !hasCartItems && siteId.length > 0;
 
   const productsQuery = trpc.products.list.useQuery(
-    { page: 1, perPage: 80, isActive: true },
-    { enabled: shouldLoadCatalog, staleTime: 60_000 }
+    { page: 1, perPage: isEditing ? EDITOR_CATALOG_SIZE : SUGGESTION_CATALOG_SIZE, isActive: true },
+    { enabled: shouldLoadCatalog, staleTime: 60_000, placeholderData: keepPreviousData }
   );
   const categoriesQuery = trpc.categories.tree.useQuery(undefined, {
     enabled: shouldLoadCatalog,
