@@ -8,6 +8,7 @@ import {
 import { AppRoot } from './AppRoot';
 import { isCustomerDisplayEntryLocation } from './features/surfaces/customerDisplayEntry';
 import './index.css';
+import { applyGraphicsTier } from './lib/graphicsTier';
 
 // install window-level error / unhandledrejection
 // listeners before the React tree mounts so even a crash in the
@@ -23,5 +24,7 @@ installRenderTelemetryAdapter();
 if (!isCustomerDisplayEntryLocation(window.location)) {
   installWebVitalsReporter();
 }
+
+applyGraphicsTier();
 
 createRoot(document.getElementById('root')!).render(<AppRoot />);
