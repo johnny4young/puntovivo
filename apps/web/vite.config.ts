@@ -212,6 +212,8 @@ export default defineConfig(({ mode }) => {
                   if (/[\\/]node_modules[\\/](clsx|tailwind-merge)[\\/]/.test(id))
                     return 'style-runtime';
                   if (/[\\/]node_modules[\\/]zustand[\\/]/.test(id)) return 'state-runtime';
+                  // Route chunks otherwise pull icons one tiny request at a time.
+                  if (/[\\/]node_modules[\\/]lucide-react[\\/]/.test(id)) return 'icons';
                   if (/[\\/]node_modules[\\/](jspdf|jspdf-autotable)[\\/]/.test(id)) return 'pdf';
                   if (/[\\/]node_modules[\\/](exceljs|jszip)[\\/]/.test(id)) return 'xlsx';
                   if (/[\\/]node_modules[\\/](codemirror|@codemirror|@lezer)[\\/]/.test(id))

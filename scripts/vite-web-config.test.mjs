@@ -75,6 +75,13 @@ test('the built shell starts from a bounded, acyclic set of chunks', () => {
   );
 });
 
+test('icons share one chunk so a route does not pay one request per icon', () => {
+  for (const separator of ['/', '\\']) {
+    const id = '/repo/node_modules/lucide-react/dist/esm/icons/plus.js'.replaceAll('/', separator);
+    assert.equal(groupName(id), 'icons', id);
+  }
+});
+
 test('Table and its private stores are separate from the eager query and virtualizer runtime', () => {
   for (const separator of ['/', '\\']) {
     for (const prefix of [
