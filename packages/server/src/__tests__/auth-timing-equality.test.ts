@@ -12,6 +12,7 @@ import { createServer, type PuntovivoServer } from '../index.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 import * as passwords from '../security/passwords.js';
+import * as staffPins from '../security/staffPins.js';
 import { users } from '../db/schema.js';
 
 let server: PuntovivoServer | null = null;
@@ -83,5 +84,53 @@ describe('auth.login timing equality', () => {
     const [storedHashArg] = verifySpy.mock.calls[0]!;
     expect(storedHashArg).toBe(seededAdmin.passwordHash);
     expect(storedHashArg).not.toBe(dummyHash);
+  });
+
+  it('boots without waiting for the equalizers and warms both once listening', async () => {
+    const pending = new Promise<void>(() => {});
+    const warmPasswords = vi.spyOn(passwords, 'warmUpPasswordSecurity').mockReturnValue(pending);
+    const warmPins = vi.spyOn(staffPins, 'warmUpStaffPinSecurity').mockReturnValue(pending);
+
+    server = await createServer({
+      dbPath: ':memory:',
+      verbose: false,
+      runtime: {
+        authorityMode: 'device_local',
+        bindHost: '127.0.0.1',
+        bindPort: 0,
+        hubUrl: null,
+        siteId: 'timing-equalizer-warmup',
+        deviceId: null,
+        allowedLanOrigins: [],
+      },
+    });
+    expect(warmPasswords).not.toHaveBeenCalled();
+
+    await server.listen();
+    expect(warmPasswords).toHaveBeenCalledOnce();
+    expect(warmPins).toHaveBeenCalledOnce();
+  });
+
+  it('makes a known email wait for the same equalizer as an unknown one', async () => {
+    server = await createServer({ dbPath: ':memory:', verbose: false });
+    const seededAdmin = await server.db.select().from(users).where(eq(users.role, 'admin')).get();
+    if (!seededAdmin) throw new Error('expected a seeded admin user');
+    const dummyHash = await passwords.getDummyPasswordHash();
+    let releaseEqualizer!: (hash: string) => void;
+    vi.spyOn(passwords, 'getDummyPasswordHash').mockReturnValue(
+      new Promise(resolve => {
+        releaseEqualizer = resolve;
+      })
+    );
+    const verifySpy = vi.spyOn(passwords, 'verifyPasswordSecurely');
+
+    const caller = appRouter.createCaller(loginContext(server));
+    const login = caller.auth.login({ email: seededAdmin.email, password: 'AnythingP@ss1' });
+    await new Promise(resolve => setTimeout(resolve, 50));
+    expect(verifySpy).not.toHaveBeenCalled();
+
+    releaseEqualizer(dummyHash);
+    await expect(login).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+    expect(verifySpy).toHaveBeenCalledWith(seededAdmin.passwordHash, 'AnythingP@ss1');
   });
 });
