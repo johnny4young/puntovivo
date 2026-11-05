@@ -60,6 +60,9 @@ export function registerPackagedRendererScheme(protocol: SchemeRegistrar): void 
         secure: true,
         supportFetchAPI: true,
         corsEnabled: true,
+        // Chromium skips V8's code cache for custom schemes unless asked, so
+        // every launch would recompile the same renderer bundle.
+        codeCache: true,
       },
     },
   ]);
