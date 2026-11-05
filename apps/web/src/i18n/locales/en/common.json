@@ -107,6 +107,12 @@
   "session": "session",
   "userMenu": {
     "aria": "Open user menu for {{name}}, {{role}}",
+    "roles": {
+      "admin": "Admin",
+      "manager": "Manager",
+      "cashier": "Cashier",
+      "viewer": "Viewer"
+    },
     "cashierPace": {
       "preference": "Show my checkout pace",
       "on": "On",

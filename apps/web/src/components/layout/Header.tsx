@@ -69,6 +69,7 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
   const quickSearchLabel = [t('common:quickSearch'), paletteShortcutLabel]
     .filter(Boolean)
     .join(' ');
+  const roleLabel = user ? t(`common:userMenu.roles.${user.role}`) : t('common:session');
 
   useEffect(() => {
     const handleOnline = () => setOnline(true);
@@ -235,7 +236,7 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
               onClick={() => setShowUserMenu(current => !current)}
               aria-label={t('common:userMenu.aria', {
                 name: user?.name ?? t('common:user'),
-                role: user?.role ?? t('common:session'),
+                role: roleLabel,
               })}
               aria-expanded={showUserMenu}
               aria-controls={showUserMenu ? userMenuId : undefined}
@@ -248,7 +249,7 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
                   {user?.name ?? t('common:user')}
                 </span>{' '}
                 <span className="block truncate text-[10.5px] leading-none text-fg2">
-                  {user?.role ?? t('common:session')}
+                  {roleLabel}
                 </span>
               </span>
             </button>

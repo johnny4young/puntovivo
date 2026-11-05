@@ -33,6 +33,7 @@ for (const language of ['en', 'es'] as const) {
     const tenantName = 'Comercializadora Latinoamericana de Productos y Servicios del Centro';
     const siteName = 'Sucursal Centro Comercial Internacional — Punto de Atención Principal';
     const userName = 'María Alejandra Rodríguez Fernández de la Torre';
+    const roleLabel = language === 'es' ? 'Administrador' : 'Admin';
     const db = new Database(path.join(process.cwd(), 'packages/server/data/local.db'));
     try {
       db.transaction(() => {
@@ -69,6 +70,10 @@ for (const language of ['en', 'es'] as const) {
       const header = page.locator('header').first();
       const account = header.getByRole('button', { name: new RegExp(userName) });
       await expectInsideViewport(account, width);
+      await expect(account).toHaveAccessibleName(new RegExp(`${userName}, ${roleLabel}$`));
+      if (width >= 1280) {
+        await expect(account).toContainText(`${userName} ${roleLabel}`);
+      }
       const search = header.getByRole('button', {
         name: language === 'es' ? '¿Qué quieres hacer?' : 'What do you want to do?',
       });
