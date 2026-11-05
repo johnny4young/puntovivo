@@ -45,7 +45,35 @@ function renderHarness(props?: { withDrawer?: boolean; onRetry?: () => void }) {
 
 const isolated = (element: Element) => Boolean(element.closest('[aria-hidden="true"], [inert]'));
 
+interface ToastStateFiber {
+  type: unknown;
+  return: ToastStateFiber | null;
+  memoizedState: { queue: { pending: unknown } };
+}
+
+// A queued update holds its closure until the provider renders again, and only
+// the fiber can show that from a test.
+function queuedToastUpdate(element: Element): unknown {
+  const fiberKey = Object.keys(element).find(key => key.startsWith('__reactFiber$'))!;
+  let fiber = (element as unknown as Record<string, ToastStateFiber | null>)[fiberKey] ?? null;
+  while (fiber && fiber.type !== ToastProvider) fiber = fiber.return;
+  return fiber!.memoizedState.queue.pending;
+}
+
 describe('toasts raised while a dialog is open', () => {
+  it('leave nothing queued on the provider when a dialog without toasts closes', () => {
+    renderHarness();
+    const open = screen.getByText('Open');
+
+    for (let cycle = 0; cycle < 3; cycle += 1) {
+      fireEvent.click(open);
+      fireEvent.click(screen.getByText('Close modal'));
+    }
+
+    expect(queuedToastUpdate(open)).toBeNull();
+  });
+
+
   it('render inside the dialog as an exposed alert', () => {
     renderHarness();
     fireEvent.click(screen.getByText('Open'));
