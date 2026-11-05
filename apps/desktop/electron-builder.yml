@@ -39,11 +39,12 @@ files:
   # of them across .vite/build/*.cjs) and have no dynamic-require consumer, so
   # excluding their node_modules trees is safe. @puntovivo/server also ships its
   # migrations via extraResources (Resources/migrations), the only path the
-  # packaged runtime reads (MIGRATIONS_PATH in main/index.ts) — the asar copy is
-  # never loaded. KEPT on purpose: better-sqlite3 / argon2 (vite externals,
+  # packaged runtime reads (encryption-setup.ts) — the asar copy is never
+  # loaded, so it is excluded below. KEPT on purpose: better-sqlite3 / argon2 (vite externals,
   # native), fastify / ajv / fast-json-stringify / fast-querystring / sonic-boom /
   # pako / @aws-sdk / @smithy (runtime require()d by the bundle).
   - '!node_modules/@puntovivo/server/**'
+  - '!.vite/build/migrations/**'
   - '!node_modules/drizzle-orm/**'
   - '!node_modules/@ai-sdk/**'
   - '!node_modules/ai/**'
@@ -85,6 +86,11 @@ extraResources:
     to: dist
   - from: ../../packages/server/dist/db/migrations
     to: migrations
+    # Drizzle snapshots are drizzle-kit input; the runtime reads the journal
+    # and the SQL files only.
+    filter:
+      - '**/*'
+      - '!meta/*_snapshot.json'
 electronFuses:
   runAsNode: false
   enableCookieEncryption: true
