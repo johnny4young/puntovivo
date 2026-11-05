@@ -20,7 +20,7 @@ export interface SelectProps {
   placeholder?: string;
   /** Label for the select */
   label?: string;
-  /** Accessible name when no visible label is rendered */
+  /** Purpose announced before the trigger text when no visible label is rendered */
   'aria-label'?: string;
   /** Error message */
   error?: string;
@@ -75,6 +75,7 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(
     const listRef = useRef<HTMLUListElement>(null);
 
     const selectedOption = options.find(opt => opt.value === value);
+    const triggerText = selectedOption?.label || resolvedPlaceholder;
     const hasError = !!error;
 
     const filteredOptions = searchTerm
@@ -190,7 +191,8 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(
           <button
             ref={ref}
             id={triggerId}
-            aria-label={label ? undefined : ariaLabel}
+            // WCAG 2.5.3: the accessible name must contain the visible text.
+            aria-label={!label && ariaLabel ? `${ariaLabel}: ${triggerText}` : undefined}
             type="button"
             name={name}
             disabled={disabled}
@@ -213,7 +215,7 @@ export const Select = forwardRef<HTMLButtonElement, SelectProps>(
               )}
               title={selectedOption?.label ?? resolvedPlaceholder}
             >
-              {selectedOption?.label || resolvedPlaceholder}
+              {triggerText}
             </span>
 
             <div className="flex shrink-0 items-center gap-1">

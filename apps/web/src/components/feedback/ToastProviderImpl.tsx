@@ -157,6 +157,7 @@ export function ToastProvider({ children }: ToastProviderProps) {
   const outletsRef = useRef<HTMLElement[]>([]);
   const outletKeysRef = useRef(new Map<HTMLElement, string>());
   const nextOutletKeyRef = useRef(0);
+  const outletsGivenToastsRef = useRef(new WeakSet<HTMLElement>());
 
   const registerOutlet = useCallback((outlet: HTMLElement) => {
     outletsRef.current.push(outlet);
@@ -165,6 +166,9 @@ export function ToastProvider({ children }: ToastProviderProps) {
     return () => {
       outletsRef.current = outletsRef.current.filter(candidate => candidate !== outlet);
       outletKeysRef.current.delete(outlet);
+      // React keeps a no-op update queued until this provider next renders, and
+      // its closure would pin the closed dialog's DOM until then.
+      if (!outletsGivenToastsRef.current.has(outlet)) return;
       setToasts(currentToasts =>
         currentToasts.some(toast => toast.outlet === outlet)
           ? currentToasts.map(toast =>
@@ -180,6 +184,7 @@ export function ToastProvider({ children }: ToastProviderProps) {
   useLayoutEffect(() => {
     if (!toasts.some(toast => toast.outlet === undefined)) return;
     const outlet = topmostOutlet(outletsRef.current);
+    if (outlet) outletsGivenToastsRef.current.add(outlet);
     const outletKey = outlet ? outletKeysRef.current.get(outlet) : undefined;
     setToasts(currentToasts =>
       currentToasts.map(toast =>
