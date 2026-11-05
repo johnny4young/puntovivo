@@ -51,7 +51,8 @@ on:
         default: false
 
 env:
-  NODE_VERSION: '24'
+  # The Electron line the last release shipped. Raise it after each runtime release.
+  PREVIOUS_ELECTRON: 43.8.3
   GIT_CONFIG_COUNT: '2'
   GIT_CONFIG_KEY_0: init.defaultBranch
   GIT_CONFIG_VALUE_0: main
@@ -114,7 +115,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .nvmrc
+          check-latest: true
 
       - name: Setup pnpm
         shell: bash
@@ -203,6 +205,13 @@ jobs:
           --candidate-sha "${{ needs.verify-candidate.outputs.sha }}"
           --output "apps/desktop/out-builder/packaged-recovery-linux-${{ needs.verify-candidate.outputs.short_sha }}.json"
 
+      # The other gates inject the key or mock the key store; this one reaches the real one.
+      - name: Prove safeStorage survives the Electron upgrade
+        if: ${{ !inputs.validate_only }}
+        run: |
+          sudo apt-get install -y gnome-keyring
+          xvfb-run -a dbus-run-session -- bash -c "printf proof | gnome-keyring-daemon --unlock --components=secrets > /dev/null && node scripts/verify-safe-storage-upgrade.mjs --from '${{ env.PREVIOUS_ELECTRON }}' --output 'apps/desktop/out-builder/safe-storage-upgrade-${{ needs.verify-candidate.outputs.short_sha }}.json'"
+
       - name: Collect candidate evidence
         if: ${{ !inputs.validate_only }}
         shell: bash
@@ -229,6 +238,7 @@ jobs:
             apps/desktop/out-builder/latest*.yml
             apps/desktop/out-builder/candidate-evidence-*.json
             apps/desktop/out-builder/packaged-recovery-*.json
+            apps/desktop/out-builder/safe-storage-upgrade-*.json
           if-no-files-found: error
           retention-days: 7
 
@@ -262,7 +272,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .nvmrc
+          check-latest: true
 
       - name: Verify pinned macOS support target
         shell: bash
@@ -357,6 +368,11 @@ jobs:
           --candidate-sha "${{ needs.verify-candidate.outputs.sha }}"
           --output "apps/desktop/out-builder/packaged-recovery-mac-${{ matrix.evidence_suffix }}-${{ needs.verify-candidate.outputs.short_sha }}.json"
 
+      # The other gates inject the key or mock the key store; this one reaches the real one.
+      - name: Prove safeStorage survives the Electron upgrade
+        if: ${{ !inputs.validate_only }}
+        run: node scripts/verify-safe-storage-upgrade.mjs --from "${{ env.PREVIOUS_ELECTRON }}" --output "apps/desktop/out-builder/safe-storage-upgrade-${{ needs.verify-candidate.outputs.short_sha }}.json"
+
       - name: Collect candidate evidence
         if: ${{ !inputs.validate_only }}
         shell: bash
@@ -383,6 +399,7 @@ jobs:
             apps/desktop/out-builder/latest*.yml
             apps/desktop/out-builder/candidate-evidence-*.json
             apps/desktop/out-builder/packaged-recovery-*.json
+            apps/desktop/out-builder/safe-storage-upgrade-*.json
           if-no-files-found: error
           retention-days: 7
 
@@ -402,7 +419,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .nvmrc
+          check-latest: true
 
       # The regular pnpm package is pure JavaScript and needs no install
       # scripts. This also avoids pnpm/action-setup v6's Node 24 DEP0190 path;
@@ -486,6 +504,11 @@ jobs:
           --candidate-sha "${{ needs.verify-candidate.outputs.sha }}"
           --output "apps/desktop/out-builder/packaged-recovery-win-${{ needs.verify-candidate.outputs.short_sha }}.json"
 
+      # The other gates inject the key or mock the key store; this one reaches the real one.
+      - name: Prove safeStorage survives the Electron upgrade
+        if: ${{ !inputs.validate_only }}
+        run: node scripts/verify-safe-storage-upgrade.mjs --from "${{ env.PREVIOUS_ELECTRON }}" --output "apps/desktop/out-builder/safe-storage-upgrade-${{ needs.verify-candidate.outputs.short_sha }}.json"
+
       - name: Collect candidate evidence
         if: ${{ !inputs.validate_only }}
         shell: bash
@@ -512,5 +535,6 @@ jobs:
             apps/desktop/out-builder/latest*.yml
             apps/desktop/out-builder/candidate-evidence-*.json
             apps/desktop/out-builder/packaged-recovery-*.json
+            apps/desktop/out-builder/safe-storage-upgrade-*.json
           if-no-files-found: error
           retention-days: 7

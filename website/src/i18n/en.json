@@ -526,7 +526,7 @@
       },
       {
         "q": "What does a site need to get started?",
-        "a": "A computer running Windows 10+, an Apple Silicon Mac on macOS 15 Sequoia or 26 Tahoe, or a recent Linux. Intel Macs have no artifact today. The desktop app runs there and the cloud is not required to sell. System and TCP receipt printing, configurable receipt templates, scanner input, and drawer commands already have software paths; representative printers, drawers, scanners, and payment terminals still need physical qualification."
+        "a": "A computer running 64-bit Windows 10 or later, an Apple Silicon Mac on macOS 15 Sequoia or 26 Tahoe, or a recent Linux. Intel Macs have no artifact today. The desktop app runs there and the cloud is not required to sell. System and TCP receipt printing, configurable receipt templates, scanner input, and drawer commands already have software paths; representative printers, drawers, scanners, and payment terminals still need physical qualification."
       },
       {
         "q": "Does it work without internet?",

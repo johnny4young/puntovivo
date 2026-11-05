@@ -19,7 +19,7 @@ const BOUNDED_STDERR_DIAGNOSTICS = [
     // quit and never while the app ran, consistent with re-prioritizing a
     // renderer or utility process that was already exiting (macos-26 release
     // runner, 2026-09-04, job 101069511807). The line numbers are pinned ON
-    // PURPOSE to Chromium 150.0.7871.224 (Electron 43.4.1) so every rebase
+    // PURPOSE to Chromium 156.0.8078.80 (Electron 45.2.3) so every rebase
     // forces a re-verification; any other kern result stays blocking. Both
     // lines share one budget: task policy failing for live children would
     // repeat the pair well past two.
@@ -27,8 +27,8 @@ const BOUNDED_STDERR_DIAGNOSTICS = [
     description: 'Chromium task policy messages',
     limit: 4,
     patterns: [
-      /^\[[^\]\r\n]+:ERROR:base\/process\/process_mac\.cc:53\] task_policy_set TASK_CATEGORY_POLICY: \(os\/kern\) invalid argument \(4\)$/,
-      /^\[[^\]\r\n]+:ERROR:base\/process\/process_mac\.cc:98\] task_policy_set TASK_SUPPRESSION_POLICY: \(os\/kern\) invalid argument \(4\)$/,
+      /^\[[^\]\r\n]+:ERROR:base\/process\/process_mac\.cc:45\] task_policy_set TASK_CATEGORY_POLICY: \(os\/kern\) invalid argument \(4\)$/,
+      /^\[[^\]\r\n]+:ERROR:base\/process\/process_mac\.cc:90\] task_policy_set TASK_SUPPRESSION_POLICY: \(os\/kern\) invalid argument \(4\)$/,
     ],
   },
   {
@@ -39,7 +39,7 @@ const BOUNDED_STDERR_DIAGNOSTICS = [
     // ubuntu-latest pharmacy Electron journey (2026-10-09, job 113913120166);
     // earlier runners did not probe GBM. A GPU process that keeps restarting
     // would repeat the pair, so it shares one bounded budget. Line numbers are
-    // pinned ON PURPOSE to Chromium 150 (Electron 43) so a rebase re-verifies.
+    // pinned ON PURPOSE to Chromium 156 (Electron 45) so a rebase re-verifies.
     id: 'chromium-xvfb-gpu-probe',
     description: 'Chromium xvfb GPU probe messages',
     limit: 4,
@@ -53,12 +53,36 @@ const BOUNDED_STDERR_DIAGNOSTICS = [
     // Chromium reports the transient result and retries the context. Seen once on
     // the ubuntu-latest pharmacy Electron journey (2026-10-15) and gone on rerun.
     // A GPU channel that keeps failing repeats it past the limit, and the line
-    // number stays pinned to Chromium 150 (Electron 43) so a rebase re-verifies.
+    // number stays pinned to Chromium 156 (Electron 45) so a rebase re-verifies.
     id: 'chromium-gpu-command-buffer-transient',
     description: 'Chromium transient GPU command buffer messages',
     limit: 2,
     patterns: [
-      /^\[[^\]\r\n]+:ERROR:gpu\/ipc\/client\/command_buffer_proxy_impl\.cc:285\] ContextResult::kTransientFailure: Failed to send GpuControl\.CreateCommandBuffer\.$/,
+      /^\[[^\]\r\n]+:ERROR:gpu\/ipc\/client\/command_buffer_proxy_impl\.cc:277\] ContextResult::kTransientFailure: Failed to send GpuControl\.CreateCommandBuffer\.$/,
+    ],
+  },
+  {
+    // Under xvfb a software frame can reach a drawable X already destroyed; Chromium's
+    // default X error handler logs it and drops the frame. First seen on Chromium 156
+    // (ubuntu-latest pharmacy journey, 2026-11-05); the line number is pinned to it.
+    id: 'chromium-xvfb-put-image-bad-drawable',
+    description: 'Chromium xvfb PutImage bad drawable messages',
+    limit: 2,
+    patterns: [
+      /^\[[^\]\r\n]+:WARNING:ui\/gfx\/x\/connection\.cc:59\] X error received\. {2}Request: PutImageRequest, Error: DrawableError\{\.sequence = \d+, \.bad_value = \d+, \.minor_opcode = 0, \.major_opcode = 72\}$/,
+    ],
+  },
+  {
+    // Electron 45 warns once per process for each synchronous safeStorage
+    // method, so three lines is a hard ceiling rather than an observed count.
+    // Electron 46 removes these methods: delete this entry with that migration.
+    id: 'electron-safe-storage-sync-deprecation',
+    description: 'Electron synchronous safeStorage deprecation messages',
+    limit: 3,
+    patterns: [
+      /^\(electron\) 'safeStorage\.isEncryptionAvailable' is deprecated and will be removed\. Please use 'safeStorage\.isAsyncEncryptionAvailable' instead\.$/,
+      /^\(electron\) 'safeStorage\.encryptString' is deprecated and will be removed\. Please use 'safeStorage\.encryptStringAsync' instead\.$/,
+      /^\(electron\) 'safeStorage\.decryptString' is deprecated and will be removed\. Please use 'safeStorage\.decryptStringAsync' instead\.$/,
     ],
   },
 ];
@@ -137,7 +161,8 @@ export function classifyElectronStderrLine(
     // GPU-less headless runner there is no DRM device to find and Chromium
     // simply runs without acceleration. First observed under Chromium 150
     // (Electron 43) on the ubuntu-latest packaged smoke; the line number is
-    // pinned on purpose so a Chromium rebase forces re-verification.
+    // pinned on purpose so a Chromium rebase forces re-verification; it is
+    // unchanged under Chromium 156 (Electron 45).
     return 'informational';
   }
 
@@ -163,7 +188,7 @@ export function classifyElectronStderrLine(
   }
 
   if (
-    /^\[[^\]\r\n]+:WARNING:net\/dns\/address_sorter_posix\.cc:458\] FromSockAddr failed on netmask$/.test(
+    /^\[[^\]\r\n]+:WARNING:net\/dns\/address_sorter_posix\.cc:559\] FromSockAddr failed on netmask$/.test(
       line
     )
   ) {
@@ -172,14 +197,14 @@ export function classifyElectronStderrLine(
     // its default prefix and continues normally. Keep the exact upstream
     // diagnostic visible without weakening the policy for any other warning.
     // The line number is pinned ON PURPOSE so every Chromium rebase forces a
-    // human re-verification before re-accepting: 457 under Chromium 148
-    // (Electron 42), re-verified at 458 under Chromium 150 (Electron 43).
+    // human re-verification before re-accepting: 458 under Chromium 150
+    // (Electron 43), re-verified at 559 under Chromium 156 (Electron 45).
     return 'informational';
   }
 
   if (
     allowPackagedNetworkRaceDiagnostic &&
-    /^\[[^\]\r\n]+:WARNING:net\/spdy\/spdy_session\.cc:3154\] Received HEADERS for invalid stream [1-9]\d*$/.test(
+    /^\[[^\]\r\n]+:WARNING:net\/spdy\/spdy_session\.cc:3185\] Received HEADERS for invalid stream [1-9]\d*$/.test(
       line
     )
   ) {

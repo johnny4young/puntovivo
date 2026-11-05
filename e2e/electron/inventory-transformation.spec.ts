@@ -71,6 +71,10 @@ async function createLotProduct(page: Page, input: { name: string; sku: string; 
 
 async function receiveExactLot(page: Page) {
   await goToRoute(page, '/purchases');
+  // The URL changes before the route swaps, and /products has its own Add Product button.
+  await expect(page.getByRole('heading', { name: /current purchase|compra actual/i })).toBeVisible({
+    timeout: 30_000,
+  });
   await page
     .getByRole('button', { name: /add product|agregar producto/i })
     .first()
