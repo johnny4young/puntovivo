@@ -6,6 +6,7 @@ const log = createModuleLogger('db');
 export interface QueryPlannerMaintenanceOptions {
   /** Quiet time without HTTP traffic before a step may run. */
   idleMs?: number;
+  /** Well under the renderer's 5 s polls, or a check in phase with them never sees a gap. */
   checkIntervalMs?: number;
   /** Synchronous work allowed per step; one large table may exceed it alone. */
   stepBudgetMs?: number;
@@ -52,7 +53,7 @@ export function createQueryPlannerMaintenance(
   sqlite: Database.Database,
   {
     idleMs = 3_000,
-    checkIntervalMs = 5_000,
+    checkIntervalMs = 500,
     stepBudgetMs = 50,
     optimizeIntervalMs = 6 * 60 * 60 * 1_000,
     now = Date.now,
@@ -91,7 +92,7 @@ export function createQueryPlannerMaintenance(
         } catch (error) {
           log.warn(
             { err: error instanceof Error ? { message: error.message } : error },
-            'query planner statistics step failed; will retry when idle'
+            'query planner statistics step failed; that table waits for the next server start'
           );
         }
       }, checkIntervalMs);

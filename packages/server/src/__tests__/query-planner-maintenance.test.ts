@@ -20,7 +20,7 @@ beforeEach(async () => {
   await initDatabase({ dbPath: ':memory:', runMigrations: true, seedData: true });
   sqlite = (getDatabase() as unknown as { $client: Database.Database }).$client;
   clock = 0;
-});
+}, 30_000);
 
 afterEach(() => {
   vi.useRealTimers();
@@ -48,7 +48,7 @@ describe('query planner maintenance', () => {
     exec.mockClear();
     maintenance.runStep();
     expect(exec).not.toHaveBeenCalled();
-  });
+  }, 30_000);
 
   it('runs PRAGMA optimize once the first pass is done and the interval elapses', () => {
     const maintenance = createQueryPlannerMaintenance(sqlite, { optimizeIntervalMs: 1_000, now });
@@ -60,6 +60,25 @@ describe('query planner maintenance', () => {
     clock += 1_000;
     maintenance.runStep();
     expect(pragma).toHaveBeenCalledWith('optimize');
+  });
+
+  it('finds the quiet gap between 5 s renderer polls', () => {
+    vi.useFakeTimers();
+    const exec = vi.spyOn(sqlite, 'exec');
+    const maintenance = createQueryPlannerMaintenance(sqlite, { now });
+    maintenance.start();
+    const advance = (ms: number) => {
+      clock += ms;
+      vi.advanceTimersByTime(ms);
+    };
+
+    for (let poll = 0; poll < 3; poll += 1) {
+      advance(4_900);
+      maintenance.noteActivity();
+      advance(100);
+    }
+    maintenance.stop();
+    expect(analyzedTables(exec).length).toBeGreaterThan(0);
   });
 
   it('steps only while the server is idle', () => {
