@@ -142,8 +142,8 @@ function ResponseModePanel({
   return (
     <section
       className={cn(
-        'card overflow-hidden border-l-4 p-5',
-        modeResolved && verified ? 'border-l-primary-600' : 'border-l-secondary-400'
+        'card overflow-hidden p-5',
+        modeResolved && verified ? 'border-primary-600' : 'border-secondary-400'
       )}
       aria-busy={isLoading || isUpdating}
       data-testid="copilot-response-mode"

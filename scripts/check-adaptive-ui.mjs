@@ -32,7 +32,7 @@ const CONTRACTS = [
     requirements: [
       ['system button colors', '.btn-primary', 'HighlightText'],
       ['system focus ring', ':focus-visible', 'outline: 3px solid Highlight'],
-      ['semantic strip boundary', '.pv-strip', 'border-left-width: 4px'],
+      ['semantic strip boundary', '.pv-strip', 'border: 2px solid CanvasText'],
       ['native color adjustment', 'forced-color-adjust: auto'],
     ],
   },
