@@ -56,11 +56,10 @@ export function SalesMobileCheckoutBar({
     if (!bar || !footprint) return;
     // The fixed bar can grow with translations, park actions and text zoom.
     // Reserve its actual layout height so the last checkout controls can scroll clear.
-    const reserveFootprint = () => {
+    // The observer's first callback runs before paint; reading here would force layout in the commit.
+    const observer = new ResizeObserver(() => {
       footprint.style.height = `${bar.offsetHeight}px`;
-    };
-    reserveFootprint();
-    const observer = new ResizeObserver(reserveFootprint);
+    });
     observer.observe(bar, { box: 'border-box' });
     return () => observer.disconnect();
   }, []);

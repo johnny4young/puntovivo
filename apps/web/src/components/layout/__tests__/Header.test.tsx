@@ -1,16 +1,20 @@
 import { fireEvent, render, screen, within } from '@/test/utils';
 import i18next from 'i18next';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { USER_ROLES } from '@puntovivo/shared/roles';
+import enSettings from '@/i18n/locales/en/settings.json';
+import esSettings from '@/i18n/locales/es/settings.json';
 import { shortcutDisplayFor } from '@/lib/shortcuts';
 import { Header } from '../Header';
 
-const { switchSite, openPalette } = vi.hoisted(() => ({
+const { switchSite, openPalette, auth } = vi.hoisted(() => ({
   switchSite: vi.fn(),
   openPalette: vi.fn(),
+  auth: { role: 'viewer' },
 }));
 vi.mock('@/features/auth/AuthProvider', () => ({
   useAuth: () => ({
-    user: { name: 'María Alejandra Rodríguez', role: 'viewer', email: 'reader@example.test' },
+    user: { name: 'María Alejandra Rodríguez', role: auth.role, email: 'reader@example.test' },
     logout: vi.fn(),
   }),
 }));
@@ -35,6 +39,7 @@ vi.mock('@/components/feedback/CommandPaletteProvider', () => ({
 }));
 
 beforeEach(async () => {
+  auth.role = 'viewer';
   await i18next.changeLanguage('en');
 });
 
@@ -72,16 +77,18 @@ describe('Header accessible names', () => {
       prompt: 'What do you want to do?',
       searchSuffix: 'open task and product search',
       accountPrefix: 'Open user menu for',
+      role: 'Viewer',
     },
     {
       locale: 'es',
       prompt: '¿Qué quieres hacer?',
       searchSuffix: 'abre el buscador de tareas y productos',
       accountPrefix: 'Abre el menú de usuario de',
+      role: 'Observador',
     },
   ])(
     'contain the visible button text in $locale',
-    async ({ locale, prompt, searchSuffix, accountPrefix }) => {
+    async ({ locale, prompt, searchSuffix, accountPrefix, role }) => {
       await i18next.changeLanguage(locale);
       render(<Header onOpenSidebar={vi.fn()} />);
       const shortcut = shortcutDisplayFor('palette.open');
@@ -91,9 +98,24 @@ describe('Header accessible names', () => {
       expect(within(search).getByText(prompt)).toBeInTheDocument();
       expect(within(search).getByText(shortcut)).toBeInTheDocument();
       const account = screen.getByRole('button', {
-        name: `${accountPrefix} María Alejandra Rodríguez, viewer`,
+        name: `${accountPrefix} María Alejandra Rodríguez, ${role}`,
       });
-      expect(account).toHaveTextContent('María Alejandra Rodríguez viewer');
+      expect(account).toHaveTextContent(`María Alejandra Rodríguez ${role}`);
     }
   );
+
+  describe.each([
+    { locale: 'en', accountPrefix: 'Open user menu for', labels: enSettings.users.roles },
+    { locale: 'es', accountPrefix: 'Abre el menú de usuario de', labels: esSettings.users.roles },
+  ])('in $locale', ({ locale, accountPrefix, labels }) => {
+    it.each(USER_ROLES)('label the %s role as the users page does', async role => {
+      auth.role = role;
+      await i18next.changeLanguage(locale);
+      render(<Header onOpenSidebar={vi.fn()} />);
+      const account = screen.getByRole('button', {
+        name: `${accountPrefix} María Alejandra Rodríguez, ${labels[role]}`,
+      });
+      expect(account).toHaveTextContent(`María Alejandra Rodríguez ${labels[role]}`);
+    });
+  });
 });

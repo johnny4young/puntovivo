@@ -8,6 +8,7 @@
     "perChunkGzKb": {
       "index": 48,
       "app-shell": 46,
+      "icons": 20,
       "react-runtime": 106,
       "data-runtime": 36,
       "table-runtime": 18,

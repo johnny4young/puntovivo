@@ -52,6 +52,8 @@ describe('SalesMobileCheckoutBar', () => {
       expect(observe).toHaveBeenCalledWith(screen.getByTestId('mobile-checkout-bar'), {
         box: 'border-box',
       });
+      expect(height).not.toHaveBeenCalled();
+      resize();
       expect(screen.getByTestId('mobile-checkout-footprint')).toHaveStyle({ height: '180px' });
       height.mockReturnValue(244);
       resize();

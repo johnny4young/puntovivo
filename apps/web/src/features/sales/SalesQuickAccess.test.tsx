@@ -70,6 +70,7 @@ const getById = vi.fn(async ({ id }: { id: string }): Promise<Product> => {
 const mockTopSelling = vi.hoisted(() => ({
   items: [] as Array<{ productId: string; name: string; quantity: number }>,
 }));
+const catalogPageSizes = vi.hoisted(() => [] as number[]);
 
 vi.mock('@/lib/trpc', () => ({
   trpc: {
@@ -80,10 +81,13 @@ vi.mock('@/lib/trpc', () => ({
     ) => select({ products: { getById: favoriteQuery } }),
     products: {
       list: {
-        useQuery: (_input: unknown, options: { enabled?: boolean }) => ({
-          data: options.enabled === false ? undefined : { items: products },
-          isLoading: false,
-        }),
+        useQuery: (input: { perPage: number }, options: { enabled?: boolean }) => {
+          catalogPageSizes.push(input.perPage);
+          return {
+            data: options.enabled === false ? undefined : { items: products },
+            isLoading: false,
+          };
+        },
       },
       topSelling: {
         useQuery: (_input: unknown, options: { enabled?: boolean }) => ({
@@ -271,6 +275,18 @@ describe('SalesQuickAccess', () => {
       title: 'The product could not be added. Try again.',
     });
     expect(screen.getByRole('button', { name: 'Add House Coffee to cart' })).toBeEnabled();
+  });
+
+  it('loads the wider catalog only for the favorites editor', async () => {
+    const user = userEvent.setup();
+    catalogPageSizes.length = 0;
+    render(<SalesQuickAccess {...baseProps} />);
+
+    expect(new Set(catalogPageSizes)).toEqual(new Set([12]));
+
+    await user.click(screen.getByTestId('sales-favorites-edit'));
+
+    expect(catalogPageSizes.at(-1)).toBe(80);
   });
 
   it('stores an edited favorite selection for this register', async () => {
