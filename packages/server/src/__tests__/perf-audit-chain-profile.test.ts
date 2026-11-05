@@ -4,7 +4,8 @@
  * Runs only through scripts/run-audit-chain-profile-gate.mjs. The fixture is
  * file-backed so RSS measurements are not dominated by an in-memory SQLite
  * database. It exercises the production paged verifier and the deliberately
- * transaction-bound privacy rewrite.
+ * transaction-bound privacy rewrite. The runner judges the elapsed and RSS
+ * budgets from the measured line, so this file asserts correctness only.
  */
 import Database from 'better-sqlite3';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -171,12 +172,9 @@ describe('100k audit-chain profile', () => {
 
     expect(verification).toMatchObject({ valid: true, checkedCount: budget.rows });
     expect(timerYielded).toBe(true);
-    expect(verifyElapsedMs).toBeLessThanOrEqual(
-      budget.verifyElapsedMs * (1 + budget.thresholdPercent / 100)
-    );
   }, 120_000);
 
-  it('redacts and rehashes 100k rows within the transaction budget', async () => {
+  it('redacts and rehashes 100k rows in one transaction', async () => {
     const startedAt = performance.now();
     const redacted = getDatabase().transaction(tx =>
       redactAuditLogPayloads({
@@ -191,10 +189,6 @@ describe('100k audit-chain profile', () => {
     maxRssGrowthMiB = Math.max(maxRssGrowthMiB, redactMaxRssGrowthMiB);
 
     expect(redacted).toBe(1);
-    expect(redactElapsedMs).toBeLessThanOrEqual(
-      budget.redactElapsedMs * (1 + budget.thresholdPercent / 100)
-    );
     expect((await verifyAuditChain(getDatabase(), tenantId)).valid).toBe(true);
-    expect(maxRssGrowthMiB).toBeLessThanOrEqual(budget.maxRssGrowthMiB);
   }, 120_000);
 });
