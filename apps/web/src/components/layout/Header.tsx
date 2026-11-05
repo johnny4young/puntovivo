@@ -66,6 +66,9 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
   const accountButtonRef = useRef<HTMLButtonElement>(null);
   const paletteShortcut = getShortcutById('palette.open');
   const paletteShortcutLabel = paletteShortcut ? formatKeysForDisplay(paletteShortcut.keys) : null;
+  const quickSearchLabel = [t('common:quickSearch'), paletteShortcutLabel]
+    .filter(Boolean)
+    .join(' ');
 
   useEffect(() => {
     const handleOnline = () => setOnline(true);
@@ -151,7 +154,7 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
           <button
             type="button"
             onClick={openPalette}
-            aria-label={t('common:quickSearchAria')}
+            aria-label={t('common:quickSearchAria', { label: quickSearchLabel })}
             aria-keyshortcuts={ariaKeyshortcutsFor('palette.open')}
             className="pv-command-trigger flex h-10 w-full items-center border border-line-strong/55 bg-surface-2/70 px-0 xl:px-3.5 xl:pl-10 text-left text-[13px] text-secondary-500 outline-none transition hover:border-primary-200 hover:bg-surface-2 focus:border-primary-300 focus:bg-surface-2 focus:ring-4 focus:ring-primary-100/60"
           >
@@ -232,6 +235,7 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
               onClick={() => setShowUserMenu(current => !current)}
               aria-label={t('common:userMenu.aria', {
                 name: user?.name ?? t('common:user'),
+                role: user?.role ?? t('common:session'),
               })}
               aria-expanded={showUserMenu}
               aria-controls={showUserMenu ? userMenuId : undefined}
@@ -242,7 +246,7 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
               <span className="pointer-events-none hidden min-w-0 text-left xl:block">
                 <span className="block max-w-[8.5rem] truncate text-[12.5px] font-semibold text-secondary-950">
                   {user?.name ?? t('common:user')}
-                </span>
+                </span>{' '}
                 <span className="block truncate text-[10.5px] leading-none text-fg2">
                   {user?.role ?? t('common:session')}
                 </span>

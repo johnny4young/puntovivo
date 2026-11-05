@@ -70,10 +70,7 @@ for (const language of ['en', 'es'] as const) {
       const account = header.getByRole('button', { name: new RegExp(userName) });
       await expectInsideViewport(account, width);
       const search = header.getByRole('button', {
-        name:
-          language === 'es'
-            ? 'Abrir buscador de tareas y productos'
-            : 'Open task and product search',
+        name: language === 'es' ? '¿Qué quieres hacer?' : 'What do you want to do?',
       });
       await expectInsideViewport(search, width);
       await account.click();
@@ -100,8 +97,12 @@ for (const language of ['en', 'es'] as const) {
     }
     await page.reload();
     await expect(page.locator('header button[name="site"]')).toHaveText(siteName);
-    const accessibility = await new AxeBuilder({ page }).include('header').analyze();
-    expect(accessibility.violations).toEqual([]);
+    // Button text renders from 1280 px and the shortcut from 1536 px, so 320 px alone misses both.
+    for (const width of [1920, 1280, 320]) {
+      await page.setViewportSize({ width, height: 900 });
+      const accessibility = await new AxeBuilder({ page }).include('header').analyze();
+      expect(accessibility.violations, `axe at ${width} px`).toEqual([]);
+    }
     await expectNoClientIssues(tracker);
   });
 }

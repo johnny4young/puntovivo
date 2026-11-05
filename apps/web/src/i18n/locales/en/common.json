@@ -106,7 +106,7 @@
   "user": "User",
   "session": "session",
   "userMenu": {
-    "aria": "Open user menu for {{name}}",
+    "aria": "Open user menu for {{name}}, {{role}}",
     "cashierPace": {
       "preference": "Show my checkout pace",
       "on": "On",
@@ -172,7 +172,7 @@
   "loadingSites": "Loading sites...",
   "selectSite": "Select a site",
   "quickSearch": "What do you want to do?",
-  "quickSearchAria": "Open task and product search",
+  "quickSearchAria": "{{label}}: open task and product search",
   "toolbar": {
     "toggleColumns": "Toggle Columns",
     "showAllColumns": "Show all columns",
