@@ -39,7 +39,6 @@ on:
           - '100'
 
 env:
-  NODE_VERSION: '24'
   RELEASE_TAG: ${{ inputs.tag }}
   GIT_CONFIG_COUNT: '2'
   GIT_CONFIG_KEY_0: init.defaultBranch
@@ -85,7 +84,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .nvmrc
+          check-latest: true
           # No pnpm store cache: the web release runs once per tag, so a clean
           # install straight from the lockfile is preferred over cache-warm
           # speed. (The native/packaging cache concerns live in release-desktop,
@@ -152,7 +152,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .nvmrc
+          check-latest: true
 
       - name: Setup pnpm
         if: matrix.platform != 'win'

@@ -408,7 +408,7 @@ test('Electron development and production packaging share the reviewed patched r
     'utf8'
   );
   const version = require('electron/package.json').version;
-  assert.equal(version, '43.8.3');
+  assert.equal(version, '45.2.2');
   assert.equal(desktop.devDependencies.electron, version);
   assert.equal(builder.match(/^electronVersion:\s*(\S+)$/m)?.[1], version);
   // No Electron release may bypass the age policy; a literal old version here

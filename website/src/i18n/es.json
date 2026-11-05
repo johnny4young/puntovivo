@@ -526,7 +526,7 @@
       },
       {
         "q": "¿Qué necesita una sede para empezar?",
-        "a": "Un computador con Windows 10+, un Mac con Apple Silicon en macOS 15 Sequoia o 26 Tahoe, o Linux reciente. Los Mac Intel no tienen artefacto por ahora. La aplicación de escritorio funciona allí y la nube no es requisito para vender. La impresión de recibos por el sistema o TCP, las plantillas configurables, la entrada por escáner y los comandos del cajón ya tienen rutas de software; todavía falta validar impresoras, cajones, escáneres y terminales de pago representativos."
+        "a": "Un computador con Windows 10 o posterior de 64 bits, un Mac con Apple Silicon en macOS 15 Sequoia o 26 Tahoe, o Linux reciente. Los Mac Intel no tienen artefacto por ahora. La aplicación de escritorio funciona allí y la nube no es requisito para vender. La impresión de recibos por el sistema o TCP, las plantillas configurables, la entrada por escáner y los comandos del cajón ya tienen rutas de software; todavía falta validar impresoras, cajones, escáneres y terminales de pago representativos."
       },
       {
         "q": "¿Funciona sin internet?",

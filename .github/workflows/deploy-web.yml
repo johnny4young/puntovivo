@@ -61,7 +61,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version-file: .nvmrc
+          check-latest: true
 
       # Standalone install: the site lives outside the apps/* + packages/*
       # workspace globs. --ignore-scripts skips postinstall builds (esbuild ships

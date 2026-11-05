@@ -1,0 +1,7 @@
+{
+  "name": "puntovivo-safe-storage-proof",
+  "productName": "PuntovivoSafeStorageProof",
+  "version": "1.0.0",
+  "private": true,
+  "main": "main.cjs"
+}
