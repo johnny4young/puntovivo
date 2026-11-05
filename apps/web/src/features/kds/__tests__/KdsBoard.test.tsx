@@ -161,8 +161,10 @@ describe('KdsBoard', () => {
     render(<KdsBoard />);
     expect(screen.getAllByTestId('kds-order-card')).toHaveLength(1);
     expect(screen.getByTestId('kds-order-ready')).toHaveClass('btn-primary');
-    expect(screen.getByText('Bandeja paisa')).toBeInTheDocument();
-    expect(screen.getByText('0.001 kg')).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId('kds-order-card')).getByText('Bandeja paisa')
+    ).toBeInTheDocument();
+    expect(within(screen.getByTestId('kds-order-card')).getByText('0.001 kg')).toBeInTheDocument();
     expect(screen.getByText('Round: Ronda 2')).toBeInTheDocument();
     expect(screen.getByText('Guest: Ana')).toBeInTheDocument();
     expect(screen.getByText('2 × Salsa')).toBeInTheDocument();
@@ -383,6 +385,55 @@ it('labels the active site and refreshes both queue and station configuration', 
   expect(h.refetch).toHaveBeenCalledOnce();
   expect(h.stationRefetch).toHaveBeenCalledOnce();
 });
+it('totals what is still to make on the visible station', () => {
+  const line = card().items[0]!;
+  h.items = [
+    card({
+      id: 'a',
+      items: [
+        {
+          ...line,
+          id: 'l-1',
+          saleItemId: 'si-1',
+          productId: 'p-1',
+          productName: 'Bandeja',
+          quantity: 2,
+          status: 'pending',
+        },
+        {
+          ...line,
+          id: 'l-2',
+          saleItemId: 'si-2',
+          productId: 'p-2',
+          productName: 'Listo',
+          quantity: 9,
+          status: 'ready',
+        },
+      ],
+    }),
+    card({
+      id: 'b',
+      items: [
+        {
+          ...line,
+          id: 'l-3',
+          saleItemId: 'si-3',
+          productId: 'p-1',
+          productName: 'Bandeja',
+          quantity: 3,
+          status: 'pending',
+        },
+      ],
+    }),
+    card({ id: 'c', status: 'ready', readyAt: new Date().toISOString() }),
+  ];
+  render(<KdsBoard />);
+
+  const footer = screen.getByTestId('kds-production-footer');
+  expect(footer).toHaveTextContent('5 kg Bandeja');
+  expect(footer).not.toHaveTextContent('Listo');
+});
+
 it('colours active tickets by age and leaves finished ones neutral', () => {
   const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
   h.items = [

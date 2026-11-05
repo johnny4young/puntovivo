@@ -99,5 +99,8 @@
     "start": "Iniciar línea",
     "finish": "Línea lista",
     "recall": "Volver a pendiente"
+  },
+  "production": {
+    "label": "En línea ahora"
   }
 }
