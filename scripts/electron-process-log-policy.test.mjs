@@ -159,6 +159,29 @@ describe('Electron process log policy', () => {
     );
   });
 
+  it('accepts a bounded xvfb PutImage bad drawable error and nothing else from X', () => {
+    const putImage =
+      '[7119:1105/180859.316182:WARNING:ui/gfx/x/connection.cc:59] X error received.  Request: PutImageRequest, Error: DrawableError{.sequence = 296, .bad_value = 2097171, .minor_opcode = 0, .major_opcode = 72}';
+    assert.equal(classifyElectronStderrLine(putImage), 'informational');
+    for (const variant of [
+      putImage.replace('.cc:59]', '.cc:61]'),
+      putImage.replace('PutImageRequest', 'CreateWindowRequest'),
+      putImage.replace('DrawableError', 'MatchError'),
+      putImage.replace('.major_opcode = 72', '.major_opcode = 1'),
+    ]) {
+      assert.equal(classifyElectronStderrLine(variant), 'unexpected');
+    }
+    const classifier = createElectronStderrClassifier();
+    for (let index = 0; index < 2; index += 1) {
+      assert.equal(classifier.classify(putImage), 'informational');
+    }
+    assert.equal(classifier.classify(putImage), 'unexpected');
+    assert.deepEqual(
+      classifier.exceededLimits().map(({ id }) => id),
+      ['chromium-xvfb-put-image-bad-drawable']
+    );
+  });
+
   it('accepts the Sequoia backupd XPC refusal only for that exact service', () => {
     assert.equal(
       classifyElectronStderrLine(

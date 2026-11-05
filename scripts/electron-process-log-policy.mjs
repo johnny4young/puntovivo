@@ -62,6 +62,17 @@ const BOUNDED_STDERR_DIAGNOSTICS = [
     ],
   },
   {
+    // Under xvfb a software frame can reach a drawable X already destroyed; Chromium's
+    // default X error handler logs it and drops the frame. First seen on Chromium 156
+    // (ubuntu-latest pharmacy journey, 2026-11-05); the line number is pinned to it.
+    id: 'chromium-xvfb-put-image-bad-drawable',
+    description: 'Chromium xvfb PutImage bad drawable messages',
+    limit: 2,
+    patterns: [
+      /^\[[^\]\r\n]+:WARNING:ui\/gfx\/x\/connection\.cc:59\] X error received\. {2}Request: PutImageRequest, Error: DrawableError\{\.sequence = \d+, \.bad_value = \d+, \.minor_opcode = 0, \.major_opcode = 72\}$/,
+    ],
+  },
+  {
     // Electron 45 warns once per process for each synchronous safeStorage
     // method, so three lines is a hard ceiling rather than an observed count.
     // Electron 46 removes these methods: delete this entry with that migration.
