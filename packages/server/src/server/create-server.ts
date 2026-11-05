@@ -340,10 +340,12 @@ async function createOwnedServer(
         serverUrl = address;
         // Two 64 MiB Argon2 hashes used to hold boot. Login and PIN checks
         // await these same memoised promises on every branch, so warming
-        // them here keeps their timing equal.
-        void Promise.all([warmUpPasswordSecurity(), warmUpStaffPinSecurity()]).catch(
-          (error: unknown) => serverLog.error({ err: error }, 'timing equalizer warm-up failed')
-        );
+        // them here keeps their timing equal. One at a time bounds memory.
+        void warmUpPasswordSecurity()
+          .then(warmUpStaffPinSecurity)
+          .catch((error: unknown) =>
+            serverLog.error({ err: error }, 'timing equalizer warm-up failed')
+          );
         // when callers pass `port: 0` / `bindPort: 0` to let
         // the OS assign a random port, the resolved runtime captured
         // before listen reads `bindPort: 0`. After listen the actual

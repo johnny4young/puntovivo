@@ -87,9 +87,13 @@ describe('auth.login timing equality', () => {
   });
 
   it('boots without waiting for the equalizers and warms both once listening', async () => {
-    const pending = new Promise<void>(() => {});
-    const warmPasswords = vi.spyOn(passwords, 'warmUpPasswordSecurity').mockReturnValue(pending);
-    const warmPins = vi.spyOn(staffPins, 'warmUpStaffPinSecurity').mockReturnValue(pending);
+    let releasePasswords!: () => void;
+    const warmPasswords = vi.spyOn(passwords, 'warmUpPasswordSecurity').mockReturnValue(
+      new Promise<void>(resolve => {
+        releasePasswords = resolve;
+      })
+    );
+    const warmPins = vi.spyOn(staffPins, 'warmUpStaffPinSecurity').mockResolvedValue();
 
     server = await createServer({
       dbPath: ':memory:',
@@ -108,7 +112,9 @@ describe('auth.login timing equality', () => {
 
     await server.listen();
     expect(warmPasswords).toHaveBeenCalledOnce();
-    expect(warmPins).toHaveBeenCalledOnce();
+    expect(warmPins).not.toHaveBeenCalled();
+    releasePasswords();
+    await vi.waitFor(() => expect(warmPins).toHaveBeenCalledOnce());
   });
 
   it('makes a known email wait for the same equalizer as an unknown one', async () => {
@@ -132,5 +138,24 @@ describe('auth.login timing equality', () => {
     releaseEqualizer(dummyHash);
     await expect(login).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
     expect(verifySpy).toHaveBeenCalledWith(seededAdmin.passwordHash, 'AnythingP@ss1');
+  });
+
+  it('retries an equalizer hash that failed instead of caching the failure', async () => {
+    vi.resetModules();
+    const real = await vi.importActual<typeof import('argon2')>('argon2');
+    let failures = 2;
+    vi.doMock('argon2', () => ({
+      ...real,
+      hash: (...args: Parameters<typeof real.hash>) =>
+        failures-- > 0 ? Promise.reject(new Error('out of memory')) : real.hash(...args),
+    }));
+    const freshPasswords = await import('../security/passwords.js');
+    const freshPins = await import('../security/staffPins.js');
+
+    await expect(freshPasswords.getDummyPasswordHash()).rejects.toThrow('out of memory');
+    await expect(freshPins.getDummyStaffPinHash()).rejects.toThrow('out of memory');
+    vi.doUnmock('argon2');
+    await expect(freshPasswords.getDummyPasswordHash()).resolves.toMatch(/^\$argon2id\$/);
+    await expect(freshPins.getDummyStaffPinHash()).resolves.toMatch(/^\$argon2id\$/);
   });
 });
