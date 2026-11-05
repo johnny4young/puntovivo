@@ -4,6 +4,11 @@ import { CSRF_COOKIE_NAME, csrfTokensMatch, getCsrfHeader } from './csrf.js';
 
 const LOOPBACK_ADDRESSES = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
 
+/** True for a same-machine socket; proxy headers cannot forge it. */
+export function isLoopbackSocket(request: FastifyRequest): boolean {
+  return LOOPBACK_ADDRESSES.has(request.raw.socket.remoteAddress ?? '');
+}
+
 /**
  * Owner credentials may only cross the local setup channel. Use the actual
  * socket, not proxy-controlled IP/protocol headers. A remote hub must be
@@ -23,7 +28,7 @@ export function assertInstallationSetupAccess(request: FastifyRequest): void {
       localOrigin = false;
     }
   }
-  if (!LOOPBACK_ADDRESSES.has(request.raw.socket.remoteAddress ?? '') || !localOrigin) {
+  if (!isLoopbackSocket(request) || !localOrigin) {
     throwServerError({
       trpcCode: 'FORBIDDEN',
       errorCode: 'SETUP_LOCAL_ACCESS_REQUIRED',

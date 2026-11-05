@@ -15,7 +15,8 @@ import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import jwt from '@fastify/jwt';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { AuthorityMode } from '../config/runtime.js';
 import { CORRELATION_ID_HEADER } from '../observability/index.js';
 import { ssePlugin } from '../realtime/sse.js';
 import { REFRESH_COOKIE_NAME, verifyRefreshToken } from '../security/authTokens.js';
@@ -35,6 +36,7 @@ import {
   setSessionCsrfCookie,
   type SessionCsrfIdentity,
 } from '../security/csrf.js';
+import { isLoopbackSocket } from '../security/installation-access.js';
 import { isLiveRefreshFamily } from '../security/refreshTokenFamilies.js';
 import { buildRequestScopedLogger } from './request-logger.js';
 
@@ -44,6 +46,7 @@ export interface RegisterHttpPluginsOptions {
   effectiveCorsOrigins: string[];
   /** Effective JWT secret for the @fastify/jwt signer. */
   jwtSecret: string;
+  authorityMode: AuthorityMode;
 }
 
 /**
@@ -53,7 +56,7 @@ export interface RegisterHttpPluginsOptions {
  */
 export async function registerHttpPlugins(
   app: FastifyInstance,
-  { effectiveCorsOrigins, jwtSecret }: RegisterHttpPluginsOptions
+  { effectiveCorsOrigins, jwtSecret, authorityMode }: RegisterHttpPluginsOptions
 ): Promise<void> {
   // security headers. helmet ships sane defaults for
   // X-Frame-Options (DENY), X-Content-Type-Options (nosniff),
@@ -291,6 +294,13 @@ export async function registerHttpPlugins(
     global: true,
     max: Number.isFinite(globalRateLimitMax) && globalRateLimitMax > 0 ? globalRateLimitMax : 100,
     timeWindow: '1 minute',
+    // device_local trusts no proxy and serves only its own renderer, so the
+    // per-IP cap throttled the cashier: checkout stalled near 18 sales a
+    // minute. Login and per-user procedure buckets still apply.
+    allowList:
+      authorityMode === 'device_local'
+        ? (request: FastifyRequest) => isLoopbackSocket(request)
+        : [],
     errorResponseBuilder: (request, context) => {
       // This hook rejects before tRPC runs. Its default string-valued `error`
       // cannot be decoded by a tRPC client and hides the actual throttle reason.
