@@ -41,10 +41,6 @@ export async function runPayrollJourney(page: Page, target: PayrollJourneyTarget
 
   await ensureLanguage(page, 'en');
   await target.navigate('/company');
-  const advancedSettings = page.getByRole('button', { name: /^Advanced settings/ });
-  if ((await advancedSettings.getAttribute('aria-expanded')) !== 'true') {
-    await advancedSettings.click();
-  }
   await page.getByRole('button', { name: 'Locale', exact: true }).click();
   await expect(page).toHaveURL(/\/company\?tab=locale$/);
   await page.getByTestId('locale-country-select').selectOption('CO');
