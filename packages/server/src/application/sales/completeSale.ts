@@ -29,6 +29,7 @@ import { runFreshSale } from './runFreshSale.js';
 import { runCompleteDraft } from './runCompleteDraft.js';
 import type { CompleteSaleSaleRecord } from './sale-read.js';
 import type { CompleteSaleContext, CompleteSaleInput, CompleteSaleResult } from './types.js';
+import { withRequestMemo } from '../../lib/request-memo.js';
 
 export type { CompleteSaleSaleRecord } from './sale-read.js';
 
@@ -67,6 +68,15 @@ const fallbackLog = createModuleLogger('application/sales/completeSale');
  * path-specific write sets are documented on each path.
  */
 export async function completeSale(
+  ctx: CompleteSaleContext,
+  input: CompleteSaleInput
+): Promise<CompleteSaleResult<CompleteSaleSaleRecord>> {
+  // A sale never writes tenant settings or locale, so its pre-transaction
+  // readers share one read of each.
+  return withRequestMemo(() => completeSaleInScope(ctx, input));
+}
+
+async function completeSaleInScope(
   ctx: CompleteSaleContext,
   input: CompleteSaleInput
 ): Promise<CompleteSaleResult<CompleteSaleSaleRecord>> {
