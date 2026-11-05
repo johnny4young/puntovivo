@@ -77,7 +77,7 @@ evidence that a particular hosted performance failure has been resolved.
 | Virtualised data-table DOM window against a 1,000-row live specimen                               | local web E2E                         | `e2e/web/design-system-scale.spec.ts`                                           |
 | Same-renderer retained heap, documents, DOM nodes, and event listeners after long-shift cycles    | opt-in local web E2E                  | `e2e/web/long-shift-soak.spec.ts`                                               |
 | 256 MiB encrypted backup streaming + RSS, store create/extract, and bounded lifecycle queue       | `ci:desktop`                          | `profile-backup-streaming.mjs` + desktop Node tests                             |
-| Electron main + renderer memory and built-runtime launch (strict in CI; warn-first locally)       | `ci:desktop`                          | `scripts/run-electron-memory-gate.mjs` → `scripts/check-electron-memory.mjs`    |
+| Electron per-process and total memory and built-runtime launch (strict in CI; warn-first locally) | `ci:desktop`                          | `scripts/run-electron-memory-gate.mjs` → `scripts/check-electron-memory.mjs`    |
 | Lighthouse web vitals (LCP / TTI / CLS / score) for top routes (strict in CI; warn-first locally) | `ci:web` + `pnpm run perf:lighthouse` | `scripts/run-lighthouse-gate.mjs` → `scripts/check-lighthouse.mjs`              |
 
 The locally enforceable baseline covers bundle size, fixture and store-sized
@@ -450,10 +450,15 @@ with `PUNTOVIVO_MEASURE_MEMORY=1`. The main process waits for the
 renderer to finish loading plus a short settle window, reads each
 Electron process' working-set via `app.getAppMetrics()`, prints one
 `PUNTOVIVO_MEMORY_METRICS=<json>` line, and quits. The gate maps the
-`Browser` process to `main` and the `Tab` process to `renderer`
-(GPU / utility processes are excluded), sums them in MB, and compares
-against `perf-budget.json::electronMemoryMb.perProcessMb` with the
-shared `thresholdPercent`. The launcher also records total wall time and checks
+`Browser` process to `main`, `Tab` to `renderer`, `GPU` to `gpu` and
+`Utility` to `utility`, sums same-type processes in MB, adds every process
+into `total`, and compares each against
+`perf-budget.json::electronMemoryMb.perProcessMb` with the shared
+`thresholdPercent`. Compositing and network memory live outside main and
+renderer, so a ceiling on those two alone missed most of the app's memory.
+On macOS the GPU working set still excludes most graphics memory, which
+`footprint` shows; on the Linux CI runner software compositing keeps it in
+RAM, where the `gpu` ceiling sees it. The launcher also records total wall time and checks
 it against `operationalProfile.desktopLaunchElapsedMs`.
 
 `ci:desktop` now builds the web bundle plus Electron main/preload

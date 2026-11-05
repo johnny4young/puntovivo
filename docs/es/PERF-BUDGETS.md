@@ -86,7 +86,7 @@ solo no demuestra que se haya resuelto un fallo concreto de rendimiento en un ru
 | Ventana DOM de tabla virtualizada con un espécimen real de 1,000 filas                                                       | E2E web local                         | `e2e/web/design-system-scale.spec.ts`                                          |
 | Heap retenido, documentos, nodos DOM y listeners en el mismo renderizador tras ciclos de jornada prolongada                  | E2E web local opcional                | `e2e/web/long-shift-soak.spec.ts`                                              |
 | Respaldo cifrado en streaming de 256 MiB + RSS, creación/extracción de tienda y cola de ciclo de vida acotada                | `ci:desktop`                          | `profile-backup-streaming.mjs` + pruebas Node de escritorio                    |
-| Memoria principal + renderizador de Electron e inicio del entorno compilado (estricto en CI; advertencia inicial local)      | `ci:desktop`                          | `scripts/run-electron-memory-gate.mjs` → `scripts/check-electron-memory.mjs`   |
+| Memoria por proceso y total de Electron e inicio del entorno compilado (estricto en CI; advertencia inicial local)           | `ci:desktop`                          | `scripts/run-electron-memory-gate.mjs` → `scripts/check-electron-memory.mjs`   |
 | Métricas web de Lighthouse (LCP / TTI / CLS / puntuación) para rutas principales (estricto en CI; advertencia inicial local) | `ci:web` + `pnpm run perf:lighthouse` | `scripts/run-lighthouse-gate.mjs` → `scripts/check-lighthouse.mjs`             |
 
 La línea base exigible localmente cubre tamaño de bundles, latencia p95 de tRPC
@@ -492,10 +492,15 @@ de CI no es un artefacto empaquetado ni firmado.
 del renderizador más un breve período de estabilización, lee el conjunto de
 trabajo de cada proceso Electron con `app.getAppMetrics()`, imprime una línea
 `PUNTOVIVO_MEMORY_METRICS=<json>` y sale. La verificación asigna el proceso
-`Browser` a `main` y el proceso `Tab` a `renderer` (excluye GPU y procesos de
-utilidad), los suma en MB y compara contra
-`perf-budget.json::electronMemoryMb.perProcessMb` con el `thresholdPercent`
-compartido. El lanzador también registra el tiempo real total y lo verifica
+`Browser` a `main`, `Tab` a `renderer`, `GPU` a `gpu` y `Utility` a `utility`,
+suma en MB los procesos del mismo tipo, agrega todos los procesos en `total` y
+compara cada valor contra `perf-budget.json::electronMemoryMb.perProcessMb` con
+el `thresholdPercent` compartido. La memoria de composición y de red vive fuera
+del principal y del renderizador, así que un techo solo sobre esos dos dejaba
+fuera la mayor parte de la memoria de la app. En macOS, el conjunto de trabajo
+de la GPU aún excluye casi toda la memoria gráfica, que sí muestra `footprint`;
+en el runner Linux de CI la composición por software la mantiene en RAM, donde
+el techo `gpu` la ve. El lanzador también registra el tiempo real total y lo verifica
 contra `operationalProfile.desktopLaunchElapsedMs`.
 
 `ci:desktop` compila el bundle web más el bundle principal/preload de Electron,
