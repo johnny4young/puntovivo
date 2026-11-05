@@ -101,6 +101,18 @@ test('packaged renderer carries its preload and file-relative web assets', () =>
   assert.match(webViteConfig, /base: mode === 'production' \? '\.\/' : '\/'/);
 });
 
+test('packaged migrations carry the journal and SQL but no Drizzle snapshots', () => {
+  // About 119 MB of drizzle-kit snapshots shipped twice: in app.asar and in
+  // Resources/migrations. The packaged runtime reads only the latter.
+  assert.match(builderConfig, /^ {2}- '!\.vite\/build\/migrations\/\*\*'$/m);
+  assert.match(
+    builderConfig,
+    /from: \.\.\/\.\.\/packages\/server\/dist\/db\/migrations\n {4}to: migrations\n(?: {4}#.*\n)* {4}filter:\n {6}- '\*\*\/\*'\n {6}- '!meta\/\*_snapshot\.json'/
+  );
+  const mainBuild = readFileSync(new URL('./build-electron-main.mjs', import.meta.url), 'utf8');
+  assert.match(mainBuild, /filter: source => !isDrizzleSnapshot\(source\)/);
+});
+
 test('packaging prunes non-target bundled SQLite prebuilds', () => {
   // The hook path must stay inside apps/desktop: electron-builder rejects
   // relative hook paths above its detected workspace root, and on Windows

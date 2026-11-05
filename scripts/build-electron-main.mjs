@@ -25,6 +25,7 @@ const desktopRoot = resolve(repoRoot, 'apps/desktop');
 const mainOutput = resolve(desktopRoot, '.vite/build');
 const migrationsSource = resolve(repoRoot, 'packages/server/src/db/migrations');
 const migrationsOutput = resolve(mainOutput, 'migrations');
+const isDrizzleSnapshot = path => /(^|[\\/])meta[\\/]\d{4}_snapshot\.json$/.test(path);
 
 // Use the public plugin and its hook contract. Forge 8 intentionally stops
 // exporting its internal config generator; resolving a private file would
@@ -49,7 +50,12 @@ await new Listr(
 
 await rm(migrationsOutput, { recursive: true, force: true });
 await mkdir(dirname(migrationsOutput), { recursive: true });
-await cp(migrationsSource, migrationsOutput, { recursive: true });
+// Drizzle snapshots only serve drizzle-kit generate; the runtime reads the
+// journal and the SQL files.
+await cp(migrationsSource, migrationsOutput, {
+  recursive: true,
+  filter: source => !isDrizzleSnapshot(source),
+});
 process.stdout.write(
   `[electron-main-build] Copied ${relative(repoRoot, migrationsSource)} -> ${relative(repoRoot, migrationsOutput)}\n`
 );
