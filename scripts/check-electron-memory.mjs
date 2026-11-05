@@ -120,6 +120,18 @@ export function renderReport({ regressions, ok, missing }, threshold) {
     lines.push('Budget entries with no measured process (warning):');
     for (const m of missing) lines.push(`  - ${m.name}  (budget ${m.budget} MB)`);
   }
+  if (regressions.length > 0 && ok.length > 0) {
+    lines.push('');
+    lines.push('Within budget:');
+    lines.push('| process | budget (MB) | actual (MB) | delta % |');
+    lines.push('| --- | ---: | ---: | ---: |');
+    for (const o of ok) {
+      const sign = o.deltaPercent >= 0 ? '+' : '';
+      lines.push(
+        `| ${o.name} | ${o.budget} | ${o.actual.toFixed(1)} | ${sign}${o.deltaPercent.toFixed(1)}% |`
+      );
+    }
+  }
   if (regressions.length === 0 && ok.length > 0) {
     lines.push('Electron memory PASS — every budgeted process within budget:');
     lines.push('| process | budget (MB) | actual (MB) | delta % |');

@@ -110,6 +110,19 @@ test('renderReport prints a PASS table when there are no regressions', () => {
   assert.match(report, /main/);
 });
 
+test('renderReport still lists the processes within budget when one regresses', () => {
+  const report = renderReport(
+    {
+      regressions: [{ name: 'utility', budget: 50, actual: 90, deltaPercent: 80 }],
+      ok: [{ name: 'gpu', budget: 100, actual: 95, deltaPercent: -5 }],
+      missing: [],
+    },
+    25
+  );
+  assert.match(report, /\| utility \| 50 \| 90\.0 \| \+80\.0% \|/);
+  assert.match(report, /Within budget:[\s\S]*\| gpu \| 100 \| 95\.0 \| -5\.0% \|/);
+});
+
 test('parseMetricsLine extracts the metrics array', () => {
   const stdout =
     'some boot log\nPUNTOVIVO_MEMORY_METRICS=[{"type":"Browser","workingSetKb":102400}]\nbye';
