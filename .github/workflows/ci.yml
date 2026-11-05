@@ -203,6 +203,7 @@ jobs:
               - 'scripts/ensure-native-runtime*.mjs'
               - 'scripts/packaged-first-use-journey.test.mjs'
               - 'scripts/prune-native-prebuilds*.mjs'
+              - 'scripts/verify-safe-storage-upgrade*.mjs'
               - 'scripts/vite-main-config*.mjs'
               # ci:shared runs in every workspace job. Its script tests are
               # listed here because Desktop Workspace is the cheapest job that
