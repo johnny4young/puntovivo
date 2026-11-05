@@ -55,6 +55,11 @@ sobre todos los grupos y absorbe las divisiones de proveedores y textos de error
 La prueba de regresión de artefactos acota el cierre de inicio y rechaza un ciclo
 de importación `app-shell` → entrada.
 
+Los iconos viven en su propio chunk `icons`. Sin él, cada ruta pedía cada icono de
+`lucide-react` por separado, 12 de ellos antes del LCP de la ruta de ventas. El
+chunk agrega unos 12 KB en gzip a la primera carga de cada ruta a cambio de esos
+viajes de ida y vuelta.
+
 ### Formato de fechas en renderizados repetidos del POS
 
 El formato de fechas por tenant reutiliza como máximo 64 objetos
@@ -649,6 +654,33 @@ en el mínimo con un rango amplio persistente— sigue fallando tras siete muest
 La extensión solo se activa ante un rango amplio que cruce el mínimo, por lo que
 una ejecución estable y otra ruidosa con todas sus muestras del mismo lado
 cuestan exactamente cinco auditorías como antes.
+
+#### Cómo leer una puntuación roja de ventas
+
+Una puntuación roja de ventas en un runner lento necesita dos costos a la vez, así
+que revisa ambos antes de atribuirla al ruido del runner:
+
+- **El tiempo de bloqueo sigue a la CPU.** Lantern multiplica por cuatro el trabajo
+  observado en el hilo principal, de modo que las tareas cruzan la línea de 50 ms
+  con `benchmarkIndex` cerca de 2500 y no cerca de 4000. El TBT de ventas ronda los
+  350 ms en la clase lenta y los 100 ms en la rápida.
+- **El LCP tardío sigue al contenido, no a la CPU.** El LCP de ventas ronda los
+  757 ms o los 2900 ms. El valor bajo significa que ningún texto posterior superó
+  el encabezado de carga del espacio de trabajo, así que mide un marcador temporal
+  y no la caja registradora. Un bloque de texto de la caja mayor que ese encabezado
+  lleva el LCP al valor tardío y cuesta unos 16 puntos en cualquier runner.
+
+Imprime el elemento LCP de la auditoría antes de actuar. No reduzcas texto para
+recuperar el marcador temporal: la página no es más rápida y el siguiente texto
+mayor lo deshace.
+
+Normalizar o fijar el runner no resuelve esto. `ubuntu-latest` mezcla al menos siete
+modelos de CPU y no permite fijar una clase sin runners grandes de pago. Escalar
+`cpuSlowdownMultiplier` según `benchmarkIndex` deja la clase lenta donde está o
+relaja la compuerta para ella. Lanzar Chromium completo en lugar del navegador
+headless también cambia la puntuación por sí solo: una ejecución pareada subió
+12 puntos con peor TBT, porque el LCP marcó 756 ms sin elemento LCP. Trata un cambio
+de binario del navegador como un cambio de medición.
 
 CI falla de forma estricta ante dos clases:
 

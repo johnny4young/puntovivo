@@ -48,6 +48,11 @@ vendor group: a negative priority outranks every group and absorbs the vendor
 and error-copy splits. The artifact regression bounds the startup closure and
 rejects an `app-shell` → entry import cycle.
 
+Icons live in their own `icons` chunk. Without it, every route pulled each
+`lucide-react` icon as a separate request, 12 of them before the sales route's
+LCP. The chunk adds about 12 KB gzip to the first load of each route in exchange
+for those round trips.
+
 ### Date formatting on repeated POS renders
 
 Tenant-scoped date formatting reuses at most 64 `Intl.DateTimeFormat` objects,
@@ -602,6 +607,32 @@ evidence; a genuinely inconclusive run — median at the floor with a persistent
 wide spread — still fails after seven samples. The extension only triggers on a
 wide spread that crosses the floor, so a stable run, and a noisy run whose
 samples all sit on one side, both cost exactly five audits as before.
+
+#### Reading a red sales score
+
+A red sales score on a slow runner needs two costs at once, so check both before
+calling it runner noise:
+
+- **Blocking time follows the CPU.** Lantern multiplies observed main-thread work
+  by four, so tasks cross the 50 ms long-task line on `benchmarkIndex` near 2500
+  and not near 4000. Sales TBT is about 350 ms on the slow class and 100 ms on the
+  fast one.
+- **Late LCP follows the content, not the CPU.** Sales LCP is either about 757 ms
+  or about 2900 ms. The low value means no later text outgrew the workspace loading
+  heading, so it measures a placeholder, not the register. A register text block
+  larger than that heading moves LCP to the late value and costs about 16 points
+  on every runner.
+
+Print the LCP element from the audit before acting. Do not shrink text to bring
+the placeholder back: the page is no faster, and the next larger text undoes it.
+
+Normalizing or pinning does not solve this. `ubuntu-latest` mixes at least seven
+CPU models and cannot pin a class without paid larger runners. Scaling
+`cpuSlowdownMultiplier` by `benchmarkIndex` either leaves the slow class where it
+is or relaxes the gate on it. Spawning full Chromium instead of the headless shell
+also changes the score by itself: a paired run scored 12 points higher with worse
+TBT, because LCP read 756 ms with no LCP element. Treat a browser binary change as
+a measurement change.
 
 The CI path hard-fails on two classes:
 
