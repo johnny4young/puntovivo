@@ -323,7 +323,7 @@ El candidato validado actual incluye:
   local sin firma ni transmisión con el código de unidad UN/ECE congelado; es
   evidencia de desarrollo, no un documento firmado por un proveedor. Ningún
   paquete está certificado todavía para transmisión en producción;
-- destinos Electron 43 y navegador que comparten el mismo núcleo React, Fastify,
+- destinos Electron 45 y navegador que comparten el mismo núcleo React, Fastify,
   tRPC y SQLite.
 
 ## Veredicto de preparación

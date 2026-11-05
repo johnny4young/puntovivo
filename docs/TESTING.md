@@ -87,7 +87,7 @@ before any test service starts.
 typecheck through `packages/server/tsconfig.tests.json`. The test configuration
 keeps all production strictness, expands `rootDir` only far enough to include
 the server's imported fixtures, and exposes the ES2024 library implemented by
-the required Node 24 runtime. It does not widen the production build config.
+the required Node 26 runtime. It does not widen the production build config.
 
 The current test suite has a checked-in baseline of 227 diagnostics across 111
 files. `test-typecheck-baseline.json` records counts by file and diagnostic code,

@@ -60,6 +60,7 @@ test('registers a secure standard renderer scheme before app readiness', () => {
         secure: true,
         supportFetchAPI: true,
         corsEnabled: true,
+        codeCache: true,
       },
     },
   ]);

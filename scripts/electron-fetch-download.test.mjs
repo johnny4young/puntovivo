@@ -70,7 +70,7 @@ function config(name, route = '/artifact', options = {}) {
 }
 
 test(
-  'Node 24 CommonJS owner loads the ESM fetch API and the two patched download paths',
+  'CommonJS owner loads the ESM fetch API and the two patched download paths',
   { timeout: 15000 },
   async () => {
     assert.equal(typeof builderRequire('@electron/get').downloadArtifact, 'function');
