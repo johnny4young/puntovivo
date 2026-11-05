@@ -166,7 +166,7 @@ proceso principal de Electron; no inicia el servidor como un proceso hijo.
 
 ### Requisitos
 
-- Node.js `>=24.0.0`
+- Node.js `>=26.12.1`
 - pnpm `11.7.0` mediante Corepack (Node 25+ ya no lo incluye: `npm install --global corepack`) o una instalación local compatible
 
 ```bash
@@ -236,7 +236,7 @@ Ejecuta los comandos desde la raíz del repositorio.
 
 ### Notas del entorno nativo
 
-better-sqlite3-multiple-ciphers v13 usa Node-API, por lo que Node 24 independiente
+better-sqlite3-multiple-ciphers v13 usa Node-API, por lo que Node 26 independiente
 y Electron 43 cargan el mismo binario de la plataforma. Verifica ambas rutas con:
 
 ```bash

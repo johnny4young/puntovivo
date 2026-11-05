@@ -16,7 +16,6 @@ on:
     branches: [main, 'codex/**', 'fix/**', 'dependabot/**']
 
 env:
-  NODE_VERSION: '24'
   # actions/checkout initializes an empty repository before fetching. Git 2.54
   # otherwise emits its default-branch migration warning on every job.
   GIT_CONFIG_COUNT: '1'
@@ -101,6 +100,7 @@ jobs:
           filters: |
             shared:
               - '.github/workflows/ci.yml'
+              - '.nvmrc'
               - 'package.json'
               - 'pnpm-lock.yaml'
               - 'pnpm-workspace.yaml'
@@ -267,7 +267,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .nvmrc
+          check-latest: true
       - name: Validate documentation languages and local links
         # This gate needs only Node built-ins; do not auto-install application dependencies.
         env:
@@ -306,7 +307,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .nvmrc
+          check-latest: true
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -338,7 +340,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .nvmrc
+          check-latest: true
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -432,7 +435,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .nvmrc
+          check-latest: true
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -520,7 +524,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .nvmrc
+          check-latest: true
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

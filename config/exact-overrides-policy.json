@@ -6,7 +6,7 @@
       "category": "compatibility",
       "reviewedOn": "2026-11-02",
       "reviewBy": "2027-01-31",
-      "reason": "Preserve validated package, CommonJS, packaging, and Node 24 compatibility while upstream owners still resolve older or deprecated transitives.",
+      "reason": "Preserve validated package, CommonJS, packaging, and Node 24 and 26 compatibility while upstream owners still resolve older or deprecated transitives.",
       "removalCriteria": "Remove each selector once every owning dependency resolves a compatible maintained version and the applicable workspace and packaging gates pass without the override.",
       "pins": {
         "exceljs>uuid": "11.1.1",
@@ -69,7 +69,7 @@
       "category": "compatibility",
       "reviewedOn": "2026-11-02",
       "reviewBy": "2026-12-02",
-      "reason": "Remove got and its unpatched cache dependency from app-builder-lib using the maintained fetch downloader, paired with the compatibility patch that preserves request deadlines, environment proxies, progress and checksum validation under Node 24. Forge 8 independently removes got and fast-glob.",
+      "reason": "Remove got and its unpatched cache dependency from app-builder-lib using the maintained fetch downloader, paired with the compatibility patch that preserves request deadlines, environment proxies, progress and checksum validation under the pinned Node line. Forge 8 independently removes got and fast-glob.",
       "removalCriteria": "Remove this selector and the compatibility patch when app-builder-lib owns @electron/get 5 or later with fetch-compatible deadlines and proxy handling and the downloader plus packaging gates pass without them.",
       "pins": {
         "app-builder-lib>@electron/get": "5.1.0"

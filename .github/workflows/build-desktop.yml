@@ -51,7 +51,6 @@ on:
         default: false
 
 env:
-  NODE_VERSION: '24'
   GIT_CONFIG_COUNT: '2'
   GIT_CONFIG_KEY_0: init.defaultBranch
   GIT_CONFIG_VALUE_0: main
@@ -114,7 +113,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .nvmrc
+          check-latest: true
 
       - name: Setup pnpm
         shell: bash
@@ -262,7 +262,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .nvmrc
+          check-latest: true
 
       - name: Verify pinned macOS support target
         shell: bash
@@ -402,7 +403,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .nvmrc
+          check-latest: true
 
       # The regular pnpm package is pure JavaScript and needs no install
       # scripts. This also avoids pnpm/action-setup v6's Node 24 DEP0190 path;
