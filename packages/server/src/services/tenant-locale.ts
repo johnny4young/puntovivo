@@ -27,6 +27,7 @@ import {
   type CurrencyCatalogRow,
   type TenantLocaleSettingsRow,
 } from '../db/schema.js';
+import { memoizeInScope } from '../lib/request-memo.js';
 
 /**
  * Shape consumed by every formatter — server-side (receipt renderer,
@@ -167,10 +168,14 @@ async function resolveCurrencyAwareFallback(
  * Returns the neutral fallback locale when the tenant has never been
  * configured, while preserving its authoritative transaction currency.
  */
-export async function resolveTenantLocale(
+export function resolveTenantLocale(
   db: DatabaseInstance,
   tenantId: string
 ): Promise<ResolvedLocale> {
+  return memoizeInScope(`tenant-locale:${tenantId}`, () => loadTenantLocale(db, tenantId));
+}
+
+async function loadTenantLocale(db: DatabaseInstance, tenantId: string): Promise<ResolvedLocale> {
   const settings = await db
     .select()
     .from(tenantLocaleSettings)
