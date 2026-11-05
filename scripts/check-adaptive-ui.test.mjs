@@ -31,7 +31,7 @@ test('rejects declarations that exist outside their required selector', () => {
       .unrelated {
         color: HighlightText;
         outline: 3px solid Highlight;
-        border-left-width: 4px;
+        border: 2px solid CanvasText;
         forced-color-adjust: auto;
       }
     }

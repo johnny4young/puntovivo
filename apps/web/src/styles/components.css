@@ -57,7 +57,6 @@
     border-color: color-mix(in oklch, var(--line-strong) 48%, transparent);
     background: color-mix(in oklch, var(--operator-panel) 96%, transparent);
     box-shadow:
-      inset 4px 0 0 var(--operator-command),
       inset 0 -2px 0 color-mix(in oklch, var(--operator-key-edge) 52%, transparent),
       0 1rem 2.2rem -1.8rem rgb(10 31 46 / 0.42);
   }
@@ -70,7 +69,8 @@
   }
 
   .operator-option[aria-selected='true'] {
-    box-shadow: inset 3px 0 0 var(--operator-signal);
+    background: color-mix(in oklch, var(--operator-signal) 12%, transparent);
+    font-weight: 600;
   }
 
   .operator-table-shell {
@@ -91,7 +91,6 @@
 
   .operator-nav-link[aria-current='page'] {
     box-shadow:
-      inset 3px 0 0 var(--operator-signal),
       inset 0 -2px 0 rgb(3 18 29 / 0.28);
   }
 
@@ -636,7 +635,6 @@
     @apply bg-white;
     border-color: color-mix(in oklch, var(--operator-signal) 72%, var(--line));
     box-shadow:
-      inset 3px 0 0 var(--operator-signal),
       0 0 0 0.2rem color-mix(in oklch, var(--operator-signal) 14%, transparent);
   }
 
@@ -813,7 +811,6 @@
 
   .data-table tbody tr[data-state='selected'] {
     @apply bg-primary-50;
-    box-shadow: inset 3px 0 0 var(--operator-signal);
   }
 
   .data-table td {
@@ -1119,7 +1116,6 @@
     border-color: color-mix(in oklch, var(--operator-signal) 72%, var(--line));
     background: var(--surface);
     box-shadow:
-      inset 3px 0 0 var(--operator-signal),
       0 0 0 0.2rem color-mix(in oklch, var(--operator-signal) 14%, transparent);
     outline: none;
   }
@@ -1531,7 +1527,6 @@
     border: 1px solid color-mix(in oklch, var(--strip-ink) 20%, var(--line));
     background: var(--strip-surface);
     box-shadow:
-      inset 3px 0 0 var(--strip-ink),
       inset 0 1px 0 rgb(255 255 255 / 0.62);
   }
   .pv-strip .ic {
@@ -1594,7 +1589,6 @@
   }
   .dark .pv-strip {
     box-shadow:
-      inset 3px 0 0 var(--strip-ink),
       inset 0 1px 0 rgb(255 255 255 / 0.08);
   }
 
@@ -2673,23 +2667,6 @@
       color-mix(in oklch, var(--surface) 96%, #f7f1e8);
   }
 
-  .sales-settlement-dock::before {
-    position: absolute;
-    top: 1.4rem;
-    bottom: 1.4rem;
-    left: -0.2rem;
-    width: 0.42rem;
-    border-radius: 999px;
-    content: '';
-    background: repeating-linear-gradient(
-      to bottom,
-      #d78353 0,
-      #d78353 0.38rem,
-      transparent 0.38rem,
-      transparent 0.72rem
-    );
-    opacity: 0.78;
-  }
 
   .sales-settlement-dock .pv-total {
     position: relative;
@@ -2813,7 +2790,6 @@
     border-color: color-mix(in oklch, var(--line-strong) 68%, transparent);
     background: color-mix(in oklch, var(--surface) 92%, #eef2f1);
     box-shadow:
-      inset 3px 0 0 color-mix(in oklch, var(--primary-500) 72%, #579d80),
       inset 0 -2px 0 rgb(20 45 63 / 0.09),
       inset 0 1px 0 rgb(255 255 255 / 0.88);
   }
@@ -2878,7 +2854,6 @@
     border-color: rgb(32 67 89 / 0.14);
     background: var(--operator-panel);
     box-shadow:
-      inset 4px 0 0 var(--pos-command, #f2a563),
       inset 0 -2px 0 rgb(20 45 63 / 0.07),
       0 1rem 2.2rem -1.8rem rgb(10 31 46 / 0.46);
   }
@@ -2897,14 +2872,12 @@
     border-color: rgb(24 73 104 / 0.28);
     background: var(--pos-panel-muted);
     box-shadow:
-      inset 4px 0 0 var(--pos-signal),
       inset 0 -2px 0 rgb(18 47 67 / 0.08);
   }
 
   .sales-scan-input .input:focus {
     background: var(--pos-panel);
     box-shadow:
-      inset 4px 0 0 var(--pos-signal),
       0 0 0 0.2rem rgb(38 173 122 / 0.14);
   }
 
@@ -2934,8 +2907,7 @@
     border-color: #14364e;
     background: #173d57;
     box-shadow:
-      inset 0 -2px 0 rgb(3 18 29 / 0.42),
-      inset 3px 0 0 var(--pos-signal);
+      inset 0 -2px 0 rgb(3 18 29 / 0.42);
   }
 
   .sales-ledger-card,
@@ -2966,15 +2938,6 @@
     background: linear-gradient(180deg, rgb(242 165 99 / 0.08), transparent 20%), var(--pos-panel);
   }
 
-  .sales-settlement-dock::before {
-    top: 1.1rem;
-    bottom: 1.1rem;
-    left: -0.08rem;
-    width: 0.28rem;
-    border-radius: 0;
-    background: linear-gradient(180deg, var(--pos-command), var(--primary-600));
-    opacity: 1;
-  }
 
   .sales-settlement-dock .pv-total {
     border-radius: 0.85rem;
@@ -2985,7 +2948,6 @@
     min-height: 3.25rem;
     border-radius: 0.72rem;
     box-shadow:
-      inset 5px 0 0 var(--pos-signal),
       inset 0 -3px 0 rgb(3 15 25 / 0.52),
       inset 0 1px 0 rgb(255 255 255 / 0.15),
       0 0.85rem 1.5rem -1rem rgb(8 30 46 / 0.72);
@@ -3088,7 +3050,6 @@
     ),
     color-mix(in oklch, var(--operator-panel-muted) 94%, transparent);
   box-shadow:
-    inset 4px 0 0 var(--operator-command),
     inset 0 -2px 0 color-mix(in oklch, var(--operator-key-edge) 54%, transparent),
     var(--shadow-panel);
   animation: design-system-rise 760ms var(--design-system-ease) both;
@@ -4330,8 +4291,7 @@
   }
 
   .pv-strip {
-    border: 1px solid CanvasText;
-    border-left-width: 4px;
+    border: 2px solid CanvasText;
     color: CanvasText;
     background: Canvas;
     box-shadow: none;
