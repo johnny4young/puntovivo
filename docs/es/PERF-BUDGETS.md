@@ -432,6 +432,12 @@ conservarse la primera medición de CI del PR con su clase de runner; ajusta una
 línea base solo con evidencia serial repetida en esa clase, nunca aumentando la
 tolerancia compartida ni ejecutando este perfil junto a otra verificación de rendimiento.
 
+`scripts/run-audit-chain-profile-gate.mjs`, no la prueba, juzga los tres
+presupuestos. Una corrida que supera cualquiera se vuelve a muestrear hasta tres
+veces y decide la mediana de cada métrica, así que una verificación o redacción
+lenta falla igual que el crecimiento de RSS. Una prueba que falla es una falla
+de corrección y nunca se vuelve a muestrear.
+
 ### Evidencia de almacenamiento vectorial y modelos de productos
 
 Dos benchmarks invocados por el operador permiten revisar cambios de vectores/modelos

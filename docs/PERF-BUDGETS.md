@@ -393,6 +393,11 @@ measurement must be retained with its runner class; adjust a baseline only
 from repeated serial evidence on that class, never by increasing the shared
 tolerance or by running this profile beside another performance gate.
 
+`scripts/run-audit-chain-profile-gate.mjs`, not the test, judges all three
+budgets. A run over any of them is re-sampled up to three times and the median
+of each metric decides, so slow verification or redaction fails as surely as
+RSS growth. A failing test is a correctness failure and is never re-sampled.
+
 ### Product-vector storage and model evidence
 
 Two operator-invoked benchmarks make vector/model changes reviewable without
