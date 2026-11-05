@@ -7,7 +7,7 @@ working on the codebase.
 
 ## Development setup
 
-Requirements: Node.js `>=24`, pnpm `11.7.0` (via Corepack; Node 25+ no longer bundles it:
+Requirements: Node.js `>=26.12.1`, pnpm `11.7.0` (via Corepack; Node 25+ no longer bundles it:
 `npm install --global corepack`).
 
 ```bash

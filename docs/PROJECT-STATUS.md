@@ -283,7 +283,7 @@ The current validated candidate includes:
   Colombia mock can retain an unsigned, untransmitted local UBL 2.1 draft with
   the frozen UN/ECE unit code; this is development evidence, not a signed
   provider document. No pack is certified for production transmission yet;
-- Electron 43 and browser targets sharing the same React, Fastify, tRPC, and
+- Electron 45 and browser targets sharing the same React, Fastify, tRPC, and
   SQLite application core.
 
 ## Readiness verdict
