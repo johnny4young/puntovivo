@@ -558,8 +558,9 @@ export const managerApprovalsRouter = router({
         approver?.id !== request.requesterId &&
         !request.approvalEvidence.some(evidence => evidence.approverId === approver?.id) &&
         canRoleApproveAction(approverRole, request.action);
+      const dummyPinHash = await getDummyStaffPinHash();
       const verificationHash =
-        eligible && approver?.staffPinHash ? approver.staffPinHash : await getDummyStaffPinHash();
+        eligible && approver?.staffPinHash ? approver.staffPinHash : dummyPinHash;
       const pinMatches = await verifyStaffPin(verificationHash, input.pin);
       if (!eligible || !approver?.staffPinHash || !pinMatches) {
         registerStaffPinFailure(criticalCtx.db, rateIdentity);
