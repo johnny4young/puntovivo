@@ -15,7 +15,10 @@ import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { ensureInventoryBalancesForSite } from '../services/inventory-balances.js';
+import {
+  ensureInventoryBalancesForProducts,
+  ensureInventoryBalancesForSite,
+} from '../services/inventory-balances.js';
 import { companies, inventoryBalances, products, sites, tenants } from '../db/schema.js';
 
 let server: PuntovivoServer;
@@ -198,4 +201,69 @@ describe('ensureInventoryBalancesForSite ( chunked insert)', () => {
       .get();
     expect(preserved?.onHand).toBe(999);
   });
+
+  function insertProduct(overrides: { tracksStock?: boolean } = {}): string {
+    const db = getDatabase();
+    const now = new Date().toISOString();
+    const id = nanoid();
+    db.insert(products)
+      .values({
+        id,
+        tenantId,
+        name: `Late Product ${id}`,
+        sku: `LATE-${id}`,
+        isActive: true,
+        tracksStock: overrides.tracksStock ?? true,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
+    return id;
+  }
+
+  // Sales call this on every checkout; reseeding a seeded site held the
+  // writer lock for one insert per catalog chunk.
+  it('takes no writer lock once every balance row exists', () => {
+    const db = getDatabase();
+    const transactionSpy = vi.spyOn(db, 'transaction');
+    ensureInventoryBalancesForSite(db, tenantId, primarySiteId);
+    ensureInventoryBalancesForProducts(db, tenantId, primarySiteId, productIdsAt(primarySiteId));
+    expect(transactionSpy).not.toHaveBeenCalled();
+    transactionSpy.mockRestore();
+  });
+
+  it('seeds a product created after the site was seeded', () => {
+    const db = getDatabase();
+    const lateId = insertProduct();
+    ensureInventoryBalancesForSite(db, tenantId, secondarySiteId);
+    expect(productIdsAt(secondarySiteId)).toContain(lateId);
+  });
+
+  it('checks only the given products and seeds the whole site when one lacks a row', () => {
+    const db = getDatabase();
+    const outsideCartId = insertProduct();
+    const serviceId = insertProduct({ tracksStock: false });
+    const seededIds = productIdsAt(primarySiteId).slice(0, 2);
+    const transactionSpy = vi.spyOn(db, 'transaction');
+
+    ensureInventoryBalancesForProducts(db, tenantId, primarySiteId, [...seededIds, serviceId]);
+    expect(transactionSpy).not.toHaveBeenCalled();
+    expect(productIdsAt(primarySiteId)).not.toContain(outsideCartId);
+
+    ensureInventoryBalancesForProducts(db, tenantId, primarySiteId, [outsideCartId]);
+    expect(transactionSpy).toHaveBeenCalledOnce();
+    transactionSpy.mockRestore();
+    const seeded = productIdsAt(primarySiteId);
+    expect(seeded).toContain(outsideCartId);
+    expect(seeded).not.toContain(serviceId);
+  });
+
+  function productIdsAt(siteId: string): string[] {
+    return getDatabase()
+      .select({ productId: inventoryBalances.productId })
+      .from(inventoryBalances)
+      .where(and(eq(inventoryBalances.tenantId, tenantId), eq(inventoryBalances.siteId, siteId)))
+      .all()
+      .map(row => row.productId);
+  }
 });

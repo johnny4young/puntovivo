@@ -381,6 +381,22 @@ mediciones en el PR que cambia el presupuesto; no aumentes la tolerancia compart
 para ocultar una configuración de consulta ni calibres solo en una máquina de
 desarrollo más rápida.
 
+### Contrato de venta a escala de catálogo
+
+`__tests__/perf-sale-catalog-profile.test.ts` vende un carrito de tres líneas
+por la ruta tRPC real `sales.create` en una sede cuyos 50,000 productos activos
+con control de stock ya tienen fila de saldo, en un proceso aislado de un solo
+worker. Una venta puede emitir como máximo una inserción en
+`inventory_balances` por línea del carrito. Ese conteo no depende de la
+velocidad del host, así que un trabajo que crece con el catálogo falla aun en
+un runner rápido. Antes de esta compuerta, cada venta reinsertaba todo el
+catálogo en bloques de 90 filas con el candado de escritura: 559 inserciones y
+un p95 de 1,776 ms por venta en un host Apple Silicon cargado, frente a 3
+inserciones y 22 ms con la guarda de siembra.
+`perf-budget.json::saleCatalogProfile.p95Ms` acota el cobro además del conteo;
+trata su valor local como en los demás perfiles y conserva la primera medición
+alojada con su clase de runner.
+
 ### Contrato de escala de cadenas de auditoría
 
 `__tests__/perf-audit-chain-profile.test.ts` crea una cadena en archivo de
