@@ -107,6 +107,12 @@
   "session": "sesión",
   "userMenu": {
     "aria": "Abre el menú de usuario de {{name}}, {{role}}",
+    "roles": {
+      "admin": "Administrador",
+      "manager": "Gestor",
+      "cashier": "Cajero",
+      "viewer": "Observador"
+    },
     "cashierPace": {
       "preference": "Mostrar mi ritmo de cobro",
       "on": "Activo",
