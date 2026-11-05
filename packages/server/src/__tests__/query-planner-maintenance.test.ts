@@ -10,9 +10,9 @@ let sqlite: Database.Database;
 let clock = 0;
 const now = () => clock;
 
-function analyzedTables(exec: ReturnType<typeof vi.spyOn>): string[] {
+function analyzedTables(exec: { mock: { calls: unknown[][] } }): string[] {
   return exec.mock.calls
-    .map(([statement]) => /^ANALYZE "(.+)"$/.exec(String(statement))?.[1])
+    .map(call => /^ANALYZE "(.+)"$/.exec(String(call[0]))?.[1])
     .filter((table): table is string => table !== undefined);
 }
 
