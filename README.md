@@ -15,7 +15,7 @@ dependency.
 [![License: MIT](https://img.shields.io/badge/License-MIT-16a34a.svg)](./LICENSE)
 [![CI](https://github.com/johnny4young/puntovivo/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/johnny4young/puntovivo/actions/workflows/ci.yml)
 [![Node](https://img.shields.io/badge/node-%3E%3D24-339933.svg?logo=node.js&logoColor=white)](./package.json)
-[![Electron](https://img.shields.io/badge/Electron-43-47848F.svg?logo=electron&logoColor=white)](./apps/desktop)
+[![Electron](https://img.shields.io/badge/Electron-45-47848F.svg?logo=electron&logoColor=white)](./apps/desktop)
 [![React](https://img.shields.io/badge/React-19-61DAFB.svg?logo=react&logoColor=black)](./apps/web)
 [![tRPC](https://img.shields.io/badge/tRPC-11-2596BE.svg?logo=trpc&logoColor=white)](./packages/server)
 
@@ -144,7 +144,7 @@ The canonical capability inventory, remaining gaps, and release gates live in
 
 | Layer    | Choice                                                 | Notes                                                         |
 | -------- | ------------------------------------------------------ | ------------------------------------------------------------- |
-| Desktop  | Electron 43.8.3 + electron-builder packaging           | SQLite uses one bundled Node-API binary per target platform.  |
+| Desktop  | Electron 45.2.3 + electron-builder packaging           | SQLite uses one bundled Node-API binary per target platform.  |
 | Web      | React 19 + Vite 8 + TypeScript 7 (TS 6 API for ESLint) | Browser target and Electron renderer share the app code.      |
 | API      | Fastify + tRPC 11                                      | `/api/trpc` is the canonical application API.                 |
 | Database | SQLite via better-sqlite3-multiple-ciphers             | SQLCipher path is wired; dev modes can share an encrypted DB. |
@@ -181,8 +181,8 @@ pnpm 11 blocks dependency build scripts unless they are allowlisted. The repo
 allowlist lives in [pnpm-workspace.yaml](./pnpm-workspace.yaml) and covers the
 runtime pieces that still expose lifecycle hooks: argon2 and esbuild.
 better-sqlite3-multiple-ciphers v13 ships integrity-checked Node-API binaries
-and its implicit pnpm build is explicitly denied. Electron 43.8.3, like the 42
-line before it, has no install hook; Puntovivo installs its development runtime
+and its implicit pnpm build is explicitly denied. Electron 45.2.3, like every line
+since 42, has no install hook; Puntovivo installs its development runtime
 lazily during the desktop preflight. If install prints
 `ERR_PNPM_IGNORED_BUILDS`, review the package and record an explicit true/false
 policy before installing again.
@@ -235,7 +235,7 @@ Run workspace commands from the repo root.
 ### Native runtime notes
 
 better-sqlite3-multiple-ciphers v13 uses Node-API, so standalone Node 26 and
-Electron 43 load the same platform binary. Verify both runtime paths with:
+Electron 45 load the same platform binary. Verify both runtime paths with:
 
 ```bash
 pnpm --filter @puntovivo/server run native:ensure:node

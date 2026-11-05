@@ -14,7 +14,7 @@ una base SQLite local, con operación sin conexión antes de depender de la nube
 [![License: MIT](https://img.shields.io/badge/License-MIT-16a34a.svg)](./LICENSE)
 [![CI](https://github.com/johnny4young/puntovivo/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/johnny4young/puntovivo/actions/workflows/ci.yml)
 [![Node](https://img.shields.io/badge/node-%3E%3D24-339933.svg?logo=node.js&logoColor=white)](./package.json)
-[![Electron](https://img.shields.io/badge/Electron-43-47848F.svg?logo=electron&logoColor=white)](./apps/desktop)
+[![Electron](https://img.shields.io/badge/Electron-45-47848F.svg?logo=electron&logoColor=white)](./apps/desktop)
 [![React](https://img.shields.io/badge/React-19-61DAFB.svg?logo=react&logoColor=black)](./apps/web)
 [![tRPC](https://img.shields.io/badge/tRPC-11-2596BE.svg?logo=trpc&logoColor=white)](./packages/server)
 
@@ -144,7 +144,7 @@ para releases están en [docs/PROJECT-STATUS.md](docs/es/PROJECT-STATUS.md).
 
 | Capa          | Elección                                                | Notas                                                                                |
 | ------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| Escritorio    | Electron 43.8.3 + empaquetado con electron-builder      | SQLite usa un binario Node-API incluido por plataforma.                              |
+| Escritorio    | Electron 45.2.3 + empaquetado con electron-builder      | SQLite usa un binario Node-API incluido por plataforma.                              |
 | Web           | React 19 + Vite 8 + TypeScript 7 (API TS 6 para ESLint) | El navegador y el renderer de Electron comparten el código de la aplicación.         |
 | API           | Fastify + tRPC 11                                       | `/api/trpc` es la API canónica de la aplicación.                                     |
 | Base de datos | SQLite mediante better-sqlite3-multiple-ciphers         | SQLCipher está integrado; los modos de desarrollo pueden compartir una base cifrada. |
@@ -182,7 +182,7 @@ permitidos. La lista está en [pnpm-workspace.yaml](./pnpm-workspace.yaml) y cub
 los componentes que aún tienen hooks de ciclo de vida: argon2 y esbuild.
 better-sqlite3-multiple-ciphers v13 incluye binarios Node-API con integridad
 verificada y su compilación implícita en pnpm se deniega explícitamente.
-Electron 43.8.3, como la línea 42 anterior, no tiene hook de instalación:
+Electron 45.2.3, como todas las líneas desde la 42, no tiene hook de instalación:
 Puntovivo instala su entorno de desarrollo cuando lo necesita, durante la
 verificación previa de escritorio. Si la instalación muestra
 `ERR_PNPM_IGNORED_BUILDS`, revisa el paquete y registra una política explícita
@@ -237,7 +237,7 @@ Ejecuta los comandos desde la raíz del repositorio.
 ### Notas del entorno nativo
 
 better-sqlite3-multiple-ciphers v13 usa Node-API, por lo que Node 26 independiente
-y Electron 43 cargan el mismo binario de la plataforma. Verifica ambas rutas con:
+y Electron 45 cargan el mismo binario de la plataforma. Verifica ambas rutas con:
 
 ```bash
 pnpm --filter @puntovivo/server run native:ensure:node

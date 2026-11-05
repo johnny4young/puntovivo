@@ -14,9 +14,9 @@ const SPELL_TIMED_OUT =
 const SPELL_SUCCEEDED =
   '2026-09-04 15:08:21.536 puntovivo[35397:58957] NSSpellServer dataFromCheckingString succeeded, index is 0';
 const TASK_CATEGORY_POLICY =
-  '[35397:0904/150825.687043:ERROR:base/process/process_mac.cc:53] task_policy_set TASK_CATEGORY_POLICY: (os/kern) invalid argument (4)';
+  '[35397:0904/150825.687043:ERROR:base/process/process_mac.cc:45] task_policy_set TASK_CATEGORY_POLICY: (os/kern) invalid argument (4)';
 const TASK_SUPPRESSION_POLICY =
-  '[35397:0904/150825.687108:ERROR:base/process/process_mac.cc:98] task_policy_set TASK_SUPPRESSION_POLICY: (os/kern) invalid argument (4)';
+  '[35397:0904/150825.687108:ERROR:base/process/process_mac.cc:90] task_policy_set TASK_SUPPRESSION_POLICY: (os/kern) invalid argument (4)';
 
 describe('Electron process log policy', () => {
   it('keeps Chromium console INFO visible without treating it as a failure', () => {
@@ -60,24 +60,24 @@ describe('Electron process log policy', () => {
   });
 
   it('keeps the exact upstream macOS netmask diagnostic visible and narrowly non-blocking', () => {
-    // Chromium 150 (Electron 43) emits this from line 458; the previous pin
-    // was 457 under Chromium 148. Adjacent lines and any other message stay
+    // Chromium 156 (Electron 45) emits this from line 559; the previous pin
+    // was 458 under Chromium 150. Adjacent lines and any other message stay
     // unexpected so each Chromium rebase forces a deliberate re-pin.
     assert.equal(
       classifyElectronStderrLine(
-        '[27778:0729/104424.682426:WARNING:net/dns/address_sorter_posix.cc:458] FromSockAddr failed on netmask'
+        '[27778:0729/104424.682426:WARNING:net/dns/address_sorter_posix.cc:559] FromSockAddr failed on netmask'
       ),
       'informational'
     );
     assert.equal(
       classifyElectronStderrLine(
-        '[27778:0729/104424.682426:WARNING:net/dns/address_sorter_posix.cc:457] FromSockAddr failed on netmask'
+        '[27778:0729/104424.682426:WARNING:net/dns/address_sorter_posix.cc:558] FromSockAddr failed on netmask'
       ),
       'unexpected'
     );
     assert.equal(
       classifyElectronStderrLine(
-        '[27778:0729/104424.682426:WARNING:net/dns/address_sorter_posix.cc:458] FromSockAddr failed on address'
+        '[27778:0729/104424.682426:WARNING:net/dns/address_sorter_posix.cc:559] FromSockAddr failed on address'
       ),
       'unexpected'
     );
@@ -138,12 +138,12 @@ describe('Electron process log policy', () => {
 
   it('accepts one transient GPU command buffer failure and bounds its repetition', () => {
     const transient =
-      '[6654:1015/180521.291223:ERROR:gpu/ipc/client/command_buffer_proxy_impl.cc:285] ContextResult::kTransientFailure: Failed to send GpuControl.CreateCommandBuffer.';
+      '[6654:1015/180521.291223:ERROR:gpu/ipc/client/command_buffer_proxy_impl.cc:277] ContextResult::kTransientFailure: Failed to send GpuControl.CreateCommandBuffer.';
     assert.equal(classifyElectronStderrLine(transient), 'informational');
     // A fatal result, another line or another GPU message stay blocking.
     for (const variant of [
       transient.replace('kTransientFailure', 'kFatalFailure'),
-      transient.replace('.cc:285]', '.cc:286]'),
+      transient.replace('.cc:277]', '.cc:278]'),
       transient.replace('CreateCommandBuffer', 'DestroyCommandBuffer'),
     ]) {
       assert.equal(classifyElectronStderrLine(variant), 'unexpected');
@@ -216,29 +216,53 @@ describe('Electron process log policy', () => {
     );
   });
 
-  it('accepts the Chromium 150 task policy teardown pair and nothing else from that file', () => {
-    // Lines 53 and 98 of base/process/process_mac.cc in Chromium 150.0.7871.224
-    // (Electron 43.4.1); logged once during app quit on the same 2026-09-04 run.
+  it('accepts the Chromium 156 task policy teardown pair and nothing else from that file', () => {
+    // Lines 45 and 90 of base/process/process_mac.cc in Chromium 156.0.8078.80
+    // (Electron 45.2.3). The pair was logged once during app quit on 2026-09-04.
     assert.equal(
       classifyElectronStderrLine(
-        '[35397:0904/150825.687043:ERROR:base/process/process_mac.cc:53] task_policy_set TASK_CATEGORY_POLICY: (os/kern) invalid argument (4)'
+        '[35397:0904/150825.687043:ERROR:base/process/process_mac.cc:45] task_policy_set TASK_CATEGORY_POLICY: (os/kern) invalid argument (4)'
       ),
       'informational'
     );
     assert.equal(
       classifyElectronStderrLine(
-        '[35397:0904/150825.687108:ERROR:base/process/process_mac.cc:98] task_policy_set TASK_SUPPRESSION_POLICY: (os/kern) invalid argument (4)'
+        '[35397:0904/150825.687108:ERROR:base/process/process_mac.cc:90] task_policy_set TASK_SUPPRESSION_POLICY: (os/kern) invalid argument (4)'
       ),
       'informational'
     );
     // Adjacent lines, swapped messages, other kern results, and the reading
     // counterpart stay blocking, so a Chromium rebase forces a deliberate re-pin.
     for (const line of [
-      '[35397:0904/150825.687043:ERROR:base/process/process_mac.cc:54] task_policy_set TASK_CATEGORY_POLICY: (os/kern) invalid argument (4)',
-      '[35397:0904/150825.687108:ERROR:base/process/process_mac.cc:97] task_policy_set TASK_SUPPRESSION_POLICY: (os/kern) invalid argument (4)',
-      '[35397:0904/150825.687043:ERROR:base/process/process_mac.cc:53] task_policy_set TASK_SUPPRESSION_POLICY: (os/kern) invalid argument (4)',
-      '[35397:0904/150825.687043:ERROR:base/process/process_mac.cc:53] task_policy_set TASK_CATEGORY_POLICY: (os/kern) failure (5)',
-      '[35397:0904/150825.687043:ERROR:base/process/process_mac.cc:38] task_policy_get TASK_CATEGORY_POLICY: (os/kern) invalid argument (4)',
+      '[35397:0904/150825.687043:ERROR:base/process/process_mac.cc:46] task_policy_set TASK_CATEGORY_POLICY: (os/kern) invalid argument (4)',
+      '[35397:0904/150825.687108:ERROR:base/process/process_mac.cc:89] task_policy_set TASK_SUPPRESSION_POLICY: (os/kern) invalid argument (4)',
+      '[35397:0904/150825.687043:ERROR:base/process/process_mac.cc:45] task_policy_set TASK_SUPPRESSION_POLICY: (os/kern) invalid argument (4)',
+      '[35397:0904/150825.687043:ERROR:base/process/process_mac.cc:45] task_policy_set TASK_CATEGORY_POLICY: (os/kern) failure (5)',
+      '[35397:0904/150825.687043:ERROR:base/process/process_mac.cc:30] task_policy_get TASK_CATEGORY_POLICY: (os/kern) invalid argument (4)',
+    ]) {
+      assert.equal(classifyElectronStderrLine(line), 'unexpected', line);
+    }
+  });
+
+  it('accepts only the synchronous safeStorage deprecation lines, once each', () => {
+    const lines = [
+      ['isEncryptionAvailable', 'isAsyncEncryptionAvailable'],
+      ['encryptString', 'encryptStringAsync'],
+      ['decryptString', 'decryptStringAsync'],
+    ].map(
+      ([method, replacement]) =>
+        `(electron) 'safeStorage.${method}' is deprecated and will be removed. Please use 'safeStorage.${replacement}' instead.`
+    );
+    const run = createElectronStderrClassifier();
+    for (const line of lines) {
+      assert.equal(run.classify(line), 'informational', line);
+    }
+    assert.deepEqual(run.exceededLimits(), []);
+    assert.equal(run.classify(lines[0]), 'unexpected');
+
+    for (const line of [
+      "(electron) 'session.getPreloads' is deprecated and will be removed. Please use 'session.getPreloadScripts' instead.",
+      "(electron) 'safeStorage.setUsePlainTextEncryption' is deprecated and will be removed. Please use 'safeStorage.encryptStringAsync' instead.",
     ]) {
       assert.equal(classifyElectronStderrLine(line), 'unexpected', line);
     }
@@ -300,7 +324,7 @@ describe('Electron process log policy', () => {
 
   it('carries the scoped diagnostics options into a run classifier', () => {
     const raceLine =
-      '[33558:0729/105016.628130:WARNING:net/spdy/spdy_session.cc:3154] Received HEADERS for invalid stream 5';
+      '[33558:0729/105016.628130:WARNING:net/spdy/spdy_session.cc:3185] Received HEADERS for invalid stream 5';
     assert.equal(createElectronStderrClassifier().classify(raceLine), 'unexpected');
     assert.equal(
       createElectronStderrClassifier({ allowPackagedNetworkRaceDiagnostic: true }).classify(
@@ -341,7 +365,7 @@ describe('Electron process log policy', () => {
 
   it('allows only the exact packaged cancelled-stream diagnostic behind an explicit scope', () => {
     const cancelledStream =
-      '[80418:0729/111422.313936:WARNING:net/spdy/spdy_session.cc:3154] Received HEADERS for invalid stream 1';
+      '[80418:0729/111422.313936:WARNING:net/spdy/spdy_session.cc:3185] Received HEADERS for invalid stream 1';
 
     assert.equal(classifyElectronStderrLine(cancelledStream), 'unexpected');
     assert.equal(
@@ -352,21 +376,21 @@ describe('Electron process log policy', () => {
     );
     assert.equal(
       classifyElectronStderrLine(
-        '[80418:0729/111422.313936:WARNING:net/spdy/spdy_session.cc:3155] Received HEADERS for invalid stream 1',
+        '[80418:0729/111422.313936:WARNING:net/spdy/spdy_session.cc:3186] Received HEADERS for invalid stream 1',
         { allowPackagedNetworkRaceDiagnostic: true }
       ),
       'unexpected'
     );
     assert.equal(
       classifyElectronStderrLine(
-        '[80418:0729/111422.313936:WARNING:net/spdy/spdy_session.cc:3154] Received HEADERS for invalid stream 0',
+        '[80418:0729/111422.313936:WARNING:net/spdy/spdy_session.cc:3185] Received HEADERS for invalid stream 0',
         { allowPackagedNetworkRaceDiagnostic: true }
       ),
       'unexpected'
     );
     assert.equal(
       classifyElectronStderrLine(
-        '[80418:0729/111422.313936:WARNING:net/spdy/spdy_session.cc:3154] Received DATA for invalid stream 1',
+        '[80418:0729/111422.313936:WARNING:net/spdy/spdy_session.cc:3185] Received DATA for invalid stream 1',
         { allowPackagedNetworkRaceDiagnostic: true }
       ),
       'unexpected'

@@ -2,7 +2,7 @@
 
 **Idioma:** Español · [English](../DESKTOP_RUNTIME_GUIDE.md)
 
-> Actualizado: 15 de octubre de 2026
+> Actualizado: 5 de noviembre de 2026
 > Audiencia: desarrolladores que necesitan comprender el comportamiento del runtime de Electron en Puntovivo
 
 ## Contrato de macOS compatible
@@ -11,7 +11,11 @@ La versión de escritorio es compatible con **Apple Silicon en macOS 15 Sequoia 
 
 Las futuras versiones mayores de macOS entrarán en el contrato de soporte solo cuando aprueben las comprobaciones de módulos nativos, runtime empaquetado, renderizador, recuperación y máquinas representativas. No extrapoles un resultado de Tahoe a Sequoia ni a versiones futuras.
 
-La cadena de herramientas actual usa Node 26+, Electron 43.8.3 y `better-sqlite3-multiple-ciphers` 13.0.3. SQLite usa binarios precompilados portables de Node-API compartidos por Node independiente y Electron. Verifica el binario instalado con `pnpm --filter @puntovivo/server run native:ensure:node` y `pnpm --filter @puntovivo/desktop run native:ensure:electron`; no lo recompiles ni intercambies binarios entre runtimes. El script de escritorio `rebuild` es un alias de compatibilidad para la verificación. El empaquetado verifica el runtime de Electron y elimina los binarios precompilados innecesarios dentro de su directorio de preparación, sin reemplazar el binario del checkout.
+La cadena de herramientas actual usa Node 26+, Electron 45.2.3 y `better-sqlite3-multiple-ciphers` 13.0.3. SQLite usa binarios precompilados portables de Node-API compartidos por Node independiente y Electron. Verifica el binario instalado con `pnpm --filter @puntovivo/server run native:ensure:node` y `pnpm --filter @puntovivo/desktop run native:ensure:electron`; no lo recompiles ni intercambies binarios entre runtimes. El script de escritorio `rebuild` es un alias de compatibilidad para la verificación. El empaquetado verifica el runtime de Electron y elimina los binarios precompilados innecesarios dentro de su directorio de preparación, sin reemplazar el binario del checkout. Electron incluye su propio Node 24, así que la aplicación empaquetada se ejecuta en una línea de Node anterior a la de las herramientas.
+
+## Contrato de Windows compatible
+
+La versión de escritorio es **solo x64 y requiere Windows 10 o posterior de 64 bits**. Electron dejó de publicar compilaciones de 32 bits en la línea 44 y Puntovivo nunca distribuyó una, así que un equipo con Windows de 32 bits no puede ejecutarla, aunque su CPU sea de 64 bits, hasta que se instale Windows de 64 bits.
 
 ## Por qué existe este documento
 

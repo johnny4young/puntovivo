@@ -2,7 +2,7 @@
 
 **Language:** English · [Español](es/DESKTOP_RUNTIME_GUIDE.md)
 
-> Updated: October 15, 2026
+> Updated: November 5, 2026
 > Audience: developers who need to understand Electron runtime behavior in Puntovivo
 
 ## Supported macOS contract
@@ -18,7 +18,7 @@ Future macOS majors enter the support contract only after native-module,
 packaged-runtime, renderer, recovery, and representative-machine checks pass.
 Do not translate one Tahoe result into Sequoia or future-version evidence.
 
-The current toolchain uses Node 26+, Electron 43.8.3, and
+The current toolchain uses Node 26+, Electron 45.2.3, and
 `better-sqlite3-multiple-ciphers` 13.0.3. SQLite uses portable Node-API
 prebuilds shared by standalone Node and Electron. Verify the installed
 binary with `pnpm --filter @puntovivo/server run native:ensure:node` and
@@ -26,7 +26,15 @@ binary with `pnpm --filter @puntovivo/server run native:ensure:node` and
 it or swap binaries between runtimes. The desktop `rebuild` script is a
 compatibility alias for verification. Packaging verifies the Electron runtime
 and prunes prebuilds inside its staging directory, without replacing the
-checkout binary.
+checkout binary. Electron embeds its own Node 24, so the packaged app runs on an
+older Node line than the tooling.
+
+## Supported Windows contract
+
+The desktop release is **x64 only and needs 64-bit Windows 10 or later**. Electron
+stopped publishing 32-bit builds at line 44 and Puntovivo never shipped one, so a
+machine running 32-bit Windows cannot run it, even on a 64-bit CPU, until 64-bit
+Windows is installed.
 
 ## Why This Document Exists
 
