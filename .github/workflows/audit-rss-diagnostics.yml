@@ -1,0 +1,61 @@
+name: Audit RSS diagnostics
+
+# Temporary: samples the audit-chain profile under V8 and glibc variants on
+# several hosted runners. Lives only on a throwaway branch; never merged.
+on:
+  pull_request:
+
+env:
+  GIT_CONFIG_COUNT: '1'
+  GIT_CONFIG_KEY_0: init.defaultBranch
+  GIT_CONFIG_VALUE_0: main
+
+permissions:
+  contents: read
+
+jobs:
+  sample:
+    name: Audit RSS sample ${{ matrix.shard }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          standalone: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          check-latest: true
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Runner details
+        run: |
+          lscpu | grep -E 'Model name|^CPU\(s\)|Thread|Socket|NUMA node\(s\)|L3' || true
+          free -m
+          echo "THP: $(cat /sys/kernel/mm/transparent_hugepage/enabled) defrag: $(cat /sys/kernel/mm/transparent_hugepage/defrag)"
+          echo "cgroup memory.max: $(cat /sys/fs/cgroup/memory.max 2>/dev/null || echo n/a)"
+          ldd --version | head -1
+          uname -r
+          curl -s --max-time 3 -H Metadata:true "http://169.254.169.254/metadata/instance/compute?api-version=2021-02-01" | jq -c '{location, vmSize}' || echo "IMDS unavailable"
+
+      - name: Prepare server profile
+        working-directory: packages/server
+        run: |
+          node ../../scripts/ensure-shared-build.mjs
+          pnpm run native:ensure:node
+
+      - name: Sample variants
+        working-directory: packages/server
+        run: node scripts/diagnose-audit-chain-rss.mjs
