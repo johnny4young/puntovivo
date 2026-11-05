@@ -503,10 +503,12 @@ suma en MB los procesos del mismo tipo, agrega todos los procesos en `total` y
 compara cada valor contra `perf-budget.json::electronMemoryMb.perProcessMb` con
 el `thresholdPercent` compartido. La memoria de composición y de red vive fuera
 del principal y del renderizador, así que un techo solo sobre esos dos dejaba
-fuera la mayor parte de la memoria de la app. En macOS, el conjunto de trabajo
-de la GPU aún excluye casi toda la memoria gráfica, que sí muestra `footprint`;
-en el runner Linux de CI la composición por software la mantiene en RAM, donde
-el techo `gpu` la ve. El lanzador también registra el tiempo real total y lo verifica
+fuera la mayor parte de la memoria de la app. El conjunto de trabajo no lo ve
+todo: en macOS el proceso de GPU reporta unos 100 MB mientras `footprint` muestra
+casi toda la memoria gráfica fuera de él, y el runner Linux de CI no inicia
+proceso de GPU, así que allí `gpu` marca 0 y la verificación recae en `total` y
+`utility`. Cada techo es el mayor entre la medición de macOS y la de Linux
+alojado. El lanzador también registra el tiempo real total y lo verifica
 contra `operationalProfile.desktopLaunchElapsedMs`.
 
 `ci:desktop` compila el bundle web más el bundle principal/preload de Electron,

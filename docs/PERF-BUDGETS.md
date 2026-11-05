@@ -461,9 +461,11 @@ into `total`, and compares each against
 `perf-budget.json::electronMemoryMb.perProcessMb` with the shared
 `thresholdPercent`. Compositing and network memory live outside main and
 renderer, so a ceiling on those two alone missed most of the app's memory.
-On macOS the GPU working set still excludes most graphics memory, which
-`footprint` shows; on the Linux CI runner software compositing keeps it in
-RAM, where the `gpu` ceiling sees it. The launcher also records total wall time and checks
+The working set does not see everything: on macOS the GPU process reports
+about 100 MB while `footprint` shows most graphics memory outside it, and the
+Linux CI runner starts no GPU process at all, so there `gpu` reads 0 and
+`total` and `utility` carry the check. Each ceiling is the larger of the macOS
+and hosted Linux measurements. The launcher also records total wall time and checks
 it against `operationalProfile.desktopLaunchElapsedMs`.
 
 `ci:desktop` now builds the web bundle plus Electron main/preload
