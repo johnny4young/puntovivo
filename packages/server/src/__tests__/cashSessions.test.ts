@@ -19,6 +19,7 @@ import {
 import { ServerErrorWithCode } from '../lib/errorCodes.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
+import { writeCashCloseSettings } from '../services/cash-close-settings.js';
 
 let server: PuntovivoServer;
 let tenantId: string;
@@ -502,10 +503,28 @@ describe('Cash sessions tRPC Router', () => {
     expect(paidIn.type).toBe('paid_in');
     expect(skim.type).toBe('skim');
 
+    // While blind close holds, the movements of an open session would add up to the target.
+    await expect(
+      caller.cashSessions.movements({ sessionId: opened.id, limit: 10 })
+    ).resolves.toEqual([]);
+    await expect(caller.cashSessions.movements({ limit: 10 })).resolves.toEqual([]);
+
+    const managerCaller = appRouter.createCaller(
+      createTestContext({ id: cashierId, email: cashierEmail, role: 'manager' })
+    );
+    await expect(
+      managerCaller.cashSessions.movements({ sessionId: opened.id, limit: 10 })
+    ).resolves.toHaveLength(2);
+
+    // An owner who turned blind close off shows the cashier the same figures.
+    await writeCashCloseSettings(db, tenantId, { blindClose: false });
     const movements = await caller.cashSessions.movements({
       sessionId: opened.id,
       limit: 10,
     });
+    const relaxedSession = await caller.cashSessions.getActive();
+    expect(relaxedSession?.expectedBalance).toEqual(expect.any(Number));
+    await writeCashCloseSettings(db, tenantId, { blindClose: true });
 
     expect(movements).toHaveLength(2);
     expect(movements[0]?.id).toBe(skim.id);
@@ -519,7 +538,7 @@ describe('Cash sessions tRPC Router', () => {
       .update(cashMovements)
       .set({ amount: -skim.amount })
       .where(eq(cashMovements.id, skim.id));
-    const legacy = await caller.cashSessions.movements({ sessionId: opened.id, limit: 10 });
+    const legacy = await managerCaller.cashSessions.movements({ sessionId: opened.id, limit: 10 });
     expect(legacy.find(row => row.id === skim.id)?.signedAmount).toBe(-skim.amount);
     await db
       .update(cashMovements)

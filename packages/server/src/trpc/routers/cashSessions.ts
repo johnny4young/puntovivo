@@ -21,6 +21,7 @@ import { roundMoney } from '../../lib/money.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { cashierManagerOrAdminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
 import { criticalCommandCashierManagerOrAdminProcedure } from '../middleware/criticalCommand.js';
+import { resolveCashCloseSettings } from '../../services/cash-close-settings.js';
 import { computeDayCloseSummary } from '../../services/reports/day-close.js';
 import { computeCashierPace as computeCashierPaceFromTiming } from '../../services/reports/cashier-pace.js';
 import { computeCashierPace } from '../../services/cashier-pace.js';
@@ -73,22 +74,29 @@ function isPrivilegedCashSessionRole(role: string | undefined) {
 
 /**
  * enforce blind close at the API boundary, not only in JSX.
- * Cashiers may inspect browser data, so an open session must not serialize
- * its expected balance to them. Managers/admins keep the live value and every
- * role may see it after the session is closed and the final count is locked.
+ * Cashiers may inspect browser data, so while a tenant keeps blind close an open
+ * session must not serialize its expected balance, or the movements that add up
+ * to it. Managers/admins keep the live value and every role may see it once the
+ * session is closed and the final count is locked.
  */
+async function hidesOpenCashSessionTarget(
+  db: DatabaseInstance,
+  tenantId: string,
+  role: string | undefined
+): Promise<boolean> {
+  if (isPrivilegedCashSessionRole(role)) return false;
+  return (await resolveCashCloseSettings(db, tenantId)).blindClose;
+}
+
 function presentCashSessionRecord<T extends { expectedBalance: number; status: 'open' | 'closed' }>(
   record: T,
-  role: string | undefined
+  hideOpenTarget: boolean
 ): Omit<T, 'expectedBalance'> & {
   expectedBalance: number | null;
 } {
   return {
     ...record,
-    expectedBalance:
-      record.status === 'open' && !isPrivilegedCashSessionRole(role)
-        ? null
-        : record.expectedBalance,
+    expectedBalance: record.status === 'open' && hideOpenTarget ? null : record.expectedBalance,
   };
 }
 
@@ -143,6 +151,7 @@ async function getCashSessionAccessRecord(db: DatabaseInstance, tenantId: string
       tenantId: cashSessions.tenantId,
       siteId: cashSessions.siteId,
       cashierId: cashSessions.cashierId,
+      status: cashSessions.status,
     })
     .from(cashSessions)
     .where(and(eq(cashSessions.id, id), eq(cashSessions.tenantId, tenantId)))
@@ -233,7 +242,9 @@ export const cashSessionsRouter = router({
     }
 
     const record = await getCashSessionRecord(ctx.db, ctx.tenantId, activeSession.id);
-    return record ? presentCashSessionRecord(record, ctx.user.role) : null;
+    if (!record) return null;
+    const hideTarget = await hidesOpenCashSessionTarget(ctx.db, ctx.tenantId, ctx.user.role);
+    return presentCashSessionRecord(record, hideTarget);
   }),
 
   /** private by construction: no cashier id is accepted. */
@@ -336,14 +347,11 @@ export const cashSessionsRouter = router({
       .orderBy(desc(cashSessions.closedAt), desc(cashSessions.updatedAt))
       .limit(input?.limit ?? 6);
 
+    const hideTarget = await hidesOpenCashSessionTarget(ctx.db, ctx.tenantId, ctx.user.role);
     return {
       summary: buildCashSessionReportSummary(activeSessions, recentClosures),
-      activeSessions: activeSessions.map(session =>
-        presentCashSessionRecord(session, ctx.user?.role)
-      ),
-      recentClosures: recentClosures.map(session =>
-        presentCashSessionRecord(session, ctx.user?.role)
-      ),
+      activeSessions: activeSessions.map(session => presentCashSessionRecord(session, hideTarget)),
+      recentClosures: recentClosures.map(session => presentCashSessionRecord(session, hideTarget)),
     };
   }),
 
@@ -365,8 +373,9 @@ export const cashSessionsRouter = router({
       if (!created) {
         throw new Error('Failed to load the created cash session');
       }
+      const hideTarget = await hidesOpenCashSessionTarget(ctx.db, ctx.tenantId, ctx.user?.role);
       return {
-        ...presentCashSessionRecord(created, ctx.user?.role),
+        ...presentCashSessionRecord(created, hideTarget),
         attendanceShiftStarted: result.attendanceShiftStarted,
       };
     }),
@@ -379,7 +388,8 @@ export const cashSessionsRouter = router({
       if (!closedSession) {
         throw new Error('Failed to load the closed cash session');
       }
-      return presentCashSessionRecord(closedSession, ctx.user?.role);
+      const hideTarget = await hidesOpenCashSessionTarget(ctx.db, ctx.tenantId, ctx.user?.role);
+      return presentCashSessionRecord(closedSession, hideTarget);
     }),
 
   /**
@@ -439,6 +449,14 @@ export const cashSessionsRouter = router({
     }
 
     if (!sessionId) {
+      return [];
+    }
+
+    const session = await getCashSessionAccessRecord(ctx.db, ctx.tenantId, sessionId);
+    if (
+      session?.status === 'open' &&
+      (await hidesOpenCashSessionTarget(ctx.db, ctx.tenantId, ctx.user.role))
+    ) {
       return [];
     }
 
