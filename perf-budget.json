@@ -181,9 +181,9 @@
     "catalogProducts": 50000,
     "warmupSales": 3,
     "samples": 20,
-    "$baseline": "Captured on 2026-11-05 on a loaded Apple Silicon host: p95 22.49 ms with 3 balance inserts per sale; without the seed guard the same run measured 559 inserts and 1775.63 ms. The p95 baseline leaves portable-runner headroom; replace it only from repeated serial evidence on the hosted runner class.",
+    "$baseline": "The first hosted ubuntu-latest Backend Server run (PR 425, Node 26) measured p95 49.23 ms with 3 balance inserts per sale, so the baseline is 50 ms. A loaded Apple Silicon host measured 22.49 ms with the seed guard and 559 inserts at 1775.63 ms without it. Adjust only from repeated serial evidence on the hosted runner class.",
     "thresholdPercent": 35,
-    "p95Ms": 60
+    "p95Ms": 50
   },
   "auditChainProfile": {
     "$comment": "A 100k-row file-backed audit chain is verified through bounded indexed pages and rewritten once through the transaction-bound privacy-redaction path. Elapsed ceilings include a fixed host-variance allowance; maxRSS growth is absolute and measured after fixture construction.",
