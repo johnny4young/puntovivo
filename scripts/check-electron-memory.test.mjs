@@ -32,14 +32,22 @@ function createOutputCapture() {
   };
 }
 
-test('summarizeProcesses maps Browser -> main, Tab -> renderer, ignores the rest', () => {
+test('summarizeProcesses budgets GPU and utility and totals every process', () => {
   const metrics = [
     { type: 'Browser', workingSetKb: 102400 }, // 100 MB main
     { type: 'Tab', workingSetKb: 204800 }, // 200 MB renderer
-    { type: 'GPU', workingSetKb: 51200 }, // ignored
-    { type: 'Utility', workingSetKb: 40960 }, // ignored
+    { type: 'GPU', workingSetKb: 51200 }, // 50 MB
+    { type: 'Utility', workingSetKb: 40960 }, // 40 MB
+    { type: 'Utility', workingSetKb: 10240 }, // 10 MB
+    { type: 'Zygote', workingSetKb: 20480 }, // only in the total
   ];
-  assert.deepEqual(summarizeProcesses(metrics), { main: 100, renderer: 200 });
+  assert.deepEqual(summarizeProcesses(metrics), {
+    main: 100,
+    renderer: 200,
+    gpu: 50,
+    utility: 50,
+    total: 420,
+  });
 });
 
 test('summarizeProcesses sums multiple renderer (Tab) processes', () => {
@@ -48,7 +56,13 @@ test('summarizeProcesses sums multiple renderer (Tab) processes', () => {
     { type: 'Tab', workingSetKb: 102400 }, // 100 MB
     { type: 'Tab', workingSetKb: 51200 }, // 50 MB
   ];
-  assert.deepEqual(summarizeProcesses(metrics), { main: 80, renderer: 150 });
+  assert.deepEqual(summarizeProcesses(metrics), {
+    main: 80,
+    renderer: 150,
+    gpu: 0,
+    utility: 0,
+    total: 230,
+  });
 });
 
 test('compareToMemoryBudget: a value within budget+threshold lands in ok', () => {
@@ -94,6 +108,19 @@ test('renderReport prints a PASS table when there are no regressions', () => {
   );
   assert.match(report, /Electron memory PASS/);
   assert.match(report, /main/);
+});
+
+test('renderReport still lists the processes within budget when one regresses', () => {
+  const report = renderReport(
+    {
+      regressions: [{ name: 'utility', budget: 50, actual: 90, deltaPercent: 80 }],
+      ok: [{ name: 'gpu', budget: 100, actual: 95, deltaPercent: -5 }],
+      missing: [],
+    },
+    25
+  );
+  assert.match(report, /\| utility \| 50 \| 90\.0 \| \+80\.0% \|/);
+  assert.match(report, /Within budget:[\s\S]*\| gpu \| 100 \| 95\.0 \| -5\.0% \|/);
 });
 
 test('parseMetricsLine extracts the metrics array', () => {
@@ -179,7 +206,14 @@ test('runCli --require-measurement fails (exit 1) when a budgeted process is mis
 test('runCli passes (exit 0) when the measurement is within budget', () => {
   const { output, records } = createOutputCapture();
   const code = runCli({
-    measure: () => ({ main: 10, renderer: 10, launchElapsedMs: 1 }),
+    measure: () => ({
+      main: 10,
+      renderer: 10,
+      gpu: 10,
+      utility: 10,
+      total: 40,
+      launchElapsedMs: 1,
+    }),
     strict: true,
     requireMeasurement: true,
     output,
@@ -193,7 +227,7 @@ test('runCli passes (exit 0) when the measurement is within budget', () => {
 test('runCli --require-measurement fails when launch elapsed time is missing', () => {
   const { output, records } = createOutputCapture();
   const code = runCli({
-    measure: () => ({ main: 10, renderer: 10 }),
+    measure: () => ({ main: 10, renderer: 10, gpu: 10, utility: 10, total: 40 }),
     strict: true,
     requireMeasurement: true,
     output,

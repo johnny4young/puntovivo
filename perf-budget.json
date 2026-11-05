@@ -209,12 +209,15 @@
     "maxPendingBackupOperations": 16
   },
   "electronMemoryMb": {
-    "$comment": "Electron main + renderer working-set ceilings in MB, measured through app.getAppMetrics() by scripts/check-electron-memory.mjs. ci:desktop always uses --strict --require-measurement and fails on an absent measurement or a process above baseline plus threshold; only direct local diagnostic invocation remains warn-first unless those flags are supplied.",
+    "$comment": "Electron working-set ceilings in MB per process type (main, renderer, GPU, utility) and for the sum of every process, measured through app.getAppMetrics() by scripts/check-electron-memory.mjs. ci:desktop always uses --strict --require-measurement and fails on an absent measurement or a process above baseline plus threshold; only direct local diagnostic invocation remains warn-first unless those flags are supplied.",
     "thresholdPercent": 25,
-    "$baseline": "Captured locally on macOS and enforced on the Linux CI renderer. The 25% threshold is an explicit cross-platform working-set variance allowance, not permission to normalize the baseline upward; any measurement above the resulting ceiling fails ci:desktop.",
+    "$baseline": "Captured locally on macOS and enforced on the Linux CI renderer. gpu, utility and total were added on 2026-11-05 at the larger of two hosts. Three macOS launches at load 14 measured GPU 100.3-106.0, utility 46.7-52.8 and total 472.2-580.7 MB. Two ubuntu-latest Desktop Workspace runs on Electron 45 measured no GPU process, utility 91.4-96.7 and total 458.2 MB. The macOS GPU working set excludes most graphics memory, so these ceilings follow the blur-era working set and should come down once the blur decision lands. The 25% threshold is an explicit cross-platform working-set variance allowance, not permission to normalize the baseline upward; any measurement above the resulting ceiling fails ci:desktop.",
     "perProcessMb": {
       "main": 260,
-      "renderer": 165
+      "renderer": 165,
+      "gpu": 106,
+      "utility": 97,
+      "total": 581
     }
   },
   "longShiftSoak": {

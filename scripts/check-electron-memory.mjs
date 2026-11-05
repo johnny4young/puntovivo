@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 /**
- * Electron main + renderer memory CI gate.
+ * Electron process memory CI gate.
  *
  * Launches the built Electron app in measurement mode
  * (`PUNTOVIVO_MEASURE_MEMORY=1`), reads each Electron process'
  * working-set via `app.getAppMetrics()` (printed by the main process as a
- * single `PUNTOVIVO_MEMORY_METRICS=<json>` line), summarises the main +
- * renderer footprint in MB, records the built-runtime launch wall time, and
+ * single `PUNTOVIVO_MEMORY_METRICS=<json>` line), summarises the main,
+ * renderer, GPU and utility working sets plus the total of every process in
+ * MB, records the built-runtime launch wall time, and
  * compares both against the budgets declared in `perf-budget.json`.
  *
  * The local path is warn-first/self-skipping by default: the report is always
@@ -54,22 +55,28 @@ const MEASURE_DB_KEY = 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
  */
 const LAUNCH_TIMEOUT_MS = 60_000;
 
+const BUDGET_KEY_BY_PROCESS_TYPE = {
+  Browser: 'main',
+  Tab: 'renderer',
+  GPU: 'gpu',
+  Utility: 'utility',
+};
+
 /**
- * Map `app.getAppMetrics()` rows to a `{ mainMb, rendererMb }` summary.
- * `metrics` is the parsed array of `{ type, workingSetKb }`. Electron tags
- * the main process `Browser` and each renderer `Tab`; GPU / Utility / plugin
- * processes are intentionally excluded from the main+renderer ceiling.
- * Multiple renderers (rare here — single window) are summed.
+ * Map `app.getAppMetrics()` rows (`{ type, workingSetKb }`) to MB per budget
+ * key. Same-type processes are summed. `total` adds every process, including
+ * types without their own key, because compositing and network memory live
+ * outside main and renderer.
  */
 export function summarizeProcesses(metrics) {
-  let mainKb = 0;
-  let rendererKb = 0;
+  const kb = { main: 0, renderer: 0, gpu: 0, utility: 0, total: 0 };
   for (const m of metrics) {
-    if (m.type === 'Browser') mainKb += m.workingSetKb;
-    else if (m.type === 'Tab') rendererKb += m.workingSetKb;
+    const key = BUDGET_KEY_BY_PROCESS_TYPE[m.type];
+    if (key) kb[key] += m.workingSetKb;
+    kb.total += m.workingSetKb;
   }
-  const toMb = kb => Math.round((kb / 1024) * 10) / 10;
-  return { main: toMb(mainKb), renderer: toMb(rendererKb) };
+  const toMb = value => Math.round((value / 1024) * 10) / 10;
+  return Object.fromEntries(Object.entries(kb).map(([key, value]) => [key, toMb(value)]));
 }
 
 /**
@@ -113,8 +120,20 @@ export function renderReport({ regressions, ok, missing }, threshold) {
     lines.push('Budget entries with no measured process (warning):');
     for (const m of missing) lines.push(`  - ${m.name}  (budget ${m.budget} MB)`);
   }
+  if (regressions.length > 0 && ok.length > 0) {
+    lines.push('');
+    lines.push('Within budget:');
+    lines.push('| process | budget (MB) | actual (MB) | delta % |');
+    lines.push('| --- | ---: | ---: | ---: |');
+    for (const o of ok) {
+      const sign = o.deltaPercent >= 0 ? '+' : '';
+      lines.push(
+        `| ${o.name} | ${o.budget} | ${o.actual.toFixed(1)} | ${sign}${o.deltaPercent.toFixed(1)}% |`
+      );
+    }
+  }
   if (regressions.length === 0 && ok.length > 0) {
-    lines.push('Electron memory PASS — main + renderer within budget:');
+    lines.push('Electron memory PASS — every budgeted process within budget:');
     lines.push('| process | budget (MB) | actual (MB) | delta % |');
     lines.push('| --- | ---: | ---: | ---: |');
     for (const o of ok) {
