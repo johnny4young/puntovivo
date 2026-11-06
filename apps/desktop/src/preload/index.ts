@@ -293,6 +293,8 @@ export interface RendererRuntimeConfig {
 
 export interface RuntimeAPI {
   getConfigSync: () => RendererRuntimeConfig;
+  /** Resolves once main has started the embedded server. */
+  whenServerReady: () => Promise<void>;
 }
 
 /**
@@ -357,6 +359,7 @@ const deviceAPI: DeviceAPI = {
 // resolved once at boot and cached.
 const runtimeAPI: RuntimeAPI = {
   getConfigSync: () => ipcRenderer.sendSync('runtime:get-config') as RendererRuntimeConfig,
+  whenServerReady: () => ipcRenderer.invoke('runtime:when-server-ready'),
 };
 
 // Hub-client local hardware bridge API. Async IPC; the

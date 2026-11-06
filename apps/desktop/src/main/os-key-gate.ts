@@ -13,6 +13,10 @@ interface OsKeyGateOptions {
   platform: NodeJS.Platform;
   localStatePath: string;
   log: Pick<PuntovivoLogger, 'info'>;
+  /** Called once when the key is not on disk yet and the wait begins. */
+  onWait?: () => void;
+  /** Aborting stops the wait; nothing has been sealed at that point. */
+  signal?: AbortSignal;
   timeoutMs?: number;
   pollMs?: number;
   readLocalState?: (path: string) => Promise<string>;
@@ -37,6 +41,8 @@ export function createOsKeyGate({
   platform,
   localStatePath,
   log,
+  onWait,
+  signal,
   timeoutMs = TIMEOUT_MS,
   pollMs = POLL_MS,
   readLocalState = path => readFile(path, 'utf8'),
@@ -49,7 +55,9 @@ export function createOsKeyGate({
     if (await hasSavedOsKey(localStatePath, readLocalState)) return;
     const started = now();
     log.info('waiting for Windows to save the safeStorage key before the first seal');
+    onWait?.();
     while (!(await hasSavedOsKey(localStatePath, readLocalState))) {
+      signal?.throwIfAborted();
       if (now() - started >= timeoutMs) {
         throw new Error(
           `Windows did not save the safeStorage key to ${localStatePath} within ${timeoutMs / 1000} s; ` +

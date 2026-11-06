@@ -19,9 +19,14 @@ function fakeDisk(states: Array<string | Error>) {
   };
 }
 
-function gate(states: Array<string | Error>, platform: NodeJS.Platform = 'win32') {
+function gate(
+  states: Array<string | Error>,
+  platform: NodeJS.Platform = 'win32',
+  signal?: AbortSignal
+) {
   const disk = fakeDisk(states);
   const logs: string[] = [];
+  let waits = 0;
   let clock = 0;
   const wait = createOsKeyGate({
     platform,
@@ -29,6 +34,10 @@ function gate(states: Array<string | Error>, platform: NodeJS.Platform = 'win32'
     log: {
       info: (...args: unknown[]) => logs.push(String(args.at(-1))),
     } as unknown as PuntovivoLogger,
+    onWait: () => {
+      waits++;
+    },
+    ...(signal ? { signal } : {}),
     timeoutMs: 1_000,
     pollMs: 200,
     readLocalState: disk.read,
@@ -37,7 +46,14 @@ function gate(states: Array<string | Error>, platform: NodeJS.Platform = 'win32'
     },
     now: () => clock,
   });
-  return { wait, disk, logs };
+  return {
+    wait,
+    disk,
+    logs,
+    get waits() {
+      return waits;
+    },
+  };
 }
 
 describe('createOsKeyGate', () => {
@@ -48,18 +64,30 @@ describe('createOsKeyGate', () => {
   });
 
   it('resolves at once when the key is already saved', async () => {
-    const { wait, disk, logs } = gate([SAVED]);
-    await wait();
-    assert.equal(disk.reads, 1);
-    assert.deepEqual(logs, []);
+    const subject = gate([SAVED]);
+    await subject.wait();
+    assert.equal(subject.disk.reads, 1);
+    assert.deepEqual(subject.logs, []);
+    assert.equal(subject.waits, 0);
   });
 
   it('waits through a missing file and a key-less Local State', async () => {
     const missing = Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
-    const { wait, disk, logs } = gate([missing, '{"browser":{}}', '{"os_crypt":{}}', SAVED]);
-    await Promise.all([wait(), wait()]);
-    assert.equal(disk.reads, 4);
-    assert.equal(logs.length, 2);
+    const subject = gate([missing, '{"browser":{}}', '{"os_crypt":{}}', SAVED]);
+    await Promise.all([subject.wait(), subject.wait()]);
+    assert.equal(subject.disk.reads, 4);
+    assert.equal(subject.logs.length, 2);
+    assert.equal(subject.waits, 1);
+  });
+
+  it('stops waiting when aborted and checks again on the next call', async () => {
+    const abort = new AbortController();
+    const subject = gate(['{}', '{}', SAVED], 'win32', abort.signal);
+    abort.abort();
+    await assert.rejects(subject.wait(), { name: 'AbortError' });
+    assert.equal(subject.disk.reads, 2);
+    await subject.wait();
+    assert.equal(subject.disk.reads, 3);
   });
 
   it('rejects after the timeout and checks again on the next call', async () => {

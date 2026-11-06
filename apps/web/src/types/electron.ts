@@ -318,6 +318,8 @@ export interface RendererRuntimeConfig {
 
 export interface RuntimeAPI {
   getConfigSync: () => RendererRuntimeConfig;
+  /** Resolves once main has started the embedded server. */
+  whenServerReady: () => Promise<void>;
 }
 
 /**

@@ -47,6 +47,7 @@ const DEVICE_LOCAL_DEFAULT: RendererRuntimeConfig = {
 
 interface ElectronRuntimeBridge {
   getConfigSync: () => RendererRuntimeConfig | null | undefined;
+  whenServerReady?: () => Promise<void>;
 }
 
 interface ElectronGlobal {
@@ -118,6 +119,18 @@ export function resolveApiBaseUrl(defaultUrl: string): string {
     return cfg.hubUrl.replace(/\/+$/, '');
   }
   return cfg.localApiUrl ?? defaultUrl;
+}
+
+/**
+ * The desktop window opens before main has started its embedded server.
+ * Null outside Electron, where there is nothing to wait for. Never rejects.
+ */
+export function waitForDesktopServer(): Promise<void> | null {
+  if (typeof window === 'undefined') return null;
+  const electron = (window as unknown as { electron?: ElectronGlobal }).electron;
+  const whenServerReady = electron?.runtime?.whenServerReady;
+  if (typeof whenServerReady !== 'function') return null;
+  return whenServerReady().catch(() => undefined);
 }
 
 /**

@@ -17,7 +17,7 @@ import {
 } from '../auto-updater';
 import { scheduleE2eShutdown } from '../e2e-shutdown.js';
 import { resolveLocalApiOrigin } from '../renderer-security-headers.js';
-import { getServerUrl } from '../runtime.js';
+import { getServerUrl, whenServerReady } from '../runtime.js';
 
 export function registerAppLifecycleIpc(): void {
   ipcMain.handle('get-app-version', () => app.getVersion());
@@ -43,6 +43,7 @@ export function registerAppLifecycleIpc(): void {
   ipcMain.on('runtime:get-config', event => {
     event.returnValue = cachedRendererRuntimeConfig;
   });
+  ipcMain.handle('runtime:when-server-ready', () => whenServerReady());
 
   // The fallback string is only returned before the embedded server has
   // started.  — once the server is up, `getUrl()` returns the
