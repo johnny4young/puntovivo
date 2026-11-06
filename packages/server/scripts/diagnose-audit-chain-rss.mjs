@@ -13,9 +13,9 @@ const serverRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const ROUNDS = Number(process.env.DIAG_ROUNDS ?? 4);
 const VARIANTS = [
   { name: 'default', execArgv: [], env: {} },
-  { name: 'no-memory-pool', execArgv: ['--no-memory-pool'], env: {} },
-  { name: 'no-zero-unused-memory', execArgv: ['--no-zero-unused-memory'], env: {} },
-  { name: 'malloc-arena-max-2', execArgv: [], env: { MALLOC_ARENA_MAX: '2' } },
+  { name: 'heap-growing-50', execArgv: ['--heap-growing-percent=50'], env: {} },
+  { name: 'heap-growing-100', execArgv: ['--heap-growing-percent=100'], env: {} },
+  { name: 'heap-growing-200', execArgv: ['--heap-growing-percent=200'], env: {} },
 ];
 
 const vitestCli = resolve(
