@@ -250,7 +250,8 @@ when practical and must never include passwords, tokens, PINs, encryption keys,
 or raw provider credentials.
 
 Packaged Electron audit-chain freshness is anchored outside SQLite by a
-versioned, `safeStorage`-sealed per-tenant counter/head envelope. The next
+versioned per-tenant counter/head envelope, sealed with AES-256-GCM under a key
+derived from the `safeStorage`-sealed anchor secret. The next
 counter is reserved before an audited write advances its database head,
 authenticated in the head HMAC, and confirmed only after commit. An ordered
 candidate list preserves every point produced before transaction-boundary

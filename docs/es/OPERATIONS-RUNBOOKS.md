@@ -135,7 +135,11 @@ respuesta garantizado. El comerciante es responsable del receptor y de la cobert
    versión mínima sellada ni instala el feed regresivo. Si se aprueba la
    recuperación de emergencia, respalda primero, obtén el instalador por un
    canal confiable separado, verifica su procedencia y ejecuta la recuperación
-   manual documentada. Nunca reduzcas la versión ni reemplaces la base.
+   manual documentada. Nunca reduzcas la versión ni reemplaces la base. Una
+   versión anterior a la migración asíncrona del llavero (v1.15.6 o anterior)
+   no puede leer el estado de vigencia de auditoría, así que toda escritura
+   auditada, ventas incluidas, falla cerrada hasta reinstalar la versión nueva.
+   No se pierden datos.
 4. Tras reiniciar, verifica versión, apertura de base, inicio de sesión y una
    superficie operativa de solo lectura. Escala cualquier fallo de firma,
    migración o reinicio y conserva el estado del actualizador con datos ocultos.
