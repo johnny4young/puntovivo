@@ -12,7 +12,8 @@
  * re-sampled, because it is a correctness failure.
  *
  * Re-sampling cannot rescue a host that is high on every sample (Node 26 put
- * one runner at 224-225 MiB three times), so the gate also prints the host and
+ * one runner at 224-225 MiB three times). The test therefore takes its baseline
+ * after a full GC, which needs `--expose-gc`, and the gate prints the host and
  * which memory component grew.
  */
 import { spawnSync } from 'node:child_process';
@@ -116,7 +117,13 @@ function runOnce() {
   const vitestCli = resolve(dirname(vitestPackage), 'vitest.mjs');
   const result = spawnSync(
     process.execPath,
-    [vitestCli, 'run', 'src/__tests__/perf-audit-chain-profile.test.ts', '--maxWorkers=1'],
+    [
+      vitestCli,
+      'run',
+      'src/__tests__/perf-audit-chain-profile.test.ts',
+      '--maxWorkers=1',
+      '--execArgv=--expose-gc',
+    ],
     {
       cwd: serverRoot,
       env: { ...process.env, PUNTOVIVO_AUDIT_CHAIN_PROFILE: '1' },
