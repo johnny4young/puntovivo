@@ -86,7 +86,7 @@ solo no demuestra que se haya resuelto un fallo concreto de rendimiento en un ru
 | Ventana DOM de tabla virtualizada con un espécimen real de 1,000 filas                                                       | E2E web local                         | `e2e/web/design-system-scale.spec.ts`                                          |
 | Heap retenido, documentos, nodos DOM y listeners en el mismo renderizador tras ciclos de jornada prolongada                  | E2E web local opcional                | `e2e/web/long-shift-soak.spec.ts`                                              |
 | Respaldo cifrado en streaming de 256 MiB + RSS, creación/extracción de tienda y cola de ciclo de vida acotada                | `ci:desktop`                          | `profile-backup-streaming.mjs` + pruebas Node de escritorio                    |
-| Memoria principal + renderizador de Electron e inicio del entorno compilado (estricto en CI; advertencia inicial local)      | `ci:desktop`                          | `scripts/run-electron-memory-gate.mjs` → `scripts/check-electron-memory.mjs`   |
+| Memoria por proceso y total de Electron e inicio del entorno compilado (estricto en CI; advertencia inicial local)           | `ci:desktop`                          | `scripts/run-electron-memory-gate.mjs` → `scripts/check-electron-memory.mjs`   |
 | Métricas web de Lighthouse (LCP / TTI / CLS / puntuación) para rutas principales (estricto en CI; advertencia inicial local) | `ci:web` + `pnpm run perf:lighthouse` | `scripts/run-lighthouse-gate.mjs` → `scripts/check-lighthouse.mjs`             |
 
 La línea base exigible localmente cubre tamaño de bundles, latencia p95 de tRPC
@@ -381,6 +381,22 @@ mediciones en el PR que cambia el presupuesto; no aumentes la tolerancia compart
 para ocultar una configuración de consulta ni calibres solo en una máquina de
 desarrollo más rápida.
 
+### Contrato de venta a escala de catálogo
+
+`__tests__/perf-sale-catalog-profile.test.ts` vende un carrito de tres líneas
+por la ruta tRPC real `sales.create` en una sede cuyos 50,000 productos activos
+con control de stock ya tienen fila de saldo, en un proceso aislado de un solo
+worker. Una venta puede emitir como máximo una inserción en
+`inventory_balances` por línea del carrito. Ese conteo no depende de la
+velocidad del host, así que un trabajo que crece con el catálogo falla aun en
+un runner rápido. Antes de esta compuerta, cada venta reinsertaba todo el
+catálogo en bloques de 90 filas con el candado de escritura: 559 inserciones y
+un p95 de 1,776 ms por venta en un host Apple Silicon cargado, frente a 3
+inserciones y 22 ms con la guarda de siembra.
+`perf-budget.json::saleCatalogProfile.p95Ms` acota el cobro además del conteo;
+trata su valor local como en los demás perfiles y conserva la primera medición
+alojada con su clase de runner.
+
 ### Contrato de escala de cadenas de auditoría
 
 `__tests__/perf-audit-chain-profile.test.ts` crea una cadena en archivo de
@@ -421,6 +437,22 @@ presupuestos. Una corrida que supera cualquiera se vuelve a muestrear hasta tres
 veces y decide la mediana de cada métrica, así que una verificación o redacción
 lenta falla igual que el crecimiento de RSS. Una prueba que falla es una falla
 de corrección y nunca se vuelve a muestrear.
+
+Con Node 26 la medición de RSS pasó a depender del host. En runners alojados de
+Ubuntu 24.04, Node 24 midió 41.6–49 MiB en 58 de 59 muestras. En Node 26, con la
+misma imagen y el mismo código, un runner midió 224–225 MiB en las tres muestras
+y otro midió 55 MiB. Una reproducción en Linux se dividió igual en un solo host
+(50–63 MiB en 22 de 24 corridas, 116 y 180 MiB en dos). La memoria extra es
+anónima, queda fuera del heap principal de V8 y sigue residente después de que
+termina el worker de hashing. Las transparent huge pages no son la causa. Volver
+a muestrear no absorbe un host que sale alto en todas las muestras, así que el
+runner imprime el host antes de muestrear: Node y V8, modelo de CPU, núcleos,
+memoria total y límite de cgroup, modo THP, glibc, imagen del runner y variables
+de entorno de memoria. La línea medida también incluye RSS, memoria anónima,
+respaldada por archivo y huge pages, y el heap de V8 en la línea base, después
+de la verificación y después de la redacción. Una falla nombra el host y cuánto
+creció cada componente. Estos campos explican una falla. No cambian el veredicto,
+el techo de 160 MiB ni la tolerancia compartida.
 
 ### Evidencia de almacenamiento vectorial y modelos de productos
 
@@ -498,10 +530,17 @@ de CI no es un artefacto empaquetado ni firmado.
 del renderizador más un breve período de estabilización, lee el conjunto de
 trabajo de cada proceso Electron con `app.getAppMetrics()`, imprime una línea
 `PUNTOVIVO_MEMORY_METRICS=<json>` y sale. La verificación asigna el proceso
-`Browser` a `main` y el proceso `Tab` a `renderer` (excluye GPU y procesos de
-utilidad), los suma en MB y compara contra
-`perf-budget.json::electronMemoryMb.perProcessMb` con el `thresholdPercent`
-compartido. El lanzador también registra el tiempo real total y lo verifica
+`Browser` a `main`, `Tab` a `renderer`, `GPU` a `gpu` y `Utility` a `utility`,
+suma en MB los procesos del mismo tipo, agrega todos los procesos en `total` y
+compara cada valor contra `perf-budget.json::electronMemoryMb.perProcessMb` con
+el `thresholdPercent` compartido. La memoria de composición y de red vive fuera
+del principal y del renderizador, así que un techo solo sobre esos dos dejaba
+fuera la mayor parte de la memoria de la app. El conjunto de trabajo no lo ve
+todo: en macOS el proceso de GPU reporta unos 100 MB mientras `footprint` muestra
+casi toda la memoria gráfica fuera de él, y el runner Linux de CI no inicia
+proceso de GPU, así que allí `gpu` marca 0 y la verificación recae en `total` y
+`utility`. Cada techo es el mayor entre la medición de macOS y la de Linux
+alojado. El lanzador también registra el tiempo real total y lo verifica
 contra `operationalProfile.desktopLaunchElapsedMs`.
 
 `ci:desktop` compila el bundle web más el bundle principal/preload de Electron,

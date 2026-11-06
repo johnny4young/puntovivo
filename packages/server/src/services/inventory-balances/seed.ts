@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray, notExists, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
 import { inventoryBalances, products } from '../../db/schema.js';
@@ -26,13 +26,69 @@ import { getPrimarySiteId, getTimestamp } from './helpers.js';
  *
  * Reads and writes run inside the same better-sqlite3 transaction so the
  * "which site is primary" and "which products exist" decisions are consistent
- * with the inserts.
+ * with the inserts. When no row is missing it returns after one read, without
+ * taking the writer lock.
  */
 export function ensureInventoryBalancesForSite(
   db: DatabaseInstance,
   tenantId: string,
   siteId: string
 ): void {
+  if (hasMissingBalanceRow(db, tenantId, siteId)) {
+    seedMissingBalanceRows(db, tenantId, siteId);
+  }
+}
+
+/**
+ * Sale-path variant: checks only `productIds`, so its cost follows the cart
+ * instead of the catalog. A missing row still seeds the whole site.
+ */
+export function ensureInventoryBalancesForProducts(
+  db: DatabaseInstance,
+  tenantId: string,
+  siteId: string,
+  productIds: readonly string[]
+): void {
+  if (productIds.length > 0 && hasMissingBalanceRow(db, tenantId, siteId, productIds)) {
+    seedMissingBalanceRows(db, tenantId, siteId);
+  }
+}
+
+function hasMissingBalanceRow(
+  db: DatabaseInstance,
+  tenantId: string,
+  siteId: string,
+  productIds?: readonly string[]
+): boolean {
+  const missing = db
+    .select({ id: products.id })
+    .from(products)
+    .where(
+      and(
+        eq(products.tenantId, tenantId),
+        eq(products.isActive, true),
+        eq(products.tracksStock, true),
+        productIds ? inArray(products.id, [...productIds]) : undefined,
+        notExists(
+          db
+            .select({ one: sql`1` })
+            .from(inventoryBalances)
+            .where(
+              and(
+                eq(inventoryBalances.tenantId, tenantId),
+                eq(inventoryBalances.siteId, siteId),
+                eq(inventoryBalances.productId, products.id)
+              )
+            )
+        )
+      )
+    )
+    .limit(1)
+    .get();
+  return missing !== undefined;
+}
+
+function seedMissingBalanceRows(db: DatabaseInstance, tenantId: string, siteId: string): void {
   const now = getTimestamp();
 
   db.transaction(

@@ -76,7 +76,12 @@ let dummyHashPromise: Promise<string> | null = null;
 
 export function getDummyPasswordHash(): Promise<string> {
   if (!dummyHashPromise) {
-    dummyHashPromise = argon2.hash(DUMMY_PLAINTEXT, ARGON2_OPTIONS);
+    const pending = argon2.hash(DUMMY_PLAINTEXT, ARGON2_OPTIONS);
+    // A failed hash must not stay cached: every login awaits this promise.
+    pending.catch(() => {
+      if (dummyHashPromise === pending) dummyHashPromise = null;
+    });
+    dummyHashPromise = pending;
   }
   return dummyHashPromise;
 }

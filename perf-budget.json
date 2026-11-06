@@ -176,6 +176,15 @@
       }
     }
   },
+  "saleCatalogProfile": {
+    "$comment": "ci:server sells a three-line cart through the real sales.create tRPC path on a site whose 50k active stock-tracked products already have balance rows. A sale may write at most one inventory_balances insert per cart line, so work that grows with the catalog fails on a count, independent of host speed; p95 additionally bounds the checkout.",
+    "catalogProducts": 50000,
+    "warmupSales": 3,
+    "samples": 20,
+    "$baseline": "The first hosted ubuntu-latest Backend Server run (PR 425, Node 26) measured p95 49.23 ms with 3 balance inserts per sale, so the baseline is 50 ms. A loaded Apple Silicon host measured 22.49 ms with the seed guard and 559 inserts at 1775.63 ms without it. Adjust only from repeated serial evidence on the hosted runner class.",
+    "thresholdPercent": 35,
+    "p95Ms": 50
+  },
   "auditChainProfile": {
     "$comment": "A 100k-row file-backed audit chain is verified through bounded indexed pages and rewritten once through the transaction-bound privacy-redaction path. Elapsed ceilings include a fixed host-variance allowance; maxRSS growth is absolute and measured after fixture construction.",
     "$baseline": "Corrected Band 14 local evidence on Apple Silicon used one post-seed RSS baseline across verification and redaction. Serial validation measured 377.41-380.30 ms verification, 1099.73-1118.48 ms redaction and 140.61-143.48 MiB cumulative maxRSS growth. PR10 qualification removed a redundant in-memory UNIQUE id index without weakening chain verification and measured 427.29 ms verification, 832.46 ms redaction and 155.91 MiB cumulative maxRSS growth under the unchanged limits. The declared baselines do not treat the local machine as hosted calibration; retain the first PR CI measurement and adjust only from repeated same-class evidence.",
@@ -209,12 +218,15 @@
     "maxPendingBackupOperations": 16
   },
   "electronMemoryMb": {
-    "$comment": "Electron main + renderer working-set ceilings in MB, measured through app.getAppMetrics() by scripts/check-electron-memory.mjs. ci:desktop always uses --strict --require-measurement and fails on an absent measurement or a process above baseline plus threshold; only direct local diagnostic invocation remains warn-first unless those flags are supplied.",
+    "$comment": "Electron working-set ceilings in MB per process type (main, renderer, GPU, utility) and for the sum of every process, measured through app.getAppMetrics() by scripts/check-electron-memory.mjs. ci:desktop always uses --strict --require-measurement and fails on an absent measurement or a process above baseline plus threshold; only direct local diagnostic invocation remains warn-first unless those flags are supplied.",
     "thresholdPercent": 25,
-    "$baseline": "Captured locally on macOS and enforced on the Linux CI renderer. The 25% threshold is an explicit cross-platform working-set variance allowance, not permission to normalize the baseline upward; any measurement above the resulting ceiling fails ci:desktop.",
+    "$baseline": "Captured locally on macOS and enforced on the Linux CI renderer. gpu, utility and total were added on 2026-11-05 at the larger of two hosts. Three macOS launches at load 14 measured GPU 100.3-106.0, utility 46.7-52.8 and total 472.2-580.7 MB. Two ubuntu-latest Desktop Workspace runs on Electron 45 measured no GPU process, utility 91.4-96.7 and total 458.2 MB. The macOS GPU working set excludes most graphics memory, so these ceilings follow the blur-era working set and should come down once the blur decision lands. The 25% threshold is an explicit cross-platform working-set variance allowance, not permission to normalize the baseline upward; any measurement above the resulting ceiling fails ci:desktop.",
     "perProcessMb": {
       "main": 260,
-      "renderer": 165
+      "renderer": 165,
+      "gpu": 106,
+      "utility": 97,
+      "total": 581
     }
   },
   "longShiftSoak": {

@@ -77,7 +77,7 @@ evidence that a particular hosted performance failure has been resolved.
 | Virtualised data-table DOM window against a 1,000-row live specimen                               | local web E2E                         | `e2e/web/design-system-scale.spec.ts`                                           |
 | Same-renderer retained heap, documents, DOM nodes, and event listeners after long-shift cycles    | opt-in local web E2E                  | `e2e/web/long-shift-soak.spec.ts`                                               |
 | 256 MiB encrypted backup streaming + RSS, store create/extract, and bounded lifecycle queue       | `ci:desktop`                          | `profile-backup-streaming.mjs` + desktop Node tests                             |
-| Electron main + renderer memory and built-runtime launch (strict in CI; warn-first locally)       | `ci:desktop`                          | `scripts/run-electron-memory-gate.mjs` → `scripts/check-electron-memory.mjs`    |
+| Electron per-process and total memory and built-runtime launch (strict in CI; warn-first locally) | `ci:desktop`                          | `scripts/run-electron-memory-gate.mjs` → `scripts/check-electron-memory.mjs`    |
 | Lighthouse web vitals (LCP / TTI / CLS / score) for top routes (strict in CI; warn-first locally) | `ci:web` + `pnpm run perf:lighthouse` | `scripts/run-lighthouse-gate.mjs` → `scripts/check-lighthouse.mjs`              |
 
 The locally enforceable baseline covers bundle size, fixture and store-sized
@@ -346,6 +346,20 @@ profile on the target CI host and retain the measurements in the changing PR;
 do not increase the shared tolerance to hide one query shape or calibrate only
 against a faster developer machine.
 
+### Sale catalog-scale contract
+
+`__tests__/perf-sale-catalog-profile.test.ts` sells a three-line cart through
+the real `sales.create` tRPC path on a site whose 50,000 active stock-tracked
+products already have balance rows, in an isolated single-worker process. A
+sale may issue at most one `inventory_balances` insert per cart line. That
+count does not depend on host speed, so work that grows with the catalog fails
+even on a fast runner. Before this gate, every sale re-inserted the whole
+catalog in 90-row chunks under the writer lock: 559 inserts and a 1,776 ms p95
+per sale on a loaded Apple Silicon host, against 3 inserts and 22 ms with the
+seed guard. `perf-budget.json::saleCatalogProfile.p95Ms` bounds the checkout
+on top of the count; treat its local value like the other profiles and keep
+the first hosted measurement with its runner class.
+
 ### Audit-chain scale contract
 
 `__tests__/perf-audit-chain-profile.test.ts` builds a file-backed chain of
@@ -383,6 +397,21 @@ tolerance or by running this profile beside another performance gate.
 budgets. A run over any of them is re-sampled up to three times and the median
 of each metric decides, so slow verification or redaction fails as surely as
 RSS growth. A failing test is a correctness failure and is never re-sampled.
+
+Under Node 26 the RSS measurement became host-dependent. On hosted Ubuntu 24.04
+runners, Node 24 measured 41.6–49 MiB in 58 of 59 samples. On Node 26, with the
+same image and code, one runner measured 224–225 MiB on all three samples and
+another measured 55 MiB. A Linux reproduction split the same way on a single
+host (50–63 MiB in 22 of 24 runs, 116 and 180 MiB in two). The extra memory is
+anonymous, sits outside the main V8 heap, and stays resident after the hashing
+worker exits. Transparent huge pages are not the cause. Re-sampling cannot
+absorb a host that is high on every sample, so the runner prints the host before
+sampling: Node and V8, CPU model, cores, total and cgroup memory, THP mode,
+glibc, runner image, and memory-related environment variables. The measured line
+also carries RSS, anonymous, file-backed and huge-page memory and the V8 heap at
+the baseline, after verification and after redaction. A failure names the host
+and how much each component grew. These fields explain a failure. They do not
+change the verdict, the 160 MiB ceiling or the shared tolerance.
 
 ### Product-vector storage and model evidence
 
@@ -455,10 +484,17 @@ with `PUNTOVIVO_MEASURE_MEMORY=1`. The main process waits for the
 renderer to finish loading plus a short settle window, reads each
 Electron process' working-set via `app.getAppMetrics()`, prints one
 `PUNTOVIVO_MEMORY_METRICS=<json>` line, and quits. The gate maps the
-`Browser` process to `main` and the `Tab` process to `renderer`
-(GPU / utility processes are excluded), sums them in MB, and compares
-against `perf-budget.json::electronMemoryMb.perProcessMb` with the
-shared `thresholdPercent`. The launcher also records total wall time and checks
+`Browser` process to `main`, `Tab` to `renderer`, `GPU` to `gpu` and
+`Utility` to `utility`, sums same-type processes in MB, adds every process
+into `total`, and compares each against
+`perf-budget.json::electronMemoryMb.perProcessMb` with the shared
+`thresholdPercent`. Compositing and network memory live outside main and
+renderer, so a ceiling on those two alone missed most of the app's memory.
+The working set does not see everything: on macOS the GPU process reports
+about 100 MB while `footprint` shows most graphics memory outside it, and the
+Linux CI runner starts no GPU process at all, so there `gpu` reads 0 and
+`total` and `utility` carry the check. Each ceiling is the larger of the macOS
+and hosted Linux measurements. The launcher also records total wall time and checks
 it against `operationalProfile.desktopLaunchElapsedMs`.
 
 `ci:desktop` now builds the web bundle plus Electron main/preload

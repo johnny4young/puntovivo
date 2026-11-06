@@ -38,7 +38,7 @@
     "perf:lighthouse": "node scripts/check-lighthouse.mjs",
     "ci:server:gates": "pnpm run ci:server:static && pnpm run ci:server:perf",
     "ci:server:static": "pnpm run ci:shared && pnpm run ci:audit && pnpm run lint:fast:server && pnpm --filter @puntovivo/server run typecheck && pnpm --filter @puntovivo/server run lint && pnpm --filter @puntovivo/server run format",
-    "ci:server:perf": "pnpm --filter @puntovivo/server run test:perf:trpc && pnpm --filter @puntovivo/server run test:perf:store && pnpm --filter @puntovivo/server run test:perf:search && pnpm --filter @puntovivo/server run test:perf:audit",
+    "ci:server:perf": "pnpm --filter @puntovivo/server run test:perf:trpc && pnpm --filter @puntovivo/server run test:perf:store && pnpm --filter @puntovivo/server run test:perf:search && pnpm --filter @puntovivo/server run test:perf:sale && pnpm --filter @puntovivo/server run test:perf:audit",
     "ci:server": "pnpm run ci:server:static && pnpm --filter @puntovivo/server run test:coverage && pnpm run ci:server:perf",
     "test:e2e:web": "node scripts/ensure-playwright-browser.mjs && pnpm --filter @puntovivo/server run build && pnpm --filter @puntovivo/server run native:ensure:node && playwright test --config=playwright.web.config.ts --grep-invert \"@long-shift-soak|@isolated-journey\" --forbid-only && playwright test --config=playwright.web-heavy.config.ts --grep @isolated-journey --grep-invert @long-shift-soak --workers=1 --forbid-only",
     "test:e2e:web:critical": "node scripts/ensure-playwright-browser.mjs && pnpm --filter @puntovivo/server run build && pnpm --filter @puntovivo/server run native:ensure:node && playwright test --config=playwright.web.config.ts --grep @critical --workers=1 --forbid-only",
