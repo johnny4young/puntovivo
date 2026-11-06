@@ -401,17 +401,25 @@ RSS growth. A failing test is a correctness failure and is never re-sampled.
 Under Node 26 the RSS measurement became host-dependent. On hosted Ubuntu 24.04
 runners, Node 24 measured 41.6–49 MiB in 58 of 59 samples. On Node 26, with the
 same image and code, one runner measured 224–225 MiB on all three samples and
-another measured 55 MiB. A Linux reproduction split the same way on a single
-host (50–63 MiB in 22 of 24 runs, 116 and 180 MiB in two). The extra memory is
-anonymous, sits outside the main V8 heap, and stays resident after the hashing
-worker exits. Transparent huge pages are not the cause. Re-sampling cannot
-absorb a host that is high on every sample, so the runner prints the host before
-sampling: Node and V8, CPU model, cores, total and cgroup memory, THP mode,
-glibc, runner image, and memory-related environment variables. The measured line
-also carries RSS, anonymous, file-backed and huge-page memory and the V8 heap at
-the baseline, after verification and after redaction. A failure names the host
-and how much each component grew. These fields explain a failure. They do not
-change the verdict, the 160 MiB ceiling or the shared tolerance.
+another 55 MiB. A hosted matrix traced the split to the main V8 heap. On fast
+AMD EPYC 9V45 and 9V74 hosts, and sometimes on EPYC 7763 hosts, no major GC ran
+during verification and redaction, so their garbage stayed on the heap
+(heapUsed about 155 → 337 MiB). Whether that GC lands inside the window depends
+on how much seed garbage is still on the heap at the baseline, so the test runs
+a full GC right before taking it. The runner passes `--expose-gc` for that, and
+the test refuses to run without it. Interleaved on the same eight hosts, the
+default measured over 100 MiB in 7 of 32 samples (up to 234 MiB) and the settled
+baseline in 0 of 32 (40–60 MiB), with unchanged elapsed times. Memory the code
+retains still counts, because a GC frees only garbage. Disabling V8's memory
+pool or page zeroing, `MALLOC_ARENA_MAX=2` and a pinned `--heap-growing-percent`
+did not remove the split, and transparent huge pages are not involved.
+
+The runner prints the host before sampling: Node and V8, CPU model, cores, total
+and cgroup memory, THP mode, glibc, runner image, and memory-related environment
+variables. The measured line carries RSS, anonymous, file-backed and huge-page
+memory and the V8 heap at the baseline, after verification and after redaction.
+A failure names the host and how much each component grew. The verdict, the
+160 MiB ceiling and the shared tolerance are unchanged.
 
 ### Product-vector storage and model evidence
 
