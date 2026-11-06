@@ -10,9 +10,14 @@
  * So this gate, not the test, judges every budget: a sample over any of them
  * is re-sampled and each metric's MEDIAN decides. A failing test is never
  * re-sampled, because it is a correctness failure.
+ *
+ * Re-sampling cannot rescue a host that is high on every sample (Node 26 put
+ * one runner at 224-225 MiB three times), so the gate also prints the host and
+ * which memory component grew.
  */
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { availableParallelism, cpus, totalmem } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -28,6 +33,59 @@ function readBudget() {
 }
 
 const median = values => [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)];
+const toMiB = bytes => Math.round(bytes / 1048576);
+
+/** Host facts that change process RSS. Linux-only fields are null elsewhere. */
+export function describeHost({
+  readText = path => readFileSync(path, 'utf8'),
+  env = process.env,
+} = {}) {
+  const selected = path => {
+    try {
+      return /\[([^\]]+)\]/.exec(readText(path))?.[1] ?? null;
+    } catch {
+      return null;
+    }
+  };
+  const constrained = process.constrainedMemory?.() ?? 0;
+  const memoryEnv = Object.fromEntries(
+    ['NODE_OPTIONS', 'MALLOC_ARENA_MAX', 'GLIBC_TUNABLES']
+      .filter(key => env[key])
+      .map(key => [key, env[key]])
+  );
+  return {
+    node: process.version,
+    v8: process.versions.v8,
+    cpu: cpus()[0]?.model.trim() || 'unknown',
+    cores: availableParallelism(),
+    totalMemoryMiB: toMiB(totalmem()),
+    constrainedMemoryMiB:
+      constrained > 0 && constrained < Number.MAX_SAFE_INTEGER ? toMiB(constrained) : null,
+    thp: selected('/sys/kernel/mm/transparent_hugepage/enabled'),
+    thpDefrag: selected('/sys/kernel/mm/transparent_hugepage/defrag'),
+    glibc: process.report?.getReport().header.glibcVersionRuntime ?? null,
+    image: env.ImageVersion ?? null,
+    ...(Object.keys(memoryEnv).length > 0 ? { memoryEnv } : {}),
+  };
+}
+
+const hostSummary = host =>
+  `${host.cpu}, ${host.cores} cores, ${host.totalMemoryMiB} MiB, THP ${host.thp ?? 'n/a'}, Node ${host.node}`;
+
+/** Growth of each memory component from the post-seed baseline to redaction. */
+export function describeGrowth(measured) {
+  const { baseline, redact } = measured.memory ?? {};
+  if (!baseline || !redact) return null;
+  const parts = [
+    ['anon', 'anonMiB'],
+    ['file', 'fileMiB'],
+    ['huge pages', 'hugeMiB'],
+    ['V8 heap', 'heapTotalMiB'],
+  ]
+    .filter(([, key]) => Number.isFinite(baseline[key]) && Number.isFinite(redact[key]))
+    .map(([label, key]) => `${label} ${(redact[key] - baseline[key]).toFixed(1)}`);
+  return parts.length > 0 ? `${parts.join(', ')} MiB` : null;
+}
 
 /**
  * Judge measured samples against `auditChainProfile`. Elapsed ceilings carry
@@ -78,7 +136,13 @@ function runOnce() {
 }
 
 /** Returns the process exit code. */
-export function runGate({ run = runOnce, budget = readBudget(), log = console.error } = {}) {
+export function runGate({
+  run = runOnce,
+  budget = readBudget(),
+  log = console.error,
+  host = describeHost(),
+} = {}) {
+  log(`audit-chain profile host: ${JSON.stringify(host)}`);
   const samples = [];
   for (let attempt = 1; attempt <= MAX_SAMPLES; attempt += 1) {
     const sample = run();
@@ -98,8 +162,12 @@ export function runGate({ run = runOnce, budget = readBudget(), log = console.er
         );
         return 0;
       }
-      log(`audit-chain profile FAILED over ${samples.length} samples:`);
+      log(`audit-chain profile FAILED over ${samples.length} samples on ${hostSummary(host)}:`);
       for (const line of verdict.overBudget) log(`  ${line}`);
+      samples.forEach((sample, index) => {
+        const growth = describeGrowth(sample);
+        if (growth) log(`  sample ${index + 1} growth to redaction: ${growth}`);
+      });
       return 1;
     }
     if (attempt === 1) {

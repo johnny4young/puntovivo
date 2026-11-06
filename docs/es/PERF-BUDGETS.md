@@ -438,6 +438,22 @@ veces y decide la mediana de cada métrica, así que una verificación o redacci
 lenta falla igual que el crecimiento de RSS. Una prueba que falla es una falla
 de corrección y nunca se vuelve a muestrear.
 
+Con Node 26 la medición de RSS pasó a depender del host. En runners alojados de
+Ubuntu 24.04, Node 24 midió 41.6–49 MiB en 58 de 59 muestras. En Node 26, con la
+misma imagen y el mismo código, un runner midió 224–225 MiB en las tres muestras
+y otro midió 55 MiB. Una reproducción en Linux se dividió igual en un solo host
+(50–63 MiB en 22 de 24 corridas, 116 y 180 MiB en dos). La memoria extra es
+anónima, queda fuera del heap principal de V8 y sigue residente después de que
+termina el worker de hashing. Las transparent huge pages no son la causa. Volver
+a muestrear no absorbe un host que sale alto en todas las muestras, así que el
+runner imprime el host antes de muestrear: Node y V8, modelo de CPU, núcleos,
+memoria total y límite de cgroup, modo THP, glibc, imagen del runner y variables
+de entorno de memoria. La línea medida también incluye RSS, memoria anónima,
+respaldada por archivo y huge pages, y el heap de V8 en la línea base, después
+de la verificación y después de la redacción. Una falla nombra el host y cuánto
+creció cada componente. Estos campos explican una falla. No cambian el veredicto,
+el techo de 160 MiB ni la tolerancia compartida.
+
 ### Evidencia de almacenamiento vectorial y modelos de productos
 
 Dos benchmarks invocados por el operador permiten revisar cambios de vectores/modelos

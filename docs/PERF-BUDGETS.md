@@ -398,6 +398,21 @@ budgets. A run over any of them is re-sampled up to three times and the median
 of each metric decides, so slow verification or redaction fails as surely as
 RSS growth. A failing test is a correctness failure and is never re-sampled.
 
+Under Node 26 the RSS measurement became host-dependent. On hosted Ubuntu 24.04
+runners, Node 24 measured 41.6–49 MiB in 58 of 59 samples. On Node 26, with the
+same image and code, one runner measured 224–225 MiB on all three samples and
+another measured 55 MiB. A Linux reproduction split the same way on a single
+host (50–63 MiB in 22 of 24 runs, 116 and 180 MiB in two). The extra memory is
+anonymous, sits outside the main V8 heap, and stays resident after the hashing
+worker exits. Transparent huge pages are not the cause. Re-sampling cannot
+absorb a host that is high on every sample, so the runner prints the host before
+sampling: Node and V8, CPU model, cores, total and cgroup memory, THP mode,
+glibc, runner image, and memory-related environment variables. The measured line
+also carries RSS, anonymous, file-backed and huge-page memory and the V8 heap at
+the baseline, after verification and after redaction. A failure names the host
+and how much each component grew. These fields explain a failure. They do not
+change the verdict, the 160 MiB ceiling or the shared tolerance.
+
 ### Product-vector storage and model evidence
 
 Two operator-invoked benchmarks make vector/model changes reviewable without
