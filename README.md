@@ -56,8 +56,9 @@ retail POS sellability.
   open WhatsApp for the operator to review, attach, and send. Puntovivo does not
   upload or send the receipt in the background.
 - 🛒 **Barcode-first checkout** — scan or type SKU, keyboard-driven cart
-  (`Alt+P` search, `Alt+C` quantity, `Alt+D` discount), suspended sales, and
-  a live IVA-inclusive payment summary.
+  (`Alt+P` search, `Alt+C` quantity, `Alt+D` discount), one command bar and one
+  charge button, product lookup from the command palette (`Ctrl/⌘+K`),
+  suspended sales, and a live IVA-inclusive payment summary.
 - 💵 **Cash accountability** — one open cash session per register, blind or
   sighted close, movement ledger with an expected-balance invariant, and a
   60-second day-close ritual with real gross margin and a reconciliation
@@ -81,6 +82,10 @@ retail POS sellability.
 - 🔒 **Multi-tenant by construction** — every query is tenant-scoped, role
   guards and site-scope guards are shared primitives, and cross-tenant
   isolation is pinned by tests.
+- 🔑 **Password recovery without email** — a forgotten password is recovered
+  from the sign-in screen through another administrator, a one-use recovery
+  code, or, for the only owner on desktop, from the computer that holds the
+  data.
 - 🌎 **Bilingual, offline-first** — neutral Latin American Spanish and English
   UI, local SQLite authority, and a durable outbox/sync kernel for eventual
   cloud replication.
@@ -125,7 +130,7 @@ The canonical capability inventory, remaining gaps, and release gates live in
   [run 31264233582](https://github.com/johnny4young/puntovivo/actions/runs/31264233582).
   That validation-only matrix is regression evidence for v1.10.1, not proof of
   later binaries, release signing, or a production recovery-time
-  promise. The [v1.14.4 release](https://github.com/johnny4young/puntovivo/releases/tag/v1.14.4)
+  promise. The [v1.16.0 release](https://github.com/johnny4young/puntovivo/releases/tag/v1.16.0)
   and [live update policy](https://johnny4young.github.io/puntovivo/update-policy.json)
   do not substitute for representative-machine Gate 5 evidence.
 - The macOS artifact is Apple Silicon and now declares macOS 15 Sequoia as its
@@ -144,7 +149,7 @@ The canonical capability inventory, remaining gaps, and release gates live in
 
 | Layer    | Choice                                                 | Notes                                                         |
 | -------- | ------------------------------------------------------ | ------------------------------------------------------------- |
-| Desktop  | Electron 45.2.3 + electron-builder packaging           | SQLite uses one bundled Node-API binary per target platform.  |
+| Desktop  | Electron 45.2.2 + electron-builder packaging           | SQLite uses one bundled Node-API binary per target platform.  |
 | Web      | React 19 + Vite 8 + TypeScript 7 (TS 6 API for ESLint) | Browser target and Electron renderer share the app code.      |
 | API      | Fastify + tRPC 11                                      | `/api/trpc` is the canonical application API.                 |
 | Database | SQLite via better-sqlite3-multiple-ciphers             | SQLCipher path is wired; dev modes can share an encrypted DB. |
@@ -181,7 +186,7 @@ pnpm 11 blocks dependency build scripts unless they are allowlisted. The repo
 allowlist lives in [pnpm-workspace.yaml](./pnpm-workspace.yaml) and covers the
 runtime pieces that still expose lifecycle hooks: argon2 and esbuild.
 better-sqlite3-multiple-ciphers v13 ships integrity-checked Node-API binaries
-and its implicit pnpm build is explicitly denied. Electron 45.2.3, like every line
+and its implicit pnpm build is explicitly denied. Electron 45.2.2, like every line
 since 42, has no install hook; Puntovivo installs its development runtime
 lazily during the desktop preflight. If install prints
 `ERR_PNPM_IGNORED_BUILDS`, review the package and record an explicit true/false

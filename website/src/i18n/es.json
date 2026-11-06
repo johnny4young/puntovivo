@@ -776,8 +776,8 @@
             "size": "L"
           },
           {
-            "t": "Flujo para restaurantes",
-            "d": "Mesas, envío a cocina, propinas y división de cuentas solo si un piloto valida este vertical.",
+            "t": "Más profundidad para restaurantes",
+            "d": "Mesas, pantalla de cocina y cuentas divididas ya funcionan. Ampliar este vertical depende de que un piloto lo valide.",
             "area": "Verticales",
             "size": "XL"
           },
@@ -797,6 +797,31 @@
         "when": "Validado",
         "t": "Recuperación cifrada empaquetada en tres sistemas operativos",
         "area": "Plataforma"
+      },
+      {
+        "when": "Construido",
+        "t": "Recuperación de contraseña sin correo",
+        "area": "Seguridad"
+      },
+      {
+        "when": "Construido",
+        "t": "Caja con una barra de comandos y un solo cobro",
+        "area": "Caja"
+      },
+      {
+        "when": "Construido",
+        "t": "Cierre del día como lista con acciones",
+        "area": "Caja"
+      },
+      {
+        "when": "Construido",
+        "t": "Catálogo con filtros y cambios en bloque",
+        "area": "Inventario"
+      },
+      {
+        "when": "Construido",
+        "t": "Plano de mesas en vivo y pantalla de cocina",
+        "area": "Verticales"
       },
       {
         "when": "Construido",

@@ -776,8 +776,8 @@
             "size": "L"
           },
           {
-            "t": "Restaurant workflow",
-            "d": "Tables, kitchen routing, tips and split bills only if a pilot validates this vertical.",
+            "t": "Deeper restaurant workflow",
+            "d": "Tables, the kitchen display and split checks already work. Going further in this vertical depends on a pilot validating it.",
             "area": "Verticals",
             "size": "XL"
           },
@@ -797,6 +797,31 @@
         "when": "Validated",
         "t": "Packaged encrypted recovery on three operating systems",
         "area": "Platform"
+      },
+      {
+        "when": "Built",
+        "t": "Password recovery without email",
+        "area": "Security"
+      },
+      {
+        "when": "Built",
+        "t": "Register with one command bar and one charge button",
+        "area": "Register"
+      },
+      {
+        "when": "Built",
+        "t": "Day close as a checklist with actions",
+        "area": "Register"
+      },
+      {
+        "when": "Built",
+        "t": "Catalog filters and bulk changes",
+        "area": "Inventory"
+      },
+      {
+        "when": "Built",
+        "t": "Live floor map and kitchen display",
+        "area": "Verticals"
       },
       {
         "when": "Built",

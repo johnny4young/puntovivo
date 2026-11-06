@@ -60,7 +60,7 @@
         "On desktop, use the main window. For web, the operator must start the server and open Puntovivo on that same computer; use the private installation code shown at startup. This is not remote registration.",
         "Sign in with the account you chose. If the setup response was lost, try signing in before repeating the process."
       ],
-      "check": "Ownership does not mean the business is ready to sell. Continue through guided setup. For a forgotten password, ask another authorized administrator or the installation operator; do not delete the database.",
+      "check": "Ownership does not mean the business is ready to sell. Continue through guided setup. If you forget the password, use Forgot your password? on the sign-in screen; do not delete the database.",
       "related": ["setup", "users"],
       "source": "docs/LOGIN_GUIDE.md"
     },
@@ -228,7 +228,7 @@
         "In Users, create an individual account with its role and a strong password. Avoid sharing the owner account among cashiers.",
         "Review employee and site assignments for their work. Select the correct site before operating.",
         "Use admin for users, configuration and modules. Managers handle operational tasks; cashiers work in sales and cash; viewers access permitted read-only screens.",
-        "To change your password, open the user menu and choose Change password. Sign in again after saving; an administrator can also reset passwords.",
+        "To change your password, open the user menu and choose Change password. Sign in again after saving; an administrator can also reset passwords. From the same menu, each administrator generates a recovery code and stores it away from the computer.",
         "When employee PIN switching is configured, check the displayed identity before continuing. Sign out when leaving the workstation."
       ],
       "check": "For a missing menu, check role, site and enabled modules first. An employee PIN does not replace the owner-account recovery process.",
@@ -304,7 +304,7 @@
       "where": "Diagnosis · start with version, user and site",
       "intro": "Check what was saved before repeating an operation. An error does not prove that a sale or payment did not occur.",
       "steps": [
-        "Cannot sign in: use your owner account or an active account, check keyboard language and password. There is no universal production account. Ask an authorized administrator for a reset.",
+        "Cannot sign in: use your owner account or an active account, check keyboard language and password. There is no universal production account. For a forgotten password, choose Forgot your password?: enter your recovery code or, on desktop, if you are the only user and have no code, create a new one from that computer. If neither applies, ask an administrator to reset it in Users.",
         "Missing feature: check role, active site and Company → Modules. Unavailable means that control cannot enable the feature.",
         "Cannot take payment: review cash opening, available register, numbering, stock, lot/serial selection and any approval requested by the screen.",
         "Cannot print: first confirm the saved sale and the print queue, then check paper, power, the system printer selected on this computer or the TCP IP/port, and the device site. Read the reason of a failed test. In browser, check popups. Direct USB ESC/POS is not implemented, so switching to it is not a solution.",
