@@ -42,6 +42,22 @@ function readCanary(key) {
   }
 }
 
+/** Windows keeps the safeStorage key in Local State, which Chromium saves on a timer. */
+async function waitForSavedOsKey() {
+  if (process.platform !== 'win32') return;
+  const localState = join(app.getPath('sessionData'), 'Local State');
+  const deadline = Date.now() + 30_000;
+  while (Date.now() < deadline) {
+    try {
+      if (JSON.parse(readFileSync(localState, 'utf8')).os_crypt?.encrypted_key) return;
+    } catch {
+      // Not written yet.
+    }
+    await new Promise(resolve => setTimeout(resolve, 250));
+  }
+  throw new Error(`${localState} never received the safeStorage key`);
+}
+
 async function runPhase() {
   const store = await import(pathToFileURL(PROOF_KEY_STORE).href);
   const envelopePath = store.getDbKeyEnvelopePath(PROOF_DATA_DIR);
@@ -83,7 +99,8 @@ app.disableHardwareAcceleration();
 app
   .whenReady()
   .then(runPhase)
-  .then(result => {
+  .then(async result => {
+    await waitForSavedOsKey();
     writeFileSync(PROOF_RESULT, JSON.stringify(result));
     app.exit(0);
   })
