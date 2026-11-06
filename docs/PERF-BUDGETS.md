@@ -500,9 +500,10 @@ into `total`, and compares each against
 renderer, so a ceiling on those two alone missed most of the app's memory.
 The working set does not see everything: on macOS the GPU process reports
 about 100 MB while `footprint` shows most graphics memory outside it, and the
-Linux CI runner starts no GPU process at all, so there `gpu` reads 0 and
-`total` and `utility` carry the check. Each ceiling is the larger of the macOS
-and hosted Linux measurements. The launcher also records total wall time and checks
+Linux CI runner starts a GPU process only on some launches: the same commit
+measured 168.7 MB on one attempt and 0 on the next. Each ceiling is the
+largest of the macOS and hosted Linux measurements, so `gpu` and `total`
+follow a launch that has a GPU process. The launcher also records total wall time and checks
 it against `operationalProfile.desktopLaunchElapsedMs`.
 
 `ci:desktop` now builds the web bundle plus Electron main/preload

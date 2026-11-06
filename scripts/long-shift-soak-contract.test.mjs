@@ -43,9 +43,10 @@ test('retained-growth budget has warmup, repeated checkpoints, and bounded signa
 
 test('web CI pins the pure comparator while the live soak owns browser proof', () => {
   const packageJson = JSON.parse(readRepoFile('package.json'));
-  const ciWeb = packageJson.scripts['ci:web'];
-  assert.match(ciWeb, /scripts\/long-shift-soak-contract\.test\.mjs/);
-  assert.match(ciWeb, /scripts\/long-shift-memory\.test\.mts/);
+  const ciWebGates = packageJson.scripts['ci:web:gates'];
+  assert.match(packageJson.scripts['ci:web'], /pnpm run ci:web:gates/);
+  assert.match(ciWebGates, /scripts\/long-shift-soak-contract\.test\.mjs/);
+  assert.match(ciWebGates, /scripts\/long-shift-memory\.test\.mts/);
 
   const spec = readRepoFile('e2e/web/long-shift-soak.spec.ts');
   assert.equal((spec.match(/tag: '@long-shift-soak'/g) ?? []).length, 1);
