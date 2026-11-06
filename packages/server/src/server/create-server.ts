@@ -171,6 +171,15 @@ async function createOwnedServer(
   // against an adopted DB missing migration 0006 (no-op + warn).
   warmCacheFromDb(db);
 
+  // A running Argon2 hash cannot be cancelled, and one that settles during
+  // Electron teardown aborts the process, so close waits for the warm-up.
+  let timingEqualizerWarmUp: Promise<void> = Promise.resolve();
+  let skipRemainingWarmUp = false;
+  owner.defer('timing equalizer warm-up', () => {
+    skipRemainingWarmUp = true;
+    return timingEqualizerWarmUp;
+  });
+
   // schedule the periodic sweep of the in-memory rate-limit
   // bucket map so a long-running Electron session (or hub) does not
   // accumulate entries indefinitely. The handle is released via the
@@ -353,8 +362,8 @@ async function createOwnedServer(
         // Two 64 MiB Argon2 hashes used to hold boot. Login and PIN checks
         // await these same memoised promises on every branch, so warming
         // them here keeps their timing equal. One at a time bounds memory.
-        void warmUpPasswordSecurity()
-          .then(warmUpStaffPinSecurity)
+        timingEqualizerWarmUp = warmUpPasswordSecurity()
+          .then(() => (skipRemainingWarmUp ? undefined : warmUpStaffPinSecurity()))
           .catch((error: unknown) =>
             serverLog.error({ err: error }, 'timing equalizer warm-up failed')
           );

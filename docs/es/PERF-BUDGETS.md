@@ -441,18 +441,27 @@ de corrección y nunca se vuelve a muestrear.
 Con Node 26 la medición de RSS pasó a depender del host. En runners alojados de
 Ubuntu 24.04, Node 24 midió 41.6–49 MiB en 58 de 59 muestras. En Node 26, con la
 misma imagen y el mismo código, un runner midió 224–225 MiB en las tres muestras
-y otro midió 55 MiB. Una reproducción en Linux se dividió igual en un solo host
-(50–63 MiB en 22 de 24 corridas, 116 y 180 MiB en dos). La memoria extra es
-anónima, queda fuera del heap principal de V8 y sigue residente después de que
-termina el worker de hashing. Las transparent huge pages no son la causa. Volver
-a muestrear no absorbe un host que sale alto en todas las muestras, así que el
-runner imprime el host antes de muestrear: Node y V8, modelo de CPU, núcleos,
+y otro 55 MiB. Una matriz alojada ubicó la división en el heap principal de V8.
+En hosts rápidos AMD EPYC 9V45 y 9V74, y a veces en hosts EPYC 7763, no corrió
+ninguna GC mayor durante la verificación y la redacción, así que su basura quedó
+en el heap (heapUsed de unos 155 → 337 MiB). Que esa GC caiga dentro de la
+ventana depende de cuánta basura de la carga inicial sigue en el heap en la
+línea base, así que la prueba ejecuta una GC completa justo antes de tomarla. El
+runner pasa `--expose-gc` para eso y la prueba se niega a correr sin él.
+Intercaladas en los mismos ocho hosts, la configuración por defecto midió más de
+100 MiB en 7 de 32 muestras (hasta 234 MiB) y la línea base asentada en 0 de 32
+(40–60 MiB), sin cambios en los tiempos. La memoria que el código retiene sigue
+contando, porque una GC solo libera basura. Desactivar el pool de memoria o el
+borrado de páginas de V8, `MALLOC_ARENA_MAX=2` y un `--heap-growing-percent` fijo
+no eliminaron la división, y las transparent huge pages no intervienen.
+
+El runner imprime el host antes de muestrear: Node y V8, modelo de CPU, núcleos,
 memoria total y límite de cgroup, modo THP, glibc, imagen del runner y variables
-de entorno de memoria. La línea medida también incluye RSS, memoria anónima,
-respaldada por archivo y huge pages, y el heap de V8 en la línea base, después
-de la verificación y después de la redacción. Una falla nombra el host y cuánto
-creció cada componente. Estos campos explican una falla. No cambian el veredicto,
-el techo de 160 MiB ni la tolerancia compartida.
+de entorno de memoria. La línea medida incluye RSS, memoria anónima, respaldada
+por archivo y huge pages, y el heap de V8 en la línea base, después de la
+verificación y después de la redacción. Una falla nombra el host y cuánto creció
+cada componente. El veredicto, el techo de 160 MiB y la tolerancia compartida no
+cambian.
 
 ### Evidencia de almacenamiento vectorial y modelos de productos
 
