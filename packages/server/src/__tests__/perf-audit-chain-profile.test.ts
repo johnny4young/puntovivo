@@ -156,6 +156,7 @@ describe('100k audit-chain profile', () => {
     const seedStartedAt = performance.now();
     insertProfileChain();
     seedElapsedMs = performance.now() - seedStartedAt;
+    (globalThis as unknown as { gc?: () => void }).gc?.();
     rssBaselineMiB = maxRssMiB();
     recordMemory('baseline');
   }, 120_000);
