@@ -17,6 +17,10 @@ import { performance } from 'node:perf_hooks';
 
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
+import {
+  createQueryPlannerMaintenance,
+  tablesMissingStatistics,
+} from '../db/query-planner-maintenance.js';
 import { DEV_ADMIN_EMAIL, seedDevData } from '../db/seed-dev.js';
 import { users } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
@@ -232,6 +236,22 @@ describe('store-sized operational profile', () => {
       measuredQueryPlans[key] = planDetails;
       const details = planDetails.join('\n');
       expect(details, `${key} query plan`).toContain(requiredIndex);
+    }
+  });
+
+  // Production gathers statistics once the server idles, so the declared
+  // plans and the p95 reads below must also hold with them.
+  it('keeps the declared plans once the planner has statistics', () => {
+    const sqlite = liveClient();
+    const maintenance = createQueryPlannerMaintenance(sqlite);
+    while (maintenance.runStep());
+    expect(tablesMissingStatistics(sqlite)).not.toContain('sales');
+    for (const [key, requiredIndex] of Object.entries(budget.queryPlanIndexes)) {
+      const params = key === 'customerLedger.list' ? [tenantId, ledgerCustomerId] : [tenantId];
+      const rows = sqlite.prepare(queryPlanSql(key)).all(...params) as QueryPlanRow[];
+      const planDetails = rows.map(row => row.detail);
+      measuredQueryPlans[`${key}.withStatistics`] = planDetails;
+      expect(planDetails.join('\n'), `${key} query plan with statistics`).toContain(requiredIndex);
     }
   });
 

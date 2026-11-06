@@ -16,6 +16,7 @@ import { resolveExternalOrderWrappingKey } from '../config/external-order-key.js
  * @module server/create-server
  */
 
+import type Database from 'better-sqlite3';
 import Fastify, { type FastifyBaseLogger } from 'fastify';
 import { fastifyTRPCPlugin } from '@trpc/server/adapters/fastify';
 import {
@@ -24,6 +25,7 @@ import {
   type RuntimeConfig,
 } from '../config/runtime.js';
 import { closeDatabase, type DatabaseInstance, initDatabase } from '../db/index.js';
+import { createQueryPlannerMaintenance } from '../db/query-planner-maintenance.js';
 import {
   countActiveDevices,
   fingerprintDbPath,
@@ -216,6 +218,12 @@ async function createOwnedServer(
     trustProxy: resolveTrustProxy(resolvedRuntime.authorityMode),
   });
   owner.defer('Fastify application', () => app.close());
+  const plannerMaintenance = createQueryPlannerMaintenance(
+    (db as unknown as { $client: Database.Database }).$client
+  );
+  owner.defer('query planner maintenance', () => plannerMaintenance.stop());
+  app.addHook('onRequest', async () => plannerMaintenance.noteActivity());
+  app.addHook('onResponse', async () => plannerMaintenance.noteActivity());
   app.server.keepAliveTimeout = SERVER_KEEP_ALIVE_TIMEOUT_MS;
   app.server.headersTimeout = SERVER_HEADERS_TIMEOUT_MS;
   app.server.requestTimeout = SERVER_REQUEST_TIMEOUT_MS;
@@ -365,6 +373,7 @@ async function createOwnedServer(
           };
           setActiveRuntimeConfig(refreshed);
         }
+        plannerMaintenance.start();
         fiscalWorker.start();
         hardwareWorker.start();
         paymentWorker.start();
