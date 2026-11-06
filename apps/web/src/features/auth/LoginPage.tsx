@@ -4,7 +4,7 @@ import { vanillaClient } from '@/lib/trpc';
 import { ensureApiBootstrap } from '@/lib/apiBootstrap';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { Eye, EyeOff, LogIn, ScanLine, ShieldCheck, Warehouse } from 'lucide-react';
+import { CheckCircle2, Eye, EyeOff, LogIn, ScanLine, ShieldCheck, Warehouse } from 'lucide-react';
 import { useAuth } from './AuthProvider';
 import { LanguageSelector } from '@/components/form-controls/LanguageSelector';
 import { useRevalidateOnLanguageChange } from '@/hooks/useRevalidateOnLanguageChange';
@@ -12,6 +12,7 @@ import { BrandMark } from '@/components/brand/BrandMark';
 import { translateServerError } from '@/lib/translateServerError';
 import type { LoginCredentials } from '@/types';
 import { isDeviceIdentityChanged } from './authBootstrapFailure';
+import { PasswordRecoveryPanel } from './PasswordRecoveryPanel';
 
 const InstallationSetupPage = lazy(() =>
   import('./InstallationSetupPage').then(module => ({ default: module.InstallationSetupPage }))
@@ -40,16 +41,21 @@ export function LoginPage() {
       ? translateServerError(error, t, t('errors:server.unknown'))
       : null;
   const [showPassword, setShowPassword] = useState(false);
+  const [recovering, setRecovering] = useState(false);
+  const [passwordUpdated, setPasswordUpdated] = useState(false);
   const {
     register,
     handleSubmit,
     trigger,
+    getValues,
+    setValue,
     formState: { errors },
   } = useForm<LoginCredentials>({ mode: 'onChange' });
 
   useRevalidateOnLanguageChange(errors, trigger);
 
   const onSubmit = async (data: LoginCredentials) => {
+    setPasswordUpdated(false);
     try {
       await login(data);
     } catch {
@@ -133,94 +139,139 @@ export function LoginPage() {
               <div>
                 <p className="page-kicker text-[0.62rem] tracking-[0.24em]">Puntovivo</p>
                 <h2 className="font-display text-3xl text-secondary-950">
-                  {t('login.signInHeadline')}
+                  {t(recovering ? 'passwordRecovery.title' : 'login.signInHeadline')}
                 </h2>
               </div>
             </div>
 
-            <p className="mt-6 max-w-sm text-sm leading-6 text-fg2">
-              {t('login.signInDescription')}
-            </p>
+            {recovering ? (
+              <PasswordRecoveryPanel
+                initialEmail={getValues('email') ?? ''}
+                onBack={() => setRecovering(false)}
+                onRecovered={email => {
+                  setValue('email', email);
+                  setValue('password', '');
+                  setPasswordUpdated(true);
+                  setRecovering(false);
+                }}
+              />
+            ) : (
+              <>
+                <p className="mt-6 max-w-sm text-sm leading-6 text-fg2">
+                  {t('login.signInDescription')}
+                </p>
 
-            <form className="mt-8 space-y-5" onSubmit={handleSubmit(onSubmit)}>
-              {errorMessage && (
-                <div className="rounded-[11px] border border-danger-500/20 bg-danger-50 px-4 py-3 text-sm text-danger-700">
-                  {errorMessage}
-                </div>
-              )}
+                <form className="mt-8 space-y-5" onSubmit={handleSubmit(onSubmit)}>
+                  {passwordUpdated ? (
+                    <div
+                      role="status"
+                      className="flex items-start gap-2 rounded-[11px] border border-success-500/20 bg-success-50 px-4 py-3 text-sm text-success-700"
+                    >
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                      {t('login.passwordUpdated')}
+                    </div>
+                  ) : (
+                    errorMessage && (
+                      <div className="rounded-[11px] border border-danger-500/20 bg-danger-50 px-4 py-3 text-sm text-danger-700">
+                        {errorMessage}
+                      </div>
+                    )
+                  )}
 
-              <div className="space-y-2">
-                <label htmlFor="email" className="label">
-                  {t('login.emailLabel')}
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  autoComplete="email"
-                  className="input"
-                  placeholder={t('login.emailPlaceholder')}
-                  {...register('email', {
-                    required: t('login.emailRequired'),
-                    pattern: {
-                      value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+(\.[A-Z]{2,})?$/i,
-                      message: t('login.emailInvalid'),
-                    },
-                  })}
-                />
-                {errors.email && <p className="text-sm text-danger-600">{errors.email.message}</p>}
-              </div>
+                  <div className="space-y-2">
+                    <label htmlFor="email" className="label">
+                      {t('login.emailLabel')}
+                    </label>
+                    <input
+                      id="email"
+                      type="email"
+                      autoComplete="email"
+                      className="input"
+                      placeholder={t('login.emailPlaceholder')}
+                      {...register('email', {
+                        required: t('login.emailRequired'),
+                        pattern: {
+                          value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+(\.[A-Z]{2,})?$/i,
+                          message: t('login.emailInvalid'),
+                        },
+                      })}
+                    />
+                    {errors.email && (
+                      <p className="text-sm text-danger-600">{errors.email.message}</p>
+                    )}
+                  </div>
 
-              <div className="space-y-2">
-                <label htmlFor="password" className="label">
-                  {t('login.passwordLabel')}
-                </label>
-                <div className="relative">
-                  <input
-                    id="password"
-                    type={showPassword ? 'text' : 'password'}
-                    autoComplete="current-password"
-                    className="input pr-11"
-                    placeholder="••••••••"
-                    {...register('password', {
-                      required: t('login.passwordRequired'),
-                      minLength: {
-                        value: 6,
-                        message: t('login.passwordMinLength'),
-                      },
-                    })}
-                  />
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <label htmlFor="password" className="label">
+                        {t('login.passwordLabel')}
+                      </label>
+                      <button
+                        type="button"
+                        className="text-sm font-medium text-primary-700 hover:underline"
+                        onClick={() => {
+                          setPasswordUpdated(false);
+                          setRecovering(true);
+                        }}
+                      >
+                        {t('login.forgotPassword')}
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <input
+                        id="password"
+                        type={showPassword ? 'text' : 'password'}
+                        autoComplete="current-password"
+                        className="input pr-11"
+                        placeholder="••••••••"
+                        {...register('password', {
+                          required: t('login.passwordRequired'),
+                          minLength: {
+                            value: 6,
+                            message: t('login.passwordMinLength'),
+                          },
+                        })}
+                      />
+                      <button
+                        type="button"
+                        className="btn-ghost btn-icon absolute right-1.5 top-1/2 h-8 w-8 -translate-y-1/2"
+                        onClick={() => setShowPassword(current => !current)}
+                        aria-label={
+                          showPassword ? t('login.hidePassword') : t('login.showPassword')
+                        }
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
+                    {errors.password && (
+                      <p className="text-sm text-danger-600">{errors.password.message}</p>
+                    )}
+                  </div>
+
                   <button
-                    type="button"
-                    className="btn-ghost btn-icon absolute right-1.5 top-1/2 h-8 w-8 -translate-y-1/2"
-                    onClick={() => setShowPassword(current => !current)}
-                    aria-label={showPassword ? t('login.hidePassword') : t('login.showPassword')}
+                    type="submit"
+                    disabled={isLoading}
+                    className="btn-primary h-12 w-full justify-center"
                   >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {isLoading ? (
+                      <>
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                        {t('login.signingIn')}
+                      </>
+                    ) : (
+                      <>
+                        <LogIn className="h-4 w-4" />
+                        {t('login.enterWorkspace')}
+                      </>
+                    )}
                   </button>
-                </div>
-                {errors.password && (
-                  <p className="text-sm text-danger-600">{errors.password.message}</p>
-                )}
-              </div>
-
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="btn-primary h-12 w-full justify-center"
-              >
-                {isLoading ? (
-                  <>
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                    {t('login.signingIn')}
-                  </>
-                ) : (
-                  <>
-                    <LogIn className="h-4 w-4" />
-                    {t('login.enterWorkspace')}
-                  </>
-                )}
-              </button>
-            </form>
+                </form>
+              </>
+            )}
           </div>
 
           <div className="mt-8 flex items-center justify-between gap-4 border-t border-line/70 pt-5 text-xs text-fg2">

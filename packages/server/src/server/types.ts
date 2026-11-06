@@ -147,6 +147,8 @@ export interface PuntovivoServer {
   close: () => Promise<void>;
   /** Privileged launcher-only first-run capability. Never expose through HTTP or telemetry; standalone owns the private operator handoff. */
   getSetupToken: () => string | null;
+  /** Privileged launcher-only owner password reset for this computer. Never expose through HTTP. */
+  localOwnerRecovery: import('../services/installation/owner-recovery.js').LocalOwnerRecoveryController;
   /** Get the server URL */
   getUrl: () => string;
 }

@@ -34,6 +34,7 @@ vi.mock('@/features/fiscal/FiscalContingencyIndicator', () => ({
   FiscalContingencyIndicator: () => null,
 }));
 vi.mock('@/features/auth/ChangePasswordModal', () => ({ ChangePasswordModal: () => null }));
+vi.mock('@/features/auth/RecoveryCodePrompt', () => ({ RecoveryCodePrompt: () => null }));
 vi.mock('@/components/feedback/CommandPaletteProvider', () => ({
   useCommandPalette: () => ({ openPalette }),
 }));

@@ -5,6 +5,7 @@ import {
   LogOut,
   Menu,
   Search,
+  ShieldCheck,
   User,
   UserRoundCog,
 } from 'lucide-react';
@@ -15,6 +16,7 @@ import { Select } from '@/components/form-controls/Select';
 import { Modal } from '@/components/form-controls/Modal';
 import { RouteErrorBoundary } from '@/components/feedback/AppErrorBoundary';
 import { StaffSwitchModal } from '@/features/auth/StaffSwitchModal';
+import { RecoveryCodePrompt } from '@/features/auth/RecoveryCodePrompt';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { FiscalContingencyIndicator } from '@/features/fiscal/FiscalContingencyIndicator';
@@ -33,6 +35,11 @@ const ChangePasswordModal = lazy(() =>
   }))
 );
 
+const RecoveryCodeModal = lazy(() =>
+  import('@/features/auth/RecoveryCodeModal').then(module => ({
+    default: module.RecoveryCodeModal,
+  }))
+);
 const LossPreventionAlertCenter = lazy(() =>
   import('@/features/loss-prevention/LossPreventionAlertCenter').then(module => ({
     default: module.LossPreventionAlertCenter,
@@ -61,6 +68,7 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isStaffSwitchOpen, setIsStaffSwitchOpen] = useState(false);
+  const [isRecoveryCodeOpen, setIsRecoveryCodeOpen] = useState(false);
   const userMenuId = 'header-user-menu';
   const accountRef = useRef<HTMLDivElement>(null);
   const accountButtonRef = useRef<HTMLButtonElement>(null);
@@ -289,6 +297,20 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
                   <KeyRound className="h-4 w-4" />
                   {t('common:changePassword')}
                 </Button>
+                {user?.role === 'admin' && (
+                  <Button
+                    variant="ghost"
+                    size="compact"
+                    onClick={() => {
+                      setShowUserMenu(false);
+                      setIsRecoveryCodeOpen(true);
+                    }}
+                    className="mt-2 w-full justify-start px-3"
+                  >
+                    <ShieldCheck className="h-4 w-4" />
+                    {t('auth:recoveryCode.title')}
+                  </Button>
+                )}
                 {user && ['admin', 'manager', 'cashier'].includes(user.role) && (
                   <>
                     <Button
@@ -367,6 +389,14 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
         </RouteErrorBoundary>
       )}
       {isStaffSwitchOpen && <StaffSwitchModal isOpen onClose={() => setIsStaffSwitchOpen(false)} />}
+      {isRecoveryCodeOpen && (
+        <RouteErrorBoundary>
+          <Suspense fallback={null}>
+            <RecoveryCodeModal onClose={() => setIsRecoveryCodeOpen(false)} />
+          </Suspense>
+        </RouteErrorBoundary>
+      )}
+      {user?.role === 'admin' && user.id && <RecoveryCodePrompt userId={user.id} />}
     </header>
   );
 }

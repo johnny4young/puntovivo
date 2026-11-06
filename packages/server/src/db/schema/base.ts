@@ -299,6 +299,10 @@ export const auditLogActionEnum = [
   // switches. Neither row carries the PIN or its hash.
   'user.pin.update',
   'auth.staff_switch',
+  // Forgotten-password recovery. Rows never carry the code, its hash or a password.
+  'auth.recovery_code.generated',
+  'auth.recovered_with_code',
+  'auth.owner_recovered_locally',
   // self-service attendance baseline. The actor is always the
   // employee whose shift is targeted; schedule edits remain in .
   'employee_shift.clock_in',

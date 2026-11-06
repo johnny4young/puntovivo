@@ -12,23 +12,26 @@ interface SetupWindow {
   webContents: SetupSender;
 }
 /** Invoking frame and sender identities supplied by Electron, never by renderer input. */
-interface SetupEvent {
+export interface SetupEvent {
   sender: SetupSender;
   senderFrame: { url: string } | null;
 }
-/** Runtime-owned handles and trust configuration for the fixed first-use command. */
-interface SetupClaimDependencies {
+/** Trust configuration shared by every fixed local-owner command. */
+export interface MainFrameTrust {
   getMainWindow: () => SetupWindow | null;
-  getServer: () => Pick<PuntovivoServer, 'getSetupToken' | 'app'> | null;
   isHubClient: boolean;
   isDev: boolean;
   webDevServerUrl: string;
+}
+/** Runtime-owned handles and trust configuration for the fixed first-use command. */
+interface SetupClaimDependencies extends MainFrameTrust {
+  getServer: () => Pick<PuntovivoServer, 'getSetupToken' | 'app'> | null;
 }
 
 /** Safe renderer result: no capability, transport detail, or credential crosses this boundary. */
 export type InstallationClaimResult = { ok: true } | { ok: false; errorCode: string };
 
-function trustedOrigin(url: string, options: SetupClaimDependencies): boolean {
+function trustedOrigin(url: string, options: MainFrameTrust): boolean {
   try {
     const target = new URL(url);
     if (!options.isDev) {
@@ -54,6 +57,20 @@ function trustedOrigin(url: string, options: SetupClaimDependencies): boolean {
   }
 }
 
+/** True only for the local main window's top frame on the packaged (or dev) origin. */
+export function isTrustedMainFrame(event: SetupEvent, options: MainFrameTrust): boolean {
+  const window = options.getMainWindow();
+  return Boolean(
+    !options.isHubClient &&
+    window &&
+    !window.isDestroyed() &&
+    !event.sender.isDestroyed() &&
+    event.sender === window.webContents &&
+    event.senderFrame === event.sender.mainFrame &&
+    trustedOrigin(event.sender.mainFrame.url, options)
+  );
+}
+
 /**
  * The packaged renderer cannot read a localhost CSRF cookie. Keep both the
  * one-use proof and cookie in main, and dispatch the fixed tRPC mutation via
@@ -61,16 +78,7 @@ function trustedOrigin(url: string, options: SetupClaimDependencies): boolean {
  */
 export function createInstallationClaimHandler(options: SetupClaimDependencies) {
   return async (event: SetupEvent, input: unknown): Promise<InstallationClaimResult> => {
-    const window = options.getMainWindow();
-    if (
-      options.isHubClient ||
-      !window ||
-      window.isDestroyed() ||
-      event.sender.isDestroyed() ||
-      event.sender !== window.webContents ||
-      event.senderFrame !== event.sender.mainFrame ||
-      !trustedOrigin(event.sender.mainFrame.url, options)
-    ) {
+    if (!isTrustedMainFrame(event, options)) {
       return { ok: false, errorCode: 'SETUP_LOCAL_ACCESS_REQUIRED' };
     }
     try {

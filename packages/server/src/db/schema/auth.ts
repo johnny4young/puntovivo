@@ -134,6 +134,25 @@ export const users = sqliteTable(
   ]
 );
 
+/**
+ * One Argon2id-hashed recovery code per admin. Kept outside `users` so no
+ * user projection, sync payload or audit snapshot can ever carry it.
+ */
+export const accountRecoveryCodes = sqliteTable(
+  'account_recovery_codes',
+  {
+    userId: text('user_id')
+      .primaryKey()
+      .references(() => users.id),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    codeHash: text('code_hash').notNull(),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [index('idx_account_recovery_codes_tenant').on(table.tenantId)]
+);
+
 export const usersRelations = relations(users, ({ one, many }) => ({
   tenant: one(tenants, {
     fields: [users.tenantId],

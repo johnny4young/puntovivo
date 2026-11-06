@@ -53,9 +53,8 @@ form values and translates validation messages.
   passwords or tenant data. Deleting or deactivating an owner does not reopen
   setup. A missing completion marker fails closed.
 - If setup committed but the response was lost, sign in with the chosen account.
-  Do not delete a business database to recover a password. Use an existing
-  authorized administrator. If none is available, contact the installation
-  operator rather than recreating the database.
+  Do not delete a business database to recover a password; see
+  [Forgotten Passwords](#forgotten-passwords).
 
 Creating ownership is **not** business readiness. Legal details, valid tax rates,
 numbering, products, employees and cash configuration remain explicit setup
@@ -111,6 +110,27 @@ Source:
 - Admin password resets also require the same strong password policy.
 - If an admin resets their own password from the users screen, the app signs them out immediately.
 
+## Forgotten Passwords
+
+The sign-in screen offers **Forgot your password?** with three paths, checked in
+this order:
+
+1. **Another administrator** resets the password from Users.
+2. **Recovery code.** Each admin can generate one from the user menu after
+   confirming the current password, and the app prompts admins who have none.
+   The code is shown once, stored only as an Argon2id hash, works once and is
+   replaced when regenerated. Wrong codes, unknown emails and accounts without a
+   code all return the same error and share the sign-in rate limits.
+3. **This computer (desktop only).** When the installation has exactly one
+   active user, that user is an admin and no recovery code exists, the owner
+   can set a new password from the desktop app on the computer that holds the
+   database. The command runs in the Electron main process against the embedded
+   server and is not reachable over HTTP or from a Store Hub client.
+
+Every reset ends existing sessions, parks open drafts, consumes the recovery
+code and writes an audit row (`auth.recovered_with_code` or
+`auth.owner_recovered_locally`). Puntovivo does not send recovery email.
+
 ## Current Auth Procedures
 
 - `auth.login`
@@ -118,6 +138,9 @@ Source:
 - `auth.refresh`
 - `auth.me`
 - `auth.changePassword`
+- `auth.recoveryCodeStatus`
+- `auth.generateRecoveryCode`
+- `auth.recoverWithCode`
 
 Source:
 [auth router](../packages/server/src/trpc/routers/auth/index.ts)

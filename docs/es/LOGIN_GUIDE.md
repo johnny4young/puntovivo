@@ -56,9 +56,8 @@ los valores ingresados y traduce los mensajes de validación.
   no vuelve a abrir la configuración. Si falta el marcador de finalización,
   el sistema rechaza la operación.
 - Si la creación se confirmó pero se perdió la respuesta, inicia sesión con la
-  cuenta elegida. No borres la base del negocio para recuperar una contraseña.
-  Recurre a un administrador autorizado existente; si no lo hay, contacta al
-  operador de la instalación en lugar de recrear la base.
+  cuenta elegida. No borres la base del negocio para recuperar una contraseña;
+  consulta [Contraseñas olvidadas](#contraseñas-olvidadas).
 
 Crear al propietario **no** deja al negocio listo para operar. Los datos
 legales, tasas válidas, numeración, productos, empleados y configuración de caja
@@ -120,6 +119,31 @@ Código fuente:
 - Si un administrador restablece su propia contraseña desde Usuarios, la
   aplicación cierra su sesión inmediatamente.
 
+## Contraseñas olvidadas
+
+La pantalla de ingreso ofrece **¿Olvidaste tu contraseña?** con tres caminos,
+en este orden:
+
+1. **Otro administrador** restablece la contraseña desde Usuarios.
+2. **Código de recuperación.** Cada administrador puede generar uno desde el
+   menú de usuario después de confirmar su contraseña actual, y la aplicación
+   se lo pide a los administradores que no tienen. El código se muestra una sola
+   vez, se guarda solo como hash Argon2id, sirve una vez y se reemplaza al
+   generar otro. Un código incorrecto, un correo desconocido y una cuenta sin
+   código devuelven el mismo error y comparten los límites de intentos del
+   ingreso.
+3. **Este equipo (solo escritorio).** Cuando la instalación tiene exactamente un
+   usuario activo, ese usuario es administrador y no existe código de
+   recuperación, el propietario puede definir una contraseña nueva desde la app
+   de escritorio en el equipo que guarda la base. El comando corre en el proceso
+   principal de Electron contra el servidor integrado y no se puede alcanzar
+   por HTTP ni desde un cliente de Store Hub.
+
+Cada restablecimiento cierra las sesiones existentes, estaciona los borradores
+abiertos, consume el código de recuperación y deja un registro de auditoría
+(`auth.recovered_with_code` o `auth.owner_recovered_locally`). Puntovivo no
+envía correos de recuperación.
+
 ## Procedimientos de autenticación actuales
 
 - `auth.login`
@@ -127,6 +151,9 @@ Código fuente:
 - `auth.refresh`
 - `auth.me`
 - `auth.changePassword`
+- `auth.recoveryCodeStatus`
+- `auth.generateRecoveryCode`
+- `auth.recoverWithCode`
 
 Código fuente:
 [Router de autenticación](../../packages/server/src/trpc/routers/auth/index.ts)

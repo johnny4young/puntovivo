@@ -46,6 +46,27 @@ export const changePasswordInput = z
   })
   .strict();
 
+export const generateRecoveryCodeInput = z
+  .object({
+    currentPassword: z.string().min(1, 'Current password is required'),
+  })
+  .strict();
+
+export const recoverWithCodeInput = z
+  .object({
+    email: emailField('Invalid email address', { strict: false }),
+    recoveryCode: z.string().trim().min(1, 'Recovery code is required').max(64),
+    newPassword: strongPasswordSchema,
+  })
+  .strict();
+
+export const localOwnerRecoveryInput = z
+  .object({
+    email: emailField('Invalid email address', { strict: false }),
+    newPassword: strongPasswordSchema,
+  })
+  .strict();
+
 export const staffPinSchema = z
   .string()
   .regex(STAFF_PIN_PATTERN, 'Staff PIN must contain exactly 6 digits');

@@ -94,6 +94,14 @@ export const SERVER_ERROR_CODES_A = {
   AUTH_STAFF_PIN_INVALID: 'AUTH_STAFF_PIN_INVALID',
   /** The authenticated user/device generation changed while a command was in flight. */
   AUTH_IDENTITY_CHANGED: 'AUTH_IDENTITY_CHANGED',
+  /** Email, recovery code or account state did not match; one code for every branch. */
+  AUTH_RECOVERY_INVALID: 'AUTH_RECOVERY_INVALID',
+  /** This installation does not qualify for recovery from the local computer. */
+  AUTH_LOCAL_RECOVERY_UNAVAILABLE: 'AUTH_LOCAL_RECOVERY_UNAVAILABLE',
+  /** The email does not belong to the only owner of this installation. */
+  AUTH_LOCAL_RECOVERY_EMAIL_MISMATCH: 'AUTH_LOCAL_RECOVERY_EMAIL_MISMATCH',
+  /** Another local recovery is hashing or the per-minute budget is spent. */
+  AUTH_LOCAL_RECOVERY_BUSY: 'AUTH_LOCAL_RECOVERY_BUSY',
 
   // --- employee shifts domain () ---
   EMPLOYEE_SHIFT_ALREADY_CLOCKED_IN: 'EMPLOYEE_SHIFT_ALREADY_CLOCKED_IN',

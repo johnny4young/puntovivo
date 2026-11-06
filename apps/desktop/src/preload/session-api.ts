@@ -27,6 +27,13 @@ export interface SessionAPI {
     countryCode: string;
     presetId: string;
   }) => Promise<{ ok: true } | { ok: false; errorCode: string }>;
+  ownerRecovery: {
+    status: () => Promise<{ available: boolean }>;
+    recover: (input: {
+      email: string;
+      newPassword: string;
+    }) => Promise<{ ok: true } | { ok: false; errorCode: string }>;
+  };
   register: (accessToken: string) => Promise<{ ok: true }>;
   resume: () => Promise<{ token: string | null }>;
   clear: () => Promise<{ ok: true }>;
@@ -80,6 +87,10 @@ export function createSessionApi(): SessionAPI {
 
   return {
     completeSetup: input => ipcRenderer.invoke('session:complete-setup', input),
+    ownerRecovery: {
+      status: () => ipcRenderer.invoke('session:owner-recovery-status'),
+      recover: input => ipcRenderer.invoke('session:recover-owner', input),
+    },
     register: (accessToken: string) => ipcRenderer.invoke('session:register', accessToken),
     resume: () => ipcRenderer.invoke('session:resume'),
     clear: () => ipcRenderer.invoke('session:clear'),
