@@ -175,11 +175,13 @@ function osKeyFingerprint(workDirectory) {
   return key ? createHash('sha256').update(key).digest('hex') : 'no os_crypt key';
 }
 
-function latestReleaseTag() {
+/** Starts at HEAD^ so a tag on HEAD, which names this build, is never the previous release. */
+export function previousReleaseTag(cwd = repoRoot) {
   try {
-    return execFileSync('git', ['describe', '--tags', '--abbrev=0', '--match', 'v*'], {
-      cwd: repoRoot,
+    return execFileSync('git', ['describe', '--tags', '--abbrev=0', '--match', 'v*', 'HEAD^'], {
+      cwd,
       encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
     }).trim();
   } catch {
     return undefined;
@@ -243,7 +245,7 @@ function option(name) {
 
 async function main() {
   const from = option('--from');
-  const fromRef = option('--from-ref') ?? latestReleaseTag();
+  const fromRef = option('--from-ref') ?? previousReleaseTag();
   const output = option('--output');
   const to = require('electron/package.json').version;
   if (!from) throw new Error('--from <version> is required');

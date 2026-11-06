@@ -1,4 +1,8 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, rmSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { test } from 'node:test';
 import {
   assertProofChain,
@@ -7,6 +11,7 @@ import {
   electronZipName,
   keychainPartitionId,
   phaseTimeoutMessage,
+  previousReleaseTag,
   unexpectedElectronWarnings,
 } from './verify-safe-storage-upgrade.mjs';
 
@@ -117,4 +122,32 @@ test('names the Keychain dialog when a macOS phase times out', () => {
     /did not finish in 120 s; .*Keychain access dialog/
   );
   assert.doesNotMatch(phaseTimeoutMessage('seal', 'win32'), /Keychain/);
+});
+
+test('defaults to the release before HEAD, even when HEAD carries a tag', () => {
+  const repo = mkdtempSync(path.join(os.tmpdir(), 'puntovivo-release-tag-'));
+  const git = (...args) =>
+    execFileSync('git', ['-c', 'commit.gpgsign=false', '-c', 'tag.gpgsign=false', ...args], {
+      cwd: repo,
+      env: {
+        ...process.env,
+        GIT_AUTHOR_NAME: 'proof',
+        GIT_AUTHOR_EMAIL: 'proof@example.test',
+        GIT_COMMITTER_NAME: 'proof',
+        GIT_COMMITTER_EMAIL: 'proof@example.test',
+      },
+    });
+  try {
+    git('init', '-q');
+    git('commit', '-q', '--allow-empty', '-m', 'one');
+    git('tag', 'v1.0.0');
+    git('commit', '-q', '--allow-empty', '-m', 'two');
+    assert.equal(previousReleaseTag(repo), 'v1.0.0');
+    git('tag', 'v1.1.0');
+    assert.equal(previousReleaseTag(repo), 'v1.0.0');
+    git('commit', '-q', '--allow-empty', '-m', 'three');
+    assert.equal(previousReleaseTag(repo), 'v1.1.0');
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
 });

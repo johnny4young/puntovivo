@@ -106,6 +106,28 @@ describe('createEncryptionSetup backup protection status', () => {
     assert.equal((status as unknown as Record<string, unknown>).key, undefined);
   });
 
+  it('retries a failed audit anchor store and reuses a created one', async () => {
+    const safeStorage = makeSafeStorage();
+    const setup = createEncryptionSetup({
+      app: makeApp(dir, true),
+      safeStorage,
+      log: silentLog,
+      env: {},
+      cwd: dir,
+      resourcesPath: dir,
+      platform: 'darwin',
+    });
+    await setup.resolveAuditAnchorKey();
+
+    safeStorage.isAsyncEncryptionAvailable = () => Promise.resolve(false);
+    await assert.rejects(setup.resolveAuditAnchorStore(), /OS keychain is unavailable/);
+
+    safeStorage.isAsyncEncryptionAvailable = () => Promise.resolve(true);
+    const store = await setup.resolveAuditAnchorStore();
+    assert.ok(store);
+    assert.equal(await setup.resolveAuditAnchorStore(), store);
+  });
+
   it('uses an ephemeral environment key only for packaged E2E', async () => {
     const setup = createEncryptionSetup({
       app: makeApp(dir, true),

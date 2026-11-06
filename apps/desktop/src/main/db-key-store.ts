@@ -294,7 +294,7 @@ export async function getOrCreateDbKey(
     } catch (err) {
       if (isKeychainTemporarilyUnavailable(err)) {
         throw new Error(
-          `the OS keychain did not release the key for the SQLCipher key envelope at ${envelopePath}. ` +
+          `the OS keychain did not release the key for the envelope at ${envelopePath}. ` +
             'Unlock the keychain and restart Puntovivo; nothing was discarded.',
           { cause: err }
         );

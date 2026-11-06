@@ -238,6 +238,15 @@ describe('db-key-store', () => {
         /Unlock the keychain and restart Puntovivo; nothing was discarded/.test(error.message) &&
         !/wipe/.test(error.message)
     );
+
+    writeFileSync(join(workdir, AUDIT_ANCHOR_KEY_FILE), sealForTest('b'.repeat(64)));
+    await assert.rejects(
+      () => getOrCreateDbKey(workdir, lockedStub, { fileName: AUDIT_ANCHOR_KEY_FILE }),
+      error =>
+        error instanceof Error &&
+        error.message.includes(AUDIT_ANCHOR_KEY_FILE) &&
+        !/SQLCipher/.test(error.message)
+    );
   });
 
   it('surfaces a clear error when the envelope file is truncated to zero bytes', async () => {

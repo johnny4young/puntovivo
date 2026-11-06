@@ -194,16 +194,19 @@ export function createEncryptionSetup({
   async function resolveAuditAnchorStore(): Promise<DesktopAuditAnchorStore | undefined> {
     const anchorSecret = await resolveAuditAnchorKey();
     if (keySource !== 'safe_storage') return undefined;
-    cachedAnchorStore ??= createSafeStorageAuditAnchorStore({
-      dataDir: getDbKeyDir(dbPath),
-      safeStorage,
-      anchorSecret,
-      platform,
-    });
-    // A failed creation must not stick for the rest of the process.
-    cachedAnchorStore.catch(() => {
-      cachedAnchorStore = null;
-    });
+    if (!cachedAnchorStore) {
+      const created = createSafeStorageAuditAnchorStore({
+        dataDir: getDbKeyDir(dbPath),
+        safeStorage,
+        anchorSecret,
+        platform,
+      });
+      // A failed creation must not stick for the rest of the process.
+      created.catch(() => {
+        if (cachedAnchorStore === created) cachedAnchorStore = null;
+      });
+      cachedAnchorStore = created;
+    }
     return cachedAnchorStore;
   }
 

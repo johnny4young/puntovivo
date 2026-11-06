@@ -620,7 +620,7 @@ describe('Store Hub main-process auth custody', () => {
     const auth = createHubAuthSession({
       hubUrl: 'https://hub.example.test',
       getStatePath: () => statePath,
-      safeStorage,
+      safeStorage: createSafeStorageStub({}, 'win32'),
       platform: 'win32',
       fetchImpl: (async () => responses.shift()!) as typeof fetch,
     });
