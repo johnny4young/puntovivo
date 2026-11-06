@@ -20,7 +20,7 @@ una base SQLite local, con operación sin conexión antes de depender de la nube
 
 <br />
 
-<img src="./docs/assets/screenshots/01-dashboard.png" alt="Panel de Puntovivo: ventas del día, tendencia de ingresos y alertas de inventario bajo" width="880" />
+<img src="./docs/assets/screenshots/01-dashboard.png" alt="Panel de Puntovivo: ventas del día, ingresos de 30 días y alertas de inventario bajo" width="880" />
 
 </div>
 
