@@ -137,7 +137,10 @@ coverage.
    its sealed version floor or install the regressive feed. If emergency
    recovery is approved, back up first, obtain the installer through a separate
    trusted delivery channel, verify its provenance, and run the documented
-   manual recovery. Never downgrade or replace the database.
+   manual recovery. Never downgrade or replace the database. A release from
+   before the asynchronous keychain migration (v1.15.6 or earlier) cannot read
+   the audit freshness state, so every audited write, sales included, fails
+   closed until the newer build is reinstalled. No data is lost.
 4. After restart, verify version, database boot, sign-in, and one read-only
    operational surface. Escalate any signature, migration, or restart failure
    and retain the redacted updater state.

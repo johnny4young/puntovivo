@@ -963,7 +963,13 @@ de borrador no pueden representar, sin descartar silenciosamente un componente.
 
 En Electron empaquetado, cada cadena de auditoría de negocio tiene dos autoridades
 que deben coincidir: la fila SQLite `audit_chain_heads` y un sobre versionado
-sellado por `safeStorage` fuera de la base de datos. El sobre externo guarda un
+fuera de la base de datos. Las escrituras auditadas leen y escriben ese sobre
+dentro de transacciones SQLite síncronas, que la API asíncrona de `safeStorage`
+no puede atender, así que se sella en el proceso con AES-256-GCM bajo una clave
+derivada del secreto de anclaje sellado con `safeStorage`. Un archivo de estado
+sellado directamente con `safeStorage` por una versión anterior se convierte una
+vez al arrancar; las versiones previas a esa conversión no pueden leer el nuevo
+formato. El sobre externo guarda un
 contador/cabecera confirmado y un conjunto ordenado de reservas pendientes.
 Las escrituras auditadas reservan cada candidato que puede existir antes de la
 siguiente liquidación del límite transaccional; la cabecera observada confirmada

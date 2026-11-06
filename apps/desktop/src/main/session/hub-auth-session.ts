@@ -17,7 +17,7 @@ import {
 } from 'node:fs';
 import { dirname } from 'node:path';
 import { createModuleLogger, createSseParser, type ParsedSseEvent } from '@puntovivo/server';
-import type { SafeStorageLike } from '../db-key-store.js';
+import { openString, sealString, type SafeStorageLike } from '../db-key-store.ts';
 import type { AccessTokenVerifier, DesktopSessionIdentity } from './desktopSession.js';
 
 const REFRESH_COOKIE_NAME = 'puntovivo_refresh';
@@ -201,8 +201,11 @@ export function normalizeHubAuthUrl(raw: string, allowInsecureLoopback = false):
   return url.toString().replace(/\/+$/, '');
 }
 
-function assertSafeStorage(safeStorage: SafeStorageLike, platform: NodeJS.Platform): void {
-  if (!safeStorage.isEncryptionAvailable()) {
+async function assertSafeStorage(
+  safeStorage: SafeStorageLike,
+  platform: NodeJS.Platform
+): Promise<void> {
+  if (!(await safeStorage.isAsyncEncryptionAvailable())) {
     throw new Error('OS keychain is unavailable; refusing to persist Store Hub credentials');
   }
   if (platform === 'linux' && safeStorage.getSelectedStorageBackend?.() === 'basic_text') {
@@ -402,17 +405,10 @@ export function createHubAuthSession(options: CreateHubAuthSessionOptions): HubA
     }
   }
 
-  function saveState(state: StoredHubAuthState): void {
-    if (options.credentialPersistence === 'memory') {
-      memoryState = state;
-      return;
-    }
-    assertSafeStorage(options.safeStorage, platform);
-    const path = options.getStatePath();
+  function writeSealedState(path: string, sealed: Buffer): void {
     mkdirSync(dirname(path), { recursive: true });
     const tmpPath = `${path}.tmp`;
     if (existsSync(tmpPath)) unlinkSync(tmpPath);
-    const sealed = options.safeStorage.encryptString(JSON.stringify(state));
     writeFileSync(tmpPath, sealed, { flag: 'wx' });
     try {
       chmodSync(tmpPath, 0o600);
@@ -449,7 +445,7 @@ export function createHubAuthSession(options: CreateHubAuthSessionOptions): HubA
     }
   }
 
-  function loadState(): StoredHubAuthState | null {
+  async function loadState(): Promise<StoredHubAuthState | null> {
     if (options.credentialPersistence === 'memory') return memoryState;
     const path = options.getStatePath();
     const tmpPath = `${path}.tmp`;
@@ -473,10 +469,10 @@ export function createHubAuthSession(options: CreateHubAuthSessionOptions): HubA
       }
     }
     if (!existsSync(path)) return null;
-    assertSafeStorage(options.safeStorage, platform);
+    await assertSafeStorage(options.safeStorage, platform);
     let parsed: unknown;
     try {
-      parsed = JSON.parse(options.safeStorage.decryptString(readFileSync(path)));
+      parsed = JSON.parse(await openString(options.safeStorage, readFileSync(path)));
     } catch (error) {
       throw new Error(`failed to decrypt Store Hub credentials at ${path}`, { cause: error });
     }
@@ -693,15 +689,27 @@ export function createHubAuthSession(options: CreateHubAuthSessionOptions): HubA
     return { refreshToken, csrfToken };
   }
 
-  function installGrant(
+  /** Everything after the seal runs synchronously, so a logout cannot slip between check and install. */
+  async function installGrant(
     token: string,
     identity: DesktopSessionIdentity,
-    cookies: Pick<StoredHubAuthState, 'refreshToken' | 'csrfToken'>
-  ): void {
+    cookies: Pick<StoredHubAuthState, 'refreshToken' | 'csrfToken'>,
+    expected: number,
+    { advanceGeneration }: { advanceGeneration: boolean }
+  ): Promise<void> {
     const state: StoredHubAuthState = { version: 1, hubUrl, identity, ...cookies };
-    saveState(state);
+    if (options.credentialPersistence === 'memory') {
+      requireGeneration(expected);
+      memoryState = state;
+    } else {
+      await assertSafeStorage(options.safeStorage, platform);
+      const sealed = await sealString(options.safeStorage, JSON.stringify(state), platform);
+      requireGeneration(expected);
+      writeSealedState(options.getStatePath(), sealed);
+    }
     currentAccessToken = token;
     currentIdentity = identity;
+    if (advanceGeneration) generation += 1;
   }
 
   async function login(input: HubLoginInput): Promise<HubAccessGrant> {
@@ -710,8 +718,9 @@ export function createHubAuthSession(options: CreateHubAuthSessionOptions): HubA
     requireGeneration(expected);
     const cookies = updateCookies(response.headers);
     const identity = toIdentity(response.data.user, response.data.token);
-    installGrant(response.data.token, identity, cookies);
-    generation += 1;
+    await installGrant(response.data.token, identity, cookies, expected, {
+      advanceGeneration: true,
+    });
     closeRealtimeConnections();
     return { token: response.data.token };
   }
@@ -770,7 +779,7 @@ export function createHubAuthSession(options: CreateHubAuthSessionOptions): HubA
     if (refreshInFlight?.generation === generation) return refreshInFlight.promise;
     const expected = generation;
     const promise = (async () => {
-      let state = loadState();
+      let state = await loadState();
       if (!state)
         throw new HubAuthRemoteError({ message: 'Store Hub session is missing', status: 401 });
       try {
@@ -784,10 +793,12 @@ export function createHubAuthSession(options: CreateHubAuthSessionOptions): HubA
         state = repaired.state;
         requireGeneration(expected);
         const cookies = updateCookies(response.headers, state);
-        installGrant(
+        await installGrant(
           response.data.token,
           refreshIdentity(state.identity, response.data.token),
-          cookies
+          cookies,
+          expected,
+          { advanceGeneration: false }
         );
         return { token: response.data.token };
       } catch (error) {
@@ -807,7 +818,8 @@ export function createHubAuthSession(options: CreateHubAuthSessionOptions): HubA
     await renewExpiredMemoryAccess();
     const expected = generation;
     const token = currentAccessToken;
-    const state = loadState();
+    const state = await loadState();
+    requireGeneration(expected);
     if (!state || !token) {
       throw new HubAuthRemoteError({ message: 'Store Hub session is missing', status: 401 });
     }
@@ -836,8 +848,9 @@ export function createHubAuthSession(options: CreateHubAuthSessionOptions): HubA
     closeRealtimeConnections();
     const cookies = updateCookies(response.headers, repairedState);
     const identity = toIdentity(response.data.user, response.data.token);
-    installGrant(response.data.token, identity, cookies);
-    generation += 1;
+    await installGrant(response.data.token, identity, cookies, expected, {
+      advanceGeneration: true,
+    });
     return { token: response.data.token, sessionExpiresAt: response.data.sessionExpiresAt };
   }
 
@@ -859,7 +872,7 @@ export function createHubAuthSession(options: CreateHubAuthSessionOptions): HubA
     closeRealtimeConnections();
     let state: StoredHubAuthState | null;
     try {
-      state = loadState();
+      state = await loadState();
     } catch (error) {
       // An unreadable keychain envelope cannot support later recovery. Remove
       // it fail-closed instead of retaining corrupt credentials forever.

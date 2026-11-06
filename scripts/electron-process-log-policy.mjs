@@ -72,19 +72,6 @@ const BOUNDED_STDERR_DIAGNOSTICS = [
       /^\[[^\]\r\n]+:WARNING:ui\/gfx\/x\/connection\.cc:59\] X error received\. {2}Request: PutImageRequest, Error: DrawableError\{\.sequence = \d+, \.bad_value = \d+, \.minor_opcode = 0, \.major_opcode = 72\}$/,
     ],
   },
-  {
-    // Electron 45 warns once per process for each synchronous safeStorage
-    // method, so three lines is a hard ceiling rather than an observed count.
-    // Electron 46 removes these methods: delete this entry with that migration.
-    id: 'electron-safe-storage-sync-deprecation',
-    description: 'Electron synchronous safeStorage deprecation messages',
-    limit: 3,
-    patterns: [
-      /^\(electron\) 'safeStorage\.isEncryptionAvailable' is deprecated and will be removed\. Please use 'safeStorage\.isAsyncEncryptionAvailable' instead\.$/,
-      /^\(electron\) 'safeStorage\.encryptString' is deprecated and will be removed\. Please use 'safeStorage\.encryptStringAsync' instead\.$/,
-      /^\(electron\) 'safeStorage\.decryptString' is deprecated and will be removed\. Please use 'safeStorage\.decryptStringAsync' instead\.$/,
-    ],
-  },
 ];
 
 function boundedStderrDiagnostic(line) {
@@ -105,10 +92,7 @@ function boundedStderrDiagnostic(line) {
  */
 export function classifyElectronStderrLine(
   line,
-  {
-    allowPackagedCdpStartupDiagnostic = false,
-    allowPackagedNetworkRaceDiagnostic = false,
-  } = {}
+  { allowPackagedCdpStartupDiagnostic = false, allowPackagedNetworkRaceDiagnostic = false } = {}
 ) {
   if (
     line.length === 0 ||

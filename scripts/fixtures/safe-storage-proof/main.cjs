@@ -10,6 +10,7 @@ const { app, safeStorage } = require('electron');
 const { PROOF_DATA_DIR, PROOF_KEY_STORE, PROOF_PHASE, PROOF_RESULT, PROOF_SQLITE } = process.env;
 
 const fingerprint = value => createHash('sha256').update(value).digest('hex');
+const formatOf = envelopePath => readFileSync(envelopePath).subarray(0, 3).toString('latin1');
 
 function openDatabase(key) {
   const Database = require(PROOF_SQLITE);
@@ -41,6 +42,22 @@ function readCanary(key) {
   }
 }
 
+/** Windows keeps the safeStorage key in Local State, which Chromium saves on a timer. */
+async function waitForSavedOsKey() {
+  if (process.platform !== 'win32') return;
+  const localState = join(app.getPath('sessionData'), 'Local State');
+  const deadline = Date.now() + 30_000;
+  while (Date.now() < deadline) {
+    try {
+      if (JSON.parse(readFileSync(localState, 'utf8')).os_crypt?.encrypted_key) return;
+    } catch {
+      // Not written yet.
+    }
+    await new Promise(resolve => setTimeout(resolve, 250));
+  }
+  throw new Error(`${localState} never received the safeStorage key`);
+}
+
 async function runPhase() {
   const store = await import(pathToFileURL(PROOF_KEY_STORE).href);
   const envelopePath = store.getDbKeyEnvelopePath(PROOF_DATA_DIR);
@@ -56,6 +73,7 @@ async function runPhase() {
     hadEnvelope,
     keyFingerprint: fingerprint(key),
     envelope,
+    prefix: formatOf(envelopePath),
   };
 
   if (PROOF_PHASE === 'seal') {
@@ -63,11 +81,16 @@ async function runPhase() {
   }
   const canary = readCanary(key);
   if (PROOF_PHASE === 'reopen') {
-    store.writeSealedEnvelope(envelopePath, key, safeStorage);
-    if (store.readSealedEnvelope(envelopePath, safeStorage) !== key) {
+    await store.writeSealedEnvelope(envelopePath, key, safeStorage);
+    if ((await store.readSealedEnvelope(envelopePath, safeStorage)) !== key) {
       throw new Error('envelope resealed under this runtime did not return the same key');
     }
-    return { ...result, canary, resealedEnvelope: fingerprint(readFileSync(envelopePath)) };
+    return {
+      ...result,
+      canary,
+      resealedEnvelope: fingerprint(readFileSync(envelopePath)),
+      resealedPrefix: formatOf(envelopePath),
+    };
   }
   return { ...result, canary };
 }
@@ -76,7 +99,8 @@ app.disableHardwareAcceleration();
 app
   .whenReady()
   .then(runPhase)
-  .then(result => {
+  .then(async result => {
+    await waitForSavedOsKey();
     writeFileSync(PROOF_RESULT, JSON.stringify(result));
     app.exit(0);
   })

@@ -865,8 +865,13 @@ represent instead of silently dropping a component.
 ## Audit-chain freshness boundary
 
 In packaged Electron, each tenant audit chain has two authorities that must
-agree: the SQLite `audit_chain_heads` row and a versioned envelope sealed by
-`safeStorage` outside the database. The external envelope stores a confirmed
+agree: the SQLite `audit_chain_heads` row and a versioned envelope outside the
+database. Audited writes read and write that envelope inside synchronous SQLite
+transactions, which the asynchronous `safeStorage` API cannot serve, so it is
+sealed in-process with AES-256-GCM under a key derived from the
+`safeStorage`-sealed anchor secret. A state file sealed directly by
+`safeStorage` in an earlier release is converted once at startup; releases
+before that conversion cannot read the new format. The external envelope stores a confirmed
 counter/head plus an ordered set of pending reservations. Audited writes reserve
 every candidate that can exist before the next transaction-boundary settlement;
 the observed committed database head selects the valid prefix and discards any

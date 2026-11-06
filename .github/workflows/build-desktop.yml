@@ -53,6 +53,9 @@ on:
 env:
   # The Electron line the last release shipped. Raise it after each runtime release.
   PREVIOUS_ELECTRON: 43.8.3
+  # The last release; the safeStorage proof seals and rolls back with its key store.
+  # Raise it after each release.
+  PREVIOUS_RELEASE: v1.15.6
   GIT_CONFIG_COUNT: '2'
   GIT_CONFIG_KEY_0: init.defaultBranch
   GIT_CONFIG_VALUE_0: main
@@ -210,7 +213,8 @@ jobs:
         if: ${{ !inputs.validate_only }}
         run: |
           sudo apt-get install -y gnome-keyring
-          xvfb-run -a dbus-run-session -- bash -c "printf proof | gnome-keyring-daemon --unlock --components=secrets > /dev/null && node scripts/verify-safe-storage-upgrade.mjs --from '${{ env.PREVIOUS_ELECTRON }}' --output 'apps/desktop/out-builder/safe-storage-upgrade-${{ needs.verify-candidate.outputs.short_sha }}.json'"
+          git fetch --depth=1 origin "refs/tags/${{ env.PREVIOUS_RELEASE }}:refs/tags/${{ env.PREVIOUS_RELEASE }}"
+          xvfb-run -a dbus-run-session -- bash -c "printf proof | gnome-keyring-daemon --unlock --components=secrets > /dev/null && node scripts/verify-safe-storage-upgrade.mjs --from '${{ env.PREVIOUS_ELECTRON }}' --from-ref '${{ env.PREVIOUS_RELEASE }}' --output 'apps/desktop/out-builder/safe-storage-upgrade-${{ needs.verify-candidate.outputs.short_sha }}.json'"
 
       - name: Collect candidate evidence
         if: ${{ !inputs.validate_only }}
@@ -369,9 +373,22 @@ jobs:
           --output "apps/desktop/out-builder/packaged-recovery-mac-${{ matrix.evidence_suffix }}-${{ needs.verify-candidate.outputs.short_sha }}.json"
 
       # The other gates inject the key or mock the key store; this one reaches the real one.
+      # A throwaway default keychain with a known password lets the proof clear the
+      # Keychain dialog that would otherwise wait for a person.
       - name: Prove safeStorage survives the Electron upgrade
         if: ${{ !inputs.validate_only }}
-        run: node scripts/verify-safe-storage-upgrade.mjs --from "${{ env.PREVIOUS_ELECTRON }}" --output "apps/desktop/out-builder/safe-storage-upgrade-${{ needs.verify-candidate.outputs.short_sha }}.json"
+        env:
+          PROOF_KEYCHAIN_PASSWORD: safe-storage-proof
+        run: |
+          set -euo pipefail
+          keychain="$RUNNER_TEMP/safe-storage-proof.keychain-db"
+          security create-keychain -p "$PROOF_KEYCHAIN_PASSWORD" "$keychain"
+          security set-keychain-settings "$keychain"
+          security unlock-keychain -p "$PROOF_KEYCHAIN_PASSWORD" "$keychain"
+          security list-keychains -d user -s "$keychain" "$HOME/Library/Keychains/login.keychain-db"
+          security default-keychain -d user -s "$keychain"
+          git fetch --depth=1 origin "refs/tags/${{ env.PREVIOUS_RELEASE }}:refs/tags/${{ env.PREVIOUS_RELEASE }}"
+          node scripts/verify-safe-storage-upgrade.mjs --from "${{ env.PREVIOUS_ELECTRON }}" --from-ref "${{ env.PREVIOUS_RELEASE }}" --output "apps/desktop/out-builder/safe-storage-upgrade-${{ needs.verify-candidate.outputs.short_sha }}.json"
 
       - name: Collect candidate evidence
         if: ${{ !inputs.validate_only }}
@@ -507,7 +524,7 @@ jobs:
       # The other gates inject the key or mock the key store; this one reaches the real one.
       - name: Prove safeStorage survives the Electron upgrade
         if: ${{ !inputs.validate_only }}
-        run: node scripts/verify-safe-storage-upgrade.mjs --from "${{ env.PREVIOUS_ELECTRON }}" --output "apps/desktop/out-builder/safe-storage-upgrade-${{ needs.verify-candidate.outputs.short_sha }}.json"
+        run: git fetch --depth=1 origin "refs/tags/${{ env.PREVIOUS_RELEASE }}:refs/tags/${{ env.PREVIOUS_RELEASE }}" && node scripts/verify-safe-storage-upgrade.mjs --from "${{ env.PREVIOUS_ELECTRON }}" --from-ref "${{ env.PREVIOUS_RELEASE }}" --output "apps/desktop/out-builder/safe-storage-upgrade-${{ needs.verify-candidate.outputs.short_sha }}.json"
 
       - name: Collect candidate evidence
         if: ${{ !inputs.validate_only }}

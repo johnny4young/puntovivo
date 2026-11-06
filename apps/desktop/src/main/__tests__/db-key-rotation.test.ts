@@ -6,28 +6,16 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import type { PuntovivoLogger } from '@puntovivo/server';
-import {
-  getDbKeyEnvelopePath,
-  writeSealedEnvelope,
-  type SafeStorageLike,
-} from '../db-key-store.ts';
+import { getDbKeyEnvelopePath, writeSealedEnvelope } from '../db-key-store.ts';
 import {
   getDbKeyRotationBackupPath,
   getDbKeyRotationStagingPath,
   resolvePendingDbKeyRotation,
   rotateDbKeyNow,
 } from '../db-key-rotation.ts';
+import { createSafeStorageStub, unsealForTest } from './helpers/safe-storage.ts';
 
-// Hermetic safeStorage stub — same shape as the db-key-store suite.
-const XOR_MASK = 0x5a;
-function makeStub(): SafeStorageLike {
-  return {
-    isEncryptionAvailable: () => true,
-    encryptString: (plain: string) =>
-      Buffer.from(Buffer.from(plain, 'utf8').map(b => b ^ XOR_MASK)),
-    decryptString: (sealed: Buffer) => Buffer.from(sealed.map(b => b ^ XOR_MASK)).toString('utf8'),
-  };
-}
+const makeStub = () => createSafeStorageStub();
 
 const log = {
   info: () => {},
@@ -91,7 +79,7 @@ describe('db-key-rotation', () => {
     const { mkdirSync } = await import('node:fs');
     mkdirSync(dataDir, { recursive: true });
     createKeyedDb(dbPath, KEY_A);
-    writeSealedEnvelope(getDbKeyEnvelopePath(dataDir), KEY_A, stub);
+    await writeSealedEnvelope(getDbKeyEnvelopePath(dataDir), KEY_A, stub);
 
     const newKey = await rotateDbKeyNow({
       dbPath,
@@ -105,7 +93,7 @@ describe('db-key-rotation', () => {
     assert.ok(opensWith(dbPath, newKey), 'db must open under the new key');
     assert.ok(!opensWith(dbPath, KEY_A), 'db must not open under the old key');
     assert.equal(
-      stub.decryptString(
+      unsealForTest(
         Buffer.from((await import('node:fs')).readFileSync(getDbKeyEnvelopePath(dataDir)))
       ),
       newKey,
@@ -122,7 +110,7 @@ describe('db-key-rotation', () => {
     const { mkdirSync } = await import('node:fs');
     mkdirSync(dataDir, { recursive: true });
     createKeyedDb(dbPath, KEY_A);
-    writeSealedEnvelope(getDbKeyRotationStagingPath(dataDir), KEY_B, stub);
+    await writeSealedEnvelope(getDbKeyRotationStagingPath(dataDir), KEY_B, stub);
 
     await assert.rejects(
       () => rotateDbKeyNow({ dbPath, safeStorage: stub, currentKey: KEY_A, log }),
@@ -139,19 +127,19 @@ describe('db-key-rotation', () => {
     // Post-rekey pre-promote crash state: DB under B, staging holds
     // the ONLY copy of B.
     createKeyedDb(dbPath, KEY_B);
-    writeSealedEnvelope(getDbKeyEnvelopePath(dataDir), KEY_A, stub);
-    writeSealedEnvelope(getDbKeyRotationStagingPath(dataDir), KEY_B, stub);
+    await writeSealedEnvelope(getDbKeyEnvelopePath(dataDir), KEY_A, stub);
+    await writeSealedEnvelope(getDbKeyRotationStagingPath(dataDir), KEY_B, stub);
 
     // The keyring is locked at this boot (login autostart race).
-    const locked: typeof stub = {
-      isEncryptionAvailable: () => false,
-      encryptString: () => {
+    const locked = createSafeStorageStub({
+      isAsyncEncryptionAvailable: async () => false,
+      encryptStringAsync: async () => {
         throw new Error('locked');
       },
-      decryptString: () => {
+      decryptStringAsync: async () => {
         throw new Error('locked');
       },
-    };
+    });
     await assert.rejects(
       () => resolvePendingDbKeyRotation({ dbPath, safeStorage: locked, log }),
       /OS keychain is unavailable/
@@ -172,7 +160,7 @@ describe('db-key-rotation', () => {
     // Crash between promote and cleanup: no staging, canonical holds
     // the NEW key, and a full old-key copy lingers next to the DB.
     createKeyedDb(dbPath, KEY_B);
-    writeSealedEnvelope(getDbKeyEnvelopePath(dataDir), KEY_B, stub);
+    await writeSealedEnvelope(getDbKeyEnvelopePath(dataDir), KEY_B, stub);
     createKeyedDb(getDbKeyRotationBackupPath(dbPath), KEY_A);
 
     await resolvePendingDbKeyRotation({ dbPath, safeStorage: stub, log });
@@ -193,15 +181,12 @@ describe('db-key-rotation', () => {
     // Crash happened AFTER the rekey to KEY_B but BEFORE the promote:
     // db is under B, canonical envelope still says A, staging says B.
     createKeyedDb(dbPath, KEY_B);
-    writeSealedEnvelope(getDbKeyEnvelopePath(dataDir), KEY_A, stub);
-    writeSealedEnvelope(getDbKeyRotationStagingPath(dataDir), KEY_B, stub);
+    await writeSealedEnvelope(getDbKeyEnvelopePath(dataDir), KEY_A, stub);
+    await writeSealedEnvelope(getDbKeyRotationStagingPath(dataDir), KEY_B, stub);
 
     await resolvePendingDbKeyRotation({ dbPath, safeStorage: stub, log });
 
-    assert.equal(
-      stub.decryptString(Buffer.from(readFileSync(getDbKeyEnvelopePath(dataDir)))),
-      KEY_B
-    );
+    assert.equal(unsealForTest(Buffer.from(readFileSync(getDbKeyEnvelopePath(dataDir)))), KEY_B);
     assert.ok(!existsSync(getDbKeyRotationStagingPath(dataDir)));
     assert.ok(opensWith(dbPath, KEY_B));
   });
@@ -214,15 +199,12 @@ describe('db-key-rotation', () => {
     mkdirSync(dataDir, { recursive: true });
     // Crash happened BEFORE the rekey: db still under A.
     createKeyedDb(dbPath, KEY_A);
-    writeSealedEnvelope(getDbKeyEnvelopePath(dataDir), KEY_A, stub);
-    writeSealedEnvelope(getDbKeyRotationStagingPath(dataDir), KEY_B, stub);
+    await writeSealedEnvelope(getDbKeyEnvelopePath(dataDir), KEY_A, stub);
+    await writeSealedEnvelope(getDbKeyRotationStagingPath(dataDir), KEY_B, stub);
 
     await resolvePendingDbKeyRotation({ dbPath, safeStorage: stub, log });
 
-    assert.equal(
-      stub.decryptString(Buffer.from(readFileSync(getDbKeyEnvelopePath(dataDir)))),
-      KEY_A
-    );
+    assert.equal(unsealForTest(Buffer.from(readFileSync(getDbKeyEnvelopePath(dataDir)))), KEY_A);
     assert.ok(!existsSync(getDbKeyRotationStagingPath(dataDir)));
     assert.ok(opensWith(dbPath, KEY_A));
   });
@@ -238,8 +220,8 @@ describe('db-key-rotation', () => {
     writeFileSync(dbPath, Buffer.from('not a sqlite file at all'));
     const backupPath = getDbKeyRotationBackupPath(dbPath);
     createKeyedDb(backupPath, KEY_A);
-    writeSealedEnvelope(getDbKeyEnvelopePath(dataDir), KEY_A, stub);
-    writeSealedEnvelope(getDbKeyRotationStagingPath(dataDir), KEY_B, stub);
+    await writeSealedEnvelope(getDbKeyEnvelopePath(dataDir), KEY_A, stub);
+    await writeSealedEnvelope(getDbKeyRotationStagingPath(dataDir), KEY_B, stub);
 
     await resolvePendingDbKeyRotation({ dbPath, safeStorage: stub, log });
 
@@ -255,7 +237,7 @@ describe('db-key-rotation', () => {
     const { mkdirSync } = await import('node:fs');
     mkdirSync(dataDir, { recursive: true });
     createKeyedDb(dbPath, KEY_A);
-    writeSealedEnvelope(getDbKeyEnvelopePath(dataDir), KEY_A, stub);
+    await writeSealedEnvelope(getDbKeyEnvelopePath(dataDir), KEY_A, stub);
 
     await resolvePendingDbKeyRotation({ dbPath, safeStorage: stub, log });
     assert.ok(opensWith(dbPath, KEY_A));
