@@ -267,26 +267,9 @@ describe('Electron process log policy', () => {
     }
   });
 
-  it('accepts only the synchronous safeStorage deprecation lines, once each', () => {
-    const lines = [
-      ['isEncryptionAvailable', 'isAsyncEncryptionAvailable'],
-      ['encryptString', 'encryptStringAsync'],
-      ['decryptString', 'decryptStringAsync'],
-    ].map(
-      ([method, replacement]) =>
-        `(electron) 'safeStorage.${method}' is deprecated and will be removed. Please use 'safeStorage.${replacement}' instead.`
-    );
-    const run = createElectronStderrClassifier();
-    for (const line of lines) {
-      assert.equal(run.classify(line), 'informational', line);
-    }
-    assert.deepEqual(run.exceededLimits(), []);
-    assert.equal(run.classify(lines[0]), 'unexpected');
-
-    for (const line of [
-      "(electron) 'session.getPreloads' is deprecated and will be removed. Please use 'session.getPreloadScripts' instead.",
-      "(electron) 'safeStorage.setUsePlainTextEncryption' is deprecated and will be removed. Please use 'safeStorage.encryptStringAsync' instead.",
-    ]) {
+  it('treats every safeStorage deprecation line as unexpected', () => {
+    for (const method of ['isEncryptionAvailable', 'encryptString', 'decryptString']) {
+      const line = `(electron) 'safeStorage.${method}' is deprecated and will be removed. Please use 'safeStorage.${method}Async' instead.`;
       assert.equal(classifyElectronStderrLine(line), 'unexpected', line);
     }
   });
@@ -361,7 +344,7 @@ describe('Electron process log policy', () => {
     const bundleFailure =
       '[33558:0729/105016.628130:INFO:CONSOLE:2] "Electron sandboxed_renderer.bundle.js script failed to run", source: node:electron/js2c/sandbox_bundle (2)';
     const missingStartupData =
-      '[33558:0729/105016.628157:INFO:CONSOLE:2] "TypeError: Cannot destructure property \'preloadScripts\' of \'binding.startupData\' as it is null.", source: node:electron/js2c/sandbox_bundle (2)';
+      "[33558:0729/105016.628157:INFO:CONSOLE:2] \"TypeError: Cannot destructure property 'preloadScripts' of 'binding.startupData' as it is null.\", source: node:electron/js2c/sandbox_bundle (2)";
 
     assert.equal(classifyElectronStderrLine(bundleFailure), 'unexpected');
     assert.equal(classifyElectronStderrLine(missingStartupData), 'unexpected');
@@ -379,7 +362,7 @@ describe('Electron process log policy', () => {
     );
     assert.equal(
       classifyElectronStderrLine(
-        '[33558:0729/105016.628157:INFO:CONSOLE:2] "TypeError: Cannot destructure property \'preloadScripts\' of \'binding.startupData\' as it is undefined.", source: node:electron/js2c/sandbox_bundle (2)',
+        "[33558:0729/105016.628157:INFO:CONSOLE:2] \"TypeError: Cannot destructure property 'preloadScripts' of 'binding.startupData' as it is undefined.\", source: node:electron/js2c/sandbox_bundle (2)",
         { allowPackagedCdpStartupDiagnostic: true }
       ),
       'unexpected'

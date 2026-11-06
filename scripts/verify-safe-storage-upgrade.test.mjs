@@ -2,8 +2,11 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   assertProofChain,
+  assertSomethingUpgrades,
   checksumFor,
   electronZipName,
+  keychainPartitionId,
+  phaseTimeoutMessage,
   unexpectedElectronWarnings,
 } from './verify-safe-storage-upgrade.mjs';
 
@@ -43,6 +46,7 @@ test('accepts a chain where every phase recovers the same key and row', () => {
 
 test('rejects each way an upgrade could lose or replace the key', () => {
   const cases = [
+    [p => (p.reopen.osKey = 'regenerated'), /reopen ran under another Local State key/],
     [p => (p.reopen.keyFingerprint = 'regenerated'), /reopen recovered another key/],
     [p => (p.rollback.keyFingerprint = 'regenerated'), /rollback recovered another key/],
     [p => (p.reopen.canary = 'other'), /reopen read another database value/],
@@ -69,10 +73,48 @@ test('finds the archive checksum and refuses a release without one', () => {
 });
 
 test('flags Electron warnings the log policy would fail a run for', () => {
-  const accepted =
+  const syncDeprecation =
     "(electron) 'safeStorage.encryptString' is deprecated and will be removed. Please use 'safeStorage.encryptStringAsync' instead.";
   const rejected = "(electron) 'session.getPreloads' is deprecated and will be removed.";
-  assert.deepEqual(unexpectedElectronWarnings(`${accepted}\r\nchromium noise\n${rejected}\n`), [
-    rejected,
-  ]);
+  const stderr = `${syncDeprecation}\r\nchromium noise\n${rejected}\n`;
+  assert.deepEqual(unexpectedElectronWarnings(stderr), [syncDeprecation, rejected]);
+  assert.deepEqual(unexpectedElectronWarnings(stderr, { previousBuild: true }), [rejected]);
+});
+
+test('refuses a proof where neither Electron nor the key store changes', () => {
+  const same = { from: '45.2.2', to: '45.2.2', fromRef: 'v1.15.6' };
+  assert.throws(
+    () => assertSomethingUpgrades({ ...same, previousSource: 'store', currentSource: 'store' }),
+    /nothing would be upgraded/
+  );
+  assert.doesNotThrow(() =>
+    assertSomethingUpgrades({ ...same, previousSource: 'sync store', currentSource: 'async store' })
+  );
+  assert.doesNotThrow(() =>
+    assertSomethingUpgrades({
+      ...same,
+      from: '43.8.3',
+      previousSource: 'store',
+      currentSource: 'store',
+    })
+  );
+});
+
+test('lists ad-hoc builds by CDHash and signed ones by team', () => {
+  const adhoc =
+    'Identifier=com.github.Electron\nCDHash=881086cbae7d\nSignature=adhoc\nTeamIdentifier=not set\n';
+  assert.equal(keychainPartitionId(adhoc), 'cdhash:881086cbae7d');
+  assert.equal(
+    keychainPartitionId('CDHash=881086cbae7d\nTeamIdentifier=ABCDE12345\n'),
+    'teamid:ABCDE12345'
+  );
+  assert.throws(() => keychainPartitionId('code object is not signed at all\n'), /neither/);
+});
+
+test('names the Keychain dialog when a macOS phase times out', () => {
+  assert.match(
+    phaseTimeoutMessage('seal', 'darwin'),
+    /did not finish in 120 s; .*Keychain access dialog/
+  );
+  assert.doesNotMatch(phaseTimeoutMessage('seal', 'win32'), /Keychain/);
 });
