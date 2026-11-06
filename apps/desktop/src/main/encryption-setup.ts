@@ -19,6 +19,7 @@ import {
 import { statSync } from 'node:fs';
 import {
   AUDIT_ANCHOR_KEY_FILE,
+  DB_KEY_FILE,
   getDbKeyDir,
   getDbKeyEnvelopePath,
   getOrCreateDbKey,
@@ -77,6 +78,8 @@ interface EncryptionSetupDeps {
   cwd?: string;
   resourcesPath?: string;
   platform?: NodeJS.Platform;
+  /** Resolves once the OS key that seals new envelopes is on disk (see os-key-gate.ts). */
+  waitForOsKey?: () => Promise<void>;
 }
 
 function resolveDevMigrationsPath(app: EncryptionSetupDeps['app'], cwd: string): string {
@@ -112,6 +115,7 @@ export function createEncryptionSetup({
   cwd = process.cwd(),
   resourcesPath = process.resourcesPath,
   platform = process.platform,
+  waitForOsKey = () => Promise.resolve(),
 }: EncryptionSetupDeps): EncryptionSetup {
   // development may opt into the shared encrypted DB; packaged builds always
   // resolve under userData regardless of inherited shell variables.
@@ -151,6 +155,12 @@ export function createEncryptionSetup({
     return key;
   }
 
+  async function getOrCreateSealedKey(fileName: string): Promise<string> {
+    const dataDir = getDbKeyDir(dbPath);
+    if (!existsSync(join(dataDir, fileName))) await waitForOsKey();
+    return getOrCreateDbKey(dataDir, safeStorage, { platform, fileName });
+  }
+
   async function resolveDatabaseEncryptionKey(): Promise<string> {
     if (cachedEncryptionKey) return cachedEncryptionKey;
     const testOrDevKey = resolveTestOrDevDatabaseEncryptionKey();
@@ -162,9 +172,7 @@ export function createEncryptionSetup({
       // canonical envelope is read, or the recovered key could open
       // nothing.
       await resolvePendingDbKeyRotation({ dbPath, safeStorage, log });
-      cachedEncryptionKey = await getOrCreateDbKey(getDbKeyDir(dbPath), safeStorage, {
-        platform,
-      });
+      cachedEncryptionKey = await getOrCreateSealedKey(DB_KEY_FILE);
       keySource = 'safe_storage';
     }
     return cachedEncryptionKey;
@@ -181,10 +189,7 @@ export function createEncryptionSetup({
     if (keySource === 'environment') {
       cachedAnchorKey = encryptionKey;
     } else {
-      cachedAnchorKey = await getOrCreateDbKey(getDbKeyDir(dbPath), safeStorage, {
-        platform,
-        fileName: AUDIT_ANCHOR_KEY_FILE,
-      });
+      cachedAnchorKey = await getOrCreateSealedKey(AUDIT_ANCHOR_KEY_FILE);
     }
     return cachedAnchorKey;
   }

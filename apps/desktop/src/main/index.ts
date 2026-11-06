@@ -62,6 +62,7 @@ import {
   registerPackagedRendererScheme,
 } from './renderer-protocol.js';
 import { getServer, getServerDatabase, getSqliteClient, setServer } from './runtime.js';
+import { createOsKeyGate } from './os-key-gate.js';
 import { createServerLifecycle } from './server-lifecycle.js';
 import { createTrayController } from './tray-controller.js';
 import { disableBuiltinSpellchecker } from './window-config.js';
@@ -111,6 +112,12 @@ try {
   packagedRecoveryRequestError =
     error instanceof Error ? error : new Error('invalid packaged recovery request');
 }
+// Exit before Electron opens Local State: on a fresh Windows profile a second
+// copy would otherwise create its own safeStorage key and save it over ours.
+if (!packagedRecoveryRequested && !app.requestSingleInstanceLock()) {
+  process.stderr.write('Puntovivo is already running for this user; switching to it.\n');
+  app.exit(0);
+}
 // a packaged build never opens DevTools from an inherited env var.
 const shouldOpenDevTools = !app.isPackaged && process.env.PUNTOVIVO_OPEN_DEVTOOLS === 'true';
 process.env.PUNTOVIVO_RUNTIME_ENV ??= isDev ? 'development' : 'production';
@@ -144,10 +151,17 @@ const localAuthSession =
 
 let isQuitting = false;
 
+const waitForOsKey = createOsKeyGate({
+  platform: process.platform,
+  localStatePath: join(app.getPath('sessionData'), 'Local State'),
+  log: mainLog,
+});
+
 const encryptionSetup = createEncryptionSetup({
   app,
   safeStorage,
   log: mainLog,
+  waitForOsKey,
 });
 
 const windowLifecycleRef: {
@@ -437,9 +451,12 @@ app.whenReady().then(async () => {
     });
   });
 
-  void initAutoUpdater().catch(err => {
-    mainLog.error({ err }, 'auto-updater initialization failed');
-  });
+  // The update floor is sealed on first launch, so it waits like the key envelopes.
+  void waitForOsKey()
+    .then(initAutoUpdater)
+    .catch(err => {
+      mainLog.error({ err }, 'auto-updater initialization failed');
+    });
 
   // Best-effort cleanup of backup staging directories orphaned by a crash.
   void sweepStaleBackupStaging()
@@ -472,7 +489,7 @@ app.whenReady().then(async () => {
   trayController.refresh(initialTraySettings);
   trayInitialized = true;
 
-  app.on('activate', () => {
+  const reopenMainWindow = () => {
     if (isQuitting) return;
     if (BrowserWindow.getAllWindows().length === 0) {
       windowLifecycle.create();
@@ -480,7 +497,9 @@ app.whenReady().then(async () => {
       return;
     }
     windowLifecycle.show();
-  });
+  };
+  app.on('activate', reopenMainWindow);
+  app.on('second-instance', reopenMainWindow);
 });
 
 app.on('before-quit', () => {

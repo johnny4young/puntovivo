@@ -111,15 +111,23 @@ The main entry is:
 
 The key lifecycle path is:
 
-1. `app.whenReady()` waits until Electron is ready.
-2. `initAutoUpdater()` initializes desktop update state.
-3. `serverLifecycle.start()` starts Fastify on the embedded loopback port (default 127.0.0.1:8090).
-4. theme and tray settings are loaded from `app_settings`.
-5. `windowLifecycle.create()` creates the main `BrowserWindow`.
-6. `trayController.refresh()` creates or updates the tray if enabled.
-7. `app.on('activate')` restores or recreates the main window on macOS behavior.
-8. `app.on('before-quit')` marks the app as intentionally quitting.
-9. `app.on('will-quit')` destroys tray resources, stops the updater, and runs graceful shutdown: stop the backup scheduler, drain queued backup operations, stop the embedded server, and clear pending restore staging.
+1. `app.requestSingleInstanceLock()` keeps one copy per user profile. A second launch exits before Electron opens `Local State`.
+2. `app.whenReady()` waits until Electron is ready.
+3. `initAutoUpdater()` initializes desktop update state.
+4. `serverLifecycle.start()` starts Fastify on the embedded loopback port (default 127.0.0.1:8090).
+5. theme and tray settings are loaded from `app_settings`.
+6. `windowLifecycle.create()` creates the main `BrowserWindow`.
+7. `trayController.refresh()` creates or updates the tray if enabled.
+8. `app.on('activate')` and `app.on('second-instance')` restore or recreate the main window.
+9. `app.on('before-quit')` marks the app as intentionally quitting.
+10. `app.on('will-quit')` destroys tray resources, stops the updater, and runs graceful shutdown: stop the backup scheduler, drain queued backup operations, stop the embedded server, and clear pending restore staging.
+
+On Windows, the `safeStorage` key lives in `Local State`, which Electron saves
+about 10 seconds after startup. On a fresh profile, the update floor and the
+SQLCipher and audit anchor key envelopes wait for that save before they are
+sealed ([os-key-gate.ts](../apps/desktop/src/main/os-key-gate.ts)). A crash or
+power loss in those seconds then leaves no envelope that the next launch cannot
+open. The first launch takes those seconds longer; later launches do not wait.
 
 Relevant source:
 
