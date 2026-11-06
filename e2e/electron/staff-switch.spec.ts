@@ -12,6 +12,7 @@
  */
 
 import type { Page } from '@playwright/test';
+import en from '../../apps/web/src/i18n/locales/en/common.json';
 import { electronTest as test, expect } from './fixtures.js';
 import { attachClientIssueTracker, expectNoClientIssues } from '../web/support/app.js';
 import { E2E_USERS, type E2EUserProfile } from '../shared/baseline.js';
@@ -85,7 +86,9 @@ async function switchToCashier(page: Page, cashier: E2EUserProfile): Promise<voi
   ).toBeVisible({
     timeout: 30_000,
   });
-  await expect(page.locator('header').getByText('cashier', { exact: true })).toBeVisible();
+  await expect(
+    page.locator('header').getByText(en.userMenu.roles.cashier, { exact: true })
+  ).toBeVisible();
 }
 
 async function expectCashierCannotReachUsers(page: Page): Promise<void> {
