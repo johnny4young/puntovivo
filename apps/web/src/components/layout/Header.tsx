@@ -5,6 +5,7 @@ import {
   LogOut,
   Menu,
   Search,
+  ShieldCheck,
   User,
   UserRoundCog,
 } from 'lucide-react';
@@ -15,6 +16,7 @@ import { Select } from '@/components/form-controls/Select';
 import { Modal } from '@/components/form-controls/Modal';
 import { RouteErrorBoundary } from '@/components/feedback/AppErrorBoundary';
 import { StaffSwitchModal } from '@/features/auth/StaffSwitchModal';
+import { useRecoveryCodeMissing } from '@/features/auth/useRecoveryCodeMissing';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { FiscalContingencyIndicator } from '@/features/fiscal/FiscalContingencyIndicator';
@@ -33,6 +35,11 @@ const ChangePasswordModal = lazy(() =>
   }))
 );
 
+const RecoveryCodeModal = lazy(() =>
+  import('@/features/auth/RecoveryCodeModal').then(module => ({
+    default: module.RecoveryCodeModal,
+  }))
+);
 const LossPreventionAlertCenter = lazy(() =>
   import('@/features/loss-prevention/LossPreventionAlertCenter').then(module => ({
     default: module.LossPreventionAlertCenter,
@@ -61,6 +68,8 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isStaffSwitchOpen, setIsStaffSwitchOpen] = useState(false);
+  const [isRecoveryCodeOpen, setIsRecoveryCodeOpen] = useState(false);
+  const recoveryCodeMissing = useRecoveryCodeMissing(user?.role === 'admin');
   const userMenuId = 'header-user-menu';
   const accountRef = useRef<HTMLDivElement>(null);
   const accountButtonRef = useRef<HTMLButtonElement>(null);
@@ -241,8 +250,15 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
               aria-expanded={showUserMenu}
               aria-controls={showUserMenu ? userMenuId : undefined}
             >
-              <span className="pointer-events-none flex h-[30px] w-[30px] items-center justify-center rounded-full bg-primary-100 text-primary-700">
+              <span className="pointer-events-none relative flex h-[30px] w-[30px] items-center justify-center rounded-full bg-primary-100 text-primary-700">
                 <User className="h-3.5 w-3.5" />
+                {recoveryCodeMissing && (
+                  <span
+                    aria-hidden="true"
+                    data-testid="recovery-code-missing-dot"
+                    className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-warning-500"
+                  />
+                )}
               </span>
               <span className="pointer-events-none hidden min-w-0 text-left xl:block">
                 <span className="block max-w-[8.5rem] truncate text-[12.5px] font-semibold text-secondary-950">
@@ -289,6 +305,29 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
                   <KeyRound className="h-4 w-4" />
                   {t('common:changePassword')}
                 </Button>
+                {user?.role === 'admin' && (
+                  <Button
+                    variant="ghost"
+                    size="compact"
+                    onClick={() => {
+                      setShowUserMenu(false);
+                      setIsRecoveryCodeOpen(true);
+                    }}
+                    className="mt-2 w-full justify-start px-3"
+                  >
+                    <ShieldCheck className="h-4 w-4" />
+                    {t('auth:recoveryCode.title')}
+                    {recoveryCodeMissing && (
+                      <>
+                        <span
+                          aria-hidden="true"
+                          className="ml-auto h-2 w-2 rounded-full bg-warning-500"
+                        />{' '}
+                        <span className="sr-only">{t('auth:recoveryCode.missing')}</span>
+                      </>
+                    )}
+                  </Button>
+                )}
                 {user && ['admin', 'manager', 'cashier'].includes(user.role) && (
                   <>
                     <Button
@@ -367,6 +406,13 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
         </RouteErrorBoundary>
       )}
       {isStaffSwitchOpen && <StaffSwitchModal isOpen onClose={() => setIsStaffSwitchOpen(false)} />}
+      {isRecoveryCodeOpen && (
+        <RouteErrorBoundary>
+          <Suspense fallback={null}>
+            <RecoveryCodeModal onClose={() => setIsRecoveryCodeOpen(false)} />
+          </Suspense>
+        </RouteErrorBoundary>
+      )}
     </header>
   );
 }

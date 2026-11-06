@@ -382,6 +382,13 @@ export interface SessionAPI {
     countryCode: string;
     presetId: string;
   }) => Promise<{ ok: true } | { ok: false; errorCode: string }>;
+  ownerRecovery?: {
+    status: () => Promise<{ available: boolean }>;
+    recover: (input: {
+      email: string;
+      newPassword: string;
+    }) => Promise<{ ok: true } | { ok: false; errorCode: string }>;
+  };
   register: (accessToken: string) => Promise<{ ok: true }>;
   resume: () => Promise<{ token: string | null }>;
   clear: () => Promise<{ ok: true }>;

@@ -21,6 +21,13 @@ function requireLocalAuth() {
   return api;
 }
 
+/** Desktop-only bridge that resets the sole owner's password from this computer. */
+export function localOwnerRecovery() {
+  return getRuntimeConfigSync().authorityMode === 'hub_client'
+    ? undefined
+    : (window.api?.session ?? window.session)?.ownerRecovery;
+}
+
 export function usesNativeAuthCustody(): boolean {
   return isHubClientAuth() || Boolean(localAuth());
 }

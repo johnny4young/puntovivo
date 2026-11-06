@@ -46,6 +46,7 @@ import { registerPrintIpc } from './ipc/print.js';
 import { registerDataBridgeIpc } from './ipc/register.js';
 import { registerSessionIpc } from './ipc/session-ipc.js';
 import { createInstallationClaimHandler } from './session/installation-claim.js';
+import { createOwnerRecoveryHandlers } from './session/owner-recovery.js';
 import { registerWindowIpc } from './ipc/window.js';
 import { createHubAuthSession, HUB_AUTH_STATE_FILE } from './session/hub-auth-session.js';
 import { createEmbeddedAuthFetch, EMBEDDED_AUTH_ORIGIN } from './session/embedded-auth-fetch.js';
@@ -343,16 +344,19 @@ registerSessionIpc({
   ...(hubAuthSession ? { hubAuthSession } : {}),
   ...(localAuthSession ? { localAuthSession } : {}),
 });
+const localOwnerTrust = {
+  getMainWindow: windowLifecycle.getWindow,
+  isHubClient: authorityRuntime.authorityMode === 'hub_client',
+  isDev,
+  webDevServerUrl: WEB_DEV_SERVER_URL,
+};
 ipcMain.handle(
   'session:complete-setup',
-  createInstallationClaimHandler({
-    getMainWindow: windowLifecycle.getWindow,
-    getServer,
-    isHubClient: authorityRuntime.authorityMode === 'hub_client',
-    isDev,
-    webDevServerUrl: WEB_DEV_SERVER_URL,
-  })
+  createInstallationClaimHandler({ ...localOwnerTrust, getServer })
 );
+const ownerRecovery = createOwnerRecoveryHandlers({ ...localOwnerTrust, getServer });
+ipcMain.handle('session:owner-recovery-status', ownerRecovery.status);
+ipcMain.handle('session:recover-owner', ownerRecovery.recover);
 registerDataBridgeIpc({ log: mainLog });
 registerPrintIpc();
 

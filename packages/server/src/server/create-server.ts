@@ -2,6 +2,7 @@ import {
   createInstallationSetup,
   type InstallationSetupController,
 } from '../services/installation/setup.js';
+import { createLocalOwnerRecovery } from '../services/installation/owner-recovery.js';
 import { resolveExternalOrderWrappingKey } from '../config/external-order-key.js';
 /**
  * Puntovivo server lifecycle orchestrator.
@@ -164,6 +165,7 @@ async function createOwnedServer(
   assertAuditAnchorHeadsTrusted(db);
   const installationSetup = createInstallationSetup(db);
   owner.defer('installation setup capability', () => installationSetup.dispose());
+  const localOwnerRecovery = createLocalOwnerRecovery(db);
 
   // prime the loginRateLimit in-memory cache from the persisted
   // `login_attempts` table so the first post-restart check hits the cache
@@ -444,6 +446,7 @@ async function createOwnedServer(
     },
     getUrl: () => serverUrl,
     getSetupToken: installationSetup.getToken,
+    localOwnerRecovery,
   };
 }
 
