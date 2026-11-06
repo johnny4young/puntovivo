@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
+import { existsSync } from 'node:fs';
 import { copyFile, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -194,5 +195,56 @@ describe('createEncryptionSetup backup protection status', () => {
     );
     recovered.close();
     assert.equal(await readFile(setup.auditAnchorStatePath, 'utf8'), 'previous-anchor');
+  });
+});
+
+describe('createEncryptionSetup first seal on Windows', () => {
+  let dir: string;
+
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), 'puntovivo-encryption-setup-win-'));
+  });
+
+  afterEach(async () => {
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  function packagedWindowsSetup(waitForOsKey: () => Promise<void>) {
+    return createEncryptionSetup({
+      app: makeApp(dir, true),
+      safeStorage: makeSafeStorage(),
+      log: silentLog,
+      env: {},
+      cwd: dir,
+      resourcesPath: dir,
+      platform: 'win32',
+      waitForOsKey,
+    });
+  }
+
+  it('waits for the OS key before writing either new envelope', async () => {
+    const envelopesSeenByGate: boolean[] = [];
+    const setup = packagedWindowsSetup(async () => {
+      envelopesSeenByGate.push(existsSync(join(dir, 'data', '.dbkey.enc')));
+    });
+
+    await setup.resolveAuditAnchorKey();
+
+    assert.deepEqual(envelopesSeenByGate, [false, true]);
+    assert.ok(existsSync(join(dir, 'data', '.anchorkey.enc')));
+  });
+
+  it('opens existing envelopes without waiting', async () => {
+    await packagedWindowsSetup(async () => {}).resolveAuditAnchorKey();
+
+    const reopened = packagedWindowsSetup(() => Promise.reject(new Error('must not wait')));
+    await reopened.resolveAuditAnchorKey();
+  });
+
+  it('seals nothing when the OS key never reaches disk', async () => {
+    const setup = packagedWindowsSetup(() => Promise.reject(new Error('key not saved')));
+
+    await assert.rejects(setup.resolveDatabaseEncryptionKey(), /key not saved/);
+    assert.equal(existsSync(join(dir, 'data', '.dbkey.enc')), false);
   });
 });

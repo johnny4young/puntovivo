@@ -91,15 +91,25 @@ El punto de entrada principal es:
 
 La ruta principal del ciclo de vida es:
 
-1. `app.whenReady()` espera a que Electron esté listo.
-2. `initAutoUpdater()` inicializa el estado de actualización del escritorio.
-3. `serverLifecycle.start()` inicia Fastify en el puerto de loopback integrado (por defecto 127.0.0.1:8090).
-4. se cargan los ajustes de tema y bandeja desde `app_settings`.
-5. `windowLifecycle.create()` crea el `BrowserWindow` principal.
-6. `trayController.refresh()` crea o actualiza la bandeja si está habilitada.
-7. `app.on('activate')` restaura o vuelve a crear la ventana principal según el comportamiento de macOS.
-8. `app.on('before-quit')` marca que la aplicación está saliendo intencionalmente.
-9. `app.on('will-quit')` destruye los recursos de la bandeja, detiene el actualizador y ejecuta el apagado ordenado: detener el programador de respaldos, vaciar la cola de operaciones de respaldo, detener el servidor integrado y limpiar los archivos de preparación de restauración pendientes.
+1. `app.requestSingleInstanceLock()` mantiene una sola copia por perfil de usuario. Una segunda apertura sale antes de que Electron abra `Local State`.
+2. `app.whenReady()` espera a que Electron esté listo.
+3. `initAutoUpdater()` inicializa el estado de actualización del escritorio.
+4. `serverLifecycle.start()` inicia Fastify en el puerto de loopback integrado (por defecto 127.0.0.1:8090).
+5. se cargan los ajustes de tema y bandeja desde `app_settings`.
+6. `windowLifecycle.create()` crea el `BrowserWindow` principal.
+7. `trayController.refresh()` crea o actualiza la bandeja si está habilitada.
+8. `app.on('activate')` y `app.on('second-instance')` restauran o vuelven a crear la ventana principal.
+9. `app.on('before-quit')` marca que la aplicación está saliendo intencionalmente.
+10. `app.on('will-quit')` destruye los recursos de la bandeja, detiene el actualizador y ejecuta el apagado ordenado: detener el programador de respaldos, vaciar la cola de operaciones de respaldo, detener el servidor integrado y limpiar los archivos de preparación de restauración pendientes.
+
+En Windows, la llave de `safeStorage` vive en `Local State`, que Electron guarda
+unos 10 segundos después de arrancar. En un perfil nuevo, el piso de
+actualización y los sobres de la llave de SQLCipher y del ancla de auditoría
+esperan ese guardado antes de sellarse
+([os-key-gate.ts](../../apps/desktop/src/main/os-key-gate.ts)). Así, un cierre
+inesperado o un corte de luz en esos segundos no deja ningún sobre que la
+siguiente apertura no pueda abrir. La primera apertura tarda esos segundos más;
+las siguientes no esperan.
 
 Código relevante:
 
