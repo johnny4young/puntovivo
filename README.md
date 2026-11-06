@@ -21,7 +21,7 @@ dependency.
 
 <br />
 
-<img src="./docs/assets/screenshots/01-dashboard.png" alt="Puntovivo dashboard — today's sales, revenue trend, and low-stock alerts" width="880" />
+<img src="./docs/assets/screenshots/01-dashboard.png" alt="Puntovivo dashboard — today's sales, 30-day revenue, and low-stock alerts" width="880" />
 
 </div>
 
