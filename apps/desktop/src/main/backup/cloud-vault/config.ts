@@ -116,12 +116,12 @@ export function backupCloudAccessKeyHint(accessKeyId: string): string {
   return `••••${accessKeyId.slice(-visibleLength)}`;
 }
 
-export function isBackupCloudSecureStorageAvailable(
+export async function isBackupCloudSecureStorageAvailable(
   safeStorage: SafeStorageLike,
   platform: NodeJS.Platform
-): boolean {
+): Promise<boolean> {
   try {
-    if (!safeStorage.isEncryptionAvailable()) return false;
+    if (!(await safeStorage.isAsyncEncryptionAvailable())) return false;
     return !(platform === 'linux' && safeStorage.getSelectedStorageBackend?.() === 'basic_text');
   } catch {
     return false;

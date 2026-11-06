@@ -244,8 +244,9 @@ La administración sensible nueva debe agregar auditoría en la misma transacci�
 cuando sea práctico, sin contraseñas, tokens, PIN, claves de cifrado ni credenciales crudas.
 
 En Electron empaquetado, la frescura de la cadena se ancla fuera de SQLite con
-un sobre versionado por negocio sellado con `safeStorage`, que guarda contador
-y cabeza. El siguiente contador se reserva antes de que una escritura auditada
+un sobre versionado por negocio, sellado con AES-256-GCM bajo una clave derivada
+del secreto de anclaje sellado con `safeStorage`, que guarda contador y cabeza.
+El siguiente contador se reserva antes de que una escritura auditada
 avance la cabeza, se autentica en el HMAC y se confirma solo tras el commit.
 Una lista ordenada conserva cada candidato anterior al cierre de transacción:
 una escritura confirmada seguida de otra abortada no borra la cabeza intermedia

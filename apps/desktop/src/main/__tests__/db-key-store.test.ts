@@ -1,6 +1,6 @@
 import { describe, it, before, after, beforeEach } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { existsSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -12,6 +12,7 @@ import {
   getOrCreateDbKey,
   type SafeStorageLike,
 } from '../db-key-store.ts';
+import { createSafeStorageStub, sealForTest, unsealForTest } from './helpers/safe-storage.ts';
 
 // exercises the safeStorage-backed key bootstrap. We pass a
 // deterministic stub so the test is hermetic: real `safeStorage`
@@ -19,38 +20,23 @@ import {
 // macOS, DPAPI handles on Windows, libsecret on Linux) — none of
 // which are feasible inside `node --test`.
 //
-// The stub mirrors the contract of Electron's SafeStorage API: an
-// XOR with a fixed sentinel mask plus a length-prefixed envelope.
+// The stub mirrors the contract of Electron's async SafeStorage API:
+// the platform's sealed-format prefix plus an XOR with a fixed mask.
 // Not actual encryption — just enough to prove (a) the wrapper
 // invokes the encrypt/decrypt pair on first write, (b) the second
 // boot decodes the same blob to the original key, (c) the abort
-// path fires when `isEncryptionAvailable()` returns false.
-
-const XOR_MASK = 0x5a;
-
-function makeWorkingStub(): SafeStorageLike {
-  return {
-    isEncryptionAvailable: () => true,
-    encryptString: (plain: string) => {
-      const buf = Buffer.from(plain, 'utf8');
-      return Buffer.from(buf.map(b => b ^ XOR_MASK));
-    },
-    decryptString: (sealed: Buffer) => {
-      return Buffer.from(sealed.map(b => b ^ XOR_MASK)).toString('utf8');
-    },
-  };
-}
+// path fires when `isAsyncEncryptionAvailable()` resolves false.
 
 function makeUnavailableStub(): SafeStorageLike {
-  return {
-    isEncryptionAvailable: () => false,
-    encryptString: () => {
-      throw new Error('encryptString called when isEncryptionAvailable=false');
+  return createSafeStorageStub({
+    isAsyncEncryptionAvailable: async () => false,
+    encryptStringAsync: async () => {
+      throw new Error('encryptStringAsync called when encryption is unavailable');
     },
-    decryptString: () => {
-      throw new Error('decryptString called when isEncryptionAvailable=false');
+    decryptStringAsync: async () => {
+      throw new Error('decryptStringAsync called when encryption is unavailable');
     },
-  };
+  });
 }
 
 describe('db-key-store', () => {
@@ -76,8 +62,7 @@ describe('db-key-store', () => {
   });
 
   it('first boot mints a fresh 256-bit key and persists the sealed envelope', async () => {
-    const stub = makeWorkingStub();
-    const key = await getOrCreateDbKey(workdir, stub);
+    const key = await getOrCreateDbKey(workdir, createSafeStorageStub());
 
     assert.match(
       key,
@@ -87,20 +72,20 @@ describe('db-key-store', () => {
 
     const envelope = readFileSync(getDbKeyEnvelopePath(workdir));
     assert.ok(envelope.length > 0, 'envelope file must be written to disk');
-    // Roundtrip via the stub to confirm the envelope is what we think
-    // it is (the encryptString output).
-    assert.equal(stub.decryptString(envelope), key);
+    // Roundtrip via the stub format to confirm the envelope is the
+    // encryptStringAsync output.
+    assert.equal(unsealForTest(envelope), key);
   });
 
   it('second boot recovers the same key from the existing envelope', async () => {
-    const stub = makeWorkingStub();
+    const stub = createSafeStorageStub();
     const first = await getOrCreateDbKey(workdir, stub);
     const second = await getOrCreateDbKey(workdir, stub);
     assert.equal(first, second, 'reboot must yield the same key');
   });
 
   it('a named envelope (audit anchor) is independent of the SQLCipher envelope', async () => {
-    const stub = makeWorkingStub();
+    const stub = createSafeStorageStub();
     const dbKey = await getOrCreateDbKey(workdir, stub);
     const anchorKey = await getOrCreateDbKey(workdir, stub, {
       fileName: AUDIT_ANCHOR_KEY_FILE,
@@ -116,7 +101,7 @@ describe('db-key-store', () => {
     );
   });
 
-  it('aborts when safeStorage.isEncryptionAvailable returns false', async () => {
+  it('aborts when safeStorage.isAsyncEncryptionAvailable resolves false', async () => {
     const stub = makeUnavailableStub();
     await assert.rejects(
       () => getOrCreateDbKey(workdir, stub),
@@ -131,10 +116,7 @@ describe('db-key-store', () => {
   });
 
   it('rejects Electron Linux basic_text even when encryption reports available', async () => {
-    const stub: SafeStorageLike = {
-      ...makeWorkingStub(),
-      getSelectedStorageBackend: () => 'basic_text',
-    };
+    const stub = createSafeStorageStub({ getSelectedStorageBackend: () => 'basic_text' }, 'linux');
 
     await assert.rejects(
       () => getOrCreateDbKey(workdir, stub, { platform: 'linux' }),
@@ -148,19 +130,74 @@ describe('db-key-store', () => {
     );
   });
 
+  it('seals with the keyring prefix on Linux', async () => {
+    const key = await getOrCreateDbKey(workdir, createSafeStorageStub({}, 'linux'), {
+      platform: 'linux',
+    });
+    const envelope = readFileSync(getDbKeyEnvelopePath(workdir));
+    assert.equal(envelope.subarray(0, 3).toString('latin1'), 'v11');
+    assert.equal(unsealForTest(envelope), key);
+  });
+
+  it('refuses the Linux fallback key even when the backend looks like a keyring', async () => {
+    // Async safeStorage drops to a hard-coded v10 key when the keyring
+    // does not answer, while the backend still reports gnome_libsecret.
+    const stub = createSafeStorageStub(
+      {
+        getSelectedStorageBackend: () => 'gnome_libsecret',
+        encryptStringAsync: async plain => sealForTest(plain, 'darwin'),
+      },
+      'linux'
+    );
+
+    await assert.rejects(
+      () => getOrCreateDbKey(workdir, stub, { platform: 'linux' }),
+      /built-in fallback key instead of the keyring/
+    );
+    assert.equal(existsSync(getDbKeyEnvelopePath(workdir)), false);
+  });
+
+  it('refuses a sealed format earlier builds cannot read', async () => {
+    const stub = createSafeStorageStub({
+      encryptStringAsync: async plain => Buffer.concat([Buffer.from('v20'), Buffer.from(plain)]),
+    });
+
+    await assert.rejects(
+      () => getOrCreateDbKey(workdir, stub, { platform: 'darwin' }),
+      /"v20", which earlier Puntovivo builds cannot read/
+    );
+    assert.equal(existsSync(getDbKeyEnvelopePath(workdir)), false);
+  });
+
+  it('keeps the envelope untouched when safeStorage asks for a reseal', async () => {
+    const stub = createSafeStorageStub();
+    const key = await getOrCreateDbKey(workdir, stub);
+    const before = readFileSync(getDbKeyEnvelopePath(workdir));
+    const asksForReseal = createSafeStorageStub({
+      decryptStringAsync: async sealed => ({
+        result: unsealForTest(sealed),
+        shouldReEncrypt: true,
+      }),
+      encryptStringAsync: async () => {
+        throw new Error('reading the key must not reseal it');
+      },
+    });
+
+    assert.equal(await getOrCreateDbKey(workdir, asksForReseal), key);
+    assert.deepEqual(readFileSync(getDbKeyEnvelopePath(workdir)), before);
+  });
+
   it('surfaces a clear error when the envelope decrypts to an invalid shape', async () => {
     // Write an envelope whose plaintext is junk after decryption —
     // simulates a partial write or a foreign envelope sealed by a
     // different OS user.
-    const envelope = getDbKeyEnvelopePath(workdir);
-    const corruptStub: SafeStorageLike = {
-      isEncryptionAvailable: () => true,
-      encryptString: () => Buffer.from([0x00]),
-      decryptString: () => 'this-is-not-hex-or-the-right-length',
-    };
-    // First seed the envelope file directly:
-    const { writeFileSync } = await import('node:fs');
-    writeFileSync(envelope, Buffer.from([0x00, 0x01]));
+    const corruptStub = createSafeStorageStub({
+      decryptStringAsync: async () => ({
+        result: 'this-is-not-hex-or-the-right-length',
+        shouldReEncrypt: false,
+      }),
+    });
+    writeFileSync(getDbKeyEnvelopePath(workdir), Buffer.from([0x00, 0x01]));
 
     await assert.rejects(
       () => getOrCreateDbKey(workdir, corruptStub),
@@ -170,21 +207,45 @@ describe('db-key-store', () => {
   });
 
   it('surfaces a clear error when safeStorage rejects the envelope', async () => {
-    const envelope = getDbKeyEnvelopePath(workdir);
-    const rejectingStub: SafeStorageLike = {
-      isEncryptionAvailable: () => true,
-      encryptString: () => Buffer.from([0x00]),
-      decryptString: () => {
+    const rejectingStub = createSafeStorageStub({
+      decryptStringAsync: async () => {
         throw new Error('keychain entry not found for this user');
       },
-    };
-    const { writeFileSync } = await import('node:fs');
-    writeFileSync(envelope, Buffer.from([0x99]));
+    });
+    writeFileSync(getDbKeyEnvelopePath(workdir), Buffer.from([0x99]));
 
     await assert.rejects(
       () => getOrCreateDbKey(workdir, rejectingStub),
       /failed to decrypt the SQLCipher key envelope/,
       'a keychain reject must surface — not regenerate silently'
+    );
+  });
+
+  it('asks for an unlock, not a wipe, while the keychain withholds its key', async () => {
+    const lockedStub = createSafeStorageStub({
+      decryptStringAsync: async () => {
+        throw new Error(
+          'safeStorage.decryptStringAsync is temporarily unavailable. Please try again.'
+        );
+      },
+    });
+    writeFileSync(getDbKeyEnvelopePath(workdir), sealForTest('a'.repeat(64)));
+
+    await assert.rejects(
+      () => getOrCreateDbKey(workdir, lockedStub),
+      error =>
+        error instanceof Error &&
+        /Unlock the keychain and restart Puntovivo; nothing was discarded/.test(error.message) &&
+        !/wipe/.test(error.message)
+    );
+
+    writeFileSync(join(workdir, AUDIT_ANCHOR_KEY_FILE), sealForTest('b'.repeat(64)));
+    await assert.rejects(
+      () => getOrCreateDbKey(workdir, lockedStub, { fileName: AUDIT_ANCHOR_KEY_FILE }),
+      error =>
+        error instanceof Error &&
+        error.message.includes(AUDIT_ANCHOR_KEY_FILE) &&
+        !/SQLCipher/.test(error.message)
     );
   });
 
@@ -196,37 +257,20 @@ describe('db-key-store', () => {
     // decrypt them, and the helper must surface a precise error
     // instead of regenerating a fresh key (which would orphan the
     // existing encrypted DB).
-    const envelope = getDbKeyEnvelopePath(workdir);
-    const { writeFileSync } = await import('node:fs');
-    writeFileSync(envelope, Buffer.alloc(0));
-
-    const truncatedStub: SafeStorageLike = {
-      isEncryptionAvailable: () => true,
-      encryptString: () => Buffer.from([0x00]),
-      decryptString: (sealed: Buffer) => {
-        if (sealed.length === 0) {
-          throw new Error('cannot decrypt zero-length envelope');
-        }
-        return 'unused';
-      },
-    };
+    writeFileSync(getDbKeyEnvelopePath(workdir), Buffer.alloc(0));
 
     await assert.rejects(
-      () => getOrCreateDbKey(workdir, truncatedStub),
+      () => getOrCreateDbKey(workdir, createSafeStorageStub()),
       /failed to decrypt the SQLCipher key envelope/,
       'a half-written envelope must surface — never silently regenerate'
     );
   });
 
   it('first-boot writes via .tmp + rename so the canonical path never holds a partial file', async () => {
-    // Cleanup any leftover from prior tests.
     const envelope = getDbKeyEnvelopePath(workdir);
-    const { existsSync, rmSync } = await import('node:fs');
-    if (existsSync(envelope)) rmSync(envelope);
     if (existsSync(`${envelope}.tmp`)) rmSync(`${envelope}.tmp`);
 
-    const stub = makeWorkingStub();
-    await getOrCreateDbKey(workdir, stub);
+    await getOrCreateDbKey(workdir, createSafeStorageStub());
 
     assert.equal(existsSync(envelope), true, 'canonical envelope must exist after success');
     assert.equal(

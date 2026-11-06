@@ -133,7 +133,7 @@ export async function rotateDbKeyNow({
   log,
   platform = process.platform,
 }: RotateDbKeyArgs): Promise<string> {
-  assertSafeStorageUsable(safeStorage, platform);
+  await assertSafeStorageUsable(safeStorage, platform);
   const dataDir = getDbKeyDir(dbPath);
   const stagingPath = getDbKeyRotationStagingPath(dataDir);
   const backupPath = getDbKeyRotationBackupPath(dbPath);
@@ -148,7 +148,7 @@ export async function rotateDbKeyNow({
 
   checkpointWalOrThrow(dbPath, currentKey);
   const newKey = randomBytes(32).toString('hex');
-  writeSealedEnvelope(stagingPath, newKey, safeStorage);
+  await writeSealedEnvelope(stagingPath, newKey, safeStorage, platform);
   copyFileSync(dbPath, backupPath);
   try {
     rekeySqliteDatabase(dbPath, { fromKey: currentKey, toKey: newKey });
@@ -208,7 +208,7 @@ export async function resolvePendingDbKeyRotation({
     if (existsSync(backupPath) && existsSync(envelopePath)) {
       let canonicalKey: string | null;
       try {
-        canonicalKey = readSealedEnvelope(envelopePath, safeStorage);
+        canonicalKey = await readSealedEnvelope(envelopePath, safeStorage);
       } catch {
         canonicalKey = null;
       }
@@ -226,11 +226,11 @@ export async function resolvePendingDbKeyRotation({
   // and tempt a cleanup that deletes the only copy of the key the
   // DB may already be encrypted with. Failing the boot here is safe:
   // everything stays on disk for the next attempt.
-  assertSafeStorageUsable(safeStorage, platform);
+  await assertSafeStorageUsable(safeStorage, platform);
 
   let stagedKey: string;
   try {
-    stagedKey = readSealedEnvelope(stagingPath, safeStorage);
+    stagedKey = await readSealedEnvelope(stagingPath, safeStorage);
   } catch (err) {
     throw new Error(
       'A key rotation is pending but its staged envelope cannot be read. ' +
@@ -258,7 +258,7 @@ export async function resolvePendingDbKeyRotation({
   let canonicalKey: string | null = null;
   if (existsSync(envelopePath)) {
     try {
-      canonicalKey = readSealedEnvelope(envelopePath, safeStorage);
+      canonicalKey = await readSealedEnvelope(envelopePath, safeStorage);
     } catch {
       canonicalKey = null;
     }

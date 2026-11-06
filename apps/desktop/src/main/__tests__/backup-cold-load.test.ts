@@ -73,9 +73,9 @@ test('cloud transport loads only after authorization and before streams; import 
     const deps = {
       getStatePath: () => join(scratch, 'state.json'), platform: 'darwin',
       safeStorage: {
-        isEncryptionAvailable: () => true,
-        encryptString: value => Buffer.from(value),
-        decryptString: value => { if (rejectDecrypt) throw new Error('private decryption failure'); return value.toString(); }
+        isAsyncEncryptionAvailable: async () => true,
+        encryptStringAsync: async value => Buffer.concat([Buffer.from('v10'), Buffer.from(value)]),
+        decryptStringAsync: async value => { if (rejectDecrypt) throw new Error('private decryption failure'); return { result: value.subarray(3).toString(), shouldReEncrypt: false }; }
       },
       log: { info() {}, warn() {}, error() {} }
     };

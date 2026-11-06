@@ -455,7 +455,7 @@ app.whenReady().then(async () => {
   void waitForOsKey()
     .then(initAutoUpdater)
     .catch(err => {
-      mainLog.error({ err }, 'auto-updater not started');
+      mainLog.error({ err }, 'auto-updater initialization failed');
     });
 
   // Best-effort cleanup of backup staging directories orphaned by a crash.

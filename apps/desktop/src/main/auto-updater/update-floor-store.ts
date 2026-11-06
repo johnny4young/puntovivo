@@ -13,7 +13,12 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { assertSafeStorageUsable, type SafeStorageLike } from '../db-key-store.ts';
+import {
+  assertSafeStorageUsable,
+  openString,
+  sealString,
+  type SafeStorageLike,
+} from '../db-key-store.ts';
 import { compareUpdateVersions } from './update-policy.ts';
 
 export const AUTO_UPDATE_FLOOR_FILE = '.auto-update-floor.enc';
@@ -57,12 +62,13 @@ function parseEnvelope(value: unknown): UpdateFloorEnvelope {
   };
 }
 
-function writeEnvelope(
+async function writeEnvelope(
   statePath: string,
   envelope: UpdateFloorEnvelope,
   safeStorage: SafeStorageLike,
   platform: NodeJS.Platform
-): void {
+): Promise<void> {
+  const sealed = await sealString(safeStorage, JSON.stringify(envelope), platform);
   mkdirSync(dirname(statePath), { recursive: true });
   const temporaryPath = `${statePath}.${process.pid}.tmp`;
   try {
@@ -70,7 +76,6 @@ function writeEnvelope(
   } catch {
     // absent
   }
-  const sealed = safeStorage.encryptString(JSON.stringify(envelope));
   writeFileSync(temporaryPath, sealed, { flag: 'wx', mode: 0o600 });
   try {
     chmodSync(temporaryPath, 0o600);
@@ -110,13 +115,13 @@ function writeEnvelope(
  * a newer manual/automatic install, and never lower it when an older binary is
  * launched intentionally for recovery.
  */
-export function loadOrAdvanceUpdateFloor(options: {
+export async function loadOrAdvanceUpdateFloor(options: {
   dataDir: string;
   currentVersion: string;
   safeStorage: SafeStorageLike;
   now?: () => Date;
   platform?: NodeJS.Platform;
-}): UpdateFloorResult {
+}): Promise<UpdateFloorResult> {
   const {
     dataDir,
     currentVersion,
@@ -124,14 +129,14 @@ export function loadOrAdvanceUpdateFloor(options: {
     now = () => new Date(),
     platform = process.platform,
   } = options;
-  assertSafeStorageUsable(safeStorage, platform);
+  await assertSafeStorageUsable(safeStorage, platform);
   compareUpdateVersions(currentVersion, currentVersion);
   const statePath = join(dataDir, AUTO_UPDATE_FLOOR_FILE);
 
   let existing: UpdateFloorEnvelope | null = null;
   if (existsSync(statePath)) {
     try {
-      existing = parseEnvelope(JSON.parse(safeStorage.decryptString(readFileSync(statePath))));
+      existing = parseEnvelope(JSON.parse(await openString(safeStorage, readFileSync(statePath))));
     } catch (error) {
       throw new Error('AUTO_UPDATE_FLOOR_DECRYPT_FAILED', { cause: error });
     }
@@ -146,7 +151,7 @@ export function loadOrAdvanceUpdateFloor(options: {
     floorVersion: currentVersion,
     sealedAt: now().toISOString(),
   };
-  writeEnvelope(statePath, next, safeStorage, platform);
+  await writeEnvelope(statePath, next, safeStorage, platform);
   return {
     ...next,
     advanced: existing !== null,

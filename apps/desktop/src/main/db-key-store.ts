@@ -14,7 +14,7 @@
  * keychain (macOS Keychain, Windows DPAPI, Linux libsecret/KWallet), and
  * persists the ciphertext at the canonical path with `0600`
  * permissions.
- * 3. If the file exists, it is decrypted via `safeStorage.decryptString`
+ * 3. If the file exists, it is decrypted via `safeStorage.decryptStringAsync`
  * and the recovered hex is returned.
  * 4. The hex is forwarded to `createServer({ encryptionKey })` and
  * from there into `initDatabase`, which selects SQLCipher v4 and
@@ -35,7 +35,7 @@
  *
  * subsequently added cleartext migration and cross-device restore.
  * rejects Electron's Linux `basic_text` backend because
- * `isEncryptionAvailable()` alone does not prove that a keyring is in use.
+ * `isAsyncEncryptionAvailable()` alone does not prove that a keyring is in use.
  */
 import { randomBytes } from 'node:crypto';
 import {
@@ -61,11 +61,26 @@ import { dirname, join } from 'node:path';
  * of an actual Electron context.
  */
 export interface SafeStorageLike {
-  isEncryptionAvailable(): boolean;
-  encryptString(plain: string): Buffer;
-  decryptString(sealed: Buffer): string;
+  isAsyncEncryptionAvailable(): Promise<boolean>;
+  encryptStringAsync(plain: string): Promise<Buffer>;
+  decryptStringAsync(sealed: Buffer): Promise<{ result: string; shouldReEncrypt: boolean }>;
   getSelectedStorageBackend?: () =>
     'basic_text' | 'gnome_libsecret' | 'kwallet' | 'kwallet5' | 'kwallet6' | 'unknown';
+}
+
+/**
+ * The formats a build still on the synchronous API can open, so a rollback
+ * keeps reading every envelope. On Linux `v10` is Chromium's built-in
+ * fallback key, which is obfuscation rather than a keyring seal.
+ */
+const SEALED_PREFIX: Partial<Record<NodeJS.Platform, string>> = {
+  darwin: 'v10',
+  win32: 'v10',
+  linux: 'v11',
+};
+
+export function expectedSealedPrefix(platform: NodeJS.Platform): string | undefined {
+  return SEALED_PREFIX[platform];
 }
 
 interface DbKeyStoreOptions {
@@ -104,11 +119,11 @@ const KEY_HEX_LENGTH = 64;
  * key envelope (first boot AND key rotation). Refuses cleartext
  * fallbacks and the Linux basic_text pseudo-backend.
  */
-export function assertSafeStorageUsable(
+export async function assertSafeStorageUsable(
   safeStorage: SafeStorageLike,
   platform: NodeJS.Platform = process.platform
-): void {
-  if (!safeStorage.isEncryptionAvailable()) {
+): Promise<void> {
+  if (!(await safeStorage.isAsyncEncryptionAvailable())) {
     throw new Error(
       'OS keychain is unavailable; refusing to persist the SQLCipher key in cleartext. ' +
         'On Linux, install libsecret/gnome-keyring or KWallet; on macOS verify Keychain Access; ' +
@@ -128,6 +143,40 @@ export function assertSafeStorageUsable(
 }
 
 /**
+ * Seal `plain` and refuse any format outside `SEALED_PREFIX`.
+ * `isAsyncEncryptionAvailable()` resolves true even when only the Linux
+ * fallback key is left, so the prefix is the real keyring check.
+ */
+export async function sealString(
+  safeStorage: SafeStorageLike,
+  plain: string,
+  platform: NodeJS.Platform = process.platform
+): Promise<Buffer> {
+  const sealed = await safeStorage.encryptStringAsync(plain);
+  const prefix = sealed.subarray(0, 3).toString('latin1');
+  if (prefix === SEALED_PREFIX[platform]) return sealed;
+  if (platform === 'linux' && prefix === 'v10') {
+    throw new Error(
+      'Linux safeStorage sealed with its built-in fallback key instead of the keyring; refusing to persist it. ' +
+        'Install and unlock libsecret/gnome-keyring or KWallet, then restart Puntovivo.'
+    );
+  }
+  throw new Error(
+    `safeStorage sealed data as ${JSON.stringify(prefix)}, which earlier Puntovivo builds cannot read; refusing to persist it.`
+  );
+}
+
+/** Never reseals on `shouldReEncrypt`: a new format would lock out a rollback build. */
+export async function openString(safeStorage: SafeStorageLike, sealed: Buffer): Promise<string> {
+  return (await safeStorage.decryptStringAsync(sealed)).result;
+}
+
+/** Electron rejects this way while the keychain withholds its key, e.g. when locked. */
+export function isKeychainTemporarilyUnavailable(error: unknown): boolean {
+  return error instanceof Error && /temporarily unavailable/i.test(error.message);
+}
+
+/**
  * Seal `keyHex` with safeStorage and persist it at `envelopePath`
  * atomically: write to a `.tmp` sibling with exclusive create, chmod
  * 0600 BEFORE the rename so the final inode never has weaker
@@ -135,12 +184,13 @@ export function assertSafeStorageUsable(
  * point leaves the destination either absent, the previous envelope,
  * or the fully-written new one — never a truncated blob.
  */
-export function writeSealedEnvelope(
+export async function writeSealedEnvelope(
   envelopePath: string,
   keyHex: string,
-  safeStorage: SafeStorageLike
-): void {
-  const sealed = safeStorage.encryptString(keyHex);
+  safeStorage: SafeStorageLike,
+  platform: NodeJS.Platform = process.platform
+): Promise<void> {
+  const sealed = await sealString(safeStorage, keyHex, platform);
   const tmpPath = `${envelopePath}.tmp`;
   // A `.tmp` left by a crash mid-write is garbage by definition (the
   // canonical path never pointed at it); discard it rather than let
@@ -179,9 +229,12 @@ export function writeSealedEnvelope(
  * Decrypt and shape-validate a sealed envelope file. Shared by the
  * first-boot loader and the rotation recovery path.
  */
-export function readSealedEnvelope(envelopePath: string, safeStorage: SafeStorageLike): string {
+export async function readSealedEnvelope(
+  envelopePath: string,
+  safeStorage: SafeStorageLike
+): Promise<string> {
   const sealed = readFileSync(envelopePath);
-  const recovered = safeStorage.decryptString(sealed);
+  const recovered = await openString(safeStorage, sealed);
   if (recovered.length !== KEY_HEX_LENGTH || !/^[0-9a-f]+$/i.test(recovered)) {
     // Deliberately says "key envelope", not "SQLCipher key": this
     // reader also serves the audit anchor and rotation staging
@@ -209,7 +262,7 @@ export function readSealedEnvelope(envelopePath: string, safeStorage: SafeStorag
  * libsecret / gnome-keyring / KWallet) is an operator-visible
  * error, not a confidentiality downgrade.
  *
- * @throws when the envelope file exists but `safeStorage.decryptString`
+ * @throws when the envelope file exists but `safeStorage.decryptStringAsync`
  * rejects it (corrupt, truncated, or sealed by a different OS user).
  * The message points at the canonical recovery path: wipe the data
  * directory and let the next boot regenerate, OR restore from a
@@ -224,8 +277,8 @@ export async function getOrCreateDbKey(
   // safeStorage requires `app.ready`. Callers must await `app.whenReady()`
   // before invoking this function; we do not silently swallow the
   // race because a too-early call returns `false` from
-  // `isEncryptionAvailable()` and would mis-trip the operator error.
-  assertSafeStorageUsable(safeStorage, platform);
+  // `isAsyncEncryptionAvailable()` and would mis-trip the operator error.
+  await assertSafeStorageUsable(safeStorage, platform);
 
   if (!existsSync(dataDir)) {
     mkdirSync(dataDir, { recursive: true });
@@ -237,8 +290,15 @@ export async function getOrCreateDbKey(
     const sealed = readFileSync(envelopePath);
     let recovered: string;
     try {
-      recovered = safeStorage.decryptString(sealed);
+      recovered = await openString(safeStorage, sealed);
     } catch (err) {
+      if (isKeychainTemporarilyUnavailable(err)) {
+        throw new Error(
+          `the OS keychain did not release the key for the envelope at ${envelopePath}. ` +
+            'Unlock the keychain and restart Puntovivo; nothing was discarded.',
+          { cause: err }
+        );
+      }
       const reason = err instanceof Error ? err.message : String(err);
       throw new Error(
         `failed to decrypt the SQLCipher key envelope at ${envelopePath} (${reason}). ` +
@@ -268,7 +328,7 @@ export async function getOrCreateDbKey(
   // rename leaves the canonical path untouched) live in
   // `writeSealedEnvelope`, shared with the key-rotation staging path.
   const freshKey = randomBytes(32).toString('hex');
-  writeSealedEnvelope(envelopePath, freshKey, safeStorage);
+  await writeSealedEnvelope(envelopePath, freshKey, safeStorage, platform);
   return freshKey;
 }
 

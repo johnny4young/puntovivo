@@ -4,29 +4,21 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
 
-import type { SafeStorageLike } from '../db-key-store.ts';
 import {
   AUTO_UPDATE_FLOOR_FILE,
   loadOrAdvanceUpdateFloor,
 } from '../auto-updater/update-floor-store.ts';
+import { createSafeStorageStub, sealForTest } from './helpers/safe-storage.ts';
 
-function safeStorage(overrides: Partial<SafeStorageLike> = {}): SafeStorageLike {
-  return {
-    isEncryptionAvailable: () => true,
-    encryptString: value => Buffer.from(`sealed:${value}`),
-    decryptString: value => value.toString().replace(/^sealed:/, ''),
-    getSelectedStorageBackend: () => 'unknown',
-    ...overrides,
-  };
-}
+const safeStorage = createSafeStorageStub;
 
 describe('safeStorage update floor', () => {
-  it('establishes, advances, and refuses to lower the sealed floor', () => {
+  it('establishes, advances, and refuses to lower the sealed floor', async () => {
     const root = mkdtempSync(join(tmpdir(), 'puntovivo-update-floor-'));
     const storage = safeStorage();
     try {
       assert.deepEqual(
-        loadOrAdvanceUpdateFloor({
+        await loadOrAdvanceUpdateFloor({
           dataDir: root,
           currentVersion: '1.11.0',
           safeStorage: storage,
@@ -41,15 +33,17 @@ describe('safeStorage update floor', () => {
         }
       );
       assert.equal(
-        loadOrAdvanceUpdateFloor({
-          dataDir: root,
-          currentVersion: '1.12.0',
-          safeStorage: storage,
-          now: () => new Date('2026-08-28T11:00:00.000Z'),
-        }).floorVersion,
+        (
+          await loadOrAdvanceUpdateFloor({
+            dataDir: root,
+            currentVersion: '1.12.0',
+            safeStorage: storage,
+            now: () => new Date('2026-08-28T11:00:00.000Z'),
+          })
+        ).floorVersion,
         '1.12.0'
       );
-      const manualRollback = loadOrAdvanceUpdateFloor({
+      const manualRollback = await loadOrAdvanceUpdateFloor({
         dataDir: root,
         currentVersion: '1.10.0',
         safeStorage: storage,
@@ -62,11 +56,12 @@ describe('safeStorage update floor', () => {
     }
   });
 
-  it('fails closed for corrupt, undecryptable, or insecure state', () => {
+  it('fails closed for corrupt, undecryptable, or insecure state', async () => {
     const root = mkdtempSync(join(tmpdir(), 'puntovivo-update-floor-corrupt-'));
+    const broken = sealForTest('{broken');
     try {
-      writeFileSync(join(root, AUTO_UPDATE_FLOOR_FILE), Buffer.from('sealed:{broken'));
-      assert.throws(
+      writeFileSync(join(root, AUTO_UPDATE_FLOOR_FILE), broken);
+      await assert.rejects(
         () =>
           loadOrAdvanceUpdateFloor({
             dataDir: root,
@@ -75,17 +70,17 @@ describe('safeStorage update floor', () => {
           }),
         /AUTO_UPDATE_FLOOR_DECRYPT_FAILED/
       );
-      assert.throws(
+      await assert.rejects(
         () =>
           loadOrAdvanceUpdateFloor({
             dataDir: root,
             currentVersion: '1.11.0',
             platform: 'linux',
-            safeStorage: safeStorage({ getSelectedStorageBackend: () => 'basic_text' }),
+            safeStorage: safeStorage({ getSelectedStorageBackend: () => 'basic_text' }, 'linux'),
           }),
         /basic_text/
       );
-      assert.equal(readFileSync(join(root, AUTO_UPDATE_FLOOR_FILE), 'utf8'), 'sealed:{broken');
+      assert.deepEqual(readFileSync(join(root, AUTO_UPDATE_FLOOR_FILE)), broken);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

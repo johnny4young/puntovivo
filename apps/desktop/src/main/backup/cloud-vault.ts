@@ -12,7 +12,7 @@ import { stat } from 'node:fs/promises';
 import { basename, posix } from 'node:path';
 import { Readable } from 'node:stream';
 import { finished } from 'node:stream/promises';
-import type { SafeStorageLike } from '../db-key-store.ts';
+import { openString, sealString, type SafeStorageLike } from '../db-key-store.ts';
 import { backupTenantPathSegment } from './scheduler.ts';
 import {
   backupCloudAccessKeyHint,
@@ -80,12 +80,12 @@ export function createBackupCloudVault(deps: BackupCloudVaultDeps): BackupCloudV
   const store = createBackupCloudVaultStore(deps.getStatePath);
   const inProgressTenants = new Set<string>();
 
-  function secureStorageAvailable(): boolean {
+  function secureStorageAvailable(): Promise<boolean> {
     return isBackupCloudSecureStorageAvailable(deps.safeStorage, platform);
   }
 
-  function requireSecureStorage(): void {
-    if (!secureStorageAvailable()) {
+  async function requireSecureStorage(): Promise<void> {
+    if (!(await secureStorageAvailable())) {
       throw new BackupCloudVaultError('secure_storage_unavailable');
     }
   }
@@ -100,7 +100,7 @@ export function createBackupCloudVault(deps: BackupCloudVaultDeps): BackupCloudV
     requireTenant(tenantId);
     return statusFor(
       await store.readRecord(tenantId),
-      secureStorageAvailable(),
+      await secureStorageAvailable(),
       inProgressTenants.has(tenantId)
     );
   }
@@ -115,11 +115,12 @@ export function createBackupCloudVault(deps: BackupCloudVaultDeps): BackupCloudV
     }
     inProgressTenants.add(tenantId);
     try {
-      requireSecureStorage();
+      await requireSecureStorage();
       const config = normalizeBackupCloudVaultConfig(input, { allowInsecureLoopback });
       let sealedConfig: string;
       try {
-        sealedConfig = deps.safeStorage.encryptString(JSON.stringify(config)).toString('base64');
+        const sealed = await sealString(deps.safeStorage, JSON.stringify(config), platform);
+        sealedConfig = sealed.toString('base64');
       } catch {
         throw new BackupCloudVaultError('secure_storage_unavailable');
       }
@@ -162,16 +163,18 @@ export function createBackupCloudVault(deps: BackupCloudVaultDeps): BackupCloudV
         delete vaults[tenantId];
       });
       deps.log.info({ tenantId }, 'backup cloud vault disconnected');
-      return statusFor(undefined, secureStorageAvailable(), false);
+      return statusFor(undefined, await secureStorageAvailable(), false);
     } finally {
       inProgressTenants.delete(tenantId);
     }
   }
 
-  function decryptConfig(record: BackupCloudVaultRecord): BackupCloudVaultSecretConfig {
-    requireSecureStorage();
+  async function decryptConfig(
+    record: BackupCloudVaultRecord
+  ): Promise<BackupCloudVaultSecretConfig> {
+    await requireSecureStorage();
     try {
-      const plain = deps.safeStorage.decryptString(Buffer.from(record.sealedConfig, 'base64'));
+      const plain = await openString(deps.safeStorage, Buffer.from(record.sealedConfig, 'base64'));
       const parsed = JSON.parse(plain) as BackupCloudVaultConfigInput;
       return normalizeBackupCloudVaultConfig(parsed, { allowInsecureLoopback });
     } catch (error) {
@@ -209,12 +212,12 @@ export function createBackupCloudVault(deps: BackupCloudVaultDeps): BackupCloudV
         return {
           success: false,
           skipped: true,
-          status: statusFor(undefined, secureStorageAvailable(), false),
+          status: statusFor(undefined, await secureStorageAvailable(), false),
           error: 'configuration_missing',
         };
       }
 
-      const config = decryptConfig(initial);
+      const config = await decryptConfig(initial);
       // Load the optional transport before makeRequest opens a database stream.
       const uploadObject =
         deps.uploadObject ?? (await import('./cloud-vault/uploader.ts')).uploadBackupCloudObject;
@@ -266,7 +269,7 @@ export function createBackupCloudVault(deps: BackupCloudVaultDeps): BackupCloudV
       deps.log.warn({ tenantId, errorCode: code }, 'backup cloud write failed');
       return {
         success: false,
-        status: statusFor(record, secureStorageAvailable(), false),
+        status: statusFor(record, await secureStorageAvailable(), false),
         error: code,
       };
     } finally {

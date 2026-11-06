@@ -194,24 +194,31 @@ export function createEncryptionSetup({
     return cachedAnchorKey;
   }
 
-  let cachedAnchorStore: DesktopAuditAnchorStore | null = null;
+  let cachedAnchorStore: Promise<DesktopAuditAnchorStore> | null = null;
 
-  async function resolveAuditAnchorStore(): Promise<AuditAnchorStore | undefined> {
-    await resolveAuditAnchorKey();
+  async function resolveAuditAnchorStore(): Promise<DesktopAuditAnchorStore | undefined> {
+    const anchorSecret = await resolveAuditAnchorKey();
     if (keySource !== 'safe_storage') return undefined;
-    cachedAnchorStore ??= createSafeStorageAuditAnchorStore({
-      dataDir: getDbKeyDir(dbPath),
-      safeStorage,
-      platform,
-    });
+    if (!cachedAnchorStore) {
+      const created = createSafeStorageAuditAnchorStore({
+        dataDir: getDbKeyDir(dbPath),
+        safeStorage,
+        anchorSecret,
+        platform,
+      });
+      // A failed creation must not stick for the rest of the process.
+      created.catch(() => {
+        if (cachedAnchorStore === created) cachedAnchorStore = null;
+      });
+      cachedAnchorStore = created;
+    }
     return cachedAnchorStore;
   }
 
   async function replaceAuditAnchorState(
     points: ReadonlyArray<{ tenantId: string } & AuditAnchorPoint>
   ): Promise<void> {
-    await resolveAuditAnchorStore();
-    cachedAnchorStore?.replaceAll(points);
+    (await resolveAuditAnchorStore())?.replaceAll(points);
   }
 
   async function rotateDatabaseKey(): Promise<void> {

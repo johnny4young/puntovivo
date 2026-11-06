@@ -195,9 +195,9 @@ function ensureUpdateHistory(): void {
   }
 }
 
-function ensureUpdateFloor(): boolean {
+async function ensureUpdateFloor(): Promise<boolean> {
   try {
-    const floor = loadOrAdvanceUpdateFloor({
+    const floor = await loadOrAdvanceUpdateFloor({
       dataDir: app.getPath('userData'),
       currentVersion: app.getVersion(),
       safeStorage,
@@ -616,7 +616,17 @@ export function refreshAutoUpdateTranslations(): AutoUpdateStatus {
   });
 }
 
-export function initAutoUpdater(): AutoUpdateStatus {
+let initInFlight: Promise<AutoUpdateStatus> | null = null;
+
+/** Single-flight: concurrent callers share one init, and a failed one can retry. */
+export function initAutoUpdater(): Promise<AutoUpdateStatus> {
+  initInFlight ??= initializeAutoUpdater().finally(() => {
+    initInFlight = null;
+  });
+  return initInFlight;
+}
+
+async function initializeAutoUpdater(): Promise<AutoUpdateStatus> {
   ensureUpdateHistory();
 
   if (E2E_UPDATE_SIMULATION) {
@@ -640,7 +650,7 @@ export function initAutoUpdater(): AutoUpdateStatus {
     return setUnavailable(getUnavailableReason());
   }
 
-  if (!ensureUpdateFloor()) {
+  if (!(await ensureUpdateFloor())) {
     return getAutoUpdateStatus();
   }
 
@@ -654,9 +664,9 @@ export function initAutoUpdater(): AutoUpdateStatus {
   return initNotifyMode();
 }
 
-export function checkForAppUpdates(): AutoUpdateStatus | Promise<AutoUpdateStatus> {
+export async function checkForAppUpdates(): Promise<AutoUpdateStatus> {
   if (!initialized) {
-    initAutoUpdater();
+    await initAutoUpdater();
   }
 
   if (!autoUpdateStatus.isAvailable) {

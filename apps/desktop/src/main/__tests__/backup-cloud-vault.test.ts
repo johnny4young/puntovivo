@@ -11,7 +11,7 @@ import {
   normalizeBackupCloudVaultConfig,
   type BackupCloudUploadRequest,
 } from '../backup/cloud-vault.ts';
-import type { SafeStorageLike } from '../db-key-store.ts';
+import { expectedSealedPrefix, type SafeStorageLike } from '../db-key-store.ts';
 
 let scratch: string;
 
@@ -32,17 +32,17 @@ function makeSafeStorage(
   const envelopes = new Map<string, string>();
   let sequence = 0;
   return {
-    isEncryptionAvailable: () => options.available ?? true,
+    isAsyncEncryptionAvailable: async () => options.available ?? true,
     getSelectedStorageBackend: () => options.backend ?? 'unknown',
-    encryptString: plain => {
-      const token = `sealed-${++sequence}`;
+    encryptStringAsync: async plain => {
+      const token = `${expectedSealedPrefix(process.platform)}sealed-${++sequence}`;
       envelopes.set(token, plain);
       return Buffer.from(token, 'utf8');
     },
-    decryptString: sealed => {
+    decryptStringAsync: async sealed => {
       const value = envelopes.get(sealed.toString('utf8'));
       if (!value) throw new Error('envelope rejected');
-      return value;
+      return { result: value, shouldReEncrypt: false };
     },
   };
 }

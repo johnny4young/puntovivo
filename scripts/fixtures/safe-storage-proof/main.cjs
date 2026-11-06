@@ -10,6 +10,7 @@ const { app, safeStorage } = require('electron');
 const { PROOF_DATA_DIR, PROOF_KEY_STORE, PROOF_PHASE, PROOF_RESULT, PROOF_SQLITE } = process.env;
 
 const fingerprint = value => createHash('sha256').update(value).digest('hex');
+const formatOf = envelopePath => readFileSync(envelopePath).subarray(0, 3).toString('latin1');
 
 function openDatabase(key) {
   const Database = require(PROOF_SQLITE);
@@ -72,6 +73,7 @@ async function runPhase() {
     hadEnvelope,
     keyFingerprint: fingerprint(key),
     envelope,
+    prefix: formatOf(envelopePath),
   };
 
   if (PROOF_PHASE === 'seal') {
@@ -79,11 +81,16 @@ async function runPhase() {
   }
   const canary = readCanary(key);
   if (PROOF_PHASE === 'reopen') {
-    store.writeSealedEnvelope(envelopePath, key, safeStorage);
-    if (store.readSealedEnvelope(envelopePath, safeStorage) !== key) {
+    await store.writeSealedEnvelope(envelopePath, key, safeStorage);
+    if ((await store.readSealedEnvelope(envelopePath, safeStorage)) !== key) {
       throw new Error('envelope resealed under this runtime did not return the same key');
     }
-    return { ...result, canary, resealedEnvelope: fingerprint(readFileSync(envelopePath)) };
+    return {
+      ...result,
+      canary,
+      resealedEnvelope: fingerprint(readFileSync(envelopePath)),
+      resealedPrefix: formatOf(envelopePath),
+    };
   }
   return { ...result, canary };
 }
