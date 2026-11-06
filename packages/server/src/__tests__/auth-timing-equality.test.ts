@@ -117,6 +117,47 @@ describe('auth.login timing equality', () => {
     await vi.waitFor(() => expect(warmPins).toHaveBeenCalledOnce());
   });
 
+  it('lets close wait for a running warm-up and skips the one after it', async () => {
+    const settled: string[] = [];
+    let releasePasswords!: () => void;
+    vi.spyOn(passwords, 'warmUpPasswordSecurity').mockReturnValue(
+      new Promise<void>(resolve => {
+        releasePasswords = resolve;
+      }).then(() => {
+        settled.push('warm-up');
+      })
+    );
+    const warmPins = vi.spyOn(staffPins, 'warmUpStaffPinSecurity').mockResolvedValue();
+
+    server = await createServer({
+      dbPath: ':memory:',
+      verbose: false,
+      runtime: {
+        authorityMode: 'device_local',
+        bindHost: '127.0.0.1',
+        bindPort: 0,
+        hubUrl: null,
+        siteId: 'timing-equalizer-shutdown',
+        deviceId: null,
+        allowedLanOrigins: [],
+      },
+    });
+    await server.listen();
+    const closing = server.close().then(() => {
+      settled.push('close');
+    });
+    try {
+      await new Promise(resolve => setTimeout(resolve, 50));
+      expect(settled).toEqual([]);
+    } finally {
+      releasePasswords();
+    }
+    await closing;
+    server = null;
+    expect(settled).toEqual(['warm-up', 'close']);
+    expect(warmPins).not.toHaveBeenCalled();
+  });
+
   it('makes a known email wait for the same equalizer as an unknown one', async () => {
     server = await createServer({ dbPath: ':memory:', verbose: false });
     const seededAdmin = await server.db.select().from(users).where(eq(users.role, 'admin')).get();
