@@ -13,7 +13,7 @@ import {
   normalizeHubAuthUrl,
   type HubRealtimeMessage,
 } from '../session/hub-auth-session.ts';
-import type { SafeStorageLike } from '../db-key-store.ts';
+import { createSafeStorageStub, sealForTest, unsealForTest } from './helpers/safe-storage.ts';
 
 const tempDirs: string[] = [];
 
@@ -27,16 +27,7 @@ function tempStatePath(): string {
   return join(dir, HUB_AUTH_STATE_FILE);
 }
 
-const safeStorage: SafeStorageLike = {
-  isEncryptionAvailable: () => true,
-  encryptString: plain => Buffer.from(`sealed:${Buffer.from(plain).toString('base64')}`),
-  decryptString: sealed => {
-    const value = sealed.toString();
-    if (!value.startsWith('sealed:')) throw new Error('invalid test envelope');
-    return Buffer.from(value.slice('sealed:'.length), 'base64').toString();
-  },
-  getSelectedStorageBackend: () => 'gnome_libsecret',
-};
+const safeStorage = createSafeStorageStub({ getSelectedStorageBackend: () => 'gnome_libsecret' });
 
 function accessToken(sessionVersion: number): string {
   return `header.${Buffer.from(
@@ -198,7 +189,7 @@ describe('Store Hub main-process auth custody', () => {
         assert.equal(await auth.verifyAccessToken(accessToken(1)), null);
       } else {
         assert.equal((await auth.verifyAccessToken(accessToken(2)))?.sessionVersion, 2);
-        assert.match(safeStorage.decryptString(readFileSync(statePath)), /refresh-2/);
+        assert.match(unsealForTest(readFileSync(statePath)), /refresh-2/);
       }
     });
   }
@@ -292,7 +283,7 @@ describe('Store Hub main-process auth custody', () => {
       await rejected;
       assert.equal((await auth.verifyAccessToken(accessToken(2)))?.sessionVersion, 2);
       assert.equal(await auth.verifyAccessToken(accessToken(99)), null);
-      assert.match(safeStorage.decryptString(readFileSync(statePath)), /refresh-2/);
+      assert.match(unsealForTest(readFileSync(statePath)), /refresh-2/);
     });
   }
 
@@ -369,7 +360,7 @@ describe('Store Hub main-process auth custody', () => {
     pendingBootstrap.resolve(successResponse({}, { csrf: `v1.${'x'.repeat(43)}` }));
     await rejected;
     assert.equal(refreshes, 1);
-    assert.match(safeStorage.decryptString(readFileSync(statePath)), /refresh-2/);
+    assert.match(unsealForTest(readFileSync(statePath)), /refresh-2/);
     assert.equal((await auth.verifyAccessToken(accessToken(2)))?.sessionVersion, 2);
   });
 
@@ -416,7 +407,7 @@ describe('Store Hub main-process auth custody', () => {
       await auth.login({ email: 'admin@example.test', password: 'secret' });
       if (operation === 'switchStaff') {
         await auth.switchStaff({ targetUserId: 'cashier-2', pin: '246810' });
-        const sealed = safeStorage.decryptString(readFileSync(statePath));
+        const sealed = unsealForTest(readFileSync(statePath));
         assert.match(sealed, /refresh-2/);
         assert.match(sealed, new RegExp(repaired));
       } else {
@@ -637,7 +628,7 @@ describe('Store Hub main-process auth custody', () => {
     await auth.login({ email: 'admin@example.test', password: 'secret' });
     await auth.refresh();
 
-    const state = JSON.parse(safeStorage.decryptString(readFileSync(statePath))) as {
+    const state = JSON.parse(unsealForTest(readFileSync(statePath))) as {
       refreshToken: string;
     };
     assert.equal(state.refreshToken, 'refresh-two');
@@ -671,7 +662,7 @@ describe('Store Hub main-process auth custody', () => {
       getStatePath: () => statePath,
       safeStorage: {
         ...safeStorage,
-        decryptString: () => {
+        decryptStringAsync: async () => {
           throw new Error('keychain reset');
         },
       },
@@ -695,7 +686,7 @@ describe('Store Hub main-process auth custody', () => {
     const auth = createHubAuthSession({
       hubUrl: 'https://hub.example.test',
       getStatePath: tempStatePath,
-      safeStorage: { ...safeStorage, isEncryptionAvailable: () => false },
+      safeStorage: { ...safeStorage, isAsyncEncryptionAvailable: async () => false },
       fetchImpl: (async () =>
         successResponse(
           {
@@ -714,6 +705,52 @@ describe('Store Hub main-process auth custody', () => {
       auth.login({ email: 'admin@example.test', password: 'secret' }),
       /OS keychain is unavailable/
     );
+  });
+
+  it('does not restore credentials cleared while the grant was being sealed', async () => {
+    const statePath = tempStatePath();
+    const token = accessToken(1);
+    let releaseSeal!: () => void;
+    let sealStarted!: () => void;
+    const sealing = new Promise<void>(resolve => {
+      sealStarted = resolve;
+    });
+    const auth = createHubAuthSession({
+      hubUrl: 'https://hub.example.test',
+      getStatePath: () => statePath,
+      safeStorage: {
+        ...safeStorage,
+        encryptStringAsync: async plain => {
+          sealStarted();
+          await new Promise<void>(resolve => {
+            releaseSeal = resolve;
+          });
+          return sealForTest(plain);
+        },
+      },
+      fetchImpl: (async () =>
+        successResponse(
+          {
+            token,
+            user: {
+              id: 'user-1',
+              email: 'admin@example.test',
+              role: 'admin',
+              tenantId: 'tenant-1',
+            },
+          },
+          { refresh: 'refresh-one', csrf: 'csrf-one' }
+        )) as typeof fetch,
+    });
+
+    const login = auth.login({ email: 'admin@example.test', password: 'secret' });
+    await sealing;
+    auth.clear();
+    releaseSeal();
+
+    await assert.rejects(login, /active session changed/);
+    assert.equal(existsSync(statePath), false);
+    assert.equal(await auth.verifyAccessToken(token), null);
   });
 
   for (const migration of ['current', 'unsigned-companion', 'legacy-jwt'] as const) {
@@ -768,7 +805,7 @@ describe('Store Hub main-process auth custody', () => {
           password: fixturePassword,
         });
         assert.equal(/^[^.]+\.[^.]+\.[^.]+$/.test(login.token), true);
-        const firstState = JSON.parse(safeStorage.decryptString(readFileSync(statePath))) as {
+        const firstState = JSON.parse(unsealForTest(readFileSync(statePath))) as {
           refreshToken: string;
           csrfToken: string;
         };
@@ -778,7 +815,7 @@ describe('Store Hub main-process auth custody', () => {
 
         let activeDeviceId: string | null = null;
         if (migration !== 'current') {
-          const prior = JSON.parse(safeStorage.decryptString(readFileSync(statePath)));
+          const prior = JSON.parse(unsealForTest(readFileSync(statePath)));
           prior.csrfToken = 'x'.repeat(43);
           if (migration === 'legacy-jwt') {
             const jwt = server.app.getDecorator<TestJwtSigner>('jwt');
@@ -788,7 +825,7 @@ describe('Store Hub main-process auth custody', () => {
             for (const claim of ['familyId', 'jti', 'iat', 'exp']) delete legacy[claim];
             prior.refreshToken = jwt.sign(legacy, { expiresIn: '7d' });
           }
-          writeFileSync(statePath, safeStorage.encryptString(JSON.stringify(prior)));
+          writeFileSync(statePath, sealForTest(JSON.stringify(prior)));
         }
         const restarted = createHubAuthSession({
           hubUrl: 'https://hub.example.test',
@@ -799,7 +836,7 @@ describe('Store Hub main-process auth custody', () => {
         });
         const renewed = await restarted.refresh();
         const refreshRequestHeaders = { ...lastRequestHeaders };
-        const rotatedState = JSON.parse(safeStorage.decryptString(readFileSync(statePath))) as {
+        const rotatedState = JSON.parse(unsealForTest(readFileSync(statePath))) as {
           refreshToken: string;
           csrfToken: string;
         };
@@ -882,7 +919,7 @@ describe('Store Hub main-process auth custody', () => {
         await postAsAdmin('users.setStaffPin', { id: cashier.id, pin: '246810' }, true);
 
         const handoff = await restarted.switchStaff({ targetUserId: cashier.id, pin: '246810' });
-        const handoffState = JSON.parse(safeStorage.decryptString(readFileSync(statePath))) as {
+        const handoffState = JSON.parse(unsealForTest(readFileSync(statePath))) as {
           refreshToken: string;
           csrfToken: string;
         };
@@ -893,7 +930,7 @@ describe('Store Hub main-process auth custody', () => {
         assert.equal(await restarted.verifyAccessToken(renewed.token), null);
 
         const cashierRenewed = await restarted.refresh();
-        const cashierState = JSON.parse(safeStorage.decryptString(readFileSync(statePath))) as {
+        const cashierState = JSON.parse(unsealForTest(readFileSync(statePath))) as {
           csrfToken: string;
         };
         assert.equal(cashierState.csrfToken === handoffState.csrfToken, true);

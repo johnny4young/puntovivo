@@ -31,6 +31,7 @@ import { loadOrAdvanceUpdateFloor } from '../auto-updater/update-floor-store.ts'
 import { recordVersionTransition } from '../auto-updater/update-history.ts';
 import { runRecoverableDatabaseRestore } from '../database-restore-transaction.ts';
 import type { SafeStorageLike } from '../db-key-store.ts';
+import { createSafeStorageStub } from './helpers/safe-storage.ts';
 
 const quietLog = { info() {}, warn() {}, error() {} };
 
@@ -52,12 +53,7 @@ function createMarkedDatabase(path: string, marker: string): void {
 }
 
 function safeStorage(): SafeStorageLike {
-  return {
-    isEncryptionAvailable: () => true,
-    encryptString: value => Buffer.from(`sealed:${value}`),
-    decryptString: value => value.toString().replace(/^sealed:/, ''),
-    getSelectedStorageBackend: () => 'unknown',
-  };
+  return createSafeStorageStub({}, 'win32');
 }
 
 /**
@@ -138,8 +134,8 @@ describe('durable desktop writes under Windows fsync semantics', () => {
     assert.equal(JSON.parse(fs.readFileSync(file, 'utf8')).version, '1.14.0');
   });
 
-  it('seals the auto-update floor that auto-update refuses to run without', () => {
-    const floor = loadOrAdvanceUpdateFloor({
+  it('seals the auto-update floor that auto-update refuses to run without', async () => {
+    const floor = await loadOrAdvanceUpdateFloor({
       dataDir: root,
       currentVersion: '1.14.0',
       safeStorage: safeStorage(),
@@ -149,17 +145,22 @@ describe('durable desktop writes under Windows fsync semantics', () => {
     assert.equal(floor.established, true);
   });
 
-  it('persists audit anchors', () => {
+  it('persists audit anchors', async () => {
     const state = { version: 2 as const, confirmed: { counter: 4, headHash: 'head' }, pending: [] };
-    createSafeStorageAuditAnchorStore({
-      dataDir: root,
-      safeStorage: safeStorage(),
-      platform: 'win32',
-    }).write('tenant-a', state);
+    const anchorSecret = 'ab'.repeat(32);
+    (
+      await createSafeStorageAuditAnchorStore({
+        dataDir: root,
+        safeStorage: safeStorage(),
+        anchorSecret,
+        platform: 'win32',
+      })
+    ).write('tenant-a', state);
 
-    const reopened = createSafeStorageAuditAnchorStore({
+    const reopened = await createSafeStorageAuditAnchorStore({
       dataDir: root,
       safeStorage: safeStorage(),
+      anchorSecret,
       platform: 'win32',
     });
     assert.deepEqual(reopened.read('tenant-a'), state);

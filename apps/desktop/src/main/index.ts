@@ -437,7 +437,9 @@ app.whenReady().then(async () => {
     });
   });
 
-  initAutoUpdater();
+  void initAutoUpdater().catch(err => {
+    mainLog.error({ err }, 'auto-updater initialization failed');
+  });
 
   // Best-effort cleanup of backup staging directories orphaned by a crash.
   void sweepStaleBackupStaging()
