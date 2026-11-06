@@ -53,3 +53,21 @@
     animation: var(--animate-shimmer);
   }
 }
+
+/* Modest hardware (lib/graphicsTier.ts) and reduced-transparency requests
+   paint panels without backdrop blur. */
+:root[data-graphics='lite'] *,
+:root[data-graphics='lite'] *::before,
+:root[data-graphics='lite'] *::after {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  *,
+  *::before,
+  *::after {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
