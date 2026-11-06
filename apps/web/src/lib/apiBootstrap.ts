@@ -1,3 +1,4 @@
+import { waitForDesktopServer } from './runtimeConfigClient';
 import { vanillaClient } from './trpc';
 
 let bootstrap: Promise<void> | null = null;
@@ -15,13 +16,20 @@ export function ensureApiBootstrap(options?: { retryAfterFailure: boolean }): Pr
     bootstrap = null;
     failed = false;
   }
-  bootstrap ??= vanillaClient.health.check.query().then(
-    () => undefined,
-    (error: unknown) => {
-      failed = true;
-      throw error;
-    }
-  );
+  if (!bootstrap) {
+    // A check sent before the desktop server listens would fail and stick.
+    const serverReady = waitForDesktopServer();
+    const health = serverReady
+      ? serverReady.then(() => vanillaClient.health.check.query())
+      : vanillaClient.health.check.query();
+    bootstrap = health.then(
+      () => undefined,
+      (error: unknown) => {
+        failed = true;
+        throw error;
+      }
+    );
+  }
   return bootstrap;
 }
 

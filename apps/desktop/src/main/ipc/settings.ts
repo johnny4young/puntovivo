@@ -25,7 +25,7 @@ import {
   // resolve to a different module identity and break the typecheck).
   eq,
 } from '@puntovivo/server';
-import { getServerDatabase } from '../runtime.js';
+import { getServerDatabase, whenServerReady } from '../runtime.js';
 import { t, setMainLocale, normalizeMainLocale, type MainLocale } from '../i18n';
 import { refreshAutoUpdateTranslations } from '../auto-updater';
 import { handleGatedSettingsUpdate, handleLocaleUpdate } from './settings-handlers.ts';
@@ -253,7 +253,9 @@ export function registerSettingsIpc(deps: SettingsIpcDeps): void {
       handleGatedSettingsUpdate(desktopSession, () => saveReceiptPrintSettings(settings))
     );
   });
+  // The window opens before the server; the theme lives in its database.
   ipcMain.handle('get-theme-preference', async () => {
+    await whenServerReady();
     return getThemePreference();
   });
   ipcMain.handle('update-theme-preference', async (_event, preference: unknown) => {

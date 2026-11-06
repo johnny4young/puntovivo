@@ -21,6 +21,19 @@
 import type { PuntovivoServer } from '@puntovivo/server';
 
 let server: PuntovivoServer | null = null;
+let markReady!: () => void;
+const serverReady = new Promise<void>(resolve => {
+  markReady = resolve;
+});
+
+/** Resolves once boot has started the embedded server; later restarts do not reset it. */
+export function whenServerReady(): Promise<void> {
+  return serverReady;
+}
+
+export function markServerReady(): void {
+  markReady();
+}
 
 /** The live embedded-server reference, or null before boot / during restart. */
 export function getServer(): PuntovivoServer | null {

@@ -15,6 +15,7 @@ import {
   buildMainWindowWebPreferences,
 } from './window-config.js';
 import { createSingleFlight } from './single-flight.js';
+import { whenServerReady } from './runtime.js';
 
 const RENDERER_LEVEL_MAP = {
   debug: 'debug',
@@ -40,9 +41,12 @@ interface WindowLifecycleDeps {
 
 export interface WindowLifecycle {
   getWindow: () => BrowserWindow | null;
-  create: () => void;
+  /** `deferReveal` keeps the window hidden until `reveal()` or `show()`. */
+  create: (options?: { deferReveal?: boolean }) => void;
   openCustomerDisplay: (accessId: string) => Promise<void>;
   show: () => void;
+  /** Shows a deferred window once painted; no-op if it was already shown. */
+  reveal: () => void;
   hide: () => void;
   toggleVisibility: () => void;
   installGlobalWebContentsPolicy: () => void;
@@ -60,6 +64,8 @@ export function createWindowLifecycle({
   onVisibilityChange,
 }: WindowLifecycleDeps): WindowLifecycle {
   let mainWindow: BrowserWindow | null = null;
+  let revealRequested = false;
+  let painted = false;
   let customerDisplayWindow: BrowserWindow | null = null;
   let customerDisplayAccessId: string | null = null;
   let pendingCustomerDisplayAccessId: string | null = null;
@@ -74,9 +80,16 @@ export function createWindowLifecycle({
       create();
       return;
     }
+    revealRequested = true;
+    // ready-to-show shows it: an earlier show() flashes an empty frame.
+    if (!painted) return;
     if (mainWindow.isMinimized()) mainWindow.restore();
     if (!mainWindow.isVisible()) mainWindow.show();
     mainWindow.focus();
+  }
+
+  function reveal(): void {
+    if (!revealRequested) show();
   }
 
   function hide(): void {
@@ -169,7 +182,9 @@ export function createWindowLifecycle({
     });
   }
 
-  function create(): void {
+  function create({ deferReveal = false }: { deferReveal?: boolean } = {}): void {
+    revealRequested = !deferReveal;
+    painted = false;
     mainWindow = new BrowserWindow({
       width: 1400,
       height: 900,
@@ -182,7 +197,10 @@ export function createWindowLifecycle({
       webPreferences: buildMainWindowWebPreferences(join(__dirname, '../preload/index.cjs')),
     });
 
-    mainWindow.on('ready-to-show', () => mainWindow?.show());
+    mainWindow.on('ready-to-show', () => {
+      painted = true;
+      if (revealRequested) mainWindow?.show();
+    });
     mainWindow.on('close', event => {
       if (!isQuitting() && shouldCloseToTray()) {
         event.preventDefault();
@@ -229,9 +247,13 @@ export function createWindowLifecycle({
 
     // machine-readable Electron memory gate. Verify the React root
     // mounted before measuring so Chromium error pages never report a false pass.
+    // The renderer loads during server start, so measure the app, not the boot spinner.
     if (process.env.PUNTOVIVO_MEASURE_MEMORY === '1') {
       const measuredWebContents = mainWindow.webContents;
-      measuredWebContents.once('did-finish-load', () => {
+      const loaded = new Promise<void>(resolve => {
+        measuredWebContents.once('did-finish-load', () => resolve());
+      });
+      void Promise.all([loaded, whenServerReady()]).then(() => {
         setTimeout(() => {
           const shutdown = () =>
             void stopEmbeddedServer()
@@ -303,6 +325,7 @@ export function createWindowLifecycle({
     create,
     openCustomerDisplay,
     show,
+    reveal,
     hide,
     toggleVisibility,
     installGlobalWebContentsPolicy,

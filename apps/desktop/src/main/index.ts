@@ -61,7 +61,13 @@ import {
   installPackagedRendererProtocol,
   registerPackagedRendererScheme,
 } from './renderer-protocol.js';
-import { getServer, getServerDatabase, getSqliteClient, setServer } from './runtime.js';
+import {
+  getServer,
+  getServerDatabase,
+  getSqliteClient,
+  markServerReady,
+  setServer,
+} from './runtime.js';
 import { createOsKeyGate } from './os-key-gate.js';
 import { createServerLifecycle } from './server-lifecycle.js';
 import { createTrayController } from './tray-controller.js';
@@ -150,11 +156,15 @@ const localAuthSession =
     : undefined;
 
 let isQuitting = false;
+const bootAbort = new AbortController();
+let servicesBoot: Promise<TraySettings> | null = null;
 
 const waitForOsKey = createOsKeyGate({
   platform: process.platform,
   localStatePath: join(app.getPath('sessionData'), 'Local State'),
   log: mainLog,
+  onWait: () => windowLifecycleRef.current?.reveal(),
+  signal: bootAbort.signal,
 });
 
 const encryptionSetup = createEncryptionSetup({
@@ -451,11 +461,26 @@ app.whenReady().then(async () => {
     });
   });
 
+  // The renderer loads while the server starts and holds the app until it is up.
+  // The window shows then, or as soon as the first-launch key wait begins.
+  windowLifecycle.create({ deferReveal: true });
+  const reopenMainWindow = () => {
+    if (isQuitting) return;
+    if (BrowserWindow.getAllWindows().length === 0) {
+      windowLifecycle.create();
+      if (trayInitialized) trayController.refresh();
+      return;
+    }
+    windowLifecycle.show();
+  };
+  app.on('activate', reopenMainWindow);
+  app.on('second-instance', reopenMainWindow);
+
   // The update floor is sealed on first launch, so it waits like the key envelopes.
   void waitForOsKey()
     .then(initAutoUpdater)
     .catch(err => {
-      mainLog.error({ err }, 'auto-updater initialization failed');
+      if (!isQuitting) mainLog.error({ err }, 'auto-updater initialization failed');
     });
 
   // Best-effort cleanup of backup staging directories orphaned by a crash.
@@ -471,11 +496,16 @@ app.whenReady().then(async () => {
 
   let initialTraySettings: TraySettings;
   try {
-    setServer(await serverLifecycle.start());
-    await backupScheduler.start();
-    applyThemePreference(await getThemePreference());
-    initialTraySettings = await getTraySettings();
+    servicesBoot = (async () => {
+      setServer(await serverLifecycle.start());
+      await backupScheduler.start();
+      applyThemePreference(await getThemePreference());
+      return getTraySettings();
+    })();
+    initialTraySettings = await servicesBoot;
   } catch (err) {
+    // Closing the window during the key wait aborts the boot before anything is sealed.
+    if (isQuitting) return;
     // Every app API depends on the in-process Fastify server; fail loud.
     mainLog.fatal({ err }, 'embedded server failed to start');
     const detail = err instanceof Error ? err.message : String(err);
@@ -484,26 +514,17 @@ app.whenReady().then(async () => {
     app.quit();
     return;
   }
+  if (isQuitting) return;
 
-  windowLifecycle.create();
+  markServerReady();
   trayController.refresh(initialTraySettings);
   trayInitialized = true;
-
-  const reopenMainWindow = () => {
-    if (isQuitting) return;
-    if (BrowserWindow.getAllWindows().length === 0) {
-      windowLifecycle.create();
-      trayController.refresh();
-      return;
-    }
-    windowLifecycle.show();
-  };
-  app.on('activate', reopenMainWindow);
-  app.on('second-instance', reopenMainWindow);
+  windowLifecycle.reveal();
 });
 
 app.on('before-quit', () => {
   isQuitting = true;
+  bootAbort.abort();
 });
 
 app.on('window-all-closed', () => {
@@ -514,6 +535,8 @@ const handleGracefulQuit = createGracefulQuitHandler({
   quit: () => app.quit(),
   onError: err => mainLog.error({ err }, 'unexpected graceful shutdown failure'),
   shutdown: async () => {
+    // A quit during boot stops what boot started, not a half-open server.
+    await servicesBoot?.catch(() => undefined);
     await backupScheduler
       .stop()
       .then(() => backupOperationQueue.drain())

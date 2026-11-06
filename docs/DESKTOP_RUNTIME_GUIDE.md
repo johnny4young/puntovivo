@@ -97,10 +97,10 @@ In this project, lifecycle refers to the runtime sequence of the Electron deskto
 
 1. Electron starts
 2. main process boots
-3. embedded Fastify server starts
-4. desktop preferences are loaded from SQLite
-5. main browser window is created
-6. renderer loads either Vite dev server or `puntovivo-app://app/index.html` from packaged assets
+3. main browser window is created hidden, and the renderer loads either Vite dev server or `puntovivo-app://app/index.html` from packaged assets
+4. embedded Fastify server starts while the renderer shows a spinner
+5. desktop preferences are loaded from SQLite
+6. the window is shown and the renderer mounts the app
 7. tray / theme / update / print / backup capabilities remain available through main
 8. on quit, main tears down tray and shuts down the embedded server
 
@@ -113,14 +113,14 @@ The key lifecycle path is:
 
 1. `app.requestSingleInstanceLock()` keeps one copy per user profile. A second launch exits before Electron opens `Local State`.
 2. `app.whenReady()` waits until Electron is ready.
-3. `initAutoUpdater()` initializes desktop update state.
-4. `serverLifecycle.start()` starts Fastify on the embedded loopback port (default 127.0.0.1:8090).
-5. theme and tray settings are loaded from `app_settings`.
-6. `windowLifecycle.create()` creates the main `BrowserWindow`.
-7. `trayController.refresh()` creates or updates the tray if enabled.
-8. `app.on('activate')` and `app.on('second-instance')` restore or recreate the main window.
-9. `app.on('before-quit')` marks the app as intentionally quitting.
-10. `app.on('will-quit')` destroys tray resources, stops the updater, and runs graceful shutdown: stop the backup scheduler, drain queued backup operations, stop the embedded server, and clear pending restore staging.
+3. `windowLifecycle.create({ deferReveal: true })` creates the main `BrowserWindow` hidden. The renderer loads and shows a spinner until main reports the server is up (`runtime:when-server-ready`).
+4. `app.on('activate')` and `app.on('second-instance')` show and focus the main window, or recreate it.
+5. `initAutoUpdater()` initializes desktop update state.
+6. `serverLifecycle.start()` starts Fastify on the embedded loopback port (default 127.0.0.1:8090).
+7. theme and tray settings are loaded from `app_settings`.
+8. `markServerReady()` releases the renderer, `trayController.refresh()` creates or updates the tray if enabled, and `windowLifecycle.reveal()` shows the window.
+9. `app.on('before-quit')` marks the app as intentionally quitting and cancels a first-launch key wait.
+10. `app.on('will-quit')` destroys tray resources, stops the updater, and runs graceful shutdown: wait for an unfinished boot, stop the backup scheduler, drain queued backup operations, stop the embedded server, and clear pending restore staging.
 
 On Windows, the `safeStorage` key lives in `Local State`, which Electron saves
 about 10 seconds after startup. On a fresh profile, the update floor and the
@@ -128,6 +128,8 @@ SQLCipher and audit anchor key envelopes wait for that save before they are
 sealed ([os-key-gate.ts](../apps/desktop/src/main/os-key-gate.ts)). A crash or
 power loss in those seconds then leaves no envelope that the next launch cannot
 open. The first launch takes those seconds longer; later launches do not wait.
+The window shows its spinner as soon as that wait begins. Closing it during the
+wait ends the launch with nothing sealed.
 
 Relevant source:
 
@@ -144,12 +146,15 @@ sequenceDiagram
     participant R as Renderer
 
     E->>M: app.whenReady()
+    M->>W: windowLifecycle.create({ deferReveal: true })
+    W->>R: loadURL (Vite / secure packaged origin)
+    R->>M: runtime:when-server-ready
     M->>M: initAutoUpdater()
     M->>S: serverLifecycle.start()
     S-->>M: server.listen() complete
     M->>M: load theme + tray settings
-    M->>W: windowLifecycle.create()
-    W->>R: loadURL (Vite / secure packaged origin)
+    M-->>R: server ready
+    M->>W: windowLifecycle.reveal()
     R->>S: /api/trpc requests
     E->>M: before-quit
     M->>M: isQuitting = true

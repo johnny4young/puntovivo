@@ -77,10 +77,10 @@ En este proyecto, el ciclo de vida es la secuencia de ejecución de la aplicaci�
 
 1. Electron se inicia
 2. arranca el proceso principal
-3. se inicia el servidor Fastify integrado
-4. se cargan las preferencias de escritorio desde SQLite
-5. se crea la ventana principal del navegador
-6. el renderizador carga el servidor de desarrollo de Vite o `puntovivo-app://app/index.html` desde los recursos empaquetados
+3. se crea oculta la ventana principal del navegador, y el renderizador carga el servidor de desarrollo de Vite o `puntovivo-app://app/index.html` desde los recursos empaquetados
+4. se inicia el servidor Fastify integrado mientras el renderizador muestra un indicador de carga
+5. se cargan las preferencias de escritorio desde SQLite
+6. se muestra la ventana y el renderizador monta la aplicación
 7. las capacidades de bandeja / tema / actualizaciones / impresión / respaldo siguen disponibles a través del proceso principal
 8. al salir, el proceso principal destruye la bandeja y apaga el servidor integrado
 
@@ -93,14 +93,14 @@ La ruta principal del ciclo de vida es:
 
 1. `app.requestSingleInstanceLock()` mantiene una sola copia por perfil de usuario. Una segunda apertura sale antes de que Electron abra `Local State`.
 2. `app.whenReady()` espera a que Electron esté listo.
-3. `initAutoUpdater()` inicializa el estado de actualización del escritorio.
-4. `serverLifecycle.start()` inicia Fastify en el puerto de loopback integrado (por defecto 127.0.0.1:8090).
-5. se cargan los ajustes de tema y bandeja desde `app_settings`.
-6. `windowLifecycle.create()` crea el `BrowserWindow` principal.
-7. `trayController.refresh()` crea o actualiza la bandeja si está habilitada.
-8. `app.on('activate')` y `app.on('second-instance')` restauran o vuelven a crear la ventana principal.
-9. `app.on('before-quit')` marca que la aplicación está saliendo intencionalmente.
-10. `app.on('will-quit')` destruye los recursos de la bandeja, detiene el actualizador y ejecuta el apagado ordenado: detener el programador de respaldos, vaciar la cola de operaciones de respaldo, detener el servidor integrado y limpiar los archivos de preparación de restauración pendientes.
+3. `windowLifecycle.create({ deferReveal: true })` crea oculto el `BrowserWindow` principal. El renderizador carga y muestra un indicador de carga hasta que el proceso principal avisa que el servidor está listo (`runtime:when-server-ready`).
+4. `app.on('activate')` y `app.on('second-instance')` muestran y enfocan la ventana principal, o la vuelven a crear.
+5. `initAutoUpdater()` inicializa el estado de actualización del escritorio.
+6. `serverLifecycle.start()` inicia Fastify en el puerto de loopback integrado (por defecto 127.0.0.1:8090).
+7. se cargan los ajustes de tema y bandeja desde `app_settings`.
+8. `markServerReady()` libera el renderizador, `trayController.refresh()` crea o actualiza la bandeja si está habilitada y `windowLifecycle.reveal()` muestra la ventana.
+9. `app.on('before-quit')` marca que la aplicación está saliendo intencionalmente y cancela la espera de la llave en la primera apertura.
+10. `app.on('will-quit')` destruye los recursos de la bandeja, detiene el actualizador y ejecuta el apagado ordenado: esperar un arranque sin terminar, detener el programador de respaldos, vaciar la cola de operaciones de respaldo, detener el servidor integrado y limpiar los archivos de preparación de restauración pendientes.
 
 En Windows, la llave de `safeStorage` vive en `Local State`, que Electron guarda
 unos 10 segundos después de arrancar. En un perfil nuevo, el piso de
@@ -109,7 +109,9 @@ esperan ese guardado antes de sellarse
 ([os-key-gate.ts](../../apps/desktop/src/main/os-key-gate.ts)). Así, un cierre
 inesperado o un corte de luz en esos segundos no deja ningún sobre que la
 siguiente apertura no pueda abrir. La primera apertura tarda esos segundos más;
-las siguientes no esperan.
+las siguientes no esperan. La ventana muestra su indicador de carga en cuanto
+empieza esa espera. Si se cierra durante la espera, la apertura termina sin
+sellar nada.
 
 Código relevante:
 
@@ -126,12 +128,15 @@ sequenceDiagram
     participant R as Renderer
 
     E->>M: app.whenReady()
+    M->>W: windowLifecycle.create({ deferReveal: true })
+    W->>R: loadURL (Vite / secure packaged origin)
+    R->>M: runtime:when-server-ready
     M->>M: initAutoUpdater()
     M->>S: serverLifecycle.start()
     S-->>M: server.listen() complete
     M->>M: load theme + tray settings
-    M->>W: windowLifecycle.create()
-    W->>R: loadURL (Vite / secure packaged origin)
+    M-->>R: server ready
+    M->>W: windowLifecycle.reveal()
     R->>S: /api/trpc requests
     E->>M: before-quit
     M->>M: isQuitting = true

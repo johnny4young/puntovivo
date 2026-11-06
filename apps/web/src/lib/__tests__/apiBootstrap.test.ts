@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { health } = vi.hoisted(() => ({ health: vi.fn() }));
 vi.mock('../trpc', () => ({ vanillaClient: { health: { check: { query: health } } } }));
@@ -8,6 +8,10 @@ import { __resetApiBootstrapForTests, ensureApiBootstrap } from '../apiBootstrap
 beforeEach(() => {
   __resetApiBootstrapForTests();
   health.mockReset();
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 describe('safe HTTP bootstrap', () => {
@@ -39,5 +43,21 @@ describe('safe HTTP bootstrap', () => {
     expect(health).toHaveBeenCalledTimes(1);
     await expect(ensureApiBootstrap({ retryAfterFailure: true })).resolves.toBeUndefined();
     expect(health).toHaveBeenCalledTimes(2);
+  });
+
+  it('holds the first check until the desktop server is up', async () => {
+    let markReady!: () => void;
+    const serverReady = new Promise<void>(resolve => {
+      markReady = resolve;
+    });
+    vi.stubGlobal('electron', { runtime: { whenServerReady: () => serverReady } });
+    health.mockResolvedValue({ status: 'ok' });
+    const auth = ensureApiBootstrap();
+    expect(ensureApiBootstrap()).toBe(auth);
+    await Promise.resolve();
+    expect(health).not.toHaveBeenCalled();
+    markReady();
+    await expect(auth).resolves.toBeUndefined();
+    expect(health).toHaveBeenCalledTimes(1);
   });
 });
