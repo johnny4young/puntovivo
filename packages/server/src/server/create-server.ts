@@ -249,7 +249,11 @@ async function createOwnedServer(
   // Register the HTTP plugin + security-hook stack (helmet -> cors ->
   // cookie -> jwt -> request-logger hook -> CSRF hook -> rate-limit ->
   // SSE) in the boot-critical order.
-  await registerHttpPlugins(app, { effectiveCorsOrigins, jwtSecret });
+  await registerHttpPlugins(app, {
+    effectiveCorsOrigins,
+    jwtSecret,
+    authorityMode: resolvedRuntime.authorityMode,
+  });
 
   // Decorate request with database instance
   app.decorate('db', db);

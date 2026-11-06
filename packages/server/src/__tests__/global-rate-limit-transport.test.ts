@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createServer, type PuntovivoServer } from '../index.js';
 
+// The cap binds per IP. A loopback socket is exempt in device_local, so the
+// cap itself is exercised from another address.
+const LAN_TERMINAL = '192.0.2.20';
 let server: PuntovivoServer | undefined;
 afterEach(async () => {
   await server?.close();
@@ -16,9 +19,9 @@ describe('global HTTP throttle transport', () => {
   ])('keeps the cap and returns a safe tRPC error at %s', async url => {
     vi.stubEnv('PUNTOVIVO_GLOBAL_RATE_LIMIT_MAX', '1');
     server = await createServer({ dbPath: ':memory:', verbose: false });
-    const first = await server.app.inject({ method: 'GET', url });
+    const first = await server.app.inject({ method: 'GET', url, remoteAddress: LAN_TERMINAL });
     expect(first.statusCode).toBe(200);
-    const second = await server.app.inject({ method: 'GET', url });
+    const second = await server.app.inject({ method: 'GET', url, remoteAddress: LAN_TERMINAL });
     expect(second.statusCode).toBe(429);
     expect(second.headers['x-ratelimit-limit']).toBe('1');
     expect(Number(second.headers['retry-after'])).toBeGreaterThan(0);
@@ -31,13 +34,17 @@ describe('global HTTP throttle transport', () => {
       },
     });
     expect(second.body).not.toContain('stack');
-    expect((await server.app.inject({ method: 'GET', url })).statusCode).toBe(429);
+    expect(
+      (await server.app.inject({ method: 'GET', url, remoteAddress: LAN_TERMINAL })).statusCode
+    ).toBe(429);
   });
   it('preserves non-tRPC HTTP errors without converting health to an application API', async () => {
     vi.stubEnv('PUNTOVIVO_GLOBAL_RATE_LIMIT_MAX', '1');
     server = await createServer({ dbPath: ':memory:', verbose: false });
-    expect((await server.app.inject('/api/health')).statusCode).toBe(200);
-    const response = await server.app.inject('/api/health');
+    expect(
+      (await server.app.inject({ url: '/api/health', remoteAddress: LAN_TERMINAL })).statusCode
+    ).toBe(200);
+    const response = await server.app.inject({ url: '/api/health', remoteAddress: LAN_TERMINAL });
     expect(response.statusCode).toBe(429);
     expect(response.json()).toMatchObject({ statusCode: 429, error: 'Too Many Requests' });
   });
@@ -45,9 +52,10 @@ describe('global HTTP throttle transport', () => {
   it('exposes only the retry cooldown to an allowed browser origin', async () => {
     vi.stubEnv('PUNTOVIVO_GLOBAL_RATE_LIMIT_MAX', '1');
     server = await createServer({ dbPath: ':memory:', verbose: false });
-    await server.app.inject('/api/health');
+    await server.app.inject({ url: '/api/health', remoteAddress: LAN_TERMINAL });
     const response = await server.app.inject({
       url: '/api/trpc/health.check?batch=1',
+      remoteAddress: LAN_TERMINAL,
       headers: { origin: 'http://localhost:3000' },
     });
     expect(response.statusCode).toBe(429);
@@ -60,9 +68,14 @@ describe('global HTTP throttle transport', () => {
     vi.stubEnv('PUNTOVIVO_GLOBAL_RATE_LIMIT_MAX', '');
     server = await createServer({ dbPath: ':memory:', verbose: false });
     for (let request = 0; request < 100; request++) {
-      expect((await server.app.inject('/api/health')).statusCode).toBe(200);
+      expect(
+        (await server.app.inject({ url: '/api/health', remoteAddress: LAN_TERMINAL })).statusCode
+      ).toBe(200);
     }
-    const blocked = await server.app.inject('/api/trpc/health.check?batch=1');
+    const blocked = await server.app.inject({
+      url: '/api/trpc/health.check?batch=1',
+      remoteAddress: LAN_TERMINAL,
+    });
     expect(blocked.statusCode).toBe(429);
     expect(blocked.headers['x-ratelimit-limit']).toBe('100');
     expect(blocked.json().error.data.code).toBe('TOO_MANY_REQUESTS');
@@ -76,10 +89,13 @@ describe('global HTTP throttle transport', () => {
     async path => {
       vi.stubEnv('PUNTOVIVO_GLOBAL_RATE_LIMIT_MAX', '1');
       server = await createServer({ dbPath: ':memory:', verbose: false });
-      expect((await server.app.inject('/api/health')).statusCode).toBe(200);
+      expect(
+        (await server.app.inject({ url: '/api/health', remoteAddress: LAN_TERMINAL })).statusCode
+      ).toBe(200);
       const result = await server.app.inject({
         method: 'POST',
         url: `/api/trpc/${path}?batch=1`,
+        remoteAddress: LAN_TERMINAL,
         payload: {},
       });
       expect(result.statusCode).toBe(429);
@@ -89,4 +105,32 @@ describe('global HTTP throttle transport', () => {
       });
     }
   );
+
+  it('lets the loopback renderer past the cap in device_local', async () => {
+    vi.stubEnv('PUNTOVIVO_GLOBAL_RATE_LIMIT_MAX', '1');
+    server = await createServer({ dbPath: ':memory:', verbose: false });
+    for (let request = 0; request < 3; request++) {
+      expect((await server.app.inject('/api/trpc/health.check?batch=1')).statusCode).toBe(200);
+    }
+  });
+
+  it('keeps the cap on loopback in site_hub, where a local proxy can front LAN traffic', async () => {
+    vi.stubEnv('PUNTOVIVO_GLOBAL_RATE_LIMIT_MAX', '1');
+    server = await createServer({
+      dbPath: ':memory:',
+      verbose: false,
+      jwtSecret: 'hub-secret-2026-8f4b7c1d9a3e6f20b5a9',
+      runtime: {
+        authorityMode: 'site_hub',
+        bindHost: '127.0.0.1',
+        bindPort: 0,
+        hubUrl: null,
+        siteId: 'rate-limit-hub',
+        deviceId: null,
+        allowedLanOrigins: ['http://192.168.1.10:3000'],
+      },
+    });
+    expect((await server.app.inject('/api/health')).statusCode).toBe(200);
+    expect((await server.app.inject('/api/health')).statusCode).toBe(429);
+  });
 });
