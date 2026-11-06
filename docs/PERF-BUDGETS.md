@@ -346,6 +346,20 @@ profile on the target CI host and retain the measurements in the changing PR;
 do not increase the shared tolerance to hide one query shape or calibrate only
 against a faster developer machine.
 
+### Sale catalog-scale contract
+
+`__tests__/perf-sale-catalog-profile.test.ts` sells a three-line cart through
+the real `sales.create` tRPC path on a site whose 50,000 active stock-tracked
+products already have balance rows, in an isolated single-worker process. A
+sale may issue at most one `inventory_balances` insert per cart line. That
+count does not depend on host speed, so work that grows with the catalog fails
+even on a fast runner. Before this gate, every sale re-inserted the whole
+catalog in 90-row chunks under the writer lock: 559 inserts and a 1,776 ms p95
+per sale on a loaded Apple Silicon host, against 3 inserts and 22 ms with the
+seed guard. `perf-budget.json::saleCatalogProfile.p95Ms` bounds the checkout
+on top of the count; treat its local value like the other profiles and keep
+the first hosted measurement with its runner class.
+
 ### Audit-chain scale contract
 
 `__tests__/perf-audit-chain-profile.test.ts` builds a file-backed chain of
