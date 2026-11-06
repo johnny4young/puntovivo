@@ -156,6 +156,12 @@ describe('100k audit-chain profile', () => {
     const seedStartedAt = performance.now();
     insertProfileChain();
     seedElapsedMs = performance.now() - seedStartedAt;
+    // Leftover seed garbage decides whether V8 runs a major GC inside the window,
+    // and that varies by host (55 vs 225 MiB on Node 26). Settle it first.
+    const gc = (globalThis as { gc?: () => void }).gc;
+    if (!gc)
+      throw new Error('Run through scripts/run-audit-chain-profile-gate.mjs (needs --expose-gc)');
+    gc();
     rssBaselineMiB = maxRssMiB();
     recordMemory('baseline');
   }, 120_000);
