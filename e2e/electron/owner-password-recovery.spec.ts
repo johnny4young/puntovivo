@@ -23,8 +23,8 @@ test('lets the sole owner without a recovery code reset the password from this c
     .click();
   await expect(page).toHaveURL(/\/company|\/dashboard/, { timeout: 30_000 });
 
-  // Admins without a code are asked once; declining keeps the local path open.
-  await page.getByRole('button', { name: /^(Not now|Ahora no)$/ }).click({ timeout: 30_000 });
+  // Onboarding is never interrupted; the header only flags the missing code.
+  await expect(page.getByTestId('recovery-code-missing-dot')).toBeVisible({ timeout: 30_000 });
   expect(await page.evaluate(() => window.api!.session.ownerRecovery.status())).toEqual({
     available: true,
   });

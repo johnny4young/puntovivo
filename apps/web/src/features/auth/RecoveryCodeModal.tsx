@@ -10,11 +10,9 @@ import { useAuth } from './AuthProvider';
 
 interface RecoveryCodeModalProps {
   onClose: () => void;
-  /** Opened automatically for an admin who has no code yet. */
-  prompt?: boolean;
 }
 
-export function RecoveryCodeModal({ onClose, prompt = false }: RecoveryCodeModalProps) {
+export function RecoveryCodeModal({ onClose }: RecoveryCodeModalProps) {
   const { t, i18n } = useTranslation(['auth', 'errors']);
   const { user } = useAuth();
   const utils = trpc.useUtils();
@@ -87,7 +85,7 @@ export function RecoveryCodeModal({ onClose, prompt = false }: RecoveryCodeModal
         ) : (
           <>
             <ModalButton onClick={onClose} disabled={generate.isPending}>
-              {prompt ? t('recoveryCode.later') : t('recoveryCode.cancel')}
+              {t('recoveryCode.cancel')}
             </ModalButton>
             <ModalButton variant="primary" onClick={submit} pending={generate.isPending}>
               {generate.isPending ? t('recoveryCode.generating') : t('recoveryCode.generate')}

@@ -43,9 +43,8 @@ describe('RecoveryCodeModal', () => {
   it('asks for the current password and shows the new code once', async () => {
     const writeText = vi.fn(async () => undefined);
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
-    render(<RecoveryCodeModal onClose={vi.fn()} prompt />);
+    render(<RecoveryCodeModal onClose={vi.fn()} />);
 
-    expect(screen.getByRole('button', { name: 'Ahora no' })).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Contraseña actual'), {
       target: { value: 'OldOwnerPassword42!' },
     });

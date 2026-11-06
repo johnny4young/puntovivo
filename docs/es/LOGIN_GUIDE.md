@@ -126,8 +126,9 @@ en este orden:
 
 1. **Otro administrador** restablece la contraseña desde Usuarios.
 2. **Código de recuperación.** Cada administrador puede generar uno desde el
-   menú de usuario después de confirmar su contraseña actual, y la aplicación
-   se lo pide a los administradores que no tienen. El código se muestra una sola
+   menú de usuario después de confirmar su contraseña actual; el menú de usuario
+   marca a los administradores que no tienen uno sin interrumpir su trabajo. El
+   código se muestra una sola
    vez, se guarda solo como hash Argon2id, sirve una vez y se reemplaza al
    generar otro. Un código incorrecto, un correo desconocido y una cuenta sin
    código devuelven el mismo error y comparten los límites de intentos del

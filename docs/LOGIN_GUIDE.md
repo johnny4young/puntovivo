@@ -117,7 +117,8 @@ this order:
 
 1. **Another administrator** resets the password from Users.
 2. **Recovery code.** Each admin can generate one from the user menu after
-   confirming the current password, and the app prompts admins who have none.
+   confirming the current password; the user menu flags admins who have none
+   without interrupting their work.
    The code is shown once, stored only as an Argon2id hash, works once and is
    replaced when regenerated. Wrong codes, unknown emails and accounts without a
    code all return the same error and share the sign-in rate limits.

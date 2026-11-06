@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@/test/utils';
+import { act, fireEvent, render, screen, within } from '@/test/utils';
 import i18next from 'i18next';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { USER_ROLES } from '@puntovivo/shared/roles';
@@ -7,10 +7,11 @@ import esSettings from '@/i18n/locales/es/settings.json';
 import { shortcutDisplayFor } from '@/lib/shortcuts';
 import { Header } from '../Header';
 
-const { switchSite, openPalette, auth } = vi.hoisted(() => ({
+const { switchSite, openPalette, auth, recoveryCode } = vi.hoisted(() => ({
   switchSite: vi.fn(),
   openPalette: vi.fn(),
   auth: { role: 'viewer' },
+  recoveryCode: { missing: false },
 }));
 vi.mock('@/features/auth/AuthProvider', () => ({
   useAuth: () => ({
@@ -34,13 +35,17 @@ vi.mock('@/features/fiscal/FiscalContingencyIndicator', () => ({
   FiscalContingencyIndicator: () => null,
 }));
 vi.mock('@/features/auth/ChangePasswordModal', () => ({ ChangePasswordModal: () => null }));
-vi.mock('@/features/auth/RecoveryCodePrompt', () => ({ RecoveryCodePrompt: () => null }));
+vi.mock('@/features/staff/TimeClockControl', () => ({ TimeClockControl: () => null }));
+vi.mock('@/features/auth/useRecoveryCodeMissing', () => ({
+  useRecoveryCodeMissing: (isAdmin: boolean) => isAdmin && recoveryCode.missing,
+}));
 vi.mock('@/components/feedback/CommandPaletteProvider', () => ({
   useCommandPalette: () => ({ openPalette }),
 }));
 
 beforeEach(async () => {
   auth.role = 'viewer';
+  recoveryCode.missing = false;
   await i18next.changeLanguage('en');
 });
 
@@ -118,5 +123,46 @@ describe('Header accessible names', () => {
       });
       expect(account).toHaveTextContent(`María Alejandra Rodríguez ${labels[role]}`);
     });
+  });
+});
+
+async function renderHeader() {
+  await act(async () => {
+    render(<Header onOpenSidebar={vi.fn()} />);
+  });
+}
+
+async function openAccountMenu() {
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: /María Alejandra/ }));
+  });
+}
+
+describe('Header recovery code', () => {
+  it('flags an admin without a recovery code without opening anything', async () => {
+    auth.role = 'admin';
+    recoveryCode.missing = true;
+    await renderHeader();
+    expect(screen.getByTestId('recovery-code-missing-dot')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    await openAccountMenu();
+    expect(screen.getByRole('button', { name: 'Recovery code not set up' })).toBeInTheDocument();
+  });
+
+  it('stays quiet once the admin has a code', async () => {
+    auth.role = 'admin';
+    await renderHeader();
+    expect(screen.queryByTestId('recovery-code-missing-dot')).not.toBeInTheDocument();
+    await openAccountMenu();
+    expect(screen.getByRole('button', { name: 'Recovery code' })).toBeInTheDocument();
+  });
+
+  it('never offers recovery codes to non-admins', async () => {
+    auth.role = 'manager';
+    recoveryCode.missing = true;
+    await renderHeader();
+    expect(screen.queryByTestId('recovery-code-missing-dot')).not.toBeInTheDocument();
+    await openAccountMenu();
+    expect(screen.queryByRole('button', { name: /Recovery code/ })).not.toBeInTheDocument();
   });
 });
