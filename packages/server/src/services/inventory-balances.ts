@@ -13,6 +13,7 @@ export type {
 } from './inventory-balances/types.js';
 export { getPrimarySiteId } from './inventory-balances/helpers.js';
 export {
+  ensureInventoryBalancesForProducts,
   ensureInventoryBalancesForSite,
   ensurePrimaryInventoryBalanceSnapshot,
 } from './inventory-balances/seed.js';

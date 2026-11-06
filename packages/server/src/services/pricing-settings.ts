@@ -17,9 +17,8 @@
  * @module services/pricing-settings
  */
 
-import { eq } from 'drizzle-orm';
 import type { DatabaseInstance } from '../db/index.js';
-import { tenants } from '../db/schema.js';
+import { readTenantSettingsRow } from './tenant-settings-read.js';
 
 export interface PricingSettings {
   priceIncludesTax: boolean;
@@ -55,11 +54,5 @@ export async function resolvePricingSettings(
   db: DatabaseInstance,
   tenantId: string
 ): Promise<PricingSettings> {
-  const row = await db
-    .select({ settings: tenants.settings })
-    .from(tenants)
-    .where(eq(tenants.id, tenantId))
-    .get();
-
-  return parsePricingSettings(row?.settings);
+  return parsePricingSettings(readTenantSettingsRow(db, tenantId)?.settings);
 }

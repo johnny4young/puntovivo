@@ -5,6 +5,7 @@ const TRPC_PROFILE_TEST = 'src/__tests__/perf-trpc-latency.test.ts';
 const STORE_PROFILE_TEST = 'src/__tests__/perf-store-profile.test.ts';
 const PRODUCT_SEARCH_PROFILE_TEST = 'src/__tests__/perf-product-search-profile.test.ts';
 const AUDIT_CHAIN_PROFILE_TEST = 'src/__tests__/perf-audit-chain-profile.test.ts';
+const SALE_CATALOG_PROFILE_TEST = 'src/__tests__/perf-sale-catalog-profile.test.ts';
 const enabledProfileTest =
   process.env.PUNTOVIVO_TRPC_LATENCY_PROFILE === '1'
     ? TRPC_PROFILE_TEST
@@ -14,7 +15,12 @@ const enabledProfileTest =
         ? PRODUCT_SEARCH_PROFILE_TEST
         : process.env.PUNTOVIVO_AUDIT_CHAIN_PROFILE === '1'
           ? AUDIT_CHAIN_PROFILE_TEST
-          : null;
+          : process.env.PUNTOVIVO_SALE_CATALOG_PROFILE === '1'
+            ? SALE_CATALOG_PROFILE_TEST
+            : null;
+
+// A shard measures part of the suite, so reports and floors wait for the merge.
+const isShardRun = process.argv.some(arg => arg.startsWith('--shard'));
 
 export default defineConfig({
   test: {
@@ -35,6 +41,7 @@ export default defineConfig({
           STORE_PROFILE_TEST,
           PRODUCT_SEARCH_PROFILE_TEST,
           AUDIT_CHAIN_PROFILE_TEST,
+          SALE_CATALOG_PROFILE_TEST,
         ],
     // strip ambient telemetry env vars before any test
     // boots a server, so a dev shell with PUNTOVIVO_SENTRY_DSN
@@ -53,7 +60,7 @@ export default defineConfig({
       // npx vitest run --coverage --coverage.reporter=html
       // npx vitest run --coverage --coverage.reporter=json
       // Restoring them to the default list re-adds the disk-I/O cost.
-      reporter: ['text-summary', 'lcov'],
+      reporter: isShardRun ? [] : ['text-summary', 'lcov'],
       exclude: [
         'node_modules/',
         'dist/',
@@ -72,12 +79,14 @@ export default defineConfig({
       // floors). No coverage.include is set, so only files the suite
       // loads are measured. These floors run inside ci:server; do not
       // lower them without a documented rationale.
-      thresholds: {
-        statements: 85,
-        branches: 76,
-        functions: 82,
-        lines: 87,
-      },
+      thresholds: isShardRun
+        ? {}
+        : {
+            statements: 85,
+            branches: 76,
+            functions: 82,
+            lines: 87,
+          },
     },
     testTimeout: 10000,
   },

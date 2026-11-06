@@ -36,7 +36,7 @@ import { roundQuantity } from '@puntovivo/shared/unit-math';
 import { resolvePricingSettings } from '../../services/pricing-settings.js';
 import type { TaxKind } from '../../db/schema.js';
 import {
-  ensureInventoryBalancesForSite,
+  ensureInventoryBalancesForProducts,
   getProductStockTotals,
 } from '../../services/inventory-balances.js';
 import { assertSaleQuantityAllowed } from '../../services/fraction-policy.js';
@@ -286,7 +286,7 @@ export async function resolveSaleItems(
 ): Promise<ResolvedItemsBundle> {
   const productIds = [...new Set(inputItems.map(item => item.productId))];
   const pricing = await resolvePricingSettings(db, tenantId);
-  ensureInventoryBalancesForSite(db, tenantId, siteId);
+  ensureInventoryBalancesForProducts(db, tenantId, siteId, productIds);
 
   const productRows = await db
     .select()

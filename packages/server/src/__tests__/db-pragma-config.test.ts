@@ -56,6 +56,7 @@ describe('SQLite PRAGMA cluster', () => {
     // SQLite's temp_store enum: 0=DEFAULT, 1=FILE, 2=MEMORY. We pin MEMORY.
     expect(readPragma('temp_store')).toBe(2);
     expect(readPragma('wal_autocheckpoint')).toBe(1000);
+    expect(readPragma('analysis_limit')).toBe(400);
   });
 
   it('still applies the connection-level PRAGMAs in `:memory:` mode', async () => {

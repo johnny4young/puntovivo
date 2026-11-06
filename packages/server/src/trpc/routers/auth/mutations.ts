@@ -134,7 +134,8 @@ export const authMutationProcedures = {
         )
         .get();
 
-      const verificationHash = target?.staffPinHash ?? (await getDummyStaffPinHash());
+      const dummyPinHash = await getDummyStaffPinHash();
+      const verificationHash = target?.staffPinHash ?? dummyPinHash;
       const pinMatches = await verifyStaffPin(verificationHash, input.pin);
       if (!target?.staffPinHash || !pinMatches || target.id === actor.id) {
         registerStaffPinFailure(ctx.db, rateIdentity);
@@ -306,6 +307,10 @@ export const authMutationProcedures = {
     checkLoginIp(ctx.db, ip);
     checkLoginUsername(ctx.db, email);
 
+    // Every branch waits for the equalizer, so a login that arrives while
+    // it is still warming cannot reveal an unknown email by the wait.
+    const dummyHash = await getDummyPasswordHash();
+
     // Find user by email
     const user = await ctx.db.select().from(users).where(eq(users.email, email)).get();
 
@@ -314,7 +319,6 @@ export const authMutationProcedures = {
       // the not-found branch against a cached dummy hash so an attacker
       // cannot enumerate accounts by measuring response time. The result
       // is intentionally ignored; the surrounding error is still raised.
-      const dummyHash = await getDummyPasswordHash();
       await verifyPasswordSecurely(dummyHash, password);
       registerLoginFailure(ctx.db, ip, email);
       throwServerError({

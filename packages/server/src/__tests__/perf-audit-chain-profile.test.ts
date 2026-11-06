@@ -4,12 +4,13 @@
  * Runs only through scripts/run-audit-chain-profile-gate.mjs. The fixture is
  * file-backed so RSS measurements are not dominated by an in-memory SQLite
  * database. It exercises the production paged verifier and the deliberately
- * transaction-bound privacy rewrite.
+ * transaction-bound privacy rewrite. The runner judges the elapsed and RSS
+ * budgets from the measured line, so this file asserts correctness only.
  */
 import Database from 'better-sqlite3';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { performance } from 'node:perf_hooks';
@@ -43,6 +44,7 @@ let verifyMaxRssGrowthMiB = 0;
 let redactMaxRssGrowthMiB = 0;
 let rssBaselineMiB = 0;
 let queryPlan: string[] = [];
+const memory: Record<string, Record<string, number | null>> = {};
 
 function liveClient(): Database.Database {
   return (getDatabase() as unknown as { $client: Database.Database }).$client;
@@ -50,6 +52,31 @@ function liveClient(): Database.Database {
 
 function maxRssMiB(): number {
   return process.resourceUsage().maxRSS / 1024;
+}
+
+const toMiB = (bytes: number) => Number((bytes / 1048576).toFixed(2));
+
+function procMiB(path: string, key: string): number | null {
+  try {
+    const kiB = new RegExp(`^${key}:\\s+(\\d+) kB`, 'm').exec(readFileSync(path, 'utf8'))?.[1];
+    return kiB === undefined ? null : toMiB(Number(kiB) * 1024);
+  } catch {
+    return null;
+  }
+}
+
+/** Current (not peak) memory by component, so the runner can attribute growth. */
+function recordMemory(stage: string): void {
+  const usage = process.memoryUsage();
+  memory[stage] = {
+    rssMiB: toMiB(usage.rss),
+    anonMiB: procMiB('/proc/self/status', 'RssAnon'),
+    fileMiB: procMiB('/proc/self/status', 'RssFile'),
+    hugeMiB: procMiB('/proc/self/smaps_rollup', 'AnonHugePages'),
+    heapTotalMiB: toMiB(usage.heapTotal),
+    heapUsedMiB: toMiB(usage.heapUsed),
+    externalMiB: toMiB(usage.external),
+  };
 }
 
 function insertProfileChain(): void {
@@ -130,11 +157,12 @@ describe('100k audit-chain profile', () => {
     insertProfileChain();
     seedElapsedMs = performance.now() - seedStartedAt;
     rssBaselineMiB = maxRssMiB();
+    recordMemory('baseline');
   }, 120_000);
 
   afterAll(async () => {
     process.stdout.write(
-      `audit-chain-profile measured=${JSON.stringify({ rows: budget.rows, seedElapsedMs: Number(seedElapsedMs.toFixed(2)), verifyElapsedMs: Number(verifyElapsedMs.toFixed(2)), redactElapsedMs: Number(redactElapsedMs.toFixed(2)), verifyMaxRssGrowthMiB: Number(verifyMaxRssGrowthMiB.toFixed(2)), redactMaxRssGrowthMiB: Number(redactMaxRssGrowthMiB.toFixed(2)), maxRssGrowthMiB: Number(maxRssGrowthMiB.toFixed(2)), queryPlan })}\n`
+      `audit-chain-profile measured=${JSON.stringify({ rows: budget.rows, seedElapsedMs: Number(seedElapsedMs.toFixed(2)), verifyElapsedMs: Number(verifyElapsedMs.toFixed(2)), redactElapsedMs: Number(redactElapsedMs.toFixed(2)), verifyMaxRssGrowthMiB: Number(verifyMaxRssGrowthMiB.toFixed(2)), redactMaxRssGrowthMiB: Number(redactMaxRssGrowthMiB.toFixed(2)), maxRssGrowthMiB: Number(maxRssGrowthMiB.toFixed(2)), memory, queryPlan })}\n`
     );
     if (server) await server.close();
     configureAuditAnchor({});
@@ -168,15 +196,13 @@ describe('100k audit-chain profile', () => {
     clearTimeout(timer);
     verifyMaxRssGrowthMiB = maxRssMiB() - rssBaselineMiB;
     maxRssGrowthMiB = Math.max(maxRssGrowthMiB, verifyMaxRssGrowthMiB);
+    recordMemory('verify');
 
     expect(verification).toMatchObject({ valid: true, checkedCount: budget.rows });
     expect(timerYielded).toBe(true);
-    expect(verifyElapsedMs).toBeLessThanOrEqual(
-      budget.verifyElapsedMs * (1 + budget.thresholdPercent / 100)
-    );
   }, 120_000);
 
-  it('redacts and rehashes 100k rows within the transaction budget', async () => {
+  it('redacts and rehashes 100k rows in one transaction', async () => {
     const startedAt = performance.now();
     const redacted = getDatabase().transaction(tx =>
       redactAuditLogPayloads({
@@ -189,12 +215,9 @@ describe('100k audit-chain profile', () => {
     redactElapsedMs = performance.now() - startedAt;
     redactMaxRssGrowthMiB = maxRssMiB() - rssBaselineMiB;
     maxRssGrowthMiB = Math.max(maxRssGrowthMiB, redactMaxRssGrowthMiB);
+    recordMemory('redact');
 
     expect(redacted).toBe(1);
-    expect(redactElapsedMs).toBeLessThanOrEqual(
-      budget.redactElapsedMs * (1 + budget.thresholdPercent / 100)
-    );
     expect((await verifyAuditChain(getDatabase(), tenantId)).valid).toBe(true);
-    expect(maxRssGrowthMiB).toBeLessThanOrEqual(budget.maxRssGrowthMiB);
   }, 120_000);
 });

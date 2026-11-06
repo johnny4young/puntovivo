@@ -53,13 +53,20 @@ const workspaces = {
   },
 };
 
+// A gate may compose other root scripts; inline them so the order check sees every step.
+function expandRootScript(name) {
+  return rootPackage.scripts[name].replace(/pnpm run (ci:[\w:]+)/g, (reference, nested) =>
+    rootPackage.scripts[nested] === undefined ? reference : expandRootScript(nested)
+  );
+}
+
 test('Oxlint fails fast before authoritative ESLint in every workspace gate', () => {
   assert.equal(rootPackage.devDependencies.oxlint, '^1.85.0');
   assert.equal(rootPackage.devDependencies['eslint-plugin-oxlint'], undefined);
 
   for (const [workspace, contract] of Object.entries(workspaces)) {
     assert.equal(rootPackage.scripts[`lint:fast:${workspace}`], contract.command);
-    const ci = rootPackage.scripts[`ci:${workspace}`];
+    const ci = expandRootScript(`ci:${workspace}`);
     assert.ok(ci.includes(contract.fast));
     assert.ok(ci.includes(contract.authoritative));
     assert.ok(ci.indexOf(contract.fast) < ci.indexOf(contract.authoritative));
