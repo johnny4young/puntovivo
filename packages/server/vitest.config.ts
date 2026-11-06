@@ -19,6 +19,9 @@ const enabledProfileTest =
             ? SALE_CATALOG_PROFILE_TEST
             : null;
 
+// A shard measures part of the suite, so reports and floors wait for the merge.
+const isShardRun = process.argv.some(arg => arg.startsWith('--shard'));
+
 export default defineConfig({
   test: {
     globals: true,
@@ -57,7 +60,7 @@ export default defineConfig({
       // npx vitest run --coverage --coverage.reporter=html
       // npx vitest run --coverage --coverage.reporter=json
       // Restoring them to the default list re-adds the disk-I/O cost.
-      reporter: ['text-summary', 'lcov'],
+      reporter: isShardRun ? [] : ['text-summary', 'lcov'],
       exclude: [
         'node_modules/',
         'dist/',
@@ -76,12 +79,14 @@ export default defineConfig({
       // floors). No coverage.include is set, so only files the suite
       // loads are measured. These floors run inside ci:server; do not
       // lower them without a documented rationale.
-      thresholds: {
-        statements: 85,
-        branches: 76,
-        functions: 82,
-        lines: 87,
-      },
+      thresholds: isShardRun
+        ? {}
+        : {
+            statements: 85,
+            branches: 76,
+            functions: 82,
+            lines: 87,
+          },
     },
     testTimeout: 10000,
   },

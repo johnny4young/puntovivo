@@ -17,7 +17,9 @@ const desktopPackage = JSON.parse(
 test('server CI enforces the source-only Prettier contract', () => {
   assert.equal(serverPackage.scripts.format, 'prettier --check "src/**/*.ts"');
   assert.equal(serverPackage.scripts['format:fix'], 'prettier --write "src/**/*.ts"');
-  assert.match(rootPackage.scripts['ci:server'], /@puntovivo\/server run format/u);
+  assert.match(rootPackage.scripts['ci:server:static'], /@puntovivo\/server run format/u);
+  assert.match(rootPackage.scripts['ci:server'], /pnpm run ci:server:static/u);
+  assert.match(rootPackage.scripts['ci:server:gates'], /pnpm run ci:server:static/u);
   assert.doesNotMatch(serverPackage.scripts.format, /migrations\/meta|pnpm-lock/u);
 });
 
