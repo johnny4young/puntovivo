@@ -20,6 +20,7 @@ import type { DatabaseInstance } from '../../db/index.js';
 import { tenants } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { roundMoney as roundCurrency } from '../../lib/money.js';
+import { readTenantSettingsRow } from '../tenant-settings-read.js';
 
 export interface RestaurantSettings {
   /** Percentage applied to the cart subtotal on every checkout (0 disables). */
@@ -49,11 +50,7 @@ export async function resolveRestaurantSettings(
   db: DatabaseInstance,
   tenantId: string
 ): Promise<RestaurantSettings> {
-  const tenant = await db
-    .select({ settings: tenants.settings })
-    .from(tenants)
-    .where(eq(tenants.id, tenantId))
-    .get();
+  const tenant = readTenantSettingsRow(db, tenantId);
   const blob = (tenant?.settings ?? {}) as Record<string, unknown>;
   const restaurant = (blob.restaurant ?? {}) as Partial<RestaurantSettings>;
   return {

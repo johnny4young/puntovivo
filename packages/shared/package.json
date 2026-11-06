@@ -99,6 +99,6 @@
     "clean": "node ../../scripts/clean-paths.mjs dist"
   },
   "engines": {
-    "node": ">=24.0.0"
+    "node": ">=26.12.1"
   }
 }

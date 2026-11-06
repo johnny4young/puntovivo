@@ -43,6 +43,7 @@ import {
   MAX_VALUE_PER_POINT,
   MIN_VALUE_PER_POINT,
 } from '@puntovivo/shared/loyalty-bounds';
+import { readTenantSettingsRow } from './tenant-settings-read.js';
 
 /** Tenant-level knobs for the loyalty program. */
 export interface LoyaltySettings {
@@ -110,12 +111,7 @@ export async function resolveLoyaltySettings(
   db: DatabaseInstance,
   tenantId: string
 ): Promise<LoyaltySettings> {
-  const tenant = await db
-    .select({ settings: tenants.settings })
-    .from(tenants)
-    .where(eq(tenants.id, tenantId))
-    .get();
-  return parseLoyaltySettings(tenant?.settings);
+  return parseLoyaltySettings(readTenantSettingsRow(db, tenantId)?.settings);
 }
 
 /** Persist (a partial patch of) `tenants.settings.loyalty`. */

@@ -7,31 +7,113 @@
  * host, and the two have opposite correct responses — re-run versus fix. That
  * ambiguity already produced two false reds.
  *
- * So this gate samples like the Lighthouse one does. A first run that passes
- * costs nothing extra, which is the common case. A run that fails is
- * re-sampled, and the verdict is the MEDIAN of the samples against the budget:
- * a genuine regression fails every sample and still fails the median, while a
- * single loaded run no longer decides the build on its own.
+ * So this gate, not the test, judges every budget: a sample over any of them
+ * is re-sampled and each metric's MEDIAN decides. A failing test is never
+ * re-sampled, because it is a correctness failure.
+ *
+ * Re-sampling cannot rescue a host that is high on every sample (Node 26 put
+ * one runner at 224-225 MiB three times), so the gate also prints the host and
+ * which memory component grew.
  */
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { availableParallelism, cpus, totalmem } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const serverRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const vitestPackage = fileURLToPath(import.meta.resolve('vitest/package.json'));
-const vitestCli = resolve(dirname(vitestPackage), 'vitest.mjs');
 
 /** Samples taken when the first one fails. Odd, so the median is a sample. */
-const MAX_SAMPLES = 3;
+export const MAX_SAMPLES = 3;
 const MEASURED_PATTERN = /audit-chain-profile measured=(\{.*\})/;
 
-function readRssBudget() {
+function readBudget() {
   const budget = JSON.parse(readFileSync(resolve(serverRoot, '../../perf-budget.json'), 'utf8'));
-  return budget.auditChainProfile.maxRssGrowthMiB;
+  return budget.auditChainProfile;
+}
+
+const median = values => [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)];
+const toMiB = bytes => Math.round(bytes / 1048576);
+
+/** Host facts that change process RSS. Linux-only fields are null elsewhere. */
+export function describeHost({
+  readText = path => readFileSync(path, 'utf8'),
+  env = process.env,
+} = {}) {
+  const selected = path => {
+    try {
+      return /\[([^\]]+)\]/.exec(readText(path))?.[1] ?? null;
+    } catch {
+      return null;
+    }
+  };
+  const constrained = process.constrainedMemory?.() ?? 0;
+  const memoryEnv = Object.fromEntries(
+    ['NODE_OPTIONS', 'MALLOC_ARENA_MAX', 'GLIBC_TUNABLES']
+      .filter(key => env[key])
+      .map(key => [key, env[key]])
+  );
+  return {
+    node: process.version,
+    v8: process.versions.v8,
+    cpu: cpus()[0]?.model.trim() || 'unknown',
+    cores: availableParallelism(),
+    totalMemoryMiB: toMiB(totalmem()),
+    constrainedMemoryMiB:
+      constrained > 0 && constrained < Number.MAX_SAFE_INTEGER ? toMiB(constrained) : null,
+    thp: selected('/sys/kernel/mm/transparent_hugepage/enabled'),
+    thpDefrag: selected('/sys/kernel/mm/transparent_hugepage/defrag'),
+    glibc: process.report?.getReport().header.glibcVersionRuntime ?? null,
+    image: env.ImageVersion ?? null,
+    ...(Object.keys(memoryEnv).length > 0 ? { memoryEnv } : {}),
+  };
+}
+
+const hostSummary = host =>
+  `${host.cpu}, ${host.cores} cores, ${host.totalMemoryMiB} MiB, THP ${host.thp ?? 'n/a'}, Node ${host.node}`;
+
+/** Growth of each memory component from the post-seed baseline to redaction. */
+export function describeGrowth(measured) {
+  const { baseline, redact } = measured.memory ?? {};
+  if (!baseline || !redact) return null;
+  const parts = [
+    ['anon', 'anonMiB'],
+    ['file', 'fileMiB'],
+    ['huge pages', 'hugeMiB'],
+    ['V8 heap', 'heapTotalMiB'],
+  ]
+    .filter(([, key]) => Number.isFinite(baseline[key]) && Number.isFinite(redact[key]))
+    .map(([label, key]) => `${label} ${(redact[key] - baseline[key]).toFixed(1)}`);
+  return parts.length > 0 ? `${parts.join(', ')} MiB` : null;
+}
+
+/**
+ * Judge measured samples against `auditChainProfile`. Elapsed ceilings carry
+ * the declared host-variance allowance; the RSS ceiling is exact.
+ */
+export function judgeAuditChainSamples(samples, budget) {
+  const allowance = 1 + budget.thresholdPercent / 100;
+  const limits = [
+    { metric: 'verifyElapsedMs', ceiling: budget.verifyElapsedMs * allowance, unit: 'ms' },
+    { metric: 'redactElapsedMs', ceiling: budget.redactElapsedMs * allowance, unit: 'ms' },
+    { metric: 'maxRssGrowthMiB', ceiling: budget.maxRssGrowthMiB, unit: 'MiB' },
+  ];
+  const overBudget = [];
+  for (const { metric, ceiling, unit } of limits) {
+    const values = samples.map(sample => sample[metric]);
+    const value = median(values);
+    if (!Number.isFinite(value) || value > ceiling) {
+      overBudget.push(
+        `${metric} median ${value} ${unit} exceeds ${Number(ceiling.toFixed(2))} ${unit} (samples: ${values.join(', ')})`
+      );
+    }
+  }
+  return { ok: overBudget.length === 0, overBudget };
 }
 
 function runOnce() {
+  const vitestPackage = fileURLToPath(import.meta.resolve('vitest/package.json'));
+  const vitestCli = resolve(dirname(vitestPackage), 'vitest.mjs');
   const result = spawnSync(
     process.execPath,
     [vitestCli, 'run', 'src/__tests__/perf-audit-chain-profile.test.ts', '--maxWorkers=1'],
@@ -48,54 +130,57 @@ function runOnce() {
   process.stdout.write(output);
   const match = MEASURED_PATTERN.exec(output);
   return {
-    ok: result.status === 0,
-    // Absent when the run failed before reaching the measurement, which is a
-    // real failure and must not be re-sampled away.
-    rss: match ? JSON.parse(match[1]).maxRssGrowthMiB : null,
+    passed: result.status === 0,
+    measured: match ? JSON.parse(match[1]) : null,
   };
 }
 
-const median = values => [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)];
-
-const first = runOnce();
-if (first.ok) {
-  process.exitCode = 0;
-} else if (first.rss === null) {
-  console.error('audit-chain profile failed before it measured anything; not re-sampling.');
-  process.exitCode = 1;
-} else {
-  const budgetRss = readRssBudget();
-  const samples = [first.rss];
-  console.error(
-    `audit-chain profile: sample 1/${MAX_SAMPLES} measured ${first.rss} MiB against ${budgetRss}; re-sampling before deciding.`
-  );
-
-  let sawNonRssFailure = false;
-  for (let attempt = 2; attempt <= MAX_SAMPLES; attempt += 1) {
-    const next = runOnce();
-    if (next.rss === null) {
-      sawNonRssFailure = true;
-      break;
+/** Returns the process exit code. */
+export function runGate({
+  run = runOnce,
+  budget = readBudget(),
+  log = console.error,
+  host = describeHost(),
+} = {}) {
+  log(`audit-chain profile host: ${JSON.stringify(host)}`);
+  const samples = [];
+  for (let attempt = 1; attempt <= MAX_SAMPLES; attempt += 1) {
+    const sample = run();
+    if (!sample.passed || !sample.measured) {
+      log(
+        `audit-chain profile FAILED on sample ${attempt}: the test failed or measured nothing. Not re-sampling a correctness failure.`
+      );
+      return 1;
     }
-    samples.push(next.rss);
-    console.error(
-      `audit-chain profile: sample ${attempt}/${MAX_SAMPLES} measured ${next.rss} MiB.`
-    );
+    samples.push(sample.measured);
+    const verdict = judgeAuditChainSamples(samples, budget);
+    if (attempt === 1 && verdict.ok) return 0;
+    if (attempt === MAX_SAMPLES) {
+      if (verdict.ok) {
+        log(
+          `audit-chain profile passed on re-sampling: every median is within budget over ${samples.length} samples. The first sample was host noise, not a regression.`
+        );
+        return 0;
+      }
+      log(`audit-chain profile FAILED over ${samples.length} samples on ${hostSummary(host)}:`);
+      for (const line of verdict.overBudget) log(`  ${line}`);
+      samples.forEach((sample, index) => {
+        const growth = describeGrowth(sample);
+        if (growth) log(`  sample ${index + 1} growth to redaction: ${growth}`);
+      });
+      return 1;
+    }
+    if (attempt === 1) {
+      log(
+        `audit-chain profile: sample 1/${MAX_SAMPLES} over budget (${verdict.overBudget.join('; ')}); re-sampling before deciding.`
+      );
+    }
   }
+  return 1;
+}
 
-  const medianRss = median(samples);
-  if (sawNonRssFailure) {
-    console.error('audit-chain profile hit a failure other than the RSS ceiling.');
-    process.exitCode = 1;
-  } else if (medianRss > budgetRss) {
-    console.error(
-      `audit-chain profile FAILED: median RSS growth ${medianRss} MiB over ${samples.length} samples exceeds ${budgetRss} MiB. Samples: ${samples.join(', ')}.`
-    );
-    process.exitCode = 1;
-  } else {
-    console.error(
-      `audit-chain profile passed on re-sampling: median ${medianRss} MiB within ${budgetRss} MiB. Samples: ${samples.join(', ')}. The first sample was host noise, not a regression.`
-    );
-    process.exitCode = 0;
-  }
+const isDirectInvocation =
+  process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isDirectInvocation) {
+  process.exitCode = runGate();
 }

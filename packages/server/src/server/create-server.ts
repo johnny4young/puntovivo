@@ -16,6 +16,7 @@ import { resolveExternalOrderWrappingKey } from '../config/external-order-key.js
  * @module server/create-server
  */
 
+import type Database from 'better-sqlite3';
 import Fastify, { type FastifyBaseLogger } from 'fastify';
 import { fastifyTRPCPlugin } from '@trpc/server/adapters/fastify';
 import {
@@ -24,6 +25,7 @@ import {
   type RuntimeConfig,
 } from '../config/runtime.js';
 import { closeDatabase, type DatabaseInstance, initDatabase } from '../db/index.js';
+import { createQueryPlannerMaintenance } from '../db/query-planner-maintenance.js';
 import {
   countActiveDevices,
   fingerprintDbPath,
@@ -169,14 +171,6 @@ async function createOwnedServer(
   // against an adopted DB missing migration 0006 (no-op + warn).
   warmCacheFromDb(db);
 
-  // pre-compute the dummy Argon2 hash used by `auth.login` to
-  // equalise response time on the not-found branch. Without this the
-  // first not-found login attempt pays an extra 50-100 ms (a small but
-  // real timing leak); warming once at boot amortises the cost.
-  await warmUpPasswordSecurity();
-  // same timing equalizer for unavailable staff-switch targets.
-  await warmUpStaffPinSecurity();
-
   // schedule the periodic sweep of the in-memory rate-limit
   // bucket map so a long-running Electron session (or hub) does not
   // accumulate entries indefinitely. The handle is released via the
@@ -224,6 +218,12 @@ async function createOwnedServer(
     trustProxy: resolveTrustProxy(resolvedRuntime.authorityMode),
   });
   owner.defer('Fastify application', () => app.close());
+  const plannerMaintenance = createQueryPlannerMaintenance(
+    (db as unknown as { $client: Database.Database }).$client
+  );
+  owner.defer('query planner maintenance', () => plannerMaintenance.stop());
+  app.addHook('onRequest', async () => plannerMaintenance.noteActivity());
+  app.addHook('onResponse', async () => plannerMaintenance.noteActivity());
   app.server.keepAliveTimeout = SERVER_KEEP_ALIVE_TIMEOUT_MS;
   app.server.headersTimeout = SERVER_HEADERS_TIMEOUT_MS;
   app.server.requestTimeout = SERVER_REQUEST_TIMEOUT_MS;
@@ -350,6 +350,14 @@ async function createOwnedServer(
       try {
         const address = await app.listen({ port: bindPort, host: bindHost });
         serverUrl = address;
+        // Two 64 MiB Argon2 hashes used to hold boot. Login and PIN checks
+        // await these same memoised promises on every branch, so warming
+        // them here keeps their timing equal. One at a time bounds memory.
+        void warmUpPasswordSecurity()
+          .then(warmUpStaffPinSecurity)
+          .catch((error: unknown) =>
+            serverLog.error({ err: error }, 'timing equalizer warm-up failed')
+          );
         // when callers pass `port: 0` / `bindPort: 0` to let
         // the OS assign a random port, the resolved runtime captured
         // before listen reads `bindPort: 0`. After listen the actual
@@ -369,6 +377,7 @@ async function createOwnedServer(
           };
           setActiveRuntimeConfig(refreshed);
         }
+        plannerMaintenance.start();
         fiscalWorker.start();
         hardwareWorker.start();
         paymentWorker.start();

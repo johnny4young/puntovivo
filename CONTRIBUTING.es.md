@@ -7,7 +7,7 @@ en el código del proyecto.
 
 ## Preparar el entorno de desarrollo
 
-Requisitos: Node.js `>=24`, pnpm `11.7.0` (mediante Corepack; Node 25+ ya no lo incluye:
+Requisitos: Node.js `>=26.12.1`, pnpm `11.7.0` (mediante Corepack; Node 25+ ya no lo incluye:
 `npm install --global corepack`).
 
 ```bash

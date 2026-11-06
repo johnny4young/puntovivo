@@ -6,12 +6,14 @@ on:
   pull_request:
     branches: [main, 'codex/**']
     paths:
+      - '.nvmrc'
       - 'website/**'
       - '.github/workflows/website-ci.yml'
       - '.github/workflows/deploy-web.yml'
   push:
     branches: [main]
     paths:
+      - '.nvmrc'
       - 'website/**'
       - '.github/workflows/website-ci.yml'
       - '.github/workflows/deploy-web.yml'
@@ -43,7 +45,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: '24'
+          node-version-file: .nvmrc
+          check-latest: true
 
       - name: Install standalone dependencies
         run: pnpm install --ignore-workspace --frozen-lockfile --ignore-scripts

@@ -207,6 +207,8 @@ async function initializeDatabaseCandidate(
   sqlite.pragma(`busy_timeout = ${busyTimeoutMs}`);
   sqlite.pragma('cache_size = -64000');
   sqlite.pragma('temp_store = MEMORY');
+  // Bounds every ANALYZE, including those PRAGMA optimize starts.
+  sqlite.pragma('analysis_limit = 400');
   if (dbPath !== ':memory:') {
     // Mapped read pages coexist with the write cache during large privacy
     // rewrites. Keep the 32 MiB read mapping below the page-cache allowance

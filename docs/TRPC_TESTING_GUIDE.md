@@ -17,7 +17,7 @@ The fastest reliable way to validate tRPC behavior in this repo is:
 
 ### Node version
 
-Use Node 24+ from the repo root requirement.
+Use Node 26+ from the repo root requirement.
 
 ### Portable native verification
 

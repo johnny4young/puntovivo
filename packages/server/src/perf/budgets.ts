@@ -123,12 +123,23 @@ export interface PerfBudgetAuditChainProfile {
   maxRssGrowthMiB: number;
 }
 
+export interface PerfBudgetSaleCatalogProfile {
+  /** Active stock-tracked products, each with a balance row on the selling site. */
+  catalogProducts: number;
+  warmupSales: number;
+  samples: number;
+  thresholdPercent: number;
+  /** `sales.create` p95 through the real tRPC caller, in milliseconds. */
+  p95Ms: number;
+}
+
 export interface PerfBudget {
   version: number;
   bundleSize: PerfBudgetBundleSize;
   trpcLatencyMs: PerfBudgetTrpcLatencyMs;
   storeProfile: PerfBudgetStoreProfile;
   productSearchProfile: PerfBudgetProductSearchProfile;
+  saleCatalogProfile: PerfBudgetSaleCatalogProfile;
   auditChainProfile: PerfBudgetAuditChainProfile;
   operationalProfile: PerfBudgetOperationalProfile;
 }
@@ -147,6 +158,7 @@ export function loadPerfBudget(): PerfBudget {
     trpcLatencyMs?: Partial<PerfBudgetTrpcLatencyMs>;
     storeProfile?: Partial<PerfBudgetStoreProfile>;
     productSearchProfile?: Partial<PerfBudgetProductSearchProfile>;
+    saleCatalogProfile?: Partial<PerfBudgetSaleCatalogProfile>;
     auditChainProfile?: Partial<PerfBudgetAuditChainProfile>;
     operationalProfile?: Partial<PerfBudgetOperationalProfile>;
   };
@@ -224,6 +236,19 @@ export function loadPerfBudget(): PerfBudget {
         invalidQueryBudgets(parsed.productSearchProfile?.pharmacyP95?.[key])
       );
     }) ||
+    !parsed.saleCatalogProfile ||
+    !Number.isInteger(parsed.saleCatalogProfile.catalogProducts) ||
+    parsed.saleCatalogProfile.catalogProducts < 50_000 ||
+    !Number.isInteger(parsed.saleCatalogProfile.warmupSales) ||
+    parsed.saleCatalogProfile.warmupSales < 0 ||
+    !Number.isInteger(parsed.saleCatalogProfile.samples) ||
+    parsed.saleCatalogProfile.samples < 1 ||
+    typeof parsed.saleCatalogProfile.thresholdPercent !== 'number' ||
+    !Number.isFinite(parsed.saleCatalogProfile.thresholdPercent) ||
+    parsed.saleCatalogProfile.thresholdPercent < 0 ||
+    typeof parsed.saleCatalogProfile.p95Ms !== 'number' ||
+    !Number.isFinite(parsed.saleCatalogProfile.p95Ms) ||
+    parsed.saleCatalogProfile.p95Ms <= 0 ||
     !parsed.auditChainProfile ||
     !Number.isInteger(parsed.auditChainProfile.rows) ||
     parsed.auditChainProfile.rows !== 100_000 ||
