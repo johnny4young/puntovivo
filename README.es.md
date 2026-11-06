@@ -57,7 +57,9 @@ de venta minorista pueda comercializarse de forma responsable.
   envía el recibo en segundo plano.
 - 🛒 **Cobro con códigos de barras**: escaneo o ingreso de SKU, carrito controlado
   por teclado (`Alt+P` para buscar, `Alt+C` para cantidad y `Alt+D` para descuento),
-  ventas suspendidas y resumen de pago con IVA incluido.
+  una barra de comandos y un solo botón de cobro, búsqueda de productos desde la
+  paleta de comandos (`Ctrl/⌘+K`), ventas suspendidas y resumen de pago con IVA
+  incluido.
 - 💵 **Control de caja**: una sesión abierta por caja, cierre ciego o con saldo
   visible, libro de movimientos con una invariante de saldo esperado y cierre
   diario de 60 segundos con margen bruto real y semáforo de conciliación.
@@ -81,6 +83,10 @@ de venta minorista pueda comercializarse de forma responsable.
 - 🔒 **Aislamiento entre negocios**: cada consulta se limita al negocio; los
   controles de roles y sede son componentes compartidos, y las pruebas verifican
   el aislamiento entre negocios.
+- 🔑 **Recuperación de contraseña sin correo**: una contraseña olvidada se
+  recupera desde la pantalla de ingreso con otro administrador, un código de
+  recuperación de un solo uso o, para el único propietario en escritorio, desde
+  el equipo que guarda los datos.
 - 🌎 **Interfaz bilingüe y operación sin conexión**: español latinoamericano
   neutro e inglés, autoridad SQLite local y un núcleo persistente de bandejas
   y sincronización para replicación futura en la nube.
@@ -125,7 +131,7 @@ para releases están en [docs/PROJECT-STATUS.md](docs/es/PROJECT-STATUS.md).
   [ejecución 31264233582](https://github.com/johnny4young/puntovivo/actions/runs/31264233582).
   Esa matriz de validación es evidencia de regresión para v1.10.1; no valida
   binarios posteriores, firmas de releases ni promete tiempos de recuperación
-  en producción. El [release v1.14.4](https://github.com/johnny4young/puntovivo/releases/tag/v1.14.4)
+  en producción. El [release v1.16.0](https://github.com/johnny4young/puntovivo/releases/tag/v1.16.0)
   y la [política activa de actualización](https://johnny4young.github.io/puntovivo/update-policy.json)
   no sustituyen la evidencia de Gate 5 en equipos representativos.
 - El artefacto macOS es para Apple Silicon y declara macOS 15 Sequoia como
@@ -144,7 +150,7 @@ para releases están en [docs/PROJECT-STATUS.md](docs/es/PROJECT-STATUS.md).
 
 | Capa          | Elección                                                | Notas                                                                                |
 | ------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| Escritorio    | Electron 45.2.3 + empaquetado con electron-builder      | SQLite usa un binario Node-API incluido por plataforma.                              |
+| Escritorio    | Electron 45.2.2 + empaquetado con electron-builder      | SQLite usa un binario Node-API incluido por plataforma.                              |
 | Web           | React 19 + Vite 8 + TypeScript 7 (API TS 6 para ESLint) | El navegador y el renderer de Electron comparten el código de la aplicación.         |
 | API           | Fastify + tRPC 11                                       | `/api/trpc` es la API canónica de la aplicación.                                     |
 | Base de datos | SQLite mediante better-sqlite3-multiple-ciphers         | SQLCipher está integrado; los modos de desarrollo pueden compartir una base cifrada. |
@@ -182,7 +188,7 @@ permitidos. La lista está en [pnpm-workspace.yaml](./pnpm-workspace.yaml) y cub
 los componentes que aún tienen hooks de ciclo de vida: argon2 y esbuild.
 better-sqlite3-multiple-ciphers v13 incluye binarios Node-API con integridad
 verificada y su compilación implícita en pnpm se deniega explícitamente.
-Electron 45.2.3, como todas las líneas desde la 42, no tiene hook de instalación:
+Electron 45.2.2, como todas las líneas desde la 42, no tiene hook de instalación:
 Puntovivo instala su entorno de desarrollo cuando lo necesita, durante la
 verificación previa de escritorio. Si la instalación muestra
 `ERR_PNPM_IGNORED_BUILDS`, revisa el paquete y registra una política explícita

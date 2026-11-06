@@ -476,3 +476,13 @@ readiness, balances, stock or regulated-product authorization; those remain
 explicit manager setup and external validation concerns. The standalone claim
 is local-only and requires a private startup code; Electron retains the proof
 in its trusted main process. See [Login and Access Guide](./LOGIN_GUIDE.md).
+
+### Forgotten passwords
+
+The sign-in screen offers recovery without email. Another administrator can
+reset a password from Users; each administrator can keep a one-use recovery
+code generated after confirming the current password; and on desktop, the only
+active administrator of an installation without a recovery code can set a new
+password from the computer that holds the data. Every reset ends existing
+sessions and is audited. See
+[Forgotten Passwords](./LOGIN_GUIDE.md#forgotten-passwords).

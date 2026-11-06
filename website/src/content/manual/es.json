@@ -60,7 +60,7 @@
         "En escritorio completa el asistente en la ventana principal. En web, el operador debe iniciar el servidor y abrir Puntovivo en ese mismo equipo; usa el código privado de instalación que aparece al iniciarlo. No es un registro remoto.",
         "Inicia sesión con la cuenta elegida. Si se perdió la respuesta al crearla, intenta iniciar sesión antes de repetir el proceso."
       ],
-      "check": "La cuenta propietaria no significa que el negocio esté listo para vender. Continúa con la configuración guiada. Si olvidaste la contraseña, pide ayuda a otro administrador autorizado o al operador de la instalación; no elimines la base de datos.",
+      "check": "La cuenta propietaria no significa que el negocio esté listo para vender. Continúa con la configuración guiada. Si olvidas la contraseña, usa ¿Olvidaste tu contraseña? en la pantalla de ingreso; no elimines la base de datos.",
       "related": ["setup", "users"],
       "source": "docs/LOGIN_GUIDE.md"
     },
@@ -231,7 +231,7 @@
         "En Usuarios crea una cuenta individual con rol y contraseña fuerte. Evita compartir la cuenta propietaria entre cajeros.",
         "Revisa las asignaciones de empleado y sede que correspondan a su trabajo. Selecciona la sede correcta antes de operar.",
         "Usa administrador para usuarios, configuración y módulos. Gerente administra tareas operativas; cajero trabaja en ventas y caja; consulta accede a las vistas de lectura permitidas.",
-        "Para cambiar tu contraseña abre el menú de usuario y elige Cambiar contraseña. Tras guardar vuelve a iniciar sesión; un administrador también puede restablecer contraseñas.",
+        "Para cambiar tu contraseña abre el menú de usuario y elige Cambiar contraseña. Tras guardar vuelve a iniciar sesión; un administrador también puede restablecer contraseñas. En ese mismo menú, cada administrador genera su código de recuperación y lo guarda fuera del equipo.",
         "Cuando se configure cambio de empleado por PIN, verifica la identidad mostrada antes de continuar. Cierra sesión al dejar el equipo."
       ],
       "check": "Si falta un menú, revisa primero rol, sede y módulo activo. Un PIN de empleado no sustituye el proceso de recuperación de la cuenta propietaria.",
@@ -307,7 +307,7 @@
       "where": "Diagnóstico · empieza por versión, usuario y sede",
       "intro": "Antes de repetir una operación revisa qué quedó guardado. Un mensaje de error no demuestra que una venta o pago no ocurrió.",
       "steps": [
-        "No puedo entrar: usa tu cuenta propietaria o una cuenta activa, confirma idioma del teclado y contraseña. No hay una cuenta universal de producción. Pide restablecimiento a un administrador autorizado.",
+        "No puedo entrar: usa tu cuenta propietaria o una cuenta activa, confirma idioma del teclado y contraseña. No hay una cuenta universal de producción. Si olvidaste la contraseña, elige ¿Olvidaste tu contraseña?: ingresa tu código de recuperación o, en escritorio, si eres el único usuario y no tienes código, crea una nueva desde ese equipo. Si nada de eso aplica, pide a un administrador que la restablezca en Usuarios.",
         "No veo una función: confirma rol, sede activa y Empresa → Módulos. No disponible identifica una función que ese control no puede activar.",
         "No puedo cobrar: revisa apertura de caja, registro disponible, numeración, existencias, lotes/series y cualquier aprobación que pida la pantalla.",
         "No imprime: confirma primero la venta guardada y la cola de impresión, luego papel, alimentación, la impresora del sistema elegida en este equipo o la IP/puerto TCP, y la sede del dispositivo. Lee el motivo de una prueba fallida. En navegador revisa ventanas emergentes. USB ESC/POS directo no está implementado, así que cambiar a esa opción no es una solución.",

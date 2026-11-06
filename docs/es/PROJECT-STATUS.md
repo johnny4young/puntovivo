@@ -535,3 +535,14 @@ autorización de productos regulados; siguen siendo asuntos explícitos de
 configuración del gerente y validación externa. La reclamación independiente
 es solo local y requiere un código privado de arranque; Electron conserva la
 prueba en su proceso principal de confianza. Consulta la [Guía de inicio de sesión y acceso](LOGIN_GUIDE.md).
+
+### Contraseñas olvidadas
+
+La pantalla de ingreso ofrece recuperación sin correo. Otro administrador puede
+restablecer una contraseña desde Usuarios; cada administrador puede guardar un
+código de recuperación de un solo uso, generado tras confirmar su contraseña
+actual; y en escritorio, el único administrador activo de una instalación sin
+código de recuperación puede definir una contraseña nueva desde el equipo que
+guarda los datos. Cada restablecimiento cierra las sesiones existentes y queda
+auditado. Consulta
+[Contraseñas olvidadas](LOGIN_GUIDE.md#contraseñas-olvidadas).
