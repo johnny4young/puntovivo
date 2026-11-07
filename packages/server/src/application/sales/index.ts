@@ -44,5 +44,5 @@ export {
   type ReverseSaleItemsStockArgs,
   type ReversalKind,
 } from './inventory-policy.js';
-export { getOriginalDeeCufe } from './fiscal-policy.js';
+export { getOriginalSaleDocumentCufe } from './fiscal-policy.js';
 export { emitCompleteSaleEffects, type JournalEffectInput } from './journal-effects.js';

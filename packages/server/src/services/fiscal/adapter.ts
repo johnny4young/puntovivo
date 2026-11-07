@@ -115,6 +115,8 @@ export interface FiscalAdapterIssueInput {
   lines: FiscalAdapterLine[];
   /** Set when `source` is 'void' or 'return'. */
   originalCufe?: string | undefined;
+  /** Kind of the sale document a note corrects; selects the note's DIAN type code. */
+  originalKind?: FiscalDocumentKind | undefined;
   reasonCode?: string | undefined;
   /**
    * Raw `tenants.settings` blob so country packs (MX, CL, ...) can

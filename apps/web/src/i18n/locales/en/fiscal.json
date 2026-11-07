@@ -251,5 +251,16 @@
       "MX": "Mexico — SAT",
       "CL": "Chile — SII"
     }
+  },
+  "electronicInvoiceRequest": {
+    "toggle": "Customer asked for an electronic invoice",
+    "name": "Name or business name",
+    "idType": "ID type",
+    "idNumber": "ID number",
+    "email": "Email (optional)",
+    "required": "Required",
+    "emailInvalid": "Invalid email",
+    "nitDvMismatch": "The verification digit does not match (should be {{dv}})",
+    "nitPreview": "Recorded as {{nit}}"
   }
 }

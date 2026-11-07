@@ -9,7 +9,7 @@
  *
  * @module services/fiscal/orchestrator/intents
  */
-import { and, eq, isNull, lte, or } from 'drizzle-orm';
+import { and, eq, inArray, isNull, lte, or } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../../db/index.js';
 import {
@@ -56,9 +56,11 @@ import {
   splitIssueTimestamp,
 } from './helpers.js';
 import { resolveBuyer, type FiscalMonetarySnapshot } from './snapshots.js';
-import type { EmitFiscalDocumentResult, ResolvedLine } from './types.js';
+import type { EmitFiscalDocumentResult, ResolvedBuyer, ResolvedLine } from './types.js';
 
 const INTENT_PAYLOAD_VERSION = 1;
+/** Kinds a sale itself issues; notes reference whichever one it got. */
+const SALE_DOCUMENT_KINDS = ['DEE', 'FEV'] as const satisfies readonly FiscalDocumentKind[];
 const MAX_MATERIALIZATION_ATTEMPTS = 8;
 const MATERIALIZATION_RETRY_BASE_MS = 1_000;
 
@@ -117,6 +119,8 @@ export interface PrepareSaleFiscalIntentArgs {
   source?: FiscalDocumentSource | undefined;
   sourceId?: string | undefined;
   kind?: FiscalDocumentKind | undefined;
+  /** Buyer the customer asked the document to name, frozen instead of the customer row. */
+  buyer?: ResolvedBuyer | undefined;
   originalCufe?: string | undefined;
   reasonCode?: string | undefined;
   environment?: FiscalEnvironment | undefined;
@@ -202,7 +206,7 @@ export async function prepareSaleFiscalIntent(
 
   const adapter = getFiscalAdapter(locale.countryCode);
   const [buyer, companyRow, resolution] = await Promise.all([
-    resolveBuyer(db, tenantId, customerId),
+    args.buyer ?? resolveBuyer(db, tenantId, customerId),
     db
       .select({ name: companies.name })
       .from(companies)
@@ -651,6 +655,7 @@ function materializeClaimedIntent(
                 localeCode: fiscalDocuments.localeCode,
                 providerId: fiscalDocuments.providerId,
                 status: fiscalDocuments.status,
+                kind: fiscalDocuments.kind,
               })
               .from(fiscalDocuments)
               .where(
@@ -658,7 +663,7 @@ function materializeClaimedIntent(
                   eq(fiscalDocuments.tenantId, row.tenantId),
                   eq(fiscalDocuments.source, 'sale'),
                   eq(fiscalDocuments.sourceId, row.saleId),
-                  eq(fiscalDocuments.kind, 'DEE')
+                  inArray(fiscalDocuments.kind, SALE_DOCUMENT_KINDS)
                 )
               )
               .get()
@@ -699,6 +704,7 @@ function materializeClaimedIntent(
       const adapterInput: FiscalAdapterIssueInput = {
         ...payload.adapterInput,
         originalCufe,
+        ...(originalDocument ? { originalKind: originalDocument.kind } : {}),
         // A credit note references immutable fiscal evidence, never a customer's
         // current catalog record or a later tenant currency change.
         buyer: originalDocument
@@ -1113,7 +1119,7 @@ export async function findSaleFiscalIntentId(
         eq(fiscalEmissionIntents.tenantId, tenantId),
         eq(fiscalEmissionIntents.source, 'sale'),
         eq(fiscalEmissionIntents.sourceId, saleId),
-        eq(fiscalEmissionIntents.kind, 'DEE')
+        inArray(fiscalEmissionIntents.kind, SALE_DOCUMENT_KINDS)
       )
     )
     .get();

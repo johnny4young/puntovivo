@@ -94,6 +94,16 @@ export interface CompleteSaleItemInput {
  */
 export type SaleTipMethod = 'percentage' | 'fixed';
 
+/** Buyer-requested Colombian electronic invoice (FEV) with its buyer data. */
+export interface ElectronicInvoiceRequest {
+  buyer: {
+    name: string;
+    identificationTypeCode: string;
+    identificationNumber: string;
+    email?: string | undefined;
+  };
+}
+
 // explicit `| undefined` on every optional field across
 // both union variants so Zod-decoded input shapes (which carry
 // explicit-undefined for unset optionals) assign cleanly.
@@ -125,6 +135,7 @@ export type CompleteSaleInput =
       checkoutStartedAt?: string | undefined;
       promotionFingerprint?: string | undefined;
       pharmacyEvidenceIds?: string[] | undefined;
+      electronicInvoice?: ElectronicInvoiceRequest | undefined;
       /** Atomic restaurant service metadata; valid only for a draft sale. */
       restaurant?: OpenRestaurantCheckInput | undefined;
     }
@@ -154,6 +165,7 @@ export type CompleteSaleInput =
       checkoutStartedAt?: string | undefined;
       promotionFingerprint?: string | undefined;
       pharmacyEvidenceIds?: string[] | undefined;
+      electronicInvoice?: ElectronicInvoiceRequest | undefined;
     };
 
 /**

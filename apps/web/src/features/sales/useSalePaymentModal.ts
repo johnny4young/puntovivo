@@ -195,6 +195,16 @@ export function useSalePaymentModal({
     [watchedPharmacyEvidenceIdsRaw]
   );
   const tenders = useMemo(() => watchedTenders ?? [], [watchedTenders]);
+  const electronicInvoiceQuery = trpc.sales.electronicInvoiceAvailability.useQuery(undefined, {
+    enabled: isOpen,
+    staleTime: 60_000,
+  });
+  const invoiceAvailable = electronicInvoiceQuery.data?.available === true;
+  useEffect(() => {
+    if (!invoiceAvailable && form.getValues('invoiceRequested')) {
+      form.setValue('invoiceRequested', false);
+    }
+  }, [form, invoiceAvailable]);
   const amountReceivedValue = Number(amountReceived) || 0;
   const tipAmount = Math.max(0, Number(tipAmountWatch) || 0);
   const selectedCustomer = customers.find(c => c.id === watchedCustomerId) ?? null;
@@ -784,8 +794,22 @@ export function useSalePaymentModal({
       (values.paymentMethod === 'credit' || hasSplitCredit)
         ? values.creditOverride || hasApprovedCreditOverride
         : false;
+    const { invoiceRequested, invoiceBuyer, ...submittedValues } = values;
+    const invoiceEmail = invoiceBuyer?.email?.trim();
+    const electronicInvoice =
+      invoiceAvailable && invoiceRequested && invoiceBuyer
+        ? {
+            buyer: {
+              name: invoiceBuyer.name.trim(),
+              identificationTypeCode: invoiceBuyer.identificationTypeCode,
+              identificationNumber: invoiceBuyer.identificationNumber.trim(),
+              ...(invoiceEmail ? { email: invoiceEmail } : {}),
+            },
+          }
+        : undefined;
     return onSubmit({
-      ...values,
+      ...submittedValues,
+      electronicInvoice,
       customerId: customerLocked ? (approvalCustomerId ?? '') : values.customerId,
       tenders: splitMode
         ? values.tenders.map(tender => ({
@@ -895,6 +919,10 @@ export function useSalePaymentModal({
     creditMethodAvailable,
     selectedCustomer,
     customerAttached: watchedCustomerId.length > 0,
+    electronicInvoice: {
+      available: invoiceAvailable,
+      identificationTypes: electronicInvoiceQuery.data?.identificationTypes ?? [],
+    },
     promotionQuoteLoading,
     promotionQuoteUnavailable,
     promotionDiscountAmount:
