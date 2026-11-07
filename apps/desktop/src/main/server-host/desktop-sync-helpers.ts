@@ -1,12 +1,11 @@
 /**
- * sync-bridge helpers + constants extracted from ipc/sync.ts
- * (slice-7 668-LOC file split to clear the 500 ceiling). Electron-free
- * (DB via runtime.ts), node --test-able.
- * @module main/ipc/sync-helpers
+ * Desktop sync bridge helpers and constants.
+ * Electron-free; runs next to the embedded server.
+ * @module main/server-host/desktop-sync-helpers
  */
 import { randomUUID } from 'node:crypto';
 import { and, eq, inArray, sql, appSettings, syncConflicts, syncOutbox } from '@puntovivo/server';
-import { getServerDatabase, getSqliteClient } from '../runtime.js';
+import { getHostedDatabase, getHostedSqlite } from './hosted-server.ts';
 
 export const DESKTOP_SYNC_CONFIG_KEY = 'desktop_sync_config';
 export const LAST_SYNC_KEY_PREFIX = 'sync_last_sync:';
@@ -109,7 +108,7 @@ export function desktopProcessableSyncWhere(tenantId: string) {
 }
 
 export async function getLastSyncAt(tenantId?: string): Promise<string | null> {
-  const database = getServerDatabase();
+  const database = getHostedDatabase();
 
   if (tenantId) {
     const row = await database
@@ -132,7 +131,7 @@ export async function getLastSyncAt(tenantId?: string): Promise<string | null> {
 }
 
 export async function saveLastSyncAt(tenantId: string, value: string): Promise<void> {
-  const database = getServerDatabase();
+  const database = getHostedDatabase();
   const key = getLastSyncKey(tenantId);
   const existing = await database
     .select({ key: appSettings.key })
@@ -164,7 +163,7 @@ export function findLocalSyncEntity(
   tenantId: string,
   entityId: string
 ): boolean {
-  const sqlite = getSqliteClient().$client;
+  const sqlite = getHostedSqlite();
 
   if (tableName === 'sale_items') {
     const row = sqlite
@@ -240,7 +239,7 @@ export function markSyncEntityAsSynced(
     return;
   }
 
-  const sqlite = getSqliteClient().$client;
+  const sqlite = getHostedSqlite();
   const statement = config.touchUpdatedAt
     ? sqlite.prepare(
         `UPDATE ${config.tableName}
@@ -270,7 +269,7 @@ export async function incrementQueueFailure(
   // column, not a plain text. Mirrors `markOutboxFailure` in the
   // server router. Status flips to `retrying` so a subsequent
   // operator retry path picks the row up.
-  await getServerDatabase()
+  await getHostedDatabase()
     .update(syncOutbox)
     .set({
       status: 'retrying',
@@ -289,7 +288,7 @@ export async function ensurePendingConflict(
   localData: Record<string, unknown>,
   remoteData: Record<string, unknown>
 ): Promise<string> {
-  const database = getServerDatabase();
+  const database = getHostedDatabase();
   const existingConflict = await database
     .select({ id: syncConflicts.id })
     .from(syncConflicts)

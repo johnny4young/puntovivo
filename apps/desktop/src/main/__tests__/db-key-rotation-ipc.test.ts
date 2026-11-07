@@ -53,7 +53,9 @@ describe('db key rotation IPC', () => {
         rotateDatabaseKey: async () => {
           order.push('rotate');
         },
-        recordDbKeyRotationAudit: input => audit.push(input),
+        recordDbKeyRotationAudit: async input => {
+          audit.push(input);
+        },
       })
     );
 
@@ -72,7 +74,9 @@ describe('db key rotation IPC', () => {
         rotateDatabaseKey: async () => {
           throw new Error('DB_KEY_ROTATION_UNSUPPORTED');
         },
-        recordDbKeyRotationAudit: input => audit.push(input),
+        recordDbKeyRotationAudit: async input => {
+          audit.push(input);
+        },
       })
     );
 
@@ -98,7 +102,9 @@ describe('db key rotation IPC', () => {
             rotateDatabaseKey: async () => {
               throw new Error('rekey failed at /Users/x/Library/data/local.db');
             },
-            recordDbKeyRotationAudit: input => audit.push(input),
+            recordDbKeyRotationAudit: async input => {
+              audit.push(input);
+            },
           })
         )
     );

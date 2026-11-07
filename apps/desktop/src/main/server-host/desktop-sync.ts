@@ -1,10 +1,11 @@
 /**
  * Authenticated desktop sync summaries, trigger and configuration.
  * Domain mutations and outbox payloads are not renderer IPC capabilities.
- * @module main/ipc/sync
+ * @module main/server-host/desktop-sync
  */
 import { and, eq, sql, appSettings, syncConflicts, syncOutbox } from '@puntovivo/server';
-import { getServerDatabase } from '../runtime.js';
+import type { DesktopSyncStatusResult, DesktopSyncTriggerResult } from './contract.ts';
+import { getHostedDatabase } from './hosted-server.ts';
 import {
   DESKTOP_SYNC_CONFIG_KEY,
   SYNC_ENTITY_CONFIG,
@@ -16,23 +17,10 @@ import {
   incrementQueueFailure,
   markSyncEntityAsSynced,
   saveLastSyncAt,
-} from './sync-helpers.js';
-
-export interface DesktopSyncStatusResult {
-  isOnline: boolean;
-  lastSync: string | null;
-  pendingItems: number;
-  conflicts: number;
-}
-
-export interface DesktopSyncTriggerResult extends DesktopSyncStatusResult {
-  success: boolean;
-  synced: number;
-  errors: string[];
-}
+} from './desktop-sync-helpers.ts';
 
 export async function getDesktopSyncStatus(tenantId?: string): Promise<DesktopSyncStatusResult> {
-  const database = getServerDatabase();
+  const database = getHostedDatabase();
   const [queueRow, conflictRow, lastSync] = await Promise.all([
     tenantId
       ? database
@@ -70,7 +58,7 @@ export async function getDesktopSyncStatus(tenantId?: string): Promise<DesktopSy
 export async function handleDesktopTriggerSync(
   tenantId: string
 ): Promise<DesktopSyncTriggerResult> {
-  const database = getServerDatabase();
+  const database = getHostedDatabase();
   const items = await database
     .select()
     .from(syncOutbox)
@@ -147,7 +135,7 @@ export async function handleDesktopTriggerSync(
 }
 
 export async function handleDesktopSetSyncConfig(config: Record<string, unknown>): Promise<void> {
-  const database = getServerDatabase();
+  const database = getHostedDatabase();
   const now = new Date().toISOString();
   const existing = await database
     .select({ key: appSettings.key })

@@ -5,10 +5,10 @@ import { join } from 'node:path';
 import type { PuntovivoLogger, PuntovivoServer, ServerOptions } from '@puntovivo/server';
 import { PACKAGED_RENDERER_ORIGIN } from '../renderer-protocol.ts';
 import { createServerLifecycle } from '../server-lifecycle.ts';
-import { setServer } from '../runtime.ts';
+import { setServerHost } from '../runtime.ts';
 
 afterEach(() => {
-  setServer(null);
+  setServerHost(null);
 });
 
 describe('Electron embedded server lifecycle', () => {
@@ -39,8 +39,9 @@ describe('Electron embedded server lifecycle', () => {
       generateJwtSecret: () => 'stable-electron-jwt-secret-for-lifecycle-test',
     });
 
-    const initialServer = await lifecycle.start();
-    setServer(initialServer);
+    const initialHost = await lifecycle.start();
+    assert.equal(initialHost.url, 'http://127.0.0.1:8090');
+    setServerHost(initialHost);
     const result = await lifecycle.restartAround(async () => 'completed');
 
     assert.equal(result, 'completed');

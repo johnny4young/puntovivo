@@ -49,7 +49,7 @@ export async function handleRotateDbEncryptionKey(
       rotationLog.warn({ tenantId }, 'db encryption key rotation failed');
     }
     try {
-      deps.recordDbKeyRotationAudit({ tenantId, actorId, outcome: 'failed' });
+      await deps.recordDbKeyRotationAudit({ tenantId, actorId, outcome: 'failed' });
     } catch {
       rotationLog.error(
         { tenantId },
@@ -60,7 +60,7 @@ export async function handleRotateDbEncryptionKey(
   }
 
   try {
-    deps.recordDbKeyRotationAudit({ tenantId, actorId, outcome: 'rotated' });
+    await deps.recordDbKeyRotationAudit({ tenantId, actorId, outcome: 'rotated' });
   } catch {
     // The rotation already happened; the missing evidence row is a
     // logged gap, not a reason to report failure to the operator.
