@@ -934,6 +934,47 @@ describe('SalePaymentModal — customer asked for an electronic invoice', () => 
       },
     });
   });
+
+  it('replaces the buyer the previous customer filled in when the customer changes', async () => {
+    const ana = makeCustomer({ id: 'cust-ana', name: 'Ana Gómez', taxId: '1020304050' });
+    const luis = makeCustomer({ id: 'cust-luis', name: 'Luis Pérez', taxId: '79876543' });
+    render(<SalePaymentModal {...createProps({ customers: [ana, luis] })} />);
+    const user = userEvent.setup();
+
+    await user.selectOptions(await screen.findByLabelText('Customer'), 'cust-ana');
+    await user.click(
+      screen.getByRole('checkbox', { name: 'Customer asked for an electronic invoice' })
+    );
+    await user.clear(screen.getByLabelText('Name or business name'));
+    await user.type(screen.getByLabelText('Name or business name'), 'Ana G.');
+    await user.selectOptions(screen.getByLabelText('Customer'), 'cust-luis');
+
+    expect(screen.getByLabelText('ID number')).toHaveValue('79876543');
+    expect(screen.getByLabelText('Name or business name')).toHaveValue('Ana G.');
+  });
+
+  it('flags an ID the server would reject before charging', async () => {
+    const onSubmit = vi.fn(async () => undefined);
+    render(<SalePaymentModal {...createProps({ onSubmit })} />);
+    const user = userEvent.setup();
+
+    await user.click(
+      await screen.findByRole('checkbox', { name: 'Customer asked for an electronic invoice' })
+    );
+    expect(screen.getByLabelText('Name or business name')).toHaveAttribute('maxLength', '200');
+    await user.type(screen.getByLabelText('Name or business name'), 'Ana Gómez');
+    await user.type(screen.getByLabelText('ID number'), '12');
+    await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
+    expect(await screen.findByText('Invalid ID number')).toBeInTheDocument();
+
+    await user.clear(screen.getByLabelText('ID number'));
+    await user.type(screen.getByLabelText('ID number'), '222222222222');
+    await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
+    expect(
+      await screen.findByText('This is the consumidor final number, not a buyer')
+    ).toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
 });
 
 describe('SalePaymentModal — electronic invoice selector in Spanish', () => {

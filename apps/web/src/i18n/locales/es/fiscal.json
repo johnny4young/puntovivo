@@ -261,6 +261,8 @@
     "required": "Obligatorio",
     "emailInvalid": "Correo no válido",
     "nitDvMismatch": "El dígito de verificación no coincide (debe ser {{dv}})",
-    "nitPreview": "Se registra como {{nit}}"
+    "nitPreview": "Se registra como {{nit}}",
+    "malformed": "Número de documento no válido",
+    "consumidorFinal": "Ese es el número de consumidor final, no el del comprador"
   }
 }
