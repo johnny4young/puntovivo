@@ -541,6 +541,35 @@ The pure comparison/parse helpers are unit-tested by
 runner is pinned by `scripts/run-electron-memory-gate.test.mjs`; both
 run before the live memory launch in `ci:desktop`.
 
+### Electron main-thread responsiveness (strict in CI, warn-first locally)
+
+`scripts/check-electron-main-thread.mjs` measures how much server work stalls
+the Electron main thread, which owns windows, menus and every renderer IPC
+call. It seeds a disposable demo database with the compiled `seed-dev`
+script, raises its stock so the window cannot run out, and launches the built
+app with `PUNTOVIVO_MEASURE_MAIN_THREAD=1` through the same preview runner as
+the memory gate (`run-electron-memory-gate.mjs --check=main-thread`). Once the
+renderer mounts, the main process prints `PUNTOVIVO_MAIN_THREAD_READY` with the
+API URL. The gate signs in as the fixture cashier over loopback HTTP, registers
+a device, then sells one-item tickets back to back: a product search,
+`sales.create` with a command envelope and the active-session refetch. The
+window keeps the embedded server saturated on purpose.
+
+During `perf-budget.json::electronMainThread.windowMs` the main process runs a
+10 ms interval timer and counts every tick that fires 10 ms or more late as
+blocked time, while the renderer invokes the trivial `get-app-version` channel
+every 25 ms. It prints `PUNTOVIVO_MAIN_THREAD_METRICS=<json>` and quits. The
+gate fails under `--strict` when the blocked share, the worst stall or the IPC
+p99 exceeds its limit, or when fewer than `minSales` sales completed, which
+would mean the workload never loaded the server. `--require-measurement` turns
+a missing build, seed, launch, workload or metrics line into a failure.
+
+The limits are absolute, without a percentage threshold, because the metric
+is a latency tail. Treat a single local reading as indicative: CPU contention
+from other processes delays the sampler too. `scripts/check-electron-main-thread.test.mjs`
+pins the helpers and the workload's request sequence, and
+`apps/desktop/src/main/__tests__/main-thread-probe.test.ts` pins the sampler.
+
 ### Lighthouse web vitals (strict in CI, warn-first locally)
 
 `scripts/run-lighthouse-gate.mjs` is the CI runner. The runner ensures

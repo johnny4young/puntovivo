@@ -26,7 +26,10 @@ export const DEFAULT_READY_TIMEOUT_MS = 30_000;
 export const DEFAULT_POLL_INTERVAL_MS = 500;
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const CHECK_ELECTRON_MEMORY_SCRIPT = resolve(REPO_ROOT, 'scripts', 'check-electron-memory.mjs');
+const CHECK_SCRIPTS = {
+  memory: resolve(REPO_ROOT, 'scripts', 'check-electron-memory.mjs'),
+  'main-thread': resolve(REPO_ROOT, 'scripts', 'check-electron-main-thread.mjs'),
+};
 
 function parsePositiveInteger(value, fallback) {
   const parsed = Number.parseInt(String(value ?? ''), 10);
@@ -41,6 +44,7 @@ function parsePositiveInteger(value, fallback) {
  * - `--port <port>` / `--port=<port>`
  * - `--ready-timeout-ms <ms>` / `--ready-timeout-ms=<ms>`
  * - `--skip-preview` (for operators who already started a renderer target)
+ * - `--check=memory|main-thread` (default memory)
  */
 export function resolveRunElectronMemoryGateOptions({
   argv = process.argv.slice(2),
@@ -54,6 +58,7 @@ export function resolveRunElectronMemoryGateOptions({
     DEFAULT_READY_TIMEOUT_MS
   );
   let skipPreview = env.PUNTOVIVO_MEMORY_SKIP_PREVIEW === '1';
+  let check = 'memory';
   const passThroughArgs = [];
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -95,13 +100,27 @@ export function resolveRunElectronMemoryGateOptions({
       skipPreview = true;
       continue;
     }
+    if (arg.startsWith('--check=')) {
+      check = arg.slice('--check='.length);
+      if (!Object.hasOwn(CHECK_SCRIPTS, check)) throw new Error(`unknown gate check: ${check}`);
+      continue;
+    }
     passThroughArgs.push(arg);
   }
 
   const previewUrl = skipPreview
     ? env.WEB_DEV_SERVER_URL || `http://${host}:${port}`
     : `http://${host}:${port}`;
-  return { host, port, portExplicit, readyTimeoutMs, skipPreview, previewUrl, passThroughArgs };
+  return {
+    host,
+    port,
+    portExplicit,
+    readyTimeoutMs,
+    skipPreview,
+    previewUrl,
+    check,
+    passThroughArgs,
+  };
 }
 
 export function buildPreviewArgs({ host, port }) {
@@ -153,8 +172,8 @@ export function buildPreviewInvocation(
   };
 }
 
-export function buildCheckArgs(passThroughArgs = []) {
-  return [CHECK_ELECTRON_MEMORY_SCRIPT, ...passThroughArgs];
+export function buildCheckArgs(passThroughArgs = [], check = 'memory') {
+  return [CHECK_SCRIPTS[check], ...passThroughArgs];
 }
 
 export function buildCheckEnv(env, previewUrl, apiPort) {
@@ -310,7 +329,13 @@ async function runChild(command, args, options) {
 }
 
 export async function runCli({ argv = process.argv.slice(2), env = process.env } = {}) {
-  const options = resolveRunElectronMemoryGateOptions({ argv, env });
+  let options;
+  try {
+    options = resolveRunElectronMemoryGateOptions({ argv, env });
+  } catch (err) {
+    console.error(`run-electron-memory-gate: ${err.message}`);
+    return 1;
+  }
   let previewProcess;
   let previewExit;
   let previewError;
@@ -354,11 +379,15 @@ export async function runCli({ argv = process.argv.slice(2), env = process.env }
 
     const apiPort = await reserveLoopbackPort();
     console.log(`run-electron-memory-gate: reserved embedded API port ${apiPort}`);
-    return await runChild(process.execPath, buildCheckArgs(options.passThroughArgs), {
-      cwd: REPO_ROOT,
-      env: buildCheckEnv(env, options.previewUrl, apiPort),
-      stdio: 'inherit',
-    });
+    return await runChild(
+      process.execPath,
+      buildCheckArgs(options.passThroughArgs, options.check),
+      {
+        cwd: REPO_ROOT,
+        env: buildCheckEnv(env, options.previewUrl, apiPort),
+        stdio: 'inherit',
+      }
+    );
   } catch (err) {
     console.error(`run-electron-memory-gate: ${err.message}`);
     return 1;
