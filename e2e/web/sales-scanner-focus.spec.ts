@@ -31,6 +31,16 @@ const SEARCH_INPUT_SELECTOR = `#${SEARCH_INPUT_ID}`;
 // so we branch here to keep the spec runnable on both.
 const MOD_KEY = process.platform === 'darwin' ? 'Meta' : 'Control';
 
+/** EAN-13 with a correct check digit; prefix 779 keeps it outside GS1 in-store ranges. */
+function uniqueEan13(): string {
+  const body = `779${String(Date.now()).slice(-9)}`;
+  const sum = [...body].reduce(
+    (total, digit, index) => total + Number(digit) * (index % 2 ? 3 : 1),
+    0
+  );
+  return `${body}${(10 - (sum % 10)) % 10}`;
+}
+
 async function expectSearchInputFocused(page: import('@playwright/test').Page) {
   await expect
     .poll(async () => page.evaluate(() => document.activeElement?.id ?? ''), {
@@ -144,6 +154,48 @@ test.describe('sales scanner focus', () => {
     await expect(dialog).toBeHidden();
 
     await expectSearchInputFocused(page);
+    await expectNoClientIssues(tracker);
+  });
+
+  test('scanner burst: an exact EAN-13 adds the product without opening the search', async ({
+    page,
+  }) => {
+    const tracker = attachClientIssueTracker(page);
+    await loginAs(page, 'admin');
+    const barcode = uniqueEan13();
+    const name = `E2E Scanner ${barcode}`;
+
+    await page.goto('/products');
+    await page.getByRole('button', { name: 'Add Product' }).click();
+    const productDialog = page.getByRole('dialog', { name: 'Create Product' });
+    await expect(productDialog).toBeVisible();
+    await productDialog.locator('#product-name').fill(name);
+    // The quick form's product code doubles as the barcode, as when an owner scans the label.
+    await productDialog.locator('#product-sku').fill(barcode);
+    await productDialog.locator('#product-price').fill('2500');
+    await productDialog.getByRole('button', { name: 'Create Product' }).click();
+    await expect(productDialog).toBeHidden({ timeout: 15_000 });
+
+    await page.goto('/sales');
+    const search = page.locator(SEARCH_INPUT_SELECTOR);
+    await search.waitFor();
+    await expectSearchInputFocused(page);
+
+    // A USB HID scanner delivers the whole code inside the 30 ms wedge gap.
+    // Dispatching the burst in one task keeps that cadence on a loaded runner,
+    // where Playwright's per-key round trips can exceed the gap.
+    await search.evaluate((input, code) => {
+      for (const key of [...code, 'Enter']) {
+        input.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+      }
+    }, barcode);
+
+    // Cart lines show "<code> · Stock"; the suggested-product tiles show only the name.
+    await expect(page.getByText(new RegExp(`^${barcode} · `))).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('dialog', { name: /add product|agregar producto/i })).toHaveCount(
+      0
+    );
+    await expect(search).toHaveValue('');
     await expectNoClientIssues(tracker);
   });
 });

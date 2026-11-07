@@ -1366,7 +1366,7 @@ function buildProductDefinitions(target: number): DevProductDefinition[] {
       baseUnit: 'UND',
       categorySlug: 'abarrotes',
       vatRateName: 'IVA 0%',
-      barcode: '7702011000101',
+      barcode: '7702010001017',
     },
     {
       name: 'Azúcar Incauca 1kg',
@@ -1375,7 +1375,7 @@ function buildProductDefinitions(target: number): DevProductDefinition[] {
       baseUnit: 'UND',
       categorySlug: 'abarrotes',
       vatRateName: 'IVA 0%',
-      barcode: '7702011000102',
+      barcode: '7702010001024',
     },
     {
       name: 'Aceite Girasol 1L',
@@ -1384,7 +1384,7 @@ function buildProductDefinitions(target: number): DevProductDefinition[] {
       baseUnit: 'UND',
       categorySlug: 'abarrotes',
       vatRateName: 'IVA 19%',
-      barcode: '7702011000103',
+      barcode: '7702010001031',
     },
     {
       name: 'Frijol Cargamanto 500g',
@@ -1393,7 +1393,7 @@ function buildProductDefinitions(target: number): DevProductDefinition[] {
       baseUnit: 'UND',
       categorySlug: 'abarrotes',
       vatRateName: 'IVA 0%',
-      barcode: '7702011000104',
+      barcode: '7702010001048',
     },
     {
       name: 'Pasta Doria Espagueti',
@@ -1402,7 +1402,7 @@ function buildProductDefinitions(target: number): DevProductDefinition[] {
       baseUnit: 'UND',
       categorySlug: 'abarrotes',
       vatRateName: 'IVA 5%',
-      barcode: '7702011000105',
+      barcode: '7702010001055',
     },
     {
       name: 'Lentejas 500g',
@@ -1411,7 +1411,7 @@ function buildProductDefinitions(target: number): DevProductDefinition[] {
       baseUnit: 'UND',
       categorySlug: 'abarrotes',
       vatRateName: 'IVA 0%',
-      barcode: '7702011000106',
+      barcode: '7702010001062',
     },
 
     // Bebidas
@@ -1422,7 +1422,7 @@ function buildProductDefinitions(target: number): DevProductDefinition[] {
       baseUnit: 'UND',
       categorySlug: 'bebidas',
       vatRateName: 'IVA 19%',
-      barcode: '7702011000201',
+      barcode: '7702010002014',
     },
     {
       name: 'Agua Manantial 600ml',
@@ -1431,7 +1431,7 @@ function buildProductDefinitions(target: number): DevProductDefinition[] {
       baseUnit: 'UND',
       categorySlug: 'bebidas',
       vatRateName: 'IVA 5%',
-      barcode: '7702011000202',
+      barcode: '7702010002021',
     },
     {
       name: 'Jugo Hit Mora 1L',
@@ -1440,7 +1440,7 @@ function buildProductDefinitions(target: number): DevProductDefinition[] {
       baseUnit: 'UND',
       categorySlug: 'bebidas',
       vatRateName: 'IVA 19%',
-      barcode: '7702011000203',
+      barcode: '7702010002038',
     },
     {
       name: 'Café Sello Rojo 250g',
@@ -1449,7 +1449,7 @@ function buildProductDefinitions(target: number): DevProductDefinition[] {
       baseUnit: 'UND',
       categorySlug: 'bebidas',
       vatRateName: 'IVA 0%',
-      barcode: '7702011000204',
+      barcode: '7702010002045',
     },
     {
       name: 'Té Hindu 20 bolsitas',
@@ -1458,7 +1458,7 @@ function buildProductDefinitions(target: number): DevProductDefinition[] {
       baseUnit: 'UND',
       categorySlug: 'bebidas',
       vatRateName: 'IVA 19%',
-      barcode: '7702011000205',
+      barcode: '7702010002052',
     },
     {
       name: 'Cerveza Águila 330ml',
@@ -1467,7 +1467,7 @@ function buildProductDefinitions(target: number): DevProductDefinition[] {
       baseUnit: 'UND',
       categorySlug: 'bebidas',
       vatRateName: 'IVA 19%',
-      barcode: '7702011000206',
+      barcode: '7702010002069',
     },
     {
       name: 'Gatorade Uva 500ml',
@@ -1476,7 +1476,7 @@ function buildProductDefinitions(target: number): DevProductDefinition[] {
       baseUnit: 'UND',
       categorySlug: 'bebidas',
       vatRateName: 'IVA 19%',
-      barcode: '7702011000207',
+      barcode: '7702010002076',
     },
 
     // Lácteos
@@ -1487,7 +1487,7 @@ function buildProductDefinitions(target: number): DevProductDefinition[] {
       baseUnit: 'UND',
       categorySlug: 'lacteos',
       vatRateName: 'IVA 0%',
-      barcode: '7702011000301',
+      barcode: '7702010003011',
     },
     {
       name: 'Queso Campesino 500g',
@@ -1496,7 +1496,7 @@ function buildProductDefinitions(target: number): DevProductDefinition[] {
       baseUnit: 'UND',
       categorySlug: 'lacteos',
       vatRateName: 'IVA 0%',
-      barcode: '7702011000302',
+      barcode: '7702010003028',
     },
     {
       name: 'Yogurt Alpina Fresa 200g',
@@ -1505,7 +1505,7 @@ function buildProductDefinitions(target: number): DevProductDefinition[] {
       baseUnit: 'UND',
       categorySlug: 'lacteos',
       vatRateName: 'IVA 0%',
-      barcode: '7702011000303',
+      barcode: '7702010003035',
     },
     {
       name: 'Mantequilla 250g',
@@ -1514,7 +1514,7 @@ function buildProductDefinitions(target: number): DevProductDefinition[] {
       baseUnit: 'UND',
       categorySlug: 'lacteos',
       vatRateName: 'IVA 0%',
-      barcode: '7702011000304',
+      barcode: '7702010003042',
     },
     {
       name: 'Crema de leche 250ml',
@@ -1523,7 +1523,7 @@ function buildProductDefinitions(target: number): DevProductDefinition[] {
       baseUnit: 'UND',
       categorySlug: 'lacteos',
       vatRateName: 'IVA 0%',
-      barcode: '7702011000305',
+      barcode: '7702010003059',
     },
     {
       name: 'Kumis Colanta 1L',
@@ -1532,7 +1532,7 @@ function buildProductDefinitions(target: number): DevProductDefinition[] {
       baseUnit: 'UND',
       categorySlug: 'lacteos',
       vatRateName: 'IVA 0%',
-      barcode: '7702011000306',
+      barcode: '7702010003066',
     },
 
     // Panadería
@@ -1543,7 +1543,7 @@ function buildProductDefinitions(target: number): DevProductDefinition[] {
       baseUnit: 'UND',
       categorySlug: 'panaderia',
       vatRateName: 'IVA 0%',
-      barcode: '7702011000401',
+      barcode: '7702010004018',
     },
     {
       name: 'Arepa Paisa x5',
@@ -1552,7 +1552,7 @@ function buildProductDefinitions(target: number): DevProductDefinition[] {
       baseUnit: 'PQTE',
       categorySlug: 'panaderia',
       vatRateName: 'IVA 0%',
-      barcode: '7702011000402',
+      barcode: '7702010004025',
     },
     {
       name: 'Empanada de carne',
@@ -1626,7 +1626,7 @@ function buildProductDefinitions(target: number): DevProductDefinition[] {
       baseUnit: 'PQTE',
       categorySlug: 'carniceria',
       vatRateName: 'IVA 0%',
-      barcode: '7702011000503',
+      barcode: '7702010005039',
     },
     {
       name: 'Tilapia fresca 500g',
@@ -1664,7 +1664,7 @@ function buildProductDefinitions(target: number): DevProductDefinition[] {
       baseUnit: 'UND',
       categorySlug: 'limpieza',
       vatRateName: 'IVA 19%',
-      barcode: '7702011000601',
+      barcode: '7702010006012',
     },
     {
       name: 'Jabón Rey x3',
@@ -1673,7 +1673,7 @@ function buildProductDefinitions(target: number): DevProductDefinition[] {
       baseUnit: 'PQTE',
       categorySlug: 'limpieza',
       vatRateName: 'IVA 19%',
-      barcode: '7702011000602',
+      barcode: '7702010006029',
     },
     {
       name: 'Limpiador multiusos 1L',
@@ -1682,7 +1682,7 @@ function buildProductDefinitions(target: number): DevProductDefinition[] {
       baseUnit: 'UND',
       categorySlug: 'limpieza',
       vatRateName: 'IVA 19%',
-      barcode: '7702011000603',
+      barcode: '7702010006036',
     },
     {
       name: 'Papel Higiénico x12',
@@ -1691,7 +1691,7 @@ function buildProductDefinitions(target: number): DevProductDefinition[] {
       baseUnit: 'PQTE',
       categorySlug: 'limpieza',
       vatRateName: 'IVA 19%',
-      barcode: '7702011000604',
+      barcode: '7702010006043',
     },
     {
       name: 'Blanqueador 2L',
@@ -1700,7 +1700,7 @@ function buildProductDefinitions(target: number): DevProductDefinition[] {
       baseUnit: 'UND',
       categorySlug: 'limpieza',
       vatRateName: 'IVA 19%',
-      barcode: '7702011000605',
+      barcode: '7702010006050',
     },
     {
       name: 'Esponja Scotch-Brite x2',
@@ -1709,7 +1709,7 @@ function buildProductDefinitions(target: number): DevProductDefinition[] {
       baseUnit: 'PQTE',
       categorySlug: 'limpieza',
       vatRateName: 'IVA 19%',
-      barcode: '7702011000606',
+      barcode: '7702010006067',
     },
 
     // Papelería
@@ -1720,7 +1720,7 @@ function buildProductDefinitions(target: number): DevProductDefinition[] {
       baseUnit: 'UND',
       categorySlug: 'papeleria',
       vatRateName: 'IVA 19%',
-      barcode: '7702011000701',
+      barcode: '7702010007019',
     },
     {
       name: 'Lapicero BIC azul',
@@ -1729,7 +1729,7 @@ function buildProductDefinitions(target: number): DevProductDefinition[] {
       baseUnit: 'UND',
       categorySlug: 'papeleria',
       vatRateName: 'IVA 19%',
-      barcode: '7702011000702',
+      barcode: '7702010007026',
     },
     {
       name: 'Borrador Pelikan',
@@ -1738,7 +1738,7 @@ function buildProductDefinitions(target: number): DevProductDefinition[] {
       baseUnit: 'UND',
       categorySlug: 'papeleria',
       vatRateName: 'IVA 19%',
-      barcode: '7702011000703',
+      barcode: '7702010007033',
     },
     {
       name: 'Regla 30cm',
@@ -1747,7 +1747,7 @@ function buildProductDefinitions(target: number): DevProductDefinition[] {
       baseUnit: 'UND',
       categorySlug: 'papeleria',
       vatRateName: 'IVA 19%',
-      barcode: '7702011000704',
+      barcode: '7702010007040',
     },
     {
       name: 'Tijeras escolares',
@@ -1756,7 +1756,7 @@ function buildProductDefinitions(target: number): DevProductDefinition[] {
       baseUnit: 'UND',
       categorySlug: 'papeleria',
       vatRateName: 'IVA 19%',
-      barcode: '7702011000705',
+      barcode: '7702010007057',
     },
     {
       name: 'Pegante barra Pritt',
@@ -1765,7 +1765,7 @@ function buildProductDefinitions(target: number): DevProductDefinition[] {
       baseUnit: 'UND',
       categorySlug: 'papeleria',
       vatRateName: 'IVA 19%',
-      barcode: '7702011000706',
+      barcode: '7702010007064',
     },
 
     // Licores
@@ -1776,7 +1776,7 @@ function buildProductDefinitions(target: number): DevProductDefinition[] {
       baseUnit: 'UND',
       categorySlug: 'licores',
       vatRateName: 'IVA 19%',
-      barcode: '7702011000801',
+      barcode: '7702010008016',
     },
     {
       name: 'Aguardiente Antioqueño 750ml',
@@ -1785,7 +1785,7 @@ function buildProductDefinitions(target: number): DevProductDefinition[] {
       baseUnit: 'UND',
       categorySlug: 'licores',
       vatRateName: 'IVA 19%',
-      barcode: '7702011000802',
+      barcode: '7702010008023',
     },
     {
       name: 'Cerveza Club Colombia 330ml',
@@ -1794,7 +1794,7 @@ function buildProductDefinitions(target: number): DevProductDefinition[] {
       baseUnit: 'UND',
       categorySlug: 'licores',
       vatRateName: 'IVA 19%',
-      barcode: '7702011000803',
+      barcode: '7702010008030',
     },
     {
       name: 'Vodka Smirnoff 700ml',
@@ -1803,7 +1803,7 @@ function buildProductDefinitions(target: number): DevProductDefinition[] {
       baseUnit: 'UND',
       categorySlug: 'licores',
       vatRateName: 'IVA 19%',
-      barcode: '7702011000804',
+      barcode: '7702010008047',
     },
     {
       name: 'Whisky Old Parr 750ml',
@@ -1812,7 +1812,7 @@ function buildProductDefinitions(target: number): DevProductDefinition[] {
       baseUnit: 'UND',
       categorySlug: 'licores',
       vatRateName: 'IVA 19%',
-      barcode: '7702011000805',
+      barcode: '7702010008054',
     },
     {
       name: 'Gin Beefeater 700ml',
@@ -1821,7 +1821,7 @@ function buildProductDefinitions(target: number): DevProductDefinition[] {
       baseUnit: 'UND',
       categorySlug: 'licores',
       vatRateName: 'IVA 19%',
-      barcode: '7702011000806',
+      barcode: '7702010008061',
     },
   ];
 
