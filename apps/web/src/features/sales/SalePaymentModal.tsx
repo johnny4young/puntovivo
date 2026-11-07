@@ -19,6 +19,7 @@ import { Drawer } from '@/components/feedback/Drawer';
 import { ModalButton } from '@/components/form-controls/Modal';
 import { formatCurrency } from '@/lib/utils';
 import { TENDER_SUM_EPSILON } from './salePaymentModal.constants';
+import { asElectronicInvoiceForm } from './electronicInvoiceRequest';
 import { useSalePaymentModal } from './useSalePaymentModal';
 import { CheckoutApprovalPanel } from './CheckoutApprovalPanel';
 import type { SalePaymentModalProps } from './salePaymentModal.types';
@@ -427,7 +428,7 @@ export function SalePaymentModal({
         {electronicInvoice.available && (
           <Suspense fallback={null}>
             <SaleElectronicInvoiceSection
-              form={form}
+              form={asElectronicInvoiceForm(form)}
               identificationTypes={electronicInvoice.identificationTypes}
               selectedCustomer={selectedCustomer}
             />

@@ -50,7 +50,17 @@ interface MockProduct {
 let mockSiteId: string | null = 'site-1';
 let mockProducts: MockProduct[] = [];
 let mockCategories: Array<{ id: string; name: string }> = [];
-let mockCustomers: Array<{ id: string; name: string; priceTier?: number }> = [];
+let mockCustomers: Array<{
+  id: string;
+  name: string;
+  priceTier?: number;
+  taxId?: string | null;
+  email?: string | null;
+}> = [];
+let mockInvoiceAvailability: {
+  available: boolean;
+  identificationTypes: Array<{ code: string; abbr: string; nameEs: string; nameEn: string }>;
+} = { available: false, identificationTypes: [] };
 let mockActiveSession: { id: string } | null = { id: 'session-1' };
 let mockDineInActive = true;
 let productFetchOverride: ((input: { id: string }) => Promise<Record<string, unknown>>) | null =
@@ -176,6 +186,9 @@ vi.mock('@/lib/trpc', () => ({
       },
     },
     sales: {
+      electronicInvoiceAvailability: {
+        useQuery: () => ({ data: mockInvoiceAvailability }),
+      },
       create: {
         useMutation: (opts?: {
           onSuccess?: (data: unknown, variables: unknown) => unknown | Promise<unknown>;
@@ -333,6 +346,7 @@ describe('PosTouchScreen', () => {
     mockDineInActive = true;
     productFetchOverride = null;
     mockCustomers = [];
+    mockInvoiceAvailability = { available: false, identificationTypes: [] };
     mockProducts = [
       makeProduct({
         id: 'p-1',
@@ -715,5 +729,156 @@ describe('PosTouchScreen', () => {
     });
     expect(screen.getByTestId('pos-touch-cart-empty')).toBeInTheDocument();
     expect(screen.queryByTestId('pos-touch-cart-line-p-2:p-2-unit-1')).not.toBeInTheDocument();
+  });
+});
+
+describe('PosTouchScreen — customer asked for an electronic invoice', () => {
+  const toggleName = 'Customer asked for an electronic invoice';
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    await i18next.changeLanguage('en');
+    mockSiteId = 'site-1';
+    mockActiveSession = { id: 'session-1' };
+    productFetchOverride = null;
+    mockCustomers = [];
+    mockProducts = [makeProduct({ id: 'p-1', name: 'Arroz Diana 500g', price: 3200 })];
+    mockCategories = [];
+    mockInvoiceAvailability = {
+      available: true,
+      identificationTypes: [
+        { code: '13', abbr: 'CC', nameEs: 'Cédula de ciudadanía', nameEn: 'Citizenship ID' },
+        { code: '31', abbr: 'NIT', nameEs: 'Número de identificación tributaria', nameEn: 'Tax ID' },
+      ],
+    };
+  });
+
+  function lastCharge(): Record<string, unknown> {
+    return createMutate.mock.calls.at(-1)?.at(0) as Record<string, unknown>;
+  }
+
+  it('hides the selector where the site cannot issue an invoice', async () => {
+    mockInvoiceAvailability = { available: false, identificationTypes: [] };
+    const user = userEvent.setup();
+    render(<PosTouchScreen />);
+    await user.click(screen.getByTestId('pos-touch-tile-p-1'));
+    await screen.findByTestId('pos-touch-cart-line-p-1:p-1-unit-1');
+
+    expect(screen.queryByTestId('sale-electronic-invoice')).not.toBeInTheDocument();
+    await user.click(screen.getByTestId('pos-touch-cart-charge'));
+    await waitFor(() => expect(createMutate).toHaveBeenCalledTimes(1));
+    expect(lastCharge()).not.toHaveProperty('electronicInvoice');
+  });
+
+  it('charges with the POS document and asks for no buyer data while the selector is off', async () => {
+    const user = userEvent.setup();
+    render(<PosTouchScreen />);
+    const toggle = await screen.findByRole('checkbox', { name: toggleName });
+    expect(toggle).not.toBeChecked();
+    expect(screen.queryByLabelText('Name or business name')).not.toBeInTheDocument();
+
+    await user.click(screen.getByTestId('pos-touch-tile-p-1'));
+    await screen.findByTestId('pos-touch-cart-line-p-1:p-1-unit-1');
+    await user.click(screen.getByTestId('pos-touch-cart-charge'));
+
+    await waitFor(() => expect(createMutate).toHaveBeenCalledTimes(1));
+    const charge = lastCharge();
+    expect(charge).not.toHaveProperty('electronicInvoice');
+    expect(charge).not.toHaveProperty('invoiceRequested');
+    expect(charge).not.toHaveProperty('invoiceBuyer');
+  });
+
+  it('requires the buyer once the selector is on, submits the request and clears it after the sale', async () => {
+    const user = userEvent.setup();
+    render(<PosTouchScreen />);
+    await user.click(screen.getByTestId('pos-touch-tile-p-1'));
+    await screen.findByTestId('pos-touch-cart-line-p-1:p-1-unit-1');
+
+    await user.click(await screen.findByRole('checkbox', { name: toggleName }));
+    expect(screen.getByLabelText('Name or business name')).toHaveClass('min-h-[44px]');
+    await user.click(screen.getByTestId('pos-touch-cart-charge'));
+    expect(await screen.findAllByText('Required')).toHaveLength(2);
+    expect(createMutate).not.toHaveBeenCalled();
+
+    await user.type(screen.getByLabelText('Name or business name'), '  Ferretería La 14 SAS ');
+    await user.selectOptions(screen.getByLabelText('ID type'), '31');
+    await user.type(screen.getByLabelText('ID number'), '900373115-3');
+    await user.type(screen.getByLabelText('Email (optional)'), ' compras@la14.co ');
+    await user.click(screen.getByTestId('pos-touch-cart-charge'));
+
+    await waitFor(() => expect(createMutate).toHaveBeenCalledTimes(1));
+    expect(lastCharge()).toMatchObject({
+      paymentMethod: 'cash',
+      status: 'completed',
+      electronicInvoice: {
+        buyer: {
+          name: 'Ferretería La 14 SAS',
+          identificationTypeCode: '31',
+          identificationNumber: '900373115-3',
+          email: 'compras@la14.co',
+        },
+      },
+    });
+    // The next walk-in sale must not inherit this buyer.
+    await waitFor(() =>
+      expect(screen.getByRole('checkbox', { name: toggleName })).not.toBeChecked()
+    );
+    expect(screen.queryByLabelText('Name or business name')).not.toBeInTheDocument();
+  });
+
+  it('prefills the buyer from the customer attached on the touch cart', async () => {
+    mockCustomers = [
+      { id: 'cust-ana', name: 'Ana Gómez', taxId: '1020304050', email: 'ana@example.co' },
+    ];
+    const user = userEvent.setup();
+    render(<PosTouchScreen />);
+    await user.click(screen.getByTestId('pos-touch-tile-p-1'));
+    await screen.findByTestId('pos-touch-cart-line-p-1:p-1-unit-1');
+    await user.selectOptions(screen.getByLabelText('Customer'), 'cust-ana');
+
+    await user.click(await screen.findByRole('checkbox', { name: toggleName }));
+    expect(screen.getByLabelText('Name or business name')).toHaveValue('Ana Gómez');
+    expect(screen.getByLabelText('ID number')).toHaveValue('1020304050');
+    await user.click(screen.getByTestId('pos-touch-cart-charge'));
+
+    await waitFor(() => expect(createMutate).toHaveBeenCalledTimes(1));
+    expect(lastCharge()).toMatchObject({
+      customerId: 'cust-ana',
+      electronicInvoice: {
+        buyer: {
+          name: 'Ana Gómez',
+          identificationTypeCode: '13',
+          identificationNumber: '1020304050',
+          email: 'ana@example.co',
+        },
+      },
+    });
+  });
+
+  it('locks the buyer fields while the charge is in flight', async () => {
+    let resolveCharge: ((value: { id: string }) => void) | undefined;
+    createMutate.mockImplementationOnce(
+      () =>
+        new Promise<{ id: string }>(resolve => {
+          resolveCharge = resolve;
+        })
+    );
+    const user = userEvent.setup();
+    render(<PosTouchScreen />);
+    await user.click(screen.getByTestId('pos-touch-tile-p-1'));
+    await screen.findByTestId('pos-touch-cart-line-p-1:p-1-unit-1');
+    await user.click(await screen.findByRole('checkbox', { name: toggleName }));
+    await user.type(screen.getByLabelText('Name or business name'), 'Ana Gómez');
+    await user.type(screen.getByLabelText('ID number'), '1020304050');
+    await user.click(screen.getByTestId('pos-touch-cart-charge'));
+
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: toggleName })).toBeDisabled());
+    expect(screen.getByLabelText('Name or business name')).toBeDisabled();
+
+    await act(async () => {
+      resolveCharge?.({ id: 'sale-invoice' });
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: toggleName })).toBeEnabled());
   });
 });

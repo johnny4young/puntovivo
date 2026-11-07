@@ -13,6 +13,7 @@ import { ArrowLeftRight, Banknote, CreditCard, Landmark, MoreHorizontal } from '
 
 import type { PaymentMethod } from '@/types';
 import type { SalePaymentValues } from './salePaymentModal.types';
+import { EMPTY_INVOICE_BUYER } from './electronicInvoiceRequest';
 
 export const TENDER_SUM_EPSILON = 0.005;
 // preset tip percentages. 0% is rendered as "Sin propina"
@@ -37,14 +38,6 @@ export const PAYMENT_METHOD_TILES: ReadonlyArray<{
   { method: 'credit', labelKey: 'payment.credit', icon: Landmark },
   { method: 'other', labelKey: 'payment.other', icon: MoreHorizontal },
 ];
-
-/** Cédula de ciudadanía: the most common ID at a Colombian counter. */
-export const EMPTY_INVOICE_BUYER = {
-  name: '',
-  identificationTypeCode: '13',
-  identificationNumber: '',
-  email: '',
-} as const;
 
 export function getDefaultValues(
   total: number,

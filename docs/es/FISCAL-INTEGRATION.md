@@ -73,9 +73,10 @@ doctrina DIAN. Hay que revisarlo si alguna de las dos cambia.
 
 Comportamiento que se deriva:
 
-- El cobro muestra "El cliente pidió factura electrónica" cuando el pack de
-  Colombia está activo y la sede tiene un rango de numeración FEV activo. Viene
-  apagado.
+- El cobro, en el panel de pago y en el POS táctil, muestra "El cliente pidió
+  factura electrónica" cuando el pack de Colombia está activo y la sede tiene un
+  rango de numeración FEV activo. Viene apagado y se limpia después de cada
+  venta.
 - Al activarlo, el cobro pide los cuatro datos de arriba y nada más. Los datos
   van solo a la instantánea fiscal; no crean ni editan un cliente, y el
   documento se vincula al cliente de la venta solo si lo nombra a él.
