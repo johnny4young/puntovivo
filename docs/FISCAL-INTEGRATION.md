@@ -73,8 +73,9 @@ the regulation in force and DIAN doctrine. Revisit if either changes.
 
 Behavior that follows:
 
-- Checkout shows "Customer asked for an electronic invoice" when the Colombian
-  pack is on and the site has an active FEV numbering range. Off by default.
+- Checkout, in the payment drawer and on the touch POS, shows "Customer asked
+  for an electronic invoice" when the Colombian pack is on and the site has an
+  active FEV numbering range. Off by default, and cleared after every sale.
 - When it is on, checkout asks for the four fields above and nothing else. The
   data goes into the fiscal snapshot only; it does not create or edit a
   customer, and the document links to the sale's customer only when it names

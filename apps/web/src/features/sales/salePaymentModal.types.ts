@@ -67,7 +67,13 @@ export interface SaleElectronicInvoiceBuyer {
   email?: string | undefined;
 }
 
-export interface SalePaymentValues {
+/** Form state behind the "customer asked for an electronic invoice" selector. */
+export interface ElectronicInvoiceFormValues {
+  invoiceRequested?: boolean | undefined;
+  invoiceBuyer?: Required<SaleElectronicInvoiceBuyer> | undefined;
+}
+
+export interface SalePaymentValues extends ElectronicInvoiceFormValues {
   customerId: string;
   paymentMethod: PaymentMethod;
   amountReceived: number;
@@ -116,9 +122,6 @@ export interface SalePaymentValues {
   promotionTotal?: number | undefined;
   /** Exact approved prescription records the sale may consume atomically. */
   pharmacyEvidenceIds?: string[] | undefined;
-  /** Form state behind the "customer asked for an electronic invoice" selector. */
-  invoiceRequested?: boolean | undefined;
-  invoiceBuyer?: Required<SaleElectronicInvoiceBuyer> | undefined;
   /** Submitted only when the buyer asked for an electronic invoice. */
   electronicInvoice?: { buyer: SaleElectronicInvoiceBuyer } | undefined;
 }

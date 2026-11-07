@@ -31,6 +31,8 @@ import { buildCheckoutApprovalContext, requiredCheckoutApprovalActions } from '.
 import { useCheckoutApprovals } from './useCheckoutApprovals';
 import { isCartPriceOverride } from './saleApprovalPricing';
 import { retainEligibleEvidenceIds, selectedEvidenceCoversRequirements } from './pharmacyCheckout';
+import { asElectronicInvoiceForm, buildElectronicInvoiceRequest } from './electronicInvoiceRequest';
+import { useElectronicInvoiceAvailability } from './useElectronicInvoiceAvailability';
 
 /**
  * Inputs the modal shell forwards into the hook. Mirrors the subset of
@@ -195,16 +197,7 @@ export function useSalePaymentModal({
     [watchedPharmacyEvidenceIdsRaw]
   );
   const tenders = useMemo(() => watchedTenders ?? [], [watchedTenders]);
-  const electronicInvoiceQuery = trpc.sales.electronicInvoiceAvailability.useQuery(undefined, {
-    enabled: isOpen,
-    staleTime: 60_000,
-  });
-  const invoiceAvailable = electronicInvoiceQuery.data?.available === true;
-  useEffect(() => {
-    if (!invoiceAvailable && form.getValues('invoiceRequested')) {
-      form.setValue('invoiceRequested', false);
-    }
-  }, [form, invoiceAvailable]);
+  const electronicInvoice = useElectronicInvoiceAvailability(asElectronicInvoiceForm(form), isOpen);
   const amountReceivedValue = Number(amountReceived) || 0;
   const tipAmount = Math.max(0, Number(tipAmountWatch) || 0);
   const selectedCustomer = customers.find(c => c.id === watchedCustomerId) ?? null;
@@ -795,21 +788,12 @@ export function useSalePaymentModal({
         ? values.creditOverride || hasApprovedCreditOverride
         : false;
     const { invoiceRequested, invoiceBuyer, ...submittedValues } = values;
-    const invoiceEmail = invoiceBuyer?.email?.trim();
-    const electronicInvoice =
-      invoiceAvailable && invoiceRequested && invoiceBuyer
-        ? {
-            buyer: {
-              name: invoiceBuyer.name.trim(),
-              identificationTypeCode: invoiceBuyer.identificationTypeCode,
-              identificationNumber: invoiceBuyer.identificationNumber.trim(),
-              ...(invoiceEmail ? { email: invoiceEmail } : {}),
-            },
-          }
-        : undefined;
     return onSubmit({
       ...submittedValues,
-      electronicInvoice,
+      electronicInvoice: buildElectronicInvoiceRequest(electronicInvoice.available, {
+        invoiceRequested,
+        invoiceBuyer,
+      }),
       customerId: customerLocked ? (approvalCustomerId ?? '') : values.customerId,
       tenders: splitMode
         ? values.tenders.map(tender => ({
@@ -919,10 +903,7 @@ export function useSalePaymentModal({
     creditMethodAvailable,
     selectedCustomer,
     customerAttached: watchedCustomerId.length > 0,
-    electronicInvoice: {
-      available: invoiceAvailable,
-      identificationTypes: electronicInvoiceQuery.data?.identificationTypes ?? [],
-    },
+    electronicInvoice,
     promotionQuoteLoading,
     promotionQuoteUnavailable,
     promotionDiscountAmount:
