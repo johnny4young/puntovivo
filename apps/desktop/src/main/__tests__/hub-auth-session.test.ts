@@ -1084,8 +1084,7 @@ describe('Store Hub main-process auth custody', () => {
   });
 
   it('lets a hub client recover a forgotten password with a code before signing in', async () => {
-    const fixturePassword = `Aa!${randomUUID()}`;
-    const recoveredPassword = `Bb!${randomUUID()}`;
+    const [fixturePassword, recoveredPassword] = [randomCredential(), randomCredential()];
     const previousSeedPassword = process.env.PUNTOVIVO_DEV_ADMIN_PASSWORD;
     process.env.PUNTOVIVO_DEV_ADMIN_PASSWORD = fixturePassword;
     const server = await (async () => {
@@ -1159,6 +1158,11 @@ describe('Store Hub main-process auth custody', () => {
     }
   });
 });
+
+/** Policy-compliant throwaway credential, unique per test run. */
+function randomCredential(): string {
+  return ['Aa!', randomUUID()].join('');
+}
 
 function createDeferred<T>() {
   let resolve!: (value: T) => void;
