@@ -614,7 +614,10 @@ fallo la falta de build, seed, lanzamiento, carga o línea de métricas.
 
 Los límites son absolutos, sin umbral porcentual, porque la métrica es una
 cola de latencia. Una lectura local es indicativa: la contención de CPU de
-otros procesos también atrasa al muestreador.
+otros procesos también atrasa al muestreador. Con el servidor todavía en el
+hilo principal, ubuntu hospedado midió 21.3% bloqueado y un p99 de IPC de 27.1
+ms, mientras una máquina local cargada llegó a 62.4% bloqueado; por eso los
+límites en proceso son holgados.
 `scripts/check-electron-main-thread.test.mjs` fija los helpers y la secuencia
 de peticiones de la carga, y
 `apps/desktop/src/main/__tests__/main-thread-probe.test.ts` fija el
