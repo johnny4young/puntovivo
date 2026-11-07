@@ -138,7 +138,8 @@ en este orden:
    recuperación, el propietario puede definir una contraseña nueva desde la app
    de escritorio en el equipo que guarda la base. El comando corre en el proceso
    principal de Electron contra el servidor integrado y no se puede alcanzar
-   por HTTP ni desde un cliente de Store Hub.
+   por HTTP ni desde un cliente de Store Hub. Un cliente de Store Hub recupera
+   la contraseña con un código de recuperación, que su puente reenvía al hub.
 
 Cada restablecimiento cierra las sesiones existentes, estaciona los borradores
 abiertos, consume el código de recuperación y deja un registro de auditoría

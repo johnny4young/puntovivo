@@ -1082,7 +1082,87 @@ describe('Store Hub main-process auth custody', () => {
 
     assert.equal(streamCancelled, true);
   });
+
+  it('lets a hub client recover a forgotten password with a code before signing in', async () => {
+    const [fixturePassword, recoveredPassword] = [randomCredential(), randomCredential()];
+    const previousSeedPassword = process.env.PUNTOVIVO_DEV_ADMIN_PASSWORD;
+    process.env.PUNTOVIVO_DEV_ADMIN_PASSWORD = fixturePassword;
+    const server = await (async () => {
+      try {
+        return await createServer({ dbPath: ':memory:', verbose: false });
+      } finally {
+        if (previousSeedPassword === undefined) delete process.env.PUNTOVIVO_DEV_ADMIN_PASSWORD;
+        else process.env.PUNTOVIVO_DEV_ADMIN_PASSWORD = previousSeedPassword;
+      }
+    })();
+    const injectFetch = (async (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(String(input));
+      const response = await server.app.inject({
+        method: (init?.method ?? 'GET') as 'GET' | 'POST',
+        url: `${url.pathname}${url.search}`,
+        headers: Object.fromEntries(new Headers(init?.headers).entries()),
+        ...(typeof init?.body === 'string' ? { payload: init.body } : {}),
+      });
+      const headers = new Headers();
+      for (const [name, value] of Object.entries(response.headers)) {
+        if (Array.isArray(value)) for (const item of value) headers.append(name, item);
+        else if (value !== undefined) headers.append(name, String(value));
+      }
+      return new Response(response.body, { status: response.statusCode, headers });
+    }) as typeof fetch;
+    const session = () =>
+      createHubAuthSession({
+        hubUrl: 'https://hub.example.test',
+        getStatePath: tempStatePath,
+        safeStorage,
+        fetchImpl: injectFetch,
+      });
+
+    try {
+      const owner = session();
+      const login = await owner.login({ email: 'admin@localhost', password: fixturePassword });
+      const generated = await owner.request({
+        path: '/api/trpc/auth.generateRecoveryCode?batch=1',
+        method: 'POST',
+        headers: { authorization: `Bearer ${login.token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ '0': { currentPassword: fixturePassword } }),
+      });
+      assert.equal(generated.status, 200);
+      const [batch] = JSON.parse(generated.body) as Array<{ result: { data: { code: string } } }>;
+      assert.ok(batch);
+      const code = batch.result.data.code;
+
+      // A locked-out client has no grant: the bridge forwards the public
+      // pre-auth mutation exactly as the renderer's tRPC link sends it.
+      const recovered = await session().request({
+        path: '/api/trpc/auth.recoverWithCode?batch=1',
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          '0': { email: 'admin@localhost', recoveryCode: code, newPassword: recoveredPassword },
+        }),
+      });
+      assert.equal(recovered.status, 200);
+
+      await assert.rejects(
+        session().login({ email: 'admin@localhost', password: fixturePassword })
+      );
+      const reopened = session();
+      const relogin = await reopened.login({
+        email: 'admin@localhost',
+        password: recoveredPassword,
+      });
+      assert.equal((await reopened.verifyAccessToken(relogin.token))?.email, 'admin@localhost');
+    } finally {
+      await server.close();
+    }
+  });
 });
+
+/** Policy-compliant throwaway credential, unique per test run. */
+function randomCredential(): string {
+  return ['Aa!', randomUUID()].join('');
+}
 
 function createDeferred<T>() {
   let resolve!: (value: T) => void;
