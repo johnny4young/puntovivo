@@ -57,6 +57,16 @@ export const MAIN_RECORDED_AUDIT_RESOURCE_TYPES = ['backup_snapshot', 'backup_ke
 
 export type MainRecordedAuditResourceType = (typeof MAIN_RECORDED_AUDIT_RESOURCE_TYPES)[number];
 
+/** The resource each main-recorded action is about. */
+export const MAIN_RECORDED_AUDIT_RESOURCE: Record<
+  MainRecordedAuditAction,
+  MainRecordedAuditResourceType
+> = {
+  'backup.restore_drill': 'backup_snapshot',
+  'backup.encryption_key_reveal': 'backup_key',
+  'security.db_key_rotation': 'backup_key',
+};
+
 /** One audit row written in its own transaction, so the hash chain stays atomic. */
 export interface MainAuditEvent {
   tenantId: string;

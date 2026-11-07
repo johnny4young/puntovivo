@@ -95,6 +95,7 @@ describe('server host operations', () => {
     for (const forged of [
       { ...event, action: 'sales.create' },
       { ...event, resourceType: 'sale' },
+      { ...event, resourceType: 'backup_snapshot' },
       { ...event, tenantId: 42 },
       { ...event, tenantId: '' },
       { ...event, actorId: '' },

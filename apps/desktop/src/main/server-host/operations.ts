@@ -14,7 +14,7 @@ import {
   MAIN_APP_SETTING_KEYS,
   MAIN_INJECT_PATHS,
   MAIN_RECORDED_AUDIT_ACTIONS,
-  MAIN_RECORDED_AUDIT_RESOURCE_TYPES,
+  MAIN_RECORDED_AUDIT_RESOURCE,
   type EmbeddedServerOperations,
   type InjectResponse,
   type MainAuditEvent,
@@ -53,7 +53,7 @@ function assertMainAuditEvent(event: MainAuditEvent): void {
     !isOneOf(MAIN_RECORDED_AUDIT_ACTIONS, event.action) ||
     !nonEmpty(event.tenantId) ||
     !nonEmpty(event.actorId) ||
-    !isOneOf(MAIN_RECORDED_AUDIT_RESOURCE_TYPES, event.resourceType) ||
+    MAIN_RECORDED_AUDIT_RESOURCE[event.action] !== event.resourceType ||
     typeof event.resourceId !== 'string' ||
     typeof event.metadata !== 'object' ||
     event.metadata === null ||
