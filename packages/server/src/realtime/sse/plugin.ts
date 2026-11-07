@@ -58,6 +58,14 @@ const ssePluginCallback: FastifyPluginCallback<SsePluginOptions> = (fastify, opt
   // Decorate fastify instance with SSE manager
   fastify.decorate('sse', manager);
 
+  // Close waits for open responses, and a stream never ends on its own, so a
+  // single subscriber would otherwise hold every stop, backup and restore.
+  const openStreams = new Set<() => void>();
+  fastify.addHook('preClose', done => {
+    for (const end of [...openStreams]) end();
+    done();
+  });
+
   // SSE subscribe endpoint
   fastify.get<{
     Querystring: { collections?: string; lastEventId?: string };
@@ -148,6 +156,7 @@ const ssePluginCallback: FastifyPluginCallback<SsePluginOptions> = (fastify, opt
           clearInterval(heartbeatInterval);
           heartbeatInterval = null;
         }
+        openStreams.delete(endConnection);
         manager.removeClient(clientId);
       };
       const endConnection = () => {
@@ -204,6 +213,7 @@ const ssePluginCallback: FastifyPluginCallback<SsePluginOptions> = (fastify, opt
           });
       }, 30000);
 
+      openStreams.add(endConnection);
       // Handle client disconnect
       request.raw.on('close', cleanupConnection);
 
