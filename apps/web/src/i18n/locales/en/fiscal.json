@@ -261,6 +261,8 @@
     "required": "Required",
     "emailInvalid": "Invalid email",
     "nitDvMismatch": "The verification digit does not match (should be {{dv}})",
-    "nitPreview": "Recorded as {{nit}}"
+    "nitPreview": "Recorded as {{nit}}",
+    "malformed": "Invalid ID number",
+    "consumidorFinal": "This is the consumidor final number, not a buyer"
   }
 }
