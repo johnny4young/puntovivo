@@ -8,6 +8,25 @@
 
 import type { BackupRestoreDrillCounts } from '../backup/backup-bundle/inspection.ts';
 
+/** The routes main may inject; the server side refuses any other. */
+export const MAIN_INJECT_PATHS = [
+  '/api/trpc/auth.login',
+  '/api/trpc/auth.refresh',
+  '/api/trpc/auth.switchStaff',
+  '/api/trpc/auth.logout',
+  '/api/trpc/auth.completeSetup',
+  '/api/trpc/health.check',
+] as const;
+
+/** The only app_settings rows main reads and writes. */
+export const MAIN_APP_SETTING_KEYS = [
+  'receipt_print_settings',
+  'theme_preference',
+  'tray_settings',
+] as const;
+
+export type MainAppSettingKey = (typeof MAIN_APP_SETTING_KEYS)[number];
+
 /** A fixed in-process HTTP request; main never gets a general network proxy. */
 export interface InjectRequest {
   method: 'GET' | 'POST';
@@ -84,8 +103,8 @@ export interface EmbeddedServerOperations {
   isOwnerRecoveryAvailable(): Promise<boolean>;
   recoverOwner(input: unknown): Promise<OwnerRecoveryResult>;
   recordAudit(event: MainAuditEvent): Promise<void>;
-  readAppSetting(key: string): Promise<unknown>;
-  writeAppSetting(key: string, value: unknown): Promise<void>;
+  readAppSetting(key: MainAppSettingKey): Promise<unknown>;
+  writeAppSetting(key: MainAppSettingKey, value: unknown): Promise<void>;
   getSyncStatus(tenantId?: string): Promise<DesktopSyncStatusResult>;
   triggerSync(tenantId: string): Promise<DesktopSyncTriggerResult>;
   setSyncConfig(config: Record<string, unknown>): Promise<void>;

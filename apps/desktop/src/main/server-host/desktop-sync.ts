@@ -3,7 +3,7 @@
  * Domain mutations and outbox payloads are not renderer IPC capabilities.
  * @module main/server-host/desktop-sync
  */
-import { and, eq, sql, appSettings, syncConflicts, syncOutbox } from '@puntovivo/server';
+import { and, eq, sql, syncConflicts, syncOutbox } from '@puntovivo/server';
 import type { DesktopSyncStatusResult, DesktopSyncTriggerResult } from './contract.ts';
 import {
   type SyncDatabase,
@@ -17,6 +17,7 @@ import {
   incrementQueueFailure,
   markSyncEntityAsSynced,
   saveLastSyncAt,
+  upsertAppSetting,
 } from './desktop-sync-helpers.ts';
 
 export async function getDesktopSyncStatus(
@@ -141,28 +142,5 @@ export async function handleDesktopSetSyncConfig(
   database: SyncDatabase,
   config: Record<string, unknown>
 ): Promise<void> {
-  const now = new Date().toISOString();
-  const existing = await database
-    .select({ key: appSettings.key })
-    .from(appSettings)
-    .where(eq(appSettings.key, DESKTOP_SYNC_CONFIG_KEY))
-    .get();
-
-  if (existing) {
-    await database
-      .update(appSettings)
-      .set({
-        value: config,
-        updatedAt: now,
-      })
-      .where(eq(appSettings.key, DESKTOP_SYNC_CONFIG_KEY))
-      .run();
-    return;
-  }
-
-  await database.insert(appSettings).values({
-    key: DESKTOP_SYNC_CONFIG_KEY,
-    value: config,
-    updatedAt: now,
-  });
+  await upsertAppSetting(database, DESKTOP_SYNC_CONFIG_KEY, config);
 }

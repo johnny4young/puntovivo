@@ -2,7 +2,7 @@ import { after, before, describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { randomUUID } from 'node:crypto';
 import { createServer, type PuntovivoServer } from '@puntovivo/server';
-import type { MainAuditEvent } from '../server-host/contract.ts';
+import type { MainAppSettingKey, MainAuditEvent } from '../server-host/contract.ts';
 import { createInProcessServerHost } from '../server-host/in-process.ts';
 import { createServerOperations } from '../server-host/operations.ts';
 
@@ -40,13 +40,38 @@ after(async () => {
 describe('server host operations', () => {
   it('reads and overwrites app settings by key', async () => {
     const operations = createServerOperations(server);
-    assert.equal(await operations.readAppSetting('host-test'), undefined);
-    await operations.writeAppSetting('host-test', { silent: true });
-    await operations.writeAppSetting('host-test', { silent: false, printBackground: true });
-    assert.deepEqual(await operations.readAppSetting('host-test'), {
+    assert.equal(await operations.readAppSetting('receipt_print_settings'), undefined);
+    await operations.writeAppSetting('receipt_print_settings', { silent: true });
+    await operations.writeAppSetting('receipt_print_settings', {
       silent: false,
       printBackground: true,
     });
+    assert.deepEqual(await operations.readAppSetting('receipt_print_settings'), {
+      silent: false,
+      printBackground: true,
+    });
+  });
+
+  it('refuses app settings main does not own', async () => {
+    const operations = createServerOperations(server);
+    const serverOwned = 'desktop_sync_config' as unknown as MainAppSettingKey;
+    await assert.rejects(operations.readAppSetting(serverOwned), /MAIN_APP_SETTING_REJECTED/);
+    await assert.rejects(
+      operations.writeAppSetting(serverOwned, { enabled: false }),
+      /MAIN_APP_SETTING_REJECTED/
+    );
+  });
+
+  it('keeps one sync config row when two saves race', async () => {
+    const operations = createServerOperations(server);
+    await Promise.all([
+      operations.setSyncConfig({ enabled: true }),
+      operations.setSyncConfig({ enabled: false }),
+    ]);
+    const rows = sqlite()
+      .prepare('select count(*) as n from app_settings where key = ?')
+      .get('desktop_sync_config') as { n: number };
+    assert.equal(rows.n, 1);
   });
 
   it('records only the main-owned audit events, each in the hash chain', async () => {
@@ -71,6 +96,11 @@ describe('server host operations', () => {
       { ...event, action: 'sales.create' },
       { ...event, resourceType: 'sale' },
       { ...event, tenantId: 42 },
+      { ...event, tenantId: '' },
+      { ...event, actorId: '' },
+      { ...event, metadata: 'note' },
+      { ...event, metadata: ['note'] },
+      { ...event, metadata: null },
     ]) {
       await assert.rejects(
         operations.recordAudit(forged as unknown as MainAuditEvent),
@@ -125,13 +155,23 @@ describe('server host operations', () => {
   it('returns injected responses as plain status, headers and text', async () => {
     const response = await createServerOperations(server).inject({
       method: 'GET',
-      url: '/api/health',
+      url: '/api/trpc/health.check?batch=1&input=%7B%7D',
       headers: {},
     });
     assert.equal(response.statusCode, 200);
     assert.equal(typeof response.body, 'string');
-    assert.equal(JSON.parse(response.body).status, 'ok');
     assert.ok(Object.values(response.headers).every(value => typeof value !== 'number'));
+  });
+
+  it('injects only the fixed routes main owns', async () => {
+    const operations = createServerOperations(server);
+    for (const request of [
+      { method: 'POST' as const, url: '/api/trpc/users.create?batch=1', headers: {} },
+      { method: 'GET' as const, url: '/api/health', headers: {} },
+      { method: 'PUT' as unknown as 'POST', url: '/api/trpc/auth.login', headers: {} },
+    ]) {
+      await assert.rejects(operations.inject(request), /MAIN_INJECT_REJECTED/);
+    }
   });
 });
 
