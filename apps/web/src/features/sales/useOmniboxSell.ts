@@ -45,11 +45,17 @@ export function useOmniboxSell() {
 
       let resolved: Awaited<ReturnType<typeof utils.products.lookupByBarcode.fetch>>;
       try {
-        resolved = await utils.products.lookupByBarcode.fetch({
-          barcode: query,
-        }, { retry: false });
+        resolved = await utils.products.lookupByBarcode.fetch(
+          {
+            barcode: query,
+          },
+          { retry: false }
+        );
       } catch (error) {
-        if (extractServerErrorCode(error)) {
+        const code = extractServerErrorCode(error);
+        // A typed number may be an internal code rather than a misread label,
+        // so a failed check digit still falls through to the search dialog.
+        if (code && code !== 'GS1_CHECK_DIGIT_INVALID') {
           // A deterministic server rejection (for example an incompatible
           // GS1 physical unit) is operator guidance, not a search miss. Keep
           // the cashier on the current screen and surface the safe copy.

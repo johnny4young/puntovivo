@@ -558,32 +558,38 @@ describe('products.lookupByBarcode', () => {
     });
     await insertProduct({
       tenantId: foreignTenantId,
-      barcode: '7700000000000',
+      barcode: '7700000000002',
       name: 'Other tenant product',
     });
     const caller = appRouter.createCaller(makeContext('cashier'));
-    const result = await caller.products.lookupByBarcode({ barcode: '7700000000000' });
+    const result = await caller.products.lookupByBarcode({ barcode: '7700000000002' });
     expect(result).toBeNull();
   });
 
-  it('returns null for a corrupted EAN-13 in strict policy', async () => {
+  it('rejects a corrupted EAN-13 in strict policy as a misread, not a missing product', async () => {
     await insertProduct({ tenantId, barcode: '9788471800217', name: 'Corrupted barcode' });
     const caller = appRouter.createCaller(makeContext('cashier'));
-    const result = await caller.products.lookupByBarcode({
-      barcode: '9788471800217',
-      parsePolicy: 'strict',
+    await expect(
+      caller.products.lookupByBarcode({ barcode: '9788471800217', parsePolicy: 'strict' })
+    ).rejects.toMatchObject({
+      code: 'BAD_REQUEST',
+      cause: { errorCode: 'GS1_CHECK_DIGIT_INVALID' },
     });
-    expect(result).toBeNull();
   });
 
-  it('returns null for a corrupted GS1 label in strict policy', async () => {
+  it('rejects a corrupted GS1 label in strict policy as a misread', async () => {
     await insertProduct({ tenantId, barcode: '12345', name: 'Corrupted GS1 product' });
     const caller = appRouter.createCaller(makeContext('cashier'));
-    const result = await caller.products.lookupByBarcode({
-      barcode: '2012345012345',
-      parsePolicy: 'strict',
-    });
-    expect(result).toBeNull();
+    await expect(
+      caller.products.lookupByBarcode({ barcode: '2012345012345', parsePolicy: 'strict' })
+    ).rejects.toMatchObject({ cause: { errorCode: 'GS1_CHECK_DIGIT_INVALID' } });
+  });
+
+  it('still returns null for a valid EAN-13 that no product carries', async () => {
+    const caller = appRouter.createCaller(makeContext('cashier'));
+    await expect(
+      caller.products.lookupByBarcode({ barcode: '7790000000003', parsePolicy: 'strict' })
+    ).resolves.toBeNull();
   });
 
   it('falls through to exact lookup for basic Code128-style values in strict policy', async () => {
@@ -613,9 +619,9 @@ describe('products.lookupByBarcode', () => {
   });
 
   it('skips inactive products', async () => {
-    await insertProduct({ tenantId, barcode: '9999999999993', name: 'Inactive', isActive: false });
+    await insertProduct({ tenantId, barcode: '9999999999994', name: 'Inactive', isActive: false });
     const caller = appRouter.createCaller(makeContext('cashier'));
-    const result = await caller.products.lookupByBarcode({ barcode: '9999999999993' });
+    const result = await caller.products.lookupByBarcode({ barcode: '9999999999994' });
     expect(result).toBeNull();
   });
 

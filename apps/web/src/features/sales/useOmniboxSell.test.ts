@@ -150,7 +150,9 @@ describe('useOmniboxSell', () => {
 
     await result.current('7702001', navigate);
 
-    expect(useCartWorkspaceStore.getState().workspaces[workspaceId]?.items[0]?.unitPrice).toBe(3000);
+    expect(useCartWorkspaceStore.getState().workspaces[workspaceId]?.items[0]?.unitPrice).toBe(
+      3000
+    );
   });
 
   it('selects the packaging unit and applies label overrides on a packaging hit', async () => {
@@ -196,10 +198,7 @@ describe('useOmniboxSell', () => {
 
     await result.current('2112345001999', navigate);
 
-    expect(lookupFetch).toHaveBeenCalledWith(
-      { barcode: '2112345001999' },
-      { retry: false }
-    );
+    expect(lookupFetch).toHaveBeenCalledWith({ barcode: '2112345001999' }, { retry: false });
   });
 
   it('lands on /sales with the search prefill when nothing matches', async () => {
@@ -211,6 +210,18 @@ describe('useOmniboxSell', () => {
     expect(useCartWorkspaceStore.getState().activeId).toBeNull();
     expect(navigate).toHaveBeenCalledWith('/sales', {
       state: { omniboxQuery: 'yogur fresa' },
+    });
+  });
+
+  it('treats a failed check digit as a search, since a typed number may be an internal code', async () => {
+    lookupFetch.mockRejectedValue({ data: { errorCode: 'GS1_CHECK_DIGIT_INVALID' } });
+    const { result } = renderHook(() => useOmniboxSell());
+
+    await result.current('7702011000103', navigate);
+
+    expect(toastError).not.toHaveBeenCalled();
+    expect(navigate).toHaveBeenCalledWith('/sales', {
+      state: { omniboxQuery: '7702011000103' },
     });
   });
 

@@ -13,7 +13,7 @@ import {
   type WedgeConfig,
 } from '@/features/sales/useBarcodeWedgeListener';
 import { playScanError, playScanSuccess } from '@/lib/sound';
-import { translateServerError } from '@/lib/translateServerError';
+import { extractServerErrorCode, translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
 import type { ProductSearchItem } from '@/types';
 
@@ -85,9 +85,12 @@ export function useBarcodeProductScanner({
         return;
       }
       try {
-        const result = await utils.products.lookupByBarcode.fetch({
-          barcode: rawCode,
-        }, { retry: false });
+        const result = await utils.products.lookupByBarcode.fetch(
+          {
+            barcode: rawCode,
+          },
+          { retry: false }
+        );
         if (!result) {
           playScanError();
           toast.warning({ title: t('sales:scanner.notFound') });
@@ -129,6 +132,10 @@ export function useBarcodeProductScanner({
         }
       } catch (error) {
         playScanError();
+        if (extractServerErrorCode(error) === 'GS1_CHECK_DIGIT_INVALID') {
+          toast.warning({ title: translateServerError(error, t, t('sales:scanner.notFound')) });
+          return;
+        }
         const fallback = t('sales:scanner.lookupFailed');
         toast.error({
           title: fallback,
