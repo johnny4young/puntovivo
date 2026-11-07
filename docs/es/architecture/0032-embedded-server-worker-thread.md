@@ -49,9 +49,9 @@ el listener HTTP de loopback; solo cambia el hilo que lo atiende.
 | Cada handler de `ipcMain` y sus chequeos de confianza                      | Drizzle y la conexión SQLCipher que sirve a la app                      |
 | `safeStorage` y cada sobre sellado (llave de base, secreto de anclas, hub) | Hashing Argon2 y su calentamiento                                       |
 | Rotación de llave, migración a cifrado, restauración y copias de archivo   | Workers fiscales, outbox, tiempo real y sync del servidor               |
-| Actualizador automático y su piso de versión                               | El almacén de anclas en archivo (PVA1), abierto con el secreto derivado |
+| Actualizador automático y su piso de versión                               | El almacén de anclas en archivo (PVA1), abierto con el secreto recibido |
 | Custodia de sesión, relay de Store Hub, periféricos e impresión            | Operaciones de escritorio que tocan la base (ajustes, sync, drill)      |
-| Telemetría de caídas de ambos hilos                                        | Logs del servidor, con el mismo logger                                  |
+| Su propia telemetría de caídas y el reporte de salidas del worker          | Logs y telemetría del servidor, con la misma política de caídas         |
 
 El ensayo de recuperación empaquetado sigue creando sus servidores en el
 proceso principal: nunca abre ventana, así que ahí no importa la latencia del
@@ -70,8 +70,11 @@ la llave nueva.
 
 El worker nunca llama a `safeStorage`. El hilo principal hace la conversión
 única del archivo de anclas antiguo antes de arrancar un worker; el worker
-abre el almacén PVA1 con el secreto que recibió. Si la conversión falla, el
-archivo viejo queda intacto y toda escritura auditada falla cerrada, como hoy.
+abre el almacén PVA1 con el secreto que recibió. El hilo principal solo manda
+la ubicación del almacén cuando el secreto de anclas viene del llavero; las
+instalaciones con la llave del entorno o la de desarrollo corren sin almacén de
+anclas, como hoy. Si la conversión falla, el archivo viejo queda intacto y toda
+escritura auditada falla cerrada, como hoy.
 
 Solo un hilo puede escribir el archivo de anclas a la vez. La restauración
 reemplaza la base y el estado de anclas solo después de que el worker salió,
@@ -91,7 +94,10 @@ puerto del worker:
   (`name`, `message` y un `code` opcional de lista cerrada), nunca un objeto
   crudo;
 - el worker valida cada payload: quien llama desde el hilo principal es de
-  confianza, pero no infalible.
+  confianza, pero no infalible;
+- cuando el worker sale, el hilo principal rechaza cada petición que aún espera
+  respuesta, y las nuevas fallan de inmediato hasta que el siguiente worker
+  reporte su URL.
 
 La lista de operaciones reemplaza cada sitio donde el hilo principal entra al
 objeto del servidor: las rutas fijas de autenticación por `inject`, la
@@ -105,20 +111,27 @@ ensayo) y una sobre el worker (la app).
 ### Ciclo de vida
 
 - **Arranque.** El hilo principal crea el worker, espera a que cargue, manda
-  `start` y continúa cuando el worker reporta su URL. Un fallo al arrancar es
-  fatal, como hoy.
+  `start` y continúa cuando el worker reporta su URL. Un fallo en el primer
+  arranque es fatal, como hoy. Un fallo cuando `restartAround` arranca el
+  siguiente worker vuelve a quien pidió la copia, la restauración o la
+  rotación, como hoy.
 - **Parada.** El hilo principal manda `stop`; el worker cierra el servidor, que
   drena peticiones, espera el trabajo de Argon2 y cierra la base, y sale solo.
   El hilo principal espera el evento `exit` y termina el worker solo tras un
-  plazo de gracia acotado.
+  plazo de gracia mayor que el timeout del adaptador fiscal. `terminate()` no
+  interrumpe una llamada nativa síncrona, así que el límite rige entre
+  sentencias.
 - **Reinicio alrededor de copias, restauración y rotación.** La coreografía
   `restartAround` detiene el worker, corre la operación y arranca uno nuevo
   con el mismo secreto JWT, así que las sesiones sobreviven.
-- **Salida inesperada.** Un error no capturado o una salida distinta de cero
-  fuera de `stop` es fatal: el hilo principal lo registra, lo reporta a la
+- **Salida inesperada.** Toda salida que `stop` no pidió, con cualquier
+  código, es fatal: el hilo principal lo registra, lo reporta a la
   telemetría de caídas, muestra el diálogo de error y cierra la app, que es lo
   que pasa hoy si el servidor en proceso se cae. El reinicio automático queda
   para una decisión aparte.
+- **Política de caídas en el worker.** El worker instala los handlers del hilo
+  principal: un rechazo no manejado se registra y se reporta, sin ser fatal; una
+  excepción no capturada termina el hilo.
 - **Errores.** Los errores de una petición cruzan solo como códigos
   serializados; los logs quedan en el logger del worker.
 
@@ -127,7 +140,11 @@ ensayo) y una sobre el worker (la app).
 `better-sqlite3-multiple-ciphers` 13 y `argon2` 0.45 son addons Node-API, que
 Node carga en worker threads. El hilo principal sigue cargando el addon de
 SQLite para sus conexiones cortas (copias, rotación, snapshots del drill), así
-que el addon corre en dos entornos del mismo proceso. El verificador de
+que el addon corre en dos entornos del mismo proceso. Las copias programadas y
+los snapshots del drill ahora corren junto al escritor del worker, así que su
+checkpoint del WAL puede esperar a una venta hasta su `busy_timeout` en el hilo
+principal; sacar ese trabajo del hilo principal queda fuera de esta decisión.
+El verificador de
 runtime nativo y el smoke empaquetado deben probar que ambos addons cargan y
 funcionan dentro de un worker con el Electron que se distribuye, en cada
 plataforma soportada.

@@ -49,9 +49,9 @@ the loopback HTTP listener; only the thread that serves it changes.
 | Every `ipcMain` handler and its trust checks                         | Drizzle and the SQLCipher connection that serves the app                |
 | `safeStorage` and every sealed envelope (DB key, anchor secret, hub) | Argon2 hashing and its warm-up                                          |
 | Key rotation, cleartext migration, restore and backup file work      | Fiscal, outbox, realtime and sync workers that the server owns          |
-| Auto-updater and its floor store                                     | The audit anchor file store (PVA1), opened with the derived secret      |
+| Auto-updater and its floor store                                     | The audit anchor file store (PVA1), opened with the secret it receives  |
 | Session custody, Store Hub relay, peripherals and printing           | Desktop operations that need the database (settings, sync, drill reads) |
-| Crash telemetry for both threads                                     | Server logs, written through the same logger                            |
+| Its own crash telemetry, and reports of worker exits                 | Server logs and telemetry, under the same crash policy as main          |
 
 The packaged recovery rehearsal keeps creating its servers in the main
 process: it never opens a window, so main-thread latency does not matter
@@ -69,8 +69,11 @@ happens while no worker runs, so the next worker receives the new key.
 
 The worker never calls `safeStorage`. Main runs the one-time legacy anchor
 conversion before it starts a worker; the worker opens the PVA1 file store
-with the anchor secret it received. A failed conversion leaves the old file in
-place and every audited write fails closed, as it does today.
+with the anchor secret it received. Main sends a store location only when the
+anchor secret comes from the keychain; installs keyed from the environment or
+the development key run without an anchor store, as they do today. A failed
+conversion leaves the old file in place and every audited write fails closed,
+as it does today.
 
 Exactly one thread may write the anchor file at a time. Restore replaces the
 database and the anchor state only after the worker has exited, never while it
@@ -86,7 +89,9 @@ Main and worker exchange structured-clone messages over the worker port:
 - replies carry the same id and either a result or a serialized error
   (`name`, `message`, an optional closed `code`), never a raw object graph;
 - the worker validates every payload, because the main-side caller is trusted
-  but not infallible.
+  but not infallible;
+- when the worker exits, main rejects every request still waiting for a reply,
+  and new requests fail at once until the next worker reports its URL.
 
 The operation list replaces every place where main reaches into the server
 object: the fixed authentication `inject` routes, access-token verification,
@@ -99,19 +104,25 @@ in-process implementation (tests, rehearsal) and a worker implementation
 ### Lifecycle
 
 - **Start.** Main spawns the worker, waits for it to load, sends `start`, and
-  resolves when the worker reports its listening URL. A failure during start
-  is fatal, as it is today.
+  resolves when the worker reports its listening URL. A failure during the
+  first start is fatal, as it is today. A failure while `restartAround` starts
+  the next worker goes back to the backup, restore or rotation caller, as it
+  does today.
 - **Stop.** Main sends `stop`; the worker closes the server, which drains
   requests, settles Argon2 work and closes the database, then exits on its
   own. Main waits for the `exit` event and terminates the worker only after a
-  bounded grace period.
+  grace period longer than the fiscal adapter timeout. `terminate()` cannot
+  interrupt a synchronous native call, so the bound holds between statements.
 - **Restart around backup, restore and key rotation.** The existing
   `restartAround` choreography stops the worker, runs the operation, and starts
   a new worker with the same JWT secret, so sessions survive.
-- **Unexpected exit.** An uncaught error or a non-zero exit outside `stop` is
-  fatal: main logs it, reports it to crash telemetry, shows the error dialog
-  and quits, which is what a crash of the in-process server does today.
+- **Unexpected exit.** Any exit that `stop` did not request, whatever its
+  code, is fatal: main logs it, reports it to crash telemetry, shows the error
+  dialog and quits, which is what a crash of the in-process server does today.
   Automatic restart is deferred to its own decision.
+- **Crash policy in the worker.** The worker installs main's handlers: an
+  unhandled rejection is logged and reported, not fatal; an uncaught exception
+  ends the thread.
 - **Errors.** Request errors cross the boundary only as serialized error
   codes; logs stay in the worker's logger.
 
@@ -120,7 +131,10 @@ in-process implementation (tests, rehearsal) and a worker implementation
 `better-sqlite3-multiple-ciphers` 13 and `argon2` 0.45 are Node-API addons,
 which Node loads in worker threads. Main still loads the SQLite addon for its
 own short-lived connections (backup, rotation, drill snapshots), so the addon
-runs in two environments of the same process. The native runtime verifier and
+runs in two environments of the same process. Scheduled backups and drill
+snapshots now run beside the worker's writer, so their WAL checkpoint can wait
+on a sale for up to its `busy_timeout` on the main thread; moving that work off
+main is outside this decision. The native runtime verifier and
 the packaged smoke must prove both addons load and work inside a worker under
 the shipped Electron on every supported platform.
 
