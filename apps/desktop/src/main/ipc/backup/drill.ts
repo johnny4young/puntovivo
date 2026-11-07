@@ -1,6 +1,6 @@
 /** admin-gated restore-drill IPC and audit boundary. */
 
-import { createModuleLogger } from '@puntovivo/server';
+import { createModuleLogger } from '@puntovivo/server/desktop-main';
 import {
   BackupRestoreDrillError,
   type BackupRestoreDrillReport,

@@ -39,7 +39,7 @@ Esta guía cubre esa necesidad.
 Puntovivo de escritorio es una aplicación Electron con esta estructura:
 
 - el proceso principal de Electron aloja y coordina la aplicación
-- el servidor Fastify está integrado dentro del proceso principal de Electron
+- el servidor Fastify corre en un worker thread del proceso principal de Electron
 - React se ejecuta en el renderizador
 - el renderizador nunca se comunica directamente con Node ni SQLite
 - preload expone un puente IPC acotado al renderizador
@@ -56,7 +56,7 @@ flowchart LR
     Renderer[Renderer\nReact + TanStack Query + tRPC client]
     Preload[Preload\nwindow.electron / window.sync]
     Main[Electron Main Process\nwindow lifecycle + IPC handlers]
-    Server[Embedded Fastify Server\ninside main process]
+    Server[Embedded Fastify Server\nworker thread of main]
     DB[(SQLite local.db)]
     OS[Desktop OS\ntray, dialogs, printing, updates]
 
@@ -149,7 +149,7 @@ sequenceDiagram
 
 Esta es una de las decisiones de arquitectura más importantes del repositorio.
 
-El proyecto explícitamente no inicia un proceso de servidor separado en modo escritorio. El proceso principal de Electron importa `@puntovivo/server` directamente e inicia Fastify dentro del mismo proceso.
+El proyecto explícitamente no inicia un proceso de servidor separado en modo escritorio. El proceso principal de Electron arranca `@puntovivo/server` en un `worker_threads` ([ADR 0032](architecture/0032-embedded-server-worker-thread.md)). Así SQLite síncrono y el JavaScript del servidor corren fuera del hilo que maneja ventanas e IPC, mientras el hilo principal conserva `safeStorage`, cada llave sellada y el actualizador. El hilo principal solo llama al servidor por `apps/desktop/src/main/server-host/contract.ts`; una salida inesperada del worker es fatal, como antes lo era una caída del servidor.
 
 Motivos:
 
@@ -161,7 +161,7 @@ Motivos:
 Compensaciones técnicas:
 
 - el proceso principal adquiere importancia operativa porque controla tanto el ciclo de vida de la ventana como el del backend
-- si el proceso principal falla, tanto el shell de escritorio como el servidor local se detienen juntos
+- si el proceso principal falla, o si falla código nativo dentro del worker, tanto el shell de escritorio como el servidor local se detienen juntos
 - las responsabilidades exclusivas de escritorio deben mantenerse acotadas para que el proceso principal no se convierta en una capa de servicios enorme y sin control
 
 ### Qué se usa hoy en el ciclo de vida

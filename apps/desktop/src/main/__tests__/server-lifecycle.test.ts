@@ -6,6 +6,7 @@ import type { PuntovivoLogger, PuntovivoServer, ServerOptions } from '@puntovivo
 import { PACKAGED_RENDERER_ORIGIN } from '../renderer-protocol.ts';
 import { createServerLifecycle } from '../server-lifecycle.ts';
 import { setServerHost } from '../runtime.ts';
+import { createInProcessLauncher } from '../server-host/in-process.ts';
 
 afterEach(() => {
   setServerHost(null);
@@ -33,9 +34,11 @@ describe('Electron embedded server lifecycle', () => {
       log: { info: () => {} } as unknown as PuntovivoLogger,
       prepareDatabaseEncryption: async () => 'a'.repeat(64),
       prepareAuditAnchorKey: async () => 'b'.repeat(64),
-      prepareAuditAnchorStore: async () => undefined,
       getMainWindow: () => null,
-      createEmbeddedServer,
+      launchHost: createInProcessLauncher({
+        prepareAuditAnchorStore: async () => undefined,
+        createEmbeddedServer,
+      }),
       generateJwtSecret: () => 'stable-electron-jwt-secret-for-lifecycle-test',
     });
 

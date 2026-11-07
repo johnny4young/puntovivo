@@ -2,18 +2,11 @@
 
 import type { BrowserWindow } from 'electron';
 import { randomBytes } from 'node:crypto';
-import {
-  createServer,
-  resolveRuntimeConfig,
-  type PuntovivoLogger,
-  type PuntovivoServer,
-  type ServerOptions,
-} from '@puntovivo/server';
-import type { AuditAnchorStore } from '@puntovivo/server/audit-anchor';
+import { resolveRuntimeConfig, type PuntovivoLogger } from '@puntovivo/server/desktop-main';
+import type { ServerOptions } from '@puntovivo/server';
 import { PACKAGED_RENDERER_ORIGIN } from './renderer-protocol.ts';
 import { getServerHost, setServerHost } from './runtime.ts';
 import type { EmbeddedServerHost } from './server-host/contract.ts';
-import { createInProcessServerHost } from './server-host/in-process.ts';
 
 interface ServerLifecycleDeps {
   dbPath: string;
@@ -24,10 +17,10 @@ interface ServerLifecycleDeps {
   prepareDatabaseEncryption: () => Promise<string>;
   /** Stable per-install audit-chain anchor secret (never rotates). */
   prepareAuditAnchorKey: () => Promise<string>;
-  prepareAuditAnchorStore: () => Promise<AuditAnchorStore | undefined>;
   getMainWindow: () => BrowserWindow | null;
+  /** Starts a listening server with these options: in a worker or in-process. */
+  launchHost: (options: ServerOptions) => Promise<EmbeddedServerHost>;
   env?: NodeJS.ProcessEnv;
-  createEmbeddedServer?: (options: ServerOptions) => Promise<PuntovivoServer>;
   generateJwtSecret?: () => string;
 }
 
@@ -48,10 +41,9 @@ export function createServerLifecycle({
   log,
   prepareDatabaseEncryption,
   prepareAuditAnchorKey,
-  prepareAuditAnchorStore,
   getMainWindow,
+  launchHost,
   env = process.env,
-  createEmbeddedServer = createServer,
   generateJwtSecret = () => randomBytes(48).toString('base64url'),
 }: ServerLifecycleDeps): ServerLifecycle {
   // The server may restart around a manual backup or destructive restore.
@@ -64,7 +56,6 @@ export function createServerLifecycle({
     const runtime = resolveRuntimeConfig({ env });
     const encryptionKey = await prepareDatabaseEncryption();
     const auditAnchorKey = await prepareAuditAnchorKey();
-    const auditAnchorStore = await prepareAuditAnchorStore();
 
     log.info(
       {
@@ -77,7 +68,7 @@ export function createServerLifecycle({
       'starting embedded server'
     );
 
-    const nextServer = await createEmbeddedServer({
+    const host = await launchHost({
       dbPath,
       seedData: false,
       port: runtime.bindPort,
@@ -89,15 +80,13 @@ export function createServerLifecycle({
       appVersion,
       encryptionKey,
       auditAnchorKey,
-      auditAnchorStore,
       jwtSecret,
       // Production Electron has a single secure custom renderer origin.
       // Development omits this option to retain the server's localhost defaults.
       ...(isDev ? {} : { corsOrigins: [PACKAGED_RENDERER_ORIGIN] }),
     });
-    await nextServer.listen();
-    log.info({ url: nextServer.getUrl() }, 'embedded server started');
-    return createInProcessServerHost(nextServer);
+    log.info({ url: host.url }, 'embedded server started');
+    return host;
   }
 
   async function stop(): Promise<void> {

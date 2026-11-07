@@ -46,6 +46,12 @@ function ownerRecoveryErrorCode(error: unknown): string {
   return typeof code === 'string' && /^AUTH_[A-Z_]+$/.test(code) ? code : 'INTERNAL_SERVER_ERROR';
 }
 
+function assertTenantId(tenantId: unknown): void {
+  if (typeof tenantId !== 'string' || tenantId.length === 0) {
+    throw new Error('MAIN_TENANT_REQUIRED');
+  }
+}
+
 function assertMainAuditEvent(event: MainAuditEvent): void {
   const nonEmpty = (value: unknown) => typeof value === 'string' && value.length > 0;
   if (
@@ -137,10 +143,22 @@ export function createServerOperations(server: PuntovivoServer): EmbeddedServerO
       assertMainAppSettingKey(key);
       await upsertAppSetting(server.db, key, value);
     },
-    getSyncStatus: tenantId => getDesktopSyncStatus(server.db, tenantId),
-    triggerSync: tenantId => handleDesktopTriggerSync(server.db, tenantId),
-    setSyncConfig: config => handleDesktopSetSyncConfig(server.db, config),
+    async getSyncStatus(tenantId) {
+      assertTenantId(tenantId);
+      return getDesktopSyncStatus(server.db, tenantId);
+    },
+    async triggerSync(tenantId) {
+      assertTenantId(tenantId);
+      return handleDesktopTriggerSync(server.db, tenantId);
+    },
+    async setSyncConfig(config) {
+      if (typeof config !== 'object' || config === null || Array.isArray(config)) {
+        throw new Error('MAIN_SYNC_CONFIG_REJECTED');
+      }
+      return handleDesktopSetSyncConfig(server.db, config);
+    },
     async readRestoreDrillCounts(tenantId) {
+      assertTenantId(tenantId);
       const sqlite = sqliteOf(server.db);
       return sqlite.transaction(() => readTenantRestoreDrillCounts(sqlite, tenantId))();
     },

@@ -15,7 +15,7 @@
  * @module main/session/desktopSession
  */
 
-import { createModuleLogger } from '@puntovivo/server';
+import { createModuleLogger } from '@puntovivo/server/desktop-main';
 
 const sessionLog = createModuleLogger('desktop-session');
 
