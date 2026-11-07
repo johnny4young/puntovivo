@@ -165,15 +165,48 @@ describe('server worker host', () => {
     await host.close();
   });
 
-  it('terminates a worker that does not exit within the grace period', async () => {
+  it('terminates a worker that does not exit within the grace period and fails the stop', async () => {
     const worker = new FakeWorker((message, self) => {
       if (message.type === 'start') self.send({ type: 'started', url: 'http://127.0.0.1:9' });
       // Ignores stop.
     });
     const { host: pending, exits } = start(worker, { stopGraceMs: 10 });
     const host = await pending;
-    await host.close();
+    await assert.rejects(host.close(), /SERVER_WORKER_STOP_TIMEOUT/);
     assert.equal(worker.terminated, 1);
     assert.deepEqual(exits, []);
+  });
+
+  it('fails the stop when the worker exits without reporting a closed server', async () => {
+    const worker = new FakeWorker((message, self) => {
+      if (message.type === 'start') self.send({ type: 'started', url: 'http://127.0.0.1:9' });
+      // Crashes while closing: no stopped reply.
+      if (message.type === 'stop') queueMicrotask(() => self.exit(1));
+    });
+    const { host: pending, exits } = start(worker);
+    const host = await pending;
+    await assert.rejects(host.close(), /SERVER_WORKER_STOP_INCOMPLETE/);
+    await assert.rejects(host.close(), /SERVER_WORKER_STOP_INCOMPLETE/);
+    assert.deepEqual(exits, []);
+  });
+
+  it('treats a worker that exits right after it started as a failed start', async () => {
+    const worker = new FakeWorker((message, self) => {
+      if (message.type === 'start') {
+        self.send({ type: 'started', url: 'http://127.0.0.1:9' });
+        self.exit(1);
+      }
+    });
+    const { host, exits } = start(worker);
+    await assert.rejects(host, /SERVER_WORKER_EXITED/);
+    assert.deepEqual(exits, []);
+  });
+
+  it('sends one stop when close is called twice', async () => {
+    const worker = new FakeWorker(healthyWorker);
+    const { host: pending } = start(worker);
+    const host = await pending;
+    await Promise.all([host.close(), host.close()]);
+    assert.equal(worker.sent.filter(message => message.type === 'stop').length, 1);
   });
 });

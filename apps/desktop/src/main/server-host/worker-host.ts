@@ -54,6 +54,7 @@ export async function startWorkerServerHost(
   let exited = false;
   let lastError: Error | null = null;
   let stopError: Error | null = null;
+  let stoppedReceived = false;
   let onStarted: ((url: string) => void) | null = null;
   let onStartFailed: ((error: Error) => void) | null = null;
   let resolveExit!: () => void;
@@ -78,6 +79,7 @@ export async function startWorkerServerHost(
         return;
       }
       case 'stopped':
+        stoppedReceived = true;
         if (message.error) stopError = deserializeError(message.error);
         return;
     }
@@ -95,7 +97,14 @@ export async function startWorkerServerHost(
     if (!stopping) options.onUnexpectedExit(reason);
   });
 
-  async function stopWorker(): Promise<void> {
+  let stopPromise: Promise<void> | null = null;
+  // Concurrent callers share one stop, so the server closes once.
+  function stopWorker(): Promise<void> {
+    stopPromise ??= stopOnce();
+    return stopPromise;
+  }
+
+  async function stopOnce(): Promise<void> {
     if (exited) return;
     stopping = true;
     worker.postMessage({ type: 'stop' });
@@ -111,7 +120,11 @@ export async function startWorkerServerHost(
     if (!exited) {
       await worker.terminate();
       await exitedPromise;
+      // The server never finished closing, so nothing may touch its files.
+      stopError ??= new Error('SERVER_WORKER_STOP_TIMEOUT');
     }
+    // An exit without the stopped reply means close crashed part way.
+    if (!stoppedReceived) stopError ??= new Error('SERVER_WORKER_STOP_INCOMPLETE');
     // Callers such as a restore must not carry on past a failed close.
     if (stopError) throw stopError;
   }
@@ -125,9 +138,12 @@ export async function startWorkerServerHost(
       onStartFailed = reject;
       worker.postMessage({ type: 'start', options: options.start });
     });
+    // A thread that died while `started` was in flight is not a running server.
+    if (exited) throw lastError ?? new Error('SERVER_WORKER_EXITED: right after start');
     stopping = false;
   } catch (error) {
-    await stopWorker();
+    // The start failure is the cause the caller needs, not the cleanup's.
+    await stopWorker().catch(() => undefined);
     throw error;
   } finally {
     onStarted = null;

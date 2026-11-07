@@ -92,10 +92,6 @@ installProcessCrashHandlers({
   exit: code => app.exit(code),
   proc: process,
 });
-// The server registers its own telemetry inside its worker; main crashes
-// need this thread's adapter. A no-op without a DSN.
-void initServerTelemetryAdapter({ appVersion: app.getVersion() });
-
 // Pin the name before the first userData lookup. Development Electron would
 // otherwise store its DB/key envelope under the generic Electron directory.
 app.setName('Puntovivo');
@@ -125,6 +121,9 @@ if (!packagedRecoveryRequested && !app.requestSingleInstanceLock()) {
 // a packaged build never opens DevTools from an inherited env var.
 const shouldOpenDevTools = !app.isPackaged && process.env.PUNTOVIVO_OPEN_DEVTOOLS === 'true';
 process.env.PUNTOVIVO_RUNTIME_ENV ??= isDev ? 'development' : 'production';
+// The server registers its own telemetry inside its worker; main crashes
+// need this thread's adapter. A no-op without a DSN.
+void initServerTelemetryAdapter({ appVersion: app.getVersion() });
 mainLog.info({ isPackaged: app.isPackaged, isDev }, 'electron runtime detected');
 const authorityRuntime = resolveRuntimeConfig({ env: process.env });
 const hubAuthSession = (() => {

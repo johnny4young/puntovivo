@@ -143,6 +143,11 @@ describe('server host operations', () => {
     assert.equal(typeof status.pendingItems, 'number');
     await assert.rejects(operations.getSyncStatus(undefined as never), /MAIN_TENANT_REQUIRED/);
     await assert.rejects(operations.triggerSync('' as never), /MAIN_TENANT_REQUIRED/);
+    await assert.rejects(operations.readRestoreDrillCounts(''), /MAIN_TENANT_REQUIRED/);
+    await assert.rejects(
+      operations.setSyncConfig(['enabled'] as never),
+      /MAIN_SYNC_CONFIG_REJECTED/
+    );
   });
 
   it('verifies access tokens through the server and rejects garbage', async () => {

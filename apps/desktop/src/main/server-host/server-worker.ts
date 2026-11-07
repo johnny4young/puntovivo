@@ -6,14 +6,13 @@ import { parentPort, type MessagePort } from 'node:worker_threads';
 import {
   captureProcessCrash,
   createModuleLogger,
-  createServer,
   flushServerTelemetry,
   type ServerOptions,
 } from '@puntovivo/server';
 import { createAuditAnchorFileStore } from '../audit-anchor-store.ts';
 import { installProcessCrashHandlers } from '../crash-telemetry.ts';
 import type { EmbeddedServerHost } from './contract.ts';
-import { createInProcessServerHost } from './in-process.ts';
+import { createInProcessLauncher } from './in-process.ts';
 import {
   dispatchCall,
   serializeError,
@@ -45,21 +44,14 @@ async function start(options: WorkerStartOptions): Promise<void> {
   try {
     const serverOptions = options.serverOptions as unknown as ServerOptions;
     const anchorSecret = serverOptions.auditAnchorKey;
-    const auditAnchorStore =
-      options.auditAnchorStore && anchorSecret
-        ? createAuditAnchorFileStore({ ...options.auditAnchorStore, anchorSecret })
-        : undefined;
-    const server = await createServer({
-      ...serverOptions,
-      ...(auditAnchorStore ? { auditAnchorStore } : {}),
-    });
-    try {
-      await server.listen();
-    } catch (error) {
-      await server.close().catch(() => undefined);
-      throw error;
-    }
-    host = createInProcessServerHost(server);
+    // A store location without its secret must not run without the anchor store.
+    if (options.auditAnchorStore && !anchorSecret) throw new Error('AUDIT_ANCHOR_SECRET_MISSING');
+    const auditAnchorStore = options.auditAnchorStore
+      ? createAuditAnchorFileStore({ ...options.auditAnchorStore, anchorSecret: anchorSecret! })
+      : undefined;
+    host = await createInProcessLauncher({
+      prepareAuditAnchorStore: async () => auditAnchorStore,
+    })(serverOptions);
     post({ type: 'started', url: host.url });
   } catch (error) {
     post({ type: 'start-failed', error: serializeError(error) });

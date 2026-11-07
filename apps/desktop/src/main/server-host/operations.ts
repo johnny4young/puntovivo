@@ -151,8 +151,14 @@ export function createServerOperations(server: PuntovivoServer): EmbeddedServerO
       assertTenantId(tenantId);
       return handleDesktopTriggerSync(server.db, tenantId);
     },
-    setSyncConfig: config => handleDesktopSetSyncConfig(server.db, config),
+    async setSyncConfig(config) {
+      if (typeof config !== 'object' || config === null || Array.isArray(config)) {
+        throw new Error('MAIN_SYNC_CONFIG_REJECTED');
+      }
+      return handleDesktopSetSyncConfig(server.db, config);
+    },
     async readRestoreDrillCounts(tenantId) {
+      assertTenantId(tenantId);
       const sqlite = sqliteOf(server.db);
       return sqlite.transaction(() => readTenantRestoreDrillCounts(sqlite, tenantId))();
     },
