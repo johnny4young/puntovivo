@@ -34,9 +34,9 @@
  * `loyaltyProfile` is `undefined`.
  */
 import {
-  lazy,
   Suspense,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -66,6 +66,7 @@ import {
 } from '@/features/sales/electronicInvoiceRequest';
 import type { ElectronicInvoiceFormValues } from '@/features/sales/salePaymentModal.types';
 import { useElectronicInvoiceAvailability } from '@/features/sales/useElectronicInvoiceAvailability';
+import { SaleElectronicInvoiceSection } from '@/features/sales/LazySaleElectronicInvoiceSection';
 import type { Product } from '@/types';
 import { translateServerError } from '@/lib/translateServerError';
 import { onErrorToast } from '@/lib/mutationHelpers';
@@ -73,11 +74,6 @@ import { useIsModuleActive } from '@/features/modules';
 import { PosTouchCategoryTabs, type PosTouchCategoryOption } from './PosTouchCategoryTabs';
 import { PosTouchProductGrid } from './PosTouchProductGrid';
 import { PosTouchCartSidebar, type PosTouchCustomer } from './PosTouchCartSidebar';
-
-const SaleElectronicInvoiceSection = lazy(async () => {
-  const module = await import('@/features/sales/SaleElectronicInvoiceSection');
-  return { default: module.SaleElectronicInvoiceSection };
-});
 
 const CATALOG_PAGE_SIZE = 24;
 const CATALOG_SEARCH_DEBOUNCE_MS = 250;
@@ -136,6 +132,10 @@ export function PosTouchScreen() {
     defaultValues: { invoiceRequested: false, invoiceBuyer: { ...EMPTY_INVOICE_BUYER } },
   });
   const invoiceAvailability = useElectronicInvoiceAvailability(invoiceForm, siteId.length > 0);
+  // A buyer typed at one site never rides along to a ticket at another.
+  useEffect(() => {
+    invoiceForm.reset();
+  }, [invoiceForm, siteId]);
   const invoiceCustomer = useMemo(
     () => customersQuery.data?.items.find(customer => customer.id === selectedCustomer?.id) ?? null,
     [customersQuery.data, selectedCustomer]
@@ -326,6 +326,8 @@ export function PosTouchScreen() {
   function handleClearCart() {
     if (checkoutLockedRef.current) return;
     setCartItems([]);
+    // An abandoned ticket must not hand its buyer to the next customer.
+    invoiceForm.reset();
   }
 
   function handleCustomerChange(customerId: string) {
@@ -368,11 +370,11 @@ export function PosTouchScreen() {
     checkoutLockedRef.current = true;
     ticketEpochRef.current += 1;
     setIsCheckoutLocked(true);
-    const electronicInvoice = buildElectronicInvoiceRequest(
-      invoiceAvailability.available,
-      invoiceValues
-    );
     try {
+      const electronicInvoice = buildElectronicInvoiceRequest(
+        invoiceAvailability.available,
+        invoiceValues
+      );
       await createMutation.mutateAsync({
         customerId: selectedCustomer?.id || undefined,
         priceTier: activePriceTier,

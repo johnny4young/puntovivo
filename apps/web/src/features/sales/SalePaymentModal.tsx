@@ -19,6 +19,7 @@ import { Drawer } from '@/components/feedback/Drawer';
 import { ModalButton } from '@/components/form-controls/Modal';
 import { formatCurrency } from '@/lib/utils';
 import { TENDER_SUM_EPSILON } from './salePaymentModal.constants';
+import { SaleElectronicInvoiceSection } from './LazySaleElectronicInvoiceSection';
 import { asElectronicInvoiceForm } from './electronicInvoiceRequest';
 import { useSalePaymentModal } from './useSalePaymentModal';
 import { CheckoutApprovalPanel } from './CheckoutApprovalPanel';
@@ -47,11 +48,6 @@ const SaleCreditCustomerCard = lazy(async () => {
 const SalePaymentTipSection = lazy(async () => {
   const module = await import('./SalePaymentTipSection');
   return { default: module.SalePaymentTipSection };
-});
-
-const SaleElectronicInvoiceSection = lazy(async () => {
-  const module = await import('./SaleElectronicInvoiceSection');
-  return { default: module.SaleElectronicInvoiceSection };
 });
 
 const CustomerLoyaltyChip = lazy(async () => {

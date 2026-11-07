@@ -748,7 +748,12 @@ describe('PosTouchScreen — customer asked for an electronic invoice', () => {
       available: true,
       identificationTypes: [
         { code: '13', abbr: 'CC', nameEs: 'Cédula de ciudadanía', nameEn: 'Citizenship ID' },
-        { code: '31', abbr: 'NIT', nameEs: 'Número de identificación tributaria', nameEn: 'Tax ID' },
+        {
+          code: '31',
+          abbr: 'NIT',
+          nameEs: 'Número de identificación tributaria',
+          nameEn: 'Tax ID',
+        },
       ],
     };
   });
@@ -824,6 +829,35 @@ describe('PosTouchScreen — customer asked for an electronic invoice', () => {
       expect(screen.getByRole('checkbox', { name: toggleName })).not.toBeChecked()
     );
     expect(screen.queryByLabelText('Name or business name')).not.toBeInTheDocument();
+  });
+
+  it('drops the buyer when the cashier clears the ticket', async () => {
+    const user = userEvent.setup();
+    render(<PosTouchScreen />);
+    await user.click(screen.getByTestId('pos-touch-tile-p-1'));
+    await screen.findByTestId('pos-touch-cart-line-p-1:p-1-unit-1');
+    await user.click(await screen.findByRole('checkbox', { name: toggleName }));
+    await user.type(screen.getByLabelText('Name or business name'), 'Ferretería La 14 SAS');
+
+    await user.click(screen.getByTestId('pos-touch-cart-clear'));
+
+    expect(screen.getByRole('checkbox', { name: toggleName })).not.toBeChecked();
+    await user.click(screen.getByRole('checkbox', { name: toggleName }));
+    expect(screen.getByLabelText('Name or business name')).toHaveValue('');
+  });
+
+  it('drops the buyer when the active site changes', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<PosTouchScreen />);
+    await user.click(await screen.findByRole('checkbox', { name: toggleName }));
+    await user.type(screen.getByLabelText('Name or business name'), 'Ferretería La 14 SAS');
+
+    mockSiteId = 'site-2';
+    rerender(<PosTouchScreen />);
+
+    await waitFor(() =>
+      expect(screen.getByRole('checkbox', { name: toggleName })).not.toBeChecked()
+    );
   });
 
   it('prefills the buyer from the customer attached on the touch cart', async () => {

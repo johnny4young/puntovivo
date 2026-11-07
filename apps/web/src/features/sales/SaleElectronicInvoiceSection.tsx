@@ -59,7 +59,9 @@ export function SaleElectronicInvoiceSection({
 
   useEffect(() => {
     if (!requested) {
+      // A reset form starts the next ticket with nothing to take back.
       appliedCustomerId.current = null;
+      prefilled.current = {};
       return;
     }
     if (appliedCustomerId.current === customerId) return;
