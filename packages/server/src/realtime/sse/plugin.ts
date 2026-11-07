@@ -61,8 +61,10 @@ const ssePluginCallback: FastifyPluginCallback<SsePluginOptions> = (fastify, opt
   // Close waits for open responses, and a stream never ends on its own, so a
   // single subscriber would otherwise hold every stop, backup and restore.
   const openStreams = new Set<() => void>();
+  let closing = false;
   fastify.addHook('preClose', done => {
-    for (const end of [...openStreams]) end();
+    closing = true;
+    for (const end of openStreams) end();
     done();
   });
 
@@ -112,6 +114,14 @@ const ssePluginCallback: FastifyPluginCallback<SsePluginOptions> = (fastify, opt
           .code(403)
           .headers(corsHeaders)
           .send({ error: 'Realtime subscription is not authorized for this role' });
+      }
+
+      // Close or the peer may have gone while the checks above awaited.
+      if (closing || request.raw.destroyed) {
+        return reply
+          .code(503)
+          .headers({ ...corsHeaders, connection: 'close' })
+          .send({ error: 'Realtime is unavailable' });
       }
 
       // Set SSE headers
