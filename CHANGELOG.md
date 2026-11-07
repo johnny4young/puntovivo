@@ -52,6 +52,18 @@ is usable from source, but it is not a new packaged release yet.
   a real alert receiver with ownership, and an observed retail pilot remain
   open gates.
 
+## [1.16.1](https://github.com/johnny4young/puntovivo/compare/v1.16.0...v1.16.1) (2026-11-07)
+
+
+### Bug Fixes
+
+* **desktop:** show the window during the first Windows launch ([dd70380](https://github.com/johnny4young/puntovivo/commit/dd703808e7dbea79991dd6e12944f2bec2f7a4f6))
+* **desktop:** show the window during the first Windows launch ([d84d4b1](https://github.com/johnny4young/puntovivo/commit/d84d4b10c48c374faebfd6e5d2fe029e8823f738))
+* **sales:** ask to rescan a code that fails its check digit ([be03e1e](https://github.com/johnny4young/puntovivo/commit/be03e1ecd2f760175aa6ab85c83c46641730f5f5))
+* **sales:** ask to rescan a code that fails its check digit ([ef7de04](https://github.com/johnny4young/puntovivo/commit/ef7de04625a0d9aa804fae8947b0bf2eaa1c5a89))
+* **seed:** give demo products valid EAN-13 barcodes ([82c530d](https://github.com/johnny4young/puntovivo/commit/82c530d05b4018dd07599d86c64257653e185f90))
+* **seed:** give demo products valid EAN-13 barcodes ([fe2307b](https://github.com/johnny4young/puntovivo/commit/fe2307b266b126b626ddc05539ef4d94534a5fa3))
+
 ## [1.16.0](https://github.com/johnny4young/puntovivo/compare/v1.15.6...v1.16.0) (2026-11-06)
 
 
