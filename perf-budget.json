@@ -220,14 +220,23 @@
   "electronMemoryMb": {
     "$comment": "Electron working-set ceilings in MB per process type (main, renderer, GPU, utility) and for the sum of every process, measured through app.getAppMetrics() by scripts/check-electron-memory.mjs. ci:desktop always uses --strict --require-measurement and fails on an absent measurement or a process above baseline plus threshold; only direct local diagnostic invocation remains warn-first unless those flags are supplied.",
     "thresholdPercent": 25,
-    "$baseline": "Captured locally on macOS and enforced on the Linux CI renderer. gpu, utility and total were added on 2026-11-05 at the larger of two hosts. Three macOS launches at load 14 measured GPU 100.3-106.0, utility 46.7-52.8 and total 472.2-580.7 MB. ubuntu-latest Desktop Workspace runs on Electron 45 start a GPU process only sometimes: the two attempts of run 42142556772 on one commit measured GPU 168.7 and total 651.9 MB, then GPU 0 and total 457.6 MB, with utility 91.4-97.2 MB across runs. gpu and total follow the run with a GPU process. The macOS GPU working set excludes most graphics memory, so these ceilings follow the blur-era working set and should come down once the blur decision lands. The 25% threshold is an explicit cross-platform working-set variance allowance, not permission to normalize the baseline upward; any measurement above the resulting ceiling fails ci:desktop.",
+    "$baseline": "Captured locally on macOS and enforced on the Linux CI renderer. gpu, utility and total were added on 2026-11-05 at the larger of two hosts. Three macOS launches at load 14 measured GPU 100.3-106.0, utility 46.7-52.8 and total 472.2-580.7 MB. ubuntu-latest Desktop Workspace runs on Electron 45 start a GPU process only sometimes: the two attempts of run 42142556772 on one commit measured GPU 168.7 and total 651.9 MB, then GPU 0 and total 457.6 MB, with utility 91.4-97.2 MB across runs. gpu and total follow the run with a GPU process. The macOS GPU working set excludes most graphics memory, so these ceilings follow the blur-era working set and should come down once the blur decision lands. The 25% threshold is an explicit cross-platform working-set variance allowance, not permission to normalize the baseline upward; any measurement above the resulting ceiling fails ci:desktop. On 2026-11-07 the embedded server moved into a worker thread, whose heap is part of the Browser process: the same M4 measured main 277 MB in-process and 299 MB with the worker, total 558 and 577 MB, so main rose by 22 MB to 282 and total by 19 MB to 671.",
     "perProcessMb": {
-      "main": 260,
+      "main": 282,
       "renderer": 165,
       "gpu": 169,
       "utility": 97,
-      "total": 652
+      "total": 671
     }
+  },
+  "electronMainThread": {
+    "$comment": "Main-thread responsiveness while the embedded server works. scripts/check-electron-main-thread.mjs seeds a disposable demo database, launches the built app, sells one-item tickets over loopback HTTP with a 150 ms pause between sales, and reads what the main process measured over windowMs: the share of time a 10 ms timer ran late by 10 ms or more, the worst such stall, and the p99 of a renderer get-app-version IPC round trip sampled every 25 ms. minSales proves the workload really ran.",
+    "windowMs": 15000,
+    "$baseline": "Server in-process on the main thread, 2026-11-07: hosted ubuntu-latest measured 21.3% blocked, 33 ms worst stall, 27.1 ms IPC p99 and 796 sales; a loaded M4 Max measured 22.5%, 30.5 ms, 29.8 ms and 932, and 62.4% blocked at load 18 because a starved main thread fires its timer late too. With the server in a worker thread the same M4 measured 0% blocked, 0 ms worst stall, 0.3 ms IPC p99 and 946 sales. The limits sit far below the in-process values so a regression back onto the main thread fails, and leave room for host contention.",
+    "maxBlockedPercent": 5,
+    "maxStallMs": 100,
+    "maxIpcP99Ms": 15,
+    "minSales": 100
   },
   "longShiftSoak": {
     "$comment": "Opt-in same-renderer leak contract. The web soak keeps one authenticated React tree alive, warms the finite route/query caches, then forces Chromium GC before each checkpoint. Ceilings apply only to retained final-minus-baseline growth; transient peaks are diagnostic, not leaks.",

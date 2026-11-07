@@ -7,7 +7,7 @@
 import { app } from 'electron';
 import { mkdir, rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import { createModuleLogger } from '@puntovivo/server';
+import { createModuleLogger } from '@puntovivo/server/desktop-main';
 import { DEVICE_ID_FILENAME } from '../../device-id-store.js';
 
 // `backup` is one of the frequent-error surfaces split out of

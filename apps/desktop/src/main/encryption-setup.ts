@@ -61,6 +61,10 @@ export interface EncryptionSetup {
   resolveAuditAnchorKey: () => Promise<string>;
   /** Durable freshness state; unavailable only to shared env-key dev/E2E installs. */
   resolveAuditAnchorStore: () => Promise<AuditAnchorStore | undefined>;
+  /** Where the server worker opens that state, after any legacy conversion. */
+  resolveAuditAnchorStoreLocation: () => Promise<
+    { dataDir: string; platform: NodeJS.Platform } | undefined
+  >;
   replaceAuditAnchorState: (
     points: ReadonlyArray<{ tenantId: string } & AuditAnchorPoint>
   ) => Promise<void>;
@@ -215,6 +219,15 @@ export function createEncryptionSetup({
     return cachedAnchorStore;
   }
 
+  async function resolveAuditAnchorStoreLocation(): Promise<
+    { dataDir: string; platform: NodeJS.Platform } | undefined
+  > {
+    // Creating the main-side store runs the one-time safeStorage conversion.
+    return (await resolveAuditAnchorStore())
+      ? { dataDir: getDbKeyDir(dbPath), platform }
+      : undefined;
+  }
+
   async function replaceAuditAnchorState(
     points: ReadonlyArray<{ tenantId: string } & AuditAnchorPoint>
   ): Promise<void> {
@@ -301,6 +314,7 @@ export function createEncryptionSetup({
     prepareDatabaseEncryption,
     resolveAuditAnchorKey,
     resolveAuditAnchorStore,
+    resolveAuditAnchorStoreLocation,
     replaceAuditAnchorState,
     getBackupProtectionStatus,
     rotateDatabaseKey,

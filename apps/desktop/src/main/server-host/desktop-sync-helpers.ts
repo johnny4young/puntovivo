@@ -1,12 +1,18 @@
 /**
- * sync-bridge helpers + constants extracted from ipc/sync.ts
- * (slice-7 668-LOC file split to clear the 500 ceiling). Electron-free
- * (DB via runtime.ts), node --test-able.
- * @module main/ipc/sync-helpers
+ * Desktop sync bridge helpers and constants.
+ * Electron-free; runs next to the embedded server.
+ * @module main/server-host/desktop-sync-helpers
  */
 import { randomUUID } from 'node:crypto';
 import { and, eq, inArray, sql, appSettings, syncConflicts, syncOutbox } from '@puntovivo/server';
-import { getServerDatabase, getSqliteClient } from '../runtime.js';
+import type { PuntovivoServer } from '@puntovivo/server';
+
+/** The server database the sync bridge works on. */
+export type SyncDatabase = PuntovivoServer['db'];
+
+function sqliteOf(database: SyncDatabase): import('better-sqlite3').Database {
+  return (database as SyncDatabase & { $client: import('better-sqlite3').Database }).$client;
+}
 
 export const DESKTOP_SYNC_CONFIG_KEY = 'desktop_sync_config';
 export const LAST_SYNC_KEY_PREFIX = 'sync_last_sync:';
@@ -108,9 +114,10 @@ export function desktopProcessableSyncWhere(tenantId: string) {
   );
 }
 
-export async function getLastSyncAt(tenantId?: string): Promise<string | null> {
-  const database = getServerDatabase();
-
+export async function getLastSyncAt(
+  database: SyncDatabase,
+  tenantId?: string
+): Promise<string | null> {
   if (tenantId) {
     const row = await database
       .select({ value: appSettings.value })
@@ -131,8 +138,11 @@ export async function getLastSyncAt(tenantId?: string): Promise<string | null> {
   return typeof row?.value === 'string' ? row.value : null;
 }
 
-export async function saveLastSyncAt(tenantId: string, value: string): Promise<void> {
-  const database = getServerDatabase();
+export async function saveLastSyncAt(
+  database: SyncDatabase,
+  tenantId: string,
+  value: string
+): Promise<void> {
   const key = getLastSyncKey(tenantId);
   const existing = await database
     .select({ key: appSettings.key })
@@ -160,11 +170,12 @@ export async function saveLastSyncAt(tenantId: string, value: string): Promise<v
 }
 
 export function findLocalSyncEntity(
+  database: SyncDatabase,
   tableName: keyof typeof SYNC_ENTITY_CONFIG,
   tenantId: string,
   entityId: string
 ): boolean {
-  const sqlite = getSqliteClient().$client;
+  const sqlite = sqliteOf(database);
 
   if (tableName === 'sale_items') {
     const row = sqlite
@@ -230,6 +241,7 @@ export function findLocalSyncEntity(
 }
 
 export function markSyncEntityAsSynced(
+  database: SyncDatabase,
   tableName: keyof typeof SYNC_ENTITY_CONFIG,
   tenantId: string,
   entityId: string,
@@ -240,7 +252,7 @@ export function markSyncEntityAsSynced(
     return;
   }
 
-  const sqlite = getSqliteClient().$client;
+  const sqlite = sqliteOf(database);
   const statement = config.touchUpdatedAt
     ? sqlite.prepare(
         `UPDATE ${config.tableName}
@@ -262,6 +274,7 @@ export function markSyncEntityAsSynced(
 }
 
 export async function incrementQueueFailure(
+  database: SyncDatabase,
   tenantId: string,
   queueId: string,
   message: string
@@ -270,7 +283,7 @@ export async function incrementQueueFailure(
   // column, not a plain text. Mirrors `markOutboxFailure` in the
   // server router. Status flips to `retrying` so a subsequent
   // operator retry path picks the row up.
-  await getServerDatabase()
+  await database
     .update(syncOutbox)
     .set({
       status: 'retrying',
@@ -283,13 +296,13 @@ export async function incrementQueueFailure(
 }
 
 export async function ensurePendingConflict(
+  database: SyncDatabase,
   tenantId: string,
   entityType: string,
   entityId: string,
   localData: Record<string, unknown>,
   remoteData: Record<string, unknown>
 ): Promise<string> {
-  const database = getServerDatabase();
   const existingConflict = await database
     .select({ id: syncConflicts.id })
     .from(syncConflicts)

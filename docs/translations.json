@@ -274,6 +274,10 @@
       "es": "docs/es/architecture/0031-human-review-of-ai-payment-proposals.md"
     },
     {
+      "en": "docs/architecture/0032-embedded-server-worker-thread.md",
+      "es": "docs/es/architecture/0032-embedded-server-worker-thread.md"
+    },
+    {
       "en": "docs/architecture/patterns/operation-journal.md",
       "es": "docs/es/architecture/patterns/operation-journal.md"
     },

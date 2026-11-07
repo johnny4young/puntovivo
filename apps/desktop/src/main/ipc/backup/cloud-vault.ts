@@ -1,6 +1,6 @@
 /** admin-gated S3-compatible backup vault IPC boundary. */
 
-import { createModuleLogger } from '@puntovivo/server';
+import { createModuleLogger } from '@puntovivo/server/desktop-main';
 import {
   BackupCloudVaultError,
   type BackupCloudVaultConfigInput,

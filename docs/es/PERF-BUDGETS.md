@@ -588,6 +588,41 @@ Los helpers puros de comparación/análisis tienen pruebas unitarias en
 queda fijado por `scripts/run-electron-memory-gate.test.mjs`; ambos se ejecutan
 antes del inicio real de medición de memoria en `ci:desktop`.
 
+### Fluidez del hilo principal de Electron (estricto en CI, advertencia inicial local)
+
+`scripts/check-electron-main-thread.mjs` mide cuánto traba el trabajo del
+servidor al hilo principal de Electron, que maneja ventanas, menús y cada
+llamada IPC del renderer. Siembra una base demo desechable con el script
+compilado `seed-dev`, le sube el stock para que la ventana no se quede sin
+existencias, y lanza la app compilada con `PUNTOVIVO_MEASURE_MAIN_THREAD=1` con
+el mismo runner de preview que la compuerta de memoria
+(`run-electron-memory-gate.mjs --check=main-thread`). Cuando el renderer
+monta, el proceso principal imprime `PUNTOVIVO_MAIN_THREAD_READY` con la URL de
+la API. La compuerta inicia sesión como la cajera del fixture por HTTP de
+loopback, registra un dispositivo y vende tickets de un ítem sin pausa: una
+búsqueda de producto, `sales.create` con sobre de comando y la recarga de la
+sesión activa. La ventana satura al servidor embebido a propósito.
+
+Durante `perf-budget.json::electronMainThread.windowMs`, el proceso principal
+corre un temporizador de 10 ms y cuenta como bloqueo cada disparo que llega 10
+ms tarde o más, mientras el renderer invoca el canal trivial `get-app-version`
+cada 25 ms. Imprime `PUNTOVIVO_MAIN_THREAD_METRICS=<json>` y cierra. Con
+`--strict`, la compuerta falla si el porcentaje bloqueado, el peor bloqueo o
+el p99 de IPC pasan su límite, o si se completaron menos de `minSales` ventas,
+señal de que la carga nunca llegó al servidor. `--require-measurement` vuelve
+fallo la falta de build, seed, lanzamiento, carga o línea de métricas.
+
+Los límites son absolutos, sin umbral porcentual, porque la métrica es una
+cola de latencia. Una lectura local es indicativa: la contención de CPU de
+otros procesos también atrasa al muestreador. Con el servidor todavía en el
+hilo principal, ubuntu hospedado midió 21.3% bloqueado y un p99 de IPC de 27.1
+ms, mientras una máquina local cargada llegó a 62.4% bloqueado; por eso los
+límites en proceso son holgados.
+`scripts/check-electron-main-thread.test.mjs` fija los helpers y la secuencia
+de peticiones de la carga, y
+`apps/desktop/src/main/__tests__/main-thread-probe.test.ts` fija el
+muestreador.
+
 ### Métricas web de Lighthouse (estricto en CI, advertencia inicial local)
 
 `scripts/run-lighthouse-gate.mjs` es el ejecutor de CI. Garantiza que exista

@@ -120,6 +120,38 @@ describe('SSE realtime tenant boundary', () => {
     expect(anonymous.writes).toHaveLength(0);
   });
 
+  it('ends open streams when the server closes instead of waiting on them', async () => {
+    server = await createServer({ dbPath: ':memory:', verbose: false, port: 0, host: '127.0.0.1' });
+    await server.listen();
+    const db = getDatabase();
+    const admin = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
+    if (!admin) throw new Error('Expected seeded admin user');
+    const token = signAccessToken(server.app, admin);
+
+    const response = await fetch(`${server.getUrl()}/api/realtime/subscribe`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const reader = response.body!.getReader();
+    const first = new TextDecoder().decode((await reader.read()).value);
+    expect(first).toContain('event: connected');
+    expect(server.app.sse.getClientCount()).toBe(1);
+
+    const closing = server.close();
+    server = null;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const outcome = await Promise.race([
+      closing.then(() => 'closed'),
+      new Promise(resolve => {
+        timer = setTimeout(() => resolve('still waiting on the stream'), 3_000);
+      }),
+    ]);
+    clearTimeout(timer);
+    expect(outcome).toBe('closed');
+    while (!(await reader.read()).done) {
+      // drain until the server ends the stream
+    }
+  });
+
   it('revalidates the canonical access session so revocation closes the stream', async () => {
     server = await createServer({ dbPath: ':memory:', verbose: false });
     const db = getDatabase();

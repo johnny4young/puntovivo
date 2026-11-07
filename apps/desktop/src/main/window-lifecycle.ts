@@ -15,6 +15,7 @@ import {
   buildMainWindowWebPreferences,
 } from './window-config.js';
 import { createSingleFlight } from './single-flight.js';
+import { installMainThreadMeasurement } from './main-thread-measurement.js';
 import { whenServerReady } from './runtime.js';
 
 const RENDERER_LEVEL_MAP = {
@@ -281,6 +282,14 @@ export function createWindowLifecycle({
               shutdown();
             });
         }, 2000);
+      });
+    }
+
+    if (process.env.PUNTOVIVO_MEASURE_MAIN_THREAD === '1') {
+      installMainThreadMeasurement({
+        webContents: mainWindow.webContents,
+        stopEmbeddedServer,
+        log,
       });
     }
 

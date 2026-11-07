@@ -1,5 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import type { PuntovivoServer } from '@puntovivo/server';
+import { createServerOperations } from '../server-host/operations.ts';
 import { createOwnerRecoveryHandlers } from '../session/owner-recovery.ts';
 
 type Dependencies = Parameters<typeof createOwnerRecoveryHandlers>[0];
@@ -22,7 +24,8 @@ function fixture(overrides: Partial<Dependencies> = {}, recover?: (input: unknow
   };
   const deps: Dependencies = {
     getMainWindow: () => window,
-    getServer: () => server as unknown as ReturnType<Dependencies['getServer']>,
+    // The real operations map recovery errors to stable codes.
+    getServerHost: () => createServerOperations(server as unknown as PuntovivoServer),
     isHubClient: false,
     isDev: false,
     webDevServerUrl: 'http://localhost:3000',
@@ -31,9 +34,9 @@ function fixture(overrides: Partial<Dependencies> = {}, recover?: (input: unknow
   return { event, sender, calls, handlers: createOwnerRecoveryHandlers(deps) };
 }
 
-test('forwards the request from the local main window to the in-process server', async () => {
+test('forwards the request from the local main window to the embedded server', async () => {
   const f = fixture();
-  assert.deepEqual(f.handlers.status(f.event), { available: true });
+  assert.deepEqual(await f.handlers.status(f.event), { available: true });
   const input = { email: 'owner@example.com', newPassword: 'FreshOwnerPassword42!' };
   assert.deepEqual(await f.handlers.recover(f.event, input), { ok: true });
   assert.deepEqual(f.calls, [input]);
@@ -55,7 +58,7 @@ test('refuses hub clients, foreign frames and untrusted origins without calling 
       label === 'subframe'
         ? { ...f.event, senderFrame: { url: f.event.senderFrame.url } }
         : f.event;
-    assert.deepEqual(f.handlers.status(event), { available: false }, label);
+    assert.deepEqual(await f.handlers.status(event), { available: false }, label);
     assert.deepEqual(
       await f.handlers.recover(event, {}),
       { ok: false, errorCode: 'AUTH_LOCAL_RECOVERY_UNAVAILABLE' },

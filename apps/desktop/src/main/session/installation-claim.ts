@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import type { PuntovivoServer } from '@puntovivo/server';
+import type { EmbeddedServerHost } from '../server-host/contract.ts';
 
 /** Structural Electron-free identity guard: object equality is intentional, not renderer IDs. */
 interface SetupSender {
@@ -25,7 +25,7 @@ export interface MainFrameTrust {
 }
 /** Runtime-owned handles and trust configuration for the fixed first-use command. */
 interface SetupClaimDependencies extends MainFrameTrust {
-  getServer: () => Pick<PuntovivoServer, 'getSetupToken' | 'app'> | null;
+  getServerHost: () => Pick<EmbeddedServerHost, 'getSetupToken' | 'inject'> | null;
 }
 
 /** Safe renderer result: no capability, transport detail, or credential crosses this boundary. */
@@ -82,14 +82,14 @@ export function createInstallationClaimHandler(options: SetupClaimDependencies) 
       return { ok: false, errorCode: 'SETUP_LOCAL_ACCESS_REQUIRED' };
     }
     try {
-      const server = options.getServer();
-      const token = server?.getSetupToken();
-      if (!server || !token) return { ok: false, errorCode: 'SETUP_ALREADY_COMPLETED' };
+      const host = options.getServerHost();
+      const token = host ? await host.getSetupToken() : null;
+      if (!host || !token) return { ok: false, errorCode: 'SETUP_ALREADY_COMPLETED' };
       if (!input || typeof input !== 'object' || Array.isArray(input)) {
         return { ok: false, errorCode: 'VALIDATION_ERROR' };
       }
       const csrf = randomBytes(32).toString('base64url');
-      const response = await server.app.inject({
+      const response = await host.inject({
         method: 'POST',
         url: '/api/trpc/auth.completeSetup?batch=1',
         remoteAddress: '127.0.0.1',
@@ -101,7 +101,7 @@ export function createInstallationClaimHandler(options: SetupClaimDependencies) 
         cookies: { puntovivo_csrf: csrf },
         payload: { '0': { ...input, token } },
       });
-      const data = response.json()[0];
+      const data = JSON.parse(response.body)[0];
       if (response.statusCode === 200 && data?.result?.data?.created === true) return { ok: true };
       // Never forward SQL messages, paths, stack traces, secrets or invoke errors.
       const code: unknown = data?.error?.data?.errorCode;
