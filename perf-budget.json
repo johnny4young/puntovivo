@@ -232,10 +232,11 @@
   "electronMainThread": {
     "$comment": "Main-thread responsiveness while the embedded server works. scripts/check-electron-main-thread.mjs seeds a disposable demo database, launches the built app, sells one-item tickets over loopback HTTP with a 150 ms pause between sales, and reads what the main process measured over windowMs: the share of time a 10 ms timer ran late by 10 ms or more, the worst such stall, and the p99 of a renderer get-app-version IPC round trip sampled every 25 ms. minSales proves the workload really ran.",
     "windowMs": 15000,
-    "maxBlockedPercent": 60,
-    "maxStallMs": 1500,
-    "maxIpcP99Ms": 1500,
-    "minSales": 10
+    "$baseline": "Server in-process on the main thread, 2026-11-07: hosted ubuntu-latest measured 21.3% blocked, 33 ms worst stall, 27.1 ms IPC p99 and 796 sales; a loaded M4 Max measured 22.5%, 30.5 ms, 29.8 ms and 932. The same M4 at load 18 measured 62.4% blocked, because a starved main thread fires its timer late too, so these limits leave room for host contention and only keep that baseline from getting much worse.",
+    "maxBlockedPercent": 80,
+    "maxStallMs": 500,
+    "maxIpcP99Ms": 500,
+    "minSales": 100
   },
   "longShiftSoak": {
     "$comment": "Opt-in same-renderer leak contract. The web soak keeps one authenticated React tree alive, warms the finite route/query caches, then forces Chromium GC before each checkpoint. Ceilings apply only to retained final-minus-baseline growth; transient peaks are diagnostic, not leaks.",

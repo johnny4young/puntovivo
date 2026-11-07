@@ -566,7 +566,9 @@ a missing build, seed, launch, workload or metrics line into a failure.
 
 The limits are absolute, without a percentage threshold, because the metric
 is a latency tail. Treat a single local reading as indicative: CPU contention
-from other processes delays the sampler too. `scripts/check-electron-main-thread.test.mjs`
+from other processes delays the sampler too. With the server still on the main
+thread, hosted ubuntu measured 21.3% blocked and a 27.1 ms IPC p99, while a
+loaded local machine reached 62.4% blocked, so the in-process limits are loose. `scripts/check-electron-main-thread.test.mjs`
 pins the helpers and the workload's request sequence, and
 `apps/desktop/src/main/__tests__/main-thread-probe.test.ts` pins the sampler.
 
