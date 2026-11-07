@@ -172,6 +172,8 @@
     "FISCAL_REGIMEN_INVALID": "The fiscal regime or business activity code is not in the catalog. Pick one of the supported codes.",
     "FISCAL_RUT_INVALID": "The Chilean issuer RUT is not valid. Check format (body-verifier digit), and that the verifier digit matches the body.",
     "FISCAL_NIT_INVALID": "The Colombian issuer NIT is not valid: check the verification digit (for example 900373115-3).",
+    "ELECTRONIC_INVOICE_UNAVAILABLE": "This site cannot issue an electronic invoice right now. Clear the request to charge with the POS document.",
+    "ELECTRONIC_INVOICE_BUYER_INVALID": "Check the buyer details for the electronic invoice.",
     "FISCAL_NUMBERING_RANGE_INVALID": "The DIAN numbering range is not valid. The starting consecutive must be a positive number and cannot be greater than the ending consecutive.",
     "FISCAL_RETURN_SNAPSHOT_UNKNOWN": "No sale-time product description was recorded, so no credit note can be issued.",
     "FISCAL_LINE_SNAPSHOT_UNKNOWN": "This line has no sale-time product description, so it cannot be placed on a fiscal document.",

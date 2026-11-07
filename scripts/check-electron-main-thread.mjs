@@ -26,13 +26,13 @@ import { dirname, join, resolve } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
+import { ensureNativeRuntime } from './check-electron-memory.mjs';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const BUDGET_PATH = join(REPO_ROOT, 'perf-budget.json');
 const ELECTRON_MAIN_ENTRY = join(REPO_ROOT, 'apps', 'desktop', '.vite', 'build', 'index.cjs');
 const DESKTOP_PACKAGE_JSON = join(REPO_ROOT, 'apps', 'desktop', 'package.json');
 const SEED_SCRIPT = join(REPO_ROOT, 'packages', 'server', 'dist', 'scripts', 'seed-dev.js');
-const ENSURE_NATIVE_RUNTIME_SCRIPT = join(REPO_ROOT, 'scripts', 'ensure-native-runtime.mjs');
 /** Throwaway key for the disposable fixture, like the memory gate's. */
 const MEASURE_DB_KEY = 'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd';
 /** Demo fixture cashier; DEV-SEED.md documents the account and password. */
@@ -82,6 +82,8 @@ export function compareToMainThreadBudget({ metrics, workload, budget }) {
     ['main thread blocked %', metrics.mainThread.blockedPercent, budget.maxBlockedPercent, 'max'],
     ['worst main-thread stall ms', metrics.mainThread.maxStallMs, budget.maxStallMs, 'max'],
     ['IPC round trip p99 ms', metrics.ipc.p99, budget.maxIpcP99Ms, 'max'],
+    // Without samples the p99 reads 0 and would pass unmeasured.
+    ['IPC samples', metrics.ipc.count, 1, 'min'],
     ['sales during the window', workload.salesInWindow, budget.minSales, 'min'],
   ].map(([name, actual, limit, kind]) => ({
     name,
@@ -239,20 +241,6 @@ export function createSaleWorkload({ serverUrl, fetchImpl = fetch, thinkMs = THI
   };
 }
 
-function ensureNativeRuntime(runtime) {
-  const run = spawnSync(process.execPath, [ENSURE_NATIVE_RUNTIME_SCRIPT, runtime], {
-    cwd: REPO_ROOT,
-    encoding: 'utf8',
-    timeout: 120_000,
-    killSignal: 'SIGKILL',
-  });
-  if (run.status === 0) return true;
-  console.warn(
-    `check-electron-main-thread: WARN skipped — ${runtime} native runtime unavailable:\n${[run.stderr, run.stdout].filter(Boolean).join('\n').trim()}`
-  );
-  return false;
-}
-
 function seedFixture(dbPath) {
   const run = spawnSync(process.execPath, [SEED_SCRIPT], {
     cwd: join(REPO_ROOT, 'packages', 'server'),
@@ -317,13 +305,21 @@ export async function launchAndMeasure({ windowMs }) {
     );
     return null;
   }
-  if (!ensureNativeRuntime('node') || !ensureNativeRuntime('electron')) return null;
+  const nativeLabel = { label: 'check-electron-main-thread' };
+  if (!ensureNativeRuntime('node', nativeLabel) || !ensureNativeRuntime('electron', nativeLabel)) {
+    return null;
+  }
 
   const workDir = mkdtempSync(join(tmpdir(), 'puntovivo-main-thread-'));
   const dbPath = join(workDir, 'fixture.db');
   const startFile = join(workDir, 'start');
   try {
-    seedFixture(dbPath);
+    try {
+      seedFixture(dbPath);
+    } catch (err) {
+      console.warn(`check-electron-main-thread: WARN skipped — ${err.message}`);
+      return null;
+    }
     const isLinux = process.platform === 'linux';
     const electronArgs = [ELECTRON_MAIN_ENTRY, `--user-data-dir=${join(workDir, 'profile')}`];
     // Same reason as the memory gate: CI runners lack a configured SUID helper.
@@ -333,6 +329,8 @@ export async function launchAndMeasure({ windowMs }) {
       isLinux ? ['-a', electronBin, ...electronArgs] : electronArgs,
       {
         cwd: REPO_ROOT,
+        // xvfb-run forks Electron and Xvfb, so kill the whole group on Linux.
+        detached: isLinux,
         stdio: ['ignore', 'pipe', 'pipe'],
         env: {
           ...process.env,
@@ -350,8 +348,24 @@ export async function launchAndMeasure({ windowMs }) {
     let workloadStop = false;
     let workloadRun = null;
     let workloadError = null;
-    const exited = new Promise(resolvePromise => child.once('exit', resolvePromise));
-    const timeout = setTimeout(() => child.kill('SIGKILL'), LAUNCH_TIMEOUT_MS);
+    let launchError = null;
+    const stopChild = () => {
+      try {
+        if (isLinux && child.pid) process.kill(-child.pid, 'SIGKILL');
+        else child.kill('SIGKILL');
+      } catch {
+        // Already gone.
+      }
+    };
+    const exited = new Promise(resolvePromise => {
+      child.once('exit', resolvePromise);
+      // A failed spawn emits only 'error'.
+      child.once('error', error => {
+        launchError = error;
+        resolvePromise();
+      });
+    });
+    const timeout = setTimeout(stopChild, LAUNCH_TIMEOUT_MS);
     child.stderr.on('data', chunk => process.stderr.write(chunk));
     child.stdout.on('data', chunk => {
       stdout += String(chunk);
@@ -370,6 +384,8 @@ export async function launchAndMeasure({ windowMs }) {
             })
             .catch(error => {
               workloadError = error;
+              // Main would otherwise wait minutes for a start file that never comes.
+              stopChild();
               return null;
             });
         }
@@ -382,6 +398,10 @@ export async function launchAndMeasure({ windowMs }) {
     const workload = workloadRun ? await workloadRun : null;
     const skip = /^PUNTOVIVO_MAIN_THREAD_SKIP=(.+)$/m.exec(stdout)?.[1];
     const metrics = parseJsonLine(stdout, 'PUNTOVIVO_MAIN_THREAD_METRICS');
+    if (launchError)
+      console.warn(
+        `check-electron-main-thread: WARN skipped — launch failed: ${launchError.message}`
+      );
     if (workloadError)
       console.warn(`check-electron-main-thread: workload failed: ${workloadError.message}`);
     if (skip) console.warn(`check-electron-main-thread: measurement skipped: ${skip}`);

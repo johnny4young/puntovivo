@@ -28,9 +28,16 @@ import {
   windowReturnedAmountSql,
 } from '../../../services/reports/net-sales.js';
 import { getRevenueEligibleSaleConditions } from './helpers.js';
+import { getElectronicInvoiceAvailability } from '../../../application/sales/electronicInvoice.js';
 import { ensureTenantSite } from '../../middleware/tenantSite.js';
 
 export const salesQueryProcedures = {
+  /** Whether checkout may offer the buyer an electronic invoice at the active site. */
+  electronicInvoiceAvailability: cashierManagerOrAdminProcedure.query(async ({ ctx }) => {
+    if (!ctx.siteId) return { available: false, identificationTypes: [] };
+    await ensureTenantSite(ctx.db, ctx.tenantId, ctx.siteId);
+    return getElectronicInvoiceAvailability(ctx.db, ctx.tenantId, ctx.siteId);
+  }),
   summary: tenantProcedure.query(async ({ ctx }) => {
     const now = new Date();
     const startOfToday = new Date(now);

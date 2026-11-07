@@ -47,7 +47,11 @@ function taxSubtotals(currency: string, line: FiscalAdapterLine): string {
     .join('');
 }
 
-function documentShape(kind: FiscalAdapterIssueInput['kind']) {
+function documentShape(
+  kind: FiscalAdapterIssueInput['kind'],
+  originalKind: FiscalAdapterIssueInput['originalKind']
+) {
+  const correctsInvoice = originalKind === 'FEV';
   if (kind === 'NC') {
     return {
       root: 'CreditNote',
@@ -55,8 +59,8 @@ function documentShape(kind: FiscalAdapterIssueInput['kind']) {
       line: 'CreditNoteLine',
       quantity: 'CreditedQuantity',
       typeElement: 'CreditNoteTypeCode',
-      // 94 = nota de ajuste crédito al documento equivalente.
-      typeCode: '94',
+      // 91 = nota crédito de la factura; 94 = nota de ajuste crédito al documento equivalente.
+      typeCode: correctsInvoice ? '91' : '94',
     } as const;
   }
   if (kind === 'ND') {
@@ -66,8 +70,8 @@ function documentShape(kind: FiscalAdapterIssueInput['kind']) {
       line: 'DebitNoteLine',
       quantity: 'DebitedQuantity',
       typeElement: 'DebitNoteTypeCode',
-      // 93 = nota de ajuste débito al documento equivalente.
-      typeCode: '93',
+      // 92 = nota débito de la factura; 93 = nota de ajuste débito al documento equivalente.
+      typeCode: correctsInvoice ? '92' : '93',
     } as const;
   }
   return {
@@ -89,7 +93,7 @@ export function buildColombiaUbl21DraftXml(
   input: FiscalAdapterIssueInput,
   documentCode: string
 ): string {
-  const shape = documentShape(input.kind);
+  const shape = documentShape(input.kind, input.originalKind);
   const scheme = input.kind === 'FEV' ? 'CUFE-SHA384' : 'CUDE-SHA384';
   const uuid = `<cbc:UUID schemeID="${escapeXml(input.environment)}" schemeName="${scheme}">${escapeXml(documentCode)}</cbc:UUID>`;
   const currency = escapeXml(input.currencyCode);

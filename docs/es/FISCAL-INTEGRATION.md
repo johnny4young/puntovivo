@@ -34,6 +34,59 @@ el país o la configuración del proveedor del negocio.
 - Secretos, claves privadas, certificados crudos y credenciales del proveedor
   nunca entran en metadatos de auditoría ni respuestas visibles al renderer.
 
+## Colombia: documento equivalente o factura electrónica
+
+Toda venta en Colombia expide el documento equivalente electrónico tiquete POS
+(DEE), sin importar el monto. La venta expide una factura electrónica de venta
+(FEV) solo cuando el cajero marca que el comprador la pidió, y solo entonces el
+cobro pide los datos del adquirente. No hay umbral automático de 5 UVT ni ajuste
+de UVT.
+
+Lo que dicen las normas, leídas en el normograma de la DIAN (actualizado el 28
+de octubre de 2026):
+
+| Regla                                                                                                                                   | Fuente                                                                                                                                                                                                                                                                                       |
+| --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| El DEE se puede expedir "independientemente del valor de la operación"                                                                  | [Res. DIAN 000227 del 23 sep 2025](https://normograma.dian.gov.co/dian/compilacion/docs/resolucion_dian_0227_2025.htm), art. 1.5.1.3.2.1, parágrafo (antes [Res. 000165 del 1 nov 2023](https://normograma.dian.gov.co/dian/compilacion/docs/resolucion_dian_0165_2023.htm), art. 16)        |
+| La doctrina DIAN lo lee igual                                                                                                           | [Concepto 1563 del 4 mar 2024](https://normograma.dian.gov.co/dian/compilacion/docs/oficio_dian_1563_2024.htm), pregunta 2; [Concepto 23570 del 27 dic 2024](https://normograma.dian.gov.co/dian/compilacion/docs/oficio_dian_23570_2024.htm)                                                |
+| Quien expide documentos equivalentes siempre puede expedir FEV en su lugar                                                              | Res. 000227/2025, arts. 1.5.1.3.1.1 y 1.5.1.3.1.2, parágrafo; [Concepto 1874 del 12 feb 2025](https://normograma.dian.gov.co/dian/compilacion/docs/oficio_dian_1874_2025.htm)                                                                                                                |
+| El comprador puede pedir FEV y entonces se debe expedir                                                                                 | [Estatuto Tributario](https://normograma.dian.gov.co/dian/compilacion/docs/estatuto_tributario.htm), art. 616-1, parágrafo 2 (Ley 2155 de 2021); [Decreto 1625 de 2016](https://normograma.dian.gov.co/dian/compilacion/docs/decreto_1625_2016.htm), art. 1.6.1.4.26 (Decreto 442 de 2023)   |
+| Los datos del adquirente se piden solo si pide el documento a su nombre: nombre o razón social, tipo y número de identificación, correo | Res. 000227/2025, art. 1.5.1.12.3 y su parágrafo 1 (antes Res. 165/2023 art. 69, adicionado por la [Res. 000202 del 31 mar 2025](https://normograma.dian.gov.co/dian/compilacion/docs/resolucion_dian_0202_2025.htm)). El correo es opcional si se entrega la representación gráfica impresa |
+| Un DEE sin identificar al adquirente ("consumidor final", 222222222222) no soporta costos ni impuestos descontables                     | Res. 000227/2025, art. 1.5.1.3.2.4, parágrafo 1                                                                                                                                                                                                                                              |
+| El documento físico por fallas del vendedor no tiene regla de monto                                                                     | Res. 000227/2025, art. 1.5.1.5.7.1, numeral 2.2                                                                                                                                                                                                                                              |
+| La UVT de 2026 es de $52.374                                                                                                            | [Res. DIAN 000238 del 15 dic 2025](https://normograma.dian.gov.co/dian/compilacion/docs/resolucion_dian_0238_2025.htm), que sustituye el art. 1.2.1 de la Res. 227/2025                                                                                                                      |
+
+De dónde sale la cifra de 5 UVT: el segundo inciso del parágrafo 2 del art.
+616-1 del Estatuto Tributario todavía dice que el "tiquete de máquina
+registradora con sistema POS" se puede expedir hasta 5 UVT, y la
+[Res. 1092 del 1 jul 2022](https://normograma.dian.gov.co/dian/compilacion/docs/resolucion_dian_1092_2022.htm)
+fijó el calendario de 2023 para ese tope.
+
+Nuestra interpretación: ese tope rige el tiquete POS tradicional, que no se
+transmitía. La Res. 165/2023 lo sustituyó por el DEE con el calendario de 2024,
+mantuvo las reglas del tiquete viejo solo hasta la fecha de cada contribuyente
+(art. 68), y sus considerandos citan el límite de 5 UVT entre las restricciones
+del tiquete tradicional que el DEE elimina. La doctrina DIAN coincide. La frase
+de la ley no se derogó y el normograma no registra fallos contra el art.
+1.5.1.3.2.1, así que esto se apoya en la reglamentación vigente y en la
+doctrina DIAN. Hay que revisarlo si alguna de las dos cambia.
+
+Comportamiento que se deriva:
+
+- El cobro muestra "El cliente pidió factura electrónica" cuando el pack de
+  Colombia está activo y la sede tiene un rango de numeración FEV activo. Viene
+  apagado.
+- Al activarlo, el cobro pide los cuatro datos de arriba y nada más. Los datos
+  van solo a la instantánea fiscal; no crean ni editan un cliente, y el
+  documento se vincula al cliente de la venta solo si lo nombra a él.
+- La intención FEV se escribe en la misma transacción de la venta, igual que el
+  DEE. Si la sede no puede numerar la FEV, la solicitud se rechaza antes de
+  escribir la venta y el cajero puede cobrar con el DEE. Un rango que se agote
+  después de esa revisión bloquea la intención a la vista de los operadores; la
+  venta nunca se revierte.
+- Las anulaciones y devoluciones referencian el documento original: nota
+  crédito para una FEV, nota de ajuste para un DEE.
+
 ## Prueba en recibos y operación
 
 Detalles de venta, informes fiscales, recibos de navegador y ESC/POS aplican el mismo límite:

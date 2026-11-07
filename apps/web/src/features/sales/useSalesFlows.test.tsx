@@ -229,6 +229,34 @@ describe('useSalesFlows explicit price tier forwarding', () => {
     );
   });
 
+  it('forwards a buyer-requested electronic invoice on both checkout paths', async () => {
+    const electronicInvoice = {
+      buyer: {
+        name: 'Ana Gómez',
+        identificationTypeCode: '13',
+        identificationNumber: '1020304050',
+      },
+    };
+    const fresh = setup(workspace({ priceTier: 1 }));
+    await act(() => fresh.result.current.handleCheckout({ ...paymentValues(), electronicInvoice }));
+    expect(fresh.create).toHaveBeenCalledWith(expect.objectContaining({ electronicInvoice }));
+    fresh.unmount();
+
+    const resumed = setup(workspace({ serverSaleId: 'draft-2', serverSaleNumber: 'VTA-2' }));
+    await act(() =>
+      resumed.result.current.handleCheckout({ ...paymentValues(), electronicInvoice })
+    );
+    expect(resumed.completeDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ saleId: 'draft-2', electronicInvoice })
+    );
+  });
+
+  it('omits the electronic invoice when the buyer did not ask for one', async () => {
+    const { result, create } = setup(workspace({ priceTier: 1 }));
+    await act(() => result.current.handleCheckout(paymentValues()));
+    expect(create.mock.calls.at(0)?.at(0)).not.toHaveProperty('electronicInvoice');
+  });
+
   it('persists the active tier when creating a suspended draft', async () => {
     const active = workspace({ priceTier: 2 });
     useCartWorkspaceStore.setState({ workspaces: { [active.id]: active }, activeId: active.id });
