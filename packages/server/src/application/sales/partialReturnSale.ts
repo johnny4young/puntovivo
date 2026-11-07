@@ -45,7 +45,7 @@ import { buildReturnedSaleNotes } from './policies.js';
 import { reverseSaleItemsStock } from './inventory-policy.js';
 import { broadcastSaleRetracted, materializeCommittedFiscalIntent } from './fiscalPostHook.js';
 import { restoreExactInventoryLot } from '../../services/inventory-lots/index.js';
-import { getOriginalDeeCufe } from './fiscal-policy.js';
+import { getOriginalSaleDocumentCufe } from './fiscal-policy.js';
 import { emitCompleteSaleEffects, type JournalEffectInput } from './journal-effects.js';
 import { getSaleRecord } from './sale-read.js';
 import { updateOperationSummary } from '../../services/operation-journal/journal.js';
@@ -928,7 +928,7 @@ export async function returnSale(
           source: 'return',
           sourceId: returnId,
           kind: 'NC',
-          originalCufe: await getOriginalDeeCufe(ctx.db, ctx.tenantId, input.id),
+          originalCufe: await getOriginalSaleDocumentCufe(ctx.db, ctx.tenantId, input.id),
           reasonCode: input.reason ?? undefined,
         })
       : null;

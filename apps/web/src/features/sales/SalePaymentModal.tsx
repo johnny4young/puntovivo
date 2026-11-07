@@ -48,6 +48,11 @@ const SalePaymentTipSection = lazy(async () => {
   return { default: module.SalePaymentTipSection };
 });
 
+const SaleElectronicInvoiceSection = lazy(async () => {
+  const module = await import('./SaleElectronicInvoiceSection');
+  return { default: module.SaleElectronicInvoiceSection };
+});
+
 const CustomerLoyaltyChip = lazy(async () => {
   const module = await import('./CustomerLoyaltyChip');
   return { default: module.CustomerLoyaltyChip };
@@ -102,6 +107,7 @@ export function SalePaymentModal({
     creditMethodAvailable,
     selectedCustomer,
     customerAttached,
+    electronicInvoice,
     promotionQuoteLoading,
     promotionQuoteUnavailable,
     promotionDiscountAmount,
@@ -417,6 +423,16 @@ export function SalePaymentModal({
               </button>
             )}
         </div>
+
+        {electronicInvoice.available && (
+          <Suspense fallback={null}>
+            <SaleElectronicInvoiceSection
+              form={form}
+              identificationTypes={electronicInvoice.identificationTypes}
+              selectedCustomer={selectedCustomer}
+            />
+          </Suspense>
+        )}
 
         {/* V10 credit-sale customer card. Shows the
             customer's current balance, cupo, projected balance

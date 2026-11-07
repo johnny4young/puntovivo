@@ -113,6 +113,7 @@ import {
   prepareSaleFiscalIntent,
 } from '../../services/fiscal/orchestrator/intents.js';
 import type { ResolvedLine } from '../../services/fiscal/orchestrator/types.js';
+import { resolveElectronicInvoiceBuyer } from './electronicInvoice.js';
 
 function assertDraftLotsRemainSellable(
   db: DatabaseInstance,
@@ -354,6 +355,13 @@ export async function runCompleteDraft(
 
   const businessClock = await resolveTenantBusinessClock(ctx.db, ctx.tenantId);
   const now = businessClock.nowIso;
+  const invoiceBuyer = input.electronicInvoice
+    ? await resolveElectronicInvoiceBuyer(ctx.db, ctx.tenantId, input.electronicInvoice, {
+        customerId: finalCustomerId,
+        siteId: activeCashSession.siteId,
+        now,
+      })
+    : undefined;
   assertDraftLotsRemainSellable(
     ctx.db,
     ctx.tenantId,
@@ -499,6 +507,7 @@ export async function runCompleteDraft(
     lines: fiscalLines,
     completedAt: now,
     log,
+    ...(invoiceBuyer ? { kind: 'FEV' as const, buyer: invoiceBuyer } : {}),
   });
 
   const draftPriceOverrideCandidates: PriceOverrideCandidate[] = draftApprovalItems.map(item => {
@@ -1224,7 +1233,7 @@ export async function runCompleteDraft(
 
   await enqueueCheckoutApprovalConsumptions(ctx, approvalClaims);
 
-  // emit DIAN DEE on first completion of the draft.
+  // emit the sale document (DEE, or FEV on request) on first completion of the draft.
   const fiscalEmitId = await emitSaleFiscalDocument({
     db: ctx.db,
     tenantId: ctx.tenantId,

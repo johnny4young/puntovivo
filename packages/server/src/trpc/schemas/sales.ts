@@ -8,7 +8,7 @@
 
 import { z } from 'zod';
 import { checkoutApprovalActionEnum } from '@puntovivo/shared/checkout-approval';
-import { paginationInput } from './common.js';
+import { emailField, paginationInput } from './common.js';
 
 // ============================================================================
 // Enums
@@ -157,6 +157,26 @@ const pharmacyEvidenceIdsInput = z
   });
 
 /**
+ * The buyer asked for a factura electrónica de venta instead of the POS
+ * equivalent document. Only the data Res. DIAN 227/2025 art. 1.5.1.12.3 allows.
+ */
+export const electronicInvoiceRequestInput = z
+  .object({
+    buyer: z
+      .object({
+        name: z.string().trim().min(1).max(200),
+        identificationTypeCode: z
+          .string()
+          .trim()
+          .regex(/^\d{2}$/),
+        identificationNumber: z.string().trim().min(1).max(30),
+        email: emailField().optional(),
+      })
+      .strict(),
+  })
+  .strict();
+
+/**
  * restaurant tip / propina method enum. `tipAmount` defaults
  * to 0 so retail tenants that ignore the input pay no contract cost.
  * The cross-field `.refine()` below rejects the "method picked, amount
@@ -225,6 +245,7 @@ export const createSaleInput = z
     promotionFingerprint: promotionFingerprintInput.optional(),
     /** Approved prescription evidence consumed only by a completed sale. */
     pharmacyEvidenceIds: pharmacyEvidenceIdsInput.optional(),
+    electronicInvoice: electronicInvoiceRequestInput.optional(),
   })
   .strict()
   .refine(value => !value.tipMethod || (value.tipAmount ?? 0) > 0, {
@@ -234,6 +255,10 @@ export const createSaleInput = z
   .refine(value => value.serviceChargeRate === undefined || (value.serviceChargeAmount ?? 0) > 0, {
     message: 'serviceChargeRate requires a positive serviceChargeAmount',
     path: ['serviceChargeAmount'],
+  })
+  .refine(value => value.electronicInvoice === undefined || value.status === 'completed', {
+    message: 'An electronic invoice can only be requested by a completed sale',
+    path: ['electronicInvoice'],
   })
   .refine(value => value.sourceQuotationId === undefined || value.status === 'completed', {
     message: 'Quotation conversion requires a completed sale',
@@ -581,6 +606,7 @@ export const completeDraftInput = z
     /** Exact server quote accepted for atomic completion-time repricing. */
     promotionFingerprint: promotionFingerprintInput.optional(),
     pharmacyEvidenceIds: pharmacyEvidenceIdsInput.optional(),
+    electronicInvoice: electronicInvoiceRequestInput.optional(),
   })
   .strict()
   .refine(value => !value.tipMethod || (value.tipAmount ?? 0) > 0, {
