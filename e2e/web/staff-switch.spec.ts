@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { mkdir } from 'node:fs/promises';
 import { expect, test, type Page } from '@playwright/test';
+import en from '../../apps/web/src/i18n/locales/en/common.json';
 import {
   attachClientIssueTracker,
   expectNoClientIssues,
@@ -80,7 +81,9 @@ test.describe('shared-terminal staff PIN switching', () => {
       await expect(
         page.getByRole('button', { name: 'Open user menu for E2E Cashier' })
       ).toBeVisible();
-      await expect(page.locator('header').getByText('cashier', { exact: true })).toBeVisible();
+      await expect(
+        page.locator('header').getByText(en.userMenu.roles.cashier, { exact: true })
+      ).toBeVisible();
       await expect(privilegedPage).toHaveURL(/\/login$/);
       await expect(
         privilegedPage.getByRole('main').getByRole('heading', { name: 'Users', exact: true })
