@@ -176,7 +176,10 @@ export function parseMetricsLine(stdout) {
  * execute it. The Electron app imports the embedded server in-process, but v13
  * no longer needs an ABI swap or a restore after the launch.
  */
-function ensureNativeRuntime(runtime, { warnPrefix = 'WARN skipped' } = {}) {
+export function ensureNativeRuntime(
+  runtime,
+  { warnPrefix = 'WARN skipped', label = 'check-electron-memory' } = {}
+) {
   const run = spawnSync(process.execPath, [ENSURE_NATIVE_RUNTIME_SCRIPT, runtime], {
     cwd: REPO_ROOT,
     encoding: 'utf8',
@@ -193,7 +196,7 @@ function ensureNativeRuntime(runtime, { warnPrefix = 'WARN skipped' } = {}) {
     .filter(Boolean)
     .join('\n');
   console.warn(
-    `check-electron-memory: ${warnPrefix} — unable to prepare ${runtime} native runtime${details ? `:\n${details}` : ''}`
+    `${label}: ${warnPrefix} — unable to prepare ${runtime} native runtime${details ? `:\n${details}` : ''}`
   );
   return false;
 }

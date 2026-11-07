@@ -213,6 +213,24 @@ test('buildCheckArgs forwards only check-electron-memory arguments', () => {
   assert.deepEqual(args.slice(1), ['--strict', '--require-measurement']);
 });
 
+test('--check selects the main-thread gate and rejects unknown checks', () => {
+  const options = resolveRunElectronMemoryGateOptions({
+    argv: ['--check=main-thread', '--strict'],
+    env: {},
+  });
+  assert.equal(options.check, 'main-thread');
+  assert.deepEqual(options.passThroughArgs, ['--strict']);
+  const args = buildCheckArgs(options.passThroughArgs, options.check);
+  assert.equal(
+    args[0],
+    fileURLToPath(new URL('./check-electron-main-thread.mjs', import.meta.url))
+  );
+  assert.throws(
+    () => resolveRunElectronMemoryGateOptions({ argv: ['--check=gpu'], env: {} }),
+    /unknown gate check: gpu/
+  );
+});
+
 test('buildCheckEnv points Electron at the preview renderer', () => {
   const env = buildCheckEnv(
     { A: '1', WEB_DEV_SERVER_URL: 'old', PUNTOVIVO_BIND_PORT: '8090' },
