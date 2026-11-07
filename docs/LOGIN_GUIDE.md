@@ -126,7 +126,8 @@ this order:
    active user, that user is an admin and no recovery code exists, the owner
    can set a new password from the desktop app on the computer that holds the
    database. The command runs in the Electron main process against the embedded
-   server and is not reachable over HTTP or from a Store Hub client.
+   server and is not reachable over HTTP or from a Store Hub client. A Store Hub
+   client recovers with a recovery code, which its bridge forwards to the hub.
 
 Every reset ends existing sessions, parks open drafts, consumes the recovery
 code and writes an audit row (`auth.recovered_with_code` or
