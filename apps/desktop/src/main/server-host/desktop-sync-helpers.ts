@@ -10,8 +10,22 @@ import type { PuntovivoServer } from '@puntovivo/server';
 /** The server database the sync bridge works on. */
 export type SyncDatabase = PuntovivoServer['db'];
 
-function sqliteOf(database: SyncDatabase): import('better-sqlite3').Database {
+export function sqliteOf(database: SyncDatabase): import('better-sqlite3').Database {
   return (database as SyncDatabase & { $client: import('better-sqlite3').Database }).$client;
+}
+
+/** One statement, so concurrent writers of the same key never race a select. */
+export async function upsertAppSetting(
+  database: SyncDatabase,
+  key: string,
+  value: unknown,
+  updatedAt: string = new Date().toISOString()
+): Promise<void> {
+  await database
+    .insert(appSettings)
+    .values({ key, value, updatedAt })
+    .onConflictDoUpdate({ target: appSettings.key, set: { value, updatedAt } })
+    .run();
 }
 
 export const DESKTOP_SYNC_CONFIG_KEY = 'desktop_sync_config';
@@ -143,30 +157,7 @@ export async function saveLastSyncAt(
   tenantId: string,
   value: string
 ): Promise<void> {
-  const key = getLastSyncKey(tenantId);
-  const existing = await database
-    .select({ key: appSettings.key })
-    .from(appSettings)
-    .where(eq(appSettings.key, key))
-    .get();
-
-  if (existing) {
-    await database
-      .update(appSettings)
-      .set({
-        value,
-        updatedAt: value,
-      })
-      .where(eq(appSettings.key, key))
-      .run();
-    return;
-  }
-
-  await database.insert(appSettings).values({
-    key,
-    value,
-    updatedAt: value,
-  });
+  await upsertAppSetting(database, getLastSyncKey(tenantId), value, value);
 }
 
 export function findLocalSyncEntity(

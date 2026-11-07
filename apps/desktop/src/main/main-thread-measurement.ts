@@ -1,17 +1,16 @@
 /** Measurement mode for the main-thread gate (`PUNTOVIVO_MEASURE_MAIN_THREAD=1`). */
 
-import { app, type WebContents } from 'electron';
+import type { WebContents } from 'electron';
 import { existsSync } from 'node:fs';
 import { setTimeout as delay } from 'node:timers/promises';
 import type { PuntovivoLogger } from '@puntovivo/server';
+import { exitAfterMeasurement, whenAppMounted } from './measurement-harness.js';
 import { measureMainThreadWindow } from './main-thread-probe.js';
-import { getServerUrl, whenServerReady } from './runtime.js';
+import { getServerUrl } from './runtime.js';
 
 const START_POLL_MS = 50;
 const START_TIMEOUT_MS = 180_000;
 const DEFAULT_WINDOW_MS = 15_000;
-const ROOT_MOUNTED_SCRIPT =
-  'Boolean(document.getElementById("root") && document.getElementById("root").childElementCount > 0)';
 
 function resolveWindowMs(value: string | undefined): number {
   const parsed = Number.parseInt(value ?? '', 10);
@@ -41,18 +40,10 @@ export function installMainThreadMeasurement(deps: {
   const { webContents, stopEmbeddedServer, log, env = process.env } = deps;
   // A covered or unfocused window must not throttle the renderer probe.
   webContents.setBackgroundThrottling(false);
-  const loaded = new Promise<void>(resolve => {
-    webContents.once('did-finish-load', () => resolve());
-  });
   const shutdown = () =>
-    void stopEmbeddedServer()
-      .catch(err => {
-        log.warn({ err }, 'failed to stop embedded server after main-thread measurement');
-      })
-      .finally(() => app.exit(0));
+    exitAfterMeasurement({ stopEmbeddedServer, log, label: 'main-thread measurement' });
 
-  void Promise.all([loaded, whenServerReady()]).then(async () => {
-    const mounted = await webContents.executeJavaScript(ROOT_MOUNTED_SCRIPT).catch(() => false);
+  void whenAppMounted(webContents).then(async mounted => {
     if (!mounted) {
       process.stdout.write('PUNTOVIVO_MAIN_THREAD_SKIP=app-not-mounted\n');
       shutdown();

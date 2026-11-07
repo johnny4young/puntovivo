@@ -230,7 +230,7 @@
     }
   },
   "electronMainThread": {
-    "$comment": "Main-thread responsiveness while the embedded server works. scripts/check-electron-main-thread.mjs seeds a disposable demo database, launches the built app, sells one-item tickets over loopback HTTP with a 150 ms pause between sales, and reads what the main process measured over windowMs: the share of time a 10 ms timer ran late by 10 ms or more, the worst such stall, and the p99 of a renderer get-app-version IPC round trip sampled every 25 ms. minSales proves the workload really ran.",
+    "$comment": "Main-thread responsiveness while the embedded server works. scripts/check-electron-main-thread.mjs seeds a disposable demo database, launches the built app, sells one-item tickets back to back over loopback HTTP, saturating the server, and reads what the main process measured over windowMs: the share of time a 10 ms timer ran late by 10 ms or more, the worst such stall, and the p99 of a renderer get-app-version IPC round trip sampled every 25 ms. minSales proves the workload really ran.",
     "windowMs": 15000,
     "$baseline": "Server in-process on the main thread, 2026-11-07: hosted ubuntu-latest measured 21.3% blocked, 33 ms worst stall, 27.1 ms IPC p99 and 796 sales; a loaded M4 Max measured 22.5%, 30.5 ms, 29.8 ms and 932, and 62.4% blocked at load 18 because a starved main thread fires its timer late too. With the server in a worker thread the same M4 measured 0% blocked, 0 ms worst stall, 0.3 ms IPC p99 and 946 sales. The limits sit far below the in-process values so a regression back onto the main thread fails, and leave room for host contention.",
     "maxBlockedPercent": 5,

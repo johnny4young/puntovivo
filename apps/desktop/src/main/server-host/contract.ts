@@ -8,6 +8,25 @@
 
 import type { BackupRestoreDrillCounts } from '../backup/backup-bundle/inspection.ts';
 
+/** The routes main may inject; the server side refuses any other. */
+export const MAIN_INJECT_PATHS = [
+  '/api/trpc/auth.login',
+  '/api/trpc/auth.refresh',
+  '/api/trpc/auth.switchStaff',
+  '/api/trpc/auth.logout',
+  '/api/trpc/auth.completeSetup',
+  '/api/trpc/health.check',
+] as const;
+
+/** The only app_settings rows main reads and writes. */
+export const MAIN_APP_SETTING_KEYS = [
+  'receipt_print_settings',
+  'theme_preference',
+  'tray_settings',
+] as const;
+
+export type MainAppSettingKey = (typeof MAIN_APP_SETTING_KEYS)[number];
+
 /** A fixed in-process HTTP request; main never gets a general network proxy. */
 export interface InjectRequest {
   method: 'GET' | 'POST';
@@ -37,6 +56,16 @@ export type MainRecordedAuditAction = (typeof MAIN_RECORDED_AUDIT_ACTIONS)[numbe
 export const MAIN_RECORDED_AUDIT_RESOURCE_TYPES = ['backup_snapshot', 'backup_key'] as const;
 
 export type MainRecordedAuditResourceType = (typeof MAIN_RECORDED_AUDIT_RESOURCE_TYPES)[number];
+
+/** The resource each main-recorded action is about. */
+export const MAIN_RECORDED_AUDIT_RESOURCE: Record<
+  MainRecordedAuditAction,
+  MainRecordedAuditResourceType
+> = {
+  'backup.restore_drill': 'backup_snapshot',
+  'backup.encryption_key_reveal': 'backup_key',
+  'security.db_key_rotation': 'backup_key',
+};
 
 /** One audit row written in its own transaction, so the hash chain stays atomic. */
 export interface MainAuditEvent {
@@ -74,15 +103,6 @@ export interface DesktopSyncTriggerResult extends DesktopSyncStatusResult {
   synced: number;
   errors: string[];
 }
-
-/** The only `app_settings` keys main reads or writes. */
-export const MAIN_APP_SETTING_KEYS = [
-  'receipt_print_settings',
-  'theme_preference',
-  'tray_settings',
-] as const;
-
-export type MainAppSettingKey = (typeof MAIN_APP_SETTING_KEYS)[number];
 
 /** Every operation main may ask of the server. */
 export interface EmbeddedServerOperations {

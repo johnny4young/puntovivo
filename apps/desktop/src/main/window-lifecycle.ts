@@ -16,7 +16,7 @@ import {
 } from './window-config.js';
 import { createSingleFlight } from './single-flight.js';
 import { installMainThreadMeasurement } from './main-thread-measurement.js';
-import { whenServerReady } from './runtime.js';
+import { exitAfterMeasurement, whenAppMounted } from './measurement-harness.js';
 
 const RENDERER_LEVEL_MAP = {
   debug: 'debug',
@@ -250,38 +250,17 @@ export function createWindowLifecycle({
     // mounted before measuring so Chromium error pages never report a false pass.
     // The renderer loads during server start, so measure the app, not the boot spinner.
     if (process.env.PUNTOVIVO_MEASURE_MEMORY === '1') {
-      const measuredWebContents = mainWindow.webContents;
-      const loaded = new Promise<void>(resolve => {
-        measuredWebContents.once('did-finish-load', () => resolve());
-      });
-      void Promise.all([loaded, whenServerReady()]).then(() => {
-        setTimeout(() => {
-          const shutdown = () =>
-            void stopEmbeddedServer()
-              .catch(err => {
-                log.warn({ err }, 'failed to stop embedded server after memory measurement');
-              })
-              .finally(() => app.exit(0));
-
-          void measuredWebContents
-            .executeJavaScript(
-              'Boolean(document.getElementById("root") && document.getElementById("root").childElementCount > 0)'
-            )
-            .catch(() => false)
-            .then(appMounted => {
-              if (!appMounted) {
-                process.stdout.write('PUNTOVIVO_MEMORY_SKIP=app-not-mounted\n');
-                shutdown();
-                return;
-              }
-              const metrics = app.getAppMetrics().map(metric => ({
-                type: metric.type,
-                workingSetKb: metric.memory.workingSetSize,
-              }));
-              process.stdout.write(`PUNTOVIVO_MEMORY_METRICS=${JSON.stringify(metrics)}\n`);
-              shutdown();
-            });
-        }, 2000);
+      void whenAppMounted(mainWindow.webContents, 2000).then(appMounted => {
+        if (appMounted) {
+          const metrics = app.getAppMetrics().map(metric => ({
+            type: metric.type,
+            workingSetKb: metric.memory.workingSetSize,
+          }));
+          process.stdout.write(`PUNTOVIVO_MEMORY_METRICS=${JSON.stringify(metrics)}\n`);
+        } else {
+          process.stdout.write('PUNTOVIVO_MEMORY_SKIP=app-not-mounted\n');
+        }
+        exitAfterMeasurement({ stopEmbeddedServer, log, label: 'memory measurement' });
       });
     }
 

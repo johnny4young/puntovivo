@@ -100,6 +100,18 @@ test('within budget passes and each over-limit metric is reported', () => {
   assert.match(report, /sales 400 ok, 0 failed/);
 });
 
+test('a window without IPC samples fails instead of reading p99 as 0', () => {
+  const comparison = compareToMainThreadBudget({
+    metrics: { ...metrics, ipc: { count: 0, p50: 0, p95: 0, p99: 0, max: 0 } },
+    workload,
+    budget,
+  });
+  assert.deepEqual(
+    comparison.regressions.map(row => row.name),
+    ['IPC samples']
+  );
+});
+
 function createFakeServer() {
   const requests = [];
   const respond = data => ({

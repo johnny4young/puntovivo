@@ -38,6 +38,14 @@ export const PAYMENT_METHOD_TILES: ReadonlyArray<{
   { method: 'other', labelKey: 'payment.other', icon: MoreHorizontal },
 ];
 
+/** Cédula de ciudadanía: the most common ID at a Colombian counter. */
+export const EMPTY_INVOICE_BUYER = {
+  name: '',
+  identificationTypeCode: '13',
+  identificationNumber: '',
+  email: '',
+} as const;
+
 export function getDefaultValues(
   total: number,
   serviceChargeAmount: number,
@@ -59,6 +67,8 @@ export function getDefaultValues(
     creditOverride: false,
     approvalRequests: [],
     pharmacyEvidenceIds: [],
+    invoiceRequested: false,
+    invoiceBuyer: { ...EMPTY_INVOICE_BUYER },
   };
 }
 

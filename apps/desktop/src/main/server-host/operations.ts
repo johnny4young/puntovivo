@@ -12,8 +12,9 @@ import {
 import { readTenantRestoreDrillCounts } from '../backup/backup-bundle/inspection.ts';
 import {
   MAIN_APP_SETTING_KEYS,
+  MAIN_INJECT_PATHS,
   MAIN_RECORDED_AUDIT_ACTIONS,
-  MAIN_RECORDED_AUDIT_RESOURCE_TYPES,
+  MAIN_RECORDED_AUDIT_RESOURCE,
   type EmbeddedServerOperations,
   type InjectResponse,
   type MainAuditEvent,
@@ -23,16 +24,26 @@ import {
   handleDesktopSetSyncConfig,
   handleDesktopTriggerSync,
 } from './desktop-sync.ts';
+import { sqliteOf, upsertAppSetting } from './desktop-sync-helpers.ts';
+
+function isOneOf(list: readonly string[], value: unknown): boolean {
+  return typeof value === 'string' && list.includes(value);
+}
+
+function assertMainInject(method: unknown, url: string): void {
+  const { pathname } = new URL(url, 'http://embedded.invalid');
+  if (!isOneOf(['GET', 'POST'], method) || !isOneOf(MAIN_INJECT_PATHS, pathname)) {
+    throw new Error('MAIN_INJECT_REJECTED');
+  }
+}
+
+function assertMainAppSettingKey(key: unknown): void {
+  if (!isOneOf(MAIN_APP_SETTING_KEYS, key)) throw new Error('MAIN_APP_SETTING_REJECTED');
+}
 
 function ownerRecoveryErrorCode(error: unknown): string {
   const code = (error as { cause?: { errorCode?: unknown } } | null)?.cause?.errorCode;
   return typeof code === 'string' && /^AUTH_[A-Z_]+$/.test(code) ? code : 'INTERNAL_SERVER_ERROR';
-}
-
-function assertMainAppSettingKey(key: unknown): void {
-  if (!(MAIN_APP_SETTING_KEYS as readonly unknown[]).includes(key)) {
-    throw new Error('MAIN_APP_SETTING_REJECTED');
-  }
 }
 
 function assertTenantId(tenantId: unknown): void {
@@ -42,13 +53,17 @@ function assertTenantId(tenantId: unknown): void {
 }
 
 function assertMainAuditEvent(event: MainAuditEvent): void {
+  const nonEmpty = (value: unknown) => typeof value === 'string' && value.length > 0;
   if (
     !event ||
-    !(MAIN_RECORDED_AUDIT_ACTIONS as readonly string[]).includes(event.action) ||
-    typeof event.tenantId !== 'string' ||
-    typeof event.actorId !== 'string' ||
-    !(MAIN_RECORDED_AUDIT_RESOURCE_TYPES as readonly string[]).includes(event.resourceType) ||
-    typeof event.resourceId !== 'string'
+    !isOneOf(MAIN_RECORDED_AUDIT_ACTIONS, event.action) ||
+    !nonEmpty(event.tenantId) ||
+    !nonEmpty(event.actorId) ||
+    MAIN_RECORDED_AUDIT_RESOURCE[event.action] !== event.resourceType ||
+    typeof event.resourceId !== 'string' ||
+    typeof event.metadata !== 'object' ||
+    event.metadata === null ||
+    Array.isArray(event.metadata)
   ) {
     throw new Error('MAIN_AUDIT_EVENT_REJECTED');
   }
@@ -58,6 +73,7 @@ function assertMainAuditEvent(event: MainAuditEvent): void {
 export function createServerOperations(server: PuntovivoServer): EmbeddedServerOperations {
   return {
     async inject(request) {
+      assertMainInject(request.method, request.url);
       const result = await server.app.inject({
         method: request.method,
         url: request.url,
@@ -125,12 +141,7 @@ export function createServerOperations(server: PuntovivoServer): EmbeddedServerO
     },
     async writeAppSetting(key, value) {
       assertMainAppSettingKey(key);
-      const updatedAt = new Date().toISOString();
-      await server.db
-        .insert(appSettings)
-        .values({ key, value, updatedAt })
-        .onConflictDoUpdate({ target: appSettings.key, set: { value, updatedAt } })
-        .run();
+      await upsertAppSetting(server.db, key, value);
     },
     async getSyncStatus(tenantId) {
       assertTenantId(tenantId);
@@ -142,9 +153,7 @@ export function createServerOperations(server: PuntovivoServer): EmbeddedServerO
     },
     setSyncConfig: config => handleDesktopSetSyncConfig(server.db, config),
     async readRestoreDrillCounts(tenantId) {
-      const sqlite = (
-        server.db as typeof server.db & { $client: import('better-sqlite3').Database }
-      ).$client;
+      const sqlite = sqliteOf(server.db);
       return sqlite.transaction(() => readTenantRestoreDrillCounts(sqlite, tenantId))();
     },
   };
