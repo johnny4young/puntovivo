@@ -33,7 +33,7 @@ export async function handleGetBackupEncryptionKey(
   try {
     const key = await deps.resolveDatabaseEncryptionKey();
     try {
-      deps.recordBackupKeyRevealAudit({ tenantId, actorId, outcome: 'revealed' });
+      await deps.recordBackupKeyRevealAudit({ tenantId, actorId, outcome: 'revealed' });
     } catch {
       keyRevealLog.error(
         { tenantId },
@@ -43,7 +43,7 @@ export async function handleGetBackupEncryptionKey(
       // the audit subsystem recovered between the two writes the record
       // should say a reveal attempt happened.
       try {
-        deps.recordBackupKeyRevealAudit({ tenantId, actorId, outcome: 'failed' });
+        await deps.recordBackupKeyRevealAudit({ tenantId, actorId, outcome: 'failed' });
       } catch {
         // Evidence store is down; the structured error log above is the
         // only remaining trace.
@@ -54,7 +54,7 @@ export async function handleGetBackupEncryptionKey(
     return { success: true, key };
   } catch {
     try {
-      deps.recordBackupKeyRevealAudit({ tenantId, actorId, outcome: 'failed' });
+      await deps.recordBackupKeyRevealAudit({ tenantId, actorId, outcome: 'failed' });
     } catch {
       keyRevealLog.error(
         { tenantId },

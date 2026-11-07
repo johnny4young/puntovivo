@@ -11,7 +11,9 @@ import {
 } from '@puntovivo/server';
 import type { AuditAnchorStore } from '@puntovivo/server/audit-anchor';
 import { PACKAGED_RENDERER_ORIGIN } from './renderer-protocol.ts';
-import { getServer, setServer } from './runtime.ts';
+import { getServerHost, setServerHost } from './runtime.ts';
+import type { EmbeddedServerHost } from './server-host/contract.ts';
+import { createInProcessServerHost } from './server-host/in-process.ts';
 
 interface ServerLifecycleDeps {
   dbPath: string;
@@ -30,7 +32,7 @@ interface ServerLifecycleDeps {
 }
 
 export interface ServerLifecycle {
-  start: () => Promise<PuntovivoServer>;
+  start: () => Promise<EmbeddedServerHost>;
   stop: () => Promise<void>;
   restartAround: <T>(
     operation: () => Promise<T>,
@@ -57,7 +59,7 @@ export function createServerLifecycle({
   // restarts do not invalidate every access and refresh token mid-session.
   const jwtSecret = generateJwtSecret();
 
-  async function start(): Promise<PuntovivoServer> {
+  async function start(): Promise<EmbeddedServerHost> {
     // Authority Node host/mode/port remain environment-resolved.
     const runtime = resolveRuntimeConfig({ env });
     const encryptionKey = await prepareDatabaseEncryption();
@@ -95,16 +97,16 @@ export function createServerLifecycle({
     });
     await nextServer.listen();
     log.info({ url: nextServer.getUrl() }, 'embedded server started');
-    return nextServer;
+    return createInProcessServerHost(nextServer);
   }
 
   async function stop(): Promise<void> {
-    const current = getServer();
+    const current = getServerHost();
     if (!current) return;
 
     log.info('shutting down embedded server');
     await current.close();
-    setServer(null);
+    setServerHost(null);
     log.info('embedded server stopped');
   }
 
@@ -124,7 +126,7 @@ export function createServerLifecycle({
       operationError = err;
     }
     try {
-      setServer(await start());
+      setServerHost(await start());
       const mainWindow = getMainWindow();
       if (options?.reloadWindow && mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.reload();

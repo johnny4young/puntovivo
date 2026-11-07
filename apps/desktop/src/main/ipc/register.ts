@@ -11,11 +11,7 @@ import type { createModuleLogger } from '@puntovivo/server';
 import * as desktopSession from '../session/desktopSession.js';
 import { createDataBridgeHandlers, type DataBridgeOperations } from './data-bridge-handlers.js';
 import { captureDesktopIpcSessionResult } from './session-authorization.js';
-import {
-  getDesktopSyncStatus,
-  handleDesktopSetSyncConfig,
-  handleDesktopTriggerSync,
-} from './sync.js';
+import { requireServerHost } from '../runtime.js';
 
 export interface DataBridgeIpcDeps {
   /** The electron-main module logger owned by index.ts. */
@@ -23,9 +19,9 @@ export interface DataBridgeIpcDeps {
 }
 
 const dataBridgeOperations: DataBridgeOperations = {
-  getSyncStatus: getDesktopSyncStatus,
-  triggerSync: handleDesktopTriggerSync,
-  setSyncConfig: handleDesktopSetSyncConfig,
+  getSyncStatus: tenantId => requireServerHost().getSyncStatus(tenantId),
+  triggerSync: tenantId => requireServerHost().triggerSync(tenantId),
+  setSyncConfig: config => requireServerHost().setSyncConfig(config),
 };
 
 export function registerDataBridgeIpc(deps: DataBridgeIpcDeps): void {

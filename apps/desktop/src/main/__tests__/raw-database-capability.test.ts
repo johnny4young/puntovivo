@@ -94,7 +94,7 @@ test('main registers only retained sync channels, not raw database operations', 
             },
           };
         case '../session/desktopSession.js':
-        case './sync.js':
+        case '../runtime.js':
           return {};
         case './data-bridge-handlers.js':
           return {
