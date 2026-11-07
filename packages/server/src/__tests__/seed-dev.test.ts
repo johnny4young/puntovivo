@@ -45,6 +45,7 @@ import {
   users,
 } from '../db/schema.js';
 import { getProductStockTotal } from '../services/inventory-balances.js';
+import { parseScan } from '../services/peripherals/barcode/parser.js';
 
 let db: DatabaseInstance;
 let tenantId: string;
@@ -96,6 +97,26 @@ describe('Dev seed (`seedDevData`)', () => {
     expect(siteCount).toBe(2);
     expect(catCount).toBe(8);
     expect(tplCount).toBe(3);
+  });
+
+  it('gives every demo barcode a valid EAN-13 check digit so the strict scanner resolves it', async () => {
+    const rows = await db
+      .select({ sku: products.sku, barcode: products.barcode })
+      .from(products)
+      .where(eq(products.tenantId, tenantId))
+      .all();
+    const barcodes = rows.flatMap(row => (row.barcode ? [row.barcode] : []));
+
+    expect(barcodes).toHaveLength(40);
+    expect(new Set(barcodes).size).toBe(barcodes.length);
+    for (const barcode of barcodes) {
+      const scan = parseScan(barcode);
+      expect({ barcode, kind: scan.kind, checksumValid: scan.checksumValid }).toEqual({
+        barcode,
+        kind: 'ean13',
+        checksumValid: true,
+      });
+    }
   });
 
   it('uses an operator-facing name for the electronic equivalent document preset', async () => {
