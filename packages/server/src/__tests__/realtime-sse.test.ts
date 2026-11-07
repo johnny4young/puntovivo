@@ -34,9 +34,79 @@ import {
 } from '../realtime/sse/authorization.js';
 import { tenants } from '../db/schema.js';
 
+// Lets a test hold a subscribe request inside its authorization await.
+const subscribeGate = vi.hoisted(() => ({
+  entered: null as (() => void) | null,
+  hold: null as Promise<void> | null,
+}));
+vi.mock('../realtime/sse/authorization.js', async importOriginal => {
+  const actual = await importOriginal<typeof import('../realtime/sse/authorization.js')>();
+  return {
+    ...actual,
+    resolveRealtimeSubscription: async (
+      args: Parameters<typeof actual.resolveRealtimeSubscription>[0]
+    ) => {
+      subscribeGate.entered?.();
+      await subscribeGate.hold;
+      return actual.resolveRealtimeSubscription(args);
+    },
+  };
+});
+
 let server: PuntovivoServer | null = null;
 
+async function startListeningAdmin(): Promise<{ server: PuntovivoServer; token: string }> {
+  const started = await createServer({
+    dbPath: ':memory:',
+    verbose: false,
+    port: 0,
+    host: '127.0.0.1',
+  });
+  server = started;
+  await started.listen();
+  const admin = await getDatabase()
+    .select()
+    .from(users)
+    .where(eq(users.email, 'admin@localhost'))
+    .get();
+  if (!admin) throw new Error('Expected seeded admin user');
+  return { server: started, token: signAccessToken(started.app, admin) };
+}
+
+/** Resolves 'closed', or 'still waiting' after 3 s; `release` then frees a hung close. */
+async function closeWithin(
+  closing: PuntovivoServer,
+  release: () => Promise<unknown>
+): Promise<string> {
+  const pending = closing.close();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const outcome = await Promise.race([
+    pending.then(() => 'closed'),
+    new Promise<string>(resolve => {
+      timer = setTimeout(() => resolve('still waiting'), 3_000);
+    }),
+  ]);
+  clearTimeout(timer);
+  if (outcome !== 'closed') await release();
+  await pending;
+  server = null;
+  return outcome;
+}
+
+async function holdSubscribe(): Promise<{ reached: Promise<void>; release: () => void }> {
+  let release!: () => void;
+  subscribeGate.hold = new Promise<void>(resolve => {
+    release = resolve;
+  });
+  const reached = new Promise<void>(resolve => {
+    subscribeGate.entered = resolve;
+  });
+  return { reached, release };
+}
+
 afterEach(async () => {
+  subscribeGate.entered = null;
+  subscribeGate.hold = null;
   if (server) {
     await server.close();
     server = null;
@@ -118,6 +188,62 @@ describe('SSE realtime tenant boundary', () => {
     expect(tenantA.writes).toHaveLength(1);
     expect(tenantB.writes).toHaveLength(0);
     expect(anonymous.writes).toHaveLength(0);
+  });
+
+  it('ends open streams when the server closes instead of waiting on them', async () => {
+    const { server: running, token } = await startListeningAdmin();
+    const response = await fetch(`${running.getUrl()}/api/realtime/subscribe`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const reader = response.body!.getReader();
+    const first = new TextDecoder().decode((await reader.read()).value);
+    expect(first).toContain('event: connected');
+    expect(running.app.sse.getClientCount()).toBe(1);
+
+    expect(await closeWithin(running, () => reader.cancel())).toBe('closed');
+    expect(running.app.sse.getClientCount()).toBe(0);
+    while (!(await reader.read()).done) {
+      // drain until the server ends the stream
+    }
+  });
+
+  it('refuses a stream whose checks were still running when close started', async () => {
+    const { server: running, token } = await startListeningAdmin();
+    const gate = await holdSubscribe();
+    const controller = new AbortController();
+    const subscribing = fetch(`${running.getUrl()}/api/realtime/subscribe`, {
+      headers: { authorization: `Bearer ${token}` },
+      signal: controller.signal,
+    });
+    await gate.reached;
+
+    const outcome = closeWithin(running, async () => controller.abort());
+    while (running.app.server.listening) {
+      await new Promise(resolve => setTimeout(resolve, 5));
+    }
+    gate.release();
+
+    expect((await subscribing).status).toBe(503);
+    expect(await outcome).toBe('closed');
+    expect(running.app.sse.getClientCount()).toBe(0);
+  });
+
+  it('does not register a stream whose client left while its checks were running', async () => {
+    const { server: running, token } = await startListeningAdmin();
+    const gate = await holdSubscribe();
+    const controller = new AbortController();
+    const subscribing = fetch(`${running.getUrl()}/api/realtime/subscribe`, {
+      headers: { authorization: `Bearer ${token}` },
+      signal: controller.signal,
+    }).catch(() => undefined);
+    await gate.reached;
+    controller.abort();
+    await subscribing;
+    await new Promise(resolve => setTimeout(resolve, 50));
+    gate.release();
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    expect(running.app.sse.getClientCount()).toBe(0);
   });
 
   it('revalidates the canonical access session so revocation closes the stream', async () => {
