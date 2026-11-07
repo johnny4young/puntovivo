@@ -51,7 +51,11 @@ describe('embedded server in a worker thread', () => {
   it('serves the host contract over messages', async () => {
     await host.writeAppSetting('tray_settings', { enabled: true });
     assert.deepEqual(await host.readAppSetting('tray_settings'), { enabled: true });
-    const injected = await host.inject({ method: 'GET', url: '/api/health', headers: {} });
+    const injected = await host.inject({
+      method: 'GET',
+      url: '/api/trpc/health.check?batch=1&input=%7B%7D',
+      headers: {},
+    });
     assert.equal(injected.statusCode, 200);
     assert.equal(await host.verifyAccessToken('not-a-token'), null);
   });
