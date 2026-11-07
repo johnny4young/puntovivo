@@ -4,8 +4,9 @@
 
 Puntovivo is a local-first modular monolith. The browser and Electron renderer
 share one React application; Fastify and tRPC own business APIs; SQLite is the
-operational authority. In Electron, the Fastify server runs in-process inside
-main rather than as a child process.
+operational authority. In Electron, the Fastify server runs in a
+`worker_threads` worker inside the main process, not as a child process
+([ADR 0032](architecture/0032-embedded-server-worker-thread.md)).
 
 ![Puntovivo architecture](./architecture.svg)
 
@@ -36,8 +37,11 @@ React renderer
 ```
 
 The browser target connects to a standalone Fastify process. The Electron
-target imports `@puntovivo/server` directly into main and serves the same tRPC
-surface to its renderer.
+target runs `@puntovivo/server` in a worker thread of the main process and
+serves the same tRPC surface to its renderer over loopback HTTP. Main reaches
+the server only through the message contract in
+`apps/desktop/src/main/server-host/`, and imports only the light
+`@puntovivo/server/desktop-main` entry itself.
 
 ## API and application boundaries
 

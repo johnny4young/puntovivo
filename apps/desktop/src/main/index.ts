@@ -15,9 +15,9 @@ import {
   captureProcessCrash,
   createModuleLogger,
   flushServerTelemetry,
+  initServerTelemetryAdapter,
   resolveRuntimeConfig,
-  writeAuditLog,
-} from '@puntovivo/server';
+} from '@puntovivo/server/desktop-main';
 import { sweepStaleBackupStaging } from './backup/backup-bundle.js';
 import { createBackupCloudVault } from './backup/cloud-vault.js';
 import { createBackupOperationQueue } from './backup/operation-queue.js';
@@ -62,15 +62,10 @@ import {
   installPackagedRendererProtocol,
   registerPackagedRendererScheme,
 } from './renderer-protocol.js';
-import {
-  getServer,
-  getServerDatabase,
-  getSqliteClient,
-  markServerReady,
-  setServer,
-} from './runtime.js';
+import { getServerHost, markServerReady, requireServerHost, setServerHost } from './runtime.js';
 import { createOsKeyGate } from './os-key-gate.js';
 import { createServerLifecycle } from './server-lifecycle.js';
+import { createWorkerLauncher } from './server-host/worker-host.js';
 import { createTrayController } from './tray-controller.js';
 import { disableBuiltinSpellchecker } from './window-config.js';
 import { createWindowLifecycle } from './window-lifecycle.js';
@@ -79,7 +74,6 @@ import {
   parsePackagedRecoveryRequest,
   type PackagedRecoveryRequest,
 } from './packaged-recovery/mode.js';
-import { runPackagedRecoveryRehearsal } from './packaged-recovery/run.js';
 
 // structured main/renderer/backup child loggers.
 const mainLog = createModuleLogger('electron-main');
@@ -98,7 +92,6 @@ installProcessCrashHandlers({
   exit: code => app.exit(code),
   proc: process,
 });
-
 // Pin the name before the first userData lookup. Development Electron would
 // otherwise store its DB/key envelope under the generic Electron directory.
 app.setName('Puntovivo');
@@ -128,6 +121,9 @@ if (!packagedRecoveryRequested && !app.requestSingleInstanceLock()) {
 // a packaged build never opens DevTools from an inherited env var.
 const shouldOpenDevTools = !app.isPackaged && process.env.PUNTOVIVO_OPEN_DEVTOOLS === 'true';
 process.env.PUNTOVIVO_RUNTIME_ENV ??= isDev ? 'development' : 'production';
+// The server registers its own telemetry inside its worker; main crashes
+// need this thread's adapter. A no-op without a DSN.
+void initServerTelemetryAdapter({ appVersion: app.getVersion() });
 mainLog.info({ isPackaged: app.isPackaged, isDev }, 'electron runtime detected');
 const authorityRuntime = resolveRuntimeConfig({ env: process.env });
 const hubAuthSession = (() => {
@@ -152,7 +148,7 @@ const localAuthSession =
         hubUrl: EMBEDDED_AUTH_ORIGIN,
         credentialPersistence: 'memory',
         getDeviceId: () => readDeviceIdFromDir(app.getPath('userData')),
-        fetchImpl: createEmbeddedAuthFetch(getServer),
+        fetchImpl: createEmbeddedAuthFetch(getServerHost),
       })
     : undefined;
 
@@ -190,9 +186,25 @@ const serverLifecycle = createServerLifecycle({
   log: mainLog,
   prepareDatabaseEncryption: encryptionSetup.prepareDatabaseEncryption,
   prepareAuditAnchorKey: encryptionSetup.resolveAuditAnchorKey,
-  prepareAuditAnchorStore: encryptionSetup.resolveAuditAnchorStore,
   getMainWindow: () => windowLifecycleRef.current?.getWindow() ?? null,
+  launchHost: createWorkerLauncher({
+    workerPath: join(__dirname, 'server-worker.cjs'),
+    resolveAuditAnchorStoreLocation: encryptionSetup.resolveAuditAnchorStoreLocation,
+    onUnexpectedExit: error => handleServerWorkerExit(error),
+  }),
 });
+
+/** A dead server worker is fatal, exactly like a crash of the in-process server was. */
+function handleServerWorkerExit(error: Error): void {
+  if (isQuitting) return;
+  isQuitting = true;
+  mainLog.fatal({ err: error }, 'embedded server worker exited unexpectedly');
+  captureProcessCrash(error, { source: 'server-worker' });
+  dialog.showErrorBox(t('app.name'), error.message);
+  void flushServerTelemetry()
+    .catch(() => undefined)
+    .finally(() => app.quit());
+}
 
 const backupOperationQueue = createBackupOperationQueue();
 const backupCloudVault = createBackupCloudVault({
@@ -217,7 +229,7 @@ const backupScheduler = createBackupScheduler({
 });
 const backupRestoreDrill = createBackupRestoreDrill({
   backupScheduler,
-  getCurrentDatabase: () => getSqliteClient().$client,
+  readCurrentCounts: tenantId => requireServerHost().readRestoreDrillCounts(tenantId),
   resolveDatabaseEncryptionKey: encryptionSetup.resolveDatabaseEncryptionKey,
   runExclusive: backupOperationQueue.run,
 });
@@ -289,50 +301,37 @@ registerBackupIpc({
             outcome: input.outcome,
             errorCode: input.errorCode,
           };
-    // Wrapped in a transaction: the hash-chain head read + row
-    // insert + head upsert inside writeAuditLog must be atomic.
-    getServerDatabase().transaction(tx =>
-      writeAuditLog({
-        tx,
-        tenantId: input.tenantId,
-        actorId: input.actorId,
-        action: 'backup.restore_drill',
-        resourceType: 'backup_snapshot',
-        resourceId: input.resourceId,
-        metadata,
-      })
-    );
+    return requireServerHost().recordAudit({
+      tenantId: input.tenantId,
+      actorId: input.actorId,
+      action: 'backup.restore_drill',
+      resourceType: 'backup_snapshot',
+      resourceId: input.resourceId,
+      metadata,
+    });
   },
-  recordBackupKeyRevealAudit: input => {
+  recordBackupKeyRevealAudit: input =>
     // The metadata carries only the outcome — never key material.
-    getServerDatabase().transaction(tx =>
-      writeAuditLog({
-        tx,
-        tenantId: input.tenantId,
-        actorId: input.actorId,
-        action: 'backup.encryption_key_reveal',
-        resourceType: 'backup_key',
-        resourceId: 'install',
-        metadata: { outcome: input.outcome },
-      })
-    );
-  },
+    requireServerHost().recordAudit({
+      tenantId: input.tenantId,
+      actorId: input.actorId,
+      action: 'backup.encryption_key_reveal',
+      resourceType: 'backup_key',
+      resourceId: 'install',
+      metadata: { outcome: input.outcome },
+    }),
   rotateDatabaseKey: encryptionSetup.rotateDatabaseKey,
   getKeyRotationStatus: encryptionSetup.getKeyRotationStatus,
-  recordDbKeyRotationAudit: input => {
+  recordDbKeyRotationAudit: input =>
     // The metadata carries only the outcome — never key material.
-    getServerDatabase().transaction(tx =>
-      writeAuditLog({
-        tx,
-        tenantId: input.tenantId,
-        actorId: input.actorId,
-        action: 'security.db_key_rotation',
-        resourceType: 'backup_key',
-        resourceId: 'install',
-        metadata: { outcome: input.outcome },
-      })
-    );
-  },
+    requireServerHost().recordAudit({
+      tenantId: input.tenantId,
+      actorId: input.actorId,
+      action: 'security.db_key_rotation',
+      resourceType: 'backup_key',
+      resourceId: 'install',
+      metadata: { outcome: input.outcome },
+    }),
   chooseBackupScheduleDirectory: async () => {
     const options: OpenDialogOptions = {
       title: t('backup.scheduleDialogTitle'),
@@ -362,9 +361,9 @@ const localOwnerTrust = {
 };
 ipcMain.handle(
   'session:complete-setup',
-  createInstallationClaimHandler({ ...localOwnerTrust, getServer })
+  createInstallationClaimHandler({ ...localOwnerTrust, getServerHost })
 );
-const ownerRecovery = createOwnerRecoveryHandlers({ ...localOwnerTrust, getServer });
+const ownerRecovery = createOwnerRecoveryHandlers({ ...localOwnerTrust, getServerHost });
 ipcMain.handle('session:owner-recovery-status', ownerRecovery.status);
 ipcMain.handle('session:recover-owner', ownerRecovery.recover);
 registerDataBridgeIpc({ log: mainLog });
@@ -399,6 +398,8 @@ app.whenReady().then(async () => {
       return;
     }
     try {
+      // Loaded only in this mode: it creates full servers on this thread.
+      const { runPackagedRecoveryRehearsal } = await import('./packaged-recovery/run.js');
       const { report } = await runPackagedRecoveryRehearsal({
         outputDirectory: packagedRecoveryRequest.outputDirectory,
         migrationsFolder: join(process.resourcesPath, 'migrations'),
@@ -501,7 +502,7 @@ app.whenReady().then(async () => {
   let initialTraySettings: TraySettings;
   try {
     servicesBoot = (async () => {
-      setServer(await serverLifecycle.start());
+      setServerHost(await serverLifecycle.start());
       await backupScheduler.start();
       applyThemePreference(await getThemePreference());
       return getTraySettings();
@@ -510,7 +511,7 @@ app.whenReady().then(async () => {
   } catch (err) {
     // Closing the window during the key wait aborts the boot before anything is sealed.
     if (isQuitting) return;
-    // Every app API depends on the in-process Fastify server; fail loud.
+    // Every app API depends on the embedded server; fail loud.
     mainLog.fatal({ err }, 'embedded server failed to start');
     const detail = err instanceof Error ? err.message : String(err);
     dialog.showErrorBox(t('app.name'), detail);

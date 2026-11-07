@@ -42,6 +42,10 @@ vi.mock('@/features/auth/useRecoveryCodeMissing', () => ({
 vi.mock('@/components/feedback/CommandPaletteProvider', () => ({
   useCommandPalette: () => ({ openPalette }),
 }));
+// The sync pill would otherwise query the server and settle after jsdom is gone.
+vi.mock('@/hooks/useOfflineSync', () => ({
+  useOfflineSync: () => ({ conflicts: 0 }),
+}));
 
 beforeEach(async () => {
   auth.role = 'viewer';

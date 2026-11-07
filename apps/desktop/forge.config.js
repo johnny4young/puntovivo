@@ -25,6 +25,12 @@ const config = {
           target: 'main',
         },
         {
+          // The embedded server runs in this worker-thread bundle.
+          entry: 'src/main/server-host/server-worker.ts',
+          config: 'vite.main.config.ts',
+          target: 'main',
+        },
+        {
           entry: 'src/preload/index.ts',
           config: 'vite.preload.config.ts',
           target: 'preload',

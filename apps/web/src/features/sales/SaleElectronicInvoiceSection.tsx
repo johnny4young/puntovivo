@@ -3,14 +3,16 @@
  * (Res. DIAN 227/2025 art. 1.5.1.12.3); see docs/FISCAL-INTEGRATION.md.
  * @module features/sales/SaleElectronicInvoiceSection
  */
+import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useWatch, type UseFormReturn } from 'react-hook-form';
 
 import type { Customer } from '@/types';
 import type { ElectronicInvoiceFormValues } from './salePaymentModal.types';
-import { expectedNitDigit, nitPreview } from './invoiceBuyerNit';
+import { EMPTY_INVOICE_BUYER } from './electronicInvoiceRequest';
+import { buyerIdProblem, expectedNitDigit, NIT_TYPE_CODE, nitPreview } from './invoiceBuyerNit';
 
-const NIT_TYPE_CODE = '31';
+type BuyerField = keyof typeof EMPTY_INVOICE_BUYER;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export interface ElectronicInvoiceIdentificationType {
@@ -23,7 +25,7 @@ export interface ElectronicInvoiceIdentificationType {
 interface SaleElectronicInvoiceSectionProps {
   form: UseFormReturn<ElectronicInvoiceFormValues>;
   identificationTypes: ElectronicInvoiceIdentificationType[];
-  selectedCustomer: Pick<Customer, 'name' | 'taxId' | 'email'> | null;
+  selectedCustomer: Pick<Customer, 'id' | 'name' | 'taxId' | 'email'> | null;
   /** One column with 44 px targets, for the touch cart rail. */
   touch?: boolean;
 }
@@ -50,24 +52,42 @@ export function SaleElectronicInvoiceSection({
   const required = (value: string | undefined) =>
     !isRequested() || (value ?? '').trim().length > 0 || t('electronicInvoiceRequest.required');
 
-  // Fill only blank fields so a correction the cashier typed survives a re-toggle.
-  const prefillFromCustomer = () => {
-    if (!selectedCustomer) return;
-    // Copy the values out: getValues hands back the live form object.
-    const current = { ...form.getValues('invoiceBuyer') };
-    const fill = (field: 'name' | 'identificationNumber' | 'email', value?: string | null) => {
-      if (value && !current[field]?.trim()) {
-        form.setValue(`invoiceBuyer.${field}`, value, { shouldDirty: true });
-      }
-    };
-    fill('name', selectedCustomer.name);
-    fill('identificationNumber', selectedCustomer.taxId);
-    fill('email', selectedCustomer.email);
-    // Only a NIT carries a dashed verification digit in Colombia.
-    if (!current.identificationNumber?.trim() && /-\s*\d$/.test(selectedCustomer.taxId ?? '')) {
-      form.setValue('invoiceBuyer.identificationTypeCode', NIT_TYPE_CODE, { shouldDirty: true });
+  // What the customer filled in, so a customer change can take it back.
+  const prefilled = useRef<Partial<Record<BuyerField, string>>>({});
+  const appliedCustomerId = useRef<string | null>(null);
+  const customerId = selectedCustomer?.id ?? null;
+
+  useEffect(() => {
+    if (!requested) {
+      appliedCustomerId.current = null;
+      return;
     }
-  };
+    if (appliedCustomerId.current === customerId) return;
+    appliedCustomerId.current = customerId;
+    // Getters hand back the live form object, so read field by field.
+    const valueOf = (field: BuyerField) => form.getValues(`invoiceBuyer.${field}`) ?? '';
+    const set = (field: BuyerField, value: string) =>
+      form.setValue(`invoiceBuyer.${field}`, value, { shouldDirty: true });
+    // Clear what an earlier fill put in and the cashier left untouched.
+    for (const [field, value] of Object.entries(prefilled.current) as [BuyerField, string][]) {
+      if (valueOf(field) === value) set(field, EMPTY_INVOICE_BUYER[field]);
+    }
+    prefilled.current = {};
+    if (!selectedCustomer) return;
+    // Fill only blank fields so a correction the cashier typed survives.
+    const fill = (field: BuyerField, value: string) => {
+      set(field, value);
+      prefilled.current[field] = value;
+    };
+    const { name, taxId, email } = selectedCustomer;
+    if (name && !valueOf('name').trim()) fill('name', name);
+    if (taxId && !valueOf('identificationNumber').trim()) {
+      fill('identificationNumber', taxId);
+      // Only a NIT carries a dashed verification digit in Colombia.
+      if (/-\s*\d$/.test(taxId)) fill('identificationTypeCode', NIT_TYPE_CODE);
+    }
+    if (email && !valueOf('email').trim()) fill('email', email);
+  }, [requested, customerId, form, selectedCustomer]);
 
   const fieldError = (message: string | undefined, id: string) =>
     message ? (
@@ -92,11 +112,7 @@ export function SaleElectronicInvoiceSection({
           type="checkbox"
           className={touch ? 'h-5 w-5 shrink-0' : undefined}
           data-testid="sale-electronic-invoice-toggle"
-          {...form.register('invoiceRequested', {
-            onChange: event => {
-              if ((event.target as HTMLInputElement).checked) prefillFromCustomer();
-            },
-          })}
+          {...form.register('invoiceRequested')}
         />
         {t('electronicInvoiceRequest.toggle')}
       </label>
@@ -111,6 +127,7 @@ export function SaleElectronicInvoiceSection({
               id="sale-invoice-buyer-name"
               className={inputClass}
               autoComplete="off"
+              maxLength={200}
               aria-invalid={errors?.name ? true : undefined}
               aria-describedby={errors?.name ? 'sale-invoice-buyer-name-error' : undefined}
               {...form.register('invoiceBuyer.name', { validate: required })}
@@ -153,9 +170,10 @@ export function SaleElectronicInvoiceSection({
                 validate: value => {
                   const missing = required(value);
                   if (missing !== true || !isRequested()) return missing;
-                  if (form.getValues('invoiceBuyer.identificationTypeCode') !== NIT_TYPE_CODE) {
-                    return true;
-                  }
+                  const type = form.getValues('invoiceBuyer.identificationTypeCode') ?? '';
+                  const problem = buyerIdProblem(type, value ?? '');
+                  if (problem) return t(`electronicInvoiceRequest.${problem}`);
+                  if (type !== NIT_TYPE_CODE) return true;
                   const dv = expectedNitDigit(value ?? '');
                   return dv === null || t('electronicInvoiceRequest.nitDvMismatch', { dv });
                 },

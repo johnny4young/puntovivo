@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import JSZip from 'jszip';
 import { createBackupBundle, ZIP_MANIFEST_ENTRY } from '../backup/backup-bundle.ts';
+import { readTenantRestoreDrillCounts } from '../backup/backup-bundle/inspection.ts';
 import { BackupRestoreDrillError, createBackupRestoreDrill } from '../backup/restore-drill.ts';
 import type { BackupScheduleStatus } from '../backup/scheduler.ts';
 
@@ -103,7 +104,8 @@ describe('backup restore drill', () => {
           return scheduleStatus(bundlePath, bundle.zipBytes);
         },
       },
-      getCurrentDatabase: () => currentDb,
+      readCurrentCounts: async tenantId =>
+        currentDb.transaction(() => readTenantRestoreDrillCounts(currentDb, tenantId))(),
       resolveDatabaseEncryptionKey: async () => ENCRYPTION_KEY,
       runExclusive: async operation => {
         lifecycle.push('exclusive:start');
@@ -149,7 +151,7 @@ describe('backup restore drill', () => {
   it('fails closed when no scheduler-owned snapshot exists', async () => {
     const drill = createBackupRestoreDrill({
       backupScheduler: { getStatus: async () => scheduleStatus(null, null) },
-      getCurrentDatabase: () => {
+      readCurrentCounts: async () => {
         throw new Error('current DB should not be read');
       },
       resolveDatabaseEncryptionKey: async () => ENCRYPTION_KEY,
@@ -180,7 +182,7 @@ describe('backup restore drill', () => {
       backupScheduler: {
         getStatus: async () => scheduleStatus(bundlePath, bundle.zipBytes),
       },
-      getCurrentDatabase: () => {
+      readCurrentCounts: async () => {
         throw new Error('current DB should not be read');
       },
       resolveDatabaseEncryptionKey: async () => ENCRYPTION_KEY,
@@ -220,7 +222,7 @@ describe('backup restore drill', () => {
       backupScheduler: {
         getStatus: async () => scheduleStatus(bundlePath, bundle.zipBytes),
       },
-      getCurrentDatabase: () => {
+      readCurrentCounts: async () => {
         throw new Error('current DB should not be read');
       },
       resolveDatabaseEncryptionKey: async () => ENCRYPTION_KEY,

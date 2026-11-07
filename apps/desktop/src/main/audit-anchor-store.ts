@@ -108,21 +108,21 @@ function parseRoot(parsed: unknown): AuditAnchorRootEnvelope {
 }
 
 /**
- * `anchorSecret` is the keychain-sealed audit anchor secret. Earlier builds
- * sealed the state file with safeStorage itself; such a file is converted here
- * once, after which those builds cannot read it.
+ * Synchronous PVA1 store keyed by the anchor secret. It never calls
+ * safeStorage, so it can run on the server's thread. A file an earlier build
+ * sealed with safeStorage fails every read closed until main converts it.
  */
-export async function createSafeStorageAuditAnchorStore(options: {
+export function createAuditAnchorFileStore(options: {
   dataDir: string;
-  safeStorage: SafeStorageLike;
   anchorSecret: string;
   platform?: NodeJS.Platform;
-}): Promise<DesktopAuditAnchorStore> {
-  const { dataDir, safeStorage, anchorSecret, platform = process.platform } = options;
-  await assertSafeStorageUsable(safeStorage, platform);
+  /** Why the one-time legacy conversion failed, reported as the read cause. */
+  conversionError?: unknown;
+}): DesktopAuditAnchorStore {
+  const { dataDir, anchorSecret, platform = process.platform } = options;
   const statePath = getAuditAnchorStatePath(dataDir);
   const stateKey = deriveStateKey(anchorSecret);
-  let conversionError: unknown = null;
+  let conversionError: unknown = options.conversionError ?? null;
 
   function readRoot(): AuditAnchorRootEnvelope {
     if (!existsSync(statePath)) return emptyEnvelope();
@@ -140,59 +140,8 @@ export async function createSafeStorageAuditAnchorStore(options: {
   }
 
   function writeRoot(root: AuditAnchorRootEnvelope): void {
-    mkdirSync(dirname(statePath), { recursive: true });
-    const tmpPath = `${statePath}.tmp`;
-    try {
-      unlinkSync(tmpPath);
-    } catch {
-      // absent
-    }
-    const sealed = sealState(stateKey, JSON.stringify(root));
-    writeFileSync(tmpPath, sealed, { flag: 'wx', mode: 0o600 });
-    try {
-      chmodSync(tmpPath, 0o600);
-    } catch {
-      // Windows ACLs plus DPAPI own access control.
-    }
-    // Windows backs fsync with FlushFileBuffers, which needs a writable handle;
-    // a read-only descriptor fails there with EPERM although POSIX accepts it.
-    const file = openSync(tmpPath, 'r+');
-    try {
-      fsyncSync(file);
-    } finally {
-      closeSync(file);
-    }
-    try {
-      renameSync(tmpPath, statePath);
-      conversionError = null;
-    } catch (error) {
-      try {
-        unlinkSync(tmpPath);
-      } catch {
-        // preserve the rename failure
-      }
-      throw error;
-    }
-    if (platform !== 'win32') {
-      const directory = openSync(dirname(statePath), 'r');
-      try {
-        fsyncSync(directory);
-      } finally {
-        closeSync(directory);
-      }
-    }
-  }
-
-  if (existsSync(statePath)) {
-    const existing = readFileSync(statePath);
-    if (!isStateFormat(existing)) {
-      // On failure the file stays as it was and every read fails closed.
-      try {
-        writeRoot(parseRoot(JSON.parse(await openString(safeStorage, existing))));
-      } catch (error) {
-        conversionError = error;
-      }
-    }
+    writeSealedState(statePath, sealState(stateKey, JSON.stringify(root)), platform);
+    conversionError = null;
   }
 
   return {
@@ -216,4 +165,92 @@ export async function createSafeStorageAuditAnchorStore(options: {
       writeRoot(root);
     },
   };
+}
+
+function writeSealedState(statePath: string, sealed: Buffer, platform: NodeJS.Platform): void {
+  mkdirSync(dirname(statePath), { recursive: true });
+  const tmpPath = `${statePath}.tmp`;
+  try {
+    unlinkSync(tmpPath);
+  } catch {
+    // absent
+  }
+  writeFileSync(tmpPath, sealed, { flag: 'wx', mode: 0o600 });
+  try {
+    chmodSync(tmpPath, 0o600);
+  } catch {
+    // Windows ACLs plus DPAPI own access control.
+  }
+  // Windows backs fsync with FlushFileBuffers, which needs a writable handle;
+  // a read-only descriptor fails there with EPERM although POSIX accepts it.
+  const file = openSync(tmpPath, 'r+');
+  try {
+    fsyncSync(file);
+  } finally {
+    closeSync(file);
+  }
+  try {
+    renameSync(tmpPath, statePath);
+  } catch (error) {
+    try {
+      unlinkSync(tmpPath);
+    } catch {
+      // preserve the rename failure
+    }
+    throw error;
+  }
+  if (platform !== 'win32') {
+    const directory = openSync(dirname(statePath), 'r');
+    try {
+      fsyncSync(directory);
+    } finally {
+      closeSync(directory);
+    }
+  }
+}
+
+/**
+ * Converts a state file an earlier build sealed with safeStorage to PVA1,
+ * once. Returns null when there was nothing to convert or it succeeded, and
+ * the error otherwise; on failure the file stays as it was.
+ */
+export async function convertLegacyAuditAnchorState(options: {
+  dataDir: string;
+  safeStorage: SafeStorageLike;
+  anchorSecret: string;
+  platform?: NodeJS.Platform;
+}): Promise<unknown> {
+  const { dataDir, safeStorage, anchorSecret, platform = process.platform } = options;
+  const statePath = getAuditAnchorStatePath(dataDir);
+  if (!existsSync(statePath)) return null;
+  const existing = readFileSync(statePath);
+  if (isStateFormat(existing)) return null;
+  try {
+    const root = parseRoot(JSON.parse(await openString(safeStorage, existing)));
+    writeSealedState(
+      statePath,
+      sealState(deriveStateKey(anchorSecret), JSON.stringify(root)),
+      platform
+    );
+    return null;
+  } catch (error) {
+    return error;
+  }
+}
+
+/**
+ * `anchorSecret` is the keychain-sealed audit anchor secret. Earlier builds
+ * sealed the state file with safeStorage itself; such a file is converted here
+ * once, after which those builds cannot read it.
+ */
+export async function createSafeStorageAuditAnchorStore(options: {
+  dataDir: string;
+  safeStorage: SafeStorageLike;
+  anchorSecret: string;
+  platform?: NodeJS.Platform;
+}): Promise<DesktopAuditAnchorStore> {
+  const { safeStorage, platform = process.platform } = options;
+  await assertSafeStorageUsable(safeStorage, platform);
+  const conversionError = await convertLegacyAuditAnchorState(options);
+  return createAuditAnchorFileStore({ ...options, conversionError });
 }
