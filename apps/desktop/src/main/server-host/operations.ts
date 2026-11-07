@@ -87,8 +87,19 @@ export function createServerOperations(server: PuntovivoServer): EmbeddedServerO
     },
     async recordAudit(event) {
       assertMainAuditEvent(event);
-      // The chain head read, row insert and head upsert must be atomic.
-      server.db.transaction(tx => writeAuditLog({ tx, ...event }));
+      // Only the checked fields reach the chain; the head read, row insert and
+      // head upsert stay atomic in this one transaction.
+      server.db.transaction(tx =>
+        writeAuditLog({
+          tx,
+          tenantId: event.tenantId,
+          actorId: event.actorId,
+          action: event.action,
+          resourceType: event.resourceType,
+          resourceId: event.resourceId,
+          metadata: event.metadata,
+        })
+      );
     },
     async readAppSetting(key) {
       const row = await server.db
@@ -106,9 +117,9 @@ export function createServerOperations(server: PuntovivoServer): EmbeddedServerO
         .onConflictDoUpdate({ target: appSettings.key, set: { value, updatedAt } })
         .run();
     },
-    getSyncStatus: tenantId => getDesktopSyncStatus(tenantId),
-    triggerSync: tenantId => handleDesktopTriggerSync(tenantId),
-    setSyncConfig: config => handleDesktopSetSyncConfig(config),
+    getSyncStatus: tenantId => getDesktopSyncStatus(server.db, tenantId),
+    triggerSync: tenantId => handleDesktopTriggerSync(server.db, tenantId),
+    setSyncConfig: config => handleDesktopSetSyncConfig(server.db, config),
     async readRestoreDrillCounts(tenantId) {
       const sqlite = (
         server.db as typeof server.db & { $client: import('better-sqlite3').Database }

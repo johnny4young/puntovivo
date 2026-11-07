@@ -3,7 +3,6 @@ import { strict as assert } from 'node:assert';
 import { randomUUID } from 'node:crypto';
 import { createServer, type PuntovivoServer } from '@puntovivo/server';
 import type { MainAuditEvent } from '../server-host/contract.ts';
-import { getHostedDatabase } from '../server-host/hosted-server.ts';
 import { createInProcessServerHost } from '../server-host/in-process.ts';
 import { createServerOperations } from '../server-host/operations.ts';
 
@@ -64,8 +63,7 @@ describe('server host operations', () => {
     const row = sqlite()
       .prepare('select action, resource_type, chain_hash from audit_logs where action = ?')
       .get('security.db_key_rotation') as
-      | { action: string; resource_type: string; chain_hash: string | null }
-      | undefined;
+      { action: string; resource_type: string; chain_hash: string | null } | undefined;
     assert.equal(row?.resource_type, 'backup_key');
     assert.ok(row?.chain_hash);
 
@@ -79,6 +77,32 @@ describe('server host operations', () => {
         /MAIN_AUDIT_EVENT_REJECTED/
       );
     }
+  });
+
+  it('writes only the checked audit fields, whatever else the event carries', async () => {
+    const operations = createServerOperations(server);
+    const smuggled = {
+      tenantId,
+      actorId,
+      action: 'backup.encryption_key_reveal',
+      resourceType: 'backup_key',
+      resourceId: 'install',
+      metadata: { outcome: 'revealed' },
+      id: 'forged-id',
+      createdAt: '2000-01-01T00:00:00.000Z',
+    } as unknown as MainAuditEvent;
+    await operations.recordAudit(smuggled);
+    const row = sqlite()
+      .prepare('select id, created_at from audit_logs where action = ?')
+      .get('backup.encryption_key_reveal') as { id: string; created_at: string };
+    assert.notEqual(row.id, 'forged-id');
+    assert.notEqual(row.created_at, '2000-01-01T00:00:00.000Z');
+  });
+
+  it('runs the sync bridge on the server it was created for', async () => {
+    const status = await createServerOperations(server).getSyncStatus(tenantId);
+    assert.equal(status.isOnline, true);
+    assert.equal(typeof status.pendingItems, 'number');
   });
 
   it('verifies access tokens through the server and rejects garbage', async () => {
@@ -112,20 +136,17 @@ describe('server host operations', () => {
 });
 
 describe('in-process host', () => {
-  it('owns the hosted server until it closes', async () => {
+  it('reports the server URL and closes the server', async () => {
     let closed = 0;
     const fake = {
       getUrl: () => 'http://127.0.0.1:1',
       close: async () => {
         closed += 1;
       },
-      db: { marker: true },
     } as unknown as PuntovivoServer;
     const host = createInProcessServerHost(fake);
     assert.equal(host.url, 'http://127.0.0.1:1');
-    assert.deepEqual(getHostedDatabase(), { marker: true });
     await host.close();
     assert.equal(closed, 1);
-    assert.throws(() => getHostedDatabase(), /not available/);
   });
 });
