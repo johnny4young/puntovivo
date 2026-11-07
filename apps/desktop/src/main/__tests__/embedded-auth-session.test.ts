@@ -1,9 +1,10 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { randomUUID } from 'node:crypto';
-import { createServer, verifyTokenWithServer, type PuntovivoServer } from '@puntovivo/server';
+import { createServer, verifyTokenWithServer } from '@puntovivo/server';
 import { createHubAuthSession, HubAuthRemoteError } from '../session/hub-auth-session.ts';
 import { createEmbeddedAuthFetch, EMBEDDED_AUTH_ORIGIN } from '../session/embedded-auth-fetch.ts';
+import { createServerOperations } from '../server-host/operations.ts';
 
 describe('embedded main-memory auth custody', () => {
   it('refuses arbitrary targets, procedures and methods before touching an authority', async () => {
@@ -32,10 +33,8 @@ describe('embedded main-memory auth custody', () => {
   });
 
   it('returns null-body statuses without a body', async () => {
-    const server = {
-      app: { inject: async () => ({ statusCode: 204, body: '', headers: {} }) },
-    } as unknown as PuntovivoServer;
-    const response = await createEmbeddedAuthFetch(() => server)(
+    const host = { inject: async () => ({ statusCode: 204, body: '', headers: {} }) };
+    const response = await createEmbeddedAuthFetch(() => host)(
       `${EMBEDDED_AUTH_ORIGIN}/api/trpc/auth.logout`,
       { method: 'POST' }
     );
@@ -55,7 +54,7 @@ describe('embedded main-memory auth custody', () => {
         else process.env.PUNTOVIVO_DEV_ADMIN_PASSWORD = previous;
       }
     })();
-    const injectAuth = createEmbeddedAuthFetch(() => server);
+    const injectAuth = createEmbeddedAuthFetch(() => createServerOperations(server));
     let refreshCalls = 0;
     const auth = createHubAuthSession({
       hubUrl: EMBEDDED_AUTH_ORIGIN,
@@ -102,7 +101,7 @@ describe('embedded main-memory auth custody', () => {
       }
     })();
     let refreshCalls = 0;
-    const injectAuth = createEmbeddedAuthFetch(() => server);
+    const injectAuth = createEmbeddedAuthFetch(() => createServerOperations(server));
     const auth = createHubAuthSession({
       hubUrl: EMBEDDED_AUTH_ORIGIN,
       credentialPersistence: 'memory',
