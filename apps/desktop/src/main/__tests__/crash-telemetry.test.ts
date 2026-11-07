@@ -86,6 +86,32 @@ describe('installProcessCrashHandlers', () => {
     assert.deepEqual(exits, [1]);
   });
 
+  it('labels both handlers for the server worker thread when asked', async () => {
+    const messages: string[] = [];
+    const { proc, captured, exits, deps } = buildHarness({
+      source: 'server-worker',
+      label: 'server worker',
+      log: {
+        error(_obj: unknown, msg?: string) {
+          messages.push(msg ?? '');
+        },
+      },
+    });
+    installProcessCrashHandlers(deps);
+    proc.emit('unhandledRejection', new Error('stray'));
+    proc.emit('uncaughtException', new Error('boom'));
+    await settle();
+    assert.deepEqual(messages, [
+      'unhandled promise rejection in server worker',
+      'uncaught exception in server worker',
+    ]);
+    assert.deepEqual(
+      captured.map(call => call.attrs.source),
+      ['server-worker', 'server-worker']
+    );
+    assert.deepEqual(exits, [1]);
+  });
+
   it('uncaughtException: still exits 1 when the flush rejects', async () => {
     const { proc, exits, deps } = buildHarness({
       flushTelemetry: () => Promise.reject(new Error('transport down')),

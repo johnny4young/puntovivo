@@ -16,7 +16,11 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { dirname } from 'node:path';
-import { createModuleLogger, createSseParser, type ParsedSseEvent } from '@puntovivo/server';
+import {
+  createModuleLogger,
+  createSseParser,
+  type ParsedSseEvent,
+} from '@puntovivo/server/desktop-main';
 import { openString, sealString, type SafeStorageLike } from '../db-key-store.ts';
 import type { AccessTokenVerifier, DesktopSessionIdentity } from './desktopSession.js';
 

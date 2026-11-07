@@ -136,8 +136,11 @@ the shipped Electron on every supported platform.
   not part of this decision.
 - Main-thread code can no longer touch the database directly. New desktop
   features that need data add an operation to the closed list.
-- The main bundle can shed the server graph once main imports only light
-  server entry points; that size win is separate from the threading win.
+- Main imports only the light `@puntovivo/server/desktop-main` entry and loads
+  the packaged recovery rehearsal lazily. Otherwise main and worker would each
+  evaluate the whole server graph: a measured +53 MB in main instead of +22 MB.
+- Telemetry registers inside the worker with the server, so main registers its
+  own adapter for its crashes and for a worker that dies.
 
 ## Alternatives rejected
 

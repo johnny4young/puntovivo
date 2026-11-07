@@ -11,6 +11,7 @@ import {
 } from '@puntovivo/server';
 import { readTenantRestoreDrillCounts } from '../backup/backup-bundle/inspection.ts';
 import {
+  MAIN_APP_SETTING_KEYS,
   MAIN_RECORDED_AUDIT_ACTIONS,
   MAIN_RECORDED_AUDIT_RESOURCE_TYPES,
   type EmbeddedServerOperations,
@@ -26,6 +27,18 @@ import {
 function ownerRecoveryErrorCode(error: unknown): string {
   const code = (error as { cause?: { errorCode?: unknown } } | null)?.cause?.errorCode;
   return typeof code === 'string' && /^AUTH_[A-Z_]+$/.test(code) ? code : 'INTERNAL_SERVER_ERROR';
+}
+
+function assertMainAppSettingKey(key: unknown): void {
+  if (!(MAIN_APP_SETTING_KEYS as readonly unknown[]).includes(key)) {
+    throw new Error('MAIN_APP_SETTING_REJECTED');
+  }
+}
+
+function assertTenantId(tenantId: unknown): void {
+  if (typeof tenantId !== 'string' || tenantId.length === 0) {
+    throw new Error('MAIN_TENANT_REQUIRED');
+  }
 }
 
 function assertMainAuditEvent(event: MainAuditEvent): void {
@@ -102,6 +115,7 @@ export function createServerOperations(server: PuntovivoServer): EmbeddedServerO
       );
     },
     async readAppSetting(key) {
+      assertMainAppSettingKey(key);
       const row = await server.db
         .select({ value: appSettings.value })
         .from(appSettings)
@@ -110,6 +124,7 @@ export function createServerOperations(server: PuntovivoServer): EmbeddedServerO
       return row?.value;
     },
     async writeAppSetting(key, value) {
+      assertMainAppSettingKey(key);
       const updatedAt = new Date().toISOString();
       await server.db
         .insert(appSettings)
@@ -117,8 +132,14 @@ export function createServerOperations(server: PuntovivoServer): EmbeddedServerO
         .onConflictDoUpdate({ target: appSettings.key, set: { value, updatedAt } })
         .run();
     },
-    getSyncStatus: tenantId => getDesktopSyncStatus(server.db, tenantId),
-    triggerSync: tenantId => handleDesktopTriggerSync(server.db, tenantId),
+    async getSyncStatus(tenantId) {
+      assertTenantId(tenantId);
+      return getDesktopSyncStatus(server.db, tenantId);
+    },
+    async triggerSync(tenantId) {
+      assertTenantId(tenantId);
+      return handleDesktopTriggerSync(server.db, tenantId);
+    },
     setSyncConfig: config => handleDesktopSetSyncConfig(server.db, config),
     async readRestoreDrillCounts(tenantId) {
       const sqlite = (

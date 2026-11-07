@@ -13,6 +13,10 @@
     "./audit-anchor": {
       "import": "./dist/services/audit-anchor.js",
       "types": "./dist/services/audit-anchor.d.ts"
+    },
+    "./desktop-main": {
+      "import": "./dist/desktop-main.js",
+      "types": "./dist/desktop-main.d.ts"
     }
   },
   "scripts": {

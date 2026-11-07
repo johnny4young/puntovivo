@@ -1,6 +1,6 @@
 /** admin-gated SQLCipher key rotation IPC and audit boundary. */
 
-import { createModuleLogger } from '@puntovivo/server';
+import { createModuleLogger } from '@puntovivo/server/desktop-main';
 import type { BackupIpcDeps } from './contracts.ts';
 import { requireAdminTenantActor } from './guards.ts';
 

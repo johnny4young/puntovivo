@@ -23,7 +23,7 @@ import {
   EscPosTransportError,
   resolveTransport,
   type EscPosTransportConfig,
-} from '@puntovivo/server';
+} from '@puntovivo/server/desktop-main';
 
 export interface LocalEscPosDispatchInput {
   /**

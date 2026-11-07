@@ -75,6 +75,15 @@ export interface DesktopSyncTriggerResult extends DesktopSyncStatusResult {
   errors: string[];
 }
 
+/** The only `app_settings` keys main reads or writes. */
+export const MAIN_APP_SETTING_KEYS = [
+  'receipt_print_settings',
+  'theme_preference',
+  'tray_settings',
+] as const;
+
+export type MainAppSettingKey = (typeof MAIN_APP_SETTING_KEYS)[number];
+
 /** Every operation main may ask of the server. */
 export interface EmbeddedServerOperations {
   inject(request: InjectRequest): Promise<InjectResponse>;
@@ -84,9 +93,9 @@ export interface EmbeddedServerOperations {
   isOwnerRecoveryAvailable(): Promise<boolean>;
   recoverOwner(input: unknown): Promise<OwnerRecoveryResult>;
   recordAudit(event: MainAuditEvent): Promise<void>;
-  readAppSetting(key: string): Promise<unknown>;
-  writeAppSetting(key: string, value: unknown): Promise<void>;
-  getSyncStatus(tenantId?: string): Promise<DesktopSyncStatusResult>;
+  readAppSetting(key: MainAppSettingKey): Promise<unknown>;
+  writeAppSetting(key: MainAppSettingKey, value: unknown): Promise<void>;
+  getSyncStatus(tenantId: string): Promise<DesktopSyncStatusResult>;
   triggerSync(tenantId: string): Promise<DesktopSyncTriggerResult>;
   setSyncConfig(config: Record<string, unknown>): Promise<void>;
   /** Live row counts of the restore-drill tables for one tenant. */

@@ -1,6 +1,6 @@
 import { app, safeStorage } from 'electron';
 import { autoUpdater, type ProgressInfo, type UpdateInfo } from 'electron-updater';
-import { createModuleLogger } from '@puntovivo/server';
+import { createModuleLogger } from '@puntovivo/server/desktop-main';
 import { join } from 'node:path';
 import { mapReleaseFields, redactAutoUpdaterError } from './auto-update-status';
 import type {

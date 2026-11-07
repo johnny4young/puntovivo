@@ -38,15 +38,24 @@ after(async () => {
 });
 
 describe('server host operations', () => {
-  it('reads and overwrites app settings by key', async () => {
+  it('reads and overwrites only the desktop app settings', async () => {
     const operations = createServerOperations(server);
-    assert.equal(await operations.readAppSetting('host-test'), undefined);
-    await operations.writeAppSetting('host-test', { silent: true });
-    await operations.writeAppSetting('host-test', { silent: false, printBackground: true });
-    assert.deepEqual(await operations.readAppSetting('host-test'), {
+    assert.equal(await operations.readAppSetting('receipt_print_settings'), undefined);
+    await operations.writeAppSetting('receipt_print_settings', { silent: true });
+    await operations.writeAppSetting('receipt_print_settings', {
       silent: false,
       printBackground: true,
     });
+    assert.deepEqual(await operations.readAppSetting('receipt_print_settings'), {
+      silent: false,
+      printBackground: true,
+    });
+    for (const key of ['desktop_sync_config', 'sync_last_sync:tenant']) {
+      await assert.rejects(
+        operations.writeAppSetting(key as never, {}),
+        /MAIN_APP_SETTING_REJECTED/
+      );
+    }
   });
 
   it('records only the main-owned audit events, each in the hash chain', async () => {
@@ -99,10 +108,13 @@ describe('server host operations', () => {
     assert.notEqual(row.created_at, '2000-01-01T00:00:00.000Z');
   });
 
-  it('runs the sync bridge on the server it was created for', async () => {
-    const status = await createServerOperations(server).getSyncStatus(tenantId);
+  it('runs the sync bridge on the server it was created for, for one tenant', async () => {
+    const operations = createServerOperations(server);
+    const status = await operations.getSyncStatus(tenantId);
     assert.equal(status.isOnline, true);
     assert.equal(typeof status.pendingItems, 'number');
+    await assert.rejects(operations.getSyncStatus(undefined as never), /MAIN_TENANT_REQUIRED/);
+    await assert.rejects(operations.triggerSync('' as never), /MAIN_TENANT_REQUIRED/);
   });
 
   it('verifies access tokens through the server and rejects garbage', async () => {

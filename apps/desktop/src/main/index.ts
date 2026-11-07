@@ -15,8 +15,9 @@ import {
   captureProcessCrash,
   createModuleLogger,
   flushServerTelemetry,
+  initServerTelemetryAdapter,
   resolveRuntimeConfig,
-} from '@puntovivo/server';
+} from '@puntovivo/server/desktop-main';
 import { sweepStaleBackupStaging } from './backup/backup-bundle.js';
 import { createBackupCloudVault } from './backup/cloud-vault.js';
 import { createBackupOperationQueue } from './backup/operation-queue.js';
@@ -64,6 +65,7 @@ import {
 import { getServerHost, markServerReady, requireServerHost, setServerHost } from './runtime.js';
 import { createOsKeyGate } from './os-key-gate.js';
 import { createServerLifecycle } from './server-lifecycle.js';
+import { createWorkerLauncher } from './server-host/worker-host.js';
 import { createTrayController } from './tray-controller.js';
 import { disableBuiltinSpellchecker } from './window-config.js';
 import { createWindowLifecycle } from './window-lifecycle.js';
@@ -72,7 +74,6 @@ import {
   parsePackagedRecoveryRequest,
   type PackagedRecoveryRequest,
 } from './packaged-recovery/mode.js';
-import { runPackagedRecoveryRehearsal } from './packaged-recovery/run.js';
 
 // structured main/renderer/backup child loggers.
 const mainLog = createModuleLogger('electron-main');
@@ -91,6 +92,9 @@ installProcessCrashHandlers({
   exit: code => app.exit(code),
   proc: process,
 });
+// The server registers its own telemetry inside its worker; main crashes
+// need this thread's adapter. A no-op without a DSN.
+void initServerTelemetryAdapter({ appVersion: app.getVersion() });
 
 // Pin the name before the first userData lookup. Development Electron would
 // otherwise store its DB/key envelope under the generic Electron directory.
@@ -183,9 +187,25 @@ const serverLifecycle = createServerLifecycle({
   log: mainLog,
   prepareDatabaseEncryption: encryptionSetup.prepareDatabaseEncryption,
   prepareAuditAnchorKey: encryptionSetup.resolveAuditAnchorKey,
-  prepareAuditAnchorStore: encryptionSetup.resolveAuditAnchorStore,
   getMainWindow: () => windowLifecycleRef.current?.getWindow() ?? null,
+  launchHost: createWorkerLauncher({
+    workerPath: join(__dirname, 'server-worker.cjs'),
+    resolveAuditAnchorStoreLocation: encryptionSetup.resolveAuditAnchorStoreLocation,
+    onUnexpectedExit: error => handleServerWorkerExit(error),
+  }),
 });
+
+/** A dead server worker is fatal, exactly like a crash of the in-process server was. */
+function handleServerWorkerExit(error: Error): void {
+  if (isQuitting) return;
+  isQuitting = true;
+  mainLog.fatal({ err: error }, 'embedded server worker exited unexpectedly');
+  captureProcessCrash(error, { source: 'server-worker' });
+  dialog.showErrorBox(t('app.name'), error.message);
+  void flushServerTelemetry()
+    .catch(() => undefined)
+    .finally(() => app.quit());
+}
 
 const backupOperationQueue = createBackupOperationQueue();
 const backupCloudVault = createBackupCloudVault({
@@ -379,6 +399,8 @@ app.whenReady().then(async () => {
       return;
     }
     try {
+      // Loaded only in this mode: it creates full servers on this thread.
+      const { runPackagedRecoveryRehearsal } = await import('./packaged-recovery/run.js');
       const { report } = await runPackagedRecoveryRehearsal({
         outputDirectory: packagedRecoveryRequest.outputDirectory,
         migrationsFolder: join(process.resourcesPath, 'migrations'),

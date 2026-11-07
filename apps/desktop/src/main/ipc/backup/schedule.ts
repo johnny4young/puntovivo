@@ -1,6 +1,6 @@
 /** admin-gated snapshot schedule IPC boundary. */
 
-import { createModuleLogger } from '@puntovivo/server';
+import { createModuleLogger } from '@puntovivo/server/desktop-main';
 import { requireAdminTenant } from './guards.ts';
 import type { BackupScheduleFrequency, BackupScheduleStatus } from '../../backup/scheduler.ts';
 import type { BackupIpcDeps } from './contracts.ts';
