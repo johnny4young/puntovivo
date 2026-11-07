@@ -40,7 +40,6 @@ import type {
 } from '../../adapter.js';
 import type { FiscalDocumentStatus } from '../../../../db/schema.js';
 import { splitIssueTimestamp } from '../../orchestrator/helpers.js';
-import { validateNit } from './nit.js';
 import { readCoFiscalSettings, validateCoEmissionConfig } from './settings.js';
 import { buildColombiaUbl21DraftXml } from './ubl21-xml.js';
 
@@ -188,10 +187,8 @@ export class ColombiaMockAdapter implements FiscalAdapter {
 
 /** DIAN wants the buyer ID without dots, dashes or the NIT verification digit. */
 function normalizeBuyerId(taxIdTypeCode: string, taxId: string): string {
-  if (taxIdTypeCode === NIT_ID_TYPE_CODE) {
-    // A wrong DV still marks where the base number ends.
-    const parsed = validateNit(taxId);
-    if (parsed.valid || parsed.reason === 'dv_mismatch') return parsed.nit;
-  }
-  return taxId.replace(/[.\s-]/g, '');
+  // A dashed trailing digit is the DV whatever the base length; buyer NITs of
+  // natural persons are cédula numbers outside the issuer's 9-10 digits.
+  const base = taxIdTypeCode === NIT_ID_TYPE_CODE ? taxId.trim().replace(/\s*-\s*\d$/, '') : taxId;
+  return base.replace(/[.\s-]/g, '');
 }

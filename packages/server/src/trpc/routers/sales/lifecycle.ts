@@ -134,6 +134,7 @@ export const salesLifecycleProcedures = {
         pharmacyEvidenceIds: input.pharmacyEvidenceIds,
         checkoutStartedAt: input.checkoutStartedAt,
         promotionFingerprint: input.promotionFingerprint,
+        electronicInvoice: input.electronicInvoice,
       });
       // the accrued points ride back alongside the sale record so
       // the cashier's completion toast can name them without a second round
@@ -317,6 +318,7 @@ export const salesLifecycleProcedures = {
         pharmacyEvidenceIds: input.pharmacyEvidenceIds,
         checkoutStartedAt: input.checkoutStartedAt,
         promotionFingerprint: input.promotionFingerprint,
+        electronicInvoice: input.electronicInvoice,
       });
       // same shape as the fresh path, so a resumed draft reports
       // its points to the cashier too.

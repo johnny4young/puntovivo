@@ -172,6 +172,8 @@
     "FISCAL_REGIMEN_INVALID": "El código de régimen fiscal o giro comercial no está en el catálogo. Elige uno de los códigos soportados.",
     "FISCAL_RUT_INVALID": "El RUT del emisor chileno no es válido. Revisa el formato (cuerpo-dígito verificador) y que el dígito coincida con el cuerpo.",
     "FISCAL_NIT_INVALID": "El NIT del emisor colombiano no es válido: revisa el dígito de verificación (por ejemplo 900373115-3).",
+    "ELECTRONIC_INVOICE_UNAVAILABLE": "La factura electrónica no está disponible en esta sede ahora. Desmarca la solicitud para cobrar con el documento POS.",
+    "ELECTRONIC_INVOICE_BUYER_INVALID": "Revisa los datos del comprador para la factura electrónica.",
     "FISCAL_NUMBERING_RANGE_INVALID": "El rango de numeración de la DIAN no es válido. El consecutivo inicial debe ser un número positivo y no puede ser mayor que el consecutivo final.",
     "FISCAL_RETURN_SNAPSHOT_UNKNOWN": "No hay descripción del producto registrada en la venta, así que no se puede emitir la nota crédito.",
     "FISCAL_LINE_SNAPSHOT_UNKNOWN": "Esta línea no tiene descripción del producto registrada en la venta, así que no se puede incluir en un documento fiscal.",

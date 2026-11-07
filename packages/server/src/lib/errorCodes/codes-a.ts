@@ -806,6 +806,10 @@ export const SERVER_ERROR_CODES_A = {
    * positivos). Tirado por `fiscal.settings.updateCo`.
    */
   FISCAL_NUMBERING_RANGE_INVALID: 'FISCAL_NUMBERING_RANGE_INVALID',
+  /** A sale asked for a Colombian electronic invoice on a tenant without the Colombian pack on. */
+  ELECTRONIC_INVOICE_UNAVAILABLE: 'ELECTRONIC_INVOICE_UNAVAILABLE',
+  /** The buyer data sent with an electronic-invoice request is incomplete or malformed. */
+  ELECTRONIC_INVOICE_BUYER_INVALID: 'ELECTRONIC_INVOICE_BUYER_INVALID',
   /**
    * `services/fiscal/orchestrator.ts` TOCTOU guard: the
    * UPDATE that advances `fiscal_numbering_resolutions.current_number`

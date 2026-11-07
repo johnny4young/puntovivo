@@ -79,7 +79,7 @@ export async function finalizeFreshSale(
 
   const created = await getSaleRecord(ctx.db, ctx.tenantId, sale.id);
 
-  // emit DIAN DEE when a direct-sale (non-draft) lands as
+  // emit the sale document (DEE, or FEV on request) when a direct-sale (non-draft) lands as
   // `completed`. Drafts never emit. Runs post-tx best-effort.
   const fiscalEmitId = await emitSaleFiscalDocument({
     db: ctx.db,

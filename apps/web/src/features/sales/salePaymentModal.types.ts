@@ -60,6 +60,13 @@ export interface SalePaymentTenderValue {
   loyaltyPoints?: number | undefined;
 }
 
+export interface SaleElectronicInvoiceBuyer {
+  name: string;
+  identificationTypeCode: string;
+  identificationNumber: string;
+  email?: string | undefined;
+}
+
 export interface SalePaymentValues {
   customerId: string;
   paymentMethod: PaymentMethod;
@@ -109,6 +116,11 @@ export interface SalePaymentValues {
   promotionTotal?: number | undefined;
   /** Exact approved prescription records the sale may consume atomically. */
   pharmacyEvidenceIds?: string[] | undefined;
+  /** Form state behind the "customer asked for an electronic invoice" selector. */
+  invoiceRequested?: boolean | undefined;
+  invoiceBuyer?: Required<SaleElectronicInvoiceBuyer> | undefined;
+  /** Submitted only when the buyer asked for an electronic invoice. */
+  electronicInvoice?: { buyer: SaleElectronicInvoiceBuyer } | undefined;
 }
 
 export interface SalePaymentModalProps {
