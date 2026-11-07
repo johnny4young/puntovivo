@@ -286,8 +286,11 @@ describe('createOutboxKernel — failure + retry', () => {
       tenantId,
       payload: { saleId: 'r4', total: 1 },
     });
+    // One clock for both calls: the 10 ms retry delay must not elapse on a slow runner.
+    const failedAt = Date.now();
     await kernel.fail(db, {
       ...(await claim(id)),
+      nowIso: new Date(failedAt).toISOString(),
       error: {
         errorCode: 'PROVIDER_5XX',
         providerMessage: 'transient',
@@ -297,7 +300,7 @@ describe('createOutboxKernel — failure + retry', () => {
     const claimed = await kernel.claimNext(db, {
       tenantId,
       workerId: 'w-now',
-      nowIso: new Date(Date.now() - 1).toISOString(),
+      nowIso: new Date(failedAt + 1).toISOString(),
     });
     expect(claimed?.id).not.toBe(id);
   });
