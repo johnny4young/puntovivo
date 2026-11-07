@@ -334,6 +334,8 @@ export const SERVER_ERROR_CODES_A = {
   GS1_PRICE_FRACTIONAL_PRODUCT_UNSUPPORTED: 'GS1_PRICE_FRACTIONAL_PRODUCT_UNSUPPORTED',
   /** GS1 weight labels require an explicit mass base unit for safe conversion. */
   GS1_WEIGHT_UNIT_UNSUPPORTED: 'GS1_WEIGHT_UNIT_UNSUPPORTED',
+  /** A scanned EAN-8/UPC-A/EAN-13 failed its check digit: a misread, not an unknown product. */
+  GS1_CHECK_DIGIT_INVALID: 'GS1_CHECK_DIGIT_INVALID',
   /** Split-payment input: Σ(payments.amount) does not match the sale total. */
   SALE_PAYMENTS_SUM_MISMATCH: 'SALE_PAYMENTS_SUM_MISMATCH',
 

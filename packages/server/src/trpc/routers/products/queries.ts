@@ -508,7 +508,11 @@ export const productQueryProcedures = {
       /^\d+$/.test(parsed.code) &&
       (parsed.code.length === 8 || parsed.code.length === 12 || parsed.code.length === 13);
     if (input.parsePolicy === 'strict' && failedKnownChecksum) {
-      return null;
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'GS1_CHECK_DIGIT_INVALID',
+        message: 'The scanned code failed its check digit; scan it again',
+      });
     }
 
     // GS1 layouts carry the SKU in the first 5 digits after the role

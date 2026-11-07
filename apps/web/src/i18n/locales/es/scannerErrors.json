@@ -1,6 +1,7 @@
 {
   "server": {
     "GS1_PRICE_FRACTIONAL_PRODUCT_UNSUPPORTED": "Las etiquetas con precio requieren un producto vendido en paquetes enteros. Usa una etiqueta de peso para productos fraccionados.",
-    "GS1_WEIGHT_UNIT_UNSUPPORTED": "Configura una unidad base de masa (kg o g) antes de escanear una etiqueta de peso."
+    "GS1_WEIGHT_UNIT_UNSUPPORTED": "Configura una unidad base de masa (kg o g) antes de escanear una etiqueta de peso.",
+    "GS1_CHECK_DIGIT_INVALID": "El código escaneado no es válido. Vuelve a escanearlo."
   }
 }
