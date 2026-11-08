@@ -13,6 +13,7 @@ import { createAuditAnchorFileStore } from '../audit-anchor-store.ts';
 import { installProcessCrashHandlers } from '../crash-telemetry.ts';
 import type { EmbeddedServerHost } from './contract.ts';
 import { createInProcessLauncher } from './in-process.ts';
+import { createWorkerCallDrain } from './worker-call-drain.ts';
 import {
   dispatchCall,
   serializeError,
@@ -38,6 +39,7 @@ installProcessCrashHandlers({
 
 let host: EmbeddedServerHost | null = null;
 let starting: Promise<void> | null = null;
+const calls = createWorkerCallDrain();
 const post = (message: WorkerToMainMessage) => port.postMessage(message);
 
 async function start(options: WorkerStartOptions): Promise<void> {
@@ -60,9 +62,14 @@ async function start(options: WorkerStartOptions): Promise<void> {
 
 async function stop(): Promise<void> {
   let error: unknown = null;
+  const draining = calls.stop();
   try {
     // A stop during boot waits for it, so Argon2 and migrations finish first.
     await starting;
+    // Direct operations such as owner recovery can still be hashing outside
+    // Fastify's request lifecycle. Keep their database and port alive until
+    // their replies have been sent, then let the server drain HTTP requests.
+    await draining;
     await host?.close();
   } catch (closeError) {
     error = closeError;
@@ -78,23 +85,28 @@ port.on('message', (message: MainToWorkerMessage) => {
     case 'start':
       starting = start(message.options);
       return;
-    case 'call':
-      if (!host) {
+    case 'call': {
+      const current = host;
+      const accepted =
+        current &&
+        calls.dispatch(() =>
+          dispatchCall(current, message)
+            .then(post)
+            // A result that cannot be cloned still answers its call.
+            .catch(error =>
+              post({ type: 'result', id: message.id, ok: false, error: serializeError(error) })
+            )
+        );
+      if (!accepted) {
         post({
           type: 'result',
           id: message.id,
           ok: false,
           error: { name: 'Error', message: 'The embedded server is not available' },
         });
-        return;
       }
-      void dispatchCall(host, message)
-        .then(post)
-        // A result that cannot be cloned still answers its call.
-        .catch(error =>
-          post({ type: 'result', id: message.id, ok: false, error: serializeError(error) })
-        );
       return;
+    }
     case 'stop':
       void stop();
       return;

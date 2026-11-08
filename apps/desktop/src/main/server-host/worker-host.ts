@@ -151,7 +151,8 @@ export async function startWorkerServerHost(
   }
 
   function call(op: OperationName, args: unknown[]): Promise<unknown> {
-    if (exited) return Promise.reject(new Error('The embedded server is not available'));
+    if (stopping || exited)
+      return Promise.reject(new Error('The embedded server is not available'));
     const id = nextId++;
     return new Promise((resolve, reject) => {
       pending.set(id, { resolve, reject });
