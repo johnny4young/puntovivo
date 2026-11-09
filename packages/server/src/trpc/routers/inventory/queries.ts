@@ -10,6 +10,7 @@
  */
 import { TRPCError } from '@trpc/server';
 import { and, desc, eq, gt, gte, like, lte, or, sql } from 'drizzle-orm';
+import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 
 import { managerOrAdminProcedure } from '../../middleware/roles.js';
 import { ensureTenantSite } from '../../middleware/tenantSite.js';
@@ -55,6 +56,13 @@ import {
   listStockInput,
   productStockInput,
 } from '../../schemas/inventory.js';
+
+function literalContains(column: AnySQLiteColumn, value: string) {
+  // Stock search follows the catalog's literal substring contract. Escape
+  // the marker too, so punctuation never broadens rows, counts or valuation.
+  const escaped = value.replaceAll('!', '!!').replaceAll('%', '!%').replaceAll('_', '!_');
+  return sql`${column} LIKE ${`%${escaped}%`} ESCAPE '!'`;
+}
 
 export const inventoryQueryProcedures = {
   listCountSessions: managerOrAdminProcedure
@@ -453,9 +461,9 @@ export const inventoryQueryProcedures = {
     if (search) {
       conditions.push(
         or(
-          like(products.name, `%${search}%`),
-          like(products.sku, `%${search}%`),
-          like(products.barcode, `%${search}%`)
+          literalContains(products.name, search),
+          literalContains(products.sku, search),
+          literalContains(products.barcode, search)
         )!
       );
     }
