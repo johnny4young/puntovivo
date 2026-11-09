@@ -202,6 +202,20 @@ describe('server worker host', () => {
     assert.deepEqual(exits, []);
   });
 
+  it('rejects new calls as soon as close starts without sending them to the worker', async () => {
+    const worker = new FakeWorker((message, self) => {
+      if (message.type === 'start') self.send({ type: 'started', url: 'http://127.0.0.1:9' });
+    });
+    const { host: pending } = start(worker);
+    const host = await pending;
+    const closing = host.close();
+    await assert.rejects(host.readAppSetting('tray_settings'), /not available/);
+    assert.equal(worker.sent.filter(message => message.type === 'call').length, 0);
+    worker.send({ type: 'stopped' });
+    worker.exit(0);
+    await closing;
+  });
+
   it('sends one stop when close is called twice', async () => {
     const worker = new FakeWorker(healthyWorker);
     const { host: pending } = start(worker);
