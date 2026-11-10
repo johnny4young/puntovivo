@@ -5,7 +5,21 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const readRepoFile = relative => readFileSync(path.join(repoRoot, relative), 'utf8');
+
+// This guard reads an immutable checkout. Shared script inputs are revisited
+// from many test entries, so read each source once per invocation. Keep the
+// traversal and its per-gate coverage checks independent of this I/O cache.
+function createSourceReader(read) {
+  const sources = new Map();
+  return file => {
+    if (!sources.has(file)) sources.set(file, read(file));
+    return sources.get(file);
+  };
+}
+
+const readRepoFile = createSourceReader(relative =>
+  readFileSync(path.join(repoRoot, relative), 'utf8')
+);
 
 // Read every list of the detect-changes paths filter. Each entry is a quoted
 // glob on its own line; comment lines inside a list are skipped.
@@ -152,6 +166,39 @@ function localInputs(entry) {
   visit(entry);
   return [...inputs];
 }
+
+test('the source reader reuses each checkout input, including empty files', () => {
+  const reads = [];
+  const sources = { 'empty.mjs': '', 'workflow.yml': 'jobs: {}' };
+  const read = createSourceReader(file => {
+    reads.push(file);
+    return sources[file];
+  });
+
+  assert.equal(read('empty.mjs'), '');
+  assert.equal(read('empty.mjs'), '');
+  assert.equal(read('workflow.yml'), 'jobs: {}');
+  assert.equal(read('workflow.yml'), 'jobs: {}');
+  assert.deepEqual(reads, ['empty.mjs', 'workflow.yml']);
+});
+
+test('the source reader propagates read errors without caching a failed read', () => {
+  const failure = new Error('fixture read failed');
+  let attempts = 0;
+  const read = createSourceReader(() => {
+    attempts += 1;
+    if (attempts === 1) throw failure;
+    return 'recovered source';
+  });
+
+  assert.throws(
+    () => read('source.mjs'),
+    error => error === failure
+  );
+  assert.equal(read('source.mjs'), 'recovered source');
+  assert.equal(read('source.mjs'), 'recovered source');
+  assert.equal(attempts, 2);
+});
 
 test('every script test a CI gate runs is covered by the filters of a job that runs it', () => {
   // A job runs its gate only when its own paths filter or the shared filter
