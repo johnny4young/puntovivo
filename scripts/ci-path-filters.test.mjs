@@ -276,7 +276,23 @@ test('pharmacy role changes run their affected Electron journey in hosted CI', (
   );
   assert.match(
     workflow,
-    /- name: Run pharmacy role Electron journey\n        if: \$\{\{ needs\.detect-changes\.outputs\.pharmacy_electron_roles == 'true' \}\}\n        timeout-minutes: 4\n        run: \|\n          node scripts\/ensure-electron-main-build\.mjs\n          xvfb-run -a -s "-screen 0 1280x1024x24 -extension MIT-SHM" dbus-run-session -- pnpm exec playwright test e2e\/electron\/pharmacy-roles\.spec\.ts --config=playwright\.electron\.config\.ts --workers=1 --forbid-only/u
+    /- name: Run pharmacy role Electron journey\n        if: \$\{\{ runner\.os == 'Linux' && needs\.detect-changes\.outputs\.pharmacy_electron_roles == 'true' \}\}\n        timeout-minutes: 4\n        run: \|\n          node scripts\/ensure-electron-main-build\.mjs\n          xvfb-run -a -s "-screen 0 1280x1024x24 -extension MIT-SHM" dbus-run-session -- pnpm exec playwright test e2e\/electron\/pharmacy-roles\.spec\.ts --config=playwright\.electron\.config\.ts --workers=1 --forbid-only/u
+  );
+});
+
+test('the desktop gate runs on Linux and Windows with Linux-only steps guarded', () => {
+  const workflow = readRepoFile('.github/workflows/ci.yml');
+  const job = workflow.slice(workflow.indexOf('\n  desktop:\n'));
+  const desktop = job.slice(0, job.indexOf('\n  # ====', 1));
+  assert.match(desktop, /^ {8}os: \[ubuntu-latest, windows-latest\]$/mu);
+  assert.match(desktop, /^ {4}runs-on: \$\{\{ matrix\.os \}\}$/mu);
+  assert.match(
+    desktop,
+    /- name: Install Linux desktop runtime dependencies\n {8}if: runner\.os == 'Linux'\n/u
+  );
+  assert.match(
+    desktop,
+    /- name: Upload pharmacy Electron diagnostics\n {8}if: \$\{\{ failure\(\) && runner\.os == 'Linux' && /u
   );
 });
 
