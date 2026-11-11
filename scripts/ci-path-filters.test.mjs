@@ -280,6 +280,22 @@ test('pharmacy role changes run their affected Electron journey in hosted CI', (
   );
 });
 
+test('the desktop gate runs on Linux and Windows with Linux-only steps guarded', () => {
+  const workflow = readRepoFile('.github/workflows/ci.yml');
+  const job = workflow.slice(workflow.indexOf('\n  desktop:\n'));
+  const desktop = job.slice(0, job.indexOf('\n  # ====', 1));
+  assert.match(desktop, /^ {8}os: \[ubuntu-latest, windows-latest\]$/mu);
+  assert.match(desktop, /^ {4}runs-on: \$\{\{ matrix\.os \}\}$/mu);
+  assert.match(
+    desktop,
+    /- name: Install Linux desktop runtime dependencies\n {8}if: runner\.os == 'Linux'\n/u
+  );
+  assert.match(
+    desktop,
+    /- name: Upload pharmacy Electron diagnostics\n {8}if: \$\{\{ failure\(\) && runner\.os == 'Linux' && /u
+  );
+});
+
 // A Playwright entry depends on the e2e modules and scripts it imports. TypeScript
 // specs import siblings through .js specifiers, so resolve those to sources.
 function e2eInputs(entry) {

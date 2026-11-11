@@ -420,11 +420,14 @@ jobs:
   # ============================================================================
   # Desktop Workspace Validation — ubuntu and windows on push/PR
   # ----------------------------------------------------------------------------
-  # Runs `ci:desktop` (typecheck, lint, node tests, Electron memory and
-  # main-thread gates) on Linux and on Windows, where the registers run.
-  # macOS validation and packaging on every OS stay in the manual
-  # `.github/workflows/build-desktop.yml`; run it before merging changes to
-  # preload IPC, native modules or platform-specific paths.
+  # Both legs gate `ci:desktop` (typecheck, lint, node tests, the strict
+  # Electron memory and main-thread launches). Windows is the registers' OS,
+  # where the server worker loads native SQLite and Argon2.
+  #
+  # macOS validation and packaging on every OS live in the manual
+  # `.github/workflows/build-desktop.yml` (macOS bills at 10x); release.yml
+  # packages on tag. Run build-desktop.yml before merging a change to
+  # packaging, signing, or macOS-specific paths.
   # ============================================================================
   desktop:
     name: Desktop Workspace${{ matrix.os == 'windows-latest' && ' (Windows)' || '' }}
@@ -445,6 +448,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Setup pnpm
+        if: runner.os != 'Windows'
         uses: pnpm/action-setup@v6
         with:
           standalone: true
@@ -454,6 +458,17 @@ jobs:
         with:
           node-version-file: .nvmrc
           check-latest: true
+
+      # pnpm/action-setup v6's Windows launcher triggers Node 24 DEP0190.
+      - name: Setup pnpm (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $pnpmVersion = node -p "require('./package.json').packageManager.replace('pnpm@', '')"
+          npm install --global "pnpm@$pnpmVersion" --ignore-scripts --no-audit --no-fund
+          if ((pnpm --version) -ne $pnpmVersion) {
+            throw "pnpm version mismatch"
+          }
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -469,7 +484,7 @@ jobs:
 
       # Electron 42+ no longer downloads its runtime during package installation.
       # Fetch the exact release zip and extract it with the OS-native tool
-      # (unzip on Linux, bsdtar on Windows), set path.txt, then verify it.
+      # (unzip on Linux, Expand-Archive on Windows), set path.txt, then verify it.
       - name: Ensure Electron runtime
         shell: bash
         run: |

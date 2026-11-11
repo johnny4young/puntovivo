@@ -5,10 +5,9 @@ name: Build Desktop (manual)
 # ----------------------------------------------------------------------------
 # Triggered exclusively by the operator via workflow_dispatch when they want
 # to validate or produce a desktop build for a chosen subset of platforms.
-# This replaces the per-push macOS+Windows matrix that used to live in
-# `.github/workflows/ci.yml`'s `desktop` job. The push/PR CI now runs the
-# desktop validation on ubuntu-latest and windows-latest; macOS validation and
-# packaging on every OS stay here, on demand.
+# The push/PR `desktop` job in `.github/workflows/ci.yml` validates on
+# ubuntu-latest and windows-latest; macOS validation and packaging on every OS
+# stay here, on demand.
 #
 # Modes:
 # - validate_only: runs `pnpm run ci:desktop` per chosen OS (no packaging).
