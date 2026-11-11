@@ -418,28 +418,13 @@ jobs:
           if-no-files-found: error
 
   # ============================================================================
-  # Desktop Workspace Validation — ubuntu-only on push/PR
+  # Desktop Workspace Validation — ubuntu and windows on push/PR
   # ----------------------------------------------------------------------------
-  # The desktop workspace hosts Electron-specific code (builder config, preload,
-  # main process). The ubuntu-latest run gates the `ci:desktop` script
-  # (typecheck + lint + node tests + a strict Electron memory launch under
-  # xvfb) — that catches main↔renderer boundary regressions, missing preload
-  # exports, TypeScript breakage, and main/renderer memory regressions without
-  # paying for cross-OS minutes.
-  #
-  # Cross-OS validation (ubuntu + macos + windows running ci:desktop AND
-  # actually packaging via electron-builder) lives in the manual
-  # `.github/workflows/build-desktop.yml` workflow, triggered by an
-  # operator via `workflow_dispatch` with per-OS toggles. macOS minutes
-  # bill at 10x against the free tier, so running the matrix on every
-  # push burns the quota fast for marginal incremental signal — most
-  # bugs caught by the macOS/Windows runners are native packaging, signing,
-  # and target-selection failures that only show up in real artifacts, which
-  # release.yml already covers on tag.
-  #
-  # If you are about to ship a change that touches preload IPC,
-  # native modules (better-sqlite3, argon2), or platform-specific
-  # paths, run `build-desktop.yml` manually before merging.
+  # Runs `ci:desktop` (typecheck, lint, node tests, Electron memory and
+  # main-thread gates) on Linux and on Windows, where the registers run.
+  # macOS validation and packaging on every OS stay in the manual
+  # `.github/workflows/build-desktop.yml`; run it before merging changes to
+  # preload IPC, native modules or platform-specific paths.
   # ============================================================================
   desktop:
     name: Desktop Workspace${{ matrix.os == 'windows-latest' && ' (Windows)' || '' }}
