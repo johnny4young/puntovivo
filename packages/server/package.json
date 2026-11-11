@@ -87,7 +87,7 @@
     "argon2": "^0.45.1",
     "better-sqlite3": "npm:better-sqlite3-multiple-ciphers@^13.0.3",
     "drizzle-orm": "^0.45.4",
-    "fast-xml-parser": "^5.11.2",
+    "fast-xml-parser": "^5.12.0",
     "fastify": "^5.12.7",
     "fastify-plugin": "^6.0.1",
     "jspdf": "^4.2.1",
