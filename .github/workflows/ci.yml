@@ -442,10 +442,15 @@ jobs:
   # paths, run `build-desktop.yml` manually before merging.
   # ============================================================================
   desktop:
-    name: Desktop Workspace
+    name: Desktop Workspace${{ matrix.os == 'windows-latest' && ' (Windows)' || '' }}
     needs: detect-changes
     if: ${{ needs.detect-changes.outputs.desktop == 'true' || needs.detect-changes.outputs.shared == 'true' }}
-    runs-on: ubuntu-latest
+    # Registers run Windows, and the server worker loads native SQLite and Argon2 there.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     # Calibrated from the last 12 green runs (see max durations in the PR);
     # a hang must fail in minutes, not consume the 360-minute Actions default.
     timeout-minutes: 15
@@ -469,6 +474,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install Linux desktop runtime dependencies
+        if: runner.os == 'Linux'
         # apt mirror stalls hang forever by default; observed 2026-08-19.
         timeout-minutes: 5
         run: |
@@ -510,14 +516,14 @@ jobs:
       # Shared role-handoff helpers run in both renderers. The ordinary
       # desktop workspace gate does not execute Playwright Electron specs.
       - name: Run pharmacy role Electron journey
-        if: ${{ needs.detect-changes.outputs.pharmacy_electron_roles == 'true' }}
+        if: ${{ runner.os == 'Linux' && needs.detect-changes.outputs.pharmacy_electron_roles == 'true' }}
         timeout-minutes: 4
         run: |
           node scripts/ensure-electron-main-build.mjs
           xvfb-run -a -s "-screen 0 1280x1024x24 -extension MIT-SHM" dbus-run-session -- pnpm exec playwright test e2e/electron/pharmacy-roles.spec.ts --config=playwright.electron.config.ts --workers=1 --forbid-only
 
       - name: Upload pharmacy Electron diagnostics
-        if: ${{ failure() && needs.detect-changes.outputs.pharmacy_electron_roles == 'true' }}
+        if: ${{ failure() && runner.os == 'Linux' && needs.detect-changes.outputs.pharmacy_electron_roles == 'true' }}
         uses: actions/upload-artifact@v7
         with:
           name: pharmacy-electron-${{ github.run_id }}-${{ github.run_attempt }}
@@ -526,68 +532,6 @@ jobs:
             playwright-report/electron
           if-no-files-found: warn
           retention-days: 7
-
-  # ============================================================================
-  # Desktop on Windows
-  # ----------------------------------------------------------------------------
-  # The registers that run Puntovivo are Windows boxes, and the embedded server
-  # runs in a worker thread with native SQLite and Argon2 addons. Run the same
-  # desktop gate there for every desktop change; packaging stays manual in
-  # build-desktop.yml.
-  # ============================================================================
-  desktop-windows:
-    name: Desktop Workspace (Windows)
-    needs: detect-changes
-    if: ${{ needs.detect-changes.outputs.desktop == 'true' || needs.detect-changes.outputs.shared == 'true' }}
-    runs-on: windows-latest
-    # Measured at about 4 minutes; the margin covers a slow runner, not a hang.
-    timeout-minutes: 20
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6
-        with:
-          standalone: true
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version-file: .nvmrc
-          check-latest: true
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Ensure Electron runtime
-        shell: bash
-        run: |
-          set -e
-          EV=$(node -p "require('./node_modules/electron/package.json').version")
-          PLAT=$(node -p "process.platform")
-          ARCH=$(node -p "process.arch")
-          case "$PLAT" in
-            linux)  ZIP="electron-v${EV}-linux-${ARCH}.zip";  BIN="electron" ;;
-            darwin) ZIP="electron-v${EV}-darwin-${ARCH}.zip"; BIN="Electron.app/Contents/MacOS/Electron" ;;
-            win32)  ZIP="electron-v${EV}-win32-${ARCH}.zip";  BIN="electron.exe" ;;
-          esac
-          rm -rf node_modules/electron/dist node_modules/electron/path.txt
-          mkdir -p node_modules/electron/dist
-          curl -fSL --retry 3 "https://github.com/electron/electron/releases/download/v${EV}/${ZIP}" -o "${RUNNER_TEMP}/${ZIP}"
-          case "$PLAT" in
-            darwin) ditto -x -k "${RUNNER_TEMP}/${ZIP}" node_modules/electron/dist
-                    codesign --force --deep --sign - node_modules/electron/dist/Electron.app ;;
-            win32)  ZW=$(cygpath -w "${RUNNER_TEMP}/${ZIP}"); DW=$(cygpath -w "$PWD/node_modules/electron/dist")
-                    powershell -NoProfile -Command "Expand-Archive -LiteralPath '$ZW' -DestinationPath '$DW' -Force" ;;
-            *)      unzip -q -o "${RUNNER_TEMP}/${ZIP}" -d node_modules/electron/dist ;;
-          esac
-          printf '%s' "$BIN" > node_modules/electron/path.txt
-          node -e "const p=require('electron'),fs=require('fs');if(typeof p!=='string'||!fs.existsSync(p)){console.error('electron runtime missing:',p);process.exit(1)}console.log('electron runtime OK:',p)"
-
-      - name: Run desktop validation
-        run: pnpm run ci:desktop
 
   # ============================================================================
   # Backend Server Tests & Build (Node.js)
