@@ -52,6 +52,16 @@ is usable from source, but it is not a new packaged release yet.
   a real alert receiver with ownership, and an observed retail pilot remain
   open gates.
 
+## [1.17.1](https://github.com/johnny4young/puntovivo/compare/v1.17.0...v1.17.1) (2026-11-11)
+
+
+### Bug Fixes
+
+* **desktop:** drain direct calls before stopping the server worker ([1c3a074](https://github.com/johnny4young/puntovivo/commit/1c3a0743b2d3c13c757036e452901f793af91575))
+* **desktop:** drain direct server calls before stopping worker ([4a70c4d](https://github.com/johnny4young/puntovivo/commit/4a70c4d19af57d8091c46304360b9253b2f2aa57))
+* **inventory:** keep stock searches literal ([bcbf2db](https://github.com/johnny4young/puntovivo/commit/bcbf2db5fc532db9313387826b11d3b082f51c4a))
+* **inventory:** keep stock searches literal ([3320e12](https://github.com/johnny4young/puntovivo/commit/3320e126b4ab64416aade3c3e4a746bcca621d9a))
+
 ## [1.17.0](https://github.com/johnny4young/puntovivo/compare/v1.16.0...v1.17.0) (2026-11-08)
 
 
