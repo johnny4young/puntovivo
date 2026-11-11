@@ -59,7 +59,7 @@ import {
   enqueueInventoryLotUpdatesForSaleInTransaction,
   restoreLotsForSale,
 } from '../../services/inventory-lots/index.js';
-import { getOriginalDeeCufe } from './fiscal-policy.js';
+import { getOriginalSaleDocumentCufe } from './fiscal-policy.js';
 import { transitionSaleSerials } from '../../services/product-serials.js';
 import { emitCompleteSaleEffects, type JournalEffectInput } from './journal-effects.js';
 import type { CompleteSaleContext, CompleteSaleResult } from './types.js';
@@ -240,7 +240,7 @@ export async function voidSale(
           source: 'void',
           sourceId: input.id,
           kind: 'NC',
-          originalCufe: await getOriginalDeeCufe(ctx.db, ctx.tenantId, input.id),
+          originalCufe: await getOriginalSaleDocumentCufe(ctx.db, ctx.tenantId, input.id),
           reasonCode: input.reason ?? undefined,
         })
       : null;

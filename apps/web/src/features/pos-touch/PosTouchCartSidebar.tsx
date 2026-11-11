@@ -22,6 +22,7 @@
  * viewport-height page, and `sticky bottom-0` keeps the Cobrar CTA visible
  * when the lines overflow the rail.
  */
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CreditCard, Sparkles, Trash2, X } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
@@ -56,6 +57,8 @@ interface PosTouchCartSidebarProps {
   canCharge: boolean;
   chargeDisabledReason: 'noSite' | 'noSession' | 'noItems' | null;
   isCharging: boolean;
+  /** Shown above Cobrar only where the site can issue an electronic invoice. */
+  electronicInvoice?: ReactNode;
   onClearCart: () => void;
   onCustomerChange: (customerId: string) => void;
   onPriceTierChange: (tier: 1 | 2 | 3) => void;
@@ -72,6 +75,7 @@ export function PosTouchCartSidebar({
   canCharge,
   chargeDisabledReason,
   isCharging,
+  electronicInvoice,
   onClearCart,
   onCustomerChange,
   onPriceTierChange,
@@ -248,6 +252,8 @@ export function PosTouchCartSidebar({
           </span>
         </div>
       </section>
+
+      {electronicInvoice}
 
       <footer className="sticky bottom-0 flex flex-col gap-2 bg-surface-1 pt-2">
         <button

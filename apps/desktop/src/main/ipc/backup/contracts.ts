@@ -113,14 +113,14 @@ export interface BackupIpcDeps {
   chooseBackupScheduleDirectory: () => Promise<string | null>;
   /** Runs a read-only comparison against the latest scheduler-owned snapshot. */
   runBackupRestoreDrill: (tenantId: string) => Promise<BackupRestoreDrillReport>;
-  /** Writes the admin actor's immutable, tenant-scoped drill evidence. */
-  recordBackupRestoreDrillAudit: (input: BackupRestoreDrillAuditInput) => void;
+  /** Writes the admin actor's immutable, tenant-scoped drill evidence; rejects when it cannot. */
+  recordBackupRestoreDrillAudit: (input: BackupRestoreDrillAuditInput) => Promise<void>;
   /** Writes the admin actor's immutable, tenant-scoped key-reveal evidence. */
-  recordBackupKeyRevealAudit: (input: BackupKeyRevealAuditInput) => void;
+  recordBackupKeyRevealAudit: (input: BackupKeyRevealAuditInput) => Promise<void>;
   /** Offline SQLCipher key rotation; owned by encryption-setup. */
   rotateDatabaseKey: () => Promise<void>;
   /** Non-secret rotation status (supported / pending / envelope mtime). */
   getKeyRotationStatus: () => DbKeyRotationStatus;
   /** Writes the admin actor's immutable, tenant-scoped rotation evidence. */
-  recordDbKeyRotationAudit: (input: DbKeyRotationAuditInput) => void;
+  recordDbKeyRotationAudit: (input: DbKeyRotationAuditInput) => Promise<void>;
 }

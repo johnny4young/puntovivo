@@ -72,7 +72,9 @@ describe('backup restore drill IPC', () => {
           tenants.push(tenantId);
           return REPORT;
         },
-        recordBackupRestoreDrillAudit: input => audit.push(input),
+        recordBackupRestoreDrillAudit: async input => {
+          audit.push(input);
+        },
       })
     );
 
@@ -110,7 +112,9 @@ describe('backup restore drill IPC', () => {
                 cause: new Error('/secret/path with key abc123'),
               });
             },
-            recordBackupRestoreDrillAudit: input => audit.push(input),
+            recordBackupRestoreDrillAudit: async input => {
+              audit.push(input);
+            },
           })
         )
     );
@@ -142,7 +146,7 @@ describe('backup restore drill IPC', () => {
       () =>
         handleRunBackupRestoreDrill(
           makeDeps({
-            recordBackupRestoreDrillAudit: () => {
+            recordBackupRestoreDrillAudit: async () => {
               throw new Error('database read-only');
             },
           })

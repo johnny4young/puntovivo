@@ -51,7 +51,7 @@ export async function materializeCommittedFiscalIntent(args: {
 }
 
 /**
- * emit the DIAN DEE for a completed sale. Runs post-tx,
+ * emit the sale document (DEE, or FEV on request) for a completed sale. Runs post-tx,
  * best-effort: a fiscal failure never rolls the sale back. Returns the
  * emitted `fiscal_documents` row id (for the journal `fiscal_emit`
  * effect) or null.

@@ -2504,19 +2504,25 @@
   {
     "path": "sales.completeDraft",
     "kind": "mutation",
-    "input": "object{amountReceived?:number[min=0],approvalRequests?:array<object>[maxItems=5],checkoutStartedAt?:string[format=date-time],creditOverride?:boolean,customerId?:string[minLength=1]|null,notes?:string,paymentMethod?:enum(\"cash\"|\"card\"|\"transfer\"|\"credit\"|\"loyalty\"|\"store_credit\"|\"other\"),payments?:array<object>[maxItems=20],paymentStatus?:enum(\"pending\"|\"paid\"|\"partial\"),pharmacyEvidenceIds?:array<string[minLength=1]>[maxItems=200],priceTier?:literal(1)|literal(2)|literal(3),promotionFingerprint?:string,saleId:string[minLength=1],serviceChargeAmount?:number[min=0]=0,serviceChargeRate?:number[min=0,max=30],tipAmount?:number[min=0]=0,tipMethod?:enum(\"percentage\"|\"fixed\")}",
+    "input": "object{amountReceived?:number[min=0],approvalRequests?:array<object>[maxItems=5],checkoutStartedAt?:string[format=date-time],creditOverride?:boolean,customerId?:string[minLength=1]|null,electronicInvoice?:object{buyer:object},notes?:string,paymentMethod?:enum(\"cash\"|\"card\"|\"transfer\"|\"credit\"|\"loyalty\"|\"store_credit\"|\"other\"),payments?:array<object>[maxItems=20],paymentStatus?:enum(\"pending\"|\"paid\"|\"partial\"),pharmacyEvidenceIds?:array<string[minLength=1]>[maxItems=200],priceTier?:literal(1)|literal(2)|literal(3),promotionFingerprint?:string,saleId:string[minLength=1],serviceChargeAmount?:number[min=0]=0,serviceChargeRate?:number[min=0,max=30],tipAmount?:number[min=0]=0,tipMethod?:enum(\"percentage\"|\"fixed\")}",
     "output": "inferred"
   },
   {
     "path": "sales.create",
     "kind": "mutation",
-    "input": "object{amountReceived?:number[min=0],approvalRequests?:array<object>[maxItems=5],checkoutStartedAt?:string[format=date-time],creditOverride?:boolean,customerId?:string,discountAmount?:number[min=0]=0,items:array<object>[minItems=1,maxItems=200],notes?:string,paymentMethod?:enum(\"cash\"|\"card\"|\"transfer\"|\"credit\"|\"loyalty\"|\"store_credit\"|\"other\"),payments?:array<object>[maxItems=20],paymentStatus?:enum(\"pending\"|\"paid\"|\"partial\"),pharmacyEvidenceIds?:array<string[minLength=1]>[maxItems=200],priceTier?:literal(1)|literal(2)|literal(3),promotionFingerprint?:string,serviceChargeAmount?:number[min=0]=0,serviceChargeRate?:number[min=0,max=30],sourceQuotationId?:string[minLength=1],sourceReturnId?:string[minLength=1],status?:enum(\"draft\"|\"completed\"|\"cancelled\"|\"voided\"),tableId?:string[minLength=1],tipAmount?:number[min=0]=0,tipMethod?:enum(\"percentage\"|\"fixed\")}",
+    "input": "object{amountReceived?:number[min=0],approvalRequests?:array<object>[maxItems=5],checkoutStartedAt?:string[format=date-time],creditOverride?:boolean,customerId?:string,discountAmount?:number[min=0]=0,electronicInvoice?:object{buyer:object},items:array<object>[minItems=1,maxItems=200],notes?:string,paymentMethod?:enum(\"cash\"|\"card\"|\"transfer\"|\"credit\"|\"loyalty\"|\"store_credit\"|\"other\"),payments?:array<object>[maxItems=20],paymentStatus?:enum(\"pending\"|\"paid\"|\"partial\"),pharmacyEvidenceIds?:array<string[minLength=1]>[maxItems=200],priceTier?:literal(1)|literal(2)|literal(3),promotionFingerprint?:string,serviceChargeAmount?:number[min=0]=0,serviceChargeRate?:number[min=0,max=30],sourceQuotationId?:string[minLength=1],sourceReturnId?:string[minLength=1],status?:enum(\"draft\"|\"completed\"|\"cancelled\"|\"voided\"),tableId?:string[minLength=1],tipAmount?:number[min=0]=0,tipMethod?:enum(\"percentage\"|\"fixed\")}",
     "output": "inferred"
   },
   {
     "path": "sales.discardDraft",
     "kind": "mutation",
     "input": "object{saleId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "sales.electronicInvoiceAvailability",
+    "kind": "query",
+    "input": "void",
     "output": "inferred"
   },
   {

@@ -6,7 +6,7 @@
  */
 
 import { app, ipcMain } from 'electron';
-import { resolveRuntimeConfig } from '@puntovivo/server';
+import { resolveRuntimeConfig } from '@puntovivo/server/desktop-main';
 import {
   checkForAppUpdates,
   evaluateAppUpdateCandidateForE2e,

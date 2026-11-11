@@ -44,7 +44,9 @@ describe('backup encryption key reveal IPC', () => {
     const result = await handleGetBackupEncryptionKey(
       makeBackupIpcDeps({
         resolveDatabaseEncryptionKey: async () => TEST_KEY,
-        recordBackupKeyRevealAudit: input => audit.push(input),
+        recordBackupKeyRevealAudit: async input => {
+          audit.push(input);
+        },
       })
     );
 
@@ -70,7 +72,7 @@ describe('backup encryption key reveal IPC', () => {
         handleGetBackupEncryptionKey(
           makeBackupIpcDeps({
             resolveDatabaseEncryptionKey: async () => TEST_KEY,
-            recordBackupKeyRevealAudit: input => {
+            recordBackupKeyRevealAudit: async input => {
               attempts.push(input);
               throw new Error('database read-only: /secret/path/local.db');
             },
@@ -107,7 +109,9 @@ describe('backup encryption key reveal IPC', () => {
             resolveDatabaseEncryptionKey: async () => {
               throw new Error('keychain item /Users/x/Library/Keychains unavailable');
             },
-            recordBackupKeyRevealAudit: input => audit.push(input),
+            recordBackupKeyRevealAudit: async input => {
+              audit.push(input);
+            },
           })
         )
     );

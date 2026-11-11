@@ -43,6 +43,9 @@ export interface CrashTelemetryDeps {
   flushTimeoutMs?: number;
   /** Hard exit ceiling even if the flush promise never settles. Default 3000 ms. */
   exitDeadlineMs?: number;
+  /** Telemetry `source` and log wording; the server worker installs its own. */
+  source?: string;
+  label?: string;
 }
 
 const DEFAULT_FLUSH_TIMEOUT_MS = 2000;
@@ -67,19 +70,21 @@ export function installProcessCrashHandlers(deps: CrashTelemetryDeps): boolean {
   installed = true;
   const flushTimeoutMs = deps.flushTimeoutMs ?? DEFAULT_FLUSH_TIMEOUT_MS;
   const exitDeadlineMs = deps.exitDeadlineMs ?? DEFAULT_EXIT_DEADLINE_MS;
+  const source = deps.source ?? 'electron-main';
+  const label = deps.label ?? 'main process';
 
   deps.proc.on('uncaughtException', (err: unknown) => {
     // A throw inside THIS handler would loop the crash path, so every
     // step is individually guarded even though the collaborators
     // promise not to throw.
     try {
-      deps.log.error({ err }, 'uncaught exception in main process');
+      deps.log.error({ err }, `uncaught exception in ${label}`);
     } catch {
       /* the logger itself is gone — nothing left to do */
     }
     try {
       deps.captureCrash(err, {
-        source: 'electron-main',
+        source,
         kind: 'uncaughtException',
       });
     } catch {
@@ -110,13 +115,13 @@ export function installProcessCrashHandlers(deps: CrashTelemetryDeps): boolean {
 
   deps.proc.on('unhandledRejection', (reason: unknown) => {
     try {
-      deps.log.error({ err: reason }, 'unhandled promise rejection in main process');
+      deps.log.error({ err: reason }, `unhandled promise rejection in ${label}`);
     } catch {
       /* see above */
     }
     try {
       deps.captureCrash(reason, {
-        source: 'electron-main',
+        source,
         kind: 'unhandledRejection',
       });
     } catch {

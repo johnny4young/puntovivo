@@ -37,7 +37,7 @@ export function makeBackupIpcDeps(overrides: Partial<BackupIpcDeps> = {}): Backu
       pending: false,
       envelopeUpdatedAt: null,
     }),
-    recordDbKeyRotationAudit: () => {},
+    recordDbKeyRotationAudit: async () => {},
     chooseBackupScheduleDirectory: async () => null,
     backupCloudVault: createBackupCloudVaultStub(),
     backupScheduler: {
@@ -50,8 +50,8 @@ export function makeBackupIpcDeps(overrides: Partial<BackupIpcDeps> = {}): Backu
       runNow: notExpected('backupScheduler.runNow'),
     },
     runBackupRestoreDrill: notExpected('runBackupRestoreDrill'),
-    recordBackupRestoreDrillAudit: () => {},
-    recordBackupKeyRevealAudit: () => {},
+    recordBackupRestoreDrillAudit: async () => {},
+    recordBackupKeyRevealAudit: async () => {},
     ...overrides,
   };
 }

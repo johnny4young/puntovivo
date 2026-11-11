@@ -1,11 +1,12 @@
 /**
  * Authenticated desktop sync summaries, trigger and configuration.
  * Domain mutations and outbox payloads are not renderer IPC capabilities.
- * @module main/ipc/sync
+ * @module main/server-host/desktop-sync
  */
-import { and, eq, sql, appSettings, syncConflicts, syncOutbox } from '@puntovivo/server';
-import { getServerDatabase } from '../runtime.js';
+import { and, eq, sql, syncConflicts, syncOutbox } from '@puntovivo/server';
+import type { DesktopSyncStatusResult, DesktopSyncTriggerResult } from './contract.ts';
 import {
+  type SyncDatabase,
   DESKTOP_SYNC_CONFIG_KEY,
   SYNC_ENTITY_CONFIG,
   desktopPendingSyncWhere,
@@ -16,23 +17,13 @@ import {
   incrementQueueFailure,
   markSyncEntityAsSynced,
   saveLastSyncAt,
-} from './sync-helpers.js';
+  upsertAppSetting,
+} from './desktop-sync-helpers.ts';
 
-export interface DesktopSyncStatusResult {
-  isOnline: boolean;
-  lastSync: string | null;
-  pendingItems: number;
-  conflicts: number;
-}
-
-export interface DesktopSyncTriggerResult extends DesktopSyncStatusResult {
-  success: boolean;
-  synced: number;
-  errors: string[];
-}
-
-export async function getDesktopSyncStatus(tenantId?: string): Promise<DesktopSyncStatusResult> {
-  const database = getServerDatabase();
+export async function getDesktopSyncStatus(
+  database: SyncDatabase,
+  tenantId?: string
+): Promise<DesktopSyncStatusResult> {
   const [queueRow, conflictRow, lastSync] = await Promise.all([
     tenantId
       ? database
@@ -56,7 +47,7 @@ export async function getDesktopSyncStatus(tenantId?: string): Promise<DesktopSy
           .from(syncConflicts)
           .where(eq(syncConflicts.status, 'pending'))
           .get(),
-    getLastSyncAt(tenantId),
+    getLastSyncAt(database, tenantId),
   ]);
 
   return {
@@ -68,9 +59,9 @@ export async function getDesktopSyncStatus(tenantId?: string): Promise<DesktopSy
 }
 
 export async function handleDesktopTriggerSync(
+  database: SyncDatabase,
   tenantId: string
 ): Promise<DesktopSyncTriggerResult> {
-  const database = getServerDatabase();
   const items = await database
     .select()
     .from(syncOutbox)
@@ -97,36 +88,37 @@ export async function handleDesktopTriggerSync(
 
     if (existingConflict?.id) {
       const message = `Pending conflict blocks ${item.entityType}:${item.entityId}`;
-      await incrementQueueFailure(tenantId, item.id, message);
+      await incrementQueueFailure(database, tenantId, item.id, message);
       errors.push(message);
       continue;
     }
 
     if (!(item.entityType in SYNC_ENTITY_CONFIG)) {
       const message = `Unsupported sync entity type: ${item.entityType}`;
-      await incrementQueueFailure(tenantId, item.id, message);
+      await incrementQueueFailure(database, tenantId, item.id, message);
       errors.push(message);
       continue;
     }
 
     const entityType = item.entityType as keyof typeof SYNC_ENTITY_CONFIG;
     if (item.operation !== 'delete') {
-      const exists = findLocalSyncEntity(entityType, tenantId, item.entityId);
+      const exists = findLocalSyncEntity(database, entityType, tenantId, item.entityId);
       if (!exists) {
         const message = `Unable to sync ${item.entityType}:${item.entityId} because the local record is missing`;
         await ensurePendingConflict(
+          database,
           tenantId,
           item.entityType,
           item.entityId,
           (item.payload ?? {}) as Record<string, unknown>,
           {}
         );
-        await incrementQueueFailure(tenantId, item.id, message);
+        await incrementQueueFailure(database, tenantId, item.id, message);
         errors.push(message);
         continue;
       }
 
-      markSyncEntityAsSynced(entityType, tenantId, item.entityId, now);
+      markSyncEntityAsSynced(database, entityType, tenantId, item.entityId, now);
     }
 
     await database.delete(syncOutbox).where(eq(syncOutbox.id, item.id)).run();
@@ -134,10 +126,10 @@ export async function handleDesktopTriggerSync(
   }
 
   if (processedIds.length > 0) {
-    await saveLastSyncAt(tenantId, now);
+    await saveLastSyncAt(database, tenantId, now);
   }
 
-  const status = await getDesktopSyncStatus(tenantId);
+  const status = await getDesktopSyncStatus(database, tenantId);
   return {
     success: errors.length === 0,
     synced: processedIds.length,
@@ -146,30 +138,9 @@ export async function handleDesktopTriggerSync(
   };
 }
 
-export async function handleDesktopSetSyncConfig(config: Record<string, unknown>): Promise<void> {
-  const database = getServerDatabase();
-  const now = new Date().toISOString();
-  const existing = await database
-    .select({ key: appSettings.key })
-    .from(appSettings)
-    .where(eq(appSettings.key, DESKTOP_SYNC_CONFIG_KEY))
-    .get();
-
-  if (existing) {
-    await database
-      .update(appSettings)
-      .set({
-        value: config,
-        updatedAt: now,
-      })
-      .where(eq(appSettings.key, DESKTOP_SYNC_CONFIG_KEY))
-      .run();
-    return;
-  }
-
-  await database.insert(appSettings).values({
-    key: DESKTOP_SYNC_CONFIG_KEY,
-    value: config,
-    updatedAt: now,
-  });
+export async function handleDesktopSetSyncConfig(
+  database: SyncDatabase,
+  config: Record<string, unknown>
+): Promise<void> {
+  await upsertAppSetting(database, DESKTOP_SYNC_CONFIG_KEY, config);
 }

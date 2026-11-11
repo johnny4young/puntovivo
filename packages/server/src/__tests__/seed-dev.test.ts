@@ -168,7 +168,7 @@ describe('Dev seed (`seedDevData`)', () => {
   });
 
   // the demo tenant seeds `fiscal_dian_enabled=true` plus one
-  // DEE resolution per site + placeholder certificate so every historical
+  // DEE and one FEV resolution per site + placeholder certificate so every historical
   // sale goes through the full fiscal emission path. The orchestrator is
   // best-effort — a failed emission does not block the sale — so the seed
   // count equality proves the happy path fired cleanly.
@@ -187,10 +187,12 @@ describe('Dev seed (`seedDevData`)', () => {
       count(db, fiscalDocuments, tenantId),
     ]);
 
-    expect(resolutionRows).toHaveLength(2);
-    expect(resolutionRows.every(row => row.kind === 'DEE')).toBe(true);
+    expect(resolutionRows).toHaveLength(4);
+    for (const kind of ['DEE', 'FEV'] as const) {
+      const ranges = resolutionRows.filter(row => row.kind === kind);
+      expect(new Set(ranges.map(row => row.siteId)).size).toBe(2);
+    }
     expect(resolutionRows.every(row => row.isActive)).toBe(true);
-    expect(new Set(resolutionRows.map(row => row.siteId)).size).toBe(2);
     expect(certRows).toHaveLength(1);
     expect(certRows[0]?.isActive).toBe(true);
 

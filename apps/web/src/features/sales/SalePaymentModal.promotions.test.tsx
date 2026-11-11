@@ -61,6 +61,9 @@ vi.mock('@/lib/trpc', () => ({
       managerApprovals: { mine: { invalidate: vi.fn() } },
     }),
     sales: {
+      electronicInvoiceAvailability: {
+        useQuery: () => ({ data: { available: false, identificationTypes: [] } }),
+      },
       quotePromotions: {
         useQuery: (input: unknown) => {
           quoteInputSpy(input);
@@ -75,7 +78,13 @@ vi.mock('@/lib/trpc', () => ({
     pharmacy: {
       checkoutRequirements: {
         useQuery: () => ({
-          data: { countryCode: 'CO', businessDate: '2026-09-02', customerValid: null, requirements: [], ready: true },
+          data: {
+            countryCode: 'CO',
+            businessDate: '2026-09-02',
+            customerValid: null,
+            requirements: [],
+            ready: true,
+          },
           isLoading: false,
           isFetching: false,
           isError: false,
@@ -247,20 +256,23 @@ describe('SalePaymentModal promotions and customer value', () => {
   });
 
   it('quotes the same serial identities and tax selections that completion will submit', async () => {
-    renderModal(vi.fn(async () => undefined), {
-      approvalItems: [
-        {
-          productId: 'serialized-product',
-          unitId: 'unit-1',
-          quantity: 1,
-          unitPrice: 100,
-          discount: 0,
-          serialIds: ['serial-1'],
-          taxRate: 19,
-          taxComponents: [{ vatRateId: 'vat-19' }],
-        },
-      ],
-    });
+    renderModal(
+      vi.fn(async () => undefined),
+      {
+        approvalItems: [
+          {
+            productId: 'serialized-product',
+            unitId: 'unit-1',
+            quantity: 1,
+            unitPrice: 100,
+            discount: 0,
+            serialIds: ['serial-1'],
+            taxRate: 19,
+            taxComponents: [{ vatRateId: 'vat-19' }],
+          },
+        ],
+      }
+    );
 
     await waitFor(() =>
       expect(quoteInputSpy).toHaveBeenCalledWith(

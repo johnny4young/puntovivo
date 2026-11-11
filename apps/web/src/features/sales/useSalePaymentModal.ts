@@ -31,6 +31,8 @@ import { buildCheckoutApprovalContext, requiredCheckoutApprovalActions } from '.
 import { useCheckoutApprovals } from './useCheckoutApprovals';
 import { isCartPriceOverride } from './saleApprovalPricing';
 import { retainEligibleEvidenceIds, selectedEvidenceCoversRequirements } from './pharmacyCheckout';
+import { asElectronicInvoiceForm, buildElectronicInvoiceRequest } from './electronicInvoiceRequest';
+import { useElectronicInvoiceAvailability } from './useElectronicInvoiceAvailability';
 
 /**
  * Inputs the modal shell forwards into the hook. Mirrors the subset of
@@ -195,6 +197,7 @@ export function useSalePaymentModal({
     [watchedPharmacyEvidenceIdsRaw]
   );
   const tenders = useMemo(() => watchedTenders ?? [], [watchedTenders]);
+  const electronicInvoice = useElectronicInvoiceAvailability(asElectronicInvoiceForm(form), isOpen);
   const amountReceivedValue = Number(amountReceived) || 0;
   const tipAmount = Math.max(0, Number(tipAmountWatch) || 0);
   const selectedCustomer = customers.find(c => c.id === watchedCustomerId) ?? null;
@@ -784,8 +787,13 @@ export function useSalePaymentModal({
       (values.paymentMethod === 'credit' || hasSplitCredit)
         ? values.creditOverride || hasApprovedCreditOverride
         : false;
+    const { invoiceRequested, invoiceBuyer, ...submittedValues } = values;
     return onSubmit({
-      ...values,
+      ...submittedValues,
+      electronicInvoice: buildElectronicInvoiceRequest(electronicInvoice.available, {
+        invoiceRequested,
+        invoiceBuyer,
+      }),
       customerId: customerLocked ? (approvalCustomerId ?? '') : values.customerId,
       tenders: splitMode
         ? values.tenders.map(tender => ({
@@ -895,6 +903,7 @@ export function useSalePaymentModal({
     creditMethodAvailable,
     selectedCustomer,
     customerAttached: watchedCustomerId.length > 0,
+    electronicInvoice,
     promotionQuoteLoading,
     promotionQuoteUnavailable,
     promotionDiscountAmount:

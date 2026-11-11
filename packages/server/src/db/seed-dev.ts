@@ -395,22 +395,24 @@ export async function seedDevData(
 
   // ----- 3b. Fiscal placeholders () --------------------------------
   // The orchestrator skips emission when no active numbering resolution
-  // exists for the sale site. Seed one DEE range per site so the dev
-  // environment can exercise the full CUDE round-trip across both
-  // registers.
+  // exists for the sale site. Seed a DEE range per site for every sale and an
+  // FEV range per site so checkout can offer a buyer-requested invoice.
   const devFiscalValidFrom = new Date();
   const devFiscalValidUntil = new Date(devFiscalValidFrom);
   devFiscalValidUntil.setFullYear(devFiscalValidUntil.getFullYear() + 1);
-  for (const [index, site] of siteRows.entries()) {
+  const devFiscalRanges = siteRows.flatMap((site, index) =>
+    (['DEE', 'FEV'] as const).map(kind => ({ site, index, kind }))
+  );
+  for (const { site, index, kind } of devFiscalRanges) {
     await db
       .insert(fiscalNumberingResolutions)
       .values({
         id: nanoid(),
         tenantId,
         siteId: site.id,
-        kind: 'DEE',
+        kind,
         resolutionNumber: `1876000000${index + 1}`,
-        prefix: `SE${index + 1}P`,
+        prefix: `SE${index + 1}${kind === 'DEE' ? 'P' : 'F'}`,
         fromNumber: 1,
         toNumber: 10_000,
         currentNumber: 0,

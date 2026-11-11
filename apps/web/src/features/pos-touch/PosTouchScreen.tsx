@@ -12,6 +12,8 @@
  * - `trpc.categories.tree` (sidebar tabs)
  * - `trpc.cashSessions.getActive` (Cobrar gate)
  * - `trpc.sales.create` (single-tender cash checkout)
+ * - `useElectronicInvoiceAvailability` + `SaleElectronicInvoiceSection`
+ * (buyer asked for an electronic invoice), shared with the drawer
  * - `mergeCartItem` from features/sales/saleCart for the line
  * merge + qty math
  * - `useTenant` from features/tenant/TenantProvider for the
@@ -31,7 +33,17 @@
  * the badge + "Sumar puntos" CTA stay invisible because
  * `loyaltyProfile` is `undefined`.
  */
-import { useCallback, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from 'react';
+import { useForm } from 'react-hook-form';
 import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
 import { useBarcodeProductScanner } from '@/features/sales/useBarcodeProductScanner';
 import { deriveScannerConfig } from '@/features/sales/useBarcodeWedgeListener';
@@ -48,6 +60,13 @@ import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { applyPriceTier, mergeCartItem, type SaleCartItem } from '@/features/sales/saleCart';
 import { getCartSummary } from '@/features/sales/saleCartTotals';
 import { selectionFromHydratedProduct } from '@/features/sales/productSelection';
+import {
+  buildElectronicInvoiceRequest,
+  EMPTY_INVOICE_BUYER,
+} from '@/features/sales/electronicInvoiceRequest';
+import type { ElectronicInvoiceFormValues } from '@/features/sales/salePaymentModal.types';
+import { useElectronicInvoiceAvailability } from '@/features/sales/useElectronicInvoiceAvailability';
+import { SaleElectronicInvoiceSection } from '@/features/sales/LazySaleElectronicInvoiceSection';
 import type { Product } from '@/types';
 import { translateServerError } from '@/lib/translateServerError';
 import { onErrorToast } from '@/lib/mutationHelpers';
@@ -108,6 +127,18 @@ export function PosTouchScreen() {
   const customersQuery = trpc.customers.list.useQuery(
     { page: 1, perPage: 100, isActive: true },
     { enabled: siteId.length > 0, staleTime: 30_000 }
+  );
+  const invoiceForm = useForm<ElectronicInvoiceFormValues>({
+    defaultValues: { invoiceRequested: false, invoiceBuyer: { ...EMPTY_INVOICE_BUYER } },
+  });
+  const invoiceAvailability = useElectronicInvoiceAvailability(invoiceForm, siteId.length > 0);
+  // A buyer typed at one site never rides along to a ticket at another.
+  useEffect(() => {
+    invoiceForm.reset();
+  }, [invoiceForm, siteId]);
+  const invoiceCustomer = useMemo(
+    () => customersQuery.data?.items.find(customer => customer.id === selectedCustomer?.id) ?? null,
+    [customersQuery.data, selectedCustomer]
   );
   const customerOptions = useMemo<PosTouchCustomer[]>(
     () =>
@@ -179,6 +210,7 @@ export function PosTouchScreen() {
       // either selection would silently attach the next walk-in sale to the
       // previous customer or carry wholesale pricing into a new transaction.
       setSelectedCustomer(null);
+      invoiceForm.reset();
       activePriceTierRef.current = 1;
       setActivePriceTier(1);
       const refreshed = await invalidateCommittedGroups(utils, SALE_COMPLETION_INVALIDATIONS);
@@ -294,6 +326,8 @@ export function PosTouchScreen() {
   function handleClearCart() {
     if (checkoutLockedRef.current) return;
     setCartItems([]);
+    // An abandoned ticket must not hand its buyer to the next customer.
+    invoiceForm.reset();
   }
 
   function handleCustomerChange(customerId: string) {
@@ -326,12 +360,21 @@ export function PosTouchScreen() {
   const chargeDisabledReason = deriveChargeDisabledReason();
   const canCharge = chargeDisabledReason === null;
 
-  async function handleCharge() {
+  // Buyer fields validate first; with the request off they always pass.
+  function handleCharge() {
+    void invoiceForm.handleSubmit(chargeTicket)();
+  }
+
+  async function chargeTicket(invoiceValues: ElectronicInvoiceFormValues) {
     if (!canCharge || checkoutLockedRef.current) return;
     checkoutLockedRef.current = true;
     ticketEpochRef.current += 1;
     setIsCheckoutLocked(true);
     try {
+      const electronicInvoice = buildElectronicInvoiceRequest(
+        invoiceAvailability.available,
+        invoiceValues
+      );
       await createMutation.mutateAsync({
         customerId: selectedCustomer?.id || undefined,
         priceTier: activePriceTier,
@@ -348,6 +391,7 @@ export function PosTouchScreen() {
         status: 'completed',
         amountReceived: summary.total,
         discountAmount: 0,
+        ...(electronicInvoice ? { electronicInvoice } : {}),
       });
     } catch {
       // onError already surfaces a toast; no rethrow.
@@ -493,6 +537,20 @@ export function PosTouchScreen() {
           canCharge={canCharge}
           chargeDisabledReason={chargeDisabledReason}
           isCharging={checkoutLocked}
+          electronicInvoice={
+            invoiceAvailability.available ? (
+              <Suspense fallback={null}>
+                <fieldset disabled={checkoutLocked} className="min-w-0">
+                  <SaleElectronicInvoiceSection
+                    form={invoiceForm}
+                    identificationTypes={invoiceAvailability.identificationTypes}
+                    selectedCustomer={invoiceCustomer}
+                    touch
+                  />
+                </fieldset>
+              </Suspense>
+            ) : undefined
+          }
           onClearCart={handleClearCart}
           onCustomerChange={handleCustomerChange}
           onPriceTierChange={handlePriceTierChange}

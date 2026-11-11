@@ -1,6 +1,6 @@
 {
   "name": "@puntovivo/server",
-  "version": "1.16.0",
+  "version": "1.17.0",
   "description": "Puntovivo Backend Server - Fastify + Drizzle + SQLite",
   "type": "module",
   "main": "./dist/index.js",
@@ -13,6 +13,10 @@
     "./audit-anchor": {
       "import": "./dist/services/audit-anchor.js",
       "types": "./dist/services/audit-anchor.d.ts"
+    },
+    "./desktop-main": {
+      "import": "./dist/desktop-main.js",
+      "types": "./dist/desktop-main.d.ts"
     }
   },
   "scripts": {

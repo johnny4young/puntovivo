@@ -192,6 +192,7 @@ jobs:
               - 'packages/server/**'
               - 'perf-budget.json'
               - 'scripts/check-electron-memory*.mjs'
+              - 'scripts/check-electron-main-thread*.mjs'
               - 'scripts/run-electron-memory-gate*.mjs'
               - 'scripts/build-electron-main.mjs'
               # ci:desktop is the only gate that runs the script tests below.
