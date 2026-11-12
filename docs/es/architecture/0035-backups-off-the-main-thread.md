@@ -21,7 +21,7 @@ corta, que main lanza para ese respaldo y que termina con él.
 
 - Main conserva lo suyo: el programador, la cola de operaciones,
   `safeStorage`, la bóveda en la nube y el IPC. El worker recibe
-  `{ dbPath, encryptionKey, outZipPath, deviceIdPath, passphrase, manifest }`
+  la ruta de la base, la llave, la ruta de salida, la ruta del id del equipo, la frase y el manifiesto
   por mensaje, nunca por argv ni por el entorno, y corre el mismo
   `createBackupBundle`; el formato del paquete no cambia.
 - La cancelación cruza como un mensaje `cancel`, que se revisa entre pasos. Una

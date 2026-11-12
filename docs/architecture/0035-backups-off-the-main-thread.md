@@ -20,8 +20,7 @@ Every backup bundle is built in a short-lived `worker_threads` worker that
 main starts for that bundle and that exits with it.
 
 - Main keeps what it owns: the scheduler, the operation queue, `safeStorage`,
-  the cloud vault and IPC. The worker receives `{ dbPath, encryptionKey,
-outZipPath, deviceIdPath, passphrase, manifest }` by message, never through
+  the cloud vault and IPC. The worker receives the database path, the key, the output path, the device id path, the passphrase and the manifest by message, never through
   argv or the environment, and runs the same `createBackupBundle`; the bundle
   format does not change.
 - Cancellation crosses the boundary as a `cancel` message, checked between
