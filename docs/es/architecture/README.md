@@ -53,6 +53,7 @@ estimaciones y colas privadas no pertenecen a los ADR.
 | [ADR-0030](0030-colombia-pre-payroll-evidence.md)                      | Evidencia de prenómina colombiana                | Aceptada |
 | [ADR-0031](0031-human-review-of-ai-payment-proposals.md)               | Revisión humana de propuestas de pago de IA      | Aceptada |
 | [ADR-0032](0032-embedded-server-worker-thread.md)                      | Servidor embebido en un worker thread            | Aceptada |
+| [ADR-0033](0033-desktop-stack-stays-on-electron.md)                    | El stack de escritorio sigue en Electron         | Aceptada |
 
 ## Patrones reutilizables de implementación
 

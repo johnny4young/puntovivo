@@ -245,7 +245,7 @@ export function PosTouchScreen() {
       // `products.getById` so we can pick the real base-unit id and
       // build a valid `ProductSearchSelection` for `mergeCartItem`.
       try {
-        const full = await utils.products.getById.fetch({ id: product.id });
+        const full = await utils.products.getById.fetch({ id: product.id, siteId });
         if (checkoutLockedRef.current || ticketEpoch !== ticketEpochRef.current) return;
         const selection = selectionFromHydratedProduct(full as unknown as Product);
         if (!selection) {
@@ -267,7 +267,7 @@ export function PosTouchScreen() {
         });
       }
     },
-    [utils, toast, t]
+    [utils, toast, t, siteId]
   );
 
   const setTieredCartItems = useCallback<Dispatch<SetStateAction<SaleCartItem[]>>>(update => {

@@ -69,7 +69,7 @@ export function SalesQuickAccess({
 
   const favoriteQueries = trpc.useQueries(t =>
     (shouldLoadCatalog ? [...new Set(configuredIds ?? [])].slice(0, MAX_SALES_FAVORITES) : []).map(
-      id => t.products.getById({ id }, { staleTime: 60_000, retry: false })
+      id => t.products.getById({ id, siteId }, { staleTime: 60_000, retry: false })
     )
   );
   const products = useMemo<Product[]>(() => {
@@ -151,7 +151,10 @@ export function SalesQuickAccess({
     setLoadingProductId(product.id);
     try {
       // The favorite lookups share this cache entry; the cart must use the current product.
-      const hydrated = await utils.products.getById.fetch({ id: product.id }, { staleTime: 0 });
+      const hydrated = await utils.products.getById.fetch(
+        { id: product.id, siteId },
+        { staleTime: 0 }
+      );
       const selection = selectionFromHydratedProduct(hydrated as unknown as Product);
       if (!selection) {
         toast.error({ title: t('noSaleUnit') });

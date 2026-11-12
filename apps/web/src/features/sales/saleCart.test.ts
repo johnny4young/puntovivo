@@ -226,6 +226,31 @@ describe('saleCart service items', () => {
   });
 });
 
+describe('saleCart site stock', () => {
+  it('shows what the active site can sell, not the tenant-wide total', () => {
+    expect(buildCartItem(createSelection({ stock: 28, siteStock: 17 })).availableStock).toBe(17);
+    expect(buildCartItem(createSelection({ stock: 28, siteStock: 0 })).availableStock).toBe(0);
+  });
+
+  it('falls back to the tenant total when the read carried no site', () => {
+    expect(buildCartItem(createSelection({ stock: 28, siteStock: null })).availableStock).toBe(28);
+    expect(buildCartItem(createSelection({ stock: 28 })).availableStock).toBe(28);
+  });
+
+  it('refreshes the site figure when the product is added again', () => {
+    const first = mergeCartItem([], createSelection({ stock: 28, siteStock: 17 }));
+    const second = mergeCartItem(first, createSelection({ stock: 27, siteStock: 16 }));
+    const scanned = mergeBarcodeCartItem(second, createSelection({ stock: 26, siteStock: 15 }), {
+      quantity: 1,
+      price: null,
+    });
+
+    expect(second).toHaveLength(1);
+    expect(second[0]).toMatchObject({ quantity: 2, availableStock: 16 });
+    expect(scanned[0]).toMatchObject({ quantity: 3, availableStock: 15 });
+  });
+});
+
 describe('saleCart core helpers', () => {
   function makeItem(overrides?: Partial<SaleCartItem>): SaleCartItem {
     return {
