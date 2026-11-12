@@ -635,11 +635,14 @@ jobs:
           Invoke-Kit 'Measure-Puntovivo.ps1' @('-Phase', 'startup', '-Label', 'ci', '-Runs', '2', '-StopAt', 'login', '-IntervalSec', '5', '-TestProfile', $profileDir, '-OutDir', $runs) @(0, 1)
           $login = Start-Process node -ArgumentList 'scripts/target-hardware/ci-fixture.mjs', 'login', '--port', '9333' -PassThru -NoNewWindow
           $null = $login.Handle
-          Invoke-Kit 'Measure-Puntovivo.ps1' @('-Phase', 'soak', '-Label', 'ci', '-Minutes', '4', '-Drive', '-Barcodes', $codes, '-SaleEverySec', '15', '-TestProfile', $profileDir, '-CdpPort', '9333', '-OutDir', $runs, '-CloseAtEnd') @(0, 1)
+          # The DevTools input fallback first; the SendKeys soak then attaches to the same app.
+          Invoke-Kit 'Measure-Puntovivo.ps1' @('-Phase', 'soak', '-Label', 'ci-cdp', '-Minutes', '2', '-Drive', '-KeyInput', 'cdp', '-Barcodes', $codes, '-SaleEverySec', '15', '-TestProfile', $profileDir, '-CdpPort', '9333', '-OutDir', $runs) @(0, 1)
           $login.WaitForExit()
           if ($login.ExitCode -ne 0) { throw 'The demo cashier could not sign in.' }
-          Invoke-Kit 'Compare-Runs.ps1' @('-A', (Join-Path $runs 'ci'), '-B', (Join-Path $runs 'ci'), '-OutDir', (Join-Path $runs 'compare')) @(0)
-          Invoke-Fixture @('check', '--run', (Join-Path $runs 'ci'), '--min-sales', '5')
+          Invoke-Kit 'Measure-Puntovivo.ps1' @('-Phase', 'soak', '-Label', 'ci', '-Minutes', '4', '-Drive', '-Barcodes', $codes, '-SaleEverySec', '15', '-TestProfile', $profileDir, '-OutDir', $runs, '-CloseAtEnd') @(0, 1)
+          Invoke-Kit 'Compare-Runs.ps1' @('-A', (Join-Path $runs 'ci-cdp'), '-B', (Join-Path $runs 'ci'), '-OutDir', (Join-Path $runs 'compare')) @(0, 1)
+          Invoke-Fixture @('check', '--run', (Join-Path $runs 'ci-cdp'), '--min-sales', '3', '--input', 'cdp')
+          Invoke-Fixture @('check', '--run', (Join-Path $runs 'ci'), '--min-sales', '5', '--input', 'sendkeys')
 
       - name: Stop leftover app processes
         if: ${{ always() }}

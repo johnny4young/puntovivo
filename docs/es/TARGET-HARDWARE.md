@@ -197,6 +197,12 @@ valores definitivos en `perf-budget.json` bajo una clave nueva
 Cada veredicto es PASS, FAIL o SKIP; una regla se omite cuando su fase no
 corrió.
 
+Las lecturas de página también cuentan el código y los archivos que Windows lee
+del disco por primera vez, no solo la memoria que se paginó. En un runner del
+CI con 12 GB libres, U2 falló igual en la primera venta. Lee una falla de U2
+junto a la memoria libre más baja de su detalle antes de tomarla como presión
+de memoria.
+
 ## Qué guarda una carpeta de corrida
 
 | Archivo        | Contenido                                                                                               |

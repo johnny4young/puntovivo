@@ -95,25 +95,25 @@ function Get-Verdict([hashtable]$metric, $before, $after, $repeat) {
   if ($metric.higherIsBetter) { $worse = -$worse }
   $pct = 0.0
   if ($before -ne 0) { $pct = 100.0 * $worse / [Math]::Abs($before) } elseif ($worse -ne 0) { $pct = 100.0 * [Math]::Sign($worse) }
-  $noise = 0.0
-  if ($null -ne $repeat) { $noise = [Math]::Abs($repeat - $before) }
+  $tolerance = 0.0
+  if ($null -ne $repeat) { $tolerance = [Math]::Abs($repeat - $before) }
   $better = -$worse
   switch ($metric.kind) {
     'memory' {
-      if ($worse -gt $noise -and $worse -gt 20 -and $pct -gt 10) { return 'regression' }
-      if ($better -gt $noise -and $better -gt 20 -and -$pct -gt 10) { return 'improvement' }
+      if ($worse -gt $tolerance -and $worse -gt 20 -and $pct -gt 10) { return 'regression' }
+      if ($better -gt $tolerance -and $better -gt 20 -and -$pct -gt 10) { return 'improvement' }
     }
     'time' {
-      if ($worse -gt $noise -and $pct -gt 15) { return 'regression' }
-      if ($better -gt $noise -and -$pct -gt 15) { return 'improvement' }
+      if ($worse -gt $tolerance -and $pct -gt 15) { return 'regression' }
+      if ($better -gt $tolerance -and -$pct -gt 15) { return 'improvement' }
     }
     'slope' {
-      if ($worse -gt [Math]::Max($noise, 5)) { return 'regression' }
-      if ($better -gt [Math]::Max($noise, 5)) { return 'improvement' }
+      if ($worse -gt [Math]::Max($tolerance, 5)) { return 'regression' }
+      if ($better -gt [Math]::Max($tolerance, 5)) { return 'improvement' }
     }
     'count' {
-      if ($worse -gt $noise -and $worse -gt 5 -and $pct -gt 15) { return 'regression' }
-      if ($better -gt $noise -and $better -gt 5 -and -$pct -gt 15) { return 'improvement' }
+      if ($worse -gt $tolerance -and $worse -gt 5 -and $pct -gt 15) { return 'regression' }
+      if ($better -gt $tolerance -and $better -gt 5 -and -$pct -gt 15) { return 'improvement' }
     }
   }
   return 'no change'

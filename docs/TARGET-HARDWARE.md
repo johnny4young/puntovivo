@@ -189,6 +189,11 @@ values in `perf-budget.json` under a new `targetHardware` key.
 Each verdict is PASS, FAIL or SKIP; a rule is skipped when its phase did not
 run.
 
+Page reads also count code and files that Windows reads from disk for the
+first time, not only memory that was paged out. On a CI runner with 12 GB
+free, U2 still failed on the first sale. Read a U2 failure next to the lowest
+free memory in its detail before treating it as memory pressure.
+
 ## What a run folder holds
 
 | File           | Contents                                                                                        |

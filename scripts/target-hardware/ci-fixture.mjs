@@ -4,7 +4,8 @@
  *
  *   seed  --profile <dir> --barcodes <file>   demo data in a throwaway profile
  *   login --port <devtools port>              signs the demo cashier in
- *   check --run <dir> --min-sales <n>         asserts the run folder is complete
+ *   check --run <dir> --min-sales <n> [--input sendkeys|cdp]
+ *                                             asserts the run folder is complete
  *
  * The packaged app accepts PUNTOVIVO_DB_KEY only with PUNTOVIVO_E2E=1, which
  * the harness sets for -TestProfile. Never point --profile at a real profile.
@@ -197,9 +198,11 @@ function check() {
       problems.push(`${v.id} has status ${v.status}`);
   }
 
-  const startup = read('startup.csv');
-  if (!startup.some(r => Number(r.login_ready_ms) > 0))
-    problems.push('startup.csv has no login time');
+  if (summary?.phases?.startup) {
+    const startup = read('startup.csv');
+    if (!startup.some(r => Number(r.login_ready_ms) > 0))
+      problems.push('startup.csv has no login time');
+  }
   const samples = read('samples.csv');
   for (const role of ['main', 'renderer', 'harness']) {
     if (!samples.some(r => r.role === role && Number(r.working_set_mb) > 0))
@@ -212,9 +215,12 @@ function check() {
   if (!renderer.some(r => Number(r.ipc_count) > 0))
     problems.push('renderer.csv has no IPC round trips');
   const sales = read('sales.csv').filter(r => r.mode === 'drive');
-  const ok = sales.filter(r => r.status === 'ok');
+  const input = process.argv.includes('--input') ? option('--input') : null;
+  const ok = sales.filter(r => r.status === 'ok' && (!input || r.input === input));
   if (ok.length < minSales)
-    problems.push(`${ok.length} simulated sales completed, expected ${minSales} or more`);
+    problems.push(
+      `${ok.length} simulated sales completed${input ? ` through ${input}` : ''}, expected ${minSales} or more`
+    );
 
   const meta = summary?.phases?.soak ?? {};
   console.log(

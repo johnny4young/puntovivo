@@ -588,12 +588,18 @@ function Get-MachineInfo {
   $video = foreach ($v in (Get-SafeCim 'Win32_VideoController')) {
     [ordered]@{ name = $v.Name; driver_version = $v.DriverVersion; driver_date = [string]$v.DriverDate; resolution = "$($v.CurrentHorizontalResolution)x$($v.CurrentVerticalResolution)" }
   }
-  $disks = @()
-  try {
-    $disks = foreach ($d in (Get-PhysicalDisk -ErrorAction Stop)) {
-      [ordered]@{ name = $d.FriendlyName; media_type = [string]$d.MediaType; bus_type = [string]$d.BusType; size_gb = [Math]::Round($d.Size / 1GB, 1) }
+  # Querying the class directly avoids loading the whole Storage module.
+  $mediaNames = @{ 0 = 'Unspecified'; 3 = 'HDD'; 4 = 'SSD'; 5 = 'SCM' }
+  $busNames = @{ 1 = 'SCSI'; 3 = 'ATA'; 7 = 'USB'; 8 = 'RAID'; 10 = 'SAS'; 11 = 'SATA'; 12 = 'SD'; 13 = 'MMC'; 17 = 'NVMe' }
+  $disks = foreach ($d in (Get-SafeCim 'MSFT_PhysicalDisk' 'root/Microsoft/Windows/Storage')) {
+    $media = [int]$d.MediaType; $bus = [int]$d.BusType
+    [ordered]@{
+      name = $d.FriendlyName
+      media_type = $(if ($mediaNames.ContainsKey($media)) { $mediaNames[$media] } else { [string]$media })
+      bus_type = $(if ($busNames.ContainsKey($bus)) { $busNames[$bus] } else { [string]$bus })
+      size_gb = [Math]::Round([double]$d.Size / 1GB, 1)
     }
-  } catch { }
+  }
   $pagefiles = foreach ($p in (Get-SafeCim 'Win32_PageFileUsage')) {
     [ordered]@{ path = $p.Name; allocated_mb = $p.AllocatedBaseSize; peak_mb = $p.PeakUsage }
   }
@@ -1086,7 +1092,7 @@ function Get-CdpKeyEvents([string]$key, [int]$modifiers = 0) {
     if ($key -eq '-') { $vk = 189; $code = 'Minus' }
     $text = if ($modifiers -eq 0) { $key } else { $null }
   }
-  $down = @{ type = 'keyDown'; key = $key; code = $code; windowsVirtualKeyCode = $vk; nativeVirtualKeyCode = $vk; modifiers = $modifiers }
+  $down = @{ type = $(if ($text) { 'keyDown' } else { 'rawKeyDown' }); key = $key; code = $code; windowsVirtualKeyCode = $vk; nativeVirtualKeyCode = $vk; modifiers = $modifiers }
   if ($text) { $down.text = $text; $down.unmodifiedText = $text }
   $up = @{ type = 'keyUp'; key = $key; code = $code; windowsVirtualKeyCode = $vk; nativeVirtualKeyCode = $vk; modifiers = $modifiers }
   return @($down, $up)
@@ -1297,6 +1303,8 @@ function Initialize-Live {
   $script:PhaseStart = Get-NowMs
   $script:PhaseInfo = [ordered]@{ started_utc = Format-Utc $script:PhaseStart; interval_s = $IntervalSec; db_mb_start = Get-DbSizeMb }
   Start-Loop
+  # Setup garbage would otherwise sit in the harness working set for hours.
+  [System.GC]::Collect()
   Write-Host "Run folder: $($script:Dir)"
 }
 
@@ -1460,7 +1468,8 @@ function Invoke-Summarize([string]$dir) {
       peak_mb         = Round1 (($values | Measure-Object -Maximum).Maximum)
       end_mb          = Round1 $values[-1]
       last10_mean_mb  = Round1 (($tail | Measure-Object -Average).Average)
-      slope_mb_per_h  = Round1 (Get-Slope $xs.ToArray() $ys.ToArray())
+      # A slope from a short soak is noise, not a trend.
+      slope_mb_per_h  = $(if ($durationH -ge $T.U3_minSoakHours) { Round1 (Get-Slope $xs.ToArray() $ys.ToArray()) } else { $null })
     }
   }
   $memory.duration_h = [Math]::Round($durationH, 2)
