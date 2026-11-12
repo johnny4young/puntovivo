@@ -40,10 +40,6 @@ function row(rowNumber: number, values: Record<string, string>) {
 const coValues = {
   countryCode: 'CO',
   taxIdentifier: '900123456-7',
-  resolutionNumber: '18764000001234',
-  numberingPrefix: 'SETT',
-  rangeFrom: '1',
-  rangeTo: '5000',
   environment: 'habilitación',
 };
 
@@ -99,7 +95,7 @@ describe(' fiscal profile migration', () => {
     ).toBe(false);
   });
 
-  it('validates the tenant country, duplicate rows, issuer identity, and numbering range', async () => {
+  it('validates the tenant country, duplicate rows, and issuer identity', async () => {
     const preview = await appRouter
       .createCaller(createTestContext())
       .launchMigration.previewFiscalProfiles({
@@ -117,8 +113,6 @@ describe(' fiscal profile migration', () => {
           row(5, {
             ...coValues,
             taxIdentifier: 'broken',
-            rangeFrom: '20',
-            rangeTo: '10',
           }),
         ],
       });
@@ -136,12 +130,10 @@ describe(' fiscal profile migration', () => {
       code: 'tenant_country_mismatch',
       field: 'countryCode',
     });
-    expect(preview.rows[3]?.issues).toEqual(
-      expect.arrayContaining([
-        { code: 'invalid_tax_identifier', field: 'taxIdentifier' },
-        { code: 'invalid_range', field: 'rangeFrom' },
-      ])
-    );
+    expect(preview.rows[3]?.issues).toContainEqual({
+      code: 'invalid_tax_identifier',
+      field: 'taxIdentifier',
+    });
   });
 
   it('normalizes and validates canonical Mexico and Chile profiles', async () => {
@@ -283,10 +275,6 @@ describe(' fiscal profile migration', () => {
     expect(readCoFiscalSettings(tenant?.settings)).toEqual({
       enabled: false,
       nit: '900123456-7',
-      dianResolutionNumber: '18764000001234',
-      prefix: 'SETT',
-      rangeFrom: 1,
-      rangeTo: 5000,
       environment: 'habilitacion',
       softwareId: null,
       softwarePin: null,

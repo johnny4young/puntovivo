@@ -143,10 +143,6 @@ function normalizeRow(row: LaunchFiscalProfileImportRow): {
   const economicActivityCode = optionalText(row.values.economicActivityCode);
   const issueLocation = optionalText(row.values.issueLocation);
   const administrativeAreaCode = parsePositiveInteger(row.values.administrativeAreaCode);
-  const resolutionNumber = optionalText(row.values.resolutionNumber);
-  const numberingPrefix = optionalText(row.values.numberingPrefix)?.toUpperCase() ?? null;
-  const rangeFrom = parsePositiveInteger(row.values.rangeFrom);
-  const rangeTo = parsePositiveInteger(row.values.rangeTo);
   const environment = normalizeEnvironment(countryCode, row.values.environment);
   const issues: FiscalProfileImportIssue[] = [];
 
@@ -163,8 +159,6 @@ function normalizeRow(row: LaunchFiscalProfileImportRow): {
     [taxIdentifierRaw, 'taxIdentifier', 20],
     [economicActivityCode, 'economicActivityCode', 20],
     [issueLocation, 'issueLocation', 200],
-    [resolutionNumber, 'resolutionNumber', 40],
-    [numberingPrefix, 'numberingPrefix', 10],
   ];
   for (const [value, field, max] of textLimits) {
     if (value && value.length > max) issues.push({ code: 'too_long', field });
@@ -203,20 +197,8 @@ function normalizeRow(row: LaunchFiscalProfileImportRow): {
       issues.push({ code: 'invalid_administrative_area', field: 'administrativeAreaCode' });
     }
   } else if (countryCode === 'CO') {
-    required(resolutionNumber, 'resolutionNumber', issues);
-    required(rangeFrom, 'rangeFrom', issues);
-    required(rangeTo, 'rangeTo', issues);
     if (taxIdentifierRaw && !CO_NIT_PATTERN.test(taxIdentifierRaw)) {
       issues.push({ code: 'invalid_tax_identifier', field: 'taxIdentifier' });
-    }
-    if (optionalText(row.values.rangeFrom) && rangeFrom === null) {
-      issues.push({ code: 'invalid_number', field: 'rangeFrom' });
-    }
-    if (optionalText(row.values.rangeTo) && rangeTo === null) {
-      issues.push({ code: 'invalid_number', field: 'rangeTo' });
-    }
-    if (rangeFrom !== null && rangeTo !== null && rangeFrom > rangeTo) {
-      issues.push({ code: 'invalid_range', field: 'rangeFrom' });
     }
   }
 
@@ -227,10 +209,6 @@ function normalizeRow(row: LaunchFiscalProfileImportRow): {
       economicActivityCode,
       issueLocation,
       administrativeAreaCode,
-      resolutionNumber,
-      numberingPrefix,
-      rangeFrom,
-      rangeTo,
       environment: environment ?? '',
       activationRequired: true,
     },
@@ -293,15 +271,7 @@ function isPristineProfile(
     );
   }
   const value = settings as CoFiscalSettings;
-  return (
-    !value.enabled &&
-    value.nit === null &&
-    value.dianResolutionNumber === null &&
-    value.prefix === null &&
-    value.rangeFrom === null &&
-    value.rangeTo === null &&
-    value.environment === 'habilitacion'
-  );
+  return !value.enabled && value.nit === null && value.environment === 'habilitacion';
 }
 
 function profileEquals(
@@ -329,14 +299,7 @@ function profileEquals(
     );
   }
   const value = existing as CoFiscalSettings;
-  return (
-    value.nit === profile.taxIdentifier &&
-    value.dianResolutionNumber === profile.resolutionNumber &&
-    value.prefix === profile.numberingPrefix &&
-    value.rangeFrom === profile.rangeFrom &&
-    value.rangeTo === profile.rangeTo &&
-    value.environment === profile.environment
-  );
+  return value.nit === profile.taxIdentifier && value.environment === profile.environment;
 }
 
 function mergeImportedProfile(
@@ -371,10 +334,6 @@ function mergeImportedProfile(
   return mergeCoFiscalSettingsIntoTenantSettings(settings, {
     enabled: false,
     nit: profile.taxIdentifier,
-    dianResolutionNumber: profile.resolutionNumber,
-    prefix: profile.numberingPrefix,
-    rangeFrom: profile.rangeFrom,
-    rangeTo: profile.rangeTo,
     environment: profile.environment as CoFiscalSettings['environment'],
   });
 }

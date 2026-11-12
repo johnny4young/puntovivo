@@ -227,10 +227,6 @@ export const launchFiscalProfileImportRowSchema = z
         economicActivityCode: importCell,
         issueLocation: importCell,
         administrativeAreaCode: importCell,
-        resolutionNumber: importCell,
-        numberingPrefix: importCell,
-        rangeFrom: importCell,
-        rangeTo: importCell,
         environment: importCell,
       })
       .strict(),

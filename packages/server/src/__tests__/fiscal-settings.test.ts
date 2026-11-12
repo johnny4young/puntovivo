@@ -160,7 +160,7 @@ describe('fiscalSettings.getByCountry', () => {
     // vacíos (3 issues), pero ya no es un stub gated.
   });
 
-  it('CO para tenant fresco → settings CO vacíos + readiness rojo con NIT/RESOLUTION/RANGE', async () => {
+  it('CO para tenant fresco → settings CO vacíos + readiness rojo con NIT/software', async () => {
     const caller = appRouter.createCaller(
       createCtx({ tenantId: tenantA, userId: adminA, role: 'admin' })
     );
@@ -174,23 +174,15 @@ describe('fiscalSettings.getByCountry', () => {
     expect(result.settings).toMatchObject({
       enabled: false,
       nit: null,
-      dianResolutionNumber: null,
-      prefix: null,
-      rangeFrom: null,
-      rangeTo: null,
       environment: 'habilitacion',
       softwareId: null,
       softwarePinConfigured: false,
     });
     expect(result.settings).not.toHaveProperty('softwarePin');
+    expect(result.settings).not.toHaveProperty('rangeFrom');
     expect(result.validation.ok).toBe(false);
     const codes = result.validation.issues.map(i => i.code).sort();
-    expect(codes).toEqual([
-      'MISSING_NIT',
-      'MISSING_RANGE',
-      'MISSING_RESOLUTION',
-      'MISSING_SOFTWARE',
-    ]);
+    expect(codes).toEqual(['MISSING_NIT', 'MISSING_SOFTWARE']);
   });
 
   it('CL devuelve readiness rojo con MISSING_RUT/MISSING_RESOLUTION/MISSING_CERTIFICATE', async () => {
@@ -440,17 +432,13 @@ describe('fiscalSettings.updateCl', () => {
 });
 
 describe('fiscalSettings.updateCo', () => {
-  it('happy path: NIT + resolución + rango válidos → persiste flag legacy + fiscal.co + readiness verde', async () => {
+  it('happy path: NIT + software → persiste flag legacy + fiscal.co + readiness verde', async () => {
     const caller = appRouter.createCaller(
       createCtx({ tenantId: tenantA, userId: adminA, role: 'admin' })
     );
     const result = await caller.fiscalSettings.updateCo({
       enabled: true,
       nit: '900123456-8',
-      dianResolutionNumber: '18760000001',
-      prefix: 'setp',
-      rangeFrom: 1,
-      rangeTo: 5000,
       environment: 'produccion',
       softwareId: 'sw-1',
       softwarePin: '12301',
@@ -459,10 +447,6 @@ describe('fiscalSettings.updateCo', () => {
     expect(result.settings).toMatchObject({
       enabled: true,
       nit: '900123456-8',
-      dianResolutionNumber: '18760000001',
-      prefix: 'SETP', // normalizado a mayúsculas
-      rangeFrom: 1,
-      rangeTo: 5000,
       environment: 'produccion',
       softwareId: 'sw-1',
       softwarePinConfigured: true,
@@ -477,7 +461,6 @@ describe('fiscalSettings.updateCo', () => {
     expect(fetched.settings).toMatchObject({
       enabled: true,
       nit: '900123456-8',
-      prefix: 'SETP',
       softwarePinConfigured: true,
     });
     expect(JSON.stringify(fetched)).not.toContain('12301');
@@ -500,7 +483,7 @@ describe('fiscalSettings.updateCo', () => {
     );
     await caller.fiscalSettings.updateCo({ softwareId: 'sw-1', softwarePin: '12301' });
 
-    const kept = await caller.fiscalSettings.updateCo({ prefix: 'SETP' });
+    const kept = await caller.fiscalSettings.updateCo({ environment: 'habilitacion' });
     expect(kept.settings.softwarePinConfigured).toBe(true);
 
     const cleared = await caller.fiscalSettings.updateCo({ softwarePin: null });
@@ -518,7 +501,7 @@ describe('fiscalSettings.updateCo', () => {
     });
     expect(result.validation.ok).toBe(false);
     const codes = result.validation.issues.map(i => i.code).sort();
-    expect(codes).toEqual(['MISSING_RANGE', 'MISSING_RESOLUTION', 'MISSING_SOFTWARE']);
+    expect(codes).toEqual(['MISSING_SOFTWARE']);
   });
 
   it('NIT inválido → tira FISCAL_NIT_INVALID', async () => {
@@ -557,20 +540,44 @@ describe('fiscalSettings.updateCo', () => {
     expect(cause.message).toContain('8'); // the correct DV, surfaced to the admin
   });
 
-  it('rango invertido (from > to) → tira FISCAL_NUMBERING_RANGE_INVALID', async () => {
+  it('ignora la numeración que mande un cliente viejo y limpia la guardada', async () => {
     const caller = appRouter.createCaller(
       createCtx({ tenantId: tenantA, userId: adminA, role: 'admin' })
     );
-    let caught: unknown;
-    try {
-      await caller.fiscalSettings.updateCo({ rangeFrom: 9000, rangeTo: 10 });
-    } catch (err) {
-      caught = err;
-    }
-    expect(caught).toBeInstanceOf(TRPCError);
-    const cause = (caught as TRPCError).cause;
-    expect(cause).toBeInstanceOf(ServerErrorWithCode);
-    expect((cause as ServerErrorWithCode).errorCode).toBe('FISCAL_NUMBERING_RANGE_INVALID');
+    const db = getDatabase();
+    const current = await db
+      .select({ settings: tenants.settings })
+      .from(tenants)
+      .where(eq(tenants.id, tenantA))
+      .get();
+    const base = (current?.settings ?? {}) as Record<string, unknown>;
+    await db
+      .update(tenants)
+      .set({
+        settings: {
+          ...base,
+          fiscal: { co: { nit: '900123456-8', dianResolutionNumber: '1876', rangeFrom: 1 } },
+        },
+      })
+      .where(eq(tenants.id, tenantA));
+
+    const result = await caller.fiscalSettings.updateCo({
+      softwareId: 'sw-1',
+      rangeFrom: 9000,
+      rangeTo: 10,
+    } as never);
+    expect(result.settings).not.toHaveProperty('rangeFrom');
+
+    const row = await db
+      .select({ settings: tenants.settings })
+      .from(tenants)
+      .where(eq(tenants.id, tenantA))
+      .get();
+    const co = ((row?.settings ?? {}) as { fiscal: { co: Record<string, unknown> } }).fiscal.co;
+    expect(co).not.toHaveProperty('dianResolutionNumber');
+    expect(co).not.toHaveProperty('rangeFrom');
+    expect(co).not.toHaveProperty('rangeTo');
+    expect(co).toMatchObject({ nit: '900123456-8', softwareId: 'sw-1' });
   });
 
   it('no toca otras ramas fiscales (preserva fiscal.mx)', async () => {

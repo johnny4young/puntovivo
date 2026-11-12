@@ -37,19 +37,19 @@ describe('FiscalReadinessStrip', () => {
     h.loading = false;
     h.fiscal = {
       countryCode: 'CO',
-      settings: { environment: 'habilitacion', dianResolutionNumber: null },
-      validation: { issues: [{ code: 'MISSING_RESOLUTION' }] },
+      settings: { environment: 'habilitacion' },
+      validation: { issues: [{ code: 'MISSING_NIT' }] },
     };
   });
 
   it('points each missing step to where it is fixed', () => {
     render(<FiscalReadinessStrip />);
 
-    expect(screen.getByTestId('fiscal-readiness-numbering')).toHaveTextContent('Missing');
-    expect(screen.getByRole('link', { name: 'Add resolution' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Complete profile' })).toHaveAttribute(
       'href',
       '/company?tab=fiscal'
     );
+    expect(screen.queryByTestId('fiscal-readiness-numbering')).not.toBeInTheDocument();
     expect(screen.getByTestId('fiscal-readiness-environment')).toHaveTextContent('Testing');
     expect(screen.getByTestId('fiscal-readiness-pending')).toHaveTextContent('46');
     expect(screen.getByRole('link', { name: 'View queue' })).toHaveAttribute(
@@ -58,15 +58,14 @@ describe('FiscalReadinessStrip', () => {
     );
   });
 
-  it('shows the resolution and production once they are set', () => {
+  it('shows production once it is set', () => {
     h.fiscal = {
       countryCode: 'CO',
-      settings: { environment: 'produccion', dianResolutionNumber: '18760000001' },
+      settings: { environment: 'produccion' },
       validation: { issues: [] },
     };
     render(<FiscalReadinessStrip />);
 
-    expect(screen.getByTestId('fiscal-readiness-numbering')).toHaveTextContent('18760000001');
     expect(screen.getByTestId('fiscal-readiness-environment')).toHaveTextContent('Production');
   });
 

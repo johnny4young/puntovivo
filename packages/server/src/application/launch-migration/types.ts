@@ -258,10 +258,6 @@ export const FISCAL_PROFILE_IMPORT_FIELDS = [
   'economicActivityCode',
   'issueLocation',
   'administrativeAreaCode',
-  'resolutionNumber',
-  'numberingPrefix',
-  'rangeFrom',
-  'rangeTo',
   'environment',
 ] as const;
 
@@ -297,10 +293,6 @@ export interface NormalizedLaunchFiscalProfile {
   economicActivityCode: string | null;
   issueLocation: string | null;
   administrativeAreaCode: number | null;
-  resolutionNumber: string | null;
-  numberingPrefix: string | null;
-  rangeFrom: number | null;
-  rangeTo: number | null;
   environment: string;
   activationRequired: true;
 }
