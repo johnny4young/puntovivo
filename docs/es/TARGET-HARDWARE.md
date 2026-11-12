@@ -169,7 +169,7 @@ que el build no cambie a mitad de una corrida.
 `compare.md` queda en la carpeta de B con una fila por métrica: A, B,
 diferencia, porcentaje y veredicto. Una diferencia menor que el ruido de A
 contra A, o menor que 10 % y 20 MB, es sin cambio. B es una regresión cuando
-es peor en más de 10 % y 20 MB (memoria) o 15 % (tiempos), o cuando cualquier
+es peor en más de 10 % y 20 MB (memoria) o 15 % y 10 ms (tiempos), o cuando cualquier
 umbral pasa de PASS a FAIL. `compare-curves.csv` tiene el working set de main
 y de GPU minuto a minuto en las dos pruebas largas: una pendiente distinta
 importa más que el valor final.

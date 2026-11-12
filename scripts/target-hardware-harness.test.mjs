@@ -150,7 +150,7 @@ function writeRun(name, o) {
       'soak',
       240,
       2,
-      3,
+      o.ipcP99,
       max,
       0,
       20,
@@ -231,6 +231,7 @@ const healthy = {
   pagingReads: 1,
   backupFreeze: 0,
   cold: 30_000,
+  ipcP99: 3,
 };
 const runA = writeRun('build-a', healthy);
 const runB = writeRun('build-b', {
@@ -242,6 +243,7 @@ const runB = writeRun('build-b', {
   pagingReads: 30,
   backupFreeze: 1500,
   cold: 50_000,
+  ipcP99: 3.5,
 });
 
 test('build-desktop runs the harness self-test on the Windows installer under PowerShell 5.1', () => {
@@ -376,6 +378,11 @@ test(
     const report = readFileSync(path.join(out, 'compare.md'), 'utf8');
     assert.match(report, /\| Renderer slope \(MB\/h\) \| 0 \| 20 \| 20 \| {2}\| regression \|/u);
     assert.match(report, /\| U1 GPU \+ utility after the soak \| PASS \| FAIL \| regression \|/u);
+    // Half a millisecond is under the 10 ms floor for times, even at +17 %.
+    assert.match(
+      report,
+      /\| IPC round trip p99, median interval \(ms\) \| 3 \| 3\.5 \| 0\.5 \| \+17 % \| no change \|/u
+    );
     assert.match(report, /\| Sale, median \(ms\) \| [\d.]+ \| [\d.]+ \| 0 \| 0 % \| no change \|/u);
     const curves = readFileSync(path.join(out, 'compare-curves.csv'), 'utf8')
       .trim()

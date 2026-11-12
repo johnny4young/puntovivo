@@ -8,7 +8,7 @@ metric: A, B, difference, percent and verdict) plus compare-curves.csv (minute
 by minute main and GPU working set during each soak) into the B folder.
 
 A metric is a regression when B is worse by more than 10 % and 20 MB (memory)
-or by more than 15 % (times), and by more than the noise. Pass -Noise with a
+or by more than 15 % and 10 ms (times), and by more than the noise. Pass -Noise with a
 second run of A, measured the same way, to set that noise. A threshold that
 goes from PASS in A to FAIL in B is always a regression.
 
@@ -104,8 +104,8 @@ function Get-Verdict([hashtable]$metric, $before, $after, $repeat) {
       if ($better -gt $tolerance -and $better -gt 20 -and -$pct -gt 10) { return 'improvement' }
     }
     'time' {
-      if ($worse -gt $tolerance -and $pct -gt 15) { return 'regression' }
-      if ($better -gt $tolerance -and -$pct -gt 15) { return 'improvement' }
+      if ($worse -gt $tolerance -and $worse -gt 10 -and $pct -gt 15) { return 'regression' }
+      if ($better -gt $tolerance -and $better -gt 10 -and -$pct -gt 15) { return 'improvement' }
     }
     'slope' {
       if ($worse -gt [Math]::Max($tolerance, 5)) { return 'regression' }

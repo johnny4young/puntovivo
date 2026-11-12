@@ -163,7 +163,7 @@ middle of a run.
 `compare.md` lands in the B folder with one row per metric: A, B, difference,
 percent and verdict. A difference smaller than the A-to-A noise, or under
 10 % and 20 MB, is no change. B is a regression when it is worse by more than
-10 % and 20 MB (memory) or 15 % (times), or when any threshold goes from PASS
+10 % and 20 MB (memory) or 15 % and 10 ms (times), or when any threshold goes from PASS
 to FAIL. `compare-curves.csv` holds the main and GPU working set minute by
 minute for both soaks: a different slope matters more than the final value.
 
