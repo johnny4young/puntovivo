@@ -130,6 +130,8 @@ export function useSalesPageData({
       fiscal: 'fiscal_not_active',
       fiscal_issuer: 'fiscal_issuer_incomplete',
       fiscal_numbering: 'fiscal_numbering_missing',
+      fiscal_numbering_fev_only: 'fiscal_numbering_fev_only',
+      fiscal_test_mode: 'fiscal_test_mode',
       receipt_hardware: 'receipt_hardware_missing',
       payment_rail: 'payment_rail_missing',
       sync: 'sync_backlog',

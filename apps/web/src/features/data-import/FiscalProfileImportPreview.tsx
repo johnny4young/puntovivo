@@ -30,7 +30,11 @@ function profileDetails(row: FiscalProfileImportPreview['rows'][number], empty: 
   const profile = row.normalized;
   const values =
     profile.countryCode === 'CO'
-      ? [profile.environment]
+      ? [
+          profile.numbering
+            ? `${profile.numbering.siteName ?? ''} ${profile.numbering.prefix} ${profile.numbering.fromNumber}–${profile.numbering.toNumber}`.trim()
+            : null,
+        ]
       : profile.countryCode === 'CL'
         ? [profile.economicActivityCode, profile.administrativeAreaCode, profile.issueLocation]
         : [profile.economicActivityCode, profile.issueLocation];

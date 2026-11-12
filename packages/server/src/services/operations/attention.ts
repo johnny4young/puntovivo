@@ -22,6 +22,7 @@ import { OPERATIONAL_READINESS_CONTRACT } from '@puntovivo/shared/operational-re
 
 import type { DatabaseInstance } from '../../db/index.js';
 import { fiscalEmissionIntents, hardwareOutbox, paymentOutbox } from '../../db/schema.js';
+import { getNumberingUsage } from '../fiscal/numbering/ranges.js';
 import { countFiscalOutboxFailures, readSyncBacklog } from '../readiness/signals.js';
 
 /**
@@ -163,8 +164,19 @@ export async function computeNeedsAttention(
   } else if (backlog.pending > SYNC_BACKLOG_WARNING_THRESHOLD) {
     areas.push({ area: 'sync', severity: 'warning', count: backlog.pending });
   }
-  if (fiscalFailures > 0) {
-    areas.push({ area: 'fiscal', severity: 'danger', count: fiscalFailures });
+  // Numbering ranges close to expiry or exhaustion join the fiscal area.
+  const numberingAlerts = getNumberingUsage(db, { tenantId }).flatMap(entry =>
+    entry.alert ? [entry.alert] : []
+  );
+  if (fiscalFailures > 0 || numberingAlerts.length > 0) {
+    areas.push({
+      area: 'fiscal',
+      severity:
+        fiscalFailures > 0 || numberingAlerts.some(alert => alert.level === 'critical')
+          ? 'danger'
+          : 'warning',
+      count: fiscalFailures + numberingAlerts.length,
+    });
   }
   if (hardwareFailures > 0) {
     areas.push({ area: 'device', severity: 'danger', count: hardwareFailures });

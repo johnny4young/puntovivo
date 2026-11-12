@@ -31,6 +31,11 @@ import { ServerErrorWithCode } from '../lib/errorCodes.js';
 import { selectNumberingRange } from '../services/fiscal/numbering/select.js';
 import { materializeFiscalEmissionIntent } from '../services/fiscal/orchestrator/intents.js';
 import { alignLegacyNumberingEnvironment } from '../db/numbering-environment.js';
+import {
+  businessDaysBetween,
+  classifyNumberingAlert,
+} from '../services/fiscal/numbering/ranges.js';
+import { computeNeedsAttention } from '../services/operations/attention.js';
 
 const DAY_MS = 86_400_000;
 const TECHNICAL_KEY = 'fc8eac422eba16e22ffd8c6f94b3f40a6e38162c';
@@ -818,6 +823,74 @@ describe('emission draws from the active range and relieves a spent one', () => 
     expect(dee).toMatchObject({ remaining: 9, remainingRatio: 0.9, hasScheduledSuccessor: false });
     expect(dee?.daysUntilExpiry).toBeGreaterThan(300);
     expect(dee?.dailyAverage).toBeCloseTo(1 / 14);
+  });
+});
+
+describe('range alerts', () => {
+  const calm = { remainingRatio: 0.9, daysUntilExpiry: 200, daysOfStockLeft: null };
+
+  it('counts Monday-to-Friday days', () => {
+    // 2026-11-13 is a Friday.
+    expect(businessDaysBetween('2026-11-13T12:00:00.000Z', '2026-11-20T12:00:00.000Z')).toBe(5);
+    expect(businessDaysBetween('2026-11-13T12:00:00.000Z', '2026-11-15T12:00:00.000Z')).toBe(0);
+  });
+
+  it('classifies expiry and consumption against the default thresholds', () => {
+    expect(classifyNumberingAlert(calm, 140)).toBeNull();
+    expect(classifyNumberingAlert({ ...calm, daysUntilExpiry: 30 }, 22)).toEqual({
+      level: 'warning',
+      reason: 'expiry',
+    });
+    expect(classifyNumberingAlert({ ...calm, daysUntilExpiry: 21 }, 15)).toEqual({
+      level: 'critical',
+      reason: 'expiry',
+    });
+    expect(classifyNumberingAlert({ ...calm, remainingRatio: 0.19 }, 140)).toEqual({
+      level: 'warning',
+      reason: 'consumption',
+    });
+    expect(classifyNumberingAlert({ ...calm, remainingRatio: 0.04 }, 140)).toEqual({
+      level: 'critical',
+      reason: 'consumption',
+    });
+    expect(classifyNumberingAlert({ ...calm, daysOfStockLeft: 2.5 }, 140)).toEqual({
+      level: 'critical',
+      reason: 'consumption',
+    });
+  });
+
+  it('raises the fiscal area in operations, and stays silent with DIAN off', async () => {
+    const db = getDatabase();
+    const active = (await api().fiscalNumbering.list({ siteId: saleSiteId })).find(
+      range => range.kind === 'DEE' && range.status === 'active'
+    );
+    db.update(fiscalNumberingResolutions)
+      .set({ currentNumber: active!.toNumber - 1 })
+      .where(eq(fiscalNumberingResolutions.id, active!.id))
+      .run();
+    const usage = (await api().fiscalNumbering.usage({ siteId: saleSiteId })).find(
+      entry => entry.rangeId === active!.id
+    );
+    expect(usage).toMatchObject({
+      alert: { level: 'warning', reason: 'consumption' },
+      hasScheduledSuccessor: false,
+    });
+    expect(usage?.siteName).toBeTruthy();
+    const attention = await computeNeedsAttention(db, tenantId);
+    expect(attention.areas.find(entry => entry.area === 'fiscal')?.count).toBeGreaterThan(0);
+
+    const row = db.select().from(tenants).where(eq(tenants.id, tenantId)).get();
+    const settings = row?.settings as Record<string, unknown>;
+    db.update(tenants)
+      .set({ settings: { ...settings, fiscal_dian_enabled: false } })
+      .where(eq(tenants.id, tenantId))
+      .run();
+    try {
+      const quiet = await api().fiscalNumbering.usage({ siteId: saleSiteId });
+      expect(quiet.every(entry => entry.alert === null)).toBe(true);
+    } finally {
+      db.update(tenants).set({ settings }).where(eq(tenants.id, tenantId)).run();
+    }
   });
 });
 

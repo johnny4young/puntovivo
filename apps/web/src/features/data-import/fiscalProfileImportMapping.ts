@@ -9,6 +9,14 @@ export const FISCAL_PROFILE_IMPORT_FIELDS = [
   'issueLocation',
   'administrativeAreaCode',
   'environment',
+  'siteName',
+  'resolutionNumber',
+  'resolutionDate',
+  'numberingPrefix',
+  'rangeFrom',
+  'rangeTo',
+  'validFrom',
+  'validUntil',
 ] as const;
 
 export type FiscalProfileImportField = (typeof FISCAL_PROFILE_IMPORT_FIELDS)[number];
@@ -23,6 +31,14 @@ export const FISCAL_PROFILE_IMPORT_TEMPLATE: Record<FiscalProfileImportField, st
   issueLocation: '',
   administrativeAreaCode: '',
   environment: 'habilitacion',
+  siteName: '',
+  resolutionNumber: '',
+  resolutionDate: '',
+  numberingPrefix: '',
+  rangeFrom: '',
+  rangeTo: '',
+  validFrom: '',
+  validUntil: '',
 };
 
 const HEADER_ALIASES: Record<FiscalProfileImportField, readonly string[]> = {
@@ -66,6 +82,29 @@ const HEADER_ALIASES: Record<FiscalProfileImportField, readonly string[]> = {
     'codigo de municipio',
   ],
   environment: ['environment', 'fiscal environment', 'ambiente', 'ambiente fiscal'],
+  siteName: ['site', 'site name', 'store', 'sede', 'nombre de sede', 'establecimiento'],
+  resolutionNumber: [
+    'resolution number',
+    'dian resolution',
+    'resolucion',
+    'numero de resolucion',
+    'resolucion dian',
+    'resolucion de numeracion',
+    'numbering resolution',
+  ],
+  resolutionDate: ['resolution date', 'fecha de resolucion', 'fecha resolucion'],
+  numberingPrefix: ['prefix', 'numbering prefix', 'prefijo'],
+  rangeFrom: [
+    'range from',
+    'from number',
+    'desde',
+    'rango desde',
+    'numero inicial',
+    'consecutivo inicial',
+  ],
+  rangeTo: ['range to', 'to number', 'hasta', 'rango hasta', 'numero final', 'consecutivo final'],
+  validFrom: ['valid from', 'vigente desde', 'vigencia desde', 'fecha inicial'],
+  validUntil: ['valid until', 'vigente hasta', 'vigencia hasta', 'fecha final', 'vencimiento'],
 };
 
 export function autoMapFiscalProfileHeaders(headers: string[]): FiscalProfileImportMapping {

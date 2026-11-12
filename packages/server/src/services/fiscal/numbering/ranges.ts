@@ -13,13 +13,22 @@ import {
   fiscalDocuments,
   fiscalNumberingResolutions,
   sites,
+  tenants,
   type FiscalNumberingEnvironment,
   type FiscalNumberingStatus,
 } from '../../../db/schema.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
 import { writeAuditLog } from '../../audit-logs.js';
-import { checkResolutionUsable } from '../orchestrator/helpers.js';
-import { readTenantNumberingEnvironment, type NumberingRange } from './select.js';
+import {
+  checkResolutionUsable,
+  isCountryFiscalEnabled,
+  isDianFlagOn,
+} from '../orchestrator/helpers.js';
+import {
+  numberingEnvironmentFromSettings,
+  readTenantNumberingEnvironment,
+  type NumberingRange,
+} from './select.js';
 
 /** Kinds that need a DIAN authorization; credit and debit notes number internally. */
 export const AUTHORIZED_NUMBERING_KINDS = ['DEE', 'FEV'] as const;
@@ -113,6 +122,58 @@ export interface NumberingRangeUsage {
   /** Days of numbers left at `dailyAverage`; null when nothing was issued lately. */
   daysOfStockLeft: number | null;
   hasScheduledSuccessor: boolean;
+  siteName: string;
+  /** Null while nothing is due, or while the tenant has DIAN issuing off. */
+  alert: NumberingAlert | null;
+}
+
+/** Why a range needs attention; `critical` means it can stop issuing within days. */
+export interface NumberingAlert {
+  level: 'warning' | 'critical';
+  reason: 'expiry' | 'consumption';
+}
+
+/** Default thresholds for range alerts. */
+export const NUMBERING_ALERT_THRESHOLDS = {
+  expiryWarningDays: 30,
+  /** Lead time DIAN asks for when requesting a new authorization. */
+  expiryCriticalBusinessDays: 15,
+  remainingWarningRatio: 0.2,
+  remainingCriticalRatio: 0.05,
+  stockCriticalDays: 3,
+} as const;
+
+/** Monday-to-Friday days from `from` up to `until`; public holidays are not discounted. */
+export function businessDaysBetween(from: string, until: string): number {
+  const end = Date.parse(until);
+  let days = 0;
+  for (let cursor = Date.parse(from) + DAY_MS; cursor <= end; cursor += DAY_MS) {
+    const weekday = new Date(cursor).getUTCDay();
+    if (weekday !== 0 && weekday !== 6) days += 1;
+  }
+  return days;
+}
+
+/** Classify a range against the default thresholds; expiry outranks consumption at equal level. */
+export function classifyNumberingAlert(
+  usage: Pick<NumberingRangeUsage, 'remainingRatio' | 'daysUntilExpiry' | 'daysOfStockLeft'>,
+  businessDaysUntilExpiry: number
+): NumberingAlert | null {
+  const t = NUMBERING_ALERT_THRESHOLDS;
+  if (businessDaysUntilExpiry <= t.expiryCriticalBusinessDays) {
+    return { level: 'critical', reason: 'expiry' };
+  }
+  if (
+    usage.remainingRatio < t.remainingCriticalRatio ||
+    (usage.daysOfStockLeft !== null && usage.daysOfStockLeft < t.stockCriticalDays)
+  ) {
+    return { level: 'critical', reason: 'consumption' };
+  }
+  if (usage.daysUntilExpiry <= t.expiryWarningDays) return { level: 'warning', reason: 'expiry' };
+  if (usage.remainingRatio < t.remainingWarningRatio) {
+    return { level: 'warning', reason: 'consumption' };
+  }
+  return null;
 }
 
 function invalid(field: string, reason: string): never {
@@ -599,7 +660,22 @@ export function getNumberingUsage(
   args: { tenantId: string; siteId?: string | undefined; now?: string }
 ): NumberingRangeUsage[] {
   const now = args.now ?? new Date().toISOString();
-  const environment = readTenantNumberingEnvironment(db, args.tenantId);
+  const settings = (db
+    .select({ settings: tenants.settings })
+    .from(tenants)
+    .where(eq(tenants.id, args.tenantId))
+    .get()?.settings ?? {}) as Record<string, unknown>;
+  const environment = numberingEnvironmentFromSettings(settings);
+  // A range running out only matters while the tenant issues DIAN documents.
+  const alertsOn = isDianFlagOn(settings) && isCountryFiscalEnabled(settings, 'CO');
+  const siteNames = new Map(
+    db
+      .select({ id: sites.id, name: sites.name })
+      .from(sites)
+      .where(eq(sites.tenantId, args.tenantId))
+      .all()
+      .map(site => [site.id, site.name])
+  );
   const ranges = db
     .select()
     .from(fiscalNumberingResolutions)
@@ -628,15 +704,19 @@ export function getNumberingUsage(
       range.toNumber - Math.max(range.currentNumber, range.fromNumber - 1)
     );
     const dailyAverage = (recent.get(range.id) ?? 0) / USAGE_WINDOW_DAYS;
-    return {
-      rangeId: range.id,
-      siteId: range.siteId,
-      kind: range.kind,
+    const figures = {
       remaining,
       remainingRatio: size > 0 ? remaining / size : 0,
       daysUntilExpiry: Math.floor((Date.parse(range.validUntil) - Date.parse(now)) / DAY_MS),
       dailyAverage,
       daysOfStockLeft: dailyAverage > 0 ? remaining / dailyAverage : null,
+    };
+    return {
+      rangeId: range.id,
+      siteId: range.siteId,
+      siteName: siteNames.get(range.siteId) ?? '',
+      kind: range.kind,
+      ...figures,
       hasScheduledSuccessor: ranges.some(
         other =>
           other.status === 'scheduled' &&
@@ -644,6 +724,9 @@ export function getNumberingUsage(
           other.kind === range.kind &&
           other.id !== range.id
       ),
+      alert: alertsOn
+        ? classifyNumberingAlert(figures, businessDaysBetween(now, range.validUntil))
+        : null,
     };
   });
 }
