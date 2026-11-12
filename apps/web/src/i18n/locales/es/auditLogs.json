@@ -216,7 +216,12 @@
     "shift_swap.changed": "Decisión de intercambio de turnos registrada",
     "attendance_reconciliation.changed": "Conciliación de asistencia registrada",
     "installation.owner_created": "Propietario de la instalación creado",
-    "restaurant_modifier.save": "Adicional de restaurante guardado"
+    "restaurant_modifier.save": "Adicional de restaurante guardado",
+    "fiscal_numbering.create": "Rango de numeración DIAN registrado",
+    "fiscal_numbering.activate": "Rango de numeración DIAN activado",
+    "fiscal_numbering.retire": "Rango de numeración DIAN retirado",
+    "fiscal_numbering.delete": "Rango de numeración DIAN eliminado",
+    "fiscal_numbering.relieve": "Rango de numeración DIAN relevado por otro"
   },
   "resourceTypes": {
     "transfer_order": "Orden de transferencia",
@@ -281,7 +286,8 @@
     "schedule_plan": "Plan de horarios",
     "shift_swap": "Intercambio de turnos",
     "attendance_reconciliation": "Conciliación de asistencia",
-    "restaurant_modifier": "Adicional de restaurante"
+    "restaurant_modifier": "Adicional de restaurante",
+    "fiscal_numbering_range": "Rango de numeración DIAN"
   },
   "summary": {
     "voidReason": "Motivo: {{reason}}",
