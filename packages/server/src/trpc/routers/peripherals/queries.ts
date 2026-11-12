@@ -9,7 +9,7 @@
  */
 import { TRPCError } from '@trpc/server';
 import { and, asc, desc, eq } from 'drizzle-orm';
-import { hardwareOutbox, sitePeripherals, tenants } from '../../../db/schema.js';
+import { currencyCatalog, hardwareOutbox, sitePeripherals, tenants } from '../../../db/schema.js';
 import {
   ESCPOS_BYTES,
   buildEscPosBytes,
@@ -158,11 +158,20 @@ export const peripheralsQueryProcedures = {
       const tenantLocale = await resolveTenantLocale(ctx.db, ctx.tenantId);
       const locale = sale.receiptLocaleSnapshot ?? tenantLocale.locale;
       const language = locale.toLowerCase().startsWith('es') ? 'es' : 'en';
-      const money = (value: number) =>
-        new Intl.NumberFormat(locale, {
-          style: 'currency',
-          currency: sale.currencyCode,
-        }).format(value);
+      // Pin the catalog's display decimals: runtimes disagree on COP's default.
+      const saleCurrency = await ctx.db
+        .select({ displayDecimals: currencyCatalog.displayDecimals })
+        .from(currencyCatalog)
+        .where(eq(currencyCatalog.code, sale.currencyCode))
+        .get();
+      const decimals = saleCurrency?.displayDecimals ?? tenantLocale.displayDecimals;
+      const moneyFormat = new Intl.NumberFormat(locale, {
+        style: 'currency',
+        currency: sale.currencyCode,
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
+      });
+      const money = (value: number) => moneyFormat.format(value);
       const text = [
         `${language === 'es' ? 'Recibo' : 'Receipt'} ${sale.saleNumber}`,
         sale.companyNameSnapshot ?? '',
