@@ -81,6 +81,27 @@ secretos. Los mismos campos van a la telemetría de caídas cuando hay DSN.
 Operaciones muestra "Reinicios del servidor: N en 7 días" y la exportación de
 diagnóstico incluye las entradas.
 
+### Límites de memoria
+
+El worker arranca con `resourceLimits.maxOldGenerationSizeMb = 384`. Si lo
+supera, Node termina solo el worker con `ERR_WORKER_OUT_OF_MEMORY`, que se
+clasifica como `oom`, y aplica la política de reinicio en lugar de llevar la
+caja a paginar. El valor es provisional hasta el soak en la caja objetivo: el
+tope debe quedar al menos al doble del pico observado.
+`PUNTOVIVO_SERVER_WORKER_MAX_OLD_MB` lo cambia por equipo mientras se calibra.
+
+Una salida por límite de heap es de las que el worker no puede demorar: si en
+ese momento corre un hash de contraseña o PIN, se cae toda la app, como se
+explica en Consecuencias. En los demás casos el tope convierte una caída lenta
+hacia la paginación en un reinicio.
+
+El tope cubre solo el heap de V8; la caché de páginas de SQLite, `mmap`, Argon2
+y los buffers quedan fuera. El worker informa cada 60 s el RSS del proceso, el
+heap y el uso del event loop. Dos informes seguidos por encima de 900 MB de RSS
+(también provisional) dejan una advertencia en el log y una entrada
+`memory-alert` en el registro de caídas. La v1 nunca reinicia un worker solo
+por memoria.
+
 ### Documentos fiscales en vuelo
 
 El apagado ordenado sigue esperando 90 s por las llamadas al proveedor. Una

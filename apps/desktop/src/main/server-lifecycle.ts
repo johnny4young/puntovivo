@@ -224,6 +224,13 @@ export function createServerLifecycle({
       errorCode: crashErrorCode(failure.error),
       uptimeMs: failure.uptimeMs,
       pendingCalls: failure.pendingCalls,
+      memory: failure.lastMemory
+        ? {
+            rssMb: failure.lastMemory.rssMb,
+            heapUsedMb: failure.lastMemory.heapUsedMb,
+            heapLimitMb: failure.lastMemory.heapLimitMb,
+          }
+        : null,
     };
     log.error({ ...base }, 'embedded server worker exited unexpectedly');
     let cause: WorkerFatalCause | null = classifyFatalCause(failure.error);

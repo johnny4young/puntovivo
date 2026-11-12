@@ -75,6 +75,26 @@ version. No message text, tenant data or secrets. The same fields go to crash
 telemetry when a DSN is configured. Operations shows "Server restarts: N in 7
 days", and the diagnostic export includes the entries.
 
+### Memory limits
+
+The worker starts with `resourceLimits.maxOldGenerationSizeMb = 384`. Past it
+Node ends only the worker with `ERR_WORKER_OUT_OF_MEMORY`, classified `oom`,
+and the restart policy above applies instead of the register paging. The value
+is provisional until the soak on the target register: the cap should sit at
+least twice above the observed peak. `PUNTOVIVO_SERVER_WORKER_MAX_OLD_MB`
+overrides it per machine while calibrating.
+
+A heap-limit exit is one the worker cannot delay: if a password or PIN hash is
+running at that moment the whole app goes down, as described under
+Consequences. The cap still turns a slow slide into paging into a restart in
+every other case.
+
+The cap covers only the V8 heap; the SQLite page cache, `mmap`, Argon2 and
+buffers live outside it. The worker reports process RSS, heap and event-loop
+utilization every 60 s. Two reports in a row above 900 MB RSS (also
+provisional) log a warning and a `memory-alert` entry in the crash log. v1
+never restarts a worker for memory alone.
+
 ### Fiscal documents in flight
 
 An ordered stop still waits 90 s for provider calls. A crash loses no

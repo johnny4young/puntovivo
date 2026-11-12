@@ -11,7 +11,7 @@ const MAX_ENTRIES = 50;
 const WEEK_MS = 7 * 24 * 60 * 60_000;
 const CODE_PATTERN = /^[A-Z][A-Z0-9_]{1,80}$/;
 
-export type WorkerCrashOutcome = 'restarted' | 'restart-failed' | 'fatal';
+export type WorkerCrashOutcome = 'restarted' | 'restart-failed' | 'fatal' | 'memory-alert';
 
 export interface WorkerCrashEntry {
   at: string;
@@ -24,6 +24,8 @@ export interface WorkerCrashEntry {
   outcome: WorkerCrashOutcome;
   fatalCause: WorkerFatalCause | 'restart-loop' | null;
   appVersion: string;
+  /** Worker heap and process RSS from its last report, in MB. */
+  memory?: { rssMb: number; heapUsedMb: number; heapLimitMb: number } | null;
 }
 
 export interface WorkerRestartStats {

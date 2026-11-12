@@ -19,6 +19,12 @@ export function registerServerStateIpc(deps: {
       host.simulateCrash();
       return { ok: true };
     });
+    ipcMain.handle('e2e:exhaust-server-worker-heap', () => {
+      const host = getServerHost();
+      if (!host?.simulateOutOfMemory) return { ok: false };
+      host.simulateOutOfMemory();
+      return { ok: true };
+    });
   }
 }
 

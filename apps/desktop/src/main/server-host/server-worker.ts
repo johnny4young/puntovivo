@@ -2,6 +2,8 @@
  * Worker-thread entry for the embedded server. Must never import Electron:
  * main owns every Electron API, including safeStorage.
  */
+import { performance } from 'node:perf_hooks';
+import { getHeapStatistics } from 'node:v8';
 import { parentPort, type MessagePort } from 'node:worker_threads';
 import {
   captureProcessCrash,
@@ -51,6 +53,25 @@ let host: EmbeddedServerHost | null = null;
 let starting: Promise<void> | null = null;
 const calls = createWorkerCallDrain();
 const post = (message: WorkerToMainMessage) => port.postMessage(message);
+const STATS_INTERVAL_MS = 60_000;
+const toMb = (bytes: number) => Math.round((bytes / 1_048_576) * 10) / 10;
+let lastElu = performance.eventLoopUtilization();
+
+function postStats(): void {
+  const memory = process.memoryUsage();
+  const elu = performance.eventLoopUtilization(lastElu);
+  lastElu = performance.eventLoopUtilization();
+  post({
+    type: 'stats',
+    stats: {
+      rssMb: toMb(memory.rss),
+      heapUsedMb: toMb(memory.heapUsed),
+      heapLimitMb: toMb(getHeapStatistics().heap_size_limit),
+      externalMb: toMb(memory.external + memory.arrayBuffers),
+      eventLoopUtilization: Math.round(elu.utilization * 1000) / 1000,
+    },
+  });
+}
 
 async function start(options: WorkerStartOptions): Promise<void> {
   try {
@@ -65,6 +86,8 @@ async function start(options: WorkerStartOptions): Promise<void> {
       prepareAuditAnchorStore: async () => auditAnchorStore,
     })(serverOptions);
     post({ type: 'started', url: host.url });
+    postStats();
+    setInterval(postStats, STATS_INTERVAL_MS).unref();
   } catch (error) {
     post({ type: 'start-failed', error: serializeError(error) });
   }
@@ -121,11 +144,24 @@ port.on('message', (message: MainToWorkerMessage) => {
       void stop();
       return;
     case 'test-crash':
-      if (process.env.PUNTOVIVO_E2E === '1' || process.env.PUNTOVIVO_SOAK === '1') {
+      if (testFaultsAllowed()) {
         setImmediate(() => {
           throw new Error('SERVER_WORKER_TEST_CRASH');
         });
       }
       return;
+    case 'test-oom':
+      // The test must hit the heap limit, not the Argon2 abort a forced exit can cause.
+      if (testFaultsAllowed()) void drainPasswordWork().then(exhaustHeap);
+      return;
   }
 });
+
+function testFaultsAllowed(): boolean {
+  return process.env.PUNTOVIVO_E2E === '1' || process.env.PUNTOVIVO_SOAK === '1';
+}
+
+function exhaustHeap(): void {
+  const retained: unknown[] = [];
+  for (;;) retained.push(Array.from({ length: 100_000 }, (_, index) => ({ index })));
+}

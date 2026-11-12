@@ -273,7 +273,10 @@ function forwardElectronProcessLogs(
   const forwardStdoutLine = (line: string) => {
     if (line.length === 0) return;
     if (classifyElectronStdoutLine(line) === 'unexpected') {
-      if (expectedCrashRecords > 0 && line.includes('SERVER_WORKER_TEST_CRASH')) {
+      if (
+        expectedCrashRecords > 0 &&
+        (line.includes('SERVER_WORKER_TEST_CRASH') || line.includes('ERR_WORKER_OUT_OF_MEMORY'))
+      ) {
         expectedCrashRecords -= 1;
         process.stdout.write(`[electron:expected] ${line}\n`);
         return;

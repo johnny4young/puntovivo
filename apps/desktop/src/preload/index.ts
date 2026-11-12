@@ -24,6 +24,7 @@ export interface ElectronAPI {
   getServerRestartStats: () => Promise<WorkerRestartStats>;
   /** The production main process never registers this test-only IPC. */
   crashServerWorkerForE2e?: () => Promise<{ ok: boolean }>;
+  exhaustServerWorkerHeapForE2e?: () => Promise<{ ok: boolean }>;
   /** The production main process never registers this test-only IPC. */
   requestE2eAppQuit?: () => Promise<{ ok: true }>;
   simulateDownloadedAppUpdateForE2e?: (version: string) => Promise<unknown>;
@@ -393,6 +394,7 @@ const electronAPI: ElectronAPI = {
   },
   getServerRestartStats: () => ipcRenderer.invoke('server:get-restart-stats'),
   crashServerWorkerForE2e: () => ipcRenderer.invoke('e2e:crash-server-worker'),
+  exhaustServerWorkerHeapForE2e: () => ipcRenderer.invoke('e2e:exhaust-server-worker-heap'),
   openCustomerDisplay: (accessId: string) =>
     invokeSessionProtected('window:open-customer-display', accessId),
   getAutoUpdateStatus: () => ipcRenderer.invoke('get-auto-update-status'),

@@ -3,6 +3,8 @@
  * lifecycle and its tests share one definition (ADR 0034).
  */
 
+import type { WorkerMemorySample } from './protocol.ts';
+
 export type WorkerExitKind = 'oom' | 'uncaught' | 'unknown';
 
 /** Why a worker that died must not be restarted. */
@@ -15,6 +17,8 @@ export interface WorkerExitFailure {
   exitCode: number;
   uptimeMs: number;
   pendingCalls: number;
+  /** The worker's last periodic report, when it sent one. */
+  lastMemory?: WorkerMemorySample | null;
 }
 
 const CORRUPTION_CODES = new Set(['SQLITE_CORRUPT', 'SQLITE_NOTADB', 'SQLITE_CORRUPT_VTAB']);
