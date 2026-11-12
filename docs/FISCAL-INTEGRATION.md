@@ -120,6 +120,17 @@ Behavior:
   advances the consecutive. When the active range is spent or expired, the
   oldest scheduled range in force takes over in that same transaction, and the
   change is audited.
+- Company → Fiscal lists the ranges per site with consumption and validity,
+  and registers, activates, retires and deletes them.
+- A range raises a warning 30 days before it expires or under 20% of its
+  numbers, and a critical alert 15 business days before expiry, under 5%, or
+  with under 3 days of numbers at the 14-day average. Alerts show on the
+  ranges card, the dashboard (admins and managers) and the fiscal area of
+  operations alerts, and stay silent while DIAN issuing is off. Business days
+  do not discount public holidays, and the thresholds are fixed.
+- Checkout reminds the cashier when the site has no usable range, when it only
+  has an invoice range, and that documents are not sent to DIAN while the pack
+  is in test mode.
 - The technical key is required only for the FEV, never returned in full and
   never written to the audit log.
 

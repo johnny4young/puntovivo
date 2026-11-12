@@ -121,6 +121,18 @@ Comportamiento:
   avanza el consecutivo. Cuando el rango activo se agota o vence, el rango en
   espera más antiguo que ya esté vigente toma su lugar en esa misma
   transacción, y el cambio queda en auditoría.
+- Empresa → Fiscal lista los rangos por sede con consumo y vigencia, y los
+  registra, activa, retira y elimina.
+- Un rango genera un aviso 30 días antes de vencer o con menos del 20 % de sus
+  números, y una alerta crítica 15 días hábiles antes del vencimiento, con
+  menos del 5 %, o con menos de 3 días de números al promedio de 14 días. Las
+  alertas aparecen en la tarjeta de rangos, en el panel (administradores y
+  gerentes) y en el área fiscal de las alertas operativas, y no se muestran
+  con la emisión DIAN apagada. Los días hábiles no descuentan festivos y los
+  umbrales son fijos.
+- El cobro le recuerda al cajero cuando la sede no tiene un rango usable,
+  cuando solo tiene rango de factura, y que los documentos no se envían a la
+  DIAN mientras el pack esté en modo de prueba.
 - La clave técnica solo se exige para la FEV, nunca se devuelve completa y
   nunca se escribe en el log de auditoría.
 
