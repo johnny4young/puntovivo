@@ -283,6 +283,21 @@ describe('sales.electronicInvoiceAvailability', () => {
     fevResolutionId = await insertResolution('FEV', 'FE');
     const availability = await api().sales.electronicInvoiceAvailability();
     expect(availability.available).toBe(true);
+  });
+
+  it('is off while the issuer NIT or DIAN software is missing', async () => {
+    await setTenantSettings({ fiscal: { co: { nit: '900373115-3', softwareId: 'sw-test' } } });
+    try {
+      await expect(api().sales.electronicInvoiceAvailability()).resolves.toMatchObject({
+        available: false,
+      });
+    } finally {
+      await setTenantSettings({
+        fiscal: { co: { nit: '900373115-3', softwareId: 'sw-test', softwarePin: '12301' } },
+      });
+    }
+    const availability = await api().sales.electronicInvoiceAvailability();
+    expect(availability.available).toBe(true);
     expect(availability.identificationTypes.map(type => type.code)).toEqual(
       expect.arrayContaining(['13', '22', '31', '41'])
     );
@@ -380,7 +395,7 @@ describe('sales.create — Colombian sale document', () => {
   it('refuses the request before writing the sale when the site has no usable FEV range', async () => {
     const db = getDatabase();
     db.update(fiscalNumberingResolutions)
-      .set({ isActive: false })
+      .set({ isActive: false, status: 'retired' })
       .where(eq(fiscalNumberingResolutions.id, fevResolutionId))
       .run();
     try {
@@ -392,7 +407,7 @@ describe('sales.create — Colombian sale document', () => {
       expect(countSales()).toBe(before);
     } finally {
       db.update(fiscalNumberingResolutions)
-        .set({ isActive: true })
+        .set({ isActive: true, status: 'active' })
         .where(eq(fiscalNumberingResolutions.id, fevResolutionId))
         .run();
     }

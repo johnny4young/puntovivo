@@ -48,7 +48,10 @@ import { hasPharmacyProductProfiles } from '../../../services/pharmacy/operation
 import { findExactProductMatches } from '../../../services/products/exact-search.js';
 import { findFtsProductMatches } from '../../../services/products/fts-search.js';
 import { hydrateSearchProducts } from '../../../services/products/search-hydration.js';
-import { productStockTotalSql } from '../../../services/inventory-balances/derive.js';
+import {
+  productStockTotalSql,
+  withSiteStock,
+} from '../../../services/inventory-balances/derive.js';
 
 function literalContains(column: AnySQLiteColumn, value: string) {
   // The compatibility fallback is a literal substring search, not an SQL
@@ -248,13 +251,16 @@ export const productQueryProcedures = {
    * Get a single product by ID
    */
   getById: tenantProcedure.input(getProductInput).query(async ({ ctx, input }) => {
+    if (input.siteId) {
+      await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+    }
     const product = await getProductWithRelations(ctx.db, input.id, ctx.tenantId);
 
     if (!product) {
       throw new TRPCError({ code: 'NOT_FOUND', message: 'Product not found' });
     }
 
-    return product;
+    return withSiteStock(ctx.db, ctx.tenantId, input.siteId, [product])[0]!;
   }),
 
   /** Read a catalog-only parent and its tenant-scoped sellable children. */
@@ -306,6 +312,9 @@ export const productQueryProcedures = {
    * Search products by name, SKU or barcode
    */
   search: tenantProcedure.input(searchProductsInput).query(async ({ ctx, input }) => {
+    if (input.siteId) {
+      await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+    }
     const productConditions = [
       eq(products.tenantId, ctx.tenantId),
       ne(products.catalogType, 'variant_parent'),
@@ -445,7 +454,7 @@ export const productQueryProcedures = {
     );
 
     return {
-      items: items.map(item => {
+      items: withSiteStock(ctx.db, ctx.tenantId, input.siteId, items).map(item => {
         const unitAssignments = assignmentsMap.get(item.id) ?? [];
         const baseUnit =
           unitAssignments.find(assignment => assignment.isBase) ?? unitAssignments[0];
@@ -488,6 +497,9 @@ export const productQueryProcedures = {
    * so basic Code128 / internal SKU labels still resolve.
    */
   lookupByBarcode: tenantProcedure.input(lookupByBarcodeInput).query(async ({ ctx, input }) => {
+    if (input.siteId) {
+      await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+    }
     const normalizedBarcode = input.barcode.trim();
     const scannerOptions = /^2\d{12}$/.test(normalizedBarcode)
       ? await resolveSiteGs1ParseOptions({
@@ -653,7 +665,7 @@ export const productQueryProcedures = {
       : null;
 
     const product = {
-      ...item,
+      ...withSiteStock(ctx.db, ctx.tenantId, input.siteId, [item])[0]!,
       unitAssignments: unitAssignments.map(a => ({
         ...a,
         isBase: a.isBase ?? false,

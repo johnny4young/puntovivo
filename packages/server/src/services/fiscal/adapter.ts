@@ -74,7 +74,8 @@ export interface FiscalAdapterResolution {
   id: string;
   resolutionNumber: string;
   prefix: string;
-  technicalKey: string;
+  /** DIAN technical key; only the FEV range carries one. */
+  technicalKey: string | null;
   consecutive: number;
   documentNumber: string;
 }

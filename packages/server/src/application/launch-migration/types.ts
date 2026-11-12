@@ -258,12 +258,28 @@ export const FISCAL_PROFILE_IMPORT_FIELDS = [
   'economicActivityCode',
   'issueLocation',
   'administrativeAreaCode',
+  'environment',
+  'siteName',
   'resolutionNumber',
+  'resolutionDate',
   'numberingPrefix',
   'rangeFrom',
   'rangeTo',
-  'environment',
+  'validFrom',
+  'validUntil',
 ] as const;
+
+/** Columns that together describe one Colombian DEE numbering range. */
+export const FISCAL_PROFILE_NUMBERING_FIELDS = [
+  'siteName',
+  'resolutionNumber',
+  'resolutionDate',
+  'numberingPrefix',
+  'rangeFrom',
+  'rangeTo',
+  'validFrom',
+  'validUntil',
+] as const satisfies readonly (typeof FISCAL_PROFILE_IMPORT_FIELDS)[number][];
 
 export type FiscalProfileImportField = (typeof FISCAL_PROFILE_IMPORT_FIELDS)[number];
 export type FiscalProfileCountryCode = 'CO' | 'MX' | 'CL';
@@ -274,22 +290,30 @@ export type FiscalProfileImportIssueCode =
   | 'unsupported_country'
   | 'tenant_country_mismatch'
   | 'invalid_tax_identifier'
+  | 'invalid_check_digit'
   | 'invalid_activity_code'
   | 'invalid_issue_location'
   | 'invalid_administrative_area'
   | 'invalid_number'
   | 'invalid_range'
   | 'invalid_environment'
+  | 'invalid_date'
+  | 'invalid_prefix'
+  | 'unknown_site'
+  | 'numbering_range_rejected'
   | 'duplicate_file_profile'
   | 'duplicate_existing_profile'
   | 'existing_profile_conflict'
   | 'concurrent_profile_change'
   | 'import_failed';
 
-export interface FiscalProfileImportIssue {
-  code: FiscalProfileImportIssueCode;
-  field: FiscalProfileImportField;
-}
+/** A wrong check digit carries only the expected digit, never the identifier. */
+export type FiscalProfileImportIssue =
+  | {
+      code: Exclude<FiscalProfileImportIssueCode, 'invalid_check_digit'>;
+      field: FiscalProfileImportField;
+    }
+  | { code: 'invalid_check_digit'; field: 'taxIdentifier'; expectedDigit: number };
 
 export interface NormalizedLaunchFiscalProfile {
   countryCode: FiscalProfileCountryCode | null;
@@ -297,12 +321,22 @@ export interface NormalizedLaunchFiscalProfile {
   economicActivityCode: string | null;
   issueLocation: string | null;
   administrativeAreaCode: number | null;
-  resolutionNumber: string | null;
-  numberingPrefix: string | null;
-  rangeFrom: number | null;
-  rangeTo: number | null;
   environment: string;
+  /** DEE range to register with the profile; null when the row carries none. */
+  numbering: NormalizedLaunchNumberingRange | null;
   activationRequired: true;
+}
+
+/** Numbering columns of a fiscal-profile row, parsed but not yet checked against the tenant. */
+export interface NormalizedLaunchNumberingRange {
+  siteName: string | null;
+  resolutionNumber: string;
+  resolutionDate: string;
+  prefix: string;
+  fromNumber: number;
+  toNumber: number;
+  validFrom: string;
+  validUntil: string;
 }
 
 export interface FiscalProfileImportPreviewRow {

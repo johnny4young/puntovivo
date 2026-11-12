@@ -113,7 +113,7 @@ describe('ColombiaMockAdapter.issue', () => {
     expect(result.cufe).not.toBe(
       computeCufe({
         ...hashFields(input, '900373115'),
-        technicalKey: input.resolution.technicalKey,
+        technicalKey: input.resolution.technicalKey ?? '',
       })
     );
     expect(result.xmlRef).toContain('<cbc:InvoiceTypeCode>20</cbc:InvoiceTypeCode>');
@@ -130,7 +130,7 @@ describe('ColombiaMockAdapter.issue', () => {
     expect(result.cufe).toBe(
       computeCufe({
         ...hashFields(input, '900373115'),
-        technicalKey: input.resolution.technicalKey,
+        technicalKey: input.resolution.technicalKey ?? '',
       })
     );
     expect(result.xmlRef).toContain('<cbc:InvoiceTypeCode>01</cbc:InvoiceTypeCode>');

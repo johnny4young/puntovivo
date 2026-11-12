@@ -88,6 +88,7 @@ export function useBarcodeProductScanner({
         const result = await utils.products.lookupByBarcode.fetch(
           {
             barcode: rawCode,
+            siteId: currentSite.id,
           },
           { retry: false }
         );

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "49711988-f862-4292-9747-d50a2a98594e",
+  "id": "6fef0eb8-21ca-4cec-ac59-6ca37e9f9f49",
   "prevId": "d5676b07-c1a3-4743-8922-93c75afe89c6",
   "tables": {
     "account_recovery_codes": {
@@ -25463,6 +25463,13 @@
           "notNull": true,
           "autoincrement": false
         },
+        "resolution_date": {
+          "name": "resolution_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "prefix": {
           "name": "prefix",
           "type": "text",
@@ -25495,8 +25502,16 @@
           "name": "technical_key",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
+        },
+        "environment": {
+          "name": "environment",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'habilitacion'"
         },
         "valid_from": {
           "name": "valid_from",
@@ -25512,6 +25527,14 @@
           "notNull": true,
           "autoincrement": false
         },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'active'"
+        },
         "is_active": {
           "name": "is_active",
           "type": "integer",
@@ -25519,6 +25542,34 @@
           "notNull": true,
           "autoincrement": false,
           "default": true
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "retired_by": {
+          "name": "retired_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "retired_at": {
+          "name": "retired_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "retire_reason": {
+          "name": "retire_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         },
         "created_at": {
           "name": "created_at",
@@ -25553,6 +25604,17 @@
             "is_active"
           ],
           "isUnique": false
+        },
+        "idx_fiscal_resolutions_one_active": {
+          "name": "idx_fiscal_resolutions_one_active",
+          "columns": [
+            "tenant_id",
+            "site_id",
+            "kind",
+            "environment"
+          ],
+          "isUnique": true,
+          "where": "\"fiscal_numbering_resolutions\".\"status\" = 'active'"
         }
       },
       "foreignKeys": {

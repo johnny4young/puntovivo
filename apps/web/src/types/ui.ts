@@ -238,7 +238,12 @@ export type AuditLogAction =
   | 'webhook_subscription.revoke'
   | 'webhook_delivery.retry'
   | 'operational_alert.acknowledged'
-  | 'operational_alert.delivery.retry';
+  | 'operational_alert.delivery.retry'
+  | 'fiscal_numbering.create'
+  | 'fiscal_numbering.activate'
+  | 'fiscal_numbering.retire'
+  | 'fiscal_numbering.delete'
+  | 'fiscal_numbering.relieve';
 
 export type AuditLogResourceType =
   | 'employment_contract'
@@ -323,7 +328,9 @@ export type AuditLogResourceType =
   // one auditable launch import run.
   | 'data_import'
   // signed comprehensive day-close evidence.
-  | 'day_close_signoff';
+  | 'day_close_signoff'
+  // a DIAN numbering range of one site.
+  | 'fiscal_numbering_range';
 
 export type PurchaseStatus = 'draft' | 'completed' | 'partial_returned' | 'returned' | 'voided';
 

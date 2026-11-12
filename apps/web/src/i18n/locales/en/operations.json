@@ -265,7 +265,7 @@
     },
     "impact": {
       "sync": "Information has not reached another device or service yet.",
-      "fiscal": "An electronic invoice is pending delivery or was rejected.",
+      "fiscal": "An electronic document is pending or was rejected, or a DIAN numbering range is about to expire or run out.",
       "device": "A receipt print or connected-device job did not finish.",
       "payments": "An electronic payment needs confirmation or reconciliation."
     },

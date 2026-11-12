@@ -79,6 +79,7 @@ import type { ReceiptLayout } from '../trpc/schemas/receiptTemplates.js';
 import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
 import { makeEnvelopeHeadersProxy } from '../lib/envelopeHeadersProxy.js';
 import { MEGA_TARGET } from './seed-mega/types.js';
+import { computeNitVerificationDigit } from '../services/fiscal/packs/co/nit.js';
 
 const log = createModuleLogger('seed-dev');
 
@@ -412,13 +413,16 @@ export async function seedDevData(
         siteId: site.id,
         kind,
         resolutionNumber: `1876000000${index + 1}`,
+        resolutionDate: devFiscalValidFrom.toISOString(),
         prefix: `SE${index + 1}${kind === 'DEE' ? 'P' : 'F'}`,
         fromNumber: 1,
         toNumber: 10_000,
         currentNumber: 0,
-        technicalKey: 'fc8eac422eba16e22ffd8c6f94b3f40a6e38162c',
+        technicalKey: kind === 'FEV' ? 'fc8eac422eba16e22ffd8c6f94b3f40a6e38162c' : null,
+        environment: 'habilitacion',
         validFrom: devFiscalValidFrom.toISOString(),
         validUntil: devFiscalValidUntil.toISOString(),
+        status: 'active',
         isActive: true,
         createdAt: now,
         updatedAt: now,
@@ -989,7 +993,7 @@ function buildTenantSettings(countryCode: 'CO' | 'MX' | 'CL'): Record<string, un
     fiscal_dian_enabled: true,
     fiscal: {
       co: {
-        nit: '900373115-3',
+        nit: withNitDv('900373115'),
         softwareId: 'puntovivo-dev-software',
         softwarePin: '12345',
         environment: 'habilitacion',
@@ -1053,7 +1057,12 @@ function buildPreset(preset: 'default' | 'large' | 'mega'): PresetTarget {
   };
 }
 
-const DEV_COMPANY_TAX_ID = '900.123.456-7';
+/** Append the DIAN check digit to a NIT base, keeping any dot grouping. */
+function withNitDv(base: string): string {
+  return `${base}-${computeNitVerificationDigit(base.replace(/\./g, ''))}`;
+}
+
+const DEV_COMPANY_TAX_ID = withNitDv('900.123.456');
 
 const DEV_USER_PROFILES: Array<{ email: string; name: string; role: UserRole }> = [
   { email: DEV_ADMIN_EMAIL, name: 'Administrador Demo', role: 'admin' },
@@ -1168,7 +1177,7 @@ const DEV_PROVIDERS: Array<{
 }> = [
   {
     name: 'Distribuidora La Abundancia S.A.S.',
-    taxId: '830.111.222-1',
+    taxId: withNitDv('830.111.222'),
     phone: '+57 601 555 3001',
     email: 'ventas@abundancia.co',
     address: 'Parque Industrial, Mosquera',
@@ -1176,7 +1185,7 @@ const DEV_PROVIDERS: Array<{
   },
   {
     name: 'Bebidas Andinas Ltda.',
-    taxId: '830.222.333-2',
+    taxId: withNitDv('830.222.333'),
     phone: '+57 601 555 3002',
     email: 'pedidos@bebidasandinas.co',
     address: 'Av. Boyacá # 50-12, Bogotá',
@@ -1184,7 +1193,7 @@ const DEV_PROVIDERS: Array<{
   },
   {
     name: 'Lácteos El Campo',
-    taxId: '900.333.444-3',
+    taxId: withNitDv('900.333.444'),
     phone: '+57 601 555 3003',
     email: 'info@elcampo.co',
     address: 'Km 5 Vía Zipaquirá',
@@ -1192,7 +1201,7 @@ const DEV_PROVIDERS: Array<{
   },
   {
     name: 'Aseo Total S.A.',
-    taxId: '900.444.555-4',
+    taxId: withNitDv('900.444.555'),
     phone: '+57 601 555 3004',
     email: 'soporte@aseototal.co',
     address: 'Cra 68 # 14-25, Bogotá',
@@ -1200,7 +1209,7 @@ const DEV_PROVIDERS: Array<{
   },
   {
     name: 'Licores de la Sabana',
-    taxId: '830.555.666-5',
+    taxId: withNitDv('830.555.666'),
     phone: '+57 601 555 3005',
     email: 'pedidos@sabanalicores.co',
     address: 'Chía, Cundinamarca',
@@ -1287,7 +1296,7 @@ function buildCustomerFixtures(target = 30): DevCustomerProfile[] {
       state: 'Cundinamarca',
       postalCode: '110111',
       country: 'Colombia',
-      taxId: `8${String(30_000_000 + i * 123_457)}-${i % 10}`,
+      taxId: withNitDv(`8${String(30_000_000 + i * 123_457)}`),
       idTypeCode: 'NIT',
       personTypeCode: 'juridica',
     });

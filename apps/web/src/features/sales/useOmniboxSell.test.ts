@@ -198,7 +198,10 @@ describe('useOmniboxSell', () => {
 
     await result.current('2112345001999', navigate);
 
-    expect(lookupFetch).toHaveBeenCalledWith({ barcode: '2112345001999' }, { retry: false });
+    expect(lookupFetch).toHaveBeenCalledWith(
+      { barcode: '2112345001999', siteId: 'site-1' },
+      { retry: false }
+    );
   });
 
   it('lands on /sales with the search prefill when nothing matches', async () => {

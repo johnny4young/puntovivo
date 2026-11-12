@@ -684,8 +684,15 @@
     {
       "idx": 97,
       "version": "6",
-      "when": 1794453297985,
-      "tag": "0097_drop_desktop_sync_config",
+      "when": 1794506475348,
+      "tag": "0097_fiscal_numbering_ranges",
+      "breakpoints": true
+    },
+    {
+      "idx": 98,
+      "version": "6",
+      "when": 1794520447950,
+      "tag": "0098_drop_desktop_sync_config",
       "breakpoints": true
     }
   ]

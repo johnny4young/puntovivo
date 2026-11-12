@@ -48,7 +48,6 @@ import {
   toDocumentTaxComponentValues,
 } from './tax-lines.js';
 import {
-  checkResolutionUsable,
   isCountryFiscalEnabled,
   isDianEnabled,
   isPlainRecord,
@@ -56,6 +55,11 @@ import {
   splitIssueTimestamp,
 } from './helpers.js';
 import { resolveBuyer, type FiscalMonetarySnapshot } from './snapshots.js';
+import {
+  numberingEnvironmentFromSettings,
+  peekNumberingRange,
+  selectNumberingRange,
+} from '../numbering/select.js';
 import type { EmitFiscalDocumentResult, ResolvedBuyer, ResolvedLine } from './types.js';
 
 const INTENT_PAYLOAD_VERSION = 1;
@@ -70,7 +74,7 @@ interface FiscalIntentResolutionSnapshot {
   id: string;
   resolutionNumber: string;
   prefix: string;
-  technicalKey: string;
+  technicalKey: string | null;
   fromNumber: number;
   toNumber: number;
   validFrom: string;
@@ -134,23 +138,6 @@ function blockedError(reason: string, details?: unknown): Record<string, unknown
   };
 }
 
-function resolutionIsEffectiveAt(
-  requestedAt: string,
-  validFrom: string,
-  validUntil: string
-): boolean {
-  const requested = Date.parse(requestedAt);
-  const from = Date.parse(validFrom);
-  const until = Date.parse(validUntil);
-  return (
-    Number.isFinite(requested) &&
-    Number.isFinite(from) &&
-    Number.isFinite(until) &&
-    requested >= from &&
-    requested <= until
-  );
-}
-
 class FiscalIntentBlockedError extends Error {
   constructor(
     readonly reason: string,
@@ -205,7 +192,7 @@ export async function prepareSaleFiscalIntent(
   if (!isCountryFiscalEnabled(tenantSettings, locale.countryCode)) return null;
 
   const adapter = getFiscalAdapter(locale.countryCode);
-  const [buyer, companyRow, resolution] = await Promise.all([
+  const [buyer, companyRow, numbering] = await Promise.all([
     args.buyer ?? resolveBuyer(db, tenantId, customerId),
     db
       .select({ name: companies.name })
@@ -213,29 +200,17 @@ export async function prepareSaleFiscalIntent(
       .where(eq(companies.tenantId, tenantId))
       .limit(1)
       .get(),
-    db
-      .select({
-        id: fiscalNumberingResolutions.id,
-        resolutionNumber: fiscalNumberingResolutions.resolutionNumber,
-        prefix: fiscalNumberingResolutions.prefix,
-        technicalKey: fiscalNumberingResolutions.technicalKey,
-        fromNumber: fiscalNumberingResolutions.fromNumber,
-        toNumber: fiscalNumberingResolutions.toNumber,
-        validFrom: fiscalNumberingResolutions.validFrom,
-        validUntil: fiscalNumberingResolutions.validUntil,
-        currentNumber: fiscalNumberingResolutions.currentNumber,
+    Promise.resolve(
+      peekNumberingRange(db, {
+        tenantId,
+        siteId,
+        kind,
+        environment: numberingEnvironmentFromSettings(tenantSettings),
+        at: completedAt,
       })
-      .from(fiscalNumberingResolutions)
-      .where(
-        and(
-          eq(fiscalNumberingResolutions.tenantId, tenantId),
-          eq(fiscalNumberingResolutions.siteId, siteId),
-          eq(fiscalNumberingResolutions.kind, kind),
-          eq(fiscalNumberingResolutions.isActive, true)
-        )
-      )
-      .get(),
+    ),
   ]);
+  const resolution = numbering.ok ? numbering.range : null;
   // Secrets stay out of the durable payload; the worker re-attaches them.
   const frozenSettings = freezeFiscalSettings(tenantSettings, locale.countryCode);
   const { issueDate, issueTime } = splitIssueTimestamp(new Date(completedAt), locale.timezone);
@@ -245,10 +220,6 @@ export async function prepareSaleFiscalIntent(
   // throw: this runs while a sale is being completed, and a sale must not fail
   // because a fiscal document cannot be built.
   const unnamedLine = lines.find(line => line.productName === null);
-  // Shared with the enqueue path so both refuse the same consecutives.
-  const resolutionUsability = resolution
-    ? checkResolutionUsable(resolution, completedAt)
-    : ({ ok: true } as const);
   const adapterInput: FiscalAdapterInputTemplate = {
     tenantId,
     source,
@@ -294,12 +265,10 @@ export async function prepareSaleFiscalIntent(
 
   let status: PreparedSaleFiscalIntent['status'] = 'queued';
   let lastError: Record<string, unknown> | null = null;
-  if (!resolution) {
+  // Shared with the enqueue path so both refuse the same consecutives.
+  if (!numbering.ok) {
     status = 'blocked';
-    lastError = blockedError('numbering_resolution_missing', { siteId, kind });
-  } else if (!resolutionUsability.ok) {
-    status = 'blocked';
-    lastError = blockedError(resolutionUsability.reason, resolutionUsability.details);
+    lastError = blockedError(numbering.reason, numbering.details);
   } else if (lines.length === 0) {
     status = 'blocked';
     lastError = blockedError('sale_lines_missing');
@@ -507,13 +476,9 @@ function materializeClaimedIntent(
   ) {
     throw new Error('Fiscal intent identity does not match its frozen payload');
   }
+  // Null when no range could number the sale; a range registered since then
+  // serves the intent once it is re-armed.
   const resolutionSnapshot = payload.resolution;
-  if (!resolutionSnapshot) {
-    throw new FiscalIntentBlockedError('numbering_resolution_missing');
-  }
-  if (payload.lines.length === 0) {
-    throw new FiscalIntentBlockedError('sale_lines_missing');
-  }
 
   return db.transaction(
     tx => {
@@ -559,60 +524,39 @@ function materializeClaimedIntent(
         return duplicate;
       }
 
-      const resolution = tx
-        .select({
-          id: fiscalNumberingResolutions.id,
-          resolutionNumber: fiscalNumberingResolutions.resolutionNumber,
-          prefix: fiscalNumberingResolutions.prefix,
-          technicalKey: fiscalNumberingResolutions.technicalKey,
-          fromNumber: fiscalNumberingResolutions.fromNumber,
-          toNumber: fiscalNumberingResolutions.toNumber,
-          currentNumber: fiscalNumberingResolutions.currentNumber,
-          validFrom: fiscalNumberingResolutions.validFrom,
-          validUntil: fiscalNumberingResolutions.validUntil,
-          isActive: fiscalNumberingResolutions.isActive,
-        })
-        .from(fiscalNumberingResolutions)
-        .where(
-          and(
-            eq(fiscalNumberingResolutions.id, resolutionSnapshot.id),
-            eq(fiscalNumberingResolutions.tenantId, row.tenantId),
-            eq(fiscalNumberingResolutions.siteId, payload.siteId),
-            eq(fiscalNumberingResolutions.kind, row.kind)
-          )
-        )
-        .get();
-      if (!resolution) {
-        throw new FiscalIntentBlockedError('numbering_resolution_missing', {
-          resolutionId: resolutionSnapshot.id,
+      // Numbering is allocated here, not at sale time: a range spent or
+      // retired since the sale hands over to its successor in this same tx.
+      const selection = selectNumberingRange(tx, {
+        tenantId: row.tenantId,
+        siteId: payload.siteId,
+        kind: row.kind,
+        environment: numberingEnvironmentFromSettings(payload.adapterInput.tenantSettings),
+        at: payload.requestedAt,
+        actorId: row.requestedByUserId,
+      });
+      if (!selection.ok) {
+        throw new FiscalIntentBlockedError(selection.reason, {
+          resolutionId: resolutionSnapshot?.id ?? null,
+          ...selection.details,
         });
       }
+      const resolution = selection.range;
+      if (payload.lines.length === 0) {
+        throw new FiscalIntentBlockedError('sale_lines_missing');
+      }
       if (
-        !resolution.isActive ||
-        resolution.resolutionNumber !== resolutionSnapshot.resolutionNumber ||
-        resolution.prefix !== resolutionSnapshot.prefix ||
-        resolution.technicalKey !== resolutionSnapshot.technicalKey ||
-        resolution.fromNumber !== resolutionSnapshot.fromNumber ||
-        resolution.toNumber !== resolutionSnapshot.toNumber ||
-        resolution.validFrom !== resolutionSnapshot.validFrom ||
-        resolution.validUntil !== resolutionSnapshot.validUntil
+        resolutionSnapshot &&
+        resolution.id === resolutionSnapshot.id &&
+        (resolution.resolutionNumber !== resolutionSnapshot.resolutionNumber ||
+          resolution.prefix !== resolutionSnapshot.prefix ||
+          resolution.technicalKey !== resolutionSnapshot.technicalKey ||
+          resolution.fromNumber !== resolutionSnapshot.fromNumber ||
+          resolution.toNumber !== resolutionSnapshot.toNumber ||
+          resolution.validFrom !== resolutionSnapshot.validFrom ||
+          resolution.validUntil !== resolutionSnapshot.validUntil)
       ) {
         throw new FiscalIntentBlockedError('numbering_resolution_changed', {
           resolutionId: resolutionSnapshot.id,
-        });
-      }
-      if (
-        !resolutionIsEffectiveAt(
-          payload.requestedAt,
-          resolutionSnapshot.validFrom,
-          resolutionSnapshot.validUntil
-        )
-      ) {
-        throw new FiscalIntentBlockedError('numbering_resolution_not_effective', {
-          resolutionId: resolutionSnapshot.id,
-          requestedAt: payload.requestedAt,
-          validFrom: resolutionSnapshot.validFrom,
-          validUntil: resolutionSnapshot.validUntil,
         });
       }
 
@@ -623,20 +567,7 @@ function materializeClaimedIntent(
       });
 
       const consecutive = resolution.currentNumber + 1;
-      if (
-        consecutive < resolutionSnapshot.fromNumber ||
-        consecutive > resolutionSnapshot.toNumber
-      ) {
-        throw new FiscalIntentBlockedError('numbering_resolution_exhausted', {
-          resolutionId: resolutionSnapshot.id,
-          currentNumber: resolution.currentNumber,
-          fromNumber: resolutionSnapshot.fromNumber,
-          toNumber: resolutionSnapshot.toNumber,
-        });
-      }
-      const documentNumber = `${resolutionSnapshot.prefix}${consecutive
-        .toString()
-        .padStart(10, '0')}`;
+      const documentNumber = `${resolution.prefix}${consecutive.toString().padStart(10, '0')}`;
       const originalDocument =
         row.kind === 'NC'
           ? tx
@@ -722,10 +653,10 @@ function materializeClaimedIntent(
         currencyCode: originalDocument?.currencyCode ?? payload.adapterInput.currencyCode,
         localeCode: originalDocument?.localeCode ?? payload.adapterInput.localeCode,
         resolution: {
-          id: resolutionSnapshot.id,
-          resolutionNumber: resolutionSnapshot.resolutionNumber,
-          prefix: resolutionSnapshot.prefix,
-          technicalKey: resolutionSnapshot.technicalKey,
+          id: resolution.id,
+          resolutionNumber: resolution.resolutionNumber,
+          prefix: resolution.prefix,
+          technicalKey: resolution.technicalKey,
           consecutive,
           documentNumber,
         },
@@ -756,7 +687,7 @@ function materializeClaimedIntent(
           source: row.source,
           sourceId: row.sourceId,
           kind: row.kind,
-          resolutionId: resolutionSnapshot.id,
+          resolutionId: resolution.id,
           consecutive,
           documentNumber,
           cufe: placeholderCufe,

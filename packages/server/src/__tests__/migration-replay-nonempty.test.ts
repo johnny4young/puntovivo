@@ -100,7 +100,7 @@ const FIXTURES: HistoricalFixture[] = [
     afterIdx: 96,
     because:
       'any signed-in desktop role could write desktop_sync_config through sync:setConfig, and ' +
-      'nothing ever read it; 0097 deletes that key and only that key',
+      'nothing ever read it; 0098 deletes that key and only that key',
     seed: sqlite => {
       sqlite.exec(`
         INSERT INTO app_settings (key, value, updated_at) VALUES
