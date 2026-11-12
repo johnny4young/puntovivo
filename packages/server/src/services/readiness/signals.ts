@@ -17,19 +17,13 @@
 import { and, count, eq, inArray } from 'drizzle-orm';
 
 import type { DatabaseInstance } from '../../db/index.js';
-import {
-  fiscalNumberingResolutions,
-  fiscalOutbox,
-  sitePeripherals,
-  syncConflicts,
-  syncOutbox,
-} from '../../db/schema.js';
-import {
-  checkResolutionUsable,
-  isCountryFiscalEnabled,
-  isDianFlagOn,
-} from '../fiscal/orchestrator/helpers.js';
+import { fiscalOutbox, sitePeripherals, syncConflicts, syncOutbox } from '../../db/schema.js';
+import { isCountryFiscalEnabled, isDianFlagOn } from '../fiscal/orchestrator/helpers.js';
 import { readCoFiscalSettings, validateCoEmissionConfig } from '../fiscal/packs/co/settings.js';
+import {
+  numberingEnvironmentFromSettings,
+  peekNumberingRange,
+} from '../fiscal/numbering/select.js';
 import { readPaymentRailCredentials } from '../payments/credentials.js';
 import { PAYMENT_RAIL_IDS } from '../payments/manifest.js';
 
@@ -59,28 +53,14 @@ export async function readCheckoutFiscalState(
   if (!isDianFlagOn(settings) || !isCountryFiscalEnabled(settings, 'CO')) return 'disabled';
   if (!validateCoEmissionConfig(readCoFiscalSettings(settings)).ok) return 'issuer_incomplete';
 
-  const resolution = await db
-    .select({
-      id: fiscalNumberingResolutions.id,
-      validFrom: fiscalNumberingResolutions.validFrom,
-      validUntil: fiscalNumberingResolutions.validUntil,
-      currentNumber: fiscalNumberingResolutions.currentNumber,
-      fromNumber: fiscalNumberingResolutions.fromNumber,
-      toNumber: fiscalNumberingResolutions.toNumber,
-    })
-    .from(fiscalNumberingResolutions)
-    .where(
-      and(
-        eq(fiscalNumberingResolutions.tenantId, tenantId),
-        eq(fiscalNumberingResolutions.siteId, siteId),
-        eq(fiscalNumberingResolutions.kind, 'DEE'),
-        eq(fiscalNumberingResolutions.isActive, true)
-      )
-    )
-    .get();
-  if (!resolution) return 'numbering_missing';
-  const usable = checkResolutionUsable(resolution, args.at ?? new Date().toISOString());
-  return usable.ok ? 'issuing' : 'numbering_missing';
+  const numbering = peekNumberingRange(db, {
+    tenantId,
+    siteId,
+    kind: 'DEE',
+    environment: numberingEnvironmentFromSettings(settings),
+    at: args.at ?? new Date().toISOString(),
+  });
+  return numbering.ok ? 'issuing' : 'numbering_missing';
 }
 
 /**

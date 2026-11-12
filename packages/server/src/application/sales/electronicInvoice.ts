@@ -5,18 +5,16 @@
  */
 import { and, asc, eq } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
-import {
-  customers,
-  fiscalIdentificationTypes,
-  fiscalNumberingResolutions,
-  tenants,
-} from '../../db/schema.js';
+import { customers, fiscalIdentificationTypes, tenants } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import {
-  checkResolutionUsable,
   isCountryFiscalEnabled,
   isDianEnabled,
 } from '../../services/fiscal/orchestrator/helpers.js';
+import {
+  peekNumberingRange,
+  readTenantNumberingEnvironment,
+} from '../../services/fiscal/numbering/select.js';
 import type { ResolvedBuyer } from '../../services/fiscal/orchestrator/types.js';
 import { normalizeCoBuyerId } from '../../services/fiscal/packs/co/buyer-id.js';
 import { resolveTenantLocale } from '../../services/tenant-locale.js';
@@ -36,32 +34,19 @@ async function isColombianPackOn(db: DatabaseInstance, tenantId: string): Promis
   return isCountryFiscalEnabled((row?.settings ?? {}) as Record<string, unknown>, COLOMBIA);
 }
 
-async function hasUsableFevRange(
+function hasUsableFevRange(
   db: DatabaseInstance,
   tenantId: string,
   siteId: string,
   now: string
-): Promise<boolean> {
-  const resolution = await db
-    .select({
-      id: fiscalNumberingResolutions.id,
-      validFrom: fiscalNumberingResolutions.validFrom,
-      validUntil: fiscalNumberingResolutions.validUntil,
-      currentNumber: fiscalNumberingResolutions.currentNumber,
-      fromNumber: fiscalNumberingResolutions.fromNumber,
-      toNumber: fiscalNumberingResolutions.toNumber,
-    })
-    .from(fiscalNumberingResolutions)
-    .where(
-      and(
-        eq(fiscalNumberingResolutions.tenantId, tenantId),
-        eq(fiscalNumberingResolutions.siteId, siteId),
-        eq(fiscalNumberingResolutions.kind, 'FEV'),
-        eq(fiscalNumberingResolutions.isActive, true)
-      )
-    )
-    .get();
-  return resolution !== undefined && checkResolutionUsable(resolution, now).ok;
+): boolean {
+  return peekNumberingRange(db, {
+    tenantId,
+    siteId,
+    kind: 'FEV',
+    environment: readTenantNumberingEnvironment(db, tenantId),
+    at: now,
+  }).ok;
 }
 
 export interface ElectronicInvoiceAvailability {
@@ -80,10 +65,7 @@ export async function getElectronicInvoiceAvailability(
   now: string = new Date().toISOString()
 ): Promise<ElectronicInvoiceAvailability> {
   const unavailable: ElectronicInvoiceAvailability = { available: false, identificationTypes: [] };
-  if (
-    !(await isColombianPackOn(db, tenantId)) ||
-    !(await hasUsableFevRange(db, tenantId, siteId, now))
-  ) {
+  if (!(await isColombianPackOn(db, tenantId)) || !hasUsableFevRange(db, tenantId, siteId, now)) {
     return unavailable;
   }
 

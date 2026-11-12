@@ -380,7 +380,7 @@ describe('sales.create — Colombian sale document', () => {
   it('refuses the request before writing the sale when the site has no usable FEV range', async () => {
     const db = getDatabase();
     db.update(fiscalNumberingResolutions)
-      .set({ isActive: false })
+      .set({ isActive: false, status: 'retired' })
       .where(eq(fiscalNumberingResolutions.id, fevResolutionId))
       .run();
     try {
@@ -392,7 +392,7 @@ describe('sales.create — Colombian sale document', () => {
       expect(countSales()).toBe(before);
     } finally {
       db.update(fiscalNumberingResolutions)
-        .set({ isActive: true })
+        .set({ isActive: true, status: 'active' })
         .where(eq(fiscalNumberingResolutions.id, fevResolutionId))
         .run();
     }

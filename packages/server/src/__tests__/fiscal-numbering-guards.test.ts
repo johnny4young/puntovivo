@@ -197,10 +197,15 @@ describe('the fiscal writers reserve the SQLite writer', () => {
   });
 
   it('checks the resolution on every path, not just the intent one', () => {
-    for (const name of ADVANCING_PATHS) {
-      expect(source(name), `${name} does not check the resolution`).toContain(
-        'checkResolutionUsable'
+    // The selector applies checkResolutionUsable; the legacy inline path calls it directly.
+    expect(readFileSync(path.resolve(ORCHESTRATOR, '../numbering/select.ts'), 'utf8')).toContain(
+      'checkResolutionUsable'
+    );
+    for (const name of ['enqueue.ts', 'intents.ts']) {
+      expect(source(name), `${name} does not use the shared selector`).toContain(
+        'selectNumberingRange'
       );
     }
+    expect(source('emit.ts')).toContain('checkResolutionUsable');
   });
 });

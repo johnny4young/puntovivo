@@ -228,6 +228,14 @@ export const launchFiscalProfileImportRowSchema = z
         issueLocation: importCell,
         administrativeAreaCode: importCell,
         environment: importCell,
+        siteName: importCell,
+        resolutionNumber: importCell,
+        resolutionDate: importCell,
+        numberingPrefix: importCell,
+        rangeFrom: importCell,
+        rangeTo: importCell,
+        validFrom: importCell,
+        validUntil: importCell,
       })
       .strict(),
   })

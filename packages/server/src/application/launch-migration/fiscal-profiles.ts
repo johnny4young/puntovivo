@@ -1,10 +1,11 @@
 /** Server-authoritative fiscal issuer-profile import. */
 import { createHash } from 'node:crypto';
 import { TRPCError } from '@trpc/server';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
-import { tenantLocaleSettings, tenants } from '../../db/schema.js';
+import { sites, tenantLocaleSettings, tenants } from '../../db/schema.js';
+import { ServerErrorWithCode } from '../../lib/errorCodes.js';
 import { createModuleLogger } from '../../logging/logger.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import { findComuna, findGiroComercial } from '../../services/fiscal/packs/cl/catalogs/index.js';
@@ -20,6 +21,12 @@ import {
   readCoFiscalSettings,
   type CoFiscalSettings,
 } from '../../services/fiscal/packs/co/settings.js';
+import {
+  createNumberingRange,
+  NUMBERING_PREFIX_PATTERN,
+  toColombianDayBoundary,
+  withinMaxValidity,
+} from '../../services/fiscal/numbering/ranges.js';
 import { findRegimenFiscal } from '../../services/fiscal/packs/mx/catalogs/index.js';
 import { validateRfc } from '../../services/fiscal/packs/mx/rfc.js';
 import {
@@ -45,7 +52,9 @@ import type {
   FiscalProfileImportPreviewRow,
   LaunchMigrationContext,
   NormalizedLaunchFiscalProfile,
+  NormalizedLaunchNumberingRange,
 } from './types.js';
+import { FISCAL_PROFILE_NUMBERING_FIELDS } from './types.js';
 
 const log = createModuleLogger('launch-migration');
 const CO_NIT_PATTERN = /^\d{9,10}(-?\d)?$/u;
@@ -133,6 +142,102 @@ function required(
   if (value === null || value === '') issues.push({ code: 'required', field });
 }
 
+/** Parse the optional DEE range columns; any one present makes the whole set required. */
+function normalizeNumbering(
+  row: LaunchFiscalProfileImportRow,
+  issues: FiscalProfileImportIssue[]
+): NormalizedLaunchNumberingRange | null {
+  const values = row.values;
+  if (!FISCAL_PROFILE_NUMBERING_FIELDS.some(field => optionalText(values[field]))) return null;
+  const before = issues.length;
+  const resolutionNumber = optionalText(values.resolutionNumber);
+  const prefix = optionalText(values.numberingPrefix)?.toUpperCase() ?? '';
+  const fromNumber = parsePositiveInteger(values.rangeFrom);
+  const toNumber = parsePositiveInteger(values.rangeTo);
+  const resolutionDate = toColombianDayBoundary(values.resolutionDate ?? '', 'start');
+  const validFrom = toColombianDayBoundary(values.validFrom ?? '', 'start');
+  const validUntil = toColombianDayBoundary(values.validUntil ?? '', 'end');
+
+  required(resolutionNumber, 'resolutionNumber', issues);
+  if (resolutionNumber && resolutionNumber.length > 40) {
+    issues.push({ code: 'too_long', field: 'resolutionNumber' });
+  }
+  if (prefix && !NUMBERING_PREFIX_PATTERN.test(prefix)) {
+    issues.push({ code: 'invalid_prefix', field: 'numberingPrefix' });
+  }
+  for (const [raw, parsed, field] of [
+    [values.rangeFrom, fromNumber, 'rangeFrom'],
+    [values.rangeTo, toNumber, 'rangeTo'],
+  ] as const) {
+    if (!optionalText(raw)) issues.push({ code: 'required', field });
+    else if (parsed === null) issues.push({ code: 'invalid_number', field });
+  }
+  if (fromNumber !== null && toNumber !== null && fromNumber > toNumber) {
+    issues.push({ code: 'invalid_range', field: 'rangeTo' });
+  }
+  for (const [raw, parsed, field] of [
+    [values.resolutionDate, resolutionDate, 'resolutionDate'],
+    [values.validFrom, validFrom, 'validFrom'],
+    [values.validUntil, validUntil, 'validUntil'],
+  ] as const) {
+    if (!optionalText(raw)) issues.push({ code: 'required', field });
+    else if (parsed === null) issues.push({ code: 'invalid_date', field });
+  }
+  if (
+    validFrom &&
+    validUntil &&
+    (Date.parse(validUntil) <= Date.parse(validFrom) || !withinMaxValidity(validFrom, validUntil))
+  ) {
+    issues.push({ code: 'invalid_range', field: 'validUntil' });
+  }
+  if (
+    issues.length > before ||
+    !resolutionNumber ||
+    fromNumber === null ||
+    toNumber === null ||
+    !resolutionDate ||
+    !validFrom ||
+    !validUntil
+  ) {
+    return null;
+  }
+  return {
+    siteName: optionalText(values.siteName),
+    resolutionNumber,
+    resolutionDate,
+    prefix,
+    fromNumber,
+    toNumber,
+    validFrom,
+    validUntil,
+  };
+}
+
+/** Active site a range row targets: by name, or the only active site when unnamed. */
+function resolveNumberingSite(
+  db: LaunchMigrationContext['db'],
+  tenantId: string,
+  numbering: NormalizedLaunchNumberingRange
+): { siteId: string; multiSite: boolean } | FiscalProfileImportIssue {
+  const activeSites = db
+    .select({ id: sites.id, name: sites.name })
+    .from(sites)
+    .where(and(eq(sites.tenantId, tenantId), eq(sites.isActive, true)))
+    .all();
+  const multiSite = activeSites.length > 1;
+  if (numbering.siteName === null) {
+    const only = activeSites.length === 1 ? activeSites[0] : undefined;
+    return only ? { siteId: only.id, multiSite } : { code: 'required', field: 'siteName' };
+  }
+  const wanted = normalizedToken(numbering.siteName);
+  const match = activeSites.find(site => normalizedToken(site.name) === wanted);
+  if (!match) return { code: 'unknown_site', field: 'siteName' };
+  if (multiSite && numbering.prefix === '') {
+    return { code: 'invalid_prefix', field: 'numberingPrefix' };
+  }
+  return { siteId: match.id, multiSite };
+}
+
 function normalizeRow(row: LaunchFiscalProfileImportRow): {
   normalized: NormalizedLaunchFiscalProfile;
   issues: FiscalProfileImportIssue[];
@@ -145,6 +250,7 @@ function normalizeRow(row: LaunchFiscalProfileImportRow): {
   const administrativeAreaCode = parsePositiveInteger(row.values.administrativeAreaCode);
   const environment = normalizeEnvironment(countryCode, row.values.environment);
   const issues: FiscalProfileImportIssue[] = [];
+  let numbering: NormalizedLaunchNumberingRange | null = null;
 
   required(countryCodeRaw, 'countryCode', issues);
   required(taxIdentifierRaw, 'taxIdentifier', issues);
@@ -200,6 +306,7 @@ function normalizeRow(row: LaunchFiscalProfileImportRow): {
     if (taxIdentifierRaw && !CO_NIT_PATTERN.test(taxIdentifierRaw)) {
       issues.push({ code: 'invalid_tax_identifier', field: 'taxIdentifier' });
     }
+    numbering = normalizeNumbering(row, issues);
   }
 
   return {
@@ -210,6 +317,7 @@ function normalizeRow(row: LaunchFiscalProfileImportRow): {
       issueLocation,
       administrativeAreaCode,
       environment: environment ?? '',
+      numbering,
       activationRequired: true,
     },
     issues,
@@ -358,6 +466,10 @@ export async function previewLaunchFiscalProfileImport(
     const issues = [...normalizationIssues];
     const countryCode = normalized.countryCode;
 
+    if (normalized.numbering) {
+      const site = resolveNumberingSite(ctx.db, ctx.tenantId, normalized.numbering);
+      if ('code' in site) issues.push(site);
+    }
     if (countryCode) {
       if (seenCountries.has(countryCode)) {
         issues.push({ code: 'duplicate_file_profile', field: 'countryCode' });
@@ -452,6 +564,44 @@ export async function commitLaunchFiscalProfileImport(
             continue;
           }
 
+          // Validated and written before the profile, so a rejected range
+          // leaves the row untouched.
+          const numbering = row.normalized.numbering;
+          if (numbering) {
+            const site = resolveNumberingSite(tx, ctx.tenantId, numbering);
+            if ('code' in site) {
+              invalidRows.push({ rowNumber: row.rowNumber, issues: [site] });
+              continue;
+            }
+            const environment = row.normalized.environment as CoFiscalSettings['environment'];
+            try {
+              createNumberingRange(tx, {
+                tenantId: ctx.tenantId,
+                actorId: ctx.user.id,
+                tenantEnvironment: environment,
+                input: {
+                  siteId: site.siteId,
+                  kind: 'DEE',
+                  resolutionNumber: numbering.resolutionNumber,
+                  resolutionDate: numbering.resolutionDate,
+                  prefix: numbering.prefix,
+                  fromNumber: numbering.fromNumber,
+                  toNumber: numbering.toNumber,
+                  validFrom: numbering.validFrom,
+                  validUntil: numbering.validUntil,
+                  environment,
+                },
+              });
+            } catch (error) {
+              if (!isNumberingRejection(error)) throw error;
+              invalidRows.push({
+                rowNumber: row.rowNumber,
+                issues: [{ code: 'numbering_range_rejected', field: 'rangeFrom' }],
+              });
+              continue;
+            }
+          }
+
           const nextSettings = mergeImportedProfile(state.settings, row.normalized);
           tx.update(tenants)
             .set({ settings: nextSettings, updatedAt: new Date().toISOString() })
@@ -523,4 +673,11 @@ export async function commitLaunchFiscalProfileImport(
     invalidRows,
     failedRows,
   };
+}
+
+function isNumberingRejection(error: unknown): boolean {
+  const cause = error instanceof Error ? error.cause : undefined;
+  return (
+    cause instanceof ServerErrorWithCode && cause.errorCode.startsWith('FISCAL_NUMBERING_RANGE_')
+  );
 }
