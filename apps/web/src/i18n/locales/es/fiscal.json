@@ -154,15 +154,6 @@
         "nit": "NIT del emisor",
         "nitHelp": "De 9 a 10 dígitos, con dígito de verificación opcional.",
         "nitPlaceholder": "ej. 900123456-8",
-        "resolution": "Resolución de numeración DIAN",
-        "resolutionHelp": "El número de resolución que autoriza tu rango de facturas.",
-        "resolutionPlaceholder": "ej. 18760000001",
-        "prefix": "Prefijo de factura",
-        "prefixPlaceholder": "ej. SETP",
-        "rangeFrom": "Rango desde",
-        "rangeFromPlaceholder": "ej. 1",
-        "rangeTo": "Rango hasta",
-        "rangeToPlaceholder": "ej. 5000",
         "environment": "Ambiente",
         "environmentHabilitacion": "Habilitación (pruebas)",
         "environmentProduccion": "Producción",
@@ -179,8 +170,6 @@
       },
       "issueCodes": {
         "MISSING_NIT": "Falta el NIT del emisor o su dígito de verificación no es válido",
-        "MISSING_RESOLUTION": "Falta la resolución de numeración DIAN",
-        "MISSING_RANGE": "El rango de numeración DIAN falta o es inválido",
         "MISSING_SOFTWARE": "Falta el identificador o el PIN del software DIAN"
       },
       "actions": {
@@ -236,13 +225,11 @@
   "readiness": {
     "label": "Preparación fiscal",
     "profile": "Perfil fiscal",
-    "numbering": "Resolución de numeración",
     "environment": "Ambiente",
     "pending": "Documentos por atender",
     "missing": "Falta",
     "complete": "Completar perfil",
     "edit": "Editar",
-    "addResolution": "Agregar resolución",
     "production": "Producción",
     "testing": "Pruebas",
     "viewQueue": "Ver cola",

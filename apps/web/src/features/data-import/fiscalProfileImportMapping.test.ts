@@ -9,7 +9,7 @@ import {
 } from './fiscalProfileImportMapping';
 
 describe(' fiscal profile import mapping', () => {
-  it('maps accent-insensitive CO headers and keeps only selected columns', () => {
+  it('maps accent-insensitive CO headers and drops numbering columns', () => {
     const headers = [
       'Código de país',
       'NIT',
@@ -24,12 +24,9 @@ describe(' fiscal profile import mapping', () => {
     expect(mapping).toMatchObject({
       countryCode: 'Código de país',
       taxIdentifier: 'NIT',
-      resolutionNumber: 'Resolución de numeración',
-      numberingPrefix: 'Prefijo',
-      rangeFrom: 'Consecutivo inicial',
-      rangeTo: 'Consecutivo final',
       environment: 'Ambiente fiscal',
     });
+    expect(mapping).not.toHaveProperty('resolutionNumber');
     expect(hasRequiredFiscalProfileMapping(mapping)).toBe(true);
 
     const file: ParsedImportFile = {
@@ -57,10 +54,6 @@ describe(' fiscal profile import mapping', () => {
         values: {
           countryCode: 'CO',
           taxIdentifier: '900123456-8',
-          resolutionNumber: '18764000001234',
-          numberingPrefix: 'SETT',
-          rangeFrom: '1',
-          rangeTo: '5000',
           environment: 'habilitacion',
         },
       },
@@ -88,8 +81,8 @@ describe(' fiscal profile import mapping', () => {
       economicActivityCode: '',
       issueLocation: '',
       administrativeAreaCode: '',
-      resolutionNumber: '18764000001234',
       environment: 'habilitacion',
     });
+    expect(FISCAL_PROFILE_IMPORT_TEMPLATE).not.toHaveProperty('rangeFrom');
   });
 });

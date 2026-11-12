@@ -154,15 +154,6 @@
         "nit": "Issuer NIT",
         "nitHelp": "9 to 10 digits, with an optional verification digit.",
         "nitPlaceholder": "e.g. 900123456-8",
-        "resolution": "DIAN numbering resolution",
-        "resolutionHelp": "The resolution number that authorizes your invoice range.",
-        "resolutionPlaceholder": "e.g. 18760000001",
-        "prefix": "Invoice prefix",
-        "prefixPlaceholder": "e.g. SETP",
-        "rangeFrom": "Range from",
-        "rangeFromPlaceholder": "e.g. 1",
-        "rangeTo": "Range to",
-        "rangeToPlaceholder": "e.g. 5000",
         "environment": "Environment",
         "environmentHabilitacion": "Enablement (testing)",
         "environmentProduccion": "Production",
@@ -179,8 +170,6 @@
       },
       "issueCodes": {
         "MISSING_NIT": "Issuer NIT is missing or its verification digit is invalid",
-        "MISSING_RESOLUTION": "DIAN numbering resolution is missing",
-        "MISSING_RANGE": "DIAN numbering range is missing or invalid",
         "MISSING_SOFTWARE": "DIAN software ID or PIN is missing"
       },
       "actions": {
@@ -236,13 +225,11 @@
   "readiness": {
     "label": "Fiscal readiness",
     "profile": "Fiscal profile",
-    "numbering": "Numbering resolution",
     "environment": "Environment",
     "pending": "Documents to attend to",
     "missing": "Missing",
     "complete": "Complete profile",
     "edit": "Edit",
-    "addResolution": "Add resolution",
     "production": "Production",
     "testing": "Testing",
     "viewQueue": "View queue",

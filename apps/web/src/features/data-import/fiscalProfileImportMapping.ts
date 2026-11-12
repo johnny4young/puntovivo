@@ -8,10 +8,6 @@ export const FISCAL_PROFILE_IMPORT_FIELDS = [
   'economicActivityCode',
   'issueLocation',
   'administrativeAreaCode',
-  'resolutionNumber',
-  'numberingPrefix',
-  'rangeFrom',
-  'rangeTo',
   'environment',
 ] as const;
 
@@ -26,10 +22,6 @@ export const FISCAL_PROFILE_IMPORT_TEMPLATE: Record<FiscalProfileImportField, st
   economicActivityCode: '',
   issueLocation: '',
   administrativeAreaCode: '',
-  resolutionNumber: '18764000001234',
-  numberingPrefix: 'SETT',
-  rangeFrom: '1',
-  rangeTo: '5000',
   environment: 'habilitacion',
 };
 
@@ -73,22 +65,6 @@ const HEADER_ALIASES: Record<FiscalProfileImportField, readonly string[]> = {
     'codigo de comuna',
     'codigo de municipio',
   ],
-  resolutionNumber: [
-    'resolution number',
-    'numbering resolution',
-    'resolucion',
-    'numero de resolucion',
-    'resolucion de numeracion',
-  ],
-  numberingPrefix: [
-    'numbering prefix',
-    'invoice prefix',
-    'prefix',
-    'prefijo',
-    'prefijo de numeracion',
-  ],
-  rangeFrom: ['range from', 'numbering from', 'first number', 'rango desde', 'consecutivo inicial'],
-  rangeTo: ['range to', 'numbering to', 'last number', 'rango hasta', 'consecutivo final'],
   environment: ['environment', 'fiscal environment', 'ambiente', 'ambiente fiscal'],
 };
 

@@ -193,7 +193,9 @@ test.describe('launch data import', () => {
       name: /Select Product for Initial Inventory/i,
     });
     await inventoryDialog.getByPlaceholder('Search by SKU, name, or barcode').fill(serviceSku);
-    await expect(inventoryDialog.getByText('No products matched the current filters.')).toBeVisible();
+    await expect(
+      inventoryDialog.getByText('No products matched the current filters.')
+    ).toBeVisible();
     await inventoryDialog.getByRole('button', { name: 'Cancel' }).click();
 
     // Purchase and order pickers use the same filter, preventing a draft that
@@ -747,10 +749,8 @@ test.describe('launch data import', () => {
     await expect(page).toHaveURL(/\/company\?tab=fiscal$/);
     await expect(page.getByRole('heading', { name: 'Colombia — DIAN' })).toBeVisible();
     await expect(page.locator('#fiscal-co-nit')).toHaveValue('900123456-8');
-    await expect(page.locator('#fiscal-co-resolution')).toHaveValue('18764000001234');
-    await expect(page.locator('#fiscal-co-prefix')).toHaveValue('SETT');
-    await expect(page.locator('#fiscal-co-range-from')).toHaveValue('1');
-    await expect(page.locator('#fiscal-co-range-to')).toHaveValue('5000');
+    // Numbering lives in the resolutions table; the old CSV columns are ignored.
+    await expect(page.locator('#fiscal-co-resolution')).toHaveCount(0);
     await expect(page.locator('#fiscal-co-environment')).toHaveValue('habilitacion');
     await expect(
       page.getByRole('checkbox', { name: 'Enable DIAN electronic invoicing' })
