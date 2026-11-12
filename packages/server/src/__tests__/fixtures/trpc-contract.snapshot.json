@@ -1964,7 +1964,7 @@
   {
     "path": "products.getById",
     "kind": "query",
-    "input": "object{id:string[minLength=1]}",
+    "input": "object{id:string[minLength=1],siteId?:string[minLength=1]}",
     "output": "inferred"
   },
   {
@@ -1982,7 +1982,7 @@
   {
     "path": "products.lookupByBarcode",
     "kind": "query",
-    "input": "object{barcode:string[minLength=1,maxLength=64],parsePolicy?:enum(\"strict\"|\"permissive\")}",
+    "input": "object{barcode:string[minLength=1,maxLength=64],parsePolicy?:enum(\"strict\"|\"permissive\"),siteId?:string[minLength=1]}",
     "output": "inferred"
   },
   {
@@ -1994,7 +1994,7 @@
   {
     "path": "products.search",
     "kind": "query",
-    "input": "object{categoryId?:string,isActive?:boolean,limit?:integer[min=1,max=50]=20,pharmacyOnly?:boolean,providerId?:string,q:string[minLength=1,maxLength=120],tracksStock?:boolean}",
+    "input": "object{categoryId?:string,isActive?:boolean,limit?:integer[min=1,max=50]=20,pharmacyOnly?:boolean,providerId?:string,q:string[minLength=1,maxLength=120],siteId?:string[minLength=1],tracksStock?:boolean}",
     "output": "inferred"
   },
   {

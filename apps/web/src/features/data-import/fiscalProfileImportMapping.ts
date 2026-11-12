@@ -26,7 +26,7 @@ export type FiscalProfileImportMapping = Record<FiscalProfileImportField, string
 // optional country-specific cells can remain genuinely empty without looking like untranslated copy.
 export const FISCAL_PROFILE_IMPORT_TEMPLATE: Record<FiscalProfileImportField, string> = {
   countryCode: 'CO',
-  taxIdentifier: '900123456-7',
+  taxIdentifier: '900123456-8',
   economicActivityCode: '',
   issueLocation: '',
   administrativeAreaCode: '',

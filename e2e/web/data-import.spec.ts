@@ -701,7 +701,7 @@ test.describe('launch data import', () => {
     const validUntil = new Date(Date.now() + 300 * 86_400_000).toISOString().slice(0, 10);
     const fiscalCsv = [
       'Country code,Tax ID,Regime or activity code,Issue location,Numbering resolution,Resolution date,Numbering prefix,Range from,Range to,Valid from,Valid until,Fiscal environment',
-      `CO,900123456-7,,,18764000001234,${validFrom},SETT,1,5000,${validFrom},${validUntil},habilitacion`,
+      `CO,900123456-8,,,18764000001234,${validFrom},SETT,1,5000,${validFrom},${validUntil},habilitacion`,
       'MX,XEXX010101000,601,01000,,,,,,,,sandbox',
     ].join('\n');
 
@@ -750,7 +750,7 @@ test.describe('launch data import', () => {
     await page.getByRole('link', { name: /Review fiscal profile/ }).click();
     await expect(page).toHaveURL(/\/company\?tab=fiscal$/);
     await expect(page.getByRole('heading', { name: 'Colombia — DIAN' })).toBeVisible();
-    await expect(page.locator('#fiscal-co-nit')).toHaveValue('900123456-7');
+    await expect(page.locator('#fiscal-co-nit')).toHaveValue('900123456-8');
     // The range columns land in the numbering table, not in the issuer form.
     await expect(page.locator('#fiscal-co-resolution')).toHaveCount(0);
     const numbering = page.getByTestId('fiscal-co-numbering');

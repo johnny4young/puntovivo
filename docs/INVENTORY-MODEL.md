@@ -113,7 +113,10 @@ Additive, zero-rewrite. Migration `0003_unit_dimension_standard_code`.
    `services/inventory-balances/derive.ts` (`productStockTotalSql` for select
    projections, `getProductStockTotal`/`getProductStockTotals` for write paths).
    Product reads still expose a numeric `stock` field (now derived), so the API
-   shape is unchanged. Every former `products.stock` write is gone; the sale
+   shape is unchanged. `products.list`, `products.search`, `products.getById`
+   and `products.lookupByBarcode` also accept a `siteId` and then return
+   `siteStock`, that site's `on_hand`; the sales cart shows and checks that
+   figure because a sale can only take stock from its own site. Every former `products.stock` write is gone; the sale
    stock check already keyed off `inventory_balances`. Because drift is now
    structurally impossible, `reconcileProductStockFromBalances` and the
    discrepancy report are retained but no-op / always-empty. The derived total

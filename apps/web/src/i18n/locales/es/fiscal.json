@@ -153,7 +153,7 @@
         "enabledHelp": "Cada venta genera su documento POS electrónico, o factura electrónica si el comprador la pide. El pack de Colombia está en modo de prueba: nada se envía a la DIAN.",
         "nit": "NIT del emisor",
         "nitHelp": "De 9 a 10 dígitos, con dígito de verificación opcional.",
-        "nitPlaceholder": "ej. 900123456-7",
+        "nitPlaceholder": "ej. 900123456-8",
         "environment": "Ambiente",
         "environmentHabilitacion": "Habilitación (pruebas)",
         "environmentProduccion": "Producción",

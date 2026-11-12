@@ -44,6 +44,7 @@ const state = vi.hoisted(() => ({
     isFetching: false,
     isError: false,
   },
+  quoteError: null as unknown,
   customerValue: {
     points: 20,
     movements: [],
@@ -69,7 +70,7 @@ vi.mock('@/lib/trpc', () => ({
           quoteInputSpy(input);
           return {
             ...state.quote,
-            error: state.quote.isError ? new Error('offline') : null,
+            error: state.quote.isError ? (state.quoteError ?? new Error('offline')) : null,
             refetch: quoteRefetch,
           };
         },
@@ -192,6 +193,7 @@ describe('SalePaymentModal promotions and customer value', () => {
       return `00000000-0000-4000-8000-${String(uuidCounter).padStart(12, '0')}`;
     });
     state.quote = { data: undefined, isLoading: false, isFetching: false, isError: false };
+    state.quoteError = null;
     state.customerValue = {
       points: 20,
       movements: [],
@@ -298,6 +300,23 @@ describe('SalePaymentModal promotions and customer value', () => {
     expect(screen.getByRole('button', { name: 'Confirm Sale' })).toBeDisabled();
     await user.click(screen.getByRole('button', { name: 'Check promotions again' }));
     expect(quoteRefetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('names the stock shortfall instead of blaming promotions', () => {
+    state.quote.isError = true;
+    state.quoteError = {
+      data: {
+        errorCode: 'SALE_INSUFFICIENT_STOCK',
+        errorDetails: { productName: 'Aceite Girasol 1L', available: 17, requested: 20 },
+      },
+    };
+    renderModal(vi.fn(async () => undefined));
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Insufficient stock for Aceite Girasol 1L at the active site. Available: 17, requested: 20.'
+    );
+    expect(screen.queryByRole('button', { name: 'Check promotions again' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Confirm Sale' })).toBeDisabled();
   });
 
   it('redeems a full sale with a whole-points tender', async () => {

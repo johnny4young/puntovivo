@@ -11,6 +11,8 @@ export interface MatchedProduct {
   unitPrice: number;
   taxRate: number;
   stock: number;
+  /** On-hand at the active site; without it the cart falls back to `stock`. */
+  siteStock?: number | null;
   sellByFraction: boolean;
   fractionStep: number | null;
   fractionMinimum: number | null;

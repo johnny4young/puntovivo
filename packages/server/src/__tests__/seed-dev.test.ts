@@ -31,6 +31,7 @@ import {
 } from '../db/seed-dev.js';
 import {
   categories,
+  companies,
   customers,
   fiscalCertificates,
   fiscalDocuments,
@@ -46,6 +47,7 @@ import {
 } from '../db/schema.js';
 import { getProductStockTotal } from '../services/inventory-balances.js';
 import { parseScan } from '../services/peripherals/barcode/parser.js';
+import { validateNit } from '../services/fiscal/packs/co/nit.js';
 
 let db: DatabaseInstance;
 let tenantId: string;
@@ -117,6 +119,41 @@ describe('Dev seed (`seedDevData`)', () => {
         checksumValid: true,
       });
     }
+  });
+
+  it('gives every seeded NIT a valid DIAN check digit so electronic invoicing accepts it', async () => {
+    const tenant = await db
+      .select({ settings: tenants.settings })
+      .from(tenants)
+      .where(eq(tenants.id, tenantId))
+      .get();
+    const taxIdRows = [
+      ...(await db
+        .select({ taxId: companies.taxId })
+        .from(companies)
+        .where(eq(companies.tenantId, tenantId))
+        .all()),
+      ...(await db
+        .select({ taxId: providers.taxId })
+        .from(providers)
+        .where(eq(providers.tenantId, tenantId))
+        .all()),
+      ...(await db
+        .select({ taxId: customers.taxId })
+        .from(customers)
+        .where(eq(customers.tenantId, tenantId))
+        .all()),
+    ];
+    const fiscalNit = (tenant?.settings as { fiscal?: { co?: { nit?: string } } } | null)?.fiscal
+      ?.co?.nit;
+    const nits = [
+      ...taxIdRows.flatMap(row => (row.taxId && /-\d$/.test(row.taxId) ? [row.taxId] : [])),
+      ...(fiscalNit ? [fiscalNit] : []),
+    ];
+
+    // 1 company + 5 providers + 7 company customers + the DIAN issuer NIT.
+    expect(nits).toHaveLength(14);
+    expect(nits.filter(nit => !validateNit(nit).valid)).toEqual([]);
   });
 
   it('uses an operator-facing name for the electronic equivalent document preset', async () => {

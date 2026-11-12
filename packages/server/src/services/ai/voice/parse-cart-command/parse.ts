@@ -235,7 +235,7 @@ export async function parseVoiceCartCommand(
   const summaries =
     matchedIds.length === 0
       ? new Map<string, MatchedCartProduct>()
-      : await hydrateCartProducts(ctx.db, ctx.tenantId, matchedIds);
+      : await hydrateCartProducts(ctx.db, ctx.tenantId, ctx.siteId, matchedIds);
 
   const matches: CartCommandMatch[] = parsed.items.map((item, idx) => {
     // normalize whitespace-only notes to null (the

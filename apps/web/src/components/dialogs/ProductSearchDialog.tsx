@@ -32,8 +32,8 @@ interface ProductSearchDialogProps {
   onQuickCreateRequested?: (defaultName: string) => void;
   /** opt-in expiry-discount badges for the POS consumer only. */
   showDiscountSuggestions?: boolean;
-  /** Active site for POS-only expiry suggestions. Other consumers omit it. */
-  discountSuggestionSiteId?: string | null;
+  /** Active POS site: results carry its stock and drive expiry suggestions. */
+  siteId?: string | null;
   /** defense-in-depth role gate for the quick-create CTA. */
   canCreateProducts?: boolean;
   /** Restrict inventory workflows to products that own stock balances. */
@@ -53,7 +53,7 @@ export function ProductSearchDialog({
   canCreateProducts = true,
   stockTrackedOnly = false,
   showDiscountSuggestions = false,
-  discountSuggestionSiteId = null,
+  siteId = null,
 }: ProductSearchDialogProps) {
   const { t } = useTranslation('common');
   const categoryFilterId = useId();
@@ -79,16 +79,14 @@ export function ProductSearchDialog({
       providerId: deferredProviderId || undefined,
       isActive: true,
       tracksStock: stockTrackedOnly ? true : undefined,
+      siteId: siteId ?? undefined,
     },
     { enabled: searchEnabled }
   );
 
   const items = (productsQuery.data?.items ?? []) as ProductSearchItem[];
   // empty Map and no query unless the caller explicitly opts in.
-  const discountSuggestions = useDiscountSuggestions(
-    showDiscountSuggestions && isOpen,
-    discountSuggestionSiteId
-  );
+  const discountSuggestions = useDiscountSuggestions(showDiscountSuggestions && isOpen, siteId);
   const selectedProduct = selection
     ? (items.find(product => product.id === selection.productId) ?? null)
     : null;

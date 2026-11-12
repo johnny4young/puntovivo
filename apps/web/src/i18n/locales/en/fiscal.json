@@ -153,7 +153,7 @@
         "enabledHelp": "Each sale produces its electronic POS document, or an electronic invoice when the buyer asks for one. The Colombian pack is in test mode: nothing is sent to DIAN.",
         "nit": "Issuer NIT",
         "nitHelp": "9 to 10 digits, with an optional verification digit.",
-        "nitPlaceholder": "e.g. 900123456-7",
+        "nitPlaceholder": "e.g. 900123456-8",
         "environment": "Environment",
         "environmentHabilitacion": "Enablement (testing)",
         "environmentProduccion": "Production",
