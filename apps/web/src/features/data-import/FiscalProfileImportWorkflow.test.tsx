@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { render } from '@/test/utils';
 import { FiscalProfileImportWorkflow } from './FiscalProfileImportWorkflow';
+import type { FiscalProfileImportPreview } from './types';
 
 const mocks = vi.hoisted(() => ({
   previewMutate: vi.fn(),
@@ -28,7 +29,7 @@ const preview = {
       status: 'ready' as const,
       normalized: {
         countryCode: 'CO' as const,
-        taxIdentifier: '900123456-7',
+        taxIdentifier: '900123456-8',
         economicActivityCode: null,
         issueLocation: null,
         administrativeAreaCode: null,
@@ -61,6 +62,7 @@ const preview = {
     },
   ],
 };
+let previewResult: FiscalProfileImportPreview = preview;
 
 const report = {
   importId: 'fiscal-import-1',
@@ -90,10 +92,10 @@ vi.mock('@/lib/trpc', () => ({
     }),
     launchMigration: {
       previewFiscalProfiles: {
-        useMutation: (options: { onSuccess: (result: typeof preview) => void }) => ({
+        useMutation: (options: { onSuccess: (result: FiscalProfileImportPreview) => void }) => ({
           mutate: (input: unknown) => {
             mocks.previewMutate(input);
-            options.onSuccess(preview);
+            options.onSuccess(previewResult);
           },
           isPending: false,
           reset: vi.fn(),
@@ -122,6 +124,7 @@ vi.mock('@/services/export/exportService', () => ({ exportToCSV: mocks.exportToC
 describe(' FiscalProfileImportWorkflow', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
+    previewResult = preview;
     for (const invalidate of [
       mocks.invalidateFiscal,
       mocks.invalidateReadiness,
@@ -141,7 +144,7 @@ describe(' FiscalProfileImportWorkflow', () => {
       new File(
         [
           'Código de país;NIT;Resolución de numeración;Prefijo;Consecutivo inicial;Consecutivo final;Ambiente fiscal\n',
-          'CO;900123456-7;18764000001234;SETT;1;5000;habilitación\n',
+          'CO;900123456-8;18764000001234;SETT;1;5000;habilitación\n',
           'MX;XEXX010101000;;;;;sandbox\n',
         ],
         'perfil-fiscal.csv',
@@ -163,7 +166,7 @@ describe(' FiscalProfileImportWorkflow', () => {
             rowNumber: 2,
             values: expect.objectContaining({
               countryCode: 'CO',
-              taxIdentifier: '900123456-7',
+              taxIdentifier: '900123456-8',
               resolutionNumber: '18764000001234',
             }),
           }),
@@ -221,6 +224,49 @@ describe(' FiscalProfileImportWorkflow', () => {
       ]),
       expect.any(Array),
       'puntovivo-fiscal-profile-import-fiscal-import-1',
+      { includeTimestamp: true }
+    );
+  });
+
+  it('names the correct NIT check digit in the preview row and the issues CSV', async () => {
+    const coRow = preview.rows[0]!;
+    previewResult = {
+      ...preview,
+      summary: { total: 1, ready: 0, duplicates: 0, invalid: 1 },
+      rows: [
+        {
+          ...coRow,
+          status: 'invalid',
+          normalized: { ...coRow.normalized, taxIdentifier: '900123456-7' },
+          issues: [{ code: 'invalid_check_digit', field: 'taxIdentifier', expectedDigit: 8 }],
+        },
+      ],
+    };
+    const user = userEvent.setup();
+    render(<FiscalProfileImportWorkflow dataMode="real" />);
+    await user.upload(
+      screen.getByLabelText('Elegir CSV o Excel'),
+      new File(
+        [
+          'Código de país;NIT;Resolución de numeración;Prefijo;Consecutivo inicial;Consecutivo final;Ambiente fiscal\n',
+          'CO;900123456-7;18764000001234;SETT;1;5000;habilitación\n',
+        ],
+        'perfil-fiscal.csv',
+        { type: 'text/csv' }
+      )
+    );
+    expect(await screen.findByText('perfil-fiscal.csv')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Validar y previsualizar' }));
+
+    const issue = 'El dígito de verificación es incorrecto; el correcto es 8';
+    expect(screen.getByTestId('data-import-preview-row-2')).toHaveTextContent(
+      `Identificación tributaria del emisor: ${issue}`
+    );
+    await user.click(screen.getByRole('button', { name: 'Descargar novedades' }));
+    expect(mocks.exportToCSV).toHaveBeenLastCalledWith(
+      [expect.objectContaining({ row: 2, issue })],
+      expect.any(Array),
+      'puntovivo-fiscal-profile-import-issues',
       { includeTimestamp: true }
     );
   });
