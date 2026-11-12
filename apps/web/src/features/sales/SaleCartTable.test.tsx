@@ -78,6 +78,25 @@ describe('SaleCartTable', () => {
     expect(within(mobileList).getByText('Line total')).toBeInTheDocument();
   });
 
+  it('omits the stock figure when the line has no finite count', () => {
+    render(
+      <SaleCartTable
+        items={[createCartItem({ availableStock: Number.POSITIVE_INFINITY })]}
+        selectedItemKey={null}
+        onQuantityChange={vi.fn()}
+        onDiscountChange={vi.fn()}
+        onRemove={vi.fn()}
+        onSelectItem={vi.fn()}
+        quantityInputRefFor={quantityInputRefFor}
+        discountInputRefFor={discountInputRefFor}
+      />
+    );
+
+    const mobileList = screen.getByRole('list', { name: 'Cart items' });
+    expect(within(mobileList).getByText('Sparkling Water')).toBeInTheDocument();
+    expect(within(mobileList).queryByText(/Stock/)).not.toBeInTheDocument();
+  });
+
   it('opens discount and base quantity only on the selected line', () => {
     render(
       <SaleCartTable

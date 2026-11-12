@@ -21,6 +21,7 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { roundMoney } from '@/lib/money';
 import { sumBy } from '@/lib/numbers';
 import { trpc } from '@/lib/trpc';
+import { extractServerErrorCode, translateServerError } from '@/lib/translateServerError';
 import { formatCurrency } from '@/lib/utils';
 import { useQuickCreateStore } from './useQuickCreateStore';
 import { useCartWorkspaceStore } from './useCartWorkspaceStore';
@@ -314,6 +315,12 @@ export function useSalePaymentModal({
   const promotionQuoteLoading =
     promotionQuoteEnabled && (promotionQuote.isLoading || promotionQuote.isFetching);
   const promotionQuoteUnavailable = promotionQuoteEnabled && promotionQuote.isError;
+  // A stock shortfall is fixed in the cart, so name it instead of blaming promotions.
+  const promotionQuoteStockError =
+    promotionQuoteUnavailable &&
+    extractServerErrorCode(promotionQuote.error) === 'SALE_INSUFFICIENT_STOCK'
+      ? translateServerError(promotionQuote.error, t, t('promotions:checkout.unavailable'))
+      : null;
   const checkoutBaseTotal =
     promotionQuoteEnabled && promotionQuote.data ? promotionQuote.data.total : total;
   const serviceChargeAmount = useMemo(
@@ -897,6 +904,7 @@ export function useSalePaymentModal({
     customerAttached: watchedCustomerId.length > 0,
     promotionQuoteLoading,
     promotionQuoteUnavailable,
+    promotionQuoteStockError,
     promotionDiscountAmount:
       promotionQuoteEnabled && promotionQuote.data
         ? promotionQuote.data.promotionDiscountAmount

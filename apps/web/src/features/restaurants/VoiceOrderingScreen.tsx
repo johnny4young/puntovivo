@@ -509,6 +509,7 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
         isOpen={searchDialogOpen}
         onClose={() => setSearchDialogOpen(false)}
         onSelect={handleProductSearchSelect}
+        siteId={currentSite?.id ?? null}
       />
     </div>
   );

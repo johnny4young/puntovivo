@@ -26,7 +26,7 @@
 
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
-import { productStockTotals } from '../../db/schema.js';
+import { inventoryBalances, productStockTotals } from '../../db/schema.js';
 
 /**
  * Scalar subquery: the materialized total for the outer `products` row,
@@ -107,4 +107,36 @@ export function getProductStockTotals(
     if (!result.has(id)) result.set(id, 0);
   }
   return result;
+}
+
+/**
+ * Adds `siteStock`, the on_hand of one site, to each product row. Sales
+ * validate against this figure, not the tenant-wide `stock`. Without a site
+ * every row gets `siteStock: null`, matching `products.list`.
+ */
+export function withSiteStock<T extends { id: string }>(
+  db: DatabaseInstance,
+  tenantId: string,
+  siteId: string | undefined,
+  rows: readonly T[]
+): Array<T & { siteStock: number | null }> {
+  if (!siteId || rows.length === 0) {
+    return rows.map(row => ({ ...row, siteStock: null }));
+  }
+  const balances = db
+    .select({ productId: inventoryBalances.productId, onHand: inventoryBalances.onHand })
+    .from(inventoryBalances)
+    .where(
+      and(
+        eq(inventoryBalances.tenantId, tenantId),
+        eq(inventoryBalances.siteId, siteId),
+        inArray(
+          inventoryBalances.productId,
+          rows.map(row => row.id)
+        )
+      )
+    )
+    .all();
+  const onHandById = new Map(balances.map(balance => [balance.productId, balance.onHand]));
+  return rows.map(row => ({ ...row, siteStock: onHandById.get(row.id) ?? 0 }));
 }

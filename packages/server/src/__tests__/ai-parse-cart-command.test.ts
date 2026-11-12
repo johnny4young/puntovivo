@@ -47,7 +47,16 @@ vi.mock('../services/ai/providers/openai.js', async () => {
 
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { aiAuditLog, products, tenants, unitXProduct, units, users } from '../db/schema.js';
+import {
+  aiAuditLog,
+  inventoryBalances,
+  products,
+  sites,
+  tenants,
+  unitXProduct,
+  units,
+  users,
+} from '../db/schema.js';
 import { ServerErrorWithCode } from '../lib/errorCodes.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
@@ -387,6 +396,50 @@ describe('ai.parseCartCommand ( slice 3)', () => {
     expect(audit).toHaveLength(1);
     expect(audit[0]?.errorCode).toBe('AI_PROVIDER_ERROR');
     expect(JSON.stringify(audit)).not.toContain(secret);
+  });
+
+  it("carries the request site's stock on each matched product", async () => {
+    const { tenantId, cashierId } = await seedTenant('site-stock', { aiEnabled: true });
+    await seedProducts(tenantId, [
+      { id: 'p-site-cola', name: 'Coca Cola 1.5L', embedding: [1, 0, 0], price: 5000 },
+    ]);
+    const db = getDatabase();
+    const now = new Date().toISOString();
+    const companyId = db.select({ companyId: sites.companyId }).from(sites).get()?.companyId;
+    if (!companyId) throw new Error('Expected a seeded company');
+    const siteId = `site-${tenantId}`;
+    db.insert(sites)
+      .values({ id: siteId, tenantId, companyId, name: 'Norte', createdAt: now, updatedAt: now })
+      .run();
+    db.insert(inventoryBalances)
+      .values({
+        id: nanoid(),
+        tenantId,
+        siteId,
+        productId: 'p-site-cola',
+        onHand: 6,
+        reserved: 0,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
+    generateObjectMock.mockResolvedValue({
+      object: {
+        items: [{ productHint: 'coca cola', quantity: 1, note: null }],
+        confidence: 'high',
+        reason: null,
+      },
+      usage: { inputTokens: 10, outputTokens: 5, totalTokens: 15 },
+    });
+    embedManyMock.mockResolvedValue({ embeddings: [[0.99, 0.01, 0.01]] });
+
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: cashierId, role: 'cashier', siteId })
+    );
+    const result = await caller.ai.parseCartCommand({ transcript: 'agrega una coca' });
+
+    if (result.mode !== 'parsed') throw new Error('expected parsed mode');
+    expect(result.matches[0]?.product).toMatchObject({ productId: 'p-site-cola', siteStock: 6 });
   });
 
   it('returns mode=unrecognized when the parser yields zero items', async () => {

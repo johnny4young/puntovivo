@@ -285,7 +285,7 @@ describe('<ProductSearchDialog /> empty-state CTA', () => {
     const user = userEvent.setup();
     const { unmount } = renderDialog({
       showDiscountSuggestions: true,
-      discountSuggestionSiteId: 'site-1',
+      siteId: 'site-1',
     });
     await user.type(screen.getByPlaceholderText(/Search by SKU/i), 'arroz');
 
