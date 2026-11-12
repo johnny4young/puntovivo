@@ -4,7 +4,7 @@ import { TRPCError } from '@trpc/server';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
-import { inventoryMovements, products } from '../../db/schema.js';
+import { inventoryMovements, products, sites } from '../../db/schema.js';
 import { resolveTenantCurrency } from '../../lib/currency.js';
 import { roundMoney } from '../../lib/money.js';
 import { resolveFractionPolicy } from '../../services/fraction-policy.js';
@@ -36,6 +36,7 @@ import {
   summarizeTaxComponents,
 } from '../../services/tax-components.js';
 import type { CreateProductInput } from '../../trpc/schemas/products.js';
+import { ensureTenantSite } from '../../trpc/middleware/tenantSite.js';
 import type { ProductMutationContext } from './types.js';
 import {
   assertPharmacyInventoryPolicy,
@@ -56,6 +57,10 @@ async function persistProduct(ctx: ProductMutationContext, input: CreateProductI
     tracksLots: input.tracksLots,
     tracksSerials: input.tracksSerials,
   });
+
+  if (input.siteId) {
+    await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+  }
 
   const existingSku = await ctx.db
     .select({ id: products.id })
@@ -215,21 +220,32 @@ async function persistProduct(ctx: ProductMutationContext, input: CreateProductI
       }
 
       // `stock` is no longer a product column — it is the single-source
-      // Σ(inventory_balances.on_hand). Opening stock belongs to the primary
-      // site and receives its own movement + audit evidence in the same
-      // transaction as the catalog row.
+      // Σ(inventory_balances.on_hand). Opening stock belongs to the requested
+      // site (the primary one when omitted) and receives its own movement +
+      // audit evidence in the same transaction as the catalog row.
       if (input.stock > 0 && openingMovementId) {
-        const primarySiteId = getPrimarySiteId(tx, ctx.tenantId);
-        if (!primarySiteId) {
+        const openingSiteId = input.siteId ?? getPrimarySiteId(tx, ctx.tenantId);
+        if (!openingSiteId) {
           throw new TRPCError({
             code: 'BAD_REQUEST',
             message: 'An active site is required to record opening stock',
           });
         }
+        const openingSite = tx
+          .select({ isActive: sites.isActive })
+          .from(sites)
+          .where(and(eq(sites.id, openingSiteId), eq(sites.tenantId, ctx.tenantId)))
+          .get();
+        if (!openingSite || openingSite.isActive === false) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Selected opening stock site was not found or is inactive',
+          });
+        }
         let movementValue = inventoryMovementValueSnapshot(null);
         applyInventoryBalanceDelta(tx, {
           tenantId: ctx.tenantId,
-          siteId: primarySiteId,
+          siteId: openingSiteId,
           productId: id,
           delta: input.stock,
           onValueDelta: values => {
@@ -243,7 +259,7 @@ async function persistProduct(ctx: ProductMutationContext, input: CreateProductI
             id: openingMovementId,
             tenantId: ctx.tenantId,
             productId: id,
-            siteId: primarySiteId,
+            siteId: openingSiteId,
             type: 'adjustment',
             ...movementValue,
             quantity: input.stock,
@@ -268,7 +284,7 @@ async function persistProduct(ctx: ProductMutationContext, input: CreateProductI
           after: { stock: input.stock },
           metadata: {
             delta: input.stock,
-            siteId: primarySiteId,
+            siteId: openingSiteId,
             movementId: openingMovementId,
             source: 'product_create',
           },
@@ -281,7 +297,7 @@ async function persistProduct(ctx: ProductMutationContext, input: CreateProductI
             operation: 'create',
             data: {
               ...movementValue,
-              siteId: primarySiteId,
+              siteId: openingSiteId,
               id: openingMovementId,
               productId: id,
               quantity: input.stock,
@@ -292,6 +308,7 @@ async function persistProduct(ctx: ProductMutationContext, input: CreateProductI
       }
       const syncableProductInput = { ...input };
       delete syncableProductInput.pharmacy;
+      delete syncableProductInput.siteId;
       enqueueSyncInTransaction(
         { ...ctx, db: tx },
         {

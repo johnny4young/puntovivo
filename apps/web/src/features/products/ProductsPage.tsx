@@ -29,6 +29,7 @@ import { productsColumns, type DisplayProduct } from '@/features/products/produc
 import { useProductsSemanticSearch } from '@/features/products/useProductsSemanticSearch';
 import { buildProductPayload } from '@/features/products/productPayload';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { useTenant } from '@/features/tenant/TenantProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError, extractServerErrorCode } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
@@ -67,6 +68,7 @@ export function ProductsPage() {
     'semanticSearch',
   ]);
   const { user, tenant } = useAuth();
+  const { currentSite } = useTenant();
   const toast = useToast();
   const utils = trpc.useUtils();
   const canManage = canManageProducts(user?.role);
@@ -438,7 +440,9 @@ export function ProductsPage() {
     }
 
     try {
-      await createMutation.mutateAsync(payload);
+      await createMutation.mutateAsync(
+        currentSite ? { ...payload, siteId: currentSite.id } : payload
+      );
     } catch {
       // The mutation owns and renders this failure through its error state
       // and toast. Returning void is the explicit handled-error contract.

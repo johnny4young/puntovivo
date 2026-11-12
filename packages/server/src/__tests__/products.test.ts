@@ -1378,6 +1378,156 @@ describe('Products tRPC Router', () => {
     });
   });
 
+  describe('opening stock site', () => {
+    async function insertSite(ownerTenantId: string, isActive: boolean) {
+      const db = getDatabase();
+      const now = new Date().toISOString();
+      const companyId = nanoid();
+      const siteId = nanoid();
+      await db.insert(companies).values({
+        id: companyId,
+        tenantId: ownerTenantId,
+        name: `Opening site co ${siteId}`,
+        createdAt: now,
+        updatedAt: now,
+      });
+      await db.insert(sites).values({
+        id: siteId,
+        tenantId: ownerTenantId,
+        companyId,
+        name: `Opening site ${siteId}`,
+        isActive,
+        createdAt: now,
+        updatedAt: now,
+      });
+      return siteId;
+    }
+
+    async function productRows(sku: string) {
+      return getDatabase()
+        .select({ id: products.id })
+        .from(products)
+        .where(and(eq(products.tenantId, tenantId), eq(products.sku, sku)))
+        .all();
+    }
+
+    it('records opening stock, movement and audit at the requested site', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const db = getDatabase();
+      const branchSiteId = await insertSite(tenantId, true);
+
+      const created = await caller.products.create({
+        name: 'Branch opening stock',
+        sku: `BRANCH-OPEN-${nanoid(6)}`,
+        stock: 5,
+        siteId: branchSiteId,
+      });
+
+      const balances = await db
+        .select({ siteId: inventoryBalances.siteId, onHand: inventoryBalances.onHand })
+        .from(inventoryBalances)
+        .where(
+          and(eq(inventoryBalances.tenantId, tenantId), eq(inventoryBalances.productId, created.id))
+        )
+        .all();
+      expect(balances).toEqual([{ siteId: branchSiteId, onHand: 5 }]);
+      expect(created.stock).toBe(5);
+
+      const movement = await db
+        .select({ siteId: inventoryMovements.siteId, reference: inventoryMovements.reference })
+        .from(inventoryMovements)
+        .where(
+          and(
+            eq(inventoryMovements.tenantId, tenantId),
+            eq(inventoryMovements.productId, created.id)
+          )
+        )
+        .get();
+      expect(movement).toEqual({ siteId: branchSiteId, reference: 'product-create' });
+
+      const audit = await db
+        .select({ metadata: auditLogs.metadata })
+        .from(auditLogs)
+        .where(
+          and(
+            eq(auditLogs.tenantId, tenantId),
+            eq(auditLogs.action, 'inventory.adjust_stock'),
+            eq(auditLogs.resourceId, created.id)
+          )
+        )
+        .get();
+      expect(audit?.metadata).toMatchObject({ siteId: branchSiteId, source: 'product_create' });
+
+      const productIntent = await db
+        .select({ payload: syncOutbox.payload })
+        .from(syncOutbox)
+        .where(
+          and(
+            eq(syncOutbox.tenantId, tenantId),
+            eq(syncOutbox.entityType, 'products'),
+            eq(syncOutbox.entityId, created.id)
+          )
+        )
+        .get();
+      expect(JSON.stringify(productIntent?.payload ?? {})).not.toContain(branchSiteId);
+    });
+
+    it('keeps the primary site when no site is requested', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      await insertSite(tenantId, true);
+
+      const created = await caller.products.create({
+        name: 'Primary opening stock',
+        sku: `PRIMARY-OPEN-${nanoid(6)}`,
+        stock: 3,
+      });
+
+      const balances = await getDatabase()
+        .select({ siteId: inventoryBalances.siteId, onHand: inventoryBalances.onHand })
+        .from(inventoryBalances)
+        .where(
+          and(eq(inventoryBalances.tenantId, tenantId), eq(inventoryBalances.productId, created.id))
+        )
+        .all();
+      expect(balances).toEqual([{ siteId: primarySiteId, onHand: 3 }]);
+    });
+
+    it('refuses a site from another tenant and creates nothing', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const foreignTenantId = nanoid();
+      await getDatabase()
+        .insert(tenants)
+        .values({
+          id: foreignTenantId,
+          name: 'Foreign opening tenant',
+          slug: `foreign-opening-${foreignTenantId}`,
+        });
+      const foreignSiteId = await insertSite(foreignTenantId, true);
+      const sku = `FOREIGN-OPEN-${nanoid(6)}`;
+
+      await expect(
+        caller.products.create({ name: 'Foreign site probe', sku, stock: 2, siteId: foreignSiteId })
+      ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+      expect(await productRows(sku)).toEqual([]);
+    });
+
+    it('refuses an inactive site and rolls the product back', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const inactiveSiteId = await insertSite(tenantId, false);
+      const sku = `INACTIVE-OPEN-${nanoid(6)}`;
+
+      await expect(
+        caller.products.create({
+          name: 'Inactive site probe',
+          sku,
+          stock: 2,
+          siteId: inactiveSiteId,
+        })
+      ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+      expect(await productRows(sku)).toEqual([]);
+    });
+  });
+
   it('rolls back catalog edits when a cross-site stock reduction is unsafe', async () => {
     const caller = appRouter.createCaller(createTestContext());
     const db = getDatabase();

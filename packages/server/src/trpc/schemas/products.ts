@@ -154,6 +154,8 @@ export const createProductInput = z
     // stock accepts real numbers so ferreterías (2.5 m cable)
     // and supermarkets (0.75 kg produce) can track fractional quantities.
     stock: z.number().min(0).default(0),
+    /** Site that receives the opening stock; omitted means the primary site. */
+    siteId: z.string().min(1).optional(),
     minStock: z.number().min(0).default(0),
     sellByFraction: z.boolean().default(false),
     fractionStep: z

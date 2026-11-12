@@ -42,6 +42,9 @@ const {
 }));
 
 vi.mock('@/features/auth/AuthProvider', () => ({ useAuth: useAuthMock }));
+vi.mock('@/features/tenant/TenantProvider', () => ({
+  useTenant: () => ({ currentSite: null }),
+}));
 vi.mock('@/features/modules', () => ({
   useIsModuleActive: useIsModuleActiveMock,
   useModulesSnapshot: useModulesSnapshotMock,
