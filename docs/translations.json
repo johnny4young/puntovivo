@@ -226,6 +226,10 @@
       "es": "docs/es/TESTING.md"
     },
     {
+      "en": "docs/TARGET-HARDWARE.md",
+      "es": "docs/es/TARGET-HARDWARE.md"
+    },
+    {
       "en": "docs/architecture/0020-restaurant-service-check-model.md",
       "es": "docs/es/architecture/0020-restaurant-service-check-model.md"
     },

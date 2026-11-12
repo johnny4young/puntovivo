@@ -807,6 +807,10 @@ una estación rápida, pero ralentiza visiblemente el cobro en el equipo del
 cajero. El presupuesto detecta la regresión al incorporar el PR y no cuando se
 queja un cliente.
 
+Estas verificaciones corren en equipos rápidos.
+[`TARGET-HARDWARE.md`](./TARGET-HARDWARE.md) mide un build empaquetado en el
+propio equipo J1900.
+
 ## Cómo se ejecutan las verificaciones
 
 ### Tamaño de bundles
