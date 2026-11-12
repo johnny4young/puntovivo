@@ -216,7 +216,12 @@
     "shift_swap.changed": "Shift exchange decision recorded",
     "attendance_reconciliation.changed": "Attendance reconciliation recorded",
     "installation.owner_created": "Installation owner created",
-    "restaurant_modifier.save": "Restaurant add-on saved"
+    "restaurant_modifier.save": "Restaurant add-on saved",
+    "fiscal_numbering.create": "DIAN numbering range registered",
+    "fiscal_numbering.activate": "DIAN numbering range activated",
+    "fiscal_numbering.retire": "DIAN numbering range retired",
+    "fiscal_numbering.delete": "DIAN numbering range deleted",
+    "fiscal_numbering.relieve": "DIAN numbering range relieved by another"
   },
   "resourceTypes": {
     "transfer_order": "Transfer order",
@@ -281,7 +286,8 @@
     "schedule_plan": "Schedule plan",
     "shift_swap": "Shift exchange",
     "attendance_reconciliation": "Attendance reconciliation",
-    "restaurant_modifier": "Restaurant add-on"
+    "restaurant_modifier": "Restaurant add-on",
+    "fiscal_numbering_range": "DIAN numbering range"
   },
   "summary": {
     "voidReason": "Reason: {{reason}}",

@@ -45,6 +45,7 @@ import { tenantLocaleRouter } from './routers/tenantLocale.js';
 import { reportsRouter } from './routers/reports/index.js';
 import { aiRouter } from './routers/ai/index.js';
 import { fiscalSettingsRouter } from './routers/fiscal-settings.js';
+import { fiscalNumberingRouter } from './routers/fiscalNumbering.js';
 import { peripheralsRouter } from './routers/peripherals/index.js';
 import { modulesRouter } from './routers/modules.js';
 import { surfacesRouter } from './routers/surfaces.js';
@@ -127,6 +128,7 @@ export const appRouter = router({
   reports: reportsRouter,
   ai: aiRouter,
   fiscalSettings: fiscalSettingsRouter,
+  fiscalNumbering: fiscalNumberingRouter,
   peripherals: peripheralsRouter,
   modules: modulesRouter,
   surfaces: surfacesRouter,

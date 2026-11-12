@@ -695,7 +695,7 @@ describe('setupReadiness — Colombia profile + checkout', () => {
         for (const overrides of [
           { validUntil: '2026-02-01T00:00:00.000Z' },
           { currentNumber: 5000 },
-          { isActive: false },
+          { isActive: false, status: 'retired' as const },
           { siteId: otherSiteId },
           { kind: 'FEV' as const },
         ]) {

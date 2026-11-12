@@ -3,7 +3,14 @@ import { and, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { beforeAll, beforeEach, afterAll, describe, expect, it } from 'vitest';
 
-import { auditLogs, tenantLocaleSettings, tenants, users } from '../db/schema.js';
+import {
+  auditLogs,
+  fiscalNumberingResolutions,
+  sites,
+  tenantLocaleSettings,
+  tenants,
+  users,
+} from '../db/schema.js';
 import { getDatabase, type DatabaseInstance } from '../db/index.js';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { readCoFiscalSettings } from '../services/fiscal/packs/co/settings.js';
@@ -360,6 +367,105 @@ describe(' fiscal profile migration', () => {
 
     const retry = await caller.launchMigration.previewFiscalProfiles(input);
     expect(retry.summary).toEqual({ total: 1, ready: 0, duplicates: 1, invalid: 0 });
+  });
+
+  it('registers the DEE range of a CO row in the numbering table, not the settings', async () => {
+    const site = await db
+      .select({ id: sites.id, name: sites.name })
+      .from(sites)
+      .where(and(eq(sites.tenantId, tenantId), eq(sites.isActive, true)))
+      .get();
+    const input = {
+      dataMode: 'real' as const,
+      sourceName: 'profile-with-range.csv',
+      rows: [
+        row(2, {
+          ...coValues,
+          siteName: site!.name.toUpperCase(),
+          resolutionNumber: '18764000001234',
+          resolutionDate: '2026-10-01',
+          numberingPrefix: 'sett',
+          rangeFrom: '1',
+          rangeTo: '5000',
+          validFrom: '2026-10-01',
+          validUntil: '2027-09-30',
+        }),
+      ],
+    };
+    const caller = appRouter.createCaller(createTestContext());
+    const preview = await caller.launchMigration.previewFiscalProfiles(input);
+    expect(preview.rows[0]?.normalized.numbering).toMatchObject({
+      prefix: 'SETT',
+      fromNumber: 1,
+      toNumber: 5000,
+      validFrom: '2026-10-01T05:00:00.000Z',
+      validUntil: '2027-10-01T04:59:59.999Z',
+    });
+    expect(preview.summary.ready).toBe(1);
+    await caller.launchMigration.importFiscalProfiles({
+      ...input,
+      confirmedRealData: true,
+      previewHash: preview.previewHash,
+    });
+    const range = await db
+      .select()
+      .from(fiscalNumberingResolutions)
+      .where(
+        and(
+          eq(fiscalNumberingResolutions.tenantId, tenantId),
+          eq(fiscalNumberingResolutions.prefix, 'SETT')
+        )
+      )
+      .get();
+    expect(range).toMatchObject({
+      siteId: site!.id,
+      kind: 'DEE',
+      resolutionNumber: '18764000001234',
+      environment: 'habilitacion',
+      currentNumber: 0,
+      technicalKey: null,
+    });
+    const tenant = await db
+      .select({ settings: tenants.settings })
+      .from(tenants)
+      .where(eq(tenants.id, tenantId))
+      .get();
+    expect(JSON.stringify(tenant?.settings)).not.toContain('18764000001234');
+    await db
+      .delete(fiscalNumberingResolutions)
+      .where(eq(fiscalNumberingResolutions.tenantId, tenantId));
+  });
+
+  it('flags incomplete or out-of-rule range columns before anything is written', async () => {
+    const preview = await appRouter
+      .createCaller(createTestContext())
+      .launchMigration.previewFiscalProfiles({
+        dataMode: 'demo',
+        sourceName: 'profile-with-range.csv',
+        rows: [
+          row(2, {
+            ...coValues,
+            siteName: 'Sede que no existe',
+            resolutionNumber: '1876',
+            resolutionDate: 'ayer',
+            numberingPrefix: 'TOO-LONG',
+            rangeFrom: '10',
+            rangeTo: '5',
+            validFrom: '2026-01-01',
+            validUntil: '2029-01-01',
+          }),
+        ],
+      });
+    expect(preview.summary.invalid).toBe(1);
+    expect(preview.rows[0]?.issues).toEqual(
+      expect.arrayContaining([
+        { code: 'invalid_prefix', field: 'numberingPrefix' },
+        { code: 'invalid_range', field: 'rangeTo' },
+        { code: 'invalid_date', field: 'resolutionDate' },
+        { code: 'invalid_range', field: 'validUntil' },
+      ])
+    );
+    expect(preview.rows[0]?.normalized.numbering).toBeNull();
   });
 
   it('persists disabled canonical MX and CL branches', async () => {

@@ -21,6 +21,7 @@ describe(' fiscal profile report rows', () => {
             issueLocation: null,
             administrativeAreaCode: null,
             environment: 'habilitacion',
+            numbering: null,
             activationRequired: true as const,
           },
           issues: [],
