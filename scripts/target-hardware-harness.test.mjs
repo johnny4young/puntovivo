@@ -301,6 +301,15 @@ test('both scripts are ASCII and use Windows PowerShell 5.1 syntax only', { skip
         return $false
       }, $true)
       foreach ($n in $found) { $bad += "$file line $($n.Extent.StartLineNumber): PowerShell 7 only: $($n.Extent.Text)" }
+      # Names are case-insensitive, so $a = ... silently replaces a -A parameter.
+      $params = @($ast.ParamBlock.Parameters | ForEach-Object { $_.Name.VariablePath.UserPath })
+      $assigned = $ast.FindAll({ param($n) $n.GetType().Name -eq 'AssignmentStatementAst' -and $n.Left.GetType().Name -eq 'VariableExpressionAst' }, $true)
+      foreach ($n in $assigned) {
+        $name = $n.Left.VariablePath.UserPath
+        foreach ($p in $params) {
+          if ($name -ieq $p -and $name -cne $p) { $bad += "$file line $($n.Extent.StartLineNumber): $name overwrites the -$p parameter" }
+        }
+      }
     }
     $bad
     if ($bad.Count -gt 0) { exit 1 }`;

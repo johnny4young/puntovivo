@@ -89,14 +89,14 @@ function Format-Number($value) {
   return ([double]$value).ToString('0.#', $Invariant)
 }
 
-function Get-Verdict([hashtable]$metric, $a, $b, $n) {
-  if ($null -eq $a -or $null -eq $b) { return 'n/a' }
-  $worse = $b - $a
+function Get-Verdict([hashtable]$metric, $before, $after, $repeat) {
+  if ($null -eq $before -or $null -eq $after) { return 'n/a' }
+  $worse = $after - $before
   if ($metric.higherIsBetter) { $worse = -$worse }
   $pct = 0.0
-  if ($a -ne 0) { $pct = 100.0 * $worse / [Math]::Abs($a) } elseif ($worse -ne 0) { $pct = 100.0 * [Math]::Sign($worse) }
+  if ($before -ne 0) { $pct = 100.0 * $worse / [Math]::Abs($before) } elseif ($worse -ne 0) { $pct = 100.0 * [Math]::Sign($worse) }
   $noise = 0.0
-  if ($null -ne $n) { $noise = [Math]::Abs($n - $a) }
+  if ($null -ne $repeat) { $noise = [Math]::Abs($repeat - $before) }
   $better = -$worse
   switch ($metric.kind) {
     'memory' {
@@ -166,19 +166,20 @@ try {
   $lines.Add('')
   $lines.Add('| Metric | A | B | Difference | % | Verdict |')
   $lines.Add('| --- | ---: | ---: | ---: | ---: | --- |')
+  # PowerShell names are case-insensitive: $a here would overwrite the -A parameter.
   foreach ($metric in $Metrics) {
-    $a = Get-Value $summaryA $metric.path
-    $b = Get-Value $summaryB $metric.path
-    $n = $null
-    if ($summaryN) { $n = Get-Value $summaryN $metric.path }
-    $verdict = Get-Verdict $metric $a $b $n
+    $valueA = Get-Value $summaryA $metric.path
+    $valueB = Get-Value $summaryB $metric.path
+    $valueN = $null
+    if ($summaryN) { $valueN = Get-Value $summaryN $metric.path }
+    $verdict = Get-Verdict $metric $valueA $valueB $valueN
     if ($verdict -eq 'regression') { $regressions++ }
     $diff = $null; $pct = ''
-    if ($null -ne $a -and $null -ne $b) {
-      $diff = $b - $a
-      if ($a -ne 0) { $pct = (100.0 * $diff / [Math]::Abs($a)).ToString('+0;-0;0', $Invariant) + ' %' }
+    if ($null -ne $valueA -and $null -ne $valueB) {
+      $diff = $valueB - $valueA
+      if ($valueA -ne 0) { $pct = (100.0 * $diff / [Math]::Abs($valueA)).ToString('+0;-0;0', $Invariant) + ' %' }
     }
-    $lines.Add(('| {0} | {1} | {2} | {3} | {4} | {5} |' -f $metric.name, (Format-Number $a), (Format-Number $b), (Format-Number $diff), $pct, $verdict))
+    $lines.Add(('| {0} | {1} | {2} | {3} | {4} | {5} |' -f $metric.name, (Format-Number $valueA), (Format-Number $valueB), (Format-Number $diff), $pct, $verdict))
   }
 
   $lines.Add('')

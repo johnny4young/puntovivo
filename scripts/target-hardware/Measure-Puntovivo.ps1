@@ -1431,7 +1431,7 @@ function Invoke-Summarize([string]$dir) {
   if (-not $meta -or ($samples.Count -eq 0 -and $startup.Count -eq 0 -and $sales.Count -eq 0)) {
     throw "Nothing to summarize in $dir (no meta.json or no measurements)."
   }
-  $label = [string]$meta.label
+  $runLabel = [string]$meta.label
   $verdicts = New-Object System.Collections.Generic.List[object]
   $T = $Thresholds
 
@@ -1549,15 +1549,15 @@ function Invoke-Summarize([string]$dir) {
   }
 
   # U5: sale time. Simulated sales measure scan to receipt directly; manual ones include scanning.
-  $drive = @($sales | Where-Object { $_.mode -eq 'drive' -and ($_.status -eq 'ok' -or $_.status -eq 'timeout') })
+  $driveSales = @($sales | Where-Object { $_.mode -eq 'drive' -and ($_.status -eq 'ok' -or $_.status -eq 'timeout') })
   $manual = @($sales | Where-Object { $_.mode -eq 'manual' -and $_.status -eq 'ok' })
-  $judged = if ($drive.Count -gt 0) { $drive } else { $manual }
+  $judged = if ($driveSales.Count -gt 0) { $driveSales } else { $manual }
   $durations = [double[]]@($judged | ForEach-Object { ConvertTo-Double $_.duration_ms } | Sort-Object)
   $saleSummary = [ordered]@{
     drive_ok = @($sales | Where-Object { $_.mode -eq 'drive' -and $_.status -eq 'ok' }).Count
     drive_failed = @($sales | Where-Object { $_.mode -eq 'drive' -and $_.status -ne 'ok' }).Count
     manual = $manual.Count
-    judged = $(if ($drive.Count -gt 0) { 'drive' } elseif ($manual.Count -gt 0) { 'manual' } else { $null })
+    judged = $(if ($driveSales.Count -gt 0) { 'drive' } elseif ($manual.Count -gt 0) { 'manual' } else { $null })
     median_ms = Round1 (Get-Percentile $durations 50)
     p95_ms = Round1 (Get-Percentile $durations 95)
     max_ms = $(if ($durations.Count -gt 0) { Round1 $durations[-1] } else { $null })
@@ -1648,7 +1648,7 @@ function Invoke-Summarize([string]$dir) {
   $harnessRows = @($samples | Where-Object { $_.role -eq 'harness' })
   $harnessCpu = @($harnessRows | Where-Object { $_.cpu_pct -ne '' } | ForEach-Object { ConvertTo-Double $_.cpu_pct })
   $summary = [ordered]@{
-    label           = $label
+    label           = $runLabel
     harness_version = $HarnessVersion
     generated_utc   = Format-Utc (Get-NowMs)
     machine         = $meta.machine
@@ -1686,7 +1686,7 @@ function Invoke-Summarize([string]$dir) {
   Write-JsonFile (Join-Path $dir 'summary.json') $summary
 
   $md = New-Object System.Collections.Generic.List[string]
-  $md.Add("# Puntovivo on target hardware: $label")
+  $md.Add("# Puntovivo on target hardware: $runLabel")
   $md.Add('')
   $md.Add(('Result: **{0}**. Build {1}; {2}; {3} MB RAM; {4} {5}.' -f $summary.result, $meta.build.product_version, $meta.machine.cpu, $meta.machine.ram_mb, $meta.machine.windows, $meta.machine.windows_release))
   $md.Add('')
