@@ -153,7 +153,7 @@
         "enabledHelp": "Opcional. Cuando está activa, las ventas completadas emitirán una factura electrónica DIAN una vez que la transmisión esté disponible. Hoy esto captura la configuración del emisor y habilita el recordatorio de preparación.",
         "nit": "NIT del emisor",
         "nitHelp": "De 9 a 10 dígitos, con dígito de verificación opcional.",
-        "nitPlaceholder": "ej. 900123456-7",
+        "nitPlaceholder": "ej. 900123456-8",
         "resolution": "Resolución de numeración DIAN",
         "resolutionHelp": "El número de resolución que autoriza tu rango de facturas.",
         "resolutionPlaceholder": "ej. 18760000001",

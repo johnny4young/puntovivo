@@ -28,7 +28,7 @@ const preview = {
       status: 'ready' as const,
       normalized: {
         countryCode: 'CO' as const,
-        taxIdentifier: '900123456-7',
+        taxIdentifier: '900123456-8',
         economicActivityCode: null,
         issueLocation: null,
         administrativeAreaCode: null,
@@ -141,7 +141,7 @@ describe(' FiscalProfileImportWorkflow', () => {
       new File(
         [
           'Código de país;NIT;Resolución de numeración;Prefijo;Consecutivo inicial;Consecutivo final;Ambiente fiscal\n',
-          'CO;900123456-7;18764000001234;SETT;1;5000;habilitación\n',
+          'CO;900123456-8;18764000001234;SETT;1;5000;habilitación\n',
           'MX;XEXX010101000;;;;;sandbox\n',
         ],
         'perfil-fiscal.csv',
@@ -163,7 +163,7 @@ describe(' FiscalProfileImportWorkflow', () => {
             rowNumber: 2,
             values: expect.objectContaining({
               countryCode: 'CO',
-              taxIdentifier: '900123456-7',
+              taxIdentifier: '900123456-8',
               resolutionNumber: '18764000001234',
             }),
           }),

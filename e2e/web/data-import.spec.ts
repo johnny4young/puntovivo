@@ -697,7 +697,7 @@ test.describe('launch data import', () => {
     const scenario = seedFiscalProfileScenario(`fiscal-profile-${suffix}`);
     const fiscalCsv = [
       'Country code,Tax ID,Regime or activity code,Issue location,Numbering resolution,Numbering prefix,Range from,Range to,Fiscal environment',
-      'CO,900123456-7,,,18764000001234,SETT,1,5000,habilitacion',
+      'CO,900123456-8,,,18764000001234,SETT,1,5000,habilitacion',
       'MX,XEXX010101000,601,01000,,,,,sandbox',
     ].join('\n');
 
@@ -746,7 +746,7 @@ test.describe('launch data import', () => {
     await page.getByRole('link', { name: /Review fiscal profile/ }).click();
     await expect(page).toHaveURL(/\/company\?tab=fiscal$/);
     await expect(page.getByRole('heading', { name: 'Colombia — DIAN' })).toBeVisible();
-    await expect(page.locator('#fiscal-co-nit')).toHaveValue('900123456-7');
+    await expect(page.locator('#fiscal-co-nit')).toHaveValue('900123456-8');
     await expect(page.locator('#fiscal-co-resolution')).toHaveValue('18764000001234');
     await expect(page.locator('#fiscal-co-prefix')).toHaveValue('SETT');
     await expect(page.locator('#fiscal-co-range-from')).toHaveValue('1');

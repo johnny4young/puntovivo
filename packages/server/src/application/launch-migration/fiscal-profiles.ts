@@ -15,6 +15,7 @@ import {
   readClFiscalSettings,
   type ClFiscalSettings,
 } from '../../services/fiscal/packs/cl/settings.js';
+import { validateNit } from '../../services/fiscal/packs/co/nit.js';
 import {
   mergeCoFiscalSettingsIntoTenantSettings,
   readCoFiscalSettings,
@@ -48,7 +49,6 @@ import type {
 } from './types.js';
 
 const log = createModuleLogger('launch-migration');
-const CO_NIT_PATTERN = /^\d{9,10}(-?\d)?$/u;
 const DUPLICATE_ISSUES = new Set<FiscalProfileImportIssueCode>([
   'duplicate_file_profile',
   'duplicate_existing_profile',
@@ -60,6 +60,13 @@ interface FiscalProfileState {
 }
 
 type ExistingCountrySettings = CoFiscalSettings | MxFiscalSettings | ClFiscalSettings;
+
+/** `<digits>-<DV>` for a valid DIAN NIT, else null. */
+function canonicalCoNit(value: string | null): string | null {
+  if (!value) return null;
+  const result = validateNit(value);
+  return result.valid ? `${result.nit}-${result.verificationDigit}` : null;
+}
 
 function optionalText(value: string | undefined): string | null {
   return value?.trim() || null;
@@ -206,8 +213,10 @@ function normalizeRow(row: LaunchFiscalProfileImportRow): {
     required(resolutionNumber, 'resolutionNumber', issues);
     required(rangeFrom, 'rangeFrom', issues);
     required(rangeTo, 'rangeTo', issues);
-    if (taxIdentifierRaw && !CO_NIT_PATTERN.test(taxIdentifierRaw)) {
-      issues.push({ code: 'invalid_tax_identifier', field: 'taxIdentifier' });
+    if (taxIdentifierRaw) {
+      const nit = canonicalCoNit(taxIdentifierRaw);
+      if (nit) taxIdentifier = nit;
+      else issues.push({ code: 'invalid_tax_identifier', field: 'taxIdentifier' });
     }
     if (optionalText(row.values.rangeFrom) && rangeFrom === null) {
       issues.push({ code: 'invalid_number', field: 'rangeFrom' });
@@ -330,7 +339,7 @@ function profileEquals(
   }
   const value = existing as CoFiscalSettings;
   return (
-    value.nit === profile.taxIdentifier &&
+    canonicalCoNit(value.nit) === profile.taxIdentifier &&
     value.dianResolutionNumber === profile.resolutionNumber &&
     value.prefix === profile.numberingPrefix &&
     value.rangeFrom === profile.rangeFrom &&
