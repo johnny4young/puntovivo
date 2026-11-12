@@ -166,7 +166,16 @@ export type VerticalReadinessOutput = z.infer<typeof verticalReadinessOutputSche
  */
 export const checkoutReadinessItemIdEnum = [
   'sale_sequential',
+  // DIAN switch off.
   'fiscal',
+  // DIAN on, but the issuer NIT or software is missing.
+  'fiscal_issuer',
+  // DIAN on and issuer complete, but the site has no usable DEE range.
+  'fiscal_numbering',
+  // Only an FEV range: sales without an invoice request get no document.
+  'fiscal_numbering_fev_only',
+  // Documents are produced locally and never reach DIAN.
+  'fiscal_test_mode',
   'receipt_hardware',
   'payment_rail',
   'sync',

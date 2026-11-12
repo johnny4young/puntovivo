@@ -134,7 +134,7 @@ class StubAdapter implements FiscalAdapter {
       totalAmount: input.totalAmount,
       issuerNit: input.issuerNit,
       buyerIdNumber: input.buyer.taxId,
-      technicalKey: input.resolution.technicalKey,
+      technicalKey: input.resolution.technicalKey ?? '',
       environment: '2',
     });
     return {

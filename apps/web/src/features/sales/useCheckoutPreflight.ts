@@ -49,6 +49,10 @@ export type PreflightBlockerId =
   // optional fiscal/hardware/payment/sync signals remain warnings.
   | 'sale_sequential_missing'
   | 'fiscal_not_active'
+  | 'fiscal_issuer_incomplete'
+  | 'fiscal_numbering_missing'
+  | 'fiscal_numbering_fev_only'
+  | 'fiscal_test_mode'
   | 'receipt_hardware_missing'
   | 'payment_rail_missing'
   | 'sync_backlog';
