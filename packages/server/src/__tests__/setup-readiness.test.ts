@@ -24,6 +24,7 @@ import { getDatabase } from '../db/index.js';
 import {
   cashSessions,
   companies,
+  fiscalNumberingResolutions,
   products,
   sales,
   sequentials,
@@ -482,6 +483,9 @@ describe('setupReadiness — Colombia profile + checkout', () => {
     const db = getDatabase();
     await db.delete(sitePeripherals).where(eq(sitePeripherals.tenantId, coTenantId));
     await db.delete(sequentials).where(eq(sequentials.tenantId, coTenantId));
+    await db
+      .delete(fiscalNumberingResolutions)
+      .where(eq(fiscalNumberingResolutions.tenantId, coTenantId));
   });
 
   it('DIAN off → fiscal is an optional-pending reminder, never a blocker', async () => {
@@ -506,7 +510,7 @@ describe('setupReadiness — Colombia profile + checkout', () => {
     const caller = appRouter.createCaller(buildCtx({ tenantId: coTenantId, userId: coAdminId }));
     const incomplete = await caller.setupReadiness.get();
 
-    await setCoSettings({
+    const blobOnly = {
       fiscal_dian_enabled: true,
       fiscal: {
         co: {
@@ -518,6 +522,26 @@ describe('setupReadiness — Colombia profile + checkout', () => {
           softwarePin: '12301',
         },
       },
+    };
+    await setCoSettings(blobOnly);
+    // Emission never reads the blob range, so it cannot make DIAN ready.
+    const blobRange = await caller.setupReadiness.get();
+    expect(blobRange.sections.find(s => s.id === 'fiscal')?.status).toBe('warning');
+
+    await getDatabase().insert(fiscalNumberingResolutions).values({
+      id: nanoid(),
+      tenantId: coTenantId,
+      siteId: coSiteId,
+      kind: 'DEE',
+      resolutionNumber: '18764000000001',
+      prefix: 'POS',
+      fromNumber: 1,
+      toNumber: 5000,
+      currentNumber: 0,
+      technicalKey: 'not-used-by-dee',
+      validFrom: '2026-01-01T00:00:00.000Z',
+      validUntil: '2099-12-31T23:59:59.000Z',
+      isActive: true,
     });
     const complete = await caller.setupReadiness.get();
     expect(complete.sections.find(s => s.id === 'fiscal')?.status).toBe('ready');
@@ -583,6 +607,113 @@ describe('setupReadiness — Colombia profile + checkout', () => {
     );
     const result = await caller.setupReadiness.checkout({ siteId: coSiteId });
     expect(result.items.some(i => i.id === 'receipt_hardware')).toBe(false);
+  });
+
+  describe('checkout fiscal reminder follows what emission checks', () => {
+    const issuer = { nit: '900123456-8', softwareId: 'sw-1', softwarePin: '12301' };
+
+    async function insertRange(overrides: Partial<typeof fiscalNumberingResolutions.$inferInsert>) {
+      await getDatabase()
+        .insert(fiscalNumberingResolutions)
+        .values({
+          id: nanoid(),
+          tenantId: coTenantId,
+          siteId: coSiteId,
+          kind: 'DEE',
+          resolutionNumber: '18764000000001',
+          prefix: 'POS',
+          fromNumber: 1,
+          toNumber: 5000,
+          currentNumber: 0,
+          technicalKey: 'not-used-by-dee',
+          validFrom: '2026-01-01T00:00:00.000Z',
+          validUntil: '2099-12-31T23:59:59.000Z',
+          isActive: true,
+          ...overrides,
+        });
+    }
+
+    async function fiscalItems() {
+      const caller = appRouter.createCaller(
+        buildCtx({ tenantId: coTenantId, userId: coCashierId, role: 'cashier' })
+      );
+      const result = await caller.setupReadiness.checkout({ siteId: coSiteId });
+      return result.items.filter(item => item.id.startsWith('fiscal'));
+    }
+
+    it('says DIAN is off when the switch is off, even with a usable range', async () => {
+      await setCoSettings({ fiscal: { co: issuer } });
+      await insertRange({});
+      expect(await fiscalItems()).toEqual([
+        { id: 'fiscal', severity: 'warning', cta: { route: '/company', tab: 'fiscal' } },
+      ]);
+    });
+
+    it('names the missing issuer data before the numbering', async () => {
+      await setCoSettings({ fiscal_dian_enabled: true, fiscal: { co: { nit: issuer.nit } } });
+      await insertRange({});
+      expect(await fiscalItems()).toEqual([
+        { id: 'fiscal_issuer', severity: 'warning', cta: { route: '/company', tab: 'fiscal' } },
+      ]);
+    });
+
+    it('stays quiet when the site has a usable range, though the blob has no resolution', async () => {
+      await setCoSettings({ fiscal_dian_enabled: true, fiscal: { co: issuer } });
+      await insertRange({});
+      expect(await fiscalItems()).toEqual([]);
+    });
+
+    it('warns when only the settings blob carries a resolution and range', async () => {
+      await setCoSettings({
+        fiscal_dian_enabled: true,
+        fiscal: {
+          co: { ...issuer, dianResolutionNumber: '18760000001', rangeFrom: 1, rangeTo: 5000 },
+        },
+      });
+      expect(await fiscalItems()).toEqual([
+        { id: 'fiscal_numbering', severity: 'warning', cta: null },
+      ]);
+    });
+
+    it('warns for an expired, exhausted or inactive range, or one at another site', async () => {
+      await setCoSettings({ fiscal_dian_enabled: true, fiscal: { co: issuer } });
+      const otherSiteId = nanoid();
+      const company = await getDatabase()
+        .select({ companyId: sites.companyId })
+        .from(sites)
+        .where(eq(sites.id, coSiteId))
+        .get();
+      await getDatabase().insert(sites).values({
+        id: otherSiteId,
+        tenantId: coTenantId,
+        companyId: company!.companyId,
+        name: 'Readiness CO Other Site',
+        isActive: true,
+      });
+
+      try {
+        for (const overrides of [
+          { validUntil: '2026-02-01T00:00:00.000Z' },
+          { currentNumber: 5000 },
+          { isActive: false },
+          { siteId: otherSiteId },
+          { kind: 'FEV' as const },
+        ]) {
+          await getDatabase()
+            .delete(fiscalNumberingResolutions)
+            .where(eq(fiscalNumberingResolutions.tenantId, coTenantId));
+          await insertRange(overrides);
+          expect(await fiscalItems(), JSON.stringify(overrides)).toEqual([
+            { id: 'fiscal_numbering', severity: 'warning', cta: null },
+          ]);
+        }
+      } finally {
+        await getDatabase()
+          .delete(fiscalNumberingResolutions)
+          .where(eq(fiscalNumberingResolutions.tenantId, coTenantId));
+        await getDatabase().delete(sites).where(eq(sites.id, otherSiteId));
+      }
+    });
   });
 
   it('checkout rejects a siteId from another tenant (ensureTenantSite)', async () => {
