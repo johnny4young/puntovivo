@@ -33,6 +33,11 @@ vi.mock('@/features/sales/useOmniboxSell', () => ({
   useOmniboxSell: () => omniboxSellMock,
 }));
 
+// The palette's product search reads the active site from the tenant scope.
+vi.mock('@/features/tenant/TenantProvider', () => ({
+  useTenant: () => ({ currentSite: { id: 'site-1' } }),
+}));
+
 vi.mock('@/features/modules', () => ({
   useModulesSnapshot: () => ({
     modules: {

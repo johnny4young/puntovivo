@@ -7,15 +7,16 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../../../db/index.js';
 import { products, unitXProduct, units } from '../../../../db/schema.js';
-import { productStockTotalSql } from '../../../inventory-balances/derive.js';
+import { productStockTotalSql, withSiteStock } from '../../../inventory-balances/derive.js';
 import type { MatchedCartProduct } from './types.js';
 
 export async function hydrateCartProducts(
   db: DatabaseInstance,
   tenantId: string,
+  siteId: string | null,
   productIds: string[]
 ): Promise<Map<string, MatchedCartProduct>> {
-  const productRows = await db
+  const tenantRows = await db
     .select({
       id: products.id,
       name: products.name,
@@ -30,6 +31,7 @@ export async function hydrateCartProducts(
     .from(products)
     .where(and(eq(products.tenantId, tenantId), inArray(products.id, productIds)))
     .all();
+  const productRows = withSiteStock(db, tenantId, siteId ?? undefined, tenantRows);
 
   const unitRows = await db
     .select({
@@ -73,6 +75,7 @@ export async function hydrateCartProducts(
       unitPrice: baseUnit.price && baseUnit.price > 0 ? baseUnit.price : product.price,
       taxRate: product.taxRate ?? 0,
       stock: product.stock ?? 0,
+      siteStock: product.siteStock,
       sellByFraction: product.sellByFraction ?? false,
       fractionStep: product.fractionStep,
       fractionMinimum: product.fractionMinimum,
