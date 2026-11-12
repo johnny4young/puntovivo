@@ -2,7 +2,7 @@
 
 **Idioma:** Español · [English](../../architecture/0032-embedded-server-worker-thread.md)
 
-> Estado: propuesta
+> Estado: Aceptado
 > Fecha: 7 de noviembre de 2026
 
 ## Contexto

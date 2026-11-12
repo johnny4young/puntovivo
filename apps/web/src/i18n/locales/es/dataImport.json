@@ -384,6 +384,7 @@
       "unsupported_country": "Solo se admiten perfiles fiscales de CO, MX y CL",
       "tenant_country_mismatch": "Este perfil no coincide con el país del negocio",
       "invalid_tax_identifier": "La identificación tributaria del emisor no es válida para este país",
+      "invalid_check_digit": "El dígito de verificación es incorrecto; el correcto es {{digit}}",
       "invalid_activity_code": "El código de régimen o actividad no existe en el catálogo fiscal",
       "invalid_issue_location": "El lugar de expedición no es válido para este país",
       "invalid_administrative_area": "El código de división administrativa no existe en el catálogo fiscal",

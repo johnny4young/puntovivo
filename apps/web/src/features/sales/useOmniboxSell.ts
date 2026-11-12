@@ -48,6 +48,7 @@ export function useOmniboxSell() {
         resolved = await utils.products.lookupByBarcode.fetch(
           {
             barcode: query,
+            siteId: currentSite.id,
           },
           { retry: false }
         );

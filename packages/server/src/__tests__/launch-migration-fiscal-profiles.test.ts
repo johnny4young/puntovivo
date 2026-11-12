@@ -39,7 +39,7 @@ function row(rowNumber: number, values: Record<string, string>) {
 
 const coValues = {
   countryCode: 'CO',
-  taxIdentifier: '900123456-7',
+  taxIdentifier: '900123456-8',
   environment: 'habilitación',
 };
 
@@ -133,6 +133,61 @@ describe(' fiscal profile migration', () => {
     expect(preview.rows[3]?.issues).toContainEqual({
       code: 'invalid_tax_identifier',
       field: 'taxIdentifier',
+    });
+  });
+
+  it('rejects a CO NIT with a wrong DIAN check digit and normalizes valid ones', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+    const preview = (taxIdentifier: string) =>
+      caller.launchMigration.previewFiscalProfiles({
+        dataMode: 'demo',
+        sourceName: 'co-nit.csv',
+        rows: [row(2, { ...coValues, taxIdentifier })],
+      });
+
+    const wrongDv = (await preview('900123456-7')).rows[0];
+    expect(wrongDv).toMatchObject({ status: 'invalid' });
+    expect(wrongDv?.issues).toEqual([
+      { code: 'invalid_check_digit', field: 'taxIdentifier', expectedDigit: 8 },
+    ]);
+    expect(JSON.stringify(wrongDv?.issues)).not.toContain('900123456');
+    expect((await preview('90012345681')).rows[0]).toMatchObject({
+      status: 'invalid',
+      issues: [{ code: 'invalid_tax_identifier', field: 'taxIdentifier' }],
+    });
+    for (const taxIdentifier of ['900.123.456-8', '900123456']) {
+      expect((await preview(taxIdentifier)).rows[0]).toMatchObject({
+        status: 'ready',
+        normalized: { taxIdentifier: '900123456-8' },
+      });
+    }
+
+    const storeNit = (nit: string) =>
+      db
+        .update(tenants)
+        .set({
+          settings: {
+            fiscal: {
+              co: {
+                nit,
+                environment: 'habilitacion',
+              },
+            },
+          },
+        })
+        .where(eq(tenants.id, tenantId));
+    for (const storedNit of ['900.123.456-8', '900123456']) {
+      await storeNit(storedNit);
+      expect((await preview('900123456-8')).rows[0]).toMatchObject({
+        status: 'duplicate',
+        issues: [{ code: 'duplicate_existing_profile', field: 'taxIdentifier' }],
+      });
+    }
+    // An earlier import could store a wrong DV; never treat it as the same profile.
+    await storeNit('900123456-7');
+    expect((await preview('900123456-8')).rows[0]).toMatchObject({
+      status: 'invalid',
+      issues: [{ code: 'existing_profile_conflict', field: 'taxIdentifier' }],
     });
   });
 
@@ -274,7 +329,7 @@ describe(' fiscal profile migration', () => {
     expect(tenant?.settings).toMatchObject({ unrelated: { preserved: true } });
     expect(readCoFiscalSettings(tenant?.settings)).toEqual({
       enabled: false,
-      nit: '900123456-7',
+      nit: '900123456-8',
       environment: 'habilitacion',
       softwareId: null,
       softwarePin: null,
