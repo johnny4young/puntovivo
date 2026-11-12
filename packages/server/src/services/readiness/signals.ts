@@ -24,16 +24,23 @@ import {
   numberingEnvironmentFromSettings,
   peekNumberingRange,
 } from '../fiscal/numbering/select.js';
+import { getFiscalAdapter } from '../fiscal/registry.js';
 import { readPaymentRailCredentials } from '../payments/credentials.js';
 import { PAYMENT_RAIL_IDS } from '../payments/manifest.js';
 
 /**
  * What the next sale at a site gets from the Colombian DIAN path.
- * `issuing` means a document intent will queue; every other state means the
- * sale completes without an electronic document.
+ * `issuing` means a document intent will queue. In every other state a
+ * normal sale completes without an electronic document; `numbering_fev_only`
+ * still issues an invoice the buyer asks for.
  */
 export type CheckoutFiscalState =
-  'issuing' | 'disabled' | 'issuer_incomplete' | 'numbering_missing';
+  | 'issuing'
+  | 'disabled'
+  | 'issuer_incomplete'
+  | 'numbering_missing'
+  // No DEE range, but a buyer-requested invoice can still be numbered.
+  | 'numbering_fev_only';
 
 /**
  * Mirror the sale fiscal-intent gates for one site: the DIAN switch, the
@@ -53,14 +60,16 @@ export async function readCheckoutFiscalState(
   if (!isDianFlagOn(settings) || !isCountryFiscalEnabled(settings, 'CO')) return 'disabled';
   if (!validateCoEmissionConfig(readCoFiscalSettings(settings)).ok) return 'issuer_incomplete';
 
-  const numbering = peekNumberingRange(db, {
+  const lookup = {
     tenantId,
     siteId,
-    kind: 'DEE',
     environment: numberingEnvironmentFromSettings(settings),
     at: args.at ?? new Date().toISOString(),
-  });
-  return numbering.ok ? 'issuing' : 'numbering_missing';
+  };
+  if (peekNumberingRange(db, { ...lookup, kind: 'DEE' }).ok) return 'issuing';
+  return peekNumberingRange(db, { ...lookup, kind: 'FEV' }).ok
+    ? 'numbering_fev_only'
+    : 'numbering_missing';
 }
 
 /**
@@ -77,7 +86,12 @@ export async function readTenantFiscalState(
   const states = await Promise.all(
     args.siteIds.map(siteId => readCheckoutFiscalState(db, { ...args, siteId }))
   );
-  const worst: CheckoutFiscalState[] = ['disabled', 'issuer_incomplete', 'numbering_missing'];
+  const worst: CheckoutFiscalState[] = [
+    'disabled',
+    'issuer_incomplete',
+    'numbering_missing',
+    'numbering_fev_only',
+  ];
   return worst.find(state => states.includes(state)) ?? 'issuing';
 }
 
@@ -204,4 +218,15 @@ export async function readSyncBacklog(
     pending: Number(pendingRow?.total ?? 0),
     conflicts: Number(terminalOutboxRow?.total ?? 0) + Number(conflictRow?.total ?? 0),
   };
+}
+
+/**
+ * True while Colombian documents are local only: the pack is not certified,
+ * or the tenant runs the DIAN enablement environment.
+ */
+export function isCoFiscalTestMode(settings: Record<string, unknown>): boolean {
+  return (
+    getFiscalAdapter('CO').maturity !== 'certified' ||
+    readCoFiscalSettings(settings).environment !== 'produccion'
+  );
 }

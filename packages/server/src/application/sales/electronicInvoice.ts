@@ -17,6 +17,10 @@ import {
 } from '../../services/fiscal/numbering/select.js';
 import type { ResolvedBuyer } from '../../services/fiscal/orchestrator/types.js';
 import { normalizeCoBuyerId } from '../../services/fiscal/packs/co/buyer-id.js';
+import {
+  readCoFiscalSettings,
+  validateCoEmissionConfig,
+} from '../../services/fiscal/packs/co/settings.js';
 import { resolveTenantLocale } from '../../services/tenant-locale.js';
 import type { ElectronicInvoiceRequest } from './types.js';
 
@@ -31,7 +35,12 @@ async function isColombianPackOn(db: DatabaseInstance, tenantId: string): Promis
     .from(tenants)
     .where(eq(tenants.id, tenantId))
     .get();
-  return isCountryFiscalEnabled((row?.settings ?? {}) as Record<string, unknown>, COLOMBIA);
+  const settings = (row?.settings ?? {}) as Record<string, unknown>;
+  // Without NIT and software the FEV intent stays blocked and cannot fall back to a DEE.
+  return (
+    isCountryFiscalEnabled(settings, COLOMBIA) &&
+    validateCoEmissionConfig(readCoFiscalSettings(settings)).ok
+  );
 }
 
 function hasUsableFevRange(

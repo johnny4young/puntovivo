@@ -265,7 +265,7 @@
     },
     "impact": {
       "sync": "La información aún no llegó a otro dispositivo o servicio.",
-      "fiscal": "Una factura electrónica está pendiente de entrega o fue rechazada.",
+      "fiscal": "Un documento electrónico está pendiente o fue rechazado, o un rango de numeración DIAN está por vencer o agotarse.",
       "device": "Una impresión de recibo o una tarea del dispositivo no terminó.",
       "payments": "Un pago electrónico necesita confirmación o conciliación."
     },

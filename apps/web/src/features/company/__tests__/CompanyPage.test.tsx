@@ -86,6 +86,9 @@ vi.mock('../CompanyMxFiscalCard', () => ({
 vi.mock('../CompanyClFiscalCard', () => ({
   CompanyClFiscalCard: () => <div data-testid="card-fiscal-cl">Fiscal CL</div>,
 }));
+vi.mock('../CompanyCoNumberingCard', () => ({
+  CompanyCoNumberingCard: () => <div data-testid="card-numbering-co" />,
+}));
 vi.mock('../CompanyCoFiscalCard', () => ({
   CompanyCoFiscalCard: () => <div data-testid="card-fiscal-co">Fiscal CO</div>,
 }));

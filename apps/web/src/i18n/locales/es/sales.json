@@ -753,7 +753,8 @@
         "recovery": "Completar DIAN"
       },
       "fiscal_numbering_missing": {
-        "message": "Esta sede no tiene un rango de numeración DIAN vigente — esta venta no generará documento electrónico."
+        "message": "No hay un rango de numeración DIAN vigente para esta sede: la venta quedará sin documento electrónico hasta que registres uno.",
+        "recovery": "Registrar rango"
       },
       "receipt_hardware_missing": {
         "message": "No hay impresora de recibos configurada — puedes reimprimir la venta más tarde.",
@@ -766,6 +767,13 @@
       "sync_backlog": {
         "message": "La sincronización está atrasada o con conflictos — puedes seguir vendiendo; resuélvela cuando puedas.",
         "recovery": "Ver sincronización"
+      },
+      "fiscal_numbering_fev_only": {
+        "message": "Esta sede solo tiene rango de factura electrónica: las ventas sin solicitud de factura quedarán sin documento electrónico.",
+        "recovery": "Registrar rango"
+      },
+      "fiscal_test_mode": {
+        "message": "Modo de pruebas: los documentos no se envían a la DIAN."
       }
     }
   },

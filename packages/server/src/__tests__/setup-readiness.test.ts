@@ -657,10 +657,12 @@ describe('setupReadiness — Colombia profile + checkout', () => {
       ]);
     });
 
-    it('stays quiet when the site has a usable range, though the blob has no resolution', async () => {
+    it('only notes test mode when the site has a usable range, though the blob has no resolution', async () => {
       await setCoSettings({ fiscal_dian_enabled: true, fiscal: { co: issuer } });
       await insertRange({});
-      expect(await fiscalItems()).toEqual([]);
+      expect(await fiscalItems()).toEqual([
+        { id: 'fiscal_test_mode', severity: 'warning', cta: null },
+      ]);
     });
 
     it('warns when only the settings blob carries a resolution and range', async () => {
@@ -671,11 +673,11 @@ describe('setupReadiness — Colombia profile + checkout', () => {
         },
       });
       expect(await fiscalItems()).toEqual([
-        { id: 'fiscal_numbering', severity: 'warning', cta: null },
+        { id: 'fiscal_numbering', severity: 'warning', cta: { route: '/company', tab: 'fiscal' } },
       ]);
     });
 
-    it('warns for an expired, exhausted or inactive range, or one at another site', async () => {
+    it('warns for an expired, exhausted or inactive range, one at another site, or only an invoice range', async () => {
       await setCoSettings({ fiscal_dian_enabled: true, fiscal: { co: issuer } });
       const otherSiteId = nanoid();
       const company = await getDatabase()
@@ -697,16 +699,32 @@ describe('setupReadiness — Colombia profile + checkout', () => {
           { currentNumber: 5000 },
           { isActive: false, status: 'retired' as const },
           { siteId: otherSiteId },
-          { kind: 'FEV' as const },
         ]) {
           await getDatabase()
             .delete(fiscalNumberingResolutions)
             .where(eq(fiscalNumberingResolutions.tenantId, coTenantId));
           await insertRange(overrides);
           expect(await fiscalItems(), JSON.stringify(overrides)).toEqual([
-            { id: 'fiscal_numbering', severity: 'warning', cta: null },
+            {
+              id: 'fiscal_numbering',
+              severity: 'warning',
+              cta: { route: '/company', tab: 'fiscal' },
+            },
           ]);
         }
+        // Only an invoice range: the warning names it, and the invoice is still local.
+        await getDatabase()
+          .delete(fiscalNumberingResolutions)
+          .where(eq(fiscalNumberingResolutions.tenantId, coTenantId));
+        await insertRange({ kind: 'FEV', technicalKey: 'key' });
+        expect(await fiscalItems()).toEqual([
+          {
+            id: 'fiscal_numbering_fev_only',
+            severity: 'warning',
+            cta: { route: '/company', tab: 'fiscal' },
+          },
+          { id: 'fiscal_test_mode', severity: 'warning', cta: null },
+        ]);
       } finally {
         await getDatabase()
           .delete(fiscalNumberingResolutions)

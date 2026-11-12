@@ -14,6 +14,7 @@ import { resolveReadinessProfile } from '../../../services/readiness/profile.js'
 import {
   countActiveReceiptPrinters,
   countConfiguredPaymentRails,
+  isCoFiscalTestMode,
   readCheckoutFiscalState,
   readSyncBacklog,
   type CheckoutFiscalState,
@@ -33,8 +34,16 @@ const FISCAL_CHECKOUT_ITEM: Record<CheckoutFiscalState, CheckoutReadinessItem | 
     severity: 'warning',
     cta: { route: '/company', tab: 'fiscal' },
   },
-  // No in-app surface registers numbering ranges yet.
-  numbering_missing: { id: 'fiscal_numbering', severity: 'warning', cta: null },
+  numbering_missing: {
+    id: 'fiscal_numbering',
+    severity: 'warning',
+    cta: { route: '/company', tab: 'fiscal' },
+  },
+  numbering_fev_only: {
+    id: 'fiscal_numbering_fev_only',
+    severity: 'warning',
+    cta: { route: '/company', tab: 'fiscal' },
+  },
 };
 
 /**
@@ -91,9 +100,16 @@ export async function buildCheckoutReadiness(args: {
 
   if (!profile.surfaceFiscalReminders) return { items };
 
-  const fiscalItem =
-    FISCAL_CHECKOUT_ITEM[await readCheckoutFiscalState(db, { tenantId, siteId, settings })];
+  const fiscalState = await readCheckoutFiscalState(db, { tenantId, siteId, settings });
+  const fiscalItem = FISCAL_CHECKOUT_ITEM[fiscalState];
   if (fiscalItem) items.push({ ...fiscalItem });
+  // A document will be produced, but it never reaches DIAN.
+  if (
+    (fiscalState === 'issuing' || fiscalState === 'numbering_fev_only') &&
+    isCoFiscalTestMode(settings)
+  ) {
+    items.push({ id: 'fiscal_test_mode', severity: 'warning', cta: null });
+  }
 
   const printers = await countActiveReceiptPrinters(db, tenantId, siteId);
   if (printers === 0) {
