@@ -2,7 +2,7 @@
 
 **Language:** English · [Español](../es/architecture/0032-embedded-server-worker-thread.md)
 
-> Status: Proposed
+> Status: Accepted
 > Date: 2026-11-07
 
 ## Context
