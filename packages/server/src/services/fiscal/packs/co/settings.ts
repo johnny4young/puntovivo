@@ -13,10 +13,13 @@
  * issuer fields live under `tenants.settings.fiscal.co.*`, mirroring
  * where MX/CL keep theirs.
  *
+ * Numbering resolutions live only in `fiscal_numbering_resolutions`; the
+ * blob no longer carries a resolution, prefix or range, and keys left by
+ * older builds are ignored on read and dropped on the next write.
+ *
  * Real DIAN transmission, certificate and CUFE/CUDE validation stay
- * mock / gated — `validateCoFiscalConfig` here is a
- * PRESENCE probe only (are NIT / resolution / numbering range filled?),
- * never a cryptographic check.
+ * mock / gated; `validateCoEmissionConfig` is a presence check, never a
+ * cryptographic one.
  *
  * @module services/fiscal/packs/co/settings
  */
@@ -36,14 +39,6 @@ export interface CoFiscalSettings {
   enabled: boolean;
   /** Issuer NIT (9-10 digits, optional verification digit). `null` until captured. */
   nit: string | null;
-  /** DIAN numbering resolution number authorising the range. `null` until captured. */
-  dianResolutionNumber: string | null;
-  /** Invoice prefix granted by the resolution (e.g. `SETP`, `FE`). `null` until captured. */
-  prefix: string | null;
-  /** First consecutive authorised by the resolution. `null` until captured. */
-  rangeFrom: number | null;
-  /** Last consecutive authorised by the resolution. `null` until captured. */
-  rangeTo: number | null;
   /**
    * DIAN environment. `habilitacion` = the DIAN test/enablement set
    * (hash TipoAmbiente `2`); `produccion` = live (TipoAmbiente `1`).
@@ -61,10 +56,6 @@ export interface CoFiscalSettings {
 const DEFAULT_CO_SETTINGS: CoFiscalSettings = {
   enabled: false,
   nit: null,
-  dianResolutionNumber: null,
-  prefix: null,
-  rangeFrom: null,
-  rangeTo: null,
   environment: 'habilitacion',
   softwareId: null,
   softwarePin: null,
@@ -78,9 +69,8 @@ function readString(value: unknown): string | null {
   return typeof value === 'string' && value.trim().length > 0 ? value : null;
 }
 
-function readPositiveInt(value: unknown): number | null {
-  return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : null;
-}
+/** Blob keys from builds that stored numbering outside the resolutions table. */
+const RETIRED_NUMBERING_KEYS = ['dianResolutionNumber', 'prefix', 'rangeFrom', 'rangeTo'] as const;
 
 /**
  * Read the Colombia fiscal config from a `tenants.settings` blob.
@@ -106,10 +96,6 @@ export function readCoFiscalSettings(
   return {
     enabled,
     nit: readString(co.nit),
-    dianResolutionNumber: readString(co.dianResolutionNumber),
-    prefix: readString(co.prefix),
-    rangeFrom: readPositiveInt(co.rangeFrom),
-    rangeTo: readPositiveInt(co.rangeTo),
     environment,
     softwareId: readString(co.softwareId),
     softwarePin: readString(co.softwarePin),
@@ -154,13 +140,8 @@ export function mergeCoFiscalSettingsIntoTenantSettings(
   const fiscalBranch = isPlainRecord(base.fiscal) ? { ...base.fiscal } : {};
   const coBranch = isPlainRecord(fiscalBranch.co) ? { ...fiscalBranch.co } : {};
 
+  for (const key of RETIRED_NUMBERING_KEYS) delete coBranch[key];
   if (patch.nit !== undefined) coBranch.nit = patch.nit;
-  if (patch.dianResolutionNumber !== undefined) {
-    coBranch.dianResolutionNumber = patch.dianResolutionNumber;
-  }
-  if (patch.prefix !== undefined) coBranch.prefix = patch.prefix;
-  if (patch.rangeFrom !== undefined) coBranch.rangeFrom = patch.rangeFrom;
-  if (patch.rangeTo !== undefined) coBranch.rangeTo = patch.rangeTo;
   if (patch.environment !== undefined) coBranch.environment = patch.environment;
   if (patch.softwareId !== undefined) coBranch.softwareId = patch.softwareId;
   if (patch.softwarePin !== undefined) coBranch.softwarePin = patch.softwarePin;
@@ -197,49 +178,4 @@ function missingSoftwareIssue(settings: CoFiscalSettings): FiscalAdapterValidati
     message: 'DIAN software ID or PIN is missing',
     field: settings.softwareId ? 'fiscal.co.softwarePin' : 'fiscal.co.softwareId',
   };
-}
-
-/**
- * Presence-only readiness probe for the Colombia fiscal config. Reports
- * which mandatory issuer fields are still missing so the config card
- * can paint an honest badge. This is NOT a cryptographic / transmission
- * check — certificate, signing and provider connectivity are not probed.
- * `ok` is true once NIT + resolution + a valid numbering range + the
- * DIAN software ID and PIN are captured (independent of the `enabled` toggle: the merchant can
- * complete the config before flipping DIAN on).
- */
-export function validateCoFiscalConfig(settings: CoFiscalSettings): FiscalAdapterValidationResult {
-  const issues: FiscalAdapterValidationIssue[] = [];
-
-  // Same NIT rule emission applies, so the badge never reads ready while
-  // every sale would be blocked.
-  if (!settings.nit || !validateNit(settings.nit).valid) {
-    issues.push({
-      code: 'MISSING_NIT',
-      message: 'Issuer NIT is missing or invalid',
-      field: 'fiscal.co.nit',
-    });
-  }
-  if (!settings.dianResolutionNumber) {
-    issues.push({
-      code: 'MISSING_RESOLUTION',
-      message: 'DIAN numbering resolution is missing',
-      field: 'fiscal.co.dianResolutionNumber',
-    });
-  }
-  if (
-    settings.rangeFrom === null ||
-    settings.rangeTo === null ||
-    settings.rangeFrom > settings.rangeTo
-  ) {
-    issues.push({
-      code: 'MISSING_RANGE',
-      message: 'DIAN numbering range is missing or invalid',
-      field: 'fiscal.co.rangeFrom',
-    });
-  }
-  const software = missingSoftwareIssue(settings);
-  if (software) issues.push(software);
-
-  return { ok: issues.length === 0, issues };
 }
