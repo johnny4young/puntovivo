@@ -393,11 +393,14 @@ export async function runSoak(options) {
       writeFileSync(join(controlDir, `${name}-${String(++sequence).padStart(6, '0')}`), body);
 
     const admin = createClient(serverUrl);
-    const adminLogin = await admin.call('mutation', 'auth.login', ADMIN);
-    admin.headers.authorization = `Bearer ${adminLogin.token}`;
     const cashier = createClient(serverUrl);
-    const login = await cashier.call('mutation', 'auth.login', CASHIER);
-    cashier.headers.authorization = `Bearer ${login.token}`;
+    const signIn = async (client, account) => {
+      delete client.headers.authorization;
+      const session = await client.call('mutation', 'auth.login', account);
+      client.headers.authorization = `Bearer ${session.token}`;
+      return session;
+    };
+    const login = await signIn(cashier, CASHIER);
     const tenantId = login.user?.tenantId;
     const device = await cashier.call('mutation', 'auth.registerDevice', {
       kind: 'desktop',
@@ -440,8 +443,17 @@ export async function runSoak(options) {
       const burst = elapsed >= nextBurstAt ? 10 : 1;
       if (burst > 1) nextBurstAt += options.burstEveryMin * 60_000;
       for (let i = 0; i < burst; i += 1) {
+        const product = products[confirmed.length % products.length];
         try {
-          confirmed.push(await sellOnce(cashier, products[confirmed.length % products.length]));
+          confirmed.push(
+            await sellOnce(cashier, product).catch(async error => {
+              // An expired access token is refused before the command runs,
+              // so a fresh session may sell again under a new envelope.
+              if (error.code !== 'UNAUTHORIZED') throw error;
+              await signIn(cashier, CASHIER);
+              return sellOnce(cashier, product);
+            })
+          );
         } catch (error) {
           failures.push(String(error.message));
           if (failures.length > 20) throw error;
@@ -462,6 +474,7 @@ export async function runSoak(options) {
     }
     let auditValid = null;
     try {
+      await signIn(admin, ADMIN);
       auditValid = (await admin.call('query', 'auditLogs.verifyChain', {})).valid;
     } catch (error) {
       failures.push(`audit verify: ${error.message}`);
