@@ -26,19 +26,23 @@ if (!isMainThread) {
     .catch(error => parentPort.postMessage({ error: String(error && error.message) }));
 } else {
   const main = probeSqlite();
-  const worker = new Worker(__filename);
-  worker.once('message', result => {
+  // The server worker and a backup worker hold the addon at the same time as main.
+  const runWorker = () =>
+    new Promise(resolve => {
+      const worker = new Worker(__filename);
+      worker.once('message', resolve);
+      worker.once('error', error => resolve({ error: String(error.message) }));
+    });
+  Promise.all([runWorker(), runWorker()]).then(([worker, concurrentWorker]) => {
     process.stdout.write(
       JSON.stringify({
         ...main,
         electron: process.versions.electron ?? null,
         napi: process.versions.napi,
         node: process.versions.node,
-        worker: result,
+        worker,
+        concurrentWorker,
       })
     );
-  });
-  worker.once('error', error => {
-    process.stdout.write(JSON.stringify({ ...main, worker: { error: String(error.message) } }));
   });
 }

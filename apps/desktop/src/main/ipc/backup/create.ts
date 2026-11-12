@@ -93,7 +93,7 @@ export async function handleCreateDatabaseBackup(
           // believe a cleartext backup is protected.
           throw new Error(t('backup.passphraseUnsupported'));
         }
-        return createBackupBundle({
+        return (deps.createBackupBundle ?? createBackupBundle)({
           dbPath: deps.dbPath,
           deviceIdPath,
           outZipPath: filePath,

@@ -36,6 +36,7 @@ function makeScheduler(
     }>;
     lifecycleEvents?: string[];
     statePath?: () => string;
+    getLastSaleAt?: () => number | null;
     replicateSnapshot?: (input: {
       tenantId: string;
       zipPath: string;
@@ -57,6 +58,7 @@ function makeScheduler(
       return result;
     },
     ...(options.replicateSnapshot ? { replicateSnapshot: options.replicateSnapshot } : {}),
+    ...(options.getLastSaleAt ? { getLastSaleAt: options.getLastSaleAt } : {}),
     createBundle:
       options.createBundle ??
       (async args => ({
@@ -236,5 +238,61 @@ describe('backup scheduler persistence and execution', () => {
     assert.equal(result.status.inProgress, false);
     assert.equal((await scheduler.getStatus('tenant-a')).inProgress, false);
     assert.doesNotMatch(JSON.stringify(result), /EISDIR|ENOTEMPTY|operation not permitted/i);
+  });
+});
+
+describe('backup scheduler quiet till', () => {
+  it('waits for two quiet minutes after a sale, but never more than two hours', async () => {
+    let clock = Date.parse('2026-07-14T12:00:00.000Z');
+    let lastSaleAt: number | null = null;
+    let bundles = 0;
+    const scheduler = makeScheduler({
+      now: () => new Date(clock),
+      getLastSaleAt: () => lastSaleAt,
+      createBundle: async args => {
+        bundles += 1;
+        return {
+          zipPath: args.outZipPath,
+          zipBytes: 1,
+          manifest: { schemaVersion: 2, generatedAt: new Date(clock).toISOString(), dbBytes: 1 },
+        };
+      },
+    });
+    await scheduler.start();
+    const status = await scheduler.updateSchedule('tenant-quiet', { frequency: 'daily' });
+    const dueAt = Date.parse(status.nextRunAt ?? '');
+
+    clock = dueAt + 60_000;
+    lastSaleAt = clock - 30_000;
+    await scheduler.tick();
+    assert.equal(bundles, 0, 'a sale 30 s ago defers the snapshot');
+
+    lastSaleAt = clock - 3 * 60_000;
+    await scheduler.tick();
+    await scheduler.stop();
+    assert.equal(bundles, 1, 'a quiet till runs it');
+  });
+
+  it('runs a snapshot deferred for two hours even while sales continue', async () => {
+    let clock = Date.parse('2026-07-14T12:00:00.000Z');
+    let bundles = 0;
+    const scheduler = makeScheduler({
+      now: () => new Date(clock),
+      getLastSaleAt: () => clock - 1_000,
+      createBundle: async args => {
+        bundles += 1;
+        return {
+          zipPath: args.outZipPath,
+          zipBytes: 1,
+          manifest: { schemaVersion: 2, generatedAt: new Date(clock).toISOString(), dbBytes: 1 },
+        };
+      },
+    });
+    await scheduler.start();
+    const status = await scheduler.updateSchedule('tenant-busy', { frequency: 'daily' });
+    clock = Date.parse(status.nextRunAt ?? '') + 2 * 60 * 60_000;
+    await scheduler.tick();
+    await scheduler.stop();
+    assert.equal(bundles, 1);
   });
 });
