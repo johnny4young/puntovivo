@@ -7,6 +7,7 @@ import {
   captureProcessCrash,
   createModuleLogger,
   flushServerTelemetry,
+  whenPasswordWorkSettles,
   type ServerOptions,
 } from '@puntovivo/server';
 import { createAuditAnchorFileStore } from '../audit-anchor-store.ts';
@@ -38,7 +39,8 @@ installProcessCrashHandlers({
     }
   },
   flushTelemetry: flushServerTelemetry,
-  exit: code => process.exit(code),
+  // Ending the thread under a running Argon2 hash would abort the whole app.
+  exit: code => void whenPasswordWorkSettles().finally(() => process.exit(code)),
   proc: process,
   source: 'server-worker',
   label: 'server worker',

@@ -50,6 +50,11 @@ Main reinicia el worker del servidor cuando muere después de empezar a servir.
   main antes de que el hilo termine; una salida por límite de heap se
   clasifica como `oom`. Una caída nativa sigue terminando todo el proceso
   (ADR-0032).
+- **Argon2 en vuelo.** Un hash que termina después de que su hilo murió
+  aborta todo el proceso (`Napi::Error` en la finalización nativa). Por eso el
+  manejador de caídas del worker espera los hashes en curso antes de terminar
+  el hilo. Una salida que el worker no controla no puede esperar; ver las
+  consecuencias.
 - **Renderer.** Main publica `server:state` (`running`, `restarting`,
   `fatal`). Mientras reinicia, la franja de estado dice que la app se está
   reconectando y los botones de cobro quedan deshabilitados; el carrito se
@@ -91,6 +96,11 @@ reemite a ciegas ni gasta un consecutivo nuevo.
   una app cerrada y un nuevo inicio de sesión.
 - Una base o llave dañadas siguen deteniendo la app, con un código que soporte
   puede usar.
+- Un worker terminado desde fuera mientras corre un hash de contraseña o PIN
+  (inicio de sesión, cambio de cajero, los primeros segundos tras arrancar)
+  todavía cierra la app, como pasaba antes con cualquier caída. Sacar el
+  hashing del entorno del worker, o llevar el worker a un utility process, lo
+  resolvería.
 - El registro de caídas y el contador de reinicios muestran las caídas
   repetidas antes de que la tienda las reporte.
 

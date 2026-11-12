@@ -48,6 +48,10 @@ Main restarts a server worker that dies after it has started serving.
 - **Cause.** The worker's crash handler sends the serialized error to main
   before the thread ends; a heap-limit exit is classified as `oom`. A native
   crash still ends the whole process (ADR-0032).
+- **Argon2 in flight.** A hash that settles after its thread ended aborts the
+  whole process (`Napi::Error` in the native completion). The worker's crash
+  handler therefore waits for running hashes before it ends the thread. An
+  exit the worker does not control cannot wait; see the consequences.
 - **Renderer.** Main pushes `server:state` (`running`, `restarting`, `fatal`).
   While restarting, the status strip says the app is reconnecting and the
   charge buttons are disabled; the cart stays. When the server is back, every
@@ -86,6 +90,10 @@ a new number.
   closed app and a new sign-in.
 - A broken database or key still stops the app, with a code support can act
   on.
+- A worker that is ended from outside while a password or PIN hash runs
+  (login, staff switch, the first seconds after boot) still takes the app
+  down, as every crash did before. Moving hashing out of the worker's
+  environment, or the worker into a utility process, would close that.
 - The crash log and the restart count make repeated crashes visible before a
   store reports them.
 

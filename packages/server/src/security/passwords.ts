@@ -23,11 +23,30 @@ const ARGON2_OPTIONS = Object.freeze({
   parallelism: 4,
 } as const);
 
+// A hash that settles after its thread ended aborts the whole process, so
+// whoever ends a thread on purpose waits for these first.
+const nativeWork = new Set<Promise<unknown>>();
+
+function track<T>(work: Promise<T>): Promise<T> {
+  const settled = work.then(
+    () => undefined,
+    () => undefined
+  );
+  nativeWork.add(settled);
+  void settled.then(() => nativeWork.delete(settled));
+  return work;
+}
+
+/** Resolves once no Argon2 call is running on the native thread pool. */
+export async function whenPasswordWorkSettles(): Promise<void> {
+  while (nativeWork.size > 0) await Promise.all([...nativeWork]);
+}
+
 /**
  * Hash a password with pinned Argon2 parameters.
  */
 export async function hashPasswordSecurely(plaintext: string): Promise<string> {
-  return argon2.hash(plaintext, ARGON2_OPTIONS);
+  return track(argon2.hash(plaintext, ARGON2_OPTIONS));
 }
 
 /**
@@ -40,7 +59,7 @@ export async function verifyPasswordSecurely(
   plaintext: string
 ): Promise<boolean> {
   try {
-    return await argon2.verify(storedHash, plaintext);
+    return await track(argon2.verify(storedHash, plaintext));
   } catch {
     return false;
   }
@@ -76,7 +95,7 @@ let dummyHashPromise: Promise<string> | null = null;
 
 export function getDummyPasswordHash(): Promise<string> {
   if (!dummyHashPromise) {
-    const pending = argon2.hash(DUMMY_PLAINTEXT, ARGON2_OPTIONS);
+    const pending = track(argon2.hash(DUMMY_PLAINTEXT, ARGON2_OPTIONS));
     // A failed hash must not stay cached: every login awaits this promise.
     pending.catch(() => {
       if (dummyHashPromise === pending) dummyHashPromise = null;

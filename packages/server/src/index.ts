@@ -78,6 +78,7 @@ export {
 // directly (tenant-less app diagnostics, redacted, DSN-gated), and
 // flushServerTelemetry drains the SDK buffer before app.exit(1).
 export { captureProcessCrash, flushServerTelemetry } from './observability/index.js';
+export { whenPasswordWorkSettles } from './security/passwords.js';
 // ESC/POS transport resolver. The Electron main imports
 // this so the hub_client local hardware bridge can dispatch bytes
 // returned from `peripherals.buildReceiptBytes` /
