@@ -22,7 +22,7 @@ import { and, count, eq, inArray } from 'drizzle-orm';
 import { OPERATIONAL_READINESS_CONTRACT } from '@puntovivo/shared/operational-readiness';
 
 import type { DatabaseInstance } from '../../db/index.js';
-import { fiscalEmissionIntents, hardwareOutbox, paymentOutbox } from '../../db/schema.js';
+import { fiscalEmissionIntents, hardwareOutbox, paymentOutbox, sites } from '../../db/schema.js';
 import { getNumberingUsage } from '../fiscal/numbering/ranges.js';
 import { countFiscalOutboxFailures, readSyncBacklog } from '../readiness/signals.js';
 
@@ -165,9 +165,20 @@ export async function computeNeedsAttention(
   } else if (backlog.pending > SYNC_BACKLOG_WARNING_THRESHOLD) {
     areas.push({ area: 'sync', severity: 'warning', count: backlog.pending });
   }
-  // Numbering ranges close to expiry or exhaustion join the fiscal area.
+  // Ranges close to expiry or exhaustion join the fiscal area while nobody
+  // has registered their successor yet, at sites that still sell.
+  const activeSiteIds = new Set(
+    db
+      .select({ id: sites.id })
+      .from(sites)
+      .where(and(eq(sites.tenantId, tenantId), eq(sites.isActive, true)))
+      .all()
+      .map(site => site.id)
+  );
   const numberingAlerts = getNumberingUsage(db, { tenantId }).flatMap(entry =>
-    entry.alert ? [entry.alert] : []
+    entry.alert && !entry.hasScheduledSuccessor && activeSiteIds.has(entry.siteId)
+      ? [entry.alert]
+      : []
   );
   if (fiscalFailures > 0 || numberingAlerts.length > 0) {
     areas.push({

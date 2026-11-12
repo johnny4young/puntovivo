@@ -822,7 +822,8 @@ describe('emission draws from the active range and relieves a spent one', () => 
     const dee = usage.find(entry => entry.kind === 'DEE');
     expect(dee).toMatchObject({ remaining: 9, remainingRatio: 0.9, hasScheduledSuccessor: false });
     expect(dee?.daysUntilExpiry).toBeGreaterThan(300);
-    expect(dee?.dailyAverage).toBeCloseTo(1 / 14);
+    // One document today: the range has been in use for one day, not fourteen.
+    expect(dee?.dailyAverage).toBeCloseTo(1);
   });
 });
 
@@ -873,8 +874,9 @@ describe('range alerts', () => {
     const usage = (await api().fiscalNumbering.usage({ siteId: saleSiteId })).find(
       entry => entry.rangeId === active!.id
     );
+    // One number left at one document a day: under three days of stock.
     expect(usage).toMatchObject({
-      alert: { level: 'warning', reason: 'consumption' },
+      alert: { level: 'critical', reason: 'consumption' },
       hasScheduledSuccessor: false,
     });
     expect(usage?.siteName).toBeTruthy();
@@ -892,6 +894,43 @@ describe('range alerts', () => {
       expect(quiet.every(entry => entry.alert === null)).toBe(true);
     } finally {
       db.update(tenants).set({ settings }).where(eq(tenants.id, tenantId)).run();
+    }
+  });
+
+  it('leaves operations quiet once a successor in force is registered', async () => {
+    const db = getDatabase();
+    const fiscalCount = async () =>
+      (await computeNeedsAttention(db, tenantId)).areas.find(entry => entry.area === 'fiscal')
+        ?.count ?? 0;
+    const before = await fiscalCount();
+    const successor = await api().fiscalNumbering.create(
+      rangeInput({ siteId: saleSiteId, prefix: 'SUC', fromNumber: 1, toNumber: 500 })
+    );
+    expect(successor.status).toBe('scheduled');
+    const usage = (await api().fiscalNumbering.usage({ siteId: saleSiteId })).find(
+      entry => entry.kind === 'DEE'
+    );
+    // The card still shows the alert; operations has nothing left to do.
+    expect(usage).toMatchObject({ alert: { level: 'critical' }, hasScheduledSuccessor: true });
+    expect(await fiscalCount()).toBe(before - 1);
+    await api().fiscalNumbering.remove({ id: successor.id });
+  });
+
+  it('stays silent for a tenant that is not in Colombia', async () => {
+    const db = getDatabase();
+    db.update(tenantLocaleSettings)
+      .set({ countryCode: 'MX' })
+      .where(eq(tenantLocaleSettings.tenantId, tenantId))
+      .run();
+    try {
+      const usage = await api().fiscalNumbering.usage({ siteId: saleSiteId });
+      expect(usage.length).toBeGreaterThan(0);
+      expect(usage.every(entry => entry.alert === null)).toBe(true);
+    } finally {
+      db.update(tenantLocaleSettings)
+        .set({ countryCode: 'CO' })
+        .where(eq(tenantLocaleSettings.tenantId, tenantId))
+        .run();
     }
   });
 });

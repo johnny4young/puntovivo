@@ -6,13 +6,14 @@
  *
  * @module services/fiscal/numbering/ranges
  */
-import { and, asc, count, desc, eq, gte, inArray } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gte, inArray, min } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../../db/index.js';
 import {
   fiscalDocuments,
   fiscalNumberingResolutions,
   sites,
+  tenantLocaleSettings,
   tenants,
   type FiscalNumberingEnvironment,
   type FiscalNumberingStatus,
@@ -595,6 +596,24 @@ function issuedCounts(
   return new Map(rows.map(row => [row.rangeId, row.value]));
 }
 
+/** When each range issued its first document. */
+function firstIssuedAt(
+  db: DatabaseInstance,
+  tenantId: string,
+  rangeIds: string[]
+): Map<string, string> {
+  if (rangeIds.length === 0) return new Map();
+  const rows = db
+    .select({ rangeId: fiscalDocuments.resolutionId, first: min(fiscalDocuments.emittedAt) })
+    .from(fiscalDocuments)
+    .where(
+      and(eq(fiscalDocuments.tenantId, tenantId), inArray(fiscalDocuments.resolutionId, rangeIds))
+    )
+    .groupBy(fiscalDocuments.resolutionId)
+    .all();
+  return new Map(rows.flatMap(row => (row.first ? [[row.rangeId, row.first] as const] : [])));
+}
+
 /** DIAN ranges of the tenant (optionally one site), newest first within each site. */
 export function listNumberingRanges(
   db: DatabaseInstance,
@@ -669,7 +688,13 @@ export function getNumberingUsage(
     .get()?.settings ?? {}) as Record<string, unknown>;
   const environment = numberingEnvironmentFromSettings(settings);
   // A range running out only matters while the tenant issues DIAN documents.
-  const alertsOn = isDianFlagOn(settings) && isCountryFiscalEnabled(settings, 'CO');
+  const country = db
+    .select({ code: tenantLocaleSettings.countryCode })
+    .from(tenantLocaleSettings)
+    .where(eq(tenantLocaleSettings.tenantId, args.tenantId))
+    .get()?.code;
+  const alertsOn =
+    country === 'CO' && isDianFlagOn(settings) && isCountryFiscalEnabled(settings, 'CO');
   const siteNames = new Map(
     db
       .select({ id: sites.id, name: sites.name })
@@ -693,6 +718,11 @@ export function getNumberingUsage(
     .all();
   const active = ranges.filter(range => range.status === 'active');
   const since = new Date(Date.parse(now) - USAGE_WINDOW_DAYS * DAY_MS).toISOString();
+  const firstIssued = firstIssuedAt(
+    db,
+    args.tenantId,
+    active.map(range => range.id)
+  );
   const recent = issuedCounts(
     db,
     args.tenantId,
@@ -705,7 +735,13 @@ export function getNumberingUsage(
       0,
       range.toNumber - Math.max(range.currentNumber, range.fromNumber - 1)
     );
-    const dailyAverage = (recent.get(range.id) ?? 0) / USAGE_WINDOW_DAYS;
+    // A range in use for less than the window averages over the days it was in use.
+    const firstAt = Date.parse(firstIssued.get(range.id) ?? now);
+    const windowDays = Math.min(
+      USAGE_WINDOW_DAYS,
+      Math.max(1, (Date.parse(now) - Math.max(firstAt, Date.parse(since))) / DAY_MS)
+    );
+    const dailyAverage = (recent.get(range.id) ?? 0) / windowDays;
     const figures = {
       remaining,
       remainingRatio: size > 0 ? remaining / size : 0,
