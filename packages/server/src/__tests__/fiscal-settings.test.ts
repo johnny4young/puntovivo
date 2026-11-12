@@ -591,9 +591,6 @@ describe('fiscalSettings.updateCo', () => {
     await caller.fiscalSettings.updateCo({
       enabled: true,
       nit: '900123456-8',
-      dianResolutionNumber: '18760000001',
-      rangeFrom: 1,
-      rangeTo: 5000,
     });
     const mx = await caller.fiscalSettings.getByCountry({ countryCode: 'MX' });
     expect(mx.settings).toMatchObject({
