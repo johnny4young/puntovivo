@@ -19,11 +19,7 @@ import {
   type InjectResponse,
   type MainAuditEvent,
 } from './contract.ts';
-import {
-  getDesktopSyncStatus,
-  handleDesktopSetSyncConfig,
-  handleDesktopTriggerSync,
-} from './desktop-sync.ts';
+import { getDesktopSyncStatus, handleDesktopTriggerSync } from './desktop-sync.ts';
 import { sqliteOf, upsertAppSetting } from './desktop-sync-helpers.ts';
 
 function isOneOf(list: readonly string[], value: unknown): boolean {
@@ -150,12 +146,6 @@ export function createServerOperations(server: PuntovivoServer): EmbeddedServerO
     async triggerSync(tenantId) {
       assertTenantId(tenantId);
       return handleDesktopTriggerSync(server.db, tenantId);
-    },
-    async setSyncConfig(config) {
-      if (typeof config !== 'object' || config === null || Array.isArray(config)) {
-        throw new Error('MAIN_SYNC_CONFIG_REJECTED');
-      }
-      return handleDesktopSetSyncConfig(server.db, config);
     },
     async readRestoreDrillCounts(tenantId) {
       assertTenantId(tenantId);

@@ -95,6 +95,31 @@ const FIXTURES: HistoricalFixture[] = [
       expect(row?.sku).toBeNull();
     },
   },
+  {
+    name: 'a sync config row written by the removed desktop channel',
+    afterIdx: 96,
+    because:
+      'any signed-in desktop role could write desktop_sync_config through sync:setConfig, and ' +
+      'nothing ever read it; 0097 deletes that key and only that key',
+    seed: sqlite => {
+      sqlite.exec(`
+        INSERT INTO app_settings (key, value, updated_at) VALUES
+          ('desktop_sync_config', '{"enabled":true,"endpoint":"https://example.test"}', '2026-11-01T00:00:00.000Z'),
+          ('receipt_print_settings', '{"silent":true}', '2026-11-01T00:00:00.000Z'),
+          ('sync_last_sync:tenant-legacy', '"2026-11-01T00:00:00.000Z"', '2026-11-01T00:00:00.000Z');
+      `);
+    },
+    survives: sqlite => {
+      const keys = sqlite
+        .prepare('SELECT key FROM app_settings ORDER BY key')
+        .all()
+        .map(row => (row as { key: string }).key);
+      expect(keys).not.toContain('desktop_sync_config');
+      expect(keys).toEqual(
+        expect.arrayContaining(['receipt_print_settings', 'sync_last_sync:tenant-legacy'])
+      );
+    },
+  },
 ];
 
 let workdir: string | null = null;

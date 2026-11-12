@@ -60,7 +60,7 @@ describe('server host operations', () => {
 
   it('refuses app settings main does not own', async () => {
     const operations = createServerOperations(server);
-    const serverOwned = 'desktop_sync_config' as unknown as MainAppSettingKey;
+    const serverOwned = 'sync_last_sync:tenant' as unknown as MainAppSettingKey;
     await assert.rejects(operations.readAppSetting(serverOwned), /MAIN_APP_SETTING_REJECTED/);
     await assert.rejects(
       operations.writeAppSetting(serverOwned, { enabled: false }),
@@ -68,16 +68,8 @@ describe('server host operations', () => {
     );
   });
 
-  it('keeps one sync config row when two saves race', async () => {
-    const operations = createServerOperations(server);
-    await Promise.all([
-      operations.setSyncConfig({ enabled: true }),
-      operations.setSyncConfig({ enabled: false }),
-    ]);
-    const rows = sqlite()
-      .prepare('select count(*) as n from app_settings where key = ?')
-      .get('desktop_sync_config') as { n: number };
-    assert.equal(rows.n, 1);
+  it('exposes no sync config writer', () => {
+    assert.equal('setSyncConfig' in createServerOperations(server), false);
   });
 
   it('records only the main-owned audit events, each in the hash chain', async () => {
@@ -144,10 +136,6 @@ describe('server host operations', () => {
     await assert.rejects(operations.getSyncStatus(undefined as never), /MAIN_TENANT_REQUIRED/);
     await assert.rejects(operations.triggerSync('' as never), /MAIN_TENANT_REQUIRED/);
     await assert.rejects(operations.readRestoreDrillCounts(''), /MAIN_TENANT_REQUIRED/);
-    await assert.rejects(
-      operations.setSyncConfig(['enabled'] as never),
-      /MAIN_SYNC_CONFIG_REJECTED/
-    );
   });
 
   it('verifies access tokens through the server and rejects garbage', async () => {
