@@ -1,6 +1,6 @@
 /** admin-only, non-secret backup protection attestation. */
 
-import { createModuleLogger } from '@puntovivo/server';
+import { createModuleLogger } from '@puntovivo/server/desktop-main';
 import type { BackupProtectionStatus } from '../../backup-protection.ts';
 import * as desktopSession from '../../session/desktopSession.ts';
 import type { BackupIpcDeps } from './contracts.ts';

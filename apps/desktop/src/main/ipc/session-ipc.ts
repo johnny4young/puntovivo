@@ -14,8 +14,7 @@
  */
 
 import { ipcMain } from 'electron';
-import { verifyTokenWithServer } from '@puntovivo/server';
-import { getServer } from '../runtime.js';
+import { getServerHost } from '../runtime.js';
 import * as desktopSession from '../session/desktopSession.js';
 import {
   captureHubAuthIpc,
@@ -69,14 +68,11 @@ export function registerSessionIpc(
     if (options.hubAuthSession) {
       await desktopSession.register(accessToken, options.hubAuthSession.verifyAccessToken);
     } else {
-      const activeServer = getServer();
-      if (!activeServer) {
+      const host = getServerHost();
+      if (!host) {
         throw new Error('Embedded server is not started yet');
       }
-      const fastifyApp = activeServer.app;
-      await desktopSession.register(accessToken, token =>
-        verifyTokenWithServer(fastifyApp, token, 'access')
-      );
+      await desktopSession.register(accessToken, token => host.verifyAccessToken(token));
     }
     return { ok: true };
   });
@@ -84,13 +80,11 @@ export function registerSessionIpc(
     const token = options.hubAuthSession
       ? await desktopSession.resume(options.hubAuthSession.verifyAccessToken)
       : await (async () => {
-          const activeServer = getServer();
-          if (!activeServer) {
+          const host = getServerHost();
+          if (!host) {
             throw new Error('Embedded server is not started yet');
           }
-          return desktopSession.resume(candidate =>
-            verifyTokenWithServer(activeServer.app, candidate, 'access')
-          );
+          return desktopSession.resume(candidate => host.verifyAccessToken(candidate));
         })();
     return { token };
   });

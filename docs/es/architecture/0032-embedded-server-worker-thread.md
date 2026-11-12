@@ -161,9 +161,13 @@ plataforma soportada.
 - El código del hilo principal ya no puede tocar la base directamente. Una
   función nueva de escritorio que necesite datos agrega una operación a la
   lista cerrada.
-- El bundle del hilo principal puede soltar el grafo del servidor cuando solo
-  importe entradas livianas del servidor; esa ganancia de tamaño es aparte de
-  la de hilos.
+- El hilo principal solo importa la entrada liviana
+  `@puntovivo/server/desktop-main` y carga el ensayo de recuperación
+  empaquetado de forma diferida. Si no, el hilo principal y el worker evaluarían
+  cada uno todo el grafo del servidor: +53 MB medidos en main en vez de +22 MB.
+- La telemetría se registra dentro del worker junto con el servidor, así que el
+  hilo principal registra su propio adaptador para sus caídas y para un worker
+  que muere.
 
 ## Alternativas descartadas
 

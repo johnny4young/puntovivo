@@ -1,6 +1,6 @@
 /** admin-gated restore-drill IPC and audit boundary. */
 
-import { createModuleLogger } from '@puntovivo/server';
+import { createModuleLogger } from '@puntovivo/server/desktop-main';
 import {
   BackupRestoreDrillError,
   type BackupRestoreDrillReport,
@@ -26,7 +26,7 @@ export async function handleRunBackupRestoreDrill(
   try {
     const report = await deps.runBackupRestoreDrill(tenantId);
     try {
-      deps.recordBackupRestoreDrillAudit({
+      await deps.recordBackupRestoreDrillAudit({
         tenantId,
         actorId,
         resourceId: report.snapshotGeneratedAt,
@@ -48,7 +48,7 @@ export async function handleRunBackupRestoreDrill(
   } catch (error) {
     const errorCode = safeErrorCode(error);
     try {
-      deps.recordBackupRestoreDrillAudit({
+      await deps.recordBackupRestoreDrillAudit({
         tenantId,
         actorId,
         resourceId: 'latest',

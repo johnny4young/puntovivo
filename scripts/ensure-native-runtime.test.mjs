@@ -42,4 +42,5 @@ test('the host Node runtime loads SQLite and the SQLCipher contract', () => {
   assert.equal(result.cipher, 'sqlcipher');
   assert.equal(result.electron, null);
   assert.equal(result.napi, process.versions.napi);
+  assert.deepEqual(result.worker, { sqlite: 1, cipher: 'sqlcipher', argon2: true });
 });

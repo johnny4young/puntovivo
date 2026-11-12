@@ -192,6 +192,7 @@ jobs:
               - 'packages/server/**'
               - 'perf-budget.json'
               - 'scripts/check-electron-memory*.mjs'
+              - 'scripts/check-electron-main-thread*.mjs'
               - 'scripts/run-electron-memory-gate*.mjs'
               - 'scripts/build-electron-main.mjs'
               # ci:desktop is the only gate that runs the script tests below.
@@ -417,34 +418,27 @@ jobs:
           if-no-files-found: error
 
   # ============================================================================
-  # Desktop Workspace Validation — ubuntu-only on push/PR
+  # Desktop Workspace Validation — ubuntu and windows on push/PR
   # ----------------------------------------------------------------------------
-  # The desktop workspace hosts Electron-specific code (builder config, preload,
-  # main process). The ubuntu-latest run gates the `ci:desktop` script
-  # (typecheck + lint + node tests + a strict Electron memory launch under
-  # xvfb) — that catches main↔renderer boundary regressions, missing preload
-  # exports, TypeScript breakage, and main/renderer memory regressions without
-  # paying for cross-OS minutes.
+  # Both legs gate `ci:desktop` (typecheck, lint, node tests, the strict
+  # Electron memory and main-thread launches). Windows is the registers' OS,
+  # where the server worker loads native SQLite and Argon2.
   #
-  # Cross-OS validation (ubuntu + macos + windows running ci:desktop AND
-  # actually packaging via electron-builder) lives in the manual
-  # `.github/workflows/build-desktop.yml` workflow, triggered by an
-  # operator via `workflow_dispatch` with per-OS toggles. macOS minutes
-  # bill at 10x against the free tier, so running the matrix on every
-  # push burns the quota fast for marginal incremental signal — most
-  # bugs caught by the macOS/Windows runners are native packaging, signing,
-  # and target-selection failures that only show up in real artifacts, which
-  # release.yml already covers on tag.
-  #
-  # If you are about to ship a change that touches preload IPC,
-  # native modules (better-sqlite3, argon2), or platform-specific
-  # paths, run `build-desktop.yml` manually before merging.
+  # macOS validation and packaging on every OS live in the manual
+  # `.github/workflows/build-desktop.yml` (macOS bills at 10x); release.yml
+  # packages on tag. Run build-desktop.yml before merging a change to
+  # packaging, signing, or macOS-specific paths.
   # ============================================================================
   desktop:
-    name: Desktop Workspace
+    name: Desktop Workspace${{ matrix.os == 'windows-latest' && ' (Windows)' || '' }}
     needs: detect-changes
     if: ${{ needs.detect-changes.outputs.desktop == 'true' || needs.detect-changes.outputs.shared == 'true' }}
-    runs-on: ubuntu-latest
+    # Registers run Windows, and the server worker loads native SQLite and Argon2 there.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     # Calibrated from the last 12 green runs (see max durations in the PR);
     # a hang must fail in minutes, not consume the 360-minute Actions default.
     timeout-minutes: 15
@@ -454,6 +448,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Setup pnpm
+        if: runner.os != 'Windows'
         uses: pnpm/action-setup@v6
         with:
           standalone: true
@@ -464,10 +459,22 @@ jobs:
           node-version-file: .nvmrc
           check-latest: true
 
+      # pnpm/action-setup v6's Windows launcher triggers Node 24 DEP0190.
+      - name: Setup pnpm (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $pnpmVersion = node -p "require('./package.json').packageManager.replace('pnpm@', '')"
+          npm install --global "pnpm@$pnpmVersion" --ignore-scripts --no-audit --no-fund
+          if ((pnpm --version) -ne $pnpmVersion) {
+            throw "pnpm version mismatch"
+          }
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
       - name: Install Linux desktop runtime dependencies
+        if: runner.os == 'Linux'
         # apt mirror stalls hang forever by default; observed 2026-08-19.
         timeout-minutes: 5
         run: |
@@ -477,7 +484,7 @@ jobs:
 
       # Electron 42+ no longer downloads its runtime during package installation.
       # Fetch the exact release zip and extract it with the OS-native tool
-      # (unzip on Linux, bsdtar on Windows), set path.txt, then verify it.
+      # (unzip on Linux, Expand-Archive on Windows), set path.txt, then verify it.
       - name: Ensure Electron runtime
         shell: bash
         run: |
@@ -509,14 +516,14 @@ jobs:
       # Shared role-handoff helpers run in both renderers. The ordinary
       # desktop workspace gate does not execute Playwright Electron specs.
       - name: Run pharmacy role Electron journey
-        if: ${{ needs.detect-changes.outputs.pharmacy_electron_roles == 'true' }}
+        if: ${{ runner.os == 'Linux' && needs.detect-changes.outputs.pharmacy_electron_roles == 'true' }}
         timeout-minutes: 4
         run: |
           node scripts/ensure-electron-main-build.mjs
           xvfb-run -a -s "-screen 0 1280x1024x24 -extension MIT-SHM" dbus-run-session -- pnpm exec playwright test e2e/electron/pharmacy-roles.spec.ts --config=playwright.electron.config.ts --workers=1 --forbid-only
 
       - name: Upload pharmacy Electron diagnostics
-        if: ${{ failure() && needs.detect-changes.outputs.pharmacy_electron_roles == 'true' }}
+        if: ${{ failure() && runner.os == 'Linux' && needs.detect-changes.outputs.pharmacy_electron_roles == 'true' }}
         uses: actions/upload-artifact@v7
         with:
           name: pharmacy-electron-${{ github.run_id }}-${{ github.run_attempt }}

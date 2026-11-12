@@ -58,7 +58,7 @@ This guide fills that gap.
 Puntovivo desktop is an Electron application with this shape:
 
 - Electron main process is the host and orchestrator
-- Fastify server is embedded inside the Electron main process
+- Fastify server runs in a worker thread of the Electron main process
 - React runs in the renderer
 - renderer never talks directly to Node or SQLite
 - preload exposes a narrow IPC bridge to the renderer
@@ -76,7 +76,7 @@ flowchart LR
     Renderer[Renderer\nReact + TanStack Query + tRPC client]
     Preload[Preload\nwindow.electron / window.sync]
     Main[Electron Main Process\nwindow lifecycle + IPC handlers]
-    Server[Embedded Fastify Server\ninside main process]
+    Server[Embedded Fastify Server\nworker thread of main]
     DB[(SQLite local.db)]
     OS[Desktop OS\ntray, dialogs, printing, updates]
 
@@ -168,7 +168,12 @@ sequenceDiagram
 This is one of the most important architecture choices in the repo.
 
 The project explicitly does not spawn a separate server process in desktop mode.
-Instead, Electron main imports `@puntovivo/server` directly and starts Fastify in-process.
+Instead, Electron main starts `@puntovivo/server` in one `worker_threads` worker
+([ADR 0032](architecture/0032-embedded-server-worker-thread.md)). Synchronous
+SQLite and the server's JavaScript then run off the thread that owns windows and
+IPC, while main keeps `safeStorage`, every sealed key and the updater. Main calls
+the server only through `apps/desktop/src/main/server-host/contract.ts`; an
+unexpected worker exit is fatal, as a crash of the server was before.
 
 Why this is used:
 
@@ -180,7 +185,7 @@ Why this is used:
 Technical tradeoff:
 
 - main process becomes operationally important because it owns window lifecycle and backend lifecycle
-- if main crashes, both desktop shell and local server go down together
+- if main crashes, or native code crashes inside the worker, both desktop shell and local server go down together
 - desktop-only responsibilities must be kept disciplined so main does not become a giant uncontrolled service layer
 
 ### What is used in the lifecycle today

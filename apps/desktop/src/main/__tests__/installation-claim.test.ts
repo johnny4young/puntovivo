@@ -3,24 +3,27 @@ import assert from 'node:assert/strict';
 import { createInstallationClaimHandler } from '../session/installation-claim.ts';
 
 type Dependencies = Parameters<typeof createInstallationClaimHandler>[0];
+const reply = (statusCode: number, body: unknown) => ({
+  statusCode,
+  headers: {},
+  body: JSON.stringify(body),
+});
 function fixture(overrides: Partial<Dependencies> = {}) {
   const frame = { url: 'puntovivo-app://app/index.html#/login' };
   const sender = { isDestroyed: () => false, mainFrame: frame };
   const window = { isDestroyed: () => false, webContents: sender };
   const event = { sender, senderFrame: frame };
   const calls: unknown[] = [];
-  const server = {
-    getSetupToken: () => 'b'.repeat(64),
-    app: {
-      inject: async (input: unknown) => {
-        calls.push(input);
-        return { statusCode: 200, json: () => [{ result: { data: { created: true } } }] };
-      },
+  const host: NonNullable<ReturnType<Dependencies['getServerHost']>> = {
+    getSetupToken: async () => 'b'.repeat(64),
+    inject: async input => {
+      calls.push(input);
+      return reply(200, [{ result: { data: { created: true } } }]);
     },
   };
   const deps: Dependencies = {
     getMainWindow: () => window,
-    getServer: () => server as unknown as ReturnType<Dependencies['getServer']>,
+    getServerHost: () => host,
     isHubClient: false,
     isDev: false,
     webDevServerUrl: 'http://localhost:3000',
@@ -32,7 +35,7 @@ function fixture(overrides: Partial<Dependencies> = {}) {
     window,
     event,
     calls,
-    server,
+    host,
     handler: createInstallationClaimHandler(deps),
   };
 }
@@ -69,7 +72,7 @@ for (const mode of [
     const f = fixture({
       ...(mode === 'hub' ? { isHubClient: true } : {}),
       ...(mode === 'no window' ? { getMainWindow: () => null } : {}),
-      getServer: () => {
+      getServerHost: () => {
         throw new Error('must not access server');
       },
     });
@@ -100,7 +103,7 @@ test('development accepts only its configured loopback origin', async () => {
 });
 
 test('missing server, completed claim and invalid input return safe errors', async () => {
-  const f = fixture({ getServer: () => null });
+  const f = fixture({ getServerHost: () => null });
   assert.deepEqual(await f.handler(f.event, {}), {
     ok: false,
     errorCode: 'SETUP_ALREADY_COMPLETED',
@@ -111,7 +114,7 @@ test('missing server, completed claim and invalid input return safe errors', asy
       ok: false,
       errorCode: 'VALIDATION_ERROR',
     });
-  live.server.getSetupToken = () => null as unknown as string;
+  live.host.getSetupToken = async () => null;
   assert.deepEqual(await live.handler(live.event, {}), {
     ok: false,
     errorCode: 'SETUP_ALREADY_COMPLETED',
@@ -120,40 +123,29 @@ test('missing server, completed claim and invalid input return safe errors', asy
 
 test('catches dispatch and parse failures without leaking native invoke details', async () => {
   const f = fixture();
-  f.server.app.inject = async () => {
+  f.host.inject = async () => {
     throw new Error('SECRET /Users/owner/database.db');
   };
   assert.deepEqual(await f.handler(f.event, {}), { ok: false, errorCode: 'INTERNAL_SERVER_ERROR' });
-  f.server.app.inject = async () => ({
-    statusCode: 200,
-    json: () => {
-      throw new Error('SECRET');
-    },
-  });
+  f.host.inject = async () => ({ statusCode: 200, headers: {}, body: 'SECRET {' });
   assert.deepEqual(await f.handler(f.event, {}), { ok: false, errorCode: 'INTERNAL_SERVER_ERROR' });
 });
 
 test('forwards only safe setup codes, not HTTP messages or stacks', async () => {
   const f = fixture();
-  f.server.app.inject = async () =>
-    ({
-      statusCode: 429,
-      json: () => [{ error: { message: 'SECRET', data: { errorCode: 'SETUP_BUSY' } } }],
-    }) as never;
+  f.host.inject = async () =>
+    reply(429, [{ error: { message: 'SECRET', data: { errorCode: 'SETUP_BUSY' } } }]);
   assert.deepEqual(await f.handler(f.event, {}), { ok: false, errorCode: 'SETUP_BUSY' });
-  f.server.app.inject = async () =>
-    ({
-      statusCode: 500,
-      json: () => [{ error: { message: 'SECRET', data: { errorCode: 'SECRET' } } }],
-    }) as never;
+  f.host.inject = async () =>
+    reply(500, [{ error: { message: 'SECRET', data: { errorCode: 'SECRET' } } }]);
   assert.deepEqual(await f.handler(f.event, {}), { ok: false, errorCode: 'INTERNAL_SERVER_ERROR' });
 });
 
 test('contains structured-clone cyclic input when JSON transport cannot serialize it', async () => {
   const f = fixture();
-  f.server.app.inject = async input => {
-    JSON.stringify((input as { payload: unknown }).payload);
-    return { statusCode: 200, json: () => [{ result: { data: { created: true } } }] };
+  f.host.inject = async input => {
+    JSON.stringify(input.payload);
+    return reply(200, [{ result: { data: { created: true } } }]);
   };
   const cyclic: Record<string, unknown> = {};
   cyclic.self = cyclic;
@@ -165,7 +157,7 @@ test('contains structured-clone cyclic input when JSON transport cannot serializ
 
 test('contains capability lookup failure during database teardown', async () => {
   const f = fixture();
-  f.server.getSetupToken = () => {
+  f.host.getSetupToken = async () => {
     throw new Error('database connection is closed: private path');
   };
   assert.deepEqual(await f.handler(f.event, {}), { ok: false, errorCode: 'INTERNAL_SERVER_ERROR' });

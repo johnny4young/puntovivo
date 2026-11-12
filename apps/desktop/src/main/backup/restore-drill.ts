@@ -10,17 +10,16 @@
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type Database from 'better-sqlite3';
 import {
   assertSqliteIntegrity,
   BACKUP_BUNDLE_SCHEMA_VERSION,
   BACKUP_RESTORE_DRILL_TABLES,
   extractBackupBundle,
   inspectBackupTenantCounts,
-  readTenantRestoreDrillCounts,
   type BackupRestoreDrillTable,
   verifyExtractedBundleAuthenticity,
 } from './backup-bundle.ts';
+import type { BackupRestoreDrillCounts } from './backup-bundle/inspection.ts';
 import type { BackupScheduler } from './scheduler.ts';
 
 export type BackupRestoreDrillErrorCode = 'snapshot_unavailable' | 'drill_failed';
@@ -55,7 +54,8 @@ export class BackupRestoreDrillError extends Error {
 
 interface BackupRestoreDrillDeps {
   backupScheduler: Pick<BackupScheduler, 'getStatus'>;
-  getCurrentDatabase: () => Pick<Database.Database, 'prepare' | 'transaction'>;
+  /** Live counts of the drill tables, read in one transaction next to the server. */
+  readCurrentCounts: (tenantId: string) => Promise<BackupRestoreDrillCounts>;
   resolveDatabaseEncryptionKey: () => Promise<string>;
   runExclusive: <T>(operation: () => Promise<T>) => Promise<T>;
   getTemporaryRoot?: () => string;
@@ -130,10 +130,7 @@ export function createBackupRestoreDrill(deps: BackupRestoreDrillDeps): BackupRe
             tenantId,
             encryptionKey
           );
-          const currentDb = deps.getCurrentDatabase();
-          const currentCounts = currentDb.transaction(() =>
-            readTenantRestoreDrillCounts(currentDb, tenantId)
-          )();
+          const currentCounts = await deps.readCurrentCounts(tenantId);
           const tables = BACKUP_RESTORE_DRILL_TABLES.map(table => {
             const currentCount = currentCounts[table];
             const snapshotCount = snapshotCounts[table];

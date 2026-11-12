@@ -15,15 +15,14 @@
  * @module main/session/desktopSession
  */
 
-import { createModuleLogger } from '@puntovivo/server';
+import { createModuleLogger } from '@puntovivo/server/desktop-main';
 
 const sessionLog = createModuleLogger('desktop-session');
 
 /**
  * Verifier signature shared by `register()` callers. Production code
- * passes a closure over `verifyTokenWithServer(server.app, _, 'access')`;
- * tests pass a stub that returns a fabricated payload (or null) without
- * booting Fastify.
+ * passes the server host's `verifyAccessToken`; tests pass a stub that
+ * returns a fabricated payload (or null) without booting Fastify.
  */
 export interface DesktopSessionIdentity {
   userId: string;
@@ -74,9 +73,8 @@ let currentAccessToken: string | null = null;
  * @param accessToken The bearer token the renderer just received from
  * `auth.login` (or a successful `auth.refresh`).
  * @param verify Closure that resolves the token to an `AuthTokenPayload`
- * (or `null` when invalid). Production callers pass
- * `t => verifyTokenWithServer(server.app, t, 'access')`;
- * tests pass a stub.
+ * (or `null` when invalid). Production callers pass the server host's
+ * `verifyAccessToken`; tests pass a stub.
  * @throws Error(SESSION_REGISTER_REJECTED) when the token cannot be
  * validated. Caller should treat this as "log out".
  */

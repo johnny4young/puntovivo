@@ -149,11 +149,14 @@ function checkStructure(binary) {
   if (!entries.includes('.vite/build/pdf.worker.mjs')) {
     fail('app.asar is missing the bundled PDF.js worker');
   }
+  if (!entries.includes('.vite/build/server-worker.cjs')) {
+    fail('app.asar is missing the embedded server worker');
+  }
   if (!hasNodeAddon(path.join(unpacked, 'node_modules', 'better-sqlite3'))) {
     fail('better_sqlite3.node was not unpacked into app.asar.unpacked');
   }
   console.log(
-    '[desktop-smoke] structure OK: native addons and PDF.js worker are packaged'
+    '[desktop-smoke] structure OK: native addons, server worker and PDF.js worker are packaged'
   );
 }
 

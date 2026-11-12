@@ -3,8 +3,8 @@
  * main-process locale), extracted verbatim from the former monolithic
  * `main/index.ts`.
  *
- * Owns the `app_settings`-backed persistence helpers plus the
- * normalisers for each settings shape. The tray itself (native Tray
+ * Owns the `app_settings`-backed persistence helpers, reached through the
+ * server host, plus the normalisers for each settings shape. The tray itself (native Tray
  * instance, context menu, visibility toggling) stays in `main/index.ts`
  * because it is bound to the main-window lifecycle; this module only
  * persists the tray *settings* and calls back through `deps.refreshTray`
@@ -17,15 +17,7 @@ import { ipcMain, nativeTheme, type BrowserWindow } from 'electron';
 // read authenticated identity from the main-process singleton,
 // never from renderer-supplied arguments.
 import * as desktopSession from '../session/desktopSession.js';
-import {
-  appSettings,
-  // Drizzle operators re-exported by the server package: they must come
-  // from the same drizzle-orm instance that typed the schema tables above
-  // (a direct 'drizzle-orm' import here is a phantom dependency that can
-  // resolve to a different module identity and break the typecheck).
-  eq,
-} from '@puntovivo/server';
-import { getServerDatabase, whenServerReady } from '../runtime.js';
+import { requireServerHost, whenServerReady } from '../runtime.js';
 import { t, setMainLocale, normalizeMainLocale, type MainLocale } from '../i18n';
 import { refreshAutoUpdateTranslations } from '../auto-updater';
 import { handleGatedSettingsUpdate, handleLocaleUpdate } from './settings-handlers.ts';
@@ -76,42 +68,14 @@ function normalizeReceiptPrintSettings(
 }
 
 export async function getReceiptPrintSettings(): Promise<ReceiptPrintSettings> {
-  const database = getServerDatabase();
-  const row = await database
-    .select({ value: appSettings.value })
-    .from(appSettings)
-    .where(eq(appSettings.key, RECEIPT_PRINT_SETTINGS_KEY))
-    .get();
-
-  return normalizeReceiptPrintSettings(row?.value);
+  return normalizeReceiptPrintSettings(
+    await requireServerHost().readAppSetting(RECEIPT_PRINT_SETTINGS_KEY)
+  );
 }
 
 async function saveReceiptPrintSettings(settings: unknown): Promise<ReceiptPrintSettings> {
-  const database = getServerDatabase();
-  const now = new Date().toISOString();
   const nextSettings = normalizeReceiptPrintSettings(settings, await getReceiptPrintSettings());
-  const existing = await database
-    .select({ key: appSettings.key })
-    .from(appSettings)
-    .where(eq(appSettings.key, RECEIPT_PRINT_SETTINGS_KEY))
-    .get();
-
-  if (existing) {
-    await database
-      .update(appSettings)
-      .set({
-        value: nextSettings,
-        updatedAt: now,
-      })
-      .where(eq(appSettings.key, RECEIPT_PRINT_SETTINGS_KEY));
-  } else {
-    await database.insert(appSettings).values({
-      key: RECEIPT_PRINT_SETTINGS_KEY,
-      value: nextSettings,
-      updatedAt: now,
-    });
-  }
-
+  await requireServerHost().writeAppSetting(RECEIPT_PRINT_SETTINGS_KEY, nextSettings);
   return nextSettings;
 }
 
@@ -129,43 +93,12 @@ export function applyThemePreference(preference: ThemePreference): ThemePreferen
 }
 
 export async function getThemePreference(): Promise<ThemePreference> {
-  const database = getServerDatabase();
-  const row = await database
-    .select({ value: appSettings.value })
-    .from(appSettings)
-    .where(eq(appSettings.key, THEME_PREFERENCE_KEY))
-    .get();
-
-  return normalizeThemePreference(row?.value);
+  return normalizeThemePreference(await requireServerHost().readAppSetting(THEME_PREFERENCE_KEY));
 }
 
 async function saveThemePreference(preference: unknown): Promise<ThemePreference> {
-  const database = getServerDatabase();
-  const now = new Date().toISOString();
   const nextPreference = applyThemePreference(normalizeThemePreference(preference));
-  const existing = await database
-    .select({ key: appSettings.key })
-    .from(appSettings)
-    .where(eq(appSettings.key, THEME_PREFERENCE_KEY))
-    .get();
-
-  if (existing) {
-    await database
-      .update(appSettings)
-      .set({
-        value: nextPreference,
-        updatedAt: now,
-      })
-      .where(eq(appSettings.key, THEME_PREFERENCE_KEY))
-      .run();
-  } else {
-    await database.insert(appSettings).values({
-      key: THEME_PREFERENCE_KEY,
-      value: nextPreference,
-      updatedAt: now,
-    });
-  }
-
+  await requireServerHost().writeAppSetting(THEME_PREFERENCE_KEY, nextPreference);
   return nextPreference;
 }
 
@@ -187,46 +120,15 @@ function normalizeTraySettings(
 }
 
 export async function getTraySettings(): Promise<TraySettings> {
-  const database = getServerDatabase();
-  const row = await database
-    .select({ value: appSettings.value })
-    .from(appSettings)
-    .where(eq(appSettings.key, TRAY_SETTINGS_KEY))
-    .get();
-
-  return normalizeTraySettings(row?.value);
+  return normalizeTraySettings(await requireServerHost().readAppSetting(TRAY_SETTINGS_KEY));
 }
 
 async function saveTraySettings(
   settings: unknown,
   refreshTray: (settings: TraySettings) => void
 ): Promise<TraySettings> {
-  const database = getServerDatabase();
-  const now = new Date().toISOString();
   const nextSettings = normalizeTraySettings(settings, await getTraySettings());
-  const existing = await database
-    .select({ key: appSettings.key })
-    .from(appSettings)
-    .where(eq(appSettings.key, TRAY_SETTINGS_KEY))
-    .get();
-
-  if (existing) {
-    await database
-      .update(appSettings)
-      .set({
-        value: nextSettings,
-        updatedAt: now,
-      })
-      .where(eq(appSettings.key, TRAY_SETTINGS_KEY))
-      .run();
-  } else {
-    await database.insert(appSettings).values({
-      key: TRAY_SETTINGS_KEY,
-      value: nextSettings,
-      updatedAt: now,
-    });
-  }
-
+  await requireServerHost().writeAppSetting(TRAY_SETTINGS_KEY, nextSettings);
   refreshTray(nextSettings);
   return nextSettings;
 }

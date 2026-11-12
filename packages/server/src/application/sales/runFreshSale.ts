@@ -122,6 +122,7 @@ import {
   prepareSaleFiscalIntent,
 } from '../../services/fiscal/orchestrator/intents.js';
 import type { ResolvedLine } from '../../services/fiscal/orchestrator/types.js';
+import { resolveElectronicInvoiceBuyer } from './electronicInvoice.js';
 
 /**
  * Fresh-sale path (formerly `sales.create`): resolve the cart from scratch,
@@ -173,6 +174,14 @@ export async function runFreshSale(
 
   const sequentialContext = await getSaleSequentialContext(ctx.db, ctx.tenantId, ctx.siteId);
   const saleSiteId = activeCashSession.siteId;
+  const invoiceBuyer =
+    input.status === 'completed' && input.electronicInvoice
+      ? await resolveElectronicInvoiceBuyer(ctx.db, ctx.tenantId, input.electronicInvoice, {
+          customerId: resolvedCustomer.customerId,
+          siteId: saleSiteId,
+          now,
+        })
+      : undefined;
   const [manualResolvedItems, headerReceiptSnapshots] = await Promise.all([
     resolveSaleItems(ctx.db, ctx.tenantId, saleSiteId, input.items, appliedPriceTier),
     resolveSaleHeaderReceiptSnapshots(ctx.db, ctx.tenantId, {
@@ -344,6 +353,7 @@ export async function runFreshSale(
           lines: fiscalLines,
           completedAt: now,
           log,
+          ...(invoiceBuyer ? { kind: 'FEV' as const, buyer: invoiceBuyer } : {}),
         })
       : null;
 

@@ -203,6 +203,7 @@ export function useSalesFlows({
           creditOverride,
           approvalRequests: values.approvalRequests,
           pharmacyEvidenceIds: values.pharmacyEvidenceIds ?? [],
+          ...(values.electronicInvoice ? { electronicInvoice: values.electronicInvoice } : {}),
           checkoutStartedAt: activeWorkspace.checkoutStartedAt ?? undefined,
           ...(values.promotionFingerprint
             ? { promotionFingerprint: values.promotionFingerprint }
@@ -256,6 +257,7 @@ export function useSalesFlows({
         creditOverride,
         approvalRequests: values.approvalRequests,
         pharmacyEvidenceIds: values.pharmacyEvidenceIds ?? [],
+        ...(values.electronicInvoice ? { electronicInvoice: values.electronicInvoice } : {}),
         checkoutStartedAt: activeWorkspace?.checkoutStartedAt ?? undefined,
         ...(values.promotionFingerprint
           ? { promotionFingerprint: values.promotionFingerprint }

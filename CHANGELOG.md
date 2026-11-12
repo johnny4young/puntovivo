@@ -52,6 +52,64 @@ is usable from source, but it is not a new packaged release yet.
   a real alert receiver with ownership, and an observed retail pilot remain
   open gates.
 
+## [1.17.1](https://github.com/johnny4young/puntovivo/compare/v1.17.0...v1.17.1) (2026-11-11)
+
+
+### Bug Fixes
+
+* **desktop:** drain direct calls before stopping the server worker ([1c3a074](https://github.com/johnny4young/puntovivo/commit/1c3a0743b2d3c13c757036e452901f793af91575))
+* **desktop:** drain direct server calls before stopping worker ([4a70c4d](https://github.com/johnny4young/puntovivo/commit/4a70c4d19af57d8091c46304360b9253b2f2aa57))
+* **inventory:** keep stock searches literal ([bcbf2db](https://github.com/johnny4young/puntovivo/commit/bcbf2db5fc532db9313387826b11d3b082f51c4a))
+* **inventory:** keep stock searches literal ([3320e12](https://github.com/johnny4young/puntovivo/commit/3320e126b4ab64416aade3c3e4a746bcca621d9a))
+
+## [1.17.0](https://github.com/johnny4young/puntovivo/compare/v1.16.0...v1.17.0) (2026-11-08)
+
+
+### Features
+
+* **desktop:** run the embedded server in a worker thread ([9904e65](https://github.com/johnny4young/puntovivo/commit/9904e6503225baa5107d1d2d35d504bf65fb3677))
+* **desktop:** run the embedded server in a worker thread ([b19072f](https://github.com/johnny4young/puntovivo/commit/b19072f7d9b7642ccb672a7595eadf9e254be304))
+* **pos-touch:** let the buyer ask for an electronic invoice on the touch POS ([ca7bdf6](https://github.com/johnny4young/puntovivo/commit/ca7bdf6def0303e306be264b79136f3ede15a111))
+* **pos-touch:** let the buyer ask for an electronic invoice on the touch POS ([8437e24](https://github.com/johnny4young/puntovivo/commit/8437e24bc112623ffcc650424a6f955cd3c48743))
+* **sales:** issue an electronic invoice only when the buyer asks (no 5 UVT cap) ([6f5999e](https://github.com/johnny4young/puntovivo/commit/6f5999eb8b0ef1194ef5fdc35cac68c77f30bfc5))
+* **sales:** issue an electronic invoice when the buyer asks for one ([27e6599](https://github.com/johnny4young/puntovivo/commit/27e6599f0840cc212929f99e3fce891420838aa8))
+
+
+### Bug Fixes
+
+* **desktop:** fail a worker stop that did not close the server ([ea550c1](https://github.com/johnny4young/puntovivo/commit/ea550c1e335eac0e3604b4576007803e2dcf9a53))
+* **desktop:** show the window during the first Windows launch ([dd70380](https://github.com/johnny4young/puntovivo/commit/dd703808e7dbea79991dd6e12944f2bec2f7a4f6))
+* **desktop:** show the window during the first Windows launch ([d84d4b1](https://github.com/johnny4young/puntovivo/commit/d84d4b10c48c374faebfd6e5d2fe029e8823f738))
+* **pos-touch:** never carry a buyer from one ticket to the next ([01b0fbd](https://github.com/johnny4young/puntovivo/commit/01b0fbd2d3a3d3372e70317abe5f2134751a5a90))
+* **sales:** ask to rescan a code that fails its check digit ([be03e1e](https://github.com/johnny4young/puntovivo/commit/be03e1ecd2f760175aa6ab85c83c46641730f5f5))
+* **sales:** ask to rescan a code that fails its check digit ([ef7de04](https://github.com/johnny4young/puntovivo/commit/ef7de04625a0d9aa804fae8947b0bf2eaa1c5a89))
+* **sales:** keep the invoice buyer in step with the customer and the server rules ([aabc463](https://github.com/johnny4young/puntovivo/commit/aabc46397ac7caa81049c22d8836f34cba59bdf4))
+* **sales:** keep the invoice buyer in step with the customer and the server rules ([ca51c3e](https://github.com/johnny4young/puntovivo/commit/ca51c3e1cf578e6c058a9c1022d2702cda467161))
+* **seed:** give demo products valid EAN-13 barcodes ([82c530d](https://github.com/johnny4young/puntovivo/commit/82c530d05b4018dd07599d86c64257653e185f90))
+* **seed:** give demo products valid EAN-13 barcodes ([fe2307b](https://github.com/johnny4young/puntovivo/commit/fe2307b266b126b626ddc05539ef4d94534a5fa3))
+* **server:** end realtime streams when the server closes ([b783df5](https://github.com/johnny4young/puntovivo/commit/b783df55dabbea8705e7d2758aa840a6c2ac60f2))
+* **server:** end realtime streams when the server closes ([4a83724](https://github.com/johnny4young/puntovivo/commit/4a837245f5b1bd669522b0d44ab334a836ab0511))
+* **server:** end realtime streams when the server closes ([4b1f442](https://github.com/johnny4young/puntovivo/commit/4b1f44250669d3a8d484ac111d0e990c311b09fd))
+* **server:** refuse a realtime stream that opens after close starts ([f69c86f](https://github.com/johnny4young/puntovivo/commit/f69c86fb9a47dc2136cbc096b5e7d7e41551e234))
+
+
+### Performance
+
+* **desktop:** calibrate the main-thread gate to the in-process baseline ([f8e17bc](https://github.com/johnny4young/puntovivo/commit/f8e17bc11d974661508affc11027c3df3b27224a))
+* **desktop:** gate main-thread blocking and IPC p99 under server load ([ea28a6d](https://github.com/johnny4young/puntovivo/commit/ea28a6dbeaf7c24a078c13c53665b6447a810efb))
+* **desktop:** gate main-thread blocking and IPC p99 under server load ([fd273d7](https://github.com/johnny4young/puntovivo/commit/fd273d7ea258e72aaed89c46e52b6f6d10599fa9))
+* **desktop:** harden the main-thread gate launch and share the measurement harness ([fb624f7](https://github.com/johnny4young/puntovivo/commit/fb624f7e91247bf7f9466e37b3b657ef23e30bcc))
+* **desktop:** leave room for host contention in the in-process main-thread limits ([3e4ab49](https://github.com/johnny4young/puntovivo/commit/3e4ab4983459f327fbd1fc02a97a78f85f1f5015))
+
+
+### Refactors
+
+* **desktop:** bind host operations to their own server ([2a262bc](https://github.com/johnny4young/puntovivo/commit/2a262bcce53e989fa70667746cd1df2c01438039))
+* **desktop:** enforce the host contract limits next to the server ([5e072bb](https://github.com/johnny4young/puntovivo/commit/5e072bb06c1ac29156b57d759438fee705ba06ed))
+* **desktop:** pair each main-recorded audit action with its resource ([815f799](https://github.com/johnny4young/puntovivo/commit/815f79910dc9ad5cecd20ba1500674bb27846ac9))
+* **desktop:** reach the embedded server only through a host contract ([3a7eb16](https://github.com/johnny4young/puntovivo/commit/3a7eb16c320f6b7c12a70c262d946d96eedc6c0f))
+* **desktop:** reach the embedded server only through a host contract ([d90b45d](https://github.com/johnny4young/puntovivo/commit/d90b45d3e82a2f6363bcb262898004659aa8b41a))
+
 ## [1.16.0](https://github.com/johnny4young/puntovivo/compare/v1.15.6...v1.16.0) (2026-11-06)
 
 

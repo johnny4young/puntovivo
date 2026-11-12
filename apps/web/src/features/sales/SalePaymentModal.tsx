@@ -19,6 +19,8 @@ import { Drawer } from '@/components/feedback/Drawer';
 import { ModalButton } from '@/components/form-controls/Modal';
 import { formatCurrency } from '@/lib/utils';
 import { TENDER_SUM_EPSILON } from './salePaymentModal.constants';
+import { SaleElectronicInvoiceSection } from './LazySaleElectronicInvoiceSection';
+import { asElectronicInvoiceForm } from './electronicInvoiceRequest';
 import { useSalePaymentModal } from './useSalePaymentModal';
 import { CheckoutApprovalPanel } from './CheckoutApprovalPanel';
 import type { SalePaymentModalProps } from './salePaymentModal.types';
@@ -102,6 +104,7 @@ export function SalePaymentModal({
     creditMethodAvailable,
     selectedCustomer,
     customerAttached,
+    electronicInvoice,
     promotionQuoteLoading,
     promotionQuoteUnavailable,
     promotionQuoteStockError,
@@ -422,6 +425,16 @@ export function SalePaymentModal({
               </button>
             )}
         </div>
+
+        {electronicInvoice.available && (
+          <Suspense fallback={null}>
+            <SaleElectronicInvoiceSection
+              form={asElectronicInvoiceForm(form)}
+              identificationTypes={electronicInvoice.identificationTypes}
+              selectedCustomer={selectedCustomer}
+            />
+          </Suspense>
+        )}
 
         {/* V10 credit-sale customer card. Shows the
             customer's current balance, cupo, projected balance

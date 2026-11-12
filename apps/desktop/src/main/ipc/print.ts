@@ -21,7 +21,7 @@ import {
   resolveSystemPrinter,
   SystemPrinterError,
 } from '../system-printer-selection.js';
-import { createModuleLogger } from '@puntovivo/server';
+import { createModuleLogger } from '@puntovivo/server/desktop-main';
 import { t } from '../i18n';
 import {
   handlePrintReceiptRequest,

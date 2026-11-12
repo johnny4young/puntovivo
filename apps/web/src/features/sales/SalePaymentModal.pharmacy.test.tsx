@@ -48,6 +48,9 @@ vi.mock('@/lib/trpc', () => ({
       },
     },
     sales: {
+      electronicInvoiceAvailability: {
+        useQuery: () => ({ data: { available: false, identificationTypes: [] } }),
+      },
       quotePromotions: {
         useQuery: () => ({
           data: undefined,

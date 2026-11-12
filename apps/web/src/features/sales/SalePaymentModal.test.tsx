@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
@@ -12,6 +12,17 @@ import { useQuickCreateStore } from './useQuickCreateStore';
 const approvalInvalidateMock = vi.hoisted(() => vi.fn());
 const approvalRefetchMock = vi.hoisted(() => vi.fn());
 const approvalMutationMock = vi.hoisted(() => ({ mutate: vi.fn(), isPending: false }));
+const electronicInvoiceAvailabilityMock = vi.hoisted(() =>
+  vi.fn(() => ({
+    available: false,
+    identificationTypes: [] as Array<{
+      code: string;
+      abbr: string;
+      nameEs: string;
+      nameEn: string;
+    }>,
+  }))
+);
 
 vi.mock('@/lib/trpc', () => ({
   trpc: {
@@ -35,6 +46,9 @@ vi.mock('@/lib/trpc', () => ({
       },
     },
     sales: {
+      electronicInvoiceAvailability: {
+        useQuery: () => ({ data: electronicInvoiceAvailabilityMock() }),
+      },
       quotePromotions: {
         useQuery: () => ({
           data: undefined,
@@ -747,5 +761,258 @@ describe('SalePaymentModal — explicit partial settlement', () => {
     await user.type(amount, '200');
     expect(screen.queryByText('This sale will remain partially paid')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Confirm Sale' })).toBeVisible();
+  });
+});
+
+describe('SalePaymentModal — customer asked for an electronic invoice', () => {
+  const identificationTypes = [
+    { code: '13', abbr: 'CC', nameEs: 'Cédula de ciudadanía', nameEn: 'Citizenship ID' },
+    { code: '31', abbr: 'NIT', nameEs: 'Número de identificación tributaria', nameEn: 'Tax ID' },
+  ];
+
+  beforeAll(async () => {
+    await i18next.changeLanguage('en');
+  });
+
+  beforeEach(() => {
+    electronicInvoiceAvailabilityMock.mockReturnValue({ available: true, identificationTypes });
+  });
+
+  afterEach(() => {
+    electronicInvoiceAvailabilityMock.mockReset();
+    electronicInvoiceAvailabilityMock.mockReturnValue({
+      available: false,
+      identificationTypes: [],
+    });
+  });
+
+  function lastSubmitted(onSubmit: ReturnType<typeof vi.fn>): SalePaymentValues {
+    return onSubmit.mock.calls.at(-1)?.at(0) as unknown as SalePaymentValues;
+  }
+
+  it('hides the selector where the business cannot issue an invoice', async () => {
+    electronicInvoiceAvailabilityMock.mockReturnValue({
+      available: false,
+      identificationTypes: [],
+    });
+    render(<SalePaymentModal {...createProps()} />);
+
+    await screen.findByRole('button', { name: /Confirm Sale/i });
+    expect(screen.queryByTestId('sale-electronic-invoice')).not.toBeInTheDocument();
+  });
+
+  it('charges a large sale without asking for buyer data when the selector stays off', async () => {
+    const onSubmit = vi.fn(async () => undefined);
+    render(<SalePaymentModal {...createProps({ onSubmit, total: 300_000 })} />);
+
+    const toggle = await screen.findByRole('checkbox', {
+      name: 'Customer asked for an electronic invoice',
+    });
+    expect(toggle).not.toBeChecked();
+    expect(screen.queryByLabelText('Name or business name')).not.toBeInTheDocument();
+
+    await userEvent.setup().click(screen.getByRole('button', { name: /Confirm Sale/i }));
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    const submitted = lastSubmitted(onSubmit);
+    expect(submitted.electronicInvoice).toBeUndefined();
+    expect(submitted).not.toHaveProperty('invoiceRequested');
+    expect(submitted).not.toHaveProperty('invoiceBuyer');
+  });
+
+  it('asks for buyer data only after the selector is on and submits the request', async () => {
+    const onSubmit = vi.fn(async () => undefined);
+    render(<SalePaymentModal {...createProps({ onSubmit })} />);
+    const user = userEvent.setup();
+
+    await user.click(
+      await screen.findByRole('checkbox', { name: 'Customer asked for an electronic invoice' })
+    );
+    await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(await screen.findAllByText('Required')).toHaveLength(2);
+
+    await user.type(screen.getByLabelText('Name or business name'), '  Ferretería La 14 SAS ');
+    await user.selectOptions(screen.getByLabelText('ID type'), '31');
+    await user.type(screen.getByLabelText('ID number'), '900373115-3');
+    await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(lastSubmitted(onSubmit).electronicInvoice).toEqual({
+      buyer: {
+        name: 'Ferretería La 14 SAS',
+        identificationTypeCode: '31',
+        identificationNumber: '900373115-3',
+      },
+    });
+  });
+
+  it('flags a NIT whose verification digit does not match', async () => {
+    const onSubmit = vi.fn(async () => undefined);
+    render(<SalePaymentModal {...createProps({ onSubmit })} />);
+    const user = userEvent.setup();
+
+    await user.click(
+      await screen.findByRole('checkbox', { name: 'Customer asked for an electronic invoice' })
+    );
+    await user.type(screen.getByLabelText('Name or business name'), 'Ferretería La 14 SAS');
+    await user.selectOptions(screen.getByLabelText('ID type'), '31');
+    await user.type(screen.getByLabelText('ID number'), '900373115-9');
+    await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
+
+    expect(
+      await screen.findByText('The verification digit does not match (should be 3)')
+    ).toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('picks NIT when the attached customer number carries a verification digit', async () => {
+    const customer = makeCustomer({
+      id: 'cust-company',
+      name: 'Ferretería La 13 S.A.S.',
+      taxId: '900373115-3',
+    });
+    render(
+      <SalePaymentModal
+        {...createProps({ customers: [customer], approvalCustomerId: customer.id })}
+      />
+    );
+
+    await userEvent
+      .setup()
+      .click(
+        await screen.findByRole('checkbox', { name: 'Customer asked for an electronic invoice' })
+      );
+    expect(screen.getByLabelText('ID type')).toHaveValue('31');
+    expect(screen.getByLabelText('ID number')).toHaveValue('900373115-3');
+  });
+
+  it('shows how an undashed NIT will be recorded', async () => {
+    render(<SalePaymentModal {...createProps()} />);
+    const user = userEvent.setup();
+
+    await user.click(
+      await screen.findByRole('checkbox', { name: 'Customer asked for an electronic invoice' })
+    );
+    await user.selectOptions(screen.getByLabelText('ID type'), '31');
+    await user.type(screen.getByLabelText('ID number'), '9003731153');
+
+    expect(screen.getByTestId('sale-invoice-nit-preview')).toHaveTextContent(
+      'Recorded as 9003731153-4'
+    );
+  });
+
+  it('prefills the buyer from the attached customer', async () => {
+    const onSubmit = vi.fn(async () => undefined);
+    const customer = makeCustomer({
+      id: 'cust-invoice',
+      name: 'Ana Gómez',
+      taxId: '1020304050',
+      email: 'ana@example.co',
+    });
+    render(
+      <SalePaymentModal
+        {...createProps({ onSubmit, customers: [customer], approvalCustomerId: customer.id })}
+      />
+    );
+    const user = userEvent.setup();
+
+    await user.click(
+      await screen.findByRole('checkbox', { name: 'Customer asked for an electronic invoice' })
+    );
+    expect(screen.getByLabelText('Name or business name')).toHaveValue('Ana Gómez');
+    expect(screen.getByLabelText('ID number')).toHaveValue('1020304050');
+    await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(lastSubmitted(onSubmit).electronicInvoice).toEqual({
+      buyer: {
+        name: 'Ana Gómez',
+        identificationTypeCode: '13',
+        identificationNumber: '1020304050',
+        email: 'ana@example.co',
+      },
+    });
+  });
+
+  it('replaces the buyer the previous customer filled in when the customer changes', async () => {
+    const ana = makeCustomer({ id: 'cust-ana', name: 'Ana Gómez', taxId: '1020304050' });
+    const luis = makeCustomer({ id: 'cust-luis', name: 'Luis Pérez', taxId: '79876543' });
+    render(<SalePaymentModal {...createProps({ customers: [ana, luis] })} />);
+    const user = userEvent.setup();
+
+    await user.selectOptions(await screen.findByLabelText('Customer'), 'cust-ana');
+    await user.click(
+      screen.getByRole('checkbox', { name: 'Customer asked for an electronic invoice' })
+    );
+    await user.clear(screen.getByLabelText('Name or business name'));
+    await user.type(screen.getByLabelText('Name or business name'), 'Ana G.');
+    await user.selectOptions(screen.getByLabelText('Customer'), 'cust-luis');
+
+    expect(screen.getByLabelText('ID number')).toHaveValue('79876543');
+    expect(screen.getByLabelText('Name or business name')).toHaveValue('Ana G.');
+  });
+
+  it('flags an ID the server would reject before charging', async () => {
+    const onSubmit = vi.fn(async () => undefined);
+    render(<SalePaymentModal {...createProps({ onSubmit })} />);
+    const user = userEvent.setup();
+
+    await user.click(
+      await screen.findByRole('checkbox', { name: 'Customer asked for an electronic invoice' })
+    );
+    expect(screen.getByLabelText('Name or business name')).toHaveAttribute('maxLength', '200');
+    await user.type(screen.getByLabelText('Name or business name'), 'Ana Gómez');
+    await user.type(screen.getByLabelText('ID number'), '12');
+    await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
+    expect(await screen.findByText('Invalid ID number')).toBeInTheDocument();
+
+    await user.clear(screen.getByLabelText('ID number'));
+    await user.type(screen.getByLabelText('ID number'), '222222222222');
+    await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
+    expect(
+      await screen.findByText('This is the consumidor final number, not a buyer')
+    ).toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+});
+
+describe('SalePaymentModal — electronic invoice selector in Spanish', () => {
+  beforeAll(async () => {
+    await i18next.changeLanguage('es');
+  });
+
+  afterAll(async () => {
+    await i18next.changeLanguage('en');
+  });
+
+  beforeEach(() => {
+    electronicInvoiceAvailabilityMock.mockReturnValue({
+      available: true,
+      identificationTypes: [
+        { code: '13', abbr: 'CC', nameEs: 'Cédula de ciudadanía', nameEn: 'Citizenship ID' },
+      ],
+    });
+  });
+
+  afterEach(() => {
+    electronicInvoiceAvailabilityMock.mockReturnValue({
+      available: false,
+      identificationTypes: [],
+    });
+  });
+
+  it('labels the selector and buyer fields in neutral Spanish', async () => {
+    render(<SalePaymentModal {...createProps()} />);
+    await userEvent
+      .setup()
+      .click(await screen.findByRole('checkbox', { name: 'El cliente pidió factura electrónica' }));
+
+    expect(screen.getByLabelText('Nombre o razón social')).toBeInTheDocument();
+    expect(screen.getByLabelText('Tipo de documento')).toHaveDisplayValue(
+      'CC · Cédula de ciudadanía'
+    );
+    expect(screen.getByLabelText('Número de documento')).toBeInTheDocument();
+    expect(screen.getByLabelText('Correo (opcional)')).toBeInTheDocument();
   });
 });

@@ -233,6 +233,58 @@ describe('Inventory tRPC Router', () => {
     expect(lowStockOnly.items[0]?.sku).toBe('INV-LOW');
   });
 
+  it.each(['%', '_', '!', '!%', '!_'])(
+    'keeps stock pages and valuation scoped to literal search text %s',
+    async punctuation => {
+      const caller = appRouter.createCaller(createTestContext());
+      const prefix = `QA${nanoid(8)}`;
+      const search = `${prefix}${punctuation}`;
+      const first = await caller.products.create({
+        name: `${search} first`,
+        sku: `${prefix}-first`,
+        price: 20,
+        initialCost: 10,
+        stock: 1,
+        minStock: 2,
+      });
+      const second = await caller.products.create({
+        name: `${prefix} second`,
+        sku: `${search}-second`,
+        price: 20,
+        initialCost: 10,
+        stock: 3,
+        minStock: 2,
+      });
+      const third = await caller.products.create({
+        name: `${prefix} third`,
+        sku: `${prefix}-third`,
+        barcode: `${search}-barcode`,
+        price: 20,
+        initialCost: 10,
+        stock: 2,
+      });
+      await caller.products.create({
+        name: `${prefix}XY decoy`,
+        sku: `${prefix}-decoy`,
+        price: 20,
+        initialCost: 10,
+        stock: 100,
+      });
+
+      const pageOne = await caller.inventory.listStock({ page: 1, perPage: 2, search });
+      const pageTwo = await caller.inventory.listStock({ page: 2, perPage: 2, search });
+
+      expect([...pageOne.items, ...pageTwo.items].map(item => item.id).sort()).toEqual(
+        [first.id, second.id, third.id].sort()
+      );
+      expect(pageOne.totalItems).toBe(3);
+      expect(pageTwo.totalItems).toBe(3);
+      expect(pageOne.totalPages).toBe(2);
+      expect(pageOne.summary).toEqual({ totalUnits: 6, totalValue: 60, lowStockCount: 1 });
+      expect(pageTwo.summary).toEqual(pageOne.summary);
+    }
+  );
+
   it('adjusts stock and returns movement rows with product context', async () => {
     const caller = appRouter.createCaller(createTestContext());
 

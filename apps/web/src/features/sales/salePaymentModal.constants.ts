@@ -13,6 +13,7 @@ import { ArrowLeftRight, Banknote, CreditCard, Landmark, MoreHorizontal } from '
 
 import type { PaymentMethod } from '@/types';
 import type { SalePaymentValues } from './salePaymentModal.types';
+import { EMPTY_INVOICE_BUYER } from './electronicInvoiceRequest';
 
 export const TENDER_SUM_EPSILON = 0.005;
 // preset tip percentages. 0% is rendered as "Sin propina"
@@ -59,6 +60,8 @@ export function getDefaultValues(
     creditOverride: false,
     approvalRequests: [],
     pharmacyEvidenceIds: [],
+    invoiceRequested: false,
+    invoiceBuyer: { ...EMPTY_INVOICE_BUYER },
   };
 }
 

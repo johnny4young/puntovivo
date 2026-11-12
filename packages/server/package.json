@@ -1,6 +1,6 @@
 {
   "name": "@puntovivo/server",
-  "version": "1.16.0",
+  "version": "1.17.1",
   "description": "Puntovivo Backend Server - Fastify + Drizzle + SQLite",
   "type": "module",
   "main": "./dist/index.js",
@@ -13,6 +13,10 @@
     "./audit-anchor": {
       "import": "./dist/services/audit-anchor.js",
       "types": "./dist/services/audit-anchor.d.ts"
+    },
+    "./desktop-main": {
+      "import": "./dist/desktop-main.js",
+      "types": "./dist/desktop-main.d.ts"
     }
   },
   "scripts": {
@@ -83,7 +87,7 @@
     "argon2": "^0.45.1",
     "better-sqlite3": "npm:better-sqlite3-multiple-ciphers@^13.0.3",
     "drizzle-orm": "^0.45.4",
-    "fast-xml-parser": "^5.11.2",
+    "fast-xml-parser": "^5.12.0",
     "fastify": "^5.12.7",
     "fastify-plugin": "^6.0.1",
     "jspdf": "^4.2.1",
