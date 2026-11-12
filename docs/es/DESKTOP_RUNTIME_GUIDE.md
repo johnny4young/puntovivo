@@ -331,7 +331,6 @@ Puente de sincronización de escritorio:
 
 - `sync:getStatus`
 - `sync:triggerSync`
-- `sync:setConfig`
 
 ### Por qué este proyecto usa invoke/handle en lugar de IPC por eventos
 

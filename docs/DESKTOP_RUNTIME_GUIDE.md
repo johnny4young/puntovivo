@@ -356,7 +356,6 @@ Desktop sync bridge:
 
 - `sync:getStatus`
 - `sync:triggerSync`
-- `sync:setConfig`
 
 ### Why this project uses invoke/handle instead of event-style IPC
 

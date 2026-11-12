@@ -1,5 +1,5 @@
 /**
- * Authenticated desktop sync summaries, trigger and configuration.
+ * Authenticated desktop sync summaries and trigger.
  * Domain mutations and outbox payloads are not renderer IPC capabilities.
  * @module main/server-host/desktop-sync
  */
@@ -7,7 +7,6 @@ import { and, eq, sql, syncConflicts, syncOutbox } from '@puntovivo/server';
 import type { DesktopSyncStatusResult, DesktopSyncTriggerResult } from './contract.ts';
 import {
   type SyncDatabase,
-  DESKTOP_SYNC_CONFIG_KEY,
   SYNC_ENTITY_CONFIG,
   desktopPendingSyncWhere,
   desktopProcessableSyncWhere,
@@ -17,7 +16,6 @@ import {
   incrementQueueFailure,
   markSyncEntityAsSynced,
   saveLastSyncAt,
-  upsertAppSetting,
 } from './desktop-sync-helpers.ts';
 
 export async function getDesktopSyncStatus(
@@ -136,11 +134,4 @@ export async function handleDesktopTriggerSync(
     errors,
     ...status,
   };
-}
-
-export async function handleDesktopSetSyncConfig(
-  database: SyncDatabase,
-  config: Record<string, unknown>
-): Promise<void> {
-  await upsertAppSetting(database, DESKTOP_SYNC_CONFIG_KEY, config);
 }
