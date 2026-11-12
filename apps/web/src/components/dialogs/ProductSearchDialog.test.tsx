@@ -248,6 +248,36 @@ describe('<ProductSearchDialog /> empty-state CTA', () => {
     );
   });
 
+  it("shows the active site's stock, not the tenant total", async () => {
+    trpcQueryState.data = {
+      items: [
+        {
+          id: 'p-1',
+          name: 'Aceite Girasol 1L',
+          sku: 'ABR-0003',
+          stock: 28,
+          siteStock: 17,
+          baseUnitPrice: 11900,
+          unitAssignments: [
+            { unitId: 'u-1', unitName: 'Unidad', equivalence: 1, price: 11900, isBase: true },
+          ],
+        },
+      ],
+      total: 1,
+    } as unknown as typeof trpcQueryState.data;
+    const user = userEvent.setup();
+    renderDialog({ siteId: 'site-1' });
+    await user.type(screen.getByPlaceholderText(/Search by SKU/i), 'aceite');
+
+    const row = (await screen.findByText('Aceite Girasol 1L')).closest('tr');
+    expect(row).toHaveTextContent('17');
+    expect(row).not.toHaveTextContent('28');
+    expect(productsSearchUseQuery).toHaveBeenLastCalledWith(
+      expect.objectContaining({ q: 'aceite', siteId: 'site-1' }),
+      expect.objectContaining({ enabled: true })
+    );
+  });
+
   // the expiry-radar badge is opt-in per caller: only rows whose
   // product has an active suggestion AND showDiscountSuggestions is on
   // render the chip.
