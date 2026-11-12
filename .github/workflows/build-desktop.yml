@@ -301,7 +301,7 @@ jobs:
           pnpm --filter @puntovivo/desktop run build:main
 
       - name: Run the short soak
-        run: node scripts/run-electron-memory-gate.mjs --check=soak --profile=short --out=soak-out
+        run: pnpm run soak:desktop --profile=short --out=soak-out
 
       - name: Upload soak evidence
         if: ${{ always() }}

@@ -1373,8 +1373,8 @@ The run passes only when:
 - on runs of 2 h or more, the working-set slope of every process type over
   the last 6 h stays under 5 MB/h.
 
-Fiscal emission runs with the mock adapter as seeded; the soak does not yet
-inject provider latency or failures.
+Fiscal emission runs with the mock adapter, which in a soak answers after
+250 ms and fails one call in five with a recoverable provider error.
 
 ### Short run
 
@@ -1382,7 +1382,7 @@ inject provider latency or failures.
 pnpm --filter @puntovivo/server run build
 pnpm --filter @puntovivo/web run build
 pnpm --filter @puntovivo/desktop run build:main
-node scripts/run-electron-memory-gate.mjs --check=soak --profile=short --out=output/soak
+pnpm run soak:desktop --profile=short --out=output/soak
 ```
 
 In CI, dispatch `build-desktop.yml` with `soak` checked; it runs the short
@@ -1399,7 +1399,7 @@ release. Use a disposable Windows account, never the store's profile.
 2. Build as for the short run.
 3. Close every other program, plug the machine in and disable sleep.
 4. Run
-   `node scripts/run-electron-memory-gate.mjs --check=soak --profile=long --out=C:\pv-soak\<date>`.
+   `pnpm run soak:desktop --profile=long --out=C:\pv-soak\<date>`.
 5. Keep the output folder outside the repository. Record the verdict table,
    the sale p50/p95 and the slopes in the release notes for that candidate.
 

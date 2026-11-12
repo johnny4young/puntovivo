@@ -5,8 +5,8 @@
  * backups, samples memory and main-thread stalls, and checks the books at the
  * end (ADR 0034, ADR 0035).
  *
- * Run it through `run-electron-memory-gate.mjs --check=soak`, which serves the
- * built renderer. `--profile=short` (default) is the 20-minute CI run;
+ * Run it with `pnpm run soak:desktop`, which serves the built renderer (the
+ * gate runner needs pnpm's entry on Windows). `--profile=short` (default) is the 20-minute CI run;
  * `--profile=long` is the 8-hour run. `--minutes=N` overrides the duration and
  * `--out=DIR` keeps the samples and the summary.
  *
@@ -349,6 +349,9 @@ export async function runSoak(options) {
         PUNTOVIVO_DB_KEY: MEASURE_DB_KEY,
         PUNTOVIVO_LOG_LEVEL: 'warn',
         PUNTOVIVO_GLOBAL_RATE_LIMIT_MAX: '100000',
+        // The mock fiscal provider answers slowly and fails one call in five.
+        PUNTOVIVO_SOAK_FISCAL_LATENCY_MS: '250',
+        PUNTOVIVO_SOAK_FISCAL_FAIL_EVERY: '5',
       },
     }
   );

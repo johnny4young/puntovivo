@@ -125,6 +125,6 @@ test('the soak is opt-in, bounded and keeps its evidence', () => {
   const job = workflow.slice(workflow.indexOf('  soak-win:'), workflow.indexOf('  build-mac:'));
   assert.match(job, /if: \$\{\{ inputs\.soak \}\}/);
   assert.match(job, /timeout-minutes: 50/);
-  assert.match(job, /--check=soak --profile=short --out=soak-out/);
+  assert.match(job, /pnpm run soak:desktop --profile=short --out=soak-out/);
   assert.match(job, /if: \$\{\{ always\(\) \}\}\n\s+uses: actions\/upload-artifact/);
 });

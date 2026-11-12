@@ -483,8 +483,9 @@ La corrida pasa solo cuando:
 - en corridas de 2 h o más, la pendiente del working set de cada tipo de
   proceso en las últimas 6 h queda por debajo de 5 MB/h.
 
-La emisión fiscal corre con el adaptador mock tal como viene sembrado; el soak
-todavía no inyecta latencia ni fallas del proveedor.
+La emisión fiscal corre con el adaptador mock, que en un soak contesta tras
+250 ms y falla una llamada de cada cinco con un error recuperable del
+proveedor.
 
 ### Corrida corta
 
@@ -492,7 +493,7 @@ todavía no inyecta latencia ni fallas del proveedor.
 pnpm --filter @puntovivo/server run build
 pnpm --filter @puntovivo/web run build
 pnpm --filter @puntovivo/desktop run build:main
-node scripts/run-electron-memory-gate.mjs --check=soak --profile=short --out=output/soak
+pnpm run soak:desktop --profile=short --out=output/soak
 ```
 
 En CI, dispara `build-desktop.yml` con `soak` marcado; corre el perfil corto
@@ -510,7 +511,7 @@ release. Usa una cuenta de Windows desechable, nunca el perfil de la tienda.
 3. Cierra los demás programas, conecta el equipo a la corriente y desactiva la
    suspensión.
 4. Corre
-   `node scripts/run-electron-memory-gate.mjs --check=soak --profile=long --out=C:\pv-soak\<date>`.
+   `pnpm run soak:desktop --profile=long --out=C:\pv-soak\<date>`.
 5. Guarda la carpeta de salida fuera del repositorio. Anota la tabla de
    veredictos, el p50/p95 de venta y las pendientes en las notas de release de
    ese candidato.

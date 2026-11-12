@@ -35,6 +35,7 @@
     "perf:backup:release": "pnpm --filter @puntovivo/desktop run profile:backup:release",
     "perf:electron-memory": "node scripts/check-electron-memory.mjs",
     "perf:electron-memory:gate": "node scripts/run-electron-memory-gate.mjs",
+    "soak:desktop": "node scripts/run-electron-memory-gate.mjs --check=soak",
     "perf:electron-main-thread:gate": "node scripts/run-electron-memory-gate.mjs --check=main-thread",
     "perf:lighthouse": "node scripts/check-lighthouse.mjs",
     "ci:server:gates": "pnpm run ci:server:static && pnpm run ci:server:perf",
