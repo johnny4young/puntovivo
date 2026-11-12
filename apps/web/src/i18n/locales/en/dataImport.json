@@ -384,6 +384,7 @@
       "unsupported_country": "Only CO, MX, and CL fiscal profiles are supported",
       "tenant_country_mismatch": "This profile does not match the business country",
       "invalid_tax_identifier": "The issuer tax identifier is not valid for this country",
+      "invalid_check_digit": "The verification digit is wrong; the correct one is {{digit}}",
       "invalid_activity_code": "The regime or activity code is not in the fiscal catalog",
       "invalid_issue_location": "The issue location is not valid for this country",
       "invalid_administrative_area": "The administrative area code is not in the fiscal catalog",

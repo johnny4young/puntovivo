@@ -182,7 +182,7 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
           : 'actions.sellProduct.description',
       descriptionArgs: {
         price: formatCurrency(product.price),
-        stock: formatNumber(product.stock),
+        stock: formatNumber(product.siteStock ?? product.stock),
       },
       roles: SELL_QUERY_ROLES as CommandAction['roles'],
       // The sell path resolves barcodes; without one it opens the search on the SKU.

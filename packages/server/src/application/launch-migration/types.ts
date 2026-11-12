@@ -290,6 +290,7 @@ export type FiscalProfileImportIssueCode =
   | 'unsupported_country'
   | 'tenant_country_mismatch'
   | 'invalid_tax_identifier'
+  | 'invalid_check_digit'
   | 'invalid_activity_code'
   | 'invalid_issue_location'
   | 'invalid_administrative_area'
@@ -306,10 +307,13 @@ export type FiscalProfileImportIssueCode =
   | 'concurrent_profile_change'
   | 'import_failed';
 
-export interface FiscalProfileImportIssue {
-  code: FiscalProfileImportIssueCode;
-  field: FiscalProfileImportField;
-}
+/** A wrong check digit carries only the expected digit, never the identifier. */
+export type FiscalProfileImportIssue =
+  | {
+      code: Exclude<FiscalProfileImportIssueCode, 'invalid_check_digit'>;
+      field: FiscalProfileImportField;
+    }
+  | { code: 'invalid_check_digit'; field: 'taxIdentifier'; expectedDigit: number };
 
 export interface NormalizedLaunchFiscalProfile {
   countryCode: FiscalProfileCountryCode | null;

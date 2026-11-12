@@ -158,7 +158,9 @@ export function SaleCartTable({
                   </span>
                   <span className="mono mt-0.5 block truncate text-[11px] text-secondary-500">
                     {item.productSku}
-                    {item.tracksStock !== false && ` · ${t('cart.stock')} ${item.availableStock}`}
+                    {item.tracksStock !== false &&
+                      Number.isFinite(item.availableStock) &&
+                      ` · ${t('cart.stock')} ${item.availableStock}`}
                     {!isSelected && item.discount > 0 && (
                       <span data-testid={`cart-line-discount-${item.productSku}`}>
                         {` · ${t('cart.discount')} ${item.discount}%`}

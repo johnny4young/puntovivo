@@ -16,7 +16,7 @@ describe(' fiscal profile report rows', () => {
           status: 'ready' as const,
           normalized: {
             countryCode: 'CO' as const,
-            taxIdentifier: '900123456-7',
+            taxIdentifier: '900123456-8',
             economicActivityCode: null,
             issueLocation: null,
             administrativeAreaCode: null,
