@@ -18,7 +18,11 @@ test('manual desktop builds require and verify one immutable candidate SHA', () 
 
   const candidateCheckouts =
     workflow.match(/ref: \$\{\{ needs\.verify-candidate\.outputs\.sha \}\}/g) ?? [];
-  assert.equal(candidateCheckouts.length, 3, 'every platform must checkout the verified SHA');
+  assert.equal(
+    candidateCheckouts.length,
+    4,
+    'every platform and the soak must checkout the verified SHA'
+  );
 });
 
 test('manual macOS evidence is pinned to Sequoia and Tahoe on Apple Silicon', () => {
@@ -79,7 +83,7 @@ test('every full platform build starts clean, smokes the package, and uploads ev
         /npm install --global "pnpm@\$pnpmVersion" --ignore-scripts --no-audit --no-fund/g
       ) ?? []
     ).length,
-    3
+    4
   );
   assert.equal(
     (workflow.match(/node scripts\/collect-desktop-candidate-evidence\.mjs/g) ?? []).length,
@@ -114,4 +118,13 @@ test('every full platform build starts clean, smokes the package, and uploads ev
     3,
     'artifact upload must retain sanitized failure evidence after a blocking rehearsal'
   );
+});
+
+test('the soak is opt-in, bounded and keeps its evidence', () => {
+  assert.match(workflow, /soak:\n\s+description: 'Run the 20-minute desktop soak/);
+  const job = workflow.slice(workflow.indexOf('  soak-win:'), workflow.indexOf('  build-mac:'));
+  assert.match(job, /if: \$\{\{ inputs\.soak \}\}/);
+  assert.match(job, /timeout-minutes: 50/);
+  assert.match(job, /--check=soak --profile=short --out=soak-out/);
+  assert.match(job, /if: \$\{\{ always\(\) \}\}\n\s+uses: actions\/upload-artifact/);
 });

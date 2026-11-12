@@ -71,6 +71,7 @@ import {
   WORKER_CRASH_LOG_FILE,
 } from './server-host/crash-log.js';
 import { createWorkerLauncher } from './server-host/worker-host.js';
+import type { WorkerMemorySample } from './server-host/protocol.js';
 import {
   createMemoryWatch,
   DEFAULT_RSS_ALERT_MB,
@@ -78,6 +79,7 @@ import {
 } from './server-host/memory-policy.js';
 import { broadcastServerState, registerServerStateIpc } from './ipc/server-state.js';
 import { createTrayController } from './tray-controller.js';
+import { installSoakMode } from './soak-mode.js';
 import { disableBuiltinSpellchecker } from './window-config.js';
 import { createWindowLifecycle } from './window-lifecycle.js';
 import {
@@ -193,6 +195,7 @@ const workerCrashLog = createWorkerCrashLog({
   getPath: () => join(app.getPath('userData'), WORKER_CRASH_LOG_FILE),
 });
 
+let lastWorkerStats: WorkerMemorySample | null = null;
 const workerMemoryWatch = createMemoryWatch({
   onAlert: sample => {
     mainLog.warn({ ...sample, thresholdMb: DEFAULT_RSS_ALERT_MB }, 'server worker memory high');
@@ -234,7 +237,10 @@ const serverLifecycle = createServerLifecycle({
     },
     allowTestCrash: isE2e || process.env.PUNTOVIVO_SOAK === '1',
     resourceLimits: resolveWorkerResourceLimits(),
-    onStats: workerMemoryWatch.observe,
+    onStats: stats => {
+      lastWorkerStats = stats;
+      workerMemoryWatch.observe(stats);
+    },
   }),
   onStateChange: broadcastServerState,
   onFatalExit: fatal => handleFatalServerExit(fatal),
@@ -307,6 +313,20 @@ const windowLifecycle = createWindowLifecycle({
   },
   isQuitting: () => isQuitting,
   onVisibilityChange: () => trayControllerRef.current?.refresh(),
+  ...(process.env.PUNTOVIVO_SOAK === '1' && process.env.PUNTOVIVO_SOAK_CONTROL_DIR
+    ? {
+        beforeRendererLoad: webContents =>
+          installSoakMode({
+            webContents,
+            controlDir: process.env.PUNTOVIVO_SOAK_CONTROL_DIR!,
+            log: mainLog,
+            getServerHost,
+            getServerState: serverLifecycle.getState,
+            getWorkerStats: () => lastWorkerStats,
+            runBackup: tenantId => backupScheduler.runNow(tenantId),
+          }),
+      }
+    : {}),
 });
 windowLifecycleRef.current = windowLifecycle;
 
