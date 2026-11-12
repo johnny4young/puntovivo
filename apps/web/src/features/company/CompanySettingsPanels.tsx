@@ -11,6 +11,7 @@ import { CompanyAISettingsCard } from './CompanyAISettingsCard';
 import { CompanyAutoUpdateCard } from './CompanyAutoUpdateCard';
 import { CompanyClFiscalCard } from './CompanyClFiscalCard';
 import { CompanyCoFiscalCard } from './CompanyCoFiscalCard';
+import { CompanyCoNumberingCard } from './CompanyCoNumberingCard';
 import { CompanyLocaleSettingsCard } from './CompanyLocaleSettingsCard';
 import { CompanyModulesCard } from './CompanyModulesCard';
 import { CompanyMxFiscalCard } from './CompanyMxFiscalCard';
@@ -277,6 +278,7 @@ export function CompanySettingsPanels({
               {tenantCountryCode === 'MX' && <CompanyMxFiscalCard />}
               {tenantCountryCode === 'CL' && <CompanyClFiscalCard />}
               {tenantCountryCode === 'CO' && <CompanyCoFiscalCard />}
+              {tenantCountryCode === 'CO' && <CompanyCoNumberingCard />}
               {tenantCountryCode !== null && !['MX', 'CL', 'CO'].includes(tenantCountryCode) && (
                 <div className="card space-y-2 p-6">
                   {/* explicit unsupported-country state. */}

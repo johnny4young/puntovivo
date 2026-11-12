@@ -63,20 +63,15 @@ export const updateClFiscalSettingsInput = z.object({
 
 /**
  * Input parcial de `fiscal.settings.updateCo`. Captura la
- * config básica de DIAN de Colombia: NIT del emisor, número de
- * resolución de numeración, prefijo, rango autorizado (from/to) y
- * ambiente. La validación semántica (NIT, orden del rango) vive en el
- * router; el switch maestro `enabled` se persiste en el flag legacy
+ * config básica de DIAN de Colombia: NIT del emisor, software y
+ * ambiente. La numeración vive en `fiscal_numbering_resolutions`.
+ * La validación del NIT vive en el router; el switch maestro `enabled` se persiste en el flag legacy
  * `tenants.settings.fiscal_dian_enabled`. La transmisión real + el
  * certificado siguen mock / gated en .
  */
 export const updateCoFiscalSettingsInput = z.object({
   enabled: z.boolean().optional(),
   nit: z.string().trim().min(1).max(20).optional().nullable(),
-  dianResolutionNumber: z.string().trim().min(1).max(40).optional().nullable(),
-  prefix: z.string().trim().min(1).max(10).optional().nullable(),
-  rangeFrom: z.number().int().positive().optional().nullable(),
-  rangeTo: z.number().int().positive().optional().nullable(),
   environment: z.enum(['habilitacion', 'produccion']).optional(),
   softwareId: z.string().trim().min(1).max(100).optional().nullable(),
   /** Write-only: reads expose only `softwarePinConfigured`. */

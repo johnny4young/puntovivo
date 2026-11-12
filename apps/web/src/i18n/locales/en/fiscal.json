@@ -145,24 +145,15 @@
     "co": {
       "kicker": "Fiscal profile",
       "title": "Colombia — DIAN",
-      "emptyTitle": "DIAN electronic invoicing is optional",
-      "emptyDescription": "You can keep selling without it. Set up DIAN whenever you are ready to issue electronic invoices — your store stays fully operational either way.",
+      "emptyTitle": "DIAN issuing is optional",
+      "emptyDescription": "You can keep selling without it. Set it up whenever you want to issue electronic documents.",
       "emptyCta": "Set up DIAN",
       "fields": {
-        "enabled": "Enable DIAN electronic invoicing",
-        "enabledHelp": "Optional. When on, completed sales will emit a DIAN electronic invoice once transmission is available. Today this captures your issuer config and gates the readiness reminder.",
+        "enabled": "Enable DIAN issuing",
+        "enabledHelp": "Each sale produces its electronic POS document, or an electronic invoice when the buyer asks for one. The Colombian pack is in test mode: nothing is sent to DIAN.",
         "nit": "Issuer NIT",
         "nitHelp": "9 to 10 digits, with an optional verification digit.",
         "nitPlaceholder": "e.g. 900123456-8",
-        "resolution": "DIAN numbering resolution",
-        "resolutionHelp": "The resolution number that authorizes your invoice range.",
-        "resolutionPlaceholder": "e.g. 18760000001",
-        "prefix": "Invoice prefix",
-        "prefixPlaceholder": "e.g. SETP",
-        "rangeFrom": "Range from",
-        "rangeFromPlaceholder": "e.g. 1",
-        "rangeTo": "Range to",
-        "rangeToPlaceholder": "e.g. 5000",
         "environment": "Environment",
         "environmentHabilitacion": "Enablement (testing)",
         "environmentProduccion": "Production",
@@ -179,8 +170,6 @@
       },
       "issueCodes": {
         "MISSING_NIT": "Issuer NIT is missing or its verification digit is invalid",
-        "MISSING_RESOLUTION": "DIAN numbering resolution is missing",
-        "MISSING_RANGE": "DIAN numbering range is missing or invalid",
         "MISSING_SOFTWARE": "DIAN software ID or PIN is missing"
       },
       "actions": {
@@ -236,13 +225,11 @@
   "readiness": {
     "label": "Fiscal readiness",
     "profile": "Fiscal profile",
-    "numbering": "Numbering resolution",
     "environment": "Environment",
     "pending": "Documents to attend to",
     "missing": "Missing",
     "complete": "Complete profile",
     "edit": "Edit",
-    "addResolution": "Add resolution",
     "production": "Production",
     "testing": "Testing",
     "viewQueue": "View queue",
@@ -264,5 +251,94 @@
     "nitPreview": "Recorded as {{nit}}",
     "malformed": "Invalid ID number",
     "consumidorFinal": "This is the consumidor final number, not a buyer"
+  },
+  "numbering": {
+    "kicker": "Numbering",
+    "title": "DIAN numbering ranges",
+    "empty": "No site has a registered range.",
+    "kind": {
+      "DEE": "Electronic POS document",
+      "FEV": "Electronic invoice"
+    },
+    "environment": {
+      "habilitacion": "Enablement",
+      "produccion": "Production"
+    },
+    "status": {
+      "active": "Active",
+      "scheduled": "Waiting",
+      "exhausted": "Exhausted",
+      "expired": "Expired",
+      "retired": "Retired"
+    },
+    "table": {
+      "caption": "Numbering ranges of {{site}}",
+      "kind": "Type",
+      "range": "Range",
+      "usage": "Usage",
+      "validity": "Valid until",
+      "status": "Status",
+      "actions": "Actions",
+      "resolution": "Resolution {{number}}",
+      "remaining_one": "{{count}} number left",
+      "remaining_other": "{{count}} numbers left",
+      "expiresIn_one": "Expires in {{count}} day",
+      "expiresIn_other": "Expires in {{count}} days",
+      "expired": "Expired"
+    },
+    "alert": {
+      "expiry": "Expires in {{days}} days",
+      "expiryNoSuccessor": "Expires in {{days}} days and no other range is waiting",
+      "consumption": "{{count}} numbers left",
+      "consumptionNoSuccessor": "{{count}} numbers left and no other range is waiting"
+    },
+    "form": {
+      "title": "Register range",
+      "kind": "Document type",
+      "site": "Site",
+      "resolutionNumber": "Resolution number",
+      "resolutionDate": "Resolution date",
+      "prefix": "Prefix",
+      "from": "From",
+      "to": "To",
+      "validFrom": "Valid from",
+      "validUntil": "Valid until",
+      "technicalKey": "Technical key",
+      "environment": "Environment"
+    },
+    "confirm": {
+      "title": "Review the range",
+      "firstNumber": "The first document will carry the number:",
+      "immutable": "After the first document the range cannot be edited, only retired."
+    },
+    "retire": {
+      "title": "Retire range",
+      "reason": "Reason"
+    },
+    "remove": {
+      "title": "Delete range",
+      "body": "Range {{range}} will be deleted. It has not issued any number."
+    },
+    "actions": {
+      "register": "Register range",
+      "review": "Review",
+      "save": "Register",
+      "activate": "Activate now",
+      "retire": "Retire",
+      "remove": "Delete"
+    },
+    "toast": {
+      "createdActive": "Range registered and active",
+      "createdScheduled": "Range registered, waiting",
+      "activated": "Range activated",
+      "retired": "Range retired",
+      "removed": "Range deleted",
+      "error": "Numbering could not be updated"
+    },
+    "banner": {
+      "title_one": "A DIAN numbering range needs attention",
+      "title_other": "{{count}} DIAN numbering ranges need attention",
+      "action": "View ranges"
+    }
   }
 }
