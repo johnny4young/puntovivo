@@ -30,8 +30,9 @@ import { PAYMENT_RAIL_IDS } from '../payments/manifest.js';
 
 /**
  * What the next sale at a site gets from the Colombian DIAN path.
- * `issuing` means a document intent will queue; every other state means the
- * sale completes without an electronic document.
+ * `issuing` means a document intent will queue. In every other state a
+ * normal sale completes without an electronic document; `numbering_fev_only`
+ * still issues an invoice the buyer asks for.
  */
 export type CheckoutFiscalState =
   | 'issuing'

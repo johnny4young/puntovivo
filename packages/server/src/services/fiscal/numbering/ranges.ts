@@ -121,6 +121,7 @@ export interface NumberingRangeUsage {
   dailyAverage: number;
   /** Days of numbers left at `dailyAverage`; null when nothing was issued lately. */
   daysOfStockLeft: number | null;
+  /** A scheduled range of the same site and kind that is in force when this one expires. */
   hasScheduledSuccessor: boolean;
   siteName: string;
   /** Null while nothing is due, or while the tenant has DIAN issuing off. */
@@ -148,7 +149,8 @@ export function businessDaysBetween(from: string, until: string): number {
   const end = Date.parse(until);
   let days = 0;
   for (let cursor = Date.parse(from) + DAY_MS; cursor <= end; cursor += DAY_MS) {
-    const weekday = new Date(cursor).getUTCDay();
+    // Weekday as seen in Colombia (UTC-5, no DST).
+    const weekday = new Date(cursor - 5 * 3_600_000).getUTCDay();
     if (weekday !== 0 && weekday !== 6) days += 1;
   }
   return days;
@@ -717,12 +719,16 @@ export function getNumberingUsage(
       siteName: siteNames.get(range.siteId) ?? '',
       kind: range.kind,
       ...figures,
+      // A successor counts only if it is in force when this range ends.
       hasScheduledSuccessor: ranges.some(
         other =>
           other.status === 'scheduled' &&
           other.siteId === range.siteId &&
           other.kind === range.kind &&
-          other.id !== range.id
+          other.id !== range.id &&
+          other.currentNumber < other.toNumber &&
+          Date.parse(other.validFrom) <= Date.parse(range.validUntil) &&
+          Date.parse(other.validUntil) > Date.parse(range.validUntil)
       ),
       alert: alertsOn
         ? classifyNumberingAlert(figures, businessDaysBetween(now, range.validUntil))

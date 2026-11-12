@@ -13,7 +13,8 @@
  * Scope note: cash over/short and inventory drift are intentionally NOT
  * included — those are reconciliation states that need a physical recount,
  * not a retry, and are computed by heavier report queries. The queue here
- * is the retryable outbox/sync failures only.
+ * is the retryable outbox/sync failures, plus DIAN numbering ranges close
+ * to expiry or exhaustion in the fiscal area.
  *
  * @module services/operations/attention
  */
@@ -46,7 +47,7 @@ export type OperationsAttentionSeverity = 'danger' | 'warning';
 export interface OperationsAttentionEntry {
   area: OperationsAttentionArea;
   severity: OperationsAttentionSeverity;
-  /** How many items are pending in that area (conflicts / failed docs / stuck jobs). */
+  /** How many items are pending in that area (conflicts / failed docs / stuck jobs / ranges with an alert). */
   count: number;
 }
 

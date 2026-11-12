@@ -833,6 +833,8 @@ describe('range alerts', () => {
     // 2026-11-13 is a Friday.
     expect(businessDaysBetween('2026-11-13T12:00:00.000Z', '2026-11-20T12:00:00.000Z')).toBe(5);
     expect(businessDaysBetween('2026-11-13T12:00:00.000Z', '2026-11-15T12:00:00.000Z')).toBe(0);
+    // Friday 20:00 in Bogotá is already Saturday in UTC; the week still has 5 working days ahead.
+    expect(businessDaysBetween('2026-11-14T01:00:00.000Z', '2026-11-21T01:00:00.000Z')).toBe(5);
   });
 
   it('classifies expiry and consumption against the default thresholds', () => {
