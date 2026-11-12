@@ -680,6 +680,13 @@
       "when": 1793977033264,
       "tag": "0096_account_recovery_codes",
       "breakpoints": true
+    },
+    {
+      "idx": 97,
+      "version": "6",
+      "when": 1794506475348,
+      "tag": "0097_fiscal_numbering_ranges",
+      "breakpoints": true
     }
   ]
 }

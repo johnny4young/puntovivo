@@ -16,6 +16,7 @@ import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate as drizzleMigrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { createModuleLogger } from '../logging/logger.js';
 import { seedCatalogs } from './catalog-seed.js';
+import { alignLegacyNumberingEnvironment } from './numbering-environment.js';
 import { type DrizzleJournal, ensureMigrationBaseline } from './migration-baseline.js';
 import {
   alignMigrationTrackingTimestamps,
@@ -409,6 +410,7 @@ async function initializeDatabaseCandidate(
     // `INSERT OR IGNORE`; table-existence-gated, so adopted DBs
     // missing a catalog table log a warning instead of crashing.
     seedCatalogs(db);
+    alignLegacyNumberingEnvironment(db);
   }
 
   // Seed default data if needed

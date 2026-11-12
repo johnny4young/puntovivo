@@ -4,7 +4,8 @@
  * `enqueueFiscalEmission` pre-creates the document + items, allocates the Chile
  * CAF folio (), advances the consecutive (FISCAL_SEQUENTIAL_NOT_ADVANCED
  * TOCTOU guard) and enqueues the fiscal_outbox row in ONE write transaction; the
- * adapter runs out-of-band via the worker. The write tx is byte-identical.
+ * adapter runs out-of-band via the worker. Relieving a spent numbering range
+ * happens inside that same transaction.
  *
  * @module services/fiscal/orchestrator/enqueue
  */
@@ -46,13 +47,13 @@ import { allocateNextFolio } from '../packs/cl/caf-allocator.js';
 import { mapInternalKindToTipoDte } from '../packs/cl/mappings.js';
 import { getFiscalAdapter, isSupportedFiscalCountry } from '../registry.js';
 import type { EmitFiscalDocumentResult } from './types.js';
-import {
-  checkResolutionUsable,
-  isCountryFiscalEnabled,
-  isDianEnabled,
-  splitIssueTimestamp,
-} from './helpers.js';
+import { isCountryFiscalEnabled, isDianEnabled, splitIssueTimestamp } from './helpers.js';
 import { resolveBuyer, resolveFiscalDocumentSnapshot } from './snapshots.js';
+import {
+  numberingEnvironmentFromSettings,
+  peekNumberingRange,
+  selectNumberingRange,
+} from '../numbering/select.js';
 
 /**
  * Pre-create the `fiscal_documents` row + enqueue a
@@ -170,20 +171,6 @@ export async function enqueueFiscalEmission(args: {
     .get();
   if (!saleSite) return null;
 
-  const resolution = await db
-    .select()
-    .from(fiscalNumberingResolutions)
-    .where(
-      and(
-        eq(fiscalNumberingResolutions.tenantId, tenantId),
-        eq(fiscalNumberingResolutions.siteId, saleSite.siteId),
-        eq(fiscalNumberingResolutions.kind, kind),
-        eq(fiscalNumberingResolutions.isActive, true)
-      )
-    )
-    .get();
-  if (!resolution) return null;
-
   const locale = await resolveTenantLocale(db, tenantId);
   // no fiscal pack for this country: skip emission cleanly. This
   // keeps the sale lifecycle non-fatal (best-effort, like the other null
@@ -219,6 +206,15 @@ export async function enqueueFiscalEmission(args: {
   if (!isCountryFiscalEnabled(tenantSettings, adapter.countryCode)) {
     return null;
   }
+
+  const numberingLookup = {
+    tenantId,
+    siteId: saleSite.siteId,
+    kind,
+    environment: numberingEnvironmentFromSettings(tenantSettings),
+  };
+  const peeked = peekNumberingRange(db, { ...numberingLookup, at: new Date().toISOString() });
+  if (!peeked.ok && peeked.reason === 'numbering_resolution_missing') return null;
 
   // Adapter pre-flight: when the country pack reports
   // structurally invalid configuration (missing RFC for MX, missing
@@ -262,11 +258,9 @@ export async function enqueueFiscalEmission(args: {
   const adapterLines: FiscalAdapterLine[] = toAdapterLines(lines);
   const headerTaxTotals = sumTaxTotals(lines);
 
-  const consecutive = resolution.currentNumber + 1;
-  const documentNumber = `${resolution.prefix}${consecutive.toString().padStart(10, '0')}`;
   const { issueDate, issueTime } = splitIssueTimestamp(new Date(), locale.timezone);
 
-  const adapterInput: FiscalAdapterIssueInput = {
+  const adapterTemplate: Omit<FiscalAdapterIssueInput, 'resolution'> = {
     tenantId,
     source,
     sourceId,
@@ -282,14 +276,6 @@ export async function enqueueFiscalEmission(args: {
     currencyCode: locale.currency,
     localeCode: locale.locale,
     paymentMethod: sale.paymentMethod,
-    resolution: {
-      id: resolution.id,
-      resolutionNumber: resolution.resolutionNumber,
-      prefix: resolution.prefix,
-      technicalKey: resolution.technicalKey,
-      consecutive,
-      documentNumber,
-    },
     buyer: {
       taxId: buyer.taxId,
       taxIdTypeCode: buyer.taxIdTypeCode,
@@ -323,19 +309,9 @@ export async function enqueueFiscalEmission(args: {
   const placeholderCufe = `pending-${nanoid(40)}`;
   const now = new Date().toISOString();
 
-  // Same policy as the intent path, from the same helper: a consecutive past
-  // the resolution's range or outside its validity window is invalid the
-  // moment a real pack validates it, and issuing one burns a number that
-  // cannot be reused.
-  const resolutionUsability = checkResolutionUsable(resolution, now);
-  if (!resolutionUsability.ok) {
-    throwServerError({
-      trpcCode: 'CONFLICT',
-      errorCode: 'FISCAL_NUMBERING_RESOLUTION_UNUSABLE',
-      message: 'The fiscal numbering resolution cannot issue another consecutive',
-      details: { reason: resolutionUsability.reason, ...resolutionUsability.details },
-    });
-  }
+  // Same policy as the intent path: a consecutive past the range or outside
+  // its validity window burns a number that cannot be reused.
+  if (!peeked.ok) throwUnusable(peeked.reason, peeked.details);
 
   // Reserve the single SQLite writer before the first fiscal mutation. This
   // path reads the resolution and then writes it, which is exactly the
@@ -366,6 +342,27 @@ export async function enqueueFiscalEmission(args: {
       }
 
       assertFiscalTaxHeaderParity(documentAmounts.taxAmount, headerTaxTotals);
+
+      const selection = selectNumberingRange(writeTx, {
+        ...numberingLookup,
+        at: now,
+        actorId: userId,
+      });
+      if (!selection.ok) throwUnusable(selection.reason, selection.details);
+      const resolution = selection.range;
+      const consecutive = resolution.currentNumber + 1;
+      const documentNumber = `${resolution.prefix}${consecutive.toString().padStart(10, '0')}`;
+      const adapterInput: FiscalAdapterIssueInput = {
+        ...adapterTemplate,
+        resolution: {
+          id: resolution.id,
+          resolutionNumber: resolution.resolutionNumber,
+          prefix: resolution.prefix,
+          technicalKey: resolution.technicalKey,
+          consecutive,
+          documentNumber,
+        },
+      };
 
       // Chile: pre-allocate the next CAF folio inside this
       // write transaction so the cursor advance + the fiscal_documents
@@ -526,4 +523,13 @@ export async function enqueueFiscalEmission(args: {
     // did not.
     { behavior: 'immediate' }
   );
+}
+
+function throwUnusable(reason: string, details: Record<string, unknown>): never {
+  throwServerError({
+    trpcCode: 'CONFLICT',
+    errorCode: 'FISCAL_NUMBERING_RESOLUTION_UNUSABLE',
+    message: 'The fiscal numbering resolution cannot issue another consecutive',
+    details: { reason, ...details },
+  });
 }

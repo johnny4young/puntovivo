@@ -22,7 +22,8 @@ import { describe, expect, it } from 'vitest';
 import { ColombiaMockAdapter } from '../services/fiscal/packs/co/mock-adapter.js';
 import {
   readCoFiscalSettings,
-  validateCoFiscalConfig,
+  mergeCoFiscalSettingsIntoTenantSettings,
+  validateCoEmissionConfig,
 } from '../services/fiscal/packs/co/settings.js';
 import { MexicoCFDIAdapter } from '../services/fiscal/packs/mx/mexico-adapter.js';
 import { ChileSIIAdapter } from '../services/fiscal/packs/cl/chile-adapter.js';
@@ -67,24 +68,40 @@ describe('validateConfig ( + )', () => {
   });
 });
 
-describe('validateCoFiscalConfig', () => {
+describe('validateCoEmissionConfig', () => {
   it('flags a NIT with a wrong verification digit, as emission does', () => {
-    const complete = {
-      dianResolutionNumber: '18760000001',
-      rangeFrom: 1,
-      rangeTo: 5000,
-      softwareId: 'sw-1',
-      softwarePin: '12301',
-    };
-    const wrongDv = validateCoFiscalConfig(
+    const complete = { softwareId: 'sw-1', softwarePin: '12301' };
+    const wrongDv = validateCoEmissionConfig(
       readCoFiscalSettings({ fiscal: { co: { ...complete, nit: '900373115-9' } } })
     );
     expect(wrongDv.issues.map(issue => issue.code)).toEqual(['MISSING_NIT']);
     expect(
-      validateCoFiscalConfig(
+      validateCoEmissionConfig(
         readCoFiscalSettings({ fiscal: { co: { ...complete, nit: '900373115-3' } } })
       )
     ).toEqual({ ok: true, issues: [] });
+  });
+
+  it('ignores numbering keys an older build stored in the blob and drops them on write', () => {
+    const stored = {
+      fiscal: {
+        co: {
+          nit: '900373115-3',
+          dianResolutionNumber: '18760000001',
+          prefix: 'FE',
+          rangeFrom: 1,
+          rangeTo: 5000,
+        },
+      },
+    };
+    expect(Object.keys(readCoFiscalSettings(stored)).sort()).toEqual(
+      ['enabled', 'environment', 'nit', 'softwareId', 'softwarePin'].sort()
+    );
+    const next = mergeCoFiscalSettingsIntoTenantSettings(stored, { softwareId: 'sw-1' });
+    expect((next.fiscal as { co: Record<string, unknown> }).co).toEqual({
+      nit: '900373115-3',
+      softwareId: 'sw-1',
+    });
   });
 });
 

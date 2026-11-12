@@ -132,7 +132,7 @@ describe('NeedsAttentionPanel', () => {
     expect(fiscal).toHaveAttribute('data-severity', 'danger');
     expect(fiscal).toHaveTextContent(/Electronic invoice delivery/i);
     expect(fiscal).toHaveTextContent(/3 items need review/i);
-    expect(fiscal).toHaveTextContent(/pending delivery or was rejected/i);
+    expect(fiscal).toHaveTextContent(/is pending or was rejected, or a DIAN numbering range/i);
     expect(fiscal).toHaveTextContent(/sale remains saved/i);
     expect(fiscal).toHaveTextContent(/retry delivery without recreating the sale/i);
     expect(fiscal).toHaveTextContent(/Administrator/i);

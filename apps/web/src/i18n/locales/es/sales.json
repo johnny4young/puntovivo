@@ -745,8 +745,16 @@
         "recovery": "Quitar ítem"
       },
       "fiscal_not_active": {
-        "message": "La DIAN no está activa — esta venta no emitirá factura electrónica.",
+        "message": "La emisión DIAN está desactivada — esta venta no generará documento electrónico.",
         "recovery": "Configurar DIAN"
+      },
+      "fiscal_issuer_incomplete": {
+        "message": "Falta el NIT o el software DIAN — el documento electrónico de esta venta quedará bloqueado.",
+        "recovery": "Completar DIAN"
+      },
+      "fiscal_numbering_missing": {
+        "message": "No hay un rango de numeración DIAN vigente para esta sede: la venta quedará sin documento electrónico hasta que registres uno.",
+        "recovery": "Registrar rango"
       },
       "receipt_hardware_missing": {
         "message": "No hay impresora de recibos configurada — puedes reimprimir la venta más tarde.",
@@ -759,6 +767,13 @@
       "sync_backlog": {
         "message": "La sincronización está atrasada o con conflictos — puedes seguir vendiendo; resuélvela cuando puedas.",
         "recovery": "Ver sincronización"
+      },
+      "fiscal_numbering_fev_only": {
+        "message": "Esta sede solo tiene rango de factura electrónica: las ventas sin solicitud de factura quedarán sin documento electrónico.",
+        "recovery": "Registrar rango"
+      },
+      "fiscal_test_mode": {
+        "message": "Modo de pruebas: los documentos no se envían a la DIAN."
       }
     }
   },

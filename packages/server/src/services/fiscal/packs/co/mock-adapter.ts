@@ -115,7 +115,14 @@ export class ColombiaMockAdapter implements FiscalAdapter {
     const softwarePin = settings.softwarePin;
     let cufe: string;
     if (input.kind === 'FEV') {
-      cufe = computeCufe({ ...fields, technicalKey: input.resolution.technicalKey });
+      const technicalKey = input.resolution.technicalKey;
+      if (!technicalKey) {
+        throw new FiscalProviderError('MALFORMED_REQUEST', {
+          message: 'DIAN technical key is missing',
+          providerCode: 'MISSING_TECHNICAL_KEY',
+        });
+      }
+      cufe = computeCufe({ ...fields, technicalKey });
     } else if (softwarePin) {
       cufe = computeCude({ ...fields, softwarePin });
     } else {

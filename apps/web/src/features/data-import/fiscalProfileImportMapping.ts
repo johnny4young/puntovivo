@@ -8,11 +8,15 @@ export const FISCAL_PROFILE_IMPORT_FIELDS = [
   'economicActivityCode',
   'issueLocation',
   'administrativeAreaCode',
+  'environment',
+  'siteName',
   'resolutionNumber',
+  'resolutionDate',
   'numberingPrefix',
   'rangeFrom',
   'rangeTo',
-  'environment',
+  'validFrom',
+  'validUntil',
 ] as const;
 
 export type FiscalProfileImportField = (typeof FISCAL_PROFILE_IMPORT_FIELDS)[number];
@@ -26,11 +30,15 @@ export const FISCAL_PROFILE_IMPORT_TEMPLATE: Record<FiscalProfileImportField, st
   economicActivityCode: '',
   issueLocation: '',
   administrativeAreaCode: '',
-  resolutionNumber: '18764000001234',
-  numberingPrefix: 'SETT',
-  rangeFrom: '1',
-  rangeTo: '5000',
   environment: 'habilitacion',
+  siteName: '',
+  resolutionNumber: '',
+  resolutionDate: '',
+  numberingPrefix: '',
+  rangeFrom: '',
+  rangeTo: '',
+  validFrom: '',
+  validUntil: '',
 };
 
 const HEADER_ALIASES: Record<FiscalProfileImportField, readonly string[]> = {
@@ -73,23 +81,30 @@ const HEADER_ALIASES: Record<FiscalProfileImportField, readonly string[]> = {
     'codigo de comuna',
     'codigo de municipio',
   ],
+  environment: ['environment', 'fiscal environment', 'ambiente', 'ambiente fiscal'],
+  siteName: ['site', 'site name', 'store', 'sede', 'nombre de sede', 'establecimiento'],
   resolutionNumber: [
     'resolution number',
-    'numbering resolution',
+    'dian resolution',
     'resolucion',
     'numero de resolucion',
+    'resolucion dian',
     'resolucion de numeracion',
+    'numbering resolution',
   ],
-  numberingPrefix: [
-    'numbering prefix',
-    'invoice prefix',
-    'prefix',
-    'prefijo',
-    'prefijo de numeracion',
+  resolutionDate: ['resolution date', 'fecha de resolucion', 'fecha resolucion'],
+  numberingPrefix: ['prefix', 'numbering prefix', 'prefijo'],
+  rangeFrom: [
+    'range from',
+    'from number',
+    'desde',
+    'rango desde',
+    'numero inicial',
+    'consecutivo inicial',
   ],
-  rangeFrom: ['range from', 'numbering from', 'first number', 'rango desde', 'consecutivo inicial'],
-  rangeTo: ['range to', 'numbering to', 'last number', 'rango hasta', 'consecutivo final'],
-  environment: ['environment', 'fiscal environment', 'ambiente', 'ambiente fiscal'],
+  rangeTo: ['range to', 'to number', 'hasta', 'rango hasta', 'numero final', 'consecutivo final'],
+  validFrom: ['valid from', 'vigente desde', 'vigencia desde', 'fecha inicial'],
+  validUntil: ['valid until', 'vigente hasta', 'vigencia hasta', 'fecha final', 'vencimiento'],
 };
 
 export function autoMapFiscalProfileHeaders(headers: string[]): FiscalProfileImportMapping {
