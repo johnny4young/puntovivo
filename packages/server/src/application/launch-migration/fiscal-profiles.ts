@@ -68,6 +68,17 @@ function canonicalCoNit(value: string | null): string | null {
   return result.valid ? `${result.nit}-${result.verificationDigit}` : null;
 }
 
+function coNitIssue(value: string): FiscalProfileImportIssue {
+  const result = validateNit(value);
+  return result.reason === 'dv_mismatch' && result.verificationDigit !== null
+    ? {
+        code: 'invalid_check_digit',
+        field: 'taxIdentifier',
+        expectedDigit: result.verificationDigit,
+      }
+    : { code: 'invalid_tax_identifier', field: 'taxIdentifier' };
+}
+
 function optionalText(value: string | undefined): string | null {
   return value?.trim() || null;
 }
@@ -216,7 +227,7 @@ function normalizeRow(row: LaunchFiscalProfileImportRow): {
     if (taxIdentifierRaw) {
       const nit = canonicalCoNit(taxIdentifierRaw);
       if (nit) taxIdentifier = nit;
-      else issues.push({ code: 'invalid_tax_identifier', field: 'taxIdentifier' });
+      else issues.push(coNitIssue(taxIdentifierRaw));
     }
     if (optionalText(row.values.rangeFrom) && rangeFrom === null) {
       issues.push({ code: 'invalid_number', field: 'rangeFrom' });

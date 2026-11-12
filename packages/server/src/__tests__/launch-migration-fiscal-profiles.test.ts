@@ -153,12 +153,16 @@ describe(' fiscal profile migration', () => {
         rows: [row(2, { ...coValues, taxIdentifier })],
       });
 
-    for (const taxIdentifier of ['900123456-7', '90012345681']) {
-      expect((await preview(taxIdentifier)).rows[0]).toMatchObject({
-        status: 'invalid',
-        issues: [{ code: 'invalid_tax_identifier', field: 'taxIdentifier' }],
-      });
-    }
+    const wrongDv = (await preview('900123456-7')).rows[0];
+    expect(wrongDv).toMatchObject({ status: 'invalid' });
+    expect(wrongDv?.issues).toEqual([
+      { code: 'invalid_check_digit', field: 'taxIdentifier', expectedDigit: 8 },
+    ]);
+    expect(JSON.stringify(wrongDv?.issues)).not.toContain('900123456');
+    expect((await preview('90012345681')).rows[0]).toMatchObject({
+      status: 'invalid',
+      issues: [{ code: 'invalid_tax_identifier', field: 'taxIdentifier' }],
+    });
     for (const taxIdentifier of ['900.123.456-8', '900123456']) {
       expect((await preview(taxIdentifier)).rows[0]).toMatchObject({
         status: 'ready',

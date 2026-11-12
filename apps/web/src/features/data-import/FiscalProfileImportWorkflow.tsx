@@ -17,6 +17,7 @@ import {
   type FiscalProfileImportField,
   type FiscalProfileImportMapping,
 } from './fiscalProfileImportMapping';
+import { fiscalProfileIssueText } from './fiscalProfileImportIssues';
 import { buildFiscalProfileImportReportRows } from './fiscalProfileImportReportRows';
 import { ImportFileError, parseImportFile, type ParsedImportFile } from './fileParser';
 import { ImportSourcePanel } from './ImportSourcePanel';
@@ -177,7 +178,7 @@ export function FiscalProfileImportWorkflow({
           taxIdentifier: row.taxIdentifier,
           environment: row.environment,
           field: t(`dataImport:fiscalProfiles.fields.${row.issue!.field}`),
-          issue: t(`dataImport:fiscalProfiles.issues.${row.issue!.code}`),
+          issue: fiscalProfileIssueText(t, row.issue!),
         }));
     }
     return preview.rows.flatMap(row =>
@@ -188,7 +189,7 @@ export function FiscalProfileImportWorkflow({
         taxIdentifier: row.normalized.taxIdentifier,
         environment: row.normalized.environment,
         field: t(`dataImport:fiscalProfiles.fields.${issue.field}`),
-        issue: t(`dataImport:fiscalProfiles.issues.${issue.code}`),
+        issue: fiscalProfileIssueText(t, issue),
       }))
     );
   };
@@ -209,7 +210,7 @@ export function FiscalProfileImportWorkflow({
       taxIdentifier: row.taxIdentifier,
       environment: row.environment,
       field: row.issue ? t(`dataImport:fiscalProfiles.fields.${row.issue.field}`) : '',
-      issue: row.issue ? t(`dataImport:fiscalProfiles.issues.${row.issue.code}`) : '',
+      issue: row.issue ? fiscalProfileIssueText(t, row.issue) : '',
     }));
     exportToCSV(rows, exportColumns(), `puntovivo-fiscal-profile-import-${report.importId}`, {
       includeTimestamp: true,
