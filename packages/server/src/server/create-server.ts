@@ -35,6 +35,8 @@ import {
 import { createModuleLogger, rootLogger } from '../logging/logger.js';
 import { initServerTelemetryAdapter } from '../observability/index.js';
 import { warmCacheFromDb } from '../security/loginRateLimit.js';
+import { releaseAbandonedReservations } from '../services/idempotency/idempotencyService.js';
+import { TRANSACTIONAL_COMPLETION_REQUIRED_KINDS } from '../trpc/middleware/commandEnvelope.js';
 import { warmUpPasswordSecurity } from '../security/passwords.js';
 import { warmUpStaffPinSecurity } from '../security/staffPins.js';
 import { startProcedureRateLimitSweeper } from '../trpc/middleware/procedureRateLimit.js';
@@ -172,6 +174,9 @@ async function createOwnedServer(
   // instead of paying a DB round-trip. `warmCacheFromDb` is safe to call
   // against an adopted DB missing migration 0006 (no-op + warn).
   warmCacheFromDb(db);
+  // A process that died mid-command left these behind. For these kinds the
+  // business rows commit with the key, so none of them did; a retry may run.
+  releaseAbandonedReservations(db, TRANSACTIONAL_COMPLETION_REQUIRED_KINDS);
 
   // A running Argon2 hash cannot be cancelled, and one that settles during
   // Electron teardown aborts the process, so close waits for the warm-up.

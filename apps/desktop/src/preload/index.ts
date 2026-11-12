@@ -7,6 +7,8 @@ import type {
 } from '../main/backup/cloud-vault.js';
 import type { BackupRestoreDrillReport } from '../main/backup/restore-drill.js';
 import type { BackupScheduleFrequency, BackupScheduleStatus } from '../main/backup/scheduler.js';
+import type { WorkerRestartStats } from '../main/server-host/crash-log.js';
+import type { EmbeddedServerState } from '../main/server-lifecycle.js';
 import {
   unwrapDesktopIpcSessionResult,
   type DesktopIpcSessionResult,
@@ -17,6 +19,11 @@ export type { SessionAPI } from './session-api.js';
 
 // Type definitions for exposed API
 export interface ElectronAPI {
+  getServerState: () => Promise<EmbeddedServerState>;
+  onServerStateChange: (listener: (state: EmbeddedServerState) => void) => () => void;
+  getServerRestartStats: () => Promise<WorkerRestartStats>;
+  /** The production main process never registers this test-only IPC. */
+  crashServerWorkerForE2e?: () => Promise<{ ok: boolean }>;
   /** The production main process never registers this test-only IPC. */
   requestE2eAppQuit?: () => Promise<{ ok: true }>;
   simulateDownloadedAppUpdateForE2e?: (version: string) => Promise<unknown>;
@@ -376,6 +383,16 @@ const electronAPI: ElectronAPI = {
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   getAppPath: () => ipcRenderer.invoke('get-app-path'),
   getServerUrl: () => ipcRenderer.invoke('get-server-url'),
+  getServerState: () => ipcRenderer.invoke('server:get-state'),
+  onServerStateChange: listener => {
+    const handler = (_event: unknown, state: EmbeddedServerState) => listener(state);
+    ipcRenderer.on('server:state', handler);
+    return () => {
+      ipcRenderer.removeListener('server:state', handler);
+    };
+  },
+  getServerRestartStats: () => ipcRenderer.invoke('server:get-restart-stats'),
+  crashServerWorkerForE2e: () => ipcRenderer.invoke('e2e:crash-server-worker'),
   openCustomerDisplay: (accessId: string) =>
     invokeSessionProtected('window:open-customer-display', accessId),
   getAutoUpdateStatus: () => ipcRenderer.invoke('get-auto-update-status'),

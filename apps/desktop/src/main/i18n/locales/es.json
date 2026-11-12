@@ -58,5 +58,10 @@
     "requiresRepoAccess": "La verificación de actualizaciones requiere acceso al repositorio de versiones.",
     "checkFailed": "No se pudo verificar si hay actualizaciones. Intenta de nuevo más tarde.",
     "manualInstallRequired": "Esta versión notifica las actualizaciones; abre la página de la versión para descargar la nueva."
+  },
+  "server": {
+    "fatalCorruption": "La base de datos de este equipo está dañada y Puntovivo se cerró para no empeorarla. Restaura la última copia de seguridad. Código de soporte: {{code}}",
+    "fatalKey": "Puntovivo no pudo abrir la base de datos con la llave de este equipo y se cerró. Contacta a soporte antes de volver a abrirlo. Código de soporte: {{code}}",
+    "fatalRestartLoop": "El servidor interno de Puntovivo se detuvo varias veces en pocos minutos y la aplicación se cerró. Ábrela de nuevo; si vuelve a pasar, contacta a soporte. Código de soporte: {{code}}"
   }
 }

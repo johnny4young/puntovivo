@@ -119,7 +119,8 @@ in-process implementation (tests, rehearsal) and a worker implementation
 - **Unexpected exit.** Any exit that `stop` did not request, whatever its
   code, is fatal: main logs it, reports it to crash telemetry, shows the error
   dialog and quits, which is what a crash of the in-process server does today.
-  Automatic restart is deferred to its own decision.
+  Superseded by [ADR-0034](./0034-server-worker-restart.md): the worker now
+  restarts unless the database or key is broken or it keeps crashing.
 - **Crash policy in the worker.** The worker installs main's handlers: an
   unhandled rejection is logged and reported, not fatal; an uncaught exception
   ends the thread.

@@ -127,8 +127,9 @@ ensayo) y una sobre el worker (la app).
 - **Salida inesperada.** Toda salida que `stop` no pidió, con cualquier
   código, es fatal: el hilo principal lo registra, lo reporta a la
   telemetría de caídas, muestra el diálogo de error y cierra la app, que es lo
-  que pasa hoy si el servidor en proceso se cae. El reinicio automático queda
-  para una decisión aparte.
+  que pasa hoy si el servidor en proceso se cae. Reemplazada por el
+  [ADR-0034](0034-server-worker-restart.md): ahora el worker se reinicia salvo
+  que la base o la llave estén dañadas o que siga cayéndose.
 - **Política de caídas en el worker.** El worker instala los handlers del hilo
   principal: un rechazo no manejado se registra y se reporta, sin ser fatal; una
   excepción no capturada termina el hilo.

@@ -129,7 +129,7 @@ describe('server worker direct-call drain', () => {
         workerPath: '/synthetic/server-worker.ts',
         start: { serverOptions: { dbPath: ':memory:' } },
         createWorker: () => worker as unknown as WorkerLike,
-        onUnexpectedExit: error => exits.push(error),
+        onUnexpectedExit: failure => exits.push(failure.error),
         stopGraceMs: 1000,
       });
       const started = new Promise<void>(resolve => {

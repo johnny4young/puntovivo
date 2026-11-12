@@ -74,6 +74,7 @@ import { useIsModuleActive } from '@/features/modules';
 import { PosTouchCategoryTabs, type PosTouchCategoryOption } from './PosTouchCategoryTabs';
 import { PosTouchProductGrid } from './PosTouchProductGrid';
 import { PosTouchCartSidebar, type PosTouchCustomer } from './PosTouchCartSidebar';
+import { useEmbeddedServerState } from '@/hooks/useEmbeddedServerState';
 
 const CATALOG_PAGE_SIZE = 24;
 const CATALOG_SEARCH_DEBOUNCE_MS = 250;
@@ -232,7 +233,8 @@ export function PosTouchScreen() {
       fallbackKey: 'toast.chargeError',
     }),
   });
-  const checkoutLocked = isCheckoutLocked || createMutation.isPending;
+  const isServerRestarting = useEmbeddedServerState() === 'restarting';
+  const checkoutLocked = isCheckoutLocked || createMutation.isPending || isServerRestarting;
 
   // useCallback keeps every memoized tile from re-rendering on a cart tick;
   // only the tile whose quantity changed renders again.

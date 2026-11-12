@@ -386,5 +386,12 @@
       "checkError": "No se pudo verificar las actualizaciones",
       "restartError": "No se pudo aplicar la actualización"
     }
+  },
+  "embeddedServer": {
+    "restartingTitle": "Reconectando con el servidor",
+    "restartingDetail": "Cobrar vuelve a estar disponible en unos segundos; el carrito se conserva.",
+    "recovered": "El sistema se recuperó. Revisa la última venta.",
+    "restartsLabel": "Reinicios del servidor",
+    "restartsValue": "{{count}} en 7 días"
   }
 }

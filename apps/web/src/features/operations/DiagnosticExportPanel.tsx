@@ -159,6 +159,11 @@ export function DiagnosticExportPanel() {
       for (const [tableName, rows] of Object.entries(tables)) {
         zip.file(`${tableName}.json`, JSON.stringify(rows, null, 2));
       }
+      // Desktop only: the bounded local record of server worker exits.
+      const restartStats = await window.electron?.getServerRestartStats?.().catch(() => null);
+      if (restartStats) {
+        zip.file('desktop-worker-crashes.json', JSON.stringify(restartStats.entries, null, 2));
+      }
       const blob = await zip.generateAsync({
         type: 'blob',
       });

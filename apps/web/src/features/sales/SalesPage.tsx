@@ -29,6 +29,7 @@ import { isTaskActivationKey, useTaskMeasurementController } from '@/lib/taskMea
 import { readExternalSaleEntry } from './externalSaleEntry';
 import { useTranslation } from 'react-i18next';
 import type { CompletedSaleSummary } from './SaleCompleteStrip';
+import { useEmbeddedServerState } from '@/hooks/useEmbeddedServerState';
 
 const LazyCashDrawerApprovalModal = lazy(() =>
   import('@/features/sales/CashDrawerApprovalModal').then(module => ({
@@ -232,7 +233,9 @@ export function SalesPage() {
   const draftSummary = useSaleCartSummary(cartItems, priceIncludesTax);
   const approvalDiscountAmount = getCartDiscountAmount(cartItems);
   const serialSelectionsComplete = areSerialSelectionsComplete(cartItems, currentSite?.id ?? null);
+  const isServerRestarting = useEmbeddedServerState() === 'restarting';
   const canCharge =
+    !isServerRestarting &&
     !!currentSite &&
     hasActiveCashSession &&
     cartItems.length > 0 &&

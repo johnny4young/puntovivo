@@ -64,8 +64,14 @@ import {
 } from './renderer-protocol.js';
 import { getServerHost, markServerReady, requireServerHost, setServerHost } from './runtime.js';
 import { createOsKeyGate } from './os-key-gate.js';
-import { createServerLifecycle } from './server-lifecycle.js';
+import { createServerLifecycle, type FatalWorkerExit } from './server-lifecycle.js';
+import {
+  createWorkerCrashLog,
+  crashErrorCode,
+  WORKER_CRASH_LOG_FILE,
+} from './server-host/crash-log.js';
 import { createWorkerLauncher } from './server-host/worker-host.js';
+import { broadcastServerState, registerServerStateIpc } from './ipc/server-state.js';
 import { createTrayController } from './tray-controller.js';
 import { disableBuiltinSpellchecker } from './window-config.js';
 import { createWindowLifecycle } from './window-lifecycle.js';
@@ -178,6 +184,10 @@ const trayControllerRef: {
   current: ReturnType<typeof createTrayController> | null;
 } = { current: null };
 
+const workerCrashLog = createWorkerCrashLog({
+  getPath: () => join(app.getPath('userData'), WORKER_CRASH_LOG_FILE),
+});
+
 const serverLifecycle = createServerLifecycle({
   dbPath: encryptionSetup.dbPath,
   migrationsPath: encryptionSetup.migrationsPath,
@@ -190,17 +200,37 @@ const serverLifecycle = createServerLifecycle({
   launchHost: createWorkerLauncher({
     workerPath: join(__dirname, 'server-worker.cjs'),
     resolveAuditAnchorStoreLocation: encryptionSetup.resolveAuditAnchorStoreLocation,
-    onUnexpectedExit: error => handleServerWorkerExit(error),
+    onUnexpectedExit: failure => {
+      if (isQuitting) return;
+      void serverLifecycle.recoverFromUnexpectedExit(failure);
+    },
+    allowTestCrash: isE2e || process.env.PUNTOVIVO_SOAK === '1',
   }),
+  onStateChange: broadcastServerState,
+  onFatalExit: fatal => handleFatalServerExit(fatal),
+  recordCrash: entry => {
+    const record = { ...entry, at: new Date().toISOString(), appVersion: app.getVersion() };
+    captureProcessCrash(new Error(`SERVER_WORKER_${entry.outcome.toUpperCase()}`), {
+      source: 'server-worker',
+      ...record,
+    });
+    void workerCrashLog.append(record);
+  },
 });
 
-/** A dead server worker is fatal, exactly like a crash of the in-process server was. */
-function handleServerWorkerExit(error: Error): void {
+const FATAL_DIALOG_KEYS = {
+  corruption: 'server.fatalCorruption',
+  key: 'server.fatalKey',
+  'restart-loop': 'server.fatalRestartLoop',
+} as const;
+
+/** A worker that cannot come back closes the app with a support code. */
+function handleFatalServerExit({ cause, error }: FatalWorkerExit): void {
   if (isQuitting) return;
   isQuitting = true;
-  mainLog.fatal({ err: error }, 'embedded server worker exited unexpectedly');
-  captureProcessCrash(error, { source: 'server-worker' });
-  dialog.showErrorBox(t('app.name'), error.message);
+  const code = ['PV-WORKER', cause.toUpperCase(), crashErrorCode(error)].filter(Boolean).join('-');
+  mainLog.fatal({ cause, code }, 'embedded server worker cannot be restarted');
+  dialog.showErrorBox(t('app.name'), t(FATAL_DIALOG_KEYS[cause], { code }));
   void flushServerTelemetry()
     .catch(() => undefined)
     .finally(() => app.quit());
@@ -368,6 +398,10 @@ ipcMain.handle('session:owner-recovery-status', ownerRecovery.status);
 ipcMain.handle('session:recover-owner', ownerRecovery.recover);
 registerDataBridgeIpc({ log: mainLog });
 registerPrintIpc();
+registerServerStateIpc({
+  getState: serverLifecycle.getState,
+  getRestartStats: () => workerCrashLog.stats(),
+});
 
 /**
  * Install the curated menu before the first window exists, so a packaged build

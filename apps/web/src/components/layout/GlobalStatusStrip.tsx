@@ -35,6 +35,7 @@ import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { useHubReachability } from '@/hooks/useHubReachability';
+import { useEmbeddedServerState } from '@/hooks/useEmbeddedServerState';
 import { OfflineModePanel } from '@/features/offline/OfflineModePanel';
 import { cn, formatDateTime } from '@/lib/utils';
 import { Badge, Button, StatusStrip, buttonVariants } from '@/components/ui';
@@ -99,6 +100,7 @@ export function GlobalStatusStrip() {
     useOfflineSync();
   const hub = useHubReachability();
   const isHubUnreachable = hub.reachable === false;
+  const isServerRestarting = useEmbeddedServerState() === 'restarting';
 
   const [expanded, setExpanded] = useState(false);
   const [, setReadinessDismissRevision] = useState(0);
@@ -130,6 +132,16 @@ export function GlobalStatusStrip() {
 
   const issues = useMemo<StatusIssue[]>(() => {
     const list: StatusIssue[] = [];
+
+    if (isServerRestarting) {
+      list.push({
+        id: 'embedded-server',
+        severity: 'warning',
+        icon: RefreshCw,
+        title: t('embeddedServer.restartingTitle'),
+        detail: t('embeddedServer.restartingDetail'),
+      });
+    }
 
     // --- Aviso de sincronización / conectividad ---
     // Conflicts do not block a sale: the header pill reports them, and queued
@@ -212,6 +224,7 @@ export function GlobalStatusStrip() {
 
     return list.sort((a, b) => SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity]);
   }, [
+    isServerRestarting,
     isHubUnreachable,
     isOnline,
     pendingItems,

@@ -28,7 +28,7 @@ before(async () => {
           jwtSecret: 'worker-thread-test-secret-worker-thread-test-secret',
         },
       },
-      onUnexpectedExit: error => unexpectedExits.push(error),
+      onUnexpectedExit: failure => unexpectedExits.push(failure.error),
     });
   } finally {
     if (previous === undefined) delete process.env.PUNTOVIVO_DEV_ADMIN_PASSWORD;

@@ -3,7 +3,20 @@
  * These APIs are exposed when the app runs inside Electron
  */
 
+export type EmbeddedServerState = 'starting' | 'running' | 'restarting' | 'fatal';
+
+export interface ServerRestartStats {
+  restartsLast7Days: number;
+  lastCrashAt: string | null;
+  entries: Array<Record<string, unknown>>;
+}
+
 export interface ElectronAPI {
+  /** Embedded server state; the web build has no embedded server. */
+  getServerState?: () => Promise<EmbeddedServerState>;
+  onServerStateChange?: (listener: (state: EmbeddedServerState) => void) => () => void;
+  getServerRestartStats?: () => Promise<ServerRestartStats>;
+  crashServerWorkerForE2e?: () => Promise<{ ok: boolean }>;
   /** Production main never registers this test-only IPC handler. */
   requestE2eAppQuit?: () => Promise<{ ok: true }>;
   simulateDownloadedAppUpdateForE2e?: (version: string) => Promise<unknown>;

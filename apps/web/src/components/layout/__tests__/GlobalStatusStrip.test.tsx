@@ -38,6 +38,11 @@ vi.mock('@/hooks/useHubReachability', () => ({
 
 // El strip monta OfflineModePanel en el detalle expandido cuando está
 // offline; el panel tiene sus propios tests, así que lo stubbeamos.
+const serverState = vi.hoisted(() => ({ value: 'running' as string }));
+vi.mock('@/hooks/useEmbeddedServerState', () => ({
+  useEmbeddedServerState: () => serverState.value,
+}));
+
 vi.mock('@/features/offline/OfflineModePanel', () => ({
   OfflineModePanel: ({ visible }: { visible: boolean }) =>
     visible ? <div data-testid="offline-mode-panel-stub" /> : null,
@@ -80,6 +85,27 @@ describe('GlobalStatusStrip', () => {
     authState.user = { id: 'u1', role: 'cashier', email: 'c@demo.co', tenantId: 't1' };
     readinessState.query = { data: undefined, isLoading: false };
     window.sessionStorage.clear();
+    serverState.value = 'running';
+  });
+
+  it('warns that the server is reconnecting while the desktop worker restarts', () => {
+    serverState.value = 'restarting';
+    mockUseOfflineSync.mockReturnValue({
+      isOnline: true,
+      lastSync: null,
+      pendingItems: 0,
+      conflicts: 0,
+      isSyncing: false,
+      error: null,
+      triggerSync: vi.fn(),
+      refreshStatus: vi.fn(),
+    });
+
+    renderStrip();
+
+    expect(
+      screen.getByText(/Reconnecting to the server|Reconectando con el servidor/)
+    ).toBeInTheDocument();
   });
 
   it('does not render when the app is online and fully synced', () => {

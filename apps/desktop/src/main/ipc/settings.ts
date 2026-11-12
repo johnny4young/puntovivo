@@ -17,7 +17,7 @@ import { ipcMain, nativeTheme, type BrowserWindow } from 'electron';
 // read authenticated identity from the main-process singleton,
 // never from renderer-supplied arguments.
 import * as desktopSession from '../session/desktopSession.js';
-import { requireServerHost, whenServerReady } from '../runtime.js';
+import { awaitServerHost, readThroughRestart, whenServerReady } from '../runtime.js';
 import { t, setMainLocale, normalizeMainLocale, type MainLocale } from '../i18n';
 import { refreshAutoUpdateTranslations } from '../auto-updater';
 import { handleGatedSettingsUpdate, handleLocaleUpdate } from './settings-handlers.ts';
@@ -69,13 +69,13 @@ function normalizeReceiptPrintSettings(
 
 export async function getReceiptPrintSettings(): Promise<ReceiptPrintSettings> {
   return normalizeReceiptPrintSettings(
-    await requireServerHost().readAppSetting(RECEIPT_PRINT_SETTINGS_KEY)
+    await readThroughRestart(host => host.readAppSetting(RECEIPT_PRINT_SETTINGS_KEY))
   );
 }
 
 async function saveReceiptPrintSettings(settings: unknown): Promise<ReceiptPrintSettings> {
   const nextSettings = normalizeReceiptPrintSettings(settings, await getReceiptPrintSettings());
-  await requireServerHost().writeAppSetting(RECEIPT_PRINT_SETTINGS_KEY, nextSettings);
+  await (await awaitServerHost()).writeAppSetting(RECEIPT_PRINT_SETTINGS_KEY, nextSettings);
   return nextSettings;
 }
 
@@ -93,12 +93,14 @@ export function applyThemePreference(preference: ThemePreference): ThemePreferen
 }
 
 export async function getThemePreference(): Promise<ThemePreference> {
-  return normalizeThemePreference(await requireServerHost().readAppSetting(THEME_PREFERENCE_KEY));
+  return normalizeThemePreference(
+    await readThroughRestart(host => host.readAppSetting(THEME_PREFERENCE_KEY))
+  );
 }
 
 async function saveThemePreference(preference: unknown): Promise<ThemePreference> {
   const nextPreference = applyThemePreference(normalizeThemePreference(preference));
-  await requireServerHost().writeAppSetting(THEME_PREFERENCE_KEY, nextPreference);
+  await (await awaitServerHost()).writeAppSetting(THEME_PREFERENCE_KEY, nextPreference);
   return nextPreference;
 }
 
@@ -120,7 +122,9 @@ function normalizeTraySettings(
 }
 
 export async function getTraySettings(): Promise<TraySettings> {
-  return normalizeTraySettings(await requireServerHost().readAppSetting(TRAY_SETTINGS_KEY));
+  return normalizeTraySettings(
+    await readThroughRestart(host => host.readAppSetting(TRAY_SETTINGS_KEY))
+  );
 }
 
 async function saveTraySettings(
@@ -128,7 +132,7 @@ async function saveTraySettings(
   refreshTray: (settings: TraySettings) => void
 ): Promise<TraySettings> {
   const nextSettings = normalizeTraySettings(settings, await getTraySettings());
-  await requireServerHost().writeAppSetting(TRAY_SETTINGS_KEY, nextSettings);
+  await (await awaitServerHost()).writeAppSetting(TRAY_SETTINGS_KEY, nextSettings);
   refreshTray(nextSettings);
   return nextSettings;
 }

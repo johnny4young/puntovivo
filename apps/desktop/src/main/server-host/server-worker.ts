@@ -29,7 +29,14 @@ const port: MessagePort = parentPort;
 // an uncaught exception ends the thread, which main treats as a crash.
 installProcessCrashHandlers({
   log: createModuleLogger('server-worker'),
-  captureCrash: captureProcessCrash,
+  captureCrash: (error, attrs) => {
+    captureProcessCrash(error, attrs);
+    // Main decides whether to restart from this cause.
+    if (attrs.kind === 'uncaughtException') {
+      const crashed: WorkerToMainMessage = { type: 'crashed', error: serializeError(error) };
+      port.postMessage(crashed);
+    }
+  },
   flushTelemetry: flushServerTelemetry,
   exit: code => process.exit(code),
   proc: process,
@@ -109,6 +116,13 @@ port.on('message', (message: MainToWorkerMessage) => {
     }
     case 'stop':
       void stop();
+      return;
+    case 'test-crash':
+      if (process.env.PUNTOVIVO_E2E === '1' || process.env.PUNTOVIVO_SOAK === '1') {
+        setImmediate(() => {
+          throw new Error('SERVER_WORKER_TEST_CRASH');
+        });
+      }
       return;
   }
 });

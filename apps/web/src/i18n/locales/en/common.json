@@ -386,5 +386,12 @@
       "checkError": "Unable to check for updates",
       "restartError": "Unable to apply update"
     }
+  },
+  "embeddedServer": {
+    "restartingTitle": "Reconnecting to the server",
+    "restartingDetail": "Charging is back in a few seconds; the cart is kept.",
+    "recovered": "The system recovered. Check the last sale.",
+    "restartsLabel": "Server restarts",
+    "restartsValue": "{{count}} in 7 days"
   }
 }
