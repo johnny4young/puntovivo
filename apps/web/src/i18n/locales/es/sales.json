@@ -745,8 +745,15 @@
         "recovery": "Quitar ítem"
       },
       "fiscal_not_active": {
-        "message": "La DIAN no está activa — esta venta no emitirá factura electrónica.",
+        "message": "La emisión DIAN está desactivada — esta venta no generará documento electrónico.",
         "recovery": "Configurar DIAN"
+      },
+      "fiscal_issuer_incomplete": {
+        "message": "Falta el NIT o el software DIAN — el documento electrónico de esta venta quedará bloqueado.",
+        "recovery": "Completar DIAN"
+      },
+      "fiscal_numbering_missing": {
+        "message": "Esta sede no tiene un rango de numeración DIAN vigente — esta venta no generará documento electrónico."
       },
       "receipt_hardware_missing": {
         "message": "No hay impresora de recibos configurada — puedes reimprimir la venta más tarde.",

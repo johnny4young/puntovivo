@@ -128,6 +128,8 @@ export function useSalesPageData({
     const preflightId: Record<string, PreflightBlockerId> = {
       sale_sequential: 'sale_sequential_missing',
       fiscal: 'fiscal_not_active',
+      fiscal_issuer: 'fiscal_issuer_incomplete',
+      fiscal_numbering: 'fiscal_numbering_missing',
       receipt_hardware: 'receipt_hardware_missing',
       payment_rail: 'payment_rail_missing',
       sync: 'sync_backlog',

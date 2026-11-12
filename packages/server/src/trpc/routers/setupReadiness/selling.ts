@@ -14,8 +14,9 @@ import { resolveReadinessProfile } from '../../../services/readiness/profile.js'
 import {
   countActiveReceiptPrinters,
   countConfiguredPaymentRails,
-  readFiscalConfigState,
+  readCheckoutFiscalState,
   readSyncBacklog,
+  type CheckoutFiscalState,
 } from '../../../services/readiness/signals.js';
 import type {
   CheckoutReadinessItem,
@@ -23,6 +24,18 @@ import type {
   FirstSaleReadinessOutput,
 } from '../../schemas/setupReadiness.js';
 import { SYNC_BACKLOG_WARN_THRESHOLD } from './constants.js';
+
+const FISCAL_CHECKOUT_ITEM: Record<CheckoutFiscalState, CheckoutReadinessItem | null> = {
+  issuing: null,
+  disabled: { id: 'fiscal', severity: 'warning', cta: { route: '/company', tab: 'fiscal' } },
+  issuer_incomplete: {
+    id: 'fiscal_issuer',
+    severity: 'warning',
+    cta: { route: '/company', tab: 'fiscal' },
+  },
+  // No in-app surface registers numbering ranges yet.
+  numbering_missing: { id: 'fiscal_numbering', severity: 'warning', cta: null },
+};
 
 /**
  * Build cashier-facing checkout readiness for a tenant and site. Only
@@ -78,14 +91,9 @@ export async function buildCheckoutReadiness(args: {
 
   if (!profile.surfaceFiscalReminders) return { items };
 
-  const fiscalState = readFiscalConfigState(settings);
-  if (!fiscalState.enabled || !fiscalState.configured) {
-    items.push({
-      id: 'fiscal',
-      severity: 'warning',
-      cta: { route: '/company', tab: 'fiscal' },
-    });
-  }
+  const fiscalItem =
+    FISCAL_CHECKOUT_ITEM[await readCheckoutFiscalState(db, { tenantId, siteId, settings })];
+  if (fiscalItem) items.push({ ...fiscalItem });
 
   const printers = await countActiveReceiptPrinters(db, tenantId, siteId);
   if (printers === 0) {

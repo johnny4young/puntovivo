@@ -110,10 +110,16 @@ export async function readLiveTenantSettings(
   return (row?.settings ?? {}) as Record<string, unknown>;
 }
 
+/** The DIAN master switch in a settings blob; `true`, `"true"`, or `1` count as on. */
+export function isDianFlagOn(settings: Record<string, unknown>): boolean {
+  const flag = settings.fiscal_dian_enabled ?? settings.fiscalDianEnabled;
+  return flag === true || flag === 'true' || flag === 1;
+}
+
 /**
  * Check whether the tenant has opted into DIAN emission. Stored in the
  * JSON settings blob to avoid a migration until the feature is widely
- * adopted. `true`, `"true"`, or `1` all count as enabled.
+ * adopted.
  */
 export async function isDianEnabled(tx: DatabaseInstance, tenantId: string): Promise<boolean> {
   const row = await tx
@@ -122,9 +128,7 @@ export async function isDianEnabled(tx: DatabaseInstance, tenantId: string): Pro
     .where(eq(tenants.id, tenantId))
     .get();
   if (!row) return false;
-  const settings = (row.settings ?? {}) as Record<string, unknown>;
-  const flag = settings.fiscal_dian_enabled ?? settings.fiscalDianEnabled;
-  return flag === true || flag === 'true' || flag === 1;
+  return isDianFlagOn((row.settings ?? {}) as Record<string, unknown>);
 }
 
 /**
