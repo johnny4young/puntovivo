@@ -170,6 +170,12 @@ function writeRun(name, o) {
   );
 
   const markers = [];
+  // Widest key gap per scan; the last one missed the 30 ms listener window.
+  for (const [i, gap] of [4, 6, 8, 41].entries()) {
+    const t = T0 + (i + 1) * 600_000;
+    markers.push([t, iso(t), 0, name, 'soak', 'scan_gaps', '', gap, 'renderer']);
+  }
+  markers.push([T0, iso(T0), 0, name, 'soak', 'wedge_miss', 1, '', '7702010001017']);
   if (o.backupFreeze) {
     markers.push([T0 + HOUR, iso(T0 + HOUR), 3600, name, 'soak', 'backup_start', 1, '', '']);
     markers.push([
@@ -357,6 +363,17 @@ test('summarize fails every threshold the run breaks', { skip }, () => {
   assert.equal(summary.memory.roles.renderer.slope_mb_per_h, 20);
   assert.equal(summary.sales.drive_ok, 10);
   assert.equal(summary.harness.working_set_peak_mb, 70);
+  assert.deepEqual(summary.scanner, {
+    scans: 4,
+    gap_median_ms: 6,
+    gap_p95_ms: 41,
+    gap_max_ms: 41,
+    over_listener_window: 1,
+    picked_from_search: 1,
+    unknown_codes: 0,
+    failed_scans: 0,
+  });
+  assert.match(readFileSync(path.join(runB, 'verdict.md'), 'utf8'), /Scanner: 4 scans;/u);
 });
 
 test('summarize refuses a folder with nothing measured', { skip }, () => {

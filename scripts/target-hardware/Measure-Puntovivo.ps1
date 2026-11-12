@@ -398,6 +398,23 @@ $ProbeJs = @'
     }
   };
   if (window.electron && window.electron.getAppVersion) ipc();
+  // The scanner listener treats keys more than 30 ms apart as typing, so record
+  // the widest gap of each 6+ character burst that ends in Enter.
+  let burst = null;
+  document.addEventListener('keydown', e => {
+    if (!e.target || e.target.id !== 'sales-product-search-input') return;
+    const at = performance.now();
+    if (e.key === 'Enter') {
+      if (burst && burst.n >= 6) m.ev.push(['scan_gaps', Date.now(), Math.round(burst.max * 10) / 10, 0, burst.n]);
+      burst = null;
+      return;
+    }
+    if (e.key.length !== 1) return;
+    if (!burst || at - burst.last > 1000) burst = { n: 0, max: 0, last: at };
+    else burst.max = Math.max(burst.max, at - burst.last);
+    burst.n += 1;
+    burst.last = at;
+  }, true);
   let last = performance.now();
   setInterval(() => {
     const now = performance.now();
@@ -477,6 +494,7 @@ $StateJs = @'
     pos: visible(q('#sales-product-search-input')),
     active,
     payment: !!q('#sale-payment-form'),
+    search: q('#sales-product-search-input') ? q('#sales-product-search-input').value : '',
     cart: document.querySelectorAll('[data-testid^="sale-cart-item-"]').length,
     dialogs,
     probe: !!window.__pvm,
@@ -493,6 +511,31 @@ $HealthJs = @'
   } catch (error) {
     return false;
   }
+})()
+'@
+
+# A scan that reached the app as typing opens product search with the query;
+# a cashier then picks the row and confirms, which is what this does.
+$PickSearchResultJs = @'
+(async () => {
+  const dialog = [...document.querySelectorAll('[role="dialog"]')].pop();
+  if (!dialog) return 'no-dialog';
+  let row = null;
+  for (let i = 0; i < 50 && !row; i++) {
+    row = dialog.querySelector('[data-testid^="product-search-row-"]');
+    if (!row) {
+      if (dialog.querySelector('[data-testid="product-search-empty-state"]')) return 'no-row';
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  }
+  if (!row) return 'no-row';
+  row.click();
+  await new Promise(resolve => setTimeout(resolve, 300));
+  const buttons = [...dialog.querySelectorAll('button')].filter(button => !button.disabled);
+  const confirm = buttons[buttons.length - 1];
+  if (!confirm) return 'no-confirm';
+  confirm.click();
+  return 'picked';
 })()
 '@
 
@@ -922,7 +965,7 @@ function Write-Status {
   $part = { param($role) if ($m.ContainsKey($role)) { '{0:0}' -f $m[$role] } else { '-' } }
   $line = '[{0}] main {1} | renderer {2} | gpu {3} | utility {4} | total {5:0} MB | free {6:0} MB | page reads {7:0.0}/s | ipc p99 {8} ms | sales {9} ok, {10} failed' -f `
     ([TimeSpan]::FromSeconds((Get-Elapsed)).ToString('hh\:mm\:ss')), (& $part 'main'), (& $part 'renderer'), (& $part 'gpu'), (& $part 'utility'),
-    $m.total, $script:LastStatus.avail, $script:LastStatus.pageReads, $script:LastStatus.ipc, $script:Sales.ok, $script:Sales.failed
+    $m.total, $script:LastStatus.avail, $script:LastStatus.pageReads, (Round1 $script:LastStatus.ipc), $script:Sales.ok, $script:Sales.failed
   Write-Host $line
 }
 
@@ -1082,7 +1125,7 @@ function ConvertTo-SendKeys([string]$text) {
 }
 
 function Get-CdpKeyEvents([string]$key, [int]$modifiers = 0) {
-  $named = @{ Enter = @(13, "`r"); F1 = @(112, $null); F2 = @(113, $null); Escape = @(27, $null) }
+  $named = @{ Enter = @(13, "`r"); F1 = @(112, $null); F2 = @(113, $null); Escape = @(27, $null); Delete = @(46, $null) }
   if ($named.ContainsKey($key)) {
     $vk = $named[$key][0]; $text = $named[$key][1]; $code = $key
   } else {
@@ -1165,6 +1208,7 @@ function Reset-SalesScreen {
     if ($state.route -ne '#/sales') { return $state }
     if ($state.dialogs -gt 0 -or $state.payment) { [void](Send-Keys '{ESC}' @('Escape')); Start-Sleep -Milliseconds 400; continue }
     if ($state.active -ne 'sales-product-search-input') { [void](Send-Keys '%p' @('p') 1); Start-Sleep -Milliseconds 300; continue }
+    if ($state.search) { [void](Send-Keys '^a{DEL}' @('a') 2); [void](Send-Keys '{DEL}' @('Delete')); Start-Sleep -Milliseconds 200; continue }
     return $state
   }
   return (Invoke-PageJs $StateJs 3000)
@@ -1182,7 +1226,7 @@ function Invoke-DriveSale {
     return
   }
   $pool = @($script:Codes | Where-Object { -not $script:BadCodes.Contains($_) })
-  if ($pool.Count -eq 0) { throw 'Every barcode failed to add a product; check the -Barcodes file against the catalog.' }
+  if ($pool.Count -eq 0) { throw 'No barcode in the -Barcodes file matches a product in the catalog.' }
   $items = [Math]::Min($pool.Count, (Get-Random -Minimum $ItemsMin -Maximum ($ItemsMax + 1)))
   $picked = @($pool | Get-Random -Count $items)
   $started = Get-NowMs
@@ -1191,14 +1235,36 @@ function Invoke-DriveSale {
   $note = ''
   $cart = [int]$state.cart
   $added = 0
+  $wedgeMisses = 0
   foreach ($code in $picked) {
     if (-not (Send-Code $code)) { $status = 'paused'; $note = 'focus lost'; break }
     $expected = $cart + 1
-    $after = Wait-Page { param($s) $s.cart -ge $expected -or $s.dialogs -gt 0 } 10000
+    $after = Wait-Page { param($s) $s.cart -ge $expected -or $s.dialogs -gt 0 } 3000
+    if (-not $after) {
+      # The code can stay in the field with neither result; a cashier presses Enter again.
+      Add-Marker 'scan_enter_again' $n $null $code
+      [void](Send-Keys '{ENTER}' @('Enter'))
+      $after = Wait-Page { param($s) $s.cart -ge $expected -or $s.dialogs -gt 0 } 7000
+    }
     if ($script:Quit -or $script:GoneAt) { $status = 'paused'; $note = 'stopped'; break }
     if ($after -and $after.cart -ge $expected) { $cart = [int]$after.cart; $added++; continue }
-    [void]$script:BadCodes.Add($code)
-    Add-Marker 'scan_miss' $n $null $code
+    $pick = $null
+    if ($after -and $after.dialogs -gt 0) { $pick = Invoke-PageJs $PickSearchResultJs 10000 }
+    if ($pick -eq 'picked') {
+      $afterPick = Wait-Page { param($s) $s.cart -ge $expected } 5000
+      if ($afterPick) {
+        $cart = [int]$afterPick.cart; $added++; $wedgeMisses++
+        Add-Marker 'wedge_miss' $n $null $code
+        continue
+      }
+    }
+    # Only a code the search cannot find is dropped; a timing miss is not the code's fault.
+    if ($pick -eq 'no-row') {
+      [void]$script:BadCodes.Add($code)
+      Add-Marker 'scan_miss' $n $null $code
+    } else {
+      Add-Marker 'scan_failed' $n $pick $code
+    }
     [void](Reset-SalesScreen)
   }
   $chargeAt = $null
@@ -1232,6 +1298,7 @@ function Invoke-DriveSale {
   }
   if ($status -eq 'timeout') { $duration = 30000 + ($chargeAt - $started) }
   Add-Marker 'sale_end' $n $duration $status
+  if ($wedgeMisses -gt 0) { $note = ("$note; $wedgeMisses picked from search").TrimStart('; ') }
   Add-Row 'sales.csv' @($started, (Format-Utc $started), $Label, $Phase, $n, 'drive', $script:InputMode, $added, $duration, $charge, $status, $note)
   if ($status -eq 'ok') { $script:Sales.ok++ } else { $script:Sales.failed++ }
   Save-Rows
@@ -1655,6 +1722,17 @@ function Invoke-Summarize([string]$dir) {
   $lag = [double[]]@($renderer | ForEach-Object { ConvertTo-Double $_.lag_max_ms } | Where-Object { -not [double]::IsNaN($_) } | Sort-Object)
   $heap = @($renderer | Where-Object { $_.js_heap_mb -ne '' })
   $harnessRows = @($samples | Where-Object { $_.role -eq 'harness' })
+  $gaps = [double[]]@($markers | Where-Object { $_.kind -eq 'scan_gaps' -and $_.value -ne '' } | ForEach-Object { ConvertTo-Double $_.value } | Sort-Object)
+  $scanner = [ordered]@{
+    scans = $gaps.Count
+    gap_median_ms = Round1 (Get-Percentile $gaps 50)
+    gap_p95_ms = Round1 (Get-Percentile $gaps 95)
+    gap_max_ms = $(if ($gaps.Count -gt 0) { Round1 $gaps[-1] } else { $null })
+    over_listener_window = @($gaps | Where-Object { $_ -gt 30 }).Count
+    picked_from_search = @($markers | Where-Object { $_.kind -eq 'wedge_miss' }).Count
+    unknown_codes = @($markers | Where-Object { $_.kind -eq 'scan_miss' }).Count
+    failed_scans = @($markers | Where-Object { $_.kind -eq 'scan_failed' }).Count
+  }
   $harnessCpu = @($harnessRows | Where-Object { $_.cpu_pct -ne '' } | ForEach-Object { ConvertTo-Double $_.cpu_pct })
   $summary = [ordered]@{
     label           = $runLabel
@@ -1667,6 +1745,7 @@ function Invoke-Summarize([string]$dir) {
     thresholds      = $Thresholds
     startup         = $startupSummary
     sales           = $saleSummary
+    scanner         = $scanner
     memory          = $memory
     system          = [ordered]@{
       min_avail_mb = Round1 (($system | Where-Object { $_.avail_mb -ne '' } | ForEach-Object { ConvertTo-Double $_.avail_mb } | Measure-Object -Minimum).Minimum)
@@ -1702,6 +1781,10 @@ function Invoke-Summarize([string]$dir) {
   $md.Add('| Rule | Check | Result | Value | Limit | Detail |')
   $md.Add('| --- | --- | --- | ---: | ---: | --- |')
   foreach ($v in $verdicts) { $md.Add(('| {0} | {1} | {2} | {3} | {4} | {5} |' -f $v.id, $v.rule, $v.status, $v.value, $v.limit, ([string]$v.detail).Replace('|', '/'))) }
+  if ($scanner.scans -gt 0) {
+    $md.Add('')
+    $md.Add(('Scanner: {0} scans; widest gap between keys p95 {1} ms, max {2} ms; {3} over the 30 ms listener window; {4} picked from search after a missed scan.' -f $scanner.scans, $scanner.gap_p95_ms, $scanner.gap_max_ms, $scanner.over_listener_window, $scanner.picked_from_search))
+  }
   [System.IO.File]::WriteAllText((Join-Path $dir 'verdict.md'), ([string]::Join("`r`n", $md) + "`r`n"), $Utf8)
 
   Write-Host ''

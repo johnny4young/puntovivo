@@ -119,8 +119,7 @@ para una repetición del mismo build.
 
 4. Ventas, unos 30 minutos. Inicia sesión cuando Puntovivo abra y vende como
    en la tienda: escanea 5 productos, pulsa `F2` para efectivo exacto y
-   confirma. Cada venta se cronometra desde el primer escaneo hasta que se
-   cierra el cobro. Haz 10 ventas, espera 2 minutos y haz otras 10.
+   confirma. Cada venta se cronometra desde el primer escaneo hasta que se cierra el cobro. Escanea con el lector en vez de teclear los códigos: el arnés también mide el espacio entre las teclas del lector. Haz 10 ventas, espera 2 minutos y haz otras 10.
 
    ```powershell
    .\Measure-Puntovivo.ps1 -Phase sales -Label v1.17.1
@@ -202,6 +201,15 @@ del disco por primera vez, no solo la memoria que se paginó. En un runner del
 CI con 12 GB libres, U2 falló igual en la primera venta. Lee una falla de U2
 junto a la memoria libre más baja de su detalle antes de tomarla como presión
 de memoria.
+
+El resumen también reporta el lector: el espacio más largo entre las teclas de
+cada escaneo. Puntovivo toma las teclas separadas por más de 30 ms como
+tecleo, así que un escaneo que no cabe en esa ventana abre la búsqueda de
+productos en vez de agregar el producto. El cajero simulado escoge entonces el
+producto ahí, como lo haría un cajero, y lo cuenta en `picked_from_search`. En
+una VM de Windows 11 sobre un Mac con Apple silicon, la mayoría de los
+escaneos simulados quedó fuera de esa ventana, así que revisa el espacio en el
+propio equipo.
 
 ## Qué guarda una carpeta de corrida
 

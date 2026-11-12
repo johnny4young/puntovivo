@@ -61,6 +61,8 @@ $Metrics = @(
   @{ name = 'Sale, median (ms)'; path = 'sales.median_ms'; kind = 'time' }
   @{ name = 'Sale, p95 (ms)'; path = 'sales.p95_ms'; kind = 'time' }
   @{ name = 'Charge to done, median (ms)'; path = 'sales.charge_median_ms'; kind = 'time' }
+  @{ name = 'Scanner key gap, p95 (ms)'; path = 'scanner.gap_p95_ms'; kind = 'time' }
+  @{ name = 'Scans picked from search'; path = 'scanner.picked_from_search'; kind = 'count' }
   @{ name = 'IPC round trip p99, median interval (ms)'; path = 'renderer.ipc_p99_median_ms'; kind = 'time' }
   @{ name = 'IPC round trip, worst (ms)'; path = 'renderer.ipc_max_ms'; kind = 'time' }
   @{ name = 'Renderer lag, worst (ms)'; path = 'renderer.lag_max_ms'; kind = 'time' }

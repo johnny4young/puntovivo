@@ -115,7 +115,7 @@ repeat of the same build.
 
 4. Sales, about 30 minutes. Sign in when Puntovivo opens, then sell as you
    would in the shop: scan 5 products, press `F2` for exact cash and confirm.
-   Each sale is timed from its first scan until the charge closes. Ring up 10
+   Each sale is timed from its first scan until the charge closes. Scan with the scanner instead of typing codes: the harness also measures the gap between the scanner's keys. Ring up 10
    sales, wait 2 minutes, then ring up 10 more.
 
    ```powershell
@@ -193,6 +193,13 @@ Page reads also count code and files that Windows reads from disk for the
 first time, not only memory that was paged out. On a CI runner with 12 GB
 free, U2 still failed on the first sale. Read a U2 failure next to the lowest
 free memory in its detail before treating it as memory pressure.
+
+The summary also reports the scanner: the widest gap between the keys of each
+scan. Puntovivo takes keys more than 30 ms apart as typing, so a scan that
+misses opens product search instead of adding the product. The simulated
+cashier then picks the product there, as a cashier would, and counts it in
+`picked_from_search`. In a Windows 11 VM on an Apple silicon Mac most simulated
+scans missed that window, so check the gap on the till itself.
 
 ## What a run folder holds
 
