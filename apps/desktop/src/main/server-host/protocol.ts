@@ -38,16 +38,20 @@ export interface WorkerStartOptions {
 export type MainToWorkerMessage =
   | { type: 'start'; options: WorkerStartOptions }
   | { type: 'call'; id: number; op: OperationName; args: unknown[] }
-  | { type: 'stop' };
+  | { type: 'stop' }
+  /** Honoured only when the app runs under E2E or soak; see server-worker.ts. */
+  | { type: 'test-crash' };
 
 export type WorkerToMainMessage =
   | { type: 'started'; url: string }
   | { type: 'start-failed'; error: SerializedError }
   | { type: 'result'; id: number; ok: true; value: unknown }
   | { type: 'result'; id: number; ok: false; error: SerializedError }
-  | { type: 'stopped'; error?: SerializedError };
+  | { type: 'stopped'; error?: SerializedError }
+  /** Sent by the crash handler right before an uncaught exception ends the thread. */
+  | { type: 'crashed'; error: SerializedError };
 
-const CODE_PATTERN = /^[A-Z][A-Z0-9_]{1,80}$/;
+export const CODE_PATTERN = /^[A-Z][A-Z0-9_]{1,80}$/;
 
 /** Keeps a closed error code (own or from `cause`) and drops everything else. */
 export function serializeError(error: unknown): SerializedError {

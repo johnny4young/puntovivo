@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { EventEmitter } from 'node:events';
 import type { MainToWorkerMessage, WorkerToMainMessage } from '../server-host/protocol.ts';
+import type { WorkerExitFailure } from '../server-host/restart-policy.ts';
 import { startWorkerServerHost, type WorkerLike } from '../server-host/worker-host.ts';
 
 /** Scriptable stand-in for a worker thread. */
@@ -55,7 +56,7 @@ function start(worker: FakeWorker, overrides: { stopGraceMs?: number } = {}) {
   const host = startWorkerServerHost({
     workerPath: '/virtual/server-worker.cjs',
     start: { serverOptions: { dbPath: ':memory:' } },
-    onUnexpectedExit: error => exits.push(error),
+    onUnexpectedExit: failure => exits.push(failure.error),
     createWorker: () => worker as unknown as WorkerLike,
     ...overrides,
   });
@@ -222,5 +223,67 @@ describe('server worker host', () => {
     const host = await pending;
     await Promise.all([host.close(), host.close()]);
     assert.equal(worker.sent.filter(message => message.type === 'stop').length, 1);
+  });
+
+  it('reports an uncaught crash with its code, uptime and the calls it dropped', async () => {
+    let clock = 1_000;
+    const worker = new FakeWorker((message, self) => {
+      if (message.type === 'start') self.send({ type: 'started', url: 'http://127.0.0.1:9' });
+    });
+    const failures: WorkerExitFailure[] = [];
+    const host = await startWorkerServerHost({
+      workerPath: '/virtual/server-worker.cjs',
+      start: { serverOptions: {} },
+      onUnexpectedExit: failure => failures.push(failure),
+      createWorker: () => worker as unknown as WorkerLike,
+      now: () => clock,
+    });
+    const dropped = host.readAppSetting('tray_settings');
+    clock = 4_000;
+    worker.send({ type: 'crashed', error: { name: 'Error', message: 'SERVER_WORKER_TEST_CRASH' } });
+    worker.exit(1);
+    await assert.rejects(dropped, /SERVER_WORKER_TEST_CRASH/);
+    assert.equal(failures.length, 1);
+    assert.equal(failures[0]?.kind, 'uncaught');
+    assert.equal(failures[0]?.uptimeMs, 3_000);
+    assert.equal(failures[0]?.pendingCalls, 1);
+    assert.equal(failures[0]?.exitCode, 1);
+  });
+
+  it('classifies a worker heap limit exit as out of memory', async () => {
+    const worker = new FakeWorker((message, self) => {
+      if (message.type === 'start') self.send({ type: 'started', url: 'http://127.0.0.1:9' });
+    });
+    const failures: WorkerExitFailure[] = [];
+    await startWorkerServerHost({
+      workerPath: '/virtual/server-worker.cjs',
+      start: { serverOptions: {} },
+      onUnexpectedExit: failure => failures.push(failure),
+      createWorker: () => worker as unknown as WorkerLike,
+    });
+    const oom = Object.assign(new Error('Worker terminated due to reaching memory limit'), {
+      code: 'ERR_WORKER_OUT_OF_MEMORY',
+    });
+    worker.emit('error', oom);
+    worker.exit(1);
+    assert.equal(failures[0]?.kind, 'oom');
+    assert.equal(
+      (failures[0]?.error as { code?: string } | undefined)?.code,
+      'ERR_WORKER_OUT_OF_MEMORY'
+    );
+  });
+
+  it('exposes the test crash only when allowed', async () => {
+    const worker = new FakeWorker(healthyWorker);
+    const plain = await start(worker).host;
+    assert.equal(plain.simulateCrash, undefined);
+    const crashable = await startWorkerServerHost({
+      workerPath: '/virtual/server-worker.cjs',
+      start: { serverOptions: {} },
+      onUnexpectedExit: () => {},
+      createWorker: () => new FakeWorker(healthyWorker) as unknown as WorkerLike,
+      allowTestCrash: true,
+    });
+    assert.equal(typeof crashable.simulateCrash, 'function');
   });
 });

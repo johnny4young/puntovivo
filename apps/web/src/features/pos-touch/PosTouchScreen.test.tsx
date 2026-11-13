@@ -282,6 +282,11 @@ vi.mock('@/components/feedback/ToastProvider', () => ({
   useToast: () => ({ success: toastSuccess, error: toastError, warning: toastWarning }),
 }));
 
+let mockServerState = 'running';
+vi.mock('@/hooks/useEmbeddedServerState', () => ({
+  useEmbeddedServerState: () => mockServerState,
+}));
+
 vi.mock('@/features/modules', () => ({
   useIsModuleActive: () => mockDineInActive,
 }));
@@ -678,6 +683,22 @@ describe('PosTouchScreen', () => {
     });
     expect(invalidateCash).toHaveBeenCalled();
     expect(invalidateProducts).toHaveBeenCalled();
+  });
+
+  it('pauses only Charge sale while the embedded server restarts', async () => {
+    const user = userEvent.setup();
+    mockServerState = 'restarting';
+    try {
+      render(<PosTouchScreen />);
+      await user.click(screen.getByTestId('pos-touch-tile-p-1'));
+      await screen.findByTestId('pos-touch-cart-line-p-1:p-1-unit-1');
+      expect(screen.getByTestId('pos-touch-cart-charge')).toBeDisabled();
+      expect(screen.getByTestId('pos-touch-cart')).toHaveAttribute('aria-busy', 'false');
+      expect(screen.getByTestId('pos-touch-cart-line-p-1:p-1-unit-1-remove')).toBeEnabled();
+      expect(screen.getByTestId('pos-touch-tile-p-2')).toBeEnabled();
+    } finally {
+      mockServerState = 'running';
+    }
   });
 
   it('locks the entire ticket and ignores stale product hydration while charging', async () => {

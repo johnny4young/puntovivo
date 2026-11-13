@@ -26,7 +26,7 @@
  * @module services/idempotency/idempotencyService
  */
 
-import { and, eq, lte } from 'drizzle-orm';
+import { and, eq, inArray, lte } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
 import { idempotencyKeys, type IdempotencyKey } from '../../db/schema.js';
@@ -428,6 +428,33 @@ export async function failKey(
         eq(idempotencyKeys.status, 'processing')
       )
     );
+}
+
+/**
+ * Marks every `processing` reservation of the given kinds as failed. Call it
+ * only at boot, before the server accepts requests: no live owner exists then.
+ * Restrict it to kinds whose success is written in the same transaction as
+ * their business rows, so an abandoned `processing` row proves no business
+ * write committed and a same-payload replay may run once.
+ */
+export function releaseAbandonedReservations(
+  db: DatabaseInstance,
+  operationKinds: Iterable<string>,
+  now: Date = new Date()
+): number {
+  const kinds = [...operationKinds];
+  if (kinds.length === 0) return 0;
+  const released = db
+    .update(idempotencyKeys)
+    .set({ status: 'failed', completedAt: now.toISOString() })
+    .where(
+      and(eq(idempotencyKeys.status, 'processing'), inArray(idempotencyKeys.operationKind, kinds))
+    )
+    .run();
+  if (released.changes > 0) {
+    log.warn({ released: released.changes }, 'released command reservations abandoned by a crash');
+  }
+  return released.changes;
 }
 
 /**

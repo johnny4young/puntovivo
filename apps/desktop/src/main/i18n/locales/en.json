@@ -59,5 +59,10 @@
     "requiresRepoAccess": "Update checks require access to the release repository.",
     "checkFailed": "Could not check for updates. Please try again later.",
     "manualInstallRequired": "This build notifies about updates; open the release page to download the new version."
+  },
+  "server": {
+    "fatalCorruption": "This computer's database is damaged, so Puntovivo closed to avoid making it worse. Restore the latest backup. Support code: {{code}}",
+    "fatalKey": "Puntovivo could not open the database with this computer's key and closed. Contact support before opening it again. Support code: {{code}}",
+    "fatalRestartLoop": "Puntovivo's internal server stopped several times within a few minutes, so the app closed. Open it again; if it happens again, contact support. Support code: {{code}}"
   }
 }

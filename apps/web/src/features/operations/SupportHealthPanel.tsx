@@ -14,7 +14,15 @@ import { lazy, Suspense } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
-import { Activity, AppWindow, Boxes, HeartPulse, MonitorCheck, RadioTower } from 'lucide-react';
+import {
+  Activity,
+  AppWindow,
+  Boxes,
+  HeartPulse,
+  MonitorCheck,
+  RadioTower,
+  RotateCcw,
+} from 'lucide-react';
 import { KpiTile, StatusStrip, type KpiTone } from '@/components/ui';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useModulesSnapshot } from '@/features/modules';
@@ -35,6 +43,7 @@ interface AutoUpdateStatus {
 }
 
 const desktopStatusQueryKey = ['operations', 'support-health', 'desktop-status'] as const;
+const serverRestartsQueryKey = ['operations', 'support-health', 'server-restarts'] as const;
 
 function updateTone(state: AutoUpdateState): KpiTone {
   if (state === 'error') return 'danger';
@@ -82,6 +91,15 @@ export function SupportHealthPanel() {
     refetchInterval: 30_000,
   });
 
+  const restartsQuery = useQuery({
+    queryKey: serverRestartsQueryKey,
+    queryFn: async () => (await window.electron?.getServerRestartStats?.())?.restartsLast7Days ?? 0,
+    enabled: isDesktop,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+  const serverRestarts = restartsQuery.data ?? 0;
+
   const moduleEntries = Object.entries(modulesSnapshot.modules);
   const activeModuleCount = moduleEntries.filter(([, active]) => active).length;
   const devices = authorityQuery.data?.devices ?? [];
@@ -93,7 +111,10 @@ export function SupportHealthPanel() {
   const updateState: AutoUpdateState = isDesktop
     ? (desktopStatus?.state ?? 'checking')
     : 'unavailable';
-  const needsAttention = staleDevices + (isDesktop && isUpdateAttentionState(updateState) ? 1 : 0);
+  const needsAttention =
+    staleDevices +
+    (isDesktop && isUpdateAttentionState(updateState) ? 1 : 0) +
+    (serverRestarts > 0 ? 1 : 0);
   const isLoading =
     modulesSnapshot.isLoading ||
     authorityQuery.isLoading ||
@@ -153,7 +174,13 @@ export function SupportHealthPanel() {
             />
           )}
 
-          <div className="pv-kpis grid-cols-1 sm:grid-cols-2 xl:grid-cols-5">
+          <div
+            className={
+              isDesktop
+                ? 'pv-kpis grid-cols-1 sm:grid-cols-2 xl:grid-cols-3'
+                : 'pv-kpis grid-cols-1 sm:grid-cols-2 xl:grid-cols-5'
+            }
+          >
             <KpiTile
               icon={AppWindow}
               tone="primary"
@@ -177,6 +204,14 @@ export function SupportHealthPanel() {
                   : t('support.health.updates.webContext')
               }
             />
+            {isDesktop && (
+              <KpiTile
+                icon={RotateCcw}
+                tone={serverRestarts > 0 ? 'warning' : 'success'}
+                label={t('common:embeddedServer.restartsLabel')}
+                value={t('common:embeddedServer.restartsValue', { count: serverRestarts })}
+              />
+            )}
             <KpiTile
               icon={Boxes}
               tone={modulesSnapshot.isPlaceholder ? 'warning' : 'success'}

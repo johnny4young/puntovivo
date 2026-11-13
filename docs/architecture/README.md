@@ -54,6 +54,7 @@ estimates, and private work queues do not belong in ADRs.
 | [ADR-0031](./0031-human-review-of-ai-payment-proposals.md)               | Human review of AI payment proposals       | Accepted |
 | [ADR-0032](./0032-embedded-server-worker-thread.md)                      | Embedded server in a worker thread         | Accepted |
 | [ADR-0033](./0033-desktop-stack-stays-on-electron.md)                    | Desktop stack stays on Electron            | Accepted |
+| [ADR-0034](./0034-server-worker-restart.md)                              | Restart the server worker after a crash    | Proposed |
 | [ADR-0035](./0035-backups-off-the-main-thread.md)                        | Build backup bundles off the main thread   | Proposed |
 
 ## Reusable implementation patterns

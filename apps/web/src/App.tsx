@@ -9,6 +9,7 @@ import { PricingSync } from '@/features/pricing/PricingContext';
 import { SurfaceShellRoute } from '@/features/surfaces/SurfaceShellRoute';
 import { ProtectedRoute } from '@/features/auth/ProtectedRoute';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { EmbeddedServerRecovery } from '@/features/desktop-server/EmbeddedServerRecovery';
 import {
   allRoles,
   adminOnlyRoles,
@@ -99,6 +100,7 @@ function App() {
         <ModulesSync />
         <PricingSync />
         <LocaleSync />
+        <EmbeddedServerRecovery />
         <CommandPaletteProvider>
           <Suspense fallback={null}>
             <GlobalShortcutsProvider />

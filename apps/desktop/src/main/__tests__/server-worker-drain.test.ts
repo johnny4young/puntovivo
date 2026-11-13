@@ -77,6 +77,7 @@ describe('server worker direct-call drain', () => {
       export const captureProcessCrash = () => {};
       export const createModuleLogger = () => ({ error() {} });
       export const flushServerTelemetry = async () => {};
+      export const drainPasswordWork = async () => {};
     `);
       const launcherModule = asModule(`
       import { parentPort, workerData } from 'node:worker_threads';
@@ -129,7 +130,7 @@ describe('server worker direct-call drain', () => {
         workerPath: '/synthetic/server-worker.ts',
         start: { serverOptions: { dbPath: ':memory:' } },
         createWorker: () => worker as unknown as WorkerLike,
-        onUnexpectedExit: error => exits.push(error),
+        onUnexpectedExit: failure => exits.push(failure.error),
         stopGraceMs: 1000,
       });
       const started = new Promise<void>(resolve => {

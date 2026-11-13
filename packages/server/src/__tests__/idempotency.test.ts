@@ -21,6 +21,7 @@ import {
   completeKey,
   completeKeyInTransaction,
   failKey,
+  releaseAbandonedReservations,
   reserveKey,
 } from '../services/idempotency/idempotencyService.js';
 
@@ -667,5 +668,57 @@ describe('in-transaction completion survives a post-commit failure', () => {
     if (retry.state === 'cached') {
       expect(retry.resultRef).toEqual({ movementId: 'movement-1', quantity: 7 });
     }
+  });
+});
+
+describe('boot release of reservations abandoned by a crash', () => {
+  const reserve = (key: string, operationKind: string, requestHash = 'hash-boot') =>
+    reserveKey(getDatabase(), {
+      tenantId,
+      deviceId,
+      idempotencyKey: key,
+      operationKind,
+      requestHash,
+    });
+
+  it('lets the same payload run at once instead of waiting for the lease', async () => {
+    const key = nanoid();
+    expect((await reserve(key, 'sales.create')).state).toBe('reserved');
+    expect((await reserve(key, 'sales.create')).state).toBe('processing');
+
+    expect(releaseAbandonedReservations(getDatabase(), ['sales.create'])).toBeGreaterThan(0);
+
+    expect((await reserve(key, 'sales.create')).state).toBe('reserved');
+  });
+
+  it('keeps a different payload in conflict after the release', async () => {
+    const key = nanoid();
+    await reserve(key, 'sales.create', 'hash-original');
+    releaseAbandonedReservations(getDatabase(), ['sales.create']);
+
+    expect((await reserve(key, 'sales.create', 'hash-other')).state).toBe('conflict');
+  });
+
+  it('leaves other kinds and completed commands untouched', async () => {
+    const pendingKey = nanoid();
+    const doneKey = nanoid();
+    await reserve(pendingKey, 'cashSessions.open');
+    const done = await reserve(doneKey, 'sales.create');
+    if (done.state !== 'reserved') throw new Error('expected a reservation');
+    await completeKey(getDatabase(), {
+      tenantId,
+      deviceId,
+      idempotencyKey: doneKey,
+      operationKind: 'sales.create',
+      reservationId: done.reservationId,
+      requestHash: 'hash-boot',
+      resultRef: { saleId: 'sale-1' },
+    });
+
+    releaseAbandonedReservations(getDatabase(), ['sales.create']);
+
+    expect((await reserve(pendingKey, 'cashSessions.open')).state).toBe('processing');
+    const replay = await reserve(doneKey, 'sales.create');
+    expect(replay.state).toBe('cached');
   });
 });

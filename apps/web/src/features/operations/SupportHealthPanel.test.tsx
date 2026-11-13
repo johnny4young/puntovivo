@@ -99,6 +99,26 @@ describe('SupportHealthPanel', () => {
     );
   });
 
+  it('counts desktop server restarts of the last 7 days as a support signal', async () => {
+    authorityQuery.data = { devices: [{ id: 'online', healthStatus: 'online' }] };
+    companyQuery.data = { telemetryOptIn: true };
+    Object.defineProperty(window, 'electron', {
+      configurable: true,
+      value: {
+        getAutoUpdateStatus: vi.fn().mockResolvedValue({ state: 'idle', currentVersion: '1.5.1' }),
+        getServerRestartStats: vi
+          .fn()
+          .mockResolvedValue({ restartsLast7Days: 2, lastCrashAt: null, entries: [] }),
+      },
+    });
+
+    render(<SupportHealthPanel />);
+
+    expect(await screen.findByText('2 in 7 days')).toBeInTheDocument();
+    expect(screen.getByText('Server restarts')).toBeInTheDocument();
+    expect(screen.getByTestId('support-health-summary')).toHaveTextContent('1');
+  });
+
   it('surfaces partial read failures without exposing raw error details', () => {
     authorityQuery.error = new Error('database path /private/store.db');
 

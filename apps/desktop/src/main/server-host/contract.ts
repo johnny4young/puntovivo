@@ -125,4 +125,6 @@ export interface EmbeddedServerOperations {
 export interface EmbeddedServerHost extends EmbeddedServerOperations {
   readonly url: string;
   close(): Promise<void>;
+  /** Present only in E2E and soak runs: makes the worker throw an uncaught error. */
+  simulateCrash?: () => void;
 }

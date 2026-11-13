@@ -6,6 +6,7 @@
 import { Worker } from 'node:worker_threads';
 import type { ServerOptions } from '@puntovivo/server';
 import type { EmbeddedServerHost, EmbeddedServerOperations } from './contract.ts';
+import type { WorkerExitFailure, WorkerExitKind } from './restart-policy.ts';
 import {
   deserializeError,
   OPERATION_NAMES,
@@ -22,22 +23,27 @@ const DEFAULT_STOP_GRACE_MS = 90_000;
 const createNodeWorker = (path: string): WorkerLike => new Worker(path) as unknown as WorkerLike;
 
 /** The part of `worker_threads.Worker` the host relies on. */
-export interface WorkerLike {
-  postMessage(message: MainToWorkerMessage): void;
-  on(event: 'message', listener: (message: WorkerToMainMessage) => void): unknown;
+export interface ThreadLike<In, Out> {
+  postMessage(message: In): void;
+  on(event: 'message', listener: (message: Out) => void): unknown;
   on(event: 'error', listener: (error: Error) => void): unknown;
   on(event: 'exit', listener: (code: number) => void): unknown;
   terminate(): Promise<number>;
 }
+
+export type WorkerLike = ThreadLike<MainToWorkerMessage, WorkerToMainMessage>;
 
 export interface WorkerServerHostOptions {
   /** Absolute path of the bundled `server-worker.cjs`. */
   workerPath: string;
   start: WorkerStartOptions;
   /** Called once when the worker dies outside `close()`. */
-  onUnexpectedExit: (error: Error) => void;
+  onUnexpectedExit: (failure: WorkerExitFailure) => void;
   stopGraceMs?: number;
   createWorker?: (path: string) => WorkerLike;
+  /** Lets E2E and soak runs crash the worker on purpose. */
+  allowTestCrash?: boolean;
+  now?: () => number;
 }
 
 /** Spawns the worker and resolves once its server listens. */
@@ -53,6 +59,9 @@ export async function startWorkerServerHost(
   let stopping = false;
   let exited = false;
   let lastError: Error | null = null;
+  let exitKind: WorkerExitKind = 'unknown';
+  const now = options.now ?? Date.now;
+  let startedAt = now();
   let stopError: Error | null = null;
   let stoppedReceived = false;
   let onStarted: ((url: string) => void) | null = null;
@@ -65,7 +74,12 @@ export async function startWorkerServerHost(
   worker.on('message', message => {
     switch (message.type) {
       case 'started':
+        startedAt = now();
         onStarted?.(message.url);
+        return;
+      case 'crashed':
+        lastError = deserializeError(message.error);
+        exitKind = 'uncaught';
         return;
       case 'start-failed':
         onStartFailed?.(deserializeError(message.error));
@@ -86,15 +100,26 @@ export async function startWorkerServerHost(
   });
   worker.on('error', error => {
     lastError = error;
+    exitKind =
+      (error as { code?: unknown }).code === 'ERR_WORKER_OUT_OF_MEMORY' ? 'oom' : 'uncaught';
   });
   worker.on('exit', code => {
     exited = true;
     const reason = lastError ?? new Error(`SERVER_WORKER_EXITED: code ${code}`);
+    const pendingCalls = pending.size;
     for (const call of pending.values()) call.reject(reason);
     pending.clear();
     onStartFailed?.(reason);
     resolveExit();
-    if (!stopping) options.onUnexpectedExit(reason);
+    if (!stopping) {
+      options.onUnexpectedExit({
+        error: reason,
+        kind: exitKind,
+        exitCode: code,
+        uptimeMs: Math.max(0, now() - startedAt),
+        pendingCalls,
+      });
+    }
   });
 
   let stopPromise: Promise<void> | null = null;
@@ -173,6 +198,9 @@ export async function startWorkerServerHost(
     ...operations,
     url,
     close: stopWorker,
+    ...(options.allowTestCrash
+      ? { simulateCrash: () => worker.postMessage({ type: 'test-crash' }) }
+      : {}),
   };
 }
 
@@ -181,8 +209,9 @@ export function createWorkerLauncher(deps: {
   workerPath: string;
   /** Converts a legacy anchor file first; undefined for env-key installs. */
   resolveAuditAnchorStoreLocation: () => Promise<WorkerStartOptions['auditAnchorStore']>;
-  onUnexpectedExit: (error: Error) => void;
+  onUnexpectedExit: (failure: WorkerExitFailure) => void;
   createWorker?: (path: string) => WorkerLike;
+  allowTestCrash?: boolean;
 }): (options: ServerOptions) => Promise<EmbeddedServerHost> {
   return async options => {
     const auditAnchorStore = await deps.resolveAuditAnchorStoreLocation();
@@ -194,6 +223,7 @@ export function createWorkerLauncher(deps: {
       },
       onUnexpectedExit: deps.onUnexpectedExit,
       ...(deps.createWorker ? { createWorker: deps.createWorker } : {}),
+      ...(deps.allowTestCrash ? { allowTestCrash: true } : {}),
     });
   };
 }

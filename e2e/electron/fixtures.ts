@@ -258,9 +258,13 @@ function forwardElectronProcessLogs(
   options: {
     allowPackagedCdpStartupDiagnostic?: boolean;
     allowPackagedNetworkRaceDiagnostic?: boolean;
+    /** A spec that crashes the server worker on purpose expects its error records. */
+    expectWorkerTestCrash?: boolean;
   } = {}
 ): { assertClean: () => void } {
   const unexpectedOutput: string[] = [];
+  // The crash handler, the restart log and crash telemetry each log once per crash.
+  let expectedCrashRecords = options.expectWorkerTestCrash ? 6 : 0;
   // One classifier per launched process, so a bounded diagnostic that repeats
   // past its limit in this run is reported instead of accepted indefinitely.
   const stderrClassifier = createElectronStderrClassifier(options);
@@ -269,6 +273,11 @@ function forwardElectronProcessLogs(
   const forwardStdoutLine = (line: string) => {
     if (line.length === 0) return;
     if (classifyElectronStdoutLine(line) === 'unexpected') {
+      if (expectedCrashRecords > 0 && line.includes('SERVER_WORKER_TEST_CRASH')) {
+        expectedCrashRecords -= 1;
+        process.stdout.write(`[electron:expected] ${line}\n`);
+        return;
+      }
       unexpectedOutput.push(line);
       process.stderr.write(`[electron:log] ${line}\n`);
     } else {
@@ -365,6 +374,8 @@ function formatFirstWindowFailure(error: unknown, child: ChildProcess): Error {
 
 interface ElectronFixtures {
   emptyInstallation: boolean;
+  /** Accept the error records of a deliberate server worker crash. */
+  expectWorkerTestCrash: boolean;
   /** Owned per-test directory, exposed for independent read-only database reconciliation. */
   userDataDir: string;
   page: Page;
@@ -392,7 +403,10 @@ interface ElectronWorkerFixtures {
  * purpose, so the packaged suite drives the renderer as an ordinary page —
  * the same surface a user has, and the same approach the packaged smoke uses.
  */
-async function launchPackagedRenderer(userDataDir: string): Promise<{
+async function launchPackagedRenderer(
+  userDataDir: string,
+  expectWorkerTestCrash = false
+): Promise<{
   page: Page;
   dispose: () => Promise<void>;
 }> {
@@ -423,6 +437,7 @@ async function launchPackagedRenderer(userDataDir: string): Promise<{
   const processLogs = forwardElectronProcessLogs(child, {
     allowPackagedCdpStartupDiagnostic: true,
     allowPackagedNetworkRaceDiagnostic: true,
+    expectWorkerTestCrash,
   });
 
   const endpoint = `http://127.0.0.1:${port}`;
@@ -565,16 +580,17 @@ async function waitForDevtools(endpoint: string, child: ChildProcess): Promise<v
 
 export const electronTest = base.extend<ElectronFixtures, ElectronWorkerFixtures>({
   emptyInstallation: [false, { option: true }],
+  expectWorkerTestCrash: [false, { option: true }],
   userDataDir: async ({ emptyInstallation }, use, testInfo) => {
     await use(createIsolatedUserDataDir(testInfo.title, emptyInstallation));
   },
   desktopRenderer: [
-    async ({ userDataDir }, use, testInfo) => {
+    async ({ userDataDir, expectWorkerTestCrash }, use, testInfo) => {
       // One private, pre-seeded userData directory per test — see
       // createIsolatedUserDataDir for why sharing one broke the suite.
 
       if (IS_PACKAGED_RUN) {
-        const launched = await launchPackagedRenderer(userDataDir);
+        const launched = await launchPackagedRenderer(userDataDir, expectWorkerTestCrash);
         try {
           await use(launched.page);
         } finally {
@@ -618,7 +634,7 @@ export const electronTest = base.extend<ElectronFixtures, ElectronWorkerFixtures
             AUTO_UPDATE: 'false',
           },
         });
-        processLogs = forwardElectronProcessLogs(electronApp.process());
+        processLogs = forwardElectronProcessLogs(electronApp.process(), { expectWorkerTestCrash });
 
         let page: Page;
         try {

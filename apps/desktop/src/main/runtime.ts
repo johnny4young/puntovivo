@@ -30,9 +30,47 @@ export function getServerHost(): EmbeddedServerHost | null {
   return host;
 }
 
+const hostWaiters = new Set<(next: EmbeddedServerHost) => void>();
+
 /** Bootstrap and server restarts assign the live host here. */
 export function setServerHost(next: EmbeddedServerHost | null): void {
   host = next;
+  if (!next) return;
+  for (const resolve of hostWaiters) resolve(next);
+  hostWaiters.clear();
+}
+
+/** The live host, waiting through a worker restart before giving up. */
+export function awaitServerHost(timeoutMs = 20_000): Promise<EmbeddedServerHost> {
+  if (host) return Promise.resolve(host);
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      hostWaiters.delete(onHost);
+      reject(new Error('The embedded server is not available'));
+    }, timeoutMs);
+    timer.unref?.();
+    const onHost = (next: EmbeddedServerHost) => {
+      clearTimeout(timer);
+      resolve(next);
+    };
+    hostWaiters.add(onHost);
+  });
+}
+
+/**
+ * Runs a read against the live host and, when the worker died under it,
+ * once more against the next worker. Never use it for writes.
+ */
+export async function readThroughRestart<T>(
+  read: (host: EmbeddedServerHost) => Promise<T>
+): Promise<T> {
+  const first = await awaitServerHost();
+  try {
+    return await read(first);
+  } catch (error) {
+    if (getServerHost() === first) throw error;
+    return read(await awaitServerHost());
+  }
 }
 
 /** The live host for handlers that cannot run without it. */

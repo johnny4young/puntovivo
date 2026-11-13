@@ -74,6 +74,7 @@ import { useIsModuleActive } from '@/features/modules';
 import { PosTouchCategoryTabs, type PosTouchCategoryOption } from './PosTouchCategoryTabs';
 import { PosTouchProductGrid } from './PosTouchProductGrid';
 import { PosTouchCartSidebar, type PosTouchCustomer } from './PosTouchCartSidebar';
+import { useEmbeddedServerState } from '@/hooks/useEmbeddedServerState';
 
 const CATALOG_PAGE_SIZE = 24;
 const CATALOG_SEARCH_DEBOUNCE_MS = 250;
@@ -232,6 +233,7 @@ export function PosTouchScreen() {
       fallbackKey: 'toast.chargeError',
     }),
   });
+  const isServerRestarting = useEmbeddedServerState() === 'restarting';
   const checkoutLocked = isCheckoutLocked || createMutation.isPending;
 
   // useCallback keeps every memoized tile from re-rendering on a cart tick;
@@ -358,7 +360,8 @@ export function PosTouchScreen() {
     return null;
   }
   const chargeDisabledReason = deriveChargeDisabledReason();
-  const canCharge = chargeDisabledReason === null;
+  // A restarting server pauses charging only; the ticket stays editable.
+  const canCharge = chargeDisabledReason === null && !isServerRestarting;
 
   // Buyer fields validate first; with the request off they always pass.
   function handleCharge() {

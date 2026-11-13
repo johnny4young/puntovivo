@@ -72,7 +72,20 @@ interface BackupRestoreDrillReport {
   }>;
 }
 
+type EmbeddedServerState = 'starting' | 'running' | 'restarting' | 'fatal';
+
+interface ServerRestartStats {
+  restartsLast7Days: number;
+  lastCrashAt: string | null;
+  entries: Array<Record<string, unknown>>;
+}
+
 interface DesktopElectronAPI {
+  /** Embedded server state; the web build has no embedded server. */
+  getServerState?: () => Promise<EmbeddedServerState>;
+  onServerStateChange?: (listener: (state: EmbeddedServerState) => void) => () => void;
+  getServerRestartStats?: () => Promise<ServerRestartStats>;
+  crashServerWorkerForE2e?: () => Promise<{ ok: boolean }>;
   simulateDownloadedAppUpdateForE2e?: (version: string) => Promise<unknown>;
   evaluateAppUpdateCandidateForE2e?: (
     version: string,
