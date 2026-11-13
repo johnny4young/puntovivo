@@ -23,13 +23,15 @@ const DEFAULT_STOP_GRACE_MS = 90_000;
 const createNodeWorker = (path: string): WorkerLike => new Worker(path) as unknown as WorkerLike;
 
 /** The part of `worker_threads.Worker` the host relies on. */
-export interface WorkerLike {
-  postMessage(message: MainToWorkerMessage): void;
-  on(event: 'message', listener: (message: WorkerToMainMessage) => void): unknown;
+export interface ThreadLike<In, Out> {
+  postMessage(message: In): void;
+  on(event: 'message', listener: (message: Out) => void): unknown;
   on(event: 'error', listener: (error: Error) => void): unknown;
   on(event: 'exit', listener: (code: number) => void): unknown;
   terminate(): Promise<number>;
 }
+
+export type WorkerLike = ThreadLike<MainToWorkerMessage, WorkerToMainMessage>;
 
 export interface WorkerServerHostOptions {
   /** Absolute path of the bundled `server-worker.cjs`. */
