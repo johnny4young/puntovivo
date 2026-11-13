@@ -92,7 +92,12 @@ export function createServerLifecycle({
   function setState(next: EmbeddedServerState): void {
     if (state === next) return;
     state = next;
-    onStateChange?.(next);
+    // A failing listener must not turn a started worker into a failed start.
+    try {
+      onStateChange?.(next);
+    } catch (error) {
+      log.warn({ err: error }, 'embedded server state listener failed');
+    }
   }
 
   function exclusive<T>(task: () => Promise<T>): Promise<T> {
@@ -142,7 +147,8 @@ export function createServerLifecycle({
 
   async function stop(): Promise<void> {
     shuttingDown = true;
-    await stopHost();
+    // A crash restart in flight finishes or bails out before the host closes.
+    await exclusive(stopHost);
   }
 
   async function stopHost(): Promise<void> {
@@ -237,8 +243,9 @@ export function createServerLifecycle({
     let lastError = failure.error;
     let attempt = 0;
     while (!cause && !shuttingDown) {
-      // restartAround may already have brought a worker back.
+      // restartAround may already have brought a worker back; the crash still counts.
       if (getServerHost()) {
+        recordCrash?.({ ...base, restartAttempt: attempt, outcome: 'restarted', fatalCause: null });
         setState('running');
         return;
       }

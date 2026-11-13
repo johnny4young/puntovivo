@@ -19,7 +19,6 @@ interface DataBridgeLogger {
 export interface DataBridgeOperations {
   getSyncStatus: (tenantId: string) => Promise<unknown>;
   triggerSync: (tenantId: string) => Promise<unknown>;
-  setSyncConfig: (config: Record<string, unknown>) => Promise<unknown>;
 }
 
 export interface DataBridgeHandlerDeps {
@@ -46,7 +45,7 @@ export function resolveActiveTenantId(
   return sessionTenantId;
 }
 
-/** Only sync summaries/configuration remain; domain data uses tRPC. */
+/** Only sync status and trigger remain; domain data uses tRPC. */
 export function createDataBridgeHandlers(deps: DataBridgeHandlerDeps) {
   const { operations } = deps;
   const activeTenant = (sessionTenantId: string, hint?: unknown) =>
@@ -62,10 +61,6 @@ export function createDataBridgeHandlers(deps: DataBridgeHandlerDeps) {
       deps.session,
       async ({ tenantId }, rendererTenantId?: unknown) =>
         operations.triggerSync(activeTenant(tenantId, rendererTenantId))
-    ),
-    setSyncConfig: withAuthenticatedDesktopSession(
-      deps.session,
-      async (_context, config: Record<string, unknown>) => operations.setSyncConfig(config)
     ),
   };
 }

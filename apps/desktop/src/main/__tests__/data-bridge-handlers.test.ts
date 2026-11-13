@@ -13,7 +13,6 @@ const unexpectedAsyncOperation = async (): Promise<never> => {
 const operations: DataBridgeOperations = {
   getSyncStatus: unexpectedAsyncOperation,
   triggerSync: unexpectedAsyncOperation,
-  setSyncConfig: unexpectedAsyncOperation,
 };
 
 describe('authenticated data-bridge handler core', () => {
@@ -32,7 +31,6 @@ describe('authenticated data-bridge handler core', () => {
     const invocations: Array<[string, () => unknown]> = [
       ['sync:getStatus', () => handlers.getSyncStatus('tenant-renderer')],
       ['sync:triggerSync', () => handlers.triggerSync('tenant-renderer')],
-      ['sync:setConfig', () => handlers.setSyncConfig({ enabled: true })],
     ];
 
     for (const [channel, invoke] of invocations) {
@@ -44,7 +42,7 @@ describe('authenticated data-bridge handler core', () => {
         channel
       );
     }
-    assert.equal(invocations.length, 3);
+    assert.equal(invocations.length, 2);
   });
 
   it('ignores a renderer tenant mismatch and records it without exposing control', () => {

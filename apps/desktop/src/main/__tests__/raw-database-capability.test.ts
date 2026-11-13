@@ -66,6 +66,7 @@ test('retained sync, session, backup and hardware capabilities remain callable',
   const { exposed, calls } = loadPreload();
   const api = exposed.get('api')!;
   const sync = api.sync as { getStatus: () => Promise<unknown> };
+  assert.deepEqual(Object.keys(sync).sort(), ['getStatus', 'triggerSync']);
   assert.deepEqual(await sync.getStatus(), { pendingItems: 0 });
   assert.deepEqual(calls, ['sync:getStatus']);
   assert.equal(exposed.get('sync'), api.sync);
@@ -101,7 +102,6 @@ test('main registers only retained sync channels, not raw database operations', 
             createDataBridgeHandlers: () => ({
               getSyncStatus: () => 'status',
               triggerSync: () => 'trigger',
-              setSyncConfig: () => 'config',
             }),
           };
         case './session-authorization.js':
@@ -113,12 +113,7 @@ test('main registers only retained sync channels, not raw database operations', 
   });
   assert.ok(exports.registerDataBridgeIpc);
   exports.registerDataBridgeIpc({ log: {} });
-  assert.deepEqual([...registrations.keys()].sort(), [
-    'sync:getStatus',
-    'sync:setConfig',
-    'sync:triggerSync',
-  ]);
+  assert.deepEqual([...registrations.keys()].sort(), ['sync:getStatus', 'sync:triggerSync']);
   assert.equal(registrations.get('sync:getStatus')!(undefined), 'status');
   assert.equal(registrations.get('sync:triggerSync')!(undefined), 'trigger');
-  assert.equal(registrations.get('sync:setConfig')!(undefined, {}), 'config');
 });

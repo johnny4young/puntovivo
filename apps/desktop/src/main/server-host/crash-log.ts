@@ -4,12 +4,12 @@
  */
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
+import { CODE_PATTERN } from './protocol.ts';
 import type { WorkerExitKind, WorkerFatalCause } from './restart-policy.ts';
 
 export const WORKER_CRASH_LOG_FILE = 'worker-crashes.ndjson';
 const MAX_ENTRIES = 50;
 const WEEK_MS = 7 * 24 * 60 * 60_000;
-const CODE_PATTERN = /^[A-Z][A-Z0-9_]{1,80}$/;
 
 export type WorkerCrashOutcome = 'restarted' | 'restart-failed' | 'fatal' | 'memory-alert';
 
