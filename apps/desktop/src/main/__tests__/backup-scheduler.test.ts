@@ -265,10 +265,12 @@ describe('backup scheduler quiet till', () => {
     clock = dueAt + 60_000;
     lastSaleAt = clock - 30_000;
     await scheduler.tick();
+    // tick() does not await snapshots; stop() drains them before the assertion.
+    await scheduler.stop();
     assert.equal(bundles, 0, 'a sale 30 s ago defers the snapshot');
 
     lastSaleAt = clock - 3 * 60_000;
-    await scheduler.tick();
+    await scheduler.start();
     await scheduler.stop();
     assert.equal(bundles, 1, 'a quiet till runs it');
   });

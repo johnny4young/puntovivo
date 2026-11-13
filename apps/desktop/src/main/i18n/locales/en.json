@@ -29,7 +29,8 @@
     "restoreNoPassphraseWrap": "This backup was not protected with a passphrase. Paste the 64-character recovery key from the source device instead.",
     "passphraseUnsupported": "This computer does not encrypt its database, so the backup cannot be protected with a passphrase.",
     "passphraseTooShort": "The backup passphrase must be at least 10 characters.",
-    "createInProgress": "Another backup creation is already in progress."
+    "createInProgress": "Another backup creation is already in progress.",
+    "diskSpaceLow": "There is not enough free disk space for this backup. Free up space or choose another drive."
   },
   "print": {
     "receiptFailed": "Receipt printing failed",
