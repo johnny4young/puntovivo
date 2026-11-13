@@ -1,12 +1,9 @@
 import { AlertTriangle, CheckCircle2, Copy, ShieldCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
+import { fiscalProfileIssueText } from './fiscalProfileImportIssues';
 import { ImportCommitGuard } from './ImportCommitGuard';
-import type {
-  FiscalProfileImportIssue,
-  FiscalProfileImportPreview,
-  LaunchImportDataMode,
-} from './types';
+import type { FiscalProfileImportPreview, LaunchImportDataMode } from './types';
 import { Button } from '@/components/ui';
 interface FiscalProfileImportPreviewProps {
   completed: boolean;
@@ -23,14 +20,15 @@ const STATUS_STYLE = {
   duplicate: 'bg-warning-50 text-warning-800 border-warning-200',
   invalid: 'bg-danger-50 text-danger-800 border-danger-200',
 } as const;
-function issueKey(issue: FiscalProfileImportIssue) {
-  return `fiscalProfiles.issues.${issue.code}`;
-}
 function profileDetails(row: FiscalProfileImportPreview['rows'][number], empty: string): string {
   const profile = row.normalized;
   const values =
     profile.countryCode === 'CO'
-      ? [profile.resolutionNumber, profile.numberingPrefix, profile.rangeFrom, profile.rangeTo]
+      ? [
+          profile.numbering
+            ? `${profile.numbering.siteName ?? ''} ${profile.numbering.prefix} ${profile.numbering.fromNumber}–${profile.numbering.toNumber}`.trim()
+            : null,
+        ]
       : profile.countryCode === 'CL'
         ? [profile.economicActivityCode, profile.administrativeAreaCode, profile.issueLocation]
         : [profile.economicActivityCode, profile.issueLocation];
@@ -160,7 +158,7 @@ export function FiscalProfileImportPreviewPanel({
                         .map(issue =>
                           t('table.issueFormat', {
                             field: t(`fiscalProfiles.fields.${issue.field}`),
-                            issue: t(issueKey(issue)),
+                            issue: fiscalProfileIssueText(t, issue),
                           })
                         )
                         .join(' · ')}

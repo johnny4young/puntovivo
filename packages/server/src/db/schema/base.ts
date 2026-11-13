@@ -530,6 +530,12 @@ export const auditLogActionEnum = [
   'webhook_delivery.retry',
   'operational_alert.acknowledged',
   'operational_alert.delivery.retry',
+  // DIAN numbering ranges. Snapshots never carry the technical key.
+  'fiscal_numbering.create',
+  'fiscal_numbering.activate',
+  'fiscal_numbering.retire',
+  'fiscal_numbering.delete',
+  'fiscal_numbering.relieve',
 ] as const;
 export type AuditLogAction = (typeof auditLogActionEnum)[number];
 
@@ -635,6 +641,7 @@ export const auditLogResourceTypeEnum = [
   'data_import',
   // immutable comprehensive day-close evidence row.
   'day_close_signoff',
+  'fiscal_numbering_range',
 ] as const;
 export type AuditLogResourceType = (typeof auditLogResourceTypeEnum)[number];
 

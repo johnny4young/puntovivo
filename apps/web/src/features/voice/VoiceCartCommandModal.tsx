@@ -95,6 +95,7 @@ function buildSelection(match: MatchedProduct): ProductSearchSelection {
       taxRate: match.taxRate,
       initialCost: 0,
       stock: match.stock,
+      siteStock: match.siteStock ?? null,
       minStock: 0,
       sellByFraction: match.sellByFraction,
       fractionStep: match.fractionStep ?? null,

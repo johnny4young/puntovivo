@@ -28,7 +28,6 @@ export async function upsertAppSetting(
     .run();
 }
 
-export const DESKTOP_SYNC_CONFIG_KEY = 'desktop_sync_config';
 export const LAST_SYNC_KEY_PREFIX = 'sync_last_sync:';
 export const DESKTOP_PENDING_SYNC_STATUSES = ['queued', 'submitting', 'retrying'] as const;
 export const DESKTOP_PROCESSABLE_SYNC_STATUSES = ['queued', 'retrying'] as const;

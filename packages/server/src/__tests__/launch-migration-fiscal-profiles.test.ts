@@ -3,7 +3,14 @@ import { and, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { beforeAll, beforeEach, afterAll, describe, expect, it } from 'vitest';
 
-import { auditLogs, tenantLocaleSettings, tenants, users } from '../db/schema.js';
+import {
+  auditLogs,
+  fiscalNumberingResolutions,
+  sites,
+  tenantLocaleSettings,
+  tenants,
+  users,
+} from '../db/schema.js';
 import { getDatabase, type DatabaseInstance } from '../db/index.js';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { readCoFiscalSettings } from '../services/fiscal/packs/co/settings.js';
@@ -39,11 +46,7 @@ function row(rowNumber: number, values: Record<string, string>) {
 
 const coValues = {
   countryCode: 'CO',
-  taxIdentifier: '900123456-7',
-  resolutionNumber: '18764000001234',
-  numberingPrefix: 'SETT',
-  rangeFrom: '1',
-  rangeTo: '5000',
+  taxIdentifier: '900123456-8',
   environment: 'habilitación',
 };
 
@@ -99,7 +102,7 @@ describe(' fiscal profile migration', () => {
     ).toBe(false);
   });
 
-  it('validates the tenant country, duplicate rows, issuer identity, and numbering range', async () => {
+  it('validates the tenant country, duplicate rows, and issuer identity', async () => {
     const preview = await appRouter
       .createCaller(createTestContext())
       .launchMigration.previewFiscalProfiles({
@@ -117,8 +120,6 @@ describe(' fiscal profile migration', () => {
           row(5, {
             ...coValues,
             taxIdentifier: 'broken',
-            rangeFrom: '20',
-            rangeTo: '10',
           }),
         ],
       });
@@ -136,12 +137,65 @@ describe(' fiscal profile migration', () => {
       code: 'tenant_country_mismatch',
       field: 'countryCode',
     });
-    expect(preview.rows[3]?.issues).toEqual(
-      expect.arrayContaining([
-        { code: 'invalid_tax_identifier', field: 'taxIdentifier' },
-        { code: 'invalid_range', field: 'rangeFrom' },
-      ])
-    );
+    expect(preview.rows[3]?.issues).toContainEqual({
+      code: 'invalid_tax_identifier',
+      field: 'taxIdentifier',
+    });
+  });
+
+  it('rejects a CO NIT with a wrong DIAN check digit and normalizes valid ones', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+    const preview = (taxIdentifier: string) =>
+      caller.launchMigration.previewFiscalProfiles({
+        dataMode: 'demo',
+        sourceName: 'co-nit.csv',
+        rows: [row(2, { ...coValues, taxIdentifier })],
+      });
+
+    const wrongDv = (await preview('900123456-7')).rows[0];
+    expect(wrongDv).toMatchObject({ status: 'invalid' });
+    expect(wrongDv?.issues).toEqual([
+      { code: 'invalid_check_digit', field: 'taxIdentifier', expectedDigit: 8 },
+    ]);
+    expect(JSON.stringify(wrongDv?.issues)).not.toContain('900123456');
+    expect((await preview('90012345681')).rows[0]).toMatchObject({
+      status: 'invalid',
+      issues: [{ code: 'invalid_tax_identifier', field: 'taxIdentifier' }],
+    });
+    for (const taxIdentifier of ['900.123.456-8', '900123456']) {
+      expect((await preview(taxIdentifier)).rows[0]).toMatchObject({
+        status: 'ready',
+        normalized: { taxIdentifier: '900123456-8' },
+      });
+    }
+
+    const storeNit = (nit: string) =>
+      db
+        .update(tenants)
+        .set({
+          settings: {
+            fiscal: {
+              co: {
+                nit,
+                environment: 'habilitacion',
+              },
+            },
+          },
+        })
+        .where(eq(tenants.id, tenantId));
+    for (const storedNit of ['900.123.456-8', '900123456']) {
+      await storeNit(storedNit);
+      expect((await preview('900123456-8')).rows[0]).toMatchObject({
+        status: 'duplicate',
+        issues: [{ code: 'duplicate_existing_profile', field: 'taxIdentifier' }],
+      });
+    }
+    // An earlier import could store a wrong DV; never treat it as the same profile.
+    await storeNit('900123456-7');
+    expect((await preview('900123456-8')).rows[0]).toMatchObject({
+      status: 'invalid',
+      issues: [{ code: 'existing_profile_conflict', field: 'taxIdentifier' }],
+    });
   });
 
   it('normalizes and validates canonical Mexico and Chile profiles', async () => {
@@ -282,11 +336,7 @@ describe(' fiscal profile migration', () => {
     expect(tenant?.settings).toMatchObject({ unrelated: { preserved: true } });
     expect(readCoFiscalSettings(tenant?.settings)).toEqual({
       enabled: false,
-      nit: '900123456-7',
-      dianResolutionNumber: '18764000001234',
-      prefix: 'SETT',
-      rangeFrom: 1,
-      rangeTo: 5000,
+      nit: '900123456-8',
       environment: 'habilitacion',
       softwareId: null,
       softwarePin: null,
@@ -317,6 +367,105 @@ describe(' fiscal profile migration', () => {
 
     const retry = await caller.launchMigration.previewFiscalProfiles(input);
     expect(retry.summary).toEqual({ total: 1, ready: 0, duplicates: 1, invalid: 0 });
+  });
+
+  it('registers the DEE range of a CO row in the numbering table, not the settings', async () => {
+    const site = await db
+      .select({ id: sites.id, name: sites.name })
+      .from(sites)
+      .where(and(eq(sites.tenantId, tenantId), eq(sites.isActive, true)))
+      .get();
+    const input = {
+      dataMode: 'real' as const,
+      sourceName: 'profile-with-range.csv',
+      rows: [
+        row(2, {
+          ...coValues,
+          siteName: site!.name.toUpperCase(),
+          resolutionNumber: '18764000001234',
+          resolutionDate: '2026-10-01',
+          numberingPrefix: 'sett',
+          rangeFrom: '1',
+          rangeTo: '5000',
+          validFrom: '2026-10-01',
+          validUntil: '2027-09-30',
+        }),
+      ],
+    };
+    const caller = appRouter.createCaller(createTestContext());
+    const preview = await caller.launchMigration.previewFiscalProfiles(input);
+    expect(preview.rows[0]?.normalized.numbering).toMatchObject({
+      prefix: 'SETT',
+      fromNumber: 1,
+      toNumber: 5000,
+      validFrom: '2026-10-01T05:00:00.000Z',
+      validUntil: '2027-10-01T04:59:59.999Z',
+    });
+    expect(preview.summary.ready).toBe(1);
+    await caller.launchMigration.importFiscalProfiles({
+      ...input,
+      confirmedRealData: true,
+      previewHash: preview.previewHash,
+    });
+    const range = await db
+      .select()
+      .from(fiscalNumberingResolutions)
+      .where(
+        and(
+          eq(fiscalNumberingResolutions.tenantId, tenantId),
+          eq(fiscalNumberingResolutions.prefix, 'SETT')
+        )
+      )
+      .get();
+    expect(range).toMatchObject({
+      siteId: site!.id,
+      kind: 'DEE',
+      resolutionNumber: '18764000001234',
+      environment: 'habilitacion',
+      currentNumber: 0,
+      technicalKey: null,
+    });
+    const tenant = await db
+      .select({ settings: tenants.settings })
+      .from(tenants)
+      .where(eq(tenants.id, tenantId))
+      .get();
+    expect(JSON.stringify(tenant?.settings)).not.toContain('18764000001234');
+    await db
+      .delete(fiscalNumberingResolutions)
+      .where(eq(fiscalNumberingResolutions.tenantId, tenantId));
+  });
+
+  it('flags incomplete or out-of-rule range columns before anything is written', async () => {
+    const preview = await appRouter
+      .createCaller(createTestContext())
+      .launchMigration.previewFiscalProfiles({
+        dataMode: 'demo',
+        sourceName: 'profile-with-range.csv',
+        rows: [
+          row(2, {
+            ...coValues,
+            siteName: 'Sede que no existe',
+            resolutionNumber: '1876',
+            resolutionDate: 'ayer',
+            numberingPrefix: 'TOO-LONG',
+            rangeFrom: '10',
+            rangeTo: '5',
+            validFrom: '2026-01-01',
+            validUntil: '2029-01-01',
+          }),
+        ],
+      });
+    expect(preview.summary.invalid).toBe(1);
+    expect(preview.rows[0]?.issues).toEqual(
+      expect.arrayContaining([
+        { code: 'invalid_prefix', field: 'numberingPrefix' },
+        { code: 'invalid_range', field: 'rangeTo' },
+        { code: 'invalid_date', field: 'resolutionDate' },
+        { code: 'invalid_range', field: 'validUntil' },
+      ])
+    );
+    expect(preview.rows[0]?.normalized.numbering).toBeNull();
   });
 
   it('persists disabled canonical MX and CL branches', async () => {

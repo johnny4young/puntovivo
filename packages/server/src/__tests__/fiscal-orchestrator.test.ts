@@ -1126,7 +1126,7 @@ describe('emitFiscalDocument', () => {
     // Disable the only resolution.
     await db
       .update(fiscalNumberingResolutions)
-      .set({ isActive: false })
+      .set({ isActive: false, status: 'retired' })
       .where(eq(fiscalNumberingResolutions.id, harness.resolutionId));
 
     const saleId = await seedCompletedSale({
@@ -1150,7 +1150,7 @@ describe('emitFiscalDocument', () => {
     // Restore.
     await db
       .update(fiscalNumberingResolutions)
-      .set({ isActive: true })
+      .set({ isActive: true, status: 'active' })
       .where(eq(fiscalNumberingResolutions.id, harness.resolutionId));
   });
 });

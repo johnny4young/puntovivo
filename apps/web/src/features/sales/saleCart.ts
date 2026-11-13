@@ -99,7 +99,8 @@ export function buildCartItem(selection: ProductSearchSelection): SaleCartItem {
     unitPrice: selection.price,
     discount: 0,
     taxRate: selection.product.taxRate ?? 0,
-    availableStock: selection.product.stock,
+    // A sale can only take stock from its own site, so prefer that figure.
+    availableStock: selection.product.siteStock ?? selection.product.stock,
     tracksStock: selection.product.tracksStock !== false,
     sellByFraction: selection.product.sellByFraction,
     fractionStep: selection.product.fractionStep,
@@ -201,9 +202,12 @@ export function mergeCartItem(items: SaleCartItem[], selection: ProductSearchSel
 
   return items.map((item, index) =>
     index === existingIndex
-      ? updateCartItem(item, {
-          quantity: roundQuantity(item.quantity + getSaleQuantityStep(item), 6),
-        })
+      ? {
+          ...updateCartItem(item, {
+            quantity: roundQuantity(item.quantity + getSaleQuantityStep(item), 6),
+          }),
+          availableStock: nextItem.availableStock,
+        }
       : item
   );
 }
@@ -263,9 +267,12 @@ export function mergeBarcodeCartItem(
   const increment = overrides.quantity ?? getSaleQuantityStep(nextItem);
   return items.map((item, index) =>
     index === existingIndex
-      ? updateCartItem(item, {
-          quantity: roundQuantity(item.quantity + increment, 12),
-        })
+      ? {
+          ...updateCartItem(item, {
+            quantity: roundQuantity(item.quantity + increment, 12),
+          }),
+          availableStock: nextItem.availableStock,
+        }
       : item
   );
 }

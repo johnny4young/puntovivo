@@ -38,10 +38,6 @@ type CoSettingsResponse = {
   settings: {
     enabled: boolean;
     nit: string | null;
-    dianResolutionNumber: string | null;
-    prefix: string | null;
-    rangeFrom: number | null;
-    rangeTo: number | null;
     environment: 'habilitacion' | 'produccion';
     softwareId: string | null;
     softwarePinConfigured: boolean;
@@ -58,10 +54,6 @@ const UNCONFIGURED_CO: CoSettingsResponse = {
   settings: {
     enabled: false,
     nit: null,
-    dianResolutionNumber: null,
-    prefix: null,
-    rangeFrom: null,
-    rangeTo: null,
     environment: 'habilitacion',
     softwareId: null,
     softwarePinConfigured: false,
@@ -71,14 +63,9 @@ const UNCONFIGURED_CO: CoSettingsResponse = {
     issues: [
       { code: 'MISSING_NIT', field: 'fiscal.co.nit', message: 'falta nit' },
       {
-        code: 'MISSING_RESOLUTION',
-        field: 'fiscal.co.dianResolutionNumber',
-        message: 'falta resolución',
-      },
-      {
-        code: 'MISSING_RANGE',
-        field: 'fiscal.co.rangeFrom',
-        message: 'falta rango',
+        code: 'MISSING_SOFTWARE',
+        field: 'fiscal.co.softwareId',
+        message: 'falta software',
       },
     ],
   },
@@ -150,7 +137,9 @@ describe('CompanyCoFiscalCard', () => {
     fireEvent.click(screen.getByTestId('fiscal-co-configure'));
     expect(screen.queryByTestId('fiscal-co-empty')).not.toBeInTheDocument();
     expect(screen.getByLabelText(/Issuer NIT/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/DIAN numbering resolution/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/DIAN software ID/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/numbering resolution/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Range from/i)).not.toBeInTheDocument();
   });
 
   it('renders the form directly when config already exists', () => {
@@ -159,10 +148,6 @@ describe('CompanyCoFiscalCard', () => {
       settings: {
         enabled: true,
         nit: '900123456-8',
-        dianResolutionNumber: '18760000001',
-        prefix: 'SETP',
-        rangeFrom: 1,
-        rangeTo: 5000,
         environment: 'produccion',
         softwareId: 'sw-1',
         softwarePinConfigured: true,
@@ -185,10 +170,6 @@ describe('CompanyCoFiscalCard', () => {
       settings: {
         enabled: true,
         nit: '900123456-8',
-        dianResolutionNumber: '18760000001',
-        prefix: 'SETP',
-        rangeFrom: 1,
-        rangeTo: 5000,
         environment: 'produccion',
         softwareId: 'sw-1',
         softwarePinConfigured: true,
@@ -205,20 +186,11 @@ describe('CompanyCoFiscalCard', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('submit sends the patch with NIT, resolution and parsed numeric range', () => {
+  it('submit sends the issuer patch without numbering fields', () => {
     render(<CompanyCoFiscalCard />);
     fireEvent.click(screen.getByTestId('fiscal-co-configure'));
     fireEvent.change(screen.getByLabelText(/Issuer NIT/i), {
       target: { value: '900123456-8' },
-    });
-    fireEvent.change(screen.getByLabelText(/DIAN numbering resolution/i), {
-      target: { value: '18760000001' },
-    });
-    fireEvent.change(screen.getByLabelText(/Range from/i), {
-      target: { value: '1' },
-    });
-    fireEvent.change(screen.getByLabelText(/Range to/i), {
-      target: { value: '5000' },
     });
     fireEvent.click(screen.getByRole('button', { name: /Save/i }));
 
@@ -226,11 +198,10 @@ describe('CompanyCoFiscalCard', () => {
     const lastCall = updateMutate.mock.calls.at(-1);
     expect(lastCall?.[1]).toMatchObject({
       nit: '900123456-8',
-      dianResolutionNumber: '18760000001',
-      rangeFrom: 1,
-      rangeTo: 5000,
       environment: 'habilitacion',
     });
+    expect(lastCall?.[1]).not.toHaveProperty('rangeFrom');
+    expect(lastCall?.[1]).not.toHaveProperty('dianResolutionNumber');
   });
 
   it('submit sends the software ID and PIN when both are typed', () => {

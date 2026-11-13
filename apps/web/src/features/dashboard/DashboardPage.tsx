@@ -11,6 +11,7 @@ import {
 import { AnomalyDetectionCard } from '@/features/dashboard/AnomalyDetectionCard';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { managerOrAdminRoles } from '@/features/auth/roleAccess';
+import { NumberingAlertBanner } from '@/features/fiscal/NumberingAlertBanner';
 import { useIsModuleActive } from '@/features/modules';
 import { QueryErrorState } from '@/components/feedback/QueryErrorState';
 import { useTenantSettings } from '@/hooks';
@@ -144,6 +145,7 @@ export function DashboardPage() {
 
   return (
     <div className="dashboard-command-space">
+      <NumberingAlertBanner />
       <section className="pv-frame pv-reveal" data-testid="dashboard-briefing">
         <div className="pv-frame-core dashboard-briefing">
           <div className="dashboard-briefing-copy">
