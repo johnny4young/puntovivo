@@ -1382,6 +1382,7 @@ Fiscal emission runs with the mock adapter, which in a soak answers after
 pnpm --filter @puntovivo/server run build
 pnpm --filter @puntovivo/web run build
 pnpm --filter @puntovivo/desktop run build:main
+pnpm --filter @puntovivo/desktop run electron:ensure:binary
 pnpm run soak:desktop --profile=short --out=output/soak
 ```
 

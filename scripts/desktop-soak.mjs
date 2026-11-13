@@ -114,6 +114,7 @@ export function evaluateSoak({ run, books, samples, budget, crashLog }) {
     books.missing === 0 && books.extra === 0,
     `confirmed ${run.confirmed.length}, new in db ${books.inDb}, missing ${books.missing}, extra ${books.extra}`
   );
+  add('no refused sales', run.failures.length === 0, run.failures.slice(0, 3).join('; ') || '0');
   add('no repeated sale numbers', books.duplicateNumbers === 0, String(books.duplicateNumbers));
   add(
     'each fiscal sale has its intent or document',
@@ -142,8 +143,8 @@ export function evaluateSoak({ run, books, samples, budget, crashLog }) {
   );
   add(
     'backups succeed',
-    run.backups.length > 0 && run.backups.every(b => b.ok),
-    `${run.backups.filter(b => b.ok).length}/${run.backups.length}`
+    run.backups.length === run.backupsRequested && run.backups.every(b => b.ok),
+    `${run.backups.filter(b => b.ok).length}/${run.backupsRequested}`
   );
   const slopes = memorySlopes(samples);
   const spanMs = (samples.at(-1)?.at ?? 0) - (samples[0]?.at ?? 0);
@@ -203,13 +204,21 @@ async function loadProducts(client) {
 
 const RETRYABLE_CODES = new Set(['COMMAND_IN_PROGRESS', 'COMMAND_DATABASE_BUSY']);
 
-/** One sale that replays the same envelope until the server gives an answer. */
-async function sellOnce(client, product) {
-  const envelope = JSON.stringify({
+const envelopeHeader = () => ({
+  'x-puntovivo-envelope': JSON.stringify({
     operationId: randomUUID(),
     idempotencyKey: randomUUID(),
     clientCreatedAt: new Date().toISOString(),
-  });
+  }),
+});
+
+/**
+ * One sale that replays the same envelope until the server gives an answer.
+ * An expired token is refused before the command runs, so the replay after
+ * signing in again keeps the envelope: an earlier attempt may have committed.
+ */
+async function sellOnce(client, product, refreshAuth) {
+  const envelope = envelopeHeader();
   const input = {
     paymentMethod: 'cash',
     status: 'completed',
@@ -228,14 +237,17 @@ async function sellOnce(client, product) {
   const startedAt = performance.now();
   for (let attempts = 1; ; attempts += 1) {
     try {
-      const sale = await client.call('mutation', 'sales.create', input, {
-        'x-puntovivo-envelope': envelope,
-      });
+      const sale = await client.call('mutation', 'sales.create', input, envelope);
       return { id: sale.id, attempts, ms: performance.now() - startedAt };
     } catch (error) {
+      if (attempts >= 120) throw error;
+      if (error.code === 'UNAUTHORIZED') {
+        await refreshAuth();
+        continue;
+      }
       // Only an unanswered call or a retryable code may replay the envelope.
       const retryable = !error.structured || RETRYABLE_CODES.has(error.code);
-      if (!retryable || attempts >= 120) throw error;
+      if (!retryable) throw error;
       await delay(500);
     }
   }
@@ -264,19 +276,14 @@ function readBooks(dbPath, saleIds, startIso) {
       duplicateNumbers: scalar(
         'SELECT COUNT(*) AS n FROM (SELECT 1 FROM sales GROUP BY tenant_id, sale_number HAVING COUNT(*) > 1)'
       ),
-      fiscalEnabled:
-        scalar(
-          'SELECT COUNT(*) AS n FROM fiscal_emission_intents WHERE created_at >= ?',
-          startIso
-        ) > 0,
+      // Fixture history counts too, so a run that stops creating intents fails.
+      fiscalEnabled: scalar('SELECT COUNT(*) AS n FROM fiscal_emission_intents') > 0,
       salesWithoutFiscal: scalar(
         `SELECT COUNT(*) AS n FROM sales s
          WHERE s.created_at >= ?
-           AND EXISTS (SELECT 1 FROM fiscal_emission_intents i
-                       WHERE i.tenant_id = s.tenant_id AND i.created_at >= ?)
+           AND EXISTS (SELECT 1 FROM fiscal_emission_intents i WHERE i.tenant_id = s.tenant_id)
            AND NOT EXISTS (SELECT 1 FROM fiscal_emission_intents i WHERE i.sale_id = s.id)
            AND NOT EXISTS (SELECT 1 FROM fiscal_documents d WHERE d.source_id = s.id)`,
-        startIso,
         startIso
       ),
       duplicateConsecutives: scalar(
@@ -304,7 +311,7 @@ async function timeToHealthy(serverUrl, sinceMs) {
   return Infinity;
 }
 
-/** Waits until the old worker is gone, so a fast health check is not the dead one's. */
+/** Main reports the crash once the lifecycle saw the worker die, so health is the new one's. */
 async function waitForCrashEvent(events, count) {
   const deadline = performance.now() + 15_000;
   while (events.filter(e => e.type === 'crash-injected').length < count) {
@@ -364,6 +371,7 @@ export async function runSoak(options) {
     }
   };
   let buffered = '';
+  let passed = false;
   const samples = [];
   const events = [];
   let resolveReady;
@@ -384,6 +392,11 @@ export async function runSoak(options) {
       if (event) events.push(event);
     }
   });
+
+  const writeEvidence = summary => {
+    writeFileSync(join(out, 'summary.json'), JSON.stringify(summary, null, 2));
+    writeFileSync(join(out, 'samples.ndjson'), samples.map(s => JSON.stringify(s)).join('\n'));
+  };
 
   try {
     const serverUrl = await Promise.race([ready, delay(240_000).then(() => null)]);
@@ -422,6 +435,8 @@ export async function runSoak(options) {
     let nextBackupAt = options.backupEveryMin * 60_000;
     let nextBurstAt = options.burstEveryMin ? options.burstEveryMin * 60_000 : Infinity;
     let backupsRequested = 0;
+    let saleIndex = 0;
+    const stockouts = [];
 
     while (performance.now() - startedAt < durationMs) {
       const elapsed = performance.now() - startedAt;
@@ -443,18 +458,17 @@ export async function runSoak(options) {
       const burst = elapsed >= nextBurstAt ? 10 : 1;
       if (burst > 1) nextBurstAt += options.burstEveryMin * 60_000;
       for (let i = 0; i < burst; i += 1) {
-        const product = products[confirmed.length % products.length];
+        if (products.length === 0) throw new Error('every fixture product ran out of stock');
+        const product = products[saleIndex++ % products.length];
         try {
-          confirmed.push(
-            await sellOnce(cashier, product).catch(async error => {
-              // An expired access token is refused before the command runs,
-              // so a fresh session may sell again under a new envelope.
-              if (error.code !== 'UNAUTHORIZED') throw error;
-              await signIn(cashier, CASHIER);
-              return sellOnce(cashier, product);
-            })
-          );
+          confirmed.push(await sellOnce(cashier, product, () => signIn(cashier, CASHIER)));
         } catch (error) {
+          // The fixture's stock is finite: retire the product instead of retrying it.
+          if (error.code === 'SALE_INSUFFICIENT_STOCK') {
+            products.splice(products.indexOf(product), 1);
+            stockouts.push(product.id);
+            continue;
+          }
           failures.push(String(error.message));
           if (failures.length > 20) throw error;
         }
@@ -499,7 +513,7 @@ export async function runSoak(options) {
     );
     const backups = events.filter(e => e.type === 'backup');
     const verdict = evaluateSoak({
-      run: { confirmed, crashes, backups, auditValid },
+      run: { confirmed, crashes, backups, backupsRequested, failures, auditValid },
       books,
       samples,
       budget,
@@ -514,6 +528,7 @@ export async function runSoak(options) {
       saleP50Ms: Math.round(latencies[Math.floor(latencies.length / 2)] ?? 0),
       saleP95Ms: Math.round(latencies[Math.floor(latencies.length * 0.95)] ?? 0),
       retriedSales: confirmed.filter(sale => sale.attempts > 1).length,
+      stockouts,
       crashes,
       backups,
       failures: failures.slice(0, 10),
@@ -522,12 +537,17 @@ export async function runSoak(options) {
       rows: verdict.rows,
       ok: verdict.ok,
     };
-    writeFileSync(join(out, 'summary.json'), JSON.stringify(summary, null, 2));
-    writeFileSync(join(out, 'samples.ndjson'), samples.map(s => JSON.stringify(s)).join('\n'));
+    writeEvidence(summary);
+    passed = summary.ok;
     return summary;
+  } catch (error) {
+    writeEvidence({ ok: false, error: error.message, events });
+    throw error;
   } finally {
     kill();
-    if (!options.out) rmSync(workDir, { recursive: true, force: true });
+    // A failed run keeps its database and profile next to the evidence.
+    if (options.out && !passed) console.error(`desktop-soak: kept ${workDir}`);
+    else rmSync(workDir, { recursive: true, force: true, maxRetries: 5 });
   }
 }
 

@@ -6,15 +6,17 @@
 import { app, type WebContents } from 'electron';
 import { readdir, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { monitorEventLoopDelay } from 'node:perf_hooks';
+import { setTimeout as delay } from 'node:timers/promises';
 import type { PuntovivoLogger } from '@puntovivo/server/desktop-main';
 import { whenAppMounted } from './measurement-harness.js';
+import { createStallSampler } from './main-thread-probe.js';
 import type { EmbeddedServerHost } from './server-host/contract.ts';
 import type { WorkerMemorySample } from './server-host/protocol.ts';
 import type { EmbeddedServerState } from './server-lifecycle.ts';
 
 const SAMPLE_INTERVAL_MS = 15_000;
 const CONTROL_POLL_MS = 500;
+const CRASH_CONFIRM_MS = 5_000;
 const toMb = (kb: number) => Math.round(kb / 102.4) / 10;
 
 function emit(name: string, value: unknown): void {
@@ -31,9 +33,11 @@ export function installSoakMode(deps: {
   runBackup: (tenantId: string) => Promise<{ success: boolean }>;
 }): void {
   deps.webContents.setBackgroundThrottling(false);
-  const stall = monitorEventLoopDelay({ resolution: 10 });
-  stall.enable();
+  // Same stall definition as the main-thread budget: lateness beyond the tick.
+  let stall = createStallSampler();
+  stall.start();
   let backupsRunning = 0;
+  let polling = false;
 
   void whenAppMounted(deps.webContents).then(mounted => {
     const host = deps.getServerHost();
@@ -43,10 +47,13 @@ export function installSoakMode(deps: {
     }
     emit('READY', { serverUrl: host.url });
     setInterval(() => {
+      const { maxStallMs } = stall.stop();
+      stall = createStallSampler();
+      stall.start();
       emit('SAMPLE', {
         at: Date.now(),
         serverState: deps.getServerState(),
-        mainMaxStallMs: Math.round(stall.max / 1e5) / 10,
+        mainMaxStallMs: maxStallMs,
         backupRunning: backupsRunning > 0,
         processes: app.getAppMetrics().map(metric => ({
           type: metric.type,
@@ -56,10 +63,31 @@ export function installSoakMode(deps: {
         })),
         worker: deps.getWorkerStats(),
       });
-      stall.reset();
     }, SAMPLE_INTERVAL_MS).unref();
-    setInterval(() => void pollControl(), CONTROL_POLL_MS).unref();
+    setInterval(() => {
+      // An overlapping poll would see the same file and act on it twice.
+      if (polling) return;
+      polling = true;
+      void pollControl().finally(() => (polling = false));
+    }, CONTROL_POLL_MS).unref();
   });
+
+  /** Emits only once the lifecycle has seen the worker die, or after a timeout. */
+  async function injectCrash(): Promise<void> {
+    const simulateCrash = deps.getServerHost()?.simulateCrash;
+    if (!simulateCrash) {
+      deps.log.warn('soak crash requested but the server host cannot simulate one');
+      return;
+    }
+    simulateCrash();
+    const deadline = Date.now() + CRASH_CONFIRM_MS;
+    while (deps.getServerState() === 'running' && Date.now() < deadline) await delay(10);
+    emit('EVENT', {
+      type: 'crash-injected',
+      at: Date.now(),
+      stateAfter: deps.getServerState(),
+    });
+  }
 
   async function pollControl(): Promise<void> {
     let files: string[];
@@ -73,21 +101,19 @@ export function installSoakMode(deps: {
       const body = await readFile(path, 'utf8').catch(() => '');
       await rm(path, { force: true });
       if (file.startsWith('crash')) {
-        deps.getServerHost()?.simulateCrash?.();
-        emit('EVENT', { type: 'crash-injected', at: Date.now() });
+        await injectCrash();
       } else if (file.startsWith('backup')) {
         backupsRunning += 1;
         const startedAt = Date.now();
-        // Its own histogram: a backup can start and end between two samples.
-        const backupStall = monitorEventLoopDelay({ resolution: 10 });
-        backupStall.enable();
+        // Its own sampler: a backup can start and end between two samples.
+        const backupStall = createStallSampler();
+        backupStall.start();
         const report = (ok: boolean) => {
-          backupStall.disable();
           emit('EVENT', {
             type: 'backup',
             ok,
             ms: Date.now() - startedAt,
-            mainMaxStallMs: Math.round(backupStall.max / 1e5) / 10,
+            mainMaxStallMs: backupStall.stop().maxStallMs,
           });
         };
         void deps

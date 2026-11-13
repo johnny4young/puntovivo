@@ -69,6 +69,8 @@ test('a clean run passes every criterion', () => {
       confirmed: [{}, {}, {}],
       crashes: [{ recoveryMs: 2_000 }, { recoveryMs: 3_000 }],
       backups: [{ ok: true, mainMaxStallMs: 40 }],
+      backupsRequested: 1,
+      failures: [],
       auditValid: true,
     },
     books: cleanBooks,
@@ -98,6 +100,8 @@ test('duplicates, slow recovery, stalls and leaks each fail the run', () => {
       confirmed: [{}],
       crashes: [{ recoveryMs: 12_000 }],
       backups: [{ ok: false, mainMaxStallMs: 400 }],
+      backupsRequested: 1,
+      failures: ['sales.create failed: INTERNAL_SERVER_ERROR'],
       auditValid: false,
     },
     books: { ...cleanBooks, extra: 1, duplicateNumbers: 1, duplicateConsecutives: 1 },
@@ -108,6 +112,7 @@ test('duplicates, slow recovery, stalls and leaks each fail the run', () => {
   const failed = verdict.rows.filter(row => !row.ok).map(row => row.name);
   assert.deepEqual(failed, [
     'confirmed sales are in the database once',
+    'no refused sales',
     'no repeated sale numbers',
     'no repeated fiscal consecutives',
     'audit chain verifies',
@@ -117,4 +122,24 @@ test('duplicates, slow recovery, stalls and leaks each fail the run', () => {
     'backups succeed',
     'memory slope under 5 MB/h per process type',
   ]);
+});
+
+test('a backup that never reports fails the run', () => {
+  const verdict = evaluateSoak({
+    run: {
+      confirmed: [{}],
+      crashes: [],
+      backups: [{ ok: true, mainMaxStallMs: 10 }],
+      backupsRequested: 2,
+      failures: [],
+      auditValid: true,
+    },
+    books: cleanBooks,
+    samples: [sample(0, 300)],
+    budget,
+    crashLog: [],
+  });
+  const backups = verdict.rows.find(row => row.name === 'backups succeed');
+  assert.equal(backups.ok, false);
+  assert.equal(backups.detail, '1/2');
 });
