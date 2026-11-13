@@ -193,7 +193,9 @@ test.describe('launch data import', () => {
       name: /Select Product for Initial Inventory/i,
     });
     await inventoryDialog.getByPlaceholder('Search by SKU, name, or barcode').fill(serviceSku);
-    await expect(inventoryDialog.getByText('No products matched the current filters.')).toBeVisible();
+    await expect(
+      inventoryDialog.getByText('No products matched the current filters.')
+    ).toBeVisible();
     await inventoryDialog.getByRole('button', { name: 'Cancel' }).click();
 
     // Purchase and order pickers use the same filter, preventing a draft that
@@ -695,10 +697,12 @@ test.describe('launch data import', () => {
     const tracker = attachClientIssueTracker(page);
     const suffix = `${testInfo.parallelIndex}-${Date.now()}`;
     const scenario = seedFiscalProfileScenario(`fiscal-profile-${suffix}`);
+    const validFrom = new Date().toISOString().slice(0, 10);
+    const validUntil = new Date(Date.now() + 300 * 86_400_000).toISOString().slice(0, 10);
     const fiscalCsv = [
-      'Country code,Tax ID,Regime or activity code,Issue location,Numbering resolution,Numbering prefix,Range from,Range to,Fiscal environment',
-      'CO,900123456-7,,,18764000001234,SETT,1,5000,habilitacion',
-      'MX,XEXX010101000,601,01000,,,,,sandbox',
+      'Country code,Tax ID,Regime or activity code,Issue location,Numbering resolution,Resolution date,Numbering prefix,Range from,Range to,Valid from,Valid until,Fiscal environment',
+      `CO,900123456-8,,,18764000001234,${validFrom},SETT,1,5000,${validFrom},${validUntil},habilitacion`,
+      'MX,XEXX010101000,601,01000,,,,,,,,sandbox',
     ].join('\n');
 
     await login(page, {
@@ -746,14 +750,15 @@ test.describe('launch data import', () => {
     await page.getByRole('link', { name: /Review fiscal profile/ }).click();
     await expect(page).toHaveURL(/\/company\?tab=fiscal$/);
     await expect(page.getByRole('heading', { name: 'Colombia — DIAN' })).toBeVisible();
-    await expect(page.locator('#fiscal-co-nit')).toHaveValue('900123456-7');
-    await expect(page.locator('#fiscal-co-resolution')).toHaveValue('18764000001234');
-    await expect(page.locator('#fiscal-co-prefix')).toHaveValue('SETT');
-    await expect(page.locator('#fiscal-co-range-from')).toHaveValue('1');
-    await expect(page.locator('#fiscal-co-range-to')).toHaveValue('5000');
+    await expect(page.locator('#fiscal-co-nit')).toHaveValue('900123456-8');
+    // The range columns land in the numbering table, not in the issuer form.
+    await expect(page.locator('#fiscal-co-resolution')).toHaveCount(0);
+    const numbering = page.getByTestId('fiscal-co-numbering');
+    await expect(numbering).toContainText('SETT 1–5000');
+    await expect(numbering).toContainText('Active');
     await expect(page.locator('#fiscal-co-environment')).toHaveValue('habilitacion');
     await expect(
-      page.getByRole('checkbox', { name: 'Enable DIAN electronic invoicing' })
+      page.getByRole('checkbox', { name: 'Enable DIAN issuing' })
     ).not.toBeChecked();
     await captureEvidence(page, 'eng-123f-fiscal-profile-company-roundtrip-en');
 

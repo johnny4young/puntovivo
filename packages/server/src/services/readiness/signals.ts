@@ -18,34 +18,81 @@ import { and, count, eq, inArray } from 'drizzle-orm';
 
 import type { DatabaseInstance } from '../../db/index.js';
 import { fiscalOutbox, sitePeripherals, syncConflicts, syncOutbox } from '../../db/schema.js';
-import { readCoFiscalSettings, validateCoFiscalConfig } from '../fiscal/packs/co/settings.js';
+import { isCountryFiscalEnabled, isDianFlagOn } from '../fiscal/orchestrator/helpers.js';
+import { readCoFiscalSettings, validateCoEmissionConfig } from '../fiscal/packs/co/settings.js';
+import {
+  numberingEnvironmentFromSettings,
+  peekNumberingRange,
+} from '../fiscal/numbering/select.js';
+import { getFiscalAdapter } from '../fiscal/registry.js';
 import { readPaymentRailCredentials } from '../payments/credentials.js';
 import { PAYMENT_RAIL_IDS } from '../payments/manifest.js';
 
 /**
- * Resolved fiscal config state for Colombia. `enabled` is the legacy
- * `fiscal_dian_enabled` master flag; `configured` is true once NIT +
- * resolution + a valid numbering range + the DIAN software ID and PIN are
- * captured (presence probe).
+ * What the next sale at a site gets from the Colombian DIAN path.
+ * `issuing` means a document intent will queue. In every other state a
+ * normal sale completes without an electronic document; `numbering_fev_only`
+ * still issues an invoice the buyer asks for.
  */
-export interface FiscalConfigState {
-  enabled: boolean;
-  configured: boolean;
+export type CheckoutFiscalState =
+  | 'issuing'
+  | 'disabled'
+  | 'issuer_incomplete'
+  | 'numbering_missing'
+  // No DEE range, but a buyer-requested invoice can still be numbered.
+  | 'numbering_fev_only';
+
+/**
+ * Mirror the sale fiscal-intent gates for one site: the DIAN switch, the
+ * issuer checks emission runs, and a usable active DEE range in the numbering
+ * table. The blob's resolution fields are not read: emission never reads them.
+ */
+export async function readCheckoutFiscalState(
+  db: DatabaseInstance,
+  args: {
+    tenantId: string;
+    siteId: string;
+    settings: Record<string, unknown>;
+    at?: string;
+  }
+): Promise<CheckoutFiscalState> {
+  const { tenantId, siteId, settings } = args;
+  if (!isDianFlagOn(settings) || !isCountryFiscalEnabled(settings, 'CO')) return 'disabled';
+  if (!validateCoEmissionConfig(readCoFiscalSettings(settings)).ok) return 'issuer_incomplete';
+
+  const lookup = {
+    tenantId,
+    siteId,
+    environment: numberingEnvironmentFromSettings(settings),
+    at: args.at ?? new Date().toISOString(),
+  };
+  if (peekNumberingRange(db, { ...lookup, kind: 'DEE' }).ok) return 'issuing';
+  return peekNumberingRange(db, { ...lookup, kind: 'FEV' }).ok
+    ? 'numbering_fev_only'
+    : 'numbering_missing';
 }
 
 /**
- * Read the Colombia fiscal config state from a `tenants.settings` blob.
- * Pure (no DB). Used to decide whether DIAN is a reminder (off),
- * an incomplete-config warning (on + not configured), or ready.
+ * Tenant-wide view for the setup overview: the worst state across the active
+ * sites, so the admin checklist and every register agree.
  */
-export function readFiscalConfigState(
-  settings: Record<string, unknown> | null | undefined
-): FiscalConfigState {
-  const co = readCoFiscalSettings(settings ?? null);
-  return {
-    enabled: co.enabled,
-    configured: validateCoFiscalConfig(co).ok,
-  };
+export async function readTenantFiscalState(
+  db: DatabaseInstance,
+  args: { tenantId: string; siteIds: readonly string[]; settings: Record<string, unknown> }
+): Promise<CheckoutFiscalState> {
+  if (args.siteIds.length === 0) {
+    return readCheckoutFiscalState(db, { ...args, siteId: '' });
+  }
+  const states = await Promise.all(
+    args.siteIds.map(siteId => readCheckoutFiscalState(db, { ...args, siteId }))
+  );
+  const worst: CheckoutFiscalState[] = [
+    'disabled',
+    'issuer_incomplete',
+    'numbering_missing',
+    'numbering_fev_only',
+  ];
+  return worst.find(state => states.includes(state)) ?? 'issuing';
 }
 
 /**
@@ -171,4 +218,15 @@ export async function readSyncBacklog(
     pending: Number(pendingRow?.total ?? 0),
     conflicts: Number(terminalOutboxRow?.total ?? 0) + Number(conflictRow?.total ?? 0),
   };
+}
+
+/**
+ * True while Colombian documents are local only: the pack is not certified,
+ * or the tenant runs the DIAN enablement environment.
+ */
+export function isCoFiscalTestMode(settings: Record<string, unknown>): boolean {
+  return (
+    getFiscalAdapter('CO').maturity !== 'certified' ||
+    readCoFiscalSettings(settings).environment !== 'produccion'
+  );
 }

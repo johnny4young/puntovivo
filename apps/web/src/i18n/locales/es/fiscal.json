@@ -145,24 +145,15 @@
     "co": {
       "kicker": "Perfil fiscal",
       "title": "Colombia — DIAN",
-      "emptyTitle": "La facturación electrónica DIAN es opcional",
-      "emptyDescription": "Puedes seguir vendiendo sin ella. Configura la DIAN cuando estés listo para emitir facturas electrónicas — tu tienda sigue operativa de cualquier forma.",
+      "emptyTitle": "La emisión DIAN es opcional",
+      "emptyDescription": "Puedes seguir vendiendo sin ella. Configúrala cuando quieras emitir documentos electrónicos.",
       "emptyCta": "Configurar DIAN",
       "fields": {
-        "enabled": "Activar facturación electrónica DIAN",
-        "enabledHelp": "Opcional. Cuando está activa, las ventas completadas emitirán una factura electrónica DIAN una vez que la transmisión esté disponible. Hoy esto captura la configuración del emisor y habilita el recordatorio de preparación.",
+        "enabled": "Activar emisión DIAN",
+        "enabledHelp": "Cada venta genera su documento POS electrónico, o factura electrónica si el comprador la pide. El pack de Colombia está en modo de prueba: nada se envía a la DIAN.",
         "nit": "NIT del emisor",
         "nitHelp": "De 9 a 10 dígitos, con dígito de verificación opcional.",
-        "nitPlaceholder": "ej. 900123456-7",
-        "resolution": "Resolución de numeración DIAN",
-        "resolutionHelp": "El número de resolución que autoriza tu rango de facturas.",
-        "resolutionPlaceholder": "ej. 18760000001",
-        "prefix": "Prefijo de factura",
-        "prefixPlaceholder": "ej. SETP",
-        "rangeFrom": "Rango desde",
-        "rangeFromPlaceholder": "ej. 1",
-        "rangeTo": "Rango hasta",
-        "rangeToPlaceholder": "ej. 5000",
+        "nitPlaceholder": "ej. 900123456-8",
         "environment": "Ambiente",
         "environmentHabilitacion": "Habilitación (pruebas)",
         "environmentProduccion": "Producción",
@@ -179,8 +170,6 @@
       },
       "issueCodes": {
         "MISSING_NIT": "Falta el NIT del emisor o su dígito de verificación no es válido",
-        "MISSING_RESOLUTION": "Falta la resolución de numeración DIAN",
-        "MISSING_RANGE": "El rango de numeración DIAN falta o es inválido",
         "MISSING_SOFTWARE": "Falta el identificador o el PIN del software DIAN"
       },
       "actions": {
@@ -236,13 +225,11 @@
   "readiness": {
     "label": "Preparación fiscal",
     "profile": "Perfil fiscal",
-    "numbering": "Resolución de numeración",
     "environment": "Ambiente",
     "pending": "Documentos por atender",
     "missing": "Falta",
     "complete": "Completar perfil",
     "edit": "Editar",
-    "addResolution": "Agregar resolución",
     "production": "Producción",
     "testing": "Pruebas",
     "viewQueue": "Ver cola",
@@ -264,5 +251,94 @@
     "nitPreview": "Se registra como {{nit}}",
     "malformed": "Número de documento no válido",
     "consumidorFinal": "Ese es el número de consumidor final, no el del comprador"
+  },
+  "numbering": {
+    "kicker": "Numeración",
+    "title": "Rangos de numeración DIAN",
+    "empty": "Ninguna sede tiene rangos registrados.",
+    "kind": {
+      "DEE": "Documento POS electrónico",
+      "FEV": "Factura electrónica"
+    },
+    "environment": {
+      "habilitacion": "Habilitación",
+      "produccion": "Producción"
+    },
+    "status": {
+      "active": "Activo",
+      "scheduled": "En espera",
+      "exhausted": "Agotado",
+      "expired": "Vencido",
+      "retired": "Retirado"
+    },
+    "table": {
+      "caption": "Rangos de numeración de {{site}}",
+      "kind": "Tipo",
+      "range": "Rango",
+      "usage": "Consumo",
+      "validity": "Vigencia",
+      "status": "Estado",
+      "actions": "Acciones",
+      "resolution": "Resolución {{number}}",
+      "remaining_one": "Queda {{count}} número",
+      "remaining_other": "Quedan {{count}} números",
+      "expiresIn_one": "Vence en {{count}} día",
+      "expiresIn_other": "Vence en {{count}} días",
+      "expired": "Vencido"
+    },
+    "alert": {
+      "expiry": "Vence en {{days}} días",
+      "expiryNoSuccessor": "Vence en {{days}} días y no hay otro rango en espera",
+      "consumption": "Quedan {{count}} números",
+      "consumptionNoSuccessor": "Quedan {{count}} números y no hay otro rango en espera"
+    },
+    "form": {
+      "title": "Registrar rango",
+      "kind": "Tipo de documento",
+      "site": "Sede",
+      "resolutionNumber": "Número de resolución",
+      "resolutionDate": "Fecha de resolución",
+      "prefix": "Prefijo",
+      "from": "Desde",
+      "to": "Hasta",
+      "validFrom": "Vigente desde",
+      "validUntil": "Vigente hasta",
+      "technicalKey": "Clave técnica",
+      "environment": "Ambiente"
+    },
+    "confirm": {
+      "title": "Revisa el rango",
+      "firstNumber": "El primer documento llevará el número:",
+      "immutable": "Después del primer documento el rango no se puede editar: solo retirar."
+    },
+    "retire": {
+      "title": "Retirar rango",
+      "reason": "Motivo"
+    },
+    "remove": {
+      "title": "Eliminar rango",
+      "body": "Se eliminará el rango {{range}}. No ha emitido ningún número."
+    },
+    "actions": {
+      "register": "Registrar rango",
+      "review": "Revisar",
+      "save": "Registrar",
+      "activate": "Activar ahora",
+      "retire": "Retirar",
+      "remove": "Eliminar"
+    },
+    "toast": {
+      "createdActive": "Rango registrado y activo",
+      "createdScheduled": "Rango registrado en espera",
+      "activated": "Rango activado",
+      "retired": "Rango retirado",
+      "removed": "Rango eliminado",
+      "error": "No se pudo actualizar la numeración"
+    },
+    "banner": {
+      "title_one": "Un rango de numeración DIAN necesita atención",
+      "title_other": "{{count}} rangos de numeración DIAN necesitan atención",
+      "action": "Ver rangos"
+    }
   }
 }

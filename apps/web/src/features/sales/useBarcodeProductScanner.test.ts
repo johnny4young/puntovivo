@@ -84,5 +84,10 @@ describe('useBarcodeProductScanner', () => {
     expect(mocks.toast.warning).toHaveBeenCalledWith({
       title: 'No encontré el producto con ese código',
     });
+    // The site's own stock rides on the lookup, so the cart line matches checkout.
+    expect(mocks.fetch).toHaveBeenCalledWith(
+      { barcode: '7790000000003', siteId: 'site-1' },
+      { retry: false }
+    );
   });
 });

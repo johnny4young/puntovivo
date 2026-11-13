@@ -102,6 +102,10 @@ Aditiva, sin reescritura. Migración `0003_unit_dimension_standard_code`.
    `services/inventory-balances/derive.ts`: `productStockTotalSql` en proyecciones,
    `getProductStockTotal`/`getProductStockTotals` en escrituras. Las lecturas
    siguen exponiendo `stock` numérico derivado, sin cambiar forma de API.
+   `products.list`, `products.search`, `products.getById` y
+   `products.lookupByBarcode` también aceptan `siteId` y entonces devuelven
+   `siteStock`, el `on_hand` de esa sede; el carrito de ventas muestra y valida
+   esa cifra porque una venta solo descuenta stock de su propia sede.
    Ya no se escribe `products.stock`; ventas valida `inventory_balances`.
    `reconcileProductStockFromBalances` y el informe de discrepancias permanecen
    sin cambios/sin filas porque esa divergencia ya no es estructuralmente posible.

@@ -32,6 +32,7 @@ import { resolveFiscalHashEnvironment, resolveFiscalIssuerTaxId } from '../issue
 import type { FiscalAdapterIssueInput, FiscalAdapterLine } from '../adapter.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
 import type { EmitFiscalDocumentArgs, EmitFiscalDocumentResult } from './types.js';
+import { readTenantNumberingEnvironment } from '../numbering/select.js';
 import {
   checkResolutionUsable,
   isCountryFiscalEnabled,
@@ -150,7 +151,8 @@ export async function emitFiscalDocument(
         eq(fiscalNumberingResolutions.tenantId, tenantId),
         eq(fiscalNumberingResolutions.siteId, saleSite.siteId),
         eq(fiscalNumberingResolutions.kind, kind),
-        eq(fiscalNumberingResolutions.isActive, true)
+        eq(fiscalNumberingResolutions.environment, readTenantNumberingEnvironment(tx, tenantId)),
+        eq(fiscalNumberingResolutions.status, 'active')
       )
     )
     .get();

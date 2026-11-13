@@ -238,7 +238,7 @@ describe('SalesQuickAccess', () => {
 
     await user.click(screen.getByRole('button', { name: 'Add House Coffee to cart' }));
 
-    expect(getById).toHaveBeenCalledWith({ id: 'p-coffee' }, { staleTime: 0 });
+    expect(getById).toHaveBeenCalledWith({ id: 'p-coffee', siteId: 'site-1' }, { staleTime: 0 });
     expect(onSelectProduct).toHaveBeenCalledWith(
       expect.objectContaining({
         product: expect.objectContaining({ id: 'p-coffee' }),

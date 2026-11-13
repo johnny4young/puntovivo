@@ -107,6 +107,7 @@ export function SalePaymentModal({
     electronicInvoice,
     promotionQuoteLoading,
     promotionQuoteUnavailable,
+    promotionQuoteStockError,
     promotionDiscountAmount,
     appliedPromotions,
     retryPromotionQuote,
@@ -310,14 +311,18 @@ export function SalePaymentModal({
         )}
         {promotionQuoteUnavailable && (
           <div className="rounded-xl border border-danger-200 bg-danger-50 p-4" role="alert">
-            <p className="text-sm text-danger-700">{t('promotions:checkout.unavailable')}</p>
-            <button
-              type="button"
-              className="btn-secondary mt-2 text-sm"
-              onClick={retryPromotionQuote}
-            >
-              {t('promotions:checkout.retry')}
-            </button>
+            <p className="text-sm text-danger-700">
+              {promotionQuoteStockError ?? t('promotions:checkout.unavailable')}
+            </p>
+            {promotionQuoteStockError === null && (
+              <button
+                type="button"
+                className="btn-secondary mt-2 text-sm"
+                onClick={retryPromotionQuote}
+              >
+                {t('promotions:checkout.retry')}
+              </button>
+            )}
           </div>
         )}
         {!splitMode && (

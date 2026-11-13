@@ -52,7 +52,8 @@ estimates, and private work queues do not belong in ADRs.
 | [ADR-0029](./0029-attendance-reconciliation-and-operational-cost.md)     | Attendance reconciliation and labor cost   | Accepted |
 | [ADR-0030](./0030-colombia-pre-payroll-evidence.md)                      | Colombia pre-payroll evidence              | Accepted |
 | [ADR-0031](./0031-human-review-of-ai-payment-proposals.md)               | Human review of AI payment proposals       | Accepted |
-| [ADR-0032](./0032-embedded-server-worker-thread.md)                      | Embedded server in a worker thread         | Proposed |
+| [ADR-0032](./0032-embedded-server-worker-thread.md)                      | Embedded server in a worker thread         | Accepted |
+| [ADR-0033](./0033-desktop-stack-stays-on-electron.md)                    | Desktop stack stays on Electron            | Accepted |
 
 ## Reusable implementation patterns
 

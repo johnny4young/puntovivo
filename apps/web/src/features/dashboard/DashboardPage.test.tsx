@@ -69,6 +69,9 @@ vi.mock('@/features/dashboard/DashboardPanels', () => ({
   TopProductsCard: () => <div data-testid="top-products-card" />,
 }));
 
+vi.mock('@/features/fiscal/NumberingAlertBanner', () => ({
+  NumberingAlertBanner: () => null,
+}));
 vi.mock('@/features/dashboard/AnomalyDetectionCard', () => ({
   AnomalyDetectionCard: () => <div data-testid="anomaly-card" />,
 }));

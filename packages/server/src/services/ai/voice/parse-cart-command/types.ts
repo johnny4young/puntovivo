@@ -24,6 +24,8 @@ export interface MatchedCartProduct {
   unitPrice: number;
   taxRate: number;
   stock: number;
+  /** On-hand at the request's site; null without one. */
+  siteStock: number | null;
   sellByFraction: boolean;
   fractionStep: number | null;
   fractionMinimum: number | null;

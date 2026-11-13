@@ -9,7 +9,7 @@ import {
 } from './fiscalProfileImportMapping';
 
 describe(' fiscal profile import mapping', () => {
-  it('maps accent-insensitive CO headers and keeps only selected columns', () => {
+  it('maps accent-insensitive CO headers, including the DEE range columns', () => {
     const headers = [
       'Código de país',
       'NIT',
@@ -24,11 +24,11 @@ describe(' fiscal profile import mapping', () => {
     expect(mapping).toMatchObject({
       countryCode: 'Código de país',
       taxIdentifier: 'NIT',
+      environment: 'Ambiente fiscal',
       resolutionNumber: 'Resolución de numeración',
       numberingPrefix: 'Prefijo',
       rangeFrom: 'Consecutivo inicial',
       rangeTo: 'Consecutivo final',
-      environment: 'Ambiente fiscal',
     });
     expect(hasRequiredFiscalProfileMapping(mapping)).toBe(true);
 
@@ -40,7 +40,7 @@ describe(' fiscal profile import mapping', () => {
           rowNumber: 2,
           values: {
             'Código de país': 'CO',
-            NIT: '900123456-7',
+            NIT: '900123456-8',
             'Resolución de numeración': '18764000001234',
             Prefijo: 'SETT',
             'Consecutivo inicial': '1',
@@ -56,12 +56,12 @@ describe(' fiscal profile import mapping', () => {
         rowNumber: 2,
         values: {
           countryCode: 'CO',
-          taxIdentifier: '900123456-7',
+          taxIdentifier: '900123456-8',
+          environment: 'habilitacion',
           resolutionNumber: '18764000001234',
           numberingPrefix: 'SETT',
           rangeFrom: '1',
           rangeTo: '5000',
-          environment: 'habilitacion',
         },
       },
     ]);
@@ -84,12 +84,12 @@ describe(' fiscal profile import mapping', () => {
   it('keeps country-specific optional cells empty in the canonical CO template', () => {
     expect(FISCAL_PROFILE_IMPORT_TEMPLATE).toMatchObject({
       countryCode: 'CO',
-      taxIdentifier: '900123456-7',
+      taxIdentifier: '900123456-8',
       economicActivityCode: '',
       issueLocation: '',
       administrativeAreaCode: '',
-      resolutionNumber: '18764000001234',
       environment: 'habilitacion',
     });
+    expect(FISCAL_PROFILE_IMPORT_TEMPLATE).toMatchObject({ rangeFrom: '', resolutionNumber: '' });
   });
 });

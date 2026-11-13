@@ -117,7 +117,6 @@ export interface EmbeddedServerOperations {
   writeAppSetting(key: MainAppSettingKey, value: unknown): Promise<void>;
   getSyncStatus(tenantId: string): Promise<DesktopSyncStatusResult>;
   triggerSync(tenantId: string): Promise<DesktopSyncTriggerResult>;
-  setSyncConfig(config: Record<string, unknown>): Promise<void>;
   /** Live row counts of the restore-drill tables for one tenant. */
   readRestoreDrillCounts(tenantId: string): Promise<BackupRestoreDrillCounts>;
 }

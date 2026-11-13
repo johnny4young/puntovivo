@@ -215,6 +215,7 @@ const RESOURCE_TYPE_OPTIONS: readonly AuditLogResourceType[] = [
   // outbound integration configuration and delivery recovery.
   'webhook_subscription',
   'webhook_outbox',
+  'fiscal_numbering_range',
 ];
 
 /**

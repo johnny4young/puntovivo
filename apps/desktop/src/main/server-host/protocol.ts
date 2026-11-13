@@ -18,7 +18,6 @@ export const OPERATION_NAMES = [
   'writeAppSetting',
   'getSyncStatus',
   'triggerSync',
-  'setSyncConfig',
   'readRestoreDrillCounts',
 ] as const satisfies readonly OperationName[];
 

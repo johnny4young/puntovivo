@@ -88,6 +88,59 @@ Comportamiento que se deriva:
 - Las anulaciones y devoluciones referencian el documento original: nota
   crédito para una FEV, nota de ajuste para un DEE.
 
+## Rangos de numeración de Colombia
+
+La DIAN autoriza los consecutivos de la FEV y del documento equivalente POS
+(DEE). Puntovivo guarda cada autorización como un rango en
+`fiscal_numbering_resolutions`, uno por sede, tipo y ambiente DIAN. Los ajustes
+del negocio ya no llevan campos de resolución.
+
+| Regla                                                                                               | Fuente                             |
+| --------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| La FEV y el DEE requieren numeración autorizada; las notas crédito y débito se numeran internamente | Res. 000165/2023 arts. 42, 36 y 22 |
+| Prefijo de hasta 4 letras o dígitos, obligatorio con más de un establecimiento                      | Res. 000165/2023 arts. 11 y 43     |
+| Una autorización dura 2 años como máximo                                                            | Res. 000165/2023 art. 48           |
+| Un rango agotado requiere una autorización nueva                                                    | Res. 000165/2023 art. 50           |
+
+La Res. 165/2023 quedó compilada en la Res. 000227/2025; los números de
+artículo equivalentes están por confirmar.
+
+Comportamiento:
+
+- `fiscalNumbering.*` lista, registra, activa, retira y elimina rangos. Los
+  gerentes leen; los administradores escriben. Un rango nunca se edita: se
+  retira y se registra de nuevo. Solo se puede eliminar antes de emitir un
+  número.
+- Un rango nuevo queda activo cuando la sede no tiene un rango activo de ese
+  tipo, ya está vigente y su ambiente coincide con el del negocio; si no, queda
+  en espera.
+- Los rangos de un mismo prefijo, tipo y ambiente no pueden compartir
+  consecutivos en ninguna sede. Un rango puede declarar el último número
+  emitido con otro sistema, con un motivo.
+- El rango se elige cuando se numera el documento, en la transacción que
+  avanza el consecutivo. Cuando el rango activo se agota o vence, el rango en
+  espera más antiguo que ya esté vigente toma su lugar en esa misma
+  transacción, y el cambio queda en auditoría.
+- Empresa → Fiscal lista los rangos por sede con consumo y vigencia, y los
+  registra, activa, retira y elimina.
+- Un rango genera un aviso 30 días antes de vencer o con menos del 20 % de sus
+  números, y una alerta crítica 15 días hábiles antes del vencimiento, con
+  menos del 5 %, o con menos de 3 días de números al promedio de 14 días. Las
+  alertas aparecen en la tarjeta de rangos, en el panel (administradores y
+  gerentes) y en el área fiscal de las alertas operativas, y no se muestran
+  con la emisión DIAN apagada. Los días hábiles no descuentan festivos y los
+  umbrales son fijos.
+- El cobro le recuerda al cajero cuando la sede no tiene un rango usable,
+  cuando solo tiene rango de factura, y que los documentos no se envían a la
+  DIAN mientras el pack esté en modo de prueba.
+- La clave técnica solo se exige para la FEV, nunca se devuelve completa y
+  nunca se escribe en el log de auditoría.
+
+Sigue abierto, a la espera de elegir proveedor tecnológico: el relleno con
+ceros del consecutivo, cómo se entrega la clave técnica y si los rangos se leen
+del proveedor en vez de digitarse. Con el pack de Colombia en modo de prueba,
+un rango registrado solo numera documentos locales.
+
 ## Prueba en recibos y operación
 
 Detalles de venta, informes fiscales, recibos de navegador y ESC/POS aplican el mismo límite:
@@ -109,6 +162,9 @@ como aceptación de la autoridad tributaria. No cambia el requisito de producci�
   identificadores, mapeos, serializadores XML, worker y errores.
 - `packages/server/src/trpc/routers/fiscal-settings.ts`: ajustes administrativos
   y preparación limitados al negocio.
+- `packages/server/src/services/fiscal/numbering/` y
+  `packages/server/src/trpc/routers/fiscalNumbering.ts`: rangos de numeración
+  de Colombia y el rango del que toma su número cada documento.
 - `apps/web/src/features/fiscal/`: documentos y preparación.
 - `apps/web/src/features/company/`: tarjetas de configuración por país.
 

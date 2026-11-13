@@ -266,7 +266,7 @@ export function SalesModals({
           // suggestion must reach the cashier; other dialog consumers
           // keep the prop off (zero extra queries).
           showDiscountSuggestions
-          discountSuggestionSiteId={discountSuggestionSiteId}
+          siteId={discountSuggestionSiteId}
         />
       )}
       {(shouldRenderQuickCreateProductGate || shouldRenderQuickCreateCustomerGate) && (

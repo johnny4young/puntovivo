@@ -14,8 +14,10 @@ import { resolveReadinessProfile } from '../../../services/readiness/profile.js'
 import {
   countActiveReceiptPrinters,
   countConfiguredPaymentRails,
-  readFiscalConfigState,
+  isCoFiscalTestMode,
+  readCheckoutFiscalState,
   readSyncBacklog,
+  type CheckoutFiscalState,
 } from '../../../services/readiness/signals.js';
 import type {
   CheckoutReadinessItem,
@@ -23,6 +25,26 @@ import type {
   FirstSaleReadinessOutput,
 } from '../../schemas/setupReadiness.js';
 import { SYNC_BACKLOG_WARN_THRESHOLD } from './constants.js';
+
+const FISCAL_CHECKOUT_ITEM: Record<CheckoutFiscalState, CheckoutReadinessItem | null> = {
+  issuing: null,
+  disabled: { id: 'fiscal', severity: 'warning', cta: { route: '/company', tab: 'fiscal' } },
+  issuer_incomplete: {
+    id: 'fiscal_issuer',
+    severity: 'warning',
+    cta: { route: '/company', tab: 'fiscal' },
+  },
+  numbering_missing: {
+    id: 'fiscal_numbering',
+    severity: 'warning',
+    cta: { route: '/company', tab: 'fiscal' },
+  },
+  numbering_fev_only: {
+    id: 'fiscal_numbering_fev_only',
+    severity: 'warning',
+    cta: { route: '/company', tab: 'fiscal' },
+  },
+};
 
 /**
  * Build cashier-facing checkout readiness for a tenant and site. Only
@@ -78,13 +100,15 @@ export async function buildCheckoutReadiness(args: {
 
   if (!profile.surfaceFiscalReminders) return { items };
 
-  const fiscalState = readFiscalConfigState(settings);
-  if (!fiscalState.enabled || !fiscalState.configured) {
-    items.push({
-      id: 'fiscal',
-      severity: 'warning',
-      cta: { route: '/company', tab: 'fiscal' },
-    });
+  const fiscalState = await readCheckoutFiscalState(db, { tenantId, siteId, settings });
+  const fiscalItem = FISCAL_CHECKOUT_ITEM[fiscalState];
+  if (fiscalItem) items.push({ ...fiscalItem });
+  // A document will be produced, but it never reaches DIAN.
+  if (
+    (fiscalState === 'issuing' || fiscalState === 'numbering_fev_only') &&
+    isCoFiscalTestMode(settings)
+  ) {
+    items.push({ id: 'fiscal_test_mode', severity: 'warning', cta: null });
   }
 
   const printers = await countActiveReceiptPrinters(db, tenantId, siteId);

@@ -34,7 +34,7 @@ function cashierCaller() {
   return appRouter.createCaller(context);
 }
 
-function insertProduct(name: string) {
+function insertProduct(name: string, barcode?: string) {
   const id = nanoid();
   getDatabase()
     .insert(products)
@@ -43,6 +43,7 @@ function insertProduct(name: string) {
       tenantId,
       name,
       sku: `SKU-${id.slice(0, 6)}`,
+      barcode: barcode ?? null,
       price: 200,
       cost: 100,
       createdAt: now(),
@@ -68,7 +69,7 @@ function insertBalance(siteId: string, productId: string, onHand: number) {
     .run();
 }
 
-describe('products.list site stock', () => {
+describe('products site stock', () => {
   beforeAll(async () => {
     server = await createServer({ dbPath: ':memory:', verbose: false });
     const db = getDatabase();
@@ -116,7 +117,7 @@ describe('products.list site stock', () => {
       })
       .run();
 
-    stockedProductId = insertProduct('Stocked in both sites');
+    stockedProductId = insertProduct('Stocked in both sites', 'SITE-STOCK-1');
     insertBalance(primarySiteId, stockedProductId, 3);
     insertBalance(secondarySiteId, stockedProductId, 40);
     unstockedProductId = insertProduct('Stocked elsewhere only');
@@ -152,6 +153,44 @@ describe('products.list site stock', () => {
   it('rejects a site from another tenant', async () => {
     await expect(
       cashierCaller().products.list({ page: 1, perPage: 200, siteId: foreignSiteId })
+    ).rejects.toThrow();
+  });
+
+  it('adds the site balance to search, getById and barcode lookups', async () => {
+    const caller = cashierCaller();
+
+    const search = await caller.products.search({ q: 'Stocked in both', siteId: primarySiteId });
+    expect(findItem(search.items, stockedProductId)).toMatchObject({ stock: 43, siteStock: 3 });
+
+    const detail = await caller.products.getById({ id: stockedProductId, siteId: primarySiteId });
+    expect(detail).toMatchObject({ stock: 43, siteStock: 3 });
+
+    const scan = await caller.products.lookupByBarcode({
+      barcode: 'SITE-STOCK-1',
+      siteId: secondarySiteId,
+    });
+    expect(scan?.product).toMatchObject({ stock: 43, siteStock: 40 });
+  });
+
+  it('keeps those reads site-free when no site is requested', async () => {
+    const caller = cashierCaller();
+
+    const detail = await caller.products.getById({ id: unstockedProductId });
+    expect(detail).toMatchObject({ stock: 7, siteStock: null });
+
+    const scan = await caller.products.lookupByBarcode({ barcode: 'SITE-STOCK-1' });
+    expect(scan?.product).toMatchObject({ siteStock: null });
+  });
+
+  it('rejects a foreign site on search, getById and barcode lookups', async () => {
+    const caller = cashierCaller();
+
+    await expect(caller.products.search({ q: 'Stocked', siteId: foreignSiteId })).rejects.toThrow();
+    await expect(
+      caller.products.getById({ id: stockedProductId, siteId: foreignSiteId })
+    ).rejects.toThrow();
+    await expect(
+      caller.products.lookupByBarcode({ barcode: 'SITE-STOCK-1', siteId: foreignSiteId })
     ).rejects.toThrow();
   });
 });

@@ -745,8 +745,16 @@
         "recovery": "Remove item"
       },
       "fiscal_not_active": {
-        "message": "DIAN is not active — this sale will not issue an electronic invoice.",
+        "message": "DIAN issuing is off — this sale will not produce an electronic document.",
         "recovery": "Set up DIAN"
+      },
+      "fiscal_issuer_incomplete": {
+        "message": "The DIAN NIT or software is missing — this sale's electronic document will stay blocked.",
+        "recovery": "Complete DIAN"
+      },
+      "fiscal_numbering_missing": {
+        "message": "This site has no valid DIAN numbering range: the sale will have no electronic document until you register one.",
+        "recovery": "Register range"
       },
       "receipt_hardware_missing": {
         "message": "No receipt printer is set up — you can reprint from the sale later.",
@@ -759,6 +767,13 @@
       "sync_backlog": {
         "message": "Sync is behind or has conflicts — selling still works; clear it when convenient.",
         "recovery": "View sync status"
+      },
+      "fiscal_numbering_fev_only": {
+        "message": "This site only has an electronic invoice range: sales without an invoice request will have no electronic document.",
+        "recovery": "Register range"
+      },
+      "fiscal_test_mode": {
+        "message": "Test mode: documents are not sent to DIAN."
       }
     }
   },

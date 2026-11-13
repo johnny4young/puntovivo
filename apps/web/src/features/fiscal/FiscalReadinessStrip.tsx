@@ -15,7 +15,6 @@ const ATTENTION_STATUSES = [
   'notified_correction',
   'partial_send',
 ] as const;
-const NUMBERING_ISSUES = new Set(['MISSING_RESOLUTION', 'MISSING_RANGE']);
 
 function isFiscalCountry(code: string | null | undefined): code is 'CO' | 'MX' | 'CL' {
   return code === 'CO' || code === 'MX' || code === 'CL';
@@ -72,9 +71,7 @@ export function FiscalReadinessStrip() {
   const fiscal = settingsQuery.data;
   if (!fiscal) return null;
 
-  const issues = fiscal.validation.issues ?? [];
-  const numberingMissing = issues.some(issue => NUMBERING_ISSUES.has(issue.code));
-  const profileMissing = issues.some(issue => !NUMBERING_ISSUES.has(issue.code));
+  const profileMissing = (fiscal.validation.issues ?? []).length > 0;
   const environment = fiscal.settings.environment;
   const isProduction = environment === 'produccion' || environment === 'production';
   const attentionLoaded = attentionQueries.every(query => query.data !== undefined);
@@ -96,22 +93,6 @@ export function FiscalReadinessStrip() {
         }}
         testId="fiscal-readiness-profile"
       />
-      {fiscal.countryCode === 'CO' && (
-        <ReadinessCell
-          label={t('readiness.numbering')}
-          value={
-            numberingMissing
-              ? t('readiness.missing')
-              : (fiscal.settings.dianResolutionNumber ?? t('readiness.missing'))
-          }
-          ok={!numberingMissing}
-          link={{
-            to: SETUP_LINK,
-            label: numberingMissing ? t('readiness.addResolution') : t('readiness.edit'),
-          }}
-          testId="fiscal-readiness-numbering"
-        />
-      )}
       <ReadinessCell
         label={t('readiness.environment')}
         value={isProduction ? t('readiness.production') : t('readiness.testing')}

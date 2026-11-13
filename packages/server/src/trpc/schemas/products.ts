@@ -125,8 +125,10 @@ export const topSellingProductsInput = z.object({
   limit: z.number().int().min(1).max(20).default(10),
 });
 
+// The optional siteId on product reads adds `siteStock` for that site.
 export const getProductInput = z.object({
   id: z.string().min(1, 'ID is required'),
+  siteId: z.string().min(1).optional(),
 });
 
 export const createProductInput = z
@@ -334,6 +336,7 @@ export const searchProductsInput = z.object({
   isActive: z.boolean().optional(),
   tracksStock: z.boolean().optional(),
   pharmacyOnly: z.boolean().optional(),
+  siteId: z.string().min(1).optional(),
 });
 
 // exact-match scanner lookup. Distinct from `searchProductsInput`
@@ -347,6 +350,7 @@ export const lookupByBarcodeInput = z.object({
    * lookup so basic Code128 / short internal barcodes keep working.
    */
   parsePolicy: z.enum(['strict', 'permissive']).default('strict'),
+  siteId: z.string().min(1).optional(),
 });
 
 export type ListProductsInput = z.infer<typeof listProductsInput>;
