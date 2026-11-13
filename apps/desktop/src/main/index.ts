@@ -67,6 +67,7 @@ import { createOsKeyGate } from './os-key-gate.js';
 import { createServerLifecycle, type FatalWorkerExit } from './server-lifecycle.js';
 import {
   createWorkerCrashLog,
+  crashMemory,
   crashErrorCode,
   WORKER_CRASH_LOG_FILE,
 } from './server-host/crash-log.js';
@@ -207,11 +208,7 @@ const workerMemoryWatch = createMemoryWatch({
       outcome: 'memory-alert',
       fatalCause: null,
       appVersion: app.getVersion(),
-      memory: {
-        rssMb: sample.rssMb,
-        heapUsedMb: sample.heapUsedMb,
-        heapLimitMb: sample.heapLimitMb,
-      },
+      memory: crashMemory(sample),
     });
   },
 });

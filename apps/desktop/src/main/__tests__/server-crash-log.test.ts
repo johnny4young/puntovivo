@@ -43,6 +43,20 @@ describe('worker crash log', () => {
     assert.equal((await readFile(path, 'utf8')).trim().split('\n').length, 50);
   });
 
+  it('evicts memory alerts before exits and never reports one as the last crash', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'pv-crash-log-'));
+    const path = join(dir, 'worker-crashes.ndjson');
+    const now = 100 * DAY;
+    const log = createWorkerCrashLog({ getPath: () => path, now: () => now });
+    await log.append(entry(now - 3 * DAY, 'restarted'));
+    for (let i = 0; i < 60; i += 1) await log.append(entry(now - DAY, 'memory-alert'));
+
+    const stats = await log.stats();
+    assert.equal(stats.entries.length, 50);
+    assert.equal(stats.entries[0]?.outcome, 'restarted');
+    assert.equal(stats.lastCrashAt, new Date(now - 3 * DAY).toISOString());
+  });
+
   it('skips a torn line and survives a missing file', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'pv-crash-log-'));
     const path = join(dir, 'worker-crashes.ndjson');
