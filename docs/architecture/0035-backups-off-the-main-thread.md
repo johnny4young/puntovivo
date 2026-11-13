@@ -27,8 +27,9 @@ main starts for that bundle and that exits with it.
   steps. A native call already running finishes first; the staging directory
   is removed by the bundle code or by the startup sweep.
 - Before staging, the bundle checks that the staging and destination volumes
-  each have twice the database (plus WAL) free and fails with
-  `BACKUP_DISK_SPACE_LOW` otherwise.
+  have room for two copies of the database (plus WAL): twice on a shared
+  volume, once on each when they differ. Otherwise it fails with
+  `BACKUP_DISK_SPACE_LOW`.
 - A scheduled snapshot that is due waits while a sale completed in the last
   two minutes, for at most two hours. Main learns of sales from the API
   responses it already sees.

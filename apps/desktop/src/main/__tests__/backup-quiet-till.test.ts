@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { assertBackupDiskSpace } from '../backup/backup-bundle/disk-space.ts';
@@ -28,7 +28,7 @@ describe('sale activity tracker', () => {
 describe('backup disk space', () => {
   const volume = (freeBytes: number) => async () => ({ bavail: freeBytes, bsize: 1 });
 
-  it('requires twice the database plus WAL on each volume and skips an unknown one', async () => {
+  it('needs room for two copies of the database plus WAL and skips an unknown volume', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'pv-backup-space-'));
     try {
       const dbPath = join(dir, 'live.db');
@@ -45,6 +45,20 @@ describe('backup disk space', () => {
         statfs: async () => {
           throw new Error('ENOSYS');
         },
+      });
+
+      // On separate volumes each one holds a single copy.
+      const outDir = join(dir, 'usb');
+      const separate = {
+        dbPath,
+        stagingRoot: dir,
+        outZipPath: join(outDir, 'out.zip'),
+        stat: async (path: string) =>
+          path === outDir ? { size: 0, dev: -1 } : statSync(path, { throwIfNoEntry: true }),
+      };
+      await assertBackupDiskSpace({ ...separate, statfs: volume(1_000) });
+      await assert.rejects(assertBackupDiskSpace({ ...separate, statfs: volume(999) }), {
+        code: 'BACKUP_DISK_SPACE_LOW',
       });
     } finally {
       rmSync(dir, { recursive: true, force: true });

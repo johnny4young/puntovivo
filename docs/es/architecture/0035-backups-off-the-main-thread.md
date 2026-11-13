@@ -28,7 +28,8 @@ corta, que main lanza para ese respaldo y que termina con él.
   llamada nativa que ya corre termina primero; el directorio temporal lo borra
   el código del paquete o el barrido de arranque.
 - Antes de copiar, el paquete comprueba que el volumen temporal y el de
-  destino tengan libre el doble de la base (más el WAL) y, si no, falla con
+  destino tengan espacio para dos copias de la base (más el WAL): el doble si
+  comparten volumen, una en cada uno si son distintos. Si no, falla con
   `BACKUP_DISK_SPACE_LOW`.
 - Un respaldo programado que ya toca espera mientras haya habido una venta en
   los últimos dos minutos, como máximo dos horas. Main se entera de las ventas

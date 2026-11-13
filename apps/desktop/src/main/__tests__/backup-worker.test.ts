@@ -1,7 +1,7 @@
 import { after, before, describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { EventEmitter } from 'node:events';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -100,8 +100,7 @@ describe('backup bundle in a worker thread', () => {
       signal: controller.signal,
     });
     controller.abort();
-    await assert.rejects(running);
-    const { existsSync } = await import('node:fs');
+    await assert.rejects(running, /BACKUP_CANCELLED/);
     assert.equal(existsSync(out), false);
   });
 
