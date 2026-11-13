@@ -28,6 +28,16 @@ export interface SerializedError {
   code?: string;
 }
 
+/** One periodic report from the worker, in MB except utilization (0 to 1). */
+export interface WorkerMemorySample {
+  /** Whole-process RSS: the worker shares the Electron main process. */
+  rssMb: number;
+  heapUsedMb: number;
+  heapLimitMb: number;
+  externalMb: number;
+  eventLoopUtilization: number;
+}
+
 /** What the worker needs to open the database and listen. */
 export interface WorkerStartOptions {
   serverOptions: Record<string, unknown>;
@@ -40,7 +50,9 @@ export type MainToWorkerMessage =
   | { type: 'call'; id: number; op: OperationName; args: unknown[] }
   | { type: 'stop' }
   /** Honoured only when the app runs under E2E or soak; see server-worker.ts. */
-  | { type: 'test-crash' };
+  | { type: 'test-crash' }
+  /** Same gate as test-crash: allocates until the heap limit ends the thread. */
+  | { type: 'test-oom' };
 
 export type WorkerToMainMessage =
   | { type: 'started'; url: string }
@@ -49,7 +61,8 @@ export type WorkerToMainMessage =
   | { type: 'result'; id: number; ok: false; error: SerializedError }
   | { type: 'stopped'; error?: SerializedError }
   /** Sent by the crash handler right before an uncaught exception ends the thread. */
-  | { type: 'crashed'; error: SerializedError };
+  | { type: 'crashed'; error: SerializedError }
+  | { type: 'stats'; stats: WorkerMemorySample };
 
 export const CODE_PATTERN = /^[A-Z][A-Z0-9_]{1,80}$/;
 

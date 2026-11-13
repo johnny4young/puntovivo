@@ -4,14 +4,14 @@
  */
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import { CODE_PATTERN } from './protocol.ts';
+import { CODE_PATTERN, type WorkerMemorySample } from './protocol.ts';
 import type { WorkerExitKind, WorkerFatalCause } from './restart-policy.ts';
 
 export const WORKER_CRASH_LOG_FILE = 'worker-crashes.ndjson';
 const MAX_ENTRIES = 50;
 const WEEK_MS = 7 * 24 * 60 * 60_000;
 
-export type WorkerCrashOutcome = 'restarted' | 'restart-failed' | 'fatal';
+export type WorkerCrashOutcome = 'restarted' | 'restart-failed' | 'fatal' | 'memory-alert';
 
 export interface WorkerCrashEntry {
   at: string;
@@ -24,6 +24,18 @@ export interface WorkerCrashEntry {
   outcome: WorkerCrashOutcome;
   fatalCause: WorkerFatalCause | 'restart-loop' | null;
   appVersion: string;
+  /** Worker heap and process RSS from its last report, in MB. */
+  memory?: WorkerCrashMemory | null;
+}
+
+export type WorkerCrashMemory = Pick<WorkerMemorySample, 'rssMb' | 'heapUsedMb' | 'heapLimitMb'>;
+
+export function crashMemory(
+  sample: WorkerMemorySample | null | undefined
+): WorkerCrashMemory | null {
+  return sample
+    ? { rssMb: sample.rssMb, heapUsedMb: sample.heapUsedMb, heapLimitMb: sample.heapLimitMb }
+    : null;
 }
 
 export interface WorkerRestartStats {
@@ -68,7 +80,12 @@ export function createWorkerCrashLog(deps: { getPath: () => string; now?: () => 
 
   async function write(entry: WorkerCrashEntry): Promise<void> {
     const path = deps.getPath();
-    const entries = [...(await read()), entry].slice(-MAX_ENTRIES);
+    const entries = [...(await read()), entry];
+    // Memory alerts give way first, so a noisy episode cannot evict real exits.
+    while (entries.length > MAX_ENTRIES) {
+      const alert = entries.findIndex(item => item.outcome === 'memory-alert');
+      entries.splice(alert === -1 ? 0 : alert, 1);
+    }
     await mkdir(dirname(path), { recursive: true });
     const temp = `${path}.tmp`;
     await writeFile(temp, entries.map(item => JSON.stringify(item)).join('\n') + '\n', 'utf8');
@@ -89,7 +106,7 @@ export function createWorkerCrashLog(deps: { getPath: () => string; now?: () => 
         restartsLast7Days: entries.filter(
           entry => entry.outcome === 'restarted' && Date.parse(entry.at) >= cutoff
         ).length,
-        lastCrashAt: entries.at(-1)?.at ?? null,
+        lastCrashAt: entries.filter(entry => entry.outcome !== 'memory-alert').at(-1)?.at ?? null,
         entries,
       };
     },

@@ -69,10 +69,16 @@ import { createOsKeyGate } from './os-key-gate.js';
 import { createServerLifecycle, type FatalWorkerExit } from './server-lifecycle.js';
 import {
   createWorkerCrashLog,
+  crashMemory,
   crashErrorCode,
   WORKER_CRASH_LOG_FILE,
 } from './server-host/crash-log.js';
 import { createWorkerLauncher } from './server-host/worker-host.js';
+import {
+  createMemoryWatch,
+  DEFAULT_RSS_ALERT_MB,
+  resolveWorkerResourceLimits,
+} from './server-host/memory-policy.js';
 import { broadcastServerState, registerServerStateIpc } from './ipc/server-state.js';
 import { createTrayController } from './tray-controller.js';
 import { disableBuiltinSpellchecker } from './window-config.js';
@@ -190,6 +196,25 @@ const workerCrashLog = createWorkerCrashLog({
   getPath: () => join(app.getPath('userData'), WORKER_CRASH_LOG_FILE),
 });
 
+const workerMemoryWatch = createMemoryWatch({
+  onAlert: sample => {
+    mainLog.warn({ ...sample, thresholdMb: DEFAULT_RSS_ALERT_MB }, 'server worker memory high');
+    void workerCrashLog.append({
+      at: new Date().toISOString(),
+      kind: 'unknown',
+      exitCode: 0,
+      errorCode: null,
+      uptimeMs: 0,
+      pendingCalls: 0,
+      restartAttempt: 0,
+      outcome: 'memory-alert',
+      fatalCause: null,
+      appVersion: app.getVersion(),
+      memory: crashMemory(sample),
+    });
+  },
+});
+
 const serverLifecycle = createServerLifecycle({
   dbPath: encryptionSetup.dbPath,
   migrationsPath: encryptionSetup.migrationsPath,
@@ -207,6 +232,8 @@ const serverLifecycle = createServerLifecycle({
       void serverLifecycle.recoverFromUnexpectedExit(failure);
     },
     allowTestCrash: isE2e || process.env.PUNTOVIVO_SOAK === '1',
+    resourceLimits: resolveWorkerResourceLimits(),
+    onStats: workerMemoryWatch.observe,
   }),
   onStateChange: broadcastServerState,
   onFatalExit: fatal => handleFatalServerExit(fatal),

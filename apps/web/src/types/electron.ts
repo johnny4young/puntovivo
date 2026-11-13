@@ -17,6 +17,7 @@ export interface ElectronAPI {
   onServerStateChange?: (listener: (state: EmbeddedServerState) => void) => () => void;
   getServerRestartStats?: () => Promise<ServerRestartStats>;
   crashServerWorkerForE2e?: () => Promise<{ ok: boolean }>;
+  exhaustServerWorkerHeapForE2e?: () => Promise<{ ok: boolean }>;
   /** Production main never registers this test-only IPC handler. */
   requestE2eAppQuit?: () => Promise<{ ok: true }>;
   simulateDownloadedAppUpdateForE2e?: (version: string) => Promise<unknown>;

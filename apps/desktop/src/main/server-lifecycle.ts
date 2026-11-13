@@ -8,7 +8,7 @@ import { PACKAGED_RENDERER_ORIGIN } from './renderer-protocol.ts';
 import { getServerHost, setServerHost } from './runtime.ts';
 import type { EmbeddedServerHost } from './server-host/contract.ts';
 import type { WorkerCrashEntry } from './server-host/crash-log.ts';
-import { crashErrorCode } from './server-host/crash-log.ts';
+import { crashErrorCode, crashMemory } from './server-host/crash-log.ts';
 import {
   classifyFatalCause,
   createRestartBudget,
@@ -230,6 +230,7 @@ export function createServerLifecycle({
       errorCode: crashErrorCode(failure.error),
       uptimeMs: failure.uptimeMs,
       pendingCalls: failure.pendingCalls,
+      memory: crashMemory(failure.lastMemory),
     };
     log.error({ ...base }, 'embedded server worker exited unexpectedly');
     let cause: WorkerFatalCause | null = classifyFatalCause(failure.error);

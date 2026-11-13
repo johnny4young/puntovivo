@@ -3,7 +3,7 @@
  * contract as messages, and stops it. Electron-free so it runs under
  * `node --test` with a stub worker.
  */
-import { Worker } from 'node:worker_threads';
+import { Worker, type ResourceLimits } from 'node:worker_threads';
 import type { ServerOptions } from '@puntovivo/server';
 import type { EmbeddedServerHost, EmbeddedServerOperations } from './contract.ts';
 import type { WorkerExitFailure, WorkerExitKind } from './restart-policy.ts';
@@ -12,6 +12,7 @@ import {
   OPERATION_NAMES,
   type MainToWorkerMessage,
   type OperationName,
+  type WorkerMemorySample,
   type WorkerStartOptions,
   type WorkerToMainMessage,
 } from './protocol.ts';
@@ -20,7 +21,8 @@ import {
 // killing the worker earlier can lose an accepted document's verdict.
 const DEFAULT_STOP_GRACE_MS = 90_000;
 
-const createNodeWorker = (path: string): WorkerLike => new Worker(path) as unknown as WorkerLike;
+const createNodeWorker = (path: string, resourceLimits?: ResourceLimits): WorkerLike =>
+  new Worker(path, resourceLimits ? { resourceLimits } : {}) as unknown as WorkerLike;
 
 /** The part of `worker_threads.Worker` the host relies on. */
 export interface ThreadLike<In, Out> {
@@ -40,7 +42,10 @@ export interface WorkerServerHostOptions {
   /** Called once when the worker dies outside `close()`. */
   onUnexpectedExit: (failure: WorkerExitFailure) => void;
   stopGraceMs?: number;
-  createWorker?: (path: string) => WorkerLike;
+  createWorker?: (path: string, resourceLimits?: ResourceLimits) => WorkerLike;
+  /** V8 heap caps; past them Node ends the thread with ERR_WORKER_OUT_OF_MEMORY. */
+  resourceLimits?: ResourceLimits;
+  onStats?: (stats: WorkerMemorySample) => void;
   /** Lets E2E and soak runs crash the worker on purpose. */
   allowTestCrash?: boolean;
   now?: () => number;
@@ -50,7 +55,10 @@ export interface WorkerServerHostOptions {
 export async function startWorkerServerHost(
   options: WorkerServerHostOptions
 ): Promise<EmbeddedServerHost> {
-  const worker = (options.createWorker ?? createNodeWorker)(options.workerPath);
+  const worker = (options.createWorker ?? createNodeWorker)(
+    options.workerPath,
+    options.resourceLimits
+  );
   const pending = new Map<
     number,
     { resolve: (value: unknown) => void; reject: (e: Error) => void }
@@ -60,6 +68,7 @@ export async function startWorkerServerHost(
   let exited = false;
   let lastError: Error | null = null;
   let exitKind: WorkerExitKind = 'unknown';
+  let lastStats: WorkerMemorySample | null = null;
   const now = options.now ?? Date.now;
   let startedAt = now();
   let stopError: Error | null = null;
@@ -76,6 +85,10 @@ export async function startWorkerServerHost(
       case 'started':
         startedAt = now();
         onStarted?.(message.url);
+        return;
+      case 'stats':
+        lastStats = message.stats;
+        options.onStats?.(message.stats);
         return;
       case 'crashed':
         lastError = deserializeError(message.error);
@@ -118,6 +131,7 @@ export async function startWorkerServerHost(
         exitCode: code,
         uptimeMs: Math.max(0, now() - startedAt),
         pendingCalls,
+        lastMemory: lastStats,
       });
     }
   });
@@ -199,7 +213,10 @@ export async function startWorkerServerHost(
     url,
     close: stopWorker,
     ...(options.allowTestCrash
-      ? { simulateCrash: () => worker.postMessage({ type: 'test-crash' }) }
+      ? {
+          simulateCrash: () => worker.postMessage({ type: 'test-crash' }),
+          simulateOutOfMemory: () => worker.postMessage({ type: 'test-oom' }),
+        }
       : {}),
   };
 }
@@ -210,8 +227,10 @@ export function createWorkerLauncher(deps: {
   /** Converts a legacy anchor file first; undefined for env-key installs. */
   resolveAuditAnchorStoreLocation: () => Promise<WorkerStartOptions['auditAnchorStore']>;
   onUnexpectedExit: (failure: WorkerExitFailure) => void;
-  createWorker?: (path: string) => WorkerLike;
+  createWorker?: (path: string, resourceLimits?: ResourceLimits) => WorkerLike;
   allowTestCrash?: boolean;
+  resourceLimits?: ResourceLimits;
+  onStats?: (stats: WorkerMemorySample) => void;
 }): (options: ServerOptions) => Promise<EmbeddedServerHost> {
   return async options => {
     const auditAnchorStore = await deps.resolveAuditAnchorStoreLocation();
@@ -224,6 +243,8 @@ export function createWorkerLauncher(deps: {
       onUnexpectedExit: deps.onUnexpectedExit,
       ...(deps.createWorker ? { createWorker: deps.createWorker } : {}),
       ...(deps.allowTestCrash ? { allowTestCrash: true } : {}),
+      ...(deps.resourceLimits ? { resourceLimits: deps.resourceLimits } : {}),
+      ...(deps.onStats ? { onStats: deps.onStats } : {}),
     });
   };
 }

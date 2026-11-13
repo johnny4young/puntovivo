@@ -86,6 +86,7 @@ interface DesktopElectronAPI {
   onServerStateChange?: (listener: (state: EmbeddedServerState) => void) => () => void;
   getServerRestartStats?: () => Promise<ServerRestartStats>;
   crashServerWorkerForE2e?: () => Promise<{ ok: boolean }>;
+  exhaustServerWorkerHeapForE2e?: () => Promise<{ ok: boolean }>;
   simulateDownloadedAppUpdateForE2e?: (version: string) => Promise<unknown>;
   evaluateAppUpdateCandidateForE2e?: (
     version: string,

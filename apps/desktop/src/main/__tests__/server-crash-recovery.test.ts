@@ -91,6 +91,7 @@ describe('embedded server crash recovery', () => {
         errorCode: 'SERVER_WORKER_TEST_CRASH',
         uptimeMs: 1_000,
         pendingCalls: 2,
+        memory: null,
         restartAttempt: 1,
         outcome: 'restarted',
         fatalCause: null,
