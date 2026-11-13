@@ -1701,11 +1701,12 @@ function Invoke-Summarize([string]$dir) {
       $end = $ends | Where-Object { $_.phase -eq $start.phase -and $_.n -eq $start.n -and [long]$_.t_ms -ge $from } | Select-Object -First 1
       $to = if ($end) { [long]$end.t_ms } else { $from + 600000 }
       foreach ($r in $renderer) {
-        $t = [long]$r.t_ms
+        # Not $t: PowerShell names ignore case, so it would overwrite $T.
+        $rowMs = [long]$r.t_ms
         # Each renderer row covers the interval that ends at its timestamp.
         $intervalMs = 15000
         if ($intervalByPhase.ContainsKey([string]$r.phase)) { $intervalMs = $intervalByPhase[[string]$r.phase] }
-        if ($t -lt $from -or ($t - $intervalMs) -gt $to) { continue }
+        if ($rowMs -lt $from -or ($rowMs - $intervalMs) -gt $to) { continue }
         foreach ($v in @((ConvertTo-Double $r.ipc_max_ms), (ConvertTo-Double $r.lag_max_ms))) {
           if (-not [double]::IsNaN($v)) { $worst = [Math]::Max($worst, $v) }
         }

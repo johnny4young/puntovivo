@@ -368,6 +368,7 @@ test('summarize fails every threshold the run breaks', { skip }, () => {
   assert.equal(summary.memory.roles.renderer.slope_mb_per_h, 20);
   assert.equal(summary.sales.drive_ok, 10);
   assert.equal(summary.harness.working_set_peak_mb, 70);
+  assert.equal(summary.system.seconds_paging, 3);
   assert.deepEqual(summary.scanner, {
     scans: 4,
     gap_median_ms: 6,
@@ -385,7 +386,9 @@ test('summarize pairs a backup end only with the start of its own phase', { skip
   const dir = writeRun('orphan-backup', { ...healthy, orphanBackup: true, spikeAt: 30 });
   const { code, out } = run(MEASURE, ['-Phase', 'summarize', '-RunDir', dir]);
   assert.equal(code, 0, out);
-  assert.equal(statuses(dir).U7, 'PASS');
+  const summary = JSON.parse(readFileSync(path.join(dir, 'summary.json'), 'utf8'));
+  const u7 = summary.verdicts.find(verdict => verdict.id === 'U7');
+  assert.deepEqual([u7.status, u7.value, u7.limit], ['PASS', 20, 1000]);
 });
 
 test('summarize refuses a folder with nothing measured', { skip }, () => {
