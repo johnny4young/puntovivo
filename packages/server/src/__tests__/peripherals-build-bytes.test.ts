@@ -397,12 +397,24 @@ describe('peripherals.buildReceiptBytes', () => {
     const db = getDatabase();
     const original = await db
       .select({
-        currencyCode: sales.currencyCode,
+        receiptTemplateIdSnapshot: sales.receiptTemplateIdSnapshot,
+        receiptTemplateKindSnapshot: sales.receiptTemplateKindSnapshot,
+        receiptTemplateNameSnapshot: sales.receiptTemplateNameSnapshot,
+        receiptTemplateLayoutSnapshot: sales.receiptTemplateLayoutSnapshot,
         receiptLocaleSnapshot: sales.receiptLocaleSnapshot,
+        currencyCode: sales.currencyCode,
+        subtotal: sales.subtotal,
+        taxAmount: sales.taxAmount,
+        total: sales.total,
       })
       .from(sales)
       .where(eq(sales.id, seededSaleId))
       .get();
+    const originalItems = await db
+      .select({ id: saleItems.id, total: saleItems.total })
+      .from(saleItems)
+      .where(eq(saleItems.saleId, seededSaleId))
+      .all();
     const copCatalog = await db
       .select({ displayDecimals: currencyCatalog.displayDecimals })
       .from(currencyCatalog)
@@ -447,21 +459,10 @@ describe('peripherals.buildReceiptBytes', () => {
         .update(currencyCatalog)
         .set({ displayDecimals: copCatalog.displayDecimals })
         .where(eq(currencyCatalog.code, 'COP'));
-      await db.update(saleItems).set({ total: 119 }).where(eq(saleItems.saleId, seededSaleId));
-      await db
-        .update(sales)
-        .set({
-          receiptTemplateIdSnapshot: saleTemplateId,
-          receiptTemplateKindSnapshot: 'sale',
-          receiptTemplateNameSnapshot: 'Runtime sale template',
-          receiptTemplateLayoutSnapshot: initialSaleTemplateLayout,
-          receiptLocaleSnapshot: original.receiptLocaleSnapshot,
-          currencyCode: original.currencyCode,
-          subtotal: 100,
-          taxAmount: 19,
-          total: 119,
-        })
-        .where(eq(sales.id, seededSaleId));
+      for (const item of originalItems) {
+        await db.update(saleItems).set({ total: item.total }).where(eq(saleItems.id, item.id));
+      }
+      await db.update(sales).set(original).where(eq(sales.id, seededSaleId));
     }
   });
 

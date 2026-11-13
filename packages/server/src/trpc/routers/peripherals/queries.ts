@@ -44,7 +44,9 @@ import {
   renderSaleReceiptTemplate,
   renderSaleReceiptShare,
   resolveSaleReceiptTemplateContext,
+  type ReceiptRenderLocale,
 } from '../../../services/receipt-renderer/index.js';
+import { formatReceiptAmount } from '../../../services/receipt-renderer/format-helpers.js';
 import { resolveTenantLocale } from '../../../services/tenant-locale.js';
 import { toSaleReceiptFiscalDocuments } from './helpers.js';
 
@@ -155,23 +157,27 @@ export const peripheralsQueryProcedures = {
         };
       }
 
-      const tenantLocale = await resolveTenantLocale(ctx.db, ctx.tenantId);
+      const [tenantLocale, saleCurrency] = await Promise.all([
+        resolveTenantLocale(ctx.db, ctx.tenantId),
+        ctx.db
+          .select({
+            legalDecimals: currencyCatalog.decimals,
+            displayDecimals: currencyCatalog.displayDecimals,
+          })
+          .from(currencyCatalog)
+          .where(eq(currencyCatalog.code, sale.currencyCode))
+          .get(),
+      ]);
       const locale = sale.receiptLocaleSnapshot ?? tenantLocale.locale;
       const language = locale.toLowerCase().startsWith('es') ? 'es' : 'en';
       // Pin the catalog's display decimals: runtimes disagree on COP's default.
-      const saleCurrency = await ctx.db
-        .select({ displayDecimals: currencyCatalog.displayDecimals })
-        .from(currencyCatalog)
-        .where(eq(currencyCatalog.code, sale.currencyCode))
-        .get();
-      const decimals = saleCurrency?.displayDecimals ?? tenantLocale.displayDecimals;
-      const moneyFormat = new Intl.NumberFormat(locale, {
-        style: 'currency',
+      const receiptLocale: ReceiptRenderLocale = {
+        locale,
         currency: sale.currencyCode,
-        minimumFractionDigits: decimals,
-        maximumFractionDigits: decimals,
-      });
-      const money = (value: number) => moneyFormat.format(value);
+        legalDecimals: saleCurrency?.legalDecimals ?? tenantLocale.legalDecimals,
+        displayDecimals: saleCurrency?.displayDecimals ?? tenantLocale.displayDecimals,
+      };
+      const money = (value: number) => formatReceiptAmount(value, receiptLocale);
       const text = [
         `${language === 'es' ? 'Recibo' : 'Receipt'} ${sale.saleNumber}`,
         sale.companyNameSnapshot ?? '',
