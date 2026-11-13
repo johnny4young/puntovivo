@@ -946,7 +946,8 @@ describe('Inventory tRPC Router', () => {
 
     it('recordEntry mode physical replaces only the selected site count', async () => {
       const secondaryCaller = appRouter.createCaller(createTestContext(secondarySiteId));
-      const created = await secondaryCaller.products.create(
+      const primaryCaller = appRouter.createCaller(createTestContext(primarySiteId));
+      const created = await primaryCaller.products.create(
         buildProductInput({
           name: 'Balances Multi-site Physical',
           sku: 'BAL-ENTRY-PHYS-MULTI',
