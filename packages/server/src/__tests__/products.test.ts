@@ -1472,6 +1472,26 @@ describe('Products tRPC Router', () => {
       expect(JSON.stringify(productIntent?.payload ?? {})).not.toContain(branchSiteId);
     });
 
+    it('uses the active site of the request when the input names none', async () => {
+      const branchSiteId = await insertSite(tenantId, true);
+      const caller = appRouter.createCaller({ ...createTestContext(), siteId: branchSiteId });
+
+      const created = await caller.products.create({
+        name: 'Active site opening stock',
+        sku: `ACTIVE-OPEN-${nanoid(6)}`,
+        stock: 4,
+      });
+
+      const balances = await getDatabase()
+        .select({ siteId: inventoryBalances.siteId, onHand: inventoryBalances.onHand })
+        .from(inventoryBalances)
+        .where(
+          and(eq(inventoryBalances.tenantId, tenantId), eq(inventoryBalances.productId, created.id))
+        )
+        .all();
+      expect(balances).toEqual([{ siteId: branchSiteId, onHand: 4 }]);
+    });
+
     it('keeps the primary site when no site is requested', async () => {
       const caller = appRouter.createCaller(createTestContext());
       await insertSite(tenantId, true);

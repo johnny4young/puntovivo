@@ -280,7 +280,6 @@ export function SalesModals({
             <QuickCreateProductGate
               templateVertical={templateVertical}
               pharmacyMode={pharmacyMode}
-              siteId={currentSite?.id ?? null}
               onCreated={created => {
                 // Fetch the freshly created product with its full unit
                 // assignments + price so we can merge into the cart with

@@ -43,15 +43,12 @@ interface QuickCreateProductGateProps {
   onCreated?: (product: Product) => void;
   templateVertical?: ProductTemplateVerticalId | null;
   pharmacyMode?: boolean;
-  /** Active POS site; it receives the opening stock. */
-  siteId?: string | null;
 }
 
 export function QuickCreateProductGate({
   onCreated,
   templateVertical = null,
   pharmacyMode = false,
-  siteId = null,
 }: QuickCreateProductGateProps) {
   const { t } = useTranslation(['products', 'pharmacy', 'pharmacyErrors']);
   const toast = useToast();
@@ -150,10 +147,7 @@ export function QuickCreateProductGate({
   const handleSubmit = async (values: ProductFormValues): Promise<Product | void> => {
     let created: Product;
     try {
-      const payload = await buildProductPayload(values);
-      created = (await createMutation.mutateAsync(
-        siteId ? { ...payload, siteId } : payload
-      )) as Product;
+      created = (await createMutation.mutateAsync(await buildProductPayload(values))) as Product;
     } catch {
       // The mutation's error state and toast own this server failure. Keep the
       // form open and return the explicit handled-error sentinel.

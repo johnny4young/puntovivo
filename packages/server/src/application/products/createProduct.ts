@@ -36,7 +36,6 @@ import {
   summarizeTaxComponents,
 } from '../../services/tax-components.js';
 import type { CreateProductInput } from '../../trpc/schemas/products.js';
-import { ensureTenantSite } from '../../trpc/middleware/tenantSite.js';
 import type { ProductMutationContext } from './types.js';
 import {
   assertPharmacyInventoryPolicy,
@@ -57,10 +56,6 @@ async function persistProduct(ctx: ProductMutationContext, input: CreateProductI
     tracksLots: input.tracksLots,
     tracksSerials: input.tracksSerials,
   });
-
-  if (input.siteId) {
-    await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
-  }
 
   const existingSku = await ctx.db
     .select({ id: products.id })
@@ -221,25 +216,30 @@ async function persistProduct(ctx: ProductMutationContext, input: CreateProductI
 
       // `stock` is no longer a product column — it is the single-source
       // Σ(inventory_balances.on_hand). Opening stock belongs to the requested
-      // site (the primary one when omitted) and receives its own movement +
-      // audit evidence in the same transaction as the catalog row.
+      // site, else the request's active site, else the primary one, and
+      // receives its own movement + audit evidence in the same transaction.
+      if (input.siteId) {
+        const requestedSite = tx
+          .select({ isActive: sites.isActive })
+          .from(sites)
+          .where(and(eq(sites.id, input.siteId), eq(sites.tenantId, ctx.tenantId)))
+          .get();
+        if (!requestedSite) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Site not found' });
+        }
+        if (requestedSite.isActive === false) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Selected opening stock site is inactive',
+          });
+        }
+      }
       if (input.stock > 0 && openingMovementId) {
-        const openingSiteId = input.siteId ?? getPrimarySiteId(tx, ctx.tenantId);
+        const openingSiteId = input.siteId ?? ctx.siteId ?? getPrimarySiteId(tx, ctx.tenantId);
         if (!openingSiteId) {
           throw new TRPCError({
             code: 'BAD_REQUEST',
             message: 'An active site is required to record opening stock',
-          });
-        }
-        const openingSite = tx
-          .select({ isActive: sites.isActive })
-          .from(sites)
-          .where(and(eq(sites.id, openingSiteId), eq(sites.tenantId, ctx.tenantId)))
-          .get();
-        if (!openingSite || openingSite.isActive === false) {
-          throw new TRPCError({
-            code: 'BAD_REQUEST',
-            message: 'Selected opening stock site was not found or is inactive',
           });
         }
         let movementValue = inventoryMovementValueSnapshot(null);

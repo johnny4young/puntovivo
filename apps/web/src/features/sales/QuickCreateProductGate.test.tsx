@@ -185,27 +185,9 @@ describe('QuickCreateProductGate', () => {
       })
     );
     expect(createMutateAsyncMock.mock.calls[0]?.[0]).not.toHaveProperty('unitAssignments');
-    expect(createMutateAsyncMock.mock.calls[0]?.[0]).not.toHaveProperty('siteId');
     expect(listInvalidateMock).toHaveBeenCalledOnce();
     expect(searchInvalidateMock).toHaveBeenCalledOnce();
     expect(readinessInvalidateMock).toHaveBeenCalledOnce();
-  });
-
-  it('sends the active site so the opening stock lands there', async () => {
-    render(<QuickCreateProductGate siteId="site-branch" />);
-
-    await act(async () => {
-      await productFormPropsRef.current?.onSubmit({
-        ...createDefaultValues(),
-        name: 'Producto sede',
-        sku: 'RAP-SEDE',
-        stock: 5,
-      });
-    });
-
-    expect(createMutateAsyncMock).toHaveBeenCalledWith(
-      expect.objectContaining({ sku: 'RAP-SEDE', stock: 5, siteId: 'site-branch' })
-    );
   });
 
   it('loads only tax choices until the operator requests advanced settings', () => {
