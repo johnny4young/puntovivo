@@ -55,7 +55,10 @@ const calls = createWorkerCallDrain();
 const post = (message: WorkerToMainMessage) => port.postMessage(message);
 const STATS_INTERVAL_MS = 60_000;
 const toMb = (bytes: number) => Math.round((bytes / 1_048_576) * 10) / 10;
+// Fixed by the worker's resourceLimits for its whole life.
+const heapLimitMb = toMb(getHeapStatistics().heap_size_limit);
 let lastElu = performance.eventLoopUtilization();
+let statsTimer: ReturnType<typeof setInterval> | null = null;
 
 function postStats(): void {
   const memory = process.memoryUsage();
@@ -66,7 +69,7 @@ function postStats(): void {
     stats: {
       rssMb: toMb(memory.rss),
       heapUsedMb: toMb(memory.heapUsed),
-      heapLimitMb: toMb(getHeapStatistics().heap_size_limit),
+      heapLimitMb,
       externalMb: toMb(memory.external + memory.arrayBuffers),
       eventLoopUtilization: Math.round(elu.utilization * 1000) / 1000,
     },
@@ -87,7 +90,7 @@ async function start(options: WorkerStartOptions): Promise<void> {
     })(serverOptions);
     post({ type: 'started', url: host.url });
     postStats();
-    setInterval(postStats, STATS_INTERVAL_MS).unref();
+    statsTimer = setInterval(postStats, STATS_INTERVAL_MS).unref();
   } catch (error) {
     post({ type: 'start-failed', error: serializeError(error) });
   }
@@ -108,6 +111,7 @@ async function stop(): Promise<void> {
     error = closeError;
   }
   host = null;
+  if (statsTimer) clearInterval(statsTimer);
   post(error ? { type: 'stopped', error: serializeError(error) } : { type: 'stopped' });
   // Nothing else keeps the thread alive once the server has closed.
   port.close();

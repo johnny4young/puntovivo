@@ -1,4 +1,4 @@
-/** Raw data capabilities are absent even for administrators. */
+/** Raw data and sync-config writes are absent even for administrators. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createDataBridgeHandlers } from '../ipc/data-bridge-handlers.ts';
@@ -27,28 +27,12 @@ for (const role of ['admin', 'manager', 'cashier', 'viewer']) {
           calls.push(tenant);
           return { synced: 0 };
         },
-        setSyncConfig: async config => {
-          calls.push('config');
-          return config;
-        },
       },
     });
-    assert.deepEqual(Object.keys(handlers).sort(), [
-      'getSyncStatus',
-      'setSyncConfig',
-      'triggerSync',
-    ]);
+    assert.deepEqual(Object.keys(handlers).sort(), ['getSyncStatus', 'triggerSync']);
+    assert.equal('setSyncConfig' in handlers, false);
     assert.deepEqual(await handlers.getSyncStatus(), { pendingItems: 0 });
     assert.deepEqual(await handlers.triggerSync(), { synced: 0 });
-    const config = { enabled: false };
-    assert.equal(await handlers.setSyncConfig(config), config);
-    assert.deepEqual(calls, [
-      'session',
-      'tenant-main',
-      'session',
-      'tenant-main',
-      'session',
-      'config',
-    ]);
+    assert.deepEqual(calls, ['session', 'tenant-main', 'session', 'tenant-main']);
   });
 }

@@ -21,7 +21,6 @@ export interface DataBridgeIpcDeps {
 const dataBridgeOperations: DataBridgeOperations = {
   getSyncStatus: tenantId => readThroughRestart(host => host.getSyncStatus(tenantId)),
   triggerSync: tenantId => awaitServerHost().then(host => host.triggerSync(tenantId)),
-  setSyncConfig: config => awaitServerHost().then(host => host.setSyncConfig(config)),
 };
 
 export function registerDataBridgeIpc(deps: DataBridgeIpcDeps): void {
@@ -36,8 +35,5 @@ export function registerDataBridgeIpc(deps: DataBridgeIpcDeps): void {
   );
   ipcMain.handle('sync:triggerSync', (_event, rendererTenantId?: unknown) =>
     captureDesktopIpcSessionResult(() => handlers.triggerSync(rendererTenantId))
-  );
-  ipcMain.handle('sync:setConfig', (_event, config: Record<string, unknown>) =>
-    captureDesktopIpcSessionResult(() => handlers.setSyncConfig(config))
   );
 }

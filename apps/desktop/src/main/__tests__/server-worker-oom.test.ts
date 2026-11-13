@@ -14,7 +14,7 @@ const MIGRATIONS = fileURLToPath(
 );
 const quietLog = { info: () => {}, warn: () => {}, error: () => {} } as unknown as PuntovivoLogger;
 
-describe('server worker heap limit', () => {
+describe('server worker heap limit', { timeout: 60_000 }, () => {
   it('ends a worker that exhausts its heap and restarts a healthy one', async () => {
     const saved = { ...process.env };
     // The worker copies the environment when it is created.
@@ -57,7 +57,9 @@ describe('server worker heap limit', () => {
       assert.equal(crashes[0]?.kind, 'oom');
       assert.equal(crashes[0]?.errorCode, 'ERR_WORKER_OUT_OF_MEMORY');
       assert.equal(crashes[0]?.outcome, 'restarted');
-      assert.ok((crashes[0]?.memory?.heapLimitMb ?? 0) > 0, 'the last stats sample is kept');
+      const heapLimitMb = crashes[0]?.memory?.heapLimitMb ?? 0;
+      assert.ok(heapLimitMb > 0, 'the last stats sample is kept');
+      assert.ok(heapLimitMb < 200, `the 96 MB cap reached the worker, got ${heapLimitMb} MB`);
       assert.deepEqual(states, ['running', 'restarting', 'running']);
       const response = await fetch(`${getServerHost()?.url}/api/health`);
       assert.equal(response.status, 200);

@@ -18,7 +18,6 @@ export const OPERATION_NAMES = [
   'writeAppSetting',
   'getSyncStatus',
   'triggerSync',
-  'setSyncConfig',
   'readRestoreDrillCounts',
 ] as const satisfies readonly OperationName[];
 
@@ -65,7 +64,7 @@ export type WorkerToMainMessage =
   | { type: 'crashed'; error: SerializedError }
   | { type: 'stats'; stats: WorkerMemorySample };
 
-const CODE_PATTERN = /^[A-Z][A-Z0-9_]{1,80}$/;
+export const CODE_PATTERN = /^[A-Z][A-Z0-9_]{1,80}$/;
 
 /** Keeps a closed error code (own or from `cause`) and drops everything else. */
 export function serializeError(error: unknown): SerializedError {

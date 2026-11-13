@@ -46,7 +46,7 @@ describe('server host protocol', () => {
         return async () => undefined;
       },
     });
-    for (const op of ['close', 'constructor', '__proto__', 'readAppSetting']) {
+    for (const op of ['close', 'constructor', '__proto__', 'setSyncConfig', 'readAppSetting']) {
       const args = op === 'readAppSetting' ? 'not-an-array' : [];
       const reply = await dispatchCall(operations, { id: 7, op, args });
       assert.deepEqual(reply, {

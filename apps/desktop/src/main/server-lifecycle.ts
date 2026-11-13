@@ -8,7 +8,7 @@ import { PACKAGED_RENDERER_ORIGIN } from './renderer-protocol.ts';
 import { getServerHost, setServerHost } from './runtime.ts';
 import type { EmbeddedServerHost } from './server-host/contract.ts';
 import type { WorkerCrashEntry } from './server-host/crash-log.ts';
-import { crashErrorCode } from './server-host/crash-log.ts';
+import { crashErrorCode, crashMemory } from './server-host/crash-log.ts';
 import {
   classifyFatalCause,
   createRestartBudget,
@@ -92,7 +92,12 @@ export function createServerLifecycle({
   function setState(next: EmbeddedServerState): void {
     if (state === next) return;
     state = next;
-    onStateChange?.(next);
+    // A failing listener must not turn a started worker into a failed start.
+    try {
+      onStateChange?.(next);
+    } catch (error) {
+      log.warn({ err: error }, 'embedded server state listener failed');
+    }
   }
 
   function exclusive<T>(task: () => Promise<T>): Promise<T> {
@@ -142,7 +147,8 @@ export function createServerLifecycle({
 
   async function stop(): Promise<void> {
     shuttingDown = true;
-    await stopHost();
+    // A crash restart in flight finishes or bails out before the host closes.
+    await exclusive(stopHost);
   }
 
   async function stopHost(): Promise<void> {
@@ -224,21 +230,16 @@ export function createServerLifecycle({
       errorCode: crashErrorCode(failure.error),
       uptimeMs: failure.uptimeMs,
       pendingCalls: failure.pendingCalls,
-      memory: failure.lastMemory
-        ? {
-            rssMb: failure.lastMemory.rssMb,
-            heapUsedMb: failure.lastMemory.heapUsedMb,
-            heapLimitMb: failure.lastMemory.heapLimitMb,
-          }
-        : null,
+      memory: crashMemory(failure.lastMemory),
     };
     log.error({ ...base }, 'embedded server worker exited unexpectedly');
     let cause: WorkerFatalCause | null = classifyFatalCause(failure.error);
     let lastError = failure.error;
     let attempt = 0;
     while (!cause && !shuttingDown) {
-      // restartAround may already have brought a worker back.
+      // restartAround may already have brought a worker back; the crash still counts.
       if (getServerHost()) {
+        recordCrash?.({ ...base, restartAttempt: attempt, outcome: 'restarted', fatalCause: null });
         setState('running');
         return;
       }

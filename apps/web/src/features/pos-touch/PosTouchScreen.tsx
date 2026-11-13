@@ -234,7 +234,7 @@ export function PosTouchScreen() {
     }),
   });
   const isServerRestarting = useEmbeddedServerState() === 'restarting';
-  const checkoutLocked = isCheckoutLocked || createMutation.isPending || isServerRestarting;
+  const checkoutLocked = isCheckoutLocked || createMutation.isPending;
 
   // useCallback keeps every memoized tile from re-rendering on a cart tick;
   // only the tile whose quantity changed renders again.
@@ -360,7 +360,8 @@ export function PosTouchScreen() {
     return null;
   }
   const chargeDisabledReason = deriveChargeDisabledReason();
-  const canCharge = chargeDisabledReason === null;
+  // A restarting server pauses charging only; the ticket stays editable.
+  const canCharge = chargeDisabledReason === null && !isServerRestarting;
 
   // Buyer fields validate first; with the request off they always pass.
   function handleCharge() {
