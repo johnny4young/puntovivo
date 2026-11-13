@@ -241,16 +241,17 @@ export function createSaleWorkload({ serverUrl, fetchImpl = fetch, thinkMs = THI
   };
 }
 
-function seedFixture(dbPath) {
+/** Seeds the demo data into an encrypted file; the target-hardware fixture reuses it. */
+export function seedFixture(dbPath, { key = MEASURE_DB_KEY, timeoutMs = 180_000 } = {}) {
   const run = spawnSync(process.execPath, [SEED_SCRIPT], {
     cwd: join(REPO_ROOT, 'packages', 'server'),
     encoding: 'utf8',
-    timeout: 180_000,
+    timeout: timeoutMs,
     killSignal: 'SIGKILL',
     env: {
       ...process.env,
       DATABASE_URL: dbPath,
-      PUNTOVIVO_DB_KEY: MEASURE_DB_KEY,
+      PUNTOVIVO_DB_KEY: key,
       PUNTOVIVO_LOG_LEVEL: 'warn',
       PUNTOVIVO_SUPPRESS_CREDENTIAL_BANNER: 'true',
     },
@@ -270,7 +271,7 @@ function seedFixture(dbPath) {
   try {
     db.pragma("cipher='sqlcipher'");
     db.pragma('legacy = 4');
-    db.pragma(`key = "x'${MEASURE_DB_KEY}'"`);
+    db.pragma(`key = "x'${key}'"`);
     db.transaction(() => {
       db.prepare('UPDATE inventory_balances SET on_hand = 1000000').run();
       db.prepare(

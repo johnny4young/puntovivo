@@ -226,6 +226,10 @@
       "es": "docs/es/TESTING.md"
     },
     {
+      "en": "docs/TARGET-HARDWARE.md",
+      "es": "docs/es/TARGET-HARDWARE.md"
+    },
+    {
       "en": "docs/architecture/0020-restaurant-service-check-model.md",
       "es": "docs/es/architecture/0020-restaurant-service-check-model.md"
     },
@@ -284,6 +288,10 @@
     {
       "en": "docs/architecture/0034-server-worker-restart.md",
       "es": "docs/es/architecture/0034-server-worker-restart.md"
+    },
+    {
+      "en": "docs/architecture/0035-backups-off-the-main-thread.md",
+      "es": "docs/es/architecture/0035-backups-off-the-main-thread.md"
     },
     {
       "en": "docs/architecture/patterns/operation-journal.md",

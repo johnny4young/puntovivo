@@ -24,6 +24,9 @@ const STATE_SCHEMA_VERSION = 1;
 const DAILY_INTERVAL_MS = 24 * 60 * 60 * 1_000;
 const WEEKLY_INTERVAL_MS = 7 * DAILY_INTERVAL_MS;
 const DEFAULT_TICK_INTERVAL_MS = 60_000;
+// Skip a due snapshot while the till is busy, but never by more than two hours.
+const SALE_QUIET_WINDOW_MS = 2 * 60_000;
+const MAX_SNAPSHOT_DEFERRAL_MS = 2 * 60 * 60_000;
 
 export interface BackupScheduleRecord {
   tenantId: string;
@@ -79,6 +82,8 @@ interface BackupSchedulerDeps {
     zipPath: string;
   }) => Promise<{ success: boolean; skipped?: boolean; error?: string }>;
   createBundle?: typeof createBackupBundle;
+  /** Epoch ms of the last completed sale; scheduled snapshots wait for a quiet till. */
+  getLastSaleAt?: () => number | null;
   now?: () => Date;
   tickIntervalMs?: number;
   log: BackupSchedulerLog;
@@ -362,7 +367,16 @@ export function createBackupScheduler(deps: BackupSchedulerDeps): BackupSchedule
     const currentTime = now().getTime();
     for (const record of Object.values(state.schedules)) {
       if (record.frequency === 'off' || !record.nextRunAt) continue;
-      if (Date.parse(record.nextRunAt) > currentTime || inProgressTenants.has(record.tenantId)) {
+      const dueAt = Date.parse(record.nextRunAt);
+      if (dueAt > currentTime || inProgressTenants.has(record.tenantId)) {
+        continue;
+      }
+      const lastSaleAt = deps.getLastSaleAt?.() ?? null;
+      if (
+        lastSaleAt !== null &&
+        currentTime - lastSaleAt < SALE_QUIET_WINDOW_MS &&
+        currentTime - dueAt < MAX_SNAPSHOT_DEFERRAL_MS
+      ) {
         continue;
       }
       const promise = createSnapshot(record);

@@ -21,6 +21,8 @@ import {
 import { sweepStaleBackupStaging } from './backup/backup-bundle.js';
 import { createBackupCloudVault } from './backup/cloud-vault.js';
 import { createBackupOperationQueue } from './backup/operation-queue.js';
+import { createWorkerBackupBundle } from './backup/backup-worker-host.js';
+import { createSaleActivityTracker } from './backup/sale-activity.js';
 import { createBackupRestoreDrill } from './backup/restore-drill.js';
 import { backupTenantPathSegment, createBackupScheduler } from './backup/scheduler.js';
 import {
@@ -237,6 +239,10 @@ function handleFatalServerExit({ cause, error }: FatalWorkerExit): void {
 }
 
 const backupOperationQueue = createBackupOperationQueue();
+const createBundleOffMain = createWorkerBackupBundle({
+  workerPath: join(__dirname, 'backup-worker.cjs'),
+});
+const saleActivity = createSaleActivityTracker();
 const backupCloudVault = createBackupCloudVault({
   getStatePath: () => join(app.getPath('userData'), 'backup-cloud-vaults.v1.json'),
   safeStorage,
@@ -254,6 +260,8 @@ const backupScheduler = createBackupScheduler({
   getAppVersion: () => app.getVersion(),
   resolveDatabaseEncryptionKey: encryptionSetup.resolveDatabaseEncryptionKey,
   runExclusive: backupOperationQueue.run,
+  createBundle: createBundleOffMain,
+  getLastSaleAt: saleActivity.lastSaleAt,
   replicateSnapshot: input => backupCloudVault.replicateSnapshot(input),
   log: backupLog,
 });
@@ -306,6 +314,7 @@ registerBackupIpc({
   auditAnchorStatePath: encryptionSetup.auditAnchorStatePath,
   getMainWindow: windowLifecycle.getWindow,
   resolveDatabaseEncryptionKey: encryptionSetup.resolveDatabaseEncryptionKey,
+  createBackupBundle: createBundleOffMain,
   resolveAuditAnchorKey: encryptionSetup.resolveAuditAnchorKey,
   replaceAuditAnchorState: encryptionSetup.replaceAuditAnchorState,
   getBackupProtectionStatus: encryptionSetup.getBackupProtectionStatus,
@@ -480,6 +489,7 @@ app.whenReady().then(async () => {
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     const url = details.url ?? '';
     if (isFastifyApiResponse(url, authorityRuntime)) {
+      saleActivity.observe(details.method, url, details.statusCode);
       // omit responseHeaders rather than passing explicit undefined.
       callback(
         details.responseHeaders === undefined ? {} : { responseHeaders: details.responseHeaders }
