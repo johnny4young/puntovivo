@@ -30,11 +30,18 @@ import { ensureNativeRuntime } from './check-electron-memory.mjs';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const BUDGET_PATH = join(REPO_ROOT, 'perf-budget.json');
-const ELECTRON_MAIN_ENTRY = join(REPO_ROOT, 'apps', 'desktop', '.vite', 'build', 'index.cjs');
-const DESKTOP_PACKAGE_JSON = join(REPO_ROOT, 'apps', 'desktop', 'package.json');
+export const ELECTRON_MAIN_ENTRY = join(
+  REPO_ROOT,
+  'apps',
+  'desktop',
+  '.vite',
+  'build',
+  'index.cjs'
+);
+export const DESKTOP_PACKAGE_JSON = join(REPO_ROOT, 'apps', 'desktop', 'package.json');
 const SEED_SCRIPT = join(REPO_ROOT, 'packages', 'server', 'dist', 'scripts', 'seed-dev.js');
 /** Throwaway key for the disposable fixture, like the memory gate's. */
-const MEASURE_DB_KEY = 'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd';
+export const MEASURE_DB_KEY = 'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd';
 /** Demo fixture cashier; DEV-SEED.md documents the account and password. */
 const FIXTURE_CASHIER = { email: 'cashier.norte@demo.co', password: 'Admin123!Dev' };
 const PRODUCT_POOL = 40;

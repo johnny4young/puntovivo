@@ -1341,6 +1341,72 @@ isolated copy on the failing OS, and escalate database-integrity, wrong-key,
 or source-mutation failures before another candidate is built. No failing
 candidate may be promoted by rerunning only the successful platforms.
 
+## Desktop soak
+
+`scripts/desktop-soak.mjs` runs the built app against a disposable encrypted
+copy of the demo fixture and keeps it busy: one-item cash sales over loopback
+HTTP, server worker crashes injected through the soak control directory, and
+scheduled backups through the worker. Every sale that loses its answer is
+replayed with the same command envelope until the server answers. Main prints a
+sample every 15 s with each process's working set, the worker's heap and RSS,
+the worst main-thread stall and whether a backup was running.
+
+| Parameter | Short (`--profile=short`)                | Long (`--profile=long`)                   |
+| --------- | ---------------------------------------- | ----------------------------------------- |
+| Duration  | 20 min                                   | 8 h                                       |
+| Sales     | one every 5 s                            | one every 20 s, bursts of 10 every 30 min |
+| Backups   | every 5 min                              | every 30 min                              |
+| Crashes   | 2                                        | one per hour                              |
+| Where     | `build-desktop.yml` with `soak`, Windows | the target register, by hand              |
+
+The run passes only when:
+
+- every sale the client saw confirmed is in the database exactly once, and no
+  other sale appeared;
+- sale numbers and fiscal consecutives never repeat, and every sale of a
+  tenant with fiscal emission on has its intent or document;
+- the audit chain verifies at the end;
+- restarts in `worker-crashes.ndjson` equal the injected crashes and each
+  recovery, measured to the first healthy answer, takes under 10 s;
+- every backup succeeds and the worst main-thread stall while one runs stays
+  within `perf-budget.json::electronMainThread.maxStallMs`;
+- on runs of 2 h or more, the working-set slope of every process type over
+  the last 6 h stays under 5 MB/h.
+
+Fiscal emission runs with the mock adapter, which in a soak answers after
+250 ms and fails one call in five with a recoverable provider error.
+
+### Short run
+
+```bash
+pnpm --filter @puntovivo/server run build
+pnpm --filter @puntovivo/web run build
+pnpm --filter @puntovivo/desktop run build:main
+pnpm --filter @puntovivo/desktop run electron:ensure:binary
+pnpm run soak:desktop --profile=short --out=output/soak
+```
+
+In CI, dispatch `build-desktop.yml` with `soak` checked; it runs the short
+profile on `windows-latest` and keeps `summary.json` and `samples.ndjson` as an
+artifact.
+
+### Long run on the target register
+
+Run it on the Celeron J1900 with 4 GB before opening a store and before each
+release. Use a disposable Windows account, never the store's profile.
+
+1. Install Node from `.nvmrc` with fnm, clone the candidate commit and run
+   `pnpm install --frozen-lockfile`.
+2. Build as for the short run.
+3. Close every other program, plug the machine in and disable sleep.
+4. Run
+   `pnpm run soak:desktop --profile=long --out=C:\pv-soak\<date>`.
+5. Keep the output folder outside the repository. Record the verdict table,
+   the sale p50/p95 and the slopes in the release notes for that candidate.
+
+Use the measured worker heap peak to set the old-generation cap (at least
+twice the peak) and the RSS alert, then record both in ADR 0034.
+
 ## Failure reporting
 
 Record the exact command, runtime, operating system, failing test, and whether

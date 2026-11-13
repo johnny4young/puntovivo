@@ -448,6 +448,79 @@ El ejemplo histórico v1.11.0 ilustra la limitación vigente: migración desde e
 
 Si falla cualquier comprobación de recuperación, el wrapper del host copia el informe acotado de fallo antes de devolver un código distinto de cero y el paso de artefactos lo carga de todos modos junto con los logs del workflow. La promoción sigue bloqueada. El paquete nunca sustituye la base de origen, por lo que el rollback inmediato consiste en seguir distribuyendo la última versión confiable y conservar la base cifrada original más su último respaldo válido conocido. El operador debe clasificar el `failureCode` estable, reproducir contra una copia aislada en el SO que falló y escalar fallos de integridad de base, clave incorrecta o mutación del origen antes de construir otro candidato. No se puede promover un candidato fallido repitiendo solo las plataformas exitosas.
 
+## Soak de escritorio
+
+`scripts/desktop-soak.mjs` corre la app construida contra una copia cifrada y
+desechable de la base de demostración y la mantiene ocupada: ventas en
+efectivo de un ítem por HTTP en loopback, caídas del worker del servidor
+inyectadas por el directorio de control del soak y respaldos programados por
+el worker. Cada venta que pierde su respuesta se reintenta con el mismo sobre
+de comando hasta que el servidor contesta. Main imprime una muestra cada 15 s
+con el working set de cada proceso, el heap y el RSS del worker, el peor
+bloqueo del hilo principal y si había un respaldo en curso.
+
+| Parámetro | Corto (`--profile=short`)               | Largo (`--profile=long`)                 |
+| --------- | --------------------------------------- | ---------------------------------------- |
+| Duración  | 20 min                                  | 8 h                                      |
+| Ventas    | una cada 5 s                            | una cada 20 s, ráfagas de 10 cada 30 min |
+| Respaldos | cada 5 min                              | cada 30 min                              |
+| Caídas    | 2                                       | una por hora                             |
+| Dónde     | `build-desktop.yml` con `soak`, Windows | la caja objetivo, a mano                 |
+
+La corrida pasa solo cuando:
+
+- cada venta que el cliente vio confirmada está en la base exactamente una
+  vez, y no apareció ninguna otra;
+- los números de venta y los consecutivos fiscales nunca se repiten, y cada
+  venta de un tenant con emisión fiscal activa tiene su intent o su documento;
+- la cadena de auditoría verifica al final;
+- los reinicios en `worker-crashes.ndjson` igualan las caídas inyectadas y
+  cada recuperación, medida hasta la primera respuesta sana, toma menos de
+  10 s;
+- cada respaldo termina bien y el peor bloqueo del hilo principal mientras
+  corre uno queda dentro de
+  `perf-budget.json::electronMainThread.maxStallMs`;
+- en corridas de 2 h o más, la pendiente del working set de cada tipo de
+  proceso en las últimas 6 h queda por debajo de 5 MB/h.
+
+La emisión fiscal corre con el adaptador mock, que en un soak contesta tras
+250 ms y falla una llamada de cada cinco con un error recuperable del
+proveedor.
+
+### Corrida corta
+
+```bash
+pnpm --filter @puntovivo/server run build
+pnpm --filter @puntovivo/web run build
+pnpm --filter @puntovivo/desktop run build:main
+pnpm --filter @puntovivo/desktop run electron:ensure:binary
+pnpm run soak:desktop --profile=short --out=output/soak
+```
+
+En CI, dispara `build-desktop.yml` con `soak` marcado; corre el perfil corto
+en `windows-latest` y conserva `summary.json` y `samples.ndjson` como
+artefacto.
+
+### Corrida larga en la caja objetivo
+
+Córrela en el Celeron J1900 con 4 GB antes de abrir una tienda y antes de cada
+release. Usa una cuenta de Windows desechable, nunca el perfil de la tienda.
+
+1. Instala Node desde `.nvmrc` con fnm, clona el commit candidato y corre
+   `pnpm install --frozen-lockfile`.
+2. Construye igual que para la corrida corta.
+3. Cierra los demás programas, conecta el equipo a la corriente y desactiva la
+   suspensión.
+4. Corre
+   `pnpm run soak:desktop --profile=long --out=C:\pv-soak\<date>`.
+5. Guarda la carpeta de salida fuera del repositorio. Anota la tabla de
+   veredictos, el p50/p95 de venta y las pendientes en las notas de release de
+   ese candidato.
+
+Usa el pico medido del heap del worker para fijar el tope de la generación
+vieja (al menos el doble del pico) y la alerta de RSS, y luego registra ambos
+en el ADR 0034.
+
 ## Informe de fallos
 
 Registra comando exacto, runtime, sistema operativo, prueba fallida y si el fallo provino del código del proyecto o del entorno de ejecución. No informes una validación aprobada cuando se omitió, interrumpió o reemplazó por una prueba de menor alcance.

@@ -1,6 +1,12 @@
 /** BrowserWindow creation, navigation policy, and measurement mode. */
 
-import { app, BrowserWindow, shell, type WebContentsConsoleMessageEventParams } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  shell,
+  type WebContents,
+  type WebContentsConsoleMessageEventParams,
+} from 'electron';
 import { join } from 'node:path';
 import type { PuntovivoLogger } from '@puntovivo/server';
 import { t } from './i18n';
@@ -38,6 +44,8 @@ interface WindowLifecycleDeps {
   shouldCloseToTray: () => boolean;
   isQuitting: () => boolean;
   onVisibilityChange: () => void;
+  /** Runs once per main window, before its renderer URL loads. */
+  beforeRendererLoad?: (webContents: WebContents) => void;
 }
 
 export interface WindowLifecycle {
@@ -63,6 +71,7 @@ export function createWindowLifecycle({
   shouldCloseToTray,
   isQuitting,
   onVisibilityChange,
+  beforeRendererLoad,
 }: WindowLifecycleDeps): WindowLifecycle {
   let mainWindow: BrowserWindow | null = null;
   let revealRequested = false;
@@ -263,6 +272,8 @@ export function createWindowLifecycle({
         exitAfterMeasurement({ stopEmbeddedServer, log, label: 'memory measurement' });
       });
     }
+
+    beforeRendererLoad?.(mainWindow.webContents);
 
     if (process.env.PUNTOVIVO_MEASURE_MAIN_THREAD === '1') {
       installMainThreadMeasurement({

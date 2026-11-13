@@ -42,6 +42,10 @@ on:
         description: 'Build on windows-latest (Windows)'
         type: boolean
         default: false
+      soak:
+        description: 'Run the 20-minute desktop soak on windows-latest (no packaging needed)'
+        type: boolean
+        default: false
       validate_only:
         description: 'validate_only=true skips packaging (faster, no artifacts)'
         type: boolean
@@ -246,6 +250,71 @@ jobs:
             apps/desktop/out-builder/safe-storage-upgrade-*.json
           if-no-files-found: error
           retention-days: 7
+
+  # Twenty minutes of sales, injected server-worker crashes and scheduled
+  # backups against the built app; docs/TESTING.md lists what it must prove.
+  soak-win:
+    needs: verify-candidate
+    if: ${{ inputs.soak }}
+    name: Desktop soak, Windows (${{ needs.verify-candidate.outputs.short_sha }})
+    runs-on: windows-latest
+    timeout-minutes: 50
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.verify-candidate.outputs.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          check-latest: true
+
+      - name: Setup pnpm
+        shell: pwsh
+        run: |
+          $pnpmVersion = node -p "require('./package.json').packageManager.replace('pnpm@', '')"
+          npm install --global "pnpm@$pnpmVersion" --ignore-scripts --no-audit --no-fund
+          if ((pnpm --version) -ne $pnpmVersion) {
+            throw "pnpm version mismatch"
+          }
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Electron 42+ no longer downloads its runtime during package installation.
+      - name: Ensure Electron runtime
+        shell: bash
+        run: |
+          set -e
+          EV=$(node -p "require('./node_modules/electron/package.json').version")
+          ARCH=$(node -p "process.arch")
+          ZIP="electron-v${EV}-win32-${ARCH}.zip"
+          mkdir -p node_modules/electron/dist
+          curl -fSL --retry 3 "https://github.com/electron/electron/releases/download/v${EV}/${ZIP}" -o "${RUNNER_TEMP}/${ZIP}"
+          ZW=$(cygpath -w "${RUNNER_TEMP}/${ZIP}"); DW=$(cygpath -w "$PWD/node_modules/electron/dist")
+          powershell -NoProfile -Command "Expand-Archive -LiteralPath '$ZW' -DestinationPath '$DW' -Force"
+          printf '%s' "electron.exe" > node_modules/electron/path.txt
+
+      - name: Build server, renderer and desktop main
+        run: |
+          pnpm --filter @puntovivo/server run build
+          pnpm --filter @puntovivo/web run build
+          pnpm --filter @puntovivo/desktop run build:main
+
+      - name: Run the short soak
+        run: pnpm run soak:desktop --profile=short --out=soak-out
+
+      - name: Upload soak evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: desktop-soak-win-${{ needs.verify-candidate.outputs.short_sha }}
+          path: soak-out/
+          if-no-files-found: warn
+          retention-days: 14
 
   build-mac:
     needs: verify-candidate

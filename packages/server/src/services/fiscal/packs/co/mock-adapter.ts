@@ -42,6 +42,7 @@ import type { FiscalDocumentStatus } from '../../../../db/schema.js';
 import { splitIssueTimestamp } from '../../orchestrator/helpers.js';
 import { readCoFiscalSettings, validateCoEmissionConfig } from './settings.js';
 import { buildColombiaUbl21DraftXml } from './ubl21-xml.js';
+import { applySoakFiscalFaults } from './soak-faults.js';
 
 export interface MockAdapterOptions {
   /**
@@ -88,6 +89,7 @@ export class ColombiaMockAdapter implements FiscalAdapter {
   }
 
   async issue(input: FiscalAdapterIssueInput): Promise<FiscalAdapterIssueResult> {
+    await applySoakFiscalFaults();
     const thrown = this.options.throwOracle?.(input);
     if (thrown) {
       throw thrown;

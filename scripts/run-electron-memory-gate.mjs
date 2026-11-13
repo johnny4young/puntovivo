@@ -29,6 +29,7 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const CHECK_SCRIPTS = {
   memory: resolve(REPO_ROOT, 'scripts', 'check-electron-memory.mjs'),
   'main-thread': resolve(REPO_ROOT, 'scripts', 'check-electron-main-thread.mjs'),
+  soak: resolve(REPO_ROOT, 'scripts', 'desktop-soak.mjs'),
 };
 
 function parsePositiveInteger(value, fallback) {
@@ -44,7 +45,7 @@ function parsePositiveInteger(value, fallback) {
  * - `--port <port>` / `--port=<port>`
  * - `--ready-timeout-ms <ms>` / `--ready-timeout-ms=<ms>`
  * - `--skip-preview` (for operators who already started a renderer target)
- * - `--check=memory|main-thread` (default memory)
+ * - `--check=memory|main-thread|soak` (default memory)
  */
 export function resolveRunElectronMemoryGateOptions({
   argv = process.argv.slice(2),
