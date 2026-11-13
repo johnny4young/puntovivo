@@ -13,6 +13,7 @@ import type {
   BackupRestoreDrillReport,
 } from '../../backup/restore-drill.js';
 import type { BackupScheduler } from '../../backup/scheduler.js';
+import type { createBackupBundle } from '../../backup/backup-bundle.js';
 import type { AuditAnchorPoint } from '@puntovivo/server/audit-anchor';
 
 interface BackupRestoreDrillAuditBase {
@@ -86,6 +87,8 @@ export interface BackupIpcDeps {
    * boot shares the same cache.
    */
   resolveDatabaseEncryptionKey: () => Promise<string>;
+  /** Builds bundles off the main thread in the app; tests use the in-thread helper. */
+  createBackupBundle?: typeof createBackupBundle;
   /** Resolves this install's independent audit-head anchor secret. */
   resolveAuditAnchorKey: () => Promise<string>;
   /** Replace freshness state after an explicitly trusted offline restore. */

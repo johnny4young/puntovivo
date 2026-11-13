@@ -143,7 +143,7 @@ SQLite para sus conexiones cortas (copias, rotación, snapshots del drill), así
 que el addon corre en dos entornos del mismo proceso. Las copias programadas y
 los snapshots del drill ahora corren junto al escritor del worker, así que su
 checkpoint del WAL puede esperar a una venta hasta su `busy_timeout` en el hilo
-principal; sacar ese trabajo del hilo principal queda fuera de esta decisión.
+principal; el [ADR-0035](0035-backups-off-the-main-thread.md) saca ese trabajo del hilo principal.
 El verificador de
 runtime nativo y el smoke empaquetado deben probar que ambos addons cargan y
 funcionan dentro de un worker con el Electron que se distribuye, en cada

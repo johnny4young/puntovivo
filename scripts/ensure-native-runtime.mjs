@@ -74,11 +74,12 @@ function runProbe(command, { env = process.env, label }) {
   if (result.sqlite !== 1 || result.cipher !== 'sqlcipher') {
     throw new Error(`${label} did not load the encrypted SQLite contract`);
   }
-  const worker = result.worker ?? {};
-  if (worker.sqlite !== 1 || worker.cipher !== 'sqlcipher' || worker.argon2 !== true) {
-    throw new Error(
-      `${label} did not load SQLite and Argon2 in a worker thread: ${JSON.stringify(worker)}`
-    );
+  for (const worker of [result.worker ?? {}, result.concurrentWorker ?? {}]) {
+    if (worker.sqlite !== 1 || worker.cipher !== 'sqlcipher' || worker.argon2 !== true) {
+      throw new Error(
+        `${label} did not load SQLite and Argon2 in two concurrent worker threads: ${JSON.stringify(worker)}`
+      );
+    }
   }
   return result;
 }
@@ -101,7 +102,7 @@ export function verifyNativeRuntime(runtime) {
   const result = runProbe(command, { env, label: runtime });
   console.log(
     `[native-runtime] ${runtime} verified ${installed.packageJson.name}@${installed.packageJson.version} ` +
-      `via ${installed.target}.node (runtime N-API ${result.napi}), main and worker thread`
+      `via ${installed.target}.node (runtime N-API ${result.napi}), main and two worker threads`
   );
   return result;
 }

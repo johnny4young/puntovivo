@@ -133,8 +133,8 @@ which Node loads in worker threads. Main still loads the SQLite addon for its
 own short-lived connections (backup, rotation, drill snapshots), so the addon
 runs in two environments of the same process. Scheduled backups and drill
 snapshots now run beside the worker's writer, so their WAL checkpoint can wait
-on a sale for up to its `busy_timeout` on the main thread; moving that work off
-main is outside this decision. The native runtime verifier and
+on a sale for up to its `busy_timeout` on the main thread; [ADR-0035](./0035-backups-off-the-main-thread.md)
+moves that work off main. The native runtime verifier and
 the packaged smoke must prove both addons load and work inside a worker under
 the shipped Electron on every supported platform.
 

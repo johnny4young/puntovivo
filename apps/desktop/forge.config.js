@@ -31,6 +31,12 @@ const config = {
           target: 'main',
         },
         {
+          // Scheduled and manual backups build their bundle in this worker.
+          entry: 'src/main/backup/backup-worker.ts',
+          config: 'vite.main.config.ts',
+          target: 'main',
+        },
+        {
           entry: 'src/preload/index.ts',
           config: 'vite.preload.config.ts',
           target: 'preload',
