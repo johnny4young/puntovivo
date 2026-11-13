@@ -379,7 +379,6 @@ export interface SyncAPI {
     pendingItems: number;
     conflicts: number;
   }>;
-  setConfig: (config: Record<string, unknown>) => Promise<void>;
 }
 
 /**

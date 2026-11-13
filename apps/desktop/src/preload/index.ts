@@ -335,7 +335,6 @@ export interface SyncAPI {
     pendingItems: number;
     conflicts: number;
   }>;
-  setConfig: (config: Record<string, unknown>) => Promise<void>;
 }
 
 /**
@@ -445,7 +444,6 @@ const electronAPI: ElectronAPI = {
 const syncAPI: SyncAPI = {
   getStatus: () => invokeSessionProtected('sync:getStatus'),
   triggerSync: () => invokeSessionProtected('sync:triggerSync'),
-  setConfig: (config: Record<string, unknown>) => invokeSessionProtected('sync:setConfig', config),
 };
 
 const sessionAPI = createSessionApi();
