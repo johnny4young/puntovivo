@@ -17,7 +17,7 @@ import {
   text,
   uniqueIndex,
 } from 'drizzle-orm/sqlite-core';
-import { relations } from 'drizzle-orm';
+import { relations, sql } from 'drizzle-orm';
 import { moneyPositiveChecks, nowIso, sqliteNow } from './base.js';
 import { sites, tenants, users } from './auth.js';
 import { customers } from './customers.js';
@@ -89,6 +89,24 @@ export type FiscalDocumentStatus = (typeof fiscalDocumentStatusEnum)[number];
 export const fiscalDocumentSourceEnum = ['sale', 'void', 'return'] as const;
 export type FiscalDocumentSource = (typeof fiscalDocumentSourceEnum)[number];
 
+/**
+ * Lifecycle of a numbering range. `scheduled` waits to relieve the active
+ * range of its site, kind and environment; `exhausted`, `expired` and
+ * `retired` are terminal.
+ */
+export const fiscalNumberingStatusEnum = [
+  'scheduled',
+  'active',
+  'exhausted',
+  'expired',
+  'retired',
+] as const;
+export type FiscalNumberingStatus = (typeof fiscalNumberingStatusEnum)[number];
+
+/** DIAN environment a range was authorized for; mirrors `fiscal.co.environment`. */
+export const fiscalNumberingEnvironmentEnum = ['habilitacion', 'produccion'] as const;
+export type FiscalNumberingEnvironment = (typeof fiscalNumberingEnvironmentEnum)[number];
+
 export const fiscalNumberingResolutions = sqliteTable(
   'fiscal_numbering_resolutions',
   {
@@ -102,21 +120,36 @@ export const fiscalNumberingResolutions = sqliteTable(
     kind: text('kind', { enum: fiscalDocumentKindEnum }).notNull(),
     /** DIAN resolution number — opaque string the PT expects verbatim. */
     resolutionNumber: text('resolution_number').notNull(),
+    /** Date the authorization was granted; printed on the document. Null on legacy rows. */
+    resolutionDate: text('resolution_date'),
     prefix: text('prefix').notNull(),
     fromNumber: integer('from_number').notNull(),
     toNumber: integer('to_number').notNull(),
+    /** Last issued consecutive; `from_number - 1` before the first document. */
     currentNumber: integer('current_number').notNull(),
-    /** Technical key provided by DIAN, used in CUFE inputs. */
-    technicalKey: text('technical_key').notNull(),
+    /** Technical key assigned by DIAN; required for FEV, unused by the DEE (its CUDE takes the software PIN). */
+    technicalKey: text('technical_key'),
+    environment: text('environment', { enum: fiscalNumberingEnvironmentEnum })
+      .notNull()
+      .default('habilitacion'),
     validFrom: text('valid_from').notNull(),
     validUntil: text('valid_until').notNull(),
+    status: text('status', { enum: fiscalNumberingStatusEnum }).notNull().default('active'),
+    /** Kept equal to `status = 'active'` for older readers. */
     isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+    createdBy: text('created_by'),
+    retiredBy: text('retired_by'),
+    retiredAt: text('retired_at'),
+    retireReason: text('retire_reason'),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
     updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_fiscal_resolutions_tenant').on(table.tenantId),
     index('idx_fiscal_resolutions_site_kind').on(table.siteId, table.kind, table.isActive),
+    uniqueIndex('idx_fiscal_resolutions_one_active')
+      .on(table.tenantId, table.siteId, table.kind, table.environment)
+      .where(sql`${table.status} = 'active'`),
   ]
 );
 

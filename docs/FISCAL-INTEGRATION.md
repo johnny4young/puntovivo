@@ -88,6 +88,57 @@ Behavior that follows:
 - Voids and returns reference the original document: a credit note for an FEV,
   an adjustment note for a DEE.
 
+## Colombian numbering ranges
+
+DIAN authorizes the consecutive numbers of the FEV and the POS equivalent
+document (DEE). Puntovivo stores each authorization as a range in
+`fiscal_numbering_resolutions`, one per site, kind and DIAN environment. The
+tenant settings no longer carry resolution fields.
+
+| Rule                                                                            | Source                               |
+| ------------------------------------------------------------------------------- | ------------------------------------ |
+| FEV and DEE need authorized numbering; credit and debit notes number internally | Res. 000165/2023 arts. 42, 36 and 22 |
+| Prefix of up to 4 letters or digits, required with more than one establishment  | Res. 000165/2023 arts. 11 and 43     |
+| An authorization lasts 2 years at most                                          | Res. 000165/2023 art. 48             |
+| A spent range needs a new authorization                                         | Res. 000165/2023 art. 50             |
+
+Res. 165/2023 was compiled into Res. 000227/2025; the equivalent article
+numbers are still to be confirmed.
+
+Behavior:
+
+- `fiscalNumbering.*` lists, registers, activates, retires and deletes ranges.
+  Managers read; admins write. A range is never edited: it is retired and
+  registered again. It can be deleted only before it issues a number.
+- A new range goes live when the site has no active range of that kind, it is
+  in force, and its environment matches the tenant's; otherwise it waits as
+  scheduled.
+- Ranges of one prefix, kind and environment cannot share consecutives at any
+  site. A range can declare the last number issued by another system, with a
+  reason.
+- The range is chosen when the document is numbered, in the transaction that
+  advances the consecutive. When the active range is spent or expired, the
+  oldest scheduled range in force takes over in that same transaction, and the
+  change is audited.
+- Company → Fiscal lists the ranges per site with consumption and validity,
+  and registers, activates, retires and deletes them.
+- A range raises a warning 30 days before it expires or under 20% of its
+  numbers, and a critical alert 15 business days before expiry, under 5%, or
+  with under 3 days of numbers at the 14-day average. Alerts show on the
+  ranges card, the dashboard (admins and managers) and the fiscal area of
+  operations alerts, and stay silent while DIAN issuing is off. Business days
+  do not discount public holidays, and the thresholds are fixed.
+- Checkout reminds the cashier when the site has no usable range, when it only
+  has an invoice range, and that documents are not sent to DIAN while the pack
+  is in test mode.
+- The technical key is required only for the FEV, never returned in full and
+  never written to the audit log.
+
+Still open, pending the choice of technology provider: zero padding of the
+consecutive, how the technical key is delivered, and whether ranges are read
+from the provider instead of typed in. With the Colombian pack in mock mode, a
+registered range numbers local documents only.
+
 ## Receipt and operator proof
 
 Sale details, fiscal reports, browser-print receipts, and ESC/POS receipts use
@@ -112,6 +163,9 @@ production gate below.
   orchestration, identifiers, mappings, XML serializers, worker, and errors.
 - `packages/server/src/trpc/routers/fiscal-settings.ts` — tenant-scoped
   administrative settings and readiness.
+- `packages/server/src/services/fiscal/numbering/` and
+  `packages/server/src/trpc/routers/fiscalNumbering.ts` — Colombian numbering
+  ranges and the range each document draws from.
 - `apps/web/src/features/fiscal/` — document and readiness surfaces.
 - `apps/web/src/features/company/` — country-specific configuration cards.
 

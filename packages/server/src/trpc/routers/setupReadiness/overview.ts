@@ -18,7 +18,7 @@ import { PAYMENT_RAIL_IDS } from '../../../services/payments/manifest.js';
 import { resolveReadinessProfile } from '../../../services/readiness/profile.js';
 import {
   countFiscalOutboxFailures,
-  readFiscalConfigState,
+  readTenantFiscalState,
   readSyncBacklog,
 } from '../../../services/readiness/signals.js';
 import type { SetupReadinessOutput, SetupReadinessSection } from '../../schemas/setupReadiness.js';
@@ -170,10 +170,14 @@ export async function buildReadiness(args: {
   const profile = resolveReadinessProfile(localeRow?.countryCode);
   let fiscalStatus: SetupReadinessSection['status'];
   if (profile.surfaceFiscalReminders) {
-    const fiscalState = readFiscalConfigState(settings);
-    if (!fiscalState.enabled) {
+    const fiscalState = await readTenantFiscalState(db, {
+      tenantId,
+      siteIds: activeSites.map(site => site.id),
+      settings,
+    });
+    if (fiscalState === 'disabled') {
       fiscalStatus = 'optional-pending';
-    } else if (!fiscalState.configured) {
+    } else if (fiscalState !== 'issuing') {
       fiscalStatus = 'warning';
     } else {
       const outboxFailures = await countFiscalOutboxFailures(db, tenantId);

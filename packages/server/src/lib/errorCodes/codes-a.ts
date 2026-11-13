@@ -800,12 +800,14 @@ export const SERVER_ERROR_CODES_A = {
    * cuando el operador intenta persistir un NIT malformado.
    */
   FISCAL_NIT_INVALID: 'FISCAL_NIT_INVALID',
-  /**
-   * El rango de numeración de la resolución DIAN capturado es inválido
-   * (el consecutivo inicial es mayor que el final, o no son enteros
-   * positivos). Tirado por `fiscal.settings.updateCo`.
-   */
+  /** A numbering range breaks a registration rule; `details` carries `{ field, reason }`. */
   FISCAL_NUMBERING_RANGE_INVALID: 'FISCAL_NUMBERING_RANGE_INVALID',
+  /** A numbering range would share consecutives with another range of the same kind, environment and prefix. */
+  FISCAL_NUMBERING_RANGE_OVERLAP: 'FISCAL_NUMBERING_RANGE_OVERLAP',
+  /** The requested change is not allowed in the range's current state (issued numbers, terminal status). */
+  FISCAL_NUMBERING_RANGE_LOCKED: 'FISCAL_NUMBERING_RANGE_LOCKED',
+  /** No numbering range with that id in the caller's tenant. */
+  FISCAL_NUMBERING_RANGE_NOT_FOUND: 'FISCAL_NUMBERING_RANGE_NOT_FOUND',
   /** A sale asked for an electronic invoice the site cannot number: Colombian pack off, or no usable FEV range. */
   ELECTRONIC_INVOICE_UNAVAILABLE: 'ELECTRONIC_INVOICE_UNAVAILABLE',
   /** The buyer data sent with an electronic-invoice request is incomplete or malformed. */

@@ -4,7 +4,7 @@
  * Lives in the `Fiscal` tab of `CompanyPage`, replacing the old
  * "coming soon" placeholder. Reads `fiscalSettings.getByCountry({CO})`,
  * writes via `fiscalSettings.updateCo`, and shows a PRESENCE readiness
- * badge (NIT / resolution / numbering range captured?).
+ * badge for the issuer data emission needs (NIT and DIAN software).
  *
  * DIAN is OPTIONAL: a merchant can keep selling without it. This card
  * captures the issuer config so they are "ready to activate" whenever
@@ -31,14 +31,6 @@ import { nitHint } from './coNit';
 function getFormString(formData: FormData, key: string): string {
   const value = formData.get(key);
   return typeof value === 'string' ? value : '';
-}
-
-/** Parse a positive-integer form field; empty / invalid → null (clears it). */
-function parsePositiveInt(value: string): number | null {
-  const trimmed = value.trim();
-  if (trimmed.length === 0) return null;
-  const parsed = Number.parseInt(trimmed, 10);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
 /** A-33 — controlled NIT input remounted when the persisted seed changes. */
@@ -112,10 +104,6 @@ export function CompanyCoFiscalCard() {
     coSettings &&
     (coSettings.enabled ||
       coSettings.nit ||
-      coSettings.dianResolutionNumber ||
-      coSettings.prefix ||
-      coSettings.rangeFrom !== null ||
-      coSettings.rangeTo !== null ||
       coSettings.softwareId ||
       coSettings.softwarePinConfigured)
   );
@@ -126,10 +114,6 @@ export function CompanyCoFiscalCard() {
     ? [
         coSettings.enabled,
         coSettings.nit ?? '',
-        coSettings.dianResolutionNumber ?? '',
-        coSettings.prefix ?? '',
-        coSettings.rangeFrom ?? '',
-        coSettings.rangeTo ?? '',
         coSettings.environment,
         coSettings.softwareId ?? '',
         coSettings.softwarePinConfigured,
@@ -167,20 +151,12 @@ export function CompanyCoFiscalCard() {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const nextNit = getFormString(formData, 'nit').trim();
-    const nextResolution = getFormString(formData, 'dianResolutionNumber').trim();
-    const nextPrefix = getFormString(formData, 'prefix').trim();
-    const nextRangeFrom = parsePositiveInt(getFormString(formData, 'rangeFrom'));
-    const nextRangeTo = parsePositiveInt(getFormString(formData, 'rangeTo'));
     const nextEnvironment = getFormString(formData, 'environment');
     const nextSoftwareId = getFormString(formData, 'softwareId').trim();
     const nextSoftwarePin = getFormString(formData, 'softwarePin').trim();
     await updateMutation.mutateAsync({
       enabled: formData.get('enabled') === 'on',
       nit: nextNit.length > 0 ? nextNit : null,
-      dianResolutionNumber: nextResolution.length > 0 ? nextResolution : null,
-      prefix: nextPrefix.length > 0 ? nextPrefix : null,
-      rangeFrom: nextRangeFrom,
-      rangeTo: nextRangeTo,
       environment: nextEnvironment === 'produccion' ? 'produccion' : 'habilitacion',
       softwareId: nextSoftwareId.length > 0 ? nextSoftwareId : null,
       // Blank keeps the stored PIN: the form never receives it back.
@@ -280,37 +256,6 @@ export function CompanyCoFiscalCard() {
             <CoNitField key={nitSeed} seed={nitSeed} />
 
             <SimpleFormField
-              label={t('fiscal:settings.co.fields.resolution')}
-              htmlFor="fiscal-co-resolution"
-              helperText={t('fiscal:settings.co.fields.resolutionHelp')}
-            >
-              <input
-                id="fiscal-co-resolution"
-                name="dianResolutionNumber"
-                type="text"
-                defaultValue={coSettings?.dianResolutionNumber ?? ''}
-                placeholder={t('fiscal:settings.co.fields.resolutionPlaceholder')}
-                className="pv-input"
-                maxLength={40}
-              />
-            </SimpleFormField>
-
-            <SimpleFormField
-              label={t('fiscal:settings.co.fields.prefix')}
-              htmlFor="fiscal-co-prefix"
-            >
-              <input
-                id="fiscal-co-prefix"
-                name="prefix"
-                type="text"
-                defaultValue={coSettings?.prefix ?? ''}
-                placeholder={t('fiscal:settings.co.fields.prefixPlaceholder')}
-                className="pv-input"
-                maxLength={10}
-              />
-            </SimpleFormField>
-
-            <SimpleFormField
               label={t('fiscal:settings.co.fields.environment')}
               htmlFor="fiscal-co-environment"
             >
@@ -327,36 +272,6 @@ export function CompanyCoFiscalCard() {
                   {t('fiscal:settings.co.fields.environmentProduccion')}
                 </option>
               </select>
-            </SimpleFormField>
-
-            <SimpleFormField
-              label={t('fiscal:settings.co.fields.rangeFrom')}
-              htmlFor="fiscal-co-range-from"
-            >
-              <input
-                id="fiscal-co-range-from"
-                name="rangeFrom"
-                type="number"
-                min={1}
-                defaultValue={coSettings?.rangeFrom ?? ''}
-                placeholder={t('fiscal:settings.co.fields.rangeFromPlaceholder')}
-                className="pv-input"
-              />
-            </SimpleFormField>
-
-            <SimpleFormField
-              label={t('fiscal:settings.co.fields.rangeTo')}
-              htmlFor="fiscal-co-range-to"
-            >
-              <input
-                id="fiscal-co-range-to"
-                name="rangeTo"
-                type="number"
-                min={1}
-                defaultValue={coSettings?.rangeTo ?? ''}
-                placeholder={t('fiscal:settings.co.fields.rangeToPlaceholder')}
-                className="pv-input"
-              />
             </SimpleFormField>
 
             <SimpleFormField

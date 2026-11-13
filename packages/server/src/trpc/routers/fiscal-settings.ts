@@ -57,7 +57,7 @@ import {
   mergeCoFiscalSettingsIntoTenantSettings,
   readCoFiscalSettings,
   toCoFiscalSettingsView,
-  validateCoFiscalConfig,
+  validateCoEmissionConfig,
   type CoFiscalSettingsPatch,
 } from '../../services/fiscal/packs/co/settings.js';
 import {
@@ -125,15 +125,13 @@ export const fiscalSettingsRouter = router({
       };
     }
 
-    // CO: proyección de settings y readiness basado en presencia. The
-    // adapter's `validateConfig` only gates emission (NIT + DIAN software);
-    // the config card surfaces the fuller PRESENCE probe so the badge also
-    // covers resolution and numbering.
+    // CO: the card validates the issuer data emission needs. Numbering ranges
+    // live in their own table and are reported by setupReadiness.
     const co = readCoFiscalSettings(tenantSettings);
     return {
       countryCode: 'CO' as const,
       settings: toCoFiscalSettingsView(co),
-      validation: validateCoFiscalConfig(co),
+      validation: validateCoEmissionConfig(co),
       providerId: adapter.providerId,
       maturity: adapter.maturity,
     };
@@ -317,9 +315,9 @@ export const fiscalSettingsRouter = router({
    * switch maestro `enabled` se persiste en el flag legacy
    * `tenants.settings.fiscal_dian_enabled` (leído por el orchestrator
    * de emisión + readiness); los campos del emisor van a
-   * `tenants.settings.fiscal.co.*`. Valida el NIT y el orden del rango
-   * antes de escribir, y devuelve un readiness de presencia fresco
-   * (sin firma criptográfica ni transmisión real).
+   * `tenants.settings.fiscal.co.*`. Valida el NIT antes de escribir y
+   * devuelve un readiness de presencia fresco (sin firma criptográfica ni
+   * transmisión real).
    */
   updateCo: adminProcedure.input(updateCoFiscalSettingsInput).mutation(async ({ ctx, input }) => {
     // A-33 — NIT: valida el DÍGITO DE VERIFICACIÓN DIAN, no solo el
@@ -351,33 +349,12 @@ export const fiscalSettingsRouter = router({
     if (input.nit !== undefined) {
       partial.nit = input.nit === null ? null : input.nit.trim();
     }
-    if (input.dianResolutionNumber !== undefined) {
-      partial.dianResolutionNumber =
-        input.dianResolutionNumber === null ? null : input.dianResolutionNumber.trim();
-    }
-    if (input.prefix !== undefined) {
-      partial.prefix = input.prefix === null ? null : input.prefix.trim().toUpperCase();
-    }
-    if (input.rangeFrom !== undefined) partial.rangeFrom = input.rangeFrom;
-    if (input.rangeTo !== undefined) partial.rangeTo = input.rangeTo;
     if (input.environment !== undefined) partial.environment = input.environment;
     if (input.softwareId !== undefined) partial.softwareId = input.softwareId;
     if (input.softwarePin !== undefined) partial.softwarePin = input.softwarePin;
 
     const nextSettings = mergeCoFiscalSettingsIntoTenantSettings(tenantSettings, partial);
     const nextCo = readCoFiscalSettings(nextSettings);
-
-    // Orden del rango: valida sobre el resultado mergeado, de modo
-    // que un patch que sólo toca un extremo se valide contra el otro
-    // ya almacenado.
-    if (nextCo.rangeFrom !== null && nextCo.rangeTo !== null && nextCo.rangeFrom > nextCo.rangeTo) {
-      throwServerError({
-        trpcCode: 'BAD_REQUEST',
-        errorCode: 'FISCAL_NUMBERING_RANGE_INVALID',
-        message: `El rango de numeración ${nextCo.rangeFrom}-${nextCo.rangeTo} es inválido: el consecutivo inicial no puede ser mayor que el final.`,
-        details: { field: 'fiscal.co.rangeFrom' },
-      });
-    }
 
     await ctx.db
       .update(tenants)
@@ -387,7 +364,7 @@ export const fiscalSettingsRouter = router({
     return {
       ok: true as const,
       settings: toCoFiscalSettingsView(nextCo),
-      validation: validateCoFiscalConfig(nextCo),
+      validation: validateCoEmissionConfig(nextCo),
     };
   }),
 
