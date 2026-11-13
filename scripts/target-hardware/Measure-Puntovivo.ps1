@@ -78,8 +78,8 @@ $TestProfile = Resolve-UserPath $TestProfile
 $Barcodes = Resolve-UserPath $Barcodes
 $ExePath = Resolve-UserPath $ExePath
 
-# Starting points from the readiness design (decision D8). Fix the final values
-# after the first J1900 run; disk type matters for U2 (HDD 20/s, SSD up to 50/s).
+# Starting points, not final limits. Fix the final values after the first J1900
+# run; disk type matters for U2 (HDD 20/s, SSD up to 50/s).
 $Thresholds = [ordered]@{
   U1_gpuUtilityMb        = 1024
   U1_windowMin           = 10
@@ -342,23 +342,27 @@ function Send-CdpMessage([string]$method, $params) {
   $json = @{ id = $id; method = $method; params = $params } | ConvertTo-Json -Depth 8 -Compress
   $bytes = $Utf8.GetBytes($json)
   $cts = [System.Threading.CancellationTokenSource]::new(5000)
-  $script:Cdp.Socket.SendAsync([System.ArraySegment[byte]]::new($bytes), [System.Net.WebSockets.WebSocketMessageType]::Text, $true, $cts.Token).Wait()
+  try {
+    $script:Cdp.Socket.SendAsync([System.ArraySegment[byte]]::new($bytes), [System.Net.WebSockets.WebSocketMessageType]::Text, $true, $cts.Token).Wait()
+  } finally { $cts.Dispose() }
   return $id
 }
 
 function Receive-CdpReply([int]$id, [int]$timeoutMs) {
   $deadline = (Get-NowMs) + $timeoutMs
   $buffer = New-Object byte[] 65536
-  while ((Get-NowMs) -lt $deadline) {
-    $stream = New-Object System.IO.MemoryStream
-    $cts = [System.Threading.CancellationTokenSource]::new([int][Math]::Max(1, $deadline - (Get-NowMs)))
-    do {
-      $result = $script:Cdp.Socket.ReceiveAsync([System.ArraySegment[byte]]::new($buffer), $cts.Token).Result
-      $stream.Write($buffer, 0, $result.Count)
-    } while (-not $result.EndOfMessage)
-    $message = ConvertFrom-Json ($Utf8.GetString($stream.ToArray()))
-    if ($message.id -eq $id) { return $message }
-  }
+  $cts = [System.Threading.CancellationTokenSource]::new($timeoutMs)
+  try {
+    while ((Get-NowMs) -lt $deadline) {
+      $stream = New-Object System.IO.MemoryStream
+      do {
+        $result = $script:Cdp.Socket.ReceiveAsync([System.ArraySegment[byte]]::new($buffer), $cts.Token).Result
+        $stream.Write($buffer, 0, $result.Count)
+      } while (-not $result.EndOfMessage)
+      $message = ConvertFrom-Json ($Utf8.GetString($stream.ToArray()))
+      if ($message.id -eq $id) { return $message }
+    }
+  } finally { $cts.Dispose() }
   throw 'CDP reply timed out'
 }
 
@@ -528,7 +532,7 @@ $PickSearchResultJs = @'
       await new Promise(resolve => setTimeout(resolve, 100));
     }
   }
-  if (!row) return 'no-row';
+  if (!row) return 'slow-search';
   row.click();
   await new Promise(resolve => setTimeout(resolve, 300));
   const buttons = [...dialog.querySelectorAll('button')].filter(button => !button.disabled);
@@ -1285,9 +1289,11 @@ function Invoke-DriveSale {
   if ($status -eq 'ok') {
     $done = Wait-Page { param($s) -not $s.payment -and $s.cart -eq 0 } 30000
     if ($script:Quit -or $script:GoneAt) { $status = 'paused'; $note = 'stopped' }
-    elseif (-not $done) { $status = 'timeout'; $note = 'sale did not complete in 30 s'; [void](Reset-SalesScreen) }
+    elseif (-not $done) { $status = 'timeout'; $note = 'sale did not complete in 30 s' }
   }
+  # Taken before the timeout cleanup, so the cleanup is not timed as part of the sale.
   $ended = Get-NowMs
+  if ($status -eq 'timeout') { [void](Reset-SalesScreen) }
   $duration = $ended - $started
   $charge = $null
   if ($chargeAt) { $charge = $ended - $chargeAt }
@@ -1296,7 +1302,6 @@ function Invoke-DriveSale {
     $script:DriveCount--
     return
   }
-  if ($status -eq 'timeout') { $duration = 30000 + ($chargeAt - $started) }
   Add-Marker 'sale_end' $n $duration $status
   if ($wedgeMisses -gt 0) { $note = ("$note; $wedgeMisses picked from search").TrimStart('; ') }
   Add-Row 'sales.csv' @($started, (Format-Utc $started), $Label, $Phase, $n, 'drive', $script:InputMode, $added, $duration, $charge, $status, $note)
@@ -1337,6 +1342,8 @@ function Save-Baseline {
   if (-not (Test-Path -LiteralPath $data)) { throw "No data folder at $data. Open Puntovivo once and set up the company first." }
   if ((Test-Path -LiteralPath $Baseline) -and -not $Force) { throw "$Baseline exists. Use -Force to replace it." }
   if (Test-Path -LiteralPath $Baseline) { Remove-Item -LiteralPath $Baseline -Force }
+  # CompressionLevel lives in System.IO.Compression, which FileSystem does not load.
+  Add-Type -AssemblyName System.IO.Compression
   Add-Type -AssemblyName System.IO.Compression.FileSystem
   [System.IO.Compression.ZipFile]::CreateFromDirectory($data, $Baseline, [System.IO.Compression.CompressionLevel]::Optimal, $false)
   Write-Host ("Saved {0} ({1:0.0} MB) from {2}" -f $Baseline, ((Get-Item -LiteralPath $Baseline).Length / 1MB), $data)
@@ -1425,6 +1432,7 @@ function Invoke-Startup {
 }
 
 function Invoke-Monitor([double]$durationMin) {
+  if ($Drive -and $ItemsMin -gt $ItemsMax) { throw '-ItemsMin cannot be larger than -ItemsMax.' }
   Initialize-Live
   if ($Phase -eq 'sales' -and $durationMin -le 0 -and -not $script:KeysEnabled) { throw 'Without an interactive console, give the sales phase -Minutes.' }
   if ($Drive) {
@@ -1688,7 +1696,10 @@ function Invoke-Summarize([string]$dir) {
     $worst = 0.0
     for ($i = 0; $i -lt $starts.Count; $i++) {
       $from = [long]$starts[$i].t_ms
-      $to = if ($i -lt $ends.Count) { [long]$ends[$i].t_ms } else { $from + 600000 }
+      # Backup numbers restart in every phase, so an end pairs by phase and number.
+      $start = $starts[$i]
+      $end = $ends | Where-Object { $_.phase -eq $start.phase -and $_.n -eq $start.n -and [long]$_.t_ms -ge $from } | Select-Object -First 1
+      $to = if ($end) { [long]$end.t_ms } else { $from + 600000 }
       foreach ($r in $renderer) {
         $t = [long]$r.t_ms
         # Each renderer row covers the interval that ends at its timestamp.

@@ -238,7 +238,8 @@ To repeat one phase of a run, add `-Force` to that phase.
 Build Desktop (manual) has a `harness` input. With `win` and `harness` on and
 `validate_only` off, a Windows job installs the build artifact with the
 harness and runs it in short mode under Windows PowerShell 5.1: two startups,
-a 4-minute soak with the simulated cashier, and a comparison. The run folder
+a 2-minute soak with the simulated cashier on DevTools input, a 4-minute soak
+on SendKeys input, and a comparison of the two. The run folder
 is uploaded as `target-hardware-selftest-<sha>`. That job uses `-TestProfile`,
 which seeds the demo data into a throwaway profile and starts Puntovivo with
 `PUNTOVIVO_E2E=1`, a throwaway `PUNTOVIVO_DB_KEY`, `--user-data-dir` and a free

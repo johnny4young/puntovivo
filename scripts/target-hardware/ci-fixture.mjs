@@ -13,13 +13,13 @@
  * @module scripts/target-hardware/ci-fixture
  */
 
-import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import process from 'node:process';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { seedFixture } from '../check-electron-main-thread.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const SERVER = path.join(ROOT, 'packages', 'server');
@@ -51,20 +51,8 @@ function seed() {
   const dbPath = path.join(profile, 'data', 'local.db');
   if (existsSync(dbPath)) throw new Error(`${dbPath} already exists; use a fresh profile`);
   mkdirSync(path.dirname(dbPath), { recursive: true });
-  const run = spawnSync(process.execPath, [SEED_SCRIPT], {
-    cwd: SERVER,
-    encoding: 'utf8',
-    timeout: 300_000,
-    env: {
-      ...process.env,
-      DATABASE_URL: dbPath,
-      PUNTOVIVO_DB_KEY: key,
-      PUNTOVIVO_LOG_LEVEL: 'warn',
-      PUNTOVIVO_SUPPRESS_CREDENTIAL_BANNER: 'true',
-    },
-  });
-  if (run.status !== 0)
-    throw new Error(`seed failed (${run.status}): ${(run.stderr || run.stdout).slice(-2000)}`);
+  // Same seed and stock reset as the main-thread gate: a short soak outsells the demo stock.
+  seedFixture(dbPath, { key, timeoutMs: 300_000 });
 
   const Database = createRequire(path.join(SERVER, 'package.json'))('better-sqlite3');
   const db = new Database(dbPath);
@@ -73,13 +61,6 @@ function seed() {
     db.pragma("cipher='sqlcipher'");
     db.pragma('legacy = 4');
     db.pragma(`key = "x'${key}'"`);
-    // A short soak outsells the demo stock; same reset as the main-thread gate.
-    db.transaction(() => {
-      db.prepare('UPDATE inventory_balances SET on_hand = 1000000').run();
-      db.prepare(
-        'UPDATE products SET inventory_value_cents = NULL, cogs_value_cents = NULL, valuation_quantity = NULL'
-      ).run();
-    })();
     barcodes = db
       .prepare(
         `SELECT p.barcode FROM products p JOIN users u ON u.tenant_id = p.tenant_id

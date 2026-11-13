@@ -249,7 +249,8 @@ Para repetir una fase de una corrida, agrega `-Force` a esa fase.
 Build Desktop (manual) tiene una entrada `harness`. Con `win` y `harness`
 encendidos y `validate_only` apagado, un job de Windows instala el artefacto
 del build con el arnés y lo corre en modo corto con Windows PowerShell 5.1: dos
-arranques, una prueba de 4 minutos con el cajero simulado y una comparación.
+arranques, una prueba de 2 minutos con el cajero simulado por entrada de
+DevTools, otra de 4 minutos por SendKeys y una comparación de las dos.
 La carpeta de corrida se sube como `target-hardware-selftest-<sha>`. Ese job
 usa `-TestProfile`, que siembra los datos demo en un perfil desechable y
 arranca Puntovivo con `PUNTOVIVO_E2E=1`, un `PUNTOVIVO_DB_KEY` desechable,

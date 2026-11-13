@@ -141,7 +141,7 @@ function writeRun(name, o) {
   const renderer = [];
   for (let i = 1; i <= 180; i++) {
     const t = T0 + i * 60_000;
-    const max = o.backupFreeze && i === 61 ? o.backupFreeze : 10;
+    const max = o.backupFreeze && i === 61 ? o.backupFreeze : o.spikeAt === i ? 1500 : 10;
     renderer.push([
       t,
       iso(t),
@@ -176,7 +176,12 @@ function writeRun(name, o) {
     markers.push([t, iso(t), 0, name, 'soak', 'scan_gaps', '', gap, 'renderer']);
   }
   markers.push([T0, iso(T0), 0, name, 'soak', 'wedge_miss', 1, '', '7702010001017']);
-  if (o.backupFreeze) {
+  // A sales-phase backup left without its end, before a complete soak backup 1.
+  if (o.orphanBackup) {
+    const t = T0 + 600_000;
+    markers.push([t, iso(t), 600, name, 'sales', 'backup_start', 1, '', '']);
+  }
+  if (o.backupFreeze || o.orphanBackup) {
     markers.push([T0 + HOUR, iso(T0 + HOUR), 3600, name, 'soak', 'backup_start', 1, '', '']);
     markers.push([
       T0 + HOUR + 30_000,
@@ -374,6 +379,13 @@ test('summarize fails every threshold the run breaks', { skip }, () => {
     failed_scans: 0,
   });
   assert.match(readFileSync(path.join(runB, 'verdict.md'), 'utf8'), /Scanner: 4 scans;/u);
+});
+
+test('summarize pairs a backup end only with the start of its own phase', { skip }, () => {
+  const dir = writeRun('orphan-backup', { ...healthy, orphanBackup: true, spikeAt: 30 });
+  const { code, out } = run(MEASURE, ['-Phase', 'summarize', '-RunDir', dir]);
+  assert.equal(code, 0, out);
+  assert.equal(statuses(dir).U7, 'PASS');
 });
 
 test('summarize refuses a folder with nothing measured', { skip }, () => {
