@@ -17,6 +17,7 @@ import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import {
   companies,
+  currencyCatalog,
   customers,
   fiscalDocumentItems,
   fiscalDocuments,
@@ -389,6 +390,79 @@ describe('peripherals.buildReceiptBytes', () => {
           receiptLocaleSnapshot: receiptLocale,
         })
         .where(eq(sales.id, seededSaleId));
+    }
+  });
+
+  it('formats the text fallback with the sale currency catalog decimals', async () => {
+    const db = getDatabase();
+    const original = await db
+      .select({
+        receiptTemplateIdSnapshot: sales.receiptTemplateIdSnapshot,
+        receiptTemplateKindSnapshot: sales.receiptTemplateKindSnapshot,
+        receiptTemplateNameSnapshot: sales.receiptTemplateNameSnapshot,
+        receiptTemplateLayoutSnapshot: sales.receiptTemplateLayoutSnapshot,
+        receiptLocaleSnapshot: sales.receiptLocaleSnapshot,
+        currencyCode: sales.currencyCode,
+        subtotal: sales.subtotal,
+        taxAmount: sales.taxAmount,
+        total: sales.total,
+      })
+      .from(sales)
+      .where(eq(sales.id, seededSaleId))
+      .get();
+    const originalItems = await db
+      .select({ id: saleItems.id, total: saleItems.total })
+      .from(saleItems)
+      .where(eq(saleItems.saleId, seededSaleId))
+      .all();
+    const copCatalog = await db
+      .select({ displayDecimals: currencyCatalog.displayDecimals })
+      .from(currencyCatalog)
+      .where(eq(currencyCatalog.code, 'COP'))
+      .get();
+    if (!original || !copCatalog) throw new Error('Expected seeded sale and COP catalog row');
+    expect(copCatalog.displayDecimals).toBe(0);
+
+    await db
+      .update(sales)
+      .set({
+        receiptTemplateIdSnapshot: null,
+        receiptTemplateKindSnapshot: null,
+        receiptTemplateNameSnapshot: null,
+        receiptTemplateLayoutSnapshot: null,
+        receiptLocaleSnapshot: 'es-CO',
+        currencyCode: 'COP',
+        subtotal: 100_000,
+        taxAmount: 19_000,
+        total: 119_000,
+      })
+      .where(eq(sales.id, seededSaleId));
+    await db.update(saleItems).set({ total: 119_000 }).where(eq(saleItems.saleId, seededSaleId));
+
+    try {
+      const caller = appRouter.createCaller(buildContext());
+      const share = await caller.peripherals.renderReceiptShare({ saleId: seededSaleId, siteId });
+      expect(share.status).toBe('text-fallback');
+      expect(share.text).toMatch(/^Total: \$\s119\.000$/m);
+      expect(share.text).toMatch(/^Impuesto: \$\s19\.000$/m);
+      expect(share.text).not.toContain(',00');
+
+      // The catalog, not the runtime's ICU data, decides the digits.
+      await db
+        .update(currencyCatalog)
+        .set({ displayDecimals: 2 })
+        .where(eq(currencyCatalog.code, 'COP'));
+      const pinned = await caller.peripherals.renderReceiptShare({ saleId: seededSaleId, siteId });
+      expect(pinned.text).toMatch(/^Total: \$\s119\.000,00$/m);
+    } finally {
+      await db
+        .update(currencyCatalog)
+        .set({ displayDecimals: copCatalog.displayDecimals })
+        .where(eq(currencyCatalog.code, 'COP'));
+      for (const item of originalItems) {
+        await db.update(saleItems).set({ total: item.total }).where(eq(saleItems.id, item.id));
+      }
+      await db.update(sales).set(original).where(eq(sales.id, seededSaleId));
     }
   });
 

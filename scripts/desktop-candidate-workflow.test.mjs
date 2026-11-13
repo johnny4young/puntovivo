@@ -20,8 +20,8 @@ test('manual desktop builds require and verify one immutable candidate SHA', () 
     workflow.match(/ref: \$\{\{ needs\.verify-candidate\.outputs\.sha \}\}/g) ?? [];
   assert.equal(
     candidateCheckouts.length,
-    4,
-    'every platform and the soak must checkout the verified SHA'
+    5,
+    'every platform, the harness self-test and the soak must checkout the verified SHA'
   );
 });
 
@@ -83,7 +83,7 @@ test('every full platform build starts clean, smokes the package, and uploads ev
         /npm install --global "pnpm@\$pnpmVersion" --ignore-scripts --no-audit --no-fund/g
       ) ?? []
     ).length,
-    4
+    5
   );
   assert.equal(
     (workflow.match(/node scripts\/collect-desktop-candidate-evidence\.mjs/g) ?? []).length,
@@ -104,7 +104,7 @@ test('every full platform build starts clean, smokes the package, and uploads ev
   assert.equal((workflow.match(/--recovery-evidence /g) ?? []).length, 3);
   assert.doesNotMatch(workflow, /--renderer-smoke not-assessed/);
   assert.doesNotMatch(workflow, /--distribution-trust/);
-  assert.equal((workflow.match(/if-no-files-found: error/g) ?? []).length, 3);
+  assert.equal((workflow.match(/if-no-files-found: error/g) ?? []).length, 4);
   assert.equal(
     (workflow.match(/apps\/desktop\/out-builder\/candidate-evidence-\*\.json/g) ?? []).length,
     3
