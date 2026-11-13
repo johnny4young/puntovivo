@@ -18,7 +18,11 @@ test('manual desktop builds require and verify one immutable candidate SHA', () 
 
   const candidateCheckouts =
     workflow.match(/ref: \$\{\{ needs\.verify-candidate\.outputs\.sha \}\}/g) ?? [];
-  assert.equal(candidateCheckouts.length, 3, 'every platform must checkout the verified SHA');
+  assert.equal(
+    candidateCheckouts.length,
+    4,
+    'every platform and the harness self-test must checkout the verified SHA'
+  );
 });
 
 test('manual macOS evidence is pinned to Sequoia and Tahoe on Apple Silicon', () => {
@@ -79,7 +83,7 @@ test('every full platform build starts clean, smokes the package, and uploads ev
         /npm install --global "pnpm@\$pnpmVersion" --ignore-scripts --no-audit --no-fund/g
       ) ?? []
     ).length,
-    3
+    4
   );
   assert.equal(
     (workflow.match(/node scripts\/collect-desktop-candidate-evidence\.mjs/g) ?? []).length,
@@ -100,7 +104,7 @@ test('every full platform build starts clean, smokes the package, and uploads ev
   assert.equal((workflow.match(/--recovery-evidence /g) ?? []).length, 3);
   assert.doesNotMatch(workflow, /--renderer-smoke not-assessed/);
   assert.doesNotMatch(workflow, /--distribution-trust/);
-  assert.equal((workflow.match(/if-no-files-found: error/g) ?? []).length, 3);
+  assert.equal((workflow.match(/if-no-files-found: error/g) ?? []).length, 4);
   assert.equal(
     (workflow.match(/apps\/desktop\/out-builder\/candidate-evidence-\*\.json/g) ?? []).length,
     3

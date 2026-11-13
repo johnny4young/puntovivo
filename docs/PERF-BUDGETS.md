@@ -748,6 +748,9 @@ procedure is invisible to a fast workstation but a visibly slow
 checkout on the cashier's box. The budget catches the regression
 when the PR lands, not when a customer complains.
 
+These gates run on fast hosts. [`TARGET-HARDWARE.md`](./TARGET-HARDWARE.md)
+measures a packaged build on the J1900 till itself.
+
 ## How the gates run
 
 ### Bundle size
