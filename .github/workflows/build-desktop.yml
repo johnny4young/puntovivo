@@ -46,6 +46,10 @@ on:
         description: 'validate_only=true skips packaging (faster, no artifacts)'
         type: boolean
         default: false
+      harness:
+        description: 'Self-test the target-hardware harness on the Windows installer (needs win, not validate_only)'
+        type: boolean
+        default: false
 
 env:
   # The Electron line the last release shipped. Raise it after each runtime release.
@@ -550,5 +554,107 @@ jobs:
             apps/desktop/out-builder/candidate-evidence-*.json
             apps/desktop/out-builder/packaged-recovery-*.json
             apps/desktop/out-builder/safe-storage-upgrade-*.json
+          if-no-files-found: error
+          retention-days: 7
+
+  # Installs the Windows build the way the owner does on the target till and
+  # runs scripts/target-hardware in short mode under Windows PowerShell 5.1, so
+  # the harness cannot break unnoticed. Its run folder is the evidence.
+  harness-win:
+    needs: [verify-candidate, build-win]
+    if: ${{ inputs.harness && inputs.win && !inputs.validate_only }}
+    name: Target-hardware harness (${{ needs.verify-candidate.outputs.short_sha }})
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.verify-candidate.outputs.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          check-latest: true
+
+      - name: Setup pnpm
+        shell: pwsh
+        run: |
+          $pnpmVersion = node -p "require('./package.json').packageManager.replace('pnpm@', '')"
+          npm install --global "pnpm@$pnpmVersion" --ignore-scripts --no-audit --no-fund
+          if ((pnpm --version) -ne $pnpmVersion) {
+            throw "pnpm version mismatch"
+          }
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the server for the demo fixture
+        run: |
+          pnpm --filter @puntovivo/server run build
+          pnpm --filter @puntovivo/server run native:ensure:node
+
+      - name: Download the Windows installer
+        uses: actions/download-artifact@v8
+        with:
+          name: desktop-win-${{ needs.verify-candidate.outputs.short_sha }}
+          path: ${{ runner.temp }}/pv-build
+
+      - name: Run the harness in short mode
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $kit = Join-Path $env:GITHUB_WORKSPACE 'scripts\target-hardware'
+          $runs = Join-Path $env:RUNNER_TEMP 'pv-runs'
+          $profileDir = Join-Path $env:RUNNER_TEMP 'pv-profile'
+          $codes = Join-Path $env:RUNNER_TEMP 'pv-barcodes.txt'
+          $installer = Get-ChildItem (Join-Path $env:RUNNER_TEMP 'pv-build') -Filter 'Puntovivo-*-win-*.exe' | Select-Object -First 1
+          if (-not $installer) { throw 'The build artifact has no Windows installer.' }
+          # A throwaway key per run; the packaged app accepts it only in E2E mode.
+          $bytes = New-Object byte[] 32
+          [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+          $env:PUNTOVIVO_DB_KEY = -join ($bytes | ForEach-Object { $_.ToString('x2') })
+
+          # Native stderr must not become a terminating error; exit codes decide.
+          function Invoke-Kit([string]$script, [string[]]$arguments, [int[]]$allowed) {
+            $ErrorActionPreference = 'Continue'
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $kit $script) @arguments
+            if ($allowed -notcontains $LASTEXITCODE) { throw "$script $($arguments -join ' ') exited with $LASTEXITCODE" }
+          }
+          function Invoke-Fixture([string[]]$arguments) {
+            $ErrorActionPreference = 'Continue'
+            & node scripts/target-hardware/ci-fixture.mjs @arguments
+            if ($LASTEXITCODE -ne 0) { throw "ci-fixture.mjs $($arguments -join ' ') exited with $LASTEXITCODE" }
+          }
+
+          Invoke-Kit 'Measure-Puntovivo.ps1' @('-Phase', 'install', '-Installer', $installer.FullName) @(0)
+          Invoke-Fixture @('seed', '--profile', $profileDir, '--barcodes', $codes)
+          # Exit 1 means a threshold failed on this runner, which is not the target hardware.
+          Invoke-Kit 'Measure-Puntovivo.ps1' @('-Phase', 'startup', '-Label', 'ci', '-Runs', '2', '-StopAt', 'login', '-IntervalSec', '5', '-TestProfile', $profileDir, '-OutDir', $runs) @(0, 1)
+          $login = Start-Process node -ArgumentList 'scripts/target-hardware/ci-fixture.mjs', 'login', '--port', '9333' -PassThru -NoNewWindow
+          $null = $login.Handle
+          # The DevTools input fallback first; the SendKeys soak then attaches to the same app.
+          Invoke-Kit 'Measure-Puntovivo.ps1' @('-Phase', 'soak', '-Label', 'ci-cdp', '-Minutes', '2', '-Drive', '-KeyInput', 'cdp', '-Barcodes', $codes, '-SaleEverySec', '15', '-TestProfile', $profileDir, '-CdpPort', '9333', '-OutDir', $runs) @(0, 1)
+          $login.WaitForExit()
+          if ($login.ExitCode -ne 0) { throw 'The demo cashier could not sign in.' }
+          Invoke-Kit 'Measure-Puntovivo.ps1' @('-Phase', 'soak', '-Label', 'ci', '-Minutes', '4', '-Drive', '-Barcodes', $codes, '-SaleEverySec', '15', '-TestProfile', $profileDir, '-OutDir', $runs, '-CloseAtEnd') @(0, 1)
+          Invoke-Kit 'Compare-Runs.ps1' @('-A', (Join-Path $runs 'ci-cdp'), '-B', (Join-Path $runs 'ci'), '-OutDir', (Join-Path $runs 'compare')) @(0, 1)
+          Invoke-Fixture @('check', '--run', (Join-Path $runs 'ci-cdp'), '--min-sales', '3', '--input', 'cdp')
+          Invoke-Fixture @('check', '--run', (Join-Path $runs 'ci'), '--min-sales', '5', '--input', 'sendkeys')
+
+      - name: Stop leftover app processes
+        if: ${{ always() }}
+        shell: powershell
+        run: |
+          Get-Process -Name puntovivo -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue }
+
+      - name: Upload the run folder
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: target-hardware-selftest-${{ needs.verify-candidate.outputs.short_sha }}
+          path: ${{ runner.temp }}/pv-runs
           if-no-files-found: error
           retention-days: 7

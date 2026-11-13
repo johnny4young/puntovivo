@@ -93,7 +93,7 @@ export async function handleCreateDatabaseBackup(
           // believe a cleartext backup is protected.
           throw new Error(t('backup.passphraseUnsupported'));
         }
-        return createBackupBundle({
+        return (deps.createBackupBundle ?? createBackupBundle)({
           dbPath: deps.dbPath,
           deviceIdPath,
           outZipPath: filePath,
@@ -121,7 +121,12 @@ export async function handleCreateDatabaseBackup(
         cancelled: true,
       };
     }
-    const message = error instanceof Error ? error.message : t('backup.createFailed');
+    const message =
+      (error as { code?: unknown } | null)?.code === 'BACKUP_DISK_SPACE_LOW'
+        ? t('backup.diskSpaceLow')
+        : error instanceof Error
+          ? error.message
+          : t('backup.createFailed');
     backupLog.error({ err: error }, 'failed to create backup');
     return {
       success: false,

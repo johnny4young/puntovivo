@@ -4,7 +4,7 @@ import { TRPCError } from '@trpc/server';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
-import { inventoryMovements, products } from '../../db/schema.js';
+import { inventoryMovements, products, sites } from '../../db/schema.js';
 import { resolveTenantCurrency } from '../../lib/currency.js';
 import { roundMoney } from '../../lib/money.js';
 import { resolveFractionPolicy } from '../../services/fraction-policy.js';
@@ -215,12 +215,28 @@ async function persistProduct(ctx: ProductMutationContext, input: CreateProductI
       }
 
       // `stock` is no longer a product column — it is the single-source
-      // Σ(inventory_balances.on_hand). Opening stock belongs to the primary
-      // site and receives its own movement + audit evidence in the same
-      // transaction as the catalog row.
+      // Σ(inventory_balances.on_hand). Opening stock belongs to the requested
+      // site, else the request's active site, else the primary one, and
+      // receives its own movement + audit evidence in the same transaction.
+      if (input.siteId) {
+        const requestedSite = tx
+          .select({ isActive: sites.isActive })
+          .from(sites)
+          .where(and(eq(sites.id, input.siteId), eq(sites.tenantId, ctx.tenantId)))
+          .get();
+        if (!requestedSite) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Site not found' });
+        }
+        if (requestedSite.isActive === false) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Selected opening stock site is inactive',
+          });
+        }
+      }
       if (input.stock > 0 && openingMovementId) {
-        const primarySiteId = getPrimarySiteId(tx, ctx.tenantId);
-        if (!primarySiteId) {
+        const openingSiteId = input.siteId ?? ctx.siteId ?? getPrimarySiteId(tx, ctx.tenantId);
+        if (!openingSiteId) {
           throw new TRPCError({
             code: 'BAD_REQUEST',
             message: 'An active site is required to record opening stock',
@@ -229,7 +245,7 @@ async function persistProduct(ctx: ProductMutationContext, input: CreateProductI
         let movementValue = inventoryMovementValueSnapshot(null);
         applyInventoryBalanceDelta(tx, {
           tenantId: ctx.tenantId,
-          siteId: primarySiteId,
+          siteId: openingSiteId,
           productId: id,
           delta: input.stock,
           onValueDelta: values => {
@@ -243,7 +259,7 @@ async function persistProduct(ctx: ProductMutationContext, input: CreateProductI
             id: openingMovementId,
             tenantId: ctx.tenantId,
             productId: id,
-            siteId: primarySiteId,
+            siteId: openingSiteId,
             type: 'adjustment',
             ...movementValue,
             quantity: input.stock,
@@ -268,7 +284,7 @@ async function persistProduct(ctx: ProductMutationContext, input: CreateProductI
           after: { stock: input.stock },
           metadata: {
             delta: input.stock,
-            siteId: primarySiteId,
+            siteId: openingSiteId,
             movementId: openingMovementId,
             source: 'product_create',
           },
@@ -281,7 +297,7 @@ async function persistProduct(ctx: ProductMutationContext, input: CreateProductI
             operation: 'create',
             data: {
               ...movementValue,
-              siteId: primarySiteId,
+              siteId: openingSiteId,
               id: openingMovementId,
               productId: id,
               quantity: input.stock,
@@ -292,6 +308,7 @@ async function persistProduct(ctx: ProductMutationContext, input: CreateProductI
       }
       const syncableProductInput = { ...input };
       delete syncableProductInput.pharmacy;
+      delete syncableProductInput.siteId;
       enqueueSyncInTransaction(
         { ...ctx, db: tx },
         {

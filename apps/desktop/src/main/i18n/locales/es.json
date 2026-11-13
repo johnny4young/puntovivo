@@ -29,7 +29,8 @@
     "restoreNoPassphraseWrap": "Este respaldo no fue protegido con una frase. Pega la clave de recuperación de 64 caracteres del equipo de origen.",
     "passphraseUnsupported": "Este equipo no cifra su base de datos, así que el respaldo no puede protegerse con una frase.",
     "passphraseTooShort": "La frase del respaldo debe tener al menos 10 caracteres.",
-    "createInProgress": "Ya hay otra creación de respaldo en curso."
+    "createInProgress": "Ya hay otra creación de respaldo en curso.",
+    "diskSpaceLow": "No hay espacio libre suficiente para esta copia. Libera espacio o elige otra unidad."
   },
   "print": {
     "receiptFailed": "No se pudo imprimir el recibo",

@@ -12,6 +12,7 @@ import { applySqlCipherKey } from './encryption.ts';
 import { assertSqliteIntegrity } from './integrity.ts';
 import { wrapBackupKey } from './key-wrap.ts';
 import { applyBoundedBackupResources } from './resource-limits.ts';
+import { assertBackupDiskSpace } from './disk-space.ts';
 import type { BackupManifest, CreateBackupBundleArgs, CreateBackupBundleResult } from './types.ts';
 
 /**
@@ -32,6 +33,7 @@ export async function createBackupBundle(
 ): Promise<CreateBackupBundleResult> {
   const { dbPath, deviceIdPath, outZipPath, encryptionKey } = args;
   args.signal?.throwIfAborted();
+  await assertBackupDiskSpace({ dbPath, stagingRoot: tmpdir(), outZipPath });
 
   const stagingDir = await mkdtemp(join(tmpdir(), 'puntovivo-backup-'));
   const stagingDbPath = join(stagingDir, ZIP_DB_ENTRY);

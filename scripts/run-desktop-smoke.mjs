@@ -152,6 +152,9 @@ function checkStructure(binary) {
   if (!entries.includes('.vite/build/server-worker.cjs')) {
     fail('app.asar is missing the embedded server worker');
   }
+  if (!entries.includes('.vite/build/backup-worker.cjs')) {
+    fail('app.asar is missing the backup worker');
+  }
   if (!hasNodeAddon(path.join(unpacked, 'node_modules', 'better-sqlite3'))) {
     fail('better_sqlite3.node was not unpacked into app.asar.unpacked');
   }
