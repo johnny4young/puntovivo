@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const VERSION_HEADING = /^## \[/;
@@ -39,7 +39,7 @@ export function dedupeChangelogFile(file) {
   return result;
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const file = process.argv[2];
   if (!file) {
     process.stderr.write('Usage: node scripts/dedupe-changelog.mjs CHANGELOG.md\n');
