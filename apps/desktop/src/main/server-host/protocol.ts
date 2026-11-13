@@ -51,7 +51,7 @@ export type WorkerToMainMessage =
   /** Sent by the crash handler right before an uncaught exception ends the thread. */
   | { type: 'crashed'; error: SerializedError };
 
-const CODE_PATTERN = /^[A-Z][A-Z0-9_]{1,80}$/;
+export const CODE_PATTERN = /^[A-Z][A-Z0-9_]{1,80}$/;
 
 /** Keeps a closed error code (own or from `cause`) and drops everything else. */
 export function serializeError(error: unknown): SerializedError {

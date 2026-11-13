@@ -181,6 +181,35 @@ describe('embedded server crash recovery', () => {
     assert.equal(t.fatals.length, 0);
   });
 
+  it('closes a worker that a restart in flight brings up after shutdown began', async () => {
+    let releaseLaunch!: () => void;
+    const launchGate = new Promise<void>(resolve => (releaseLaunch = resolve));
+    let closed = 0;
+    const late = {
+      url: 'http://127.0.0.1:2',
+      close: async () => {
+        closed += 1;
+      },
+    } as unknown as EmbeddedServerHost;
+    const t = setup([
+      async () => fakeHost(1),
+      async () => {
+        await launchGate;
+        return late;
+      },
+    ]);
+    setServerHost(await t.lifecycle.start());
+
+    const recovery = t.lifecycle.recoverFromUnexpectedExit(failure(new Error('crash')));
+    await new Promise(resolve => setImmediate(resolve));
+    const stopping = t.lifecycle.stop();
+    releaseLaunch();
+    await Promise.all([recovery, stopping]);
+
+    assert.equal(closed, 1);
+    assert.equal(getServerHost(), null);
+  });
+
   it('never runs a crash restart and restartAround at the same time', async () => {
     let releaseOperation!: () => void;
     const operationGate = new Promise<void>(resolve => (releaseOperation = resolve));
@@ -196,6 +225,10 @@ describe('embedded server crash recovery', () => {
     // restartAround brought the server back; recovery found it running.
     assert.equal(t.starts.length, 2);
     assert.equal(t.states.at(-1), 'running');
+    assert.deepEqual(
+      t.crashes.map(entry => entry.outcome),
+      ['restarted']
+    );
   });
 
   it('lets main-side callers wait through a restart instead of failing', async () => {
