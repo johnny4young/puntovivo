@@ -43,6 +43,31 @@ test('drops repeated changes within a release and keeps the first', () => {
   assert.doesNotMatch(result.content, /2222222/);
 });
 
+test('drops a subsection that only held repeats', () => {
+  const { content } = dedupeChangelog(changelog);
+  assert.doesNotMatch(content, /### Bug Fixes/);
+  assert.match(content, /1111111\)\)\n\n## \[1\.1\.0\]/);
+});
+
+test('keeps a breaking change and its feature entry', () => {
+  const entry = `* **sync:** drop the v1 protocol ${link('4444444')}`;
+  const breaking = [
+    '## [2.0.0](https://github.com/acme/register/compare/v1.2.0...v2.0.0) (2026-11-20)',
+    '',
+    '### ⚠ BREAKING CHANGES',
+    '',
+    entry,
+    '',
+    '### Features',
+    '',
+    entry,
+    '',
+  ].join('\n');
+  const result = dedupeChangelog(breaking);
+  assert.equal(result.removed, 0);
+  assert.equal(result.content, breaking);
+});
+
 test('keeps the same change in another release and hand-written bullets', () => {
   const { content } = dedupeChangelog(changelog);
   assert.match(content, /3333333/);
@@ -70,4 +95,20 @@ test('rewrites the file only when something was removed', () => {
   writeFileSync(file, changelog);
   assert.equal(dedupeChangelogFile(file).removed, 2);
   assert.equal(dedupeChangelogFile(file).removed, 0);
+});
+
+test('release-please dedupes the Release PR branch it opened or updated', () => {
+  const workflow = readFileSync(
+    new URL('../.github/workflows/release-please.yml', import.meta.url),
+    'utf8'
+  );
+  const lines = workflow.split('\n');
+  const start = lines.indexOf('  dedupe-changelog:');
+  assert.notEqual(start, -1, 'expected a dedupe-changelog job');
+  const end = lines.findIndex((line, index) => index > start && /^ {2}[\w-]+:$/u.test(line));
+  const job = lines.slice(start, end === -1 ? undefined : end).join('\n');
+
+  assert.match(job, /^ {4}if: \$\{\{ needs\.release-please\.outputs\.pr_branch != '' \}\}$/m);
+  assert.match(job, /^ {10}ref: \$\{\{ needs\.release-please\.outputs\.pr_branch \}\}$/m);
+  assert.match(job, /node scripts\/dedupe-changelog\.mjs CHANGELOG\.md/);
 });

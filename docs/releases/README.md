@@ -53,3 +53,7 @@ After Release Please creates the tag, `.github/workflows/release-please.yml`
 checks out that exact tag and replaces the generated GitHub release body with
 the curated file. The generated `CHANGELOG.md` remains available for readers
 who want commit-level detail.
+
+Merge commits repeat each PR title, so Release Please lists every merged PR
+twice. Each time it updates its PR, the workflow pushes a commit to that branch
+that removes the repeats from `CHANGELOG.md`.
