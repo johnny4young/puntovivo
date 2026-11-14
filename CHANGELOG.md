@@ -57,15 +57,10 @@ is usable from source, but it is not a new packaged release yet.
 
 ### Features
 
-* **desktop:** build backup bundles in a worker thread ([1385935](https://github.com/johnny4young/puntovivo/commit/138593568f55d35955500c7c632d3efe075f68c2))
 * **desktop:** build backup bundles in a worker thread ([bb38d8c](https://github.com/johnny4young/puntovivo/commit/bb38d8c623ae945269140a7e8fc4c86c87333a80))
-* **desktop:** cap the server worker heap and watch its memory ([92f0e1c](https://github.com/johnny4young/puntovivo/commit/92f0e1c673143297e09ef19d8ba6849d33f9c097))
 * **desktop:** cap the server worker heap and watch its memory ([525a546](https://github.com/johnny4young/puntovivo/commit/525a54669b1073156d3af0b03621a495733cbf25))
-* **desktop:** restart the server worker after a crash ([26d5e32](https://github.com/johnny4young/puntovivo/commit/26d5e32541c6241ebf4dcf6816bd6d3aeba5b8a1))
 * **desktop:** restart the server worker after a crash ([ac798b1](https://github.com/johnny4young/puntovivo/commit/ac798b1bbc4a823cf15aab89e6f0382186c49f65))
-* **fiscal:** DIAN numbering ranges on the server ([42a70a3](https://github.com/johnny4young/puntovivo/commit/42a70a3099c654bd3905ebff4d039fef7cc8a807))
 * **fiscal:** DIAN numbering ranges on the server ([035c430](https://github.com/johnny4young/puntovivo/commit/035c430f93beb1d000fda755d604eceb1147e6f2))
-* **fiscal:** DIAN numbering ranges screen, alerts and checkout reminders ([a5434c9](https://github.com/johnny4young/puntovivo/commit/a5434c9ab48178c7336d41583722ed38923559e6))
 * **fiscal:** DIAN numbering ranges screen, alerts and checkout reminders ([a27bbbe](https://github.com/johnny4young/puntovivo/commit/a27bbbe72df71342a89ac4ad31d899e23a45678c))
 
 
@@ -73,12 +68,10 @@ is usable from source, but it is not a new packaged release yet.
 
 * **backup:** localize the low disk space error and pin the quiet-till rules ([caf60a0](https://github.com/johnny4young/puntovivo/commit/caf60a0b5e763ba1b64e3ce2b4af593dcd5c1870))
 * **backup:** size the disk check per volume and pin the cancel reason ([83bb188](https://github.com/johnny4young/puntovivo/commit/83bb188b425dd6278708a1fc98079f0eebb09a4f))
-* **data-import:** name the correct NIT check digit in the fiscal profile preview ([a75057c](https://github.com/johnny4young/puntovivo/commit/a75057c3115745b2b837307456c6c8e38711c824))
 * **data-import:** name the correct NIT check digit in the fiscal profile preview ([3623e24](https://github.com/johnny4young/puntovivo/commit/3623e24275593aa7df6d6ca7c32db128bb3e39f3))
 * **data-import:** validate the Colombian NIT check digit in fiscal profile imports ([1c27b6a](https://github.com/johnny4young/puntovivo/commit/1c27b6a632856572d7c7081bc3dd1d6e01c5c01c))
 * **desktop:** bound the Argon2 drain of a crashed worker and refuse new hashes ([770e7ad](https://github.com/johnny4young/puntovivo/commit/770e7ade404e599a9f21d814b590475a440b4ccb))
 * **desktop:** close a worker a crash restart brings up during quit ([6ff0de3](https://github.com/johnny4young/puntovivo/commit/6ff0de3e7a8b49e67bb44453ee1d0acd2222be19))
-* **desktop:** drop the sync:setConfig channel nobody reads ([076f225](https://github.com/johnny4young/puntovivo/commit/076f225b76e34a95d839f918660ef0ace4d25edc))
 * **desktop:** drop the sync:setConfig channel nobody reads ([f7b6dbb](https://github.com/johnny4young/puntovivo/commit/f7b6dbb569653a8d8ac35f268638c1dae089b544))
 * **desktop:** keep memory alerts from evicting worker crashes ([4401d56](https://github.com/johnny4young/puntovivo/commit/4401d56fb8bf5a120efe32742d4ac96de61aa125))
 * **desktop:** wait for running Argon2 hashes before a crashed worker exits ([58eedfe](https://github.com/johnny4young/puntovivo/commit/58eedfe4bac53a4b66a21b91b72fa152b6e3aec4))
@@ -92,22 +85,16 @@ is usable from source, but it is not a new packaged release yet.
 * **perf:** keep the harness thresholds intact while judging backups ([be675df](https://github.com/johnny4young/puntovivo/commit/be675df3acec801d06612bf83f29a51d8475d834))
 * **perf:** measure scanner key gaps and recover missed scans in the harness ([d8bbb7e](https://github.com/johnny4young/puntovivo/commit/d8bbb7e2b8dddacaa503ecaafe56e9de152d0f1c))
 * **perf:** tighten the harness after the first Windows self-test ([3db30be](https://github.com/johnny4young/puntovivo/commit/3db30be9cf68152a95d5599a8e59e7cad58e3e01))
-* **peripherals:** pin receipt fallback decimals to the sale currency ([83670b2](https://github.com/johnny4young/puntovivo/commit/83670b20274aa7b15520e0334a4e3ff534877b31))
 * **peripherals:** pin receipt fallback decimals to the sale currency ([2fa6c48](https://github.com/johnny4young/puntovivo/commit/2fa6c4880d1a8d45d8f01887c698411acb93753d))
 * **products:** default opening stock to the request's active site ([644f21e](https://github.com/johnny4young/puntovivo/commit/644f21efe354c739bee8f8c6646f8884c4646501))
-* **products:** put opening stock at the active site ([7a5fd28](https://github.com/johnny4young/puntovivo/commit/7a5fd287f1e6e27c98674d63522fb03e176477d6))
 * **products:** put opening stock at the active site ([0e8f05a](https://github.com/johnny4young/puntovivo/commit/0e8f05afb3af9d230a8fa6664dfb3bb9efd6718c))
-* **release:** drop only merge-commit repeats from the changelog ([bdd9998](https://github.com/johnny4young/puntovivo/commit/bdd9998970b40696f2afe7f26c421ec070adedbe))
 * **release:** drop only merge-commit repeats from the changelog ([56597b7](https://github.com/johnny4young/puntovivo/commit/56597b7228406bcf63b9bb27445501bec9b2b151))
 * **release:** fail the dedupe job when the branch lookup fails ([f979863](https://github.com/johnny4young/puntovivo/commit/f979863b3212f2a66f9c09ac66ea364418de29b5))
 * **release:** keep breaking changes when deduping the changelog ([1b3927b](https://github.com/johnny4young/puntovivo/commit/1b3927b37d609a8273c67450b4e8830b000e3f2c))
 * **release:** run the changelog dedupe when invoked through a symlinked path ([14f126e](https://github.com/johnny4young/puntovivo/commit/14f126e72c7279b6c59de52d7712754509f5034d))
-* **sales:** make the DIAN reminders say what emission will do ([c2789ac](https://github.com/johnny4young/puntovivo/commit/c2789ac8cdb66a6358c6cffb77fa387b315c3e30))
 * **sales:** make the DIAN reminders say what emission will do ([f37aad9](https://github.com/johnny4young/puntovivo/commit/f37aad962d04ae0dd53db01ebab86fc423fcd286))
-* **sales:** show and check the active site's stock in the cart ([6395772](https://github.com/johnny4young/puntovivo/commit/639577295aa5972091423d7d3786221defba8906))
 * **sales:** show and check the active site's stock in the cart ([12f727e](https://github.com/johnny4young/puntovivo/commit/12f727e8b02610ae822c7e19102a8577ada3979d))
 * **sales:** show the site's stock in the search results table ([b517c93](https://github.com/johnny4young/puntovivo/commit/b517c93149589d3b552c89055105acaeb9d2510d))
-* **seed:** give demo NITs valid DIAN check digits ([e090619](https://github.com/johnny4young/puntovivo/commit/e090619c8f3077f467a61cefe0b7205d4c97ff49))
 * **seed:** give demo NITs valid DIAN check digits ([09a860e](https://github.com/johnny4young/puntovivo/commit/09a860e1a5f74f325dfd97bcd1e50a51c57fd651))
 * **server:** let migration 0097 run on adopted databases without app_settings ([4557352](https://github.com/johnny4young/puntovivo/commit/45573521404f6bb45ff62f43fcc78c4352cfad9b))
 
@@ -115,7 +102,6 @@ is usable from source, but it is not a new packaged release yet.
 ### Refactors
 
 * **desktop:** share one thread type between the server and backup workers ([da95a1f](https://github.com/johnny4young/puntovivo/commit/da95a1fd0679796961e2fffe7e82123e8a9feddb))
-* **fiscal:** keep CO numbering only in the resolutions table ([baf55f0](https://github.com/johnny4young/puntovivo/commit/baf55f024b989767b0984ce1f0f8f86be620ba49))
 * **fiscal:** keep CO numbering only in the resolutions table ([9814c10](https://github.com/johnny4young/puntovivo/commit/9814c10e88f2cd002b6062217cb73f4fd18bf2f6))
 * **peripherals:** reuse the receipt amount formatter in the share fallback ([8160844](https://github.com/johnny4young/puntovivo/commit/81608444b02174ee8767eacd8ef7fd265ac8f329))
 
