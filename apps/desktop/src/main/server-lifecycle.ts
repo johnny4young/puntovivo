@@ -121,6 +121,8 @@ export function createServerLifecycle({
   let state: EmbeddedServerState = 'starting';
   let shuttingDown = false;
   let explicitStarts = 0;
+  // Set while restartAround's operation or shutdown owns the database files.
+  let held = false;
   let lastExitReported = false;
   // One crash and the restarts that answer it (ADR 0034).
   let episode: { base: CrashBase; attempt: number } | null = null;
@@ -129,6 +131,8 @@ export function createServerLifecycle({
 
   const host = createServerWorkerHost({
     transport: observeServerWorker(transport, {
+      // A call through a captured handle must not start a worker mid-restore.
+      canLaunch: () => !held,
       onStarted: () => {
         // An explicit start finishes its own bookkeeping.
         if (episode && explicitStarts === 0) void finishRecovery();
@@ -203,6 +207,7 @@ export function createServerLifecycle({
   }
 
   async function start(): Promise<EmbeddedServerHost> {
+    held = false;
     explicitStarts++;
     let handle: EmbeddedServerHost;
     try {
@@ -222,6 +227,7 @@ export function createServerLifecycle({
   async function stop(): Promise<void> {
     shuttingDown = true;
     await exclusive(async () => {
+      held = true;
       setServerHost(null);
       log.info('shutting down embedded server');
       await host.close();
@@ -230,6 +236,7 @@ export function createServerLifecycle({
   }
 
   async function stopHost(): Promise<void> {
+    held = true;
     setServerHost(null);
     log.info('shutting down embedded server');
     // Rejects when the worker did not close cleanly: callers such as a

@@ -83,6 +83,8 @@ export async function connectServerWorker(
 
 /** What main sees of each worker beyond the supervisor's own view. */
 export interface ServerWorkerEvents {
+  /** False while main holds the database (restore, shutdown): no worker may launch. */
+  canLaunch?: () => boolean;
   /** The worker answered `start`; for a crash restart this is the only signal. */
   onStarted?: () => void;
   /** Called before the supervisor hears of an exit; true when the worker reported its cause. */
@@ -96,6 +98,7 @@ export function observeServerWorker(
 ): HostTransport {
   return {
     launch(): HostChannel {
+      if (events.canLaunch && !events.canLaunch()) throw new Error('SERVER_WORKER_HELD');
       const channel = transport.launch();
       let reported = false;
       return {

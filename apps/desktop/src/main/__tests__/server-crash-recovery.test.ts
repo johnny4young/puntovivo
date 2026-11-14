@@ -235,6 +235,22 @@ describe('embedded server crash recovery', () => {
     await t.lifecycle.stop();
   });
 
+  it('never starts a worker for a captured handle while restartAround holds the database', async () => {
+    const t = setup([ok(1), ok(2)]);
+    const captured = await t.lifecycle.start();
+
+    let duringOperation: unknown = null;
+    await t.lifecycle.restartAround(async () => {
+      duringOperation = await captured.readAppSetting('tray_settings').catch(error => error);
+      assert.equal(t.workers.length, 1, 'no worker may open the database mid-operation');
+    });
+
+    assert.match(String((duringOperation as Error).cause), /SERVER_WORKER_HELD/);
+    assert.equal(t.workers.length, 2);
+    assert.equal(await captured.readAppSetting('tray_settings'), null);
+    await t.lifecycle.stop();
+  });
+
   it('reports the first start failure with its own cause', async () => {
     const t = setup([{ fail: new Error('AUDIT_ANCHOR_SECRET_MISSING') }]);
     await assert.rejects(t.lifecycle.start(), /^Error: AUDIT_ANCHOR_SECRET_MISSING$/);
