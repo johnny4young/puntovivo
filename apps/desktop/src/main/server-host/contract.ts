@@ -121,6 +121,44 @@ export interface EmbeddedServerOperations {
   readRestoreDrillCounts(tenantId: string): Promise<BackupRestoreDrillCounts>;
 }
 
+/** Every operation main may call; the worker refuses anything else. */
+export const EMBEDDED_SERVER_OPERATIONS = [
+  'inject',
+  'verifyAccessToken',
+  'getSetupToken',
+  'isOwnerRecoveryAvailable',
+  'recoverOwner',
+  'recordAudit',
+  'readAppSetting',
+  'writeAppSetting',
+  'getSyncStatus',
+  'triggerSync',
+  'readRestoreDrillCounts',
+] as const satisfies readonly (keyof EmbeddedServerOperations)[];
+
+/** What the server worker serves: the host contract plus its own housekeeping. */
+export interface ServerWorkerOperations extends EmbeddedServerOperations {
+  getUrl(): Promise<string>;
+  /** Honoured only when the app runs under E2E or soak; see server-worker.ts. */
+  testCrash(): Promise<void>;
+  /** Same gate as testCrash: allocates until the heap limit ends the thread. */
+  testOutOfMemory(): Promise<void>;
+}
+
+export const SERVER_WORKER_OPERATIONS = [
+  ...EMBEDDED_SERVER_OPERATIONS,
+  'getUrl',
+  'testCrash',
+  'testOutOfMemory',
+] as const satisfies readonly (keyof ServerWorkerOperations)[];
+
+/** The worker's start payload: what it needs to open the database and listen. */
+export interface WorkerStartOptions {
+  serverOptions: Record<string, unknown>;
+  /** Present when the install has a durable anchor store (sealed key). */
+  auditAnchorStore?: { dataDir: string; platform: NodeJS.Platform };
+}
+
 /** A started server as main sees it. */
 export interface EmbeddedServerHost extends EmbeddedServerOperations {
   readonly url: string;

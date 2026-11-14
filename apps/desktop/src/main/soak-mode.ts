@@ -7,11 +7,11 @@ import { app, type WebContents } from 'electron';
 import { readdir, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
+import type { HostStats } from '@electron-stagewright/host-supervisor';
 import type { PuntovivoLogger } from '@puntovivo/server/desktop-main';
 import { whenAppMounted } from './measurement-harness.js';
 import { createStallSampler } from './main-thread-probe.js';
 import type { EmbeddedServerHost } from './server-host/contract.ts';
-import type { WorkerMemorySample } from './server-host/protocol.ts';
 import type { EmbeddedServerState } from './server-lifecycle.ts';
 
 const SAMPLE_INTERVAL_MS = 15_000;
@@ -29,7 +29,7 @@ export function installSoakMode(deps: {
   log: PuntovivoLogger;
   getServerHost: () => EmbeddedServerHost | null;
   getServerState: () => EmbeddedServerState;
-  getWorkerStats: () => WorkerMemorySample | null;
+  getWorkerStats: () => HostStats | null;
   runBackup: (tenantId: string) => Promise<{ success: boolean }>;
 }): void {
   deps.webContents.setBackgroundThrottling(false);

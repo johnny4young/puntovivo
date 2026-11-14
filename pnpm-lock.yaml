@@ -97,6 +97,9 @@ importers:
       '@aws-sdk/client-s3':
         specifier: ^3.1160.0
         version: 3.1161.0
+      '@electron-stagewright/host-supervisor':
+        specifier: 0.1.0
+        version: 0.1.0(electron@45.2.2)
       '@electron/rebuild':
         specifier: 4.2.0
         version: 4.2.0
@@ -899,6 +902,15 @@ packages:
   '@electron-internal/extract-zip@1.0.5':
     resolution: {integrity: sha512-+bqFCP98pLI0Tt0XQo1TmlXtwjWchISndDOxCkEcIuUgXWpBnLyRI+2DU+mesvnMMX6L1XDqYNA0lXNDHd/yiA==}
     engines: {node: '>=22.12.0'}
+
+  '@electron-stagewright/host-supervisor@0.1.0':
+    resolution: {integrity: sha512-gTOoQaMWQbI8b7yFEpjHWO/kkaf2jXSsupEx2H/d3n3KhO5mKJiKnH8glRK/BvIjNkqCmi11NSsbHBC+WJ2x/Q==}
+    engines: {node: '>=24.0.0'}
+    peerDependencies:
+      electron: '>=42.0.0'
+    peerDependenciesMeta:
+      electron:
+        optional: true
 
   '@electron/asar@4.2.1':
     resolution: {integrity: sha512-rGyEe7iy52zxiWuihV/h/AqQrFkx7YnUUJKW1bdufVDHCzIMP/XDrDI/NOzv/LLtzt3NduAzNa475WRmRnmswQ==}
@@ -6010,6 +6022,10 @@ snapshots:
       chrome-trace-event: 1.0.4
 
   '@electron-internal/extract-zip@1.0.5': {}
+
+  '@electron-stagewright/host-supervisor@0.1.0(electron@45.2.2)':
+    optionalDependencies:
+      electron: 45.2.2
 
   '@electron/asar@4.2.1(patch_hash=7b17b5bf017952acdc62c343d6e2aada73c5aa99c6ccf4e05b530c850335732b)':
     dependencies:

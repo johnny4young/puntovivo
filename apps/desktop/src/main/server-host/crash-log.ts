@@ -4,8 +4,8 @@
  */
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import { CODE_PATTERN, type WorkerMemorySample } from './protocol.ts';
-import type { WorkerExitKind, WorkerFatalCause } from './restart-policy.ts';
+import { CODE_PATTERN, type HostStats } from '@electron-stagewright/host-supervisor';
+import type { WorkerExitKind, WorkerFatalCause } from './fatal-cause.ts';
 
 export const WORKER_CRASH_LOG_FILE = 'worker-crashes.ndjson';
 const MAX_ENTRIES = 50;
@@ -28,11 +28,9 @@ export interface WorkerCrashEntry {
   memory?: WorkerCrashMemory | null;
 }
 
-export type WorkerCrashMemory = Pick<WorkerMemorySample, 'rssMb' | 'heapUsedMb' | 'heapLimitMb'>;
+export type WorkerCrashMemory = Pick<HostStats, 'rssMb' | 'heapUsedMb' | 'heapLimitMb'>;
 
-export function crashMemory(
-  sample: WorkerMemorySample | null | undefined
-): WorkerCrashMemory | null {
+export function crashMemory(sample: HostStats | null | undefined): WorkerCrashMemory | null {
   return sample
     ? { rssMb: sample.rssMb, heapUsedMb: sample.heapUsedMb, heapLimitMb: sample.heapLimitMb }
     : null;

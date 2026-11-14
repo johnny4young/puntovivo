@@ -3,11 +3,17 @@ import { strict as assert } from 'node:assert';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import type { EmbeddedServerHost } from '../server-host/contract.ts';
-import { startWorkerServerHost } from '../server-host/worker-host.ts';
+import {
+  connectServerWorker,
+  createServerWorkerHost,
+  serverWorkerTransport,
+  type ServerWorkerHost,
+} from '../server-host/worker-host.ts';
 
 // Runs the real worker entry, so SQLCipher and Argon2 load inside a thread.
 const WORKER_PATH = fileURLToPath(new URL('../server-host/server-worker.ts', import.meta.url));
 
+let supervisor: ServerWorkerHost;
 let host: EmbeddedServerHost;
 const unexpectedExits: Error[] = [];
 
@@ -16,9 +22,9 @@ before(async () => {
   // The worker copies the environment when it is created.
   process.env.PUNTOVIVO_DEV_ADMIN_PASSWORD = `Aa!${randomUUID()}`;
   try {
-    host = await startWorkerServerHost({
-      workerPath: WORKER_PATH,
-      start: {
+    supervisor = createServerWorkerHost({
+      transport: serverWorkerTransport(WORKER_PATH),
+      payload: async () => ({
         serverOptions: {
           dbPath: ':memory:',
           host: '127.0.0.1',
@@ -27,9 +33,13 @@ before(async () => {
           encryptionKey: 'c'.repeat(64),
           jwtSecret: 'worker-thread-test-secret-worker-thread-test-secret',
         },
+      }),
+      onExit: exit => {
+        unexpectedExits.push(exit.error);
+        return 'fatal';
       },
-      onUnexpectedExit: failure => unexpectedExits.push(failure.error),
     });
+    host = await connectServerWorker(supervisor);
   } finally {
     if (previous === undefined) delete process.env.PUNTOVIVO_DEV_ADMIN_PASSWORD;
     else process.env.PUNTOVIVO_DEV_ADMIN_PASSWORD = previous;
@@ -37,7 +47,7 @@ before(async () => {
 });
 
 after(async () => {
-  await host?.close();
+  await supervisor?.close();
 });
 
 describe('embedded server in a worker thread', () => {
@@ -68,8 +78,8 @@ describe('embedded server in a worker thread', () => {
   });
 
   it('stops cleanly without reporting a crash', async () => {
-    await host.close();
-    await assert.rejects(host.readAppSetting('tray_settings'), /not available/);
+    await supervisor.close();
+    await assert.rejects(host.readAppSetting('tray_settings'), { code: 'HOST_STOPPED' });
     assert.deepEqual(unexpectedExits, []);
   });
 });

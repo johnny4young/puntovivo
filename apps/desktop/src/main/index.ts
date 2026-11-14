@@ -11,6 +11,7 @@ import {
   type OpenDialogOptions,
 } from 'electron';
 import { join } from 'node:path';
+import { memoryWatch, type HostStats } from '@electron-stagewright/host-supervisor';
 import {
   captureProcessCrash,
   createModuleLogger,
@@ -73,13 +74,8 @@ import {
   crashErrorCode,
   WORKER_CRASH_LOG_FILE,
 } from './server-host/crash-log.js';
-import { createWorkerLauncher } from './server-host/worker-host.js';
-import type { WorkerMemorySample } from './server-host/protocol.js';
-import {
-  createMemoryWatch,
-  DEFAULT_RSS_ALERT_MB,
-  resolveWorkerResourceLimits,
-} from './server-host/memory-policy.js';
+import { serverWorkerTransport } from './server-host/worker-host.js';
+import { DEFAULT_RSS_ALERT_MB, resolveWorkerResourceLimits } from './server-host/memory-policy.js';
 import { broadcastServerState, registerServerStateIpc } from './ipc/server-state.js';
 import { createTrayController } from './tray-controller.js';
 import { installSoakMode } from './soak-mode.js';
@@ -198,8 +194,9 @@ const workerCrashLog = createWorkerCrashLog({
   getPath: () => join(app.getPath('userData'), WORKER_CRASH_LOG_FILE),
 });
 
-let lastWorkerStats: WorkerMemorySample | null = null;
-const workerMemoryWatch = createMemoryWatch({
+let lastWorkerStats: HostStats | null = null;
+const workerMemoryWatch = memoryWatch({
+  rssMb: DEFAULT_RSS_ALERT_MB,
   onAlert: sample => {
     mainLog.warn({ ...sample, thresholdMb: DEFAULT_RSS_ALERT_MB }, 'server worker memory high');
     void workerCrashLog.append({
@@ -227,20 +224,17 @@ const serverLifecycle = createServerLifecycle({
   prepareDatabaseEncryption: encryptionSetup.prepareDatabaseEncryption,
   prepareAuditAnchorKey: encryptionSetup.resolveAuditAnchorKey,
   getMainWindow: () => windowLifecycleRef.current?.getWindow() ?? null,
-  launchHost: createWorkerLauncher({
-    workerPath: join(__dirname, 'server-worker.cjs'),
-    resolveAuditAnchorStoreLocation: encryptionSetup.resolveAuditAnchorStoreLocation,
-    onUnexpectedExit: failure => {
-      if (isQuitting) return;
-      void serverLifecycle.recoverFromUnexpectedExit(failure);
-    },
-    allowTestCrash: isE2e || process.env.PUNTOVIVO_SOAK === '1',
-    resourceLimits: resolveWorkerResourceLimits(),
-    onStats: stats => {
-      lastWorkerStats = stats;
-      workerMemoryWatch.observe(stats);
-    },
-  }),
+  resolveAuditAnchorStoreLocation: encryptionSetup.resolveAuditAnchorStoreLocation,
+  transport: serverWorkerTransport(
+    join(__dirname, 'server-worker.cjs'),
+    resolveWorkerResourceLimits()
+  ),
+  allowTestCrash: isE2e || process.env.PUNTOVIVO_SOAK === '1',
+  isQuitting: () => isQuitting,
+  onStats: stats => {
+    lastWorkerStats = stats;
+    workerMemoryWatch(stats);
+  },
   onStateChange: broadcastServerState,
   onFatalExit: fatal => handleFatalServerExit(fatal),
   recordCrash: entry => {

@@ -2,8 +2,12 @@ import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import type { WorkerExitFailure } from '../server-host/restart-policy.ts';
-import { startWorkerServerHost } from '../server-host/worker-host.ts';
+import type { HostExit } from '@electron-stagewright/host-supervisor';
+import {
+  connectServerWorker,
+  createServerWorkerHost,
+  serverWorkerTransport,
+} from '../server-host/worker-host.ts';
 
 const WORKER_PATH = fileURLToPath(new URL('../server-host/server-worker.ts', import.meta.url));
 
@@ -11,12 +15,12 @@ const WORKER_PATH = fileURLToPath(new URL('../server-host/server-worker.ts', imp
 async function startRealWorker(env: Record<string, string>) {
   const saved = new Map(Object.keys(env).map(key => [key, process.env[key]]));
   Object.assign(process.env, env, { PUNTOVIVO_DEV_ADMIN_PASSWORD: `Aa!${randomUUID()}` });
-  let resolveExit!: (failure: WorkerExitFailure) => void;
-  const exited = new Promise<WorkerExitFailure>(resolve => (resolveExit = resolve));
+  let resolveExit!: (exit: HostExit) => void;
+  const exited = new Promise<HostExit>(resolve => (resolveExit = resolve));
   try {
-    const host = await startWorkerServerHost({
-      workerPath: WORKER_PATH,
-      start: {
+    const supervisor = createServerWorkerHost({
+      transport: serverWorkerTransport(WORKER_PATH),
+      payload: async () => ({
         serverOptions: {
           dbPath: ':memory:',
           host: '127.0.0.1',
@@ -25,10 +29,13 @@ async function startRealWorker(env: Record<string, string>) {
           encryptionKey: 'd'.repeat(64),
           jwtSecret: 'worker-crash-test-secret-worker-crash-test-secret',
         },
+      }),
+      onExit: exit => {
+        resolveExit(exit);
+        return 'fatal';
       },
-      onUnexpectedExit: resolveExit,
-      allowTestCrash: true,
     });
+    const host = await connectServerWorker(supervisor, { allowTestCrash: true });
     return { host, exited };
   } finally {
     for (const [key, value] of saved) {
@@ -45,9 +52,9 @@ describe('a real server worker that crashes', () => {
     const port = Number(new URL(host.url).port);
     host.simulateCrash?.();
     const failure = await exited;
-    assert.equal(failure.kind, 'uncaught');
+    assert.equal(failure.kind, 'crash');
     assert.equal(failure.error.message, 'SERVER_WORKER_TEST_CRASH');
-    assert.ok(failure.uptimeMs >= 0);
+    assert.ok((failure.uptimeMs ?? -1) >= 0);
 
     // The listener died with the thread, so a new worker can bind it.
     const next = await startRealWorker({ PUNTOVIVO_E2E: '1' });

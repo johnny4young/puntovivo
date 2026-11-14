@@ -2,20 +2,32 @@
 
 import type { BrowserWindow } from 'electron';
 import { randomBytes } from 'node:crypto';
+import {
+  isHostError,
+  restartPolicy as createRestartPolicy,
+  type ExitDecision,
+  type HostExit,
+  type HostStats,
+  type HostTransport,
+  type RestartPolicyOptions,
+} from '@electron-stagewright/host-supervisor';
 import { resolveRuntimeConfig, type PuntovivoLogger } from '@puntovivo/server/desktop-main';
 import type { ServerOptions } from '@puntovivo/server';
 import { PACKAGED_RENDERER_ORIGIN } from './renderer-protocol.ts';
-import { getServerHost, setServerHost } from './runtime.ts';
-import type { EmbeddedServerHost } from './server-host/contract.ts';
+import { setServerHost } from './runtime.ts';
+import type { EmbeddedServerHost, WorkerStartOptions } from './server-host/contract.ts';
 import type { WorkerCrashEntry } from './server-host/crash-log.ts';
 import { crashErrorCode, crashMemory } from './server-host/crash-log.ts';
 import {
   classifyFatalCause,
-  createRestartBudget,
-  type RestartPolicyOptions,
-  type WorkerExitFailure,
+  type WorkerExitKind,
   type WorkerFatalCause,
-} from './server-host/restart-policy.ts';
+} from './server-host/fatal-cause.ts';
+import {
+  connectServerWorker,
+  createServerWorkerHost,
+  observeServerWorker,
+} from './server-host/worker-host.ts';
 
 /** What the renderer is told about the embedded server. */
 export type EmbeddedServerState = 'starting' | 'running' | 'restarting' | 'fatal';
@@ -34,18 +46,24 @@ interface ServerLifecycleDeps {
   prepareDatabaseEncryption: () => Promise<string>;
   /** Stable per-install audit-chain anchor secret (never rotates). */
   prepareAuditAnchorKey: () => Promise<string>;
+  /** Converts a legacy anchor file first; undefined for env-key installs. */
+  resolveAuditAnchorStoreLocation?: () => Promise<WorkerStartOptions['auditAnchorStore']>;
   getMainWindow: () => BrowserWindow | null;
-  /** Starts a listening server with these options: in a worker or in-process. */
-  launchHost: (options: ServerOptions) => Promise<EmbeddedServerHost>;
+  /** Launches each server worker; `serverWorkerTransport` in production. */
+  transport: HostTransport;
+  /** Lets E2E and soak runs crash the worker on purpose. */
+  allowTestCrash?: boolean;
+  /** A worker that dies while the app quits is not restarted. */
+  isQuitting?: () => boolean;
+  onStats?: (stats: HostStats) => void;
   env?: NodeJS.ProcessEnv;
   generateJwtSecret?: () => string;
   onStateChange?: (state: EmbeddedServerState) => void;
   /** Called once a crash ends in a state the app cannot recover from. */
   onFatalExit?: (fatal: FatalWorkerExit) => void;
   recordCrash?: (entry: Omit<WorkerCrashEntry, 'at' | 'appVersion'>) => void;
-  restartPolicy?: RestartPolicyOptions;
-  sleep?: (ms: number) => Promise<void>;
-  now?: () => number;
+  restartPolicy?: Omit<RestartPolicyOptions, 'isFatal'>;
+  stopGraceMs?: number;
 }
 
 export interface ServerLifecycle {
@@ -55,9 +73,19 @@ export interface ServerLifecycle {
     operation: () => Promise<T>,
     options?: { reloadWindow?: boolean }
   ) => Promise<T>;
-  /** Restarts a worker that died on its own, or gives up (ADR 0034). */
-  recoverFromUnexpectedExit: (failure: WorkerExitFailure) => Promise<void>;
   getState: () => EmbeddedServerState;
+}
+
+type CrashBase = Omit<
+  WorkerCrashEntry,
+  'at' | 'appVersion' | 'restartAttempt' | 'outcome' | 'fatalCause'
+>;
+
+/** The first start failure is reported as its own cause, not the supervisor's wrapper. */
+function startFailureCause(error: unknown): unknown {
+  return isHostError(error, 'HOST_START_FAILED') && error.cause instanceof Error
+    ? error.cause
+    : error;
 }
 
 export function createServerLifecycle({
@@ -68,26 +96,52 @@ export function createServerLifecycle({
   log,
   prepareDatabaseEncryption,
   prepareAuditAnchorKey,
+  resolveAuditAnchorStoreLocation,
   getMainWindow,
-  launchHost,
+  transport,
+  allowTestCrash = false,
+  isQuitting = () => false,
+  onStats,
   env = process.env,
   generateJwtSecret = () => randomBytes(48).toString('base64url'),
   onStateChange,
   onFatalExit,
   recordCrash,
   restartPolicy,
-  sleep = ms => new Promise(resolve => setTimeout(resolve, ms)),
-  now = Date.now,
+  stopGraceMs,
 }: ServerLifecycleDeps): ServerLifecycle {
   // The server may restart around a manual backup or destructive restore.
   // Keep one in-memory signing secret for the Electron main lifetime so those
   // restarts do not invalidate every access and refresh token mid-session.
   const jwtSecret = generateJwtSecret();
-  const restartBudget = createRestartBudget(restartPolicy);
+  const decideRestart = createRestartPolicy({
+    ...restartPolicy,
+    isFatal: exit => classifyFatalCause(exit.error) !== null,
+  });
   let state: EmbeddedServerState = 'starting';
   let shuttingDown = false;
-  // Crash recovery and restartAround never start two workers at once.
+  let explicitStarts = 0;
+  let lastExitReported = false;
+  // One crash and the restarts that answer it (ADR 0034).
+  let episode: { base: CrashBase; attempt: number } | null = null;
+  // Shutdown and restartAround never overlap.
   let exclusiveTail: Promise<unknown> = Promise.resolve();
+
+  const host = createServerWorkerHost({
+    transport: observeServerWorker(transport, {
+      onStarted: () => {
+        // An explicit start finishes its own bookkeeping.
+        if (episode && explicitStarts === 0) void finishRecovery();
+      },
+      onExit: reported => {
+        lastExitReported = reported;
+      },
+    }),
+    payload: buildStartPayload,
+    onExit: handleUnexpectedExit,
+    ...(onStats ? { onStats } : {}),
+    ...(stopGraceMs === undefined ? {} : { stopGraceMs }),
+  });
 
   function setState(next: EmbeddedServerState): void {
     if (state === next) return;
@@ -106,7 +160,8 @@ export function createServerLifecycle({
     return run;
   }
 
-  async function start(): Promise<EmbeddedServerHost> {
+  // Built again for every worker, crash restarts included.
+  async function buildStartPayload(): Promise<WorkerStartOptions> {
     // Authority Node host/mode/port remain environment-resolved.
     const runtime = resolveRuntimeConfig({ env });
     const encryptionKey = await prepareDatabaseEncryption();
@@ -123,7 +178,7 @@ export function createServerLifecycle({
       'starting embedded server'
     );
 
-    const host = await launchHost({
+    const serverOptions: ServerOptions = {
       dbPath,
       seedData: false,
       port: runtime.bindPort,
@@ -139,25 +194,47 @@ export function createServerLifecycle({
       // Production Electron has a single secure custom renderer origin.
       // Development omits this option to retain the server's localhost defaults.
       ...(isDev ? {} : { corsOrigins: [PACKAGED_RENDERER_ORIGIN] }),
-    });
-    log.info({ url: host.url }, 'embedded server started');
+    };
+    const auditAnchorStore = await resolveAuditAnchorStoreLocation?.();
+    return {
+      serverOptions: serverOptions as unknown as Record<string, unknown>,
+      ...(auditAnchorStore ? { auditAnchorStore } : {}),
+    };
+  }
+
+  async function start(): Promise<EmbeddedServerHost> {
+    explicitStarts++;
+    let handle: EmbeddedServerHost;
+    try {
+      handle = await connectServerWorker(host, { allowTestCrash });
+    } catch (error) {
+      throw startFailureCause(error);
+    } finally {
+      explicitStarts--;
+    }
+    log.info({ url: handle.url }, 'embedded server started');
+    // restartAround may bring the worker back before the crash restart does; the crash still counts.
+    if (episode) closeEpisode(episode);
     setState('running');
-    return host;
+    return handle;
   }
 
   async function stop(): Promise<void> {
     shuttingDown = true;
-    // A crash restart in flight finishes or bails out before the host closes.
-    await exclusive(stopHost);
+    await exclusive(async () => {
+      setServerHost(null);
+      log.info('shutting down embedded server');
+      await host.close();
+      log.info('embedded server stopped');
+    });
   }
 
   async function stopHost(): Promise<void> {
-    const current = getServerHost();
-    if (!current) return;
-
-    log.info('shutting down embedded server');
-    await current.close();
     setServerHost(null);
+    log.info('shutting down embedded server');
+    // Rejects when the worker did not close cleanly: callers such as a
+    // restore must not touch its files.
+    await host.stop();
     log.info('embedded server stopped');
   }
 
@@ -215,82 +292,92 @@ export function createServerLifecycle({
     onFatalExit?.({ cause, error });
   }
 
-  function recoverFromUnexpectedExit(failure: WorkerExitFailure): Promise<void> {
-    // The dead worker's handle must not serve another call.
-    setServerHost(null);
-    if (shuttingDown) return Promise.resolve();
-    setState('restarting');
-    return exclusive(() => recover(failure));
+  function exitKind(exit: HostExit): WorkerExitKind {
+    if (exit.kind === 'out-of-memory') return 'oom';
+    return lastExitReported ? 'uncaught' : 'unknown';
   }
 
-  async function recover(failure: WorkerExitFailure): Promise<void> {
-    const base = {
-      kind: failure.kind,
-      exitCode: failure.exitCode,
-      errorCode: crashErrorCode(failure.error),
-      uptimeMs: failure.uptimeMs,
-      pendingCalls: failure.pendingCalls,
-      memory: crashMemory(failure.lastMemory),
-    };
-    log.error({ ...base }, 'embedded server worker exited unexpectedly');
-    let cause: WorkerFatalCause | null = classifyFatalCause(failure.error);
-    let lastError = failure.error;
-    let attempt = 0;
-    while (!cause && !shuttingDown) {
-      // restartAround may already have brought a worker back; the crash still counts.
-      if (getServerHost()) {
-        recordCrash?.({ ...base, restartAttempt: attempt, outcome: 'restarted', fatalCause: null });
-        setState('running');
-        return;
-      }
-      const decision = restartBudget.next(now());
-      if (decision.action === 'give-up') {
+  /** The supervisor's restart decision, with the crash log and renderer state around it. */
+  function handleUnexpectedExit(exit: HostExit): ExitDecision {
+    // The dead worker's handle must not serve another call.
+    setServerHost(null);
+    if (shuttingDown || isQuitting()) return 'fatal';
+    if (exit.kind !== 'start-failed' || !episode) {
+      episode = {
+        base: {
+          kind: exitKind(exit),
+          exitCode: exit.code ?? -1,
+          errorCode: crashErrorCode(exit.error),
+          uptimeMs: exit.uptimeMs ?? 0,
+          pendingCalls: exit.pendingCalls,
+          memory: crashMemory(exit.lastStats),
+        },
+        attempt: 0,
+      };
+      log.error({ ...episode.base }, 'embedded server worker exited unexpectedly');
+      setState('restarting');
+    } else {
+      const errorCode = crashErrorCode(exit.error);
+      recordCrash?.({
+        ...episode.base,
+        errorCode,
+        restartAttempt: episode.attempt,
+        outcome: 'restart-failed',
+        fatalCause: classifyFatalCause(exit.error),
+      });
+      log.error({ attempt: episode.attempt, errorCode }, 'embedded server restart failed');
+    }
+    const decision = decideRestart(exit);
+    if (decision === 'fatal') {
+      const cause = classifyFatalCause(exit.error) ?? 'restart-loop';
+      // A restart that failed on a fatal cause is already in the log.
+      if (cause === 'restart-loop' || episode.attempt === 0) {
         recordCrash?.({
-          ...base,
-          restartAttempt: attempt,
+          ...episode.base,
+          restartAttempt: episode.attempt,
           outcome: 'fatal',
-          fatalCause: 'restart-loop',
-        });
-        failFatally('restart-loop', lastError);
-        return;
-      }
-      attempt = decision.attempt;
-      await sleep(decision.delayMs);
-      if (shuttingDown) return;
-      try {
-        setServerHost(await start());
-        recordCrash?.({ ...base, restartAttempt: attempt, outcome: 'restarted', fatalCause: null });
-        log.info({ attempt }, 'embedded server worker restarted');
-        return;
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
-        cause = classifyFatalCause(lastError);
-        recordCrash?.({
-          ...base,
-          errorCode: crashErrorCode(lastError),
-          restartAttempt: attempt,
-          outcome: 'restart-failed',
           fatalCause: cause,
         });
-        log.error(
-          { attempt, errorCode: crashErrorCode(lastError) },
-          'embedded server restart failed'
-        );
       }
+      episode = null;
+      failFatally(cause, exit.error);
+      return 'fatal';
     }
-    if (cause && !shuttingDown) {
-      if (attempt === 0) {
-        recordCrash?.({ ...base, restartAttempt: 0, outcome: 'fatal', fatalCause: cause });
-      }
-      failFatally(cause, lastError);
+    episode.attempt++;
+    return decision;
+  }
+
+  function closeEpisode(current: { base: CrashBase; attempt: number }): void {
+    episode = null;
+    recordCrash?.({
+      ...current.base,
+      restartAttempt: current.attempt,
+      outcome: 'restarted',
+      fatalCause: null,
+    });
+    log.info({ attempt: current.attempt }, 'embedded server worker restarted');
+  }
+
+  async function finishRecovery(): Promise<void> {
+    const current = episode;
+    let handle: EmbeddedServerHost;
+    try {
+      handle = await connectServerWorker(host, { allowTestCrash });
+    } catch (error) {
+      // Another exit or a stop owns what happens next.
+      log.warn({ errorCode: crashErrorCode(error as Error) }, 'restarted worker not reachable');
+      return;
     }
+    if (!current || episode !== current) return;
+    setServerHost(handle);
+    closeEpisode(current);
+    setState('running');
   }
 
   return {
     start,
     stop,
     restartAround,
-    recoverFromUnexpectedExit,
     getState: () => state,
   };
 }

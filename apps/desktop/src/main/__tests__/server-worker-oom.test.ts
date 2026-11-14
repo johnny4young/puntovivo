@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import type { PuntovivoLogger } from '@puntovivo/server';
 import type { WorkerCrashEntry } from '../server-host/crash-log.ts';
-import { createWorkerLauncher } from '../server-host/worker-host.ts';
+import { serverWorkerTransport } from '../server-host/worker-host.ts';
 import { createServerLifecycle, type EmbeddedServerState } from '../server-lifecycle.ts';
 import { getServerHost, setServerHost } from '../runtime.ts';
 
@@ -24,7 +24,6 @@ describe('server worker heap limit', { timeout: 60_000 }, () => {
     });
     const crashes: Array<Omit<WorkerCrashEntry, 'at' | 'appVersion'>> = [];
     const states: EmbeddedServerState[] = [];
-    let recovery: Promise<void> | null = null;
     const lifecycle = createServerLifecycle({
       dbPath: ':memory:',
       migrationsPath: MIGRATIONS,
@@ -35,24 +34,16 @@ describe('server worker heap limit', { timeout: 60_000 }, () => {
       prepareAuditAnchorKey: async () => 'b'.repeat(64),
       getMainWindow: () => null,
       env: { PUNTOVIVO_BIND_PORT: '18690' },
-      launchHost: createWorkerLauncher({
-        workerPath: WORKER_PATH,
-        resolveAuditAnchorStoreLocation: async () => undefined,
-        onUnexpectedExit: failure => {
-          recovery = lifecycle.recoverFromUnexpectedExit(failure);
-        },
-        allowTestCrash: true,
-        resourceLimits: { maxOldGenerationSizeMb: 96 },
-      }),
+      transport: serverWorkerTransport(WORKER_PATH, { maxOldGenerationSizeMb: 96 }),
+      allowTestCrash: true,
       onStateChange: state => states.push(state),
       recordCrash: entry => crashes.push(entry),
-      sleep: async () => {},
+      restartPolicy: { backoffMs: [0] },
     });
     try {
       setServerHost(await lifecycle.start());
       getServerHost()?.simulateOutOfMemory?.();
-      while (!recovery) await new Promise(resolve => setTimeout(resolve, 20));
-      await recovery;
+      while (crashes.length === 0) await new Promise(resolve => setTimeout(resolve, 20));
 
       assert.equal(crashes[0]?.kind, 'oom');
       assert.equal(crashes[0]?.errorCode, 'ERR_WORKER_OUT_OF_MEMORY');
