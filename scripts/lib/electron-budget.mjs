@@ -1,14 +1,20 @@
 /**
  * Electron budgets through `@electron-stagewright/plugin-budget`. perf-budget.json
  * stays the source of truth; each gate writes the kit's budget format from it,
- * runs `electron-stagewright-budget measure --check` and maps the verdict onto
- * Puntovivo's warn-first and strict modes.
+ * measures each launch with `electron-stagewright-budget measure` and checks
+ * the merged launches under Puntovivo's warn-first and strict modes.
  *
  * @module scripts/lib/electron-budget
  */
 
 import { spawn } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  checkRun,
+  createRun,
+  loadRun,
+  renderCheckReport,
+} from '@electron-stagewright/plugin-budget';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -114,16 +120,14 @@ export function resolveBudgetCli() {
   return join(dirname(entry), 'cli.js');
 }
 
-/** Command and arguments for one `measure --check` run; Linux CI needs a display and no SUID sandbox. */
+/** Command and arguments for one measured launch; Linux CI needs a display and no SUID sandbox. */
 export function buildMeasureInvocation({
   cli,
   budgetPath,
   outPath,
-  rounds,
   env,
   workload,
   windowMs,
-  requireMeasurement,
   platform = process.platform,
   nodePath = process.execPath,
 }) {
@@ -135,14 +139,12 @@ export function buildMeasureInvocation({
     '--budget',
     budgetPath,
     '--rounds',
-    String(rounds),
+    '1',
     '--phases',
     'cold',
     '--out',
     outPath,
-    '--check',
   ];
-  if (requireMeasurement) args.push('--require-measurement');
   if (workload) args.push('--workload', workload);
   if (windowMs) args.push('--window-ms', String(windowMs));
   for (const [key, value] of Object.entries(env)) args.push('--env', `${key}=${value}`);
@@ -153,58 +155,99 @@ export function buildMeasureInvocation({
   return { command: nodePath, args };
 }
 
-/** The kit exits 1 when over budget or unmeasured; warn-first mode reports and passes. */
-export function gateExitCode(kitExitCode, { enforce }) {
-  if (kitExitCode === 0) return 0;
-  if (kitExitCode === 1 && !enforce) return 0;
-  return kitExitCode ?? 1;
+/** One run with every measured launch, numbered in order, so the kit's median spans them. */
+export function mergeRuns(runs) {
+  return createRun({
+    rounds: runs.flatMap((run, index) => run.rounds.map(round => ({ ...round, round: index + 1 }))),
+    ...(runs[0]?.electronVersion ? { electronVersion: runs[0].electronVersion } : {}),
+  });
 }
 
-/** Writes the generated budget, runs the kit and returns Puntovivo's exit code. */
+/**
+ * The verdict for the merged launches. Under --require-measurement a majority
+ * of launches must have measured, or the median rests on one window.
+ */
+export function judgeRuns(runs, budget, { rounds, requireMeasurement }) {
+  const report = checkRun(mergeRuns(runs), budget, { requireMeasurement });
+  const enough = runs.length >= Math.ceil(rounds / 2);
+  return { report, passed: report.passed && (!requireMeasurement || enough), enough };
+}
+
+/** Warn-first passes an over-budget verdict; strict fails it. */
+export function gateExitCode(passed, { enforce }) {
+  return passed || !enforce ? 0 : 1;
+}
+
+function runChild(spawnImpl, invocation, env, onError) {
+  return new Promise(resolvePromise => {
+    const child = spawnImpl(invocation.command, invocation.args, {
+      cwd: REPO_ROOT,
+      env,
+      stdio: 'inherit',
+    });
+    child.once('error', error => {
+      onError(error);
+      resolvePromise(null);
+    });
+    child.once('exit', code => resolvePromise(code ?? 1));
+  });
+}
+
+/**
+ * Writes the generated budget, measures each launch with its own kit run (so
+ * `prepareRound` can hand every launch fresh state), and checks the merged run.
+ */
 export async function runBudgetGate({
   check,
   label,
   env,
   workload,
   windowMs,
+  prepareRound = async () => ({}),
   argv = process.argv.slice(2),
   processEnv = process.env,
   spawnImpl = spawn,
   output = console,
 }) {
   const mode = resolveGateMode({ argv, env: processEnv });
-  const perfBudget = JSON.parse(readFileSync(BUDGET_PATH, 'utf8'));
+  const budget = buildKitBudget(JSON.parse(readFileSync(BUDGET_PATH, 'utf8')), check);
   const workDir = mkdtempSync(join(tmpdir(), `puntovivo-budget-${check}-`));
   try {
     const budgetPath = join(workDir, 'budget.json');
-    writeFileSync(budgetPath, JSON.stringify(buildKitBudget(perfBudget, check), null, 2));
-    const invocation = buildMeasureInvocation({
-      cli: resolveBudgetCli(),
-      budgetPath,
-      outPath: join(workDir, 'run.json'),
-      rounds: mode.rounds,
-      env,
-      workload,
-      windowMs,
-      requireMeasurement: mode.requireMeasurement,
-    });
-    const code = await new Promise(resolvePromise => {
-      const child = spawnImpl(invocation.command, invocation.args, {
-        cwd: REPO_ROOT,
-        env: processEnv,
-        stdio: 'inherit',
+    writeFileSync(budgetPath, JSON.stringify(budget, null, 2));
+    const cli = resolveBudgetCli();
+    const runs = [];
+    for (let round = 1; round <= mode.rounds; round += 1) {
+      const outPath = join(workDir, `run-${round}.json`);
+      const roundEnv = { ...env, ...(await prepareRound(round, workDir)) };
+      const invocation = buildMeasureInvocation({
+        cli,
+        budgetPath,
+        outPath,
+        env: roundEnv,
+        workload,
+        windowMs,
       });
-      child.once('error', error => {
-        output.error(`${label}: could not start the budget CLI: ${error.message}`);
-        resolvePromise(2);
+      let startError = null;
+      const code = await runChild(spawnImpl, invocation, processEnv, error => {
+        startError = error;
       });
-      child.once('exit', exitCode => resolvePromise(exitCode ?? 1));
-    });
-    const result = gateExitCode(code, mode);
-    if (code === 1 && result === 0) {
+      if (startError) {
+        output.error(`${label}: could not start the budget CLI: ${startError.message}`);
+        return 2;
+      }
+      if (code === 0 && existsSync(outPath)) runs.push(await loadRun(outPath));
+      else output.warn(`${label}: launch ${round} produced no measurement (exit ${code})`);
+    }
+    const verdict = judgeRuns(runs, budget, mode);
+    output.log(renderCheckReport(verdict.report));
+    if (!verdict.enough) {
+      output.error(`${label}: only ${runs.length} of ${mode.rounds} launches measured`);
+    }
+    if (!verdict.passed && !mode.enforce) {
       output.warn(`${label}: WARN over budget or unmeasured; pass --strict to fail.`);
     }
-    return result;
+    return gateExitCode(verdict.passed, mode);
   } finally {
     rmSync(workDir, { recursive: true, force: true });
   }

@@ -520,8 +520,8 @@ starts a local Vite preview via `scripts/run-electron-memory-gate.mjs`, points
 
 - **Strict.** Puntovivo's `--strict` fails the build on an over-budget value.
   It is never forwarded to the kit, whose `--strict` would drop the threshold.
-- **Missing proof.** `--require-measurement` is forwarded: an unmeasured metric
-  fails. A missing main bundle or native runtime always fails.
+- **Missing proof.** Under `--require-measurement` an unmeasured metric fails,
+  and so does a gate where fewer than two of three launches measured. A missing main bundle or native runtime always fails.
 - **Local runs.** Without `--strict` an over-budget or unmeasured result prints
   a `WARN` and exits 0. `PUNTOVIVO_BUDGET_ROUNDS` changes the number of
   launches.
@@ -543,6 +543,8 @@ cashier, registers a device and sells one-item tickets back to back for
 `perf-budget.json::electronMainThread.windowMs`: a product search,
 `sales.create` with a command envelope and the active-session refetch. Fewer
 than `minSales` sales fails the launch, since the server was not under load.
+Each launch sells against its own copy of the fixture: launches that shared
+one file slowed down launch after launch on the Windows runner.
 
 Meanwhile the kit counts every tick of a 10 ms timer in main that fires 10 ms
 or more late as blocked time, and times the `get-app-version` IPC every 25 ms.

@@ -570,8 +570,8 @@ apunta `WEB_DEV_SERVER_URL` a ella y corre el gate con `--strict` y
 - **Estricto.** El `--strict` de Puntovivo hace fallar el build ante un valor
   por encima del presupuesto. Nunca se pasa al kit, cuyo `--strict` quitaría
   el umbral.
-- **Falta de prueba.** `--require-measurement` sí se pasa: una métrica sin
-  medir falla. Si falta el bundle main o el runtime nativo, siempre falla.
+- **Falta de prueba.** Con `--require-measurement` una métrica sin medir
+  falla, y también un gate donde menos de dos de tres inicios midieron. Si falta el bundle main o el runtime nativo, siempre falla.
 - **Corridas locales.** Sin `--strict`, un resultado por encima o sin medir
   imprime un `WARN` y sale con 0. `PUNTOVIVO_BUDGET_ROUNDS` cambia el número de
   inicios.
@@ -595,6 +595,9 @@ seguidos durante `perf-budget.json::electronMainThread.windowMs`: una búsqueda
 de producto, `sales.create` con un sobre de comando y la consulta de la sesión
 activa. Menos de `minSales` ventas hace fallar el inicio, porque el servidor
 no estuvo bajo carga.
+Cada inicio vende contra su propia copia del fixture: los inicios que
+compartían un archivo se volvían más lentos uno tras otro en el runner
+Windows.
 
 Mientras tanto el kit cuenta como tiempo bloqueado cada tick de un temporizador
 de 10 ms en main que llega 10 ms tarde o más, y mide el IPC `get-app-version`

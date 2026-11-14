@@ -19,7 +19,7 @@
 import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { performance } from 'node:perf_hooks';
@@ -259,13 +259,20 @@ export async function runCli({ argv = process.argv.slice(2), env = process.env }
   const workDir = mkdtempSync(join(tmpdir(), 'puntovivo-main-thread-'));
   const dbPath = join(workDir, 'fixture.db');
   try {
-    // Every round sells against this one fixture; its stock covers them all.
     seedFixture(dbPath);
     return await runBudgetGate({
       check: 'main-thread',
       label: 'check-electron-main-thread',
       argv,
       workload: SALES_WORKLOAD,
+      // Each launch sells against its own copy: a fixture that inherits the
+      // previous launches' sales slows down launch after launch.
+      prepareRound: async (round, roundDir) => {
+        const copy = join(roundDir, `fixture-${round}.db`);
+        copyFileSync(dbPath, copy);
+        if (existsSync(`${dbPath}-wal`)) copyFileSync(`${dbPath}-wal`, `${copy}-wal`);
+        return { DATABASE_URL: copy };
+      },
       // Read by the workload, which runs in the budget CLI's process.
       processEnv: {
         ...env,
