@@ -52,6 +52,28 @@ is usable from source, but it is not a new packaged release yet.
   a real alert receiver with ownership, and an observed retail pilot remain
   open gates.
 
+## [1.18.1](https://github.com/johnny4young/puntovivo/compare/v1.18.0...v1.18.1) (2026-11-14)
+
+
+### Bug Fixes
+
+* **desktop:** hold worker launches while restartAround owns the database ([4303ff3](https://github.com/johnny4young/puntovivo/commit/4303ff382a75feb838c852f8f4b61fdeb0ae5c55))
+* **desktop:** keep held restarts away from the database files ([7d68f6e](https://github.com/johnny4young/puntovivo/commit/7d68f6e3762ccf6c165846d1a3f755091260d042))
+* **desktop:** keep the budget gates failing what they failed before ([fb7293d](https://github.com/johnny4young/puntovivo/commit/fb7293dd81ff154c65a4a7adc27601966dd7e5b4))
+* **perf:** give each budget launch its own fixture copy ([598724c](https://github.com/johnny4young/puntovivo/commit/598724c6d4cd8e5988933495d129487b6ebb8dc1))
+
+
+### Performance
+
+* **desktop:** run the Electron budget gates through @electron-stagewright/plugin-budget ([9c626b7](https://github.com/johnny4young/puntovivo/commit/9c626b72588ab3892724d9da4428974ff9fc20e1))
+* **desktop:** run the Electron budget gates through @electron-stagewright/plugin-budget ([8bfa834](https://github.com/johnny4young/puntovivo/commit/8bfa8349cc1cabf3e0ed25f78de090d5aebf5d2b))
+
+
+### Refactors
+
+* **desktop:** supervise the server worker with @electron-stagewright/host-supervisor ([55be383](https://github.com/johnny4young/puntovivo/commit/55be38376bf6c204d71a35f16a6414d541fe8e00))
+* **desktop:** supervise the server worker with @electron-stagewright/host-supervisor ([1bfa3be](https://github.com/johnny4young/puntovivo/commit/1bfa3be6cd846883ed4691054a62bf4a4c6b473b))
+
 ## [1.18.0](https://github.com/johnny4young/puntovivo/compare/v1.17.1...v1.18.0) (2026-11-14)
 
 
