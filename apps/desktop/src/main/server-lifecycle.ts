@@ -166,6 +166,8 @@ export function createServerLifecycle({
 
   // Built again for every worker, crash restarts included.
   async function buildStartPayload(): Promise<WorkerStartOptions> {
+    // Preparing the payload recovers and migrates the database files.
+    if (held) throw new Error('SERVER_WORKER_HELD');
     // Authority Node host/mode/port remain environment-resolved.
     const runtime = resolveRuntimeConfig({ env });
     const encryptionKey = await prepareDatabaseEncryption();
@@ -226,22 +228,16 @@ export function createServerLifecycle({
 
   async function stop(): Promise<void> {
     shuttingDown = true;
-    await exclusive(async () => {
-      held = true;
-      setServerHost(null);
-      log.info('shutting down embedded server');
-      await host.close();
-      log.info('embedded server stopped');
-    });
+    await exclusive(() => stopHost({ final: true }));
   }
 
-  async function stopHost(): Promise<void> {
+  async function stopHost({ final = false } = {}): Promise<void> {
     held = true;
     setServerHost(null);
     log.info('shutting down embedded server');
     // Rejects when the worker did not close cleanly: callers such as a
     // restore must not touch its files.
-    await host.stop();
+    await (final ? host.close() : host.stop());
     log.info('embedded server stopped');
   }
 
@@ -375,7 +371,8 @@ export function createServerLifecycle({
       log.warn({ errorCode: crashErrorCode(error as Error) }, 'restarted worker not reachable');
       return;
     }
-    if (!current || episode !== current) return;
+    // A stop or restartAround that began meanwhile owns the host and the episode.
+    if (!current || episode !== current || held) return;
     setServerHost(handle);
     closeEpisode(current);
     setState('running');

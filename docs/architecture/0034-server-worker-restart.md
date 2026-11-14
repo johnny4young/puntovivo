@@ -51,9 +51,9 @@ Main restarts a server worker that dies after it has started serving.
   A call made through an old handle during a restart waits for the new worker
   instead of failing. Main still sees no host while restarting, so the charge
   buttons stay disabled.
-- **Cause.** The worker's crash handler sends the serialized error to main
-  before the thread ends; a heap-limit exit is classified as `oom`. A native
-  crash still ends the whole process (ADR-0032).
+- **Cause.** The supervisor's host side sends the serialized error to main
+  before the worker's crash handler ends the thread; a heap-limit exit is
+  classified as `oom`. A native crash still ends the whole process (ADR-0032).
 - **Argon2 in flight.** A hash that settles after its thread ended aborts the
   whole process (`Napi::Error` in the native completion). The worker's crash
   handler therefore waits for running hashes before it ends the thread. An
