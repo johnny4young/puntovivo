@@ -1,60 +1,88 @@
+import { execFileSync } from 'node:child_process';
 import { readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const HEADING = /^#{1,6} /;
 const VERSION_HEADING = /^## \[/;
 const BREAKING_HEADING = /^### .*BREAKING CHANGES/;
-const COMMIT_LINK = /\s+\(\[[0-9a-f]{7,40}\]\([^)]*\)\)\s*$/;
+const COMMIT_LINK = /\s+\(\[([0-9a-f]{7,40})\]\([^)]*\)\)\s*$/;
 
 /**
  * release-please lists a merged PR twice: once for its own commit and once for
- * the merge commit, whose body GitHub fills with the PR title. Keeps the first
- * entry of each change within a release, and drops a subsection left empty.
- * Breaking-change notes repeat their feature on purpose and are left alone.
+ * the merge commit, whose body GitHub fills with the PR title. Within a
+ * release, drops a merge-commit entry whose text a regular commit also has,
+ * and drops a subsection left empty. Distinct commits with the same message
+ * and breaking-change notes, which repeat their feature on purpose, stay.
+ *
+ * @param {string} content
+ * @param {(sha: string) => boolean} isMerge called only for repeated entries
  */
-export function dedupeChangelog(content) {
-  const kept = [];
-  let seen = new Set();
-  let section = null;
+export function dedupeChangelog(content, isMerge) {
+  const lines = content.split('\n').map(text => ({ text, drop: false }));
+  let groups = new Map();
+  let breaking = false;
   let releases = 0;
+  const flush = () => {
+    for (const entries of groups.values()) {
+      if (entries.length < 2) continue;
+      const merges = entries.filter(entry => isMerge(entry.sha));
+      if (merges.length === entries.length) continue;
+      for (const entry of merges) entry.line.drop = true;
+    }
+    groups = new Map();
+  };
+
+  for (const line of lines) {
+    if (HEADING.test(line.text)) {
+      if (line.text.startsWith('## ')) flush();
+      if (VERSION_HEADING.test(line.text)) releases += 1;
+      breaking = BREAKING_HEADING.test(line.text);
+      continue;
+    }
+    const link = COMMIT_LINK.exec(line.text);
+    if (breaking || !line.text.startsWith('* ') || !link) continue;
+    const change = line.text.slice(0, link.index);
+    groups.set(change, [...(groups.get(change) ?? []), { line, sha: link[1] }]);
+  }
+  flush();
+
+  const kept = [];
+  let section = null;
   let removed = 0;
   const closeSection = () => {
     if (section?.removed > 0 && !section.hasContent) kept.splice(section.index);
   };
-  for (const line of content.split('\n')) {
-    if (HEADING.test(line)) {
+  for (const line of lines) {
+    if (HEADING.test(line.text)) {
       closeSection();
-      section = line.startsWith('### ')
-        ? {
-            index: kept.length,
-            removed: 0,
-            hasContent: false,
-            breaking: BREAKING_HEADING.test(line),
-          }
+      section = line.text.startsWith('### ')
+        ? { index: kept.length, removed: 0, hasContent: false }
         : null;
-      if (line.startsWith('## ')) seen = new Set();
-      if (VERSION_HEADING.test(line)) releases += 1;
-      kept.push(line);
+    } else if (line.drop) {
+      removed += 1;
+      if (section) section.removed += 1;
       continue;
+    } else if (section && line.text.trim()) {
+      section.hasContent = true;
     }
-    if (!section?.breaking && line.startsWith('* ') && COMMIT_LINK.test(line)) {
-      const change = line.replace(COMMIT_LINK, '');
-      if (seen.has(change)) {
-        removed += 1;
-        if (section) section.removed += 1;
-        continue;
-      }
-      seen.add(change);
-    }
-    if (section && line.trim()) section.hasContent = true;
-    kept.push(line);
+    kept.push(line.text);
   }
   closeSection();
   return { content: kept.join('\n'), releases, removed };
 }
 
-export function dedupeChangelogFile(file) {
-  const result = dedupeChangelog(readFileSync(file, 'utf8'));
+/** Needs the commits in the local history; an unknown SHA throws. */
+export function isMergeCommit(sha, cwd) {
+  const parents = execFileSync('git', ['rev-list', '--no-walk', '--parents', `${sha}^{commit}`], {
+    cwd,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  return parents.trim().split(' ').length > 2;
+}
+
+export function dedupeChangelogFile(file, isMerge = sha => isMergeCommit(sha)) {
+  const result = dedupeChangelog(readFileSync(file, 'utf8'), isMerge);
   if (result.releases === 0) throw new Error(`${file} has no release sections`);
   if (result.removed > 0) writeFileSync(file, result.content);
   return result;
