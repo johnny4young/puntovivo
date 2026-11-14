@@ -286,11 +286,16 @@ test('release-please reports the curated notes status after every push with leas
   const end = lines.findIndex((line, index) => index > start && /^ {2}[\w-]+:$/u.test(line));
   const job = lines.slice(start, end === -1 ? undefined : end).join('\n');
 
-  assert.match(job, /^ {4}needs: release-please$/m);
+  assert.match(job, /^ {4}needs: \[release-please, dedupe-changelog\]$/m);
   // release-please opens and refreshes its pull request on pushes that create
   // no release, and those are the pushes that land a curated note, so a
-  // condition on release_created would skip every run that matters.
-  assert.doesNotMatch(job, /^ {4}if:/m);
+  // condition on release_created would skip every run that matters. A skipped
+  // dedupe must not skip the gate either.
+  assert.match(
+    job,
+    /^ {4}if: \$\{\{ !cancelled\(\) && needs\.release-please\.result == 'success' \}\}$/m
+  );
+  assert.doesNotMatch(job, /release_created/);
   assert.match(
     job,
     /^ {4}permissions:\n {6}contents: read\n {6}pull-requests: read\n {6}statuses: write\n {4}steps:$/m

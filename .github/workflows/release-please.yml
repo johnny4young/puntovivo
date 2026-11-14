@@ -15,6 +15,9 @@ name: release-please
 # workflow in the same run means no PAT is needed — a bot-created release event
 # would not, by itself, trigger a separate workflow.
 #
+# Each time release-please updates its Release PR, the dedupe-changelog job
+# pushes a commit that drops the repeated entries merge commits add.
+#
 # While a Release PR is open, the release-notes-gate job posts a "Curated release
 # notes" commit status on it after every push to main: failure while main has no
 # valid docs/releases/vX.Y.Z.md for the version the PR proposes, success once it
@@ -37,6 +40,7 @@ jobs:
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
+      pr_branch: ${{ steps.release.outputs.pr && fromJSON(steps.release.outputs.pr).headBranchName }}
     steps:
       - name: Run release-please
         id: release
@@ -78,9 +82,35 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/publish-human-release-notes.mjs "${{ needs.release-please.outputs.tag_name }}"
 
+  # A merge commit carries its PR title in the body, so release-please lists
+  # every merged PR twice.
+  dedupe-changelog:
+    name: Drop repeated changelog entries on the Release PR
+    needs: release-please
+    if: ${{ needs.release-please.outputs.pr_branch != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the Release PR branch
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release-please.outputs.pr_branch }}
+      - name: Remove duplicates and push
+        run: |
+          node scripts/dedupe-changelog.mjs CHANGELOG.md
+          if git diff --quiet -- CHANGELOG.md; then exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'chore(release): drop repeated changelog entries' -- CHANGELOG.md
+          git push origin HEAD
+
   release-notes-gate:
     name: Curated notes status on the Release PR
-    needs: release-please
+    needs: [release-please, dedupe-changelog]
+    # Runs after the dedupe push so the status lands on the final head.
+    if: ${{ !cancelled() && needs.release-please.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

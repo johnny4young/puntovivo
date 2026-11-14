@@ -48,3 +48,7 @@ por lo que ni el estado ni CI impiden por sí solos fusionar la PR.
 Cuando Release Please crea la etiqueta, `.github/workflows/release-please.yml`
 usa esa etiqueta exacta y reemplaza el cuerpo generado del release GitHub
 con el archivo curado. `CHANGELOG.md` sigue disponible para el detalle por commit.
+
+Los merge commits repiten el título de cada PR, así que Release Please lista
+dos veces cada PR fusionada. Cada vez que actualiza su PR, el workflow sube a
+esa rama un commit que quita las repeticiones de `CHANGELOG.md`.
