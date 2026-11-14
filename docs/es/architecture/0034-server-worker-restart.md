@@ -52,10 +52,10 @@ Main reinicia el worker del servidor cuando muere después de empezar a servir.
   arriba. Una llamada hecha con un handle viejo durante un reinicio espera al
   worker nuevo en vez de fallar. Main sigue sin ver un host mientras reinicia,
   así que los botones de cobro siguen deshabilitados.
-- **Causa.** El manejador de caídas del worker envía el error serializado a
-  main antes de que el hilo termine; una salida por límite de heap se
-  clasifica como `oom`. Una caída nativa sigue terminando todo el proceso
-  (ADR-0032).
+- **Causa.** El lado host del supervisor envía el error serializado a main
+  antes de que el manejador de caídas del worker termine el hilo; una salida
+  por límite de heap se clasifica como `oom`. Una caída nativa sigue
+  terminando todo el proceso (ADR-0032).
 - **Argon2 en vuelo.** Un hash que termina después de que su hilo murió
   aborta todo el proceso (`Napi::Error` en la finalización nativa). Por eso el
   manejador de caídas del worker espera los hashes en curso antes de terminar

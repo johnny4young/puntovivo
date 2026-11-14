@@ -33,13 +33,17 @@ function setup(plan: FakeStart[], options: { quitting?: () => boolean } = {}) {
   const crashes: Array<Omit<WorkerCrashEntry, 'at' | 'appVersion'>> = [];
   const fake = fakeServerWorkerTransport(plan);
   let clock = 0;
+  let prepares = 0;
   const lifecycle = createServerLifecycle({
     dbPath: join(tmpdir(), 'puntovivo-recovery-test.db'),
     migrationsPath: join(tmpdir(), 'migrations'),
     isDev: false,
     appVersion: '1.0.0',
     log: quietLog,
-    prepareDatabaseEncryption: async () => 'a'.repeat(64),
+    prepareDatabaseEncryption: async () => {
+      prepares += 1;
+      return 'a'.repeat(64);
+    },
     prepareAuditAnchorKey: async () => 'b'.repeat(64),
     getMainWindow: () => null,
     generateJwtSecret: () => 'stable-secret',
@@ -60,6 +64,7 @@ function setup(plan: FakeStart[], options: { quitting?: () => boolean } = {}) {
     crashes,
     workers: fake.workers,
     serverOptions,
+    prepares: () => prepares,
     advance: (ms: number) => (clock += ms),
   };
 }
@@ -243,11 +248,35 @@ describe('embedded server crash recovery', () => {
     await t.lifecycle.restartAround(async () => {
       duringOperation = await captured.readAppSetting('tray_settings').catch(error => error);
       assert.equal(t.workers.length, 1, 'no worker may open the database mid-operation');
+      assert.equal(t.prepares(), 1, 'no start payload may touch the database mid-operation');
     });
 
     assert.match(String((duringOperation as Error).cause), /SERVER_WORKER_HELD/);
     assert.equal(t.workers.length, 2);
     assert.equal(await captured.readAppSetting('tray_settings'), null);
+    await t.lifecycle.stop();
+  });
+
+  it('keeps a recovered worker unpublished when restartAround began during its getUrl', async () => {
+    let releaseUrl!: () => void;
+    const urlGate = new Promise<void>(resolve => (releaseUrl = resolve));
+    const t = setup([ok(1), { url: 'http://127.0.0.1:2', urlGate }, ok(3)]);
+    setServerHost(await t.lifecycle.start());
+
+    t.workers[0]?.crash(crash);
+    await until(() => t.workers[1]?.calls.includes('getUrl') ?? false);
+    let hostDuringOperation: unknown = 'unset';
+    const operation = t.lifecycle.restartAround(async () => {
+      hostDuringOperation = getServerHost();
+    });
+    // The stop drains the gated getUrl, so it has begun before the reply.
+    await new Promise(resolve => setTimeout(resolve, 10));
+    releaseUrl();
+    await operation;
+
+    assert.equal(hostDuringOperation, null);
+    assert.deepEqual(t.states.slice(0, 2), ['running', 'restarting']);
+    assert.ok(!t.states.slice(2, -1).includes('running'));
     await t.lifecycle.stop();
   });
 

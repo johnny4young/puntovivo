@@ -9,11 +9,14 @@ import type { WorkerStartOptions } from '../../server-host/contract.ts';
 
 /** How one launched worker answers `start`. */
 export type FakeStart =
-  { url: string; gate?: Promise<void> } | { fail: Error; gate?: Promise<void> };
+  | { url: string; gate?: Promise<void>; urlGate?: Promise<void> }
+  | { fail: Error; gate?: Promise<void> };
 
 export interface FakeWorker {
   readonly payload: WorkerStartOptions | null;
   readonly stopped: boolean;
+  /** Operations received, in order. */
+  readonly calls: string[];
   /** Reports an uncaught error, then exits like the crash handler does. */
   crash(error: Error): void;
   /** Exits the way Node ends a worker past its heap limit. */
@@ -39,6 +42,7 @@ export function fakeServerWorkerTransport(plan: FakeStart[]) {
       const worker = {
         payload: null as WorkerStartOptions | null,
         stopped: false,
+        calls: [] as string[],
         crash(error: Error) {
           post({ type: 'crashed', error: serializeError(error) });
           setImmediate(() => exit({ code: 1 }));
@@ -49,6 +53,8 @@ export function fakeServerWorkerTransport(plan: FakeStart[]) {
         },
       };
       workers.push(worker);
+      // Like serveHost, a stop waits for the calls already accepted.
+      let inFlight: Promise<void> = Promise.resolve();
       const receive = async (message: SupervisorMessage) => {
         switch (message.type) {
           case 'start':
@@ -62,6 +68,12 @@ export function fakeServerWorkerTransport(plan: FakeStart[]) {
             );
             return;
           case 'call':
+            worker.calls.push(message.op);
+            if (message.op === 'getUrl' && 'url' in outcome && outcome.urlGate) {
+              const answered = outcome.urlGate;
+              inFlight = Promise.all([inFlight, answered]).then(() => undefined);
+              await answered;
+            }
             post({
               type: 'result',
               id: message.id,
@@ -70,6 +82,7 @@ export function fakeServerWorkerTransport(plan: FakeStart[]) {
             });
             return;
           case 'stop':
+            await inFlight;
             worker.stopped = true;
             post({ type: 'stopped' });
             setImmediate(() => exit({ code: 0 }));
