@@ -2,13 +2,11 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import {
-  compareToMainThreadBudget,
   createSaleWorkload,
   parseJsonLine,
   readMainThreadBudget,
-  renderMainThreadReport,
-  resolveMainThreadGateMode,
 } from './check-electron-main-thread.mjs';
+import { waitForServer } from './electron-budget-sales-workload.mjs';
 
 const budget = {
   windowMs: 15000,
@@ -17,42 +15,6 @@ const budget = {
   maxIpcP99Ms: 10,
   minSales: 10,
 };
-const metrics = {
-  mainThread: {
-    windowMs: 15000,
-    blockedMs: 300,
-    blockedPercent: 2,
-    maxStallMs: 40,
-    stallsOver50Ms: 0,
-    stallsOver100Ms: 0,
-  },
-  ipc: { count: 500, p50: 0.3, p95: 2, p99: 4, max: 9 },
-};
-const workload = {
-  salesInWindow: 400,
-  failures: 0,
-  firstFailure: null,
-  saleLatency: { p50: 12, p95: 30 },
-};
-
-test('flags and env select strict and required measurement', () => {
-  assert.deepEqual(resolveMainThreadGateMode({ argv: [], env: {} }), {
-    enforce: false,
-    requireMeasurement: false,
-  });
-  assert.deepEqual(
-    resolveMainThreadGateMode({ argv: ['--strict', '--require-measurement'], env: {} }),
-    { enforce: true, requireMeasurement: true }
-  );
-  assert.deepEqual(
-    resolveMainThreadGateMode({
-      argv: [],
-      env: { PUNTOVIVO_MAIN_THREAD_STRICT: '1', PUNTOVIVO_MAIN_THREAD_REQUIRE_MEASUREMENT: '1' },
-    }),
-    { enforce: true, requireMeasurement: true }
-  );
-});
-
 test('parseJsonLine reads one named line and tolerates noise', () => {
   const stdout = `log line\nPUNTOVIVO_MAIN_THREAD_READY={"serverUrl":"http://127.0.0.1:1"}\nmore\n`;
   assert.deepEqual(parseJsonLine(stdout, 'PUNTOVIVO_MAIN_THREAD_READY'), {
@@ -71,44 +33,6 @@ test('the budget entry must carry every positive limit', () => {
   assert.throws(
     () => readMainThreadBudget({ electronMainThread: { ...budget, maxIpcP99Ms: 0 } }),
     /electronMainThread/
-  );
-});
-
-test('within budget passes and each over-limit metric is reported', () => {
-  assert.equal(compareToMainThreadBudget({ metrics, workload, budget }).regressions.length, 0);
-
-  const slow = {
-    mainThread: { ...metrics.mainThread, blockedPercent: 22.9, maxStallMs: 120 },
-    ipc: { ...metrics.ipc, p99: 31 },
-  };
-  const comparison = compareToMainThreadBudget({
-    metrics: slow,
-    workload: { ...workload, salesInWindow: 3 },
-    budget,
-  });
-  assert.deepEqual(
-    comparison.regressions.map(row => row.name),
-    [
-      'main thread blocked %',
-      'worst main-thread stall ms',
-      'IPC round trip p99 ms',
-      'sales during the window',
-    ]
-  );
-  const report = renderMainThreadReport(comparison, { metrics: slow, workload });
-  assert.match(report, /\| IPC round trip p99 ms \| <= 10 \| 31 \(over\) \|/);
-  assert.match(report, /sales 400 ok, 0 failed/);
-});
-
-test('a window without IPC samples fails instead of reading p99 as 0', () => {
-  const comparison = compareToMainThreadBudget({
-    metrics: { ...metrics, ipc: { count: 0, p50: 0, p95: 0, p99: 0, max: 0 } },
-    workload,
-    budget,
-  });
-  assert.deepEqual(
-    comparison.regressions.map(row => row.name),
-    ['IPC samples']
   );
 });
 
@@ -204,5 +128,24 @@ test('the workload fails fast when the fixture cashier has no open session', asy
   await assert.rejects(
     createSaleWorkload({ serverUrl: 'http://127.0.0.1:9', fetchImpl }).warmUp(),
     /no open cash session/
+  );
+});
+
+test('the sales workload waits for the embedded server before signing in', async () => {
+  let calls = 0;
+  await waitForServer('http://127.0.0.1:1', {
+    fetchImpl: async () => {
+      calls += 1;
+      if (calls < 3) throw new Error('ECONNREFUSED');
+      return { ok: true };
+    },
+  });
+  assert.equal(calls, 3);
+  await assert.rejects(
+    waitForServer('http://127.0.0.1:1', {
+      timeoutMs: 0,
+      fetchImpl: async () => ({ ok: false }),
+    }),
+    /never answered/
   );
 });

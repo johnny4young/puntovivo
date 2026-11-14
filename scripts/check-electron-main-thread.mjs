@@ -1,32 +1,32 @@
 #!/usr/bin/env node
 /**
- * Electron main-thread responsiveness gate.
+ * Electron main-thread responsiveness gate: budget config and the sales
+ * workload for `@electron-stagewright/plugin-budget`.
  *
- * Seeds a disposable encrypted database, launches the built app in
- * measurement mode (`PUNTOVIVO_MEASURE_MAIN_THREAD=1`) against it, and keeps
- * the embedded server busy with real sales over loopback HTTP while the main
- * process samples its own blocking and the renderer times a trivial IPC round
- * trip. The main process prints `PUNTOVIVO_MAIN_THREAD_METRICS=<json>`; this
- * script compares it with `perf-budget.json::electronMainThread`.
+ * Seeds a disposable encrypted database and launches the built app three
+ * times against it. In each window the workload keeps the embedded server busy
+ * with real sales over loopback HTTP while the kit samples main-thread
+ * blocking and a renderer IPC round trip. The gate compares the median of the
+ * rounds with `perf-budget.json::electronMainThread`, so one host stall in one
+ * window cannot fail it, while a stall the code causes repeats in every round.
  *
  * Run it through `run-electron-memory-gate.mjs --check=main-thread`, which
- * serves the built renderer and reserves the API port. Flags mirror the
- * memory gate: `--strict` fails over budget, `--require-measurement` fails
- * when nothing could be measured.
+ * serves the built renderer and reserves the API port.
  *
  * @module scripts/check-electron-main-thread
  */
 
-import { spawn, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import { ensureNativeRuntime } from './check-electron-memory.mjs';
+import { runBudgetGate } from './lib/electron-budget.mjs';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const BUDGET_PATH = join(REPO_ROOT, 'perf-budget.json');
@@ -47,20 +47,7 @@ const FIXTURE_CASHIER = { email: 'cashier.norte@demo.co', password: 'Admin123!De
 const PRODUCT_POOL = 40;
 /** No pause between sales: the window keeps the server saturated. */
 const THINK_MS = 0;
-const LAUNCH_TIMEOUT_MS = 240_000;
-
-/** Resolve CLI/env flags without reading process state in tests. */
-export function resolveMainThreadGateMode({
-  argv = process.argv.slice(2),
-  env = process.env,
-} = {}) {
-  return {
-    enforce: argv.includes('--strict') || env.PUNTOVIVO_MAIN_THREAD_STRICT === '1',
-    requireMeasurement:
-      argv.includes('--require-measurement') ||
-      env.PUNTOVIVO_MAIN_THREAD_REQUIRE_MEASUREMENT === '1',
-  };
-}
+const SALES_WORKLOAD = join(REPO_ROOT, 'scripts', 'electron-budget-sales-workload.mjs');
 
 /** Read one `NAME=<json>` line the main process printed, or null. */
 export function parseJsonLine(stdout, name) {
@@ -81,48 +68,6 @@ export function readMainThreadBudget(raw) {
     throw new Error(`perf-budget.json::electronMainThread needs positive ${keys.join(', ')}`);
   }
   return budget;
-}
-
-/** Compare measured metrics and workload against the budget. */
-export function compareToMainThreadBudget({ metrics, workload, budget }) {
-  const rows = [
-    ['main thread blocked %', metrics.mainThread.blockedPercent, budget.maxBlockedPercent, 'max'],
-    ['worst main-thread stall ms', metrics.mainThread.maxStallMs, budget.maxStallMs, 'max'],
-    ['IPC round trip p99 ms', metrics.ipc.p99, budget.maxIpcP99Ms, 'max'],
-    // Without samples the p99 reads 0 and would pass unmeasured.
-    ['IPC samples', metrics.ipc.count, 1, 'min'],
-    ['sales during the window', workload.salesInWindow, budget.minSales, 'min'],
-  ].map(([name, actual, limit, kind]) => ({
-    name,
-    actual,
-    limit,
-    kind,
-    ok: kind === 'max' ? actual <= limit : actual >= limit,
-  }));
-  return { rows, regressions: rows.filter(row => !row.ok) };
-}
-
-export function renderMainThreadReport({ rows }, { metrics, workload }) {
-  const lines = ['| metric | limit | actual |', '| --- | ---: | ---: |'];
-  for (const row of rows) {
-    const limit = `${row.kind === 'max' ? '<=' : '>='} ${row.limit}`;
-    lines.push(`| ${row.name} | ${limit} | ${row.actual}${row.ok ? '' : ' (over)'} |`);
-  }
-  lines.push('');
-  lines.push(
-    `window ${metrics.mainThread.windowMs} ms, blocked ${metrics.mainThread.blockedMs} ms, ` +
-      `stalls >50 ms ${metrics.mainThread.stallsOver50Ms}, >100 ms ${metrics.mainThread.stallsOver100Ms}`
-  );
-  lines.push(
-    `IPC samples ${metrics.ipc.count}: p50 ${metrics.ipc.p50} / p95 ${metrics.ipc.p95} / ` +
-      `p99 ${metrics.ipc.p99} / max ${metrics.ipc.max} ms`
-  );
-  lines.push(
-    `sales ${workload.salesInWindow} ok, ${workload.failures} failed, ` +
-      `HTTP sale p50 ${workload.saleLatency.p50} / p95 ${workload.saleLatency.p95} ms` +
-      (workload.firstFailure ? ` (first failure: ${workload.firstFailure})` : '')
-  );
-  return lines.join('\n');
 }
 
 function percentile(sorted, value) {
@@ -290,138 +235,7 @@ export function seedFixture(dbPath, { key = MEASURE_DB_KEY, timeoutMs = 180_000 
   }
 }
 
-/**
- * Launch, drive and measure. Returns `{ metrics, workload }`, or `null` with a
- * printed reason when the measurement could not run.
- */
-export async function launchAndMeasure({ windowMs }) {
-  for (const [path, hint] of [
-    [ELECTRON_MAIN_ENTRY, 'pnpm --filter @puntovivo/desktop run build:main'],
-    [SEED_SCRIPT, 'pnpm --filter @puntovivo/server run build'],
-  ]) {
-    if (!existsSync(path)) {
-      console.warn(`check-electron-main-thread: WARN skipped — ${path} missing. Run "${hint}".`);
-      return null;
-    }
-  }
-  let electronBin;
-  try {
-    electronBin = createRequire(DESKTOP_PACKAGE_JSON)('electron');
-  } catch (err) {
-    console.warn(
-      `check-electron-main-thread: WARN skipped — electron not resolvable: ${err.message}`
-    );
-    return null;
-  }
-  const nativeLabel = { label: 'check-electron-main-thread' };
-  if (!ensureNativeRuntime('node', nativeLabel) || !ensureNativeRuntime('electron', nativeLabel)) {
-    return null;
-  }
-
-  const workDir = mkdtempSync(join(tmpdir(), 'puntovivo-main-thread-'));
-  const dbPath = join(workDir, 'fixture.db');
-  const startFile = join(workDir, 'start');
-  try {
-    try {
-      seedFixture(dbPath);
-    } catch (err) {
-      console.warn(`check-electron-main-thread: WARN skipped — ${err.message}`);
-      return null;
-    }
-    const isLinux = process.platform === 'linux';
-    const electronArgs = [ELECTRON_MAIN_ENTRY, `--user-data-dir=${join(workDir, 'profile')}`];
-    // Same reason as the memory gate: CI runners lack a configured SUID helper.
-    if (isLinux) electronArgs.push('--no-sandbox');
-    const child = spawn(
-      isLinux ? 'xvfb-run' : electronBin,
-      isLinux ? ['-a', electronBin, ...electronArgs] : electronArgs,
-      {
-        cwd: REPO_ROOT,
-        // xvfb-run forks Electron and Xvfb, so kill the whole group on Linux.
-        detached: isLinux,
-        stdio: ['ignore', 'pipe', 'pipe'],
-        env: {
-          ...process.env,
-          PUNTOVIVO_MEASURE_MAIN_THREAD: '1',
-          PUNTOVIVO_MAIN_THREAD_START_FILE: startFile,
-          PUNTOVIVO_MAIN_THREAD_WINDOW_MS: String(windowMs),
-          PUNTOVIVO_E2E: '1',
-          DATABASE_URL: dbPath,
-          PUNTOVIVO_DB_KEY: MEASURE_DB_KEY,
-          PUNTOVIVO_LOG_LEVEL: 'warn',
-        },
-      }
-    );
-    let stdout = '';
-    let workloadStop = false;
-    let workloadRun = null;
-    let workloadError = null;
-    let launchError = null;
-    const stopChild = () => {
-      try {
-        if (isLinux && child.pid) process.kill(-child.pid, 'SIGKILL');
-        else child.kill('SIGKILL');
-      } catch {
-        // Already gone.
-      }
-    };
-    const exited = new Promise(resolvePromise => {
-      child.once('exit', resolvePromise);
-      // A failed spawn emits only 'error'.
-      child.once('error', error => {
-        launchError = error;
-        resolvePromise();
-      });
-    });
-    const timeout = setTimeout(stopChild, LAUNCH_TIMEOUT_MS);
-    child.stderr.on('data', chunk => process.stderr.write(chunk));
-    child.stdout.on('data', chunk => {
-      stdout += String(chunk);
-      if (!workloadRun) {
-        const ready = parseJsonLine(stdout, 'PUNTOVIVO_MAIN_THREAD_READY');
-        if (ready?.serverUrl) {
-          const workload = createSaleWorkload({
-            serverUrl: ready.serverUrl,
-            thinkMs: Number(process.env.PUNTOVIVO_MAIN_THREAD_THINK_MS ?? THINK_MS),
-          });
-          workloadRun = workload
-            .warmUp()
-            .then(() => {
-              writeFileSync(startFile, '');
-              return workload.run(() => workloadStop);
-            })
-            .catch(error => {
-              workloadError = error;
-              // Main would otherwise wait minutes for a start file that never comes.
-              stopChild();
-              return null;
-            });
-        }
-      }
-      if (/^PUNTOVIVO_MAIN_THREAD_(METRICS|SKIP)=/m.test(stdout)) workloadStop = true;
-    });
-    await exited;
-    clearTimeout(timeout);
-    workloadStop = true;
-    const workload = workloadRun ? await workloadRun : null;
-    const skip = /^PUNTOVIVO_MAIN_THREAD_SKIP=(.+)$/m.exec(stdout)?.[1];
-    const metrics = parseJsonLine(stdout, 'PUNTOVIVO_MAIN_THREAD_METRICS');
-    if (launchError)
-      console.warn(
-        `check-electron-main-thread: WARN skipped — launch failed: ${launchError.message}`
-      );
-    if (workloadError)
-      console.warn(`check-electron-main-thread: workload failed: ${workloadError.message}`);
-    if (skip) console.warn(`check-electron-main-thread: measurement skipped: ${skip}`);
-    if (!metrics || !workload) return null;
-    return { metrics, workload };
-  } finally {
-    rmSync(workDir, { recursive: true, force: true });
-  }
-}
-
 export async function runCli({ argv = process.argv.slice(2), env = process.env } = {}) {
-  const mode = resolveMainThreadGateMode({ argv, env });
   let budget;
   try {
     budget = readMainThreadBudget(JSON.parse(readFileSync(BUDGET_PATH, 'utf8')));
@@ -429,19 +243,49 @@ export async function runCli({ argv = process.argv.slice(2), env = process.env }
     console.error(`check-electron-main-thread: ${err.message}`);
     return 1;
   }
-  const measured = await launchAndMeasure({ windowMs: budget.windowMs });
-  if (!measured) {
-    if (mode.requireMeasurement) {
-      console.error('check-electron-main-thread: FAIL — no measurement (--require-measurement)');
+  for (const [path, hint] of [
+    [ELECTRON_MAIN_ENTRY, 'pnpm --filter @puntovivo/desktop run build:main'],
+    [SEED_SCRIPT, 'pnpm --filter @puntovivo/server run build'],
+  ]) {
+    if (!existsSync(path)) {
+      console.error(`check-electron-main-thread: ${path} missing. Run "${hint}".`);
       return 1;
     }
-    return 0;
   }
-  const comparison = compareToMainThreadBudget({ ...measured, budget });
-  const verdict = comparison.regressions.length === 0 ? 'PASS' : 'OVER BUDGET';
-  console.log(`Electron main-thread responsiveness ${verdict}`);
-  console.log(renderMainThreadReport(comparison, measured));
-  return comparison.regressions.length > 0 && mode.enforce ? 1 : 0;
+  const nativeLabel = { label: 'check-electron-main-thread' };
+  if (!ensureNativeRuntime('node', nativeLabel) || !ensureNativeRuntime('electron', nativeLabel)) {
+    return 1;
+  }
+  const workDir = mkdtempSync(join(tmpdir(), 'puntovivo-main-thread-'));
+  const dbPath = join(workDir, 'fixture.db');
+  try {
+    // Every round sells against this one fixture; its stock covers them all.
+    seedFixture(dbPath);
+    return await runBudgetGate({
+      check: 'main-thread',
+      label: 'check-electron-main-thread',
+      argv,
+      workload: SALES_WORKLOAD,
+      // Read by the workload, which runs in the budget CLI's process.
+      processEnv: {
+        ...env,
+        PUNTOVIVO_BUDGET_SERVER_URL: `http://127.0.0.1:${env.PUNTOVIVO_BIND_PORT ?? '8090'}`,
+        PUNTOVIVO_BUDGET_WINDOW_MS: String(budget.windowMs),
+        PUNTOVIVO_BUDGET_MIN_SALES: String(budget.minSales),
+      },
+      env: {
+        PUNTOVIVO_E2E: '1',
+        DATABASE_URL: dbPath,
+        PUNTOVIVO_DB_KEY: MEASURE_DB_KEY,
+        PUNTOVIVO_LOG_LEVEL: 'warn',
+      },
+    });
+  } catch (err) {
+    console.error(`check-electron-main-thread: ${err.message}`);
+    return 1;
+  } finally {
+    rmSync(workDir, { recursive: true, force: true });
+  }
 }
 
 const isDirectInvocation =

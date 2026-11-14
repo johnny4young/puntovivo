@@ -534,94 +534,90 @@ de CI no es un artefacto empaquetado ni firmado.
 
 ### Memoria e inicio del entorno compilado de Electron (estricto en CI, advertencia inicial local)
 
-`scripts/check-electron-memory.mjs` inicia la app Electron compilada con
-`PUNTOVIVO_MEASURE_MEMORY=1`. El proceso principal espera a que termine la carga
-del renderizador más un breve período de estabilización, lee el conjunto de
-trabajo de cada proceso Electron con `app.getAppMetrics()`, imprime una línea
-`PUNTOVIVO_MEMORY_METRICS=<json>` y sale. La verificación asigna el proceso
-`Browser` a `main`, `Tab` a `renderer`, `GPU` a `gpu` y `Utility` a `utility`,
-suma en MB los procesos del mismo tipo, agrega todos los procesos en `total` y
-compara cada valor contra `perf-budget.json::electronMemoryMb.perProcessMb` con
-el `thresholdPercent` compartido. La memoria de composición y de red vive fuera
-del principal y del renderizador, así que un techo solo sobre esos dos dejaba
-fuera la mayor parte de la memoria de la app. El conjunto de trabajo no lo ve
-todo: en macOS el proceso de GPU reporta unos 100 MB mientras `footprint` muestra
-casi toda la memoria gráfica fuera de él, y el runner Linux de CI inicia un
-proceso de GPU solo en algunos arranques: el mismo commit midió 168.7 MB en un
-intento y 0 en el siguiente. Cada techo es el mayor entre las mediciones de
-macOS y de Linux alojado, así que `gpu` y `total` siguen a un arranque con
-proceso de GPU. El lanzador también registra el tiempo real total y lo verifica
-contra `operationalProfile.desktopLaunchElapsedMs`.
+`scripts/check-electron-memory.mjs` le entrega la medición a
+`@electron-stagewright/plugin-budget`. `scripts/lib/electron-budget.mjs`
+escribe el presupuesto del kit a partir de `perf-budget.json::electronMemoryMb`
+y `operationalProfile.desktopLaunchElapsedMs`, así que `perf-budget.json` sigue
+siendo el único lugar donde cambia un límite. El comando
+`electron-stagewright-budget measure` del kit inicia la app compilada tres
+veces, cada una con un perfil vacío (`cold`). La carga de
+`scripts/electron-budget-mounted-workload.mjs` hace fallar un inicio cuya raíz
+de React nunca se montó, para que una página de error de Chromium no pase, y
+luego espera 2 s.
 
-`ci:desktop` compila el bundle web más el bundle principal/preload de Electron,
-inicia una vista previa Vite local mediante
-`scripts/run-electron-memory-gate.mjs`, apunta `WEB_DEV_SERVER_URL` a ese
-renderizador y ejecuta la comprobación de memoria con `--strict` y
-`--require-measurement`. La vista previa reutiliza el punto de entrada real del
-ejecutable pnpm (`npm_execpath`), iniciando entradas JavaScript mediante Node y
-binarios nativos directamente sin shell. En Windows, inicia este ejecutor con
-`pnpm run perf:electron-memory:gate` en vez de invocar un wrapper `.cmd`/`.bat`;
-si falta una entrada utilizable, falla de forma segura. En ubuntu, el trabajo
-de escritorio de GitHub Actions instala `xvfb` y el lanzador envuelve Electron
-con `xvfb-run -a`, por lo que CI mide el renderizador Chromium real en vez de la
-página de error. Dos clases de fallo interrumpen la compilación:
+La memoria sigue en la métrica con la que se tomaron los techos: el
+`workingSet` de `app.getAppMetrics()`, sumado por tipo de proceso (`main`,
+`renderer`, `gpu`, `utility`) y en total, con el `thresholdPercent` compartido.
+Cada tabla del reporte nombra la métrica junto al valor. La composición y la
+red viven fuera de main y del renderer, así que la GPU y el total que la
+incluye siguen bloqueando. El working set no ve todo: en macOS el proceso GPU
+reporta unos 100 MB mientras `footprint` muestra casi toda la memoria gráfica
+fuera de él, y el runner Linux de CI arranca un proceso GPU solo en algunos
+inicios. Cada techo es el mayor entre las mediciones de macOS y del Linux
+hospedado. El gate compara la mediana de los tres inicios. El inicio va de la
+creación del proceso al final del evento load de la primera ventana, contra
+`operationalProfile.desktopLaunchElapsedMs`; el tiempo de antes contaba
+también la medición y el cierre, así que el mismo build ahora marca mucho
+menos.
 
-- **Regresión.** Un proceso principal o renderizador por encima de
-  `budget * (1 + thresholdPercent/100)` termina con código 1 en `--strict`.
-- **Falta de evidencia.** La ausencia del bundle principal `.vite/build`, un
-  binario Electron no resoluble, fallo de inicio, renderizador no montado, falta
-  de línea de métricas o ausencia de un proceso presupuestado terminan con
-  código 1 en `--require-measurement`.
+`ci:desktop` compila el bundle web y el bundle main y preload de Electron,
+levanta una vista previa local de Vite con `scripts/run-electron-memory-gate.mjs`,
+apunta `WEB_DEV_SERVER_URL` a ella y corre el gate con `--strict` y
+`--require-measurement`. En Windows, lanza el ejecutor con
+`pnpm run perf:electron-memory:gate`. En ubuntu el gate corre el kit bajo
+`xvfb-run -a` con `--no-sandbox`.
 
-El script directo local sigue siendo tolerante para diagnósticos del operador:
+- **Estricto.** El `--strict` de Puntovivo hace fallar el build ante un valor
+  por encima del presupuesto. Nunca se pasa al kit, cuyo `--strict` quitaría
+  el umbral.
+- **Falta de prueba.** `--require-measurement` sí se pasa: una métrica sin
+  medir falla. Si falta el bundle main o el runtime nativo, siempre falla.
+- **Corridas locales.** Sin `--strict`, un resultado por encima o sin medir
+  imprime un `WARN` y sale con 0. `PUNTOVIVO_BUDGET_ROUNDS` cambia el número de
+  inicios.
 
-- **Advertencia inicial.** Un proceso por encima del límite imprime `WARN` y
-  sigue terminando con código 0. Pasa `--strict` (o
-  `PUNTOVIVO_MEMORY_STRICT=1`) para que una regresión termine con código 1.
-- **Omisión automática.** Si falta el bundle principal `.vite/build`, el binario
-  electron no se puede resolver, hay error de inicio o no vuelve una línea de
-  métricas, imprime `WARN: skipped` y termina con código 0 salvo que esté
-  presente `--require-measurement` (o `PUNTOVIVO_MEMORY_REQUIRE_MEASUREMENT=1`).
-
-Los helpers puros de comparación/análisis tienen pruebas unitarias en
-`scripts/check-electron-memory.test.mjs` y el ejecutor portable de vista previa
-queda fijado por `scripts/run-electron-memory-gate.test.mjs`; ambos se ejecutan
-antes del inicio real de medición de memoria en `ci:desktop`.
+`scripts/check-electron-memory.test.mjs` fija la traducción del presupuesto,
+la invocación y los códigos de salida, y `scripts/run-electron-memory-gate.test.mjs`
+fija el ejecutor de vista previa.
 
 ### Fluidez del hilo principal de Electron (estricto en CI, advertencia inicial local)
 
 `scripts/check-electron-main-thread.mjs` mide cuánto traba el trabajo del
-servidor al hilo principal de Electron, que maneja ventanas, menús y cada
-llamada IPC del renderer. Siembra una base demo desechable con el script
-compilado `seed-dev`, le sube el stock para que la ventana no se quede sin
-existencias, y lanza la app compilada con `PUNTOVIVO_MEASURE_MAIN_THREAD=1` con
-el mismo runner de preview que la compuerta de memoria
-(`run-electron-memory-gate.mjs --check=main-thread`). Cuando el renderer
-monta, el proceso principal imprime `PUNTOVIVO_MAIN_THREAD_READY` con la URL de
-la API. La compuerta inicia sesión como la cajera del fixture por HTTP de
-loopback, registra un dispositivo y vende tickets de un ítem sin pausa: una
-búsqueda de producto, `sales.create` con sobre de comando y la recarga de la
-sesión activa. La ventana satura al servidor embebido a propósito.
+servidor al hilo principal de Electron, dueño de las ventanas, los menús y
+cada llamada IPC del renderer. Siembra una base demo desechable con el script
+compilado `seed-dev`, sube su stock para que ninguna ventana se quede sin
+productos y corre el kit con la carga de
+`scripts/electron-budget-sales-workload.mjs` mediante
+`run-electron-memory-gate.mjs --check=main-thread`. En cada uno de los tres
+inicios `cold` la carga espera al servidor embebido, inicia sesión como el
+cajero del fixture, registra un dispositivo y vende tiquetes de un artículo
+seguidos durante `perf-budget.json::electronMainThread.windowMs`: una búsqueda
+de producto, `sales.create` con un sobre de comando y la consulta de la sesión
+activa. Menos de `minSales` ventas hace fallar el inicio, porque el servidor
+no estuvo bajo carga.
 
-Durante `perf-budget.json::electronMainThread.windowMs`, el proceso principal
-corre un temporizador de 10 ms y cuenta como bloqueo cada disparo que llega 10
-ms tarde o más, mientras el renderer invoca el canal trivial `get-app-version`
-cada 25 ms. Imprime `PUNTOVIVO_MAIN_THREAD_METRICS=<json>` y cierra. Con
-`--strict`, la compuerta falla si el porcentaje bloqueado, el peor bloqueo o
-el p99 de IPC pasan su límite, o si se completaron menos de `minSales` ventas,
-señal de que la carga nunca llegó al servidor. `--require-measurement` vuelve
-fallo la falta de build, seed, lanzamiento, carga o línea de métricas.
+Mientras tanto el kit cuenta como tiempo bloqueado cada tick de un temporizador
+de 10 ms en main que llega 10 ms tarde o más, y mide el IPC `get-app-version`
+cada 25 ms. Los límites son absolutos, sin umbral porcentual, porque la métrica
+es una cola de latencia.
 
-Los límites son absolutos, sin umbral porcentual, porque la métrica es una
-cola de latencia. Una lectura local es indicativa: la contención de CPU de
-otros procesos también atrasa al muestreador. Con el servidor todavía en el
-hilo principal, ubuntu hospedado midió 21.3% bloqueado y un p99 de IPC de 27.1
-ms, mientras una máquina local cargada llegó a 62.4% bloqueado; por eso los
-límites en proceso son holgados.
-`scripts/check-electron-main-thread.test.mjs` fija los helpers y la secuencia
-de peticiones de la carga, y
-`apps/desktop/src/main/__tests__/main-thread-probe.test.ts` fija el
-muestreador.
+**Peor bloqueo entre inicios.** El gate compara la mediana de los tres
+inicios, no una sola ventana. En la pierna Windows de CI, 42 corridas entre
+2026-11-07 y 2026-11-13 dejaron la mediana del peor bloqueo cerca de 13 ms y
+el mayor valor que pasó en 55.7 ms, y la fracción bloqueada nunca pasó de
+0.4 %. Dos ventanas sueltas superaron 100 ms por sí solas, 487 ms el
+2026-11-12 y 108.7 ms en la corrida del release 1.18.0, y las dos pasaron al
+repetirse. Un bloqueo del host en una ventana de tres ya no hace fallar el
+gate; un bloqueo que causa el código se repite en cada inicio y sí lo hace
+fallar. Con cerca de una ventana mala de cada 22, la probabilidad de que dos
+de tres lo sean es de cerca de 0.6 %, contra cerca de 4.5 % con una sola
+ventana. La regresión para la que existe el gate, el servidor de vuelta en el
+hilo principal, midió 89.9 % bloqueado y un peor bloqueo de 1,004 ms en
+Windows, muy por encima de cada límite en cada inicio.
+
+`scripts/check-electron-main-thread.test.mjs` fija la secuencia de peticiones
+de la carga, y `apps/desktop/src/main/__tests__/main-thread-probe.test.ts` fija
+el muestreador que el soak sigue usando.
 
 ### Métricas web de Lighthouse (estricto en CI, advertencia inicial local)
 

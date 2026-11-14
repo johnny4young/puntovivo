@@ -1,249 +1,216 @@
-#!/usr/bin/env node
 /**
- * unit tests for the Electron memory gate's PURE logic.
- *
- * Exercises the helpers in isolation with fixture `getAppMetrics` data — no
- * Electron launch — mirroring `scripts/check-bundle-size.test.mjs`. The
- * launch path (`launchAndMeasure`) is integration-only and proven by the
- * `ci:desktop` runner, not here.
- *
- * @module scripts/check-electron-memory.test
+ * The Electron budget gates hand measurement to @electron-stagewright/plugin-budget;
+ * these tests pin what Puntovivo still owns: the budget translation, the CLI
+ * invocation and the warn-first / strict exit codes.
  */
-import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  summarizeProcesses,
-  compareToMemoryBudget,
-  renderReport,
-  parseMetricsLine,
-  resolveMemoryGateMode,
-  runCli,
-} from './check-electron-memory.mjs';
+import { EventEmitter } from 'node:events';
+import { readFileSync } from 'node:fs';
+import { test } from 'node:test';
 
-function createOutputCapture() {
-  const records = { log: [], warn: [], error: [] };
-  return {
-    records,
-    output: {
-      log: value => records.log.push(String(value)),
-      warn: value => records.warn.push(String(value)),
-      error: value => records.error.push(String(value)),
-    },
+import { parseBudget } from '@electron-stagewright/plugin-budget';
+import {
+  BUDGET_PATH,
+  DEFAULT_ROUNDS,
+  ELECTRON_MAIN_ENTRY,
+  buildKitBudget,
+  buildMeasureInvocation,
+  gateExitCode,
+  resolveBudgetCli,
+  resolveGateMode,
+  runBudgetGate,
+} from './lib/electron-budget.mjs';
+
+const perfBudget = JSON.parse(readFileSync(BUDGET_PATH, 'utf8'));
+
+test('the memory budget keeps working set, gates GPU and the total, and names its phase', () => {
+  const budget = buildKitBudget(perfBudget, 'memory', 'win32');
+  const memory = budget.memory.win32;
+  const source = perfBudget.electronMemoryMb;
+  assert.equal(memory.metric, 'workingSet');
+  assert.equal(memory.phase, 'cold');
+  assert.equal(memory.thresholdPercent, source.thresholdPercent);
+  assert.deepEqual(memory.perTypeMb, {
+    main: source.perProcessMb.main,
+    renderer: source.perProcessMb.renderer,
+    gpu: source.perProcessMb.gpu,
+    utility: source.perProcessMb.utility,
+  });
+  assert.equal(memory.totalMb, source.perProcessMb.total);
+  assert.equal(
+    budget.startup.maxFirstWindowMs,
+    perfBudget.operationalProfile.desktopLaunchElapsedMs
+  );
+  assert.equal(budget.startup.thresholdPercent, perfBudget.operationalProfile.thresholdPercent);
+  assert.doesNotThrow(() => parseBudget(budget));
+});
+
+test('the main-thread budget keeps exact limits and the get-app-version IPC probe', () => {
+  const budget = buildKitBudget(perfBudget, 'main-thread');
+  const source = perfBudget.electronMainThread;
+  assert.deepEqual(budget.mainThread, {
+    thresholdPercent: 0,
+    windowMs: source.windowMs,
+    maxBlockedPercent: source.maxBlockedPercent,
+    maxStallMs: source.maxStallMs,
+  });
+  assert.equal(budget.ipc.probe, 'window.electron.getAppVersion()');
+  assert.equal(budget.ipc.maxP99Ms, source.maxIpcP99Ms);
+  assert.equal(budget.ipc.thresholdPercent, 0);
+  assert.doesNotThrow(() => parseBudget(budget));
+});
+
+test('a malformed perf-budget.json or an unknown check fails loudly', () => {
+  assert.throws(() => buildKitBudget({}, 'memory'), /electronMemoryMb/);
+  assert.throws(() => buildKitBudget({}, 'main-thread'), /electronMainThread/);
+  assert.throws(() => buildKitBudget(perfBudget, 'gpu'), /unknown budget check/);
+  assert.throws(() => buildKitBudget(perfBudget, 'memory', 'aix'), /unsupported platform/);
+});
+
+test('strict fails the build but never drops the threshold', () => {
+  assert.deepEqual(resolveGateMode({ argv: [], env: {} }), {
+    enforce: false,
+    requireMeasurement: false,
+    rounds: DEFAULT_ROUNDS,
+  });
+  const strict = resolveGateMode({
+    argv: ['--strict', '--require-measurement'],
+    env: { PUNTOVIVO_BUDGET_ROUNDS: '5' },
+  });
+  assert.deepEqual(strict, { enforce: true, requireMeasurement: true, rounds: 5 });
+  const invocation = buildMeasureInvocation({
+    cli: '/kit/cli.js',
+    budgetPath: '/tmp/budget.json',
+    outPath: '/tmp/run.json',
+    rounds: 3,
+    env: {},
+    requireMeasurement: true,
+    platform: 'darwin',
+    nodePath: '/bin/node',
+  });
+  assert.ok(!invocation.args.includes('--strict'));
+  assert.ok(invocation.args.includes('--require-measurement'));
+});
+
+test('the invocation measures three cold rounds and passes the workload and env through', () => {
+  const invocation = buildMeasureInvocation({
+    cli: '/kit/cli.js',
+    budgetPath: '/tmp/budget.json',
+    outPath: '/tmp/run.json',
+    rounds: 3,
+    env: { PUNTOVIVO_E2E: '1' },
+    workload: '/repo/workload.mjs',
+    windowMs: 2000,
+    requireMeasurement: false,
+    platform: 'win32',
+    nodePath: '/bin/node',
+  });
+  assert.equal(invocation.command, '/bin/node');
+  assert.deepEqual(invocation.args, [
+    '/kit/cli.js',
+    'measure',
+    '--main',
+    ELECTRON_MAIN_ENTRY,
+    '--budget',
+    '/tmp/budget.json',
+    '--rounds',
+    '3',
+    '--phases',
+    'cold',
+    '--out',
+    '/tmp/run.json',
+    '--check',
+    '--workload',
+    '/repo/workload.mjs',
+    '--window-ms',
+    '2000',
+    '--env',
+    'PUNTOVIVO_E2E=1',
+  ]);
+});
+
+test('Linux runs under xvfb-run without the SUID sandbox', () => {
+  const invocation = buildMeasureInvocation({
+    cli: '/kit/cli.js',
+    budgetPath: '/b',
+    outPath: '/o',
+    rounds: 1,
+    env: {},
+    platform: 'linux',
+    nodePath: '/bin/node',
+  });
+  assert.equal(invocation.command, 'xvfb-run');
+  assert.deepEqual(invocation.args.slice(0, 3), ['-a', '/bin/node', '/kit/cli.js']);
+  assert.deepEqual(invocation.args.slice(-2), ['--arg', '--no-sandbox']);
+});
+
+test('warn-first passes an over-budget run; strict and usage errors fail', () => {
+  assert.equal(gateExitCode(0, { enforce: true }), 0);
+  assert.equal(gateExitCode(1, { enforce: false }), 0);
+  assert.equal(gateExitCode(1, { enforce: true }), 1);
+  assert.equal(gateExitCode(2, { enforce: false }), 2);
+  assert.equal(gateExitCode(null, { enforce: false }), 1);
+});
+
+test('the kit CLI resolves next to its library entry', () => {
+  assert.match(resolveBudgetCli(), /plugin-budget[\\/]dist[\\/]cli\.js$/);
+});
+
+function fakeSpawn(exitCode, calls) {
+  return (command, args) => {
+    calls.push({ command, args });
+    const child = new EventEmitter();
+    setImmediate(() => child.emit('exit', exitCode));
+    return child;
   };
 }
 
-test('summarizeProcesses budgets GPU and utility and totals every process', () => {
-  const metrics = [
-    { type: 'Browser', workingSetKb: 102400 }, // 100 MB main
-    { type: 'Tab', workingSetKb: 204800 }, // 200 MB renderer
-    { type: 'GPU', workingSetKb: 51200 }, // 50 MB
-    { type: 'Utility', workingSetKb: 40960 }, // 40 MB
-    { type: 'Utility', workingSetKb: 10240 }, // 10 MB
-    { type: 'Zygote', workingSetKb: 20480 }, // only in the total
-  ];
-  assert.deepEqual(summarizeProcesses(metrics), {
-    main: 100,
-    renderer: 200,
-    gpu: 50,
-    utility: 50,
-    total: 420,
+const quiet = { error() {}, warn() {}, log() {} };
+
+test('a run the kit could not measure fails under --require-measurement', async () => {
+  const calls = [];
+  const code = await runBudgetGate({
+    check: 'memory',
+    label: 'test',
+    env: {},
+    argv: ['--strict', '--require-measurement'],
+    processEnv: {},
+    spawnImpl: fakeSpawn(1, calls),
+    output: quiet,
   });
+  assert.equal(code, 1);
+  assert.equal(calls.length, 1);
+  assert.ok(calls[0].args.includes('--require-measurement'));
 });
 
-test('summarizeProcesses sums multiple renderer (Tab) processes', () => {
-  const metrics = [
-    { type: 'Browser', workingSetKb: 81920 }, // 80 MB
-    { type: 'Tab', workingSetKb: 102400 }, // 100 MB
-    { type: 'Tab', workingSetKb: 51200 }, // 50 MB
-  ];
-  assert.deepEqual(summarizeProcesses(metrics), {
-    main: 80,
-    renderer: 150,
-    gpu: 0,
-    utility: 0,
-    total: 230,
+test('a local run reports an over-budget result without failing', async () => {
+  const warnings = [];
+  const code = await runBudgetGate({
+    check: 'main-thread',
+    label: 'test',
+    env: {},
+    argv: [],
+    processEnv: {},
+    spawnImpl: fakeSpawn(1, []),
+    output: { ...quiet, warn: message => warnings.push(message) },
   });
+  assert.equal(code, 0);
+  assert.match(warnings[0], /WARN over budget or unmeasured/);
 });
 
-test('compareToMemoryBudget: a value within budget+threshold lands in ok', () => {
-  const result = compareToMemoryBudget({
-    measured: { main: 110, renderer: 240 },
-    budget: { main: 100, renderer: 250 },
-    thresholdPercent: 25, // ceilings: 125 / 312.5
-  });
-  assert.equal(result.regressions.length, 0);
-  assert.equal(result.ok.length, 2);
-});
-
-test('compareToMemoryBudget: a value past the ceiling is a regression', () => {
-  const result = compareToMemoryBudget({
-    measured: { main: 200, renderer: 240 },
-    budget: { main: 100, renderer: 250 },
-    thresholdPercent: 25, // main ceiling 125 -> 200 regresses
-  });
-  assert.equal(result.regressions.length, 1);
-  assert.equal(result.regressions[0].name, 'main');
-});
-
-test('compareToMemoryBudget: a budget key with no measurement is missing', () => {
-  const result = compareToMemoryBudget({
-    measured: { main: 90 },
-    budget: { main: 100, renderer: 250 },
-    thresholdPercent: 25,
-  });
-  assert.deepEqual(
-    result.missing.map(m => m.name),
-    ['renderer']
-  );
-});
-
-test('renderReport prints a PASS table when there are no regressions', () => {
-  const report = renderReport(
-    {
-      regressions: [],
-      ok: [{ name: 'main', budget: 100, actual: 90, deltaPercent: -10 }],
-      missing: [],
+test('a CLI that cannot start is a usage error, not a pass', async () => {
+  const code = await runBudgetGate({
+    check: 'memory',
+    label: 'test',
+    env: {},
+    argv: [],
+    processEnv: {},
+    spawnImpl: () => {
+      const child = new EventEmitter();
+      setImmediate(() => child.emit('error', new Error('ENOENT')));
+      return child;
     },
-    25
-  );
-  assert.match(report, /Electron memory PASS/);
-  assert.match(report, /main/);
-});
-
-test('renderReport still lists the processes within budget when one regresses', () => {
-  const report = renderReport(
-    {
-      regressions: [{ name: 'utility', budget: 50, actual: 90, deltaPercent: 80 }],
-      ok: [{ name: 'gpu', budget: 100, actual: 95, deltaPercent: -5 }],
-      missing: [],
-    },
-    25
-  );
-  assert.match(report, /\| utility \| 50 \| 90\.0 \| \+80\.0% \|/);
-  assert.match(report, /Within budget:[\s\S]*\| gpu \| 100 \| 95\.0 \| -5\.0% \|/);
-});
-
-test('parseMetricsLine extracts the metrics array', () => {
-  const stdout =
-    'some boot log\nPUNTOVIVO_MEMORY_METRICS=[{"type":"Browser","workingSetKb":102400}]\nbye';
-  assert.deepEqual(parseMetricsLine(stdout), [{ type: 'Browser', workingSetKb: 102400 }]);
-});
-
-test('parseMetricsLine returns null for a missing or malformed line', () => {
-  assert.equal(parseMetricsLine('no metrics here'), null);
-  assert.equal(parseMetricsLine('PUNTOVIVO_MEMORY_METRICS={not json'), null);
-  assert.equal(parseMetricsLine(''), null);
-});
-
-test('resolveMemoryGateMode reads strict and require-measurement flags from argv/env', () => {
-  assert.deepEqual(resolveMemoryGateMode({ argv: ['--strict'], env: {} }), {
-    enforce: true,
-    requireMeasurement: false,
+    output: quiet,
   });
-  assert.deepEqual(resolveMemoryGateMode({ argv: ['--require-measurement'], env: {} }), {
-    enforce: false,
-    requireMeasurement: true,
-  });
-  assert.deepEqual(
-    resolveMemoryGateMode({
-      argv: [],
-      env: { PUNTOVIVO_MEMORY_STRICT: '1', PUNTOVIVO_MEMORY_REQUIRE_MEASUREMENT: '1' },
-    }),
-    {
-      enforce: true,
-      requireMeasurement: true,
-    }
-  );
-});
-
-test('runCli self-skips (exit 0) when Electron cannot be measured', () => {
-  const { output, records } = createOutputCapture();
-  const code = runCli({ measure: () => null, output });
-  assert.equal(code, 0);
-  assert.deepEqual(records, { log: [], warn: [], error: [] });
-});
-
-test('runCli --require-measurement fails (exit 1) when Electron cannot be measured', () => {
-  const { output, records } = createOutputCapture();
-  const code = runCli({ measure: () => null, requireMeasurement: true, output });
-  assert.equal(code, 1);
-  assert.match(records.error[0], /did not produce memory metrics/);
-});
-
-test('runCli is warn-first by default: over-ceiling still exits 0', () => {
-  const { output, records } = createOutputCapture();
-  const code = runCli({
-    measure: () => ({ main: 9999, renderer: 9999, launchElapsedMs: 999999 }),
-    strict: false,
-    output,
-  });
-  assert.equal(code, 0);
-  assert.match(records.warn[0], /over the memory ceiling/);
-});
-
-test('runCli --strict fails (exit 1) when a process overshoots', () => {
-  const { output, records } = createOutputCapture();
-  const code = runCli({
-    measure: () => ({ main: 9999, renderer: 9999, launchElapsedMs: 1 }),
-    strict: true,
-    output,
-  });
-  assert.equal(code, 1);
-  assert.match(records.error[0], /process overshot its memory budget/);
-});
-
-test('runCli --require-measurement fails (exit 1) when a budgeted process is missing', () => {
-  const { output, records } = createOutputCapture();
-  const code = runCli({
-    measure: () => ({ main: 10, launchElapsedMs: 1 }),
-    requireMeasurement: true,
-    output,
-  });
-  assert.equal(code, 1);
-  assert.match(records.error[0], /budgeted process was not measured/);
-});
-
-test('runCli passes (exit 0) when the measurement is within budget', () => {
-  const { output, records } = createOutputCapture();
-  const code = runCli({
-    measure: () => ({
-      main: 10,
-      renderer: 10,
-      gpu: 10,
-      utility: 10,
-      total: 40,
-      launchElapsedMs: 1,
-    }),
-    strict: true,
-    requireMeasurement: true,
-    output,
-  });
-  assert.equal(code, 0);
-  assert.equal(records.error.length, 0);
-  assert.equal(records.warn.length, 0);
-  assert.match(records.log.join('\n'), /Electron memory PASS/);
-});
-
-test('runCli --require-measurement fails when launch elapsed time is missing', () => {
-  const { output, records } = createOutputCapture();
-  const code = runCli({
-    measure: () => ({ main: 10, renderer: 10, gpu: 10, utility: 10, total: 40 }),
-    strict: true,
-    requireMeasurement: true,
-    output,
-  });
-  assert.equal(code, 1);
-  assert.match(records.error[0], /did not produce launch elapsed time/);
-});
-
-test('runCli --strict fails when built-runtime launch exceeds its budget', () => {
-  const { output, records } = createOutputCapture();
-  const code = runCli({
-    measure: () => ({ main: 10, renderer: 10, launchElapsedMs: 999999 }),
-    strict: true,
-    requireMeasurement: true,
-    output,
-  });
-  assert.equal(code, 1);
-  assert.match(records.error[0], /launch overshot its elapsed-time budget/);
+  assert.equal(code, 2);
 });

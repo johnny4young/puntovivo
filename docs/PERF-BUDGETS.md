@@ -487,90 +487,83 @@ built runtime is not a packaged or signed artifact.
 
 ### Electron memory and built-runtime launch (strict in CI, warn-first locally)
 
-`scripts/check-electron-memory.mjs` launches the built Electron app
-with `PUNTOVIVO_MEASURE_MEMORY=1`. The main process waits for the
-renderer to finish loading plus a short settle window, reads each
-Electron process' working-set via `app.getAppMetrics()`, prints one
-`PUNTOVIVO_MEMORY_METRICS=<json>` line, and quits. The gate maps the
-`Browser` process to `main`, `Tab` to `renderer`, `GPU` to `gpu` and
-`Utility` to `utility`, sums same-type processes in MB, adds every process
-into `total`, and compares each against
-`perf-budget.json::electronMemoryMb.perProcessMb` with the shared
-`thresholdPercent`. Compositing and network memory live outside main and
-renderer, so a ceiling on those two alone missed most of the app's memory.
+`scripts/check-electron-memory.mjs` hands the measurement to
+`@electron-stagewright/plugin-budget`. `scripts/lib/electron-budget.mjs`
+writes the kit's budget file from `perf-budget.json::electronMemoryMb` and
+`operationalProfile.desktopLaunchElapsedMs`, so `perf-budget.json` stays the
+only place to change a limit. The kit's `electron-stagewright-budget measure`
+launches the built app three times, each on an empty profile (`cold`). The
+workload in `scripts/electron-budget-mounted-workload.mjs` fails a launch
+whose React root never mounted, so a Chromium error page cannot pass, then
+idles for 2 s.
+
+Memory stays in the metric the ceilings were captured in: the `workingSet` of
+`app.getAppMetrics()`, summed per process type (`main`, `renderer`, `gpu`,
+`utility`) and in total, with the shared `thresholdPercent`. Every report
+table names the metric next to the value. Compositing and network memory live
+outside main and renderer, so GPU and the total that includes it stay gated.
 The working set does not see everything: on macOS the GPU process reports
 about 100 MB while `footprint` shows most graphics memory outside it, and the
-Linux CI runner starts a GPU process only on some launches: the same commit
-measured 168.7 MB on one attempt and 0 on the next. Each ceiling is the
-largest of the macOS and hosted Linux measurements, so `gpu` and `total`
-follow a launch that has a GPU process. The launcher also records total wall time and checks
-it against `operationalProfile.desktopLaunchElapsedMs`.
+Linux CI runner starts a GPU process only on some launches. Each ceiling is
+the largest of the macOS and hosted Linux measurements. The gate compares the
+median of the three launches. Startup is process creation to the end of the
+first window's load event, against
+`operationalProfile.desktopLaunchElapsedMs`; the old wall time also counted
+the measurement and the quit, so the same build now reads far lower.
 
-`ci:desktop` now builds the web bundle plus Electron main/preload
-bundle, starts a local Vite preview via
-`scripts/run-electron-memory-gate.mjs`, points `WEB_DEV_SERVER_URL` at
-that renderer, and runs the memory check with both `--strict` and
-`--require-measurement`. The preview reuses pnpm's actual executable entry
-(`npm_execpath`), launching JavaScript entries through Node and native binaries
-directly without a shell. On Windows, launch this runner through `pnpm run perf:electron-memory:gate` rather
-than invoking a `.cmd`/`.bat` wrapper; a missing usable entry fails closed.
-On ubuntu, the GitHub Actions desktop job
-installs `xvfb` and the launcher wraps Electron with `xvfb-run -a`, so
-the CI path measures the real Chromium renderer instead of the error
-page. Two failure classes break the build:
+`ci:desktop` builds the web bundle plus the Electron main and preload bundle,
+starts a local Vite preview via `scripts/run-electron-memory-gate.mjs`, points
+`WEB_DEV_SERVER_URL` at it, and runs the gate with `--strict` and
+`--require-measurement`. On Windows, launch the runner through
+`pnpm run perf:electron-memory:gate`. On ubuntu the gate runs the kit under
+`xvfb-run -a` with `--no-sandbox`.
 
-- **Regression.** A main or renderer process above
-  `budget * (1 + thresholdPercent/100)` exits 1 under `--strict`.
-- **Missing proof.** A missing `.vite/build` main bundle, unresolvable
-  Electron binary, failed launch, unmounted renderer, missing metrics
-  line, or absent budgeted process exits 1 under `--require-measurement`.
+- **Strict.** Puntovivo's `--strict` fails the build on an over-budget value.
+  It is never forwarded to the kit, whose `--strict` would drop the threshold.
+- **Missing proof.** `--require-measurement` is forwarded: an unmeasured metric
+  fails. A missing main bundle or native runtime always fails.
+- **Local runs.** Without `--strict` an over-budget or unmeasured result prints
+  a `WARN` and exits 0. `PUNTOVIVO_BUDGET_ROUNDS` changes the number of
+  launches.
 
-The local direct script remains tolerant for operator diagnostics:
-
-- **Warn-first.** An over-ceiling process prints a `WARN` and still
-  exits 0. Pass `--strict` (or `PUNTOVIVO_MEMORY_STRICT=1`) to make a
-  regression exit 1.
-- **Self-skip.** If the `.vite/build` main bundle is absent, the
-  electron binary is unresolvable, the launch errors, or no metrics
-  line comes back, the gate prints a `WARN: skipped` and exits 0 unless
-  `--require-measurement` (or `PUNTOVIVO_MEMORY_REQUIRE_MEASUREMENT=1`)
-  is present.
-
-The pure comparison/parse helpers are unit-tested by
-`scripts/check-electron-memory.test.mjs`, and the portable preview
-runner is pinned by `scripts/run-electron-memory-gate.test.mjs`; both
-run before the live memory launch in `ci:desktop`.
+`scripts/check-electron-memory.test.mjs` pins the budget translation, the
+invocation and the exit codes, and `scripts/run-electron-memory-gate.test.mjs`
+pins the preview runner.
 
 ### Electron main-thread responsiveness (strict in CI, warn-first locally)
 
 `scripts/check-electron-main-thread.mjs` measures how much server work stalls
 the Electron main thread, which owns windows, menus and every renderer IPC
 call. It seeds a disposable demo database with the compiled `seed-dev`
-script, raises its stock so the window cannot run out, and launches the built
-app with `PUNTOVIVO_MEASURE_MAIN_THREAD=1` through the same preview runner as
-the memory gate (`run-electron-memory-gate.mjs --check=main-thread`). Once the
-renderer mounts, the main process prints `PUNTOVIVO_MAIN_THREAD_READY` with the
-API URL. The gate signs in as the fixture cashier over loopback HTTP, registers
-a device, then sells one-item tickets back to back: a product search,
-`sales.create` with a command envelope and the active-session refetch. The
-window keeps the embedded server saturated on purpose.
+script, raises its stock so no window can run out, and runs the kit with the
+workload in `scripts/electron-budget-sales-workload.mjs` through
+`run-electron-memory-gate.mjs --check=main-thread`. In each of three `cold`
+launches the workload waits for the embedded server, signs in as the fixture
+cashier, registers a device and sells one-item tickets back to back for
+`perf-budget.json::electronMainThread.windowMs`: a product search,
+`sales.create` with a command envelope and the active-session refetch. Fewer
+than `minSales` sales fails the launch, since the server was not under load.
 
-During `perf-budget.json::electronMainThread.windowMs` the main process runs a
-10 ms interval timer and counts every tick that fires 10 ms or more late as
-blocked time, while the renderer invokes the trivial `get-app-version` channel
-every 25 ms. It prints `PUNTOVIVO_MAIN_THREAD_METRICS=<json>` and quits. The
-gate fails under `--strict` when the blocked share, the worst stall or the IPC
-p99 exceeds its limit, or when fewer than `minSales` sales completed, which
-would mean the workload never loaded the server. `--require-measurement` turns
-a missing build, seed, launch, workload or metrics line into a failure.
+Meanwhile the kit counts every tick of a 10 ms timer in main that fires 10 ms
+or more late as blocked time, and times the `get-app-version` IPC every 25 ms.
+The limits are absolute, without a percentage threshold, because the metric is
+a latency tail.
 
-The limits are absolute, without a percentage threshold, because the metric
-is a latency tail. Treat a single local reading as indicative: CPU contention
-from other processes delays the sampler too. With the server still on the main
-thread, hosted ubuntu measured 21.3% blocked and a 27.1 ms IPC p99, while a
-loaded local machine reached 62.4% blocked, so the in-process limits are loose. `scripts/check-electron-main-thread.test.mjs`
-pins the helpers and the workload's request sequence, and
-`apps/desktop/src/main/__tests__/main-thread-probe.test.ts` pins the sampler.
+**Worst stall across launches.** The gate compares the median of the three
+launches, not one window. On the Windows CI leg, 42 runs between 2026-11-07
+and 2026-11-13 put the worst stall's median near 13 ms and the highest passing
+value at 55.7 ms, and the blocked share never passed 0.4 %. Two single windows
+broke 100 ms on their own, 487 ms on 2026-11-12 and 108.7 ms in the 1.18.0
+release run, and both passed on rerun. A host stall in one window of three no
+longer fails the gate; a stall the code causes repeats in every launch and
+still does. With about one bad window in 22, the chance that two of three are
+bad is about 0.6 %, against about 4.5 % for one window. The regression the
+gate exists for, the server back on the main thread, measured 89.9 % blocked
+and a 1,004 ms worst stall on Windows, far above every limit in every launch.
+
+`scripts/check-electron-main-thread.test.mjs` pins the workload's request
+sequence, and `apps/desktop/src/main/__tests__/main-thread-probe.test.ts` pins
+the sampler the soak still uses.
 
 ### Lighthouse web vitals (strict in CI, warn-first locally)
 
