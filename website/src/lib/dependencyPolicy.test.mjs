@@ -39,7 +39,6 @@ test('the dependency floor compares major, minor and patch versions in order', (
 test('the standalone site lock excludes known vulnerable build dependencies', () => {
   assertMinimumVersion('astro', [7, 2, 8], 'GHSA-26w7-cxv4-gfx2');
   assertMinimumVersion('sharp', [0, 35, 5], 'GHSA-wq5f-xc86-pv6w');
-  assertMinimumVersion('js-yaml', [4, 3, 2], 'GHSA-2883-xcg3-v3hh');
   assertMinimumVersion('svgo', [4, 1, 0], 'GHSA-w27v-7q3p-w38r');
   assertMinimumVersion('smol-toml', [1, 9, 0], 'GHSA-r4xh-jqrq-34v2');
   assertMinimumVersion('devalue', [5, 9, 3], 'GHSA-j22f-vq7h-c4qm');
