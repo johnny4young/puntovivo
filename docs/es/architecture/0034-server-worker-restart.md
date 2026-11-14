@@ -44,12 +44,18 @@ Main reinicia el worker del servidor cuando muere después de empezar a servir.
 - **Misma identidad.** El worker nuevo recibe el mismo puerto, la llave de la
   base, el secreto del anchor y el secreto JWT, así que los tokens siguen
   válidos y el cajero no pierde la sesión.
-- **Un worker a la vez.** La recuperación y `restartAround` comparten una
-  cola; ninguno arranca un worker mientras el otro trabaja.
-- **Causa.** El manejador de caídas del worker envía el error serializado a
-  main antes de que el hilo termine; una salida por límite de heap se
-  clasifica como `oom`. Una caída nativa sigue terminando todo el proceso
-  (ADR-0032).
+- **Un worker a la vez.** El supervisor nunca corre dos workers;
+  `restartAround` detiene el worker antes de su operación y corta un
+  reinicio pendiente.
+- **Supervisor.** `@electron-stagewright/host-supervisor` arranca el worker,
+  lo drena al detenerlo y aplica `restartPolicy` con las causas fatales de
+  arriba. Una llamada hecha con un handle viejo durante un reinicio espera al
+  worker nuevo en vez de fallar. Main sigue sin ver un host mientras reinicia,
+  así que los botones de cobro siguen deshabilitados.
+- **Causa.** El lado host del supervisor envía el error serializado a main
+  antes de que el manejador de caídas del worker termine el hilo; una salida
+  por límite de heap se clasifica como `oom`. Una caída nativa sigue
+  terminando todo el proceso (ADR-0032).
 - **Argon2 en vuelo.** Un hash que termina después de que su hilo murió
   aborta todo el proceso (`Napi::Error` en la finalización nativa). Por eso el
   manejador de caídas del worker espera los hashes en curso antes de terminar

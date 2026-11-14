@@ -4,10 +4,16 @@
  */
 import { Worker } from 'node:worker_threads';
 import type { CreateBackupBundleArgs, CreateBackupBundleResult } from './backup-bundle.ts';
-import type { ThreadLike } from '../server-host/worker-host.ts';
 import type { BackupWorkerMessage, BackupWorkerReply } from './backup-worker-protocol.ts';
 
-export type BackupWorkerLike = ThreadLike<BackupWorkerMessage, BackupWorkerReply>;
+/** The part of `worker_threads.Worker` the backup host relies on. */
+export interface BackupWorkerLike {
+  postMessage(message: BackupWorkerMessage): void;
+  on(event: 'message', listener: (message: BackupWorkerReply) => void): unknown;
+  on(event: 'error', listener: (error: Error) => void): unknown;
+  on(event: 'exit', listener: (code: number) => void): unknown;
+  terminate(): Promise<number>;
+}
 
 const createNodeWorker = (path: string): BackupWorkerLike =>
   new Worker(path) as unknown as BackupWorkerLike;

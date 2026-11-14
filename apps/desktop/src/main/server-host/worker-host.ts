@@ -1,250 +1,122 @@
 /**
- * Main-thread side of the server worker: starts it, forwards the host
- * contract as messages, and stops it. Electron-free so it runs under
- * `node --test` with a stub worker.
+ * Main-thread side of the server worker: Puntovivo's settings for the host
+ * supervisor. Electron-free so it runs under `node --test`.
  */
-import { Worker, type ResourceLimits } from 'node:worker_threads';
-import type { ServerOptions } from '@puntovivo/server';
-import type { EmbeddedServerHost, EmbeddedServerOperations } from './contract.ts';
-import type { WorkerExitFailure, WorkerExitKind } from './restart-policy.ts';
+import type { ResourceLimits } from 'node:worker_threads';
 import {
-  deserializeError,
-  OPERATION_NAMES,
-  type MainToWorkerMessage,
-  type OperationName,
-  type WorkerMemorySample,
+  createHost,
+  type ExitDecision,
+  type Host,
+  type HostChannel,
+  type HostExit,
+  type HostStats,
+  type HostTransport,
+} from '@electron-stagewright/host-supervisor';
+import { workerThreadTransport } from '@electron-stagewright/host-supervisor/worker';
+import {
+  EMBEDDED_SERVER_OPERATIONS,
+  SERVER_WORKER_OPERATIONS,
+  type EmbeddedServerHost,
+  type EmbeddedServerOperations,
+  type ServerWorkerOperations,
   type WorkerStartOptions,
-  type WorkerToMainMessage,
-} from './protocol.ts';
+} from './contract.ts';
 
 // Close waits for in-flight provider calls (fiscal adapters time out at 60 s);
 // killing the worker earlier can lose an accepted document's verdict.
-const DEFAULT_STOP_GRACE_MS = 90_000;
+export const SERVER_WORKER_STOP_GRACE_MS = 90_000;
 
-const createNodeWorker = (path: string, resourceLimits?: ResourceLimits): WorkerLike =>
-  new Worker(path, resourceLimits ? { resourceLimits } : {}) as unknown as WorkerLike;
+export type ServerWorkerHost = Host<ServerWorkerOperations>;
 
-/** The part of `worker_threads.Worker` the host relies on. */
-export interface ThreadLike<In, Out> {
-  postMessage(message: In): void;
-  on(event: 'message', listener: (message: Out) => void): unknown;
-  on(event: 'error', listener: (error: Error) => void): unknown;
-  on(event: 'exit', listener: (code: number) => void): unknown;
-  terminate(): Promise<number>;
+export function serverWorkerTransport(
+  workerPath: string,
+  resourceLimits?: ResourceLimits
+): HostTransport {
+  return workerThreadTransport({
+    entry: workerPath,
+    name: 'server-worker',
+    ...(resourceLimits ? { resourceLimits } : {}),
+  });
 }
 
-export type WorkerLike = ThreadLike<MainToWorkerMessage, WorkerToMainMessage>;
-
-export interface WorkerServerHostOptions {
-  /** Absolute path of the bundled `server-worker.cjs`. */
-  workerPath: string;
-  start: WorkerStartOptions;
-  /** Called once when the worker dies outside `close()`. */
-  onUnexpectedExit: (failure: WorkerExitFailure) => void;
+export function createServerWorkerHost(options: {
+  transport: HostTransport;
+  payload: () => Promise<WorkerStartOptions>;
+  onExit?: (exit: HostExit) => ExitDecision;
+  onStats?: (stats: HostStats) => void;
   stopGraceMs?: number;
-  createWorker?: (path: string, resourceLimits?: ResourceLimits) => WorkerLike;
-  /** V8 heap caps; past them Node ends the thread with ERR_WORKER_OUT_OF_MEMORY. */
-  resourceLimits?: ResourceLimits;
-  onStats?: (stats: WorkerMemorySample) => void;
-  /** Lets E2E and soak runs crash the worker on purpose. */
-  allowTestCrash?: boolean;
-  now?: () => number;
+}): ServerWorkerHost {
+  return createHost<ServerWorkerOperations, WorkerStartOptions>({
+    operations: SERVER_WORKER_OPERATIONS,
+    transport: options.transport,
+    start: { payload: options.payload },
+    stop: { graceMs: options.stopGraceMs ?? SERVER_WORKER_STOP_GRACE_MS },
+    // No per-call timeout: handlers ignore the abort signal, so a timeout
+    // would report a failure for work that still completes in the worker.
+    ...(options.onExit ? { onExit: options.onExit } : {}),
+    ...(options.onStats ? { onStats: options.onStats } : {}),
+  });
 }
 
-/** Spawns the worker and resolves once its server listens. */
-export async function startWorkerServerHost(
-  options: WorkerServerHostOptions
+/** Starts the worker if needed and returns main's handle on it. */
+export async function connectServerWorker(
+  host: ServerWorkerHost,
+  options: { allowTestCrash?: boolean } = {}
 ): Promise<EmbeddedServerHost> {
-  const worker = (options.createWorker ?? createNodeWorker)(
-    options.workerPath,
-    options.resourceLimits
-  );
-  const pending = new Map<
-    number,
-    { resolve: (value: unknown) => void; reject: (e: Error) => void }
-  >();
-  let nextId = 1;
-  let stopping = false;
-  let exited = false;
-  let lastError: Error | null = null;
-  let exitKind: WorkerExitKind = 'unknown';
-  let lastStats: WorkerMemorySample | null = null;
-  const now = options.now ?? Date.now;
-  let startedAt = now();
-  let stopError: Error | null = null;
-  let stoppedReceived = false;
-  let onStarted: ((url: string) => void) | null = null;
-  let onStartFailed: ((error: Error) => void) | null = null;
-  let resolveExit!: () => void;
-  const exitedPromise = new Promise<void>(resolve => {
-    resolveExit = resolve;
-  });
-
-  worker.on('message', message => {
-    switch (message.type) {
-      case 'started':
-        startedAt = now();
-        onStarted?.(message.url);
-        return;
-      case 'stats':
-        lastStats = message.stats;
-        options.onStats?.(message.stats);
-        return;
-      case 'crashed':
-        lastError = deserializeError(message.error);
-        exitKind = 'uncaught';
-        return;
-      case 'start-failed':
-        onStartFailed?.(deserializeError(message.error));
-        return;
-      case 'result': {
-        const call = pending.get(message.id);
-        if (!call) return;
-        pending.delete(message.id);
-        if (message.ok) call.resolve(message.value);
-        else call.reject(deserializeError(message.error));
-        return;
-      }
-      case 'stopped':
-        stoppedReceived = true;
-        if (message.error) stopError = deserializeError(message.error);
-        return;
-    }
-  });
-  worker.on('error', error => {
-    lastError = error;
-    exitKind =
-      (error as { code?: unknown }).code === 'ERR_WORKER_OUT_OF_MEMORY' ? 'oom' : 'uncaught';
-  });
-  worker.on('exit', code => {
-    exited = true;
-    const reason = lastError ?? new Error(`SERVER_WORKER_EXITED: code ${code}`);
-    const pendingCalls = pending.size;
-    for (const call of pending.values()) call.reject(reason);
-    pending.clear();
-    onStartFailed?.(reason);
-    resolveExit();
-    if (!stopping) {
-      options.onUnexpectedExit({
-        error: reason,
-        kind: exitKind,
-        exitCode: code,
-        uptimeMs: Math.max(0, now() - startedAt),
-        pendingCalls,
-        lastMemory: lastStats,
-      });
-    }
-  });
-
-  let stopPromise: Promise<void> | null = null;
-  // Concurrent callers share one stop, so the server closes once.
-  function stopWorker(): Promise<void> {
-    stopPromise ??= stopOnce();
-    return stopPromise;
-  }
-
-  async function stopOnce(): Promise<void> {
-    if (exited) return;
-    stopping = true;
-    worker.postMessage({ type: 'stop' });
-    const grace = options.stopGraceMs ?? DEFAULT_STOP_GRACE_MS;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    await Promise.race([
-      exitedPromise,
-      new Promise<void>(resolve => {
-        timer = setTimeout(resolve, grace);
-      }),
-    ]);
-    clearTimeout(timer);
-    if (!exited) {
-      await worker.terminate();
-      await exitedPromise;
-      // The server never finished closing, so nothing may touch its files.
-      stopError ??= new Error('SERVER_WORKER_STOP_TIMEOUT');
-    }
-    // An exit without the stopped reply means close crashed part way.
-    if (!stoppedReceived) stopError ??= new Error('SERVER_WORKER_STOP_INCOMPLETE');
-    // Callers such as a restore must not carry on past a failed close.
-    if (stopError) throw stopError;
-  }
-
-  let url: string;
-  try {
-    // Unexpected exits before `started` are start failures, not crashes.
-    stopping = true;
-    url = await new Promise<string>((resolve, reject) => {
-      onStarted = resolve;
-      onStartFailed = reject;
-      worker.postMessage({ type: 'start', options: options.start });
-    });
-    // A thread that died while `started` was in flight is not a running server.
-    if (exited) throw lastError ?? new Error('SERVER_WORKER_EXITED: right after start');
-    stopping = false;
-  } catch (error) {
-    // The start failure is the cause the caller needs, not the cleanup's.
-    await stopWorker().catch(() => undefined);
-    throw error;
-  } finally {
-    onStarted = null;
-    onStartFailed = null;
-  }
-
-  function call(op: OperationName, args: unknown[]): Promise<unknown> {
-    if (stopping || exited)
-      return Promise.reject(new Error('The embedded server is not available'));
-    const id = nextId++;
-    return new Promise((resolve, reject) => {
-      pending.set(id, { resolve, reject });
-      try {
-        worker.postMessage({ type: 'call', id, op, args });
-      } catch (error) {
-        pending.delete(id);
-        reject(error);
-      }
-    });
-  }
-
+  await host.start();
+  const url = await host.call('getUrl', []);
   const operations = Object.fromEntries(
-    OPERATION_NAMES.map(op => [op, (...args: unknown[]) => call(op, args)])
+    EMBEDDED_SERVER_OPERATIONS.map(op => [op, (...args: unknown[]) => host.call(op, args as never)])
   ) as unknown as EmbeddedServerOperations;
-
+  // The crash ends the call in flight; only the exit matters.
+  const fault = (op: 'testCrash' | 'testOutOfMemory') => () =>
+    void host.call(op, []).catch(() => undefined);
   return {
     ...operations,
     url,
-    close: stopWorker,
+    close: () => host.stop(),
     ...(options.allowTestCrash
-      ? {
-          simulateCrash: () => worker.postMessage({ type: 'test-crash' }),
-          simulateOutOfMemory: () => worker.postMessage({ type: 'test-oom' }),
-        }
+      ? { simulateCrash: fault('testCrash'), simulateOutOfMemory: fault('testOutOfMemory') }
       : {}),
   };
 }
 
-/** Launcher for the server lifecycle that runs each server in a new worker. */
-export function createWorkerLauncher(deps: {
-  workerPath: string;
-  /** Converts a legacy anchor file first; undefined for env-key installs. */
-  resolveAuditAnchorStoreLocation: () => Promise<WorkerStartOptions['auditAnchorStore']>;
-  onUnexpectedExit: (failure: WorkerExitFailure) => void;
-  createWorker?: (path: string, resourceLimits?: ResourceLimits) => WorkerLike;
-  allowTestCrash?: boolean;
-  resourceLimits?: ResourceLimits;
-  onStats?: (stats: WorkerMemorySample) => void;
-}): (options: ServerOptions) => Promise<EmbeddedServerHost> {
-  return async options => {
-    const auditAnchorStore = await deps.resolveAuditAnchorStoreLocation();
-    return startWorkerServerHost({
-      workerPath: deps.workerPath,
-      start: {
-        serverOptions: options as unknown as Record<string, unknown>,
-        ...(auditAnchorStore ? { auditAnchorStore } : {}),
-      },
-      onUnexpectedExit: deps.onUnexpectedExit,
-      ...(deps.createWorker ? { createWorker: deps.createWorker } : {}),
-      ...(deps.allowTestCrash ? { allowTestCrash: true } : {}),
-      ...(deps.resourceLimits ? { resourceLimits: deps.resourceLimits } : {}),
-      ...(deps.onStats ? { onStats: deps.onStats } : {}),
-    });
+/** What main sees of each worker beyond the supervisor's own view. */
+export interface ServerWorkerEvents {
+  /** False while main holds the database (restore, shutdown): no worker may launch. */
+  canLaunch?: () => boolean;
+  /** The worker answered `start`; for a crash restart this is the only signal. */
+  onStarted?: () => void;
+  /** Called before the supervisor hears of an exit; true when the worker reported its cause. */
+  onExit?: (reported: boolean) => void;
+}
+
+/** Wraps a transport to see starts and crash reports without changing them. */
+export function observeServerWorker(
+  transport: HostTransport,
+  events: ServerWorkerEvents
+): HostTransport {
+  return {
+    launch(): HostChannel {
+      if (events.canLaunch && !events.canLaunch()) throw new Error('SERVER_WORKER_HELD');
+      const channel = transport.launch();
+      let reported = false;
+      return {
+        send: message => channel.send(message),
+        kill: () => channel.kill(),
+        onMessage: listener =>
+          channel.onMessage(message => {
+            const type = (message as { type?: unknown } | null)?.type;
+            if (type === 'crashed') reported = true;
+            listener(message);
+            if (type === 'started') events.onStarted?.();
+          }),
+        onExit: listener =>
+          channel.onExit(exit => {
+            events.onExit?.(reported || exit.error !== undefined);
+            listener(exit);
+          }),
+      };
+    },
   };
 }

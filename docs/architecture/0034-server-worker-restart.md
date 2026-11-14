@@ -43,11 +43,17 @@ Main restarts a server worker that dies after it has started serving.
 - **Same identity.** The new worker gets the same port, database key, anchor
   secret and JWT secret, so access and refresh tokens stay valid and the
   cashier is not signed out.
-- **One worker at a time.** Crash recovery and `restartAround` share one
-  queue; neither starts a worker while the other is running.
-- **Cause.** The worker's crash handler sends the serialized error to main
-  before the thread ends; a heap-limit exit is classified as `oom`. A native
-  crash still ends the whole process (ADR-0032).
+- **One worker at a time.** The supervisor never runs two workers;
+  `restartAround` stops the worker before its operation and cuts a pending
+  restart short.
+- **Supervisor.** `@electron-stagewright/host-supervisor` starts the worker,
+  drains it on stop and applies `restartPolicy` with the fatal causes above.
+  A call made through an old handle during a restart waits for the new worker
+  instead of failing. Main still sees no host while restarting, so the charge
+  buttons stay disabled.
+- **Cause.** The supervisor's host side sends the serialized error to main
+  before the worker's crash handler ends the thread; a heap-limit exit is
+  classified as `oom`. A native crash still ends the whole process (ADR-0032).
 - **Argon2 in flight.** A hash that settles after its thread ended aborts the
   whole process (`Napi::Error` in the native completion). The worker's crash
   handler therefore waits for running hashes before it ends the thread. An

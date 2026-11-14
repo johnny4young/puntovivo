@@ -1,32 +1,46 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { classifyFatalCause, createRestartBudget } from '../server-host/restart-policy.ts';
+import { restartPolicy, type HostExit } from '@electron-stagewright/host-supervisor';
+import { classifyFatalCause } from '../server-host/fatal-cause.ts';
 
 const withCode = (message: string, code?: string) =>
   Object.assign(new Error(message), code ? { code } : {});
 
+const crash: HostExit = {
+  kind: 'crash',
+  error: new Error('SERVER_WORKER_TEST_CRASH'),
+  code: 1,
+  uptimeMs: 1_000,
+  pendingCalls: 0,
+  lastStats: null,
+};
+
 describe('server worker restart policy', () => {
+  // ADR 0034 relies on the package defaults; pin them so an upgrade cannot move them.
   it('backs off 0.5 s, 2 s and 8 s, then gives up inside ten minutes', () => {
-    const budget = createRestartBudget();
-    const decisions = [0, 1_000, 5_000, 20_000].map(at => budget.next(at));
+    let clock = 0;
+    const decide = restartPolicy({ now: () => clock });
+    const decisions = [0, 1_000, 5_000, 20_000].map(at => {
+      clock = at;
+      return decide(crash);
+    });
     assert.deepEqual(decisions, [
-      { action: 'restart', attempt: 1, delayMs: 500 },
-      { action: 'restart', attempt: 2, delayMs: 2_000 },
-      { action: 'restart', attempt: 3, delayMs: 8_000 },
-      { action: 'give-up', restartsInWindow: 3 },
+      { action: 'restart', delayMs: 500 },
+      { action: 'restart', delayMs: 2_000 },
+      { action: 'restart', delayMs: 8_000 },
+      'fatal',
     ]);
   });
 
   it('forgets restarts after ten stable minutes', () => {
-    const budget = createRestartBudget();
-    budget.next(0);
-    budget.next(60_000);
-    budget.next(120_000);
-    assert.deepEqual(budget.next(10 * 60_000 + 120_001), {
-      action: 'restart',
-      attempt: 1,
-      delayMs: 500,
-    });
+    let clock = 0;
+    const decide = restartPolicy({ now: () => clock });
+    for (const at of [0, 60_000, 120_000]) {
+      clock = at;
+      decide(crash);
+    }
+    clock = 10 * 60_000 + 120_001;
+    assert.deepEqual(decide(crash), { action: 'restart', delayMs: 500 });
   });
 
   it('treats corruption and key failures as fatal, everything else as restartable', () => {

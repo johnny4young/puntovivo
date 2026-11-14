@@ -132,6 +132,8 @@ overrides:
 # 2026-12-02.
 minimumReleaseAgeExclude:
   - '@xmldom/xmldom@0.9.12'
+  # Same owner's kit, published the day it was adopted; drop once 0.1.0 ages past the window.
+  - '@electron-stagewright/host-supervisor@0.1.0'
 
 patchedDependencies:
   '@electron/asar@4.2.1': patches/@electron__asar@4.2.1.patch
