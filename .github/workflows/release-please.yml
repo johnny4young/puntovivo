@@ -111,7 +111,8 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git commit -m 'chore(release): drop repeated changelog entries' -- CHANGELOG.md
           if git push origin HEAD; then exit 0; fi
-          remote=$(git ls-remote origin "refs/heads/$BRANCH" | cut -f1)
+          remote=$(git ls-remote origin "refs/heads/$BRANCH")
+          remote=${remote%%[[:space:]]*}
           if [ "$remote" = "$base" ]; then exit 1; fi
           echo "::notice::release-please rewrote $BRANCH meanwhile; a newer run owns the branch."
 

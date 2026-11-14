@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HEADING = /^#{1,6} /;
@@ -81,7 +82,7 @@ export function isMergeCommit(sha, cwd) {
   return parents.trim().split(' ').length > 2;
 }
 
-export function dedupeChangelogFile(file, isMerge = sha => isMergeCommit(sha)) {
+export function dedupeChangelogFile(file, isMerge = sha => isMergeCommit(sha, path.dirname(file))) {
   const result = dedupeChangelog(readFileSync(file, 'utf8'), isMerge);
   if (result.releases === 0) throw new Error(`${file} has no release sections`);
   if (result.removed > 0) writeFileSync(file, result.content);

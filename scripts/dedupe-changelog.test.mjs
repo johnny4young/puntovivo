@@ -144,6 +144,7 @@ test('reads merge commits from git and fails on a commit it does not have', () =
     execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', ...args], {
       cwd: dir,
       encoding: 'utf8',
+      env: { ...process.env, GIT_CONFIG_GLOBAL: os.devnull, GIT_CONFIG_NOSYSTEM: '1' },
     }).trim();
   git('init', '-q', '-b', 'main');
   git('commit', '-q', '--allow-empty', '-m', 'base');
@@ -157,6 +158,20 @@ test('reads merge commits from git and fails on a commit it does not have', () =
   assert.equal(isMergeCommit(merge, dir), true);
   assert.equal(isMergeCommit(change, dir), false);
   assert.throws(() => isMergeCommit('0000000', dir));
+
+  const file = path.join(dir, 'CHANGELOG.md');
+  writeFileSync(
+    file,
+    [
+      '## [1.0.0](https://github.com/acme/register/compare/v0.9.0...v1.0.0) (2026-11-20)',
+      '',
+      `* **core:** change ${link(merge)}`,
+      `* **core:** change ${link(change)}`,
+      '',
+    ].join('\n')
+  );
+  assert.equal(dedupeChangelogFile(file).removed, 1);
+  assert.doesNotMatch(readFileSync(file, 'utf8'), new RegExp(merge));
 });
 
 test('release-please dedupes the Release PR branch it opened or updated', () => {
