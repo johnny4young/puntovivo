@@ -24,8 +24,6 @@ import { ELECTRON_MAIN_ENTRY, REPO_ROOT, runBudgetGate } from './lib/electron-bu
 
 const ENSURE_NATIVE_RUNTIME_SCRIPT = join(REPO_ROOT, 'scripts', 'ensure-native-runtime.mjs');
 const MOUNTED_WORKLOAD = join(REPO_ROOT, 'scripts', 'electron-budget-mounted-workload.mjs');
-// The ceilings were captured a moment after mount, not under load.
-const IDLE_WINDOW_MS = 2_000;
 const MEASURE_DB_KEY = 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
 
 /**
@@ -71,7 +69,6 @@ export async function runCli({ argv = process.argv.slice(2), env = process.env }
     argv,
     processEnv: env,
     workload: MOUNTED_WORKLOAD,
-    windowMs: IDLE_WINDOW_MS,
     env: { PUNTOVIVO_E2E: '1', PUNTOVIVO_DB_KEY: MEASURE_DB_KEY, PUNTOVIVO_LOG_LEVEL: 'warn' },
   });
 }

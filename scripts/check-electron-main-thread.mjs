@@ -21,23 +21,19 @@ import { randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import { ensureNativeRuntime } from './check-electron-memory.mjs';
-import { runBudgetGate } from './lib/electron-budget.mjs';
-
-const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const BUDGET_PATH = join(REPO_ROOT, 'perf-budget.json');
-export const ELECTRON_MAIN_ENTRY = join(
+import {
+  BUDGET_PATH,
+  ELECTRON_MAIN_ENTRY,
   REPO_ROOT,
-  'apps',
-  'desktop',
-  '.vite',
-  'build',
-  'index.cjs'
-);
+  runBudgetGate,
+} from './lib/electron-budget.mjs';
+
+export { ELECTRON_MAIN_ENTRY };
 export const DESKTOP_PACKAGE_JSON = join(REPO_ROOT, 'apps', 'desktop', 'package.json');
 const SEED_SCRIPT = join(REPO_ROOT, 'packages', 'server', 'dist', 'scripts', 'seed-dev.js');
 /** Throwaway key for the disposable fixture, like the memory gate's. */

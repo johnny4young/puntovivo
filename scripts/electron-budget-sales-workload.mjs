@@ -5,6 +5,7 @@
  * @module scripts/electron-budget-sales-workload
  */
 
+import { writeFileSync } from 'node:fs';
 import { performance } from 'node:perf_hooks';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createSaleWorkload } from './check-electron-main-thread.mjs';
@@ -45,8 +46,10 @@ export default async ({ phase }) => {
   );
   // Too few sales means the server was not under load; the window proves nothing.
   if (result.salesInWindow < minSales) {
-    throw new Error(
-      `only ${result.salesInWindow} sales in the window; at least ${minSales} needed`
-    );
+    const reason = `only ${result.salesInWindow} sales in the window; at least ${minSales} needed`;
+    if (process.env.PUNTOVIVO_BUDGET_REJECT_FILE) {
+      writeFileSync(process.env.PUNTOVIVO_BUDGET_REJECT_FILE, reason);
+    }
+    throw new Error(reason);
   }
 };

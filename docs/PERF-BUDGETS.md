@@ -522,9 +522,9 @@ starts a local Vite preview via `scripts/run-electron-memory-gate.mjs`, points
   It is never forwarded to the kit, whose `--strict` would drop the threshold.
 - **Missing proof.** Under `--require-measurement` an unmeasured metric fails,
   and so does a gate where fewer than two of three launches measured. A missing main bundle or native runtime always fails.
-- **Local runs.** Without `--strict` an over-budget or unmeasured result prints
-  a `WARN` and exits 0. `PUNTOVIVO_BUDGET_ROUNDS` changes the number of
-  launches.
+- **Local runs.** Without `--strict` an over-budget result prints a `WARN`
+  and exits 0, and so does an unmeasured one without `--require-measurement`.
+  `PUNTOVIVO_BUDGET_ROUNDS` changes the number of launches.
 
 `scripts/check-electron-memory.test.mjs` pins the budget translation, the
 invocation and the exit codes, and `scripts/run-electron-memory-gate.test.mjs`

@@ -80,9 +80,16 @@ test('strict fails the build but never drops the threshold', () => {
     env: { PUNTOVIVO_BUDGET_ROUNDS: '5' },
   });
   assert.deepEqual(strict, { enforce: true, requireMeasurement: true, rounds: 5 });
+  assert.equal(
+    resolveGateMode({ argv: [], env: { PUNTOVIVO_MAIN_THREAD_STRICT: '1' }, check: 'main-thread' })
+      .enforce,
+    true
+  );
   assert.equal(gateExitCode(true, { enforce: true }), 0);
   assert.equal(gateExitCode(false, { enforce: false }), 0);
   assert.equal(gateExitCode(false, { enforce: true }), 1);
+  assert.equal(gateExitCode(false, { enforce: false, requireMeasurement: true }, true), 1);
+  assert.equal(gateExitCode(false, { enforce: false, requireMeasurement: true }, false), 0);
 });
 
 test('each launch is its own cold kit run with the workload and env passed through', () => {
@@ -92,7 +99,6 @@ test('each launch is its own cold kit run with the workload and env passed throu
     outPath: '/tmp/run-1.json',
     env: { PUNTOVIVO_E2E: '1' },
     workload: '/repo/workload.mjs',
-    windowMs: 2000,
     platform: 'win32',
     nodePath: '/bin/node',
   });
@@ -112,8 +118,6 @@ test('each launch is its own cold kit run with the workload and env passed throu
     '/tmp/run-1.json',
     '--workload',
     '/repo/workload.mjs',
-    '--window-ms',
-    '2000',
     '--env',
     'PUNTOVIVO_E2E=1',
   ]);
@@ -182,6 +186,42 @@ test('a majority of launches must measure under --require-measurement', () => {
   assert.equal(one.passed, false);
   assert.equal(judgeRuns([launch(12), launch(13)], mainThreadBudget, options).passed, true);
   assert.equal(judgeRuns([], mainThreadBudget, options).report.reason, 'NO_MEASUREMENTS');
+  const even = { rounds: 4, requireMeasurement: true };
+  assert.equal(judgeRuns([launch(12), launch(13)], mainThreadBudget, even).enough, false);
+});
+
+test('the merged run keeps the Electron version of the launches', () => {
+  const measured = { ...launch(12), electron_version: '45.0.0' };
+  assert.equal(mergeRuns([measured, launch(13)]).electron_version, '45.0.0');
+});
+
+test('a launch with no GPU process counts GPU as 0 MB, not unmeasured', () => {
+  const budget = buildKitBudget(perfBudget, 'memory');
+  const headless = createRun({
+    rounds: [
+      {
+        round: 1,
+        phase: 'cold',
+        measurement: {
+          startup: { firstWindowMs: 300 },
+          memory: {
+            metric: 'workingSet',
+            processes: [
+              { pid: 1, type: 'main', mb: 300, workingSetMb: 300 },
+              { pid: 2, type: 'renderer', mb: 120, workingSetMb: 120 },
+              { pid: 3, type: 'utility', mb: 50, workingSetMb: 50 },
+            ],
+          },
+        },
+      },
+    ],
+  });
+  const verdict = judgeRuns([headless, headless, headless], budget, {
+    rounds: 3,
+    requireMeasurement: true,
+  });
+  assert.equal(verdict.report.summary.unmeasured, 0);
+  assert.equal(verdict.passed, true);
 });
 
 test('the kit CLI resolves next to its library entry', () => {
@@ -262,6 +302,44 @@ test('three good launches pass strict; a local over-budget run only warns', asyn
   });
   assert.equal(local, 0);
   assert.match(warnings.at(-1), /WARN over budget or unmeasured/);
+});
+
+test('--require-measurement alone fails launches that measure nothing', async () => {
+  const code = await runBudgetGate({
+    check: 'memory',
+    label: 'test',
+    env: {},
+    argv: ['--require-measurement'],
+    processEnv: {},
+    spawnImpl: fakeSpawn(2, null, []),
+    output: quiet,
+  });
+  assert.equal(code, 1);
+});
+
+test('a launch whose workload fails its own check fails strict, even when the others pass', async () => {
+  let launches = 0;
+  const spawnImpl = (command, args, options) => {
+    launches += 1;
+    const out = args[args.indexOf('--out') + 1];
+    if (launches < 3) writeFileSync(out, JSON.stringify(launch(12)));
+    else writeFileSync(options.env.PUNTOVIVO_BUDGET_REJECT_FILE, 'only 85 sales in the window');
+    const child = new EventEmitter();
+    setImmediate(() => child.emit('exit', launches < 3 ? 0 : 2));
+    return child;
+  };
+  const errors = [];
+  const code = await runBudgetGate({
+    check: 'main-thread',
+    label: 'test',
+    env: {},
+    argv: ['--strict', '--require-measurement'],
+    processEnv: {},
+    spawnImpl,
+    output: { ...quiet, error: message => errors.push(message) },
+  });
+  assert.equal(code, 1);
+  assert.match(errors.join('\n'), /launch 3 failed: only 85 sales/);
 });
 
 test('a CLI that cannot start is a usage error, not a pass', async () => {

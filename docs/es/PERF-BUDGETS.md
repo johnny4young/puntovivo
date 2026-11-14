@@ -572,8 +572,9 @@ apunta `WEB_DEV_SERVER_URL` a ella y corre el gate con `--strict` y
   el umbral.
 - **Falta de prueba.** Con `--require-measurement` una métrica sin medir
   falla, y también un gate donde menos de dos de tres inicios midieron. Si falta el bundle main o el runtime nativo, siempre falla.
-- **Corridas locales.** Sin `--strict`, un resultado por encima o sin medir
-  imprime un `WARN` y sale con 0. `PUNTOVIVO_BUDGET_ROUNDS` cambia el número de
+- **Corridas locales.** Sin `--strict`, un resultado por encima del presupuesto
+  imprime un `WARN` y sale con 0, igual que uno sin medir cuando falta
+  `--require-measurement`. `PUNTOVIVO_BUDGET_ROUNDS` cambia el número de
   inicios.
 
 `scripts/check-electron-memory.test.mjs` fija la traducción del presupuesto,
