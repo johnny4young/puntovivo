@@ -65,13 +65,11 @@ is usable from source, but it is not a new packaged release yet.
 
 ### Performance
 
-* **desktop:** run the Electron budget gates through @electron-stagewright/plugin-budget ([9c626b7](https://github.com/johnny4young/puntovivo/commit/9c626b72588ab3892724d9da4428974ff9fc20e1))
 * **desktop:** run the Electron budget gates through @electron-stagewright/plugin-budget ([8bfa834](https://github.com/johnny4young/puntovivo/commit/8bfa8349cc1cabf3e0ed25f78de090d5aebf5d2b))
 
 
 ### Refactors
 
-* **desktop:** supervise the server worker with @electron-stagewright/host-supervisor ([55be383](https://github.com/johnny4young/puntovivo/commit/55be38376bf6c204d71a35f16a6414d541fe8e00))
 * **desktop:** supervise the server worker with @electron-stagewright/host-supervisor ([1bfa3be](https://github.com/johnny4young/puntovivo/commit/1bfa3be6cd846883ed4691054a62bf4a4c6b473b))
 
 ## [1.18.0](https://github.com/johnny4young/puntovivo/compare/v1.17.1...v1.18.0) (2026-11-14)
