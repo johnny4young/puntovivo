@@ -305,7 +305,6 @@ const windowLifecycle = createWindowLifecycle({
   shouldOpenDevTools,
   log: mainLog,
   rendererLog,
-  stopEmbeddedServer: serverLifecycle.stop,
   shouldCloseToTray: () => {
     const settings = trayControllerRef.current?.getSettings();
     return Boolean(settings?.enabled && settings.closeToTray);

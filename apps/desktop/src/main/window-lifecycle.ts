@@ -1,4 +1,4 @@
-/** BrowserWindow creation, navigation policy, and measurement mode. */
+/** BrowserWindow creation and navigation policy. */
 
 import {
   app,
@@ -21,8 +21,6 @@ import {
   buildMainWindowWebPreferences,
 } from './window-config.js';
 import { createSingleFlight } from './single-flight.js';
-import { installMainThreadMeasurement } from './main-thread-measurement.js';
-import { exitAfterMeasurement, whenAppMounted } from './measurement-harness.js';
 
 const RENDERER_LEVEL_MAP = {
   debug: 'debug',
@@ -40,7 +38,6 @@ interface WindowLifecycleDeps {
   shouldOpenDevTools: boolean;
   log: PuntovivoLogger;
   rendererLog: PuntovivoLogger;
-  stopEmbeddedServer: () => Promise<void>;
   shouldCloseToTray: () => boolean;
   isQuitting: () => boolean;
   onVisibilityChange: () => void;
@@ -67,7 +64,6 @@ export function createWindowLifecycle({
   shouldOpenDevTools,
   log,
   rendererLog,
-  stopEmbeddedServer,
   shouldCloseToTray,
   isQuitting,
   onVisibilityChange,
@@ -255,33 +251,7 @@ export function createWindowLifecycle({
       log.warn({ url }, 'blocked unsupported renderer navigation');
     });
 
-    // machine-readable Electron memory gate. Verify the React root
-    // mounted before measuring so Chromium error pages never report a false pass.
-    // The renderer loads during server start, so measure the app, not the boot spinner.
-    if (process.env.PUNTOVIVO_MEASURE_MEMORY === '1') {
-      void whenAppMounted(mainWindow.webContents, 2000).then(appMounted => {
-        if (appMounted) {
-          const metrics = app.getAppMetrics().map(metric => ({
-            type: metric.type,
-            workingSetKb: metric.memory.workingSetSize,
-          }));
-          process.stdout.write(`PUNTOVIVO_MEMORY_METRICS=${JSON.stringify(metrics)}\n`);
-        } else {
-          process.stdout.write('PUNTOVIVO_MEMORY_SKIP=app-not-mounted\n');
-        }
-        exitAfterMeasurement({ stopEmbeddedServer, log, label: 'memory measurement' });
-      });
-    }
-
     beforeRendererLoad?.(mainWindow.webContents);
-
-    if (process.env.PUNTOVIVO_MEASURE_MAIN_THREAD === '1') {
-      installMainThreadMeasurement({
-        webContents: mainWindow.webContents,
-        stopEmbeddedServer,
-        log,
-      });
-    }
 
     if (isDev) {
       log.info({ source: webDevServerUrl }, 'loading renderer from dev server');

@@ -1,8 +1,7 @@
-/** Shared by the memory and main-thread measurement modes. */
+/** Renderer readiness for the soak mode. */
 
-import { app, type WebContents } from 'electron';
+import type { WebContents } from 'electron';
 import { setTimeout as delay } from 'node:timers/promises';
-import type { PuntovivoLogger } from '@puntovivo/server';
 import { whenServerReady } from './runtime.js';
 
 const ROOT_MOUNTED_SCRIPT =
@@ -21,17 +20,4 @@ export function whenAppMounted(webContents: WebContents, settleMs = 0): Promise<
     .then(() => delay(settleMs))
     .then(() => webContents.executeJavaScript(ROOT_MOUNTED_SCRIPT))
     .then(Boolean, () => false);
-}
-
-export function exitAfterMeasurement(deps: {
-  stopEmbeddedServer: () => Promise<void>;
-  log: PuntovivoLogger;
-  label: string;
-}): void {
-  void deps
-    .stopEmbeddedServer()
-    .catch(err => {
-      deps.log.warn({ err }, `failed to stop embedded server after ${deps.label}`);
-    })
-    .finally(() => app.exit(0));
 }
