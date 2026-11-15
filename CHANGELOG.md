@@ -66,7 +66,6 @@ is usable from source, but it is not a new packaged release yet.
 ### Performance
 
 * **desktop:** measure every budget launch in one plugin-budget run ([1b4708b](https://github.com/johnny4young/puntovivo/commit/1b4708b3a448e3e59938f5d63572498b3654fee6))
-* **desktop:** run the Electron budget gates through @electron-stagewright/plugin-budget ([9c626b7](https://github.com/johnny4young/puntovivo/commit/9c626b72588ab3892724d9da4428974ff9fc20e1))
 * **desktop:** run the Electron budget gates through @electron-stagewright/plugin-budget ([8bfa834](https://github.com/johnny4young/puntovivo/commit/8bfa8349cc1cabf3e0ed25f78de090d5aebf5d2b))
 
 
@@ -74,7 +73,6 @@ is usable from source, but it is not a new packaged release yet.
 
 * **desktop:** adopt the Electron Stagewright kit 0.2.0 ([1aed92b](https://github.com/johnny4young/puntovivo/commit/1aed92b60713db165125f5aca75e3638f33f3d49))
 * **desktop:** drop the server worker workarounds host-supervisor 0.2 covers ([332b8d3](https://github.com/johnny4young/puntovivo/commit/332b8d3b6273fc2040307b86b51397fdfd290812))
-* **desktop:** supervise the server worker with @electron-stagewright/host-supervisor ([55be383](https://github.com/johnny4young/puntovivo/commit/55be38376bf6c204d71a35f16a6414d541fe8e00))
 * **desktop:** supervise the server worker with @electron-stagewright/host-supervisor ([1bfa3be](https://github.com/johnny4young/puntovivo/commit/1bfa3be6cd846883ed4691054a62bf4a4c6b473b))
 
 ## [1.18.0](https://github.com/johnny4young/puntovivo/compare/v1.17.1...v1.18.0) (2026-11-14)
