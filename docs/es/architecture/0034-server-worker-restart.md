@@ -51,7 +51,9 @@ Main reinicia el worker del servidor cuando muere después de empezar a servir.
   lo drena al detenerlo y aplica `restartPolicy` con las causas fatales de
   arriba. Una llamada hecha con un handle viejo durante un reinicio espera al
   worker nuevo en vez de fallar. Main sigue sin ver un host mientras reinicia,
-  así que los botones de cobro siguen deshabilitados.
+  así que los botones de cobro siguen deshabilitados. `restartAround` pausa el
+  supervisor: mientras tiene los archivos de la base no arranca ningún worker,
+  y una llamada falla con `HOST_PAUSED`.
 - **Causa.** El lado host del supervisor envía el error serializado a main
   antes de que el manejador de caídas del worker termine el hilo; una salida
   por límite de heap se clasifica como `oom`. Una caída nativa sigue

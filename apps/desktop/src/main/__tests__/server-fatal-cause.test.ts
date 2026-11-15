@@ -8,6 +8,7 @@ const withCode = (message: string, code?: string) =>
 
 const crash: HostExit = {
   kind: 'crash',
+  reason: 'uncaught',
   error: new Error('SERVER_WORKER_TEST_CRASH'),
   code: 1,
   uptimeMs: 1_000,

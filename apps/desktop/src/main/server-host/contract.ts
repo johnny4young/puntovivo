@@ -138,7 +138,6 @@ export const EMBEDDED_SERVER_OPERATIONS = [
 
 /** What the server worker serves: the host contract plus its own housekeeping. */
 export interface ServerWorkerOperations extends EmbeddedServerOperations {
-  getUrl(): Promise<string>;
   /** Honoured only when the app runs under E2E or soak; see server-worker.ts. */
   testCrash(): Promise<void>;
   /** Same gate as testCrash: allocates until the heap limit ends the thread. */
@@ -147,10 +146,14 @@ export interface ServerWorkerOperations extends EmbeddedServerOperations {
 
 export const SERVER_WORKER_OPERATIONS = [
   ...EMBEDDED_SERVER_OPERATIONS,
-  'getUrl',
   'testCrash',
   'testOutOfMemory',
 ] as const satisfies readonly (keyof ServerWorkerOperations)[];
+
+/** What a started worker reports back. */
+export interface ServerWorkerInfo {
+  url: string;
+}
 
 /** The worker's start payload: what it needs to open the database and listen. */
 export interface WorkerStartOptions {
