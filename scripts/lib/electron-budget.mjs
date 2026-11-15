@@ -1,8 +1,8 @@
 /**
  * Electron budgets through `@electron-stagewright/plugin-budget`. perf-budget.json
  * stays the source of truth; each gate writes the kit's budget format from it,
- * measures each launch with `electron-stagewright-budget measure` and checks
- * the merged launches under Puntovivo's warn-first and strict modes.
+ * measures its cold launches with `electron-stagewright-budget measure` and
+ * checks the run under Puntovivo's warn-first and strict modes.
  *
  * @module scripts/lib/electron-budget
  */
@@ -14,7 +14,7 @@ import {
   createRun,
   loadRun,
   renderCheckReport,
-} from '@electron-stagewright/plugin-budget';
+} from '@electron-stagewright/plugin-budget/check';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -124,19 +124,28 @@ export function resolveGateMode({
   };
 }
 
-/** The package exports only its library; the CLI sits next to it in dist. */
 export function resolveBudgetCli() {
-  const entry = fileURLToPath(import.meta.resolve('@electron-stagewright/plugin-budget'));
-  return join(dirname(entry), 'cli.js');
+  return fileURLToPath(import.meta.resolve('@electron-stagewright/plugin-budget/cli'));
 }
 
-/** Command and arguments for one measured launch; Linux CI needs a display and no SUID sandbox. */
+/** Launches whose median counts: a majority, so one window cannot decide. */
+export function minSamples(rounds) {
+  return Math.floor(rounds / 2) + 1;
+}
+
+/**
+ * Command and arguments for the measured launches. A launch that fails is
+ * skipped, and `minSamples` decides whether the rest still count. Linux CI
+ * needs a display and no SUID sandbox.
+ */
 export function buildMeasureInvocation({
   cli,
   budgetPath,
   outPath,
   env,
+  rounds,
   workload,
+  beforeRound,
   platform = process.platform,
   nodePath = process.execPath,
 }) {
@@ -148,13 +157,15 @@ export function buildMeasureInvocation({
     '--budget',
     budgetPath,
     '--rounds',
-    '1',
+    String(rounds),
     '--phases',
     'cold',
+    '--skip-failed-rounds',
     '--out',
     outPath,
   ];
   if (workload) args.push('--workload', workload);
+  if (beforeRound) args.push('--before-round', beforeRound);
   for (const [key, value] of Object.entries(env)) args.push('--env', `${key}=${value}`);
   if (platform === 'linux') {
     args.push('--arg', '--no-sandbox');
@@ -163,43 +174,39 @@ export function buildMeasureInvocation({
   return { command: nodePath, args };
 }
 
-/** One run with every measured launch, numbered in order, so the kit's median spans them. */
-export function mergeRuns(runs) {
+// A headless Linux launch can start no GPU process; that is 0 MB, not an unmeasured metric.
+export function withGpu(run) {
   return createRun({
-    rounds: runs.flatMap((run, index) =>
-      run.rounds.map(round => ({ ...withGpu(round), round: index + 1 }))
-    ),
-    ...(runs[0]?.electron_version ? { electronVersion: runs[0].electron_version } : {}),
+    rounds: run.rounds.map(round => {
+      const memory = round.measurement?.memory;
+      if (!memory || memory.processes.some(entry => entry.type === 'gpu')) return round;
+      const gpu = { pid: 0, type: 'gpu', mb: 0, workingSetMb: 0 };
+      return {
+        ...round,
+        measurement: {
+          ...round.measurement,
+          memory: { ...memory, processes: [...memory.processes, gpu] },
+        },
+      };
+    }),
+    ...(run.electron_version ? { electronVersion: run.electron_version } : {}),
   });
 }
 
-// A headless Linux launch can start no GPU process; that is 0 MB, not an unmeasured metric.
-function withGpu(round) {
-  const memory = round.measurement?.memory;
-  if (!memory || memory.processes.some(entry => entry.type === 'gpu')) return round;
-  const gpu = { pid: 0, type: 'gpu', mb: 0, workingSetMb: 0 };
-  return {
-    ...round,
-    measurement: {
-      ...round.measurement,
-      memory: { ...memory, processes: [...memory.processes, gpu] },
-    },
-  };
-}
-
-/**
- * The verdict for the merged launches. Under --require-measurement a majority
- * of launches must have measured, or the median rests on one window.
- */
-export function judgeRuns(runs, budget, { rounds, requireMeasurement }) {
-  const report = checkRun(mergeRuns(runs), budget, { requireMeasurement });
-  const enough = runs.length >= Math.floor(rounds / 2) + 1;
-  const unmeasured = !enough || report.summary.unmeasured > 0;
+/** The verdict for a run (null when no launch measured); a majority of launches must count. */
+export function judgeRun(run, budget, { rounds, requireMeasurement }) {
+  const measured = run ? withGpu(run) : createRun({ rounds: [] });
+  const report = checkRun(measured, budget, {
+    requireMeasurement,
+    minSamples: minSamples(rounds),
+  });
+  const enough = measured.rounds.length >= minSamples(rounds);
   return {
     report,
     passed: report.passed && (!requireMeasurement || enough),
     enough,
-    unmeasured,
+    measuredLaunches: measured.rounds.length,
+    unmeasured: !enough || report.summary.unmeasured > 0,
   };
 }
 
@@ -215,7 +222,7 @@ export function gateExitCode(passed, { enforce, requireMeasurement }, unmeasured
 // Bounds what the kit's own launch, load and workload timeouts do not: a stuck stop or quit.
 const LAUNCH_TIMEOUT_MS = 300_000;
 
-function runChild(spawnImpl, invocation, env, onError, timeoutMs = LAUNCH_TIMEOUT_MS) {
+function runChild(spawnImpl, invocation, env, onError, timeoutMs) {
   return new Promise(resolvePromise => {
     // xvfb-run forks node, Electron and Xvfb, so a timeout kills the whole group on Linux.
     const detached = process.platform === 'linux';
@@ -246,15 +253,16 @@ function runChild(spawnImpl, invocation, env, onError, timeoutMs = LAUNCH_TIMEOU
 }
 
 /**
- * Writes the generated budget, measures each launch with its own kit run (so
- * `prepareRound` can hand every launch fresh state), and checks the merged run.
+ * Writes the generated budget, measures every launch in one kit run (a
+ * `beforeRound` module hands each launch fresh state), and checks the run.
+ * A workload that measured a failure appends it to PUNTOVIVO_BUDGET_REJECT_FILE.
  */
 export async function runBudgetGate({
   check,
   label,
   env,
   workload,
-  prepareRound = async () => ({}),
+  beforeRound,
   argv = process.argv.slice(2),
   processEnv = process.env,
   spawnImpl = spawn,
@@ -265,50 +273,57 @@ export async function runBudgetGate({
   const workDir = mkdtempSync(join(tmpdir(), `puntovivo-budget-${check}-`));
   try {
     const budgetPath = join(workDir, 'budget.json');
+    const outPath = join(workDir, 'run.json');
+    const rejectPath = join(workDir, 'rejected.txt');
     writeFileSync(budgetPath, JSON.stringify(budget, null, 2));
-    const cli = resolveBudgetCli();
-    const runs = [];
-    const rejected = [];
-    for (let round = 1; round <= mode.rounds; round += 1) {
-      const outPath = join(workDir, `run-${round}.json`);
-      const roundEnv = { ...env, ...(await prepareRound(round, workDir)) };
-      const invocation = buildMeasureInvocation({
-        cli,
-        budgetPath,
-        outPath,
-        env: roundEnv,
-        workload,
-      });
-      // A workload that measured a failure writes it here; that launch fails, it is not unmeasured.
-      const rejectPath = join(workDir, `reject-${round}.txt`);
-      let startError = null;
-      const childEnv = { ...processEnv, PUNTOVIVO_BUDGET_REJECT_FILE: rejectPath };
-      const code = await runChild(spawnImpl, invocation, childEnv, error => {
+    const invocation = buildMeasureInvocation({
+      cli: resolveBudgetCli(),
+      budgetPath,
+      outPath,
+      env,
+      rounds: mode.rounds,
+      workload,
+      beforeRound,
+    });
+    let startError = null;
+    // Read by the workload and the before-round module, which run in the CLI's process.
+    const childEnv = {
+      ...processEnv,
+      PUNTOVIVO_BUDGET_REJECT_FILE: rejectPath,
+      PUNTOVIVO_BUDGET_WORK_DIR: workDir,
+    };
+    const code = await runChild(
+      spawnImpl,
+      invocation,
+      childEnv,
+      error => {
         startError = error;
-      });
-      if (startError) {
-        output.error(`${label}: could not start the budget CLI: ${startError.message}`);
-        return 2;
-      }
-      if (existsSync(rejectPath)) {
-        rejected.push(round);
-        output.error(`${label}: launch ${round} failed: ${readFileSync(rejectPath, 'utf8')}`);
-      } else if (code === 0 && existsSync(outPath)) runs.push(await loadRun(outPath));
-      else output.warn(`${label}: launch ${round} produced no measurement (exit ${code})`);
+      },
+      LAUNCH_TIMEOUT_MS * mode.rounds
+    );
+    if (startError) {
+      output.error(`${label}: could not start the budget CLI: ${startError.message}`);
+      return 2;
     }
-    const verdict = judgeRuns(runs, budget, mode);
+    const rejected = existsSync(rejectPath)
+      ? readFileSync(rejectPath, 'utf8').split('\n').filter(Boolean)
+      : [];
+    for (const reason of rejected) output.error(`${label}: a launch failed: ${reason}`);
+    const run = code === 0 && existsSync(outPath) ? await loadRun(outPath) : null;
+    if (!run) output.warn(`${label}: no launch produced a measurement (exit ${code})`);
+    const verdict = judgeRun(run, budget, mode);
     output.log(renderCheckReport(verdict.report));
     if (!verdict.enough) {
       output[mode.requireMeasurement ? 'error' : 'warn'](
-        `${label}: only ${runs.length} of ${mode.rounds} launches measured`
+        `${label}: only ${verdict.measuredLaunches} of ${mode.rounds} launches measured`
       );
     }
     const passed = verdict.passed && rejected.length === 0;
-    const code = gateExitCode(passed, mode, verdict.unmeasured);
-    if (!passed && code === 0) {
+    const exitCode = gateExitCode(passed, mode, verdict.unmeasured);
+    if (!passed && exitCode === 0) {
       output.warn(`${label}: WARN over budget or unmeasured; pass --strict to fail.`);
     }
-    return code;
+    return exitCode;
   } finally {
     // Windows can hold a fixture copy briefly after the app exits; that must not replace the verdict.
     try {

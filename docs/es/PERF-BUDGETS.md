@@ -540,7 +540,8 @@ escribe el presupuesto del kit a partir de `perf-budget.json::electronMemoryMb`
 y `operationalProfile.desktopLaunchElapsedMs`, así que `perf-budget.json` sigue
 siendo el único lugar donde cambia un límite. El comando
 `electron-stagewright-budget measure` del kit inicia la app compilada tres
-veces, cada una con un perfil vacío (`cold`). La carga de
+veces en una sola corrida, cada una con un perfil vacío (`cold`), y salta un
+inicio que falla (`--skip-failed-rounds`). La carga de
 `scripts/electron-budget-mounted-workload.mjs` hace fallar un inicio cuya raíz
 de React nunca se montó, para que una página de error de Chromium no pase, y
 luego espera 2 s.
@@ -570,8 +571,10 @@ apunta `WEB_DEV_SERVER_URL` a ella y corre el gate con `--strict` y
 - **Estricto.** El `--strict` de Puntovivo hace fallar el build ante un valor
   por encima del presupuesto. Nunca se pasa al kit, cuyo `--strict` quitaría
   el umbral.
-- **Falta de prueba.** Con `--require-measurement` una métrica sin medir
-  falla, y también un gate donde menos de dos de tres inicios midieron. Si falta el bundle main o el runtime nativo, siempre falla.
+- **Falta de prueba.** Una métrica necesita dos de tres inicios para que su
+  mediana cuente (el `minSamples` del kit); con menos queda sin medir. Con
+  `--require-measurement` una métrica sin medir falla. Si falta el bundle main
+  o el runtime nativo, siempre falla.
 - **Corridas locales.** Sin `--strict`, un resultado por encima del presupuesto
   imprime un `WARN` y sale con 0, igual que uno sin medir cuando falta
   `--require-measurement`. `PUNTOVIVO_BUDGET_ROUNDS` cambia el número de
@@ -595,10 +598,10 @@ cajero del fixture, registra un dispositivo y vende tiquetes de un artículo
 seguidos durante `perf-budget.json::electronMainThread.windowMs`: una búsqueda
 de producto, `sales.create` con un sobre de comando y la consulta de la sesión
 activa. Menos de `minSales` ventas hace fallar el inicio, porque el servidor
-no estuvo bajo carga.
-Cada inicio vende contra su propia copia del fixture: los inicios que
-compartían un archivo se volvían más lentos uno tras otro en el runner
-Windows.
+no estuvo bajo carga, y con él falla el gate. El módulo `--before-round` del
+kit, `scripts/electron-budget-fixture-round.mjs`, le da a cada inicio su
+propia copia del fixture: los inicios que compartían un archivo se volvían
+más lentos uno tras otro en el runner Windows.
 
 Mientras tanto el kit cuenta como tiempo bloqueado cada tick de un temporizador
 de 10 ms en main que llega 10 ms tarde o más, y mide el IPC `get-app-version`

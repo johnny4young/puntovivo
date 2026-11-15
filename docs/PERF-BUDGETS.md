@@ -492,7 +492,8 @@ built runtime is not a packaged or signed artifact.
 writes the kit's budget file from `perf-budget.json::electronMemoryMb` and
 `operationalProfile.desktopLaunchElapsedMs`, so `perf-budget.json` stays the
 only place to change a limit. The kit's `electron-stagewright-budget measure`
-launches the built app three times, each on an empty profile (`cold`). The
+launches the built app three times in one run, each on an empty profile
+(`cold`), and skips a launch that fails (`--skip-failed-rounds`). The
 workload in `scripts/electron-budget-mounted-workload.mjs` fails a launch
 whose React root never mounted, so a Chromium error page cannot pass, then
 idles for 2 s.
@@ -520,8 +521,10 @@ starts a local Vite preview via `scripts/run-electron-memory-gate.mjs`, points
 
 - **Strict.** Puntovivo's `--strict` fails the build on an over-budget value.
   It is never forwarded to the kit, whose `--strict` would drop the threshold.
-- **Missing proof.** Under `--require-measurement` an unmeasured metric fails,
-  and so does a gate where fewer than two of three launches measured. A missing main bundle or native runtime always fails.
+- **Missing proof.** A metric needs two of three launches before its median
+  counts (the kit's `minSamples`); with fewer it is unmeasured. Under
+  `--require-measurement` an unmeasured metric fails. A missing main bundle or
+  native runtime always fails.
 - **Local runs.** Without `--strict` an over-budget result prints a `WARN`
   and exits 0, and so does an unmeasured one without `--require-measurement`.
   `PUNTOVIVO_BUDGET_ROUNDS` changes the number of launches.
@@ -542,9 +545,11 @@ launches the workload waits for the embedded server, signs in as the fixture
 cashier, registers a device and sells one-item tickets back to back for
 `perf-budget.json::electronMainThread.windowMs`: a product search,
 `sales.create` with a command envelope and the active-session refetch. Fewer
-than `minSales` sales fails the launch, since the server was not under load.
-Each launch sells against its own copy of the fixture: launches that shared
-one file slowed down launch after launch on the Windows runner.
+than `minSales` sales fails the launch, since the server was not under load,
+and the gate with it. The kit's `--before-round` module,
+`scripts/electron-budget-fixture-round.mjs`, hands each launch its own copy
+of the fixture: launches that shared one file slowed down launch after launch
+on the Windows runner.
 
 Meanwhile the kit counts every tick of a 10 ms timer in main that fires 10 ms
 or more late as blocked time, and times the `get-app-version` IPC every 25 ms.
