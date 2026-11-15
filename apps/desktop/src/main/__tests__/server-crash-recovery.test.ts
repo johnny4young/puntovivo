@@ -2,6 +2,7 @@ import { afterEach, describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { isHostError } from '@electron-stagewright/host-supervisor';
 import type { PuntovivoLogger, ServerOptions } from '@puntovivo/server';
 import type { EmbeddedServerHost } from '../server-host/contract.ts';
 import type { WorkerCrashEntry } from '../server-host/crash-log.ts';
@@ -251,27 +252,26 @@ describe('embedded server crash recovery', () => {
       assert.equal(t.prepares(), 1, 'no start payload may touch the database mid-operation');
     });
 
-    assert.match(String((duringOperation as Error).cause), /SERVER_WORKER_HELD/);
+    assert.ok(isHostError(duringOperation, 'HOST_PAUSED'), String(duringOperation));
     assert.equal(t.workers.length, 2);
     assert.equal(await captured.readAppSetting('tray_settings'), null);
     await t.lifecycle.stop();
   });
 
-  it('keeps a recovered worker unpublished when restartAround began during its getUrl', async () => {
-    let releaseUrl!: () => void;
-    const urlGate = new Promise<void>(resolve => (releaseUrl = resolve));
-    const t = setup([ok(1), { url: 'http://127.0.0.1:2', urlGate }, ok(3)]);
+  it('keeps a recovered worker unpublished when restartAround began during its start', async () => {
+    let releaseStart!: () => void;
+    const gate = new Promise<void>(resolve => (releaseStart = resolve));
+    const t = setup([ok(1), { url: 'http://127.0.0.1:2', gate }, ok(3)]);
     setServerHost(await t.lifecycle.start());
 
     t.workers[0]?.crash(crash);
-    await until(() => t.workers[1]?.calls.includes('getUrl') ?? false);
+    await until(() => t.workers[1]?.payload != null);
     let hostDuringOperation: unknown = 'unset';
     const operation = t.lifecycle.restartAround(async () => {
       hostDuringOperation = getServerHost();
     });
-    // The stop drains the gated getUrl, so it has begun before the reply.
     await new Promise(resolve => setTimeout(resolve, 10));
-    releaseUrl();
+    releaseStart();
     await operation;
 
     assert.equal(hostDuringOperation, null);

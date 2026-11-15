@@ -5,7 +5,7 @@
  * @module scripts/electron-budget-sales-workload
  */
 
-import { writeFileSync } from 'node:fs';
+import { appendFileSync } from 'node:fs';
 import { performance } from 'node:perf_hooks';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createSaleWorkload } from './check-electron-main-thread.mjs';
@@ -48,7 +48,7 @@ export default async ({ phase }) => {
   if (result.salesInWindow < minSales) {
     const reason = `only ${result.salesInWindow} sales in the window; at least ${minSales} needed`;
     if (process.env.PUNTOVIVO_BUDGET_REJECT_FILE) {
-      writeFileSync(process.env.PUNTOVIVO_BUDGET_REJECT_FILE, reason);
+      appendFileSync(process.env.PUNTOVIVO_BUDGET_REJECT_FILE, `${reason}\n`);
     }
     throw new Error(reason);
   }

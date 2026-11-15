@@ -50,7 +50,8 @@ Main restarts a server worker that dies after it has started serving.
   drains it on stop and applies `restartPolicy` with the fatal causes above.
   A call made through an old handle during a restart waits for the new worker
   instead of failing. Main still sees no host while restarting, so the charge
-  buttons stay disabled.
+  buttons stay disabled. `restartAround` pauses the supervisor: while it holds
+  the database files no worker starts, and a call fails with `HOST_PAUSED`.
 - **Cause.** The supervisor's host side sends the serialized error to main
   before the worker's crash handler ends the thread; a heap-limit exit is
   classified as `oom`. A native crash still ends the whole process (ADR-0032).

@@ -171,7 +171,7 @@ process — it is not a spawned child server process.
 
 ### Prerequisites
 
-- Node.js `>=26.12.1`
+- Node.js `>=26.13.1`
 - pnpm `11.7.0` through Corepack (Node 25+ no longer bundles it: `npm install --global corepack`) or a matching local install
 
 ```bash

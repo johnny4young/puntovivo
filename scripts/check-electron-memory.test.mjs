@@ -5,10 +5,10 @@
  */
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { test } from 'node:test';
 
-import { createRun, parseBudget } from '@electron-stagewright/plugin-budget';
+import { createRun, parseBudget } from '@electron-stagewright/plugin-budget/check';
 import {
   BUDGET_PATH,
   DEFAULT_ROUNDS,
@@ -16,8 +16,7 @@ import {
   buildKitBudget,
   buildMeasureInvocation,
   gateExitCode,
-  judgeRuns,
-  mergeRuns,
+  judgeRun,
   resolveBudgetCli,
   resolveGateMode,
   runBudgetGate,
@@ -92,13 +91,15 @@ test('strict fails the build but never drops the threshold', () => {
   assert.equal(gateExitCode(false, { enforce: false, requireMeasurement: true }, false), 0);
 });
 
-test('each launch is its own cold kit run with the workload and env passed through', () => {
+test('one cold kit run skips failed launches and passes the workload, round module and env', () => {
   const invocation = buildMeasureInvocation({
     cli: '/kit/cli.js',
     budgetPath: '/tmp/budget.json',
-    outPath: '/tmp/run-1.json',
+    outPath: '/tmp/run.json',
     env: { PUNTOVIVO_E2E: '1' },
+    rounds: 3,
     workload: '/repo/workload.mjs',
+    beforeRound: '/repo/round.mjs',
     platform: 'win32',
     nodePath: '/bin/node',
   });
@@ -111,13 +112,16 @@ test('each launch is its own cold kit run with the workload and env passed throu
     '--budget',
     '/tmp/budget.json',
     '--rounds',
-    '1',
+    '3',
     '--phases',
     'cold',
+    '--skip-failed-rounds',
     '--out',
-    '/tmp/run-1.json',
+    '/tmp/run.json',
     '--workload',
     '/repo/workload.mjs',
+    '--before-round',
+    '/repo/round.mjs',
     '--env',
     'PUNTOVIVO_E2E=1',
   ]);
@@ -130,6 +134,7 @@ test('Linux runs under xvfb-run without the SUID sandbox', () => {
     budgetPath: '/b',
     outPath: '/o',
     env: {},
+    rounds: 3,
     platform: 'linux',
     nodePath: '/bin/node',
   });
@@ -140,83 +145,66 @@ test('Linux runs under xvfb-run without the SUID sandbox', () => {
 
 const mainThreadBudget = buildKitBudget(perfBudget, 'main-thread');
 
-function launch(maxStallMs) {
-  return createRun({
-    rounds: [
-      {
-        round: 1,
-        phase: 'cold',
-        measurement: {
-          mainThread: {
-            windowMs: 15000,
-            blockedMs: maxStallMs,
-            blockedPercent: 0.2,
-            maxStallMs,
-            stallsOver50Ms: maxStallMs > 50 ? 1 : 0,
-            stallsOver100Ms: maxStallMs > 100 ? 1 : 0,
-          },
-          ipc: { count: 500, p50: 0.2, p95: 0.4, p99: 0.6, max: 2 },
-        },
+function round(maxStallMs, index = 1) {
+  return {
+    round: index,
+    phase: 'cold',
+    measurement: {
+      mainThread: {
+        windowMs: 15000,
+        blockedMs: maxStallMs,
+        blockedPercent: 0.2,
+        maxStallMs,
+        stallsOver50Ms: maxStallMs > 50 ? 1 : 0,
+        stallsOver100Ms: maxStallMs > 100 ? 1 : 0,
       },
-    ],
-  });
+      ipc: { count: 500, p50: 0.2, p95: 0.4, p99: 0.6, max: 2 },
+    },
+  };
+}
+
+/** A run with one measured launch per stall value. */
+function launches(...stalls) {
+  return createRun({ rounds: stalls.map((stall, index) => round(stall, index + 1)) });
 }
 
 test('one stalled launch of three passes; a stall in two of three fails', () => {
-  const merged = mergeRuns([launch(12), launch(487), launch(14)]);
-  assert.deepEqual(
-    merged.rounds.map(round => round.round),
-    [1, 2, 3]
-  );
   const options = { rounds: 3, requireMeasurement: true };
-  assert.equal(
-    judgeRuns([launch(12), launch(487), launch(14)], mainThreadBudget, options).passed,
-    true
-  );
-  assert.equal(
-    judgeRuns([launch(12), launch(487), launch(108.7)], mainThreadBudget, options).passed,
-    false
-  );
+  assert.equal(judgeRun(launches(12, 487, 14), mainThreadBudget, options).passed, true);
+  assert.equal(judgeRun(launches(12, 487, 108.7), mainThreadBudget, options).passed, false);
 });
 
 test('a majority of launches must measure under --require-measurement', () => {
   const options = { rounds: 3, requireMeasurement: true };
-  const one = judgeRuns([launch(12)], mainThreadBudget, options);
+  const one = judgeRun(launches(12), mainThreadBudget, options);
   assert.equal(one.enough, false);
   assert.equal(one.passed, false);
-  assert.equal(judgeRuns([launch(12), launch(13)], mainThreadBudget, options).passed, true);
-  assert.equal(judgeRuns([], mainThreadBudget, options).report.reason, 'NO_MEASUREMENTS');
+  assert.equal(judgeRun(launches(12, 13), mainThreadBudget, options).passed, true);
+  assert.equal(judgeRun(null, mainThreadBudget, options).report.reason, 'NO_MEASUREMENTS');
   const even = { rounds: 4, requireMeasurement: true };
-  assert.equal(judgeRuns([launch(12), launch(13)], mainThreadBudget, even).enough, false);
-});
-
-test('the merged run keeps the Electron version of the launches', () => {
-  const measured = { ...launch(12), electron_version: '45.0.0' };
-  assert.equal(mergeRuns([measured, launch(13)]).electron_version, '45.0.0');
+  assert.equal(judgeRun(launches(12, 13), mainThreadBudget, even).enough, false);
 });
 
 test('a launch with no GPU process counts GPU as 0 MB, not unmeasured', () => {
   const budget = buildKitBudget(perfBudget, 'memory');
   const headless = createRun({
-    rounds: [
-      {
-        round: 1,
-        phase: 'cold',
-        measurement: {
-          startup: { firstWindowMs: 300 },
-          memory: {
-            metric: 'workingSet',
-            processes: [
-              { pid: 1, type: 'main', mb: 300, workingSetMb: 300 },
-              { pid: 2, type: 'renderer', mb: 120, workingSetMb: 120 },
-              { pid: 3, type: 'utility', mb: 50, workingSetMb: 50 },
-            ],
-          },
+    rounds: [1, 2, 3].map(index => ({
+      round: index,
+      phase: 'cold',
+      measurement: {
+        startup: { firstWindowMs: 300 },
+        memory: {
+          metric: 'workingSet',
+          processes: [
+            { pid: 1, type: 'main', mb: 300, workingSetMb: 300 },
+            { pid: 2, type: 'renderer', mb: 120, workingSetMb: 120 },
+            { pid: 3, type: 'utility', mb: 50, workingSetMb: 50 },
+          ],
         },
       },
-    ],
+    })),
   });
-  const verdict = judgeRuns([headless, headless, headless], budget, {
+  const verdict = judgeRun(headless, budget, {
     rounds: 3,
     requireMeasurement: true,
   });
@@ -224,7 +212,7 @@ test('a launch with no GPU process counts GPU as 0 MB, not unmeasured', () => {
   assert.equal(verdict.passed, true);
 });
 
-test('the kit CLI resolves next to its library entry', () => {
+test('the kit CLI resolves through its package export', () => {
   assert.match(resolveBudgetCli(), /plugin-budget[\\/]dist[\\/]cli\.js$/);
 });
 
@@ -250,33 +238,34 @@ test('launches that measure nothing fail under --require-measurement', async () 
     env: {},
     argv: ['--strict', '--require-measurement'],
     processEnv: {},
-    spawnImpl: fakeSpawn(1, null, calls),
+    spawnImpl: fakeSpawn(2, null, calls),
     output: quiet,
   });
   assert.equal(code, 1);
-  assert.equal(calls.length, DEFAULT_ROUNDS);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].args[calls[0].args.indexOf('--rounds') + 1], String(DEFAULT_ROUNDS));
 });
 
-test('every launch gets the state prepareRound hands it', async () => {
+test('the before-round module and its work directory reach the CLI', async () => {
   const calls = [];
   await runBudgetGate({
     check: 'main-thread',
     label: 'test',
     env: { A: '1' },
     argv: [],
-    processEnv: {},
-    prepareRound: async round => ({ DATABASE_URL: `/tmp/fixture-${round}.db` }),
-    spawnImpl: fakeSpawn(0, launch(12), calls),
+    processEnv: { B: '2' },
+    beforeRound: '/repo/round.mjs',
+    spawnImpl: (command, args, options) => {
+      calls.push({ args, env: options.env });
+      return fakeSpawn(0, launches(12, 13, 14), [])(command, args);
+    },
     output: quiet,
   });
-  assert.deepEqual(
-    calls.map(call => call.args.filter(arg => arg.startsWith('DATABASE_URL='))),
-    [
-      ['DATABASE_URL=/tmp/fixture-1.db'],
-      ['DATABASE_URL=/tmp/fixture-2.db'],
-      ['DATABASE_URL=/tmp/fixture-3.db'],
-    ]
-  );
+  const [{ args, env }] = calls;
+  assert.equal(args[args.indexOf('--before-round') + 1], '/repo/round.mjs');
+  assert.ok(args.includes('A=1'));
+  assert.equal(env.B, '2');
+  assert.match(env.PUNTOVIVO_BUDGET_WORK_DIR, /puntovivo-budget-main-thread-/);
 });
 
 test('three good launches pass strict; a local over-budget run only warns', async () => {
@@ -286,7 +275,7 @@ test('three good launches pass strict; a local over-budget run only warns', asyn
     env: {},
     argv: ['--strict', '--require-measurement'],
     processEnv: {},
-    spawnImpl: fakeSpawn(0, launch(12), []),
+    spawnImpl: fakeSpawn(0, launches(12, 13, 14), []),
     output: quiet,
   });
   assert.equal(strict, 0);
@@ -297,7 +286,7 @@ test('three good launches pass strict; a local over-budget run only warns', asyn
     env: {},
     argv: [],
     processEnv: {},
-    spawnImpl: fakeSpawn(0, launch(300), []),
+    spawnImpl: fakeSpawn(0, launches(300, 300, 300), []),
     output: { ...quiet, warn: message => warnings.push(message) },
   });
   assert.equal(local, 0);
@@ -318,15 +307,10 @@ test('--require-measurement alone fails launches that measure nothing', async ()
 });
 
 test('a launch whose workload fails its own check fails strict, even when the others pass', async () => {
-  let launches = 0;
   const spawnImpl = (command, args, options) => {
-    launches += 1;
-    const out = args[args.indexOf('--out') + 1];
-    if (launches < 3) writeFileSync(out, JSON.stringify(launch(12)));
-    else writeFileSync(options.env.PUNTOVIVO_BUDGET_REJECT_FILE, 'only 85 sales in the window');
-    const child = new EventEmitter();
-    setImmediate(() => child.emit('exit', launches < 3 ? 0 : 2));
-    return child;
+    // The kit skips the failed launch; its workload left the reason behind.
+    appendFileSync(options.env.PUNTOVIVO_BUDGET_REJECT_FILE, 'only 85 sales in the window\n');
+    return fakeSpawn(0, launches(12, 13), [])(command, args);
   };
   const errors = [];
   const code = await runBudgetGate({
@@ -339,7 +323,7 @@ test('a launch whose workload fails its own check fails strict, even when the ot
     output: { ...quiet, error: message => errors.push(message) },
   });
   assert.equal(code, 1);
-  assert.match(errors.join('\n'), /launch 3 failed: only 85 sales/);
+  assert.match(errors.join('\n'), /a launch failed: only 85 sales/);
 });
 
 test('a CLI that cannot start is a usage error, not a pass', async () => {

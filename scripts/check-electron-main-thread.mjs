@@ -4,7 +4,7 @@
  * workload for `@electron-stagewright/plugin-budget`.
  *
  * Seeds a disposable encrypted database and launches the built app three
- * times against it. In each window the workload keeps the embedded server busy
+ * times, each against its own copy. In each window the workload keeps the embedded server busy
  * with real sales over loopback HTTP while the kit samples main-thread
  * blocking and a renderer IPC round trip. The gate compares the median of the
  * rounds with `perf-budget.json::electronMainThread`, so one host stall in one
@@ -19,7 +19,7 @@
 import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
-import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { performance } from 'node:perf_hooks';
@@ -44,6 +44,7 @@ const PRODUCT_POOL = 40;
 /** No pause between sales: the window keeps the server saturated. */
 const THINK_MS = 0;
 const SALES_WORKLOAD = join(REPO_ROOT, 'scripts', 'electron-budget-sales-workload.mjs');
+const FIXTURE_ROUND = join(REPO_ROOT, 'scripts', 'electron-budget-fixture-round.mjs');
 
 /** Read one `NAME=<json>` line the main process printed, or null. */
 export function parseJsonLine(stdout, name) {
@@ -261,24 +262,18 @@ export async function runCli({ argv = process.argv.slice(2), env = process.env }
       label: 'check-electron-main-thread',
       argv,
       workload: SALES_WORKLOAD,
-      // Each launch sells against its own copy: a fixture that inherits the
-      // previous launches' sales slows down launch after launch.
-      prepareRound: async (round, roundDir) => {
-        const copy = join(roundDir, `fixture-${round}.db`);
-        copyFileSync(dbPath, copy);
-        if (existsSync(`${dbPath}-wal`)) copyFileSync(`${dbPath}-wal`, `${copy}-wal`);
-        return { DATABASE_URL: copy };
-      },
-      // Read by the workload, which runs in the budget CLI's process.
+      // A fixture that inherits the previous launches' sales slows down launch after launch.
+      beforeRound: FIXTURE_ROUND,
+      // Read by the workload and the before-round module, which run in the budget CLI's process.
       processEnv: {
         ...env,
+        PUNTOVIVO_BUDGET_FIXTURE: dbPath,
         PUNTOVIVO_BUDGET_SERVER_URL: `http://127.0.0.1:${env.PUNTOVIVO_BIND_PORT ?? '8090'}`,
         PUNTOVIVO_BUDGET_WINDOW_MS: String(budget.windowMs),
         PUNTOVIVO_BUDGET_MIN_SALES: String(budget.minSales),
       },
       env: {
         PUNTOVIVO_E2E: '1',
-        DATABASE_URL: dbPath,
         PUNTOVIVO_DB_KEY: MEASURE_DB_KEY,
         PUNTOVIVO_LOG_LEVEL: 'warn',
       },

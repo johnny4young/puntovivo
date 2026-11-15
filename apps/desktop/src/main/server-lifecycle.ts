@@ -23,11 +23,7 @@ import {
   type WorkerExitKind,
   type WorkerFatalCause,
 } from './server-host/fatal-cause.ts';
-import {
-  connectServerWorker,
-  createServerWorkerHost,
-  observeServerWorker,
-} from './server-host/worker-host.ts';
+import { connectServerWorker, createServerWorkerHost } from './server-host/worker-host.ts';
 
 /** What the renderer is told about the embedded server. */
 export type EmbeddedServerState = 'starting' | 'running' | 'restarting' | 'fatal';
@@ -123,26 +119,19 @@ export function createServerLifecycle({
   let explicitStarts = 0;
   // Set while restartAround's operation or shutdown owns the database files.
   let held = false;
-  let lastExitReported = false;
   // One crash and the restarts that answer it (ADR 0034).
   let episode: { base: CrashBase; attempt: number } | null = null;
   // Shutdown and restartAround never overlap.
   let exclusiveTail: Promise<unknown> = Promise.resolve();
 
   const host = createServerWorkerHost({
-    transport: observeServerWorker(transport, {
-      // A call through a captured handle must not start a worker mid-restore.
-      canLaunch: () => !held,
-      onStarted: () => {
-        // An explicit start finishes its own bookkeeping.
-        if (episode && explicitStarts === 0) void finishRecovery();
-      },
-      onExit: reported => {
-        lastExitReported = reported;
-      },
-    }),
+    transport,
     payload: buildStartPayload,
     onExit: handleUnexpectedExit,
+    onStarted: () => {
+      // An explicit start finishes its own bookkeeping.
+      if (episode && explicitStarts === 0) void finishRecovery();
+    },
     ...(onStats ? { onStats } : {}),
     ...(stopGraceMs === undefined ? {} : { stopGraceMs }),
   });
@@ -166,8 +155,6 @@ export function createServerLifecycle({
 
   // Built again for every worker, crash restarts included.
   async function buildStartPayload(): Promise<WorkerStartOptions> {
-    // Preparing the payload recovers and migrates the database files.
-    if (held) throw new Error('SERVER_WORKER_HELD');
     // Authority Node host/mode/port remain environment-resolved.
     const runtime = resolveRuntimeConfig({ env });
     const encryptionKey = await prepareDatabaseEncryption();
@@ -210,6 +197,7 @@ export function createServerLifecycle({
 
   async function start(): Promise<EmbeddedServerHost> {
     held = false;
+    host.resume();
     explicitStarts++;
     let handle: EmbeddedServerHost;
     try {
@@ -236,8 +224,9 @@ export function createServerLifecycle({
     setServerHost(null);
     log.info('shutting down embedded server');
     // Rejects when the worker did not close cleanly: callers such as a
-    // restore must not touch its files.
-    await (final ? host.close() : host.stop());
+    // restore must not touch its files. A paused host starts no worker,
+    // even for a call through a captured handle, until start() resumes it.
+    await (final ? host.close() : host.pause({ calls: 'reject' }));
     log.info('embedded server stopped');
   }
 
@@ -296,8 +285,8 @@ export function createServerLifecycle({
   }
 
   function exitKind(exit: HostExit): WorkerExitKind {
-    if (exit.kind === 'out-of-memory') return 'oom';
-    return lastExitReported ? 'uncaught' : 'unknown';
+    if (exit.reason === 'out-of-memory') return 'oom';
+    return exit.reason === 'uncaught' ? 'uncaught' : 'unknown';
   }
 
   /** The supervisor's restart decision, with the crash log and renderer state around it. */

@@ -3,7 +3,7 @@
  * main owns every Electron API, including safeStorage.
  */
 import { parentPort, type MessagePort } from 'node:worker_threads';
-import { serveHost, type Handlers } from '@electron-stagewright/host-supervisor';
+import { serveHost, type Handlers, type StartContext } from '@electron-stagewright/host-supervisor';
 import {
   captureProcessCrash,
   createModuleLogger,
@@ -17,6 +17,7 @@ import {
   EMBEDDED_SERVER_OPERATIONS,
   SERVER_WORKER_OPERATIONS,
   type EmbeddedServerHost,
+  type ServerWorkerInfo,
   type ServerWorkerOperations,
   type WorkerStartOptions,
 } from './contract.ts';
@@ -43,7 +44,10 @@ installProcessCrashHandlers({
 
 let host: EmbeddedServerHost | null = null;
 
-async function start(options: WorkerStartOptions): Promise<Handlers<ServerWorkerOperations>> {
+async function start(
+  options: WorkerStartOptions,
+  { setInfo }: StartContext<ServerWorkerInfo>
+): Promise<Handlers<ServerWorkerOperations>> {
   const serverOptions = options.serverOptions as unknown as ServerOptions;
   const anchorSecret = serverOptions.auditAnchorKey;
   // A store location without its secret must not run without the anchor store.
@@ -55,6 +59,7 @@ async function start(options: WorkerStartOptions): Promise<Handlers<ServerWorker
     prepareAuditAnchorStore: async () => auditAnchorStore,
   })(serverOptions);
   host = served;
+  setInfo({ url: served.url });
   // Operations ignore the call context the supervisor appends.
   const operations = Object.fromEntries(
     EMBEDDED_SERVER_OPERATIONS.map(op => [
@@ -65,7 +70,6 @@ async function start(options: WorkerStartOptions): Promise<Handlers<ServerWorker
   );
   return {
     ...operations,
-    getUrl: async () => served.url,
     testCrash: async () => {
       if (!testFaultsAllowed()) return;
       setImmediate(() => {
@@ -82,7 +86,7 @@ async function start(options: WorkerStartOptions): Promise<Handlers<ServerWorker
 // The supervisor refuses new calls, waits for accepted ones and their replies,
 // and only then runs stop: direct operations such as owner recovery keep their
 // database until they answer, then Fastify drains HTTP requests.
-serveHost<ServerWorkerOperations, WorkerStartOptions>({
+serveHost<ServerWorkerOperations, WorkerStartOptions, ServerWorkerInfo>({
   operations: SERVER_WORKER_OPERATIONS,
   start,
   stop: async () => {

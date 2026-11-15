@@ -149,3 +149,27 @@ test('the sales workload waits for the embedded server before signing in', async
     /never answered/
   );
 });
+
+test('each launch gets its own copy of the seeded fixture', async () => {
+  const { mkdtempSync, readFileSync, rmSync, writeFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const { tmpdir } = await import('node:os');
+  const { default: fixtureRound } = await import('./electron-budget-fixture-round.mjs');
+  const dir = mkdtempSync(join(tmpdir(), 'fixture-round-'));
+  const saved = { ...process.env };
+  try {
+    writeFileSync(join(dir, 'seed.db'), 'db');
+    writeFileSync(join(dir, 'seed.db-wal'), 'wal');
+    process.env.PUNTOVIVO_BUDGET_FIXTURE = join(dir, 'seed.db');
+    process.env.PUNTOVIVO_BUDGET_WORK_DIR = dir;
+    const first = await fixtureRound({ round: 1, profile: '/p' });
+    const second = await fixtureRound({ round: 2, profile: '/p' });
+    assert.notEqual(first.env.DATABASE_URL, second.env.DATABASE_URL);
+    assert.equal(readFileSync(`${second.env.DATABASE_URL}-wal`, 'utf8'), 'wal');
+    delete process.env.PUNTOVIVO_BUDGET_FIXTURE;
+    await assert.rejects(fixtureRound({ round: 3, profile: '/p' }), /PUNTOVIVO_BUDGET_FIXTURE/);
+  } finally {
+    process.env = saved;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

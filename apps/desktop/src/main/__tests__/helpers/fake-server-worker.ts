@@ -9,8 +9,7 @@ import type { WorkerStartOptions } from '../../server-host/contract.ts';
 
 /** How one launched worker answers `start`. */
 export type FakeStart =
-  | { url: string; gate?: Promise<void>; urlGate?: Promise<void> }
-  | { fail: Error; gate?: Promise<void> };
+  { url: string; gate?: Promise<void> } | { fail: Error; gate?: Promise<void> };
 
 export interface FakeWorker {
   readonly payload: WorkerStartOptions | null;
@@ -53,8 +52,6 @@ export function fakeServerWorkerTransport(plan: FakeStart[]) {
         },
       };
       workers.push(worker);
-      // Like serveHost, a stop waits for the calls already accepted.
-      let inFlight: Promise<void> = Promise.resolve();
       const receive = async (message: SupervisorMessage) => {
         switch (message.type) {
           case 'start':
@@ -64,25 +61,14 @@ export function fakeServerWorkerTransport(plan: FakeStart[]) {
             post(
               'fail' in outcome
                 ? { type: 'start-failed', error: serializeError(outcome.fail) }
-                : { type: 'started' }
+                : { type: 'started', info: { url: outcome.url } }
             );
             return;
           case 'call':
             worker.calls.push(message.op);
-            if (message.op === 'getUrl' && 'url' in outcome && outcome.urlGate) {
-              const answered = outcome.urlGate;
-              inFlight = Promise.all([inFlight, answered]).then(() => undefined);
-              await answered;
-            }
-            post({
-              type: 'result',
-              id: message.id,
-              ok: true,
-              value: message.op === 'getUrl' && 'url' in outcome ? outcome.url : null,
-            });
+            post({ type: 'result', id: message.id, ok: true, value: null });
             return;
           case 'stop':
-            await inFlight;
             worker.stopped = true;
             post({ type: 'stopped' });
             setImmediate(() => exit({ code: 0 }));
