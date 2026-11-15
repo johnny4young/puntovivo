@@ -172,7 +172,7 @@ proceso principal de Electron; no inicia el servidor como un proceso hijo.
 
 ### Requisitos
 
-- Node.js `>=26.12.1`
+- Node.js `>=26.13.1`
 - pnpm `11.7.0` mediante Corepack (Node 25+ ya no lo incluye: `npm install --global corepack`) o una instalación local compatible
 
 ```bash

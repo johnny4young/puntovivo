@@ -53,8 +53,8 @@ importers:
         specifier: ^4.14.0
         version: 4.14.0(playwright-core@1.64.1)
       '@electron-stagewright/plugin-budget':
-        specifier: 0.1.0
-        version: 0.1.0(electron@45.2.2)(playwright@1.64.1)
+        specifier: 0.2.0
+        version: 0.2.0(electron@45.2.2)(playwright@1.64.1)
       '@electron/asar':
         specifier: 4.2.1
         version: 4.2.1(patch_hash=7b17b5bf017952acdc62c343d6e2aada73c5aa99c6ccf4e05b530c850335732b)
@@ -101,8 +101,8 @@ importers:
         specifier: ^3.1160.0
         version: 3.1161.0
       '@electron-stagewright/host-supervisor':
-        specifier: 0.1.0
-        version: 0.1.0(electron@45.2.2)
+        specifier: 0.2.0
+        version: 0.2.0
       '@electron/rebuild':
         specifier: 4.2.0
         version: 4.2.0
@@ -906,9 +906,9 @@ packages:
     resolution: {integrity: sha512-+bqFCP98pLI0Tt0XQo1TmlXtwjWchISndDOxCkEcIuUgXWpBnLyRI+2DU+mesvnMMX6L1XDqYNA0lXNDHd/yiA==}
     engines: {node: '>=22.12.0'}
 
-  '@electron-stagewright/core@0.9.0':
-    resolution: {integrity: sha512-zk92fyjs///MHcORIVV4mJrvbNRi5u500jEyVPoYY3jqxGhKOVmZ4ghDN6jFDCOPkRXyx4c1RlyaCgqVXE9Hgw==}
-    engines: {node: '>=24.0.0'}
+  '@electron-stagewright/core@0.10.0':
+    resolution: {integrity: sha512-fZeYobv+WTPzFmcuw6DlntSW0vevO+0YgLZm4h5+F4zhJL253bqPg7A7UfrCBLCMIVKcpGe3y/mYJC69dm9fVA==}
+    engines: {node: '>=26.13.1'}
     hasBin: true
     peerDependencies:
       electron: '>=12.2.0'
@@ -919,18 +919,13 @@ packages:
       playwright:
         optional: true
 
-  '@electron-stagewright/host-supervisor@0.1.0':
-    resolution: {integrity: sha512-gTOoQaMWQbI8b7yFEpjHWO/kkaf2jXSsupEx2H/d3n3KhO5mKJiKnH8glRK/BvIjNkqCmi11NSsbHBC+WJ2x/Q==}
-    engines: {node: '>=24.0.0'}
-    peerDependencies:
-      electron: '>=42.0.0'
-    peerDependenciesMeta:
-      electron:
-        optional: true
+  '@electron-stagewright/host-supervisor@0.2.0':
+    resolution: {integrity: sha512-ziSjDsb2qGK6QYE2UoVynGmQPJ5yEmfw9bPMlIf5O1dq3wUE6Cez7FN2Adevx4BrCSmDP33hEjOHk/ykHzmxKA==}
+    engines: {node: '>=26.13.1'}
 
-  '@electron-stagewright/plugin-budget@0.1.0':
-    resolution: {integrity: sha512-VjCGDx2vqGHU3cFbJDJ1Dh7g8eznHvQEUB7iTf3oCGcYMkUcDdi3b9oLRpLBY59nGMGY/XBK7cpbQrqr3fxYOQ==}
-    engines: {node: '>=24.0.0'}
+  '@electron-stagewright/plugin-budget@0.2.0':
+    resolution: {integrity: sha512-0ijUpmErowLl1+E0yy1uiKy2XfZfYblVYO1QAo4SZw83dmpc+1f7R1rqGBpyrtqlgVraPC9LRofhPbq6dUpL7g==}
+    engines: {node: '>=26.13.1'}
     hasBin: true
 
   '@electron/asar@4.2.1':
@@ -6291,7 +6286,7 @@ snapshots:
 
   '@electron-internal/extract-zip@1.0.5': {}
 
-  '@electron-stagewright/core@0.9.0(electron@45.2.2)(playwright@1.64.1)':
+  '@electron-stagewright/core@0.10.0(electron@45.2.2)(playwright@1.64.1)':
     dependencies:
       '@electron/fuses': 2.1.3
       '@modelcontextprotocol/sdk': 1.32.2(zod@4.6.7)
@@ -6305,13 +6300,11 @@ snapshots:
       - '@cfworker/json-schema'
       - supports-color
 
-  '@electron-stagewright/host-supervisor@0.1.0(electron@45.2.2)':
-    optionalDependencies:
-      electron: 45.2.2
+  '@electron-stagewright/host-supervisor@0.2.0': {}
 
-  '@electron-stagewright/plugin-budget@0.1.0(electron@45.2.2)(playwright@1.64.1)':
+  '@electron-stagewright/plugin-budget@0.2.0(electron@45.2.2)(playwright@1.64.1)':
     dependencies:
-      '@electron-stagewright/core': 0.9.0(electron@45.2.2)(playwright@1.64.1)
+      '@electron-stagewright/core': 0.10.0(electron@45.2.2)(playwright@1.64.1)
       zod: 4.6.7
     transitivePeerDependencies:
       - '@cfworker/json-schema'
