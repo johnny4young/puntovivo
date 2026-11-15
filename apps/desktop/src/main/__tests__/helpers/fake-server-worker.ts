@@ -9,8 +9,7 @@ import type { WorkerStartOptions } from '../../server-host/contract.ts';
 
 /** How one launched worker answers `start`. */
 export type FakeStart =
-  | { url: string; gate?: Promise<void> }
-  | { fail: Error; gate?: Promise<void> };
+  { url: string; gate?: Promise<void> } | { fail: Error; gate?: Promise<void> };
 
 export interface FakeWorker {
   readonly payload: WorkerStartOptions | null;
@@ -53,8 +52,6 @@ export function fakeServerWorkerTransport(plan: FakeStart[]) {
         },
       };
       workers.push(worker);
-      // Like serveHost, a stop waits for the calls already accepted.
-      let inFlight: Promise<void> = Promise.resolve();
       const receive = async (message: SupervisorMessage) => {
         switch (message.type) {
           case 'start':
@@ -72,7 +69,6 @@ export function fakeServerWorkerTransport(plan: FakeStart[]) {
             post({ type: 'result', id: message.id, ok: true, value: null });
             return;
           case 'stop':
-            await inFlight;
             worker.stopped = true;
             post({ type: 'stopped' });
             setImmediate(() => exit({ code: 0 }));

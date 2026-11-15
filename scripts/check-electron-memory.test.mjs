@@ -189,20 +189,20 @@ test('a launch with no GPU process counts GPU as 0 MB, not unmeasured', () => {
   const budget = buildKitBudget(perfBudget, 'memory');
   const headless = createRun({
     rounds: [1, 2, 3].map(index => ({
-        round: index,
-        phase: 'cold',
-        measurement: {
-          startup: { firstWindowMs: 300 },
-          memory: {
-            metric: 'workingSet',
-            processes: [
-              { pid: 1, type: 'main', mb: 300, workingSetMb: 300 },
-              { pid: 2, type: 'renderer', mb: 120, workingSetMb: 120 },
-              { pid: 3, type: 'utility', mb: 50, workingSetMb: 50 },
-            ],
-          },
+      round: index,
+      phase: 'cold',
+      measurement: {
+        startup: { firstWindowMs: 300 },
+        memory: {
+          metric: 'workingSet',
+          processes: [
+            { pid: 1, type: 'main', mb: 300, workingSetMb: 300 },
+            { pid: 2, type: 'renderer', mb: 120, workingSetMb: 120 },
+            { pid: 3, type: 'utility', mb: 50, workingSetMb: 50 },
+          ],
         },
-      })),
+      },
+    })),
   });
   const verdict = judgeRun(headless, budget, {
     rounds: 3,
