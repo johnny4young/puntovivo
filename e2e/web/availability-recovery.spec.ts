@@ -33,7 +33,7 @@ for (const language of ['en', 'es'] as const) {
     });
     const copy =
       language === 'es'
-        ? 'La disponibilidad no está disponible temporalmente. Reintenta la misma operación.'
+        ? 'La disponibilidad no está disponible temporalmente. Reintente la misma operación.'
         : 'Availability is temporarily unavailable. Retry the same operation.';
     try {
       const tracker = attachClientIssueTracker(page);

@@ -29,12 +29,12 @@
       "save": "Guardar cambios",
       "essential": {
         "eyebrow": "Datos esenciales",
-        "title": "Identifica y contacta al proveedor",
-        "description": "El nombre basta para crearlo. Agrega un contacto, el teléfono o el correo si los tienes."
+        "title": "Identifique y contacte al proveedor",
+        "description": "El nombre basta para crearlo. Agregue un contacto, el teléfono o el correo si los tiene."
       },
       "advanced": {
         "title": "Facturación, ubicación y estado",
-        "description": "Ábrelo solo cuando necesites NIT, dirección, ciudad o cambiar su disponibilidad.",
+        "description": "Ábralo solo cuando necesite NIT, dirección, ciudad o cambiar su disponibilidad.",
         "optionalStatus": "Opcional",
         "savedStatus": "Con datos guardados",
         "billingTitle": "Identificación y ubicación",
@@ -63,7 +63,7 @@
       "title": "Gestionar categorías del proveedor",
       "loading": "Cargando categorías del proveedor...",
       "error": "No se pudieron cargar las categorías del proveedor",
-      "hint": "Selecciona las categorías de productos que este proveedor suministra habitualmente.",
+      "hint": "Seleccione las categorías de productos que este proveedor suministra habitualmente.",
       "search": "Buscar categorías",
       "searchPlaceholder": "Buscar por nombre de categoría",
       "noMatch": "No se encontraron categorías coincidentes.",
@@ -75,7 +75,7 @@
     },
     "delete": {
       "title": "Eliminar proveedor",
-      "description": "¿Estás seguro de que deseas eliminar este proveedor? Los proveedores con categorías asignadas deben limpiarse primero.",
+      "description": "¿Está seguro de que desea eliminar este proveedor? Los proveedores con categorías asignadas deben limpiarse primero.",
       "submitting": "Eliminando…",
       "confirm": "Eliminar proveedor",
       "cancel": "Cancelar"
@@ -91,9 +91,9 @@
   },
   "sites": {
     "title": "Sedes",
-    "description": "Gestiona las ubicaciones físicas vinculadas a la empresa actual.",
+    "description": "Gestione las ubicaciones físicas vinculadas a la empresa actual.",
     "add": "Agregar sede",
-    "noCompany": "Crea el perfil de la empresa antes de agregar sedes.",
+    "noCompany": "Cree el perfil de la empresa antes de agregar sedes.",
     "loading": "Cargando sedes...",
     "error": "No se pudieron cargar las sedes",
     "search": "Buscar sedes...",
@@ -129,7 +129,7 @@
       "title": "Gestionar ubicaciones de la sede",
       "loading": "Cargando asignaciones de ubicación...",
       "error": "No se pudieron cargar las asignaciones de ubicación",
-      "hint": "Selecciona las ubicaciones de bodega o estantes disponibles desde esta sede.",
+      "hint": "Seleccione las ubicaciones de bodega o estantes disponibles desde esta sede.",
       "search": "Buscar ubicaciones",
       "searchPlaceholder": "Buscar por código o nombre",
       "noMatch": "No se encontraron ubicaciones coincidentes.",
@@ -157,7 +157,7 @@
     "title": "Empresa",
     "loading": "Cargando identidad del negocio y configuración del puesto",
     "error": "No se pudo cargar la configuración de la empresa",
-    "createPrompt": "Crea el perfil de tu empresa",
+    "createPrompt": "Cree el perfil de su empresa",
     "createNote": "Este registro es usado por sedes, documentos futuros y configuración del negocio.",
     "fields": {
       "companyName": "Nombre de la empresa",
@@ -210,31 +210,31 @@
     },
     "tray": {
       "title": "Bandeja del sistema",
-      "description": "Controla si esta estación de trabajo permanece disponible desde la bandeja del escritorio.",
+      "description": "Controle si esta estación de trabajo permanece disponible desde la bandeja del escritorio.",
       "desktopOnly": "La configuración de bandeja está disponible en la app de escritorio Electron.",
       "showIcon": "Mostrar ícono en la bandeja",
-      "showIconDescription": "Mantén un ícono en la bandeja del sistema para que la estación pueda reabrirse rápidamente.",
+      "showIconDescription": "Mantenga un ícono en la bandeja del sistema para que la estación pueda reabrirse rápidamente.",
       "closeToTray": "Cerrar ventana a la bandeja",
-      "closeToTrayDescription": "Oculta la ventana principal en lugar de cerrar la app al presionar el botón de cierre.",
+      "closeToTrayDescription": "Oculte la ventana principal en lugar de cerrar la app al presionar el botón de cierre.",
       "saving": "Guardando configuración de bandeja...",
       "saved": "Configuración de bandeja guardada",
       "saveError": "No se pudo guardar la configuración de bandeja"
     },
     "print": {
       "title": "Configuración de impresión de recibos",
-      "description": "Configura cómo funciona la impresión de recibos en esta estación de trabajo.",
+      "description": "Configure cómo funciona la impresión de recibos en esta estación de trabajo.",
       "desktopOnly": "La configuración de impresión está disponible en la app de escritorio Electron.",
       "silentPrinting": "Impresión silenciosa",
-      "silentPrintingDescription": "Imprime sin diálogo en la impresora del sistema seleccionada en este equipo.",
+      "silentPrintingDescription": "Imprima sin diálogo en la impresora del sistema seleccionada en este equipo.",
       "printBackground": "Imprimir gráficos de fondo",
-      "printBackgroundDescription": "Incluye estilos de fondo y sombreado del recibo en la salida impresa.",
+      "printBackgroundDescription": "Incluya estilos de fondo y sombreado del recibo en la salida impresa.",
       "saving": "Guardando configuración de impresión...",
       "saved": "Configuración de impresión de recibos guardada",
       "saveError": "No se pudo guardar la configuración de impresión de recibos"
     },
     "logo": {
       "title": "Biblioteca de logos",
-      "description": "Gestiona logos reutilizables del tenant y elige cuál representa a la empresa.",
+      "description": "Gestione logos reutilizables del tenant y elija cuál representa a la empresa.",
       "addLogo": "Agregar logo",
       "currentLogo": "Logo actual de la empresa",
       "selectedLogo": "Logo seleccionado",
@@ -242,7 +242,7 @@
       "loadingTitle": "Biblioteca de logos",
       "loadingDescription": "Cargando logos guardados del tenant.",
       "loadError": "No se pudieron cargar los logos",
-      "emptyLibrary": "Aún no hay logos guardados. Agrega uno para comenzar a construir una biblioteca de marca reutilizable.",
+      "emptyLibrary": "Aún no hay logos guardados. Agregue uno para comenzar a construir una biblioteca de marca reutilizable.",
       "companyAssignments_one": "{{count}} asignación de empresa",
       "companyAssignments_other": "{{count}} asignaciones de empresa",
       "editTitle": "Editar logo",
@@ -278,14 +278,14 @@
         "logoNameRequired": "El nombre del logo es obligatorio",
         "imageUrl": "URL de imagen",
         "imageUrlRequired": "La URL de imagen es obligatoria",
-        "imageUrlInvalid": "Ingresa una URL de imagen válida",
+        "imageUrlInvalid": "Ingrese una URL de imagen válida",
         "isActive": "Logo activo"
       },
       "emptyLibraryTitle": "Aún no hay logos"
     },
     "sync": {
       "title": "Centro de sincronización",
-      "description": "Revisa los cambios pendientes, procesa la cola de sincronización local y resuelve conflictos cuando un elemento requiere atención manual.",
+      "description": "Revise los cambios pendientes, procese la cola de sincronización local y resuelva conflictos cuando un elemento requiere atención manual.",
       "pendingChanges": "Cambios pendientes",
       "retrying": "Reintentando",
       "failures": "Errores",
@@ -365,10 +365,10 @@
         "itemTitle": "Cambio de {{entity}} pendiente de sincronización",
         "queued": "En cola {{date}}",
         "retryAttempt": "Intento de reintento {{count}}",
-        "errorLocalMissing": "El registro local ya no existe. Descarta el cambio local obsoleto para continuar la sincronización.",
+        "errorLocalMissing": "El registro local ya no existe. Descarte el cambio local obsoleto para continuar la sincronización.",
         "errorConflictBlocked": "Este cambio está esperando que se resuelva un conflicto.",
         "errorUnsupportedEntity": "Este tipo de cambio todavía no puede sincronizarse.",
-        "errorGeneric": "No se pudo sincronizar este cambio. Intenta procesar la cola otra vez."
+        "errorGeneric": "No se pudo sincronizar este cambio. Intente procesar la cola otra vez."
       },
       "conflict": {
         "title": "Conflictos",
@@ -381,7 +381,7 @@
         "acceptRemote": "Aceptar remoto",
         "discardLocalChange": "Descartar cambio local",
         "merge": "Fusionar",
-        "localRecordMissing": "El registro local ya no existe. Descarta el cambio local obsoleto para desbloquear la sincronización.",
+        "localRecordMissing": "El registro local ya no existe. Descarte el cambio local obsoleto para desbloquear la sincronización.",
         "keepLocalTitle": "Conservar cambios locales",
         "acceptRemoteTitle": "Aceptar cambios remotos",
         "discardLocalTitle": "Descartar cambio local obsoleto",
@@ -389,7 +389,7 @@
         "acceptRemoteMessage": "¿Aceptar la versión remota de {{entity}} y descartar el estado de conflicto local?",
         "discardLocalMessage": "El registro local de {{entity}} ya no existe. ¿Descartar este cambio local obsoleto para que el resto de la cola pueda continuar?",
         "mergeTitle": "Fusionar datos en conflicto",
-        "mergeDescription": "Revisa los datos locales y remotos de este {{entity}}, luego edita el JSON fusionado que se reencolará para sincronización.",
+        "mergeDescription": "Revise los datos locales y remotos de este {{entity}}, luego edite el JSON fusionado que se reencolará para sincronización.",
         "localData": "Datos locales",
         "remoteData": "Datos remotos",
         "mergedJson": "JSON fusionado",
@@ -404,10 +404,10 @@
         "fieldsDiffer_one": "{{count}} campo difiere",
         "fieldsDiffer_other": "{{count}} campos difieren",
         "recommendedAcceptRemote": "Recomendado: aceptar remoto — el servidor tiene los datos más recientes.",
-        "recommendedDiscard": "Recomendado: descarta el cambio local obsoleto para desbloquear la sincronización.",
+        "recommendedDiscard": "Recomendado: descarte el cambio local obsoleto para desbloquear la sincronización.",
         "noFieldDiff": "Las versiones local y remota difieren.",
-        "atomicRecoveryRequired": "Este cambio afecta existencias o registros protegidos y no puede reemplazarse desde aquí. Revisa la operación original o vuelve a intentar su sincronización. La evidencia pendiente se conserva.",
-        "preserveEvidence": "Conserva la evidencia pendiente hasta contar con una conciliación segura.",
+        "atomicRecoveryRequired": "Este cambio afecta existencias o registros protegidos y no puede reemplazarse desde aquí. Revise la operación original o vuelva a intentar su sincronización. La evidencia pendiente se conserva.",
+        "preserveEvidence": "Conserve la evidencia pendiente hasta contar con una conciliación segura.",
         "fieldLabels": {
           "name": "Nombre",
           "cost": "Costo unitario",
@@ -420,7 +420,7 @@
     },
     "updater": {
       "title": "Actualizaciones de la app",
-      "description": "Revisa el estado del actualizador, inicia una verificación manual y reinicia cuando una descarga esté lista para instalar.",
+      "description": "Revise el estado del actualizador, inicie una verificación manual y reinicie cuando una descarga esté lista para instalar.",
       "desktopOnly": "Los controles de actualización están disponibles en la app de escritorio Electron.",
       "updaterStatus": "Estado del actualizador",
       "currentVersion": "Versión actual",
@@ -432,7 +432,7 @@
       "downloadedUpdateReady": "Actualización descargada lista",
       "updatePublished": "Actualización publicada",
       "downloading": "El actualizador encontró una versión más reciente y la está descargando en segundo plano.",
-      "availableManualHint": "Hay una nueva versión disponible. Abre la página de la versión para descargarla e instalarla.",
+      "availableManualHint": "Hay una nueva versión disponible. Abra la página de la versión para descargarla e instalarla.",
       "verificationRequired": "El artefacto guardado debe verificarse nuevamente en esta sesión antes de habilitar la instalación.",
       "unknown": "Desconocido",
       "none": "Ninguna",
@@ -440,7 +440,7 @@
         "label": "Despliegue",
         "stagedValue": "Gradual · {{percentage}}%",
         "rollbackValue": "Reversión · {{percentage}}%",
-        "rollbackActive": "La reversión remota apunta a la versión {{version}}, pero esta estación no bajará de versión automáticamente. Usa un instalador manual entregado por separado si se aprueba una recuperación de emergencia."
+        "rollbackActive": "La reversión remota apunta a la versión {{version}}, pero esta estación no bajará de versión automáticamente. Use un instalador manual entregado por separado si se aprueba una recuperación de emergencia."
       },
       "statusBadge": {
         "unavailable": "No disponible",
@@ -456,7 +456,7 @@
         "checking": "Verificando el servicio de actualizaciones para una versión más reciente.",
         "available": "Se está descargando una nueva versión en segundo plano.",
         "availableManual": "Hay una nueva versión disponible para descargar.",
-        "downloaded": "Hay una actualización descargada lista. Reinicia la app para aplicarla.",
+        "downloaded": "Hay una actualización descargada lista. Reinicie la app para aplicarla.",
         "verifyingDownload": "Se recuperó una actualización descargada después del reinicio y está pendiente de verificar el artefacto.",
         "error": "La última verificación de actualizaciones falló.",
         "idle": "Esta estación de trabajo tiene la última versión disponible."
@@ -476,8 +476,8 @@
     },
     "backup": {
       "title": "Respaldo de base de datos local",
-      "description": "Crea un respaldo de la base de datos SQLite local o restaura un respaldo anterior en este dispositivo.",
-      "restoreWarning": "La restauración reemplaza la base de datos local actual. Úsala solo cuando necesites revertir la estación de trabajo a un estado anterior.",
+      "description": "Cree un respaldo de la base de datos SQLite local o restaure un respaldo anterior en este dispositivo.",
+      "restoreWarning": "La restauración reemplaza la base de datos local actual. Úsela solo cuando necesite revertir la estación de trabajo a un estado anterior.",
       "desktopOnly": "Los controles de respaldo y restauración están disponibles en la app de escritorio Electron. La versión web es de solo lectura para el mantenimiento de la base de datos local.",
       "createBackup": "Crear respaldo",
       "creating": "Creando respaldo...",
@@ -509,31 +509,31 @@
       },
       "empty": {
         "title": "Aún no hay respaldos",
-        "description": "Crea un respaldo para guardar un punto de restauración de la base local."
+        "description": "Cree un respaldo para guardar un punto de restauración de la base local."
       },
       "keyPrompt": {
         "title": "Se necesita la clave del respaldo",
-        "message": "Pega la clave de 64 caracteres del equipo de origen, o escribe la frase del respaldo si la copia fue protegida con una.",
+        "message": "Pegue la clave de 64 caracteres del equipo de origen, o escriba la frase del respaldo si la copia fue protegida con una.",
         "inputLabel": "Clave de respaldo (64 caracteres hexadecimales)",
         "inputPlaceholder": "p. ej. 4f2a... (64 caracteres)",
         "invalidShape": "La clave de respaldo debe tener exactamente 64 caracteres hexadecimales.",
-        "mismatch": "Esa clave no abre esta copia. Verifica la clave en el equipo de origen e inténtalo de nuevo.",
+        "mismatch": "Esa clave no abre esta copia. Verifique la clave en el equipo de origen e inténtelo de nuevo.",
         "statusWaiting": "El respaldo seleccionado necesita la clave del equipo de origen para continuar.",
         "cancel": "Cancelar",
         "submit": "Restaurar con esta clave"
       },
       "createPassphrase": {
         "title": "Crear respaldo",
-        "message": "Protege opcionalmente este respaldo con una frase de recuperación. Otro equipo podrá restaurarlo escribiendo la frase en lugar de la clave de 64 caracteres. La base de datos queda cifrada de cualquier forma.",
+        "message": "Proteja opcionalmente este respaldo con una frase de recuperación. Otro equipo podrá restaurarlo escribiendo la frase en lugar de la clave de 64 caracteres. La base de datos queda cifrada de cualquier forma.",
         "inputLabel": "Frase de recuperación (opcional)",
-        "placeholder": "Deja vacío para omitir",
+        "placeholder": "Deje vacío para omitir",
         "tooShort": "La frase debe tener al menos 10 caracteres.",
         "generate": "Generar frase",
         "show": "Mostrar frase",
         "hide": "Ocultar frase",
-        "generatedFeedback": "Se generó localmente con aleatoriedad criptográfica. Guárdala por separado; Puntovivo no puede recuperarla.",
-        "requirementMet": "Cumple el requisito actual de longitud. Usa una frase única; esto no es una puntuación de seguridad.",
-        "generationFailed": "No se pudo generar una frase segura en este equipo. Ingresa manualmente una frase única.",
+        "generatedFeedback": "Se generó localmente con aleatoriedad criptográfica. Guárdela por separado; Puntovivo no puede recuperarla.",
+        "requirementMet": "Cumple el requisito actual de longitud. Use una frase única; esto no es una puntuación de seguridad.",
+        "generationFailed": "No se pudo generar una frase segura en este equipo. Ingrese manualmente una frase única.",
         "cancelActive": "Cancelar creación",
         "cancellationRequested": "Se solicitó la cancelación. No se publicará ningún respaldo si todavía puede detenerse la creación.",
         "cancel": "Cancelar",
@@ -542,38 +542,38 @@
       "revealKey": {
         "button": "Ver clave de respaldo",
         "confirmTitle": "¿Revelar la clave de respaldo?",
-        "confirmMessage": "Cualquiera que tenga esta clave puede leer los respaldos de este equipo. Compártela solo para restaurar un respaldo en otro de tus equipos, y nunca la envíes por canales que no sean de confianza.",
+        "confirmMessage": "Cualquiera que tenga esta clave puede leer los respaldos de este equipo. Compártala solo para restaurar un respaldo en otro de sus equipos, y nunca la envíe por canales que no sean de confianza.",
         "confirmCta": "Revelar clave",
         "title": "Clave de respaldo de este equipo",
-        "message": "Ingresa esta clave en el equipo de destino cuando la pida durante una restauración.",
+        "message": "Ingrese esta clave en el equipo de destino cuando la pida durante una restauración.",
         "copy": "Copiar clave",
         "copied": "Clave de respaldo copiada al portapapeles",
-        "copyFailed": "No se pudo copiar la clave. Selecciónala y cópiala manualmente.",
+        "copyFailed": "No se pudo copiar la clave. Selecciónela y cópiela manualmente.",
         "done": "Listo",
         "failed": "No se pudo obtener la clave de respaldo",
-        "audit_unavailable": "La clave se retuvo porque no se pudo escribir el registro de auditoría. Corrige el problema de la base de datos e intenta de nuevo.",
+        "audit_unavailable": "La clave se retuvo porque no se pudo escribir el registro de auditoría. Corrija el problema de la base de datos e intente de nuevo.",
         "key_unavailable": "No se pudo leer la clave de respaldos del llavero del sistema."
       },
       "rotateKey": {
         "button": "Rotar clave de cifrado",
         "rotating": "Rotando clave…",
         "confirmTitle": "¿Rotar la clave de cifrado de la base de datos?",
-        "confirmMessage": "Puntovivo se detendrá un momento, recifrará la base de datos local con una clave nueva sellada en este equipo y volverá a iniciar. Los respaldos creados antes de la rotación siguen abriéndose con la clave que los protegía; guarda la clave de recuperación actual antes de rotar si conservas paquetes externos.",
+        "confirmMessage": "Puntovivo se detendrá un momento, recifrará la base de datos local con una clave nueva sellada en este equipo y volverá a iniciar. Los respaldos creados antes de la rotación siguen abriéndose con la clave que los protegía; guarde la clave de recuperación actual antes de rotar si conserva paquetes externos.",
         "confirmCta": "Rotar clave",
         "success": "Clave de cifrado rotada",
         "successDescription": "La base de datos local ahora está protegida por una clave nueva sellada en este equipo.",
         "failed": "La rotación de la clave falló",
         "unsupported": "Esta instalación usa una clave suministrada externamente y no puede rotarla desde aquí.",
-        "rotation_failed": "La base de datos conservó su clave anterior. Intenta de nuevo; si sigue fallando, crea un respaldo y contacta a soporte.",
-        "rotation_pending": "Una rotación de clave anterior sigue pendiente. Reinicia Puntovivo para completarla y vuelve a intentarlo.",
+        "rotation_failed": "La base de datos conservó su clave anterior. Intente de nuevo; si sigue fallando, cree un respaldo y contacte a soporte.",
+        "rotation_pending": "Una rotación de clave anterior sigue pendiente. Reinicie Puntovivo para completarla y vuelva a intentarlo.",
         "pendingButton": "Rotación pendiente de reinicio",
-        "pendingHint": "Reinicia Puntovivo para completar una rotación de clave pendiente."
+        "pendingHint": "Reinicie Puntovivo para completar una rotación de clave pendiente."
       }
     },
     "telemetry": {
       "title": "Telemetría de errores, rendimiento y facilidad de uso",
       "description": "Al activar la telemetría, los reportes de errores anonimizados y los tiempos de rendimiento pueden llegar a soporte. Las mediciones agregadas de tareas permanecen en este dispositivo para analizar localmente la facilidad de uso.",
-      "privacy": "Las mediciones de tareas guardadas en este dispositivo solo incluyen una tarea y ruta permitidas, una categoría general del dispositivo, tiempos, cantidades y resultados. Nunca incluyen información de productos, clientes, pagos o ventas. También se excluyen contraseñas, tokens y encabezados de autorización. Puedes revocar el consentimiento cuando quieras.",
+      "privacy": "Las mediciones de tareas guardadas en este dispositivo solo incluyen una tarea y ruta permitidas, una categoría general del dispositivo, tiempos, cantidades y resultados. Nunca incluyen información de productos, clientes, pagos o ventas. También se excluyen contraseñas, tokens y encabezados de autorización. Puede revocar el consentimiento cuando desee.",
       "status": {
         "enabled": "La telemetría está activa. Los diagnósticos redactados pueden llegar a soporte; las mediciones agregadas de facilidad de uso se guardan en este dispositivo.",
         "disabled": "La telemetría está desactivada. Los diagnósticos permanecen en este dispositivo y no se guardan nuevas mediciones de tareas."
@@ -589,21 +589,21 @@
     },
     "theme": {
       "title": "Apariencia",
-      "description": "Controla el tema del puesto de trabajo y si sigue las preferencias del sistema operativo.",
+      "description": "Controle el tema del puesto de trabajo y si sigue las preferencias del sistema operativo.",
       "browserNote": "Las sesiones de navegador guardan la preferencia de tema localmente en este dispositivo.",
       "activeAppearance": "Apariencia activa:",
       "options": {
         "light": {
           "label": "Claro",
-          "description": "Usa la interfaz clara en todo el puesto de trabajo."
+          "description": "Use la interfaz clara en todo el puesto de trabajo."
         },
         "dark": {
           "label": "Oscuro",
-          "description": "Usa la interfaz oscura en todo el puesto de trabajo."
+          "description": "Use la interfaz oscura en todo el puesto de trabajo."
         },
         "system": {
           "label": "Sistema",
-          "description": "Sigue la preferencia de apariencia del sistema operativo."
+          "description": "Siga la preferencia de apariencia del sistema operativo."
         }
       },
       "toast": {
@@ -615,11 +615,11 @@
     },
     "restaurant": {
       "title": "Restaurante",
-      "description": "Ajusta el comportamiento de modo restaurante que se aplica automáticamente en cada cobro.",
+      "description": "Ajuste el comportamiento de modo restaurante que se aplica automáticamente en cada cobro.",
       "serviceChargeLabel": "Porcentaje de servicio (%)",
-      "serviceChargeHelp": "Ingresa 0 para deshabilitar la línea de servicio automática. El máximo es {{max}}%.",
+      "serviceChargeHelp": "Ingrese 0 para deshabilitar la línea de servicio automática. El máximo es {{max}}%.",
       "serviceChargeDisabledHint": "El cargo por servicio está deshabilitado.",
-      "serviceChargeRangeError": "Ingresa un porcentaje entre 0 y {{max}}%.",
+      "serviceChargeRangeError": "Ingrese un porcentaje entre 0 y {{max}}%.",
       "save": "Guardar restaurante",
       "saving": "Guardando...",
       "toast": {
@@ -641,7 +641,7 @@
     },
     "lossPrevention": {
       "title": "Prevención de pérdidas",
-      "description": "Configura límites de cobro por rol. Una venta que supere un límite queda bloqueada hasta que otra persona autorizada apruebe ese cobro exacto.",
+      "description": "Configure límites de cobro por rol. Una venta que supere un límite queda bloqueada hasta que otra persona autorizada apruebe ese cobro exacto.",
       "loading": "Cargando controles de cobro",
       "roles": {
         "cashier": "Política para cajeros",
@@ -681,7 +681,7 @@
           "maxCount": "Máximo de aperturas manuales"
         }
       },
-      "validation": "Ingresa límites de descuento entre 0% y 100%, montos válidos para turnos y doble aprobación, y horas de inicio y fin diferentes en cada periodo bloqueado activo.",
+      "validation": "Ingrese límites de descuento entre 0% y 100%, montos válidos para turnos y doble aprobación, y horas de inicio y fin diferentes en cada periodo bloqueado activo.",
       "auditNote": "Cada cambio de política y cada cobro que active una regla queda registrado en auditoría sin datos del carrito ni del cliente.",
       "save": "Guardar controles de cobro",
       "saving": "Guardando…",
@@ -697,13 +697,13 @@
           "help": "Solo manual: abre un mensaje de WhatsApp sin datos de clientes.",
           "recipient": "Número de WhatsApp del gerente",
           "placeholder": "+57 300 123 4567",
-          "validation": "Ingresa un número internacional."
+          "validation": "Ingrese un número internacional."
         }
       }
     },
     "discount": {
       "title": "Descuentos por vencimiento",
-      "description": "La escala que sugiere el radar de vencimientos: un lote que vence dentro de los días que definas gana ese descuento. Gana la primera coincidencia.",
+      "description": "La escala que sugiere el radar de vencimientos: un lote que vence dentro de los días que defina gana ese descuento. Gana la primera coincidencia.",
       "maxDaysLabel": "Días restantes",
       "maxDaysAria": "Días restantes del nivel {{position}}",
       "pctLabel": "Descuento %",
@@ -719,10 +719,10 @@
     },
     "pricing": {
       "title": "Modo de precios e impuestos",
-      "description": "Elige si los precios de tu catálogo ya incluyen el impuesto o si este se agrega al cobrar. Esto cambia cómo cada venta y cotización divide sus totales.",
+      "description": "Elija si los precios de su catálogo ya incluyen el impuesto o si este se agrega al cobrar. Esto cambia cómo cada venta y cotización divide sus totales.",
       "legend": "Precios del catálogo",
       "inclusiveLabel": "Los precios incluyen impuestos",
-      "inclusiveHelp": "El precio que defines es lo que paga el cliente; el impuesto se desglosa a partir de él.",
+      "inclusiveHelp": "El precio que define es lo que paga el cliente; el impuesto se desglosa a partir de él.",
       "exclusiveLabel": "Precios antes de impuestos",
       "exclusiveHelp": "El impuesto se agrega sobre el precio al momento de cobrar.",
       "save": "Guardar modo",
@@ -734,21 +734,21 @@
     },
     "loyalty": {
       "title": "Programa de lealtad",
-      "description": "Los clientes acumulan puntos en cada venta completada. Desactivado de forma predeterminada: actívalo solo cuando planees reconocer los puntos.",
+      "description": "Los clientes acumulan puntos en cada venta completada. Desactivado de forma predeterminada: actívelo solo cuando planee reconocer los puntos.",
       "enabledLabel": "Otorgar puntos en las ventas",
       "enabledHelp": "Mientras está apagado, ninguna venta acumula y el cobro no cambia. Los puntos ya ganados se conservan, no se borran.",
       "rateLabel": "Valor de un punto",
       "rateHelp": "Cuánto tiene que gastar un cliente para ganar un punto.",
       "ratePreview": "Una venta de {{total}} otorga {{count}} punto.",
       "ratePreview_other": "Una venta de {{total}} otorga {{count}} puntos.",
-      "rateInvalid": "Ingresa un monto de {{min}} o más.",
+      "rateInvalid": "Ingrese un monto de {{min}} o más.",
       "save": "Guardar tasa de acumulación",
       "redemptionEnabledLabel": "Aceptar puntos al cobrar",
       "redemptionEnabledHelp": "Los clientes pueden redimir puntos enteros como un pago detallado. El servidor verifica de nuevo el saldo al confirmar la venta.",
       "redemptionValueLabel": "Valor de un punto al cobrar",
       "redemptionValueHelp": "El monto que cubre cada punto entero cuando el cliente lo redime.",
       "redemptionPreview": "{{count}} puntos cubren {{amount}}.",
-      "redemptionValueInvalid": "Ingresa un monto mayor que cero.",
+      "redemptionValueInvalid": "Ingrese un monto mayor que cero.",
       "saveRedemptionValue": "Guardar valor de redención",
       "toast": {
         "saved": "Programa de lealtad actualizado",
@@ -781,12 +781,12 @@
       "save": "Guardar cambios",
       "essential": {
         "eyebrow": "Datos esenciales",
-        "title": "Nombra la forma de vender o contar",
-        "description": "Ingresa el nombre y la abreviatura que reconocerá el equipo, como Unidad y und."
+        "title": "Nombre la forma de vender o contar",
+        "description": "Ingrese el nombre y la abreviatura que reconocerá el equipo, como Unidad y und."
       },
       "advanced": {
         "title": "Clasificación y facturación electrónica",
-        "description": "Es automático. Ábrelo solo para definir una clasificación o código fiscal.",
+        "description": "Es automático. Ábralo solo para definir una clasificación o código fiscal.",
         "automaticStatus": "Automático",
         "savedStatus": "Con datos guardados",
         "classificationTitle": "Clasificación y código estándar",
@@ -807,12 +807,12 @@
         "dimensionHint": "Agrupa unidades por magnitud, como masa o volumen. Se recomienda la opción automática.",
         "standardCode": "Código estándar (UN/CEFACT)",
         "standardCodePlaceholder": "p. ej. KGM, LTR, C62",
-        "standardCodeHint": "Se usa en la facturación electrónica. Déjalo vacío para deducir el código."
+        "standardCodeHint": "Se usa en la facturación electrónica. Déjelo vacío para deducir el código."
       }
     },
     "delete": {
       "title": "Eliminar unidad",
-      "description": "¿Estás seguro de que deseas eliminar esta unidad?"
+      "description": "¿Está seguro de que desea eliminar esta unidad?"
     },
     "toast": {
       "created": "Unidad creada",
@@ -834,7 +834,7 @@
   },
   "users": {
     "title": "Usuarios",
-    "description": "Crea cuentas de personal, asigna roles y restablece contraseñas.",
+    "description": "Cree cuentas de personal, asigne roles y restablezca contraseñas.",
     "add": "Agregar usuario",
     "permissionNote": "Solo los administradores pueden acceder a la gestión de usuarios.",
     "loading": "Cargando usuarios...",
@@ -863,7 +863,7 @@
     },
     "permissions": {
       "title": "Permisos predeterminados por rol",
-      "description": "Revisa el acceso a espacios de trabajo asignado a cada rol antes de crear o actualizar una cuenta.",
+      "description": "Revise el acceso a espacios de trabajo asignado a cada rol antes de crear o actualizar una cuenta.",
       "caption": "Acceso predeterminado a espacios de trabajo por rol",
       "workspace": "Espacio de trabajo",
       "allowed": "Permitido",
@@ -902,25 +902,25 @@
     },
     "staffPin": {
       "title": "Gestionar PIN del personal",
-      "description": "Configura un PIN de 6 dígitos para {{name}}. Los PIN de cajero permiten cambiar el operador del puesto; un PIN nunca reemplaza el inicio de sesión completo de un gestor o administrador.",
+      "description": "Configure un PIN de 6 dígitos para {{name}}. Los PIN de cajero permiten cambiar el operador del puesto; un PIN nunca reemplaza el inicio de sesión completo de un gestor o administrador.",
       "label": "Nuevo PIN de 6 dígitos",
       "placeholder": "6 dígitos",
-      "requirement": "Usa exactamente 6 números. El PIN se almacena como un hash Argon2id irreversible.",
+      "requirement": "Use exactamente 6 números. El PIN se almacena como un hash Argon2id irreversible.",
       "cancel": "Cancelar",
       "save": "Guardar PIN",
       "saving": "Guardando...",
       "clear": "Eliminar PIN",
-      "clearConfirm": "¿Quieres eliminar el PIN del personal de {{name}}?",
-      "invalid": "Ingresa exactamente 6 dígitos."
+      "clearConfirm": "¿Desea eliminar el PIN del personal de {{name}}?",
+      "invalid": "Ingrese exactamente 6 dígitos."
     },
     "toast": {
       "created": "Usuario creado",
       "createError": "No se pudo crear el usuario",
       "updated": "Usuario actualizado",
       "updateError": "No se pudo actualizar el usuario",
-      "claimsChanged": "Tus permisos han cambiado. Por favor inicia sesión nuevamente",
+      "claimsChanged": "Sus permisos han cambiado. Por favor inicie sesión nuevamente",
       "passwordReset": "Contraseña restablecida",
-      "passwordChanged": "Tu contraseña ha cambiado. Por favor inicia sesión nuevamente",
+      "passwordChanged": "Su contraseña ha cambiado. Por favor inicie sesión nuevamente",
       "pinSaved": "PIN del personal guardado",
       "pinCleared": "PIN del personal eliminado",
       "pinError": "No se pudo actualizar el PIN del personal"

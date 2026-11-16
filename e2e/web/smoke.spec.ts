@@ -82,7 +82,7 @@ const adminRoutes = [
     path: '/company',
     assertion: async page =>
       page.getByRole('heading', {
-        name: /Prepare the business without getting lost|Prepara el negocio sin perderte/i,
+        name: /Prepare the business without getting lost|Prepare el negocio sin perderse/i,
       }),
   },
   {
@@ -585,7 +585,7 @@ test.describe('web smoke', () => {
     await expect(page.getByText('Operación segura entre sedes')).toBeVisible();
     await expect(
       page.getByText(
-        'Usa tus credenciales de puesto de trabajo para acceder a ventas, inventario, compras y configuración de tu negocio.'
+        'Use sus credenciales de puesto de trabajo para acceder a ventas, inventario, compras y configuración de su negocio.'
       )
     ).toBeVisible();
     await expect(page.getByText(/tenant/i)).toHaveCount(0);

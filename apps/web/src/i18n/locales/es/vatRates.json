@@ -4,7 +4,7 @@
   "loading": "Cargando tarifas de IVA...",
   "error": "No se pudieron cargar las tarifas de IVA",
   "search": "Buscar tarifas de IVA...",
-  "permissionNote": "Solo los administradores pueden modificar las tarifas de IVA. Puedes revisar el catálogo.",
+  "permissionNote": "Solo los administradores pueden modificar las tarifas de IVA. Puede revisar el catálogo.",
   "columns": {
     "vatRate": "Tarifa de IVA",
     "rate": "Porcentaje",
@@ -25,12 +25,12 @@
     "save": "Guardar cambios",
     "essential": {
       "eyebrow": "Configuración del impuesto",
-      "title": "Nombra el impuesto e ingresa su porcentaje",
-      "description": "Usa un nombre claro y el porcentaje exacto, por ejemplo IVA 19% o IVA 5%."
+      "title": "Nombre el impuesto e ingrese su porcentaje",
+      "description": "Use un nombre claro y el porcentaje exacto, por ejemplo IVA 19% o IVA 5%."
     },
     "advanced": {
       "title": "Disponibilidad",
-      "description": "Indica si esta tarifa se usa actualmente.",
+      "description": "Indique si esta tarifa se usa actualmente.",
       "statusTitle": "Uso actual",
       "activeStatus": "Disponible",
       "inactiveStatus": "Marcada como inactiva"
@@ -49,7 +49,7 @@
       "kind": "Tipo de impuesto",
       "kindHelp": "Las líneas con impuesto al consumo se reportan por separado en los documentos fiscales, como el INC de comidas preparadas en Colombia.",
       "isActive": "La tarifa de IVA está activa",
-      "isActiveHelp": "Desactívala para señalar que ya no está en uso. Esto no elimina la información anterior."
+      "isActiveHelp": "Desactívela para señalar que ya no está en uso. Esto no elimina la información anterior."
     }
   },
   "delete": {

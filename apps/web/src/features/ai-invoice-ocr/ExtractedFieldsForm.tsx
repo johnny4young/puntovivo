@@ -133,7 +133,7 @@ export function ExtractedFieldsForm({
                 className="w-full bg-transparent font-mono text-[11.5px] text-secondary-950 focus:outline-none"
               >
                 <option value="">
-                  {t('form.selectProvider', { defaultValue: 'Selecciona proveedor' })}
+                  {t('form.selectProvider', { defaultValue: 'Seleccione proveedor' })}
                 </option>
                 {providers.map(provider => (
                   <option key={provider.id} value={provider.id}>
@@ -376,7 +376,7 @@ export function ExtractedFieldsForm({
         {!providerId && (
           <Warning>
             {t('form.warning.providerRequired', {
-              defaultValue: 'Selecciona el proveedor del catálogo antes de confirmar.',
+              defaultValue: 'Seleccione el proveedor del catálogo antes de confirmar.',
             })}
           </Warning>
         )}
@@ -387,7 +387,7 @@ export function ExtractedFieldsForm({
 
         <p className="rounded-[10px] border border-dashed border-warning-500/30 bg-warning-50/50 px-2.5 py-2 text-[11px] text-warning-700">
           {t('form.disclaimer', {
-            defaultValue: 'La IA leyó la factura. Revisa cada campo antes de registrar la compra.',
+            defaultValue: 'La IA leyó la factura. Revise cada campo antes de registrar la compra.',
           })}
         </p>
 

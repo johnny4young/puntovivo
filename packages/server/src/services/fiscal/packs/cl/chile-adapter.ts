@@ -43,12 +43,12 @@ const CL_CAPABILITIES: FiscalAdapterCapabilities = {
  * fallback para audit logs y server logs.
  */
 const CL_VALIDATION_MESSAGES = {
-  MISSING_RUT: 'Captura el RUT del emisor antes de habilitar la emisión.',
+  MISSING_RUT: 'Capture el RUT del emisor antes de habilitar la emisión.',
   INVALID_RUT: 'El RUT del emisor no es válido según las reglas del SII.',
-  MISSING_GIRO: 'Captura el giro comercial del emisor.',
+  MISSING_GIRO: 'Capture el giro comercial del emisor.',
   INVALID_GIRO: 'El código del giro comercial no existe en el catálogo CIIU.cl.',
-  MISSING_CASA_MATRIZ: 'Captura la dirección de la casa matriz.',
-  MISSING_COMUNA: 'Captura la comuna del lugar de emisión.',
+  MISSING_CASA_MATRIZ: 'Capture la dirección de la casa matriz.',
+  MISSING_COMUNA: 'Capture la comuna del lugar de emisión.',
   INVALID_COMUNA: 'El código de la comuna no existe en el catálogo SUBDERE.',
   INVALID_ENVIRONMENT: 'El ambiente debe ser certificacion o produccion.',
 } as const;
@@ -172,7 +172,7 @@ export class ChileSIIAdapter implements FiscalAdapter {
         trpcCode: 'BAD_REQUEST',
         errorCode: 'FISCAL_PACK_NOT_AVAILABLE',
         message:
-          'Activa el pack fiscal CL y captura RUT, giro, comuna y casa matriz en /company → Fiscal antes de emitir.',
+          'Active el pack fiscal CL y capture RUT, giro, comuna y casa matriz en /company → Fiscal antes de emitir.',
         details: {
           countryCode: 'CL',
           disabled: !settings.enabled,

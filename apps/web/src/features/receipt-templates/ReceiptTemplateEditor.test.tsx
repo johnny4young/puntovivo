@@ -511,12 +511,12 @@ describe('ReceiptTemplateEditor ( pass 1)', () => {
     renderEditor();
     await waitFor(() => {
       expect(
-        screen.getByText(/Para tomar una sección, presiona Espacio o Enter/i)
+        screen.getByText(/Para tomar una sección, presione Espacio o Enter/i)
       ).toBeInTheDocument();
     });
     expect(screen.getAllByTestId('block-grip')[0]).toHaveAttribute(
       'aria-label',
-      'Arrastra la sección para reordenar'
+      'Arrastre la sección para reordenar'
     );
   });
 });

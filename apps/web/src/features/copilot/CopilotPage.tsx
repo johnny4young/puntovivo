@@ -581,7 +581,7 @@ export function CopilotPage() {
             <p className="mt-2 text-sm leading-6 text-secondary-600">
               {t('copilot:page.subtitle', {
                 defaultValue:
-                  'Explora tus datos. Cuando se ejecuta una consulta, el SQL y sus filas quedan visibles para revisión.',
+                  'Explore sus datos. Cuando se ejecuta una consulta, el SQL y sus filas quedan visibles para revisión.',
               })}
             </p>
           </div>

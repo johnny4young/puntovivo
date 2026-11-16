@@ -269,7 +269,7 @@ test.describe('keyboard-only /sales smoke', () => {
 
       await page.keyboard.press(`${MOD_KEY}+K`);
       const palette = page.getByRole('dialog', {
-        name: /what do you want to do|qué quieres hacer/i,
+        name: /what do you want to do|qué desea hacer/i,
       });
       await expect(palette).toBeVisible({ timeout: 10_000 });
 
@@ -295,7 +295,7 @@ test.describe('keyboard-only /sales smoke', () => {
 
       await page.keyboard.press(`${MOD_KEY}+K`);
       const palette = page.getByRole('dialog', {
-        name: /what do you want to do|qué quieres hacer/i,
+        name: /what do you want to do|qué desea hacer/i,
       });
       await expect(palette).toBeVisible({ timeout: 10_000 });
 
@@ -335,7 +335,7 @@ test.describe('keyboard-only /sales smoke', () => {
 
       await page.keyboard.press(`${MOD_KEY}+K`);
       const palette = page.getByRole('dialog', {
-        name: /what do you want to do|qué quieres hacer/i,
+        name: /what do you want to do|qué desea hacer/i,
       });
       await expect(palette).toBeVisible({ timeout: 10_000 });
 

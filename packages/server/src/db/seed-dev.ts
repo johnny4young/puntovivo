@@ -2526,7 +2526,7 @@ function buildDefaultReceiptLayouts(): Record<
           { type: 'separator' },
           { type: 'tendersTable', showChange: true },
           { type: 'separator' },
-          { type: 'text', value: 'Gracias por tu compra', align: 'center', style: 'muted' },
+          { type: 'text', value: 'Gracias por su compra', align: 'center', style: 'muted' },
           // pass 1 (item #5) — Puntovivo-branded footer block.
           // Admins can toggle `show: false` to hide without deleting.
           { type: 'appFooter', show: true, align: 'center' },

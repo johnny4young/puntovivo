@@ -141,7 +141,7 @@ describe('ChangePasswordModal', () => {
     await waitFor(() => {
       expect(toastSuccessMock).toHaveBeenCalledWith({
         title: 'Contraseña cambiada correctamente',
-        description: 'Por favor inicia sesión nuevamente con tu nueva contraseña.',
+        description: 'Por favor inicie sesión nuevamente con su nueva contraseña.',
       });
     });
   });

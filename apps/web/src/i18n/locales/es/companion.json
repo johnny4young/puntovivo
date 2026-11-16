@@ -14,13 +14,13 @@
     "logout": "Cerrar sesión"
   },
   "offline": {
-    "title": "No tienes conexión",
-    "description": "Vuelve a conectarte para cargar los datos actuales del negocio. Companion no presenta ventas guardadas como si fueran actuales."
+    "title": "No tiene conexión",
+    "description": "Vuelva a conectarse para cargar los datos actuales del negocio. Companion no presenta ventas guardadas como si fueran actuales."
   },
   "snapshot": {
     "loading": "Cargando el resumen actual…",
     "unavailable": "Los datos actuales no están disponibles",
-    "unavailableHint": "Revisa la conexión e intenta de nuevo. No se presentan totales guardados como si fueran actuales."
+    "unavailableHint": "Revise la conexión e intente de nuevo. No se presentan totales guardados como si fueran actuales."
   },
   "today": {
     "title": "Hoy",
@@ -38,7 +38,7 @@
   "attention": {
     "title": "Requiere atención",
     "clear": "Nada requiere atención por ahora.",
-    "readOnly": "Solo lectura: reconoce y resuelve desde la aplicación de escritorio.",
+    "readOnly": "Solo lectura: reconozca y resuelva desde la aplicación de escritorio.",
     "areas": {
       "sync": "Sincronización",
       "fiscal": "Facturación electrónica",

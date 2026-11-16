@@ -91,9 +91,9 @@ describe('Header accessible names', () => {
     },
     {
       locale: 'es',
-      prompt: '¿Qué quieres hacer?',
-      searchSuffix: 'abre el buscador de tareas y productos',
-      accountPrefix: 'Abre el menú de usuario de',
+      prompt: '¿Qué desea hacer?',
+      searchSuffix: 'abra el buscador de tareas y productos',
+      accountPrefix: 'Abra el menú de usuario de',
       role: 'Observador',
     },
   ])(
@@ -116,7 +116,7 @@ describe('Header accessible names', () => {
 
   describe.each([
     { locale: 'en', accountPrefix: 'Open user menu for', labels: enSettings.users.roles },
-    { locale: 'es', accountPrefix: 'Abre el menú de usuario de', labels: esSettings.users.roles },
+    { locale: 'es', accountPrefix: 'Abra el menú de usuario de', labels: esSettings.users.roles },
   ])('in $locale', ({ locale, accountPrefix, labels }) => {
     it.each(USER_ROLES)('label the %s role as the users page does', async role => {
       auth.role = role;

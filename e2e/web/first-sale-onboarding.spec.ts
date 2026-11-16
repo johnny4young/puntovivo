@@ -144,7 +144,7 @@ test.describe('first sale onboarding', () => {
       await expect(page.getByTestId('first-sale-guide')).toBeHidden();
       await openUserMenu(page);
       await page.getByRole('button', { name: 'Guía de primera venta' }).click();
-      await expect(page.getByText('Tu primera venta en 5 minutos')).toBeVisible();
+      await expect(page.getByText('Su primera venta en 5 minutos')).toBeVisible();
       await expect(page.getByText('3 de 3 pasos completados')).toBeVisible();
       await captureEvidence(page, 'first-sale-help-reopen-es');
 

@@ -22,7 +22,7 @@ function recovery(overrides: Partial<NonNullable<AuthContextType['bootstrapRecov
 describe('locked bootstrap recovery', () => {
   it.each([
     ['en', 'Your session needs a moment', 'Retry connection', 'Sign in again'],
-    ['es', 'Tu sesión necesita un momento', 'Reintentar conexión', 'Iniciar sesión de nuevo'],
+    ['es', 'Su sesión necesita un momento', 'Reintentar conexión', 'Iniciar sesión de nuevo'],
   ] as const)(
     'keeps %s readable and requires a manual retry after cooldown',
     async (locale, title, retryLabel, signInLabel) => {

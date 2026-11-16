@@ -220,7 +220,7 @@ describe('ExpiryRadarPanel', () => {
 
   it.each([
     { language: 'en', title: 'Correct the business timezone in Company settings.' },
-    { language: 'es', title: 'Ajusta la zona horaria en Empresa.' },
+    { language: 'es', title: 'Ajuste la zona horaria en Empresa.' },
   ])(
     'fails closed instead of crashing for a legacy invalid tenant zone ($language)',
     async scenario => {

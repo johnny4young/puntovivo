@@ -30,7 +30,7 @@ for (const language of ['en', 'es'] as const) {
     });
     const copy =
       language === 'es'
-        ? 'Los registros de ausencias no están disponibles temporalmente. Reintenta la misma operación.'
+        ? 'Los registros de ausencias no están disponibles temporalmente. Reintente la misma operación.'
         : 'Time-off records are temporarily unavailable. Retry the same operation.';
     try {
       const tracker = attachClientIssueTracker(page);

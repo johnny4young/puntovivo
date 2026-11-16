@@ -246,7 +246,7 @@ export async function openUserMenu(page: Page) {
   await page
     .locator('header')
     .getByRole('button', {
-      name: /^(?:Open user menu for|Abre el menú de usuario de) /i,
+      name: /^(?:Open user menu for|Abra el menú de usuario de) /i,
     })
     .click();
 }

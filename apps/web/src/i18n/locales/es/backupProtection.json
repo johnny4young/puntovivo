@@ -1,11 +1,11 @@
 {
   "title": "Protección de respaldos",
-  "description": "Verifica el cifrado de la base de datos y cómo este dispositivo protege la clave de respaldo.",
+  "description": "Verifique el cifrado de la base de datos y cómo este dispositivo protege la clave de respaldo.",
   "states": {
     "loading": "Verificando la protección…",
     "browser": "El estado de protección solo se verifica desde la aplicación de escritorio Electron.",
-    "unsupported": "Actualiza la aplicación de escritorio para verificar la protección de respaldos.",
-    "error": "No se pudo verificar la protección de respaldos. Reinicia la aplicación de escritorio e inténtalo de nuevo.",
+    "unsupported": "Actualice la aplicación de escritorio para verificar la protección de respaldos.",
+    "error": "No se pudo verificar la protección de respaldos. Reinicie la aplicación de escritorio e inténtelo de nuevo.",
     "protected": {
       "badge": "Protegido",
       "summary": "SQLCipher cifra la base de datos y los respaldos, mientras el sistema operativo protege la clave."
@@ -40,8 +40,8 @@
   "securityNote": "Esta verificación solo devuelve metadatos de protección. Nunca lee ni expone la clave de respaldo.",
   "schedule": {
     "title": "Respaldos cifrados programados",
-    "description": "Mantén puntos de restauración automáticos en una carpeta administrada por la app o en una carpeta personalizada. Los respaldos conservan el cifrado SQLCipher.",
-    "unsupported": "Actualiza la app de escritorio para configurar respaldos programados.",
+    "description": "Mantenga puntos de restauración automáticos en una carpeta administrada por la app o en una carpeta personalizada. Los respaldos conservan el cifrado SQLCipher.",
+    "unsupported": "Actualice la app de escritorio para configurar respaldos programados.",
     "loading": "Cargando…",
     "lastSuccess": "Último respaldo correcto",
     "nextRun": "Próximo respaldo",
@@ -63,7 +63,7 @@
     "running": "Creando respaldo…",
     "chooseFolder": "Elegir carpeta",
     "useManaged": "Usar carpeta administrada por la app",
-    "lastRunFailed": "El último respaldo programado falló. Verifica el destino e inténtalo de nuevo.",
+    "lastRunFailed": "El último respaldo programado falló. Verifique el destino e inténtelo de nuevo.",
     "toast": {
       "saved": "Programación de respaldo guardada",
       "destination": "Destino de respaldo actualizado",
@@ -78,9 +78,9 @@
   },
   "cloud": {
     "title": "Bóveda en la nube compatible con S3",
-    "description": "Replica cada respaldo cifrado programado en un almacenamiento administrado por tu empresa.",
+    "description": "Replique cada respaldo cifrado programado en un almacenamiento administrado por su empresa.",
     "connected": "Conectada",
-    "unsupported": "Actualiza la app de escritorio para configurar la réplica de respaldos en la nube.",
+    "unsupported": "Actualice la app de escritorio para configurar la réplica de respaldos en la nube.",
     "secureStorageUnavailable": "El llavero del sistema operativo no está disponible. Las credenciales de la nube no se guardarán hasta restablecer el almacenamiento seguro.",
     "destination": "Destino en la nube",
     "prefix": "Prefijo de objetos",
@@ -95,7 +95,7 @@
     "saveAndTest": "Guardar y probar",
     "saving": "Guardando y probando…",
     "cancel": "Cancelar",
-    "securityNote": "Las credenciales quedan selladas por el llavero del sistema operativo de este dispositivo. Nunca se incluyen en los respaldos ni regresan a la interfaz. Usa una clave dedicada con permiso solo para escribir en este bucket y prefijo.",
+    "securityNote": "Las credenciales quedan selladas por el llavero del sistema operativo de este dispositivo. Nunca se incluyen en los respaldos ni regresan a la interfaz. Use una clave dedicada con permiso solo para escribir en este bucket y prefijo.",
     "fields": {
       "endpoint": "Endpoint S3",
       "region": "Región",
@@ -111,8 +111,8 @@
       "region": "auto",
       "bucket": "respaldos-empresa",
       "prefix": "puntovivo-backups",
-      "accessKey": "Ingresa el ID de la clave de acceso",
-      "secretKey": "Ingresa la clave de acceso secreta"
+      "accessKey": "Ingrese el ID de la clave de acceso",
+      "secretKey": "Ingrese la clave de acceso secreta"
     },
     "toast": {
       "connected": "Bóveda en la nube guardada y verificada",
@@ -123,10 +123,10 @@
       "load": "No se pudo cargar la configuración de la bóveda en la nube.",
       "save": "No se pudo guardar la configuración de la bóveda en la nube.",
       "disconnect": "No se pudo desconectar la bóveda en la nube.",
-      "configurationInvalid": "Verifica el endpoint, el bucket, el prefijo, la región y las credenciales. Los endpoints de producción deben usar HTTPS.",
-      "configurationMissing": "Configura la bóveda en la nube antes de probarla.",
+      "configurationInvalid": "Verifique el endpoint, el bucket, el prefijo, la región y las credenciales. Los endpoints de producción deben usar HTTPS.",
+      "configurationMissing": "Configure la bóveda en la nube antes de probarla.",
       "secureStorage": "El llavero del sistema operativo no puede proteger estas credenciales.",
-      "connection": "La prueba de escritura en la nube falló. Verifica el endpoint, las credenciales, los permisos del bucket y la conexión de red.",
+      "connection": "La prueba de escritura en la nube falló. Verifique el endpoint, las credenciales, los permisos del bucket y la conexión de red.",
       "upload": "No se pudo copiar el último respaldo cifrado a la bóveda en la nube. El respaldo local sigue siendo válido.",
       "inProgress": "Aún hay otra operación de respaldo en la nube en curso."
     },
@@ -138,16 +138,16 @@
   },
   "drill": {
     "title": "Simulacro de restauración",
-    "description": "Verifica el último respaldo cifrado sin cambiar la base de datos activa. El resultado queda registrado en la auditoría.",
-    "unsupported": "Actualiza la app de escritorio para ejecutar simulacros de restauración.",
+    "description": "Verifique el último respaldo cifrado sin cambiar la base de datos activa. El resultado queda registrado en la auditoría.",
+    "unsupported": "Actualice la app de escritorio para ejecutar simulacros de restauración.",
     "run": "Ejecutar simulacro",
     "running": "Verificando respaldo…",
     "toast": {
       "passed": "Simulacro de restauración aprobado"
     },
     "errors": {
-      "snapshotUnavailable": "Crea al menos un respaldo cifrado antes de ejecutar un simulacro de restauración.",
-      "failed": "No se pudo verificar el último respaldo. Crea uno nuevo e inténtalo de nuevo."
+      "snapshotUnavailable": "Cree al menos un respaldo cifrado antes de ejecutar un simulacro de restauración.",
+      "failed": "No se pudo verificar el último respaldo. Cree uno nuevo e inténtelo de nuevo."
     },
     "result": {
       "title": "Listo para restaurar",

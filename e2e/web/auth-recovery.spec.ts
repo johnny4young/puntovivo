@@ -55,7 +55,7 @@ for (const locale of ['en', 'es'] as const) {
     await login(page, { ...scenario.cashier, defaultPath: '/sales' }, { spanish });
     const stock = getProductStock(scenario.product.id);
     await page
-      .getByRole('button', { name: spanish ? /^Abre el menú de usuario/ : /^Open user menu/ })
+      .getByRole('button', { name: spanish ? /^Abra el menú de usuario/ : /^Open user menu/ })
       .click();
     await page
       .getByRole('button', {

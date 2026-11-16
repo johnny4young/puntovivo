@@ -5,10 +5,10 @@
   },
   "history": {
     "title": "Cotizaciones recientes",
-    "description": "Las cotizaciones más recientes del tenant. Usa las acciones para enviar, aceptar, rechazar, expirar o eliminar borradores.",
+    "description": "Las cotizaciones más recientes del tenant. Use las acciones para enviar, aceptar, rechazar, expirar o eliminar borradores.",
     "loading": "Cargando cotizaciones…",
     "error": "No se pudieron cargar las cotizaciones",
-    "empty": "Aún no hay cotizaciones. Pulsa Nueva cotización para crear la primera.",
+    "empty": "Aún no hay cotizaciones. Pulse Nueva cotización para crear la primera.",
     "exportTitle": "Exportar cotizaciones",
     "search": "Buscar por nombre del cliente…",
     "columns": {
@@ -51,7 +51,7 @@
     "printPending": "Imprimiendo…",
     "printError": "No se pudo imprimir la cotización",
     "printErrors": {
-      "popupBlocked": "Permite ventanas emergentes para Puntovivo e inténtalo de nuevo.",
+      "popupBlocked": "Permita ventanas emergentes para Puntovivo e inténtelo de nuevo.",
       "desktopBridgeFailed": "La impresora de escritorio no pudo procesar la cotización.",
       "unknown": "No se pudo imprimir la cotización en este momento."
     },
@@ -96,20 +96,20 @@
   },
   "create": {
     "title": "Nueva cotización",
-    "description": "Agrega al menos una línea, opcionalmente elige un cliente y una fecha de validez.",
+    "description": "Agregue al menos una línea, opcionalmente elija un cliente y una fecha de validez.",
     "customerLabel": "Cliente",
     "customerPlaceholder": "Mostrador (sin cliente)",
     "applyCustomerTier": "Aplicar los precios de tarifa {{tier}} del cliente",
     "priceTierLabel": "Tarifa de la cotización",
     "priceTierOption": "Tarifa {{tier}}",
-    "priceTierHelp": "Cambiar el cliente nunca modifica los precios de forma automática. Aplica una tarifa de forma explícita; los precios editados manualmente se conservan.",
+    "priceTierHelp": "Cambiar el cliente nunca modifica los precios de forma automática. Aplique una tarifa de forma explícita; los precios editados manualmente se conservan.",
     "validUntilLabel": "Válida hasta",
     "notesLabel": "Notas",
     "notesPlaceholder": "Nota interna opcional",
     "linesTitle": "Líneas",
     "addLine": "Agregar producto",
     "removeLine": "Quitar línea",
-    "linePlaceholder": "Selecciona un producto para empezar a agregar líneas.",
+    "linePlaceholder": "Seleccione un producto para empezar a agregar líneas.",
     "columns": {
       "product": "Producto",
       "tier": "Tarifa",
@@ -132,7 +132,7 @@
     "submitting": "Guardando…",
     "cancel": "Cancelar",
     "errors": {
-      "noLines": "Agrega al menos un producto a la cotización.",
+      "noLines": "Agregue al menos un producto a la cotización.",
       "lineQuantity": "La cantidad de cada línea debe ser mayor que cero.",
       "lineUnitPrice": "El precio unitario de cada línea no puede ser negativo.",
       "lineDiscount": "El descuento debe estar entre 0 y 100."
@@ -140,8 +140,8 @@
     "catalogSearch": "Buscar en catálogo",
     "catalogSearchPlaceholder": "Nombre o SKU",
     "catalogLoading": "Buscando en el catálogo…",
-    "catalogEmpty": "Sin productos coincidentes. Prueba otro nombre o SKU.",
-    "catalogError": "No se pudo cargar el catálogo. Reintenta la búsqueda.",
+    "catalogEmpty": "Sin productos coincidentes. Pruebe otro nombre o SKU.",
+    "catalogError": "No se pudo cargar el catálogo. Reintente la búsqueda.",
     "catalogRetry": "Reintentar catálogo"
   },
   "toast": {
@@ -160,10 +160,10 @@
   },
   "conversion": {
     "errorTitle": "No se pudo preparar la cotización",
-    "siteRequired": "Selecciona una sede activa antes de convertir una cotización.",
-    "notAvailable": "Esta cotización ya no está aceptada y vigente. Actualiza la lista e intenta de nuevo.",
-    "siteMismatch": "Cambia a {{site}} antes de convertir esta cotización.",
-    "unitSnapshotMissing": "Una línea histórica no tiene una unidad autorizada. Crea de nuevo la cotización antes de venderla.",
+    "siteRequired": "Seleccione una sede activa antes de convertir una cotización.",
+    "notAvailable": "Esta cotización ya no está aceptada y vigente. Actualice la lista e intente de nuevo.",
+    "siteMismatch": "Cambie a {{site}} antes de convertir esta cotización.",
+    "unitSnapshotMissing": "Una línea histórica no tiene una unidad autorizada. Cree de nuevo la cotización antes de venderla.",
     "readyTitle": "Cotización lista para cobrar",
     "readyDescription": "{{number}} se abrió en un carrito bloqueado del POS."
   }

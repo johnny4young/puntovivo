@@ -32,7 +32,7 @@
   },
   "unsavedChanges": {
     "summary": "Estos cambios todavía no están guardados",
-    "message": "Si sales ahora, se perderán los datos que ingresaste.",
+    "message": "Si sale ahora, se perderán los datos que ingresó.",
     "keepEditingAction": "Seguir editando",
     "discardAction": "Descartar cambios"
   },
@@ -98,7 +98,7 @@
   "toast": {
     "dismiss": "Descartar {{title}}",
     "error": "Algo salió mal",
-    "committedRefreshWarning": "El cambio quedó guardado, pero esta pantalla no se pudo actualizar. Recarga si no ves el nuevo estado."
+    "committedRefreshWarning": "El cambio quedó guardado, pero esta pantalla no se pudo actualizar. Recargue si no ve el nuevo estado."
   },
   "changePassword": "Cambiar contraseña",
   "switchCashier": "Cambiar cajero",
@@ -106,7 +106,7 @@
   "user": "Usuario",
   "session": "sesión",
   "userMenu": {
-    "aria": "Abre el menú de usuario de {{name}}, {{role}}",
+    "aria": "Abra el menú de usuario de {{name}}, {{role}}",
     "roles": {
       "admin": "Administrador",
       "manager": "Gestor",
@@ -123,21 +123,21 @@
       "loading": "Consultando turno…",
       "clockedIn": "Entrada registrada a las {{time}}",
       "site": "Sede: {{site}}",
-      "noSite": "Selecciona una sede para registrar tu entrada.",
+      "noSite": "Seleccione una sede para registrar su entrada.",
       "clockIn": "Marcar entrada",
       "clockOut": "Marcar salida",
       "clockInSuccess": "Turno iniciado",
       "clockOutSuccess": "Turno finalizado",
       "errorTitle": "No se pudo actualizar el turno",
       "breakLoading": "Consultando pausa…",
-      "breakStatusError": "No se pudo consultar la pausa. Intenta de nuevo antes de marcar la salida.",
+      "breakStatusError": "No se pudo consultar la pausa. Intente de nuevo antes de marcar la salida.",
       "startBreak": "Iniciar pausa",
       "endBreak": "Finalizar pausa",
       "breakActive": "En pausa desde las {{time}}",
-      "clockOutBlocked": "Finaliza la pausa antes de marcar la salida.",
-      "cashSessionActive": "Cierra {{registerName}} antes de marcar la salida. Tu asistencia seguirá activa hasta entonces.",
-      "breakStartSuccess": "Pausa iniciada",
-      "breakEndSuccess": "Pausa finalizada",
+      "clockOutBlocked": "Finalice la pausa antes de marcar la salida.",
+      "cashSessionActive": "Cierre {{registerName}} antes de marcar la salida. Su asistencia seguirá activa hasta entonces.",
+      "breakStartSuccess": "Pause iniciada",
+      "breakEndSuccess": "Pause finalizada",
       "breakErrorTitle": "No se pudo actualizar la pausa"
     },
     "approvals": {
@@ -145,15 +145,15 @@
       "loading": "Consultando solicitudes…",
       "empty": "No hay solicitudes pendientes.",
       "errorTitle": "No se pudieron actualizar las aprobaciones",
-      "pinMissing": "Configura tu PIN de personal en Usuarios antes de decidir solicitudes.",
-      "freshPinHint": "Ingresa tu propio PIN en cada decisión. No se crea una sesión elevada.",
+      "pinMissing": "Configure su PIN de personal en Usuarios antes de decidir solicitudes.",
+      "freshPinHint": "Ingrese su propio PIN en cada decisión. No se crea una sesión elevada.",
       "checkoutSummary": "Solicitud exacta de cobro",
       "requestedBy": "Solicitada por {{name}} · {{site}}",
       "expiresAt": "Vence {{time}}",
-      "pinLabel": "Tu PIN de personal",
+      "pinLabel": "Su PIN de personal",
       "pinPlaceholder": "6 dígitos",
       "rejectionReasonLabel": "Motivo del rechazo",
-      "rejectionReasonPlaceholder": "Explica por qué no se puede continuar con la solicitud",
+      "rejectionReasonPlaceholder": "Explique por qué no se puede continuar con la solicitud",
       "approve": "Aprobar",
       "reject": "Rechazar",
       "confirmApprove": "Confirmar aprobación",
@@ -177,8 +177,8 @@
   },
   "loadingSites": "Cargando sedes...",
   "selectSite": "Seleccionar sede",
-  "quickSearch": "¿Qué quieres hacer?",
-  "quickSearchAria": "{{label}}: abre el buscador de tareas y productos",
+  "quickSearch": "¿Qué desea hacer?",
+  "quickSearchAria": "{{label}}: abra el buscador de tareas y productos",
   "toolbar": {
     "toggleColumns": "Alternar columnas",
     "showAllColumns": "Mostrar todas las columnas",
@@ -205,7 +205,7 @@
     "kicker": "Modo offline",
     "title": "Tranquila, sigue vendiendo",
     "description": "Las ventas se guardan en esta tableta y se sincronizan cuando regrese la conexión.",
-    "reassurance": "Sigue vendiendo — sincronizamos todo apenas vuelva la conexión.",
+    "reassurance": "Siga vendiendo — sincronizamos todo apenas vuelva la conexión.",
     "status": {
       "available": "Disponible",
       "limited": "Limitado",
@@ -268,7 +268,7 @@
       "retry": "Reintentar sincronización",
       "loading": "Cargando cola…",
       "errorTitle": "No pudimos cargar la cola",
-      "errorDescription": "Intenta de nuevo en un momento. Los tickets pendientes se quedan seguros en esta tableta."
+      "errorDescription": "Intente de nuevo en un momento. Los tickets pendientes se quedan seguros en esta tableta."
     }
   },
   "statusStrip": {
@@ -279,14 +279,14 @@
     "moreCount_other": "+{{count}} avisos más"
   },
   "offline": {
-    "youAreOffline": "Estás sin conexión",
+    "youAreOffline": "Está sin conexión",
     "queuedChanges_one": "{{count}} cambio pendiente se sincronizará cuando regrese la conexión.",
     "queuedChanges_other": "{{count}} cambios pendientes se sincronizarán cuando regrese la conexión.",
     "localChanges": "Los cambios hechos en la app de escritorio se mantendrán locales hasta que regrese la conexión.",
     "conflictsTitle": "Conflictos de sincronización requieren revisión",
     "attentionTitle": "La sincronización necesita atención",
     "hubUnreachableTitle": "El hub de la tienda no responde",
-    "hubUnreachableDesc": "Tu terminal no puede comunicarse con el hub de la tienda. Verifica que la computadora del hub esté encendida y conectada a la red. La finalización de ventas queda pausada hasta que vuelva la conexión.",
+    "hubUnreachableDesc": "Su terminal no puede comunicarse con el hub de la tienda. Verifique que la computadora del hub esté encendida y conectada a la red. La finalización de ventas queda pausada hasta que vuelva la conexión.",
     "pendingTitle": "Cambios pendientes esperando sincronización",
     "pendingDesc_one": "{{count}} cambio pendiente se sincronizará automáticamente.",
     "pendingDesc_other": "{{count}} cambios pendientes se sincronizarán automáticamente.",
@@ -303,7 +303,7 @@
     "allCategories": "Todas las categorías",
     "provider": "Proveedor",
     "allProviders": "Todos los proveedores",
-    "enterTerm": "Ingresa un término de búsqueda para encontrar productos.",
+    "enterTerm": "Ingrese un término de búsqueda para encontrar productos.",
     "sku": "SKU",
     "name": "Nombre",
     "stock": "Stock",
@@ -314,7 +314,7 @@
     "noCategory": "Sin categoría",
     "noProvider": "Sin proveedor",
     "selection": "Selección",
-    "chooseProduct": "Selecciona una fila del producto para confirmar la unidad y el precio.",
+    "chooseProduct": "Seleccione una fila del producto para confirmar la unidad y el precio.",
     "equivalence": "Equivalencia",
     "availableStock": "Stock disponible",
     "fractionStep": "Paso fraccional",
@@ -322,8 +322,8 @@
     "cancel": "Cancelar",
     "quickCreate": {
       "emptyTitle": "Sin coincidencias para \"{{query}}\".",
-      "adminHint": "Puedes registrarlo ahora sin salir de la venta.",
-      "cashierHint": "Pídele a un manager que cree este producto antes de cobrar.",
+      "adminHint": "Puede registrarlo ahora sin salir de la venta.",
+      "cashierHint": "Pídale a un manager que cree este producto antes de cobrar.",
       "createCta": "Crear nuevo producto"
     },
     "discountSuggested": "Sugerido -{{pct}}%",
@@ -334,8 +334,8 @@
   },
   "lossPreventionAlerts": {
     "title": "Alertas de prevención de pérdidas",
-    "openAria": "Abre las alertas de prevención de pérdidas; pendientes de revisión: {{count}}",
-    "closeAria": "Cierra las alertas de prevención de pérdidas",
+    "openAria": "Abra las alertas de prevención de pérdidas; pendientes de revisión: {{count}}",
+    "closeAria": "Cierre las alertas de prevención de pérdidas",
     "siteScope": "Reglas activadas recientemente en la sede actual",
     "loading": "Consultando alertas…",
     "empty": "No hay alertas de prevención de pérdidas en esta sede.",
@@ -359,12 +359,12 @@
     },
     "whatsapp": {
       "action": "WhatsApp",
-      "aria": "Comparte {{rule}} por WhatsApp",
+      "aria": "Comparta {{rule}} por WhatsApp",
       "message": "Alerta de prevención de pérdidas\\nRegla: {{rule}}\\nPersona: {{operator}}\\nSede: {{site}}\\nHora: {{time}}"
     }
   },
   "form": {
-    "selectPlaceholder": "Selecciona una opción..."
+    "selectPlaceholder": "Seleccione una opción..."
   },
   "fiscalContingency": {
     "badge": "{{count}} en contingencia",
@@ -373,9 +373,9 @@
   "updaterNotice": {
     "banner": {
       "readyTitle": "Puntovivo {{version}} está listo para instalar",
-      "readyDescription": "Reinicia cuando sea seguro pausar esta estación.",
+      "readyDescription": "Reinicie cuando sea seguro pausar esta estación.",
       "verifyTitle": "Puntovivo {{version}} se descargó anteriormente",
-      "verifyDescription": "Verifica el artefacto nuevamente antes de habilitar la instalación.",
+      "verifyDescription": "Verifique el artefacto nuevamente antes de habilitar la instalación.",
       "dismiss": "Ocultar aviso de actualización"
     },
     "actions": {
@@ -390,7 +390,7 @@
   "embeddedServer": {
     "restartingTitle": "Reconectando con el servidor",
     "restartingDetail": "Cobrar vuelve a estar disponible en unos segundos; el carrito se conserva.",
-    "recovered": "El sistema se recuperó. Revisa la última venta.",
+    "recovered": "El sistema se recuperó. Revise la última venta.",
     "restartsLabel": "Reinicios del servidor",
     "restartsValue": "{{count}} en 7 días"
   }

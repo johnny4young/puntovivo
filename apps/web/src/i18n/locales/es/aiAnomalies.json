@@ -5,8 +5,8 @@
     "description": "Análisis estadístico sobre los últimos 30 días que marca anulaciones, devoluciones, aperturas sin venta y picos de tickets fuera del patrón normal del equipo.",
     "states": {
       "loading": "Calculando anomalías…",
-      "error": "No se pudieron cargar las anomalías. Intenta de nuevo en un momento.",
-      "disabled": "La detección de anomalías está desactivada. Actívala en Empresa → Configuración de IA para escanear anomalías.",
+      "error": "No se pudieron cargar las anomalías. Intente de nuevo en un momento.",
+      "disabled": "La detección de anomalías está desactivada. Actívela en Empresa → Configuración de IA para escanear anomalías.",
       "empty": "Sin anomalías detectadas en los últimos 30 días. El equipo está operando dentro del patrón normal.",
       "summary_one": "{{count}} alerta detectada en los últimos 30 días",
       "summary_other": "{{count}} alertas detectadas en los últimos 30 días"
@@ -20,7 +20,7 @@
   },
   "modal": {
     "title": "Anomalías detectadas",
-    "description": "Cada fila es un outlier estadístico comparado contra el resto del equipo o contra el promedio personal del cajero en 30 días. Úsalo como punto de partida para una investigación, no como una acusación definitiva.",
+    "description": "Cada fila es un outlier estadístico comparado contra el resto del equipo o contra el promedio personal del cajero en 30 días. Úselo como punto de partida para una investigación, no como una acusación definitiva.",
     "filters": {
       "all": "Todos los tipos",
       "ticketsPerHourSpike": "Picos de tickets",
