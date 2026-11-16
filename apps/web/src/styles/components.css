@@ -277,6 +277,15 @@
     border-color: var(--operator-commit-hover);
   }
 
+  .btn-primary:active:not(:disabled),
+  .btn-secondary:active:not(:disabled),
+  .btn-outline:active:not(:disabled),
+  .btn-success:active:not(:disabled),
+  .btn-danger:active:not(:disabled),
+  .btn-charge:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+
   .btn-primary:disabled,
   .btn-charge:disabled {
     color: var(--fg3);
