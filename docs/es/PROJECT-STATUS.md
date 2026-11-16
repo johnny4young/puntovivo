@@ -65,7 +65,10 @@ El candidato validado actual incluye:
   solo por red. ESC/POS directo por USB/serie y la certificación de impresoras
   físicas siguen sin estar disponibles;
 - responsabilidad por sesión de caja, cierre a ciegas, movimientos auditados,
-  evidencia de cierre del día, señales de anomalías y firma inmutable del gerente;
+  relevos de turno firmados entre cajeros con recuento y ventas suspendidas que
+  pasan, evidencia de cierre del día, cierre guiado con tolerancia de diferencia
+  y motivos guardados, señales de anomalías y firma inmutable del gerente con
+  firma dibujada o PIN;
 - inventario por sede, unidades, lotes, FEFO, sugerencias por vencimiento que siguen
   siendo informativas hasta que un gerente las convierte en una promoción
   explícitamente vinculada al lote, productos serializados, consulta de garantías,

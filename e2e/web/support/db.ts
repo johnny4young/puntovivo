@@ -1380,6 +1380,43 @@ export function seedCashSessionScenario(seed: string): SeededCashSessionScenario
 }
 
 /**
+ * The cashier's register is named and open; the manager starts with no open
+ * drawer so they can receive the cashier's handoff through the browser.
+ */
+export function seedShiftHandoffScenario(seed: string): SeededCashSessionScenario {
+  const scenario = seedCashSessionScenario(seed);
+  const db = openDb();
+  try {
+    const now = nowIso();
+    db.prepare(
+      `update cash_sessions
+         set status = 'closed', closed_at = ?, actual_count = expected_balance,
+             over_short = 0, updated_at = ?
+       where cashier_id = ? and status = 'open'`
+    ).run(now, now, scenario.manager.id);
+    return scenario;
+  } finally {
+    db.close();
+  }
+}
+
+/** Close every drawer of the tenant at its expected balance, so the day can be signed. */
+export function closeTenantCashSessions(tenantId: string): void {
+  const db = openDb();
+  try {
+    const now = nowIso();
+    db.prepare(
+      `update cash_sessions
+         set status = 'closed', closed_at = ?, actual_count = expected_balance,
+             over_short = 0, updated_at = ?
+       where tenant_id = ? and status = 'open'`
+    ).run(now, now, tenantId);
+  } finally {
+    db.close();
+  }
+}
+
+/**
  * Seed one real open register and explicitly enable the local Customer Display
  * surface. The browser journey must still publish the cart through SalesPage;
  * this helper creates no display projection or sale data.

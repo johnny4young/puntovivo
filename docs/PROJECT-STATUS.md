@@ -58,8 +58,10 @@ The current validated candidate includes:
   saved per business on each computer, explicit test tickets, and network-only
   ESC/POS setup guidance. Direct USB/serial ESC/POS and physical-printer
   certification remain unavailable;
-- cash-session accountability, blind close, audited movements, day-close
-  evidence, anomaly signals, and immutable manager sign-off;
+- cash-session accountability, blind close, audited movements, signed shift
+  handoffs between cashiers with a recount and carried suspended sales, day-close
+  evidence, a guided close with a difference tolerance and stored reasons,
+  anomaly signals, and immutable manager sign-off by drawn signature or PIN;
 - site-owned inventory, units, lots, FEFO, expiry suggestions that remain
   informational until a manager converts them into an explicit lot-bound
   promotion, serialized products, warranty lookup, variant matrices, purchases,
