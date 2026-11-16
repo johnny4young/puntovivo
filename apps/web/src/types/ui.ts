@@ -143,6 +143,7 @@ export type AuditLogAction =
   | 'payment.mark_settled'
   | 'payment.proposal_approved'
   | 'payment.proposal_rejected'
+  | 'payment.transfer_handles.updated'
   // restaurant table catalog admin gestures.
   | 'restaurant_table.create'
   | 'restaurant_table.update'

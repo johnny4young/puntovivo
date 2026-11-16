@@ -8,6 +8,12 @@
 import { z } from 'zod';
 
 import { PAYMENT_RAIL_IDS } from '../../services/payments/manifest.js';
+import {
+  TRANSFER_HANDLE_KINDS,
+  TRANSFER_HANDLE_VALUE_MAX,
+  TRANSFER_HANDLES_MAX,
+  TRANSFER_QR_PAYLOAD_MAX,
+} from '../../services/payments/transfer-handles.js';
 
 export const peekPaymentOutboxInput = z
   .object({
@@ -41,6 +47,24 @@ export const updatePaymentRailSettingsInput = z
   })
   .strict();
 export type UpdatePaymentRailSettingsInput = z.infer<typeof updatePaymentRailSettingsInput>;
+
+/** Transfer handles shown at checkout. An empty list clears the configuration. */
+export const updateTransferHandlesInput = z
+  .object({
+    handles: z
+      .array(
+        z
+          .object({
+            kind: z.enum(TRANSFER_HANDLE_KINDS),
+            value: z.string().trim().min(1).max(TRANSFER_HANDLE_VALUE_MAX),
+          })
+          .strict()
+      )
+      .max(TRANSFER_HANDLES_MAX),
+    qrPayload: z.string().trim().max(TRANSFER_QR_PAYLOAD_MAX).nullable().optional(),
+  })
+  .strict();
+export type UpdateTransferHandlesInput = z.infer<typeof updateTransferHandlesInput>;
 
 /**
  * input for admin `payments.retryOutbox`. The row id is

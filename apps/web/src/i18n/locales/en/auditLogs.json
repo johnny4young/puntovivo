@@ -140,6 +140,7 @@
     "payment.mark_settled": "Payment marked settled",
     "payment.proposal_approved": "Proposal approved",
     "payment.proposal_rejected": "Proposal rejected",
+    "payment.transfer_handles.updated": "Transfer handles updated",
     "kds.order.ready": "KDS order marked ready",
     "kds.order.recalled": "KDS order recalled to pending",
     "customer.credit_limit.update": "Customer credit limit updated",

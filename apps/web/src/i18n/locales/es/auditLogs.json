@@ -140,6 +140,7 @@
     "payment.mark_settled": "Pago marcado como liquidado",
     "payment.proposal_approved": "Propuesta aprobada",
     "payment.proposal_rejected": "Propuesta rechazada",
+    "payment.transfer_handles.updated": "Datos para transferencias actualizados",
     "kds.order.ready": "Orden marcada como Listo en cocina",
     "kds.order.recalled": "Orden devuelta a pendiente en cocina",
     "customer.credit_limit.update": "Cupo de crédito del cliente actualizado",

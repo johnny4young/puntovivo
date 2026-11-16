@@ -614,7 +614,28 @@
         }
       }
     },
-    "kicker": "Payments"
+    "kicker": "Payments",
+    "transferHandles": {
+      "title": "Transfer keys and numbers",
+      "description": "What the till shows as a QR when a customer pays by transfer. Puntovivo does not connect to the wallet: the cashier confirms that the money arrived.",
+      "kinds": {
+        "breb": "Bre-B key",
+        "nequi": "Nequi",
+        "daviplata": "Daviplata",
+        "bank": "Bank account",
+        "other": "Other"
+      },
+      "kindLabel": "Type of entry {{index}}",
+      "valueLabel": "Key or number {{index}}",
+      "valuePlaceholder": "Key, phone or account number",
+      "remove": "Remove entry {{index}}",
+      "add": "Add key or number",
+      "qrPayloadLabel": "Bank QR content (optional)",
+      "qrPayloadHelp": "Paste the text of the QR your bank gave you so wallets can read it. Without it, the QR carries the first key or number.",
+      "save": "Save",
+      "savedToast": "Transfer details saved",
+      "saveErrorToast": "Could not save the transfer details"
+    }
   },
   "authority": {
     "hub": {

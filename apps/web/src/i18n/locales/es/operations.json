@@ -614,7 +614,28 @@
         }
       }
     },
-    "kicker": "Pagos"
+    "kicker": "Pagos",
+    "transferHandles": {
+      "title": "Llaves y números para transferencias",
+      "description": "Lo que la caja muestra como QR cuando un cliente paga por transferencia. Puntovivo no se conecta a la billetera: el cajero confirma que el dinero llegó.",
+      "kinds": {
+        "breb": "Llave Bre-B",
+        "nequi": "Nequi",
+        "daviplata": "Daviplata",
+        "bank": "Cuenta bancaria",
+        "other": "Otro"
+      },
+      "kindLabel": "Tipo del dato {{index}}",
+      "valueLabel": "Llave o número {{index}}",
+      "valuePlaceholder": "Llave, celular o número de cuenta",
+      "remove": "Quitar el dato {{index}}",
+      "add": "Agregar llave o número",
+      "qrPayloadLabel": "Contenido del QR del banco (opcional)",
+      "qrPayloadHelp": "Pegue el texto del QR que le entregó su banco para que las billeteras lo lean. Sin él, el QR lleva la primera llave o número.",
+      "save": "Guardar",
+      "savedToast": "Datos para transferencias guardados",
+      "saveErrorToast": "No se pudieron guardar los datos para transferencias"
+    }
   },
   "authority": {
     "hub": {

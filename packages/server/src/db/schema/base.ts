@@ -397,6 +397,8 @@ export const auditLogActionEnum = [
   'payment.mark_settled',
   'payment.proposal_approved',
   'payment.proposal_rejected',
+  // Changing where customers send transfers redirects money, so it is traced.
+  'payment.transfer_handles.updated',
   // restaurant table catalog admin gestures. Every CRUD on
   // a `restaurant_tables` row emits an audit entry carrying the row's
   // prior + post-action snapshot so forensics can replay the catalog

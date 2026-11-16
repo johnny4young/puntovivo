@@ -47,8 +47,14 @@ import {
 } from '../../services/payments/manifest.js';
 import { getPaymentRailAdapter } from '../../services/payments/registry.js';
 import { router } from '../init.js';
-import { adminProcedure } from '../middleware/roles.js';
-import { updatePaymentRailSettingsInput } from '../schemas/payments.js';
+import { adminProcedure, cashierManagerOrAdminProcedure } from '../middleware/roles.js';
+import { updatePaymentRailSettingsInput, updateTransferHandlesInput } from '../schemas/payments.js';
+import { writeAuditLog } from '../../services/audit-logs.js';
+import {
+  resolveTransferHandleSettings,
+  transferQrSource,
+  writeTransferHandleSettings,
+} from '../../services/payments/transfer-handles.js';
 
 async function readTenantSettings(
   db: DatabaseInstance,
@@ -145,6 +151,41 @@ export const paymentSettingsRouter = router({
       const entry = await buildRailEntry(input.railId, ctx.tenantId, nextSettings);
       return { ok: true as const, rail: entry };
     }),
+
+  /**
+   * Handles the cashier shows for a transfer. Readable by every selling
+   * role: they are meant to be shown to customers, unlike rail credentials.
+   */
+  transferHandles: cashierManagerOrAdminProcedure.query(({ ctx }) => {
+    const settings = resolveTransferHandleSettings(ctx.db, ctx.tenantId);
+    return { ...settings, qrSource: transferQrSource(settings) };
+  }),
+
+  updateTransferHandles: adminProcedure
+    .input(updateTransferHandlesInput)
+    .mutation(({ ctx, input }) =>
+      ctx.db.transaction(
+        tx => {
+          const before = resolveTransferHandleSettings(tx, ctx.tenantId);
+          const after = writeTransferHandleSettings(tx, ctx.tenantId, {
+            handles: input.handles,
+            qrPayload: input.qrPayload?.trim() || null,
+          });
+          writeAuditLog({
+            tx,
+            tenantId: ctx.tenantId,
+            actorId: ctx.user!.id,
+            action: 'payment.transfer_handles.updated',
+            resourceType: 'tenant',
+            resourceId: ctx.tenantId,
+            before: { ...before },
+            after: { ...after },
+          });
+          return { ...after, qrSource: transferQrSource(after) };
+        },
+        { behavior: 'immediate' }
+      )
+    ),
 });
 
 export type PaymentSettingsRouter = typeof paymentSettingsRouter;

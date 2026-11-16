@@ -16,6 +16,7 @@ import { CompanyLocaleSettingsCard } from './CompanyLocaleSettingsCard';
 import { CompanyModulesCard } from './CompanyModulesCard';
 import { CompanyMxFiscalCard } from './CompanyMxFiscalCard';
 import { CompanyPaymentsCard } from './CompanyPaymentsCard';
+import { CompanyTransferHandlesCard } from './CompanyTransferHandlesCard';
 import { CompanyPricingSettingsCard } from './CompanyPricingSettingsCard';
 import { CompanyProfileSettings, type CompanyFormValues } from './CompanyProfileSettings';
 import { CompanyPrintSettingsCard } from './CompanyPrintSettingsCard';
@@ -244,6 +245,7 @@ export function CompanySettingsPanels({
 
       {activeTab === 'payments' && (
         <div className="space-y-6">
+          <CompanyTransferHandlesCard />
           <CompanyPaymentsCard />
         </div>
       )}

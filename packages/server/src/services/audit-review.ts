@@ -62,6 +62,7 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
     'cash_drawer.open',
     'loss_prevention.settings.updated',
     'loss_prevention.triggered',
+    'payment.transfer_handles.updated',
     'purchase.void',
     'provider_payable.invoice.create',
     'provider_payable.opening.create',
