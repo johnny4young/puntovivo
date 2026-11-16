@@ -805,8 +805,8 @@
   },
   "paceHud": {
     "title": "Ritmo de la sesión",
-    "enable": "Muestre su ritmo de sesión",
-    "disable": "Oculte su ritmo de sesión",
+    "enable": "Mostrar mi ritmo de sesión",
+    "disable": "Ocultar mi ritmo de sesión",
     "itemsPerMinute": "Ítems/min",
     "secondsPerSale": "Seg/venta",
     "personalBest": "Mejor",
