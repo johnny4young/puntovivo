@@ -267,7 +267,7 @@ function StatefulSalePharmacyEvidenceSection({
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-3">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white text-primary-800 shadow-sm">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-surface text-primary-800 shadow-sm">
             <Pill className="h-5 w-5" aria-hidden="true" />
           </span>
           <div>
@@ -297,7 +297,7 @@ function StatefulSalePharmacyEvidenceSection({
           return (
             <article
               key={requirement.productId}
-              className="rounded-xl border border-primary-100 bg-white p-3"
+              className="rounded-xl border border-primary-100 bg-surface p-3"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-sm font-semibold text-secondary-950">
@@ -423,7 +423,7 @@ function StatefulSalePharmacyEvidenceSection({
       </div>
 
       {actionableRegulated.length > 0 && customerId && customerValid && selectedRequirement ? (
-        <details className="mt-4 rounded-xl border border-primary-100 bg-white p-3">
+        <details className="mt-4 rounded-xl border border-primary-100 bg-surface p-3">
           <summary className="cursor-pointer text-sm font-semibold text-primary-900">
             {t('pharmacy:checkout.recordNew')}
           </summary>

@@ -90,7 +90,7 @@ export function CheckoutApprovalPanel<Action extends ManagerApprovalAction>({
           return (
             <article
               key={view.action}
-              className="rounded-lg border border-primary-200 bg-white p-3"
+              className="rounded-lg border border-primary-200 bg-surface p-3"
               data-testid={`checkout-approval-${view.action}`}
             >
               <div className="flex items-center justify-between gap-3">

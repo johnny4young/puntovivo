@@ -66,9 +66,7 @@ export function ReceiptSharePanel({ saleId, siteId, onClose }: ReceiptSharePanel
             <h3 id="receipt-share-title" className="font-semibold text-secondary-950">
               {t('title')}
             </h3>
-            <p className="mt-1 text-sm leading-5 text-secondary-600">
-              {t('description')}
-            </p>
+            <p className="mt-1 text-sm leading-5 text-secondary-600">{t('description')}</p>
           </div>
         </div>
         <Button
@@ -84,7 +82,7 @@ export function ReceiptSharePanel({ saleId, siteId, onClose }: ReceiptSharePanel
       </div>
 
       <div className="space-y-3 px-4 py-4 sm:px-5">
-        <div className="rounded-xl border border-secondary-200 bg-white px-4 py-3 text-sm text-secondary-700">
+        <div className="rounded-xl border border-secondary-200 bg-surface px-4 py-3 text-sm text-secondary-700">
           <p className="font-medium text-secondary-950">{t('reviewTitle')}</p>
           <ul className="mt-2 list-disc space-y-1 pl-5 leading-5">
             <li>{t('customerOnly')}</li>
