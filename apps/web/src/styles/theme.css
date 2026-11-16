@@ -80,7 +80,6 @@
   --color-cobrar-foreground: var(--cobrar-foreground);
   --color-rail: var(--rail);
   --color-rail-foreground: var(--rail-foreground);
-  --color-rail-muted: var(--rail-muted);
 
   --color-fg1: var(--fg1);
   --color-fg2: var(--fg2);
@@ -350,7 +349,6 @@
   /* Navigation rail and brand tile stay deep navy in both themes. */
   --rail: oklch(0.293 0.053 241);
   --rail-foreground: oklch(0.973 0.007 234);
-  --rail-muted: oklch(0.86 0.025 238);
 
   /* +  — motion tokens lifted from the design-system
    * handoff. The existing @theme animations already use the same easings

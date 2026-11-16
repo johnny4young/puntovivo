@@ -87,7 +87,6 @@ export const ENFORCED_PAIRS = [
   // Cobrar is the one orange control and the navy rail hosts navigation in both themes.
   ['cobrar', 'cobrar-foreground'],
   ['rail', 'rail-foreground'],
-  ['rail', 'rail-muted'],
   ['success-50', 'success-700'],
   ['danger-50', 'danger-700'],
 ];
@@ -322,14 +321,19 @@ const THEME_SELECTORS = [':root', '.dark'];
 export function resolveThemeScopes(scopes) {
   const light = {};
   const dark = {};
+  // `:root.dark` outranks `.dark` by specificity, so it applies last whatever its source order.
+  const rootDark = {};
   for (const { selector, declarations } of scopes) {
     if (selector === ':root') {
       Object.assign(light, declarations);
       Object.assign(dark, declarations);
     } else if (selector === '.dark') {
       Object.assign(dark, declarations);
+    } else if (selector === ':root.dark') {
+      Object.assign(rootDark, declarations);
     }
   }
+  Object.assign(dark, rootDark);
   return [
     { selector: ':root', declarations: light },
     { selector: '.dark', declarations: dark },

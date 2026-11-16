@@ -439,6 +439,16 @@ test('resolveThemeScopes applies :root and .dark blocks in source order', () => 
   assert.equal(dark.declarations.ring, 'oklch(0.5 0 0)');
 });
 
+test('resolveThemeScopes applies :root.dark over .dark regardless of order', () => {
+  const [light, dark] = resolveThemeScopes([
+    { selector: ':root.dark', declarations: { rail: 'oklch(0.1 0 0)' } },
+    { selector: ':root', declarations: { rail: 'oklch(0.3 0 0)' } },
+    { selector: '.dark', declarations: { rail: 'oklch(0.2 0 0)' } },
+  ]);
+  assert.equal(light.declarations.rail, 'oklch(0.3 0 0)');
+  assert.equal(dark.declarations.rail, 'oklch(0.1 0 0)');
+});
+
 test('contrast gate fails a dark pair overridden by a later :root block', async () => {
   const source = readFileSync(REAL_THEME_URL, 'utf8');
   // Restating the light foreground after `.dark` keeps light mode identical
