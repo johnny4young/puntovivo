@@ -12,14 +12,14 @@ export function percentChange(today: number, comparison: number): number | null 
   return Math.round(((today - comparison) / comparison) * 100);
 }
 
-/** Viewers read the queue; managers and admins act on every row. */
+/** Mine is what waits on a manager's decision; automatic outbox alerts belong to Operations. */
 export function filterPending(
   items: readonly TodayPendingItem[],
   filter: PendingFilter,
   canAct: boolean
 ): TodayPendingItem[] {
   if (filter === 'cashiers') return items.filter(item => item.origin === 'cashier');
-  if (filter === 'mine') return canAct ? [...items] : [];
+  if (filter === 'mine') return canAct ? items.filter(item => item.kind !== 'attention') : [];
   return [...items];
 }
 

@@ -2,7 +2,6 @@ import { Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { SeverityMark } from '@/components/ui';
-import { cn } from '@/lib/utils';
 import { waitingRank, type OperationsToday, type TodayPendingItem } from './todayModel';
 
 interface RegistersColumnProps {
@@ -121,7 +120,7 @@ export function RegistersColumn({
 
         {handoff && (
           <div
-            className={cn('rounded-[18px] bg-rail px-4 py-3 text-rail-foreground')}
+            className="rounded-[18px] bg-rail px-4 py-3 text-rail-foreground"
             data-testid="today-next-handoff"
           >
             <p className="text-xs font-semibold tracking-[0.14em] uppercase opacity-80">

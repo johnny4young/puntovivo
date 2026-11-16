@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   DashboardLoadingState,
@@ -9,7 +10,6 @@ import {
   TopProductsCard,
 } from '@/features/dashboard/DashboardPanels';
 import { AnomalyDetectionCard } from '@/features/dashboard/AnomalyDetectionCard';
-import { TodayOverview } from '@/features/dashboard/today/TodayOverview';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { managerOrAdminRoles } from '@/features/auth/roleAccess';
 import { NumberingAlertBanner } from '@/features/fiscal/NumberingAlertBanner';
@@ -28,6 +28,12 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router';
 import { formatNumber } from '@/lib/utils';
+
+const TodayOverview = lazy(() =>
+  import('@/features/dashboard/today/TodayOverview').then(module => ({
+    default: module.TodayOverview,
+  }))
+);
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -147,7 +153,16 @@ export function DashboardPage() {
     <div className="dashboard-command-space">
       <NumberingAlertBanner />
       {isManager ? (
-        <TodayOverview formatCurrency={formatCurrency} />
+        <Suspense
+          fallback={
+            <div
+              className="min-h-64 animate-pulse rounded-[22px] bg-surface-2"
+              aria-hidden="true"
+            />
+          }
+        >
+          <TodayOverview formatCurrency={formatCurrency} />
+        </Suspense>
       ) : (
         <section className="pv-frame pv-reveal" data-testid="dashboard-briefing">
           <div className="pv-frame-core dashboard-briefing">

@@ -16,6 +16,11 @@ describe('todayModel', () => {
       'approval',
       'incident',
     ]);
+    expect(filterPending(pending, 'mine', true).map(item => item.kind)).toEqual([
+      'staleSession',
+      'approval',
+      'incident',
+    ]);
     expect(filterPending(pending, 'mine', false)).toEqual([]);
   });
 

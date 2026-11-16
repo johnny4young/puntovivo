@@ -92,29 +92,31 @@ beforeEach(() => {
 });
 
 describe('DashboardPage module gates', () => {
-  it('hides the anomaly card when anomaly-detection is deactivated', () => {
+  it('hides the anomaly card when anomaly-detection is deactivated', async () => {
     useIsModuleActiveMock.mockReturnValue(false);
 
     render(<DashboardPage />);
+    await screen.findByTestId('today-overview');
 
     expect(screen.queryByTestId('anomaly-card')).not.toBeInTheDocument();
     expect(useIsModuleActiveMock).toHaveBeenCalledWith('anomaly-detection');
   });
 
-  it('shows the anomaly card for manager+ when anomaly-detection is active', () => {
+  it('shows the anomaly card for manager+ when anomaly-detection is active', async () => {
     useIsModuleActiveMock.mockReturnValue(true);
 
     render(<DashboardPage />);
+    await screen.findByTestId('today-overview');
 
     expect(screen.getByTestId('anomaly-card')).toBeInTheDocument();
   });
 });
 
 describe('DashboardPage audience', () => {
-  it('opens on the manager day for managers and keeps the rest of the dashboard below', () => {
+  it('opens on the manager day for managers and keeps the rest of the dashboard below', async () => {
     useIsModuleActiveMock.mockReturnValue(false);
     render(<DashboardPage />);
-    expect(screen.getByTestId('today-overview')).toBeInTheDocument();
+    expect(await screen.findByTestId('today-overview')).toBeInTheDocument();
     expect(screen.queryByTestId('dashboard-briefing')).not.toBeInTheDocument();
     expect(screen.getByTestId('revenue-trend-card')).toBeInTheDocument();
     expect(screen.getByTestId('low-stock-card')).toBeInTheDocument();
