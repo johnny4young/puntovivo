@@ -24,6 +24,9 @@ export const DAY_CLOSE_SIGNOFF_SCHEMA_VERSION = 1 as const;
 export const DAY_CLOSE_PDF_RENDERER_VERSION = 1 as const;
 export const DAY_CLOSE_PDF_MIME_TYPE = 'application/pdf' as const;
 
+export const daySignatureMethodEnum = ['drawn', 'pin'] as const;
+export type DaySignatureMethod = (typeof daySignatureMethodEnum)[number];
+
 export const dayCloseSignoffs = sqliteTable(
   'day_close_signoffs',
   {
@@ -45,6 +48,10 @@ export const dayCloseSignoffs = sqliteTable(
     /** Name frozen at attestation time so later profile edits do not rewrite evidence. */
     signedByName: text('signed_by_name').notNull(),
     signedAt: text('signed_at').notNull(),
+    /** How the signer attested: a drawn signature or their staff PIN. Null on earlier rows. */
+    signatureMethod: text('signature_method', { enum: daySignatureMethodEnum }),
+    /** PNG data URL of the drawn signature; null for a PIN attestation. */
+    signatureImage: text('signature_image'),
   },
   table => [
     uniqueIndex('idx_day_close_signoffs_tenant_date').on(table.tenantId, table.businessDate),

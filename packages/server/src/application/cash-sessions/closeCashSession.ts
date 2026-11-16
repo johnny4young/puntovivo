@@ -51,6 +51,7 @@ import { getPendingChecksForSession } from './pending-checks.js';
 import type {
   CashSessionContext,
   CashSessionLogger,
+  CashSessionTransactionHook,
   CloseCashSessionInput,
   CloseCashSessionResult,
 } from './types.js';
@@ -113,7 +114,8 @@ async function safeUpdateCashSessionClosedSummary(
  */
 export async function closeCashSession(
   ctx: CashSessionContext,
-  input: CloseCashSessionInput
+  input: CloseCashSessionInput,
+  hook: CashSessionTransactionHook = {}
 ): Promise<CloseCashSessionResult<ClosedCashSessionRow>> {
   const log = ctx.log ?? fallbackLog;
 
@@ -230,6 +232,8 @@ export async function closeCashSession(
         pendingPaymentSales: pending.pendingPaymentSales,
       },
     });
+
+    hook.inTransaction?.(tx as unknown as typeof ctx.db, { id: activeSession.id, at: closedAt });
   });
 
   const closedSession = await ctx.db

@@ -37,7 +37,12 @@ import {
   lookupCashSessionJournalEventId,
   type CashSessionJournalEffectInput,
 } from './journal-effects.js';
-import type { CashSessionContext, OpenCashSessionInput, OpenCashSessionResult } from './types.js';
+import type {
+  CashSessionContext,
+  CashSessionTransactionHook,
+  OpenCashSessionInput,
+  OpenCashSessionResult,
+} from './types.js';
 
 const fallbackLog = createModuleLogger('application/cash-sessions/openCashSession');
 
@@ -69,7 +74,8 @@ export type OpenedCashSessionRow = typeof cashSessions.$inferSelect;
  */
 export async function openCashSession(
   ctx: CashSessionContext,
-  input: OpenCashSessionInput
+  input: OpenCashSessionInput,
+  hook: CashSessionTransactionHook = {}
 ): Promise<OpenCashSessionResult<OpenedCashSessionRow>> {
   const log = ctx.log ?? fallbackLog;
 
@@ -313,6 +319,8 @@ export async function openCashSession(
         },
         operationId: ctx.envelope?.operationId,
       });
+
+      hook.inTransaction?.(tx as unknown as typeof ctx.db, { id, at: now });
     },
     { behavior: 'immediate' }
   );

@@ -170,6 +170,10 @@ export const sales = sqliteTable(
       onDelete: 'set null',
     }),
     suspendedLabel: text('suspended_label'),
+    // Set when a manager closes the day with this draft still parked, so the
+    // close does not ask about it again that day.
+    carriedOverAt: text('carried_over_at'),
+    carriedOverBy: text('carried_over_by').references(() => users.id),
     // receipt reprint counters. Incremented inside
     // `sales.getForReprint`; the audit trail lives in `audit_logs` as
     // one `sale.reprint` row per invocation.
@@ -271,6 +275,9 @@ export const salesRelations = relations(sales, ({ one, many }) => ({
 // CASH SESSIONS
 // ============================================================================
 
+export const cashVarianceReasonEnum = ['wrong_change', 'unrecorded_withdrawal', 'other'] as const;
+export type CashVarianceReason = (typeof cashVarianceReasonEnum)[number];
+
 /** A cash session tracks the opening float, running expected balance, and reconciliation state for a cashier on a specific register/site. */
 export const cashSessions = sqliteTable(
   'cash_sessions',
@@ -300,6 +307,11 @@ export const cashSessions = sqliteTable(
       CashSessionDenomination[] | null
     >(),
     overShort: real('over_short'),
+    // Why the count differed, recorded by a manager before the day is signed.
+    varianceReason: text('variance_reason', { enum: cashVarianceReasonEnum }),
+    varianceNote: text('variance_note'),
+    varianceExplainedBy: text('variance_explained_by').references(() => users.id),
+    varianceExplainedAt: text('variance_explained_at'),
     status: text('status', { enum: cashSessionStatusEnum }).notNull().default('open'),
     openedAt: text('opened_at').notNull().default(sqliteNow).$defaultFn(nowIso),
     closedAt: text('closed_at'),

@@ -150,6 +150,8 @@ Adding to this list requires a superseding ADR or a documented amendment here.
 - `cashSessions.close`
 - `cashSessions.recordMovement` (for `paid_in`, `paid_out`, `skim`,
   and `replenishment`)
+- `shiftHandoffs.handOut` (closes the outgoing session and signs the handoff)
+- `shiftHandoffs.receive` (opens the incoming session linked to the handoff)
 
 **Reports / attestations**
 

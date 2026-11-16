@@ -298,6 +298,10 @@
       "es": "docs/es/architecture/0035-backups-off-the-main-thread.md"
     },
     {
+      "en": "docs/architecture/0036-shift-handoff-and-guided-close.md",
+      "es": "docs/es/architecture/0036-shift-handoff-and-guided-close.md"
+    },
+    {
       "en": "docs/architecture/patterns/operation-journal.md",
       "es": "docs/es/architecture/patterns/operation-journal.md"
     },

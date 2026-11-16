@@ -56,6 +56,7 @@ estimaciones y colas privadas no pertenecen a los ADR.
 | [ADR-0033](0033-desktop-stack-stays-on-electron.md)                    | El stack de escritorio sigue en Electron         | Aceptada  |
 | [ADR-0034](0034-server-worker-restart.md)                              | Reinicio del worker del servidor                 | Propuesta |
 | [ADR-0035](0035-backups-off-the-main-thread.md)                        | Respaldos fuera del hilo principal               | Propuesta |
+| [ADR-0036](0036-shift-handoff-and-guided-close.md)                     | Relevo de turno y cierre guiado del día          | Aceptada  |
 
 ## Patrones reutilizables de implementación
 

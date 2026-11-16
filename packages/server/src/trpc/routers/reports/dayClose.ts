@@ -7,13 +7,23 @@ import {
   getDayCloseSignoffMetadata,
   signDayClose,
 } from '../../../services/reports/day-close-signoff.js';
+import {
+  carryOverDraft,
+  computeCloseGuide,
+  explainCashDifference,
+} from '../../../services/reports/close-guide.js';
+import { throwServerError } from '../../../lib/errorCodes.js';
+import { verifyOwnStaffPin } from '../../../security/ownStaffPin.js';
 import { router } from '../../init.js';
 import { asCriticalCommandContext } from '../../middleware/commandEnvelope.js';
 import { criticalCommandManagerOrAdminProcedure } from '../../middleware/criticalCommand.js';
 import { managerOrAdminProcedure } from '../../middleware/roles.js';
 import {
+  carryOverDraftInput,
   comprehensiveDayCloseReportOutput,
+  dayCloseGuideInput,
   dayClosePreviewInput,
+  explainCashDifferenceInput,
   dayCloseSignOffInput,
   dayCloseSignoffMetadataOutput,
   dayCloseSignoffOutput,
@@ -43,16 +53,59 @@ export const dayCloseReportsRouter = router({
     .input(dayClosePreviewInput)
     .output(dayCloseSignoffMetadataOutput.nullable())
     .query(({ ctx, input }) => getDayCloseSignoffMetadata(ctx.db, ctx.tenantId, input.date)),
+  /** The guided close inside Hoy: figures, checklist and what still needs a decision. */
+  guide: managerOrAdminProcedure
+    .input(dayCloseGuideInput)
+    .query(({ ctx, input }) => computeCloseGuide(ctx.db, ctx.tenantId, { date: input?.date })),
+  explainDifference: managerOrAdminProcedure
+    .input(explainCashDifferenceInput)
+    .mutation(({ ctx, input }) =>
+      explainCashDifference(ctx.db, {
+        tenantId: ctx.tenantId,
+        actorId: ctx.user!.id,
+        sessionId: input.sessionId,
+        reason: input.reason,
+        note: input.note ?? null,
+      })
+    ),
+  carryOverDraft: managerOrAdminProcedure.input(carryOverDraftInput).mutation(({ ctx, input }) =>
+    carryOverDraft(ctx.db, {
+      tenantId: ctx.tenantId,
+      actorId: ctx.user!.id,
+      saleId: input.saleId,
+    })
+  ),
   signOff: criticalCommandManagerOrAdminProcedure
     .input(dayCloseSignOffInput)
     .output(dayCloseSignoffMetadataOutput)
     .mutation(async ({ ctx, input }) => {
       const criticalCtx = asCriticalCommandContext(ctx);
+      if (input.signature?.method === 'pin') {
+        const pin = await verifyOwnStaffPin(
+          criticalCtx.db,
+          criticalCtx.tenantId,
+          criticalCtx.user.id,
+          input.signature.pin
+        );
+        if (pin.status !== 'ok') {
+          throwServerError({
+            trpcCode: 'UNAUTHORIZED',
+            errorCode: 'DAY_CLOSE_SIGNATURE_INVALID',
+            message: 'The signer PIN is missing or does not match',
+          });
+        }
+      }
       const signed = await signDayClose(criticalCtx.db, {
         tenantId: criticalCtx.tenantId,
         actorId: criticalCtx.user.id,
         date: input.date,
         operationId: criticalCtx.envelope.operationId,
+        signature: input.signature
+          ? {
+              method: input.signature.method,
+              image: input.signature.method === 'drawn' ? input.signature.image : null,
+            }
+          : undefined,
       });
       try {
         broadcastCompanionInvalidation({

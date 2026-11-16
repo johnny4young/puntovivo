@@ -68,6 +68,20 @@ describe('cashCloseSettings', () => {
     expect(restored.blindClose).toBe(true);
   });
 
+  it('stores the difference tolerance without touching blind close', async () => {
+    const caller = appRouter.createCaller(buildContext('admin'));
+    expect((await caller.cashCloseSettings.get()).differenceTolerance).toBe(0);
+
+    const updated = await caller.cashCloseSettings.update({ differenceTolerance: 5000.004 });
+    expect(updated).toEqual({ blindClose: true, differenceTolerance: 5000 });
+    expect((await caller.cashCloseSettings.update({ blindClose: true })).differenceTolerance).toBe(
+      5000
+    );
+    await expect(caller.cashCloseSettings.update({ differenceTolerance: -1 })).rejects.toThrow();
+
+    await caller.cashCloseSettings.update({ differenceTolerance: 0 });
+  });
+
   it('treats an empty patch as a true no-op (no tenants write, updated_at untouched)', async () => {
     const caller = appRouter.createCaller(buildContext('admin'));
     const db = getDatabase();

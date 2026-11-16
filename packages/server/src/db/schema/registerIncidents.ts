@@ -10,7 +10,13 @@ import { nowIso, sqliteNow } from './base.js';
 import { products } from './products.js';
 import { cashSessions } from './sales.js';
 
-export const registerIncidentKindEnum = ['stockout', 'price_mismatch', 'no_barcode'] as const;
+export const registerIncidentKindEnum = [
+  'stockout',
+  'price_mismatch',
+  'no_barcode',
+  // The till is short of small change; the note names the register.
+  'change_request',
+] as const;
 export type RegisterIncidentKind = (typeof registerIncidentKindEnum)[number];
 
 /** Stockout reasons as the cashier sees them; the other kinds carry no reason code. */

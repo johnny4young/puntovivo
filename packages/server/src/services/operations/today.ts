@@ -17,7 +17,10 @@ import {
   users,
 } from '../../db/schema.js';
 import { resolveTenantBusinessClock } from '../pharmacy/business-clock.js';
-import { addCalendarDays, resolveUtcDayWindow } from '../reports/day-window.js';
+import { listHandoffsBetween } from '../../application/cash-sessions/handoff.js';
+import { resolveCashCloseSettings } from '../cash-close-settings.js';
+import { listCashDifferences } from '../reports/cash-differences.js';
+import { addCalendarDays, resolveUtcDayWindow, type UtcDayWindow } from '../reports/day-window.js';
 import { dailyDatedRevenueSql, type DailyRevenueRow } from '../reports/net-sales.js';
 import { listOpenRegisterIncidents, type RegisterIncidentRow } from '../register-incidents.js';
 import { computeNeedsAttention, type OperationsAttentionArea } from './attention.js';
@@ -58,6 +61,16 @@ export type TodayPendingItem =
       origin: 'cashier';
       at: string;
       incident: RegisterIncidentRow;
+    }
+  | {
+      kind: 'cashDifference';
+      id: string;
+      severity: 'beforeClose';
+      origin: 'system';
+      at: string;
+      registerName: string;
+      cashierName: string;
+      overShort: number;
     }
   | {
       kind: 'attention';
@@ -109,6 +122,15 @@ export interface OperationsToday {
   shifts: TodayShift[];
   nextHandoff: { at: string; registerName: string | null; fromUserName: string } | null;
   pending: TodayPendingItem[];
+  /** Drawers handed from one cashier to the next today, newest first. */
+  handoffs: Array<{
+    id: string;
+    registerName: string;
+    fromUserName: string;
+    toUserName: string | null;
+    createdAt: string;
+    receivedAt: string | null;
+  }>;
 }
 
 function hourWindows(date: string, timezone: string) {
@@ -237,7 +259,7 @@ export async function computeOperationsToday(
       }
     : null;
 
-  const pending = collectPending(db, { tenantId, now, registers });
+  const pending = collectPending(db, { tenantId, now, registers, today });
 
   return {
     businessDate,
@@ -256,14 +278,24 @@ export async function computeOperationsToday(
     shifts,
     nextHandoff,
     pending: await pending,
+    handoffs: listHandoffsBetween(db, tenantId, today.startIso, today.endExclusiveIso).map(
+      ({ id, registerName, fromUserName, toUserName, createdAt, receivedAt }) => ({
+        id,
+        registerName,
+        fromUserName,
+        toUserName,
+        createdAt,
+        receivedAt,
+      })
+    ),
   };
 }
 
 async function collectPending(
   db: DatabaseInstance,
-  args: { tenantId: string; now: Date; registers: TodayRegister[] }
+  args: { tenantId: string; now: Date; registers: TodayRegister[]; today: UtcDayWindow }
 ): Promise<TodayPendingItem[]> {
-  const { tenantId, now, registers } = args;
+  const { tenantId, now, registers, today } = args;
   const items: TodayPendingItem[] = [];
 
   const approvals = db
@@ -322,6 +354,21 @@ async function collectPending(
       origin: 'cashier',
       at: incident.createdAt,
       incident,
+    });
+  }
+
+  const { differenceTolerance } = await resolveCashCloseSettings(db, tenantId);
+  for (const difference of listCashDifferences(db, tenantId, today, differenceTolerance)) {
+    if (!difference.needsReason) continue;
+    items.push({
+      kind: 'cashDifference',
+      id: difference.sessionId,
+      severity: 'beforeClose',
+      origin: 'system',
+      at: difference.closedAt,
+      registerName: difference.registerName,
+      cashierName: difference.cashierName,
+      overShort: difference.overShort,
     });
   }
 

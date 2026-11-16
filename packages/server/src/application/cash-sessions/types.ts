@@ -41,6 +41,15 @@ export interface CashSessionContext {
   log?: CashSessionLogger;
 }
 
+/**
+ * Extra writes that must commit with the session change, such as the handoff
+ * row. Runs inside the open or close transaction after the session write; it
+ * must stay synchronous, or its writes would land after the commit.
+ */
+export interface CashSessionTransactionHook {
+  inTransaction?: (tx: DatabaseInstance, session: { id: string; at: string }) => void;
+}
+
 /** Manual cash-movement types — sale / refund flow through the sale
  * lifecycle services and never enter `recordCashMovement`. */
 export type ManualCashMovementType = Exclude<CashMovementType, 'sale' | 'refund'>;

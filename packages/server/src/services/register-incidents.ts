@@ -101,7 +101,7 @@ export function reportRegisterIncident(
   if (input.productId && !product) {
     throw new TRPCError({ code: 'NOT_FOUND', message: 'Product not found' });
   }
-  if (input.kind !== 'no_barcode' && !product) {
+  if (input.kind !== 'no_barcode' && input.kind !== 'change_request' && !product) {
     throw new TRPCError({ code: 'BAD_REQUEST', message: 'This incident needs a product' });
   }
   const session = getActiveCashSessionForCashier(db, scope.tenantId, scope.siteId, scope.userId);

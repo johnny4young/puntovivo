@@ -27,6 +27,7 @@ export {
 export type {
   CashSessionContext,
   CashSessionLogger,
+  CashSessionTransactionHook,
   CloseCashSessionInput,
   CloseCashSessionResult,
   ManualCashMovementType,

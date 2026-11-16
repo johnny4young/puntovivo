@@ -9,7 +9,11 @@
  */
 
 import { z } from 'zod';
-import { fiscalDocumentStatusEnum, paymentMethodEnum } from '../../db/schema.js';
+import {
+  cashVarianceReasonEnum,
+  fiscalDocumentStatusEnum,
+  paymentMethodEnum,
+} from '../../db/schema.js';
 
 // ─────────────────────────────────────────────────────────────────
 // reports.cash.reconciliation
@@ -214,6 +218,19 @@ export const dayCloseSignOffInput = z.object({
   date: calendarDay,
   /** Explicit irreversible-attestation acknowledgement from the manager UI. */
   attestationAccepted: z.literal(true),
+  /** A drawn signature (PNG data URL) or the signer's staff PIN. */
+  signature: z
+    .discriminatedUnion('method', [
+      z.object({
+        method: z.literal('drawn'),
+        image: z
+          .string()
+          .max(300_000)
+          .regex(/^data:image\/png;base64,[A-Za-z0-9+/=]+$/),
+      }),
+      z.object({ method: z.literal('pin'), pin: z.string().regex(/^\d{6}$/) }),
+    ])
+    .optional(),
 });
 
 const money = z.number().finite();
@@ -325,6 +342,14 @@ export const dayCloseSignoffMetadataOutput = z.object({
 export const dayCloseSignoffOutput = dayCloseSignoffMetadataOutput.extend({
   report: comprehensiveDayCloseReportOutput,
 });
+
+export const dayCloseGuideInput = z.object({ date: calendarDay.optional() }).optional();
+export const explainCashDifferenceInput = z.object({
+  sessionId: z.string().min(1),
+  reason: z.enum(cashVarianceReasonEnum),
+  note: z.string().trim().max(240).nullish(),
+});
+export const carryOverDraftInput = z.object({ saleId: z.string().min(1) });
 
 export type DayClosePreviewInput = z.infer<typeof dayClosePreviewInput>;
 export type DayCloseSignOffInput = z.infer<typeof dayCloseSignOffInput>;

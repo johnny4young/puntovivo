@@ -19,6 +19,7 @@ import {
   dayCloseSignoffs,
   tenants,
   users,
+  type DaySignatureMethod,
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../audit-logs.js';
@@ -32,6 +33,7 @@ import {
   type DayCloseSignoffOutput,
 } from '../../trpc/schemas/reports.js';
 import { resolveTenantLocale } from '../tenant-locale.js';
+import { cashDifferencesForDate } from './cash-differences.js';
 import { computeComprehensiveDayCloseReport } from './comprehensive-day-close.js';
 import { buildDayClosePdfFilename, renderDayClosePdf } from './day-close-pdf.js';
 
@@ -41,6 +43,8 @@ interface SignDayCloseInput {
   date: string;
   operationId: string;
   now?: Date;
+  /** How the signer attested; absent for callers that only confirm. */
+  signature?: { method: DaySignatureMethod; image: string | null } | undefined;
 }
 
 const signoffSelection = {
@@ -315,6 +319,15 @@ export async function signDayClose(
     date: input.date,
     ...(input.now ? { now: input.now } : {}),
   });
+  const cashDifferences = await cashDifferencesForDate(db, input.tenantId, input.date);
+  if (cashDifferences.rows.some(row => row.needsReason)) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'DAY_CLOSE_NOT_READY',
+      message: 'A cash difference over the tolerance still needs a reason',
+      details: { date: input.date, blockers: ['cash_differences_unexplained'] },
+    });
+  }
   if (!report.readiness.readyToSign) {
     throwServerError({
       trpcCode: 'CONFLICT',
@@ -382,6 +395,8 @@ export async function signDayClose(
             signedByUserId: row.signedByUserId,
             signedByName: row.signedByName,
             signedAt: row.signedAt,
+            signatureMethod: input.signature?.method ?? null,
+            signatureImage: input.signature?.image ?? null,
           })
           .run();
 
@@ -421,8 +436,21 @@ export async function signDayClose(
             pdfPayloadHash: artifactPayloadHash,
             pdfByteSize: artifactPayload.byteLength,
             pdfFilename: artifactFilename,
+            // The audit chain pins the signature and the reasons the day was signed with.
+            signatureSha256: input.signature?.image
+              ? createHash('sha256').update(input.signature.image).digest('hex')
+              : null,
+            differenceTolerance: cashDifferences.tolerance,
+            cashDifferences: cashDifferences.rows.map(row => ({
+              sessionId: row.sessionId,
+              overShort: row.overShort,
+              reason: row.reason,
+            })),
           },
-          metadata: { attestationAccepted: true },
+          metadata: {
+            attestationAccepted: true,
+            signatureMethod: input.signature?.method ?? null,
+          },
           operationId: input.operationId,
         });
       },

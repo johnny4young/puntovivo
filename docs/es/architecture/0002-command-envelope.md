@@ -112,6 +112,8 @@ Agregar uno exige ADR sustituto o modificación documentada aquí.
 - `cashSessions.open`
 - `cashSessions.close`
 - `cashSessions.recordMovement` (para `paid_in`, `paid_out`, `skim` y `replenishment`)
+- `shiftHandoffs.handOut` (cierra la sesión saliente y firma el relevo)
+- `shiftHandoffs.receive` (abre la sesión entrante enlazada al relevo)
 
 **Informes y certificaciones**
 

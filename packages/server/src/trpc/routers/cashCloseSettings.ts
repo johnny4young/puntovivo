@@ -25,6 +25,7 @@ import {
 
 export const updateCashCloseSettingsInput = z.object({
   blindClose: z.boolean().optional(),
+  differenceTolerance: z.number().finite().min(0).max(1_000_000_000).optional(),
 });
 
 export const cashCloseSettingsRouter = router({
@@ -32,6 +33,7 @@ export const cashCloseSettingsRouter = router({
     const settings = await resolveCashCloseSettings(ctx.db, ctx.tenantId);
     return {
       blindClose: settings.blindClose,
+      differenceTolerance: settings.differenceTolerance,
       defaults: DEFAULT_CASH_CLOSE_SETTINGS,
     };
   }),
@@ -39,9 +41,17 @@ export const cashCloseSettingsRouter = router({
   update: adminProcedure.input(updateCashCloseSettingsInput).mutation(async ({ ctx, input }) => {
     // Conditional spread so an absent optional truly omits the field
     // (exactOptionalPropertyTypes — same shape as restaurantSettings).
-    const patch = input.blindClose !== undefined ? { blindClose: input.blindClose } : {};
+    const patch = {
+      ...(input.blindClose !== undefined ? { blindClose: input.blindClose } : {}),
+      ...(input.differenceTolerance !== undefined
+        ? { differenceTolerance: input.differenceTolerance }
+        : {}),
+    };
     const settings = await writeCashCloseSettings(ctx.db, ctx.tenantId, patch);
-    return { blindClose: settings.blindClose };
+    return {
+      blindClose: settings.blindClose,
+      differenceTolerance: settings.differenceTolerance,
+    };
   }),
 });
 

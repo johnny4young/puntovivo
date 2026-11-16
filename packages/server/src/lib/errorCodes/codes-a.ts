@@ -185,6 +185,22 @@ export const SERVER_ERROR_CODES_A = {
    * `{ tenantId, sessionId, operation: 'open' | 'close' }`.
    */
   CASH_SESSION_LOAD_FAILED: 'CASH_SESSION_LOAD_FAILED',
+  /** No handoff waits on that register, or it belongs to another site or tenant. */
+  CASH_HANDOFF_NOT_FOUND: 'CASH_HANDOFF_NOT_FOUND',
+  /** Another cashier already received the drawer. */
+  CASH_HANDOFF_ALREADY_RECEIVED: 'CASH_HANDOFF_ALREADY_RECEIVED',
+  /** The cashier who handed the drawer over cannot receive it. */
+  CASH_HANDOFF_SAME_CASHIER: 'CASH_HANDOFF_SAME_CASHIER',
+  /** The receiving cashier has a staff PIN and it was missing or wrong. */
+  CASH_HANDOFF_PIN_INVALID: 'CASH_HANDOFF_PIN_INVALID',
+  /** A reason only applies to a closed session whose count differed. */
+  CASH_VARIANCE_NOT_APPLICABLE: 'CASH_VARIANCE_NOT_APPLICABLE',
+  /** The reason Other needs the manager to say what happened. */
+  CASH_VARIANCE_NOTE_REQUIRED: 'CASH_VARIANCE_NOTE_REQUIRED',
+  /** The business day is signed; its close evidence can no longer change. */
+  DAY_CLOSE_SEALED: 'DAY_CLOSE_SEALED',
+  /** The drawn signature or the signer PIN was missing or invalid. */
+  DAY_CLOSE_SIGNATURE_INVALID: 'DAY_CLOSE_SIGNATURE_INVALID',
   /**
    * a manager requested a comprehensive day-close preview for a
    * tenant-local calendar day that has not started yet.

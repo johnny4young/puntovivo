@@ -23,6 +23,7 @@ import { eq } from 'drizzle-orm';
 
 import type { DatabaseInstance } from '../db/index.js';
 import { tenants } from '../db/schema.js';
+import { roundMoney } from '../lib/money.js';
 
 /** Tenant-level knobs for the cash-session close flow. */
 export interface CashCloseSettings {
@@ -32,11 +33,20 @@ export interface CashCloseSettings {
    * the live over/short semaphore. When false, every role sees it.
    */
   blindClose: boolean;
+  /** A closed drawer may differ by up to this amount without a written reason. */
+  differenceTolerance: number;
 }
 
 export const DEFAULT_CASH_CLOSE_SETTINGS: CashCloseSettings = {
   blindClose: true,
+  differenceTolerance: 0,
 };
+
+function normalizeTolerance(raw: unknown): number {
+  return typeof raw === 'number' && Number.isFinite(raw) && raw >= 0
+    ? roundMoney(raw)
+    : DEFAULT_CASH_CLOSE_SETTINGS.differenceTolerance;
+}
 
 function normalizeBlindClose(raw: unknown): boolean {
   return typeof raw === 'boolean' ? raw : DEFAULT_CASH_CLOSE_SETTINGS.blindClose;
@@ -59,6 +69,7 @@ export async function resolveCashCloseSettings(
   const cashClose = (blob.cashClose ?? {}) as Partial<CashCloseSettings>;
   return {
     blindClose: normalizeBlindClose(cashClose.blindClose),
+    differenceTolerance: normalizeTolerance(cashClose.differenceTolerance),
   };
 }
 
@@ -74,11 +85,14 @@ export async function writeCashCloseSettings(
   const current = await resolveCashCloseSettings(db, tenantId);
   // An empty patch is a true no-op: skip the tenants UPDATE entirely so we
   // neither bump updated_at nor churn the settings blob for nothing.
-  if (patch.blindClose === undefined) {
+  if (patch.blindClose === undefined && patch.differenceTolerance === undefined) {
     return current;
   }
   const next: CashCloseSettings = {
-    blindClose: normalizeBlindClose(patch.blindClose),
+    blindClose: normalizeBlindClose(patch.blindClose ?? current.blindClose),
+    differenceTolerance: normalizeTolerance(
+      patch.differenceTolerance ?? current.differenceTolerance
+    ),
   };
 
   const tenant = await db
