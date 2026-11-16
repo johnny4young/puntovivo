@@ -23,7 +23,6 @@ describe('SalesCartWorkspace —  undo button', () => {
   const baseProps = {
     items: [] as never[],
     selectedItemKey: null,
-    itemCount: 0,
     saleError: null,
     onQuantityChange: vi.fn(),
     onDiscountChange: vi.fn(),
@@ -61,6 +60,31 @@ describe('SalesCartWorkspace —  undo button', () => {
     // cashier sees the keybinding when the button is reachable.
     expect(button).toHaveAttribute('aria-keyshortcuts');
     expect(button.getAttribute('aria-keyshortcuts')).toMatch(/\+Z$/);
+  });
+
+  it('lays the command input, the last read and the one-touch keys around the ticket', () => {
+    render(
+      <SalesCartWorkspace
+        {...baseProps}
+        searchBar={<div data-testid="slot-search" />}
+        banner={<div data-testid="slot-banner" />}
+        quickAccess={<div data-testid="slot-quick" />}
+      />
+    );
+    const order = ['slot-search', 'slot-banner', 'sales-cart-empty', 'slot-quick'].map(id =>
+      screen.getByTestId(id)
+    );
+    for (let index = 1; index < order.length; index += 1) {
+      expect(
+        order[index - 1]!.compareDocumentPosition(order[index]!) & Node.DOCUMENT_POSITION_FOLLOWING
+      ).toBeTruthy();
+    }
+    expect(screen.getByRole('heading', { name: 'Active ticket' })).toBeInTheDocument();
+  });
+
+  it('announces a sale error', () => {
+    render(<SalesCartWorkspace {...baseProps} saleError="Insufficient stock" />);
+    expect(screen.getByRole('alert')).toHaveTextContent('Insufficient stock');
   });
 
   it('fires onUndo on click when canUndo is true', () => {

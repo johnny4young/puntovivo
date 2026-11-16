@@ -41,6 +41,81 @@ describe('SaleCartTable', () => {
     mockDiscountSuggestions = new Map();
   });
 
+  it('lays each line out as a table row under one header', () => {
+    render(
+      <SaleCartTable
+        items={[
+          createCartItem({ discount: 0 }),
+          createCartItem({
+            key: 'product-2:unit-2',
+            productId: 'product-2',
+            productName: 'Olive Oil',
+            productSku: 'SKU-002',
+            unitName: 'Box',
+            discount: 0,
+          }),
+        ]}
+        selectedItemKey="product-2:unit-2"
+        onQuantityChange={vi.fn()}
+        onDiscountChange={vi.fn()}
+        onRemove={vi.fn()}
+        onSelectItem={vi.fn()}
+        quantityInputRefFor={quantityInputRefFor}
+        discountInputRefFor={discountInputRefFor}
+        headerActions={<button type="button">Clear cart</button>}
+      />
+    );
+
+    const head = within(screen.getByTestId('sales-ticket-head'));
+    for (const label of ['#', 'Product', 'Quantity', 'Unit', 'Price', 'Total']) {
+      expect(head.getByText(label)).toBeInTheDocument();
+    }
+    expect(head.getByRole('button', { name: 'Clear cart' })).toBeInTheDocument();
+
+    const first = screen.getByTestId('sale-cart-item-SKU-001');
+    expect(first).toHaveAttribute('data-selected', 'false');
+    expect(within(first).getByText('1')).toHaveClass('sales-ticket-index');
+    expect(first.querySelector('.sales-ticket-unit')).toHaveTextContent('Bottle');
+    expect(first.querySelector('.sales-ticket-price')).toHaveTextContent('5.5');
+    expect(first.querySelector('.sales-ticket-total')).toHaveTextContent('11');
+
+    const second = screen.getByTestId('sale-cart-item-SKU-002');
+    expect(second).toHaveAttribute('data-selected', 'true');
+    expect(second.querySelector('.sales-ticket-unit')).toHaveTextContent('Box');
+  });
+
+  it('brings a newly selected line into view, but leaves a restored ticket alone', () => {
+    const scrollIntoView = vi.fn();
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = scrollIntoView;
+    try {
+      const props = {
+        items: [
+          createCartItem(),
+          createCartItem({
+            key: 'product-2:unit-2',
+            productId: 'product-2',
+            productSku: 'SKU-002',
+          }),
+        ],
+        onQuantityChange: vi.fn(),
+        onDiscountChange: vi.fn(),
+        onRemove: vi.fn(),
+        onSelectItem: vi.fn(),
+        quantityInputRefFor,
+        discountInputRefFor,
+      };
+      const { rerender } = render(<SaleCartTable {...props} selectedItemKey="product-1:unit-1" />);
+      expect(scrollIntoView).not.toHaveBeenCalled();
+
+      rerender(<SaleCartTable {...props} selectedItemKey="product-2:unit-2" />);
+      expect(scrollIntoView).toHaveBeenCalledExactlyOnceWith({ block: 'nearest' });
+      expect(scrollIntoView.mock.contexts[0]).toBe(screen.getByTestId('sale-cart-item-SKU-002'));
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
+  });
+
   it('renders the empty state when there are no items', () => {
     render(
       <SaleCartTable

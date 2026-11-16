@@ -1,8 +1,4 @@
 {
-  "suggestedKicker": "Sugeridos para comenzar",
-  "favoritesKicker": "Favoritos de esta caja",
-  "title": "Productos a un toque",
-  "description": "Elige un producto para agregarlo inmediatamente al carrito.",
   "configure": "Configurar",
   "finishEditing": "Terminar",
   "categories": "Categorías de productos",
@@ -10,14 +6,9 @@
   "loading": "Cargando productos rápidos",
   "noCategoryProducts": "No hay productos disponibles en esta categoría.",
   "noFavorites": "Configura hasta ocho productos favoritos para esta caja.",
-  "searchCatalog": "Buscar en catálogo",
-  "safeActions": "Acciones seguras para la venta actual",
-  "searchAnother": "Agregar otro producto",
-  "adjustDiscount": "Ajustar descuento",
   "addProduct": "Agregar {{name}} al carrito",
   "addFavorite": "Agregar {{name}} a favoritos",
   "removeFavorite": "Quitar {{name}} de favoritos",
-  "added": "{{name}} se agregó al carrito",
   "addFailed": "No pudimos agregar el producto. Intenta nuevamente.",
   "noSaleUnit": "Este producto no tiene una unidad lista para vender.",
   "favoritesLoadError": "No se pudieron cargar algunos favoritos. Reintenta o busca en el catálogo.",
@@ -27,5 +18,6 @@
     "text_other": "¿Agregar {{name}}? Se vendió {{count}} veces esta semana aquí.",
     "add": "Agregar a teclas rápidas",
     "dismiss": "Ahora no"
-  }
+  },
+  "barTitle": "Sin código de barras · un toque"
 }

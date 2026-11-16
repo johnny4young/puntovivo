@@ -129,12 +129,7 @@ vi.mock('@/features/sales/useDiscountSuggestions', () => ({
 const baseProps = {
   scopeKey: 'tenant-1:site-1',
   siteId: 'site-1',
-  hasCartItems: false,
-  canFocusDiscount: false,
   onSelectProduct: vi.fn(),
-  onOpenSearch: vi.fn(),
-  onFocusDiscount: vi.fn(),
-  onNewSale: vi.fn(),
 };
 
 describe('SalesQuickAccess', () => {
@@ -220,7 +215,7 @@ describe('SalesQuickAccess', () => {
     const user = userEvent.setup();
     render(<SalesQuickAccess {...baseProps} />);
 
-    expect(screen.getByText('One-tap products')).toBeInTheDocument();
+    expect(screen.getByText('No barcode · one touch')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add House Coffee to cart' })).toBeInTheDocument();
     expect(screen.getByText('-10%')).toBeInTheDocument();
 
@@ -303,43 +298,19 @@ describe('SalesQuickAccess', () => {
     ).toEqual({ productIds: ['p-bread'] });
   });
 
-  it('replaces the favorite grid with safe contextual actions after capture', async () => {
-    const user = userEvent.setup();
-    const onFocusDiscount = vi.fn();
-    render(
-      <SalesQuickAccess
-        {...baseProps}
-        hasCartItems
-        canFocusDiscount
-        onFocusDiscount={onFocusDiscount}
-      />
-    );
+  it('keeps the one-touch keys during a sale, without the favourite suggestion', () => {
+    mockTopSelling.items = [{ productId: 'p-remote', name: 'Remote Favorite', quantity: 4 }];
+    writeSalesFavoriteIds(baseProps.scopeKey, ['p-coffee']);
+    const idle = render(<SalesQuickAccess {...baseProps} />);
+    expect(screen.getByTestId('sales-quick-suggestion')).toBeInTheDocument();
+    idle.unmount();
 
-    expect(screen.queryByText('One-tap products')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Adjust discount' }));
-    expect(onFocusDiscount).toHaveBeenCalledOnce();
+    render(<SalesQuickAccess {...baseProps} hasCartItems />);
+    expect(screen.getByTestId('sales-quick-product-COFFEE-1')).toBeEnabled();
+    expect(screen.queryByTestId('sales-quick-suggestion')).not.toBeInTheDocument();
+    mockTopSelling.items = [];
   });
 
-  it('does not offer a second empty sale before a product is captured', () => {
-    render(<SalesQuickAccess {...baseProps} />);
-
-    expect(screen.queryByRole('button', { name: 'New sale' })).not.toBeInTheDocument();
-  });
-
-  it('keeps the latest completed receipt one action away', async () => {
-    const user = userEvent.setup();
-    const onOpenLastReceipt = vi.fn();
-    render(
-      <SalesQuickAccess
-        {...baseProps}
-        lastCompletedSaleId="sale-1"
-        onOpenLastReceipt={onOpenLastReceipt}
-      />
-    );
-
-    await user.click(screen.getByTestId('sales-open-last-receipt'));
-    expect(onOpenLastReceipt).toHaveBeenCalledOnce();
-  });
   it('keeps a saved favorite outside the first page editable', async () => {
     const user = userEvent.setup();
     writeSalesFavoriteIds(baseProps.scopeKey, [remoteProduct.id]);

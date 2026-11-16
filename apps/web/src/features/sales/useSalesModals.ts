@@ -26,6 +26,9 @@ type SalesMutationHandles = ReturnType<typeof useSalesMutations>;
  * `useCheckoutPreflight` moves inside here so `handleOpenPaymentModal`'s
  * preflight read and `onOpenCashSession` recovery both stay intra-hook.
  */
+/** A field of the charge drawer the cashier asked for from the ticket. */
+export type PaymentFocusTarget = 'customer' | 'invoice';
+
 export interface UseSalesModalsParams {
   currentSite: Site | null;
   cartItems: SaleCartItem[];
@@ -107,6 +110,9 @@ export function useSalesModals({
   // Zero means normal F1 open; positive values apply exact cash on
   // mount and each later increment re-applies while the modal is open.
   const [fastCashTrigger, setFastCashTrigger] = useState(0);
+  // Cash the customer handed over on a one-touch tile; null means exact.
+  const [fastCashAmount, setFastCashAmount] = useState<number | null>(null);
+  const [paymentFocusTarget, setPaymentFocusTarget] = useState<PaymentFocusTarget | null>(null);
   const [cashSessionModalKey, setCashSessionModalKey] = useState(0);
   const [cashSessionCloseModalKey, setCashSessionCloseModalKey] = useState(0);
   const [cashSessionMovementModalKey, setCashSessionMovementModalKey] = useState(0);
@@ -128,12 +134,13 @@ export function useSalesModals({
   // F2 fast-cash entry point. Closed modal delegates to
   // the same F1 payment-open gate with `fastCash=true`; open modal
   // bumps the trigger so the modal re-applies exact cash.
-  const handleFastCash = () => {
+  const handleFastCash = (tendered: number | null = null) => {
     if (isPaymentModalOpen) {
+      setFastCashAmount(tendered);
       setFastCashTrigger(current => current + 1);
       return;
     }
-    handleOpenPaymentModal(true);
+    handleOpenPaymentModal(true, tendered);
   };
 
   const handleOpenProductSearch = useCallback(
@@ -145,7 +152,11 @@ export function useSalesModals({
     [productSearchQuery]
   );
 
-  const handleOpenPaymentModal = (fastCash = false) => {
+  const handleOpenPaymentModal = (
+    fastCash = false,
+    tendered: number | null = null,
+    focusTarget: PaymentFocusTarget | null = null
+  ) => {
     if (!currentSite || cartItems.length === 0) {
       return;
     }
@@ -179,6 +190,8 @@ export function useSalesModals({
     }
 
     setSaleError(null);
+    setFastCashAmount(fastCash ? tendered : null);
+    setPaymentFocusTarget(focusTarget);
     setFastCashTrigger(fastCash ? current => current + 1 : 0);
     setPaymentModalKey(current => current + 1);
     setIsPaymentModalOpen(true);
@@ -261,6 +274,8 @@ export function useSalesModals({
     productSearchDialogKey,
     paymentModalKey,
     fastCashTrigger,
+    fastCashAmount,
+    paymentFocusTarget,
     setFastCashTrigger,
     cashSessionModalKey,
     cashSessionCloseModalKey,

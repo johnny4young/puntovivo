@@ -18,13 +18,9 @@
   "checkout": {
     "kicker": "Caja",
     "chargeSummary": "Resumen de cobro",
-    "searchProducts": "Buscar productos",
-    "totalDue": "Total a pagar",
     "items": "Artículos",
     "subtotal": "Subtotal",
     "vat": "Impuestos",
-    "chargeSite": "Sede de cobro",
-    "noSite": "Sin sede seleccionada",
     "shortcuts": "Atajos",
     "chargeSale": "Cobrar venta",
     "hubGatedHint": "La finalización de la venta queda pausada hasta que el hub de la tienda vuelva a estar accesible. Verifica que el hub esté encendido y conectado.",
@@ -48,16 +44,8 @@
       "tier3Title": "Precio 3"
     },
     "shortcut": {
-      "search": "Buscar",
-      "suspend": "Pausar",
-      "resume": "Retomar",
-      "charge": "Cobrar",
-      "fastCash": "Cobro rápido",
-      "quantity": "Cantidad",
-      "discount": "Descuento",
-      "unitInDialog": "Unidad en diálogo"
-    },
-    "itemsWithCount": "Ítems ({{value}})"
+      "charge": "Cobrar"
+    }
   },
   "cart": {
     "empty": "Busca y agrega productos para iniciar una venta.",
@@ -79,10 +67,7 @@
     "decrement": "Quitar uno de {{name}}",
     "increment": "Agregar uno de {{name}}",
     "shortcuts": {
-      "label": "Atajos:",
-      "search": "buscar",
-      "quantity": "cantidad",
-      "discount": "descuento"
+      "quantity": "cantidad"
     },
     "discountSuggested": "Sugerido -{{pct}}%"
   },
@@ -516,7 +501,6 @@
   },
   "quickSearch": {
     "label": "Producto / código de barras",
-    "ready": "Escáner listo",
     "placeholder": "Escanea código de barras o escribe SKU / nombre",
     "search": "Buscar",
     "lockedState": "Edición de productos bloqueada",
@@ -577,11 +561,9 @@
     "shortcutResume": "Ctrl+R",
     "newSale": "Nueva venta",
     "localWorkspacesTitle": "Carritos abiertos",
-    "localWorkspacesDescription": "Cambia entre carritos locales antes de suspenderlos o cobrarlos.",
     "localWorkspaceFallback": "Carrito {{index}}",
     "localWorkspaceServerDraft": "Borrador {{saleNumber}}",
     "localWorkspaceSelect": "Cambiar a {{label}}",
-    "localWorkspaceActive": "Activo",
     "labelPromptTitle": "Suspender venta",
     "labelPromptDescription": "Agrega una etiqueta opcional para encontrar el borrador más tarde (ej. Mesa 5).",
     "labelPromptConfirm": "Suspender",
@@ -828,5 +810,82 @@
     "banner": "Venta de cambio para {{saleNumber}}",
     "bannerHint": "Agrega los productos de reemplazo. El cliente original está bloqueado y la nueva venta conserva independencia financiera de la devolución.",
     "workspaceLabel": "Cambio {{saleNumber}}"
+  },
+  "sell": {
+    "strip": {
+      "ariaLabel": "Caja y ventas abiertas"
+    },
+    "connection": {
+      "offline": "Sin conexión · siga vendiendo",
+      "offlinePending_one": "Sin conexión · siga vendiendo · {{count}} cambio por enviar",
+      "offlinePending_other": "Sin conexión · siga vendiendo · {{count}} cambios por enviar",
+      "pending_one": "{{count}} cambio por enviar",
+      "pending_other": "{{count}} cambios por enviar"
+    },
+    "devices": {
+      "ready": "Escáner e impresora listos",
+      "noPrinter": "Sin impresora de recibos"
+    },
+    "lastRead": {
+      "kicker": "Última lectura",
+      "idle": "Aún no hay lecturas en esta venta",
+      "remaining_one": "queda {{count}}",
+      "remaining_other": "quedan {{count}}",
+      "undo": "deshace"
+    },
+    "table": {
+      "quantity": "Cantidad",
+      "unit": "Unidad",
+      "lineDiscount": "Descuento −{{pct}} %"
+    },
+    "customer": {
+      "walkInHint": "Tiquete POS, sin datos del comprador",
+      "invoice": "Factura electrónica"
+    },
+    "total": {
+      "label": "Total a cobrar",
+      "items_one": "{{count}} artículo",
+      "items_other": "{{count}} artículos",
+      "lines_one": "{{count}} línea",
+      "lines_other": "{{count}} líneas",
+      "savings": "Descuentos",
+      "taxIncluded": "IVA incluido"
+    },
+    "ready": {
+      "title": "Todo listo para cobrar",
+      "detail": "caja abierta, numeración y existencias revisadas"
+    },
+    "lastSale": {
+      "title": "Última venta",
+      "open": "Reimprimir o enviar"
+    },
+    "parked": {
+      "title": "En espera"
+    },
+    "tender": {
+      "title": "¿Cómo paga?",
+      "split": "Dividir"
+    },
+    "cash": {
+      "title": "En efectivo, un toque",
+      "exact": "Exacto",
+      "receives": "Recibe",
+      "change": "cambio {{amount}}"
+    },
+    "actions": {
+      "suspend": "Suspender",
+      "returns": "Devolución"
+    },
+    "keys": {
+      "shortest": "Camino más corto:",
+      "scan": "escanear",
+      "exactCash": "efectivo exacto",
+      "or": "o",
+      "charge": "cobrar",
+      "removeLine": "quitar línea",
+      "parked": "ventas en espera",
+      "newSale": "nueva venta",
+      "more": "todo lo demás"
+    }
   }
 }

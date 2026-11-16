@@ -19,10 +19,9 @@ function renderSearch(disabled = false) {
 }
 
 describe('SalesQuickSearchBar', () => {
-  it('advertises the active scanner and product shortcuts while editable', () => {
+  it('advertises the product shortcuts while editable', () => {
     renderSearch();
 
-    expect(screen.getByText('Scanner ready')).toBeVisible();
     expect(screen.getByPlaceholderText('Scan barcode or type SKU / name')).toHaveAttribute(
       'aria-keyshortcuts',
       'Alt+P'
@@ -37,7 +36,6 @@ describe('SalesQuickSearchBar', () => {
   it('does not advertise or dispatch product input for a locked ticket', () => {
     const { container, onSubmit } = renderSearch(true);
 
-    expect(screen.getByText('Product editing locked')).toBeVisible();
     expect(
       screen.getByText(
         'Product search and scanner input are disabled for this locked ticket. Continue with the permitted checkout actions.'
@@ -50,6 +48,7 @@ describe('SalesQuickSearchBar', () => {
     expect(submit).toBeDisabled();
     expect(submit).not.toHaveAttribute('aria-keyshortcuts');
     expect(screen.queryByText('F5')).not.toBeInTheDocument();
+    expect(screen.queryByText('Alt+P')).not.toBeInTheDocument();
 
     fireEvent.submit(container.querySelector('form')!);
     expect(onSubmit).not.toHaveBeenCalled();

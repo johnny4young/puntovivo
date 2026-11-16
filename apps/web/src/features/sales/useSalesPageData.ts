@@ -23,6 +23,8 @@ export interface UseSalesPageDataParams {
   user: User | null;
   /** The operator-picked register, or null to fall back to the first free one. */
   selectedRegisterAssignmentId: string | null;
+  /** The ticket holds lines, so its invoice entry point may be needed. */
+  hasCartItems: boolean;
 }
 
 /**
@@ -40,6 +42,7 @@ export function useSalesPageData({
   currentTenant,
   user,
   selectedRegisterAssignmentId,
+  hasCartItems,
 }: UseSalesPageDataParams) {
   const activeCashSessionQuery = trpc.cashSessions.getActive.useQuery(
     { siteId: currentSite?.id },
@@ -61,6 +64,20 @@ export function useSalesPageData({
     { enabled: !!currentTenant }
   );
   const suspendedDraftsCount = draftsQuery.data?.totalItems ?? 0;
+  const newestDraft = draftsQuery.data?.items[0];
+  const firstSuspendedDraft = newestDraft
+    ? {
+        label:
+          newestDraft.restaurantCheckLabel ?? newestDraft.suspendedLabel ?? newestDraft.saleNumber,
+        total: newestDraft.total,
+      }
+    : null;
+  // Same cache entry the charge drawer reads; the ticket only shows the entry point.
+  const electronicInvoiceQuery = trpc.sales.electronicInvoiceAvailability.useQuery(undefined, {
+    enabled: !!currentSite && hasCartItems,
+    staleTime: 60_000,
+  });
+  const canRequestInvoice = electronicInvoiceQuery.data?.available === true;
 
   // auto-print on sale completion.
   //
@@ -204,6 +221,8 @@ export function useSalesPageData({
     hasActiveCashSession,
     canOpenCashSession,
     suspendedDraftsCount,
+    firstSuspendedDraft,
+    canRequestInvoice,
     checkoutReadinessItems,
     hasRegisteredDrawer,
     scannerConfig,

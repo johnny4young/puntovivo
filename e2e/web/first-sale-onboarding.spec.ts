@@ -100,7 +100,7 @@ test.describe('first sale onboarding', () => {
       await dismissVisibleToasts(page);
       await captureEvidence(page, 'first-sale-2-register-open-en');
 
-      await page.getByRole('button', { name: 'Search products' }).first().click();
+      await page.getByRole('button', { name: 'Search', exact: true }).first().click();
       const searchDialog = page.getByRole('dialog', { name: 'Add product' });
       await expect(searchDialog).toBeVisible();
       await searchDialog.getByRole('textbox', { name: 'Search' }).fill(productSku);
@@ -115,7 +115,7 @@ test.describe('first sale onboarding', () => {
       // proves the backtracking counter rather than merely asserting its shape.
       await page.getByRole('button', { name: `Remove ${productName}` }).click();
       await expect(page.getByTestId(`sale-cart-item-${productSku}`)).toHaveCount(0);
-      await page.getByRole('button', { name: 'Search products' }).first().click();
+      await page.getByRole('button', { name: 'Search', exact: true }).first().click();
       const secondSearchDialog = page.getByRole('dialog', { name: 'Add product' });
       await secondSearchDialog.getByRole('textbox', { name: 'Search' }).fill(productSku);
       const secondProductRow = secondSearchDialog.getByTestId(`product-search-row-${productSku}`);

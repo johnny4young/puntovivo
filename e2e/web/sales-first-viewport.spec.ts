@@ -64,8 +64,10 @@ test.describe('sales first viewport', () => {
     await expect(page.getByTestId(`sale-cart-item-${scenario.product.sku}`)).toBeVisible({
       timeout: 15_000,
     });
-    await expect(page.getByTestId('sales-context-actions')).toBeVisible();
-    await expect(total.getByText(/Items \(1\)/)).toBeVisible();
+    // The one-touch keys stay through the sale, and the add is confirmed above the ticket.
+    await expectFullyInsideViewport(familiarProduct, page);
+    await expect(page.getByTestId('sales-last-read')).toContainText(scenario.product.name);
+    await expect(total.getByText(/1 item · 1 line/)).toBeVisible();
     await expectFullyInsideViewport(primaryAction, page);
     await expect(primaryAction).toHaveAccessibleName('Charge sale');
     await expect(primaryAction).toBeEnabled();
@@ -97,7 +99,7 @@ test.describe('sales first viewport', () => {
     const line = page.getByTestId(`sale-cart-item-${scenario.product.sku}`);
     await expect(line).toBeVisible();
     // Relative to the bar, because a shell status strip can sit above it.
-    expect((await line.boundingBox())!.y - (barBox.y + barBox.height)).toBeLessThan(220);
+    expect((await line.boundingBox())!.y - (barBox.y + barBox.height)).toBeLessThan(260);
 
     await page.setViewportSize(FIRST_VIEWPORT);
     await expectFullyInsideViewport(page.getByTestId('checkout-primary-action'), page);

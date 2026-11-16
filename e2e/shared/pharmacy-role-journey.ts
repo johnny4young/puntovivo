@@ -152,7 +152,7 @@ export async function runPharmacyRolePrivacyJourney(
     await target.requestRestrictedRoute();
     await expect(page).toHaveURL(/\/sales$/);
     await expect(
-      page.getByRole('button', { name: 'Search products', exact: true }).first()
+      page.getByRole('button', { name: 'Search', exact: true }).first()
     ).toBeVisible();
     await expect(
       page.getByRole('heading', { name: 'Pharmacy safety operations', exact: true })

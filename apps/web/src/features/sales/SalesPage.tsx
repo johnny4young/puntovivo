@@ -9,6 +9,8 @@ import { useSalesFlows } from '@/features/sales/useSalesFlows';
 import { useSalesCart } from '@/features/sales/useSalesCart';
 import { useSalesModals } from '@/features/sales/useSalesModals';
 import { useSalesPageData } from '@/features/sales/useSalesPageData';
+import { useLastRead } from '@/features/sales/useLastRead';
+import type { InitialTender } from '@/features/sales/salePaymentModal.types';
 import { SalesScreen } from '@/features/sales/SalesScreen';
 import { useQuickCreateStore } from '@/features/sales/useQuickCreateStore';
 import { useHubReachability } from '@/hooks/useHubReachability';
@@ -97,7 +99,10 @@ export function SalesPage() {
   const [suspendLabelDraft, setSuspendLabelDraft] = useState('');
   const [isSuspending, setIsSuspending] = useState(false);
   const [selectedHistorySaleId, setSelectedHistorySaleId] = useState<string | null>(null);
-  const [lastCompletedSaleId, setLastCompletedSaleId] = useState<string | null>(null);
+  // Outlives the completion strip so the receipt stays one touch away.
+  const [lastSale, setLastSale] = useState<CompletedSaleSummary | null>(null);
+  // How each open ticket pays, chosen before the charge drawer opens.
+  const [ticketTenders, setTicketTenders] = useState<Record<string, InitialTender>>({});
   const [completedSale, setCompletedSale] = useState<CompletedSaleSummary | null>(null);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isCashSessionModalOpen, setIsCashSessionModalOpen] = useState(false);
@@ -142,6 +147,19 @@ export function SalesPage() {
     handleClearCart,
     handleUndoCart,
   } = useSalesCart({ ownerKey, setProductSearchQuery, setSaleError });
+  const lastRead = useLastRead(cartItems, activeWorkspace?.id ?? null);
+  const activeTicketId = activeWorkspace?.id ?? null;
+  const ticketTender = (activeTicketId && ticketTenders[activeTicketId]) || 'cash';
+  const handleTicketTenderChange = (tender: InitialTender) => {
+    if (!activeTicketId) return;
+    // Closed tickets drop out here, so the map never outgrows the open tabs.
+    setTicketTenders(current => ({
+      ...Object.fromEntries(
+        ownedWorkspaces.flatMap(({ id }) => (current[id] ? [[id, current[id]]] : []))
+      ),
+      [activeTicketId]: tender,
+    }));
+  };
 
   const {
     productInputRef,
@@ -183,6 +201,8 @@ export function SalesPage() {
     hasActiveCashSession,
     canOpenCashSession,
     suspendedDraftsCount,
+    firstSuspendedDraft,
+    canRequestInvoice,
     checkoutReadinessItems,
     hasRegisteredDrawer,
     scannerConfig,
@@ -191,6 +211,7 @@ export function SalesPage() {
     currentTenant,
     user,
     selectedRegisterAssignmentId,
+    hasCartItems: cartItems.length > 0,
   });
 
   // slice 10 — the sales + cash-session mutation handles and the
@@ -222,7 +243,7 @@ export function SalesPage() {
     setIsCashSessionMovementModalOpen,
     setDayCloseSessionId,
     onSaleCompleted: sale => {
-      setLastCompletedSaleId(sale.id);
+      setLastSale(sale);
       setCompletedSale(sale);
       saleMeasurement.finish('success');
     },
@@ -337,6 +358,8 @@ export function SalesPage() {
     productSearchDialogKey,
     paymentModalKey,
     fastCashTrigger,
+    fastCashAmount,
+    paymentFocusTarget,
     setFastCashTrigger,
     cashSessionModalKey,
     cashSessionCloseModalKey,
@@ -541,7 +564,6 @@ export function SalesPage() {
         handleClearCart={handleMeasuredClearCart}
         quantityInputRefFor={quantityInputRefFor}
         discountInputRefFor={discountInputRefFor}
-        focusDiscountInput={focusDiscountInput}
         canUndoActiveCart={canUndoActiveCart}
         handleUndoCart={handleMeasuredUndoCart}
         activePriceTier={activePriceTier}
@@ -568,7 +590,16 @@ export function SalesPage() {
         hubReachable={hubReachability.reachable ?? undefined}
         preflightItems={preflight.items}
         isHistoryDrawerOpen={isHistoryDrawerOpen}
-        lastCompletedSaleId={lastCompletedSaleId}
+        lastSale={lastSale}
+        lastRead={lastRead}
+        ticketTender={ticketTender}
+        onTicketTenderChange={handleTicketTenderChange}
+        cashierName={user?.name ?? null}
+        firstSuspendedDraft={firstSuspendedDraft}
+        canRequestInvoice={canRequestInvoice}
+        handleFastCash={handleFastCash}
+        fastCashAmount={fastCashAmount}
+        paymentFocusTarget={paymentFocusTarget}
         completedSale={completedSale}
         onDismissCompletedSale={() => setCompletedSale(null)}
         setSelectedSaleId={setSelectedSaleId}

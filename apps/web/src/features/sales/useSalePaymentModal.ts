@@ -26,8 +26,16 @@ import { formatCurrency } from '@/lib/utils';
 import { useQuickCreateStore } from './useQuickCreateStore';
 import { useCartWorkspaceStore } from './useCartWorkspaceStore';
 import type { Customer } from '@/types';
-import type { SalePaymentQuoteItem, SalePaymentValues } from './salePaymentModal.types';
-import { TENDER_SUM_EPSILON, getDefaultValues } from './salePaymentModal.constants';
+import type {
+  InitialTender,
+  SalePaymentQuoteItem,
+  SalePaymentValues,
+} from './salePaymentModal.types';
+import {
+  TENDER_SUM_EPSILON,
+  getDefaultValues,
+  initialTenderValues,
+} from './salePaymentModal.constants';
 import { buildCheckoutApprovalContext, requiredCheckoutApprovalActions } from './checkoutApprovals';
 import { useCheckoutApprovals } from './useCheckoutApprovals';
 import { isCartPriceOverride } from './saleApprovalPricing';
@@ -57,6 +65,8 @@ export interface UseSalePaymentModalParams {
   activePriceTier?: 1 | 2 | 3 | undefined;
   currencyCode?: string | undefined;
   fastCashTrigger?: number | undefined;
+  fastCashAmount?: number | null | undefined;
+  initialMethod?: InitialTender | undefined;
   onSubmit: (values: SalePaymentValues) => Promise<void>;
 }
 
@@ -76,11 +86,13 @@ export function useSalePaymentModal({
   activePriceTier = 1,
   currencyCode = 'COP',
   fastCashTrigger = 0,
+  fastCashAmount = null,
+  initialMethod = 'cash',
   onSubmit,
 }: UseSalePaymentModalParams) {
   const { t } = useTranslation('sales');
   const toast = useToast();
-  const [splitMode, setSplitMode] = useState(false);
+  const [splitMode, setSplitMode] = useState(initialMethod === 'split');
   // credit method gating + projection.
   const canLendCredit = userRole === 'admin' || userRole === 'manager' || userRole === 'cashier';
   const isAdmin = userRole === 'admin';
@@ -94,6 +106,7 @@ export function useSalePaymentModal({
   const form = useForm<SalePaymentValues>({
     defaultValues: {
       ...getDefaultValues(total, initialServiceChargeAmount, serviceChargeRate),
+      ...initialTenderValues(initialMethod, total + initialServiceChargeAmount, !!approvalCustomerId),
       customerId: approvalCustomerId ?? '',
     },
   });
@@ -106,6 +119,9 @@ export function useSalePaymentModal({
   // cashier's intent and restore the fast-cash focus contract as soon as the
   // fail-closed gate becomes submit-ready.
   const pendingFastCashFocusRef = useRef(false);
+  // Read at apply time, so a later signal carries its own tendered amount.
+  const fastCashAmountRef = useRef(fastCashAmount);
+  fastCashAmountRef.current = fastCashAmount;
 
   // auto-attach the customer that was just created via the
   // quick-create flow (customer picker or palette dispatch route).
@@ -344,7 +360,7 @@ export function useSalePaymentModal({
     form.setValue('paymentMethod', 'cash', {
       shouldDirty: true,
     });
-    form.setValue('amountReceived', grandTotal, {
+    form.setValue('amountReceived', fastCashAmountRef.current ?? grandTotal, {
       shouldDirty: true,
     });
     form.setValue('tenders', []);

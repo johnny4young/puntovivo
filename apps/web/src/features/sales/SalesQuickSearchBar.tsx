@@ -1,6 +1,6 @@
 import type { RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search } from 'lucide-react';
+import { ScanBarcode } from 'lucide-react';
 import { ariaKeyshortcutsFor, shortcutDisplayFor } from '@/lib/shortcuts';
 
 interface SalesQuickSearchBarProps {
@@ -22,54 +22,53 @@ export function SalesQuickSearchBar({
 
   return (
     <form
-      className="@container sales-scan-runway flex flex-col gap-2 px-4 py-4 lg:flex-row lg:flex-wrap lg:items-center lg:gap-x-3 lg:gap-y-0 lg:px-2.5 lg:py-2"
+      className="lg:shrink-0"
       onSubmit={event => {
         event.preventDefault();
         if (!disabled) onSubmit();
       }}
     >
-      <div className="sales-scan-label-row lg:order-1 lg:shrink-0">
-        <label
-          htmlFor="sales-product-search-input"
-          className="text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-secondary-500 lg:sr-only"
-        >
-          {t('quickSearch.label')}
-        </label>
-        <span className="sales-scanner-ready lg:hidden lg:@[38rem]:inline-flex">
-          <span aria-hidden="true" />
-          {t(disabled ? 'quickSearch.lockedState' : 'quickSearch.ready')}
-        </span>
-      </div>
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center lg:min-w-0 lg:flex-1">
-        <div className="sales-scan-input relative flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-secondary-400" />
-          <input
-            id="sales-product-search-input"
-            ref={inputRef}
-            className="input pl-10"
-            placeholder={t('quickSearch.placeholder')}
-            value={query}
-            disabled={disabled}
-            aria-keyshortcuts={disabled ? undefined : ariaKeyshortcutsFor('sales.focusProduct')}
-            onChange={event => onQueryChange(event.target.value)}
-          />
-        </div>
+      <label
+        htmlFor="sales-product-search-input"
+        className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-fg3 lg:sr-only"
+      >
+        {t('quickSearch.label')}
+      </label>
+      <div className="sales-command-input">
+        <ScanBarcode className="h-6 w-6 shrink-0 text-fg3" aria-hidden="true" />
+        <input
+          id="sales-product-search-input"
+          ref={inputRef}
+          placeholder={t('quickSearch.placeholder')}
+          value={query}
+          disabled={disabled}
+          aria-keyshortcuts={disabled ? undefined : ariaKeyshortcutsFor('sales.focusProduct')}
+          onChange={event => onQueryChange(event.target.value)}
+        />
+        {!disabled && (
+          <kbd
+            className="pv-kbd hidden lg:inline-flex"
+            title={t('quickSearch.shortcut.focusSearch')}
+          >
+            {shortcutDisplayFor('sales.focusProduct')}
+          </kbd>
+        )}
         <button
           type="submit"
-          className="pv-control-key pv-control-key-primary sales-scan-submit whitespace-nowrap"
+          className="btn-outline min-h-11 shrink-0 whitespace-nowrap"
           aria-keyshortcuts={disabled ? undefined : ariaKeyshortcutsFor('sales.productSearch')}
           disabled={disabled}
         >
           <span>{t('quickSearch.search')}</span>
           {!disabled && (
-            <span className="sales-scan-submit-key" aria-hidden="true">
+            <kbd className="pv-kbd" aria-hidden="true">
               {shortcutDisplayFor('sales.productSearch')}
-            </span>
+            </kbd>
           )}
         </button>
       </div>
       <p
-        className={`sales-scan-hint flex flex-wrap gap-x-3 gap-y-2 text-xs text-secondary-500 ${disabled ? 'lg:order-2 lg:mt-2 lg:w-full' : 'lg:hidden'}`}
+        className={`sales-scan-hint mt-2 flex flex-wrap gap-x-3 gap-y-2 text-xs text-fg3 ${disabled ? '' : 'lg:hidden'}`}
       >
         {disabled
           ? t('quickSearch.lockedHint')

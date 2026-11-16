@@ -668,9 +668,7 @@ test.describe('launch data import', () => {
     });
     await page.goto('/sales');
     await switchToSite(page, targetSite.name);
-    const assignmentSection = page.locator('.card-inset').filter({
-      has: page.getByText('Assigned register', { exact: true }),
-    });
+    const assignmentSection = page.getByTestId('checkout-register');
     await assignmentSection.locator('button[aria-haspopup="listbox"]').click();
     await page.getByRole('option', { name: registerName }).click();
     await page.getByRole('button', { name: 'Open cash session' }).first().click();

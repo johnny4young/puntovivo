@@ -70,8 +70,7 @@ function renderPanel(
     onToggleSuspendedPanel?: () => void;
     userRole?: UserRole;
     cashSession?: CashSession | null;
-    canOpenSearch?: boolean;
-    onFastCash?: () => void;
+    onFastCash?: (tendered?: number | null) => void;
   } = {}
 ) {
   return render(
@@ -86,8 +85,6 @@ function renderPanel(
       canOpenCashSession={true}
       canCloseCashSession={true}
       userRole={overrides.userRole}
-      canOpenSearch={overrides.canOpenSearch}
-      onOpenSearch={vi.fn()}
       onCharge={vi.fn()}
       onOpenCashSession={vi.fn()}
       onCloseCashSession={vi.fn()}
@@ -114,33 +111,6 @@ describe('SalesCheckoutPanel hub gate', () => {
     renderPanel({ userRole: 'manager' });
     expect(screen.getByText(/supervised close shows/i)).toBeInTheDocument();
     expect(screen.queryByText(/blind close keeps/i)).not.toBeInTheDocument();
-  });
-
-  it('renders shortcut chips from the canonical shortcut catalogue', () => {
-    Object.defineProperty(navigator, 'platform', {
-      value: 'Linux x86_64',
-      configurable: true,
-    });
-    renderPanel();
-    expect(screen.getByText('F5')).toBeInTheDocument();
-    expect(screen.getByText('Ctrl+P')).toBeInTheDocument();
-    expect(screen.getByText('Ctrl+R')).toBeInTheDocument();
-    expect(
-      within(screen.getByTestId('checkout-shortcut-chips')).getByText('F1')
-    ).toBeInTheDocument();
-    expect(screen.getByTestId('checkout-primary-action')).toHaveAttribute(
-      'aria-keyshortcuts',
-      'F1'
-    );
-  });
-
-  it('does not advertise product search for an immutable cart', () => {
-    renderPanel({ canOpenSearch: false });
-
-    const search = screen.getByRole('button', { name: /search products/i });
-    expect(search).toBeDisabled();
-    expect(search).not.toHaveAttribute('aria-keyshortcuts');
-    expect(screen.queryByText('F5')).not.toBeInTheDocument();
   });
 
   it('disables closing the cash session only while the hub is unreachable', () => {
