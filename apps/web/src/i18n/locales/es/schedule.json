@@ -12,7 +12,7 @@
   },
   "kicker": "Equipo",
   "title": "Horario del equipo",
-  "description": "Planifica turnos por sede en la zona horaria del negocio. El sistema bloquea cruces y conserva cada cambio para auditoría.",
+  "description": "Planifique turnos por sede en la zona horaria del negocio. El sistema bloquea cruces y conserva cada cambio para auditoría.",
   "timezone": "Zona horaria del horario: {{timeZone}}",
   "actions": {
     "new": "Agregar turno",
@@ -71,9 +71,9 @@
   },
   "empty": {
     "title": "No hay turnos esta semana",
-    "description": "Agrega el primer turno programado o ajusta el filtro de sede.",
+    "description": "Agregue el primer turno programado o ajuste el filtro de sede.",
     "noContextTitle": "Falta configurar el horario",
-    "noContextDescription": "Crea una sede activa y un empleado elegible antes de publicar un horario."
+    "noContextDescription": "Cree una sede activa y un empleado elegible antes de publicar un horario."
   },
   "loading": "Cargando el horario del equipo…",
   "error": "No se pudo cargar el horario del equipo.",
@@ -93,7 +93,7 @@
   "planActual": {
     "kicker": "Conciliación operativa",
     "title": "Planificado frente a real",
-    "description": "Revisa cada turno planificado frente a la evidencia efectiva de marcación. Los turnos pasados quedan pendientes hasta que una persona responsable vincule la asistencia o confirme una inasistencia.",
+    "description": "Revise cada turno planificado frente a la evidencia efectiva de marcación. Los turnos pasados quedan pendientes hasta que una persona responsable vincule la asistencia o confirme una inasistencia.",
     "noticeTitle": "Evidencia, no nómina",
     "notice": "La tardanza, las pausas y la variación usan la corrección de asistencia aprobada más reciente. Esta vista no calcula salarios, recargos legales ni nómina.",
     "employee": "Empleado",
@@ -126,7 +126,7 @@
       "noPricedTime": "No hay tiempo trabajado que se pueda valorar",
       "priced": "{{duration}} valorado",
       "unavailable": "{{duration}} sin condiciones explícitas de costo",
-      "unsafeTotal": "No se puede mostrar un total seguro para {{currencies}}. Elige un rango menor de fechas o empleados."
+      "unsafeTotal": "No se puede mostrar un total seguro para {{currencies}}. Elija un rango menor de fechas o empleados."
     },
     "states": {
       "scheduled": "Programado",
@@ -137,7 +137,7 @@
     },
     "dialog": {
       "title": "Conciliar asistencia · {{employee}}",
-      "notice": "Esta decisión congela el turno planificado como evidencia histórica. Si la revisas, se crea otra versión privada y auditable.",
+      "notice": "Esta decisión congela el turno planificado como evidencia histórica. Si la revisa, se crea otra versión privada y auditable.",
       "outcome": "Resultado",
       "outcomes": {
         "attended": "Vincular asistencia",
@@ -145,12 +145,12 @@
       },
       "noShowAfterEnd": "La confirmación de inasistencia estará disponible después de que termine el turno planificado.",
       "attendance": "Evidencia de asistencia",
-      "selectAttendance": "Selecciona un turno marcado",
+      "selectAttendance": "Seleccione un turno marcado",
       "loading": "Cargando opciones de asistencia…",
       "loadError": "No se pudieron cargar las opciones de asistencia.",
       "reason": "Razón de la revisión",
-      "reasonPlaceholder": "Describe la evidencia que revisaste y por qué este resultado es correcto.",
-      "reasonMinimum": "Ingresa al menos 10 caracteres.",
+      "reasonPlaceholder": "Describa la evidencia que revisó y por qué este resultado es correcto.",
+      "reasonMinimum": "Ingrese al menos 10 caracteres.",
       "cancel": "Cancelar",
       "save": "Guardar decisión",
       "saving": "Guardando…"
@@ -159,7 +159,7 @@
   "attendance": {
     "kicker": "Evidencia de asistencia",
     "title": "Asistencia real",
-    "description": "Compara el tiempo registrado, las pausas explícitas y el tiempo trabajado de esta semana.",
+    "description": "Compare el tiempo registrado, las pausas explícitas y el tiempo trabajado de esta semana.",
     "timezone": "Zona horaria de asistencia: {{timeZone}}",
     "policy": {
       "title": "Base de horas extra · {{countryCode}}",
@@ -227,7 +227,7 @@
           "summary": "Resumen",
           "evidence": "Evidencia",
           "premiums": "Recargos",
-          "readme": "Léeme"
+          "readme": "Léame"
         },
         "headers": {
           "employeeId": "ID del empleado",
@@ -274,7 +274,7 @@
           "handoff": "Entrega neutral frente al proveedor",
           "handoffValue": "Este libro entrega evidencia; no es un cálculo de nómina ni una importación oficial para Alegra, Siigo, World Office o un proveedor fiscal.",
           "activeRows": "Turnos activos",
-          "activeRowsValue": "Los turnos activos se incluyen y se miden al momento de generación. Vuelve a exportar después de la salida antes de procesar la nómina final."
+          "activeRowsValue": "Los turnos activos se incluyen y se miden al momento de generación. Vuelva a exportar después de la salida antes de procesar la nómina final."
         }
       }
     },
@@ -304,8 +304,8 @@
       "breakEndTime": "Hora de fin de pausa",
       "removeBreak": "Quitar pausa",
       "reason": "Razón de la corrección",
-      "reasonPlaceholder": "Explica qué evidencia revisaste y por qué se requiere esta corrección.",
-      "reasonMinimum": "Ingresa al menos 10 caracteres.",
+      "reasonPlaceholder": "Explique qué evidencia revisó y por qué se requiere esta corrección.",
+      "reasonMinimum": "Ingrese al menos 10 caracteres.",
       "required": "Este campo es obligatorio.",
       "cancel": "Cancelar",
       "save": "Guardar corrección",

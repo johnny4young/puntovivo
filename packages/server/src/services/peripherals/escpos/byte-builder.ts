@@ -488,7 +488,7 @@ export function buildSaleReceiptDocument(
       });
     } else if (fiscal.qrPayload) {
       lines.push({ text: '', align: 'center', qrData: fiscal.qrPayload });
-      lines.push({ text: `Verifica en ${authority}`, align: 'center' });
+      lines.push({ text: `Verifique en ${authority}`, align: 'center' });
     }
   }
 

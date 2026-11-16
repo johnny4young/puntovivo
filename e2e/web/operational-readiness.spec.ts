@@ -331,12 +331,12 @@ test.describe('operational recovery ownership', () => {
 
       const payment = page.getByTestId('needs-attention-row-payments');
       await expect(payment).toContainText('Qué está afectado');
-      await expect(payment).toContainText('¿Puedes seguir vendiendo?');
+      await expect(payment).toContainText('¿Puede seguir vendiendo?');
       await expect(payment).toContainText('Acción recomendada');
       await expect(payment).toContainText('Quién autoriza la recuperación');
-      await expect(payment).toContainText('Verifica el pago antes de cobrar de nuevo');
+      await expect(payment).toContainText('Verifique el pago antes de cobrar de nuevo');
       await expect(page.getByTestId('needs-attention-handoff-payments')).toContainText(
-        'Solicita ayuda a un administrador'
+        'Solicite ayuda a un administrador'
       );
       await expect(page.getByTestId('needs-attention-cta-payments')).toHaveCount(0);
 

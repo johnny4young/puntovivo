@@ -2,15 +2,15 @@
   "openButton": "OCR de factura",
   "dialog": {
     "kicker": "OCR de factura",
-    "title": "Sube una foto, la IA lee la factura",
-    "subtitle": "Soporta JPG, PNG y PDF de una página hasta 10 MB. Revisa cada campo antes de registrar la compra.",
+    "title": "Suba una foto, la IA lee la factura",
+    "subtitle": "Soporta JPG, PNG y PDF de una página hasta 10 MB. Revise cada campo antes de registrar la compra.",
     "close": "Cerrar"
   },
   "preview": {
     "pdfFile": "PDF"
   },
   "upload": {
-    "help": "Selecciona la factura del proveedor o tómale una foto desde la tableta.",
+    "help": "Seleccione la factura del proveedor o tómele una foto desde la tableta.",
     "upload": "Subir archivo",
     "camera": "Tomar foto",
     "fileTypes": "JPG · PNG · PDF (1 página) — máx 10 MB"
@@ -23,7 +23,7 @@
     "kicker": "Borrador de compra",
     "supplier": "Proveedor",
     "provider": "Proveedor catálogo",
-    "selectProvider": "Selecciona proveedor",
+    "selectProvider": "Seleccione proveedor",
     "invoiceNumber": "Número factura",
     "lines": "Líneas",
     "subtotal": "Subtotal",
@@ -31,7 +31,7 @@
     "netUnitCost": "Costo unitario neto (sin IVA)",
     "netUnitCostForLine": "Costo unitario neto de {{description}}",
     "netCostAcknowledgment": "Verifiqué que el costo neto de {{description}} no incluye IVA.",
-    "netCostGuidance": "Los precios leídos por OCR pueden incluir IVA. Ingresa el costo unitario neto sin impuesto y compáralo con el subtotal de la factura antes de confirmar.",
+    "netCostGuidance": "Los precios leídos por OCR pueden incluir IVA. Ingrese el costo unitario neto sin impuesto y compárelo con el subtotal de la factura antes de confirmar.",
     "invoiceLinesTotal": "Total de líneas de la factura",
     "unmatchedLine": "Pendiente de producto",
     "assignProduct": "Asignar producto",
@@ -41,16 +41,16 @@
     "cancel": "Cancelar",
     "confirm": "Confirmar",
     "confirming": "Registrando...",
-    "disclaimer": "La IA leyó la factura. Revisa cada campo antes de registrar la compra.",
+    "disclaimer": "La IA leyó la factura. Revise cada campo antes de registrar la compra.",
     "warning": {
-      "totalsMismatch": "El total no coincide con la suma de líneas (diferencia {{diff}}). Revisa antes de confirmar.",
-      "netSubtotalMismatch": "El subtotal neto de las líneas no coincide con el subtotal revisado (diferencia {{diff}}). Corrige los costos netos o el subtotal.",
-      "invoiceTotalMismatch": "El subtotal más IVA no coincide con el total de la factura. Corrige los importes revisados.",
-      "invalidAmount": "Ingresa importes válidos no negativos y cantidades positivas antes de confirmar.",
-      "netCostReviewRequired": "Verifica el costo unitario neto sin IVA de cada línea antes de confirmar.",
-      "unmatched_one": "{{count}} línea sin coincidencia en el catálogo. Asígnale un producto para confirmar.",
-      "unmatched_other": "{{count}} líneas sin coincidencia en el catálogo. Asígnales un producto para confirmar.",
-      "providerRequired": "Selecciona el proveedor del catálogo antes de confirmar."
+      "totalsMismatch": "El total no coincide con la suma de líneas (diferencia {{diff}}). Revise antes de confirmar.",
+      "netSubtotalMismatch": "El subtotal neto de las líneas no coincide con el subtotal revisado (diferencia {{diff}}). Corrija los costos netos o el subtotal.",
+      "invoiceTotalMismatch": "El subtotal más IVA no coincide con el total de la factura. Corrija los importes revisados.",
+      "invalidAmount": "Ingrese importes válidos no negativos y cantidades positivas antes de confirmar.",
+      "netCostReviewRequired": "Verifique el costo unitario neto sin IVA de cada línea antes de confirmar.",
+      "unmatched_one": "{{count}} línea sin coincidencia en el catálogo. Asígnele un producto para confirmar.",
+      "unmatched_other": "{{count}} líneas sin coincidencia en el catálogo. Asígneles un producto para confirmar.",
+      "providerRequired": "Seleccione el proveedor del catálogo antes de confirmar."
     }
   },
   "error": {
@@ -58,11 +58,11 @@
     "tryAgain": "Reintentar",
     "unsupportedType": "Tipo de archivo no soportado.",
     "tooLarge": "Archivo demasiado grande (máx 10 MB).",
-    "missingRequired": "Selecciona proveedor y producto para cada línea antes de confirmar.",
-    "netCostReviewRequired": "Verifica el costo unitario neto sin IVA de cada línea antes de confirmar."
+    "missingRequired": "Seleccione proveedor y producto para cada línea antes de confirmar.",
+    "netCostReviewRequired": "Verifique el costo unitario neto sin IVA de cada línea antes de confirmar."
   },
   "success": {
     "title": "Borrador listo",
-    "description": "Revisa la compra borrador antes de finalizarla."
+    "description": "Revise la compra borrador antes de finalizarla."
   }
 }

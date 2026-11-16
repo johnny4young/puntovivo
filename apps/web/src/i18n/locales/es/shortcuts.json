@@ -2,115 +2,115 @@
   "palette": {
     "open": {
       "label": "Abrir paleta de comandos",
-      "description": "Busca acciones y destinos desde cualquier pantalla."
+      "description": "Busque acciones y destinos desde cualquier pantalla."
     }
   },
   "sales": {
     "charge": {
       "label": "Cobrar",
-      "description": "Abre el modal de pago del carrito activo."
+      "description": "Abra el modal de pago del carrito activo."
     },
     "productSearch": {
       "label": "Buscar producto",
-      "description": "Abre el buscador de productos dentro de la venta activa."
+      "description": "Abra el buscador de productos dentro de la venta activa."
     },
     "focusProduct": {
       "label": "Enfocar campo de producto",
-      "description": "Lleva el cursor al campo de código de barras o búsqueda en la venta."
+      "description": "Lleve el cursor al campo de código de barras o búsqueda en la venta."
     },
     "focusQuantity": {
       "label": "Enfocar cantidad",
-      "description": "Lleva el cursor al campo de cantidad del renglón seleccionado."
+      "description": "Lleve el cursor al campo de cantidad del renglón seleccionado."
     },
     "focusDiscount": {
       "label": "Enfocar descuento",
-      "description": "Lleva el cursor al campo de descuento del renglón seleccionado."
+      "description": "Lleve el cursor al campo de descuento del renglón seleccionado."
     },
     "focusUnit": {
       "label": "Enfocar selector de unidad",
-      "description": "Lleva el cursor al selector de unidad dentro del buscador de productos."
+      "description": "Lleve el cursor al selector de unidad dentro del buscador de productos."
     },
     "suspend": {
       "label": "Suspender carrito",
-      "description": "Aparca el carrito activo para arrancar una venta nueva."
+      "description": "Aparque el carrito activo para arrancar una venta nueva."
     },
     "toggleSuspended": {
       "label": "Mostrar carritos suspendidos",
-      "description": "Abre o cierra el panel con los carritos suspendidos."
+      "description": "Abra o cierre el panel con los carritos suspendidos."
     },
     "reprint": {
       "label": "Reimprimir recibo",
-      "description": "Reimprime el recibo del renglón seleccionado en el historial."
+      "description": "Reimprima el recibo del renglón seleccionado en el historial."
     },
     "removeItem": {
       "label": "Quitar renglón del carrito",
-      "description": "Elimina el renglón seleccionado del carrito activo."
+      "description": "Elimine el renglón seleccionado del carrito activo."
     },
     "undo": {
       "label": "Deshacer última acción del carrito",
-      "description": "Revierte el último cambio del carrito activo (alta, cantidad, descuento, eliminar)."
+      "description": "Revierta el último cambio del carrito activo (alta, cantidad, descuento, eliminar)."
     },
     "fastCash": {
       "label": "Cobrar en efectivo (exacto)",
-      "description": "Abre el modal de pago en efectivo con el monto exacto y enfoca el botón Confirmar."
+      "description": "Abra el modal de pago en efectivo con el monto exacto y enfoque el botón Confirmar."
     },
     "newSale": {
       "label": "Nueva venta",
-      "description": "Inicia un ticket nuevo."
+      "description": "Inicie un ticket nuevo."
     },
     "openCashSession": {
       "label": "Abrir caja",
-      "description": "Abre la sesión de caja del día."
+      "description": "Abra la sesión de caja del día."
     },
     "cashMovement": {
       "label": "Registrar movimiento",
-      "description": "Registra una entrada o salida de efectivo en la sesión abierta."
+      "description": "Registre una entrada o salida de efectivo en la sesión abierta."
     },
     "closeCashSession": {
       "label": "Cerrar caja",
-      "description": "Inicia el cierre ciego de la sesión abierta."
+      "description": "Inicie el cierre ciego de la sesión abierta."
     }
   },
   "nav": {
     "dashboard": {
       "label": "Ir al dashboard",
-      "description": "Salta al resumen del negocio."
+      "description": "Salte al resumen del negocio."
     },
     "sales": {
       "label": "Ir a ventas",
-      "description": "Salta a la caja."
+      "description": "Salte a la caja."
     },
     "inventory": {
       "label": "Ir a inventario",
-      "description": "Salta a stock y movimientos."
+      "description": "Salte a stock y movimientos."
     },
     "purchases": {
       "label": "Ir a compras",
-      "description": "Salta a pedidos y compras."
+      "description": "Salte a pedidos y compras."
     }
   },
   "app": {
     "shortcutsSheet": {
       "label": "Mostrar atajos de teclado",
-      "description": "Abre la hoja con todos los atajos."
+      "description": "Abra la hoja con todos los atajos."
     },
     "themeToggle": {
       "label": "Cambiar tema claro/oscuro",
-      "description": "Alterna la interfaz entre claro y oscuro."
+      "description": "Alterne la interfaz entre claro y oscuro."
     },
     "switchSite": {
       "label": "Cambiar de sede",
-      "description": "Pasa a la siguiente sede activa.",
-      "toast": "Ahora trabajas en {{site}}"
+      "description": "Pase a la siguiente sede activa.",
+      "toast": "Ahora trabaja en {{site}}"
     },
     "logout": {
       "label": "Cerrar sesión",
-      "description": "Termina la sesión actual."
+      "description": "Termine la sesión actual."
     }
   },
   "sheet": {
     "title": "Atajos de teclado",
-    "description": "Todo lo que el teclado puede hacer desde donde estás. Presiona Alt+/ en cualquier momento para abrir esta hoja.",
+    "description": "Todo lo que el teclado puede hacer desde donde está. Presione Alt+/ en cualquier momento para abrir esta hoja.",
     "scopes": {
       "global": "En cualquier parte",
       "sales": "Caja",

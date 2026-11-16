@@ -172,7 +172,7 @@ async function exerciseInvoiceOcrPreviewLifecycle(page: Page) {
   try {
     await openOcr.click();
     const dialog = page.getByRole('dialog', {
-      name: /upload a photo, ai reads the invoice|sube una foto, la ia lee la factura/i,
+      name: /upload a photo, ai reads the invoice|suba una foto, la ia lee la factura/i,
     });
     await expect(dialog).toBeVisible();
     await expect(dialog).toContainText(/jpg.*png.*pdf/i);

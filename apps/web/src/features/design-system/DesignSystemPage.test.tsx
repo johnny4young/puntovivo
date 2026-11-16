@@ -28,11 +28,11 @@ describe('DesignSystemPage', () => {
     expect(screen.getByText('Caja sincronizada.')).toBeInTheDocument();
     expect(screen.getByText('Base 13')).toBeInTheDocument();
     expect(screen.getByText('Primero la tarea, luego la complejidad')).toBeInTheDocument();
-    expect(screen.getByText('Confirma los datos del negocio')).toBeInTheDocument();
+    expect(screen.getByText('Confirme los datos del negocio')).toBeInTheDocument();
     expect(screen.getByText('Aún no hay productos')).toBeInTheDocument();
-    expect(screen.getByText('Revisa el medio de pago')).toBeInTheDocument();
+    expect(screen.getByText('Revise el medio de pago')).toBeInTheDocument();
     expect(
-      screen.getByRole('region', { name: 'Crea lo esencial primero' })
+      screen.getByRole('region', { name: 'Cree lo esencial primero' })
     ).toBeInTheDocument();
     expect(screen.getByText('Una gramática, en toda la operación')).toBeInTheDocument();
     expect(screen.getAllByText('Adoptado')).toHaveLength(3);

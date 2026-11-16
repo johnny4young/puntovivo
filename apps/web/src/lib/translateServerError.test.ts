@@ -317,7 +317,7 @@ describe('translateServerError', () => {
       'inventoryControls:server.INVENTORY_COUNT_CATALOG_CHANGED':
         'El producto o su unidad base cambió.',
       'inventoryControls:server.ORDER_DRAFT_INVALID_STATUS':
-        'Solo puedes enviar un borrador de orden de compra.',
+        'Solo puede enviar un borrador de orden de compra.',
     });
 
     expect(
@@ -328,7 +328,7 @@ describe('translateServerError', () => {
     ).toBe('El producto o su unidad base cambió.');
     expect(
       translateServerError({ data: { errorCode: 'ORDER_DRAFT_INVALID_STATUS' } }, t, fallback)
-    ).toBe('Solo puedes enviar un borrador de orden de compra.');
+    ).toBe('Solo puede enviar un borrador de orden de compra.');
   });
 
   it('translates quotation and supplier-payable codes from the lazy domain namespace', () => {
@@ -390,7 +390,7 @@ describe('translateServerError', () => {
   it('translates the STALE_VERSION optimistic-concurrency code', () => {
     const t = makeFakeT({
       'errors:server.STALE_VERSION':
-        'Otro usuario modificó este registro mientras lo editabas. Recarga para ver la versión más reciente e intenta de nuevo.',
+        'Otro usuario modificó este registro mientras lo editaba. Recargue para ver la versión más reciente e intente de nuevo.',
     });
     const result = translateServerError(
       {
@@ -401,7 +401,7 @@ describe('translateServerError', () => {
       fallback
     );
     expect(result).toBe(
-      'Otro usuario modificó este registro mientras lo editabas. Recarga para ver la versión más reciente e intenta de nuevo.'
+      'Otro usuario modificó este registro mientras lo editaba. Recargue para ver la versión más reciente e intente de nuevo.'
     );
   });
 
@@ -433,7 +433,7 @@ describe('translateServerError', () => {
   it('translates the new auth rate-limit code instead of showing the raw server message', () => {
     const t = makeFakeT({
       'errors:server.AUTH_RATE_LIMIT_EXCEEDED':
-        'Demasiados intentos. Espera un momento y vuelve a intentarlo.',
+        'Demasiados intentos. Espere un momento y vuelva a intentarlo.',
     });
     const error = {
       data: { errorCode: 'AUTH_RATE_LIMIT_EXCEEDED' },
@@ -441,13 +441,13 @@ describe('translateServerError', () => {
     };
 
     expect(translateServerError(error, t, fallback)).toBe(
-      'Demasiados intentos. Espera un momento y vuelve a intentarlo.'
+      'Demasiados intentos. Espere un momento y vuelva a intentarlo.'
     );
   });
 
   it('hides native SQLite lock text behind the critical-command retry copy', () => {
     const t = makeFakeT({
-      'errors:server.COMMAND_DATABASE_BUSY': 'Vuelve a intentarlo.',
+      'errors:server.COMMAND_DATABASE_BUSY': 'Vuelva a intentarlo.',
     });
     const result = translateServerError(
       {
@@ -458,7 +458,7 @@ describe('translateServerError', () => {
       fallback
     );
 
-    expect(result).toBe('Vuelve a intentarlo.');
+    expect(result).toBe('Vuelva a intentarlo.');
     expect(result).not.toContain('database is locked');
   });
 
@@ -638,7 +638,7 @@ describe('desktop session rejections map to localized copy', () => {
     [
       'es',
       esErrors,
-      'Tu sesión ya no está activa en este equipo. Inicia sesión de nuevo y vuelve a intentarlo.',
+      'Su sesión ya no está activa en este equipo. Inicie sesión de nuevo y vuelva a intentarlo.',
     ],
   ] as const)(
     'uses the real %s copy without leaking invoke internals',
@@ -659,14 +659,14 @@ describe('desktop session rejections map to localized copy', () => {
   it('maps the Electron-wrapped SESSION_NOT_REGISTERED to the re-login nudge', () => {
     const t = makeFakeT({
       'errors:server.desktopSessionRequired':
-        'Tu sesión ya no está activa en este equipo. Inicia sesión de nuevo y vuelve a intentarlo.',
+        'Su sesión ya no está activa en este equipo. Inicie sesión de nuevo y vuelva a intentarlo.',
     });
     const error = new Error(
       "Error invoking remote method 'update-tray-settings': Error: SESSION_NOT_REGISTERED"
     );
     const result = translateServerError(error, t, fallback);
     expect(result).toBe(
-      'Tu sesión ya no está activa en este equipo. Inicia sesión de nuevo y vuelve a intentarlo.'
+      'Su sesión ya no está activa en este equipo. Inicie sesión de nuevo y vuelva a intentarlo.'
     );
     expect(result).not.toContain('SESSION_NOT_REGISTERED');
   });
@@ -696,7 +696,7 @@ describe('desktop session rejections map to localized copy', () => {
     [
       'es',
       esErrors,
-      'Tu sesión ya no está activa en este equipo. Inicia sesión de nuevo y vuelve a intentarlo.',
+      'Su sesión ya no está activa en este equipo. Inicie sesión de nuevo y vuelva a intentarlo.',
     ],
   ] as const)(
     'maps a bounded Store Hub local failure to safe %s copy',

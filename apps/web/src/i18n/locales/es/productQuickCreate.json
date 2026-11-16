@@ -1,32 +1,32 @@
 {
   "eyebrow": "Producto rápido",
   "title": "Listo para vender en menos de un minuto",
-  "descriptionCatalog": "Ingresa ahora lo esencial para cobrar. Completa después inventario, proveedores y unidades.",
-  "descriptionSale": "Crea el producto que falta sin perder esta venta. Al terminar se agregará al ticket actual.",
+  "descriptionCatalog": "Ingrese ahora lo esencial para cobrar. Complete después inventario, proveedores y unidades.",
+  "descriptionSale": "Cree el producto que falta sin perder esta venta. Al terminar se agregará al ticket actual.",
   "steps": {
-    "identity": "Identifícalo",
-    "price": "Define el precio",
-    "ready": "Empieza a vender"
+    "identity": "Identifíquelo",
+    "price": "Defina el precio",
+    "ready": "Empiece a vender"
   },
   "essential": {
     "eyebrow": "Lo necesario para vender",
     "title": "Información esencial",
-    "description": "Completa el nombre, el código, el precio y el impuesto. Puedes ajustar el resto después."
+    "description": "Complete el nombre, el código, el precio y el impuesto. Puede ajustar el resto después."
   },
   "fields": {
     "name": "Nombre del producto",
-    "nameHelp": "Usa el nombre que tu equipo reconoce en caja.",
+    "nameHelp": "Use el nombre que su equipo reconoce en caja.",
     "namePlaceholder": "Por ejemplo, Pan integral",
-    "nameRequired": "Ingresa el nombre del producto",
+    "nameRequired": "Ingrese el nombre del producto",
     "code": "Código del producto",
-    "codeHelp": "Escanea un código de barras existente o genera un código interno.",
-    "codePlaceholder": "Escanea, escribe o genera",
-    "codeRequired": "Escanea, escribe o genera un código para el producto",
+    "codeHelp": "Escanee un código de barras existente o genere un código interno.",
+    "codePlaceholder": "Escanee, escriba o genere",
+    "codeRequired": "Escanee, escriba o genere un código para el producto",
     "price": "Precio de venta",
     "priceHelp": "El valor que se cobrará en caja.",
     "priceInvalid": "El precio de venta no puede ser negativo",
     "tax": "Impuesto",
-    "taxHelp": "Elige la tarifa que corresponde a este producto.",
+    "taxHelp": "Elija la tarifa que corresponde a este producto.",
     "noTax": "Sin impuesto asignado · 0%",
     "taxType": "Tipo de impuesto: {{kind}}"
   },
@@ -36,12 +36,12 @@
   },
   "openingStock": {
     "title": "Agregar stock inicial",
-    "description": "Opcional: registra cuántas unidades tienes disponibles hoy.",
+    "description": "Opcional: registre cuántas unidades tiene disponibles hoy.",
     "field": "Unidades disponibles",
-    "help": "También puedes recibir o ajustar inventario después."
+    "help": "También puede recibir o ajustar inventario después."
   },
   "advanced": {
-    "title": "¿Necesitas más control?",
+    "title": "¿Necesita más control?",
     "description": "Las categorías, costos, proveedores, ubicaciones, lotes, series y unidades alternas siguen disponibles."
   },
   "actions": {

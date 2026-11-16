@@ -4,7 +4,7 @@
   },
   "review": {
     "title": "Revisión de actividad sensible",
-    "description": "Revisa eventos seleccionados con riesgo elevado de privacidad, acceso, dinero, inventario o IA. Los conteos siguen el rango de fechas elegido.",
+    "description": "Revise eventos seleccionados con riesgo elevado de privacidad, acceso, dinero, inventario o IA. Los conteos siguen el rango de fechas elegido.",
     "loading": "Resumiendo la actividad sensible…",
     "error": "No se pudo resumir la actividad sensible.",
     "retry": "Intentar de nuevo",
@@ -39,7 +39,7 @@
   },
   "history": {
     "title": "Eventos recientes",
-    "description": "Cronológico inverso. Usa los filtros para acotar la vista a una acción, recurso o rango de fechas.",
+    "description": "Cronológico inverso. Use los filtros para acotar la vista a una acción, recurso o rango de fechas.",
     "loading": "Cargando eventos de auditoría…",
     "error": "No se pudieron cargar los eventos de auditoría",
     "empty": "Aún no hay eventos. Acciones sensibles como anulaciones o reembolsos de venta, precios manuales en venta, recepciones o anulaciones de compra, cierres de caja, ajustes y transferencias de stock, cambios del ciclo de vida de usuarios, revocaciones de terminales hub-client y cambios en cotizaciones aparecerán aquí.",

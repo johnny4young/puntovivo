@@ -1425,7 +1425,7 @@ test.describe('web business flows', () => {
     await editDialog.getByRole('button', { name: 'Guardar cambios' }).click();
     const spanishConflictAlert = editDialog.locator('form').getByRole('alert');
     await expect(spanishConflictAlert).toContainText(
-      'No puedes cambiar el control de inventario mientras este producto tenga stock en tránsito. Recibe o anula el traslado primero.'
+      'No puede cambiar el control de inventario mientras este producto tenga stock en tránsito. Reciba o anule el traslado primero.'
     );
     expect(getProductInventoryModes(scenario.product.id)).toEqual({
       tracksStock: true,

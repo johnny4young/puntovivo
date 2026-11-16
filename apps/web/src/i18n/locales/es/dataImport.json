@@ -1,31 +1,31 @@
 {
   "kicker": "Migración de lanzamiento",
   "title": "Importar datos",
-  "description": "Lleva a Puntovivo productos, clientes, proveedores, cartera, bases iniciales de caja y perfiles fiscales mediante importaciones revisables y aisladas para tu negocio.",
+  "description": "Lleve a Puntovivo productos, clientes, proveedores, cartera, bases iniciales de caja y perfiles fiscales mediante importaciones revisables y aisladas para su negocio.",
   "safety": {
     "kicker": "Seguridad de la importación",
-    "title": "Elige cómo se usará este archivo",
-    "description": "Selecciona un modo antes de elegir el archivo. Al cambiar de modo se limpia el flujo de importación actual.",
+    "title": "Elija cómo se usará este archivo",
+    "description": "Seleccione un modo antes de elegir el archivo. Al cambiar de modo se limpia el flujo de importación actual.",
     "modeLabel": "Modo de datos de la importación",
     "modes": {
       "demo": {
         "title": "Datos de demostración",
-        "description": "Valida filas de ejemplo o prueba sin guardar registros. El servidor bloquea cualquier intento de importación."
+        "description": "Valide filas de ejemplo o prueba sin guardar registros. El servidor bloquea cualquier intento de importación."
       },
       "real": {
         "title": "Datos reales del negocio",
-        "description": "Crea registros en este negocio después de la vista previa y la confirmación explícita. Usa solo datos del comercio."
+        "description": "Cree registros en este negocio después de la vista previa y la confirmación explícita. Use solo datos del comercio."
       }
     },
     "demoBoundary": {
       "title": "Límite de solo vista previa",
       "description": "El modo de demostración puede leer, mapear, validar y exportar errores, pero nunca crea productos, inventario, clientes, proveedores, saldos de cartera ni plantillas de apertura de caja.",
-      "previewOnly": "Vista previa de demostración. Revisa y exporta los resultados; ninguna fila puede guardarse en este modo."
+      "previewOnly": "Vista previa de demostración. Revise y exporte los resultados; ninguna fila puede guardarse en este modo."
     },
     "realConfirmation": "Confirmo que este archivo contiene datos reales del negocio y que tengo un punto de restauración vigente.",
     "rollback": {
-      "title": "Crea un punto de restauración antes de importar",
-      "description": "En la aplicación de escritorio, crea un respaldo cifrado de la base de datos antes de confirmar datos reales. Conserva el reporte final y el ID de importación para mantener la trazabilidad en la auditoría.",
+      "title": "Cree un punto de restauración antes de importar",
+      "description": "En la aplicación de escritorio, cree un respaldo cifrado de la base de datos antes de confirmar datos reales. Conserve el reporte final y el ID de importación para mantener la trazabilidad en la auditoría.",
       "scopeWarning": "No existe una reversión del lote con un solo clic. Restaurar el respaldo reemplaza toda la base de datos local y también elimina cada venta, configuración u otro cambio realizado después de ese punto.",
       "openBackup": "Abrir configuración de respaldos",
       "openAudit": "Abrir registro de auditoría"
@@ -35,19 +35,19 @@
   "steps": {
     "upload": {
       "kicker": "Paso 1",
-      "title": "Elige un archivo de origen",
-      "description": "Carga un CSV UTF-8 o un archivo Excel .xlsx de hasta 10 MB y 500 filas de datos. El archivo permanece en este navegador hasta que generes la vista previa."
+      "title": "Elija un archivo de origen",
+      "description": "Cargue un CSV UTF-8 o un archivo Excel .xlsx de hasta 10 MB y 500 filas de datos. El archivo permanece en este navegador hasta que genere la vista previa."
     },
     "map": {
       "kicker": "Paso 2",
-      "title": "Asigna tus columnas",
-      "description": "Confirma las columnas detectadas. El nombre y el SKU son obligatorios; puedes dejar los demás campos sin asignar.",
+      "title": "Asigne sus columnas",
+      "description": "Confirme las columnas detectadas. El nombre y el SKU son obligatorios; puede dejar los demás campos sin asignar.",
       "notMapped": "No importar",
       "decimalFormat": "Formato numérico"
     },
     "preview": {
       "kicker": "Paso 3",
-      "title": "Revisa antes de importar",
+      "title": "Revise antes de importar",
       "description": "Puntovivo vuelve a validar cada fila en el servidor y omite los SKU y códigos existentes o repetidos."
     }
   },
@@ -99,15 +99,15 @@
     "required": "Falta un valor obligatorio",
     "too_long": "El valor supera la longitud permitida",
     "invalid_number": "El formato numérico no es válido",
-    "invalid_boolean": "Usa sí/no, verdadero/falso o 1/0",
+    "invalid_boolean": "Use sí/no, verdadero/falso o 1/0",
     "unit_not_found": "La unidad no coincide con una unidad activa de esta empresa",
-    "ambiguous_unit": "La unidad coincide con más de una unidad activa; elige la columna de origen o corrige el valor",
+    "ambiguous_unit": "La unidad coincide con más de una unidad activa; elija la columna de origen o corrija el valor",
     "tax_not_found": "El nombre del impuesto no coincide con un impuesto activo de esta empresa",
     "ambiguous_tax": "El nombre y el porcentaje no identifican un único impuesto",
     "out_of_range": "El valor está fuera del rango permitido",
     "service_requires_zero_stock": "Un ítem de servicio no puede tener stock de apertura",
     "service_tracking_conflict": "Un ítem de servicio no puede controlar lotes ni vencimientos",
-    "lot_tracking_requires_zero_stock": "El stock de apertura debe estar en cero cuando controlas lotes; recibe el primer lote después de importar",
+    "lot_tracking_requires_zero_stock": "El stock de apertura debe estar en cero cuando controla lotes; reciba el primer lote después de importar",
     "duplicate_file_sku": "El SKU está repetido en este archivo",
     "duplicate_existing_sku": "El SKU ya existe en esta empresa",
     "duplicate_file_barcode": "El código de barras está repetido en este archivo",
@@ -135,7 +135,7 @@
     "kicker": "Completada",
     "title": "Importación completada",
     "description": "Productos creados: {{imported}}. Registros de stock de apertura: {{stock}}.",
-    "rollbackReminder": "Si necesitas revertir este lote, detén la actividad nueva y restaura el respaldo cifrado creado antes de la importación. La restauración también elimina todos los cambios posteriores.",
+    "rollbackReminder": "Si necesita revertir este lote, detenga la actividad nueva y restaure el respaldo cifrado creado antes de la importación. La restauración también elimina todos los cambios posteriores.",
     "importId": "Id de importación:",
     "productId": "Id del producto",
     "stockRecorded": "Stock de apertura registrado",
@@ -161,15 +161,15 @@
   },
   "template": {
     "sampleName": "Café de ejemplo",
-    "sampleDescription": "Reemplaza esta fila con los datos de tus productos"
+    "sampleDescription": "Reemplace esta fila con los datos de sus productos"
   },
   "fileErrors": {
-    "unsupported_file": "Elige un archivo .csv o .xlsx.",
+    "unsupported_file": "Elija un archivo .csv o .xlsx.",
     "file_too_large": "El archivo supera el límite de 10 MB.",
     "empty_file": "El archivo no contiene filas de datos.",
     "empty_header": "Cada columna de origen necesita un encabezado.",
     "duplicate_header": "Los encabezados de las columnas deben ser únicos.",
-    "too_many_rows": "Importa máximo 500 filas a la vez.",
+    "too_many_rows": "Importe máximo 500 filas a la vez.",
     "too_many_columns": "El archivo supera el límite de 50 columnas.",
     "row_too_wide": "Una fila de datos contiene más valores que la fila de encabezados.",
     "malformed_csv": "El CSV contiene un valor entre comillas incompleto o no válido.",
@@ -182,7 +182,7 @@
     "imported_other": "{{count}} productos importados"
   },
   "entitySelector": {
-    "label": "Elige los datos que deseas importar"
+    "label": "Elija los datos que desea importar"
   },
   "entities": {
     "products": {
@@ -246,7 +246,7 @@
       "recordId": "ID del registro"
     },
     "customers": {
-      "mapDescription": "Confirma las columnas detectadas para clientes. El nombre es obligatorio; puedes dejar los demás campos sin asignar.",
+      "mapDescription": "Confirme las columnas detectadas para clientes. El nombre es obligatorio; puede dejar los demás campos sin asignar.",
       "previewDescription": "Puntovivo valida cada cliente y omite identificaciones tributarias o correos repetidos.",
       "reportDescription_one": "Clientes creados: {{imported}}.",
       "reportDescription_other": "Clientes creados: {{imported}}.",
@@ -262,11 +262,11 @@
         "state": "Bogotá D.C.",
         "postalCode": "110111",
         "country": "Colombia",
-        "notes": "Reemplaza esta fila con los datos de tu cliente"
+        "notes": "Reemplace esta fila con los datos de su cliente"
       }
     },
     "providers": {
-      "mapDescription": "Confirma las columnas detectadas para proveedores. El nombre es obligatorio; usa el código del catálogo geográfico de Puntovivo cuando esté disponible.",
+      "mapDescription": "Confirme las columnas detectadas para proveedores. El nombre es obligatorio; use el código del catálogo geográfico de Puntovivo cuando esté disponible.",
       "previewDescription": "Puntovivo valida cada proveedor, revisa los códigos de ciudad y omite nombres, identificaciones tributarias o correos repetidos.",
       "reportDescription_one": "Proveedores creados: {{imported}}.",
       "reportDescription_other": "Proveedores creados: {{imported}}.",
@@ -290,8 +290,8 @@
       "openingBalance": "Saldo inicial por cobrar",
       "note": "Nota"
     },
-    "mapDescription": "Relaciona cada saldo inicial por cobrar con un cliente existente. El saldo es obligatorio, junto con la identificación tributaria o el correo.",
-    "identityRequirement": "Asigna la identificación tributaria o el correo, además del saldo inicial. Puntovivo solo relaciona clientes activos de este negocio.",
+    "mapDescription": "Relacione cada saldo inicial por cobrar con un cliente existente. El saldo es obligatorio, junto con la identificación tributaria o el correo.",
+    "identityRequirement": "Asigne la identificación tributaria o el correo, además del saldo inicial. Puntovivo solo relaciona clientes activos de este negocio.",
     "previewDescription": "Puntovivo relaciona clientes activos de este negocio y omite a quienes ya tienen movimientos en su estado de cuenta.",
     "issues": {
       "identity_required": "La identificación tributaria o el correo son obligatorios",
@@ -332,22 +332,22 @@
       "openingFloat": "Base de apertura",
       "denominations": "Conteo por denominaciones"
     },
-    "mapDescription": "Mapea la sede, la caja, la base de apertura y su desglose por denominaciones. Todos los campos son obligatorios para que la plantilla quede conciliada.",
-    "denominationFormatHelp": "Escribe cada conteo como valor:cantidad y sepáralos con punto y coma, por ejemplo 50000:2;20000:1. El total calculado debe coincidir con la base de apertura.",
+    "mapDescription": "Mapee la sede, la caja, la base de apertura y su desglose por denominaciones. Todos los campos son obligatorios para que la plantilla quede conciliada.",
+    "denominationFormatHelp": "Escriba cada conteo como valor:cantidad y sepárelos con punto y coma, por ejemplo 50000:2;20000:1. El total calculado debe coincidir con la base de apertura.",
     "previewDescription": "Puntovivo busca sedes activas de este negocio, rechaza cajas activas o ya establecidas y solo puede reemplazar una plantilla inicial en cero que nunca se haya usado.",
     "issues": {
       "required": "Falta un valor obligatorio",
       "too_long": "El valor supera la longitud permitida",
       "invalid_number": "El formato del número no es válido",
       "out_of_range": "La base de apertura está fuera del rango permitido",
-      "invalid_denominations": "Usa pares valor:cantidad separados por punto y coma",
+      "invalid_denominations": "Use pares valor:cantidad separados por punto y coma",
       "denomination_total_mismatch": "El total por denominaciones no coincide con la base de apertura",
       "site_not_found": "Ninguna sede activa de este negocio coincide con este nombre",
       "ambiguous_site": "Más de una sede activa coincide con este nombre",
       "duplicate_file_register": "Esta sede y caja están repetidas en el archivo",
       "duplicate_existing_register": "Esta caja ya tiene una plantilla de apertura establecida",
       "active_register": "Esta caja tiene una sesión abierta",
-      "concurrent_register_change": "La caja cambió después de la previsualización; vuelve a validar el archivo",
+      "concurrent_register_change": "La caja cambió después de la previsualización; vuelva a validar el archivo",
       "import_failed": "No se pudo importar la plantilla de apertura"
     },
     "report": {
@@ -381,10 +381,10 @@
       "validFrom": "Vigente desde",
       "validUntil": "Vigente hasta"
     },
-    "mapDescription": "Mapea los campos del perfil del emisor disponibles en el archivo. El código de país y la identificación tributaria siempre son obligatorios; Puntovivo valida los demás requisitos para CO, MX o CL.",
-    "countryFieldHelp": "Usa CO, MX o CL e incluye únicamente el perfil del país de este negocio. MX usa régimen y código postal; CL usa actividad, comuna y dirección de casa matriz; CO usa el NIT y el ambiente.",
+    "mapDescription": "Mapee los campos del perfil del emisor disponibles en el archivo. El código de país y la identificación tributaria siempre son obligatorios; Puntovivo valida los demás requisitos para CO, MX o CL.",
+    "countryFieldHelp": "Use CO, MX o CL e incluya únicamente el perfil del país de este negocio. MX usa régimen y código postal; CL usa actividad, comuna y dirección de casa matriz; CO usa el NIT y el ambiente.",
     "previewDescription": "Puntovivo valida este archivo con el paquete fiscal canónico de {{country}} y nunca reemplaza un perfil de emisor establecido.",
-    "activationBoundary": "Límite de seguridad: los perfiles fiscales importados permanecen desactivados. Revisa los datos del emisor y activa manualmente la emisión fiscal en Empresa → Fiscal.",
+    "activationBoundary": "Límite de seguridad: los perfiles fiscales importados permanecen desactivados. Revise los datos del emisor y active manualmente la emisión fiscal en Empresa → Fiscal.",
     "profileDetails": "Detalle del perfil",
     "issues": {
       "required": "Falta un valor obligatorio",
@@ -401,10 +401,10 @@
       "invalid_environment": "El ambiente fiscal no es válido para este país",
       "duplicate_file_profile": "El perfil de este país está repetido en el archivo",
       "duplicate_existing_profile": "Este perfil de emisor ya está configurado",
-      "existing_profile_conflict": "Ya existe un perfil de emisor establecido; revísalo en Empresa → Fiscal",
-      "concurrent_profile_change": "El perfil fiscal cambió después de la previsualización; vuelve a validar el archivo",
+      "existing_profile_conflict": "Ya existe un perfil de emisor establecido; revíselo en Empresa → Fiscal",
+      "concurrent_profile_change": "El perfil fiscal cambió después de la previsualización; vuelva a validar el archivo",
       "import_failed": "No se pudo importar el perfil fiscal",
-      "invalid_date": "La fecha no es válida; usa AAAA-MM-DD",
+      "invalid_date": "La fecha no es válida; use AAAA-MM-DD",
       "invalid_prefix": "El prefijo debe tener de 1 a 4 letras o dígitos, y es obligatorio con más de una sede",
       "unknown_site": "No hay una sede activa con ese nombre",
       "numbering_range_rejected": "El rango se cruza con otro registrado o no cumple las reglas de numeración"
@@ -412,7 +412,7 @@
     "reportDescription_one": "Se importó {{count}} perfil fiscal y quedó desactivado para revisión.",
     "reportDescription_other": "Se importaron {{count}} perfiles fiscales y quedaron desactivados para revisión.",
     "reviewAction": "Revisar perfil fiscal",
-    "activationReminder": "La activación sigue pendiente. Verifica la identidad del emisor, el ambiente y la numeración antes de habilitar la emisión fiscal.",
+    "activationReminder": "La activación sigue pendiente. Verifique la identidad del emisor, el ambiente y la numeración antes de habilitar la emisión fiscal.",
     "toastImported_one": "Se importó {{count}} perfil fiscal",
     "toastImported_other": "Se importaron {{count}} perfiles fiscales"
   },
@@ -420,7 +420,7 @@
     "label": "Formato de origen",
     "detected": "Perfil de encabezados probado detectado",
     "reviewRequired": "Revisión manual obligatoria",
-    "boundary": "Los ejemplos anonimizados incluidos son archivos CSV UTF-8. Los archivos CSV o XLSX con los mismos encabezados probados usan la misma asignación. Los perfiles no conectan, sincronizan ni certifican ninguna plataforma externa. Si cambian los encabezados obligatorios, usa la asignación genérica y revisa cada columna.",
+    "boundary": "Los ejemplos anonimizados incluidos son archivos CSV UTF-8. Los archivos CSV o XLSX con los mismos encabezados probados usan la misma asignación. Los perfiles no conectan, sincronizan ni certifican ninguna plataforma externa. Si cambian los encabezados obligatorios, use la asignación genérica y revise cada columna.",
     "options": {
       "generic": "CSV o Excel genérico — asignación manual",
       "loyverse-items-en-v1": "CSV de artículos de Loyverse — encabezados en inglés v1",
@@ -429,7 +429,7 @@
       "world-office-inventory-es-v1": "Exportación de inventario de World Office — encabezados en español v1"
     },
     "details": {
-      "generic": "No se aplica la huella de un proveedor. El nombre y el SKU siguen siendo obligatorios, y debes revisar cada columna detectada.",
+      "generic": "No se aplica la huella de un proveedor. El nombre y el SKU siguen siendo obligatorios, y debe revisar cada columna detectada.",
       "loyverse-items-en-v1": "Huella probada: Handle, SKU, Name, Price, Cost, Barcode, Sold by weight, Track stock, In stock y Low stock.",
       "alegra-inventory-es-v1": "Huella probada: Código, Nombre, Referencia, Precio de venta, Costo unitario, Cantidad inicial, Nombre impuesto y Porcentaje impuesto.",
       "siigo-products-es-v1": "Huella probada: Código producto, Nombre producto, Precio de venta, Costo, Existencia, Impuesto cargo y Unidad de medida.",

@@ -75,7 +75,7 @@ for (const language of ['en', 'es'] as const) {
         await expect(account).toContainText(`${userName} ${roleLabel}`);
       }
       const search = header.getByRole('button', {
-        name: language === 'es' ? '¿Qué quieres hacer?' : 'What do you want to do?',
+        name: language === 'es' ? '¿Qué desea hacer?' : 'What do you want to do?',
       });
       await expectInsideViewport(search, width);
       await account.click();

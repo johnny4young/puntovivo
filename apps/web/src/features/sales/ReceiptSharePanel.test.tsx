@@ -90,7 +90,7 @@ describe('ReceiptSharePanel', () => {
 
     expect(screen.getByText('Antes de continuar')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Abrir WhatsApp' })).toBeInTheDocument();
-    expect(screen.getByText(/Debes adjuntarla manualmente/)).toBeInTheDocument();
+    expect(screen.getByText(/Debe adjuntarla manualmente/)).toBeInTheDocument();
     await act(async () => i18next.changeLanguage('en'));
   });
 });

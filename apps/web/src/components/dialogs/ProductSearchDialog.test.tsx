@@ -159,7 +159,7 @@ describe('<ProductSearchDialog /> empty-state CTA', () => {
 
     const cta = await screen.findByTestId('product-search-quick-create-cta');
     expect(cta).toHaveTextContent(/Crear nuevo producto/i);
-    expect(screen.getByText(/Puedes registrarlo ahora/i)).toBeInTheDocument();
+    expect(screen.getByText(/Puede registrarlo ahora/i)).toBeInTheDocument();
   });
 
   it('escapes special characters in the empty-state title (no XSS through {{query}})', async () => {

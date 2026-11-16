@@ -1,7 +1,7 @@
 {
   "header": {
     "title": "Estado de la tienda",
-    "subtitle": "Revisa qué afecta la tienda, si las ventas siguen seguras y cuál es la próxima acción.",
+    "subtitle": "Revise qué afecta la tienda, si las ventas siguen seguras y cuál es la próxima acción.",
     "kicker": "Hoy"
   },
   "tabs": {
@@ -68,22 +68,22 @@
       "updates": "Verificación de actualización en menos de {{count}} h"
     },
     "runbook": {
-      "sync": "Concilia y reanuda",
-      "fiscal": "Verifica, reintenta y conserva la venta",
-      "device": "Prueba la ruta y luego reintenta",
-      "payments": "Concilia antes de reintentar",
+      "sync": "Concilie y reanude",
+      "fiscal": "Verifique, reintente y conserve la venta",
+      "device": "Pruebe la ruta y luego reintente",
+      "payments": "Concilie antes de reintentar",
       "backup": "Respaldo, bóveda y simulacro de restauración",
-      "updates": "Verifica la política y luego revierte"
+      "updates": "Verifique la política y luego revierta"
     },
     "observation": {
       "checking": "Leyendo la señal más reciente del servicio.",
-      "signalUnavailable": "No se pudo leer la señal. Continúa desde la superficie de recuperación.",
+      "signalUnavailable": "No se pudo leer la señal. Continúe desde la superficie de recuperación.",
       "clear": "No hay umbrales abiertos en este momento.",
       "failedItems_one": "{{count}} elemento superó el umbral de fallo terminal.",
       "failedItems_other": "{{count}} elementos superaron el umbral de fallo terminal.",
-      "queuedItems_one": "{{count}} elemento está esperando; mantén la cola en observación.",
-      "queuedItems_other": "{{count}} elementos están esperando; mantén la cola en observación.",
-      "desktopRequired": "Lee esta señal local del dispositivo en la aplicación de escritorio.",
+      "queuedItems_one": "{{count}} elemento está esperando; mantenga la cola en observación.",
+      "queuedItems_other": "{{count}} elementos están esperando; mantenga la cola en observación.",
+      "desktopRequired": "Lea esta señal local del dispositivo en la aplicación de escritorio.",
       "adminOwned": "Un administrador es responsable de este control local y su evidencia.",
       "backupFailed": "El último respaldo programado falló.",
       "backupOff": "La programación del respaldo cifrado está desactivada.",
@@ -117,7 +117,7 @@
     "health": {
       "title": "Salud para soporte",
       "description": "Una vista segura del runtime, las actualizaciones, los módulos, los dispositivos y la telemetría antes de que alguien solicite acceso a la base de datos.",
-      "loadError": "No se pudieron cargar algunas señales de soporte. Revisa los paneles individuales de Operaciones antes de compartir un diagnóstico.",
+      "loadError": "No se pudieron cargar algunas señales de soporte. Revise los paneles individuales de Operaciones antes de compartir un diagnóstico.",
       "summary": {
         "clear": "Todas las señales de soporte disponibles están saludables.",
         "attention_one": "{{count}} señal de soporte requiere revisión.",
@@ -167,8 +167,8 @@
     "recovery": {
       "kicker": "Recuperación guiada",
       "title": "Lista de recuperación",
-      "description": "Pasa de una señal de soporte a la siguiente acción segura. Los enlaces de Configuración solo están disponibles para administradores; los responsables mantienen su flujo en Operaciones.",
-      "partialSignals": "Algunas señales de salud no están disponibles. Usa los paneles individuales para continuar de forma segura.",
+      "description": "Pase de una señal de soporte a la siguiente acción segura. Los enlaces de Configuración solo están disponibles para administradores; los responsables mantienen su flujo en Operaciones.",
+      "partialSignals": "Algunas señales de salud no están disponibles. Use los paneles individuales para continuar de forma segura.",
       "listAriaLabel": "Pasos de recuperación para soporte",
       "actions": {
         "openUpdates": "Revisar actualizaciones",
@@ -179,8 +179,8 @@
       },
       "steps": {
         "updates": {
-          "title": "Confirma la versión actual",
-          "description": "Revisa la versión de escritorio y el actualizador antes de cambiar el estado de la estación.",
+          "title": "Confirme la versión actual",
+          "description": "Revise la versión de escritorio y el actualizador antes de cambiar el estado de la estación.",
           "status": {
             "healthy": "Lista",
             "checking": "Verificando",
@@ -189,8 +189,8 @@
           }
         },
         "devices": {
-          "title": "Recupera los latidos de dispositivos",
-          "description": "Revisa terminales desactualizadas o revocadas antes de vincular o revocar otro dispositivo.",
+          "title": "Recupere los latidos de dispositivos",
+          "description": "Revise terminales desactualizadas o revocadas antes de vincular o revocar otro dispositivo.",
           "status": {
             "healthy": "Todos en línea",
             "attention_one": "{{count}} dispositivo requiere atención",
@@ -198,16 +198,16 @@
           }
         },
         "telemetry": {
-          "title": "Confirma la elección de telemetría",
-          "description": "Respeta la decisión de consentimiento del tenant; soporte puede continuar si la telemetría está desactivada.",
+          "title": "Confirme la elección de telemetría",
+          "description": "Respete la decisión de consentimiento del tenant; soporte puede continuar si la telemetría está desactivada.",
           "status": {
             "enabled": "Activada",
             "disabled": "Desactivada por elección"
           }
         },
         "evidence": {
-          "title": "Prepara evidencia redactada",
-          "description": "Previsualiza y exporta el paquete de diagnóstico sanitizado en lugar de solicitar la base de datos sin procesar.",
+          "title": "Prepare evidencia redactada",
+          "description": "Previsualice y exporte el paquete de diagnóstico sanitizado en lugar de solicitar la base de datos sin procesar.",
           "status": {
             "ready": "Lista",
             "adminRequired": "Exportación de administrador"
@@ -218,9 +218,9 @@
     "snapshot": {
       "kicker": "Evidencia portátil",
       "title": "Resumen redactado",
-      "description": "Copia o descarga JSON. Usa Diagnóstico para obtener un paquete sanitizado más detallado.",
+      "description": "Copie o descargue JSON. Use Diagnóstico para obtener un paquete sanitizado más detallado.",
       "privacyBoundary": "Solo contiene salud y versiones agregadas. No incluye nombres, identificadores, sedes, datos del tenant ni errores sin procesar.",
-      "unavailable": "Espera todas las señales de soporte antes de compartir.",
+      "unavailable": "Espere todas las señales de soporte antes de compartir.",
       "actions": {
         "copy": "Copiar",
         "download": "Descargar"
@@ -236,7 +236,7 @@
   "attention": {
     "kicker": "Estado de la tienda",
     "title": "Qué necesita atención",
-    "description": "Cada incidente explica qué está afectado, si puedes seguir vendiendo y quién debe actuar. Tus ventas completadas conservan su trazabilidad.",
+    "description": "Cada incidente explica qué está afectado, si puede seguir vendiendo y quién debe actuar. Sus ventas completadas conservan su trazabilidad.",
     "actionAria": "{{action}} — {{area}}",
     "action": {
       "sync": "Abrir recuperación de datos",
@@ -244,7 +244,7 @@
       "device": "Revisar trabajo del dispositivo",
       "payments": "Conciliar pago"
     },
-    "handoff": "Solicita ayuda a un administrador",
+    "handoff": "Solicite ayuda a un administrador",
     "count_one": "{{count}} elemento requiere revisión",
     "count_other": "{{count}} elementos requieren revisión",
     "area": {
@@ -254,12 +254,12 @@
       "payments": "Confirmación de pago electrónico"
     },
     "severity": {
-      "danger": "Actúa ahora",
-      "warning": "Revisa pronto"
+      "danger": "Actúe ahora",
+      "warning": "Revise pronto"
     },
     "labels": {
       "impact": "Qué está afectado",
-      "saleSafety": "¿Puedes seguir vendiendo?",
+      "saleSafety": "¿Puede seguir vendiendo?",
       "recommendation": "Acción recomendada",
       "approval": "Quién autoriza la recuperación"
     },
@@ -271,15 +271,15 @@
     },
     "saleSafety": {
       "sync": "Sí. La venta permanece guardada en este dispositivo mientras se recupera la sincronización.",
-      "fiscal": "La venta permanece guardada. Continúa solo bajo la política de contingencia fiscal configurada.",
+      "fiscal": "La venta permanece guardada. Continúe solo bajo la política de contingencia fiscal configurada.",
       "device": "Sí. La venta permanece guardada; la impresión o el dispositivo es el paso afectado.",
-      "payments": "Verifica el pago antes de cobrar de nuevo. Usa otro medio solo si la política de la tienda lo permite."
+      "payments": "Verifique el pago antes de cobrar de nuevo. Use otro medio solo si la política de la tienda lo permite."
     },
     "recommendation": {
-      "sync": "Concilia la información pendiente y reanuda el envío sin volver a crear la venta.",
-      "fiscal": "Revisa la respuesta del proveedor y reintenta la entrega sin volver a crear la venta.",
-      "device": "Revisa la impresora o la conexión y luego reintenta la tarea original.",
-      "payments": "Concilia la respuesta del proveedor antes de reintentar para evitar un cobro duplicado."
+      "sync": "Concilie la información pendiente y reanude el envío sin volver a crear la venta.",
+      "fiscal": "Revise la respuesta del proveedor y reintente la entrega sin volver a crear la venta.",
+      "device": "Revise la impresora o la conexión y luego reintente la tarea original.",
+      "payments": "Concilie la respuesta del proveedor antes de reintentar para evitar un cobro duplicado."
     },
     "approval": {
       "administrator": "Administrador"
@@ -292,7 +292,7 @@
     },
     "allClear": {
       "title": "Todo está listo",
-      "description": "No hay incidentes por atender ahora. Puedes continuar con la jornada de la tienda."
+      "description": "No hay incidentes por atender ahora. Puede continuar con la jornada de la tienda."
     },
     "error": {
       "title": "No se pudo leer el estado de la tienda",
@@ -302,8 +302,8 @@
   "device": {
     "peripherals": {
       "title": "Periféricos registrados",
-      "description": "Qué está conectado en tus sedes y cómo le fue en la última prueba.",
-      "emptyState": "Aún no hay periféricos registrados. Agrégalos en Configuración → Periféricos.",
+      "description": "Qué está conectado en sus sedes y cómo le fue en la última prueba.",
+      "emptyState": "Aún no hay periféricos registrados. Agréguelos en Configuración → Periféricos.",
       "notTested": "Sin probar",
       "kind": {
         "printer": "Impresora de recibos",
@@ -327,7 +327,7 @@
     },
     "outbox": {
       "title": "Cola de hardware",
-      "description": "Impresiones y kicks de cajón que no aterrizaron. Por defecto muestra solo problemas; usa el botón para ver todo.",
+      "description": "Impresiones y kicks de cajón que no aterrizaron. Por defecto muestra solo problemas; use el botón para ver todo.",
       "filter": {
         "problemsOnly": "Ver solo problemas",
         "showAll": "Ver todo"
@@ -464,10 +464,10 @@
         "orphan_provider_row": "Fila de proveedor sin vínculo"
       },
       "action": {
-        "queue_charge": "Encola el cobro",
-        "review_provider": "Revisa la respuesta del proveedor",
-        "adjust_amount": "Ajusta o divide el pago",
-        "link_tender": "Vincula un pago del POS"
+        "queue_charge": "Encole el cobro",
+        "review_provider": "Revise la respuesta del proveedor",
+        "adjust_amount": "Ajuste o divida el pago",
+        "link_tender": "Vincule un pago del POS"
       },
       "emptyTitle": "Sin diferencias"
     },
@@ -494,7 +494,7 @@
       "approved": "Propuesta aprobada y pago liquidado",
       "rejected": "Propuesta rechazada; el pago no cambió",
       "reviewError": "No se pudo revisar la propuesta",
-      "aiWarning": "La IA sugirió esta correspondencia. No confirmó la liquidación; verifica el registro del proveedor.",
+      "aiWarning": "La IA sugirió esta correspondencia. No confirmó la liquidación; verifique el registro del proveedor.",
       "providerTransactionId": "Identificador de transacción del proveedor",
       "settledAt": "Hora de liquidación del proveedor",
       "fee": "Comisión del proveedor",
@@ -536,9 +536,9 @@
         "retryUnavailable": "Solo los pagos rechazados, vencidos, en reintento o marcados como dead letter se pueden reintentar.",
         "markSettled": "Marcar liquidado",
         "markSettledConfirmTitle": "Marcar este pago como liquidado",
-        "markSettledConfirmMessage": "Usa este override solo cuando el proveedor ya confirmó la liquidación por fuera. El estado pasa a liquidado y abajo puedes pegar la referencia del proveedor.",
+        "markSettledConfirmMessage": "Use este override solo cuando el proveedor ya confirmó la liquidación por fuera. El estado pasa a liquidado y abajo puede pegar la referencia del proveedor.",
         "markSettledProviderTxLabel": "Identificador del proveedor (opcional)",
-        "markSettledProviderTxPlaceholder": "Deja vacío para conservar el valor actual",
+        "markSettledProviderTxPlaceholder": "Deje vacío para conservar el valor actual",
         "markSettledSuccess": "Pago marcado como liquidado",
         "markSettledError": "No se pudo marcar el pago como liquidado",
         "noPermission": "Solo los administradores pueden cambiar el estado de un pago",
@@ -562,7 +562,7 @@
     },
     "settings": {
       "title": "Credenciales de proveedores de pago",
-      "description": "Guarda las credenciales sandbox o de producción que cada rail necesita para enviar cobros reales. La integración en vivo llega en un slice posterior; por ahora los rails siguen deterministas hasta que se conecte un worker.",
+      "description": "Guarde las credenciales sandbox o de producción que cada rail necesita para enviar cobros reales. La integración en vivo llega en un slice posterior; por ahora los rails siguen deterministas hasta que se conecte un worker.",
       "liveBadge": "Integración en vivo",
       "stubBadge": "Stub determinista",
       "readiness": {
@@ -578,7 +578,7 @@
         "showSecret": "Mostrar",
         "hideSecret": "Ocultar",
         "clearField": "Limpiar",
-        "storedHint": "Valor guardado oculto. Escribe para sobreescribir o limpia para eliminar.",
+        "storedHint": "Valor guardado oculto. Escriba para sobreescribir o limpie para eliminar.",
         "emptyHint": "Aún no hay valor guardado.",
         "encryptedNote": "Las credenciales se guardan cifradas en este equipo.",
         "emptyPlaceholder": "Sin guardar"
@@ -595,16 +595,16 @@
       },
       "rails": {
         "wompi": {
-          "description": "Las credenciales sandbox y de producción están en tu panel de Wompi."
+          "description": "Las credenciales sandbox y de producción están en su panel de Wompi."
         },
         "bold": {
-          "description": "Toma el API key, el secret y el merchant id del portal Bold."
+          "description": "Tome el API key, el secret y el merchant id del portal Bold."
         },
         "epayco": {
           "description": "ePayco expone credenciales cliente (pública y P_KEY) y servidor (privada)."
         },
         "mercado_pago": {
-          "description": "Usa el access token del panel de desarrolladores de Mercado Pago para el país correcto."
+          "description": "Use el access token del panel de desarrolladores de Mercado Pago para el país correcto."
         },
         "nequi": {
           "description": "Bancolombia entrega el API key y el merchant id de Nequi en el onboarding."
@@ -642,7 +642,7 @@
     },
     "pairing": {
       "title": "Código de emparejamiento",
-      "description": "Genera un código de un solo uso para un terminal hub-client.",
+      "description": "Genere un código de un solo uso para un terminal hub-client.",
       "site": "Sede emparejada",
       "deviceName": "Nombre del dispositivo",
       "ttl": "Minutos",
@@ -679,7 +679,7 @@
   },
   "diagnostics": {
     "title": "Exportar diagnóstico",
-    "description": "Descarga un ZIP con eventos de operación + outboxes (sincronización, fiscal, hardware) filtrados por rango de fechas. Útil para adjuntar a tickets de soporte.",
+    "description": "Descargue un ZIP con eventos de operación + outboxes (sincronización, fiscal, hardware) filtrados por rango de fechas. Útil para adjuntar a tickets de soporte.",
     "range": {
       "from": "Desde",
       "to": "Hasta",
@@ -693,7 +693,7 @@
     },
     "preview": {
       "cta": "Vista previa",
-      "willHitLimit": "Algunas tablas alcanzaron el límite de {{rowLimit}} filas. Reduce el rango para no truncar datos.",
+      "willHitLimit": "Algunas tablas alcanzaron el límite de {{rowLimit}} filas. Reduzca el rango para no truncar datos.",
       "results": {
         "operationEvents": "Eventos de operación",
         "operationEffects": "Efectos de operación",
@@ -726,7 +726,7 @@
   "sync": {
     "kicker": "Operación",
     "title": "Salud de sync",
-    "description": "Monitorea la cola de sync y resuelve los conflictos que necesitan una decisión.",
+    "description": "Monitoree la cola de sync y resuelva los conflictos que necesitan una decisión.",
     "summary": {
       "pending": "Pendientes",
       "retrying": "Reintentando",
@@ -779,7 +779,7 @@
   "navigation": {
     "ariaLabel": "Estado de la tienda y soporte",
     "statusTitle": "Estado de la tienda",
-    "statusDescription": "Empieza aquí. Revisa los incidentes y la acción más segura en lenguaje claro.",
+    "statusDescription": "Empiece aquí. Revise los incidentes y la acción más segura en lenguaje claro.",
     "supportTitle": "Soporte y diagnóstico",
     "supportDescription": "Herramientas de administrador para recuperar, revisar el estado técnico y compartir evidencia.",
     "groups": {

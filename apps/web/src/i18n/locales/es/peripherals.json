@@ -1,11 +1,11 @@
 {
   "title": "Dispositivos",
-  "description": "Conecta y prueba los equipos que usas para cobrar: impresora, cajón de dinero, lector de códigos y datáfono.",
+  "description": "Conecte y pruebe los equipos que usa para cobrar: impresora, cajón de dinero, lector de códigos y datáfono.",
   "siteSelector": "Sede",
   "addButton": "Agregar dispositivo",
   "emptyState": {
     "title": "Aún no hay dispositivos",
-    "body": "Agrega un dispositivo para que Puntovivo pueda usarlo. La impresora actual seguirá disponible aunque no la agregues aquí.",
+    "body": "Agregue un dispositivo para que Puntovivo pueda usarlo. La impresora actual seguirá disponible aunque no la agregue aquí.",
     "cta": "Agregar dispositivo"
   },
   "kind": {
@@ -37,18 +37,18 @@
     "configLabel": "Configuración avanzada (JSON)",
     "configPlaceholder": "{}",
     "configHelp": "Para una impresora ESC/POS conectada por red, usa una IP privada y un puerto entre 9100 y 9103.",
-    "configInvalidJson": "La configuración no es JSON válido. Revisa comillas, comas o llaves faltantes.",
+    "configInvalidJson": "La configuración no es JSON válido. Revise comillas, comas o llaves faltantes.",
     "autoPrintOnComplete": {
       "label": "Imprimir automáticamente al cerrar la venta",
-      "help": "Envía el recibo a esta impresora cuando el cajero confirma la venta. El cajón también se abre si activas esa opción en la configuración avanzada de la impresora.",
-      "systemHelp": "Abre el diálogo del sistema después de cada venta. Selecciona una impresora local en los ajustes de escritorio antes de activar la impresión silenciosa."
+      "help": "Envía el recibo a esta impresora cuando el cajero confirma la venta. El cajón también se abre si activa esa opción en la configuración avanzada de la impresora.",
+      "systemHelp": "Abra el diálogo del sistema después de cada venta. Seleccione una impresora local en los ajustes de escritorio antes de activar la impresión silenciosa."
     },
     "gs1": {
       "title": "Etiquetas GS1 de peso y precio",
-      "help": "Asigna cada prefijo interno al valor que codifica la balanza de esta sede. Los prefijos sin uso se tratan como códigos normales.",
+      "help": "Asigne cada prefijo interno al valor que codifica la balanza de esta sede. Los prefijos sin uso se tratan como códigos normales.",
       "scheme": "Esquema de etiquetas",
       "prefix": "Prefijo {{prefix}}",
-      "invalid": "La configuración de prefijos GS1 no es válida. Asigna al menos un prefijo y no lo repitas para peso y precio.",
+      "invalid": "La configuración de prefijos GS1 no es válida. Asigne al menos un prefijo y no lo repita para peso y precio.",
       "schemes": {
         "none": "No interpretar etiquetas GS1",
         "generic": "LATAM genérico",
@@ -63,8 +63,8 @@
       }
     },
     "paperWidthLabel": "Ancho del papel",
-    "paperWidthInvalid": "Elige un ancho válido",
-    "paperWidthHelp": "Elige el rollo de la impresora: 58 mm usa 32 columnas; 80 mm usa 48. Configura la plantilla del recibo por separado.",
+    "paperWidthInvalid": "Elija un ancho válido",
+    "paperWidthHelp": "Elija el rollo de la impresora: 58 mm usa 32 columnas; 80 mm usa 48. Configure la plantilla del recibo por separado.",
     "transportLabel": "Conexión ESC/POS",
     "tcp": "Red (TCP)",
     "usbUnavailable": "USB directo: no implementado",
@@ -72,11 +72,11 @@
     "mockOnly": "Simulación (solo pruebas; no imprime en papel)",
     "unsupportedTransport": "ESC/POS por USB directo y puerto serie no está implementado. Para una impresora USB, usa Sistema con el controlador del sistema operativo.",
     "hostLabel": "Dirección de red de la impresora",
-    "hostPlaceholder": "Ingresa la IP privada real de la impresora",
-    "hostRequired": "Ingresa la dirección de red real de la impresora. Un cable USB no proporciona una dirección TCP.",
+    "hostPlaceholder": "Ingrese la IP privada real de la impresora",
+    "hostRequired": "Ingrese la dirección de red real de la impresora. Un cable USB no proporciona una dirección TCP.",
     "portLabel": "Puerto de red de la impresora",
-    "networkOnly": "Solo para impresoras conectadas por red. Ingresa la dirección indicada por tu impresora o administrador de red. Conectar un cable USB no habilita esta configuración de red.",
-    "systemRoute": "Para una impresora USB, instala el controlador del sistema operativo y usa Sistema. Selecciona la impresora local y envía un ticket de prueba en la sección de impresora del sistema. Configura el papel del sistema operativo según la plantilla del recibo."
+    "networkOnly": "Solo para impresoras conectadas por red. Ingrese la dirección indicada por su impresora o administrador de red. Conectar un cable USB no habilita esta configuración de red.",
+    "systemRoute": "Para una impresora USB, instale el controlador del sistema operativo y use Sistema. Seleccione la impresora local y envíe un ticket de prueba en la sección de impresora del sistema. Configure el papel del sistema operativo según la plantilla del recibo."
   },
   "actions": {
     "test": "Probar",
@@ -103,28 +103,28 @@
     "deactivated": "Dispositivo desactivado",
     "activated": "Dispositivo activado",
     "errorTitle": "No se pudo guardar el dispositivo",
-    "errorBody": "Revisa la configuración e inténtalo de nuevo.",
+    "errorBody": "Revise la configuración e inténtelo de nuevo.",
     "testFailed": "La prueba del dispositivo falló",
     "registrationChecked": "Registro del dispositivo verificado: no se probó impresión en papel",
-    "testStale": "La conexión cambió durante la prueba. Vuelve a probar la conexión actual."
+    "testStale": "La conexión cambió durante la prueba. Vuelva a probar la conexión actual."
   },
   "confirmRemove": {
     "title": "Eliminar dispositivo",
-    "body": "¿Quieres eliminar este dispositivo? Puntovivo usará la configuración predeterminada cuando ya no esté disponible.",
+    "body": "¿Desea eliminar este dispositivo? Puntovivo usará la configuración predeterminada cuando ya no esté disponible.",
     "confirm": "Eliminar",
     "cancel": "Conservar"
   },
   "systemPrinter": {
     "askEachTime": "Elegir en el diálogo de impresión (opción segura)",
     "localSelection": "Esta selección se guarda solo para este negocio en este equipo. No se detecta una impresora a partir de un nombre descriptivo ni una dirección de ejemplo.",
-    "missingQueue": "La impresora guardada no está disponible. No se cambiará a otra cola silenciosamente. Vuelve a conectarla o selecciona otra impresora.",
-    "noQueues": "No se encontraron impresoras. Instala el controlador, conecta la impresora y actualiza esta lista.",
+    "missingQueue": "La impresora guardada no está disponible. No se cambiará a otra cola silenciosamente. Vuelva a conectarla o seleccione otra impresora.",
+    "noQueues": "No se encontraron impresoras. Instale el controlador, conecte la impresora y actualice esta lista.",
     "printTest": "Imprimir ticket de prueba",
     "printerError": "No se pudo acceder o imprimir en la impresora del sistema.",
     "refreshPrinters": "Actualizar impresoras",
     "testCancelled": "Prueba de impresión cancelada. No se programó un reintento automático.",
-    "testHelp": "Abre el diálogo del sistema para un ticket sintético. Esta acción es distinta de registrar un dispositivo. Verifica el papel y su ancho; aceptar un trabajo no confirma que salió impreso.",
-    "testSubmitted": "El sistema aceptó la prueba. Revisa la impresora y la cola para confirmar la impresión en papel.",
+    "testHelp": "Abre el diálogo del sistema para un ticket sintético. Esta acción es distinta de registrar un dispositivo. Verifique el papel y su ancho; aceptar un trabajo no confirma que salió impreso.",
+    "testSubmitted": "El sistema aceptó la prueba. Revise la impresora y la cola para confirmar la impresión en papel.",
     "unavailable": "No disponible",
     "title": "Impresora del sistema en este equipo"
   }

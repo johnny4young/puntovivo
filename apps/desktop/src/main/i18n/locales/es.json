@@ -21,28 +21,28 @@
     "fileFilterName": "Base de datos SQLite",
     "createFailed": "No se pudo crear la copia de seguridad",
     "restoreFailed": "No se pudo restaurar la base de datos",
-    "restoreKeyNoPending": "No hay una restauración esperando clave. Inicia la restauración de nuevo.",
+    "restoreKeyNoPending": "No hay una restauración esperando clave. Inicie la restauración de nuevo.",
     "restoreKeyInvalidShape": "La clave de respaldo debe tener 64 caracteres hexadecimales.",
-    "restoreKeyMismatch": "Esa clave no abre esta copia. Verifica la clave mostrada en el equipo de origen e inténtalo de nuevo.",
-    "restoreBundleTampered": "Esta copia no pasó la verificación de autenticidad. El archivo fue alterado o reempaquetado después de crearse; restaura otra copia.",
-    "restorePassphraseMismatch": "Esa frase no desbloquea esta copia. Verifícala e intenta de nuevo, o pega la clave de recuperación de 64 caracteres.",
-    "restoreNoPassphraseWrap": "Este respaldo no fue protegido con una frase. Pega la clave de recuperación de 64 caracteres del equipo de origen.",
+    "restoreKeyMismatch": "Esa clave no abre esta copia. Verifique la clave mostrada en el equipo de origen e inténtelo de nuevo.",
+    "restoreBundleTampered": "Esta copia no pasó la verificación de autenticidad. El archivo fue alterado o reempaquetado después de crearse; restaure otra copia.",
+    "restorePassphraseMismatch": "Esa frase no desbloquea esta copia. Verifíquela e intente de nuevo, o pegue la clave de recuperación de 64 caracteres.",
+    "restoreNoPassphraseWrap": "Este respaldo no fue protegido con una frase. Pegue la clave de recuperación de 64 caracteres del equipo de origen.",
     "passphraseUnsupported": "Este equipo no cifra su base de datos, así que el respaldo no puede protegerse con una frase.",
     "passphraseTooShort": "La frase del respaldo debe tener al menos 10 caracteres.",
     "createInProgress": "Ya hay otra creación de respaldo en curso.",
-    "diskSpaceLow": "No hay espacio libre suficiente para esta copia. Libera espacio o elige otra unidad."
+    "diskSpaceLow": "No hay espacio libre suficiente para esta copia. Libere espacio o elija otra unidad."
   },
   "print": {
     "receiptFailed": "No se pudo imprimir el recibo",
-    "sessionRequired": "Inicia sesión antes de imprimir recibos",
+    "sessionRequired": "Inicie sesión antes de imprimir recibos",
     "documentRequired": "Se requiere un documento de recibo antes de imprimir",
-    "noSystemPrinters": "No hay impresoras del sistema disponibles. Instala la impresora en tu sistema operativo y actualiza la lista.",
-    "printerUnavailable": "La impresora seleccionada no está disponible. Revisa su conexión USB, el controlador y la cola de impresión, o selecciona otra impresora. No se envió el trabajo a otra impresora.",
-    "invalidPrinter": "Selecciona una impresora de la lista del sistema.",
-    "systemJobFailed": "El sistema no pudo enviar este trabajo de impresión. Revisa la impresora, el papel y la cola del sistema operativo antes de reintentar.",
-    "systemTimeout": "El diálogo o la cola de impresión no respondió a tiempo. Revisa la cola antes de reintentar para evitar un duplicado.",
+    "noSystemPrinters": "No hay impresoras del sistema disponibles. Instale la impresora en su sistema operativo y actualice la lista.",
+    "printerUnavailable": "La impresora seleccionada no está disponible. Revise su conexión USB, el controlador y la cola de impresión, o seleccione otra impresora. No se envió el trabajo a otra impresora.",
+    "invalidPrinter": "Seleccione una impresora de la lista del sistema.",
+    "systemJobFailed": "El sistema no pudo enviar este trabajo de impresión. Revise la impresora, el papel y la cola del sistema operativo antes de reintentar.",
+    "systemTimeout": "El diálogo o la cola de impresión no respondió a tiempo. Revise la cola antes de reintentar para evitar un duplicado.",
     "testReceipt": "Solo prueba de impresora: no se registró ninguna venta ni pago.",
-    "noPrinters": "No hay una impresora del sistema disponible. Agrega una en los ajustes de tu sistema operativo, selecciona el tamaño de papel e intenta de nuevo. Para ESC/POS, configura una impresora de recibos en Empresa > Periféricos."
+    "noPrinters": "No hay una impresora del sistema disponible. Agregue una en los ajustes de su sistema operativo, seleccione el tamaño de papel e intente de nuevo. Para ESC/POS, configure una impresora de recibos en Empresa > Periféricos."
   },
   "autoUpdate": {
     "notInitialized": "Las actualizaciones automáticas aún no se han inicializado.",
@@ -57,12 +57,12 @@
     "floorUnavailable": "Las actualizaciones automáticas están deshabilitadas porque la versión mínima local sellada no está disponible.",
     "initFailed": "No se pudo inicializar el actualizador automático",
     "requiresRepoAccess": "La verificación de actualizaciones requiere acceso al repositorio de versiones.",
-    "checkFailed": "No se pudo verificar si hay actualizaciones. Intenta de nuevo más tarde.",
-    "manualInstallRequired": "Esta versión notifica las actualizaciones; abre la página de la versión para descargar la nueva."
+    "checkFailed": "No se pudo verificar si hay actualizaciones. Intente de nuevo más tarde.",
+    "manualInstallRequired": "Esta versión notifica las actualizaciones; abra la página de la versión para descargar la nueva."
   },
   "server": {
-    "fatalCorruption": "La base de datos de este equipo está dañada y Puntovivo se cerró para no empeorarla. Restaura la última copia de seguridad. Código de soporte: {{code}}",
-    "fatalKey": "Puntovivo no pudo abrir la base de datos con la llave de este equipo y se cerró. Contacta a soporte antes de volver a abrirlo. Código de soporte: {{code}}",
-    "fatalRestartLoop": "El servidor interno de Puntovivo se detuvo varias veces en pocos minutos y la aplicación se cerró. Ábrela de nuevo; si vuelve a pasar, contacta a soporte. Código de soporte: {{code}}"
+    "fatalCorruption": "La base de datos de este equipo está dañada y Puntovivo se cerró para no empeorarla. Restaure la última copia de seguridad. Código de soporte: {{code}}",
+    "fatalKey": "Puntovivo no pudo abrir la base de datos con la llave de este equipo y se cerró. Contacte a soporte antes de volver a abrirlo. Código de soporte: {{code}}",
+    "fatalRestartLoop": "El servidor interno de Puntovivo se detuvo varias veces en pocos minutos y la aplicación se cerró. Ábrala de nuevo; si vuelve a pasar, contacte a soporte. Código de soporte: {{code}}"
   }
 }

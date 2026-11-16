@@ -3,7 +3,7 @@
     "title": "Órdenes de compra",
     "activeSite": "Sede activa",
     "noSite": "Sin sede seleccionada",
-    "noSiteWarning": "Selecciona una sede activa antes de crear una orden de compra para usar el consecutivo correcto.",
+    "noSiteWarning": "Seleccione una sede activa antes de crear una orden de compra para usar el consecutivo correcto.",
     "openOrders": "Órdenes abiertas",
     "committedSpend": "Gasto comprometido",
     "providersUsed": "Proveedores usados",
@@ -11,17 +11,17 @@
   },
   "checkout": {
     "kicker": "Solicitud actual",
-    "description": "Ajusta cantidades pedidas y costos del proveedor antes de enviar la orden.",
+    "description": "Ajuste cantidades pedidas y costos del proveedor antes de enviar la orden.",
     "addProduct": "Agregar producto",
     "clear": "Limpiar",
     "createOrder": "Crear orden",
     "submitting": "Guardando...",
     "orderTotal": "Total de la orden",
     "provider": "Proveedor",
-    "selectProvider": "Selecciona proveedor",
+    "selectProvider": "Seleccione proveedor",
     "providerRequired": "El proveedor es obligatorio",
     "finalizeTitle": "Finalizar",
-    "finalizeDescription": "Revisa proveedor, sede y total comprometido antes de guardar.",
+    "finalizeDescription": "Revise proveedor, sede y total comprometido antes de guardar.",
     "search": "Buscar",
     "items": "Artículos",
     "baseUnits": "Unidades base solicitadas",
@@ -40,7 +40,7 @@
     "error": "No se pudo crear la orden de compra"
   },
   "cart": {
-    "empty": "Busca y agrega productos para iniciar una orden de compra.",
+    "empty": "Busque y agregue productos para iniciar una orden de compra.",
     "product": "Producto",
     "qty": "Cant.",
     "costPerUnit": "Costo / Unidad",
@@ -73,12 +73,12 @@
   "confirm": {
     "submit": {
       "title": "Enviar borrador de orden de compra",
-      "message": "Al enviarlo, la solicitud queda comprometida para seguimiento con el proveedor y habilita la recepción. El stock solo cambia cuando recibes la mercancía.",
+      "message": "Al enviarlo, la solicitud queda comprometida para seguimiento con el proveedor y habilita la recepción. El stock solo cambia cuando recibe la mercancía.",
       "confirmText": "Enviar borrador"
     },
     "discardDraft": {
       "title": "Descartar borrador de orden de compra",
-      "message": "Al descartarlo, eliminas esta solicitud no enviada de la planificación de reposición. No cambia el stock ni contacta al proveedor.",
+      "message": "Al descartarlo, elimina esta solicitud no enviada de la planificación de reposición. No cambia el stock ni contacta al proveedor.",
       "confirmText": "Descartar borrador"
     },
     "void": {
@@ -107,7 +107,7 @@
     "receiptCount_other": "{{count}} recibos de compra",
     "registeredSoFar": "registrados hasta ahora",
     "latestReceipt": "Último recibo {{number}}.",
-    "keepReceiving": "Recibe solo las cantidades que llegaron en cada lote.",
+    "keepReceiving": "Reciba solo las cantidades que llegaron en cada lote.",
     "product": "Producto",
     "ordered": "Pedido",
     "received": "Recibido",

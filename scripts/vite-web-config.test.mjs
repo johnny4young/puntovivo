@@ -285,5 +285,5 @@ test('cold account maintenance, Hub HTTP and detailed readiness stay reachable b
     )
     .join('\n');
   assert.ok(startup.includes('Your session needs a moment'));
-  assert.ok(startup.includes('Tu sesión necesita un momento'));
+  assert.ok(startup.includes('Su sesión necesita un momento'));
 });

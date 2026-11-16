@@ -2,13 +2,13 @@
   "toggle": {
     "off": "Búsqueda exacta",
     "on": "Búsqueda semántica",
-    "helper": "Activa para priorizar por significado los productos que comparten términos con tu consulta, por ejemplo: \"café para colar\"."
+    "helper": "Active para priorizar por significado los productos que comparten términos con su consulta, por ejemplo: \"café para colar\"."
   },
   "input": {
-    "placeholderOn": "Combina términos del producto y lo que necesitas"
+    "placeholderOn": "Combine términos del producto y lo que necesita"
   },
   "staleness": {
-    "banner": "Los embeddings tienen {{days}} días. Regéneralos para una búsqueda más fiel.",
+    "banner": "Los embeddings tienen {{days}} días. Regenérelos para una búsqueda más fiel.",
     "regenerate": "Regenerar embeddings",
     "regenerating": "Regenerando...",
     "done": "Embeddings actualizados"

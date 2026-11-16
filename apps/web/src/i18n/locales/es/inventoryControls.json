@@ -1,5 +1,5 @@
 {
-  "noSiteTitle": "Selecciona una sede activa",
+  "noSiteTitle": "Seleccione una sede activa",
   "noSiteDescription": "Los conteos ciegos y las sugerencias de reposición siempre pertenecen a una sede.",
   "actions": {
     "cancel": "Cancelar",
@@ -14,17 +14,17 @@
   },
   "count": {
     "title": "Conteos ciegos de inventario",
-    "description": "Registra cantidades físicas sin ver el balance esperado y luego revisa y aprueba cada diferencia.",
+    "description": "Registre cantidades físicas sin ver el balance esperado y luego revise y apruebe cada diferencia.",
     "new": "Nuevo conteo",
     "createTitle": "Iniciar conteo ciego",
     "blindTitle": "El stock esperado permanece oculto",
     "blindDescription": "Quienes cuentan en {{site}} verán los productos y las unidades, pero no las cantidades esperadas congeladas hasta enviar el conteo.",
     "searchLabel": "Productos",
     "searchPlaceholder": "Buscar por nombre o SKU",
-    "resultLimit": "Se muestran los primeros {{count}} productos. Ajusta la búsqueda para encontrar los demás.",
+    "resultLimit": "Se muestran los primeros {{count}} productos. Ajuste la búsqueda para encontrar los demás.",
     "loadingProducts": "Cargando productos de la sede...",
     "selectProduct": "Seleccionar {{name}}",
-    "identityWorkflowRequired": "Elige una variante individual o revisa la configuración de seguimiento incompatible.",
+    "identityWorkflowRequired": "Elija una variante individual o revise la configuración de seguimiento incompatible.",
     "notes": "Notas del conteo",
     "notesPlaceholder": "Referencia opcional de zona, estante o turno",
     "start": "Iniciar conteo",
@@ -34,7 +34,7 @@
     "approve": "Aprobar diferencias",
     "reject": "Rechazar conteo",
     "rejectReason": "Motivo del rechazo",
-    "rejectPlaceholder": "Explica qué se debe volver a contar",
+    "rejectPlaceholder": "Explique qué se debe volver a contar",
     "rejectedReason": "Motivo del rechazo",
     "loading": "Cargando conteos...",
     "empty": "Todavía no hay conteos para esta sede.",
@@ -70,12 +70,12 @@
       "rejectError": "No se pudo rechazar el conteo"
     },
     "identities": {
-      "serialHelp": "Escanea o ingresa un número de serie por línea. Cuenta solo existencias no reservadas de esta sede. Las unidades desconocidas requieren una recepción.",
+      "serialHelp": "Escanee o ingrese un número de serie por línea. Cuente solo existencias no reservadas de esta sede. Las unidades desconocidas requieren una recepción.",
       "serialsFor": "Números de serie contados de {{name}}",
       "confirmEmpty": "Confirmo que no se encontraron unidades de {{name}}",
-      "lotHelp": "Cuenta cada lote por separado, incluidos los vencidos o bloqueados. Ingresa 0 si no encuentras unidades. El conteo no libera un lote.",
+      "lotHelp": "Cuente cada lote por separado, incluidos los vencidos o bloqueados. Ingrese 0 si no encuentra unidades. El conteo no libera un lote.",
       "lotQuantityFor": "Cantidad contada de {{name}}, lote {{lot}}",
-      "noLots": "No hay lotes registrados. Recibe cualquier lote nuevo encontrado antes de iniciar otro conteo.",
+      "noLots": "No hay lotes registrados. Reciba cualquier lote nuevo encontrado antes de iniciar otro conteo.",
       "review": "Revisar identidades exactas",
       "comparison": "Esperado {{expected}} · Contado {{counted}}",
       "varianceCount_one": "{{count}} diferencia por identidad",
@@ -98,13 +98,13 @@
     "suggested": "Cantidad borrador",
     "quantityFor": "Cantidad borrador de {{name}}",
     "provider": "Proveedor",
-    "selectProvider": "Selecciona un proveedor",
+    "selectProvider": "Seleccione un proveedor",
     "estimatedTotal": "Total estimado del borrador",
     "createDraft": "Crear borrador de orden",
     "explicitSubmitHelp": "El borrador no actualiza el stock y no se puede recibir hasta que una persona gestora lo envíe explícitamente desde Órdenes de compra.",
     "draftNote": "Borrador de reposición para {{site}}",
     "blocked": {
-      "catalog_parent": "Elige una variante con inventario en lugar del producto padre."
+      "catalog_parent": "Elija una variante con inventario en lugar del producto padre."
     },
     "toast": {
       "success": "Borrador de orden de compra creado",
@@ -113,17 +113,17 @@
     }
   },
   "server": {
-    "INVENTORY_COUNT_IDENTITY_TRACKING_REQUIRED": "Los registros de seguimiento deben coincidir con las existencias de la sede. Revisa los lotes o números de serie, o elige una variante individual, e inicia un nuevo conteo.",
+    "INVENTORY_COUNT_IDENTITY_TRACKING_REQUIRED": "Los registros de seguimiento deben coincidir con las existencias de la sede. Revise los lotes o números de serie, o elija una variante individual, e inicie un nuevo conteo.",
     "INVENTORY_COUNT_ALREADY_OPEN": "Uno o más productos ya pertenecen a un conteo sin finalizar en esta sede.",
-    "INVENTORY_COUNT_STALE_VERSION": "Este conteo cambió en otro dispositivo. Recárgalo antes de continuar.",
+    "INVENTORY_COUNT_STALE_VERSION": "Este conteo cambió en otro dispositivo. Recárguelo antes de continuar.",
     "INVENTORY_COUNT_INVALID_STATUS": "Este conteo ya no está en la etapa requerida.",
-    "INVENTORY_COUNT_INCOMPLETE": "Registra una cantidad para cada producto antes de enviar el conteo.",
-    "INVENTORY_COUNT_VALUE_CHANGED": "El valor del inventario cambió o este conteo no tiene una base de costos verificable. Recházalo e inicia un conteo nuevo.",
-    "INVENTORY_COUNT_BALANCE_CHANGED": "El stock cambió después de iniciar el conteo. Inicia uno nuevo antes de aprobar las diferencias.",
-    "INVENTORY_COUNT_CATALOG_CHANGED": "El producto o su unidad base cambió después de iniciar el conteo. Revisa el catálogo e inicia un conteo nuevo.",
-    "ORDER_DRAFT_INVALID_STATUS": "Solo puedes enviar un borrador de orden de compra.",
-    "INVENTORY_COUNT_IDENTITY_CHANGED": "Las identidades del inventario cambiaron durante el conteo. Recházalo e inicia uno nuevo.",
-    "INVENTORY_COUNT_IDENTITY_INVALID": "Verifica cada lote o número de serie y su cantidad. Usa identidades conocidas de esta sede sin duplicados; recibe primero las existencias desconocidas.",
-    "INVENTORY_COUNT_IDENTITY_LIMIT": "Este producto tiene demasiadas identidades para un conteo. Contacta a soporte antes de ajustar existencias."
+    "INVENTORY_COUNT_INCOMPLETE": "Registre una cantidad para cada producto antes de enviar el conteo.",
+    "INVENTORY_COUNT_VALUE_CHANGED": "El valor del inventario cambió o este conteo no tiene una base de costos verificable. Rechácelo e inicie un conteo nuevo.",
+    "INVENTORY_COUNT_BALANCE_CHANGED": "El stock cambió después de iniciar el conteo. Inicie uno nuevo antes de aprobar las diferencias.",
+    "INVENTORY_COUNT_CATALOG_CHANGED": "El producto o su unidad base cambió después de iniciar el conteo. Revise el catálogo e inicie un conteo nuevo.",
+    "ORDER_DRAFT_INVALID_STATUS": "Solo puede enviar un borrador de orden de compra.",
+    "INVENTORY_COUNT_IDENTITY_CHANGED": "Las identidades del inventario cambiaron durante el conteo. Rechácelo e inicie uno nuevo.",
+    "INVENTORY_COUNT_IDENTITY_INVALID": "Verifique cada lote o número de serie y su cantidad. Use identidades conocidas de esta sede sin duplicados; reciba primero las existencias desconocidas.",
+    "INVENTORY_COUNT_IDENTITY_LIMIT": "Este producto tiene demasiadas identidades para un conteo. Contacte a soporte antes de ajustar existencias."
   }
 }

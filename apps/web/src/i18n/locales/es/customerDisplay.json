@@ -20,12 +20,12 @@
       "description": "Los detalles del carrito se ocultan hasta recuperar la conexión. Ninguna venta anterior se muestra como actual."
     },
     "noRegister": {
-      "title": "Abre una caja para comenzar",
-      "description": "Inicia una sesión de caja en Ventas y mantén esa pantalla abierta mientras esta vista refleja el carrito."
+      "title": "Abra una caja para comenzar",
+      "description": "Inicie una sesión de caja en Ventas y mantenga esa pantalla abierta mientras esta vista refleja el carrito."
     },
     "waiting": {
       "title": "Esperando a {{register}}",
-      "description": "Mantén abierta la venta activa en otra ventana. Esta pantalla se limpia si la señal deja de estar vigente."
+      "description": "Mantenga abierta la venta activa en otra ventana. Esta pantalla se limpia si la señal deja de estar vigente."
     },
     "idle": {
       "title": "Todo listo para la próxima compra",
@@ -33,7 +33,7 @@
     }
   },
   "cart": {
-    "title": "Tu compra",
+    "title": "Su compra",
     "quantity": "{{quantity}} {{unit}}",
     "discount": "{{discount}} % de descuento"
   },

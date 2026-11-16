@@ -94,8 +94,8 @@ test.describe('Operator Deck data scale', () => {
     const journeys = page.getByTestId('design-system-journey-section');
     const operational = page.getByTestId('design-system-operational-section');
     await tasks.scrollIntoViewIfNeeded();
-    await expect(tasks.getByText('Revisa el medio de pago')).toBeVisible();
-    await expect(tasks.getByRole('region', { name: 'Crea lo esencial primero' })).toBeVisible();
+    await expect(tasks.getByText('Revise el medio de pago')).toBeVisible();
+    await expect(tasks.getByRole('region', { name: 'Cree lo esencial primero' })).toBeVisible();
     await journeys.scrollIntoViewIfNeeded();
     await expect(journeys.getByText('Jornadas críticas, una sola promesa')).toBeVisible();
     await expect(journeys.getByText('Cambio seguro de operador')).toBeVisible();

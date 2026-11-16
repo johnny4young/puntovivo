@@ -122,7 +122,7 @@ describe('ReceiptTemplatePreview', () => {
     );
     expect(
       screen.getByText(
-        'Corrige las expresiones marcadas antes de renderizar la vista previa.'
+        'Corrija las expresiones marcadas antes de renderizar la vista previa.'
       )
     ).toBeInTheDocument();
     expect(screen.queryByTitle('Vista previa en vivo')).not.toBeInTheDocument();

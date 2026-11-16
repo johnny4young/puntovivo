@@ -1,5 +1,5 @@
 {
   "server": {
-    "UNIT_ABBREVIATION_CONFLICT": "Ya existe una unidad con la abreviatura {{abbreviation}}. Edita la unidad existente."
+    "UNIT_ABBREVIATION_CONFLICT": "Ya existe una unidad con la abreviatura {{abbreviation}}. Edite la unidad existente."
   }
 }

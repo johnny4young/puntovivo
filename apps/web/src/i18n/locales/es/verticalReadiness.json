@@ -3,7 +3,7 @@
   "eyebrow": "Perfil operativo",
   "profileTitle": "Lista operativa para {{profile}}",
   "description": "Estas señales provienen de la configuración actual del negocio. Los elementos por revisar son una guía y nunca bloquean por sí solos el cobro.",
-  "noProfile": "Elige arriba un tipo de negocio para ver una lista adaptada a tu operación.",
+  "noProfile": "Elija arriba un tipo de negocio para ver una lista adaptada a su operación.",
   "loading": "Verificando la configuración actual del perfil…",
   "profiles": {
     "retail": "retail",
@@ -26,7 +26,7 @@
   "checks": {
     "businessCalendar": {
       "label": "Calendario del negocio",
-      "hint": "La zona horaria guardada no es compatible. Actualiza la configuración regional antes de confiar en el estado basado en fechas."
+      "hint": "La zona horaria guardada no es compatible. Actualice la configuración regional antes de confiar en el estado basado en fechas."
     },
     "catalog": {
       "label": "Catálogo vendible",

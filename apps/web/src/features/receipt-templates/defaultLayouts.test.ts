@@ -19,7 +19,7 @@ describe('receipt template default layouts', () => {
     const textValues = layout.blocks
       .filter(block => block.type === 'text')
       .map(block => block.value);
-    expect(textValues).toContain('Gracias por tu compra');
+    expect(textValues).toContain('Gracias por su compra');
 
     const metaTable = layout.blocks.find(block => block.type === 'metaTable');
     expect(metaTable, 'sale preset must ship a metaTable header band').toBeDefined();
