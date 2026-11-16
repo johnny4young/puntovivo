@@ -112,6 +112,7 @@ import {
   insertFiscalIntentInTransaction,
   prepareSaleFiscalIntent,
 } from '../../services/fiscal/orchestrator/intents.js';
+import { fiscalPaymentMethod } from '../../services/fiscal/orchestrator/helpers.js';
 import type { ResolvedLine } from '../../services/fiscal/orchestrator/types.js';
 import { resolveElectronicInvoiceBuyer } from './electronicInvoice.js';
 
@@ -497,7 +498,7 @@ export async function runCompleteDraft(
     saleId: input.saleId,
     siteId: activeCashSession.siteId,
     customerId: finalCustomerId,
-    paymentMethod: resolvedPayments.dominantMethod,
+    paymentMethod: fiscalPaymentMethod(resolvedPayments.dominantMethod, creditSaleAmount > 0),
     amounts: {
       subtotal: draftSubtotal,
       taxAmount: draftTaxAmount,

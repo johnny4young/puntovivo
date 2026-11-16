@@ -38,6 +38,8 @@ import {
   isCountryFiscalEnabled,
   isDianEnabled,
   splitIssueTimestamp,
+  fiscalPaymentMethod,
+  saleHasCreditTender,
 } from './helpers.js';
 import { resolveBuyer, resolveFiscalDocumentSnapshot } from './snapshots.js';
 
@@ -222,7 +224,10 @@ export async function emitFiscalDocument(
     tenantSettings,
     currencyCode: locale.currency,
     localeCode: locale.locale,
-    paymentMethod: sale.paymentMethod,
+    paymentMethod: fiscalPaymentMethod(
+      sale.paymentMethod,
+      await saleHasCreditTender(tx, tenantId, sale.id)
+    ),
     resolution: {
       id: resolution.id,
       resolutionNumber: resolution.resolutionNumber,

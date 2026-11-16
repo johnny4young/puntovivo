@@ -6,9 +6,9 @@
  *
  * @module services/fiscal/orchestrator/helpers
  */
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../../db/index.js';
-import { tenants } from '../../../db/schema.js';
+import { salePayments, tenants } from '../../../db/schema.js';
 
 /**
  * Wall-clock `YYYY-MM-DD` + `HH:mm:ss±HH:MM` pair for the emission
@@ -203,4 +203,32 @@ export function checkResolutionUsable(
     };
   }
   return { ok: true };
+}
+
+/**
+ * Payment form a fiscal document declares. Any amount left on credit makes
+ * the sale deferred, even when a cash down payment is its dominant tender.
+ */
+export function fiscalPaymentMethod(dominantMethod: string, hasCreditTender: boolean): string {
+  return hasCreditTender ? 'credit' : dominantMethod;
+}
+
+/** Whether a persisted sale carries a credit tender row. */
+export async function saleHasCreditTender(
+  db: Pick<DatabaseInstance, 'select'>,
+  tenantId: string,
+  saleId: string
+): Promise<boolean> {
+  const row = await db
+    .select({ id: salePayments.id })
+    .from(salePayments)
+    .where(
+      and(
+        eq(salePayments.tenantId, tenantId),
+        eq(salePayments.saleId, saleId),
+        eq(salePayments.method, 'credit')
+      )
+    )
+    .get();
+  return row !== undefined;
 }

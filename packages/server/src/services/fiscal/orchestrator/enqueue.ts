@@ -47,7 +47,13 @@ import { allocateNextFolio } from '../packs/cl/caf-allocator.js';
 import { mapInternalKindToTipoDte } from '../packs/cl/mappings.js';
 import { getFiscalAdapter, isSupportedFiscalCountry } from '../registry.js';
 import type { EmitFiscalDocumentResult } from './types.js';
-import { isCountryFiscalEnabled, isDianEnabled, splitIssueTimestamp } from './helpers.js';
+import {
+  isCountryFiscalEnabled,
+  isDianEnabled,
+  splitIssueTimestamp,
+  fiscalPaymentMethod,
+  saleHasCreditTender,
+} from './helpers.js';
 import { resolveBuyer, resolveFiscalDocumentSnapshot } from './snapshots.js';
 import {
   numberingEnvironmentFromSettings,
@@ -275,7 +281,10 @@ export async function enqueueFiscalEmission(args: {
     tenantSettings: freezeFiscalSettings(tenantSettings, adapter.countryCode),
     currencyCode: locale.currency,
     localeCode: locale.locale,
-    paymentMethod: sale.paymentMethod,
+    paymentMethod: fiscalPaymentMethod(
+      sale.paymentMethod,
+      await saleHasCreditTender(db, tenantId, sale.id)
+    ),
     buyer: {
       taxId: buyer.taxId,
       taxIdTypeCode: buyer.taxIdTypeCode,

@@ -100,6 +100,7 @@ let testDeviceId: string;
 class StubAdapter implements FiscalAdapter {
   readonly providerId = 'mock-co';
   readonly countryCode = 'CO';
+  readonly maturity = 'mock' as const;
   readonly capabilities: FiscalAdapterCapabilities = {
     supportsVoid: true,
     supportsDebitNote: true,
@@ -319,6 +320,7 @@ async function seedProductAndSale(args: {
   unitPrice?: number;
   quantity?: number;
   discount?: number;
+  payments?: Array<{ method: 'cash' | 'credit'; amount: number }>;
 }): Promise<{ saleId: string; productId: string }> {
   const db = getDatabase();
   const fresh = makeFreshContextFactory({
@@ -397,6 +399,7 @@ async function seedProductAndSale(args: {
     ...(args.customerId !== undefined ? { customerId: args.customerId } : {}),
     amountReceived: 100,
     discountAmount: 0,
+    ...(args.payments ? { payments: args.payments } : {}),
   });
   return { saleId: sale.id, productId };
 }
@@ -454,6 +457,46 @@ describe('fiscal outbox — happy path', () => {
     expect(outbox).toBeTruthy();
     expect(outbox?.status).toBe('accepted');
     expect(outbox?.cufe).toBe(doc?.cufe);
+  });
+
+  it('declares a cash down payment with the rest on credit as a credit sale', async () => {
+    __setFiscalAdapterForTest('CO', new StubAdapter({ kind: 'happy' }));
+    const db = getDatabase();
+    const customerId = `credit-mix-${nanoid()}`;
+    const now = new Date().toISOString();
+    await db.insert(customers).values({
+      id: customerId,
+      tenantId,
+      name: 'Credit mix customer',
+      taxId: '901234568',
+      creditLimit: 1000,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const { saleId } = await seedProductAndSale({
+      sku: 'OB-CREDIT-MIX-' + nanoid(6),
+      productName: 'Credit mix product',
+      customerId,
+      payments: [
+        { method: 'cash', amount: 40 },
+        { method: 'credit', amount: 60 },
+      ],
+    });
+    const sale = await db
+      .select({ paymentMethod: sales.paymentMethod })
+      .from(sales)
+      .where(and(eq(sales.tenantId, tenantId), eq(sales.id, saleId)))
+      .get();
+    const intent = await db
+      .select({ payload: fiscalEmissionIntents.payload })
+      .from(fiscalEmissionIntents)
+      .where(
+        and(eq(fiscalEmissionIntents.tenantId, tenantId), eq(fiscalEmissionIntents.saleId, saleId))
+      )
+      .get();
+    expect(sale?.paymentMethod).toBe('cash');
+    expect(intent?.payload).toMatchObject({ adapterInput: { paymentMethod: 'credit' } });
   });
 
   it('recovers a committed intent after a pre-materialization crash without rereading labels', async () => {

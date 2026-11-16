@@ -121,6 +121,7 @@ import {
   insertFiscalIntentInTransaction,
   prepareSaleFiscalIntent,
 } from '../../services/fiscal/orchestrator/intents.js';
+import { fiscalPaymentMethod } from '../../services/fiscal/orchestrator/helpers.js';
 import type { ResolvedLine } from '../../services/fiscal/orchestrator/types.js';
 import { resolveElectronicInvoiceBuyer } from './electronicInvoice.js';
 
@@ -343,7 +344,7 @@ export async function runFreshSale(
           saleId,
           siteId: saleSiteId,
           customerId: resolvedCustomer.customerId,
-          paymentMethod: resolvedPayments.dominantMethod,
+          paymentMethod: fiscalPaymentMethod(resolvedPayments.dominantMethod, creditSaleAmount > 0),
           amounts: {
             subtotal,
             taxAmount,

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "compilerVersion": "7.0.2",
   "config": "tsconfig.tests.json",
-  "total": 227,
+  "total": 211,
   "byFileAndCode": {
     "src/__tests__/ai-match-invoice-lines.test.ts|TS2315": 1,
     "src/__tests__/ai-match-invoice-lines.test.ts|TS2769": 1,
@@ -64,8 +64,6 @@
     "src/__tests__/fiscal-outbox-integration.test.ts|TS18048": 9,
     "src/__tests__/fiscal-outbox-integration.test.ts|TS2339": 1,
     "src/__tests__/fiscal-outbox-integration.test.ts|TS2345": 1,
-    "src/__tests__/fiscal-outbox-integration.test.ts|TS2420": 1,
-    "src/__tests__/fiscal-outbox-integration.test.ts|TS2741": 15,
     "src/__tests__/fiscal-outbox-integration.test.ts|TS6133": 1,
     "src/__tests__/fiscal-reports.test.ts|TS2769": 1,
     "src/__tests__/idempotency.test.ts|TS6133": 2,
