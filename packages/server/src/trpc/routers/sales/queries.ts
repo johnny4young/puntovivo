@@ -20,7 +20,12 @@ import {
   saleItems,
   sales,
 } from '../../../db/schema.js';
-import { getSaleInput, listDraftsInput, listSalesInput } from '../../schemas/sales.js';
+import {
+  findSaleByReceiptInput,
+  getSaleInput,
+  listDraftsInput,
+  listSalesInput,
+} from '../../schemas/sales.js';
 import { getSaleRecord } from '../../../application/sales/sale-read.js';
 import {
   datedRevenueSaleConditions,
@@ -198,6 +203,29 @@ export const salesQueryProcedures = {
   /**
    * Get a single sale with its line items
    */
+  /** Resolve a scanned receipt (sale number, or a URL ending in it) to a completed sale. */
+  findByReceipt: cashierManagerOrAdminProcedure
+    .input(findSaleByReceiptInput)
+    .query(({ ctx, input }) => {
+      const saleNumber = receiptCodeToSaleNumber(input.code);
+      const row = ctx.db
+        .select({
+          id: sales.id,
+          saleNumber: sales.saleNumber,
+          total: sales.total,
+          completedAt: sales.checkoutCompletedAt,
+        })
+        .from(sales)
+        .where(
+          and(
+            eq(sales.tenantId, ctx.tenantId),
+            eq(sales.status, 'completed'),
+            sql`lower(${sales.saleNumber}) = ${saleNumber.toLowerCase()}`
+          )
+        )
+        .get();
+      return row ?? null;
+    }),
   getById: tenantProcedure.input(getSaleInput).query(async ({ ctx, input }) => {
     return getSaleRecord(ctx.db, ctx.tenantId, input.id);
   }),
@@ -354,3 +382,18 @@ export const salesQueryProcedures = {
       };
     }),
 };
+
+/** Receipt barcodes carry the sale number, sometimes as the last segment or `sale` query of a URL. */
+export function receiptCodeToSaleNumber(code: string): string {
+  const trimmed = code.trim();
+  if (!/^https?:\/\//i.test(trimmed)) return trimmed;
+  try {
+    const url = new URL(trimmed);
+    const fromQuery = url.searchParams.get('sale');
+    if (fromQuery) return fromQuery.trim();
+    const segments = url.pathname.split('/').filter(Boolean);
+    return decodeURIComponent(segments.at(-1) ?? '').trim();
+  } catch {
+    return trimmed;
+  }
+}
