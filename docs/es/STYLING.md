@@ -2,7 +2,7 @@
 
 **Idioma:** Español · [English](../STYLING.md)
 
-> Actualizado: 9 de abril de 2026
+> Actualizado: 15 de noviembre de 2026
 
 ## Herramientas actuales
 
@@ -56,13 +56,23 @@ Se consumen en clases Tailwind como:
 
 ## Tokens de tipografía y disposición
 
-El tema también define:
+Las fuentes van incluidas (ver [THIRD-PARTY-NOTICES.md](../../THIRD-PARTY-NOTICES.md)):
 
-- `--font-sans`
-- `--font-mono`
-- Espaciado propio.
-- Sombras propias.
-- Animaciones propias.
+- `font-sans` (Instrument Sans): texto de la interfaz.
+- `font-display` (Bricolage Grotesque, ancho 88): títulos. `h1`–`h3` la usan por defecto.
+- `font-numeric` (Bricolage Grotesque, ancho 80, cifras tabulares): dinero y conteos.
+- `font-mono` (DM Mono): códigos, SKU y teclas (`.pv-kbd`).
+
+Roles de la paleta: tinta sobre papel frío para la interfaz; azul (`primary`)
+para el estado en vivo y el foco; naranja solo para Cobrar (`bg-cobrar`,
+`Button variant="charge"`); el `rail` marino para la navegación y el símbolo.
+La severidad usa `SeverityMark`, que combina forma y color: rombo = bloquea,
+medio círculo = antes de cerrar, círculo vacío = cuando pueda, check = listo.
+
+Reglas: sin barra de color en el borde izquierdo de filas, tarjetas o avisos
+(use un fondo teñido, el peso, un ícono o un borde completo); una acción
+principal por pantalla; contraste de texto de al menos 4.5:1 en claro y oscuro
+(`scripts/check-contrast.mjs`).
 
 ## Patrón de variantes de componentes
 

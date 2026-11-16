@@ -39,7 +39,7 @@ test.describe('manager approval queue', () => {
         currencyCode: 'USD',
       });
       await loginAs(page, 'manager');
-      await expect(page.getByText("Today's sales").first()).toBeVisible();
+      await expect(page.getByText('Sold today').first()).toBeVisible();
       await openUserMenu(page);
 
       let queue = page.getByRole('region', { name: 'Approvals' });

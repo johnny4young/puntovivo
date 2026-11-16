@@ -14,7 +14,7 @@ const adminRoutes = [
   {
     label: 'See what matters today',
     path: '/dashboard',
-    assertion: async page => page.getByText(/Today's Sales|Ventas de hoy/i).first(),
+    assertion: async page => page.getByText(/Sold today|Vendido hoy/i).first(),
   },
   {
     label: 'Make a sale',
@@ -600,8 +600,8 @@ test.describe('web smoke', () => {
     await expect(page.getByTestId('sidebar-primary-task-inventory')).toContainText(
       'Revisar existencias'
     );
-    await expect(page.getByText('Ventas de hoy')).toBeVisible();
-    await expect(page.getByText('todas las sedes')).toBeVisible();
+    await expect(page.getByText('Vendido hoy')).toBeVisible();
+    await expect(page.getByTestId('today-sales-total')).toBeVisible();
     await expect(page.getByText(/tenant activo/i)).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Ingresos 30 días' })).toBeVisible();
 

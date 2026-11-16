@@ -173,7 +173,7 @@ test('extractScopes finds the real light and dark theme after comments and at-ru
   );
   assert.equal(
     scopes.find(scope => scope.selector === ':root').declarations.surface,
-    'oklch(0.992 0.003 225)'
+    'oklch(0.993 0.003 229)'
   );
 });
 
@@ -227,7 +227,7 @@ test('contrast gate rejects a base text pair with malformed numeric components',
 test('contrast gate catches a light-only token regression in the real theme', async () => {
   const source = readFileSync(new URL('../apps/web/src/styles/theme.css', import.meta.url), 'utf8');
   const regressed = source.replace(
-    '--destructive-foreground: oklch(0.985 0.005 84);',
+    '--destructive-foreground: oklch(0.993 0.003 229);',
     '--destructive-foreground: oklch(0.57 0.192 24);'
   );
   assert.notEqual(regressed, source, 'the light destructive token must exist in the real theme');
@@ -236,7 +236,7 @@ test('contrast gate catches a light-only token regression in the real theme', as
 
 test('contrast gate rejects a missing enforced pair outside the base text pair', async () => {
   const source = readFileSync(new URL('../apps/web/src/styles/theme.css', import.meta.url), 'utf8');
-  const missing = source.replace('--destructive-foreground: oklch(0.985 0.005 84);', '');
+  const missing = source.replace('--destructive-foreground: oklch(0.993 0.003 229);', '');
   assert.notEqual(missing, source, 'the light destructive token must exist in the real theme');
   assert.equal(await runWithTheme(missing), 1);
 });
@@ -244,8 +244,8 @@ test('contrast gate rejects a missing enforced pair outside the base text pair',
 test('contrast gate rejects malformed numeric color in a non-base enforced pair', async () => {
   const source = readFileSync(new URL('../apps/web/src/styles/theme.css', import.meta.url), 'utf8');
   const malformed = source.replace(
-    '--operator-warning-ink: oklch(0.39 0.085 72);',
-    '--operator-warning-ink: oklch(0.39.. 0.085 72);'
+    '--operator-warning-ink: oklch(0.447 0.092 86);',
+    '--operator-warning-ink: oklch(0.447.. 0.092 86);'
   );
   assert.notEqual(malformed, source, 'the light warning ink token must exist in the real theme');
   assert.equal(await runWithTheme(malformed), 1);
@@ -254,7 +254,7 @@ test('contrast gate rejects malformed numeric color in a non-base enforced pair'
 test('contrast gate rejects unsupported color syntax in an enforced theme pair', async () => {
   const source = readFileSync(new URL('../apps/web/src/styles/theme.css', import.meta.url), 'utf8');
   const unsupported = source.replace(
-    '--operator-warning-ink: oklch(0.39 0.085 72);',
+    '--operator-warning-ink: oklch(0.447 0.092 86);',
     '--operator-warning-ink: hsl(42 60% 30%);'
   );
   assert.notEqual(unsupported, source, 'the light warning ink token must exist in the real theme');
@@ -272,7 +272,7 @@ for (const [label, color] of [
       'utf8'
     );
     const changed = source.replace(
-      '--destructive-foreground: oklch(0.985 0.005 84);',
+      '--destructive-foreground: oklch(0.993 0.003 229);',
       `--destructive-foreground: ${color};`
     );
     assert.notEqual(changed, source, 'the light destructive token must exist in the real theme');
@@ -416,7 +416,7 @@ test('contrast gate measures a final unterminated declaration instead of an earl
 test('contrast gate catches a dark-only token regression in the real theme', async () => {
   const source = readFileSync(REAL_THEME_URL, 'utf8');
   const regressed = source.replace(
-    '--destructive-foreground: oklch(0.17 0.018 255);',
+    '--destructive-foreground: oklch(0.202 0.03 244);',
     '--destructive-foreground: oklch(0.7 0.17 24);'
   );
   assert.notEqual(regressed, source, 'the dark destructive token must exist in the real theme');
@@ -437,6 +437,16 @@ test('resolveThemeScopes applies :root and .dark blocks in source order', () => 
   assert.equal(dark.declarations.foreground, 'oklch(0.1 0 0)');
   // Tokens the dark block does not redeclare inherit the light value.
   assert.equal(dark.declarations.ring, 'oklch(0.5 0 0)');
+});
+
+test('resolveThemeScopes applies :root.dark over .dark regardless of order', () => {
+  const [light, dark] = resolveThemeScopes([
+    { selector: ':root.dark', declarations: { rail: 'oklch(0.1 0 0)' } },
+    { selector: ':root', declarations: { rail: 'oklch(0.3 0 0)' } },
+    { selector: '.dark', declarations: { rail: 'oklch(0.2 0 0)' } },
+  ]);
+  assert.equal(light.declarations.rail, 'oklch(0.3 0 0)');
+  assert.equal(dark.declarations.rail, 'oklch(0.1 0 0)');
 });
 
 test('contrast gate fails a dark pair overridden by a later :root block', async () => {
@@ -462,10 +472,10 @@ test('resolveCustomProperty follows var() chains, fallbacks, and rejects cycles'
 
 test('contrast gate measures enforced tokens declared as var() aliases', async () => {
   const source = readFileSync(REAL_THEME_URL, 'utf8');
-  const aliased = source.replace('--card: oklch(0.225 0.018 255);', '--card: var(--surface);');
+  const aliased = source.replace('--card: oklch(0.263 0.043 243);', '--card: var(--surface);');
   assert.notEqual(aliased, source, 'the dark card token must exist in the real theme');
   assert.equal(await runWithTheme(aliased), 0);
-  const dangling = source.replace('--card: oklch(0.225 0.018 255);', '--card: var(--nope);');
+  const dangling = source.replace('--card: oklch(0.263 0.043 243);', '--card: var(--nope);');
   const errors = [];
   assert.equal(await runWithTheme(dangling, errors), 1);
   assert.match(
@@ -477,13 +487,13 @@ test('contrast gate measures enforced tokens declared as var() aliases', async (
 test('contrast gate explains why an enforced theme pair cannot be measured', async () => {
   const source = readFileSync(REAL_THEME_URL, 'utf8');
   const translucent = source.replace(
-    '--destructive-foreground: oklch(0.985 0.005 84);',
-    '--destructive-foreground: oklch(0.985 0.005 84 / 0.5);'
+    '--destructive-foreground: oklch(0.993 0.003 229);',
+    '--destructive-foreground: oklch(0.993 0.003 229 / 0.5);'
   );
   const errors = [];
   assert.equal(await runWithTheme(translucent, errors), 1);
   assert.match(
     errors.join('\n'),
-    /:root: destructive \/ destructive-foreground: unmeasurable color \(--destructive-foreground: oklch\(0\.985 0\.005 84 \/ 0\.5\)\)/
+    /:root: destructive \/ destructive-foreground: unmeasurable color \(--destructive-foreground: oklch\(0\.993 0\.003 229 \/ 0\.5\)\)/
   );
 });

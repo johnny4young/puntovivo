@@ -525,7 +525,7 @@ function WeeklySchedulePanel() {
                     </div>
                     <div className="mt-3 space-y-2">
                       {dayShifts.length === 0 && (
-                        <p className="rounded-xl border border-dashed border-secondary-200 px-2 py-4 text-center text-xs text-secondary-400">
+                        <p className="rounded-xl border border-dashed border-secondary-200 px-2 py-4 text-center text-xs text-fg3">
                           {t('schedule:week.emptyDay')}
                         </p>
                       )}

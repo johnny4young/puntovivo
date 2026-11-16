@@ -8,21 +8,21 @@ import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import { CHECKOUT_APPROVAL_RESOURCE_TYPE } from '@puntovivo/shared/checkout-approval';
 
-type ApprovalDecision = 'approved' | 'rejected';
+export type ApprovalDecision = 'approved' | 'rejected';
 
-interface ActiveDecision {
+export interface ActiveDecision {
   requestId: string;
   decision: ApprovalDecision;
 }
 
-interface ApprovalDecisionFormProps extends ActiveDecision {
+export interface ApprovalDecisionFormProps extends ActiveDecision {
   approverId: string;
   onCancel: () => void;
   onDecided: () => void;
 }
 
 /** Keep the short-lived PIN inside the active card's mount lifecycle. */
-function ApprovalDecisionForm({
+export function ApprovalDecisionForm({
   requestId,
   decision,
   approverId,

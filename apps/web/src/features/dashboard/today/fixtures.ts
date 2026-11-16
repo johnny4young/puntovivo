@@ -1,0 +1,115 @@
+import type { OperationsToday } from './todayModel';
+
+const start = '2026-11-11T05:00:00.000Z';
+const at = (hours: number) => new Date(Date.parse(start) + hours * 3_600_000).toISOString();
+
+export function todayFixture(overrides: Partial<OperationsToday> = {}): OperationsToday {
+  const hourly = Array.from({ length: 24 }, (_, hour) => ({
+    hour,
+    today: hour === 9 ? 30000 : hour === 10 ? 10000 : 0,
+    comparison: hour === 9 ? 20000 : 0,
+  }));
+  return {
+    businessDate: '2026-11-11',
+    timezone: 'America/Bogota',
+    dayStartIso: start,
+    generatedAt: at(11.4),
+    sales: {
+      total: 40000,
+      orders: 2,
+      averageTicket: 20000,
+      comparisonDate: '2026-11-04',
+      comparisonTotal: 20000,
+    },
+    hourly,
+    registers: [
+      {
+        sessionId: 's-1',
+        registerName: 'Caja 1',
+        cashierId: 'u-1',
+        cashierName: 'Laura',
+        siteId: 'site-1',
+        siteName: 'Norte',
+        openedAt: at(7),
+        openedBeforeToday: false,
+        salesTotal: 40000,
+        salesCount: 2,
+        scheduledEndAt: at(14),
+      },
+      {
+        sessionId: 's-3',
+        registerName: 'Caja 3',
+        cashierId: 'u-3',
+        cashierName: 'Camilo',
+        siteId: 'site-1',
+        siteName: 'Norte',
+        openedAt: at(-3),
+        openedBeforeToday: true,
+        salesTotal: 0,
+        salesCount: 0,
+        scheduledEndAt: null,
+      },
+    ],
+    shifts: [{ userId: 'u-1', userName: 'Laura', startsAt: at(7), endsAt: at(14) }],
+    nextHandoff: { at: at(14), registerName: 'Caja 1', fromUserName: 'Laura' },
+    pending: [
+      {
+        kind: 'staleSession',
+        id: 's-3',
+        severity: 'blocks',
+        origin: 'system',
+        at: at(-3),
+        registerName: 'Caja 3',
+        cashierName: 'Camilo',
+      },
+      {
+        kind: 'approval',
+        id: 'a-1',
+        severity: 'blocks',
+        origin: 'cashier',
+        at: at(11),
+        action: 'sale_refund',
+        label: 'Devolución',
+        amount: 48500,
+        requesterName: 'Laura',
+        siteName: 'Norte',
+      },
+      {
+        kind: 'incident',
+        id: 'i-1',
+        severity: 'beforeClose',
+        origin: 'cashier',
+        at: at(10.6),
+        incident: {
+          id: 'i-1',
+          siteId: 'site-1',
+          siteName: 'Norte',
+          kind: 'stockout',
+          reason: 'not_on_shelf',
+          productId: 'p-1',
+          productName: 'Leche UHT',
+          shelfPrice: null,
+          systemPrice: 4900,
+          note: null,
+          reportedBy: 'u-1',
+          reportedByName: 'Laura',
+          createdAt: at(10.6),
+          stockBySite: [
+            { siteId: 'site-1', siteName: 'Norte', onHand: 0 },
+            { siteId: 'site-2', siteName: 'Sur', onHand: 14 },
+          ],
+        },
+      },
+      {
+        kind: 'attention',
+        id: 'attention:fiscal',
+        severity: 'beforeClose',
+        origin: 'system',
+        at: at(11.4),
+        area: 'fiscal',
+        count: 2,
+      },
+    ],
+    ...overrides,
+  };
+}
