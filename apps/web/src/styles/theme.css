@@ -1,6 +1,10 @@
-@theme {
+@theme inline {
   --font-sans: var(--font-ui);
   --font-display: var(--font-display-face);
+  --font-display--font-variation-settings: 'wdth' 88;
+  --font-numeric: var(--font-display-face);
+  --font-numeric--font-variation-settings: 'wdth' 80;
+  --font-numeric--font-feature-settings: 'tnum' 1, 'lnum' 1;
   --font-mono: var(--font-mono-face);
 
   --color-background: var(--background);
@@ -71,6 +75,12 @@
   --color-brand-accent-500: var(--brand-accent-500);
   --color-brand-accent-700: var(--brand-accent-700);
   --color-brand-accent-foreground: var(--brand-accent-foreground);
+  --color-cobrar: var(--cobrar);
+  --color-cobrar-hover: var(--cobrar-hover);
+  --color-cobrar-foreground: var(--cobrar-foreground);
+  --color-rail: var(--rail);
+  --color-rail-foreground: var(--rail-foreground);
+  --color-rail-muted: var(--rail-muted);
 
   --color-fg1: var(--fg1);
   --color-fg2: var(--fg2);
@@ -162,113 +172,75 @@
  * scroll there to keep the cash-session controls reachable. */
 @custom-variant pos (@media (min-width: 1280px) and (min-height: 900px));
 
-/* Plus Jakarta Sans is the primary UI face for the command-surface pilot.
- * Every family — including the Inter offline-safe fallback — is
- * self-hosted through the bundled fontsource faces in styles/fonts.css,
- * so packaged and disconnected devices never fetch fonts remotely.
- */
-
 :root {
-  /* Plus Jakarta Sans is the UI face; Iowan Old Style / Source Serif 4
-   * is reserved for marketing / landing surfaces and opt-in via
-   * `class="display"`. It is NOT wired into h1..h3 by default. */
+  /* Instrument Sans for UI text, Bricolage Grotesque for titles and money, DM Mono for codes and keys. */
   --font-ui:
-    'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui,
-    sans-serif;
+    'Instrument Sans Variable', 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    system-ui, sans-serif;
   --font-display-face:
-    'Iowan Old Style', 'Source Serif 4', 'Palatino Linotype', 'Book Antiqua', serif;
-  --font-mono-face: 'JetBrains Mono', 'SFMono-Regular', Menlo, monospace;
+    'Bricolage Grotesque Variable', 'Bricolage Grotesque', system-ui, sans-serif;
+  --font-mono-face: 'DM Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
 
-  /* Operator Deck foundation: a cool, low-reflection canvas replaces the
-   * warm editorial base. White work zones remain distinct without pushing
-   * the application into a blue-tinted enterprise dashboard aesthetic. */
-  --background: oklch(0.955 0.008 225);
-  --foreground: oklch(0.24 0.02 255);
-  --card: oklch(0.992 0.003 225);
-  --card-foreground: oklch(0.24 0.02 255);
-  --popover: oklch(0.992 0.003 225);
-  --popover-foreground: oklch(0.24 0.02 255);
-  --border: oklch(0.86 0.011 225);
-  --input: oklch(0.9 0.012 225);
-  --ring: oklch(0.63 0.126 244);
-  --muted: oklch(0.925 0.009 225);
-  /* slice B (2026-05-21): dropped from 0.5 to 0.4 so
-   * `text-muted-foreground` rendered against `--background`,
-   * `--card`, and `--popover` clears WCAG AA 4.5:1. The Playwright
-   * a11y smoke caught the old token at 3.69:1 across every
-   * authenticated route. The contrast gate now audits those three
-   * additional pairs so a future relax regresses the build. */
-  --muted-foreground: oklch(0.4 0.02 255);
-  --accent: oklch(0.95 0.022 226);
-  --accent-foreground: oklch(0.25 0.025 255);
-  /* (2026-05-21): bumped from L=0.55 to L=0.43 so `bg-primary`
-   * + `text-primary-foreground` (the F1 Charge button surface) clears
-   * WCAG AA 4.5:1 in axe-core. The L=0.55 baseline computed at ~4.6:1
-   * by the OkLab→sRGB approximation in `scripts/check-contrast.mjs`
-   * but axe-core measured 2.81:1 on the rendered button — a known
-   * approximation gap on blue tones. Aligning slightly darker than
-   * `--primary-800` (L=0.45) buys the same comfortable margin that
-   * `.page-kicker` used in slice B. Chroma trimmed from 0.126 to
-   * 0.115 to track the scale-step ramp at this L. Dark-theme stays
-   * at L=0.74 (axe-AA against the L=0.22 foreground). */
-  --primary: oklch(0.43 0.115 244);
-  --primary-foreground: oklch(0.985 0.005 84);
-  --secondary: oklch(0.925 0.009 225);
-  --secondary-foreground: oklch(0.3 0.018 255);
-  --destructive: oklch(0.57 0.192 24);
-  --destructive-foreground: oklch(0.985 0.005 84);
+  /* Palette: ink on cool paper; orange is reserved for Cobrar. */
+  --background: oklch(0.959 0.008 242);
+  --foreground: oklch(0.25 0.04 241);
+  --card: oklch(0.993 0.003 229);
+  --card-foreground: oklch(0.25 0.04 241);
+  --popover: oklch(0.993 0.003 229);
+  --popover-foreground: oklch(0.25 0.04 241);
+  --border: oklch(0.882 0.016 239);
+  --input: oklch(0.806 0.024 240);
+  --ring: oklch(0.605 0.153 248);
+  --muted: oklch(0.927 0.012 240);
+  --muted-foreground: oklch(0.507 0.03 240);
+  --accent: oklch(0.932 0.023 242);
+  --accent-foreground: oklch(0.423 0.104 247);
+  --primary: oklch(0.423 0.104 247);
+  --primary-foreground: oklch(0.993 0.003 229);
+  --secondary: oklch(0.927 0.012 240);
+  --secondary-foreground: oklch(0.406 0.034 241);
+  --destructive: oklch(0.48 0.169 29);
+  --destructive-foreground: oklch(0.993 0.003 229);
 
-  --surface: oklch(0.992 0.003 225);
-  --surface-2: oklch(0.975 0.006 225);
-  --surface-3: oklch(0.935 0.01 225);
-  --line: oklch(0.86 0.011 225);
-  --line-strong: oklch(0.76 0.016 225);
-  --ink: oklch(0.21 0.019 255);
-  --ink-soft: oklch(0.56 0.019 255);
+  --surface: oklch(0.993 0.003 229);
+  --surface-2: oklch(0.977 0.004 236);
+  --surface-3: oklch(0.927 0.012 240);
+  --line: oklch(0.882 0.016 239);
+  --line-strong: oklch(0.806 0.024 240);
+  --ink: oklch(0.25 0.04 241);
+  --ink-soft: oklch(0.507 0.03 240);
 
-  /* explicit foreground ramp per the design specification.
-   * `--ink` / `--ink-soft` still exist for legacy consumers but new
-   * code should reach for the fg1..fg4 contract directly. */
-  --fg1: oklch(0.18 0.016 255);
-  --fg2: oklch(0.37 0.022 255);
-  --fg3: oklch(0.52 0.019 255);
-  --fg4: oklch(0.74 0.018 84);
+  --fg1: oklch(0.25 0.04 241);
+  --fg2: oklch(0.406 0.034 241);
+  --fg3: oklch(0.507 0.03 240);
+  --fg4: oklch(0.644 0.027 239);
 
-  /* Operator Deck role tokens. These sit above the semantic colour ramp:
-   * commitment is navy, commands are amber, readiness is mint. Geometry is
-   * intentionally terminal-like and shared by buttons, fields, cards,
-   * dialogs, tables, and navigation. */
-  --operator-canvas: oklch(0.955 0.008 225);
-  --operator-panel: oklch(0.992 0.003 225);
-  --operator-panel-muted: oklch(0.975 0.006 225);
-  --operator-commit: #102f44;
-  --operator-commit-hover: #184760;
-  --operator-commit-foreground: #f8fbfb;
-  --operator-signal: #26ad7a;
-  --operator-command: #f2a563;
-  /* Operational semantic controls use institutional, low-chroma tones.
-   * Success reads as evergreen rather than consumer mint; destructive
-   * actions use oxblood rather than alarm-red. Both keep AA body contrast. */
-  --operator-positive-control: oklch(0.43 0.075 154);
-  --operator-positive-control-hover: oklch(0.39 0.065 154);
-  --operator-critical-control: oklch(0.45 0.1 24);
-  --operator-critical-control-hover: oklch(0.41 0.09 24);
-  --operator-semantic-control-foreground: oklch(0.98 0.004 225);
-  /* Quiet semantic surfaces keep operational notices near-neutral. A narrow
-   * rail and the icon tile carry severity, so status does not become a wall
-   * of consumer-style pastel colour in dense POS views. */
-  --operator-info-surface: oklch(0.955 0.014 244);
-  --operator-info-ink: oklch(0.35 0.075 244);
-  --operator-positive-surface: oklch(0.955 0.018 154);
-  --operator-positive-ink: oklch(0.34 0.07 154);
-  --operator-warning-surface: oklch(0.965 0.025 78);
-  --operator-warning-ink: oklch(0.39 0.085 72);
-  --operator-critical-surface: oklch(0.96 0.018 24);
-  --operator-critical-ink: oklch(0.39 0.085 24);
-  --operator-control-radius: 0.72rem;
-  --operator-panel-radius: 1.1rem;
+  /* Role tokens: commit is ink, command is the Cobrar orange, signal is ready-green. */
+  --operator-canvas: oklch(0.959 0.008 242);
+  --operator-panel: oklch(0.993 0.003 229);
+  --operator-panel-muted: oklch(0.977 0.004 236);
+  --operator-commit: #0e2433;
+  --operator-commit-hover: #1a405a;
+  --operator-commit-foreground: #f2f7fa;
+  --operator-signal: #1e8a5a;
+  --operator-command: #f0612d;
+  --operator-positive-control: oklch(0.471 0.102 158);
+  --operator-positive-control-hover: oklch(0.42 0.09 158);
+  --operator-critical-control: oklch(0.48 0.169 29);
+  --operator-critical-control-hover: oklch(0.43 0.15 29);
+  --operator-semantic-control-foreground: oklch(0.993 0.003 229);
+  /* Severity surfaces: tinted background plus ink; never a leading colour bar. */
+  --operator-info-surface: oklch(0.932 0.023 242);
+  --operator-info-ink: oklch(0.423 0.104 247);
+  --operator-positive-surface: oklch(0.939 0.028 162);
+  --operator-positive-ink: oklch(0.471 0.102 158);
+  --operator-warning-surface: oklch(0.953 0.065 95);
+  --operator-warning-ink: oklch(0.447 0.092 86);
+  --operator-critical-surface: oklch(0.932 0.028 26);
+  --operator-critical-ink: oklch(0.48 0.169 29);
+  --operator-control-radius: 0.75rem;
+  --operator-panel-radius: 1.125rem;
   --operator-key-edge: rgb(12 35 51 / 0.18);
-  --operator-grid: rgb(23 58 83 / 0.028);
 
   /* semantic type tokens. Heads only ever consume these
    * (no inline font-size). Bumping a single heading rhythm is a
@@ -320,58 +292,40 @@
   --mono-font: var(--font-mono-face);
   --mono-size: 0.875rem;
 
-  --primary-50: oklch(0.97 0.014 244);
-  --primary-100: oklch(0.93 0.03 244);
-  --primary-200: oklch(0.87 0.055 244);
-  --primary-300: oklch(0.8 0.085 244);
-  --primary-400: oklch(0.72 0.11 244);
-  --primary-500: oklch(0.67 0.12 244);
-  --primary-600: oklch(0.61 0.13 244);
-  --primary-700: oklch(0.53 0.12 244);
-  --primary-800: oklch(0.45 0.095 244);
-  --primary-900: oklch(0.36 0.07 244);
-  --primary-950: oklch(0.26 0.05 244);
+  --primary-50: oklch(0.97 0.012 244);
+  --primary-100: oklch(0.932 0.023 242);
+  --primary-200: oklch(0.87 0.05 245);
+  --primary-300: oklch(0.79 0.09 246);
+  --primary-400: oklch(0.7 0.13 247);
+  --primary-500: oklch(0.65 0.145 248);
+  --primary-600: oklch(0.605 0.153 248);
+  --primary-700: oklch(0.53 0.13 247);
+  --primary-800: oklch(0.47 0.115 247);
+  --primary-900: oklch(0.423 0.104 247);
+  --primary-950: oklch(0.33 0.07 245);
 
-  --secondary-50: oklch(0.99 0.004 84);
-  --secondary-100: oklch(0.97 0.007 84);
-  --secondary-200: oklch(0.94 0.011 84);
-  --secondary-300: oklch(0.88 0.014 84);
-  --secondary-400: oklch(0.74 0.018 84);
-  /* slice B (2026-05-21, operator-decided): the codebase
-   * historically used `text-secondary-500` as the canonical "muted
-   * label" semantic token rather than as a strict ramp step. At its
-   * original value (oklch L=0.61) it rendered at 3.69:1 against the
-   * page background — below WCAG AA 4.5:1. Dropping to L=0.42
-   * accepts a small break in the 400→500 ramp monotonicity in
-   * exchange for app-wide a11y compliance on the dozens of
-   * components (cards, tables, badges, headers, login) that use
-   * `text-secondary-500` for body text. The cleaner long-term fix
-   * is to migrate those usages to `text-fg2` (semantic token) and
-   * restore the ramp; tracked as  follow-up. */
-  --secondary-500: oklch(0.42 0.02 255);
-  --secondary-600: oklch(0.48 0.022 255);
-  --secondary-700: oklch(0.37 0.022 255);
-  --secondary-800: oklch(0.29 0.02 255);
-  --secondary-900: oklch(0.22 0.018 255);
-  --secondary-950: oklch(0.18 0.016 255);
+  --secondary-50: oklch(0.993 0.003 229);
+  --secondary-100: oklch(0.977 0.004 236);
+  --secondary-200: oklch(0.927 0.012 240);
+  --secondary-300: oklch(0.882 0.016 239);
+  --secondary-400: oklch(0.806 0.024 240);
+  --secondary-500: oklch(0.507 0.03 240);
+  --secondary-600: oklch(0.475 0.03 240);
+  --secondary-700: oklch(0.406 0.034 241);
+  --secondary-800: oklch(0.33 0.04 241);
+  --secondary-900: oklch(0.25 0.04 241);
+  --secondary-950: oklch(0.2 0.035 242);
 
-  --success-50: oklch(0.97 0.03 154);
-  --success-500: oklch(0.67 0.16 154);
-  --success-700: oklch(0.5 0.12 154);
-  --warning-50: oklch(0.98 0.03 85);
-  --warning-500: oklch(0.77 0.15 75);
-  /* (2026-05-21): bumped from L=0.57 to L=0.50 so
-   * `.badge-warning` (`bg-warning-50` + `text-warning-700`) clears
-   * WCAG AA 4.5:1. Both axe-core and `scripts/check-contrast.mjs`
-   * measured ~4.27:1 on the original token — uniformly below the
-   * floor, no approximation gap on warm-amber tones. Same ramp-slot
-   * remains, just deeper. Dark-theme stays at L=0.90 (already passes
-   * against the L=0.30 background). */
-  --warning-700: oklch(0.5 0.11 72);
-  --danger-50: oklch(0.97 0.02 24);
-  --danger-500: oklch(0.63 0.19 24);
-  --danger-600: oklch(0.57 0.18 24);
-  --danger-700: oklch(0.49 0.15 24);
+  --success-50: oklch(0.939 0.028 162);
+  --success-500: oklch(0.563 0.12 159);
+  --success-700: oklch(0.471 0.102 158);
+  --warning-50: oklch(0.953 0.065 95);
+  --warning-500: oklch(0.811 0.166 85);
+  --warning-700: oklch(0.447 0.092 86);
+  --danger-50: oklch(0.932 0.028 26);
+  --danger-500: oklch(0.583 0.195 29);
+  --danger-600: oklch(0.53 0.18 29);
+  --danger-700: oklch(0.48 0.169 29);
 
   /* global keyboard-focus ring. Box-shadow form so it
    * follows the element border-radius and never clips inside
@@ -383,19 +337,20 @@
   --focus-ring: 0 0 0 3px color-mix(in oklch, var(--primary) 55%, transparent);
   --focus-ring-color: color-mix(in oklch, var(--primary) 60%, transparent);
 
-  /* +  — brand accent (Puntovivo "punto naranja").
-   * Three-stop scale per the design specification. The 500 stop lives
-   * inside the brand mark as the counter dot; the 50 and 700 stops back
-   * accent flourishes (hover chips, motion moments) and a deep
-   * matching foreground when typography crosses an accent surface.
-   * Intentionally separate from `--warning-*` so semantic state (alerts,
-   * warnings) and brand identity never collide.
-   */
-  --brand-accent-50: oklch(0.96 0.04 62);
-  --brand-accent-500: oklch(0.72 0.18 62);
-  --brand-accent-700: oklch(0.52 0.13 60);
+  /* Brand accent: the orange dot of the mark and the Cobrar control. */
+  --brand-accent-50: oklch(0.941 0.029 45);
+  --brand-accent-500: oklch(0.668 0.188 39);
+  --brand-accent-700: oklch(0.53 0.156 38);
   --brand-accent: var(--brand-accent-500);
-  --brand-accent-foreground: oklch(0.22 0.02 60);
+  --brand-accent-foreground: oklch(0.25 0.04 241);
+  /* Cobrar is the only orange control; dark ink keeps it readable in both themes. */
+  --cobrar: var(--brand-accent-500);
+  --cobrar-hover: oklch(0.62 0.18 39);
+  --cobrar-foreground: oklch(0.25 0.04 241);
+  /* Navigation rail and brand tile stay deep navy in both themes. */
+  --rail: oklch(0.293 0.053 241);
+  --rail-foreground: oklch(0.973 0.007 234);
+  --rail-muted: oklch(0.86 0.025 238);
 
   /* +  — motion tokens lifted from the design-system
    * handoff. The existing @theme animations already use the same easings
@@ -431,108 +386,103 @@
 }
 
 .dark {
-  --background: oklch(0.19 0.018 255);
-  --foreground: oklch(0.95 0.006 84);
-  --card: oklch(0.225 0.018 255);
-  --card-foreground: oklch(0.95 0.006 84);
-  --popover: oklch(0.23 0.018 255);
-  --popover-foreground: oklch(0.95 0.006 84);
-  --border: oklch(0.31 0.015 255);
-  --input: oklch(0.28 0.014 255);
-  --ring: oklch(0.74 0.12 244);
-  --muted: oklch(0.25 0.014 255);
-  --muted-foreground: oklch(0.74 0.012 84);
-  --accent: oklch(0.29 0.024 238);
-  --accent-foreground: oklch(0.95 0.006 84);
-  --primary: oklch(0.74 0.12 244);
-  --primary-foreground: oklch(0.22 0.018 255);
-  --secondary: oklch(0.27 0.014 255);
-  --secondary-foreground: oklch(0.94 0.006 84);
-  --destructive: oklch(0.7 0.17 24);
-  --destructive-foreground: oklch(0.17 0.018 255);
+  --background: oklch(0.202 0.03 244);
+  --foreground: oklch(0.966 0.01 239);
+  --card: oklch(0.263 0.043 243);
+  --card-foreground: oklch(0.966 0.01 239);
+  --popover: oklch(0.263 0.043 243);
+  --popover-foreground: oklch(0.966 0.01 239);
+  --border: oklch(0.364 0.051 239);
+  --input: oklch(0.451 0.057 240);
+  --ring: oklch(0.729 0.135 243);
+  --muted: oklch(0.307 0.05 244);
+  --muted-foreground: oklch(0.713 0.033 238);
+  --accent: oklch(0.314 0.063 245);
+  --accent-foreground: oklch(0.793 0.104 241);
+  --primary: oklch(0.729 0.135 243);
+  --primary-foreground: oklch(0.202 0.03 244);
+  --secondary: oklch(0.307 0.05 244);
+  --secondary-foreground: oklch(0.837 0.024 240);
+  --destructive: oklch(0.709 0.183 28);
+  --destructive-foreground: oklch(0.202 0.03 244);
 
-  --surface: oklch(0.22 0.018 255);
-  --surface-2: oklch(0.25 0.02 255);
-  --surface-3: oklch(0.3 0.02 255);
-  --line: oklch(0.33 0.014 255);
-  --line-strong: oklch(0.46 0.018 255);
-  --ink: oklch(0.95 0.006 84);
-  --ink-soft: oklch(0.73 0.012 84);
+  --surface: oklch(0.263 0.043 243);
+  --surface-2: oklch(0.285 0.047 243);
+  --surface-3: oklch(0.307 0.05 244);
+  --line: oklch(0.364 0.051 239);
+  --line-strong: oklch(0.451 0.057 240);
+  --ink: oklch(0.966 0.01 239);
+  --ink-soft: oklch(0.713 0.033 238);
 
-  --primary-50: oklch(0.3 0.03 244);
-  --primary-100: oklch(0.35 0.045 244);
-  --primary-200: oklch(0.43 0.065 244);
-  --primary-300: oklch(0.52 0.085 244);
-  --primary-400: oklch(0.61 0.1 244);
-  --primary-500: oklch(0.69 0.115 244);
-  --primary-600: oklch(0.74 0.12 244);
-  --primary-700: oklch(0.8 0.115 244);
-  --primary-800: oklch(0.86 0.09 244);
-  --primary-900: oklch(0.91 0.05 244);
-  --primary-950: oklch(0.95 0.02 244);
+  --primary-50: oklch(0.27 0.05 245);
+  --primary-100: oklch(0.314 0.063 245);
+  --primary-200: oklch(0.4 0.08 244);
+  --primary-300: oklch(0.5 0.1 244);
+  --primary-400: oklch(0.6 0.12 243);
+  --primary-500: oklch(0.68 0.13 243);
+  --primary-600: oklch(0.729 0.135 243);
+  --primary-700: oklch(0.793 0.104 241);
+  --primary-800: oklch(0.85 0.08 241);
+  --primary-900: oklch(0.91 0.045 241);
+  --primary-950: oklch(0.95 0.02 241);
 
-  --secondary-50: oklch(0.25 0.012 255);
-  --secondary-100: oklch(0.28 0.014 255);
-  --secondary-200: oklch(0.32 0.014 255);
-  --secondary-300: oklch(0.39 0.016 255);
-  --secondary-400: oklch(0.53 0.02 255);
-  --secondary-500: oklch(0.66 0.016 84);
-  --secondary-600: oklch(0.74 0.014 84);
-  --secondary-700: oklch(0.81 0.012 84);
-  --secondary-800: oklch(0.88 0.009 84);
-  --secondary-900: oklch(0.93 0.007 84);
-  --secondary-950: oklch(0.97 0.004 84);
+  --secondary-50: oklch(0.263 0.043 243);
+  --secondary-100: oklch(0.285 0.047 243);
+  --secondary-200: oklch(0.307 0.05 244);
+  --secondary-300: oklch(0.364 0.051 239);
+  --secondary-400: oklch(0.451 0.057 240);
+  --secondary-500: oklch(0.713 0.033 238);
+  --secondary-600: oklch(0.76 0.03 239);
+  --secondary-700: oklch(0.837 0.024 240);
+  --secondary-800: oklch(0.89 0.018 240);
+  --secondary-900: oklch(0.966 0.01 239);
+  --secondary-950: oklch(0.985 0.005 239);
 
-  --success-50: oklch(0.28 0.04 154);
-  --success-500: oklch(0.72 0.16 154);
-  --success-700: oklch(0.82 0.12 154);
-  --warning-50: oklch(0.3 0.05 78);
-  --warning-500: oklch(0.82 0.15 78);
-  --warning-700: oklch(0.9 0.11 78);
-  --danger-50: oklch(0.27 0.04 24);
-  --danger-500: oklch(0.72 0.18 24);
-  --danger-600: oklch(0.79 0.16 24);
-  --danger-700: oklch(0.86 0.13 24);
+  --success-50: oklch(0.314 0.055 165);
+  --success-500: oklch(0.763 0.154 159);
+  --success-700: oklch(0.809 0.139 161);
+  --warning-50: oklch(0.32 0.061 94);
+  --warning-500: oklch(0.845 0.163 89);
+  --warning-700: oklch(0.875 0.142 91);
+  --danger-50: oklch(0.287 0.072 22);
+  --danger-500: oklch(0.709 0.183 28);
+  --danger-600: oklch(0.74 0.16 27);
+  --danger-700: oklch(0.77 0.136 26);
 
-  /* +  — brand accent in dark mode. The accent must
-   * read as warm but never glow against deep ink, so the 500 stop is
-   * desaturated a touch and the 50/700 stops shift to keep contrast.
-   */
-  --brand-accent-50: oklch(0.32 0.06 62);
-  --brand-accent-500: oklch(0.78 0.16 62);
-  --brand-accent-700: oklch(0.88 0.12 60);
+  --brand-accent-50: oklch(0.295 0.066 43);
+  --brand-accent-500: oklch(0.728 0.174 41);
+  --brand-accent-700: oklch(0.782 0.134 43);
+  --cobrar-hover: oklch(0.78 0.15 41);
 
-  /* explicit fg ramp for dark (mirror of light). */
-  --fg1: oklch(0.95 0.006 84);
-  --fg2: oklch(0.81 0.012 84);
-  --fg3: oklch(0.66 0.016 84);
-  --fg4: oklch(0.53 0.02 255);
+  --fg1: oklch(0.966 0.01 239);
+  --fg2: oklch(0.837 0.024 240);
+  --fg3: oklch(0.713 0.033 238);
+  --fg4: oklch(0.55 0.045 240);
 
   --operator-canvas: var(--background);
   --operator-panel: var(--surface);
   --operator-panel-muted: var(--surface-2);
-  --operator-commit: oklch(0.46 0.11 244);
-  --operator-commit-hover: oklch(0.52 0.11 244);
-  --operator-commit-foreground: #f8fbfb;
-  --operator-signal: oklch(0.72 0.16 154);
-  --operator-command: oklch(0.82 0.15 78);
-  --operator-positive-control: oklch(0.78 0.085 154);
-  --operator-positive-control-hover: oklch(0.72 0.085 154);
-  --operator-critical-control: oklch(0.76 0.1 24);
-  --operator-critical-control-hover: oklch(0.7 0.09 24);
-  --operator-semantic-control-foreground: oklch(0.19 0.018 255);
-  --operator-info-surface: oklch(0.245 0.025 244);
-  --operator-info-ink: oklch(0.82 0.075 244);
-  --operator-positive-surface: oklch(0.245 0.025 154);
-  --operator-positive-ink: oklch(0.84 0.075 154);
-  --operator-warning-surface: oklch(0.25 0.03 78);
-  --operator-warning-ink: oklch(0.86 0.09 78);
-  --operator-critical-surface: oklch(0.245 0.025 24);
-  --operator-critical-ink: oklch(0.84 0.09 24);
+  --operator-commit: #eef5fa;
+  --operator-commit-hover: #bcccd8;
+  --operator-commit-foreground: #0a1823;
+  --operator-signal: oklch(0.763 0.154 159);
+  --operator-command: oklch(0.728 0.174 41);
+  --operator-positive-control: oklch(0.809 0.139 161);
+  --operator-positive-control-hover: oklch(0.763 0.154 159);
+  --operator-critical-control: oklch(0.77 0.136 26);
+  --operator-critical-control-hover: oklch(0.709 0.183 28);
+  --operator-semantic-control-foreground: oklch(0.202 0.03 244);
+  --operator-info-surface: oklch(0.314 0.063 245);
+  --operator-info-ink: oklch(0.793 0.104 241);
+  --operator-positive-surface: oklch(0.314 0.055 165);
+  --operator-positive-ink: oklch(0.809 0.139 161);
+  --operator-warning-surface: oklch(0.32 0.061 94);
+  --operator-warning-ink: oklch(0.875 0.142 91);
+  --operator-critical-surface: oklch(0.287 0.072 22);
+  --operator-critical-ink: oklch(0.77 0.136 26);
   --operator-key-edge: rgb(0 0 0 / 0.34);
-  --operator-grid: rgb(255 255 255 / 0.025);
 
-  /* dark-mode shadow rule. Box shadows on a 0.19-L base are
+  /* dark-mode shadow rule. Box shadows on a deep ink base are
    * effectively invisible, so the design system replaces elevation
    * with a 1 px line. Components that still need a colored glow
    * (CTA buttons, accent moments) opt out by re-declaring their own
@@ -541,6 +491,10 @@
   --shadow-card: none;
   --shadow-panel: none;
   --shadow-modal: none;
+}
+
+:root.dark {
+  --rail: oklch(0.172 0.025 243);
 }
 
 /* semantic element styles. Pure CSS so artifacts (printed
@@ -553,8 +507,9 @@ body {
 }
 .display {
   font-family: var(--font-display) !important;
-  font-weight: 400;
-  letter-spacing: -0.03em;
+  font-variation-settings: 'wdth' 88;
+  font-weight: 800;
+  letter-spacing: -0.015em;
 }
 .kicker {
   font-family: var(--kicker-font);

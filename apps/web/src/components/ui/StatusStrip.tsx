@@ -13,11 +13,7 @@ export interface StatusStripProps extends Omit<HTMLAttributes<HTMLDivElement>, '
   action?: ReactNode;
 }
 
-/**
- * Compact operational notice with one semantic rail, message, and optional
- * action cluster. The component owns the DOM recipe so severity never depends
- * on colour alone and product surfaces do not hand-roll `.pv-strip` markup.
- */
+/** Compact severity notice: tinted surface, icon tile, message and optional actions. */
 export const StatusStrip = forwardRef<HTMLDivElement, StatusStripProps>(
   ({ tone, icon: Icon, title, children, meta, action, className, ...props }, ref) => (
     <div ref={ref} className={cn('pv-strip', tone, className)} {...props}>

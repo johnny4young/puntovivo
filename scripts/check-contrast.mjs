@@ -84,6 +84,12 @@ export const ENFORCED_PAIRS = [
   // pair here means a future relax of either token surfaces as a CI
   // failure, not as a route smoke regression.
   ['warning-50', 'warning-700'],
+  // Cobrar is the one orange control and the navy rail hosts navigation in both themes.
+  ['cobrar', 'cobrar-foreground'],
+  ['rail', 'rail-foreground'],
+  ['rail', 'rail-muted'],
+  ['success-50', 'success-700'],
+  ['danger-50', 'danger-700'],
 ];
 
 function floorForPair(pairLabel) {
