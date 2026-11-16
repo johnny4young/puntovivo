@@ -1,5 +1,7 @@
 # Third-party notices
 
+**Language:** English · [Español](./THIRD-PARTY-NOTICES.es.md)
+
 Puntovivo bundles the following assets. Each remains under its own licence.
 
 ## Fonts
