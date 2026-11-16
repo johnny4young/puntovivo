@@ -1633,6 +1633,26 @@ export function getSalePaymentEvidence(tenantId: string, saleId: string): SalePa
   }
 }
 
+/** Tenders of one sale with the proof-of-payment reference the cashier typed. */
+export function getSalePaymentReferences(
+  tenantId: string,
+  saleId: string
+): Array<{ method: string; amount: number; reference: string | null }> {
+  const db = openDb();
+  try {
+    return db
+      .prepare(
+        `select method, amount, reference
+         from sale_payments
+         where tenant_id = ? and sale_id = ?
+         order by created_at asc, id asc`
+      )
+      .all(tenantId, saleId) as Array<{ method: string; amount: number; reference: string | null }>;
+  } finally {
+    db.close();
+  }
+}
+
 export function getSalePromotionEvidence(
   tenantId: string,
   saleId: string

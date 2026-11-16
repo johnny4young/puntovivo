@@ -124,6 +124,9 @@ vi.mock('@/lib/trpc', () => ({
   },
 }));
 
+// The drawer hint reads the site's printer; its own test covers it.
+vi.mock('./SaleCashDrawerHint', () => ({ SaleCashDrawerHint: () => null }));
+
 vi.mock('@/lib/useCriticalMutation', () => ({
   useCriticalMutation: (_path: string, options?: { onSuccess?: ApprovalOnSuccess }) => {
     mockApprovalOnSuccess = options?.onSuccess;
@@ -217,11 +220,7 @@ describe('SalePaymentModal ( credit branch)', () => {
     expect(await screen.findByTestId('sale-payment-method-credit-option')).toBeInTheDocument();
     await user.selectOptions(screen.getByTestId('sale-payment-method-select'), 'credit');
     expect(await screen.findByTestId('checkout-approval-credit_sale')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Confirm Sale/i })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /Confirm Sale/i })).toHaveClass(
-      'disabled:bg-secondary-200',
-      'disabled:text-secondary-500'
-    );
+    expect(screen.getByTestId('sale-payment-confirm')).toBeDisabled();
   });
 
   it('surfaces the server-owned blocked-hours approval and fails closed', async () => {
@@ -241,7 +240,7 @@ describe('SalePaymentModal ( credit branch)', () => {
 
     expect(await screen.findByTestId('checkout-approval-sale_after_hours')).toBeInTheDocument();
     expect(screen.getByText('Checkout during blocked hours')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Confirm Sale/i })).toBeDisabled();
+    expect(screen.getByTestId('sale-payment-confirm')).toBeDisabled();
   });
 
   it('requires an exact manager grant for a cashier price override', async () => {
@@ -261,7 +260,7 @@ describe('SalePaymentModal ( credit branch)', () => {
 
     expect(await screen.findByTestId('checkout-approval-sale_price_override')).toBeInTheDocument();
     expect(screen.getByText('Checkout with an overridden price')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Confirm Sale/i })).toBeDisabled();
+    expect(screen.getByTestId('sale-payment-confirm')).toBeDisabled();
   });
 
   it('surfaces the server-authoritative price action when local catalog metadata is stale', async () => {
@@ -286,7 +285,7 @@ describe('SalePaymentModal ( credit branch)', () => {
     });
 
     expect(await screen.findByTestId('checkout-approval-sale_price_override')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Confirm Sale/i })).toBeDisabled();
+    expect(screen.getByTestId('sale-payment-confirm')).toBeDisabled();
   });
 
   it('preserves manager authority and accepted quotation pricing', () => {
@@ -326,7 +325,7 @@ describe('SalePaymentModal ( credit branch)', () => {
     });
 
     expect(screen.getByText('Checking the current checkout policy…')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Confirm Sale/i })).toBeDisabled();
+    expect(screen.getByTestId('sale-payment-confirm')).toBeDisabled();
   });
 
   it('rejects direct form submit while policy or exact approval gates are outstanding', async () => {
@@ -384,7 +383,7 @@ describe('SalePaymentModal ( credit branch)', () => {
       view = renderModal(props);
       await new Promise(resolve => setTimeout(resolve, 25));
     });
-    const confirm = screen.getByRole('button', { name: /Confirm Sale/i });
+    const confirm = screen.getByTestId('sale-payment-confirm');
 
     await waitFor(() => expect(confirm).toBeDisabled());
     expect(confirm).not.toHaveFocus();
@@ -437,7 +436,7 @@ describe('SalePaymentModal ( credit branch)', () => {
     expect(screen.getByTestId('credit-sale-warning')).toBeInTheDocument();
     expect(screen.getByTestId('credit-sale-override-toggle')).toBeInTheDocument();
     const projected = screen.getByTestId('credit-sale-projected');
-    expect(projected.className).toMatch(/warning/);
+    expect(projected.querySelector('dd')?.className).toMatch(/danger/);
   });
 
   it('offers an admin approval request instead of an override checkbox to managers', async () => {
@@ -466,7 +465,7 @@ describe('SalePaymentModal ( credit branch)', () => {
     await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
     await user.selectOptions(screen.getByTestId('sale-payment-method-select'), 'credit');
     await user.click(screen.getByTestId('credit-sale-override-toggle'));
-    await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
+    await user.click(screen.getByTestId('sale-payment-confirm'));
 
     expect(onSubmit).toHaveBeenCalledTimes(1);
     const submitted = onSubmit.mock.calls.at(0)?.at(0) as unknown as SalePaymentValues;
@@ -520,7 +519,7 @@ describe('SalePaymentModal ( credit branch)', () => {
       onSubmit,
     });
 
-    const confirm = screen.getByRole('button', { name: /Confirm Sale/i });
+    const confirm = screen.getByTestId('sale-payment-confirm');
     await waitFor(() => expect(confirm).toBeEnabled());
     expect(screen.getByTestId('checkout-approval-status-sale_discount')).toHaveTextContent(
       'Approved'
@@ -606,7 +605,7 @@ describe('SalePaymentModal ( credit branch)', () => {
         'Not requested'
       )
     );
-    expect(screen.getByRole('button', { name: /Confirm Sale/i })).toBeDisabled();
+    expect(screen.getByTestId('sale-payment-confirm')).toBeDisabled();
   });
 
   it('rehashes the exact approval context when the resolved currency changes', async () => {
@@ -716,7 +715,7 @@ describe('SalePaymentModal ( credit branch)', () => {
     const customer = screen.getByLabelText('Customer');
     expect(customer).toHaveValue('cust-1');
     expect(customer).toBeDisabled();
-    const confirm = screen.getByRole('button', { name: /Confirm Sale/i });
+    const confirm = screen.getByTestId('sale-payment-confirm');
     await waitFor(() => expect(confirm).toBeEnabled());
     await user.click(confirm);
 
@@ -739,7 +738,7 @@ describe('SalePaymentModal ( credit branch)', () => {
     // No credit picked — submit defaults to cash; override must be
     // sanitized to false even if the form state somehow carried a
     // true (defense-in-depth before the server router gate).
-    await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
+    await user.click(screen.getByTestId('sale-payment-confirm'));
 
     const submitted = onSubmit.mock.calls.at(0)?.at(0) as unknown as SalePaymentValues;
     expect(submitted.paymentMethod).toBe('cash');
@@ -763,7 +762,7 @@ describe('SalePaymentModal ( credit branch)', () => {
     );
     expect(screen.queryByTestId('credit-sale-customer-card')).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
+    await user.click(screen.getByTestId('sale-payment-confirm'));
     const submitted = onSubmit.mock.calls.at(0)?.at(0) as unknown as SalePaymentValues;
     expect(submitted.paymentMethod).toBe('cash');
     expect(submitted.customerId).toBe('');
@@ -848,7 +847,7 @@ describe('SalePaymentModal ( credit branch)', () => {
     const secondAmount = screen.getByLabelText(/Amount for tender 2/i);
     await user.clear(secondAmount);
     await user.type(secondAmount, '150');
-    await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
+    await user.click(screen.getByTestId('sale-payment-confirm'));
 
     expect(onSubmit).toHaveBeenCalledTimes(1);
     const submitted = onSubmit.mock.calls.at(0)?.at(0) as unknown as SalePaymentValues;

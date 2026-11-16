@@ -1,28 +1,17 @@
-/**
- * Sale payment drawer shell.
- *
- * decomposed from the former 1048-LOC single file during the
- * megafile wave. This shell keeps the Drawer wrapper, the grand-total header,
- * the service-charge line, the customer picker, the notes field, the footer,
- * and composes the tip / single-tender / split-tender / credit sub-components.
- * All state + behavior live in `useSalePaymentModal`; the public surface
- * (`SalePaymentModal` + the re-exported value types) is unchanged so the
- * sibling importers (SalesModals, SalesPage, checkoutPayment) resolve the same
- * names at the same path.
- *
- * @module features/sales/SalePaymentModal
- */
-import { lazy, Suspense } from 'react';
+/** Sale payment sheet: the total, one focused state per tender, and Confirm. */
+import { lazy, Suspense, type ReactNode } from 'react';
+import { CornerDownLeft, UserRound } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { Drawer } from '@/components/feedback/Drawer';
-import { ModalButton } from '@/components/form-controls/Modal';
+import { Button } from '@/components/ui';
 import { formatCurrency } from '@/lib/utils';
 import { TENDER_SUM_EPSILON } from './salePaymentModal.constants';
 import { SaleElectronicInvoiceSection } from './LazySaleElectronicInvoiceSection';
 import { asElectronicInvoiceForm } from './electronicInvoiceRequest';
 import { useSalePaymentModal } from './useSalePaymentModal';
 import { CheckoutApprovalPanel } from './CheckoutApprovalPanel';
+import { SalePaymentMethodTabs } from './SalePaymentMethodTabs';
 import type { SalePaymentModalProps } from './salePaymentModal.types';
 
 const SalePaymentSplitTenderSection = lazy(async () => {
@@ -61,6 +50,11 @@ export type {
   SalePaymentValues,
 } from './salePaymentModal.types';
 
+// The dialog title becomes the board's small kicker above the total.
+const TITLE_DETAIL_CLASS = 'font-sans text-xs font-semibold uppercase tracking-[0.14em] text-fg3';
+const SHEET_CLASS =
+  '[&_.modal-header]:border-b-0 [&_.modal-header]:pb-0 [&_.modal-header_h2]:font-sans [&_.modal-header_h2]:text-xs [&_.modal-header_h2]:font-semibold [&_.modal-header_h2]:uppercase [&_.modal-header_h2]:tracking-[0.14em] [&_.modal-header_h2]:text-fg3 [&_.drawer-pinned-content]:pt-1';
+
 export function SalePaymentModal({
   isOpen,
   total,
@@ -81,6 +75,7 @@ export function SalePaymentModal({
   restoreFocusTo,
   activePriceTier = 1,
   allowTip = true,
+  initialMethod = 'cash',
   onCustomerPriceTierChange,
   onClose,
   onSubmit,
@@ -105,6 +100,7 @@ export function SalePaymentModal({
     selectedCustomer,
     customerAttached,
     electronicInvoice,
+    invoiceRequested,
     promotionQuoteLoading,
     promotionQuoteUnavailable,
     promotionQuoteStockError,
@@ -120,6 +116,8 @@ export function SalePaymentModal({
     storeCreditBalance,
     retryCustomerValue,
     creditAmountInSplit,
+    creditDownPayment,
+    creditFinancedAmount,
     currentBalance,
     creditLimit,
     projectedBalance,
@@ -133,12 +131,13 @@ export function SalePaymentModal({
     tenderSum,
     tenderDelta,
     splitIsValid,
+    transferReferenceMissing,
     canSubmit,
     handleSubmit,
     handleTipPreset,
     syncPaymentInputsForTip,
     handleEnableSplit,
-    handleDisableSplit,
+    selectMethod,
     presetActive,
   } = useSalePaymentModal({
     isOpen,
@@ -156,73 +155,119 @@ export function SalePaymentModal({
     currencyCode,
     activePriceTier,
     fastCashTrigger,
+    initialMethod,
     onSubmit,
   });
 
   const isPartialPayment = !splitMode && !isCredit && outstanding > 0;
-  const showsBalance = isPartialPayment || !isCash;
+  // A weighed line is one article however many kilos it carries.
+  const itemCount = approvalItems.reduce(
+    (count, item) => count + (Number.isInteger(item.quantity) ? item.quantity : 1),
+    0
+  );
+  const customerEditable = !customerLocked && approvalSaleId === null;
+  const loadingStatus = (
+    <p className="text-sm text-fg3" role="status">
+      {t('common:status.loading')}
+    </p>
+  );
+
+  const confirmLabel = (() => {
+    if (isSaving) return t('payment.processing');
+    if (isPartialPayment) {
+      return t('payment.confirmPartialAmount', { amount: formatCurrency(outstanding) });
+    }
+    if (splitMode && Math.abs(tenderDelta) >= TENDER_SUM_EPSILON) {
+      return t(tenderDelta < 0 ? 'payment.confirmSplitMissing' : 'payment.confirmSplitOver', {
+        amount: formatCurrency(Math.abs(tenderDelta)),
+      });
+    }
+    if (isCredit && !splitMode) {
+      return creditDownPayment > 0
+        ? t('payment.confirmCreditWithCash', {
+            credit: formatCurrency(creditFinancedAmount),
+            cash: formatCurrency(creditDownPayment),
+          })
+        : t('payment.confirmCredit', { credit: formatCurrency(creditFinancedAmount) });
+    }
+    if (invoiceRequested) return t('payment.confirmInvoice');
+    if (paymentMethod === 'transfer' && !splitMode) return t('payment.confirmTransfer');
+    return t('payment.confirm');
+  })();
+
+  const breakdownLine = (() => {
+    const base = formatCurrency(checkoutBaseTotal);
+    const service = formatCurrency(serviceChargeAmount);
+    const tip = formatCurrency(tipAmount);
+    // One key per combination, so a zero charge is never spelled out.
+    if (serviceChargeAmount > 0 && tipAmount > 0) {
+      return t('payment.serviceCharge.grandTotalBreakdownWithTip', { base, service, tip });
+    }
+    if (serviceChargeAmount > 0) {
+      return t('payment.serviceCharge.grandTotalBreakdownOnly', { base, service });
+    }
+    return tipAmount > 0 ? t('payment.tip.grandTotalBreakdown', { base, tip }) : null;
+  })();
 
   const paymentSummary = (
-    <div
-      className="rounded-xl border border-primary-200 bg-primary-50 px-4 py-4 shadow-sm"
-      data-testid="sale-payment-summary"
-    >
-      <p id="sale-payment-total-label" className="text-sm text-primary-800">
-        {t('payment.saleTotal')}
-      </p>
-      <p
-        className="mt-1 text-3xl font-semibold text-primary-900"
-        role="status"
-        aria-live="polite"
-        aria-atomic="true"
-        aria-labelledby="sale-payment-total-label"
-      >
-        {formatCurrency(grandTotal)}
-      </p>
-      {/* breakdown line picks one of three i18n keys so
-        the renderer never interpolates "+ servicio $0.00" when the
-        tenant has no rate configured. Tip-only matches the original
-         copy; service-only and service-with-tip add the
-        extra segment in neutral LATAM tú.
-      */}
-      {serviceChargeAmount > 0 && tipAmount > 0 && (
-        <p className="mt-1 text-xs text-primary-700">
-          {t('payment.serviceCharge.grandTotalBreakdownWithTip', {
-            base: formatCurrency(checkoutBaseTotal),
-            service: formatCurrency(serviceChargeAmount),
-            tip: formatCurrency(tipAmount),
-          })}
-        </p>
-      )}
-      {serviceChargeAmount > 0 && tipAmount === 0 && (
-        <p className="mt-1 text-xs text-primary-700">
-          {t('payment.serviceCharge.grandTotalBreakdownOnly', {
-            base: formatCurrency(checkoutBaseTotal),
-            service: formatCurrency(serviceChargeAmount),
-          })}
-        </p>
-      )}
-      {serviceChargeAmount === 0 && tipAmount > 0 && (
-        <p className="mt-1 text-xs text-primary-700">
-          {t('payment.tip.grandTotalBreakdown', {
-            base: formatCurrency(checkoutBaseTotal),
-            tip: formatCurrency(tipAmount),
-          })}
-        </p>
-      )}
+    <div data-testid="sale-payment-summary">
+      <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
+        <div className="min-w-0 max-w-full">
+          <span id="sale-payment-total-label" className="sr-only">
+            {t('payment.saleTotal')}
+          </span>
+          <p
+            className="font-numeric text-5xl leading-none text-foreground wrap-anywhere sm:text-7xl"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            aria-labelledby="sale-payment-total-label"
+          >
+            {formatCurrency(grandTotal)}
+          </p>
+        </div>
+        <div className="ml-auto min-w-0 max-w-full text-right sm:max-w-[46%]">
+          <label htmlFor="sale-payment-customer" className="sr-only">
+            {t('payment.customer')}
+          </label>
+          <select
+            id="sale-payment-customer"
+            className="min-h-11 w-full min-w-0 cursor-pointer truncate rounded-lg bg-transparent text-right text-sm font-semibold text-fg2 outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-default"
+            disabled={!customerEditable}
+            {...form.register('customerId')}
+          >
+            <option value="">{t('payment.walkIn')}</option>
+            {approvalCustomerId &&
+              !customers.some(customer => customer.id === approvalCustomerId) && (
+                <option value={approvalCustomerId}>
+                  {lockedCustomerName ?? t('payment.lockedCustomer')}
+                </option>
+              )}
+            {customers.map(customer => (
+              <option key={customer.id} value={customer.id}>
+                {customer.name}
+              </option>
+            ))}
+          </select>
+          <p className="text-sm text-fg3" data-testid="sale-payment-document">
+            {t(invoiceRequested ? 'payment.documentInvoice' : 'payment.documentTicket')}
+          </p>
+        </div>
+      </div>
+      {breakdownLine && <p className="mt-1.5 text-sm text-fg2">{breakdownLine}</p>}
       {promotionQuoteLoading && (
-        <p className="mt-2 text-xs text-primary-700" role="status">
+        <p className="mt-1.5 text-sm text-fg2" role="status">
           {t('promotions:checkout.calculating')}
         </p>
       )}
       {!promotionQuoteLoading && promotionDiscountAmount > 0 && (
-        <div className="mt-2 border-t border-primary-200 pt-2" data-testid="promotion-summary">
-          <p className="text-sm font-medium text-success-700">
+        <div className="mt-1.5" data-testid="promotion-summary">
+          <p className="text-sm font-semibold text-success-700">
             {t('promotions:checkout.saved', {
               amount: formatCurrency(promotionDiscountAmount, currencyCode),
             })}
           </p>
-          <p className="mt-0.5 text-xs text-primary-700">
+          <p className="text-sm text-fg2">
             {appliedPromotions.map(promotion => promotion.name).join(' · ')}
           </p>
         </div>
@@ -230,77 +275,98 @@ export function SalePaymentModal({
     </div>
   );
 
+  const customerChips: ReactNode = (
+    <>
+      {customerEditable && !selectedCustomer && (
+        <button
+          type="button"
+          className="inline-flex min-h-11 items-center gap-2.5 rounded-[14px] border-[1.5px] border-line-strong bg-surface px-3.5 text-sm font-semibold text-foreground hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+          onClick={() => {
+            const picker = document.getElementById('sale-payment-customer');
+            if (!(picker instanceof HTMLSelectElement)) return;
+            picker.focus();
+            // Opens the native list where the browser allows it; focus is the fallback.
+            try {
+              picker.showPicker?.();
+            } catch {
+              /* Not user-activated or unsupported: the focused select is enough. */
+            }
+          }}
+          data-testid="sale-payment-add-customer"
+        >
+          <UserRound className="h-4 w-4" aria-hidden="true" />
+          {t('payment.addCustomer')}
+        </button>
+      )}
+      {selectedCustomer && (
+        <Suspense fallback={null}>
+          <CustomerLoyaltyChip customerId={selectedCustomer.id} />
+        </Suspense>
+      )}
+      {customerEditable &&
+        onCustomerPriceTierChange &&
+        (selectedCustomer?.priceTier ?? 1) !== activePriceTier && (
+          <button
+            type="button"
+            className="btn-outline min-h-11 px-3.5 text-sm"
+            onClick={() => onCustomerPriceTierChange(selectedCustomer?.priceTier ?? 1)}
+          >
+            {selectedCustomer
+              ? t('payment.priceTier.applyCustomer', { tier: selectedCustomer.priceTier ?? 1 })
+              : t('payment.priceTier.applyWalkIn')}
+          </button>
+        )}
+    </>
+  );
+
   return (
     <Drawer
       isOpen={isOpen}
       onClose={onClose}
       title={t('payment.title')}
+      titleDetail={
+        itemCount > 0 ? (
+          <span className={TITLE_DETAIL_CLASS} data-testid="sale-payment-item-count">
+            {t('payment.itemCount', { count: itemCount })}
+          </span>
+        ) : undefined
+      }
       size="xl"
+      className={SHEET_CLASS}
       restoreFocusTo={restoreFocusTo}
       testId="sale-payment-drawer"
       pinnedContent={paymentSummary}
       footer={
-        <div className="w-full space-y-3">
-          {!splitMode && !isCredit && (
-            <dl
-              data-testid="payment-settlement"
-              className="grid grid-cols-2 items-end gap-3 text-left"
-            >
-              <div className="min-w-0">
-                <dt className="text-xs text-secondary-500">{t('payment.amountReceived')}</dt>
-                <dd className="text-base font-medium tabular-nums wrap-anywhere text-secondary-900 sm:text-lg">
-                  {formatCurrency(amountReceivedValue)}
-                </dd>
-              </div>
-              <div className="min-w-0">
-                <dt className="text-xs text-secondary-500">
-                  {showsBalance ? t('payment.balance') : t('payment.change')}
-                </dt>
-                <dd
-                  data-testid="payment-settlement-amount"
-                  className={`text-xl font-semibold tabular-nums wrap-anywhere sm:text-2xl ${
-                    isPartialPayment ? 'text-warning-700' : 'text-success-700'
-                  }`}
-                >
-                  {formatCurrency(showsBalance ? outstanding : change)}
-                </dd>
-              </div>
-            </dl>
-          )}
-          <div className="flex gap-3 sm:justify-end">
-            <ModalButton onClick={onClose} disabled={isSaving} className="w-auto shrink-0">
-              {t('payment.cancel')}
-            </ModalButton>
-            <ModalButton
-              variant="primary"
-              onClick={handleSubmit}
-              disabled={!canSubmit}
-              id="sale-payment-confirm"
-              className="w-auto min-w-0 flex-1 disabled:bg-secondary-200 disabled:text-secondary-500 sm:flex-none"
-            >
-              {isSaving
-                ? t('payment.processing')
-                : isPartialPayment
-                  ? t('payment.confirmPartialAmount', { amount: formatCurrency(outstanding) })
-                  : splitMode && Math.abs(tenderDelta) >= TENDER_SUM_EPSILON
-                    ? t(
-                        tenderDelta < 0
-                          ? 'payment.confirmSplitMissing'
-                          : 'payment.confirmSplitOver',
-                        {
-                          amount: formatCurrency(Math.abs(tenderDelta)),
-                        }
-                      )
-                    : t('payment.confirm')}
-            </ModalButton>
-          </div>
+        <div className="flex w-full gap-2.5">
+          <Button
+            variant="outline"
+            onClick={onClose}
+            disabled={isSaving}
+            className="h-16 shrink-0 gap-2.5 rounded-2xl px-5 text-base"
+          >
+            {t('payment.cancel')}
+            <kbd className="pv-kbd" aria-hidden="true">
+              Esc
+            </kbd>
+          </Button>
+          <Button
+            variant="charge"
+            onClick={handleSubmit}
+            disabled={!canSubmit}
+            id="sale-payment-confirm"
+            data-testid="sale-payment-confirm"
+            className="h-16 min-w-0 flex-1 gap-3 rounded-2xl px-4 text-xl sm:text-2xl"
+          >
+            <span className="min-w-0 truncate">{confirmLabel}</span>
+            <CornerDownLeft className="hidden h-5 w-5 shrink-0 sm:block" aria-hidden="true" />
+          </Button>
         </div>
       }
     >
       <form id="sale-payment-form" className="space-y-4" onSubmit={handleSubmit}>
         {isPartialPayment && (
           <div
-            className="rounded-xl border border-warning-300 bg-warning-50 p-4 text-warning-900"
+            className="rounded-[15px] border-[1.5px] border-warning-500 bg-warning-50 p-4 text-warning-700"
             role="alert"
           >
             <p className="font-semibold">{t('payment.partialTitle')}</p>
@@ -310,14 +376,17 @@ export function SalePaymentModal({
           </div>
         )}
         {promotionQuoteUnavailable && (
-          <div className="rounded-xl border border-danger-200 bg-danger-50 p-4" role="alert">
+          <div
+            className="rounded-[15px] border-[1.5px] border-danger-500 bg-danger-50 p-4"
+            role="alert"
+          >
             <p className="text-sm text-danger-700">
               {promotionQuoteStockError ?? t('promotions:checkout.unavailable')}
             </p>
             {promotionQuoteStockError === null && (
               <button
                 type="button"
-                className="btn-secondary mt-2 text-sm"
+                className="btn-outline mt-2 min-h-11 px-3 text-sm"
                 onClick={retryPromotionQuote}
               >
                 {t('promotions:checkout.retry')}
@@ -325,35 +394,35 @@ export function SalePaymentModal({
             )}
           </div>
         )}
-        {!splitMode && (
-          <Suspense
-            fallback={
-              <p className="text-sm text-secondary-500" role="status">
-                {t('common:status.loading')}
-              </p>
-            }
-          >
+
+        <SalePaymentMethodTabs
+          form={form}
+          paymentMethod={paymentMethod}
+          splitMode={splitMode}
+          creditMethodAvailable={creditMethodAvailable}
+          onSelectMethod={selectMethod}
+          onEnableSplit={handleEnableSplit}
+        />
+
+        {!splitMode && !isCredit && (
+          <Suspense fallback={loadingStatus}>
             <SalePaymentSingleTenderSection
               form={form}
               paymentMethod={paymentMethod}
-              creditMethodAvailable={creditMethodAvailable}
               isCash={isCash}
-              isCredit={isCredit}
+              isAdmin={isAdmin}
               grandTotal={grandTotal}
               amountReceivedValue={amountReceivedValue}
-              handleEnableSplit={handleEnableSplit}
+              change={change}
+              outstanding={outstanding}
+              currencyCode={currencyCode}
+              transferReferenceMissing={transferReferenceMissing}
             />
           </Suspense>
         )}
 
         {splitMode && (
-          <Suspense
-            fallback={
-              <p className="text-sm text-secondary-500" role="status">
-                {t('common:status.loading')}
-              </p>
-            }
-          >
+          <Suspense fallback={loadingStatus}>
             <SalePaymentSplitTenderSection
               form={form}
               tenderFields={tenderFields}
@@ -371,88 +440,13 @@ export function SalePaymentModal({
               loyaltyValuePerPoint={loyaltyValuePerPoint}
               storeCreditBalance={storeCreditBalance}
               retryCustomerValue={retryCustomerValue}
-              handleDisableSplit={handleDisableSplit}
             />
           </Suspense>
         )}
 
-        <div>
-          <div className="sm:grid sm:grid-cols-[7rem_minmax(0,1fr)] sm:items-center sm:gap-3">
-            <label htmlFor="sale-payment-customer" className="label">
-              {t('payment.customer')}
-            </label>
-            <select
-              id="sale-payment-customer"
-              className="input mt-1 sm:mt-0"
-              disabled={customerLocked || approvalSaleId !== null}
-              {...form.register('customerId')}
-            >
-              <option value="">{t('payment.walkIn')}</option>
-              {approvalCustomerId &&
-                !customers.some(customer => customer.id === approvalCustomerId) && (
-                  <option value={approvalCustomerId}>
-                    {lockedCustomerName ?? t('payment.lockedCustomer')}
-                  </option>
-                )}
-              {customers.map(customer => (
-                <option key={customer.id} value={customer.id}>
-                  {customer.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          {/* the picked customer's point balance; silent for
-           * walk-ins and for customers without points. */}
-          {selectedCustomer && (
-            <Suspense fallback={null}>
-              <CustomerLoyaltyChip customerId={selectedCustomer.id} />
-            </Suspense>
-          )}
-          {!customerLocked &&
-            approvalSaleId === null &&
-            onCustomerPriceTierChange &&
-            (selectedCustomer?.priceTier ?? 1) !== activePriceTier && (
-              <button
-                type="button"
-                className="btn-secondary mt-2 w-full"
-                onClick={() => onCustomerPriceTierChange(selectedCustomer?.priceTier ?? 1)}
-              >
-                {selectedCustomer
-                  ? t('payment.priceTier.applyCustomer', {
-                      tier: selectedCustomer.priceTier ?? 1,
-                    })
-                  : t('payment.priceTier.applyWalkIn')}
-              </button>
-            )}
-        </div>
-
-        {electronicInvoice.available && (
-          <Suspense fallback={null}>
-            <SaleElectronicInvoiceSection
-              form={asElectronicInvoiceForm(form)}
-              identificationTypes={electronicInvoice.identificationTypes}
-              selectedCustomer={selectedCustomer}
-            />
-          </Suspense>
-        )}
-
-        {/* V10 credit-sale customer card. Shows the
-            customer's current balance, cupo, projected balance
-            after this sale, and either an admin override checkbox or
-            an exact approval request for non-admin operators
-            when the projection exceeds the cupo.  lifted
-            this out of the !splitMode branch so it surfaces in
-            both modes: legacy single-tender credit projects against
-            grandTotal; split-credit ("apartado") projects against
-            the credit-tender sum only. */}
+        {/* Single-tender credit and a credit row inside a split share this card. */}
         {showCreditCard && (
-          <Suspense
-            fallback={
-              <p className="text-sm text-secondary-500" role="status">
-                {t('common:status.loading')}
-              </p>
-            }
-          >
+          <Suspense fallback={loadingStatus}>
             <SaleCreditCustomerCard
               form={form}
               selectedCustomer={selectedCustomer}
@@ -467,8 +461,22 @@ export function SalePaymentModal({
               balanceLoading={balanceLoading}
               balanceUnavailable={balanceUnavailable}
               retryBalance={retryBalance}
+              creditDownPayment={creditDownPayment}
             />
           </Suspense>
+        )}
+
+        {electronicInvoice.available ? (
+          <Suspense fallback={null}>
+            <SaleElectronicInvoiceSection
+              form={asElectronicInvoiceForm(form)}
+              identificationTypes={electronicInvoice.identificationTypes}
+              selectedCustomer={selectedCustomer}
+              aside={customerChips}
+            />
+          </Suspense>
+        ) : (
+          <div className="flex flex-wrap items-center gap-2 empty:hidden">{customerChips}</div>
         )}
 
         <CheckoutApprovalPanel
@@ -484,13 +492,7 @@ export function SalePaymentModal({
         />
 
         {pharmacyCheckout.enabled && (
-          <Suspense
-            fallback={
-              <p className="text-sm text-secondary-500" role="status">
-                {t('common:status.loading')}
-              </p>
-            }
-          >
+          <Suspense fallback={loadingStatus}>
             <SalePharmacyEvidenceSection
               enabled
               isLoading={pharmacyCheckout.isLoading}
@@ -514,7 +516,7 @@ export function SalePaymentModal({
           <Suspense
             fallback={
               <div
-                className="min-h-24 motion-safe:animate-pulse rounded-xl border border-secondary-200 bg-surface-2/50"
+                className="min-h-24 motion-safe:animate-pulse rounded-xl bg-surface-3"
                 role="status"
                 aria-label={t('common:status.loading')}
               />
@@ -529,30 +531,22 @@ export function SalePaymentModal({
           </Suspense>
         )}
 
-        {/* read-only service charge line. Hidden when the
-          tenant has no rate configured so non-restaurant operators see
-          no extra surface. The amount is derived from the prop rate;
-          the server re-validates at submit time.
-        */}
+        {/* Read-only: derived from the tenant rate and re-validated by the server. */}
         {serviceChargeRate > 0 && (
           <div
-            className="rounded-xl border border-secondary-200 p-4"
+            className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-[13px] bg-surface-3 px-3.5 py-3 text-sm"
             aria-label={t('payment.serviceCharge.heading')}
           >
-            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm font-medium text-secondary-900">
-                {t('payment.serviceCharge.heading')}
-              </p>
-              <p className="text-xs text-secondary-500">{t('payment.serviceCharge.helper')}</p>
+            <div>
+              <p className="font-semibold text-foreground">{t('payment.serviceCharge.heading')}</p>
+              <p className="text-fg2">{t('payment.serviceCharge.helper')}</p>
             </div>
-            <div className="mt-2 flex items-center justify-between">
-              <span className="text-sm text-secondary-500">
-                {t('payment.serviceCharge.rateLabel', { rate: serviceChargeRate })}
-              </span>
-              <span className="text-sm font-medium text-secondary-900">
+            <p className="text-fg2">
+              {t('payment.serviceCharge.rateLabel', { rate: serviceChargeRate })}{' '}
+              <span className="font-numeric text-lg text-foreground">
                 {formatCurrency(serviceChargeAmount)}
               </span>
-            </div>
+            </p>
           </div>
         )}
 
@@ -562,14 +556,14 @@ export function SalePaymentModal({
           </label>
           <textarea
             id="sale-payment-notes"
-            className="input mt-1 min-h-[96px]"
+            className="input mt-1 min-h-[64px]"
             placeholder={t('payment.notesHint')}
             {...form.register('notes')}
           />
         </div>
 
         {error && (
-          <p className="text-sm text-danger-500" role="alert">
+          <p className="text-sm text-danger-700" role="alert">
             {error}
           </p>
         )}

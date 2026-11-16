@@ -124,7 +124,14 @@ export interface SalePaymentValues extends ElectronicInvoiceFormValues {
   pharmacyEvidenceIds?: string[] | undefined;
   /** Submitted only when the buyer asked for an electronic invoice. */
   electronicInvoice?: { buyer: SaleElectronicInvoiceBuyer } | undefined;
+  /** Form-only: proof of a card or transfer payment; submitted inside `tenders`. */
+  paymentReference?: string | undefined;
+  /** Form-only: cash paid now on a credit sale; submitted inside `tenders`. */
+  creditDownPayment?: number | undefined;
 }
+
+/** A single payment method, or the split-tender mode. */
+export type InitialTender = 'cash' | 'card' | 'transfer' | 'credit' | 'split';
 
 export interface SalePaymentModalProps {
   isOpen: boolean;
@@ -179,6 +186,8 @@ export interface SalePaymentModalProps {
   activePriceTier?: 1 | 2 | 3 | undefined;
   /** Accepted quotations cannot add discretionary charges to frozen totals. */
   allowTip?: boolean | undefined;
+  /** Tender chosen on the ticket before opening; the modal starts on it. */
+  initialMethod?: InitialTender | undefined;
   /** Explicitly reprice the active cart after the cashier accepts the suggestion. */
   onCustomerPriceTierChange?: ((tier: 1 | 2 | 3) => void) | undefined;
   onClose: () => void;

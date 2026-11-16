@@ -99,6 +99,9 @@ vi.mock('@/lib/trpc', () => ({
   },
 }));
 
+// The drawer hint reads the site's printer; its own test covers it.
+vi.mock('./SaleCashDrawerHint', () => ({ SaleCashDrawerHint: () => null }));
+
 vi.mock('@/lib/useCriticalMutation', () => ({
   useCriticalMutation: () => approvalMutationMock,
 }));
@@ -292,15 +295,15 @@ describe('SalePaymentModal — customer price tier', () => {
 });
 
 describe('SalePaymentModal — stable drawer shell', () => {
-  it('asks for the tender before the customer and the tip', async () => {
+  it('keeps the customer beside the total and asks for the tender before the tip', async () => {
     render(<SalePaymentModal {...createProps({ allowTip: true })} />);
 
     const amount = await screen.findByLabelText('Amount received');
     const customer = screen.getByLabelText('Customer');
     const tip = await screen.findByLabelText('Custom amount');
 
-    expect(amount.compareDocumentPosition(customer)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(customer.compareDocumentPosition(tip)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(screen.getByTestId('sale-payment-summary')).toContainElement(customer);
+    expect(amount.compareDocumentPosition(tip)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
   beforeAll(async () => {
@@ -321,7 +324,7 @@ describe('SalePaymentModal — stable drawer shell', () => {
     expect(screen.getByRole('group', { name: 'Payment method' })).toBeInTheDocument();
     expect(screen.queryByRole('combobox', { name: 'Payment method' })).not.toBeInTheDocument();
     expect(screen.getByTestId('sale-payment-method-select')).toHaveAttribute('hidden');
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Back' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Confirm Sale' })).toBeVisible();
   });
 
@@ -463,7 +466,7 @@ describe('SalePaymentModal — split payments', () => {
 
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
-    await user.click(await screen.findByRole('button', { name: /Use single tender/i }));
+    await user.click(screen.getByRole('button', { name: 'Cash' }));
     await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
 
     expect(onSubmit).toHaveBeenCalledTimes(1);
@@ -735,7 +738,7 @@ describe('SalePaymentModal — explicit partial settlement', () => {
     await user.type(amount, '50000');
 
     const settlement = within(screen.getByTestId('payment-settlement'));
-    expect(settlement.getByText('Change')).toBeVisible();
+    expect(settlement.getByText('Change to give back')).toBeVisible();
     expect(screen.getByTestId('payment-settlement-amount')).toHaveTextContent('20,000');
 
     await user.clear(amount);
@@ -828,14 +831,14 @@ describe('SalePaymentModal — customer asked for an electronic invoice', () => 
     await user.click(
       await screen.findByRole('checkbox', { name: 'Customer asked for an electronic invoice' })
     );
-    await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
+    await user.click(screen.getByRole('button', { name: 'Confirm and invoice' }));
     expect(onSubmit).not.toHaveBeenCalled();
     expect(await screen.findAllByText('Required')).toHaveLength(2);
 
     await user.type(screen.getByLabelText('Name or business name'), '  Ferretería La 14 SAS ');
     await user.selectOptions(screen.getByLabelText('ID type'), '31');
     await user.type(screen.getByLabelText('ID number'), '900373115-3');
-    await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
+    await user.click(screen.getByRole('button', { name: 'Confirm and invoice' }));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
     expect(lastSubmitted(onSubmit).electronicInvoice).toEqual({
@@ -858,7 +861,7 @@ describe('SalePaymentModal — customer asked for an electronic invoice', () => 
     await user.type(screen.getByLabelText('Name or business name'), 'Ferretería La 14 SAS');
     await user.selectOptions(screen.getByLabelText('ID type'), '31');
     await user.type(screen.getByLabelText('ID number'), '900373115-9');
-    await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
+    await user.click(screen.getByRole('button', { name: 'Confirm and invoice' }));
 
     expect(
       await screen.findByText('The verification digit does not match (should be 3)')
@@ -922,7 +925,7 @@ describe('SalePaymentModal — customer asked for an electronic invoice', () => 
     );
     expect(screen.getByLabelText('Name or business name')).toHaveValue('Ana Gómez');
     expect(screen.getByLabelText('ID number')).toHaveValue('1020304050');
-    await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
+    await user.click(screen.getByRole('button', { name: 'Confirm and invoice' }));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
     expect(lastSubmitted(onSubmit).electronicInvoice).toEqual({
@@ -964,12 +967,12 @@ describe('SalePaymentModal — customer asked for an electronic invoice', () => 
     expect(screen.getByLabelText('Name or business name')).toHaveAttribute('maxLength', '200');
     await user.type(screen.getByLabelText('Name or business name'), 'Ana Gómez');
     await user.type(screen.getByLabelText('ID number'), '12');
-    await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
+    await user.click(screen.getByRole('button', { name: 'Confirm and invoice' }));
     expect(await screen.findByText('Invalid ID number')).toBeInTheDocument();
 
     await user.clear(screen.getByLabelText('ID number'));
     await user.type(screen.getByLabelText('ID number'), '222222222222');
-    await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
+    await user.click(screen.getByRole('button', { name: 'Confirm and invoice' }));
     expect(
       await screen.findByText('This is the consumidor final number, not a buyer')
     ).toBeInTheDocument();

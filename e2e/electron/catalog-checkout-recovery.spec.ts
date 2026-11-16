@@ -139,7 +139,7 @@ test('catalog errors, import cancellation and discounted checkout reconcile once
   await charge.click();
   let payment = page.getByRole('dialog', { name: 'Charge Sale', exact: true });
   await expect(payment.getByTestId('sale-payment-summary')).toContainText(/1[,.]080/);
-  await payment.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await payment.getByRole('button', { name: 'Back', exact: true }).click();
   await expect(payment).toBeHidden();
   // Closing payment returns to the scanner input for the next product.
   await expect(page.locator('#sales-product-search-input')).toBeFocused();

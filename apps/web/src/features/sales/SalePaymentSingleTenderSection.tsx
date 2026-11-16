@@ -1,175 +1,254 @@
-/**
- * Single-tender section of the sale payment modal (method tiles + amount +
- * split-enable). Rediseño §06 / .
- *
- * JSX extracted verbatim from the former single-file
- * `SalePaymentModal.tsx`. Presentational: receives the RHF `form` + derived
- * flags from `useSalePaymentModal`. The hidden sr-only `<select>` stays the
- * registered form control (the tiles only drive `setValue`).
- *
- * @module features/sales/SalePaymentSingleTenderSection
- */
-import { Plus } from 'lucide-react';
+/** One single tender: cash with its change, or a card, transfer or other payment with its proof. */
+import { lazy, Suspense, useState } from 'react';
+import { CheckCircle2, Clock3 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { UseFormReturn } from 'react-hook-form';
 
-import { Button } from '@/components/ui';
+import { cn, formatCurrency } from '@/lib/utils';
 import type { PaymentMethod } from '@/types';
+import { applyKeypadKey, breakdownChange } from './cashTender';
 import { QuickDenominationSelector } from './QuickDenominationSelector';
+import { SalePaymentKeypad } from './SalePaymentKeypad';
 import type { SalePaymentValues } from './salePaymentModal.types';
-import { PAYMENT_METHOD_TILES } from './salePaymentModal.constants';
+
+const SaleCashDrawerHint = lazy(async () => {
+  const module = await import('./SaleCashDrawerHint');
+  return { default: module.SaleCashDrawerHint };
+});
+
+const SaleTransferPanel = lazy(async () => {
+  const module = await import('./SaleTransferPanel');
+  return { default: module.SaleTransferPanel };
+});
 
 interface SalePaymentSingleTenderSectionProps {
   form: UseFormReturn<SalePaymentValues>;
   paymentMethod: PaymentMethod;
-  creditMethodAvailable: boolean;
   isCash: boolean;
-  isCredit: boolean;
+  isAdmin: boolean;
   grandTotal: number;
   amountReceivedValue: number;
-  handleEnableSplit: () => void;
+  change: number;
+  outstanding: number;
+  currencyCode: string;
+  transferReferenceMissing: boolean;
 }
+
+const CAP_CLASS = 'text-xs font-semibold uppercase tracking-[0.14em] text-fg3';
+const FIELD_CLASS =
+  'h-[52px] w-full rounded-[13px] border-[1.5px] border-line-strong bg-background px-3.5 text-base font-semibold text-foreground outline-none focus-visible:border-primary-600 focus-visible:ring-2 focus-visible:ring-primary-500/40';
 
 export function SalePaymentSingleTenderSection({
   form,
   paymentMethod,
-  creditMethodAvailable,
   isCash,
-  isCredit,
+  isAdmin,
   grandTotal,
   amountReceivedValue,
-  handleEnableSplit,
+  change,
+  outstanding,
+  currencyCode,
+  transferReferenceMissing,
 }: SalePaymentSingleTenderSectionProps) {
   const { t } = useTranslation('sales');
+  // A preset amount is replaced by the first keypad digit instead of extended.
+  const [amountIsPreset, setAmountIsPreset] = useState(true);
+  const isShort = outstanding > 0;
+  const isTransfer = paymentMethod === 'transfer';
 
-  return (
-    <>
-      <div className="grid gap-4 md:grid-cols-2">
+  const setAmount = (amount: number) =>
+    form.setValue('amountReceived', amount, { shouldDirty: true, shouldValidate: true });
+
+  const amountRegistration = form.register('amountReceived', {
+    valueAsNumber: true,
+    min: { value: 0, message: t('payment.amountNegative') },
+    onChange: () => setAmountIsPreset(false),
+  });
+  const amountError = form.formState.errors.amountReceived && (
+    <p className="mt-1 text-sm text-danger-600" role="alert">
+      {form.formState.errors.amountReceived.message}
+    </p>
+  );
+
+  if (!isCash) {
+    const reference = form.formState.errors.paymentReference;
+    return (
+      <div className="space-y-4">
+        {isTransfer && (
+          <Suspense fallback={null}>
+            <SaleTransferPanel isAdmin={isAdmin} />
+          </Suspense>
+        )}
         <div>
-          <span id="sale-payment-method-label" className="label">
-            {t('payment.paymentMethod')}
-          </span>
-          {/*
-            Rediseño §06 — método de pago como tiles de 2 columnas.
-            Cada tile es un Button outline con la receta .tile (64px,
-            columna, ícono + etiqueta); el método activo añade .on. El <select>
-            registrado vive oculto y sigue siendo la fuente de verdad
-            del formulario: las tiles solo llaman a
-            form.setValue('paymentMethod', …). Las tiles forman el
-            único grupo expuesto a AT; anunciar también el select
-            duplicaba el método para VoiceOver.
-          */}
-          <div
-            className="mt-2 grid grid-cols-2 gap-2"
-            role="group"
-            aria-labelledby="sale-payment-method-label"
-          >
-            {PAYMENT_METHOD_TILES.filter(
-              // credit tile gated to manager + admin AND
-              // requires a customer attached. Cashier never sees it
-              // (server router also enforces the role gate on the
-              // credit payment method). Walk-in (no customer) hides
-              // the tile because credit is per-customer by definition.
-              tile => tile.method !== 'credit' || creditMethodAvailable
-            ).map(tile => {
-              const TileIcon = tile.icon;
-              const isActive = paymentMethod === tile.method;
-              return (
-                <Button
-                  key={tile.method}
-                  type="button"
-                  variant="outline"
-                  className={`tile${isActive ? ' on' : ''}`}
-                  aria-pressed={isActive}
-                  onClick={() =>
-                    form.setValue('paymentMethod', tile.method, {
-                      shouldDirty: true,
-                      shouldValidate: true,
-                    })
-                  }
-                >
-                  <TileIcon aria-hidden="true" />
-                  <span style={{ fontSize: 12 }}>{t(tile.labelKey)}</span>
-                </Button>
-              );
-            })}
-          </div>
-          <select
-            id="sale-payment-method"
-            hidden
-            data-testid="sale-payment-method-select"
-            {...form.register('paymentMethod')}
-          >
-            <option value="cash">{t('payment.cash')}</option>
-            <option value="card">{t('payment.card')}</option>
-            <option value="transfer">{t('payment.transfer')}</option>
-            {/* credit option gated to manager + admin AND
-                requires a customer attached. Cashier never sees it
-                (server router also enforces the role gate on the
-                credit payment method). Walk-in (no customer) hides the
-                option because credit is per-customer by definition. */}
-            {creditMethodAvailable && (
-              <option value="credit" data-testid="sale-payment-method-credit-option">
-                {t('payment.credit')}
-              </option>
+          <label htmlFor="sale-payment-reference" className={cn(CAP_CLASS, 'mb-1.5 block')}>
+            {t(isTransfer ? 'payment.transferReference' : 'payment.reference')}
+          </label>
+          <div className="relative">
+            <input
+              id="sale-payment-reference"
+              type="text"
+              autoComplete="off"
+              maxLength={120}
+              className={cn(FIELD_CLASS, 'pr-11 font-mono tracking-[0.12em]')}
+              aria-required={isTransfer}
+              aria-invalid={reference ? true : undefined}
+              data-testid="sale-payment-reference"
+              {...form.register('paymentReference')}
+            />
+            {isTransfer && !transferReferenceMissing && (
+              <CheckCircle2
+                className="pointer-events-none absolute right-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-success-700"
+                aria-hidden="true"
+              />
             )}
-            <option value="other">{t('payment.other')}</option>
-          </select>
+          </div>
         </div>
-
+        {isTransfer && (
+          <p className="flex items-start gap-2.5 rounded-[13px] bg-surface-3 px-3.5 py-3 text-sm text-fg2">
+            <Clock3 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            {t('payment.transferPanel.manualNote')}
+          </p>
+        )}
         <div>
-          <label htmlFor="sale-payment-amount" className="label">
+          <label htmlFor="sale-payment-amount" className={cn(CAP_CLASS, 'mb-1.5 block')}>
             {t('payment.amountReceived')}
           </label>
           <input
             id="sale-payment-amount"
             type="number"
+            inputMode="decimal"
             min={0}
             step="0.01"
-            className="input mt-1"
-            disabled={isCredit}
-            {...form.register('amountReceived', {
-              valueAsNumber: true,
-              min: { value: 0, message: t('payment.amountNegative') },
-            })}
+            className={cn(FIELD_CLASS, 'font-numeric text-xl')}
+            {...amountRegistration}
           />
-          {form.formState.errors.amountReceived && (
-            <p className="mt-1 text-sm text-danger-500" role="alert">
-              {form.formState.errors.amountReceived.message}
-            </p>
-          )}
+          {amountError}
         </div>
+        {isShort && (
+          <dl
+            data-testid="payment-settlement"
+            className="flex items-center justify-between gap-3 rounded-[15px] bg-warning-50 px-4 py-3"
+          >
+            <dt className="text-sm font-semibold text-warning-700">{t('payment.balance')}</dt>
+            <dd
+              data-testid="payment-settlement-amount"
+              className="font-numeric text-2xl text-warning-700"
+            >
+              {formatCurrency(outstanding)}
+            </dd>
+          </dl>
+        )}
       </div>
+    );
+  }
 
-      {isCash && grandTotal > 0 && (
+  const breakdown = isShort ? null : breakdownChange(change, currencyCode);
+
+  return (
+    <div className="space-y-3">
+      <p className={CAP_CLASS}>{t('payment.cashPrompt')}</p>
+      {grandTotal > 0 && (
         <QuickDenominationSelector
           total={grandTotal}
           currentValue={amountReceivedValue}
-          onSelect={amount =>
-            form.setValue('amountReceived', amount, {
-              shouldDirty: true,
-              shouldValidate: true,
-            })
-          }
+          currencyCode={currencyCode}
+          onSelect={amount => {
+            setAmountIsPreset(true);
+            setAmount(amount);
+          }}
         />
       )}
 
-      {/* when the single-tender method is already
-          credit, splitting is redundant: the operator has
-          signaled the entire sale is on account. To split a
-          credit portion, the operator starts from a non-credit
-          method (cash / card / transfer) and adds a credit row
-          inside split mode via the tender selector. */}
-      {!isCredit && (
-        <button
-          type="button"
-          className="btn-ghost inline-flex items-center gap-2 text-sm"
-          onClick={handleEnableSplit}
-        >
-          <Plus className="h-4 w-4" />
-          {t('payment.splitEnable')}
-        </button>
-      )}
-    </>
+      <div className="rounded-[18px] border-[2.5px] border-primary-700 bg-background px-4 pb-2 pt-3 shadow-[0_0_0_4px_var(--accent)]">
+        <label htmlFor="sale-payment-amount" className={cn(CAP_CLASS, 'block')}>
+          {t('payment.amountReceived')}
+        </label>
+        <input
+          id="sale-payment-amount"
+          type="number"
+          inputMode="decimal"
+          min={0}
+          step="0.01"
+          className="font-numeric w-full bg-transparent text-5xl leading-tight text-foreground outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          {...amountRegistration}
+        />
+      </div>
+      {amountError}
+
+      <div className="hidden sm:block">
+        <SalePaymentKeypad
+          onKey={key => {
+            const current = Number(form.getValues('amountReceived')) || 0;
+            setAmount(applyKeypadKey(current, key, amountIsPreset));
+            setAmountIsPreset(false);
+          }}
+        />
+      </div>
+
+      <div
+        data-testid="payment-settlement"
+        className={cn('rounded-[20px] px-5 py-4', isShort ? 'bg-warning-50' : 'bg-success-50')}
+      >
+        <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
+          <div className="min-w-0">
+            <p
+              className={cn(
+                'text-xs font-semibold uppercase tracking-[0.14em]',
+                isShort ? 'text-warning-700' : 'text-success-700'
+              )}
+            >
+              {isShort ? t('payment.balance') : t('payment.changeDue')}
+            </p>
+            {!isShort && change > 0 && (
+              <Suspense fallback={null}>
+                <SaleCashDrawerHint />
+              </Suspense>
+            )}
+          </div>
+          <p
+            data-testid="payment-settlement-amount"
+            className={cn(
+              'font-numeric text-5xl leading-none wrap-anywhere sm:text-7xl',
+              isShort ? 'text-warning-700' : 'text-success-700'
+            )}
+          >
+            {formatCurrency(isShort ? outstanding : change)}
+          </p>
+        </div>
+        {breakdown && (
+          <div
+            className="mt-3 flex flex-wrap items-center gap-2 text-sm text-fg2"
+            data-testid="change-breakdown"
+          >
+            <span id="sale-payment-change-breakdown-label">
+              {t('payment.changeBreakdown.label')}
+            </span>
+            <ul
+              className="flex flex-wrap gap-2"
+              aria-labelledby="sale-payment-change-breakdown-label"
+            >
+              {breakdown.notes.map(note => (
+                <li
+                  key={note.value}
+                  className="rounded-full bg-surface px-2.5 py-1 font-semibold text-foreground"
+                >
+                  {t('payment.changeBreakdown.note', {
+                    quantity: note.count,
+                    amount: formatCurrency(note.value),
+                  })}
+                </li>
+              ))}
+              {breakdown.coins > 0 && (
+                <li className="rounded-full bg-surface px-2.5 py-1 font-semibold text-foreground">
+                  {t('payment.changeBreakdown.coins', {
+                    amount: formatCurrency(breakdown.coins),
+                  })}
+                </li>
+              )}
+            </ul>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

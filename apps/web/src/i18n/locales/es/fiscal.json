@@ -250,7 +250,11 @@
     "nitDvMismatch": "El dígito de verificación no coincide (debe ser {{dv}})",
     "nitPreview": "Se registra como {{nit}}",
     "malformed": "Número de documento no válido",
-    "consumidorFinal": "Ese es el número de consumidor final, no el del comprador"
+    "consumidorFinal": "Ese es el número de consumidor final, no el del comprador",
+    "dv": "DV",
+    "dvValid": "El dígito de verificación es correcto",
+    "savedCustomer": "Cliente ya guardado: la próxima vez basta el NIT",
+    "queueNote": "Se envía a la DIAN al confirmar. Sin conexión, la venta sale y la factura queda en cola."
   },
   "numbering": {
     "kicker": "Numeración",

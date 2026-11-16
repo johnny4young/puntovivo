@@ -1,104 +1,91 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn, formatCurrency } from '@/lib/utils';
+import { getCashDenominations } from './cashSessionDenominations';
+import { leadingNotes, suggestCashAmounts } from './cashTender';
 
 interface QuickDenominationSelectorProps {
   total: number;
   currentValue: number;
   onSelect: (amount: number) => void;
-  /** Base denominations in the tenant currency. Defaults to COP-sized
-   * 10k / 20k / 50k / 100k seeds. */
-  denominations?: readonly number[];
+  /** Currency whose notes shape the suggestions. */
+  currencyCode?: string | undefined;
 }
 
-const DEFAULT_DENOMINATIONS = [10_000, 20_000, 50_000, 100_000] as const;
+const CHIP_CLASS =
+  'flex min-h-16 min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-[14px] border-[1.5px] px-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500';
 
 /**
- * design-system V4 "Recibido" panel.
- *
- * Renders up to three suggested amounts plus an "Exact" button so the cashier
- * can mark the amount received with one tap. Suggestions combine denomination
- * seeds with calculated rounded amounts; they do not all represent banknotes.
- * "Exact" mirrors the total to drop change to zero.
- *
- * The component never mutates anything itself — it just calls
- * `onSelect(amount)` so the parent form (single tender or split tender)
- * stays the only source of truth for the receipt math.
+ * One-tap amounts for cash: the exact total and the next round amounts a
+ * customer is likely to hand over. It only reports the choice; the payment
+ * form stays the single owner of the amount received.
  */
 export function QuickDenominationSelector({
   total,
   currentValue,
   onSelect,
-  denominations = DEFAULT_DENOMINATIONS,
+  currencyCode = 'COP',
 }: QuickDenominationSelectorProps) {
   const { t } = useTranslation('sales');
-
-  const suggestions = useMemo(() => {
-    if (total <= 0) return [] as number[];
-    // Smart suggestions: the smallest denomination >= total, then a
-    // bigger one, then 2× the total rounded up to the nearest 1k.
-    const sorted = [...denominations].sort((a, b) => a - b);
-    // Under `noUncheckedIndexedAccess`, both `find()` and `sorted[i]`
-    // return `T | undefined`. Bail to the doubled-total fallback when
-    // `denominations` is empty so the rest of the math stays typed
-    // as `number`.
-    const nextBill = sorted.find(d => d >= total) ?? sorted[sorted.length - 1];
-    if (nextBill === undefined) {
-      const doubledOnly = Math.ceil((total * 2) / 1_000) * 1_000;
-      return [doubledOnly];
-    }
-    const biggerBill =
-      sorted.find(d => d > nextBill) ?? Math.ceil((nextBill * 1.5) / 1_000) * 1_000;
-    const doubled = Math.ceil((total * 2) / 1_000) * 1_000;
-    return Array.from(new Set([nextBill, biggerBill, doubled]))
-      .filter(v => v >= total)
-      .sort((a, b) => a - b)
-      .slice(0, 3);
-  }, [total, denominations]);
+  const suggestions = useMemo(() => suggestCashAmounts(total, currencyCode), [total, currencyCode]);
+  const noteColors = getCashDenominations(currencyCode)?.noteColors ?? {};
 
   // Half a cent, so a 2-decimal tender a few cents short never reads as exact.
   const isActive = (amount: number) => Math.abs(currentValue - amount) < 0.005;
+  const chipClass = (amount: number) =>
+    cn(
+      CHIP_CLASS,
+      isActive(amount)
+        ? 'border-foreground bg-background text-foreground shadow-[inset_0_0_0_1px_var(--foreground)]'
+        : 'border-line-strong bg-surface text-foreground hover:bg-surface-2'
+    );
 
   return (
     <div
       data-testid="quick-denomination-selector"
-      className="grid grid-cols-2 gap-2 sm:grid-cols-4"
+      className="grid grid-cols-2 gap-2 sm:grid-cols-[repeat(auto-fit,minmax(8.5rem,1fr))]"
     >
       <button
         type="button"
         onClick={() => onSelect(total)}
-        className={cn(
-          'rounded-2xl border px-3 py-2.5 text-sm font-semibold transition-all',
-          isActive(total)
-            ? 'border-primary-400 bg-primary-50 text-primary-700'
-            : 'border-line-strong/60 bg-surface text-secondary-900 hover:border-primary-300 hover:bg-primary-50/60'
-        )}
+        aria-pressed={isActive(total)}
+        className={chipClass(total)}
+        data-testid="quick-amount-exact"
       >
-        <span className="block text-[0.55rem] font-semibold uppercase tracking-[0.24em] text-primary-800">
-          {t('payment.quickAmount.exactKicker')}
-        </span>
-        <span className="mt-0.5 block font-mono text-sm tabular-nums">{formatCurrency(total)}</span>
+        <span className="text-base font-semibold">{t('payment.quickAmount.exactKicker')}</span>
+        <kbd className="pv-kbd" aria-hidden="true">
+          F2
+        </kbd>
+        <span className="sr-only">{formatCurrency(total)}</span>
       </button>
-      {suggestions.map(amount => (
-        <button
-          key={amount}
-          type="button"
-          onClick={() => onSelect(amount)}
-          className={cn(
-            'rounded-2xl border px-3 py-2.5 text-sm font-semibold transition-all',
-            isActive(amount)
-              ? 'border-primary-400 bg-primary-50 text-primary-700'
-              : 'border-line-strong/60 bg-surface text-secondary-900 hover:border-primary-300 hover:bg-primary-50/60'
-          )}
-        >
-          <span className="block text-[0.55rem] font-semibold uppercase tracking-[0.24em] text-secondary-500">
-            {t('payment.quickAmount.amountKicker')}
-          </span>
-          <span className="mt-0.5 block font-mono text-sm tabular-nums">
-            {formatCurrency(amount)}
-          </span>
-        </button>
-      ))}
+      {suggestions.map(amount => {
+        const swatch = leadingNotes(amount, currencyCode)
+          .map(note => noteColors[note])
+          .filter((color): color is string => Boolean(color));
+        return (
+          <button
+            key={amount}
+            type="button"
+            onClick={() => onSelect(amount)}
+            aria-pressed={isActive(amount)}
+            className={chipClass(amount)}
+            data-testid={`quick-amount-${amount}`}
+          >
+            {swatch.length > 0 && (
+              <span
+                aria-hidden="true"
+                className="flex h-4 w-7 shrink-0 overflow-hidden rounded-[4px]"
+                data-testid="quick-amount-swatch"
+              >
+                {swatch.map(color => (
+                  <span key={color} className="h-full flex-1" style={{ backgroundColor: color }} />
+                ))}
+              </span>
+            )}
+            <span className="font-numeric text-lg">{formatCurrency(amount)}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }

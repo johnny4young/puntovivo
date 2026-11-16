@@ -141,6 +141,9 @@ vi.mock('@/lib/trpc', () => ({
   },
 }));
 
+// The drawer hint reads the site's printer; its own test covers it.
+vi.mock('./SaleCashDrawerHint', () => ({ SaleCashDrawerHint: () => null }));
+
 vi.mock('@/lib/useCriticalMutation', () => ({
   useCriticalMutation: () => ({ mutate: vi.fn(), isPending: false }),
 }));

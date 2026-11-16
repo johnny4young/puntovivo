@@ -1,4 +1,5 @@
 import type { SalePaymentTenderValue, SalePaymentValues } from '@/features/sales/SalePaymentModal';
+import { roundMoney } from '@/lib/money';
 import type { PaymentMethod, PaymentStatus, Sale } from '@/types';
 
 type CompletablePaymentStatus = Exclude<PaymentStatus, 'refunded' | 'partially_refunded'>;
@@ -23,6 +24,43 @@ export interface CheckoutForwardTender {
   amount: number;
   reference?: string;
   loyaltyPoints?: number;
+}
+
+/** Methods whose single-tender state carries a proof-of-payment reference. */
+export const REFERENCED_METHODS: readonly PaymentMethod[] = ['card', 'transfer', 'other'];
+
+/**
+ * Tenders implied by a single-method state that the legacy one-row path
+ * cannot express: a credit sale with a cash down payment, and a fully paid
+ * card or transfer that carries a reference. Empty means the legacy path.
+ */
+export function deriveSingleTenders(input: {
+  paymentMethod: PaymentMethod;
+  grandTotal: number;
+  amountReceived: number;
+  reference: string;
+  creditDownPayment: number;
+}): SalePaymentTenderValue[] {
+  const { paymentMethod, grandTotal } = input;
+  if (!(grandTotal > 0)) return [];
+  if (paymentMethod === 'credit') {
+    const downPayment = roundMoney(Math.max(0, input.creditDownPayment));
+    if (downPayment <= 0 || downPayment >= grandTotal) return [];
+    return [
+      { method: 'cash', amount: downPayment, reference: '' },
+      { method: 'credit', amount: roundMoney(grandTotal - downPayment), reference: '' },
+    ];
+  }
+  const reference = input.reference.trim();
+  // A partial payment cannot be a tender list: tenders must add up to the total.
+  if (
+    !reference ||
+    !REFERENCED_METHODS.includes(paymentMethod) ||
+    roundMoney(input.amountReceived) < grandTotal
+  ) {
+    return [];
+  }
+  return [{ method: paymentMethod, amount: grandTotal, reference }];
 }
 
 export function checkoutUsesCreditTender(values: SalePaymentValues): boolean {

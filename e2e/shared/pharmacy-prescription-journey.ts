@@ -118,7 +118,7 @@ export async function runPharmacyPrescriptionJourney(
     .getByRole('region', { name: 'Pharmacy policy', exact: true })
     .scrollIntoViewIfNeeded();
   await target.screenshot('pharmacy-consumed-evidence-cannot-be-reused');
-  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Back', exact: true }).click();
   await expect(dialog).toBeHidden();
   await page.getByRole('button', { name: 'Clear cart', exact: true }).click();
   await expect(page.getByTestId(`sale-cart-item-${medicine.sku}`)).toHaveCount(0);
@@ -148,7 +148,7 @@ export async function runPharmacyPrescriptionJourney(
     .getByRole('region', { name: 'Pharmacy policy', exact: true })
     .scrollIntoViewIfNeeded();
   await target.screenshot('pharmacy-controlled-medicine-remains-blocked');
-  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Back', exact: true }).click();
   await expect(dialog).toBeHidden();
   await page.getByRole('button', { name: 'Clear cart', exact: true }).click();
   await expect(page.getByTestId(`sale-cart-item-${controlled.sku}`)).toHaveCount(0);

@@ -13,78 +13,103 @@ afterEach(async () => {
 
 const normalize = (text: string | null | undefined) => (text ?? '').replace(/\s+/g, ' ').trim();
 
-/** Kicker and amount as separate spans, so the accessible name keeps both words. */
-function shortcuts() {
+/** The suggested amounts, in the order the cashier sees them. */
+function suggestedAmounts() {
   return within(screen.getByTestId('quick-denomination-selector'))
     .getAllByRole('button')
-    .map(button => ({
-      button,
-      kicker: normalize(button.children[0]?.textContent),
-      amount: normalize(button.children[1]?.textContent),
-    }));
+    .slice(1)
+    .map(button => normalize(button.textContent));
 }
 
 describe('QuickDenominationSelector', () => {
-  it('renders the Exact button plus smart suggestions above the total', () => {
-    render(<QuickDenominationSelector total={32_500} currentValue={0} onSelect={vi.fn()} />);
-    expect(screen.getByText(/^Exact$/)).toBeInTheDocument();
-    // 32_500 → next bill ≥ total is 50_000; bigger is 100_000; doubled is 65_000.
-    expect(shortcuts().map(s => s.amount)).toEqual(
-      [32_500, 50_000, 65_000, 100_000].map(v => normalize(formatCurrency(v)))
+  it('offers the exact total and the next round amounts', () => {
+    render(<QuickDenominationSelector total={87_420} currentValue={0} onSelect={vi.fn()} />);
+    const exact = screen.getByTestId('quick-amount-exact');
+    expect(exact).toHaveTextContent('Exact');
+    expect(exact).toHaveTextContent('F2');
+    expect(suggestedAmounts()).toEqual(
+      [90_000, 100_000, 150_000].map(value => normalize(formatCurrency(value)))
     );
   });
 
-  it('orders suggestions ascending even when the doubled total is smallest', () => {
-    render(<QuickDenominationSelector total={3_200} currentValue={0} onSelect={vi.fn()} />);
-    expect(shortcuts().map(s => s.amount)).toEqual(
-      [3_200, 7_000, 10_000, 20_000].map(v => normalize(formatCurrency(v)))
-    );
-  });
-
-  it('calls onSelect with the chosen denomination', async () => {
+  it('reports the chosen amount and leaves the form to own it', async () => {
     const onSelect = vi.fn();
     const user = userEvent.setup();
     render(<QuickDenominationSelector total={12_000} currentValue={0} onSelect={onSelect} />);
-    const exact = screen.getByText(/^Exact$/).closest('button');
-    expect(exact).not.toBeNull();
-    await user.click(exact!);
-    expect(onSelect).toHaveBeenCalledWith(12_000);
+
+    await user.click(screen.getByText(/^Exact$/).closest('button')!);
+    expect(onSelect).toHaveBeenLastCalledWith(12_000);
+    await user.click(screen.getByTestId('quick-amount-20000'));
+    expect(onSelect).toHaveBeenLastCalledWith(20_000);
   });
 
-  it('marks the active denomination with the primary border + tint', () => {
-    render(<QuickDenominationSelector total={20_000} currentValue={20_000} onSelect={vi.fn()} />);
-    const exact = screen.getByText(/^Exact$/).closest('button');
-    expect(exact?.className).toContain('border-primary-400');
-    expect(exact?.className).toContain('bg-primary-50');
+  it('marks the amount the cashier already entered', () => {
+    render(<QuickDenominationSelector total={18_800} currentValue={20_000} onSelect={vi.fn()} />);
+    expect(screen.getByTestId('quick-amount-20000')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('quick-amount-exact')).toHaveAttribute('aria-pressed', 'false');
   });
 
-  it('does not mark Exact active when a 2-decimal tender is cents short', () => {
+  it('does not mark Exact when a 2-decimal tender is cents short', () => {
     const { rerender } = render(
-      <QuickDenominationSelector total={32.5} currentValue={32.1} onSelect={vi.fn()} />
+      <QuickDenominationSelector
+        total={32.5}
+        currentValue={32.1}
+        currencyCode="USD"
+        onSelect={vi.fn()}
+      />
     );
-    const exact = () => screen.getByText(/^Exact$/).closest('button');
-    expect(exact()?.className).not.toContain('border-primary-400');
-    rerender(<QuickDenominationSelector total={32.5} currentValue={32.5} onSelect={vi.fn()} />);
-    expect(exact()?.className).toContain('border-primary-400');
+    const exact = () => screen.getByTestId('quick-amount-exact');
+    expect(exact()).toHaveAttribute('aria-pressed', 'false');
+    rerender(
+      <QuickDenominationSelector
+        total={32.5}
+        currentValue={32.5}
+        currencyCode="USD"
+        onSelect={vi.fn()}
+      />
+    );
+    expect(exact()).toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('renders an empty grid when the total is zero (no suggestions to make)', () => {
+  it('shows the colours of the notes that make up an amount', () => {
+    render(<QuickDenominationSelector total={87_420} currentValue={0} onSelect={vi.fn()} />);
+    const swatch = within(screen.getByTestId('quick-amount-90000')).getByTestId(
+      'quick-amount-swatch'
+    );
+    // 90.000 is a 50.000 and a 20.000 note.
+    expect(swatch.children).toHaveLength(2);
+    expect(
+      within(screen.getByTestId('quick-amount-100000')).getByTestId('quick-amount-swatch').children
+    ).toHaveLength(1);
+  });
+
+  it('leaves the swatch out when the currency has no catalogued notes', () => {
+    render(
+      <QuickDenominationSelector
+        total={87.42}
+        currentValue={0}
+        currencyCode="XXX"
+        onSelect={vi.fn()}
+      />
+    );
+    expect(suggestedAmounts()).toHaveLength(3);
+    expect(screen.queryByTestId('quick-amount-swatch')).not.toBeInTheDocument();
+  });
+
+  it('keeps only the Exact key when there is nothing to charge', () => {
     render(<QuickDenominationSelector total={0} currentValue={0} onSelect={vi.fn()} />);
-    // Only the Exact button remains (suggestions filter on >= total which
-    // is vacuously empty here).
-    expect(shortcuts()).toHaveLength(1);
+    expect(suggestedAmounts()).toHaveLength(0);
   });
 
   it.each([
-    ['en', 'en-US', 'COP', 0, 'Amount', 'Exact'],
-    ['es', 'es-CO', 'COP', 0, 'Monto', 'Exacto'],
-    ['en', 'en-US', 'MXN', 2, 'Amount', 'Exact'],
-    ['es', 'es-MX', 'MXN', 2, 'Monto', 'Exacto'],
-    ['es', 'es-CL', 'CLP', 0, 'Monto', 'Exacto'],
-    ['es', 'es-PE', 'PEN', 2, 'Monto', 'Exacto'],
+    ['en', 'en-US', 'COP', 0, 3_200, [4_000, 5_000, 10_000], 'Exact'],
+    ['es', 'es-CO', 'COP', 0, 3_200, [4_000, 5_000, 10_000], 'Exacto'],
+    ['es', 'es-MX', 'MXN', 2, 320, [350, 400, 500], 'Exacto'],
+    ['es', 'es-CL', 'CLP', 0, 3_200, [4_000, 5_000, 10_000], 'Exacto'],
+    ['es', 'es-PE', 'PEN', 2, 32, [40, 50, 100], 'Exacto'],
   ] as const)(
-    'labels calculated suggestions honestly in %s / %s / %s',
-    async (language, locale, currency, displayDecimals, amountLabel, exactLabel) => {
+    'rounds to real notes in %s / %s / %s',
+    async (language, locale, currency, displayDecimals, total, expected, exactLabel) => {
       await i18n.changeLanguage(language);
       setActiveTenantLocale({
         locale,
@@ -93,25 +118,16 @@ describe('QuickDenominationSelector', () => {
         timezone: 'America/Bogota',
         dateFormatShort: 'yyyy-MM-dd',
       });
-      const onSelect = vi.fn();
-      const user = userEvent.setup();
-      render(<QuickDenominationSelector total={3200} currentValue={0} onSelect={onSelect} />);
-      const buttons = shortcuts();
-      const find = (kicker: string, value: number) =>
-        buttons.find(s => s.kicker === kicker && s.amount === normalize(formatCurrency(value)));
-      expect(buttons.map(s => s.kicker)).toEqual([
-        exactLabel,
-        amountLabel,
-        amountLabel,
-        amountLabel,
-      ]);
-      // 7,000 is calculated from the total, not a claim about a physical banknote.
-      const calculated = find(amountLabel, 7000);
-      expect(calculated).toBeDefined();
-      await user.click(calculated!.button);
-      expect(onSelect).toHaveBeenLastCalledWith(7000);
-      await user.click(find(exactLabel, 3200)!.button);
-      expect(onSelect).toHaveBeenLastCalledWith(3200);
+      render(
+        <QuickDenominationSelector
+          total={total}
+          currentValue={0}
+          currencyCode={currency}
+          onSelect={vi.fn()}
+        />
+      );
+      expect(screen.getByTestId('quick-amount-exact')).toHaveTextContent(exactLabel);
+      expect(suggestedAmounts()).toEqual(expected.map(value => normalize(formatCurrency(value))));
     }
   );
 });

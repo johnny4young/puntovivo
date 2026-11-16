@@ -57,6 +57,12 @@ describe('Drawer', () => {
     expect(screen.getByRole('button', { name: /first action/i })).toBeInTheDocument();
   });
 
+  it('shows the title detail without adding it to the dialog name', () => {
+    renderDrawer({ titleDetail: <span>· 3 items</span> });
+    expect(screen.getByRole('dialog', { name: 'Sales history' })).toBeInTheDocument();
+    expect(screen.getByText('· 3 items')).toBeVisible();
+  });
+
   it('generates unique title ids when multiple labelled drawers are mounted', () => {
     render(
       <>

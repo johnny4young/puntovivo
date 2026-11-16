@@ -250,7 +250,11 @@
     "nitDvMismatch": "The verification digit does not match (should be {{dv}})",
     "nitPreview": "Recorded as {{nit}}",
     "malformed": "Invalid ID number",
-    "consumidorFinal": "This is the consumidor final number, not a buyer"
+    "consumidorFinal": "This is the consumidor final number, not a buyer",
+    "dv": "DV",
+    "dvValid": "The verification digit is correct",
+    "savedCustomer": "Customer already saved: next time the ID number is enough",
+    "queueNote": "It is sent to DIAN when you confirm. Offline, the sale goes through and the invoice waits in the queue."
   },
   "numbering": {
     "kicker": "Numbering",

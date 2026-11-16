@@ -3,6 +3,7 @@ import type { SalePaymentValues } from '@/features/sales/SalePaymentModal';
 import type { SalePayment } from '@/types';
 import {
   checkoutUsesCreditTender,
+  deriveSingleTenders,
   getCheckoutPaymentState,
   getRequestedPaymentStatus,
   hasSplitPayments,
@@ -242,5 +243,87 @@ describe('checkoutPayment', () => {
       });
       expect(getCheckoutPaymentState(values, 100).paymentMethod).toBe('cash');
     });
+  });
+});
+
+describe('deriveSingleTenders', () => {
+  const base = {
+    paymentMethod: 'cash' as const,
+    grandTotal: 18_800,
+    amountReceived: 18_800,
+    reference: '',
+    creditDownPayment: 0,
+  };
+
+  it('keeps plain cash, card and credit on the one-row path', () => {
+    expect(deriveSingleTenders(base)).toEqual([]);
+    expect(deriveSingleTenders({ ...base, paymentMethod: 'card' })).toEqual([]);
+    expect(deriveSingleTenders({ ...base, paymentMethod: 'credit' })).toEqual([]);
+  });
+
+  it('carries the proof of a fully paid transfer or card as one tender', () => {
+    expect(
+      deriveSingleTenders({ ...base, paymentMethod: 'transfer', reference: '  M482190 ' })
+    ).toEqual([{ method: 'transfer', amount: 18_800, reference: 'M482190' }]);
+    expect(deriveSingleTenders({ ...base, paymentMethod: 'card', reference: '004512' })).toEqual([
+      { method: 'card', amount: 18_800, reference: '004512' },
+    ]);
+  });
+
+  it('never attaches a reference to cash', () => {
+    expect(deriveSingleTenders({ ...base, reference: 'ignored' })).toEqual([]);
+  });
+
+  it('leaves a partial payment on the one-row path, where tenders cannot add up', () => {
+    expect(
+      deriveSingleTenders({
+        ...base,
+        paymentMethod: 'transfer',
+        reference: 'M482190',
+        amountReceived: 10_000,
+      })
+    ).toEqual([]);
+  });
+
+  it('splits a credit sale into the cash paid now and the rest on credit', () => {
+    expect(
+      deriveSingleTenders({ ...base, paymentMethod: 'credit', creditDownPayment: 5_000 })
+    ).toEqual([
+      { method: 'cash', amount: 5_000, reference: '' },
+      { method: 'credit', amount: 13_800, reference: '' },
+    ]);
+  });
+
+  it('rounds the financed part to cents', () => {
+    const tenders = deriveSingleTenders({
+      ...base,
+      paymentMethod: 'credit',
+      grandTotal: 100.1,
+      creditDownPayment: 33.33,
+    });
+    expect(tenders.map(tender => tender.amount)).toEqual([33.33, 66.77]);
+  });
+
+  it('ignores a down payment that is not a real split', () => {
+    for (const creditDownPayment of [0, -10, 18_800, 20_000]) {
+      expect(deriveSingleTenders({ ...base, paymentMethod: 'credit', creditDownPayment })).toEqual(
+        []
+      );
+    }
+  });
+
+  it('builds a payable state from the derived tenders', () => {
+    const tenders = deriveSingleTenders({
+      ...base,
+      paymentMethod: 'credit',
+      creditDownPayment: 5_000,
+    });
+    const state = getCheckoutPaymentState(
+      buildPaymentValues({ paymentMethod: 'credit', tenders }),
+      18_800
+    );
+    expect(state.paymentMethod).toBe('cash');
+    expect(state.paymentStatus).toBe('partial');
+    expect(state.payments).toHaveLength(2);
   });
 });

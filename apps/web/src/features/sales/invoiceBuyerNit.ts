@@ -20,6 +20,14 @@ export function nitPreview(raw: string): string | null {
   return `${base}-${computeNitVerificationDigit(base)}`;
 }
 
+/** The DV a NIT carries, typed or computed, and whether it is the right one. */
+export function nitDigitState(raw: string): { digit: number; valid: boolean } | null {
+  const dashed = /^[\d.\s]+?\s*-\s*(\d)$/.exec(raw.trim());
+  if (dashed) return { digit: Number(dashed[1]), valid: expectedNitDigit(raw) === null };
+  const recorded = nitPreview(raw);
+  return recorded ? { digit: Number(recorded.slice(-1)), valid: true } : null;
+}
+
 /** Mirrors the server's buyer-ID rules, so a refused sale stays the exception. */
 export function buyerIdProblem(
   typeCode: string,

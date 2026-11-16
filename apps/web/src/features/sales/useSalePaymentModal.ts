@@ -25,9 +25,18 @@ import { extractServerErrorCode, translateServerError } from '@/lib/translateSer
 import { formatCurrency } from '@/lib/utils';
 import { useQuickCreateStore } from './useQuickCreateStore';
 import { useCartWorkspaceStore } from './useCartWorkspaceStore';
-import type { Customer } from '@/types';
-import type { SalePaymentQuoteItem, SalePaymentValues } from './salePaymentModal.types';
-import { TENDER_SUM_EPSILON, getDefaultValues } from './salePaymentModal.constants';
+import type { Customer, PaymentMethod } from '@/types';
+import type {
+  InitialTender,
+  SalePaymentQuoteItem,
+  SalePaymentValues,
+} from './salePaymentModal.types';
+import {
+  TENDER_SUM_EPSILON,
+  getDefaultValues,
+  initialTenderValues,
+} from './salePaymentModal.constants';
+import { deriveSingleTenders, REFERENCED_METHODS } from './checkoutPayment';
 import { buildCheckoutApprovalContext, requiredCheckoutApprovalActions } from './checkoutApprovals';
 import { useCheckoutApprovals } from './useCheckoutApprovals';
 import { isCartPriceOverride } from './saleApprovalPricing';
@@ -57,6 +66,7 @@ export interface UseSalePaymentModalParams {
   activePriceTier?: 1 | 2 | 3 | undefined;
   currencyCode?: string | undefined;
   fastCashTrigger?: number | undefined;
+  initialMethod?: InitialTender | undefined;
   onSubmit: (values: SalePaymentValues) => Promise<void>;
 }
 
@@ -76,11 +86,12 @@ export function useSalePaymentModal({
   activePriceTier = 1,
   currencyCode = 'COP',
   fastCashTrigger = 0,
+  initialMethod = 'cash',
   onSubmit,
 }: UseSalePaymentModalParams) {
   const { t } = useTranslation('sales');
   const toast = useToast();
-  const [splitMode, setSplitMode] = useState(false);
+  const [splitMode, setSplitMode] = useState(initialMethod === 'split');
   // credit method gating + projection.
   const canLendCredit = userRole === 'admin' || userRole === 'manager' || userRole === 'cashier';
   const isAdmin = userRole === 'admin';
@@ -94,6 +105,11 @@ export function useSalePaymentModal({
   const form = useForm<SalePaymentValues>({
     defaultValues: {
       ...getDefaultValues(total, initialServiceChargeAmount, serviceChargeRate),
+      ...initialTenderValues(
+        initialMethod,
+        total + initialServiceChargeAmount,
+        !!approvalCustomerId
+      ),
       customerId: approvalCustomerId ?? '',
     },
   });
@@ -189,6 +205,7 @@ export function useSalePaymentModal({
   const tipAmountWatch = useWatch({ control: form.control, name: 'tipAmount' });
   const tipMethodWatch = useWatch({ control: form.control, name: 'tipMethod' });
   const watchedCustomerId = useWatch({ control: form.control, name: 'customerId' }) ?? '';
+  const invoiceRequestedWatch = useWatch({ control: form.control, name: 'invoiceRequested' });
   const watchedPharmacyEvidenceIdsRaw = useWatch({
     control: form.control,
     name: 'pharmacyEvidenceIds',
@@ -198,6 +215,8 @@ export function useSalePaymentModal({
     [watchedPharmacyEvidenceIdsRaw]
   );
   const tenders = useMemo(() => watchedTenders ?? [], [watchedTenders]);
+  const paymentReference = useWatch({ control: form.control, name: 'paymentReference' }) ?? '';
+  const creditDownPaymentWatch = useWatch({ control: form.control, name: 'creditDownPayment' });
   const electronicInvoice = useElectronicInvoiceAvailability(asElectronicInvoiceForm(form), isOpen);
   const amountReceivedValue = Number(amountReceived) || 0;
   const tipAmount = Math.max(0, Number(tipAmountWatch) || 0);
@@ -375,6 +394,32 @@ export function useSalePaymentModal({
   const change = isCash ? Math.max(0, amountReceivedValue - grandTotal) : 0;
   const outstanding = Math.max(0, grandTotal - amountReceivedValue);
   const creditMethodAvailable = canLendCredit && watchedCustomerId.length > 0;
+  // A down payment can never reach the total: that would be a cash sale.
+  // Rounded once here so the guard, the projection and the tenders agree to the cent.
+  const creditDownPayment = isCredit
+    ? Math.min(roundMoney(Math.max(0, Number(creditDownPaymentWatch) || 0)), grandTotal)
+    : 0;
+  const creditDownPaymentInvalid =
+    isCredit && creditDownPayment > 0 && creditDownPayment >= grandTotal;
+  // Single-method states that need a tender list: the approval hash and the
+  // submitted payload must be built from this same list.
+  const derivedTenders = useMemo(
+    () =>
+      splitMode
+        ? []
+        : deriveSingleTenders({
+            paymentMethod,
+            grandTotal,
+            amountReceived: amountReceivedValue,
+            reference: paymentReference,
+            creditDownPayment,
+          }),
+    [amountReceivedValue, creditDownPayment, grandTotal, paymentMethod, paymentReference, splitMode]
+  );
+  const effectiveTenders = splitMode ? tenders : derivedTenders;
+  // The cashier confirms a transfer by hand, so its proof is not optional.
+  const transferReferenceMissing =
+    !splitMode && paymentMethod === 'transfer' && paymentReference.trim().length === 0;
 
   // read the active customer's current balance + creditLimit
   // when credit is the active method. The query short-circuits via
@@ -506,7 +551,9 @@ export function useSalePaymentModal({
   // legacy credit (single-tender) projects against grandTotal as
   // before; split-credit projects against the credit tender sum so
   // the cashier sees "$150 a crédito" rather than the full "$200".
-  const creditProjectionAmount = isCredit ? grandTotal : creditAmountInSplit;
+  const creditProjectionAmount = isCredit
+    ? roundMoney(grandTotal - creditDownPayment)
+    : creditAmountInSplit;
   const projectedBalance = currentBalance + creditProjectionAmount;
   const cupoExceeded =
     !balanceUnknown &&
@@ -577,7 +624,7 @@ export function useSalePaymentModal({
           paymentMethod,
           amountReceived: amountReceivedValue,
           notes: '',
-          tenders: splitMode ? tenders : [],
+          tenders: effectiveTenders,
           tipAmount,
           tipMethod: tipAmount > 0 ? (tipMethodWatch ?? 'fixed') : null,
           creditOverride: false,
@@ -601,8 +648,7 @@ export function useSalePaymentModal({
       paymentMethod,
       serviceChargeAmount,
       serviceChargeRate,
-      splitMode,
-      tenders,
+      effectiveTenders,
       tipAmount,
       tipMethodWatch,
       watchedCustomerId,
@@ -727,6 +773,10 @@ export function useSalePaymentModal({
       return;
     }
     setSplitMode(true);
+    // Credit inside a split is a tender row, never the sale's single method.
+    if (form.getValues('paymentMethod') === 'credit') {
+      form.setValue('paymentMethod', 'cash', { shouldDirty: true });
+    }
     // Seed a first tender row so the cashier only needs to add the remainder.
     tenderFields.append({ method: 'cash', amount: grandTotal, reference: '' });
   }
@@ -737,6 +787,16 @@ export function useSalePaymentModal({
     }
     setSplitMode(false);
     tenderFields.replace([]);
+  }
+
+  /** One tab press: leave split if needed and land on a single method. */
+  function selectMethod(method: PaymentMethod): void {
+    handleDisableSplit();
+    form.setValue('paymentMethod', method, { shouldDirty: true, shouldValidate: true });
+    // Only cash is handed over in excess; any other tender is for the total.
+    if (method !== 'cash' && (Number(form.getValues('amountReceived')) || 0) > grandTotal) {
+      form.setValue('amountReceived', grandTotal, { shouldDirty: true, shouldValidate: true });
+    }
   }
 
   const splitIsValid =
@@ -754,6 +814,8 @@ export function useSalePaymentModal({
     !promotionQuoteUnavailable &&
     (!promotionPricingEnabled || promotionQuote.data !== undefined) &&
     (!splitMode || splitIsValid) &&
+    !transferReferenceMissing &&
+    !creditDownPaymentInvalid &&
     // never let a credit sale be confirmed against a projection we
     // could not compute. Cash-only checkouts are untouched (the query is
     // disabled, so balanceUnknown is false).
@@ -794,9 +856,27 @@ export function useSalePaymentModal({
       (values.paymentMethod === 'credit' || hasSplitCredit)
         ? values.creditOverride || hasApprovedCreditOverride
         : false;
-    const { invoiceRequested, invoiceBuyer, ...submittedValues } = values;
+    const {
+      invoiceRequested,
+      invoiceBuyer,
+      paymentReference: submittedReference,
+      ...formValues
+    } = values;
+    // Both form-only fields travel inside `tenders`, never on their own.
+    const submittedValues = { ...formValues, creditDownPayment: undefined };
+    // A partial payment stays on the one-row path, which has no reference
+    // column; keep the proof with the sale instead of dropping it.
+    const orphanReference =
+      !splitMode && derivedTenders.length === 0 && REFERENCED_METHODS.includes(values.paymentMethod)
+        ? (submittedReference ?? '').trim()
+        : '';
     return onSubmit({
       ...submittedValues,
+      notes: orphanReference
+        ? [values.notes.trim(), t('payment.referenceNote', { reference: orphanReference })]
+            .filter(Boolean)
+            .join('\n')
+        : values.notes,
       electronicInvoice: buildElectronicInvoiceRequest(electronicInvoice.available, {
         invoiceRequested,
         invoiceBuyer,
@@ -809,7 +889,7 @@ export function useSalePaymentModal({
               ? { loyaltyPoints: Number(tender.loyaltyPoints) }
               : { loyaltyPoints: undefined }),
           }))
-        : [],
+        : derivedTenders,
       tipAmount: sanitizedTip,
       tipMethod: sanitizedTip > 0 ? (values.tipMethod ?? 'fixed') : null,
       // service charge is derived from the prop rate, not
@@ -965,6 +1045,11 @@ export function useSalePaymentModal({
     syncPaymentInputsForTip,
     handleEnableSplit,
     handleDisableSplit,
+    selectMethod,
     presetActive,
+    creditDownPayment,
+    creditFinancedAmount: creditProjectionAmount,
+    transferReferenceMissing,
+    invoiceRequested: electronicInvoice.available && invoiceRequestedWatch === true,
   };
 }

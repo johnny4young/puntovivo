@@ -12,8 +12,12 @@
     "customerDisplayOpenErrorDescription": "Allow the popup or retry after the desktop window is available. Checkout remains unchanged."
   },
   "saleComplete": {
-    "receipt": "Print or share receipt",
-    "dismiss": "Dismiss"
+    "receipt": "View receipt",
+    "dismiss": "No receipt",
+    "ready": "{{saleNumber}} done, the till is back on the scanner",
+    "print": "Print",
+    "whatsapp": "WhatsApp",
+    "printFailed": "The receipt could not be printed. Open the receipt to try again."
   },
   "checkout": {
     "kicker": "Checkout",
@@ -316,7 +320,7 @@
     },
     "title": "Charge Sale",
     "saleTotal": "Sale total",
-    "cancel": "Cancel",
+    "cancel": "Back",
     "confirm": "Confirm Sale",
     "processing": "Processing...",
     "customer": "Customer",
@@ -376,7 +380,51 @@
     "confirmSplitMissing": "Confirm sale · {{amount}} missing",
     "confirmSplitOver": "Confirm sale · {{amount}} over",
     "partialTitle": "This sale will remain partially paid",
-    "partialWarning": "The outstanding balance is {{amount}}. Confirm only if you intend to leave this balance unpaid."
+    "partialWarning": "The outstanding balance is {{amount}}. Confirm only if you intend to leave this balance unpaid.",
+    "itemCount_one": "· {{count}} item",
+    "itemCount_other": "· {{count}} items",
+    "splitTab": "Split",
+    "cashPrompt": "How much are they paying with? · Tap the note or type",
+    "changeDue": "Change to give back",
+    "drawerOpens": "The drawer opens when you confirm",
+    "changeBreakdown": {
+      "label": "One way to give it:",
+      "note": "{{quantity}} × {{amount}}",
+      "coins": "{{amount}} in coins"
+    },
+    "keypad": {
+      "label": "Amount keypad",
+      "backspace": "Delete the last digit"
+    },
+    "reference": "Voucher or reference (optional)",
+    "transferReference": "Last digits or reference of the receipt",
+    "referenceNote": "Payment reference: {{reference}}",
+    "transferPanel": {
+      "title": "Show the store's QR",
+      "scanWallet": "The customer scans it from their bank or wallet app.",
+      "scanKey": "The customer scans it to copy the store's key or number.",
+      "qrLabel": "QR code to transfer to the store",
+      "manualNote": "Today you confirm that the money arrived. Automatic confirmation will be available once a payment gateway is connected.",
+      "missing": "The store has no key or number for transfers yet. Ask an administrator to set it up.",
+      "missingAdmin": "The store has no key or number for transfers yet, so there is no QR to show.",
+      "configure": "Set up the transfer key",
+      "kinds": {
+        "breb": "Key",
+        "nequi": "Nequi",
+        "daviplata": "Daviplata",
+        "bank": "Account",
+        "other": "Other"
+      }
+    },
+    "addCustomer": "Add customer or points",
+    "documentTicket": "POS ticket",
+    "documentInvoice": "electronic invoice",
+    "confirmTransfer": "It arrived · confirm sale",
+    "confirmCredit": "Put {{credit}} on credit",
+    "confirmCreditWithCash": "Put {{credit}} on credit and collect {{cash}}",
+    "confirmInvoice": "Confirm and invoice",
+    "splitFillRemainder": "Fill the rest",
+    "splitHalves": "Half and half"
   },
   "history": {
     "title": "Sales history",
@@ -645,7 +693,14 @@
       "unlimited": "No limit",
       "balanceUnavailable": "The balance could not be loaded",
       "balanceUnavailableHelp": "Without it the cupo cannot be projected, so the sale stays blocked. Retry, or charge by another method.",
-      "balanceRetry": "Retry"
+      "balanceRetry": "Retry",
+      "thisSale": "This sale",
+      "owedToday": "owes today",
+      "plusThisSale": "+ this sale",
+      "barLabel": "Owes {{owed}}, this sale adds {{sale}}, limit {{limit}}",
+      "downPayment": "Pays now in cash",
+      "onCredit": "On credit",
+      "cupoRule": "If the sale goes over the limit, the till asks for administrator approval or collects the excess in cash."
     },
     "warning": {
       "exceedsLimit": "The projected balance exceeds the customer's credit limit. Ask an administrator to authorize an override or split the excess as cash."

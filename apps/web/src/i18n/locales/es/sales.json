@@ -12,8 +12,12 @@
     "customerDisplayOpenErrorDescription": "Permita la ventana emergente o intente de nuevo cuando la ventana de escritorio esté disponible. La venta no cambia."
   },
   "saleComplete": {
-    "receipt": "Imprimir o compartir recibo",
-    "dismiss": "Cerrar"
+    "receipt": "Ver recibo",
+    "dismiss": "Sin recibo",
+    "ready": "{{saleNumber}} lista, la caja vuelve al escáner",
+    "print": "Imprimir",
+    "whatsapp": "WhatsApp",
+    "printFailed": "No se pudo imprimir el recibo. Abra el recibo para intentarlo de nuevo."
   },
   "checkout": {
     "kicker": "Caja",
@@ -316,7 +320,7 @@
     },
     "title": "Cobrar venta",
     "saleTotal": "Total de la venta",
-    "cancel": "Cancelar",
+    "cancel": "Volver",
     "confirm": "Confirmar venta",
     "processing": "Procesando...",
     "customer": "Cliente",
@@ -332,7 +336,7 @@
     "partialCredit": {
       "summary": "{{cashAmount}} de inicial + {{creditAmount}} a crédito"
     },
-    "amountReceived": "Monto recibido",
+    "amountReceived": "Recibido",
     "amountNegative": "El monto recibido no puede ser negativo",
     "quickAmount": {
       "exactKicker": "Exacto",
@@ -342,17 +346,17 @@
     "change": "Cambio",
     "splitEnable": "Dividir el pago en varios medios",
     "splitDisable": "Usar un solo medio de pago",
-    "splitHeading": "Pago dividido",
+    "splitHeading": "Varios medios",
     "splitHelp": "Combine pagos externos, puntos de lealtad, crédito de tienda o crédito del cliente. Los montos deben sumar el total antes de confirmar.",
-    "splitAddTender": "Agregar medio de pago",
+    "splitAddTender": "Otro medio",
     "splitRemove": "Eliminar pago {{index}}",
     "splitMethodLabel": "Medio de pago {{index}}",
     "splitAmountLabel": "Monto del pago {{index}}",
     "splitAmountPlaceholder": "Monto",
     "splitReferenceLabel": "Referencia del pago {{index}}",
     "splitReferencePlaceholder": "Referencia (opcional)",
-    "splitSum": "Pagado",
-    "splitRemaining": "Restante",
+    "splitSum": "Suma de los medios",
+    "splitRemaining": "Falta por cobrar",
     "splitOver": "Excedente",
     "splitMustMatch": "Los pagos deben sumar el total antes de confirmar.",
     "notes": "Notas",
@@ -376,7 +380,51 @@
     "confirmSplitMissing": "Confirmar venta · faltan {{amount}}",
     "confirmSplitOver": "Confirmar venta · sobran {{amount}}",
     "partialTitle": "Esta venta quedará con pago parcial",
-    "partialWarning": "El saldo pendiente es {{amount}}. Confirme solo si desea dejar este saldo sin pagar."
+    "partialWarning": "El saldo pendiente es {{amount}}. Confirme solo si desea dejar este saldo sin pagar.",
+    "itemCount_one": "· {{count}} artículo",
+    "itemCount_other": "· {{count}} artículos",
+    "splitTab": "Dividir",
+    "cashPrompt": "¿Con cuánto paga? · Toque el billete o escriba",
+    "changeDue": "Devuelva de cambio",
+    "drawerOpens": "El cajón se abre al confirmar",
+    "changeBreakdown": {
+      "label": "Una forma de darlo:",
+      "note": "{{quantity}} × {{amount}}",
+      "coins": "{{amount}} en monedas"
+    },
+    "keypad": {
+      "label": "Teclado de monto",
+      "backspace": "Borrar el último dígito"
+    },
+    "reference": "Voucher o referencia (opcional)",
+    "transferReference": "Últimos dígitos o referencia del comprobante",
+    "referenceNote": "Referencia del pago: {{reference}}",
+    "transferPanel": {
+      "title": "Muestre el QR de la tienda",
+      "scanWallet": "El cliente lo escanea desde la app de su banco o billetera.",
+      "scanKey": "El cliente lo escanea para copiar la llave o el número de la tienda.",
+      "qrLabel": "Código QR para transferir a la tienda",
+      "manualNote": "Hoy usted confirma que el dinero llegó. La confirmación automática quedará disponible cuando se conecte una pasarela.",
+      "missing": "La tienda aún no tiene una llave o número para transferencias. Pida al administrador que lo configure.",
+      "missingAdmin": "La tienda aún no tiene una llave o número para transferencias, por eso no hay QR para mostrar.",
+      "configure": "Configurar la llave de transferencias",
+      "kinds": {
+        "breb": "Llave",
+        "nequi": "Nequi",
+        "daviplata": "Daviplata",
+        "bank": "Cuenta",
+        "other": "Otro"
+      }
+    },
+    "addCustomer": "Agregar cliente o puntos",
+    "documentTicket": "tiquete POS",
+    "documentInvoice": "factura electrónica",
+    "confirmTransfer": "Ya llegó · confirmar venta",
+    "confirmCredit": "Fiar {{credit}}",
+    "confirmCreditWithCash": "Fiar {{credit}} y cobrar {{cash}}",
+    "confirmInvoice": "Confirmar y facturar",
+    "splitFillRemainder": "Lo que falta",
+    "splitHalves": "Mitad y mitad"
   },
   "history": {
     "title": "Historial de ventas",
@@ -641,11 +689,18 @@
       "unknownCustomer": "Cliente desconocido",
       "balance": "Saldo actual",
       "cupo": "Cupo",
-      "projected": "Saldo proyectado",
+      "projected": "Quedaría debiendo",
       "unlimited": "Sin cupo",
       "balanceUnavailable": "No se pudo cargar el saldo",
       "balanceUnavailableHelp": "Sin el saldo no se puede proyectar el cupo, así que la venta queda bloqueada. Reintente o cobre por otro medio.",
-      "balanceRetry": "Reintentar"
+      "balanceRetry": "Reintentar",
+      "thisSale": "Esta venta",
+      "owedToday": "debe hoy",
+      "plusThisSale": "+ esta venta",
+      "barLabel": "Debe {{owed}}, esta venta suma {{sale}}, cupo {{limit}}",
+      "downPayment": "Abona ahora en efectivo",
+      "onCredit": "A crédito",
+      "cupoRule": "Si la venta supera el cupo, la caja pide aprobación del administrador o cobra el excedente en efectivo."
     },
     "warning": {
       "exceedsLimit": "El saldo proyectado supera el cupo del cliente. Pida a un administrador autorizar el sobregiro o cobre el excedente en efectivo."

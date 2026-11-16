@@ -9,10 +9,10 @@
  *
  * @module features/sales/salePaymentModal.constants
  */
-import { ArrowLeftRight, Banknote, CreditCard, Landmark, MoreHorizontal } from 'lucide-react';
+import { ArrowLeftRight, Banknote, CreditCard, MoreHorizontal, UserRound } from 'lucide-react';
 
 import type { PaymentMethod } from '@/types';
-import type { SalePaymentValues } from './salePaymentModal.types';
+import type { InitialTender, SalePaymentValues } from './salePaymentModal.types';
 import { EMPTY_INVOICE_BUYER } from './electronicInvoiceRequest';
 
 export const TENDER_SUM_EPSILON = 0.005;
@@ -35,7 +35,7 @@ export const PAYMENT_METHOD_TILES: ReadonlyArray<{
   { method: 'cash', labelKey: 'payment.cash', icon: Banknote },
   { method: 'card', labelKey: 'payment.card', icon: CreditCard },
   { method: 'transfer', labelKey: 'payment.transfer', icon: ArrowLeftRight },
-  { method: 'credit', labelKey: 'payment.credit', icon: Landmark },
+  { method: 'credit', labelKey: 'payment.credit', icon: UserRound },
   { method: 'other', labelKey: 'payment.other', icon: MoreHorizontal },
 ];
 
@@ -62,6 +62,29 @@ export function getDefaultValues(
     pharmacyEvidenceIds: [],
     invoiceRequested: false,
     invoiceBuyer: { ...EMPTY_INVOICE_BUYER },
+    paymentReference: '',
+    creditDownPayment: 0,
+  };
+}
+
+/**
+ * Form values for the tender picked on the ticket. Credit needs a customer,
+ * so a walk-in falls back to cash and picks the customer in the modal.
+ */
+export function initialTenderValues(
+  tender: InitialTender,
+  amountDue: number,
+  hasCustomer: boolean
+): Pick<SalePaymentValues, 'paymentMethod' | 'tenders'> {
+  if (tender === 'split') {
+    return {
+      paymentMethod: 'cash',
+      tenders: [{ method: 'cash', amount: amountDue, reference: '' }],
+    };
+  }
+  return {
+    paymentMethod: tender === 'credit' && !hasCustomer ? 'cash' : tender,
+    tenders: [],
   };
 }
 

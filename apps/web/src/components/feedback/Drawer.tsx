@@ -37,6 +37,8 @@ export interface DrawerProps {
   onClose: () => void;
   /** Visible heading; also wires `aria-labelledby`. */
   title?: string | undefined;
+  /** Visible text after the title, kept out of the dialog's accessible name. */
+  titleDetail?: ReactNode | undefined;
   /** Accessible label when there is no visible title. */
   ariaLabel?: string | undefined;
   /** Drawer body. */
@@ -79,6 +81,7 @@ export function Drawer({
   isOpen,
   onClose,
   title,
+  titleDetail,
   ariaLabel,
   children,
   pinnedContent,
@@ -136,9 +139,12 @@ export function Drawer({
         {(title || showCloseButton) && (
           <div className="modal-header shrink-0 items-center">
             {title ? (
-              <h2 id={titleId} className="font-display text-xl leading-tight text-secondary-950">
-                {title}
-              </h2>
+              <div className="flex min-w-0 items-baseline gap-1.5">
+                <h2 id={titleId} className="font-display text-xl leading-tight text-secondary-950">
+                  {title}
+                </h2>
+                {titleDetail}
+              </div>
             ) : (
               <span />
             )}
