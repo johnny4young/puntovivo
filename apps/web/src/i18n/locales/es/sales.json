@@ -9,7 +9,7 @@
     "history": "Historial",
     "customerDisplay": "Pantalla cliente",
     "customerDisplayOpenErrorTitle": "No se pudo abrir la pantalla cliente",
-    "customerDisplayOpenErrorDescription": "Permite la ventana emergente o intenta de nuevo cuando la ventana de escritorio esté disponible. La venta no cambia."
+    "customerDisplayOpenErrorDescription": "Permita la ventana emergente o intente de nuevo cuando la ventana de escritorio esté disponible. La venta no cambia."
   },
   "saleComplete": {
     "receipt": "Imprimir o compartir recibo",
@@ -27,11 +27,11 @@
     "noSite": "Sin sede seleccionada",
     "shortcuts": "Atajos",
     "chargeSale": "Cobrar venta",
-    "hubGatedHint": "La finalización de la venta queda pausada hasta que el hub de la tienda vuelva a estar accesible. Verifica que el hub esté encendido y conectado.",
+    "hubGatedHint": "La finalización de la venta queda pausada hasta que el hub de la tienda vuelva a estar accesible. Verifique que el hub esté encendido y conectado.",
     "addProduct": "Agregar producto",
     "activeSite": "Sede activa",
     "activeSiteHint": "La sede seleccionada controla la numeración consecutiva y la validación de stock.",
-    "noSiteWarning": "Selecciona una sede activa antes de cobrar para usar el consecutivo y el alcance de stock correctos.",
+    "noSiteWarning": "Seleccione una sede activa antes de cobrar para usar el consecutivo y el alcance de stock correctos.",
     "addToCart": "Agregar al carrito",
     "itemCount": "Artículos",
     "activeTicket": "Ticket activo",
@@ -60,7 +60,7 @@
     "itemsWithCount": "Ítems ({{value}})"
   },
   "cart": {
-    "empty": "Busca y agrega productos para iniciar una venta.",
+    "empty": "Busque y agregue productos para iniciar una venta.",
     "items": "Artículos en carrito",
     "product": "Producto",
     "qty": "Cant.",
@@ -89,20 +89,20 @@
   "serials": {
     "title": "Series de {{name}}",
     "progress": "{{selected}} / {{required}} seleccionadas",
-    "siteRequired": "Selecciona una sede activa para cargar los números de serie.",
+    "siteRequired": "Seleccione una sede activa para cargar los números de serie.",
     "loading": "Cargando series disponibles…",
     "loadError": "No se pudieron cargar los números de serie disponibles.",
     "retry": "Reintentar",
     "noneAvailable": "No hay números de serie disponibles para vender en esta sede.",
     "returned": "Devuelta",
     "usedInAnotherLine": "Usada en otra línea",
-    "selectionRequired": "Selecciona una serie exacta por cada unidad base antes de cobrar."
+    "selectionRequired": "Seleccione una serie exacta por cada unidad base antes de cobrar."
   },
   "cashSession": {
     "title": "Caja",
     "active": "Caja activa",
     "inactive": "Sin caja abierta",
-    "hint": "Abre un registro antes de cobrar o reembolsar ventas para mantener auditado el saldo del cajón.",
+    "hint": "Abra un registro antes de cobrar o reembolsar ventas para mantener auditado el saldo del cajón.",
     "register": "Registro",
     "openedAt": "Abierta",
     "expectedBalance": "Saldo esperado",
@@ -112,15 +112,15 @@
     "closeAction": "Cerrar caja",
     "recordMovementAction": "Registrar movimiento",
     "assignmentLabel": "Registro asignado",
-    "assignmentPlaceholder": "Selecciona un registro",
-    "assignmentHint": "Elige el cajón que vas a operar antes de abrir la caja.",
+    "assignmentPlaceholder": "Seleccione un registro",
+    "assignmentHint": "Elija el cajón que va a operar antes de abrir la caja.",
     "assignmentUnavailable": "Todavía no hay registros asignables para este sitio.",
     "assignmentOccupiedBy": "{{label}} · Abierto por {{cashier}}",
     "assignmentOccupiedFallback": "{{label}} · Ya está abierto",
     "assignmentSelectedHint": "El diálogo de apertura precargará la plantilla estándar de denominaciones de este registro.",
     "chargeBlocked": "El cobro se habilita cuando el conteo de apertura queda registrado.",
-    "blindCloseHint": "El cierre ciego mantiene oculto el saldo esperado hasta que envías el conteo final.",
-    "supervisedCloseHint": "El cierre supervisado muestra la diferencia en vivo mientras cuadras el cajón.",
+    "blindCloseHint": "El cierre ciego mantiene oculto el saldo esperado hasta que envía el conteo final.",
+    "supervisedCloseHint": "El cierre supervisado muestra la diferencia en vivo mientras cuadra el cajón.",
     "movementTypes": {
       "sale": "Venta en efectivo",
       "refund": "Reembolso",
@@ -138,7 +138,7 @@
     },
     "report": {
       "title": "Control de caja",
-      "description": "Supervisa registros abiertos, cierres recientes y diferencias de caja para el sitio activo.",
+      "description": "Supervise registros abiertos, cierres recientes y diferencias de caja para el sitio activo.",
       "loading": "Cargando reporte de caja...",
       "activeSessionsMetric": "Sesiones activas",
       "activeRegistersMetric": "Registros abiertos",
@@ -166,14 +166,14 @@
       "confirm": "Abrir caja",
       "opening": "Abriendo...",
       "registerName": "Nombre del registro",
-      "registerNameRequired": "Ingresa el nombre del registro.",
+      "registerNameRequired": "Ingrese el nombre del registro.",
       "openingFloat": "Base de apertura",
       "openingFloatRequired": "La base de apertura no puede ser negativa.",
       "countedTotal": "Total contado",
-      "description": "Cuenta cada denominación y confirma que coincida con la base de apertura antes de iniciar el turno.",
+      "description": "Cuente cada denominación y confirme que coincida con la base de apertura antes de iniciar el turno.",
       "mismatch": "La base de apertura debe coincidir con el total contado por denominaciones.",
       "denominations": "Conteo por denominaciones",
-      "denominationsHint": "Usa cantidades enteras por billete o moneda disponible en el cajón.",
+      "denominationsHint": "Use cantidades enteras por billete o moneda disponible en el cajón.",
       "lineTotal": "Total de la línea: {{total}}",
       "countFor": "Cantidad para la denominación {{denomination}}",
       "firstDay": "Primer día",
@@ -188,25 +188,25 @@
       "cancel": "Cancelar",
       "confirm": "Cerrar caja",
       "closing": "Cerrando...",
-      "description": "Cuenta todo el cajón, registra el total ciego de cierre y envía el desglose por denominaciones para reconciliar el turno.",
-      "supervisedDescription": "Cuenta el cajón por denominación. El cuadre en vivo está disponible porque supervisas este cierre.",
+      "description": "Cuente todo el cajón, registre el total ciego de cierre y envíe el desglose por denominaciones para reconciliar el turno.",
+      "supervisedDescription": "Cuente el cajón por denominación. El cuadre en vivo está disponible porque supervisa este cierre.",
       "registerName": "Registro",
       "openedAt": "Abierta",
       "actualCount": "Total ciego de cierre",
       "supervisedActualCount": "Total de cierre",
       "actualCountRequired": "El conteo de cierre no puede ser negativo.",
       "countedTotal": "Total por denominaciones",
-      "blindCloseHint": "El saldo esperado permanece oculto hasta que envías el conteo.",
+      "blindCloseHint": "El saldo esperado permanece oculto hasta que envía el conteo.",
       "supervisedCloseHint": "El cuadre en vivo está visible para gerentes y administradores.",
       "mismatch": "El total ciego de cierre debe coincidir con el total contado por denominaciones.",
       "supervisedMismatch": "El total de cierre debe coincidir con el total contado por denominaciones.",
       "denominations": "Conteo final por denominaciones",
-      "denominationsHint": "Usa cantidades enteras para cada billete o moneda que quede en el cajón.",
+      "denominationsHint": "Use cantidades enteras para cada billete o moneda que quede en el cajón.",
       "countFor": "Cantidad para la denominación {{denomination}}",
       "blindBadge": "Cierre ciego",
       "supervisedBadge": "Cierre supervisado",
       "justificationLabel": "Justificación (opcional)",
-      "justificationPlaceholder": "Explica cualquier sobrante o faltante…",
+      "justificationPlaceholder": "Explique cualquier sobrante o faltante…",
       "liveDelta": {
         "balanced": "Cuadrada — lo contado coincide con lo esperado",
         "over": "Sobrante — lo contado supera lo esperado",
@@ -218,8 +218,8 @@
       "kicker": "Cierre de día",
       "title": "Día cerrado",
       "subtitle": "{{registerName}} · {{date}}",
-      "loading": "Preparando el resumen de tu día…",
-      "error": "No pudimos cargar el resumen del día. Tu caja quedó cerrada correctamente.",
+      "loading": "Preparando el resumen de su día…",
+      "error": "No pudimos cargar el resumen del día. Su caja quedó cerrada correctamente.",
       "salesTitle": "Ventas del día",
       "salesCount_one": "{{count}} venta",
       "salesCount_other": "{{count}} ventas",
@@ -266,7 +266,7 @@
         "download": "Descargar imagen",
         "generating": "Generando imagen…",
         "whatsapp": "Compartir por WhatsApp",
-        "imageError": "No pudimos generar la imagen. Puedes compartir el texto por WhatsApp.",
+        "imageError": "No pudimos generar la imagen. Puede compartir el texto por WhatsApp.",
         "avgTicket": "Ticket promedio: {{amount}}",
         "vsLastWeekUp": "vs semana pasada: ↑{{percent}}%",
         "vsLastWeekDown": "vs semana pasada: ↓{{percent}}%",
@@ -282,29 +282,29 @@
       "cancel": "Cancelar",
       "confirm": "Guardar movimiento",
       "saving": "Guardando...",
-      "description": "Registra cada entrada o salida manual de efectivo para mantener auditable la línea de tiempo del cajón durante el turno.",
+      "description": "Registre cada entrada o salida manual de efectivo para mantener auditable la línea de tiempo del cajón durante el turno.",
       "type": "Tipo de movimiento",
       "amount": "Monto",
       "amountRequired": "El monto del movimiento debe ser mayor que cero.",
       "note": "Nota",
-      "noteRequired": "Ingresa una nota corta de auditoría para el movimiento.",
+      "noteRequired": "Ingrese una nota corta de auditoría para el movimiento.",
       "noteTooLong": "La nota del movimiento debe tener 240 caracteres o menos.",
       "typeHints": {
-        "paid_in": "Usa ingreso de caja cuando agregas efectivo externo al cajón durante el turno.",
-        "paid_out": "Usa salida de caja cuando retiras efectivo del cajón para un gasto o traslado externo.",
-        "skim": "Usa retiro a caja fuerte cuando sacas excedente del cajón y lo envías a la caja fuerte.",
-        "replenishment": "Usa reposición de cambio cuando agregas sencillo al cajón para seguir operando."
+        "paid_in": "Use ingreso de caja cuando agrega efectivo externo al cajón durante el turno.",
+        "paid_out": "Use salida de caja cuando retira efectivo del cajón para un gasto o traslado externo.",
+        "skim": "Use retiro a caja fuerte cuando saca excedente del cajón y lo envía a la caja fuerte.",
+        "replenishment": "Use reposición de cambio cuando agrega sencillo al cajón para seguir operando."
       }
     },
     "toast": {
       "openSuccessTitle": "Caja abierta",
       "openSuccessDescription": "{{registerName}} quedó lista con {{amount}}.",
-      "openWithAttendanceDescription": "{{registerName}} quedó lista con {{amount}}. Tu turno de asistencia inició automáticamente.",
+      "openWithAttendanceDescription": "{{registerName}} quedó lista con {{amount}}. Su turno de asistencia inició automáticamente.",
       "closeSuccessTitle": "Caja cerrada",
       "closeBalancedDescription": "{{registerName}} cerró cuadrada en {{amount}}.",
       "closeOverDescription": "{{registerName}} cerró con un sobrante de {{amount}}.",
       "closeShortDescription": "{{registerName}} cerró con un faltante de {{amount}}.",
-      "closeAttendanceDescription": "{{description}} Tu asistencia seguirá activa hasta que marques la salida desde el menú de usuario.",
+      "closeAttendanceDescription": "{{description}} Su asistencia seguirá activa hasta que marque la salida desde el menú de usuario.",
       "movementSuccessTitle": "Movimiento de caja registrado",
       "movementSuccessDescription": "{{movementType}} registrado por {{amount}}."
     }
@@ -343,7 +343,7 @@
     "splitEnable": "Dividir el pago en varios medios",
     "splitDisable": "Usar un solo medio de pago",
     "splitHeading": "Pago dividido",
-    "splitHelp": "Combina pagos externos, puntos de lealtad, crédito de tienda o crédito del cliente. Los montos deben sumar el total antes de confirmar.",
+    "splitHelp": "Combine pagos externos, puntos de lealtad, crédito de tienda o crédito del cliente. Los montos deben sumar el total antes de confirmar.",
     "splitAddTender": "Agregar medio de pago",
     "splitRemove": "Eliminar pago {{index}}",
     "splitMethodLabel": "Medio de pago {{index}}",
@@ -376,12 +376,12 @@
     "confirmSplitMissing": "Confirmar venta · faltan {{amount}}",
     "confirmSplitOver": "Confirmar venta · sobran {{amount}}",
     "partialTitle": "Esta venta quedará con pago parcial",
-    "partialWarning": "El saldo pendiente es {{amount}}. Confirma solo si deseas dejar este saldo sin pagar."
+    "partialWarning": "El saldo pendiente es {{amount}}. Confirme solo si desea dejar este saldo sin pagar."
   },
   "history": {
     "title": "Historial de ventas",
     "kicker": "Recibos",
-    "description": "Revisa recibos recientes, estados de pago y actividad del cajero sin salir del espacio POS.",
+    "description": "Revise recibos recientes, estados de pago y actividad del cajero sin salir del espacio POS.",
     "search": "Buscar por factura...",
     "loading": "Cargando ventas...",
     "error": "No se pudo cargar las ventas",
@@ -458,8 +458,8 @@
   "refund": {
     "kicker": "Devolución",
     "title": "Procesar una devolución",
-    "description": "Selecciona los productos, las cantidades y el destino del reembolso.",
-    "descriptionWithNumber": "Selecciona los productos, las cantidades y el destino del reembolso para el ticket {{number}}.",
+    "description": "Seleccione los productos, las cantidades y el destino del reembolso.",
+    "descriptionWithNumber": "Seleccione los productos, las cantidades y el destino del reembolso para el ticket {{number}}.",
     "totalLabel": "Total a devolver",
     "reasonLabel": "Motivo",
     "cancel": "Cancelar",
@@ -467,7 +467,7 @@
     "processing": "Procesando...",
     "calculating": "Calculando la devolución exacta...",
     "approvalLockTitle": "Se requiere aprobación del administrador",
-    "approvalLockBody": "El monto excede el límite operativo. Solicita autorización antes de confirmar.",
+    "approvalLockBody": "El monto excede el límite operativo. Solicite autorización antes de confirmar.",
     "reasons": {
       "expired": "Vencido / mal estado",
       "duplicate": "Compra duplicada",
@@ -475,17 +475,17 @@
       "other": "Otro"
     },
     "linesLabel": "Productos disponibles para devolución",
-    "linesHint": "Selecciona solo lo que el cliente devuelve. Las cantidades no pueden superar el saldo restante del ticket.",
+    "linesHint": "Seleccione solo lo que el cliente devuelve. Las cantidades no pueden superar el saldo restante del ticket.",
     "selectAll": "Seleccionar todo lo restante",
     "clearSelection": "Limpiar",
     "nothingAvailable": "Este ticket no tiene cantidades pendientes por devolver.",
     "selectLine": "Devolver {{product}}",
     "remainingLine": "{{quantity}} disponible · {{amount}}",
     "quantity": "Cantidad",
-    "lotsLegend": "Lotes — distribuye {{quantity}} unidades base",
+    "lotsLegend": "Lotes — distribuya {{quantity}} unidades base",
     "lotLabel": "Lote {{lot}} · {{quantity}} disponible",
-    "serialsLegend": "Números de serie — selecciona {{quantity}}",
-    "selectionInvalid": "Las cantidades, los lotes o los números de serie no coinciden. Revisa los productos seleccionados.",
+    "serialsLegend": "Números de serie — seleccione {{quantity}}",
+    "selectionInvalid": "Las cantidades, los lotes o los números de serie no coinciden. Revise los productos seleccionados.",
     "destinationLabel": "Destino del reembolso",
     "destination": {
       "original": {
@@ -499,7 +499,7 @@
     },
     "storeCreditCustomerRequired": "La venta original debe tener un cliente para emitir crédito a favor.",
     "externalReferencesLabel": "Evidencia del reembolso externo",
-    "externalReferencesHint": "Registra la referencia del proveedor para cada tarjeta, transferencia u otro medio externo.",
+    "externalReferencesHint": "Registre la referencia del proveedor para cada tarjeta, transferencia u otro medio externo.",
     "externalReferenceFor": "{{method}} · {{amount}}",
     "previewBreakdown": "Impuestos {{tax}} · Efectivo {{cash}} · Externo {{external}} · Crédito a favor {{credit}} · Cartera {{receivable}}"
   },
@@ -517,10 +517,10 @@
   "quickSearch": {
     "label": "Producto / código de barras",
     "ready": "Escáner listo",
-    "placeholder": "Escanea código de barras o escribe SKU / nombre",
+    "placeholder": "Escanee código de barras o escriba SKU / nombre",
     "search": "Buscar",
     "lockedState": "Edición de productos bloqueada",
-    "lockedHint": "La búsqueda y el escáner están deshabilitados para este ticket bloqueado. Continúa con las acciones de cobro permitidas.",
+    "lockedHint": "La búsqueda y el escáner están deshabilitados para este ticket bloqueado. Continúe con las acciones de cobro permitidas.",
     "shortcut": {
       "focusSearch": "Ir a la búsqueda",
       "openCatalog": "Abrir catálogo"
@@ -551,7 +551,7 @@
     "resumeAction": "Retomar",
     "discard": "Descartar borrador",
     "labelPlaceholder": "Etiqueta (opcional, ej. Mesa 5)",
-    "emptyState": "No hay ventas suspendidas. Usa Ctrl+P después de agregar artículos para suspender el carrito actual.",
+    "emptyState": "No hay ventas suspendidas. Use Ctrl+P después de agregar artículos para suspender el carrito actual.",
     "loadError": "No se pudieron cargar las ventas suspendidas",
     "retry": "Reintentar",
     "panelTitle": "Ventas suspendidas",
@@ -560,30 +560,30 @@
     "suspendedAt": "{{when}}",
     "items_one": "{{count}} artículo",
     "items_other": "{{count}} artículos",
-    "closedSessionWarning_one": "Tienes {{count}} venta suspendida. Permanecerá como borrador y sobrevivirá al cierre, pero no generará recibo hasta que se retome.",
-    "closedSessionWarning_other": "Tienes {{count}} ventas suspendidas. Permanecerán como borradores y sobrevivirán al cierre, pero no generarán recibo hasta que se retomen.",
+    "closedSessionWarning_one": "Tiene {{count}} venta suspendida. Permanecerá como borrador y sobrevivirá al cierre, pero no generará recibo hasta que se retome.",
+    "closedSessionWarning_other": "Tiene {{count}} ventas suspendidas. Permanecerán como borradores y sobrevivirán al cierre, pero no generarán recibo hasta que se retomen.",
     "reviewSuspended_one": "Revisar {{count}} venta suspendida",
     "reviewSuspended_other": "Revisar {{count}} ventas suspendidas",
     "confirmDiscardTitle": "¿Descartar borrador?",
     "confirmDiscardMessage": "El borrador suspendido se cancelará y los artículos vuelven al inventario. Esta acción no se puede deshacer.",
     "toastSuspendTitle": "Venta suspendida",
     "toastResumeTitle": "Venta retomada",
-    "suspendRecoveryFailedDescription": "Se creó el borrador, pero falló su recuperación. No reintentes ni recrees la venta. Mantén esta pantalla abierta y pide ayuda a un administrador.",
-    "resumeRestoredDescription": "Este dispositivo no pudo abrir el borrador, así que volvió a suspenderlo. Inténtalo de nuevo.",
-    "resumeRecoveryFailedDescription": "Se retomó el borrador, pero este dispositivo no pudo abrirlo ni suspenderlo. Recarga antes de continuar y no recrees la venta.",
+    "suspendRecoveryFailedDescription": "Se creó el borrador, pero falló su recuperación. No reintente ni recree la venta. Mantenga esta pantalla abierta y pida ayuda a un administrador.",
+    "resumeRestoredDescription": "Este dispositivo no pudo abrir el borrador, así que volvió a suspenderlo. Inténtelo de nuevo.",
+    "resumeRecoveryFailedDescription": "Se retomó el borrador, pero este dispositivo no pudo abrirlo ni suspenderlo. Recargue antes de continuar y no recree la venta.",
     "toastDiscardTitle": "Borrador descartado",
     "toastErrorTitle": "No se pudo actualizar el borrador",
     "shortcutSuspend": "Ctrl+P",
     "shortcutResume": "Ctrl+R",
     "newSale": "Nueva venta",
     "localWorkspacesTitle": "Carritos abiertos",
-    "localWorkspacesDescription": "Cambia entre carritos locales antes de suspenderlos o cobrarlos.",
+    "localWorkspacesDescription": "Cambie entre carritos locales antes de suspenderlos o cobrarlos.",
     "localWorkspaceFallback": "Carrito {{index}}",
     "localWorkspaceServerDraft": "Borrador {{saleNumber}}",
     "localWorkspaceSelect": "Cambiar a {{label}}",
     "localWorkspaceActive": "Activo",
     "labelPromptTitle": "Suspender venta",
-    "labelPromptDescription": "Agrega una etiqueta opcional para encontrar el borrador más tarde (ej. Mesa 5).",
+    "labelPromptDescription": "Agregue una etiqueta opcional para encontrar el borrador más tarde (ej. Mesa 5).",
     "labelPromptConfirm": "Suspender",
     "resumedBanner": "Borrador {{saleNumber}} retomado · artículos bloqueados",
     "resumedBannerWithLabel": "Borrador {{saleNumber}} retomado ({{label}}) · artículos bloqueados",
@@ -602,7 +602,7 @@
       "other": "Otro"
     },
     "reasonDetailLabel": "Detalle del motivo",
-    "reasonDetailPlaceholder": "Describe la razón de esta reimpresión",
+    "reasonDetailPlaceholder": "Describa la razón de esta reimpresión",
     "confirm": "Reimprimir",
     "cancel": "Cancelar",
     "printing": "Reimprimiendo...",
@@ -617,7 +617,7 @@
     "toastDialogOpened": "Diálogo de impresión abierto",
     "toastCancelledTitle": "Reimpresión cancelada",
     "toastCancelledDescription": "No se imprimió nada. La solicitud de reimpresión quedó registrada.",
-    "frozenPresentation": "Este recibo conserva su plantilla y ancho originales. Los cambios afectan a ventas nuevas. Ajusta el papel de la impresora del sistema a ese ancho."
+    "frozenPresentation": "Este recibo conserva su plantilla y ancho originales. Los cambios afectan a ventas nuevas. Ajuste el papel de la impresora del sistema a ese ancho."
   },
   "scanner": {
     "notFound": "No encontré el producto con ese código",
@@ -625,12 +625,12 @@
     "weightFromLabel": "Peso aplicado desde la etiqueta",
     "priceFromLabel": "Precio aplicado desde la etiqueta",
     "noBaseUnit": "El producto no tiene unidad configurada",
-    "resumedCartLocked": "Descarta el carrito retomado para agregar productos nuevos"
+    "resumedCartLocked": "Descarte el carrito retomado para agregar productos nuevos"
   },
   "printer": {
-    "escposRetryQueued": "La impresión ESC/POS está en cola. Revisa la impresora y el estado de la tarea antes de imprimir otra copia.",
-    "escposFailed": "No se pudo confirmar la impresión ESC/POS. Revisa la impresora y la cola antes de reimprimir.",
-    "autoPrintFailed": "La impresión automática falló; reimprime desde el detalle de la venta",
+    "escposRetryQueued": "La impresión ESC/POS está en cola. Revise la impresora y el estado de la tarea antes de imprimir otra copia.",
+    "escposFailed": "No se pudo confirmar la impresión ESC/POS. Revise la impresora y la cola antes de reimprimir.",
+    "autoPrintFailed": "La impresión automática falló; reimprima desde el detalle de la venta",
     "kickDrawerCta": "Abrir cajón",
     "kickDrawerSuccess": "Cajón monedero abierto",
     "kickDrawerFailed": "No se pudo abrir el cajón monedero",
@@ -644,15 +644,15 @@
       "projected": "Saldo proyectado",
       "unlimited": "Sin cupo",
       "balanceUnavailable": "No se pudo cargar el saldo",
-      "balanceUnavailableHelp": "Sin el saldo no se puede proyectar el cupo, así que la venta queda bloqueada. Reintenta o cobra por otro medio.",
+      "balanceUnavailableHelp": "Sin el saldo no se puede proyectar el cupo, así que la venta queda bloqueada. Reintente o cobre por otro medio.",
       "balanceRetry": "Reintentar"
     },
     "warning": {
-      "exceedsLimit": "El saldo proyectado supera el cupo del cliente. Pide a un administrador autorizar el sobregiro o cobra el excedente en efectivo."
+      "exceedsLimit": "El saldo proyectado supera el cupo del cliente. Pida a un administrador autorizar el sobregiro o cobre el excedente en efectivo."
     },
     "override": {
       "label": "Autorizar exceder el cupo",
-      "adminHelp": "Registra la venta aunque el saldo proyectado supere el cupo del cliente. Úsalo solo con aprobación administrativa.",
+      "adminHelp": "Registra la venta aunque el saldo proyectado supere el cupo del cliente. Úselo solo con aprobación administrativa.",
       "adminOnly": "Solo un administrador puede autorizar esto",
       "approvalRequired": "Un administrador debe aprobar este sobregiro antes de completar la venta."
     },
@@ -669,15 +669,15 @@
     "requesting": "Enviando…",
     "requested": "Solicitud de aprobación enviada",
     "requestError": "No se pudo solicitar la aprobación",
-    "statusError": "No se pudo actualizar el estado de la aprobación. Reintenta antes de cobrar.",
+    "statusError": "No se pudo actualizar el estado de la aprobación. Reintente antes de cobrar.",
     "policyChecking": "Verificando la política actual de cobro…",
     "reasonLabel": "Motivo para {{action}}",
-    "reasonPlaceholder": "Explica por qué se necesita aprobación",
+    "reasonPlaceholder": "Explique por qué se necesita aprobación",
     "decisionReason": "Nota de la decisión: {{reason}}",
     "progress": "{{collected}} de {{required}} aprobaciones de personas diferentes recibidas",
     "inline": {
       "title": "Aprobar en esta caja",
-      "help": "Mantén este cobro abierto. Un responsable elige su nombre e ingresa su propio PIN.",
+      "help": "Mantenga este cobro abierto. Un responsable elige su nombre e ingresa su propio PIN.",
       "loadError": "No se pudieron cargar las personas responsables.",
       "empty": "No hay una persona responsable disponible para esta aprobación.",
       "pinMissing": "Las personas responsables necesitan un PIN de personal para aprobar aquí.",
@@ -724,7 +724,7 @@
         "recovery": "Configurar numeración"
       },
       "cash_session_required": {
-        "message": "Tu sesión de caja está cerrada — ábrela antes de cobrar.",
+        "message": "Su sesión de caja está cerrada — ábrala antes de cobrar.",
         "recovery": "Abrir caja"
       },
       "credit_sale_customer_required": {
@@ -732,7 +732,7 @@
         "recovery": "Seleccionar cliente"
       },
       "credit_limit_exceeded": {
-        "message": "La proyección de {{projection}} supera el cupo de {{limit}} del cliente. Puedes solicitar aprobación al cobrar.",
+        "message": "La proyección de {{projection}} supera el cupo de {{limit}} del cliente. Puede solicitar aprobación al cobrar.",
         "recovery": "Cambiar a contado"
       },
       "discount_exceeds_total": {
@@ -740,8 +740,8 @@
         "recovery": "Revisar el descuento"
       },
       "insufficient_stock": {
-        "message_one": "Stock insuficiente en {{product}} — verifica antes de cobrar.",
-        "message_other": "Stock insuficiente en {{product}} y {{otherCount}} artículos más — verifica antes de cobrar.",
+        "message_one": "Stock insuficiente en {{product}} — verifique antes de cobrar.",
+        "message_other": "Stock insuficiente en {{product}} y {{otherCount}} artículos más — verifique antes de cobrar.",
         "recovery": "Quitar ítem"
       },
       "fiscal_not_active": {
@@ -753,19 +753,19 @@
         "recovery": "Completar DIAN"
       },
       "fiscal_numbering_missing": {
-        "message": "No hay un rango de numeración DIAN vigente para esta sede: la venta quedará sin documento electrónico hasta que registres uno.",
+        "message": "No hay un rango de numeración DIAN vigente para esta sede: la venta quedará sin documento electrónico hasta que registre uno.",
         "recovery": "Registrar rango"
       },
       "receipt_hardware_missing": {
-        "message": "No hay impresora de recibos configurada — puedes reimprimir la venta más tarde.",
+        "message": "No hay impresora de recibos configurada — puede reimprimir la venta más tarde.",
         "recovery": "Configurar impresora"
       },
       "payment_rail_missing": {
-        "message": "Solo el efectivo está configurado — agrega tarjeta o transferencia cuando lo necesites.",
+        "message": "Solo el efectivo está configurado — agregue tarjeta o transferencia cuando lo necesite.",
         "recovery": "Configurar pagos"
       },
       "sync_backlog": {
-        "message": "La sincronización está atrasada o con conflictos — puedes seguir vendiendo; resuélvela cuando puedas.",
+        "message": "La sincronización está atrasada o con conflictos — puede seguir vendiendo; resuélvala cuando pueda.",
         "recovery": "Ver sincronización"
       },
       "fiscal_numbering_fev_only": {
@@ -790,12 +790,12 @@
     }
   },
   "sound": {
-    "enable": "Activa los sonidos de la caja",
-    "disable": "Desactiva los sonidos de la caja"
+    "enable": "Active los sonidos de la caja",
+    "disable": "Desactive los sonidos de la caja"
   },
   "pace": {
     "title": "Mi ritmo",
-    "private": "Solo tú",
+    "private": "Solo usted",
     "itemsPerMinute": "Ítems/min",
     "averageCheckout": "Cobro prom.",
     "personalBest": "Mejor marca"
@@ -805,8 +805,8 @@
   },
   "paceHud": {
     "title": "Ritmo de la sesión",
-    "enable": "Muestra tu ritmo de sesión",
-    "disable": "Oculta tu ritmo de sesión",
+    "enable": "Muestre su ritmo de sesión",
+    "disable": "Oculte su ritmo de sesión",
     "itemsPerMinute": "Ítems/min",
     "secondsPerSale": "Seg/venta",
     "personalBest": "Mejor",
@@ -821,12 +821,12 @@
   },
   "quotationCart": {
     "banner": "Cobro de la cotización {{quotationNumber}}",
-    "bannerHint": "Los productos, cantidades, precios, descuentos, cliente y tarifa corresponden a la cotización aceptada y están bloqueados. Selecciona las series requeridas y elige el pago.",
+    "bannerHint": "Los productos, cantidades, precios, descuentos, cliente y tarifa corresponden a la cotización aceptada y están bloqueados. Seleccione las series requeridas y elija el pago.",
     "workspaceLabel": "Cotización {{quotationNumber}}"
   },
   "exchangeCart": {
     "banner": "Venta de cambio para {{saleNumber}}",
-    "bannerHint": "Agrega los productos de reemplazo. El cliente original está bloqueado y la nueva venta conserva independencia financiera de la devolución.",
+    "bannerHint": "Agregue los productos de reemplazo. El cliente original está bloqueado y la nueva venta conserva independencia financiera de la devolución.",
     "workspaceLabel": "Cambio {{saleNumber}}"
   }
 }

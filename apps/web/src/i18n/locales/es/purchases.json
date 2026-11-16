@@ -3,7 +3,7 @@
     "title": "Compras",
     "activeSite": "Sede activa",
     "noSite": "Sin sede seleccionada",
-    "noSiteWarning": "Selecciona una sede activa antes de registrar una compra para usar el consecutivo correcto.",
+    "noSiteWarning": "Seleccione una sede activa antes de registrar una compra para usar el consecutivo correcto.",
     "completed": "Compras completadas",
     "recentSpend": "Gasto reciente",
     "providersUsed": "Proveedores usados",
@@ -11,7 +11,7 @@
   },
   "checkout": {
     "kicker": "Compra actual",
-    "description": "Ajusta cantidades recibidas y costos antes de actualizar el stock.",
+    "description": "Ajuste cantidades recibidas y costos antes de actualizar el stock.",
     "addProduct": "Agregar producto",
     "clear": "Limpiar",
     "openOcr": "+ OCR de factura",
@@ -19,17 +19,17 @@
     "register": "Registrar compra",
     "purchaseTotal": "Total de la compra",
     "provider": "Proveedor",
-    "selectProvider": "Selecciona proveedor",
+    "selectProvider": "Seleccione proveedor",
     "providerRequired": "El proveedor es obligatorio",
     "finalizeTitle": "Finalizar",
-    "finalizeDescription": "Revisa el impacto en stock y el registro del proveedor antes de guardar.",
+    "finalizeDescription": "Revise el impacto en stock y el registro del proveedor antes de guardar.",
     "search": "Buscar",
     "items": "Artículos",
     "baseUnits": "Unidades base agregadas",
     "total": "Total",
     "receivingSite": "Sede receptora",
     "stockNote": "Los costos de compra actualizan el historial de costos del producto e incrementan el stock usando la equivalencia de unidad seleccionada.",
-    "empty": "Busca y agrega productos para iniciar una compra.",
+    "empty": "Busque y agregue productos para iniciar una compra.",
     "notesPlaceholder": "Referencia opcional o nota de recepción"
   },
   "cart": {
@@ -43,7 +43,7 @@
     "removeItem": "Eliminar {{name}}",
     "serialNumbers": "Números de serie",
     "serialNumbersPlaceholder": "Un número de serie por línea",
-    "serialNumbersDuplicate": "Elimina los números de serie duplicados antes de continuar",
+    "serialNumbersDuplicate": "Elimine los números de serie duplicados antes de continuar",
     "serialCount_one": "{{count}} unidad serializada",
     "serialCount_other": "{{count}} unidades serializadas"
   },
@@ -58,15 +58,15 @@
   },
   "ocr": {
     "title": "OCR de factura",
-    "description": "Sube una foto de la factura del proveedor. La IA leerá datos del proveedor, líneas y totales para que los transcribas en la compra.",
+    "description": "Suba una foto de la factura del proveedor. La IA leerá datos del proveedor, líneas y totales para que los transcriba en la compra.",
     "uploadFileCta": "Subir archivo",
     "takePhotoCta": "Tomar foto",
     "processing": "Leyendo la factura...",
     "error": "No se pudieron extraer los datos de la factura",
-    "footnote": "Revisa las líneas extraídas, asocia cada una con un producto del catálogo y luego agrega las coincidencias a una compra en borrador.",
+    "footnote": "Revise las líneas extraídas, asocie cada una con un producto del catálogo y luego agregue las coincidencias a una compra en borrador.",
     "errors": {
-      "unsupportedType": "Usa una imagen JPG, PNG o WebP.",
-      "tooLarge": "La imagen supera el límite de 5 MB. Vuelve a exportarla en una resolución más baja.",
+      "unsupportedType": "Use una imagen JPG, PNG o WebP.",
+      "tooLarge": "La imagen supera el límite de 5 MB. Vuelva a exportarla en una resolución más baja.",
       "readFailed": "No se pudo leer el archivo de imagen"
     },
     "fields": {
@@ -92,14 +92,14 @@
       "retryCta": "Reintentar asociación",
       "suggestedColumn": "Producto sugerido",
       "confidence": "{{percent}}% de coincidencia",
-      "unmatchedPill": "Sin coincidencia — agrega manualmente",
+      "unmatchedPill": "Sin coincidencia — agregue manualmente",
       "createPurchaseCta": "Crear compra con coincidencias",
-      "unavailable": "Activa la Búsqueda semántica y regenera los embeddings de productos para asociar las líneas automáticamente.",
+      "unavailable": "Active la Búsqueda semántica y regenere los embeddings de productos para asociar las líneas automáticamente.",
       "toastMatched_one": "{{count}} línea asociada agregada al borrador.",
       "toastMatched_other": "{{count}} líneas asociadas agregadas al borrador.",
-      "toastUnmatched_one": "{{count}} línea queda pendiente: agrégala manualmente con Buscar producto.",
-      "toastUnmatched_other": "{{count}} líneas quedan pendientes: agrégalas manualmente con Buscar producto.",
-      "moduleHint": "Activa el módulo Búsqueda semántica para asociar líneas de factura con productos."
+      "toastUnmatched_one": "{{count}} línea queda pendiente: agréguela manualmente con Buscar producto.",
+      "toastUnmatched_other": "{{count}} líneas quedan pendientes: agréguelas manualmente con Buscar producto.",
+      "moduleHint": "Active el módulo Búsqueda semántica para asociar líneas de factura con productos."
     }
   },
   "table": {
@@ -130,7 +130,7 @@
   "confirm": {
     "void": {
       "title": "Anular compra",
-      "message": "Al anular esta compra se restará del inventario todo el stock recibido. Usa devoluciones de artículos en su lugar cuando solo una parte del recibo regrese al proveedor.",
+      "message": "Al anular esta compra se restará del inventario todo el stock recibido. Use devoluciones de artículos en su lugar cuando solo una parte del recibo regrese al proveedor.",
       "confirmText": "Anular compra"
     }
   },

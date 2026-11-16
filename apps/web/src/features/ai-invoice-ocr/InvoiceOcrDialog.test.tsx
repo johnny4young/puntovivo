@@ -361,7 +361,7 @@ describe('InvoiceOcrDialog states', () => {
     expect(await screen.findByText(/total does not match|total no coincide/i)).toBeInTheDocument();
     expect(screen.getByText(/without a catalog match|sin coincidencia/i)).toBeInTheDocument();
     expect(
-      screen.getByText(/select the catalog supplier|selecciona el proveedor/i)
+      screen.getByText(/select the catalog supplier|seleccione el proveedor/i)
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /confirmar|confirm/i })).toBeDisabled();
   });
@@ -380,7 +380,7 @@ describe('InvoiceOcrDialog states', () => {
 
       expect(
         await screen.findByText(
-          '1 línea sin coincidencia en el catálogo. Asígnale un producto para confirmar.'
+          '1 línea sin coincidencia en el catálogo. Asígnele un producto para confirmar.'
         )
       ).toBeInTheDocument();
     } finally {

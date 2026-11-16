@@ -459,7 +459,7 @@ describe('VoiceOrderingScreen', () => {
     await addVoiceItem();
     expect(screen.queryByTestId('voice-ordering-table-input')).not.toBeInTheDocument();
     expect(screen.getByTestId('voice-ordering-table-setup-hint')).toHaveTextContent(
-      /Crea al menos una mesa activa/
+      /Cree al menos una mesa activa/
     );
     expect(screen.getByTestId('voice-ordering-save')).toBeDisabled();
     expect(openCheckMutateAsync).not.toHaveBeenCalled();

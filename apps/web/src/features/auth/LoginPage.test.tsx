@@ -44,7 +44,7 @@ describe('LoginPage Store Hub errors', () => {
     ['en', 'Your session is no longer active on this device. Sign in again and retry.'],
     [
       'es',
-      'Tu sesión ya no está activa en este equipo. Inicia sesión de nuevo y vuelve a intentarlo.',
+      'Su sesión ya no está activa en este equipo. Inicie sesión de nuevo y vuelva a intentarlo.',
     ],
   ] as const)(
     'renders safe localized copy for an unreadable local session in %s',

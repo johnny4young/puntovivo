@@ -13,7 +13,7 @@
     "tedLabel": "TED",
     "cufePlaceholder": "Pendiente de aceptación",
     "resolution": "Resolución",
-    "qrCaption": "Escanea para verificar en {{authority}}",
+    "qrCaption": "Escanee para verificar en {{authority}}",
     "verifyLink": "Verificar en {{authority}}",
     "viewXml": "Ver XML",
     "copyCufe": "Copiar CUFE",
@@ -58,7 +58,7 @@
     "amount": "Monto",
     "notes": "Notas",
     "itemCount": "Productos: {{count}}",
-    "thanks": "Gracias por tu compra.",
+    "thanks": "Gracias por su compra.",
     "unit": "unidad"
   }
 }

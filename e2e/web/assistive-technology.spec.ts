@@ -56,7 +56,7 @@ test.describe('assistive-technology sweep', () => {
     await expect(moreTools).toHaveAttribute('aria-expanded', 'false');
     await moreTools.click();
     await expect(
-      dialog.getByRole('radiogroup', { name: 'Elige un grupo de herramientas' })
+      dialog.getByRole('radiogroup', { name: 'Elija un grupo de herramientas' })
     ).toBeVisible();
     await expect(dialog.getByRole('radio', { name: 'Administrar negocio' })).toBeChecked();
     const main = page.locator('main');

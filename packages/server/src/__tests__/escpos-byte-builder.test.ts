@@ -366,7 +366,7 @@ describe('buildSaleReceiptDocument', () => {
       expect.arrayContaining([
         'Estado fiscal: Aceptado',
         'CUFE: certified-cufe',
-        'Verifica en DIAN',
+        'Verifique en DIAN',
       ])
     );
     expect(doc.lines).not.toEqual(

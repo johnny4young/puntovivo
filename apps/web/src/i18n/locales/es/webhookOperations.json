@@ -1,7 +1,7 @@
 {
   "kicker": "Integraciones salientes",
   "title": "Entrega de webhooks",
-  "description": "Envía eventos empresariales firmados a destinos HTTPS fijos y recupera entregas fallidas sin exponer datos de ventas en los registros.",
+  "description": "Envíe eventos empresariales firmados a destinos HTTPS fijos y recupere entregas fallidas sin exponer datos de ventas en los registros.",
   "actions": {
     "refresh": "Actualizar",
     "disable": "Desactivar",
@@ -15,20 +15,20 @@
     "attention": "Requiere atención"
   },
   "secret": {
-    "title": "Guarda ahora este secreto de firma",
+    "title": "Guarde ahora este secreto de firma",
     "description": "Se muestra una sola vez. El receptor lo usa para verificar cada solicitud.",
     "copy": "Copiar secreto",
     "copied": "Copiado",
     "saved": "Ya lo guardé"
   },
   "create": {
-    "title": "Agrega un destino",
+    "title": "Agregue un destino",
     "description": "Se enviarán todos los tipos de evento públicos. La dirección debe usar HTTPS y resolver únicamente a direcciones públicas de internet.",
     "name": "Nombre del destino",
     "destination": "Destino HTTPS",
     "action": "Crear suscripción",
     "creating": "Creando...",
-    "error": "No pudimos crear el destino. Revisa la dirección HTTPS y la configuración de cifrado."
+    "error": "No pudimos crear el destino. Revise la dirección HTTPS y la configuración de cifrado."
   },
   "subscriptions": {
     "title": "Destinos",

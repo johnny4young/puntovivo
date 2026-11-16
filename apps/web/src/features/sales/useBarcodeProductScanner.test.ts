@@ -67,7 +67,7 @@ describe('useBarcodeProductScanner', () => {
 
     expect(mocks.playScanError).toHaveBeenCalledOnce();
     expect(mocks.toast.warning).toHaveBeenCalledWith({
-      title: 'El código escaneado no es válido. Vuelve a escanearlo.',
+      title: 'El código escaneado no es válido. Vuelva a escanearlo.',
     });
     expect(mocks.toast.error).not.toHaveBeenCalled();
     expect(setCartItems).not.toHaveBeenCalled();

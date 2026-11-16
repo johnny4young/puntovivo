@@ -83,7 +83,7 @@ describe('UnitsPage mutation errors', () => {
 
     expect(
       await screen.findByText(
-        'Ya existe una unidad con la abreviatura UND. Edita la unidad existente.'
+        'Ya existe una unidad con la abreviatura UND. Edite la unidad existente.'
       )
     ).toBeVisible();
     expect(

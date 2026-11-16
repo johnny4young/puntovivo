@@ -2,7 +2,7 @@
   "page": {
     "kicker": "Inteligencia · Co-pilot",
     "title": "Co-pilot",
-    "subtitle": "Explora tus datos. Cuando se ejecuta una consulta, el SQL y sus filas quedan visibles para revisión."
+    "subtitle": "Explore sus datos. Cuando se ejecuta una consulta, el SQL y sus filas quedan visibles para revisión."
   },
   "mode": {
     "kicker": "Contrato de respuesta",
@@ -12,7 +12,7 @@
     "verifiedTitle": "Solo resultados",
     "verifiedDescription": "Muestra únicamente el SQL validado, el número de filas, la tabla y un gráfico determinista. No solicita ni presenta una interpretación generada.",
     "verifiedCaveat": "Una consulta válida y sus filas son evidencia, pero no demuestran automáticamente que una conclusión de negocio sea correcta.",
-    "adminHint": "Elige el estilo de respuesta para toda la empresa. El cambio queda auditado.",
+    "adminHint": "Elija el estilo de respuesta para toda la empresa. El cambio queda auditado.",
     "managedHint": "Un administrador define este estilo de respuesta para toda la empresa.",
     "loadingTitle": "Cargando el modo de respuesta activo",
     "loadingDescription": "Estamos confirmando el contrato de respuesta configurado para esta empresa.",
@@ -20,12 +20,12 @@
     "updating": "Actualizando el modo de respuesta...",
     "updateError": "No pudimos actualizar el modo de respuesta.",
     "resultVerified": "Respuesta de solo resultados: no se agregó una narrativa generada.",
-    "resultGuided": "Revisa el SQL ejecutado y las filas visibles antes de usar una cifra. Una consulta válida podría responder otra pregunta y las filas podrían estar recortadas."
+    "resultGuided": "Revise el SQL ejecutado y las filas visibles antes de usar una cifra. Una consulta válida podría responder otra pregunta y las filas podrían estar recortadas."
   },
   "chat": {
     "title": "Conversación",
-    "starter": "Prueba: ¿cuánto vendí ayer en Sur?",
-    "resultReady": "Los resultados de tu última pregunta están listos. Ver consultas y filas."
+    "starter": "Pruebe: ¿cuánto vendí ayer en Sur?",
+    "resultReady": "Los resultados de su última pregunta están listos. Ver consultas y filas."
   },
   "scope": {
     "label": "Alcance de datos",
@@ -33,16 +33,16 @@
     "currentSite": "Sede actual: {{site}}",
     "allHint": "Una pregunta exitosa consume una consulta de la cuota mensual de cada sede.",
     "currentHint": "Usa solo los datos y la cuota mensual de esta sede.",
-    "unavailableHint": "Espera a que se confirme la sede actual."
+    "unavailableHint": "Espere a que se confirme la sede actual."
   },
   "composer": {
     "label": "Pregunta de analítica",
-    "placeholder": "Pregúntale a tus datos...",
+    "placeholder": "Pregúntele a sus datos...",
     "send": "Enviar pregunta"
   },
   "states": {
     "emptyTitle": "Sin análisis aún",
-    "emptyDescription": "Haz una pregunta para ver aquí la consulta, sus filas, la tabla y el gráfico disponible.",
+    "emptyDescription": "Haga una pregunta para ver aquí la consulta, sus filas, la tabla y el gráfico disponible.",
     "loading": "Analizando..."
   },
   "results": {

@@ -385,7 +385,7 @@ test.describe('Electron smoke', () => {
       await syncDetails.click();
     }
     await expect(syncStrip).toContainText(
-      'Tu sesión ya no está activa en este equipo. Inicia sesión de nuevo y vuelve a intentarlo.',
+      'Su sesión ya no está activa en este equipo. Inicie sesión de nuevo y vuelva a intentarlo.',
       { timeout: 15_000 }
     );
     await trayPanel

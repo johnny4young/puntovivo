@@ -50,7 +50,7 @@ describe('first-use ownership UI', () => {
     await screen.findAllByText('Complete this field.');
     fireEvent.click(screen.getByRole('button', { name: 'Language' }));
     fireEvent.click(screen.getByRole('option', { name: 'Español' }));
-    await screen.findByRole('heading', { name: 'Empieza con tu negocio.' });
+    await screen.findByRole('heading', { name: 'Empiece con su negocio.' });
     await waitFor(() => expect(screen.queryByText('Complete this field.')).not.toBeInTheDocument());
     expect(window.localStorage.getItem('puntovivo-language-preference')).toBe('es');
     fill('businessName', 'Negocio sintético');
@@ -65,7 +65,7 @@ describe('first-use ownership UI', () => {
 
   it.each([
     ['en', 'Start with your business.', 'Business name'],
-    ['es', 'Empieza con tu negocio.', 'Nombre del negocio'],
+    ['es', 'Empiece con su negocio.', 'Nombre del negocio'],
   ] as const)(
     'renders clear %s first control and no false readiness claim',
     async (language, title, firstControl) => {

@@ -101,7 +101,7 @@ test.describe('sales scanner focus', () => {
     // CommandPalette exposes its title via aria-label only — match
     // by accessible name instead of visible text.
     const palette = page.getByRole('dialog', {
-      name: /what do you want to do|qué quieres hacer/i,
+      name: /what do you want to do|qué desea hacer/i,
     });
     await expect(palette).toBeVisible({ timeout: 10_000 });
 

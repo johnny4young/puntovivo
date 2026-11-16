@@ -1,12 +1,12 @@
 {
   "kicker": "Envío externo de alertas",
-  "title": "Envía incidentes fuera de este equipo",
-  "description": "Conecta un receptor HTTPS para el negocio. Puntovivo firma cada alerta mínima y conserva aquí el resultado del envío.",
-  "honesty": "Este es un envío de software hacia un receptor que tú proporcionas. No incluye monitoreo atendido por personas, equipo de guardia ni garantía de tiempo de respuesta.",
+  "title": "Envíe incidentes fuera de este equipo",
+  "description": "Conecte un receptor HTTPS para el negocio. Puntovivo firma cada alerta mínima y conserva aquí el resultado del envío.",
+  "honesty": "Este es un envío de software hacia un receptor que usted proporciona. No incluye monitoreo atendido por personas, equipo de guardia ni garantía de tiempo de respuesta.",
   "status": {
     "configured": "Receptor activo",
     "unconfigured": "Sin configurar",
-    "attention": "Revisa el envío",
+    "attention": "Revise el envío",
     "open": "Abierto",
     "acknowledged": "Visto",
     "resolved": "Resuelto",
@@ -22,18 +22,18 @@
     "receivers": "Receptores activos"
   },
   "create": {
-    "title": "Conecta un receptor de alertas",
-    "description": "Usa un destino HTTPS de tu organización o proveedor de monitoreo. Ninguna alerta figura como enviada hasta que exista esta conexión.",
+    "title": "Conecte un receptor de alertas",
+    "description": "Use un destino HTTPS de su organización o proveedor de monitoreo. Ninguna alerta figura como enviada hasta que exista esta conexión.",
     "name": "Nombre del receptor",
     "namePlaceholder": "Monitoreo del negocio",
     "destination": "Destino HTTPS",
     "action": "Conectar receptor",
     "creating": "Conectando…",
-    "error": "No fue posible conectar el receptor. Verifica la dirección HTTPS pública e inténtalo de nuevo."
+    "error": "No fue posible conectar el receptor. Verifique la dirección HTTPS pública e inténtelo de nuevo."
   },
   "secret": {
-    "title": "Guarda ahora este secreto de firma",
-    "description": "Solo se muestra una vez. Configúralo en el receptor para verificar que las alertas provienen de este negocio.",
+    "title": "Guarde ahora este secreto de firma",
+    "description": "Solo se muestra una vez. Configúrelo en el receptor para verificar que las alertas provienen de este negocio.",
     "copy": "Copiar secreto",
     "copied": "Secreto copiado",
     "saved": "Ya lo guardé"

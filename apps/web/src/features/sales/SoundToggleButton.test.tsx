@@ -16,7 +16,7 @@ describe('SoundToggleButton', () => {
     render(<SoundToggleButton />);
     const button = screen.getByTestId('sales-sound-toggle');
     expect(button).toHaveAttribute('aria-pressed', 'false');
-    expect(button.getAttribute('aria-label')).toMatch(/Activa|Turn on/i);
+    expect(button.getAttribute('aria-label')).toMatch(/Active|Turn on/i);
   });
 
   it('toggles and persists the device-local preference', () => {

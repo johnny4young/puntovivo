@@ -50,7 +50,7 @@ describe('desktop sync session rejection', () => {
     [
       'es',
       'SESSION_NOT_REGISTERED',
-      'Tu sesión ya no está activa en este equipo. Inicia sesión de nuevo y vuelve a intentarlo.',
+      'Su sesión ya no está activa en este equipo. Inicie sesión de nuevo y vuelva a intentarlo.',
     ],
     [
       'en',

@@ -115,7 +115,7 @@ describe('DashboardPage timezone recovery', () => {
     ],
     [
       'es',
-      'La zona horaria de la empresa no es válida. Pide a un administrador que corrija o borre la zona horaria personalizada en Empresa y vuelve a intentar.',
+      'La zona horaria de la empresa no es válida. Pida a un administrador que corrija o borre la zona horaria personalizada en Empresa y vuelva a intentar.',
     ],
   ])(
     'shows actionable localized configuration errors in %s, not stale totals',

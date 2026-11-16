@@ -16,11 +16,11 @@
   "disabled": {
     "copilot": {
       "title": "Co-pilot está apagado",
-      "subtitle": "Actívalo para preguntarle a tus datos en español. El SQL queda visible y auditable."
+      "subtitle": "Actívelo para preguntarle a sus datos en español. El SQL queda visible y auditable."
     },
     "anomalies": {
       "title": "La detección de anomalías está apagada",
-      "subtitle": "Cuando la activas, Puntovivo vigila el patrón de cada cajero contra su propio promedio de 30 días y te avisa si algo se sale de lo normal."
+      "subtitle": "Cuando la activa, Puntovivo vigila el patrón de cada cajero contra su propio promedio de 30 días y le avisa si algo se sale de lo normal."
     },
     "semanticSearch": {
       "title": "La búsqueda semántica está apagada",
@@ -28,17 +28,17 @@
     },
     "invoiceOcr": {
       "title": "El OCR de factura está apagado",
-      "subtitle": "Subes una foto de la factura y la IA pre-llena la compra. Tú revisas, ella escribe."
+      "subtitle": "Suba una foto de la factura y la IA pre-llena la compra. Usted revisa, ella escribe."
     },
     "cta": "Activar en Configuración › IA",
     "role": "Solo el administrador puede activar la IA."
   },
   "disclaimer": {
-    "copilot": "La IA elige una consulta, no una conclusión de negocio verificada. Revisa el SQL y sus filas antes de actuar.",
+    "copilot": "La IA elige una consulta, no una conclusión de negocio verificada. Revise el SQL y sus filas antes de actuar.",
     "anomaly": "Punto de partida para una investigación, no una acusación."
   },
   "privacy": {
-    "redaction": "El copiloto reemplaza los nombres de clientes y cajeros y los identificadores de cajeros de su consulta analítica actual por etiquetas temporales, y protege los valores coincidentes en la conversación. Esto no es anonimización: otros textos, audios y documentos pueden contener datos personales y se envían al proveedor configurado. No incluyas información sensible."
+    "redaction": "El copiloto reemplaza los nombres de clientes y cajeros y los identificadores de cajeros de su consulta analítica actual por etiquetas temporales, y protege los valores coincidentes en la conversación. Esto no es anonimización: otros textos, audios y documentos pueden contener datos personales y se envían al proveedor configurado. No incluya información sensible."
   },
   "audit": {
     "title": "Registro de IA",

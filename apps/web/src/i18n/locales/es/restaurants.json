@@ -1,23 +1,23 @@
 {
   "server": {
-    "RESTAURANT_SERVICE_GUEST_COUNT_CONFLICT": "Esta mesa ya tiene un servicio abierto con otra cantidad de comensales. Actualiza y usa la cantidad actual.",
-    "RESTAURANT_SERVICE_STATE_INVALID": "El servicio de la mesa cambió inesperadamente. Actualiza las cuentas abiertas antes de continuar.",
+    "RESTAURANT_SERVICE_GUEST_COUNT_CONFLICT": "Esta mesa ya tiene un servicio abierto con otra cantidad de comensales. Actualice y use la cantidad actual.",
+    "RESTAURANT_SERVICE_STATE_INVALID": "El servicio de la mesa cambió inesperadamente. Actualice las cuentas abiertas antes de continuar.",
     "RESTAURANT_SERVICE_CAPACITY_EXCEEDED": "La cantidad de comensales supera la capacidad configurada para esta mesa.",
-    "RESTAURANT_SERVICE_LINES_INVALID": "Los detalles de la orden ya no coinciden con el carrito. Revisa los productos e inténtalo de nuevo.",
+    "RESTAURANT_SERVICE_LINES_INVALID": "Los detalles de la orden ya no coinciden con el carrito. Revise los productos e inténtelo de nuevo.",
     "RESTAURANT_SERVICE_DINER_INVALID": "Un producto de la orden hace referencia a un comensal que no pertenece a este servicio.",
     "RESTAURANT_SERVICE_TABLE_REQUIRED": "Las cuentas del restaurante deben permanecer vinculadas a una mesa física.",
-    "RESTAURANT_SERVICE_LIMIT_REACHED": "Este servicio alcanzó el límite seguro de órdenes abiertas. Cobra o cancela las cuentas existentes antes de agregar más productos.",
-    "RESTAURANT_SERVICE_PARTY_REASSIGNMENT_REQUIRED": "Esta acción dividiría o mezclaría comensales entre servicios. Mantén la cuenta dividida en su mesa actual o mueve un servicio sin cuentas compartidas a una mesa vacía.",
-    "RESTAURANT_MODIFIER_UNAVAILABLE": "Este adicional ya no está disponible en esta sede. Elimínalo o selecciona una opción disponible.",
-    "RESTAURANT_MODIFIER_APPROVAL_REQUIRED": "Elige un adicional aprobado o pide a un gerente que registre este pedido.",
-    "RESTAURANT_MODIFIER_CHANGED": "Este adicional cambió. Elimínalo y selecciónalo de nuevo para revisar el precio actual antes de guardar.",
-    "RESTAURANT_MODIFIER_LIMIT_REACHED": "Esta sede tiene 500 adicionales activos. Archiva primero una opción que ya no uses.",
-    "RESTAURANT_MODIFIER_NAME_DUPLICATE": "Ya existe un adicional activo con ese nombre. Elige otro nombre."
+    "RESTAURANT_SERVICE_LIMIT_REACHED": "Este servicio alcanzó el límite seguro de órdenes abiertas. Cobre o cancele las cuentas existentes antes de agregar más productos.",
+    "RESTAURANT_SERVICE_PARTY_REASSIGNMENT_REQUIRED": "Esta acción dividiría o mezclaría comensales entre servicios. Mantenga la cuenta dividida en su mesa actual o mueva un servicio sin cuentas compartidas a una mesa vacía.",
+    "RESTAURANT_MODIFIER_UNAVAILABLE": "Este adicional ya no está disponible en esta sede. Elimínelo o seleccione una opción disponible.",
+    "RESTAURANT_MODIFIER_APPROVAL_REQUIRED": "Elija un adicional aprobado o pida a un gerente que registre este pedido.",
+    "RESTAURANT_MODIFIER_CHANGED": "Este adicional cambió. Elimínelo y selecciónelo de nuevo para revisar el precio actual antes de guardar.",
+    "RESTAURANT_MODIFIER_LIMIT_REACHED": "Esta sede tiene 500 adicionales activos. Archive primero una opción que ya no use.",
+    "RESTAURANT_MODIFIER_NAME_DUPLICATE": "Ya existe un adicional activo con ese nombre. Elija otro nombre."
   },
   "surface": {
     "touchHeading": "POS Touch",
     "mobileHeading": "Mesero Móvil",
-    "subheading": "Captura la orden por voz o búsqueda manual."
+    "subheading": "Capture la orden por voz o búsqueda manual."
   },
   "floorMap": {
     "kicker": "Salón",
@@ -38,7 +38,7 @@
   "tableLabel": {
     "label": "Mesa",
     "placeholder": "p. ej. Mesa 5",
-    "required": "Escribe una mesa para guardar la orden."
+    "required": "Escriba una mesa para guardar la orden."
   },
   "service": {
     "guestCount": "Comensales",
@@ -46,7 +46,7 @@
     "checkLabel": "Etiqueta de la cuenta (opcional)",
     "checkLabelPlaceholder": "p. ej. Grupo del patio",
     "tableStateLoading": "Verificando el servicio abierto de esta mesa...",
-    "tableStateError": "No se pudo verificar el estado de la mesa. Intenta de nuevo antes de abrir una cuenta.",
+    "tableStateError": "No se pudo verificar el estado de la mesa. Intente de nuevo antes de abrir una cuenta.",
     "generalParkOption": "Sin mesa · venta suspendida general",
     "openChecks_one": "{{count}} cuenta abierta",
     "openChecks_other": "{{count}} cuentas abiertas"
@@ -79,7 +79,7 @@
     "modifierQuantity": "Cantidad",
     "addModifier": "Agregar modificador",
     "removeModifier": "Eliminar modificador {{name}}",
-    "duplicateModifiers": "Cada modificador necesita un nombre distinto. Cambia el nombre o elimina el duplicado antes de guardar.",
+    "duplicateModifiers": "Cada modificador necesita un nombre distinto. Cambie el nombre o elimine el duplicado antes de guardar.",
     "modifiersLimit": "Máximo {{count}} modificadores por línea.",
     "modifiersLoading": "Cargando modificadores…",
     "guests_one": "{{count}} comensal",
@@ -96,12 +96,12 @@
     "successToast_one": "Se guardó la orden de {{tableLabel}} con {{count}} producto.",
     "successToast_other": "Se guardó la orden de {{tableLabel}} con {{count}} productos.",
     "errorTitle": "No se pudo guardar la orden",
-    "tableRequired": "Escribe el nombre de la mesa antes de guardar.",
-    "emptyCartHint": "Agrega al menos un producto antes de guardar."
+    "tableRequired": "Escriba el nombre de la mesa antes de guardar.",
+    "emptyCartHint": "Agregue al menos un producto antes de guardar."
   },
   "tables": {
     "title": "Mesas del restaurante",
-    "description": "Administra la lista de mesas físicas que el mesero puede elegir al abrir una orden.",
+    "description": "Administre la lista de mesas físicas que el mesero puede elegir al abrir una orden.",
     "empty": "Aún no hay mesas definidas para esta sede.",
     "loading": "Cargando mesas...",
     "error": "No se pudieron cargar las mesas del restaurante.",
@@ -150,7 +150,7 @@
     },
     "archive": {
       "title": "Archivar mesa",
-      "message": "Las mesas archivadas desaparecen del menú del mesero pero quedan en el historial. Puedes volver a crear una mesa con el mismo nombre más adelante.",
+      "message": "Las mesas archivadas desaparecen del menú del mesero pero quedan en el historial. Puede volver a crear una mesa con el mismo nombre más adelante.",
       "confirm": "Archivar",
       "submitting": "Archivando...",
       "cancel": "Cancelar"
@@ -164,11 +164,11 @@
       "archiveError": "No se pudo archivar la mesa."
     },
     "dropdown": {
-      "selectPlaceholder": "Elige una mesa",
+      "selectPlaceholder": "Elija una mesa",
       "customOption": "— Etiqueta personalizada —",
-      "emptyHint": "No hay mesas en el catálogo. Pide al administrador que cree una.",
-      "emptyOperationalHint": "Crea al menos una mesa activa antes de abrir un servicio en salón. Pide ayuda a un administrador, o créalas ahora si tienes acceso.",
-      "moduleDisabledHint": "El servicio en salón está desactivado. Pide a un administrador que lo habilite antes de tomar órdenes por mesa.",
+      "emptyHint": "No hay mesas en el catálogo. Pida al administrador que cree una.",
+      "emptyOperationalHint": "Cree al menos una mesa activa antes de abrir un servicio en salón. Pida ayuda a un administrador, o créelas ahora si tiene acceso.",
+      "moduleDisabledHint": "El servicio en salón está desactivado. Pida a un administrador que lo habilite antes de tomar órdenes por mesa.",
       "createTables": "Crear mesas"
     },
     "draftStatus": {
@@ -183,7 +183,7 @@
   },
   "transfer": {
     "ctaLabel": "Cambiar mesa",
-    "ctaAriaLabel": "Cambia la mesa de la orden {{saleNumber}}",
+    "ctaAriaLabel": "Cambie la mesa de la orden {{saleNumber}}",
     "title": "Cambiar mesa",
     "currentLine": "Actual: {{current}}",
     "selectLabel": "Nueva mesa",
@@ -195,11 +195,11 @@
     "confirming": "Moviendo...",
     "successToast": "Orden movida a {{tableName}}",
     "successToastCleared": "Orden desvinculada de su mesa anterior",
-    "sharedServiceHint": "Esta mesa tiene varias cuentas abiertas. Cobra o cancela las demás cuentas antes de mover el servicio completo."
+    "sharedServiceHint": "Esta mesa tiene varias cuentas abiertas. Cobre o cancele las demás cuentas antes de mover el servicio completo."
   },
   "split": {
     "ctaLabel": "Dividir cuenta",
-    "ctaAriaLabel": "Divide la cuenta de la orden {{saleNumber}}",
+    "ctaAriaLabel": "Divida la cuenta de la orden {{saleNumber}}",
     "title": "Dividir cuenta",
     "currentLine": "Origen: {{current}}",
     "selectItemsLabel": "Productos para la nueva cuenta",
@@ -218,13 +218,13 @@
     "confirm": "Dividir cuenta",
     "confirming": "Dividiendo...",
     "successToast": "Nueva cuenta creada para {{label}}",
-    "errorEmptySelection": "Elige al menos un producto antes de dividir.",
-    "errorSourceWouldBeEmpty": "Deja al menos un producto en la cuenta de origen o traslada la orden completa.",
-    "sameTableOnlyHint": "Una cuenta normalizada comparte comensales con el servicio de su mesa. Divídela en la misma mesa; mover comensales entre mesas requiere una reasignación explícita."
+    "errorEmptySelection": "Elija al menos un producto antes de dividir.",
+    "errorSourceWouldBeEmpty": "Deje al menos un producto en la cuenta de origen o traslade la orden completa.",
+    "sameTableOnlyHint": "Una cuenta normalizada comparte comensales con el servicio de su mesa. Divídala en la misma mesa; mover comensales entre mesas requiere una reasignación explícita."
   },
   "reservations": {
     "title": "Reservas",
-    "subtitle": "Programa mesas y registra llegadas sin crear ventas. Las llegadas pendientes siguen visibles hasta sentarlas o cancelarlas; una reserva no desplaza un servicio abierto.",
+    "subtitle": "Programe mesas y registre llegadas sin crear ventas. Las llegadas pendientes siguen visibles hasta sentarlas o cancelarlas; una reserva no desplaza un servicio abierto.",
     "timeZone": "Los horarios usan la zona horaria de este dispositivo: {{zone}}.",
     "create": "Nueva reserva",
     "edit": "Editar reserva",
@@ -235,16 +235,16 @@
     "notes": "Notas operativas",
     "unassigned": "Mesa sin asignar",
     "unavailableTable": "Mesa no disponible",
-    "invalidWindow": "Elige horarios locales válidos y sin ambigüedad, con un fin posterior al inicio y una duración máxima de 24 horas.",
+    "invalidWindow": "Elija horarios locales válidos y sin ambigüedad, con un fin posterior al inicio y una duración máxima de 24 horas.",
     "reason": "Motivo",
     "arrive": "Registrar llegada",
     "noShow": "Marcar inasistencia",
     "cancel": "Cancelar reserva",
     "openCheck": "Ir a ventas",
-    "seatingHint": "Agrega el pedido en Ventas, elige Suspender y esta mesa, y confirma explícitamente la reserva que llegó. La reserva se sienta solo cuando se guarda la primera cuenta.",
+    "seatingHint": "Agregue el pedido en Ventas, elija Suspender y esta mesa, y confirme explícitamente la reserva que llegó. La reserva se sienta solo cuando se guarda la primera cuenta.",
     "party_one": "{{count}} comensal",
     "party_other": "{{count}} comensales",
-    "noSite": "Selecciona una sede activa para gestionar reservas.",
+    "noSite": "Seleccione una sede activa para gestionar reservas.",
     "day": "Día",
     "state": "Estado",
     "all": "Todos los estados",
@@ -263,12 +263,12 @@
   "reservationChoice": {
     "confirm_one": "Sentar la reserva de {{name}} ({{count}} comensal)",
     "confirm_other": "Sentar la reserva de {{name}} ({{count}} comensales)",
-    "hint": "Este grupo ya llegó. Confirma su identidad antes de abrir la primera cuenta; la reserva y el servicio quedarán vinculados.",
+    "hint": "Este grupo ya llegó. Confirme su identidad antes de abrir la primera cuenta; la reserva y el servicio quedarán vinculados.",
     "manage": "Gestionar reservas"
   },
   "catalog": {
     "title": "Adicionales de restaurante",
-    "description": "Define los precios aprobados para esta sede. Los cajeros eligen del catálogo; solo los gerentes pueden agregar cobros personalizados.",
+    "description": "Defina los precios aprobados para esta sede. Los cajeros eligen del catálogo; solo los gerentes pueden agregar cobros personalizados.",
     "create": "Crear adicional",
     "edit": "Editar adicional",
     "editNamed": "Editar {{name}}",
@@ -285,14 +285,14 @@
     "historyHelp": "Los cambios solo aplican a nuevas selecciones. Las cuentas existentes, recibos y comandas conservan sus precios originales.",
     "archiveHelp": "Al archivar se bloquean nuevas selecciones. Los pedidos ya aceptados no cambian.",
     "returnToList": "Volver a la lista y revisar la versión actual",
-    "noSite": "Selecciona una sede para administrar sus adicionales.",
+    "noSite": "Seleccione una sede para administrar sus adicionales.",
     "pagination": "Páginas del catálogo de adicionales",
     "previous": "Anterior",
     "next": "Siguiente",
     "choose": "Elegir adicional aprobado",
-    "chooseHelp": "Revisa el precio antes de agregarlo. La cantidad es por plato, no por todo el pedido.",
+    "chooseHelp": "Revise el precio antes de agregarlo. La cantidad es por plato, no por todo el pedido.",
     "selected": "Ya seleccionado",
-    "cashierHelp": "Las instrucciones personalizadas son gratuitas. Para un adicional con precio, elige una opción aprobada.",
+    "cashierHelp": "Las instrucciones personalizadas son gratuitas. Para un adicional con precio, elija una opción aprobada.",
     "saved": "Adicional guardado"
   }
 }

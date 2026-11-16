@@ -110,6 +110,20 @@ languages; passing checks alone does not certify translation quality. The
 inventory includes only Git-tracked project Markdown, omits dependency/generated
 output, distinguishes historical files and reports current uncovered sources.
 
+### Product copy register
+
+Every user-visible Spanish string in the application (interface, errors,
+receipts, printed and exported documents) uses neutral Latin American Spanish
+and addresses the user as usted. Never use voseo or the tú register.
+
+- Imperatives: Seleccione una sede, Ingrese el código, Revise la conexión e
+  inténtelo de nuevo.
+- Possessives and verbs: Su sesión expiró. No tiene conexión. Puede seguir
+  vendiendo.
+- Questions: ¿Qué desea hacer? ¿Olvidó su contraseña?
+- Labels that are nouns or infinitives stay as they are: Guardar, Cobrar,
+  Compra, Activa.
+
 ## Español
 
 Los 72 documentos fuente vigentes en inglés tienen versiones completas en
@@ -142,3 +156,18 @@ técnica en ambos idiomas; que pasen no certifica por sí solo la calidad de la
 traducción. El inventario incluye únicamente Markdown del proyecto versionado
 en Git, excluye dependencias y salidas generadas, distingue los archivos
 históricos y muestra los documentos fuente vigentes sin traducción.
+
+### Registro del texto del producto
+
+Todo texto en español visible para el usuario dentro de la aplicación
+(interfaz, errores, recibos, documentos impresos y exportados) usa español
+latinoamericano neutro y trata al usuario de usted. Nunca se usa voseo ni el
+registro de tú.
+
+- Imperativos: Seleccione una sede, Ingrese el código, Revise la conexión e
+  inténtelo de nuevo.
+- Posesivos y verbos: Su sesión expiró. No tiene conexión. Puede seguir
+  vendiendo.
+- Preguntas: ¿Qué desea hacer? ¿Olvidó su contraseña?
+- Las etiquetas que son sustantivos o infinitivos no cambian: Guardar, Cobrar,
+  Compra, Activa.
