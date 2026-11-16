@@ -94,6 +94,8 @@ export interface TodayShift {
 export interface OperationsToday {
   businessDate: string;
   timezone: string;
+  /** UTC instant where the business day starts; hourly[0] begins here. */
+  dayStartIso: string;
   generatedAt: string;
   sales: {
     total: number;
@@ -240,6 +242,7 @@ export async function computeOperationsToday(
   return {
     businessDate,
     timezone,
+    dayStartIso: today.startIso,
     generatedAt: now.toISOString(),
     sales: {
       total,

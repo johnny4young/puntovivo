@@ -75,6 +75,9 @@ vi.mock('@/features/fiscal/NumberingAlertBanner', () => ({
 vi.mock('@/features/dashboard/AnomalyDetectionCard', () => ({
   AnomalyDetectionCard: () => <div data-testid="anomaly-card" />,
 }));
+vi.mock('@/features/dashboard/today/TodayOverview', () => ({
+  TodayOverview: () => <div data-testid="today-overview" />,
+}));
 
 import { DashboardPage } from './DashboardPage';
 
@@ -104,6 +107,25 @@ describe('DashboardPage module gates', () => {
     render(<DashboardPage />);
 
     expect(screen.getByTestId('anomaly-card')).toBeInTheDocument();
+  });
+});
+
+describe('DashboardPage audience', () => {
+  it('opens on the manager day for managers and keeps the rest of the dashboard below', () => {
+    useIsModuleActiveMock.mockReturnValue(false);
+    render(<DashboardPage />);
+    expect(screen.getByTestId('today-overview')).toBeInTheDocument();
+    expect(screen.queryByTestId('dashboard-briefing')).not.toBeInTheDocument();
+    expect(screen.getByTestId('revenue-trend-card')).toBeInTheDocument();
+    expect(screen.getByTestId('low-stock-card')).toBeInTheDocument();
+  });
+
+  it('keeps the read-only briefing for viewers', () => {
+    useIsModuleActiveMock.mockReturnValue(false);
+    useAuthMock.mockReturnValue({ user: { id: 'u-2', role: 'viewer' } });
+    render(<DashboardPage />);
+    expect(screen.getByTestId('dashboard-briefing')).toBeInTheDocument();
+    expect(screen.queryByTestId('today-overview')).not.toBeInTheDocument();
   });
 });
 
