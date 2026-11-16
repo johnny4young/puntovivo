@@ -83,6 +83,8 @@ export type CriticalCommandPath =
   | 'restaurantModifiers.save'
   | 'cashSessions.open'
   | 'cashSessions.close'
+  | 'shiftHandoffs.handOut'
+  | 'shiftHandoffs.receive'
   | 'cashSessions.recordMovement'
   | 'inventory.adjustStock'
   | 'inventory.createMovement'

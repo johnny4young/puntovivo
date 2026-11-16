@@ -76,6 +76,10 @@ export type AuditLogAction =
   // shift-lifecycle parity (open + manual movement audits).
   | 'cash_session.open'
   | 'cash_session.movement'
+  | 'cash_session.handoff_out'
+  | 'cash_session.handoff_receive'
+  | 'cash_session.variance_explained'
+  | 'sale.carry_over'
   | 'inventory.adjust_stock'
   | 'inventory.revalue'
   | 'inventory.count.create'

@@ -9,7 +9,7 @@ import { SalesFlowRail } from '@/features/sales/SalesFlowRail';
 import type { SalesModals } from '@/features/sales/SalesModals';
 import { WorkspaceTabsSection } from '@/features/sales/WorkspaceTabsSection';
 import { SalesMobileCheckoutBar } from '@/features/sales/SalesMobileCheckoutBar';
-import type { SuspendedSalesPanel } from '@/features/sales/SuspendedSalesPanel';
+import type { ResumeDraftSelection } from '@/features/sales/useSalesFlows';
 import { SaleCompleteStrip, type CompletedSaleSummary } from './SaleCompleteStrip';
 
 const LazySalesQuickAccess = lazy(() =>
@@ -44,7 +44,6 @@ type HeaderProps = ComponentProps<typeof SalesHeaderSection>;
 type TabsProps = ComponentProps<typeof WorkspaceTabsSection>;
 type CartProps = ComponentProps<typeof SalesCartWorkspace>;
 type CheckoutProps = ComponentProps<typeof SalesCheckoutPanel>;
-type SuspendedProps = ComponentProps<typeof SuspendedSalesPanel>;
 type ModalsProps = ComponentProps<typeof SalesModals>;
 type CashModalsProps = ComponentProps<typeof CashSessionModals>;
 
@@ -135,7 +134,7 @@ export interface SalesScreenProps {
   setSelectedHistorySaleId: Dispatch<SetStateAction<string | null>>;
   // Suspended-sales drawer
   isSuspendedPanelOpen: boolean;
-  handleResumeFromPanel: SuspendedProps['onResume'];
+  handleResumeFromPanel: (draft: ResumeDraftSelection) => void | Promise<void>;
   // Sales modals (product search / payment / sale details / suspend prompt)
   isProductSearchOpen: boolean;
   shouldRenderQuickCreateProductGate: boolean;
@@ -629,6 +628,7 @@ export function SalesScreen({
             onSubmitMovement={handleRecordCashMovement}
             dayCloseSessionId={dayCloseSessionId}
             onCloseDayClose={() => setDayCloseSessionId(null)}
+            onResumeDraft={draft => void handleResumeFromPanel(draft)}
           />
         </Suspense>
       )}

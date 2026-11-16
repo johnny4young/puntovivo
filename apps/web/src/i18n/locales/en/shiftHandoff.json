@@ -1,0 +1,103 @@
+{
+  "steps": {
+    "label": "Steps",
+    "count": "Count",
+    "review": "What you hand over",
+    "sign": "Sign"
+  },
+  "back": "Back",
+  "loading": "Loading the handoff",
+  "count": {
+    "decrement": "One less {{denomination}}",
+    "increment": "One more {{denomination}}",
+    "countFor": "How many {{denomination}}"
+  },
+  "entry": "Hand over shift",
+  "handOut": {
+    "kicker": "Shift handoff",
+    "title": "Hand over · {{register}}",
+    "subtitle": "{{name}} · since {{from}}",
+    "blindHint": "Count what is in the drawer. The expected amount stays hidden.",
+    "yourCount": "Your count",
+    "saveCount": "Save count",
+    "yourShift": "Your shift",
+    "shiftContext_one": "{{count}} sale · {{hours}} h {{minutes}} min",
+    "shiftContext_other": "{{count}} sales · {{hours}} h {{minutes}} min",
+    "curveLabel": "Sales across your shift, {{total}} in total",
+    "countSaved": "Blind count saved",
+    "blindNote": "The manager sees the difference from the expected amount, not you.",
+    "prepared": "Prepared automatically",
+    "drafts_one": "{{count}} suspended sale · {{amount}}",
+    "drafts_other": "{{count}} suspended sales · {{amount}}",
+    "approval": "{{label}} waiting for approval",
+    "requestedAt": "requested {{time}}",
+    "tags": {
+      "passes": "passes on",
+      "staysOpen": "stays open",
+      "warn": "heads-up",
+      "info": "info"
+    },
+    "nothingPrepared": "Nothing else passes on with this drawer.",
+    "noteLabel": "Note for whoever takes over",
+    "action": "Hand over",
+    "signHint": "Your session closes and the note is signed with your name.",
+    "signTitle": "Signed by {{name}}",
+    "signSummary_one": "{{register}} with {{amount}} counted · {{count}} suspended sale passes on",
+    "signSummary_other": "{{register}} with {{amount}} counted · {{count}} suspended sales pass on",
+    "sign": "Sign and hand over",
+    "signing": "Handing over…",
+    "doneTitle": "Shift handed over",
+    "doneDescription": "{{register}} left with {{amount}} counted.",
+    "errorTitle": "The shift could not be handed over"
+  },
+  "lowChange": {
+    "title": "Low on change",
+    "detail": "From the count: few {{denominations}}",
+    "receiveDetail": "Ask for change before the rush"
+  },
+  "printer": {
+    "title": "Printer",
+    "detail_one": "{{count}} print did not come out since {{time}}",
+    "detail_other": "{{count}} prints did not come out since {{time}}"
+  },
+  "receive": {
+    "kicker": "Shift handoff",
+    "title": "Receive {{register}}",
+    "subtitle": "{{name}} · {{time}} from {{from}}",
+    "modesLabel": "How you take the register",
+    "modes": {
+      "counted_drawer": {
+        "title": "Receive the counted drawer",
+        "detail": "You recount; the difference stays between the two counts."
+      },
+      "new_float": {
+        "title": "New drawer with float",
+        "detail": "Count the new float. The previous drawer goes to the office."
+      }
+    },
+    "yourRecount": "Your recount",
+    "newFloat": "New float",
+    "theyCounted": "{{name}} counted",
+    "match": "Matches",
+    "difference": "Difference",
+    "noteFrom": "Note from {{name}} · {{time}}",
+    "alsoReceives": "You also receive",
+    "draft": "{{label}} · {{amount}}",
+    "suspendedAt": "Suspended {{time}}",
+    "resume": "Resume",
+    "resumeSelected": "Resumes on receive",
+    "requestChange": "Ask for change",
+    "changeRequested": "Change requested",
+    "changeNote": "{{register}} needs change: {{denominations}}",
+    "changeErrorTitle": "The change request was not sent",
+    "pin": "Your PIN",
+    "submit": "Receive and start selling",
+    "submitting": "Receiving…",
+    "openWithout": "Open without receiving",
+    "doneTitle": "Register received",
+    "doneMatch": "Your recount matches.",
+    "doneDifference": "Difference between the counts: {{amount}}",
+    "doneNewFloat": "Opened with a {{amount}} float.",
+    "errorTitle": "The register could not be received"
+  }
+}

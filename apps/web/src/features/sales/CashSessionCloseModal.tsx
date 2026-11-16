@@ -2,6 +2,7 @@ import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { EyeOff, Minus, Plus, Scale } from 'lucide-react';
 import { ModalButton } from '@/components/form-controls/Modal';
+import { Button } from '@/components/ui';
 import { Overlay } from '@/components/overlay/Overlay';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useTenant } from '@/features/tenant/TenantProvider';
@@ -45,6 +46,8 @@ interface CashSessionCloseModalProps {
   suspendedDraftsCount?: number;
   /** Opens the suspended sales without losing what was already counted. */
   onReviewSuspended?: (() => void) | undefined;
+  /** Switches to handing the drawer to the next cashier instead of a plain close. */
+  onHandOut?: (() => void) | undefined;
 }
 
 function createDefaultValues(): CashSessionCloseValues {
@@ -64,8 +67,9 @@ export function CashSessionCloseModal({
   onSubmit,
   suspendedDraftsCount = 0,
   onReviewSuspended,
+  onHandOut,
 }: CashSessionCloseModalProps) {
-  const { t } = useTranslation('sales');
+  const { t } = useTranslation(['sales', 'shiftHandoff']);
   const { user } = useAuth();
   const { tenantSettings } = useTenant();
   // tenant-level blind-close policy. Default true keeps the
@@ -218,6 +222,17 @@ export function CashSessionCloseModal({
             >
               {t('cashSession.closeForm.cancel')}
             </ModalButton>
+            {onHandOut && (
+              <Button
+                variant="outline"
+                onClick={onHandOut}
+                disabled={isSaving}
+                className="w-auto shrink-0"
+                data-testid="close-session-hand-out"
+              >
+                {t('shiftHandoff:entry')}
+              </Button>
+            )}
             <ModalButton
               variant="primary"
               onClick={handleSubmit}

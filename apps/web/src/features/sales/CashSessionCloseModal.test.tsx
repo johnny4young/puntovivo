@@ -139,6 +139,25 @@ describe('CashSessionCloseModal', () => {
     expect(onReviewSuspended).toHaveBeenCalledTimes(1);
   });
 
+  it('offers handing the drawer to the next cashier only when the screen supports it', async () => {
+    const user = userEvent.setup();
+    const onHandOut = vi.fn();
+    const props = {
+      cashSession: activeCashSession,
+      isOpen: true,
+      isSaving: false,
+      error: null,
+      onClose: vi.fn(),
+      onSubmit: vi.fn(),
+    };
+    const { rerender } = render(<CashSessionCloseModal {...props} />);
+    expect(screen.queryByTestId('close-session-hand-out')).not.toBeInTheDocument();
+    rerender(<CashSessionCloseModal {...props} onHandOut={onHandOut} />);
+    await user.click(await screen.findByTestId('close-session-hand-out'));
+    expect(screen.getByTestId('close-session-hand-out')).toHaveTextContent('Hand over shift');
+    expect(onHandOut).toHaveBeenCalled();
+  });
+
   it('does not render the suspended-drafts warning when the count is zero', () => {
     render(
       <CashSessionCloseModal

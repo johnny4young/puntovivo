@@ -1,0 +1,103 @@
+{
+  "steps": {
+    "label": "Pasos",
+    "count": "Contar",
+    "review": "Lo que entrega",
+    "sign": "Firmar"
+  },
+  "back": "Atrás",
+  "loading": "Cargando el relevo",
+  "count": {
+    "decrement": "Uno menos de {{denomination}}",
+    "increment": "Uno más de {{denomination}}",
+    "countFor": "Cantidad de {{denomination}}"
+  },
+  "entry": "Entregar turno",
+  "handOut": {
+    "kicker": "Relevo de turno",
+    "title": "Entregar turno · {{register}}",
+    "subtitle": "{{name}} · desde {{from}}",
+    "blindHint": "Cuente lo que hay en el cajón. El monto esperado no se muestra.",
+    "yourCount": "Su conteo",
+    "saveCount": "Guardar conteo",
+    "yourShift": "Su turno",
+    "shiftContext_one": "{{count}} venta · {{hours}} h {{minutes}} min",
+    "shiftContext_other": "{{count}} ventas · {{hours}} h {{minutes}} min",
+    "curveLabel": "Ventas a lo largo de su turno, {{total}} en total",
+    "countSaved": "Conteo a ciegas guardado",
+    "blindNote": "La diferencia con lo esperado la ve el administrador, no usted.",
+    "prepared": "Preparado automáticamente",
+    "drafts_one": "{{count}} venta suspendida · {{amount}}",
+    "drafts_other": "{{count}} ventas suspendidas · {{amount}}",
+    "approval": "{{label}} esperando aprobación",
+    "requestedAt": "pedida {{time}}",
+    "tags": {
+      "passes": "pasa al siguiente",
+      "staysOpen": "sigue abierta",
+      "warn": "avisar",
+      "info": "informativo"
+    },
+    "nothingPrepared": "Nada más pasa con este cajón.",
+    "noteLabel": "Nota para quien recibe",
+    "action": "Entregar turno",
+    "signHint": "Se cierra su sesión y la nota queda firmada con su nombre.",
+    "signTitle": "Firma {{name}}",
+    "signSummary_one": "{{register}} con {{amount}} contados · pasa {{count}} venta suspendida",
+    "signSummary_other": "{{register}} con {{amount}} contados · pasan {{count}} ventas suspendidas",
+    "sign": "Firmar y entregar",
+    "signing": "Entregando…",
+    "doneTitle": "Turno entregado",
+    "doneDescription": "{{register}} quedó con {{amount}} contados.",
+    "errorTitle": "No se pudo entregar el turno"
+  },
+  "lowChange": {
+    "title": "Poco sencillo",
+    "detail": "Del conteo: pocas de {{denominations}}",
+    "receiveDetail": "Pida cambio antes de la hora pico"
+  },
+  "printer": {
+    "title": "Impresora",
+    "detail_one": "{{count}} impresión no salió desde las {{time}}",
+    "detail_other": "{{count}} impresiones no salieron desde las {{time}}"
+  },
+  "receive": {
+    "kicker": "Relevo de turno",
+    "title": "Recibir {{register}}",
+    "subtitle": "{{name}} · {{time}} de {{from}}",
+    "modesLabel": "Cómo recibe la caja",
+    "modes": {
+      "counted_drawer": {
+        "title": "Recibir el cajón contado",
+        "detail": "Usted recuenta; la diferencia queda entre los dos conteos."
+      },
+      "new_float": {
+        "title": "Cajón nuevo con fondo",
+        "detail": "Cuente el fondo nuevo. El anterior va a la oficina."
+      }
+    },
+    "yourRecount": "Su recuento",
+    "newFloat": "Fondo nuevo",
+    "theyCounted": "{{name}} contó",
+    "match": "Coincide",
+    "difference": "Diferencia",
+    "noteFrom": "Nota de {{name}} · {{time}}",
+    "alsoReceives": "Recibe también",
+    "draft": "{{label}} · {{amount}}",
+    "suspendedAt": "Suspendida {{time}}",
+    "resume": "Retomar",
+    "resumeSelected": "Se retoma al recibir",
+    "requestChange": "Pedir cambio",
+    "changeRequested": "Cambio pedido",
+    "changeNote": "{{register}} necesita cambio: {{denominations}}",
+    "changeErrorTitle": "No se pudo pedir el cambio",
+    "pin": "Su PIN",
+    "submit": "Recibir y empezar a vender",
+    "submitting": "Recibiendo…",
+    "openWithout": "Abrir sin recibir",
+    "doneTitle": "Caja recibida",
+    "doneMatch": "Su recuento coincide.",
+    "doneDifference": "Diferencia entre los conteos: {{amount}}",
+    "doneNewFloat": "Abierta con un fondo de {{amount}}.",
+    "errorTitle": "No se pudo recibir la caja"
+  }
+}
