@@ -633,6 +633,7 @@
       "blindLabel": "Cierre ciego",
       "blindOnHint": "Los cajeros cuentan sin ver el saldo esperado; gerentes y administradores ven el indicador de sobrante o faltante en vivo.",
       "blindOffHint": "Todos los roles ven el indicador de sobrante o faltante en vivo mientras cuentan.",
+      "toleranceLabel": "Diferencia permitida sin motivo",
       "sessionNote": "Los cambios llegan a cada registro en el próximo inicio de sesión o al refrescar la página.",
       "toast": {
         "saved": "Ajustes de cierre de caja guardados",

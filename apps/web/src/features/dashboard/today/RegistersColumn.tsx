@@ -137,6 +137,33 @@ export function RegistersColumn({
             </p>
           </div>
         )}
+
+        {today.handoffs.length > 0 && (
+          <ul
+            className="flex flex-col gap-1.5"
+            aria-label={t('today.registers.handoffsLabel')}
+            data-testid="today-handoffs"
+          >
+            {today.handoffs.map(entry => (
+              <li
+                key={entry.id}
+                className="flex items-center gap-2 text-sm text-fg2"
+                data-testid="today-handoff"
+              >
+                <SeverityMark severity={entry.receivedAt ? 'ready' : 'whenPossible'} size={14} />
+                {entry.receivedAt
+                  ? t('today.registers.handoffDone', {
+                      register: entry.registerName,
+                      time: formatTime(entry.receivedAt),
+                    })
+                  : t('today.registers.handoffWaiting', {
+                      register: entry.registerName,
+                      time: formatTime(entry.createdAt),
+                    })}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </section>
   );

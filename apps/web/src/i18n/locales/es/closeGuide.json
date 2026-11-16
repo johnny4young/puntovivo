@@ -1,0 +1,109 @@
+{
+  "kicker": "Cierre guiado",
+  "title": "Cierre del {{date}}",
+  "subtitle_one": "{{closed}} de {{count}} caja cerrada",
+  "subtitle_other": "{{closed}} de {{count}} cajas cerradas",
+  "loading": "Cargando el cierre",
+  "steps": {
+    "label": "Pasos del cierre",
+    "count": "Contar",
+    "compare": "Comparar",
+    "sign": "Firmar"
+  },
+  "figures": {
+    "title": "El día en cifras",
+    "cashToDeposit": "Efectivo a consignar",
+    "electronic": "Tarjeta y transferencias",
+    "cashDifference": "Diferencia de caja"
+  },
+  "arc": {
+    "label": "Vendido en el día",
+    "sales_one": "{{count}} venta",
+    "sales_other": "{{count}} ventas",
+    "more": "{{value}} % más",
+    "less": "{{value}} % menos",
+    "summary": "Vendido {{total}}; el mismo día de la semana pasada se vendió {{comparison}}"
+  },
+  "registers": {
+    "closed_one": "Cajas cerradas · {{closed}} de {{count}}",
+    "closed_other": "Cajas cerradas · {{closed}} de {{count}}",
+    "lastClosed": "{{register}} la cerró {{cashier}} a las {{time}}",
+    "open_one": "{{count}} caja sigue abierta",
+    "open_other": "{{count}} cajas siguen abiertas",
+    "openDetail": "Cuéntelas y ciérrelas antes de firmar",
+    "countAndClose": "Contar y cerrar",
+    "none": "Este día no se abrió ninguna caja"
+  },
+  "difference": {
+    "title": "Diferencia de {{register}}: {{amount}}",
+    "explained": "Diferencia de {{register}} explicada: {{amount}}",
+    "overTolerance": "Supera la tolerancia de {{tolerance}} · {{cashier}}",
+    "within": "Dentro de la tolerancia: {{list}}",
+    "allWithin": "Todas las diferencias están dentro de la tolerancia",
+    "none": "Ninguna caja tuvo diferencia",
+    "reasonsLabel": "Por qué {{register}} tuvo diferencia",
+    "reasons": {
+      "wrong_change": "Cambio mal entregado",
+      "unrecorded_withdrawal": "Retiro sin registrar",
+      "other": "Otro"
+    },
+    "noteLabel": "Qué pasó",
+    "save": "Guardar",
+    "errorTitle": "No se guardó el motivo",
+    "handoff": "Relevo de {{register}}: los conteos difieren en {{amount}}",
+    "handoffDetail": "{{from}} contó y {{to}} recontó"
+  },
+  "drafts": {
+    "pending": "{{label}} · {{amount}} sigue suspendida",
+    "pendingDetail": "Suspendida {{time}}",
+    "discard": "Descartar",
+    "carryOver": "Dejar para mañana",
+    "resolved_one": "{{count}} venta suspendida resuelta",
+    "resolved_other": "{{count}} ventas suspendidas resueltas",
+    "none": "Sin ventas suspendidas",
+    "errorTitle": "No se actualizó la venta suspendida"
+  },
+  "fiscal": {
+    "title": "DIAN: {{accepted}} aceptadas · {{inProcess}} en proceso",
+    "detail": "No bloquea: se reintentan solos",
+    "rejected_one": "{{count}} documento rechazado por corregir; no bloquea el cierre",
+    "rejected_other": "{{count}} documentos rechazados por corregir; no bloquean el cierre",
+    "view": "Ver documentos"
+  },
+  "anomalies": {
+    "none": "Anomalías de severidad alta · ninguna",
+    "some_one": "{{count}} anomalía de severidad alta",
+    "some_other": "{{count}} anomalías de severidad alta",
+    "detail": "No bloquea la firma"
+  },
+  "signature": {
+    "title": "Firma del responsable",
+    "detail": "{{name}} · {{role}} · firme con el dedo o con su PIN",
+    "methodsLabel": "Cómo firma",
+    "drawn": "Dibujar",
+    "pin": "PIN",
+    "padLabel": "Área de firma",
+    "pinLabel": "Su PIN",
+    "clear": "Borrar",
+    "signedBy": "Firmó {{name}} a las {{time}}",
+    "signedWithPin": "Firmado con el PIN de {{name}}",
+    "imageAlt": "Firma de {{name}}"
+  },
+  "stamp": "Día cerrado",
+  "footer": {
+    "share": "Enviar resumen al dueño",
+    "hint": "Al firmar, el día queda sellado y mañana abre con «Ayer».",
+    "sign": "Firmar y cerrar el día",
+    "signing": "Firmando…",
+    "done": "Listo"
+  },
+  "summary": {
+    "title": "Cierre del {{date}}",
+    "sold": "Vendido",
+    "signedBy": "Firmado por {{name}}"
+  },
+  "toast": {
+    "signed": "Día firmado y sellado",
+    "signError": "No se pudo firmar el día"
+  }
+}

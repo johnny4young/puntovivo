@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronUp } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { lazy, Suspense, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -8,6 +8,12 @@ import { DayBand } from './DayBand';
 import { PendingQueue } from './PendingQueue';
 import { RegistersColumn } from './RegistersColumn';
 import { percentChange } from './todayModel';
+
+const LazyDayCloseGuide = lazy(() =>
+  import('@/features/day-close-guide/DayCloseGuide').then(module => ({
+    default: module.DayCloseGuide,
+  }))
+);
 
 const EXPANDED_KEY = 'puntovivo.today.expanded';
 
@@ -34,6 +40,12 @@ export function TodayOverview({ formatCurrency }: TodayOverviewProps) {
   });
   const approverQuery = trpc.managerApprovals.queue.useQuery({ limit: 1 }, { staleTime: 60_000 });
   const today = query.data;
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
+  const signoffQuery = trpc.reports.dayClose.signoffMetadata.useQuery(
+    { date: today?.businessDate ?? '' },
+    { enabled: Boolean(today?.businessDate), staleTime: 60_000 }
+  );
+  const sealed = Boolean(signoffQuery.data);
 
   const formatters = useMemo(() => {
     const timeZone = today?.timezone;
@@ -105,6 +117,13 @@ export function TodayOverview({ formatCurrency }: TodayOverviewProps) {
         >
           {fiscalPending ? t('today.status.fiscalPending') : t('today.status.ready')}
         </span>
+        <Button
+          variant={sealed ? 'outline' : 'primary'}
+          onClick={() => setIsGuideOpen(true)}
+          data-testid="today-close-day"
+        >
+          {sealed ? t('today.viewClosed') : t('today.closeDay')}
+        </Button>
       </header>
 
       <div className="rounded-[22px] border border-line bg-surface px-5 pt-4 pb-3">
@@ -161,6 +180,7 @@ export function TodayOverview({ formatCurrency }: TodayOverviewProps) {
           approverId={approverQuery.data?.approver.hasPin ? (user?.id ?? null) : null}
           formatCurrency={formatCurrency}
           formatTime={formatters.time}
+          onOpenCloseGuide={() => setIsGuideOpen(true)}
         />
         <RegistersColumn
           today={today}
@@ -170,6 +190,16 @@ export function TodayOverview({ formatCurrency }: TodayOverviewProps) {
           formatTime={formatters.time}
         />
       </div>
+
+      {isGuideOpen && (
+        <Suspense fallback={null}>
+          <LazyDayCloseGuide
+            isOpen
+            onClose={() => setIsGuideOpen(false)}
+            formatCurrency={formatCurrency}
+          />
+        </Suspense>
+      )}
     </section>
   );
 }

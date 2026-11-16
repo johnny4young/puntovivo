@@ -110,6 +110,16 @@ export function todayFixture(overrides: Partial<OperationsToday> = {}): Operatio
         count: 2,
       },
     ],
+    handoffs: [
+      {
+        id: 'h-1',
+        registerName: 'Caja 2',
+        fromUserName: 'Andrés',
+        toUserName: 'Camila',
+        createdAt: at(9),
+        receivedAt: at(9.1),
+      },
+    ],
     ...overrides,
   };
 }

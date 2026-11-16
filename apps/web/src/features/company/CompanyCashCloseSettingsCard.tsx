@@ -5,17 +5,19 @@
  * writes via `cashCloseSettings.update`, and invalidates the query on
  * success so admins see the persisted value immediately.
  *
- * v1 surfaces a single switch — blind close (default ON). ON keeps the
+ * Surfaces blind close and the difference tolerance. Blind close (default ON) keeps the
  * anti-fraud discipline: cashiers count the till without seeing the
  * expected balance and only managers/admins get the live over/short
  * semaphore. OFF shows the live semaphore to every role (owner-operated
- * shops that prefer speed over the control).
+ * shops that prefer speed over the control). A closed drawer that differs by
+ * more than the tolerance needs a reason before the day is signed.
  *
  * Note: like the restaurant service-charge rate, the value that drives the
  * POS modal flows through the `auth.me` session payload (cached on login).
  * Cashiers see the change on their next login; admins refresh the page.
  */
 import { EyeOff } from 'lucide-react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useToast } from '@/components/feedback/ToastProvider';
@@ -29,6 +31,8 @@ export function CompanyCashCloseSettingsCard() {
 
   const settingsQuery = trpc.cashCloseSettings.get.useQuery();
   const blindClose = settingsQuery.data?.blindClose ?? true;
+  const savedTolerance = settingsQuery.data?.differenceTolerance ?? 0;
+  const [toleranceDraft, setToleranceDraft] = useState<string | null>(null);
 
   const updateMutation = trpc.cashCloseSettings.update.useMutation({
     // The checkbox is controlled by the query cache, so reflect the click
@@ -63,6 +67,19 @@ export function CompanyCashCloseSettingsCard() {
   });
 
   const disabled = settingsQuery.isLoading || updateMutation.isPending;
+  const saveTolerance = () => {
+    if (toleranceDraft === null) return;
+    const value = Number(toleranceDraft);
+    setToleranceDraft(null);
+    if (
+      toleranceDraft.trim() !== '' &&
+      Number.isFinite(value) &&
+      value >= 0 &&
+      value !== savedTolerance
+    ) {
+      updateMutation.mutate({ differenceTolerance: value });
+    }
+  };
 
   return (
     <section className="rounded-2xl border border-line bg-surface p-6">
@@ -84,9 +101,7 @@ export function CompanyCashCloseSettingsCard() {
             checked={blindClose}
             disabled={disabled}
             data-testid="cash-close-blind-toggle"
-            onChange={event =>
-              updateMutation.mutate({ blindClose: event.target.checked })
-            }
+            onChange={event => updateMutation.mutate({ blindClose: event.target.checked })}
           />
           <span>
             <span className="block text-sm font-medium text-fg1">
@@ -98,6 +113,26 @@ export function CompanyCashCloseSettingsCard() {
                 : t('settings:company.cashClose.blindOffHint')}
             </span>
           </span>
+        </label>
+        <label className="mt-5 block">
+          <span className="block text-sm font-medium text-fg1">
+            {t('settings:company.cashClose.toleranceLabel')}
+          </span>
+          <input
+            type="number"
+            inputMode="decimal"
+            min={0}
+            step="any"
+            className="mt-1.5 h-10 w-40 rounded-lg border border-line bg-surface px-3 text-sm text-fg1 tabular-nums"
+            value={toleranceDraft ?? String(savedTolerance)}
+            disabled={disabled}
+            data-testid="cash-close-tolerance"
+            onChange={event => setToleranceDraft(event.target.value)}
+            onBlur={saveTolerance}
+            onKeyDown={event => {
+              if (event.key === 'Enter') saveTolerance();
+            }}
+          />
         </label>
         <p className="mt-3 text-[11.5px] text-fg4">{t('settings:company.cashClose.sessionNote')}</p>
       </div>

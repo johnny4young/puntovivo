@@ -1,0 +1,109 @@
+{
+  "kicker": "Guided close",
+  "title": "Close of {{date}}",
+  "subtitle_one": "{{closed}} of {{count}} register closed",
+  "subtitle_other": "{{closed}} of {{count}} registers closed",
+  "loading": "Loading the close",
+  "steps": {
+    "label": "Close steps",
+    "count": "Count",
+    "compare": "Compare",
+    "sign": "Sign"
+  },
+  "figures": {
+    "title": "The day in figures",
+    "cashToDeposit": "Cash to deposit",
+    "electronic": "Card and transfers",
+    "cashDifference": "Cash difference"
+  },
+  "arc": {
+    "label": "Sold in the day",
+    "sales_one": "{{count}} sale",
+    "sales_other": "{{count}} sales",
+    "more": "{{value}} % more",
+    "less": "{{value}} % less",
+    "summary": "Sold {{total}}; the same day last week sold {{comparison}}"
+  },
+  "registers": {
+    "closed_one": "Registers closed · {{closed}} of {{count}}",
+    "closed_other": "Registers closed · {{closed}} of {{count}}",
+    "lastClosed": "{{cashier}} closed {{register}} at {{time}}",
+    "open_one": "{{count}} register is still open",
+    "open_other": "{{count}} registers are still open",
+    "openDetail": "Count and close them before signing",
+    "countAndClose": "Count and close",
+    "none": "No register was opened this day"
+  },
+  "difference": {
+    "title": "{{register}} difference: {{amount}}",
+    "explained": "{{register}} difference explained: {{amount}}",
+    "overTolerance": "Over the {{tolerance}} tolerance · {{cashier}}",
+    "within": "Within the tolerance: {{list}}",
+    "allWithin": "Every difference is within the tolerance",
+    "none": "No register differed",
+    "reasonsLabel": "Why {{register}} differed",
+    "reasons": {
+      "wrong_change": "Wrong change given",
+      "unrecorded_withdrawal": "Unrecorded withdrawal",
+      "other": "Other"
+    },
+    "noteLabel": "What happened",
+    "save": "Save",
+    "errorTitle": "The reason was not saved",
+    "handoff": "{{register}} handoff: the counts differ by {{amount}}",
+    "handoffDetail": "{{from}} counted, {{to}} recounted"
+  },
+  "drafts": {
+    "pending": "{{label}} · {{amount}} is still suspended",
+    "pendingDetail": "Suspended {{time}}",
+    "discard": "Discard",
+    "carryOver": "Leave for tomorrow",
+    "resolved_one": "{{count}} suspended sale resolved",
+    "resolved_other": "{{count}} suspended sales resolved",
+    "none": "No suspended sales",
+    "errorTitle": "The suspended sale was not updated"
+  },
+  "fiscal": {
+    "title": "DIAN: {{accepted}} accepted · {{inProcess}} in process",
+    "detail": "Does not block: they retry on their own",
+    "rejected_one": "{{count}} rejected document to fix; it does not block the close",
+    "rejected_other": "{{count}} rejected documents to fix; they do not block the close",
+    "view": "View documents"
+  },
+  "anomalies": {
+    "none": "High-severity anomalies · none",
+    "some_one": "{{count}} high-severity anomaly",
+    "some_other": "{{count}} high-severity anomalies",
+    "detail": "Does not block the signature"
+  },
+  "signature": {
+    "title": "Manager signature",
+    "detail": "{{name}} · {{role}} · sign with your finger or with your PIN",
+    "methodsLabel": "How you sign",
+    "drawn": "Draw",
+    "pin": "PIN",
+    "padLabel": "Signature area",
+    "pinLabel": "Your PIN",
+    "clear": "Clear",
+    "signedBy": "Signed by {{name}} at {{time}}",
+    "signedWithPin": "Signed with the PIN of {{name}}",
+    "imageAlt": "Signature of {{name}}"
+  },
+  "stamp": "Day closed",
+  "footer": {
+    "share": "Send summary to the owner",
+    "hint": "Once signed, the day is sealed and tomorrow opens with Yesterday.",
+    "sign": "Sign and close the day",
+    "signing": "Signing…",
+    "done": "Done"
+  },
+  "summary": {
+    "title": "Close of {{date}}",
+    "sold": "Sold",
+    "signedBy": "Signed by {{name}}"
+  },
+  "toast": {
+    "signed": "Day signed and sealed",
+    "signError": "The day could not be signed"
+  }
+}

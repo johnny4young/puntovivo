@@ -93,6 +93,8 @@
     "salesContext_other": "sobre el {{weekday}} pasado · {{count}} ventas · ticket {{ticket}}",
     "expand": "Ampliar el día",
     "collapse": "Reducir el día",
+    "closeDay": "Cerrar el día",
+    "viewClosed": "Día cerrado · ver",
     "band": {
       "opening": "Apertura",
       "peak": "Hora pico",
@@ -125,7 +127,8 @@
       "incident": {
         "stockout": "{{product}} agotado",
         "price_mismatch": "{{product}}: el precio de góndola no coincide",
-        "no_barcode": "Producto sin código: {{product}}"
+        "no_barcode": "Producto sin código: {{product}}",
+        "change_request": "Pedido de cambio: {{product}}"
       },
       "incidentDetail": "Lo reportó {{reporter}} · {{site}} {{elsewhere}}",
       "elsewhere": "· {{site}} tiene {{count}}",
@@ -147,9 +150,12 @@
         "transfer": "Trasladar {{count}}",
         "resolve": "Resolver",
         "fix": "Corregir",
-        "review": "Revisar"
+        "review": "Revisar",
+        "explain": "Anotar motivo"
       },
-      "resolveError": "No se pudo resolver la novedad"
+      "resolveError": "No se pudo resolver la novedad",
+      "cashDifference": "Diferencia sin explicar en {{register}} · {{amount}}",
+      "cashDifferenceDetail": "{{cashier}} · cerró a las {{time}}"
     },
     "registers": {
       "title": "Cajas",
@@ -167,7 +173,10 @@
       "nextIn": "Sigue en",
       "durationHours": "{{hours}} h {{minutes}} min",
       "durationMinutes": "{{minutes}} min",
-      "handoff": "Relevo de {{register}}: entrega {{from}}"
+      "handoff": "Relevo de {{register}}: entrega {{from}}",
+      "handoffDone": "Relevo de {{register}} hecho, {{time}}",
+      "handoffWaiting": "{{register}} espera quien la reciba desde las {{time}}",
+      "handoffsLabel": "Relevos de hoy"
     }
   }
 }

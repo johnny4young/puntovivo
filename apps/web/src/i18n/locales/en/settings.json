@@ -633,6 +633,7 @@
       "blindLabel": "Blind close",
       "blindOnHint": "Cashiers count without seeing the expected balance; managers and admins see the live over/short indicator.",
       "blindOffHint": "Every role sees the live over/short indicator while counting.",
+      "toleranceLabel": "Difference allowed without a reason",
       "sessionNote": "Changes reach each register on the next login or page refresh.",
       "toast": {
         "saved": "Cash close settings saved",

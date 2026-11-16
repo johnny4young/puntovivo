@@ -93,6 +93,8 @@
     "salesContext_other": "over last {{weekday}} · {{count}} sales · ticket {{ticket}}",
     "expand": "Expand the day",
     "collapse": "Collapse the day",
+    "closeDay": "Close the day",
+    "viewClosed": "Day closed · view",
     "band": {
       "opening": "Opening",
       "peak": "Peak hour",
@@ -125,7 +127,8 @@
       "incident": {
         "stockout": "{{product}} out of stock",
         "price_mismatch": "{{product}}: shelf price differs",
-        "no_barcode": "Product without barcode: {{product}}"
+        "no_barcode": "Product without barcode: {{product}}",
+        "change_request": "Change requested: {{product}}"
       },
       "incidentDetail": "Reported by {{reporter}} · {{site}} {{elsewhere}}",
       "elsewhere": "· {{site}} has {{count}}",
@@ -147,9 +150,12 @@
         "transfer": "Transfer {{count}}",
         "resolve": "Resolve",
         "fix": "Fix",
-        "review": "Review"
+        "review": "Review",
+        "explain": "Note the reason"
       },
-      "resolveError": "Could not resolve the incident"
+      "resolveError": "Could not resolve the incident",
+      "cashDifference": "Unexplained difference in {{register}} · {{amount}}",
+      "cashDifferenceDetail": "{{cashier}} · closed at {{time}}"
     },
     "registers": {
       "title": "Registers",
@@ -167,7 +173,10 @@
       "nextIn": "Next in",
       "durationHours": "{{hours}} h {{minutes}} min",
       "durationMinutes": "{{minutes}} min",
-      "handoff": "Handoff of {{register}}: {{from}} hands over"
+      "handoff": "Handoff of {{register}}: {{from}} hands over",
+      "handoffDone": "{{register}} handoff done, {{time}}",
+      "handoffWaiting": "{{register}} waits to be received since {{time}}",
+      "handoffsLabel": "Handoffs today"
     }
   }
 }

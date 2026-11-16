@@ -3,9 +3,18 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { todayFixture } from './fixtures';
 
-const { todayData, resolveMutate } = vi.hoisted(() => ({
+const { todayData, resolveMutate, signoffData } = vi.hoisted(() => ({
   todayData: { current: null as unknown },
   resolveMutate: vi.fn(),
+  signoffData: { current: null as unknown },
+}));
+
+vi.mock('@/features/day-close-guide/DayCloseGuide', () => ({
+  DayCloseGuide: ({ onClose }: { onClose: () => void }) => (
+    <button type="button" data-testid="close-guide-mock" onClick={onClose}>
+      guide
+    </button>
+  ),
 }));
 
 vi.mock('@/features/auth/AuthProvider', () => ({
@@ -34,6 +43,11 @@ vi.mock('@/lib/trpc', () => ({
     registerIncidents: {
       resolve: { useMutation: () => ({ mutate: resolveMutate, isPending: false }) },
     },
+    reports: {
+      dayClose: {
+        signoffMetadata: { useQuery: () => ({ data: signoffData.current }) },
+      },
+    },
   },
 }));
 
@@ -44,6 +58,7 @@ const formatCurrency = (value: number) => `$ ${value}`;
 beforeEach(() => {
   todayData.current = todayFixture();
   resolveMutate.mockReset();
+  signoffData.current = null;
   localStorage.clear();
 });
 
@@ -94,6 +109,61 @@ describe('TodayOverview', () => {
     expect(screen.getByTestId('today-register')).toHaveTextContent('waits on 2');
     expect(screen.getByTestId('today-register-stale')).toHaveTextContent('is item 1');
     expect(screen.getByTestId('today-next-handoff')).toHaveTextContent('2 h 36 min');
+  });
+
+  it('lists the day handoffs, done and still waiting', () => {
+    todayData.current = todayFixture({
+      handoffs: [
+        ...todayFixture().handoffs,
+        {
+          id: 'h-2',
+          registerName: 'Caja 4',
+          fromUserName: 'Laura',
+          toUserName: null,
+          createdAt: '2026-11-11T17:00:00.000Z',
+          receivedAt: null,
+        },
+      ],
+    });
+    render(<TodayOverview formatCurrency={formatCurrency} />);
+    const entries = screen.getAllByTestId('today-handoff');
+    expect(entries[0]).toHaveTextContent(/Caja 2 handoff done, 9:06/);
+    expect(entries[1]).toHaveTextContent(/Caja 4 waits to be received since/);
+  });
+
+  it('queues an unexplained drawer difference and opens the guided close to note it', async () => {
+    const user = userEvent.setup();
+    todayData.current = todayFixture({
+      pending: [
+        {
+          kind: 'cashDifference',
+          id: 'cs-9',
+          severity: 'beforeClose',
+          origin: 'system',
+          at: '2026-11-11T15:00:00.000Z',
+          registerName: 'Caja 1',
+          cashierName: 'Laura',
+          overShort: -12300,
+        },
+      ],
+    });
+    render(<TodayOverview formatCurrency={formatCurrency} />);
+    expect(screen.getByTestId('today-pending-row-cashDifference')).toHaveTextContent(
+      'Unexplained difference in Caja 1 · $ -12300'
+    );
+    await user.click(screen.getByTestId('today-difference-explain'));
+    expect(await screen.findByTestId('close-guide-mock')).toBeInTheDocument();
+    await user.click(screen.getByTestId('close-guide-mock'));
+    expect(screen.queryByTestId('close-guide-mock')).not.toBeInTheDocument();
+  });
+
+  it('offers the close until the day is signed, then the sealed day', async () => {
+    const { unmount } = render(<TodayOverview formatCurrency={formatCurrency} />);
+    expect(screen.getByTestId('today-close-day')).toHaveTextContent('Close the day');
+    unmount();
+    signoffData.current = { id: 'so-1' };
+    render(<TodayOverview formatCurrency={formatCurrency} />);
+    expect(screen.getByTestId('today-close-day')).toHaveTextContent('Day closed · view');
   });
 
   it('remembers the expanded day per viewer', async () => {

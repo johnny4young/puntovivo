@@ -18,6 +18,8 @@ interface PendingQueueProps {
   approverId: string | null;
   formatCurrency: (value: number) => string;
   formatTime: (iso: string) => string;
+  /** Opens the guided close, where a drawer difference gets its reason. */
+  onOpenCloseGuide?: (() => void) | undefined;
 }
 
 const SEVERITY_MARK: Record<TodayPendingItem['severity'], Severity> = {
@@ -32,6 +34,7 @@ export function PendingQueue({
   approverId,
   formatCurrency,
   formatTime,
+  onOpenCloseGuide,
 }: PendingQueueProps) {
   const { t } = useTranslation('dashboard');
   const [filter, setFilter] = useState<PendingFilter>('all');
@@ -103,6 +106,7 @@ export function PendingQueue({
                     approverId={approverId}
                     formatCurrency={formatCurrency}
                     formatTime={formatTime}
+                    onOpenCloseGuide={onOpenCloseGuide}
                   />
                 ))}
               </ol>
@@ -122,6 +126,7 @@ function PendingRow({
   approverId,
   formatCurrency,
   formatTime,
+  onOpenCloseGuide,
 }: {
   item: TodayPendingItem;
   rank: number;
@@ -130,6 +135,7 @@ function PendingRow({
   approverId: string | null;
   formatCurrency: (value: number) => string;
   formatTime: (iso: string) => string;
+  onOpenCloseGuide?: (() => void) | undefined;
 }) {
   const { t } = useTranslation(['dashboard', 'common']);
   const toast = useToast();
@@ -191,6 +197,16 @@ function PendingRow({
         >
           {action.label}
         </Link>
+      )}
+      {canAct && item.kind === 'cashDifference' && onOpenCloseGuide && (
+        <Button
+          variant="outline"
+          size="compact"
+          onClick={onOpenCloseGuide}
+          data-testid="today-difference-explain"
+        >
+          {t('dashboard:today.pending.actions.explain')}
+        </Button>
       )}
       {canAct && item.kind === 'incident' && (
         <Button
@@ -274,6 +290,17 @@ function describe(
         }),
       };
     }
+    case 'cashDifference':
+      return {
+        title: t('dashboard:today.pending.cashDifference', {
+          register: item.registerName,
+          amount: formatCurrency(item.overShort),
+        }),
+        detail: t('dashboard:today.pending.cashDifferenceDetail', {
+          cashier: item.cashierName,
+          time: formatTime(item.at),
+        }),
+      };
     case 'attention':
       return {
         title: t(`dashboard:today.pending.attention.${item.area}`, { count: item.count }),
@@ -307,6 +334,8 @@ function rowAction(
           }
         : null;
     }
+    case 'cashDifference':
+      return null;
     case 'attention':
       return {
         kind: 'link',
