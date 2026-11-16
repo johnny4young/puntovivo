@@ -9,6 +9,7 @@
  * @module trpc/routers/operations
  */
 import { computeNeedsAttention } from '../../services/operations/attention.js';
+import { computeOperationsToday } from '../../services/operations/today.js';
 import {
   acknowledgeOperationalAlert,
   listOperationalAlertsOverview,
@@ -39,6 +40,9 @@ export const operationsRouter = router({
     .query(async ({ ctx }) => {
       return computeNeedsAttention(ctx.db, ctx.tenantId);
     }),
+
+  /** The manager's day: sales against last week, hourly curve, open registers, shifts and the pending queue. */
+  today: managerOrAdminProcedure.query(({ ctx }) => computeOperationsToday(ctx.db, ctx.tenantId)),
 
   alertsOverview: managerOrAdminProcedure
     .output(operationalAlertsOverviewOutputSchema)
