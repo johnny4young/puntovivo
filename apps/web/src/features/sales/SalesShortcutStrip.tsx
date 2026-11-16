@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { shortcutDisplayFor } from '@/lib/shortcuts';
 
 interface SalesShortcutStripProps {
-  /** Product edits are frozen: line and new-ticket keys do nothing. */
+  /** Product edits are frozen, so the remove-line key does nothing. */
   itemsLocked?: boolean;
 }
 

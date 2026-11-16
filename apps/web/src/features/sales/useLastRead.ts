@@ -52,13 +52,15 @@ export function useLastRead(items: SaleCartItem[], scopeKey: string | null): Las
   const item = key ? items.find(candidate => candidate.key === key) : undefined;
   if (!item) return null;
   const tracksStock = item.tracksStock !== false && Number.isFinite(item.availableStock);
+  // Another unit or a price-label line of the same product draws on the same stock.
+  const onTicket = items
+    .filter(line => line.productId === item.productId)
+    .reduce((sum, line) => sum + line.quantity * line.unitEquivalence, 0);
   return {
     key: item.key,
     quantity: item.quantity,
     productName: item.productName,
     unitPrice: item.unitPrice,
-    remaining: tracksStock
-      ? Math.max(0, roundQuantity(item.availableStock - item.quantity * item.unitEquivalence))
-      : null,
+    remaining: tracksStock ? Math.max(0, roundQuantity(item.availableStock - onTicket)) : null,
   };
 }

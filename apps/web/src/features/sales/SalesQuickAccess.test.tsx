@@ -311,6 +311,17 @@ describe('SalesQuickAccess', () => {
     mockTopSelling.items = [];
   });
 
+  it('drops a category filter once the chips hide mid-sale', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<SalesQuickAccess {...baseProps} />);
+    await user.click(screen.getByRole('button', { name: 'Food' }));
+    expect(screen.queryByTestId('sales-quick-product-COFFEE-1')).not.toBeInTheDocument();
+
+    rerender(<SalesQuickAccess {...baseProps} hasCartItems />);
+    expect(screen.queryByRole('button', { name: 'Food' })).not.toBeInTheDocument();
+    expect(screen.getByTestId('sales-quick-product-COFFEE-1')).toBeInTheDocument();
+  });
+
   it('keeps a saved favorite outside the first page editable', async () => {
     const user = userEvent.setup();
     writeSalesFavoriteIds(baseProps.scopeKey, [remoteProduct.id]);

@@ -16,6 +16,11 @@ export function suggestCashTenders(total: number, count = 2): number[] {
   return [...new Set(amounts)].sort((a, b) => a - b).slice(0, count);
 }
 
+/** Service charge on a total at a percentage rate; zero when the rate is off. */
+export function serviceChargeFor(total: number, ratePercent: number): number {
+  return ratePercent > 0 ? roundMoney((total * ratePercent) / 100) : 0;
+}
+
 /** Change owed for a cash tender; never negative. */
 export function cashChange(tendered: number, total: number): number {
   return Math.max(0, roundMoney(tendered - total));

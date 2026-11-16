@@ -92,6 +92,17 @@ describe('useLastRead', () => {
     expect(result.current?.remaining).toBe(0);
   });
 
+  it('counts every line of the same product against its stock', () => {
+    const { result, rerender } = renderHook(
+      ({ items }: { items: SaleCartItem[] }) => useLastRead(items, 't1'),
+      { initialProps: { items: [] as SaleCartItem[] } }
+    );
+    const box = line('box', 1, { productId: 'p', unitEquivalence: 6, availableStock: 20 });
+    rerender({ items: [box] });
+    rerender({ items: [box, line('unit', 3, { productId: 'p', availableStock: 20 })] });
+    expect(result.current).toMatchObject({ key: 'unit', remaining: 11 });
+  });
+
   it('reports no stock for a service line', () => {
     const { result, rerender } = renderHook(
       ({ items }: { items: SaleCartItem[] }) => useLastRead(items, 't1'),

@@ -42,6 +42,7 @@ import { isCartPriceOverride } from './saleApprovalPricing';
 import { retainEligibleEvidenceIds, selectedEvidenceCoversRequirements } from './pharmacyCheckout';
 import { asElectronicInvoiceForm, buildElectronicInvoiceRequest } from './electronicInvoiceRequest';
 import { useElectronicInvoiceAvailability } from './useElectronicInvoiceAvailability';
+import { serviceChargeFor } from './cashTender';
 
 /**
  * Inputs the modal shell forwards into the hook. Mirrors the subset of
@@ -100,7 +101,7 @@ export function useSalePaymentModal({
   // not a form field. The operator cannot edit it; the server
   // re-validates against the tenant rate at submit time.
   const initialServiceChargeAmount = useMemo(
-    () => (serviceChargeRate > 0 ? roundMoney((total * serviceChargeRate) / 100) : 0),
+    () => serviceChargeFor(total, serviceChargeRate),
     [total, serviceChargeRate]
   );
   const form = useForm<SalePaymentValues>({
@@ -343,7 +344,7 @@ export function useSalePaymentModal({
   const checkoutBaseTotal =
     promotionQuoteEnabled && promotionQuote.data ? promotionQuote.data.total : total;
   const serviceChargeAmount = useMemo(
-    () => (serviceChargeRate > 0 ? roundMoney((checkoutBaseTotal * serviceChargeRate) / 100) : 0),
+    () => serviceChargeFor(checkoutBaseTotal, serviceChargeRate),
     [checkoutBaseTotal, serviceChargeRate]
   );
   const grandTotal = roundMoney(checkoutBaseTotal + serviceChargeAmount + tipAmount);

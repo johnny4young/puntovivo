@@ -16,6 +16,7 @@ import { LastReadBanner } from '@/features/sales/LastReadBanner';
 import type { LastRead } from '@/features/sales/useLastRead';
 import type { PaymentFocusTarget } from '@/features/sales/useSalesModals';
 import { roundMoney } from '@/lib/money';
+import { serviceChargeFor } from '@/features/sales/cashTender';
 import type { SuspendedSalesPanel } from '@/features/sales/SuspendedSalesPanel';
 import { SaleCompleteStrip, type CompletedSaleSummary } from './SaleCompleteStrip';
 
@@ -349,7 +350,7 @@ export function SalesScreen({
   // Mirrors the charge drawer: quotations carry no service charge.
   const cashDue = roundMoney(
     draftSummary.total +
-      (isQuotationCart ? 0 : roundMoney((draftSummary.total * serviceChargeRate) / 100))
+      serviceChargeFor(draftSummary.total, isQuotationCart ? 0 : serviceChargeRate)
   );
 
   // Resuming a sale means the shift is not ending yet, so the close stops here.

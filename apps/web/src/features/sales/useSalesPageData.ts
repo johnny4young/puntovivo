@@ -7,6 +7,27 @@ import { deriveScannerConfig, type WedgeConfig } from '@/features/sales/useBarco
 import { trpc } from '@/lib/trpc';
 import type { CashSession, RegisterAssignment, Site, Tenant, User } from '@/types';
 
+interface DraftSummaryRow {
+  saleNumber: string;
+  total: number;
+  suspendedAt: string | null;
+  suspendedLabel: string | null;
+  restaurantCheckLabel: string | null;
+}
+
+/** The first parked draft; the list also carries this cashier's active resumed draft. */
+export function firstParkedDraft(
+  drafts: readonly DraftSummaryRow[] | undefined
+): { label: string; total: number } | null {
+  const draft = drafts?.find(row => row.suspendedAt != null);
+  return draft
+    ? {
+        label: draft.restaurantCheckLabel ?? draft.suspendedLabel ?? draft.saleNumber,
+        total: draft.total,
+      }
+    : null;
+}
+
 /**
  * Params for {@link useSalesPageData}.
  *
@@ -64,14 +85,7 @@ export function useSalesPageData({
     { enabled: !!currentTenant }
   );
   const suspendedDraftsCount = draftsQuery.data?.totalItems ?? 0;
-  const newestDraft = draftsQuery.data?.items[0];
-  const firstSuspendedDraft = newestDraft
-    ? {
-        label:
-          newestDraft.restaurantCheckLabel ?? newestDraft.suspendedLabel ?? newestDraft.saleNumber,
-        total: newestDraft.total,
-      }
-    : null;
+  const firstSuspendedDraft = firstParkedDraft(draftsQuery.data?.items);
   // Same cache entry the charge drawer reads; the ticket only shows the entry point.
   const electronicInvoiceQuery = trpc.sales.electronicInvoiceAvailability.useQuery(undefined, {
     enabled: !!currentSite && hasCartItems,

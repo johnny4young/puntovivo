@@ -94,8 +94,10 @@ export function SalesQuickAccess({
     [products]
   );
   const selectedIds = configuredIds ?? suggestedIds;
-  const filteredProducts = activeCategoryId
-    ? products.filter(product => product.categoryId === activeCategoryId)
+  // Mid-sale the category chips are hidden, so a filter picked earlier must not linger.
+  const categoryFilter = isEditing || !hasCartItems ? activeCategoryId : null;
+  const filteredProducts = categoryFilter
+    ? products.filter(product => product.categoryId === categoryFilter)
     : products;
   const visibleProducts = isEditing
     ? [...filteredProducts]
