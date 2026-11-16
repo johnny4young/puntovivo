@@ -7,7 +7,7 @@
  *
  * @module trpc/routers/sales/queries
  */
-import { and, desc, eq, gte, lte, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 
 import { tenantProcedure } from '../../middleware/tenant.js';
 import { cashierManagerOrAdminProcedure } from '../../middleware/roles.js';
@@ -220,7 +220,8 @@ export const salesQueryProcedures = {
           and(
             eq(sales.tenantId, ctx.tenantId),
             eq(sales.status, 'completed'),
-            sql`lower(${sales.saleNumber}) = ${saleNumber.toLowerCase()}`
+            // Exact and upper-cased matches keep the (tenant, sale_number) index usable.
+            inArray(sales.saleNumber, [...new Set([saleNumber, saleNumber.toUpperCase()])])
           )
         )
         .get();

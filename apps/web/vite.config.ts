@@ -32,17 +32,13 @@ function connectSrcOriginsPlugin(urls: Array<string | undefined>): Plugin {
   };
 }
 
-/** Display-face files painted by the login and boot loading screens. */
+/** Faces painted by the login and boot loading screens: titles and UI text. */
 export const BOOT_FONT_FILES = [
-  'source-serif-4-latin-400-normal.woff2',
-  'source-serif-4-latin-600-normal.woff2',
+  'bricolage-grotesque-latin-standard-normal.woff2',
+  'instrument-sans-latin-wght-normal.woff2',
 ];
 
-/**
- * Preload the boot display faces. Where Iowan Old Style is not installed
- * (Linux, Windows), CSS discovers Source Serif 4 only once the headline
- * renders, so the page first lays out in a fallback serif and then reflows.
- */
+/** CSS discovers a face only when text renders; preloading avoids a fallback-font reflow at boot. */
 export function preloadBootFontsPlugin(): Plugin {
   let base = '/';
   return {

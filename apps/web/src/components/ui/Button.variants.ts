@@ -9,6 +9,7 @@ export const buttonVariants = cva('', {
       ghost: 'btn-ghost',
       success: 'btn-success',
       danger: 'btn-danger',
+      charge: 'btn-charge',
     },
     size: {
       default: '',
