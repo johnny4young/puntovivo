@@ -7,7 +7,7 @@
  * Sections:
  * 1. Shell & Layout        — app-shell, shell-panel, page-header-*
  * 2. Cards & Surfaces      — card, card-inset, surface-panel, surface-empty, metric-tile, hero-surface
- * 3. Buttons               — btn-primary, btn-secondary, btn-outline, btn-ghost, btn-danger, btn-icon
+ * 3. Buttons               — btn-primary, btn-charge, btn-secondary, btn-outline, btn-ghost, btn-danger, btn-icon
  * 4. Mobile Navigation     — mobile-shell-toggle
  * 5. Segmented Controls    — segmented-control, segmented-tab
  * 6. Settings              — setting-toggle-card
@@ -46,10 +46,6 @@
   .operator-canvas {
     min-height: calc(100dvh - 5rem);
     background-color: var(--operator-canvas);
-    background-image:
-      linear-gradient(var(--operator-grid) 1px, transparent 1px),
-      linear-gradient(90deg, var(--operator-grid) 1px, transparent 1px);
-    background-size: 2rem 2rem;
     box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.66);
   }
 
@@ -80,18 +76,11 @@
       var(--shadow-card);
   }
 
+  /* The rail carries the .dark class so its children read the dark tokens in either theme. */
   .operator-sidebar {
-    background: linear-gradient(
-      180deg,
-      color-mix(in oklch, var(--operator-panel) 97%, transparent),
-      color-mix(in oklch, var(--operator-panel-muted) 92%, transparent)
-    );
-    box-shadow: inset -1px 0 0 rgb(255 255 255 / 0.58);
-  }
-
-  .operator-nav-link[aria-current='page'] {
-    box-shadow:
-      inset 0 -2px 0 rgb(3 18 29 / 0.28);
+    background: var(--rail);
+    color: var(--rail-foreground);
+    border-color: transparent;
   }
 
   .page-header-row {
@@ -248,10 +237,11 @@
    * 3. BUTTONS
    *
    * All button variants share a common base (min-h-11 for 44px touch target,
-   * rounded-2xl, gap-2, semibold text, focus ring, disabled state).
+   * 12px radius, 1.5px border, gap-2, semibold text, focus ring, disabled state).
    *
-   * .btn-primary   — Primary action (charge sale, save, confirm). Solid fill
-   * with shadow glow. Use sparingly — one per visible context.
+   * .btn-primary   — Primary action (save, confirm). Solid ink fill. One per
+   * visible context.
+   * .btn-charge    — Cobrar only. The single orange control on a screen.
    * .btn-secondary — Secondary action (record movement, add product). Bordered
    * with surface fill. Use next to primary when two actions
    * share equal importance.
@@ -271,120 +261,94 @@
   .btn-outline,
   .btn-ghost,
   .btn-success,
-  .btn-danger {
-    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-[11px] px-4 py-2.5 text-sm font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:pointer-events-none disabled:opacity-45;
-    box-shadow:
-      inset 0 -2px 0 var(--operator-key-edge),
-      inset 0 1px 0 rgb(255 255 255 / 0.7);
+  .btn-danger,
+  .btn-charge {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-[12px] border-[1.5px] border-transparent px-4 py-2.5 text-sm font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:pointer-events-none disabled:opacity-45;
   }
 
   .btn-primary {
     color: var(--operator-commit-foreground);
     background: var(--operator-commit);
-    box-shadow:
-      inset 0 -3px 0 rgb(3 15 25 / 0.48),
-      inset 0 1px 0 rgb(255 255 255 / 0.15),
-      0 0.8rem 1.4rem -1rem rgb(8 30 46 / 0.58);
+    border-color: var(--operator-commit);
   }
 
   .btn-primary:hover {
     background: var(--operator-commit-hover);
-    transform: translateY(-1px);
+    border-color: var(--operator-commit-hover);
   }
 
   .btn-primary:active:not(:disabled),
   .btn-secondary:active:not(:disabled),
   .btn-outline:active:not(:disabled),
+  .btn-success:active:not(:disabled),
   .btn-danger:active:not(:disabled),
-  .btn-success:active:not(:disabled) {
+  .btn-charge:active:not(:disabled) {
     transform: translateY(1px);
-    box-shadow: inset 0 -1px 0 var(--operator-key-edge);
   }
 
-  .btn-primary:disabled {
+  .btn-primary:disabled,
+  .btn-charge:disabled {
     color: var(--fg3);
     background: var(--surface-2);
     border-color: var(--line);
     opacity: 1;
-    box-shadow: none;
     cursor: not-allowed;
   }
 
-  .btn-secondary {
-    @apply border border-line-strong/70 bg-surface-2/84 text-secondary-950;
+  .btn-charge {
+    color: var(--cobrar-foreground);
+    background: var(--cobrar);
+    border-color: var(--cobrar);
+    font-family: var(--font-display);
+    font-variation-settings: 'wdth' 88;
+    font-weight: 800;
   }
 
-  .btn-secondary:hover {
-    @apply border-primary-300 bg-primary-50/85 text-primary-700;
-    transform: translateY(-1px);
+  .btn-charge:hover {
+    background: var(--cobrar-hover);
+    border-color: var(--cobrar-hover);
   }
 
+  .btn-secondary,
   .btn-outline {
-    @apply border border-line-strong/70 bg-surface/86 text-secondary-900;
+    @apply border-line-strong bg-surface text-secondary-900;
   }
 
+  .btn-secondary:hover,
   .btn-outline:hover {
-    @apply border-primary-300 bg-primary-50/80 text-primary-700;
+    @apply border-primary-300 bg-primary-50 text-primary-900;
   }
 
   .btn-danger {
     color: var(--operator-semantic-control-foreground);
-    border: 1px solid color-mix(in oklch, var(--operator-critical-control) 78%, black);
     background: var(--operator-critical-control);
-    box-shadow:
-      inset 0 -3px 0 color-mix(in oklch, var(--operator-critical-control) 68%, black),
-      inset 0 1px 0 rgb(255 255 255 / 0.14),
-      0 0.75rem 1.2rem -1rem rgb(41 15 18 / 0.38);
+    border-color: var(--operator-critical-control);
   }
 
   .btn-danger:hover {
     background: var(--operator-critical-control-hover);
-    transform: translateY(-1px);
   }
 
   .btn-ghost {
-    @apply text-secondary-600;
-    box-shadow: none;
+    @apply text-secondary-700;
   }
 
   .btn-ghost:hover {
-    @apply bg-secondary-100/80 text-secondary-900;
+    @apply bg-surface-3 text-secondary-900;
   }
 
   .btn-success {
     color: var(--operator-semantic-control-foreground);
-    border: 1px solid color-mix(in oklch, var(--operator-positive-control) 78%, black);
     background: var(--operator-positive-control);
-    box-shadow:
-      inset 0 -3px 0 color-mix(in oklch, var(--operator-positive-control) 68%, black),
-      inset 0 1px 0 rgb(255 255 255 / 0.14),
-      0 0.75rem 1.2rem -1rem rgb(10 36 27 / 0.34);
+    border-color: var(--operator-positive-control);
   }
 
   .btn-success:hover {
     background: var(--operator-positive-control-hover);
-    transform: translateY(-1px);
   }
 
   .btn-icon {
     @apply h-10 w-10 rounded-[10px] px-0 py-0;
-  }
-
-  /* Dark overrides — buttons */
-  .dark .btn-secondary {
-    @apply border-line-strong/60 bg-surface-2/88 text-secondary-950;
-  }
-
-  .dark .btn-secondary:hover {
-    @apply border-primary-400/40 bg-primary-400/14 text-secondary-950;
-  }
-
-  .dark .btn-outline {
-    @apply border-line-strong/60 bg-surface-2/84 text-secondary-950;
-  }
-
-  .dark .btn-outline:hover {
-    @apply border-primary-400/40 bg-primary-400/12 text-secondary-950;
   }
 
   /* ==========================================================================
@@ -1774,14 +1738,22 @@
    * --primary-foreground (token, no hex) — VERIFICAR en smoke .dark (§19) que
    * secondary-950 siga oscuro; si no, añadir override .dark .pv-total. */
   .pv-kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.6em;
     font-family: var(--font-mono);
-    font-size: 0.82em;
-    padding: 2px 6px;
-    border-radius: 6px;
-    background: color-mix(in oklch, var(--surface-3) 70%, transparent);
-    border: 1px solid color-mix(in oklch, var(--line-strong) 35%, transparent);
-    color: var(--secondary-800);
+    font-weight: 500;
+    font-size: 0.8em;
+    line-height: 1.5;
+    padding: 0 0.4em;
+    border-radius: 7px;
+    background: var(--surface-3);
+    border: 1px solid var(--line-strong);
+    border-bottom-width: 2px;
+    color: var(--fg2);
   }
+
 
   .pv-total {
     /* Lets the total figure scale to the panel instead of the viewport. */
@@ -2842,10 +2814,6 @@
     position: relative;
     min-height: calc(100vh - 7rem);
     background-color: var(--pos-canvas);
-    background-image:
-      linear-gradient(var(--operator-grid) 1px, transparent 1px),
-      linear-gradient(90deg, var(--operator-grid) 1px, transparent 1px);
-    background-size: 2rem 2rem;
     box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.72);
   }
 
@@ -3053,18 +3021,6 @@
     inset 0 -2px 0 color-mix(in oklch, var(--operator-key-edge) 54%, transparent),
     var(--shadow-panel);
   animation: design-system-rise 760ms var(--design-system-ease) both;
-}
-
-.design-system-hero::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background:
-    linear-gradient(var(--operator-grid) 1px, transparent 1px),
-    linear-gradient(90deg, var(--operator-grid) 1px, transparent 1px);
-  background-size: 2rem 2rem;
-  mask-image: linear-gradient(90deg, transparent, black 48%, black);
 }
 
 .design-system-hero-copy {
@@ -4200,6 +4156,7 @@
   .btn-ghost,
   .btn-success,
   .btn-danger,
+  .btn-charge,
   .input,
   .select-trigger,
   .pv-switch,
@@ -4237,8 +4194,7 @@
     box-shadow: none;
   }
 
-  .modal-shell::before,
-  .design-system-hero::before {
+  .modal-shell::before {
     display: none;
   }
 
@@ -4248,6 +4204,7 @@
   .btn-ghost,
   .btn-success,
   .btn-danger,
+  .btn-charge,
   .input,
   .select-trigger,
   .design-system-setting-row {

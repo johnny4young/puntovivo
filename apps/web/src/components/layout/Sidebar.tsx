@@ -93,7 +93,7 @@ export function Sidebar({ collapsed, mobileOpen, onToggleCollapse, onCloseMobile
     return (
       <aside
         className={cn(
-          'operator-sidebar fixed inset-y-0 left-0 z-50 flex min-h-0 w-[18.5rem] flex-col border-r border-line/70 px-3 py-3 backdrop-blur-2xl transition-[width] duration-300',
+          'operator-sidebar dark fixed inset-y-0 left-0 z-50 flex min-h-0 w-[18.5rem] flex-col px-3 py-3 transition-[width] duration-300',
           collapsed && 'w-[6.5rem]'
         )}
       >
@@ -149,7 +149,7 @@ export function Sidebar({ collapsed, mobileOpen, onToggleCollapse, onCloseMobile
         aria-hidden={!mobileDialogOpen}
         inert={!mobileDialogOpen}
         className={cn(
-          'operator-sidebar fixed inset-y-0 left-0 z-50 flex min-h-0 w-[min(22rem,calc(100vw-1rem))] flex-col border-r border-line/70 px-3 py-3 backdrop-blur-2xl transition-transform duration-300',
+          'operator-sidebar dark fixed inset-y-0 left-0 z-50 flex min-h-0 w-[min(22rem,calc(100vw-1rem))] flex-col px-3 py-3 transition-transform duration-300',
           mobileDialogOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
