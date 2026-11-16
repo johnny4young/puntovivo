@@ -60,7 +60,7 @@ test.describe('restaurant service lifecycle', () => {
     await page.goto('/touch/voice');
 
     await expect(page).toHaveURL(/\/dashboard$/);
-    await expect(page.getByText(/Today's Sales|Ventas de hoy/i).first()).toBeVisible();
+    await expect(page.getByText(/Sold today|Vendido hoy/i).first()).toBeVisible();
     await expect(page.getByTestId('voice-ordering-screen')).toHaveCount(0);
 
     await page.goto('/m');

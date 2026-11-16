@@ -51,7 +51,7 @@ const a11yRoutes: readonly A11yRoute[] = [
     label: 'Dashboard (admin)',
     path: '/dashboard',
     role: 'admin',
-    settled: page => page.getByText(/Today's Sales|Ventas de hoy/i).first(),
+    settled: page => page.getByText(/Sold today|Vendido hoy/i).first(),
   },
   {
     label: 'Sales (cashier)',
