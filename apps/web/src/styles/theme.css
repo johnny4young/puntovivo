@@ -307,7 +307,7 @@
   --secondary-100: oklch(0.977 0.004 236);
   --secondary-200: oklch(0.927 0.012 240);
   --secondary-300: oklch(0.882 0.016 239);
-  --secondary-400: oklch(0.806 0.024 240);
+  --secondary-400: oklch(0.644 0.027 239);
   --secondary-500: oklch(0.507 0.03 240);
   --secondary-600: oklch(0.475 0.03 240);
   --secondary-700: oklch(0.406 0.034 241);
@@ -428,7 +428,7 @@
   --secondary-100: oklch(0.285 0.047 243);
   --secondary-200: oklch(0.307 0.05 244);
   --secondary-300: oklch(0.364 0.051 239);
-  --secondary-400: oklch(0.451 0.057 240);
+  --secondary-400: oklch(0.58 0.045 240);
   --secondary-500: oklch(0.713 0.033 238);
   --secondary-600: oklch(0.76 0.03 239);
   --secondary-700: oklch(0.837 0.024 240);

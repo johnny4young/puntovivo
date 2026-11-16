@@ -1620,6 +1620,12 @@
     "output": "object{id:string,status:literal(\"queued\")}"
   },
   {
+    "path": "operations.today",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
     "path": "orders.create",
     "kind": "mutation",
     "input": "object{items:array<object>[minItems=1],notes?:string,providerId:string[minLength=1],status?:enum(\"draft\"|\"submitted\")}",

@@ -45,7 +45,7 @@ test.describe('first sale onboarding', () => {
       const guide = page.getByTestId('first-sale-guide');
       await expect(guide.getByText('Your first sale in 5 minutes')).toBeVisible();
       await expect(guide.getByText('0 of 3 steps completed')).toBeVisible();
-      await expect(page.getByText("Today's sales").first()).toBeVisible({ timeout: 15_000 });
+      await expect(page.getByText('Sold today').first()).toBeVisible({ timeout: 15_000 });
       await captureEvidence(page, 'first-sale-0-fresh-en');
 
       await guide.getByRole('link', { name: 'Create product' }).click();

@@ -336,7 +336,7 @@ test(
         { ...scenario.manager, defaultPath: '/dashboard' },
         { spanish: true }
       );
-      await expect(managerPage.getByText('Ventas de hoy').first()).toBeVisible();
+      await expect(managerPage.getByText('Vendido hoy').first()).toBeVisible();
       await openUserMenu(managerPage);
       const queue = managerPage.getByRole('region', { name: 'Aprobaciones' });
       const checkoutCard = queue.getByRole('article').filter({ hasText: approvalReason });
