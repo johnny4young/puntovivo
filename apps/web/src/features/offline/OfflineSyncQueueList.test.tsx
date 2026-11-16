@@ -164,7 +164,7 @@ describe('OfflineSyncQueueList', () => {
     expect(triggerSyncSpy).toHaveBeenCalledTimes(1);
   });
 
-  it('renders neutral LATAM tu Spanish copy on es locale flip', async () => {
+  it('renders neutral LATAM usted Spanish copy on es locale flip', async () => {
     await i18next.changeLanguage('es');
     render(<OfflineSyncQueueList />);
     expect(screen.getByText(/Cola de sincronización/i)).toBeInTheDocument();

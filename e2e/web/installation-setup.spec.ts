@@ -16,7 +16,7 @@ for (const language of ['en', 'es'] as const) {
     await page.goto('/login');
     await expect(
       page.getByRole('heading', {
-        name: language === 'es' ? 'Empieza con tu negocio.' : 'Start with your business.',
+        name: language === 'es' ? 'Empiece con su negocio.' : 'Start with your business.',
       })
     ).toBeVisible();
     await expect(page.locator('#setup-businessName')).toBeFocused();

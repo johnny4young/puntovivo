@@ -2,12 +2,12 @@
   "page": {
     "kicker": "Cola de domicilios",
     "title": "Pedidos a domicilio",
-    "subtitle": "Sigue cada domicilio desde que entra hasta que se entrega. Mueve pedidos, asigna mensajeros y cancela cuando lo necesites desde una sola consola.",
+    "subtitle": "Siga cada domicilio desde que entra hasta que se entrega. Mueva pedidos, asigne mensajeros y cancele cuando lo necesite desde una sola consola.",
     "empty": "Todavía no hay pedidos en esta columna.",
     "loading": "Cargando pedidos…",
     "errorTitle": "No pudimos cargar los pedidos",
     "errorRetry": "Reintentar",
-    "noActiveSite": "Selecciona una sede activa antes de abrir la cola de domicilios.",
+    "noActiveSite": "Seleccione una sede activa antes de abrir la cola de domicilios.",
     "countError": "No se pudieron actualizar los conteos.",
     "previous": "Anterior",
     "next": "Siguiente"
@@ -52,7 +52,7 @@
   },
   "detail": {
     "title": "Detalle del pedido",
-    "empty": "Selecciona un pedido para ver su detalle completo.",
+    "empty": "Seleccione un pedido para ver su detalle completo.",
     "customerHeader": "Cliente",
     "phoneLabel": "Teléfono",
     "addressLabel": "Dirección de entrega",
@@ -60,7 +60,7 @@
     "itemsLabel": "Artículos del pedido",
     "totalLabel": "Total",
     "courierLabel": "Mensajero",
-    "courierPlaceholder": "Asigna un mensajero",
+    "courierPlaceholder": "Asigne un mensajero",
     "courierClear": "Sin mensajero asignado",
     "timelineTitle": "Línea de tiempo",
     "timeline": {
@@ -79,7 +79,7 @@
     },
     "cancel": "Cancelar pedido",
     "cancelConfirmTitle": "¿Cancelar este pedido?",
-    "cancelConfirmBody": "La cancelación es definitiva y queda auditada. No anula la venta ni devuelve pagos; realiza esas operaciones por separado si corresponde.",
+    "cancelConfirmBody": "La cancelación es definitiva y queda auditada. No anula la venta ni devuelve pagos; realice esas operaciones por separado si corresponde.",
     "cancelConfirmConfirm": "Cancelar pedido",
     "cancelConfirmDismiss": "Conservar pedido",
     "reasonLabel": "Motivo de cancelación",
@@ -103,14 +103,14 @@
     "manual": "Registro manual (sin venta)",
     "sale": "Venta existente",
     "searchSale": "Buscar por número de venta",
-    "chooseSale": "Selecciona una venta",
-    "saleEligibility": "Solo se muestran hasta 25 ventas completadas de esta sede, sin devoluciones ni domicilio previo. Busca el número si no aparece.",
+    "chooseSale": "Seleccione una venta",
+    "saleEligibility": "Solo se muestran hasta 25 ventas completadas de esta sede, sin devoluciones ni domicilio previo. Busque el número si no aparece.",
     "saleError": "No se pudieron cargar las ventas disponibles.",
     "quotedAmount": "Importe cotizado (sin registrar cobro)",
     "recipient": "Nombre del destinatario",
     "submit": "Crear domicilio",
     "saving": "Guardando…",
     "dismiss": "Cancelar",
-    "error": "No se pudo crear el domicilio. Intenta nuevamente."
+    "error": "No se pudo crear el domicilio. Intente nuevamente."
   }
 }

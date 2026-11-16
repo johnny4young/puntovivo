@@ -6,14 +6,14 @@
   "items_one": "{{count}} artículo",
   "items_other": "{{count}} artículos",
   "total": "Total",
-  "openRegisterTitle": "Abre la caja para comenzar",
-  "openRegisterDescription": "Elige el cajón que usarás durante este turno.",
-  "startTitle": "Escanea o elige un producto",
-  "startDescription": "La búsqueda y tus favoritos están listos.",
-  "reviewTitle": "Revisa y cobra",
-  "reviewDescription": "Confirma cantidades y total antes de continuar.",
+  "openRegisterTitle": "Abra la caja para comenzar",
+  "openRegisterDescription": "Elija el cajón que usará durante este turno.",
+  "startTitle": "Escanee o elija un producto",
+  "startDescription": "La búsqueda y sus favoritos están listos.",
+  "reviewTitle": "Revise y cobre",
+  "reviewDescription": "Confirme cantidades y total antes de continuar.",
   "blockedTitle": "No podemos finalizar la venta ahora",
-  "blockedDescription": "Tu carrito está guardado. Recupera la conexión para continuar.",
-  "reviewRequiredTitle": "Revisa este punto antes de cobrar",
-  "optionalSetup": "Puedes vender. Hay una configuración pendiente."
+  "blockedDescription": "Su carrito está guardado. Recupere la conexión para continuar.",
+  "reviewRequiredTitle": "Revise este punto antes de cobrar",
+  "optionalSetup": "Puede vender. Hay una configuración pendiente."
 }

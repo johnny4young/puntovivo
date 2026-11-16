@@ -1,7 +1,7 @@
 {
   "page": {
     "title": "Plantillas de recibo",
-    "description": "Define el formato que se imprime o comparte para ventas, cotizaciones y documentos electrónicos. La plantilla predeterminada de cada tipo se usa automáticamente."
+    "description": "Defina el formato que se imprime o comparte para ventas, cotizaciones y documentos electrónicos. La plantilla predeterminada de cada tipo se usa automáticamente."
   },
   "actions": {
     "newTemplate": "Nueva plantilla",
@@ -32,7 +32,7 @@
     },
     "emptyState": {
       "title": "Sin plantillas",
-      "description": "Crea tu primera plantilla para definir cómo se imprimirán los recibos.",
+      "description": "Cree su primera plantilla para definir cómo se imprimirán los recibos.",
       "cta": "Crear plantilla"
     },
     "defaultBadge": "Predeterminada"
@@ -54,7 +54,7 @@
     "unsavedChanges": {
       "status": "Cambios sin guardar",
       "title": "¿Descartar los cambios?",
-      "message": "Los cambios de este recibo no se han guardado. Si sales ahora, los perderás.",
+      "message": "Los cambios de este recibo no se han guardado. Si sale ahora, los perderá.",
       "discardAction": "Descartar cambios",
       "keepEditingAction": "Seguir editando"
     },
@@ -63,50 +63,50 @@
       "namePlaceholder": "ej. Recibo de venta — 80mm",
       "kind": "Tipo de documento",
       "paperWidth": "Ancho del papel",
-      "paperWidthHelp": "El formato térmico usa 48 mm útiles en rollos de 58 mm y 72 mm en rollos de 80 mm. Elige el mismo papel en la impresora. Las ventas completadas conservan su plantilla al reimprimir."
+      "paperWidthHelp": "El formato térmico usa 48 mm útiles en rollos de 58 mm y 72 mm en rollos de 80 mm. Elija el mismo papel en la impresora. Las ventas completadas conservan su plantilla al reimprimir."
     },
     "guidedSetup": {
       "createEyebrow": "Configuración básica",
-      "createTitle": "Empieza con un formato listo",
-      "createDescription": "Elige el documento y el papel. Puedes guardar el formato predeterminado tal como está o revisar cada sección si necesitas personalizarlo.",
+      "createTitle": "Empiece con un formato listo",
+      "createDescription": "Elija el documento y el papel. Puede guardar el formato predeterminado tal como está o revisar cada sección si necesita personalizarlo.",
       "editEyebrow": "Datos principales",
-      "editTitle": "Ajusta lo esencial del recibo",
-      "editDescription": "Actualiza el nombre o el papel y revisa la vista previa. El tipo de documento se mantiene para no cambiar dónde se usa."
+      "editTitle": "Ajuste lo esencial del recibo",
+      "editDescription": "Actualice el nombre o el papel y revise la vista previa. El tipo de documento se mantiene para no cambiar dónde se usa."
     },
     "structureSummary": {
       "presetEyebrow": "Formato predeterminado",
       "presetTitle": "El recibo está listo para usar",
-      "presetDescription_one": "El formato incluye {{count}} sección preparada. Revisa la vista previa y personaliza su estructura solo si lo necesitas.",
-      "presetDescription_other": "El formato incluye {{count}} secciones preparadas. Revisa la vista previa y personaliza su estructura solo si lo necesitas.",
+      "presetDescription_one": "El formato incluye {{count}} sección preparada. Revise la vista previa y personalice su estructura solo si lo necesita.",
+      "presetDescription_other": "El formato incluye {{count}} secciones preparadas. Revise la vista previa y personalice su estructura solo si lo necesita.",
       "existingEyebrow": "Estructura actual",
-      "existingTitle": "Revisa lo que imprime este recibo",
-      "existingDescription_one": "Esta plantilla tiene {{count}} sección configurada. Puedes ajustar su contenido y orden.",
-      "existingDescription_other": "Esta plantilla tiene {{count}} secciones configuradas. Puedes ajustar su contenido y orden.",
+      "existingTitle": "Revise lo que imprime este recibo",
+      "existingDescription_one": "Esta plantilla tiene {{count}} sección configurada. Puede ajustar su contenido y orden.",
+      "existingDescription_other": "Esta plantilla tiene {{count}} secciones configuradas. Puede ajustar su contenido y orden.",
       "openAction": "Personalizar secciones",
       "hideAction": "Ocultar controles"
     },
     "blocksPanel": {
       "title": "Secciones del recibo",
-      "description": "Agrega, edita o reordena las secciones que se imprimen. Usa el asa o los botones de flecha para cambiar el orden.",
-      "empty": "Agrega una sección para empezar."
+      "description": "Agregue, edite o reordene las secciones que se imprimen. Use el asa o los botones de flecha para cambiar el orden.",
+      "empty": "Agregue una sección para empezar."
     },
     "dragAndDrop": {
-      "gripAriaLabel": "Arrastra la sección para reordenar",
-      "screenReaderInstructions": "Para tomar una sección, presiona Espacio o Enter. Mientras arrastras, usa las flechas del teclado para moverla. Presiona Espacio o Enter de nuevo para soltar, o Escape para cancelar.",
+      "gripAriaLabel": "Arrastre la sección para reordenar",
+      "screenReaderInstructions": "Para tomar una sección, presione Espacio o Enter. Mientras arrastra, use las flechas del teclado para moverla. Presione Espacio o Enter de nuevo para soltar, o Escape para cancelar.",
       "blockAnnouncementLabel": "{{index}}. {{type}}",
       "announcements": {
-        "dragStart": "Tomaste {{active}}.",
+        "dragStart": "Tomó {{active}}.",
         "dragOver": "{{active}} se movió sobre {{over}}.",
         "dragOverNone": "{{active}} no está sobre ningún bloque.",
-        "dragEnd": "Soltaste {{active}} sobre {{over}}.",
-        "dragEndNone": "Soltaste {{active}}.",
+        "dragEnd": "Soltó {{active}} sobre {{over}}.",
+        "dragEndNone": "Soltó {{active}}.",
         "dragCancel": "Se canceló el reordenamiento de {{active}}."
       }
     },
     "previewPanel": {
       "title": "Vista previa en vivo",
       "description": "Renderizada con datos de muestra.",
-      "templateIssues": "Corrige las expresiones marcadas antes de renderizar la vista previa."
+      "templateIssues": "Corrija las expresiones marcadas antes de renderizar la vista previa."
     },
     "defaults": {
       "newText": "Nuevo texto",
@@ -120,7 +120,7 @@
       "dateLabel": "Fecha",
       "metaKey": "Etiqueta",
       "metaValue": "Valor",
-      "thankYou": "Gracias por tu compra"
+      "thankYou": "Gracias por su compra"
     },
     "blockTypes": {
       "logo": "Logo",
@@ -156,11 +156,11 @@
       "showHeader": "Mostrar encabezado",
       "showChange": "Mostrar efectivo recibido y cambio",
       "columns": "Columnas",
-      "columnsHelp": "Elige las columnas a imprimir, en orden.",
+      "columnsHelp": "Elija las columnas a imprimir, en orden.",
       "totalsLines": "Líneas",
-      "totalsLinesHelp": "Elige los totales a mostrar.",
+      "totalsLinesHelp": "Elija los totales a mostrar.",
       "source": "Contenido del código",
-      "itemsTableCaption": "Muestra los productos de la venta actual. Usa las columnas siguientes para elegir qué información se imprime.",
+      "itemsTableCaption": "Muestra los productos de la venta actual. Use las columnas siguientes para elegir qué información se imprime.",
       "totalsBlockCaption": "¿De dónde vienen estos valores?",
       "totalsBlockBindings": {
         "subtotal": "Subtotal — suma de los totales de ítems antes de impuestos.",
@@ -170,7 +170,7 @@
         "serviceCharge": "Servicio — cargo que se aplica de forma automática con la tarifa configurada para el negocio.",
         "grandTotal": "Total — subtotal menos descuentos más impuestos, propina y servicio."
       },
-      "appFooterHelp": "Agrega tres líneas al final del recibo con el nombre del producto Puntovivo, la URL y el contacto de soporte. Déjalo activado para dar crédito al software o desactívalo si quieres un recibo sin branding.",
+      "appFooterHelp": "Agrega tres líneas al final del recibo con el nombre del producto Puntovivo, la URL y el contacto de soporte. Déjelo activado para dar crédito al software o desactívelo si desea un recibo sin branding.",
       "appFooterShow": "Mostrar el pie de Puntovivo",
       "wordmarkHelp": "Imprime la marca Puntovivo en la parte superior del recibo. La marca no se puede modificar para mantener una presentación consistente.",
       "wordmarkShow": "Mostrar la marca",
@@ -181,10 +181,10 @@
       "metaTableRemoveRow": "Quitar fila"
     },
     "codeEditor": {
-      "placeholder": "Usa dobles llaves para abrir el selector de variables y funciones.",
+      "placeholder": "Use dobles llaves para abrir el selector de variables y funciones.",
       "linter": {
-        "unparseable": "No se puede interpretar esta expresión. Usa un campo como sale.grandTotal o una función como currency(...).",
-        "unknownNamespace": "Grupo de datos desconocido \"{{namespace}}\". Puedes usar: {{allowed}}.",
+        "unparseable": "No se puede interpretar esta expresión. Use un campo como sale.grandTotal o una función como currency(...).",
+        "unknownNamespace": "Grupo de datos desconocido \"{{namespace}}\". Puede usar: {{allowed}}.",
         "unknownFunction": "Función desconocida \"{{name}}\". Disponibles: {{allowed}}.",
         "wrongArity": "La función \"{{name}}\" recibe {{expected}} argumento(s); llegaron {{actual}}."
       },
@@ -192,7 +192,7 @@
     },
     "functionsHelp": {
       "title": "Funciones disponibles",
-      "intro": "Escribe los campos entre dobles llaves para reemplazarlos con datos del recibo. También puedes usar las funciones siguientes con campos como sale.grandTotal, números o textos entre comillas.",
+      "intro": "Escriba los campos entre dobles llaves para reemplazarlos con datos del recibo. También puede usar las funciones siguientes con campos como sale.grandTotal, números o textos entre comillas.",
       "entries": {
         "currency": "Formatea un número como moneda según la configuración del país. El segundo argumento opcional fuerza la cantidad de decimales.",
         "date": "Formatea una fecha o cadena ISO. Tokens de patrón: yyyy MM dd HH mm ss. Por defecto usa el formato corto del país.",
@@ -269,6 +269,6 @@
     "duplicateError": "No se pudo duplicar la plantilla"
   },
   "errors": {
-    "atLeastOneBlock": "Agrega al menos una sección a la plantilla."
+    "atLeastOneBlock": "Agregue al menos una sección a la plantilla."
   }
 }

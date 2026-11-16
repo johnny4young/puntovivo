@@ -45,7 +45,7 @@ test('Companion is viewer-safe, honest offline and live after a signed close', a
     await expectNoClientIssues(viewerInitialTracker);
 
     await viewerContext.setOffline(true);
-    await expect(viewer.getByTestId('companion-offline')).toContainText('No tienes conexión');
+    await expect(viewer.getByTestId('companion-offline')).toContainText('No tiene conexión');
     await expect(viewer.getByTestId('companion-revenue')).toHaveCount(0);
     await expect(viewer.getByTestId('companion-day-close-pending')).toHaveCount(0);
 

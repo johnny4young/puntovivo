@@ -35,7 +35,7 @@
       "action": "Eliminar datos personales",
       "title": "Eliminar datos del cliente",
       "loading": "Evaluando registros vinculados...",
-      "previewError": "No se pudo cargar la evaluación. Cierra este diálogo e inténtalo de nuevo.",
+      "previewError": "No se pudo cargar la evaluación. Cierre este diálogo e inténtelo de nuevo.",
       "deleteHeading": "Elegible para eliminación definitiva",
       "deleteDescription": "Este cliente no tiene registros transaccionales vinculados. El perfil se puede eliminar definitivamente.",
       "anonymizeHeading": "Se conservarán registros transaccionales",
@@ -53,7 +53,7 @@
         "pharmacyDispensations": "Dispensaciones de medicamentos"
       },
       "confirmationLabel": "Confirmación",
-      "confirmationInstruction": "Ingresa el nombre exacto del cliente:",
+      "confirmationInstruction": "Ingrese el nombre exacto del cliente:",
       "irreversible": "Esta acción no se puede deshacer.",
       "cancel": "Cancelar",
       "confirmDelete": "Eliminar definitivamente",
@@ -73,12 +73,12 @@
     "save": "Guardar cambios",
     "essential": {
       "eyebrow": "Datos esenciales",
-      "title": "Identifica y contacta al cliente",
-      "description": "El nombre basta para crearlo. Agrega el teléfono o el correo si los tienes."
+      "title": "Identifique y contacte al cliente",
+      "description": "El nombre basta para crearlo. Agregue el teléfono o el correo si los tiene."
     },
     "advanced": {
       "title": "Facturación, dirección y crédito",
-      "description": "Ábrelo solo cuando necesites datos fiscales, ubicación, notas o ventas a crédito.",
+      "description": "Ábralo solo cuando necesite datos fiscales, ubicación, notas o ventas a crédito.",
       "optionalStatus": "Opcional",
       "savedStatus": "Con datos guardados",
       "billingTitle": "Identificación y facturación",
@@ -89,7 +89,7 @@
       "title": "¿Descartar cambios del cliente?",
       "status": "Hay cambios del cliente sin guardar",
       "summary": "Estos cambios todavía no están guardados",
-      "message": "Si sales ahora, se perderán los datos que ingresaste.",
+      "message": "Si sale ahora, se perderán los datos que ingresó.",
       "keepEditingAction": "Seguir editando",
       "discardAction": "Descartar cambios"
     },
@@ -165,9 +165,9 @@
     },
     "abonoModal": {
       "title": "Recibir abono",
-      "description": "Registra un abono contra el saldo del cliente. El monto se asienta como crédito y el saldo baja.",
+      "description": "Registre un abono contra el saldo del cliente. El monto se asienta como crédito y el saldo baja.",
       "amountLabel": "Monto",
-      "amountRequired": "Ingresa un monto mayor a cero",
+      "amountRequired": "Ingrese un monto mayor a cero",
       "noteLabel": "Nota",
       "confirm": "Confirmar abono",
       "success": "Abono registrado",
@@ -175,9 +175,9 @@
     },
     "adjustmentModal": {
       "title": "Cargar a cuenta",
-      "description": "Registra un ajuste manual. Un monto positivo suma al saldo del cliente y uno negativo lo reduce. La nota es obligatoria para la traza de auditoría.",
+      "description": "Registre un ajuste manual. Un monto positivo suma al saldo del cliente y uno negativo lo reduce. La nota es obligatoria para la traza de auditoría.",
       "amountLabel": "Monto",
-      "amountRequired": "Ingresa un ajuste distinto de cero",
+      "amountRequired": "Ingrese un ajuste distinto de cero",
       "noteLabel": "Nota",
       "noteRequired": "La nota es obligatoria para ajustes",
       "confirm": "Confirmar ajuste",
@@ -192,7 +192,7 @@
   },
   "delete": {
     "title": "Eliminar cliente",
-    "description": "¿Estás seguro de que deseas eliminar este cliente?"
+    "description": "¿Está seguro de que desea eliminar este cliente?"
   },
   "toast": {
     "created": "Cliente creado",
@@ -219,9 +219,9 @@
       "pointsAria": "Puntos a sumar o restar",
       "noteLabel": "Motivo",
       "noteAria": "Motivo del ajuste",
-      "notePlaceholder": "¿Por qué cambias el saldo?",
+      "notePlaceholder": "¿Por qué cambia el saldo?",
       "submit": "Aplicar",
-      "help": "Usa un número negativo para quitar puntos. El motivo queda guardado con el movimiento y no se puede editar después."
+      "help": "Use un número negativo para quitar puntos. El motivo queda guardado con el movimiento y no se puede editar después."
     },
     "toast": {
       "adjusted": "Saldo ajustado",
@@ -234,11 +234,11 @@
     "pointsAvailable_one": "{{count}} punto disponible",
     "pointsAvailable_other": "{{count}} puntos disponibles",
     "storeCreditAvailable": "{{amount}} disponibles en crédito de tienda",
-    "customerRequired": "Selecciona un cliente antes de redimir puntos o crédito de tienda.",
+    "customerRequired": "Seleccione un cliente antes de redimir puntos o crédito de tienda.",
     "loading": "Verificando el saldo disponible del cliente…",
     "unavailable": "No se pudieron verificar los puntos ni el crédito de tienda del cliente. Este pago permanece bloqueado.",
     "loyaltyDisabled": "La redención de puntos no está habilitada para este negocio.",
-    "loyaltyInvalid": "Ingresa una cantidad entera y positiva de puntos. El monto se calcula con el valor configurado.",
+    "loyaltyInvalid": "Ingrese una cantidad entera y positiva de puntos. El monto se calcula con el valor configurado.",
     "loyaltyInsufficient": "El cliente no tiene suficientes puntos para este pago.",
     "storeCreditInsufficient": "El cliente no tiene suficiente crédito de tienda para este pago.",
     "retry": "Verificar saldo de nuevo"
@@ -247,7 +247,7 @@
     "LOYALTY_CUSTOMER_NOT_FOUND": "Ese cliente no existe.",
     "LOYALTY_INSUFFICIENT_POINTS": "El cliente no tiene suficientes puntos para esta operación.",
     "LOYALTY_REDEMPTION_DISABLED": "La redención de puntos no está habilitada para este negocio.",
-    "LOYALTY_TENDER_AMOUNT_MISMATCH": "Los puntos seleccionados no coinciden con su valor configurado. Actualiza el saldo del cliente.",
+    "LOYALTY_TENDER_AMOUNT_MISMATCH": "Los puntos seleccionados no coinciden con su valor configurado. Actualice el saldo del cliente.",
     "LOYALTY_TENDER_SOURCE_MISSING": "No se pudo verificar la redención original de puntos.",
     "LOYALTY_TENDER_RESTORE_INVALID": "La restauración de puntos supera la redención original."
   }

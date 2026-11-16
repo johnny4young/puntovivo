@@ -68,7 +68,7 @@
   "lowStock": {
     "kicker": "Reposición",
     "title": "Stock bajo",
-    "description": "Prioriza estas referencias antes de que afecten la venta.",
+    "description": "Priorice estas referencias antes de que afecten la venta.",
     "empty": "Sin productos con stock bajo por ahora.",
     "minimum": "Mínimo {{count}}",
     "alertCount_one": "{{count}} alerta de stock",

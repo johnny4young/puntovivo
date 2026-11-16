@@ -214,7 +214,7 @@ describe('VoiceCartCommandModal ( slice 3)', () => {
     const recordBtn = screen.getByTestId('voice-modal-record');
     expect(recordBtn).toHaveTextContent(/Start recording|Empezar a grabar/);
     expect(screen.getByTestId('voice-modal-countdown')).toHaveTextContent(
-      /Tap to start|Toca para empezar/
+      /Tap to start|Toque para empezar/
     );
     expect(screen.queryByTestId('voice-modal-review')).not.toBeInTheDocument();
   });

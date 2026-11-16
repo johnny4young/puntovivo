@@ -4,7 +4,7 @@
   "loading": "Cargando ubicaciones...",
   "error": "No se pudieron cargar las ubicaciones",
   "search": "Buscar ubicaciones...",
-  "permissionNote": "Solo los administradores pueden modificar ubicaciones. Puedes revisar el catálogo.",
+  "permissionNote": "Solo los administradores pueden modificar ubicaciones. Puede revisar el catálogo.",
   "columns": {
     "location": "Ubicación",
     "description": "Descripción",
@@ -22,8 +22,8 @@
     "create": "Crear ubicación",
     "save": "Guardar cambios",
     "essential": {
-      "title": "Identifica dónde se guarda el inventario",
-      "description": "Agrega un código corto y un nombre claro, como BOD-N y Bodega Norte."
+      "title": "Identifique dónde se guarda el inventario",
+      "description": "Agregue un código corto y un nombre claro, como BOD-N y Bodega Norte."
     },
     "advanced": {
       "title": "Descripción y disponibilidad",

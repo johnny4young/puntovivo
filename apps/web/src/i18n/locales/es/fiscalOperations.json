@@ -3,7 +3,7 @@
     "title": "Salud fiscal",
     "description": "Documentos en contingencia o rechazados. Reintentar lanza un nuevo intento al proveedor.",
     "statusFilter": {
-      "ariaLabel": "Filtra documentos fiscales por estado",
+      "ariaLabel": "Filtre documentos fiscales por estado",
       "contingency": "En contingencia",
       "rejected": "Rechazados",
       "accepted": "Aceptados"
@@ -45,14 +45,14 @@
       },
       "reason": {
         "pending": "Esperando al proceso fiscal",
-        "unknown": "Revisa la configuración fiscal e intenta de nuevo.",
+        "unknown": "Revise la configuración fiscal e intente de nuevo.",
         "numbering_resolution_missing": "No hay una resolución de numeración compatible.",
         "numbering_resolution_changed": "La resolución congelada cambió después de la venta.",
         "numbering_resolution_not_effective": "La resolución no estaba vigente cuando se completó la venta.",
         "numbering_resolution_exhausted": "El rango de numeración está agotado.",
         "sale_lines_missing": "La venta congelada no tiene líneas fiscales.",
         "tax_header_mismatch": "El encabezado fiscal no concilia con sus líneas congeladas.",
-        "adapter_configuration_invalid": "Falta configuración fiscal (por ejemplo, el NIT o el software DIAN). Complétala y verifica de nuevo.",
+        "adapter_configuration_invalid": "Falta configuración fiscal (por ejemplo, el NIT o el software DIAN). Complétela y verifique de nuevo.",
         "adapter_configuration_validation_failed": "No se pudo validar la configuración del proveedor.",
         "fiscal_provider_changed": "El proveedor activo ya no coincide con el contrato congelado de la venta.",
         "original_dee_not_accepted": "Esperando la aceptación de la factura original antes de emitir la nota crédito.",

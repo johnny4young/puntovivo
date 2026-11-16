@@ -1,6 +1,6 @@
 {
   "kicker": "Configuración guiada",
-  "title": "Prepara el negocio sin perderte",
+  "title": "Prepare el negocio sin perderse",
   "description": "Hay {{total}} áreas claras que reúnen lo que necesita la tienda. Mostramos una sola decisión obligatoria a la vez; lo opcional puede esperar.",
   "progress": "{{ready}} de {{total}} áreas obligatorias listas",
   "progressReview_one": "{{count}} por revisar",
@@ -13,13 +13,13 @@
   },
   "next": {
     "eyebrow": "Siguiente decisión obligatoria",
-    "title": "Completa {{section}}",
-    "description": "Resuelve esta decisión para continuar preparando la tienda. Después aparecerán las demás decisiones obligatorias.",
+    "title": "Complete {{section}}",
+    "description": "Resuelva esta decisión para continuar preparando la tienda. Después aparecerán las demás decisiones obligatorias.",
     "action": "Resolver ahora"
   },
   "ready": {
     "eyebrow": "Base operativa lista",
-    "title": "Ya puedes empezar a vender",
+    "title": "Ya puede empezar a vender",
     "description": "La configuración obligatoria está completa. La facturación electrónica, los pagos electrónicos y los dispositivos siguen disponibles cuando el negocio los necesite.",
     "action": "Continuar a ventas",
     "saving": "Abriendo la tienda…"
@@ -33,8 +33,8 @@
   },
   "steps": {
     "businessType": {
-      "title": "¿Qué vendes?",
-      "description": "Elige tu tipo de negocio y Puntovivo activa las herramientas correctas.",
+      "title": "¿Qué vende?",
+      "description": "Elija su tipo de negocio y Puntovivo activa las herramientas correctas.",
       "action": "Elegir tipo de negocio"
     },
     "business": {
@@ -54,12 +54,12 @@
     },
     "payments": {
       "title": "Pagos",
-      "description": "El efectivo está listo; conecta otros medios cuando los necesites.",
+      "description": "El efectivo está listo; conecte otros medios cuando los necesite.",
       "action": "Revisar medios de pago"
     },
     "devices": {
       "title": "Dispositivos",
-      "description": "Puedes conectar impresoras, scanners y terminales después.",
+      "description": "Puede conectar impresoras, scanners y terminales después.",
       "action": "Conectar dispositivos"
     }
   },
@@ -71,11 +71,11 @@
     "warning": "La tienda puede seguir operando, pero conviene revisar esta área.",
     "actionBlocker": "Completar este paso",
     "actionWarning": "Revisar ahora",
-    "actionOptional": "Configurar si lo necesitas"
+    "actionOptional": "Configurar si lo necesita"
   },
   "businessTypePicker": {
-    "title": "¿Qué vendes?",
-    "description": "Esto activa las superficies de caja que tu negocio necesita. Puedes cambiar cualquiera después en Módulos.",
+    "title": "¿Qué vende?",
+    "description": "Esto activa las superficies de caja que su negocio necesita. Puede cambiar cualquiera después en Módulos.",
     "applying": "Configurando…",
     "applied": "Configurado para {{vertical}}",
     "error": "No se pudo aplicar el tipo de negocio",

@@ -49,7 +49,7 @@ async function chooseRealData(page: Page, spanish = false) {
     })
     .click();
   await expect(page.getByTestId('data-import-rollback-guidance')).toContainText(
-    spanish ? 'Crea un punto de restauración' : 'Create a restore point'
+    spanish ? 'Cree un punto de restauración' : 'Create a restore point'
   );
 }
 
@@ -345,10 +345,10 @@ test.describe('launch data import', () => {
     await expect(page.getByTestId('data-import-summary-ready')).toContainText('1');
     await expect(page.getByTestId('data-import-summary-invalid')).toContainText('2');
     await expect(page.getByTestId('data-import-preview-row-3')).toContainText(
-      'El stock de apertura debe estar en cero cuando controlas lotes'
+      'El stock de apertura debe estar en cero cuando controla lotes'
     );
     await expect(page.getByTestId('data-import-preview-row-4')).toContainText(
-      'Usa sí/no, verdadero/falso o 1/0'
+      'Use sí/no, verdadero/falso o 1/0'
     );
     await captureEvidence(page, 'eng-110a-import-lot-validation-es');
 
@@ -381,7 +381,7 @@ test.describe('launch data import', () => {
         .getByRole('heading', { name: 'Importar datos', level: 1 })
     ).toBeVisible();
     await expect(
-      page.getByRole('heading', { name: 'Elige cómo se usará este archivo' })
+      page.getByRole('heading', { name: 'Elija cómo se usará este archivo' })
     ).toBeVisible();
     await expect(page.getByRole('button', { name: /^Productos e inventario/ })).toBeDisabled();
     await chooseRealData(page, true);
@@ -412,7 +412,7 @@ test.describe('launch data import', () => {
     await expect(report).toContainText('Importación completada');
     await expect(report).toContainText('Productos creados: 1. Registros de stock de apertura: 1.');
     await expect(page.getByTestId('data-import-report-rollback')).toContainText(
-      'restaura el respaldo cifrado'
+      'restaure el respaldo cifrado'
     );
     await expect(page.getByRole('button', { name: 'Importación completada' })).toBeDisabled();
     await captureEvidence(page, 'eng-123a-import-report-es');

@@ -44,11 +44,11 @@ const MX_CAPABILITIES: FiscalAdapterCapabilities = {
  * fallback en español para audit logs y server logs.
  */
 const MX_VALIDATION_MESSAGES = {
-  MISSING_RFC: 'Captura el RFC del emisor antes de habilitar la emisión.',
+  MISSING_RFC: 'Capture el RFC del emisor antes de habilitar la emisión.',
   INVALID_RFC: 'El RFC del emisor no es válido según las reglas del SAT.',
-  MISSING_REGIMEN: 'Captura el régimen fiscal del emisor.',
+  MISSING_REGIMEN: 'Capture el régimen fiscal del emisor.',
   INVALID_REGIMEN: 'El código del régimen fiscal no existe en el catálogo SAT.',
-  MISSING_LUGAR: 'Captura el lugar de expedición (código postal de 5 dígitos).',
+  MISSING_LUGAR: 'Capture el lugar de expedición (código postal de 5 dígitos).',
   INVALID_LUGAR: 'El lugar de expedición debe ser un código postal de 5 dígitos.',
   INVALID_ENVIRONMENT: 'El ambiente debe ser sandbox o production.',
 } as const;
@@ -147,7 +147,7 @@ export class MexicoCFDIAdapter implements FiscalAdapter {
         trpcCode: 'BAD_REQUEST',
         errorCode: 'FISCAL_PACK_NOT_AVAILABLE',
         message:
-          'Activa el pack fiscal MX y captura RFC, régimen fiscal y lugar de expedición en /company → Fiscal antes de emitir.',
+          'Active el pack fiscal MX y capture RFC, régimen fiscal y lugar de expedición en /company → Fiscal antes de emitir.',
         details: {
           countryCode: 'MX',
           disabled: !settings.enabled,

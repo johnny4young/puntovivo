@@ -29,7 +29,7 @@
   "maturity": {
     "mock": "Demo",
     "draft": "Borrador",
-    "hint": "La facturación electrónica aún no se transmite a la autoridad tributaria. Es opcional y solo para demostración — tus ventas se completan con normalidad."
+    "hint": "La facturación electrónica aún no se transmite a la autoridad tributaria. Es opcional y solo para demostración — sus ventas se completan con normalidad."
   },
   "source": {
     "sale": "Venta",
@@ -69,7 +69,7 @@
       "copy": "Copiar",
       "copied": "Copiado",
       "download": "Descargar .xml",
-      "draftHint": "Evidencia XML almacenada. Revisa la madurez del documento: solo la respuesta de un proveedor certificado demuestra firma y transmisión a la autoridad.",
+      "draftHint": "Evidencia XML almacenada. Revise la madurez del documento: solo la respuesta de un proveedor certificado demuestra firma y transmisión a la autoridad.",
       "loading": "Cargando XML…",
       "emptyState": "Este documento no tiene evidencia XML adjunta.",
       "xmlCopiedToast": "XML copiado al portapapeles",
@@ -95,7 +95,7 @@
     "tabDescription": "Configuración fiscal por país. El paquete que se muestra abajo depende del código de país del tenant.",
     "unsupported": {
       "title": "La facturación electrónica aún no está disponible aquí",
-      "description": "Todavía no hay un paquete fiscal para {{country}}. Puedes seguir vendiendo con normalidad — la facturación electrónica para este país llegará en una versión futura."
+      "description": "Todavía no hay un paquete fiscal para {{country}}. Puede seguir vendiendo con normalidad — la facturación electrónica para este país llegará en una versión futura."
     },
     "country": {
       "MX": "México (CFDI 4.0)",
@@ -125,7 +125,7 @@
         "rfcHelp": "12 caracteres para persona moral (PM); 13 para persona física (PF).",
         "rfcPlaceholder": "p. ej. XEXX010101000",
         "regimen": "Régimen fiscal",
-        "regimenPlaceholder": "Selecciona un régimen",
+        "regimenPlaceholder": "Seleccione un régimen",
         "lugar": "Lugar de expedición (CP de 5 dígitos)",
         "lugarPlaceholder": "p. ej. 06700",
         "environment": "Ambiente",
@@ -146,7 +146,7 @@
       "kicker": "Perfil fiscal",
       "title": "Colombia — DIAN",
       "emptyTitle": "La emisión DIAN es opcional",
-      "emptyDescription": "Puedes seguir vendiendo sin ella. Configúrala cuando quieras emitir documentos electrónicos.",
+      "emptyDescription": "Puede seguir vendiendo sin ella. Configúrela cuando desee emitir documentos electrónicos.",
       "emptyCta": "Configurar DIAN",
       "fields": {
         "enabled": "Activar emisión DIAN",
@@ -158,13 +158,13 @@
         "environmentHabilitacion": "Habilitación (pruebas)",
         "environmentProduccion": "Producción",
         "softwareId": "Identificador del software DIAN",
-        "softwareIdHelp": "El ID que te asignó la DIAN al registrar tu software de facturación.",
+        "softwareIdHelp": "El ID que le asignó la DIAN al registrar su software de facturación.",
         "softwareIdPlaceholder": "ej. 56f2ae4e-9812-4fad-9255-08fcfcd5ccb0",
         "softwarePin": "PIN del software DIAN",
-        "softwarePinHelp": "El PIN que definiste al registrar el software. Se usa para calcular el CUDE y nunca se vuelve a mostrar.",
+        "softwarePinHelp": "El PIN que definió al registrar el software. Se usa para calcular el CUDE y nunca se vuelve a mostrar.",
         "softwarePinPlaceholder": "ej. 12345",
-        "softwarePinConfiguredPlaceholder": "Configurado. Déjalo vacío para conservarlo.",
-        "nitDvSuggest": "Dígito de verificación de {{nit}}: {{dv}}. Escríbelo como {{nit}}-{{dv}}.",
+        "softwarePinConfiguredPlaceholder": "Configurado. Déjelo vacío para conservarlo.",
+        "nitDvSuggest": "Dígito de verificación de {{nit}}: {{dv}}. Escríbalo como {{nit}}-{{dv}}.",
         "nitDvMatch": "El dígito de verificación es correcto.",
         "nitDvMismatch": "Dígito de verificación incorrecto — el correcto es {{dv}}. La DIAN lo rechazaría."
       },
@@ -190,9 +190,9 @@
         "rutHelp": "Formato: cuerpo-dígito verificador (p. ej. 12345678-K). El dígito es 0-9 o K.",
         "rutPlaceholder": "p. ej. 76123456-0",
         "giro": "Giro comercial (CIIU.cl)",
-        "giroPlaceholder": "Selecciona una actividad",
+        "giroPlaceholder": "Seleccione una actividad",
         "comuna": "Comuna de emisión (SUBDERE)",
-        "comunaPlaceholder": "Selecciona una comuna",
+        "comunaPlaceholder": "Seleccione una comuna",
         "casaMatriz": "Dirección de la casa matriz",
         "casaMatrizPlaceholder": "p. ej. Av Apoquindo 4500, Las Condes",
         "environment": "Ambiente",
@@ -209,8 +209,8 @@
       },
       "caf": {
         "title": "CAF activo",
-        "description": "El SII autoriza la emisión de boletas/facturas en rangos de folios. Carga un CAF desde el portal SII para empezar a emitir DTE.",
-        "empty": "Sin CAF activo. Sube uno desde el portal SII (disponible próximamente).",
+        "description": "El SII autoriza la emisión de boletas/facturas en rangos de folios. Cargue un CAF desde el portal SII para empezar a emitir DTE.",
+        "empty": "Sin CAF activo. Suba uno desde el portal SII (disponible próximamente).",
         "tipoDteLabel": "Tipo DTE",
         "rangeLabel": "Rango",
         "range": "Folios {{from}} a {{to}}",
@@ -307,7 +307,7 @@
       "environment": "Ambiente"
     },
     "confirm": {
-      "title": "Revisa el rango",
+      "title": "Revise el rango",
       "firstNumber": "El primer documento llevará el número:",
       "immutable": "Después del primer documento el rango no se puede editar: solo retirar."
     },

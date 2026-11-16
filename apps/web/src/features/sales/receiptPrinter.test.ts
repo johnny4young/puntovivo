@@ -408,7 +408,7 @@ describe('receiptPrinter', () => {
         'Cambio',
         'Notas',
         'Productos: 1',
-        'Gracias por tu compra.',
+        'Gracias por su compra.',
       ]) {
         expect(html).toContain(label);
       }

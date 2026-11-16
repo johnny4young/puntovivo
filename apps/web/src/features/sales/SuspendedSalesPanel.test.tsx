@@ -1348,7 +1348,7 @@ describe('SuspendedSalesPanel — split-bill CTA', () => {
     fireEvent.click(screen.getByTestId('split-modal-toggle-all'));
 
     expect(screen.getByTestId('split-modal-source-required')).toHaveTextContent(
-      /Deja al menos un producto/
+      /Deje al menos un producto/
     );
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByRole('button', { name: /dividir cuenta/i })).toBeDisabled();

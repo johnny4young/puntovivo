@@ -4,7 +4,7 @@
   "loading": "Cargando categorías...",
   "error": "No se pudieron cargar las categorías",
   "search": "Buscar categorías...",
-  "permissionNote": "Solo los administradores pueden modificar categorías. Puedes revisar el catálogo.",
+  "permissionNote": "Solo los administradores pueden modificar categorías. Puede revisar el catálogo.",
   "columns": {
     "category": "Categoría",
     "description": "Descripción",
@@ -24,12 +24,12 @@
     "create": "Crear categoría",
     "save": "Guardar cambios",
     "essential": {
-      "title": "Crea un grupo fácil de reconocer",
-      "description": "Usa un nombre simple, como Bebidas, Panadería o Aseo."
+      "title": "Cree un grupo fácil de reconocer",
+      "description": "Use un nombre simple, como Bebidas, Panadería o Aseo."
     },
     "advanced": {
       "title": "Organización y descripción",
-      "description": "Agrupa esta categoría dentro de otra o agrega una nota.",
+      "description": "Agrupe esta categoría dentro de otra o agregue una nota.",
       "savedStatus": "Organización guardada",
       "defaultStatus": "Categoría principal por defecto"
     },
@@ -42,7 +42,7 @@
       "nameRequired": "El nombre de la categoría es obligatorio",
       "parentCategory": "Agrupar dentro de otra categoría (opcional)",
       "noParent": "Mantener como categoría principal",
-      "parentHelp": "Deja esta opción así, salvo que la categoría pertenezca a otro grupo.",
+      "parentHelp": "Deje esta opción así, salvo que la categoría pertenezca a otro grupo.",
       "description": "Descripción (opcional)"
     }
   },

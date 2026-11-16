@@ -2,10 +2,10 @@
   "page": {
     "kicker": "Cobro táctil",
     "title": "POS Táctil",
-    "subtitle": "Toca un producto para agregarlo al carrito. Cobra directo desde el panel derecho.",
-    "noActiveSite": "Selecciona una sede activa antes de abrir el cobro táctil.",
+    "subtitle": "Toque un producto para agregarlo al carrito. Cobre directo desde el panel derecho.",
+    "noActiveSite": "Seleccione una sede activa antes de abrir el cobro táctil.",
     "loadingProducts": "Cargando catálogo…",
-    "loadingError": "No pudimos cargar el catálogo. Intenta de nuevo.",
+    "loadingError": "No pudimos cargar el catálogo. Intente de nuevo.",
     "voiceLink": "Abrir cobro por voz"
   },
   "categories": {
@@ -16,7 +16,7 @@
   },
   "grid": {
     "empty": "Aún no hay productos en esta categoría.",
-    "noResults": "No hay productos en el catálogo. Primero agrega productos desde Configuración.",
+    "noResults": "No hay productos en el catálogo. Primero agregue productos desde Configuración.",
     "tileAriaLabel": "Agregar {{name}} por {{price}}",
     "inCart": "{{count}} en el carrito",
     "stock": {
@@ -25,8 +25,8 @@
       "out": "Agotado"
     },
     "searchLabel": "Buscar productos",
-    "searchPlaceholder": "Busca por nombre o SKU",
-    "noMatches": "Ningún producto coincide con tu búsqueda.",
+    "searchPlaceholder": "Busque por nombre o SKU",
+    "noMatches": "Ningún producto coincide con su búsqueda.",
     "paginationLabel": "Páginas de productos",
     "pagination": "Página {{page}} de {{pages}} · {{count}} productos",
     "previous": "Anterior",
@@ -46,9 +46,9 @@
     "loyalty": {
       "badge": "Cliente frecuente",
       "sumarPuntos": "Sumar puntos",
-      "sumarPuntosHelp": "Reconoce al cliente al cerrar la venta."
+      "sumarPuntosHelp": "Reconozca al cliente al cerrar la venta."
     },
-    "empty": "Toca un producto para iniciar la venta.",
+    "empty": "Toque un producto para iniciar la venta.",
     "lineQty": "Cant.",
     "lineUnitPrice": "Unitario",
     "lineTotal": "Total",
@@ -58,12 +58,12 @@
     "total": "Total",
     "clear": "Limpiar carrito",
     "charge": "Cobrar venta",
-    "chargeDisabledNoSession": "Abre la caja para cobrar.",
-    "chargeDisabledNoItems": "Agrega un producto al carrito.",
-    "chargeDisabledNoSite": "Selecciona una sede activa para cobrar."
+    "chargeDisabledNoSession": "Abra la caja para cobrar.",
+    "chargeDisabledNoItems": "Agregue un producto al carrito.",
+    "chargeDisabledNoSite": "Seleccione una sede activa para cobrar."
   },
   "toast": {
-    "addedToCart": "Agregaste {{name}} al carrito",
+    "addedToCart": "Se agregó {{name}} al carrito",
     "chargeSuccess": "Venta completada",
     "chargeSuccessDescription_one": "{{count}} artículo procesado.",
     "chargeSuccessDescription_other": "{{count}} artículos procesados.",
