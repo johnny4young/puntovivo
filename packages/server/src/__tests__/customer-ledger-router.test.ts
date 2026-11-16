@@ -13,9 +13,9 @@
  * Cross-tenant attempts must throw `CUSTOMER_NOT_FOUND`.
  *
  * Role gates:
- * - list / getBalance / addPayment → manager + admin
- * - addAdjustment                  → admin only
- * - cashier never reaches any procedure
+ * - list / addPayment → manager + admin
+ * - getBalance        → cashier + manager + admin (credit-sale projection)
+ * - addAdjustment     → admin only
  *
  * Both writes are critical commands, so every mutating call needs a registered
  * device plus a command envelope. Devices claim an activeUserId, so each role
@@ -343,6 +343,55 @@ describe('customerLedger.* router', () => {
       );
       const result = await caller.customerLedger.getBalance({ customerId });
       expect(result.balance).toBe(750);
+    });
+
+    it('never sums a foreign tenant customer, even for a cashier', async () => {
+      await getDatabase().insert(customerLedgerEntries).values({
+        id: nanoid(),
+        tenantId: foreignTenantId,
+        customerId: foreignCustomerId,
+        kind: 'sale',
+        amount: 777,
+      });
+      const caller = appRouter.createCaller(
+        createCallerContext({
+          userId: cashierUserId,
+          role: 'cashier',
+          email: 'cashier@localhost',
+        })
+      );
+      const result = await caller.customerLedger.getBalance({ customerId: foreignCustomerId });
+      expect(result.balance).toBe(0);
+    });
+
+    it('lets a cashier read the balance a credit sale is projected against', async () => {
+      const customerId = await seedCustomer('Saldo Para Cajero');
+      await getDatabase()
+        .insert(customerLedgerEntries)
+        .values({ id: nanoid(), tenantId, customerId, kind: 'sale', amount: 420 });
+      const caller = appRouter.createCaller(
+        createCallerContext({
+          userId: cashierUserId,
+          role: 'cashier',
+          email: 'cashier@localhost',
+        })
+      );
+      const result = await caller.customerLedger.getBalance({ customerId });
+      expect(result.balance).toBe(420);
+    });
+
+    it('rejects viewer callers', async () => {
+      const customerId = await seedCustomer('Saldo Sin Lectura');
+      const caller = appRouter.createCaller(
+        createCallerContext({
+          userId: cashierUserId,
+          role: 'viewer',
+          email: 'viewer@localhost',
+        })
+      );
+      await expect(caller.customerLedger.getBalance({ customerId })).rejects.toMatchObject({
+        code: 'FORBIDDEN',
+      });
     });
   });
 

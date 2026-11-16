@@ -20,7 +20,7 @@ import {
   criticalCommandAdminProcedure,
   criticalCommandManagerOrAdminProcedure,
 } from '../middleware/criticalCommand.js';
-import { managerOrAdminProcedure } from '../middleware/roles.js';
+import { cashierManagerOrAdminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
 
 const listInput = z.object({
   customerId: z.string().min(1),
@@ -58,7 +58,8 @@ export const customerLedgerRouter = router({
     return rows;
   }),
 
-  getBalance: managerOrAdminProcedure
+  // Cashiers sell on credit with approval, and the cupo cannot be projected without this.
+  getBalance: cashierManagerOrAdminProcedure
     .input(z.object({ customerId: z.string().min(1) }))
     .query(async ({ ctx, input }) => {
       const result = await ctx.db
