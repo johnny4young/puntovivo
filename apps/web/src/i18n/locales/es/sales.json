@@ -63,6 +63,7 @@
     "empty": "Busca y agrega productos para iniciar una venta.",
     "items": "Artículos en carrito",
     "product": "Producto",
+    "unitPresentation": "{{unit}} × {{equivalence}}",
     "qty": "Cant.",
     "discount": "Descuento %",
     "price": "Precio",

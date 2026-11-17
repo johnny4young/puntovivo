@@ -242,4 +242,38 @@ describe('SaleCartTable', () => {
       within(cartItem).queryByRole('button', { name: 'Remove Sparkling Water' })
     ).not.toBeInTheDocument();
   });
+
+  it('labels a packaging unit so the cashier can see what is being sold', () => {
+    render(
+      <SaleCartTable
+        items={[createCartItem({ unitName: 'Pack', unitEquivalence: 12 })]}
+        selectedItemKey={null}
+        onQuantityChange={vi.fn()}
+        onDiscountChange={vi.fn()}
+        onRemove={vi.fn()}
+        onSelectItem={vi.fn()}
+        quantityInputRefFor={quantityInputRefFor}
+        discountInputRefFor={discountInputRefFor}
+      />
+    );
+
+    expect(screen.getByTestId('cart-unit-presentation-SKU-001')).toHaveTextContent('Pack × 12');
+  });
+
+  it('does not label the base unit as a packaging presentation', () => {
+    render(
+      <SaleCartTable
+        items={[createCartItem()]}
+        selectedItemKey={null}
+        onQuantityChange={vi.fn()}
+        onDiscountChange={vi.fn()}
+        onRemove={vi.fn()}
+        onSelectItem={vi.fn()}
+        quantityInputRefFor={quantityInputRefFor}
+        discountInputRefFor={discountInputRefFor}
+      />
+    );
+
+    expect(screen.queryByTestId('cart-unit-presentation-SKU-001')).not.toBeInTheDocument();
+  });
 });

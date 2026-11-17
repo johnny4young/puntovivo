@@ -144,6 +144,17 @@ export function SaleCartTable({
                 >
                   <span className="flex items-center gap-2 text-[13.5px] font-semibold text-fg1">
                     <span className="truncate">{item.productName}</span>
+                    {item.unitEquivalence !== 1 && (
+                      <span
+                        className="shrink-0 rounded-full border border-secondary-200 px-1.5 py-0.5 text-[10.5px] font-semibold uppercase tracking-wide text-secondary-500"
+                        data-testid={`cart-unit-presentation-${item.productSku}`}
+                      >
+                        {t('cart.unitPresentation', {
+                          unit: item.unitName,
+                          equivalence: item.unitEquivalence,
+                        })}
+                      </span>
+                    )}
                     {(discountSuggestions.get(item.productId) ?? 0) > 0 && (
                       <Badge
                         className="shrink-0"
