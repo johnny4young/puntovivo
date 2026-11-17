@@ -68,6 +68,21 @@ export function validateUnitAssignments(
 
     unitIds.add(assignment.unitId);
   }
+
+  // A duplicate packaging barcode makes the scanner resolve an arbitrary row,
+  // so reject it at write time instead of relying on the read tie-break.
+  const assignedBarcodes = new Set<string>();
+  for (const assignment of input) {
+    const barcode = 'barcode' in assignment ? assignment.barcode?.trim() : undefined;
+    if (!barcode) continue;
+    if (assignedBarcodes.has(barcode)) {
+      throw new TRPCError({
+        code: 'CONFLICT',
+        message: 'Each packaging barcode must be unique within a product',
+      });
+    }
+    assignedBarcodes.add(barcode);
+  }
 }
 
 export async function resolveUnitAssignments(

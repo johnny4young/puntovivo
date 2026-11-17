@@ -109,6 +109,7 @@ export function mapProductToForm(
     unitAssignments:
       product.unitAssignments?.map(assignment => ({
         unitId: assignment.unitId,
+        barcode: assignment.barcode ?? '',
         equivalence: assignment.equivalence,
         price: assignment.price,
         price2: assignment.price2 ?? 0,
