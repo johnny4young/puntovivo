@@ -1,7 +1,7 @@
 {
   "kicker": "Precios",
   "title": "Promociones",
-  "description": "Crea reglas de descuento explícitas, revisa su alcance y actívalas solo cuando estén listas. El cobro siempre valida de nuevo la versión vigente.",
+  "description": "Cree reglas de descuento explícitas, revise su alcance y actívelas solo cuando estén listas. El cobro siempre valida de nuevo la versión vigente.",
   "create": "Crear promoción",
   "edit": "Editar promoción",
   "loading": "Cargando promociones…",
@@ -27,7 +27,7 @@
   },
   "empty": {
     "title": "No hay promociones en esta vista",
-    "description": "Crea un borrador o elige otro estado. Los borradores no cambian los precios del cobro hasta que los actives."
+    "description": "Cree un borrador o elija otro estado. Los borradores no cambian los precios del cobro hasta que los active."
   },
   "targets": {
     "allProducts": "Todos los productos",
@@ -55,9 +55,9 @@
     "createTitle": "Crear borrador de promoción",
     "editTitle": "Editar promoción",
     "searchProduct": "Buscar por nombre o código del producto",
-    "chooseCategory": "Elige una categoría",
-    "selectCustomerOrClear": "Elige un cliente de la lista, o vacía el campo para aplicar a todos.",
-    "allCustomers": "Deja vacío para todos los clientes o busca uno",
+    "chooseCategory": "Elija una categoría",
+    "selectCustomerOrClear": "Elija un cliente de la lista, o vacíe el campo para aplicar a todos.",
+    "allCustomers": "Deje vacío para todos los clientes o busque uno",
     "expiryReadOnly": "Las ofertas por vencimiento nacen de sugerencias aprobadas por un administrador y no se pueden editar aquí."
   },
   "actions": {
@@ -84,7 +84,7 @@
     "PROMOTION_NOT_FOUND": "No se encontró esa promoción.",
     "PROMOTION_TARGET_INVALID": "El destino de la promoción no es válido o pertenece a otro negocio.",
     "PROMOTION_STATE_INVALID": "La promoción cambió o no permite esa acción en su estado actual.",
-    "PROMOTION_QUOTE_STALE": "Las promociones cambiaron mientras el cobro estaba abierto. Revisa el total actualizado y confirma de nuevo.",
+    "PROMOTION_QUOTE_STALE": "Las promociones cambiaron mientras el cobro estaba abierto. Revise el total actualizado y confirme de nuevo.",
     "PROMOTION_EXPIRY_PHARMACY_FORBIDDEN": "Las sugerencias por vencimiento no pueden convertirse en promociones de farmacia."
   }
 }

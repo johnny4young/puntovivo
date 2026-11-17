@@ -14,11 +14,11 @@
       "ariaLabel": "Navegación progresiva de ejemplo",
       "primary": {
         "title": "Configuración guiada",
-        "copy": "Completa lo esencial con instrucciones claras."
+        "copy": "Complete lo esencial con instrucciones claras."
       },
       "advanced": {
         "title": "Herramientas avanzadas",
-        "copy": "Abre soporte y ajustes técnicos cuando los necesites."
+        "copy": "Abra soporte y ajustes técnicos cuando los necesite."
       },
       "group": "Configuración",
       "items": {
@@ -28,8 +28,8 @@
     },
     "next": {
       "eyebrow": "Siguiente acción",
-      "title": "Confirma los datos del negocio",
-      "copy": "Completa esta información antes de configurar la facturación y los dispositivos.",
+      "title": "Confirme los datos del negocio",
+      "copy": "Complete esta información antes de configurar la facturación y los dispositivos.",
       "action": "Continuar"
     },
     "steps": {
@@ -51,24 +51,24 @@
     },
     "empty": {
       "title": "Aún no hay productos",
-      "copy": "Completa la información básica y crea el primer producto desde un único punto de inicio.",
+      "copy": "Complete la información básica y cree el primer producto desde un único punto de inicio.",
       "action": "Crear producto"
     },
     "priority": {
       "eyebrow": "Prioridad del momento",
-      "title": "Revisa el medio de pago",
+      "title": "Revise el medio de pago",
       "copy": "Una venta necesita confirmar cómo fue pagada antes de cerrar el día.",
       "meta": "1 pendiente",
       "action": "Resolver ahora"
     },
     "quickForm": {
       "eyebrow": "Formulario breve",
-      "title": "Crea lo esencial primero",
-      "copy": "Pide solo los datos necesarios para continuar y deja la configuración especializada para después.",
+      "title": "Cree lo esencial primero",
+      "copy": "Pida solo los datos necesarios para continuar y deje la configuración especializada para después.",
       "nameLabel": "Nombre del producto",
       "namePlaceholder": "Por ejemplo, Pan integral",
       "codeLabel": "Código",
-      "codePlaceholder": "Escanea o escribe",
+      "codePlaceholder": "Escanee o escriba",
       "action": "Crear producto"
     }
   },
@@ -108,7 +108,7 @@
     "eyebrow": "Entrada y selección",
     "note": "Objetivos táctiles de 44 px",
     "searchLabel": "Producto o código",
-    "searchPlaceholder": "Escanea o escribe para buscar",
+    "searchPlaceholder": "Escanee o escriba para buscar",
     "siteLabel": "Sede activa",
     "sites": {
       "north": "Sede Norte",
@@ -194,7 +194,7 @@
       "eyebrow": "Estado vacío",
       "note": "Indica el próximo paso",
       "title": "No hay coincidencias",
-      "copy": "Ajusta la búsqueda o escanea un código diferente.",
+      "copy": "Ajuste la búsqueda o escanee un código diferente.",
       "action": "Limpiar búsqueda"
     },
     "error": {
@@ -303,7 +303,7 @@
     "rows": {
       "reference": "Referencia operativa {{number}}"
     },
-    "searchPlaceholder": "Busca una referencia entre 1.000 filas",
+    "searchPlaceholder": "Busque una referencia entre 1.000 filas",
     "contract": {
       "title": "Ventana acotada, contexto completo.",
       "copy": "La virtualización limita el trabajo visual sin ocultar el total, la búsqueda ni la navegación con teclado.",

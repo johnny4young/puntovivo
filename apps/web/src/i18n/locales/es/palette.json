@@ -1,8 +1,8 @@
 {
-  "title": "¿Qué quieres hacer?",
-  "searchPlaceholder": "Escribe una tarea, producto, SKU o código…",
+  "title": "¿Qué desea hacer?",
+  "searchPlaceholder": "Escriba una tarea, producto, SKU o código…",
   "noResults": "Sin resultados",
-  "noResultsHint": "Prueba con una palabra simple, como vender, producto, existencias o cierre.",
+  "noResultsHint": "Pruebe con una palabra simple, como vender, producto, existencias o cierre.",
   "groups": {
     "navigate": "Ir a",
     "command": "Ejecutar",
@@ -18,27 +18,27 @@
     },
     "sell": {
       "label": "Hacer una venta",
-      "description": "Escanea productos, revisa el total y cobra.",
+      "description": "Escanee productos, revise el total y cobre.",
       "keywords": "vender venta caja cobrar escanear código ticket recibo"
     },
     "products": {
       "label": "Agregar o buscar productos",
-      "description": "Crea artículos y actualiza sus datos y precios.",
+      "description": "Cree artículos y actualice sus datos y precios.",
       "keywords": "producto artículo catálogo precio sku código barras crear agregar"
     },
     "inventory": {
       "label": "Revisar existencias",
-      "description": "Consulta cantidades y registra movimientos de productos.",
+      "description": "Consulte cantidades y registre movimientos de productos.",
       "keywords": "inventario existencias stock cantidad ajuste movimiento bodega"
     },
     "dayClose": {
       "label": "Cerrar el día",
-      "description": "Revisa caja y ventas antes de terminar.",
+      "description": "Revise caja y ventas antes de terminar.",
       "keywords": "cierre día turno caja ventas terminar"
     },
     "businessSetup": {
       "label": "Configurar el negocio",
-      "description": "Completa los datos esenciales de la tienda.",
+      "description": "Complete los datos esenciales de la tienda.",
       "keywords": "empresa negocio configurar tienda país idioma facturación sede"
     }
   },
@@ -76,7 +76,7 @@
     },
     "sellQuery": {
       "label": "Vender {{query}}",
-      "description": "Agrega al carrito activo y abre la caja"
+      "description": "Agregue al carrito activo y abra la caja"
     },
     "sellProduct": {
       "label": "Vender {{name}}",
@@ -85,7 +85,7 @@
     },
     "askCopilot": {
       "label": "Preguntar al copiloto: {{query}}",
-      "description": "Abre el copiloto con esta pregunta"
+      "description": "Abra el copiloto con esta pregunta"
     }
   },
   "descriptions": {
@@ -99,7 +99,7 @@
       "customerDisplay": "Pantalla orientada al cliente con la venta activa.",
       "mobileWaiter": "Tableta para tomar pedidos en mesa.",
       "restaurantTables": "Mapa de salón y catálogo de mesas para servicio en sala.",
-      "dataImport": "Revisa e importa los datos iniciales del catálogo.",
+      "dataImport": "Revise e importe los datos iniciales del catálogo.",
       "sites": "Datos de sedes y numeración de documentos.",
       "users": "Personas con acceso y sus permisos.",
       "peripherals": "Impresora, lector, cajón y otros dispositivos.",
@@ -108,10 +108,10 @@
       "fiscalReports": "Reportes y descargas para la autoridad fiscal."
     },
     "command": {
-      "newSale": "Limpia el carrito actual para empezar de nuevo.",
-      "logout": "Cierra la sesión actual en este puesto.",
-      "createProduct": "Abre el formulario para agregar un producto.",
-      "createCustomer": "Abre el formulario para agregar un cliente."
+      "newSale": "Limpie el carrito actual para empezar de nuevo.",
+      "logout": "Cierre la sesión actual en este puesto.",
+      "createProduct": "Abra el formulario para agregar un producto.",
+      "createCustomer": "Abra el formulario para agregar un cliente."
     }
   }
 }

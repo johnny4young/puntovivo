@@ -51,13 +51,13 @@ const COPY = {
     'states.live': 'En vivo',
     'states.offline.title': 'Pantalla sin conexión',
     'states.offline.description': 'Los detalles del carrito se ocultan.',
-    'states.noRegister.title': 'Abre una caja para comenzar',
-    'states.noRegister.description': 'Inicia una sesión de caja en Ventas.',
+    'states.noRegister.title': 'Abra una caja para comenzar',
+    'states.noRegister.description': 'Inicie una sesión de caja en Ventas.',
     'states.waiting.title': 'Esperando a {{register}}',
-    'states.waiting.description': 'Mantén abierta la venta activa.',
+    'states.waiting.description': 'Mantenga abierta la venta activa.',
     'states.idle.title': 'Todo listo para la próxima compra',
     'states.idle.description': 'Los productos y totales aparecerán aquí.',
-    'cart.title': 'Tu compra',
+    'cart.title': 'Su compra',
     'cart.quantity': '{{quantity}} {{unit}}',
     'cart.discount': '{{discount}} % de descuento',
     'summary.ariaLabel': 'Totales de la compra',
@@ -165,7 +165,7 @@ describe('CustomerDisplayHome', () => {
     mocks.connection = 'live';
     renderHome();
 
-    expect(await screen.findByText('Tu compra')).toBeInTheDocument();
+    expect(await screen.findByText('Su compra')).toBeInTheDocument();
     expect(screen.getByText('Café molido')).toBeInTheDocument();
     expect(screen.getByText('5 % de descuento')).toBeInTheDocument();
     expect(screen.getByTestId('customer-display-total')).toHaveTextContent('22.610');
@@ -211,7 +211,7 @@ describe('CustomerDisplayHome', () => {
     mocks.projection = displayProjection();
     mocks.connection = 'live';
     const { container } = renderHome();
-    await screen.findByText('Tu compra');
+    await screen.findByText('Su compra');
     await assertNoA11yViolations(container);
   });
 });

@@ -58,10 +58,10 @@ export async function recoverBootstrap(
   const title =
     fault.status === 429
       ? locale === 'es'
-        ? 'Tu sesión necesita un momento'
+        ? 'Su sesión necesita un momento'
         : 'Your session needs a moment'
       : locale === 'es'
-        ? 'No pudimos verificar tu sesión'
+        ? 'No pudimos verificar su sesión'
         : 'We could not verify your session';
   await expect(page.getByRole('heading', { name: title })).toBeVisible();
   await expect(page.getByRole('heading', { name: title })).toBeFocused();

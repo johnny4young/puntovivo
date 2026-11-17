@@ -58,6 +58,10 @@
       "es": "CODE_OF_CONDUCT.es.md"
     },
     {
+      "en": "THIRD-PARTY-NOTICES.md",
+      "es": "THIRD-PARTY-NOTICES.es.md"
+    },
+    {
       "en": "docs/OPERATIONS-RUNBOOKS.md",
       "es": "docs/es/OPERATIONS-RUNBOOKS.md"
     },

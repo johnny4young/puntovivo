@@ -336,7 +336,7 @@ test(
         { ...scenario.manager, defaultPath: '/dashboard' },
         { spanish: true }
       );
-      await expect(managerPage.getByText('Ventas de hoy').first()).toBeVisible();
+      await expect(managerPage.getByText('Vendido hoy').first()).toBeVisible();
       await openUserMenu(managerPage);
       const queue = managerPage.getByRole('region', { name: 'Aprobaciones' });
       const checkoutCard = queue.getByRole('article').filter({ hasText: approvalReason });
@@ -347,7 +347,7 @@ test(
       await approveButton.scrollIntoViewIfNeeded();
       await captureEvidence(managerPage, 'eng-106c2-manager-queue-es');
       await approveButton.click();
-      await checkoutCard.getByLabel('Tu PIN de personal').fill(MANAGER_PIN);
+      await checkoutCard.getByLabel('Su PIN de personal').fill(MANAGER_PIN);
       await checkoutCard.getByRole('button', { name: 'Confirmar aprobación' }).click();
       await expect(checkoutCard).toBeHidden();
 
@@ -439,7 +439,7 @@ test('admin policy blocks a cashier discount until exact approval and records ev
     await expect(approvalCard.getByText('Descuento de venta')).toBeVisible();
     await expect(approvalCard.getByText('Solicitud exacta de cobro')).toBeVisible();
     await approvalCard.getByRole('button', { name: 'Aprobar' }).click();
-    await approvalCard.getByLabel('Tu PIN de personal').fill(MANAGER_PIN);
+    await approvalCard.getByLabel('Su PIN de personal').fill(MANAGER_PIN);
     await captureEvidence(managerPage, 'eng-142a-manager-policy-approval-es');
     await approvalCard.getByRole('button', { name: 'Confirmar aprobación' }).click();
     await expect(approvalCard).toBeHidden();
@@ -577,7 +577,7 @@ test('high-value cashier discount requires two distinct approvers', async ({
     const managerCard = managerQueue.getByRole('article').filter({ hasText: approvalReason });
     await expect(managerCard.getByText('0 de 2 aprobaciones recibidas')).toBeVisible();
     await managerCard.getByRole('button', { name: 'Aprobar' }).click();
-    await managerCard.getByLabel('Tu PIN de personal').fill(MANAGER_PIN);
+    await managerCard.getByLabel('Su PIN de personal').fill(MANAGER_PIN);
     await captureEvidence(managerPage, 'eng-142c-manager-first-approval-es');
     await managerCard.getByRole('button', { name: 'Confirmar aprobación' }).click();
     await expect
@@ -604,7 +604,7 @@ test('high-value cashier discount requires two distinct approvers', async ({
       .scrollIntoViewIfNeeded();
     await captureEvidence(adminPage, 'eng-142c-admin-awaiting-second-es');
     await adminCard.getByRole('button', { name: 'Aprobar' }).click();
-    await adminCard.getByLabel('Tu PIN de personal').fill(MANAGER_PIN);
+    await adminCard.getByLabel('Su PIN de personal').fill(MANAGER_PIN);
     const adminConfirm = adminCard.getByRole('button', { name: 'Confirmar aprobación' });
     await adminConfirm.scrollIntoViewIfNeeded();
     await captureEvidence(adminPage, 'eng-142c-admin-second-approval-es');
@@ -687,7 +687,7 @@ test('manager receives, shares, and acknowledges a site alert', async ({ browser
 
     await login(managerPage, { ...scenario.manager, defaultPath: '/dashboard' }, { spanish: true });
     const alertButton = managerPage.getByRole('button', {
-      name: /Abre las alertas de prevención de pérdidas; pendientes de revisión: [1-9]\d*/,
+      name: /Abra las alertas de prevención de pérdidas; pendientes de revisión: [1-9]\d*/,
     });
     await expect(alertButton).toBeVisible({ timeout: 10_000 });
     await alertButton.click();
@@ -711,7 +711,7 @@ test('manager receives, shares, and acknowledges a site alert', async ({ browser
     await expect(alertItem.getByText(/Revisada por/)).toBeVisible();
 
     await alertDialog
-      .getByRole('button', { name: 'Cierra las alertas de prevención de pérdidas' })
+      .getByRole('button', { name: 'Cierre las alertas de prevención de pérdidas' })
       .click();
     await managerPage.setViewportSize({ width: 390, height: 844 });
     await managerPage.reload();
@@ -815,7 +815,7 @@ test('manager shift refund cap requires and consumes an exact approval', async (
     const approvalCard = queue.getByRole('article').filter({ hasText: approvalReason });
     await expect(approvalCard.getByText('Reembolso de venta')).toBeVisible();
     await approvalCard.getByRole('button', { name: 'Aprobar' }).click();
-    await approvalCard.getByLabel('Tu PIN de personal').fill(MANAGER_PIN);
+    await approvalCard.getByLabel('Su PIN de personal').fill(MANAGER_PIN);
     await captureEvidence(adminPage, 'eng-142b-admin-refund-approval-es');
     await approvalCard.getByRole('button', { name: 'Confirmar aprobación' }).click();
     await expect(approvalCard).toBeHidden();
@@ -924,7 +924,7 @@ test('cashier consumes exact refund and drawer grants without an elevated sessio
     const refundCard = queue.getByRole('article').filter({ hasText: refundReason });
     await expect(refundCard.getByText('Reembolso de venta')).toBeVisible();
     await refundCard.getByRole('button', { name: 'Aprobar' }).click();
-    await refundCard.getByLabel('Tu PIN de personal').fill(MANAGER_PIN);
+    await refundCard.getByLabel('Su PIN de personal').fill(MANAGER_PIN);
     await refundCard.getByRole('button', { name: 'Confirmar aprobación' }).click();
     await expect(refundCard).toBeHidden();
 
@@ -974,7 +974,7 @@ test('cashier consumes exact refund and drawer grants without an elevated sessio
     const drawerCard = queue.getByRole('article').filter({ hasText: drawerReason });
     await expect(drawerCard.getByText('Abrir cajón de efectivo')).toBeVisible({ timeout: 10_000 });
     await drawerCard.getByRole('button', { name: 'Aprobar' }).click();
-    await drawerCard.getByLabel('Tu PIN de personal').fill(MANAGER_PIN);
+    await drawerCard.getByLabel('Su PIN de personal').fill(MANAGER_PIN);
     await drawerCard.getByRole('button', { name: 'Confirmar aprobación' }).click();
     await expect(drawerCard).toBeHidden();
     await expect(drawerPanel.getByTestId('checkout-approval-status-cash_drawer_open')).toHaveText(

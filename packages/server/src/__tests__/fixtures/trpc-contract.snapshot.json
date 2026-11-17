@@ -1620,6 +1620,12 @@
     "output": "object{id:string,status:literal(\"queued\")}"
   },
   {
+    "path": "operations.today",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
     "path": "orders.create",
     "kind": "mutation",
     "input": "object{items:array<object>[minItems=1],notes?:string,providerId:string[minLength=1],status?:enum(\"draft\"|\"submitted\")}",
@@ -2316,6 +2322,24 @@
     "output": "inferred"
   },
   {
+    "path": "registerIncidents.listOpen",
+    "kind": "query",
+    "input": "object{siteId?:string[minLength=1,maxLength=64]}",
+    "output": "inferred"
+  },
+  {
+    "path": "registerIncidents.report",
+    "kind": "mutation",
+    "input": "object{kind:enum(\"stockout\"|\"price_mismatch\"|\"no_barcode\"),note?:string[maxLength=500],productId?:string[minLength=1,maxLength=64],reason?:enum(\"not_on_shelf\"|\"system_zero\"|\"expired\"),shelfPrice?:number[min=0,max=1000000000]}",
+    "output": "inferred"
+  },
+  {
+    "path": "registerIncidents.resolve",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1,maxLength=64],note?:string[maxLength=500]}",
+    "output": "inferred"
+  },
+  {
     "path": "reports.accounting.rememberSite",
     "kind": "mutation",
     "input": "object{siteId:string[minLength=1]|null}",
@@ -2559,6 +2583,12 @@
     "path": "sales.electronicInvoiceAvailability",
     "kind": "query",
     "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "sales.findByReceipt",
+    "kind": "query",
+    "input": "object{code:string[minLength=1,maxLength=512]}",
     "output": "inferred"
   },
   {

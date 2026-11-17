@@ -28,6 +28,7 @@ describe('Button', () => {
       'w-8'
     );
     expect(buttonVariants({ variant: 'outline' })).toContain('btn-outline');
+    expect(buttonVariants({ variant: 'charge' })).toContain('btn-charge');
     expect(buttonVariants({ size: 'icon' })).toContain('h-11 min-h-11 w-11');
   });
 

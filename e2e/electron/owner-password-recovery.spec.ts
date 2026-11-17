@@ -32,7 +32,7 @@ test('lets the sole owner without a recovery code reset the password from this c
   await page.getByRole('button', { name: /user menu|menú de usuario/i }).click();
   await page.getByRole('button', { name: /^(Sign out|Cerrar sesión)$/ }).click();
   await page
-    .getByRole('button', { name: /^(Forgot your password\?|¿Olvidaste tu contraseña\?)$/ })
+    .getByRole('button', { name: /^(Forgot your password\?|¿Olvidó su contraseña\?)$/ })
     .click({ timeout: 30_000 });
   await expect(
     page.getByText(/only user of this installation|único usuario de esta instalación/)

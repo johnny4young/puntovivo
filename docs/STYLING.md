@@ -2,7 +2,7 @@
 
 **Language:** English · [Español](es/STYLING.md)
 
-> Updated: April 9, 2026
+> Updated: November 15, 2026
 
 ## Current Styling Stack
 
@@ -56,13 +56,22 @@ These are consumed directly in Tailwind utility classes such as:
 
 ## Typography and Layout Tokens
 
-The current theme also defines:
+Fonts are bundled (see [THIRD-PARTY-NOTICES.md](../THIRD-PARTY-NOTICES.md)):
 
-- `--font-sans`
-- `--font-mono`
-- custom spacing tokens
-- custom shadows
-- custom animations
+- `font-sans` (Instrument Sans): interface text.
+- `font-display` (Bricolage Grotesque, width 88): titles. `h1`–`h3` use it by default.
+- `font-numeric` (Bricolage Grotesque, width 80, tabular lining figures): money and counts.
+- `font-mono` (DM Mono): codes, SKUs and key caps (`.pv-kbd`).
+
+Palette roles: ink on cool paper for the interface; blue (`primary`) for live
+state and focus; orange only for Cobrar (`bg-cobrar`, `Button variant="charge"`);
+the navy `rail` for navigation and the brand tile. Severity uses
+`SeverityMark`, which pairs shape and colour: diamond = blocks, half circle =
+before closing, empty circle = when possible, check = ready.
+
+Rules: no leading colour bar on rows, cards or notices (use a tint, weight,
+an icon or a full border); one primary action per screen; text contrast at
+least 4.5:1 in light and dark (`scripts/check-contrast.mjs`).
 
 ## Component Variant Pattern
 

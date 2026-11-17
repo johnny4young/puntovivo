@@ -1,7 +1,7 @@
 {
   "kicker": "Administración privada del personal",
   "title": "Pre-nómina Colombia",
-  "description": "Prepara, revisa y aprueba evidencia trazable para nómina. Este espacio no es nómina electrónica certificada ni reemplaza la revisión legal o contable.",
+  "description": "Prepare, revise y apruebe evidencia trazable para nómina. Este espacio no es nómina electrónica certificada ni reemplaza la revisión legal o contable.",
   "forbidden": "Solo los administradores pueden acceder a la evidencia privada de pre-nómina.",
   "views": {
     "label": "Vistas de pre-nómina",
@@ -23,17 +23,17 @@
   },
   "validation": {
     "required": "Este campo es obligatorio.",
-    "date": "Ingresa una fecha calendario válida.",
-    "window": "Usa una fecha final válida y posterior a la inicial.",
+    "date": "Ingrese una fecha calendario válida.",
+    "window": "Use una fecha final válida y posterior a la inicial.",
     "periodSpan": "Un periodo de pre-nómina no puede superar 31 días calendario.",
     "payDate": "La fecha de pago no puede ser anterior al inicio del periodo.",
     "replacementDate": "El reemplazo debe comenzar dentro del periodo del perfil seleccionado.",
-    "accountLast4": "Ingresa exactamente los últimos cuatro dígitos de la cuenta.",
-    "reason": "Registra al menos 10 caracteres de evidencia privada de revisión."
+    "accountLast4": "Ingrese exactamente los últimos cuatro dígitos de la cuenta.",
+    "reason": "Registre al menos 10 caracteres de evidencia privada de revisión."
   },
   "profiles": {
     "title": "Perfiles de nómina de empleados",
-    "description": "Guarda solo la identidad, aportes y evidencia de pago necesarios para el cálculo. Cada corrección crea un nuevo registro efectivo.",
+    "description": "Guarde solo la identidad, aportes y evidencia de pago necesarios para el cálculo. Cada corrección crea un nuevo registro efectivo.",
     "empty": "Ningún perfil de nómina coincide con estos filtros.",
     "loadError": "No se pudieron cargar los perfiles de nómina.",
     "saveError": "No se pudo guardar el cambio del perfil de nómina.",
@@ -58,14 +58,14 @@
       "history": "Historial"
     },
     "notices": {
-      "create": "Usa la evidencia revisada de nómina y aportes del empleado. El perfil no crea un contrato laboral.",
+      "create": "Use la evidencia revisada de nómina y aportes del empleado. El perfil no crea un contrato laboral.",
       "replace": "El perfil seleccionado terminará justo antes de iniciar este reemplazo. La evidencia histórica no se reescribe.",
-      "end": "Elige la fecha final exclusiva. Las versiones calculadas existentes permanecen congeladas.",
-      "void": "Anula únicamente evidencia incorrecta. Esta acción no reactiva ni reescribe una versión calculada."
+      "end": "Elija la fecha final exclusiva. Las versiones calculadas existentes permanecen congeladas.",
+      "void": "Anule únicamente evidencia incorrecta. Esta acción no reactiva ni reescribe una versión calculada."
     },
     "fields": {
       "site": "Sede",
-      "chooseSite": "Elige una sede activa",
+      "chooseSite": "Elija una sede activa",
       "effectiveFrom": "Vigente desde",
       "effectiveUntil": "Vigente hasta",
       "identificationType": "Tipo de identificación",
@@ -156,7 +156,7 @@
     "revision": "Versión de cálculo actual {{revision}}",
     "version": "Versión {{version}}",
     "detailsTitle": "Evidencia inmutable de pre-nómina",
-    "noRevision": "Calcula la primera versión antes de revisarla.",
+    "noRevision": "Calcule la primera versión antes de revisarla.",
     "revisionOption": "Versión {{revision}} · {{status}}",
     "revisionsTruncated": "Solo se muestran las 100 versiones de cálculo más recientes.",
     "eventsTruncated": "Solo se muestran los 100 eventos de ciclo de vida más recientes.",
@@ -197,9 +197,9 @@
     "approveTitle": "¿Aprobar la versión exacta?",
     "reviewNotice": "Esto marca la versión {{revision}} como revisada solo si todos los resultados de empleados están completos.",
     "approveNotice": "Esto congela la versión {{revision}} como resultado interno aprobado de pre-nómina.",
-    "createNotice": "Crea una corrida desde {{from}} hasta {{until}}. Cada periodo admite una sola corrida regular.",
+    "createNotice": "Cree una corrida desde {{from}} hasta {{until}}. Cada periodo admite una sola corrida regular.",
     "originalOption": "Desde {{from}} hasta {{until}} · {{id}}",
-    "originalsTruncated": "Aquí solo están disponibles las 100 corridas aprobadas más recientes. Delimita la operación antes de continuar.",
+    "originalsTruncated": "Aquí solo están disponibles las 100 corridas aprobadas más recientes. Delimite la operación antes de continuar.",
     "actions": {
       "create": "Crear corrida",
       "details": "Ver evidencia",
@@ -227,7 +227,7 @@
       "currentRevision": "Versión de cálculo actual",
       "revision": "Versión de cálculo",
       "originalRun": "Corrida de origen aprobada",
-      "chooseOriginal": "Elige una corrida aprobada"
+      "chooseOriginal": "Elija una corrida aprobada"
     },
     "totals": {
       "gross": "Devengado bruto",
@@ -244,33 +244,33 @@
     "recalculate": {
       "title": "Calcular versión inmutable",
       "noticeTitle": "Se requiere revisión explícita de nómina",
-      "notice": "Se incluye a cada empleado con evidencia efectiva de nómina para todo el periodo. Revisa cada valor; los datos no revisados o no soportados quedan bloqueados y no se pueden aprobar.",
+      "notice": "Se incluye a cada empleado con evidencia efectiva de nómina para todo el periodo. Revise cada valor; los datos no revisados o no soportados quedan bloqueados y no se pueden aprobar.",
       "adjustmentNotice": "Los ajustes reutilizan la autoridad del origen aprobado. La base automática debe permanecer en cero y cada empleado necesita un concepto manual distinto de cero.",
-      "employeeLimit": "Coinciden más de 100 perfiles o contratos. Delimita los datos de empleados antes de calcular; las filas ocultas no se envían.",
-      "preparationBlocked": "Resuelve cada registro efectivo de nómina ausente, superpuesto o incompatible antes de calcular. Ningún empleado se omitirá silenciosamente.",
-      "preparationStale": "La corrida cambió mientras se cargaba la evidencia de empleados. Cierra y vuelve a abrir el cálculo.",
+      "employeeLimit": "Coinciden más de 100 perfiles o contratos. Delimite los datos de empleados antes de calcular; las filas ocultas no se envían.",
+      "preparationBlocked": "Resuelva cada registro efectivo de nómina ausente, superpuesto o incompatible antes de calcular. Ningún empleado se omitirá silenciosamente.",
+      "preparationStale": "La corrida cambió mientras se cargaba la evidencia de empleados. Cierre y vuelva a abrir el cálculo.",
       "employeeConfigurationBlocked": "Este empleado necesita un perfil y un contrato laboral compatibles que cubran todo el periodo.",
-      "attendanceBlocked": "Resuelve la evidencia de asistencia abierta, superpuesta o incompleta antes de calcular.",
+      "attendanceBlocked": "Resuelva la evidencia de asistencia abierta, superpuesta o incompleta antes de calcular.",
       "derivedWorkedHours": "Horas derivadas de asistencia: {{hours}}. Este valor autoritativo está bloqueado y se envía en segundos exactos.",
       "unknownEmployee": "Empleado no disponible",
       "unknownSite": "Sede no disponible",
       "historicalInactive": "Este empleado o su sede figura como inactivo actualmente; la evidencia histórica efectiva se conserva incluida.",
       "configurationBlockers": {
-        "missing_profile": "Crea un perfil de nómina que cubra todo el periodo.",
-        "missing_contract": "Crea un contrato laboral que cubra todo el periodo.",
-        "ambiguous_profile": "Finaliza o anula los perfiles de nómina superpuestos.",
-        "ambiguous_contract": "Finaliza o anula los contratos laborales superpuestos.",
-        "profile_site_mismatch": "Usa la misma sede en el perfil de nómina y el contrato laboral.",
-        "profile_contract_window_mismatch": "Alinea el perfil de nómina y el contrato laboral para que compartan fechas cubiertas en este periodo.",
-        "unsupported_country": "Usa un perfil de nómina revisado para Colombia.",
-        "unsupported_currency": "Usa compensación en COP para este periodo de Colombia.",
-        "time_zone_mismatch": "Alinea la zona horaria del contrato laboral con la del negocio.",
-        "missing_employee": "Restaura o corrige el registro de empleado referenciado.",
-        "missing_site": "Restaura o corrige el registro de sede referenciado.",
+        "missing_profile": "Cree un perfil de nómina que cubra todo el periodo.",
+        "missing_contract": "Cree un contrato laboral que cubra todo el periodo.",
+        "ambiguous_profile": "Finalice o anule los perfiles de nómina superpuestos.",
+        "ambiguous_contract": "Finalice o anule los contratos laborales superpuestos.",
+        "profile_site_mismatch": "Use la misma sede en el perfil de nómina y el contrato laboral.",
+        "profile_contract_window_mismatch": "Alinee el perfil de nómina y el contrato laboral para que compartan fechas cubiertas en este periodo.",
+        "unsupported_country": "Use un perfil de nómina revisado para Colombia.",
+        "unsupported_currency": "Use compensación en COP para este periodo de Colombia.",
+        "time_zone_mismatch": "Alinee la zona horaria del contrato laboral con la del negocio.",
+        "missing_employee": "Restaure o corrija el registro de empleado referenciado.",
+        "missing_site": "Restaure o corrija el registro de sede referenciado.",
         "employee_limit_exceeded": "Esta corrida supera el límite soportado de 500 empleados. Para dividirla se necesita un diseño revisado antes de continuar."
       },
       "noEligible": "Ningún empleado tiene un perfil y un contrato coincidentes para todo el periodo.",
-      "validation": "Selecciona al menos un empleado y completa cada valor visible con un motivo privado de revisión. Debes reconocer la política.",
+      "validation": "Seleccione al menos un empleado y complete cada valor visible con un motivo privado de revisión. Debe reconocer la política.",
       "basis": {
         "monthly": "Compensación mensual",
         "hourly": "Compensación por hora"

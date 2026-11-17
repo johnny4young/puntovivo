@@ -39,9 +39,9 @@ describe('OfflineModePanel', () => {
     expect(screen.getByTestId('offline-sync-queue-list-stub')).toBeInTheDocument();
   });
 
-  it('uses neutral LATAM tu Spanish reassurance copy on es locale flip', async () => {
+  it('uses neutral LATAM usted Spanish reassurance copy on es locale flip', async () => {
     await i18next.changeLanguage('es');
     render(<OfflineModePanel visible={true} />);
-    expect(screen.getByTestId('offline-mode-reassurance')).toHaveTextContent(/sigue vendiendo/i);
+    expect(screen.getByTestId('offline-mode-reassurance')).toHaveTextContent(/siga vendiendo/i);
   });
 });

@@ -53,9 +53,9 @@ async function openRecovery() {
     target: { value: 'owner@example.com' },
   });
   await act(async () => {
-    fireEvent.click(screen.getByRole('button', { name: '¿Olvidaste tu contraseña?' }));
+    fireEvent.click(screen.getByRole('button', { name: '¿Olvidó su contraseña?' }));
   });
-  expect(screen.getByRole('heading', { name: 'Restablece tu contraseña' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Restablezca su contraseña' })).toBeInTheDocument();
 }
 
 beforeEach(async () => {
@@ -76,7 +76,7 @@ describe('forgotten password with a recovery code', () => {
     await openRecovery();
     expect(
       screen.getByText(
-        '¿No tienes código? Pide a un administrador que restablezca tu contraseña en Usuarios.'
+        '¿No tiene código? Pida a un administrador que restablezca su contraseña en Usuarios.'
       )
     ).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Código de recuperación'), {
@@ -93,7 +93,7 @@ describe('forgotten password with a recovery code', () => {
       })
     );
     expect(
-      await screen.findByText('Contraseña actualizada. Inicia sesión con la nueva.')
+      await screen.findByText('Contraseña actualizada. Inicie sesión con la nueva.')
     ).toBeInTheDocument();
     expect(screen.getByLabelText('Correo electrónico')).toHaveValue('owner@example.com');
   });
@@ -112,7 +112,7 @@ describe('forgotten password with a recovery code', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'El correo o el código de recuperación no son correctos.'
     );
-    expect(screen.getByRole('heading', { name: 'Restablece tu contraseña' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Restablezca su contraseña' })).toBeInTheDocument();
   });
 
   it('validates the password policy before calling the server', async () => {
@@ -134,7 +134,7 @@ describe('forgotten password on the owner computer', () => {
     await openRecovery();
     expect(
       await screen.findByText(
-        'Eres el único usuario de esta instalación, así que puedes crear una contraseña nueva desde este equipo.'
+        'Es el único usuario de esta instalación, así que puede crear una contraseña nueva desde este equipo.'
       )
     ).toBeInTheDocument();
     expect(screen.queryByLabelText('Código de recuperación')).not.toBeInTheDocument();
@@ -148,7 +148,7 @@ describe('forgotten password on the owner computer', () => {
       })
     );
     expect(
-      await screen.findByText('Contraseña actualizada. Inicia sesión con la nueva.')
+      await screen.findByText('Contraseña actualizada. Inicie sesión con la nueva.')
     ).toBeInTheDocument();
     expect(mocks.recoverWithCode).not.toHaveBeenCalled();
   });
@@ -159,7 +159,7 @@ describe('forgotten password on the owner computer', () => {
       vi.fn(async () => ({ ok: false, errorCode: 'AUTH_LOCAL_RECOVERY_EMAIL_MISMATCH' }))
     );
     await openRecovery();
-    await screen.findByText(/Eres el único usuario/);
+    await screen.findByText(/Es el único usuario/);
     fillPasswords();
     fireEvent.click(screen.getByRole('button', { name: 'Guardar contraseña' }));
 

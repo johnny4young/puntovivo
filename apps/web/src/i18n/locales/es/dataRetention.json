@@ -1,6 +1,6 @@
 {
   "title": "Retención de datos",
-  "description": "Controla cuánto tiempo permanecen en este equipo los datos auxiliares que no son registros comerciales definitivos. La limpieza se ejecuta automáticamente cada día.",
+  "description": "Controle cuánto tiempo permanecen en este equipo los datos auxiliares que no son registros comerciales definitivos. La limpieza se ejecuta automáticamente cada día.",
   "loading": "Cargando la política de retención...",
   "fields": {
     "operationalAuditDays": {
@@ -21,7 +21,7 @@
     }
   },
   "validation": {
-    "range": "Ingresa un número entero entre {{min}} y {{max}}.",
+    "range": "Ingrese un número entero entre {{min}} y {{max}}.",
     "privacyFloor": "La evidencia de solicitudes de privacidad no puede conservarse menos tiempo que el historial de auditoría operativa."
   },
   "save": "Guardar política de retención",
@@ -42,7 +42,7 @@
       "syncedOutboxRows": "Registros terminales de sincronización"
     }
   },
-  "legalHold": "Esta política nunca elimina ventas, documentos fiscales, pagos, sesiones de caja, movimientos de inventario ni evidencia transaccional vinculada a clientes. Verifica los requisitos legales locales antes de reducir un periodo de retención.",
+  "legalHold": "Esta política nunca elimina ventas, documentos fiscales, pagos, sesiones de caja, movimientos de inventario ni evidencia transaccional vinculada a clientes. Verifique los requisitos legales locales antes de reducir un periodo de retención.",
   "confirm": {
     "title": "¿Eliminar los datos auxiliares vencidos?",
     "message_one": "Esta acción elimina definitivamente {{count}} fila elegible. Los registros comerciales definitivos no se modifican.",

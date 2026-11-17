@@ -230,7 +230,7 @@ describe('PeripheralsPage', () => {
     const emptyState = screen.getByTestId('peripherals-empty-state');
     expect(screen.getByRole('heading', { name: 'Dispositivos' })).toBeInTheDocument();
     expect(emptyState).toHaveTextContent('Aún no hay dispositivos');
-    expect(emptyState).toHaveTextContent('Agrega un dispositivo para que Puntovivo pueda usarlo.');
+    expect(emptyState).toHaveTextContent('Agregue un dispositivo para que Puntovivo pueda usarlo.');
     expect(emptyState).not.toHaveTextContent(/periférico|registry/i);
   });
 

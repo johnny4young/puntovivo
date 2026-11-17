@@ -90,7 +90,7 @@ export function CashSessionOpenModal({
       title={t('cashSession.form.title')}
       description={t('cashSession.form.description', {
         defaultValue:
-          'Cuenta el efectivo inicial por denominación. El total debe coincidir con la base de apertura antes de habilitar la caja.',
+          'Cuente el efectivo inicial por denominación. El total debe coincidir con la base de apertura antes de habilitar la caja.',
       })}
       headerAside={
         <span className="hidden items-center gap-2 rounded-full border border-warning-500/30 bg-warning-50/70 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-warning-700 sm:inline-flex">

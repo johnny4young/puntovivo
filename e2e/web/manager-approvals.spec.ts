@@ -39,7 +39,7 @@ test.describe('manager approval queue', () => {
         currencyCode: 'USD',
       });
       await loginAs(page, 'manager');
-      await expect(page.getByText("Today's sales").first()).toBeVisible();
+      await expect(page.getByText('Sold today').first()).toBeVisible();
       await openUserMenu(page);
 
       let queue = page.getByRole('region', { name: 'Approvals' });
@@ -74,7 +74,7 @@ test.describe('manager approval queue', () => {
         .filter({ hasText: 'El descuento requiere una segunda revisión' });
       await expect(spanishCard.getByText('Descuento de venta')).toBeVisible();
       await spanishCard.getByRole('button', { name: 'Rechazar' }).click();
-      await spanishCard.getByLabel('Tu PIN de personal').fill(E2E_MANAGER_APPROVAL_PIN);
+      await spanishCard.getByLabel('Su PIN de personal').fill(E2E_MANAGER_APPROVAL_PIN);
       await spanishCard.getByLabel('Motivo del rechazo').fill('Falta validar el soporte');
       await page.evaluate(() => window.scrollTo(0, 0));
       await page.locator('#header-user-menu').evaluate(element => {

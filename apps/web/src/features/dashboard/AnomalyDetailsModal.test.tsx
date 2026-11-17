@@ -88,9 +88,7 @@ describe('AnomalyDetailsModal', () => {
     render(<AnomalyDetailsModal isOpen={true} onClose={vi.fn()} alerts={alerts} />);
     // Find any button inside a <th> and click it twice — covers both
     // sort directions without depending on locale-specific text.
-    const headerButtons = screen
-      .getAllByRole('button')
-      .filter(btn => btn.closest('th') !== null);
+    const headerButtons = screen.getAllByRole('button').filter(btn => btn.closest('th') !== null);
     expect(headerButtons.length).toBeGreaterThan(0);
     // `length > 0` guard above guarantees `[0]`; `!` narrows for
     // `noUncheckedIndexedAccess`. reason: post-length-check invariant.

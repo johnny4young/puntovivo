@@ -20,7 +20,7 @@
     "byProduct": {
       "title": "Por producto",
       "emptyTitle": "Sin ventas en este rango",
-      "emptyState": "No hay ventas completadas en las fechas seleccionadas. Ajusta el rango para ver la rentabilidad por producto.",
+      "emptyState": "No hay ventas completadas en las fechas seleccionadas. Ajuste el rango para ver la rentabilidad por producto.",
       "columns": {
         "product": "Producto",
         "quantity": "Cantidad",
@@ -34,7 +34,7 @@
   "dayClose": {
     "kicker": "Control diario",
     "title": "Cierre del día",
-    "description": "Revisa la evidencia completa del día del negocio antes de la firma del responsable: ventas, medios de pago, cajas, documentos fiscales, ajustes y señales de anomalía.",
+    "description": "Revise la evidencia completa del día del negocio antes de la firma del responsable: ventas, medios de pago, cajas, documentos fiscales, ajustes y señales de anomalía.",
     "dateLabel": "Día comercial",
     "refresh": "Actualizar reporte",
     "loading": "Preparando el reporte de cierre…",
@@ -56,8 +56,8 @@
     },
     "signoff": {
       "title": "Firma del responsable",
-      "description": "Confirma tu revisión para guardar este reporte exacto como evidencia permanente del día comercial.",
-      "blocked": "Resuelve los bloqueos anteriores antes de firmar este reporte.",
+      "description": "Confirme su revisión para guardar este reporte exacto como evidencia permanente del día comercial.",
+      "blocked": "Resuelva los bloqueos anteriores antes de firmar este reporte.",
       "attestation": "Revisé este reporte y confirmo que representa el día comercial indicado.",
       "action": "Firmar cierre",
       "confirmTitle": "¿Proteger la evidencia de este cierre?",
@@ -187,7 +187,7 @@
   "accounting": {
     "kicker": "Entrega al contador",
     "title": "Exportar al contador",
-    "description": "Exporta las ventas completadas y devoluciones en su periodo contable como archivos para Siigo, Alegra, World Office o cualquier sistema contable. Los códigos propios de cada software van vacíos a propósito: tu contador los mapea una sola vez.",
+    "description": "Exporte las ventas completadas y devoluciones en su periodo contable como archivos para Siigo, Alegra, World Office o cualquier sistema contable. Los códigos propios de cada software van vacíos a propósito: su contador los mapea una sola vez.",
     "filters": {
       "from": "Desde",
       "to": "Hasta",
@@ -196,9 +196,9 @@
       "siteSaved": "Esta sede se usará la próxima vez que la empresa abra la exportación.",
       "siteSaveError": "No se pudo guardar la preferencia de sede.",
       "siteLoadError": "No se pudieron cargar las sedes. La exportación contable seguirá deshabilitada.",
-      "invalidRange": "Elige fechas completas, con Desde anterior o igual a Hasta. No se consultará ni exportará información hasta que el rango sea válido."
+      "invalidRange": "Elija fechas completas, con Desde anterior o igual a Hasta. No se consultará ni exportará información hasta que el rango sea válido."
     },
-    "truncated": "Este periodo devolvió más eventos contables de los que una exportación puede llevar, así que el archivo quedaría incompleto. Exporta en periodos más cortos (o filtra por sede) antes de entregarle algo a tu contador.",
+    "truncated": "Este periodo devolvió más eventos contables de los que una exportación puede llevar, así que el archivo quedaría incompleto. Exporte en periodos más cortos (o filtre por sede) antes de entregarle algo a su contador.",
     "kpi": {
       "vouchers": "Eventos contables",
       "total": "Total neto",
@@ -206,18 +206,18 @@
     },
     "empty": {
       "title": "Sin eventos contables en este rango",
-      "description": "Ajusta las fechas a un periodo con actividad de ventas o devoluciones."
+      "description": "Ajuste las fechas a un periodo con actividad de ventas o devoluciones."
     },
     "siigo": {
       "title": "Siigo (facturas de venta)",
-      "description": "CSV con las columnas documentadas de facturas de venta de Siigo Nube, una fila por línea de producto y hasta 500 filas por archivo. Los periodos grandes se descargan en un solo ZIP. Completa los códigos de tu empresa antes de subirlo; la importación aún no se ha validado con una cuenta real de Siigo.",
+      "description": "CSV con las columnas documentadas de facturas de venta de Siigo Nube, una fila por línea de producto y hasta 500 filas por archivo. Los periodos grandes se descargan en un solo ZIP. Complete los códigos de su empresa antes de subirlo; la importación aún no se ha validado con una cuenta real de Siigo.",
       "cta": "Descargar CSV Siigo",
       "multiFile": "Se descargó un ZIP con {{count}} archivos CSV limitados.",
       "exportError": "No se pudo crear el archivo de Siigo. No se produjo una descarga parcial."
     },
     "journal": {
       "title": "Comprobantes contables (Alegra)",
-      "description": "Un asiento balanceado por cada venta o devolución, fechado en su periodo contable y sobre cuentas PUC editables. Impórtalo con el mapeo de columnas.",
+      "description": "Un asiento balanceado por cada venta o devolución, fechado en su periodo contable y sobre cuentas PUC editables. Impórtelo con el mapeo de columnas.",
       "cta": "Descargar CSV de comprobantes",
       "voucher": "Comprobante",
       "date": "Fecha",
@@ -230,10 +230,10 @@
     },
     "settings": {
       "title": "Configuración de cuentas PUC",
-      "description": "Los valores predeterminados de la versión {{version}} se guardan por empresa. Usa entre 4 y 12 dígitos y empieza con un número del 1 al 9 para cuentas o auxiliares; las exportaciones nunca inventan mapeos propios de un proveedor.",
+      "description": "Los valores predeterminados de la versión {{version}} se guardan por empresa. Use entre 4 y 12 dígitos y empiece con un número del 1 al 9 para cuentas o auxiliares; las exportaciones nunca inventan mapeos propios de un proveedor.",
       "paymentAccounts": "Cuentas débito por medio de pago",
       "ledgerAccounts": "Cuentas de ingresos, impuestos y ajustes",
-      "codeHint": "Usa entre 4 y 12 dígitos y no empieces con cero. La compatibilidad con Siigo, Alegra y World Office todavía requiere una prueba real con el importador de tu contador.",
+      "codeHint": "Use entre 4 y 12 dígitos y no empiece con cero. La compatibilidad con Siigo, Alegra y World Office todavía requiere una prueba real con el importador de su contador.",
       "save": "Guardar cuentas PUC",
       "restoreDefaults": "Restaurar valores de la versión",
       "saved": "Se guardaron las cuentas PUC.",
@@ -288,8 +288,8 @@
       "fiscalCufe": "CUFE/CUDE",
       "fiscalStatus": "Estado fiscal"
     },
-    "unreconciled": "{{count}} venta(s) tienen impuestos que no cuadran con sus líneas ({{sales}}). Exportarlas clasificaría impuesto como ingreso; resuélvelas antes de exportar.",
-    "paymentUnreconciled": "{{count}} devolución(es) no cuadran con sus destinos de pago registrados ({{sales}}). Exportarlas inventaría dinero o lo movería entre cuentas; repara los registros antes de exportar.",
-    "siigoCollision": "Dos ventas de sedes distintas comparten el mismo número de factura ({{consecutives}}) y Siigo las uniría en un solo documento. Exporta una sede a la vez con el filtro de sede."
+    "unreconciled": "{{count}} venta(s) tienen impuestos que no cuadran con sus líneas ({{sales}}). Exportarlas clasificaría impuesto como ingreso; resuélvalas antes de exportar.",
+    "paymentUnreconciled": "{{count}} devolución(es) no cuadran con sus destinos de pago registrados ({{sales}}). Exportarlas inventaría dinero o lo movería entre cuentas; repare los registros antes de exportar.",
+    "siigoCollision": "Dos ventas de sedes distintas comparten el mismo número de factura ({{consecutives}}) y Siigo las uniría en un solo documento. Exporte una sede a la vez con el filtro de sede."
   }
 }

@@ -14,7 +14,7 @@ const adminRoutes = [
   {
     label: 'See what matters today',
     path: '/dashboard',
-    assertion: async page => page.getByText(/Today's Sales|Ventas de hoy/i).first(),
+    assertion: async page => page.getByText(/Sold today|Vendido hoy/i).first(),
   },
   {
     label: 'Make a sale',
@@ -82,7 +82,7 @@ const adminRoutes = [
     path: '/company',
     assertion: async page =>
       page.getByRole('heading', {
-        name: /Prepare the business without getting lost|Prepara el negocio sin perderte/i,
+        name: /Prepare the business without getting lost|Prepare el negocio sin perderse/i,
       }),
   },
   {
@@ -585,7 +585,7 @@ test.describe('web smoke', () => {
     await expect(page.getByText('Operación segura entre sedes')).toBeVisible();
     await expect(
       page.getByText(
-        'Usa tus credenciales de puesto de trabajo para acceder a ventas, inventario, compras y configuración de tu negocio.'
+        'Use sus credenciales de puesto de trabajo para acceder a ventas, inventario, compras y configuración de su negocio.'
       )
     ).toBeVisible();
     await expect(page.getByText(/tenant/i)).toHaveCount(0);
@@ -600,8 +600,8 @@ test.describe('web smoke', () => {
     await expect(page.getByTestId('sidebar-primary-task-inventory')).toContainText(
       'Revisar existencias'
     );
-    await expect(page.getByText('Ventas de hoy')).toBeVisible();
-    await expect(page.getByText('todas las sedes')).toBeVisible();
+    await expect(page.getByText('Vendido hoy')).toBeVisible();
+    await expect(page.getByTestId('today-sales-total')).toBeVisible();
     await expect(page.getByText(/tenant activo/i)).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Ingresos 30 días' })).toBeVisible();
 

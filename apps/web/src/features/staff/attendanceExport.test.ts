@@ -147,10 +147,10 @@ describe('attendance payroll and accounting exports', () => {
       'Resumen',
       'Evidencia',
       'Recargos',
-      'Léeme',
+      'Léame',
     ]);
     expect(workbook.getWorksheet('Resumen')!.getCell('B1').value).toBe('Empleado');
-    expect(workbook.getWorksheet('Léeme')!.getCell('B9').value).toContain(
+    expect(workbook.getWorksheet('Léame')!.getCell('B9').value).toContain(
       'no es un cálculo de nómina'
     );
   });

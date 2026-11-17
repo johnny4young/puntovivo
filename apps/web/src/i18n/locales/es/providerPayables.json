@@ -1,7 +1,7 @@
 {
   "directory": {
     "title": "Cuentas de proveedores",
-    "description": "Registra documentos, revisa vencimientos y salda cada cuenta sin modificar el catálogo de proveedores.",
+    "description": "Registre documentos, revise vencimientos y salde cada cuenta sin modificar el catálogo de proveedores.",
     "column": "Cuenta",
     "open": "Abrir cuenta",
     "openLabel": "Abrir la cuenta de {{provider}}"
@@ -43,7 +43,7 @@
     "notes": "Notas (opcionales)",
     "allocationTitle": "Primero las facturas más antiguas",
     "allocationSummary": "{{allocated}} asignado de {{amount}}",
-    "allocationInsufficient": "El monto supera el saldo abierto. Ingresa un monto que pueda asignarse por completo.",
+    "allocationInsufficient": "El monto supera el saldo abierto. Ingrese un monto que pueda asignarse por completo.",
     "dateInvalid": "La fecha de vencimiento no puede ser anterior a la fecha del documento.",
     "saving": "Guardando…",
     "invoice": {
@@ -108,9 +108,9 @@
   },
   "uninvoiced": {
     "title": "Compras completadas sin factura del proveedor",
-    "description_one": "{{count}} compra completada permanece fuera de cuentas por pagar hasta que registres el documento del proveedor.",
-    "description_other": "{{count}} compras completadas permanecen fuera de cuentas por pagar hasta que registres el documento del proveedor.",
-    "truncated": "La vista previa muestra {{shown}} de {{total}} compras. Registra una factura para buscar o recorrer todas las compras disponibles."
+    "description_one": "{{count}} compra completada permanece fuera de cuentas por pagar hasta que registre el documento del proveedor.",
+    "description_other": "{{count}} compras completadas permanecen fuera de cuentas por pagar hasta que registre el documento del proveedor.",
+    "truncated": "La vista previa muestra {{shown}} de {{total}} compras. Registre una factura para buscar o recorrer todas las compras disponibles."
   },
   "toast": {
     "invoice": "Factura del proveedor registrada",
@@ -121,8 +121,8 @@
   },
   "purchasePicker": {
     "search": "Buscar por número de compra",
-    "description": "Busca o recorre todas las compras completadas sin facturar de este proveedor. Cada opción incluye su sede. Tu selección se conserva al cambiar de página.",
-    "error": "No se pudieron cargar las compras disponibles. Inténtalo de nuevo.",
+    "description": "Busque o recorra todas las compras completadas sin facturar de este proveedor. Cada opción incluye su sede. Su selección se conserva al cambiar de página.",
+    "error": "No se pudieron cargar las compras disponibles. Inténtelo de nuevo.",
     "loading": "Cargando compras…",
     "empty": "No hay compras sin facturar que coincidan con la búsqueda.",
     "total_one": "{{count}} compra disponible",

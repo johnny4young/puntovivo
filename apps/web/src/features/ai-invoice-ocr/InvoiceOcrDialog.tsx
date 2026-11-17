@@ -130,7 +130,7 @@ export function InvoiceOcrDialog({ open, onClose, providers, onConfirmed }: Invo
           title: t('invoiceOcr:error.title', { defaultValue: 'No pude leer esa factura' }),
           description: t('invoiceOcr:error.netCostReviewRequired', {
             defaultValue:
-              'Verifica el costo unitario neto sin IVA de cada línea antes de confirmar.',
+              'Verifique el costo unitario neto sin IVA de cada línea antes de confirmar.',
           }),
         });
         return;
@@ -140,7 +140,7 @@ export function InvoiceOcrDialog({ open, onClose, providers, onConfirmed }: Invo
         toast.error({
           title: t('invoiceOcr:error.title', { defaultValue: 'No pude leer esa factura' }),
           description: t('invoiceOcr:error.missingRequired', {
-            defaultValue: 'Selecciona proveedor y producto para cada línea antes de confirmar.',
+            defaultValue: 'Seleccione proveedor y producto para cada línea antes de confirmar.',
           }),
         });
         return;
@@ -169,7 +169,7 @@ export function InvoiceOcrDialog({ open, onClose, providers, onConfirmed }: Invo
       toast.success({
         title: t('invoiceOcr:success.title', { defaultValue: 'Borrador listo' }),
         description: t('invoiceOcr:success.description', {
-          defaultValue: 'Revisa la compra borrador antes de finalizarla.',
+          defaultValue: 'Revise la compra borrador antes de finalizarla.',
         }),
       });
       onConfirmed?.(updated);
@@ -192,10 +192,10 @@ export function InvoiceOcrDialog({ open, onClose, providers, onConfirmed }: Invo
       className="max-w-[min(92vw,60rem)] rounded-[16px] bg-card/98 shadow-[var(--shadow-modal)] lg:max-w-[min(70vw,60rem)]"
       bodyClassName="mt-3"
       kicker={t('invoiceOcr:dialog.kicker', { defaultValue: 'OCR de factura' })}
-      title={t('invoiceOcr:dialog.title', { defaultValue: 'Sube una foto, la IA lee la factura' })}
+      title={t('invoiceOcr:dialog.title', { defaultValue: 'Suba una foto, la IA lee la factura' })}
       description={t('invoiceOcr:dialog.subtitle', {
         defaultValue:
-          'Soporta JPG, PNG y PDF de una página hasta 10 MB. Revisa cada campo antes de registrar la compra.',
+          'Soporta JPG, PNG y PDF de una página hasta 10 MB. Revise cada campo antes de registrar la compra.',
       })}
     >
       <div className="space-y-5">
@@ -205,7 +205,7 @@ export function InvoiceOcrDialog({ open, onClose, providers, onConfirmed }: Invo
             <p className="max-w-md text-sm text-secondary-600">
               {t('invoiceOcr:upload.help', {
                 defaultValue:
-                  'Selecciona la factura del proveedor o tómale una foto desde la tableta.',
+                  'Seleccione la factura del proveedor o tómele una foto desde la tableta.',
               })}
             </p>
             <div className="flex flex-wrap items-center gap-2">

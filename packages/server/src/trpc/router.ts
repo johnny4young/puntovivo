@@ -66,6 +66,7 @@ import { whatsNewRouter } from './routers/whatsNew.js';
 import { uploadRouter } from './routers/upload.js';
 import { setupReadinessRouter } from './routers/setupReadiness.js';
 import { operationsRouter } from './routers/operations.js';
+import { registerIncidentsRouter } from './routers/registerIncidents.js';
 import { dataRetentionRouter } from './routers/dataRetention.js';
 import { employeeShiftsRouter } from './routers/employeeShifts.js';
 import { managerApprovalsRouter } from './routers/managerApprovals.js';
@@ -149,6 +150,7 @@ export const appRouter = router({
   upload: uploadRouter,
   setupReadiness: setupReadinessRouter,
   operations: operationsRouter,
+  registerIncidents: registerIncidentsRouter,
   dataRetention: dataRetentionRouter,
   employeeShifts: employeeShiftsRouter,
   workforce: workforceRouter,

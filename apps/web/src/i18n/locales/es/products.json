@@ -1,26 +1,26 @@
 {
   "page": {
     "title": "Productos",
-    "permissionNote": "Solo administradores y gestores pueden modificar productos. Puedes revisar el catálogo.",
+    "permissionNote": "Solo administradores y gestores pueden modificar productos. Puede revisar el catálogo.",
     "add": "Agregar producto"
   },
   "semantic": {
     "toggleLabel": "Búsqueda inteligente",
-    "toggleHint": "Usa IA para ordenar por significado una lista acotada de coincidencias textuales. Conserva la búsqueda literal cuando la IA está apagada.",
+    "toggleHint": "Use IA para ordenar por significado una lista acotada de coincidencias textuales. Conserva la búsqueda literal cuando la IA está apagada.",
     "modeBadge": "Coincidencias textuales ordenadas por IA",
     "modeLiteral": "Coincidencia de texto literal",
     "unavailable": "La búsqueda semántica necesita la IA activada y embeddings generados. Volviendo a búsqueda literal.",
     "searching": "Buscando...",
-    "noResults": "No se encontraron coincidencias híbridas para tu consulta.",
+    "noResults": "No se encontraron coincidencias híbridas para su consulta.",
     "regenerated_one": "Se generó embedding de {{count}} producto. La búsqueda semántica está lista.",
     "regenerated_other": "Se generaron embeddings de {{count}} productos. La búsqueda semántica está lista.",
-    "regenerateUnavailable": "No se puede regenerar: activa la IA en Configuración de empresa y verifica que el proveedor seleccionado esté disponible.",
+    "regenerateUnavailable": "No se puede regenerar: active la IA en Configuración de empresa y verifique que el proveedor seleccionado esté disponible.",
     "regenerateError": "No se pudieron regenerar los embeddings"
   },
   "embeddingDrift": {
     "eyebrow": "Mantenimiento del catálogo",
-    "title": "Actualiza la búsqueda inteligente",
-    "description": "Algunos productos todavía usan la configuración anterior y pueden no aparecer en búsquedas por significado. Actualízalos para incluirlos de nuevo.",
+    "title": "Actualice la búsqueda inteligente",
+    "description": "Algunos productos todavía usan la configuración anterior y pueden no aparecer en búsquedas por significado. Actualícelos para incluirlos de nuevo.",
     "count_one": "{{count}} producto necesita actualización",
     "count_other": "{{count}} productos necesitan actualización",
     "regenerateCta": "Actualizar productos",
@@ -91,8 +91,8 @@
     "unsavedChanges": {
       "status": "Cambios del producto sin guardar",
       "title": "¿Descartar los cambios del producto?",
-      "summary": "Tu borrador del producto todavía está disponible.",
-      "message": "Los cambios no se han guardado. Sigue editando para conservar el borrador o descártalos para cerrar este formulario.",
+      "summary": "Su borrador del producto todavía está disponible.",
+      "message": "Los cambios no se han guardado. Siga editando para conservar el borrador o descártelos para cerrar este formulario.",
       "discardAction": "Descartar cambios",
       "keepEditingAction": "Seguir editando"
     },
@@ -100,7 +100,7 @@
     "editTitle": "Editar producto",
     "loadingDetails": "Cargando los datos actuales del producto...",
     "loadErrorTitle": "Detalles del producto no disponibles",
-    "loadErrorDescription": "No pudimos cargar los datos actuales del producto. Reintenta antes de editar.",
+    "loadErrorDescription": "No pudimos cargar los datos actuales del producto. Reintente antes de editar.",
     "cancel": "Cancelar",
     "submitting": "Guardando...",
     "create": "Crear producto",
@@ -115,7 +115,7 @@
     },
     "templates": {
       "title": "Plantillas de producto para {{vertical}}",
-      "description": "Aplica un punto de partida seguro para unidades, cantidades fraccionadas, trazabilidad, cortes y tarifas de precio. Nada se guarda hasta que crees el producto.",
+      "description": "Aplique un punto de partida seguro para unidades, cantidades fraccionadas, trazabilidad, cortes y tarifas de precio. Nada se guarda hasta que cree el producto.",
       "verticals": {
         "hardware": "Ferretería",
         "butchery": "Carnicería"
@@ -146,11 +146,11 @@
         "weight": "Etiqueta GS1 de peso",
         "price": "Etiqueta GS1 de precio"
       },
-      "catalogSafety": "Las plantillas usan una unidad activa y físicamente compatible de tu catálogo. Si falta o está mal clasificada, Puntovivo indica qué abreviatura configurar y no cambia nada.",
-      "pricingSafety": "Se conservan las tarifas 2 y 3 actuales; una tarifa vacía inicia con el precio base actual. Revisa Precios antes de guardar.",
+      "catalogSafety": "Las plantillas usan una unidad activa y físicamente compatible de su catálogo. Si falta o está mal clasificada, Puntovivo indica qué abreviatura configurar y no cambia nada.",
+      "pricingSafety": "Se conservan las tarifas 2 y 3 actuales; una tarifa vacía inicia con el precio base actual. Revise Precios antes de guardar.",
       "cutBoundary": "La plantilla de corte solo configura el producto vendible. No aplica rendimiento, merma, recetas ni transformaciones de stock.",
-      "applied": "Se aplicó {{template}}. Revisa la unidad, la trazabilidad y los precios antes de crear el producto.",
-      "missingUnit": "No se aplicó la plantilla. Primero configura una unidad activa y físicamente compatible con una de estas abreviaturas: {{units}}."
+      "applied": "Se aplicó {{template}}. Revise la unidad, la trazabilidad y los precios antes de crear el producto.",
+      "missingUnit": "No se aplicó la plantilla. Primero configure una unidad activa y físicamente compatible con una de estas abreviaturas: {{units}}."
     },
     "fields": {
       "name": "Nombre",
@@ -170,20 +170,20 @@
       "noLocation": "Sin ubicación",
       "barcode": "Código de barras",
       "stock": "Stock",
-      "stockHelp": "Usa el stock directo solo en productos que no controlan lotes ni números de serie.",
+      "stockHelp": "Use el stock directo solo en productos que no controlan lotes ni números de serie.",
       "minStock": "Stock mínimo",
       "tracksLots": "Controlar lotes y vencimientos",
-      "tracksLotsHelp": "Recibe inventario en lotes identificados, con vencimiento opcional y consumo FEFO.",
+      "tracksLotsHelp": "Reciba inventario en lotes identificados, con vencimiento opcional y consumo FEFO.",
       "tracksLotsEnabledHelp": "El stock se administra desde entradas de inventario con evidencia de lote. El stock existente debe estar en cero antes de habilitar este control.",
-      "tracksLotsStockHelp": "Solo lectura mientras el control de lotes esté activo. Usa una entrada de inventario con evidencia de lote.",
+      "tracksLotsStockHelp": "Solo lectura mientras el control de lotes esté activo. Use una entrada de inventario con evidencia de lote.",
       "tracksLotsStockError": "El stock debe estar en cero antes de habilitar el control de lotes.",
       "tracksSerials": "Controlar números de serie",
-      "tracksSerialsHelp": "Recibe y vende cada unidad física por su serie exacta, con trazabilidad de venta y garantía.",
+      "tracksSerialsHelp": "Reciba y venda cada unidad física por su serie exacta, con trazabilidad de venta y garantía.",
       "tracksSerialsEnabledHelp": "El stock se administra desde recepciones de inventario con series. El stock existente debe estar en cero antes de habilitar este control.",
-      "tracksSerialsStockHelp": "Solo lectura mientras el control de series esté activo. Recibe cada unidad con su serie desde Inventario.",
+      "tracksSerialsStockHelp": "Solo lectura mientras el control de series esté activo. Reciba cada unidad con su serie desde Inventario.",
       "trackedStockError": "El stock debe estar en cero antes de habilitar el control de lotes o series.",
       "sellByFraction": "Permitir venta fraccionada",
-      "sellByFractionHelp": "Actívalo cuando el producto pueda venderse en cantidades decimales como metros, kilogramos o litros.",
+      "sellByFractionHelp": "Actívelo cuando el producto pueda venderse en cantidades decimales como metros, kilogramos o litros.",
       "fractionStep": "Paso fraccional",
       "fractionMinimum": "Mínimo fraccional",
       "imageUrl": "URL de imagen",
@@ -197,20 +197,20 @@
       "marginAmount": "Valor de margen",
       "salePrice": "Precio de venta",
       "skuHelp": "Código interno obligatorio usado en búsquedas e importaciones.",
-      "barcodePlaceholder": "Escanea o escribe",
+      "barcodePlaceholder": "Escanee o escriba",
       "descriptionPlaceholder": "Notas visibles en cotizaciones (opcional).",
       "minStockHelp": "Se usa para las alertas de stock bajo.",
       "serviceItem": "Ítem de servicio (sin inventario)",
-      "serviceItemHelp": "Mano de obra, domicilios, reparaciones o cualquier cosa que vendas sin controlar stock.",
+      "serviceItemHelp": "Mano de obra, domicilios, reparaciones o cualquier cosa que venda sin controlar stock.",
       "serviceItemEnabledHelp": "Este ítem se vende sin validación de stock y nunca crea movimientos de inventario.",
-      "serviceItemBlockedHelp": "Este producto todavía tiene stock. Déjalo en cero desde Inventario antes de convertirlo en servicio.",
+      "serviceItemBlockedHelp": "Este producto todavía tiene stock. Déjelo en cero desde Inventario antes de convertirlo en servicio.",
       "serviceItemStockHelp": "Los ítems de servicio no manejan stock.",
       "serviceItemStockError": "Un ítem de servicio no puede tener stock"
     },
     "units": {
       "title": "Asignaciones de unidad",
-      "description": "Define la unidad base y cualquier unidad de venta adicional basada en equivalencia.",
-      "empty": "No hay una unidad de venta asignada. Agrega una solo si este producto necesita otra unidad o equivalencia.",
+      "description": "Defina la unidad base y cualquier unidad de venta adicional basada en equivalencia.",
+      "empty": "No hay una unidad de venta asignada. Agregue una solo si este producto necesita otra unidad o equivalencia.",
       "addUnit": "Agregar unidad",
       "unit": "Unidad",
       "selectUnit": "Seleccionar unidad",
@@ -220,17 +220,17 @@
       "unitPrice": "Precio de unidad tarifa 1",
       "unitPrice2": "Precio de unidad tarifa 2",
       "unitPrice3": "Precio de unidad tarifa 3",
-      "baseTierPriceHelp": "Edita las tarifas de la unidad base en la pestaña Precios.",
-      "tierFallbackHelp": "Deja 0 para usar la tarifa 1 de esta unidad.",
+      "baseTierPriceHelp": "Edite las tarifas de la unidad base en la pestaña Precios.",
+      "tierFallbackHelp": "Deje 0 para usar la tarifa 1 de esta unidad.",
       "baseUnit": "Unidad base",
       "remove": "Eliminar",
       "removeLastHint": "Un producto existente debe conservar una unidad base de venta."
     },
     "providerAssignments": {
       "title": "Asociaciones de proveedor",
-      "description": "Vincula este producto a uno o más proveedores.",
+      "description": "Vincule este producto a uno o más proveedores.",
       "addProvider": "Agregar proveedor",
-      "empty": "Sin proveedores vinculados. Haz clic en \"Agregar proveedor\" para asociar un proveedor.",
+      "empty": "Sin proveedores vinculados. Haga clic en \"Agregar proveedor\" para asociar un proveedor.",
       "provider": "Proveedor",
       "selectProvider": "Seleccionar proveedor",
       "providerRequired": "El proveedor es obligatorio",
@@ -243,7 +243,7 @@
     },
     "taxComponents": {
       "title": "Componentes tributarios adicionales",
-      "description": "Elige hasta tres tarifas adicionales del catálogo. La tarifa principal permanece primero y cada componente se congela en la venta.",
+      "description": "Elija hasta tres tarifas adicionales del catálogo. La tarifa principal permanece primero y cada componente se congela en la venta.",
       "selected": "{{count}} de 4 componentes · tarifa combinada {{rate}}%"
     },
     "sections": {
@@ -253,7 +253,7 @@
       },
       "classification": {
         "title": "Clasificación",
-        "description": "Define los impuestos y la agrupación en reportes."
+        "description": "Defina los impuestos y la agrupación en reportes."
       },
       "inventory": {
         "title": "Inventario",
@@ -263,7 +263,7 @@
   },
   "deactivate": {
     "title": "Desactivar producto",
-    "description": "Se marcará como inactivo. Puedes reactivarlo editando el registro más adelante.",
+    "description": "Se marcará como inactivo. Puede reactivarlo editando el registro más adelante.",
     "submitting": "Desactivando...",
     "confirm": "Desactivar"
   },
@@ -283,15 +283,15 @@
     "createAction_one": "Crear {{count}} variante",
     "createAction_other": "Crear {{count}} variantes",
     "explainerTitle": "Un catálogo, combinaciones vendibles",
-    "createExplainer": "Define hasta tres ejes. Cada combinación generada se convierte en un producto vendible normal con su propio SKU, inventario y código de barras. Esta conversión no se puede deshacer.",
+    "createExplainer": "Defina hasta tres ejes. Cada combinación generada se convierte en un producto vendible normal con su propio SKU, inventario y código de barras. Esta conversión no se puede deshacer.",
     "existingExplainer": "El padre de la matriz solo organiza el catálogo. Cada fila es un producto vendible independiente con su propio inventario.",
     "loading": "Cargando la matriz de variantes...",
-    "stockBlocked": "Deja este producto con inventario cero en cada sede antes de crear variantes.",
+    "stockBlocked": "Deje este producto con inventario cero en cada sede antes de crear variantes.",
     "axisName": "Nombre del eje {{number}}",
     "axisPlaceholder": "p. ej., Talla",
     "options": "Opciones",
     "optionsPlaceholder": "p. ej., Pequeña, Mediana, Grande",
-    "optionsHelp": "Separa cada opción con una coma.",
+    "optionsHelp": "Separe cada opción con una coma.",
     "removeAxis": "Eliminar eje {{number}}",
     "addAxis": "Agregar otro eje",
     "previewTitle": "Combinaciones generadas",
@@ -302,8 +302,8 @@
     "toastCreated_other": "Se crearon {{count}} variantes",
     "toastError": "No se pudieron crear las variantes",
     "validation": {
-      "axisRequired": "Asigna un nombre a cada eje.",
-      "valuesRequired": "Agrega al menos una opción a cada eje.",
+      "axisRequired": "Asigne un nombre a cada eje.",
+      "valuesRequired": "Agregue al menos una opción a cada eje.",
       "duplicateAxis": "Los nombres de los ejes deben ser únicos.",
       "duplicateValue": "Las opciones dentro de un eje deben ser únicas.",
       "tooManyOptions": "Cada eje admite hasta 20 opciones.",
@@ -335,7 +335,7 @@
     "selectRow": "Seleccionar {{name}}",
     "done_one": "{{count}} producto actualizado",
     "done_other": "{{count}} productos actualizados",
-    "partial": "{{done}} actualizados, {{failed}} no se pudieron cambiar. Actualiza e intenta de nuevo.",
+    "partial": "{{done}} actualizados, {{failed}} no se pudieron cambiar. Actualice e intente de nuevo.",
     "archiveTitle_one": "¿Archivar {{count}} producto?",
     "archiveTitle_other": "¿Archivar {{count}} productos?",
     "archiveMessage": "Dejan de aparecer en ventas. Su historial se conserva."
