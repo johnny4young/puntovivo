@@ -25,9 +25,7 @@ function selection(sellByFraction = false) {
   } as unknown as ProductSearchSelection;
 }
 
-function setup(
-  overrides: { frozen?: boolean; canCreateCustomer?: boolean; query?: string } = {}
-) {
+function setup(overrides: { frozen?: boolean; canCreateCustomer?: boolean; query?: string } = {}) {
   const store = useCartWorkspaceStore.getState();
   const workspaceId = overrides.frozen
     ? store.hydrateFromResumed({
@@ -71,6 +69,15 @@ describe('useSalesCommandBar', () => {
 
     act(() => result.current.selectProduct(selection()));
     expect(addProduct).toHaveBeenLastCalledWith(selection(), null);
+  });
+
+  it('sells by amount with its own quantity and keeps the typed one for the next pick', () => {
+    const { result, addProduct } = setup();
+
+    act(() => result.current.setPendingQuantity(4));
+    act(() => result.current.selectProduct(selection(true), 0.208));
+    expect(addProduct).toHaveBeenLastCalledWith(selection(true), 0.208);
+    expect(result.current.pendingQuantity).toBe(4);
   });
 
   it('drops the pending quantity when another ticket becomes active', () => {

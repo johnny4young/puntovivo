@@ -1,9 +1,6 @@
+// Favourites used to live per browser; the site's quick keys replace them and
+// these entries are only read once to seed a site that has no keys yet.
 const STORAGE_PREFIX = 'puntovivo:sales-favorites:v1';
-export const MAX_SALES_FAVORITES = 8;
-
-interface FavoritePayload {
-  productIds: string[];
-}
 
 function storageKey(scopeKey: string): string {
   return `${STORAGE_PREFIX}:${scopeKey}`;
@@ -14,41 +11,20 @@ export function readSalesFavoriteIds(scopeKey: string): string[] | null {
   try {
     const raw = window.localStorage.getItem(storageKey(scopeKey));
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<FavoritePayload>;
+    const parsed = JSON.parse(raw) as { productIds?: unknown };
     if (!Array.isArray(parsed.productIds)) return null;
-    return parsed.productIds
-      .filter((id): id is string => typeof id === 'string' && id.length > 0)
-      .slice(0, MAX_SALES_FAVORITES);
+    return parsed.productIds.filter((id): id is string => typeof id === 'string' && id.length > 0);
   } catch {
     return null;
   }
 }
 
-export function writeSalesFavoriteIds(scopeKey: string, productIds: readonly string[]): void {
-  if (!scopeKey) return;
-  const uniqueIds = [...new Set(productIds)].slice(0, MAX_SALES_FAVORITES);
+export function clearSalesFavoriteIds(scopeKey: string): void {
   try {
-    window.localStorage.setItem(
-      storageKey(scopeKey),
-      JSON.stringify({ productIds: uniqueIds } satisfies FavoritePayload)
-    );
+    window.localStorage.removeItem(storageKey(scopeKey));
   } catch {
-    // Storage may be unavailable in private mode. The current in-memory
-    // selection remains usable; only persistence is skipped.
+    // Without storage there is nothing left to import.
   }
-}
-
-export function toggleSalesFavoriteId(
-  current: readonly string[],
-  productId: string
-): string[] {
-  if (current.includes(productId)) {
-    return current.filter(id => id !== productId);
-  }
-  if (current.length >= MAX_SALES_FAVORITES) {
-    return [...current];
-  }
-  return [...current, productId];
 }
 
 const DISMISSED_PREFIX = 'puntovivo:sales-favorite-suggestions-dismissed:v1';

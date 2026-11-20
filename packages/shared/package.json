@@ -65,6 +65,11 @@
       "import": "./dist/units.js",
       "default": "./dist/units.js"
     },
+    "./quick-keys": {
+      "types": "./src/quick-keys.ts",
+      "import": "./dist/quick-keys.js",
+      "default": "./dist/quick-keys.js"
+    },
     "./operational-readiness": {
       "types": "./src/operational-readiness.ts",
       "import": "./dist/operational-readiness.js",

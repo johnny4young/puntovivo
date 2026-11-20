@@ -2,8 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { render, screen } from '@/test/utils';
 import { SalesQuickAccess } from './SalesQuickAccess';
+import type { inferRouterOutputs } from '@trpc/server';
+import type { AppRouter } from '@puntovivo/server';
 import type { Product } from '@/types';
-import { readSalesFavoriteIds, writeSalesFavoriteIds } from './salesFavorites';
 
 const products = [
   {
@@ -26,33 +27,53 @@ const products = [
   },
 ] as Product[];
 
-const remoteProduct = {
-  ...products[0],
-  id: 'p-remote',
-  name: 'Remote Favorite',
-  sku: 'REMOTE-1',
-} as Product;
-let favoriteLookupError: false | 'INTERNAL_SERVER_ERROR' | 'NOT_FOUND' = false;
-const favoriteRefetch = vi.fn(async () => undefined);
-function favoriteQuery({ id }: { id: string }) {
+type KeyRow = inferRouterOutputs<AppRouter>['quickKeys']['list'][number];
+
+function keyRow(overrides: Partial<KeyRow> & Pick<KeyRow, 'id' | 'productId'>): KeyRow {
   return {
-    data: favoriteLookupError
-      ? undefined
-      : [...products, remoteProduct].find(product => product.id === id),
-    isLoading: false,
-    isError: favoriteLookupError !== false,
-    error: favoriteLookupError ? { data: { code: favoriteLookupError } } : null,
-    refetch: favoriteRefetch,
+    position: 0,
+    kind: 'product',
+    productName: 'House Coffee',
+    productSku: 'COFFEE-1',
+    categoryId: 'cat-drinks',
+    sellable: true,
+    unitId: null,
+    unitAbbreviation: null,
+    label: null,
+    colour: 'orange',
+    catalogPrice: 5,
+    ...overrides,
   };
 }
 
-const toastSuccess = vi.fn();
-const toastError = vi.fn();
+const state = vi.hoisted(() => ({
+  keys: [] as unknown[],
+  keysError: false,
+  topSelling: [] as Array<{ productId: string; name: string; quantity: number }>,
+  catalogPageSizes: [] as number[],
+  catalogEnabled: [] as boolean[],
+}));
+const mutations = vi.hoisted(() => ({
+  importLocal: vi.fn(),
+  set: vi.fn(),
+  remove: vi.fn(),
+  setData: vi.fn(),
+  refetch: vi.fn(),
+}));
+
 const getById = vi.fn(async ({ id }: { id: string }): Promise<Product> => {
-  const product = [...products, remoteProduct].find(candidate => candidate.id === id);
-  if (!product) throw new Error('missing');
+  const product = products.find(candidate => candidate.id === id) ?? {
+    ...products[0],
+    id,
+    name: 'Ground beef',
+    sku: 'BEEF-1',
+    price: 24000,
+    sellByFraction: id === 'p-beef',
+    fractionStep: 0.001,
+  };
   return {
     ...product,
+    sellByFraction: product.sellByFraction ?? false,
     unitAssignments: [
       {
         id: `${id}-assignment`,
@@ -63,26 +84,52 @@ const getById = vi.fn(async ({ id }: { id: string }): Promise<Product> => {
         price: product.price,
         isBase: true,
       },
+      {
+        id: `${id}-box`,
+        unitId: `${id}-box-unit`,
+        unitName: 'Box',
+        unitAbbreviation: 'BOX',
+        equivalence: 12,
+        price: product.price * 12,
+        isBase: false,
+      },
     ],
   } as Product;
 });
 
-const mockTopSelling = vi.hoisted(() => ({
-  items: [] as Array<{ productId: string; name: string; quantity: number }>,
-}));
-const catalogPageSizes = vi.hoisted(() => [] as number[]);
+// A mock that returns a value resolves the mutation and runs its onSuccess.
+function mutation(fn: (input: unknown) => unknown) {
+  return (options?: { onSuccess?: (data: unknown) => void }) => ({
+    mutate: (input: unknown) => {
+      const result = fn(input);
+      if (result !== undefined) options?.onSuccess?.(result);
+    },
+    isIdle: vi.mocked(fn).mock.calls.length === 0,
+    isPending: false,
+  });
+}
 
 vi.mock('@/lib/trpc', () => ({
   trpc: {
-    useQueries: (
-      select: (api: {
-        products: { getById: typeof favoriteQuery };
-      }) => ReturnType<typeof favoriteQuery>[]
-    ) => select({ products: { getById: favoriteQuery } }),
+    quickKeys: {
+      list: {
+        useQuery: (_input: unknown, options: { enabled?: boolean }) => ({
+          data: options.enabled === false || state.keysError ? undefined : state.keys,
+          isLoading: false,
+          isSuccess: options.enabled !== false && !state.keysError,
+          isError: state.keysError,
+          refetch: mutations.refetch,
+        }),
+      },
+      importLocal: { useMutation: mutation(mutations.importLocal) },
+      set: { useMutation: mutation(mutations.set) },
+      remove: { useMutation: mutation(mutations.remove) },
+    },
     products: {
       list: {
         useQuery: (input: { perPage: number }, options: { enabled?: boolean }) => {
-          catalogPageSizes.push(input.perPage);
+          state.catalogPageSizes.push(input.perPage);
+          state.catalogEnabled.push(options.enabled !== false);
           return {
             data: options.enabled === false ? undefined : { items: products },
             isLoading: false,
@@ -91,35 +138,32 @@ vi.mock('@/lib/trpc', () => ({
       },
       topSelling: {
         useQuery: (_input: unknown, options: { enabled?: boolean }) => ({
-          data: options.enabled === false ? undefined : mockTopSelling.items,
+          data: options.enabled === false ? undefined : state.topSelling,
         }),
       },
     },
     categories: {
       tree: {
-        useQuery: (_input: unknown, options: { enabled?: boolean }) => ({
-          data:
-            options.enabled === false
-              ? undefined
-              : {
-                  items: [
-                    { id: 'cat-drinks', name: 'Drinks' },
-                    { id: 'cat-food', name: 'Food' },
-                  ],
-                },
+        useQuery: () => ({
+          data: {
+            items: [
+              { id: 'cat-drinks', name: 'Drinks' },
+              { id: 'cat-food', name: 'Food' },
+            ],
+          },
         }),
       },
     },
     useUtils: () => ({
-      products: {
-        getById: { fetch: getById },
-      },
+      products: { getById: { fetch: getById } },
+      quickKeys: { list: { setData: mutations.setData } },
     }),
   },
 }));
 
+const toastError = vi.fn();
 vi.mock('@/components/feedback/ToastProvider', () => ({
-  useToast: () => ({ success: toastSuccess, error: toastError }),
+  useToast: () => ({ success: vi.fn(), error: toastError }),
 }));
 
 vi.mock('@/features/sales/useDiscountSuggestions', () => ({
@@ -131,93 +175,118 @@ const baseProps = {
   siteId: 'site-1',
   onSelectProduct: vi.fn(),
 };
+const legacyKey = `puntovivo:sales-favorites:v1:${baseProps.scopeKey}`;
 
 describe('SalesQuickAccess', () => {
   beforeEach(() => {
-    mockTopSelling.items = [];
+    state.keys = [];
+    state.keysError = false;
+    state.topSelling = [];
+    state.catalogPageSizes = [];
+    state.catalogEnabled = [];
     window.localStorage.clear();
-    favoriteLookupError = false;
-    favoriteRefetch.mockClear();
-    toastSuccess.mockClear();
+    Object.values(mutations).forEach(mock => mock.mockReset());
     toastError.mockClear();
     getById.mockClear();
   });
 
-  it('loads a configured favorite outside the first catalog page and adds it once', async () => {
-    writeSalesFavoriteIds(baseProps.scopeKey, [remoteProduct.id]);
+  it('shows the site keys with their label and swatch and adds one in a single action', async () => {
+    state.keys = [
+      keyRow({ id: 'k1', productId: 'p-coffee', label: 'Tinto', unitId: 'p-coffee-box-unit' }),
+      keyRow({ id: 'k2', productId: 'p-gone', productSku: 'GONE-1', sellable: false }),
+    ];
     const user = userEvent.setup();
     const onSelectProduct = vi.fn();
     render(<SalesQuickAccess {...baseProps} onSelectProduct={onSelectProduct} />);
-    await user.click(screen.getByRole('button', { name: 'Add Remote Favorite to cart' }));
-    expect(getById).toHaveBeenCalledTimes(1);
-    expect(onSelectProduct).toHaveBeenCalledTimes(1);
+
+    const key = screen.getByTestId('sales-quick-product-COFFEE-1');
+    expect(key).toHaveTextContent('Tinto');
+    expect(key.querySelector('[data-colour="orange"]')).not.toBeNull();
+    expect(screen.queryByTestId('sales-quick-product-GONE-1')).not.toBeInTheDocument();
+    expect(state.catalogEnabled.every(enabled => !enabled)).toBe(true);
+
+    await user.click(screen.getByRole('button', { name: 'Add Tinto to cart' }));
+    expect(getById).toHaveBeenCalledWith({ id: 'p-coffee', siteId: 'site-1' }, { staleTime: 0 });
     expect(onSelectProduct).toHaveBeenCalledWith(
-      expect.objectContaining({ product: expect.objectContaining({ id: remoteProduct.id }) })
+      expect.objectContaining({
+        unit: expect.objectContaining({ unitId: 'p-coffee-box-unit' }),
+        price: 60,
+      })
     );
   });
 
-  it('keeps failed favorite loading recoverable without changing the saved IDs', async () => {
-    writeSalesFavoriteIds(baseProps.scopeKey, [remoteProduct.id]);
-    favoriteLookupError = 'INTERNAL_SERVER_ERROR';
+  it('sells an open-value key by amount at the catalog price', async () => {
+    state.keys = [
+      keyRow({
+        id: 'k-beef',
+        kind: 'open_value',
+        productId: 'p-beef',
+        productSku: 'BEEF-1',
+        label: 'Ground beef',
+      }),
+      keyRow({
+        id: 'k-coffee',
+        kind: 'open_value',
+        productId: 'p-coffee',
+        label: 'Coffee refill',
+        position: 1,
+      }),
+    ];
     const user = userEvent.setup();
-    const view = render(<SalesQuickAccess {...baseProps} />);
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      'Some favorite products could not be loaded. Retry or use catalog search.'
-    );
-    await user.click(screen.getByRole('button', { name: 'Retry favorites' }));
-    expect(favoriteRefetch).toHaveBeenCalledTimes(1);
-    favoriteLookupError = false;
-    view.rerender(<SalesQuickAccess {...baseProps} />);
-    expect(screen.getByRole('button', { name: 'Add Remote Favorite to cart' })).toBeEnabled();
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-    expect(
-      window.localStorage.getItem('puntovivo:sales-favorites:v1:' + baseProps.scopeKey)
-    ).toContain(remoteProduct.id);
+    const onSelectProduct = vi.fn();
+    render(<SalesQuickAccess {...baseProps} onSelectProduct={onSelectProduct} />);
+
+    expect(screen.getByTestId('sales-quick-value-BEEF-1')).toHaveTextContent('amount…');
+    await user.click(screen.getByRole('button', { name: 'Sell Ground beef by amount' }));
+    await user.type(screen.getByTestId('sales-quick-value-amount'), '5000');
+    await user.click(screen.getByRole('button', { name: 'Add' }));
+    expect(onSelectProduct).toHaveBeenCalledWith(expect.objectContaining({ price: 24000 }), 0.208);
+    expect(screen.queryByTestId('sales-quick-value-form')).not.toBeInTheDocument();
+
+    onSelectProduct.mockClear();
+    await user.click(screen.getByRole('button', { name: 'Sell Coffee refill by amount' }));
+    await user.type(screen.getByTestId('sales-quick-value-amount'), '12');
+    await user.click(screen.getByRole('button', { name: 'Add' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('enter a multiple of');
+    expect(onSelectProduct).not.toHaveBeenCalled();
+
+    await user.clear(screen.getByTestId('sales-quick-value-amount'));
+    await user.type(screen.getByTestId('sales-quick-value-amount'), '15');
+    await user.click(screen.getByRole('button', { name: 'Add' }));
+    expect(onSelectProduct).toHaveBeenCalledWith(expect.anything(), 3);
   });
 
-  it('suggests what sold this week until the cashier adds or dismisses it', async () => {
-    mockTopSelling.items = [{ productId: 'p-remote', name: 'Remote tea', quantity: 84 }];
-    const user = userEvent.setup();
-    const view = render(<SalesQuickAccess {...baseProps} />);
-
-    expect(screen.getByTestId('sales-quick-suggestion')).toHaveTextContent('Remote tea');
-    expect(screen.getByTestId('sales-quick-suggestion')).toHaveTextContent('84 times');
-    await user.click(screen.getByTestId('sales-quick-suggestion-dismiss'));
-    expect(screen.queryByTestId('sales-quick-suggestion')).not.toBeInTheDocument();
-    view.unmount();
-
-    render(<SalesQuickAccess {...baseProps} />);
-    expect(screen.queryByTestId('sales-quick-suggestion')).not.toBeInTheDocument();
-  });
-
-  it('adds a suggestion to the saved quick keys', async () => {
-    writeSalesFavoriteIds(baseProps.scopeKey, ['p-coffee']);
-    mockTopSelling.items = [{ productId: 'p-bread', name: 'Bread', quantity: 5 }];
-    const user = userEvent.setup();
+  it('imports this browser favourites once into a site without keys', () => {
+    window.localStorage.setItem(legacyKey, JSON.stringify({ productIds: ['p-bread'] }));
+    const imported = [keyRow({ id: 'k1', productId: 'p-bread' })];
+    mutations.importLocal.mockReturnValue(imported);
     render(<SalesQuickAccess {...baseProps} />);
 
-    await user.click(screen.getByTestId('sales-quick-suggestion-add'));
-    expect(readSalesFavoriteIds(baseProps.scopeKey)).toEqual(['p-coffee', 'p-bread']);
-    expect(screen.queryByTestId('sales-quick-suggestion')).not.toBeInTheDocument();
+    expect(mutations.importLocal).toHaveBeenCalledTimes(1);
+    expect(mutations.importLocal).toHaveBeenCalledWith({
+      siteId: 'site-1',
+      productIds: ['p-bread'],
+    });
+    expect(window.localStorage.getItem(legacyKey)).toBeNull();
+    expect(mutations.setData).toHaveBeenCalledWith({ siteId: 'site-1' }, imported);
   });
 
-  it('drops a favorite that no longer exists without a retry alert', () => {
-    writeSalesFavoriteIds(baseProps.scopeKey, [remoteProduct.id]);
-    favoriteLookupError = 'NOT_FOUND';
+  it('drops the favourites without importing when the site already has keys', () => {
+    window.localStorage.setItem(legacyKey, JSON.stringify({ productIds: ['p-bread'] }));
+    state.keys = [keyRow({ id: 'k1', productId: 'p-coffee' })];
     render(<SalesQuickAccess {...baseProps} />);
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: 'Add Remote Favorite to cart' })
-    ).not.toBeInTheDocument();
+    expect(mutations.importLocal).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem(legacyKey)).toBeNull();
   });
 
-  it('shows suggested products and filters them by category', async () => {
+  it('shows the first catalog products when the site has no keys and filters by category', async () => {
     const user = userEvent.setup();
     render(<SalesQuickAccess {...baseProps} />);
 
     expect(screen.getByText('No barcode · one touch')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add House Coffee to cart' })).toBeInTheDocument();
     expect(screen.getByText('-10%')).toBeInTheDocument();
+    expect(new Set(state.catalogPageSizes)).toEqual(new Set([12]));
 
     await user.click(screen.getByRole('button', { name: 'Food' }));
     expect(
@@ -226,92 +295,90 @@ describe('SalesQuickAccess', () => {
     expect(screen.getByRole('button', { name: 'Add Fresh Bread to cart' })).toBeInTheDocument();
   });
 
-  it('hydrates a favorite and adds it to the cart in one action', async () => {
-    const user = userEvent.setup();
-    const onSelectProduct = vi.fn();
-    render(<SalesQuickAccess {...baseProps} onSelectProduct={onSelectProduct} />);
-
-    await user.click(screen.getByRole('button', { name: 'Add House Coffee to cart' }));
-
-    expect(getById).toHaveBeenCalledWith({ id: 'p-coffee', siteId: 'site-1' }, { staleTime: 0 });
-    expect(onSelectProduct).toHaveBeenCalledWith(
-      expect.objectContaining({
-        product: expect.objectContaining({ id: 'p-coffee' }),
-        unit: expect.objectContaining({ unitId: 'p-coffee-unit' }),
-        price: 5,
-      })
-    );
-  });
-
-  it('surfaces products without a sellable unit instead of mutating the cart', async () => {
-    const user = userEvent.setup();
-    const onSelectProduct = vi.fn();
-    getById.mockResolvedValueOnce(products[0] as Product);
-    render(<SalesQuickAccess {...baseProps} onSelectProduct={onSelectProduct} />);
-
-    await user.click(screen.getByRole('button', { name: 'Add House Coffee to cart' }));
-
-    expect(onSelectProduct).not.toHaveBeenCalled();
-    expect(toastError).toHaveBeenCalledWith({
-      title: 'This product does not have a sellable unit.',
-    });
-  });
-
-  it('keeps a failed product lookup recoverable', async () => {
-    const user = userEvent.setup();
-    const onSelectProduct = vi.fn();
-    getById.mockRejectedValueOnce(new Error('offline'));
-    render(<SalesQuickAccess {...baseProps} onSelectProduct={onSelectProduct} />);
-
-    await user.click(screen.getByRole('button', { name: 'Add House Coffee to cart' }));
-
-    expect(onSelectProduct).not.toHaveBeenCalled();
-    expect(toastError).toHaveBeenCalledWith({
-      title: 'The product could not be added. Try again.',
-    });
-    expect(screen.getByRole('button', { name: 'Add House Coffee to cart' })).toBeEnabled();
-  });
-
-  it('loads the wider catalog only for the favorites editor', async () => {
-    const user = userEvent.setup();
-    catalogPageSizes.length = 0;
+  it('gives cashiers the keys without the editor or the suggestion', () => {
+    state.topSelling = [{ productId: 'p-bread', name: 'Bread', quantity: 5 }];
+    state.keys = [keyRow({ id: 'k1', productId: 'p-coffee' })];
     render(<SalesQuickAccess {...baseProps} />);
-
-    expect(new Set(catalogPageSizes)).toEqual(new Set([12]));
-
-    await user.click(screen.getByTestId('sales-favorites-edit'));
-
-    expect(catalogPageSizes.at(-1)).toBe(80);
-  });
-
-  it('stores an edited favorite selection for this register', async () => {
-    const user = userEvent.setup();
-    render(<SalesQuickAccess {...baseProps} />);
-
-    await user.click(screen.getByTestId('sales-favorites-edit'));
-    await user.click(screen.getByRole('button', { name: 'Remove House Coffee from favorites' }));
-
-    expect(
-      JSON.parse(
-        window.localStorage.getItem('puntovivo:sales-favorites:v1:tenant-1:site-1') ?? '{}'
-      )
-    ).toEqual({ productIds: ['p-bread'] });
-  });
-
-  it('keeps the one-touch keys during a sale, without the favourite suggestion', () => {
-    mockTopSelling.items = [{ productId: 'p-remote', name: 'Remote Favorite', quantity: 4 }];
-    writeSalesFavoriteIds(baseProps.scopeKey, ['p-coffee']);
-    const idle = render(<SalesQuickAccess {...baseProps} />);
-    expect(screen.getByTestId('sales-quick-suggestion')).toBeInTheDocument();
-    idle.unmount();
-
-    render(<SalesQuickAccess {...baseProps} hasCartItems />);
-    expect(screen.getByTestId('sales-quick-product-COFFEE-1')).toBeEnabled();
+    expect(screen.queryByTestId('sales-favorites-edit')).not.toBeInTheDocument();
     expect(screen.queryByTestId('sales-quick-suggestion')).not.toBeInTheDocument();
-    mockTopSelling.items = [];
   });
 
-  it('drops a category filter once the chips hide mid-sale', async () => {
+  it('suggests what sold this week to managers until they add or dismiss it', async () => {
+    state.topSelling = [{ productId: 'p-bread', name: 'Bread', quantity: 84 }];
+    state.keys = [keyRow({ id: 'k1', productId: 'p-coffee' })];
+    const user = userEvent.setup();
+    const view = render(<SalesQuickAccess {...baseProps} canEdit />);
+
+    expect(screen.getByTestId('sales-quick-suggestion')).toHaveTextContent('84 times');
+    await user.click(screen.getByTestId('sales-quick-suggestion-add'));
+    expect(mutations.set).toHaveBeenCalledWith({ siteId: 'site-1', productId: 'p-bread' });
+
+    await user.click(screen.getByTestId('sales-quick-suggestion-dismiss'));
+    expect(screen.queryByTestId('sales-quick-suggestion')).not.toBeInTheDocument();
+    view.unmount();
+    render(<SalesQuickAccess {...baseProps} canEdit />);
+    expect(screen.queryByTestId('sales-quick-suggestion')).not.toBeInTheDocument();
+  });
+
+  it('edits the site keys from the wider catalog', async () => {
+    state.keys = [
+      keyRow({
+        id: 'k-remote',
+        productId: 'p-remote',
+        productName: 'Remote Favorite',
+        productSku: 'REMOTE-1',
+      }),
+      keyRow({
+        id: 'k-retired',
+        productId: 'p-retired',
+        productName: 'Retired Item',
+        productSku: 'RETIRED-1',
+        sellable: false,
+      }),
+    ];
+    const user = userEvent.setup();
+    render(<SalesQuickAccess {...baseProps} canEdit />);
+    expect(screen.queryByTestId('sales-quick-product-RETIRED-1')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Configure' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Remove Retired Item from the quick keys' })
+    );
+    expect(mutations.remove).toHaveBeenCalledWith({ siteId: 'site-1', id: 'k-retired' });
+    expect(state.catalogPageSizes.at(-1)).toBe(80);
+    await user.click(
+      screen.getByRole('button', { name: 'Remove Remote Favorite from the quick keys' })
+    );
+    expect(mutations.remove).toHaveBeenCalledWith({ siteId: 'site-1', id: 'k-remote' });
+    await user.click(screen.getByRole('button', { name: 'Add Fresh Bread to the quick keys' }));
+    expect(mutations.set).toHaveBeenCalledWith({ siteId: 'site-1', productId: 'p-bread' });
+  });
+
+  it('refuses a ninth key before calling the server', async () => {
+    state.keys = Array.from({ length: 8 }, (_, index) =>
+      keyRow({ id: `k${index}`, productId: `p-${index}`, productSku: `SKU-${index}` })
+    );
+    const user = userEvent.setup();
+    render(<SalesQuickAccess {...baseProps} canEdit />);
+    await user.click(screen.getByRole('button', { name: 'Configure' }));
+    await user.click(screen.getByRole('button', { name: 'Add Fresh Bread to the quick keys' }));
+    expect(mutations.set).not.toHaveBeenCalled();
+    expect(toastError).toHaveBeenCalledWith({
+      title: 'This site already has eight quick keys. Remove one to add another.',
+    });
+  });
+
+  it('keeps the keys during a sale and drops a hidden category filter', async () => {
+    state.keys = [
+      keyRow({ id: 'k1', productId: 'p-coffee' }),
+      keyRow({
+        id: 'k2',
+        productId: 'p-bread',
+        productName: 'Fresh Bread',
+        productSku: 'BREAD-1',
+        categoryId: 'cat-food',
+      }),
+    ];
     const user = userEvent.setup();
     const { rerender } = render(<SalesQuickAccess {...baseProps} />);
     await user.click(screen.getByRole('button', { name: 'Food' }));
@@ -319,18 +386,36 @@ describe('SalesQuickAccess', () => {
 
     rerender(<SalesQuickAccess {...baseProps} hasCartItems />);
     expect(screen.queryByRole('button', { name: 'Food' })).not.toBeInTheDocument();
-    expect(screen.getByTestId('sales-quick-product-COFFEE-1')).toBeInTheDocument();
+    expect(screen.getByTestId('sales-quick-product-COFFEE-1')).toBeEnabled();
   });
 
-  it('keeps a saved favorite outside the first page editable', async () => {
+  it('offers a retry when the keys cannot load', async () => {
+    state.keysError = true;
     const user = userEvent.setup();
-    writeSalesFavoriteIds(baseProps.scopeKey, [remoteProduct.id]);
     render(<SalesQuickAccess {...baseProps} />);
-    await user.click(screen.getByRole('button', { name: 'Configure' }));
-    await user.click(screen.getByRole('button', { name: 'Remove Remote Favorite from favorites' }));
-    await user.click(screen.getByRole('button', { name: 'Finish' }));
-    expect(
-      screen.queryByRole('button', { name: 'Add Remote Favorite to cart' })
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('The quick keys could not be loaded.');
+    await user.click(screen.getByRole('button', { name: 'Retry quick keys' }));
+    expect(mutations.refetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('surfaces products without a sellable unit and failed lookups instead of mutating the cart', async () => {
+    state.keys = [keyRow({ id: 'k1', productId: 'p-coffee' })];
+    const user = userEvent.setup();
+    const onSelectProduct = vi.fn();
+    getById.mockResolvedValueOnce(products[0] as Product);
+    getById.mockRejectedValueOnce(new Error('offline'));
+    render(<SalesQuickAccess {...baseProps} onSelectProduct={onSelectProduct} />);
+
+    await user.click(screen.getByRole('button', { name: 'Add House Coffee to cart' }));
+    await user.click(screen.getByRole('button', { name: 'Add House Coffee to cart' }));
+
+    expect(onSelectProduct).not.toHaveBeenCalled();
+    expect(toastError).toHaveBeenNthCalledWith(1, {
+      title: 'This product does not have a sellable unit.',
+    });
+    expect(toastError).toHaveBeenNthCalledWith(2, {
+      title: 'The product could not be added. Try again.',
+    });
+    expect(screen.getByRole('button', { name: 'Add House Coffee to cart' })).toBeEnabled();
   });
 });

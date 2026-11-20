@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
+import { MAX_SITE_QUICK_KEYS } from '../../../packages/shared/src/quick-keys';
 import { E2E_PASSWORD } from './app';
 
 const DB_PATH = join(process.cwd(), 'packages/server/data/local.db');
@@ -609,6 +610,50 @@ function seedScenario(
       admin: actors.admin,
       product,
     };
+  } finally {
+    db.close();
+  }
+}
+
+/**
+ * Appends products to the quick keys of each listed site. Sites are shared by
+ * parallel tests, so other keys stay and only the oldest go once a site is full.
+ */
+export function seedSiteQuickKeys(args: {
+  tenantId: string;
+  siteIds: readonly string[];
+  productIds: readonly string[];
+}): void {
+  const db = openDb();
+  try {
+    db.transaction(() => {
+      for (const siteId of args.siteIds) {
+        db.prepare(
+          'delete from site_quick_keys where tenant_id = ? and site_id = ? and product_id in (select value from json_each(?))'
+        ).run(args.tenantId, siteId, JSON.stringify(args.productIds));
+        const remaining = db
+          .prepare(
+            'select id from site_quick_keys where tenant_id = ? and site_id = ? order by position'
+          )
+          .all(args.tenantId, siteId) as { id: string }[];
+        const overflow = Math.max(
+          0,
+          remaining.length + args.productIds.length - MAX_SITE_QUICK_KEYS
+        );
+        const drop = db.prepare('delete from site_quick_keys where id = ?');
+        remaining.slice(0, overflow).forEach(key => drop.run(key.id));
+        const kept = remaining.slice(overflow);
+        const move = db.prepare('update site_quick_keys set position = ? where id = ?');
+        kept.forEach((key, position) => move.run(position, key.id));
+        const insert = db.prepare(
+          `insert into site_quick_keys (id, tenant_id, site_id, position, kind, product_id)
+           values (?, ?, ?, ?, 'product', ?)`
+        );
+        args.productIds.forEach((productId, index) =>
+          insert.run(makeId('e2e_quick_key'), args.tenantId, siteId, kept.length + index, productId)
+        );
+      }
+    }).immediate();
   } finally {
     db.close();
   }

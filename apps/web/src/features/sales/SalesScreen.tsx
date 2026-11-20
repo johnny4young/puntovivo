@@ -23,6 +23,8 @@ import type { PaymentFocusTarget } from '@/features/sales/useSalesModals';
 import { roundMoney } from '@/lib/money';
 import { serviceChargeFor } from '@/features/sales/cashTender';
 import type { SuspendedSalesPanel } from '@/features/sales/SuspendedSalesPanel';
+import type { ProductSearchSelection } from '@/types';
+import { canAccessRole, managerOrAdminRoles } from '@/features/auth/roleAccess';
 import { SaleCompleteStrip, type CompletedSaleSummary } from './SaleCompleteStrip';
 
 const LazySalesQuickAccess = lazy(() =>
@@ -170,7 +172,7 @@ export interface SalesScreenProps {
   shouldRenderQuickCreateCustomerGate: boolean;
   productSearchDialogKey: number;
   setIsProductSearchOpen: Dispatch<SetStateAction<boolean>>;
-  handleProductSelect: ModalsProps['onSelectProduct'];
+  handleProductSelect: (selection: ProductSearchSelection, quantity?: number) => void;
   commandBar: SalesCommandBar;
   productSearchInitialQuery: string;
   setCartItems: ModalsProps['setCartItems'];
@@ -524,6 +526,7 @@ export function SalesScreen({
                     key={favoriteScopeKey}
                     scopeKey={favoriteScopeKey}
                     siteId={currentSite.id}
+                    canEdit={canAccessRole(userRole, managerOrAdminRoles)}
                     hasCartItems={cartItems.length > 0}
                     onSelectProduct={handleProductSelect}
                   />

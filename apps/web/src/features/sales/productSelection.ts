@@ -1,3 +1,9 @@
+import { roundQuantity } from '@puntovivo/shared/unit-math';
+import {
+  getSaleMinimumQuantity,
+  getSaleQuantityStep,
+  type SaleCartItem,
+} from '@/features/sales/saleCart';
 import type { Product, ProductSearchSelection } from '@/types';
 
 /**
@@ -7,26 +13,50 @@ import type { Product, ProductSearchSelection } from '@/types';
  * from products.list must fetch products.getById before using this helper.
  */
 export function selectionFromHydratedProduct(
-  product: Product
+  product: Product,
+  unitId?: string | null
 ): ProductSearchSelection | null {
-  const baseUnit =
-    product.unitAssignments?.find(assignment => assignment.isBase) ??
-    product.unitAssignments?.[0];
+  const assignments = product.unitAssignments ?? [];
+  const baseUnit = assignments.find(assignment => assignment.isBase) ?? assignments[0];
   if (!baseUnit) return null;
+  const unit = (unitId && assignments.find(assignment => assignment.unitId === unitId)) || baseUnit;
 
-  const price = baseUnit.price ?? product.price;
+  const baseUnitPrice = baseUnit.price ?? product.price;
   return {
     product: {
       ...product,
       baseUnitId: baseUnit.unitId,
       baseUnitName: baseUnit.unitName ?? null,
       baseUnitAbbreviation: baseUnit.unitAbbreviation ?? null,
-      baseUnitPrice: price,
+      baseUnitPrice,
     },
     unit: {
-      ...baseUnit,
-      isBase: baseUnit.isBase ?? true,
+      ...unit,
+      isBase: unit.isBase ?? unit === baseUnit,
     },
-    price,
+    price: unit === baseUnit ? baseUnitPrice : (unit.price ?? product.price),
   };
+}
+
+export type AmountQuantity =
+  | { quantity: number }
+  | { error: 'invalid' | 'wholeUnits' }
+  | { error: 'belowMinimum'; minimum: number };
+
+/** Units an amount buys at the unit price, under the cart's own fraction rules. */
+export function quantityForAmount(
+  amount: number,
+  unitPrice: number,
+  product: Pick<SaleCartItem, 'sellByFraction' | 'fractionStep' | 'fractionMinimum'>
+): AmountQuantity {
+  if (!(amount > 0) || !(unitPrice > 0)) return { error: 'invalid' };
+  const exact = amount / unitPrice;
+  if (!product.sellByFraction) {
+    const whole = roundQuantity(exact, 6);
+    return Number.isInteger(whole) && whole > 0 ? { quantity: whole } : { error: 'wholeUnits' };
+  }
+  const step = getSaleQuantityStep(product);
+  const quantity = roundQuantity(Math.round(exact / step) * step, 6);
+  const minimum = getSaleMinimumQuantity(product);
+  return quantity >= minimum ? { quantity } : { error: 'belowMinimum', minimum };
 }

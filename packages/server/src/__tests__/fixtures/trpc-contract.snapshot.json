@@ -2202,6 +2202,36 @@
     "output": "inferred"
   },
   {
+    "path": "quickKeys.importLocal",
+    "kind": "mutation",
+    "input": "object{productIds:array<string[minLength=1,maxLength=64]>[maxItems=32],siteId:string[minLength=1,maxLength=64]}",
+    "output": "inferred"
+  },
+  {
+    "path": "quickKeys.list",
+    "kind": "query",
+    "input": "object{siteId:string[minLength=1,maxLength=64]}",
+    "output": "inferred"
+  },
+  {
+    "path": "quickKeys.remove",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1,maxLength=64],siteId:string[minLength=1,maxLength=64]}",
+    "output": "inferred"
+  },
+  {
+    "path": "quickKeys.reorder",
+    "kind": "mutation",
+    "input": "object{ids:array<string[minLength=1,maxLength=64]>[maxItems=8],siteId:string[minLength=1,maxLength=64]}",
+    "output": "inferred"
+  },
+  {
+    "path": "quickKeys.set",
+    "kind": "mutation",
+    "input": "object{colour?:enum(\"orange\"|\"yellow\"|\"slate\"|\"green\"|\"lime\"|\"sky\"|\"violet\"|\"red\")|null,id?:string[minLength=1,maxLength=64],kind?:enum(\"product\"|\"open_value\"),label?:string[maxLength=40]|null,productId:string[minLength=1,maxLength=64],siteId:string[minLength=1,maxLength=64],unitId?:string[minLength=1,maxLength=64]|null}",
+    "output": "inferred"
+  },
+  {
     "path": "quotations.create",
     "kind": "mutation",
     "input": "object{customerId?:string[minLength=1],items:array<object>[minItems=1],notes?:string[maxLength=1000],priceTier?:literal(1)|literal(2)|literal(3),siteId?:string[minLength=1],validUntil?:string[format=date-time]}",

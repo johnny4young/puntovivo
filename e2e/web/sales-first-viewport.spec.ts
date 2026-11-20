@@ -1,11 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import {
-  attachClientIssueTracker,
-  expectNoClientIssues,
-  login,
-  seedSalesFavorites,
-} from './support/app';
-import { seedSaleScenario } from './support/db';
+import { attachClientIssueTracker, expectNoClientIssues, login } from './support/app';
+import { seedSaleScenario, seedSiteQuickKeys } from './support/db';
 import { addProductToCartViaKeyboard } from './support/sales-keyboard';
 
 const FIRST_VIEWPORT = { width: 1024, height: 768 } as const;
@@ -31,7 +26,7 @@ test.describe('sales first viewport', () => {
     const scenario = seedSaleScenario(
       `sales-first-viewport-${testInfo.parallelIndex}-${Date.now()}`
     );
-    await seedSalesFavorites(page, {
+    seedSiteQuickKeys({
       tenantId: scenario.tenantId,
       siteIds: scenario.sites.map(site => site.id),
       productIds: [scenario.product.id],

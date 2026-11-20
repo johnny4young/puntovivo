@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Product } from '@/types';
-import { selectionFromHydratedProduct } from './productSelection';
+import { quantityForAmount, selectionFromHydratedProduct } from './productSelection';
 
 const product = {
   id: 'product-1',
@@ -54,6 +54,25 @@ describe('selectionFromHydratedProduct', () => {
     });
   });
 
+  it('sells a requested unit while keeping the product base unit', () => {
+    const selection = selectionFromHydratedProduct(
+      {
+        ...product,
+        unitAssignments: [
+          { id: 'each', unitId: 'each', unitName: 'Each', equivalence: 1, price: 10, isBase: true },
+          { id: 'box', unitId: 'box', unitName: 'Box', equivalence: 6, price: 60, isBase: false },
+        ],
+      },
+      'box'
+    );
+
+    expect(selection).toMatchObject({
+      product: { baseUnitId: 'each', baseUnitPrice: 10 },
+      unit: { unitId: 'box', isBase: false },
+      price: 60,
+    });
+  });
+
   it('falls back to the first assignment when no unit is marked as base', () => {
     const selection = selectionFromHydratedProduct({
       ...product,
@@ -81,5 +100,32 @@ describe('selectionFromHydratedProduct', () => {
       },
       price: 9,
     });
+  });
+});
+
+describe('quantityForAmount', () => {
+  const weighed = { sellByFraction: true, fractionStep: 0.001, fractionMinimum: 0.05 };
+
+  it('rounds a weighed amount to the product step', () => {
+    expect(quantityForAmount(5000, 24000, weighed)).toEqual({ quantity: 0.208 });
+  });
+
+  it('refuses amounts under the fraction minimum', () => {
+    expect(quantityForAmount(500, 24000, weighed)).toEqual({
+      error: 'belowMinimum',
+      minimum: 0.05,
+    });
+  });
+
+  it('only accepts exact multiples for whole-unit products', () => {
+    expect(quantityForAmount(1500, 500, { sellByFraction: false })).toEqual({ quantity: 3 });
+    expect(quantityForAmount(1200, 500, { sellByFraction: false })).toEqual({
+      error: 'wholeUnits',
+    });
+  });
+
+  it('rejects empty amounts and unpriced products', () => {
+    expect(quantityForAmount(0, 500, { sellByFraction: false })).toEqual({ error: 'invalid' });
+    expect(quantityForAmount(500, 0, weighed)).toEqual({ error: 'invalid' });
   });
 });
