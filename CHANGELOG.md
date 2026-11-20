@@ -52,6 +52,13 @@ is usable from source, but it is not a new packaged release yet.
   a real alert receiver with ownership, and an observed retail pilot remain
   open gates.
 
+## [1.19.2](https://github.com/johnny4young/puntovivo/compare/v1.19.1...v1.19.2) (2026-11-20)
+
+
+### Funcionalidades
+
+* **import:** import price tiers 2 and 3, Windows CSVs, a Mónica profile and 2,000 products per file ([#515](https://github.com/johnny4young/puntovivo/issues/515)) ([ea2a1f5](https://github.com/johnny4young/puntovivo/commit/ea2a1f58))
+
 ## [1.19.1](https://github.com/johnny4young/puntovivo/compare/v1.19.0...v1.19.1) (2026-11-20)
 
 
