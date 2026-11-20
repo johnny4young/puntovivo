@@ -19,7 +19,7 @@ import { performance } from 'node:perf_hooks';
 
 const CONTINUE = /^(Continue|Continuar)$/;
 const CREATE_WORKSPACE = /^(Create my workspace|Crear mi espacio de trabajo)$/;
-const OPEN_USER_MENU = /^(?:Open user menu for|Abre el menú de usuario de) /i;
+const OPEN_USER_MENU = /^(?:Open user menu for|Abra el menú de usuario de) /i;
 const SIGN_OUT = /^(Sign out|Cerrar sesión)$/;
 const ENTER_WORKSPACE = /enter workspace|entrar al espacio de trabajo/i;
 
