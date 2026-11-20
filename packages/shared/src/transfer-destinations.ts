@@ -35,10 +35,14 @@ const ACCOUNT_TYPE_WORD: Record<TransferQrLocale, Record<BankAccountType, string
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const ALIAS = /^@[A-Za-z0-9._-]{3,40}$/;
 
-/** Digits only, without a +57 country prefix on a mobile number. */
-function localDigits(raw: string): string {
+/**
+ * Digits only, without the 57 country code on a mobile number. A Bre-B number
+ * may be any ID, so there the code is dropped only when typed as +57.
+ */
+function localDigits(raw: string, plusRequired = false): string {
   const digits = raw.replace(/[\s.\-+()]/g, '');
-  return /^573\d{9}$/.test(digits) ? digits.slice(2) : digits;
+  const prefixed = !plusRequired || raw.trim().startsWith('+57');
+  return prefixed && /^573\d{9}$/.test(digits) ? digits.slice(2) : digits;
 }
 
 /**
@@ -56,7 +60,7 @@ export function normalizeTransferAccount(
     case 'bre_b': {
       if (value.startsWith('@')) return ALIAS.test(value) ? value : null;
       if (value.includes('@')) return EMAIL.test(value) ? value : null;
-      const digits = localDigits(value);
+      const digits = localDigits(value, true);
       return /^\d{6,20}$/.test(digits) ? digits : null;
     }
     case 'nequi':

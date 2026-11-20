@@ -246,7 +246,8 @@ export type AuditLogAction =
   | 'fiscal_numbering.relieve'
   | 'transfer_destination.create'
   | 'transfer_destination.update'
-  | 'transfer_destination.delete';
+  | 'transfer_destination.delete'
+  | 'transfer_destination.reorder';
 
 export type AuditLogResourceType =
   | 'employment_contract'

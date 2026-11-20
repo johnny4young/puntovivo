@@ -216,10 +216,14 @@ describe('site transfer destinations', () => {
       code: 'CONFLICT',
       cause: { errorCode: 'TRANSFER_DESTINATION_DUPLICATE' },
     });
+    await admin().transferDestinations.set({ siteId, kind: 'bre_b', account: '@TiendaDemo' });
+    await expect(
+      admin().transferDestinations.set({ siteId, kind: 'bre_b', account: '@tiendademo' })
+    ).rejects.toMatchObject({ cause: { errorCode: 'TRANSFER_DESTINATION_DUPLICATE' } });
     // The same number under another wallet is a different destination.
     await admin().transferDestinations.set({ siteId, kind: 'daviplata', account: '3105550100' });
 
-    for (let index = 2; index < MAX_SITE_TRANSFER_DESTINATIONS; index += 1) {
+    for (let index = 3; index < MAX_SITE_TRANSFER_DESTINATIONS; index += 1) {
       await admin().transferDestinations.set({
         siteId,
         kind: 'nequi',
@@ -253,6 +257,32 @@ describe('site transfer destinations', () => {
       ids: [ids[2]!, ids[0]!, ids[1]!],
     });
     expect(reordered.map(row => row.id)).toEqual([ids[2], ids[0], ids[1]]);
+    const reorderAudit = getDatabase()
+      .select()
+      .from(auditLogs)
+      .where(
+        and(eq(auditLogs.resourceId, siteId), eq(auditLogs.action, 'transfer_destination.reorder'))
+      )
+      .all();
+    expect(reorderAudit.at(-1)).toMatchObject({
+      resourceType: 'site',
+      before: { order: ids },
+      after: { order: [ids[2], ids[0], ids[1]] },
+    });
+    // Sending the current order changes nothing and is not audited.
+    await admin().transferDestinations.reorder({ siteId, ids: [ids[2]!, ids[0]!, ids[1]!] });
+    expect(
+      getDatabase()
+        .select()
+        .from(auditLogs)
+        .where(
+          and(
+            eq(auditLogs.resourceId, siteId),
+            eq(auditLogs.action, 'transfer_destination.reorder')
+          )
+        )
+        .all()
+    ).toHaveLength(reorderAudit.length);
 
     const remaining = await admin().transferDestinations.remove({ siteId, id: ids[2]! });
     expect(remaining.map(row => [row.id, row.position])).toEqual([

@@ -224,7 +224,8 @@
     "fiscal_numbering.relieve": "Rango de numeración DIAN relevado por otro",
     "transfer_destination.create": "Destino de transferencia agregado",
     "transfer_destination.update": "Destino de transferencia modificado",
-    "transfer_destination.delete": "Destino de transferencia eliminado"
+    "transfer_destination.delete": "Destino de transferencia eliminado",
+    "transfer_destination.reorder": "Destinos de transferencia reordenados"
   },
   "resourceTypes": {
     "transfer_order": "Orden de transferencia",

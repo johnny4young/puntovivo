@@ -140,6 +140,13 @@ function resolveFields(input: TransferDestinationInput): StoredFields {
   };
 }
 
+// Bre-B aliases and emails are matched without regard to case.
+const sameDestination = (a: StoredFields, b: StoredFields) =>
+  a.kind === b.kind &&
+  (a.kind === 'bre_b'
+    ? a.account.toLowerCase() === b.account.toLowerCase()
+    : a.account === b.account);
+
 const notFound = (): never =>
   throwServerError({
     trpcCode: 'NOT_FOUND',
@@ -160,11 +167,7 @@ export function setSiteTransferDestination(
 
   db.transaction(tx => {
     const rows = listSiteTransferDestinations(tx, scope.tenantId, scope.siteId);
-    if (
-      rows.some(
-        row => row.id !== input.id && row.kind === fields.kind && row.account === fields.account
-      )
-    ) {
+    if (rows.some(row => row.id !== input.id && sameDestination(row, fields))) {
       throwServerError({
         trpcCode: 'CONFLICT',
         errorCode: 'TRANSFER_DESTINATION_DUPLICATE',
@@ -249,14 +252,26 @@ export function reorderSiteTransferDestinations(
         message: 'The new order must list every destination of the site once',
       });
     }
-    const current = new Map(rows.map(row => [row.id, row.position]));
+    const before = rows.map(row => row.id);
+    if (before.every((id, position) => ids[position] === id)) return;
     const now = new Date().toISOString();
     ids.forEach((id, position) => {
-      if (current.get(id) === position) return;
+      if (before[position] === id) return;
       tx.update(siteTransferDestinations)
         .set({ position, updatedAt: now, updatedBy: scope.userId })
         .where(and(eq(siteTransferDestinations.id, id), inSite(scope.tenantId, scope.siteId)))
         .run();
+    });
+    // The first destination is the one registers show, so the order is audited.
+    writeAuditLog({
+      tx,
+      tenantId: scope.tenantId,
+      actorId: scope.userId,
+      action: 'transfer_destination.reorder',
+      resourceType: 'site',
+      resourceId: scope.siteId,
+      before: { order: before },
+      after: { order: [...ids] },
     });
   });
   return listSiteTransferDestinations(db, scope.tenantId, scope.siteId);

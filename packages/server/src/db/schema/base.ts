@@ -540,6 +540,7 @@ export const auditLogActionEnum = [
   'transfer_destination.create',
   'transfer_destination.update',
   'transfer_destination.delete',
+  'transfer_destination.reorder',
 ] as const;
 export type AuditLogAction = (typeof auditLogActionEnum)[number];
 

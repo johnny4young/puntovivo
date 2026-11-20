@@ -90,6 +90,7 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
     'transfer_destination.create',
     'transfer_destination.update',
     'transfer_destination.delete',
+    'transfer_destination.reorder',
   ],
   inventory: [
     'inventory.adjust_stock',

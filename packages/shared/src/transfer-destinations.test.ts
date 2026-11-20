@@ -37,6 +37,7 @@ test('Bre-B keys accept an alias, an email or a number', () => {
   assert.equal(normalizeTransferAccount('bre_b', 'pagos@demo.co'), 'pagos@demo.co');
   assert.equal(normalizeTransferAccount('bre_b', '+57 310 555 0142'), '3105550142');
   assert.equal(normalizeTransferAccount('bre_b', '900.123.456'), '900123456');
+  assert.equal(normalizeTransferAccount('bre_b', '573123456789'), '573123456789');
   assert.equal(normalizeTransferAccount('bre_b', '@ab'), null);
   assert.equal(normalizeTransferAccount('bre_b', 'not a key'), null);
 });
