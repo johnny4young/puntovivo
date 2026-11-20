@@ -521,6 +521,7 @@ export function useSalesFlows({
         unitId: row.unitId ?? '',
         unitName: row.unitName ?? row.unitAbbreviation ?? row.unitId ?? '',
         unitEquivalence: row.unitEquivalence ?? 1,
+        isBaseUnit: row.unitIsBase ?? undefined,
         quantity: row.quantity,
         unitPrice: row.unitPrice,
         discount: row.discount,

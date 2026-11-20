@@ -351,4 +351,21 @@ describe('SaleCartTable', () => {
 
     expect(screen.queryByTestId('cart-unit-presentation-SKU-001')).not.toBeInTheDocument();
   });
+  it('labels a non-base unit even when its equivalence is 1', () => {
+    render(
+      <SaleCartTable
+        items={[createCartItem({ unitName: 'Kilo', unitEquivalence: 1, isBaseUnit: false })]}
+        selectedItemKey={null}
+        onQuantityChange={vi.fn()}
+        onDiscountChange={vi.fn()}
+        onRemove={vi.fn()}
+        onSelectItem={vi.fn()}
+        quantityInputRefFor={quantityInputRefFor}
+        discountInputRefFor={discountInputRefFor}
+      />
+    );
+
+    expect(screen.getByTestId('cart-unit-presentation-SKU-001')).toHaveTextContent('Kilo × 1');
+    expect(screen.getByRole('button', { name: /Kilo × 1/ })).toBeInTheDocument();
+  });
 });

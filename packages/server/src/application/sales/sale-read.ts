@@ -38,6 +38,7 @@ import {
   saleReturnItemTaxComponents,
   saleReturnPaymentAllocations,
   saleReturns,
+  unitXProduct,
   sales,
   tenants,
   units,
@@ -165,6 +166,8 @@ export async function getSaleRecord(db: DatabaseInstance, tenantId: string, sale
       unitEquivalence: saleItems.unitEquivalence,
       unitName: units.name,
       unitAbbreviation: units.abbreviation,
+      // Lets a resumed cart tell a non-base presentation at equivalence 1 from the base unit.
+      unitIsBase: unitXProduct.isBase,
       manualDiscountRate: saleItems.manualDiscountRate,
       discount: saleItems.discount,
       taxRate: saleItems.taxRate,
@@ -179,6 +182,13 @@ export async function getSaleRecord(db: DatabaseInstance, tenantId: string, sale
     .innerJoin(sales, and(eq(saleItems.saleId, sales.id), eq(sales.tenantId, tenantId)))
     .leftJoin(products, and(eq(saleItems.productId, products.id), eq(products.tenantId, tenantId)))
     .leftJoin(units, and(eq(saleItems.unitId, units.id), eq(units.tenantId, tenantId)))
+    .leftJoin(
+      unitXProduct,
+      and(
+        eq(unitXProduct.productId, saleItems.productId),
+        eq(unitXProduct.unitId, saleItems.unitId)
+      )
+    )
     .where(and(eq(saleItems.saleId, saleId), eq(sales.id, saleId)))
     .orderBy(saleItems.id)
     .all();

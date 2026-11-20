@@ -141,6 +141,12 @@ export function SaleCartTable({
             )
             .flatMap(otherItem => otherItem.serialIds ?? []);
           const suggestedDiscount = discountSuggestions.get(item.productId) ?? 0;
+          // A presentation is any line not sold in the base unit, even at equivalence 1.
+          const isPresentation = item.isBaseUnit === false || item.unitEquivalence !== 1;
+          const presentationLabel = t('cart.unitPresentation', {
+            unit: item.unitName,
+            equivalence: item.unitEquivalence,
+          });
           return (
             <li
               key={item.key}
@@ -157,7 +163,9 @@ export function SaleCartTable({
                   type="button"
                   className="sales-ticket-name min-w-0 text-left"
                   aria-label={t('cart.selectItem', {
-                    name: item.productName,
+                    name: isPresentation
+                      ? `${item.productName} (${presentationLabel})`
+                      : item.productName,
                   })}
                   onClick={() => onSelectItem(item.key)}
                 >
@@ -166,15 +174,12 @@ export function SaleCartTable({
                   </span>
                   <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-fg3">
                     <span className="font-mono">{item.productSku}</span>
-                    {item.unitEquivalence !== 1 && (
+                    {isPresentation && (
                       <span
                         className="sales-tag bg-secondary-50 text-secondary-700"
                         data-testid={`cart-unit-presentation-${item.productSku}`}
                       >
-                        {t('cart.unitPresentation', {
-                          unit: item.unitName,
-                          equivalence: item.unitEquivalence,
-                        })}
+                        {presentationLabel}
                       </span>
                     )}
                     {item.tracksStock !== false && Number.isFinite(item.availableStock) && (
