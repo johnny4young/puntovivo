@@ -6,6 +6,8 @@
  * Timer A — outbox housekeeping (default 30 s while server up):
  * - Stale-claim sweep: rows wedged in `submitting` past
  * `STALE_CLAIM_MS` flip back to `queued`.
+ * - Register wallet charges nobody polled for 30 min get one last
+ * provider check, then time out.
  * - Pending-count metadata refresh per tenant so the Operations
  * Center dashboard reads a fresh `outbox_metadata` snapshot.
  *
@@ -49,6 +51,7 @@ import {
 } from './reconciliation.js';
 import type { TiebreakContext, TiebreakFn } from './ai-tiebreak.js';
 import { WorkerActivityTracker } from '../../lib/worker-activity.js';
+import { expireAbandonedWalletCharges } from './wallet-confirmation.js';
 
 const fallbackLog = createModuleLogger('services/payments/payment-worker');
 
@@ -164,9 +167,18 @@ export function createPaymentWorker(opts: PaymentWorkerOptions): PaymentWorker {
     }
   }
 
+  async function expireAbandonedCharges(): Promise<void> {
+    try {
+      await expireAbandonedWalletCharges(db);
+    } catch (err) {
+      log.warn({ err }, 'payment worker wallet-charge expiry failed');
+    }
+  }
+
   async function housekeepingTickRaw(_tenantId: string): Promise<void> {
     if (stopped) return;
     await sweepStaleClaims();
+    await expireAbandonedCharges();
   }
 
   async function runStatementImportRaw(
@@ -334,6 +346,7 @@ export function createPaymentWorker(opts: PaymentWorkerOptions): PaymentWorker {
     if (stopped) return;
     try {
       await sweepStaleClaims();
+      await expireAbandonedCharges();
     } catch (err) {
       log.warn({ err }, 'payment worker housekeeping failed');
     }

@@ -27,7 +27,10 @@
  * @module services/payments/credentials
  */
 
-import type { PaymentRailId } from '../../db/schema.js';
+import { eq } from 'drizzle-orm';
+
+import type { DatabaseInstance } from '../../db/index.js';
+import { tenants, type PaymentRailId } from '../../db/schema.js';
 import { CREDENTIAL_FIELDS_BY_RAIL, type PaymentCredentialFieldDescriptor } from './manifest.js';
 
 export type RailCredentialMap = Record<string, string>;
@@ -150,4 +153,17 @@ export function projectRailCredentials(
       };
     }
   );
+}
+
+/** The tenant settings blob the payment rails read their credentials from. */
+export async function readTenantPaymentSettings(
+  db: DatabaseInstance,
+  tenantId: string
+): Promise<Record<string, unknown>> {
+  const row = await db
+    .select({ settings: tenants.settings })
+    .from(tenants)
+    .where(eq(tenants.id, tenantId))
+    .get();
+  return (row?.settings ?? {}) as Record<string, unknown>;
 }

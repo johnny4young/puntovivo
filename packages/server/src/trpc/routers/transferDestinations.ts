@@ -12,6 +12,7 @@ import {
   setSiteTransferDestination,
   type TransferDestinationScope,
 } from '../../services/site-transfer-destinations.js';
+import { hasLiveWalletRail } from '../../services/payments/wallet-confirmation.js';
 import type { Context } from '../context.js';
 import { router } from '../init.js';
 import { adminProcedure, cashierManagerOrAdminProcedure } from '../middleware/roles.js';
@@ -61,11 +62,14 @@ export const transferDestinationsRouter = router({
     .input(chargeTransferDestinationsInput)
     .query(async ({ ctx, input }) => {
       await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
-      return listChargeTransferDestinations(ctx.db, {
-        tenantId: ctx.tenantId,
-        siteId: input.siteId,
-        amount: input.amount ?? null,
-        locale: input.locale,
-      });
+      return {
+        ...listChargeTransferDestinations(ctx.db, {
+          tenantId: ctx.tenantId,
+          siteId: input.siteId,
+          amount: input.amount ?? null,
+          locale: input.locale,
+        }),
+        autoConfirm: await hasLiveWalletRail(ctx.db, ctx.tenantId),
+      };
     }),
 });

@@ -394,6 +394,15 @@
       "configure": "Configurar",
       "loadError": "No se pudieron cargar las cuentas de transferencia.",
       "approvalNeedsReference": "Escriba la referencia de la transferencia antes de pedir la aprobación."
+    },
+    "wallet": {
+      "providerQrTitle": "Muestre el QR de {{rail}}",
+      "pending": "Esperando confirmación de {{rail}}. La venta se confirma sola cuando llegue el pago.",
+      "approved": "{{rail}} confirmó el pago.",
+      "approvedConfirming": "{{rail}} confirmó el pago. Confirmando la venta…",
+      "declined": "{{rail}} rechazó el pago. Pida otro medio de pago.",
+      "unavailable": "La pasarela no respondió. Usted confirma que el dinero llegó.",
+      "leftApproved": "{{rail}} ya había confirmado el pago de ese cobro. Revise antes de cobrar de nuevo."
     }
   },
   "history": {

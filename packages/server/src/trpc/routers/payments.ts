@@ -38,12 +38,20 @@ import {
 import { throwServerError } from '../../lib/errorCodes.js';
 import {
   buildPaymentRailsContract,
+  cancelWalletCharge,
   getPaymentReconciliation,
+  getWalletChargeStatus,
+  startWalletCharge,
 } from '../../services/payments/index.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import { reviewPaymentProposal } from '../../services/payments/reconciliation/review.js';
 import { router } from '../init.js';
-import { adminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
+import {
+  adminProcedure,
+  cashierManagerOrAdminProcedure,
+  managerOrAdminProcedure,
+} from '../middleware/roles.js';
+import { ensureTenantSite } from '../middleware/tenantSite.js';
 import {
   listPaymentProposalsInput,
   markPaymentOutboxSettledInput,
@@ -52,9 +60,36 @@ import {
   peekPaymentOutboxInput,
   retryPaymentOutboxInput,
   reviewPaymentProposalInput,
+  startWalletChargeInput,
+  walletChargeInput,
 } from '../schemas/payments.js';
 
 export const paymentsRouter = router({
+  /** Opens a provider charge for a transfer when a live wallet rail is ready. */
+  startWalletCharge: cashierManagerOrAdminProcedure
+    .input(startWalletChargeInput)
+    .mutation(async ({ ctx, input }) => {
+      await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+      return startWalletCharge(ctx.db, {
+        tenantId: ctx.tenantId,
+        siteId: input.siteId,
+        userId: ctx.user!.id,
+        amount: input.amount,
+      });
+    }),
+
+  walletChargeStatus: cashierManagerOrAdminProcedure
+    .input(walletChargeInput)
+    .query(({ ctx, input }) =>
+      getWalletChargeStatus(ctx.db, { tenantId: ctx.tenantId, chargeId: input.chargeId })
+    ),
+
+  cancelWalletCharge: cashierManagerOrAdminProcedure
+    .input(walletChargeInput)
+    .mutation(({ ctx, input }) =>
+      cancelWalletCharge(ctx.db, { tenantId: ctx.tenantId, chargeId: input.chargeId })
+    ),
+
   getContract: managerOrAdminProcedure.query(() => {
     return buildPaymentRailsContract();
   }),
@@ -193,6 +228,7 @@ export const paymentsRouter = router({
         status: paymentOutbox.status,
         attempts: paymentOutbox.attempts,
         railId: paymentOutbox.railId,
+        payload: paymentOutbox.payload,
       })
       .from(paymentOutbox)
       .where(and(eq(paymentOutbox.id, input.outboxId), eq(paymentOutbox.tenantId, ctx.tenantId)))
@@ -213,11 +249,12 @@ export const paymentsRouter = router({
       'retrying',
       'dead_letter',
     ]);
-    if (!RETRIABLE_STATUSES.has(existing.status)) {
+    // A register charge belongs to a checkout that already ended; re-sending it would charge again.
+    if (!RETRIABLE_STATUSES.has(existing.status) || existing.payload.source === 'register') {
       throwServerError({
         trpcCode: 'BAD_REQUEST',
         errorCode: 'PAYMENT_OUTBOX_NOT_RETRIABLE',
-        message: `Payment outbox row ${input.outboxId} is in status '${existing.status}' — only declined/timeout/retrying/dead_letter rows can be retried from the operator panel`,
+        message: `Payment outbox row ${input.outboxId} is in status '${existing.status}' — only declined/timeout/retrying/dead_letter rows that are not register charges can be retried from the operator panel`,
         details: { outboxId: input.outboxId, currentStatus: existing.status },
       });
     }

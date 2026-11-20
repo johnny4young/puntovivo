@@ -122,6 +122,7 @@ import {
   prepareSaleFiscalIntent,
 } from '../../services/fiscal/orchestrator/intents.js';
 import type { ResolvedLine } from '../../services/fiscal/orchestrator/types.js';
+import { linkWalletChargeToTender } from '../../services/payments/wallet-confirmation.js';
 import { resolveElectronicInvoiceBuyer } from './electronicInvoice.js';
 
 /**
@@ -728,6 +729,13 @@ export async function runFreshSale(
           amount: tenderAmount,
         });
         if (input.status === 'completed') {
+          linkWalletChargeToTender(tx, {
+            tenantId: ctx.tenantId,
+            salePaymentId: paymentId,
+            method: payment.method,
+            reference: payment.reference ?? null,
+            amount: tenderAmount,
+          });
           redeemCustomerValueTender(tx, {
             tenantId: ctx.tenantId,
             customerId: resolvedCustomer.customerId,

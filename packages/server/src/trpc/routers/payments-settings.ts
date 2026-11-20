@@ -31,13 +31,13 @@
 import { eq } from 'drizzle-orm';
 
 import { tenants, type PaymentRailId } from '../../db/schema.js';
-import type { DatabaseInstance } from '../../db/index.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import type { PaymentRailValidationResult } from '../../services/payments/contracts.js';
 import {
   mergePaymentRailCredentialsIntoTenantSettings,
   projectRailCredentials,
   readPaymentRailCredentials,
+  readTenantPaymentSettings,
   type PaymentRailCredentialView,
 } from '../../services/payments/credentials.js';
 import {
@@ -45,22 +45,10 @@ import {
   PAYMENT_RAIL_IDS,
   PAYMENT_RAILS_MANIFEST,
 } from '../../services/payments/manifest.js';
-import { getPaymentRailAdapter } from '../../services/payments/registry.js';
+import { isPaymentRailLive, validatePaymentRail } from '../../services/payments/registry.js';
 import { router } from '../init.js';
 import { adminProcedure } from '../middleware/roles.js';
 import { updatePaymentRailSettingsInput } from '../schemas/payments.js';
-
-async function readTenantSettings(
-  db: DatabaseInstance,
-  tenantId: string
-): Promise<Record<string, unknown>> {
-  const row = await db
-    .select({ settings: tenants.settings })
-    .from(tenants)
-    .where(eq(tenants.id, tenantId))
-    .get();
-  return (row?.settings ?? {}) as Record<string, unknown>;
-}
 
 export interface PaymentRailSettingsEntry {
   railId: PaymentRailId;
@@ -77,16 +65,13 @@ async function buildRailEntry(
   settings: Record<string, unknown>
 ): Promise<PaymentRailSettingsEntry> {
   const manifest = PAYMENT_RAILS_MANIFEST[railId];
-  const adapter = getPaymentRailAdapter(railId);
   const credentials = projectRailCredentials(railId, readPaymentRailCredentials(settings, railId));
-  const validation: PaymentRailValidationResult = adapter.validateConfig
-    ? await adapter.validateConfig({ tenantId, settings })
-    : { ok: true, issues: [] };
+  const validation = await validatePaymentRail(railId, { tenantId, settings });
   return {
     railId,
     label: manifest.label,
     countryFocus: manifest.countryFocus,
-    liveIntegration: manifest.liveIntegration,
+    liveIntegration: isPaymentRailLive(railId),
     credentials,
     validation,
   };
@@ -99,7 +84,7 @@ export const paymentSettingsRouter = router({
    * hydrates the entire admin card without a per-rail round-trip.
    */
   getAll: adminProcedure.query(async ({ ctx }) => {
-    const settings = await readTenantSettings(ctx.db, ctx.tenantId);
+    const settings = await readTenantPaymentSettings(ctx.db, ctx.tenantId);
     const rails: PaymentRailSettingsEntry[] = [];
     for (const railId of PAYMENT_RAIL_IDS) {
       rails.push(await buildRailEntry(railId, ctx.tenantId, settings));
@@ -131,7 +116,7 @@ export const paymentSettingsRouter = router({
         patch[key] = value === null ? null : value.trim();
       }
 
-      const settings = await readTenantSettings(ctx.db, ctx.tenantId);
+      const settings = await readTenantPaymentSettings(ctx.db, ctx.tenantId);
       const nextSettings = mergePaymentRailCredentialsIntoTenantSettings(
         settings,
         input.railId,
