@@ -59,12 +59,10 @@ is usable from source, but it is not a new packaged release yet.
 
 * **dashboard:** open Hoy on the manager's day ([fc4655a](https://github.com/johnny4young/puntovivo/commit/fc4655a6b11f5ce0e8ebd85bce331245c2683c52))
 * **i18n:** address users with usted across the Spanish copy ([7ac3e52](https://github.com/johnny4young/puntovivo/commit/7ac3e52cda431d9fd7286a8179c41509617ffb35))
-* **products:** carry a packaging barcode and ([d25ea04](https://github.com/johnny4young/puntovivo/commit/d25ea0406750366f6494eb38f243a18c04049ecd))
 * **products:** carry a packaging barcode and resolve it deterministically ([59d9fd6](https://github.com/johnny4young/puntovivo/commit/59d9fd615d6061f3bf3e55c7a6e0ef3d4c95c1ac))
 * **sales:** let owners choose the site keys and sell them from the touch POS ([dd9cb3b](https://github.com/johnny4young/puntovivo/commit/dd9cb3bab61877d895c7431765e967a364e72af7))
 * **sales:** rebuild the selling screen around the ticket, the last read and one-touch cash ([7d000e0](https://github.com/johnny4young/puntovivo/commit/7d000e07a4551af33c32b154267926bfb6348188))
 * **sales:** share one-touch quick keys across a site's registers ([f3a29e3](https://github.com/johnny4young/puntovivo/commit/f3a29e3786b622e2da1e4330890577b0eafb313a))
-* **sales:** show the selected unit ([740b274](https://github.com/johnny4young/puntovivo/commit/740b2741a54cb1cb5fba388e9f74720e6773ebdd))
 * **sales:** show the selected unit presentation in the cart line ([49333dd](https://github.com/johnny4young/puntovivo/commit/49333dd313ba56f047e88e01e8917f1540a05b67))
 * **sales:** turn the register search into one command bar ([c1413d1](https://github.com/johnny4young/puntovivo/commit/c1413d1616b666a17c431f862f1da0f429a52c59))
 * **server:** operations.today summary for the manager's day ([b433727](https://github.com/johnny4young/puntovivo/commit/b433727a8018cd00b55edae6cd9c8ddf7427bab3))
