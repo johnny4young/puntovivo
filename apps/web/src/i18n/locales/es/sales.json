@@ -401,7 +401,8 @@
       "approved": "{{rail}} confirmó el pago.",
       "approvedConfirming": "{{rail}} confirmó el pago. Confirmando la venta…",
       "declined": "{{rail}} rechazó el pago. Pida otro medio de pago.",
-      "unavailable": "La pasarela no respondió. Usted confirma que el dinero llegó."
+      "unavailable": "La pasarela no respondió. Usted confirma que el dinero llegó.",
+      "leftApproved": "{{rail}} ya había confirmado el pago de ese cobro. Revise antes de cobrar de nuevo."
     }
   },
   "history": {

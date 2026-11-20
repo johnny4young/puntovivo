@@ -228,6 +228,7 @@ export const paymentsRouter = router({
         status: paymentOutbox.status,
         attempts: paymentOutbox.attempts,
         railId: paymentOutbox.railId,
+        payload: paymentOutbox.payload,
       })
       .from(paymentOutbox)
       .where(and(eq(paymentOutbox.id, input.outboxId), eq(paymentOutbox.tenantId, ctx.tenantId)))
@@ -248,11 +249,12 @@ export const paymentsRouter = router({
       'retrying',
       'dead_letter',
     ]);
-    if (!RETRIABLE_STATUSES.has(existing.status)) {
+    // A register charge belongs to a checkout that already ended; re-sending it would charge again.
+    if (!RETRIABLE_STATUSES.has(existing.status) || existing.payload.source === 'register') {
       throwServerError({
         trpcCode: 'BAD_REQUEST',
         errorCode: 'PAYMENT_OUTBOX_NOT_RETRIABLE',
-        message: `Payment outbox row ${input.outboxId} is in status '${existing.status}' — only declined/timeout/retrying/dead_letter rows can be retried from the operator panel`,
+        message: `Payment outbox row ${input.outboxId} is in status '${existing.status}' — only declined/timeout/retrying/dead_letter rows that are not register charges can be retried from the operator panel`,
         details: { outboxId: input.outboxId, currentStatus: existing.status },
       });
     }

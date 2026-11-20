@@ -401,7 +401,8 @@
       "approved": "{{rail}} confirmed the payment.",
       "approvedConfirming": "{{rail}} confirmed the payment. Confirming the sale…",
       "declined": "{{rail}} declined the payment. Ask for another payment method.",
-      "unavailable": "The payment provider did not answer. You confirm the money arrived."
+      "unavailable": "The payment provider did not answer. You confirm the money arrived.",
+      "leftApproved": "{{rail}} had already confirmed that charge. Check before charging again."
     }
   },
   "history": {

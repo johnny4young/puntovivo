@@ -58,19 +58,33 @@ export function SalePaymentTransferSection({
   });
   const live = wallet.mode === 'live' ? wallet : null;
   const providerCharge = live?.status === 'pending' && live.qrPayload ? live : null;
+  // While a provider charge is open or paid, the store QR would invite a second payment.
+  const storeQrHidden = live
+    ? live.status !== 'declined'
+    : wallet.mode === 'idle' && query.data?.autoConfirm === true;
+  const storeQr = storeQrHidden ? null : selected;
 
-  const label = providerCharge ? providerCharge.railLabel : selected?.label;
-  const account = providerCharge ? '' : selected?.account;
-  const qrPayload = providerCharge?.qrPayload ?? selected?.qr.payload;
+  const label = providerCharge ? providerCharge.railLabel : storeQr?.label;
+  const account = providerCharge ? '' : storeQr?.account;
+  const qrPayload = providerCharge?.qrPayload ?? storeQr?.qr.payload;
   // Only a QR that spells out the amount goes stale while a new total is fetched.
   const qrIsStale = providerCharge
     ? !amountSettled
     : Boolean(selected?.qr.amountIncluded) && (query.isPlaceholderData || !amountSettled);
 
   const approvedReference = live?.status === 'approved' ? live.reference : null;
+  const filledReferenceRef = useRef<string | null>(null);
   useEffect(() => {
     if (approvedReference) {
+      filledReferenceRef.current = approvedReference;
       form.setValue('transferReference', approvedReference, { shouldValidate: true });
+      return;
+    }
+    // A new total opens a new charge; the old approval no longer pays this sale.
+    const filled = filledReferenceRef.current;
+    filledReferenceRef.current = null;
+    if (filled && form.getValues('transferReference') === filled) {
+      form.setValue('transferReference', '', { shouldValidate: true });
     }
   }, [approvedReference, form]);
   const autoConfirmedRef = useRef<string | null>(null);
@@ -129,7 +143,7 @@ export function SalePaymentTransferSection({
             {qrCopy && <p className="sale-pay-transfer-copy">{qrCopy}</p>}
           </div>
         </div>
-      ) : selected ? (
+      ) : storeQrHidden ? null : selected ? (
         <div className="sale-pay-transfer-qr-row">
           <TransferQrCode
             payload={selected.qr.payload}
@@ -197,7 +211,7 @@ export function SalePaymentTransferSection({
         </div>
       </div>
 
-      <WalletStatusNote wallet={wallet} autoConfirming={canSubmit} />
+      <WalletStatusNote wallet={wallet} autoConfirming={isSaving} />
     </section>
   );
 }

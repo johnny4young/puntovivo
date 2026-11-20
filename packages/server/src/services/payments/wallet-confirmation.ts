@@ -10,7 +10,7 @@
  * @module services/payments/wallet-confirmation
  */
 
-import { and, eq, isNull, lte, sql, type SQL } from 'drizzle-orm';
+import { and, eq, isNull, lte, or, sql, type SQL } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 import type { DatabaseInstance } from '../../db/index.js';
@@ -30,6 +30,7 @@ const log = createModuleLogger('services/payments/wallet-confirmation');
 const WALLET_METHODS: ReadonlySet<PaymentRailMethod> = new Set(['wallet', 'qr', 'bank_transfer']);
 const REGISTER_SOURCE = 'register';
 const ABANDONED_AFTER_MS = 30 * 60_000;
+const POLL_REFRESH_MS = 60_000;
 
 export type WalletChargeStatus = 'pending' | 'approved' | 'declined';
 
@@ -91,6 +92,29 @@ export async function startWalletCharge(
 
   const amount = roundMoney(input.amount);
   const reference = `pv-${nanoid(16)}`;
+  const chargeId = nanoid();
+  const nowIso = new Date().toISOString();
+  // The row exists before the provider charge, so a charge is never untracked.
+  await db
+    .insert(paymentOutbox)
+    .values({
+      id: chargeId,
+      tenantId: input.tenantId,
+      railId,
+      kind: 'charge',
+      status: 'submitting',
+      amount,
+      currencyCode,
+      reference,
+      payload: { source: REGISTER_SOURCE, siteId: input.siteId, startedBy: input.userId },
+      attempts: 1,
+      idempotencyKey: reference,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    })
+    .run();
+  const scoped = { id: chargeId, tenantId: input.tenantId };
+
   let charge;
   try {
     charge = await getPaymentRailAdapter(railId).charge({
@@ -102,36 +126,28 @@ export async function startWalletCharge(
     });
   } catch (err) {
     log.warn({ err, tenantId: input.tenantId, railId }, 'wallet charge could not start');
+    await settle(db, scoped, 'timeout', {
+      kind: 'PROVIDER_UNAVAILABLE',
+      message: 'Provider could not open the charge',
+    });
     return { mode: 'manual', providerUnavailable: true };
   }
 
   const status = charge.status === 'pending' ? 'submitting' : charge.status;
-  const chargeId = nanoid();
-  const nowIso = new Date().toISOString();
   await db
-    .insert(paymentOutbox)
-    .values({
-      id: chargeId,
-      tenantId: input.tenantId,
-      railId,
-      kind: 'charge',
+    .update(paymentOutbox)
+    .set({
       status,
-      amount,
-      currencyCode,
-      reference,
       providerTransactionId: charge.providerTransactionId,
-      payload: { source: REGISTER_SOURCE, siteId: input.siteId, startedBy: input.userId },
-      attempts: 1,
       lastError:
         charge.status === 'declined'
           ? { kind: 'PROVIDER_DECLINED', message: charge.reason }
           : charge.status === 'timeout'
             ? { kind: 'PROVIDER_TIMEOUT', message: 'Provider did not answer the charge' }
             : null,
-      idempotencyKey: reference,
-      createdAt: nowIso,
-      updatedAt: nowIso,
+      updatedAt: new Date().toISOString(),
     })
+    .where(and(eq(paymentOutbox.id, chargeId), eq(paymentOutbox.tenantId, input.tenantId)))
     .run();
 
   if (charge.status === 'timeout') return { mode: 'manual', providerUnavailable: true };
@@ -177,12 +193,17 @@ async function loadRegisterCharge(db: DatabaseInstance, tenantId: string, charge
   return row;
 }
 
-/** Moves a still-pending charge to its verdict; false when another writer got there first. */
-async function settlePending(
+/** Charges the register left on purpose; they are not provider failures. */
+export const isCancelledByRegister = (): SQL =>
+  sql`coalesce(json_extract(${paymentOutbox.lastError}, '$.kind'), '') = 'CANCELLED'`;
+
+/** Moves a charge from `from` to its verdict; false when another writer got there first. */
+async function settle(
   db: DatabaseInstance,
   row: { id: string; tenantId: string },
   status: 'approved' | 'declined' | 'timeout',
-  lastError: Record<string, unknown> | null
+  lastError: Record<string, unknown> | null,
+  from: PaymentOutboxStatus = 'submitting'
 ): Promise<boolean> {
   const updated = await db
     .update(paymentOutbox)
@@ -191,7 +212,7 @@ async function settlePending(
       and(
         eq(paymentOutbox.id, row.id),
         eq(paymentOutbox.tenantId, row.tenantId),
-        eq(paymentOutbox.status, 'submitting')
+        eq(paymentOutbox.status, from)
       )
     )
     .returning({ id: paymentOutbox.id })
@@ -216,6 +237,7 @@ async function pollProvider(
 }
 
 const DECLINED = { kind: 'PROVIDER_DECLINED', message: 'Provider declined the charge' };
+const CANCELLED = { kind: 'CANCELLED', message: 'The register left this charge' };
 
 /** Ask the provider once and settle the row when it has a verdict. */
 export async function getWalletChargeStatus(
@@ -235,21 +257,23 @@ export async function getWalletChargeStatus(
   });
   const scoped = { id: row.id, tenantId: input.tenantId };
   if (verdict === 'pending') {
-    // A charge someone still polls is not abandoned.
+    // A charge someone still polls is not abandoned; refresh it about once a minute.
+    const now = Date.now();
     await db
       .update(paymentOutbox)
-      .set({ updatedAt: new Date().toISOString() })
+      .set({ updatedAt: new Date(now).toISOString() })
       .where(
         and(
           eq(paymentOutbox.id, row.id),
           eq(paymentOutbox.tenantId, input.tenantId),
-          eq(paymentOutbox.status, 'submitting')
+          eq(paymentOutbox.status, 'submitting'),
+          lte(paymentOutbox.updatedAt, new Date(now - POLL_REFRESH_MS).toISOString())
         )
       )
       .run();
     return result(verdict);
   }
-  if (await settlePending(db, scoped, verdict, verdict === 'declined' ? DECLINED : null)) {
+  if (await settle(db, scoped, verdict, verdict === 'declined' ? DECLINED : null)) {
     return result(verdict);
   }
   const current = await loadRegisterCharge(db, input.tenantId, input.chargeId);
@@ -275,14 +299,8 @@ export async function cancelWalletCharge(
       : 'pending';
     const settled =
       verdict === 'approved'
-        ? await settlePending(db, scoped, 'approved', null)
-        : await settlePending(db, scoped, 'declined', {
-            kind: verdict === 'declined' ? 'PROVIDER_DECLINED' : 'CANCELLED',
-            message:
-              verdict === 'declined'
-                ? 'Provider declined the charge'
-                : 'The register left this charge',
-          });
+        ? await settle(db, scoped, 'approved', null)
+        : await settle(db, scoped, 'declined', verdict === 'declined' ? DECLINED : CANCELLED);
     if (settled)
       return { chargeId: row.id, status: verdict === 'approved' ? 'approved' : 'declined' };
   }
@@ -291,8 +309,9 @@ export async function cancelWalletCharge(
 }
 
 /**
- * Register charges nobody polls any more (closed browser, lost network): ask
- * the provider one last time, then mark the rest timed out for reconciliation.
+ * Register charges nobody polls any more (closed browser, lost network) get
+ * one last provider check and then time out. Charges the register cancelled
+ * get the same late check once, so a customer who paid an old QR is not lost.
  */
 export async function expireAbandonedWalletCharges(
   db: DatabaseInstance,
@@ -304,16 +323,24 @@ export async function expireAbandonedWalletCharges(
       id: paymentOutbox.id,
       tenantId: paymentOutbox.tenantId,
       railId: paymentOutbox.railId,
+      status: paymentOutbox.status,
       providerTransactionId: paymentOutbox.providerTransactionId,
     })
     .from(paymentOutbox)
     .where(
       and(
-        eq(paymentOutbox.status, 'submitting'),
         eq(paymentOutbox.kind, 'charge'),
         isNull(paymentOutbox.lockedAt),
         lte(paymentOutbox.updatedAt, cutoff),
-        isRegisterCharge()
+        isRegisterCharge(),
+        or(
+          eq(paymentOutbox.status, 'submitting'),
+          and(
+            eq(paymentOutbox.status, 'declined'),
+            isCancelledByRegister(),
+            sql`json_extract(${paymentOutbox.lastError}, '$.rechecked') IS NULL`
+          )
+        )
       )
     )
     .all();
@@ -325,11 +352,15 @@ export async function expireAbandonedWalletCharges(
           providerTransactionId: row.providerTransactionId,
         })
       : 'pending';
-    if (verdict === 'pending') {
+    if (row.status === 'declined') {
+      await (verdict === 'approved'
+        ? settle(db, row, 'approved', null, 'declined')
+        : settle(db, row, 'declined', { ...CANCELLED, rechecked: true }, 'declined'));
+    } else if (verdict === 'pending') {
       const abandoned = { kind: 'ABANDONED', message: 'No register confirmed this charge' };
-      if (await settlePending(db, row, 'timeout', abandoned)) expired += 1;
+      if (await settle(db, row, 'timeout', abandoned)) expired += 1;
     } else {
-      await settlePending(db, row, verdict, verdict === 'declined' ? DECLINED : null);
+      await settle(db, row, verdict, verdict === 'declined' ? DECLINED : null);
     }
   }
   return expired;

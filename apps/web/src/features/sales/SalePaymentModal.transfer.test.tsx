@@ -12,6 +12,7 @@ const roleMock = vi.hoisted(() => vi.fn(() => 'cashier'));
 const startWalletMock = vi.hoisted(() => vi.fn());
 const cancelWalletMock = vi.hoisted(() => vi.fn());
 const walletStatusMock = vi.hoisted(() => vi.fn());
+const toastWarningMock = vi.hoisted(() => vi.fn());
 
 const idle = { data: undefined, isLoading: false, isFetching: false, isError: false, error: null };
 
@@ -50,7 +51,7 @@ vi.mock('@/lib/useCriticalMutation', () => ({
   useCriticalMutation: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 vi.mock('@/components/feedback/ToastProvider', () => ({
-  useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() }),
+  useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: toastWarningMock }),
 }));
 vi.mock('@/features/tenant/TenantProvider', () => ({
   useTenant: () => ({ currentSite: { id: 'site-1' } }),
@@ -91,13 +92,11 @@ function mockDestinations(list: typeof destinations, autoConfirm = false) {
   });
 }
 
-function renderTransfer(
-  onSubmit = vi.fn<(values: SalePaymentValues) => Promise<void>>(async () => undefined)
-) {
-  render(
+function transferModal(onSubmit: (values: SalePaymentValues) => Promise<void>, total = 100) {
+  return (
     <SalePaymentModal
       isOpen
-      total={100}
+      total={total}
       customers={[]}
       isSaving={false}
       error={null}
@@ -107,6 +106,12 @@ function renderTransfer(
       onSubmit={onSubmit}
     />
   );
+}
+
+function renderTransfer(
+  onSubmit = vi.fn<(values: SalePaymentValues) => Promise<void>>(async () => undefined)
+) {
+  render(transferModal(onSubmit));
   return onSubmit;
 }
 
@@ -134,6 +139,7 @@ beforeAll(async () => {
 beforeEach(() => {
   startWalletMock.mockReset();
   cancelWalletMock.mockReset();
+  toastWarningMock.mockReset();
   mockWallet({ mode: 'manual', providerUnavailable: false });
 });
 
@@ -310,6 +316,9 @@ describe('SalePaymentModal — transfer', () => {
       'data-state',
       'approved'
     );
+    expect(screen.getByTestId('sale-payment-wallet-status')).toHaveTextContent(
+      /^Nequi confirmed the payment\.$/
+    );
     expect(screen.getByTestId('sale-payment-transfer-reference')).toHaveValue('nequi_tx_9001');
   });
 
@@ -347,6 +356,56 @@ describe('SalePaymentModal — transfer', () => {
 
     await screen.findByText('Show the Nequi QR');
     await user.click(screen.getByTestId('sale-payment-tender-cash'));
-    await waitFor(() => expect(cancelWalletMock).toHaveBeenCalledWith({ chargeId: 'charge-1' }));
+    await waitFor(() =>
+      expect(cancelWalletMock).toHaveBeenCalledWith({ chargeId: 'charge-1' }, expect.anything())
+    );
+  });
+
+  it('never shows the store QR beside an open provider charge without its own QR', async () => {
+    moduleActiveMock.mockReturnValue(true);
+    mockWallet({ ...liveCharge, qrPayload: null }, 'pending');
+    renderTransfer();
+
+    expect(await screen.findByTestId('sale-payment-wallet-status')).toHaveAttribute(
+      'data-state',
+      'pending'
+    );
+    expect(screen.queryByTestId('sale-payment-transfer-qr')).not.toBeInTheDocument();
+    expect(screen.queryByText('Show the store QR')).not.toBeInTheDocument();
+    expect(useCheckoutTransferDisplay.getState().transfer).toBeNull();
+  });
+
+  it('warns the cashier when a charge being left had already been paid', async () => {
+    const user = userEvent.setup();
+    mockWallet(liveCharge, 'pending');
+    cancelWalletMock.mockImplementation(
+      (_input: unknown, options?: { onSuccess?: (left: { status: string }) => void }) =>
+        options?.onSuccess?.({ status: 'approved' })
+    );
+    renderTransfer();
+
+    await screen.findByText('Show the Nequi QR');
+    await user.click(screen.getByTestId('sale-payment-tender-cash'));
+    await waitFor(() =>
+      expect(toastWarningMock).toHaveBeenCalledWith({
+        title: 'Nequi had already confirmed that charge. Check before charging again.',
+      })
+    );
+  });
+
+  it('drops the approved reference when a new total opens a new charge', async () => {
+    mockWallet(liveCharge, 'approved');
+    const onSubmit = vi.fn<(values: SalePaymentValues) => Promise<void>>(async () => undefined);
+    const view = render(transferModal(onSubmit));
+    await waitFor(() =>
+      expect(screen.getByTestId('sale-payment-transfer-reference')).toHaveValue('nequi_tx_9001')
+    );
+
+    walletStatusMock.mockReturnValue({ data: undefined });
+    startWalletMock.mockReturnValue(new Promise(() => {}));
+    view.rerender(transferModal(onSubmit, 120));
+    await waitFor(() =>
+      expect(screen.getByTestId('sale-payment-transfer-reference')).toHaveValue('')
+    );
   });
 });
