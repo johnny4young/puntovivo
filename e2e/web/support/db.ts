@@ -1771,6 +1771,22 @@ export function findProductBySku(sku: string): ProductRecord | null {
   }
 }
 
+export function getProductPriceTiers(
+  sku: string
+): { name: string; price: number; price2: number; price3: number; cost: number } | null {
+  const db = openDb();
+
+  try {
+    const row = db
+      .prepare('select name, price, price2, price3, cost from products where sku = ? limit 1')
+      .get(sku) as
+      { name: string; price: number; price2: number; price3: number; cost: number } | undefined;
+    return row ?? null;
+  } finally {
+    db.close();
+  }
+}
+
 export function getInventoryValuation(tenantId: string): number {
   const db = openDb();
 

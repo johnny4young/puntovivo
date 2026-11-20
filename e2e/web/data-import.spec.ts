@@ -11,7 +11,11 @@ import {
   loginAs,
   resetSession,
 } from './support/app.js';
-import { seedCashierWithoutSession, seedFiscalProfileScenario } from './support/db.js';
+import {
+  getProductPriceTiers,
+  seedCashierWithoutSession,
+  seedFiscalProfileScenario,
+} from './support/db.js';
 
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -64,6 +68,55 @@ async function confirmRealData(page: Page, spanish = false) {
 }
 
 test.describe('launch data import', () => {
+  test('Spanish admin imports a Windows CSV with three price levels from the Products page', async ({
+    page,
+  }, testInfo) => {
+    const tracker = attachClientIssueTracker(page);
+    const suffix = `${testInfo.parallelIndex}-${Date.now()}`;
+    const skus = ['A', 'B', 'C'].map(letter => `E2E-MONICA-${letter}-${suffix}`);
+    await loginAs(page, 'admin', { spanish: true });
+    await page.goto('/products');
+    await page.getByRole('link', { name: 'Importar productos' }).click();
+    await expect(page).toHaveURL(/\/data-import$/);
+    await chooseRealData(page, true);
+
+    // Windows-1252 bytes, as a Windows POS export writes them (latin1 covers ó and ñ).
+    await page.locator('#data-import-file').setInputFiles({
+      name: 'inventario-monica.csv',
+      mimeType: 'text/csv',
+      buffer: Buffer.from(
+        [
+          'Código;Nombre del producto;Costo;Precio 1;Precio 2;Precio 3',
+          `${skus[0]};Piña en almíbar ${suffix};2.100;3.000;2.800;2.650,50`,
+          `${skus[1]};Jabón de baño ${suffix};1.000;1.500;1.400;1.300`,
+          `${skus[2]};Azúcar 1 kg ${suffix};3.200;4.100;0;0`,
+        ].join('\r\n'),
+        'latin1'
+      ),
+    });
+    await expect(page.getByLabel(/^SKU/)).toHaveValue('Código');
+    await expect(page.getByLabel(/^Precio de venta/)).toHaveValue('Precio 1');
+    await expect(page.getByLabel(/^Precio 2/)).toHaveValue('Precio 2');
+    await expect(page.getByLabel(/^Precio 3/)).toHaveValue('Precio 3');
+    await page.getByRole('button', { name: 'Validar y previsualizar' }).click();
+    await expect(page.getByTestId('data-import-summary-ready')).toContainText('3');
+    await expect(page.getByTestId('data-import-preview-row-2')).toContainText('Piña en almíbar');
+
+    await confirmRealData(page, true);
+    await page.getByRole('button', { name: 'Importar 3 filas listas' }).click();
+    await expect(page.getByTestId('data-import-report')).toContainText('Productos creados: 3.');
+
+    expect(getProductPriceTiers(skus[0]!)).toEqual({
+      name: `Piña en almíbar ${suffix}`,
+      cost: 2100,
+      price: 3000,
+      price2: 2800,
+      price3: 2650.5,
+    });
+    expect(getProductPriceTiers(skus[2]!)).toMatchObject({ price: 4100, price2: 0, price3: 0 });
+    await expectNoClientIssues(tracker);
+  });
+
   test('admin previews, imports, downloads a report, and sees catalog stock', async ({
     page,
   }, testInfo) => {
@@ -755,9 +808,7 @@ test.describe('launch data import', () => {
     await expect(numbering).toContainText('SETT 1–5000');
     await expect(numbering).toContainText('Active');
     await expect(page.locator('#fiscal-co-environment')).toHaveValue('habilitacion');
-    await expect(
-      page.getByRole('checkbox', { name: 'Enable DIAN issuing' })
-    ).not.toBeChecked();
+    await expect(page.getByRole('checkbox', { name: 'Enable DIAN issuing' })).not.toBeChecked();
     await captureEvidence(page, 'eng-123f-fiscal-profile-company-roundtrip-en');
 
     await ensureLanguage(page, 'es');
