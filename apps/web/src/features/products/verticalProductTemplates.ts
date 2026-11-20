@@ -112,6 +112,7 @@ export function buildProductTemplateApplication(args: {
       },
       unitAssignment: {
         unitId: unit.id,
+        barcode: '',
         equivalence: 1,
         price,
         price2,
