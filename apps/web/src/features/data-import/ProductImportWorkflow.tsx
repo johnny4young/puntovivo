@@ -5,7 +5,12 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { exportToCSV, type ExportColumn } from '@/services/export/exportService';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
-import { parseImportFile, ImportFileError, type ParsedImportFile } from './fileParser';
+import {
+  parseImportFile,
+  ImportFileError,
+  type ParsedImportFile,
+  MAX_PRODUCT_IMPORT_ROWS,
+} from './fileParser';
 import { ImportSourcePanel } from './ImportSourcePanel';
 import {
   hasRequiredProductMapping,
@@ -43,6 +48,8 @@ const TEMPLATE_KEYS = [
   'barcode',
   'unit',
   'price',
+  'price2',
+  'price3',
   'cost',
   'stock',
   'minStock',
@@ -56,7 +63,7 @@ interface ProductImportWorkflowProps {
   onBusyChange?: (busy: boolean) => void;
 }
 export function ProductImportWorkflow({ dataMode, onBusyChange }: ProductImportWorkflowProps) {
-  const { t } = useTranslation(['dataImport', 'errors']);
+  const { t, i18n } = useTranslation(['dataImport', 'errors']);
   const toast = useToast();
   const utils = trpc.useUtils();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -120,7 +127,7 @@ export function ProductImportWorkflow({ dataMode, onBusyChange }: ProductImportW
     setFileError(null);
     invalidatePreview();
     try {
-      const parsed = await parseImportFile(selected);
+      const parsed = await parseImportFile(selected, { maxRows: MAX_PRODUCT_IMPORT_ROWS });
       const detected = detectProductImportProfile(parsed.headers);
       setFile(parsed);
       setDetectedProfileId(detected);
@@ -133,7 +140,11 @@ export function ProductImportWorkflow({ dataMode, onBusyChange }: ProductImportW
       setDetectedProfileId('generic');
       if (fileInputRef.current) fileInputRef.current.value = '';
       const code = error instanceof ImportFileError ? error.code : 'unsupported_file';
-      setFileError(t(`dataImport:fileErrors.${code}`));
+      setFileError(
+        t(`dataImport:fileErrors.${code}`, {
+          max: MAX_PRODUCT_IMPORT_ROWS.toLocaleString(i18n.language),
+        })
+      );
     } finally {
       setIsParsing(false);
     }
@@ -273,6 +284,8 @@ export function ProductImportWorkflow({ dataMode, onBusyChange }: ProductImportW
           description: t('dataImport:template.sampleDescription'),
           barcode: '7701234567890',
           price: '12500',
+          price2: '11800',
+          price3: '11000',
           cost: '8000',
           unit: 'UND',
           stock: '24',
@@ -303,7 +316,8 @@ export function ProductImportWorkflow({ dataMode, onBusyChange }: ProductImportW
   const canPreview = Boolean(file && mapping && hasRequiredProductMapping(mapping));
   return (
     <div className="space-y-6">
-      <div className="flex justify-end">
+      <div className="flex flex-wrap items-center justify-end gap-3">
+        <p className="text-sm text-secondary-600">{t('dataImport:template.hint')}</p>
         <Button type="button" onClick={handleDownloadTemplate} variant="outline">
           <FileSpreadsheet className="h-4 w-4" aria-hidden="true" />
           {t('dataImport:actions.downloadTemplate')}
@@ -318,11 +332,13 @@ export function ProductImportWorkflow({ dataMode, onBusyChange }: ProductImportW
         isParsing={isParsing}
         onFile={selected => void handleFile(selected)}
         onReset={handleReset}
+        maxRows={MAX_PRODUCT_IMPORT_ROWS}
       />
 
       {file && mapping ? (
         <>
           <ProductImportMappingPanel
+            key={`${file.sourceName}:${file.headers.join('|')}`}
             headers={file.headers}
             mapping={mapping}
             decimalFormat={decimalFormat}

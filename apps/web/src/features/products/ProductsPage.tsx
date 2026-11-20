@@ -1,8 +1,9 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { keepPreviousData } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router';
 import i18next from '@/i18n';
-import { AlertTriangle, Plus, Search, Sparkles } from 'lucide-react';
+import { AlertTriangle, FileUp, Plus, Search, Sparkles } from 'lucide-react';
 import { isProductTemplateVerticalId } from '@puntovivo/shared/vertical-presets';
 import { ConfirmModal, Modal } from '@/components/form-controls/Modal';
 import { QueryErrorState } from '@/components/feedback/QueryErrorState';
@@ -456,14 +457,22 @@ export function ProductsPage() {
         >
           {t('page.title')}
         </h1>
-        <button
-          className="btn-primary flex items-center gap-2"
-          onClick={handleOpenCreate}
-          disabled={!canManage}
-        >
-          <Plus className="h-5 w-5" />
-          {t('page.add')}
-        </button>
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <Link to="/data-import" className="btn-outline flex items-center gap-2">
+              <FileUp className="h-5 w-5" />
+              {t('page.import')}
+            </Link>
+          )}
+          <button
+            className="btn-primary flex items-center gap-2"
+            onClick={handleOpenCreate}
+            disabled={!canManage}
+          >
+            <Plus className="h-5 w-5" />
+            {t('page.add')}
+          </button>
+        </div>
       </div>
 
       {!canManage && (

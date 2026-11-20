@@ -36,6 +36,8 @@ export const launchProductImportRowSchema = z
         barcode: importCell,
         unit: importCell,
         price: importCell,
+        price2: importCell,
+        price3: importCell,
         cost: importCell,
         stock: importCell,
         minStock: importCell,
@@ -48,10 +50,15 @@ export const launchProductImportRowSchema = z
   })
   .strict();
 
+export const MAX_PRODUCT_IMPORT_ROWS = 2_000;
+
 const launchProductImportRowsSchema = z
   .array(launchProductImportRowSchema)
   .min(1, 'At least one import row is required')
-  .max(500, 'A single import can contain at most 500 rows')
+  .max(
+    MAX_PRODUCT_IMPORT_ROWS,
+    `A single product import can contain at most ${MAX_PRODUCT_IMPORT_ROWS} rows`
+  )
   .superRefine(addUniqueRowNumberIssues);
 
 export const previewLaunchProductImportInput = z

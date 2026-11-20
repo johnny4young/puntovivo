@@ -18,6 +18,8 @@ export const PRODUCT_IMPORT_FIELDS = [
   'barcode',
   'unit',
   'price',
+  'price2',
+  'price3',
   'cost',
   'stock',
   'minStock',
@@ -63,6 +65,8 @@ export interface NormalizedLaunchProduct {
   unit: string | null;
   unitId: string | null;
   price: number;
+  price2: number;
+  price3: number;
   cost: number;
   stock: number;
   minStock: number;

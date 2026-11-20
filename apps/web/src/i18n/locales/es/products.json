@@ -2,7 +2,8 @@
   "page": {
     "title": "Productos",
     "permissionNote": "Solo administradores y gestores pueden modificar productos. Puede revisar el catálogo.",
-    "add": "Agregar producto"
+    "add": "Agregar producto",
+    "import": "Importar productos"
   },
   "semantic": {
     "toggleLabel": "Búsqueda inteligente",

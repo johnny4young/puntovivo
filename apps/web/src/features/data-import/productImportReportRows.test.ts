@@ -13,6 +13,8 @@ describe(' product import report rows', () => {
       unit: null,
       unitId: null,
       price: 1,
+      price2: 0,
+      price3: 0,
       cost: 1,
       stock: 1,
       minStock: 0,

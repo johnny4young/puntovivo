@@ -36,19 +36,28 @@
     "upload": {
       "kicker": "Paso 1",
       "title": "Elija un archivo de origen",
-      "description": "Cargue un CSV UTF-8 o un archivo Excel .xlsx de hasta 10 MB y 500 filas de datos. El archivo permanece en este navegador hasta que genere la vista previa."
+      "description": "Cargue un CSV o un archivo Excel .xlsx de hasta 10 MB y {{max}} filas de datos. El archivo permanece en este navegador hasta que genere la vista previa."
     },
     "map": {
       "kicker": "Paso 2",
       "title": "Asigne sus columnas",
-      "description": "Confirme las columnas detectadas. El nombre y el SKU son obligatorios; puede dejar los demás campos sin asignar.",
+      "description": "Nombre y SKU son obligatorios. Revise la asignación solo si algo no coincide.",
       "notMapped": "No importar",
-      "decimalFormat": "Formato numérico"
+      "decimalFormat": "Formato numérico",
+      "recognized_one": "{{count}} columna reconocida",
+      "recognized_other": "{{count}} columnas reconocidas",
+      "reviewFields": "Revisar asignación",
+      "hideFields": "Ocultar asignación",
+      "pair": "{{column}} → {{field}}",
+      "unknownFormat": "No reconocimos el formato del archivo. Revise la asignación antes de continuar.",
+      "requiredMissing": "Asigne el nombre del producto y el SKU para continuar.",
+      "ignoredColumns": "Estas columnas de su archivo no se importarán: {{columns}}."
     },
     "preview": {
       "kicker": "Paso 3",
       "title": "Revise antes de importar",
-      "description": "Puntovivo vuelve a validar cada fila en el servidor y omite los SKU y códigos existentes o repetidos."
+      "description": "Puntovivo vuelve a validar cada fila en el servidor y omite los SKU y códigos existentes o repetidos.",
+      "onlyIssues": "Ver solo filas con problemas ({{count}})"
     }
   },
   "fields": {
@@ -58,6 +67,8 @@
     "barcode": "Código de barras",
     "unit": "Unidad de medida",
     "price": "Precio de venta",
+    "price2": "Precio 2",
+    "price3": "Precio 3",
     "cost": "Costo",
     "stock": "Stock de apertura",
     "minStock": "Stock mínimo",
@@ -161,7 +172,8 @@
   },
   "template": {
     "sampleName": "Café de ejemplo",
-    "sampleDescription": "Reemplace esta fila con los datos de sus productos"
+    "sampleDescription": "Reemplace esta fila con los datos de sus productos",
+    "hint": "Obligatorio: nombre y SKU. Las demás columnas son opcionales."
   },
   "fileErrors": {
     "unsupported_file": "Elija un archivo .csv o .xlsx.",
@@ -169,7 +181,7 @@
     "empty_file": "El archivo no contiene filas de datos.",
     "empty_header": "Cada columna de origen necesita un encabezado.",
     "duplicate_header": "Los encabezados de las columnas deben ser únicos.",
-    "too_many_rows": "Importe máximo 500 filas a la vez.",
+    "too_many_rows": "Importe máximo {{max}} filas a la vez.",
     "too_many_columns": "El archivo supera el límite de 50 columnas.",
     "row_too_wide": "Una fila de datos contiene más valores que la fila de encabezados.",
     "malformed_csv": "El CSV contiene un valor entre comillas incompleto o no válido.",
@@ -426,14 +438,16 @@
       "loyverse-items-en-v1": "CSV de artículos de Loyverse — encabezados en inglés v1",
       "alegra-inventory-es-v1": "Exportación de inventario de Alegra — encabezados en español v1",
       "siigo-products-es-v1": "Exportación de productos de Siigo — encabezados en español v1",
-      "world-office-inventory-es-v1": "Exportación de inventario de World Office — encabezados en español v1"
+      "world-office-inventory-es-v1": "Exportación de inventario de World Office — encabezados en español v1",
+      "monica-inventory-es-v1": "Exportación de inventario de Mónica — encabezados en español v1"
     },
     "details": {
       "generic": "No se aplica la huella de un proveedor. El nombre y el SKU siguen siendo obligatorios, y debe revisar cada columna detectada.",
       "loyverse-items-en-v1": "Huella probada: Handle, SKU, Name, Price, Cost, Barcode, Sold by weight, Track stock, In stock y Low stock.",
       "alegra-inventory-es-v1": "Huella probada: Código, Nombre, Referencia, Precio de venta, Costo unitario, Cantidad inicial, Nombre impuesto y Porcentaje impuesto.",
       "siigo-products-es-v1": "Huella probada: Código producto, Nombre producto, Precio de venta, Costo, Existencia, Impuesto cargo y Unidad de medida.",
-      "world-office-inventory-es-v1": "Huella probada: Código artículo, Descripción artículo, Precio venta, Costo promedio, Existencia, Porcentaje IVA y Unidad."
+      "world-office-inventory-es-v1": "Huella probada: Código artículo, Descripción artículo, Precio venta, Costo promedio, Existencia, Porcentaje IVA y Unidad.",
+      "monica-inventory-es-v1": "Huella tomada de una exportación de cliente: Código, Nombre del producto, Costo, Precio 1, Precio 2 y Precio 3. Precio 2 y Precio 3 llegan a las tarifas P2 y P3."
     }
   }
 }

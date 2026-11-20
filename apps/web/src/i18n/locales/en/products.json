@@ -2,7 +2,8 @@
   "page": {
     "title": "Products",
     "permissionNote": "Only administrators and managers can modify products. You can still review the catalog.",
-    "add": "Add Product"
+    "add": "Add Product",
+    "import": "Import products"
   },
   "table": {
     "loading": "Loading products...",

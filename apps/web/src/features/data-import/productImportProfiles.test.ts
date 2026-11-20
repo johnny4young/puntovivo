@@ -78,6 +78,18 @@ const CASES: Array<{
       taxRate: '19',
     },
   },
+  {
+    fixture: 'monica-inventory-es-v1.csv',
+    profileId: 'monica-inventory-es-v1',
+    expected: {
+      name: 'Piña en almíbar',
+      sku: 'MON-001',
+      cost: '2.100',
+      price: '3.000',
+      price2: '2.800',
+      price3: '2.650,50',
+    },
+  },
 ];
 
 function fixtureFile(name: string): File {

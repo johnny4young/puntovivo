@@ -1,7 +1,7 @@
 import { LoaderCircle, RotateCcw, Upload } from 'lucide-react';
 import type { RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { ParsedImportFile } from './fileParser';
+import { MAX_IMPORT_ROWS, type ParsedImportFile } from './fileParser';
 import { Button, buttonVariants } from '@/components/ui';
 import { cn } from '@/lib/utils';
 interface ImportSourcePanelProps {
@@ -12,6 +12,7 @@ interface ImportSourcePanelProps {
   isParsing: boolean;
   onFile: (file: File) => void;
   onReset: () => void;
+  maxRows?: number;
 }
 export function ImportSourcePanel({
   file,
@@ -21,8 +22,9 @@ export function ImportSourcePanel({
   isParsing,
   onFile,
   onReset,
+  maxRows = MAX_IMPORT_ROWS,
 }: ImportSourcePanelProps) {
-  const { t } = useTranslation('dataImport');
+  const { t, i18n } = useTranslation('dataImport');
   return (
     <section className="card space-y-5 p-6" aria-labelledby="data-import-upload-title">
       <div>
@@ -32,7 +34,9 @@ export function ImportSourcePanel({
         <h2 id="data-import-upload-title" className="mt-1 text-lg font-semibold text-secondary-900">
           {t('steps.upload.title')}
         </h2>
-        <p className="mt-1 text-sm text-secondary-600">{t('steps.upload.description')}</p>
+        <p className="mt-1 text-sm text-secondary-600">
+          {t('steps.upload.description', { max: maxRows.toLocaleString(i18n.language) })}
+        </p>
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">

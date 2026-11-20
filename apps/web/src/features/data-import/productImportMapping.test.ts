@@ -34,6 +34,27 @@ describe(' product import mapping', () => {
     expect(hasRequiredProductMapping(mapping)).toBe(true);
   });
 
+  it('auto-maps a Mónica export with three price tiers', () => {
+    expect(
+      autoMapProductHeaders([
+        'Código',
+        'Nombre del producto',
+        'Costo',
+        'Precio 1',
+        'Precio 2',
+        'Precio 3',
+      ])
+    ).toMatchObject({
+      sku: 'Código',
+      name: 'Nombre del producto',
+      cost: 'Costo',
+      price: 'Precio 1',
+      price2: 'Precio 2',
+      price3: 'Precio 3',
+      stock: '',
+    });
+  });
+
   it('auto-maps the localized headers emitted by the downloadable templates', () => {
     expect(
       autoMapProductHeaders([

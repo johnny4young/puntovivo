@@ -36,19 +36,28 @@
     "upload": {
       "kicker": "Step 1",
       "title": "Choose a source file",
-      "description": "Upload a UTF-8 CSV or an Excel .xlsx file up to 10 MB and 500 data rows. The file stays in this browser until you preview it."
+      "description": "Upload a CSV or an Excel .xlsx file up to 10 MB and {{max}} data rows. The file stays in this browser until you preview it."
     },
     "map": {
       "kicker": "Step 2",
       "title": "Map your columns",
-      "description": "Confirm the detected columns. Product name and SKU are required; every other field can be left unmapped.",
+      "description": "Name and SKU are required. Review the mapping only if something does not match.",
       "notMapped": "Do not import",
-      "decimalFormat": "Number format"
+      "decimalFormat": "Number format",
+      "recognized_one": "{{count}} column recognized",
+      "recognized_other": "{{count}} columns recognized",
+      "reviewFields": "Review mapping",
+      "hideFields": "Hide mapping",
+      "pair": "{{column}} → {{field}}",
+      "unknownFormat": "We did not recognize the file format. Review the mapping before you continue.",
+      "requiredMissing": "Map the product name and the SKU to continue.",
+      "ignoredColumns": "These columns in your file will not be imported: {{columns}}."
     },
     "preview": {
       "kicker": "Step 3",
       "title": "Review before importing",
-      "description": "Puntovivo revalidates every row on the server and skips existing or repeated SKUs and barcodes."
+      "description": "Puntovivo revalidates every row on the server and skips existing or repeated SKUs and barcodes.",
+      "onlyIssues": "Show only rows with problems ({{count}})"
     }
   },
   "fields": {
@@ -58,6 +67,8 @@
     "barcode": "Barcode",
     "unit": "Unit of measure",
     "price": "Sale price",
+    "price2": "Price 2",
+    "price3": "Price 3",
     "cost": "Cost",
     "stock": "Opening stock",
     "minStock": "Minimum stock",
@@ -161,7 +172,8 @@
   },
   "template": {
     "sampleName": "Sample coffee",
-    "sampleDescription": "Replace this row with your product data"
+    "sampleDescription": "Replace this row with your product data",
+    "hint": "Required: name and SKU. Every other column is optional."
   },
   "fileErrors": {
     "unsupported_file": "Choose a .csv or .xlsx file.",
@@ -169,7 +181,7 @@
     "empty_file": "The file does not contain data rows.",
     "empty_header": "Every source column needs a header.",
     "duplicate_header": "Source column headers must be unique.",
-    "too_many_rows": "Import at most 500 rows at a time.",
+    "too_many_rows": "Import at most {{max}} rows at a time.",
     "too_many_columns": "The file exceeds the 50-column limit.",
     "row_too_wide": "A data row contains more values than the header row.",
     "malformed_csv": "The CSV contains an unfinished or invalid quoted value.",
@@ -426,14 +438,16 @@
       "loyverse-items-en-v1": "Loyverse items CSV — English headers v1",
       "alegra-inventory-es-v1": "Alegra inventory export — Spanish headers v1",
       "siigo-products-es-v1": "Siigo products export — Spanish headers v1",
-      "world-office-inventory-es-v1": "World Office inventory export — Spanish headers v1"
+      "world-office-inventory-es-v1": "World Office inventory export — Spanish headers v1",
+      "monica-inventory-es-v1": "Mónica inventory export — Spanish headers v1"
     },
     "details": {
       "generic": "No vendor fingerprint is applied. Product name and SKU remain required, and every detected column must be reviewed.",
       "loyverse-items-en-v1": "Tested fingerprint: Handle, SKU, Name, Price, Cost, Barcode, Sold by weight, Track stock, In stock, and Low stock.",
       "alegra-inventory-es-v1": "Tested fingerprint: Código, Nombre, Referencia, Precio de venta, Costo unitario, Cantidad inicial, Nombre impuesto, and Porcentaje impuesto.",
       "siigo-products-es-v1": "Tested fingerprint: Código producto, Nombre producto, Precio de venta, Costo, Existencia, Impuesto cargo, and Unidad de medida.",
-      "world-office-inventory-es-v1": "Tested fingerprint: Código artículo, Descripción artículo, Precio venta, Costo promedio, Existencia, Porcentaje IVA, and Unidad."
+      "world-office-inventory-es-v1": "Tested fingerprint: Código artículo, Descripción artículo, Precio venta, Costo promedio, Existencia, Porcentaje IVA, and Unidad.",
+      "monica-inventory-es-v1": "Fingerprint taken from a customer export: Código, Nombre del producto, Costo, Precio 1, Precio 2 and Precio 3. Precio 2 and Precio 3 fill price tiers P2 and P3."
     }
   }
 }

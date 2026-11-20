@@ -1009,11 +1009,11 @@
     "titleA": "Trae tu catálogo con una ",
     "titleEm": "importación CSV",
     "titleB": ".",
-    "lead": "Elige un archivo CSV o Excel de hasta 500 filas, revisa duplicados y errores, y decide qué filas guardar. Puntovivo reconoce los formatos exactos de exportación probados para Loyverse, Alegra, Siigo y World Office; los formatos modificados o desconocidos vuelven al mapeo genérico. Todos los caminos requieren tu confirmación antes de guardar.",
+    "lead": "Elige un archivo CSV o Excel de hasta 2.000 productos, revisa duplicados y errores, y decide qué filas guardar. Puntovivo reconoce los formatos exactos de exportación probados para Loyverse, Alegra, Siigo y World Office; los formatos modificados o desconocidos vuelven al mapeo genérico. Todos los caminos requieren tu confirmación antes de guardar.",
     "crumbInicio": "Inicio",
     "crumbRecursos": "Recursos",
     "crumbMigracion": "Guía de migración",
-    "badgeTime": "Hasta 500 filas por archivo",
+    "badgeTime": "Hasta 2.000 productos por archivo",
     "badgeHuman": "Importación CSV / XLSX",
     "badgeNoDowntime": "Revisión antes de guardar",
     "pickerHead": "¿De dónde vienes?",
@@ -1068,14 +1068,14 @@
         "n": "01",
         "t": "Exporta tu catálogo actual",
         "time": "En el sistema origen",
-        "d": "Exporta un CSV o XLSX. Nombre y SKU son obligatorios; descripción, código de barras, precio, costo, stock inicial, stock mínimo, IVA y control de lotes son opcionales. Cada archivo admite hasta 500 filas y 10 MB.",
+        "d": "Exporta un CSV o XLSX. Nombre y SKU son obligatorios; descripción, código de barras, precios 1, 2 y 3, costo, stock inicial, stock mínimo, IVA y control de lotes son opcionales. Cada archivo admite hasta 2.000 productos y 10 MB, en CSV (UTF-8 o Windows) o Excel.",
         "checks": [
           {
             "t": "Nombre y SKU presentes",
             "ok": true
           },
           {
-            "t": "Un archivo por lote de hasta 500 filas",
+            "t": "Un archivo por lote de hasta 2.000 productos",
             "ok": true
           },
           {
@@ -1112,7 +1112,7 @@
         "n": "03",
         "t": "Sube el CSV a la importación",
         "time": "En Puntovivo",
-        "d": "En Configuración → Importar datos, elige modo de datos reales, selecciona el CSV o XLSX y confirma el mapeo campo por campo. El archivo permanece en el navegador hasta que solicitas la vista previa.",
+        "d": "En Productos → Importar productos (o Administrar negocio → Importar datos), con un usuario administrador, elige modo de datos reales, selecciona el CSV o XLSX y confirma el mapeo campo por campo. El archivo permanece en el navegador hasta que solicitas la vista previa.",
         "checks": [
           {
             "t": "Nombre y SKU mapeados",
@@ -1236,7 +1236,7 @@
     ],
     "sampleKicker": "Formato propio",
     "sampleTitle": "Este es el formato genérico.",
-    "sampleDesc": "Una fila por producto, encabezados en la primera fila y hasta 500 filas de datos. Importa cada lote desde la sede donde debe quedar su stock inicial.",
+    "sampleDesc": "Una fila por producto, encabezados en la primera fila y hasta 2.000 filas de productos. Importa cada lote desde la sede donde debe quedar su stock inicial.",
     "sampleTab1": "catalogo.csv",
     "sampleTab2": "stock-sede-centro.csv",
     "sampleTab3": "stock-sede-norte.csv",
@@ -1248,15 +1248,15 @@
     "faq": [
       {
         "q": "¿Cuánto demora migrar una sola sede?",
-        "a": "No hay una duración garantizada. Depende de la limpieza del archivo, la cantidad de lotes de 500 filas, los duplicados y el conteo físico. Haz primero una vista previa y reserva un corte controlado."
+        "a": "No hay una duración garantizada. Depende de la limpieza del archivo, la cantidad de lotes de 2.000 productos, los duplicados y el conteo físico. Haz primero una vista previa y reserva un corte controlado."
       },
       {
         "q": "¿Tengo que parar de vender mientras migro?",
         "a": "Planea un corte controlado. La exportación es una fotografía en el tiempo: si continúas vendiendo en el sistema anterior después de exportar, debes conciliar esas ventas antes de adoptar Puntovivo como registro principal."
       },
       {
-        "q": "¿Y si mi catálogo supera 500 filas?",
-        "a": "Divide el archivo en lotes de hasta 500 filas y revisa cada vista previa. El asistente no divide archivos automáticamente en la versión actual."
+        "q": "¿Y si mi catálogo supera 2.000 productos?",
+        "a": "Divide el archivo en lotes de hasta 2.000 productos y revisa cada vista previa. El asistente no divide archivos automáticamente en la versión actual."
       },
       {
         "q": "¿Qué pasa con el histórico de ventas?",

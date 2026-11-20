@@ -1,4 +1,5 @@
 import { AlertTriangle, CheckCircle2, Copy } from 'lucide-react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { ImportCommitGuard } from './ImportCommitGuard';
@@ -34,6 +35,9 @@ export function ProductImportPreviewPanel({
 }: ProductImportPreviewProps) {
   const { t } = useTranslation('dataImport');
   const hasIssues = preview.summary.duplicates + preview.summary.invalid > 0;
+  const [onlyIssues, setOnlyIssues] = useState(false);
+  const visibleRows =
+    hasIssues && onlyIssues ? preview.rows.filter(row => row.status !== 'ready') : preview.rows;
   return (
     <section className="card space-y-5 p-6" aria-labelledby="data-import-preview-title">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -88,6 +92,20 @@ export function ProductImportPreviewPanel({
         ))}
       </div>
 
+      {hasIssues ? (
+        <label className="flex w-fit items-center gap-2 text-sm text-secondary-800">
+          <input
+            type="checkbox"
+            className="h-4 w-4"
+            checked={onlyIssues}
+            onChange={event => setOnlyIssues(event.target.checked)}
+          />
+          {t('steps.preview.onlyIssues', {
+            count: preview.summary.duplicates + preview.summary.invalid,
+          })}
+        </label>
+      ) : null}
+
       <div className="overflow-x-auto rounded-xl border border-line">
         <table className="min-w-full text-left text-sm">
           <thead className="bg-secondary-50 text-xs uppercase tracking-wide text-secondary-600">
@@ -95,16 +113,19 @@ export function ProductImportPreviewPanel({
               <th className="px-4 py-3">{t('table.row')}</th>
               <th className="px-4 py-3">{t('fields.name')}</th>
               <th className="px-4 py-3">{t('fields.sku')}</th>
+              <th className="px-4 py-3">{t('table.status')}</th>
+              <th className="px-4 py-3">{t('table.details')}</th>
+              <th className="px-4 py-3">{t('fields.cost')}</th>
               <th className="px-4 py-3">{t('fields.price')}</th>
+              <th className="px-4 py-3">{t('fields.price2')}</th>
+              <th className="px-4 py-3">{t('fields.price3')}</th>
               <th className="px-4 py-3">{t('fields.stock')}</th>
               <th className="px-4 py-3">{t('fields.tracksStock')}</th>
               <th className="px-4 py-3">{t('fields.tracksLots')}</th>
-              <th className="px-4 py-3">{t('table.status')}</th>
-              <th className="px-4 py-3">{t('table.details')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line bg-white">
-            {preview.rows.slice(0, 100).map(row => (
+            {visibleRows.slice(0, 100).map(row => (
               <tr key={row.rowNumber} data-testid={`data-import-preview-row-${row.rowNumber}`}>
                 <td className="px-4 py-3 tabular-nums text-secondary-600">{row.rowNumber}</td>
                 <td className="px-4 py-3 font-medium text-secondary-900">
@@ -112,18 +133,6 @@ export function ProductImportPreviewPanel({
                 </td>
                 <td className="px-4 py-3 font-mono text-xs text-secondary-700">
                   {row.normalized.sku || t('table.emptyValue')}
-                </td>
-                <td className="px-4 py-3 tabular-nums text-secondary-700">
-                  {row.normalized.price}
-                </td>
-                <td className="px-4 py-3 tabular-nums text-secondary-700">
-                  {row.normalized.stock}
-                </td>
-                <td className="px-4 py-3 text-secondary-700">
-                  {t(row.normalized.tracksStock ? 'boolean.yes' : 'boolean.no')}
-                </td>
-                <td className="px-4 py-3 text-secondary-700">
-                  {t(row.normalized.tracksLots ? 'boolean.yes' : 'boolean.no')}
                 </td>
                 <td className="px-4 py-3">
                   <span
@@ -135,22 +144,36 @@ export function ProductImportPreviewPanel({
                     {t(`statuses.${row.status}`)}
                   </span>
                 </td>
-                <td className="max-w-xs px-4 py-3 text-xs text-secondary-600">
+                <td className="min-w-56 max-w-xs px-4 py-3 text-xs text-secondary-600">
                   {row.issues.length === 0
                     ? t('table.noIssues')
                     : row.issues
                         .map(issue => `${t(`fields.${issue.field}`)}: ${t(issueKey(issue))}`)
                         .join(' · ')}
                 </td>
+                {(['cost', 'price', 'price2', 'price3'] as const).map(field => (
+                  <td key={field} className="px-4 py-3 tabular-nums text-secondary-700">
+                    {row.normalized[field]}
+                  </td>
+                ))}
+                <td className="px-4 py-3 tabular-nums text-secondary-700">
+                  {row.normalized.stock}
+                </td>
+                <td className="px-4 py-3 text-secondary-700">
+                  {t(row.normalized.tracksStock ? 'boolean.yes' : 'boolean.no')}
+                </td>
+                <td className="px-4 py-3 text-secondary-700">
+                  {t(row.normalized.tracksLots ? 'boolean.yes' : 'boolean.no')}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      {preview.rows.length > 100 ? (
+      {visibleRows.length > 100 ? (
         <p className="text-xs text-secondary-500">
           {t('table.previewLimit', {
-            count: preview.rows.length,
+            count: visibleRows.length,
           })}
         </p>
       ) : null}

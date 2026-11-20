@@ -136,7 +136,7 @@
         "Configura precio, costo e impuestos aplicables, y si el precio incluye impuestos. Usa tasas verificadas para tu negocio; los catálogos de ejemplo no determinan tus obligaciones.",
         "Si vendes por empaque o medida, configura unidades alternativas y sus conversiones. Revisa los tres niveles de precio cuando los uses.",
         "Para clientes con nivel de precio, aplica ese nivel expresamente al ticket. Seleccionar al cliente no cambia silenciosamente un ticket abierto.",
-        "Para importar, abre la guía de migración: prepara el archivo CSV o Excel, mapea columnas, revisa la vista previa y confirma. El límite es de 500 filas por archivo."
+        "Para importar, abre la guía de migración: prepara el archivo CSV o Excel, mapea columnas, revisa la vista previa y confirma. El límite es de 2.000 productos por archivo, con hasta tres niveles de precio."
       ],
       "check": "El precio de venta, el costo y el saldo físico son datos distintos. Revisa unidades, impuestos y totales antes de confirmar; no uses un ajuste de precio como corrección de inventario.",
       "related": ["inventory", "sales"],
