@@ -428,14 +428,16 @@
       "loyverse-items-en-v1": "Loyverse items CSV — English headers v1",
       "alegra-inventory-es-v1": "Alegra inventory export — Spanish headers v1",
       "siigo-products-es-v1": "Siigo products export — Spanish headers v1",
-      "world-office-inventory-es-v1": "World Office inventory export — Spanish headers v1"
+      "world-office-inventory-es-v1": "World Office inventory export — Spanish headers v1",
+      "monica-inventory-es-v1": "Mónica inventory export — Spanish headers v1"
     },
     "details": {
       "generic": "No vendor fingerprint is applied. Product name and SKU remain required, and every detected column must be reviewed.",
       "loyverse-items-en-v1": "Tested fingerprint: Handle, SKU, Name, Price, Cost, Barcode, Sold by weight, Track stock, In stock, and Low stock.",
       "alegra-inventory-es-v1": "Tested fingerprint: Código, Nombre, Referencia, Precio de venta, Costo unitario, Cantidad inicial, Nombre impuesto, and Porcentaje impuesto.",
       "siigo-products-es-v1": "Tested fingerprint: Código producto, Nombre producto, Precio de venta, Costo, Existencia, Impuesto cargo, and Unidad de medida.",
-      "world-office-inventory-es-v1": "Tested fingerprint: Código artículo, Descripción artículo, Precio venta, Costo promedio, Existencia, Porcentaje IVA, and Unidad."
+      "world-office-inventory-es-v1": "Tested fingerprint: Código artículo, Descripción artículo, Precio venta, Costo promedio, Existencia, Porcentaje IVA, and Unidad.",
+      "monica-inventory-es-v1": "Fingerprint taken from a customer export: Código, Nombre del producto, Costo, Precio 1, Precio 2 and Precio 3. Precio 2 and Precio 3 fill price tiers P2 and P3."
     }
   }
 }
