@@ -392,7 +392,8 @@
       "manualNote": "Usted confirma que el dinero llegó: la caja no consulta al banco.",
       "empty": "Esta sede no tiene cuentas para recibir transferencias.",
       "configure": "Configurar",
-      "loadError": "No se pudieron cargar las cuentas de transferencia."
+      "loadError": "No se pudieron cargar las cuentas de transferencia.",
+      "approvalNeedsReference": "Escriba la referencia de la transferencia antes de pedir la aprobación."
     }
   },
   "history": {

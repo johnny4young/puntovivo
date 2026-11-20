@@ -7,9 +7,7 @@ type CompletablePaymentStatus = Exclude<PaymentStatus, 'refunded' | 'partially_r
  * True when the tender rows say more than the sale's payment method: a split,
  * a customer-value tender, or a reference such as a transfer voucher.
  */
-export function paymentsNeedBreakdown(
-  payments: Sale['payments']
-): payments is NonNullable<Sale['payments']> {
+export function paymentsNeedBreakdown(payments: Sale['payments']): boolean {
   if (!payments) return false;
   return (
     payments.length > 1 ||

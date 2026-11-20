@@ -33,7 +33,7 @@ function getItemDescription(item: SaleItem, t: TFunction): string {
 }
 
 function buildPaymentBreakdownSection(payments: SalePayment[] | undefined, t: TFunction): string {
-  if (!paymentsNeedBreakdown(payments)) {
+  if (!payments || !paymentsNeedBreakdown(payments)) {
     return '';
   }
 

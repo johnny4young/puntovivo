@@ -252,7 +252,7 @@ export function SaleDetailsContent({
         </div>
       </div>
 
-      {paymentsNeedBreakdown(sale.payments) && (
+      {sale.payments && paymentsNeedBreakdown(sale.payments) && (
         <div className="overflow-hidden rounded-[14px] border border-line/80 bg-surface">
           <div className="flex items-center justify-between border-b border-line/70 bg-surface-2/86 px-4 py-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">

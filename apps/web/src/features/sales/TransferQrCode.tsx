@@ -11,19 +11,23 @@ interface QrMatrix {
 /**
  * Dark-on-white QR in both themes, since phone cameras read that contrast best.
  * The encoder loads on first use so registers that never charge a transfer skip it.
+ * Renders nothing if encoding fails or while `pending`; the account text stays beside it.
  */
 export function TransferQrCode({
   payload,
   label,
   className,
   testId,
+  pending = false,
 }: {
   payload: string;
   label: string;
+  pending?: boolean;
   className?: string;
   testId?: string;
 }) {
   const [matrix, setMatrix] = useState<QrMatrix | null>(null);
+  const [failedPayload, setFailedPayload] = useState<string | null>(null);
 
   useEffect(() => {
     let live = true;
@@ -38,13 +42,16 @@ export function TransferQrCode({
           });
         }
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (live) setFailedPayload(payload);
+      });
     return () => {
       live = false;
     };
   }, [payload]);
 
-  const ready = matrix?.payload === payload;
+  if (failedPayload === payload) return null;
+  const ready = !pending && matrix?.payload === payload;
   return (
     <div
       className={className ?? 'transfer-qr'}
@@ -61,7 +68,7 @@ export function TransferQrCode({
           <path d={matrix.path} fill="#0e2433" />
         </svg>
       ) : (
-        <span className="transfer-qr-pending" role="img" aria-label={label} />
+        <span className="transfer-qr-pending" aria-hidden="true" />
       )}
     </div>
   );

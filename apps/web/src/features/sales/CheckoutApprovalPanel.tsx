@@ -18,6 +18,8 @@ interface CheckoutApprovalPanelProps<Action extends ManagerApprovalAction> {
   onRequest: (action: Action, reason: string) => void;
   onRefresh: () => void;
   help?: string | undefined;
+  /** Why a request cannot be sent yet; a grant asked for now would not match the sale. */
+  requestBlockedReason?: string | undefined;
 }
 
 const RETRYABLE_STATUSES = new Set<ApprovalRequestView['status']>([
@@ -38,6 +40,7 @@ export function CheckoutApprovalPanel<Action extends ManagerApprovalAction>({
   onRequest,
   onRefresh,
   help,
+  requestBlockedReason,
 }: CheckoutApprovalPanelProps<Action>) {
   const { t } = useTranslation('sales');
   const [reasons, setReasons] = useState<Partial<Record<ManagerApprovalAction, string>>>({});
@@ -166,10 +169,18 @@ export function CheckoutApprovalPanel<Action extends ManagerApprovalAction>({
                       }
                     />
                   </label>
+                  {requestBlockedReason && (
+                    <p
+                      className="text-xs text-secondary-700"
+                      data-testid="checkout-approval-request-blocked"
+                    >
+                      {requestBlockedReason}
+                    </p>
+                  )}
                   <button
                     type="button"
                     className="btn-primary w-full justify-center text-sm"
-                    disabled={isRequesting || reason.trim().length < 3}
+                    disabled={isRequesting || reason.trim().length < 3 || !!requestBlockedReason}
                     onClick={() => onRequest(view.action, reason)}
                   >
                     {isRequesting ? t('approval.requesting') : t('approval.request')}

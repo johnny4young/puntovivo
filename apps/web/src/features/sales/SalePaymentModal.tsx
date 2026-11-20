@@ -515,6 +515,11 @@ export function SalePaymentModal({
           onRefresh={() => {
             void checkoutApprovals.refetch();
           }}
+          requestBlockedReason={
+            isTransfer && !transferReferenceValid
+              ? t('payment.transferQr.approvalNeedsReference')
+              : undefined
+          }
         />
 
         {pharmacyCheckout.enabled && (

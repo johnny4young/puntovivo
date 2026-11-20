@@ -187,6 +187,28 @@ describe('SalePaymentModal — transfer', () => {
     await waitFor(() => expect(useCheckoutTransferDisplay.getState().transfer).toBeNull());
   });
 
+  it('holds back a QR that spells out an old amount while the new total loads', async () => {
+    const user = userEvent.setup();
+    moduleActiveMock.mockReturnValue(true);
+    forChargeMock.mockReturnValue({
+      data: { currency: 'COP', destinations },
+      isLoading: false,
+      isError: false,
+      isPlaceholderData: true,
+      refetch: vi.fn(),
+    });
+    renderTransfer();
+
+    expect(await screen.findByTestId('sale-payment-transfer-qr')).not.toHaveAttribute('data-ready');
+    expect(useCheckoutTransferDisplay.getState().transfer).toBeNull();
+
+    await user.click(screen.getByTestId('sale-payment-transfer-destination-d-nequi'));
+    await waitFor(() =>
+      expect(screen.getByTestId('sale-payment-transfer-qr')).toHaveAttribute('data-ready', 'true')
+    );
+    expect(useCheckoutTransferDisplay.getState().transfer?.qrPayload).toBe('000201nequi');
+  });
+
   it('points administrators to the setup when the site has no destinations', async () => {
     roleMock.mockReturnValue('admin');
     mockDestinations([]);

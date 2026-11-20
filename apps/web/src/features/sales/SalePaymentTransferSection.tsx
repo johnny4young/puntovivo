@@ -45,12 +45,15 @@ export function SalePaymentTransferSection({
   const label = selected?.label;
   const account = selected?.account;
   const qrPayload = selected?.qr.payload;
+  // Only a QR that spells out the amount goes stale while a new total is fetched.
+  const qrIsStale =
+    Boolean(selected?.qr.amountIncluded) && (query.isPlaceholderData || qrAmount !== grandTotal);
   useEffect(() => {
-    if (!customerDisplayActive) return;
+    if (!customerDisplayActive || qrIsStale) return;
     if (label === undefined || account === undefined || qrPayload === undefined) return;
     setDisplayTransfer({ label, account, qrPayload, amount: grandTotal });
     return () => setDisplayTransfer(null);
-  }, [account, customerDisplayActive, grandTotal, label, qrPayload, setDisplayTransfer]);
+  }, [account, customerDisplayActive, grandTotal, label, qrIsStale, qrPayload, setDisplayTransfer]);
 
   const referenceField = form.register('transferReference');
   const qrCopy = [
@@ -83,6 +86,7 @@ export function SalePaymentTransferSection({
             payload={selected.qr.payload}
             label={t('payment.transferQr.qrLabel', { name: selected.label })}
             testId="sale-payment-transfer-qr"
+            pending={qrIsStale}
           />
           <div className="min-w-0">
             <p className="sale-pay-transfer-title">{t('payment.transferQr.title')}</p>

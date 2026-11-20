@@ -392,7 +392,8 @@
       "manualNote": "You confirm the money arrived: the register does not check with the bank.",
       "empty": "This site has no accounts to receive transfers.",
       "configure": "Set up",
-      "loadError": "The transfer accounts could not be loaded."
+      "loadError": "The transfer accounts could not be loaded.",
+      "approvalNeedsReference": "Type the transfer reference before asking for approval."
     }
   },
   "history": {
