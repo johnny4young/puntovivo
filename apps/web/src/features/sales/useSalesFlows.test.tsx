@@ -68,6 +68,7 @@ function workspace(overrides: Partial<CartWorkspace> = {}): CartWorkspace {
     serverSaleId: null,
     serverSaleNumber: null,
     serverCustomerId: null,
+    serverCustomerName: null,
     sourceQuotationId: null,
     sourceQuotationNumber: null,
     sourceQuotationSiteId: null,
@@ -77,6 +78,8 @@ function workspace(overrides: Partial<CartWorkspace> = {}): CartWorkspace {
     sourceReturnSaleNumber: null,
     sourceReturnCustomerId: null,
     sourceReturnCustomerName: null,
+    customerId: null,
+    customerName: null,
     label: null,
     checkoutStartedAt: '2026-08-28T12:00:00.000Z',
     priceTier: 2,
@@ -268,6 +271,18 @@ describe('useSalesFlows explicit price tier forwarding', () => {
     expect(suspend).toHaveBeenCalledWith({ saleId: 'sale-created', label: undefined });
   });
 
+  it('keeps the attached customer on a suspended draft', async () => {
+    const active = workspace({ customerId: 'cust-1', customerName: 'María López' });
+    useCartWorkspaceStore.setState({ workspaces: { [active.id]: active }, activeId: active.id });
+    const { result, create } = setup(active);
+
+    await act(() => result.current.handleSuspendConfirm());
+
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'draft', customerId: 'cust-1' })
+    );
+  });
+
   it('opens a restaurant check atomically with the active price tier', async () => {
     const active = workspace({ priceTier: 2 });
     useCartWorkspaceStore.setState({ workspaces: { [active.id]: active }, activeId: active.id });
@@ -400,7 +415,9 @@ describe('useSalesFlows explicit price tier forwarding', () => {
       id: 'draft-refresh-failure',
       saleNumber: 'VTA-REFRESH',
       suspendedLabel: 'Mesa 8',
-      customerId: null,
+      customerId: 'customer-acme',
+      customerName: 'Acme SAS',
+      customerNameSnapshot: 'Acme',
       priceTier: 1,
       items: [
         {
@@ -438,6 +455,9 @@ describe('useSalesFlows explicit price tier forwarding', () => {
     const state = useCartWorkspaceStore.getState();
     expect(state.activeId ? state.workspaces[state.activeId] : null).toMatchObject({
       serverSaleId: resumed.id,
+      serverCustomerId: 'customer-acme',
+      // The name frozen on the sale wins over the current catalog name.
+      serverCustomerName: 'Acme',
       label: 'Mesa 8',
       items: [expect.objectContaining({ key: 'product-1:unit-1:server:line-refresh' })],
     });
@@ -488,6 +508,7 @@ describe('useSalesFlows explicit price tier forwarding', () => {
     expect(useCartWorkspaceStore.getState().workspaces[resumedWorkspace.id]).toMatchObject({
       serverSaleNumber: 'VTA-REFRESHED',
       serverCustomerId: null,
+      serverCustomerName: null,
       priceTier: 3,
       items: [],
     });

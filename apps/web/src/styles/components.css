@@ -563,6 +563,936 @@
   }
 
   /* ==========================================================================
+   * 7d. SELLING SCREEN
+   *
+   * Register strip, command input, last-read slot, ticket table, one-touch
+   * keys, checkout dock and shortcut strip of /sales. Every colour is a theme
+   * token, so light and dark share these rules.
+   * ======================================================================== */
+
+  .sales-cap {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--fg3);
+  }
+
+  .sales-tag {
+    display: inline-flex;
+    align-items: center;
+    height: 1.375rem;
+    padding: 0 0.5rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .sales-register-strip {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+    padding: 0.5rem 0.875rem;
+    border: 1.5px solid var(--line);
+    border-radius: 1rem;
+    background: var(--card);
+  }
+
+  .sales-strip-action {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    padding-inline: 0.625rem;
+  }
+
+  .sales-ticket-tab {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 2.75rem;
+    padding: 0 0.875rem;
+    border: 1.5px solid var(--line-strong);
+    border-radius: 0.8rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    white-space: nowrap;
+    color: var(--fg2);
+  }
+
+  .sales-ticket-tab:hover {
+    border-color: var(--primary-600);
+  }
+
+  .sales-ticket-tab[aria-pressed='true'],
+  .sales-tender-tile[aria-pressed='true'] {
+    border-color: var(--foreground);
+    background: var(--foreground);
+    color: var(--background);
+  }
+
+  .sales-pill {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 2.25rem;
+    padding: 0 0.75rem;
+    border-radius: 999px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .sales-workbench-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+  }
+
+  .sales-command-input {
+    container: sales-command / inline-size;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 3.75rem;
+    padding: 0 0.5rem 0 1rem;
+    border: 2px solid var(--primary);
+    border-radius: 1rem;
+    background: var(--card);
+    box-shadow: 0 0 0 4px var(--accent);
+  }
+
+  .sales-command-input:focus-within {
+    box-shadow: 0 0 0 4px color-mix(in oklch, var(--primary-600) 38%, transparent);
+  }
+
+  .sales-command-input:has(input:disabled) {
+    border-color: var(--line-strong);
+    box-shadow: none;
+  }
+
+  .sales-command-input input {
+    flex: 1;
+    min-width: 0;
+    height: 3.25rem;
+    border: 0;
+    outline: none;
+    background: transparent;
+    font-size: 1.0625rem;
+    color: var(--fg1);
+  }
+
+  .sales-command-input input::placeholder {
+    color: var(--fg3);
+  }
+
+  .sales-command-hints {
+    display: none;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  /* Hints show only when the bar itself has room next to the placeholder. */
+  @container sales-command (min-width: 58rem) {
+    .sales-command-hints {
+      display: inline-flex;
+    }
+  }
+
+  .sales-command-hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.8125rem;
+    color: var(--fg3);
+    white-space: nowrap;
+  }
+
+  .sales-command-search {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 2.75rem;
+    padding: 0 0.625rem;
+    border-radius: 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--fg2);
+    white-space: nowrap;
+  }
+
+  .sales-command-search:hover:not(:disabled) {
+    background: var(--surface-2);
+  }
+
+  .sales-command-search .pv-kbd {
+    font-size: 0.875rem;
+    min-height: 1.75rem;
+  }
+
+  .sales-command-quantity {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.25rem 0.25rem 0.625rem;
+    border-radius: 0.625rem;
+    background: var(--accent);
+    color: var(--accent-foreground);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .sales-command-quantity-clear {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 0.5rem;
+  }
+
+  .sales-command-quantity-clear:hover {
+    background: color-mix(in oklch, var(--accent-foreground) 12%, transparent);
+  }
+
+  .sales-command-menu {
+    position: absolute;
+    inset-inline: 0;
+    top: calc(100% + 0.5rem);
+    z-index: 30;
+    max-height: 22rem;
+    overflow-y: auto;
+    padding-bottom: 0.375rem;
+    border: 1px solid var(--line-strong);
+    border-radius: 1rem;
+    background: var(--card);
+    box-shadow: var(--shadow-panel);
+  }
+
+  .sales-command-option {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 2.75rem;
+    margin: 0 0.375rem;
+    padding: 0 0.75rem;
+    border-radius: 0.625rem;
+    font-size: 0.9375rem;
+    cursor: pointer;
+  }
+
+  .sales-command-option.is-active {
+    background: var(--accent);
+  }
+
+  /* The slot has a fixed height on desktop: a read, the idle state and the
+   * completed-sale strip swap inside it without moving the ticket. */
+  .sales-last-read {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    min-height: 4.75rem;
+    padding: 0.625rem 1.125rem;
+    border-radius: 1rem;
+    background: var(--rail);
+    color: var(--rail-foreground);
+  }
+
+  .sales-last-read-idle {
+    display: none;
+    background: var(--surface-3);
+    color: var(--fg2);
+  }
+
+  .sales-last-read-mark {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 0.75rem;
+    background: color-mix(in oklch, var(--rail-foreground) 12%, transparent);
+  }
+
+  .sales-last-read-idle .sales-last-read-mark {
+    background: var(--card);
+    color: var(--fg3);
+  }
+
+  .sales-last-read-kicker {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--rail-muted);
+  }
+
+  .sales-last-read-idle .sales-last-read-kicker {
+    color: var(--fg3);
+  }
+
+  .sales-last-read-meta {
+    color: var(--rail-muted);
+  }
+
+  /* The negative margin keeps a 44px target without growing the banner. */
+  .sales-last-read-undo {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    min-height: 2.75rem;
+    margin-block: -0.75rem;
+    padding: 0 0.25rem;
+    border-radius: 0.5rem;
+    color: inherit;
+  }
+
+  .sales-last-read-undo:hover {
+    color: var(--rail-foreground);
+    text-decoration: underline;
+  }
+
+  .sales-last-read-kbd {
+    padding: 0 0.375rem;
+    border: 1px solid color-mix(in oklch, var(--rail-muted) 80%, transparent);
+    border-radius: 0.4rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--rail-foreground);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .sales-last-read-body {
+      animation: sales-read-in 180ms ease-out;
+    }
+
+    @keyframes sales-read-in {
+      from {
+        opacity: 0.35;
+        transform: translateY(3px);
+      }
+    }
+  }
+
+  .sales-ticket-head,
+  .sales-ticket-row {
+    display: grid;
+    align-items: center;
+    column-gap: 0.75rem;
+    grid-template-columns: 1.5rem minmax(0, 1fr) 9.25rem 5rem 5rem 7rem 2.75rem;
+  }
+
+  .sales-ticket-head {
+    padding: 0.375rem 1rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--fg3);
+  }
+
+  .sales-ticket-line {
+    padding: 0.25rem 1rem;
+    border-bottom: 1.5px solid var(--line);
+  }
+
+  /* Selection is a tint plus a full outline. */
+  .sales-ticket-line[data-selected='true'] {
+    border-bottom-color: transparent;
+    border-radius: 0.875rem;
+    background: var(--accent);
+    box-shadow: inset 0 0 0 2px var(--primary-600);
+  }
+
+  .sales-ticket-row {
+    min-height: 3.25rem;
+  }
+
+  .sales-ticket-index {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--fg3);
+  }
+
+  .sales-ticket-qty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+  }
+
+  .sales-stepper {
+    width: 2.75rem;
+    height: 2.75rem;
+    min-height: 2.75rem;
+    padding: 0;
+    border-radius: 0.7rem;
+    background: var(--surface-3);
+    color: var(--fg1);
+  }
+
+  .sales-ticket-unit {
+    display: inline-block;
+    justify-self: start;
+    max-width: 100%;
+    overflow: hidden;
+    padding: 0.1875rem 0.5rem;
+    border: 1.5px solid var(--line-strong);
+    border-radius: 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--fg2);
+  }
+
+  .sales-ticket-price {
+    font-size: 0.875rem;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    white-space: nowrap;
+    color: var(--fg2);
+  }
+
+  .sales-ticket-total {
+    @apply font-numeric;
+    font-size: 1.375rem;
+    font-weight: 700;
+    text-align: right;
+    white-space: nowrap;
+    color: var(--fg1);
+  }
+
+  .sales-ticket-details {
+    margin: 0.375rem 0 0.125rem 2.25rem;
+    padding-top: 0.375rem;
+    border-top: 1px solid color-mix(in oklch, var(--line-strong) 60%, transparent);
+    font-size: 0.75rem;
+    color: var(--fg2);
+  }
+
+  .sales-empty-ticket {
+    padding: 2rem 1.25rem;
+    border: 1.5px dashed var(--line-strong);
+    border-radius: 1rem;
+    text-align: center;
+  }
+
+  @media (max-width: 639px) {
+    .sales-ticket-head {
+      display: flex;
+      justify-content: flex-end;
+      padding-inline: 0;
+    }
+
+    .sales-ticket-head > :not(:nth-child(2)),
+    .sales-ticket-head-label,
+    .sales-ticket-index,
+    .sales-ticket-unit,
+    .sales-ticket-price {
+      display: none;
+    }
+
+    .sales-ticket-line {
+      padding-inline: 0.5rem;
+    }
+
+    /* Phones stack the line: the name on its own row, then the keys and the total. */
+    .sales-ticket-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .sales-ticket-name {
+      flex: 1 0 100%;
+    }
+
+    .sales-ticket-total {
+      margin-left: auto;
+      font-size: 1.125rem;
+    }
+
+    .sales-ticket-details {
+      margin-left: 0;
+    }
+  }
+
+  .sales-quick-keys,
+  .sales-quick-keys-editing {
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .sales-quick-keys {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sales-quick-keys-editing {
+    grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr));
+    max-height: 14rem;
+    overflow-y: auto;
+  }
+
+  .sales-quick-key {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 0.375rem;
+    min-height: 4.25rem;
+    padding: 0.5rem 0.75rem;
+    border: 1.5px solid var(--line);
+    border-radius: 0.875rem;
+    background: var(--card);
+    text-align: left;
+  }
+
+  .sales-quick-key:hover,
+  .sales-quick-key[data-picked='true'] {
+    border-color: var(--primary-600);
+  }
+
+  .sales-quick-key[data-picked='true'] {
+    background: var(--accent);
+  }
+
+  .sales-quick-key-swatch {
+    width: 0.75rem;
+    height: 0.75rem;
+    flex-shrink: 0;
+    margin-top: 0.125rem;
+    border-radius: 0.25rem;
+    background: var(--swatch, var(--line-strong));
+  }
+
+  .sales-quick-key-swatch[data-colour='orange'] { --swatch: var(--swatch-orange); }
+  .sales-quick-key-swatch[data-colour='yellow'] { --swatch: var(--swatch-yellow); }
+  .sales-quick-key-swatch[data-colour='slate'] { --swatch: var(--swatch-slate); }
+  .sales-quick-key-swatch[data-colour='green'] { --swatch: var(--swatch-green); }
+  .sales-quick-key-swatch[data-colour='lime'] { --swatch: var(--swatch-lime); }
+  .sales-quick-key-swatch[data-colour='sky'] { --swatch: var(--swatch-sky); }
+  .sales-quick-key-swatch[data-colour='violet'] { --swatch: var(--swatch-violet); }
+  .sales-quick-key-swatch[data-colour='red'] { --swatch: var(--swatch-red); }
+
+  .sales-quick-keys-loading {
+    display: grid;
+    place-items: center;
+    min-height: 4.25rem;
+    border-radius: 0.875rem;
+  }
+
+  .sales-settlement-dock {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-width: 0;
+    padding: 1rem;
+    border: 1.5px solid var(--line);
+    border-radius: 1.25rem;
+    background: var(--card);
+  }
+
+  .sales-dock-middle {
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+  }
+
+  /* Phones charge from the fixed checkout bar instead. */
+  .sales-dock-bottom {
+    display: none;
+  }
+
+  .sales-avatar {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 999px;
+    background: var(--surface-3);
+    color: var(--fg2);
+  }
+
+  .sales-tier-key {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    border-radius: 0.6rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--fg2);
+  }
+
+  .sales-tier-key[aria-pressed='true'] {
+    background: var(--primary);
+    color: var(--primary-foreground);
+  }
+
+  .sales-total-card {
+    container-type: inline-size;
+    padding: 0.875rem 1.125rem;
+    border: 1.5px solid var(--line);
+    border-radius: 1.25rem;
+    background: var(--background);
+  }
+
+  .sales-total-figure {
+    @apply font-numeric;
+    margin-top: 0.25rem;
+    font-variation-settings: 'wdth' 76;
+    font-weight: 800;
+    line-height: 1;
+    white-space: nowrap;
+    color: var(--fg1);
+  }
+
+  .sales-total-breakdown {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.125rem 1rem;
+    margin-top: 0.5rem;
+    font-size: 0.8125rem;
+    color: var(--fg2);
+  }
+
+  .sales-total-breakdown > div {
+    display: flex;
+    align-items: baseline;
+    gap: 0.375rem;
+  }
+
+  .sales-total-breakdown dd {
+    @apply font-numeric;
+    font-size: 0.9375rem;
+    font-weight: 700;
+    color: var(--fg1);
+  }
+
+  .sales-total-breakdown .text-success-700 dd {
+    color: inherit;
+  }
+
+  .sales-mini-card {
+    flex: 1;
+    min-width: 0;
+    padding: 0.625rem 0.75rem;
+    border: 1.5px solid var(--line);
+    border-radius: 0.875rem;
+  }
+
+  .sales-mini-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    min-height: 2.75rem;
+    margin-bottom: -0.625rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--primary);
+  }
+
+  .sales-mini-link:hover {
+    text-decoration: underline;
+  }
+
+  .sales-tender-tile {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.125rem;
+    min-width: 0;
+    min-height: 3rem;
+    padding: 0 0.25rem;
+    border: 1.5px solid var(--line-strong);
+    border-radius: 0.875rem;
+    background: var(--card);
+    font-size: 0.71875rem;
+    font-weight: 600;
+    color: var(--fg1);
+  }
+
+  .sales-tender-tile:hover,
+  .sales-cash-key:hover,
+  .sales-secondary-key:hover {
+    border-color: var(--primary-600);
+  }
+
+  .sales-cash-key {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+    min-height: 3.25rem;
+    padding: 0.375rem 0.625rem;
+    border: 1.5px solid var(--line-strong);
+    border-radius: 0.875rem;
+    background: var(--card);
+    text-align: left;
+    white-space: nowrap;
+  }
+
+  .sales-cash-key-exact {
+    border-width: 2px;
+    border-color: var(--foreground);
+  }
+
+  .sales-cash-key small {
+    font-size: 0.71875rem;
+    font-weight: 600;
+    color: var(--fg3);
+  }
+
+  .sales-cash-key b {
+    @apply font-numeric;
+    font-size: 1.0625rem;
+    font-weight: 700;
+    color: var(--fg1);
+  }
+
+  .sales-charge-key {
+    @apply font-display;
+    width: 100%;
+    min-height: 4rem;
+    gap: 0.75rem;
+    border-radius: 1.25rem;
+    font-size: 1.625rem;
+    font-weight: 800;
+    box-shadow: 0 14px 24px -14px color-mix(in oklch, var(--cobrar) 65%, transparent);
+  }
+
+  .sales-charge-key:disabled {
+    box-shadow: none;
+  }
+
+  .sales-charge-kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2.25rem;
+    height: 1.75rem;
+    border: 1px solid color-mix(in oklch, var(--cobrar-foreground) 33%, transparent);
+    border-bottom-width: 2px;
+    border-radius: 0.45rem;
+    background: color-mix(in oklch, var(--cobrar-foreground) 13%, transparent);
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  .sales-secondary-key {
+    display: inline-flex;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 2.75rem;
+    border: 1.5px solid var(--line-strong);
+    border-radius: 0.9rem;
+    background: var(--card);
+    font-size: 0.875rem;
+    font-weight: 600;
+    white-space: nowrap;
+    color: var(--fg1);
+  }
+
+  .sales-shortcut-strip {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.375rem 1.25rem;
+    padding: 0.5rem 0.875rem;
+    border: 1.5px solid var(--line);
+    border-radius: 1rem;
+    background: var(--card);
+    font-size: 0.8125rem;
+    color: var(--fg2);
+  }
+
+  .sales-shortcut {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    white-space: nowrap;
+  }
+
+  /* Under a wide desktop the dock is narrow: tighten its keys to fit. */
+  @media (max-width: 1535px) {
+    .sales-tender-tile {
+      padding: 0;
+      font-size: 0.6875rem;
+    }
+
+    .sales-cash-key {
+      padding-inline: 0.5rem;
+    }
+
+    .sales-cash-key small {
+      font-size: 0.6875rem;
+    }
+
+    .sales-cash-verb {
+      display: none;
+    }
+
+    .sales-cash-key b {
+      font-size: 0.875rem;
+    }
+
+    .sales-charge-key {
+      font-size: 1.375rem;
+    }
+  }
+
+  /* A narrow ticket drops the line number and the unit to keep the name. */
+  .sales-ticket-column {
+    container: ticket / inline-size;
+  }
+
+  @container ticket (max-width: 46rem) {
+    .sales-ticket-head,
+    .sales-ticket-row {
+      grid-template-columns: minmax(0, 1fr) 9.25rem 5rem 6.25rem 2.75rem;
+    }
+
+    .sales-ticket-head > :first-child,
+    .sales-ticket-head > :nth-child(4),
+    .sales-ticket-head-label,
+    .sales-head-action-label,
+    .sales-ticket-index,
+    .sales-ticket-unit {
+      display: none;
+    }
+
+    .sales-ticket-details {
+      margin-left: 0;
+    }
+  }
+
+  .sales-ticket-tab:focus-visible,
+  .sales-tender-tile:focus-visible,
+  .sales-cash-key:focus-visible,
+  .sales-secondary-key:focus-visible,
+  .sales-quick-key:focus-visible,
+  .sales-tier-key:focus-visible,
+  .sales-mini-link:focus-visible,
+  .sales-last-read-undo:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  .sales-last-read-undo:focus-visible {
+    outline-color: var(--rail-foreground);
+  }
+
+  @media (min-width: 1024px) {
+    /* Clip, not hidden: hidden makes the shell a scroll container, and the
+     * dock's sticky total and keys would never stick to the viewport. */
+    .app-shell:has(.sales-pos-shell) {
+      overflow-x: clip;
+    }
+
+    .sales-register-strip {
+      flex-shrink: 0;
+      flex-wrap: nowrap;
+      min-height: 3.5rem;
+    }
+
+    .sales-workbench-grid {
+      grid-template-columns: minmax(0, 1fr) clamp(21.5rem, 34%, 32rem);
+    }
+
+    /* One row under the ticket; it scrolls sideways when the keys outnumber it. */
+    .sales-quick-keys {
+      grid-auto-columns: minmax(7.25rem, 1fr);
+      grid-auto-flow: column;
+      grid-template-columns: none;
+      overflow-x: auto;
+      padding-bottom: 2px;
+    }
+
+    .sales-banner-slot {
+      flex-shrink: 0;
+      height: 4.75rem;
+    }
+
+    .sales-banner-slot > * {
+      height: 100%;
+    }
+
+    .sales-last-read-idle {
+      display: flex;
+    }
+
+    /* The page scrolls on short screens: the total and the keys that charge
+     * hold their place while the ticket and the rest of the dock move. The
+     * spread shadow hides what scrolls past in the dock padding. */
+    .sales-dock-top,
+    .sales-dock-bottom {
+      position: sticky;
+      z-index: 2;
+      background: var(--card);
+    }
+
+    .sales-dock-top {
+      top: 6.75rem;
+      box-shadow: 0 -1rem 0 0 var(--card);
+    }
+
+    .sales-dock-bottom {
+      bottom: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.625rem;
+      box-shadow: 0 1rem 0 0 var(--card);
+    }
+
+    .sales-shortcut-strip {
+      flex-shrink: 0;
+      flex-wrap: nowrap;
+    }
+  }
+
+  /* `pos:` — the shell is bounded, so the dock pins by layout instead. */
+  @media (min-width: 1280px) and (min-height: 900px) {
+    .sales-workbench-grid {
+      grid-template-rows: minmax(0, 1fr);
+    }
+
+    .sales-ticket-head {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: var(--operator-canvas);
+    }
+
+    .sales-settlement-dock {
+      height: 100%;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .sales-dock-top,
+    .sales-dock-bottom {
+      position: static;
+      flex-shrink: 0;
+      box-shadow: none;
+    }
+
+    .sales-dock-middle {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+    }
+  }
+
+  /* ==========================================================================
    * 8. FORMS
    *
    * .label          — Uppercase micro-label above inputs (REGISTER NAME, EMAIL).
@@ -1731,12 +2661,7 @@
     margin-top: 1px;
   }
 
-  /* --- POS táctil (, §06) — keycap, total dominante, tile de pago ---
-   * El mockup §06 usa el Button tipado (outline para steppers, primary para
-   * Cobrar) + estas 3 piezas reutilizables.
-   * El panel "Total a pagar" es tinta fija (secondary-950) con texto claro vía
-   * --primary-foreground (token, no hex) — VERIFICAR en smoke .dark (§19) que
-   * secondary-950 siga oscuro; si no, añadir override .dark .pv-total. */
+  /* --- POS keycap and payment tile --- */
   .pv-kbd {
     display: inline-flex;
     align-items: center;
@@ -1754,74 +2679,6 @@
     color: var(--fg2);
   }
 
-
-  .pv-total {
-    /* Lets the total figure scale to the panel instead of the viewport. */
-    container-type: inline-size;
-    border-radius: 18px;
-    padding: 18px;
-    background: var(--secondary-950);
-    color: var(--primary-foreground);
-  }
-  .pv-total .lbl {
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    color: color-mix(in oklch, var(--primary-foreground) 70%, transparent);
-  }
-  .pv-total .fig {
-    font-family: var(--font-display);
-    font-weight: 400;
-    font-size: 36px;
-    letter-spacing: -0.02em;
-    margin-top: 6px;
-    font-variant-numeric: tabular-nums;
-    /* Last resort for totals wider than any panel. */
-    overflow-wrap: anywhere;
-  }
-  /* A nine-digit COP total at 36px is wider than a 320px phone panel. Below
-   * the two-column layout, scale the figure with the panel; desktop columns
-   * keep the fixed display size. */
-  @media (max-width: 1023px) {
-    .pv-total .fig {
-      font-size: min(36px, 13cqi);
-    }
-  }
-  .pv-total .brk {
-    margin-top: 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    font-size: 12.5px;
-    color: color-mix(in oklch, var(--primary-foreground) 78%, transparent);
-  }
-  .pv-total .brk .ln {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-  .pv-total .brk .amt {
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-  }
-
-  /* §06/§19 tinta dominante — en dark, --secondary-950 se invierte a casi-blanco
-   * (theme.css .dark lo vuelve oklch L≈0.97) y --primary-foreground se vuelve
-   * oscuro (L≈0.22), lo que rompería el panel a fondo-claro/texto-oscuro. El
-   * override mantiene la intención "tinta": fondo OSCURO (--secondary-100, que en
-   * dark es L≈0.28, elevado sobre el card L≈0.225) + texto CLARO (--secondary-950,
-   * que en dark es el casi-blanco). lbl/brk reusan el mismo casi-blanco atenuado. */
-  .dark .pv-total {
-    background: var(--secondary-100);
-    color: var(--secondary-950);
-  }
-  .dark .pv-total .lbl {
-    color: color-mix(in oklch, var(--secondary-950) 70%, transparent);
-  }
-  .dark .pv-total .brk {
-    color: color-mix(in oklch, var(--secondary-950) 78%, transparent);
-  }
 
   .btn-outline.tile {
     height: 64px;
@@ -2434,255 +3291,6 @@
   }
 }
 
-@layer components {
-  .sales-scanner-ready > span {
-    width: 0.45rem;
-    height: 0.45rem;
-    border-radius: 999px;
-    background: var(--success-500);
-    box-shadow: 0 0 0 0.28rem color-mix(in oklch, var(--success-500) 13%, transparent);
-  }
-
-  .sales-scan-stage {
-    position: relative;
-  }
-
-  .sales-scan-runway {
-    position: relative;
-    height: 100%;
-    border-radius: 1.55rem;
-    background:
-      linear-gradient(white, white) padding-box,
-      linear-gradient(110deg, rgb(34 76 111 / 0.2), rgb(218 129 82 / 0.22)) border-box;
-    border: 1px solid transparent;
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.92),
-      0 1rem 2.4rem -2rem rgb(14 38 59 / 0.45);
-  }
-
-  .sales-scan-label-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-  }
-
-  .sales-scanner-ready {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    font-size: 0.57rem;
-    font-weight: 700;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--success-700);
-  }
-
-  .sales-scan-input .input {
-    height: 3.35rem;
-    padding-left: 2.9rem;
-    border-color: color-mix(in oklch, var(--primary-300) 68%, transparent);
-    border-radius: 1.15rem;
-    font-size: 0.96rem;
-    background: #fbfaf7;
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.9),
-      inset 0 0 0 1px rgb(26 57 83 / 0.025);
-  }
-
-  .sales-scan-input .input:focus {
-    border-color: color-mix(in oklch, var(--primary-500) 78%, transparent);
-    box-shadow:
-      0 0 0 0.24rem color-mix(in oklch, var(--primary-300) 18%, transparent),
-      inset 0 1px 0 rgb(255 255 255 / 0.9);
-  }
-
-  .sales-scan-submit {
-    display: inline-flex;
-    min-height: 3.35rem;
-    align-items: center;
-    justify-content: center;
-    border-radius: 999px;
-    padding: 0.75rem 1.35rem;
-    font-size: 0.78rem;
-    font-weight: 700;
-    color: #f9f5ed;
-    background: #17334d;
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.16),
-      0 0.8rem 1.5rem -1.1rem rgb(11 31 49 / 0.7);
-    transition:
-      transform 420ms cubic-bezier(0.22, 1, 0.36, 1),
-      background-color 420ms cubic-bezier(0.22, 1, 0.36, 1),
-      box-shadow 420ms cubic-bezier(0.22, 1, 0.36, 1);
-  }
-
-  .sales-scan-submit-key {
-    display: grid;
-    min-width: 2rem;
-    height: 1.65rem;
-    margin-left: 0.65rem;
-    place-items: center;
-    border-radius: 0.4rem;
-    font-family: var(--font-mono);
-    font-size: 0.62rem;
-    font-weight: 800;
-    letter-spacing: -0.04em;
-    color: #17334d;
-    background: #f4c293;
-    box-shadow:
-      inset 0 -2px 0 rgb(115 65 28 / 0.22),
-      inset 0 1px 0 rgb(255 255 255 / 0.48);
-    transition: transform 180ms ease;
-  }
-
-  .sales-scan-submit:hover {
-    transform: translateY(-1px);
-    background: #204869;
-  }
-
-  .sales-scan-submit:hover .sales-scan-submit-key {
-    transform: translateY(-1px);
-  }
-
-  .sales-scan-submit:active {
-    transform: scale(0.98);
-  }
-
-  .sales-scan-hint {
-    padding-left: 0.25rem;
-  }
-
-  .sales-utility-dock {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.35rem;
-    min-width: 14rem;
-    padding: 0.35rem;
-    border-radius: 1.55rem;
-    background: linear-gradient(145deg, rgb(238 236 230 / 0.9), rgb(251 249 244 / 0.96));
-    box-shadow:
-      inset 0 0 0 1px color-mix(in oklch, var(--line) 58%, transparent),
-      inset 0 1px 0 rgb(255 255 255 / 0.85);
-  }
-
-  .sales-utility-dock-has-display {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .sales-utility-dock > :nth-child(1),
-  .sales-utility-dock > :nth-child(2) {
-    grid-column: 1 / -1;
-  }
-
-  .sales-utility-dock > button {
-    border-color: transparent;
-    background: rgb(255 255 255 / 0.62);
-    box-shadow: inset 0 0 0 1px rgb(20 45 67 / 0.055);
-    transition:
-      transform 420ms cubic-bezier(0.22, 1, 0.36, 1),
-      background-color 420ms cubic-bezier(0.22, 1, 0.36, 1);
-  }
-
-  .sales-utility-dock > button:hover {
-    transform: translateX(-2px);
-    background: white;
-  }
-
-  .sales-workbench-grid {
-    position: relative;
-    isolation: isolate;
-  }
-
-  .sales-workbench-grid::before {
-    position: absolute;
-    z-index: -1;
-    inset: 1.25rem 3rem -0.5rem 3rem;
-    border-radius: 2.5rem;
-    content: '';
-    background: linear-gradient(110deg, rgb(31 68 100 / 0.06), rgb(218 129 82 / 0.065));
-    filter: blur(1.5rem);
-  }
-
-  .sales-ledger-card,
-  .sales-settlement-dock {
-    border-color: transparent;
-    border-radius: 2rem;
-    background: color-mix(in oklch, var(--surface) 96%, #f6f0e6);
-    box-shadow:
-      inset 0 0 0 1px color-mix(in oklch, var(--line) 64%, transparent),
-      inset 0 1px 0 rgb(255 255 255 / 0.9),
-      0 1.6rem 3rem -2.55rem rgb(17 42 64 / 0.52);
-  }
-
-  .sales-ledger-card {
-    position: relative;
-  }
-
-  .sales-ledger-card::before {
-    position: absolute;
-    top: 0;
-    right: 2rem;
-    left: 2rem;
-    height: 0.2rem;
-    border-radius: 0 0 999px 999px;
-    content: '';
-    background: linear-gradient(90deg, transparent, var(--primary-500), transparent);
-    opacity: 0.58;
-  }
-
-  .sales-settlement-dock {
-    position: relative;
-    transform: translateY(0.45rem);
-    background:
-      radial-gradient(circle at 100% 0%, rgb(234 195 157 / 0.24), transparent 26%),
-      color-mix(in oklch, var(--surface) 96%, #f7f1e8);
-  }
-
-
-  .sales-settlement-dock .pv-total {
-    position: relative;
-    overflow: visible;
-    border-radius: 1.45rem;
-    background:
-      radial-gradient(circle at 88% 10%, rgb(99 151 188 / 0.2), transparent 28%),
-      linear-gradient(145deg, #0d1823, #132a3d);
-  }
-
-  .sales-settlement-dock .pv-total::after {
-    position: absolute;
-    right: 1rem;
-    bottom: -0.34rem;
-    left: 1rem;
-    height: 0.68rem;
-    content: '';
-    background: radial-gradient(circle, var(--surface) 0.2rem, transparent 0.22rem) 0 0 / 0.68rem
-      0.68rem repeat-x;
-  }
-
-  .sales-empty-tape {
-    position: relative;
-    overflow: hidden;
-    border: 0;
-    background:
-      radial-gradient(circle at 0 50%, var(--surface) 0.36rem, transparent 0.39rem) -0.35rem 0 /
-        0.75rem 1.2rem repeat-y,
-      radial-gradient(circle at 100% 50%, var(--surface) 0.36rem, transparent 0.39rem)
-        calc(100% + 0.35rem) 0 / 0.75rem 1.2rem repeat-y,
-      linear-gradient(135deg, rgb(245 242 235 / 0.92), rgb(251 249 245 / 0.98));
-    box-shadow:
-      inset 0 0 0 1px color-mix(in oklch, var(--line) 55%, transparent),
-      inset 0 1px 0 rgb(255 255 255 / 0.9);
-  }
-
-  .dark .sales-scan-runway,
-  .dark .sales-ledger-card,
-  .dark .sales-settlement-dock {
-    color: var(--secondary-950);
-    background: var(--operator-panel);
-  }
-}
-
 /* ==========================================================================
  * OPERATOR CONTROL GRAMMAR
  *
@@ -2786,7 +3394,8 @@
   .pv-signal-chip {
     border-radius: 0.55rem;
     border: 1px solid color-mix(in oklch, currentColor 18%, transparent);
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.62);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.62);
   }
 
   .pv-control-user > span:first-child {
@@ -2805,15 +3414,9 @@
 
 @layer components {
   main:has(.sales-pos-shell) {
-    --pos-canvas: var(--operator-canvas);
-    --pos-panel: var(--operator-panel);
-    --pos-panel-muted: var(--operator-panel-muted);
-    --pos-ink: #10283a;
-    --pos-signal: var(--operator-signal);
-    --pos-command: var(--operator-command);
     position: relative;
     min-height: calc(100vh - 7rem);
-    background-color: var(--pos-canvas);
+    background-color: var(--operator-canvas);
     box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.72);
   }
 
@@ -2825,148 +3428,6 @@
       inset 0 -2px 0 rgb(20 45 63 / 0.07),
       0 1rem 2.2rem -1.8rem rgb(10 31 46 / 0.46);
   }
-
-  .sales-scan-runway {
-    border-radius: 1.05rem;
-    border: 1px solid rgb(24 57 79 / 0.16);
-    background: var(--pos-panel);
-    box-shadow:
-      inset 0 1px 0 white,
-      0 0.9rem 1.7rem -1.6rem rgb(14 38 59 / 0.5);
-  }
-
-  .sales-scan-input .input {
-    border-radius: 0.72rem;
-    border-color: rgb(24 73 104 / 0.28);
-    background: var(--pos-panel-muted);
-    box-shadow:
-      inset 0 -2px 0 rgb(18 47 67 / 0.08);
-  }
-
-  .sales-scan-input .input:focus {
-    background: var(--pos-panel);
-    box-shadow:
-      0 0 0 0.2rem rgb(38 173 122 / 0.14);
-  }
-
-  .sales-scan-submit {
-    border-radius: 0.72rem;
-    padding-inline: 1.15rem 0.7rem;
-  }
-
-  .sales-utility-dock {
-    border-radius: 1.05rem;
-    border: 1px solid rgb(24 57 79 / 0.13);
-    background: var(--pos-panel-muted);
-    box-shadow:
-      inset 0 2px 0 rgb(17 46 66 / 0.055),
-      inset 0 -1px 0 white;
-  }
-
-  .sales-utility-dock > button,
-  .sales-utility-dock > button:hover {
-    border-color: rgb(24 57 79 / 0.14);
-    border-radius: 0.68rem;
-    background: var(--pos-panel);
-  }
-
-  .sales-utility-dock > button[aria-pressed='true'] {
-    color: #f8fbfb;
-    border-color: #14364e;
-    background: #173d57;
-    box-shadow:
-      inset 0 -2px 0 rgb(3 18 29 / 0.42);
-  }
-
-  .sales-ledger-card,
-  .sales-settlement-dock {
-    border-radius: 1.2rem;
-    background: var(--pos-panel);
-    box-shadow:
-      inset 0 0 0 1px rgb(24 57 79 / 0.14),
-      inset 0 1px 0 white,
-      0 1.4rem 2.6rem -2.35rem rgb(12 35 51 / 0.58);
-  }
-
-  .sales-ledger-card::before {
-    right: 1.2rem;
-    left: 1.2rem;
-    height: 0.24rem;
-    border-radius: 0;
-    background: linear-gradient(
-      90deg,
-      var(--pos-signal) 0 22%,
-      var(--primary-600) 22% 78%,
-      var(--pos-command) 78%
-    );
-    opacity: 0.86;
-  }
-
-  .sales-settlement-dock {
-    background: linear-gradient(180deg, rgb(242 165 99 / 0.08), transparent 20%), var(--pos-panel);
-  }
-
-
-  .sales-settlement-dock .pv-total {
-    border-radius: 0.85rem;
-    background: linear-gradient(145deg, #102b3f, #0b1f2e);
-  }
-
-  .sales-primary-control {
-    min-height: 3.25rem;
-    border-radius: 0.72rem;
-    box-shadow:
-      inset 0 -3px 0 rgb(3 15 25 / 0.52),
-      inset 0 1px 0 rgb(255 255 255 / 0.15),
-      0 0.85rem 1.5rem -1rem rgb(8 30 46 / 0.72);
-  }
-
-  .sales-empty-tape {
-    border-radius: 0.78rem;
-    background: var(--pos-panel-muted);
-  }
-}
-
-@media (max-width: 1279px) {
-  .sales-settlement-dock {
-    transform: none;
-  }
-}
-
-@media (min-width: 1024px) {
-  .sales-scan-input .input,
-  .sales-scan-submit {
-    height: 2.75rem;
-    min-height: 2.75rem;
-  }
-
-  .sales-scan-submit {
-    padding-block: 0;
-  }
-
-  .sales-utility-dock {
-    display: flex;
-    min-width: 0;
-    flex-shrink: 0;
-    padding: 0.25rem;
-  }
-
-  .sales-utility-dock > button {
-    min-width: 2.75rem;
-    min-height: 2.75rem;
-    padding-inline: 0.5rem;
-  }
-}
-
-@media (max-width: 767px) {
-  .sales-utility-dock {
-    min-width: 0;
-  }
-
-  .sales-ledger-card,
-  .sales-settlement-dock {
-    border-radius: 1.65rem;
-  }
 }
 
 /* The shell header owns the page title; the heading stays for assistive tech and in-page focus. */
@@ -2977,14 +3438,6 @@
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .sales-scan-submit,
-  .sales-scan-submit-key,
-  .sales-utility-dock > button {
-    transition: none;
-  }
 }
 
 /* ==========================================================================
@@ -4160,8 +4613,6 @@
   .input,
   .select-trigger,
   .pv-switch,
-  .sales-scan-submit,
-  .sales-scan-submit-key,
   .design-system-role-card,
   .design-system-setting-row {
     transition: none !important;

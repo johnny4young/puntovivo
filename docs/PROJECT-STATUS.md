@@ -117,6 +117,11 @@ The current validated candidate includes:
   or frozen draft snapshots instead of trusting renderer metadata. Manager/admin
   roles retain direct authority. Embedded GS1 interpretation is disabled when
   no active site exists;
+- quick keys for items without a barcode, shared by every register of a site.
+  Managers and administrators choose up to eight; cashiers use them. An amount
+  key asks for the value and sells the quantity it buys at the catalog price,
+  so it never becomes an off-catalog price. A browser's former local favourites
+  seed a site that has no keys yet;
 - site-scoped reservations with capacity/overlap checks, explicit arrival and
   reservation-to-check seating without empty sales; versioned delivery creation,
   courier dispatch and cancellation from UI, with no implicit charge or refund;

@@ -589,7 +589,7 @@ test.describe('web business flows', () => {
       // Fresh completion exposes the exact last receipt without forcing a
       // blocking post-payment dialog. The handoff is explicit and text-only
       // until the operator chooses WhatsApp; no recipient is preselected.
-      await page.getByTestId('sales-open-last-receipt').click();
+      await page.getByTestId('sale-complete-receipt').click();
       const freshReceiptDialog = page.getByRole('dialog', {
         name: `Sale ${sale.saleNumber}`,
       });

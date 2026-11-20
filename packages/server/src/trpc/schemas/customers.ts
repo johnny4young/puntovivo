@@ -106,6 +106,7 @@ export const deleteCustomerInput = z.object({
 export const searchCustomersInput = z.object({
   q: z.string().min(1, 'Search query is required'),
   limit: z.number().int().min(1).max(50).default(20),
+  isActive: z.boolean().optional(),
 });
 
 export type ListCustomersInput = z.infer<typeof listCustomersInput>;

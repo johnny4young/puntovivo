@@ -349,6 +349,15 @@
   /* Navigation rail and brand tile stay deep navy in both themes. */
   --rail: oklch(0.293 0.053 241);
   --rail-foreground: oklch(0.973 0.007 234);
+  /* Quick-key swatches: a name on the key carries the meaning, colour only helps the eye. */
+  --swatch-orange: oklch(0.72 0.16 52);
+  --swatch-yellow: oklch(0.85 0.15 92);
+  --swatch-slate: oklch(0.74 0.03 250);
+  --swatch-green: oklch(0.66 0.13 150);
+  --swatch-lime: oklch(0.82 0.16 125);
+  --swatch-sky: oklch(0.76 0.11 230);
+  --swatch-violet: oklch(0.64 0.15 295);
+  --swatch-red: oklch(0.63 0.19 27);
 
   /* +  — motion tokens lifted from the design-system
    * handoff. The existing @theme animations already use the same easings
@@ -489,6 +498,13 @@
   --shadow-card: none;
   --shadow-panel: none;
   --shadow-modal: none;
+  --swatch-orange: oklch(0.7 0.15 52);
+  --swatch-yellow: oklch(0.8 0.14 92);
+  --swatch-slate: oklch(0.66 0.03 250);
+  --swatch-lime: oklch(0.78 0.15 125);
+  --swatch-sky: oklch(0.72 0.11 230);
+  --swatch-violet: oklch(0.66 0.14 295);
+  --swatch-red: oklch(0.64 0.18 27);
 }
 
 :root.dark {

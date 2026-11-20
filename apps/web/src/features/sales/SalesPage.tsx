@@ -8,7 +8,10 @@ import { useSalesMutations } from '@/features/sales/useSalesMutations';
 import { useSalesFlows } from '@/features/sales/useSalesFlows';
 import { useSalesCart } from '@/features/sales/useSalesCart';
 import { useSalesModals } from '@/features/sales/useSalesModals';
+import { useSalesCommandBar } from '@/features/sales/useSalesCommandBar';
 import { useSalesPageData } from '@/features/sales/useSalesPageData';
+import { useLastRead } from '@/features/sales/useLastRead';
+import type { InitialTender } from '@/features/sales/salePaymentModal.types';
 import { SalesScreen } from '@/features/sales/SalesScreen';
 import { useQuickCreateStore } from '@/features/sales/useQuickCreateStore';
 import { useHubReachability } from '@/hooks/useHubReachability';
@@ -97,7 +100,10 @@ export function SalesPage() {
   const [suspendLabelDraft, setSuspendLabelDraft] = useState('');
   const [isSuspending, setIsSuspending] = useState(false);
   const [selectedHistorySaleId, setSelectedHistorySaleId] = useState<string | null>(null);
-  const [lastCompletedSaleId, setLastCompletedSaleId] = useState<string | null>(null);
+  // Outlives the completion strip so the receipt stays one touch away.
+  const [lastSale, setLastSale] = useState<CompletedSaleSummary | null>(null);
+  // How each open ticket pays, chosen before the charge drawer opens.
+  const [ticketTenders, setTicketTenders] = useState<Record<string, InitialTender>>({});
   const [completedSale, setCompletedSale] = useState<CompletedSaleSummary | null>(null);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isCashSessionModalOpen, setIsCashSessionModalOpen] = useState(false);
@@ -142,6 +148,19 @@ export function SalesPage() {
     handleClearCart,
     handleUndoCart,
   } = useSalesCart({ ownerKey, setProductSearchQuery, setSaleError });
+  const lastRead = useLastRead(cartItems, activeWorkspace?.id ?? null);
+  const activeTicketId = activeWorkspace?.id ?? null;
+  const ticketTender = (activeTicketId && ticketTenders[activeTicketId]) || 'cash';
+  const handleTicketTenderChange = (tender: InitialTender) => {
+    if (!activeTicketId) return;
+    // Closed tickets drop out here, so the map never outgrows the open tabs.
+    setTicketTenders(current => ({
+      ...Object.fromEntries(
+        ownedWorkspaces.flatMap(({ id }) => (current[id] ? [[id, current[id]]] : []))
+      ),
+      [activeTicketId]: tender,
+    }));
+  };
 
   const {
     productInputRef,
@@ -183,6 +202,8 @@ export function SalesPage() {
     hasActiveCashSession,
     canOpenCashSession,
     suspendedDraftsCount,
+    firstSuspendedDraft,
+    canRequestInvoice,
     checkoutReadinessItems,
     hasRegisteredDrawer,
     scannerConfig,
@@ -191,6 +212,7 @@ export function SalesPage() {
     currentTenant,
     user,
     selectedRegisterAssignmentId,
+    hasCartItems: cartItems.length > 0,
   });
 
   // slice 10 — the sales + cash-session mutation handles and the
@@ -222,7 +244,7 @@ export function SalesPage() {
     setIsCashSessionMovementModalOpen,
     setDayCloseSessionId,
     onSaleCompleted: sale => {
-      setLastCompletedSaleId(sale.id);
+      setLastSale(sale);
       setCompletedSale(sale);
       saleMeasurement.finish('success');
     },
@@ -329,6 +351,17 @@ export function SalesPage() {
   // suspended-panel toggle, the history-reprint jump) + the checkout
   // preflight live in `useSalesModals`. Product-search visibility belongs to
   // that controller; payment and cash-session visibility stay in the shell.
+  const commandBar = useSalesCommandBar({
+    query: productSearchQuery,
+    activeWorkspace: activeWorkspace ?? null,
+    canCreateCustomer: userRole === 'admin' || userRole === 'manager',
+    addProduct: (selection, quantity) => {
+      saleMeasurement.ensure('complete_sale');
+      saleMeasurement.markUsableControl();
+      handleProductSelect(selection, quantity);
+    },
+  });
+
   const {
     preflight,
     isProductSearchOpen,
@@ -337,6 +370,8 @@ export function SalesPage() {
     productSearchDialogKey,
     paymentModalKey,
     fastCashTrigger,
+    fastCashAmount,
+    paymentFocusTarget,
     setFastCashTrigger,
     cashSessionModalKey,
     cashSessionCloseModalKey,
@@ -363,7 +398,7 @@ export function SalesPage() {
     selectedHistorySaleId,
     checkoutReadinessItems,
     isPaymentModalOpen,
-    productSearchQuery,
+    productSearchQuery: commandBar.searchText,
     setSaleError,
     setIsPaymentModalOpen,
     setCashSessionError,
@@ -406,11 +441,6 @@ export function SalesPage() {
     },
     [handleOpenProductSearch, itemsLocked, saleMeasurement]
   );
-  const handleMeasuredProductSelect = (selection: Parameters<typeof handleProductSelect>[0]) => {
-    saleMeasurement.ensure('complete_sale');
-    saleMeasurement.markUsableControl();
-    handleProductSelect(selection);
-  };
 
   // omnibox landing. When the command palette could not resolve
   // the typed query as an exact barcode, it navigates here with the query in
@@ -495,6 +525,7 @@ export function SalesPage() {
     setSelectedCartItemKey,
     setProductSearchQuery,
     setSaleError,
+    takePendingQuantity: commandBar.takePendingQuantity,
   });
 
   return (
@@ -541,7 +572,6 @@ export function SalesPage() {
         handleClearCart={handleMeasuredClearCart}
         quantityInputRefFor={quantityInputRefFor}
         discountInputRefFor={discountInputRefFor}
-        focusDiscountInput={focusDiscountInput}
         canUndoActiveCart={canUndoActiveCart}
         handleUndoCart={handleMeasuredUndoCart}
         activePriceTier={activePriceTier}
@@ -567,8 +597,18 @@ export function SalesPage() {
         handleToggleSuspendedPanel={handleToggleSuspendedPanel}
         hubReachable={hubReachability.reachable ?? undefined}
         preflightItems={preflight.items}
+        readinessItems={checkoutReadinessItems}
         isHistoryDrawerOpen={isHistoryDrawerOpen}
-        lastCompletedSaleId={lastCompletedSaleId}
+        lastSale={lastSale}
+        lastRead={lastRead}
+        ticketTender={ticketTender}
+        onTicketTenderChange={handleTicketTenderChange}
+        cashierName={user?.name ?? null}
+        firstSuspendedDraft={firstSuspendedDraft}
+        canRequestInvoice={canRequestInvoice}
+        handleFastCash={handleFastCash}
+        fastCashAmount={fastCashAmount}
+        paymentFocusTarget={paymentFocusTarget}
         completedSale={completedSale}
         onDismissCompletedSale={() => setCompletedSale(null)}
         setSelectedSaleId={setSelectedSaleId}
@@ -581,7 +621,8 @@ export function SalesPage() {
         shouldRenderQuickCreateCustomerGate={shouldRenderQuickCreateCustomerGate}
         productSearchDialogKey={productSearchDialogKey}
         setIsProductSearchOpen={setIsProductSearchOpen}
-        handleProductSelect={handleMeasuredProductSelect}
+        handleProductSelect={commandBar.selectProduct}
+        commandBar={commandBar}
         productSearchInitialQuery={productSearchInitialQuery}
         setCartItems={setCartItems}
         isPaymentModalOpen={isPaymentModalOpen}

@@ -554,6 +554,13 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'CUSTOMER_LEDGER_INVALID_AMOUNT',
   // ---  optimistic concurrency ---
   'STALE_VERSION',
+  // --- site quick keys ---
+  'QUICK_KEY_PRODUCT_INVALID',
+  'QUICK_KEY_UNIT_INVALID',
+  'QUICK_KEY_DUPLICATE',
+  'QUICK_KEY_LIMIT_REACHED',
+  'QUICK_KEY_NOT_FOUND',
+  'QUICK_KEY_ORDER_INVALID',
 ] as const;
 
 export type KnownServerErrorCode = (typeof KNOWN_SERVER_ERROR_CODES)[number];

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
 import { Minus, Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -12,7 +12,7 @@ import {
 import { getLineTotals } from '@/features/sales/saleCartTotals';
 import { useDiscountSuggestions } from '@/features/sales/useDiscountSuggestions';
 import { SaleSerialSelector } from '@/features/sales/SaleSerialSelector';
-import { Badge, Button } from '@/components/ui';
+import { Button } from '@/components/ui';
 interface SaleCartTableProps {
   items: SaleCartItem[];
   /** active site scopes the expiry-suggestion badge to this POS. */
@@ -28,6 +28,8 @@ interface SaleCartTableProps {
   discountInputRefFor: (itemKey: string) => (node: HTMLInputElement | null) => void;
   /** Freeze quantity, discount, add/remove terms while allowing serial selection. */
   itemsLocked?: boolean;
+  /** Ticket-level actions (undo, clear) shown in the header row. */
+  headerActions?: ReactNode;
 }
 export function SaleCartTable({
   items,
@@ -41,6 +43,7 @@ export function SaleCartTable({
   quantityInputRefFor,
   discountInputRefFor,
   itemsLocked = false,
+  headerActions,
 }: SaleCartTableProps) {
   const priceIncludesTax = usePriceIncludesTax();
   const { t } = useTranslation('sales');
@@ -51,6 +54,16 @@ export function SaleCartTable({
     items.length > 0 && !itemsLocked,
     discountSuggestionSiteId
   );
+
+  // A scan selects its line; keep it in sight when the ticket is longer than its
+  // column. Not on mount: a restored ticket must not move the page.
+  const selectedLineRef = useRef<HTMLLIElement | null>(null);
+  const shownSelectionRef = useRef(selectedItemKey);
+  useEffect(() => {
+    if (shownSelectionRef.current === selectedItemKey) return;
+    shownSelectionRef.current = selectedItemKey;
+    selectedLineRef.current?.scrollIntoView?.({ block: 'nearest' });
+  }, [selectedItemKey]);
 
   // Borradores de edición por celda (`q:<key>` / `d:<key>`). Un input
   // controlado directo pisa la edición en curso: al vaciar el campo para
@@ -78,39 +91,42 @@ export function SaleCartTable({
     });
   };
 
-  // §06 — el carrito vacío guía con copy + pista de atajos, no con un cuadro
-  // en blanco. La misma pista se repite al pie de la lista cuando hay ítems.
-  const shortcutsHint = (
-    <p className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-fg3">
-      <span>{t('cart.shortcuts.label')}</span>
-      <span className="inline-flex items-center gap-1">
-        <kbd className="pv-kbd">{shortcutDisplayFor('sales.focusProduct')}</kbd>
-        <span>{t('cart.shortcuts.search')}</span>
-      </span>
-      <span aria-hidden="true">·</span>
-      <span className="inline-flex items-center gap-1">
-        <kbd className="pv-kbd">{shortcutDisplayFor('sales.focusQuantity')}</kbd>
-        <span>{t('cart.shortcuts.quantity')}</span>
-      </span>
-      <span aria-hidden="true">·</span>
-      <span className="inline-flex items-center gap-1">
-        <kbd className="pv-kbd">{shortcutDisplayFor('sales.focusDiscount')}</kbd>
-        <span>{t('cart.shortcuts.discount')}</span>
-      </span>
-    </p>
-  );
   if (items.length === 0) {
     return (
-      <div className="sales-empty-tape rounded-[18px] px-5 py-10 text-center">
-        <p className="text-sm text-secondary-600">{t('cart.empty')}</p>
-        <div className="text-left">{shortcutsHint}</div>
+      <div>
+        {headerActions && <div className="mb-2 flex justify-end gap-1">{headerActions}</div>}
+        <div className="sales-empty-ticket" data-testid="sales-cart-empty">
+          <p className="text-sm text-fg2">{t('cart.empty')}</p>
+        </div>
       </div>
     );
   }
   return (
     <div>
-      <ul className="flex flex-col gap-1.5" aria-label={t('cart.items')}>
-        {items.map(item => {
+      <div className="sales-ticket-head" data-testid="sales-ticket-head">
+        <span aria-hidden="true">#</span>
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="sales-ticket-head-label" aria-hidden="true">
+            {t('cart.product')}
+          </span>
+          <span className="ml-auto flex items-center gap-1 whitespace-nowrap normal-case tracking-normal">
+            {headerActions}
+          </span>
+        </span>
+        <span className="text-center" aria-hidden="true">
+          {t('sell.table.quantity')}
+        </span>
+        <span aria-hidden="true">{t('sell.table.unit')}</span>
+        <span className="text-right" aria-hidden="true">
+          {t('cart.price')}
+        </span>
+        <span className="text-right" aria-hidden="true">
+          {t('cart.total')}
+        </span>
+        <span />
+      </div>
+      <ul aria-label={t('cart.items')}>
+        {items.map((item, index) => {
           const lineTotals = getLineTotals(item, priceIncludesTax);
           const isSelected = selectedItemKey === item.key;
           const minimumQuantity = getSaleMinimumQuantity(item);
@@ -124,55 +140,60 @@ export function SaleCartTable({
               otherItem => otherItem.key !== item.key && otherItem.serialSiteId === serialSiteId
             )
             .flatMap(otherItem => otherItem.serialIds ?? []);
+          const suggestedDiscount = discountSuggestions.get(item.productId) ?? 0;
           return (
             <li
               key={item.key}
               data-testid={`sale-cart-item-${item.productSku}`}
-              className={[
-                'rounded-[12px] border bg-card p-3 transition-colors sm:px-3 sm:py-1.5',
-                isSelected ? 'border-primary-300 ring-1 ring-primary-200/70' : 'border-line/70',
-              ].join(' ')}
+              data-selected={isSelected}
+              ref={isSelected ? selectedLineRef : undefined}
+              className="sales-ticket-line"
             >
-              <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="sales-ticket-row">
+                <span className="sales-ticket-index" aria-hidden="true">
+                  {index + 1}
+                </span>
                 <button
                   type="button"
-                  className="min-w-0 text-left sm:flex-1"
+                  className="sales-ticket-name min-w-0 text-left"
                   aria-label={t('cart.selectItem', {
                     name: item.productName,
                   })}
                   onClick={() => onSelectItem(item.key)}
                 >
-                  <span className="flex items-center gap-2 text-[13.5px] font-semibold text-fg1">
-                    <span className="truncate">{item.productName}</span>
-                    {(discountSuggestions.get(item.productId) ?? 0) > 0 && (
-                      <Badge
-                        className="shrink-0"
-                        data-testid={`cart-discount-suggestion-${item.productSku}`}
-                        variant="warning"
-                      >
-                        {t('cart.discountSuggested', {
-                          pct: discountSuggestions.get(item.productId),
-                        })}
-                      </Badge>
-                    )}
+                  <span className="line-clamp-2 text-base font-semibold leading-tight text-fg1">
+                    {item.productName}
                   </span>
-                  <span className="mono mt-0.5 block truncate text-[11px] text-secondary-500">
-                    {item.productSku}
-                    {item.tracksStock !== false &&
-                      Number.isFinite(item.availableStock) &&
-                      ` · ${t('cart.stock')} ${item.availableStock}`}
+                  <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-fg3">
+                    <span className="font-mono">{item.productSku}</span>
+                    {item.tracksStock !== false && Number.isFinite(item.availableStock) && (
+                      <span>
+                        · {t('cart.stock')} {item.availableStock}
+                      </span>
+                    )}
                     {!isSelected && item.discount > 0 && (
-                      <span data-testid={`cart-line-discount-${item.productSku}`}>
-                        {` · ${t('cart.discount')} ${item.discount}%`}
+                      <span
+                        className="sales-tag bg-success-50 text-success-700"
+                        data-testid={`cart-line-discount-${item.productSku}`}
+                      >
+                        {t('sell.table.lineDiscount', { pct: item.discount })}
+                      </span>
+                    )}
+                    {suggestedDiscount > 0 && (
+                      <span
+                        className="sales-tag bg-warning-50 text-warning-700"
+                        data-testid={`cart-discount-suggestion-${item.productSku}`}
+                      >
+                        {t('cart.discountSuggested', { pct: suggestedDiscount })}
                       </span>
                     )}
                   </span>
                 </button>
 
-                <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+                <div className="sales-ticket-qty">
                   <Button
                     type="button"
-                    className="disabled:cursor-not-allowed disabled:opacity-45 sm:h-9 sm:min-h-9 sm:w-9"
+                    className="sales-stepper"
                     aria-label={t('cart.decrement', {
                       name: item.productName,
                     })}
@@ -184,17 +205,16 @@ export function SaleCartTable({
                         Math.max(minimumQuantity, item.quantity - quantityStep)
                       );
                     }}
-                    variant="outline"
+                    variant="ghost"
                     size="icon"
                   >
                     <Minus className="h-4 w-4" aria-hidden="true" />
                   </Button>
 
-                  {/* La cifra de cantidad es la lectura táctil; el input
-                   * mantiene el ref para el atajo Alt+C y la edición directa
-                   * sin romper el contrato con useSalesInputFocus. */}
-                  <span className="relative inline-flex w-6 items-center justify-center">
-                    <span className="mono text-[15px] font-semibold text-fg1" aria-hidden="true">
+                  {/* The figure is the reading; the input keeps the ref for the
+                   * quantity shortcut and direct edits. */}
+                  <span className="relative inline-flex min-w-12 items-center justify-center">
+                    <span className="font-numeric text-xl font-bold text-fg1" aria-hidden="true">
                       {item.quantity}
                     </span>
                     <input
@@ -202,7 +222,7 @@ export function SaleCartTable({
                       type="number"
                       min={minimumQuantity}
                       step={String(quantityStep)}
-                      className="absolute inset-0 h-full w-full cursor-default border-0 bg-transparent text-center text-[15px] font-semibold text-fg1 opacity-0 focus:opacity-100 focus:[appearance:textfield] focus-visible:opacity-100 focus-visible:rounded-md focus-visible:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-300"
+                      className="absolute inset-0 h-full w-full cursor-default border-0 bg-transparent text-center text-base font-semibold text-fg1 opacity-0 focus:opacity-100 focus:[appearance:textfield] focus-visible:opacity-100 focus-visible:rounded-md focus-visible:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-300"
                       aria-label={t('cart.qtyFor', {
                         name: item.productName,
                       })}
@@ -239,26 +259,36 @@ export function SaleCartTable({
                     aria-label={t('cart.increment', {
                       name: item.productName,
                     })}
-                    className="sm:h-9 sm:min-h-9 sm:w-9"
+                    className="sales-stepper"
                     onClick={() => {
                       onSelectItem(item.key);
                       onQuantityChange(item.key, item.quantity + quantityStep);
                     }}
-                    variant="outline"
+                    variant="ghost"
                     size="icon"
                     disabled={itemsLocked}
                   >
                     <Plus className="h-4 w-4" aria-hidden="true" />
                   </Button>
+                </div>
 
-                  <span className="mono ml-auto min-w-[78px] whitespace-nowrap text-right text-[14px] font-semibold text-fg1">
-                    <span className="sr-only">{t('cart.lineTotal')} </span>
-                    {formatCurrency(lineTotals.total)}
-                  </span>
+                <span className="sales-ticket-unit">
+                  <span className="sr-only">{t('sell.table.unit')} </span>
+                  {item.unitName}
+                </span>
+                <span className="sales-ticket-price">
+                  <span className="sr-only">{t('cart.price')} </span>
+                  {formatCurrency(item.unitPrice)}
+                </span>
+                <span className="sales-ticket-total">
+                  <span className="sr-only">{t('cart.lineTotal')} </span>
+                  {formatCurrency(lineTotals.total)}
+                </span>
+                <span className="sales-ticket-remove">
                   {!itemsLocked && (
                     <button
                       type="button"
-                      className="btn-ghost btn-icon h-11 w-11 text-danger-500 hover:text-danger-700 sm:h-9 sm:min-h-9 sm:w-9"
+                      className="btn-ghost btn-icon h-11 w-11 text-danger-700"
                       aria-label={t('cart.removeItem', {
                         name: item.productName,
                       })}
@@ -270,7 +300,7 @@ export function SaleCartTable({
                       <Trash2 className="h-4 w-4" aria-hidden="true" />
                     </button>
                   )}
-                </div>
+                </span>
               </div>
 
               {item.tracksSerials && (
@@ -294,10 +324,15 @@ export function SaleCartTable({
               <div
                 data-testid={`sale-cart-line-details-${item.productSku}`}
                 hidden={!isSelected}
-                className="mt-2 flex flex-wrap items-center justify-between gap-3 border-t border-line/55 pt-2 text-[11px] text-secondary-500"
+                className="sales-ticket-details"
               >
                 <label className="flex flex-wrap items-center gap-2">
                   <span>{t('cart.discount')}</span>
+                  {!itemsLocked && (
+                    <kbd className="pv-kbd" aria-hidden="true">
+                      {shortcutDisplayFor('sales.focusDiscount')}
+                    </kbd>
+                  )}
                   <input
                     ref={discountInputRefFor(item.key)}
                     type="number"
@@ -339,14 +374,20 @@ export function SaleCartTable({
                     {' · '}
                     {t('cart.tax')} {item.taxRate}%
                   </span>
+                  {!itemsLocked && (
+                    <span className="inline-flex items-center gap-1">
+                      <kbd className="pv-kbd" aria-hidden="true">
+                        {shortcutDisplayFor('sales.focusQuantity')}
+                      </kbd>
+                      {t('cart.shortcuts.quantity')}
+                    </span>
+                  )}
                 </label>
               </div>
             </li>
           );
         })}
       </ul>
-
-      {!itemsLocked && shortcutsHint}
     </div>
   );
 }

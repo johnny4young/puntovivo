@@ -887,6 +887,33 @@ describe('SalePaymentModal — customer asked for an electronic invoice', () => 
     expect(screen.getByLabelText('ID number')).toHaveValue('900373115-3');
   });
 
+  it('keeps the ticket customer selected when the customer list arrives after opening', async () => {
+    const customer = makeCustomer({ id: 'cust-late', name: 'María López' });
+    const { rerender } = render(
+      <SalePaymentModal
+        {...createProps({
+          customers: [],
+          approvalCustomerId: customer.id,
+          lockedCustomerName: customer.name,
+        })}
+      />
+    );
+    expect(screen.getByLabelText('Customer')).toHaveDisplayValue('María López');
+
+    rerender(
+      <SalePaymentModal
+        {...createProps({
+          customers: [customer],
+          approvalCustomerId: customer.id,
+          lockedCustomerName: customer.name,
+        })}
+      />
+    );
+
+    await waitFor(() => expect(screen.getByLabelText('Customer')).toHaveValue('cust-late'));
+    expect(screen.getByLabelText('Customer')).toHaveDisplayValue('María López');
+  });
+
   it('shows how an undashed NIT will be recorded', async () => {
     render(<SalePaymentModal {...createProps()} />);
     const user = userEvent.setup();
