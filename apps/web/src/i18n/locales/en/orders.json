@@ -119,7 +119,16 @@
     "notes": "Notes",
     "actions": {
       "receiveItems": "Receive Items",
-      "submitDraft": "Submit draft"
+      "submitDraft": "Submit draft",
+      "print": "Print order",
+      "printPending": "Printing…"
+    },
+    "printError": "Unable to print the purchase order",
+    "printErrors": {
+      "notPrintable": "Only a submitted or partially received order can be printed.",
+      "popupBlocked": "Allow pop-ups for Puntovivo and try again.",
+      "desktopBridgeFailed": "The desktop printer could not process the purchase order.",
+      "unknown": "The purchase order could not be printed right now."
     },
     "toast": {
       "receiveSuccessTitle": "Order receipt created",
@@ -143,5 +152,33 @@
     "partial_received": "Partial received",
     "received": "Received",
     "voided": "Voided"
+  },
+  "print": {
+    "kicker": "Purchase Order",
+    "title": "Purchase Order {{orderNumber}}",
+    "info": "Order Info",
+    "provider": "Provider",
+    "site": "Site",
+    "status": "Status",
+    "createdAt": "Created",
+    "updatedAt": "Updated",
+    "columns": {
+      "item": "Item",
+      "code": "Code",
+      "quantity": "Qty",
+      "received": "Received",
+      "pending": "Pending",
+      "unitCost": "Cost",
+      "total": "Total"
+    },
+    "totalsLabel": "Totals",
+    "totals": {
+      "subtotal": "Subtotal",
+      "total": "Total"
+    },
+    "notes": "Notes",
+    "itemCount_one": "{{count}} item",
+    "itemCount_other": "{{count}} items",
+    "footer": "Supplier request. Not a tax document."
   }
 }
