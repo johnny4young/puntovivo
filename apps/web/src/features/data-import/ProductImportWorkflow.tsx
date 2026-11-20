@@ -48,6 +48,8 @@ const TEMPLATE_KEYS = [
   'barcode',
   'unit',
   'price',
+  'price2',
+  'price3',
   'cost',
   'stock',
   'minStock',
@@ -282,6 +284,8 @@ export function ProductImportWorkflow({ dataMode, onBusyChange }: ProductImportW
           description: t('dataImport:template.sampleDescription'),
           barcode: '7701234567890',
           price: '12500',
+          price2: '11800',
+          price3: '11000',
           cost: '8000',
           unit: 'UND',
           stock: '24',
@@ -312,7 +316,8 @@ export function ProductImportWorkflow({ dataMode, onBusyChange }: ProductImportW
   const canPreview = Boolean(file && mapping && hasRequiredProductMapping(mapping));
   return (
     <div className="space-y-6">
-      <div className="flex justify-end">
+      <div className="flex flex-wrap items-center justify-end gap-3">
+        <p className="text-sm text-secondary-600">{t('dataImport:template.hint')}</p>
         <Button type="button" onClick={handleDownloadTemplate} variant="outline">
           <FileSpreadsheet className="h-4 w-4" aria-hidden="true" />
           {t('dataImport:actions.downloadTemplate')}
@@ -333,6 +338,7 @@ export function ProductImportWorkflow({ dataMode, onBusyChange }: ProductImportW
       {file && mapping ? (
         <>
           <ProductImportMappingPanel
+            key={`${file.sourceName}:${file.headers.join('|')}`}
             headers={file.headers}
             mapping={mapping}
             decimalFormat={decimalFormat}

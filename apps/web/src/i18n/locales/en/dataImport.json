@@ -41,14 +41,23 @@
     "map": {
       "kicker": "Step 2",
       "title": "Map your columns",
-      "description": "Confirm the detected columns. Product name and SKU are required; every other field can be left unmapped.",
+      "description": "Name and SKU are required. Review the mapping only if something does not match.",
       "notMapped": "Do not import",
-      "decimalFormat": "Number format"
+      "decimalFormat": "Number format",
+      "recognized_one": "{{count}} column recognized",
+      "recognized_other": "{{count}} columns recognized",
+      "reviewFields": "Review mapping",
+      "hideFields": "Hide mapping",
+      "pair": "{{column}} → {{field}}",
+      "unknownFormat": "We did not recognize the file format. Review the mapping before you continue.",
+      "requiredMissing": "Map the product name and the SKU to continue.",
+      "ignoredColumns": "These columns in your file will not be imported: {{columns}}."
     },
     "preview": {
       "kicker": "Step 3",
       "title": "Review before importing",
-      "description": "Puntovivo revalidates every row on the server and skips existing or repeated SKUs and barcodes."
+      "description": "Puntovivo revalidates every row on the server and skips existing or repeated SKUs and barcodes.",
+      "onlyIssues": "Show only rows with problems ({{count}})"
     }
   },
   "fields": {
@@ -163,7 +172,8 @@
   },
   "template": {
     "sampleName": "Sample coffee",
-    "sampleDescription": "Replace this row with your product data"
+    "sampleDescription": "Replace this row with your product data",
+    "hint": "Required: name and SKU. Every other column is optional."
   },
   "fileErrors": {
     "unsupported_file": "Choose a .csv or .xlsx file.",
