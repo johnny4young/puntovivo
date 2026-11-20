@@ -499,6 +499,7 @@ describe('Sales park-and-resume + reprint ( / )', () => {
       expect(result.suspendedBy).toBeNull();
       expect(result.status).toBe('draft');
       expect(result.items).toHaveLength(1);
+      expect(result.items[0]?.unitIsBase).toBe(true);
 
       const db = getDatabase();
       const audit = await db
