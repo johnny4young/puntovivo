@@ -51,9 +51,7 @@ export function CheckoutPreflightPanel({ items }: CheckoutPreflightPanelProps) {
       aria-live="polite"
       data-testid="checkout-preflight-panel"
     >
-      <p className="sales-cap">
-        {t('preflight.title')}
-      </p>
+      <p className="sales-cap">{t('preflight.title')}</p>
       <ul className="space-y-2">
         {items.map((item, index) => {
           const isBlocker = item.severity === 'blocker';
