@@ -230,7 +230,15 @@ function normalizeRow(
   }
   if (barcode && barcode.length > 64) issues.push({ code: 'too_long', field: 'barcode' });
 
-  const numericFields = ['price', 'cost', 'stock', 'minStock', 'taxRate'] as const;
+  const numericFields = [
+    'price',
+    'price2',
+    'price3',
+    'cost',
+    'stock',
+    'minStock',
+    'taxRate',
+  ] as const;
   const values = Object.fromEntries(
     numericFields.map(field => [field, parseImportNumber(row.values[field], decimalFormat)])
   ) as Record<(typeof numericFields)[number], number | null>;
@@ -276,6 +284,8 @@ function normalizeRow(
       unit: resolvedUnit.unit,
       unitId: resolvedUnit.unitId,
       price: values.price ?? 0,
+      price2: values.price2 ?? 0,
+      price3: values.price3 ?? 0,
       cost: values.cost ?? 0,
       stock: values.stock ?? 0,
       minStock: values.minStock ?? 0,
@@ -456,8 +466,8 @@ export async function commitLaunchProductImport(
         sku: row.normalized.sku,
         description: row.normalized.description,
         price: row.normalized.price,
-        price2: 0,
-        price3: 0,
+        price2: row.normalized.price2,
+        price3: row.normalized.price3,
         cost: row.normalized.cost,
         marginPercent1: 0,
         marginPercent2: 0,
@@ -482,8 +492,8 @@ export async function commitLaunchProductImport(
                 unitId: row.normalized.unitId,
                 equivalence: 1,
                 price: row.normalized.price,
-                price2: 0,
-                price3: 0,
+                price2: row.normalized.price2,
+                price3: row.normalized.price3,
                 isBase: true,
               },
             ]

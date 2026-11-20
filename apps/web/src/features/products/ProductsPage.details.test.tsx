@@ -11,7 +11,18 @@ import userEvent from '@testing-library/user-event';
  *
  * @module features/products/ProductsPage.details.test
  */
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render as renderWithoutRouter,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { MemoryRouter } from 'react-router';
+
+const render = (ui: ReactElement) => renderWithoutRouter(ui, { wrapper: MemoryRouter });
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import i18next from '@/i18n';
 import { StrictMode, useEffect } from 'react';

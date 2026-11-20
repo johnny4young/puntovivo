@@ -20,9 +20,10 @@ test('migration copy uses the same batch limit as the shipped import contract', 
     path.join(repoRoot, 'packages/server/src/trpc/schemas/launchMigration.ts'),
     'utf8'
   );
-  const match = schema.match(/launchProductImportRowsSchema[\s\S]*?\.max\((\d+),/);
+  const match = schema.match(/MAX_PRODUCT_IMPORT_ROWS = ([\d_]+);/);
   assert.ok(match, 'could not read the product import row limit');
-  const limit = match[1];
+  // Accept the localized thousands separator: 2,000 (en) or 2.000 (es).
+  const limit = match[1].replace(/_/g, '').replace(/(\d)(?=(\d{3})+$)/g, '$1[.,]?');
 
   for (const [lang, locale] of Object.entries(locales)) {
     const copy = JSON.stringify(locale.migracion);
