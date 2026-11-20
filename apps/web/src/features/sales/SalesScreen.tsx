@@ -1,4 +1,12 @@
-import { lazy, Suspense, type ComponentProps, type Dispatch, type SetStateAction } from 'react';
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useState,
+  type ComponentProps,
+  type Dispatch,
+  type SetStateAction,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { Drawer } from '@/components/feedback/Drawer';
 import { SalesCartWorkspace } from '@/features/sales/SalesCartWorkspace';
@@ -26,6 +34,7 @@ import type { SuspendedSalesPanel } from '@/features/sales/SuspendedSalesPanel';
 import type { ProductSearchSelection } from '@/types';
 import { canAccessRole, managerOrAdminRoles } from '@/features/auth/roleAccess';
 import { SaleCompleteStrip, type CompletedSaleSummary } from './SaleCompleteStrip';
+import { usePrintSaleReceipt } from './useReceiptAutoPrint';
 
 const LazySalesQuickAccess = lazy(() =>
   import('@/features/sales/SalesQuickAccess').then(module => ({ default: module.SalesQuickAccess }))
@@ -354,6 +363,17 @@ export function SalesScreen({
   // Buttons pass their click event, which must not read as the fast cash flag.
   const handleCharge = () => handleOpenPaymentModal();
   const showCompletedSale = completedSale !== null && cartItems.length === 0;
+  const completedSalePrint = usePrintSaleReceipt();
+  // WhatsApp opens the receipt with its share review already showing.
+  const [shareReceiptOnOpen, setShareReceiptOnOpen] = useState(false);
+  // Stable: the history table memoizes its columns on this callback.
+  const openSaleDetails = useCallback(
+    (saleId: string | null, share = false) => {
+      setShareReceiptOnOpen(share);
+      setSelectedSaleId(saleId);
+    },
+    [setSelectedSaleId]
+  );
   const customerLocked = activeWorkspace ? isTicketCustomerFrozen(activeWorkspace) : false;
   const { canOpenDrawerFromDock, printerMissing } = getSalesDockGates({
     canCharge,
@@ -496,7 +516,14 @@ export function SalesScreen({
               showCompletedSale ? (
                 <SaleCompleteStrip
                   sale={completedSale}
-                  onOpenReceipt={() => setSelectedSaleId(completedSale.id)}
+                  onPrint={() => {
+                    void completedSalePrint.print(completedSale.id).finally(() => {
+                      productInputRef.current?.focus();
+                    });
+                  }}
+                  isPrinting={completedSalePrint.isPrinting}
+                  onShare={() => openSaleDetails(completedSale.id, true)}
+                  onOpenReceipt={() => openSaleDetails(completedSale.id)}
                   onDismiss={() => {
                     onDismissCompletedSale();
                     // The button disappears with the strip; the cashier goes back to scanning.
@@ -580,7 +607,7 @@ export function SalesScreen({
             // While the completion strip shows the sale, the card would repeat it.
             lastSale={showCompletedSale ? null : lastSale}
             onOpenLastSale={() => {
-              if (lastSale) setSelectedSaleId(lastSale.id);
+              if (lastSale) openSaleDetails(lastSale.id);
             }}
             onOpenReturns={() => setIsHistoryDrawerOpen(true)}
           />
@@ -623,7 +650,7 @@ export function SalesScreen({
         >
           <Suspense fallback={null}>
             <LazySalesHistoryDrawerContent
-              onView={setSelectedSaleId}
+              onView={openSaleDetails}
               selectedSaleId={selectedHistorySaleId}
               onSelectedSaleIdChange={setSelectedHistorySaleId}
             />
@@ -699,7 +726,8 @@ export function SalesScreen({
             }}
             onSubmitPayment={handleCheckout}
             selectedSaleId={selectedSaleId}
-            onCloseSaleDetails={() => setSelectedSaleId(null)}
+            shareReceiptOnOpen={shareReceiptOnOpen}
+            onCloseSaleDetails={() => openSaleDetails(null)}
             isSuspendLabelPromptOpen={isSuspendLabelPromptOpen}
             isSuspending={isSuspending}
             suspendLabelDraft={suspendLabelDraft}

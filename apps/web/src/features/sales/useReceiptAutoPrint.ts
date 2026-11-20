@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useTenant } from '@/features/tenant/TenantProvider';
@@ -49,13 +49,28 @@ interface UseReceiptAutoPrintParams {
  * shell values + globals and never calls back into the page.
  */
 export function useReceiptAutoPrint({ autoPrintEnabled }: UseReceiptAutoPrintParams) {
+  const printReceipt = useReceiptPrint();
+  return useCallback(
+    async (sale: Sale) => {
+      if (autoPrintEnabled) await printReceipt(sale, 'sales:printer.autoPrintFailed');
+    },
+    [autoPrintEnabled, printReceipt]
+  );
+}
+
+/**
+ * Prints a sale's receipt through the active site's dispatcher (ESC/POS on
+ * the server or hub, else the HTML print surface). Best-effort: a failure
+ * warns and never blocks the next sale.
+ */
+export function useReceiptPrint() {
   const { t } = useTranslation(['sales', 'errors', 'common']);
   const toast = useToast();
   const utils = trpc.useUtils();
   const { currentSite } = useTenant();
   const printReceiptMutation = trpc.peripherals.printReceipt.useMutation();
   const printReceiptMutateAsync = printReceiptMutation.mutateAsync;
-  const handleAutoPrintFailure = useCallback(
+  const handlePrintFailure = useCallback(
     (outcome: EscPosFailure) => {
       toast.warning({
         title: t(
@@ -65,9 +80,9 @@ export function useReceiptAutoPrint({ autoPrintEnabled }: UseReceiptAutoPrintPar
     },
     [t, toast]
   );
-  const maybeAutoPrint = useCallback(
-    async (sale: Sale) => {
-      if (!autoPrintEnabled || !currentSite) return;
+  return useCallback(
+    async (sale: Sale, failureTitleKey = 'sales:printer.printFailed') => {
+      if (!currentSite) return;
       const siteId = currentSite.id;
       const dispatcher = createEscposReceiptDispatcher({
         serverPrint: async () => {
@@ -88,7 +103,7 @@ export function useReceiptAutoPrint({ autoPrintEnabled }: UseReceiptAutoPrintPar
       try {
         await printSaleReceipt(sale, {
           escposDispatcher: dispatcher,
-          onEscposFailure: handleAutoPrintFailure,
+          onEscposFailure: handlePrintFailure,
           htmlProvider: async () => {
             const result = await utils.peripherals.renderReceiptHtml.fetch(
               {
@@ -101,23 +116,34 @@ export function useReceiptAutoPrint({ autoPrintEnabled }: UseReceiptAutoPrintPar
           },
         });
       } catch (err) {
-        // Receipt-print is best-effort post-sale — never block the
-        // cashier flow. Surface a one-line warning toast and let the
-        // operator reprint manually from the sale details modal.
-        console.warn('[sales] auto-print failed', err);
-        toast.warning({ title: t('sales:printer.autoPrintFailed') });
+        console.warn('[sales] receipt print failed', err);
+        toast.warning({ title: t(failureTitleKey) });
       }
     },
-    [
-      autoPrintEnabled,
-      currentSite,
-      handleAutoPrintFailure,
-      printReceiptMutateAsync,
-      t,
-      toast,
-      utils,
-    ]
+    [currentSite, handlePrintFailure, printReceiptMutateAsync, t, toast, utils]
   );
+}
 
-  return maybeAutoPrint;
+/** Prints a finished sale by id, tracking the in-flight print for its button. */
+export function usePrintSaleReceipt() {
+  const { t } = useTranslation('sales');
+  const toast = useToast();
+  const utils = trpc.useUtils();
+  const printReceipt = useReceiptPrint();
+  const [isPrinting, setIsPrinting] = useState(false);
+  const print = useCallback(
+    async (saleId: string) => {
+      setIsPrinting(true);
+      try {
+        const sale = await utils.sales.getById.fetch({ id: saleId });
+        await printReceipt(sale as Sale);
+      } catch {
+        toast.warning({ title: t('printer.printFailed') });
+      } finally {
+        setIsPrinting(false);
+      }
+    },
+    [printReceipt, t, toast, utils]
+  );
+  return { print, isPrinting };
 }

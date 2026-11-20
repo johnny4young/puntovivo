@@ -7,12 +7,13 @@ import { ReceiptSharePanel } from './ReceiptSharePanel';
 
 interface ReceiptShareSectionProps {
   saleId: string;
+  initiallyOpen?: boolean | undefined;
 }
 
-export function ReceiptShareSection({ saleId }: ReceiptShareSectionProps) {
+export function ReceiptShareSection({ saleId, initiallyOpen = false }: ReceiptShareSectionProps) {
   const { t } = useTranslation('receiptShare');
   const { currentSite } = useTenant();
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(initiallyOpen);
 
   if (!currentSite) return null;
 

@@ -321,7 +321,7 @@ describe('SalePaymentModal — stable drawer shell', () => {
     expect(screen.getByRole('group', { name: 'Payment method' })).toBeInTheDocument();
     expect(screen.queryByRole('combobox', { name: 'Payment method' })).not.toBeInTheDocument();
     expect(screen.getByTestId('sale-payment-method-select')).toHaveAttribute('hidden');
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Back' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Confirm Sale' })).toBeVisible();
   });
 
@@ -735,7 +735,7 @@ describe('SalePaymentModal — explicit partial settlement', () => {
     await user.type(amount, '50000');
 
     const settlement = within(screen.getByTestId('payment-settlement'));
-    expect(settlement.getByText('Change')).toBeVisible();
+    expect(settlement.getByText('Change due')).toBeVisible();
     expect(screen.getByTestId('payment-settlement-amount')).toHaveTextContent('20,000');
 
     await user.clear(amount);
@@ -1041,5 +1041,98 @@ describe('SalePaymentModal — electronic invoice selector in Spanish', () => {
     );
     expect(screen.getByLabelText('Número de documento')).toBeInTheDocument();
     expect(screen.getByLabelText('Correo (opcional)')).toBeInTheDocument();
+  });
+});
+
+describe('SalePaymentModal — cash change hero', () => {
+  beforeEach(async () => {
+    await i18next.changeLanguage('en');
+  });
+
+  it('builds the received amount on the keypad and shows the change with one way to give it', async () => {
+    render(<SalePaymentModal {...createProps({ total: 30000, currencyCode: 'COP' })} />);
+    const user = userEvent.setup();
+    const amount = await screen.findByLabelText(/Amount received/i);
+
+    // The preset total is replaced by the first key, then each key extends it.
+    await user.click(screen.getByTestId('sale-payment-key-5'));
+    await user.click(screen.getByTestId('sale-payment-key-0'));
+    await user.click(screen.getByTestId('sale-payment-key-000'));
+    expect(amount).toHaveValue(50000);
+    expect(screen.getByTestId('payment-settlement-amount')).toHaveTextContent(
+      formatCurrency(20000)
+    );
+    expect(screen.getByTestId('payment-change-breakdown')).toHaveTextContent(
+      `1 × ${formatCurrency(20000)}`
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Delete last digit' }));
+    expect(amount).toHaveValue(5000);
+    expect(
+      within(screen.getByTestId('payment-settlement')).getByText('Outstanding balance')
+    ).toBeVisible();
+    expect(screen.queryByTestId('payment-change-breakdown')).not.toBeInTheDocument();
+  });
+
+  it('lets a bill key preset the amount and a typed amount keep extending', async () => {
+    render(<SalePaymentModal {...createProps({ total: 30000, currencyCode: 'COP' })} />);
+    const user = userEvent.setup();
+    const amount = await screen.findByLabelText(/Amount received/i);
+
+    await user.click(screen.getByTestId('quick-denomination-50000'));
+    expect(amount).toHaveValue(50000);
+    await user.click(screen.getByTestId('sale-payment-key-1'));
+    expect(amount).toHaveValue(1);
+
+    await user.clear(amount);
+    await user.type(amount, '4');
+    await user.click(screen.getByTestId('sale-payment-key-0'));
+    expect(amount).toHaveValue(40);
+  });
+
+  it('treats a bill key as a preset even when it matches the keyed amount', async () => {
+    render(<SalePaymentModal {...createProps({ total: 30000, currencyCode: 'COP' })} />);
+    const user = userEvent.setup();
+    const amount = await screen.findByLabelText(/Amount received/i);
+
+    for (const key of ['5', '0', '000']) {
+      await user.click(screen.getByTestId(`sale-payment-key-${key}`));
+    }
+    await user.click(screen.getByTestId('quick-denomination-50000'));
+    await user.click(screen.getByTestId('sale-payment-key-1'));
+    expect(amount).toHaveValue(1);
+  });
+
+  it('splits the change into bills and coins for the tenant currency only', async () => {
+    const { unmount } = render(
+      <SalePaymentModal {...createProps({ total: 87420, currencyCode: 'COP' })} />
+    );
+    const user = userEvent.setup();
+    await user.click(await screen.findByTestId('quick-denomination-100000'));
+    const chips = within(screen.getByTestId('payment-change-breakdown'))
+      .getAllByRole('listitem')
+      .map(item => item.textContent);
+    expect(chips).toEqual([
+      `1 × ${formatCurrency(10000)}`,
+      `1 × ${formatCurrency(2000)}`,
+      `${formatCurrency(580)} in coins`,
+    ]);
+    unmount();
+
+    render(<SalePaymentModal {...createProps({ total: 87420, currencyCode: 'GTQ' })} />);
+    await user.click(await screen.findByTestId('quick-denomination-100000'));
+    expect(screen.getByTestId('payment-settlement-amount')).toHaveTextContent(
+      formatCurrency(12580)
+    );
+    expect(screen.queryByTestId('payment-change-breakdown')).not.toBeInTheDocument();
+  });
+
+  it('keeps the keypad and the change to cash', async () => {
+    render(<SalePaymentModal {...createProps({ total: 30000 })} />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Card' }));
+    expect(screen.queryByTestId('sale-payment-keypad')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('quick-denomination-selector')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('payment-settlement')).not.toBeInTheDocument();
   });
 });

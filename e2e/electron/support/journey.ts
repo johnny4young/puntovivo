@@ -210,7 +210,7 @@ export async function openCashSession(page: Page, register: string): Promise<voi
 /** Add one unit of `sku` to the cart through the product search dialog. */
 export async function addProductToCart(page: Page, sku: string): Promise<void> {
   await page
-    .getByRole('button', { name: /search products|buscar productos/i })
+    .getByRole('button', { name: /^(search|buscar)$/i })
     .first()
     .click();
   const dialog = page.getByRole('dialog', { name: /add product|agregar producto/i });

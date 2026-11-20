@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { roundMoney } from '@/lib/money';
-import { cashChange, serviceChargeFor, suggestCashTenders } from './cashTender';
+import { cashChange, serviceChargeFor, suggestCashTenders, applyCashKeypadKey } from './cashTender';
 
 describe('suggestCashTenders', () => {
   it('offers the next two round bills above the total', () => {
@@ -47,5 +47,29 @@ describe('serviceChargeFor', () => {
     expect(serviceChargeFor(87_420, 10)).toBe(8_742);
     expect(serviceChargeFor(12.35, 10)).toBe(1.24);
     expect(serviceChargeFor(87_420, 0)).toBe(0);
+  });
+});
+
+describe('applyCashKeypadKey', () => {
+  it('replaces a preset amount, then extends what the cashier keyed', () => {
+    expect(applyCashKeypadKey(87_420, '1', true)).toBe(1);
+    expect(applyCashKeypadKey(1, '000', false)).toBe(1_000);
+    expect(applyCashKeypadKey(1_000, '0', false)).toBe(10_000);
+  });
+
+  it('deletes the last digit of whatever is showing', () => {
+    expect(applyCashKeypadKey(100_000, 'back', true)).toBe(10_000);
+    expect(applyCashKeypadKey(5, 'back', false)).toBe(0);
+    expect(applyCashKeypadKey(0, 'back', false)).toBe(0);
+  });
+
+  it('never cuts the cents off a typed decimal amount', () => {
+    expect(applyCashKeypadKey(20.5, '0', false)).toBe(0);
+    expect(applyCashKeypadKey(20.5, '5', false)).toBe(5);
+    expect(applyCashKeypadKey(20.5, 'back', false)).toBe(20);
+  });
+
+  it('stops at twelve digits', () => {
+    expect(applyCashKeypadKey(999_999_999_999, '9', false)).toBe(999_999_999_999);
   });
 });

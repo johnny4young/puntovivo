@@ -105,7 +105,7 @@ test.describe('assistive-technology sweep', () => {
       true
     );
 
-    const cancel = dialog.getByRole('button', { name: 'Cancel' });
+    const cancel = dialog.getByRole('button', { name: 'Back' });
     const confirm = dialog.getByRole('button', { name: 'Confirm Sale' });
     const [cancelBox, confirmBox] = await Promise.all([
       cancel.boundingBox(),

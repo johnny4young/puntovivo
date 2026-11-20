@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Minus, Plus, Sun } from 'lucide-react';
 import { ModalButton } from '@/components/form-controls/Modal';
 import { Overlay } from '@/components/overlay/Overlay';
+import { useResolvedLocale } from '@/features/locale/LocaleProvider';
 import { formatCurrency } from '@/lib/utils';
 import type { CashSessionDenomination, RegisterAssignment } from '@/types';
 import {
@@ -29,7 +30,8 @@ interface CashSessionOpenModalProps {
 
 function createDefaultValues(
   defaultRegisterName: string,
-  defaultRegisterAssignment?: RegisterAssignment | null
+  defaultRegisterAssignment: RegisterAssignment | null | undefined,
+  currencyCode: string | undefined
 ): CashSessionOpenValues {
   const assignmentDenominations = defaultRegisterAssignment?.denominations ?? [];
 
@@ -39,7 +41,7 @@ function createDefaultValues(
     denominations:
       assignmentDenominations.length > 0
         ? assignmentDenominations.map(denomination => ({ ...denomination }))
-        : createCashSessionDenominations(),
+        : createCashSessionDenominations(currencyCode),
   };
 }
 
@@ -52,10 +54,13 @@ export function CashSessionOpenModal({
   onSubmit,
 }: CashSessionOpenModalProps) {
   const { t } = useTranslation('sales');
+  // Until the tenant locale loads, keep the historical peso grid rather than the dollar fallback.
+  const { currency, isFallback } = useResolvedLocale();
   const form = useForm<CashSessionOpenValues>({
     defaultValues: createDefaultValues(
       t('cashSession.form.defaultRegisterName'),
-      defaultRegisterAssignment
+      defaultRegisterAssignment,
+      isFallback ? undefined : currency
     ),
   });
   const denominationFieldArray = useFieldArray({

@@ -1,20 +1,12 @@
-/**
- * Single-tender section of the sale payment modal (method tiles + amount +
- * split-enable). Rediseño §06 / .
- *
- * JSX extracted verbatim from the former single-file
- * `SalePaymentModal.tsx`. Presentational: receives the RHF `form` + derived
- * flags from `useSalePaymentModal`. The hidden sr-only `<select>` stays the
- * registered form control (the tiles only drive `setValue`).
- *
- * @module features/sales/SalePaymentSingleTenderSection
- */
-import { Plus } from 'lucide-react';
+// The hidden <select> stays the registered form control; the tiles only drive setValue.
+import { useRef } from 'react';
+import { LayoutGrid } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { UseFormReturn } from 'react-hook-form';
 
-import { Button } from '@/components/ui';
 import type { PaymentMethod } from '@/types';
+import { CashKeypad } from './CashKeypad';
+import { applyCashKeypadKey, type CashKeypadKey } from './cashTender';
 import { QuickDenominationSelector } from './QuickDenominationSelector';
 import type { SalePaymentValues } from './salePaymentModal.types';
 import { PAYMENT_METHOD_TILES } from './salePaymentModal.constants';
@@ -27,6 +19,7 @@ interface SalePaymentSingleTenderSectionProps {
   isCredit: boolean;
   grandTotal: number;
   amountReceivedValue: number;
+  currencySymbol: string;
   handleEnableSplit: () => void;
 }
 
@@ -38,138 +31,130 @@ export function SalePaymentSingleTenderSection({
   isCredit,
   grandTotal,
   amountReceivedValue,
+  currencySymbol,
   handleEnableSplit,
 }: SalePaymentSingleTenderSectionProps) {
   const { t } = useTranslation('sales');
+  // The last amount the cashier keyed in. Any other value (the default,
+  // a bill key, F2) is a preset the next digit replaces.
+  const keyedAmountRef = useRef<number | null>(null);
+  const amountField = form.register('amountReceived', {
+    valueAsNumber: true,
+    min: { value: 0, message: t('payment.amountNegative') },
+  });
+
+  const setAmount = (amount: number) =>
+    form.setValue('amountReceived', amount, { shouldDirty: true, shouldValidate: true });
+
+  const handleKey = (key: CashKeypadKey) => {
+    const fresh = keyedAmountRef.current !== amountReceivedValue;
+    const next = applyCashKeypadKey(amountReceivedValue, key, fresh);
+    keyedAmountRef.current = next;
+    setAmount(next);
+  };
 
   return (
     <>
-      <div className="grid gap-4 md:grid-cols-2">
-        <div>
-          <span id="sale-payment-method-label" className="label">
-            {t('payment.paymentMethod')}
-          </span>
-          {/*
-            Rediseño §06 — método de pago como tiles de 2 columnas.
-            Cada tile es un Button outline con la receta .tile (64px,
-            columna, ícono + etiqueta); el método activo añade .on. El <select>
-            registrado vive oculto y sigue siendo la fuente de verdad
-            del formulario: las tiles solo llaman a
-            form.setValue('paymentMethod', …). Las tiles forman el
-            único grupo expuesto a AT; anunciar también el select
-            duplicaba el método para VoiceOver.
-          */}
-          <div
-            className="mt-2 grid grid-cols-2 gap-2"
-            role="group"
-            aria-labelledby="sale-payment-method-label"
+      <div role="group" aria-labelledby="sale-payment-method-label">
+        <p id="sale-payment-method-label" className="sales-cap mb-2">
+          {t('payment.paymentMethod')}
+        </p>
+        <div className="sale-pay-tenders">
+          {PAYMENT_METHOD_TILES.filter(
+            // Credit needs an operational role and an attached customer; the server enforces both.
+            tile => tile.method !== 'credit' || creditMethodAvailable
+          ).map(tile => {
+            const TileIcon = tile.icon;
+            return (
+              <button
+                key={tile.method}
+                type="button"
+                className="sales-tender-tile sale-pay-tender"
+                aria-pressed={paymentMethod === tile.method}
+                onClick={() =>
+                  form.setValue('paymentMethod', tile.method, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  })
+                }
+                data-testid={`sale-payment-tender-${tile.method}`}
+              >
+                <TileIcon className="h-5 w-5" aria-hidden="true" />
+                <span>{t(tile.labelKey)}</span>
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            className="sales-tender-tile sale-pay-tender"
+            aria-label={t('payment.splitEnable')}
+            onClick={handleEnableSplit}
+            data-testid="sale-payment-tender-split"
           >
-            {PAYMENT_METHOD_TILES.filter(
-              // credit tile gated to manager + admin AND
-              // requires a customer attached. Cashier never sees it
-              // (server router also enforces the role gate on the
-              // credit payment method). Walk-in (no customer) hides
-              // the tile because credit is per-customer by definition.
-              tile => tile.method !== 'credit' || creditMethodAvailable
-            ).map(tile => {
-              const TileIcon = tile.icon;
-              const isActive = paymentMethod === tile.method;
-              return (
-                <Button
-                  key={tile.method}
-                  type="button"
-                  variant="outline"
-                  className={`tile${isActive ? ' on' : ''}`}
-                  aria-pressed={isActive}
-                  onClick={() =>
-                    form.setValue('paymentMethod', tile.method, {
-                      shouldDirty: true,
-                      shouldValidate: true,
-                    })
-                  }
-                >
-                  <TileIcon aria-hidden="true" />
-                  <span style={{ fontSize: 12 }}>{t(tile.labelKey)}</span>
-                </Button>
-              );
-            })}
-          </div>
-          <select
-            id="sale-payment-method"
-            hidden
-            data-testid="sale-payment-method-select"
-            {...form.register('paymentMethod')}
-          >
-            <option value="cash">{t('payment.cash')}</option>
-            <option value="card">{t('payment.card')}</option>
-            <option value="transfer">{t('payment.transfer')}</option>
-            {/* credit option gated to manager + admin AND
-                requires a customer attached. Cashier never sees it
-                (server router also enforces the role gate on the
-                credit payment method). Walk-in (no customer) hides the
-                option because credit is per-customer by definition. */}
-            {creditMethodAvailable && (
-              <option value="credit" data-testid="sale-payment-method-credit-option">
-                {t('payment.credit')}
-              </option>
-            )}
-            <option value="other">{t('payment.other')}</option>
-          </select>
-        </div>
-
-        <div>
-          <label htmlFor="sale-payment-amount" className="label">
-            {t('payment.amountReceived')}
-          </label>
-          <input
-            id="sale-payment-amount"
-            type="number"
-            min={0}
-            step="0.01"
-            className="input mt-1"
-            disabled={isCredit}
-            {...form.register('amountReceived', {
-              valueAsNumber: true,
-              min: { value: 0, message: t('payment.amountNegative') },
-            })}
-          />
-          {form.formState.errors.amountReceived && (
-            <p className="mt-1 text-sm text-danger-500" role="alert">
-              {form.formState.errors.amountReceived.message}
-            </p>
-          )}
+            <LayoutGrid className="h-5 w-5" aria-hidden="true" />
+            <span>{t('sell.tender.split')}</span>
+          </button>
         </div>
       </div>
+      <select
+        id="sale-payment-method"
+        hidden
+        data-testid="sale-payment-method-select"
+        {...form.register('paymentMethod')}
+      >
+        <option value="cash">{t('payment.cash')}</option>
+        <option value="card">{t('payment.card')}</option>
+        <option value="transfer">{t('payment.transfer')}</option>
+        {creditMethodAvailable && (
+          <option value="credit" data-testid="sale-payment-method-credit-option">
+            {t('payment.credit')}
+          </option>
+        )}
+        <option value="other">{t('payment.other')}</option>
+      </select>
 
       {isCash && grandTotal > 0 && (
         <QuickDenominationSelector
           total={grandTotal}
           currentValue={amountReceivedValue}
-          onSelect={amount =>
-            form.setValue('amountReceived', amount, {
-              shouldDirty: true,
-              shouldValidate: true,
-            })
-          }
+          onSelect={amount => {
+            keyedAmountRef.current = null;
+            setAmount(amount);
+          }}
         />
       )}
 
-      {/* when the single-tender method is already
-          credit, splitting is redundant: the operator has
-          signaled the entire sale is on account. To split a
-          credit portion, the operator starts from a non-credit
-          method (cash / card / transfer) and adds a credit row
-          inside split mode via the tender selector. */}
-      {!isCredit && (
-        <button
-          type="button"
-          className="btn-ghost inline-flex items-center gap-2 text-sm"
-          onClick={handleEnableSplit}
-        >
-          <Plus className="h-4 w-4" />
-          {t('payment.splitEnable')}
-        </button>
+      <div className="sale-pay-received" data-disabled={isCredit || undefined}>
+        <label htmlFor="sale-payment-amount" className="sales-cap">
+          {t('payment.amountReceived')}
+        </label>
+        <div className="sale-pay-received-row">
+          <span className="sale-pay-received-symbol" aria-hidden="true">
+            {currencySymbol}
+          </span>
+          <input
+            id="sale-payment-amount"
+            type="number"
+            min={0}
+            step="0.01"
+            inputMode="decimal"
+            className="sale-pay-received-input"
+            disabled={isCredit}
+            {...amountField}
+            onChange={event => {
+              keyedAmountRef.current = event.target.valueAsNumber;
+              void amountField.onChange(event);
+            }}
+          />
+        </div>
+      </div>
+      {form.formState.errors.amountReceived && (
+        <p className="text-sm text-danger-500" role="alert">
+          {form.formState.errors.amountReceived.message}
+        </p>
       )}
+
+      {isCash && <CashKeypad onKey={handleKey} />}
     </>
   );
 }

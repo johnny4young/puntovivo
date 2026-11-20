@@ -29,4 +29,9 @@ describe('ReceiptShareSection', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Close review' }));
     expect(screen.queryByText('Customer share review')).not.toBeInTheDocument();
   });
+
+  it('opens straight on the review when the cashier chose WhatsApp', () => {
+    render(<ReceiptShareSection saleId="sale-1" initiallyOpen />);
+    expect(screen.getByText('Customer share review')).toBeInTheDocument();
+  });
 });
