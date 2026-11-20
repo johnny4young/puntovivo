@@ -87,6 +87,7 @@ export const ENFORCED_PAIRS = [
   // Cobrar is the one orange control and the navy rail hosts navigation in both themes.
   ['cobrar', 'cobrar-foreground'],
   ['rail', 'rail-foreground'],
+  ['rail', 'rail-muted'],
   ['success-50', 'success-700'],
   ['danger-50', 'danger-700'],
 ];

@@ -349,6 +349,7 @@
   /* Navigation rail and brand tile stay deep navy in both themes. */
   --rail: oklch(0.293 0.053 241);
   --rail-foreground: oklch(0.973 0.007 234);
+  --rail-muted: oklch(0.8 0.03 238);
   /* Quick-key swatches: a name on the key carries the meaning, colour only helps the eye. */
   --swatch-orange: oklch(0.72 0.16 52);
   --swatch-yellow: oklch(0.85 0.15 92);
