@@ -99,7 +99,10 @@ export function SalePaymentSplitTenderSection({
 
   const isSettled = Math.abs(tenderDelta) < TENDER_SUM_EPSILON;
   const isOver = !isSettled && tenderDelta > 0;
-  const hasLoyaltyRow = watchedTenders.some(tender => tender.method === 'loyalty');
+  // Customer-value rows are priced by points or capped by a balance, so halves would not fit them.
+  const hasCustomerValueRow = watchedTenders.some(
+    tender => tender.method === 'loyalty' || tender.method === 'store_credit'
+  );
   const activeIsLoyalty = watchedTenders[activeIndex]?.method === 'loyalty';
   let settledProblem: string | null = null;
   if (isSettled && !splitIsValid && customerValueTenderError === null) {
@@ -287,7 +290,13 @@ export function SalePaymentSplitTenderSection({
           onClick={() => {
             tenderFields.append({
               method: 'card',
-              amount: Math.max(0, roundMoney(-tenderDelta)),
+              amount: Math.max(
+                0,
+                roundMoney(
+                  grandTotal -
+                    sumBy(form.getValues('tenders'), tender => Number(tender.amount) || 0)
+                )
+              ),
               reference: '',
             });
             setActiveRow(rowCount);
@@ -305,7 +314,7 @@ export function SalePaymentSplitTenderSection({
         >
           {t('payment.splitFillMissing')}
         </button>
-        {rowCount <= 2 && !hasLoyaltyRow && grandTotal > 0 && (
+        {rowCount <= 2 && !hasCustomerValueRow && grandTotal > 0 && (
           <button
             type="button"
             className="btn-secondary sale-pay-split-action"

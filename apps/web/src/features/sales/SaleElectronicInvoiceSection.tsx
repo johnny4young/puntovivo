@@ -93,7 +93,7 @@ export function SaleElectronicInvoiceSection({
   const dvConfirmed =
     isNit && nit.dv !== '' && computedDv === nit.dv && !errors?.identificationNumber;
 
-  const typedKey = buyerIdKey(idNumber);
+  const typedKey = buyerIdKey(idNumber, isNit);
   const customersById = useMemo(
     () =>
       new Map(
@@ -145,10 +145,10 @@ export function SaleElectronicInvoiceSection({
     };
     const { name, taxId, email } = sourceCustomer;
     if (name && !valueOf('name').trim()) fill('name', name);
-    if (taxId && !valueOf('identificationNumber').trim()) {
-      fill('identificationNumber', taxId);
-      // Only a NIT carries a dashed verification digit in Colombia.
-      if (/-\s*\d$/.test(taxId)) fill('identificationTypeCode', NIT_TYPE_CODE);
+    if (taxId && !valueOf('identificationNumber').trim()) fill('identificationNumber', taxId);
+    // Only a NIT carries a dashed verification digit in Colombia.
+    if (taxId && /-\s*\d$/.test(taxId) && valueOf('identificationTypeCode') !== NIT_TYPE_CODE) {
+      fill('identificationTypeCode', NIT_TYPE_CODE);
     }
     if (email && !valueOf('email').trim()) fill('email', email);
   }, [requested, sourceCustomerId, form, sourceCustomer]);
@@ -206,7 +206,9 @@ export function SaleElectronicInvoiceSection({
                 {...typeRegistration}
                 onChange={event => {
                   // A DV belongs to a NIT; another type would read it as part of the number.
-                  if (event.target.value !== NIT_TYPE_CODE && nit.dv) setIdNumber(nit.base);
+                  if (isNit && event.target.value !== NIT_TYPE_CODE && nit.dv) {
+                    setIdNumber(nit.base);
+                  }
                   void typeRegistration.onChange(event);
                 }}
               >
@@ -239,7 +241,8 @@ export function SaleElectronicInvoiceSection({
                 onChange={event => {
                   const typed = event.target.value;
                   // Typing the whole NIT with its dash still lands the DV in its box.
-                  setIdNumber(isNit && nit.dv && !/-/.test(typed) ? `${typed}-${nit.dv}` : typed);
+                  const keepsDv = isNit && nit.dv && typed.trim() !== '' && !/-/.test(typed);
+                  setIdNumber(keepsDv ? `${typed}-${nit.dv}` : typed);
                 }}
               />
             </div>

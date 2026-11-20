@@ -357,7 +357,7 @@ export function useSalePaymentModal({
   const isCredit = paymentMethod === 'credit';
   // A single-tender credit sale may take part in cash now; it then travels as cash + credit tenders.
   const creditDownPayment =
-    isCredit && !splitMode ? Math.max(0, Number(creditDownPaymentWatch) || 0) : 0;
+    isCredit && !splitMode ? Math.max(0, roundMoney(Number(creditDownPaymentWatch) || 0)) : 0;
   const creditDownPaymentInvalid = creditDownPayment > 0 && creditDownPayment >= grandTotal;
   const creditDownPaymentTenders = useMemo(
     () =>
@@ -547,7 +547,7 @@ export function useSalePaymentModal({
   // before; split-credit projects against the credit tender sum so
   // the cashier sees "$150 a crédito" rather than the full "$200".
   const creditProjectionAmount = isCredit
-    ? roundMoney(grandTotal - creditDownPayment)
+    ? Math.max(0, roundMoney(grandTotal - creditDownPayment))
     : creditAmountInSplit;
   const projectedBalance = roundMoney(currentBalance + creditProjectionAmount);
   const cupoExceeded =
@@ -781,6 +781,10 @@ export function useSalePaymentModal({
       return;
     }
     setSplitMode(true);
+    // Credit becomes a split row; a leftover credit method would price approvals at the whole total.
+    if (form.getValues('paymentMethod') === 'credit') {
+      form.setValue('paymentMethod', 'cash', { shouldDirty: true });
+    }
     // Seed a first tender row so the cashier only needs to add the remainder.
     tenderFields.append({ method: 'cash', amount: grandTotal, reference: '' });
   }

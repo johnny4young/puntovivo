@@ -856,6 +856,53 @@ describe('SalePaymentModal ( credit branch)', () => {
     expect(submitted).not.toHaveProperty('creditDownPayment');
   });
 
+  it('never shows a negative credit part when the cash part is too high', async () => {
+    const user = userEvent.setup();
+    mockBalance = 0;
+    renderModal({ userRole: 'admin', total: 100, customers: [makeCustomer({ creditLimit: 500 })] });
+    await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
+    await user.selectOptions(screen.getByTestId('sale-payment-method-select'), 'credit');
+    await user.type(screen.getByLabelText('Paid now in cash'), '150');
+
+    expect(screen.getByTestId('credit-sale-credit-portion')).not.toHaveTextContent('-');
+    expect(screen.getByTestId('credit-sale-projected')).not.toHaveTextContent('-');
+  });
+
+  it('rounds the cash part to cents so cash plus credit still adds up to the total', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn(async () => undefined);
+    mockBalance = 0;
+    renderModal({
+      userRole: 'admin',
+      total: 200,
+      customers: [makeCustomer({ creditLimit: 500 })],
+      onSubmit,
+    });
+    await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
+    await user.selectOptions(screen.getByTestId('sale-payment-method-select'), 'credit');
+    await user.type(screen.getByLabelText('Paid now in cash'), '50.005');
+    await user.click(screen.getByRole('button', { name: /on account and take/i }));
+
+    const submitted = onSubmit.mock.calls.at(0)?.at(0) as unknown as SalePaymentValues;
+    const [cash, credit] = submitted.tenders;
+    expect(cash?.amount).toBe(50.01);
+    expect(credit?.amount).toBe(149.99);
+  });
+
+  it('drops a chosen credit method when the cashier splits the payment', async () => {
+    const user = userEvent.setup();
+    mockBalance = 0;
+    renderModal({ userRole: 'cashier', customers: [makeCustomer({ creditLimit: 500 })] });
+    await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
+    await user.selectOptions(screen.getByTestId('sale-payment-method-select'), 'credit');
+    expect(await screen.findByTestId('credit-sale-customer-card')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
+
+    expect(screen.queryByTestId('credit-sale-customer-card')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('checkout-approval-credit_sale')).not.toBeInTheDocument();
+  });
+
   it('blocks a cash part that covers the whole credit sale', async () => {
     const user = userEvent.setup();
     mockBalance = 0;

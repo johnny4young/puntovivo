@@ -941,6 +941,57 @@ describe('SalePaymentModal — customer asked for an electronic invoice', () => 
     );
   });
 
+  it('asks for the number again when the cashier clears a NIT that had its DV', async () => {
+    render(<SalePaymentModal {...createProps()} />);
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('switch', { name: 'Electronic invoice' }));
+    await user.type(screen.getByLabelText('Name or business name'), 'Ferretería La 14 SAS');
+    await user.selectOptions(screen.getByLabelText('ID type'), '31');
+    await user.type(screen.getByLabelText('ID number'), '900373115-3');
+    await user.clear(screen.getByLabelText('ID number'));
+    await user.click(screen.getByRole('button', { name: /Confirm and invoice/i }));
+
+    expect(await screen.findByText('Required')).toBeInTheDocument();
+    expect(screen.queryByText('Invalid ID number')).not.toBeInTheDocument();
+  });
+
+  it('switches to NIT when the typed number belongs to a saved company', async () => {
+    const company = makeCustomer({
+      id: 'cust-andina',
+      name: 'Constructora Andina SAS',
+      taxId: '900373115-3',
+    });
+    render(<SalePaymentModal {...createProps({ customers: [company] })} />);
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('switch', { name: 'Electronic invoice' }));
+    expect(screen.getByLabelText('ID type')).toHaveValue('13');
+    await user.type(screen.getByLabelText('ID number'), '900373115');
+
+    expect(screen.getByLabelText('ID type')).toHaveValue('31');
+    expect(screen.getByLabelText('DV')).toHaveAttribute('placeholder', '3');
+    expect(screen.getByTestId('sale-invoice-saved-buyer')).toHaveTextContent('NIT');
+  });
+
+  it('keeps a dashed ID whole when the cashier moves between non-NIT types', async () => {
+    electronicInvoiceAvailabilityMock.mockReturnValue({
+      available: true,
+      identificationTypes: [
+        { code: '13', abbr: 'CC', nameEs: 'Cédula de ciudadanía', nameEn: 'Citizenship ID' },
+        { code: '41', abbr: 'PA', nameEs: 'Pasaporte', nameEn: 'Passport' },
+      ],
+    });
+    render(<SalePaymentModal {...createProps()} />);
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('switch', { name: 'Electronic invoice' }));
+    await user.type(screen.getByLabelText('ID number'), 'AB123-4');
+    await user.selectOptions(screen.getByLabelText('ID type'), '41');
+
+    expect(screen.getByLabelText('ID number')).toHaveValue('AB123-4');
+  });
+
   it('drops the verification digit when the ID type stops being a NIT', async () => {
     render(<SalePaymentModal {...createProps()} />);
     const user = userEvent.setup();

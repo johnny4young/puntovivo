@@ -46,8 +46,7 @@ export function splitNit(raw: string): { base: string; dv: string } {
 }
 
 /** Comparable form of a buyer ID, so 900.123.456-7 finds a customer saved as 900123456. */
-export function buyerIdKey(raw: string): string {
-  return splitNit(raw.trim())
-    .base.replace(/[.\s-]/g, '')
-    .toUpperCase();
+export function buyerIdKey(raw: string, isNit = true): string {
+  const id = isNit ? splitNit(raw.trim()).base : raw;
+  return id.replace(/[.\s-]/g, '').toUpperCase();
 }
