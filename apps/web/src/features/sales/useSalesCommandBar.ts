@@ -79,7 +79,12 @@ export function useSalesCommandBar({
     pendingQuantity,
     setPendingQuantity,
     takePendingQuantity,
-    selectProduct: (selection: ProductSearchSelection) => {
+    /** An explicit quantity (a sale by value) wins over a typed 3* prefix. */
+    selectProduct: (selection: ProductSearchSelection, explicitQuantity?: number) => {
+      if (explicitQuantity !== undefined) {
+        addProduct(selection, explicitQuantity);
+        return;
+      }
       const quantity = takePendingQuantity(selection.product);
       if (quantity !== 'rejected') addProduct(selection, quantity);
     },

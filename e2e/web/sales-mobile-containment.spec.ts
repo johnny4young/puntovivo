@@ -1,11 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
-import {
-  attachClientIssueTracker,
-  expectNoClientIssues,
-  login,
-  seedSalesFavorites,
-} from './support/app';
-import { seedLargeTotalSaleScenario } from './support/db';
+import { attachClientIssueTracker, expectNoClientIssues, login } from './support/app';
+import { seedLargeTotalSaleScenario, seedSiteQuickKeys } from './support/db';
 
 async function expectSalesWorkbenchContained(page: Page, width: number) {
   await page.setViewportSize({ width, height: 812 });
@@ -112,7 +107,7 @@ for (const language of ['en', 'es'] as const) {
     const scenario = seedLargeTotalSaleScenario(
       `sales-mobile-${language}-${testInfo.parallelIndex}-${Date.now()}`
     );
-    await seedSalesFavorites(page, {
+    seedSiteQuickKeys({
       tenantId: scenario.tenantId,
       siteIds: scenario.sites.map(site => site.id),
       productIds: [scenario.product.id],

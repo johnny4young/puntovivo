@@ -3,21 +3,34 @@
   "finishEditing": "Terminar",
   "categories": "Categorías de productos",
   "allCategories": "Todos",
-  "loading": "Cargando productos rápidos",
+  "loading": "Cargando teclas rápidas",
   "noCategoryProducts": "No hay productos disponibles en esta categoría.",
-  "noFavorites": "Configure hasta ocho productos favoritos para esta caja.",
+  "noFavorites": "Configure hasta ocho teclas rápidas para esta sede.",
   "addProduct": "Agregar {{name}} al carrito",
-  "addFavorite": "Agregar {{name}} a favoritos",
-  "removeFavorite": "Quitar {{name}} de favoritos",
+  "addFavorite": "Agregar {{name}} a las teclas rápidas",
+  "removeFavorite": "Quitar {{name}} de las teclas rápidas",
   "addFailed": "No pudimos agregar el producto. Intente nuevamente.",
   "noSaleUnit": "Este producto no tiene una unidad lista para vender.",
-  "favoritesLoadError": "No se pudieron cargar algunos favoritos. Reintente o busque en el catálogo.",
-  "retryFavorites": "Reintentar favoritos",
+  "favoritesLoadError": "No se pudieron cargar las teclas rápidas. Reintente o busque en el catálogo.",
+  "retryFavorites": "Reintentar teclas rápidas",
   "suggestion": {
     "text_one": "¿Agregar {{name}}? Se vendió {{count}} vez esta semana aquí.",
     "text_other": "¿Agregar {{name}}? Se vendió {{count}} veces esta semana aquí.",
     "add": "Agregar a teclas rápidas",
     "dismiss": "Ahora no"
   },
-  "barTitle": "Sin código de barras · un toque"
+  "barTitle": "Sin código de barras · un toque",
+  "sellByValue": "Vender {{name}} por valor",
+  "openValue": "valor…",
+  "limitReached": "Esta sede ya tiene ocho teclas rápidas. Quite una para agregar otra.",
+  "saveFailed": "No se pudieron guardar las teclas rápidas. Intente nuevamente.",
+  "value": {
+    "title": "{{name}} · ¿por qué valor?",
+    "add": "Agregar",
+    "cancel": "Cancelar",
+    "invalid": "Ingrese un valor mayor que cero.",
+    "unpriced": "Este producto no tiene precio, así que no se puede vender por valor.",
+    "wholeUnits": "Este producto se vende por unidades completas: ingrese un múltiplo de {{price}}.",
+    "belowMinimum": "El valor no alcanza el mínimo de {{minimum}} {{unit}}."
+  }
 }

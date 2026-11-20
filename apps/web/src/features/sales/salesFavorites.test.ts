@@ -1,43 +1,30 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import {
-  MAX_SALES_FAVORITES,
-  readSalesFavoriteIds,
-  toggleSalesFavoriteId,
-  writeSalesFavoriteIds,
-} from './salesFavorites';
+import { clearSalesFavoriteIds, readSalesFavoriteIds } from './salesFavorites';
 
-describe('sales favorites', () => {
+const key = (scope: string) => `puntovivo:sales-favorites:v1:${scope}`;
+
+describe('legacy sales favorites', () => {
   beforeEach(() => {
     window.localStorage.clear();
   });
 
-  it('keeps favorites isolated by tenant and site scope', () => {
-    writeSalesFavoriteIds('tenant-a:site-a', ['product-a']);
-    writeSalesFavoriteIds('tenant-a:site-b', ['product-b']);
+  it('reads favourites per tenant and site scope, dropping malformed ids', () => {
+    const many = Array.from({ length: 20 }, (_, index) => `p-${index}`);
+    window.localStorage.setItem(key('tenant-a:site-a'), JSON.stringify({ productIds: many }));
+    window.localStorage.setItem(key('tenant-a:site-b'), JSON.stringify({ productIds: ['b', 7] }));
 
-    expect(readSalesFavoriteIds('tenant-a:site-a')).toEqual(['product-a']);
-    expect(readSalesFavoriteIds('tenant-a:site-b')).toEqual(['product-b']);
+    expect(readSalesFavoriteIds('tenant-a:site-a')).toEqual(many);
+    expect(readSalesFavoriteIds('tenant-a:site-b')).toEqual(['b']);
   });
 
-  it('deduplicates and caps persisted favorites', () => {
-    const requested = ['same', 'same', ...Array.from({ length: 20 }, (_, index) => `p-${index}`)];
-    writeSalesFavoriteIds('tenant:site', requested);
-
-    const stored = readSalesFavoriteIds('tenant:site');
-    expect(stored).toHaveLength(MAX_SALES_FAVORITES);
-    expect(stored?.[0]).toBe('same');
-  });
-
-  it('toggles without exceeding the device limit', () => {
-    expect(toggleSalesFavoriteId(['a'], 'a')).toEqual([]);
-    expect(toggleSalesFavoriteId(['a'], 'b')).toEqual(['a', 'b']);
-
-    const full = Array.from({ length: MAX_SALES_FAVORITES }, (_, index) => `p-${index}`);
-    expect(toggleSalesFavoriteId(full, 'overflow')).toEqual(full);
+  it('forgets a scope once cleared', () => {
+    window.localStorage.setItem(key('tenant:site'), JSON.stringify({ productIds: ['a'] }));
+    clearSalesFavoriteIds('tenant:site');
+    expect(readSalesFavoriteIds('tenant:site')).toBeNull();
   });
 
   it('treats malformed storage as unconfigured', () => {
-    window.localStorage.setItem('puntovivo:sales-favorites:v1:tenant:site', '{broken');
+    window.localStorage.setItem(key('tenant:site'), '{broken');
     expect(readSalesFavoriteIds('tenant:site')).toBeNull();
   });
 });

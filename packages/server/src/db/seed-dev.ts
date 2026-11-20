@@ -74,6 +74,7 @@ import {
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 import { createReceiptTemplate } from '../services/receipt-templates.js';
+import { setSiteQuickKey } from '../services/site-quick-keys.js';
 import { getProductStockTotal } from '../services/inventory-balances.js';
 import type { ReceiptLayout } from '../trpc/schemas/receiptTemplates.js';
 import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
@@ -100,6 +101,16 @@ const FISCAL_TEMPLATE_NAME = 'Documento equivalente electrónico — 80mm';
  * exactly what to type at the login screen.
  */
 export const DEV_USER_PASSWORD = 'Admin123!Dev';
+
+const DEV_QUICK_KEYS: ReadonlyArray<readonly [string, 'product' | 'open_value', string | null]> = [
+  ['Pan Francés', 'product', null],
+  ['Empanada de carne', 'product', null],
+  ['Croissant', 'product', null],
+  ['Buñuelo', 'product', null],
+  ['Arepa Paisa x5', 'product', null],
+  ['Chicharrón 500g', 'product', null],
+  ['Carne de res molida 500g', 'open_value', 'Carne molida'],
+];
 
 export interface SeedDevOptions {
   /**
@@ -805,6 +816,19 @@ export async function seedDevData(
       isActive: true,
       createdBy: adminUser.id,
     });
+  }
+
+  // ----- 11b. Shared quick keys for items sold without a barcode ----------
+  for (const site of siteRows) {
+    for (const [name, kind, label] of DEV_QUICK_KEYS) {
+      const product = productRows.find(row => row.name === name);
+      if (!product) continue;
+      setSiteQuickKey(
+        db,
+        { tenantId, siteId: site.id, userId: adminUser.id },
+        { kind, productId: product.id, label }
+      );
+    }
   }
 
   // ----- 12. Historical operational data via tRPC caller ------------------
@@ -1931,6 +1955,8 @@ async function insertProductRow(
     defaultProviderId,
   } = args;
   const baseUnitId = unitIds[def.baseUnit]!;
+  // Goods priced per kilogram are weighed, so they sell in grams.
+  const weighed = def.baseUnit === 'KG';
   // Cost → price margin math is computed upstream in the service; for
   // the seed we store the raw cost and let margin fields stay 0 so
   // the product edit page shows an honest "no margin configured" state
@@ -1967,9 +1993,9 @@ async function insertProductRow(
       // Stock is derived from Σ(inventory_balances.on_hand); this seed
       // populates inventory_balances directly (see seedInitialBalances).
       minStock: 5,
-      sellByFraction: false,
-      fractionStep: null,
-      fractionMinimum: null,
+      sellByFraction: weighed,
+      fractionStep: weighed ? 0.001 : null,
+      fractionMinimum: weighed ? 0.05 : null,
       barcode: def.barcode,
       imageUrl: null,
       isActive: true,

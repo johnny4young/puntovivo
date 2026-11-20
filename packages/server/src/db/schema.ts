@@ -43,6 +43,7 @@ export * from './schema/realtime.js';
 export * from './schema/reports.js';
 export * from './schema/operations.js';
 export * from './schema/registerIncidents.js';
+export * from './schema/quickKeys.js';
 export * from './schema/pharmacy.js';
 export * from './schema/restaurant.js';
 export * from './schema/kds.js';
