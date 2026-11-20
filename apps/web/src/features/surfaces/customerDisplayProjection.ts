@@ -1,5 +1,6 @@
 import type { SaleCartItem, SaleCartSummary } from '@/features/sales/saleCart';
 import { getLineTotals } from '@/features/sales/saleCartTotals';
+import { TRANSFER_DESTINATION_LIMITS } from '@puntovivo/shared/transfer-destinations';
 import { roundMoney } from '@/lib/money';
 import {
   CUSTOMER_DISPLAY_CHANNEL_NAME,
@@ -39,6 +40,17 @@ export interface CustomerDisplayLine {
   total: number;
 }
 
+// Formatted accounts carry spaces, so they get headroom over the stored limit.
+const TRANSFER_TEXT_MAX = { label: 80, account: 120 } as const;
+
+/** The store's transfer QR while the cashier charges by transfer. */
+export interface CustomerDisplayTransfer {
+  label: string;
+  account: string;
+  qrPayload: string;
+  amount: number;
+}
+
 /**
  * Versioned local projection mirrored from the active register to a customer-facing display.
  * The projection is advisory UI state only: the sale and its totals remain server-authoritative.
@@ -51,6 +63,7 @@ export interface CustomerDisplayProjection extends CustomerDisplayScope {
   currency: string;
   items: CustomerDisplayLine[];
   summary: SaleCartSummary;
+  transfer?: CustomerDisplayTransfer | undefined;
 }
 
 /** Messages accepted on the same-origin display channel. Unknown shapes are ignored. */
@@ -125,6 +138,7 @@ export function buildCustomerDisplayProjection(args: {
   items: SaleCartItem[];
   summary: SaleCartSummary;
   priceIncludesTax: boolean;
+  transfer?: CustomerDisplayTransfer | null | undefined;
 }): CustomerDisplayProjection {
   return {
     schemaVersion: CUSTOMER_DISPLAY_SCHEMA_VERSION,
@@ -142,6 +156,35 @@ export function buildCustomerDisplayProjection(args: {
       taxAmount: finiteMoney(args.summary.taxAmount),
       total: finiteMoney(args.summary.total),
     },
+    ...(args.transfer && args.transfer.qrPayload.length <= TRANSFER_DESTINATION_LIMITS.qrPayload
+      ? {
+          transfer: {
+            label: boundedText(args.transfer.label, TRANSFER_TEXT_MAX.label),
+            account: boundedText(args.transfer.account, TRANSFER_TEXT_MAX.account),
+            qrPayload: args.transfer.qrPayload,
+            amount: finiteMoney(args.transfer.amount),
+          },
+        }
+      : {}),
+  };
+}
+
+function parseTransfer(value: unknown): CustomerDisplayTransfer | null | undefined {
+  if (value === undefined) return undefined;
+  if (
+    !isRecord(value) ||
+    !isBoundedString(value.label, TRANSFER_TEXT_MAX.label) ||
+    !isBoundedString(value.account, TRANSFER_TEXT_MAX.account) ||
+    !isBoundedString(value.qrPayload, TRANSFER_DESTINATION_LIMITS.qrPayload) ||
+    !isFiniteNonNegative(value.amount)
+  ) {
+    return null;
+  }
+  return {
+    label: value.label,
+    account: value.account,
+    qrPayload: value.qrPayload,
+    amount: value.amount,
   };
 }
 
@@ -214,6 +257,9 @@ export function parseCustomerDisplayProjection(value: unknown): CustomerDisplayP
     });
   }
 
+  const transfer = parseTransfer(value.transfer);
+  if (transfer === null) return null;
+
   if (
     !isFiniteNonNegative(value.summary.itemCount) ||
     !isFiniteNonNegative(value.summary.subtotal) ||
@@ -240,6 +286,7 @@ export function parseCustomerDisplayProjection(value: unknown): CustomerDisplayP
       taxAmount: value.summary.taxAmount,
       total: value.summary.total,
     },
+    ...(transfer ? { transfer } : {}),
   };
 }
 

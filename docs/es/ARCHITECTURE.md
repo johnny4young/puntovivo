@@ -108,8 +108,12 @@ desfase de reloj, obsolescencia o estado sin conexión.
 
 El contenido de venta visible al cliente es una lista permitida: nombre mostrado
 del producto, etiqueta de unidad, cantidad, precio unitario, descuento, total de
-línea y totales de venta. Su sobre de alcance lleva necesariamente identificadores
-opacos de negocio, sede y sesión de caja, pero los identificadores de producto,
+línea y totales de venta, más la etiqueta, la cuenta y el contenido del QR del
+destino de transferencia de la tienda con el monto mientras el cajero cobra por
+transferencia. Ese bloque es la cuenta donde recibe la tienda, nunca datos de
+pago del cliente, y sale del sobre al cerrar el estado de transferencia. Su
+sobre de alcance lleva necesariamente identificadores opacos de negocio, sede
+y sesión de caja, pero los identificadores de producto,
 unidad, cliente, empleado, pago, receta, nota, stock, serial, SKU, impuesto y otros
 datos comerciales no forman parte del contrato de venta mostrado. La detección
 de cajas lee solo sobres recién publicados localmente con la capacidad exacta

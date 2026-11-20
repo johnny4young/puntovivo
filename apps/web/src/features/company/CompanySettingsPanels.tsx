@@ -29,6 +29,7 @@ import { CompanySyncCard } from './CompanySyncCard';
 import { CompanyTelemetryCard } from './CompanyTelemetryCard';
 import { CompanyDataRetentionCard } from './CompanyDataRetentionCard';
 import { CompanyThemeSettingsCard } from './CompanyThemeSettingsCard';
+import { CompanyTransferDestinationsCard } from './CompanyTransferDestinationsCard';
 import { CompanyTraySettingsCard } from './CompanyTraySettingsCard';
 
 // backup and recovery modals are needed only on the data tab.
@@ -244,6 +245,7 @@ export function CompanySettingsPanels({
 
       {activeTab === 'payments' && (
         <div className="space-y-6">
+          <CompanyTransferDestinationsCard />
           <CompanyPaymentsCard />
         </div>
       )}

@@ -33,6 +33,7 @@ import type {
 } from './salePaymentModal.types';
 import {
   TENDER_SUM_EPSILON,
+  TRANSFER_REFERENCE_MIN_LENGTH,
   getDefaultValues,
   initialTenderValues,
 } from './salePaymentModal.constants';
@@ -211,6 +212,7 @@ export function useSalePaymentModal({
   const tipMethodWatch = useWatch({ control: form.control, name: 'tipMethod' });
   const watchedCustomerId = useWatch({ control: form.control, name: 'customerId' }) ?? '';
   const creditDownPaymentWatch = useWatch({ control: form.control, name: 'creditDownPayment' });
+  const transferReferenceWatch = useWatch({ control: form.control, name: 'transferReference' });
   const watchedPharmacyEvidenceIdsRaw = useWatch({
     control: form.control,
     name: 'pharmacyEvidenceIds',
@@ -355,6 +357,11 @@ export function useSalePaymentModal({
   const grandTotal = roundMoney(checkoutBaseTotal + serviceChargeAmount + tipAmount);
   const isCash = paymentMethod === 'cash';
   const isCredit = paymentMethod === 'credit';
+  // A single transfer is always the whole total; the voucher reference is what the cashier checks.
+  const isTransfer = paymentMethod === 'transfer' && !splitMode;
+  const transferReference = isTransfer ? (transferReferenceWatch ?? '').trim() : '';
+  const transferReferenceValid = transferReference.length >= TRANSFER_REFERENCE_MIN_LENGTH;
+  const receivedValue = isTransfer ? grandTotal : amountReceivedValue;
   // A single-tender credit sale may take part in cash now; it then travels as cash + credit tenders.
   const creditDownPayment =
     isCredit && !splitMode ? Math.max(0, roundMoney(Number(creditDownPaymentWatch) || 0)) : 0;
@@ -372,6 +379,13 @@ export function useSalePaymentModal({
           ]
         : [],
     [creditDownPayment, creditDownPaymentInvalid, grandTotal]
+  );
+  const singleTenders = useMemo(
+    () =>
+      isTransfer
+        ? [{ method: 'transfer' as const, amount: grandTotal, reference: transferReference }]
+        : creditDownPaymentTenders,
+    [creditDownPaymentTenders, grandTotal, isTransfer, transferReference]
   );
 
   // F2 fast-cash apply. Shared by mount-time F2 open
@@ -413,7 +427,7 @@ export function useSalePaymentModal({
   }, [fastCashTrigger]);
 
   const change = isCash ? Math.max(0, amountReceivedValue - grandTotal) : 0;
-  const outstanding = Math.max(0, grandTotal - amountReceivedValue);
+  const outstanding = Math.max(0, grandTotal - receivedValue);
   const creditMethodAvailable = canLendCredit && watchedCustomerId.length > 0;
 
   // read the active customer's current balance + creditLimit
@@ -621,9 +635,9 @@ export function useSalePaymentModal({
               ? (approvalCustomerId ?? '')
               : watchedCustomerId,
           paymentMethod,
-          amountReceived: amountReceivedValue,
+          amountReceived: receivedValue,
           notes: '',
-          tenders: splitMode ? tenders : creditDownPaymentTenders,
+          tenders: splitMode ? tenders : singleTenders,
           tipAmount,
           tipMethod: tipAmount > 0 ? (tipMethodWatch ?? 'fixed') : null,
           creditOverride: false,
@@ -641,13 +655,13 @@ export function useSalePaymentModal({
       approvalCustomerId,
       approvalSaleId,
       customerLocked,
-      amountReceivedValue,
-      creditDownPaymentTenders,
+      receivedValue,
       currencyCode,
       grandTotal,
       paymentMethod,
       serviceChargeAmount,
       serviceChargeRate,
+      singleTenders,
       splitMode,
       tenders,
       tipAmount,
@@ -821,6 +835,7 @@ export function useSalePaymentModal({
       (!lossPreventionQuery.isFetching && lossPreventionQuery.error === null)) &&
     !(hasCreditTender && creditBalanceQuery.isLoading) &&
     !creditDownPaymentInvalid &&
+    (!isTransfer || transferReferenceValid) &&
     // Pharmacy policy is authoritative and fail-closed. Ordinary retail
     // carts return an empty requirement list and pass without UI cost.
     !pharmacyCheckoutLoading &&
@@ -855,6 +870,7 @@ export function useSalePaymentModal({
         : false;
     const { invoiceRequested, invoiceBuyer, ...submittedValues } = values;
     delete submittedValues.creditDownPayment;
+    delete submittedValues.transferReference;
     return onSubmit({
       ...submittedValues,
       electronicInvoice: buildElectronicInvoiceRequest(electronicInvoice.available, {
@@ -869,7 +885,8 @@ export function useSalePaymentModal({
               ? { loyaltyPoints: Number(tender.loyaltyPoints) }
               : { loyaltyPoints: undefined }),
           }))
-        : creditDownPaymentTenders,
+        : singleTenders,
+      amountReceived: receivedValue,
       tipAmount: sanitizedTip,
       tipMethod: sanitizedTip > 0 ? (values.tipMethod ?? 'fixed') : null,
       // service charge is derived from the prop rate, not
@@ -966,6 +983,8 @@ export function useSalePaymentModal({
     paymentMethod,
     isCash,
     isCredit,
+    isTransfer,
+    transferReferenceValid,
     isAdmin,
     creditMethodAvailable,
     selectedCustomer,

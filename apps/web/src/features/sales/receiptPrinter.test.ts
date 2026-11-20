@@ -372,6 +372,28 @@ describe('receiptPrinter', () => {
     await expect(captured!.text()).resolves.toContain('POS-000123');
   });
 
+  it('prints the tender table for a single transfer that carries its reference', async () => {
+    const payment = {
+      id: 'pay_1',
+      method: 'transfer' as const,
+      amount: 114,
+      reference: 'M<482190>',
+      createdAt: '2026-04-07T15:00:00.000Z',
+    };
+    const html = await buildSaleReceiptHtml({
+      ...sale,
+      paymentMethod: 'transfer',
+      payments: [payment],
+    });
+    expect(html).toContain('<td class="tender-reference">M&lt;482190&gt;</td>');
+
+    const noReference = await buildSaleReceiptHtml({
+      ...sale,
+      payments: [{ ...payment, reference: null }],
+    });
+    expect(noReference).not.toContain('class="tender-reference"');
+  });
+
   it('prints frozen cash received and change only when the sale captured them', async () => {
     const cash = await buildSaleReceiptHtml({
       ...sale,

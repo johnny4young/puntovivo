@@ -17,6 +17,7 @@ interface SalePaymentSingleTenderSectionProps {
   creditMethodAvailable: boolean;
   isCash: boolean;
   isCredit: boolean;
+  isTransfer: boolean;
   grandTotal: number;
   amountReceivedValue: number;
   currencySymbol: string;
@@ -29,6 +30,7 @@ export function SalePaymentSingleTenderSection({
   creditMethodAvailable,
   isCash,
   isCredit,
+  isTransfer,
   grandTotal,
   amountReceivedValue,
   currencySymbol,
@@ -124,8 +126,8 @@ export function SalePaymentSingleTenderSection({
         />
       )}
 
-      {/* Credit sales take their cash part in the credit card's own field. */}
-      {!isCredit && (
+      {/* Credit takes its cash part in the credit card; a transfer is always the whole total. */}
+      {!isCredit && !isTransfer && (
         <div className="sale-pay-received">
           <label htmlFor="sale-payment-amount" className="sales-cap">
             {t('payment.amountReceived')}

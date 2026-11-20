@@ -45,5 +45,9 @@
     "total": "Total",
     "checkoutHint": "The cashier will confirm the final amount before payment."
   },
-  "privacy": "This screen shows products and totals only. Customer, employee, payment and note details are never mirrored."
+  "privacy": "This screen shows products, totals and the store transfer QR. Customer, employee, payment and note details are never mirrored.",
+  "transfer": {
+    "title": "Pay by transfer",
+    "qrLabel": "QR to transfer to {{name}}"
+  }
 }

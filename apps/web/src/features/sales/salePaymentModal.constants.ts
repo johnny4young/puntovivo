@@ -16,6 +16,8 @@ import type { InitialTender, SalePaymentValues } from './salePaymentModal.types'
 import { EMPTY_INVOICE_BUYER } from './electronicInvoiceRequest';
 
 export const TENDER_SUM_EPSILON = 0.005;
+// Enough of the bank voucher to find the transfer later.
+export const TRANSFER_REFERENCE_MIN_LENGTH = 4;
 // preset tip percentages. 0% is rendered as "Sin propina"
 // so the cashier can explicitly clear after picking 10/15.
 export const TIP_PRESETS = [0, 10, 15] as const;
@@ -53,6 +55,7 @@ export function getDefaultValues(
     serviceChargeRate: serviceChargeRate > 0 ? serviceChargeRate : null,
     creditOverride: false,
     creditDownPayment: 0,
+    transferReference: '',
     approvalRequests: [],
     pharmacyEvidenceIds: [],
     invoiceRequested: false,

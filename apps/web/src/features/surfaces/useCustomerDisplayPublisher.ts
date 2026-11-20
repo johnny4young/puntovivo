@@ -6,6 +6,7 @@ import {
   CustomerDisplayBus,
   CUSTOMER_DISPLAY_HEARTBEAT_MS,
   type CustomerDisplayScope,
+  type CustomerDisplayTransfer,
 } from './customerDisplayProjection';
 
 /** Current cashier-side state allowed to be projected onto the customer display. */
@@ -15,6 +16,7 @@ export interface CustomerDisplayPublisherInput extends CustomerDisplayScope {
   items: SaleCartItem[];
   summary: SaleCartSummary;
   priceIncludesTax: boolean;
+  transfer?: CustomerDisplayTransfer | null | undefined;
 }
 
 /**
@@ -33,6 +35,7 @@ export function useCustomerDisplayPublisher(input: CustomerDisplayPublisherInput
   const items = input?.items ?? null;
   const summary = input?.summary ?? null;
   const priceIncludesTax = input?.priceIncludesTax ?? null;
+  const transfer = input?.transfer ?? null;
 
   useEffect(() => {
     if (!accessId || !tenantId || !siteId || !cashSessionId) return;
@@ -59,6 +62,7 @@ export function useCustomerDisplayPublisher(input: CustomerDisplayPublisherInput
           items: current.items,
           summary: current.summary,
           priceIncludesTax: current.priceIncludesTax,
+          transfer: current.transfer,
         })
       );
     };
@@ -108,6 +112,7 @@ export function useCustomerDisplayPublisher(input: CustomerDisplayPublisherInput
       items,
       summary,
       priceIncludesTax,
+      transfer,
     };
     publishLatest.current?.();
   }, [
@@ -120,5 +125,6 @@ export function useCustomerDisplayPublisher(input: CustomerDisplayPublisherInput
     siteId,
     summary,
     tenantId,
+    transfer,
   ]);
 }
