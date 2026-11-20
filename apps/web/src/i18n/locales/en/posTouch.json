@@ -12,7 +12,8 @@
     "all": "All",
     "allHint": "Every product in this site",
     "empty": "No categories configured yet",
-    "label": "Categories"
+    "label": "Categories",
+    "quickKeys": "The usual"
   },
   "grid": {
     "empty": "No products match this category yet.",
@@ -30,7 +31,8 @@
     "paginationLabel": "Product pages",
     "pagination": "Page {{page}} of {{pages}} · {{count}} products",
     "previous": "Previous",
-    "next": "More"
+    "next": "More",
+    "perUnit": "per {{unit}}"
   },
   "cart": {
     "title": "Active cart",

@@ -1,14 +1,9 @@
 {
-  "configure": "Configure",
-  "finishEditing": "Finish",
   "categories": "Product categories",
   "allCategories": "All",
   "loading": "Loading quick keys",
-  "noCategoryProducts": "No products are available in this category.",
-  "noFavorites": "Set up to eight quick keys for this site.",
+  "noFavorites": "This site has no quick keys yet.",
   "addProduct": "Add {{name}} to cart",
-  "addFavorite": "Add {{name}} to the quick keys",
-  "removeFavorite": "Remove {{name}} from the quick keys",
   "addFailed": "The product could not be added. Try again.",
   "noSaleUnit": "This product does not have a sellable unit.",
   "favoritesLoadError": "The quick keys could not be loaded. Retry or use catalog search.",
@@ -32,5 +27,37 @@
     "unpriced": "This product has no price, so it cannot be sold by amount.",
     "wholeUnits": "This product sells in whole units: enter a multiple of {{price}}.",
     "belowMinimum": "The amount is below the minimum of {{minimum}} {{unit}}."
+  },
+  "choose": "You choose what goes here",
+  "editor": {
+    "title": "Keys without a barcode",
+    "current": "On the strip",
+    "count": "{{count}} of {{max}}",
+    "add": "Add a key",
+    "search": "Search products",
+    "searchPlaceholder": "Name or SKU",
+    "noResults": "No product matches.",
+    "addKey": "Add",
+    "addValue": "By amount",
+    "addAsKey": "Add {{name}} as a key",
+    "addAsValue": "Add {{name}} as a key sold by amount",
+    "labelFor": "Name on the key for {{name}}",
+    "colourFor": "Colour of {{name}}",
+    "moveUp": "Move {{name}} earlier",
+    "moveDown": "Move {{name}} later",
+    "remove": "Remove {{name}}",
+    "notSellable": "Not for sale",
+    "done": "Done",
+    "colours": {
+      "none": "No colour",
+      "orange": "Orange",
+      "yellow": "Yellow",
+      "slate": "Grey",
+      "green": "Green",
+      "lime": "Lime",
+      "sky": "Sky blue",
+      "violet": "Violet",
+      "red": "Red"
+    }
   }
 }

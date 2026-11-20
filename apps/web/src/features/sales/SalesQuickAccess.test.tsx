@@ -49,7 +49,14 @@ function keyRow(overrides: Partial<KeyRow> & Pick<KeyRow, 'id' | 'productId'>): 
 const state = vi.hoisted(() => ({
   keys: [] as unknown[],
   keysError: false,
-  topSelling: [] as Array<{ productId: string; name: string; quantity: number }>,
+  topSelling: [] as Array<{
+    productId: string;
+    name: string;
+    sku: string;
+    price: number;
+    categoryId: string | null;
+    quantity: number;
+  }>,
   catalogPageSizes: [] as number[],
   catalogEnabled: [] as boolean[],
 }));
@@ -57,6 +64,7 @@ const mutations = vi.hoisted(() => ({
   importLocal: vi.fn(),
   set: vi.fn(),
   remove: vi.fn(),
+  reorder: vi.fn(),
   setData: vi.fn(),
   refetch: vi.fn(),
 }));
@@ -124,6 +132,7 @@ vi.mock('@/lib/trpc', () => ({
       importLocal: { useMutation: mutation(mutations.importLocal) },
       set: { useMutation: mutation(mutations.set) },
       remove: { useMutation: mutation(mutations.remove) },
+      reorder: { useMutation: mutation(mutations.reorder) },
     },
     products: {
       list: {
@@ -139,6 +148,8 @@ vi.mock('@/lib/trpc', () => ({
       topSelling: {
         useQuery: (_input: unknown, options: { enabled?: boolean }) => ({
           data: options.enabled === false ? undefined : state.topSelling,
+          isFetched: options.enabled !== false,
+          isLoading: false,
         }),
       },
     },
@@ -289,14 +300,30 @@ describe('SalesQuickAccess', () => {
     expect(window.localStorage.getItem(legacyKey)).toBeNull();
   });
 
-  it('shows the first catalog products when the site has no keys and filters by category', async () => {
+  it('suggests the site top sellers, then the catalog, while the site has no keys', async () => {
+    state.topSelling = [
+      {
+        productId: 'p-bread',
+        name: 'Fresh Bread',
+        sku: 'BREAD-1',
+        price: 3,
+        categoryId: 'cat-food',
+        quantity: 12,
+      },
+    ];
     const user = userEvent.setup();
-    render(<SalesQuickAccess {...baseProps} />);
+    render(<SalesQuickAccess {...baseProps} canEdit />);
 
     expect(screen.getByText('No barcode · one touch')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Add House Coffee to cart' })).toBeInTheDocument();
+    const tiles = screen.getAllByRole('button', { name: /to cart$/ });
+    expect(tiles.map(tile => tile.getAttribute('aria-label'))).toEqual([
+      'Add Fresh Bread to cart',
+      'Add House Coffee to cart',
+    ]);
     expect(screen.getByText('-10%')).toBeInTheDocument();
-    expect(new Set(state.catalogPageSizes)).toEqual(new Set([12]));
+    expect(new Set(state.catalogPageSizes)).toEqual(new Set([8]));
+    // The tiles already show the top seller, so the add-a-key banner waits for real keys.
+    expect(screen.queryByTestId('sales-quick-suggestion')).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Food' }));
     expect(
@@ -306,7 +333,16 @@ describe('SalesQuickAccess', () => {
   });
 
   it('gives cashiers the keys without the editor or the suggestion', () => {
-    state.topSelling = [{ productId: 'p-bread', name: 'Bread', quantity: 5 }];
+    state.topSelling = [
+      {
+        productId: 'p-bread',
+        name: 'Bread',
+        sku: 'BREAD-1',
+        price: 3,
+        categoryId: null,
+        quantity: 5,
+      },
+    ];
     state.keys = [keyRow({ id: 'k1', productId: 'p-coffee' })];
     render(<SalesQuickAccess {...baseProps} />);
     expect(screen.queryByTestId('sales-favorites-edit')).not.toBeInTheDocument();
@@ -314,7 +350,16 @@ describe('SalesQuickAccess', () => {
   });
 
   it('suggests what sold this week to managers until they add or dismiss it', async () => {
-    state.topSelling = [{ productId: 'p-bread', name: 'Bread', quantity: 84 }];
+    state.topSelling = [
+      {
+        productId: 'p-bread',
+        name: 'Bread',
+        sku: 'BREAD-1',
+        price: 3,
+        categoryId: null,
+        quantity: 84,
+      },
+    ];
     state.keys = [keyRow({ id: 'k1', productId: 'p-coffee' })];
     const user = userEvent.setup();
     const view = render(<SalesQuickAccess {...baseProps} canEdit />);
@@ -330,52 +375,13 @@ describe('SalesQuickAccess', () => {
     expect(screen.queryByTestId('sales-quick-suggestion')).not.toBeInTheDocument();
   });
 
-  it('edits the site keys from the wider catalog', async () => {
-    state.keys = [
-      keyRow({
-        id: 'k-remote',
-        productId: 'p-remote',
-        productName: 'Remote Favorite',
-        productSku: 'REMOTE-1',
-      }),
-      keyRow({
-        id: 'k-retired',
-        productId: 'p-retired',
-        productName: 'Retired Item',
-        productSku: 'RETIRED-1',
-        sellable: false,
-      }),
-    ];
+  it('opens the owner editor from the strip', async () => {
+    state.keys = [keyRow({ id: 'k1', productId: 'p-coffee' })];
     const user = userEvent.setup();
     render(<SalesQuickAccess {...baseProps} canEdit />);
-    expect(screen.queryByTestId('sales-quick-product-RETIRED-1')).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Configure' }));
-    await user.click(
-      screen.getByRole('button', { name: 'Remove Retired Item from the quick keys' })
-    );
-    expect(mutations.remove).toHaveBeenCalledWith({ siteId: 'site-1', id: 'k-retired' });
-    expect(state.catalogPageSizes.at(-1)).toBe(80);
-    await user.click(
-      screen.getByRole('button', { name: 'Remove Remote Favorite from the quick keys' })
-    );
-    expect(mutations.remove).toHaveBeenCalledWith({ siteId: 'site-1', id: 'k-remote' });
-    await user.click(screen.getByRole('button', { name: 'Add Fresh Bread to the quick keys' }));
-    expect(mutations.set).toHaveBeenCalledWith({ siteId: 'site-1', productId: 'p-bread' });
-  });
-
-  it('refuses a ninth key before calling the server', async () => {
-    state.keys = Array.from({ length: 8 }, (_, index) =>
-      keyRow({ id: `k${index}`, productId: `p-${index}`, productSku: `SKU-${index}` })
-    );
-    const user = userEvent.setup();
-    render(<SalesQuickAccess {...baseProps} canEdit />);
-    await user.click(screen.getByRole('button', { name: 'Configure' }));
-    await user.click(screen.getByRole('button', { name: 'Add Fresh Bread to the quick keys' }));
-    expect(mutations.set).not.toHaveBeenCalled();
-    expect(toastError).toHaveBeenCalledWith({
-      title: 'This site already has eight quick keys. Remove one to add another.',
-    });
+    await user.click(screen.getByRole('button', { name: 'You choose what goes here' }));
+    expect(await screen.findByRole('dialog', { name: 'Keys without a barcode' })).toBeVisible();
   });
 
   it('keeps the keys during a sale and drops a hidden category filter', async () => {

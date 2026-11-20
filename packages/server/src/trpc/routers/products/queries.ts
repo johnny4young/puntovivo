@@ -189,16 +189,20 @@ export const productQueryProcedures = {
     };
   }),
 
-  /**
-   * Active sellable products per category, so a catalog page can label its
-   * filters without downloading every product.
-   */
+  /** Products this site sold most lately, priced for a one-touch key. */
   topSelling: tenantProcedure.input(topSellingProductsInput).query(async ({ ctx, input }) => {
     await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
     const since = new Date(Date.now() - input.days * 24 * 60 * 60 * 1000).toISOString();
     const quantity = sql<number>`sum(${saleItems.quantity} * coalesce(${saleItems.unitEquivalence}, 1))`;
     return ctx.db
-      .select({ productId: products.id, name: products.name, quantity })
+      .select({
+        productId: products.id,
+        name: products.name,
+        sku: products.sku,
+        price: products.price,
+        categoryId: products.categoryId,
+        quantity,
+      })
       .from(saleItems)
       .innerJoin(sales, eq(saleItems.saleId, sales.id))
       .innerJoin(cashSessions, eq(sales.cashSessionId, cashSessions.id))
@@ -218,13 +222,17 @@ export const productQueryProcedures = {
           eq(products.isActive, true)
         )
       )
-      .groupBy(products.id, products.name)
+      .groupBy(products.id)
       .having(sql`${quantity} >= 1`)
       .orderBy(desc(quantity))
       .limit(input.limit)
       .all();
   }),
 
+  /**
+   * Active sellable products per category, so a catalog page can label its
+   * filters without downloading every product.
+   */
   categoryCounts: tenantProcedure.query(({ ctx }) => {
     const rows = ctx.db
       .select({ categoryId: products.categoryId, count: sql<number>`count(*)` })

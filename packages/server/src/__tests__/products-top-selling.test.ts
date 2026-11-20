@@ -192,6 +192,8 @@ describe('products.topSelling', () => {
       ['Sold by the case', 4],
       ['Second seller', 3],
     ]);
+    // The register shows these as one-touch keys, so each row carries its price.
+    expect(result[0]).toMatchObject({ sku: expect.stringMatching(/^T-/), price: 10 });
   });
 
   it('rejects a site from another tenant', async () => {

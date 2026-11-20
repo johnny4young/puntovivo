@@ -29,6 +29,8 @@ interface PosTouchCategoryTabsProps {
   onSelectCategory: (categoryId: string | null) => void;
   totalCount: number;
   isDisabled?: boolean;
+  /** The site's one-touch keys, pinned first while the site has some. */
+  quickKeys?: { count: number; active: boolean; onSelect: () => void } | undefined;
 }
 
 export function PosTouchCategoryTabs({
@@ -37,12 +39,32 @@ export function PosTouchCategoryTabs({
   onSelectCategory,
   totalCount,
   isDisabled = false,
+  quickKeys,
 }: PosTouchCategoryTabsProps) {
   const { t } = useTranslation('posTouch');
+  const keysActive = quickKeys?.active ?? false;
+  const category = (id: string | null, name: string, count: number) => ({
+    key: id ?? 'all',
+    name,
+    count,
+    isActive: !keysActive && id === activeCategoryId,
+    onSelect: () => onSelectCategory(id),
+  });
 
-  const tabs: Array<{ id: string | null; name: string; count: number }> = [
-    { id: null, name: t('categories.all'), count: totalCount },
-    ...categories.map(c => ({ id: c.id, name: c.name, count: c.count })),
+  const tabs = [
+    ...(quickKeys && quickKeys.count > 0
+      ? [
+          {
+            key: 'quick-keys',
+            name: t('categories.quickKeys'),
+            count: quickKeys.count,
+            isActive: keysActive,
+            onSelect: quickKeys.onSelect,
+          },
+        ]
+      : []),
+    category(null, t('categories.all'), totalCount),
+    ...categories.map(c => category(c.id, c.name, c.count)),
   ];
 
   return (
@@ -51,17 +73,17 @@ export function PosTouchCategoryTabs({
       data-testid="pos-touch-category-tabs"
       className="flex snap-x snap-mandatory gap-2 overflow-x-auto pb-1"
     >
-      {tabs.map(tab => {
-        const isActive = tab.id === activeCategoryId;
-        const testId = `pos-touch-category-${tab.id ?? 'all'}`;
+      {tabs.map(({ key, name, count, isActive, onSelect }) => {
+        const testId = `pos-touch-category-${key}`;
         return (
           <button
-            key={tab.id ?? 'all'}
+            key={key}
             type="button"
             data-testid={testId}
             data-active={isActive ? 'true' : 'false'}
+            aria-pressed={isActive}
             disabled={isDisabled}
-            onClick={() => onSelectCategory(tab.id)}
+            onClick={onSelect}
             className={[
               'inline-flex min-h-[44px] shrink-0 snap-start items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors disabled:cursor-wait disabled:opacity-60',
               isActive
@@ -69,7 +91,7 @@ export function PosTouchCategoryTabs({
                 : 'border-line/70 bg-surface-1 text-secondary-700 hover:bg-surface-2',
             ].join(' ')}
           >
-            <span className="truncate">{tab.name}</span>
+            <span className="truncate">{name}</span>
             <span
               className={[
                 'rounded-full px-2 py-0.5 text-xs tabular-nums',
@@ -79,7 +101,7 @@ export function PosTouchCategoryTabs({
               ].join(' ')}
               data-testid={`${testId}-count`}
             >
-              {tab.count}
+              {count}
             </span>
           </button>
         );

@@ -12,7 +12,8 @@
     "all": "Todas",
     "allHint": "Todos los productos de esta sede",
     "empty": "Aún no hay categorías configuradas",
-    "label": "Categorías"
+    "label": "Categorías",
+    "quickKeys": "Lo de siempre"
   },
   "grid": {
     "empty": "Aún no hay productos en esta categoría.",
@@ -30,7 +31,8 @@
     "paginationLabel": "Páginas de productos",
     "pagination": "Página {{page}} de {{pages}} · {{count}} productos",
     "previous": "Anterior",
-    "next": "Más"
+    "next": "Más",
+    "perUnit": "por {{unit}}"
   },
   "cart": {
     "title": "Carrito activo",

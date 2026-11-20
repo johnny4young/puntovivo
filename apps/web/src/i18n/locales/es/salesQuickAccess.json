@@ -1,14 +1,9 @@
 {
-  "configure": "Configurar",
-  "finishEditing": "Terminar",
   "categories": "Categorías de productos",
   "allCategories": "Todos",
   "loading": "Cargando teclas rápidas",
-  "noCategoryProducts": "No hay productos disponibles en esta categoría.",
-  "noFavorites": "Configure hasta ocho teclas rápidas para esta sede.",
+  "noFavorites": "Esta sede aún no tiene teclas rápidas.",
   "addProduct": "Agregar {{name}} al carrito",
-  "addFavorite": "Agregar {{name}} a las teclas rápidas",
-  "removeFavorite": "Quitar {{name}} de las teclas rápidas",
   "addFailed": "No pudimos agregar el producto. Intente nuevamente.",
   "noSaleUnit": "Este producto no tiene una unidad lista para vender.",
   "favoritesLoadError": "No se pudieron cargar las teclas rápidas. Reintente o busque en el catálogo.",
@@ -32,5 +27,37 @@
     "unpriced": "Este producto no tiene precio, así que no se puede vender por valor.",
     "wholeUnits": "Este producto se vende por unidades completas: ingrese un múltiplo de {{price}}.",
     "belowMinimum": "El valor no alcanza el mínimo de {{minimum}} {{unit}}."
+  },
+  "choose": "Usted elige cuáles van aquí",
+  "editor": {
+    "title": "Teclas sin código de barras",
+    "current": "En la tira",
+    "count": "{{count}} de {{max}}",
+    "add": "Agregar una tecla",
+    "search": "Buscar productos",
+    "searchPlaceholder": "Nombre o SKU",
+    "noResults": "Ningún producto coincide.",
+    "addKey": "Agregar",
+    "addValue": "Por valor",
+    "addAsKey": "Agregar {{name}} como tecla",
+    "addAsValue": "Agregar {{name}} como tecla por valor",
+    "labelFor": "Nombre en la tecla de {{name}}",
+    "colourFor": "Color de {{name}}",
+    "moveUp": "Mover {{name}} antes",
+    "moveDown": "Mover {{name}} después",
+    "remove": "Quitar {{name}}",
+    "notSellable": "No se puede vender",
+    "done": "Listo",
+    "colours": {
+      "none": "Sin color",
+      "orange": "Naranja",
+      "yellow": "Amarillo",
+      "slate": "Gris",
+      "green": "Verde",
+      "lime": "Lima",
+      "sky": "Celeste",
+      "violet": "Violeta",
+      "red": "Rojo"
+    }
   }
 }
