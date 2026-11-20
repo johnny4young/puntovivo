@@ -66,4 +66,21 @@ describe('validateUnitAssignments packaging barcodes', () => {
       ] as Assignments)
     ).not.toThrow();
   });
+  it('rejects a non-base presentation that reuses the product barcode', () => {
+    expect(() =>
+      validateUnitAssignments(
+        [
+          assignment(),
+          assignment({ unitId: 'unit-case', equivalence: 12, isBase: false, barcode: '770111' }),
+        ] as Assignments,
+        '770111'
+      )
+    ).toThrow(/cannot equal the product barcode/);
+  });
+
+  it('lets the base presentation reuse the product barcode', () => {
+    expect(() =>
+      validateUnitAssignments([assignment({ barcode: '770111' })] as Assignments, '770111')
+    ).not.toThrow();
+  });
 });

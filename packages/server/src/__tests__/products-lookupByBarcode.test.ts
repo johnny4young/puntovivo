@@ -689,4 +689,29 @@ describe('products.lookupByBarcode', () => {
     expect(base!.product.id).toBe(productId);
     expect(base!.resolvedUnitId).toBeNull();
   });
+  it('breaks a legacy duplicate packaging code by product id', async () => {
+    const db = getDatabase();
+    const first = await insertProduct({ tenantId, barcode: 'DUP-A', name: 'Duplicado A' });
+    const second = await insertProduct({ tenantId, barcode: 'DUP-B', name: 'Duplicado B' });
+    // Insert the higher id first so the rowid order disagrees with the tie-break.
+    const [lowest, highest] = [first, second].sort();
+    for (const productId of [highest!, lowest!]) {
+      await db.insert(unitXProduct).values({
+        id: nanoid(),
+        productId,
+        unitId: baseUnitId,
+        equivalence: 12,
+        price: 2400,
+        isBase: false,
+        barcode: 'DUP-PACK',
+        createdAt: now(),
+        updatedAt: now(),
+      });
+    }
+
+    const caller = appRouter.createCaller(makeContext('cashier'));
+    const hit = await caller.products.lookupByBarcode({ barcode: 'DUP-PACK' });
+
+    expect(hit!.product.id).toBe(lowest);
+  });
 });

@@ -36,7 +36,8 @@ export type ProductProviderAssignmentInput = NonNullable<CreateProductInput['pro
 export function validateUnitAssignments(
   input:
     | NonNullable<CreateProductInput['unitAssignments']>
-    | NonNullable<UpdateProductInput['unitAssignments']>
+    | NonNullable<UpdateProductInput['unitAssignments']>,
+  productBarcode?: string | null
 ) {
   const baseAssignments = input.filter(assignment => assignment.isBase);
 
@@ -81,6 +82,14 @@ export function validateUnitAssignments(
         message: 'Each packaging barcode must be unique within a product',
       });
     }
+    // The product barcode wins the scan lookup, so a non-base presentation
+    // sharing it would never resolve to its own unit. The base may reuse it.
+    if (!assignment.isBase && productBarcode?.trim() === barcode) {
+      throw new TRPCError({
+        code: 'CONFLICT',
+        message: 'A packaging barcode cannot equal the product barcode',
+      });
+    }
     assignedBarcodes.add(barcode);
   }
 }
@@ -90,9 +99,10 @@ export async function resolveUnitAssignments(
   tenantId: string,
   input:
     | NonNullable<CreateProductInput['unitAssignments']>
-    | NonNullable<UpdateProductInput['unitAssignments']>
+    | NonNullable<UpdateProductInput['unitAssignments']>,
+  productBarcode?: string | null
 ) {
-  validateUnitAssignments(input);
+  validateUnitAssignments(input, productBarcode);
 
   const availableUnits = await db
     .select({
