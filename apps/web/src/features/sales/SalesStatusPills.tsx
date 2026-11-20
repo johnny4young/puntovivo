@@ -18,10 +18,16 @@ interface SalesStatusPillsProps {
   scannerLocked: boolean;
   /** False when the site has no receipt printer configured. */
   hasReceiptPrinter: boolean;
+  /** Opens printer setup; only passed to roles that can configure it. */
+  onConfigurePrinter?: (() => void) | undefined;
 }
 
 /** Connection and device state for the register strip. */
-export function SalesStatusPills({ scannerLocked, hasReceiptPrinter }: SalesStatusPillsProps) {
+export function SalesStatusPills({
+  scannerLocked,
+  hasReceiptPrinter,
+  onConfigurePrinter,
+}: SalesStatusPillsProps) {
   const { t } = useTranslation('sales');
   const online = useSyncExternalStore(subscribeToConnection, isOnline, () => true);
   // Read-only: the shell's sync hook owns pushing, this only counts the queue.
@@ -37,6 +43,8 @@ export function SalesStatusPills({ scannerLocked, hasReceiptPrinter }: SalesStat
       ? t('sell.devices.ready')
       : t('sell.devices.noPrinter');
   const devicesReady = !scannerLocked && hasReceiptPrinter;
+  const configurePrinter = !scannerLocked && !hasReceiptPrinter && !!onConfigurePrinter;
+  const DeviceTag = configurePrinter ? 'button' : 'span';
 
   return (
     <>
@@ -56,8 +64,15 @@ export function SalesStatusPills({ scannerLocked, hasReceiptPrinter }: SalesStat
           </span>
         </span>
       )}
-      <span
-        className={`sales-pill ${devicesReady ? 'bg-success-50 text-success-700' : 'bg-surface-3 text-fg2'}`}
+      <DeviceTag
+        {...(configurePrinter
+          ? {
+              type: 'button' as const,
+              onClick: onConfigurePrinter,
+              title: t('preflight.items.receipt_hardware_missing.recovery'),
+            }
+          : {})}
+        className={`sales-pill ${devicesReady ? 'bg-success-50 text-success-700' : 'bg-surface-3 text-fg2'}${configurePrinter ? ' hover:bg-surface-2' : ''}`}
         data-testid="sales-devices-pill"
       >
         <span
@@ -65,7 +80,7 @@ export function SalesStatusPills({ scannerLocked, hasReceiptPrinter }: SalesStat
           aria-hidden="true"
         />
         {deviceLabel}
-      </span>
+      </DeviceTag>
     </>
   );
 }

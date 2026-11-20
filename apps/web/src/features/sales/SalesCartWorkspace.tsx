@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react';
-import { Undo2 } from 'lucide-react';
+import { ListX, Undo2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { SaleCartTable } from '@/features/sales/SaleCartTable';
 import type { SaleCartItem } from '@/features/sales/saleCart';
@@ -67,12 +67,13 @@ export function SalesCartWorkspace({
             type="button"
             className="btn-ghost min-h-9 gap-1.5 px-2 py-1 text-xs"
             onClick={onUndo}
+            aria-label={t('undo.button.label')}
             aria-keyshortcuts={ariaKeyshortcutsFor('sales.undo')}
             data-testid="sales-cart-undo"
           >
             <Undo2 className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>{t('undo.button.label')}</span>
-            <kbd className="pv-kbd" aria-hidden="true">
+            <span className="sales-head-action-label">{t('undo.button.label')}</span>
+            <kbd className="pv-kbd sales-head-action-label" aria-hidden="true">
               {shortcutDisplayFor('sales.undo')}
             </kbd>
           </button>
@@ -80,10 +81,13 @@ export function SalesCartWorkspace({
         {showClear && (
           <button
             type="button"
-            className="btn-ghost min-h-9 px-2 py-1 text-xs"
+            className="btn-ghost min-h-9 gap-1.5 px-2 py-1 text-xs"
             onClick={onClearCart}
+            aria-label={t('checkout.clearCart')}
+            data-testid="sales-cart-clear"
           >
-            {t('checkout.clearCart')}
+            <ListX className="h-3.5 w-3.5" aria-hidden="true" />
+            <span className="sales-head-action-label">{t('checkout.clearCart')}</span>
           </button>
         )}
       </>

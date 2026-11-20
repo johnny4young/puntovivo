@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { act, screen } from '@testing-library/react';
+import { act, fireEvent, screen } from '@testing-library/react';
 import { render } from '@/test/utils';
 import { SalesStatusPills } from './SalesStatusPills';
 
@@ -59,5 +59,19 @@ describe('SalesStatusPills', () => {
 
     render(<SalesStatusPills scannerLocked hasReceiptPrinter />);
     expect(screen.getByTestId('sales-devices-pill')).toHaveTextContent('Product editing locked');
+  });
+
+  it('opens printer setup from the pill when the role can configure it', () => {
+    const onConfigurePrinter = vi.fn();
+    render(
+      <SalesStatusPills
+        scannerLocked={false}
+        hasReceiptPrinter={false}
+        onConfigurePrinter={onConfigurePrinter}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'No receipt printer' }));
+    expect(onConfigurePrinter).toHaveBeenCalledOnce();
   });
 });

@@ -60,6 +60,8 @@ describe('SalesCartWorkspace —  undo button', () => {
     // cashier sees the keybinding when the button is reachable.
     expect(button).toHaveAttribute('aria-keyshortcuts');
     expect(button.getAttribute('aria-keyshortcuts')).toMatch(/\+Z$/);
+    // Narrow tickets hide the label, so the name cannot depend on it.
+    expect(button).toHaveAttribute('aria-label', 'Undo');
   });
 
   it('lays the command input, the last read and the one-touch keys around the ticket', () => {

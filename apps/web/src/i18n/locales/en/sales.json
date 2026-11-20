@@ -561,7 +561,7 @@
     "shortcutResume": "Ctrl+R",
     "newSale": "New sale",
     "localWorkspacesTitle": "Open carts",
-    "localWorkspaceFallback": "Cart {{index}}",
+    "localWorkspaceFallback": "Sale {{index}}",
     "localWorkspaceServerDraft": "Draft {{saleNumber}}",
     "localWorkspaceSelect": "Switch to {{label}}",
     "labelPromptTitle": "Suspend sale",

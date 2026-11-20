@@ -79,6 +79,20 @@ describe('SalesCheckoutPanel dock', () => {
     expect(screen.queryByTestId('checkout-ready')).not.toBeInTheDocument();
   });
 
+  it('leaves the missing printer to the device pill', () => {
+    renderDock({
+      preflightItems: [
+        {
+          id: 'receipt_hardware_missing',
+          severity: 'warning',
+          messageKey: 'preflight.items.receipt_hardware_missing.message',
+        },
+      ],
+    });
+    expect(screen.queryByTestId('checkout-preflight-panel')).not.toBeInTheDocument();
+    expect(screen.getByTestId('checkout-ready')).toBeInTheDocument();
+  });
+
   it('charges with the single orange key', () => {
     const onCharge = vi.fn();
     renderDock({ onCharge });

@@ -888,7 +888,7 @@
     }
 
     .sales-ticket-head > :not(:nth-child(2)),
-    .sales-ticket-head > :nth-child(2) > [aria-hidden],
+    .sales-ticket-head-label,
     .sales-ticket-index,
     .sales-ticket-unit,
     .sales-ticket-price {
@@ -1244,6 +1244,8 @@
 
     .sales-ticket-head > :first-child,
     .sales-ticket-head > :nth-child(4),
+    .sales-ticket-head-label,
+    .sales-head-action-label,
     .sales-ticket-index,
     .sales-ticket-unit {
       display: none;

@@ -343,6 +343,7 @@ export function SalesScreen({
   const handleCharge = () => handleOpenPaymentModal();
   const showCompletedSale = completedSale !== null && cartItems.length === 0;
   const customerLocked = itemsLocked || activeWorkspace?.sourceReturnId != null;
+  const printerMissing = preflightItems?.find(item => item.id === 'receipt_hardware_missing');
   const lockedCustomerName =
     activeWorkspace?.sourceQuotationCustomerName ??
     activeWorkspace?.sourceReturnCustomerName ??
@@ -403,9 +404,8 @@ export function SalesScreen({
           status={
             <SalesStatusPills
               scannerLocked={itemsLocked}
-              hasReceiptPrinter={
-                !preflightItems?.some(item => item.id === 'receipt_hardware_missing')
-              }
+              hasReceiptPrinter={!printerMissing}
+              onConfigurePrinter={printerMissing?.recoveryAction?.onClick}
             />
           }
         />

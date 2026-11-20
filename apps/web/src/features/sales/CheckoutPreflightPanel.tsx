@@ -18,8 +18,8 @@
  * Visual contract:
  * - Blockers use the `danger-50` family (red) that  already
  * saneó to clear WCAG AA 4.5:1.
- * - Warnings use the `warning-50` family (amber) — same family that
- * the  sweep darkened `--warning-700` to L=0.50 for AA.
+ * - Warnings are plain lines with an amber icon, like the ready line,
+ * so they leave the dock room for the last-sale and on-hold cards.
  * - The panel does not introduce CLS — its space is `null` when there
  * are no items, and the SalesCheckoutPanel layout uses `space-y-3`
  * so the gap collapses cleanly.
@@ -54,7 +54,7 @@ export function CheckoutPreflightPanel({ items }: CheckoutPreflightPanelProps) {
       <p className="sales-cap">
         {t('preflight.title')}
       </p>
-      <ul className="space-y-1.5">
+      <ul className="space-y-2">
         {items.map((item, index) => {
           const isBlocker = item.severity === 'blocker';
           // First blocker only — anchor for the Cobrar's aria-describedby.
@@ -63,13 +63,13 @@ export function CheckoutPreflightPanel({ items }: CheckoutPreflightPanelProps) {
           const Icon = isBlocker ? AlertCircle : AlertTriangle;
           const containerClass = isBlocker
             ? 'flex items-start gap-2.5 rounded-xl border border-danger-200 bg-danger-50 px-3 py-2 text-[13px] text-danger-800'
-            : 'flex items-start gap-2.5 rounded-xl border border-warning-200 bg-warning-50 px-3 py-2 text-[13px] text-warning-700';
+            : 'flex items-start gap-2 text-[13px] leading-snug text-fg2';
           const iconClass = isBlocker
             ? 'mt-0.5 h-4 w-4 shrink-0 text-danger-700'
             : 'mt-0.5 h-4 w-4 shrink-0 text-warning-700';
           const ctaClass = isBlocker
             ? 'text-xs font-semibold text-danger-900 underline-offset-2 hover:underline'
-            : 'text-xs font-semibold text-warning-700 underline-offset-2 hover:underline';
+            : 'text-xs font-semibold text-primary-700 underline-offset-2 hover:underline';
 
           return (
             <li

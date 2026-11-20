@@ -106,7 +106,9 @@ export function SaleCartTable({
       <div className="sales-ticket-head" data-testid="sales-ticket-head">
         <span aria-hidden="true">#</span>
         <span className="flex min-w-0 items-center gap-2">
-          <span aria-hidden="true">{t('cart.product')}</span>
+          <span className="sales-ticket-head-label" aria-hidden="true">
+            {t('cart.product')}
+          </span>
           <span className="ml-auto flex items-center gap-1 whitespace-nowrap normal-case tracking-normal">
             {headerActions}
           </span>

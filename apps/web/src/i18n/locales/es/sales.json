@@ -561,7 +561,7 @@
     "shortcutResume": "Ctrl+R",
     "newSale": "Nueva venta",
     "localWorkspacesTitle": "Carritos abiertos",
-    "localWorkspaceFallback": "Carrito {{index}}",
+    "localWorkspaceFallback": "Venta {{index}}",
     "localWorkspaceServerDraft": "Borrador {{saleNumber}}",
     "localWorkspaceSelect": "Cambiar a {{label}}",
     "labelPromptTitle": "Suspender venta",

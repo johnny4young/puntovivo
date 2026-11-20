@@ -25,7 +25,7 @@ describe('WorkspaceTabsSection', () => {
 
     const tab = screen.getByTestId('cart-workspace-switcher-item');
     expect(tab).toHaveAttribute('aria-pressed', 'true');
-    expect(tab).toHaveTextContent('Cart 1');
+    expect(tab).toHaveTextContent('Sale 1');
     expect(tab).toHaveTextContent(formatCurrency(0));
   });
 

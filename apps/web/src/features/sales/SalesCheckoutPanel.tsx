@@ -73,6 +73,12 @@ interface SalesCheckoutPanelProps {
 /** Characters of a condensed total that fit one line of the card. */
 const TOTAL_FIT_CQI = 190;
 
+// The sync backlog and the missing printer already have their own surfaces; so does a closed register.
+const SHOWN_ELSEWHERE: ReadonlySet<PreflightItem['id']> = new Set([
+  'sync_backlog',
+  'receipt_hardware_missing',
+]);
+
 export function SalesCheckoutPanel({
   currentSite,
   cashSession,
@@ -116,10 +122,9 @@ export function SalesCheckoutPanel({
   const hasSupervisedClose = userRole === 'admin' || userRole === 'manager';
   const isHubGated = hubReachable === false;
   const preflightHasBlockers = preflightItems.some(item => item.severity === 'blocker');
-  // The closed register and the sync backlog already have their own surfaces.
   const visiblePreflightItems = preflightItems.filter(
     item =>
-      item.id !== 'sync_backlog' && (cashSession !== null || item.id !== 'cash_session_required')
+      !SHOWN_ELSEWHERE.has(item.id) && (cashSession !== null || item.id !== 'cash_session_required')
   );
   const hasVisibleBlocker = visiblePreflightItems.some(item => item.severity === 'blocker');
   const primaryAction = cashSession ? onCharge : onOpenCashSession;
@@ -157,7 +162,7 @@ export function SalesCheckoutPanel({
               {onPickCustomer && (
                 <button
                   type="button"
-                  className="btn-outline min-h-11 min-w-11 px-3"
+                  className="btn-outline min-h-11 min-w-11 gap-1.5 px-2.5 text-[13px]"
                   title={t('payment.customer')}
                   onClick={onPickCustomer}
                   data-testid="checkout-pick-customer"
@@ -169,7 +174,7 @@ export function SalesCheckoutPanel({
               {onRequestInvoice && (
                 <button
                   type="button"
-                  className="btn-outline min-h-11 min-w-11 px-3"
+                  className="btn-outline min-h-11 min-w-11 gap-1.5 px-2.5 text-[13px]"
                   title={t('sell.customer.invoice')}
                   onClick={onRequestInvoice}
                   data-testid="checkout-request-invoice"
