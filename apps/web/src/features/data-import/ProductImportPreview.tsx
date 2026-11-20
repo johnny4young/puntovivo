@@ -95,7 +95,10 @@ export function ProductImportPreviewPanel({
               <th className="px-4 py-3">{t('table.row')}</th>
               <th className="px-4 py-3">{t('fields.name')}</th>
               <th className="px-4 py-3">{t('fields.sku')}</th>
+              <th className="px-4 py-3">{t('fields.cost')}</th>
               <th className="px-4 py-3">{t('fields.price')}</th>
+              <th className="px-4 py-3">{t('fields.price2')}</th>
+              <th className="px-4 py-3">{t('fields.price3')}</th>
               <th className="px-4 py-3">{t('fields.stock')}</th>
               <th className="px-4 py-3">{t('fields.tracksStock')}</th>
               <th className="px-4 py-3">{t('fields.tracksLots')}</th>
@@ -113,9 +116,11 @@ export function ProductImportPreviewPanel({
                 <td className="px-4 py-3 font-mono text-xs text-secondary-700">
                   {row.normalized.sku || t('table.emptyValue')}
                 </td>
-                <td className="px-4 py-3 tabular-nums text-secondary-700">
-                  {row.normalized.price}
-                </td>
+                {(['cost', 'price', 'price2', 'price3'] as const).map(field => (
+                  <td key={field} className="px-4 py-3 tabular-nums text-secondary-700">
+                    {row.normalized[field]}
+                  </td>
+                ))}
                 <td className="px-4 py-3 tabular-nums text-secondary-700">
                   {row.normalized.stock}
                 </td>

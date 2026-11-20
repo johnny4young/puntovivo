@@ -94,6 +94,7 @@ test.describe('launch data import', () => {
         'latin1'
       ),
     });
+    await expect(page.getByLabel('Formato de origen')).toHaveValue('monica-inventory-es-v1');
     await expect(page.getByLabel(/^SKU/)).toHaveValue('Código');
     await expect(page.getByLabel(/^Precio de venta/)).toHaveValue('Precio 1');
     await expect(page.getByLabel(/^Precio 2/)).toHaveValue('Precio 2');
@@ -101,6 +102,7 @@ test.describe('launch data import', () => {
     await page.getByRole('button', { name: 'Validar y previsualizar' }).click();
     await expect(page.getByTestId('data-import-summary-ready')).toContainText('3');
     await expect(page.getByTestId('data-import-preview-row-2')).toContainText('Piña en almíbar');
+    await expect(page.getByTestId('data-import-preview-row-2')).toContainText('2650.5');
 
     await confirmRealData(page, true);
     await page.getByRole('button', { name: 'Importar 3 filas listas' }).click();

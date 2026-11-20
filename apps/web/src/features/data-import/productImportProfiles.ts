@@ -13,6 +13,7 @@ export const PRODUCT_IMPORT_PROFILE_IDS = [
   'alegra-inventory-es-v1',
   'siigo-products-es-v1',
   'world-office-inventory-es-v1',
+  'monica-inventory-es-v1',
 ] as const;
 
 export type ProductImportProfileId = (typeof PRODUCT_IMPORT_PROFILE_IDS)[number];
@@ -121,6 +122,18 @@ export const PRODUCT_IMPORT_PROFILES: readonly ProductImportProfile[] = [
       stock: 'Existencia',
       minStock: 'Stock mínimo',
       taxRate: 'Porcentaje IVA',
+    },
+  },
+  {
+    id: 'monica-inventory-es-v1',
+    signature: ['Código', 'Nombre del producto', 'Costo', 'Precio 1', 'Precio 2', 'Precio 3'],
+    mapping: {
+      name: 'Nombre del producto',
+      sku: 'Código',
+      price: 'Precio 1',
+      price2: 'Precio 2',
+      price3: 'Precio 3',
+      cost: 'Costo',
     },
   },
 ] as const;

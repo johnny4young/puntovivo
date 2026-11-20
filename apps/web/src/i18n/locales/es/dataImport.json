@@ -428,14 +428,16 @@
       "loyverse-items-en-v1": "CSV de artículos de Loyverse — encabezados en inglés v1",
       "alegra-inventory-es-v1": "Exportación de inventario de Alegra — encabezados en español v1",
       "siigo-products-es-v1": "Exportación de productos de Siigo — encabezados en español v1",
-      "world-office-inventory-es-v1": "Exportación de inventario de World Office — encabezados en español v1"
+      "world-office-inventory-es-v1": "Exportación de inventario de World Office — encabezados en español v1",
+      "monica-inventory-es-v1": "Exportación de inventario de Mónica — encabezados en español v1"
     },
     "details": {
       "generic": "No se aplica la huella de un proveedor. El nombre y el SKU siguen siendo obligatorios, y debe revisar cada columna detectada.",
       "loyverse-items-en-v1": "Huella probada: Handle, SKU, Name, Price, Cost, Barcode, Sold by weight, Track stock, In stock y Low stock.",
       "alegra-inventory-es-v1": "Huella probada: Código, Nombre, Referencia, Precio de venta, Costo unitario, Cantidad inicial, Nombre impuesto y Porcentaje impuesto.",
       "siigo-products-es-v1": "Huella probada: Código producto, Nombre producto, Precio de venta, Costo, Existencia, Impuesto cargo y Unidad de medida.",
-      "world-office-inventory-es-v1": "Huella probada: Código artículo, Descripción artículo, Precio venta, Costo promedio, Existencia, Porcentaje IVA y Unidad."
+      "world-office-inventory-es-v1": "Huella probada: Código artículo, Descripción artículo, Precio venta, Costo promedio, Existencia, Porcentaje IVA y Unidad.",
+      "monica-inventory-es-v1": "Huella tomada de una exportación de cliente: Código, Nombre del producto, Costo, Precio 1, Precio 2 y Precio 3. Precio 2 y Precio 3 llegan a las tarifas P2 y P3."
     }
   }
 }
