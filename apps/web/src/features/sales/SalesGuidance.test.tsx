@@ -5,6 +5,7 @@ import { render, screen } from '@/test/utils';
 import i18n from '@/i18n';
 import { SalesCheckoutPanel } from './SalesCheckoutPanel';
 import { SalesQuickSearchBar } from './SalesQuickSearchBar';
+import { SalesShortcutStrip } from './SalesShortcutStrip';
 
 vi.mock('@/features/sales/useCashierPace', () => ({
   useCashierPace: () => ({ enabled: false, toggle: vi.fn(), pace: null }),
@@ -32,17 +33,17 @@ function renderGuidance(itemCount = 0, locked = false) {
         selectedRegisterAssignment={null}
         isCashSessionLoading={false}
         draftSummary={{ itemCount, subtotal: 0, taxAmount: 0, total: 0 }}
+        lineCount={itemCount}
         canCharge={false}
         canOpenCashSession={false}
         canCloseCashSession={false}
-        canOpenSearch={!locked}
-        onOpenSearch={vi.fn()}
         onCharge={vi.fn()}
         onOpenCashSession={vi.fn()}
         onCloseCashSession={vi.fn()}
         onOpenMovement={vi.fn()}
         onRegisterAssignmentChange={vi.fn()}
       />
+      <SalesShortcutStrip itemsLocked={locked} />
     </>
   );
 }
@@ -50,14 +51,14 @@ function renderGuidance(itemCount = 0, locked = false) {
 describe.each([
   {
     locale: 'en',
-    search: 'Search products',
-    items: 'Items (2)',
+    search: 'Search',
+    items: '2 items · 2 lines',
     obsolete: /Quick suggestion|Waiting…|when wired|reuses the existing|Last scanned/,
   },
   {
     locale: 'es',
-    search: 'Buscar productos',
-    items: 'Ítems (2)',
+    search: 'Buscar',
+    items: '2 artículos · 2 líneas',
     obsolete:
       /Sugerencia rápida|Esperando…|cuando estén disponibles|reutiliza el diálogo|Último escaneado/,
   },
@@ -78,8 +79,11 @@ describe.each([
       'F5',
       'F1',
     ]);
-    const panelKeys = Array.from(container.querySelectorAll('aside kbd'), key => key.textContent);
-    expect(panelKeys).toEqual(expect.arrayContaining(['Alt+P', 'Alt+C', 'Alt+D', 'Alt+U']));
+    const stripKeys = Array.from(
+      screen.getByTestId('checkout-shortcut-chips').querySelectorAll('kbd'),
+      key => key.textContent
+    );
+    expect(stripKeys).toEqual(expect.arrayContaining(['F2', 'F1', 'Delete', 'Alt+N']));
     expect(container.textContent).not.toContain('`');
     expect(hint.textContent).toContain(locale === 'en' ? 'Focus search' : 'Ir a la búsqueda');
   });
@@ -97,9 +101,8 @@ describe.each([
     expect(screen.getByRole('button', { name: search })).toBeDisabled();
     const keys = Array.from(container.querySelectorAll('kbd'), key => key.textContent);
     expect(keys).not.toEqual(expect.arrayContaining(['Alt+P']));
-    expect(keys).not.toEqual(expect.arrayContaining(['Alt+C']));
-    expect(keys).not.toEqual(expect.arrayContaining(['Alt+D']));
-    expect(keys).not.toEqual(expect.arrayContaining(['Alt+U']));
+    expect(keys).not.toEqual(expect.arrayContaining(['Delete']));
+    expect(keys).not.toEqual(expect.arrayContaining(['F5']));
     expect(container.querySelector('.sales-scan-hint kbd')).toBeNull();
   });
 });

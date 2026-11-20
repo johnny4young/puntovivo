@@ -1,16 +1,15 @@
 import { type ReactNode } from 'react';
-import { Undo2 } from 'lucide-react';
+import { ListX, Undo2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { SaleCartTable } from '@/features/sales/SaleCartTable';
 import type { SaleCartItem } from '@/features/sales/saleCart';
-import { ariaKeyshortcutsFor, formatKeysForDisplay, getShortcutById } from '@/lib/shortcuts';
-import { Badge } from '@/components/ui';
+import { ariaKeyshortcutsFor, shortcutDisplayFor } from '@/lib/shortcuts';
+
 interface SalesCartWorkspaceProps {
   items: SaleCartItem[];
   /** active POS site for the cart's suggestion badges. */
   discountSuggestionSiteId?: string | null;
   selectedItemKey: string | null;
-  itemCount: number;
   saleError: string | null;
   onQuantityChange: (itemKey: string, quantity: number) => void;
   onDiscountChange: (itemKey: string, discount: number) => void;
@@ -21,38 +20,24 @@ interface SalesCartWorkspaceProps {
   onClearCart: () => void;
   quantityInputRefFor: (itemKey: string) => (node: HTMLInputElement | null) => void;
   discountInputRefFor: (itemKey: string) => (node: HTMLInputElement | null) => void;
-  /**
-   * `true` when the active workspace has at least one
-   * undoable mutation in its history stack and the cart is not a
-   * locked resumed-draft. The toolbar button only renders when this
-   * is true; the canonical shortcut catalogue owns discovery when
-   * there is nothing undoable yet.
-   */
+  /** True when the ticket has an undoable edit and is not locked. */
   canUndo?: boolean;
-  /**
-   * invoked from the visible "Deshacer" button. Optional
-   * so existing consumers that do not yet wire undo (component
-   * tests, future surfaces) keep compiling. When undefined the
-   * button is hidden entirely.
-   */
-  onUndo?: () => void;
+  /** Hidden when omitted; the last-read banner owns undo while it shows a read. */
+  onUndo?: (() => void) | undefined;
   /** Disable commercial line edits while preserving serial fulfilment. */
   itemsLocked?: boolean;
-  /** Contextual one-tap products or safe actions rendered above the cart. */
+  /** The scan / search command input, above the ticket. */
+  searchBar?: ReactNode;
+  /** The last-read slot between the command input and the ticket. */
+  banner?: ReactNode;
+  /** One-touch products, pinned under the ticket. */
   quickAccess?: ReactNode;
-  /**
-   * active customer price tier for this ticket. Undefined
-   * hides the selector (component tests, surfaces without tier UX).
-   */
-  priceTier?: 1 | 2 | 3 | undefined;
-  /** Invoked from the tier chips; absent on locked resumed drafts. */
-  onPriceTierChange?: ((tier: 1 | 2 | 3) => void) | undefined;
 }
+
 export function SalesCartWorkspace({
   items,
   discountSuggestionSiteId = null,
   selectedItemKey,
-  itemCount,
   saleError,
   onQuantityChange,
   onDiscountChange,
@@ -65,119 +50,89 @@ export function SalesCartWorkspace({
   canUndo = false,
   onUndo,
   itemsLocked = false,
+  searchBar,
+  banner,
   quickAccess,
-  priceTier,
-  onPriceTierChange,
 }: SalesCartWorkspaceProps) {
   const { t } = useTranslation('sales');
-  // visible shortcut chip pulled from the canonical
-  // catalogue so the surface stays in sync with `Mod+Z` (and any
-  // future rebind).
-  const undoShortcut = onUndo ? getShortcutById('sales.undo') : undefined;
-  const undoShortcutHint = undoShortcut ? formatKeysForDisplay(undoShortcut.keys) : null;
-  const undoAriaKeyshortcuts = onUndo ? ariaKeyshortcutsFor('sales.undo') : undefined;
-  return (
-    // at the `pos:` breakpoint (wide + >=900px tall) the card
-    // becomes a bounded flex column so the line-item table scrolls internally
-    // and the page itself does not scroll while completing a sale. Below `pos:`
-    // it is plain flow so short cashier viewports can reach every control.
-    <div className="sales-ledger-card card p-4 sm:p-5 lg:flex lg:px-4 lg:py-3 pos:h-full pos:min-h-0 lg:flex-col pos:overflow-hidden">
-      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between lg:shrink-0">
-        <h2 className="font-display text-xl text-secondary-950">{t('checkout.activeTicket')}</h2>
-        <div className="flex flex-wrap items-center gap-2">
-          {priceTier !== undefined && onPriceTierChange && (
-            <div
-              className="flex items-center gap-1 rounded-lg border border-line bg-surface-2 p-0.5"
-              role="group"
-              aria-label={t('checkout.priceTier.groupLabel')}
-              data-testid="sales-price-tier"
-            >
-              {([1, 2, 3] as const).map(tier => (
-                <button
-                  key={tier}
-                  type="button"
-                  className={
-                    tier === priceTier
-                      ? 'rounded-md bg-primary-600 px-2 py-1 text-xs font-semibold text-white'
-                      : 'rounded-md px-2 py-1 text-xs font-medium text-secondary-600 hover:bg-surface-1'
-                  }
-                  aria-pressed={tier === priceTier}
-                  data-testid={`sales-price-tier-${tier}`}
-                  title={t(`checkout.priceTier.tier${tier}Title`)}
-                  onClick={() => onPriceTierChange(tier)}
-                >
-                  {t(`checkout.priceTier.tier${tier}`)}
-                </button>
-              ))}
-            </div>
-          )}
-          <Badge variant="neutral">
-            {t('checkout.lineItems', {
-              count: itemCount,
-            })}
-          </Badge>
-          {/* only render Undo + Clear when actually usable.
-           * Disabled toolbar buttons tank WCAG AA contrast through the
-           * shared `disabled:opacity-45` rule on every btn variant; the
-           * cleaner UX is to hide affordances that have nothing to act
-           * on. The keyboard shortcut Mod+Z still fires from the
-           * document-level handler when there is something to undo,
-           * and CommandPalette (Mod+K) is the canonical place to
-           * discover keybindings. */}
-          {onUndo && canUndo && (
-            <button
-              className="btn-ghost flex items-center gap-2"
-              onClick={onUndo}
-              aria-keyshortcuts={undoAriaKeyshortcuts}
-              data-testid="sales-cart-undo"
-            >
-              <Undo2 className="h-4 w-4" aria-hidden="true" />
-              <span>{t('undo.button.label')}</span>
-              {undoShortcutHint && (
-                <span
-                  className="rounded-md border border-line/70 bg-surface-2/80 px-1.5 py-0.5 text-[10.5px] font-semibold uppercase tracking-[0.05em] text-secondary-600"
-                  aria-hidden="true"
-                >
-                  {undoShortcutHint}
-                </span>
-              )}
-            </button>
-          )}
-          {items.length > 0 && !itemsLocked && (
-            <button className="btn-ghost" onClick={onClearCart}>
-              {t('checkout.clearCart')}
-            </button>
-          )}
-        </div>
-      </div>
-
-      {quickAccess}
-
-      {/* the scrollable region at `pos:`; flex-1 + min-h-0 lets the
-          table take the remaining card height and scroll on overflow. */}
-      <div className="pos:min-h-0 pos:flex-1 pos:overflow-y-auto">
-        {(items.length > 0 || !quickAccess) && (
-          <SaleCartTable
-            items={items}
-            discountSuggestionSiteId={discountSuggestionSiteId}
-            selectedItemKey={selectedItemKey}
-            onQuantityChange={onQuantityChange}
-            onDiscountChange={onDiscountChange}
-            onRemove={onRemove}
-            onSelectItem={itemKey => onSelectItem(itemKey)}
-            onSerialSelectionChange={onSerialSelectionChange}
-            quantityInputRefFor={quantityInputRefFor}
-            discountInputRefFor={discountInputRefFor}
-            itemsLocked={itemsLocked}
-          />
+  // Unusable actions stay out of the row: a disabled key fails contrast and
+  // the shortcut still works from the document handler.
+  const showUndo = !!onUndo && canUndo;
+  const showClear = items.length > 0 && !itemsLocked;
+  const headerActions =
+    showUndo || showClear ? (
+      <>
+        {showUndo && (
+          <button
+            type="button"
+            className="btn-ghost min-h-9 gap-1.5 px-2 py-1 text-xs"
+            onClick={onUndo}
+            aria-label={t('undo.button.label')}
+            aria-keyshortcuts={ariaKeyshortcutsFor('sales.undo')}
+            data-testid="sales-cart-undo"
+          >
+            <Undo2 className="h-3.5 w-3.5" aria-hidden="true" />
+            <span className="sales-head-action-label">{t('undo.button.label')}</span>
+            <kbd className="pv-kbd sales-head-action-label" aria-hidden="true">
+              {shortcutDisplayFor('sales.undo')}
+            </kbd>
+          </button>
         )}
-      </div>
+        {showClear && (
+          <button
+            type="button"
+            className="btn-ghost min-h-9 gap-1.5 px-2 py-1 text-xs"
+            onClick={onClearCart}
+            aria-label={t('checkout.clearCart')}
+            data-testid="sales-cart-clear"
+          >
+            <ListX className="h-3.5 w-3.5" aria-hidden="true" />
+            <span className="sales-head-action-label">{t('checkout.clearCart')}</span>
+          </button>
+        )}
+      </>
+    ) : undefined;
+
+  return (
+    // At `pos:` the column is bounded: the ticket scrolls inside it while the
+    // command input, the last read and the one-touch keys stay put.
+    <div className="sales-ticket-column flex flex-col gap-3 lg:min-w-0 pos:h-full pos:min-h-0">
+      {searchBar}
+      {banner && <div className="sales-banner-slot">{banner}</div>}
+
+      <section
+        className="pos:min-h-0 pos:flex-1 pos:overflow-y-auto"
+        aria-labelledby="sales-ticket-title"
+      >
+        <h2 id="sales-ticket-title" className="sr-only">
+          {t('checkout.activeTicket')}
+        </h2>
+        <SaleCartTable
+          items={items}
+          discountSuggestionSiteId={discountSuggestionSiteId}
+          selectedItemKey={selectedItemKey}
+          onQuantityChange={onQuantityChange}
+          onDiscountChange={onDiscountChange}
+          onRemove={onRemove}
+          onSelectItem={itemKey => onSelectItem(itemKey)}
+          onSerialSelectionChange={onSerialSelectionChange}
+          quantityInputRefFor={quantityInputRefFor}
+          discountInputRefFor={discountInputRefFor}
+          itemsLocked={itemsLocked}
+          headerActions={headerActions}
+        />
+      </section>
 
       {saleError && (
-        <div className="mt-4 rounded-[11px] border border-danger-200/70 bg-danger-50/90 px-4 py-3 text-sm text-danger-700 xl:shrink-0">
+        <div
+          className="rounded-xl border border-danger-500/40 bg-danger-50 px-4 py-3 text-sm text-danger-700 lg:shrink-0"
+          role="alert"
+        >
           {saleError}
         </div>
       )}
+
+      {quickAccess}
     </div>
   );
 }

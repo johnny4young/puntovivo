@@ -148,7 +148,7 @@ export async function receivePharmacyLots(
 /** Search the catalog as an operator, then open the authoritative payment checks. */
 export async function openPharmacyCheckout(page: Page, query: string, sku: string) {
   await dismissToasts(page);
-  await page.getByRole('button', { name: 'Search products', exact: true }).first().click();
+  await page.getByRole('button', { name: 'Search', exact: true }).first().click();
   const search = page.getByRole('dialog', { name: 'Add product', exact: true });
   await search.getByRole('textbox', { name: 'Search', exact: true }).fill(query);
   await search.getByTestId(`product-search-row-${sku}`).click();

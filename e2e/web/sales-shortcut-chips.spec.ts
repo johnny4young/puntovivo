@@ -15,33 +15,32 @@ const shortcutLabels = Object.fromEntries(
       ['es', es],
     ] as const
   ).map(([language, catalogue]) => {
-    const { search, suspend, resume, charge, fastCash } = catalogue.checkout.shortcut;
-    return [language, [search, suspend, resume, charge, fastCash]];
+    const { exactCash, charge, removeLine, parked, newSale, more } = catalogue.sell.keys;
+    return [language, [exactCash, charge, removeLine, parked, newSale, more]];
   })
 ) as Record<'en' | 'es', string[]>;
 
-// Runs in the page. A nowrap label never reports scroll overflow (its flex
-// item cannot shrink below its text), so geometry is what proves it stays
-// inside its chip; `clipped` still guards against a reintroduced truncate.
-function measureChips(keys: Element[]) {
+// Runs in the page. A nowrap label never reports scroll overflow, so geometry
+// is what proves each key and its label stay inside the strip.
+function measureShortcuts(keys: Element[]) {
   return keys.map(key => {
-    const chip = key.parentElement;
-    const label = chip?.querySelector('span');
-    const card = chip?.parentElement?.parentElement;
-    if (!chip || !label || !card) throw new Error('Missing checkout shortcut chip');
-    const chipBox = chip.getBoundingClientRect();
+    const shortcut = key.parentElement;
+    const label = shortcut?.querySelector('span');
+    const strip = shortcut?.closest('[data-testid="checkout-shortcut-chips"]');
+    if (!shortcut || !label || !strip) throw new Error('Missing sales shortcut');
+    const stripBox = strip.getBoundingClientRect();
+    const labelBox = label.getBoundingClientRect();
     return {
       text: label.textContent?.trim(),
-      left: chipBox.left,
       clipped: label.scrollWidth > label.clientWidth + 1,
-      escapedChip: label.getBoundingClientRect().right > chipBox.right + 1,
-      escapedCard: chipBox.right > card.getBoundingClientRect().right + 1,
+      escapedStrip:
+        labelBox.right > stripBox.right + 1 || key.getBoundingClientRect().left < stripBox.left - 1,
     };
   });
 }
 
 for (const language of ['en', 'es'] as const) {
-  test(`sales checkout keeps every ${language} shortcut label readable without moving mobile fast cash`, async ({
+  test(`the sales shortcut strip keeps every ${language} key readable at each width`, async ({
     page,
   }) => {
     const tracker = attachClientIssueTracker(page);
@@ -49,58 +48,24 @@ for (const language of ['en', 'es'] as const) {
     await loginAs(page, 'cashier');
     await ensureLanguage(page, language);
 
-    // Editing hints are a separate set; these assertions own the five action chips.
-    const chips = page.getByTestId('checkout-shortcut-chips').locator('kbd');
-    await expect(chips).toHaveCount(5);
+    const keys = page.getByTestId('checkout-shortcut-chips').locator('kbd');
+    await expect(keys).toHaveCount(6);
     // The header preference settles before the lazy sales namespace renders.
-    // Measure the intended language, not the preceding frame's labels.
     await expect
-      .poll(async () => (await chips.evaluateAll(measureChips)).map(chip => chip.text))
+      .poll(async () => (await keys.evaluateAll(measureShortcuts)).map(key => key.text))
       .toEqual(shortcutLabels[language]);
 
-    // 1024px is the narrowest side-column dock (lg: 18-20rem); 1280/1440 are xl.
-    for (const width of [1440, 1280, 1024]) {
+    // One row from the two-column layout up; it wraps on a phone.
+    for (const width of [1440, 1280, 1024, 375]) {
       await page.setViewportSize({ width, height: 900 });
       await expect
-        .poll(
-          async () =>
-            (await chips.evaluateAll(measureChips)).map(
-              ({ text, clipped, escapedChip, escapedCard }) => ({
-                text,
-                clipped,
-                escapedChip,
-                escapedCard,
-              })
-            ),
-          { message: `${language} shortcut labels at ${width}px` }
-        )
+        .poll(async () => keys.evaluateAll(measureShortcuts), {
+          message: `${language} shortcut labels at ${width}px`,
+        })
         .toEqual(
-          shortcutLabels[language].map(text => ({
-            text,
-            clipped: false,
-            escapedChip: false,
-            escapedCard: false,
-          }))
+          shortcutLabels[language].map(text => ({ text, clipped: false, escapedStrip: false }))
         );
     }
-
-    // The mobile checkout uses a separate action bar. Preserve the dock's
-    // two-column order without asserting the broader Sales panel's viewport fit.
-    await page.setViewportSize({ width: 375, height: 812 });
-    // Sidebar motion may still be responding to the desktop-to-mobile resize.
-    await expect
-      .poll(async () =>
-        (await chips.evaluateAll(measureChips)).every(
-          chip => !chip.clipped && !chip.escapedChip && !chip.escapedCard
-        )
-      )
-      .toBe(true);
-    const mobileChips = await chips.evaluateAll(measureChips);
-    expect(mobileChips).toHaveLength(5);
-    expect(mobileChips.every(chip => !chip.clipped && !chip.escapedChip && !chip.escapedCard)).toBe(
-      true
-    );
-    expect(mobileChips[4]?.left).toBeCloseTo(mobileChips[0]!.left, 0);
 
     await expectNoClientIssues(tracker);
   });

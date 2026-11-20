@@ -78,6 +78,8 @@ export function SalePaymentModal({
   promotionPricingEnabled = true,
   currencyCode = 'COP',
   fastCashTrigger = 0,
+  fastCashAmount = null,
+  initialMethod = 'cash',
   restoreFocusTo,
   activePriceTier = 1,
   allowTip = true,
@@ -156,6 +158,8 @@ export function SalePaymentModal({
     currencyCode,
     activePriceTier,
     fastCashTrigger,
+    fastCashAmount,
+    initialMethod,
     onSubmit,
   });
 

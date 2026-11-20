@@ -9,6 +9,16 @@ import { SalesFlowRail } from '@/features/sales/SalesFlowRail';
 import type { SalesModals } from '@/features/sales/SalesModals';
 import { WorkspaceTabsSection } from '@/features/sales/WorkspaceTabsSection';
 import { SalesMobileCheckoutBar } from '@/features/sales/SalesMobileCheckoutBar';
+import { SalesQuickSearchBar } from '@/features/sales/SalesQuickSearchBar';
+import { SalesShortcutStrip } from '@/features/sales/SalesShortcutStrip';
+import { SalesStatusPills } from '@/features/sales/SalesStatusPills';
+import { getSalesDockGates } from '@/features/sales/salesDockGates';
+import type { PreflightItem } from '@/features/sales/useCheckoutPreflight';
+import { LastReadBanner } from '@/features/sales/LastReadBanner';
+import type { LastRead } from '@/features/sales/useLastRead';
+import type { PaymentFocusTarget } from '@/features/sales/useSalesModals';
+import { roundMoney } from '@/lib/money';
+import { serviceChargeFor } from '@/features/sales/cashTender';
 import type { SuspendedSalesPanel } from '@/features/sales/SuspendedSalesPanel';
 import { SaleCompleteStrip, type CompletedSaleSummary } from './SaleCompleteStrip';
 
@@ -68,7 +78,7 @@ export interface SalesScreenProps {
   productSearchQuery: string;
   setProductSearchQuery: Dispatch<SetStateAction<string>>;
   handleOpenProductSearch: (initialQuery?: string) => void;
-  productInputRef: HeaderProps['productInputRef'];
+  productInputRef: ComponentProps<typeof SalesQuickSearchBar>['inputRef'];
   setIsHistoryDrawerOpen: Dispatch<SetStateAction<boolean>>;
   setIsSuspendedPanelOpen: Dispatch<SetStateAction<boolean>>;
   suspendedDraftsCount: number;
@@ -97,7 +107,6 @@ export interface SalesScreenProps {
   handleClearCart: CartProps['onClearCart'];
   quantityInputRefFor: CartProps['quantityInputRefFor'];
   discountInputRefFor: CartProps['discountInputRefFor'];
-  focusDiscountInput: (itemKey: string) => void;
   canUndoActiveCart: boolean;
   handleUndoCart: () => void;
   // customer price tier for the active ticket.
@@ -113,7 +122,21 @@ export interface SalesScreenProps {
   canOpenCashSession: boolean;
   canCloseCashSession: boolean;
   userRole: CheckoutProps['userRole'];
-  handleOpenPaymentModal: (fastCash?: boolean) => void;
+  handleOpenPaymentModal: (
+    fastCash?: boolean,
+    tendered?: number | null,
+    focusTarget?: PaymentFocusTarget | null
+  ) => void;
+  /** Opens (or re-applies) cash with the tendered amount; exact when omitted. */
+  handleFastCash: (tendered?: number | null) => void;
+  fastCashAmount: number | null;
+  paymentFocusTarget: PaymentFocusTarget | null;
+  ticketTender: CheckoutProps['tender'] & {};
+  onTicketTenderChange: CheckoutProps['onTenderChange'] & {};
+  lastRead: LastRead | null;
+  cashierName: string | null;
+  firstSuspendedDraft: CheckoutProps['firstSuspendedDraft'];
+  canRequestInvoice: boolean;
   handleOpenCashSessionModal: () => void;
   handleOpenCloseCashSessionModal: () => void;
   handleOpenCashSessionMovementModal: () => void;
@@ -125,9 +148,11 @@ export interface SalesScreenProps {
   handleToggleSuspendedPanel: () => void;
   hubReachable: CheckoutProps['hubReachable'];
   preflightItems: CheckoutProps['preflightItems'];
+  /** Server readiness items; cart preflight drops them while the ticket is empty. */
+  readinessItems: PreflightItem[];
   // History drawer
   isHistoryDrawerOpen: boolean;
-  lastCompletedSaleId: string | null;
+  lastSale: CompletedSaleSummary | null;
   completedSale: CompletedSaleSummary | null;
   onDismissCompletedSale: () => void;
   setSelectedSaleId: Dispatch<SetStateAction<string | null>>;
@@ -225,7 +250,6 @@ export function SalesScreen({
   handleClearCart,
   quantityInputRefFor,
   discountInputRefFor,
-  focusDiscountInput,
   canUndoActiveCart,
   handleUndoCart,
   activePriceTier,
@@ -240,6 +264,15 @@ export function SalesScreen({
   canCloseCashSession,
   userRole,
   handleOpenPaymentModal,
+  handleFastCash,
+  fastCashAmount,
+  paymentFocusTarget,
+  ticketTender,
+  onTicketTenderChange,
+  lastRead,
+  cashierName,
+  firstSuspendedDraft,
+  canRequestInvoice,
   handleOpenCashSessionModal,
   handleOpenCloseCashSessionModal,
   handleOpenCashSessionMovementModal,
@@ -251,8 +284,9 @@ export function SalesScreen({
   handleToggleSuspendedPanel,
   hubReachable,
   preflightItems,
+  readinessItems,
   isHistoryDrawerOpen,
-  lastCompletedSaleId,
+  lastSale,
   completedSale,
   onDismissCompletedSale,
   setSelectedSaleId,
@@ -312,6 +346,23 @@ export function SalesScreen({
 
   // Buttons pass their click event, which must not read as the fast cash flag.
   const handleCharge = () => handleOpenPaymentModal();
+  const showCompletedSale = completedSale !== null && cartItems.length === 0;
+  const customerLocked = itemsLocked || activeWorkspace?.sourceReturnId != null;
+  const { canOpenDrawerFromDock, printerMissing } = getSalesDockGates({
+    canCharge,
+    hubReachable,
+    readinessItems,
+  });
+  const lockedCustomerName =
+    activeWorkspace?.serverCustomerName ??
+    activeWorkspace?.sourceQuotationCustomerName ??
+    activeWorkspace?.sourceReturnCustomerName ??
+    null;
+  // Mirrors the charge drawer: quotations carry no service charge.
+  const cashDue = roundMoney(
+    draftSummary.total +
+      serviceChargeFor(draftSummary.total, isQuotationCart ? 0 : serviceChargeRate)
+  );
 
   // Resuming a sale means the shift is not ending yet, so the close stops here.
   const handleResumeSuspended: typeof handleResumeFromPanel = draft => {
@@ -321,18 +372,10 @@ export function SalesScreen({
 
   return (
     <>
-      <div className="sales-pos-shell space-y-3 lg:pb-24 lg:flex pos:min-h-0 lg:flex-col lg:gap-3 lg:space-y-0 pos:overflow-hidden pos:pb-0">
-        {/* el POS es la única superficie de /sales. Desde `lg:` la barra de
-            búsqueda, los tickets abiertos y los accesos a Historial / Ventas
-            suspendidas viven en una sola fila de altura fija. En el breakpoint
-            `pos:` (ancho desktop + >=900px alto) el carrito y el
-            panel de cobro toman el resto de la altura y hacen scroll por
-            dentro, de modo que cobrar no exige scroll de página a 1440x900.
-            Por debajo de `pos:` vuelve el scroll natural de página para que
-            los controles de caja sean alcanzables.
-            `productInputRef` es el objetivo del scanner wedge
-            (useBarcodeWedgeListener) y de Alt+P (useScannerFocusRestoration),
-            así que permanece montado y visible siempre. */}
+      {/* At `pos:` the shell is bounded and only the ticket scrolls; below it the
+          page scrolls and the dock keeps the total and Cobrar pinned. The search
+          input is the scanner target, so it stays mounted and visible. */}
+      <div className="sales-pos-shell flex flex-col gap-3 lg:pb-4 pos:min-h-0 pos:overflow-hidden pos:pb-0">
         <SalesFlowRail
           itemCount={draftSummary.itemCount}
           total={draftSummary.total}
@@ -348,45 +391,40 @@ export function SalesScreen({
         />
 
         <SalesHeaderSection
-          productSearchQuery={productSearchQuery}
-          onQueryChange={setProductSearchQuery}
-          onSubmitSearch={() => handleOpenProductSearch(productSearchQuery)}
-          productInputRef={productInputRef}
+          registerName={activeCashSession?.registerName ?? null}
+          cashierName={cashierName}
+          siteName={currentSite?.name ?? null}
           onOpenHistory={() => setIsHistoryDrawerOpen(true)}
           onOpenSuspended={() => setIsSuspendedPanelOpen(true)}
           suspendedDraftsCount={suspendedDraftsCount}
           customerDisplayEnabled={customerDisplayEnabled}
           onOpenCustomerDisplay={handleOpenCustomerDisplay}
           isResumedCart={isResumedCart}
-          itemsLocked={itemsLocked}
           activeWorkspace={activeWorkspace ?? null}
           workspaceTabs={
             <WorkspaceTabsSection
               ownedWorkspaces={ownedWorkspaces}
               activeWorkspaceId={activeWorkspace?.id}
               onSelectWorkspace={handleSelectWorkspace}
+              onNewSale={handleNewSale}
+            />
+          }
+          priceTier={activePriceTier}
+          onPriceTierChange={itemsLocked ? undefined : handlePriceTierChange}
+          status={
+            <SalesStatusPills
+              scannerLocked={itemsLocked}
+              hasReceiptPrinter={!printerMissing}
+              onConfigurePrinter={printerMissing?.recoveryAction?.onClick}
             />
           }
         />
 
-        {completedSale && cartItems.length === 0 && (
-          <SaleCompleteStrip
-            sale={completedSale}
-            onOpenReceipt={() => setSelectedSaleId(completedSale.id)}
-            onDismiss={() => {
-              onDismissCompletedSale();
-              // The button disappears with the strip; the cashier goes back to scanning.
-              productInputRef.current?.focus();
-            }}
-          />
-        )}
-
-        <section className="sales-workbench-grid grid grid-cols-1 gap-4 pos:min-h-0 pos:flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,20rem)] pos:grid-rows-[minmax(0,1fr)] xl:grid-cols-[minmax(0,2fr)_minmax(320px,360px)]">
+        <section className="sales-workbench-grid pos:min-h-0 pos:flex-1">
           <SalesCartWorkspace
             items={cartItems}
             discountSuggestionSiteId={currentSite?.id ?? null}
             selectedItemKey={activeSelectedCartItemKey}
-            itemCount={draftSummary.itemCount}
             saleError={saleError}
             onQuantityChange={handleQuantityChange}
             onDiscountChange={handleDiscountChange}
@@ -397,16 +435,43 @@ export function SalesScreen({
             quantityInputRefFor={quantityInputRefFor}
             discountInputRefFor={discountInputRefFor}
             canUndo={canUndoActiveCart}
-            onUndo={handleUndoCart}
+            // The banner carries undo while it shows a read: one control, one place.
+            onUndo={lastRead ? undefined : handleUndoCart}
             itemsLocked={itemsLocked}
-            priceTier={activePriceTier}
-            onPriceTierChange={itemsLocked ? undefined : handlePriceTierChange}
+            searchBar={
+              <SalesQuickSearchBar
+                query={productSearchQuery}
+                onQueryChange={setProductSearchQuery}
+                onSubmit={() => handleOpenProductSearch(productSearchQuery)}
+                inputRef={productInputRef}
+                disabled={itemsLocked}
+              />
+            }
+            banner={
+              showCompletedSale ? (
+                <SaleCompleteStrip
+                  sale={completedSale}
+                  onOpenReceipt={() => setSelectedSaleId(completedSale.id)}
+                  onDismiss={() => {
+                    onDismissCompletedSale();
+                    // The button disappears with the strip; the cashier goes back to scanning.
+                    productInputRef.current?.focus();
+                  }}
+                />
+              ) : (
+                <LastReadBanner
+                  read={lastRead}
+                  canUndo={canUndoActiveCart}
+                  onUndo={handleUndoCart}
+                />
+              )
+            }
             quickAccess={
               !itemsLocked && currentSite && favoriteScopeKey ? (
                 <Suspense
                   fallback={
                     <div
-                      className="mb-4 min-h-24 animate-pulse rounded-[14px] border border-line/70 bg-surface-2/55"
+                      className="sales-quick-keys-loading motion-safe:animate-pulse"
                       role="status"
                       aria-label={t('common:actions.loading')}
                     />
@@ -417,19 +482,7 @@ export function SalesScreen({
                     scopeKey={favoriteScopeKey}
                     siteId={currentSite.id}
                     hasCartItems={cartItems.length > 0}
-                    canFocusDiscount={activeSelectedCartItemKey !== null}
-                    lastCompletedSaleId={lastCompletedSaleId}
-                    onOpenLastReceipt={() => {
-                      if (lastCompletedSaleId) setSelectedSaleId(lastCompletedSaleId);
-                    }}
                     onSelectProduct={handleProductSelect}
-                    onOpenSearch={() => handleOpenProductSearch()}
-                    onFocusDiscount={() => {
-                      if (activeSelectedCartItemKey) {
-                        focusDiscountInput(activeSelectedCartItemKey);
-                      }
-                    }}
-                    onNewSale={handleNewSale}
                   />
                 </Suspense>
               ) : undefined
@@ -443,12 +496,12 @@ export function SalesScreen({
             selectedRegisterAssignment={selectedRegisterAssignment}
             isCashSessionLoading={isCashSessionLoading}
             draftSummary={draftSummary}
+            lineCount={cartItems.length}
+            discountAmount={approvalDiscountAmount}
             canCharge={canCharge}
             canOpenCashSession={canOpenCashSession}
             canCloseCashSession={canCloseCashSession}
             userRole={userRole}
-            canOpenSearch={!itemsLocked}
-            onOpenSearch={() => handleOpenProductSearch()}
             onCharge={handleCharge}
             onOpenCashSession={handleOpenCashSessionModal}
             onCloseCashSession={handleOpenCloseCashSessionModal}
@@ -458,14 +511,36 @@ export function SalesScreen({
             onRegisterAssignmentChange={setSelectedRegisterAssignmentId}
             canSuspend={canSuspendActiveCart}
             onSuspend={handleOpenSuspendPrompt}
-            onNewSale={handleNewSale}
             suspendedDraftsCount={suspendedDraftsCount}
+            firstSuspendedDraft={firstSuspendedDraft}
             onToggleSuspendedPanel={handleToggleSuspendedPanel}
             hubReachable={hubReachable}
             preflightItems={preflightItems}
-            onFastCash={() => handleOpenPaymentModal(true)}
+            onFastCash={handleFastCash}
+            tender={ticketTender}
+            onTenderChange={onTicketTenderChange}
+            cashDue={cashDue}
+            customerName={lockedCustomerName}
+            onPickCustomer={
+              canOpenDrawerFromDock && !customerLocked
+                ? () => handleOpenPaymentModal(false, null, 'customer')
+                : undefined
+            }
+            onRequestInvoice={
+              canOpenDrawerFromDock && canRequestInvoice
+                ? () => handleOpenPaymentModal(false, null, 'invoice')
+                : undefined
+            }
+            // While the completion strip shows the sale, the card would repeat it.
+            lastSale={showCompletedSale ? null : lastSale}
+            onOpenLastSale={() => {
+              if (lastSale) setSelectedSaleId(lastSale.id);
+            }}
+            onOpenReturns={() => setIsHistoryDrawerOpen(true)}
           />
         </section>
+
+        <SalesShortcutStrip itemsLocked={itemsLocked} />
       </div>
 
       <SalesMobileCheckoutBar
@@ -560,12 +635,8 @@ export function SalesScreen({
               activeWorkspace?.sourceReturnCustomerId ??
               null
             }
-            paymentCustomerLocked={itemsLocked || activeWorkspace?.sourceReturnId != null}
-            paymentLockedCustomerName={
-              activeWorkspace?.sourceQuotationCustomerName ??
-              activeWorkspace?.sourceReturnCustomerName ??
-              null
-            }
+            paymentCustomerLocked={customerLocked}
+            paymentLockedCustomerName={lockedCustomerName}
             paymentApprovalItems={cartItems}
             paymentApprovalDiscountAmount={approvalDiscountAmount}
             promotionPricingEnabled={!isQuotationCart}
@@ -575,6 +646,9 @@ export function SalesScreen({
             serviceChargeRate={isQuotationCart ? 0 : serviceChargeRate}
             allowTip={!isQuotationCart}
             fastCashTrigger={fastCashTrigger}
+            fastCashAmount={fastCashAmount}
+            paymentInitialMethod={ticketTender}
+            paymentFocusTarget={paymentFocusTarget}
             paymentRestoreFocusTo={() => productInputRef.current}
             activePriceTier={activePriceTier}
             onCustomerPriceTierChange={itemsLocked ? undefined : handlePriceTierChange}

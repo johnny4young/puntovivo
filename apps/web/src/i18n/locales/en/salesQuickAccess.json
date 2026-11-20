@@ -1,8 +1,4 @@
 {
-  "suggestedKicker": "Suggested starting points",
-  "favoritesKicker": "Favorites for this register",
-  "title": "One-tap products",
-  "description": "Choose a product to add it to the cart immediately.",
   "configure": "Configure",
   "finishEditing": "Finish",
   "categories": "Product categories",
@@ -10,14 +6,9 @@
   "loading": "Loading quick products",
   "noCategoryProducts": "No products are available in this category.",
   "noFavorites": "Configure up to eight favorite products for this register.",
-  "searchCatalog": "Search catalog",
-  "safeActions": "Safe actions for the current sale",
-  "searchAnother": "Add another product",
-  "adjustDiscount": "Adjust discount",
   "addProduct": "Add {{name}} to cart",
   "addFavorite": "Add {{name}} to favorites",
   "removeFavorite": "Remove {{name}} from favorites",
-  "added": "{{name}} was added to the cart",
   "addFailed": "The product could not be added. Try again.",
   "noSaleUnit": "This product does not have a sellable unit.",
   "favoritesLoadError": "Some favorite products could not be loaded. Retry or use catalog search.",
@@ -27,5 +18,6 @@
     "text_other": "Add {{name}}? Sold {{count}} times this week here.",
     "add": "Add to quick keys",
     "dismiss": "Not now"
-  }
+  },
+  "barTitle": "No barcode · one touch"
 }

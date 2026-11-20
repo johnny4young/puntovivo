@@ -542,6 +542,7 @@ export function useSalesFlows({
         serverSaleId: resumed.id,
         serverSaleNumber: resumed.saleNumber,
         serverCustomerId: resumed.customerId ?? null,
+        serverCustomerName: resumed.customerNameSnapshot ?? resumed.customerName ?? null,
         priceTier: isPriceTier(resumed.priceTier) ? resumed.priceTier : 1,
         label,
         items,

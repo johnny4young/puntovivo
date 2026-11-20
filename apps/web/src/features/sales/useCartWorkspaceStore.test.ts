@@ -110,6 +110,7 @@ describe('useCartWorkspaceStore', () => {
       serverSaleId: 'sale-123',
       serverSaleNumber: 'VTA-000042',
       serverCustomerId: 'customer-42',
+      serverCustomerName: null,
       priceTier: 3,
       label: 'Mesa 5',
       items: [sampleItem()],
@@ -135,6 +136,7 @@ describe('useCartWorkspaceStore', () => {
       serverSaleId: 'sale-deduplicated',
       serverSaleNumber: 'VTA-ORIGINAL',
       serverCustomerId: 'customer-original',
+      serverCustomerName: 'Acme',
       priceTier: 2,
       label: 'Mesa original',
       items: originalItems,
@@ -146,6 +148,7 @@ describe('useCartWorkspaceStore', () => {
       serverSaleId: 'sale-deduplicated',
       serverSaleNumber: 'VTA-REFRESHED',
       serverCustomerId: null,
+      serverCustomerName: null,
       priceTier: 1,
       label: 'Mesa actualizada',
       items: [sampleItem({ quantity: 1 })],
@@ -163,6 +166,7 @@ describe('useCartWorkspaceStore', () => {
     expect(state.workspaces[id]).toMatchObject({
       serverSaleNumber: 'VTA-REFRESHED',
       serverCustomerId: null,
+      serverCustomerName: null,
       priceTier: 1,
       label: 'Mesa actualizada',
       items: [sampleItem({ quantity: 1 })],
@@ -281,6 +285,7 @@ describe('useCartWorkspaceStore', () => {
       serverSaleId: 'sale-locked',
       serverSaleNumber: 'VTA-LOCKED',
       serverCustomerId: null,
+      serverCustomerName: null,
       priceTier: 2,
       label: null,
       items: [sampleItem({ quantity: 2 })],
@@ -483,6 +488,7 @@ describe('useCartWorkspaceStore', () => {
         serverSaleId: 'sale-xyz',
         serverSaleNumber: 'VTA-9',
         serverCustomerId: null,
+        serverCustomerName: null,
         priceTier: 1,
         label: null,
         items: [sampleItem()],
@@ -580,6 +586,7 @@ describe('persisted workspace migration', () => {
     expect(workspace.sourceQuotationCustomerId).toBeNull();
     expect(workspace.sourceQuotationCustomerName).toBeNull();
     expect(workspace.serverCustomerId).toBeNull();
+    expect(workspace.serverCustomerName).toBeNull();
     expect(workspace.sourceReturnId).toBeNull();
     expect(workspace.sourceReturnSaleNumber).toBeNull();
     expect(workspace.sourceReturnCustomerId).toBeNull();
@@ -602,6 +609,7 @@ describe('persisted workspace migration', () => {
           updatedAt: '2026-09-01T10:00:00.000Z',
           serverSaleId: null,
           serverCustomerId: 'cust-9',
+          serverCustomerName: null,
           sourceQuotationId: 'quote-7',
           sourceQuotationNumber: 'COT-000007',
           sourceQuotationSiteId: 'site-1',

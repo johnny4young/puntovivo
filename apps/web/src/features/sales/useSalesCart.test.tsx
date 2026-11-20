@@ -55,6 +55,7 @@ describe('useSalesCart locked-workspace mutations', () => {
         serverSaleId: 'sale-1',
         serverSaleNumber: 'VTA-1',
         serverCustomerId: null,
+        serverCustomerName: null,
         priceTier: 1,
         label: null,
         items: [sampleItem()],

@@ -16,7 +16,7 @@ for (const spanish of [false, true]) {
     );
     await login(page, { ...scenario.cashier, defaultPath: '/sales' }, { spanish });
     await expect(page.getByTestId('checkout-total')).toContainText(
-      spanish ? 'Ítems (0)' : 'Items (0)'
+      spanish ? '0 artículos' : '0 items'
     );
     await expect(page.locator('body')).not.toContainText(
       spanish ? 'Sugerencia rápida' : 'Quick suggestion'
@@ -24,7 +24,7 @@ for (const spanish of [false, true]) {
     const hint = page.locator('.sales-scan-hint');
     // The UI formats actual browser-platform keys, not the Node host name.
     const searchKey = await page.evaluate(() => (/Mac/i.test(navigator.platform) ? '⌥P' : 'Alt+P'));
-    // The desktop command bar keeps these keys in the checkout rail instead.
+    // On desktop these keys live in the shortcut strip under the ticket instead.
     await expect(hint).toBeHidden();
     await expect(page.getByTestId('checkout-shortcut-chips')).toContainText('F1');
 
@@ -66,7 +66,7 @@ for (const spanish of [false, true]) {
 
     await addProductToCartViaKeyboard(page, scenario.product.sku);
     await expect(page.getByTestId('checkout-total')).toContainText(
-      spanish ? 'Ítems (1)' : 'Items (1)'
+      spanish ? '1 artículo' : '1 item'
     );
     await expect(page.locator('body')).not.toContainText(
       spanish ? 'Último escaneado' : 'Last scanned'

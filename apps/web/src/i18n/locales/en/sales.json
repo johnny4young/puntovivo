@@ -18,13 +18,9 @@
   "checkout": {
     "kicker": "Checkout",
     "chargeSummary": "Charge summary",
-    "searchProducts": "Search products",
-    "totalDue": "Total due",
     "items": "Items",
     "subtotal": "Subtotal",
     "vat": "Tax",
-    "chargeSite": "Charging site",
-    "noSite": "No site selected",
     "shortcuts": "Shortcuts",
     "chargeSale": "Charge sale",
     "hubGatedHint": "Sale completion is paused until the store hub is reachable again. Verify the hub is on and connected.",
@@ -48,16 +44,8 @@
       "tier3Title": "Price 3"
     },
     "shortcut": {
-      "search": "Search",
-      "suspend": "Suspend",
-      "resume": "Resume",
-      "charge": "Charge",
-      "fastCash": "Fast cash",
-      "quantity": "Quantity",
-      "discount": "Discount",
-      "unitInDialog": "Unit in dialog"
-    },
-    "itemsWithCount": "Items ({{value}})"
+      "charge": "Charge"
+    }
   },
   "cart": {
     "empty": "Search and add products to start a sale.",
@@ -79,10 +67,7 @@
     "decrement": "Remove one {{name}}",
     "increment": "Add one {{name}}",
     "shortcuts": {
-      "label": "Shortcuts:",
-      "search": "search",
-      "quantity": "quantity",
-      "discount": "discount"
+      "quantity": "quantity"
     },
     "discountSuggested": "Suggested -{{pct}}%"
   },
@@ -516,7 +501,6 @@
   },
   "quickSearch": {
     "label": "Product / barcode",
-    "ready": "Scanner ready",
     "placeholder": "Scan barcode or type SKU / name",
     "search": "Search",
     "lockedState": "Product editing locked",
@@ -577,11 +561,9 @@
     "shortcutResume": "Ctrl+R",
     "newSale": "New sale",
     "localWorkspacesTitle": "Open carts",
-    "localWorkspacesDescription": "Switch between local carts before suspending or charging them.",
-    "localWorkspaceFallback": "Cart {{index}}",
+    "localWorkspaceFallback": "Sale {{index}}",
     "localWorkspaceServerDraft": "Draft {{saleNumber}}",
     "localWorkspaceSelect": "Switch to {{label}}",
-    "localWorkspaceActive": "Active",
     "labelPromptTitle": "Suspend sale",
     "labelPromptDescription": "Add an optional label so you can find this draft later (e.g. Mesa 5).",
     "labelPromptConfirm": "Suspend",
@@ -828,5 +810,82 @@
     "banner": "Replacement sale for {{saleNumber}}",
     "bannerHint": "Add the replacement items. The original customer is locked and the new sale remains financially independent from the return.",
     "workspaceLabel": "Exchange {{saleNumber}}"
+  },
+  "sell": {
+    "strip": {
+      "ariaLabel": "Register and open tickets"
+    },
+    "connection": {
+      "offline": "Offline · keep selling",
+      "offlinePending_one": "Offline · keep selling · {{count}} change to send",
+      "offlinePending_other": "Offline · keep selling · {{count}} changes to send",
+      "pending_one": "{{count}} change to send",
+      "pending_other": "{{count}} changes to send"
+    },
+    "devices": {
+      "ready": "Scanner and printer ready",
+      "noPrinter": "No receipt printer"
+    },
+    "lastRead": {
+      "kicker": "Last read",
+      "idle": "Nothing read on this ticket yet",
+      "remaining_one": "{{count}} left",
+      "remaining_other": "{{count}} left",
+      "undo": "undo"
+    },
+    "table": {
+      "quantity": "Quantity",
+      "unit": "Unit",
+      "lineDiscount": "Discount −{{pct}}%"
+    },
+    "customer": {
+      "walkInHint": "POS ticket, no buyer details",
+      "invoice": "Electronic invoice"
+    },
+    "total": {
+      "label": "Total to charge",
+      "items_one": "{{count}} item",
+      "items_other": "{{count}} items",
+      "lines_one": "{{count}} line",
+      "lines_other": "{{count}} lines",
+      "savings": "Discounts",
+      "taxIncluded": "Tax included"
+    },
+    "ready": {
+      "title": "Ready to charge",
+      "detail": "register open, numbering and stock checked"
+    },
+    "lastSale": {
+      "title": "Last sale",
+      "open": "Reprint or send"
+    },
+    "parked": {
+      "title": "On hold"
+    },
+    "tender": {
+      "title": "How do they pay?",
+      "split": "Split"
+    },
+    "cash": {
+      "title": "Cash, one touch",
+      "exact": "Exact",
+      "receives": "Gets",
+      "change": "change {{amount}}"
+    },
+    "actions": {
+      "suspend": "Suspend",
+      "returns": "Return"
+    },
+    "keys": {
+      "shortest": "Shortest path:",
+      "scan": "scan",
+      "exactCash": "exact cash",
+      "or": "or",
+      "charge": "charge",
+      "removeLine": "remove line",
+      "parked": "sales on hold",
+      "newSale": "new sale",
+      "more": "everything else"
+    }
   }
 }

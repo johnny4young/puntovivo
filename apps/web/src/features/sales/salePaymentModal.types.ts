@@ -126,6 +126,9 @@ export interface SalePaymentValues extends ElectronicInvoiceFormValues {
   electronicInvoice?: { buyer: SaleElectronicInvoiceBuyer } | undefined;
 }
 
+/** A single payment method, or the split-tender mode. */
+export type InitialTender = 'cash' | 'card' | 'transfer' | 'credit' | 'split';
+
 export interface SalePaymentModalProps {
   isOpen: boolean;
   total: number;
@@ -168,6 +171,10 @@ export interface SalePaymentModalProps {
    * double-fires on the initial render.
    */
   fastCashTrigger?: number | undefined;
+  /** Cash handed over with the fast-cash signal; null means the exact total. */
+  fastCashAmount?: number | null | undefined;
+  /** Tender chosen on the ticket before opening; the modal starts on it. */
+  initialMethod?: InitialTender | undefined;
   /**
    * explicit cashier-flow focus target. The payment drawer
    * restores focus here after cancel, Escape, backdrop close, or a
