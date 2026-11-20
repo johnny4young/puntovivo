@@ -216,6 +216,7 @@ const RESOURCE_TYPE_OPTIONS: readonly AuditLogResourceType[] = [
   'webhook_subscription',
   'webhook_outbox',
   'fiscal_numbering_range',
+  'transfer_destination',
 ];
 
 /**

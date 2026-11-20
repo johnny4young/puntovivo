@@ -29,6 +29,7 @@ import {
   sales,
   sequentials,
   sitePeripherals,
+  siteTransferDestinations,
   sites,
   tenantLocaleSettings,
   tenants,
@@ -356,6 +357,26 @@ describe('setupReadiness', () => {
     expect(payments?.status).toBe('optional-pending');
   });
 
+  it('counts a transfer destination as a configured way to get paid', async () => {
+    const db = getDatabase();
+    const destinationId = nanoid();
+    db.insert(siteTransferDestinations)
+      .values({
+        id: destinationId,
+        tenantId,
+        siteId,
+        position: 0,
+        kind: 'nequi',
+        label: 'Nequi',
+        account: '3105550142',
+      })
+      .run();
+    const caller = appRouter.createCaller(buildCtx({ tenantId, userId }));
+    const result = await caller.setupReadiness.get();
+    db.delete(siteTransferDestinations).where(eq(siteTransferDestinations.id, destinationId)).run();
+    expect(result.sections.find(s => s.id === 'payments')?.status).toBe('ready');
+  });
+
   it('isolates product counts by tenant', async () => {
     // Seed a product on the primary tenant; assert the foreign
     // tenant still reports `catalog` as a blocker.
@@ -589,6 +610,28 @@ describe('setupReadiness — Colombia profile + checkout', () => {
     );
     const result = await caller.setupReadiness.checkout({ siteId: coSiteId });
     expect(result.items.some(item => item.id === 'sale_sequential')).toBe(false);
+  });
+
+  it('checkout drops the cash-only reminder once the site has a transfer destination', async () => {
+    const db = getDatabase();
+    const destinationId = nanoid();
+    db.insert(siteTransferDestinations)
+      .values({
+        id: destinationId,
+        tenantId: coTenantId,
+        siteId: coSiteId,
+        position: 0,
+        kind: 'nequi',
+        label: 'Nequi',
+        account: '3105550142',
+      })
+      .run();
+    const caller = appRouter.createCaller(
+      buildCtx({ tenantId: coTenantId, userId: coCashierId, role: 'cashier' })
+    );
+    const result = await caller.setupReadiness.checkout({ siteId: coSiteId });
+    db.delete(siteTransferDestinations).where(eq(siteTransferDestinations.id, destinationId)).run();
+    expect(result.items.some(item => item.id === 'payment_rail')).toBe(false);
   });
 
   it('checkout drops the receipt-hardware reminder once an active printer exists', async () => {

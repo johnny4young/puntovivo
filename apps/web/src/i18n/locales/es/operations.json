@@ -786,5 +786,14 @@
       "recovery": "Herramientas de recuperación",
       "evidence": "Evidencia y conexiones"
     }
+  },
+  "server": {
+    "TRANSFER_DESTINATION_ACCOUNT_INVALID": "Esa cuenta no corresponde a este destino. Bre-B recibe una llave con @, un correo o un número; Nequi y Daviplata, un celular de 10 dígitos; una cuenta bancaria, solo dígitos.",
+    "TRANSFER_DESTINATION_BANK_REQUIRED": "Una cuenta bancaria necesita el nombre del banco y el tipo de cuenta.",
+    "TRANSFER_DESTINATION_QR_INVALID": "Ese no es un QR bancario completo. Escanee de nuevo el QR que le dio su banco.",
+    "TRANSFER_DESTINATION_DUPLICATE": "Esta sede ya tiene ese destino.",
+    "TRANSFER_DESTINATION_LIMIT_REACHED": "Esta sede ya tiene {{max}} destinos de transferencia. Quite uno para agregar otro.",
+    "TRANSFER_DESTINATION_NOT_FOUND": "Ese destino de transferencia ya no existe. Recargue e intente de nuevo.",
+    "TRANSFER_DESTINATION_ORDER_INVALID": "Los destinos de transferencia cambiaron mientras los ordenaba. Recargue e intente de nuevo."
   }
 }

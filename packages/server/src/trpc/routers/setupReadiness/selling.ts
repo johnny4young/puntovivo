@@ -13,7 +13,7 @@ import {
 import { resolveReadinessProfile } from '../../../services/readiness/profile.js';
 import {
   countActiveReceiptPrinters,
-  countConfiguredPaymentRails,
+  countNonCashTenders,
   isCoFiscalTestMode,
   readCheckoutFiscalState,
   readSyncBacklog,
@@ -120,7 +120,7 @@ export async function buildCheckoutReadiness(args: {
     });
   }
 
-  if (countConfiguredPaymentRails(settings) === 0) {
+  if (countNonCashTenders(db, tenantId, settings, siteId) === 0) {
     items.push({
       id: 'payment_rail',
       severity: 'warning',

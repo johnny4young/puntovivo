@@ -153,6 +153,12 @@ El candidato validado actual incluye:
   fuera de catálogo. Una sede sin teclas ofrece lo que más vendió, completado con
   el catálogo, y los favoritos locales que tenía un navegador la siembran una
   vez;
+- destinos de transferencia por sede: llaves Bre-B, números Nequi y Daviplata y
+  cuentas bancarias, hasta seis, cada uno con el nombre que elija el
+  administrador. Todas las cajas los leen al cobrar, con un QR por el monto: el
+  QR EMVCo del banco leído con el escáner se muestra tal cual; si no hay, el QR
+  escribe el destino y el monto. Las transferencias se siguen confirmando a
+  mano, y una sede con un destino ya no avisa que solo hay efectivo configurado;
 - reservas por sede con controles de capacidad y solapamiento, llegada explícita
   y asignación de una reserva a una cuenta sin ventas vacías; creación versionada
   de entregas, despacho de repartidor y cancelación desde la UI sin cobro ni

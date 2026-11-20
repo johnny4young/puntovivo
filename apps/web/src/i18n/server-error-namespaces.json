@@ -69,6 +69,10 @@
     {
       "namespace": "products",
       "prefixes": ["PRODUCT_TRACKING_REQUIRES_EMPTY_INVENTORY"]
+    },
+    {
+      "namespace": "operations",
+      "prefixes": ["TRANSFER_DESTINATION_"]
     }
   ]
 }

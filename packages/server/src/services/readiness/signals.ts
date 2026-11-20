@@ -17,7 +17,13 @@
 import { and, count, eq, inArray } from 'drizzle-orm';
 
 import type { DatabaseInstance } from '../../db/index.js';
-import { fiscalOutbox, sitePeripherals, syncConflicts, syncOutbox } from '../../db/schema.js';
+import {
+  fiscalOutbox,
+  sitePeripherals,
+  siteTransferDestinations,
+  syncConflicts,
+  syncOutbox,
+} from '../../db/schema.js';
 import { isCountryFiscalEnabled, isDianFlagOn } from '../fiscal/orchestrator/helpers.js';
 import { readCoFiscalSettings, validateCoEmissionConfig } from '../fiscal/packs/co/settings.js';
 import {
@@ -106,6 +112,26 @@ export function countConfiguredPaymentRails(
   return PAYMENT_RAIL_IDS.filter(
     railId => Object.keys(readPaymentRailCredentials(blob, railId)).length > 0
   ).length;
+}
+
+/**
+ * Ways to get paid other than cash: configured rails plus transfer
+ * destinations of `siteId`, or of any site when it is omitted.
+ */
+export function countNonCashTenders(
+  db: DatabaseInstance,
+  tenantId: string,
+  settings: Record<string, unknown> | null | undefined,
+  siteId?: string | null
+): number {
+  const conditions = [eq(siteTransferDestinations.tenantId, tenantId)];
+  if (siteId) conditions.push(eq(siteTransferDestinations.siteId, siteId));
+  const destinations = db
+    .select({ total: count(siteTransferDestinations.id) })
+    .from(siteTransferDestinations)
+    .where(and(...conditions))
+    .get();
+  return countConfiguredPaymentRails(settings) + Number(destinations?.total ?? 0);
 }
 
 /** Fiscal-document outbox terminal-failure statuses that need attention. */

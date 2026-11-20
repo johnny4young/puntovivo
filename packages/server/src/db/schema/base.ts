@@ -536,6 +536,11 @@ export const auditLogActionEnum = [
   'fiscal_numbering.retire',
   'fiscal_numbering.delete',
   'fiscal_numbering.relieve',
+  // Where a site receives transfers. Snapshots carry the account shown to customers.
+  'transfer_destination.create',
+  'transfer_destination.update',
+  'transfer_destination.delete',
+  'transfer_destination.reorder',
 ] as const;
 export type AuditLogAction = (typeof auditLogActionEnum)[number];
 
@@ -642,6 +647,7 @@ export const auditLogResourceTypeEnum = [
   // immutable comprehensive day-close evidence row.
   'day_close_signoff',
   'fiscal_numbering_range',
+  'transfer_destination',
 ] as const;
 export type AuditLogResourceType = (typeof auditLogResourceTypeEnum)[number];
 

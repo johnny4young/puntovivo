@@ -86,6 +86,11 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
     'fiscal.xml.downloaded',
     // irreversible financial attestation belongs in money review.
     'day_close.sign_off',
+    // changes where customers send transfers.
+    'transfer_destination.create',
+    'transfer_destination.update',
+    'transfer_destination.delete',
+    'transfer_destination.reorder',
   ],
   inventory: [
     'inventory.adjust_stock',

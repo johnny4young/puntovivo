@@ -708,6 +708,13 @@
       "when": 1795181845638,
       "tag": "0100_site_quick_keys",
       "breakpoints": true
+    },
+    {
+      "idx": 101,
+      "version": "6",
+      "when": 1795199518151,
+      "tag": "0101_site_transfer_destinations",
+      "breakpoints": true
     }
   ]
 }

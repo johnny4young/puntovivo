@@ -145,6 +145,8 @@ site sequences under tenant-wide uniqueness constraints. Actual counts of
 completed sales can vary when a fixture hits stock guards. Products priced per
 kilogram sell in grams (step 0.001, minimum 0.05), and each site starts with
 seven shared quick keys for items without a barcode, one of them sold by amount.
+Colombian demo sites also receive transfers: each has a Bre-B key and a Nequi
+number, and the first site a bank account.
 
 The mega path adds historical sales, returns, voids, drafts, cash movements,
 inventory movements, purchases and supplier returns, transfers, quotations,

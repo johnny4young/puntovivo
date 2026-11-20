@@ -221,7 +221,11 @@
     "fiscal_numbering.activate": "DIAN numbering range activated",
     "fiscal_numbering.retire": "DIAN numbering range retired",
     "fiscal_numbering.delete": "DIAN numbering range deleted",
-    "fiscal_numbering.relieve": "DIAN numbering range relieved by another"
+    "fiscal_numbering.relieve": "DIAN numbering range relieved by another",
+    "transfer_destination.create": "Transfer destination added",
+    "transfer_destination.update": "Transfer destination changed",
+    "transfer_destination.delete": "Transfer destination removed",
+    "transfer_destination.reorder": "Transfer destinations reordered"
   },
   "resourceTypes": {
     "transfer_order": "Transfer order",
@@ -287,7 +291,8 @@
     "shift_swap": "Shift exchange",
     "attendance_reconciliation": "Attendance reconciliation",
     "restaurant_modifier": "Restaurant add-on",
-    "fiscal_numbering_range": "DIAN numbering range"
+    "fiscal_numbering_range": "DIAN numbering range",
+    "transfer_destination": "Transfer destination"
   },
   "summary": {
     "voidReason": "Reason: {{reason}}",

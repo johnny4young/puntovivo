@@ -243,7 +243,11 @@ export type AuditLogAction =
   | 'fiscal_numbering.activate'
   | 'fiscal_numbering.retire'
   | 'fiscal_numbering.delete'
-  | 'fiscal_numbering.relieve';
+  | 'fiscal_numbering.relieve'
+  | 'transfer_destination.create'
+  | 'transfer_destination.update'
+  | 'transfer_destination.delete'
+  | 'transfer_destination.reorder';
 
 export type AuditLogResourceType =
   | 'employment_contract'
@@ -330,7 +334,8 @@ export type AuditLogResourceType =
   // signed comprehensive day-close evidence.
   | 'day_close_signoff'
   // a DIAN numbering range of one site.
-  | 'fiscal_numbering_range';
+  | 'fiscal_numbering_range'
+  | 'transfer_destination';
 
 export type PurchaseStatus = 'draft' | 'completed' | 'partial_returned' | 'returned' | 'voided';
 

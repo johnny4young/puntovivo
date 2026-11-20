@@ -75,6 +75,7 @@ import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 import { createReceiptTemplate } from '../services/receipt-templates.js';
 import { setSiteQuickKey } from '../services/site-quick-keys.js';
+import { setSiteTransferDestination } from '../services/site-transfer-destinations.js';
 import { getProductStockTotal } from '../services/inventory-balances.js';
 import type { ReceiptLayout } from '../trpc/schemas/receiptTemplates.js';
 import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
@@ -829,6 +830,34 @@ export async function seedDevData(
         { kind, productId: product.id, label }
       );
     }
+  }
+
+  // ----- 11c. Where each Colombian demo site receives transfers ------------
+  if (countryCode === 'CO') {
+    siteRows.forEach((site, index) => {
+      const scope = { tenantId, siteId: site.id, userId: adminUser.id };
+      const holderName = 'Demo Retail Colombia';
+      setSiteTransferDestination(db, scope, {
+        kind: 'bre_b',
+        account: `@demoretail${index + 1}`,
+        holderName,
+      });
+      setSiteTransferDestination(db, scope, {
+        kind: 'nequi',
+        account: `30055501${String(index).padStart(2, '0')}`,
+        holderName,
+      });
+      if (index === 0) {
+        setSiteTransferDestination(db, scope, {
+          kind: 'bank_account',
+          account: '000123456789',
+          bankName: 'Banco Demo',
+          accountType: 'savings',
+          holderName,
+          holderId: '900123456',
+        });
+      }
+    });
   }
 
   // ----- 12. Historical operational data via tRPC caller ------------------
