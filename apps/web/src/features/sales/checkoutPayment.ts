@@ -4,14 +4,20 @@ import type { PaymentMethod, PaymentStatus, Sale } from '@/types';
 type CompletablePaymentStatus = Exclude<PaymentStatus, 'refunded' | 'partially_refunded'>;
 
 /**
- * A sale is considered multi-tender (and therefore worth rendering a tender
- * breakdown for) when it has two or more persisted payment rows. Single-row
- * sales — whether they came from the legacy path or were typed as a single
- * tender in split mode — are already fully described by the legacy
- * `paymentMethod` column and don't need the extra panel.
+ * True when the tender rows say more than the sale's payment method: a split,
+ * a customer-value tender, or a reference such as a transfer voucher.
  */
-export function hasSplitPayments(sale: Pick<Sale, 'payments'>): boolean {
-  return (sale.payments?.length ?? 0) > 1;
+export function paymentsNeedBreakdown(payments: Sale['payments']): boolean {
+  if (!payments) return false;
+  return (
+    payments.length > 1 ||
+    payments.some(
+      payment =>
+        payment.method === 'loyalty' ||
+        payment.method === 'store_credit' ||
+        Boolean(payment.reference?.trim())
+    )
+  );
 }
 
 /**

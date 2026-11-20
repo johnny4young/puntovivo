@@ -39,6 +39,11 @@ const SalePaymentSingleTenderSection = lazy(async () => {
   return { default: module.SalePaymentSingleTenderSection };
 });
 
+const SalePaymentTransferSection = lazy(async () => {
+  const module = await import('./SalePaymentTransferSection');
+  return { default: module.SalePaymentTransferSection };
+});
+
 const SalePharmacyEvidenceSection = lazy(async () => {
   const module = await import('./SalePharmacyEvidenceSection');
   return { default: module.SalePharmacyEvidenceSection };
@@ -108,6 +113,8 @@ export function SalePaymentModal({
     paymentMethod,
     isCash,
     isCredit,
+    isTransfer,
+    transferReferenceValid,
     isAdmin,
     creditMethodAvailable,
     selectedCustomer,
@@ -192,6 +199,9 @@ export function SalePaymentModal({
       return creditDownPayment > 0
         ? t('payment.confirmCreditWithCash', { credit, cash: formatCurrency(creditDownPayment) })
         : t('payment.confirmCredit', { credit });
+    }
+    if (isTransfer) {
+      return t(invoiceRequested ? 'payment.confirmTransferInvoice' : 'payment.confirmTransfer');
     }
     return invoiceRequested ? t('payment.confirmInvoice') : t('payment.confirm');
   };
@@ -345,10 +355,27 @@ export function SalePaymentModal({
               creditMethodAvailable={creditMethodAvailable}
               isCash={isCash}
               isCredit={isCredit}
+              isTransfer={isTransfer}
               grandTotal={grandTotal}
               amountReceivedValue={amountReceivedValue}
               currencySymbol={currencySymbol}
               handleEnableSplit={handleEnableSplit}
+            />
+          </Suspense>
+        )}
+
+        {isTransfer && (
+          <Suspense
+            fallback={
+              <p className="text-sm text-secondary-500" role="status">
+                {t('common:status.loading')}
+              </p>
+            }
+          >
+            <SalePaymentTransferSection
+              form={form}
+              grandTotal={grandTotal}
+              referenceValid={transferReferenceValid}
             />
           </Suspense>
         )}
@@ -488,6 +515,11 @@ export function SalePaymentModal({
           onRefresh={() => {
             void checkoutApprovals.refetch();
           }}
+          requestBlockedReason={
+            isTransfer && !transferReferenceValid
+              ? t('payment.transferQr.approvalNeedsReference')
+              : undefined
+          }
         />
 
         {pharmacyCheckout.enabled && (

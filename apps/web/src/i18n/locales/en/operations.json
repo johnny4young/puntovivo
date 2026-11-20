@@ -787,6 +787,61 @@
       "evidence": "Evidence and connections"
     }
   },
+  "transferDestinations": {
+    "title": "Transfer destinations",
+    "count": "{{count}} of {{max}}",
+    "site": "Site",
+    "add": "Add destination",
+    "addTitle": "Add transfer destination",
+    "editTitle": "Edit transfer destination",
+    "empty": "This site has no transfer destinations.",
+    "qrStored": "Bank QR stored",
+    "qrHint": "Scan the QR your bank issued with the register's barcode scanner.",
+    "chooseAccountType": "Choose a type",
+    "moveUp": "Move {{name}} up",
+    "moveDown": "Move {{name}} down",
+    "edit": "Edit {{name}}",
+    "remove": "Remove {{name}}",
+    "removeTitle": "Remove transfer destination",
+    "removeMessage": "Registers at this site will stop showing {{name}}.",
+    "removeConfirm": "Remove",
+    "kinds": {
+      "bre_b": "Bre-B",
+      "nequi": "Nequi",
+      "daviplata": "Daviplata",
+      "bank_account": "Bank account"
+    },
+    "accountTypes": {
+      "savings": "Savings",
+      "checking": "Checking"
+    },
+    "fields": {
+      "kind": "Type",
+      "account": {
+        "bre_b": "Bre-B key",
+        "nequi": "Mobile number",
+        "daviplata": "Mobile number",
+        "bank_account": "Account number"
+      },
+      "label": "Label",
+      "bankName": "Bank",
+      "accountType": "Account type",
+      "holderName": "Account holder",
+      "holderId": "Holder ID",
+      "qrPayload": "Bank QR"
+    },
+    "errors": {
+      "account": {
+        "bre_b": "Enter an @ key, an email or a number of 6 to 20 digits.",
+        "nequi": "Enter the 10-digit mobile number of the Nequi account.",
+        "daviplata": "Enter the 10-digit mobile number of the Daviplata account.",
+        "bank_account": "Enter the account number, 6 to 20 digits."
+      },
+      "bankName": "Enter the bank name.",
+      "accountType": "Choose the account type.",
+      "qrPayload": "That is not a complete bank QR. Scan it again."
+    }
+  },
   "server": {
     "TRANSFER_DESTINATION_ACCOUNT_INVALID": "That account does not fit this destination. Bre-B takes an @ key, an email or a number; Nequi and Daviplata take a 10-digit mobile number; a bank account takes digits only.",
     "TRANSFER_DESTINATION_BANK_REQUIRED": "A bank account needs the bank name and the account type.",

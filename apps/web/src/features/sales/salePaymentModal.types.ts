@@ -101,6 +101,8 @@ export interface SalePaymentValues extends ElectronicInvoiceFormValues {
   creditOverride: boolean;
   /** Cash paid now on a credit sale; the rest goes on the customer's account. */
   creditDownPayment?: number | undefined;
+  /** Last digits or reference of a single transfer; it travels as that tender's reference. */
+  transferReference?: string | undefined;
   /**
    * restaurant service charge / propina sugerida. Auto
    * applied from the tenant's `serviceChargeRate` (a per-tenant

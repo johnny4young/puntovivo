@@ -378,7 +378,23 @@
     "splitZeroRow": "Quite los medios en cero antes de confirmar.",
     "confirmCredit": "Fiar {{credit}}",
     "confirmCreditWithCash": "Fiar {{credit}} y cobrar {{cash}}",
-    "confirmInvoice": "Confirmar y facturar"
+    "confirmInvoice": "Confirmar y facturar",
+    "confirmTransfer": "Ya llegó · confirmar venta",
+    "confirmTransferInvoice": "Ya llegó · confirmar y facturar",
+    "transferQr": {
+      "title": "Muestre el QR de la tienda",
+      "onCustomerDisplay": "También sale en la pantalla del cliente.",
+      "amountTyped": "El cliente escribe el valor en su app.",
+      "destinations": "Cuentas para recibir la transferencia",
+      "qrLabel": "QR para transferir a {{name}}",
+      "reference": "Últimos dígitos o referencia del comprobante",
+      "referenceOk": "Referencia lista",
+      "manualNote": "Usted confirma que el dinero llegó: la caja no consulta al banco.",
+      "empty": "Esta sede no tiene cuentas para recibir transferencias.",
+      "configure": "Configurar",
+      "loadError": "No se pudieron cargar las cuentas de transferencia.",
+      "approvalNeedsReference": "Escriba la referencia de la transferencia antes de pedir la aprobación."
+    }
   },
   "history": {
     "title": "Historial de ventas",

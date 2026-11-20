@@ -25,6 +25,7 @@ import { useTenant } from '@/features/tenant/TenantProvider';
 import { useResolvedLocale } from '@/features/locale/LocaleProvider';
 import { useIsModuleActive } from '@/features/modules';
 import { useCustomerDisplayPublisher } from '@/features/surfaces/useCustomerDisplayPublisher';
+import { useCheckoutTransferDisplay } from '@/features/sales/checkoutTransferDisplay';
 import { openCustomerDisplayWindow } from '@/features/surfaces/openCustomerDisplayWindow';
 import { getOrCreateCustomerDisplayAccessId } from '@/features/surfaces/customerDisplayProjection';
 import { useToast } from '@/components/feedback/ToastProvider';
@@ -277,6 +278,7 @@ export function SalesPage() {
     [customerDisplayEnabled, currentSite, currentTenant]
   );
 
+  const checkoutTransfer = useCheckoutTransferDisplay(state => state.transfer);
   useCustomerDisplayPublisher(
     customerDisplayAccessId && currentTenant && currentSite && activeCashSession
       ? {
@@ -289,6 +291,7 @@ export function SalesPage() {
           items: cartItems,
           summary: draftSummary,
           priceIncludesTax,
+          transfer: checkoutTransfer,
         }
       : null
   );

@@ -66,6 +66,8 @@ const COPY = {
     'summary.tax': 'Impuestos',
     'summary.total': 'Total',
     'summary.checkoutHint': 'El cajero confirmará el valor final.',
+    'transfer.title': 'Pague por transferencia',
+    'transfer.qrLabel': 'QR para transferir a {{name}}',
     privacy: 'Esta pantalla solo muestra productos y totales.',
   },
 } as const;
@@ -102,6 +104,10 @@ vi.mock('../useCustomerDisplayFeed', () => ({
       reconnect: mocks.reconnect,
     };
   },
+}));
+
+vi.mock('qrcode', () => ({
+  create: () => ({ modules: { size: 1, data: new Uint8Array([1]) } }),
 }));
 
 import { CustomerDisplayHome } from '../CustomerDisplayHome';
@@ -171,6 +177,23 @@ describe('CustomerDisplayHome', () => {
     expect(screen.getByTestId('customer-display-total')).toHaveTextContent('22.610');
     expect(document.body.textContent).not.toContain('tenant-1');
     expect(document.body.textContent).not.toContain('session-1');
+  });
+
+  it('shows the store transfer QR and the amount to transfer while the cashier charges by transfer', async () => {
+    mocks.projection = {
+      ...displayProjection(),
+      transfer: { label: 'Nequi', account: '310 555 0142', qrPayload: '000201abc', amount: 24_000 },
+    };
+    mocks.connection = 'live';
+    renderHome();
+
+    expect(await screen.findByText('Pague por transferencia')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'QR para transferir a Nequi' })).toBeInTheDocument();
+    expect(screen.getByTestId('customer-display-transfer-account')).toHaveTextContent(
+      'Nequi · 310 555 0142'
+    );
+    expect(screen.getByTestId('customer-display-total')).toHaveTextContent('24.000');
+    expect(screen.queryByText('El cajero confirmará el valor final.')).not.toBeInTheDocument();
   });
 
   it('renders the same live workflow in English', async () => {

@@ -247,3 +247,30 @@ describe('CustomerDisplayBus storage lifecycle', () => {
     expect(() => bus.close()).not.toThrow();
   });
 });
+
+describe('Customer Display transfer QR', () => {
+  const transfer = {
+    label: 'Nequi',
+    account: '310 555 0142',
+    qrPayload: '000201abc',
+    amount: 87420,
+  };
+
+  it('carries the store transfer QR and round-trips it through the parser', () => {
+    const result = projection({ transfer });
+
+    expect(result.transfer).toEqual(transfer);
+    expect(parseCustomerDisplayProjection(JSON.parse(JSON.stringify(result)))?.transfer).toEqual(
+      transfer
+    );
+    expect(projection().transfer).toBeUndefined();
+  });
+
+  it('drops an oversized QR and rejects a malformed transfer block', () => {
+    expect(projection({ transfer: { ...transfer, qrPayload: 'x'.repeat(513) } }).transfer).toBe(
+      undefined
+    );
+    const malformed = { ...projection(), transfer: { ...transfer, amount: -1 } };
+    expect(parseCustomerDisplayProjection(malformed)).toBeNull();
+  });
+});

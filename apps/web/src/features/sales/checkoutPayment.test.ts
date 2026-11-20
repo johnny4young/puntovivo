@@ -5,7 +5,7 @@ import {
   checkoutUsesCreditTender,
   getCheckoutPaymentState,
   getRequestedPaymentStatus,
-  hasSplitPayments,
+  paymentsNeedBreakdown,
 } from './checkoutPayment';
 
 function buildPaymentValues(overrides?: Partial<SalePaymentValues>): SalePaymentValues {
@@ -86,7 +86,7 @@ describe('checkoutPayment', () => {
     });
   });
 
-  describe('hasSplitPayments', () => {
+  describe('paymentsNeedBreakdown', () => {
     function buildPayment(overrides?: Partial<SalePayment>): SalePayment {
       return {
         id: 'pay_1',
@@ -99,23 +99,24 @@ describe('checkoutPayment', () => {
     }
 
     it('returns false when payments is missing or empty', () => {
-      // exactOptional rejects `{ payments: undefined }`; pass the bare object instead.
-      expect(hasSplitPayments({} as { payments?: SalePayment[] })).toBe(false);
-      expect(hasSplitPayments({ payments: [] })).toBe(false);
+      expect(paymentsNeedBreakdown(undefined)).toBe(false);
+      expect(paymentsNeedBreakdown([])).toBe(false);
     });
 
-    it('returns false for a single-tender sale (the Payment tile already covers it)', () => {
-      expect(hasSplitPayments({ payments: [buildPayment()] })).toBe(false);
+    it('returns false for a plain single tender (the Payment tile already covers it)', () => {
+      expect(paymentsNeedBreakdown([buildPayment({ reference: '  ' })])).toBe(false);
     });
 
-    it('returns true when two or more tenders are present', () => {
+    it('returns true for a split, a customer-value tender or a referenced tender', () => {
       expect(
-        hasSplitPayments({
-          payments: [
-            buildPayment({ method: 'cash', amount: 4 }),
-            buildPayment({ id: 'pay_2', method: 'card', amount: 6 }),
-          ],
-        })
+        paymentsNeedBreakdown([
+          buildPayment({ method: 'cash', amount: 4 }),
+          buildPayment({ id: 'pay_2', method: 'card', amount: 6 }),
+        ])
+      ).toBe(true);
+      expect(paymentsNeedBreakdown([buildPayment({ method: 'store_credit' })])).toBe(true);
+      expect(
+        paymentsNeedBreakdown([buildPayment({ method: 'transfer', reference: 'M482190' })])
       ).toBe(true);
     });
   });

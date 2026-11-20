@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { MonitorUp, Radio, RefreshCw, ShoppingBag, WifiOff } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
+import { TransferQrCode } from '@/features/sales/TransferQrCode';
 import { useCustomerDisplayFeed } from './useCustomerDisplayFeed';
 import { isCustomerDisplayAccessId } from './customerDisplayStorage';
 
@@ -170,13 +171,31 @@ export function CustomerDisplayHome() {
                 data-testid="customer-display-total"
               >
                 {formatCurrency(
-                  projection.summary.total,
+                  projection.transfer?.amount ?? projection.summary.total,
                   projection.currency,
                   i18n.resolvedLanguage
                 )}
               </p>
             </div>
-            <p className="text-sm text-secondary-300">{t('summary.checkoutHint')}</p>
+            {projection.transfer ? (
+              <div className="flex flex-col items-center gap-3 border-t border-white/15 pt-5 text-center">
+                <p className="font-display text-xl font-semibold">{t('transfer.title')}</p>
+                <TransferQrCode
+                  payload={projection.transfer.qrPayload}
+                  label={t('transfer.qrLabel', { name: projection.transfer.label })}
+                  className="transfer-qr customer-display-transfer-qr"
+                  testId="customer-display-transfer-qr"
+                />
+                <p
+                  className="text-base font-semibold"
+                  data-testid="customer-display-transfer-account"
+                >
+                  {projection.transfer.label} · {projection.transfer.account}
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-secondary-300">{t('summary.checkoutHint')}</p>
+            )}
           </aside>
         </div>
       )}

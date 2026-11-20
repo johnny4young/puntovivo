@@ -49,6 +49,35 @@ describe('CheckoutApprovalPanel', () => {
     expect(onRequest).toHaveBeenCalledWith('sale_discount', 'OK price');
   });
 
+  it('holds the request and says why while the sale is not ready to be approved', async () => {
+    const user = userEvent.setup();
+    const onRequest = vi.fn();
+    render(
+      <CheckoutApprovalPanel
+        {...baseProps}
+        onRequest={onRequest}
+        requestBlockedReason="Type the transfer reference before asking for approval."
+        views={[
+          {
+            action: 'sale_discount',
+            requestId: null,
+            status: 'not_requested',
+            decisionReason: null,
+            approvalsCollected: 0,
+            requiredApprovals: 1,
+          },
+        ]}
+      />
+    );
+
+    await user.type(screen.getByPlaceholderText('Explain why approval is needed'), 'OK price');
+    expect(screen.getByRole('button', { name: 'Request approval' })).toBeDisabled();
+    expect(screen.getByTestId('checkout-approval-request-blocked')).toHaveTextContent(
+      'Type the transfer reference before asking for approval.'
+    );
+    expect(onRequest).not.toHaveBeenCalled();
+  });
+
   it('shows approved, decision, error, and refresh states without raw details', async () => {
     const user = userEvent.setup();
     const onRefresh = vi.fn();

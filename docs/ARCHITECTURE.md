@@ -100,8 +100,12 @@ envelope again and fails closed on a pairing/scope mismatch, malformed input,
 clock skew, staleness, or offline state.
 
 The customer-visible sale content is an allowlist: product display name, unit
-label, quantity, unit price, discount, line total, and sale totals. Its scope
-envelope necessarily carries opaque tenant, site, and cash-session identifiers,
+label, quantity, unit price, discount, line total, and sale totals, plus the
+store's transfer destination label, account and QR payload with the amount
+while the cashier charges by transfer. That block is the store's receiving
+account, never customer payment data, and it leaves the envelope when the
+transfer state closes. Its scope envelope necessarily carries opaque tenant,
+site, and cash-session identifiers,
 but product, unit, customer, employee, payment, prescription, note, stock,
 serial, SKU, tax, and other business identifiers are not part of the displayed
 sale contract. Register discovery reads only fresh locally published envelopes

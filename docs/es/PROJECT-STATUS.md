@@ -155,10 +155,14 @@ El candidato validado actual incluye:
   vez;
 - destinos de transferencia por sede: llaves Bre-B, números Nequi y Daviplata y
   cuentas bancarias, hasta seis, cada uno con el nombre que elija el
-  administrador. Todas las cajas los leen al cobrar, con un QR por el monto: el
-  QR EMVCo del banco leído con el escáner se muestra tal cual; si no hay, el QR
-  escribe el destino y el monto. Las transferencias se siguen confirmando a
-  mano, y una sede con un destino ya no avisa que solo hay efectivo configurado;
+  administrador y que se editan en la configuración de pagos. Al cobrar por
+  transferencia la caja muestra el QR de la sede por el total, también en la
+  pantalla del cliente si está activa: el QR EMVCo del banco leído con el
+  escáner se muestra tal cual; si no hay, el QR escribe el destino y el monto.
+  El cajero escribe los últimos dígitos o la referencia del comprobante antes
+  de confirmar, y queda guardada con el pago e impresa en el recibo. Las
+  transferencias se siguen confirmando a mano, y una sede con un destino ya no
+  avisa que solo hay efectivo configurado;
 - reservas por sede con controles de capacidad y solapamiento, llegada explícita
   y asignación de una reserva a una cuenta sin ventas vacías; creación versionada
   de entregas, despacho de repartidor y cancelación desde la UI sin cobro ni

@@ -378,7 +378,23 @@
     "splitZeroRow": "Remove the zero-amount methods before confirming.",
     "confirmCredit": "Put {{credit}} on account",
     "confirmCreditWithCash": "Put {{credit}} on account and take {{cash}}",
-    "confirmInvoice": "Confirm and invoice"
+    "confirmInvoice": "Confirm and invoice",
+    "confirmTransfer": "It arrived · confirm sale",
+    "confirmTransferInvoice": "It arrived · confirm and invoice",
+    "transferQr": {
+      "title": "Show the store QR",
+      "onCustomerDisplay": "It also shows on the customer display.",
+      "amountTyped": "The customer types the amount in their app.",
+      "destinations": "Accounts that receive the transfer",
+      "qrLabel": "QR to transfer to {{name}}",
+      "reference": "Last digits or voucher reference",
+      "referenceOk": "Reference ready",
+      "manualNote": "You confirm the money arrived: the register does not check with the bank.",
+      "empty": "This site has no accounts to receive transfers.",
+      "configure": "Set up",
+      "loadError": "The transfer accounts could not be loaded.",
+      "approvalNeedsReference": "Type the transfer reference before asking for approval."
+    }
   },
   "history": {
     "title": "Sales history",

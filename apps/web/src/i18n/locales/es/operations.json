@@ -787,6 +787,61 @@
       "evidence": "Evidencia y conexiones"
     }
   },
+  "transferDestinations": {
+    "title": "Destinos de transferencia",
+    "count": "{{count}} de {{max}}",
+    "site": "Sede",
+    "add": "Agregar destino",
+    "addTitle": "Agregar destino de transferencia",
+    "editTitle": "Editar destino de transferencia",
+    "empty": "Esta sede no tiene destinos de transferencia.",
+    "qrStored": "QR del banco guardado",
+    "qrHint": "Escanee el QR que le dio su banco con el lector de códigos de la caja.",
+    "chooseAccountType": "Elija un tipo",
+    "moveUp": "Subir {{name}}",
+    "moveDown": "Bajar {{name}}",
+    "edit": "Editar {{name}}",
+    "remove": "Quitar {{name}}",
+    "removeTitle": "Quitar destino de transferencia",
+    "removeMessage": "Las cajas de esta sede dejarán de mostrar {{name}}.",
+    "removeConfirm": "Quitar",
+    "kinds": {
+      "bre_b": "Bre-B",
+      "nequi": "Nequi",
+      "daviplata": "Daviplata",
+      "bank_account": "Cuenta bancaria"
+    },
+    "accountTypes": {
+      "savings": "Ahorros",
+      "checking": "Corriente"
+    },
+    "fields": {
+      "kind": "Tipo",
+      "account": {
+        "bre_b": "Llave Bre-B",
+        "nequi": "Número de celular",
+        "daviplata": "Número de celular",
+        "bank_account": "Número de cuenta"
+      },
+      "label": "Nombre",
+      "bankName": "Banco",
+      "accountType": "Tipo de cuenta",
+      "holderName": "Titular",
+      "holderId": "Documento del titular",
+      "qrPayload": "QR del banco"
+    },
+    "errors": {
+      "account": {
+        "bre_b": "Ingrese una llave con @, un correo o un número de 6 a 20 dígitos.",
+        "nequi": "Ingrese el celular de 10 dígitos de la cuenta Nequi.",
+        "daviplata": "Ingrese el celular de 10 dígitos de la cuenta Daviplata.",
+        "bank_account": "Ingrese el número de cuenta, de 6 a 20 dígitos."
+      },
+      "bankName": "Ingrese el nombre del banco.",
+      "accountType": "Elija el tipo de cuenta.",
+      "qrPayload": "Ese no es un QR bancario completo. Escanéelo de nuevo."
+    }
+  },
   "server": {
     "TRANSFER_DESTINATION_ACCOUNT_INVALID": "Esa cuenta no corresponde a este destino. Bre-B recibe una llave con @, un correo o un número; Nequi y Daviplata, un celular de 10 dígitos; una cuenta bancaria, solo dígitos.",
     "TRANSFER_DESTINATION_BANK_REQUIRED": "Una cuenta bancaria necesita el nombre del banco y el tipo de cuenta.",
