@@ -52,6 +52,13 @@ is usable from source, but it is not a new packaged release yet.
   a real alert receiver with ownership, and an observed retail pilot remain
   open gates.
 
+## [1.19.1](https://github.com/johnny4young/puntovivo/compare/v1.19.0...v1.19.1) (2026-11-20)
+
+
+### Correcciones
+
+* **release:** match the usted user-menu label in the packaged smoke ([#511](https://github.com/johnny4young/puntovivo/issues/511)) ([9dae6d0](https://github.com/johnny4young/puntovivo/commit/9dae6d04ea49c3fe52214966122dddb9219aff05))
+
 ## [1.19.0](https://github.com/johnny4young/puntovivo/compare/v1.18.1...v1.19.0) (2026-11-20)
 
 
