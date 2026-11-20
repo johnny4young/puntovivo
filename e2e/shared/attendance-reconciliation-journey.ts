@@ -31,7 +31,7 @@ async function signOut(page: Page) {
   const menu = page.locator('#header-user-menu');
   if (!(await menu.isVisible())) {
     await page
-      .getByRole('button', { name: /^(?:open user menu for|abre el menú de usuario de) /i })
+      .getByRole('button', { name: /^(?:open user menu for|abra el menú de usuario de) /i })
       .click();
   }
   const response = await prepareLogoutCommit(page);
