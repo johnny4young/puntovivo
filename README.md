@@ -4,13 +4,12 @@
 
 # Puntovivo
 
-**Language:** English · [Español](./README.es.md)
+**Idioma:** Español · [English](./README.en.md)
 
-### Local-first, fiscal-native POS for Latin American retail
+### Punto de venta local con funciones fiscales para el comercio latinoamericano
 
-Fast checkout, cash accountability, site-owned stock, and fiscal readiness —
-running on local SQLite authority with offline operation, before any cloud
-dependency.
+Cobro rápido, control de caja, inventario por sede y preparación fiscal sobre
+una base SQLite local, con operación sin conexión antes de depender de la nube.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-16a34a.svg)](./LICENSE)
 [![CI](https://github.com/johnny4young/puntovivo/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/johnny4young/puntovivo/actions/workflows/ci.yml)
@@ -21,158 +20,160 @@ dependency.
 
 <br />
 
-<img src="./docs/assets/screenshots/01-dashboard.png" alt="Puntovivo dashboard — today's sales, 30-day revenue, and low-stock alerts" width="880" />
+<img src="./docs/assets/screenshots/01-dashboard.png" alt="Panel de Puntovivo: ventas del día, ingresos de 30 días y alertas de inventario bajo" width="880" />
 
 </div>
 
 ---
 
-## What is Puntovivo
+## Qué es Puntovivo
 
-Puntovivo is a point-of-sale system for Latin American retail operators. The
-first sellable wedge is **Colombia retail for 1–10 site stores**: fast
-checkout, cash accountability, site-owned stock, auditability, and fiscal
-readiness — with the local database as the source of truth so the store keeps
-selling even when the network does not.
+Puntovivo es un sistema de punto de venta para comercios latinoamericanos. Su
+primer segmento comercial es **el comercio minorista colombiano con 1–10 sedes**:
+cobro rápido, control de caja, inventario por sede, auditoría y preparación
+fiscal. La base local es la fuente de verdad para que la tienda pueda seguir
+vendiendo cuando no tenga conexión.
 
-It runs the same React app in two targets — an **Electron desktop** app and a
-**browser** app — over an embedded **Fastify + tRPC** API. On desktop the
-server runs in-process inside the Electron main process, and all data lives in
-an encrypted local **SQLite** database.
+La misma aplicación React se ejecuta en dos destinos: **escritorio con Electron**
+y **navegador**, sobre una API **Fastify + tRPC** integrada. En escritorio, el
+servidor se ejecuta dentro del proceso principal de Electron y los datos se
+guardan en una base **SQLite** local cifrada.
 
-It is deliberately **not** a generic ERP, not a cloud-only suite, and not
-trying to ship every vertical at once. Restaurant, KDS, AI, delivery, public
-API, and hosted SaaS exist as modules or roadmap lanes — the production gate is
-retail POS sellability.
+Su alcance no es el de un ERP genérico ni una suite que dependa exclusivamente
+de la nube. Restaurante, KDS, IA, entregas, API pública y SaaS alojado existen
+como módulos o líneas de trabajo; la condición para producción es que el punto
+de venta minorista pueda comercializarse de forma responsable.
 
-## Highlights
+## Funciones destacadas
 
-- 🧾 **Fiscal-native from the ground up** — tenant fiscal profiles, DIAN
-  identification catalogs, NIT verification-digit validation, receipt
-  templates, and a durable fiscal outbox. The document, its numbering
-  advance, and the outbox enqueue commit in a single write transaction.
-- 📲 **Receipts that leave through a human-controlled handoff** — completed
-  sales can render a customer-facing text receipt, prepare a PNG locally, and
-  open WhatsApp for the operator to review, attach, and send. Puntovivo does not
-  upload or send the receipt in the background.
-- 🛒 **Barcode-first checkout** — scan or type SKU, keyboard-driven cart
-  (`Alt+P` search, `Alt+C` quantity, `Alt+D` discount), one command bar and one
-  charge button, product lookup from the command palette (`Ctrl/⌘+K`),
-  suspended sales, and a live IVA-inclusive payment summary.
-- 💵 **Cash accountability** — one open cash session per register, blind or
-  sighted close, movement ledger with an expected-balance invariant, and a
-  60-second day-close ritual with real gross margin and a reconciliation
-  traffic light.
-- 📦 **Site-owned inventory** — per-site stock authority, a materialized stock
-  rollup maintained by SQLite triggers, FEFO lot tracking, and an expiry radar
-  that surfaces value-at-risk before shrinkage happens. Variant matrices,
-  serialized logistics, warranty lookup, and exact inter-site transfers are
-  part of the same inventory model.
-- 👥 **Workforce and loss prevention** — shared-terminal staff switching,
-  schedules, attendance evidence, corrections, overtime classification,
-  manager approval grants, and auditable site-level alerts.
-- 💾 **Operational recovery** — encrypted storage, encrypted backup bundles,
-  scheduled snapshots, restore drills, S3-compatible cloud-vault upload,
-  privacy disposition, retention controls, and guided launch imports.
-- 📥 **Source-aware imports without blind guesses** — versioned profiles cover
-  redacted local fixtures shaped like Loyverse, Alegra, Siigo, and World Office
-  exports. Changed or unknown layouts fall back to generic mapping, and every
-  import still requires preview and confirmation. Acceptance by real
-  third-party accounts remains an external validation gate.
-- 🔒 **Multi-tenant by construction** — every query is tenant-scoped, role
-  guards and site-scope guards are shared primitives, and cross-tenant
-  isolation is pinned by tests.
-- 🔑 **Password recovery without email** — a forgotten password is recovered
-  from the sign-in screen through another administrator, a one-use recovery
-  code, or, for the only owner on desktop, from the computer that holds the
-  data.
-- 🌎 **Bilingual, offline-first** — neutral Latin American Spanish and English
-  UI, local SQLite authority, and a durable outbox/sync kernel for eventual
-  cloud replication.
+- 🧾 **Funciones fiscales desde la base**: perfiles fiscales por negocio,
+  catálogos de identificación DIAN, validación del dígito de verificación del
+  NIT, plantillas de recibos y una bandeja fiscal persistente. El documento, el
+  avance de su numeración y su incorporación a la bandeja se confirman en una
+  sola transacción de escritura.
+- 📲 **Envío de recibos bajo control del operador**: una venta completada puede
+  generar un recibo de texto para el cliente, preparar un PNG localmente y abrir
+  WhatsApp para que el operador lo revise, adjunte y envíe. Puntovivo no carga ni
+  envía el recibo en segundo plano.
+- 🛒 **Cobro con códigos de barras**: escaneo o ingreso de SKU, carrito controlado
+  por teclado (`Alt+P` para buscar, `Alt+C` para cantidad y `Alt+D` para descuento),
+  una barra de comandos y un solo botón de cobro, búsqueda de productos desde la
+  paleta de comandos (`Ctrl/⌘+K`), ventas suspendidas y resumen de pago con IVA
+  incluido.
+- 💵 **Control de caja**: una sesión abierta por caja, cierre ciego o con saldo
+  visible, libro de movimientos con una invariante de saldo esperado y cierre
+  diario de 60 segundos con margen bruto real y semáforo de conciliación.
+- 📦 **Inventario por sede**: autoridad de existencias por sede, agregado
+  materializado mantenido por triggers de SQLite, lotes FEFO y radar de
+  vencimientos que muestra el valor en riesgo. El mismo modelo incluye matrices
+  de variantes, logística por número de serie, consulta de garantías y
+  transferencias exactas entre sedes.
+- 👥 **Personal y prevención de pérdidas**: cambio de empleado en terminal
+  compartida, horarios, evidencia de asistencia, correcciones, clasificación de
+  horas extra, autorizaciones del gerente y alertas auditables por sede.
+- 💾 **Recuperación operativa**: almacenamiento y paquetes de respaldo cifrados,
+  instantáneas programadas, ensayos de restauración, carga a una bóveda compatible
+  con S3, disposición de datos privados, controles de retención e importación
+  guiada para iniciar operaciones.
+- 📥 **Importaciones según el origen**: perfiles versionados para fixtures
+  locales sin datos privados con estructuras de exportaciones de Loyverse,
+  Alegra, Siigo y World Office. Los formatos desconocidos o modificados usan el
+  mapeo genérico; cada importación requiere vista previa y confirmación. La
+  aceptación con cuentas reales de terceros sigue pendiente de validación externa.
+- 🔒 **Aislamiento entre negocios**: cada consulta se limita al negocio; los
+  controles de roles y sede son componentes compartidos, y las pruebas verifican
+  el aislamiento entre negocios.
+- 🔑 **Recuperación de contraseña sin correo**: una contraseña olvidada se
+  recupera desde la pantalla de ingreso con otro administrador, un código de
+  recuperación de un solo uso o, para el único propietario en escritorio, desde
+  el equipo que guarda los datos.
+- 🌎 **Interfaz bilingüe y operación sin conexión**: español latinoamericano
+  neutro e inglés, autoridad SQLite local y un núcleo persistente de bandejas
+  y sincronización para replicación futura en la nube.
 
-## Screenshots
-
-<div align="center">
-
-|                                                                     Point of sale                                                                      |                                                                          Inventory                                                                           |
-| :----------------------------------------------------------------------------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------------------------------------------------------------: |
-|      <img src="./docs/assets/screenshots/02-pos.png" alt="Barcode-first POS with an active cart and IVA-inclusive payment summary" width="420" />      | <img src="./docs/assets/screenshots/03-inventory.png" alt="Inventory with total units, inventory value, movement ledger, and FEFO expiry tab" width="420" /> |
-|                                                           **Guided setup & fiscal profile**                                                            |                                                                                                                                                              |
-| <img src="./docs/assets/screenshots/04-company.png" alt="Company configuration with a ready-to-open readiness score and fiscal profile" width="420" /> |                                                                                                                                                              |
-
-</div>
-
-> The interface is shown in Spanish — Puntovivo ships neutral Latin American
-> Spanish and English, switchable per user.
-
-## Current Status
-
-Puntovivo is under active development. Honest gates:
-
-| Stage                    | Verdict                   | Why                                                                                                                                                                                                                                                      |
-| ------------------------ | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Development demo         | Ready                     | The retail core, workforce, serialized inventory, launch import, privacy, backup, and operations surfaces are demonstrable and covered by automated tests.                                                                                               |
-| Controlled internal beta | Ready with release checks | Published desktop releases still require representative-host clean install, production-updater upgrade, and downgrade-refusal checks. The documented v1.10.1 packaged/recovery matrix is historical regression evidence, not proof of current artifacts. |
-| Private retail pilot     | Not yet                   | Fiscal contingency, certified provider transmission, final fiscal receipt proof, and physical POS hardware still need to close.                                                                                                                          |
-| Production sale          | No                        | Requires fiscal certification, legal retention evidence, hardware validation, externally delivered alerts, payment-terminal policy, and an observed pilot.                                                                                               |
-
-The canonical capability inventory, remaining gaps, and release gates live in
-[docs/PROJECT-STATUS.md](./docs/PROJECT-STATUS.md).
-
-### Remaining external gates
-
-- Real DIAN provider integration is gated on provider contract, credentials,
-  certificate, and numbering resolution.
-- Hardware printer, drawer, scanner, and terminal certification require a
-  physical lab.
-- The historical v1.10.1 manual candidate passed packaged runtime and all nine
-  encrypted recovery checks on Linux, macOS, and Windows in
-  [run 31264233582](https://github.com/johnny4young/puntovivo/actions/runs/31264233582).
-  That validation-only matrix is regression evidence for v1.10.1, not proof of
-  later binaries, release signing, or a production recovery-time
-  promise. The [v1.16.0 release](https://github.com/johnny4young/puntovivo/releases/tag/v1.16.0)
-  and [live update policy](https://johnny4young.github.io/puntovivo/update-policy.json)
-  do not substitute for representative-machine Gate 5 evidence.
-- The macOS artifact is Apple Silicon and now declares macOS 15 Sequoia as its
-  minimum. The candidate workflow separately targets Sequoia 15 and Tahoe 26;
-  Intel has no supported artifact today.
-- Moderated evidence with non-technical cashiers plus a provisioned and observed
-  external alert receiver with explicit ownership remain required before a
-  private pilot. The signed delivery software path is implemented; a staffed
-  monitoring service is not.
-- Hosted SaaS, public demo tenants, tenant clone, and micro-storefronts depend
-  on the hosted deployment substrate spike.
-- Restaurant / KDS / services / pharmacy depth moves only when a pilot makes
-  that vertical the wedge.
-
-## Tech stack
-
-| Layer    | Choice                                                 | Notes                                                         |
-| -------- | ------------------------------------------------------ | ------------------------------------------------------------- |
-| Desktop  | Electron 45.2.2 + electron-builder packaging           | SQLite uses one bundled Node-API binary per target platform.  |
-| Web      | React 19 + Vite 8 + TypeScript 7 (TS 6 API for ESLint) | Browser target and Electron renderer share the app code.      |
-| API      | Fastify + tRPC 11                                      | `/api/trpc` is the canonical application API.                 |
-| Database | SQLite via better-sqlite3-multiple-ciphers             | SQLCipher path is wired; dev modes can share an encrypted DB. |
-| ORM      | Drizzle                                                | Migrations are the single schema path.                        |
-| State    | TanStack Query + Zustand                               | Server state and local UI state are separated.                |
-| Styling  | Tailwind CSS v4 + CVA                                  | See [docs/STYLING.md](./docs/STYLING.md).                     |
-| Realtime | SSE                                                    | `/api/realtime/*` remains for live updates.                   |
+## Capturas de pantalla
 
 <div align="center">
 
-<img src="./docs/architecture.svg" alt="Puntovivo architecture" width="820" />
+|                                                                        Punto de venta                                                                        |                                                                      Inventario                                                                       |
+| :----------------------------------------------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------------------------------------: |
+| <img src="./docs/assets/screenshots/02-pos.png" alt="Punto de venta con códigos de barras, carrito activo y resumen de pago con IVA incluido" width="420" /> | <img src="./docs/assets/screenshots/03-inventory.png" alt="Inventario con unidades, valor, movimientos y pestaña de vencimientos FEFO" width="420" /> |
+|                                                           **Configuración guiada y perfil fiscal**                                                           |                                                                                                                                                       |
+| <img src="./docs/assets/screenshots/04-company.png" alt="Configuración de la empresa con indicador de preparación para abrir y perfil fiscal" width="420" /> |                                                                                                                                                       |
 
 </div>
 
-The desktop app imports `@puntovivo/server` directly from the Electron main
-process — it is not a spawned child server process.
+> Las capturas muestran la interfaz en español. Puntovivo permite cambiar entre
+> español latinoamericano neutro e inglés por usuario.
 
-## Quick start
+## Estado actual
 
-### Prerequisites
+Puntovivo está en desarrollo activo. Condiciones de preparación:
+
+| Etapa                      | Estado                              | Motivo                                                                                                                                                                                                                                                                                                                     |
+| -------------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Demostración de desarrollo | Lista                               | El núcleo minorista, personal, inventario por número de serie, importación inicial, privacidad, respaldos y operaciones pueden demostrarse y tienen pruebas automatizadas.                                                                                                                                                 |
+| Beta interna controlada    | Lista con verificaciones de release | Los releases de escritorio publicados requieren instalación limpia en equipos representativos, actualización mediante el actualizador de producción y rechazo de versiones anteriores. La matriz documentada de empaquetado y recuperación v1.10.1 es evidencia histórica de regresión; no valida los artefactos actuales. |
+| Piloto minorista privado   | Aún no                              | Faltan contingencia fiscal, transmisión por proveedor certificado, evidencia final del recibo fiscal y validación de hardware POS físico.                                                                                                                                                                                  |
+| Venta en producción        | No                                  | Requiere certificación fiscal, evidencia legal de conservación, validación de hardware, alertas entregadas externamente, política de terminales de pago y un piloto observado.                                                                                                                                             |
+
+El inventario canónico de capacidades, las brechas pendientes y los requisitos
+para releases están en [docs/PROJECT-STATUS.md](docs/es/PROJECT-STATUS.md).
+
+### Validaciones externas pendientes
+
+- La integración real con un proveedor DIAN requiere contrato, credenciales,
+  certificado y resolución de numeración.
+- La certificación de impresoras, cajones, lectores y terminales requiere un
+  laboratorio físico.
+- El candidato histórico v1.10.1 pasó el entorno empaquetado y las nueve
+  verificaciones de recuperación cifrada en Linux, macOS y Windows en la
+  [ejecución 31264233582](https://github.com/johnny4young/puntovivo/actions/runs/31264233582).
+  Esa matriz de validación es evidencia de regresión para v1.10.1; no valida
+  binarios posteriores, firmas de releases ni promete tiempos de recuperación
+  en producción. El [release v1.16.0](https://github.com/johnny4young/puntovivo/releases/tag/v1.16.0)
+  y la [política activa de actualización](https://johnny4young.github.io/puntovivo/update-policy.json)
+  no sustituyen la evidencia de Gate 5 en equipos representativos.
+- El artefacto macOS es para Apple Silicon y declara macOS 15 Sequoia como
+  mínimo. El workflow de candidatos prueba por separado Sequoia 15 y Tahoe 26;
+  actualmente no hay un artefacto compatible con Intel.
+- Antes de un piloto privado se requiere evidencia moderada con cajeros no
+  técnicos y un receptor externo de alertas configurado, observado y con
+  responsables explícitos. La ruta de software de entregas firmadas está
+  implementada; no existe un servicio de monitoreo atendido por personal.
+- SaaS alojado, negocios de demostración públicos, clonación de negocios y
+  microtiendas dependen de la investigación de la infraestructura de alojamiento.
+- La profundidad de restaurante, KDS, servicios o farmacia avanza cuando un
+  piloto define esa vertical como prioridad.
+
+## Tecnologías
+
+| Capa          | Elección                                                | Notas                                                                                |
+| ------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Escritorio    | Electron 45.2.2 + empaquetado con electron-builder      | SQLite usa un binario Node-API incluido por plataforma.                              |
+| Web           | React 19 + Vite 8 + TypeScript 7 (API TS 6 para ESLint) | El navegador y el renderer de Electron comparten el código de la aplicación.         |
+| API           | Fastify + tRPC 11                                       | `/api/trpc` es la API canónica de la aplicación.                                     |
+| Base de datos | SQLite mediante better-sqlite3-multiple-ciphers         | SQLCipher está integrado; los modos de desarrollo pueden compartir una base cifrada. |
+| ORM           | Drizzle                                                 | Las migraciones son la única vía de cambios de esquema.                              |
+| Estado        | TanStack Query + Zustand                                | Se separan el estado del servidor y el de la interfaz.                               |
+| Estilos       | Tailwind CSS v4 + CVA                                   | Consulta [docs/STYLING.md](docs/es/STYLING.md).                                      |
+| Tiempo real   | SSE                                                     | `/api/realtime/*` sigue disponible para actualizaciones en vivo.                     |
+
+<div align="center">
+
+<img src="./docs/architecture.svg" alt="Arquitectura de Puntovivo" width="820" />
+
+</div>
+
+La aplicación de escritorio importa `@puntovivo/server` directamente en el
+proceso principal de Electron; no inicia el servidor como un proceso hijo.
+
+## Inicio rápido
+
+### Requisitos
 
 - Node.js `>=26.13.1`
-- pnpm `11.7.0` through Corepack (Node 25+ no longer bundles it: `npm install --global corepack`) or a matching local install
+- pnpm `11.7.0` mediante Corepack (Node 25+ ya no lo incluye: `npm install --global corepack`) o una instalación local compatible
 
 ```bash
 git clone https://github.com/johnny4young/puntovivo.git
@@ -182,17 +183,18 @@ pnpm install --frozen-lockfile
 ./scripts/check-setup.sh
 ```
 
-pnpm 11 blocks dependency build scripts unless they are allowlisted. The repo
-allowlist lives in [pnpm-workspace.yaml](./pnpm-workspace.yaml) and covers the
-runtime pieces that still expose lifecycle hooks: argon2 and esbuild.
-better-sqlite3-multiple-ciphers v13 ships integrity-checked Node-API binaries
-and its implicit pnpm build is explicitly denied. Electron 45.2.2, like every line
-since 42, has no install hook; Puntovivo installs its development runtime
-lazily during the desktop preflight. If install prints
-`ERR_PNPM_IGNORED_BUILDS`, review the package and record an explicit true/false
-policy before installing again.
+pnpm 11 bloquea los scripts de compilación de dependencias que no estén
+permitidos. La lista está en [pnpm-workspace.yaml](./pnpm-workspace.yaml) y cubre
+los componentes que aún tienen hooks de ciclo de vida: argon2 y esbuild.
+better-sqlite3-multiple-ciphers v13 incluye binarios Node-API con integridad
+verificada y su compilación implícita en pnpm se deniega explícitamente.
+Electron 45.2.2, como todas las líneas desde la 42, no tiene hook de instalación:
+Puntovivo instala su entorno de desarrollo cuando lo necesita, durante la
+verificación previa de escritorio. Si la instalación muestra
+`ERR_PNPM_IGNORED_BUILDS`, revisa el paquete y registra una política explícita
+true/false antes de instalar de nuevo.
 
-### Run it
+### Ejecución
 
 ```bash
 pnpm run dev:desktop   # web dev server + Electron desktop
@@ -200,88 +202,90 @@ pnpm run dev:desktop   # web dev server + Electron desktop
 pnpm run dev:web-stack # web app + standalone backend, in the browser
 ```
 
-On a fresh interactive installation, create the business and its first owner
-from the login screen. Standalone web ownership can only be claimed from the
-same computer with the private installation code shown by the server. If the
-database is already owned, use its real account. See the
-[login guide](./docs/LOGIN_GUIDE.md).
+En una instalación interactiva nueva, crea la empresa y su primer propietario
+desde la pantalla de acceso. En web independiente, la creación solo se admite
+desde el mismo equipo y requiere el código privado de instalación que muestra
+el servidor. Si la base ya tiene propietario, usa su cuenta real. Consulta
+[la guía de acceso](./docs/es/LOGIN_GUIDE.md).
 
-### Explicit development fixtures
+### Fixtures de desarrollo explícitos
 
-Fixture credentials are not enabled automatically when the app starts. Explicit
-disposable-data tooling can create `admin@localhost`. Its initial password is
-`Admin123!Dev` (or `PUNTOVIVO_DEV_ADMIN_PASSWORD`) only when at least one of
-`NODE_ENV` and `PUNTOVIVO_RUNTIME_ENV` is declared and every declared marker is
-`development` or `test`; otherwise it is generated. The populated demo dataset
-uses `admin@demo.co`. Before running `pnpm run seed:dev`,
-choose your own disposable database and read [DEV-SEED.md](./docs/DEV-SEED.md).
-These credentials are not a recovery path for an actual installation.
+Las credenciales de prueba no se habilitan automáticamente al iniciar la
+aplicación. El tooling explícito para datos desechables puede crear
+`admin@localhost`. Su contraseña inicial es `Admin123!Dev` (o
+`PUNTOVIVO_DEV_ADMIN_PASSWORD`) solo si al menos uno de `NODE_ENV` y
+`PUNTOVIVO_RUNTIME_ENV` está declarado y cada marcador declarado vale
+`development` o `test`; de lo contrario, se genera. El conjunto de demostración
+usa `admin@demo.co`. Antes de ejecutar `pnpm run seed:dev`, elige
+una base desechable propia y lee [DEV-SEED.md](./docs/es/DEV-SEED.md). Estas
+credenciales no sirven para recuperar el acceso a una instalación real.
 
-## Development commands
+## Comandos de desarrollo
 
-Run workspace commands from the repo root.
+Ejecuta los comandos desde la raíz del repositorio.
 
-| Task                        | Command                      |
-| --------------------------- | ---------------------------- |
-| Desktop stack               | `pnpm run dev:desktop`       |
-| Electron shell only         | `pnpm run dev:desktop-shell` |
-| Web app only                | `pnpm run dev:web`           |
-| Web + standalone backend    | `pnpm run dev:web-stack`     |
-| Backend only                | `pnpm run dev:server`        |
-| Stop dev-launcher processes | `pnpm run dev:stop`          |
-| Documentation languages     | `pnpm run ci:docs`           |
-| Web CI gate                 | `pnpm run ci:web`            |
-| Server CI gate              | `pnpm run ci:server`         |
-| Desktop CI gate             | `pnpm run ci:desktop`        |
-| Web E2E                     | `pnpm run test:e2e:web`      |
-| Electron E2E                | `pnpm run test:e2e:electron` |
-| Desktop package build       | `pnpm run build:desktop`     |
+| Tarea                                       | Comando                      |
+| ------------------------------------------- | ---------------------------- |
+| Entorno de escritorio                       | `pnpm run dev:desktop`       |
+| Solo shell de Electron                      | `pnpm run dev:desktop-shell` |
+| Solo aplicación web                         | `pnpm run dev:web`           |
+| Web + backend independiente                 | `pnpm run dev:web-stack`     |
+| Solo backend                                | `pnpm run dev:server`        |
+| Detener procesos del lanzador de desarrollo | `pnpm run dev:stop`          |
+| Idiomas de documentación                    | `pnpm run ci:docs`           |
+| Validación CI web                           | `pnpm run ci:web`            |
+| Validación CI del servidor                  | `pnpm run ci:server`         |
+| Validación CI de escritorio                 | `pnpm run ci:desktop`        |
+| E2E web                                     | `pnpm run test:e2e:web`      |
+| E2E Electron                                | `pnpm run test:e2e:electron` |
+| Compilar paquete de escritorio              | `pnpm run build:desktop`     |
 
-### Native runtime notes
+### Notas del entorno nativo
 
-better-sqlite3-multiple-ciphers v13 uses Node-API, so standalone Node 26 and
-Electron 45 load the same platform binary. Verify both runtime paths with:
+better-sqlite3-multiple-ciphers v13 usa Node-API, por lo que Node 26 independiente
+y Electron 45 cargan el mismo binario de la plataforma. Verifica ambas rutas con:
 
 ```bash
 pnpm --filter @puntovivo/server run native:ensure:node
 pnpm --filter @puntovivo/desktop run rebuild
 ```
 
-The desktop `rebuild` name remains as a compatibility command, but it now
-verifies the Electron Node-API path without invoking node-gyp. Production
-packaging keeps only the current OS/architecture SQLite prebuild and fails if
-that target binary is missing.
+El nombre `rebuild` se mantiene por compatibilidad, pero ahora verifica la ruta
+Node-API de Electron sin invocar node-gyp. El empaquetado de producción conserva
+solo el binario SQLite precompilado del sistema operativo y arquitectura
+correspondientes, y falla si ese binario no está disponible.
 
-## Documentation
+## Documentación
 
-Start at [docs/README.md](./docs/README.md). The short version:
+Comienza por [docs/README.md (índice en español)](./docs/es/README.md). Resumen:
 
-- [docs/PROJECT-STATUS.md](./docs/PROJECT-STATUS.md) — shipped scope, remaining gaps, and release readiness.
-- [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) — current system shape.
-- [docs/TESTING.md](./docs/TESTING.md) — validation contract and release-candidate checks.
-- [docs/ENVIRONMENT_CONFIGURATION.md](./docs/ENVIRONMENT_CONFIGURATION.md) — env var reference.
-- [docs/DESKTOP_RUNTIME_GUIDE.md](./docs/DESKTOP_RUNTIME_GUIDE.md) — Electron runtime details.
-- [docs/SECURITY.md](./docs/SECURITY.md) — auth, hardening, and audit policy.
+- [docs/PROJECT-STATUS.md](docs/es/PROJECT-STATUS.md): capacidades disponibles, brechas y preparación para releases.
+- [docs/ARCHITECTURE.md](docs/es/ARCHITECTURE.md): estructura actual del sistema.
+- [docs/TESTING.md](docs/es/TESTING.md): contrato de validación y verificaciones de candidatos a release.
+- [docs/ENVIRONMENT_CONFIGURATION.md (español)](./docs/es/ENVIRONMENT_CONFIGURATION.md): referencia de variables de entorno.
+- [docs/DESKTOP_RUNTIME_GUIDE.md](docs/es/DESKTOP_RUNTIME_GUIDE.md): entorno de ejecución de Electron.
+- [docs/SECURITY.md (español)](./docs/es/SECURITY.md): autenticación, endurecimiento y política de auditoría.
 
-## Contributing
+## Contribuir
 
-Contributions are welcome. Please read
-[CONTRIBUTING.md](./CONTRIBUTING.md) and the
-[Code of Conduct](./CODE_OF_CONDUCT.md) first, and run the CI gate that matches
-the area you touched:
+Las contribuciones son bienvenidas. Lee primero
+[CONTRIBUTING.md (español)](./CONTRIBUTING.md) y el
+[Código de conducta (español)](./CODE_OF_CONDUCT.md), y ejecuta la validación de CI
+del área modificada:
 
-| Area                                  | Command                      |
-| ------------------------------------- | ---------------------------- |
-| `apps/web` React or TypeScript        | `pnpm run ci:web`            |
-| `packages/server` backend             | `pnpm run ci:server`         |
-| `apps/desktop/src/main` Electron main | `pnpm run ci:desktop`        |
-| Web E2E / login / sales / inventory   | `pnpm run test:e2e:web`      |
-| Electron bootstrap / E2E              | `pnpm run test:e2e:electron` |
+| Área                                                  | Comando                      |
+| ----------------------------------------------------- | ---------------------------- |
+| `apps/web` React o TypeScript                         | `pnpm run ci:web`            |
+| `packages/server` backend                             | `pnpm run ci:server`         |
+| `apps/desktop/src/main` proceso principal de Electron | `pnpm run ci:desktop`        |
+| E2E web / inicio de sesión / ventas / inventario      | `pnpm run test:e2e:web`      |
+| Inicio de Electron / E2E                              | `pnpm run test:e2e:electron` |
 
-Any user-facing UI change also needs a live web or Electron smoke in addition
-to tests. Security issues: see [docs/SECURITY.md](./docs/SECURITY.md) — please
-do not open a public issue for a vulnerability.
+Todo cambio visible en la interfaz requiere además una comprobación en vivo de
+web o Electron. Para problemas de seguridad, consulta
+[docs/SECURITY.md (español)](./docs/es/SECURITY.md); no abras un issue público para una
+vulnerabilidad.
 
-## License
+## Licencia
 
 [MIT](./LICENSE) © Johnny IV Young Ospino

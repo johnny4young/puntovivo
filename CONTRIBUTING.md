@@ -1,13 +1,13 @@
-# Contributing to Puntovivo
+# Contribuir a Puntovivo
 
-**Language:** English · [Español](./CONTRIBUTING.es.md)
+**Idioma:** Español · [English](./CONTRIBUTING.en.md)
 
-Thanks for your interest in Puntovivo. This guide covers the essentials for
-working on the codebase.
+Gracias por tu interés en Puntovivo. Esta guía reúne lo esencial para trabajar
+en el código del proyecto.
 
-## Development setup
+## Preparar el entorno de desarrollo
 
-Requirements: Node.js `>=26.13.1`, pnpm `11.7.0` (via Corepack; Node 25+ no longer bundles it:
+Requisitos: Node.js `>=26.13.1`, pnpm `11.7.0` (mediante Corepack; Node 25+ ya no lo incluye:
 `npm install --global corepack`).
 
 ```bash
@@ -16,46 +16,48 @@ pnpm install --frozen-lockfile
 pnpm --filter @puntovivo/desktop run native:ensure:electron   # verify the bundled Node-API prebuild loads under Electron
 ```
 
-After `pnpm install --frozen-lockfile`, verify that the bundled native modules load under
-Electron. `better-sqlite3` and `argon2` ship Node-API prebuilds, so there is no
-source rebuild and no `NODE_MODULE_VERSION` mismatch to chase across Node and
-Electron majors; the command above only proves the prebuild loads. See the
-[README](./README.md) for the full command list and runtime notes.
+Después de `pnpm install --frozen-lockfile`, verifica que los módulos nativos incluidos carguen en
+Electron. `better-sqlite3` y `argon2` distribuyen binarios Node-API precompilados:
+no se recompilan desde el código fuente ni hay que resolver diferencias de
+`NODE_MODULE_VERSION` entre las versiones principales de Node y Electron. El
+comando anterior solo comprueba que el binario incluido cargue. Consulta el
+[README](./README.md) para ver los comandos y las notas del entorno de ejecución.
 
-## Commit conventions
+## Convenciones de commits
 
-This repo uses [Conventional Commits](https://www.conventionalcommits.org/):
+Este repositorio usa [Conventional Commits](https://www.conventionalcommits.org/):
 `feat:`, `fix:`, `refactor:`, `docs:`, `build:`, `chore:`, `ci:`, `test:`,
-`perf:`. Scope with the module name, e.g. `feat(products):`, `fix(auth):`.
+`perf:`. Indica el módulo como alcance, por ejemplo, `feat(products):`, `fix(auth):`.
 
-Versioning and the changelog are automated from these commit types by
-release-please, so accurate types matter.
+release-please automatiza las versiones y el registro de cambios a partir de
+estos tipos de commit; por eso deben describir el cambio con precisión.
 
-## Checks before opening a PR
+## Verificaciones antes de abrir un PR
 
-Run the CI gate for the area you touched (these are the same commands CI runs):
+Ejecuta la validación de CI del área modificada; son los mismos comandos que usa CI:
 
-| Area                                    | Command               |
-| --------------------------------------- | --------------------- |
-| `apps/web` (React / TypeScript)         | `pnpm run ci:web`     |
-| `packages/server` (backend)             | `pnpm run ci:server`  |
-| `apps/desktop/src/main` (Electron main) | `pnpm run ci:desktop` |
+| Área                                                    | Comando               |
+| ------------------------------------------------------- | --------------------- |
+| `apps/web` (React / TypeScript)                         | `pnpm run ci:web`     |
+| `packages/server` (backend)                             | `pnpm run ci:server`  |
+| `apps/desktop/src/main` (proceso principal de Electron) | `pnpm run ci:desktop` |
 
-Each runs typecheck + lint + test (and build for web/desktop). A change that
-touches both frontend and backend should pass both `ci:web` and `ci:server`.
+Cada comando ejecuta comprobación de tipos, lint y pruebas; web y desktop también
+compilan. Si un cambio afecta al frontend y al backend, deben pasar tanto
+`ci:web` como `ci:server`.
 
 ## Pull requests
 
-- Keep one logical change per PR.
-- Make sure the relevant CI gate passes locally.
-- All user-facing strings must be internationalized (English + Spanish);
-  Spanish copy uses neutral Latin American Spanish in the `tú` register.
-- New public guides need English and Spanish versions with reciprocal language links.
-  Register pairs in `docs/translations.json` and run
-  `node scripts/check-documentation-translations.mjs`; see
-  [documentation language rules](./docs/TRANSLATIONS.md).
+- Mantén un cambio lógico por PR.
+- Comprueba que la validación de CI correspondiente pase localmente.
+- Internacionaliza todos los textos visibles para el usuario en inglés y español;
+  el español usa el registro `tú` del español latinoamericano neutro.
+- Las guías públicas nuevas necesitan versiones en inglés y español enlazadas
+  entre sí. Registra los pares en `docs/translations.json` y ejecuta
+  `node scripts/check-documentation-translations.mjs`; consulta las
+  [reglas de idiomas de la documentación](./docs/TRANSLATIONS.md).
 
-## Reporting security issues
+## Informar problemas de seguridad
 
-Please do not open public issues for security vulnerabilities. See
-[SECURITY](./docs/SECURITY.md) for how to report responsibly.
+No abras issues públicos para reportar vulnerabilidades. Consulta
+[SECURITY (español)](./docs/es/SECURITY.md) para conocer el procedimiento responsable.

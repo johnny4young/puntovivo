@@ -56,7 +56,7 @@ These are consumed directly in Tailwind utility classes such as:
 
 ## Typography and Layout Tokens
 
-Fonts are bundled (see [THIRD-PARTY-NOTICES.md](../THIRD-PARTY-NOTICES.md)):
+Fonts are bundled (see [THIRD-PARTY-NOTICES.md](../THIRD-PARTY-NOTICES.en.md)):
 
 - `font-sans` (Instrument Sans): interface text.
 - `font-display` (Bricolage Grotesque, width 88): titles. `h1`–`h3` use it by default.

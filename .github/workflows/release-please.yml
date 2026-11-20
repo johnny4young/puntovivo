@@ -7,7 +7,8 @@ name: release-please
 # across the 4 package.json files via release-please-config.json extra-files),
 # and prepends the generated notes to CHANGELOG.md. Merging the Release PR
 # creates the vX.Y.Z tag + a GitHub Release; the curate-release-notes job then
-# replaces that technical body with docs/releases/vX.Y.Z.md from the exact tag.
+# replaces that technical body with docs/es/releases/vX.Y.Z.md and its English
+# mirror docs/releases/vX.Y.Z.md from the exact tag.
 #
 # When that release is created, the build-artifacts job invokes the reusable
 # release.yml (workflow_call) with the new tag to build and upload the web +
@@ -20,7 +21,7 @@ name: release-please
 #
 # While a Release PR is open, the release-notes-gate job posts a "Curated release
 # notes" commit status on it after every push to main: failure while main has no
-# valid docs/releases/vX.Y.Z.md for the version the PR proposes, success once it
+# valid docs/es/releases/vX.Y.Z.md and docs/releases/vX.Y.Z.md for the version the PR proposes, success once it
 # does. The PR's own CI cannot report that unattended, because GitHub holds the
 # workflow runs of github-actions[bot] commits until a maintainer approves them.
 

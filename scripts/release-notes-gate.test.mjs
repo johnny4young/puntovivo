@@ -38,24 +38,34 @@ const featurePullRequest = {
   isCrossRepository: false,
 };
 
-function curatedNote(tag) {
+const HEADINGS = {
+  es: ['## Por qué importa este release', '## Qué cambió', '## Antes de usarlo', '## Descargas'],
+  en: ['## Why this release matters', '## What changed', '## Before you use it', '## Downloads'],
+};
+const NOTE_DIRECTORIES = { es: ['docs', 'es', 'releases'], en: ['docs', 'releases'] };
+
+function curatedNote(tag, language = 'es') {
   const paragraph = 'Operator facing context for this release. '.repeat(10);
   return [
     `# Puntovivo ${tag} — A release people can understand`,
-    ...[
-      '## Why this release matters',
-      '## What changed',
-      '## Before you use it',
-      '## Downloads',
-    ].flatMap(heading => [heading, paragraph]),
+    ...HEADINGS[language].flatMap(heading => [heading, paragraph]),
   ].join('\n\n');
 }
 
+function bothNotes(tag) {
+  return { es: curatedNote(tag, 'es'), en: curatedNote(tag, 'en') };
+}
+
+/** notes: { tag: { es?: content, en?: content } } */
 function checkout(notes = {}) {
   const root = mkdtempSync(path.join(os.tmpdir(), 'puntovivo-release-notes-gate-'));
-  mkdirSync(path.join(root, 'docs', 'releases'), { recursive: true });
-  for (const [tag, content] of Object.entries(notes)) {
-    writeFileSync(path.join(root, 'docs', 'releases', `${tag}.md`), content);
+  for (const directory of Object.values(NOTE_DIRECTORIES)) {
+    mkdirSync(path.join(root, ...directory), { recursive: true });
+  }
+  for (const [tag, byLanguage] of Object.entries(notes)) {
+    for (const [language, content] of Object.entries(byLanguage)) {
+      writeFileSync(path.join(root, ...NOTE_DIRECTORIES[language], `${tag}.md`), content);
+    }
   }
   return root;
 }
@@ -134,25 +144,30 @@ test('the release tag is the single version the manifest declares', () => {
   assert.throws(() => releaseTagFromManifest('not json'), SyntaxError);
 });
 
-test('the verdict fails until the branch has a valid curated note for the tag', () => {
+test('the verdict fails until the branch has valid Spanish and English notes', () => {
   const root = checkout({
-    'v2.0.0': curatedNote('v2.0.0'),
-    'v2.1.0': '# Puntovivo v2.1.0 — Too short',
+    'v2.0.0': bothNotes('v2.0.0'),
+    'v2.1.0': { es: '# Puntovivo v2.1.0 — Demasiado corto', en: curatedNote('v2.1.0', 'en') },
+    'v2.4.0': { es: curatedNote('v2.4.0', 'es') },
   });
-  mkdirSync(path.join(root, 'docs', 'releases', 'v2.3.0.md'));
+  mkdirSync(path.join(root, 'docs', 'es', 'releases', 'v2.3.0.md'));
 
   assert.deepEqual(evaluateCuratedNotes('v2.0.0', { root }), {
     state: 'success',
-    description: 'docs/releases/v2.0.0.md on main is valid',
+    description: 'docs/es/releases/v2.0.0.md and docs/releases/v2.0.0.md on main are valid',
   });
   assert.deepEqual(evaluateCuratedNotes('v2.1.0', { root }), {
     state: 'failure',
     description:
-      'docs/releases/v2.1.0.md on main: Release notes are missing required heading: ## Why this release matters',
+      'docs/es/releases/v2.1.0.md on main: Release notes are missing required heading: ## Por qué importa este release',
   });
   assert.deepEqual(evaluateCuratedNotes('v2.2.0', { root }), {
     state: 'failure',
-    description: 'Add docs/releases/v2.2.0.md to main before merging',
+    description: 'Add docs/es/releases/v2.2.0.md to main before merging',
+  });
+  assert.deepEqual(evaluateCuratedNotes('v2.4.0', { root }), {
+    state: 'failure',
+    description: 'Add docs/releases/v2.4.0.md to main before merging',
   });
   // Only a missing note is the expected failure; a note that cannot be read
   // leaves the verdict undetermined.
@@ -161,7 +176,7 @@ test('the verdict fails until the branch has a valid curated note for the tag', 
 });
 
 test('the gate posts its verdict on the head of the open release pull request', () => {
-  const root = checkout({ 'v2.0.0': curatedNote('v2.0.0') });
+  const root = checkout({ 'v2.0.0': bothNotes('v2.0.0') });
   const gh = fakeGh({
     pullRequests: [
       featurePullRequest,
@@ -178,7 +193,7 @@ test('the gate posts its verdict on the head of the open release pull request', 
       number: 7,
       sha: RELEASE_HEAD,
       state: 'success',
-      description: 'docs/releases/v2.0.0.md on main is valid',
+      description: 'docs/es/releases/v2.0.0.md and docs/releases/v2.0.0.md on main are valid',
     },
   ]);
   assert.deepEqual(postedStatuses(gh.calls), [
@@ -187,7 +202,7 @@ test('the gate posts its verdict on the head of the open release pull request', 
       state: 'success',
       // docs/releases/README.md tells maintainers to wait for this status by name.
       context: 'Curated release notes',
-      description: 'docs/releases/v2.0.0.md on main is valid',
+      description: 'docs/es/releases/v2.0.0.md and docs/releases/v2.0.0.md on main are valid',
       target_url: `https://github.com/${REPOSITORY}/actions/runs/42`,
     },
   ]);
@@ -207,7 +222,7 @@ test('a missing note is a failing status, not a failing run', () => {
   );
   assert.deepEqual(
     postedStatuses(gh.calls).map(({ state, description }) => ({ state, description })),
-    [{ state: 'failure', description: 'Add docs/releases/v2.0.0.md to main before merging' }]
+    [{ state: 'failure', description: 'Add docs/es/releases/v2.0.0.md to main before merging' }]
   );
 });
 

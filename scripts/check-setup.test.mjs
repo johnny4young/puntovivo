@@ -93,7 +93,7 @@ test('an unusable SQLite binding fails the diagnostic', posixOnly, () => {
 test('setup guides name the pnpm version pinned in packageManager', () => {
   const read = path => readFileSync(new URL(path, repoRoot), 'utf8');
   const version = JSON.parse(read('package.json')).packageManager.replace(/^pnpm@/, '');
-  for (const doc of ['README.md', 'README.es.md', 'CONTRIBUTING.md', 'CONTRIBUTING.es.md']) {
+  for (const doc of ['README.md', 'README.en.md', 'CONTRIBUTING.md', 'CONTRIBUTING.en.md']) {
     assert.ok(read(doc).includes(`pnpm \`${version}\``), `${doc} must name pnpm ${version}`);
   }
 });

@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { formatGhFailure } from './github-cli-utils.mjs';
 import {
   humanReleaseNotesPath,
+  RELEASE_NOTE_LANGUAGES,
   validateHumanReleaseNotes,
 } from './publish-human-release-notes.mjs';
 
@@ -46,21 +47,25 @@ export function releaseTagFromManifest(content) {
  * merge, which is why the note is looked up on the target branch.
  */
 export function evaluateCuratedNotes(tag, { root = repoRoot, branch = 'main' } = {}) {
-  const notesPath = humanReleaseNotesPath(tag, root);
-  const note = path.relative(root, notesPath).split(path.sep).join('/');
-  let content;
-  try {
-    content = readFileSync(notesPath, 'utf8');
-  } catch (error) {
-    if (error?.code !== 'ENOENT') throw error;
-    return { state: 'failure', description: `Add ${note} to ${branch} before merging` };
+  const notes = [];
+  for (const language of RELEASE_NOTE_LANGUAGES) {
+    const notesPath = humanReleaseNotesPath(tag, root, language);
+    const note = path.relative(root, notesPath).split(path.sep).join('/');
+    notes.push(note);
+    let content;
+    try {
+      content = readFileSync(notesPath, 'utf8');
+    } catch (error) {
+      if (error?.code !== 'ENOENT') throw error;
+      return { state: 'failure', description: `Add ${note} to ${branch} before merging` };
+    }
+    try {
+      validateHumanReleaseNotes(tag, content, language);
+    } catch (error) {
+      return { state: 'failure', description: `${note} on ${branch}: ${error.message}` };
+    }
   }
-  try {
-    validateHumanReleaseNotes(tag, content);
-  } catch (error) {
-    return { state: 'failure', description: `${note} on ${branch}: ${error.message}` };
-  }
-  return { state: 'success', description: `${note} on ${branch} is valid` };
+  return { state: 'success', description: `${notes.join(' and ')} on ${branch} are valid` };
 }
 
 function statusDescription(description) {

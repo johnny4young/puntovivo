@@ -1,67 +1,63 @@
-# Contributor Covenant Code of Conduct
+# Código de conducta de Contributor Covenant
 
-**Language:** English · [Español](./CODE_OF_CONDUCT.es.md)
+**Idioma:** Español · [English](./CODE_OF_CONDUCT.en.md)
 
-## Our Pledge
+## Nuestro compromiso
 
-We as members, contributors, and leaders pledge to make participation in our
-community a harassment-free experience for everyone, regardless of age, body
-size, visible or invisible disability, ethnicity, sex characteristics, gender
-identity and expression, level of experience, education, socio-economic status,
-nationality, personal appearance, race, religion, or sexual identity and
-orientation.
+Como miembros, colaboradores y líderes, nos comprometemos a que participar en
+nuestra comunidad sea una experiencia sin acoso para todas las personas,
+independientemente de edad, tamaño corporal, discapacidad visible o invisible,
+etnia, características sexuales, identidad y expresión de género, experiencia,
+educación, situación socioeconómica, nacionalidad, apariencia, raza, religión,
+identidad u orientación sexual.
 
-We pledge to act and interact in ways that contribute to an open, welcoming,
-diverse, inclusive, and healthy community.
+Nos comprometemos a actuar e interactuar de forma que contribuya a una comunidad
+abierta, acogedora, diversa, inclusiva y saludable.
 
-## Our Standards
+## Nuestros estándares
 
-Examples of behavior that contributes to a positive environment:
+Ejemplos de conductas que contribuyen a un entorno positivo:
 
-- Demonstrating empathy and kindness toward other people
-- Being respectful of differing opinions, viewpoints, and experiences
-- Giving and gracefully accepting constructive feedback
-- Accepting responsibility and apologizing to those affected by our mistakes,
-  and learning from the experience
-- Focusing on what is best for the overall community
+- Mostrar empatía y amabilidad hacia otras personas.
+- Respetar opiniones, puntos de vista y experiencias diferentes.
+- Dar y aceptar de buena manera comentarios constructivos.
+- Asumir responsabilidad, disculparse con las personas afectadas por nuestros
+  errores y aprender de la experiencia.
+- Centrarse en lo mejor para toda la comunidad.
 
-Examples of unacceptable behavior:
+Ejemplos de conductas inaceptables:
 
-- The use of sexualized language or imagery, and sexual attention or advances of
-  any kind
-- Trolling, insulting or derogatory comments, and personal or political attacks
-- Public or private harassment
-- Publishing others' private information, such as a physical or email address,
-  without their explicit permission
-- Other conduct which could reasonably be considered inappropriate in a
-  professional setting
+- Usar lenguaje o imágenes sexualizadas y realizar insinuaciones o prestar
+  atención sexual de cualquier tipo.
+- Provocaciones, comentarios insultantes o despectivos y ataques personales o políticos.
+- Acoso público o privado.
+- Publicar información privada de otra persona, como su dirección física o de
+  correo, sin su permiso explícito.
+- Otras conductas que razonablemente se consideren inapropiadas en un entorno profesional.
 
-## Enforcement Responsibilities
+## Responsabilidades de aplicación
 
-Community leaders are responsible for clarifying and enforcing our standards of
-acceptable behavior and will take appropriate and fair corrective action in
-response to any behavior that they deem inappropriate, threatening, offensive,
-or harmful.
+Los líderes de la comunidad son responsables de aclarar y aplicar los estándares
+de conducta aceptable, y tomarán medidas correctivas apropiadas y justas ante
+conductas que consideren inapropiadas, amenazantes, ofensivas o dañinas.
 
-## Scope
+## Alcance
 
-This Code of Conduct applies within all community spaces, and also applies when
-an individual is officially representing the community in public spaces.
+Este código se aplica a todos los espacios de la comunidad y también cuando
+una persona la representa oficialmente en espacios públicos.
 
-## Enforcement
+## Aplicación
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported to the community leaders responsible for enforcement at
-**asesordeprogramacion@gmail.com**. All complaints will be reviewed and
-investigated promptly and fairly.
+Los casos de abuso, acoso u otra conducta inaceptable pueden reportarse a los
+líderes responsables de aplicar el código en **asesordeprogramacion@gmail.com**.
+Todas las denuncias se revisarán e investigarán de forma oportuna y justa.
 
-All community leaders are obligated to respect the privacy and security of the
-reporter of any incident.
+Los líderes de la comunidad deben respetar la privacidad y seguridad de quien
+reporte cualquier incidente.
 
-## Attribution
+## Atribución
 
-This Code of Conduct is adapted from the [Contributor Covenant][homepage],
-version 2.1, available at
-https://www.contributor-covenant.org/version/2/1/code_of_conduct.html.
+Este código se adapta de [Contributor Covenant][homepage], versión 2.1,
+disponible en https://www.contributor-covenant.org/version/2/1/code_of_conduct.html.
 
 [homepage]: https://www.contributor-covenant.org

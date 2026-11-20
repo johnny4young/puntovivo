@@ -11,9 +11,9 @@ language and are explicitly classified as history in the registry.
 | ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
 | Security concern template / Plantilla de problema de seguridad                                                                             | [English](../.github/ISSUE_TEMPLATE/security.md)                                   | [Español](es/repository/SECURITY-ISSUE-TEMPLATE.md)                                   |
 | Pull request template / Plantilla de pull request                                                                                          | [English](../.github/pull_request_template.md)                                     | [Español](es/repository/PULL-REQUEST-TEMPLATE.md)                                     |
-| Contributor Covenant Code of Conduct / Código de conducta de Contributor Covenant                                                          | [English](../CODE_OF_CONDUCT.md)                                                   | [Español](../CODE_OF_CONDUCT.es.md)                                                   |
-| Contributing to Puntovivo / Contribuir a Puntovivo                                                                                         | [English](../CONTRIBUTING.md)                                                      | [Español](../CONTRIBUTING.es.md)                                                      |
-| Puntovivo / Puntovivo                                                                                                                      | [English](../README.md)                                                            | [Español](../README.es.md)                                                            |
+| Contributor Covenant Code of Conduct / Código de conducta de Contributor Covenant                                                          | [English](../CODE_OF_CONDUCT.en.md)                                                | [Español](../CODE_OF_CONDUCT.md)                                                      |
+| Contributing to Puntovivo / Contribuir a Puntovivo                                                                                         | [English](../CONTRIBUTING.en.md)                                                   | [Español](../CONTRIBUTING.md)                                                         |
+| Puntovivo / Puntovivo                                                                                                                      | [English](../README.en.md)                                                         | [Español](../README.md)                                                               |
 | Accessibility (WCAG 2.2 AA) / Accesibilidad (WCAG 2.2 AA)                                                                                  | [English](A11Y.md)                                                                 | [Español](es/A11Y.md)                                                                 |
 | Puntovivo Architecture / Arquitectura de Puntovivo                                                                                         | [English](ARCHITECTURE.md)                                                         | [Español](es/ARCHITECTURE.md)                                                         |
 | Components Guide / Guía de componentes                                                                                                     | [English](COMPONENTS.md)                                                           | [Español](es/COMPONENTS.md)                                                           |
@@ -82,13 +82,19 @@ language and are explicitly classified as history in the registry.
 | `application/` — use-case boundary / `application/`: límite de casos de uso                                                                | [English](../packages/server/src/application/README.md)                            | [Español](../packages/server/src/application/README.es.md)                            |
 | Maintaining the user manual / Mantenimiento del manual de usuario                                                                          | [English](../website/MANUAL.md)                                                    | [Español](../website/MANUAL.es.md)                                                    |
 
+Spanish is the primary language for the root project documents (`README.md`,
+`CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `THIRD-PARTY-NOTICES.md`) and for
+release notes: write the Spanish version first and keep the English one
+(`*.en.md`, `docs/releases/`) as its mirror. Language selectors list Español
+first. The guides under `docs/` keep their current layout for now.
+
 New public guides need both languages, either as a registered pair or a complete
 bilingual document. Maintain both versions when changing a listed guide. Keep code blocks, commands,
 paths, identifiers, examples, security requirements and readiness limits exact.
 Update relative links for the translation's directory. Do not translate
 third-party dependencies, generated content or historical release notes as
 current guides. `CHANGELOG.md` is generated technical history; versioned files
-under `docs/releases/` are historical product notes. The release-authoring
+under `docs/es/releases/` and `docs/releases/` are historical product notes. The release-authoring
 `docs/releases/README.md` remains current project documentation.
 
 The registry is [translations.json](./translations.json). From the repository
@@ -132,6 +138,12 @@ es bilingüe. Las entradas generadas del changelog y las notas históricas de
 releases versionadas conservan su idioma original y están clasificadas
 explícitamente como historial en el registro.
 
+El español es el idioma principal de los documentos de la raíz (`README.md`,
+`CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `THIRD-PARTY-NOTICES.md`) y de las
+notas de release: escribe primero la versión en español y mantén la inglesa
+(`*.en.md`, `docs/releases/`) como su espejo. Los selectores de idioma listan
+Español primero. Las guías de `docs/` conservan por ahora su estructura actual.
+
 Las guías públicas nuevas necesitan ambos idiomas, como un par registrado o
 un documento bilingüe completo. Actualiza ambas versiones al modificar una guía
 de la tabla. Conserva bloques
@@ -139,8 +151,8 @@ de código, comandos, rutas, identificadores, ejemplos, requisitos de seguridad
 y límites de preparación técnica. Ajusta los enlaces relativos al directorio
 de la traducción. No traduzcas dependencias externas, contenido generado ni
 notas históricas de releases como si fueran guías vigentes. `CHANGELOG.md` es
-historial técnico generado; los archivos versionados de `docs/releases/` son
-notas históricas del producto. `docs/releases/README.md`, que explica cómo
+historial técnico generado; los archivos versionados de `docs/es/releases/` y
+`docs/releases/` son notas históricas del producto. `docs/releases/README.md`, que explica cómo
 redactar releases, sigue siendo documentación vigente.
 
 El registro está en [translations.json](./translations.json). Ejecuta desde la

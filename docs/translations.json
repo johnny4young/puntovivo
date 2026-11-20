@@ -2,12 +2,12 @@
   "version": 1,
   "pairs": [
     {
-      "en": "README.md",
-      "es": "README.es.md"
+      "en": "README.en.md",
+      "es": "README.md"
     },
     {
-      "en": "CONTRIBUTING.md",
-      "es": "CONTRIBUTING.es.md"
+      "en": "CONTRIBUTING.en.md",
+      "es": "CONTRIBUTING.md"
     },
     {
       "en": "docs/README.md",
@@ -54,12 +54,12 @@
       "es": "docs/es/DEBUGGING.md"
     },
     {
-      "en": "CODE_OF_CONDUCT.md",
-      "es": "CODE_OF_CONDUCT.es.md"
+      "en": "CODE_OF_CONDUCT.en.md",
+      "es": "CODE_OF_CONDUCT.md"
     },
     {
-      "en": "THIRD-PARTY-NOTICES.md",
-      "es": "THIRD-PARTY-NOTICES.es.md"
+      "en": "THIRD-PARTY-NOTICES.en.md",
+      "es": "THIRD-PARTY-NOTICES.md"
     },
     {
       "en": "docs/OPERATIONS-RUNBOOKS.md",
@@ -315,5 +315,5 @@
     }
   ],
   "bilingual": ["docs/TRANSLATIONS.md"],
-  "historical": ["CHANGELOG.md", "docs/releases/v*.md"]
+  "historical": ["CHANGELOG.md", "docs/releases/v*.md", "docs/es/releases/v*.md"]
 }
