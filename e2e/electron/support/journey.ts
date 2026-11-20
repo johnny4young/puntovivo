@@ -68,7 +68,7 @@ export async function signOut(page: Page): Promise<void> {
   if (!(await userMenu.isVisible())) {
     await page
       .locator('header')
-      .getByRole('button', { name: /^(?:open user menu for|abre el menú de usuario de) /i })
+      .getByRole('button', { name: /^(?:open user menu for|abra el menú de usuario de) /i })
       .click();
   }
   const logoutResponse = await prepareLogoutCommit(page);

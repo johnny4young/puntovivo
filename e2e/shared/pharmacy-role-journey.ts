@@ -28,7 +28,7 @@ async function signOut(page: Page) {
   while ((await toasts.count()) > 0) await toasts.first().click();
   await page
     .locator('header')
-    .getByRole('button', { name: /^(?:open user menu for|abre el menú de usuario de) /i })
+    .getByRole('button', { name: /^(?:open user menu for|abra el menú de usuario de) /i })
     .click();
   const response = await prepareLogoutCommit(page);
   await page
