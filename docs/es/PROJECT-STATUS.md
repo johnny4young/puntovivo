@@ -34,6 +34,12 @@ El candidato validado actual incluye:
   moneda local. Tras la venta, una franja ofrece imprimir, WhatsApp, ver el recibo
   o seguir sin recibo mientras la caja ya vuelve al escáner. El conteo de caja
   usa los mismos billetes y monedas;
+- un estado enfocado por medio en el cobro: varios medios lista cada uno con su
+  referencia y completa lo que falta o mitad y mitad; una venta a crédito muestra
+  la deuda del cliente frente al cupo, recibe un abono en efectivo y nombra ambos
+  montos en Confirmar; la factura electrónica separa el NIT de su dígito de
+  verificación, completa un cliente guardado desde el número digitado y avisa que
+  la factura queda en cola sin conexión;
 - navegación orientada a las tareas del operador, búsqueda de comandos, configuración
   guiada del negocio y pantallas de preparación y recuperación con lenguaje claro
   para personal no técnico. La tarjeta de preparación sectorial deriva hechos

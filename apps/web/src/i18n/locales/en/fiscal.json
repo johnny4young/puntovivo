@@ -240,17 +240,21 @@
     }
   },
   "electronicInvoiceRequest": {
-    "toggle": "Customer asked for an electronic invoice",
+    "toggle": "Electronic invoice",
     "name": "Name or business name",
     "idType": "ID type",
     "idNumber": "ID number",
-    "email": "Email (optional)",
+    "email": "Email to send it to",
     "required": "Required",
     "emailInvalid": "Invalid email",
     "nitDvMismatch": "The verification digit does not match (should be {{dv}})",
-    "nitPreview": "Recorded as {{nit}}",
     "malformed": "Invalid ID number",
-    "consumidorFinal": "This is the consumidor final number, not a buyer"
+    "consumidorFinal": "This is the consumidor final number, not a buyer",
+    "dv": "DV",
+    "dvName": "Verification digit",
+    "dvOk": "Verification digit is correct",
+    "savedBuyer": "Saved customer: next time the {{type}} is enough",
+    "queueNote": "Sent to the DIAN on confirm. Offline, the sale goes through and the invoice waits in the queue."
   },
   "numbering": {
     "kicker": "Numbering",

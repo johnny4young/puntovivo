@@ -99,6 +99,8 @@ export interface SalePaymentValues extends ElectronicInvoiceFormValues {
    * payload-bound admin approval that the server consumes atomically.
    */
   creditOverride: boolean;
+  /** Cash paid now on a credit sale; the rest goes on the customer's account. */
+  creditDownPayment?: number | undefined;
   /**
    * restaurant service charge / propina sugerida. Auto
    * applied from the tenant's `serviceChargeRate` (a per-tenant

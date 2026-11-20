@@ -107,7 +107,11 @@ export function useSalePaymentModal({
   const form = useForm<SalePaymentValues>({
     defaultValues: {
       ...getDefaultValues(total, initialServiceChargeAmount, serviceChargeRate),
-      ...initialTenderValues(initialMethod, total + initialServiceChargeAmount, !!approvalCustomerId),
+      ...initialTenderValues(
+        initialMethod,
+        total + initialServiceChargeAmount,
+        !!approvalCustomerId
+      ),
       customerId: approvalCustomerId ?? '',
     },
   });
@@ -206,6 +210,7 @@ export function useSalePaymentModal({
   const tipAmountWatch = useWatch({ control: form.control, name: 'tipAmount' });
   const tipMethodWatch = useWatch({ control: form.control, name: 'tipMethod' });
   const watchedCustomerId = useWatch({ control: form.control, name: 'customerId' }) ?? '';
+  const creditDownPaymentWatch = useWatch({ control: form.control, name: 'creditDownPayment' });
   const watchedPharmacyEvidenceIdsRaw = useWatch({
     control: form.control,
     name: 'pharmacyEvidenceIds',
@@ -350,6 +355,24 @@ export function useSalePaymentModal({
   const grandTotal = roundMoney(checkoutBaseTotal + serviceChargeAmount + tipAmount);
   const isCash = paymentMethod === 'cash';
   const isCredit = paymentMethod === 'credit';
+  // A single-tender credit sale may take part in cash now; it then travels as cash + credit tenders.
+  const creditDownPayment =
+    isCredit && !splitMode ? Math.max(0, Number(creditDownPaymentWatch) || 0) : 0;
+  const creditDownPaymentInvalid = creditDownPayment > 0 && creditDownPayment >= grandTotal;
+  const creditDownPaymentTenders = useMemo(
+    () =>
+      creditDownPayment > 0 && !creditDownPaymentInvalid
+        ? [
+            { method: 'cash' as const, amount: roundMoney(creditDownPayment), reference: '' },
+            {
+              method: 'credit' as const,
+              amount: roundMoney(grandTotal - creditDownPayment),
+              reference: '',
+            },
+          ]
+        : [],
+    [creditDownPayment, creditDownPaymentInvalid, grandTotal]
+  );
 
   // F2 fast-cash apply. Shared by mount-time F2 open
   // and later in-modal F2 presses; always captures the freshest
@@ -523,13 +546,19 @@ export function useSalePaymentModal({
   // legacy credit (single-tender) projects against grandTotal as
   // before; split-credit projects against the credit tender sum so
   // the cashier sees "$150 a crédito" rather than the full "$200".
-  const creditProjectionAmount = isCredit ? grandTotal : creditAmountInSplit;
-  const projectedBalance = currentBalance + creditProjectionAmount;
+  const creditProjectionAmount = isCredit
+    ? roundMoney(grandTotal - creditDownPayment)
+    : creditAmountInSplit;
+  const projectedBalance = roundMoney(currentBalance + creditProjectionAmount);
   const cupoExceeded =
     !balanceUnknown &&
     creditLimit > 0 &&
     creditProjectionAmount > 0 &&
     projectedBalance > creditLimit;
+  // Cash that brings a single-tender credit sale back within the cupo, while some credit remains.
+  const cupoExcess = cupoExceeded ? roundMoney(projectedBalance - creditLimit) : 0;
+  const payableExcess =
+    isCredit && !splitMode && cupoExcess < creditProjectionAmount ? cupoExcess : 0;
   // V10 card surfaces whenever the sale carries a credit
   // portion (legacy single-tender OR split with a credit row).
   const showCreditCard = isCredit || creditAmountInSplit > 0;
@@ -594,7 +623,7 @@ export function useSalePaymentModal({
           paymentMethod,
           amountReceived: amountReceivedValue,
           notes: '',
-          tenders: splitMode ? tenders : [],
+          tenders: splitMode ? tenders : creditDownPaymentTenders,
           tipAmount,
           tipMethod: tipAmount > 0 ? (tipMethodWatch ?? 'fixed') : null,
           creditOverride: false,
@@ -613,6 +642,7 @@ export function useSalePaymentModal({
       approvalSaleId,
       customerLocked,
       amountReceivedValue,
+      creditDownPaymentTenders,
       currencyCode,
       grandTotal,
       paymentMethod,
@@ -640,6 +670,13 @@ export function useSalePaymentModal({
     },
     currencyCode,
   });
+
+  // A cash part typed for an earlier credit attempt must not come back with the next one.
+  useEffect(() => {
+    if (paymentMethod !== 'credit' && (Number(form.getValues('creditDownPayment')) || 0) !== 0) {
+      form.setValue('creditDownPayment', 0, { shouldDirty: true, shouldValidate: false });
+    }
+  }, [form, paymentMethod]);
 
   useEffect(() => {
     if (paymentMethod !== 'credit' || creditMethodAvailable) {
@@ -779,6 +816,7 @@ export function useSalePaymentModal({
     (!lossPreventionQueryEnabled ||
       (!lossPreventionQuery.isFetching && lossPreventionQuery.error === null)) &&
     !(hasCreditTender && creditBalanceQuery.isLoading) &&
+    !creditDownPaymentInvalid &&
     // Pharmacy policy is authoritative and fail-closed. Ordinary retail
     // carts return an empty requirement list and pass without UI cost.
     !pharmacyCheckoutLoading &&
@@ -812,6 +850,7 @@ export function useSalePaymentModal({
         ? values.creditOverride || hasApprovedCreditOverride
         : false;
     const { invoiceRequested, invoiceBuyer, ...submittedValues } = values;
+    delete submittedValues.creditDownPayment;
     return onSubmit({
       ...submittedValues,
       electronicInvoice: buildElectronicInvoiceRequest(electronicInvoice.available, {
@@ -826,7 +865,7 @@ export function useSalePaymentModal({
               ? { loyaltyPoints: Number(tender.loyaltyPoints) }
               : { loyaltyPoints: undefined }),
           }))
-        : [],
+        : creditDownPaymentTenders,
       tipAmount: sanitizedTip,
       tipMethod: sanitizedTip > 0 ? (values.tipMethod ?? 'fixed') : null,
       // service charge is derived from the prop rate, not
@@ -945,7 +984,14 @@ export function useSalePaymentModal({
     loyaltyValuePerPoint,
     storeCreditBalance,
     retryCustomerValue: () => void customerValueQuery.refetch(),
-    creditAmountInSplit,
+    creditDownPayment,
+    creditDownPaymentInvalid,
+    creditProjectionAmount,
+    payableExcess,
+    payExcess: () =>
+      form.setValue('creditDownPayment', roundMoney(creditDownPayment + payableExcess), {
+        shouldDirty: true,
+      }),
     currentBalance,
     creditLimit,
     projectedBalance,

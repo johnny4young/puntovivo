@@ -386,15 +386,13 @@ describe('SalePaymentModal — split payments', () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
     const remaining = await screen.findByTestId('split-remaining');
-    const meter = screen.getByRole('progressbar');
-    expect(meter).toHaveAttribute('aria-valuenow', '100');
+    expect(screen.getByTestId('split-meter')).toHaveTextContent('Tendered');
 
     const firstAmount = (await screen.findByLabelText('Amount for tender 1')) as HTMLInputElement;
     await user.clear(firstAmount);
     await user.type(firstAmount, '40');
     expect(screen.getByText('Remaining')).toBeInTheDocument();
     expect(remaining).toHaveTextContent(/60/);
-    expect(meter).toHaveAttribute('aria-valuenow', '40');
     expect(screen.getByRole('button', { name: /missing/i })).toBeDisabled();
 
     await user.clear(firstAmount);
@@ -805,9 +803,7 @@ describe('SalePaymentModal — customer asked for an electronic invoice', () => 
     const onSubmit = vi.fn(async () => undefined);
     render(<SalePaymentModal {...createProps({ onSubmit, total: 300_000 })} />);
 
-    const toggle = await screen.findByRole('checkbox', {
-      name: 'Customer asked for an electronic invoice',
-    });
+    const toggle = await screen.findByRole('switch', { name: 'Electronic invoice' });
     expect(toggle).not.toBeChecked();
     expect(screen.queryByLabelText('Name or business name')).not.toBeInTheDocument();
 
@@ -825,17 +821,15 @@ describe('SalePaymentModal — customer asked for an electronic invoice', () => 
     render(<SalePaymentModal {...createProps({ onSubmit })} />);
     const user = userEvent.setup();
 
-    await user.click(
-      await screen.findByRole('checkbox', { name: 'Customer asked for an electronic invoice' })
-    );
-    await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
+    await user.click(await screen.findByRole('switch', { name: 'Electronic invoice' }));
+    await user.click(screen.getByRole('button', { name: /Confirm and invoice/i }));
     expect(onSubmit).not.toHaveBeenCalled();
     expect(await screen.findAllByText('Required')).toHaveLength(2);
 
     await user.type(screen.getByLabelText('Name or business name'), '  Ferretería La 14 SAS ');
     await user.selectOptions(screen.getByLabelText('ID type'), '31');
     await user.type(screen.getByLabelText('ID number'), '900373115-3');
-    await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
+    await user.click(screen.getByRole('button', { name: /Confirm and invoice/i }));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
     expect(lastSubmitted(onSubmit).electronicInvoice).toEqual({
@@ -852,13 +846,11 @@ describe('SalePaymentModal — customer asked for an electronic invoice', () => 
     render(<SalePaymentModal {...createProps({ onSubmit })} />);
     const user = userEvent.setup();
 
-    await user.click(
-      await screen.findByRole('checkbox', { name: 'Customer asked for an electronic invoice' })
-    );
+    await user.click(await screen.findByRole('switch', { name: 'Electronic invoice' }));
     await user.type(screen.getByLabelText('Name or business name'), 'Ferretería La 14 SAS');
     await user.selectOptions(screen.getByLabelText('ID type'), '31');
     await user.type(screen.getByLabelText('ID number'), '900373115-9');
-    await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
+    await user.click(screen.getByRole('button', { name: /Confirm and invoice/i }));
 
     expect(
       await screen.findByText('The verification digit does not match (should be 3)')
@@ -880,11 +872,14 @@ describe('SalePaymentModal — customer asked for an electronic invoice', () => 
 
     await userEvent
       .setup()
-      .click(
-        await screen.findByRole('checkbox', { name: 'Customer asked for an electronic invoice' })
-      );
+      .click(await screen.findByRole('switch', { name: 'Electronic invoice' }));
     expect(screen.getByLabelText('ID type')).toHaveValue('31');
-    expect(screen.getByLabelText('ID number')).toHaveValue('900373115-3');
+    expect(screen.getByLabelText('ID number')).toHaveValue('900373115');
+    expect(screen.getByLabelText('DV')).toHaveValue('3');
+    expect(screen.getByRole('img', { name: 'Verification digit is correct' })).toBeInTheDocument();
+    expect(screen.getByTestId('sale-invoice-saved-buyer')).toHaveTextContent(
+      'Saved customer: next time the NIT is enough'
+    );
   });
 
   it('keeps the ticket customer selected when the customer list arrives after opening', async () => {
@@ -914,19 +909,73 @@ describe('SalePaymentModal — customer asked for an electronic invoice', () => 
     expect(screen.getByLabelText('Customer')).toHaveDisplayValue('María López');
   });
 
-  it('shows how an undashed NIT will be recorded', async () => {
+  it('shows the verification digit an undashed NIT will be recorded with', async () => {
     render(<SalePaymentModal {...createProps()} />);
     const user = userEvent.setup();
 
-    await user.click(
-      await screen.findByRole('checkbox', { name: 'Customer asked for an electronic invoice' })
-    );
+    await user.click(await screen.findByRole('switch', { name: 'Electronic invoice' }));
     await user.selectOptions(screen.getByLabelText('ID type'), '31');
     await user.type(screen.getByLabelText('ID number'), '9003731153');
 
-    expect(screen.getByTestId('sale-invoice-nit-preview')).toHaveTextContent(
-      'Recorded as 9003731153-4'
+    expect(screen.getByLabelText('DV')).toHaveAttribute('placeholder', '4');
+    expect(screen.getByLabelText('DV')).toHaveValue('');
+  });
+
+  it('keeps the NIT and its verification digit in separate boxes and submits them together', async () => {
+    const onSubmit = vi.fn(async () => undefined);
+    render(<SalePaymentModal {...createProps({ onSubmit })} />);
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('switch', { name: 'Electronic invoice' }));
+    await user.type(screen.getByLabelText('Name or business name'), 'Ferretería La 14 SAS');
+    await user.selectOptions(screen.getByLabelText('ID type'), '31');
+    await user.type(screen.getByLabelText('ID number'), '900.373.115');
+    await user.type(screen.getByLabelText('DV'), '3');
+    expect(screen.getByRole('img', { name: 'Verification digit is correct' })).toBeInTheDocument();
+    expect(screen.getByText(/Sent to the DIAN on confirm/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Confirm and invoice' }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(lastSubmitted(onSubmit).electronicInvoice?.buyer.identificationNumber).toBe(
+      '900.373.115-3'
     );
+  });
+
+  it('drops the verification digit when the ID type stops being a NIT', async () => {
+    render(<SalePaymentModal {...createProps()} />);
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('switch', { name: 'Electronic invoice' }));
+    await user.selectOptions(screen.getByLabelText('ID type'), '31');
+    await user.type(screen.getByLabelText('ID number'), '900373115-3');
+    await user.selectOptions(screen.getByLabelText('ID type'), '13');
+
+    expect(screen.queryByLabelText('DV')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('ID number')).toHaveValue('900373115');
+  });
+
+  it('fills a saved buyer from the typed ID on a walk-in sale', async () => {
+    const company = makeCustomer({
+      id: 'cust-andina',
+      name: 'Constructora Andina SAS',
+      taxId: '900373115-3',
+      email: 'compras@andina.co',
+    });
+    render(<SalePaymentModal {...createProps({ customers: [company] })} />);
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('switch', { name: 'Electronic invoice' }));
+    await user.selectOptions(screen.getByLabelText('ID type'), '31');
+    await user.type(screen.getByLabelText('ID number'), '900373115');
+
+    expect(screen.getByLabelText('Name or business name')).toHaveValue('Constructora Andina SAS');
+    expect(screen.getByLabelText('Email to send it to')).toHaveValue('compras@andina.co');
+    expect(screen.getByTestId('sale-invoice-saved-buyer')).toBeInTheDocument();
+    expect(screen.getByLabelText('Customer')).toHaveValue('');
+
+    await user.type(screen.getByLabelText('ID number'), '9');
+    expect(screen.getByLabelText('Name or business name')).toHaveValue('');
+    expect(screen.queryByTestId('sale-invoice-saved-buyer')).not.toBeInTheDocument();
   });
 
   it('prefills the buyer from the attached customer', async () => {
@@ -944,12 +993,10 @@ describe('SalePaymentModal — customer asked for an electronic invoice', () => 
     );
     const user = userEvent.setup();
 
-    await user.click(
-      await screen.findByRole('checkbox', { name: 'Customer asked for an electronic invoice' })
-    );
+    await user.click(await screen.findByRole('switch', { name: 'Electronic invoice' }));
     expect(screen.getByLabelText('Name or business name')).toHaveValue('Ana Gómez');
     expect(screen.getByLabelText('ID number')).toHaveValue('1020304050');
-    await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
+    await user.click(screen.getByRole('button', { name: /Confirm and invoice/i }));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
     expect(lastSubmitted(onSubmit).electronicInvoice).toEqual({
@@ -969,9 +1016,7 @@ describe('SalePaymentModal — customer asked for an electronic invoice', () => 
     const user = userEvent.setup();
 
     await user.selectOptions(await screen.findByLabelText('Customer'), 'cust-ana');
-    await user.click(
-      screen.getByRole('checkbox', { name: 'Customer asked for an electronic invoice' })
-    );
+    await user.click(screen.getByRole('switch', { name: 'Electronic invoice' }));
     await user.clear(screen.getByLabelText('Name or business name'));
     await user.type(screen.getByLabelText('Name or business name'), 'Ana G.');
     await user.selectOptions(screen.getByLabelText('Customer'), 'cust-luis');
@@ -985,18 +1030,16 @@ describe('SalePaymentModal — customer asked for an electronic invoice', () => 
     render(<SalePaymentModal {...createProps({ onSubmit })} />);
     const user = userEvent.setup();
 
-    await user.click(
-      await screen.findByRole('checkbox', { name: 'Customer asked for an electronic invoice' })
-    );
+    await user.click(await screen.findByRole('switch', { name: 'Electronic invoice' }));
     expect(screen.getByLabelText('Name or business name')).toHaveAttribute('maxLength', '200');
     await user.type(screen.getByLabelText('Name or business name'), 'Ana Gómez');
     await user.type(screen.getByLabelText('ID number'), '12');
-    await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
+    await user.click(screen.getByRole('button', { name: /Confirm and invoice/i }));
     expect(await screen.findByText('Invalid ID number')).toBeInTheDocument();
 
     await user.clear(screen.getByLabelText('ID number'));
     await user.type(screen.getByLabelText('ID number'), '222222222222');
-    await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
+    await user.click(screen.getByRole('button', { name: /Confirm and invoice/i }));
     expect(
       await screen.findByText('This is the consumidor final number, not a buyer')
     ).toBeInTheDocument();
@@ -1033,14 +1076,18 @@ describe('SalePaymentModal — electronic invoice selector in Spanish', () => {
     render(<SalePaymentModal {...createProps()} />);
     await userEvent
       .setup()
-      .click(await screen.findByRole('checkbox', { name: 'El cliente pidió factura electrónica' }));
+      .click(await screen.findByRole('switch', { name: 'Factura electrónica' }));
 
     expect(screen.getByLabelText('Nombre o razón social')).toBeInTheDocument();
-    expect(screen.getByLabelText('Tipo de documento')).toHaveDisplayValue(
-      'CC · Cédula de ciudadanía'
-    );
-    expect(screen.getByLabelText('Número de documento')).toBeInTheDocument();
-    expect(screen.getByLabelText('Correo (opcional)')).toBeInTheDocument();
+    expect(screen.getByLabelText('Tipo')).toHaveDisplayValue('CC');
+    expect(screen.getByLabelText('Número')).toBeInTheDocument();
+    expect(screen.getByLabelText('Correo para enviarla')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Confirmar y facturar' })).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Se envía a la DIAN al confirmar. Sin conexión, la venta sale y la factura queda en cola.'
+      )
+    ).toBeInTheDocument();
   });
 });
 

@@ -52,6 +52,7 @@ export function getDefaultValues(
     serviceChargeAmount,
     serviceChargeRate: serviceChargeRate > 0 ? serviceChargeRate : null,
     creditOverride: false,
+    creditDownPayment: 0,
     approvalRequests: [],
     pharmacyEvidenceIds: [],
     invoiceRequested: false,

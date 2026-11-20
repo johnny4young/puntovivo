@@ -318,9 +318,6 @@
     "loyalty": "Puntos de lealtad",
     "storeCredit": "Crédito de tienda",
     "other": "Otro",
-    "partialCredit": {
-      "summary": "{{cashAmount}} de inicial + {{creditAmount}} a crédito"
-    },
     "amountReceived": "Recibido",
     "amountNegative": "El monto recibido no puede ser negativo",
     "quickAmount": {
@@ -331,19 +328,17 @@
     "change": "Cambio",
     "splitEnable": "Dividir el pago en varios medios",
     "splitDisable": "Usar un solo medio de pago",
-    "splitHeading": "Pago dividido",
-    "splitHelp": "Combine pagos externos, puntos de lealtad, crédito de tienda o crédito del cliente. Los montos deben sumar el total antes de confirmar.",
-    "splitAddTender": "Agregar medio de pago",
+    "splitHeading": "Varios medios",
+    "splitAddTender": "Otro medio",
     "splitRemove": "Eliminar pago {{index}}",
     "splitMethodLabel": "Medio de pago {{index}}",
     "splitAmountLabel": "Monto del pago {{index}}",
     "splitAmountPlaceholder": "Monto",
     "splitReferenceLabel": "Referencia del pago {{index}}",
     "splitReferencePlaceholder": "Referencia (opcional)",
-    "splitSum": "Pagado",
-    "splitRemaining": "Restante",
-    "splitOver": "Excedente",
-    "splitMustMatch": "Los pagos deben sumar el total antes de confirmar.",
+    "splitSum": "Suma de los medios",
+    "splitRemaining": "Falta por cobrar",
+    "splitOver": "Sobra",
     "notes": "Notas",
     "notesHint": "Comentarios opcionales para la venta",
     "tip": {
@@ -374,7 +369,16 @@
     "keypad": {
       "label": "Teclado del monto",
       "back": "Borrar el último dígito"
-    }
+    },
+    "splitFillMissing": "Lo que falta",
+    "splitHalf": "Mitad y mitad",
+    "splitReferenceCard": "Voucher o aprobación",
+    "splitReferenceTransfer": "Referencia del comprobante",
+    "splitNeedsTwo": "Agregue otro medio o use un solo medio de pago.",
+    "splitZeroRow": "Quite los medios en cero antes de confirmar.",
+    "confirmCredit": "Fiar {{credit}}",
+    "confirmCreditWithCash": "Fiar {{credit}} y cobrar {{cash}}",
+    "confirmInvoice": "Confirmar y facturar"
   },
   "history": {
     "title": "Historial de ventas",
@@ -675,20 +679,29 @@
       "unknownCustomer": "Cliente desconocido",
       "balance": "Saldo actual",
       "cupo": "Cupo",
-      "projected": "Saldo proyectado",
+      "projected": "Quedaría debiendo",
       "unlimited": "Sin cupo",
       "balanceUnavailable": "No se pudo cargar el saldo",
       "balanceUnavailableHelp": "Sin el saldo no se puede proyectar el cupo, así que la venta queda bloqueada. Reintente o cobre por otro medio.",
-      "balanceRetry": "Reintentar"
+      "balanceRetry": "Reintentar",
+      "heading": "Crédito de {{name}}",
+      "thisSale": "Esta venta",
+      "owedToday": "debe hoy",
+      "plusThisSale": "+ esta venta",
+      "cupoOf": "cupo {{amount}}",
+      "cupoBar": "Debe {{owed}} y esta venta suma {{sale}} de un cupo de {{limit}}",
+      "downPayment": "Abona ahora en efectivo",
+      "onCredit": "A crédito",
+      "downPaymentTooHigh": "El abono debe ser menor que el total. Si paga todo, cobre en efectivo.",
+      "payExcess": "Cobrar {{amount}} en efectivo"
     },
     "warning": {
-      "exceedsLimit": "El saldo proyectado supera el cupo del cliente. Pida a un administrador autorizar el sobregiro o cobre el excedente en efectivo."
+      "exceedsLimit": "Esta venta supera el cupo: pida aprobación del administrador o cobre el excedente en efectivo."
     },
     "override": {
       "label": "Autorizar exceder el cupo",
       "adminHelp": "Registra la venta aunque el saldo proyectado supere el cupo del cliente. Úselo solo con aprobación administrativa.",
-      "adminOnly": "Solo un administrador puede autorizar esto",
-      "approvalRequired": "Un administrador debe aprobar este sobregiro antes de completar la venta."
+      "adminOnly": "Solo un administrador puede autorizar esto"
     },
     "toast": {
       "success": "Venta a crédito registrada"

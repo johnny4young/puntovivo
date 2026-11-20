@@ -217,7 +217,7 @@ describe('SalePaymentModal ( credit branch)', () => {
     expect(await screen.findByTestId('sale-payment-method-credit-option')).toBeInTheDocument();
     await user.selectOptions(screen.getByTestId('sale-payment-method-select'), 'credit');
     expect(await screen.findByTestId('checkout-approval-credit_sale')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Confirm Sale/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /on account/i })).toBeDisabled();
   });
 
   it('surfaces the server-owned blocked-hours approval and fails closed', async () => {
@@ -433,7 +433,7 @@ describe('SalePaymentModal ( credit branch)', () => {
     expect(screen.getByTestId('credit-sale-warning')).toBeInTheDocument();
     expect(screen.getByTestId('credit-sale-override-toggle')).toBeInTheDocument();
     const projected = screen.getByTestId('credit-sale-projected');
-    expect(projected.className).toMatch(/warning/);
+    expect(projected).toHaveAttribute('data-tone', 'warning');
   });
 
   it('offers an admin approval request instead of an override checkbox to managers', async () => {
@@ -462,7 +462,7 @@ describe('SalePaymentModal ( credit branch)', () => {
     await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
     await user.selectOptions(screen.getByTestId('sale-payment-method-select'), 'credit');
     await user.click(screen.getByTestId('credit-sale-override-toggle'));
-    await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
+    await user.click(screen.getByRole('button', { name: /on account/i }));
 
     expect(onSubmit).toHaveBeenCalledTimes(1);
     const submitted = onSubmit.mock.calls.at(0)?.at(0) as unknown as SalePaymentValues;
@@ -820,8 +820,76 @@ describe('SalePaymentModal ( credit branch)', () => {
     );
     expect(screen.getByTestId('credit-sale-projected')).toHaveTextContent('150');
     expect(screen.queryByTestId('credit-sale-warning')).not.toBeInTheDocument();
-    // Partial-credit summary line shows the breakdown.
-    expect(screen.getByTestId('credit-sale-partial-summary')).toBeInTheDocument();
+    expect(screen.getByTestId('credit-sale-this-sale')).toHaveTextContent('150');
+    // The cash part lives in the split rows, so the card has no second field for it.
+    expect(screen.queryByTestId('credit-down-payment')).not.toBeInTheDocument();
+  });
+
+  it('takes part of a credit sale in cash and submits cash plus credit tenders', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn(async () => undefined);
+    mockBalance = 40;
+    renderModal({
+      userRole: 'admin',
+      total: 200,
+      customers: [makeCustomer({ creditLimit: 500 })],
+      onSubmit,
+    });
+    await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
+    await user.selectOptions(screen.getByTestId('sale-payment-method-select'), 'credit');
+    expect(screen.queryByLabelText('Amount received')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Put \$\s?200(\.00)? on account$/ })).toBeEnabled();
+
+    await user.type(screen.getByLabelText('Paid now in cash'), '50');
+    expect(screen.getByTestId('credit-sale-credit-portion')).toHaveTextContent('150');
+    expect(screen.getByTestId('credit-sale-projected')).toHaveTextContent('190');
+    const confirm = screen.getByRole('button', { name: /on account and take/i });
+    expect(confirm).toHaveTextContent(/150.*50/);
+
+    await user.click(confirm);
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    const submitted = onSubmit.mock.calls.at(0)?.at(0) as unknown as SalePaymentValues;
+    expect(submitted.tenders).toEqual([
+      { method: 'cash', amount: 50, reference: '' },
+      { method: 'credit', amount: 150, reference: '' },
+    ]);
+    expect(submitted).not.toHaveProperty('creditDownPayment');
+  });
+
+  it('blocks a cash part that covers the whole credit sale', async () => {
+    const user = userEvent.setup();
+    mockBalance = 0;
+    renderModal({
+      userRole: 'admin',
+      total: 200,
+      customers: [makeCustomer({ creditLimit: 500 })],
+    });
+    await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
+    await user.selectOptions(screen.getByTestId('sale-payment-method-select'), 'credit');
+    await user.type(screen.getByLabelText('Paid now in cash'), '200');
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/must be less than the total/);
+    expect(screen.getByRole('button', { name: /Confirm Sale/i })).toBeDisabled();
+  });
+
+  it('offers to take the amount over the cupo in cash', async () => {
+    const user = userEvent.setup();
+    mockBalance = 150;
+    renderModal({
+      userRole: 'manager',
+      total: 100,
+      customers: [makeCustomer({ creditLimit: 200 })],
+    });
+    await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
+    await user.selectOptions(screen.getByTestId('sale-payment-method-select'), 'credit');
+
+    expect(screen.getByTestId('credit-sale-cupo-bar')).toHaveAttribute('data-over');
+    await user.click(screen.getByTestId('credit-sale-pay-excess'));
+
+    expect(screen.getByLabelText('Paid now in cash')).toHaveValue(50);
+    expect(screen.getByTestId('credit-sale-projected')).toHaveTextContent('200');
+    expect(screen.queryByTestId('credit-sale-warning')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('checkout-approval-credit_override')).not.toBeInTheDocument();
   });
 
   it(': submits split payload carrying cash + credit tenders', async () => {
