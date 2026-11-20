@@ -1,4 +1,8 @@
+import { AlertTriangle, ChevronDown } from 'lucide-react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+
+import { Button } from '@/components/ui';
 
 import {
   PRODUCT_IMPORT_FIELDS,
@@ -36,6 +40,23 @@ export function ProductImportMappingPanel({
   onProfileChange,
 }: ProductImportMappingPanelProps) {
   const { t } = useTranslation('dataImport');
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const requiredMissing = !mapping.name || !mapping.sku;
+  const showFields = reviewOpen || requiredMissing;
+  const recognized = PRODUCT_IMPORT_FIELDS.filter(field => mapping[field]);
+  const usedHeaders = new Set<string>(recognized.map(field => mapping[field]));
+  const ignoredHeaders = headers.filter(header => !usedHeaders.has(header));
+  const knownFormat =
+    profileId !== 'generic' &&
+    profileId === detectedProfileId &&
+    matchesProductImportProfileSignature(headers, profileId);
+  const warnings = [
+    detectedProfileId === 'generic' ? t('steps.map.unknownFormat') : null,
+    requiredMissing ? t('steps.map.requiredMissing') : null,
+    ignoredHeaders.length > 0
+      ? t('steps.map.ignoredColumns', { columns: ignoredHeaders.join(', ') })
+      : null,
+  ].filter((warning): warning is string => warning !== null);
 
   return (
     <section className="card space-y-5 p-6" aria-labelledby="data-import-mapping-title">
@@ -73,11 +94,7 @@ export function ProductImportMappingPanel({
             </select>
           </div>
           <span className="inline-flex w-fit rounded-full border border-primary-200 bg-white px-3 py-1.5 text-xs font-semibold text-primary-800">
-            {profileId !== 'generic' &&
-            matchesProductImportProfileSignature(headers, profileId) &&
-            profileId === detectedProfileId
-              ? t('profiles.detected')
-              : t('profiles.reviewRequired')}
+            {knownFormat ? t('profiles.detected') : t('profiles.reviewRequired')}
           </span>
         </div>
         <p className="mt-3 text-xs font-medium leading-5 text-secondary-800">
@@ -86,7 +103,61 @@ export function ProductImportMappingPanel({
         <p className="mt-3 text-xs leading-5 text-secondary-600">{t('profiles.boundary')}</p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      {warnings.length > 0 ? (
+        <ul className="space-y-2" data-testid="data-import-mapping-warnings">
+          {warnings.map(warning => (
+            <li
+              key={warning}
+              className="flex items-start gap-2 rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-800"
+            >
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              <span>{warning}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      <div className="space-y-3" data-testid="data-import-mapping-summary">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm font-semibold text-secondary-900">
+            {t('steps.map.recognized', { count: recognized.length })}
+          </p>
+          {requiredMissing ? null : (
+            <Button
+              type="button"
+              variant="outline"
+              aria-expanded={showFields}
+              aria-controls="data-import-mapping-fields"
+              disabled={disabled}
+              onClick={() => setReviewOpen(open => !open)}
+            >
+              <ChevronDown
+                className={showFields ? 'h-4 w-4 rotate-180' : 'h-4 w-4'}
+                aria-hidden="true"
+              />
+              {t(showFields ? 'steps.map.hideFields' : 'steps.map.reviewFields')}
+            </Button>
+          )}
+        </div>
+        {recognized.length > 0 ? (
+          <ul className="flex flex-wrap gap-2">
+            {recognized.map(field => (
+              <li
+                key={field}
+                className="rounded-full border border-line bg-white px-3 py-1 text-xs text-secondary-700"
+              >
+                {t('steps.map.pair', { column: mapping[field], field: t(`fields.${field}`) })}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+
+      <div
+        id="data-import-mapping-fields"
+        hidden={!showFields}
+        className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
+      >
         {PRODUCT_IMPORT_FIELDS.map(field => {
           const id = `data-import-map-${field}`;
           const required = field === 'name' || field === 'sku';

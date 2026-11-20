@@ -95,6 +95,10 @@ test.describe('launch data import', () => {
       ),
     });
     await expect(page.getByLabel('Formato de origen')).toHaveValue('monica-inventory-es-v1');
+    await expect(page.getByTestId('data-import-mapping-summary')).toContainText(
+      '6 columnas reconocidas'
+    );
+    await expect(page.getByTestId('data-import-mapping-warnings')).toHaveCount(0);
     await expect(page.getByLabel(/^SKU/)).toHaveValue('Código');
     await expect(page.getByLabel(/^Precio de venta/)).toHaveValue('Precio 1');
     await expect(page.getByLabel(/^Precio 2/)).toHaveValue('Precio 2');

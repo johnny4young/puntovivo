@@ -41,14 +41,23 @@
     "map": {
       "kicker": "Paso 2",
       "title": "Asigne sus columnas",
-      "description": "Confirme las columnas detectadas. El nombre y el SKU son obligatorios; puede dejar los demás campos sin asignar.",
+      "description": "Nombre y SKU son obligatorios. Revise la asignación solo si algo no coincide.",
       "notMapped": "No importar",
-      "decimalFormat": "Formato numérico"
+      "decimalFormat": "Formato numérico",
+      "recognized_one": "{{count}} columna reconocida",
+      "recognized_other": "{{count}} columnas reconocidas",
+      "reviewFields": "Revisar asignación",
+      "hideFields": "Ocultar asignación",
+      "pair": "{{column}} → {{field}}",
+      "unknownFormat": "No reconocimos el formato del archivo. Revise la asignación antes de continuar.",
+      "requiredMissing": "Asigne el nombre del producto y el SKU para continuar.",
+      "ignoredColumns": "Estas columnas de su archivo no se importarán: {{columns}}."
     },
     "preview": {
       "kicker": "Paso 3",
       "title": "Revise antes de importar",
-      "description": "Puntovivo vuelve a validar cada fila en el servidor y omite los SKU y códigos existentes o repetidos."
+      "description": "Puntovivo vuelve a validar cada fila en el servidor y omite los SKU y códigos existentes o repetidos.",
+      "onlyIssues": "Ver solo filas con problemas ({{count}})"
     }
   },
   "fields": {
@@ -163,7 +172,8 @@
   },
   "template": {
     "sampleName": "Café de ejemplo",
-    "sampleDescription": "Reemplace esta fila con los datos de sus productos"
+    "sampleDescription": "Reemplace esta fila con los datos de sus productos",
+    "hint": "Obligatorio: nombre y SKU. Las demás columnas son opcionales."
   },
   "fileErrors": {
     "unsupported_file": "Elija un archivo .csv o .xlsx.",
