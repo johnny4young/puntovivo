@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { keepPreviousData } from '@tanstack/react-query';
-import { CircleCheck, Clock } from 'lucide-react';
+import { CircleAlert, CircleCheck, Clock, LoaderCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { UseFormReturn } from 'react-hook-form';
 import { Link } from 'react-router';
@@ -14,17 +14,24 @@ import { trpc } from '@/lib/trpc';
 import { useCheckoutTransferDisplay } from './checkoutTransferDisplay';
 import type { SalePaymentValues } from './salePaymentModal.types';
 import { TransferQrCode } from './TransferQrCode';
+import { useWalletCharge, type WalletChargeState } from './useWalletCharge';
 
 interface SalePaymentTransferSectionProps {
   form: UseFormReturn<SalePaymentValues>;
   grandTotal: number;
   referenceValid: boolean;
+  canSubmit: boolean;
+  isSaving: boolean;
+  onConfirm: () => void;
 }
 
 export function SalePaymentTransferSection({
   form,
   grandTotal,
   referenceValid,
+  canSubmit,
+  isSaving,
+  onConfirm,
 }: SalePaymentTransferSectionProps) {
   const { t, i18n } = useTranslation(['sales', 'common']);
   const { currentSite } = useTenant();
@@ -42,12 +49,37 @@ export function SalePaymentTransferSection({
   const [pickedId, setPickedId] = useState<string | null>(null);
   const selected = destinations.find(item => item.id === pickedId) ?? destinations[0] ?? null;
 
-  const label = selected?.label;
-  const account = selected?.account;
-  const qrPayload = selected?.qr.payload;
+  const amountSettled = qrAmount === grandTotal;
+  const wallet = useWalletCharge({
+    siteId,
+    amount: qrAmount,
+    enabled: amountSettled && query.data?.autoConfirm === true,
+    keepOnLeave: isSaving,
+  });
+  const live = wallet.mode === 'live' ? wallet : null;
+  const providerCharge = live?.status === 'pending' && live.qrPayload ? live : null;
+
+  const label = providerCharge ? providerCharge.railLabel : selected?.label;
+  const account = providerCharge ? '' : selected?.account;
+  const qrPayload = providerCharge?.qrPayload ?? selected?.qr.payload;
   // Only a QR that spells out the amount goes stale while a new total is fetched.
-  const qrIsStale =
-    Boolean(selected?.qr.amountIncluded) && (query.isPlaceholderData || qrAmount !== grandTotal);
+  const qrIsStale = providerCharge
+    ? !amountSettled
+    : Boolean(selected?.qr.amountIncluded) && (query.isPlaceholderData || !amountSettled);
+
+  const approvedReference = live?.status === 'approved' ? live.reference : null;
+  useEffect(() => {
+    if (approvedReference) {
+      form.setValue('transferReference', approvedReference, { shouldValidate: true });
+    }
+  }, [approvedReference, form]);
+  const autoConfirmedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!approvedReference || !referenceValid || !canSubmit) return;
+    if (autoConfirmedRef.current === approvedReference) return;
+    autoConfirmedRef.current = approvedReference;
+    onConfirm();
+  }, [approvedReference, canSubmit, onConfirm, referenceValid]);
   useEffect(() => {
     if (!customerDisplayActive || qrIsStale) return;
     if (label === undefined || account === undefined || qrPayload === undefined) return;
@@ -58,7 +90,9 @@ export function SalePaymentTransferSection({
   const referenceField = form.register('transferReference');
   const qrCopy = [
     customerDisplayActive ? t('payment.transferQr.onCustomerDisplay') : null,
-    selected && !selected.qr.amountIncluded ? t('payment.transferQr.amountTyped') : null,
+    selected && !providerCharge && !selected.qr.amountIncluded
+      ? t('payment.transferQr.amountTyped')
+      : null,
   ]
     .filter(Boolean)
     .join(' ');
@@ -80,6 +114,21 @@ export function SalePaymentTransferSection({
             {t('common:actions.retry')}
           </button>
         </p>
+      ) : providerCharge?.qrPayload ? (
+        <div className="sale-pay-transfer-qr-row">
+          <TransferQrCode
+            payload={providerCharge.qrPayload}
+            label={t('payment.transferQr.qrLabel', { name: providerCharge.railLabel })}
+            testId="sale-payment-transfer-qr"
+            pending={qrIsStale}
+          />
+          <div className="min-w-0">
+            <p className="sale-pay-transfer-title">
+              {t('payment.wallet.providerQrTitle', { rail: providerCharge.railLabel })}
+            </p>
+            {qrCopy && <p className="sale-pay-transfer-copy">{qrCopy}</p>}
+          </div>
+        </div>
       ) : selected ? (
         <div className="sale-pay-transfer-qr-row">
           <TransferQrCode
@@ -148,10 +197,71 @@ export function SalePaymentTransferSection({
         </div>
       </div>
 
-      <p className="sale-pay-note" data-tone="muted">
-        <Clock className="h-5 w-5 shrink-0" aria-hidden="true" />
-        {t('payment.transferQr.manualNote')}
-      </p>
+      <WalletStatusNote wallet={wallet} autoConfirming={canSubmit} />
     </section>
+  );
+}
+
+function WalletStatusNote({
+  wallet,
+  autoConfirming,
+}: {
+  wallet: WalletChargeState;
+  autoConfirming: boolean;
+}) {
+  const { t } = useTranslation('sales');
+  const note =
+    wallet.mode !== 'live'
+      ? wallet.mode === 'manual' && wallet.providerUnavailable
+        ? {
+            state: 'unavailable',
+            tone: 'muted',
+            Icon: Clock,
+            text: t('payment.wallet.unavailable'),
+          }
+        : { state: 'manual', tone: 'muted', Icon: Clock, text: t('payment.transferQr.manualNote') }
+      : wallet.status === 'approved'
+        ? {
+            state: 'approved',
+            tone: 'success',
+            role: 'status',
+            Icon: CircleCheck,
+            text: t(
+              autoConfirming ? 'payment.wallet.approvedConfirming' : 'payment.wallet.approved',
+              {
+                rail: wallet.railLabel,
+              }
+            ),
+          }
+        : wallet.status === 'declined'
+          ? {
+              state: 'declined',
+              tone: 'danger',
+              role: 'alert',
+              Icon: CircleAlert,
+              text: t('payment.wallet.declined', { rail: wallet.railLabel }),
+            }
+          : {
+              state: 'pending',
+              tone: 'muted',
+              role: 'status',
+              Icon: LoaderCircle,
+              text: t('payment.wallet.pending', { rail: wallet.railLabel }),
+            };
+  const { Icon } = note;
+  return (
+    <p
+      className="sale-pay-note"
+      data-tone={note.tone}
+      role={'role' in note ? note.role : undefined}
+      data-testid="sale-payment-wallet-status"
+      data-state={note.state}
+    >
+      <Icon
+        className={`h-5 w-5 shrink-0${note.state === 'pending' ? ' motion-safe:animate-spin' : ''}`}
+        aria-hidden="true"
+      />
+      {note.text}
+    </p>
   );
 }

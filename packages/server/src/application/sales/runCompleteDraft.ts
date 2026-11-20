@@ -113,6 +113,7 @@ import {
   prepareSaleFiscalIntent,
 } from '../../services/fiscal/orchestrator/intents.js';
 import type { ResolvedLine } from '../../services/fiscal/orchestrator/types.js';
+import { linkWalletChargeToTender } from '../../services/payments/wallet-confirmation.js';
 import { resolveElectronicInvoiceBuyer } from './electronicInvoice.js';
 
 function assertDraftLotsRemainSellable(
@@ -995,6 +996,13 @@ export async function runCompleteDraft(
           paymentEffects.push({
             id: paymentId,
             method: payment.method,
+            amount: tenderAmount,
+          });
+          linkWalletChargeToTender(tx, {
+            tenantId: ctx.tenantId,
+            salePaymentId: paymentId,
+            method: payment.method,
+            reference: payment.reference ?? null,
             amount: tenderAmount,
           });
           redeemCustomerValueTender(tx, {

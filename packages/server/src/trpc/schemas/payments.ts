@@ -101,3 +101,16 @@ export const reviewPaymentProposalInput = z
     decision: z.enum(['approve', 'reject']),
   })
   .strict();
+
+export const startWalletChargeInput = z
+  .object({
+    siteId: z.string().min(1).max(64),
+    amount: z.number().positive().max(1_000_000_000),
+  })
+  .strict();
+
+export const walletChargeInput = z
+  .object({
+    chargeId: z.string().min(1).max(64),
+  })
+  .strict();

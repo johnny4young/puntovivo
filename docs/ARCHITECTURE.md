@@ -150,6 +150,10 @@ display.
   fiscal-enabled completed sale first records a frozen emission intent in the
   sale transaction; the fiscal worker materializes that intent into the fiscal
   document and provider outbox atomically before delivery.
+- A transfer charged through a live, configured wallet rail is a
+  `payment_outbox` charge row in `submitting`. The register polls the adapter's
+  status (a local till has no public webhook URL) and the sale links the
+  approved row to the transfer tender that carries its provider reference.
 - Generic outbox acknowledgment requires tenant, row, processing status and the
   current claim token. Final fiscal/delivery evidence and acknowledgment share
   one synchronous immediate transaction; superseded responses report lost

@@ -143,8 +143,10 @@ The current validated candidate includes:
   own EMVCo QR read with the scanner is shown as stored, otherwise the QR spells
   out the destination and the amount. The cashier types the last digits or the
   voucher reference before confirming, and it is saved with the payment and
-  printed on the receipt. Transfers are still confirmed by hand, and a site
-  with a destination no longer reports that only cash is configured;
+  printed on the receipt. Transfers are still confirmed by hand: the drawer
+  confirms by itself only when a wallet provider ships a live integration and
+  has its credentials, and no provider does yet. A site with a destination no
+  longer reports that only cash is configured;
 - site-scoped reservations with capacity/overlap checks, explicit arrival and
   reservation-to-check seating without empty sales; versioned delivery creation,
   courier dispatch and cancellation from UI, with no implicit charge or refund;

@@ -394,6 +394,14 @@
       "configure": "Set up",
       "loadError": "The transfer accounts could not be loaded.",
       "approvalNeedsReference": "Type the transfer reference before asking for approval."
+    },
+    "wallet": {
+      "providerQrTitle": "Show the {{rail}} QR",
+      "pending": "Waiting for {{rail}} to confirm. The sale confirms itself when the payment arrives.",
+      "approved": "{{rail}} confirmed the payment.",
+      "approvedConfirming": "{{rail}} confirmed the payment. Confirming the sale…",
+      "declined": "{{rail}} declined the payment. Ask for another payment method.",
+      "unavailable": "The payment provider did not answer. You confirm the money arrived."
     }
   },
   "history": {

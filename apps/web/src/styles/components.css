@@ -1717,15 +1717,25 @@
     color: var(--fg2);
   }
 
-  .sale-pay-note[data-tone='ok'] {
+  .sale-pay-note:is([data-tone='ok'], [data-tone='success']) {
     font-weight: 600;
     color: var(--success-700);
   }
 
-  .sale-pay-note[data-tone='muted'] {
+  .sale-pay-note:is([data-tone='muted'], [data-tone='success'], [data-tone='danger']) {
     padding: 0.625rem 0.875rem;
     border-radius: 0.875rem;
     background: var(--surface-3);
+  }
+
+  .sale-pay-note[data-tone='success'] {
+    background: var(--success-50);
+  }
+
+  .sale-pay-note[data-tone='danger'] {
+    font-weight: 600;
+    color: var(--danger-700);
+    background: var(--danger-50);
   }
 
   .sale-pay-invoice-id {

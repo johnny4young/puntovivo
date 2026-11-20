@@ -161,8 +161,10 @@ El candidato validado actual incluye:
   escáner se muestra tal cual; si no hay, el QR escribe el destino y el monto.
   El cajero escribe los últimos dígitos o la referencia del comprobante antes
   de confirmar, y queda guardada con el pago e impresa en el recibo. Las
-  transferencias se siguen confirmando a mano, y una sede con un destino ya no
-  avisa que solo hay efectivo configurado;
+  transferencias se siguen confirmando a mano: el cobro se confirma solo cuando
+  un proveedor de billetera tiene integración real y sus credenciales, y
+  ninguno la tiene todavía. Una sede con un destino ya no avisa que solo hay
+  efectivo configurado;
 - reservas por sede con controles de capacidad y solapamiento, llegada explícita
   y asignación de una reserva a una cuenta sin ventas vacías; creación versionada
   de entregas, despacho de repartidor y cancelación desde la UI sin cobro ni

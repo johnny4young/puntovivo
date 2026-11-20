@@ -1656,6 +1656,12 @@
     "output": "inferred"
   },
   {
+    "path": "payments.cancelWalletCharge",
+    "kind": "mutation",
+    "input": "object{chargeId:string[minLength=1,maxLength=64]}",
+    "output": "inferred"
+  },
+  {
     "path": "payments.getContract",
     "kind": "query",
     "input": "void",
@@ -1701,6 +1707,18 @@
     "path": "payments.reviewProposal",
     "kind": "mutation",
     "input": "object{decision:enum(\"approve\"|\"reject\"),proposalId:string[minLength=1,maxLength=64]}",
+    "output": "inferred"
+  },
+  {
+    "path": "payments.startWalletCharge",
+    "kind": "mutation",
+    "input": "object{amount:number[max=1000000000,min>0],siteId:string[minLength=1,maxLength=64]}",
+    "output": "inferred"
+  },
+  {
+    "path": "payments.walletChargeStatus",
+    "kind": "query",
+    "input": "object{chargeId:string[minLength=1,maxLength=64]}",
     "output": "inferred"
   },
   {

@@ -162,6 +162,11 @@ conserva la pantalla activa.
   una intención congelada de emisión dentro de la transacción de venta; el
   worker fiscal la materializa atómicamente en documento fiscal y outbox del
   proveedor antes de entregar.
+- Una transferencia cobrada con un riel de billetera real y configurado es una
+  fila de cobro en `payment_outbox` en `submitting`. La caja consulta el estado
+  al adaptador (una caja local no tiene URL pública para webhooks) y la venta
+  enlaza la fila aprobada con el pago por transferencia que lleva su
+  referencia del proveedor.
 - El reconocimiento genérico de outbox exige negocio, fila, estado de
   procesamiento y token de reclamación actual. La evidencia final fiscal/de
   entrega y el reconocimiento comparten una transacción inmediata síncrona;

@@ -190,7 +190,9 @@ export function CustomerDisplayHome() {
                   className="text-base font-semibold"
                   data-testid="customer-display-transfer-account"
                 >
-                  {projection.transfer.label} · {projection.transfer.account}
+                  {projection.transfer.account
+                    ? `${projection.transfer.label} · ${projection.transfer.account}`
+                    : projection.transfer.label}
                 </p>
               </div>
             ) : (

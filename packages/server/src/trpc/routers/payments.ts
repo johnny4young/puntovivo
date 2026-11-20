@@ -38,12 +38,20 @@ import {
 import { throwServerError } from '../../lib/errorCodes.js';
 import {
   buildPaymentRailsContract,
+  cancelWalletCharge,
   getPaymentReconciliation,
+  getWalletChargeStatus,
+  startWalletCharge,
 } from '../../services/payments/index.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import { reviewPaymentProposal } from '../../services/payments/reconciliation/review.js';
 import { router } from '../init.js';
-import { adminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
+import {
+  adminProcedure,
+  cashierManagerOrAdminProcedure,
+  managerOrAdminProcedure,
+} from '../middleware/roles.js';
+import { ensureTenantSite } from '../middleware/tenantSite.js';
 import {
   listPaymentProposalsInput,
   markPaymentOutboxSettledInput,
@@ -52,9 +60,36 @@ import {
   peekPaymentOutboxInput,
   retryPaymentOutboxInput,
   reviewPaymentProposalInput,
+  startWalletChargeInput,
+  walletChargeInput,
 } from '../schemas/payments.js';
 
 export const paymentsRouter = router({
+  /** Opens a provider charge for a transfer when a live wallet rail is ready. */
+  startWalletCharge: cashierManagerOrAdminProcedure
+    .input(startWalletChargeInput)
+    .mutation(async ({ ctx, input }) => {
+      await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+      return startWalletCharge(ctx.db, {
+        tenantId: ctx.tenantId,
+        siteId: input.siteId,
+        userId: ctx.user!.id,
+        amount: input.amount,
+      });
+    }),
+
+  walletChargeStatus: cashierManagerOrAdminProcedure
+    .input(walletChargeInput)
+    .query(({ ctx, input }) =>
+      getWalletChargeStatus(ctx.db, { tenantId: ctx.tenantId, chargeId: input.chargeId })
+    ),
+
+  cancelWalletCharge: cashierManagerOrAdminProcedure
+    .input(walletChargeInput)
+    .mutation(({ ctx, input }) =>
+      cancelWalletCharge(ctx.db, { tenantId: ctx.tenantId, chargeId: input.chargeId })
+    ),
+
   getContract: managerOrAdminProcedure.query(() => {
     return buildPaymentRailsContract();
   }),

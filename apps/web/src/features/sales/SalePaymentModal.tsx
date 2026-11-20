@@ -206,6 +206,10 @@ export function SalePaymentModal({
     return invoiceRequested ? t('payment.confirmInvoice') : t('payment.confirm');
   };
 
+  const confirmSale = () => {
+    void handleSubmit();
+  };
+
   const paymentSummary = (
     <div className="sale-pay-summary" data-testid="sale-payment-summary">
       <p className="sales-cap">
@@ -376,6 +380,9 @@ export function SalePaymentModal({
               form={form}
               grandTotal={grandTotal}
               referenceValid={transferReferenceValid}
+              canSubmit={canSubmit}
+              isSaving={isSaving}
+              onConfirm={confirmSale}
             />
           </Suspense>
         )}
