@@ -1,19 +1,19 @@
-# Third-party notices
+# Avisos de terceros
 
-**Language:** English · [Español](./THIRD-PARTY-NOTICES.es.md)
+**Idioma:** Español · [English](./THIRD-PARTY-NOTICES.en.md)
 
-Puntovivo bundles the following assets. Each remains under its own licence.
+Puntovivo incluye los siguientes recursos. Cada uno conserva su propia licencia.
 
-## Fonts
+## Fuentes
 
-All three families are bundled into the web and desktop builds through the
-Fontsource npm packages, which carry the full licence text.
+Las tres familias se incluyen en las versiones web y de escritorio mediante los
+paquetes npm de Fontsource, que traen el texto completo de la licencia.
 
-| Family | Used for | Copyright | Licence |
+| Familia | Uso | Copyright | Licencia |
 | --- | --- | --- | --- |
-| Instrument Sans | Interface text | Copyright 2022 The Instrument Sans Project Authors (https://github.com/Instrument/instrument-sans) | SIL Open Font License 1.1 |
-| Bricolage Grotesque | Titles and money figures | Copyright 2022 The Bricolage Grotesque Project Authors (https://github.com/ateliertriay/bricolage) | SIL Open Font License 1.1 |
-| DM Mono | Codes and key caps | Copyright 2020 The DM Mono Project Authors (https://www.github.com/googlefonts/dm-mono) | SIL Open Font License 1.1 |
+| Instrument Sans | Texto de la interfaz | Copyright 2022 The Instrument Sans Project Authors (https://github.com/Instrument/instrument-sans) | SIL Open Font License 1.1 |
+| Bricolage Grotesque | Títulos y cifras de dinero | Copyright 2022 The Bricolage Grotesque Project Authors (https://github.com/ateliertriay/bricolage) | SIL Open Font License 1.1 |
+| DM Mono | Códigos y teclas | Copyright 2020 The DM Mono Project Authors (https://www.github.com/googlefonts/dm-mono) | SIL Open Font License 1.1 |
 
-The SIL Open Font License 1.1 is available at https://openfontlicense.org.
-The fonts are used unmodified and are not sold on their own.
+La SIL Open Font License 1.1 está disponible en https://openfontlicense.org.
+Las fuentes se usan sin modificar y no se venden por separado.

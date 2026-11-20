@@ -66,8 +66,8 @@ de idioma de cada guía o el [índice bilingüe](../TRANSLATIONS.md).
 
 | Archivo                                                       | Uso                                                        |
 | ------------------------------------------------------------- | ---------------------------------------------------------- |
-| [`CONTRIBUTING.md` (español)](../../CONTRIBUTING.es.md)       | Preparación, convenciones y verificaciones para colaborar. |
-| [`CODE_OF_CONDUCT.md` (español)](../../CODE_OF_CONDUCT.es.md) | Compromisos, estándares y contacto de la comunidad.        |
+| [`CONTRIBUTING.md` (español)](../../CONTRIBUTING.md)       | Preparación, convenciones y verificaciones para colaborar. |
+| [`CODE_OF_CONDUCT.md` (español)](../../CODE_OF_CONDUCT.md) | Compromisos, estándares y contacto de la comunidad.        |
 
 ## Mantenimiento
 

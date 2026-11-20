@@ -237,6 +237,7 @@ jobs:
               # the release run publishes the note from the tag it creates, so
               # a malformed note must fail the pull request, not the release.
               - 'docs/releases/**'
+              - 'docs/es/releases/**'
               - 'e2e/web/business.spec.ts'
               - '.github/workflows/release.yml'
               - '.github/workflows/prerelease-e2e.yml'
@@ -284,9 +285,9 @@ jobs:
   # Release Automation Tests
   # ----------------------------------------------------------------------------
   # Only runs when the release tooling (scripts/, release.yml,
-  # release-please.yml), the curated release notes (docs/releases/) or shared
-  # root config changes — it validates that machinery and its notes, not
-  # application code.
+  # release-please.yml), the curated release notes (docs/es/releases/,
+  # docs/releases/) or shared root config changes — it validates that machinery
+  # and its notes, not application code.
   # ============================================================================
   release-automation:
     name: Release Automation

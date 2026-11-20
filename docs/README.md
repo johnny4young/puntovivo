@@ -67,8 +67,8 @@ selector in each guide or the [bilingual index](./TRANSLATIONS.md).
 
 | File                                          | Use                                                 |
 | --------------------------------------------- | --------------------------------------------------- |
-| [`CONTRIBUTING.md`](../CONTRIBUTING.md)       | Contributor setup, conventions and required checks. |
-| [`CODE_OF_CONDUCT.md`](../CODE_OF_CONDUCT.md) | Community pledge, standards and contact.            |
+| [`CONTRIBUTING.md`](../CONTRIBUTING.en.md)       | Contributor setup, conventions and required checks. |
+| [`CODE_OF_CONDUCT.md`](../CODE_OF_CONDUCT.en.md) | Community pledge, standards and contact.            |
 
 ## Maintenance
 

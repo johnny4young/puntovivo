@@ -6,7 +6,9 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import {
+  composeReleaseBody,
   humanReleaseNotesPath,
+  RELEASE_NOTE_LANGUAGES,
   publishHumanReleaseNotes,
   validateHumanReleaseNotes,
 } from './publish-human-release-notes.mjs';
@@ -28,32 +30,60 @@ ${'Honest limitation and migration note. '.repeat(20)}
 ${'Platform and release link. '.repeat(20)}
 `;
 
+const validNotesEs = `# Puntovivo v2.0.0 — Un release que la gente entiende
+
+## Por qué importa este release
+${'Contexto cotidiano del operador. '.repeat(20)}
+
+## Qué cambió
+${'Resultado visible y detalle práctico. '.repeat(20)}
+
+## Antes de usarlo
+${'Límite honesto y nota de migración. '.repeat(20)}
+
+## Descargas
+${'Plataforma y enlace del release. '.repeat(20)}
+`;
+
 test('release note paths accept version tags and reject path traversal', () => {
   assert.equal(
     humanReleaseNotesPath('v1.9.0', '/repo'),
+    path.join('/repo', 'docs', 'es', 'releases', 'v1.9.0.md')
+  );
+  assert.equal(
+    humanReleaseNotesPath('v1.9.0', '/repo', 'en'),
     path.join('/repo', 'docs', 'releases', 'v1.9.0.md')
   );
+  assert.throws(() => humanReleaseNotesPath('v1.9.0', '/repo', 'fr'), /Unsupported/);
   assert.throws(() => humanReleaseNotesPath('../../release', '/repo'), /Invalid release tag/);
 });
 
 test('human notes require the reader-facing structure and enough context', () => {
-  assert.doesNotThrow(() => validateHumanReleaseNotes('v2.0.0', validNotes));
+  assert.doesNotThrow(() => validateHumanReleaseNotes('v2.0.0', validNotesEs));
+  assert.doesNotThrow(() => validateHumanReleaseNotes('v2.0.0', validNotes, 'en'));
   assert.throws(
-    () => validateHumanReleaseNotes('v2.0.0', '# Puntovivo v2.0.0 — Short'),
+    () => validateHumanReleaseNotes('v2.0.0', validNotes),
+    /missing required heading: ## Por qué importa este release/
+  );
+  assert.throws(
+    () => validateHumanReleaseNotes('v2.0.0', '# Puntovivo v2.0.0 — Short', 'en'),
     /missing required heading/
   );
 });
 
 test('every tracked stable release has a valid human-first note', () => {
-  const tags = readdirSync(path.join(repoRoot, 'docs', 'releases'))
-    .filter(file => /^v\d+\.\d+\.\d+\.md$/.test(file))
-    .map(file => path.basename(file, '.md'))
-    .sort();
+  const directories = { es: ['docs', 'es', 'releases'], en: ['docs', 'releases'] };
+  for (const language of RELEASE_NOTE_LANGUAGES) {
+    const tags = readdirSync(path.join(repoRoot, ...directories[language]))
+      .filter(file => /^v\d+\.\d+\.\d+\.md$/.test(file))
+      .map(file => path.basename(file, '.md'))
+      .sort();
 
-  assert.ok(tags.length > 0, 'expected at least one curated release note');
-  for (const tag of tags) {
-    const content = readFileSync(humanReleaseNotesPath(tag, repoRoot), 'utf8');
-    assert.doesNotThrow(() => validateHumanReleaseNotes(tag, content));
+    assert.ok(tags.length > 0, `expected at least one curated ${language} release note`);
+    for (const tag of tags) {
+      const content = readFileSync(humanReleaseNotesPath(tag, repoRoot, language), 'utf8');
+      assert.doesNotThrow(() => validateHumanReleaseNotes(tag, content, language));
+    }
   }
 });
 
@@ -71,46 +101,65 @@ test('the version the release manifest declares already has its curated note', (
   assert.equal(versions.length, 1, 'expected exactly one component in the release manifest');
 
   const tag = `v${versions[0]}`;
-  const notesPath = humanReleaseNotesPath(tag, repoRoot);
-  let content;
-  try {
-    content = readFileSync(notesPath, 'utf8');
-  } catch {
-    assert.fail(
-      `${path.relative(repoRoot, notesPath)} is missing; add the curated note before merging the release pull request (docs/releases/README.md)`
-    );
+  for (const language of RELEASE_NOTE_LANGUAGES) {
+    const notesPath = humanReleaseNotesPath(tag, repoRoot, language);
+    let content;
+    try {
+      content = readFileSync(notesPath, 'utf8');
+    } catch {
+      assert.fail(
+        `${path.relative(repoRoot, notesPath)} is missing; add the curated note before merging the release pull request (docs/es/releases/README.md)`
+      );
+    }
+    validateHumanReleaseNotes(tag, content, language);
   }
-  validateHumanReleaseNotes(tag, content);
 });
 
-test('publisher validates the tracked note and edits the matching release', () => {
+test('the release body leads with Spanish and folds the English mirror', () => {
+  const body = composeReleaseBody(validNotesEs, validNotes);
+  assert.ok(body.startsWith('# Puntovivo v2.0.0 — Un release'));
+  assert.ok(body.indexOf('## Descargas') < body.indexOf('<summary>English</summary>'));
+  assert.match(body, /<summary>English<\/summary>\n\n# Puntovivo v2\.0\.0 — A release/);
+  assert.ok(body.endsWith('</details>\n'));
+});
+
+test('publisher validates both notes and edits the matching release', () => {
   const root = mkdtempSync(path.join(os.tmpdir(), 'puntovivo-release-notes-'));
-  const notesDir = path.join(root, 'docs', 'releases');
-  mkdirSync(notesDir, { recursive: true });
-  writeFileSync(path.join(notesDir, 'v2.0.0.md'), validNotes);
+  mkdirSync(path.join(root, 'docs', 'releases'), { recursive: true });
+  mkdirSync(path.join(root, 'docs', 'es', 'releases'), { recursive: true });
+  writeFileSync(path.join(root, 'docs', 'releases', 'v2.0.0.md'), validNotes);
+  writeFileSync(path.join(root, 'docs', 'es', 'releases', 'v2.0.0.md'), validNotesEs);
   const calls = [];
   const result = publishHumanReleaseNotes('v2.0.0', {
     root,
     run(command, args, options) {
-      calls.push({ command, args, options });
+      calls.push({ command, args, options, body: readFileSync(args[4], 'utf8') });
       return { status: 0, stdout: '', stderr: '' };
     },
   });
 
   assert.deepEqual(result, {
     tag: 'v2.0.0',
-    notesPath: path.join('docs', 'releases', 'v2.0.0.md'),
+    notesPaths: [
+      path.join('docs', 'es', 'releases', 'v2.0.0.md'),
+      path.join('docs', 'releases', 'v2.0.0.md'),
+    ],
   });
   assert.equal(calls.length, 1);
   assert.equal(calls[0].command, 'gh');
-  assert.deepEqual(calls[0].args, [
-    'release',
-    'edit',
-    'v2.0.0',
-    '--notes-file',
-    path.join('docs', 'releases', 'v2.0.0.md'),
-  ]);
+  assert.deepEqual(calls[0].args.slice(0, 4), ['release', 'edit', 'v2.0.0', '--notes-file']);
+  assert.equal(calls[0].body, composeReleaseBody(validNotesEs, validNotes));
   assert.equal(calls[0].options.cwd, root);
+});
+
+test('publisher refuses a release without its Spanish note', () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'puntovivo-release-notes-'));
+  mkdirSync(path.join(root, 'docs', 'releases'), { recursive: true });
+  writeFileSync(path.join(root, 'docs', 'releases', 'v2.0.0.md'), validNotes);
+  assert.throws(
+    () => publishHumanReleaseNotes('v2.0.0', { root, run: () => assert.fail('must not publish') }),
+    /Missing curated release notes: docs\/es\/releases\/v2\.0\.0\.md/
+  );
 });
 
 test('release workflow publishes curated notes from the exact created tag', async () => {

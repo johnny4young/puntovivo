@@ -4,16 +4,20 @@
 
 Los releases GitHub comunican producto; no son una copia del log de commits.
 Conserva `CHANGELOG.md` como historia técnica generada y agrega aquí un archivo
-curado por cada etiqueta pública.
+curado por cada etiqueta pública. El español es el idioma principal: escribe
+primero `docs/es/releases/vX.Y.Z.md` y luego su espejo en inglés,
+`docs/releases/vX.Y.Z.md`.
 
 ## Estructura requerida
 
-Cada archivo `vX.Y.Z.md` incluye:
+Cada nota en español incluye estos títulos, y su espejo en inglés los mismos en
+inglés (`## Why this release matters`, `## What changed`, `## Before you use it`,
+`## Downloads`):
 
-1. **Por qué importa este release:** problema que resuelve en lenguaje cotidiano.
-2. **Qué cambió:** agrupado por resultado para el operador, no por área de código.
-3. **Antes de usarlo:** límites, migraciones y evidencia que todavía falta.
-4. **Descargas:** enlace al release GitHub correspondiente y disponibilidad clara por plataforma.
+1. `## Por qué importa este release`: problema que resuelve en lenguaje cotidiano.
+2. `## Qué cambió`: agrupado por resultado para el operador, no por área de código.
+3. `## Antes de usarlo`: límites, migraciones y evidencia que todavía falta.
+4. `## Descargas`: enlace al release GitHub correspondiente y disponibilidad clara por plataforma.
 
 Escribe primero para propietarios, gerentes y cajeros. Los detalles técnicos
 van en un apéndice corto o enlace al changelog generado. Nunca insinúes
@@ -25,12 +29,13 @@ fecha de entrega sin evidencia reciente.
 Antes de fusionar una PR de Release Please:
 
 1. Determina la versión propuesta.
-2. Agrega `docs/releases/vX.Y.Z.md` a `main` con la estructura anterior.
+2. Agrega a `main` `docs/es/releases/vX.Y.Z.md` y su espejo
+   `docs/releases/vX.Y.Z.md`, con la estructura anterior.
 3. Contrasta afirmaciones con `docs/PROJECT-STATUS.md` y evidencia del candidato.
 4. Ejecuta `pnpm run ci:release`.
 5. Espera que pase el estado `Curated release notes` de la PR.
 
-`ci:release` falla si no existe una nota curada para la versión de
+`ci:release` falla si falta alguna de las dos notas curadas para la versión de
 `.release-please-manifest.json`. Este control existe porque v1.11.0 a v1.14.1
 y v1.14.3 se publicaron sin ella: el publicador usa la etiqueta, por lo que
 una nota posterior solo llega al release mediante edición manual.
@@ -39,7 +44,7 @@ El control no se ejecuta solo en una PR de Release Please. Sus commits son de
 `github-actions[bot]`, por lo que GitHub mantiene CI como `action_required`
 hasta que un mantenedor lo apruebe en Actions. `Curated release notes` no
 requiere aprobación: tras cada push a `main`, `.github/workflows/release-please.yml`
-lo publica en la PR abierta. Falla si `main` no tiene nota válida para la
+lo publica en la PR abierta. Falla si `main` no tiene las dos notas válidas para la
 versión propuesta y pasa cuando la tiene. La nota pertenece a `main`, no a la
 rama de PR que Release Please reescribe al actualizarla. Como vive en `main`,
 no aparece en el diff; confírmala mediante el estado. `main` no exige checks,
@@ -47,7 +52,8 @@ por lo que ni el estado ni CI impiden por sí solos fusionar la PR.
 
 Cuando Release Please crea la etiqueta, `.github/workflows/release-please.yml`
 usa esa etiqueta exacta y reemplaza el cuerpo generado del release GitHub
-con el archivo curado. `CHANGELOG.md` sigue disponible para el detalle por commit.
+con la nota en español, seguida de la nota en inglés en un bloque plegable.
+`CHANGELOG.md` sigue disponible para el detalle por commit.
 
 Los merge commits repiten el título de cada PR, así que Release Please lista
 dos veces cada PR fusionada. Cada vez que actualiza su PR, el workflow sube a

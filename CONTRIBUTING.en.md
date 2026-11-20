@@ -1,0 +1,61 @@
+# Contributing to Puntovivo
+
+**Language:** [Español](./CONTRIBUTING.md) · English
+
+Thanks for your interest in Puntovivo. This guide covers the essentials for
+working on the codebase.
+
+## Development setup
+
+Requirements: Node.js `>=26.13.1`, pnpm `11.7.0` (via Corepack; Node 25+ no longer bundles it:
+`npm install --global corepack`).
+
+```bash
+corepack enable
+pnpm install --frozen-lockfile
+pnpm --filter @puntovivo/desktop run native:ensure:electron   # verify the bundled Node-API prebuild loads under Electron
+```
+
+After `pnpm install --frozen-lockfile`, verify that the bundled native modules load under
+Electron. `better-sqlite3` and `argon2` ship Node-API prebuilds, so there is no
+source rebuild and no `NODE_MODULE_VERSION` mismatch to chase across Node and
+Electron majors; the command above only proves the prebuild loads. See the
+[README](./README.en.md) for the full command list and runtime notes.
+
+## Commit conventions
+
+This repo uses [Conventional Commits](https://www.conventionalcommits.org/):
+`feat:`, `fix:`, `refactor:`, `docs:`, `build:`, `chore:`, `ci:`, `test:`,
+`perf:`. Scope with the module name, e.g. `feat(products):`, `fix(auth):`.
+
+Versioning and the changelog are automated from these commit types by
+release-please, so accurate types matter.
+
+## Checks before opening a PR
+
+Run the CI gate for the area you touched (these are the same commands CI runs):
+
+| Area                                    | Command               |
+| --------------------------------------- | --------------------- |
+| `apps/web` (React / TypeScript)         | `pnpm run ci:web`     |
+| `packages/server` (backend)             | `pnpm run ci:server`  |
+| `apps/desktop/src/main` (Electron main) | `pnpm run ci:desktop` |
+
+Each runs typecheck + lint + test (and build for web/desktop). A change that
+touches both frontend and backend should pass both `ci:web` and `ci:server`.
+
+## Pull requests
+
+- Keep one logical change per PR.
+- Make sure the relevant CI gate passes locally.
+- All user-facing strings must be internationalized (English + Spanish);
+  Spanish copy uses neutral Latin American Spanish in the `tú` register.
+- New public guides need English and Spanish versions with reciprocal language links.
+  Register pairs in `docs/translations.json` and run
+  `node scripts/check-documentation-translations.mjs`; see
+  [documentation language rules](./docs/TRANSLATIONS.md).
+
+## Reporting security issues
+
+Please do not open public issues for security vulnerabilities. See
+[SECURITY](./docs/SECURITY.md) for how to report responsibly.

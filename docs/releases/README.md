@@ -1,20 +1,24 @@
 # Human-first release notes
 
-**Language:** English · [Español](../es/releases/README.md)
+**Language:** [Español](../es/releases/README.md) · English
 
 GitHub releases are product communication, not a copy of the commit log. Keep
-`CHANGELOG.md` as the technical, generated history and add one curated file here
-for every public tag.
+`CHANGELOG.md` as the technical, generated history and add one curated note
+for every public tag. Spanish is the primary language: write
+`docs/es/releases/vX.Y.Z.md` first, then its English mirror,
+`docs/releases/vX.Y.Z.md`.
 
 ## Required structure
 
-Each `vX.Y.Z.md` file must include:
+Each English note carries these headings, and its Spanish original the same
+headings in Spanish (`## Por qué importa este release`, `## Qué cambió`,
+`## Antes de usarlo`, `## Descargas`):
 
-1. **Why this release matters** — the problem it solves in everyday language.
-2. **What changed** — grouped by operator outcome rather than code area.
-3. **Before you use it** — limitations, migration notes, and any proof that is
+1. `## Why this release matters` — the problem it solves in everyday language.
+2. `## What changed` — grouped by operator outcome rather than code area.
+3. `## Before you use it` — limitations, migration notes, and any proof that is
    still missing.
-4. **Downloads** — a link to the matching GitHub release and a clear platform
+4. `## Downloads` — a link to the matching GitHub release and a clear platform
    availability note.
 
 Write for owners, managers, and cashiers first. Put implementation detail in a
@@ -27,13 +31,14 @@ delivery date without fresh evidence.
 Before merging a Release Please PR:
 
 1. determine the version proposed by the PR;
-2. add `docs/releases/vX.Y.Z.md` to `main` with the structure above;
+2. add `docs/es/releases/vX.Y.Z.md` and its mirror `docs/releases/vX.Y.Z.md`
+   to `main` with the structure above;
 3. verify every claim against `docs/PROJECT-STATUS.md` and the release-candidate
    evidence;
 4. run `pnpm run ci:release`;
 5. wait for the `Curated release notes` status on the PR to pass.
 
-`ci:release` fails while no curated note exists for the version in
+`ci:release` fails while either curated note is missing for the version in
 `.release-please-manifest.json`. That check exists because v1.11.0 through
 v1.14.1 and v1.14.3 were released without one: the publishing job checks out the
 tag, so a note added afterwards reaches the release only by editing it by hand.
@@ -42,7 +47,7 @@ That check does not run on its own on a Release Please PR. Its commits come from
 `github-actions[bot]`, so GitHub holds the PR's CI run as `action_required` until
 a maintainer approves it under Actions. The `Curated release notes` status needs
 no approval: after every push to `main`, `.github/workflows/release-please.yml`
-posts it on the open Release Please PR, failing while `main` has no valid note
+posts it on the open Release Please PR, failing while `main` lacks either valid note
 for the version the PR proposes and passing once it has one. The note belongs on
 `main`, not on the PR branch, which Release Please rewrites whenever it updates
 the PR. Because the note lives on `main`, the PR diff never shows it; the status
@@ -51,7 +56,7 @@ nor the CI run stops the PR from merging on its own.
 
 After Release Please creates the tag, `.github/workflows/release-please.yml`
 checks out that exact tag and replaces the generated GitHub release body with
-the curated file. The generated `CHANGELOG.md` remains available for readers
+the Spanish note, followed by the English one in a collapsed block. The generated `CHANGELOG.md` remains available for readers
 who want commit-level detail.
 
 Merge commits repeat each PR title, so Release Please lists every merged PR
