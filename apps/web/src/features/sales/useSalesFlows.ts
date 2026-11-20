@@ -346,6 +346,7 @@ export function useSalesFlows({
         } else {
           const draft = await createMutation.mutateAsync({
             priceTier: activeWorkspace?.priceTier ?? 1,
+            customerId: activeWorkspace?.customerId ?? undefined,
             items: draftItems,
             paymentMethod: 'cash',
             paymentStatus: 'pending',

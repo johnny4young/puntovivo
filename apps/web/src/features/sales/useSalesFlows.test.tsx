@@ -78,6 +78,8 @@ function workspace(overrides: Partial<CartWorkspace> = {}): CartWorkspace {
     sourceReturnSaleNumber: null,
     sourceReturnCustomerId: null,
     sourceReturnCustomerName: null,
+    customerId: null,
+    customerName: null,
     label: null,
     checkoutStartedAt: '2026-08-28T12:00:00.000Z',
     priceTier: 2,
@@ -267,6 +269,18 @@ describe('useSalesFlows explicit price tier forwarding', () => {
 
     expect(create).toHaveBeenCalledWith(expect.objectContaining({ status: 'draft', priceTier: 2 }));
     expect(suspend).toHaveBeenCalledWith({ saleId: 'sale-created', label: undefined });
+  });
+
+  it('keeps the attached customer on a suspended draft', async () => {
+    const active = workspace({ customerId: 'cust-1', customerName: 'María López' });
+    useCartWorkspaceStore.setState({ workspaces: { [active.id]: active }, activeId: active.id });
+    const { result, create } = setup(active);
+
+    await act(() => result.current.handleSuspendConfirm());
+
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'draft', customerId: 'cust-1' })
+    );
   });
 
   it('opens a restaurant check atomically with the active price tier', async () => {

@@ -540,6 +540,43 @@ describe('useCartWorkspaceStore', () => {
   });
 });
 
+describe('setCustomer', () => {
+  beforeEach(() => {
+    useCartWorkspaceStore.getState().resetAllWorkspaces();
+  });
+
+  it('attaches and detaches a customer on an editable ticket', () => {
+    const store = useCartWorkspaceStore.getState();
+    const id = store.createDraft('tenant-1:user-1');
+    store.setCustomer(id, { id: 'cust-1', name: 'María López' });
+    expect(useCartWorkspaceStore.getState().workspaces[id]).toMatchObject({
+      customerId: 'cust-1',
+      customerName: 'María López',
+    });
+    store.setCustomer(id, null);
+    expect(useCartWorkspaceStore.getState().workspaces[id]).toMatchObject({
+      customerId: null,
+      customerName: null,
+    });
+  });
+
+  it('never replaces the customer of a resumed draft', () => {
+    const store = useCartWorkspaceStore.getState();
+    const id = store.hydrateFromResumed({
+      ownerKey: 'tenant-1:user-1',
+      serverSaleId: 'sale-1',
+      serverSaleNumber: 'V-1',
+      serverCustomerId: 'cust-frozen',
+      serverCustomerName: 'Frozen',
+      priceTier: 1,
+      label: null,
+      items: [],
+    });
+    store.setCustomer(id, { id: 'cust-2', name: 'Other' });
+    expect(useCartWorkspaceStore.getState().workspaces[id]?.customerId).toBeNull();
+  });
+});
+
 describe('persisted workspace migration', () => {
   /** Reach the persist middleware's own migrate, the way zustand calls it. */
   function migrateFrom(fromVersion: number, persisted: unknown) {
@@ -591,6 +628,8 @@ describe('persisted workspace migration', () => {
     expect(workspace.sourceReturnSaleNumber).toBeNull();
     expect(workspace.sourceReturnCustomerId).toBeNull();
     expect(workspace.sourceReturnCustomerName).toBeNull();
+    expect(workspace.customerId).toBeNull();
+    expect(workspace.customerName).toBeNull();
     expect(workspace.priceTier).toBe(1);
     expect(workspace.historyStack).toEqual([]);
     expect(workspace.checkoutStartedAt).toBeNull();
@@ -619,6 +658,8 @@ describe('persisted workspace migration', () => {
           sourceReturnSaleNumber: null,
           sourceReturnCustomerId: null,
           sourceReturnCustomerName: null,
+          customerId: null,
+          customerName: null,
           priceTier: 2,
           historyStack: [],
           checkoutStartedAt: null,

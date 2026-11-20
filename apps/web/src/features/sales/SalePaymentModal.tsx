@@ -392,13 +392,17 @@ export function SalePaymentModal({
               {...form.register('customerId')}
             >
               <option value="">{t('payment.walkIn')}</option>
-              {approvalCustomerId &&
-                !customers.some(customer => customer.id === approvalCustomerId) && (
-                  <option value={approvalCustomerId}>
-                    {lockedCustomerName ?? t('payment.lockedCustomer')}
-                  </option>
-                )}
-              {customers.map(customer => (
+              {/* One keyed list, so the chosen option survives the customer list loading. */}
+              {(approvalCustomerId && !customers.some(customer => customer.id === approvalCustomerId)
+                ? [
+                    {
+                      id: approvalCustomerId,
+                      name: lockedCustomerName ?? t('payment.lockedCustomer'),
+                    },
+                    ...customers,
+                  ]
+                : customers
+              ).map(customer => (
                 <option key={customer.id} value={customer.id}>
                   {customer.name}
                 </option>

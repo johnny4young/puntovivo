@@ -602,7 +602,7 @@
   {
     "path": "customers.search",
     "kind": "query",
-    "input": "object{limit?:integer[min=1,max=50]=20,q:string[minLength=1]}",
+    "input": "object{isActive?:boolean,limit?:integer[min=1,max=50]=20,q:string[minLength=1]}",
     "output": "inferred"
   },
   {

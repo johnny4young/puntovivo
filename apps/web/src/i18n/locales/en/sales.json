@@ -501,13 +501,51 @@
   },
   "quickSearch": {
     "label": "Product / barcode",
-    "placeholder": "Scan barcode or type SKU / name",
+    "placeholder": "Scan, or type a product, code or command",
     "search": "Search",
     "lockedState": "Product editing locked",
     "lockedHint": "Product search and scanner input are disabled for this locked ticket. Continue with the permitted checkout actions.",
     "shortcut": {
       "focusSearch": "Focus search",
       "openCatalog": "Open catalog"
+    }
+  },
+  "commandBar": {
+    "grammar": "Type 3* before scanning to sell three, @ to find a customer or / to see register actions.",
+    "hint": {
+      "quantity": "quantity",
+      "customer": "customer",
+      "action": "action"
+    },
+    "quantity": {
+      "chip": "Qty {{quantity}}",
+      "pending": "Quantity for the next read: {{quantity}}",
+      "clear": "Clear quantity",
+      "wholeUnits": "{{product}} sells in whole units. Fix the quantity and try again."
+    },
+    "actionsTitle": "Register actions",
+    "noActions": "No action matches",
+    "customer": {
+      "title": "Customer for this sale",
+      "walkIn": "Back to walk-in customer",
+      "create": "Create customer “{{name}}”",
+      "none": "No customer matches",
+      "locked": "This ticket’s customer is fixed and cannot be changed",
+      "typeToSearch": "Type a name, document or phone"
+    },
+    "actions": {
+      "suspend": "Suspend sale",
+      "returns": "Return",
+      "newSale": "New sale",
+      "openDrawer": "Open drawer",
+      "suspended": "Sales on hold",
+      "charge": "Charge sale",
+      "fastCash": "Exact cash",
+      "undo": "Undo",
+      "catalog": "Search the catalog",
+      "cashMovement": "Cash movement",
+      "openCashSession": "Open register",
+      "closeCashSession": "Close register"
     }
   },
   "paymentStatus": {

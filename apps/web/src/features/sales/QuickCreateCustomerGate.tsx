@@ -125,9 +125,10 @@ export function QuickCreateCustomerGate({ onCreated }: QuickCreateCustomerGatePr
       activeWorkspace.serverSaleId === null &&
       activeWorkspace.sourceQuotationId === null
     ) {
-      useQuickCreateStore
+      useQuickCreateStore.getState().setPendingCustomerAttach(customer.id, activeWorkspace.id);
+      useCartWorkspaceStore
         .getState()
-        .setPendingCustomerAttach(customer.id, activeWorkspace.id);
+        .setCustomer(activeWorkspace.id, { id: customer.id, name: customer.name });
     }
     onCreated?.(customer);
     handleClose();
