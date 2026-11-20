@@ -17,6 +17,7 @@ describe('useProductForm submit contract', () => {
       result.current.form.setValue('unitAssignments', [
         {
           unitId: 'unit-independent',
+          barcode: '',
           equivalence: 1,
           price: 75,
           price2: 65,

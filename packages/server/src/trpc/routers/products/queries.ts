@@ -582,6 +582,9 @@ export const productQueryProcedures = {
             eq(unitXProduct.barcode, lookupCode)
           )
         )
+        // Deterministic tie-break when legacy data holds duplicate codes: the
+        // base presentation wins, then the lowest unit id, then product id.
+        .orderBy(desc(unitXProduct.isBase), unitXProduct.unitId, unitXProduct.productId)
         .get();
 
       if (packaging) {

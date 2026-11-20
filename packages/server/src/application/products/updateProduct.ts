@@ -109,7 +109,8 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
   const resolvedUnitAssignments = await resolveUnitAssignments(
     ctx.db,
     ctx.tenantId,
-    updates.unitAssignments ?? existingUnitAssignments
+    updates.unitAssignments ?? existingUnitAssignments,
+    updates.barcode !== undefined ? updates.barcode : existing.barcode
   );
   const normalizedProviderState = normalizeProviderState({
     providerId: updates.providerId,

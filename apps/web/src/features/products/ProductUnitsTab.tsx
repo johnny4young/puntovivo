@@ -30,6 +30,7 @@ export function ProductUnitsTab({ formBundle, units, allowEmpty }: ProductUnitsT
             onClick={() =>
               unitAssignmentsFieldArray.append({
                 unitId: '',
+                barcode: '',
                 equivalence: 1,
                 price: form.getValues('price'),
                 price2: 0,
@@ -57,6 +58,7 @@ export function ProductUnitsTab({ formBundle, units, allowEmpty }: ProductUnitsT
             const equivalenceError =
               form.formState.errors.unitAssignments?.[index]?.equivalence?.message;
             const unitInputId = `product-unit-${field.id}`;
+            const barcodeInputId = `product-unit-barcode-${field.id}`;
             const equivalenceInputId = `product-unit-equivalence-${field.id}`;
             const priceInputId = `product-unit-price-${field.id}`;
             const price2InputId = `product-unit-price2-${field.id}`;
@@ -110,6 +112,18 @@ export function ProductUnitsTab({ formBundle, units, allowEmpty }: ProductUnitsT
                   {equivalenceError && (
                     <p className="mt-1 text-sm text-danger-500">{equivalenceError}</p>
                   )}
+                </div>
+                <div className="pv-field">
+                  <label className="label" htmlFor={barcodeInputId}>
+                    {t('form.units.barcode')}
+                  </label>
+                  <input
+                    id={barcodeInputId}
+                    className="pv-input"
+                    placeholder={t('form.units.barcodePlaceholder')}
+                    {...form.register(`unitAssignments.${index}.barcode` as const)}
+                  />
+                  <p className="mt-1 text-sm text-secondary-500">{t('form.units.barcodeHint')}</p>
                 </div>
                 <div className="pv-field">
                   <label className="label" htmlFor={priceInputId}>

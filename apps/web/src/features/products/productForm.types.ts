@@ -79,6 +79,8 @@ export interface PharmacyProductFormValues {
 
 export interface ProductUnitAssignmentFormValues {
   unitId: string;
+  /** Packaging barcode for this presentation; empty means none. */
+  barcode: string;
   equivalence: number;
   price: number;
   price2: number;

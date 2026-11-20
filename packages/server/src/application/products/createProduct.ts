@@ -88,7 +88,8 @@ async function persistProduct(ctx: ProductMutationContext, input: CreateProductI
     ctx.db,
     ctx.tenantId,
     input.unitAssignments ??
-      (await getDefaultUnitAssignments(ctx.db, ctx.tenantId, normalizedPricing.price))
+      (await getDefaultUnitAssignments(ctx.db, ctx.tenantId, normalizedPricing.price)),
+    input.barcode
   );
   assertCreateSerialTrackingPolicy({
     tracksSerials: input.tracksSerials,

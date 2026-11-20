@@ -32,6 +32,8 @@ export async function buildProductPayload(
   const providerPayload = buildProviderPayload(values);
   const unitAssignments = values.unitAssignments.map(assignment => ({
     unitId: assignment.unitId,
+    // '' collapses to null on the server so the column stays two-state.
+    barcode: (assignment.barcode ?? '').trim() || null,
     equivalence: assignment.equivalence,
     price: assignment.price,
     price2: assignment.price2,

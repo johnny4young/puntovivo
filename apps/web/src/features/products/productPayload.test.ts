@@ -30,12 +30,53 @@ describe('buildProductPayload', () => {
     expect(await buildProductPayload(createDefaultValues())).not.toHaveProperty('unitAssignments');
   });
 
+  it('carries a packaging barcode and collapses an empty one to null', async () => {
+    const withCode = {
+      ...createDefaultValues(),
+      unitAssignments: [
+        {
+          unitId: 'unit-case',
+          barcode: '  7701234567890  ',
+          equivalence: 12,
+          price: 12000,
+          price2: 0,
+          price3: 0,
+          isBase: false,
+        },
+      ],
+    };
+    expect(await buildProductPayload(withCode)).toHaveProperty(
+      'unitAssignments.0.barcode',
+      '7701234567890'
+    );
+
+    const withoutCode = {
+      ...createDefaultValues(),
+      unitAssignments: [
+        {
+          unitId: 'unit-case',
+          barcode: '',
+          equivalence: 12,
+          price: 12000,
+          price2: 0,
+          price3: 0,
+          isBase: false,
+        },
+      ],
+    };
+    expect(await buildProductPayload(withoutCode)).toHaveProperty(
+      'unitAssignments.0.barcode',
+      null
+    );
+  });
+
   it('includes complete unit assignments', async () => {
     const values = {
       ...createDefaultValues(),
       unitAssignments: [
         {
           unitId: 'unit-each',
+          barcode: '',
           equivalence: 1,
           price: 7000,
           price2: 6500,
@@ -48,6 +89,7 @@ describe('buildProductPayload', () => {
     expect(await buildProductPayload(values)).toHaveProperty('unitAssignments', [
       {
         unitId: 'unit-each',
+        barcode: null,
         equivalence: 1,
         price: 7000,
         price2: 6500,
