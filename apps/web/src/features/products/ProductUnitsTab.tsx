@@ -123,9 +123,7 @@ export function ProductUnitsTab({ formBundle, units, allowEmpty }: ProductUnitsT
                     placeholder={t('form.units.barcodePlaceholder')}
                     {...form.register(`unitAssignments.${index}.barcode` as const)}
                   />
-                  <p className="mt-1 text-sm text-secondary-500">
-                    {t('form.units.barcodeHint')}
-                  </p>
+                  <p className="mt-1 text-sm text-secondary-500">{t('form.units.barcodeHint')}</p>
                 </div>
                 <div className="pv-field">
                   <label className="label" htmlFor={priceInputId}>

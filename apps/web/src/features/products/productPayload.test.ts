@@ -64,7 +64,10 @@ describe('buildProductPayload', () => {
         },
       ],
     };
-    expect(await buildProductPayload(withoutCode)).toHaveProperty('unitAssignments.0.barcode', null);
+    expect(await buildProductPayload(withoutCode)).toHaveProperty(
+      'unitAssignments.0.barcode',
+      null
+    );
   });
 
   it('includes complete unit assignments', async () => {

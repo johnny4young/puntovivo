@@ -21,8 +21,18 @@ describe('validateUnitAssignments packaging barcodes', () => {
     expect(() =>
       validateUnitAssignments([
         assignment(),
-        assignment({ unitId: 'unit-case', equivalence: 12, isBase: false, barcode: '7701234567890' }),
-        assignment({ unitId: 'unit-box', equivalence: 24, isBase: false, barcode: '7701234567890' }),
+        assignment({
+          unitId: 'unit-case',
+          equivalence: 12,
+          isBase: false,
+          barcode: '7701234567890',
+        }),
+        assignment({
+          unitId: 'unit-box',
+          equivalence: 24,
+          isBase: false,
+          barcode: '7701234567890',
+        }),
       ] as Assignments)
     ).toThrow(/unique within a product/);
   });
@@ -31,8 +41,18 @@ describe('validateUnitAssignments packaging barcodes', () => {
     expect(() =>
       validateUnitAssignments([
         assignment(),
-        assignment({ unitId: 'unit-case', equivalence: 12, isBase: false, barcode: '7701234567890' }),
-        assignment({ unitId: 'unit-box', equivalence: 24, isBase: false, barcode: '7701234567891' }),
+        assignment({
+          unitId: 'unit-case',
+          equivalence: 12,
+          isBase: false,
+          barcode: '7701234567890',
+        }),
+        assignment({
+          unitId: 'unit-box',
+          equivalence: 24,
+          isBase: false,
+          barcode: '7701234567891',
+        }),
       ] as Assignments)
     ).not.toThrow();
   });
