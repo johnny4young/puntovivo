@@ -39,7 +39,8 @@ export function SiteQuickKeysEditor({ siteId, onClose }: SiteQuickKeysEditorProp
   const setMutation = trpc.quickKeys.set.useMutation(editOptions);
   const removeMutation = trpc.quickKeys.remove.useMutation(editOptions);
   const reorderMutation = trpc.quickKeys.reorder.useMutation(editOptions);
-  const busy = setMutation.isPending || removeMutation.isPending || reorderMutation.isPending;
+  // A label saves on blur, so only order changes lock the rows; a pending save must not eat the next tap.
+  const reordering = removeMutation.isPending || reorderMutation.isPending;
 
   const productsQuery = trpc.products.list.useQuery(
     { page: 1, perPage: SEARCH_PAGE_SIZE, isActive: true, siteId, search: search || undefined },
@@ -62,10 +63,14 @@ export function SiteQuickKeysEditor({ siteId, onClose }: SiteQuickKeysEditorProp
     });
 
   const move = (index: number, offset: -1 | 1) => {
+    // Registers hide retired keys, so step over them to make every move visible on the strip.
+    let target = index + offset;
+    while (keys[target]?.sellable === false) target += offset;
+    if (!keys[target]) target = index + offset;
     const ids = keys.map(key => key.id);
     const [moved] = ids.splice(index, 1);
     if (!moved) return;
-    ids.splice(index + offset, 0, moved);
+    ids.splice(target, 0, moved);
     reorderMutation.mutate({ siteId, ids });
   };
 
@@ -106,7 +111,7 @@ export function SiteQuickKeysEditor({ siteId, onClose }: SiteQuickKeysEditorProp
                   quickKey={key}
                   isFirst={index === 0}
                   isLast={index === keys.length - 1}
-                  disabled={busy}
+                  disabled={reordering}
                   onLabel={label => update(key, { label })}
                   onColour={colour => update(key, { colour })}
                   onMove={offset => move(index, offset)}
@@ -159,7 +164,7 @@ export function SiteQuickKeysEditor({ siteId, onClose }: SiteQuickKeysEditorProp
                 <button
                   type="button"
                   className="btn-outline min-h-11"
-                  disabled={isFull || busy || hasKey(product.id, 'product')}
+                  disabled={isFull || setMutation.isPending || hasKey(product.id, 'product')}
                   onClick={() => setMutation.mutate({ siteId, productId: product.id })}
                   aria-label={t('editor.addAsKey', { name: product.name })}
                 >
@@ -168,7 +173,7 @@ export function SiteQuickKeysEditor({ siteId, onClose }: SiteQuickKeysEditorProp
                 <button
                   type="button"
                   className="btn-ghost min-h-11"
-                  disabled={isFull || busy || hasKey(product.id, 'open_value')}
+                  disabled={isFull || setMutation.isPending || hasKey(product.id, 'open_value')}
                   onClick={() =>
                     setMutation.mutate({ siteId, productId: product.id, kind: 'open_value' })
                   }
@@ -233,7 +238,8 @@ function EditorKeyRow({
           onChange={event => setLabel(event.target.value)}
           onBlur={saveLabel}
           onKeyDown={event => {
-            if (event.key === 'Enter') saveLabel();
+            // Blur saves, so Enter only leaves the field and the label is sent once.
+            if (event.key === 'Enter') event.currentTarget.blur();
           }}
           aria-label={t('editor.labelFor', { name: quickKey.productName })}
         />

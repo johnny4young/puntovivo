@@ -93,7 +93,7 @@ const CATALOG_SEARCH_DEBOUNCE_MS = 250;
 
 export function PosTouchScreen() {
   const priceIncludesTax = usePriceIncludesTax();
-  const { t } = useTranslation(['posTouch', 'common', 'fulfillmentErrors']);
+  const { t } = useTranslation(['posTouch', 'common', 'fulfillmentErrors', 'salesQuickAccess']);
   const { currentSite } = useTenant();
   const toast = useToast();
   const utils = trpc.useUtils();
@@ -113,12 +113,16 @@ export function PosTouchScreen() {
   const [isCheckoutLocked, setIsCheckoutLocked] = useState(false);
   const checkoutLockedRef = useRef(false);
   const ticketEpochRef = useRef(0);
-  const { tiles: quickTiles } = useSiteQuickKeys(siteId);
+  const valueTicketEpochRef = useRef(0);
+  const { query: quickKeysQuery, tiles: quickTiles } = useSiteQuickKeys(siteId);
   const resolveQuickTile = useQuickTileSelection(siteId);
   // The site's keys open first; a category tab or a search switches to the catalog.
   const [showQuickKeys, setShowQuickKeys] = useState(true);
   const [valueTile, setValueTile] = useState<QuickTile | null>(null);
-  const quickKeysView = showQuickKeys && quickTiles.length > 0 && !search;
+  // The raw text, not the debounced one, so the keys tab answers on the first tap.
+  const quickKeysView = showQuickKeys && quickTiles.length > 0 && !searchText.trim();
+  // Holding the grid until the keys arrive keeps a tap from landing on a swapping layout.
+  const quickKeysPending = showQuickKeys && quickKeysQuery.isLoading;
 
   const productsQuery = trpc.products.list.useQuery(
     {
@@ -130,7 +134,7 @@ export function PosTouchScreen() {
       search: search || undefined,
     },
     {
-      enabled: siteId.length > 0 && !quickKeysView,
+      enabled: siteId.length > 0 && !quickKeysView && !quickKeysPending,
       staleTime: 30_000,
       placeholderData: keepPreviousData,
     }
@@ -314,12 +318,18 @@ export function PosTouchScreen() {
 
   function handleQuickTile(tile: QuickTile) {
     if (checkoutLockedRef.current) return;
-    if (tile.kind === 'open_value') setValueTile(tile);
-    else void addHydrated(() => resolveQuickTile(tile), tile.name);
+    if (tile.kind === 'open_value') {
+      valueTicketEpochRef.current = ticketEpochRef.current;
+      setValueTile(tile);
+    } else void addHydrated(() => resolveQuickTile(tile), tile.name);
   }
 
   function handleValueAdd(selection: ProductSearchSelection, quantity: number) {
     if (checkoutLockedRef.current || !valueTile) return;
+    if (valueTicketEpochRef.current !== ticketEpochRef.current) {
+      setValueTile(null);
+      return;
+    }
     addSelection(selection, valueTile.name, quantity);
     setValueTile(null);
   }
@@ -432,6 +442,7 @@ export function PosTouchScreen() {
     if (!canCharge || checkoutLockedRef.current) return;
     checkoutLockedRef.current = true;
     ticketEpochRef.current += 1;
+    setValueTile(null);
     setIsCheckoutLocked(true);
     try {
       const electronicInvoice = buildElectronicInvoiceRequest(
@@ -570,7 +581,7 @@ export function PosTouchScreen() {
           ) : (
             <PosTouchProductGrid
               products={products}
-              isLoading={productsQuery.isLoading}
+              isLoading={productsQuery.isLoading || quickKeysPending}
               isError={Boolean(productsQuery.error)}
               isDisabled={checkoutLocked}
               onSelect={handleAddToCart}

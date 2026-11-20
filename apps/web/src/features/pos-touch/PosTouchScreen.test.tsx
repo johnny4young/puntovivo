@@ -63,6 +63,7 @@ let mockInvoiceAvailability: {
 } = { available: false, identificationTypes: [] };
 let mockActiveSession: { id: string } | null = { id: 'session-1' };
 let mockQuickKeys: Array<Record<string, unknown>> = [];
+let mockQuickKeysLoading = false;
 let mockDineInActive = true;
 let productFetchOverride: ((input: { id: string }) => Promise<Record<string, unknown>>) | null =
   null;
@@ -96,7 +97,12 @@ vi.mock('@/lib/useCriticalMutation', () => ({
 vi.mock('@/lib/trpc', () => ({
   trpc: {
     quickKeys: {
-      list: { useQuery: () => ({ data: mockQuickKeys }) },
+      list: {
+        useQuery: () => ({
+          data: mockQuickKeysLoading ? undefined : mockQuickKeys,
+          isLoading: mockQuickKeysLoading,
+        }),
+      },
     },
     peripherals: {
       activeForSite: {
@@ -353,6 +359,7 @@ describe('PosTouchScreen', () => {
     mockSiteId = 'site-1';
     mockActiveSession = { id: 'session-1' };
     mockQuickKeys = [];
+    mockQuickKeysLoading = false;
     mockDineInActive = true;
     productFetchOverride = null;
     mockCustomers = [];
@@ -610,6 +617,61 @@ describe('PosTouchScreen', () => {
     expect(screen.getByTestId('pos-touch-category-all')).toHaveAttribute('aria-pressed', 'true');
     await user.click(screen.getByTestId('pos-touch-category-quick-keys'));
     expect(screen.getByTestId('pos-touch-quick-keys')).toBeInTheDocument();
+  });
+
+  it('holds the grid while the keys load, answers the keys tab mid-search and closes the amount form on charge', async () => {
+    const key = {
+      position: 0,
+      categoryId: null,
+      sellable: true,
+      unitId: null,
+      unitAbbreviation: null,
+      label: null,
+      colour: null,
+    };
+    mockQuickKeys = [
+      {
+        ...key,
+        id: 'k-bread',
+        kind: 'product',
+        productId: 'p-3',
+        productName: 'Pan Bimbo',
+        productSku: 'PAN-1',
+        catalogPrice: 5800,
+      },
+      {
+        ...key,
+        id: 'k-rice',
+        kind: 'open_value',
+        productId: 'p-1',
+        productName: 'Arroz Diana 500g',
+        productSku: 'ABR-0001',
+        catalogPrice: 3200,
+        position: 1,
+      },
+    ];
+    mockQuickKeysLoading = true;
+    const user = userEvent.setup();
+    const view = render(<PosTouchScreen />);
+    expect(screen.getByTestId('pos-touch-grid-loading')).toBeInTheDocument();
+    expect(screen.queryByTestId('pos-touch-grid')).not.toBeInTheDocument();
+
+    mockQuickKeysLoading = false;
+    view.rerender(<PosTouchScreen />);
+    await user.type(screen.getByTestId('pos-touch-search'), 'Pan');
+    // Wait for the debounced search to filter the catalog before leaving it.
+    await screen.findByTestId('pos-touch-tile-p-3');
+    await waitFor(() => expect(screen.queryByTestId('pos-touch-tile-p-1')).not.toBeInTheDocument());
+    await user.click(screen.getByTestId('pos-touch-category-quick-keys'));
+    expect(screen.getByTestId('pos-touch-quick-keys')).toBeInTheDocument();
+
+    await user.click(screen.getByTestId('pos-touch-key-PAN-1-product'));
+    await screen.findByTestId('pos-touch-cart-line-p-3:p-3-unit-1');
+    await user.click(screen.getByRole('button', { name: 'Sell Arroz Diana 500g by amount' }));
+    expect(screen.getByTestId('sales-quick-value-form')).toBeInTheDocument();
+    await user.click(screen.getByTestId('pos-touch-cart-charge'));
+    await waitFor(() => expect(createMutate).toHaveBeenCalled());
+    expect(screen.queryByTestId('sales-quick-value-form')).not.toBeInTheDocument();
   });
 
   it('keeps the catalog grid when the site has no keys', () => {

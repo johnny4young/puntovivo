@@ -332,6 +332,15 @@ describe('SalesQuickAccess', () => {
     expect(screen.getByRole('button', { name: 'Add Fresh Bread to cart' })).toBeInTheDocument();
   });
 
+  it('suggests products when every key of the site is retired', () => {
+    state.keys = [
+      keyRow({ id: 'k-old', productId: 'p-old', productSku: 'OLD-1', sellable: false }),
+    ];
+    render(<SalesQuickAccess {...baseProps} />);
+    expect(screen.getByRole('button', { name: 'Add House Coffee to cart' })).toBeInTheDocument();
+    expect(mutations.importLocal).not.toHaveBeenCalled();
+  });
+
   it('gives cashiers the keys without the editor or the suggestion', () => {
     state.topSelling = [
       {

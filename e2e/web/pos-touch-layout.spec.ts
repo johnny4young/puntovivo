@@ -10,6 +10,8 @@ test.describe('POS Touch layout', () => {
 
     const cart = page.getByTestId('pos-touch-cart');
     const charge = page.getByTestId('pos-touch-cart-charge');
+    // A site with quick keys opens on them; the catalog tiles sit under "All".
+    await page.getByTestId('pos-touch-category-all').click();
     const tiles = page.locator('[data-testid^="pos-touch-tile-"]');
     await expect(tiles.first()).toBeVisible({ timeout: 15_000 });
 

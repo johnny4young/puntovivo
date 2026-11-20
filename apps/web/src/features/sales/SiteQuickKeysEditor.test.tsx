@@ -24,7 +24,11 @@ function keyRow(overrides: Partial<KeyRow> & Pick<KeyRow, 'id' | 'productId'>): 
   };
 }
 
-const state = vi.hoisted(() => ({ keys: [] as unknown[], searches: [] as unknown[] }));
+const state = vi.hoisted(() => ({
+  keys: [] as unknown[],
+  searches: [] as unknown[],
+  savePending: false,
+}));
 const mutations = vi.hoisted(() => ({
   set: vi.fn(),
   remove: vi.fn(),
@@ -37,7 +41,7 @@ vi.mock('@/hooks', () => ({ useDebouncedValue: (value: string) => value }));
 vi.mock('@/lib/trpc', () => {
   const mutation = (fn: (input: unknown) => unknown) => () => ({
     mutate: fn,
-    isPending: false,
+    isPending: fn === mutations.set && state.savePending,
   });
   return {
     trpc: {
@@ -75,6 +79,7 @@ describe('SiteQuickKeysEditor', () => {
   beforeEach(() => {
     Object.values(mutations).forEach(mock => mock.mockReset());
     state.searches = [];
+    state.savePending = false;
     state.keys = [
       keyRow({ id: 'k-coffee', productId: 'p-coffee' }),
       keyRow({
@@ -116,6 +121,8 @@ describe('SiteQuickKeysEditor', () => {
     const colours = screen.getByRole('group', { name: 'Colour of Ground beef' });
     expect(within(colours).getByRole('radio', { name: 'No colour' })).toBeChecked();
     await user.click(within(colours).getByRole('radio', { name: 'Violet' }));
+    // Enter leaves the field, so the blur the colour click causes does not save the label again.
+    expect(mutations.set.mock.calls.filter(([input]) => 'label' in input)).toHaveLength(1);
     expect(mutations.set).toHaveBeenLastCalledWith(
       expect.objectContaining({ id: 'k-beef', kind: 'open_value', colour: 'violet' })
     );
@@ -129,6 +136,31 @@ describe('SiteQuickKeysEditor', () => {
 
     await user.click(screen.getByRole('button', { name: 'Remove Ground beef' }));
     expect(mutations.remove).toHaveBeenCalledWith({ siteId: 'site-1', id: 'k-beef' });
+  });
+
+  it('steps over retired keys when moving and keeps rows usable while a label saves', async () => {
+    state.keys = [
+      keyRow({ id: 'k-a', productId: 'p-a', productName: 'Alpha', productSku: 'A-1' }),
+      keyRow({
+        id: 'k-old',
+        productId: 'p-old',
+        productName: 'Old',
+        productSku: 'OLD-1',
+        sellable: false,
+      }),
+      keyRow({ id: 'k-c', productId: 'p-c', productName: 'Gamma', productSku: 'C-1' }),
+    ];
+    state.savePending = true;
+    const user = userEvent.setup();
+    render(<SiteQuickKeysEditor {...props} />);
+
+    const later = screen.getByRole('button', { name: 'Move Alpha later' });
+    expect(later).toBeEnabled();
+    await user.click(later);
+    expect(mutations.reorder).toHaveBeenCalledWith({
+      siteId: 'site-1',
+      ids: ['k-old', 'k-c', 'k-a'],
+    });
   });
 
   it('leaves a key whose product can no longer be sold removable only', () => {

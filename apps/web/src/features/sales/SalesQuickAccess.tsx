@@ -80,13 +80,15 @@ export function SalesQuickAccess({
     if (siteHasKeys && legacyIds) clearSalesFavoriteIds(scopeKey);
   }, [legacyIds, scopeKey, siteHasKeys]);
 
+  // Keys of retired products are hidden, so a site with only those still gets suggestions.
+  const showsKeys = keyTiles.length > 0;
   // An import that settles with no usable favourite leaves the site empty, so the fallback shows then too.
   const importSettled = !importIdle && !importing;
-  const showsFallback = keysQuery.isSuccess && !siteHasKeys && (!needsImport || importSettled);
+  const showsFallback = keysQuery.isSuccess && !showsKeys && (!needsImport || importSettled);
   const topSellingQuery = trpc.products.topSelling.useQuery(
     { siteId, limit: MAX_SITE_QUICK_KEYS },
     {
-      enabled: enabled && (showsFallback || (canEdit && siteHasKeys && !hasCartItems)),
+      enabled: enabled && (showsFallback || (canEdit && showsKeys && !hasCartItems)),
       staleTime: 5 * 60_000,
     }
   );
@@ -125,14 +127,14 @@ export function SalesQuickAccess({
 
   // Mid-sale the category chips are hidden, so a filter picked earlier must not linger.
   const categoryFilter = hasCartItems ? null : activeCategoryId;
-  const visibleTiles = (siteHasKeys ? keyTiles : fallbackTiles).filter(
+  const visibleTiles = (showsKeys ? keyTiles : fallbackTiles).filter(
     tile => !categoryFilter || tile.categoryId === categoryFilter
   );
   const discountSuggestions = useDiscountSuggestions(enabled && visibleTiles.length > 0, siteId);
 
   // The fallback already shows the top sellers, so the banner waits for the site's own keys.
   const suggestion =
-    canEdit && siteHasKeys && !hasCartItems && keys.length < MAX_SITE_QUICK_KEYS
+    canEdit && showsKeys && !hasCartItems && keys.length < MAX_SITE_QUICK_KEYS
       ? topSellingQuery.data?.find(
           item =>
             !productKeyIds.has(item.productId) && !dismissedSuggestions.includes(item.productId)
