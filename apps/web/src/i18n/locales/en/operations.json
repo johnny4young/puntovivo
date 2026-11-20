@@ -786,5 +786,14 @@
       "recovery": "Recovery tools",
       "evidence": "Evidence and connections"
     }
+  },
+  "server": {
+    "TRANSFER_DESTINATION_ACCOUNT_INVALID": "That account does not fit this destination. Bre-B takes an @ key, an email or a number; Nequi and Daviplata take a 10-digit mobile number; a bank account takes digits only.",
+    "TRANSFER_DESTINATION_BANK_REQUIRED": "A bank account needs the bank name and the account type.",
+    "TRANSFER_DESTINATION_QR_INVALID": "That is not a complete bank QR. Scan the QR your bank gave you again.",
+    "TRANSFER_DESTINATION_DUPLICATE": "This site already has that destination.",
+    "TRANSFER_DESTINATION_LIMIT_REACHED": "This site already has {{max}} transfer destinations. Remove one to add another.",
+    "TRANSFER_DESTINATION_NOT_FOUND": "That transfer destination no longer exists. Reload and try again.",
+    "TRANSFER_DESTINATION_ORDER_INVALID": "The transfer destinations changed while you were sorting them. Reload and try again."
   }
 }

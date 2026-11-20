@@ -42,6 +42,7 @@ import {
   receiptTemplates,
   sales,
   sites,
+  siteTransferDestinations,
   tenants,
   users,
 } from '../db/schema.js';
@@ -99,6 +100,23 @@ describe('Dev seed (`seedDevData`)', () => {
     expect(siteCount).toBe(2);
     expect(catCount).toBe(8);
     expect(tplCount).toBe(3);
+  });
+
+  it('gives each Colombian demo site transfer destinations, the first one a bank account', async () => {
+    const rows = await db
+      .select({
+        siteId: siteTransferDestinations.siteId,
+        kind: siteTransferDestinations.kind,
+      })
+      .from(siteTransferDestinations)
+      .where(eq(siteTransferDestinations.tenantId, tenantId))
+      .all();
+    const kindsBySite = Object.values(
+      Object.groupBy(rows, row => row.siteId) as Record<string, typeof rows>
+    ).map(siteRows => siteRows.map(row => row.kind).sort());
+    expect(kindsBySite).toHaveLength(2);
+    expect(kindsBySite).toContainEqual(['bank_account', 'bre_b', 'nequi']);
+    expect(kindsBySite).toContainEqual(['bre_b', 'nequi']);
   });
 
   it('gives every demo barcode a valid EAN-13 check digit so the strict scanner resolves it', async () => {

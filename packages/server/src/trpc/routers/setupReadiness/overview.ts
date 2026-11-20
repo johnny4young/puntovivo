@@ -13,11 +13,10 @@ import {
   users,
 } from '../../../db/schema.js';
 import { resolveModulesState } from '../../../services/modules/manifest.js';
-import { readPaymentRailCredentials } from '../../../services/payments/credentials.js';
-import { PAYMENT_RAIL_IDS } from '../../../services/payments/manifest.js';
 import { resolveReadinessProfile } from '../../../services/readiness/profile.js';
 import {
   countFiscalOutboxFailures,
+  countNonCashTenders,
   readTenantFiscalState,
   readSyncBacklog,
 } from '../../../services/readiness/signals.js';
@@ -195,11 +194,8 @@ export async function buildReadiness(args: {
 
   const peripheralsStatus: SetupReadinessSection['status'] =
     peripheralCount >= 1 ? 'ready' : 'optional-pending';
-  const configuredRailCount = PAYMENT_RAIL_IDS.filter(
-    railId => Object.keys(readPaymentRailCredentials(settings, railId)).length > 0
-  ).length;
   const paymentsStatus: SetupReadinessSection['status'] =
-    configuredRailCount >= 1 ? 'ready' : 'optional-pending';
+    countNonCashTenders(db, tenantId, settings) >= 1 ? 'ready' : 'optional-pending';
 
   const modulesBlob =
     settings['modules'] && typeof settings['modules'] === 'object'

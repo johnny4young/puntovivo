@@ -136,6 +136,12 @@ The current validated candidate includes:
   buys at the catalog price, so it never becomes an off-catalog price. A site
   without keys offers what it sold most, topped up from the catalog, and a
   browser's former local favourites seed it once;
+- transfer destinations per site: Bre-B keys, Nequi and Daviplata numbers and
+  bank accounts, up to six, each with a label the administrator chooses. Every
+  register reads them while charging, with a QR for the amount: the bank's own
+  EMVCo QR read with the scanner is shown as stored, otherwise the QR spells out
+  the destination and the amount. Transfers are still confirmed by hand, and a
+  site with a destination no longer reports that only cash is configured;
 - site-scoped reservations with capacity/overlap checks, explicit arrival and
   reservation-to-check seating without empty sales; versioned delivery creation,
   courier dispatch and cancellation from UI, with no implicit charge or refund;
