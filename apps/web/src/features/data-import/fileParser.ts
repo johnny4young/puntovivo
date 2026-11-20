@@ -2,6 +2,7 @@
 
 export const MAX_IMPORT_FILE_BYTES = 10 * 1024 * 1024;
 export const MAX_IMPORT_ROWS = 500;
+export const MAX_PRODUCT_IMPORT_ROWS = 2_000;
 export const MAX_IMPORT_COLUMNS = 50;
 
 export type ImportFileErrorCode =
@@ -15,6 +16,10 @@ export type ImportFileErrorCode =
   | 'row_too_wide'
   | 'malformed_csv'
   | 'workbook_empty';
+
+export interface ParseImportOptions {
+  maxRows?: number | undefined;
+}
 
 export class ImportFileError extends Error {
   constructor(readonly code: ImportFileErrorCode) {
@@ -55,7 +60,8 @@ function validateHeaders(rawHeaders: string[]): string[] {
 function buildRows(
   sourceName: string,
   matrix: string[][],
-  sourceRowNumbers?: number[]
+  sourceRowNumbers?: number[],
+  maxRows = MAX_IMPORT_ROWS
 ): ParsedImportFile {
   if (matrix.length === 0) throw new ImportFileError('empty_file');
   const headers = validateHeaders(matrix[0] ?? []);
@@ -76,7 +82,7 @@ function buildRows(
       };
     });
   if (rows.length === 0) throw new ImportFileError('empty_file');
-  if (rows.length > MAX_IMPORT_ROWS) throw new ImportFileError('too_many_rows');
+  if (rows.length > maxRows) throw new ImportFileError('too_many_rows');
   return { sourceName, headers, rows };
 }
 
@@ -105,7 +111,11 @@ function detectDelimiter(text: string): ',' | ';' | '\t' {
   );
 }
 
-export function parseCsvText(text: string, sourceName = 'import.csv'): ParsedImportFile {
+export function parseCsvText(
+  text: string,
+  sourceName = 'import.csv',
+  { maxRows }: ParseImportOptions = {}
+): ParsedImportFile {
   const clean = text.replace(/^\uFEFF/, '');
   if (!clean.trim()) throw new ImportFileError('empty_file');
   const delimiter = detectDelimiter(clean);
@@ -155,7 +165,7 @@ export function parseCsvText(text: string, sourceName = 'import.csv'): ParsedImp
     row.push(cell);
     matrix.push(row);
   }
-  return buildRows(sourceName, matrix);
+  return buildRows(sourceName, matrix, undefined, maxRows);
 }
 
 function spreadsheetValueToString(value: unknown): string {
@@ -185,7 +195,7 @@ function spreadsheetValueToString(value: unknown): string {
   return String(value);
 }
 
-async function parseXlsxFile(file: File): Promise<ParsedImportFile> {
+async function parseXlsxFile(file: File, maxRows?: number): Promise<ParsedImportFile> {
   const { default: ExcelJS } = await import('exceljs/dist/exceljs.bare.min.js');
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(await file.arrayBuffer());
@@ -210,13 +220,27 @@ async function parseXlsxFile(file: File): Promise<ParsedImportFile> {
     matrix.push(cells);
     sourceRowNumbers.push(row.number);
   });
-  return buildRows(file.name, matrix, sourceRowNumbers);
+  return buildRows(file.name, matrix, sourceRowNumbers, maxRows);
 }
 
-export async function parseImportFile(file: File): Promise<ParsedImportFile> {
+/** Windows exports (Excel "CSV", older POS tools) are often Windows-1252, not UTF-8. */
+export function decodeCsvBytes(bytes: ArrayBuffer): string {
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    return new TextDecoder('windows-1252').decode(bytes);
+  }
+}
+
+export async function parseImportFile(
+  file: File,
+  { maxRows }: ParseImportOptions = {}
+): Promise<ParsedImportFile> {
   if (file.size > MAX_IMPORT_FILE_BYTES) throw new ImportFileError('file_too_large');
   const extension = file.name.split('.').at(-1)?.toLocaleLowerCase();
-  if (extension === 'csv') return parseCsvText(await file.text(), file.name);
-  if (extension === 'xlsx') return parseXlsxFile(file);
+  if (extension === 'csv') {
+    return parseCsvText(decodeCsvBytes(await file.arrayBuffer()), file.name, { maxRows });
+  }
+  if (extension === 'xlsx') return parseXlsxFile(file, maxRows);
   throw new ImportFileError('unsupported_file');
 }

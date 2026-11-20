@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  decodeCsvBytes,
   ImportFileError,
   MAX_IMPORT_FILE_BYTES,
+  MAX_IMPORT_ROWS,
+  MAX_PRODUCT_IMPORT_ROWS,
   parseCsvText,
   parseImportFile,
 } from './fileParser';
@@ -24,6 +27,39 @@ describe(' import file parser', () => {
         { rowNumber: 4, values: { Nombre: 'Pan', SKU: 'PAN-1', Precio: '4,20' } },
       ],
     });
+  });
+
+  it('reads Windows-1252 CSV exports when the bytes are not valid UTF-8', async () => {
+    // "Código;Nombre\r\nA-1;Piña" encoded as Windows-1252.
+    const bytes = new Uint8Array([
+      0x43, 0xf3, 0x64, 0x69, 0x67, 0x6f, 0x3b, 0x4e, 0x6f, 0x6d, 0x62, 0x72, 0x65, 0x0d, 0x0a,
+      0x41, 0x2d, 0x31, 0x3b, 0x50, 0x69, 0xf1, 0x61,
+    ]);
+    expect(decodeCsvBytes(bytes.buffer)).toBe('Código;Nombre\r\nA-1;Piña');
+    expect(decodeCsvBytes(new TextEncoder().encode('Código;Piña').buffer)).toBe('Código;Piña');
+    const parsed = await parseImportFile(new File([bytes], 'monica.csv', { type: 'text/csv' }));
+    expect(parsed.rows[0]?.values).toEqual({ Código: 'A-1', Nombre: 'Piña' });
+  });
+
+  it('applies the default row limit unless the caller raises it', () => {
+    const csv = (rows: number) =>
+      [
+        'name,sku',
+        ...Array.from({ length: rows }, (_, index) => `Item ${index},SKU-${index}`),
+      ].join('\n');
+    expect(() => parseCsvText(csv(MAX_IMPORT_ROWS + 1))).toThrowError(
+      expect.objectContaining<Partial<ImportFileError>>({ code: 'too_many_rows' })
+    );
+    expect(
+      parseCsvText(csv(MAX_PRODUCT_IMPORT_ROWS), 'catalog.csv', {
+        maxRows: MAX_PRODUCT_IMPORT_ROWS,
+      }).rows
+    ).toHaveLength(MAX_PRODUCT_IMPORT_ROWS);
+    expect(() =>
+      parseCsvText(csv(MAX_PRODUCT_IMPORT_ROWS + 1), 'catalog.csv', {
+        maxRows: MAX_PRODUCT_IMPORT_ROWS,
+      })
+    ).toThrowError(expect.objectContaining<Partial<ImportFileError>>({ code: 'too_many_rows' }));
   });
 
   it('rejects malformed, duplicate-header, unsupported, and oversized files', async () => {

@@ -133,7 +133,7 @@
         "Set price, cost, applicable taxes and whether the price includes tax. Use rates verified for your business; sample catalogs do not determine your obligations.",
         "If selling by package or measure, configure alternate units and conversions. Review the three price tiers when using them.",
         "For customers with a price tier, apply it explicitly to the ticket. Selecting a customer never silently reprices an open ticket.",
-        "To import, open the migration guide: prepare CSV or Excel, map columns, review the preview and confirm. The limit is 500 rows per file."
+        "To import, open the migration guide: prepare CSV or Excel, map columns, review the preview and confirm. The limit is 2,000 products per file, with up to three price levels."
       ],
       "check": "Selling price, cost and physical balance are different values. Check units, taxes and totals before confirming; a price adjustment is not an inventory correction.",
       "related": ["inventory", "sales"],

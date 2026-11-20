@@ -36,7 +36,7 @@
     "upload": {
       "kicker": "Paso 1",
       "title": "Elija un archivo de origen",
-      "description": "Cargue un CSV UTF-8 o un archivo Excel .xlsx de hasta 10 MB y 500 filas de datos. El archivo permanece en este navegador hasta que genere la vista previa."
+      "description": "Cargue un CSV o un archivo Excel .xlsx de hasta 10 MB y {{max}} filas de datos. El archivo permanece en este navegador hasta que genere la vista previa."
     },
     "map": {
       "kicker": "Paso 2",
@@ -58,6 +58,8 @@
     "barcode": "Código de barras",
     "unit": "Unidad de medida",
     "price": "Precio de venta",
+    "price2": "Precio 2",
+    "price3": "Precio 3",
     "cost": "Costo",
     "stock": "Stock de apertura",
     "minStock": "Stock mínimo",
@@ -169,7 +171,7 @@
     "empty_file": "El archivo no contiene filas de datos.",
     "empty_header": "Cada columna de origen necesita un encabezado.",
     "duplicate_header": "Los encabezados de las columnas deben ser únicos.",
-    "too_many_rows": "Importe máximo 500 filas a la vez.",
+    "too_many_rows": "Importe máximo {{max}} filas a la vez.",
     "too_many_columns": "El archivo supera el límite de 50 columnas.",
     "row_too_wide": "Una fila de datos contiene más valores que la fila de encabezados.",
     "malformed_csv": "El CSV contiene un valor entre comillas incompleto o no válido.",

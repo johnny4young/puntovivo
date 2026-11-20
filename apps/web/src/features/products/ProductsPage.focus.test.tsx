@@ -1,7 +1,17 @@
 /** Synthetic query/mutation fixtures with real DataTable, ConfirmModal and focus isolation.
  * Preserve the actual opener across renders; use a workflow fallback only for missing rows.
  */
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render as renderWithoutRouter,
+  screen,
+  waitFor,
+} from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { MemoryRouter } from 'react-router';
+
+const render = (ui: ReactElement) => renderWithoutRouter(ui, { wrapper: MemoryRouter });
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import i18next from '@/i18n';
 import userEvent from '@testing-library/user-event';

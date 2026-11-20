@@ -6,7 +6,11 @@
  * semantic toolbar and keep the query disabled in that state.
  */
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render as renderWithoutRouter, screen, waitFor } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { MemoryRouter } from 'react-router';
+
+const render = (ui: ReactElement) => renderWithoutRouter(ui, { wrapper: MemoryRouter });
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
@@ -228,6 +232,19 @@ describe('ProductsPage semantic-search module gate', () => {
       expect.objectContaining({ limit: 500 }),
       expect.objectContaining({ enabled: true, staleTime: 5 * 60_000 })
     );
+  });
+
+  it('links admins, and only admins, to the product import', () => {
+    useIsModuleActiveMock.mockReturnValue(false);
+    const { unmount } = render(<ProductsPage />);
+    expect(screen.queryByRole('link', { name: /import products|importar productos/i })).toBeNull();
+    unmount();
+
+    useAuthMock.mockReturnValue({ user: { id: 'u-admin', role: 'admin' } });
+    render(<ProductsPage />);
+    expect(
+      screen.getByRole('link', { name: /import products|importar productos/i })
+    ).toHaveAttribute('href', '/data-import');
   });
 
   it('hides the semantic toolbar and disables the query when module is inactive', () => {

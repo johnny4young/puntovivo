@@ -20,7 +20,10 @@ import { createServer, type PuntovivoServer } from '../index.js';
 import { parseImportNumber } from '../application/launch-migration/index.js';
 import type { Context } from '../trpc/context.js';
 import { appRouter } from '../trpc/router.js';
-import { previewLaunchProductImportInput } from '../trpc/schemas/launchMigration.js';
+import {
+  MAX_PRODUCT_IMPORT_ROWS,
+  previewLaunchProductImportInput,
+} from '../trpc/schemas/launchMigration.js';
 
 let server: PuntovivoServer;
 let db: DatabaseInstance;
@@ -58,6 +61,8 @@ function row(
     barcode: string;
     unit: string;
     price: string;
+    price2: string;
+    price3: string;
     cost: string;
     stock: string;
     minStock: string;
@@ -605,6 +610,81 @@ describe(' launch migration', () => {
     expect(
       await productRead.getProductWithRelations(db, productId, 'foreign-import-tenant')
     ).toBeNull();
+  });
+
+  it('imports price tiers 2 and 3 on the product and its base unit', async () => {
+    const sku = `TIER-IMPORT-${nanoid()}`;
+    const input = {
+      dataMode: 'real' as const,
+      sourceName: 'monica-export.csv',
+      decimalFormat: 'comma' as const,
+      rows: [
+        row(2, {
+          name: 'Arroz 500 g',
+          sku,
+          unit: 'und',
+          cost: '2.100',
+          price: '3.000',
+          price2: '2.800',
+          price3: '2.650,50',
+        }),
+      ],
+    };
+    const caller = appRouter.createCaller(createTestContext());
+    const preview = await caller.launchMigration.previewProducts(input);
+    expect(preview.rows[0]).toMatchObject({
+      status: 'ready',
+      normalized: { price: 3000, price2: 2800, price3: 2650.5, stock: 0 },
+    });
+    const result = await caller.launchMigration.importProducts({
+      ...input,
+      confirmedRealData: true,
+      previewHash: preview.previewHash,
+    });
+    expect(result.summary).toMatchObject({ imported: 1, stockInitialized: 0, failed: 0 });
+    const productId = result.importedRows[0]!.productId;
+    expect(db.select().from(products).where(eq(products.id, productId)).get()).toMatchObject({
+      price: 3000,
+      price2: 2800,
+      price3: 2650.5,
+    });
+    expect(
+      db.select().from(unitXProduct).where(eq(unitXProduct.productId, productId)).get()
+    ).toMatchObject({ price: 3000, price2: 2800, price3: 2650.5, isBase: true });
+  });
+
+  it('rejects negative or non-numeric price tiers per row', async () => {
+    const preview = await appRouter
+      .createCaller(createTestContext())
+      .launchMigration.previewProducts({
+        dataMode: 'demo',
+        sourceName: 'tiers.csv',
+        rows: [
+          row(2, { name: 'Bad tiers', sku: `TIER-BAD-${nanoid()}`, price2: '-1', price3: 'abc' }),
+        ],
+      });
+    expect(preview.rows[0]?.status).toBe('invalid');
+    expect(preview.rows[0]?.issues).toEqual(
+      expect.arrayContaining([
+        { code: 'out_of_range', field: 'price2' },
+        { code: 'invalid_number', field: 'price3' },
+      ])
+    );
+  });
+
+  it('accepts up to 2,000 product rows per import and rejects more', () => {
+    const rows = (count: number) =>
+      Array.from({ length: count }, (_, index) =>
+        row(index + 2, { name: `Bulk ${index}`, sku: `BULK-${index}` })
+      );
+    const parse = (count: number) =>
+      previewLaunchProductImportInput.safeParse({
+        dataMode: 'demo',
+        sourceName: 'bulk.csv',
+        rows: rows(count),
+      }).success;
+    expect(parse(MAX_PRODUCT_IMPORT_ROWS)).toBe(true);
+    expect(parse(MAX_PRODUCT_IMPORT_ROWS + 1)).toBe(false);
   });
 
   it('imports a zero-stock product with lot tracking enabled', async () => {

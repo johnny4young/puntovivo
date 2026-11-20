@@ -1346,7 +1346,7 @@
   {
     "path": "launchMigration.importProducts",
     "kind": "mutation",
-    "input": "object{confirmedRealData:literal(true),dataMode:literal(\"real\"),decimalFormat?:enum(\"auto\"|\"dot\"|\"comma\"),previewHash:string,rows:array<object>[minItems=1,maxItems=500],sourceName:string[minLength=1,maxLength=240]}",
+    "input": "object{confirmedRealData:literal(true),dataMode:literal(\"real\"),decimalFormat?:enum(\"auto\"|\"dot\"|\"comma\"),previewHash:string,rows:array<object>[minItems=1,maxItems=2000],sourceName:string[minLength=1,maxLength=240]}",
     "output": "inferred"
   },
   {
@@ -1382,7 +1382,7 @@
   {
     "path": "launchMigration.previewProducts",
     "kind": "mutation",
-    "input": "object{dataMode:enum(\"demo\"|\"real\"),decimalFormat?:enum(\"auto\"|\"dot\"|\"comma\"),rows:array<object>[minItems=1,maxItems=500],sourceName:string[minLength=1,maxLength=240]}",
+    "input": "object{dataMode:enum(\"demo\"|\"real\"),decimalFormat?:enum(\"auto\"|\"dot\"|\"comma\"),rows:array<object>[minItems=1,maxItems=2000],sourceName:string[minLength=1,maxLength=240]}",
     "output": "inferred"
   },
   {

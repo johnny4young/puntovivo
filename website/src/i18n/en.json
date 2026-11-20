@@ -1009,11 +1009,11 @@
     "titleA": "Bring your catalog with a ",
     "titleEm": "CSV import",
     "titleB": ".",
-    "lead": "Choose a CSV or Excel file with up to 500 rows, review duplicates and errors, and decide which rows to save. Puntovivo recognizes the exact tested export layouts for Loyverse, Alegra, Siigo and World Office; changed or unknown layouts fall back to generic mapping. Every path still requires your confirmation before saving.",
+    "lead": "Choose a CSV or Excel file with up to 2,000 products, review duplicates and errors, and decide which rows to save. Puntovivo recognizes the exact tested export layouts for Loyverse, Alegra, Siigo and World Office; changed or unknown layouts fall back to generic mapping. Every path still requires your confirmation before saving.",
     "crumbInicio": "Home",
     "crumbRecursos": "Resources",
     "crumbMigracion": "Migration guide",
-    "badgeTime": "Up to 500 rows per file",
+    "badgeTime": "Up to 2,000 products per file",
     "badgeHuman": "CSV / XLSX import",
     "badgeNoDowntime": "Review before saving",
     "pickerHead": "Where are you coming from?",
@@ -1068,14 +1068,14 @@
         "n": "01",
         "t": "Export your current catalog",
         "time": "In the source system",
-        "d": "Export a CSV or XLSX file. Name and SKU are required; description, barcode, price, cost, opening stock, minimum stock, VAT and lot tracking are optional. Each file accepts up to 500 rows and 10 MB.",
+        "d": "Export a CSV or XLSX file. Name and SKU are required; description, barcode, prices 1, 2 and 3, cost, opening stock, minimum stock, VAT and lot tracking are optional. Each file accepts up to 2,000 products and 10 MB, as CSV (UTF-8 or Windows) or Excel.",
         "checks": [
           {
             "t": "Name and SKU present",
             "ok": true
           },
           {
-            "t": "One batch of up to 500 rows per file",
+            "t": "One batch of up to 2,000 products per file",
             "ok": true
           },
           {
@@ -1112,7 +1112,7 @@
         "n": "03",
         "t": "Upload the CSV to the importer",
         "time": "In Puntovivo",
-        "d": "In Settings → Import data, choose real-data mode, select the CSV or XLSX file and confirm the field mapping. The file stays in the browser until you request the preview.",
+        "d": "In Products → Import products (or Manage business → Import data), signed in as an administrator, choose real-data mode, select the CSV or XLSX file and confirm the field mapping. The file stays in the browser until you request the preview.",
         "checks": [
           {
             "t": "Name and SKU mapped",
@@ -1236,7 +1236,7 @@
     ],
     "sampleKicker": "Our own format",
     "sampleTitle": "This is the generic format.",
-    "sampleDesc": "One row per product, headers in the first row and up to 500 data rows. Import each batch from the site that should receive its opening stock.",
+    "sampleDesc": "One row per product, headers in the first row and up to 2,000 product rows. Import each batch from the site that should receive its opening stock.",
     "sampleTab1": "catalogo.csv",
     "sampleTab2": "stock-sede-centro.csv",
     "sampleTab3": "stock-sede-norte.csv",
@@ -1248,15 +1248,15 @@
     "faq": [
       {
         "q": "How long does it take to migrate a single site?",
-        "a": "There is no guaranteed duration. It depends on file quality, the number of 500-row batches, duplicates and the physical count. Preview first and plan a controlled cutover."
+        "a": "There is no guaranteed duration. It depends on file quality, the number of 2,000-product batches, duplicates and the physical count. Preview first and plan a controlled cutover."
       },
       {
         "q": "Do I have to stop selling while I migrate?",
         "a": "Plan a controlled cutover. The export is a point-in-time snapshot: if you keep selling in the previous system after exporting, reconcile those sales before making Puntovivo the system of record."
       },
       {
-        "q": "What if my catalog exceeds 500 rows?",
-        "a": "Split the file into batches of up to 500 rows and review each preview. The current importer does not split files automatically."
+        "q": "What if my catalog exceeds 2,000 products?",
+        "a": "Split the file into batches of up to 2,000 products and review each preview. The current importer does not split files automatically."
       },
       {
         "q": "What happens to my sales history?",

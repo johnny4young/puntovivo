@@ -5,7 +5,12 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { exportToCSV, type ExportColumn } from '@/services/export/exportService';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
-import { parseImportFile, ImportFileError, type ParsedImportFile } from './fileParser';
+import {
+  parseImportFile,
+  ImportFileError,
+  type ParsedImportFile,
+  MAX_PRODUCT_IMPORT_ROWS,
+} from './fileParser';
 import { ImportSourcePanel } from './ImportSourcePanel';
 import {
   hasRequiredProductMapping,
@@ -56,7 +61,7 @@ interface ProductImportWorkflowProps {
   onBusyChange?: (busy: boolean) => void;
 }
 export function ProductImportWorkflow({ dataMode, onBusyChange }: ProductImportWorkflowProps) {
-  const { t } = useTranslation(['dataImport', 'errors']);
+  const { t, i18n } = useTranslation(['dataImport', 'errors']);
   const toast = useToast();
   const utils = trpc.useUtils();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -120,7 +125,7 @@ export function ProductImportWorkflow({ dataMode, onBusyChange }: ProductImportW
     setFileError(null);
     invalidatePreview();
     try {
-      const parsed = await parseImportFile(selected);
+      const parsed = await parseImportFile(selected, { maxRows: MAX_PRODUCT_IMPORT_ROWS });
       const detected = detectProductImportProfile(parsed.headers);
       setFile(parsed);
       setDetectedProfileId(detected);
@@ -133,7 +138,11 @@ export function ProductImportWorkflow({ dataMode, onBusyChange }: ProductImportW
       setDetectedProfileId('generic');
       if (fileInputRef.current) fileInputRef.current.value = '';
       const code = error instanceof ImportFileError ? error.code : 'unsupported_file';
-      setFileError(t(`dataImport:fileErrors.${code}`));
+      setFileError(
+        t(`dataImport:fileErrors.${code}`, {
+          max: MAX_PRODUCT_IMPORT_ROWS.toLocaleString(i18n.language),
+        })
+      );
     } finally {
       setIsParsing(false);
     }
@@ -318,6 +327,7 @@ export function ProductImportWorkflow({ dataMode, onBusyChange }: ProductImportW
         isParsing={isParsing}
         onFile={selected => void handleFile(selected)}
         onReset={handleReset}
+        maxRows={MAX_PRODUCT_IMPORT_ROWS}
       />
 
       {file && mapping ? (

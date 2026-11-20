@@ -36,7 +36,7 @@
     "upload": {
       "kicker": "Step 1",
       "title": "Choose a source file",
-      "description": "Upload a UTF-8 CSV or an Excel .xlsx file up to 10 MB and 500 data rows. The file stays in this browser until you preview it."
+      "description": "Upload a CSV or an Excel .xlsx file up to 10 MB and {{max}} data rows. The file stays in this browser until you preview it."
     },
     "map": {
       "kicker": "Step 2",
@@ -58,6 +58,8 @@
     "barcode": "Barcode",
     "unit": "Unit of measure",
     "price": "Sale price",
+    "price2": "Price 2",
+    "price3": "Price 3",
     "cost": "Cost",
     "stock": "Opening stock",
     "minStock": "Minimum stock",
@@ -169,7 +171,7 @@
     "empty_file": "The file does not contain data rows.",
     "empty_header": "Every source column needs a header.",
     "duplicate_header": "Source column headers must be unique.",
-    "too_many_rows": "Import at most 500 rows at a time.",
+    "too_many_rows": "Import at most {{max}} rows at a time.",
     "too_many_columns": "The file exceeds the 50-column limit.",
     "row_too_wide": "A data row contains more values than the header row.",
     "malformed_csv": "The CSV contains an unfinished or invalid quoted value.",

@@ -18,7 +18,12 @@ import { CustomerBalanceImportMappingPanel } from './CustomerBalanceImportMappin
 import { CustomerBalanceImportPreviewPanel } from './CustomerBalanceImportPreview';
 import { CustomerBalanceImportReportPanel } from './CustomerBalanceImportReport';
 import { buildCustomerBalanceImportReportRows } from './customerBalanceImportReportRows';
-import { ImportFileError, parseImportFile, type ParsedImportFile } from './fileParser';
+import {
+  ImportFileError,
+  parseImportFile,
+  type ParsedImportFile,
+  MAX_IMPORT_ROWS,
+} from './fileParser';
 import { ImportSourcePanel } from './ImportSourcePanel';
 import type {
   CustomerBalanceImportPreview,
@@ -49,7 +54,7 @@ export function CustomerBalanceImportWorkflow({
   dataMode,
   onBusyChange,
 }: CustomerBalanceImportWorkflowProps) {
-  const { t } = useTranslation(['dataImport', 'errors']);
+  const { t, i18n } = useTranslation(['dataImport', 'errors']);
   const toast = useToast();
   const utils = trpc.useUtils();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -118,7 +123,9 @@ export function CustomerBalanceImportWorkflow({
       setMapping(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
       const code = error instanceof ImportFileError ? error.code : 'unsupported_file';
-      setFileError(t(`dataImport:fileErrors.${code}`));
+      setFileError(
+        t(`dataImport:fileErrors.${code}`, { max: MAX_IMPORT_ROWS.toLocaleString(i18n.language) })
+      );
     } finally {
       setIsParsing(false);
     }
