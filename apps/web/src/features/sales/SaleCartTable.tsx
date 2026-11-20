@@ -166,6 +166,17 @@ export function SaleCartTable({
                   </span>
                   <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-fg3">
                     <span className="font-mono">{item.productSku}</span>
+                    {item.unitEquivalence !== 1 && (
+                      <span
+                        className="sales-tag bg-secondary-50 text-secondary-700"
+                        data-testid={`cart-unit-presentation-${item.productSku}`}
+                      >
+                        {t('cart.unitPresentation', {
+                          unit: item.unitName,
+                          equivalence: item.unitEquivalence,
+                        })}
+                      </span>
+                    )}
                     {item.tracksStock !== false && Number.isFinite(item.availableStock) && (
                       <span>
                         · {t('cart.stock')} {item.availableStock}

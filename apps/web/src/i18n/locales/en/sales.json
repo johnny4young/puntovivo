@@ -51,6 +51,7 @@
     "empty": "Search and add products to start a sale.",
     "items": "Cart items",
     "product": "Product",
+    "unitPresentation": "{{unit}} × {{equivalence}}",
     "qty": "Qty",
     "discount": "Discount %",
     "price": "Price",
