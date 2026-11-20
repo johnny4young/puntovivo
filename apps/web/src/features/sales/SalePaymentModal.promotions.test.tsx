@@ -350,6 +350,8 @@ describe('SalePaymentModal promotions and customer value', () => {
     await user.click(screen.getByRole('button', { name: 'Split payment across tenders' }));
     await user.selectOptions(await screen.findByLabelText('Method for tender 1'), 'store_credit');
     expect(screen.getByLabelText('Amount for tender 1')).toHaveValue(40);
+    // Halves would overrun the store-credit balance, so the shortcut is not offered.
+    expect(screen.queryByTestId('split-half')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Add payment method' }));
     expect(screen.getByLabelText('Amount for tender 2')).toHaveValue(60);
     await user.click(screen.getByRole('button', { name: 'Confirm Sale' }));

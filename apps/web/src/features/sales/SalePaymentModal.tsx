@@ -13,6 +13,7 @@
  * @module features/sales/SalePaymentModal
  */
 import { lazy, Suspense } from 'react';
+import { useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 
 import { Drawer } from '@/components/feedback/Drawer';
@@ -126,7 +127,11 @@ export function SalePaymentModal({
     loyaltyValuePerPoint,
     storeCreditBalance,
     retryCustomerValue,
-    creditAmountInSplit,
+    creditDownPayment,
+    creditDownPaymentInvalid,
+    creditProjectionAmount,
+    payableExcess,
+    payExcess,
     currentBalance,
     creditLimit,
     projectedBalance,
@@ -169,6 +174,27 @@ export function SalePaymentModal({
   });
 
   const isPartialPayment = !splitMode && !isCredit && outstanding > 0;
+  const invoiceRequested =
+    useWatch({ control: form.control, name: 'invoiceRequested' }) === true &&
+    electronicInvoice.available;
+  const confirmLabel = (): string => {
+    if (isSaving) return t('payment.processing');
+    if (isPartialPayment) {
+      return t('payment.confirmPartialAmount', { amount: formatCurrency(outstanding) });
+    }
+    if (splitMode && Math.abs(tenderDelta) >= TENDER_SUM_EPSILON) {
+      return t(tenderDelta < 0 ? 'payment.confirmSplitMissing' : 'payment.confirmSplitOver', {
+        amount: formatCurrency(Math.abs(tenderDelta)),
+      });
+    }
+    if (isCredit && !splitMode && !creditDownPaymentInvalid) {
+      const credit = formatCurrency(creditProjectionAmount);
+      return creditDownPayment > 0
+        ? t('payment.confirmCreditWithCash', { credit, cash: formatCurrency(creditDownPayment) })
+        : t('payment.confirmCredit', { credit });
+    }
+    return invoiceRequested ? t('payment.confirmInvoice') : t('payment.confirm');
+  };
 
   const paymentSummary = (
     <div className="sale-pay-summary" data-testid="sale-payment-summary">
@@ -266,20 +292,7 @@ export function SalePaymentModal({
               id="sale-payment-confirm"
               aria-keyshortcuts={ariaKeyshortcutsFor('sales.charge')}
             >
-              {isSaving
-                ? t('payment.processing')
-                : isPartialPayment
-                  ? t('payment.confirmPartialAmount', { amount: formatCurrency(outstanding) })
-                  : splitMode && Math.abs(tenderDelta) >= TENDER_SUM_EPSILON
-                    ? t(
-                        tenderDelta < 0
-                          ? 'payment.confirmSplitMissing'
-                          : 'payment.confirmSplitOver',
-                        {
-                          amount: formatCurrency(Math.abs(tenderDelta)),
-                        }
-                      )
-                    : t('payment.confirm')}
+              {confirmLabel()}
               {canSubmit && !isSaving && (
                 <kbd className="sales-charge-kbd" aria-hidden="true">
                   {shortcutDisplayFor('sales.charge')}
@@ -370,6 +383,35 @@ export function SalePaymentModal({
           </Suspense>
         )}
 
+        {showCreditCard && (
+          <Suspense
+            fallback={
+              <p className="text-sm text-secondary-500" role="status">
+                {t('common:status.loading')}
+              </p>
+            }
+          >
+            <SaleCreditCustomerCard
+              form={form}
+              selectedCustomer={selectedCustomer}
+              splitMode={splitMode}
+              creditAmount={creditProjectionAmount}
+              creditDownPaymentInvalid={creditDownPaymentInvalid}
+              payableExcess={payableExcess}
+              onPayExcess={payExcess}
+              currencySymbol={currencySymbol}
+              currentBalance={currentBalance}
+              creditLimit={creditLimit}
+              projectedBalance={projectedBalance}
+              cupoExceeded={cupoExceeded}
+              isAdmin={isAdmin}
+              balanceLoading={balanceLoading}
+              balanceUnavailable={balanceUnavailable}
+              retryBalance={retryBalance}
+            />
+          </Suspense>
+        )}
+
         <div>
           <div className="sm:grid sm:grid-cols-[7rem_minmax(0,1fr)] sm:items-center sm:gap-3">
             <label htmlFor="sale-payment-customer" className="label">
@@ -383,7 +425,8 @@ export function SalePaymentModal({
             >
               <option value="">{t('payment.walkIn')}</option>
               {/* One keyed list, so the chosen option survives the customer list loading. */}
-              {(approvalCustomerId && !customers.some(customer => customer.id === approvalCustomerId)
+              {(approvalCustomerId &&
+              !customers.some(customer => customer.id === approvalCustomerId)
                 ? [
                     {
                       id: approvalCustomerId,
@@ -430,41 +473,7 @@ export function SalePaymentModal({
               form={asElectronicInvoiceForm(form)}
               identificationTypes={electronicInvoice.identificationTypes}
               selectedCustomer={selectedCustomer}
-            />
-          </Suspense>
-        )}
-
-        {/* V10 credit-sale customer card. Shows the
-            customer's current balance, cupo, projected balance
-            after this sale, and either an admin override checkbox or
-            an exact approval request for non-admin operators
-            when the projection exceeds the cupo.  lifted
-            this out of the !splitMode branch so it surfaces in
-            both modes: legacy single-tender credit projects against
-            grandTotal; split-credit ("apartado") projects against
-            the credit-tender sum only. */}
-        {showCreditCard && (
-          <Suspense
-            fallback={
-              <p className="text-sm text-secondary-500" role="status">
-                {t('common:status.loading')}
-              </p>
-            }
-          >
-            <SaleCreditCustomerCard
-              form={form}
-              selectedCustomer={selectedCustomer}
-              splitMode={splitMode}
-              creditAmountInSplit={creditAmountInSplit}
-              grandTotal={grandTotal}
-              currentBalance={currentBalance}
-              creditLimit={creditLimit}
-              projectedBalance={projectedBalance}
-              cupoExceeded={cupoExceeded}
-              isAdmin={isAdmin}
-              balanceLoading={balanceLoading}
-              balanceUnavailable={balanceUnavailable}
-              retryBalance={retryBalance}
+              savedCustomers={customers}
             />
           </Suspense>
         )}

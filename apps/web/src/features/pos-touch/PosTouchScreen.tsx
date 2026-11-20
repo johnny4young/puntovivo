@@ -644,6 +644,7 @@ export function PosTouchScreen() {
                     form={invoiceForm}
                     identificationTypes={invoiceAvailability.identificationTypes}
                     selectedCustomer={invoiceCustomer}
+                    savedCustomers={customersQuery.data?.items}
                     touch
                   />
                 </fieldset>

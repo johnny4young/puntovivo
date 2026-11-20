@@ -890,7 +890,7 @@ describe('PosTouchScreen', () => {
 });
 
 describe('PosTouchScreen — customer asked for an electronic invoice', () => {
-  const toggleName = 'Customer asked for an electronic invoice';
+  const toggleName = 'Electronic invoice';
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -935,7 +935,7 @@ describe('PosTouchScreen — customer asked for an electronic invoice', () => {
   it('charges with the POS document and asks for no buyer data while the selector is off', async () => {
     const user = userEvent.setup();
     render(<PosTouchScreen />);
-    const toggle = await screen.findByRole('checkbox', { name: toggleName });
+    const toggle = await screen.findByRole('switch', { name: toggleName });
     expect(toggle).not.toBeChecked();
     expect(screen.queryByLabelText('Name or business name')).not.toBeInTheDocument();
 
@@ -956,7 +956,7 @@ describe('PosTouchScreen — customer asked for an electronic invoice', () => {
     await user.click(screen.getByTestId('pos-touch-tile-p-1'));
     await screen.findByTestId('pos-touch-cart-line-p-1:p-1-unit-1');
 
-    await user.click(await screen.findByRole('checkbox', { name: toggleName }));
+    await user.click(await screen.findByRole('switch', { name: toggleName }));
     expect(screen.getByLabelText('Name or business name')).toHaveClass('min-h-[44px]');
     await user.click(screen.getByTestId('pos-touch-cart-charge'));
     expect(await screen.findAllByText('Required')).toHaveLength(2);
@@ -965,7 +965,7 @@ describe('PosTouchScreen — customer asked for an electronic invoice', () => {
     await user.type(screen.getByLabelText('Name or business name'), '  Ferretería La 14 SAS ');
     await user.selectOptions(screen.getByLabelText('ID type'), '31');
     await user.type(screen.getByLabelText('ID number'), '900373115-3');
-    await user.type(screen.getByLabelText('Email (optional)'), ' compras@la14.co ');
+    await user.type(screen.getByLabelText('Email to send it to'), ' compras@la14.co ');
     await user.click(screen.getByTestId('pos-touch-cart-charge'));
 
     await waitFor(() => expect(createMutate).toHaveBeenCalledTimes(1));
@@ -982,9 +982,7 @@ describe('PosTouchScreen — customer asked for an electronic invoice', () => {
       },
     });
     // The next walk-in sale must not inherit this buyer.
-    await waitFor(() =>
-      expect(screen.getByRole('checkbox', { name: toggleName })).not.toBeChecked()
-    );
+    await waitFor(() => expect(screen.getByRole('switch', { name: toggleName })).not.toBeChecked());
     expect(screen.queryByLabelText('Name or business name')).not.toBeInTheDocument();
   });
 
@@ -993,28 +991,26 @@ describe('PosTouchScreen — customer asked for an electronic invoice', () => {
     render(<PosTouchScreen />);
     await user.click(screen.getByTestId('pos-touch-tile-p-1'));
     await screen.findByTestId('pos-touch-cart-line-p-1:p-1-unit-1');
-    await user.click(await screen.findByRole('checkbox', { name: toggleName }));
+    await user.click(await screen.findByRole('switch', { name: toggleName }));
     await user.type(screen.getByLabelText('Name or business name'), 'Ferretería La 14 SAS');
 
     await user.click(screen.getByTestId('pos-touch-cart-clear'));
 
-    expect(screen.getByRole('checkbox', { name: toggleName })).not.toBeChecked();
-    await user.click(screen.getByRole('checkbox', { name: toggleName }));
+    expect(screen.getByRole('switch', { name: toggleName })).not.toBeChecked();
+    await user.click(screen.getByRole('switch', { name: toggleName }));
     expect(screen.getByLabelText('Name or business name')).toHaveValue('');
   });
 
   it('drops the buyer when the active site changes', async () => {
     const user = userEvent.setup();
     const { rerender } = render(<PosTouchScreen />);
-    await user.click(await screen.findByRole('checkbox', { name: toggleName }));
+    await user.click(await screen.findByRole('switch', { name: toggleName }));
     await user.type(screen.getByLabelText('Name or business name'), 'Ferretería La 14 SAS');
 
     mockSiteId = 'site-2';
     rerender(<PosTouchScreen />);
 
-    await waitFor(() =>
-      expect(screen.getByRole('checkbox', { name: toggleName })).not.toBeChecked()
-    );
+    await waitFor(() => expect(screen.getByRole('switch', { name: toggleName })).not.toBeChecked());
   });
 
   it('prefills the buyer from the customer attached on the touch cart', async () => {
@@ -1027,7 +1023,7 @@ describe('PosTouchScreen — customer asked for an electronic invoice', () => {
     await screen.findByTestId('pos-touch-cart-line-p-1:p-1-unit-1');
     await user.selectOptions(screen.getByLabelText('Customer'), 'cust-ana');
 
-    await user.click(await screen.findByRole('checkbox', { name: toggleName }));
+    await user.click(await screen.findByRole('switch', { name: toggleName }));
     expect(screen.getByLabelText('Name or business name')).toHaveValue('Ana Gómez');
     expect(screen.getByLabelText('ID number')).toHaveValue('1020304050');
     await user.click(screen.getByTestId('pos-touch-cart-charge'));
@@ -1058,18 +1054,18 @@ describe('PosTouchScreen — customer asked for an electronic invoice', () => {
     render(<PosTouchScreen />);
     await user.click(screen.getByTestId('pos-touch-tile-p-1'));
     await screen.findByTestId('pos-touch-cart-line-p-1:p-1-unit-1');
-    await user.click(await screen.findByRole('checkbox', { name: toggleName }));
+    await user.click(await screen.findByRole('switch', { name: toggleName }));
     await user.type(screen.getByLabelText('Name or business name'), 'Ana Gómez');
     await user.type(screen.getByLabelText('ID number'), '1020304050');
     await user.click(screen.getByTestId('pos-touch-cart-charge'));
 
-    await waitFor(() => expect(screen.getByRole('checkbox', { name: toggleName })).toBeDisabled());
+    await waitFor(() => expect(screen.getByRole('switch', { name: toggleName })).toBeDisabled());
     expect(screen.getByLabelText('Name or business name')).toBeDisabled();
 
     await act(async () => {
       resolveCharge?.({ id: 'sale-invoice' });
       await Promise.resolve();
     });
-    await waitFor(() => expect(screen.getByRole('checkbox', { name: toggleName })).toBeEnabled());
+    await waitFor(() => expect(screen.getByRole('switch', { name: toggleName })).toBeEnabled());
   });
 });

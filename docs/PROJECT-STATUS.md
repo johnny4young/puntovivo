@@ -33,6 +33,12 @@ The current validated candidate includes:
   After the sale, a strip offers print, WhatsApp, the receipt or no receipt
   while the register is already back on the scanner. Till counts use the same
   bills and coins;
+- one focused state per tender in the charge: a split lists each method with its
+  reference and fills what is left or half and half; a credit sale shows the
+  customer's debt against the cupo, takes part in cash now and names both
+  amounts on Confirm; the electronic invoice keeps the NIT and its
+  verification digit apart, fills a saved buyer from the typed number and says
+  the invoice queues when offline;
 - operator-first task navigation, command search, guided business setup, and
   plain-language readiness and recovery surfaces for non-technical staff. The
   vertical readiness card derives bounded, tenant-scoped facts for the selected

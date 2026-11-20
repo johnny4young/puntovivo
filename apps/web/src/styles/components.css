@@ -1067,14 +1067,30 @@
     background: var(--swatch, var(--line-strong));
   }
 
-  .sales-quick-key-swatch[data-colour='orange'] { --swatch: var(--swatch-orange); }
-  .sales-quick-key-swatch[data-colour='yellow'] { --swatch: var(--swatch-yellow); }
-  .sales-quick-key-swatch[data-colour='slate'] { --swatch: var(--swatch-slate); }
-  .sales-quick-key-swatch[data-colour='green'] { --swatch: var(--swatch-green); }
-  .sales-quick-key-swatch[data-colour='lime'] { --swatch: var(--swatch-lime); }
-  .sales-quick-key-swatch[data-colour='sky'] { --swatch: var(--swatch-sky); }
-  .sales-quick-key-swatch[data-colour='violet'] { --swatch: var(--swatch-violet); }
-  .sales-quick-key-swatch[data-colour='red'] { --swatch: var(--swatch-red); }
+  .sales-quick-key-swatch[data-colour='orange'] {
+    --swatch: var(--swatch-orange);
+  }
+  .sales-quick-key-swatch[data-colour='yellow'] {
+    --swatch: var(--swatch-yellow);
+  }
+  .sales-quick-key-swatch[data-colour='slate'] {
+    --swatch: var(--swatch-slate);
+  }
+  .sales-quick-key-swatch[data-colour='green'] {
+    --swatch: var(--swatch-green);
+  }
+  .sales-quick-key-swatch[data-colour='lime'] {
+    --swatch: var(--swatch-lime);
+  }
+  .sales-quick-key-swatch[data-colour='sky'] {
+    --swatch: var(--swatch-sky);
+  }
+  .sales-quick-key-swatch[data-colour='violet'] {
+    --swatch: var(--swatch-violet);
+  }
+  .sales-quick-key-swatch[data-colour='red'] {
+    --swatch: var(--swatch-red);
+  }
 
   .sales-quick-key-swatch[data-none] {
     background: transparent;
@@ -1374,11 +1390,6 @@
     box-shadow: 0 0 0 4px color-mix(in oklch, var(--primary-600) 25%, transparent);
   }
 
-  .sale-pay-received[data-disabled] {
-    border-color: var(--line);
-    opacity: 0.6;
-  }
-
   .sale-pay-received-row {
     display: flex;
     align-items: baseline;
@@ -1405,7 +1416,11 @@
   }
 
   .sale-pay-received-input::-webkit-inner-spin-button,
-  .sale-pay-received-input::-webkit-outer-spin-button {
+  .sale-pay-received-input::-webkit-outer-spin-button,
+  .sale-pay-tender-amount::-webkit-inner-spin-button,
+  .sale-pay-tender-amount::-webkit-outer-spin-button,
+  .sale-pay-money-field input::-webkit-inner-spin-button,
+  .sale-pay-money-field input::-webkit-outer-spin-button {
     margin: 0;
     appearance: none;
   }
@@ -1498,6 +1513,246 @@
     min-width: 0;
   }
 
+  /* Charge drawer, split / credit / invoice states. */
+  .sale-pay-step-title {
+    @apply font-display;
+    font-size: 1.375rem;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--fg1);
+  }
+
+  .sale-pay-tender-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 4rem;
+    padding: 0.5rem 0.875rem;
+    border: 1.5px solid var(--line);
+    border-radius: 0.9375rem;
+    background: var(--background);
+  }
+
+  .sale-pay-tender-row[data-active] {
+    border-color: var(--primary-900);
+    background: var(--primary-100);
+    box-shadow: inset 0 0 0 1px var(--primary-900);
+  }
+
+  .sale-pay-tender-icon {
+    width: 1.375rem;
+    height: 1.375rem;
+    flex-shrink: 0;
+    color: var(--fg2);
+  }
+
+  .sale-pay-tender-method {
+    max-width: 100%;
+    padding: 0.125rem 0;
+    border: 0;
+    background: transparent;
+    font-weight: 600;
+    color: var(--fg1);
+  }
+
+  .sale-pay-tender-ref {
+    @apply font-mono;
+    display: block;
+    width: 100%;
+    margin-top: 0.125rem;
+    padding: 0.125rem 0;
+    border: 0;
+    border-bottom: 1px dashed var(--line-strong);
+    background: transparent;
+    font-size: 0.8125rem;
+    color: var(--fg2);
+  }
+
+  .sale-pay-tender-ref::placeholder {
+    color: var(--fg3);
+  }
+
+  .sale-pay-tender-method:focus-visible,
+  .sale-pay-tender-ref:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+    border-radius: 0.25rem;
+  }
+
+  .sale-pay-tender-amount {
+    @apply font-numeric;
+    width: 9.5rem;
+    min-width: 0;
+    padding: 0.375rem 0.625rem;
+    border: 1.5px solid var(--line);
+    border-radius: 0.75rem;
+    background: var(--card);
+    font-size: 1.375rem;
+    font-weight: 700;
+    text-align: right;
+    color: var(--fg1);
+    appearance: textfield;
+  }
+
+  .sale-pay-tender-amount:focus-visible {
+    outline: none;
+    border-color: var(--primary-700);
+    box-shadow: var(--focus-ring);
+  }
+
+  .sale-pay-split-action {
+    min-height: 2.875rem;
+    gap: 0.5rem;
+  }
+
+  .sale-pay-kv > div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    min-height: 2.75rem;
+    border-bottom: 1.5px solid var(--line);
+    font-size: 0.96875rem;
+    color: var(--fg2);
+  }
+
+  .sale-pay-kv dd {
+    @apply font-numeric;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--fg1);
+  }
+
+  .sale-pay-kv [data-tone='ok'] dd {
+    color: var(--success-700);
+  }
+
+  .sale-pay-kv [data-tone='danger'] dd {
+    color: var(--danger-700);
+  }
+
+  .sale-pay-kv [data-tone='warning'] dd {
+    color: var(--warning-700);
+  }
+
+  .sale-pay-avatar {
+    @apply font-display;
+    background: var(--warning-500);
+    font-size: 0.9375rem;
+    font-weight: 700;
+    color: var(--operator-commit);
+  }
+
+  .sale-pay-cupo-bar {
+    display: flex;
+    height: 1.25rem;
+    overflow: hidden;
+    border-radius: 0.625rem;
+    background: var(--surface-3);
+  }
+
+  .sale-pay-cupo-owed {
+    background: var(--primary-900);
+  }
+
+  .sale-pay-cupo-sale {
+    background: var(--operator-command);
+  }
+
+  .sale-pay-cupo-bar[data-over] .sale-pay-cupo-sale {
+    background: var(--danger-600);
+  }
+
+  .sale-pay-cupo-scale {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-top: 0.375rem;
+    font-size: 0.8125rem;
+    color: var(--fg3);
+  }
+
+  .sale-pay-money-field {
+    @apply font-numeric;
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    height: 3.25rem;
+    padding: 0 0.875rem;
+    border: 1.5px solid var(--line-strong);
+    border-radius: 0.8125rem;
+    background: var(--background);
+    font-size: 1.03125rem;
+    font-weight: 600;
+    color: var(--fg1);
+  }
+
+  .sale-pay-money-field:focus-within {
+    border-color: var(--primary-700);
+    box-shadow: var(--focus-ring);
+  }
+
+  .sale-pay-money-field input {
+    width: 100%;
+    min-width: 0;
+    border: 0;
+    background: transparent;
+    outline: none;
+    font: inherit;
+    color: inherit;
+    appearance: textfield;
+  }
+
+  .sale-pay-money-field[data-tone='credit'] {
+    border-color: var(--primary-900);
+    background: var(--primary-100);
+  }
+
+  .sale-pay-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.625rem;
+    font-size: 0.84375rem;
+    line-height: 1.35;
+    color: var(--fg2);
+  }
+
+  .sale-pay-note[data-tone='ok'] {
+    font-weight: 600;
+    color: var(--success-700);
+  }
+
+  .sale-pay-note[data-tone='muted'] {
+    padding: 0.625rem 0.875rem;
+    border-radius: 0.875rem;
+    background: var(--surface-3);
+  }
+
+  .sale-pay-invoice-id {
+    display: grid;
+    grid-template-columns: minmax(0, 0.6fr) minmax(0, 1.2fr);
+    gap: 0.625rem;
+  }
+
+  .sale-pay-invoice-id[data-nit] {
+    grid-template-columns: minmax(0, 0.6fr) minmax(0, 1.2fr) minmax(0, 0.45fr);
+  }
+
+  .sale-pay-invoice-id > p {
+    grid-column: 1 / -1;
+  }
+
+  .sale-pay-dv-ok {
+    position: absolute;
+    top: 50%;
+    right: 0.625rem;
+    width: 1.25rem;
+    height: 1.25rem;
+    margin-top: 0.125rem;
+    transform: translateY(-50%);
+    color: var(--success-700);
+  }
+
   @media (max-height: 820px) {
     .sale-pay-total-figure {
       font-size: clamp(2.25rem, 9cqi, 3.5rem);
@@ -1567,6 +1822,16 @@
     .sale-pay-back .pv-kbd,
     .sale-pay-confirm .sales-charge-kbd {
       display: none;
+    }
+
+    .sale-pay-tender-row {
+      gap: 0.5rem;
+      padding-inline: 0.625rem;
+    }
+
+    .sale-pay-tender-amount {
+      width: 6.5rem;
+      font-size: 1.125rem;
     }
   }
 
@@ -1901,8 +2166,7 @@
   .select-trigger:focus {
     @apply bg-white;
     border-color: color-mix(in oklch, var(--operator-signal) 72%, var(--line));
-    box-shadow:
-      0 0 0 0.2rem color-mix(in oklch, var(--operator-signal) 14%, transparent);
+    box-shadow: 0 0 0 0.2rem color-mix(in oklch, var(--operator-signal) 14%, transparent);
   }
 
   .dark .input:focus,
@@ -2382,8 +2646,7 @@
   .pv-input.focus {
     border-color: color-mix(in oklch, var(--operator-signal) 72%, var(--line));
     background: var(--surface);
-    box-shadow:
-      0 0 0 0.2rem color-mix(in oklch, var(--operator-signal) 14%, transparent);
+    box-shadow: 0 0 0 0.2rem color-mix(in oklch, var(--operator-signal) 14%, transparent);
     outline: none;
   }
   .pv-input.error {
@@ -2631,11 +2894,21 @@
     box-shadow: 0 1px 3px rgb(0 0 0 / 0.2);
     transition: left 160ms;
   }
-  .pv-switch.on {
+  .pv-switch.on,
+  .pv-switch:checked {
     background: var(--primary);
   }
-  .pv-switch.on::after {
+  .pv-switch.on::after,
+  .pv-switch:checked::after {
     left: 21px;
+  }
+  input.pv-switch {
+    appearance: none;
+    margin: 0;
+  }
+  input.pv-switch:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
   }
 
   /* --- Accordion (.pv-acc) — vault de credenciales --- */
@@ -2793,8 +3066,7 @@
     border-radius: 11px;
     border: 1px solid color-mix(in oklch, var(--strip-ink) 20%, var(--line));
     background: var(--strip-surface);
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.62);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.62);
   }
   .pv-strip .ic {
     display: inline-flex;
@@ -2855,8 +3127,7 @@
     --strip-ink: var(--operator-positive-ink);
   }
   .dark .pv-strip {
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.08);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08);
   }
 
   /* --- Readiness checklist (.pv-check) --- */
@@ -3754,8 +4025,7 @@
   .pv-signal-chip {
     border-radius: 0.55rem;
     border: 1px solid color-mix(in oklch, currentColor 18%, transparent);
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.62);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.62);
   }
 
   .pv-control-user > span:first-child {

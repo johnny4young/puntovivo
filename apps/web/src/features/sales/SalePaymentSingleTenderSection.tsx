@@ -124,30 +124,32 @@ export function SalePaymentSingleTenderSection({
         />
       )}
 
-      <div className="sale-pay-received" data-disabled={isCredit || undefined}>
-        <label htmlFor="sale-payment-amount" className="sales-cap">
-          {t('payment.amountReceived')}
-        </label>
-        <div className="sale-pay-received-row">
-          <span className="sale-pay-received-symbol" aria-hidden="true">
-            {currencySymbol}
-          </span>
-          <input
-            id="sale-payment-amount"
-            type="number"
-            min={0}
-            step="0.01"
-            inputMode="decimal"
-            className="sale-pay-received-input"
-            disabled={isCredit}
-            {...amountField}
-            onChange={event => {
-              keyedAmountRef.current = event.target.valueAsNumber;
-              void amountField.onChange(event);
-            }}
-          />
+      {/* Credit sales take their cash part in the credit card's own field. */}
+      {!isCredit && (
+        <div className="sale-pay-received">
+          <label htmlFor="sale-payment-amount" className="sales-cap">
+            {t('payment.amountReceived')}
+          </label>
+          <div className="sale-pay-received-row">
+            <span className="sale-pay-received-symbol" aria-hidden="true">
+              {currencySymbol}
+            </span>
+            <input
+              id="sale-payment-amount"
+              type="number"
+              min={0}
+              step="0.01"
+              inputMode="decimal"
+              className="sale-pay-received-input"
+              {...amountField}
+              onChange={event => {
+                keyedAmountRef.current = event.target.valueAsNumber;
+                void amountField.onChange(event);
+              }}
+            />
+          </div>
         </div>
-      </div>
+      )}
       {form.formState.errors.amountReceived && (
         <p className="text-sm text-danger-500" role="alert">
           {form.formState.errors.amountReceived.message}

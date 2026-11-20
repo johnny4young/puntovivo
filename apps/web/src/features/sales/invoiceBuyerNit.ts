@@ -13,11 +13,10 @@ export function expectedNitDigit(raw: string): number | null {
   return Number(match[2]) === dv ? null : dv;
 }
 
-/** How an undashed NIT will be recorded, so a DV typed without its dash is caught. */
-export function nitPreview(raw: string): string | null {
+/** The DV a NIT number gets when none is typed, or '' while it is not a NIT number yet. */
+export function nitDigit(raw: string): string {
   const base = raw.trim().replace(/[.\s]/g, '');
-  if (!/^\d{5,15}$/.test(base)) return null;
-  return `${base}-${computeNitVerificationDigit(base)}`;
+  return /^\d{5,15}$/.test(base) ? String(computeNitVerificationDigit(base)) : '';
 }
 
 /** Mirrors the server's buyer-ID rules, so a refused sale stays the exception. */
@@ -38,4 +37,16 @@ export function buyerIdProblem(
     if (!/^[A-Z0-9]{3,20}$/.test(id)) return 'malformed';
   }
   return id === CONSUMIDOR_FINAL_ID ? 'consumidorFinal' : null;
+}
+
+/** A typed NIT as its number and DV; a dash followed by one digit is the DV. */
+export function splitNit(raw: string): { base: string; dv: string } {
+  const match = /^(.*?)\s*-\s*(\d)$/.exec(raw);
+  return match ? { base: match[1] ?? '', dv: match[2] ?? '' } : { base: raw, dv: '' };
+}
+
+/** Comparable form of a buyer ID, so 900.123.456-7 finds a customer saved as 900123456. */
+export function buyerIdKey(raw: string, isNit = true): string {
+  const id = isNit ? splitNit(raw.trim()).base : raw;
+  return id.replace(/[.\s-]/g, '').toUpperCase();
 }

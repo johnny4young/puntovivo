@@ -13,9 +13,9 @@
  * Cross-tenant attempts must throw `CUSTOMER_NOT_FOUND`.
  *
  * Role gates:
- * - list / getBalance / addPayment → manager + admin
+ * - getBalance                     → cashier + manager + admin
+ * - list / addPayment              → manager + admin
  * - addAdjustment                  → admin only
- * - cashier never reaches any procedure
  *
  * Both writes are critical commands, so every mutating call needs a registered
  * device plus a command envelope. Devices claim an activeUserId, so each role
@@ -343,6 +343,24 @@ describe('customerLedger.* router', () => {
       );
       const result = await caller.customerLedger.getBalance({ customerId });
       expect(result.balance).toBe(750);
+    });
+
+    it('lets a cashier read the balance a credit sale projects against', async () => {
+      const customerId = await seedCustomer('Saldo Cajero');
+      await getDatabase()
+        .insert(customerLedgerEntries)
+        .values({ id: nanoid(), tenantId, customerId, kind: 'sale', amount: 400 });
+      const caller = appRouter.createCaller(
+        createCallerContext({
+          userId: cashierUserId,
+          role: 'cashier',
+          email: 'cashier@localhost',
+        })
+      );
+      expect((await caller.customerLedger.getBalance({ customerId })).balance).toBe(400);
+      expect(
+        (await caller.customerLedger.getBalance({ customerId: foreignCustomerId })).balance
+      ).toBe(0);
     });
   });
 

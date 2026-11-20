@@ -240,17 +240,21 @@
     }
   },
   "electronicInvoiceRequest": {
-    "toggle": "El cliente pidió factura electrónica",
+    "toggle": "Factura electrónica",
     "name": "Nombre o razón social",
-    "idType": "Tipo de documento",
-    "idNumber": "Número de documento",
-    "email": "Correo (opcional)",
+    "idType": "Tipo",
+    "idNumber": "Número",
+    "email": "Correo para enviarla",
     "required": "Obligatorio",
     "emailInvalid": "Correo no válido",
     "nitDvMismatch": "El dígito de verificación no coincide (debe ser {{dv}})",
-    "nitPreview": "Se registra como {{nit}}",
     "malformed": "Número de documento no válido",
-    "consumidorFinal": "Ese es el número de consumidor final, no el del comprador"
+    "consumidorFinal": "Ese es el número de consumidor final, no el del comprador",
+    "dv": "DV",
+    "dvName": "Dígito de verificación",
+    "dvOk": "Dígito de verificación correcto",
+    "savedBuyer": "Cliente ya guardado: la próxima vez basta el {{type}}",
+    "queueNote": "Se envía a la DIAN al confirmar. Sin conexión, la venta sale y la factura queda en cola."
   },
   "numbering": {
     "kicker": "Numeración",
