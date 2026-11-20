@@ -1327,12 +1327,12 @@
   }
 
   .sale-pay-tenders {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(5rem, 1fr));
     gap: 0.5rem;
   }
 
   .sale-pay-tender {
-    flex: 1 1 0;
     min-height: 3.5rem;
     font-size: 0.8125rem;
   }
