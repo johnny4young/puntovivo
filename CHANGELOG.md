@@ -57,26 +57,18 @@ is usable from source, but it is not a new packaged release yet.
 
 ### Features
 
-* **dashboard:** open Hoy on the manager's day ([872ef62](https://github.com/johnny4young/puntovivo/commit/872ef6212bd716b0aa2d8b9c83300940ed476738))
 * **dashboard:** open Hoy on the manager's day ([fc4655a](https://github.com/johnny4young/puntovivo/commit/fc4655a6b11f5ce0e8ebd85bce331245c2683c52))
-* **i18n:** address users with usted across the Spanish copy ([d9acc7b](https://github.com/johnny4young/puntovivo/commit/d9acc7bbe8ccd5ce932c1b3085ef24fe8909ef88))
 * **i18n:** address users with usted across the Spanish copy ([7ac3e52](https://github.com/johnny4young/puntovivo/commit/7ac3e52cda431d9fd7286a8179c41509617ffb35))
 * **products:** carry a packaging barcode and ([d25ea04](https://github.com/johnny4young/puntovivo/commit/d25ea0406750366f6494eb38f243a18c04049ecd))
 * **products:** carry a packaging barcode and resolve it deterministically ([59d9fd6](https://github.com/johnny4young/puntovivo/commit/59d9fd615d6061f3bf3e55c7a6e0ef3d4c95c1ac))
-* **sales:** let owners choose the site keys and sell them from the touch POS ([e79f769](https://github.com/johnny4young/puntovivo/commit/e79f7697f505b2263e5ccf05ca3828dd928aa63c))
 * **sales:** let owners choose the site keys and sell them from the touch POS ([dd9cb3b](https://github.com/johnny4young/puntovivo/commit/dd9cb3bab61877d895c7431765e967a364e72af7))
-* **sales:** rebuild the selling screen around the ticket, the last read and one-touch cash ([15a61bf](https://github.com/johnny4young/puntovivo/commit/15a61bf3b64284752276939f71fba1c2937b142b))
 * **sales:** rebuild the selling screen around the ticket, the last read and one-touch cash ([7d000e0](https://github.com/johnny4young/puntovivo/commit/7d000e07a4551af33c32b154267926bfb6348188))
-* **sales:** share one-touch quick keys across a site's registers ([7746989](https://github.com/johnny4young/puntovivo/commit/77469898d1e003b1762147bd010e5bd1dac7ba8c))
 * **sales:** share one-touch quick keys across a site's registers ([f3a29e3](https://github.com/johnny4young/puntovivo/commit/f3a29e3786b622e2da1e4330890577b0eafb313a))
 * **sales:** show the selected unit ([740b274](https://github.com/johnny4young/puntovivo/commit/740b2741a54cb1cb5fba388e9f74720e6773ebdd))
 * **sales:** show the selected unit presentation in the cart line ([49333dd](https://github.com/johnny4young/puntovivo/commit/49333dd313ba56f047e88e01e8917f1540a05b67))
-* **sales:** turn the register search into one command bar ([46e575b](https://github.com/johnny4young/puntovivo/commit/46e575b86756a7b513f8ba1ca1228abedb53f39c))
 * **sales:** turn the register search into one command bar ([c1413d1](https://github.com/johnny4young/puntovivo/commit/c1413d1616b666a17c431f862f1da0f429a52c59))
 * **server:** operations.today summary for the manager's day ([b433727](https://github.com/johnny4young/puntovivo/commit/b433727a8018cd00b55edae6cd9c8ddf7427bab3))
-* **server:** till incidents and receipt lookup for returns ([3af77a0](https://github.com/johnny4young/puntovivo/commit/3af77a0a382602c461d57b65d2779bbe1c036cbb))
 * **server:** till incidents and receipt lookup for returns ([df6cda9](https://github.com/johnny4young/puntovivo/commit/df6cda966c73a88c3f1bfa01b5ccd358d3b037de))
-* **ui:** adopt the v6 identity across tokens, type and mark ([aa3fc1d](https://github.com/johnny4young/puntovivo/commit/aa3fc1dc975fb60849e16759c37e21259ddba918))
 * **ui:** adopt the v6 identity across tokens, type and mark ([0ab1384](https://github.com/johnny4young/puntovivo/commit/0ab13843651328c0586fd8de7df3085014111d65))
 
 
@@ -90,7 +82,6 @@ is usable from source, but it is not a new packaged release yet.
 * **sales:** keep the command bar from dropping or reusing a customer by accident ([3146b9b](https://github.com/johnny4young/puntovivo/commit/3146b9b4774820e4f5138102d7b0eb2d0d5f0847))
 * **sales:** keep the selling dock figures true to the ticket ([1172a01](https://github.com/johnny4young/puntovivo/commit/1172a01508d77a034c170e2bf823da20bc73fe1c))
 * **sales:** keep the selling dock to one fact per place and fit narrow tickets ([bebdc37](https://github.com/johnny4young/puntovivo/commit/bebdc37241bc9cd740e97f2f8f7530ff58687139))
-* **sales:** label every non-base unit in the cart line ([331b274](https://github.com/johnny4young/puntovivo/commit/331b274166c0eaad44c0998e55e0e189444c76d5))
 * **sales:** label every non-base unit in the cart line ([aec29d5](https://github.com/johnny4young/puntovivo/commit/aec29d5b896df02e4f85cdb9a7005ecc910afd05))
 * **sales:** read dock state from readiness and keep resumed customers named ([534cd45](https://github.com/johnny4young/puntovivo/commit/534cd45d16b44f8e3b837b2958f2780ae084f818))
 * **ui:** keep secondary text and icons readable on the v6 palette ([1d74fd5](https://github.com/johnny4young/puntovivo/commit/1d74fd5a5baced5d680c23fcec552d92b95a9a50))
