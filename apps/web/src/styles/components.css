@@ -1021,20 +1021,23 @@
     }
   }
 
-  .sales-quick-keys,
-  .sales-quick-keys-editing {
+  .sales-quick-keys {
     display: grid;
     gap: 0.5rem;
-  }
-
-  .sales-quick-keys {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .sales-quick-keys-editing {
-    grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr));
-    max-height: 14rem;
-    overflow-y: auto;
+  .sales-quick-choose {
+    min-height: 2.25rem;
+    padding: 0 0.25rem;
+    border-radius: 0.375rem;
+    font-size: 0.75rem;
+    color: var(--fg2);
+  }
+
+  .sales-quick-choose:hover {
+    color: var(--fg1);
+    text-decoration: underline;
   }
 
   .sales-quick-key {
@@ -1051,13 +1054,8 @@
     text-align: left;
   }
 
-  .sales-quick-key:hover,
-  .sales-quick-key[data-picked='true'] {
+  .sales-quick-key:hover {
     border-color: var(--primary-600);
-  }
-
-  .sales-quick-key[data-picked='true'] {
-    background: var(--accent);
   }
 
   .sales-quick-key-swatch {
@@ -1077,6 +1075,42 @@
   .sales-quick-key-swatch[data-colour='sky'] { --swatch: var(--swatch-sky); }
   .sales-quick-key-swatch[data-colour='violet'] { --swatch: var(--swatch-violet); }
   .sales-quick-key-swatch[data-colour='red'] { --swatch: var(--swatch-red); }
+
+  .sales-quick-key-swatch[data-none] {
+    background: transparent;
+    border: 1.5px dashed var(--line-strong);
+  }
+
+  /* Editor colour choice: the swatch grows to a touch target with a ring when chosen. */
+  .sales-quick-swatch-option {
+    display: grid;
+    place-items: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border: 1.5px solid transparent;
+    border-radius: 0.625rem;
+    cursor: pointer;
+  }
+
+  .sales-quick-swatch-option .sales-quick-key-swatch {
+    width: 1.25rem;
+    height: 1.25rem;
+    margin: 0;
+  }
+
+  .sales-quick-swatch-option:has(input:checked) {
+    border-color: var(--fg1);
+  }
+
+  .sales-quick-swatch-option:has(input:focus-visible) {
+    outline: 2px solid var(--ring);
+    outline-offset: 1px;
+  }
+
+  fieldset:disabled .sales-quick-swatch-option {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
 
   .sales-quick-keys-loading {
     display: grid;
@@ -1380,6 +1414,7 @@
   .sales-cash-key:focus-visible,
   .sales-secondary-key:focus-visible,
   .sales-quick-key:focus-visible,
+  .sales-quick-choose:focus-visible,
   .sales-tier-key:focus-visible,
   .sales-mini-link:focus-visible,
   .sales-last-read-undo:focus-visible {

@@ -134,11 +134,13 @@ El candidato validado actual incluye:
   gerente/administrador conservan autoridad directa. La interpretación GS1
   incorporada se deshabilita cuando no hay sede activa;
 - teclas rápidas para artículos sin código de barras, compartidas por todas las
-  cajas de una sede. Gerentes y administradores eligen hasta ocho; los cajeros
-  las usan. Una tecla por valor pide el monto y vende la cantidad que alcanza al
-  precio de catálogo, así que nunca se vuelve un precio fuera de catálogo. Los
-  favoritos locales que tenía un navegador siembran una sede que aún no tiene
-  teclas;
+  cajas de una sede y por el POS táctil, donde se abren primero. Gerentes y
+  administradores eligen hasta ocho desde la caja, y les ponen nombre, color y
+  orden; los cajeros las usan. Una tecla por valor pide el monto y vende la
+  cantidad que alcanza al precio de catálogo, así que nunca se vuelve un precio
+  fuera de catálogo. Una sede sin teclas ofrece lo que más vendió, completado con
+  el catálogo, y los favoritos locales que tenía un navegador la siembran una
+  vez;
 - reservas por sede con controles de capacidad y solapamiento, llegada explícita
   y asignación de una reserva a una cuenta sin ventas vacías; creación versionada
   de entregas, despacho de repartidor y cancelación desde la UI sin cobro ni

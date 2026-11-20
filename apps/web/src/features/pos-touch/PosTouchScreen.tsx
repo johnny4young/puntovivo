@@ -57,9 +57,20 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { invalidateCommittedGroups, SALE_COMPLETION_INVALIDATIONS } from '@/lib/invalidateGroups';
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
-import { applyPriceTier, mergeCartItem, type SaleCartItem } from '@/features/sales/saleCart';
+import {
+  applyPriceTier,
+  mergeBarcodeCartItem,
+  mergeCartItem,
+  type SaleCartItem,
+} from '@/features/sales/saleCart';
 import { getCartSummary } from '@/features/sales/saleCartTotals';
 import { selectionFromHydratedProduct } from '@/features/sales/productSelection';
+import { QuickKeyValueForm } from '@/features/sales/QuickKeyValueForm';
+import {
+  useQuickTileSelection,
+  useSiteQuickKeys,
+  type QuickTile,
+} from '@/features/sales/siteQuickKeys';
 import {
   buildElectronicInvoiceRequest,
   EMPTY_INVOICE_BUYER,
@@ -67,12 +78,13 @@ import {
 import type { ElectronicInvoiceFormValues } from '@/features/sales/salePaymentModal.types';
 import { useElectronicInvoiceAvailability } from '@/features/sales/useElectronicInvoiceAvailability';
 import { SaleElectronicInvoiceSection } from '@/features/sales/LazySaleElectronicInvoiceSection';
-import type { Product } from '@/types';
+import type { Product, ProductSearchSelection } from '@/types';
 import { translateServerError } from '@/lib/translateServerError';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { useIsModuleActive } from '@/features/modules';
 import { PosTouchCategoryTabs, type PosTouchCategoryOption } from './PosTouchCategoryTabs';
 import { PosTouchProductGrid } from './PosTouchProductGrid';
+import { PosTouchQuickKeyGrid } from './PosTouchQuickKeyGrid';
 import { PosTouchCartSidebar, type PosTouchCustomer } from './PosTouchCartSidebar';
 import { useEmbeddedServerState } from '@/hooks/useEmbeddedServerState';
 
@@ -81,7 +93,7 @@ const CATALOG_SEARCH_DEBOUNCE_MS = 250;
 
 export function PosTouchScreen() {
   const priceIncludesTax = usePriceIncludesTax();
-  const { t } = useTranslation(['posTouch', 'common', 'fulfillmentErrors']);
+  const { t } = useTranslation(['posTouch', 'common', 'fulfillmentErrors', 'salesQuickAccess']);
   const { currentSite } = useTenant();
   const toast = useToast();
   const utils = trpc.useUtils();
@@ -101,6 +113,16 @@ export function PosTouchScreen() {
   const [isCheckoutLocked, setIsCheckoutLocked] = useState(false);
   const checkoutLockedRef = useRef(false);
   const ticketEpochRef = useRef(0);
+  const valueTicketEpochRef = useRef(0);
+  const { query: quickKeysQuery, tiles: quickTiles } = useSiteQuickKeys(siteId);
+  const resolveQuickTile = useQuickTileSelection(siteId);
+  // The site's keys open first; a category tab or a search switches to the catalog.
+  const [showQuickKeys, setShowQuickKeys] = useState(true);
+  const [valueTile, setValueTile] = useState<QuickTile | null>(null);
+  // The raw text, not the debounced one, so the keys tab answers on the first tap.
+  const quickKeysView = showQuickKeys && quickTiles.length > 0 && !searchText.trim();
+  // Holding the grid until the keys arrive keeps a tap from landing on a swapping layout.
+  const quickKeysPending = showQuickKeys && quickKeysQuery.isLoading;
 
   const productsQuery = trpc.products.list.useQuery(
     {
@@ -111,7 +133,11 @@ export function PosTouchScreen() {
       siteId,
       search: search || undefined,
     },
-    { enabled: siteId.length > 0, staleTime: 30_000, placeholderData: keepPreviousData }
+    {
+      enabled: siteId.length > 0 && !quickKeysView && !quickKeysPending,
+      staleTime: 30_000,
+      placeholderData: keepPreviousData,
+    }
   );
   const categoryCountsQuery = trpc.products.categoryCounts.useQuery(undefined, {
     enabled: siteId.length > 0,
@@ -236,20 +262,29 @@ export function PosTouchScreen() {
   const isServerRestarting = useEmbeddedServerState() === 'restarting';
   const checkoutLocked = isCheckoutLocked || createMutation.isPending;
 
-  // useCallback keeps every memoized tile from re-rendering on a cart tick;
-  // only the tile whose quantity changed renders again.
-  const handleAddToCart = useCallback(
-    async (product: Product) => {
+  const addSelection = useCallback(
+    (selection: ProductSearchSelection, name: string, quantity: number | null = null) => {
+      setCartItems(current =>
+        applyPriceTier(
+          quantity === null
+            ? mergeCartItem(current, selection)
+            : mergeBarcodeCartItem(current, selection, { quantity, price: null }),
+          activePriceTierRef.current
+        )
+      );
+      toast.success({ title: t('toast.addedToCart', { name }) });
+    },
+    [toast, t]
+  );
+
+  /** Hydrates a tapped product and adds it unless a charge or a new ticket started meanwhile. */
+  const addHydrated = useCallback(
+    async (load: () => Promise<ProductSearchSelection | null>, name: string) => {
       if (checkoutLockedRef.current) return;
       const ticketEpoch = ticketEpochRef.current;
-      // `products.list` (the grid query) skips unit assignments to
-      // keep the catalog payload small. Hydrate the full product via
-      // `products.getById` so we can pick the real base-unit id and
-      // build a valid `ProductSearchSelection` for `mergeCartItem`.
       try {
-        const full = await utils.products.getById.fetch({ id: product.id, siteId });
+        const selection = await load();
         if (checkoutLockedRef.current || ticketEpoch !== ticketEpochRef.current) return;
-        const selection = selectionFromHydratedProduct(full as unknown as Product);
         if (!selection) {
           toast.error({
             title: t('toast.chargeError'),
@@ -257,10 +292,7 @@ export function PosTouchScreen() {
           });
           return;
         }
-        setCartItems(current =>
-          applyPriceTier(mergeCartItem(current, selection), activePriceTierRef.current)
-        );
-        toast.success({ title: t('toast.addedToCart', { name: product.name }) });
+        addSelection(selection, name);
       } catch (err) {
         if (checkoutLockedRef.current || ticketEpoch !== ticketEpochRef.current) return;
         toast.error({
@@ -269,8 +301,38 @@ export function PosTouchScreen() {
         });
       }
     },
-    [utils, toast, t, siteId]
+    [addSelection, toast, t]
   );
+
+  // useCallback keeps every memoized tile from re-rendering on a cart tick;
+  // only the tile whose quantity changed renders again.
+  const handleAddToCart = useCallback(
+    (product: Product) =>
+      // `products.list` skips unit assignments to keep the grid payload small.
+      addHydrated(async () => {
+        const full = await utils.products.getById.fetch({ id: product.id, siteId });
+        return selectionFromHydratedProduct(full as unknown as Product);
+      }, product.name),
+    [addHydrated, utils, siteId]
+  );
+
+  function handleQuickTile(tile: QuickTile) {
+    if (checkoutLockedRef.current) return;
+    if (tile.kind === 'open_value') {
+      valueTicketEpochRef.current = ticketEpochRef.current;
+      setValueTile(tile);
+    } else void addHydrated(() => resolveQuickTile(tile), tile.name);
+  }
+
+  function handleValueAdd(selection: ProductSearchSelection, quantity: number) {
+    if (checkoutLockedRef.current || !valueTile) return;
+    if (valueTicketEpochRef.current !== ticketEpochRef.current) {
+      setValueTile(null);
+      return;
+    }
+    addSelection(selection, valueTile.name, quantity);
+    setValueTile(null);
+  }
 
   const setTieredCartItems = useCallback<Dispatch<SetStateAction<SaleCartItem[]>>>(update => {
     setCartItems(current => {
@@ -339,8 +401,16 @@ export function PosTouchScreen() {
 
   function handleCategoryChange(categoryId: string | null) {
     if (checkoutLockedRef.current) return;
+    setShowQuickKeys(false);
+    setValueTile(null);
     setActiveCategoryId(categoryId);
     setCatalogPage(1);
+  }
+
+  function handleShowQuickKeys() {
+    if (checkoutLockedRef.current) return;
+    setShowQuickKeys(true);
+    setSearchText('');
   }
 
   function handleSearchChange(value: string) {
@@ -372,6 +442,7 @@ export function PosTouchScreen() {
     if (!canCharge || checkoutLockedRef.current) return;
     checkoutLockedRef.current = true;
     ticketEpochRef.current += 1;
+    setValueTile(null);
     setIsCheckoutLocked(true);
     try {
       const electronicInvoice = buildElectronicInvoiceRequest(
@@ -454,6 +525,11 @@ export function PosTouchScreen() {
         onSelectCategory={handleCategoryChange}
         totalCount={categoryCountsQuery.data?.total ?? 0}
         isDisabled={checkoutLocked}
+        quickKeys={{
+          count: quickTiles.length,
+          active: quickKeysView,
+          onSelect: handleShowQuickKeys,
+        }}
       />
 
       <div
@@ -484,16 +560,36 @@ export function PosTouchScreen() {
               />
             </span>
           </label>
-          <PosTouchProductGrid
-            products={products}
-            isLoading={productsQuery.isLoading}
-            isError={Boolean(productsQuery.error)}
-            isDisabled={checkoutLocked}
-            onSelect={handleAddToCart}
-            cartQuantities={cartQuantities}
-            emptyMessage={search ? t('grid.noMatches') : undefined}
-          />
-          {catalogPages > 1 && (
+          {quickKeysView && valueTile && (
+            <QuickKeyValueForm
+              key={valueTile.key}
+              className="mb-2"
+              tile={valueTile}
+              resolveSelection={resolveQuickTile}
+              onAdd={handleValueAdd}
+              onCancel={() => setValueTile(null)}
+            />
+          )}
+          {quickKeysView ? (
+            <PosTouchQuickKeyGrid
+              tiles={quickTiles}
+              isDisabled={checkoutLocked}
+              activeValueKey={valueTile?.key ?? null}
+              cartQuantities={cartQuantities}
+              onSelect={handleQuickTile}
+            />
+          ) : (
+            <PosTouchProductGrid
+              products={products}
+              isLoading={productsQuery.isLoading || quickKeysPending}
+              isError={Boolean(productsQuery.error)}
+              isDisabled={checkoutLocked}
+              onSelect={handleAddToCart}
+              cartQuantities={cartQuantities}
+              emptyMessage={search ? t('grid.noMatches') : undefined}
+            />
+          )}
+          {!quickKeysView && catalogPages > 1 && (
             <nav
               aria-label={t('grid.paginationLabel')}
               data-testid="pos-touch-pagination"
