@@ -9,13 +9,13 @@
  * - customers.create    (tenant) - Create a new customer
  * - customers.update    (tenant) - Update a customer
  * - customers.delete    (tenant, admin) - Delete a customer
- * - customers.search    (tenant) - Search customers by name/email/phone
+ * - customers.search    (tenant) - Search customers by name/email/phone/document
  *
  * @module trpc/routers/customers
  */
 
 import { TRPCError } from '@trpc/server';
-import { eq, and, sql, like, or } from 'drizzle-orm';
+import { asc, eq, and, sql, like, or } from 'drizzle-orm';
 import { createCustomer } from '../../application/customers/index.js';
 import { assertVersionedWriteApplied } from '../../lib/optimisticVersion.js';
 import { router } from '../init.js';
@@ -73,7 +73,8 @@ export const customersRouter = router({
         or(
           like(customers.name, `%${search}%`),
           like(customers.email, `%${search}%`),
-          like(customers.phone, `%${search}%`)
+          like(customers.phone, `%${search}%`),
+          like(customers.taxId, `%${search}%`)
         )!
       );
     }
@@ -647,10 +648,13 @@ export const customersRouter = router({
           or(
             like(customers.name, `%${input.q}%`),
             like(customers.email, `%${input.q}%`),
-            like(customers.phone, `%${input.q}%`)
-          )
+            like(customers.phone, `%${input.q}%`),
+            like(customers.taxId, `%${input.q}%`)
+          ),
+          input.isActive === undefined ? undefined : eq(customers.isActive, input.isActive)
         )
       )
+      .orderBy(asc(customers.name))
       .limit(input.limit)
       .all();
 

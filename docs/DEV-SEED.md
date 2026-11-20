@@ -142,7 +142,9 @@ The fixtures include company, geography, tax/identification catalogs, two-site
 numbering prefixes, customers, stock, purchases, quotations, cash sessions and
 receipt templates. Prefixes such as `VTA-N-` and `VTA-S-` avoid collisions between
 site sequences under tenant-wide uniqueness constraints. Actual counts of
-completed sales can vary when a fixture hits stock guards.
+completed sales can vary when a fixture hits stock guards. Products priced per
+kilogram sell in grams (step 0.001, minimum 0.05), and each site starts with
+seven shared quick keys for items without a barcode, one of them sold by amount.
 
 The mega path adds historical sales, returns, voids, drafts, cash movements,
 inventory movements, purchases and supplier returns, transfers, quotations,

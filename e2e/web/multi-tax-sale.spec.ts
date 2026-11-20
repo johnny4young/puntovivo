@@ -150,7 +150,7 @@ test('CO product freezes IVA + INC through quotation, sale and receipt', async (
   await chargeDialog.getByRole('button', { name: 'Confirm Sale' }).click();
   await expect(chargeDialog).toBeHidden({ timeout: 15_000 });
 
-  await page.getByTestId('sales-open-last-receipt').click();
+  await page.getByTestId('sale-complete-receipt').click();
   const saleDialog = page.locator('[role="dialog"]:visible').last();
   await expect(saleDialog).toContainText(productName);
   await expect(saleDialog).toContainText(formatCop(100));

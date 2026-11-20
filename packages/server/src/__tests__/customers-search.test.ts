@@ -51,6 +51,7 @@ async function seedCustomer(args: {
   name: string;
   email?: string | null;
   phone?: string | null;
+  taxId?: string | null;
   tenant?: string;
 }) {
   const db = getDatabase();
@@ -62,6 +63,7 @@ async function seedCustomer(args: {
     name: args.name,
     email: args.email ?? null,
     phone: args.phone ?? null,
+    taxId: args.taxId ?? null,
     isActive: true,
     createdAt: now,
     updatedAt: now,
@@ -117,6 +119,43 @@ describe('customers.list search', () => {
 
     const phoneHit = await caller.customers.list({ page: 1, perPage: 50, search: '555 4444' });
     expect(phoneHit.items.map(c => c.id)).toContain(byPhone);
+  });
+
+  it('matches on the identification document in list and search', async () => {
+    const byDocument = await seedCustomer({ name: 'María López', taxId: '1020304050' });
+    await seedCustomer({ name: 'Otro Cliente', taxId: '900111222' });
+
+    const caller = appRouter.createCaller(createTestContext());
+
+    const listHit = await caller.customers.list({ page: 1, perPage: 50, search: '10203' });
+    expect(listHit.items.map(c => c.id)).toEqual([byDocument]);
+
+    const searchHit = await caller.customers.search({ q: '1020304050', limit: 5 });
+    expect(searchHit.items.map(c => c.id)).toEqual([byDocument]);
+  });
+
+  it('returns search matches in name order', async () => {
+    const zoe = await seedCustomer({ name: 'Zoe Mar' });
+    const ana = await seedCustomer({ name: 'Ana Mar' });
+    const caller = appRouter.createCaller(createTestContext());
+    const result = await caller.customers.search({ q: 'Mar', limit: 5 });
+    expect(result.items.map(c => c.id)).toEqual([ana, zoe]);
+  });
+
+  it('can limit search to active customers', async () => {
+    const active = await seedCustomer({ name: 'Rosa Activa' });
+    const inactive = await seedCustomer({ name: 'Rosa Inactiva' });
+    await getDatabase()
+      .update(customers)
+      .set({ isActive: false })
+      .where(eq(customers.id, inactive));
+
+    const caller = appRouter.createCaller(createTestContext());
+    const all = await caller.customers.search({ q: 'Rosa', limit: 5 });
+    expect(all.items.map(c => c.id).sort()).toEqual([active, inactive].sort());
+
+    const onlyActive = await caller.customers.search({ q: 'Rosa', limit: 5, isActive: true });
+    expect(onlyActive.items.map(c => c.id)).toEqual([active]);
   });
 
   it('reports the searched total, not the whole book', async () => {

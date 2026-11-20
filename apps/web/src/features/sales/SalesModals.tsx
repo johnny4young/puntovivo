@@ -11,7 +11,11 @@ import { useTenant } from '@/features/tenant/TenantProvider';
 import { useIsModuleActive } from '@/features/modules/ModulesContext';
 import { LazySalePaymentModal } from '@/features/sales/lazySalePaymentModal';
 import { preloadSalePaymentModal } from '@/features/sales/salePaymentModal.loader';
-import type { SalePaymentValues } from '@/features/sales/salePaymentModal.types';
+import type {
+  InitialTender,
+  SalePaymentValues,
+} from '@/features/sales/salePaymentModal.types';
+import type { PaymentFocusTarget } from '@/features/sales/useSalesModals';
 import { mergeCartItem, type SaleCartItem } from '@/features/sales/saleCart';
 import { useQuickCreateStore } from '@/features/sales/useQuickCreateStore';
 import { normalizeRestaurantGuestCount } from '@/features/restaurants/restaurantDraft';
@@ -41,6 +45,11 @@ const LazyReceiptShareSection = lazy(() =>
     default: module.ReceiptShareSection,
   }))
 );
+
+const PAYMENT_FOCUS_SELECTORS: Record<PaymentFocusTarget, string> = {
+  customer: '#sale-payment-customer',
+  invoice: '[data-testid="sale-electronic-invoice-toggle"]',
+};
 
 /** Functional or value update for the active cart, mirroring SalesPage's `setCartItems` wrapper. */
 type SetCartItemsArg = SaleCartItem[] | ((previous: SaleCartItem[]) => SaleCartItem[]);
@@ -86,6 +95,9 @@ interface SalesModalsProps {
   serviceChargeRate: number;
   allowTip: boolean;
   fastCashTrigger: number;
+  fastCashAmount?: number | null | undefined;
+  paymentInitialMethod?: InitialTender | undefined;
+  paymentFocusTarget?: PaymentFocusTarget | null | undefined;
   paymentRestoreFocusTo: () => HTMLElement | null;
   activePriceTier: 1 | 2 | 3;
   onCustomerPriceTierChange?: ((tier: 1 | 2 | 3) => void) | undefined;
@@ -131,6 +143,9 @@ export function SalesModals({
   serviceChargeRate,
   allowTip,
   fastCashTrigger,
+  fastCashAmount = null,
+  paymentInitialMethod = 'cash',
+  paymentFocusTarget = null,
   paymentRestoreFocusTo,
   activePriceTier,
   onCustomerPriceTierChange,
@@ -162,6 +177,25 @@ export function SalesModals({
   const shouldRenderQuickCreateCustomerGate = useQuickCreateStore(
     state => state.requestedCreateCustomer !== null
   );
+
+  // The drawer is lazy and takes focus when it mounts; wait for the field, then move.
+  useEffect(() => {
+    if (!isPaymentModalOpen || !paymentFocusTarget) return;
+    const selector = PAYMENT_FOCUS_SELECTORS[paymentFocusTarget];
+    let frame = 0;
+    let attempts = 0;
+    const seek = () => {
+      const field = document.querySelector<HTMLElement>(selector);
+      if (field) {
+        field.focus();
+        field.scrollIntoView?.({ block: 'center' });
+      } else if (++attempts < 120) {
+        frame = requestAnimationFrame(seek);
+      }
+    };
+    frame = requestAnimationFrame(seek);
+    return () => cancelAnimationFrame(frame);
+  }, [isPaymentModalOpen, paymentFocusTarget, paymentModalKey]);
 
   // These catalogs belong to interaction-only overlays. SalesModals itself
   // is absent from the initial POS tree, so the query observers are not
@@ -345,6 +379,8 @@ export function SalesModals({
             // F2 fast-cash signal. Positive values apply
             // at mount; later increments re-apply exact cash while open.
             fastCashTrigger={fastCashTrigger}
+            fastCashAmount={fastCashAmount}
+            initialMethod={paymentInitialMethod}
             restoreFocusTo={paymentRestoreFocusTo}
             activePriceTier={activePriceTier}
             onCustomerPriceTierChange={onCustomerPriceTierChange}

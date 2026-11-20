@@ -39,6 +39,27 @@ function renderSalesCart() {
   );
 }
 
+describe('useSalesCart clear cart', () => {
+  beforeEach(() => {
+    useCartWorkspaceStore.getState().resetAllWorkspaces();
+    localStorage.clear();
+  });
+
+  it('returns the ticket to a walk-in customer', async () => {
+    const { result } = renderSalesCart();
+    await waitFor(() => expect(result.current.activeWorkspace).not.toBeNull());
+    const id = result.current.activeWorkspace!.id;
+    act(() => useCartWorkspaceStore.getState().setCustomer(id, { id: 'c1', name: 'María' }));
+
+    act(() => result.current.handleClearCart());
+
+    expect(useCartWorkspaceStore.getState().workspaces[id]).toMatchObject({
+      customerId: null,
+      customerName: null,
+    });
+  });
+});
+
 describe('useSalesCart locked-workspace mutations', () => {
   beforeEach(() => {
     useCartWorkspaceStore.getState().resetAllWorkspaces();
@@ -55,6 +76,7 @@ describe('useSalesCart locked-workspace mutations', () => {
         serverSaleId: 'sale-1',
         serverSaleNumber: 'VTA-1',
         serverCustomerId: null,
+        serverCustomerName: null,
         priceTier: 1,
         label: null,
         items: [sampleItem()],

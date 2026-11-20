@@ -190,8 +190,9 @@ test.describe('sales scanner focus', () => {
       }
     }, barcode);
 
-    // Cart lines show "<code> · Stock"; the suggested-product tiles show only the name.
-    await expect(page.getByText(new RegExp(`^${barcode} · `))).toBeVisible({ timeout: 10_000 });
+    // The line is read back above the ticket; the one-touch tiles never show a code.
+    await expect(page.getByTestId(`sale-cart-item-${barcode}`)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId('sales-last-read')).toHaveAttribute('data-state', 'read');
     await expect(page.getByRole('dialog', { name: /add product|agregar producto/i })).toHaveCount(
       0
     );

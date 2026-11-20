@@ -64,6 +64,23 @@ pero nunca reasignan una tecla imprimible normal por su posición.
 Los atajos de ventas y caja se limitan a admin, manager y cashier. Los controles
 de estado dejan inactivas las acciones no disponibles, sin abrir otra alternativa.
 
+### Prefijos de la barra de la caja
+
+El campo de escaneo de `/sales` también lee una gramática corta de prefijos
+(`apps/web/src/features/sales/commandBarGrammar.ts`). Las ráfagas del escáner
+nunca pasan por ella.
+
+| Escrito      | Efecto                                                                                                                      |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| `3*`         | La próxima lectura, tecla rápida o selección de búsqueda agrega tres. Decimales (`0,485*`) solo en productos fraccionables. |
+| `@text`      | Lista clientes activos (nombre, correo, teléfono o documento) para asignarlos al ticket.                                    |
+| `/text`      | Lista las acciones de caja disponibles en ese momento, cada una con su tecla.                                               |
+| texto simple | `Enter` o `F5` abre la búsqueda de productos con ese texto.                                                                 |
+
+Una etiqueta de peso conserva su propia cantidad y deja la escrita para la
+siguiente lectura. Los tickets fijados (retomados, de cotización o de cambio)
+conservan su cliente. `Mod+K` sigue siendo la paleta de toda la app.
+
 ## Colisiones y ámbito
 
 - Las acciones globales no se activan si un campo editable u otro modal controla

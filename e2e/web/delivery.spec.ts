@@ -167,7 +167,7 @@ test('a real completed sale creates a linked delivery without charging or deduct
   expect(sale?.paymentStatus).toBe('paid');
   const stockAfterSale = getProductStock(scenario.product.id);
   expect(stockAfterSale).toBe(7);
-  await page.getByTestId('sales-open-last-receipt').click();
+  await page.getByTestId('sale-complete-receipt').click();
   const receipt = page.getByRole('dialog', { name: `Sale ${sale!.saleNumber}` });
   await receipt.getByRole('link', { name: 'Create delivery from this sale', exact: true }).click();
   await expect(page).toHaveURL(/\/delivery\?sale=/);
