@@ -271,6 +271,16 @@ describe('SalesQuickAccess', () => {
     expect(mutations.setData).toHaveBeenCalledWith({ siteId: 'site-1' }, imported);
   });
 
+  it('falls back to the catalog when none of the old favourites can be imported', () => {
+    window.localStorage.setItem(legacyKey, JSON.stringify({ productIds: ['p-gone'] }));
+    mutations.importLocal.mockReturnValue([]);
+    const view = render(<SalesQuickAccess {...baseProps} />);
+    expect(mutations.importLocal).toHaveBeenCalledTimes(1);
+
+    view.rerender(<SalesQuickAccess {...baseProps} />);
+    expect(screen.getByRole('button', { name: 'Add House Coffee to cart' })).toBeInTheDocument();
+  });
+
   it('drops the favourites without importing when the site already has keys', () => {
     window.localStorage.setItem(legacyKey, JSON.stringify({ productIds: ['p-bread'] }));
     state.keys = [keyRow({ id: 'k1', productId: 'p-coffee' })];

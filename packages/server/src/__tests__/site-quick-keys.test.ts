@@ -124,6 +124,21 @@ describe('site quick keys', () => {
       })
     )[0]!;
     expect(updated).toMatchObject({ colour: 'lime', label: 'Limón × kg' });
+
+    const relabelled = (
+      await manager().quickKeys.set({
+        siteId,
+        id: key.id,
+        productId: productIds[0]!,
+        colour: null,
+      })
+    )[0]!;
+    expect(relabelled).toMatchObject({ colour: null, label: 'Limón × kg' });
+
+    const plain = (
+      await manager().quickKeys.set({ siteId, productId: productIds[1]!, colour: null })
+    ).at(-1)!;
+    expect(plain.colour).toBeNull();
   });
 
   it('keeps an open-value key apart from the product key of the same product', async () => {
@@ -219,6 +234,7 @@ describe('site quick keys', () => {
       .run();
     await manager().quickKeys.set({ siteId, productId: productIds[4]! });
     await manager().quickKeys.set({ siteId, productId: doomed });
+    await manager().quickKeys.set({ siteId, productId: productIds[6]! });
 
     db.update(products).set({ isActive: false }).where(eq(products.id, productIds[4]!)).run();
     await expect(
@@ -227,7 +243,14 @@ describe('site quick keys', () => {
     db.delete(products).where(eq(products.id, doomed)).run();
 
     const list = await cashier().quickKeys.list({ siteId });
-    expect(list.map(key => [key.productId, key.sellable])).toEqual([[productIds[4], false]]);
+    expect(list.map(key => [key.productId, key.sellable])).toEqual([
+      [productIds[4], false],
+      [productIds[6], true],
+    ]);
+
+    // The deleted product's key left a gap; a new key goes after the last one.
+    const appended = await manager().quickKeys.set({ siteId, productId: productIds[5]! });
+    expect(appended.map(key => key.position)).toEqual([0, 2, 3]);
     db.update(products).set({ isActive: true }).where(eq(products.id, productIds[4]!)).run();
   });
 

@@ -158,6 +158,7 @@ function siteKeys(tx: Reader, tenantId: string, siteId: string) {
       kind: siteQuickKeys.kind,
       productId: siteQuickKeys.productId,
       unitId: siteQuickKeys.unitId,
+      label: siteQuickKeys.label,
       colour: siteQuickKeys.colour,
     })
     .from(siteQuickKeys)
@@ -233,7 +234,7 @@ export function setSiteQuickKey(
           kind: input.kind,
           productId: input.productId,
           unitId,
-          label,
+          label: input.label === undefined ? existing.label : label,
           colour: input.colour === undefined ? existing.colour : input.colour,
           updatedAt: new Date().toISOString(),
           updatedBy: scope.userId,
@@ -256,12 +257,13 @@ export function setSiteQuickKey(
         id: nanoid(),
         tenantId: scope.tenantId,
         siteId: scope.siteId,
-        position: keys.length,
+        // A deleted product's keys leave gaps, so count from the last position.
+        position: (keys.at(-1)?.position ?? -1) + 1,
         kind: input.kind,
         productId: input.productId,
         unitId,
         label,
-        colour: input.colour ?? nextColour(keys.map(key => key.colour)),
+        colour: input.colour === undefined ? nextColour(keys.map(key => key.colour)) : input.colour,
         createdBy: scope.userId,
         updatedBy: scope.userId,
       })

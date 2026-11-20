@@ -29,6 +29,7 @@
     "add": "Add",
     "cancel": "Cancel",
     "invalid": "Enter an amount above zero.",
+    "unpriced": "This product has no price, so it cannot be sold by amount.",
     "wholeUnits": "This product sells in whole units: enter a multiple of {{price}}.",
     "belowMinimum": "The amount is below the minimum of {{minimum}} {{unit}}."
   }

@@ -111,7 +111,6 @@ export function SalesQuickAccess({
     mutate: importLocal,
     isIdle: importIdle,
     isPending: importing,
-    isError: importFailed,
   } = importMutation;
   useEffect(() => {
     if (needsImport && importIdle) importLocal({ siteId, productIds: legacyIds ?? [] });
@@ -122,7 +121,9 @@ export function SalesQuickAccess({
     if (siteHasKeys && legacyIds) clearSalesFavoriteIds(scopeKey);
   }, [legacyIds, scopeKey, siteHasKeys]);
 
-  const showsFallback = keysQuery.isSuccess && !siteHasKeys && (!needsImport || importFailed);
+  // An import that settles with no usable favourite leaves the site empty, so the fallback shows then too.
+  const importSettled = !importIdle && !importing;
+  const showsFallback = keysQuery.isSuccess && !siteHasKeys && (!needsImport || importSettled);
   const productsQuery = trpc.products.list.useQuery(
     { page: 1, perPage: editing ? EDITOR_CATALOG_SIZE : SUGGESTION_CATALOG_SIZE, isActive: true },
     {

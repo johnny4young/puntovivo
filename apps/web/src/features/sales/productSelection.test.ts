@@ -126,6 +126,6 @@ describe('quantityForAmount', () => {
 
   it('rejects empty amounts and unpriced products', () => {
     expect(quantityForAmount(0, 500, { sellByFraction: false })).toEqual({ error: 'invalid' });
-    expect(quantityForAmount(500, 0, weighed)).toEqual({ error: 'invalid' });
+    expect(quantityForAmount(500, 0, weighed)).toEqual({ error: 'unpriced' });
   });
 });

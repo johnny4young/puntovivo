@@ -29,6 +29,7 @@
     "add": "Agregar",
     "cancel": "Cancelar",
     "invalid": "Ingrese un valor mayor que cero.",
+    "unpriced": "Este producto no tiene precio, así que no se puede vender por valor.",
     "wholeUnits": "Este producto se vende por unidades completas: ingrese un múltiplo de {{price}}.",
     "belowMinimum": "El valor no alcanza el mínimo de {{minimum}} {{unit}}."
   }

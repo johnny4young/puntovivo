@@ -40,7 +40,7 @@ export function selectionFromHydratedProduct(
 
 export type AmountQuantity =
   | { quantity: number }
-  | { error: 'invalid' | 'wholeUnits' }
+  | { error: 'invalid' | 'unpriced' | 'wholeUnits' }
   | { error: 'belowMinimum'; minimum: number };
 
 /** Units an amount buys at the unit price, under the cart's own fraction rules. */
@@ -49,7 +49,8 @@ export function quantityForAmount(
   unitPrice: number,
   product: Pick<SaleCartItem, 'sellByFraction' | 'fractionStep' | 'fractionMinimum'>
 ): AmountQuantity {
-  if (!(amount > 0) || !(unitPrice > 0)) return { error: 'invalid' };
+  if (!(amount > 0)) return { error: 'invalid' };
+  if (!(unitPrice > 0)) return { error: 'unpriced' };
   const exact = amount / unitPrice;
   if (!product.sellByFraction) {
     const whole = roundQuantity(exact, 6);
