@@ -189,6 +189,37 @@ describe('SalesQuickSearchBar', () => {
     expect(onCreateCustomer).toHaveBeenCalledWith('Rosa');
   });
 
+  it('keeps the attached customer when Enter lands on the walk-in row alone', () => {
+    const onAttachCustomer = vi.fn();
+    const { container } = render(
+      <Harness customers={[]} attachedCustomerId="c1" onAttachCustomer={onAttachCustomer} />
+    );
+
+    type('@zzz');
+    fireEvent.submit(container.querySelector('form')!);
+    expect(onAttachCustomer).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(input(), { key: 'ArrowDown' });
+    fireEvent.submit(container.querySelector('form')!);
+    expect(onAttachCustomer).toHaveBeenCalledWith(null);
+  });
+
+  it('lists no customers while the lookup is still loading', () => {
+    render(
+      <Harness
+        customers={[{ id: 'c1', name: 'María López', detail: null }]}
+        isLoadingCustomers
+        onAttachCustomer={vi.fn()}
+        onCreateCustomer={vi.fn()}
+      />
+    );
+
+    type('@Mar');
+
+    expect(screen.queryByRole('option')).not.toBeInTheDocument();
+    expect(screen.getByText('Loading')).toBeVisible();
+  });
+
   it('asks for text before listing customers', () => {
     render(<Harness onAttachCustomer={vi.fn()} />);
 

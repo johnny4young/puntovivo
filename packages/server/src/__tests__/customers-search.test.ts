@@ -134,6 +134,14 @@ describe('customers.list search', () => {
     expect(searchHit.items.map(c => c.id)).toEqual([byDocument]);
   });
 
+  it('returns search matches in name order', async () => {
+    const zoe = await seedCustomer({ name: 'Zoe Mar' });
+    const ana = await seedCustomer({ name: 'Ana Mar' });
+    const caller = appRouter.createCaller(createTestContext());
+    const result = await caller.customers.search({ q: 'Mar', limit: 5 });
+    expect(result.items.map(c => c.id)).toEqual([ana, zoe]);
+  });
+
   it('can limit search to active customers', async () => {
     const active = await seedCustomer({ name: 'Rosa Activa' });
     const inactive = await seedCustomer({ name: 'Rosa Inactiva' });

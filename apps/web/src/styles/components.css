@@ -1510,7 +1510,8 @@
   .select-trigger:focus {
     @apply bg-white;
     border-color: color-mix(in oklch, var(--operator-signal) 72%, var(--line));
-    box-shadow: 0 0 0 0.2rem color-mix(in oklch, var(--operator-signal) 14%, transparent);
+    box-shadow:
+      0 0 0 0.2rem color-mix(in oklch, var(--operator-signal) 14%, transparent);
   }
 
   .dark .input:focus,
@@ -1990,7 +1991,8 @@
   .pv-input.focus {
     border-color: color-mix(in oklch, var(--operator-signal) 72%, var(--line));
     background: var(--surface);
-    box-shadow: 0 0 0 0.2rem color-mix(in oklch, var(--operator-signal) 14%, transparent);
+    box-shadow:
+      0 0 0 0.2rem color-mix(in oklch, var(--operator-signal) 14%, transparent);
     outline: none;
   }
   .pv-input.error {
@@ -2400,7 +2402,8 @@
     border-radius: 11px;
     border: 1px solid color-mix(in oklch, var(--strip-ink) 20%, var(--line));
     background: var(--strip-surface);
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.62);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.62);
   }
   .pv-strip .ic {
     display: inline-flex;
@@ -2461,7 +2464,8 @@
     --strip-ink: var(--operator-positive-ink);
   }
   .dark .pv-strip {
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.08);
   }
 
   /* --- Readiness checklist (.pv-check) --- */
@@ -2656,6 +2660,7 @@
     border-bottom-width: 2px;
     color: var(--fg2);
   }
+
 
   .btn-outline.tile {
     height: 64px;
@@ -3371,7 +3376,8 @@
   .pv-signal-chip {
     border-radius: 0.55rem;
     border: 1px solid color-mix(in oklch, currentColor 18%, transparent);
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.62);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.62);
   }
 
   .pv-control-user > span:first-child {

@@ -226,6 +226,8 @@ export function useSalesCart({
     if (itemsLocked) return;
     setCartItems([]);
     setSelectedCartItemKey(null);
+    // A cleared ticket starts over, so the next shopper is not charged to the last customer.
+    if (activeWorkspace) useCartWorkspaceStore.getState().setCustomer(activeWorkspace.id, null);
   };
 
   // undo the last cart mutation on the active workspace.

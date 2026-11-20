@@ -15,7 +15,7 @@
  */
 
 import { TRPCError } from '@trpc/server';
-import { eq, and, sql, like, or } from 'drizzle-orm';
+import { asc, eq, and, sql, like, or } from 'drizzle-orm';
 import { createCustomer } from '../../application/customers/index.js';
 import { assertVersionedWriteApplied } from '../../lib/optimisticVersion.js';
 import { router } from '../init.js';
@@ -654,6 +654,7 @@ export const customersRouter = router({
           input.isActive === undefined ? undefined : eq(customers.isActive, input.isActive)
         )
       )
+      .orderBy(asc(customers.name))
       .limit(input.limit)
       .all();
 

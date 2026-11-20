@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
 import type { ProductSearchSelection } from '@/types';
-import { useCartWorkspaceStore } from './useCartWorkspaceStore';
+import { selectActiveWorkspace, useCartWorkspaceStore } from './useCartWorkspaceStore';
 import { useQuickCreateStore } from './useQuickCreateStore';
 
 const toast = vi.hoisted(() => ({ warning: vi.fn() }));
@@ -45,7 +45,7 @@ function setup(
   const hook = renderHook(() =>
     useSalesCommandBar({
       query: overrides.query ?? '',
-      activeWorkspace: useCartWorkspaceStore.getState().workspaces[workspaceId] ?? null,
+      activeWorkspace: selectActiveWorkspace(useCartWorkspaceStore.getState()),
       canCreateCustomer: overrides.canCreateCustomer ?? true,
       addProduct,
     })
@@ -69,6 +69,20 @@ describe('useSalesCommandBar', () => {
     expect(addProduct).toHaveBeenLastCalledWith(selection(), 4);
     expect(result.current.pendingQuantity).toBeNull();
 
+    act(() => result.current.selectProduct(selection()));
+    expect(addProduct).toHaveBeenLastCalledWith(selection(), null);
+  });
+
+  it('drops the pending quantity when another ticket becomes active', () => {
+    const { result, addProduct, rerender } = setup();
+
+    act(() => result.current.setPendingQuantity(5));
+    act(() => {
+      useCartWorkspaceStore.getState().createDraft('tenant-1:user-1');
+    });
+    rerender();
+
+    expect(result.current.pendingQuantity).toBeNull();
     act(() => result.current.selectProduct(selection()));
     expect(addProduct).toHaveBeenLastCalledWith(selection(), null);
   });

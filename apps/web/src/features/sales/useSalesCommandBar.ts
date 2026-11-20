@@ -34,10 +34,12 @@ export function useSalesCommandBar({
 }: UseSalesCommandBarParams) {
   const { t } = useTranslation('sales');
   const toast = useToast();
-  // The ref lets async scan handlers read the latest `N*` without re-subscribing.
-  const [pendingQuantity, setPendingQuantityState] = useState<number | null>(null);
-  const pendingRef = useRef<number | null>(null);
   const workspaceId = activeWorkspace?.id ?? null;
+  // Tied to the ticket it was typed on; the ref lets async scan handlers read it without re-subscribing.
+  type Pending = { workspaceId: string | null; quantity: number };
+  const [pending, setPending] = useState<Pending | null>(null);
+  const pendingRef = useRef<Pending | null>(null);
+  const pendingQuantity = pending?.workspaceId === workspaceId ? pending.quantity : null;
   const canAttach = activeWorkspace !== null && !isTicketCustomerFrozen(activeWorkspace);
   const mode = parseCommandBarMode(query);
   const customerLookup = useCommandBarCustomers(
@@ -45,16 +47,21 @@ export function useSalesCommandBar({
     canAttach && mode.kind === 'customer'
   );
 
-  const setPendingQuantity = useCallback((next: number | null) => {
-    pendingRef.current = next;
-    setPendingQuantityState(next);
-  }, []);
+  const setPendingQuantity = useCallback(
+    (quantity: number | null) => {
+      const next = quantity === null ? null : { workspaceId, quantity };
+      pendingRef.current = next;
+      setPending(next);
+    },
+    [workspaceId]
+  );
 
   /** Consumes the pending `N*` for this product; a decimal on a whole-unit product is refused and kept. */
   const takePendingQuantity = useCallback(
     (product: { name: string; sellByFraction: boolean }): number | null | 'rejected' => {
-      const quantity = pendingRef.current;
-      if (quantity === null) return null;
+      const current = pendingRef.current;
+      if (!current || current.workspaceId !== workspaceId) return null;
+      const quantity = current.quantity;
       if (!quantityFitsProduct(quantity, product)) {
         playScanError();
         toast.warning({ title: t('commandBar.quantity.wholeUnits', { product: product.name }) });
@@ -63,7 +70,7 @@ export function useSalesCommandBar({
       setPendingQuantity(null);
       return quantity;
     },
-    [setPendingQuantity, t, toast]
+    [setPendingQuantity, t, toast, workspaceId]
   );
 
   return {

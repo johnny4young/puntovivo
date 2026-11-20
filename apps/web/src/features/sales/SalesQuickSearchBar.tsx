@@ -63,6 +63,7 @@ export function SalesQuickSearchBar({
 }: SalesQuickSearchBarProps) {
   const { t } = useTranslation('sales');
   const [rawActiveIndex, setActiveIndex] = useState(0);
+  const [walkInArmed, setWalkInArmed] = useState(false);
   const mode = parseCommandBarMode(query);
   const listOpen = mode.kind !== 'search' && !disabled;
 
@@ -79,9 +80,9 @@ export function SalesQuickSearchBar({
       hint: action.shortcutId ? shortcutDisplayFor(action.shortcutId) : null,
       run: () => finish(action.run),
     }));
-  } else if (mode.kind === 'customer' && onAttachCustomer && !disabled) {
+  } else if (mode.kind === 'customer' && onAttachCustomer && !disabled && !isLoadingCustomers) {
     const attach = onAttachCustomer;
-    // Walk-in goes last so Enter on a search never drops the attached customer.
+    // Walk-in goes last and Enter only runs it once it was picked with the arrows or the mouse.
     options = [
       ...customers.map(customer => ({
         id: `customer-${customer.id}`,
@@ -122,6 +123,7 @@ export function SalesQuickSearchBar({
 
   const handleChange = (value: string) => {
     setActiveIndex(0);
+    setWalkInArmed(false);
     const quantity = parseQuantityPrefix(value);
     if (quantity && onPendingQuantityChange) {
       onPendingQuantityChange(quantity.quantity);
@@ -136,6 +138,7 @@ export function SalesQuickSearchBar({
       event.preventDefault();
       if (options.length === 0) return;
       const step = event.key === 'ArrowDown' ? 1 : -1;
+      setWalkInArmed(true);
       setActiveIndex((activeIndex + step + options.length) % options.length);
       return;
     }
@@ -158,6 +161,7 @@ export function SalesQuickSearchBar({
         event.preventDefault();
         if (disabled) return;
         if (listOpen) {
+          if (activeOption?.id === 'walk-in' && !walkInArmed) return;
           activeOption?.run();
           return;
         }
@@ -205,7 +209,7 @@ export function SalesQuickSearchBar({
           spellCheck={false}
           role="combobox"
           aria-expanded={listOpen}
-          aria-controls={listOpen ? LISTBOX_ID : undefined}
+          aria-controls={listOpen && options.length > 0 ? LISTBOX_ID : undefined}
           aria-autocomplete="list"
           aria-activedescendant={
             activeOption ? `sales-command-option-${activeOption.id}` : undefined
@@ -275,7 +279,10 @@ export function SalesQuickSearchBar({
                     className={cn('sales-command-option', index === activeIndex && 'is-active')}
                     // Keep focus in the bar so a scan right after still lands there.
                     onMouseDown={event => event.preventDefault()}
-                    onMouseEnter={() => setActiveIndex(index)}
+                    onMouseEnter={() => {
+                      setWalkInArmed(true);
+                      setActiveIndex(index);
+                    }}
                     onClick={option.run}
                   >
                     {Icon && <Icon className="h-4 w-4 shrink-0 text-fg3" aria-hidden="true" />}
