@@ -1,21 +1,10 @@
 import type { CashSessionDenomination } from '@/types';
+import { cashDenominationsFor } from './cashDenominations';
 
-export const CASH_SESSION_DENOMINATION_VALUES = [
-  100000,
-  50000,
-  20000,
-  10000,
-  5000,
-  2000,
-  1000,
-  500,
-  200,
-  100,
-  50,
-] as const;
-
-export function createCashSessionDenominations(): CashSessionDenomination[] {
-  return CASH_SESSION_DENOMINATION_VALUES.map(value => ({
+/** Rows to count a till in the tenant currency; Colombian pesos when the currency has no known cash set. */
+export function createCashSessionDenominations(currencyCode = 'COP'): CashSessionDenomination[] {
+  const values = cashDenominationsFor(currencyCode);
+  return (values.length > 0 ? values : cashDenominationsFor('COP')).map(value => ({
     value,
     count: 0,
   }));

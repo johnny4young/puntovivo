@@ -4,6 +4,7 @@ import { EyeOff, Minus, Plus, Scale } from 'lucide-react';
 import { ModalButton } from '@/components/form-controls/Modal';
 import { Overlay } from '@/components/overlay/Overlay';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { useResolvedLocale } from '@/features/locale/LocaleProvider';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import type { CashSession, CashSessionDenomination } from '@/types';
@@ -47,10 +48,10 @@ interface CashSessionCloseModalProps {
   onReviewSuspended?: (() => void) | undefined;
 }
 
-function createDefaultValues(): CashSessionCloseValues {
+function createDefaultValues(currencyCode: string | undefined): CashSessionCloseValues {
   return {
     actualCount: 0,
-    denominations: createCashSessionDenominations(),
+    denominations: createCashSessionDenominations(currencyCode),
     justification: '',
   };
 }
@@ -68,6 +69,8 @@ export function CashSessionCloseModal({
   const { t } = useTranslation('sales');
   const { user } = useAuth();
   const { tenantSettings } = useTenant();
+  // Until the tenant locale loads, keep the historical peso grid rather than the dollar fallback.
+  const { currency, isFallback } = useResolvedLocale();
   // tenant-level blind-close policy. Default true keeps the
   // anti-fraud control (cashiers must not see the target while counting);
   // an owner-operated tenant can opt out and show the semaphore to everyone.
@@ -82,7 +85,7 @@ export function CashSessionCloseModal({
     ? t('cashSession.closeForm.supervisedActualCount')
     : t('cashSession.closeForm.actualCount');
   const form = useForm<CashSessionCloseValues>({
-    defaultValues: createDefaultValues(),
+    defaultValues: createDefaultValues(isFallback ? undefined : currency),
   });
   const denominationFieldArray = useFieldArray({
     control: form.control,
