@@ -12,6 +12,8 @@ import { SalesMobileCheckoutBar } from '@/features/sales/SalesMobileCheckoutBar'
 import { SalesQuickSearchBar } from '@/features/sales/SalesQuickSearchBar';
 import { SalesShortcutStrip } from '@/features/sales/SalesShortcutStrip';
 import { SalesStatusPills } from '@/features/sales/SalesStatusPills';
+import { getSalesDockGates } from '@/features/sales/salesDockGates';
+import type { PreflightItem } from '@/features/sales/useCheckoutPreflight';
 import { LastReadBanner } from '@/features/sales/LastReadBanner';
 import type { LastRead } from '@/features/sales/useLastRead';
 import type { PaymentFocusTarget } from '@/features/sales/useSalesModals';
@@ -146,6 +148,8 @@ export interface SalesScreenProps {
   handleToggleSuspendedPanel: () => void;
   hubReachable: CheckoutProps['hubReachable'];
   preflightItems: CheckoutProps['preflightItems'];
+  /** Server readiness items; cart preflight drops them while the ticket is empty. */
+  readinessItems: PreflightItem[];
   // History drawer
   isHistoryDrawerOpen: boolean;
   lastSale: CompletedSaleSummary | null;
@@ -280,6 +284,7 @@ export function SalesScreen({
   handleToggleSuspendedPanel,
   hubReachable,
   preflightItems,
+  readinessItems,
   isHistoryDrawerOpen,
   lastSale,
   completedSale,
@@ -343,8 +348,13 @@ export function SalesScreen({
   const handleCharge = () => handleOpenPaymentModal();
   const showCompletedSale = completedSale !== null && cartItems.length === 0;
   const customerLocked = itemsLocked || activeWorkspace?.sourceReturnId != null;
-  const printerMissing = preflightItems?.find(item => item.id === 'receipt_hardware_missing');
+  const { canOpenDrawerFromDock, printerMissing } = getSalesDockGates({
+    canCharge,
+    hubReachable,
+    readinessItems,
+  });
   const lockedCustomerName =
+    activeWorkspace?.serverCustomerName ??
     activeWorkspace?.sourceQuotationCustomerName ??
     activeWorkspace?.sourceReturnCustomerName ??
     null;
@@ -512,12 +522,12 @@ export function SalesScreen({
             cashDue={cashDue}
             customerName={lockedCustomerName}
             onPickCustomer={
-              canCharge && !customerLocked
+              canOpenDrawerFromDock && !customerLocked
                 ? () => handleOpenPaymentModal(false, null, 'customer')
                 : undefined
             }
             onRequestInvoice={
-              canCharge && canRequestInvoice
+              canOpenDrawerFromDock && canRequestInvoice
                 ? () => handleOpenPaymentModal(false, null, 'invoice')
                 : undefined
             }

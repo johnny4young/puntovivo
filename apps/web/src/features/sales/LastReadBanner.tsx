@@ -61,7 +61,9 @@ export function LastReadBanner({ read, canUndo, onUndo }: LastReadBannerProps) {
                   aria-keyshortcuts={ariaKeyshortcutsFor('sales.undo')}
                   data-testid="sales-cart-undo"
                 >
-                  <kbd className="sales-last-read-kbd">{shortcutDisplayFor('sales.undo')}</kbd>
+                  <kbd className="sales-last-read-kbd" aria-hidden="true">
+                    {shortcutDisplayFor('sales.undo')}
+                  </kbd>
                   {t('sell.lastRead.undo')}
                 </button>
               </>

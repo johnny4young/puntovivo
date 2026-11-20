@@ -831,7 +831,7 @@
       "idle": "Nothing read on this ticket yet",
       "remaining_one": "{{count}} left",
       "remaining_other": "{{count}} left",
-      "undo": "undoes it"
+      "undo": "undo"
     },
     "table": {
       "quantity": "Quantity",

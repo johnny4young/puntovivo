@@ -32,6 +32,12 @@ describe('LastReadBanner', () => {
 
     const undo = screen.getByRole('button', { name: 'Undo' });
     expect(undo.getAttribute('aria-keyshortcuts')).toMatch(/\+Z$/);
+    // Voice control users say the visible words, so they must contain the name.
+    const words = [...undo.childNodes]
+      .filter(node => node.nodeType === Node.TEXT_NODE)
+      .map(node => node.textContent)
+      .join(' ');
+    expect(words).toMatch(/\bundo\b/i);
     fireEvent.click(undo);
     expect(onUndo).toHaveBeenCalledOnce();
   });

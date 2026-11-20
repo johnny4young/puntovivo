@@ -68,6 +68,7 @@ function workspace(overrides: Partial<CartWorkspace> = {}): CartWorkspace {
     serverSaleId: null,
     serverSaleNumber: null,
     serverCustomerId: null,
+    serverCustomerName: null,
     sourceQuotationId: null,
     sourceQuotationNumber: null,
     sourceQuotationSiteId: null,
@@ -400,7 +401,9 @@ describe('useSalesFlows explicit price tier forwarding', () => {
       id: 'draft-refresh-failure',
       saleNumber: 'VTA-REFRESH',
       suspendedLabel: 'Mesa 8',
-      customerId: null,
+      customerId: 'customer-acme',
+      customerName: 'Acme SAS',
+      customerNameSnapshot: 'Acme',
       priceTier: 1,
       items: [
         {
@@ -438,6 +441,9 @@ describe('useSalesFlows explicit price tier forwarding', () => {
     const state = useCartWorkspaceStore.getState();
     expect(state.activeId ? state.workspaces[state.activeId] : null).toMatchObject({
       serverSaleId: resumed.id,
+      serverCustomerId: 'customer-acme',
+      // The name frozen on the sale wins over the current catalog name.
+      serverCustomerName: 'Acme',
       label: 'Mesa 8',
       items: [expect.objectContaining({ key: 'product-1:unit-1:server:line-refresh' })],
     });
@@ -488,6 +494,7 @@ describe('useSalesFlows explicit price tier forwarding', () => {
     expect(useCartWorkspaceStore.getState().workspaces[resumedWorkspace.id]).toMatchObject({
       serverSaleNumber: 'VTA-REFRESHED',
       serverCustomerId: null,
+      serverCustomerName: null,
       priceTier: 3,
       items: [],
     });

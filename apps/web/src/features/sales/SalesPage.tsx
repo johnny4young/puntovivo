@@ -589,6 +589,7 @@ export function SalesPage() {
         handleToggleSuspendedPanel={handleToggleSuspendedPanel}
         hubReachable={hubReachability.reachable ?? undefined}
         preflightItems={preflight.items}
+        readinessItems={checkoutReadinessItems}
         isHistoryDrawerOpen={isHistoryDrawerOpen}
         lastSale={lastSale}
         lastRead={lastRead}

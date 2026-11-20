@@ -55,6 +55,8 @@ export interface CartWorkspace {
   serverSaleNumber: string | null;
   /** Customer frozen on the resumed draft; used by checkout authorization. */
   serverCustomerId: string | null;
+  /** That customer's name, shown while the draft's customer is locked. */
+  serverCustomerName: string | null;
   /** Accepted quotation converted by this local workspace, when present. */
   sourceQuotationId: string | null;
   /** Human-readable quotation number shown in the locked-cart banner. */
@@ -174,6 +176,7 @@ interface CartWorkspaceActions {
     serverSaleId: string;
     serverSaleNumber: string;
     serverCustomerId: string | null;
+    serverCustomerName: string | null;
     priceTier: 1 | 2 | 3;
     label: string | null;
     items: SaleCartItem[];
@@ -214,7 +217,7 @@ const PERSIST_KEY = 'cart-workspace-store';
 // migration below backfills it and cashiers who upgrade mid-shift hydrate
 // cleanly instead of hitting a runtime error. Version 2 added `historyStack`;
 // version 7 added the quotation-origin fields and `priceTier`; version 8
-// added the return-origin fields.
+// added the return-origin fields; version 9 added `serverCustomerName`.
 //
 // Adding a field WITHOUT bumping this is not a no-op: the migration is gated
 // on `fromVersion < PERSIST_VERSION`, so an already-current workspace skips it
@@ -222,7 +225,7 @@ const PERSIST_KEY = 'cart-workspace-store';
 // `sourceQuotationId` compare against null strictly, and `undefined !== null`
 // is true -- so every ordinary persisted cart would be treated as a locked
 // quotation cart and refuse edits and reuse after the upgrade.
-const PERSIST_VERSION = 8;
+const PERSIST_VERSION = 9;
 
 // Monotonic suffix so synchronous bursts of `createDraft` calls never
 // collide in environments where `crypto.randomUUID` is missing or
@@ -265,6 +268,7 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
           serverSaleId: null,
           serverSaleNumber: null,
           serverCustomerId: null,
+          serverCustomerName: null,
           sourceQuotationId: null,
           sourceQuotationNumber: null,
           sourceQuotationSiteId: null,
@@ -415,6 +419,7 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
         serverSaleId,
         serverSaleNumber,
         serverCustomerId,
+        serverCustomerName,
         priceTier,
         label,
         items,
@@ -434,6 +439,7 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
                 items,
                 serverSaleNumber,
                 serverCustomerId,
+                serverCustomerName,
                 priceTier,
                 label,
                 selectedItemKey: null,
@@ -452,6 +458,7 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
           serverSaleId,
           serverSaleNumber,
           serverCustomerId,
+          serverCustomerName,
           sourceQuotationId: null,
           sourceQuotationNumber: null,
           sourceQuotationSiteId: null,
@@ -511,6 +518,7 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
           serverSaleId: null,
           serverSaleNumber: null,
           serverCustomerId: null,
+          serverCustomerName: null,
           sourceQuotationId: quotationId,
           sourceQuotationNumber: quotationNumber,
           sourceQuotationSiteId: siteId,
@@ -551,6 +559,7 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
           serverSaleId: null,
           serverSaleNumber: null,
           serverCustomerId: null,
+          serverCustomerName: null,
           sourceQuotationId: null,
           sourceQuotationNumber: null,
           sourceQuotationSiteId: null,
@@ -632,6 +641,7 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
               historyStack: workspace.historyStack ?? [],
               checkoutStartedAt: workspace.checkoutStartedAt ?? null,
               serverCustomerId: workspace.serverCustomerId ?? null,
+              serverCustomerName: workspace.serverCustomerName ?? null,
               sourceQuotationId: workspace.sourceQuotationId ?? null,
               sourceQuotationNumber: workspace.sourceQuotationNumber ?? null,
               sourceQuotationSiteId: workspace.sourceQuotationSiteId ?? null,

@@ -831,7 +831,7 @@
       "idle": "Aún no hay lecturas en esta venta",
       "remaining_one": "queda {{count}}",
       "remaining_other": "quedan {{count}}",
-      "undo": "deshace"
+      "undo": "deshacer"
     },
     "table": {
       "quantity": "Cantidad",
