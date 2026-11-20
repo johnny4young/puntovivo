@@ -383,8 +383,7 @@ export function SalePaymentModal({
             >
               <option value="">{t('payment.walkIn')}</option>
               {/* One keyed list, so the chosen option survives the customer list loading. */}
-              {(approvalCustomerId &&
-              !customers.some(customer => customer.id === approvalCustomerId)
+              {(approvalCustomerId && !customers.some(customer => customer.id === approvalCustomerId)
                 ? [
                     {
                       id: approvalCustomerId,

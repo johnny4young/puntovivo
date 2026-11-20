@@ -117,7 +117,10 @@ export function SalePaymentSingleTenderSection({
         <QuickDenominationSelector
           total={grandTotal}
           currentValue={amountReceivedValue}
-          onSelect={setAmount}
+          onSelect={amount => {
+            keyedAmountRef.current = null;
+            setAmount(amount);
+          }}
         />
       )}
 

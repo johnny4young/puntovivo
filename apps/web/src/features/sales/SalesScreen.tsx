@@ -391,9 +391,7 @@ export function SalesScreen({
     activeWorkspace?.sourceReturnCustomerId ??
     null;
   // A frozen ticket keeps its own customer; otherwise the one attached with @.
-  const ticketCustomerId = customerLocked
-    ? lockedCustomerId
-    : (activeWorkspace?.customerId ?? null);
+  const ticketCustomerId = customerLocked ? lockedCustomerId : (activeWorkspace?.customerId ?? null);
   const ticketCustomerName = customerLocked
     ? lockedCustomerName
     : (activeWorkspace?.customerName ?? null);

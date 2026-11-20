@@ -46,10 +46,12 @@ const MAX_KEYPAD_DIGITS = 12;
 /**
  * Received amount after an on-screen keypad press, in whole currency units.
  * `fresh` starts a new number, so a preset amount is replaced, not extended.
+ * A typed amount with cents is replaced too, never cut down silently.
  */
 export function applyCashKeypadKey(current: number, key: CashKeypadKey, fresh: boolean): number {
-  const digits = Number.isFinite(current) && current > 0 ? String(Math.trunc(current)) : '';
-  if (key === 'back') return Number(digits.slice(0, -1)) || 0;
-  const next = (fresh ? '' : digits) + key;
-  return next.length > MAX_KEYPAD_DIGITS ? current : Number(next);
+  const amount = Number.isFinite(current) && current > 0 ? current : 0;
+  const whole = Number.isInteger(amount);
+  if (key === 'back') return whole ? Math.trunc(amount / 10) : Math.trunc(amount);
+  const next = (fresh || !whole || amount === 0 ? '' : String(amount)) + key;
+  return next.length > MAX_KEYPAD_DIGITS ? amount : Number(next);
 }

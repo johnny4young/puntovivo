@@ -1090,6 +1090,19 @@ describe('SalePaymentModal — cash change hero', () => {
     expect(amount).toHaveValue(40);
   });
 
+  it('treats a bill key as a preset even when it matches the keyed amount', async () => {
+    render(<SalePaymentModal {...createProps({ total: 30000, currencyCode: 'COP' })} />);
+    const user = userEvent.setup();
+    const amount = await screen.findByLabelText(/Amount received/i);
+
+    for (const key of ['5', '0', '000']) {
+      await user.click(screen.getByTestId(`sale-payment-key-${key}`));
+    }
+    await user.click(screen.getByTestId('quick-denomination-50000'));
+    await user.click(screen.getByTestId('sale-payment-key-1'));
+    expect(amount).toHaveValue(1);
+  });
+
   it('splits the change into bills and coins for the tenant currency only', async () => {
     const { unmount } = render(
       <SalePaymentModal {...createProps({ total: 87420, currencyCode: 'COP' })} />

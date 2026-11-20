@@ -63,6 +63,12 @@ describe('applyCashKeypadKey', () => {
     expect(applyCashKeypadKey(0, 'back', false)).toBe(0);
   });
 
+  it('never cuts the cents off a typed decimal amount', () => {
+    expect(applyCashKeypadKey(20.5, '0', false)).toBe(0);
+    expect(applyCashKeypadKey(20.5, '5', false)).toBe(5);
+    expect(applyCashKeypadKey(20.5, 'back', false)).toBe(20);
+  });
+
   it('stops at twelve digits', () => {
     expect(applyCashKeypadKey(999_999_999_999, '9', false)).toBe(999_999_999_999);
   });
