@@ -73,8 +73,8 @@ nunca pasan por ella.
 | Escrito      | Efecto                                                                                                                      |
 | ------------ | --------------------------------------------------------------------------------------------------------------------------- |
 | `3*`         | La próxima lectura, tecla rápida o selección de búsqueda agrega tres. Decimales (`0,485*`) solo en productos fraccionables. |
-| `@texto`     | Lista clientes activos (nombre, correo, teléfono o documento) para asignarlos al ticket.                                    |
-| `/texto`     | Lista las acciones de caja disponibles en ese momento, cada una con su tecla.                                               |
+| `@text`      | Lista clientes activos (nombre, correo, teléfono o documento) para asignarlos al ticket.                                    |
+| `/text`      | Lista las acciones de caja disponibles en ese momento, cada una con su tecla.                                               |
 | texto simple | `Enter` o `F5` abre la búsqueda de productos con ese texto.                                                                 |
 
 Una etiqueta de peso conserva su propia cantidad y deja la escrita para la
