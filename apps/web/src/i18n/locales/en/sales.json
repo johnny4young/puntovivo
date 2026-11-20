@@ -12,8 +12,12 @@
     "customerDisplayOpenErrorDescription": "Allow the popup or retry after the desktop window is available. Checkout remains unchanged."
   },
   "saleComplete": {
-    "receipt": "Print or share receipt",
-    "dismiss": "Dismiss"
+    "ready": "{{saleNumber}} ready, the till is back on the scanner",
+    "print": "Print",
+    "whatsapp": "WhatsApp",
+    "receipt": "View receipt",
+    "dismiss": "No receipt",
+    "actions": "Receipt"
   },
   "checkout": {
     "kicker": "Checkout",
@@ -301,7 +305,6 @@
     },
     "title": "Charge Sale",
     "saleTotal": "Sale total",
-    "cancel": "Cancel",
     "confirm": "Confirm Sale",
     "processing": "Processing...",
     "customer": "Customer",
@@ -320,8 +323,8 @@
     "amountReceived": "Amount received",
     "amountNegative": "Amount received cannot be negative",
     "quickAmount": {
-      "exactKicker": "Exact",
-      "amountKicker": "Amount"
+      "title": "How much do they pay with?",
+      "exact": "Exact"
     },
     "balance": "Outstanding balance",
     "change": "Change",
@@ -361,7 +364,16 @@
     "confirmSplitMissing": "Confirm sale · {{amount}} missing",
     "confirmSplitOver": "Confirm sale · {{amount}} over",
     "partialTitle": "This sale will remain partially paid",
-    "partialWarning": "The outstanding balance is {{amount}}. Confirm only if you intend to leave this balance unpaid."
+    "partialWarning": "The outstanding balance is {{amount}}. Confirm only if you intend to leave this balance unpaid.",
+    "back": "Back",
+    "changeDue": "Change due",
+    "changeWay": "One way to give it:",
+    "changeBill": "{{quantity}} × {{amount}}",
+    "changeCoins": "{{amount}} in coins",
+    "keypad": {
+      "label": "Amount keypad",
+      "back": "Delete last digit"
+    }
   },
   "history": {
     "title": "Sales history",
@@ -651,6 +663,7 @@
     "escposRetryQueued": "ESC/POS printing is saved in the queue. Check the printer and task status before printing another copy.",
     "escposFailed": "ESC/POS printing could not be confirmed. Check the printer and queue before reprinting.",
     "autoPrintFailed": "Auto-print failed; reprint manually from the sale details",
+    "printFailed": "The receipt did not print; try again from the sale details",
     "kickDrawerCta": "Open cash drawer",
     "kickDrawerSuccess": "Cash drawer opened",
     "kickDrawerFailed": "Could not open the cash drawer",

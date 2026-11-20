@@ -27,6 +27,12 @@ The current validated candidate includes:
   frozen line evidence, and a
   human-controlled WhatsApp receipt handoff that renders text plus an optional
   local PNG without background delivery;
+- a cash charge that leads with the change: Exact and round-amount keys, an
+  on-screen keypad for the amount received, and the change as the largest
+  figure with one way to hand it over in the tenant currency's bills and coins.
+  After the sale, a strip offers print, WhatsApp, the receipt or no receipt
+  while the register is already back on the scanner. Till counts use the same
+  bills and coins;
 - operator-first task navigation, command search, guided business setup, and
   plain-language readiness and recovery surfaces for non-technical staff. The
   vertical readiness card derives bounded, tenant-scoped facts for the selected

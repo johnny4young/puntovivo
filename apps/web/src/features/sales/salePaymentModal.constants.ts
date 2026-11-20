@@ -9,7 +9,7 @@
  *
  * @module features/sales/salePaymentModal.constants
  */
-import { ArrowLeftRight, Banknote, CreditCard, Landmark, MoreHorizontal } from 'lucide-react';
+import { ArrowLeftRight, Banknote, CreditCard, MoreHorizontal, UserRound } from 'lucide-react';
 
 import type { PaymentMethod } from '@/types';
 import type { InitialTender, SalePaymentValues } from './salePaymentModal.types';
@@ -20,13 +20,7 @@ export const TENDER_SUM_EPSILON = 0.005;
 // so the cashier can explicitly clear after picking 10/15.
 export const TIP_PRESETS = [0, 10, 15] as const;
 
-// Single-tender method tiles (rediseño §06). The order + icon mapping
-// mirrors the approved mockup; `credit` is gated to operational roles
-// with an attached customer (same rule as the legacy <option>) and is
-// filtered out of this list when `creditMethodAvailable` is false. The
-// labels reuse the existing `payment.*` i18n keys so no copy is
-// duplicated. The hidden <select> below remains the registered form
-// control — the tiles only drive `form.setValue('paymentMethod', …)`.
+// Credit is filtered out unless an operational role has a customer attached.
 export const PAYMENT_METHOD_TILES: ReadonlyArray<{
   method: PaymentMethod;
   labelKey: string;
@@ -35,7 +29,7 @@ export const PAYMENT_METHOD_TILES: ReadonlyArray<{
   { method: 'cash', labelKey: 'payment.cash', icon: Banknote },
   { method: 'card', labelKey: 'payment.card', icon: CreditCard },
   { method: 'transfer', labelKey: 'payment.transfer', icon: ArrowLeftRight },
-  { method: 'credit', labelKey: 'payment.credit', icon: Landmark },
+  { method: 'credit', labelKey: 'payment.credit', icon: UserRound },
   { method: 'other', labelKey: 'payment.other', icon: MoreHorizontal },
 ];
 

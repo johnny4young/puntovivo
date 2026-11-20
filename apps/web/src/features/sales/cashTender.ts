@@ -25,3 +25,31 @@ export function serviceChargeFor(total: number, ratePercent: number): number {
 export function cashChange(tendered: number, total: number): number {
   return Math.max(0, roundMoney(tendered - total));
 }
+
+export const CASH_KEYPAD_KEYS = [
+  '1',
+  '2',
+  '3',
+  '4',
+  '5',
+  '6',
+  '7',
+  '8',
+  '9',
+  '0',
+  '000',
+  'back',
+] as const;
+export type CashKeypadKey = (typeof CASH_KEYPAD_KEYS)[number];
+const MAX_KEYPAD_DIGITS = 12;
+
+/**
+ * Received amount after an on-screen keypad press, in whole currency units.
+ * `fresh` starts a new number, so a preset amount is replaced, not extended.
+ */
+export function applyCashKeypadKey(current: number, key: CashKeypadKey, fresh: boolean): number {
+  const digits = Number.isFinite(current) && current > 0 ? String(Math.trunc(current)) : '';
+  if (key === 'back') return Number(digits.slice(0, -1)) || 0;
+  const next = (fresh ? '' : digits) + key;
+  return next.length > MAX_KEYPAD_DIGITS ? current : Number(next);
+}

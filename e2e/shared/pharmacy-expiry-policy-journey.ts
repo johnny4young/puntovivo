@@ -63,7 +63,7 @@ export async function runPharmacyExpiryPolicyJourney(
     'Lot stock or provenance is inconsistent. Reconcile it before continuing.'
   );
   await target.screenshot('pharmacy-expired-lot-sale-rejected');
-  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Back', exact: true }).click();
   await expect(dialog).toBeHidden();
   await page.getByRole('button', { name: 'Clear cart', exact: true }).click();
   await expect(page.getByTestId(`sale-cart-item-${medicine.sku}`)).toHaveCount(0);
@@ -98,7 +98,7 @@ export async function runPharmacyExpiryPolicyJourney(
   );
   await expect(dialog.locator('#sale-payment-confirm')).toBeDisabled();
   await target.screenshot('pharmacy-expired-evidence-approval-rejected');
-  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Back', exact: true }).click();
   await expect(dialog).toBeHidden();
   await page.getByRole('button', { name: 'Clear cart', exact: true }).click();
   await expect(page.getByTestId(`sale-cart-item-${context.prescription.sku}`)).toHaveCount(0);
@@ -126,7 +126,7 @@ export async function runPharmacyExpiryPolicyJourney(
       .getByRole('region', { name: 'Pharmacy policy', exact: true })
       .scrollIntoViewIfNeeded();
     await target.screenshot(`pharmacy-unsupported-policy-${regulated.sku}`);
-    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await dialog.getByRole('button', { name: 'Back', exact: true }).click();
     await expect(dialog).toBeHidden();
     await page.getByRole('button', { name: 'Clear cart', exact: true }).click();
     await expect(page.getByTestId(`sale-cart-item-${regulated.sku}`)).toHaveCount(0);

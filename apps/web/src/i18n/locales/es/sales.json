@@ -12,8 +12,12 @@
     "customerDisplayOpenErrorDescription": "Permita la ventana emergente o intente de nuevo cuando la ventana de escritorio esté disponible. La venta no cambia."
   },
   "saleComplete": {
-    "receipt": "Imprimir o compartir recibo",
-    "dismiss": "Cerrar"
+    "ready": "{{saleNumber}} lista, la caja vuelve al escáner",
+    "print": "Imprimir",
+    "whatsapp": "WhatsApp",
+    "receipt": "Ver recibo",
+    "dismiss": "Sin recibo",
+    "actions": "Recibo"
   },
   "checkout": {
     "kicker": "Caja",
@@ -301,7 +305,6 @@
     },
     "title": "Cobrar venta",
     "saleTotal": "Total de la venta",
-    "cancel": "Cancelar",
     "confirm": "Confirmar venta",
     "processing": "Procesando...",
     "customer": "Cliente",
@@ -317,11 +320,11 @@
     "partialCredit": {
       "summary": "{{cashAmount}} de inicial + {{creditAmount}} a crédito"
     },
-    "amountReceived": "Monto recibido",
+    "amountReceived": "Recibido",
     "amountNegative": "El monto recibido no puede ser negativo",
     "quickAmount": {
-      "exactKicker": "Exacto",
-      "amountKicker": "Monto"
+      "title": "¿Con cuánto paga?",
+      "exact": "Exacto"
     },
     "balance": "Saldo pendiente",
     "change": "Cambio",
@@ -361,7 +364,16 @@
     "confirmSplitMissing": "Confirmar venta · faltan {{amount}}",
     "confirmSplitOver": "Confirmar venta · sobran {{amount}}",
     "partialTitle": "Esta venta quedará con pago parcial",
-    "partialWarning": "El saldo pendiente es {{amount}}. Confirme solo si desea dejar este saldo sin pagar."
+    "partialWarning": "El saldo pendiente es {{amount}}. Confirme solo si desea dejar este saldo sin pagar.",
+    "back": "Volver",
+    "changeDue": "Devuelva de cambio",
+    "changeWay": "Una forma de darlo:",
+    "changeBill": "{{quantity}} × {{amount}}",
+    "changeCoins": "{{amount}} en monedas",
+    "keypad": {
+      "label": "Teclado del monto",
+      "back": "Borrar el último dígito"
+    }
   },
   "history": {
     "title": "Historial de ventas",
@@ -651,6 +663,7 @@
     "escposRetryQueued": "La impresión ESC/POS está en cola. Revise la impresora y el estado de la tarea antes de imprimir otra copia.",
     "escposFailed": "No se pudo confirmar la impresión ESC/POS. Revise la impresora y la cola antes de reimprimir.",
     "autoPrintFailed": "La impresión automática falló; reimprima desde el detalle de la venta",
+    "printFailed": "El recibo no se imprimió; intente de nuevo desde el detalle de la venta",
     "kickDrawerCta": "Abrir cajón",
     "kickDrawerSuccess": "Cajón monedero abierto",
     "kickDrawerFailed": "No se pudo abrir el cajón monedero",

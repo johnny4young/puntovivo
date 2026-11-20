@@ -28,6 +28,12 @@ El candidato validado actual incluye:
   cuya autoridad reside en el servidor con ciclo de vida explícito y evidencia
   congelada por línea, y entrega de recibos por WhatsApp controlada por una persona,
   que genera texto y un PNG local opcional sin envío en segundo plano;
+- un cobro en efectivo que pone primero el cambio: teclas de exacto y montos
+  redondos, un teclado en pantalla para lo recibido y el cambio como la cifra
+  más grande, con una forma de entregarlo en los billetes y monedas de la
+  moneda local. Tras la venta, una franja ofrece imprimir, WhatsApp, ver el recibo
+  o seguir sin recibo mientras la caja ya vuelve al escáner. El conteo de caja
+  usa los mismos billetes y monedas;
 - navegación orientada a las tareas del operador, búsqueda de comandos, configuración
   guiada del negocio y pantallas de preparación y recuperación con lenguaje claro
   para personal no técnico. La tarjeta de preparación sectorial deriva hechos
