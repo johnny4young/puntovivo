@@ -4,6 +4,7 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import {
   applyPriceTier,
   getCartItemKey,
+  mergeBarcodeCartItem,
   mergeCartItem,
   updateCartItem,
   type SaleCartItem,
@@ -139,10 +140,18 @@ export function useSalesCart({
   // handler so the "items locked" banner on the UI matches the actual
   // enforcement. If the cashier wants different items, they discard
   // the draft and start a fresh one.
-  const handleProductSelect = (selection: Parameters<typeof mergeCartItem>[1]) => {
+  /** `quantity` comes from the command bar's `N*` prefix and adds that many units. */
+  const handleProductSelect = (
+    selection: Parameters<typeof mergeCartItem>[1],
+    quantity: number | null = null
+  ) => {
     if (itemsLocked) return;
     // The setCartItems choke point applies the ticket's active tier.
-    setCartItems(currentItems => mergeCartItem(currentItems, selection));
+    setCartItems(currentItems =>
+      quantity === null
+        ? mergeCartItem(currentItems, selection)
+        : mergeBarcodeCartItem(currentItems, selection, { quantity, price: null })
+    );
     setSelectedCartItemKey(getCartItemKey(selection.product.id, selection.unit.unitId));
     setProductSearchQuery('');
     setSaleError(null);

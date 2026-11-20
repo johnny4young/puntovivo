@@ -8,6 +8,7 @@ import {
   type SaleCartItem,
 } from '@/features/sales/saleCart';
 import { resolveBarcodeCartSelection } from '@/features/sales/salesOmnibox';
+import { parseQuantityPrefix } from '@/features/sales/commandBarGrammar';
 import {
   useBarcodeWedgeListener,
   type WedgeConfig,
@@ -44,6 +45,8 @@ interface UseBarcodeProductScannerParams {
   setSelectedCartItemKey: (key: string | null) => void;
   setProductSearchQuery: Dispatch<SetStateAction<string>>;
   setSaleError: Dispatch<SetStateAction<string | null>>;
+  /** Consumes the command bar's `N*` quantity for the scanned product. */
+  takePendingQuantity?: (product: ProductSearchItem) => number | null | 'rejected';
 }
 
 /**
@@ -71,6 +74,7 @@ export function useBarcodeProductScanner({
   setSelectedCartItemKey,
   setProductSearchQuery,
   setSaleError,
+  takePendingQuantity,
 }: UseBarcodeProductScannerParams) {
   const { t } = useTranslation(['sales', 'scannerErrors', 'errors', 'common']);
   const toast = useToast();
@@ -84,10 +88,12 @@ export function useBarcodeProductScanner({
         toast.info({ title: t('sales:scanner.resumedCartLocked') });
         return;
       }
+      // A fast `3*` right before the scan lands in the same burst; the bar already took the quantity.
+      const code = parseQuantityPrefix(rawCode)?.rest || rawCode;
       try {
         const result = await utils.products.lookupByBarcode.fetch(
           {
-            barcode: rawCode,
+            barcode: code,
             siteId: currentSite.id,
           },
           { retry: false }
@@ -113,7 +119,12 @@ export function useBarcodeProductScanner({
           toast.error({ title: t('sales:scanner.noBaseUnit') });
           return;
         }
-        const { selection, quantityOverride: overrideQuantity } = resolved;
+        const { selection, quantityOverride: labelQuantity } = resolved;
+        // A weight label states its own quantity, so the typed one waits for the next read.
+        const commandQuantity =
+          labelQuantity === null ? (takePendingQuantity?.(product) ?? null) : null;
+        if (commandQuantity === 'rejected') return;
+        const overrideQuantity = labelQuantity ?? commandQuantity;
         const overridePrice = result.suggestedPrice;
         const itemKey = getBarcodeCartItemKey(selection, overridePrice);
         setCartItems(currentItems =>
@@ -126,7 +137,7 @@ export function useBarcodeProductScanner({
         setProductSearchQuery('');
         setSaleError(null);
         playScanSuccess();
-        if (overrideQuantity !== null) {
+        if (labelQuantity !== null) {
           toast.success({ title: t('sales:scanner.weightFromLabel') });
         } else if (overridePrice !== null) {
           toast.success({ title: t('sales:scanner.priceFromLabel') });
@@ -154,6 +165,7 @@ export function useBarcodeProductScanner({
       // now that they are params (identity stable → no behavior change).
       setProductSearchQuery,
       setSaleError,
+      takePendingQuantity,
       t,
       toast,
       utils,

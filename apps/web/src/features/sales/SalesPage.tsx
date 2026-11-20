@@ -8,6 +8,7 @@ import { useSalesMutations } from '@/features/sales/useSalesMutations';
 import { useSalesFlows } from '@/features/sales/useSalesFlows';
 import { useSalesCart } from '@/features/sales/useSalesCart';
 import { useSalesModals } from '@/features/sales/useSalesModals';
+import { useSalesCommandBar } from '@/features/sales/useSalesCommandBar';
 import { useSalesPageData } from '@/features/sales/useSalesPageData';
 import { useLastRead } from '@/features/sales/useLastRead';
 import type { InitialTender } from '@/features/sales/salePaymentModal.types';
@@ -350,6 +351,17 @@ export function SalesPage() {
   // suspended-panel toggle, the history-reprint jump) + the checkout
   // preflight live in `useSalesModals`. Product-search visibility belongs to
   // that controller; payment and cash-session visibility stay in the shell.
+  const commandBar = useSalesCommandBar({
+    query: productSearchQuery,
+    activeWorkspace: activeWorkspace ?? null,
+    canCreateCustomer: userRole === 'admin' || userRole === 'manager',
+    addProduct: (selection, quantity) => {
+      saleMeasurement.ensure('complete_sale');
+      saleMeasurement.markUsableControl();
+      handleProductSelect(selection, quantity);
+    },
+  });
+
   const {
     preflight,
     isProductSearchOpen,
@@ -386,7 +398,7 @@ export function SalesPage() {
     selectedHistorySaleId,
     checkoutReadinessItems,
     isPaymentModalOpen,
-    productSearchQuery,
+    productSearchQuery: commandBar.searchText,
     setSaleError,
     setIsPaymentModalOpen,
     setCashSessionError,
@@ -429,11 +441,6 @@ export function SalesPage() {
     },
     [handleOpenProductSearch, itemsLocked, saleMeasurement]
   );
-  const handleMeasuredProductSelect = (selection: Parameters<typeof handleProductSelect>[0]) => {
-    saleMeasurement.ensure('complete_sale');
-    saleMeasurement.markUsableControl();
-    handleProductSelect(selection);
-  };
 
   // omnibox landing. When the command palette could not resolve
   // the typed query as an exact barcode, it navigates here with the query in
@@ -518,6 +525,7 @@ export function SalesPage() {
     setSelectedCartItemKey,
     setProductSearchQuery,
     setSaleError,
+    takePendingQuantity: commandBar.takePendingQuantity,
   });
 
   return (
@@ -613,7 +621,8 @@ export function SalesPage() {
         shouldRenderQuickCreateCustomerGate={shouldRenderQuickCreateCustomerGate}
         productSearchDialogKey={productSearchDialogKey}
         setIsProductSearchOpen={setIsProductSearchOpen}
-        handleProductSelect={handleMeasuredProductSelect}
+        handleProductSelect={commandBar.selectProduct}
+        commandBar={commandBar}
         productSearchInitialQuery={productSearchInitialQuery}
         setCartItems={setCartItems}
         isPaymentModalOpen={isPaymentModalOpen}

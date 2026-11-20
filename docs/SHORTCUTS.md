@@ -66,6 +66,23 @@ All sales/register shortcuts are limited to admin, manager and cashier roles.
 State guards intentionally leave unavailable actions inert instead of opening
 an unrelated fallback.
 
+### Register command bar prefixes
+
+The scan field on `/sales` also reads a short prefix grammar
+(`apps/web/src/features/sales/commandBarGrammar.ts`). Scanner bursts never pass
+through it.
+
+| Typed      | Effect                                                                                           |
+| ---------- | ------------------------------------------------------------------------------------------------ |
+| `3*`       | The next scan, quick key or search pick adds three. Decimals (`0,485*`) only fit fraction items. |
+| `@text`    | Lists matching active customers (name, email, phone or document) to attach to the ticket.        |
+| `/text`    | Lists the register actions available right now, each with its key.                               |
+| plain text | `Enter` or `F5` opens product search with it.                                                    |
+
+A weight label keeps its own quantity and leaves the typed one for the next
+read. Frozen tickets (resumed, quoted, exchange) keep their customer. `Mod+K`
+stays the app-wide palette.
+
 ## Collision and scope policy
 
 - Global actions do not fire while an editable field or another modal owns the

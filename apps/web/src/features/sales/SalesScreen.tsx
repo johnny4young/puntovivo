@@ -13,6 +13,9 @@ import { SalesQuickSearchBar } from '@/features/sales/SalesQuickSearchBar';
 import { SalesShortcutStrip } from '@/features/sales/SalesShortcutStrip';
 import { SalesStatusPills } from '@/features/sales/SalesStatusPills';
 import { getSalesDockGates } from '@/features/sales/salesDockGates';
+import { buildRegisterBarActions } from '@/features/sales/registerBarActions';
+import { isTicketCustomerFrozen } from '@/features/sales/useCartWorkspaceStore';
+import type { SalesCommandBar } from '@/features/sales/useSalesCommandBar';
 import type { PreflightItem } from '@/features/sales/useCheckoutPreflight';
 import { LastReadBanner } from '@/features/sales/LastReadBanner';
 import type { LastRead } from '@/features/sales/useLastRead';
@@ -168,6 +171,7 @@ export interface SalesScreenProps {
   productSearchDialogKey: number;
   setIsProductSearchOpen: Dispatch<SetStateAction<boolean>>;
   handleProductSelect: ModalsProps['onSelectProduct'];
+  commandBar: SalesCommandBar;
   productSearchInitialQuery: string;
   setCartItems: ModalsProps['setCartItems'];
   isPaymentModalOpen: boolean;
@@ -300,6 +304,7 @@ export function SalesScreen({
   productSearchDialogKey,
   setIsProductSearchOpen,
   handleProductSelect,
+  commandBar,
   productSearchInitialQuery,
   setCartItems,
   isPaymentModalOpen,
@@ -347,7 +352,7 @@ export function SalesScreen({
   // Buttons pass their click event, which must not read as the fast cash flag.
   const handleCharge = () => handleOpenPaymentModal();
   const showCompletedSale = completedSale !== null && cartItems.length === 0;
-  const customerLocked = itemsLocked || activeWorkspace?.sourceReturnId != null;
+  const customerLocked = activeWorkspace ? isTicketCustomerFrozen(activeWorkspace) : false;
   const { canOpenDrawerFromDock, printerMissing } = getSalesDockGates({
     canCharge,
     hubReachable,
@@ -358,6 +363,36 @@ export function SalesScreen({
     activeWorkspace?.sourceQuotationCustomerName ??
     activeWorkspace?.sourceReturnCustomerName ??
     null;
+  const lockedCustomerId =
+    activeWorkspace?.serverCustomerId ??
+    activeWorkspace?.sourceQuotationCustomerId ??
+    activeWorkspace?.sourceReturnCustomerId ??
+    null;
+  // A frozen ticket keeps its own customer; otherwise the one attached with @.
+  const ticketCustomerId = customerLocked ? lockedCustomerId : (activeWorkspace?.customerId ?? null);
+  const ticketCustomerName = customerLocked
+    ? lockedCustomerName
+    : (activeWorkspace?.customerName ?? null);
+  const registerActions = buildRegisterBarActions({
+    suspend: canSuspendActiveCart ? handleOpenSuspendPrompt : undefined,
+    returns: () => setIsHistoryDrawerOpen(true),
+    newSale: handleNewSale,
+    openDrawer:
+      activeCashSession && onKickCashDrawer && !isKickingCashDrawer
+        ? () => void onKickCashDrawer()
+        : undefined,
+    suspended: suspendedDraftsCount > 0 ? handleToggleSuspendedPanel : undefined,
+    charge: canCharge ? handleCharge : undefined,
+    fastCash: canCharge ? () => handleFastCash() : undefined,
+    undo: canUndoActiveCart ? handleUndoCart : undefined,
+    catalog: itemsLocked ? undefined : () => handleOpenProductSearch(''),
+    cashMovement: activeCashSession ? handleOpenCashSessionMovementModal : undefined,
+    openCashSession: canOpenCashSession ? handleOpenCashSessionModal : undefined,
+    closeCashSession:
+      activeCashSession && canCloseCashSession && hubReachable !== false
+        ? handleOpenCloseCashSessionModal
+        : undefined,
+  });
   // Mirrors the charge drawer: quotations carry no service charge.
   const cashDue = roundMoney(
     draftSummary.total +
@@ -442,9 +477,17 @@ export function SalesScreen({
               <SalesQuickSearchBar
                 query={productSearchQuery}
                 onQueryChange={setProductSearchQuery}
-                onSubmit={() => handleOpenProductSearch(productSearchQuery)}
+                onSubmit={handleOpenProductSearch}
                 inputRef={productInputRef}
                 disabled={itemsLocked}
+                pendingQuantity={commandBar.pendingQuantity}
+                onPendingQuantityChange={commandBar.setPendingQuantity}
+                actions={registerActions}
+                attachedCustomerId={ticketCustomerId}
+                onAttachCustomer={commandBar.attachCustomer}
+                onCreateCustomer={commandBar.createCustomer}
+                customers={commandBar.customers}
+                isLoadingCustomers={commandBar.isLoadingCustomers}
               />
             }
             banner={
@@ -520,7 +563,7 @@ export function SalesScreen({
             tender={ticketTender}
             onTenderChange={onTicketTenderChange}
             cashDue={cashDue}
-            customerName={lockedCustomerName}
+            customerName={ticketCustomerName}
             onPickCustomer={
               canOpenDrawerFromDock && !customerLocked
                 ? () => handleOpenPaymentModal(false, null, 'customer')
@@ -629,14 +672,9 @@ export function SalesScreen({
             paymentModalKey={paymentModalKey}
             paymentTotal={draftSummary.total}
             paymentApprovalSaleId={activeWorkspace?.serverSaleId ?? null}
-            paymentApprovalCustomerId={
-              activeWorkspace?.serverCustomerId ??
-              activeWorkspace?.sourceQuotationCustomerId ??
-              activeWorkspace?.sourceReturnCustomerId ??
-              null
-            }
+            paymentApprovalCustomerId={ticketCustomerId}
             paymentCustomerLocked={customerLocked}
-            paymentLockedCustomerName={lockedCustomerName}
+            paymentLockedCustomerName={ticketCustomerName}
             paymentApprovalItems={cartItems}
             paymentApprovalDiscountAmount={approvalDiscountAmount}
             promotionPricingEnabled={!isQuotationCart}

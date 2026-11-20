@@ -169,6 +169,10 @@ export function SalesCheckoutPanel({
                 >
                   <UserRound className="h-4 w-4" aria-hidden="true" />
                   <span className="sr-only 2xl:not-sr-only">{t('payment.customer')}</span>
+                  {/* Typing @ in the command bar is the faster way to the same pick. */}
+                  <kbd className="pv-kbd hidden 2xl:inline-flex" aria-hidden="true">
+                    @
+                  </kbd>
                 </button>
               )}
               {onRequestInvoice && (
