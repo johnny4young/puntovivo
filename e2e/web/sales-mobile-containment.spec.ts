@@ -39,8 +39,8 @@ async function expectSalesWorkbenchContained(page: Page, width: number) {
     });
     const cartItem = grid.querySelector('[data-testid^="sale-cart-item-"]');
     const primaryRow = cartItem?.firstElementChild;
-    const productDetails = primaryRow?.querySelector(':scope > button');
-    const quantityControls = primaryRow?.querySelector(':scope > div');
+    const productDetails = primaryRow?.querySelector(':scope > .sales-ticket-name');
+    const quantityControls = primaryRow?.querySelector(':scope > .sales-ticket-qty');
     const compactQuantity = primaryRow?.querySelector('.sales-ticket-qty-compact');
     const offenders = [...grid.querySelectorAll('*')]
       .map(element => ({

@@ -42,9 +42,11 @@ usa, y una tienda veía la propina de restaurante en cada cobro.
 - Sin migración: el ajuste vive en el JSON de ajustes existente.
 - Zonas conectadas hoy: teclas de un toque, teclas por valor, fiado (la barra de
   cuenta con su abono, Fiar junto a Cobrar y el cobro), ventas en espera, avisos de descuento por vencimiento
-  (líneas del ticket, teclas y búsqueda de productos), el selector de unidad en
-  la búsqueda de productos, el aviso de cotización, acciones de mesa al
-  suspender, propina y dividir cuenta.
+  (líneas del ticket, teclas y búsqueda de productos), unidades (el selector de
+  unidad y las fichas de precio por unidad en la búsqueda, el selector de unidad
+  en las líneas del ticket), el aviso de cotización y la tecla Entregar en obra
+  (que además necesita el módulo de domicilios), acciones de mesa al suspender,
+  propina y dividir cuenta.
 - Con la zona de unidades apagada, la búsqueda de productos vende la unidad
   base; un código de barras de una presentación sigue vendiendo esa
   presentación.

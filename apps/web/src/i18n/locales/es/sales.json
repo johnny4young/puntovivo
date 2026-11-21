@@ -904,8 +904,12 @@
     "storeCreditBalance": "{{amount}} en crédito de tienda"
   },
   "quotationCart": {
-    "banner": "Cobro de la cotización {{quotationNumber}}",
-    "bannerHint": "Los productos, cantidades, precios, descuentos, cliente y tarifa corresponden a la cotización aceptada y están bloqueados. Seleccione las series requeridas y elija el pago.",
+    "banner": "Viene de la cotización {{quotationNumber}} · precios y condiciones bloqueados",
+    "bannerHint": "Seleccione las series requeridas antes de cobrar.",
+    "expiresIn_one": "vence en {{count}} día",
+    "expiresIn_other": "vence en {{count}} días",
+    "expiresToday": "vence hoy",
+    "expired": "vencida",
     "workspaceLabel": "Cotización {{quotationNumber}}"
   },
   "exchangeCart": {

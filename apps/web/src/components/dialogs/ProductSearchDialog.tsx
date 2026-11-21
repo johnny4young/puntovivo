@@ -80,6 +80,7 @@ export function ProductSearchDialog({
   const searchEnabled = isOpen && deferredQuery.length > 0;
 
   const pharmacyHints = useRegisterZone('pharmacy-lot') && registerHints;
+  const unitChips = useRegisterZone('units-cut') && registerHints && showUnitPicker;
   const productsQuery = trpc.products.search.useQuery(
     {
       q: deferredQuery,
@@ -206,9 +207,16 @@ export function ProductSearchDialog({
               isEmptyState={isEmptyState}
               query={deferredQuery}
               selectedProductId={selection?.productId}
+              selectedUnitId={selection?.unitId}
               discountSuggestions={discountSuggestions}
               pharmacyHints={pharmacyHints}
               genericSavings={generic.inResults}
+              otherSiteStock={registerHints}
+              onProductUnitSelect={
+                unitChips
+                  ? (product, unitId) => setSelection({ productId: product.id, unitId })
+                  : undefined
+              }
               canCreateProducts={canCreateProducts}
               quickCreateAvailable={Boolean(onQuickCreateRequested)}
               onQuickCreate={handleQuickCreate}

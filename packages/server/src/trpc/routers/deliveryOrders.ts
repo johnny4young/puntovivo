@@ -16,7 +16,7 @@ import {
   deliveryTransitions,
 } from '../../application/delivery/commands.js';
 import { router } from '../init.js';
-import { managerOrAdminProcedure } from '../middleware/roles.js';
+import { cashierManagerOrAdminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
 import { createModuleGuard } from '../middleware/modules.js';
 import { commandEnvelope, asCriticalCommandContext } from '../middleware/commandEnvelope.js';
 import { ensureTenantSite } from '../middleware/tenantSite.js';
@@ -33,6 +33,10 @@ import {
 const readProcedure = managerOrAdminProcedure.use(createModuleGuard('delivery'));
 // Both role and module gates precede the replay cache; disabling delivery must revoke cached access too.
 const commandProcedure = readProcedure.use(commandEnvelope);
+// Cashiers hand their own completed sales to delivery from the register.
+const saleDeliveryProcedure = cashierManagerOrAdminProcedure
+  .use(createModuleGuard('delivery'))
+  .use(commandEnvelope);
 
 export const deliveryOrdersRouter = router({
   list: readProcedure.input(listDeliveryInput).query(async ({ ctx, input }) => {
@@ -172,11 +176,15 @@ export const deliveryOrdersRouter = router({
     await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
     return createDelivery(asCriticalCommandContext(ctx), input);
   }),
-  createFromSale: commandProcedure
+  createFromSale: saleDeliveryProcedure
     .input(createDeliveryFromSaleInput)
     .mutation(async ({ ctx, input }) => {
       await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
-      return createDeliveryFromSale(asCriticalCommandContext(ctx), input);
+      return createDeliveryFromSale(
+        asCriticalCommandContext(ctx),
+        input,
+        ctx.user?.role === 'cashier' ? ctx.user.id : null
+      );
     }),
   advance: commandProcedure.input(advanceDeliveryInput).mutation(async ({ ctx, input }) => {
     await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);

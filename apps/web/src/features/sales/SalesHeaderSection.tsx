@@ -1,11 +1,14 @@
 import { type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { History, MonitorUp, PauseCircle } from 'lucide-react';
+import { FileText, History, MonitorUp, PauseCircle } from 'lucide-react';
 import { useRegisterZone } from '@/features/modules/useRegisterZone';
 import { PaceToggleButton } from '@/features/sales/PaceToggleButton';
 import { SoundToggleButton } from '@/features/sales/SoundToggleButton';
 import { type CartWorkspace } from '@/features/sales/useCartWorkspaceStore';
+import { quotationDaysLeft, quotationExpiryLabel } from '@/features/sales/quotationValidity';
+import { useResolvedLocale } from '@/features/locale/LocaleProvider';
 import { ariaKeyshortcutsFor } from '@/lib/shortcuts';
+import { cn } from '@/lib/utils';
 
 /** The register strip above the ticket, followed by the locked-cart banners. */
 interface SalesHeaderSectionProps {
@@ -53,6 +56,13 @@ export function SalesHeaderSection({
   const who = [cashierName, siteName].filter(Boolean).join(' · ');
   // Off, the ticket tab still names the quotation.
   const showsQuotationBanner = useRegisterZone('quote-delivery');
+  const { timezone } = useResolvedLocale();
+  const quotationDays = quotationDaysLeft(
+    activeWorkspace?.sourceQuotationValidUntil ?? null,
+    timezone
+  );
+  const quotationExpiry = quotationDays === null ? null : quotationExpiryLabel(quotationDays);
+  const quotationNeedsSerials = activeWorkspace?.items.some(item => item.tracksSerials) ?? false;
 
   return (
     <>
@@ -179,16 +189,32 @@ export function SalesHeaderSection({
 
       {showsQuotationBanner && activeWorkspace?.sourceQuotationNumber && (
         <div
-          className="rounded-2xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-primary-900 lg:shrink-0"
+          className="rounded-[14px] bg-primary-50 px-3.5 py-2.5 text-sm text-primary-900 lg:shrink-0"
           role="status"
           data-testid="quotation-cart-banner"
         >
-          <p className="font-semibold">
-            {t('quotationCart.banner', {
-              quotationNumber: activeWorkspace.sourceQuotationNumber,
-            })}
+          <p className="flex items-center gap-2.5 font-semibold">
+            <FileText className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
+            <span className="min-w-0 flex-1">
+              {t('quotationCart.banner', {
+                quotationNumber: activeWorkspace.sourceQuotationNumber,
+              })}
+            </span>{' '}
+            {quotationExpiry && (
+              <span
+                className={cn(
+                  'shrink-0 font-medium',
+                  quotationExpiry[0] === 'quotationCart.expired' && 'text-danger-700'
+                )}
+                data-testid="quotation-cart-expiry"
+              >
+                {t(quotationExpiry[0], { count: quotationExpiry[1] })}
+              </span>
+            )}
           </p>
-          <p className="mt-1 text-xs text-primary-800/80">{t('quotationCart.bannerHint')}</p>
+          {quotationNeedsSerials && (
+            <p className="mt-1 pl-7 text-xs text-primary-800">{t('quotationCart.bannerHint')}</p>
+          )}
         </div>
       )}
 

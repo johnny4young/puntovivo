@@ -727,6 +727,46 @@ describe('<ProductSearchDialog /> register zones', () => {
     expect(unitSelect()).not.toBeNull();
   });
 
+  it('offers the other units as price chips on hardware; a chip picks the product in that unit', async () => {
+    const onSelect = renderForProfile('hardware', { confirmLabel: 'Add to cart' });
+    const user = await fillSearchAndAwaitRows(1);
+    const chip = screen.getByTestId('product-unit-chip-ABR-0001-u-box');
+    expect(chip).toHaveTextContent('Caja × 12 · $36,000.00');
+    // The default unit's price is the row's price column.
+    expect(screen.queryByTestId('product-unit-chip-ABR-0001-u-1')).not.toBeInTheDocument();
+
+    await user.click(chip);
+    expect(chip).toHaveAttribute('aria-pressed', 'true');
+    expect(unitSelect()).toHaveValue('u-box');
+    await user.click(screen.getByRole('button', { name: 'Add to cart' }));
+    expect(onSelect).toHaveBeenCalledWith(
+      expect.objectContaining({ unit: expect.objectContaining({ unitId: 'u-box' }), price: 36000 })
+    );
+  });
+
+  it.each(['pharmacy', 'retail'] as const)('keeps unit chips off for %s', async businessType => {
+    renderForProfile(businessType);
+    await fillSearchAndAwaitRows(1);
+    expect(screen.queryByTestId('product-unit-chips-ABR-0001')).not.toBeInTheDocument();
+  });
+
+  it('names the site with the most stock beside this site, in the register only', async () => {
+    trpcQueryState.data = {
+      items: [{ ...boxedRice, otherSites: [{ siteId: 's-2', siteName: 'Sede Sur', onHand: 120 }] }],
+      total: 1,
+    } as typeof trpcQueryState.data;
+    const { unmount } = render(
+      <ProductSearchDialog isOpen onClose={vi.fn()} onSelect={vi.fn()} registerHints siteId="s-1" />
+    );
+    await fillSearchAndAwaitRows(1);
+    expect(screen.getByTestId('product-other-site-ABR-0001')).toHaveTextContent('120 at Sede Sur');
+    unmount();
+
+    renderDialog({ siteId: 's-1' });
+    await fillSearchAndAwaitRows(1);
+    expect(screen.queryByTestId('product-other-site-ABR-0001')).not.toBeInTheDocument();
+  });
+
   it.each([
     ['pharmacy', true],
     ['retail', false],

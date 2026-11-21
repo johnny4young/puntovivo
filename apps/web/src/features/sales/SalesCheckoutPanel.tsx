@@ -1,4 +1,4 @@
-import { FileText, PauseCircle, Undo2, UserRound, WalletCards } from 'lucide-react';
+import { FileText, PauseCircle, Truck, Undo2, UserRound, WalletCards } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   CheckoutPreflightPanel,
@@ -8,6 +8,7 @@ import { CashierPaceStrip } from '@/features/sales/CashierPaceStrip';
 import { SalesRegisterAssignmentField } from '@/features/sales/SalesRegisterAssignmentField';
 import { SalesTenderPicker } from '@/features/sales/SalesTenderPicker';
 import { SalesCreditKey } from '@/features/sales/SalesCreditKey';
+import { useHardwareCopy } from '@/features/sales/useHardwareCopy';
 import { initialsOf } from '@/features/sales/handoff/handoffModel';
 
 import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
@@ -84,6 +85,12 @@ interface SalesCheckoutPanelProps {
   /** What the customer would owe after this ticket; null while unknown. */
   creditProjectedBalance?: number | null | undefined;
   creditLimit?: number | undefined;
+  /** «Entregar en obra» sits in the charge row. */
+  showsDeliveryKey?: boolean | undefined;
+  /** Marks the ticket for delivery, or sends the sale just charged; absent when neither applies. */
+  onDelivery?: (() => void) | undefined;
+  /** The ticket goes out as a delivery once charged. */
+  deliveryActive?: boolean | undefined;
 }
 
 /** Characters of a condensed total that fit one line of the card. */
@@ -138,6 +145,9 @@ export function SalesCheckoutPanel({
   showsCreditKey = false,
   onCredit,
   creditProjectedBalance = null,
+  showsDeliveryKey = false,
+  onDelivery,
+  deliveryActive = false,
   creditLimit = 0,
 }: SalesCheckoutPanelProps) {
   const { t } = useTranslation('sales');
@@ -166,6 +176,9 @@ export function SalesCheckoutPanel({
   const showSuspendAction = !!onSuspend && canSuspend;
   const totalText = formatCurrency(draftSummary.total);
   const creditKeyShown = !!cashSession && showsCreditKey;
+  const { t: th, ready: hardwareReady } = useHardwareCopy();
+  const deliveryKeyShown = !!cashSession && showsDeliveryKey && hardwareReady;
+  const sideKeysShown = creditKeyShown || deliveryKeyShown;
 
   return (
     <aside className="sales-settlement-dock" aria-labelledby="sales-dock-title">
@@ -439,7 +452,7 @@ export function SalesCheckoutPanel({
           />
         )}
 
-        <div className={creditKeyShown ? 'sales-charge-row' : 'contents'}>
+        <div className={sideKeysShown ? 'sales-charge-row' : 'contents'}>
           <Button
             className={cashSession ? 'sales-charge-key' : 'min-h-14 w-full text-base'}
             onClick={primaryAction}
@@ -464,16 +477,34 @@ export function SalesCheckoutPanel({
               </kbd>
             )}
           </Button>
-          {creditKeyShown && (
-            <SalesCreditKey
-              className="sales-secondary-key sales-credit-key"
-              onClick={onCredit}
-              disabled={!onCredit || isHubGated || preflightHasBlockers}
-              projectedBalance={creditProjectedBalance}
-              creditLimit={creditLimit}
-              active={tender === 'credit'}
-              testId="checkout-credit"
-            />
+          {sideKeysShown && (
+            <div className="sales-charge-side">
+              {creditKeyShown && (
+                <SalesCreditKey
+                  className="sales-secondary-key sales-credit-key"
+                  onClick={onCredit}
+                  disabled={!onCredit || isHubGated || preflightHasBlockers}
+                  projectedBalance={creditProjectedBalance}
+                  creditLimit={creditLimit}
+                  active={tender === 'credit'}
+                  testId="checkout-credit"
+                />
+              )}
+              {deliveryKeyShown && (
+                <button
+                  type="button"
+                  className="sales-secondary-key sales-delivery-key"
+                  onClick={onDelivery}
+                  disabled={!onDelivery}
+                  aria-pressed={deliveryActive}
+                  data-active={deliveryActive || undefined}
+                  data-testid="checkout-delivery"
+                >
+                  <Truck className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  {th('delivery.key')}
+                </button>
+              )}
+            </div>
           )}
         </div>
 

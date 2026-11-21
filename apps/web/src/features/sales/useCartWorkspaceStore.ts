@@ -67,6 +67,8 @@ export interface CartWorkspace {
   sourceQuotationCustomerId: string | null;
   /** Frozen display name used while the payment customer picker is locked. */
   sourceQuotationCustomerName: string | null;
+  /** End of the quotation's validity, shown on the locked-cart banner. */
+  sourceQuotationValidUntil: string | null;
   /** Return converted into an independent replacement sale by this workspace. */
   sourceReturnId: string | null;
   /** Original ticket number shown while composing the replacement sale. */
@@ -77,6 +79,8 @@ export interface CartWorkspace {
   /** Customer the cashier attached to an editable ticket; null means walk-in. */
   customerId: string | null;
   customerName: string | null;
+  /** The ticket goes out as a delivery once it is charged. */
+  deliveryRequested: boolean;
   /** Operator-provided label ("Mesa 5") inherited from the server row. */
   label: string | null;
   /** first real cart interaction; null while the workspace is empty. */
@@ -192,6 +196,8 @@ interface CartWorkspaceActions {
     siteId: string;
     customerId: string | null;
     customerName: string | null;
+    /** Null or omitted: the quotation has no end date. */
+    validUntil?: string | null;
     priceTier: 1 | 2 | 3;
     items: SaleCartItem[];
   }): string;
@@ -206,6 +212,8 @@ interface CartWorkspaceActions {
   }): string;
   /** Remember the ticket's active price tier (repricing is the caller's job). */
   setPriceTier(id: string, tier: 1 | 2 | 3): void;
+  /** Mark or unmark the ticket to go out as a delivery once charged. */
+  setDeliveryRequested(id: string, requested: boolean): void;
   /** Attach a customer to an editable ticket, or null for walk-in; frozen tickets are ignored. */
   setCustomer(id: string, customer: { id: string; name: string } | null): void;
   /**
@@ -223,7 +231,8 @@ const PERSIST_KEY = 'cart-workspace-store';
 // cleanly instead of hitting a runtime error. Version 2 added `historyStack`;
 // version 7 added the quotation-origin fields and `priceTier`; version 8
 // added the return-origin fields; version 9 added `serverCustomerName`; version
-// 10 added the attached `customerId` and `customerName`.
+// 10 added the attached `customerId` and `customerName`; version 11 added
+// `sourceQuotationValidUntil` and `deliveryRequested`.
 //
 // Adding a field WITHOUT bumping this is not a no-op: the migration is gated
 // on `fromVersion < PERSIST_VERSION`, so an already-current workspace skips it
@@ -231,7 +240,7 @@ const PERSIST_KEY = 'cart-workspace-store';
 // `sourceQuotationId` compare against null strictly, and `undefined !== null`
 // is true -- so every ordinary persisted cart would be treated as a locked
 // quotation cart and refuse edits and reuse after the upgrade.
-const PERSIST_VERSION = 10;
+const PERSIST_VERSION = 11;
 
 // Monotonic suffix so synchronous bursts of `createDraft` calls never
 // collide in environments where `crypto.randomUUID` is missing or
@@ -280,12 +289,14 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
           sourceQuotationSiteId: null,
           sourceQuotationCustomerId: null,
           sourceQuotationCustomerName: null,
+          sourceQuotationValidUntil: null,
           sourceReturnId: null,
           sourceReturnSaleNumber: null,
           sourceReturnCustomerId: null,
           sourceReturnCustomerName: null,
           customerId: null,
           customerName: null,
+          deliveryRequested: false,
           label: null,
           checkoutStartedAt: null,
           priceTier: 1,
@@ -472,12 +483,14 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
           sourceQuotationSiteId: null,
           sourceQuotationCustomerId: null,
           sourceQuotationCustomerName: null,
+          sourceQuotationValidUntil: null,
           sourceReturnId: null,
           sourceReturnSaleNumber: null,
           sourceReturnCustomerId: null,
           sourceReturnCustomerName: null,
           customerId: null,
           customerName: null,
+          deliveryRequested: false,
           label,
           checkoutStartedAt: new Date().toISOString(),
           // Resumed drafts are price-locked; preserve the server snapshot so
@@ -504,6 +517,7 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
         siteId,
         customerId,
         customerName,
+        validUntil = null,
         priceTier,
         items,
       }) {
@@ -534,12 +548,14 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
           sourceQuotationSiteId: siteId,
           sourceQuotationCustomerId: customerId,
           sourceQuotationCustomerName: customerName,
+          sourceQuotationValidUntil: validUntil,
           sourceReturnId: null,
           sourceReturnSaleNumber: null,
           sourceReturnCustomerId: null,
           sourceReturnCustomerName: null,
           customerId: null,
           customerName: null,
+          deliveryRequested: false,
           label: null,
           checkoutStartedAt: now,
           priceTier,
@@ -577,12 +593,14 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
           sourceQuotationSiteId: null,
           sourceQuotationCustomerId: null,
           sourceQuotationCustomerName: null,
+          sourceQuotationValidUntil: null,
           sourceReturnId: returnId,
           sourceReturnSaleNumber: saleNumber,
           sourceReturnCustomerId: customerId,
           sourceReturnCustomerName: customerName,
           customerId: null,
           customerName: null,
+          deliveryRequested: false,
           label: null,
           checkoutStartedAt: now,
           priceTier,
@@ -609,6 +627,19 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
           }
           return {
             workspaces: { ...state.workspaces, [id]: { ...existing, priceTier: tier } },
+          };
+        });
+      },
+
+      setDeliveryRequested(id, requested) {
+        set(state => {
+          const existing = state.workspaces[id];
+          if (!existing || existing.deliveryRequested === requested) return state;
+          return {
+            workspaces: {
+              ...state.workspaces,
+              [id]: { ...existing, deliveryRequested: requested },
+            },
           };
         });
       },
@@ -684,12 +715,14 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
               sourceQuotationSiteId: workspace.sourceQuotationSiteId ?? null,
               sourceQuotationCustomerId: workspace.sourceQuotationCustomerId ?? null,
               sourceQuotationCustomerName: workspace.sourceQuotationCustomerName ?? null,
+              sourceQuotationValidUntil: workspace.sourceQuotationValidUntil ?? null,
               sourceReturnId: workspace.sourceReturnId ?? null,
               sourceReturnSaleNumber: workspace.sourceReturnSaleNumber ?? null,
               sourceReturnCustomerId: workspace.sourceReturnCustomerId ?? null,
               sourceReturnCustomerName: workspace.sourceReturnCustomerName ?? null,
               customerId: workspace.customerId ?? null,
               customerName: workspace.customerName ?? null,
+              deliveryRequested: workspace.deliveryRequested ?? false,
               priceTier: workspace.priceTier ?? 1,
             };
           }

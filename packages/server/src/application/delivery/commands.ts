@@ -163,8 +163,17 @@ function completeDelivery(
   return result;
 }
 
-/** A completed sale gets its site from its owned cash session, not the caller's current site. */
-function eligibleSale(tx: DatabaseInstance, tenantId: string, siteId: string, saleId: string) {
+/**
+ * A completed sale gets its site from its owned cash session, not the caller's current site.
+ * A `cashierId` limits it to that cashier's own register sessions; null allows any.
+ */
+function eligibleSale(
+  tx: DatabaseInstance,
+  tenantId: string,
+  siteId: string,
+  saleId: string,
+  cashierId: string | null
+) {
   assertExternalSaleCanProceed(tx, tenantId, saleId);
   const sale = tx
     .select({
@@ -181,7 +190,8 @@ function eligibleSale(tx: DatabaseInstance, tenantId: string, siteId: string, sa
       and(
         eq(cashSessions.id, sales.cashSessionId),
         eq(cashSessions.tenantId, tenantId),
-        eq(cashSessions.siteId, siteId)
+        eq(cashSessions.siteId, siteId),
+        cashierId === null ? undefined : eq(cashSessions.cashierId, cashierId)
       )
     )
     .where(and(eq(sales.id, saleId), eq(sales.tenantId, tenantId)))
@@ -256,10 +266,12 @@ export function createDelivery(ctx: DeliveryCommandContext, input: CreateDeliver
 
 export function createDeliveryFromSale(
   ctx: DeliveryCommandContext,
-  input: CreateDeliveryFromSaleInput
+  input: CreateDeliveryFromSaleInput,
+  /** Cashiers deliver only their own sales; null for managers and admins. */
+  cashierId: string | null
 ) {
   return withDelivery(ctx, input.siteId, tx => {
-    const sale = eligibleSale(tx, ctx.tenantId, input.siteId, input.saleId);
+    const sale = eligibleSale(tx, ctx.tenantId, input.siteId, input.saleId, cashierId);
     // Historical duplicate links remain readable; never add another, even with a new command key.
     const linked = tx
       .select({ id: deliveryOrders.id })
@@ -345,7 +357,7 @@ export function advanceDelivery(ctx: DeliveryCommandContext, input: AdvanceDeliv
       });
     }
     if (input.toStatus !== 'cancelled' && before.saleId)
-      eligibleSale(tx, ctx.tenantId, input.siteId, before.saleId);
+      eligibleSale(tx, ctx.tenantId, input.siteId, before.saleId, null);
     const courierName = input.courierName ?? before.courierName;
     if (input.toStatus === 'dispatched' && !courierName?.trim()) {
       throwServerError({

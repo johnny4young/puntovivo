@@ -74,6 +74,8 @@ function workspace(overrides: Partial<CartWorkspace> = {}): CartWorkspace {
     sourceQuotationSiteId: null,
     sourceQuotationCustomerId: null,
     sourceQuotationCustomerName: null,
+    sourceQuotationValidUntil: null,
+    deliveryRequested: false,
     sourceReturnId: null,
     sourceReturnSaleNumber: null,
     sourceReturnCustomerId: null,

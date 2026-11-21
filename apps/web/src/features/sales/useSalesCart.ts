@@ -6,6 +6,7 @@ import {
   getCartItemKey,
   mergeBarcodeCartItem,
   mergeCartItem,
+  replaceCartItemUnit,
   updateCartItem,
   type SaleCartItem,
 } from '@/features/sales/saleCart';
@@ -191,6 +192,13 @@ export function useSalesCart({
     );
   };
 
+  const handleUnitChange = (itemKey: string, unitId: string) => {
+    const line = cartItems.find(item => item.key === itemKey);
+    if (itemsLocked || !line || unitId === line.unitId) return;
+    setCartItems(currentItems => replaceCartItemUnit(currentItems, itemKey, unitId));
+    setSelectedCartItemKey(getCartItemKey(line.productId, unitId));
+  };
+
   const handleSerialSelectionChange = (itemKey: string, serialIds: string[], siteId: string) => {
     // A resumed server draft already owns its serial snapshots. An accepted
     // quotation, in contrast, freezes commercial terms but deliberately does
@@ -275,6 +283,7 @@ export function useSalesCart({
     handleQuantityChange,
     handleDiscountChange,
     handleSerialSelectionChange,
+    handleUnitChange,
     handleRemoveItem,
     handleClearCart,
     handleUndoCart,

@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   applyPriceTier,
   buildCartItem,
+  canChangeCartItemUnit,
+  changeCartItemUnit,
   getCartItemKey,
+  getCartItemListPrice,
   getSaleMinimumQuantity,
   getSaleQuantityStep,
   getBarcodeCartItemKey,
@@ -16,10 +19,7 @@ import {
   getCartSummary,
   getLineTotals,
 } from '@/features/sales/saleCartTotals';
-import {
-  getCartDiscountAmount,
-  isCartPriceOverride,
-} from '@/features/sales/saleApprovalPricing';
+import { getCartDiscountAmount, isCartPriceOverride } from '@/features/sales/saleApprovalPricing';
 import type { ProductSearchSelection } from '@/types';
 
 function createSelection(
@@ -186,7 +186,11 @@ describe('saleCart fraction policy helpers', () => {
         }),
       ])
     );
-    expect(applyPriceTier(repeated, 2).map(item => item.unitPrice).sort()).toEqual([1.99, 2.49]);
+    expect(
+      applyPriceTier(repeated, 2)
+        .map(item => item.unitPrice)
+        .sort()
+    ).toEqual([1.99, 2.49]);
   });
 
   it('falls back to step when fractionMinimum is missing for fractional products', () => {
@@ -319,6 +323,12 @@ describe('saleCart core helpers', () => {
     const summary = getCartSummary(items, true);
     expect(summary.itemCount).toBe(3);
     expect(summary.total).toBe(200);
+    // A measured line counts as one article, not as its metres or kilograms.
+    const measured = getCartSummary(
+      [...items, makeItem({ key: 'p3:u1', quantity: 37.5, sellByFraction: true })],
+      true
+    );
+    expect(measured.itemCount).toBe(4);
     // First line: total=100, taxAmount≈15.97, subtotal≈84.03
     // Second line: total=100, taxAmount=0, subtotal=100
     expect(summary.subtotal).toBeCloseTo(184.03, 2);
@@ -494,5 +504,93 @@ describe('saleCart core helpers', () => {
     );
     expect(areSerialSelectionsComplete([first, second], 'site-1')).toBe(false);
     expect(areSerialSelectionsComplete([makeItem()], 'site-1')).toBe(true);
+  });
+});
+
+describe('saleCart units and list prices', () => {
+  const box = {
+    id: 'unit-assignment-2',
+    productId: 'product-1',
+    unitId: 'unit-box',
+    unitName: 'Box',
+    unitAbbreviation: 'BX',
+    unitDimension: 'count' as const,
+    equivalence: 100,
+    price: 690,
+    price2: 650,
+    isBase: false,
+  };
+  const screws = (overrides?: Partial<ProductSearchSelection['product']>) => {
+    const selection = createSelection(overrides);
+    return {
+      ...selection,
+      product: {
+        ...selection.product,
+        unitAssignments: [...(selection.product.unitAssignments ?? []), box],
+      },
+    };
+  };
+
+  it('keeps the product units on the line only when there is more than one', () => {
+    const item = buildCartItem(screws());
+    expect(item.unitOptions?.map(option => option.unitId)).toEqual(['unit-1', 'unit-box']);
+    expect(item.unitDimension).toBeNull();
+    expect(buildCartItem(createSelection()).unitOptions).toBeUndefined();
+  });
+
+  it('switches unit at that unit price, keeping the base amount when it fits', () => {
+    const line = updateCartItem(buildCartItem(screws()), { quantity: 300, discount: 5 });
+    const boxed = changeCartItemUnit(line, 'unit-box');
+    expect(boxed).toMatchObject({
+      key: getCartItemKey('product-1', 'unit-box'),
+      unitName: 'Box',
+      unitEquivalence: 100,
+      quantity: 3,
+      unitPrice: 690,
+      catalogUnitPrice: 690,
+      catalogUnitPrice2: 650,
+      isBaseUnit: false,
+      priceEdited: false,
+      discount: 5,
+    });
+    // 250 units is not a whole number of boxes, so the line starts at one box.
+    expect(changeCartItemUnit({ ...line, quantity: 250 }, 'unit-box').quantity).toBe(1);
+    // Back to units gives the same base amount.
+    expect(changeCartItemUnit(boxed, 'unit-1').quantity).toBe(300);
+  });
+
+  it('keeps fractional amounts for products sold by fraction', () => {
+    const line = updateCartItem(
+      buildCartItem(screws({ sellByFraction: true, fractionStep: 0.1, fractionMinimum: 0.1 })),
+      { quantity: 37.5 }
+    );
+    expect(changeCartItemUnit(line, 'unit-box').quantity).toBe(0.375);
+  });
+
+  it('never switches quotation, price-label or unknown-unit lines', () => {
+    const line = buildCartItem(screws());
+    const quoted = { ...line, sourceQuotationItemId: 'q-1', unitOptions: undefined };
+    const [labelled] = mergeBarcodeCartItem([], screws(), { quantity: null, price: 1250 });
+    expect(canChangeCartItemUnit(quoted)).toBe(false);
+    expect(canChangeCartItemUnit(labelled!)).toBe(false);
+    expect(changeCartItemUnit(quoted, 'unit-box')).toBe(quoted);
+    expect(changeCartItemUnit(labelled!, 'unit-box')).toBe(labelled);
+    expect(changeCartItemUnit(line, 'missing')).toBe(line);
+  });
+
+  it('reports the list price only for a line priced lower by the ticket tier', () => {
+    const selection = createSelection({ price: 33900, price2: 31500, price3: 35000 });
+    const cement = buildCartItem({
+      ...selection,
+      unit: { ...selection.unit, price: 33900 },
+      price: 33900,
+    });
+    const atTier2 = applyPriceTier([cement], 2)[0]!;
+    expect(getCartItemListPrice(atTier2, 2)).toEqual({ listPrice: 33900, tier: 2 });
+    expect(getCartItemListPrice(cement, 1)).toBeNull();
+    // A dearer tier is not a discount off the list.
+    expect(getCartItemListPrice(applyPriceTier([cement], 3)[0]!, 3)).toBeNull();
+    // A hand-typed price is not the tier's.
+    expect(getCartItemListPrice({ ...atTier2, priceEdited: true }, 2)).toBeNull();
   });
 });

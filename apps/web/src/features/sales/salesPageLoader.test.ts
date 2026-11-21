@@ -50,6 +50,7 @@ describe('sales route loading', () => {
       'salesOperation',
       'salesQuickAccess',
       'receiptShare',
+      'hardwareRegister',
     ]);
     state.moduleReady.resolve();
     await expect(page).resolves.toEqual({ default: state.page });

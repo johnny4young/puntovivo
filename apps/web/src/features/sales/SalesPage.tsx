@@ -38,6 +38,7 @@ import type { CompletedSaleSummary } from './SaleCompleteStrip';
 import { useEmbeddedServerState } from '@/hooks/useEmbeddedServerState';
 import { getSalesDockGates } from './salesDockGates';
 import { useShiftHandoff } from './handoff/useShiftHandoff';
+import { useSaleDelivery } from './useSaleDelivery';
 
 const LazyCashDrawerApprovalModal = lazy(() =>
   import('@/features/sales/CashDrawerApprovalModal').then(module => ({
@@ -154,6 +155,7 @@ export function SalesPage() {
     handleQuantityChange,
     handleDiscountChange,
     handleSerialSelectionChange,
+    handleUnitChange,
     handleRemoveItem,
     handleClearCart,
     handleUndoCart,
@@ -226,6 +228,13 @@ export function SalesPage() {
     selectedRegisterAssignmentId,
     hasCartItems: cartItems.length > 0,
   });
+  const saleDelivery = useSaleDelivery({
+    activeWorkspace,
+    hasItems: cartItems.length > 0,
+    completedSale,
+    hasCashSession: hasActiveCashSession,
+    userRole,
+  });
 
   // slice 10 — the sales + cash-session mutation handles and the
   // shared finish-sale epilogue live in `useSalesMutations`. ALL the
@@ -259,6 +268,7 @@ export function SalesPage() {
       setLastSale(sale);
       setCompletedSale(sale);
       saleMeasurement.finish('success');
+      saleDelivery.onSaleCompleted(sale);
     },
     onCashSessionRecoverySucceeded: () => saleMeasurement.recordRecoveryOutcome('succeeded'),
     onCashSessionRecoveryFailed: () => saleMeasurement.recordRecoveryOutcome('failed'),
@@ -630,6 +640,7 @@ export function SalesPage() {
         handleQuantityChange={handleQuantityChange}
         handleDiscountChange={handleDiscountChange}
         handleSerialSelectionChange={handleSerialSelectionChange}
+        handleUnitChange={handleUnitChange}
         handleRemoveItem={handleMeasuredRemoveItem}
         setSelectedCartItemKey={setSelectedCartItemKey}
         handleClearCart={handleMeasuredClearCart}
@@ -673,6 +684,7 @@ export function SalesPage() {
         fastCashAmount={fastCashAmount}
         paymentFocusTarget={paymentFocusTarget}
         completedSale={completedSale}
+        saleDelivery={saleDelivery}
         onDismissCompletedSale={() => setCompletedSale(null)}
         setSelectedSaleId={setSelectedSaleId}
         selectedHistorySaleId={selectedHistorySaleId}

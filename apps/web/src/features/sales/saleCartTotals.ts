@@ -53,13 +53,24 @@ export function areSerialSelectionsComplete(items: SaleCartItem[], siteId: strin
   return new Set(selectedIds).size === selectedIds.length;
 }
 
+type ArticleLine = Pick<SaleCartItem, 'quantity'> & { sellByFraction?: boolean | undefined };
+
+/** A measured line (2,40 m, 0,250 kg) is one article; counted lines are their quantity. */
+function articleCount(item: ArticleLine): number {
+  return item.sellByFraction ? 1 : item.quantity;
+}
+
+export function getCartArticleCount(items: readonly ArticleLine[]): number {
+  return items.reduce((count, item) => count + articleCount(item), 0);
+}
+
 export function getCartSummary(items: SaleCartItem[], priceIncludesTax: boolean): SaleCartSummary {
   return items.reduce<SaleCartSummary>(
     (summary, item) => {
       const lineTotals = getLineTotals(item, priceIncludesTax);
 
       return {
-        itemCount: summary.itemCount + item.quantity,
+        itemCount: summary.itemCount + articleCount(item),
         subtotal: roundMoney(summary.subtotal + lineTotals.subtotal),
         taxAmount: roundMoney(summary.taxAmount + lineTotals.taxAmount),
         total: roundMoney(summary.total + lineTotals.total),

@@ -271,6 +271,48 @@ describe('SalesCheckoutPanel dock', () => {
     expect(onCredit).toHaveBeenCalledTimes(1);
   });
 
+  it('puts Entregar en obra in the charge row as a toggle for the ticket', () => {
+    const onDelivery = vi.fn();
+    const { rerender } = renderDock({ showsCreditKey: true, showsDeliveryKey: true, onDelivery });
+    const key = screen.getByTestId('checkout-delivery');
+    expect(key).toHaveAccessibleName('Deliver to job site');
+    expect(key).toHaveAttribute('aria-pressed', 'false');
+    expect(key.parentElement).toContainElement(screen.getByTestId('checkout-credit'));
+    fireEvent.click(key);
+    expect(onDelivery).toHaveBeenCalledOnce();
+
+    rerender(
+      <SalesCheckoutPanel
+        currentSite={null}
+        cashSession={CASH_SESSION}
+        registerAssignments={[]}
+        selectedRegisterAssignment={null}
+        isCashSessionLoading={false}
+        draftSummary={{ itemCount: 0, subtotal: 0, taxAmount: 0, total: 0 }}
+        canCharge={false}
+        canOpenCashSession={false}
+        canCloseCashSession
+        onCharge={vi.fn()}
+        onOpenCashSession={vi.fn()}
+        onCloseCashSession={vi.fn()}
+        onOpenMovement={vi.fn()}
+        onRegisterAssignmentChange={vi.fn()}
+        showsDeliveryKey
+        deliveryActive
+      />
+    );
+    expect(screen.getByTestId('checkout-delivery')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('checkout-delivery')).toBeDisabled();
+  });
+
+  it('shows no delivery key without the zone or with the register closed', () => {
+    const off = renderDock({ showsDeliveryKey: false, onDelivery: vi.fn() });
+    expect(screen.queryByTestId('checkout-delivery')).not.toBeInTheDocument();
+    off.unmount();
+    renderDock({ showsDeliveryKey: true, cashSession: null, onDelivery: vi.fn() });
+    expect(screen.queryByTestId('checkout-delivery')).not.toBeInTheDocument();
+  });
+
   it('shows no Fiar key while the register does not sell on credit', () => {
     renderDock({ showsCreditKey: false });
     expect(screen.queryByTestId('checkout-credit')).not.toBeInTheDocument();

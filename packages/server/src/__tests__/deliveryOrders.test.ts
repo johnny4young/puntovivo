@@ -122,7 +122,7 @@ function createOrder(h: Harness) {
     address: 'Private address',
   });
 }
-function seedSale(h: Harness, siteId = h.siteId) {
+function seedSale(h: Harness, siteId = h.siteId, cashierId = h.adminId) {
   const db = getDatabase();
   const sessionId = nanoid();
   db.insert(cashSessions)
@@ -130,7 +130,7 @@ function seedSale(h: Harness, siteId = h.siteId) {
       id: sessionId,
       tenantId: h.tenantId,
       siteId,
-      cashierId: h.adminId,
+      cashierId,
       registerName: nanoid(),
       openingCountDenominations: [],
       status: 'closed',
@@ -611,6 +611,63 @@ describe('Delivery Orders tRPC Router', () => {
       (await caller(tenantA).deliveryOrders.get({ siteId: tenantA.siteId, id: result.id }))
         .cancellationReason
     ).toBe('Customer arranged pickup');
+  });
+
+  it('lets a cashier deliver only sales rung in their own register session', async () => {
+    const db = getDatabase();
+    const now = new Date().toISOString();
+    const [ownId, otherId] = ['own', 'other'].map(tag => `do-cashier-${tag}`);
+    for (const id of [ownId!, otherId!]) {
+      await db.insert(users).values({
+        id,
+        tenantId: tenantA.tenantId,
+        email: `${id}@example.com`,
+        passwordHash: await hash('TestPassword123!'),
+        name: id,
+        role: 'cashier',
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+    const { deviceId } = await registerDevice(db, {
+      tenantId: tenantA.tenantId,
+      userId: ownId!,
+      kind: 'web',
+      name: 'Register',
+    });
+    const cashier = () =>
+      appRouter.createCaller(
+        freshCriticalContext({
+          db,
+          serverApp: server.app,
+          tenantId: tenantA.tenantId,
+          userId: ownId!,
+          email: `${ownId}@example.com`,
+          role: 'cashier',
+          siteId: tenantA.siteId,
+          deviceId,
+        })
+      );
+    const recipient = { siteId: tenantA.siteId, customerName: 'Obra', address: 'Calle 1' };
+    const others = [seedSale(tenantA, tenantA.siteId, otherId), seedSale(tenantA)];
+    for (const sale of others) {
+      await expect(
+        cashier().deliveryOrders.createFromSale({ ...recipient, saleId: sale.id })
+      ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+    }
+    const own = seedSale(tenantA, tenantA.siteId, ownId);
+    const created = await cashier().deliveryOrders.createFromSale({ ...recipient, saleId: own.id });
+    expect(created).toMatchObject({ status: 'accepted', version: 1 });
+    expect(
+      db.select().from(deliveryOrders).where(eq(deliveryOrders.id, created.id)).get()
+    ).toMatchObject({ saleId: own.id, source: 'sale', address: 'Calle 1' });
+    await expect(cashier().deliveryOrders.list({ siteId: tenantA.siteId })).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
+    await expect(cashier().deliveryOrders.create(recipient)).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
   });
 
   it('rejects foreign, wrong-site, draft, voided and returned sale references', async () => {
