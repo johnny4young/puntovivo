@@ -6,7 +6,8 @@
     "noActiveSite": "Select an active site before opening the touch register.",
     "loadingProducts": "Loading catalog…",
     "loadingError": "We could not load the catalog. Try again.",
-    "voiceLink": "Open voice ordering"
+    "voiceLink": "Open voice ordering",
+    "tillLink": "Till and shift"
   },
   "categories": {
     "all": "All",

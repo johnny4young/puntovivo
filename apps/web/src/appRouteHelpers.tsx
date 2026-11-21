@@ -1,5 +1,5 @@
 // Route-wrapper components for the app router, extracted from App.tsx
-// ( slice 35). HomeRedirect resolves the role default; LoginRoute is the
+// ( slice 35). HomeRedirect resolves the landing route; LoginRoute is the
 // login Suspense fallback; ShellRoute is the protected + module-gated Suspense
 // wrapper every in-layout route uses.
 
@@ -10,16 +10,25 @@ import { RouteErrorBoundary } from '@/components/feedback/AppErrorBoundary';
 import { FullscreenLoadingState, PageLoadingState } from '@/components/feedback/LoadingState';
 import { AuthRecoveryScreen } from '@/features/auth/AuthRecoveryScreen';
 import { useAuth } from '@/features/auth/AuthProvider';
-import { getDefaultRouteForRole } from '@/features/auth/roleAccess';
+import { getLandingRoute } from '@/features/auth/roleAccess';
+import { useSellingRoute } from '@/features/auth/useSellingRoute';
 import { RequireModule, useModulesSnapshot } from '@/features/modules';
 import { ProtectedRoute } from '@/features/auth/ProtectedRoute';
 import type { UserRole } from '@/types';
 import type { ClientModuleId } from '@/features/modules';
 
 export function HomeRedirect() {
+  const { t } = useTranslation('common');
   const { user } = useAuth();
+  const sellingRoute = useSellingRoute();
+  const landingRoute = getLandingRoute(user?.role, sellingRoute.route);
 
-  return <Navigate to={getDefaultRouteForRole(user?.role)} replace />;
+  if (landingRoute === sellingRoute.route && sellingRoute.isResolving) {
+    return (
+      <PageLoadingState title={t('loading.pageTitle')} description={t('loading.pageDescription')} />
+    );
+  }
+  return <Navigate to={landingRoute} replace />;
 }
 
 export function LoginRoute({ children }: { children: ReactNode }) {
