@@ -476,8 +476,16 @@ export const productQueryProcedures = {
           })
         : null;
 
+    // Other sites' stock stays with the roles that can already see it while selling.
+    const stockedItems = isSalesRole(ctx.user?.role)
+      ? withSiteStockBreakdown(ctx.db, ctx.tenantId, input.siteId, items)
+      : withSiteStock(ctx.db, ctx.tenantId, input.siteId, items).map(item => ({
+          ...item,
+          otherSites: null,
+        }));
+
     return {
-      items: withSiteStockBreakdown(ctx.db, ctx.tenantId, input.siteId, items).map(item => {
+      items: stockedItems.map(item => {
         const unitAssignments = assignmentsMap.get(item.id) ?? [];
         const baseUnit =
           unitAssignments.find(assignment => assignment.isBase) ?? unitAssignments[0];

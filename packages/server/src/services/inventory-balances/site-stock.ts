@@ -4,7 +4,7 @@
  *
  * @module services/inventory-balances/site-stock
  */
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 
 import type { DatabaseInstance } from '../../db/index.js';
 import { inventoryBalances, sites } from '../../db/schema.js';
@@ -48,8 +48,9 @@ function selectSiteBalances(
         inArray(inventoryBalances.productId, [...productIds])
       )
     )
-    .orderBy(asc(sites.name))
-    .all();
+    .all()
+    // SQLite's binary collation would put lowercase and accented names last.
+    .sort((a, b) => a.siteName.localeCompare(b.siteName));
   for (const { productId, siteActive, ...balance } of rows) {
     const list = result.get(productId) ?? [];
     list.push({ ...balance, siteActive: siteActive === true });

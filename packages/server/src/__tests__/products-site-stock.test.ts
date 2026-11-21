@@ -19,17 +19,17 @@ let spreadProductId: string;
 let closedSiteId: string;
 const now = () => new Date().toISOString();
 
-function cashierCaller() {
+function cashierCaller(role = 'cashier') {
   const context = {
     req: {
       server: server.app,
       headers: {},
-      user: { userId, email: 'admin@localhost', role: 'cashier', tenantId },
+      user: { userId, email: 'admin@localhost', role, tenantId },
       jwtVerify: async () => {},
     } as unknown as Context['req'],
     res: {} as Context['res'],
     db: getDatabase(),
-    user: { id: userId, email: 'admin@localhost', role: 'cashier', tenantId },
+    user: { id: userId, email: 'admin@localhost', role, tenantId },
     tenantId,
     siteId: primarySiteId,
   } as Context;
@@ -139,7 +139,7 @@ describe('products site stock', () => {
     insertBalance(primarySiteId, spreadProductId, 42);
     insertBalance(secondarySiteId, spreadProductId, 12);
     insertBalance(insertSite('Bodega Sur', true), spreadProductId, 120);
-    insertBalance(insertSite('Annex', true), spreadProductId, 12);
+    insertBalance(insertSite('Ámbar', true), spreadProductId, 12);
     insertBalance(insertSite('Empty site', true), spreadProductId, 0);
     closedSiteId = insertSite('Closed site', false);
     insertBalance(closedSiteId, spreadProductId, 500);
@@ -203,7 +203,7 @@ describe('products site stock', () => {
       siteStock: 42,
       otherSites: [
         { siteName: 'Bodega Sur', onHand: 120 },
-        { siteName: 'Annex', onHand: 12 },
+        { siteName: 'Ámbar', onHand: 12 },
         { siteId: secondarySiteId, siteName: 'Second site', onHand: 12 },
       ],
     });
@@ -242,9 +242,21 @@ describe('products site stock', () => {
       otherSites: [
         { siteName: 'Bodega Sur', onHand: 120 },
         { siteId: primarySiteId, onHand: 42 },
-        { siteName: 'Annex', onHand: 12 },
+        { siteName: 'Ámbar', onHand: 12 },
         { siteName: 'Second site', onHand: 12 },
       ],
+    });
+  });
+
+  it('keeps other sites from roles that do not sell', async () => {
+    const { items } = await cashierCaller('viewer').products.search({
+      q: 'Spread drywall',
+      siteId: primarySiteId,
+    });
+
+    expect(items.find(item => item.id === spreadProductId)).toMatchObject({
+      siteStock: 42,
+      otherSites: null,
     });
   });
 
