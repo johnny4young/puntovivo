@@ -3,6 +3,7 @@ import { strict as assert } from 'node:assert';
 import {
   buildCustomerDisplayWindowWebPreferences,
   buildMainWindowWebPreferences,
+  denyCameraCapture,
   disableBuiltinSpellchecker,
   MAIN_WINDOW_WEB_PREFERENCES,
 } from '../window-config.ts';
@@ -79,5 +80,50 @@ describe('builtin spellchecker', () => {
     });
 
     assert.deepEqual(calls, [false]);
+  });
+});
+
+describe('camera capture', () => {
+  type RequestHandler = (
+    contents: unknown,
+    permission: string,
+    callback: (granted: boolean) => void,
+    details: { mediaTypes?: string[] }
+  ) => void;
+  type CheckHandler = (
+    contents: unknown,
+    permission: string,
+    origin: string,
+    details: { mediaType?: string }
+  ) => boolean;
+
+  function install() {
+    let request: RequestHandler | undefined;
+    let check: CheckHandler | undefined;
+    denyCameraCapture({
+      setPermissionRequestHandler: ((handler: RequestHandler) => {
+        request = handler;
+      }) as never,
+      setPermissionCheckHandler: ((handler: CheckHandler) => {
+        check = handler;
+      }) as never,
+    });
+    const ask = (permission: string, details: { mediaTypes?: string[] }) => {
+      let granted: boolean | undefined;
+      request!(null, permission, value => (granted = value), details);
+      return granted;
+    };
+    return { ask, check: check! };
+  }
+
+  it('refuses the camera and keeps every other permission granted', () => {
+    const { ask, check } = install();
+
+    assert.equal(ask('media', { mediaTypes: ['video'] }), false);
+    assert.equal(ask('media', { mediaTypes: ['audio', 'video'] }), false);
+    assert.equal(ask('media', { mediaTypes: ['audio'] }), true);
+    assert.equal(ask('clipboard-sanitized-write', {}), true);
+    assert.equal(check(null, 'media', 'http://localhost', { mediaType: 'video' }), false);
+    assert.equal(check(null, 'media', 'http://localhost', { mediaType: 'audio' }), true);
   });
 });

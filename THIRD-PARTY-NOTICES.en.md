@@ -17,3 +17,16 @@ Fontsource npm packages, which carry the full licence text.
 
 The SIL Open Font License 1.1 is available at https://openfontlicense.org.
 The fonts are used unmodified and are not sold on their own.
+
+## Libraries
+
+Bundled into the web build and loaded only on phones whose browser has no
+built-in barcode detector.
+
+| Library | Used for | Copyright | Licence |
+| --- | --- | --- | --- |
+| @zxing/library (https://github.com/zxing-js/library) | Reading barcodes with the phone camera | Copyright ZXing authors, ported to TypeScript by the ZXing-JS contributors | Apache License 2.0 |
+| ts-custom-error (https://github.com/adriengibrat/ts-custom-error) | Error classes inside @zxing/library | Copyright (c) 2019 Adrien Gibrat | MIT License |
+
+The Apache License 2.0 is available at https://www.apache.org/licenses/LICENSE-2.0.
+Both packages are used unmodified; their npm packages carry the full licence text.

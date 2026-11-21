@@ -17,3 +17,16 @@ paquetes npm de Fontsource, que traen el texto completo de la licencia.
 
 La SIL Open Font License 1.1 está disponible en https://openfontlicense.org.
 Las fuentes se usan sin modificar y no se venden por separado.
+
+## Bibliotecas
+
+Se incluyen en la versión web y solo se cargan en teléfonos cuyo navegador no
+trae un detector de códigos de barras.
+
+| Biblioteca | Uso | Copyright | Licencia |
+| --- | --- | --- | --- |
+| @zxing/library (https://github.com/zxing-js/library) | Leer códigos de barras con la cámara del teléfono | Copyright de los autores de ZXing, portado a TypeScript por los colaboradores de ZXing-JS | Apache License 2.0 |
+| ts-custom-error (https://github.com/adriengibrat/ts-custom-error) | Clases de error dentro de @zxing/library | Copyright (c) 2019 Adrien Gibrat | Licencia MIT |
+
+La Apache License 2.0 está disponible en https://www.apache.org/licenses/LICENSE-2.0.
+Ambos paquetes se usan sin modificar; sus paquetes npm traen el texto completo de la licencia.

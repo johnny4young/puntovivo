@@ -691,10 +691,13 @@
       "title": "Scan with the camera",
       "aim": "Point the camera at the barcode.",
       "cancel": "Cancel",
+      "retry": "Try again",
+      "torch": "Flashlight",
       "error": {
         "permission-denied": "Allow camera access to scan.",
         "no-camera": "This device has no camera available.",
-        "unavailable": "The camera could not open. Search for the product by name."
+        "unavailable": "The camera could not open. Search for the product by name.",
+        "busy": "Another app is using the camera. Close it and try again."
       }
     }
   },

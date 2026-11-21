@@ -691,10 +691,13 @@
       "title": "Escanee con la cámara",
       "aim": "Apunte la cámara al código de barras.",
       "cancel": "Cancelar",
+      "retry": "Reintentar",
+      "torch": "Linterna",
       "error": {
         "permission-denied": "Permita el uso de la cámara para escanear.",
         "no-camera": "Este equipo no tiene una cámara disponible.",
-        "unavailable": "No se pudo abrir la cámara. Busque el producto por nombre."
+        "unavailable": "No se pudo abrir la cámara. Busque el producto por nombre.",
+        "busy": "Otra aplicación está usando la cámara. Ciérrela e intente de nuevo."
       }
     }
   },
