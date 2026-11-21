@@ -29,7 +29,7 @@ interface SalesHeaderSectionProps {
 }
 
 const UTILITY_BUTTON =
-  'sales-strip-action btn-outline flex min-w-0 flex-1 items-center justify-center gap-2 whitespace-nowrap sm:flex-none';
+  'sales-strip-action btn-outline flex min-w-0 flex-none items-center justify-center gap-2 whitespace-nowrap';
 
 export function SalesHeaderSection({
   registerName,
@@ -47,7 +47,7 @@ export function SalesHeaderSection({
   priceTier,
   onPriceTierChange,
 }: SalesHeaderSectionProps) {
-  const { t } = useTranslation('sales');
+  const { t } = useTranslation(['sales', 'salesOperation']);
   const who = [cashierName, siteName].filter(Boolean).join(' · ');
 
   return (
@@ -58,7 +58,17 @@ export function SalesHeaderSection({
         aria-label={t('sell.strip.ariaLabel')}
         data-testid="sales-command-bar"
       >
-        <p className="min-w-0 shrink-[4] truncate" data-testid="sales-register-identity">
+        <span
+          className={`sales-pill sales-register-state md:hidden ${registerName ? 'is-open' : ''}`}
+          title={registerName ?? undefined}
+          data-testid="sales-register-state"
+        >
+          {t(registerName ? 'salesOperation:registerOpen' : 'salesOperation:registerClosed')}
+        </span>
+        <p
+          className="min-w-0 shrink-[4] truncate max-md:hidden"
+          data-testid="sales-register-identity"
+        >
           <span className="font-display text-lg font-bold text-fg1">
             {registerName ?? t('cashSession.inactive')}
           </span>
@@ -90,7 +100,7 @@ export function SalesHeaderSection({
         )}
         <span className="hidden flex-1 lg:block" />
         {status}
-        <div className="grid w-full grid-cols-2 gap-1.5 sm:flex sm:w-auto sm:shrink-0 sm:items-center">
+        <div className="flex shrink-0 items-center gap-1.5">
           <button
             type="button"
             className={UTILITY_BUTTON}
@@ -99,7 +109,7 @@ export function SalesHeaderSection({
             title={t('view.history')}
           >
             <History className="h-4 w-4" aria-hidden="true" />
-            <span className="min-w-0 truncate lg:sr-only">{t('view.history')}</span>
+            <span className="min-w-0 truncate max-md:sr-only lg:sr-only">{t('view.history')}</span>
           </button>
           <button
             type="button"
@@ -112,7 +122,9 @@ export function SalesHeaderSection({
             }
           >
             <PauseCircle className="h-4 w-4" aria-hidden="true" />
-            <span className="min-w-0 truncate lg:sr-only">{t('park.panelTitle')}</span>
+            <span className="min-w-0 truncate max-md:sr-only lg:sr-only">
+              {t('park.panelTitle')}
+            </span>
             {suspendedDraftsCount > 0 && (
               <span
                 className="inline-flex min-w-5 items-center justify-center rounded-full bg-accent px-1.5 font-numeric text-xs font-bold text-primary"

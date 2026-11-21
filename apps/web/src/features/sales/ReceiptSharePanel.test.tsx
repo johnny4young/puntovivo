@@ -55,26 +55,52 @@ describe('ReceiptSharePanel', () => {
     mocks.downloadFile.mockReset();
   });
 
-  it('explains the manual handoff and prepares a local image without uploading it', async () => {
+  it('previews the exact WhatsApp message and opens it without preparing an image', () => {
     render(<ReceiptSharePanel saleId="sale-1" siteId="site-1" onClose={vi.fn()} />);
 
-    expect(
-      screen.getByText(/does not choose the contact or send the message/i)
-    ).toBeInTheDocument();
+    expect(screen.getByTestId('receipt-share-preview')).toHaveTextContent('Receipt V-1 Total: $10');
+    expect(screen.getByText(/You send it from your WhatsApp/)).toBeInTheDocument();
     const link = screen.getByTestId('receipt-share-whatsapp');
     expect(link).toHaveAttribute('href', 'https://wa.me/?text=Receipt%20V-1%0ATotal%3A%20%2410');
 
     fireEvent.click(link);
+    expect(mocks.createReceiptPng).not.toHaveBeenCalled();
+  });
+
+  it('downloads the receipt image locally where the share sheet is unavailable', async () => {
+    render(<ReceiptSharePanel saleId="sale-1" siteId="site-1" onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Image' }));
+
     await waitFor(() => expect(mocks.createReceiptPng).toHaveBeenCalledWith(mocks.data.html));
     expect(mocks.downloadFile).toHaveBeenCalledWith(expect.any(Blob), 'puntovivo-recibo-v-1.png');
     expect(await screen.findByRole('status')).toHaveTextContent('Image downloaded');
+  });
+
+  it('hands the image to the share sheet on a touch device instead of downloading it', async () => {
+    const share = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('navigator', { ...navigator, share, canShare: () => true });
+    const matchMedia = vi
+      .spyOn(window, 'matchMedia')
+      .mockImplementation(query => ({ matches: query === '(pointer: coarse)' }) as MediaQueryList);
+    try {
+      render(<ReceiptSharePanel saleId="sale-1" siteId="site-1" onClose={vi.fn()} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Image' }));
+
+      await waitFor(() => expect(share).toHaveBeenCalledOnce());
+      expect(share.mock.calls[0]?.[0].files[0].name).toBe('puntovivo-recibo-v-1.png');
+      expect(mocks.downloadFile).not.toHaveBeenCalled();
+    } finally {
+      matchMedia.mockRestore();
+      vi.unstubAllGlobals();
+    }
   });
 
   it('keeps the prepared WhatsApp text available when image generation fails', async () => {
     mocks.createReceiptPng.mockRejectedValue(new Error('Canvas unavailable'));
     render(<ReceiptSharePanel saleId="sale-1" siteId="site-1" onClose={vi.fn()} />);
 
-    fireEvent.click(screen.getByTestId('receipt-share-whatsapp'));
+    fireEvent.click(screen.getByRole('button', { name: 'Image' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('image is unavailable');
     expect(screen.getByTestId('receipt-share-whatsapp')).toHaveAttribute(
@@ -88,9 +114,10 @@ describe('ReceiptSharePanel', () => {
     await act(async () => i18next.changeLanguage('es'));
     render(<ReceiptSharePanel saleId="sale-1" siteId="site-1" onClose={vi.fn()} />);
 
-    expect(screen.getByText('Antes de continuar')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Recibo por WhatsApp' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Abrir WhatsApp' })).toBeInTheDocument();
-    expect(screen.getByText(/Debe adjuntarla manualmente/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Imagen' })).toBeInTheDocument();
+    expect(screen.getByText(/Usted lo envía desde su WhatsApp/)).toBeInTheDocument();
     await act(async () => i18next.changeLanguage('en'));
   });
 });

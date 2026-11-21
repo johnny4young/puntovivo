@@ -39,6 +39,13 @@ The current validated candidate includes:
   amounts on Confirm; the electronic invoice keeps the NIT and its
   verification digit apart, fills a saved buyer from the typed number and says
   the invoice queues when offline;
+- selling from a phone: a search field with a camera scan button where the
+  browser can read barcodes on the device, the site's quick keys as chips, one
+  line per item that opens its keys on a tap, and the total with Cobrar,
+  Suspender, Fiar and the suspended sales pinned to the bottom edge. Status
+  banners give way to a register pill; only a blocker stays above the sale. The
+  WhatsApp receipt card previews the exact message and keeps the image a
+  separate choice, handed to the share sheet on touch devices;
 - operator-first task navigation, command search, guided business setup, and
   plain-language readiness and recovery surfaces for non-technical staff. The
   vertical readiness card derives bounded, tenant-scoped facts for the selected

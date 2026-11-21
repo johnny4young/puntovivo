@@ -92,6 +92,22 @@ describe('useSalePaymentModal — tender chosen before opening', () => {
     expect(result.current.isCash).toBe(false);
   });
 
+  it('starts credit as soon as a customer is picked when it opened on credit', async () => {
+    const { result } = renderPayment({ initialMethod: 'credit' });
+    expect(result.current.paymentMethod).toBe('cash');
+
+    act(() => result.current.form.setValue('customerId', 'customer-1'));
+    await waitFor(() => expect(result.current.paymentMethod).toBe('credit'));
+  });
+
+  it('keeps the method the cashier switched to before picking a customer', async () => {
+    const { result } = renderPayment({ initialMethod: 'credit' });
+    act(() => result.current.form.setValue('paymentMethod', 'card'));
+    act(() => result.current.form.setValue('customerId', 'customer-1'));
+
+    await waitFor(() => expect(result.current.paymentMethod).toBe('card'));
+  });
+
   it('opens split with the first row covering the total', () => {
     const { result } = renderPayment({ initialMethod: 'split' });
     expect(result.current.splitMode).toBe(true);

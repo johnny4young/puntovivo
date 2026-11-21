@@ -1,9 +1,23 @@
 import { createRef, useState, type ComponentProps } from 'react';
 import { fireEvent } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@/test/utils';
 import { SalesQuickSearchBar } from './SalesQuickSearchBar';
 import { buildRegisterBarActions } from './registerBarActions';
+
+const phone = vi.hoisted(() => ({ layout: false, camera: false }));
+vi.mock('./usePhoneLayout', () => ({ usePhoneLayout: () => phone.layout }));
+vi.mock('./cameraScan', async importOriginal => ({
+  ...(await importOriginal<typeof import('./cameraScan')>()),
+  isCameraScanSupported: () => phone.camera,
+}));
+vi.mock('./CameraScanDialog', () => ({
+  CameraScanDialog: ({ onDetected }: { onDetected: (code: string) => void }) => (
+    <button type="button" onClick={() => onDetected('7701234567890')}>
+      fake camera read
+    </button>
+  ),
+}));
 
 const PLACEHOLDER = 'Scan, or type a product, code or command';
 
@@ -235,5 +249,49 @@ describe('SalesQuickSearchBar', () => {
 
     expect(screen.getByText('This ticket’s customer is fixed and cannot be changed')).toBeVisible();
     expect(screen.queryByRole('option')).not.toBeInTheDocument();
+  });
+
+  describe('on a phone', () => {
+    afterEach(() => {
+      phone.layout = false;
+      phone.camera = false;
+    });
+
+    it('asks for a product, opens search from the icon and hides the desktop key hints', () => {
+      phone.layout = true;
+      const onSubmit = vi.fn();
+      render(<Harness onSubmit={onSubmit} />);
+
+      expect(screen.getByPlaceholderText('Search for a product')).toBeInTheDocument();
+      expect(screen.getAllByRole('button', { name: 'Search' })).toHaveLength(1);
+      fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+      expect(onSubmit).toHaveBeenCalledWith('');
+      expect(screen.queryByText('F5')).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: 'Scan with the camera' })
+      ).not.toBeInTheDocument();
+    });
+
+    it('sends a camera read down the scanner path when the device can scan', async () => {
+      phone.layout = true;
+      phone.camera = true;
+      const onCameraCode = vi.fn();
+      render(<Harness onCameraCode={onCameraCode} />);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Scan with the camera' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'fake camera read' }));
+
+      expect(onCameraCode).toHaveBeenCalledWith('7701234567890');
+      expect(screen.queryByRole('button', { name: 'fake camera read' })).not.toBeInTheDocument();
+    });
+
+    it('offers no camera on a locked ticket', () => {
+      phone.layout = true;
+      phone.camera = true;
+      render(<Harness disabled onCameraCode={vi.fn()} />);
+      expect(
+        screen.queryByRole('button', { name: 'Scan with the camera' })
+      ).not.toBeInTheDocument();
+    });
   });
 });

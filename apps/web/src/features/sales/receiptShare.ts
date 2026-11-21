@@ -141,3 +141,25 @@ export async function createReceiptPng(html: string): Promise<Blob> {
     frame.remove();
   }
 }
+
+/**
+ * Hands the receipt picture to the OS share sheet on touch devices, where a
+ * download is hard to find. Returns false when the caller should download it
+ * instead; the file never leaves the device unless the cashier picks an app.
+ */
+export async function shareReceiptImage(image: Blob, filename: string): Promise<boolean> {
+  const touch =
+    typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
+  if (!touch || typeof navigator.share !== 'function' || typeof navigator.canShare !== 'function') {
+    return false;
+  }
+  const file = new File([image], filename, { type: 'image/png' });
+  if (!navigator.canShare({ files: [file] })) return false;
+  try {
+    await navigator.share({ files: [file] });
+  } catch (error) {
+    // Closing the sheet is a choice, not a reason to download.
+    return error instanceof DOMException && error.name === 'AbortError';
+  }
+  return true;
+}

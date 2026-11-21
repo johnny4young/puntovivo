@@ -117,6 +117,9 @@ function mutation(fn: (input: unknown) => unknown) {
   });
 }
 
+const phone = vi.hoisted(() => ({ layout: false }));
+vi.mock('./usePhoneLayout', () => ({ usePhoneLayout: () => phone.layout }));
+
 vi.mock('@/lib/trpc', () => ({
   trpc: {
     quickKeys: {
@@ -199,6 +202,36 @@ describe('SalesQuickAccess', () => {
     Object.values(mutations).forEach(mock => mock.mockReset());
     toastError.mockClear();
     getById.mockClear();
+    phone.layout = false;
+  });
+
+  it('shows the keys as one row of name chips on a phone, with the editor as the last chip', async () => {
+    phone.layout = true;
+    state.topSelling = [
+      {
+        productId: 'p-bread',
+        name: 'Bread',
+        sku: 'BREAD-1',
+        price: 3,
+        categoryId: null,
+        quantity: 9,
+      },
+    ];
+    state.keys = [keyRow({ id: 'k1', productId: 'p-coffee', label: 'Tinto' })];
+    const user = userEvent.setup();
+    const onSelectProduct = vi.fn();
+    render(<SalesQuickAccess {...baseProps} canEdit onSelectProduct={onSelectProduct} />);
+
+    const chip = screen.getByTestId('sales-quick-product-COFFEE-1');
+    expect(chip).toHaveClass('sales-quick-chip');
+    expect(chip).toHaveTextContent(/^Tinto$/);
+    expect(screen.queryByTestId('sales-quick-suggestion')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'No barcode · one touch' })).toBeInTheDocument();
+
+    await user.click(chip);
+    expect(onSelectProduct).toHaveBeenCalledOnce();
+    await user.click(screen.getByRole('button', { name: 'Edit keys' }));
+    expect(await screen.findByRole('dialog', { name: 'Keys without a barcode' })).toBeVisible();
   });
 
   it('shows the site keys with their label and swatch and adds one in a single action', async () => {

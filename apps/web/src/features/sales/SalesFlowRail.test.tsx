@@ -28,6 +28,36 @@ describe('SalesFlowRail', () => {
     expect(screen.getByTestId('sales-operation-strip')).toHaveClass('lg:hidden');
   });
 
+  it('leaves phones to the fixed bar unless the rail carries a blocker', () => {
+    const closed = render(<SalesFlowRail {...baseProps} />);
+    expect(screen.getByTestId('sales-operation-strip')).toHaveClass('max-md:hidden');
+    closed.unmount();
+
+    const ready = render(<SalesFlowRail {...baseProps} hasCashSession itemCount={2} canCharge />);
+    expect(screen.getByTestId('sales-operation-strip')).toHaveClass('max-md:hidden');
+    ready.unmount();
+
+    const hub = render(<SalesFlowRail {...baseProps} hasCashSession hubReachable={false} />);
+    expect(screen.getByTestId('sales-operation-strip')).not.toHaveClass('max-md:hidden');
+    hub.unmount();
+
+    render(
+      <SalesFlowRail
+        {...baseProps}
+        hasCashSession
+        itemCount={2}
+        preflightItems={[
+          {
+            id: 'insufficient_stock',
+            severity: 'blocker',
+            messageKey: 'preflight.items.insufficient_stock.message',
+          },
+        ]}
+      />
+    );
+    expect(screen.getByTestId('sales-operation-strip')).not.toHaveClass('max-md:hidden');
+  });
+
   it('shows only the next valid step for a closed register', async () => {
     const user = userEvent.setup();
     const onOpenCashSession = vi.fn();

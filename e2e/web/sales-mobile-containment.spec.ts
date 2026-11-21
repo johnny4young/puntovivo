@@ -41,6 +41,7 @@ async function expectSalesWorkbenchContained(page: Page, width: number) {
     const primaryRow = cartItem?.firstElementChild;
     const productDetails = primaryRow?.querySelector(':scope > button');
     const quantityControls = primaryRow?.querySelector(':scope > div');
+    const compactQuantity = primaryRow?.querySelector('.sales-ticket-qty-compact');
     const offenders = [...grid.querySelectorAll('*')]
       .map(element => ({
         tag: element.tagName,
@@ -69,8 +70,15 @@ async function expectSalesWorkbenchContained(page: Page, width: number) {
       cartPrimaryRow:
         productDetails && quantityControls
           ? {
+              productTop: productDetails.getBoundingClientRect().top,
               productBottom: productDetails.getBoundingClientRect().bottom,
               controlsTop: quantityControls.getBoundingClientRect().top,
+              controlsShown: getComputedStyle(quantityControls).display !== 'none',
+              compactMiddle: compactQuantity
+                ? (compactQuantity.getBoundingClientRect().top +
+                    compactQuantity.getBoundingClientRect().bottom) /
+                  2
+                : null,
             }
           : null,
     };
@@ -91,10 +99,13 @@ async function expectSalesWorkbenchContained(page: Page, width: number) {
   if (geometry.cartItemPresent) {
     expect(geometry.cartPrimaryRow).not.toBeNull();
   }
-  if (width < 640 && geometry.cartPrimaryRow) {
-    expect(geometry.cartPrimaryRow.productBottom).toBeLessThanOrEqual(
-      geometry.cartPrimaryRow.controlsTop + 1
-    );
+  // Phones read a closed line as one row: name, quantity and total; its keys wait for a tap.
+  if (width < 768 && geometry.cartPrimaryRow) {
+    const row = geometry.cartPrimaryRow;
+    expect(row.controlsShown).toBe(false);
+    expect(row.compactMiddle).not.toBeNull();
+    expect(row.compactMiddle!).toBeGreaterThanOrEqual(row.productTop);
+    expect(row.compactMiddle!).toBeLessThanOrEqual(row.productBottom);
   }
 }
 

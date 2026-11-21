@@ -429,6 +429,17 @@ export function useSalePaymentModal({
   const change = isCash ? Math.max(0, amountReceivedValue - grandTotal) : 0;
   const outstanding = Math.max(0, grandTotal - receivedValue);
   const creditMethodAvailable = canLendCredit && watchedCustomerId.length > 0;
+  // Opened on credit before a customer was picked: credit starts once one is.
+  const pendingCreditRef = useRef(initialMethod === 'credit' && !approvalCustomerId);
+  useEffect(() => {
+    if (!pendingCreditRef.current) return;
+    if (paymentMethod !== 'cash') {
+      pendingCreditRef.current = false;
+    } else if (creditMethodAvailable) {
+      pendingCreditRef.current = false;
+      form.setValue('paymentMethod', 'credit');
+    }
+  }, [creditMethodAvailable, form, paymentMethod]);
 
   // read the active customer's current balance + creditLimit
   // when credit is the active method. The query short-circuits via

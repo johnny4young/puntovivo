@@ -1,8 +1,9 @@
-import { useEffect, useRef, useSyncExternalStore } from 'react';
+import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { managerOrAdminRoles } from '@/features/auth/roleAccess';
@@ -28,31 +29,13 @@ interface SidebarProps {
 // links in the accessibility tree and lets the mobile drawer be a real dialog.
 const DESKTOP_SIDEBAR_QUERY = '(min-width: 1280px)';
 
-function subscribeToDesktopSidebar(onStoreChange: () => void): () => void {
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-    return () => {};
-  }
-  const media = window.matchMedia(DESKTOP_SIDEBAR_QUERY);
-  media.addEventListener('change', onStoreChange);
-  return () => media.removeEventListener('change', onStoreChange);
-}
-
-function getDesktopSidebarSnapshot(): boolean {
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return true;
-  return window.matchMedia(DESKTOP_SIDEBAR_QUERY).matches;
-}
-
 export function Sidebar({ collapsed, mobileOpen, onToggleCollapse, onCloseMobile }: SidebarProps) {
   const { user } = useAuth();
   const { t } = useTranslation(['nav', 'workspaces']);
   const { modules, isPlaceholder } = useModulesSnapshot();
   const location = useLocation();
   const prefetchSales = usePrefetchSales();
-  const isDesktopSidebar = useSyncExternalStore(
-    subscribeToDesktopSidebar,
-    getDesktopSidebarSnapshot,
-    () => true
-  );
+  const isDesktopSidebar = useMediaQuery(DESKTOP_SIDEBAR_QUERY, true);
   const mobileDialogRef = useRef<HTMLElement>(null);
 
   // dashboard badge for high-severity AI anomalies. Keep the query

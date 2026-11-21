@@ -2,8 +2,7 @@
   "page": {
     "todaySales": "Today's sales",
     "transactions": "Transactions",
-    "averageOrder": "Average order",
-    "draftTotal": "Draft total"
+    "averageOrder": "Average order"
   },
   "view": {
     "history": "History",
@@ -35,8 +34,6 @@
     "addToCart": "Add to cart",
     "itemCount": "Items",
     "activeTicket": "Active ticket",
-    "lineItems_one": "{{count}} line item",
-    "lineItems_other": "{{count}} line items",
     "clearCart": "Clear cart",
     "priceTier": {
       "groupLabel": "Price level for this ticket",
@@ -550,7 +547,8 @@
     "shortcut": {
       "focusSearch": "Focus search",
       "openCatalog": "Open catalog"
-    }
+    },
+    "phonePlaceholder": "Search for a product"
   },
   "commandBar": {
     "grammar": "Type 3* before scanning to sell three, @ to find a customer or / to see register actions.",
@@ -687,7 +685,18 @@
     "weightFromLabel": "Weight applied from the label",
     "priceFromLabel": "Price applied from the label",
     "noBaseUnit": "Product has no unit configured",
-    "resumedCartLocked": "Discard the resumed cart to add new items"
+    "resumedCartLocked": "Discard the resumed cart to add new items",
+    "camera": {
+      "open": "Scan with the camera",
+      "title": "Scan with the camera",
+      "aim": "Point the camera at the barcode.",
+      "cancel": "Cancel",
+      "error": {
+        "permission-denied": "Allow camera access to scan.",
+        "no-camera": "This device has no camera available.",
+        "unavailable": "The camera could not open. Search for the product by name."
+      }
+    }
   },
   "printer": {
     "escposRetryQueued": "ESC/POS printing is saved in the queue. Check the printer and task status before printing another copy.",
@@ -964,7 +973,9 @@
     },
     "actions": {
       "suspend": "Suspend",
-      "returns": "Return"
+      "returns": "Return",
+      "credit": "On credit",
+      "suspended": "Suspended"
     },
     "keys": {
       "shortest": "Shortest path:",
@@ -976,6 +987,10 @@
       "parked": "sales on hold",
       "newSale": "new sale",
       "more": "everything else"
+    },
+    "phone": {
+      "total_one": "Total · {{count}} item",
+      "total_other": "Total · {{count}} items"
     }
   }
 }

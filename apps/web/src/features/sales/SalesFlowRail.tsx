@@ -140,7 +140,7 @@ export function SalesFlowRail({
       density="compact"
       aria-label={tOperation('ariaLabel')}
       testId="sales-operation-strip"
-      className={isHubBlocked || !hasCashSession ? undefined : 'lg:hidden'}
+      className={railVisibility(isHubBlocked, hasCashSession, tone)}
       metaClassName="w-full @xl:w-auto"
       meta={
         <div
@@ -204,4 +204,18 @@ export function SalesFlowRail({
       }
     />
   );
+}
+
+/**
+ * Blockers show everywhere. On phones the fixed bar already says what to do next
+ * (open the register, charge), so only a blocker stacks above the sale there.
+ */
+function railVisibility(
+  isHubBlocked: boolean,
+  hasCashSession: boolean,
+  tone: PrioritizedBannerTone
+): string | undefined {
+  if (isHubBlocked) return undefined;
+  if (!hasCashSession) return 'max-md:hidden';
+  return tone === 'critical' ? 'lg:hidden' : 'max-md:hidden lg:hidden';
 }

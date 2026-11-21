@@ -1,6 +1,6 @@
-import { useState, type KeyboardEvent, type RefObject } from 'react';
+import { lazy, Suspense, useState, type KeyboardEvent, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Check, ScanBarcode, UserPlus, UserRound, X } from 'lucide-react';
+import { Check, ScanBarcode, Search, UserPlus, UserRound, X } from 'lucide-react';
 import { ariaKeyshortcutsFor, shortcutDisplayFor } from '@/lib/shortcuts';
 import { cn, formatNumber } from '@/lib/utils';
 import { filterByQuery } from '@/lib/textMatch';
@@ -8,6 +8,12 @@ import { parseCommandBarMode, parseQuantityPrefix } from './commandBarGrammar';
 import type { RegisterBarAction } from './registerBarActions';
 import type { CommandBarCustomer } from './useCommandBarCustomers';
 import type { AttachedCustomer } from './useSalesCommandBar';
+import { isCameraScanSupported } from './cameraScan';
+import { usePhoneLayout } from './usePhoneLayout';
+
+const CameraScanDialog = lazy(() =>
+  import('./CameraScanDialog').then(module => ({ default: module.CameraScanDialog }))
+);
 
 const LISTBOX_ID = 'sales-command-listbox';
 
@@ -28,6 +34,8 @@ interface SalesQuickSearchBarProps {
   /** Matches for the text after `@`, looked up by the page. */
   customers?: readonly CommandBarCustomer[];
   isLoadingCustomers?: boolean;
+  /** Receives a code read by the phone camera, the same way a scanner read arrives. */
+  onCameraCode?: ((code: string) => void) | undefined;
 }
 
 interface BarOption {
@@ -60,8 +68,13 @@ export function SalesQuickSearchBar({
   onCreateCustomer,
   customers = [],
   isLoadingCustomers = false,
+  onCameraCode,
 }: SalesQuickSearchBarProps) {
   const { t } = useTranslation('sales');
+  const isPhone = usePhoneLayout();
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [cameraSupported] = useState(isCameraScanSupported);
+  const showCamera = isPhone && !disabled && !!onCameraCode && cameraSupported;
   const [rawActiveIndex, setActiveIndex] = useState(0);
   const [walkInArmed, setWalkInArmed] = useState(false);
   const mode = parseCommandBarMode(query);
@@ -133,6 +146,11 @@ export function SalesQuickSearchBar({
     onQueryChange(value);
   };
 
+  const openSearch = () => {
+    if (mode.kind !== 'search') onQueryChange('');
+    onSubmit(mode.kind === 'search' ? mode.query : '');
+  };
+
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (listOpen && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
       event.preventDefault();
@@ -170,12 +188,24 @@ export function SalesQuickSearchBar({
     >
       <label
         htmlFor="sales-product-search-input"
-        className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-fg3 lg:sr-only"
+        className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-fg3 max-md:sr-only lg:sr-only"
       >
         {t('quickSearch.label')}
       </label>
       <div className="sales-command-input">
-        <ScanBarcode className="h-7 w-7 shrink-0 text-fg3" aria-hidden="true" />
+        {isPhone ? (
+          <button
+            type="button"
+            className="sales-command-search-icon"
+            aria-label={t('quickSearch.search')}
+            disabled={disabled}
+            onClick={openSearch}
+          >
+            <Search className="h-5 w-5" aria-hidden="true" />
+          </button>
+        ) : (
+          <ScanBarcode className="h-7 w-7 shrink-0 text-fg3" aria-hidden="true" />
+        )}
         {pendingQuantity !== null && !disabled && (
           <span className="sales-command-quantity" data-testid="sales-command-quantity">
             <span role="status">
@@ -202,7 +232,7 @@ export function SalesQuickSearchBar({
         <input
           id="sales-product-search-input"
           ref={inputRef}
-          placeholder={t('quickSearch.placeholder')}
+          placeholder={t(isPhone ? 'quickSearch.phonePlaceholder' : 'quickSearch.placeholder')}
           value={query}
           disabled={disabled}
           autoComplete="off"
@@ -237,23 +267,33 @@ export function SalesQuickSearchBar({
             </span>
           </span>
         )}
-        <button
-          type="button"
-          className="sales-command-search"
-          aria-keyshortcuts={disabled ? undefined : ariaKeyshortcutsFor('sales.productSearch')}
-          disabled={disabled}
-          onClick={() => {
-            if (mode.kind !== 'search') onQueryChange('');
-            onSubmit(mode.kind === 'search' ? mode.query : '');
-          }}
-        >
-          <span>{t('quickSearch.search')}</span>
-          {!disabled && (
-            <kbd className="pv-kbd" aria-hidden="true">
-              {shortcutDisplayFor('sales.productSearch')}
-            </kbd>
-          )}
-        </button>
+        {showCamera && (
+          <button
+            type="button"
+            className="sales-command-camera"
+            aria-label={t('scanner.camera.open')}
+            onClick={() => setIsCameraOpen(true)}
+            data-testid="sales-camera-scan-open"
+          >
+            <ScanBarcode className="h-5 w-5" aria-hidden="true" />
+          </button>
+        )}
+        {!isPhone && (
+          <button
+            type="button"
+            className="sales-command-search"
+            aria-keyshortcuts={disabled ? undefined : ariaKeyshortcutsFor('sales.productSearch')}
+            disabled={disabled}
+            onClick={openSearch}
+          >
+            <span>{t('quickSearch.search')}</span>
+            {!disabled && (
+              <kbd className="pv-kbd" aria-hidden="true">
+                {shortcutDisplayFor('sales.productSearch')}
+              </kbd>
+            )}
+          </button>
+        )}
       </div>
       {!disabled && (
         <p id="sales-command-grammar" className="sr-only">
@@ -308,24 +348,41 @@ export function SalesQuickSearchBar({
           )}
         </div>
       )}
-      <p
-        className={`sales-scan-hint mt-2 flex flex-wrap gap-x-3 gap-y-2 text-xs text-fg3 ${disabled ? '' : 'lg:hidden'}`}
-      >
-        {disabled
-          ? t('quickSearch.lockedHint')
-          : (
-              [
-                ['sales.focusProduct', t('quickSearch.shortcut.focusSearch')],
-                ['sales.productSearch', t('quickSearch.shortcut.openCatalog')],
-                ['sales.charge', t('checkout.shortcut.charge')],
-              ] as const
-            ).map(([id, label]) => (
-              <span key={id} className="inline-flex items-center gap-1">
-                <kbd className="pv-kbd">{shortcutDisplayFor(id)}</kbd>
-                <span>{label}</span>
-              </span>
-            ))}
-      </p>
+      {/* Phones have no keyboard, so only the locked notice stays. */}
+      {(disabled || !isPhone) && (
+        <p
+          className={`sales-scan-hint mt-2 flex flex-wrap gap-x-3 gap-y-2 text-xs text-fg3 ${disabled ? '' : 'lg:hidden'}`}
+        >
+          {disabled
+            ? t('quickSearch.lockedHint')
+            : (
+                [
+                  ['sales.focusProduct', t('quickSearch.shortcut.focusSearch')],
+                  ['sales.productSearch', t('quickSearch.shortcut.openCatalog')],
+                  ['sales.charge', t('checkout.shortcut.charge')],
+                ] as const
+              ).map(([id, label]) => (
+                <span key={id} className="inline-flex items-center gap-1">
+                  <kbd className="pv-kbd">{shortcutDisplayFor(id)}</kbd>
+                  <span>{label}</span>
+                </span>
+              ))}
+        </p>
+      )}
+      {isCameraOpen && onCameraCode && (
+        <Suspense fallback={null}>
+          <CameraScanDialog
+            onClose={() => {
+              setIsCameraOpen(false);
+              inputRef.current?.focus();
+            }}
+            onDetected={code => {
+              setIsCameraOpen(false);
+              onCameraCode(code);
+            }}
+          />
+        </Suspense>
+      )}
     </form>
   );
 }

@@ -3,7 +3,7 @@ import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
 import { Minus, Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ariaKeyshortcutsFor, shortcutDisplayFor } from '@/lib/shortcuts';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatNumber } from '@/lib/utils';
 import {
   getSaleMinimumQuantity,
   getSaleQuantityStep,
@@ -72,6 +72,8 @@ export function SaleCartTable({
   // válidos se comprometen en vivo y el blur/Enter resuelve el resto
   // (revertir si quedó vacío o no parsea).
   const [inputDrafts, setInputDrafts] = useState<Record<string, string>>({});
+  // Phones open a line's keys only when it is tapped, not when a scan selects it.
+  const [openKey, setOpenKey] = useState<string | null>(null);
   const draftValueFor = (draftId: string, committed: number): string =>
     inputDrafts[draftId] ?? String(committed);
   const setDraft = (draftId: string, value: string): void => {
@@ -129,6 +131,7 @@ export function SaleCartTable({
         {items.map((item, index) => {
           const lineTotals = getLineTotals(item, priceIncludesTax);
           const isSelected = selectedItemKey === item.key;
+          const isOpen = isSelected && openKey === item.key;
           const minimumQuantity = getSaleMinimumQuantity(item);
           const quantityStep = getSaleQuantityStep(item);
           const decrementDisabled = item.quantity - quantityStep < minimumQuantity;
@@ -152,6 +155,7 @@ export function SaleCartTable({
               key={item.key}
               data-testid={`sale-cart-item-${item.productSku}`}
               data-selected={isSelected}
+              data-open={isOpen}
               ref={isSelected ? selectedLineRef : undefined}
               className="sales-ticket-line"
             >
@@ -167,12 +171,16 @@ export function SaleCartTable({
                       ? `${item.productName} (${presentationLabel})`
                       : item.productName,
                   })}
-                  onClick={() => onSelectItem(item.key)}
+                  aria-expanded={isOpen}
+                  onClick={() => {
+                    setOpenKey(isOpen ? null : item.key);
+                    onSelectItem(item.key);
+                  }}
                 >
                   <span className="line-clamp-2 text-base font-semibold leading-tight text-fg1">
                     {item.productName}
                   </span>
-                  <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-fg3">
+                  <span className="sales-ticket-meta">
                     <span className="font-mono">{item.productSku}</span>
                     {isPresentation && (
                       <span
@@ -206,6 +214,12 @@ export function SaleCartTable({
                   </span>
                 </button>
 
+                {/* Phones read an unselected line as name, quantity and total. */}
+                <span className="sales-ticket-qty-compact" aria-hidden="true">
+                  {Number.isInteger(item.quantity)
+                    ? `× ${formatNumber(item.quantity)}`
+                    : `${formatNumber(item.quantity)} ${item.unitName}`}
+                </span>
                 <div className="sales-ticket-qty">
                   <Button
                     type="button"
@@ -391,7 +405,7 @@ export function SaleCartTable({
                     {t('cart.tax')} {item.taxRate}%
                   </span>
                   {!itemsLocked && (
-                    <span className="inline-flex items-center gap-1">
+                    <span className="inline-flex items-center gap-1 max-md:hidden">
                       <kbd className="pv-kbd" aria-hidden="true">
                         {shortcutDisplayFor('sales.focusQuantity')}
                       </kbd>
