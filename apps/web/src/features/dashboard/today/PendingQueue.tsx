@@ -276,6 +276,13 @@ function incidentFacts(
   }
 }
 
+// The full reason (up to 500 characters) stays in the approvals queue.
+const REASON_MAX = 80;
+
+function clip(text: string, max: number) {
+  return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
+}
+
 function ago(fromIso: string, nowIso: string, t: Translate) {
   const minutes = minutesBetween(fromIso, nowIso);
   return minutes < 1
@@ -297,9 +304,12 @@ function describe(
           label: item.label,
           amount: item.amount === null ? '' : formatCurrency(item.amount),
         }),
-        detail: [item.requesterName, item.reason, item.siteName, ago(item.at, nowIso, t)].join(
-          ' · '
-        ),
+        detail: [
+          item.requesterName,
+          clip(item.reason, REASON_MAX),
+          item.siteName,
+          ago(item.at, nowIso, t),
+        ].join(' · '),
       };
     case 'staleSession':
       return {

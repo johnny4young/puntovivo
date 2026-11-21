@@ -225,6 +225,30 @@ describe('operations.today', () => {
     }
   });
 
+  it('does not name a receiver who is already running another register', async () => {
+    const db = getDatabase();
+    const camila = db.select().from(users).where(eq(users.name, 'Camila')).get()!;
+    const busySessionId = nanoid();
+    db.insert(cashSessions)
+      .values({
+        id: busySessionId,
+        tenantId,
+        siteId,
+        cashierId: camila.id,
+        registerName: 'Caja 2',
+        openingCountDenominations: [],
+        status: 'open',
+        openedAt: hoursAfter(todayStart, 11),
+      })
+      .run();
+    try {
+      const today = await computeOperationsToday(db, tenantId, now);
+      expect(today.nextHandoff).toMatchObject({ registerName: 'Caja 1', toUserName: null });
+    } finally {
+      db.delete(cashSessions).where(eq(cashSessions.id, busySessionId)).run();
+    }
+  });
+
   it('orders the pending queue by what blocks the close', async () => {
     const { pending } = await computeOperationsToday(getDatabase(), tenantId, now);
     const kinds = pending.map(item => `${item.severity}:${item.kind}`);

@@ -146,7 +146,7 @@ export function RegistersColumn({
             data-testid="today-register-awaiting"
             className="rounded-[18px] border border-line bg-surface-2 px-4 py-3"
           >
-            <div className="flex items-center justify-between gap-2 text-[0.95rem]">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-[0.95rem]">
               <b>{t('today.registers.handedOver', { register: handoff.registerName })}</b>
               <span className="shrink-0 rounded-full bg-warning-50 px-2 py-0.5 text-xs font-semibold whitespace-nowrap text-warning-700">
                 {handoff.toUserName

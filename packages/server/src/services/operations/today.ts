@@ -313,7 +313,7 @@ export async function computeOperationsToday(
         at: nextHandoffRegister.scheduledEndAt!,
         registerName: nextHandoffRegister.registerName,
         fromUserName: nextHandoffRegister.cashierName,
-        toUserName: handoffReceiver(shifts, nextHandoffRegister),
+        toUserName: handoffReceiver(shifts, nextHandoffRegister, registers),
       }
     : null;
 
@@ -342,12 +342,20 @@ export async function computeOperationsToday(
 
 const RECEIVER_WINDOW_MS = 60 * 60_000;
 
-/** The shift at the same site that starts closest to the handoff, within an hour of it. */
-function handoffReceiver(shifts: TodayShift[], register: TodayRegister): string | null {
+/**
+ * The shift at the same site that starts closest to the handoff, within an hour of it,
+ * skipping anyone already running a register.
+ */
+function handoffReceiver(
+  shifts: TodayShift[],
+  register: TodayRegister,
+  registers: TodayRegister[]
+): string | null {
   const at = Date.parse(register.scheduledEndAt!);
+  const busy = new Set(registers.map(open => open.cashierId));
   let best: { name: string; distance: number } | null = null;
   for (const shift of shifts) {
-    if (shift.siteId !== register.siteId || shift.userId === register.cashierId) continue;
+    if (shift.siteId !== register.siteId || busy.has(shift.userId)) continue;
     const distance = Math.abs(Date.parse(shift.startsAt) - at);
     if (distance <= RECEIVER_WINDOW_MS && (!best || distance < best.distance)) {
       best = { name: shift.userName, distance };

@@ -59,19 +59,16 @@ export function DayBand({ today, numbered, expanded, formatCurrency, formatTime 
   const hourLabel = (hour: number) =>
     formatTime(new Date(Date.parse(start) + hour * 3_600_000).toISOString());
 
-  const labels = placeBandLabels(
-    [
-      phases.openingHour !== null && { x: x(phases.openingHour), text: t('today.band.opening') },
-      phases.peakHour !== null && {
-        x: x(phases.peakHour),
-        text:
-          Math.floor(nowHour) === phases.peakHour ? t('today.band.peakNow') : t('today.band.peak'),
-      },
-      phases.handoffHour !== null && { x: x(phases.handoffHour), text: t('today.band.handoff') },
-    ].filter((label): label is { x: number; text: string } => Boolean(label)),
-    WIDTH,
-    PAD_X
-  );
+  const marks = [
+    phases.openingHour !== null && { x: x(phases.openingHour), text: t('today.band.opening') },
+    phases.peakHour !== null && {
+      x: x(phases.peakHour),
+      text:
+        Math.floor(nowHour) === phases.peakHour ? t('today.band.peakNow') : t('today.band.peak'),
+    },
+    phases.handoffHour !== null && { x: x(phases.handoffHour), text: t('today.band.handoff') },
+  ].filter((label): label is { x: number; text: string } => Boolean(label));
+  const labels = placeBandLabels(marks, WIDTH, PAD_X);
 
   return (
     <figure ref={figureRef} className="m-0" data-testid="today-day-band">
@@ -84,25 +81,29 @@ export function DayBand({ today, numbered, expanded, formatCurrency, formatTime 
           comparison: formatCurrency(today.sales.comparisonTotal),
         })}
       >
+        {/* Every phase keeps its line; only overlapping text is dropped. */}
+        {marks.map(mark => (
+          <line
+            key={mark.text}
+            x1={mark.x}
+            x2={mark.x}
+            y1={14}
+            y2={axisY}
+            stroke="var(--line)"
+            strokeWidth={1}
+          />
+        ))}
         {labels.map(label => (
-          <g key={label.text} data-testid="today-band-label">
-            <line
-              x1={label.x}
-              x2={label.x}
-              y1={14}
-              y2={axisY}
-              stroke="var(--line)"
-              strokeWidth={1}
-            />
-            <text
-              x={label.textX}
-              y={14}
-              textAnchor={label.anchor}
-              className="fill-[var(--fg3)] text-[11px] font-semibold tracking-[0.14em] uppercase"
-            >
-              {label.text}
-            </text>
-          </g>
+          <text
+            key={label.text}
+            data-testid="today-band-label"
+            x={label.textX}
+            y={14}
+            textAnchor={label.anchor}
+            className="fill-[var(--fg3)] text-[11px] font-semibold tracking-[0.14em] uppercase"
+          >
+            {label.text}
+          </text>
         ))}
         {comparisonPoints.length > 1 && (
           <polyline

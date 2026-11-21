@@ -112,6 +112,18 @@ describe('TodayOverview', () => {
     );
   });
 
+  it('shortens a long approval reason so the age stays on the line', () => {
+    const base = todayFixture();
+    todayData.current = todayFixture({
+      pending: base.pending.map(item =>
+        item.kind === 'approval' ? { ...item, reason: 'a'.repeat(300) } : item
+      ),
+    });
+    render(<TodayOverview formatCurrency={formatCurrency} />);
+    const row = screen.getByTestId('today-pending-row-approval');
+    expect(row).toHaveTextContent(`Laura · ${'a'.repeat(79)}… · Norte · 24 min ago`);
+  });
+
   describe('incident detail', () => {
     type IncidentItem = Extract<TodayPendingItem, { kind: 'incident' }>;
     const baseIncident = () =>
