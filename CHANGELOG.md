@@ -52,6 +52,67 @@ is usable from source, but it is not a new packaged release yet.
   a real alert receiver with ownership, and an observed retail pilot remain
   open gates.
 
+## [1.20.0](https://github.com/johnny4young/puntovivo/compare/v1.19.0...v1.20.0) (2026-11-21)
+
+
+### Funcionalidades
+
+* **auth:** open each business profile on its register ([e754d86](https://github.com/johnny4young/puntovivo/commit/e754d8673d54e62628049903051a1edbb3466c05))
+* **auth:** open each business profile on its register ([59adb11](https://github.com/johnny4young/puntovivo/commit/59adb1136b3e343e03df38439c85d94f884d51f0))
+* **cash-sessions:** hand a register to the next cashier with a blind count ([8c18511](https://github.com/johnny4young/puntovivo/commit/8c18511b8cf36fed641bbd8c2d8e7b84de63f46d))
+* **cash-sessions:** hand a register to the next cashier with a blind count ([a609b97](https://github.com/johnny4young/puntovivo/commit/a609b97e9f5e30af8dd8b2a7bba6503b960f5382))
+* **cash-sessions:** hand over and receive the register from the till ([1f18876](https://github.com/johnny4young/puntovivo/commit/1f1887655b397c9b7c49f4c45feb2b07acffe7ee))
+* **cash-sessions:** hand over and receive the register from the till ([bed583b](https://github.com/johnny4young/puntovivo/commit/bed583b8d4459db20dcf011c4802f8094f46d504))
+* **dashboard:** close the day from Hoy with a guided count, compare and sign ([a79ab59](https://github.com/johnny4young/puntovivo/commit/a79ab5901777c51aa044b124448d7e7a5de3b64f))
+* **dashboard:** close the day from Hoy with a guided count, compare and sign ([51099d7](https://github.com/johnny4young/puntovivo/commit/51099d7f36b88f7487b3eadf5d963e9cea5158a2))
+* **dashboard:** draw the day arc when the manager expands the day ([822e5e7](https://github.com/johnny4young/puntovivo/commit/822e5e7e753df7a093fa25401604d8805ddc1c80))
+* **dashboard:** draw the day arc when the manager expands the day ([fd2b095](https://github.com/johnny4young/puntovivo/commit/fd2b09516e9dbe5accf3defa6226792996d21dc4))
+* **dashboard:** show what the cashier reported on Pendiente incident rows ([825de0a](https://github.com/johnny4young/puntovivo/commit/825de0a458bf946b1b261e00c6bfc5e5d890a497))
+* **dashboard:** show what the cashier reported on Pendiente incident rows ([a6ef4aa](https://github.com/johnny4young/puntovivo/commit/a6ef4aa45db470d970aa8604c3f79ea3cf1070a4))
+* **import:** import price tiers 2 and 3, Windows CSVs, a Mónica profile and 2,000 products per file ([#515](https://github.com/johnny4young/puntovivo/issues/515)) ([ea2a1f5](https://github.com/johnny4young/puntovivo/commit/ea2a1f58314496afadb0365fd7d97cc4c59129cd))
+* **payments:** confirm transfer charges by themselves when a wallet provider is live ([88cff64](https://github.com/johnny4young/puntovivo/commit/88cff6412a26dc087ca9c8a572dc15c3e1b408d9))
+* **payments:** confirm transfer charges by themselves when a wallet provider is live ([8d3f04b](https://github.com/johnny4young/puntovivo/commit/8d3f04b1295134ac554ce3b55b8025d8cca515e5))
+* **payments:** store where each site receives transfers and build its QR ([8612f93](https://github.com/johnny4young/puntovivo/commit/8612f9314093ab2430cafed1ffbbe1e2e2d9bcf5))
+* **payments:** store where each site receives transfers and build its QR ([329bc95](https://github.com/johnny4young/puntovivo/commit/329bc95846b563460ddee2c816357a0363299dc5))
+* **sales:** charge by transfer with the store QR and edit destinations in settings ([ffaa9b2](https://github.com/johnny4young/puntovivo/commit/ffaa9b2a93289d3d93cc1d34a8662ee10a2e089f))
+* **sales:** charge by transfer with the store QR and edit destinations in settings ([80d69e1](https://github.com/johnny4young/puntovivo/commit/80d69e1f1d1affb8e966f8f6158585b833e3bcef))
+* **sales:** give split, credit and electronic invoice their own charge states ([a0e0c8c](https://github.com/johnny4young/puntovivo/commit/a0e0c8c5a3fc92147dd54a1bc8589ef22e76f223))
+* **sales:** give split, credit and electronic invoice their own charge states ([cd764c0](https://github.com/johnny4young/puntovivo/commit/cd764c02de7e062cc08383d4dca46a912a933336))
+* **sales:** make the change the hero of the cash charge ([0df0b4e](https://github.com/johnny4young/puntovivo/commit/0df0b4e7c14eab54e03dad1634dd6183ea9c21be))
+* **sales:** scan barcodes with the phone camera in any secure browser ([2ab0554](https://github.com/johnny4young/puntovivo/commit/2ab0554f418349863b8009258e70dd0bffee3b13))
+* **sales:** scan barcodes with the phone camera in any secure browser ([834bd07](https://github.com/johnny4young/puntovivo/commit/834bd07a48507b193b63a87cfc873ad2bcc74e3f))
+* **sales:** sell from a phone with key chips, a compact ticket and a pinned charge bar ([f755ad5](https://github.com/johnny4young/puntovivo/commit/f755ad58a49482e9ef44dda36ca4cae83c424983))
+* **sales:** sell from a phone with key chips, a compact ticket and a pinned charge bar ([8adaf39](https://github.com/johnny4young/puntovivo/commit/8adaf399661dfe3e02f7d4677eab68ec51c15def))
+* **server:** let the till read product stock and today's last incident ([a9abc11](https://github.com/johnny4young/puntovivo/commit/a9abc11afb82cacff7116a7358e7c7249ad16aed))
+* **server:** let the till read product stock and today's last incident ([295ab5e](https://github.com/johnny4young/puntovivo/commit/295ab5e4a5f77dc441cb16f1cc0cc7f824c4ca36))
+
+
+### Correcciones
+
+* **auth:** never leave a cashier waiting on the touch register ([8d9c95c](https://github.com/johnny4young/puntovivo/commit/8d9c95cc5d94e74d5f53f2e2305e623b85530f11))
+* **cash-sessions:** close the gaps review found in the relevo sheets ([fbc44ea](https://github.com/johnny4young/puntovivo/commit/fbc44eac19ad2f447940fed3a1fc313b1fe6e9e7))
+* **cash-sessions:** keep handed-over sales with the receiver and audit replaced handoffs ([e6d1b06](https://github.com/johnny4young/puntovivo/commit/e6d1b0658d84ac1856dcc572d4c1ed2caf3462d3))
+* **customers:** let cashiers read the balance a credit sale projects against ([e67786a](https://github.com/johnny4young/puntovivo/commit/e67786ad2abd32c38d681a8cf1464065ad870169))
+* **dashboard:** close the gaps review found in the day band and handoff ([b30e6a5](https://github.com/johnny4young/puntovivo/commit/b30e6a520bbe57e296f1fa6815f91ec83e85a86e))
+* **dashboard:** close the gaps review found in the guided close ([1b18846](https://github.com/johnny4young/puntovivo/commit/1b18846818718b8ab441bf079ae4d51cc52d69a5))
+* **dashboard:** hide the latest-day figure only once Hoy shows today ([3d78f59](https://github.com/johnny4young/puntovivo/commit/3d78f59e5a88ab8fee46c2804faee03c178c1eee))
+* **dashboard:** keep the day band legible and name who receives the next handoff ([3b78a0d](https://github.com/johnny4young/puntovivo/commit/3b78a0d38105294c9b60bff4229e3a9f960202d8))
+* **dashboard:** keep the day band legible and name who receives the next handoff ([e923581](https://github.com/johnny4young/puntovivo/commit/e923581f6fc9686e239cdd30cdc7b1975b507a22))
+* **layout:** drop the retail tagline from the rail ([c3158a8](https://github.com/johnny4young/puntovivo/commit/c3158a8c500ebb819b042219d3b06e127cfb7dc2))
+* **payments:** audit transfer reorders and keep Bre-B keys as typed after review ([114570d](https://github.com/johnny4young/puntovivo/commit/114570db83bc5e2622628433ca6bffec68a86ab4))
+* **payments:** keep left wallet charges honest and the store QR out of the way ([699028c](https://github.com/johnny4young/puntovivo/commit/699028ceaafdecd7e1af4f5647428dc2b507e956))
+* **release:** match the usted user-menu label in the packaged smoke ([#511](https://github.com/johnny4young/puntovivo/issues/511)) ([9dae6d0](https://github.com/johnny4young/puntovivo/commit/9dae6d04ea49c3fe52214966122dddb9219aff05))
+* **sales:** drop the close justification the server never stored ([1721734](https://github.com/johnny4young/puntovivo/commit/172173423af3e78c3b5641397f99f9fa82d73e99))
+* **sales:** hold back stale transfer QRs and approval requests before the reference ([8274f7c](https://github.com/johnny4young/puntovivo/commit/8274f7cfb8dcf06b07453f436e69a9a25eff404f))
+* **sales:** keep credit, split and invoice states consistent after review ([afb8c52](https://github.com/johnny4young/puntovivo/commit/afb8c52d4a34aef4d9a4eeb53ad0dc26ba8df024))
+* **sales:** keep keypad presets and cents honest after review ([ab58cdc](https://github.com/johnny4young/puntovivo/commit/ab58cdc3d617d6dfd9e9f4a649a6a6adc4484401))
+* **sales:** keep phone checkout choices and hints honest after review ([377968c](https://github.com/johnny4young/puntovivo/commit/377968c0f305f332333c4142fd5bf19755479d73))
+* **sales:** keep the camera scan honest when a camera or decoder fails ([30e20e5](https://github.com/johnny4young/puntovivo/commit/30e20e5dd0691c73587487062ba7714c9441aebf))
+* **sales:** wrap the payment method tiles on narrow screens ([a5b7113](https://github.com/johnny4young/puntovivo/commit/a5b711322bdb7a3b5367597937057682e5f9a7c6))
+* **server:** count older incidents in the business day and skip closed sites ([d245b5d](https://github.com/johnny4young/puntovivo/commit/d245b5dea7f0e95bdad757fb98a20f8eeb71bc0a))
+* **server:** keep repeat till reports current and scoped to the business day ([7a7dc2a](https://github.com/johnny4young/puntovivo/commit/7a7dc2a7d1d3899a7fdf3b7240b035b2c72e6c4b))
+* **server:** store till incident times as ISO instants ([96da29c](https://github.com/johnny4young/puntovivo/commit/96da29cd699c33943a80b3ac9386b9e4a9d6c9fa))
+
 ## [1.19.0](https://github.com/johnny4young/puntovivo/compare/v1.18.1...v1.19.0) (2026-11-20)
 
 
