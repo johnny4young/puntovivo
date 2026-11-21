@@ -46,7 +46,10 @@ casos de uso de cierre y apertura que ya existen.
   no sea anterior a `suspended_at`; suspenderla otra vez borra la decisión sin
   tocar la ruta de suspensión.
 - `operations.today` muestra de qué relevo viene cada caja y las cajas
-  entregadas que siguen esperando.
+  entregadas que siguen esperando. El próximo relevo planeado nombra a quien
+  recibe según el turno que empieza en la misma sede a menos de una hora,
+  omite a quien ya atiende una caja y queda sin nombre cuando no hay nadie en
+  el horario.
 - Las cuentas de restaurante conservan el reparto por mesa y no se reasignan.
 - En la caja, una caja que espera a quien la reciba reemplaza Abrir en la tecla
   principal y en el atajo de apertura, para que abrirla por costumbre no

@@ -119,7 +119,8 @@
         "whenPossible": "When possible"
       },
       "approval": "{{label}} {{amount}} awaits your approval",
-      "approvalDetail": "{{requester}} · {{site}} · {{time}}",
+      "agoNow": "just now",
+      "ago": "{{duration}} ago",
       "staleSession": "{{register}} still open since {{time}}",
       "staleSessionDetail": "{{cashier}} · the day cannot be signed until it is counted",
       "incident": {
@@ -175,6 +176,7 @@
       "durationHours": "{{hours}} h {{minutes}} min",
       "durationMinutes": "{{minutes}} min",
       "handoff": "Handoff of {{register}}: {{from}} hands over",
+      "handoffTo": "Handoff of {{register}}: {{from}} hands over to {{to}}",
       "received": "Handoff at {{time}} · from {{from}}",
       "receivedDifference": "Handoff at {{time}} · {{difference}} against {{from}}'s count",
       "handedOver": "{{register}} · handed over",

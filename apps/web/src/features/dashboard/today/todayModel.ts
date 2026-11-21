@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '@puntovivo/server';
 
@@ -58,7 +59,60 @@ export function waitingRank(
   const match = numbered.find(
     ({ item }) =>
       (item.kind === 'staleSession' && item.id === register.sessionId) ||
-      (item.kind === 'approval' && item.requesterName === register.cashierName)
+      (item.kind === 'approval' && item.requesterId === register.cashierId)
   );
   return match?.rank ?? null;
+}
+
+export interface BandLabel {
+  x: number;
+  text: string;
+}
+
+export interface PlacedBandLabel extends BandLabel {
+  textX: number;
+  anchor: 'start' | 'end';
+}
+
+// Uppercase 11px with 0.14em tracking runs close to 8.5px per glyph.
+const LABEL_GLYPH_WIDTH = 8.5;
+const LABEL_GAP = 12;
+
+/**
+ * Anchors each phase label beside its line, flipping it left near the right edge,
+ * and drops any label that would overlap an earlier one.
+ */
+export function placeBandLabels(
+  labels: readonly BandLabel[],
+  width: number,
+  padX: number
+): PlacedBandLabel[] {
+  const placed: PlacedBandLabel[] = [];
+  let previous: { left: number; right: number } | null = null;
+  for (const label of [...labels].sort((a, b) => a.x - b.x)) {
+    const textWidth = label.text.length * LABEL_GLYPH_WIDTH;
+    const anchor = label.x + 6 + textWidth > width - padX ? 'end' : 'start';
+    const textX = anchor === 'end' ? label.x - 6 : label.x + 6;
+    const left = anchor === 'end' ? textX - textWidth : textX;
+    const right = left + textWidth;
+    if (previous && left < previous.right + LABEL_GAP && right > previous.left - LABEL_GAP) {
+      continue;
+    }
+    placed.push({ ...label, textX, anchor });
+    previous = { left, right };
+  }
+  return placed;
+}
+
+/** «2 h 5 min» or «25 min». */
+export function formatDuration(minutes: number, t: TFunction) {
+  const hours = Math.floor(minutes / 60);
+  return hours > 0
+    ? t('dashboard:today.registers.durationHours', { hours, minutes: minutes % 60 })
+    : t('dashboard:today.registers.durationMinutes', { minutes });
+}
+
+/** Whole minutes from one instant to a later one, never negative. */
+export function minutesBetween(fromIso: string, toIso: string): number {
+  return Math.max(0, Math.floor((Date.parse(toIso) - Date.parse(fromIso)) / 60_000));
 }

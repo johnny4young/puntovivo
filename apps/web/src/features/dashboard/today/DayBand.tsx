@@ -1,6 +1,13 @@
+import { useId } from 'react';
 import { useElementWidth } from '@/hooks/useElementWidth';
 import { useTranslation } from 'react-i18next';
-import { dayPhases, hourIndex, type OperationsToday, type TodayPendingItem } from './todayModel';
+import {
+  dayPhases,
+  hourIndex,
+  placeBandLabels,
+  type OperationsToday,
+  type TodayPendingItem,
+} from './todayModel';
 
 interface DayBandProps {
   today: OperationsToday;
@@ -11,9 +18,12 @@ interface DayBandProps {
 }
 
 const PAD_X = 24;
+// 11px semibold names run close to 6.5px per glyph.
+const SHIFT_GLYPH_WIDTH = 6.5;
 
 export function DayBand({ today, numbered, expanded, formatCurrency, formatTime }: DayBandProps) {
   const { t } = useTranslation('dashboard');
+  const clipPrefix = useId();
   const [figureRef, WIDTH] = useElementWidth<HTMLElement>(920);
   const start = today.dayStartIso;
   const nowHour = hourIndex(today.generatedAt, start);
@@ -49,15 +59,16 @@ export function DayBand({ today, numbered, expanded, formatCurrency, formatTime 
   const hourLabel = (hour: number) =>
     formatTime(new Date(Date.parse(start) + hour * 3_600_000).toISOString());
 
-  const labels = [
-    phases.openingHour !== null && { hour: phases.openingHour, text: t('today.band.opening') },
+  const marks = [
+    phases.openingHour !== null && { x: x(phases.openingHour), text: t('today.band.opening') },
     phases.peakHour !== null && {
-      hour: phases.peakHour,
+      x: x(phases.peakHour),
       text:
         Math.floor(nowHour) === phases.peakHour ? t('today.band.peakNow') : t('today.band.peak'),
     },
-    phases.handoffHour !== null && { hour: phases.handoffHour, text: t('today.band.handoff') },
-  ].filter((label): label is { hour: number; text: string } => Boolean(label));
+    phases.handoffHour !== null && { x: x(phases.handoffHour), text: t('today.band.handoff') },
+  ].filter((label): label is { x: number; text: string } => Boolean(label));
+  const labels = placeBandLabels(marks, WIDTH, PAD_X);
 
   return (
     <figure ref={figureRef} className="m-0" data-testid="today-day-band">
@@ -70,25 +81,29 @@ export function DayBand({ today, numbered, expanded, formatCurrency, formatTime 
           comparison: formatCurrency(today.sales.comparisonTotal),
         })}
       >
+        {/* Every phase keeps its line; only overlapping text is dropped. */}
+        {marks.map(mark => (
+          <line
+            key={mark.text}
+            x1={mark.x}
+            x2={mark.x}
+            y1={14}
+            y2={axisY}
+            stroke="var(--line)"
+            strokeWidth={1}
+          />
+        ))}
         {labels.map(label => (
-          <g key={label.text}>
-            <line
-              x1={x(label.hour)}
-              x2={x(label.hour)}
-              y1={14}
-              y2={axisY}
-              stroke="var(--line)"
-              strokeWidth={1}
-            />
-            <text
-              x={x(label.hour) > WIDTH - 160 ? x(label.hour) - 6 : x(label.hour) + 6}
-              y={14}
-              textAnchor={x(label.hour) > WIDTH - 160 ? 'end' : 'start'}
-              className="fill-[var(--fg3)] text-[11px] font-semibold tracking-[0.14em] uppercase"
-            >
-              {label.text}
-            </text>
-          </g>
+          <text
+            key={label.text}
+            data-testid="today-band-label"
+            x={label.textX}
+            y={14}
+            textAnchor={label.anchor}
+            className="fill-[var(--fg3)] text-[11px] font-semibold tracking-[0.14em] uppercase"
+          >
+            {label.text}
+          </text>
         ))}
         {comparisonPoints.length > 1 && (
           <polyline
@@ -191,8 +206,24 @@ export function DayBand({ today, numbered, expanded, formatCurrency, formatTime 
           const b = x(Math.min(to, hourIndex(shift.endsAt, start)));
           const split = Math.min(b, Math.max(a, x(nowHour)));
           const top = shiftTop + index * 22;
+          const labelX = Math.max(
+            PAD_X,
+            Math.min(a + 8, WIDTH - PAD_X - shift.userName.length * SHIFT_GLYPH_WIDTH)
+          );
+          const clipId = `${clipPrefix}-shift-${index}`;
+          const label = (fill: string, clip: string, hidden = false) => (
+            <text
+              aria-hidden={hidden || undefined}
+              x={labelX}
+              y={top + 12}
+              clipPath={`url(#${clip})`}
+              className={`${fill} text-[11px] font-semibold`}
+            >
+              {shift.userName}
+            </text>
+          );
           return (
-            <g key={`${shift.userId}-${shift.startsAt}`}>
+            <g key={`${shift.userId}-${shift.startsAt}`} data-testid="today-band-shift">
               <rect
                 x={a}
                 y={top}
@@ -209,13 +240,16 @@ export function DayBand({ today, numbered, expanded, formatCurrency, formatTime 
                 rx={8}
                 fill="var(--rail)"
               />
-              <text
-                x={a + 8}
-                y={top + 12}
-                className="fill-[var(--rail-foreground)] text-[11px] font-semibold"
-              >
-                {shift.userName}
-              </text>
+              <clipPath id={`${clipId}-elapsed`}>
+                <rect x={a} y={top} width={Math.max(0, split - a)} height={16} />
+              </clipPath>
+              <clipPath id={`${clipId}-ahead`}>
+                <rect x={0} y={top} width={a} height={16} />
+                <rect x={split} y={top} width={WIDTH - split} height={16} />
+              </clipPath>
+              {/* Rail ink over the elapsed bar, dark ink everywhere else. */}
+              {label('fill-[var(--rail-foreground)]', `${clipId}-elapsed`, true)}
+              {label('fill-[var(--fg1)]', `${clipId}-ahead`)}
             </g>
           );
         })}

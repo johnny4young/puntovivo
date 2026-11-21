@@ -42,6 +42,8 @@ export type TodayPendingItem =
       action: string;
       label: string;
       amount: number | null;
+      reason: string;
+      requesterId: string;
       requesterName: string;
       siteName: string;
     }
@@ -101,6 +103,7 @@ export interface TodayAwaitingHandoff {
 export interface TodayShift {
   userId: string;
   userName: string;
+  siteId: string;
   startsAt: string;
   endsAt: string;
 }
@@ -121,7 +124,13 @@ export interface OperationsToday {
   hourly: Array<{ hour: number; today: number; comparison: number }>;
   registers: TodayRegister[];
   shifts: TodayShift[];
-  nextHandoff: { at: string; registerName: string | null; fromUserName: string } | null;
+  nextHandoff: {
+    at: string;
+    registerName: string | null;
+    fromUserName: string;
+    /** Who is scheduled to start at that site around the handoff, if anyone. */
+    toUserName: string | null;
+  } | null;
   awaitingHandoffs: TodayAwaitingHandoff[];
   pending: TodayPendingItem[];
 }
@@ -225,6 +234,7 @@ export async function computeOperationsToday(
     .select({
       userId: scheduledShifts.userId,
       userName: users.name,
+      siteId: scheduledShifts.siteId,
       startsAt: scheduledShifts.startsAt,
       endsAt: scheduledShifts.endsAt,
     })
@@ -303,6 +313,7 @@ export async function computeOperationsToday(
         at: nextHandoffRegister.scheduledEndAt!,
         registerName: nextHandoffRegister.registerName,
         fromUserName: nextHandoffRegister.cashierName,
+        toUserName: handoffReceiver(shifts, nextHandoffRegister, registers),
       }
     : null;
 
@@ -329,6 +340,30 @@ export async function computeOperationsToday(
   };
 }
 
+const RECEIVER_WINDOW_MS = 60 * 60_000;
+
+/**
+ * The shift at the same site that starts closest to the handoff, within an hour of it,
+ * skipping anyone already running a register.
+ */
+function handoffReceiver(
+  shifts: TodayShift[],
+  register: TodayRegister,
+  registers: TodayRegister[]
+): string | null {
+  const at = Date.parse(register.scheduledEndAt!);
+  const busy = new Set(registers.map(open => open.cashierId));
+  let best: { name: string; distance: number } | null = null;
+  for (const shift of shifts) {
+    if (shift.siteId !== register.siteId || busy.has(shift.userId)) continue;
+    const distance = Math.abs(Date.parse(shift.startsAt) - at);
+    if (distance <= RECEIVER_WINDOW_MS && (!best || distance < best.distance)) {
+      best = { name: shift.userName, distance };
+    }
+  }
+  return best?.name ?? null;
+}
+
 async function collectPending(
   db: DatabaseInstance,
   args: { tenantId: string; now: Date; registers: TodayRegister[] }
@@ -341,7 +376,9 @@ async function collectPending(
       id: managerApprovalRequests.id,
       action: managerApprovalRequests.action,
       summary: managerApprovalRequests.summary,
+      reason: managerApprovalRequests.reason,
       requestedAt: managerApprovalRequests.requestedAt,
+      requesterId: managerApprovalRequests.requesterId,
       requesterName: users.name,
       siteName: sites.name,
     })
@@ -367,6 +404,8 @@ async function collectPending(
       action: approval.action,
       label: approval.summary.label,
       amount: approval.summary.amount ?? null,
+      reason: approval.reason,
+      requesterId: approval.requesterId,
       requesterName: approval.requesterName,
       siteName: approval.siteName,
     });
