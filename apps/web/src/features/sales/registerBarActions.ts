@@ -2,6 +2,7 @@
 const REGISTER_BAR_ACTIONS = [
   { id: 'suspend', shortcutId: 'sales.suspend' },
   { id: 'returns' },
+  { id: 'incident', shortcutId: 'sales.incident' },
   { id: 'newSale', shortcutId: 'sales.newSale' },
   { id: 'openDrawer' },
   { id: 'suspended', shortcutId: 'sales.toggleSuspended' },

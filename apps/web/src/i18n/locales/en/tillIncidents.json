@@ -1,0 +1,90 @@
+{
+  "title": "Incident",
+  "ticketIntact": "The {{total}} sale stays intact on the left.",
+  "close": "Close",
+  "back": "Back to incidents",
+  "groups": {
+    "customer": "With the customer",
+    "product": "With the product",
+    "register": "With the register"
+  },
+  "tiles": {
+    "returns": {
+      "label": "Return",
+      "detail": "Pick the sale in today's history"
+    },
+    "voidSale": {
+      "label": "Void a sale",
+      "detail": "From this shift; asks for approval"
+    },
+    "priceCheck": {
+      "label": "Check a price",
+      "detail": "Adds nothing to the sale"
+    },
+    "stockout": {
+      "label": "Out of stock or missing",
+      "detail": "Tells the manager; stays on Today"
+    },
+    "noBarcode": {
+      "label": "Product without barcode",
+      "detail": "Describe it for the manager"
+    },
+    "priceMismatch": {
+      "label": "Price does not match",
+      "detail": "The shelf price differs from the till"
+    },
+    "cashMovement": {
+      "label": "Cash in or out",
+      "detail": "Take or add cash, with a reason"
+    },
+    "reprint": {
+      "label": "Reprint receipt",
+      "detail": "The last one, or find it in history"
+    },
+    "callManager": {
+      "label": "Call the manager",
+      "detail": "Shows on their Pending; keep selling"
+    }
+  },
+  "unavailable": "Not available right now",
+  "latest": "Today's last incident: {{summary}}",
+  "kind": {
+    "stockout": "Out of stock",
+    "price_mismatch": "Price does not match",
+    "no_barcode": "No barcode",
+    "call_manager": "Manager called"
+  },
+  "product": {
+    "change": "Change product",
+    "search": "Search by name, code or barcode",
+    "noResults": "No products match",
+    "stockHere": "{{count}} at {{site}}",
+    "stockElsewhere": "{{site}} has {{count}}",
+    "price": "Till price {{price}}"
+  },
+  "priceCheck": {
+    "stock": "{{count}} in stock"
+  },
+  "stockout": {
+    "reasons": "Reason",
+    "reason": {
+      "not_on_shelf": "Not on the shelf",
+      "system_zero": "System says 0",
+      "expired": "Expired"
+    }
+  },
+  "noBarcode": {
+    "note": "What product is it?",
+    "linkProduct": "It is in the catalog"
+  },
+  "priceMismatch": {
+    "shelfPrice": "Shelf price"
+  },
+  "submit": "Tell the manager",
+  "sent": {
+    "default": "It is on Today, under «Before closing».",
+    "transfer": "It is on Today, under «Before closing», with the transfer ready.",
+    "call": "The manager sees your call on Pending."
+  },
+  "error": "Could not send the incident"
+}

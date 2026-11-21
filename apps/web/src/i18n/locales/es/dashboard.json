@@ -125,7 +125,8 @@
       "incident": {
         "stockout": "{{product}} agotado",
         "price_mismatch": "{{product}}: el precio de góndola no coincide",
-        "no_barcode": "Producto sin código: {{product}}"
+        "no_barcode": "Producto sin código: {{product}}",
+        "call_manager": "{{reporter}} lo llama a la caja"
       },
       "incidentReporter": "Lo reportó {{reporter}}",
       "incidentReason": {

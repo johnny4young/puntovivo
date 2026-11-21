@@ -162,6 +162,13 @@ El candidato validado actual incluye:
   fuera de catálogo. Una sede sin teclas ofrece lo que más vendió, completado con
   el catálogo, y los favoritos locales que tenía un navegador la siembran una
   vez;
+- una hoja de novedades en F9 (o la tecla Novedad y `/` en el campo de escaneo)
+  sobre el ticket abierto: devolución, anulación, consulta de precio, agotado,
+  producto sin código, precio de góndola distinto, retiro o ingreso,
+  reimpresión y llamado al encargado, cada una con una letra fija. Los reportes
+  de agotado, sin código, precio y llamado llegan a la cola Pendiente de Hoy del
+  encargado hasta que los resuelve, el agotado con la otra sede que más tiene, y
+  la hoja nombra la última novedad del día;
 - destinos de transferencia por sede: llaves Bre-B, números Nequi y Daviplata y
   cuentas bancarias, hasta seis, cada uno con el nombre que elija el
   administrador y que se editan en la configuración de pagos. Al cobrar por

@@ -251,6 +251,40 @@ describe('useSalesKeyboardShortcuts — Ctrl/Cmd guard lift', () => {
     });
   });
 
+  describe('F9 incident sheet', () => {
+    it('opens the sheet from the scan field and prevents the browser default', () => {
+      const onOpenIncident = vi.fn();
+      renderHook(() => useSalesKeyboardShortcuts({ ...defaultOptions, onOpenIncident }));
+      const input = document.createElement('input');
+      input.id = 'sales-product-search-input';
+      document.body.appendChild(input);
+      input.focus();
+      const event = new KeyboardEvent('keydown', { key: 'F9', bubbles: true, cancelable: true });
+      input.dispatchEvent(event);
+      expect(onOpenIncident).toHaveBeenCalledOnce();
+      expect(event.defaultPrevented).toBe(true);
+    });
+
+    it('stays inert while payment, product search or another dialog is open', () => {
+      const onOpenIncident = vi.fn();
+      const { rerender } = renderHook(
+        (props: { isPaymentModalOpen: boolean; isProductSearchOpen: boolean }) =>
+          useSalesKeyboardShortcuts({ ...defaultOptions, ...props, onOpenIncident }),
+        { initialProps: { isPaymentModalOpen: true, isProductSearchOpen: false } }
+      );
+      fireKey('F9');
+      rerender({ isPaymentModalOpen: false, isProductSearchOpen: true });
+      fireKey('F9');
+      rerender({ isPaymentModalOpen: false, isProductSearchOpen: false });
+      const dialog = document.createElement('div');
+      dialog.setAttribute('role', 'dialog');
+      dialog.setAttribute('aria-modal', 'true');
+      document.body.appendChild(dialog);
+      expect(fireKey('F9').defaultPrevented).toBe(false);
+      expect(onOpenIncident).not.toHaveBeenCalled();
+    });
+  });
+
   // F2 rapid-cash binding.
   describe('F2 fast-cash', () => {
     it('fires onFastCash on F2 and prevents the browser default outside the modal', () => {

@@ -163,6 +163,21 @@ describe('TodayOverview', () => {
       expect(row).toHaveTextContent('Product without barcode: Leche UHT');
       expect(row).toHaveTextContent('sin etiqueta · Reported by Laura');
     });
+
+    it('names the cashier who calls the manager once, with no transfer', () => {
+      const row = renderIncident({
+        kind: 'call_manager',
+        productId: null,
+        productName: null,
+        reason: null,
+        stockBySite: [],
+      });
+      expect(row).toHaveTextContent('Laura is calling you to the till');
+      expect(row.textContent?.match(/Laura/g)).toHaveLength(1);
+      expect(row).toHaveTextContent(/tillNorte · /);
+      expect(within(row).queryByTestId('today-pending-link-incident')).not.toBeInTheDocument();
+      expect(within(row).getByTestId('today-incident-resolve')).toBeInTheDocument();
+    });
   });
 
   it('shows open registers, the stale one, and the next handoff', () => {

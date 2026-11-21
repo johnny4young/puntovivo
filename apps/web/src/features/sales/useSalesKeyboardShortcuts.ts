@@ -89,6 +89,8 @@ interface SalesKeyboardShortcutsOptions {
   onOpenCashSession?: (() => void) | undefined;
   onOpenCashMovement?: (() => void) | undefined;
   onOpenCashClose?: (() => void) | undefined;
+  /** F9 opens the incident sheet; the open sheet owns F9 itself. */
+  onOpenIncident?: (() => void) | undefined;
 }
 
 function focusPaymentForm() {
@@ -128,6 +130,7 @@ export function useSalesKeyboardShortcuts({
   onOpenCashSession,
   onOpenCashMovement,
   onOpenCashClose,
+  onOpenIncident,
 }: SalesKeyboardShortcutsOptions) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -306,6 +309,14 @@ export function useSalesKeyboardShortcuts({
         return;
       }
 
+      if (event.key === 'F9') {
+        if (!onOpenIncident || isPaymentModalOpen || isProductSearchOpen) return;
+        if (hasOpenModalDialog()) return;
+        event.preventDefault();
+        onOpenIncident();
+        return;
+      }
+
       if (event.key === 'F1') {
         event.preventDefault();
 
@@ -354,6 +365,7 @@ export function useSalesKeyboardShortcuts({
     onOpenCashSession,
     onOpenCashMovement,
     onOpenCashClose,
+    onOpenIncident,
     selectedItemKey,
   ]);
 }
