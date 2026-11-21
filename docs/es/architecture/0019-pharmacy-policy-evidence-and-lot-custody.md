@@ -87,8 +87,10 @@ presentar replicación parcial como completa.
   búsqueda. Perfil de 50,000 productos sigue gate con presupuestos separados minorista/farmacia.
 - `pharmacy.genericAlternatives` es una lectura de sugerencia para cualquier
   rol de venta. Para un medicamento lista los más baratos con el mismo principio
-  activo, concentración y forma farmacéutica (sin distinguir mayúsculas, tildes,
-  espacios ni separador decimal), en la tarifa pedida y la misma moneda, con el
+  activo, concentración, forma farmacéutica y presentación (sin distinguir
+  mayúsculas, tildes, espacios ni separador decimal; un campo vacío nunca
+  coincide), de clase no más estricta que la del original, en la tarifa pedida y
+  la misma moneda, con el
   ahorro, el stock vendible de la sede y el lote FEFO. Solo sugiere lo que la
   política vigente permite hoy, con el mismo predicado de producto que el
   cobro: los controlados nunca se sugieren ni se responden, y el stock cuenta

@@ -72,8 +72,8 @@ function tierPrice(row: MedicineRow, tier: PriceTier): number {
 }
 
 /**
- * Cheaper medicines with the same active ingredient, concentration and dosage
- * form that the site can sell right now, biggest saving first. Controlled,
+ * Cheaper medicines with the same active ingredient, concentration, dosage form
+ * and presentation, no stricter class, that the site can sell right now, biggest saving first. Controlled,
  * policy-blocked or out-of-stock products are never suggested; recalls reach
  * this through lot status, like checkout.
  */
@@ -95,11 +95,15 @@ export function listPharmacyGenericAlternatives(
   const ingredient = keyOf(source.activeIngredient);
   const concentration = keyOf(source.concentration);
   const dosageForm = keyOf(source.dosageForm);
+  // Same pack, so the saving compares like for like.
+  const presentation = keyOf(source.presentation);
   const tier = input.priceTier;
   const sourcePrice = tierPrice(source, tier);
   if (
     !ingredient ||
     !concentration ||
+    !dosageForm ||
+    !presentation ||
     source.classification === 'controlled' ||
     !(sourcePrice > 0)
   ) {
@@ -133,7 +137,12 @@ export function listPharmacyGenericAlternatives(
       tier === 1 ? lt(products.price, sourcePrice) : undefined,
       isNotNull(pharmacyProductProfiles.activeIngredient),
       isNotNull(pharmacyProductProfiles.concentration),
-      ne(pharmacyProductProfiles.classification, 'controlled')
+      isNotNull(pharmacyProductProfiles.dosageForm),
+      isNotNull(pharmacyProductProfiles.presentation),
+      // Never a stricter class than the source: an OTC sale must not turn into a prescription one.
+      source.classification === 'otc'
+        ? eq(pharmacyProductProfiles.classification, 'otc')
+        : ne(pharmacyProductProfiles.classification, 'controlled')
     )
   ).flatMap(row => {
     const price = tierPrice(row, tier);
@@ -142,6 +151,7 @@ export function listPharmacyGenericAlternatives(
       keyOf(row.activeIngredient) === ingredient &&
       keyOf(row.concentration) === concentration &&
       keyOf(row.dosageForm) === dosageForm &&
+      keyOf(row.presentation) === presentation &&
       policyAllows(row);
     return matches ? [{ row, price }] : [];
   });

@@ -15,7 +15,7 @@ export function pharmacyProductPolicyBlockCode(
   profile: Omit<PharmacyPolicyProfile, 'classification'>,
   businessDate: string
 ): ServerErrorCode | null {
-  if (!decision.allowed) return decision.errorCode;
+  if (!decision.allowed) return decision.errorCode ?? 'PHARMACY_POLICY_UNAVAILABLE';
   if (
     decision.requiredProductFields.includes('sanitaryRegistration') &&
     !profile.sanitaryRegistration?.trim()

@@ -36,7 +36,8 @@ interface MedicineSpec {
   price2?: number;
   activeIngredient?: string;
   concentration?: string | null;
-  dosageForm?: string;
+  dosageForm?: string | null;
+  presentation?: string | null;
   classification?: 'otc' | 'prescription' | 'controlled';
 }
 
@@ -61,9 +62,9 @@ async function createMedicine(ingredient: string, spec: MedicineSpec) {
       activeIngredient: spec.activeIngredient ?? ingredient,
       genericName: 'Acetaminofén',
       concentration: spec.concentration === undefined ? '500 mg' : spec.concentration,
-      dosageForm: spec.dosageForm ?? 'Tableta',
+      dosageForm: spec.dosageForm === undefined ? 'Tableta' : spec.dosageForm,
       administrationRoute: 'oral',
-      presentation: 'Caja x 24 tabletas',
+      presentation: spec.presentation === undefined ? 'Caja x 24 tabletas' : spec.presentation,
       manufacturer: `Laboratorio ${suffix}`,
       authorizationHolder: `Titular ${suffix}`,
       sanitaryRegistration: `INVIMA-${suffix}`,
@@ -282,6 +283,54 @@ describe('pharmacy.genericAlternatives', () => {
     ).toEqual([elsewhere.id]);
   });
 
+  it('compares the same pack and never a stricter class', async () => {
+    const ingredient = newIngredient();
+    const brand = await createMedicine(ingredient, {
+      name: 'Brand x30',
+      price: 15_000,
+      presentation: 'Caja x 30 tabletas',
+    });
+    const smallerPack = await createMedicine(ingredient, {
+      name: 'Generic x10',
+      price: 8_000,
+      presentation: 'Caja x 10 tabletas',
+    });
+    const samePack = await createMedicine(ingredient, {
+      name: 'Generic x30',
+      price: 9_000,
+      presentation: 'caja x30 tabletas',
+    });
+    const noPack = await createMedicine(ingredient, {
+      name: 'Generic no pack',
+      price: 7_000,
+      presentation: null,
+    });
+    const prescriptionOnly = await createMedicine(ingredient, {
+      name: 'Prescription x30',
+      price: 6_000,
+      presentation: 'Caja x 30 tabletas',
+      classification: 'prescription',
+    });
+    for (const product of [brand, smallerPack, samePack, noPack, prescriptionOnly]) {
+      await receiveLot(product.id);
+    }
+
+    await expect(alternatives(brand.id)).resolves.toMatchObject({
+      items: [{ productId: samePack.id, savings: 6_000 }],
+    });
+    const prescriptionBrand = await createMedicine(ingredient, {
+      name: 'Prescription brand x30',
+      price: 20_000,
+      presentation: 'Caja x 30 tabletas',
+      classification: 'prescription',
+    });
+    expect((await alternatives(prescriptionBrand.id)).items.map(item => item.productId)).toEqual([
+      prescriptionOnly.id,
+      samePack.id,
+      brand.id,
+    ]);
+  });
+
   it('prices by the requested tier, falling back to tier 1 when unset', async () => {
     const ingredient = newIngredient();
     const brand = await createMedicine(ingredient, { name: 'Brand', price: 9_000, price2: 4_000 });
@@ -314,6 +363,20 @@ describe('pharmacy.genericAlternatives', () => {
       concentration: null,
     });
     await expect(alternatives(unspecified.id)).resolves.toEqual({ sourcePrice: 9_000, items: [] });
+
+    const formIngredient = newIngredient();
+    const noForm = await createMedicine(formIngredient, {
+      name: 'No dosage form',
+      price: 9_000,
+      dosageForm: null,
+    });
+    const noFormCheaper = await createMedicine(formIngredient, {
+      name: 'No dosage form generic',
+      price: 2_000,
+      dosageForm: null,
+    });
+    for (const product of [noForm, noFormCheaper]) await receiveLot(product.id);
+    await expect(alternatives(noForm.id)).resolves.toEqual({ sourcePrice: 9_000, items: [] });
     await expect(alternatives('not-a-product')).resolves.toEqual({ sourcePrice: null, items: [] });
   });
 

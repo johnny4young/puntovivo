@@ -115,8 +115,9 @@ keeping regulated aggregates local until that contract exists.
   separately.
 - `pharmacy.genericAlternatives` is an advisory read for any sales role. For
   one medicine it lists cheaper medicines with the same active ingredient,
-  concentration and dosage form (compared without case, accents, spacing or
-  decimal separator) at the requested price tier and the same currency, with
+  concentration, dosage form and presentation (compared without case, accents,
+  spacing or decimal separator; a missing field never matches), no stricter
+  class than the source, at the requested price tier and the same currency, with
   the saving, sellable site stock and the FEFO lot. It suggests only products
   the effective policy allows today, through the same product-policy predicate
   as checkout: controlled medicines are never suggested or answered, and stock
