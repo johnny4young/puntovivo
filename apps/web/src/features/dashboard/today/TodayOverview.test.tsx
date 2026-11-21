@@ -2,6 +2,7 @@ import { render, screen, within } from '@/test/utils';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { todayFixture } from './fixtures';
+import type { TodayPendingItem } from './todayModel';
 
 const { todayData, resolveMutate } = vi.hoisted(() => ({
   todayData: { current: null as unknown },
@@ -87,6 +88,81 @@ describe('TodayOverview', () => {
     expect(screen.getByTestId('today-pending-link-incident')).toHaveTextContent('Transfer 14');
     await user.click(screen.getByTestId('today-incident-resolve'));
     expect(resolveMutate).toHaveBeenCalledWith({ id: 'i-1' });
+  });
+
+  describe('incident detail', () => {
+    type IncidentItem = Extract<TodayPendingItem, { kind: 'incident' }>;
+    const baseIncident = () =>
+      todayFixture().pending.find((item): item is IncidentItem => item.kind === 'incident')!;
+    const renderIncident = (patch: Partial<IncidentItem['incident']>) => {
+      const item = baseIncident();
+      todayData.current = todayFixture({
+        pending: [{ ...item, incident: { ...item.incident, ...patch } }],
+      });
+      render(<TodayOverview formatCurrency={formatCurrency} />);
+      return screen.getByTestId('today-pending-row-incident');
+    };
+
+    it('shows a stockout reason, the report time and the site to transfer from', () => {
+      const row = renderIncident({
+        stockBySite: [
+          { siteId: 'site-1', siteName: 'Norte', onHand: 0 },
+          { siteId: 'site-3', siteName: 'Centro', onHand: 3 },
+          { siteId: 'site-2', siteName: 'Sur', onHand: 14 },
+        ],
+      });
+      expect(row).toHaveTextContent('Leche UHT out of stock');
+      expect(row).toHaveTextContent(
+        /Not on the shelf · Reported by Laura · Norte · .+ · Sur has 14/
+      );
+      expect(within(row).getByTestId('today-pending-link-incident')).toHaveTextContent(
+        'Transfer 14'
+      );
+    });
+
+    it.each([
+      ['system_zero', 'System says 0'],
+      ['expired', 'Expired'],
+    ] as const)('names the %s stockout reason', (reason, label) => {
+      expect(renderIncident({ reason })).toHaveTextContent(label);
+    });
+
+    it('shows shelf against system price and no stock elsewhere on a price mismatch', () => {
+      const row = renderIncident({ kind: 'price_mismatch', shelfPrice: 4500 });
+      expect(row).toHaveTextContent('Leche UHT: shelf price differs');
+      expect(row).toHaveTextContent('shelf $ 4500 · system $ 4900 · Reported by Laura');
+      expect(row).not.toHaveTextContent('Sur has');
+      expect(within(row).queryByTestId('today-pending-link-incident')).not.toBeInTheDocument();
+    });
+
+    it('shows only the shelf price when the system price is unknown', () => {
+      const row = renderIncident({
+        kind: 'price_mismatch',
+        shelfPrice: 4500,
+        systemPrice: null,
+      });
+      expect(row).toHaveTextContent('shelf $ 4500 · Reported by Laura');
+      expect(row).not.toHaveTextContent('system');
+    });
+
+    it('keeps the note of an item without barcode in the title, once', () => {
+      const row = renderIncident({
+        kind: 'no_barcode',
+        productId: null,
+        productName: null,
+        note: 'Galletas de vitrina',
+        stockBySite: [],
+      });
+      expect(row).toHaveTextContent('Product without barcode: Galletas de vitrina');
+      expect(row.textContent?.match(/Galletas de vitrina/g)).toHaveLength(1);
+      expect(row).toHaveTextContent(/vitrinaReported by Laura · Norte/);
+    });
+
+    it('adds the note when an item without barcode names a product', () => {
+      const row = renderIncident({ kind: 'no_barcode', note: 'sin etiqueta' });
+      expect(row).toHaveTextContent('Product without barcode: Leche UHT');
+      expect(row).toHaveTextContent('sin etiqueta · Reported by Laura');
+    });
   });
 
   it('shows open registers, the stale one, and the next handoff', () => {

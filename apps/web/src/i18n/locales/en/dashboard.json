@@ -127,8 +127,15 @@
         "price_mismatch": "{{product}}: shelf price differs",
         "no_barcode": "Product without barcode: {{product}}"
       },
-      "incidentDetail": "Reported by {{reporter}} · {{site}} {{elsewhere}}",
-      "elsewhere": "· {{site}} has {{count}}",
+      "incidentReporter": "Reported by {{reporter}}",
+      "incidentReason": {
+        "not_on_shelf": "Not on the shelf",
+        "system_zero": "System says 0",
+        "expired": "Expired"
+      },
+      "incidentShelfPrice": "shelf {{price}}",
+      "incidentSystemPrice": "system {{price}}",
+      "elsewhere": "{{site}} has {{count}}",
       "attention": {
         "sync_one": "{{count}} sync item needs attention",
         "sync_other": "{{count}} sync items need attention",

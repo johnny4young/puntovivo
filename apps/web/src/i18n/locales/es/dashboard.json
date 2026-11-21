@@ -127,8 +127,15 @@
         "price_mismatch": "{{product}}: el precio de góndola no coincide",
         "no_barcode": "Producto sin código: {{product}}"
       },
-      "incidentDetail": "Lo reportó {{reporter}} · {{site}} {{elsewhere}}",
-      "elsewhere": "· {{site}} tiene {{count}}",
+      "incidentReporter": "Lo reportó {{reporter}}",
+      "incidentReason": {
+        "not_on_shelf": "No hay en góndola",
+        "system_zero": "El sistema dice 0",
+        "expired": "Vencido"
+      },
+      "incidentShelfPrice": "góndola {{price}}",
+      "incidentSystemPrice": "sistema {{price}}",
+      "elsewhere": "{{site}} tiene {{count}}",
       "attention": {
         "sync_one": "{{count}} elemento de sincronización necesita atención",
         "sync_other": "{{count}} elementos de sincronización necesitan atención",
