@@ -672,5 +672,6 @@ export interface CashSessionDenomination {
   count: number;
 }
 
+// Drizzle prefers `.default(sqliteNow)` over `$defaultFn(nowIso)`: set createdAt explicitly on insert.
 export const nowIso = () => new Date().toISOString();
 export const sqliteNow = sql`(datetime('now'))`;

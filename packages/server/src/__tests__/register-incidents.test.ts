@@ -328,6 +328,26 @@ describe('register incidents', () => {
     ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
   });
 
+  it('stores the report time as an ISO instant and reads older rows in that shape', async () => {
+    const db = getDatabase();
+    const cashier = appRouter.createCaller(ctxFor('cashier'));
+    const note = `Vitrina ${nanoid(6)}`;
+    const { id } = await cashier.registerIncidents.report({ kind: 'no_barcode', note });
+    const stored = db
+      .select({ createdAt: registerIncidents.createdAt })
+      .from(registerIncidents)
+      .where(eq(registerIncidents.id, id))
+      .get();
+    expect(stored?.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+
+    db.update(registerIncidents)
+      .set({ createdAt: '2026-11-21 02:11:41' })
+      .where(eq(registerIncidents.id, id))
+      .run();
+    const open = await appRouter.createCaller(ctxFor('manager')).registerIncidents.listOpen();
+    expect(open.find(row => row.id === id)?.createdAt).toBe('2026-11-21T02:11:41.000Z');
+  });
+
   it('finds a completed sale from its scanned receipt', async () => {
     const caller = appRouter.createCaller(ctxFor('cashier'));
     expect(await caller.sales.findByReceipt({ code: ' v-000842 ' })).toMatchObject({

@@ -100,6 +100,9 @@ function findTenantProduct(db: DatabaseInstance, tenantId: string, productId: st
   return product;
 }
 
+// Rows written by the SQLite column default lack the ISO "T" and "Z"; return one shape.
+const createdInstant = sql<string>`strftime('%Y-%m-%dT%H:%M:%fZ', ${registerIncidents.createdAt})`;
+
 async function businessDayWindow(db: DatabaseInstance, tenantId: string, now: Date) {
   const { businessDate, timezone } = await resolveTenantBusinessClock(db, tenantId, now);
   return resolveUtcDayWindow(businessDate, timezone);
@@ -157,7 +160,7 @@ export async function reportRegisterIncident(
           ...(shelfPrice !== null ? { shelfPrice } : {}),
           ...(note ? { note } : {}),
           systemPrice: product?.price ?? null,
-          updatedAt: new Date().toISOString(),
+          updatedAt: now.toISOString(),
         })
         .where(eq(registerIncidents.id, existing.id))
         .run();
@@ -180,6 +183,8 @@ export async function reportRegisterIncident(
       note,
       reportedBy: scope.userId,
       cashSessionId: session?.id ?? null,
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
     })
     .run();
   return { id };
@@ -204,7 +209,7 @@ export function listOpenRegisterIncidents(
       note: registerIncidents.note,
       reportedBy: registerIncidents.reportedBy,
       reportedByName: users.name,
-      createdAt: registerIncidents.createdAt,
+      createdAt: createdInstant,
     })
     .from(registerIncidents)
     .innerJoin(sites, eq(sites.id, registerIncidents.siteId))
@@ -312,7 +317,7 @@ export async function getLatestRegisterIncidentToday(
       kind: registerIncidents.kind,
       productName: registerIncidents.productName,
       note: registerIncidents.note,
-      createdAt: registerIncidents.createdAt,
+      createdAt: createdInstant,
       registerName: cashSessions.registerName,
     })
     .from(registerIncidents)
