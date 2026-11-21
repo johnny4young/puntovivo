@@ -118,6 +118,7 @@ export type CriticalCommandPath =
   // neither is reversible from the UI, so a repeated confirm has to collapse
   // onto one idempotency key rather than pay the debt down twice.
   | 'customerLedger.addPayment'
+  | 'customerLedger.addTillPayment'
   | 'customerLedger.addAdjustment'
   | 'users.create'
   | 'users.update'

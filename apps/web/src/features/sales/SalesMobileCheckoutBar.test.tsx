@@ -294,4 +294,27 @@ describe('SalesMobileCheckoutBar', () => {
     expect(open).toHaveBeenCalledOnce();
     expect(onOpenCashSession).not.toHaveBeenCalled();
   });
+
+  it('shows what the account would come to on the narrow Fiar key', () => {
+    render(
+      <SalesMobileCheckoutBar
+        draftSummary={{ itemCount: 2, subtotal: 4_000, taxAmount: 0, total: 4_000 }}
+        cashSession={activeCashSession}
+        canCharge
+        canOpenCashSession={false}
+        onCharge={vi.fn()}
+        onOpenCashSession={vi.fn()}
+        onCredit={vi.fn()}
+        creditProjectedBalance={88_300}
+        creditLimit={150_000}
+        creditActive
+      />
+    );
+
+    const key = screen.getByTestId('mobile-checkout-credit');
+    expect(key).toHaveAttribute('data-active', 'true');
+    expect(screen.getByTestId('mobile-checkout-credit-projection')).toHaveTextContent(
+      formatCurrency(88_300)
+    );
+  });
 });

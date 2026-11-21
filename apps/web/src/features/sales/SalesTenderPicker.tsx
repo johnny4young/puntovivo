@@ -1,7 +1,6 @@
-import { ArrowLeftRight, Banknote, CreditCard, LayoutGrid, UserRound } from 'lucide-react';
+import { ArrowLeftRight, Banknote, CreditCard, LayoutGrid } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cashChange, suggestCashTenders } from '@/features/sales/cashTender';
-import { useRegisterZone } from '@/features/modules/useRegisterZone';
 import type { InitialTender } from '@/features/sales/salePaymentModal.types';
 import { ariaKeyshortcutsFor, shortcutDisplayFor } from '@/lib/shortcuts';
 import { formatCurrency } from '@/lib/utils';
@@ -10,10 +9,8 @@ const TENDERS = [
   { tender: 'cash', labelKey: 'payment.cash', icon: Banknote },
   { tender: 'card', labelKey: 'payment.card', icon: CreditCard },
   { tender: 'transfer', labelKey: 'payment.transfer', icon: ArrowLeftRight },
-  { tender: 'credit', labelKey: 'payment.credit', icon: UserRound },
   { tender: 'split', labelKey: 'sell.tender.split', icon: LayoutGrid },
 ] as const satisfies ReadonlyArray<{ tender: InitialTender; labelKey: string; icon: unknown }>;
-const TENDERS_WITHOUT_CREDIT = TENDERS.filter(({ tender }) => tender !== 'credit');
 
 interface SalesTenderPickerProps {
   tender: InitialTender;
@@ -24,7 +21,7 @@ interface SalesTenderPickerProps {
   onFastCash?: ((tendered?: number | null) => void) | undefined;
 }
 
-/** The tender picked before charging, and the one-touch cash keys. */
+/** The tender picked before charging, and the one-touch cash keys. Credit is the Fiar key beside Cobrar. */
 export function SalesTenderPicker({
   tender,
   onTenderChange,
@@ -32,8 +29,6 @@ export function SalesTenderPicker({
   onFastCash,
 }: SalesTenderPickerProps) {
   const { t } = useTranslation('sales');
-  const sellsOnCredit = useRegisterZone('credit');
-  const tenders = sellsOnCredit ? TENDERS : TENDERS_WITHOUT_CREDIT;
   const showCashKeys = tender === 'cash' && !!onFastCash && cashDue > 0;
 
   return (
@@ -43,7 +38,7 @@ export function SalesTenderPicker({
           {t('sell.tender.title')}
         </p>
         <div className="flex gap-1.5">
-          {tenders.map(({ tender: option, labelKey, icon: Icon }) => (
+          {TENDERS.map(({ tender: option, labelKey, icon: Icon }) => (
             <button
               key={option}
               type="button"

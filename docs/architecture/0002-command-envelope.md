@@ -227,9 +227,10 @@ header or return ledger. Cancelling a delivery never cancels/refunds the financi
 **Customer ledger**
 
 - `customerLedger.addPayment`
+- `customerLedger.addTillPayment` (cash taken at the register; also moves the open drawer)
 - `customerLedger.addAdjustment`
 
-Both change the customer balance and require one retained logical intent so a
+All three change the customer balance and require one retained logical intent so a
 repeated confirmation cannot debit the debt twice.
 
 **Peripherals**

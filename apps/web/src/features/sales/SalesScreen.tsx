@@ -38,6 +38,8 @@ import { useRegisterZone } from '@/features/modules/useRegisterZone';
 import { SaleCompleteStrip, type CompletedSaleSummary } from './SaleCompleteStrip';
 import { usePrintSaleReceipt } from './useReceiptAutoPrint';
 import { usePhoneLayout } from './usePhoneLayout';
+import { hasAccount, useCustomerAccount } from './useCustomerAccount';
+import { CustomerAccountBar } from './CustomerAccountBar';
 import type { useShiftHandoff } from './handoff/useShiftHandoff';
 
 const LazySalesQuickAccess = lazy(() =>
@@ -61,6 +63,8 @@ const LazyCashSessionModals = lazy(() =>
     default: module.CashSessionModals,
   }))
 );
+
+const LazyCustomerTillPaymentDialog = lazy(() => import('./CustomerTillPaymentDialog'));
 
 const LazySuspendedSalesPanel = lazy(() =>
   import('@/features/sales/SuspendedSalesPanel').then(module => ({
@@ -377,7 +381,6 @@ export function SalesScreen({
   const { t } = useTranslation(['sales', 'errors', 'common']);
   const isPhone = usePhoneLayout();
   const showsQuickKeys = useRegisterZone('quick-keys');
-  const sellsOnCredit = useRegisterZone('credit');
   const takesTips = useRegisterZone('tip-split');
   // Sales parked before the zone was switched off stay reachable.
   const showsSuspended = parksSales || suspendedDraftsCount > 0;
@@ -444,6 +447,28 @@ export function SalesScreen({
     draftSummary.total +
       serviceChargeFor(draftSummary.total, isQuotationCart ? 0 : serviceChargeRate)
   );
+
+  const { sellsOnCredit, account: customerAccount } = useCustomerAccount(ticketCustomerId);
+  const [isTillPaymentOpen, setIsTillPaymentOpen] = useState(false);
+  // With nothing on the ticket the projection would only repeat the debt the bar shows.
+  const shownAccount = ticketCustomerName && hasAccount(customerAccount) ? customerAccount : null;
+  const creditLimit = shownAccount?.creditLimit ?? 0;
+  const creditProjectedBalance =
+    shownAccount && cashDue > 0 ? roundMoney(shownAccount.balance + cashDue) : null;
+  const handleCredit = canCharge
+    ? () => {
+        onTicketTenderChange('credit');
+        // Credit needs a customer, so the drawer opens on the picker unless one is set.
+        handleOpenPaymentModal(false, null, ticketCustomerId ? null : 'customer');
+      }
+    : undefined;
+  // The abono needs something owed and an open register that takes the cash.
+  const canPayAccount =
+    !!ticketCustomerId &&
+    !!shownAccount &&
+    shownAccount.balance > 0 &&
+    !!activeCashSession &&
+    hubReachable !== false;
 
   // Resuming a sale means the shift is not ending yet, so the close stops here.
   const handleResumeSuspended: typeof handleResumeFromPanel = draft => {
@@ -564,6 +589,16 @@ export function SalesScreen({
               )
             }
             quickAccessFirst={isPhone}
+            account={
+              shownAccount ? (
+                <CustomerAccountBar
+                  account={shownAccount}
+                  // The dock names the customer except on phones, where it is hidden.
+                  customerName={isPhone ? ticketCustomerName : null}
+                  onPay={canPayAccount ? () => setIsTillPaymentOpen(true) : undefined}
+                />
+              ) : undefined
+            }
             quickAccess={
               weighPanel ??
               (showsQuickKeys && !itemsLocked && currentSite && favoriteScopeKey ? (
@@ -639,6 +674,10 @@ export function SalesScreen({
               if (lastSale) openSaleDetails(lastSale.id);
             }}
             onOpenReturns={() => setIsHistoryDrawerOpen(true)}
+            showsCreditKey={sellsOnCredit}
+            onCredit={handleCredit}
+            creditProjectedBalance={creditProjectedBalance}
+            creditLimit={creditLimit}
           />
         </section>
 
@@ -659,15 +698,10 @@ export function SalesScreen({
         showsCredit={sellsOnCredit}
         suspendedDraftsCount={suspendedDraftsCount}
         onToggleSuspendedPanel={showsSuspended ? handleToggleSuspendedPanel : undefined}
-        onCredit={
-          canCharge
-            ? () => {
-                onTicketTenderChange('credit');
-                // Credit needs a customer, so the drawer opens on the picker unless one is set.
-                handleOpenPaymentModal(false, null, ticketCustomerId ? null : 'customer');
-              }
-            : undefined
-        }
+        onCredit={handleCredit}
+        creditProjectedBalance={creditProjectedBalance}
+        creditLimit={creditLimit}
+        creditActive={ticketTender === 'credit'}
         hubReachable={hubReachable}
       />
 
@@ -700,6 +734,17 @@ export function SalesScreen({
           trae su propio header (título + cerrar), así que el Drawer va sin
           chrome (`showCloseButton={false}`, sin `title`). Ctrl+R sigue
           abriéndolo vía `handleToggleSuspendedPanel`. */}
+      {isTillPaymentOpen && canPayAccount && ticketCustomerId && shownAccount && (
+        <Suspense fallback={null}>
+          <LazyCustomerTillPaymentDialog
+            customerId={ticketCustomerId}
+            customerName={ticketCustomerName ?? ''}
+            balance={shownAccount.balance}
+            onClose={() => setIsTillPaymentOpen(false)}
+          />
+        </Suspense>
+      )}
+
       {isSuspendedPanelOpen && (
         <Drawer
           isOpen

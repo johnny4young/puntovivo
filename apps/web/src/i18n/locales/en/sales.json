@@ -978,7 +978,8 @@
       "suspend": "Suspend",
       "returns": "Return",
       "credit": "On credit",
-      "suspended": "Suspended"
+      "suspended": "Suspended",
+      "onAccount": "On account"
     },
     "keys": {
       "shortest": "Shortest path:",
@@ -994,6 +995,17 @@
     "phone": {
       "total_one": "Total · {{count}} item",
       "total_other": "Total · {{count}} items"
+    },
+    "credit": {
+      "wouldOwe": "would owe {{amount}}",
+      "owesAfter": "owes {{amount}} after",
+      "overLimit": "over the credit limit"
+    },
+    "account": {
+      "owes": "owes",
+      "ofLimit": "of {{limit}}",
+      "inFavor": "credit in favor",
+      "pay": "Take payment"
     }
   }
 }

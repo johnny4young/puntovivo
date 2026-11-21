@@ -33,6 +33,13 @@ export function isTouchRegisterVerticalId(value: unknown): boolean {
   );
 }
 
+/** Profiles that sell to companies on account rather than fiar to neighbours. */
+export const ON_ACCOUNT_VERTICAL_IDS = ['hardware', 'wholesale'] as const;
+
+export function isOnAccountVerticalId(value: unknown): boolean {
+  return ON_ACCOUNT_VERTICAL_IDS.includes(value as (typeof ON_ACCOUNT_VERTICAL_IDS)[number]);
+}
+
 export function isProductTemplateVerticalId(value: unknown): value is ProductTemplateVerticalId {
   return PRODUCT_TEMPLATE_VERTICAL_IDS.includes(value as ProductTemplateVerticalId);
 }

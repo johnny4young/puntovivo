@@ -34,6 +34,8 @@ interface SalesCartWorkspaceProps {
   quickAccess?: ReactNode;
   /** Phones put the keys between the search and the ticket. */
   quickAccessFirst?: boolean;
+  /** The customer's account, right under the lines it would add to. */
+  account?: ReactNode;
 }
 
 export function SalesCartWorkspace({
@@ -56,6 +58,7 @@ export function SalesCartWorkspace({
   banner,
   quickAccess,
   quickAccessFirst = false,
+  account,
 }: SalesCartWorkspaceProps) {
   const { t } = useTranslation('sales');
   // Unusable actions stay out of the row: a disabled key fails contrast and
@@ -126,6 +129,8 @@ export function SalesCartWorkspace({
           headerActions={headerActions}
         />
       </section>
+
+      {account && <div className="lg:shrink-0">{account}</div>}
 
       {saleError && (
         <div

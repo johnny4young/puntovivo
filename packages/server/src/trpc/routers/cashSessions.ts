@@ -197,7 +197,7 @@ async function presentOpenedSession(
  * injects), so `ctx.envelope` / `ctx.deviceId` are read directly.
  * Only critical-command procedures call this helper.
  */
-function buildCashSessionContext(ctx: Context): CashSessionContext {
+export function buildCashSessionContext(ctx: Context): CashSessionContext {
   const cc = asCriticalCommandContext(ctx);
   return {
     db: cc.db,

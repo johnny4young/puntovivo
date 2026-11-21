@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef } from 'react';
-import { HandCoins, ListTree, PauseCircle, WalletCards } from 'lucide-react';
+import { ListTree, PauseCircle, WalletCards } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui';
 import { formatCurrency } from '@/lib/utils';
@@ -7,6 +7,7 @@ import { ariaKeyshortcutsFor } from '@/lib/shortcuts';
 import type { SaleCartSummary } from '@/features/sales/saleCart';
 import type { CashSession } from '@/types';
 import type { ReceivableHandoff } from './handoff/useShiftHandoff';
+import { SalesCreditKey } from './SalesCreditKey';
 
 // explicit `| undefined` on optional fields.
 interface SalesMobileCheckoutBarProps {
@@ -22,6 +23,10 @@ interface SalesMobileCheckoutBarProps {
   onSuspend?: (() => void) | undefined;
   /** Opens the charge drawer on credit; absent while the ticket cannot be charged. */
   onCredit?: (() => void) | undefined;
+  /** What the customer would owe after this ticket; null while unknown. */
+  creditProjectedBalance?: number | null | undefined;
+  creditLimit?: number | undefined;
+  creditActive?: boolean | undefined;
   suspendedDraftsCount?: number | undefined;
   /** Omitted when the register does not park sales and none are waiting. */
   onToggleSuspendedPanel?: (() => void) | undefined;
@@ -55,6 +60,9 @@ export function SalesMobileCheckoutBar({
   canSuspend = false,
   onSuspend,
   onCredit,
+  creditProjectedBalance = null,
+  creditLimit = 0,
+  creditActive = false,
   suspendedDraftsCount = 0,
   onToggleSuspendedPanel,
   showsSuspend = true,
@@ -156,16 +164,16 @@ export function SalesMobileCheckoutBar({
                 </button>
               )}
               {showsCredit && (
-                <button
-                  type="button"
-                  className="sales-secondary-key sales-phone-key"
+                <SalesCreditKey
+                  className="sales-secondary-key sales-phone-key sales-credit-key"
                   onClick={onCredit}
                   disabled={!canCredit}
-                  data-testid="mobile-checkout-credit"
-                >
-                  <HandCoins className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  {t('sell.actions.credit')}
-                </button>
+                  projectedBalance={creditProjectedBalance}
+                  creditLimit={creditLimit}
+                  active={creditActive}
+                  compact
+                  testId="mobile-checkout-credit"
+                />
               )}
               {showsSuspended && (
                 <button

@@ -21,6 +21,8 @@ export interface AddCustomerLedgerPaymentInput {
   note?: string | undefined;
 }
 
+export type AddCustomerTillPaymentInput = AddCustomerLedgerPaymentInput;
+
 export interface AddCustomerLedgerAdjustmentInput {
   customerId: string;
   amount: number;

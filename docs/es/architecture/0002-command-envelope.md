@@ -185,9 +185,10 @@ se rechazan cabecera de reembolso o libro de devolución. Cancelar entrega nunca
 **Libro del cliente**
 
 - `customerLedger.addPayment`
+- `customerLedger.addTillPayment` (efectivo recibido en caja; también mueve la caja abierta)
 - `customerLedger.addAdjustment`
 
-Ambos cambian el saldo del cliente y requieren una intención lógica retenida
+Los tres cambian el saldo del cliente y requieren una intención lógica retenida
 para que repetir confirmación no descuente dos veces la deuda.
 
 **Periféricos**

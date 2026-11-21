@@ -40,8 +40,8 @@ usa, y una tienda veía la propina de restaurante en cada cobro.
 ## Consecuencias
 
 - Sin migración: el ajuste vive en el JSON de ajustes existente.
-- Zonas conectadas hoy: teclas de un toque, teclas por valor, fiado (teclas de
-  la caja y el cobro), ventas en espera, avisos de descuento por vencimiento
+- Zonas conectadas hoy: teclas de un toque, teclas por valor, fiado (la barra de
+  cuenta con su abono, Fiar junto a Cobrar y el cobro), ventas en espera, avisos de descuento por vencimiento
   (líneas del ticket, teclas y búsqueda de productos), el selector de unidad en
   la búsqueda de productos, el aviso de cotización, acciones de mesa al
   suspender, propina y dividir cuenta.
