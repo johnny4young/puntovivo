@@ -281,6 +281,7 @@ export function PosTouchScreen() {
     cartItems,
     setCartItems: setTieredCartItems,
     locked: checkoutLocked,
+    priceTier: activePriceTier,
     // Pinned under the tiles so it never pushes them away from the finger.
     className: 'sticky bottom-0 z-10 mt-3 shadow-[0_-12px_24px_-18px_rgb(10_18_33/0.35)]',
   });
@@ -411,6 +412,7 @@ export function PosTouchScreen() {
   function handleClearCart() {
     if (checkoutLockedRef.current) return;
     setCartItems([]);
+    closeWeighing();
     // An abandoned ticket must not hand its buyer to the next customer.
     invoiceForm.reset();
   }

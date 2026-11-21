@@ -360,19 +360,21 @@ export function SalesPage() {
     openRestaurantCheckMutation,
   });
 
-  // slice 16b-1 — the modal/UI controller (the F1 payment-open gate
-  // + F2 fast-cash, product search, the three cash-session modals, the
-  // suspended-panel toggle, the history-reprint jump) + the checkout
-  // preflight live in `useSalesModals`. Product-search visibility belongs to
-  // that controller; payment and cash-session visibility stay in the shell.
   const weighing = useWeighedItem({
     cartItems,
     setCartItems,
     scope: activeWorkspace?.id ?? null,
     locked: itemsLocked,
+    priceTier: activeWorkspace?.priceTier ?? 1,
     onApplied: setSelectedCartItemKey,
     className: 'shrink-0',
   });
+
+  // slice 16b-1 — the modal/UI controller (the F1 payment-open gate
+  // + F2 fast-cash, product search, the three cash-session modals, the
+  // suspended-panel toggle, the history-reprint jump) + the checkout
+  // preflight live in `useSalesModals`. Product-search visibility belongs to
+  // that controller; payment and cash-session visibility stay in the shell.
   const commandBar = useSalesCommandBar({
     query: productSearchQuery,
     activeWorkspace: activeWorkspace ?? null,
@@ -383,6 +385,7 @@ export function SalesPage() {
       // A by-weight product asks its weight first, unless a quantity was typed.
       if (quantity === null && weighing.open(selection)) {
         setProductSearchQuery('');
+        setSaleError(null);
         return;
       }
       weighing.close();

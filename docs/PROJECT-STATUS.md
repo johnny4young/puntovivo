@@ -167,8 +167,8 @@ The current validated candidate includes:
   browser's former local favourites seed it once;
 - by-weight products ask how much they weighed when tapped or picked on the
   register and the touch POS: quarter, half and one kilogram keys, a sale by
-  value that buys the quantity to 0.001 at the catalog price, or a typed
-  weight, with a live weight and amount readout. Picking another weight
+  value that buys the quantity to 0.001 at the line's price after tier,
+  discount and tax, or a typed weight, with a live weight and amount readout. Picking another weight
   corrects the same line. The weight and value register zone turns it on;
 - transfer destinations per site: Bre-B keys, Nequi and Daviplata numbers and
   bank accounts, up to six, each with a label the administrator chooses and

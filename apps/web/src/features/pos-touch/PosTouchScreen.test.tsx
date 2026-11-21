@@ -633,6 +633,17 @@ describe('PosTouchScreen', () => {
       expect(screen.queryByTestId('weighed-item-panel')).not.toBeInTheDocument();
     });
 
+    it('closes an untouched panel when the ticket is cleared', async () => {
+      mockProducts.push(makeProduct({ id: 'p-1', name: 'Arroz Diana 500g' }));
+      const user = userEvent.setup();
+      render(<PosTouchScreen />);
+      await user.click(screen.getByTestId('pos-touch-tile-p-1'));
+      await user.click(screen.getByTestId('pos-touch-tile-p-kg'));
+      expect(await screen.findByTestId('weighed-item-panel')).toBeInTheDocument();
+      await user.click(screen.getByTestId('pos-touch-cart-clear'));
+      expect(screen.queryByTestId('weighed-item-panel')).not.toBeInTheDocument();
+    });
+
     it('adds the minimum as before while the weight and value zone is off', async () => {
       zones.weightValue = false;
       const user = userEvent.setup();

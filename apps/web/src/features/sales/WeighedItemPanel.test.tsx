@@ -31,14 +31,14 @@ const selection = {
   price: 24000,
 } as unknown as ProductSearchSelection;
 
-function renderPanel(applied = 0) {
+function renderPanel(applied = 0, discount = 0) {
   const onApply = vi.fn();
   const onClose = vi.fn();
   const session: WeighedItemSession = { id: 1, selection, grams: 1000, applied, scope: null };
   render(
     <WeighedItemPanel
       session={session}
-      line={buildCartItem(selection)}
+      line={{ ...buildCartItem(selection), discount }}
       onApply={onApply}
       onClose={onClose}
     />
@@ -84,6 +84,16 @@ describe('WeighedItemPanel', () => {
     expect(screen.getByTestId('weighed-item-value')).toHaveFocus();
     expect(screen.getByTestId('weighed-item-value')).toHaveTextContent('By value $5,000');
     expect(screen.queryByTestId('weighed-item-value-input')).not.toBeInTheDocument();
+  });
+
+  it('sells by value at the discounted line price', async () => {
+    const user = userEvent.setup();
+    const { onApply } = renderPanel(0, 50);
+    await user.click(screen.getByTestId('weighed-item-value'));
+    await user.type(screen.getByRole('spinbutton', { name: 'Amount' }), '6000');
+    expect(screen.getByTestId('weighed-item-readout')).toHaveTextContent('0.500 kg = $6,000');
+    await user.click(screen.getByTestId('weighed-item-submit'));
+    expect(onApply).toHaveBeenCalledWith(0.5);
   });
 
   it('takes a typed weight and refuses one under the minimum', async () => {

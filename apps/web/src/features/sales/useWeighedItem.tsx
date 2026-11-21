@@ -1,7 +1,12 @@
 import { Suspense, useCallback, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import { useRegisterZone } from '@/features/modules/useRegisterZone';
 import { WeighedItemPanel } from '@/features/sales/LazyWeighedItemPanel';
-import { buildCartItem, getCartItemKey, type SaleCartItem } from '@/features/sales/saleCart';
+import {
+  applyPriceTier,
+  buildCartItem,
+  getCartItemKey,
+  type SaleCartItem,
+} from '@/features/sales/saleCart';
 import { applyWeighedQuantity, gramsPerUnit } from '@/features/sales/weighedItem';
 import type { ProductSearchSelection } from '@/types';
 
@@ -21,6 +26,8 @@ interface UseWeighedItemParams {
   scope?: string | null;
   /** A locked or charging ticket ends it and opens none. */
   locked?: boolean;
+  /** The ticket's price tier, so a line not yet on the ticket previews at its price. */
+  priceTier?: 1 | 2 | 3;
   onApplied?: (lineKey: string) => void;
   className?: string;
 }
@@ -31,6 +38,7 @@ export function useWeighedItem({
   setCartItems,
   scope = null,
   locked = false,
+  priceTier = 1,
   onApplied,
   className,
 }: UseWeighedItemParams) {
@@ -64,13 +72,15 @@ export function useWeighedItem({
   );
 
   const active = stale ? null : session;
+  const previewLine =
+    line ?? (active ? applyPriceTier([buildCartItem(active.selection)], priceTier)[0] : undefined);
   const panel =
-    active && key ? (
+    active && key && previewLine ? (
       <Suspense fallback={null}>
         <WeighedItemPanel
           key={active.id}
           session={active}
-          line={line ?? buildCartItem(active.selection)}
+          line={previewLine}
           onApply={quantity => {
             setCartItems(items =>
               applyWeighedQuantity(items, active.selection, active.applied, quantity)

@@ -68,7 +68,12 @@ export function WeighedItemPanel({
   const resolve = ({ kind, value }: Choice) => {
     const result =
       kind === 'value'
-        ? quantityForAmount(value, line.unitPrice, selection.product)
+        ? // The amount is what the customer pays, so it buys at the line's price after discount and tax.
+          quantityForAmount(
+            value,
+            getLineTotals({ ...line, quantity: 1 }, priceIncludesTax).total,
+            selection.product
+          )
         : quantityForWeight(value, grams, selection.product);
     if ('quantity' in result) return result;
     return {
@@ -189,7 +194,7 @@ export function WeighedItemPanel({
       </div>
 
       {entry && (
-        <form className="mt-2 flex items-end gap-2" onSubmit={submit}>
+        <form className="mt-2 flex items-end gap-2" onSubmit={submit} noValidate>
           <label className="flex min-w-0 flex-1 flex-col gap-1 text-sm font-semibold text-fg1">
             {t(`${entry}.label`)}
             <input

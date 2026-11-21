@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { ReactElement } from 'react';
 import { act, renderHook } from '@testing-library/react';
 import { getCartItemKey, type SaleCartItem } from '@/features/sales/saleCart';
 import { useWeighedItem } from '@/features/sales/useWeighedItem';
@@ -26,6 +27,7 @@ interface Props {
   cartItems: SaleCartItem[];
   scope?: string | null;
   locked?: boolean;
+  priceTier?: 1 | 2 | 3;
 }
 
 function setup(initial: Props) {
@@ -82,5 +84,22 @@ describe('useWeighedItem', () => {
     rerender({ cartItems: [line], scope: 'w-1', locked: true });
     expect(result.current.panel).toBeUndefined();
     expect(result.current.weighingProductId).toBeNull();
+  });
+
+  it('previews a line not yet on the ticket at the ticket tier', () => {
+    zone.on = true;
+    const tiered = {
+      ...selection,
+      product: { ...selection.product, price2: 20000, price3: 18000 },
+      unit: { ...selection.unit, price2: 20000, price3: 18000 },
+    } as ProductSearchSelection;
+    const { result } = setup({ cartItems: [], scope: null, priceTier: 2 });
+    act(() => {
+      result.current.open(tiered);
+    });
+    const suspense = result.current.panel as ReactElement<{
+      children: ReactElement<{ line: SaleCartItem }>;
+    }>;
+    expect(suspense.props.children.props.line.unitPrice).toBe(20000);
   });
 });
