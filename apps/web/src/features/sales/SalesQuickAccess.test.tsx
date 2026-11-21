@@ -118,6 +118,10 @@ function mutation(fn: (input: unknown) => unknown) {
 }
 
 const phone = vi.hoisted(() => ({ layout: false }));
+const zones = vi.hoisted(() => ({ weightValue: true }));
+vi.mock('@/features/modules/useRegisterZone', () => ({
+  useRegisterZone: (zone: string) => zone !== 'weight-value' || zones.weightValue,
+}));
 vi.mock('./usePhoneLayout', () => ({ usePhoneLayout: () => phone.layout }));
 
 vi.mock('@/lib/trpc', () => ({
@@ -193,6 +197,7 @@ const legacyKey = `puntovivo:sales-favorites:v1:${baseProps.scopeKey}`;
 
 describe('SalesQuickAccess', () => {
   beforeEach(() => {
+    zones.weightValue = true;
     state.keys = [];
     state.keysError = false;
     state.topSelling = [];
@@ -257,6 +262,18 @@ describe('SalesQuickAccess', () => {
         price: 60,
       })
     );
+  });
+
+  it('hides amount keys while the sell-by-value zone is off', () => {
+    zones.weightValue = false;
+    state.keys = [
+      keyRow({ id: 'k-beef', kind: 'open_value', productId: 'p-beef', productSku: 'BEEF-1' }),
+      keyRow({ id: 'k-bread', productId: 'p-bread', productSku: 'BREAD-1', position: 1 }),
+    ];
+    render(<SalesQuickAccess {...baseProps} />);
+
+    expect(screen.queryByTestId('sales-quick-value-BEEF-1')).not.toBeInTheDocument();
+    expect(screen.getByTestId('sales-quick-product-BREAD-1')).toBeInTheDocument();
   });
 
   it('sells an open-value key by amount at the catalog price', async () => {

@@ -23,7 +23,11 @@ interface SalesMobileCheckoutBarProps {
   /** Opens the charge drawer on credit; absent while the ticket cannot be charged. */
   onCredit?: (() => void) | undefined;
   suspendedDraftsCount?: number | undefined;
+  /** Omitted when the register does not park sales and none are waiting. */
   onToggleSuspendedPanel?: (() => void) | undefined;
+  /** Register zones: a key whose zone is off is not rendered. */
+  showsSuspend?: boolean | undefined;
+  showsCredit?: boolean | undefined;
   /**
    * same hub-reachability gate as `SalesCheckoutPanel`. The
    * mobile bar mirrors the desktop panel's behavior so a `hub_client`
@@ -32,6 +36,12 @@ interface SalesMobileCheckoutBarProps {
    */
   hubReachable?: boolean | undefined;
 }
+
+const PARK_GRID_COLUMNS: Record<number, string> = {
+  1: 'grid-cols-1',
+  2: 'grid-cols-2',
+  3: 'grid-cols-3',
+};
 
 /** Below `lg` the total, Cobrar and the park keys stay pinned to the bottom edge. */
 export function SalesMobileCheckoutBar({
@@ -47,6 +57,8 @@ export function SalesMobileCheckoutBar({
   onCredit,
   suspendedDraftsCount = 0,
   onToggleSuspendedPanel,
+  showsSuspend = true,
+  showsCredit = true,
   hubReachable,
 }: SalesMobileCheckoutBarProps) {
   const { t } = useTranslation('sales');
@@ -72,6 +84,8 @@ export function SalesMobileCheckoutBar({
   const isHubGated = hubReachable === false;
   const canSuspendNow = Boolean(onSuspend && canSuspend);
   const canCredit = Boolean(onCredit) && !isHubGated;
+  const showsSuspended = Boolean(onToggleSuspendedPanel);
+  const parkKeyCount = [showsSuspend, showsCredit, showsSuspended].filter(Boolean).length;
 
   return (
     <div ref={footprintRef} className="lg:hidden" data-testid="mobile-checkout-footprint">
@@ -121,50 +135,64 @@ export function SalesMobileCheckoutBar({
               {t('cashSession.openAction')}
             </Button>
           )}
-          <div className="mt-2 grid grid-cols-3 gap-2" data-testid="mobile-park-controls">
-            <button
-              type="button"
-              className="sales-secondary-key sales-phone-key"
-              onClick={onSuspend}
-              disabled={!canSuspendNow}
-              data-testid="mobile-checkout-suspend"
-              aria-keyshortcuts={canSuspendNow ? ariaKeyshortcutsFor('sales.suspend') : undefined}
+          {parkKeyCount > 0 && (
+            <div
+              className={`mt-2 grid gap-2 ${PARK_GRID_COLUMNS[parkKeyCount]}`}
+              data-testid="mobile-park-controls"
             >
-              <PauseCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
-              {t('sell.actions.suspend')}
-            </button>
-            <button
-              type="button"
-              className="sales-secondary-key sales-phone-key"
-              onClick={onCredit}
-              disabled={!canCredit}
-              data-testid="mobile-checkout-credit"
-            >
-              <HandCoins className="h-4 w-4 shrink-0" aria-hidden="true" />
-              {t('sell.actions.credit')}
-            </button>
-            <button
-              type="button"
-              className="sales-secondary-key sales-phone-key"
-              onClick={onToggleSuspendedPanel}
-              disabled={!onToggleSuspendedPanel}
-              data-testid="mobile-checkout-open-suspended-panel"
-              aria-keyshortcuts={
-                suspendedDraftsCount > 0 ? ariaKeyshortcutsFor('sales.toggleSuspended') : undefined
-              }
-            >
-              <ListTree className="h-4 w-4 shrink-0" aria-hidden="true" />
-              {t('sell.actions.suspended')}
-              {suspendedDraftsCount > 0 && (
-                <>
-                  {' '}
-                  <span className="sales-phone-count" data-testid="mobile-suspended-count">
-                    {suspendedDraftsCount}
-                  </span>
-                </>
+              {showsSuspend && (
+                <button
+                  type="button"
+                  className="sales-secondary-key sales-phone-key"
+                  onClick={onSuspend}
+                  disabled={!canSuspendNow}
+                  data-testid="mobile-checkout-suspend"
+                  aria-keyshortcuts={
+                    canSuspendNow ? ariaKeyshortcutsFor('sales.suspend') : undefined
+                  }
+                >
+                  <PauseCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  {t('sell.actions.suspend')}
+                </button>
               )}
-            </button>
-          </div>
+              {showsCredit && (
+                <button
+                  type="button"
+                  className="sales-secondary-key sales-phone-key"
+                  onClick={onCredit}
+                  disabled={!canCredit}
+                  data-testid="mobile-checkout-credit"
+                >
+                  <HandCoins className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  {t('sell.actions.credit')}
+                </button>
+              )}
+              {showsSuspended && (
+                <button
+                  type="button"
+                  className="sales-secondary-key sales-phone-key"
+                  onClick={onToggleSuspendedPanel}
+                  data-testid="mobile-checkout-open-suspended-panel"
+                  aria-keyshortcuts={
+                    suspendedDraftsCount > 0
+                      ? ariaKeyshortcutsFor('sales.toggleSuspended')
+                      : undefined
+                  }
+                >
+                  <ListTree className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  {t('sell.actions.suspended')}
+                  {suspendedDraftsCount > 0 && (
+                    <>
+                      {' '}
+                      <span className="sales-phone-count" data-testid="mobile-suspended-count">
+                        {suspendedDraftsCount}
+                      </span>
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

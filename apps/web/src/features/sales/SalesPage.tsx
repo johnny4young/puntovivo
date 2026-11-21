@@ -24,6 +24,7 @@ import { useSalesKeyboardShortcuts } from '@/features/sales/useSalesKeyboardShor
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { useResolvedLocale } from '@/features/locale/LocaleProvider';
 import { useIsModuleActive } from '@/features/modules';
+import { useRegisterZone } from '@/features/modules/useRegisterZone';
 import { useCustomerDisplayPublisher } from '@/features/surfaces/useCustomerDisplayPublisher';
 import { useCheckoutTransferDisplay } from '@/features/sales/checkoutTransferDisplay';
 import { openCustomerDisplayWindow } from '@/features/surfaces/openCustomerDisplayWindow';
@@ -53,6 +54,7 @@ export function SalesPage() {
   const { currentTenant, currentSite, tenantSettings } = useTenant();
   const { currency } = useResolvedLocale();
   const customerDisplayEnabled = useIsModuleActive('customer-display');
+  const parksSales = useRegisterZone('promos-parked');
   // restaurant service-charge rate flows from the tenant
   // setting into `SalePaymentModal`. 0 means disabled (default for
   // retail tenants); positive values auto-apply on every checkout.
@@ -497,6 +499,12 @@ export function SalesPage() {
     isQuickCreateCustomerMounted: shouldRenderQuickCreateCustomerGate,
   });
 
+  // An exchange link is committed only when its replacement sale completes.
+  // A generic suspended draft cannot persist sourceReturnId yet, so parking
+  // it would silently turn the exchange into an unrelated sale.
+  const canSuspendActiveCart =
+    parksSales && canCharge && !itemsLocked && activeWorkspace?.sourceReturnId == null;
+
   useSalesKeyboardShortcuts({
     selectedItemKey: activeSelectedCartItemKey,
     canCharge,
@@ -509,7 +517,7 @@ export function SalesPage() {
     focusProductInput,
     focusQuantityInput,
     focusDiscountInput,
-    canSuspend: canCharge && !itemsLocked,
+    canSuspend: canSuspendActiveCart,
     onSuspend: handleOpenSuspendPrompt,
     onToggleSuspendedPanel: handleToggleSuspendedPanel,
     canToggleSuspendedPanel: suspendedDraftsCount > 0 || isSuspendedPanelOpen,
@@ -568,6 +576,8 @@ export function SalesPage() {
       }}
     >
       <SalesScreen
+        parksSales={parksSales}
+        canSuspendActiveCart={canSuspendActiveCart}
         productSearchQuery={productSearchQuery}
         setProductSearchQuery={setProductSearchQuery}
         handleOpenProductSearch={handleMeasuredOpenProductSearch}

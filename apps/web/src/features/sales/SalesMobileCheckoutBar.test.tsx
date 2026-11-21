@@ -22,6 +22,36 @@ const activeCashSession = {
 };
 
 describe('SalesMobileCheckoutBar', () => {
+  it('renders only the keys whose register zone is on', () => {
+    const props = {
+      draftSummary: { itemCount: 1, subtotal: 10, taxAmount: 0, total: 10 },
+      cashSession: activeCashSession,
+      canCharge: true,
+      canOpenCashSession: false,
+      onCharge: vi.fn(),
+      onOpenCashSession: vi.fn(),
+      onSuspend: vi.fn(),
+      onCredit: vi.fn(),
+      onToggleSuspendedPanel: vi.fn(),
+    };
+    const { rerender } = render(
+      <SalesMobileCheckoutBar {...props} showsSuspend={false} showsCredit={false} />
+    );
+    expect(screen.queryByTestId('mobile-checkout-suspend')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('mobile-checkout-credit')).not.toBeInTheDocument();
+    expect(screen.getByTestId('mobile-park-controls')).toHaveClass('grid-cols-1');
+
+    rerender(
+      <SalesMobileCheckoutBar
+        {...props}
+        showsSuspend={false}
+        showsCredit={false}
+        onToggleSuspendedPanel={undefined}
+      />
+    );
+    expect(screen.queryByTestId('mobile-park-controls')).not.toBeInTheDocument();
+  });
+
   it('reserves the measured fixed-bar footprint and releases its observer on unmount', () => {
     const observe = vi.fn();
     const disconnect = vi.fn();
@@ -80,6 +110,7 @@ describe('SalesMobileCheckoutBar', () => {
         canOpenCashSession={false}
         onCharge={vi.fn()}
         onOpenCashSession={vi.fn()}
+        onToggleSuspendedPanel={vi.fn()}
       />
     );
 
@@ -93,7 +124,7 @@ describe('SalesMobileCheckoutBar', () => {
     );
     expect(screen.getByRole('button', { name: 'Suspender' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Fiar' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Suspendidas' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Suspendidas' })).toBeEnabled();
     expect(screen.queryByRole('button', { name: 'Buscar' })).not.toBeInTheDocument();
   });
 

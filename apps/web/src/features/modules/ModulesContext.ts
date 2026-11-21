@@ -161,6 +161,11 @@ export function useIsModuleActive(moduleId: ClientModuleId): boolean {
   return useModulesStore(state => state.modules[moduleId]);
 }
 
+/** Like `useIsModuleActive`, but true when nothing is required. */
+export function useIsOptionalModuleActive(moduleId: ClientModuleId | null): boolean {
+  return useModulesStore(state => moduleId === null || state.modules[moduleId]);
+}
+
 /**
  * Batch-read all modules at once. Useful for the admin tab + tests.
  * Reads each field with its own selector so the returned object never

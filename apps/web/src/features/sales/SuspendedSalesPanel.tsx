@@ -33,7 +33,7 @@ import {
 import { ConfirmModal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
-import { useIsModuleActive } from '@/features/modules';
+import { useRegisterZone } from '@/features/modules/useRegisterZone';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import {
   invalidateCommittedGroups,
@@ -104,7 +104,8 @@ function OpenSuspendedSalesPanel({ isOpen, onClose, onResume }: SuspendedSalesPa
   const utils = trpc.useUtils();
   const { user } = useAuth();
   const { currentSite } = useTenant();
-  const isDineInActive = useIsModuleActive('dine-in');
+  const showsTables = useRegisterZone('tables');
+  const splitsBills = useRegisterZone('tip-split');
   const canTransferTables = user?.role === 'manager' || user?.role === 'admin';
   const canOverrideDraftOwnership = user?.role === 'manager' || user?.role === 'admin';
   const currentDeviceId = getCachedDeviceIdSync();
@@ -137,17 +138,17 @@ function OpenSuspendedSalesPanel({ isOpen, onClose, onResume }: SuspendedSalesPa
   // guards before querying so a counter tenant does not turn an expected
   // MODULE_DISABLED response into a noisy 403 in the sales journey.
   const tableCatalogQuery = trpc.restaurantTables.list.useQuery(
-    currentSite && canTransferTables && isDineInActive
+    currentSite && canTransferTables && showsTables
       ? { siteId: currentSite.id, includeArchived: false }
       : (undefined as never),
     {
-      enabled: isOpen && canTransferTables && isDineInActive && Boolean(currentSite),
+      enabled: isOpen && canTransferTables && showsTables && Boolean(currentSite),
       staleTime: 5_000,
     }
   );
   const restaurantTablesAvailable =
     canTransferTables &&
-    isDineInActive &&
+    showsTables &&
     !tableCatalogQuery.isLoading &&
     !tableCatalogQuery.isError &&
     (tableCatalogQuery.data?.items.length ?? 0) > 0;
@@ -365,6 +366,7 @@ function OpenSuspendedSalesPanel({ isOpen, onClose, onResume }: SuspendedSalesPa
                     </button>
                   )}
                   {restaurantTablesAvailable &&
+                    splitsBills &&
                     draft.suspendedAt !== null &&
                     draft.itemCount > 0 && (
                       <button

@@ -25,6 +25,10 @@
  */
 
 import type { VerticalPresetId } from '@puntovivo/shared/vertical-presets';
+import {
+  sanitizeRegisterZoneOverrides,
+  type RegisterZoneOverrides,
+} from '@puntovivo/shared/register-zones';
 
 /**
  * The shape `auth.me` is allowed to publish. Mirrors the client contract.
@@ -41,6 +45,7 @@ export interface ClientTenantSettings {
   restaurant?: { serviceChargeRate: number };
   cashClose?: { blindClose: boolean };
   discount?: { expiryTiers: Array<{ maxDays: number; pct: number }> };
+  registerZones?: RegisterZoneOverrides;
 }
 
 /** Every top-level key this projection will publish. Exported for the test. */
@@ -52,6 +57,7 @@ export const CLIENT_TENANT_SETTING_KEYS = [
   'restaurant',
   'cashClose',
   'discount',
+  'registerZones',
 ] as const;
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -127,6 +133,9 @@ export function projectTenantSettingsForClient(settings: unknown): ClientTenantS
   // panel falls back to its own defaults, which it already does.
   const tiers = asRecord(source.discount)?.expiryTiers;
   if (isExpiryTierList(tiers)) projected.discount = { expiryTiers: tiers };
+
+  const zones = sanitizeRegisterZoneOverrides(source.registerZones);
+  if (Object.keys(zones).length > 0) projected.registerZones = zones;
 
   return projected as ClientTenantSettings;
 }

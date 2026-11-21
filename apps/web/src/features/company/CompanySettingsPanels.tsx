@@ -14,6 +14,7 @@ import { CompanyCoFiscalCard } from './CompanyCoFiscalCard';
 import { CompanyCoNumberingCard } from './CompanyCoNumberingCard';
 import { CompanyLocaleSettingsCard } from './CompanyLocaleSettingsCard';
 import { CompanyModulesCard } from './CompanyModulesCard';
+import { CompanyRegisterZonesCard } from './CompanyRegisterZonesCard';
 import { CompanyMxFiscalCard } from './CompanyMxFiscalCard';
 import { CompanyPaymentsCard } from './CompanyPaymentsCard';
 import { CompanyPricingSettingsCard } from './CompanyPricingSettingsCard';
@@ -240,6 +241,7 @@ export function CompanySettingsPanels({
       {activeTab === 'modules' && (
         <div className="space-y-6">
           <CompanyModulesCard />
+          <CompanyRegisterZonesCard />
         </div>
       )}
 

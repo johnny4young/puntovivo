@@ -13,7 +13,8 @@ interface SalesHeaderSectionProps {
   cashierName: string | null;
   siteName: string | null;
   onOpenHistory: () => void;
-  onOpenSuspended: () => void;
+  /** Omitted when the register does not park sales and none are waiting. */
+  onOpenSuspended?: (() => void) | undefined;
   suspendedDraftsCount: number;
   customerDisplayEnabled: boolean;
   onOpenCustomerDisplay: () => void;
@@ -111,29 +112,31 @@ export function SalesHeaderSection({
             <History className="h-4 w-4" aria-hidden="true" />
             <span className="min-w-0 truncate max-md:sr-only lg:sr-only">{t('view.history')}</span>
           </button>
-          <button
-            type="button"
-            className={UTILITY_BUTTON}
-            onClick={onOpenSuspended}
-            data-testid="sales-open-suspended"
-            title={t('park.panelTitle')}
-            aria-keyshortcuts={
-              suspendedDraftsCount > 0 ? ariaKeyshortcutsFor('sales.toggleSuspended') : undefined
-            }
-          >
-            <PauseCircle className="h-4 w-4" aria-hidden="true" />
-            <span className="min-w-0 truncate max-md:sr-only lg:sr-only">
-              {t('park.panelTitle')}
-            </span>
-            {suspendedDraftsCount > 0 && (
-              <span
-                className="inline-flex min-w-5 items-center justify-center rounded-full bg-accent px-1.5 font-numeric text-xs font-bold text-primary"
-                data-testid="sales-suspended-count"
-              >
-                {suspendedDraftsCount}
+          {onOpenSuspended && (
+            <button
+              type="button"
+              className={UTILITY_BUTTON}
+              onClick={onOpenSuspended}
+              data-testid="sales-open-suspended"
+              title={t('park.panelTitle')}
+              aria-keyshortcuts={
+                suspendedDraftsCount > 0 ? ariaKeyshortcutsFor('sales.toggleSuspended') : undefined
+              }
+            >
+              <PauseCircle className="h-4 w-4" aria-hidden="true" />
+              <span className="min-w-0 truncate max-md:sr-only lg:sr-only">
+                {t('park.panelTitle')}
               </span>
-            )}
-          </button>
+              {suspendedDraftsCount > 0 && (
+                <span
+                  className="inline-flex min-w-5 items-center justify-center rounded-full bg-accent px-1.5 font-numeric text-xs font-bold text-primary"
+                  data-testid="sales-suspended-count"
+                >
+                  {suspendedDraftsCount}
+                </span>
+              )}
+            </button>
+          )}
           {customerDisplayEnabled ? (
             <button
               type="button"
