@@ -54,6 +54,7 @@ import {
   productStockTotalSql,
   withSiteStock,
 } from '../../../services/inventory-balances/derive.js';
+import { withSiteStockBreakdown } from '../../../services/inventory-balances/site-stock.js';
 
 const isSalesRole = (role: string | undefined) =>
   (SALES_ROLES as readonly string[]).includes(role ?? '');
@@ -475,8 +476,16 @@ export const productQueryProcedures = {
           })
         : null;
 
+    // Other sites' stock stays with the roles that can already see it while selling.
+    const stockedItems = isSalesRole(ctx.user?.role)
+      ? withSiteStockBreakdown(ctx.db, ctx.tenantId, input.siteId, items)
+      : withSiteStock(ctx.db, ctx.tenantId, input.siteId, items).map(item => ({
+          ...item,
+          otherSites: null,
+        }));
+
     return {
-      items: withSiteStock(ctx.db, ctx.tenantId, input.siteId, items).map(item => {
+      items: stockedItems.map(item => {
         const unitAssignments = assignmentsMap.get(item.id) ?? [];
         const baseUnit =
           unitAssignments.find(assignment => assignment.isBase) ?? unitAssignments[0];

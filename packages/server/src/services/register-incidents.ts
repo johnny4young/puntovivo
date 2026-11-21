@@ -7,13 +7,12 @@
  * @module services/register-incidents
  */
 import { TRPCError } from '@trpc/server';
-import { and, asc, desc, eq, gte, inArray, isNull, lt, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, isNull, lt, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 import type { DatabaseInstance } from '../db/index.js';
 import {
   cashSessions,
-  inventoryBalances,
   products,
   registerIncidents,
   sites,
@@ -24,6 +23,11 @@ import {
 import { getActiveCashSessionForCashier } from './cash-session/queries.js';
 import { resolveTenantBusinessClock } from './pharmacy/business-clock.js';
 import { resolveUtcDayWindow } from './reports/day-window.js';
+import {
+  getStockBySite,
+  withSiteStockBreakdown,
+  type SiteStock,
+} from './inventory-balances/site-stock.js';
 
 export interface ReportRegisterIncidentInput {
   kind: RegisterIncidentKind;
@@ -31,12 +35,6 @@ export interface ReportRegisterIncidentInput {
   reason?: RegisterIncidentReason | undefined;
   shelfPrice?: number | undefined;
   note?: string | undefined;
-}
-
-export interface SiteStock {
-  siteId: string;
-  siteName: string;
-  onHand: number;
 }
 
 export interface RegisterIncidentRow {
@@ -55,46 +53,6 @@ export interface RegisterIncidentRow {
   createdAt: string;
   /** On-hand per site for the product, so the manager sees where to transfer from. */
   stockBySite: SiteStock[];
-}
-
-/** On-hand of each product at every active site of the tenant, sites without a balance omitted. */
-export function getStockBySite(
-  db: DatabaseInstance,
-  tenantId: string,
-  productIds: readonly string[]
-): Map<string, SiteStock[]> {
-  const result = new Map<string, SiteStock[]>();
-  if (productIds.length === 0) return result;
-  const rows = db
-    .select({
-      productId: inventoryBalances.productId,
-      siteId: inventoryBalances.siteId,
-      siteName: sites.name,
-      onHand: inventoryBalances.onHand,
-    })
-    .from(inventoryBalances)
-    .innerJoin(
-      sites,
-      and(
-        eq(sites.id, inventoryBalances.siteId),
-        eq(sites.tenantId, tenantId),
-        eq(sites.isActive, true)
-      )
-    )
-    .where(
-      and(
-        eq(inventoryBalances.tenantId, tenantId),
-        inArray(inventoryBalances.productId, [...productIds])
-      )
-    )
-    .orderBy(asc(sites.name))
-    .all();
-  for (const row of rows) {
-    const list = result.get(row.productId) ?? [];
-    list.push({ siteId: row.siteId, siteName: row.siteName, onHand: row.onHand });
-    result.set(row.productId, list);
-  }
-  return result;
 }
 
 function findTenantProduct(db: DatabaseInstance, tenantId: string, productId: string) {
@@ -292,22 +250,17 @@ export function getProductSiteStock(
   productId: string
 ): ProductSiteStock {
   findTenantProduct(db, scope.tenantId, productId);
-  const bySite = getStockBySite(db, scope.tenantId, [productId]).get(productId) ?? [];
-  const activeSites = new Map(
-    db
-      .select({ id: sites.id, name: sites.name })
-      .from(sites)
-      .where(and(eq(sites.tenantId, scope.tenantId), eq(sites.isActive, true)))
-      .all()
-      .map(site => [site.id, site.name])
-  );
+  const [stock] = withSiteStockBreakdown(db, scope.tenantId, scope.siteId, [{ id: productId }]);
+  const site = db
+    .select({ name: sites.name })
+    .from(sites)
+    .where(and(eq(sites.id, scope.siteId), eq(sites.tenantId, scope.tenantId)))
+    .get();
   return {
     siteId: scope.siteId,
-    siteName: activeSites.get(scope.siteId) ?? '',
-    onHand: bySite.find(row => row.siteId === scope.siteId)?.onHand ?? 0,
-    otherSites: bySite
-      .filter(row => row.siteId !== scope.siteId && row.onHand > 0 && activeSites.has(row.siteId))
-      .sort((a, b) => b.onHand - a.onHand),
+    siteName: site?.name ?? '',
+    onHand: stock!.siteStock ?? 0,
+    otherSites: stock!.otherSites ?? [],
   };
 }
 
