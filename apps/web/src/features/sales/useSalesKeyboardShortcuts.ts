@@ -1,9 +1,9 @@
 import { useEffect } from 'react';
 import { isEditableShortcutTarget } from '@/features/sales/salesKeyboard';
+import { PRODUCT_SEARCH_UNIT_SELECT_ID } from '@/components/dialogs/productSearchSelection';
 import { altChordLetter, hasOpenModalDialog } from '@/lib/shortcuts';
 
 const SALE_PAYMENT_FORM_ID = 'sale-payment-form';
-const PRODUCT_SEARCH_UNIT_SELECT_ID = 'product-search-unit-select';
 
 // explicit `| undefined` on optional fields.
 interface SalesKeyboardShortcutsOptions {

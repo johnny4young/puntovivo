@@ -61,12 +61,17 @@ describe('CompanyRegisterZonesCard', () => {
       'aria-checked',
       'true'
     );
-    // The engine and zones without a register control are not switchable.
+    expect(screen.getByTestId('register-zone-toggle-pharmacy-lot')).toHaveAttribute(
+      'aria-checked',
+      'true'
+    );
+    expect(screen.getByTestId('register-zone-toggle-units-cut')).toHaveAttribute(
+      'aria-checked',
+      'false'
+    );
+    // The selling engine is never switched.
     expect(screen.queryByTestId('register-zone-toggle-checkout')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('register-zone-toggle-pharmacy-lot')).not.toBeInTheDocument();
-    expect(
-      within(screen.getByTestId('register-zone-row-pharmacy-lot')).getByText('Not available')
-    ).toBeInTheDocument();
+    expect(screen.queryByTestId('register-zone-toggle-command-bar')).not.toBeInTheDocument();
   });
 
   it('adds a column for the register when no profile is chosen', () => {

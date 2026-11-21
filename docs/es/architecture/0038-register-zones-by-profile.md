@@ -32,8 +32,7 @@ usa, y una tienda veía la propina de restaurante en cada cobro.
 - Los módulos siguen siendo la puerta de las superficies: una zona que necesita
   un módulo (mesas necesita servicio en mesa, cotización necesita cotizaciones)
   solo aparece con ese módulo activo.
-- Una zona sin control en la caja todavía queda como no disponible y no se puede
-  cambiar; conserva el valor del perfil hasta que llegue su control.
+- Toda zona fuera del motor se puede cambiar.
 - Las zonas solo ocultan controles de la caja. Precios, promociones,
   cumplimiento (lote, fórmula) y ventas ya en espera siguen funcionando con su
   zona apagada.
@@ -42,7 +41,12 @@ usa, y una tienda veía la propina de restaurante en cada cobro.
 
 - Sin migración: el ajuste vive en el JSON de ajustes existente.
 - Zonas conectadas hoy: teclas de un toque, teclas por valor, fiado (teclas de
-  la caja y el cobro), ventas en espera, acciones de mesa al suspender, propina
-  y dividir cuenta.
+  la caja y el cobro), ventas en espera, avisos de descuento por vencimiento
+  (líneas del ticket, teclas y búsqueda de productos), el selector de unidad en
+  la búsqueda de productos, el aviso de cotización, acciones de mesa al
+  suspender, propina y dividir cuenta.
+- Con la zona de unidades apagada, la búsqueda de productos vende la unidad
+  base; un código de barras de una presentación sigue vendiendo esa
+  presentación.
 - El POS táctil conserva su grilla de catálogo; las zonas dan forma a Vender de
   escritorio y a su vista de teléfono.

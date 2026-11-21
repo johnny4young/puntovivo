@@ -1,6 +1,7 @@
 import { type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { History, MonitorUp, PauseCircle } from 'lucide-react';
+import { useRegisterZone } from '@/features/modules/useRegisterZone';
 import { PaceToggleButton } from '@/features/sales/PaceToggleButton';
 import { SoundToggleButton } from '@/features/sales/SoundToggleButton';
 import { type CartWorkspace } from '@/features/sales/useCartWorkspaceStore';
@@ -50,6 +51,8 @@ export function SalesHeaderSection({
 }: SalesHeaderSectionProps) {
   const { t } = useTranslation(['sales', 'salesOperation']);
   const who = [cashierName, siteName].filter(Boolean).join(' · ');
+  // Off, the ticket tab still names the quotation.
+  const showsQuotationBanner = useRegisterZone('quote-delivery');
 
   return (
     <>
@@ -174,7 +177,7 @@ export function SalesHeaderSection({
         </div>
       )}
 
-      {activeWorkspace?.sourceQuotationNumber && (
+      {showsQuotationBanner && activeWorkspace?.sourceQuotationNumber && (
         <div
           className="rounded-2xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-primary-900 lg:shrink-0"
           role="status"

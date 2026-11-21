@@ -31,8 +31,7 @@ the restaurant tip section in every charge.
   also shows Suspender.
 - Modules stay the gate for surfaces: a zone that needs a module (tables need
   dine-in, quotes need quotations) renders only while that module is on.
-- A zone without a register control yet is marked unavailable and cannot be
-  switched; it keeps its profile default until its control ships.
+- Every zone outside the engine can be switched.
 - Zones only hide register controls. Pricing, promotions, compliance (lot,
   prescription) and sales already parked keep working when their zone is off.
 
@@ -40,7 +39,10 @@ the restaurant tip section in every charge.
 
 - No migration: the override lives in the existing settings JSON.
 - Zones wired today: one-touch keys, amount keys, store credit (register keys
-  and the charge drawer), parking, table actions when parking, tips and bill
-  splitting.
+  and the charge drawer), parking, expiry discount badges (ticket lines, keys
+  and product search), the unit picker in product search, the quotation banner,
+  table actions when parking, tips and bill splitting.
+- With the unit zone off, product search sells the base unit; a scanned
+  presentation barcode still sells that presentation.
 - The touch POS keeps its own catalog grid; zones shape desktop Vender and its
   phone layout.

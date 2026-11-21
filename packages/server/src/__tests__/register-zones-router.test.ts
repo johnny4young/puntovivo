@@ -154,14 +154,27 @@ describe('registerZones.set', () => {
     expect(other?.settings).toEqual({ businessType: 'retail', registerZones: { credit: false } });
   });
 
-  it('rejects the selling engine and zones the register cannot switch yet', async () => {
+  it('rejects the selling engine', async () => {
     const caller = appRouter.createCaller(buildContext('admin'));
     await expect(
       caller.registerZones.set({ zoneId: 'checkout' as never, enabled: false })
     ).rejects.toThrow();
     await expect(
-      caller.registerZones.set({ zoneId: 'pharmacy-lot' as never, enabled: false })
+      caller.registerZones.set({ zoneId: 'command-bar' as never, enabled: false })
     ).rejects.toThrow();
+  });
+
+  it('switches the lot, unit and quotation zones', async () => {
+    const caller = appRouter.createCaller(buildContext('admin'));
+    await caller.registerZones.set({ zoneId: 'pharmacy-lot', enabled: false });
+    await caller.registerZones.set({ zoneId: 'units-cut', enabled: true });
+    const result = await caller.registerZones.set({ zoneId: 'quote-delivery', enabled: true });
+
+    expect(result.overrides).toEqual({
+      'pharmacy-lot': false,
+      'units-cut': true,
+      'quote-delivery': true,
+    });
   });
 
   it('is admin-only', async () => {

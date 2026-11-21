@@ -164,6 +164,7 @@ export function SalesModals({
   const { user, tenant } = useAuth();
   const { currentSite } = useTenant();
   const showsTables = useRegisterZone('tables');
+  const sellsInUnits = useRegisterZone('units-cut');
   const [suspendTableId, setSuspendTableId] = useState('');
   const [suspendGuestCount, setSuspendGuestCount] = useState(1);
   const [reservationSelection, setReservationSelection] = useState('');
@@ -301,6 +302,7 @@ export function SalesModals({
           // keep the prop off (zero extra queries).
           showDiscountSuggestions
           siteId={discountSuggestionSiteId}
+          showUnitPicker={sellsInUnits}
         />
       )}
       {(shouldRenderQuickCreateProductGate || shouldRenderQuickCreateCustomerGate) && (

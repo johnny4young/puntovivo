@@ -38,6 +38,8 @@ interface ProductSearchDialogProps {
   canCreateProducts?: boolean;
   /** Restrict inventory workflows to products that own stock balances. */
   stockTrackedOnly?: boolean;
+  /** Off: every pick sells the base unit and the unit details stay hidden. */
+  showUnitPicker?: boolean;
 }
 
 export function ProductSearchDialog({
@@ -54,6 +56,7 @@ export function ProductSearchDialog({
   stockTrackedOnly = false,
   showDiscountSuggestions = false,
   siteId = null,
+  showUnitPicker = true,
 }: ProductSearchDialogProps) {
   const { t } = useTranslation('common');
   const categoryFilterId = useId();
@@ -90,9 +93,10 @@ export function ProductSearchDialog({
   const selectedProduct = selection
     ? (items.find(product => product.id === selection.productId) ?? null)
     : null;
-  const selectedUnit =
-    selectedProduct?.unitAssignments?.find(assignment => assignment.unitId === selection?.unitId) ??
-    getDefaultProductUnit(selectedProduct);
+  const pickedUnit = showUnitPicker
+    ? selectedProduct?.unitAssignments?.find(assignment => assignment.unitId === selection?.unitId)
+    : undefined;
+  const selectedUnit = pickedUnit ?? getDefaultProductUnit(selectedProduct);
   const isSelectionValid = Boolean(selectedProduct && selectedUnit);
   const isEmptyState = searchEnabled && !productsQuery.isLoading && items.length === 0;
 
@@ -185,6 +189,7 @@ export function ProductSearchDialog({
             <ProductSearchSelectionPanel
               product={selectedProduct}
               unit={selectedUnit}
+              showUnits={showUnitPicker}
               onUnitChange={unitId => {
                 if (selectedProduct) {
                   setSelection({ productId: selectedProduct.id, unitId });

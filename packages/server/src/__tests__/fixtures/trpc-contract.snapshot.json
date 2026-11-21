@@ -2438,7 +2438,7 @@
   {
     "path": "registerZones.set",
     "kind": "mutation",
-    "input": "object{enabled:boolean,zoneId:enum(\"quick-keys\"|\"weight-value\"|\"credit\"|\"promos-parked\"|\"tables\"|\"tip-split\")}",
+    "input": "object{enabled:boolean,zoneId:enum(\"quick-keys\"|\"weight-value\"|\"credit\"|\"promos-parked\"|\"pharmacy-lot\"|\"units-cut\"|\"quote-delivery\"|\"tables\"|\"tip-split\")}",
     "output": "inferred"
   },
   {
