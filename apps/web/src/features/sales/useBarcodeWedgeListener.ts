@@ -1,5 +1,6 @@
 import { useEffect, useRef, type RefObject } from 'react';
 import { isEditableShortcutTarget } from '@/features/sales/salesKeyboard';
+import { hasOpenModalDialog } from '@/lib/shortcuts';
 
 /**
  * USB HID keyboard-wedge barcode listener.
@@ -134,9 +135,7 @@ export function deriveScannerConfig(
     DEFAULT_WEDGE_CONFIG.interCharGapMs
   );
   const endOfScan =
-    config.endOfScan === 'enter' ||
-    config.endOfScan === 'tab' ||
-    config.endOfScan === 'gap-only'
+    config.endOfScan === 'enter' || config.endOfScan === 'tab' || config.endOfScan === 'gap-only'
       ? config.endOfScan
       : DEFAULT_WEDGE_CONFIG.endOfScan;
 
@@ -235,10 +234,12 @@ export function useBarcodeWedgeListener(options: UseBarcodeWedgeListenerOptions)
     function handleKeyDown(event: KeyboardEvent) {
       const current = optionsRef.current;
       if (current.enabled === false) return;
+      // Any dialog over the register owns the keyboard; a scan must not land in the cart behind it.
       if (
         current.isProductSearchOpen ||
         current.isPaymentModalOpen ||
-        current.isCashSessionModalOpen
+        current.isCashSessionModalOpen ||
+        hasOpenModalDialog()
       ) {
         resetBuffer(buffer);
         return;

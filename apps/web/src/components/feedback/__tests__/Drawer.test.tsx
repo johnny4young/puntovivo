@@ -190,6 +190,31 @@ describe('Drawer', () => {
     });
   });
 
+  it('gives focus to the initial control instead of the first one, even after a re-open', async () => {
+    const opener = document.createElement('button');
+    document.body.appendChild(opener);
+    opener.focus();
+    const initialFocusRef = { current: null as HTMLButtonElement | null };
+    render(
+      <Drawer isOpen onClose={vi.fn()} title="Incident" initialFocusRef={initialFocusRef}>
+        <button type="button">First action</button>
+        <button type="button" ref={node => void (initialFocusRef.current = node)}>
+          Main action
+        </button>
+      </Drawer>
+    );
+    await waitFor(() => expect(screen.getByText('Main action')).toHaveFocus());
+    opener.remove();
+  });
+
+  it('keeps the screen behind readable with a clear backdrop', () => {
+    const { onClose } = renderDrawer({ backdrop: 'clear' });
+    const backdrop = screen.getByRole('dialog').querySelector(':scope > [aria-hidden="true"]');
+    expect(backdrop).not.toHaveClass('backdrop-blur-sm');
+    fireEvent.click(backdrop as Element);
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
   it('focuses the panel before isolating the opener when lazy content has no control yet', () => {
     const opener = document.createElement('button');
     opener.textContent = 'Open suspended sales';
