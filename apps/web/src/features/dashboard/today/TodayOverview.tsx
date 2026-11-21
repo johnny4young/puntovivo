@@ -4,14 +4,17 @@ import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router';
 import { Button } from '@/components/ui';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { trpc } from '@/lib/trpc';
 import { calendarDayAt } from '@/lib/utils';
 import { ISO_DATE_ONLY_PATTERN } from '@puntovivo/shared/iso-date';
-import { DayBand } from './DayBand';
+import { DayBand, EXPANDED_AXIS_Y } from './DayBand';
 import { PendingQueue } from './PendingQueue';
 import { RegistersColumn } from './RegistersColumn';
 import { percentChange } from './todayModel';
 
+// Only the expanded day draws the arc, so compact Hoy never downloads it.
+const TodayArc = lazy(() => import('./TodayArc').then(module => ({ default: module.TodayArc })));
 const GuidedDayCloseSheet = lazy(() =>
   import('../close/GuidedDayCloseSheet').then(module => ({ default: module.GuidedDayCloseSheet }))
 );
@@ -36,6 +39,8 @@ export function TodayOverview({ formatCurrency }: TodayOverviewProps) {
   const { t, i18n } = useTranslation(['dashboard', 'dayCloseGuide']);
   const { user } = useAuth();
   const [expanded, setExpanded] = useState(readExpanded);
+  // A phone-width band has no room beside it, so the arc is not mounted or fetched there.
+  const roomForArc = useMediaQuery('(min-width: 768px)');
   const [searchParams, setSearchParams] = useSearchParams();
   const query = trpc.operations.today.useQuery(undefined, {
     refetchInterval: 60_000,
@@ -208,13 +213,27 @@ export function TodayOverview({ formatCurrency }: TodayOverviewProps) {
             {expanded ? t('today.collapse') : t('today.expand')}
           </Button>
         </div>
-        <DayBand
-          today={today}
-          numbered={numbered}
-          expanded={expanded}
-          formatCurrency={formatCurrency}
-          formatTime={formatters.time}
-        />
+        <div className="flex items-start gap-6">
+          <div className="min-w-0 flex-1">
+            <DayBand
+              today={today}
+              numbered={numbered}
+              expanded={expanded}
+              formatCurrency={formatCurrency}
+              formatTime={formatters.time}
+            />
+          </div>
+          {expanded && roomForArc && (
+            <Suspense fallback={null}>
+              <TodayArc
+                today={today}
+                formatTime={formatters.time}
+                baselineY={EXPANDED_AXIS_Y}
+                className="shrink-0"
+              />
+            </Suspense>
+          )}
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">

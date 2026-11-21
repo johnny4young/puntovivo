@@ -35,6 +35,11 @@ export function hourIndex(iso: string, dayStartIso: string): number {
   return (Date.parse(iso) - Date.parse(dayStartIso)) / 3_600_000;
 }
 
+/** ISO instant of an hour index in the business day; the inverse of hourIndex. */
+export function hourToIso(hour: number, dayStartIso: string): string {
+  return new Date(Date.parse(dayStartIso) + hour * 3_600_000).toISOString();
+}
+
 export function dayPhases(today: OperationsToday, dayStartIso: string): DayPhases {
   const firstShift = today.shifts[0];
   const peak = today.hourly.reduce<{ hour: number; value: number } | null>(

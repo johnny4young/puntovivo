@@ -104,6 +104,9 @@
       "todayColumn": "Hoy",
       "comparisonColumn": "Semana pasada"
     },
+    "arc": {
+      "summary": "Día de {{opening}} a {{close}}, {{percent}} % transcurrido"
+    },
     "pending": {
       "title": "Pendiente",
       "filterLabel": "Filtrar pendientes",

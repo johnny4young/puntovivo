@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import {
   dayPhases,
   hourIndex,
+  hourToIso,
   placeBandLabels,
   type OperationsToday,
   type TodayPendingItem,
@@ -18,6 +19,10 @@ interface DayBandProps {
 }
 
 const PAD_X = 24;
+const CHART_TOP = 28;
+const EXPANDED_CHART_HEIGHT = 180;
+/** Where the expanded band draws its hour axis, so the day arc can share that baseline. */
+export const EXPANDED_AXIS_Y = CHART_TOP + EXPANDED_CHART_HEIGHT;
 // 11px semibold names run close to 6.5px per glyph.
 const SHIFT_GLYPH_WIDTH = 6.5;
 
@@ -40,13 +45,13 @@ export function DayBand({ today, numbered, expanded, formatCurrency, formatTime 
     today.hourly.length,
     Math.ceil(Math.max(21, nowHour + 1, ...activeHours.map(row => row.hour + 1), ...shiftHours))
   );
-  const chartHeight = expanded ? 180 : 96;
-  const axisY = 28 + chartHeight;
+  const chartHeight = expanded ? EXPANDED_CHART_HEIGHT : 96;
+  const axisY = CHART_TOP + chartHeight;
   const shiftTop = axisY + 30;
   const height = shiftTop + today.shifts.length * 22 + 8;
   const x = (hour: number) => PAD_X + ((hour - from) / (to - from)) * (WIDTH - PAD_X * 2);
   const peakValue = Math.max(1, ...today.hourly.map(row => Math.max(row.today, row.comparison)));
-  const y = (value: number) => 28 + chartHeight - (value / peakValue) * (chartHeight - 8);
+  const y = (value: number) => CHART_TOP + chartHeight - (value / peakValue) * (chartHeight - 8);
   const inRange = today.hourly.filter(row => row.hour >= from && row.hour < to);
   const todayPoints = inRange
     .filter(row => row.hour + 0.5 <= nowHour)
@@ -56,8 +61,7 @@ export function DayBand({ today, numbered, expanded, formatCurrency, formatTime 
   const phases = dayPhases(today, start);
   const nowInRange = nowHour >= from && nowHour <= to;
   const ticks = Array.from({ length: Math.floor((to - from) / 2) + 1 }, (_, i) => from + i * 2);
-  const hourLabel = (hour: number) =>
-    formatTime(new Date(Date.parse(start) + hour * 3_600_000).toISOString());
+  const hourLabel = (hour: number) => formatTime(hourToIso(hour, start));
 
   const marks = [
     phases.openingHour !== null && { x: x(phases.openingHour), text: t('today.band.opening') },

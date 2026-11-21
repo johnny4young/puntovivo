@@ -106,4 +106,15 @@ describe('dashboard calendar labels', () => {
     );
     expect(screen.getByText(/sample@local.test/)).toHaveTextContent('03/07/2026');
   });
+
+  it('shows the latest-day figure unless Hoy already shows today', async () => {
+    await i18next.changeLanguage('en');
+    const points = [{ date: '2026-11-01', revenue: 20, orders: 2 }];
+    const { rerender } = render(
+      <RevenueTrendCard points={points} formatCurrency={formatCurrency} />
+    );
+    expect(screen.getByTestId('revenue-latest-day')).toHaveTextContent('Latest day');
+    rerender(<RevenueTrendCard points={points} formatCurrency={formatCurrency} hideLatestDay />);
+    expect(screen.queryByTestId('revenue-latest-day')).not.toBeInTheDocument();
+  });
 });
