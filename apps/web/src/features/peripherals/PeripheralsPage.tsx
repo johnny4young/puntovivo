@@ -1,6 +1,7 @@
 import { lazy, Suspense, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SystemPrinterSettings } from '@/features/company/SystemPrinterSettings';
+import { ScaleSettings } from '@/features/peripherals/ScaleSettings';
 import { Pencil, Plus, Power, Trash2 } from 'lucide-react';
 import { ConfirmModal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
@@ -228,6 +229,7 @@ export function PeripheralsPage() {
       </div>
 
       {window.electron?.getSystemPrinters && <SystemPrinterSettings />}
+      {window.electron?.getScaleSettings && <ScaleSettings />}
 
       <div className="card p-6">
         <label htmlFor="peripherals-site" className="label">

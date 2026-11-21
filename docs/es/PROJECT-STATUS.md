@@ -536,7 +536,9 @@ El candidato validado actual incluye:
   contables exactos en centavos enteros conservan residuos de asignaciones
   fraccionarias en las mutaciones de stock admitidas; el costo unitario mostrado
   de un lote sigue teniendo dos decimales y no debe usarse para reconstruir ese
-  valor contable autorizado. Balanzas, lectores, diseños de etiquetas de medida
+  valor contable autorizado. La app de escritorio lee una báscula serial en el
+  panel de peso (protocolos continuo, Toledo 8217 y ENQ); ningún modelo está
+  homologado todavía. Balanzas, lectores, diseños de etiquetas de medida
   variable y metrología legal aún requieren validación con dispositivos
   representativos; las etiquetas de país en configuración comparten actualmente
   el analizador genérico y no certifican una convención nacional. El precio de

@@ -1,7 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import i18next from '@/i18n';
-import { render, screen } from '@/test/utils';
+import { render, screen, waitFor } from '@/test/utils';
+import { AuthContext, type AuthContextType } from '@/features/auth/AuthContext';
+import type { ScaleReadResult } from '@/types/electron';
 import { buildCartItem } from '@/features/sales/saleCart';
 import type { WeighedItemSession } from '@/features/sales/useWeighedItem';
 import { WeighedItemPanel } from '@/features/sales/WeighedItemPanel';
@@ -35,20 +37,38 @@ function renderPanel(applied = 0, discount = 0) {
   const onApply = vi.fn();
   const onClose = vi.fn();
   const session: WeighedItemSession = { id: 1, selection, grams: 1000, applied, scope: null };
-  render(
-    <WeighedItemPanel
-      session={session}
-      line={{ ...buildCartItem(selection), discount }}
-      onApply={onApply}
-      onClose={onClose}
-    />
+  const view = render(
+    <AuthContext.Provider
+      value={{ user: { id: 'cashier', tenantId: 'synthetic' } } as AuthContextType}
+    >
+      <WeighedItemPanel
+        session={session}
+        line={{ ...buildCartItem(selection), discount }}
+        onApply={onApply}
+        onClose={onClose}
+      />
+    </AuthContext.Provider>
   );
-  return { onApply, onClose };
+  return { onApply, onClose, unmount: view.unmount };
+}
+
+const originalElectron = window.electron;
+function installScale(configured: boolean, readScale: () => Promise<ScaleReadResult>) {
+  const read = vi.fn(readScale);
+  window.electron = {
+    getScaleStatus: vi.fn(async () => ({ configured })),
+    readScale: read,
+  } as unknown as NonNullable<typeof window.electron>;
+  return read;
 }
 
 describe('WeighedItemPanel', () => {
   beforeEach(async () => {
     await i18next.changeLanguage('en');
+  });
+  afterEach(() => {
+    if (originalElectron) window.electron = originalElectron;
+    else delete window.electron;
   });
 
   it('applies a weight key and marks it', async () => {
@@ -130,5 +150,81 @@ describe('WeighedItemPanel', () => {
     await user.click(screen.getByTestId('weighed-item-value'));
     await user.click(screen.getByTestId('weighed-item-submit'));
     expect(screen.getByRole('alert')).toHaveTextContent('Ingrese un valor mayor que cero.');
+  });
+
+  it('offers no scale outside the desktop app or before a scale is saved', async () => {
+    renderPanel();
+    expect(screen.queryByTestId('weighed-item-scale')).not.toBeInTheDocument();
+    const read = installScale(false, async () => ({ status: 'ok', kilograms: 1 }));
+    renderPanel();
+    await waitFor(() => expect(window.electron!.getScaleStatus).toHaveBeenCalled());
+    expect(screen.queryByTestId('weighed-item-scale')).not.toBeInTheDocument();
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  it('puts the scale weight on the line and marks the scale key', async () => {
+    const user = userEvent.setup();
+    let finish!: (result: ScaleReadResult) => void;
+    installScale(true, () => new Promise(resolve => (finish = resolve)));
+    const { onApply } = renderPanel();
+    const scale = await screen.findByRole('button', { name: 'Read scale' });
+    expect(screen.getByTestId('weighed-item-preset-0.25')).toHaveFocus();
+
+    await user.click(scale);
+    expect(scale).toHaveTextContent('Reading…');
+    expect(scale).toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByTestId('weighed-item-preset-0.5')).toBeDisabled();
+    finish({ status: 'ok', kilograms: 0.385 });
+
+    await waitFor(() => expect(onApply).toHaveBeenCalledWith(0.385));
+    expect(scale).toHaveAttribute('aria-pressed', 'true');
+    expect(scale).toHaveFocus();
+    expect(screen.getByTestId('weighed-item-preset-0.5')).toBeEnabled();
+  });
+
+  it('explains a failed reading and keeps the typed weight', async () => {
+    await i18next.changeLanguage('es');
+    const user = userEvent.setup();
+    installScale(true, async () => ({ status: 'error', code: 'SCALE_UNSTABLE' }));
+    const { onApply } = renderPanel();
+    await user.click(await screen.findByRole('button', { name: 'Leer báscula' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'El peso no se estabiliza. Espere a que el producto quede quieto.'
+    );
+    expect(onApply).not.toHaveBeenCalled();
+
+    await user.click(screen.getByTestId('weighed-item-weight'));
+    await user.type(screen.getByTestId('weighed-item-weight-input'), '0.4{Enter}');
+    expect(onApply).toHaveBeenCalledWith(0.4);
+  });
+
+  it('clears the last scale error and holds the typed entry while reading again', async () => {
+    const user = userEvent.setup();
+    let finish!: (result: ScaleReadResult) => void;
+    const read = installScale(true, async () => ({ status: 'error', code: 'SCALE_EMPTY' }));
+    renderPanel();
+    const scale = await screen.findByRole('button', { name: 'Read scale' });
+    await user.click(screen.getByTestId('weighed-item-weight'));
+    await user.click(scale);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Put the item on the scale.');
+
+    read.mockImplementation(() => new Promise(resolve => (finish = resolve)));
+    await user.click(scale);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByTestId('weighed-item-submit')).toBeDisabled();
+    finish({ status: 'error', code: 'SCALE_EMPTY' });
+    await waitFor(() => expect(screen.getByTestId('weighed-item-submit')).toBeEnabled());
+  });
+
+  it('drops a reading that arrives after the panel closed', async () => {
+    const user = userEvent.setup();
+    let finish!: (result: ScaleReadResult) => void;
+    installScale(true, () => new Promise(resolve => (finish = resolve)));
+    const { onApply, unmount } = renderPanel();
+    await user.click(await screen.findByRole('button', { name: 'Read scale' }));
+    unmount();
+    finish({ status: 'ok', kilograms: 0.5 });
+    await Promise.resolve();
+    expect(onApply).not.toHaveBeenCalled();
   });
 });

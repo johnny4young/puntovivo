@@ -22,6 +22,11 @@ export function gramsPerUnit(selection: ProductSearchSelection): number | null {
     : null;
 }
 
+/** Weights always read with three decimals, at the register and in settings. */
+export function kilogramFormat(locale: string): Intl.NumberFormat {
+  return new Intl.NumberFormat(locale, { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+}
+
 export function kilogramsOf(quantity: number, grams: number): number {
   return roundQuantity((quantity * grams) / 1000, 3);
 }

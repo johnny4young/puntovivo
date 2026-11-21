@@ -59,6 +59,7 @@ estimates, and private work queues do not belong in ADRs.
 | [ADR-0036](./0036-mid-day-register-handoff.md)                           | Mid-day register handoff                   | Accepted |
 | [ADR-0037](./0037-guided-day-close.md)                                   | Guided day close                           | Accepted |
 | [ADR-0038](./0038-register-zones-by-profile.md)                          | Register zones by business profile         | Accepted |
+| [ADR-0039](./0039-serial-scale-reader.md)                                | Serial scale reader in the main process    | Accepted |
 
 ## Reusable implementation patterns
 

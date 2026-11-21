@@ -59,6 +59,7 @@ estimaciones y colas privadas no pertenecen a los ADR.
 | [ADR-0036](0036-mid-day-register-handoff.md)                           | Relevo de caja durante el día                    | Aceptada  |
 | [ADR-0037](0037-guided-day-close.md)                                   | Cierre guiado del día                            | Aceptada  |
 | [ADR-0038](0038-register-zones-by-profile.md)                          | Zonas de la caja por perfil de negocio           | Aceptada  |
+| [ADR-0039](0039-serial-scale-reader.md)                                | Lector de báscula serial en el proceso main      | Aceptada  |
 
 ## Patrones reutilizables de implementación
 
