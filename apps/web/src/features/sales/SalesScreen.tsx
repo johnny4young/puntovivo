@@ -5,6 +5,7 @@ import {
   useState,
   type ComponentProps,
   type Dispatch,
+  type ReactNode,
   type SetStateAction,
 } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -190,6 +191,8 @@ export interface SalesScreenProps {
   productSearchDialogKey: number;
   setIsProductSearchOpen: Dispatch<SetStateAction<boolean>>;
   handleProductSelect: (selection: ProductSearchSelection, quantity?: number) => void;
+  /** «¿Cuánto pesó?» for the by-weight product just picked; it takes the keys' place. */
+  weighPanel?: ReactNode;
   commandBar: SalesCommandBar;
   productSearchInitialQuery: string;
   setCartItems: ModalsProps['setCartItems'];
@@ -329,6 +332,7 @@ export function SalesScreen({
   productSearchDialogKey,
   setIsProductSearchOpen,
   handleProductSelect,
+  weighPanel,
   commandBar,
   productSearchInitialQuery,
   setCartItems,
@@ -561,7 +565,8 @@ export function SalesScreen({
             }
             quickAccessFirst={isPhone}
             quickAccess={
-              showsQuickKeys && !itemsLocked && currentSite && favoriteScopeKey ? (
+              weighPanel ??
+              (showsQuickKeys && !itemsLocked && currentSite && favoriteScopeKey ? (
                 <Suspense
                   fallback={
                     <div
@@ -580,7 +585,7 @@ export function SalesScreen({
                     onSelectProduct={handleProductSelect}
                   />
                 </Suspense>
-              ) : undefined
+              ) : undefined)
             }
           />
 

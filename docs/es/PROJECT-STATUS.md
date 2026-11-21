@@ -183,6 +183,11 @@ El candidato validado actual incluye:
   fuera de catálogo. Una sede sin teclas ofrece lo que más vendió, completado con
   el catálogo, y los favoritos locales que tenía un navegador la siembran una
   vez;
+- los productos por peso preguntan cuánto pesaron al tocarlos o elegirlos en la
+  caja y en el POS táctil: teclas de un cuarto, medio y un kilogramo, una venta
+  por valor que compra la cantidad a 0,001 al precio de catálogo, o el peso
+  escrito, con la lectura en vivo del peso y el monto. Elegir otro peso corrige
+  la misma línea. Lo enciende la zona de peso y valor de la caja;
 - destinos de transferencia por sede: llaves Bre-B, números Nequi y Daviplata y
   cuentas bancarias, hasta seis, cada uno con el nombre que elija el
   administrador y que se editan en la configuración de pagos. Al cobrar por

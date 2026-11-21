@@ -1121,12 +1121,8 @@
       font-size: 1.1875rem;
     }
 
-    .sales-ticket-line:not([data-open='true']) :is(
-        .sales-ticket-meta,
-        .sales-ticket-qty,
-        .sales-ticket-remove,
-        .sales-ticket-details
-      ) {
+    .sales-ticket-line:not([data-open='true'])
+      :is(.sales-ticket-meta, .sales-ticket-qty, .sales-ticket-remove, .sales-ticket-details) {
       display: none;
     }
 
@@ -1317,6 +1313,59 @@
   .sales-quick-choose:hover {
     color: var(--fg1);
     text-decoration: underline;
+  }
+
+  .weighed-panel {
+    padding: 0.8rem 0.95rem;
+    border-radius: 1.125rem;
+    background: var(--accent);
+    color: var(--fg1);
+  }
+
+  .weighed-readout {
+    @apply font-numeric;
+    font-size: 1.625rem;
+    font-weight: 700;
+    line-height: 1.1;
+    white-space: nowrap;
+  }
+
+  .weighed-keys {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.625rem;
+  }
+
+  .weighed-key {
+    display: flex;
+    flex: 1 1 4.5rem;
+    align-items: center;
+    justify-content: center;
+    min-height: 3.25rem;
+    padding: 0 0.75rem;
+    border: 1.5px solid var(--line-strong);
+    border-radius: 0.875rem;
+    background: var(--card);
+    font-size: 1rem;
+    font-weight: 700;
+    white-space: nowrap;
+    color: var(--fg1);
+  }
+
+  .weighed-key.is-wide {
+    flex: 1.4 1 8rem;
+    font-size: 0.9rem;
+  }
+
+  .weighed-key:hover {
+    border-color: var(--primary-600);
+  }
+
+  .weighed-key:is([aria-pressed='true'], [data-on]) {
+    border-color: var(--fg1);
+    background: var(--fg1);
+    color: var(--card);
   }
 
   .sales-quick-key {

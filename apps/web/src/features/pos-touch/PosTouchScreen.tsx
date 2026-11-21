@@ -68,6 +68,7 @@ import {
 import { getCartSummary } from '@/features/sales/saleCartTotals';
 import { selectionFromHydratedProduct } from '@/features/sales/productSelection';
 import { QuickKeyValueForm } from '@/features/sales/QuickKeyValueForm';
+import { useWeighedItem } from '@/features/sales/useWeighedItem';
 import {
   useQuickTileSelection,
   useSiteQuickKeys,
@@ -117,6 +118,14 @@ export function PosTouchScreen() {
   const ticketEpochRef = useRef(0);
   const valueTicketEpochRef = useRef(0);
   const { query: quickKeysQuery, tiles: quickTiles } = useSiteQuickKeys(siteId);
+
+  const setTieredCartItems = useCallback<Dispatch<SetStateAction<SaleCartItem[]>>>(update => {
+    setCartItems(current => {
+      if (checkoutLockedRef.current) return current;
+      const next = typeof update === 'function' ? update(current) : update;
+      return applyPriceTier(next, activePriceTierRef.current);
+    });
+  }, []);
   const resolveQuickTile = useQuickTileSelection(siteId);
   // The site's keys open first; a category tab or a search switches to the catalog.
   const [showQuickKeys, setShowQuickKeys] = useState(true);
@@ -263,6 +272,18 @@ export function PosTouchScreen() {
   });
   const isServerRestarting = useEmbeddedServerState() === 'restarting';
   const checkoutLocked = isCheckoutLocked || createMutation.isPending;
+  const {
+    open: openWeighing,
+    close: closeWeighing,
+    panel: weighPanel,
+    weighingProductId,
+  } = useWeighedItem({
+    cartItems,
+    setCartItems: setTieredCartItems,
+    locked: checkoutLocked,
+    // Pinned under the tiles so it never pushes them away from the finger.
+    className: 'sticky bottom-0 z-10 mt-3 shadow-[0_-12px_24px_-18px_rgb(10_18_33/0.35)]',
+  });
 
   const addSelection = useCallback(
     (selection: ProductSearchSelection, name: string, quantity: number | null = null) => {
@@ -294,7 +315,12 @@ export function PosTouchScreen() {
           });
           return;
         }
-        addSelection(selection, name);
+        if (openWeighing(selection)) {
+          setValueTile(null);
+        } else {
+          closeWeighing();
+          addSelection(selection, name);
+        }
       } catch (err) {
         if (checkoutLockedRef.current || ticketEpoch !== ticketEpochRef.current) return;
         toast.error({
@@ -303,7 +329,7 @@ export function PosTouchScreen() {
         });
       }
     },
-    [addSelection, toast, t]
+    [addSelection, closeWeighing, openWeighing, toast, t]
   );
 
   // useCallback keeps every memoized tile from re-rendering on a cart tick;
@@ -322,6 +348,7 @@ export function PosTouchScreen() {
     if (checkoutLockedRef.current) return;
     if (tile.kind === 'open_value') {
       valueTicketEpochRef.current = ticketEpochRef.current;
+      closeWeighing();
       setValueTile(tile);
     } else void addHydrated(() => resolveQuickTile(tile), tile.name);
   }
@@ -335,14 +362,6 @@ export function PosTouchScreen() {
     addSelection(selection, valueTile.name, quantity);
     setValueTile(null);
   }
-
-  const setTieredCartItems = useCallback<Dispatch<SetStateAction<SaleCartItem[]>>>(update => {
-    setCartItems(current => {
-      if (checkoutLockedRef.current) return current;
-      const next = typeof update === 'function' ? update(current) : update;
-      return applyPriceTier(next, activePriceTierRef.current);
-    });
-  }, []);
 
   const handlePriceTierChange = useCallback((tier: 1 | 2 | 3) => {
     if (checkoutLockedRef.current) return;
@@ -595,6 +614,7 @@ export function PosTouchScreen() {
               tiles={quickTiles}
               isDisabled={checkoutLocked}
               activeValueKey={valueTile?.key ?? null}
+              weighingProductId={weighingProductId}
               cartQuantities={cartQuantities}
               onSelect={handleQuickTile}
             />
@@ -605,6 +625,7 @@ export function PosTouchScreen() {
               isError={Boolean(productsQuery.error)}
               isDisabled={checkoutLocked}
               onSelect={handleAddToCart}
+              weighingProductId={weighingProductId}
               cartQuantities={cartQuantities}
               emptyMessage={search ? t('grid.noMatches') : undefined}
             />
@@ -646,6 +667,7 @@ export function PosTouchScreen() {
               </button>
             </nav>
           )}
+          {weighPanel}
         </div>
         <PosTouchCartSidebar
           items={cartItems}

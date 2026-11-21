@@ -9,6 +9,7 @@ import { useSalesFlows } from '@/features/sales/useSalesFlows';
 import { useSalesCart } from '@/features/sales/useSalesCart';
 import { useSalesModals } from '@/features/sales/useSalesModals';
 import { useSalesCommandBar } from '@/features/sales/useSalesCommandBar';
+import { useWeighedItem } from '@/features/sales/useWeighedItem';
 import { useSalesPageData } from '@/features/sales/useSalesPageData';
 import { useLastRead } from '@/features/sales/useLastRead';
 import type { InitialTender } from '@/features/sales/salePaymentModal.types';
@@ -364,6 +365,14 @@ export function SalesPage() {
   // suspended-panel toggle, the history-reprint jump) + the checkout
   // preflight live in `useSalesModals`. Product-search visibility belongs to
   // that controller; payment and cash-session visibility stay in the shell.
+  const weighing = useWeighedItem({
+    cartItems,
+    setCartItems,
+    scope: activeWorkspace?.id ?? null,
+    locked: itemsLocked,
+    onApplied: setSelectedCartItemKey,
+    className: 'shrink-0',
+  });
   const commandBar = useSalesCommandBar({
     query: productSearchQuery,
     activeWorkspace: activeWorkspace ?? null,
@@ -371,6 +380,12 @@ export function SalesPage() {
     addProduct: (selection, quantity) => {
       saleMeasurement.ensure('complete_sale');
       saleMeasurement.markUsableControl();
+      // A by-weight product asks its weight first, unless a quantity was typed.
+      if (quantity === null && weighing.open(selection)) {
+        setProductSearchQuery('');
+        return;
+      }
+      weighing.close();
       handleProductSelect(selection, quantity);
     },
   });
@@ -667,6 +682,7 @@ export function SalesPage() {
         productSearchDialogKey={productSearchDialogKey}
         setIsProductSearchOpen={setIsProductSearchOpen}
         handleProductSelect={commandBar.selectProduct}
+        weighPanel={weighing.panel}
         commandBar={commandBar}
         productSearchInitialQuery={productSearchInitialQuery}
         setCartItems={setCartItems}

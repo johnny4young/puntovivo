@@ -165,6 +165,11 @@ The current validated candidate includes:
   buys at the catalog price, so it never becomes an off-catalog price. A site
   without keys offers what it sold most, topped up from the catalog, and a
   browser's former local favourites seed it once;
+- by-weight products ask how much they weighed when tapped or picked on the
+  register and the touch POS: quarter, half and one kilogram keys, a sale by
+  value that buys the quantity to 0.001 at the catalog price, or a typed
+  weight, with a live weight and amount readout. Picking another weight
+  corrects the same line. The weight and value register zone turns it on;
 - transfer destinations per site: Bre-B keys, Nequi and Daviplata numbers and
   bank accounts, up to six, each with a label the administrator chooses and
   edits under payment settings. Charging by transfer shows the site's QR for

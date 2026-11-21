@@ -2383,6 +2383,23 @@ export function seedReservationSaleScenario(seed: string) {
   });
 }
 
+/** One product sold by the kilogram on an isolated touch register. */
+export function seedWeighedProductScenario(seed: string) {
+  const scenario = seedFulfillmentSaleScenario(seed, { 'pos-touch': true });
+  const db = openDb();
+  try {
+    db.prepare(
+      'UPDATE products SET sell_by_fraction = 1, fraction_step = 0.001, fraction_minimum = 0.05 WHERE tenant_id = ? AND id = ?'
+    ).run(scenario.tenantId, scenario.product.id);
+    db.prepare(
+      "UPDATE units SET name = 'Kilogram', abbreviation = 'kg', dimension = 'mass', reference_factor = 1000 WHERE tenant_id = ?"
+    ).run(scenario.tenantId);
+    return scenario;
+  } finally {
+    db.close();
+  }
+}
+
 /** Fractional catalog prerequisite for external fulfillment; signed ingress and UI own all operational writes. */
 export function seedExternalOrderScenario(seed: string) {
   const scenario = seedFulfillmentSaleScenario(seed, { delivery: true });
