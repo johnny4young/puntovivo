@@ -220,7 +220,11 @@ export function DashboardPage() {
       )}
 
       <div className="dashboard-primary-grid pv-reveal pv-reveal-delay-1">
-        <RevenueTrendCard points={revenueChart} formatCurrency={formatCurrency} />
+        <RevenueTrendCard
+          points={revenueChart}
+          formatCurrency={formatCurrency}
+          hideLatestDay={isManager}
+        />
         <LowStockAlertsCard items={lowStockItems} />
       </div>
 

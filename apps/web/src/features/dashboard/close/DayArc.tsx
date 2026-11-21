@@ -1,5 +1,6 @@
 import { useId, useMemo, type ReactNode } from 'react';
 import { useElementWidth } from '@/hooks/useElementWidth';
+import { blobLevels, polar as polarAt, semicircle as semicircleAt } from '../today/arcGeometry';
 import { hourIndex } from '../today/todayModel';
 
 export interface DayArcProps {
@@ -26,19 +27,12 @@ const GROW = 58;
 const LABEL_R = 165;
 const MIN_SPAN = 6;
 const MAX_LABELS = 8;
-const SAMPLES_PER_HOUR = 8;
 const LABEL_PX = 11;
 
 const fixed = (value: number) => value.toFixed(1);
 
-function polar(radius: number, ratio: number): [number, number] {
-  const angle = Math.PI * (1 - ratio);
-  return [CX + radius * Math.cos(angle), CY - radius * Math.sin(angle)];
-}
-
-function semicircle(radius: number) {
-  return `M${CX - radius} ${CY}A${radius} ${radius} 0 0 1 ${CX + radius} ${CY}`;
-}
+const polar = (radius: number, ratio: number) => polarAt(CX, CY, radius, ratio);
+const semicircle = (radius: number) => semicircleAt(CX, CY, radius);
 
 /** Hours shown on the dial: first to last activity, widened to MIN_SPAN. */
 function activeRange(activity: number[], dayHours: number): [number, number] {
@@ -54,33 +48,6 @@ function activeRange(activity: number[], dayHours: number): [number, number] {
     to += shift;
   }
   return [Math.max(0, from), to];
-}
-
-/** Catmull-Rom through the hourly levels, clamped so the curve never dips under the base. */
-function blobLevels(levels: number[]): Array<[number, number]> {
-  const span = levels.length;
-  const knots: Array<[number, number]> = [
-    [0, 0],
-    ...levels.map((level, index): [number, number] => [index + 0.5, level]),
-    [span, 0],
-  ];
-  const at = (index: number) => knots[Math.min(knots.length - 1, Math.max(0, index))]!;
-  const points: Array<[number, number]> = [[0, 0]];
-  for (let i = 0; i < knots.length - 1; i += 1) {
-    const [p0, p1, p2, p3] = [at(i - 1)[1], at(i)[1], at(i + 1)[1], at(i + 2)[1]];
-    for (let step = 1; step <= SAMPLES_PER_HOUR; step += 1) {
-      const t = step / SAMPLES_PER_HOUR;
-      const level =
-        0.5 *
-        (2 * p1 +
-          (p2 - p0) * t +
-          (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t +
-          (3 * p1 - p0 - 3 * p2 + p3) * t * t * t);
-      const position = at(i)[0] + (at(i + 1)[0] - at(i)[0]) * t;
-      points.push([position / span, Math.min(1.04, Math.max(0, level))]);
-    }
-  }
-  return points;
 }
 
 function hourFormatter(locale: string, timeZone: string) {

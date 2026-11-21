@@ -19,6 +19,8 @@ interface DashboardStatsGridProps {
 interface RevenueTrendCardProps {
   points: DashboardSummary['revenueChart'];
   formatCurrency: (amount: number) => string;
+  /** Hoy already shows today's sales, so the card drops its latest-day figure. */
+  hideLatestDay?: boolean;
 }
 
 interface RecentSalesCardProps {
@@ -133,7 +135,11 @@ function buildChartGeometry(points: RevenueTrendCardProps['points']) {
   return { coordinates, line, area };
 }
 
-export function RevenueTrendCard({ points, formatCurrency }: RevenueTrendCardProps) {
+export function RevenueTrendCard({
+  points,
+  formatCurrency,
+  hideLatestDay = false,
+}: RevenueTrendCardProps) {
   const { t } = useTranslation('dashboard');
   const firstPoint = points.at(0);
   const lastPoint = points.at(-1);
@@ -154,10 +160,12 @@ export function RevenueTrendCard({ points, formatCurrency }: RevenueTrendCardPro
             <h2 className="dashboard-panel-title">{t('revenue.title')}</h2>
             <p className="dashboard-panel-description">{t('revenue.description')}</p>
           </div>
-          <div className="dashboard-latest-value">
-            <span>{t('revenue.latestDay')}</span>
-            <strong>{formatCurrency(lastPoint?.revenue ?? 0)}</strong>
-          </div>
+          {!hideLatestDay && (
+            <div className="dashboard-latest-value" data-testid="revenue-latest-day">
+              <span>{t('revenue.latestDay')}</span>
+              <strong>{formatCurrency(lastPoint?.revenue ?? 0)}</strong>
+            </div>
+          )}
         </header>
 
         <div className="dashboard-chart-wrap">

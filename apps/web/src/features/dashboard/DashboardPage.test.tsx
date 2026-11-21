@@ -65,7 +65,9 @@ vi.mock('@/features/dashboard/DashboardPanels', () => ({
   DashboardStatsGrid: () => <div data-testid="dashboard-stats" />,
   LowStockAlertsCard: () => <div data-testid="low-stock-card" />,
   RecentSalesCard: () => <div data-testid="recent-sales-card" />,
-  RevenueTrendCard: () => <div data-testid="revenue-trend-card" />,
+  RevenueTrendCard: ({ hideLatestDay }: { hideLatestDay?: boolean }) => (
+    <div data-testid="revenue-trend-card" data-hide-latest-day={String(Boolean(hideLatestDay))} />
+  ),
   TopProductsCard: () => <div data-testid="top-products-card" />,
 }));
 
@@ -118,7 +120,11 @@ describe('DashboardPage audience', () => {
     render(<DashboardPage />);
     expect(await screen.findByTestId('today-overview')).toBeInTheDocument();
     expect(screen.queryByTestId('dashboard-briefing')).not.toBeInTheDocument();
-    expect(screen.getByTestId('revenue-trend-card')).toBeInTheDocument();
+    // Hoy already shows today's sales, so the 30-day card drops its latest-day figure.
+    expect(screen.getByTestId('revenue-trend-card')).toHaveAttribute(
+      'data-hide-latest-day',
+      'true'
+    );
     expect(screen.getByTestId('low-stock-card')).toBeInTheDocument();
   });
 
@@ -128,6 +134,10 @@ describe('DashboardPage audience', () => {
     render(<DashboardPage />);
     expect(screen.getByTestId('dashboard-briefing')).toBeInTheDocument();
     expect(screen.queryByTestId('today-overview')).not.toBeInTheDocument();
+    expect(screen.getByTestId('revenue-trend-card')).toHaveAttribute(
+      'data-hide-latest-day',
+      'false'
+    );
   });
 });
 

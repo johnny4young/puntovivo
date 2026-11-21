@@ -272,6 +272,26 @@ describe('TodayOverview', () => {
     expect(localStorage.getItem('puntovivo.today.expanded')).toBe('1');
   });
 
+  it('draws the day arc only while the day is expanded', async () => {
+    const user = userEvent.setup();
+    render(<TodayOverview formatCurrency={formatCurrency} />);
+    expect(screen.queryByTestId('today-arc')).not.toBeInTheDocument();
+    await user.click(screen.getByTestId('today-expand'));
+    const arc = await screen.findByTestId('today-arc');
+    // Its baseline sits on the band's hour axis.
+    expect(arc.style.marginTop).toContain('208px');
+    expect(screen.getByRole('img', { name: /^Day from .+ to .+, \d+ % elapsed$/ })).toBeVisible();
+    await user.click(screen.getByTestId('today-expand'));
+    expect(screen.queryByTestId('today-arc')).not.toBeInTheDocument();
+  });
+
+  it('opens expanded with the arc when the viewer left the day expanded', async () => {
+    localStorage.setItem('puntovivo.today.expanded', '1');
+    render(<TodayOverview formatCurrency={formatCurrency} />);
+    expect(screen.getByTestId('today-expand')).toHaveAttribute('aria-expanded', 'true');
+    expect(await screen.findByTestId('today-arc')).toBeInTheDocument();
+  });
+
   it('opens the guided close for the business day from the header', async () => {
     const user = userEvent.setup();
     render(<TodayOverview formatCurrency={formatCurrency} />);

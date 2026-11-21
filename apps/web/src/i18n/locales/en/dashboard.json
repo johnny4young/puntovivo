@@ -104,6 +104,9 @@
       "todayColumn": "Today",
       "comparisonColumn": "Last week"
     },
+    "arc": {
+      "summary": "Day from {{opening}} to {{close}}, {{percent}} % elapsed"
+    },
     "pending": {
       "title": "Pending",
       "filterLabel": "Filter pending items",
