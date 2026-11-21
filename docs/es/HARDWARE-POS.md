@@ -17,7 +17,7 @@ se registran en cola, son observables y se pueden recuperar.
 | ESC/POS directo por puerto serie    | No implementado; la configuración no debe afirmar que está soportado.                            |
 | Cajón RJ11 mediante ESC/POS         | Implementado si el transporte de la impresora seleccionada admite el pulso del cajón.            |
 | Lector de códigos USB HID           | Implementado como entrada de teclado, con protección del foco del cajero.                        |
-| Cámara del teléfono                 | Lee códigos donde el navegador trae un detector en el dispositivo; las imágenes no salen de él.  |
+| Cámara del teléfono                 | Lee códigos en el navegador del teléfono, con decodificador propio y linterna; nada sale de él.  |
 | Terminal de pago manual             | Implementada como registro de un medio de pago manual.                                           |
 | SDK/API de terminal de un proveedor | Existe el punto de integración; ningún proveedor está homologado para producción.                |
 | Puente local de cliente Hub         | Implementado como puente IPC de renderer a main que envía bytes localmente sin acceso a la base. |

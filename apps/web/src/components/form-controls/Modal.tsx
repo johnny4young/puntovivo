@@ -190,6 +190,7 @@ export interface ModalButtonProps {
    * `document.getElementById(...)?.focus()`.
    */
   id?: string;
+  testId?: string;
 }
 
 export function ModalButton({
@@ -201,6 +202,7 @@ export function ModalButton({
   type = 'button',
   className,
   id,
+  testId,
 }: ModalButtonProps) {
   const buttonVariant: Record<NonNullable<ModalButtonProps['variant']>, ButtonVariant> = {
     primary: 'primary',
@@ -216,6 +218,7 @@ export function ModalButton({
       disabled={disabled}
       aria-disabled={pending || undefined}
       id={id}
+      data-testid={testId}
       variant={buttonVariant[variant]}
       className={cn(
         'w-full sm:w-auto sm:min-w-[9rem]',

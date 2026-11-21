@@ -1282,6 +1282,24 @@
     border-radius: 0.75rem;
   }
 
+  .sales-camera-torch {
+    position: absolute;
+    right: 0.75rem;
+    bottom: 0.75rem;
+    border-radius: 999px;
+  }
+
+  /* Sits on live video, so it keeps the rail pair instead of the ghost hover tint. */
+  .sales-camera-torch:is(*, :hover) {
+    background: var(--rail);
+    color: var(--rail-foreground);
+  }
+
+  .sales-camera-torch[aria-pressed='true']:is(*, :hover) {
+    background: var(--rail-foreground);
+    color: var(--rail);
+  }
+
   .sales-quick-keys {
     display: grid;
     gap: 0.5rem;

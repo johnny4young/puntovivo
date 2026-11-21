@@ -16,7 +16,7 @@ Hardware failures are queued, observable, and recoverable.
 | Direct serial ESC/POS       | Not implemented; configuration must not claim support.                                              |
 | RJ11 drawer through ESC/POS | Implemented where the selected printer transport supports the drawer pulse.                         |
 | USB HID barcode scanner     | Implemented as keyboard-wedge input with cashier focus protection.                                  |
-| Phone camera                | Barcode reads on phones where the browser ships an on-device detector; frames never leave it.       |
+| Phone camera                | Retail barcode reads in the phone browser, with a bundled decoder and torch; frames stay on device. |
 | Manual payment terminal     | Implemented as a recorded manual tender path.                                                       |
 | Provider terminal SDK/API   | Adapter seam exists; no provider is production-qualified.                                           |
 | Hub-client local bridge     | Implemented as a renderer-to-main IPC bridge that dispatches bytes locally without database access. |

@@ -79,7 +79,7 @@ import { DEFAULT_RSS_ALERT_MB, resolveWorkerResourceLimits } from './server-host
 import { broadcastServerState, registerServerStateIpc } from './ipc/server-state.js';
 import { createTrayController } from './tray-controller.js';
 import { installSoakMode } from './soak-mode.js';
-import { disableBuiltinSpellchecker } from './window-config.js';
+import { denyCameraCapture, disableBuiltinSpellchecker } from './window-config.js';
 import { createWindowLifecycle } from './window-lifecycle.js';
 import {
   isPackagedRecoveryRequested,
@@ -522,6 +522,7 @@ app.whenReady().then(async () => {
 
   // No window may open with the builtin spellchecker on; see window-config.ts.
   disableBuiltinSpellchecker(session.defaultSession);
+  denyCameraCapture(session.defaultSession);
 
   // baseline CSP for renderer-served responses. Fastify API responses already
   // carry Helmet's CSP and must not receive a duplicate concatenated header.
