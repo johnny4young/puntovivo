@@ -8,6 +8,7 @@ import type { DatabaseInstance } from '../../db/index.js';
 import { sales } from '../../db/schema.js';
 import { roundMoney } from '../../lib/money.js';
 import { getActiveCashSessionForCashier } from '../cash-session.js';
+import { netSaleTotalSql } from './net-sales.js';
 
 export const SHIFT_SUMMARY_SLICES = 12;
 
@@ -39,7 +40,7 @@ export async function computeShiftSummary({
   const rows = db
     .select({
       at: sql<string>`coalesce(${sales.checkoutCompletedAt}, ${sales.createdAt})`,
-      total: sales.total,
+      total: netSaleTotalSql(tenantId),
     })
     .from(sales)
     .where(

@@ -66,6 +66,7 @@ interface DraftRow {
   suspendedLabel: string | null;
   createdBy: string;
   tableId: string | null;
+  cashSessionId: string | null;
 }
 
 /** Retail drafts the cashier parked; the server passes the same set to whoever receives. */
@@ -74,6 +75,7 @@ export function draftsPassingOn<T extends DraftRow>(drafts: readonly T[], userId
     draft =>
       draft.suspendedAt !== null &&
       draft.tableId === null &&
+      draft.cashSessionId !== null &&
       (draft.suspendedBy === userId || (draft.suspendedBy === null && draft.createdBy === userId))
   );
 }

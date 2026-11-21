@@ -34,7 +34,9 @@ export function useShiftHandoff({
   onRequestChange,
 }: UseShiftHandoffParams) {
   const { user } = useAuth();
-  const [isHandingOver, setIsHandingOver] = useState(false);
+  // Tied to the session, so a session ended elsewhere cannot leave the sheet armed.
+  const [handingOverId, setHandingOverId] = useState<string | null>(null);
+  const isHandingOver = !!activeCashSession && handingOverId === activeCashSession.id;
   const [receivingId, setReceivingId] = useState<string | null>(null);
   const changePending = useRef(false);
 
@@ -91,7 +93,7 @@ export function useShiftHandoff({
           ? {
               cashSession: activeCashSession,
               hasReceiptPrinter,
-              onClose: () => setIsHandingOver(false),
+              onClose: () => setHandingOverId(null),
             }
           : null
       }
@@ -112,7 +114,7 @@ export function useShiftHandoff({
   );
 
   return {
-    handOver: activeCashSession ? () => setIsHandingOver(true) : undefined,
+    handOver: activeCashSession ? () => setHandingOverId(activeCashSession.id) : undefined,
     receive,
     isSheetOpen: isHandingOver || receiving !== null,
     sheets,

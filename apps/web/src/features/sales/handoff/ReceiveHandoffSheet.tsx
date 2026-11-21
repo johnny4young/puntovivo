@@ -7,7 +7,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { useResolvedLocale } from '@/features/locale/LocaleProvider';
 import { CASH_SESSION_OPEN_INVALIDATIONS, invalidateGroups } from '@/lib/invalidateGroups';
 import { trpc } from '@/lib/trpc';
-import { translateServerError } from '@/lib/translateServerError';
+import { extractServerErrorCode, translateServerError } from '@/lib/translateServerError';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { roundMoney } from '@/lib/money';
 import { cn, formatCurrency } from '@/lib/utils';
@@ -66,7 +66,9 @@ export function ReceiveHandoffSheet({
   const [error, setError] = useState<string | null>(null);
   const [showAllRows, setShowAllRows] = useState(false);
   const signerQuery = trpc.cashSessions.mySigner.useQuery(undefined, { staleTime: 5 * 60_000 });
-  const hasPin = signerQuery.data?.hasPin === true;
+  // The server is the authority on the PIN: a stale or failed read must not hide the field.
+  const [pinRequired, setPinRequired] = useState(false);
+  const hasPin = pinRequired || signerQuery.data?.hasPin === true;
 
   const total = getCashSessionCountedTotal(denominations);
   const kept = mode === 'counted_drawer';
@@ -100,12 +102,15 @@ export function ReceiveHandoffSheet({
       });
       onReceived({
         resumeDraft: handoff.drafts.find(draft => draft.id === resumeId) ?? null,
-        requestChange,
+        requestChange: requestChange && !!lowChange,
       });
     },
     onError: err => {
       setError(translateServerError(err, t, t('errors:server.unknown')));
-      if (hasPin) setPin('');
+      if (extractServerErrorCode(err) === 'CASH_HANDOFF_PIN_REQUIRED') {
+        setPinRequired(true);
+      }
+      setPin('');
     },
   });
 
@@ -350,7 +355,6 @@ export function ReceiveHandoffSheet({
                 testId="handoff-received-low-change"
                 icon={<Coins className="h-5 w-5" />}
                 title={t('sheet.lowChange')}
-                detail={t('sheet.receive.lowChangeDetail')}
                 action={
                   <ToggleChip
                     pressed={requestChange}

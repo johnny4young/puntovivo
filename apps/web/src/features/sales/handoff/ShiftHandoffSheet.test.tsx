@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from '@/i18n';
@@ -63,6 +63,7 @@ vi.mock('@/lib/trpc', () => ({
                 suspendedLabel: 'P2 Cliente espera',
                 createdBy: 'u-andres',
                 tableId: null,
+                cashSessionId: 's1',
               },
               {
                 id: 'd2',
@@ -73,6 +74,7 @@ vi.mock('@/lib/trpc', () => ({
                 suspendedLabel: 'Other',
                 createdBy: 'u-other',
                 tableId: null,
+                cashSessionId: 's1',
               },
             ],
           },
@@ -86,8 +88,16 @@ vi.mock('@/lib/trpc', () => ({
             {
               action: 'sale_refund',
               status: 'pending',
+              siteId: 'site-1',
               summary: { label: 'Aceite Girasol 1 L', amount: 48500 },
               requestedAt: '2026-11-21T16:01:00Z',
+            },
+            {
+              action: 'sale_refund',
+              status: 'pending',
+              siteId: 'site-2',
+              summary: { label: 'Elsewhere', amount: 1 },
+              requestedAt: '2026-11-21T16:02:00Z',
             },
             { action: 'sale_void', status: 'pending', summary: { label: 'x' }, requestedAt: '' },
           ],
@@ -104,12 +114,23 @@ const session = {
   openedAt: '2026-11-21T11:58:00Z',
 } as CashSession;
 
+/** Waits out the guard that ignores a forward tap right after a step appears. */
+async function forward() {
+  act(() => vi.advanceTimersByTime(600));
+  await userEvent.click(await screen.findByTestId('handoff-forward'));
+}
+
 describe('ShiftHandoffSheet', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   beforeEach(async () => {
     state.hasPin = false;
     state.role = 'cashier';
     state.mutate.mockReset();
     await i18next.changeLanguage('en');
+    vi.useFakeTimers({ shouldAdvanceTime: true });
   });
 
   it('counts blind, lists what passes on and hands over without a PIN', async () => {
@@ -121,7 +142,7 @@ describe('ShiftHandoffSheet', () => {
     await userEvent.click(screen.getByRole('button', { name: `Add one ${formatCurrency(500)}` }));
     expect(screen.getByTestId('handoff-count-total')).toHaveTextContent(formatCurrency(600500));
 
-    await userEvent.click(screen.getByTestId('handoff-forward'));
+    await forward();
     expect(screen.getByTestId('handoff-shift-summary')).toHaveTextContent(formatCurrency(2071400));
     expect(screen.getByTestId('handoff-shift-summary')).toHaveTextContent('41 sales');
     expect(screen.getByTestId('handoff-blind-count')).toHaveTextContent(
@@ -139,7 +160,7 @@ describe('ShiftHandoffSheet', () => {
     expect(screen.getByTestId('handoff-prepared-printer')).toBeInTheDocument();
 
     await userEvent.type(screen.getByTestId('handoff-note'), ' Viene a las 3 ');
-    await userEvent.click(screen.getByTestId('handoff-forward'));
+    await forward();
 
     expect(state.mutate).toHaveBeenCalledWith(
       expect.objectContaining({ actualCount: 600500, note: 'Viene a las 3' })
@@ -152,18 +173,40 @@ describe('ShiftHandoffSheet', () => {
     state.role = 'manager';
     render(<ShiftHandoffSheet cashSession={session} hasReceiptPrinter onClose={vi.fn()} />);
 
-    await userEvent.click(await screen.findByTestId('handoff-forward'));
+    await forward();
     expect(screen.queryByText(/The administrator sees/)).not.toBeInTheDocument();
-    await userEvent.click(screen.getByTestId('handoff-forward'));
+    await forward();
     expect(screen.getByTestId('handoff-sign')).toBeInTheDocument();
     expect(screen.getByTestId('handoff-forward')).toBeDisabled();
 
     await userEvent.type(screen.getByTestId('handoff-pin'), '48a2915');
-    await userEvent.click(screen.getByTestId('handoff-forward'));
+    await forward();
     expect(state.mutate).toHaveBeenCalledWith(expect.objectContaining({ pin: '482915' }));
 
     act(() => state.options?.onError?.(new Error('nope')));
     expect(screen.getByTestId('handoff-error')).toBeInTheDocument();
     expect(screen.getByTestId('handoff-pin')).toHaveValue('');
+  });
+
+  it('does not hand over on a double tap that reveals step 2', async () => {
+    render(<ShiftHandoffSheet cashSession={session} hasReceiptPrinter onClose={vi.fn()} />);
+
+    await userEvent.dblClick(await screen.findByTestId('handoff-forward'));
+    expect(screen.getByTestId('handoff-shift-summary')).toBeInTheDocument();
+    expect(state.mutate).not.toHaveBeenCalled();
+  });
+
+  it('asks for the PIN when the server requires one the signer read missed', async () => {
+    render(<ShiftHandoffSheet cashSession={session} hasReceiptPrinter onClose={vi.fn()} />);
+    await forward();
+    await forward();
+    expect(state.mutate.mock.calls[0]![0]).not.toHaveProperty('pin');
+
+    const error = Object.assign(new Error('pin'), { errorCode: 'CASH_HANDOFF_PIN_REQUIRED' });
+    act(() => state.options?.onError?.(error));
+    expect(screen.getByTestId('handoff-sign')).toBeInTheDocument();
+    await userEvent.type(screen.getByTestId('handoff-pin'), '482915');
+    await forward();
+    expect(state.mutate).toHaveBeenLastCalledWith(expect.objectContaining({ pin: '482915' }));
   });
 });

@@ -62,6 +62,7 @@ describe('draftsPassingOn', () => {
     suspendedAt: '2026-11-21T10:00:00Z',
     suspendedBy: 'me',
     createdBy: 'me',
+    cashSessionId: 'cs1',
   };
 
   it('keeps the cashier’s parked retail drafts only', () => {
@@ -71,6 +72,7 @@ describe('draftsPassingOn', () => {
       { ...base, id: 'other', suspendedBy: 'other' },
       { ...base, id: 'table', tableId: 't1' },
       { ...base, id: 'active', suspendedAt: null },
+      { ...base, id: 'sessionless', cashSessionId: null },
     ];
     expect(draftsPassingOn(drafts, 'me').map(draft => draft.id)).toEqual(['mine', 'legacy']);
   });

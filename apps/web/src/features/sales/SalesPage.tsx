@@ -436,6 +436,10 @@ export function SalesPage() {
     onResumeDraft: handleResumeFromPanel,
     onRequestChange: handleOpenReplenishment,
   });
+  // Opening a register that is waiting to be received would discard its handoff.
+  const openOrReceiveCashSession = shiftHandoff.receive?.isSelectedRegister
+    ? shiftHandoff.receive.open
+    : handleOpenCashSessionModal;
 
   const handleMeasuredRemoveItem = (itemKey: string) => {
     saleMeasurement.recordBacktrack();
@@ -520,10 +524,9 @@ export function SalesPage() {
     // handler its visible button uses; unavailable actions pass
     // undefined so the combo stays inert instead of erroring.
     onNewSale: handleNewSale,
-    onOpenCashSession: shiftHandoff.receive?.isSelectedRegister
-      ? shiftHandoff.receive.open
-      : canOpenCashSession
-        ? handleOpenCashSessionModal
+    onOpenCashSession:
+      shiftHandoff.receive?.isSelectedRegister || canOpenCashSession
+        ? openOrReceiveCashSession
         : undefined,
     onOpenCashMovement: activeCashSession ? handleOpenCashSessionMovementModal : undefined,
     onOpenCashClose: canCloseCashSession ? () => setIsCashSessionCloseModalOpen(true) : undefined,
@@ -612,7 +615,7 @@ export function SalesPage() {
         canCloseCashSession={canCloseCashSession}
         userRole={userRole}
         handleOpenPaymentModal={handleOpenPaymentModal}
-        handleOpenCashSessionModal={handleOpenCashSessionModal}
+        handleOpenCashSessionModal={openOrReceiveCashSession}
         handleOpenCloseCashSessionModal={handleOpenCloseCashSessionModal}
         handleOpenCashSessionMovementModal={handleOpenCashSessionMovementModal}
         onKickCashDrawer={onKickCashDrawer}

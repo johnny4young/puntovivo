@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CheckCircle2, Coins, PauseCircle, Printer, Undo2 } from 'lucide-react';
 import { ModalButton } from '@/components/form-controls/Modal';
@@ -8,7 +8,7 @@ import { useResolvedLocale } from '@/features/locale/LocaleProvider';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { CASH_SESSION_CLOSE_INVALIDATIONS, invalidateGroups } from '@/lib/invalidateGroups';
 import { trpc } from '@/lib/trpc';
-import { translateServerError } from '@/lib/translateServerError';
+import { extractServerErrorCode, translateServerError } from '@/lib/translateServerError';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { formatCurrency } from '@/lib/utils';
 import type { CashSession, CashSessionDenomination } from '@/types';
@@ -44,6 +44,7 @@ interface ShiftHandoffSheetProps {
 
 const CURVE_WIDTH = 480;
 const CURVE_HEIGHT = 44;
+const STEP_SETTLE_MS = 500;
 
 /** Entregar turno: blind count, what the next cashier inherits, then the signature. */
 export function ShiftHandoffSheet({
@@ -67,14 +68,23 @@ export function ShiftHandoffSheet({
   const [pin, setPin] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  const summaryQuery = trpc.cashSessions.myShiftSummary.useQuery({ siteId: cashSession.siteId });
+  const summaryQuery = trpc.cashSessions.myShiftSummary.useQuery(
+    { siteId: cashSession.siteId },
+    { refetchOnMount: 'always' }
+  );
   const signerQuery = trpc.cashSessions.mySigner.useQuery(undefined, { staleTime: 5 * 60_000 });
-  const draftsQuery = trpc.sales.listDrafts.useQuery({ page: 1, perPage: 50 });
+  const draftsQuery = trpc.sales.listDrafts.useQuery({
+    page: 1,
+    perPage: 200,
+    siteId: cashSession.siteId,
+  });
   const approvalsQuery = trpc.managerApprovals.mine.useQuery({ limit: 20 });
 
   const total = getCashSessionCountedTotal(denominations);
   const counted = denominations.filter(row => row.count > 0);
-  const hasPin = signerQuery.data?.hasPin === true;
+  // The server is the authority on the PIN: a stale or failed read must not hide the field.
+  const [pinRequired, setPinRequired] = useState(false);
+  const hasPin = pinRequired || signerQuery.data?.hasPin === true;
   const blindForMe =
     (tenantSettings?.cashClose?.blindClose ?? true) &&
     user?.role !== 'admin' &&
@@ -82,7 +92,10 @@ export function ShiftHandoffSheet({
 
   const passing = draftsPassingOn(draftsQuery.data?.items ?? [], user?.id ?? '');
   const pendingRefunds = (approvalsQuery.data ?? []).filter(
-    request => request.action === 'sale_refund' && request.status === 'pending'
+    request =>
+      request.action === 'sale_refund' &&
+      request.status === 'pending' &&
+      request.siteId === cashSession.siteId
   );
   const lowChange = lowChangeCoins(denominations, currencyCode);
   const hasPrepared =
@@ -105,7 +118,11 @@ export function ShiftHandoffSheet({
     },
     onError: err => {
       setError(translateServerError(err, t, t('errors:server.unknown')));
-      if (hasPin) setPin('');
+      if (extractServerErrorCode(err) === 'CASH_HANDOFF_PIN_REQUIRED') {
+        setPinRequired(true);
+        setStep(3);
+      }
+      setPin('');
     },
   });
 
@@ -120,10 +137,17 @@ export function ShiftHandoffSheet({
     });
   };
 
+  // Back and forward share one key, so a double tap must not confirm a step it just revealed.
+  const stepShownAt = useRef(0);
+  const showStep = (next: HandoffStep) => {
+    stepShownAt.current = Date.now();
+    setStep(next);
+  };
   const goForward = () => {
+    if (Date.now() - stepShownAt.current < STEP_SETTLE_MS) return;
     setError(null);
-    if (step === 1) setStep(2);
-    else if (step === 2 && hasPin) setStep(3);
+    if (step === 1) showStep(2);
+    else if (step === 2 && hasPin) showStep(3);
     else submit();
   };
 
@@ -147,7 +171,7 @@ export function ShiftHandoffSheet({
       footer={
         <>
           <ModalButton
-            onClick={step === 1 ? onClose : () => setStep(step === 3 ? 2 : 1)}
+            onClick={step === 1 ? onClose : () => showStep(step === 3 ? 2 : 1)}
             disabled={mutation.isPending}
             className="h-[60px] w-auto shrink-0 px-5"
             testId="handoff-back"
