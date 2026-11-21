@@ -97,6 +97,8 @@
     "closingCount": "Closing count",
     "openAction": "Open cash session",
     "closeAction": "Close cash session",
+    "handOverAction": "Hand over shift",
+    "receiveAction": "Receive {{register}}",
     "recordMovementAction": "Record movement",
     "assignmentLabel": "Assigned register",
     "assignmentPlaceholder": "Select a register",

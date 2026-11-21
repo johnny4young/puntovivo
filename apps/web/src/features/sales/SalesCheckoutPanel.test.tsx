@@ -116,6 +116,63 @@ describe('SalesCheckoutPanel dock', () => {
     expect(onOpenCashSession).toHaveBeenCalledOnce();
   });
 
+  it('receives a register handed over for the selected one instead of opening it', () => {
+    const open = vi.fn();
+    const onOpenCashSession = vi.fn();
+    const { rerender } = renderDock({
+      cashSession: null,
+      canOpenCashSession: false,
+      onOpenCashSession,
+      receiveHandoff: { registerName: 'Caja 2', isSelectedRegister: true, open },
+    });
+
+    const primary = screen.getByTestId('checkout-primary-action');
+    expect(primary).toHaveAccessibleName('Receive Caja 2');
+    expect(primary).toBeEnabled();
+    fireEvent.click(primary);
+    expect(open).toHaveBeenCalledOnce();
+    expect(onOpenCashSession).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('sales-receive-handoff')).not.toBeInTheDocument();
+
+    rerender(
+      <SalesCheckoutPanel
+        currentSite={null}
+        cashSession={null}
+        registerAssignments={[]}
+        selectedRegisterAssignment={null}
+        isCashSessionLoading={false}
+        draftSummary={{ itemCount: 0, subtotal: 0, taxAmount: 0, total: 0 }}
+        lineCount={0}
+        canCharge={false}
+        canOpenCashSession
+        canCloseCashSession={false}
+        onCharge={vi.fn()}
+        onOpenCashSession={onOpenCashSession}
+        onCloseCashSession={vi.fn()}
+        onOpenMovement={vi.fn()}
+        onRegisterAssignmentChange={vi.fn()}
+        receiveHandoff={{ registerName: 'Caja 2', isSelectedRegister: false, open }}
+      />
+    );
+    expect(screen.getByTestId('checkout-primary-action')).toHaveAccessibleName(
+      'Open cash session'
+    );
+    fireEvent.click(screen.getByTestId('sales-receive-handoff'));
+    expect(open).toHaveBeenCalledTimes(2);
+  });
+
+  it('hands the open register over next to closing it', () => {
+    const onHandOver = vi.fn();
+    renderDock({ onHandOver });
+    fireEvent.click(screen.getByTestId('sales-hand-over'));
+    expect(onHandOver).toHaveBeenCalledOnce();
+  });
+
+  it('offers no hand-over when it cannot run', () => {
+    renderDock();
+    expect(screen.queryByTestId('sales-hand-over')).not.toBeInTheDocument();
+  });
+
   it('remembers the tender and prices one-touch cash against what is due', () => {
     const onTenderChange = vi.fn();
     const onFastCash = vi.fn();

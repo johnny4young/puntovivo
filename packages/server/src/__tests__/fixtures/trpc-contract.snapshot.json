@@ -276,6 +276,18 @@
     "output": "object{averageCheckoutSeconds:integer[min=0,max=9007199254740991]|null,completedSales:integer[min=0,max=9007199254740991],itemCount:number[min=0],itemsPerMinute:number[min=0],personalBestItemsPerMinute:number[min=0]|null,sessionId:string}|null"
   },
   {
+    "path": "cashSessions.myShiftSummary",
+    "kind": "query",
+    "input": "object{siteId?:string}",
+    "output": "object{openedAt:string,revenue:number,salesCount:integer[min=0,max=9007199254740991],sessionId:string,slices:array<number>}|null"
+  },
+  {
+    "path": "cashSessions.mySigner",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
     "path": "cashSessions.open",
     "kind": "mutation",
     "input": "object{denominations?:array<object>,openingFloat:number[min=0],registerName?:string[minLength=1,maxLength=80]=\"Main register\"}",

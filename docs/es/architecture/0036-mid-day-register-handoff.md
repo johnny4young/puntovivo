@@ -48,3 +48,8 @@ casos de uso de cierre y apertura que ya existen.
 - `operations.today` muestra de qué relevo viene cada caja y las cajas
   entregadas que siguen esperando.
 - Las cuentas de restaurante conservan el reparto por mesa y no se reasignan.
+- En la caja, una caja que espera a quien la reciba reemplaza Abrir en la tecla
+  principal y en el atajo de apertura, para que abrirla por costumbre no
+  descarte el relevo. Si cada firmante necesita PIN lo dice
+  `cashSessions.mySigner` y las ventas del turno vienen de
+  `cashSessions.myShiftSummary`, ambas limitadas a quien llama.

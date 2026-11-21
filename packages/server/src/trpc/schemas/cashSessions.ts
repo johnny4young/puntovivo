@@ -32,6 +32,16 @@ export const cashierPaceOutput = z
   })
   .nullable();
 
+export const shiftSummaryOutput = z
+  .object({
+    sessionId: z.string(),
+    openedAt: z.string(),
+    salesCount: z.number().int().min(0),
+    revenue: z.number(),
+    slices: z.array(z.number()),
+  })
+  .nullable();
+
 export const openCashSessionInput = z.object({
   registerName: z
     .string()

@@ -6,6 +6,7 @@ import { formatCurrency } from '@/lib/utils';
 import { ariaKeyshortcutsFor } from '@/lib/shortcuts';
 import type { SaleCartSummary } from '@/features/sales/saleCart';
 import type { CashSession } from '@/types';
+import type { ReceivableHandoff } from './handoff/useShiftHandoff';
 
 // explicit `| undefined` on optional fields.
 interface SalesMobileCheckoutBarProps {
@@ -15,6 +16,8 @@ interface SalesMobileCheckoutBarProps {
   canOpenCashSession: boolean;
   onCharge: () => void;
   onOpenCashSession: () => void;
+  /** A register handed over for the selected one replaces opening it. */
+  receiveHandoff?: ReceivableHandoff | null | undefined;
   canSuspend?: boolean | undefined;
   onSuspend?: (() => void) | undefined;
   /** Opens the charge drawer on credit; absent while the ticket cannot be charged. */
@@ -38,6 +41,7 @@ export function SalesMobileCheckoutBar({
   canOpenCashSession,
   onCharge,
   onOpenCashSession,
+  receiveHandoff = null,
   canSuspend = false,
   onSuspend,
   onCredit,
@@ -92,6 +96,17 @@ export function SalesMobileCheckoutBar({
               data-testid="mobile-checkout-primary"
             >
               {t('checkout.chargeSale')}
+            </Button>
+          ) : receiveHandoff?.isSelectedRegister ? (
+            <Button
+              type="button"
+              className="sales-phone-charge w-full text-base"
+              onClick={receiveHandoff.open}
+              disabled={isHubGated}
+              data-testid="mobile-checkout-primary"
+            >
+              <WalletCards className="h-5 w-5" aria-hidden="true" />
+              {t('cashSession.receiveAction', { register: receiveHandoff.registerName })}
             </Button>
           ) : (
             <Button

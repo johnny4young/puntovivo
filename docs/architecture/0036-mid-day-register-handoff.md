@@ -48,3 +48,8 @@ close and open use-cases.
 - `operations.today` shows the handoff each register came from and every
   register handed over and still waiting.
 - Restaurant checks keep their table-based sharing and are not reassigned.
+- On the register, a register waiting to be received replaces Open on the
+  primary key and the open shortcut, so opening it by habit does not discard
+  the handoff. Each signer's PIN requirement comes from `cashSessions.mySigner`
+  and the shift's sales from `cashSessions.myShiftSummary`, both scoped to the
+  caller.

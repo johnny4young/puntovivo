@@ -15,6 +15,7 @@ import type { InitialTender } from '@/features/sales/salePaymentModal.types';
 import type { PreflightItem } from '@/features/sales/useCheckoutPreflight';
 import type { SaleCartSummary } from '@/features/sales/saleCart';
 import type { CashSession, RegisterAssignment, Site, UserRole } from '@/types';
+import type { ReceivableHandoff } from './handoff/useShiftHandoff';
 import { Button, SeverityMark } from '@/components/ui';
 
 interface SalesCheckoutPanelProps {
@@ -36,6 +37,9 @@ interface SalesCheckoutPanelProps {
   onCharge: () => void;
   onOpenCashSession: () => void;
   onCloseCashSession: () => void;
+  /** Mid-day hand-over to the next cashier; absent when it cannot run. */
+  onHandOver?: (() => void) | undefined;
+  receiveHandoff?: ReceivableHandoff | null | undefined;
   onOpenMovement: () => void;
   /** Hidden when undefined: no supported drawer or no sales role. */
   onKickCashDrawer?: (() => void | Promise<void>) | undefined;
@@ -95,6 +99,8 @@ export function SalesCheckoutPanel({
   onCharge,
   onOpenCashSession,
   onCloseCashSession,
+  onHandOver,
+  receiveHandoff = null,
   onOpenMovement,
   onKickCashDrawer,
   isKickingCashDrawer,
@@ -127,9 +133,16 @@ export function SalesCheckoutPanel({
       !SHOWN_ELSEWHERE.has(item.id) && (cashSession !== null || item.id !== 'cash_session_required')
   );
   const hasVisibleBlocker = visiblePreflightItems.some(item => item.severity === 'blocker');
-  const primaryAction = cashSession ? onCharge : onOpenCashSession;
+  // Opening a register that is waiting to be received would discard its handoff.
+  const receivesSelected = !cashSession && receiveHandoff?.isSelectedRegister === true;
+  const primaryAction = cashSession
+    ? onCharge
+    : receivesSelected
+      ? receiveHandoff!.open
+      : onOpenCashSession;
   const primaryActionDisabled =
-    isHubGated || (cashSession ? !canCharge || preflightHasBlockers : !canOpenCashSession);
+    isHubGated ||
+    (cashSession ? !canCharge || preflightHasBlockers : !receivesSelected && !canOpenCashSession);
   const canFastCash = !!cashSession && canCharge && !isHubGated && !preflightHasBlockers;
   const isReady = canFastCash && visiblePreflightItems.length === 0;
   // Unavailable Suspend stays out of the tab order: a disabled key fails contrast.
@@ -344,6 +357,16 @@ export function SalesCheckoutPanel({
                     {t('printer.kickDrawerCta')}
                   </button>
                 )}
+                {onHandOver && (
+                  <button
+                    type="button"
+                    className="btn-outline"
+                    onClick={onHandOver}
+                    data-testid="sales-hand-over"
+                  >
+                    {t('cashSession.handOverAction')}
+                  </button>
+                )}
                 <button
                   type="button"
                   className="btn-outline"
@@ -364,6 +387,17 @@ export function SalesCheckoutPanel({
                 onChange={onRegisterAssignmentChange}
               />
               <p>{t('cashSession.chargeBlocked')}</p>
+              {receiveHandoff && !receivesSelected && (
+                <button
+                  type="button"
+                  className="btn-outline"
+                  onClick={receiveHandoff.open}
+                  disabled={isHubGated}
+                  data-testid="sales-receive-handoff"
+                >
+                  {t('cashSession.receiveAction', { register: receiveHandoff.registerName })}
+                </button>
+              )}
             </div>
           )}
         </section>
@@ -393,7 +427,11 @@ export function SalesCheckoutPanel({
           type="button"
         >
           {!cashSession && <WalletCards className="h-5 w-5" aria-hidden="true" />}
-          {cashSession ? t('checkout.chargeSale') : t('cashSession.openAction')}
+          {cashSession
+            ? t('checkout.chargeSale')
+            : receivesSelected
+              ? t('cashSession.receiveAction', { register: receiveHandoff!.registerName })
+              : t('cashSession.openAction')}
           {cashSession && !primaryActionDisabled && (
             <kbd className="sales-charge-kbd" aria-hidden="true">
               {shortcutDisplayFor('sales.charge')}

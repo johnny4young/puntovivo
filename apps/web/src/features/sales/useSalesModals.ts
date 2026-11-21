@@ -116,6 +116,8 @@ export function useSalesModals({
   const [cashSessionModalKey, setCashSessionModalKey] = useState(0);
   const [cashSessionCloseModalKey, setCashSessionCloseModalKey] = useState(0);
   const [cashSessionMovementModalKey, setCashSessionMovementModalKey] = useState(0);
+  const [cashSessionMovementType, setCashSessionMovementType] =
+    useState<CashSessionMovementValues['type']>('paid_in');
 
   const preflight = useCheckoutPreflight({
     cartItems,
@@ -234,15 +236,20 @@ export function useSalesModals({
     await closeCashSessionMutation.mutateAsync(values);
   };
 
-  const handleOpenCashSessionMovementModal = () => {
+  const openCashSessionMovementModal = (type: CashSessionMovementValues['type']) => {
     if (!activeCashSession) {
       return;
     }
 
+    setCashSessionMovementType(type);
     setCashSessionMovementError(null);
     setCashSessionMovementModalKey(current => current + 1);
     setIsCashSessionMovementModalOpen(true);
   };
+
+  const handleOpenCashSessionMovementModal = () => openCashSessionMovementModal('paid_in');
+  // Change brought to the drawer is recorded as a replenishment.
+  const handleOpenReplenishment = () => openCashSessionMovementModal('replenishment');
 
   const handleRecordCashMovement = async (values: CashSessionMovementValues) => {
     if (recordCashMovementMutation.isPending) {
@@ -280,6 +287,7 @@ export function useSalesModals({
     cashSessionModalKey,
     cashSessionCloseModalKey,
     cashSessionMovementModalKey,
+    cashSessionMovementType,
     handleFastCash,
     handleOpenProductSearch,
     handleOpenPaymentModal,
@@ -288,6 +296,7 @@ export function useSalesModals({
     handleOpenCloseCashSessionModal,
     handleCloseCashSession,
     handleOpenCashSessionMovementModal,
+    handleOpenReplenishment,
     handleRecordCashMovement,
     handleToggleSuspendedPanel,
     handleReprintSelectedHistoryRow,
