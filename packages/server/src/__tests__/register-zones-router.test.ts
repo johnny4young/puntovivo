@@ -114,6 +114,46 @@ describe('registerZones.set', () => {
     ).toEqual(updatedBefore);
   });
 
+  it('replaces a malformed override blob instead of skipping the write', async () => {
+    getDatabase()
+      .update(tenants)
+      .set({ settings: sql`json_set(${tenants.settings}, '$.registerZones', json('[1]'))` })
+      .where(eq(tenants.id, tenantId))
+      .run();
+    const caller = appRouter.createCaller(buildContext('admin'));
+
+    const result = await caller.registerZones.set({ zoneId: 'credit', enabled: true });
+
+    expect(result.overrides).toEqual({ credit: true });
+    expect(storedSettings().registerZones).toEqual({ credit: true });
+  });
+
+  it('leaves another tenant untouched', async () => {
+    const now = new Date().toISOString();
+    const otherId = `other-${Date.now()}`;
+    getDatabase()
+      .insert(tenants)
+      .values({
+        id: otherId,
+        name: 'Other',
+        slug: otherId,
+        settings: { businessType: 'retail', registerZones: { credit: false } },
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
+    const caller = appRouter.createCaller(buildContext('admin'));
+
+    await caller.registerZones.set({ zoneId: 'credit', enabled: true });
+
+    const other = getDatabase()
+      .select({ settings: tenants.settings })
+      .from(tenants)
+      .where(eq(tenants.id, otherId))
+      .get();
+    expect(other?.settings).toEqual({ businessType: 'retail', registerZones: { credit: false } });
+  });
+
   it('rejects the selling engine and zones the register cannot switch yet', async () => {
     const caller = appRouter.createCaller(buildContext('admin'));
     await expect(

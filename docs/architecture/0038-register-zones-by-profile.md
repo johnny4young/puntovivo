@@ -24,8 +24,11 @@ the restaurant tip section in every charge.
   audited `registerZones.set`. A value equal to the profile default removes the
   override, so the zone follows the profile again; overrides survive a profile
   change.
-- Overrides reach every register through the `auth.me` settings projection.
+- Overrides reach every register through the `auth.me` settings projection, at
+  sign-in, staff switch or restart, the same way the business profile does.
   `useRegisterZone` resolves profile, override and module gate on the client.
+- Seating a ticket at a table goes through the park prompt, so the tables zone
+  also shows Suspender.
 - Modules stay the gate for surfaces: a zone that needs a module (tables need
   dine-in, quotes need quotations) renders only while that module is on.
 - A zone without a register control yet is marked unavailable and cannot be

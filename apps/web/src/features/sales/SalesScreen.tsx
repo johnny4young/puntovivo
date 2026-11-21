@@ -637,7 +637,7 @@ export function SalesScreen({
           />
         </section>
 
-        <SalesShortcutStrip itemsLocked={itemsLocked} />
+        <SalesShortcutStrip itemsLocked={itemsLocked} showsParked={showsSuspended} />
       </div>
 
       <SalesMobileCheckoutBar

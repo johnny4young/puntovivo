@@ -24,8 +24,11 @@ usa, y una tienda veía la propina de restaurante en cada cobro.
   `registerZones.set`, auditado. Un valor igual al del perfil borra el ajuste y
   la zona vuelve a seguir al perfil; los ajustes sobreviven a un cambio de
   perfil.
-- Los ajustes llegan a cada caja por la proyección de ajustes de `auth.me`.
-  `useRegisterZone` resuelve perfil, ajuste y módulo en el cliente.
+- Los ajustes llegan a cada caja por la proyección de ajustes de `auth.me`, al
+  iniciar sesión, cambiar de usuario o reiniciar, igual que el perfil del
+  negocio. `useRegisterZone` resuelve perfil, ajuste y módulo en el cliente.
+- Sentar un ticket en una mesa pasa por el aviso de suspender, así que la zona
+  de mesas también muestra Suspender.
 - Los módulos siguen siendo la puerta de las superficies: una zona que necesita
   un módulo (mesas necesita servicio en mesa, cotización necesita cotizaciones)
   solo aparece con ese módulo activo.

@@ -42,12 +42,10 @@ export const registerZonesRouter = router({
         if (followsProfile) delete overrides[zoneId];
         else overrides[zoneId] = enabled;
 
-        const path = `$.registerZones.${zoneId}`;
+        // The whole object, so a malformed stored value cannot swallow the write.
         tx.update(tenants)
           .set({
-            settings: followsProfile
-              ? sql`json_remove(COALESCE(${tenants.settings}, '{}'), ${path})`
-              : sql`json_set(COALESCE(${tenants.settings}, '{}'), ${path}, json(${String(enabled)}))`,
+            settings: sql`json_set(COALESCE(${tenants.settings}, '{}'), '$.registerZones', json(${JSON.stringify(overrides)}))`,
             updatedAt: new Date().toISOString(),
           })
           .where(eq(tenants.id, ctx.tenantId))

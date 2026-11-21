@@ -54,7 +54,11 @@ export function SalesPage() {
   const { currentTenant, currentSite, tenantSettings } = useTenant();
   const { currency } = useResolvedLocale();
   const customerDisplayEnabled = useIsModuleActive('customer-display');
-  const parksSales = useRegisterZone('promos-parked');
+  const parksAtCounter = useRegisterZone('promos-parked');
+  const seatsTables = useRegisterZone('tables');
+  // Seating a ticket at a table goes through the park prompt, so tables park too.
+  const parksSales = parksAtCounter || seatsTables;
+  const sellsOnCredit = useRegisterZone('credit');
   // restaurant service-charge rate flows from the tenant
   // setting into `SalePaymentModal`. 0 means disabled (default for
   // retail tenants); positive values auto-apply on every checkout.
@@ -155,7 +159,9 @@ export function SalesPage() {
   } = useSalesCart({ ownerKey, setProductSearchQuery, setSaleError });
   const lastRead = useLastRead(cartItems, activeWorkspace?.id ?? null);
   const activeTicketId = activeWorkspace?.id ?? null;
-  const ticketTender = (activeTicketId && ticketTenders[activeTicketId]) || 'cash';
+  const chosenTender = (activeTicketId && ticketTenders[activeTicketId]) || 'cash';
+  // A ticket left on credit falls back to cash once the store-credit zone is off.
+  const ticketTender = chosenTender === 'credit' && !sellsOnCredit ? 'cash' : chosenTender;
   const handleTicketTenderChange = (tender: InitialTender) => {
     if (!activeTicketId) return;
     // Closed tickets drop out here, so the map never outgrows the open tabs.

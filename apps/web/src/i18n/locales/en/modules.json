@@ -98,7 +98,6 @@
   },
   "zones": {
     "title": "Register zones",
-    "description": "Each business profile switches its zones on. What is off does not show on the register.",
     "zoneColumn": "Zone",
     "ownColumn": "Your register",
     "on": "On",

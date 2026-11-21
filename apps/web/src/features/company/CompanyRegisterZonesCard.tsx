@@ -6,7 +6,7 @@ import {
   sanitizeRegisterZoneOverrides,
   type RegisterZoneDescriptor,
 } from '@puntovivo/shared/register-zones';
-import type { VerticalPresetId } from '@puntovivo/shared/vertical-presets';
+import { isVerticalPresetId, type VerticalPresetId } from '@puntovivo/shared/vertical-presets';
 
 import { useToast } from '@/components/feedback/ToastProvider';
 import { Badge } from '@/components/ui';
@@ -44,7 +44,9 @@ export function CompanyRegisterZonesCard() {
   const { tenant, updateTenantSettings } = useAuth();
   const { modules } = useModulesSnapshot();
 
-  const businessType = tenant?.settings.businessType ?? null;
+  const storedType = tenant?.settings.businessType;
+  // An unknown stored profile resolves like no profile, so it gets the own column too.
+  const businessType = isVerticalPresetId(storedType) ? storedType : null;
   const overrides = sanitizeRegisterZoneOverrides(tenant?.settings.registerZones);
   const zones = resolveRegisterZones(businessType, overrides);
   // Without a profile the tenant gets a column of its own in front of the profiles.
@@ -77,10 +79,7 @@ export function CompanyRegisterZonesCard() {
 
   return (
     <section className="card space-y-4 p-6" data-testid="register-zones-card">
-      <header className="space-y-1">
-        <h2 className="text-lg font-semibold text-secondary-950">{t('zones.title')}</h2>
-        <p className="max-w-prose text-sm text-secondary-600">{t('zones.description')}</p>
-      </header>
+      <h2 className="text-lg font-semibold text-secondary-950">{t('zones.title')}</h2>
 
       <div className="-mx-2 overflow-x-auto px-2">
         <table className="w-full min-w-[760px] table-fixed border-separate border-spacing-0 text-sm">

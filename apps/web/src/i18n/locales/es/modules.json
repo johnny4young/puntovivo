@@ -98,7 +98,6 @@
   },
   "zones": {
     "title": "Zonas de la caja",
-    "description": "Cada perfil de negocio enciende sus zonas. Lo apagado no se ve en la caja.",
     "zoneColumn": "Zona",
     "ownColumn": "Su caja",
     "on": "Encendida",
