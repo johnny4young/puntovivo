@@ -1950,6 +1950,12 @@
     "output": "inferred"
   },
   {
+    "path": "pharmacy.genericAlternatives",
+    "kind": "query",
+    "input": "object{limit?:integer[min=1,max=5]=3,priceTier?:literal(1)|literal(2)|literal(3),productId:string[minLength=1],siteId?:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
     "path": "pharmacy.getRecall",
     "kind": "query",
     "input": "object{id:string[minLength=1],page?:integer[min=1,max=9007199254740991]=1,perPage?:integer[min=1,max=200]=50}",

@@ -6,7 +6,7 @@
  * @module services/inventory-lots/queries
  */
 
-import { and, eq, gte, gt, lte, or, sql } from 'drizzle-orm';
+import { and, eq, gte, gt, inArray, lte, or, sql } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
 import {
   inventoryLots,
@@ -87,6 +87,47 @@ export function listLotsForProduct(
     .groupBy(inventoryLots.id);
   const rows = query.all();
   return orderLotsFefo(rows);
+}
+
+/** Lots a sale can consume now: active, in stock and unexpired, FEFO-ordered. */
+export function listSellableLots(
+  db: DatabaseInstance,
+  args: {
+    tenantId: string;
+    siteId: string;
+    productIds: string[];
+    nowIso: string;
+    businessDate?: string | undefined;
+  }
+): LotRow[] {
+  if (args.productIds.length === 0) return [];
+  const rows = db
+    .select({
+      id: inventoryLots.id,
+      siteId: inventoryLots.siteId,
+      productId: inventoryLots.productId,
+      lotNumber: inventoryLots.lotNumber,
+      expiresAt: inventoryLots.expiresAt,
+      onHand: inventoryLots.onHand,
+      unitCost: inventoryLots.unitCost,
+      status: inventoryLots.status,
+      syncVersion: inventoryLots.syncVersion,
+      receivedAt: inventoryLots.receivedAt,
+    })
+    .from(inventoryLots)
+    .where(
+      and(
+        eq(inventoryLots.tenantId, args.tenantId),
+        eq(inventoryLots.siteId, args.siteId),
+        inArray(inventoryLots.productId, args.productIds),
+        eq(inventoryLots.status, 'active'),
+        gt(inventoryLots.onHand, 0)
+      )
+    )
+    .all();
+  return orderLotsFefo(
+    rows.filter(lot => !isLotExpiredAt(lot.expiresAt, args.nowIso, args.businessDate))
+  );
 }
 
 /** Expiry risk uses adopted lot cents; NULL preserves legacy unit-cost valuation. */

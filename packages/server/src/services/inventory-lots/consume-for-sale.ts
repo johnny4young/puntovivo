@@ -24,9 +24,8 @@ import type { DatabaseInstance } from '../../db/index.js';
 import { inventoryLots, saleItemLots, saleItems } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { tryRoundMoneyToSafeCents } from '../../lib/money.js';
-import { listLotsForProduct } from './queries.js';
+import { listSellableLots } from './queries.js';
 import { selectLotsFefo, type FefoSelection } from './select-fefo.js';
-import { isLotExpiredAt } from './expiry.js';
 import { consumeExactInventoryLots, restoreExactInventoryLot } from './exact.js';
 import {
   addInventoryValues,
@@ -76,33 +75,32 @@ export function consumeLotsForSaleLine(
     return { selection: { allocations: [], totalCost: 0, shortfall: 0 }, shortfall: 0 };
   }
 
-  const activeLots = listLotsForProduct(db, {
+  const activeLots = listSellableLots(db, {
     tenantId: input.tenantId,
     siteId: input.siteId,
-    productId: input.productId,
-    activeOnly: true,
-  })
-    .filter(lot => !isLotExpiredAt(lot.expiresAt, input.now, input.businessDate))
-    .map(lot => {
-      if (!Number.isFinite(lot.onHand)) {
-        throwServerError({
-          trpcCode: 'CONFLICT',
-          errorCode: 'LOT_STOCK_INCONSISTENT',
-          message: 'Sellable lot on-hand quantity must be finite',
-          details: { lotId: lot.id },
-        });
-      }
-      const unitCost = tryRoundMoneyToSafeCents(lot.unitCost);
-      if (unitCost === null || unitCost < 0) {
-        throwServerError({
-          trpcCode: 'CONFLICT',
-          errorCode: 'LOT_COST_INVALID',
-          message: 'Sellable lot cost is outside the exact supported cent range',
-          details: { lotId: lot.id },
-        });
-      }
-      return { ...lot, unitCost };
-    });
+    productIds: [input.productId],
+    nowIso: input.now,
+    businessDate: input.businessDate,
+  }).map(lot => {
+    if (!Number.isFinite(lot.onHand)) {
+      throwServerError({
+        trpcCode: 'CONFLICT',
+        errorCode: 'LOT_STOCK_INCONSISTENT',
+        message: 'Sellable lot on-hand quantity must be finite',
+        details: { lotId: lot.id },
+      });
+    }
+    const unitCost = tryRoundMoneyToSafeCents(lot.unitCost);
+    if (unitCost === null || unitCost < 0) {
+      throwServerError({
+        trpcCode: 'CONFLICT',
+        errorCode: 'LOT_COST_INVALID',
+        message: 'Sellable lot cost is outside the exact supported cent range',
+        details: { lotId: lot.id },
+      });
+    }
+    return { ...lot, unitCost };
+  });
 
   const selection = selectLotsFefo(activeLots, input.quantity);
   if (

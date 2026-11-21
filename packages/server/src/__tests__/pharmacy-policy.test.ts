@@ -8,6 +8,7 @@ import {
   openStoredPharmacyPrescriptionEvidence,
   sealPharmacyEvidence,
 } from '../services/pharmacy/evidence-box.js';
+import { pharmacyProductPolicyBlockCode } from '../services/pharmacy/catalog-policy.js';
 import { resolvePharmacyPolicy } from '../services/pharmacy/policy.js';
 import { assertPharmacyProfileTransitionAllowed } from '../services/pharmacy/product-profile.js';
 import { pharmacyProductProfileInput } from '../trpc/schemas/products.js';
@@ -20,6 +21,21 @@ import {
 
 describe('pharmacy policy and secret contracts', () => {
   afterEach(() => configurePharmacyEvidenceKey(undefined));
+
+  it('blocks a disallowed decision even when it carries no error code', () => {
+    const decision = {
+      ...resolvePharmacyPolicy('CO', '2026-09-02', 'otc'),
+      allowed: false,
+      errorCode: null,
+    };
+    const profile = { sanitaryRegistration: 'INVIMA-1', registrationExpiresAt: null };
+    expect(pharmacyProductPolicyBlockCode(decision, profile, '2026-09-02')).toBe(
+      'PHARMACY_POLICY_UNAVAILABLE'
+    );
+    expect(
+      pharmacyProductPolicyBlockCode({ ...decision, allowed: true }, profile, '2026-09-02')
+    ).toBeNull();
+  });
 
   it('keeps unsupported countries OTC-only and controlled products disabled', () => {
     const genericOtc = resolvePharmacyPolicy('PE', '2026-09-02', 'otc');

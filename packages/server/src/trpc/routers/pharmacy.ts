@@ -9,6 +9,7 @@ import {
   getPharmacyCheckoutRequirements,
   inspectPharmacyApprovalCapability,
   getPharmacyRecall,
+  listPharmacyGenericAlternatives,
   listPharmacyAuthorizations,
   listPharmacyEvidence,
   listPharmacyRecalls,
@@ -43,6 +44,7 @@ import {
   listPharmacyEvidenceInput,
   listPharmacyRecallsInput,
   pharmacyCheckoutRequirementsInput,
+  pharmacyGenericAlternativesInput,
   recordPharmacyEvidenceInput,
   revokePharmacyAuthorizationInput,
   revokePharmacyEvidenceInput,
@@ -95,6 +97,26 @@ export const pharmacyRouter = router({
       return getPharmacyCheckoutRequirements(
         ctx.db,
         { tenantId: ctx.tenantId, siteId: ctx.siteId, userId: ctx.user!.id },
+        input
+      );
+    }),
+
+  genericAlternatives: cashierManagerOrAdminProcedure
+    .input(pharmacyGenericAlternativesInput)
+    .query(async ({ ctx, input }) => {
+      const siteId = input.siteId ?? ctx.siteId;
+      if (!siteId) {
+        throwServerError({
+          trpcCode: 'BAD_REQUEST',
+          errorCode: 'CASH_SESSION_SITE_REQUIRED',
+          message: 'Select an active site before looking up generic alternatives',
+        });
+      }
+      if (input.siteId) await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+      const clock = await resolveTenantBusinessClock(ctx.db, ctx.tenantId);
+      return listPharmacyGenericAlternatives(
+        ctx.db,
+        { tenantId: ctx.tenantId, siteId, clock },
         input
       );
     }),

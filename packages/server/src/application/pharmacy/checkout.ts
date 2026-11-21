@@ -13,7 +13,7 @@ import {
   sales,
   users,
 } from '../../db/schema.js';
-import { throwServerError, type ServerErrorCode } from '../../lib/errorCodes.js';
+import { throwServerError } from '../../lib/errorCodes.js';
 import { QUANTITY_EPSILON } from '../../lib/quantity.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import {
@@ -21,7 +21,10 @@ import {
   isCalendarDateExpired,
   resolveTenantBusinessClock,
 } from '../../services/pharmacy/business-clock.js';
-import { assertPharmacyProductPolicy } from '../../services/pharmacy/catalog-policy.js';
+import {
+  assertPharmacyProductPolicy,
+  pharmacyProductPolicyBlockCode,
+} from '../../services/pharmacy/catalog-policy.js';
 import {
   requireAuthenticPharmacyPrescriptionEvidence,
   requireAuthenticPharmacyProfessionalCredential,
@@ -53,32 +56,6 @@ function saleSyncContext(db: DatabaseInstance, ctx: PharmacySaleSyncContext) {
     ...(ctx.envelope === undefined ? {} : { envelope: ctx.envelope }),
     ...(ctx.deviceId === undefined ? {} : { deviceId: ctx.deviceId }),
   };
-}
-
-function policyBlockCode(args: {
-  classification: 'otc' | 'prescription' | 'controlled';
-  sanitaryRegistration: string | null;
-  registrationExpiresAt: string | null;
-  countryCode: string;
-  businessDate: string;
-  customerId: string | null;
-}): ServerErrorCode | null {
-  const decision = resolvePharmacyPolicy(args.countryCode, args.businessDate, args.classification);
-  if (!decision.allowed) return decision.errorCode;
-  if (
-    decision.requiredProductFields.includes('sanitaryRegistration') &&
-    !args.sanitaryRegistration?.trim()
-  ) {
-    return 'PHARMACY_PRODUCT_REGISTRATION_REQUIRED';
-  }
-  if (
-    args.registrationExpiresAt &&
-    isCalendarDateExpired(args.registrationExpiresAt, args.businessDate)
-  ) {
-    return 'PHARMACY_PRODUCT_REGISTRATION_EXPIRED';
-  }
-  if (decision.customerRequired && !args.customerId) return 'PHARMACY_CUSTOMER_REQUIRED';
-  return null;
 }
 
 /** Safe preflight for the payment modal; no secret or customer PII is returned. */
@@ -156,12 +133,10 @@ export async function getPharmacyCheckoutRequirements(
       clock.businessDate,
       profile.classification
     );
-    const blockCode = policyBlockCode({
-      ...profile,
-      countryCode: clock.countryCode,
-      businessDate: clock.businessDate,
-      customerId: customerIsValid ? (input.customerId ?? null) : null,
-    });
+    const customerId = customerIsValid ? (input.customerId ?? null) : null;
+    const blockCode =
+      pharmacyProductPolicyBlockCode(decision, profile, clock.businessDate) ??
+      (decision.customerRequired && !customerId ? 'PHARMACY_CUSTOMER_REQUIRED' : null);
     return { profile, decision, blockCode };
   });
   type EligibleEvidenceSummary = {
