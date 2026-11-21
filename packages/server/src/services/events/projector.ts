@@ -90,6 +90,11 @@ const KIND_TO_EVENT: Record<
     type: 'cash_session.closed',
     buildPayload: (op, summary) => buildCashSessionClosedPayload(op, summary),
   },
+  // A handoff closes the outgoing drawer through the same close use-case.
+  'cashSessions.startHandoff': {
+    type: 'cash_session.closed',
+    buildPayload: (op, summary) => buildCashSessionClosedPayload(op, summary),
+  },
 };
 
 /**

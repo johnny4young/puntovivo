@@ -78,6 +78,7 @@ export type AuditLogAction =
   | 'cash_session.movement'
   | 'cash_session.handoff'
   | 'cash_session.handoff_receive'
+  | 'cash_session.handoff_superseded'
   | 'cash_session.explain_difference'
   | 'inventory.adjust_stock'
   | 'inventory.revalue'

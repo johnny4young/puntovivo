@@ -61,6 +61,7 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
     'cash_session.movement',
     'cash_session.handoff',
     'cash_session.handoff_receive',
+    'cash_session.handoff_superseded',
     'cash_session.explain_difference',
     'cash_drawer.open',
     'loss_prevention.settings.updated',

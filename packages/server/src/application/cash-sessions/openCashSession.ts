@@ -324,7 +324,8 @@ export async function openCashSession(
       hookEffects = options.withinTransaction?.(tx, { sessionId: id, openedAt: now }) ?? [];
 
       // Opening the drawer any other way means nobody will receive the handoff.
-      tx.update(cashSessionHandoffs)
+      const superseded = tx
+        .update(cashSessionHandoffs)
         .set({ status: 'superseded', updatedAt: now })
         .where(
           and(
@@ -334,7 +335,38 @@ export async function openCashSession(
             eq(cashSessionHandoffs.status, 'pending')
           )
         )
-        .run();
+        .returning({
+          id: cashSessionHandoffs.id,
+          fromCashierId: cashSessionHandoffs.fromCashierId,
+          outgoingCount: cashSessionHandoffs.outgoingCount,
+        })
+        .all();
+      for (const handoff of superseded) {
+        const supersededAuditId = writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user.id,
+          action: 'cash_session.handoff_superseded',
+          resourceType: 'cash_session_handoff',
+          resourceId: handoff.id,
+          before: { status: 'pending' },
+          after: { status: 'superseded' },
+          metadata: {
+            siteId: site.id,
+            registerName,
+            fromCashierId: handoff.fromCashierId,
+            outgoingCount: handoff.outgoingCount,
+            openedSessionId: id,
+          },
+          operationId: ctx.envelope?.operationId,
+        });
+        hookEffects.push({
+          kind: 'audit_log',
+          resourceType: 'audit_logs',
+          resourceId: supersededAuditId,
+          effectData: { action: 'cash_session.handoff_superseded' },
+        });
+      }
     },
     { behavior: 'immediate' }
   );

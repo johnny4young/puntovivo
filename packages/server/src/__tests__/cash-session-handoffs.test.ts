@@ -213,6 +213,13 @@ describe('register handoff', () => {
     expect(draft?.suspendedBy).toBe(staff.camila);
     const laterDraft = getDatabase().select().from(sales).where(eq(sales.id, laterDraftId)).get();
     expect(laterDraft?.suspendedBy).toBe(staff.andres);
+    // The sale that passed is no longer the outgoing cashier's to discard or re-park.
+    await expect(as(staff.andres).sales.discardDraft({ saleId: draftId })).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
+    await expect(as(staff.andres).sales.suspend({ saleId: draftId })).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
     await as(staff.andres).cashSessions.close({
       actualCount: 200000,
       denominations: [{ value: 50000, count: 4 }],
@@ -366,6 +373,15 @@ describe('register handoff', () => {
       .where(eq(cashSessionHandoffs.id, pending!.id))
       .get();
     expect(row?.status).toBe('superseded');
+    const audit = getDatabase()
+      .select({ action: auditLogs.action, actorId: auditLogs.actorId })
+      .from(auditLogs)
+      .where(and(eq(auditLogs.tenantId, tenantId), eq(auditLogs.resourceId, pending!.id)))
+      .all();
+    expect(audit).toContainEqual({
+      action: 'cash_session.handoff_superseded',
+      actorId: staff.camila,
+    });
     const left = await as(staff.camila).cashSessions.pendingHandoffs();
     expect(left.map(row => row.id)).not.toContain(pending!.id);
     await as(staff.camila).cashSessions.close({ actualCount: 0, denominations: [] });

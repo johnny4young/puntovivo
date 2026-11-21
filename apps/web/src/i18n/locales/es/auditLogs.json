@@ -76,6 +76,7 @@
     "cash_session.movement": "Movimiento de caja registrado",
     "cash_session.handoff": "Caja entregada",
     "cash_session.handoff_receive": "Caja recibida",
+    "cash_session.handoff_superseded": "Relevo reemplazado al abrir la caja directamente",
     "cash_session.explain_difference": "Diferencia de caja explicada",
     "inventory.adjust_stock": "Stock ajustado",
     "inventory.revalue": "Inventario revalorado",

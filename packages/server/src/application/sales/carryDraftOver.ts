@@ -19,7 +19,7 @@ export function isCarriedOverSql() {
   return sql<boolean>`(${sales.carriedOverAt} IS NOT NULL AND ${sales.carriedOverAt} >= ${sales.suspendedAt})`;
 }
 
-/** Leave a parked draft for the next business day so the close stops asking about it. */
+/** Mark a parked draft as left for the next business day; `listDrafts` reports it as carried. */
 export function carryDraftOver(ctx: CarryDraftOverContext, saleId: string) {
   const now = new Date().toISOString();
   return ctx.db.transaction(

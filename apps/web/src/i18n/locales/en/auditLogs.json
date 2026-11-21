@@ -76,6 +76,7 @@
     "cash_session.movement": "Cash movement recorded",
     "cash_session.handoff": "Register handed over",
     "cash_session.handoff_receive": "Register received",
+    "cash_session.handoff_superseded": "Register handoff replaced by a direct open",
     "cash_session.explain_difference": "Cash difference explained",
     "inventory.adjust_stock": "Stock adjusted",
     "inventory.revalue": "Inventory revalued",

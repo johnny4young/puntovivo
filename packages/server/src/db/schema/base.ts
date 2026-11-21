@@ -274,6 +274,7 @@ export const auditLogActionEnum = [
   // Mid-day register handoff: the outgoing count and the incoming receipt.
   'cash_session.handoff',
   'cash_session.handoff_receive',
+  'cash_session.handoff_superseded',
   'cash_session.explain_difference',
   'inventory.adjust_stock',
   'inventory.revalue',
