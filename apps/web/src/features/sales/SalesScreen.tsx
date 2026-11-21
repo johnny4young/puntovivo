@@ -32,6 +32,7 @@ import { roundMoney } from '@/lib/money';
 import { serviceChargeFor } from '@/features/sales/cashTender';
 import type { SuspendedSalesPanel } from '@/features/sales/SuspendedSalesPanel';
 import type { ProductSearchSelection } from '@/types';
+import type { SaleCartItem } from '@/features/sales/saleCart';
 import { canAccessRole, managerOrAdminRoles } from '@/features/auth/roleAccess';
 import { SaleCompleteStrip, type CompletedSaleSummary } from './SaleCompleteStrip';
 import { usePrintSaleReceipt } from './useReceiptAutoPrint';
@@ -46,6 +47,8 @@ const LazySalesHistoryDrawerContent = lazy(() =>
     default: module.SalesHistoryDrawerContent,
   }))
 );
+
+const LazyTillIncidentSheet = lazy(() => import('@/features/sales/incidents/TillIncidentSheet'));
 
 const LazySalesModals = lazy(() =>
   import('@/features/sales/SalesModals').then(module => ({
@@ -168,6 +171,10 @@ export interface SalesScreenProps {
   readinessItems: PreflightItem[];
   // History drawer
   isHistoryDrawerOpen: boolean;
+  isIncidentSheetOpen: boolean;
+  /** The site scanner's key gap, so the incident sheet can tell a scan from a hand. */
+  scanGapMs: number;
+  setIsIncidentSheetOpen: Dispatch<SetStateAction<boolean>>;
   lastSale: CompletedSaleSummary | null;
   completedSale: CompletedSaleSummary | null;
   onDismissCompletedSale: () => void;
@@ -304,6 +311,9 @@ export function SalesScreen({
   preflightItems,
   readinessItems,
   isHistoryDrawerOpen,
+  isIncidentSheetOpen,
+  scanGapMs,
+  setIsIncidentSheetOpen,
   lastSale,
   completedSale,
   onDismissCompletedSale,
@@ -401,9 +411,23 @@ export function SalesScreen({
   const ticketCustomerName = customerLocked
     ? lockedCustomerName
     : (activeWorkspace?.customerName ?? null);
+  const closeIncidentSheet = useCallback(
+    () => setIsIncidentSheetOpen(false),
+    [setIsIncidentSheetOpen]
+  );
+  const openIncidentSheet = useCallback(
+    () => setIsIncidentSheetOpen(true),
+    [setIsIncidentSheetOpen]
+  );
+  const printSale = (saleId: string) => {
+    void completedSalePrint.print(saleId).finally(() => {
+      productInputRef.current?.focus();
+    });
+  };
   const registerActions = buildRegisterBarActions({
     suspend: canSuspendActiveCart ? handleOpenSuspendPrompt : undefined,
     returns: () => setIsHistoryDrawerOpen(true),
+    incident: openIncidentSheet,
     newSale: handleNewSale,
     openDrawer:
       activeCashSession && onKickCashDrawer && !isKickingCashDrawer
@@ -523,11 +547,7 @@ export function SalesScreen({
               showCompletedSale ? (
                 <SaleCompleteStrip
                   sale={completedSale}
-                  onPrint={() => {
-                    void completedSalePrint.print(completedSale.id).finally(() => {
-                      productInputRef.current?.focus();
-                    });
-                  }}
+                  onPrint={() => printSale(completedSale.id)}
                   isPrinting={completedSalePrint.isPrinting}
                   onShare={() => openSaleDetails(completedSale.id, true)}
                   onOpenReceipt={() => openSaleDetails(completedSale.id)}
@@ -618,6 +638,8 @@ export function SalesScreen({
               if (lastSale) openSaleDetails(lastSale.id);
             }}
             onOpenReturns={() => setIsHistoryDrawerOpen(true)}
+            onOpenIncident={openIncidentSheet}
+            isIncidentOpen={isIncidentSheetOpen}
           />
         </section>
 
@@ -652,6 +674,25 @@ export function SalesScreen({
           título, por eso el Drawer va sin `title` (solo `ariaLabel`).
           `restoreFocusTo` devuelve el foco a la barra de búsqueda al cerrar
           para mantener el flujo continuo del cajero. */}
+      {isIncidentSheetOpen && (
+        <Suspense fallback={null}>
+          <LazyTillIncidentSheet
+            onClose={closeIncidentSheet}
+            ticketTotal={draftSummary.total}
+            scanGapMs={scanGapMs}
+            product={incidentProductFor(cartItems, lastRead?.key, activeSelectedCartItemKey)}
+            actions={{
+              returns: () => setIsHistoryDrawerOpen(true),
+              voidSale: () =>
+                lastSale ? openSaleDetails(lastSale.id) : setIsHistoryDrawerOpen(true),
+              cashMovement: activeCashSession ? handleOpenCashSessionMovementModal : undefined,
+              reprint: () => (lastSale ? printSale(lastSale.id) : setIsHistoryDrawerOpen(true)),
+            }}
+            restoreFocusTo={() => productInputRef.current}
+          />
+        </Suspense>
+      )}
+
       {isHistoryDrawerOpen && (
         <Drawer
           isOpen
@@ -791,4 +832,23 @@ export function SalesScreen({
       )}
     </>
   );
+}
+
+/** The line just read, else the selected one, else the newest: what an incident is usually about. */
+function incidentProductFor(
+  items: readonly SaleCartItem[],
+  readKey: string | undefined,
+  selectedKey: string | null | undefined
+) {
+  const line =
+    items.find(item => item.key === readKey) ??
+    items.find(item => item.key === selectedKey) ??
+    items.at(-1);
+  if (!line) return null;
+  return {
+    id: line.productId,
+    name: line.productName,
+    // The catalog price, which the server records as the system price, not a tier price.
+    price: line.unitEquivalence === 1 ? (line.tierPrices?.price ?? null) : null,
+  };
 }

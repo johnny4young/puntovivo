@@ -144,6 +144,12 @@ The current validated candidate includes:
   buys at the catalog price, so it never becomes an off-catalog price. A site
   without keys offers what it sold most, topped up from the catalog, and a
   browser's former local favourites seed it once;
+- one incident sheet on F9 (or the Novedad key and `/` in the scan field) over
+  the open ticket: return, void, price check, out of stock, product without
+  barcode, shelf price mismatch, cash in or out, reprint and calling the
+  manager, each on a fixed letter. Stockout, barcode, price and call reports
+  land on the manager's Today pending queue until resolved, a stockout with the
+  other site holding the most stock, and the sheet names today's last incident;
 - transfer destinations per site: Bre-B keys, Nequi and Daviplata numbers and
   bank accounts, up to six, each with a label the administrator chooses and
   edits under payment settings. Charging by transfer shows the site's QR for

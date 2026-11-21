@@ -1,4 +1,4 @@
-import { FileText, PauseCircle, Undo2, UserRound, WalletCards } from 'lucide-react';
+import { FileText, PauseCircle, TriangleAlert, Undo2, UserRound, WalletCards } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   CheckoutPreflightPanel,
@@ -68,6 +68,8 @@ interface SalesCheckoutPanelProps {
   onOpenLastSale?: (() => void) | undefined;
   /** Opens the sales history, where a return starts from its sale. */
   onOpenReturns?: (() => void) | undefined;
+  onOpenIncident?: (() => void) | undefined;
+  isIncidentOpen?: boolean | undefined;
 }
 
 /** Characters of a condensed total that fit one line of the card. */
@@ -116,6 +118,8 @@ export function SalesCheckoutPanel({
   lastSale = null,
   onOpenLastSale,
   onOpenReturns,
+  onOpenIncident,
+  isIncidentOpen = false,
 }: SalesCheckoutPanelProps) {
   const { t } = useTranslation('sales');
   const priceIncludesTax = usePriceIncludesTax();
@@ -401,8 +405,8 @@ export function SalesCheckoutPanel({
           )}
         </Button>
 
-        {(showSuspendAction || onOpenReturns) && (
-          <div className="flex gap-1.5" data-testid="checkout-park-controls">
+        {(showSuspendAction || onOpenIncident || onOpenReturns) && (
+          <div className="sales-park-row flex gap-1.5" data-testid="checkout-park-controls">
             {showSuspendAction && (
               <button
                 type="button"
@@ -415,6 +419,23 @@ export function SalesCheckoutPanel({
                 {t('sell.actions.suspend')}
                 <kbd className="pv-kbd" aria-hidden="true">
                   {shortcutDisplayFor('sales.suspend')}
+                </kbd>
+              </button>
+            )}
+            {onOpenIncident && (
+              <button
+                type="button"
+                className="sales-secondary-key sales-incident-key"
+                onClick={onOpenIncident}
+                aria-haspopup="dialog"
+                aria-expanded={isIncidentOpen}
+                data-testid="checkout-incident"
+                aria-keyshortcuts={ariaKeyshortcutsFor('sales.incident')}
+              >
+                <TriangleAlert className="h-4 w-4" aria-hidden="true" />
+                {t('sell.actions.incident')}
+                <kbd className="pv-kbd" aria-hidden="true">
+                  {shortcutDisplayFor('sales.incident')}
                 </kbd>
               </button>
             )}

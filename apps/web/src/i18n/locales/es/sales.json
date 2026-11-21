@@ -585,7 +585,8 @@
       "catalog": "Buscar en el catálogo",
       "cashMovement": "Movimiento de caja",
       "openCashSession": "Abrir caja",
-      "closeCashSession": "Cerrar caja"
+      "closeCashSession": "Cerrar caja",
+      "incident": "Novedad"
     }
   },
   "paymentStatus": {
@@ -978,7 +979,8 @@
       "suspend": "Suspender",
       "returns": "Devolución",
       "credit": "Fiar",
-      "suspended": "Suspendidas"
+      "suspended": "Suspendidas",
+      "incident": "Novedad"
     },
     "keys": {
       "shortest": "Camino más corto:",
