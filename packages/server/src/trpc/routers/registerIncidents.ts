@@ -1,11 +1,15 @@
 /**
- * Till incidents router: cashiers report, managers read and resolve.
+ * Till incidents router: cashiers report and read what the till sheets need;
+ * managers read the queue and resolve.
  *
  * @module trpc/routers/registerIncidents
  */
 import { TRPCError } from '@trpc/server';
 
+import type { Context } from '../context.js';
 import {
+  getLatestRegisterIncidentToday,
+  getProductSiteStock,
   listOpenRegisterIncidents,
   reportRegisterIncident,
   resolveRegisterIncident,
@@ -15,23 +19,42 @@ import { cashierManagerOrAdminProcedure, managerOrAdminProcedure } from '../midd
 import { ensureTenantSite } from '../middleware/tenantSite.js';
 import {
   listOpenRegisterIncidentsInput,
+  registerIncidentProductStockInput,
   reportRegisterIncidentInput,
   resolveRegisterIncidentInput,
 } from '../schemas/registerIncidents.js';
 
+function activeSite(ctx: Context): string {
+  if (!ctx.siteId) {
+    throw new TRPCError({ code: 'BAD_REQUEST', message: 'Select an active site first' });
+  }
+  return ctx.siteId;
+}
+
 export const registerIncidentsRouter = router({
   report: cashierManagerOrAdminProcedure
     .input(reportRegisterIncidentInput)
-    .mutation(({ ctx, input }) => {
-      if (!ctx.siteId) {
-        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Select an active site first' });
-      }
-      return reportRegisterIncident(
+    .mutation(({ ctx, input }) =>
+      reportRegisterIncident(
         ctx.db,
-        { tenantId: ctx.tenantId, siteId: ctx.siteId, userId: ctx.user!.id },
+        { tenantId: ctx.tenantId, siteId: activeSite(ctx), userId: ctx.user!.id },
         input
-      );
-    }),
+      )
+    ),
+
+  productStock: cashierManagerOrAdminProcedure
+    .input(registerIncidentProductStockInput)
+    .query(({ ctx, input }) =>
+      getProductSiteStock(
+        ctx.db,
+        { tenantId: ctx.tenantId, siteId: activeSite(ctx) },
+        input.productId
+      )
+    ),
+
+  latestToday: cashierManagerOrAdminProcedure.query(({ ctx }) =>
+    getLatestRegisterIncidentToday(ctx.db, { tenantId: ctx.tenantId, siteId: activeSite(ctx) })
+  ),
 
   listOpen: managerOrAdminProcedure
     .input(listOpenRegisterIncidentsInput)

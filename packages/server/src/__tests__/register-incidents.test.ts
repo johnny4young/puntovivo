@@ -3,7 +3,16 @@ import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { inventoryBalances, products, sales, sites, tenants, users } from '../db/schema.js';
+import {
+  cashSessions,
+  inventoryBalances,
+  products,
+  sales,
+  sites,
+  tenants,
+  users,
+} from '../db/schema.js';
+import { getLatestRegisterIncidentToday } from '../services/register-incidents.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 import { receiptCodeToSaleNumber } from '../trpc/routers/sales/queries.js';
@@ -160,6 +169,103 @@ describe('register incidents', () => {
     await expect(foreign.registerIncidents.listOpen({ siteId })).rejects.toMatchObject({
       code: 'NOT_FOUND',
     });
+  });
+
+  it('shows a cashier the product stock here and at the other sites', async () => {
+    const stock = await appRouter
+      .createCaller(ctxFor('cashier'))
+      .registerIncidents.productStock({ productId });
+    expect(stock).toMatchObject({ siteId, onHand: 0 });
+    expect(stock.siteName).not.toBe('');
+    expect(stock.otherSites).toEqual([{ siteId: otherSiteId, siteName: 'Sede Sur', onHand: 14 }]);
+  });
+
+  it('returns an open incident instead of filing it twice', async () => {
+    const cashier = appRouter.createCaller(ctxFor('cashier'));
+    const first = await cashier.registerIncidents.report({ kind: 'stockout', productId });
+    const again = await cashier.registerIncidents.report({
+      kind: 'stockout',
+      productId,
+      reason: 'expired',
+    });
+    expect(again.id).toBe(first.id);
+
+    await appRouter.createCaller(ctxFor('manager')).registerIncidents.resolve({ id: first.id });
+    const reopened = await cashier.registerIncidents.report({ kind: 'stockout', productId });
+    expect(reopened.id).not.toBe(first.id);
+  });
+
+  it('matches an open no-barcode incident on its trimmed note', async () => {
+    const cashier = appRouter.createCaller(ctxFor('cashier'));
+    const label = await cashier.registerIncidents.report({
+      kind: 'no_barcode',
+      note: 'Hielo 2 kg',
+    });
+    const padded = await cashier.registerIncidents.report({
+      kind: 'no_barcode',
+      note: '  Hielo 2 kg ',
+    });
+    const other = await cashier.registerIncidents.report({
+      kind: 'no_barcode',
+      note: 'Hielo 5 kg',
+    });
+    expect(padded.id).toBe(label.id);
+    expect(other.id).not.toBe(label.id);
+  });
+
+  it('gives the till the newest incident of the business day with its register', async () => {
+    const db = getDatabase();
+    const sessionId = nanoid();
+    db.insert(cashSessions)
+      .values({
+        id: sessionId,
+        tenantId,
+        siteId,
+        cashierId: adminId,
+        registerName: 'Caja 1',
+        openingCountDenominations: [],
+        status: 'open',
+      })
+      .run();
+    const cashier = appRouter.createCaller(ctxFor('cashier'));
+    const { id } = await cashier.registerIncidents.report({
+      kind: 'price_mismatch',
+      productId,
+      shelfPrice: 4500,
+    });
+    db.update(cashSessions).set({ status: 'closed' }).where(eq(cashSessions.id, sessionId)).run();
+
+    expect(await cashier.registerIncidents.latestToday()).toMatchObject({
+      id,
+      kind: 'price_mismatch',
+      productName: 'Leche UHT 1 L',
+      registerName: 'Caja 1',
+    });
+    const nextWeek = new Date(Date.now() + 7 * 86_400_000);
+    expect(await getLatestRegisterIncidentToday(db, { tenantId, siteId }, nextWeek)).toBeNull();
+    expect(
+      await appRouter
+        .createCaller(ctxFor('cashier', { siteId: otherSiteId }))
+        .registerIncidents.latestToday()
+    ).toBeNull();
+  });
+
+  it('keeps the till reads inside the tenant', async () => {
+    const foreignTenant = nanoid();
+    getDatabase()
+      .insert(tenants)
+      .values({ id: foreignTenant, slug: nanoid(), name: 'Other' })
+      .run();
+    const foreign = appRouter.createCaller(ctxFor('cashier', { tenantId: foreignTenant }));
+    await expect(foreign.registerIncidents.productStock({ productId })).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    });
+    expect(await foreign.registerIncidents.latestToday()).toBeNull();
+    await expect(
+      appRouter
+        .createCaller(ctxFor('cashier', { siteId: null }))
+        .registerIncidents.productStock({ productId })
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
   });
 
   it('finds a completed sale from its scanned receipt', async () => {
