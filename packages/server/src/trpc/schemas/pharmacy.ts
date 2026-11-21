@@ -100,6 +100,15 @@ export const pharmacyCheckoutRequirementsInput = z
   })
   .strict();
 
+export const pharmacyGenericAlternativesInput = z
+  .object({
+    productId: z.string().min(1),
+    siteId: z.string().min(1).optional(),
+    priceTier: z.union([z.literal(1), z.literal(2), z.literal(3)]).default(1),
+    limit: z.number().int().min(1).max(5).default(3),
+  })
+  .strict();
+
 export const createPharmacyRecallInput = z
   .object({
     scopeType: z.enum(pharmacyRecallScopeEnum),
@@ -156,6 +165,7 @@ export const destroyPharmacyLotInput = z
 export type CreatePharmacyAuthorizationInput = z.infer<typeof createPharmacyAuthorizationInput>;
 export type RecordPharmacyEvidenceInput = z.infer<typeof recordPharmacyEvidenceInput>;
 export type PharmacyCheckoutRequirementsInput = z.infer<typeof pharmacyCheckoutRequirementsInput>;
+export type PharmacyGenericAlternativesInput = z.infer<typeof pharmacyGenericAlternativesInput>;
 export type CreatePharmacyRecallInput = z.infer<typeof createPharmacyRecallInput>;
 export type TransitionPharmacyLotInput = z.infer<typeof transitionPharmacyLotInput>;
 export type DestroyPharmacyLotInput = z.infer<typeof destroyPharmacyLotInput>;

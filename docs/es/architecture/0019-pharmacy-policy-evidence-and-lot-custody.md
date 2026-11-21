@@ -85,6 +85,16 @@ presentar replicación parcial como completa.
   `products.list` y `products.search` evalúan metadatos solo si el negocio tiene
   perfil farmacéutico. Manda propiedad, no preset; salir del preset conserva
   búsqueda. Perfil de 50,000 productos sigue gate con presupuestos separados minorista/farmacia.
+- `pharmacy.genericAlternatives` es una lectura de sugerencia para cualquier
+  rol de venta. Para un medicamento lista los más baratos con el mismo principio
+  activo, concentración y forma farmacéutica (sin distinguir mayúsculas, tildes,
+  espacios ni separador decimal), en la tarifa pedida y la misma moneda, con el
+  ahorro, el stock vendible de la sede y el lote FEFO. Solo sugiere lo que la
+  política vigente permite hoy, con el mismo predicado de producto que el
+  cobro: los controlados nunca se sugieren ni se responden, y el stock cuenta
+  solo lotes activos sin vencer, así un retiro excluye al candidato igual que
+  bloquea la venta. Un producto desconocido, de otro negocio o que no es
+  medicamento devuelve lista vacía.
 - Gerentes/admin operan lotes, evidencia, autorizaciones y retiros. Contactos
   PII de retiro solo admin; gerente recibe IDs; cajero no abre investigación.
 - Credencial actual corrupta desactiva aprobación y muestra integridad, pero no
