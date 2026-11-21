@@ -105,6 +105,13 @@ describe('TodayOverview', () => {
     expect(resolveMutate).toHaveBeenCalledWith({ id: 'i-1' });
   });
 
+  it('says who asked for an approval, why, and how long it has waited', () => {
+    render(<TodayOverview formatCurrency={formatCurrency} />);
+    expect(screen.getByTestId('today-pending-row-approval')).toHaveTextContent(
+      'Laura · Producto dañado · Norte · 24 min ago'
+    );
+  });
+
   describe('incident detail', () => {
     type IncidentItem = Extract<TodayPendingItem, { kind: 'incident' }>;
     const baseIncident = () =>
@@ -185,8 +192,21 @@ describe('TodayOverview', () => {
     expect(screen.getByTestId('today-register')).toHaveTextContent('waits on 2');
     expect(screen.getByTestId('today-register-stale')).toHaveTextContent('is item 1');
     expect(screen.getByTestId('today-next-handoff')).toHaveTextContent('2 h 36 min');
+    expect(screen.getByTestId('today-next-handoff-detail')).toHaveTextContent(
+      'Handoff of Caja 1: Laura hands over to Camila'
+    );
     expect(screen.queryByTestId('today-register-handoff')).not.toBeInTheDocument();
     expect(screen.queryByTestId('today-register-awaiting')).not.toBeInTheDocument();
+  });
+
+  it('keeps the handoff line without a receiver when no one is scheduled', () => {
+    const base = todayFixture();
+    todayData.current = todayFixture({ nextHandoff: { ...base.nextHandoff!, toUserName: null } });
+    render(<TodayOverview formatCurrency={formatCurrency} />);
+    expect(screen.getByTestId('today-next-handoff-detail')).toHaveTextContent(
+      'Handoff of Caja 1: Laura hands over'
+    );
+    expect(screen.getByTestId('today-next-handoff-detail')).not.toHaveTextContent('to Camila');
   });
 
   it('shows the handoff a register came from and the registers still waiting to be received', () => {

@@ -52,8 +52,16 @@ export function todayFixture(overrides: Partial<OperationsToday> = {}): Operatio
         lastHandoff: null,
       },
     ],
-    shifts: [{ userId: 'u-1', userName: 'Laura', startsAt: at(7), endsAt: at(14) }],
-    nextHandoff: { at: at(14), registerName: 'Caja 1', fromUserName: 'Laura' },
+    shifts: [
+      { userId: 'u-1', userName: 'Laura', siteId: 'site-1', startsAt: at(7), endsAt: at(14) },
+      { userId: 'u-2', userName: 'Camila', siteId: 'site-1', startsAt: at(14), endsAt: at(21) },
+    ],
+    nextHandoff: {
+      at: at(14),
+      registerName: 'Caja 1',
+      fromUserName: 'Laura',
+      toUserName: 'Camila',
+    },
     awaitingHandoffs: [],
     pending: [
       {
@@ -74,6 +82,8 @@ export function todayFixture(overrides: Partial<OperationsToday> = {}): Operatio
         action: 'sale_refund',
         label: 'Devolución',
         amount: 48500,
+        reason: 'Producto dañado',
+        requesterId: 'u-1',
         requesterName: 'Laura',
         siteName: 'Norte',
       },

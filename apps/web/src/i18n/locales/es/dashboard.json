@@ -119,7 +119,8 @@
         "whenPossible": "Cuando pueda"
       },
       "approval": "{{label}} {{amount}} espera su aprobación",
-      "approvalDetail": "{{requester}} · {{site}} · {{time}}",
+      "agoNow": "hace un momento",
+      "ago": "hace {{duration}}",
       "staleSession": "{{register}} sigue abierta desde {{time}}",
       "staleSessionDetail": "{{cashier}} · no se puede firmar el día hasta contarla",
       "incident": {
@@ -175,6 +176,7 @@
       "durationHours": "{{hours}} h {{minutes}} min",
       "durationMinutes": "{{minutes}} min",
       "handoff": "Relevo de {{register}}: entrega {{from}}",
+      "handoffTo": "Relevo de {{register}}: {{from}} entrega a {{to}}",
       "received": "Relevo hecho {{time}} · lo entregó {{from}}",
       "receivedDifference": "Relevo hecho {{time}} · {{difference}} contra el conteo de {{from}}",
       "handedOver": "{{register}} · entregada",

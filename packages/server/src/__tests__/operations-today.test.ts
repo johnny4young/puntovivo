@@ -116,18 +116,45 @@ describe('operations.today', () => {
         expiresAt: hoursAfter(todayStart, 48),
       })
       .run();
+    const receiverId = nanoid();
+    const elsewhereId = nanoid();
+    const otherSiteId = nanoid();
+    db.insert(users)
+      .values(
+        [
+          [receiverId, 'Camila'],
+          [elsewhereId, 'Diego'],
+        ].map(([id, name]) => ({
+          id: id!,
+          tenantId,
+          email: `${id}@example.test`,
+          name: name!,
+          passwordHash: 'not-used',
+          role: 'cashier' as const,
+        }))
+      )
+      .run();
+    db.insert(sites)
+      .values({ id: otherSiteId, tenantId, companyId: site.companyId, name: 'Sede Sur' })
+      .run();
+    const shift = (userId: string, shiftSite: string, from: number, to: number) => ({
+      id: nanoid(),
+      tenantId,
+      userId,
+      siteId: shiftSite,
+      startsAt: hoursAfter(todayStart, from),
+      endsAt: hoursAfter(todayStart, to),
+      timeZone: clock.timezone,
+      createdByUserId: adminId,
+      updatedByUserId: adminId,
+    });
     db.insert(scheduledShifts)
-      .values({
-        id: nanoid(),
-        tenantId,
-        userId: adminId,
-        siteId,
-        startsAt: hoursAfter(todayStart, 7),
-        endsAt: hoursAfter(todayStart, 14),
-        timeZone: clock.timezone,
-        createdByUserId: adminId,
-        updatedByUserId: adminId,
-      })
+      .values([
+        shift(adminId, siteId, 7, 14),
+        // Starts exactly at the handoff, but at another site.
+        shift(elsewhereId, otherSiteId, 14, 20),
+        shift(receiverId, siteId, 14.25, 21),
+      ])
       .run();
     const productId = nanoid();
     db.insert(products)
@@ -167,8 +194,35 @@ describe('operations.today', () => {
       openedBeforeToday: false,
       scheduledEndAt: hoursAfter(todayStart, 14),
     });
-    expect(today.nextHandoff).toMatchObject({ at: hoursAfter(todayStart, 14) });
-    expect(today.shifts).toHaveLength(1);
+    expect(today.nextHandoff).toMatchObject({
+      at: hoursAfter(todayStart, 14),
+      fromUserName: open!.cashierName,
+      toUserName: 'Camila',
+    });
+    expect(today.shifts).toHaveLength(3);
+  });
+
+  it('leaves the receiver empty when no one starts near the handoff at that site', async () => {
+    const late = new Date(todayStart.getTime() + 13.5 * 3_600_000);
+    const db = getDatabase();
+    const receiverShift = db
+      .select()
+      .from(scheduledShifts)
+      .where(eq(scheduledShifts.startsAt, hoursAfter(todayStart, 14.25)))
+      .get()!;
+    db.update(scheduledShifts)
+      .set({ startsAt: hoursAfter(todayStart, 15.5) })
+      .where(eq(scheduledShifts.id, receiverShift.id))
+      .run();
+    try {
+      const today = await computeOperationsToday(db, tenantId, late);
+      expect(today.nextHandoff).toMatchObject({ toUserName: null });
+    } finally {
+      db.update(scheduledShifts)
+        .set({ startsAt: receiverShift.startsAt })
+        .where(eq(scheduledShifts.id, receiverShift.id))
+        .run();
+    }
   });
 
   it('orders the pending queue by what blocks the close', async () => {
@@ -177,7 +231,13 @@ describe('operations.today', () => {
     expect(kinds.slice(0, 2)).toEqual(['blocks:staleSession', 'blocks:approval']);
     expect(kinds).toContain('beforeClose:incident');
     const approval = pending.find(item => item.kind === 'approval');
-    expect(approval).toMatchObject({ label: 'Devolución', amount: 48500, origin: 'cashier' });
+    expect(approval).toMatchObject({
+      label: 'Devolución',
+      amount: 48500,
+      origin: 'cashier',
+      reason: 'Producto dañado',
+      requesterId: adminId,
+    });
   });
 
   it('is for managers only and never leaks another tenant', async () => {

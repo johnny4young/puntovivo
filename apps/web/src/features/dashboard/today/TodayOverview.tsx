@@ -114,7 +114,7 @@ export function TodayOverview({ formatCurrency }: TodayOverviewProps) {
       <>
         {query.isLoading && (
           <div
-            className="min-h-64 animate-pulse rounded-[22px] bg-surface-2"
+            className="min-h-64 animate-pulse rounded-[22px] bg-surface-2 motion-reduce:animate-none"
             role="status"
             aria-label={t('today.loading')}
           />
@@ -222,6 +222,7 @@ export function TodayOverview({ formatCurrency }: TodayOverviewProps) {
           numbered={numbered}
           canAct
           approverId={approverQuery.data?.approver.hasPin ? (user?.id ?? null) : null}
+          nowIso={today.generatedAt}
           formatCurrency={formatCurrency}
           formatTime={formatters.time}
         />

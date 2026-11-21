@@ -46,7 +46,9 @@ close and open use-cases.
   than `suspended_at`, so parking it again clears the decision without touching
   the suspend path.
 - `operations.today` shows the handoff each register came from and every
-  register handed over and still waiting.
+  register handed over and still waiting. The next planned handoff names its
+  receiver from the shift that starts at the same site within an hour of it,
+  and stays unnamed when no one is scheduled.
 - Restaurant checks keep their table-based sharing and are not reassigned.
 - On the register, a register waiting to be received replaces Open on the
   primary key and the open shortcut, so opening it by habit does not discard

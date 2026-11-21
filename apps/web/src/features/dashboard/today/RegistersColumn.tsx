@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { SeverityMark } from '@/components/ui';
 import {
+  formatDuration,
   waitingRank,
   type OperationsToday,
   type TodayPendingItem,
@@ -15,14 +16,6 @@ interface RegistersColumnProps {
   canOpenRegister: boolean;
   formatCurrency: (value: number) => string;
   formatTime: (iso: string) => string;
-}
-
-function formatDuration(ms: number, t: ReturnType<typeof useTranslation>['t']) {
-  const minutes = Math.max(0, Math.round(ms / 60_000));
-  const hours = Math.floor(minutes / 60);
-  return hours > 0
-    ? t('today.registers.durationHours', { hours, minutes: minutes % 60 })
-    : t('today.registers.durationMinutes', { minutes });
 }
 
 function handoffLine(
@@ -91,7 +84,7 @@ export function RegistersColumn({
                   })}
                 </b>
                 {rank !== null && (
-                  <span className="rounded-full bg-surface px-2 py-0.5 text-xs font-semibold text-danger-700">
+                  <span className="shrink-0 rounded-full bg-surface px-2 py-0.5 text-xs font-semibold whitespace-nowrap text-danger-700">
                     {t('today.registers.isItem', { rank })}
                   </span>
                 )}
@@ -114,12 +107,12 @@ export function RegistersColumn({
                   })}
                 </b>
                 {rank !== null ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-danger-50 px-2 py-0.5 text-xs font-semibold text-danger-700">
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-danger-50 px-2 py-0.5 text-xs font-semibold whitespace-nowrap text-danger-700">
                     <SeverityMark severity="blocks" size={11} />
                     {t('today.registers.waiting', { rank })}
                   </span>
                 ) : (
-                  <span className="text-xs font-semibold text-success-700">
+                  <span className="shrink-0 text-xs font-semibold whitespace-nowrap text-success-700">
                     {t('today.registers.selling')}
                   </span>
                 )}
@@ -155,7 +148,7 @@ export function RegistersColumn({
           >
             <div className="flex items-center justify-between gap-2 text-[0.95rem]">
               <b>{t('today.registers.handedOver', { register: handoff.registerName })}</b>
-              <span className="rounded-full bg-warning-50 px-2 py-0.5 text-xs font-semibold text-warning-700">
+              <span className="shrink-0 rounded-full bg-warning-50 px-2 py-0.5 text-xs font-semibold whitespace-nowrap text-warning-700">
                 {handoff.toUserName
                   ? t('today.registers.waitingFor', { to: handoff.toUserName })
                   : t('today.registers.waitingAnyone')}
@@ -179,13 +172,25 @@ export function RegistersColumn({
               {t('today.registers.nextIn')}
             </p>
             <p className="font-numeric text-[2.2rem] leading-tight">
-              {formatDuration(Date.parse(handoff.at) - Date.parse(today.generatedAt), t)}
+              {formatDuration(
+                Math.max(
+                  0,
+                  Math.round((Date.parse(handoff.at) - Date.parse(today.generatedAt)) / 60_000)
+                ),
+                t
+              )}
             </p>
-            <p className="text-sm">
-              {t('today.registers.handoff', {
-                register: handoff.registerName ?? '',
-                from: handoff.fromUserName,
-              })}
+            <p className="text-sm" data-testid="today-next-handoff-detail">
+              {handoff.toUserName
+                ? t('today.registers.handoffTo', {
+                    register: handoff.registerName ?? '',
+                    from: handoff.fromUserName,
+                    to: handoff.toUserName,
+                  })
+                : t('today.registers.handoff', {
+                    register: handoff.registerName ?? '',
+                    from: handoff.fromUserName,
+                  })}
             </p>
           </div>
         )}
