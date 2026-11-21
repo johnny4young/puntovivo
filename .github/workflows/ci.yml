@@ -441,7 +441,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        # Pinned: an image change moved the Linux Electron memory baseline once.
+        os: [ubuntu-26.04, windows-latest]
     runs-on: ${{ matrix.os }}
     # Calibrated from the last 12 green runs (see max durations in the PR);
     # a hang must fail in minutes, not consume the 360-minute Actions default.
