@@ -24,7 +24,11 @@ const providerInvoiceLineInput = z
     productId: z.string().min(1),
     /** Quantity in the product's base unit, as printed by the supplier. */
     quantity: z.number().finite().positive(),
-    unitCost: payableAmountInput,
+    /** Base-unit cost as printed by the supplier. Deliberately not the
+     * payable-amount rule: a zero-cost line is legitimate and a 3-pack at
+     * 10 yields a base rate of 3.33 with fractional cents — cent rounding
+     * stays on the calculated line totals and the invoice amount. */
+    unitCost: z.number().finite().min(0),
   })
   .strict();
 

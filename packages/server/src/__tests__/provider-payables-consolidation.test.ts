@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -101,7 +101,8 @@ async function createRemissionPurchase(
   providerId: string,
   productId: string,
   quantity: number,
-  unitCost: number
+  unitCost: number,
+  equivalence = 1
 ): Promise<string> {
   const db = getDatabase();
   const purchaseId = nanoid();
@@ -127,9 +128,9 @@ async function createRemissionPurchase(
     productId,
     quantity,
     unitId: baseUnitId,
-    unitEquivalence: 1,
+    unitEquivalence: equivalence,
     costPerUnit: unitCost,
-    baseUnitCost: unitCost,
+    baseUnitCost: Number((unitCost / equivalence).toFixed(2)),
     total: lineTotal,
   });
   return purchaseId;
@@ -343,5 +344,125 @@ describe('provider payable consolidation', () => {
         amount: 40,
       })
     ).rejects.toThrow(/Invoice lines are required/i);
+  });
+
+  it('rejects consolidation across sites without leaving any rows behind', async () => {
+    const db = getDatabase();
+    const providerId = await createProvider(`Mixed site ${nanoid(5)}`);
+    const productId = await createProduct('Papel picoteo');
+    const homeSite = await createRemissionPurchase(providerId, productId, 2, 10);
+
+    const otherSiteId = nanoid();
+    const now = new Date().toISOString();
+    const seededSite = db
+      .select({ companyId: sites.companyId })
+      .from(sites)
+      .where(and(eq(sites.tenantId, tenantId), eq(sites.isActive, true)))
+      .get();
+    if (!seededSite?.companyId) throw new Error('Expected a seeded company site');
+    await db.insert(sites).values({
+      id: otherSiteId,
+      tenantId,
+      companyId: seededSite.companyId,
+      name: 'Sucursal prueba',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const awayPurchaseId = nanoid();
+    await db.insert(purchases).values({
+      id: awayPurchaseId,
+      tenantId,
+      purchaseNumber: `REM-X-${nanoid(5)}`,
+      providerId,
+      siteId: otherSiteId,
+      status: 'completed',
+      subtotal: 20,
+      total: 20,
+      createdBy: userId,
+      syncVersion: 1,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const before = db
+      .select({ count: sql<number>`count(*)` })
+      .from(providerPayableInvoicePurchases)
+      .get()?.count ?? 0;
+
+    const caller = appRouter.createCaller(context());
+    await expect(
+      caller.providerPayables.createInvoice({
+        providerId,
+        purchaseIds: [homeSite, awayPurchaseId],
+        lines: [{ productId, quantity: 4, unitCost: 10 }],
+        documentNumber: `FAC-${nanoid(6)}`,
+        issuedAt: businessDayFromNow(-2),
+        dueAt: businessDayFromNow(28),
+        amount: 40,
+      })
+    ).rejects.toMatchObject({
+      cause: { errorCode: 'PROVIDER_PAYABLE_PURCHASE_SITE_MISMATCH' },
+    });
+
+    const after = db
+      .select({ count: sql<number>`count(*)` })
+      .from(providerPayableInvoicePurchases)
+      .get()?.count ?? 0;
+    expect(after).toBe(before);
+  });
+
+  it('cannot reuse a purchase after a bridge-only consolidation', async () => {
+    const providerId = await createProvider(`Bridge reuse ${nanoid(5)}`);
+    const productId = await createProduct('Cartulina');
+    const first = await createRemissionPurchase(providerId, productId, 2, 10);
+    const second = await createRemissionPurchase(providerId, productId, 2, 10);
+
+    const caller = appRouter.createCaller(context());
+    await caller.providerPayables.createInvoice({
+      providerId,
+      purchaseIds: [first, second],
+      lines: [{ productId, quantity: 4, unitCost: 10 }],
+      documentNumber: `FAC-${nanoid(6)}`,
+      issuedAt: businessDayFromNow(-2),
+      dueAt: businessDayFromNow(28),
+      amount: 40,
+    });
+
+    await expect(
+      caller.providerPayables.createInvoice({
+        providerId,
+        purchaseId: first,
+        documentNumber: `FAC-${nanoid(6)}`,
+        issuedAt: businessDayFromNow(-2),
+        dueAt: businessDayFromNow(28),
+        amount: 20,
+      })
+    ).rejects.toMatchObject({
+      cause: { errorCode: 'PROVIDER_PAYABLE_PURCHASE_ALREADY_INVOICED' },
+    });
+  });
+
+  it('accepts a fractional base-unit rate when it rounds to the received total', async () => {
+    const providerId = await createProvider(`Fractional ${nanoid(5)}`);
+    const productId = await createProduct('Papel silueta rollo 3m');
+    // One 3-unit pack worth 10: the purchase keeps its two-decimal cost rule,
+    // but the supplier's invoice line rates it in base units as 10/3, which
+    // whole cents cannot express. The line total must round to the received
+    // total, and the input schema must accept the repeating rate.
+    const purchase = await createRemissionPurchase(providerId, productId, 1, 10, 3);
+
+    const caller = appRouter.createCaller(context());
+    await expect(
+      caller.providerPayables.createInvoice({
+        providerId,
+        purchaseIds: [purchase],
+        lines: [{ productId, quantity: 3, unitCost: 3.3334 }],
+        documentNumber: `FAC-${nanoid(6)}`,
+        issuedAt: businessDayFromNow(-2),
+        dueAt: businessDayFromNow(28),
+        amount: 10,
+      })
+    ).resolves.toMatchObject({ providerId });
   });
 });

@@ -313,13 +313,18 @@ export function createProviderInvoice(
 
       // The bridge is the complete source of truth: every linked purchase,
       // legacy-single or consolidated, lands here.
+      const invoicePurchaseLinkIdsByPurchase = new Map<string, string>();
       for (const purchaseId of linkedPurchaseIds) {
+        const linkId = nanoid();
+        invoicePurchaseLinkIdsByPurchase.set(purchaseId, linkId);
         tx.insert(providerPayableInvoicePurchases)
           .values({
-            id: nanoid(),
+            id: linkId,
             tenantId: ctx.tenantId,
             invoiceId,
             purchaseId,
+            syncStatus: 'pending',
+            syncVersion: 1,
             createdAt: now,
           })
           .run();
@@ -347,8 +352,19 @@ export function createProviderInvoice(
         entityType: 'provider_payable_invoices',
         entityId: invoiceId,
         operation: 'create',
-        data: { id: invoiceId, providerId: input.providerId, siteId, amount },
+        data: { id: invoiceId, providerId: input.providerId, siteId, amount, purchaseIds: linkedPurchaseIds },
       });
+      // Parent-before-child: each covered purchase link follows its invoice so
+      // a synced copy can reconstruct what the consolidating factura covers —
+      // the legacy column alone cannot carry several purchases.
+      for (const purchaseId of linkedPurchaseIds) {
+        enqueueSyncInTransaction(syncContext(ctx, tx), {
+          entityType: 'provider_payable_invoice_purchases',
+          entityId: invoicePurchaseLinkIdsByPurchase.get(purchaseId)!,
+          operation: 'create',
+          data: { invoiceId, purchaseId },
+        });
+      }
       const result = { id: invoiceId, providerId: input.providerId, amount };
       ctx.completeInTransaction(tx, result);
       return result;

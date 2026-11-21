@@ -354,6 +354,8 @@ export const providerPayableInvoicePurchases = sqliteTable(
     purchaseId: text('purchase_id')
       .notNull()
       .references(() => purchases.id),
+    syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
+    syncVersion: integer('sync_version').default(1),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [

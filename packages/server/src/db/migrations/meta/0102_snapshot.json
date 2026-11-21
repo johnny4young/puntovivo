@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "f5f7e362-c184-4c03-817b-009b72b2aa8d",
+  "id": "9f545426-213e-418f-9eac-744e5b9cb939",
   "prevId": "2b509a37-f6df-4176-aea6-87cd6b78309b",
   "tables": {
     "account_recovery_codes": {
@@ -11233,6 +11233,22 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "sync_status": {
+          "name": "sync_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "'pending'"
+        },
+        "sync_version": {
+          "name": "sync_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": 1
         },
         "created_at": {
           "name": "created_at",
