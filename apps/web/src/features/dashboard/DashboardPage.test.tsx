@@ -11,12 +11,15 @@ import i18n from '@/i18n';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { useAuthMock, useIsModuleActiveMock, dashboardError, refetchMock } = vi.hoisted(() => ({
-  dashboardError: { current: null as null | { message: string; data: { errorCode: string } } },
-  refetchMock: vi.fn(),
-  useAuthMock: vi.fn(),
-  useIsModuleActiveMock: vi.fn(),
-}));
+const { useAuthMock, useIsModuleActiveMock, dashboardError, refetchMock, todayData } = vi.hoisted(
+  () => ({
+    todayData: { current: undefined as undefined | { generatedAt: string } },
+    dashboardError: { current: null as null | { message: string; data: { errorCode: string } } },
+    refetchMock: vi.fn(),
+    useAuthMock: vi.fn(),
+    useIsModuleActiveMock: vi.fn(),
+  })
+);
 
 vi.mock('@/features/auth/AuthProvider', () => ({
   useAuth: useAuthMock,
@@ -35,6 +38,9 @@ vi.mock('@/hooks', () => ({
 
 vi.mock('@/lib/trpc', () => ({
   trpc: {
+    operations: {
+      today: { useQuery: () => ({ data: todayData.current }) },
+    },
     dashboard: {
       summary: {
         useQuery: () => ({
@@ -85,6 +91,7 @@ import { DashboardPage } from './DashboardPage';
 
 beforeEach(() => {
   dashboardError.current = null;
+  todayData.current = { generatedAt: '2026-05-07T00:00:00.000Z' };
   refetchMock.mockReset();
   useAuthMock.mockReset();
   useIsModuleActiveMock.mockReset();
@@ -126,6 +133,17 @@ describe('DashboardPage audience', () => {
       'true'
     );
     expect(screen.getByTestId('low-stock-card')).toBeInTheDocument();
+  });
+
+  it('keeps the latest-day figure while Hoy has no day to show', async () => {
+    todayData.current = undefined;
+    useIsModuleActiveMock.mockReturnValue(false);
+    render(<DashboardPage />);
+    await screen.findByTestId('today-overview');
+    expect(screen.getByTestId('revenue-trend-card')).toHaveAttribute(
+      'data-hide-latest-day',
+      'false'
+    );
   });
 
   it('keeps the read-only briefing for viewers', () => {

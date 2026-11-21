@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router';
 import { Button } from '@/components/ui';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { trpc } from '@/lib/trpc';
 import { calendarDayAt } from '@/lib/utils';
 import { ISO_DATE_ONLY_PATTERN } from '@puntovivo/shared/iso-date';
@@ -38,6 +39,8 @@ export function TodayOverview({ formatCurrency }: TodayOverviewProps) {
   const { t, i18n } = useTranslation(['dashboard', 'dayCloseGuide']);
   const { user } = useAuth();
   const [expanded, setExpanded] = useState(readExpanded);
+  // A phone-width band has no room beside it, so the arc is not mounted or fetched there.
+  const roomForArc = useMediaQuery('(min-width: 768px)');
   const [searchParams, setSearchParams] = useSearchParams();
   const query = trpc.operations.today.useQuery(undefined, {
     refetchInterval: 60_000,
@@ -220,13 +223,13 @@ export function TodayOverview({ formatCurrency }: TodayOverviewProps) {
               formatTime={formatters.time}
             />
           </div>
-          {expanded && (
+          {expanded && roomForArc && (
             <Suspense fallback={null}>
               <TodayArc
                 today={today}
                 formatTime={formatters.time}
                 baselineY={EXPANDED_AXIS_Y}
-                className="hidden shrink-0 md:block"
+                className="shrink-0"
               />
             </Suspense>
           )}

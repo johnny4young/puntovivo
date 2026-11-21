@@ -71,6 +71,9 @@ export function DashboardPage() {
   const isManager = user ? (managerOrAdminRoles as readonly string[]).includes(user.role) : false;
   const showAnomalyCard = isManager && anomalyModuleActive;
   const dashboardQuery = trpc.dashboard.summary.useQuery();
+  // Reads Hoy's cached day without fetching: the latest-day figure hides only once Hoy shows it.
+  const hoyShowsToday =
+    trpc.operations.today.useQuery(undefined, { enabled: false }).data !== undefined;
 
   if (dashboardQuery.isLoading) {
     return <DashboardLoadingState title={t('page.kicker')} />;
@@ -223,7 +226,7 @@ export function DashboardPage() {
         <RevenueTrendCard
           points={revenueChart}
           formatCurrency={formatCurrency}
-          hideLatestDay={isManager}
+          hideLatestDay={isManager && hoyShowsToday}
         />
         <LowStockAlertsCard items={lowStockItems} />
       </div>
