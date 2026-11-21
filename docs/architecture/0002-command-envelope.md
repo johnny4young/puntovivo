@@ -201,7 +201,8 @@ transaction, without authorizing any local payment or sale.
 **Delivery fulfillment**
 
 - `deliveryOrders.create` (manual logistics quote, not a sale)
-- `deliveryOrders.createFromSale` (owned completed-sale snapshot)
+- `deliveryOrders.createFromSale` (owned completed-sale snapshot; cashiers
+  only for sales of their open register session, without choosing the courier)
 - `deliveryOrders.advance` (observed-version transition; delivered and cancelled are terminal)
 
 These commands finish their idempotency result inside the same immediate transaction as the

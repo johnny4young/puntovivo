@@ -904,8 +904,12 @@
     "storeCreditBalance": "{{amount}} store credit"
   },
   "quotationCart": {
-    "banner": "Charging quotation {{quotationNumber}}",
-    "bannerHint": "Products, quantities, prices, discounts, customer, and tier are locked to the accepted quotation. Select required serials and choose payment.",
+    "banner": "From quotation {{quotationNumber}} · prices and terms locked",
+    "bannerHint": "Select the required serials before charging.",
+    "expiresIn_one": "expires in {{count}} day",
+    "expiresIn_other": "expires in {{count}} days",
+    "expiresToday": "expires today",
+    "expired": "expired",
     "workspaceLabel": "Quotation {{quotationNumber}}"
   },
   "exchangeCart": {

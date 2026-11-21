@@ -11,4 +11,5 @@ export const SALES_INITIAL_NAMESPACES = [
   'salesOperation',
   'salesQuickAccess',
   'receiptShare',
+  'hardwareRegister',
 ] as const;

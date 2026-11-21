@@ -159,7 +159,8 @@ entrada sin autorizar pago ni venta local.
 **Despacho de entregas**
 
 - `deliveryOrders.create` (cotización logística manual, no venta)
-- `deliveryOrders.createFromSale` (instantánea de venta completada propia)
+- `deliveryOrders.createFromSale` (instantánea de venta completada propia; los
+  cajeros solo para ventas de su sesión de caja abierta, sin elegir mensajero)
 - `deliveryOrders.advance` (transición de versión observada; entregado y cancelado son terminales)
 
 Estos comandos completan idempotencia en la misma transacción inmediata que

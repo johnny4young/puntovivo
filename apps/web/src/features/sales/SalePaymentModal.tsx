@@ -19,6 +19,7 @@ import { useTranslation } from 'react-i18next';
 import { Drawer } from '@/components/feedback/Drawer';
 import { Button } from '@/components/ui';
 import { useResolvedLocale } from '@/features/locale/LocaleProvider';
+import { getCartArticleCount } from '@/features/sales/saleCartTotals';
 import { ariaKeyshortcutsFor, shortcutDisplayFor } from '@/lib/shortcuts';
 import { formatCurrency } from '@/lib/utils';
 import { CashChangeHero } from './CashChangeHero';
@@ -98,7 +99,7 @@ export function SalePaymentModal({
 }: SalePaymentModalProps) {
   const { t } = useTranslation(['sales', 'promotions', 'common']);
   const { currencySymbol } = useResolvedLocale();
-  const itemCount = approvalItems.reduce((count, item) => count + item.quantity, 0);
+  const itemCount = getCartArticleCount(approvalItems);
   const {
     form,
     tenderFields,

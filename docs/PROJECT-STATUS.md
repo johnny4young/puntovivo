@@ -42,6 +42,14 @@ The current validated candidate includes:
   account would come to; the electronic invoice keeps the NIT and its
   verification digit apart, fills a saved buyer from the typed number and says
   the invoice queues when offline;
+- hardware selling on the register: product search names the site with the
+  most stock after this one and lists the other units with their price, each
+  one a tap from being picked; a ticket line switches unit in place, marks
+  products cut to measure and service lines, and strikes the list price beside
+  a cheaper tier price. A ticket from a quotation says prices and terms are
+  locked and how many days the quotation still holds, and Entregar en obra
+  sends the charged sale out as a delivery with the customer's address filled
+  in. Measured lines count as one article;
 - selling from a phone: a search field with a camera scan button that reads
   retail barcodes on the device in any secure phone browser, with a torch where
   the camera has one, the site's quick keys as chips, one

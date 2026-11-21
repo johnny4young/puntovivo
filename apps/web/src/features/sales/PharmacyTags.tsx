@@ -1,36 +1,9 @@
-import type { ReactNode } from 'react';
 import { FileText, Lock, type LucideIcon } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import type { PharmacyClassification, ProductNextLot } from '@/types';
 import { formatLotMonth, type PharmacyLineStatus } from './pharmacyRegister';
 import { usePharmacyCopy } from './usePharmacyCopy';
-
-const TONE = {
-  neutral: 'bg-surface-3 text-fg2',
-  ok: 'bg-success-50 text-success-700',
-  info: 'bg-primary-50 text-primary-700',
-  warn: 'bg-warning-50 text-warning-700',
-  danger: 'bg-danger-50 text-danger-700',
-} as const;
-type Tone = keyof typeof TONE;
-
-function Tag({
-  tone,
-  testId,
-  children,
-  ...data
-}: {
-  tone: Tone;
-  testId?: string | undefined;
-  children: ReactNode;
-  [dataAttribute: `data-${string}`]: string;
-}) {
-  return (
-    <span className={`sales-tag gap-1 ${TONE[tone]}`} data-testid={testId} {...data}>
-      {children}
-    </span>
-  );
-}
+import { SalesTag as Tag, type SalesTagTone as Tone } from './SalesTag';
 
 export function PharmacyLotTag({
   lot,

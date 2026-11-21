@@ -6,6 +6,8 @@ import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { translateServerError } from '@/lib/translateServerError';
 import { formatCurrency } from '@/lib/utils';
+import { DeliveryRecipientFields } from './DeliveryRecipientFields';
+import { deliveryInputClass as inputClass, readDeliveryRecipient } from './deliveryRecipient';
 
 /** Explicit site and optional sale selected in the sale-details screen; the server revalidates ownership. */
 interface DeliveryCreateFormProps {
@@ -14,7 +16,6 @@ interface DeliveryCreateFormProps {
   onCreated: (id: string) => void;
   onCancel: () => void;
 }
-const inputClass = 'mt-1 w-full rounded-md border border-line bg-surface-1 p-2 text-secondary-900';
 
 export function DeliveryCreateForm({
   siteId,
@@ -47,13 +48,7 @@ export function DeliveryCreateForm({
     busy.current = true;
     setError(null);
     const fields = new FormData(event.currentTarget);
-    const recipient = {
-      siteId,
-      customerName: String(fields.get('customerName') ?? '').trim(),
-      customerPhone: String(fields.get('customerPhone') ?? '').trim(),
-      address: String(fields.get('address') ?? '').trim(),
-      addressNotes: String(fields.get('addressNotes') ?? '').trim(),
-    };
+    const recipient = { siteId, ...readDeliveryRecipient(fields) };
     try {
       const result =
         mode === 'sale'
@@ -153,48 +148,7 @@ export function DeliveryCreateForm({
             />
           </label>
         )}
-        <label className="block" htmlFor={`${formId}-name`}>
-          {t('create.recipient')}
-          <input
-            id={`${formId}-name`}
-            name="customerName"
-            required
-            maxLength={160}
-            autoComplete="name"
-            className={inputClass}
-          />
-        </label>
-        <label className="block" htmlFor={`${formId}-phone`}>
-          {t('detail.phoneLabel')}
-          <input
-            id={`${formId}-phone`}
-            name="customerPhone"
-            type="tel"
-            maxLength={40}
-            autoComplete="tel"
-            className={inputClass}
-          />
-        </label>
-        <label className="block" htmlFor={`${formId}-address`}>
-          {t('detail.addressLabel')}
-          <input
-            id={`${formId}-address`}
-            name="address"
-            required
-            maxLength={500}
-            autoComplete="street-address"
-            className={inputClass}
-          />
-        </label>
-        <label className="block" htmlFor={`${formId}-notes`}>
-          {t('detail.addressNotesLabel')}
-          <textarea
-            id={`${formId}-notes`}
-            name="addressNotes"
-            maxLength={500}
-            className={inputClass}
-          />
-        </label>
+        <DeliveryRecipientFields idPrefix={formId} />
       </fieldset>
       <div className="flex justify-end gap-2">
         <button

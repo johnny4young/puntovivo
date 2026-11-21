@@ -43,6 +43,7 @@ import { CustomerAccountBar } from './CustomerAccountBar';
 import { PharmacyTicketNotices } from './PharmacyTicketNotices';
 import { usePharmacyTicket } from './usePharmacyTicket';
 import type { useShiftHandoff } from './handoff/useShiftHandoff';
+import type { SaleDelivery } from './useSaleDelivery';
 
 const LazySalesQuickAccess = lazy(() =>
   import('@/features/sales/SalesQuickAccess').then(module => ({ default: module.SalesQuickAccess }))
@@ -67,6 +68,7 @@ const LazyCashSessionModals = lazy(() =>
 );
 
 const LazyCustomerTillPaymentDialog = lazy(() => import('./CustomerTillPaymentDialog'));
+const LazySaleDeliverySheet = lazy(() => import('./SaleDeliverySheet'));
 
 const LazySuspendedSalesPanel = lazy(() =>
   import('@/features/sales/SuspendedSalesPanel').then(module => ({
@@ -131,6 +133,7 @@ export interface SalesScreenProps {
   handleQuantityChange: CartProps['onQuantityChange'];
   handleDiscountChange: CartProps['onDiscountChange'];
   handleSerialSelectionChange: CartProps['onSerialSelectionChange'];
+  handleUnitChange: NonNullable<CartProps['onUnitChange']>;
   handleRemoveItem: CartProps['onRemove'];
   setSelectedCartItemKey: CartProps['onSelectItem'];
   handleClearCart: CartProps['onClearCart'];
@@ -183,6 +186,8 @@ export interface SalesScreenProps {
   isHistoryDrawerOpen: boolean;
   lastSale: CompletedSaleSummary | null;
   completedSale: CompletedSaleSummary | null;
+  /** «Entregar en obra» key and the sheet it opens. */
+  saleDelivery: SaleDelivery;
   onDismissCompletedSale: () => void;
   setSelectedSaleId: Dispatch<SetStateAction<string | null>>;
   selectedHistorySaleId: string | null;
@@ -283,6 +288,7 @@ export function SalesScreen({
   handleQuantityChange,
   handleDiscountChange,
   handleSerialSelectionChange,
+  handleUnitChange,
   handleRemoveItem,
   setSelectedCartItemKey,
   handleClearCart,
@@ -326,6 +332,7 @@ export function SalesScreen({
   isHistoryDrawerOpen,
   lastSale,
   completedSale,
+  saleDelivery,
   onDismissCompletedSale,
   setSelectedSaleId,
   selectedHistorySaleId,
@@ -384,6 +391,7 @@ export function SalesScreen({
   const isPhone = usePhoneLayout();
   const showsQuickKeys = useRegisterZone('quick-keys');
   const takesTips = useRegisterZone('tip-split');
+  const sellsInUnits = useRegisterZone('units-cut');
   // Sales parked before the zone was switched off stay reachable.
   const showsSuspended = parksSales || suspendedDraftsCount > 0;
 
@@ -544,6 +552,8 @@ export function SalesScreen({
             onQuantityChange={handleQuantityChange}
             onDiscountChange={handleDiscountChange}
             onSerialSelectionChange={handleSerialSelectionChange}
+            onUnitChange={sellsInUnits ? handleUnitChange : undefined}
+            priceTier={activePriceTier}
             onRemove={handleRemoveItem}
             onSelectItem={setSelectedCartItemKey}
             onClearCart={handleClearCart}
@@ -708,6 +718,9 @@ export function SalesScreen({
             creditProjectedBalance={creditProjectedBalance}
             creditLimit={creditLimit}
             prescriptionLineCount={pharmacyTicket.prescriptionLineCount}
+            showsDeliveryKey={saleDelivery.shown}
+            onDelivery={hubReachable === false ? undefined : saleDelivery.onKey}
+            deliveryActive={saleDelivery.active}
           />
         </section>
 
@@ -771,6 +784,16 @@ export function SalesScreen({
             customerName={ticketCustomerName ?? ''}
             balance={shownAccount.balance}
             onClose={() => setIsTillPaymentOpen(false)}
+          />
+        </Suspense>
+      )}
+
+      {saleDelivery.sale && currentSite && (
+        <Suspense fallback={null}>
+          <LazySaleDeliverySheet
+            siteId={currentSite.id}
+            sale={saleDelivery.sale}
+            onClose={saleDelivery.close}
           />
         </Suspense>
       )}

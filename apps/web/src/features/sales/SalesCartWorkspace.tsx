@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { type ComponentProps, type ReactNode } from 'react';
 import { ListX, Undo2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { SaleCartTable } from '@/features/sales/SaleCartTable';
@@ -11,6 +11,8 @@ interface SalesCartWorkspaceProps {
   /** active POS site for the cart's suggestion badges. */
   discountSuggestionSiteId?: string | null;
   pharmacyLines?: ReadonlyMap<string, PharmacyLineHint> | undefined;
+  onUnitChange?: ComponentProps<typeof SaleCartTable>['onUnitChange'];
+  priceTier?: ComponentProps<typeof SaleCartTable>['priceTier'];
   selectedItemKey: string | null;
   saleError: string | null;
   onQuantityChange: (itemKey: string, quantity: number) => void;
@@ -44,6 +46,8 @@ export function SalesCartWorkspace({
   items,
   discountSuggestionSiteId = null,
   pharmacyLines,
+  onUnitChange,
+  priceTier,
   selectedItemKey,
   saleError,
   onQuantityChange,
@@ -127,6 +131,8 @@ export function SalesCartWorkspace({
           onRemove={onRemove}
           onSelectItem={itemKey => onSelectItem(itemKey)}
           onSerialSelectionChange={onSerialSelectionChange}
+          onUnitChange={onUnitChange}
+          priceTier={priceTier}
           quantityInputRefFor={quantityInputRefFor}
           discountInputRefFor={discountInputRefFor}
           itemsLocked={itemsLocked}

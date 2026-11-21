@@ -43,6 +43,14 @@ El candidato validado actual incluye:
   factura electrónica separa el NIT de su dígito de
   verificación, completa un cliente guardado desde el número digitado y avisa que
   la factura queda en cola sin conexión;
+- vender en ferretería: la búsqueda de productos nombra la sede con más
+  existencias después de esta y lista las otras unidades con su precio, cada
+  una a un toque de quedar elegida; una línea del ticket cambia de unidad en el
+  mismo lugar, marca los productos de corte a medida y los servicios, y tacha
+  el precio de lista junto a un precio de tarifa más bajo. Un ticket que viene
+  de una cotización dice que precios y condiciones están bloqueados y cuántos
+  días le quedan, y Entregar en obra envía la venta cobrada como entrega con la
+  dirección del cliente ya escrita. Las líneas medidas cuentan como un artículo;
 - vender desde el teléfono: un buscador con botón de escaneo por cámara que lee
   códigos de retail en el dispositivo desde cualquier navegador seguro del
   teléfono, con linterna si la cámara la tiene, las teclas rápidas de la sede como

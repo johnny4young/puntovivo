@@ -40,8 +40,10 @@ the restaurant tip section in every charge.
 - No migration: the override lives in the existing settings JSON.
 - Zones wired today: one-touch keys, amount keys, store credit (the account
   bar with its abono, the Fiar key beside Cobrar and the charge drawer), parking, expiry discount badges (ticket lines, keys
-  and product search), the unit picker in product search, the quotation banner,
-  table actions when parking, tips and bill splitting.
+  and product search), units (the unit picker and unit price chips in product
+  search, the unit picker on ticket lines), the quotation banner and the
+  Entregar en obra key (which also needs the delivery module), table actions
+  when parking, tips and bill splitting.
 - With the unit zone off, product search sells the base unit; a scanned
   presentation barcode still sells that presentation.
 - The touch POS keeps its own catalog grid; zones shape desktop Vender and its
