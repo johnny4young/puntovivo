@@ -87,6 +87,27 @@ El candidato validado actual incluye:
   físicas siguen sin estar disponibles;
 - responsabilidad por sesión de caja, cierre a ciegas, movimientos auditados,
   evidencia de cierre del día, señales de anomalías y firma inmutable del gerente;
+- relevo de caja durante el día: desde la caja, Entregar turno cuenta el cajón
+  a ciegas por denominación, muestra las ventas del turno, las suspendidas que
+  pasan, las devoluciones que esperan aprobación, el poco sencillo y la
+  impresora faltante, toma una nota para quien recibe y firma con el PIN si lo
+  hay. Recibir conserva el cajón contado y lo recuenta contra ese conteo,
+  mostrando si coincide, o abre un cajón nuevo con su fondo; quien recibe lee
+  la nota, puede retomar una venta que pasó y registrar el cambio que llega al
+  cajón, y firma para empezar a vender. Hoy muestra de qué relevo viene cada
+  caja y las cajas que siguen esperando a quien las reciba;
+- cierre guiado dentro de Hoy: Cerrar el día lleva al encargado por contar,
+  comparar y firmar. Muestra el efectivo a consignar, tarjeta y transferencias,
+  la diferencia de caja y lo vendido sobre un arco hora por hora; luego lista
+  las cajas que siguen abiertas, da a cada diferencia de caja un motivo en la
+  misma fila (cambio mal entregado, retiro sin registrar u otro con nota),
+  permite descartar o dejar para mañana cada venta suspendida y muestra los
+  documentos DIAN en proceso y las anomalías altas sin bloquear. Una diferencia
+  sin motivo o una venta suspendida sin resolver ahora bloquea la firma en
+  todas las pantallas. El encargado firma con el dedo en la pantalla o con su
+  PIN, el día muestra un sello de cerrado, el método de firma queda guardado
+  con la evidencia y su PDF, y un resumen solo con totales se abre en WhatsApp
+  para el dueño;
 - inventario por sede, unidades, lotes, FEFO, sugerencias por vencimiento que siguen
   siendo informativas hasta que un gerente las convierte en una promoción
   explícitamente vinculada al lote, productos serializados, consulta de garantías,

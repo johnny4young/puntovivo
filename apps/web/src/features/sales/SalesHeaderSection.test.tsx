@@ -1,8 +1,13 @@
 import type { ComponentProps } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen } from '@testing-library/react';
 import { render } from '@/test/utils';
 import { SalesHeaderSection } from '@/features/sales/SalesHeaderSection';
+
+const zones = vi.hoisted(() => ({ quote: true }));
+vi.mock('@/features/modules/useRegisterZone', () => ({
+  useRegisterZone: (zone: string) => zone !== 'quote-delivery' || zones.quote,
+}));
 
 vi.mock('@/features/sales/PaceToggleButton', () => ({
   PaceToggleButton: () => null,
@@ -31,6 +36,16 @@ function renderHeader(overrides: Partial<ComponentProps<typeof SalesHeaderSectio
 }
 
 describe('SalesHeaderSection', () => {
+  beforeEach(() => {
+    zones.quote = true;
+  });
+
+  it('leaves out the parked-sales key when the register does not park sales', () => {
+    renderHeader({ onOpenSuspended: undefined });
+    expect(screen.queryByTestId('sales-open-suspended')).not.toBeInTheDocument();
+    expect(screen.getByTestId('sales-open-history')).toBeInTheDocument();
+  });
+
   it('names the register, the cashier and the site', () => {
     renderHeader({ status: <span data-testid="status-slot" /> });
 
@@ -85,6 +100,12 @@ describe('SalesHeaderSection', () => {
   it('shows the accepted-quotation lock', () => {
     renderHeader({ activeWorkspace: { sourceQuotationNumber: 'COT-000042' } as never });
     expect(screen.getByTestId('quotation-cart-banner')).toHaveTextContent('COT-000042');
+  });
+
+  it('leaves out the quotation banner while the quotation zone is off', () => {
+    zones.quote = false;
+    renderHeader({ activeWorkspace: { sourceQuotationNumber: 'COT-000042' } as never });
+    expect(screen.queryByTestId('quotation-cart-banner')).not.toBeInTheDocument();
   });
 
   it('offers the customer display action only when the module is active', () => {

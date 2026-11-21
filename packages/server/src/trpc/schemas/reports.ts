@@ -9,7 +9,12 @@
  */
 
 import { z } from 'zod';
-import { fiscalDocumentStatusEnum, paymentMethodEnum } from '../../db/schema.js';
+import {
+  cashDifferenceReasonEnum,
+  dayCloseSignatureMethodEnum,
+  fiscalDocumentStatusEnum,
+  paymentMethodEnum,
+} from '../../db/schema.js';
 
 // ─────────────────────────────────────────────────────────────────
 // reports.cash.reconciliation
@@ -210,15 +215,33 @@ const calendarDay = z
   }, 'Expected a valid calendar day');
 
 export const dayClosePreviewInput = z.object({ date: calendarDay });
+/** A drawn signature as SVG path data: absolute moves and lines only, so it renders as-is. */
+const signaturePath = z
+  .string()
+  .max(24_000)
+  .regex(
+    /^M\d+(?:\.\d+)? \d+(?:\.\d+)?(?:[ML]\d+(?:\.\d+)? \d+(?:\.\d+)?)*$/,
+    'Expected signature path data'
+  );
+
 export const dayCloseSignOffInput = z.object({
   date: calendarDay,
   /** Explicit irreversible-attestation acknowledgement from the manager UI. */
   attestationAccepted: z.literal(true),
+  /** Without one the authenticated session signs, as the report page does. */
+  signature: z
+    .discriminatedUnion('method', [
+      z.object({ method: z.literal('pin'), pin: z.string().regex(/^\d{6}$/) }),
+      z.object({ method: z.literal('drawn'), path: signaturePath }),
+    ])
+    .optional(),
 });
 
 const money = z.number().finite();
 const readinessCode = z.enum([
   'open_sessions',
+  'unexplained_differences',
+  'unresolved_drafts',
   'cash_discrepancies',
   'fiscal_pending',
   'fiscal_rejected',
@@ -320,10 +343,43 @@ export const dayCloseSignoffMetadataOutput = z.object({
   }),
   /** Null only for  evidence created before stored PDFs shipped. */
   pdf: dayClosePdfArtifactOutput.nullable(),
+  signatureMethod: z.enum(dayCloseSignatureMethodEnum),
 });
 
 export const dayCloseSignoffOutput = dayCloseSignoffMetadataOutput.extend({
   report: comprehensiveDayCloseReportOutput,
+  signaturePath: z.string().nullable(),
+});
+
+export const dayCloseChecklistOutput = z.object({
+  date: calendarDay,
+  sessions: z.array(
+    z.object({
+      id: z.string().min(1),
+      registerName: z.string(),
+      cashierName: z.string(),
+      status: z.enum(['open', 'closed']),
+      closedAt: z.string().nullable(),
+      counted: z.boolean(),
+      /** The drawer's starting cash, which stays out of what is deposited. */
+      openingFloat: money,
+      overShort: money.nullable(),
+      /** Beyond the cent tolerance, so it needs a reason before the day is signed. */
+      hasDifference: z.boolean(),
+      differenceReason: z.enum(cashDifferenceReasonEnum).nullable(),
+      differenceNote: z.string().nullable(),
+    })
+  ),
+  drafts: z.array(
+    z.object({
+      id: z.string().min(1),
+      saleNumber: z.string(),
+      label: z.string().nullable(),
+      total: money,
+      suspendedAt: z.string(),
+      carriedOver: z.boolean(),
+    })
+  ),
 });
 
 export type DayClosePreviewInput = z.infer<typeof dayClosePreviewInput>;
@@ -332,3 +388,4 @@ export type ComprehensiveDayCloseReportOutput = z.infer<typeof comprehensiveDayC
 export type DayClosePdfArtifactOutput = z.infer<typeof dayClosePdfArtifactOutput>;
 export type DayCloseSignoffMetadataOutput = z.infer<typeof dayCloseSignoffMetadataOutput>;
 export type DayCloseSignoffOutput = z.infer<typeof dayCloseSignoffOutput>;
+export type DayCloseChecklistOutput = z.infer<typeof dayCloseChecklistOutput>;

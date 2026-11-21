@@ -95,5 +95,27 @@
       "butchery": "Carnicería",
       "pharmacy": "Droguería / farmacia"
     }
+  },
+  "zones": {
+    "title": "Zonas de la caja",
+    "zoneColumn": "Zona",
+    "ownColumn": "Su caja",
+    "on": "Encendida",
+    "off": "Apagada",
+    "requiresModule": "Requiere el módulo {{module}}",
+    "error": "No pudimos cambiar la zona",
+    "items": {
+      "command-bar": "Barra única: escanear, buscar, ordenar",
+      "quick-keys": "Teclas de un toque (sin código)",
+      "weight-value": "Vender por peso o por valor",
+      "credit": "Fiado: cupo, saldo y abono",
+      "promos-parked": "Promociones y ventas en espera",
+      "pharmacy-lot": "Lote, vencimiento y fórmula",
+      "units-cut": "Unidades, metros y corte a medida",
+      "quote-delivery": "Cotización → venta · entrega",
+      "tables": "Mesas, comensales, tiempos, cocina",
+      "tip-split": "Propina y dividir cuenta",
+      "checkout": "Total, Cobrar y novedades"
+    }
   }
 }

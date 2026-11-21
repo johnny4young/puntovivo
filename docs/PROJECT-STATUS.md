@@ -80,6 +80,27 @@ The current validated candidate includes:
   certification remain unavailable;
 - cash-session accountability, blind close, audited movements, day-close
   evidence, anomaly signals, and immutable manager sign-off;
+- mid-day register handoff: from the register, Hand over shift counts the
+  drawer blind by denomination, shows the shift's sales, the suspended sales
+  that pass on, returns still waiting for approval, low change and a missing
+  printer, takes a note for the next cashier and signs with the staff PIN when
+  there is one. Receive keeps the counted drawer and recounts it against that
+  count, showing whether it matches, or starts a new drawer with its own float;
+  the next cashier reads the note, can resume a passed sale and record the
+  change brought to the drawer, and signs to start selling. Hoy shows the
+  handoff each register came from and the registers still waiting to be
+  received;
+- guided day close inside Hoy: Close the day walks the manager through count,
+  compare and sign. It shows the cash to deposit, card and transfers, the cash
+  difference and the day's sales over an hour-by-hour arc, then lists the
+  registers still open, gives every register difference an inline reason
+  (wrong change, unrecorded withdrawal or other with a note), lets each
+  suspended sale be discarded or left for tomorrow, and shows DIAN documents in
+  progress and high anomalies without blocking. A difference without a reason
+  or an unresolved suspended sale now blocks signing on every surface. The
+  manager signs with a finger on screen or with the staff PIN, the day shows a
+  sealed stamp, the signature method is stored with the evidence and its PDF,
+  and a totals-only summary opens in WhatsApp for the owner;
 - site-owned inventory, units, lots, FEFO, expiry suggestions that remain
   informational until a manager converts them into an explicit lot-bound
   promotion, serialized products, warranty lookup, variant matrices, purchases,

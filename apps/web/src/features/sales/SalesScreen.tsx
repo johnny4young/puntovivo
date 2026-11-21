@@ -34,9 +34,11 @@ import type { SuspendedSalesPanel } from '@/features/sales/SuspendedSalesPanel';
 import type { ProductSearchSelection } from '@/types';
 import type { SaleCartItem } from '@/features/sales/saleCart';
 import { canAccessRole, managerOrAdminRoles } from '@/features/auth/roleAccess';
+import { useRegisterZone } from '@/features/modules/useRegisterZone';
 import { SaleCompleteStrip, type CompletedSaleSummary } from './SaleCompleteStrip';
 import { usePrintSaleReceipt } from './useReceiptAutoPrint';
 import { usePhoneLayout } from './usePhoneLayout';
+import type { useShiftHandoff } from './handoff/useShiftHandoff';
 
 const LazySalesQuickAccess = lazy(() =>
   import('@/features/sales/SalesQuickAccess').then(module => ({ default: module.SalesQuickAccess }))
@@ -106,6 +108,10 @@ export interface SalesScreenProps {
   isResumedCart: boolean;
   isQuotationCart: boolean;
   itemsLocked: boolean;
+  /** The parked-sales zone is on for this register. */
+  parksSales: boolean;
+  /** Shared with the keyboard shortcut so Suspender and Ctrl+P never disagree. */
+  canSuspendActiveCart: boolean;
   activeWorkspace: HeaderProps['activeWorkspace'];
   // Workspace tabs
   ownedWorkspaces: TabsProps['ownedWorkspaces'];
@@ -227,6 +233,9 @@ export interface SalesScreenProps {
   handleCloseCashSession: CashModalsProps['onSubmitClose'];
   isCashSessionMovementModalOpen: boolean;
   cashSessionMovementModalKey: number;
+  cashSessionMovementType: CashModalsProps['cashSessionMovementType'];
+  /** Hand-over and receive entry points with their sheets. */
+  shiftHandoff: ReturnType<typeof useShiftHandoff>;
   isRecordingMovement: boolean;
   cashSessionMovementError: string | null;
   setIsCashSessionMovementModalOpen: Dispatch<SetStateAction<boolean>>;
@@ -257,6 +266,8 @@ export function SalesScreen({
   isResumedCart,
   isQuotationCart,
   itemsLocked,
+  parksSales,
+  canSuspendActiveCart,
   activeWorkspace,
   ownedWorkspaces,
   handleSelectWorkspace,
@@ -360,6 +371,8 @@ export function SalesScreen({
   handleCloseCashSession,
   isCashSessionMovementModalOpen,
   cashSessionMovementModalKey,
+  cashSessionMovementType,
+  shiftHandoff,
   isRecordingMovement,
   cashSessionMovementError,
   setIsCashSessionMovementModalOpen,
@@ -369,10 +382,11 @@ export function SalesScreen({
 }: SalesScreenProps) {
   const { t } = useTranslation(['sales', 'errors', 'common']);
   const isPhone = usePhoneLayout();
-  // An exchange link is committed only when its replacement sale completes.
-  // A generic suspended draft cannot persist sourceReturnId yet, so exposing
-  // park here would silently turn the exchange into an unrelated sale.
-  const canSuspendActiveCart = canCharge && !itemsLocked && activeWorkspace?.sourceReturnId == null;
+  const showsQuickKeys = useRegisterZone('quick-keys');
+  const sellsOnCredit = useRegisterZone('credit');
+  const takesTips = useRegisterZone('tip-split');
+  // Sales parked before the zone was switched off stay reachable.
+  const showsSuspended = parksSales || suspendedDraftsCount > 0;
 
   // Buttons pass their click event, which must not read as the fast cash flag.
   const handleCharge = () => handleOpenPaymentModal();
@@ -482,7 +496,7 @@ export function SalesScreen({
           cashierName={cashierName}
           siteName={currentSite?.name ?? null}
           onOpenHistory={() => setIsHistoryDrawerOpen(true)}
-          onOpenSuspended={() => setIsSuspendedPanelOpen(true)}
+          onOpenSuspended={showsSuspended ? () => setIsSuspendedPanelOpen(true) : undefined}
           suspendedDraftsCount={suspendedDraftsCount}
           customerDisplayEnabled={customerDisplayEnabled}
           onOpenCustomerDisplay={handleOpenCustomerDisplay}
@@ -567,7 +581,7 @@ export function SalesScreen({
             }
             quickAccessFirst={isPhone}
             quickAccess={
-              !itemsLocked && currentSite && favoriteScopeKey ? (
+              showsQuickKeys && !itemsLocked && currentSite && favoriteScopeKey ? (
                 <Suspense
                   fallback={
                     <div
@@ -606,6 +620,8 @@ export function SalesScreen({
             onCharge={handleCharge}
             onOpenCashSession={handleOpenCashSessionModal}
             onCloseCashSession={handleOpenCloseCashSessionModal}
+            onHandOver={hubReachable !== false ? shiftHandoff.handOver : undefined}
+            receiveHandoff={shiftHandoff.receive}
             onOpenMovement={handleOpenCashSessionMovementModal}
             onKickCashDrawer={onKickCashDrawer}
             isKickingCashDrawer={isKickingCashDrawer}
@@ -614,7 +630,7 @@ export function SalesScreen({
             onSuspend={handleOpenSuspendPrompt}
             suspendedDraftsCount={suspendedDraftsCount}
             firstSuspendedDraft={firstSuspendedDraft}
-            onToggleSuspendedPanel={handleToggleSuspendedPanel}
+            onToggleSuspendedPanel={showsSuspended ? handleToggleSuspendedPanel : undefined}
             hubReachable={hubReachable}
             preflightItems={preflightItems}
             onFastCash={handleFastCash}
@@ -643,7 +659,7 @@ export function SalesScreen({
           />
         </section>
 
-        <SalesShortcutStrip itemsLocked={itemsLocked} />
+        <SalesShortcutStrip itemsLocked={itemsLocked} showsParked={showsSuspended} />
       </div>
 
       <SalesMobileCheckoutBar
@@ -653,10 +669,13 @@ export function SalesScreen({
         canOpenCashSession={canOpenCashSession}
         onCharge={handleCharge}
         onOpenCashSession={handleOpenCashSessionModal}
+        receiveHandoff={shiftHandoff.receive}
         canSuspend={canSuspendActiveCart}
         onSuspend={handleOpenSuspendPrompt}
+        showsSuspend={parksSales}
+        showsCredit={sellsOnCredit}
         suspendedDraftsCount={suspendedDraftsCount}
-        onToggleSuspendedPanel={handleToggleSuspendedPanel}
+        onToggleSuspendedPanel={showsSuspended ? handleToggleSuspendedPanel : undefined}
         onCredit={
           canCharge
             ? () => {
@@ -767,7 +786,7 @@ export function SalesScreen({
             isPaymentSaving={isPaymentSaving}
             saleError={saleError}
             serviceChargeRate={isQuotationCart ? 0 : serviceChargeRate}
-            allowTip={!isQuotationCart}
+            allowTip={takesTips && !isQuotationCart}
             fastCashTrigger={fastCashTrigger}
             fastCashAmount={fastCashAmount}
             paymentInitialMethod={ticketTender}
@@ -796,6 +815,8 @@ export function SalesScreen({
         </Suspense>
       )}
 
+      {shiftHandoff.sheets}
+
       {(isCashSessionModalOpen ||
         isCashSessionCloseModalOpen ||
         isCashSessionMovementModalOpen ||
@@ -821,6 +842,7 @@ export function SalesScreen({
             onReviewSuspended={() => setIsSuspendedPanelOpen(true)}
             isCashSessionMovementModalOpen={isCashSessionMovementModalOpen}
             cashSessionMovementModalKey={cashSessionMovementModalKey}
+            cashSessionMovementType={cashSessionMovementType}
             isRecordingMovement={isRecordingMovement}
             cashSessionMovementError={cashSessionMovementError}
             onCloseMovementModal={() => setIsCashSessionMovementModalOpen(false)}

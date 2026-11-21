@@ -7,6 +7,7 @@ import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { managerOrAdminRoles } from '@/features/auth/roleAccess';
+import { useSellingRoute } from '@/features/auth/useSellingRoute';
 import { CLIENT_MODULE_DEFAULTS, useModulesSnapshot } from '@/features/modules';
 import { usePrefetchSales } from '@/features/sales/usePrefetchSales';
 import { useDialogA11y } from '@/components/feedback/useDialogA11y';
@@ -54,7 +55,13 @@ export function Sidebar({ collapsed, mobileOpen, onToggleCollapse, onCloseMobile
   );
   const dashboardBadge = anomaliesQuery.data?.severityCounts.high ?? 0;
   const workspaces = visibleWorkspacesForRole(user?.role, modules, !isPlaceholder);
-  const primaryTasks = visiblePrimaryTasksForRole(user?.role, modules, !isPlaceholder);
+  const sellingRoute = useSellingRoute().route;
+  const primaryTasks = visiblePrimaryTasksForRole(
+    user?.role,
+    modules,
+    !isPlaceholder,
+    sellingRoute
+  );
   const mobileDialogOpen = !isDesktopSidebar && mobileOpen;
 
   useDialogA11y({

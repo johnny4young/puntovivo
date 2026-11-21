@@ -8,7 +8,10 @@ import {
   getDefaultRouteForRole,
   getDefaultRouteForRoleWithSetup,
   getCompanionLoginDestination,
+  getLandingRoute,
+  getSellingRouteForProfile,
 } from './roleAccess';
+import { VERTICAL_PRESET_IDS } from '@puntovivo/shared/vertical-presets';
 
 describe('Companion login destination', () => {
   it.each(['admin', 'manager', 'viewer'] as const)(
@@ -82,8 +85,8 @@ describe('canAccessRole', () => {
 });
 
 describe('getDefaultRouteForRole', () => {
-  it('routes cashiers to /sales (their primary surface)', () => {
-    expect(getDefaultRouteForRole('cashier')).toBe('/sales');
+  it('routes cashiers home so the business profile picks their register', () => {
+    expect(getDefaultRouteForRole('cashier')).toBe('/');
   });
 
   it('routes every other role (and undefined) to /dashboard', () => {
@@ -136,6 +139,28 @@ describe('getDefaultRouteForRoleWithSetup', () => {
         hasBlockers: true,
         acknowledgedAt: null,
       })
-    ).toBe('/sales');
+    ).toBe('/');
+  });
+});
+
+describe('register by business profile', () => {
+  it('opens food service on POS táctil and every other profile on Vender', () => {
+    const touch = VERTICAL_PRESET_IDS.filter(id => getSellingRouteForProfile(id, true) === '/touch');
+    expect(touch).toEqual(['restaurant', 'quickservice']);
+    expect(getSellingRouteForProfile(undefined, true)).toBe('/sales');
+    expect(getSellingRouteForProfile('bakery', true)).toBe('/sales');
+  });
+
+  it('falls back to Vender when POS táctil is off', () => {
+    expect(getSellingRouteForProfile('restaurant', false)).toBe('/sales');
+    expect(getSellingRouteForProfile('quickservice', false)).toBe('/sales');
+  });
+
+  it('lands only register roles on the profile register', () => {
+    expect(getLandingRoute('cashier', '/touch')).toBe('/touch');
+    expect(getLandingRoute('cashier', '/sales')).toBe('/sales');
+    for (const role of ['admin', 'manager', 'viewer', undefined] as const) {
+      expect(getLandingRoute(role, '/touch')).toBe('/dashboard');
+    }
   });
 });

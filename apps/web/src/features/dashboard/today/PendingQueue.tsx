@@ -10,12 +10,20 @@ import {
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 import { cn } from '@/lib/utils';
-import { filterPending, type PendingFilter, type TodayPendingItem } from './todayModel';
+import {
+  filterPending,
+  formatDuration,
+  minutesBetween,
+  type PendingFilter,
+  type TodayPendingItem,
+} from './todayModel';
 
 interface PendingQueueProps {
   numbered: ReadonlyArray<{ item: TodayPendingItem; rank: number }>;
   canAct: boolean;
   approverId: string | null;
+  /** When the queue was read; ages are measured against it. */
+  nowIso: string;
   formatCurrency: (value: number) => string;
   formatTime: (iso: string) => string;
 }
@@ -30,6 +38,7 @@ export function PendingQueue({
   numbered,
   canAct,
   approverId,
+  nowIso,
   formatCurrency,
   formatTime,
 }: PendingQueueProps) {
@@ -101,6 +110,7 @@ export function PendingQueue({
                     emphasized={item.id === firstBlocking}
                     canAct={canAct}
                     approverId={approverId}
+                    nowIso={nowIso}
                     formatCurrency={formatCurrency}
                     formatTime={formatTime}
                   />
@@ -120,6 +130,7 @@ function PendingRow({
   emphasized,
   canAct,
   approverId,
+  nowIso,
   formatCurrency,
   formatTime,
 }: {
@@ -128,6 +139,7 @@ function PendingRow({
   emphasized: boolean;
   canAct: boolean;
   approverId: string | null;
+  nowIso: string;
   formatCurrency: (value: number) => string;
   formatTime: (iso: string) => string;
 }) {
@@ -140,7 +152,7 @@ function PendingRow({
     onError: onErrorToast(toast, t, { titleKey: 'dashboard:today.pending.resolveError' }),
   });
 
-  const { title, detail } = describe(item, t, formatCurrency, formatTime);
+  const { title, detail } = describe(item, t, nowIso, formatCurrency, formatTime);
   const action = canAct ? rowAction(item, t) : null;
 
   return (
@@ -266,9 +278,24 @@ function incidentFacts(
   }
 }
 
+// The full reason (up to 500 characters) stays in the approvals queue.
+const REASON_MAX = 80;
+
+function clip(text: string, max: number) {
+  return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
+}
+
+function ago(fromIso: string, nowIso: string, t: Translate) {
+  const minutes = minutesBetween(fromIso, nowIso);
+  return minutes < 1
+    ? t('dashboard:today.pending.agoNow')
+    : t('dashboard:today.pending.ago', { duration: formatDuration(minutes, t) });
+}
+
 function describe(
   item: TodayPendingItem,
   t: Translate,
+  nowIso: string,
   formatCurrency: (value: number) => string,
   formatTime: (iso: string) => string
 ): { title: string; detail: string } {
@@ -279,11 +306,12 @@ function describe(
           label: item.label,
           amount: item.amount === null ? '' : formatCurrency(item.amount),
         }),
-        detail: t('dashboard:today.pending.approvalDetail', {
-          requester: item.requesterName,
-          site: item.siteName,
-          time: formatTime(item.at),
-        }),
+        detail: [
+          item.requesterName,
+          clip(item.reason, REASON_MAX),
+          item.siteName,
+          ago(item.at, nowIso, t),
+        ].join(' · '),
       };
     case 'staleSession':
       return {

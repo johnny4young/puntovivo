@@ -1,3 +1,5 @@
+import type { inferRouterOutputs } from '@trpc/server';
+import type { AppRouter } from '@puntovivo/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@/test/utils';
 import { DayCloseReportPage } from './DayCloseReportPage';
@@ -9,6 +11,8 @@ const invalidateSignoff = vi.fn();
 const signOff = vi.fn();
 let mockPending = false;
 let mockError: Error | null = null;
+type DayCloseReadinessCode =
+  inferRouterOutputs<AppRouter>['reports']['dayClose']['preview']['readiness']['blockers'][number];
 let mockData: ReturnType<typeof reportFixture> | undefined;
 let mockSignoff: ReturnType<typeof signoffFixture> | null = null;
 let mockSignoffPending = false;
@@ -127,7 +131,7 @@ function reportFixture() {
     capabilities: { commissions: 'not_tracked' as const, waste: 'not_tracked' as const },
     readiness: {
       readyToSign: false,
-      blockers: ['open_sessions' as const],
+      blockers: ['open_sessions'] as DayCloseReadinessCode[],
       warnings: [
         'cash_discrepancies' as const,
         'fiscal_pending' as const,
@@ -267,10 +271,35 @@ describe('DayCloseReportPage (-141b)', () => {
     expect(screen.queryByTestId('day-close-check-link-high_anomalies')).not.toBeInTheDocument();
     expect(screen.getByTestId('day-close-check-waste_not_tracked')).toBeInTheDocument();
     expect(screen.getByTestId('day-close-checklist-summary')).toHaveTextContent(
-      '3 of 5 checks clear'
+      '5 of 7 checks clear'
     );
     expect(screen.getByText(/Counted .*700.* − Expected .*1,000/)).toBeInTheDocument();
     expect(screen.getByText(/2 open sessions not counted yet/)).toBeInTheDocument();
+  });
+
+  it('sends differences without a reason and parked sales to the guided close for that day', () => {
+    mockData = {
+      ...reportFixture(),
+      readiness: {
+        readyToSign: false,
+        blockers: ['unexplained_differences', 'unresolved_drafts'],
+        warnings: ['cash_discrepancies'],
+      },
+    };
+    render(<DayCloseReportPage />);
+    for (const code of ['unexplained_differences', 'unresolved_drafts']) {
+      expect(screen.getByTestId(`day-close-check-${code}`)).toHaveAttribute(
+        'data-state',
+        'blocker'
+      );
+      expect(screen.getByTestId(`day-close-check-link-${code}`)).toHaveAttribute(
+        'href',
+        `/dashboard?close=${reportFixture().date}`
+      );
+    }
+    expect(screen.getByTestId('day-close-check-unresolved_drafts')).toHaveTextContent(
+      'Discard them or leave them for tomorrow in the guided close'
+    );
   });
 
   it('keeps fiscal links away from managers, who cannot open those pages', () => {

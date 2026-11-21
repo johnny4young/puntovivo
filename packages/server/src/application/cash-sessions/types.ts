@@ -11,7 +11,8 @@
 
 import type { DatabaseInstance } from '../../db/index.js';
 import type { PuntovivoLogger } from '../../logging/logger.js';
-import type { CashSessionDenomination, CashMovementType } from '../../db/schema.js';
+import type { CashSessionDenomination, CashMovementType, cashSessions } from '../../db/schema.js';
+import type { CashSessionJournalEffectInput } from './journal-effects.js';
 
 /**
  * Minimal structural log shape accepted by the cash-session use-cases.
@@ -60,6 +61,24 @@ export interface RecordCashMovementInput {
   type: ManualCashMovementType;
   amount: number;
   note: string;
+}
+
+export type CashSessionTransaction = Parameters<Parameters<DatabaseInstance['transaction']>[0]>[0];
+
+/** Extra writes that commit or roll back with the close; returned effects join its journal entry. */
+export interface CloseCashSessionOptions {
+  withinTransaction?: (
+    tx: CashSessionTransaction,
+    closed: { session: typeof cashSessions.$inferSelect; actualCount: number; closedAt: string }
+  ) => CashSessionJournalEffectInput[];
+}
+
+/** Extra writes that commit or roll back with the open; returned effects join its journal entry. */
+export interface OpenCashSessionOptions {
+  withinTransaction?: (
+    tx: CashSessionTransaction,
+    opened: { sessionId: string; openedAt: string }
+  ) => CashSessionJournalEffectInput[];
 }
 
 export interface OpenCashSessionResult<TSession = unknown> {

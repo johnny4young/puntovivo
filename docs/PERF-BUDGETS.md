@@ -506,7 +506,10 @@ outside main and renderer, so GPU and the total that includes it stay gated.
 The working set does not see everything: on macOS the GPU process reports
 about 100 MB while `footprint` shows most graphics memory outside it, and the
 Linux CI runner starts a GPU process only on some launches. Each ceiling is
-the largest of the macOS and hosted Linux measurements. The gate compares the
+the largest of the macOS and hosted Linux measurements. The Linux leg runs on
+a pinned `ubuntu-26.04` image, because a runner image change alone moved the
+utility working set from about 95 to 120 MB. Recapture on the new image when
+you move the pin. The gate compares the
 median of the three launches. Startup is process creation to the end of the
 first window's load event, against
 `operationalProfile.desktopLaunchElapsedMs`; the old wall time also counted

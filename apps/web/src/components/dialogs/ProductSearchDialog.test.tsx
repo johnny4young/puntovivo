@@ -13,9 +13,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { act, screen, waitFor } from '@testing-library/react';
-import { render } from '@/test/utils';
+import { createMockTenantSettings, render } from '@/test/utils';
 import i18n from '@/i18n';
+import { AuthContext, type AuthContextType } from '@/features/auth/AuthContext';
+import type { TenantSettings } from '@/types';
 import { ProductSearchDialog } from './ProductSearchDialog';
+import { PRODUCT_SEARCH_UNIT_SELECT_ID } from './productSearchSelection';
 
 // Default mock: zero matches, not loading, no error. Individual tests
 // override per-suite when they need other shapes.
@@ -648,5 +651,84 @@ describe('<ProductSearchDialog /> keyboard navigation', () => {
     // Just rendering with an empty list should not throw — activeRowIndex
     // stays at 0 with no rows to focus.
     expect(screen.queryAllByTestId(/product-search-row-/i)).toHaveLength(0);
+  });
+});
+
+describe('<ProductSearchDialog /> register zones', () => {
+  const boxedRice = buildProduct({
+    id: 'p-1',
+    unitAssignments: [
+      { unitId: 'u-box', unitName: 'Caja', equivalence: 12, price: 36000, isBase: false },
+      { unitId: 'u-1', unitName: 'Unidad', equivalence: 1, price: 3200, isBase: true },
+    ],
+  });
+  const unitSelect = () => document.getElementById(PRODUCT_SEARCH_UNIT_SELECT_ID);
+
+  function renderForProfile(
+    businessType: NonNullable<TenantSettings['businessType']>,
+    overrides: Partial<React.ComponentProps<typeof ProductSearchDialog>> = {}
+  ) {
+    const session = { tenant: { settings: createMockTenantSettings({ businessType }) } };
+    const onSelect = vi.fn();
+    render(
+      <AuthContext.Provider value={session as unknown as AuthContextType}>
+        <ProductSearchDialog
+          isOpen
+          onClose={vi.fn()}
+          onSelect={onSelect}
+          showDiscountSuggestions
+          siteId="site-1"
+          {...overrides}
+        />
+      </AuthContext.Provider>
+    );
+    return onSelect;
+  }
+
+  beforeEach(() => {
+    trpcQueryState.data = { items: [boxedRice], total: 1 } as typeof trpcQueryState.data;
+    suggestionsQueryState.data = {
+      items: [{ id: 's-1', productId: 'p-1', lotId: 'lot-1', discountPct: 20 }],
+    };
+  });
+
+  it('sells the base unit with no unit details when the picker is off', async () => {
+    const onSelect = renderForProfile('pharmacy', {
+      showUnitPicker: false,
+      confirmLabel: 'Add to cart',
+    });
+    const user = await fillSearchAndAwaitRows(1);
+    await user.click(screen.getByText('Arroz Diana 500g'));
+
+    expect(screen.getByText('Available stock')).toBeInTheDocument();
+    expect(unitSelect()).toBeNull();
+    expect(screen.queryByText('Equivalence')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Add to cart' }));
+    expect(onSelect).toHaveBeenCalledWith(
+      expect.objectContaining({ unit: expect.objectContaining({ unitId: 'u-1' }), price: 3200 })
+    );
+  });
+
+  it('keeps the unit picker by default', async () => {
+    renderForProfile('hardware');
+    const user = await fillSearchAndAwaitRows(1);
+    await user.click(screen.getByText('Arroz Diana 500g'));
+    expect(unitSelect()).not.toBeNull();
+  });
+
+  it.each([
+    ['pharmacy', true],
+    ['retail', false],
+    ['hardware', false],
+    ['restaurant', false],
+  ] as const)('expiry badges follow the lot zone for %s', async (businessType, shown) => {
+    renderForProfile(businessType);
+    await fillSearchAndAwaitRows(1);
+
+    expect(screen.queryByTestId('product-discount-suggestion-ABR-0001') !== null).toBe(shown);
+    expect(activeSuggestionsUseQuery).toHaveBeenLastCalledWith(
+      { siteId: 'site-1' },
+      expect.objectContaining({ enabled: shown })
+    );
   });
 });

@@ -20,6 +20,15 @@ export { openCashSession, type OpenedCashSessionRow } from './openCashSession.js
 export { closeCashSession, type ClosedCashSessionRow } from './closeCashSession.js';
 export { recordCashMovement, type RecordedCashMovement } from './recordCashMovement.js';
 export {
+  listCashHandoffs,
+  receiveCashHandoff,
+  startCashHandoff,
+  type CashHandoffView,
+  type ReceiveCashHandoffInput,
+  type StartCashHandoffInput,
+} from './handoffs.js';
+export { explainCashDifference, type ExplainCashDifferenceInput } from './explainDifference.js';
+export {
   getPendingChecksForSession,
   getPendingFiscalForSession,
   getPendingPaymentForSession,
@@ -27,10 +36,13 @@ export {
 export type {
   CashSessionContext,
   CashSessionLogger,
+  CashSessionTransaction,
   CloseCashSessionInput,
+  CloseCashSessionOptions,
   CloseCashSessionResult,
   ManualCashMovementType,
   OpenCashSessionInput,
+  OpenCashSessionOptions,
   OpenCashSessionResult,
   PendingChecksResult,
   PendingFiscalSample,

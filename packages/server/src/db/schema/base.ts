@@ -271,6 +271,11 @@ export const auditLogActionEnum = [
   // mutations routed through `application/cash-sessions/recordCashMovement`.
   'cash_session.open',
   'cash_session.movement',
+  // Mid-day register handoff: the outgoing count and the incoming receipt.
+  'cash_session.handoff',
+  'cash_session.handoff_receive',
+  'cash_session.handoff_superseded',
+  'cash_session.explain_difference',
   'inventory.adjust_stock',
   'inventory.revalue',
   'inventory.count.create',
@@ -355,6 +360,8 @@ export const auditLogActionEnum = [
   // tenants that consider park churn noise can suppress the rows.
   'sale.park',
   'sale.resume',
+  // A parked draft left for the next business day at the close.
+  'sale.carry_over',
   // receipt reprint. One row per reprint invocation, metadata
   // carries the reason dropdown value + reprint ordinal count.
   'sale.reprint',
@@ -374,6 +381,8 @@ export const auditLogActionEnum = [
   // sets several surface modules at once. Metadata carries the preset id
   // plus the before/after of every module the patch touched.
   'module.preset_applied',
+  // Admin switches one register zone away from, or back to, the profile default.
+  'register_zone.toggle',
   // Authority Node operability. Admin revokes a hub-client
   // terminal from the Operations Center Authority tab.
   'device.revoke',
@@ -570,6 +579,7 @@ export const auditLogResourceTypeEnum = [
   // manual cash movements emit cash_session.movement audit rows
   // keyed to the inserted cash_movements row id.
   'cash_movement',
+  'cash_session_handoff',
   'product',
   'inventory_count_session',
   // second wave resources.
@@ -596,6 +606,7 @@ export const auditLogResourceTypeEnum = [
   // module activation kernel. `module.toggle` audit rows
   // key on the module id (one row per module per tenant per toggle).
   'tenant_module',
+  'tenant_register_zone',
   // hub-client terminal registry lifecycle.
   'device',
   // payment_outbox rows targeted by admin retry / mark_settled.

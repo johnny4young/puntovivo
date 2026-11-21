@@ -32,6 +32,7 @@ const allModulesOn = {
 };
 let mockModules: Record<string, boolean> = { ...allModulesOn };
 let mockModulesPlaceholder = false;
+let mockBusinessType: string | undefined;
 let mockPathname = '/dashboard';
 let desktopSidebar = true;
 const { anomalyQueryState, prefetchSalesMock } = vi.hoisted(() => ({
@@ -47,6 +48,7 @@ vi.mock('@/features/auth/AuthProvider', () => ({
       role: mockUserRole,
       tenantId: 'tenant-1',
     },
+    tenant: { settings: { businessType: mockBusinessType } },
   }),
 }));
 
@@ -103,6 +105,7 @@ beforeEach(() => {
   mockUserRole = 'admin';
   mockModules = { ...allModulesOn };
   mockModulesPlaceholder = false;
+  mockBusinessType = undefined;
   mockPathname = '/dashboard';
   desktopSidebar = true;
   anomalyQueryState.high = 0;
@@ -207,6 +210,18 @@ describe('Sidebar workspaces', () => {
     expect(screen.getByTestId('sidebar-workspace-sell')).toBeInTheDocument();
     expect(screen.queryByTestId('sidebar-workspace-finance')).not.toBeInTheDocument();
     expect(screen.queryByTestId('sidebar-workspace-setup')).not.toBeInTheDocument();
+  });
+
+  it('points the sale task at POS táctil for a restaurant while its module is on', () => {
+    mockUserRole = 'cashier';
+    mockBusinessType = 'restaurant';
+    const { unmount } = render(<Sidebar {...sidebarProps} />);
+    expect(screen.getByTestId('sidebar-primary-task-sell')).toHaveAttribute('href', '/touch');
+    unmount();
+
+    mockModules = { ...allModulesOn, 'pos-touch': false };
+    render(<Sidebar {...sidebarProps} />);
+    expect(screen.getByTestId('sidebar-primary-task-sell')).toHaveAttribute('href', '/sales');
   });
 
   it('viewer gets only the today task and can reveal its read-only tool group', () => {

@@ -8,7 +8,7 @@ import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useTenant } from '@/features/tenant/TenantProvider';
-import { useIsModuleActive } from '@/features/modules/ModulesContext';
+import { useRegisterZone } from '@/features/modules/useRegisterZone';
 import { LazySalePaymentModal } from '@/features/sales/lazySalePaymentModal';
 import { preloadSalePaymentModal } from '@/features/sales/salePaymentModal.loader';
 import type { InitialTender, SalePaymentValues } from '@/features/sales/salePaymentModal.types';
@@ -163,7 +163,8 @@ export function SalesModals({
   const { t } = useTranslation(['sales', 'restaurants', 'common']);
   const { user, tenant } = useAuth();
   const { currentSite } = useTenant();
-  const dineInActive = useIsModuleActive('dine-in');
+  const showsTables = useRegisterZone('tables');
+  const sellsInUnits = useRegisterZone('units-cut');
   const [suspendTableId, setSuspendTableId] = useState('');
   const [suspendGuestCount, setSuspendGuestCount] = useState(1);
   const [reservationSelection, setReservationSelection] = useState('');
@@ -216,11 +217,11 @@ export function SalesModals({
   );
   const suspendTablesQuery = trpc.restaurantTables.list.useQuery(
     currentSite ? { siteId: currentSite.id, includeArchived: false } : (undefined as never),
-    { enabled: isSuspendLabelPromptOpen && dineInActive && Boolean(currentSite) }
+    { enabled: isSuspendLabelPromptOpen && showsTables && Boolean(currentSite) }
   );
   const suspendTableStateQuery = trpc.restaurantServices.getTableState.useQuery(
     suspendTableId ? { tableId: suspendTableId } : (undefined as never),
-    { enabled: isSuspendLabelPromptOpen && dineInActive && suspendTableId.length > 0 }
+    { enabled: isSuspendLabelPromptOpen && showsTables && suspendTableId.length > 0 }
   );
   const selectedSuspendTable = suspendTablesQuery.data?.items.find(
     table => table.id === suspendTableId
@@ -232,7 +233,7 @@ export function SalesModals({
   const suspendGuestCapacity = selectedSuspendTable?.seatCount ?? 200;
   const suspendTableSelectionInvalid =
     suspendTableId.length > 0 &&
-    (!dineInActive ||
+    (!showsTables ||
       suspendTablesQuery.isLoading ||
       Boolean(suspendTablesQuery.error) ||
       !selectedSuspendTable ||
@@ -301,6 +302,7 @@ export function SalesModals({
           // keep the prop off (zero extra queries).
           showDiscountSuggestions
           siteId={discountSuggestionSiteId}
+          showUnitPicker={sellsInUnits}
         />
       )}
       {(shouldRenderQuickCreateProductGate || shouldRenderQuickCreateCustomerGate) && (
@@ -468,7 +470,7 @@ export function SalesModals({
               disabled={isSuspending}
               data-testid="suspend-label-input"
             />
-            {dineInActive && (suspendTablesQuery.data?.items.length ?? 0) > 0 && (
+            {showsTables && (suspendTablesQuery.data?.items.length ?? 0) > 0 && (
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="text-xs font-medium text-secondary-700">
                   {t('restaurants:tableLabel.label')}

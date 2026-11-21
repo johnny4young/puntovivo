@@ -15,10 +15,23 @@ export const VERTICAL_PRESET_IDS = [
 
 export type VerticalPresetId = (typeof VERTICAL_PRESET_IDS)[number];
 
+export function isVerticalPresetId(value: unknown): value is VerticalPresetId {
+  return VERTICAL_PRESET_IDS.includes(value as VerticalPresetId);
+}
+
 /** Profiles that currently offer explicit product-entry templates. */
 export const PRODUCT_TEMPLATE_VERTICAL_IDS = ['hardware', 'butchery'] as const;
 
 export type ProductTemplateVerticalId = (typeof PRODUCT_TEMPLATE_VERTICAL_IDS)[number];
+
+/** Profiles that sell on the touch register instead of desktop Vender. */
+export const TOUCH_REGISTER_VERTICAL_IDS = ['restaurant', 'quickservice'] as const;
+
+export function isTouchRegisterVerticalId(value: unknown): boolean {
+  return TOUCH_REGISTER_VERTICAL_IDS.includes(
+    value as (typeof TOUCH_REGISTER_VERTICAL_IDS)[number]
+  );
+}
 
 export function isProductTemplateVerticalId(value: unknown): value is ProductTemplateVerticalId {
   return PRODUCT_TEMPLATE_VERTICAL_IDS.includes(value as ProductTemplateVerticalId);

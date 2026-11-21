@@ -76,6 +76,10 @@ export type AuditLogAction =
   // shift-lifecycle parity (open + manual movement audits).
   | 'cash_session.open'
   | 'cash_session.movement'
+  | 'cash_session.handoff'
+  | 'cash_session.handoff_receive'
+  | 'cash_session.handoff_superseded'
+  | 'cash_session.explain_difference'
   | 'inventory.adjust_stock'
   | 'inventory.revalue'
   | 'inventory.count.create'
@@ -124,6 +128,7 @@ export type AuditLogAction =
   // park-and-resume (including discard metadata flag).
   | 'sale.park'
   | 'sale.resume'
+  | 'sale.carry_over'
   // receipt reprint.
   | 'sale.reprint'
   // draft completion (state change on an existing draft).
@@ -134,6 +139,7 @@ export type AuditLogAction =
   | 'module.toggle'
   // A-30 — vertical preset applied (sets several surface modules at once).
   | 'module.preset_applied'
+  | 'register_zone.toggle'
   // hub-client terminal revocation.
   | 'device.revoke'
   // fresh device claims its pairing code (handover trail).
@@ -265,6 +271,7 @@ export type AuditLogResourceType =
   | 'sale'
   | 'sale_return'
   | 'cash_session'
+  | 'cash_session_handoff'
   // manual cash movements emit audit rows keyed to the
   // cash_movements row id.
   | 'cash_movement'
@@ -284,6 +291,7 @@ export type AuditLogResourceType =
   | 'cashier'
   // module activation kernel resource type.
   | 'tenant_module'
+  | 'tenant_register_zone'
   // hub-client terminal registry lifecycle.
   | 'device'
   // payment_outbox rows targeted by admin retry / mark_settled.

@@ -25,3 +25,7 @@ import type { AppRouter } from '@puntovivo/server';
  */
 export type FiscalDocumentListItem =
   inferRouterOutputs<AppRouter>['reports']['fiscal']['list']['items'][number];
+
+/** A register handed over at the active site and waiting for the next cashier. */
+export type PendingCashHandoff =
+  inferRouterOutputs<AppRouter>['cashSessions']['pendingHandoffs'][number];

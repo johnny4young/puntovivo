@@ -10,6 +10,7 @@ import {
 } from '@puntovivo/shared/quick-keys';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { Modal } from '@/components/form-controls/Modal';
+import { useRegisterZone } from '@/features/modules/useRegisterZone';
 import { useSiteQuickKeys, type SiteQuickKey } from '@/features/sales/siteQuickKeys';
 import { useDebouncedValue } from '@/hooks';
 import { onErrorToast } from '@/lib/mutationHelpers';
@@ -26,6 +27,7 @@ const SEARCH_PAGE_SIZE = 8;
 /** Managers choose, colour, name and order the keys every register of the site shows. */
 export function SiteQuickKeysEditor({ siteId, onClose }: SiteQuickKeysEditorProps) {
   const { t } = useTranslation('salesQuickAccess');
+  const sellsByValue = useRegisterZone('weight-value');
   const toast = useToast();
   const utils = trpc.useUtils();
   const { keys } = useSiteQuickKeys(siteId);
@@ -170,17 +172,19 @@ export function SiteQuickKeysEditor({ siteId, onClose }: SiteQuickKeysEditorProp
                 >
                   {t('editor.addKey')}
                 </button>
-                <button
-                  type="button"
-                  className="btn-ghost min-h-11"
-                  disabled={isFull || setMutation.isPending || hasKey(product.id, 'open_value')}
-                  onClick={() =>
-                    setMutation.mutate({ siteId, productId: product.id, kind: 'open_value' })
-                  }
-                  aria-label={t('editor.addAsValue', { name: product.name })}
-                >
-                  {t('editor.addValue')}
-                </button>
+                {sellsByValue && (
+                  <button
+                    type="button"
+                    className="btn-ghost min-h-11"
+                    disabled={isFull || setMutation.isPending || hasKey(product.id, 'open_value')}
+                    onClick={() =>
+                      setMutation.mutate({ siteId, productId: product.id, kind: 'open_value' })
+                    }
+                    aria-label={t('editor.addAsValue', { name: product.name })}
+                  >
+                    {t('editor.addValue')}
+                  </button>
+                )}
               </li>
             ))}
           </ul>

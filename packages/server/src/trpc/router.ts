@@ -68,6 +68,7 @@ import { setupReadinessRouter } from './routers/setupReadiness.js';
 import { operationsRouter } from './routers/operations.js';
 import { registerIncidentsRouter } from './routers/registerIncidents.js';
 import { quickKeysRouter } from './routers/quickKeys.js';
+import { registerZonesRouter } from './routers/registerZones.js';
 import { transferDestinationsRouter } from './routers/transferDestinations.js';
 import { dataRetentionRouter } from './routers/dataRetention.js';
 import { employeeShiftsRouter } from './routers/employeeShifts.js';
@@ -134,6 +135,7 @@ export const appRouter = router({
   fiscalNumbering: fiscalNumberingRouter,
   peripherals: peripheralsRouter,
   modules: modulesRouter,
+  registerZones: registerZonesRouter,
   surfaces: surfacesRouter,
   events: eventsRouter,
   observability: observabilityRouter,

@@ -97,6 +97,8 @@
     "closingCount": "Conteo de cierre",
     "openAction": "Abrir caja",
     "closeAction": "Cerrar caja",
+    "handOverAction": "Entregar turno",
+    "receiveAction": "Recibir {{register}}",
     "recordMovementAction": "Registrar movimiento",
     "assignmentLabel": "Registro asignado",
     "assignmentPlaceholder": "Seleccione un registro",
@@ -192,8 +194,6 @@
       "countFor": "Cantidad para la denominación {{denomination}}",
       "blindBadge": "Cierre ciego",
       "supervisedBadge": "Cierre supervisado",
-      "justificationLabel": "Justificación (opcional)",
-      "justificationPlaceholder": "Explique cualquier sobrante o faltante…",
       "liveDelta": {
         "balanced": "Cuadrada — lo contado coincide con lo esperado",
         "over": "Sobrante — lo contado supera lo esperado",

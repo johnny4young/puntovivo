@@ -134,4 +134,18 @@ describe('CashSessionMovementModal', () => {
 
     expect(onSubmit).not.toHaveBeenCalled();
   });
+
+  it('opens on the movement type it was asked for', () => {
+    render(
+      <CashSessionMovementModal
+        isOpen
+        isSaving={false}
+        error={null}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+        defaultType="replenishment"
+      />
+    );
+    expect(document.getElementById('cash-session-movement-type')).toHaveValue('replenishment');
+  });
 });

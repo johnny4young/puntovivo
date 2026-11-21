@@ -24,6 +24,21 @@ describe('primary task registry', () => {
     expect(visiblePrimaryTasksForRole(undefined, {})).toEqual([]);
   });
 
+  it('points only the sell task at the register the business profile uses', () => {
+    const tasks = visiblePrimaryTasksForRole('admin', {}, true, '/touch');
+    expect(tasks.find(task => task.id === 'sell')?.href).toBe('/touch');
+    expect(tasks.find(task => task.id === 'today')?.href).toBe('/dashboard');
+    expect(visiblePrimaryTasksForRole('cashier', {})[0]?.href).toBe('/sales');
+    expect(PRIMARY_TASKS.find(task => task.id === 'sell')?.href).toBe('/sales');
+  });
+
+  it('keeps Vender owned by a sell task pointed at POS táctil', () => {
+    const sell = visiblePrimaryTasksForRole('cashier', {}, true, '/touch')[0]!;
+    expect(taskOwnsPath(sell, '/sales')).toBe(true);
+    expect(taskOwnsPath(sell, '/touch')).toBe(true);
+    expect(taskOwnsPath(sell, '/dashboard')).toBe(false);
+  });
+
   it('keeps command action ids unique', () => {
     const ids = PRIMARY_TASKS.map(task => task.commandActionId);
     expect(new Set(ids).size).toBe(ids.length);

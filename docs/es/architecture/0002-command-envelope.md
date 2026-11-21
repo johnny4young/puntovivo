@@ -104,6 +104,7 @@ Agregar uno exige ADR sustituto o modificación documentada aquí.
 - `sales.getForReprint` (escribe contador y auditoría)
 - `sales.changeTable` (transferencia de mesa por manager/admin)
 - `sales.splitDraft` (división de cuenta por manager/admin)
+- `sales.carryOver` (manager/admin deja una venta suspendida para el día siguiente)
 - `restaurantServices.openCheck` (servicio de mesa y borrador atómicos)
 - `restaurantModifiers.save` (CAS del catálogo de sede, auditoría e instantánea reproducible)
 
@@ -112,6 +113,8 @@ Agregar uno exige ADR sustituto o modificación documentada aquí.
 - `cashSessions.open`
 - `cashSessions.close`
 - `cashSessions.recordMovement` (para `paid_in`, `paid_out`, `skim` y `replenishment`)
+- `cashSessions.startHandoff` y `cashSessions.receiveHandoff` (relevo de caja, ADR-0036)
+- `cashSessions.explainDifference` (motivo de la diferencia de una caja cerrada, manager/admin)
 
 **Informes y certificaciones**
 

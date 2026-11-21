@@ -720,7 +720,7 @@ describe('AuthProvider — login flow', () => {
       password: 'pwd',
     });
     expect(setAccessTokenMock).toHaveBeenCalledWith('tok-login');
-    expect(navigateMock).toHaveBeenCalledWith('/sales');
+    expect(navigateMock).toHaveBeenCalledWith('/');
     expect(auth.current.isAuthenticated).toBe(true);
     expect(auth.current.user?.role).toBe('cashier');
   });
@@ -1114,7 +1114,7 @@ describe('AuthProvider — staff switch flow', () => {
       'cashier-2:2026-07-14T20:00:00.000Z'
     );
     expect(auth.current.user).toMatchObject({ id: 'cashier-2', role: 'cashier' });
-    expect(navigateMock).toHaveBeenLastCalledWith('/sales');
+    expect(navigateMock).toHaveBeenLastCalledWith('/');
   });
 
   it('invalidates the privileged identity in other tabs without racing Electron registration', async () => {

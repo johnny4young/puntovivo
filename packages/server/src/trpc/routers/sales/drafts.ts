@@ -19,6 +19,7 @@ import {
 import { restaurantTables, sales } from '../../../db/schema.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
 import {
+  carryDraftOverInput,
   changeSaleTableInput,
   discardDraftInput,
   resumeSaleInput,
@@ -28,6 +29,8 @@ import { writeAuditLog } from '../../../services/audit-logs.js';
 import { createSaleResourceCommandResultRef } from '../../../services/idempotency/commandResultRef.js';
 import { enqueueSyncInTransaction } from '../../../services/sync/enqueue.js';
 import { discardDraft as discardDraftService } from '../../../application/sales/discardDraft.js';
+import { carryDraftOver } from '../../../application/sales/carryDraftOver.js';
+import { asCriticalCommandContext } from '../../middleware/commandEnvelope.js';
 import { getSaleRecord } from '../../../application/sales/sale-read.js';
 import { buildLifecycleContext } from './helpers.js';
 import {
@@ -39,7 +42,10 @@ import {
   isSameSiteRestaurantHandoff,
   resolveDraftSiteEvidence,
 } from '../../../application/sales/draft-site.js';
-import { ownsActiveDraftClaim } from '../../../application/sales/draft-ownership.js';
+import {
+  ownsActiveDraftClaim,
+  ownsParkedDraft,
+} from '../../../application/sales/draft-ownership.js';
 
 export const salesDraftProcedures = {
   /**
@@ -100,16 +106,14 @@ export const salesDraftProcedures = {
             ctx.user!.id,
             lifecycleContext.deviceId
           );
-          const ownsParkedDraft =
-            existing.suspendedAt !== null &&
-            (existing.createdBy === ctx.user!.id || existing.suspendedBy === ctx.user!.id);
-          const ownsDraft = ownsActiveClaim || ownsParkedDraft;
+          const ownsParkedByActor = ownsParkedDraft(existing, ctx.user!.id);
+          const ownsDraft = ownsActiveClaim || ownsParkedByActor;
           const canOverride = actorRole === 'manager' || actorRole === 'admin';
           const canRestaurantHandoff =
             existing.suspendedAt !== null &&
             actorRole === 'cashier' &&
             isSameSiteRestaurantHandoff(draftSite, ctx.siteId);
-          if (!ownsActiveClaim && !ownsParkedDraft && !canOverride && !canRestaurantHandoff) {
+          if (!ownsActiveClaim && !ownsParkedByActor && !canOverride && !canRestaurantHandoff) {
             throwServerError({
               trpcCode: 'FORBIDDEN',
               errorCode: 'SALE_SUSPEND_OWNERSHIP_REQUIRED',
@@ -503,6 +507,23 @@ export const salesDraftProcedures = {
         saleId: input.saleId,
       });
       return { id: result.id, status: result.status };
+    }),
+
+  /** Mark a parked draft as left for the next business day. */
+  carryOver: criticalCommandManagerOrAdminProcedure
+    .input(carryDraftOverInput)
+    .mutation(({ ctx, input }) => {
+      const cc = asCriticalCommandContext(ctx);
+      return carryDraftOver(
+        {
+          db: cc.db,
+          tenantId: cc.tenantId,
+          actorId: cc.user.id,
+          envelope: cc.envelope,
+          deviceId: cc.deviceId,
+        },
+        input.saleId
+      );
     }),
 
   /**

@@ -1,0 +1,110 @@
+{
+  "open": "Cerrar el día",
+  "openSigned": "Día cerrado",
+  "title": "Cierre del {{weekday}} {{day}}",
+  "subtitle": "{{time}} · {{ready}} de {{total}} listos",
+  "loading": "Cargando el cierre",
+  "error": "No se pudo cargar el cierre.",
+  "steps": {
+    "count": "Contar",
+    "compare": "Comparar",
+    "sign": "Firmar"
+  },
+  "figures": {
+    "cap": "El día en cifras",
+    "cash": "Efectivo a consignar",
+    "electronic": "Tarjeta y transferencias",
+    "difference": "Diferencia de caja"
+  },
+  "sold": {
+    "label": "Vendido en el día",
+    "count_one": "{{count}} venta",
+    "count_other": "{{count}} ventas"
+  },
+  "registers": {
+    "title": "Cajas cerradas · {{closed}} de {{total}}",
+    "none": "Este día no se abrió ninguna caja",
+    "last": "{{register}} la cerró {{name}} a las {{time}}",
+    "lastCounted": "{{register}} la cerró {{name}} a las {{time}} con conteo",
+    "openOne": "{{register}} sigue abierta · {{name}}",
+    "openMany": "{{count}} cajas siguen abiertas",
+    "review": "Revisar"
+  },
+  "difference": {
+    "pending": "Diferencia de {{register}}: {{amount}}",
+    "explained": "Diferencia de {{register}} explicada: {{amount}}",
+    "detail": "La contó {{name}} a las {{time}}",
+    "balanced": "Cajas cuadradas",
+    "reasonGroup": "Motivo de la diferencia de {{register}}",
+    "reasons": {
+      "wrong_change": "Cambio mal entregado",
+      "unrecorded_withdrawal": "Retiro sin registrar",
+      "other": "Otro"
+    },
+    "noteLabel": "Qué pasó",
+    "save": "Guardar"
+  },
+  "drafts": {
+    "pending": "Venta suspendida · {{name}} · {{amount}}",
+    "detail": "Suspendida a las {{time}}",
+    "resolved_one": "{{count}} venta suspendida resuelta",
+    "resolved_other": "{{count}} ventas suspendidas resueltas",
+    "carried": "Quedan para mañana · {{amount}}",
+    "discard": "Descartar",
+    "carry": "Dejar para mañana",
+    "discardTitle": "¿Descartar esta venta suspendida?",
+    "discardMessage": "{{name}} por {{amount}} se cancela y sus productos vuelven al inventario."
+  },
+  "fiscal": {
+    "title": "DIAN: {{accepted}} aceptadas · {{inProgress}} en proceso",
+    "rejected_one": "{{count}} rechazada",
+    "rejected_other": "{{count}} rechazadas",
+    "view": "Ver documentos"
+  },
+  "anomalies": {
+    "none": "Anomalías de severidad alta · ninguna",
+    "some_one": "{{count}} anomalía de severidad alta",
+    "some_other": "{{count}} anomalías de severidad alta"
+  },
+  "sign": {
+    "title": "Firma del responsable",
+    "detailPin": "{{name}} · {{role}} · firme con el dedo o con su PIN",
+    "detailDraw": "{{name}} · {{role}} · firme con el dedo",
+    "pad": "Área de firma",
+    "clear": "Borrar",
+    "usePin": "Usar PIN",
+    "useDraw": "Firmar en pantalla",
+    "pinLabel": "Su PIN",
+    "signedPin": "Firmado con el PIN de {{name}}",
+    "signedDrawn": "Firmado por {{name}}",
+    "signedSession": "Firmado con la sesión de {{name}}"
+  },
+  "seal": {
+    "label": "DÍA CERRADO"
+  },
+  "footer": {
+    "owner": "Enviar resumen al dueño",
+    "pending_one": "Queda {{count}} por resolver",
+    "pending_other": "Quedan {{count}} por resolver",
+    "sign": "Firmar y cerrar el día",
+    "done": "Listo"
+  },
+  "summary": {
+    "sold_one": "Vendido: {{amount}} en {{count}} venta",
+    "sold_other": "Vendido: {{amount}} en {{count}} ventas",
+    "cash": "Efectivo a consignar: {{amount}}",
+    "electronic": "Tarjeta y transferencias: {{amount}}",
+    "difference": "Diferencia de caja: {{amount}}",
+    "signed": "Firmado por {{name}} a las {{time}}",
+    "unsigned": "Todavía sin firmar"
+  },
+  "toast": {
+    "signed": "Día cerrado"
+  },
+  "errors": {
+    "explain": "No se pudo guardar el motivo",
+    "carry": "No se pudo dejar la venta para mañana",
+    "discard": "No se pudo descartar la venta",
+    "sign": "No se pudo firmar el cierre"
+  }
+}

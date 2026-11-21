@@ -5,10 +5,12 @@
  *
  * @module services/operations/today
  */
-import { and, asc, eq, gte, inArray, lt, ne, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, lt, ne, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/sqlite-core';
 
 import type { DatabaseInstance } from '../../db/index.js';
 import {
+  cashSessionHandoffs,
   cashSessions,
   managerApprovalRequests,
   sales,
@@ -20,6 +22,7 @@ import { resolveTenantBusinessClock } from '../pharmacy/business-clock.js';
 import { addCalendarDays, resolveUtcDayWindow } from '../reports/day-window.js';
 import { dailyDatedRevenueSql, type DailyRevenueRow } from '../reports/net-sales.js';
 import { listOpenRegisterIncidents, type RegisterIncidentRow } from '../register-incidents.js';
+import { roundMoney } from '../../lib/money.js';
 import { computeNeedsAttention, type OperationsAttentionArea } from './attention.js';
 
 export type PendingSeverity = 'blocks' | 'beforeClose' | 'whenPossible';
@@ -39,6 +42,8 @@ export type TodayPendingItem =
       action: string;
       label: string;
       amount: number | null;
+      reason: string;
+      requesterId: string;
       requesterName: string;
       siteName: string;
     }
@@ -82,11 +87,23 @@ export interface TodayRegister {
   salesCount: number;
   /** End of the cashier's scheduled shift today, the planned handoff. */
   scheduledEndAt: string | null;
+  /** The handoff this session received the drawer from, if any. */
+  lastHandoff: { receivedAt: string; fromUserName: string; countDifference: number | null } | null;
+}
+
+/** A register handed over and not received yet: its cash sits counted, without a session. */
+export interface TodayAwaitingHandoff {
+  id: string;
+  registerName: string;
+  fromUserName: string;
+  toUserName: string | null;
+  handedOverAt: string;
 }
 
 export interface TodayShift {
   userId: string;
   userName: string;
+  siteId: string;
   startsAt: string;
   endsAt: string;
 }
@@ -107,7 +124,14 @@ export interface OperationsToday {
   hourly: Array<{ hour: number; today: number; comparison: number }>;
   registers: TodayRegister[];
   shifts: TodayShift[];
-  nextHandoff: { at: string; registerName: string | null; fromUserName: string } | null;
+  nextHandoff: {
+    at: string;
+    registerName: string | null;
+    fromUserName: string;
+    /** Who is scheduled to start at that site around the handoff, if anyone. */
+    toUserName: string | null;
+  } | null;
+  awaitingHandoffs: TodayAwaitingHandoff[];
   pending: TodayPendingItem[];
 }
 
@@ -152,6 +176,8 @@ export async function computeOperationsToday(
   const orders = [...todayByHour.values()].reduce((sum, row) => sum + row.orders, 0);
   const comparisonTotal = hourly.reduce((sum, row) => sum + row.comparison, 0);
 
+  const fromUser = alias(users, 'handoff_from_user');
+  const toUser = alias(users, 'handoff_to_user');
   const sessionRows = db
     .select({
       sessionId: cashSessions.id,
@@ -161,10 +187,22 @@ export async function computeOperationsToday(
       siteId: cashSessions.siteId,
       siteName: sites.name,
       openedAt: cashSessions.openedAt,
+      handoffReceivedAt: cashSessionHandoffs.receivedAt,
+      handoffFromUserName: fromUser.name,
+      handoffOutgoingCount: cashSessionHandoffs.outgoingCount,
+      handoffReceivedCount: cashSessionHandoffs.receivedCount,
     })
     .from(cashSessions)
     .innerJoin(users, eq(users.id, cashSessions.cashierId))
     .innerJoin(sites, eq(sites.id, cashSessions.siteId))
+    .leftJoin(
+      cashSessionHandoffs,
+      and(
+        eq(cashSessionHandoffs.tenantId, tenantId),
+        eq(cashSessionHandoffs.toSessionId, cashSessions.id)
+      )
+    )
+    .leftJoin(fromUser, eq(fromUser.id, cashSessionHandoffs.fromCashierId))
     .where(and(eq(cashSessions.tenantId, tenantId), eq(cashSessions.status, 'open')))
     .orderBy(asc(cashSessions.registerName))
     .all();
@@ -196,6 +234,7 @@ export async function computeOperationsToday(
     .select({
       userId: scheduledShifts.userId,
       userName: users.name,
+      siteId: scheduledShifts.siteId,
       startsAt: scheduledShifts.startsAt,
       endsAt: scheduledShifts.endsAt,
     })
@@ -212,7 +251,36 @@ export async function computeOperationsToday(
     .orderBy(asc(scheduledShifts.startsAt))
     .all();
 
-  const registers: TodayRegister[] = sessionRows.map(row => {
+  const awaitingHandoffs: TodayAwaitingHandoff[] = db
+    .select({
+      id: cashSessionHandoffs.id,
+      registerName: cashSessionHandoffs.registerName,
+      fromUserName: fromUser.name,
+      toUserName: toUser.name,
+      handedOverAt: cashSessionHandoffs.handedOverAt,
+    })
+    .from(cashSessionHandoffs)
+    .innerJoin(sites, eq(sites.id, cashSessionHandoffs.siteId))
+    .innerJoin(fromUser, eq(fromUser.id, cashSessionHandoffs.fromCashierId))
+    .leftJoin(toUser, eq(toUser.id, cashSessionHandoffs.toCashierId))
+    .where(
+      and(
+        eq(cashSessionHandoffs.tenantId, tenantId),
+        eq(cashSessionHandoffs.status, 'pending'),
+        eq(sites.isActive, true)
+      )
+    )
+    .orderBy(desc(cashSessionHandoffs.handedOverAt))
+    .all();
+
+  const registers: TodayRegister[] = sessionRows.map(handoffRow => {
+    const {
+      handoffReceivedAt,
+      handoffFromUserName,
+      handoffOutgoingCount,
+      handoffReceivedCount,
+      ...row
+    } = handoffRow;
     const sold = salesBySession.get(row.sessionId);
     const shiftEnd = shifts.find(
       shift => shift.userId === row.cashierId && shift.endsAt > now.toISOString()
@@ -223,6 +291,17 @@ export async function computeOperationsToday(
       salesTotal: sold?.total ?? 0,
       salesCount: sold?.count ?? 0,
       scheduledEndAt: shiftEnd ?? null,
+      lastHandoff:
+        handoffReceivedAt && handoffFromUserName && handoffOutgoingCount !== null
+          ? {
+              receivedAt: handoffReceivedAt,
+              fromUserName: handoffFromUserName,
+              countDifference:
+                handoffReceivedCount === null
+                  ? null
+                  : roundMoney(handoffReceivedCount - handoffOutgoingCount),
+            }
+          : null,
     };
   });
 
@@ -234,6 +313,7 @@ export async function computeOperationsToday(
         at: nextHandoffRegister.scheduledEndAt!,
         registerName: nextHandoffRegister.registerName,
         fromUserName: nextHandoffRegister.cashierName,
+        toUserName: handoffReceiver(shifts, nextHandoffRegister, registers),
       }
     : null;
 
@@ -255,8 +335,33 @@ export async function computeOperationsToday(
     registers,
     shifts,
     nextHandoff,
+    awaitingHandoffs,
     pending: await pending,
   };
+}
+
+const RECEIVER_WINDOW_MS = 60 * 60_000;
+
+/**
+ * The shift at the same site that starts closest to the handoff, within an hour of it,
+ * skipping anyone already running a register.
+ */
+function handoffReceiver(
+  shifts: TodayShift[],
+  register: TodayRegister,
+  registers: TodayRegister[]
+): string | null {
+  const at = Date.parse(register.scheduledEndAt!);
+  const busy = new Set(registers.map(open => open.cashierId));
+  let best: { name: string; distance: number } | null = null;
+  for (const shift of shifts) {
+    if (shift.siteId !== register.siteId || busy.has(shift.userId)) continue;
+    const distance = Math.abs(Date.parse(shift.startsAt) - at);
+    if (distance <= RECEIVER_WINDOW_MS && (!best || distance < best.distance)) {
+      best = { name: shift.userName, distance };
+    }
+  }
+  return best?.name ?? null;
 }
 
 async function collectPending(
@@ -271,7 +376,9 @@ async function collectPending(
       id: managerApprovalRequests.id,
       action: managerApprovalRequests.action,
       summary: managerApprovalRequests.summary,
+      reason: managerApprovalRequests.reason,
       requestedAt: managerApprovalRequests.requestedAt,
+      requesterId: managerApprovalRequests.requesterId,
       requesterName: users.name,
       siteName: sites.name,
     })
@@ -297,6 +404,8 @@ async function collectPending(
       action: approval.action,
       label: approval.summary.label,
       amount: approval.summary.amount ?? null,
+      reason: approval.reason,
+      requesterId: approval.requesterId,
       requesterName: approval.requesterName,
       siteName: approval.siteName,
     });

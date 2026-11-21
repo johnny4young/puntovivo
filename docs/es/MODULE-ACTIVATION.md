@@ -49,6 +49,16 @@ usa el mapa efectivo mediante el store de módulos, `useIsModuleActive` y
 Los negocios existentes sin sobrescritura siguen usando el valor del manifiesto
 para conservar compatibilidad.
 
+## Zonas de la caja
+
+Dentro de una superficie activa, el perfil del negocio también da forma a Vender
+de escritorio por zonas (teclas de un toque, fiado, ventas en espera, propina,
+mesas…). El registro y la matriz por perfil viven en
+`packages/shared/src/register-zones.ts`; el administrador ajusta zonas sueltas
+desde la tarjeta bajo Módulos. Una zona que necesita un módulo solo aparece con
+el módulo activo. Vea
+[ADR-0038](./architecture/0038-register-zones-by-profile.md).
+
 ## Invariantes
 
 - El estado del módulo no sustituye el ámbito `ctx.tenantId` ni los roles.

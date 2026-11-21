@@ -97,6 +97,8 @@
     "closingCount": "Closing count",
     "openAction": "Open cash session",
     "closeAction": "Close cash session",
+    "handOverAction": "Hand over shift",
+    "receiveAction": "Receive {{register}}",
     "recordMovementAction": "Record movement",
     "assignmentLabel": "Assigned register",
     "assignmentPlaceholder": "Select a register",
@@ -192,8 +194,6 @@
       "countFor": "Count for denomination {{denomination}}",
       "blindBadge": "Blind close",
       "supervisedBadge": "Supervised close",
-      "justificationLabel": "Justification (optional)",
-      "justificationPlaceholder": "Explain any surplus or shortage…",
       "liveDelta": {
         "balanced": "Balanced — counted matches expected",
         "over": "Over — counted exceeds expected",

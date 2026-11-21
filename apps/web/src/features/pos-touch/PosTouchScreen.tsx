@@ -41,6 +41,7 @@ import {
   useRef,
   useState,
   type Dispatch,
+  type MouseEvent,
   type SetStateAction,
 } from 'react';
 import { useForm } from 'react-hook-form';
@@ -51,6 +52,7 @@ import { keepPreviousData } from '@tanstack/react-query';
 import { Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
+import { PageLoadingState } from '@/components/feedback/LoadingState';
 import { useDebouncedValue } from '@/hooks';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { useToast } from '@/components/feedback/ToastProvider';
@@ -94,7 +96,7 @@ const CATALOG_SEARCH_DEBOUNCE_MS = 250;
 export function PosTouchScreen() {
   const priceIncludesTax = usePriceIncludesTax();
   const { t } = useTranslation(['posTouch', 'common', 'fulfillmentErrors', 'salesQuickAccess']);
-  const { currentSite } = useTenant();
+  const { currentSite, isLoadingSites } = useTenant();
   const toast = useToast();
   const utils = trpc.useUtils();
   const catalogRef = useRef<HTMLDivElement>(null);
@@ -475,6 +477,25 @@ export function PosTouchScreen() {
     }
   }
 
+  // Leaving mid-charge would orphan the in-flight sale.
+  const headerLinkProps = {
+    'aria-disabled': checkoutLocked,
+    tabIndex: checkoutLocked ? -1 : undefined,
+    onClick: (event: MouseEvent<HTMLAnchorElement>) => {
+      if (checkoutLockedRef.current) event.preventDefault();
+    },
+    className: `inline-flex min-h-[44px] items-center gap-2 rounded-full border border-line/70 bg-surface-1 px-4 py-2 text-xs font-medium text-secondary-700 hover:bg-surface-2 ${checkoutLocked ? 'pointer-events-none cursor-wait opacity-60' : ''}`,
+  };
+
+  if (!siteId && isLoadingSites) {
+    return (
+      <PageLoadingState
+        title={t('common:loading.pageTitle')}
+        description={t('common:loading.pageDescription')}
+      />
+    );
+  }
+
   if (!siteId) {
     return (
       <section
@@ -489,6 +510,9 @@ export function PosTouchScreen() {
         >
           {t('page.noActiveSite')}
         </p>
+        <Link to="/sales" data-testid="pos-touch-till-link" {...headerLinkProps}>
+          {t('page.tillLink')}
+        </Link>
       </section>
     );
   }
@@ -503,20 +527,16 @@ export function PosTouchScreen() {
           <h2 className="font-display text-3xl tracking-[-0.02em]">{t('page.title')}</h2>
           <p className="max-w-2xl text-sm text-secondary-600">{t('page.subtitle')}</p>
         </div>
-        {dineInActive && (
-          <Link
-            to="/touch/voice"
-            data-testid="pos-touch-voice-link"
-            aria-disabled={checkoutLocked}
-            tabIndex={checkoutLocked ? -1 : undefined}
-            onClick={event => {
-              if (checkoutLockedRef.current) event.preventDefault();
-            }}
-            className={`inline-flex min-h-[44px] items-center gap-2 self-start rounded-full border border-line/70 bg-surface-1 px-4 py-2 text-xs font-medium text-secondary-700 hover:bg-surface-2 ${checkoutLocked ? 'pointer-events-none cursor-wait opacity-60' : ''}`}
-          >
-            {t('page.voiceLink')}
+        <div className="flex flex-wrap gap-2 self-start">
+          {dineInActive && (
+            <Link to="/touch/voice" data-testid="pos-touch-voice-link" {...headerLinkProps}>
+              {t('page.voiceLink')}
+            </Link>
+          )}
+          <Link to="/sales" data-testid="pos-touch-till-link" {...headerLinkProps}>
+            {t('page.tillLink')}
           </Link>
-        )}
+        </div>
       </header>
 
       <PosTouchCategoryTabs

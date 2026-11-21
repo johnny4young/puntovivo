@@ -48,6 +48,7 @@ interface MockProduct {
 }
 
 let mockSiteId: string | null = 'site-1';
+let mockLoadingSites = false;
 let mockProducts: MockProduct[] = [];
 let mockCategories: Array<{ id: string; name: string }> = [];
 let mockCustomers: Array<{
@@ -284,6 +285,7 @@ vi.mock('@/features/tenant/TenantProvider', () => ({
   useTenant: () => ({
     currentTenant: { id: 'tenant-1', name: 'Tenant 1' },
     currentSite: mockSiteId ? { id: mockSiteId, name: 'Site 1' } : null,
+    isLoadingSites: mockLoadingSites,
     tenantSettings: { currency: 'USD' },
   }),
 }));
@@ -357,6 +359,7 @@ describe('PosTouchScreen', () => {
     vi.clearAllMocks();
     await i18next.changeLanguage('en');
     mockSiteId = 'site-1';
+    mockLoadingSites = false;
     mockActiveSession = { id: 'session-1' };
     mockQuickKeys = [];
     mockQuickKeysLoading = false;
@@ -396,6 +399,14 @@ describe('PosTouchScreen', () => {
     mockSiteId = null;
     render(<PosTouchScreen />);
     expect(screen.getByTestId('pos-touch-no-site')).toBeInTheDocument();
+    expect(screen.getByTestId('pos-touch-till-link')).toHaveAttribute('href', '/sales');
+  });
+
+  it('waits for sites instead of warning that none is active', () => {
+    mockSiteId = null;
+    mockLoadingSites = true;
+    render(<PosTouchScreen />);
+    expect(screen.queryByTestId('pos-touch-no-site')).not.toBeInTheDocument();
   });
 
   it('declares a two-track grid so the cart renders as a right rail', () => {
@@ -413,6 +424,8 @@ describe('PosTouchScreen', () => {
     expect(screen.getByTestId('pos-touch-cart-charge-hint')).toHaveTextContent(
       'Open the cash register'
     );
+    expect(screen.getByTestId('pos-touch-till-link')).toHaveAttribute('href', '/sales');
+    expect(screen.getByTestId('pos-touch-till-link')).toHaveTextContent('Till and shift');
   });
 
   it('hides voice ordering when dine-in is disabled', () => {
@@ -869,6 +882,7 @@ describe('PosTouchScreen', () => {
     expect(screen.getByTestId('pos-touch-cart-line-p-1:p-1-unit-1-remove')).toBeDisabled();
     expect(screen.getByTestId('pos-touch-cart-clear')).toBeDisabled();
     expect(screen.getByTestId('pos-touch-voice-link')).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByTestId('pos-touch-till-link')).toHaveAttribute('aria-disabled', 'true');
     expect(createMutate).toHaveBeenCalledTimes(1);
 
     await act(async () => {

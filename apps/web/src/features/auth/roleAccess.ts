@@ -6,6 +6,7 @@ import {
   SALES_ROLES,
   USER_ROLES,
 } from '@puntovivo/shared/roles';
+import { isTouchRegisterVerticalId } from '@puntovivo/shared/vertical-presets';
 
 // Compatibility aliases for existing renderer imports. The shared tuples are
 // canonical and are also consumed by server middleware.
@@ -30,12 +31,27 @@ export function canAccessRole(
   return allowedRoles.includes(role);
 }
 
+/** Register roles get `/` so the home redirect can pick the business profile's register. */
 export function getDefaultRouteForRole(role: UserRole | undefined): string {
   if (role === 'cashier') {
-    return '/sales';
+    return '/';
   }
 
   return '/dashboard';
+}
+
+/** The register a business profile sells on; POS táctil only while its module is on. */
+export function getSellingRouteForProfile(
+  businessType: unknown,
+  posTouchActive: boolean
+): '/sales' | '/touch' {
+  return posTouchActive && isTouchRegisterVerticalId(businessType) ? '/touch' : '/sales';
+}
+
+/** Roles that open on a register get the profile's register; every other role keeps its default. */
+export function getLandingRoute(role: UserRole | undefined, sellingRoute: string): string {
+  const roleDefault = getDefaultRouteForRole(role);
+  return roleDefault === '/' ? sellingRoute : roleDefault;
 }
 
 /** Honor only the read-only Companion entry captured by ProtectedRoute. */
@@ -57,7 +73,7 @@ export function getCompanionLoginDestination(
 
 /**
  * Post-login routing that takes setup readiness into
- * account. Cashiers always go straight to `/sales` regardless of
+ * account. Cashiers always go straight to their register regardless of
  * tenant state — their flow is POS-direct and the setup checklist is
  * an admin concern. Admin lands on the guided `/company` surface when
  * there are unresolved blockers AND the operator has never
@@ -75,7 +91,7 @@ export function getDefaultRouteForRoleWithSetup(args: {
   acknowledgedAt: string | null;
 }): string {
   if (args.role === 'cashier') {
-    return '/sales';
+    return getDefaultRouteForRole(args.role);
   }
   if (args.role === 'admin' && args.hasBlockers && args.acknowledgedAt === null) {
     return '/company';

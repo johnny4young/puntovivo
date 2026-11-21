@@ -7,6 +7,7 @@
  * this binary is the portable, printable representation stored beside it.
  */
 import { jsPDF } from 'jspdf';
+import type { DayCloseSignatureMethod } from '../../db/schema.js';
 import type { ResolvedLocale } from '../tenant-locale.js';
 import type { ComprehensiveDayCloseReport } from './comprehensive-day-close.js';
 
@@ -18,6 +19,7 @@ interface RenderDayClosePdfInput {
   reportHash: string;
   signedByName: string;
   signedAt: string;
+  signatureMethod: DayCloseSignatureMethod;
   locale: ResolvedLocale;
 }
 
@@ -30,6 +32,12 @@ const COPY = {
     generatedAt: 'Report generated',
     signedBy: 'Signed by',
     signedAt: 'Signed at',
+    signedWith: 'Signed with',
+    signatureMethods: {
+      pin: 'Staff PIN',
+      drawn: 'Signature drawn on screen',
+      session: 'Signed-in session',
+    },
     timeZone: 'Time zone',
     reportHash: 'SHA-256 report hash',
     sales: 'Sales summary',
@@ -84,6 +92,12 @@ const COPY = {
     generatedAt: 'Reporte generado',
     signedBy: 'Firmado por',
     signedAt: 'Fecha de firma',
+    signedWith: 'Firmado con',
+    signatureMethods: {
+      pin: 'PIN del responsable',
+      drawn: 'Firma en la pantalla',
+      session: 'Sesión iniciada',
+    },
     timeZone: 'Zona horaria',
     reportHash: 'Huella SHA-256 del reporte',
     sales: 'Resumen de ventas',
@@ -156,6 +170,8 @@ const PAYMENT_METHODS = {
 const READINESS_LABELS = {
   en: {
     open_sessions: 'Open cash sessions',
+    unexplained_differences: 'Cash differences without a reason',
+    unresolved_drafts: 'Suspended sales to resolve',
     cash_discrepancies: 'Cash discrepancies',
     fiscal_pending: 'Fiscal documents in progress',
     fiscal_rejected: 'Rejected fiscal documents',
@@ -165,6 +181,8 @@ const READINESS_LABELS = {
   },
   es: {
     open_sessions: 'Sesiones de caja abiertas',
+    unexplained_differences: 'Diferencias de caja sin motivo',
+    unresolved_drafts: 'Ventas suspendidas por resolver',
     cash_discrepancies: 'Diferencias de caja',
     fiscal_pending: 'Documentos fiscales en proceso',
     fiscal_rejected: 'Documentos fiscales rechazados',
@@ -303,6 +321,7 @@ export function renderDayClosePdf(input: RenderDayClosePdfInput): Buffer {
   row(copy.generatedAt, dateTime.format(new Date(report.generatedAt)));
   row(copy.signedBy, input.signedByName);
   row(copy.signedAt, dateTime.format(new Date(input.signedAt)));
+  row(copy.signedWith, copy.signatureMethods[input.signatureMethod]);
   row(copy.timeZone, report.timeZone);
   row(copy.reportHash, input.reportHash);
 

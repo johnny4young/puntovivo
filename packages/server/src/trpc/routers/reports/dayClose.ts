@@ -2,6 +2,7 @@
 
 import { broadcastCompanionInvalidation } from '../../../services/companion/invalidation.js';
 import { computeComprehensiveDayCloseReport } from '../../../services/reports/comprehensive-day-close.js';
+import { computeDayCloseChecklist } from '../../../services/reports/day-close-checklist.js';
 import {
   getDayCloseSignoff,
   getDayCloseSignoffMetadata,
@@ -13,6 +14,7 @@ import { criticalCommandManagerOrAdminProcedure } from '../../middleware/critica
 import { managerOrAdminProcedure } from '../../middleware/roles.js';
 import {
   comprehensiveDayCloseReportOutput,
+  dayCloseChecklistOutput,
   dayClosePreviewInput,
   dayCloseSignOffInput,
   dayCloseSignoffMetadataOutput,
@@ -28,6 +30,13 @@ export const dayCloseReportsRouter = router({
         tenantId: ctx.tenantId,
         date: input.date,
       })
+    ),
+  /** Registers and parked sales behind the guided close, row by row. */
+  checklist: managerOrAdminProcedure
+    .input(dayClosePreviewInput)
+    .output(dayCloseChecklistOutput)
+    .query(({ ctx, input }) =>
+      computeDayCloseChecklist(ctx.db, { tenantId: ctx.tenantId, date: input.date })
     ),
   signoff: managerOrAdminProcedure
     .input(dayClosePreviewInput)
@@ -53,6 +62,7 @@ export const dayCloseReportsRouter = router({
         actorId: criticalCtx.user.id,
         date: input.date,
         operationId: criticalCtx.envelope.operationId,
+        signature: input.signature,
       });
       try {
         broadcastCompanionInvalidation({
