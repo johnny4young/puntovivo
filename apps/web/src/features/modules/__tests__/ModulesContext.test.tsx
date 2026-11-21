@@ -226,5 +226,10 @@ describe('ModulesSync — failed request', () => {
       </>
     );
     expect(screen.getByTestId('state')).toHaveTextContent('placeholder-error');
+    // The local server answers offline, so the query must never pause.
+    expect(useGetEffectiveMock).toHaveBeenCalledWith(
+      undefined,
+      expect.objectContaining({ networkMode: 'always' })
+    );
   });
 });

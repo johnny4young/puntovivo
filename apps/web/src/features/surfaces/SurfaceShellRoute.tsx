@@ -36,14 +36,14 @@ export function SurfaceShellRoute({
   allowedModule?: ClientModuleId;
 }) {
   const { t } = useTranslation('common');
-  const { modules, isPlaceholder } = useModulesSnapshot();
+  const { modules, isPlaceholder, isError } = useModulesSnapshot();
 
   const loadingState = (
     <PageLoadingState title={t('loading.pageTitle')} description={t('loading.pageDescription')} />
   );
 
   let content: ReactNode;
-  if (allowedModule && isPlaceholder) {
+  if (allowedModule && isPlaceholder && !isError) {
     // Module state not hydrated yet — never redirect on the optimistic
     // default; show loading until the tenant snapshot resolves.
     content = loadingState;

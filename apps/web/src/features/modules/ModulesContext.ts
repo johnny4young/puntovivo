@@ -127,6 +127,9 @@ export function useModulesSync(): void {
     // no window-focus refetch; the 5-minute staleTime is the
     // freshness contract and admin flips invalidate explicitly.
     refetchOnWindowFocus: false,
+    // The embedded server answers without a network; pausing would leave
+    // module gates waiting until the browser reports online again.
+    networkMode: 'always',
   });
 
   useEffect(() => {
