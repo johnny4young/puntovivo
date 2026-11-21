@@ -4,7 +4,13 @@ import { join } from 'node:path';
 import * as desktopSession from '../session/desktopSession.js';
 import { createScalePreferences } from '../scale/preferences.js';
 import { readScaleWeight } from '../scale/reader.js';
-import { listSerialPorts, loadSerialBinding, openSerialScalePort } from '../scale/serial-port.js';
+import { createModuleLogger } from '@puntovivo/server/desktop-main';
+import {
+  listSerialPorts,
+  loadSerialBinding,
+  onSerialBindingLoadError,
+  openSerialScalePort,
+} from '../scale/serial-port.js';
 import type { ScaleConfig, ScaleReadResult } from '../scale/protocol.js';
 import { captureDesktopIpcSessionResult } from './session-authorization.js';
 import {
@@ -16,7 +22,12 @@ import {
   type ScaleDependencies,
 } from './scale-handlers.js';
 
+const scaleLog = createModuleLogger('scale');
+
 export function registerScaleIpc(): void {
+  onSerialBindingLoadError(error =>
+    scaleLog.warn({ err: error }, 'serial scale driver unavailable')
+  );
   const preferences = createScalePreferences(join(app.getPath('userData'), 'scale-preferences'));
   let queue: Promise<unknown> = Promise.resolve();
   // Two reads on one serial port would interleave their frames.

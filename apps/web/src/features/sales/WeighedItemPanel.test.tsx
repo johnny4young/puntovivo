@@ -198,6 +198,24 @@ describe('WeighedItemPanel', () => {
     expect(onApply).toHaveBeenCalledWith(0.4);
   });
 
+  it('clears the last scale error and holds the typed entry while reading again', async () => {
+    const user = userEvent.setup();
+    let finish!: (result: ScaleReadResult) => void;
+    const read = installScale(true, async () => ({ status: 'error', code: 'SCALE_EMPTY' }));
+    renderPanel();
+    const scale = await screen.findByRole('button', { name: 'Read scale' });
+    await user.click(screen.getByTestId('weighed-item-weight'));
+    await user.click(scale);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Put the item on the scale.');
+
+    read.mockImplementation(() => new Promise(resolve => (finish = resolve)));
+    await user.click(scale);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByTestId('weighed-item-submit')).toBeDisabled();
+    finish({ status: 'error', code: 'SCALE_EMPTY' });
+    await waitFor(() => expect(screen.getByTestId('weighed-item-submit')).toBeEnabled());
+  });
+
   it('drops a reading that arrives after the panel closed', async () => {
     const user = userEvent.setup();
     let finish!: (result: ScaleReadResult) => void;

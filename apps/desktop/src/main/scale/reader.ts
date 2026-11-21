@@ -27,6 +27,7 @@ const ISSUE_CODES: Record<Exclude<ScaleFrame['kind'], 'weight'>, ScaleErrorCode>
   unstable: 'SCALE_UNSTABLE',
   overload: 'SCALE_OVERLOAD',
   negative: 'SCALE_NEGATIVE',
+  empty: 'SCALE_EMPTY',
   unit: 'SCALE_UNSUPPORTED_UNIT',
 };
 

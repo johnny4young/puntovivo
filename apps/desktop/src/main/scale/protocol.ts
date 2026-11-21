@@ -31,7 +31,7 @@ export type ScaleReadResult =
 
 export type ScaleFrame =
   | { kind: 'weight'; kilograms: number; stable: boolean | null }
-  | { kind: 'unstable' | 'overload' | 'negative' | 'unit' };
+  | { kind: 'unstable' | 'overload' | 'negative' | 'empty' | 'unit' };
 
 /** Request byte for polled protocols: Toledo 8217 answers W, ECR-style scales answer ENQ. */
 export const SCALE_POLL_BYTE: Record<ScaleProtocol, number | null> = {
@@ -80,10 +80,11 @@ export function splitFrames(buffer: string): { frames: string[]; rest: string } 
   return { frames: parts.filter(part => part.length > 0), rest };
 }
 
-// Toledo 8217 status byte after «?»: bit 1 over capacity, bit 2 under zero, otherwise in motion.
+// Toledo 8217 status byte after «?»: bit 0 motion, bit 1 over capacity, bit 2 under zero, bit 4 center of zero.
 function toledoStatus(status: number): ScaleFrame {
   if (status & 0x02) return { kind: 'overload' };
   if (status & 0x04) return { kind: 'negative' };
+  if (!(status & 0x01) && status & 0x10) return { kind: 'empty' };
   return { kind: 'unstable' };
 }
 

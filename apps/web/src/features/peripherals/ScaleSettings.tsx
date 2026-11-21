@@ -225,7 +225,7 @@ function ScaleSettingsForOwner({ owner }: { owner: string | null }) {
       )}
       {(query.error || save.error) && (
         <p role="alert" className="text-sm text-danger-700">
-          {t('settings.saveFailed')}
+          {t(save.error ? 'settings.saveFailed' : 'settings.loadFailed')}
         </p>
       )}
     </fieldset>

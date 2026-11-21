@@ -102,6 +102,8 @@ describe('scale frames', () => {
     assert.deepEqual(parseScaleFrame('\x02?\x01'), { kind: 'unstable' });
     assert.deepEqual(parseScaleFrame('\x02?\x02'), { kind: 'overload' });
     assert.deepEqual(parseScaleFrame('\x02?\x04'), { kind: 'negative' });
+    assert.deepEqual(parseScaleFrame('\x02?\x30'), { kind: 'empty' });
+    assert.deepEqual(parseScaleFrame('\x02?\x31'), { kind: 'unstable' });
     assert.deepEqual(parseScaleFrame('OL,GS,+ 99.999kg'), { kind: 'overload' });
     assert.deepEqual(parseScaleFrame('ST,GS,-  0.010kg'), { kind: 'negative' });
     assert.deepEqual(parseScaleFrame('ST,GS,+  0.84lb'), { kind: 'unit' });
@@ -192,6 +194,12 @@ describe('reading a scale', () => {
       'SCALE_BUSY'
     );
     assert.equal(openErrorCode(new Error('Opening COM3: Access is denied.')), 'SCALE_BUSY');
+    assert.equal(openErrorCode(new Error('Opening COM3: Access denied')), 'SCALE_BUSY');
+    assert.equal(
+      openErrorCode(new Error('Error: Resource busy, cannot open /dev/tty.usbserial-1')),
+      'SCALE_BUSY'
+    );
+    assert.equal(openErrorCode(new Error('Opening COM3: File not found')), 'SCALE_DISCONNECTED');
   });
 });
 

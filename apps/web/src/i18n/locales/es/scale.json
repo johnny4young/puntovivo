@@ -34,6 +34,7 @@
     "noPorts": "No se encontraron puertos seriales. Conecte la báscula y actualice la lista.",
     "unavailable": "Este equipo no puede leer básculas seriales. El peso se escribe en la caja.",
     "weight": "Leyó {{weight}} kg.",
-    "saveFailed": "No se pudo guardar la báscula. Actualice los puertos e intente de nuevo."
+    "saveFailed": "No se pudo guardar la báscula. Actualice los puertos e intente de nuevo.",
+    "loadFailed": "No se pudieron cargar los ajustes de la báscula. Actualice los puertos e intente de nuevo."
   }
 }

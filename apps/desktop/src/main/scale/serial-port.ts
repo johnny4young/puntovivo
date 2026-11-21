@@ -29,12 +29,21 @@ interface SerialBinding {
 }
 
 let binding: Promise<SerialBinding | null> | null = null;
+let reportLoadError: (error: unknown) => void = () => {};
+
+/** Where a failed addon load is reported; the failure is cached for the session. */
+export function onSerialBindingLoadError(report: (error: unknown) => void): void {
+  reportLoadError = report;
+}
 
 /** Null when the native addon is missing for this platform; typed weight keeps working. */
 export function loadSerialBinding(): Promise<SerialBinding | null> {
   binding ??= import('@serialport/bindings-cpp')
     .then((module): SerialBinding => module.autoDetect())
-    .catch(() => null);
+    .catch((error: unknown) => {
+      reportLoadError(error);
+      return null;
+    });
   return binding;
 }
 
@@ -64,7 +73,8 @@ export class ScaleOpenError extends Error {
 export function openErrorCode(error: unknown): ScaleErrorCode {
   const errno = (error as NodeJS.ErrnoException | undefined)?.code ?? '';
   const message = error instanceof Error ? error.message : '';
-  return /EBUSY|EACCES|EPERM/.test(errno) || /lock|Access is denied/i.test(message)
+  return /EBUSY|EACCES|EPERM/.test(errno) ||
+    /lock|busy|Access (is )?denied|Permission denied/i.test(message)
     ? 'SCALE_BUSY'
     : 'SCALE_DISCONNECTED';
 }

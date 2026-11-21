@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useId,
   useMemo,
@@ -67,6 +68,10 @@ export function WeighedItemPanel({
   const [error, setError] = useState<string | null>(null);
   const { selection, grams } = session;
   const kgFormat = useMemo(() => kilogramFormat(locale), [locale]);
+  const setScaleReading = useCallback((next: boolean) => {
+    setReading(next);
+    if (next) setError(null);
+  }, []);
   useEffect(() => {
     firstKeyRef.current?.focus({ preventScroll: true });
   }, []);
@@ -173,7 +178,7 @@ export function WeighedItemPanel({
             buttonRef={scaleKeyRef}
             pressed={choice?.kind === 'scale'}
             reading={reading}
-            onReadingChange={setReading}
+            onReadingChange={setScaleReading}
             onWeight={kilograms => commit({ kind: 'scale', value: kilograms })}
             onError={setError}
           />
@@ -236,7 +241,12 @@ export function WeighedItemPanel({
               data-testid={`weighed-item-${entry}-input`}
             />
           </label>
-          <button type="submit" className="btn-primary min-h-11" data-testid="weighed-item-submit">
+          <button
+            type="submit"
+            className="btn-primary min-h-11"
+            disabled={reading}
+            data-testid="weighed-item-submit"
+          >
             {t('add')}
           </button>
         </form>

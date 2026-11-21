@@ -62,7 +62,7 @@ export async function saveScaleSettings(
     return { status: 'error', code: 'SCALE_PORT_UNAVAILABLE' };
   assertSession();
   await deps.write(tenantId, config);
-  return { status: 'saved', settings: { available: true, ports, config } };
+  return { status: 'saved', settings: { available: await deps.driverAvailable(), ports, config } };
 }
 
 /** Reads a draft configuration before it is saved; never stores it. */

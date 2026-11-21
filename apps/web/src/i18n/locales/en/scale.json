@@ -34,6 +34,7 @@
     "noPorts": "No serial ports found. Connect the scale and refresh the list.",
     "unavailable": "This computer cannot read serial scales. Weights are typed at the till.",
     "weight": "Read {{weight}} kg.",
-    "saveFailed": "Could not save the scale. Refresh the ports and try again."
+    "saveFailed": "Could not save the scale. Refresh the ports and try again.",
+    "loadFailed": "Could not load the scale settings. Refresh the ports and try again."
   }
 }
