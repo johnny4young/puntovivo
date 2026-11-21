@@ -19,10 +19,26 @@ export const availableProviderPurchasesInput = providerIdInput.extend({
 });
 export type AvailableProviderPurchasesInput = z.infer<typeof availableProviderPurchasesInput>;
 
+const providerInvoiceLineInput = z
+  .object({
+    productId: z.string().min(1),
+    /** Quantity in the product's base unit, as printed by the supplier. */
+    quantity: z.number().finite().positive(),
+    unitCost: payableAmountInput,
+  })
+  .strict();
+
 export const createProviderInvoiceInput = z
   .object({
     providerId: z.string().min(1),
     purchaseId: z.string().min(1).optional(),
+    /** Several deliveries (remisiones) consolidated by one final invoice.
+     * Takes precedence over the legacy single purchaseId. */
+    purchaseIds: z.array(z.string().min(1)).min(1).max(50).optional(),
+    /** Invoice lines as printed by the supplier. Required when consolidating
+     * several purchases: each product must match what was received, in base
+     * units, before the invoice is accepted. */
+    lines: z.array(providerInvoiceLineInput).min(1).max(200).optional(),
     documentNumber: z.string().trim().min(1).max(80),
     issuedAt: payableCalendarDayInput,
     dueAt: payableCalendarDayInput,
@@ -33,7 +49,16 @@ export const createProviderInvoiceInput = z
   .refine(value => occursOnOrAfter(value.dueAt, value.issuedAt), {
     message: 'Due date cannot be before issue date',
     path: ['dueAt'],
-  });
+  })
+  .refine(
+    value => !((value.purchaseIds?.length ?? 0) > 1 && !value.lines?.length),
+    {
+      message: 'Invoice lines are required when consolidating several purchases',
+      path: ['lines'],
+    }
+  );
+
+export type ProviderInvoiceLineInput = z.infer<typeof providerInvoiceLineInput>;
 
 export const createProviderOpeningBalanceInput = z
   .object({
