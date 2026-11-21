@@ -57,7 +57,7 @@ export interface RegisterIncidentRow {
   stockBySite: SiteStock[];
 }
 
-/** On-hand of each product at every site of the tenant, sites without a balance omitted. */
+/** On-hand of each product at every active site of the tenant, sites without a balance omitted. */
 export function getStockBySite(
   db: DatabaseInstance,
   tenantId: string,
@@ -73,7 +73,14 @@ export function getStockBySite(
       onHand: inventoryBalances.onHand,
     })
     .from(inventoryBalances)
-    .innerJoin(sites, and(eq(sites.id, inventoryBalances.siteId), eq(sites.tenantId, tenantId)))
+    .innerJoin(
+      sites,
+      and(
+        eq(sites.id, inventoryBalances.siteId),
+        eq(sites.tenantId, tenantId),
+        eq(sites.isActive, true)
+      )
+    )
     .where(
       and(
         eq(inventoryBalances.tenantId, tenantId),
@@ -98,6 +105,19 @@ function findTenantProduct(db: DatabaseInstance, tenantId: string, productId: st
     .get();
   if (!product) throw new TRPCError({ code: 'NOT_FOUND', message: 'Product not found' });
   return product;
+}
+
+// Rows written by the SQLite column default lack the ISO "T" and "Z"; read and compare one shape.
+const createdInstant = sql<string>`strftime('%Y-%m-%dT%H:%M:%fZ', ${registerIncidents.createdAt})`;
+
+/** The raw-column range keeps the index usable and holds both shapes; the instant decides. */
+function createdInBusinessDay(day: { startIso: string; endExclusiveIso: string }) {
+  return and(
+    gte(registerIncidents.createdAt, day.startIso.slice(0, 10)),
+    lt(registerIncidents.createdAt, day.endExclusiveIso),
+    gte(createdInstant, day.startIso),
+    lt(createdInstant, day.endExclusiveIso)
+  );
 }
 
 async function businessDayWindow(db: DatabaseInstance, tenantId: string, now: Date) {
@@ -137,8 +157,7 @@ export async function reportRegisterIncident(
           eq(registerIncidents.siteId, scope.siteId),
           eq(registerIncidents.kind, input.kind),
           eq(registerIncidents.status, 'open'),
-          gte(registerIncidents.createdAt, day.startIso),
-          lt(registerIncidents.createdAt, day.endExclusiveIso),
+          createdInBusinessDay(day),
           product
             ? eq(registerIncidents.productId, product.id)
             : isNull(registerIncidents.productId),
@@ -157,7 +176,7 @@ export async function reportRegisterIncident(
           ...(shelfPrice !== null ? { shelfPrice } : {}),
           ...(note ? { note } : {}),
           systemPrice: product?.price ?? null,
-          updatedAt: new Date().toISOString(),
+          updatedAt: now.toISOString(),
         })
         .where(eq(registerIncidents.id, existing.id))
         .run();
@@ -180,6 +199,8 @@ export async function reportRegisterIncident(
       note,
       reportedBy: scope.userId,
       cashSessionId: session?.id ?? null,
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
     })
     .run();
   return { id };
@@ -204,7 +225,7 @@ export function listOpenRegisterIncidents(
       note: registerIncidents.note,
       reportedBy: registerIncidents.reportedBy,
       reportedByName: users.name,
-      createdAt: registerIncidents.createdAt,
+      createdAt: createdInstant,
     })
     .from(registerIncidents)
     .innerJoin(sites, eq(sites.id, registerIncidents.siteId))
@@ -216,7 +237,7 @@ export function listOpenRegisterIncidents(
         siteId ? eq(registerIncidents.siteId, siteId) : undefined
       )
     )
-    .orderBy(desc(registerIncidents.createdAt))
+    .orderBy(desc(createdInstant))
     .all();
   const stock = getStockBySite(
     db,
@@ -312,7 +333,7 @@ export async function getLatestRegisterIncidentToday(
       kind: registerIncidents.kind,
       productName: registerIncidents.productName,
       note: registerIncidents.note,
-      createdAt: registerIncidents.createdAt,
+      createdAt: createdInstant,
       registerName: cashSessions.registerName,
     })
     .from(registerIncidents)
@@ -321,12 +342,11 @@ export async function getLatestRegisterIncidentToday(
       and(
         eq(registerIncidents.tenantId, scope.tenantId),
         eq(registerIncidents.siteId, scope.siteId),
-        gte(registerIncidents.createdAt, day.startIso),
-        lt(registerIncidents.createdAt, day.endExclusiveIso)
+        createdInBusinessDay(day)
       )
     )
     // rowid breaks same-millisecond ties in insertion order.
-    .orderBy(desc(registerIncidents.createdAt), desc(sql`${registerIncidents}.rowid`))
+    .orderBy(desc(createdInstant), desc(sql`${registerIncidents}.rowid`))
     .limit(1)
     .get();
   return row ?? null;

@@ -226,6 +226,43 @@ function PendingRow({
 }
 
 type Translate = ReturnType<typeof useTranslation>['t'];
+type Incident = Extract<TodayPendingItem, { kind: 'incident' }>['incident'];
+
+/** Only a stockout offers a transfer, from the other site holding the most stock. */
+function transferSource(incident: Incident) {
+  if (incident.kind !== 'stockout') return null;
+  return incident.stockBySite.reduce<Incident['stockBySite'][number] | null>(
+    (best, site) =>
+      site.siteId !== incident.siteId && site.onHand > (best?.onHand ?? 0) ? site : best,
+    null
+  );
+}
+
+/** What the cashier reported beyond the product: the reason, both prices, or the note. */
+function incidentFacts(
+  incident: Incident,
+  t: Translate,
+  formatCurrency: (value: number) => string
+): Array<string | false | null> {
+  switch (incident.kind) {
+    case 'stockout':
+      return [incident.reason && t(`dashboard:today.pending.incidentReason.${incident.reason}`)];
+    case 'price_mismatch':
+      return [
+        incident.shelfPrice !== null &&
+          t('dashboard:today.pending.incidentShelfPrice', {
+            price: formatCurrency(incident.shelfPrice),
+          }),
+        incident.systemPrice !== null &&
+          t('dashboard:today.pending.incidentSystemPrice', {
+            price: formatCurrency(incident.systemPrice),
+          }),
+      ];
+    case 'no_barcode':
+      // Without a product the note is already the title.
+      return [incident.productName ? incident.note : null];
+  }
+}
 
 function describe(
   item: TodayPendingItem,
@@ -255,23 +292,22 @@ function describe(
         detail: t('dashboard:today.pending.staleSessionDetail', { cashier: item.cashierName }),
       };
     case 'incident': {
-      const elsewhere = item.incident.stockBySite.find(
-        site => site.siteId !== item.incident.siteId && site.onHand > 0
-      );
+      const { incident } = item;
+      const source = transferSource(incident);
       return {
-        title: t(`dashboard:today.pending.incident.${item.incident.kind}`, {
-          product: item.incident.productName ?? item.incident.note ?? '',
+        title: t(`dashboard:today.pending.incident.${incident.kind}`, {
+          product: incident.productName ?? incident.note ?? '',
         }),
-        detail: t('dashboard:today.pending.incidentDetail', {
-          reporter: item.incident.reportedByName,
-          site: item.incident.siteName,
-          elsewhere: elsewhere
-            ? t('dashboard:today.pending.elsewhere', {
-                site: elsewhere.siteName,
-                count: elsewhere.onHand,
-              })
-            : '',
-        }),
+        detail: [
+          ...incidentFacts(incident, t, formatCurrency),
+          t('dashboard:today.pending.incidentReporter', { reporter: incident.reportedByName }),
+          incident.siteName,
+          formatTime(item.at),
+          source &&
+            t('dashboard:today.pending.elsewhere', { site: source.siteName, count: source.onHand }),
+        ]
+          .filter(Boolean)
+          .join(' · '),
       };
     }
     case 'attention':
@@ -296,14 +332,12 @@ function rowAction(
         label: t('dashboard:today.pending.actions.countAndClose'),
       };
     case 'incident': {
-      const elsewhere = item.incident.stockBySite.find(
-        site => site.siteId !== item.incident.siteId && site.onHand > 0
-      );
-      return item.incident.kind === 'stockout' && elsewhere
+      const source = transferSource(item.incident);
+      return source
         ? {
             kind: 'link',
             to: '/inventory?view=balances',
-            label: t('dashboard:today.pending.actions.transfer', { count: elsewhere.onHand }),
+            label: t('dashboard:today.pending.actions.transfer', { count: source.onHand }),
           }
         : null;
     }
