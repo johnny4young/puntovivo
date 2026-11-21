@@ -2,21 +2,32 @@ import { AlertTriangle, ArrowRight, CheckCircle2, CircleSlash, XCircle } from 'l
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { fiscalInProgress } from '@/features/dashboard/close/closeModel';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '@puntovivo/server';
 
 type DayCloseReport = inferRouterOutputs<AppRouter>['reports']['dayClose']['preview'];
 
 type CheckCode =
-  'open_sessions' | 'cash_discrepancies' | 'fiscal_pending' | 'fiscal_rejected' | 'high_anomalies';
+  | 'open_sessions'
+  | 'unexplained_differences'
+  | 'unresolved_drafts'
+  | 'cash_discrepancies'
+  | 'fiscal_pending'
+  | 'fiscal_rejected'
+  | 'high_anomalies';
 type CheckState = 'blocker' | 'warning' | 'done';
 
-const CHECK_LINKS: Record<CheckCode, string> = {
-  open_sessions: '/operations?tab=cash',
-  cash_discrepancies: '/operations?tab=cash',
-  fiscal_pending: '/fiscal-documents',
-  fiscal_rejected: '/fiscal-documents',
-  high_anomalies: '/dashboard',
+// Differences and parked sales are resolved row by row in Hoy's guided close for that day.
+const guidedClose = (report: DayCloseReport) => `/dashboard?close=${report.date}`;
+const CHECK_LINKS: Record<CheckCode, (report: DayCloseReport) => string> = {
+  open_sessions: () => '/operations?tab=cash',
+  unexplained_differences: guidedClose,
+  unresolved_drafts: guidedClose,
+  cash_discrepancies: () => '/operations?tab=cash',
+  fiscal_pending: () => '/fiscal-documents',
+  fiscal_rejected: () => '/fiscal-documents',
+  high_anomalies: () => '/dashboard',
 };
 // Fiscal documents are admin only, so managers see the count without a dead link.
 const ADMIN_ONLY_CHECKS: ReadonlySet<CheckCode> = new Set(['fiscal_pending', 'fiscal_rejected']);
@@ -27,26 +38,14 @@ const STATE_STYLE: Record<CheckState, { icon: typeof XCircle; tone: string }> = 
   done: { icon: CheckCircle2, tone: 'text-success-700' },
 };
 
-function checkCount(report: DayCloseReport, code: CheckCode): number {
-  switch (code) {
-    case 'open_sessions':
-      return report.cash.openSessions;
-    case 'cash_discrepancies':
-      return report.cash.discrepancySessions;
-    case 'fiscal_pending':
-      return (
-        report.fiscal.byStatus.pending +
-        report.fiscal.byStatus.sent +
-        report.fiscal.byStatus.contingency +
-        report.fiscal.byStatus.notified_correction +
-        report.fiscal.byStatus.partial_send
-      );
-    case 'fiscal_rejected':
-      return report.fiscal.byStatus.rejected;
-    case 'high_anomalies':
-      return report.anomalies.high;
-  }
-}
+// The guided-close checks carry no total in the report; their detail names the next step.
+const CHECK_COUNTS: Partial<Record<CheckCode, (report: DayCloseReport) => number>> = {
+  open_sessions: report => report.cash.openSessions,
+  cash_discrepancies: report => report.cash.discrepancySessions,
+  fiscal_pending: fiscalInProgress,
+  fiscal_rejected: report => report.fiscal.byStatus.rejected,
+  high_anomalies: report => report.anomalies.high,
+};
 
 export function DayCloseChecklist({
   report,
@@ -94,7 +93,7 @@ export function DayCloseChecklist({
               {state !== 'done' && (
                 <span className="min-w-0 flex-1 text-xs text-secondary-600">
                   {t(`dayClose.checklist.details.${code}`, {
-                    count: checkCount(report, code),
+                    count: CHECK_COUNTS[code]?.(report) ?? 0,
                     amount: cashDifference,
                   })}
                 </span>
@@ -107,7 +106,7 @@ export function DayCloseChecklist({
                 !frozen &&
                 (isAdmin || !ADMIN_ONLY_CHECKS.has(code)) && (
                   <Link
-                    to={CHECK_LINKS[code]}
+                    to={CHECK_LINKS[code](report)}
                     className="ml-auto inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-primary-700 hover:underline"
                     data-testid={`day-close-check-link-${code}`}
                   >

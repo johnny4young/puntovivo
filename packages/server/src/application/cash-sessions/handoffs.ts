@@ -19,12 +19,7 @@ import {
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { roundMoney } from '../../lib/money.js';
-import {
-  checkStaffPin,
-  registerStaffPinFailure,
-  registerStaffPinSuccess,
-} from '../../security/loginRateLimit.js';
-import { getDummyStaffPinHash, verifyStaffPin } from '../../security/staffPins.js';
+import { readStaffPinHash, verifyOwnStaffPin } from '../../security/staffPinCheck.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import { getClosingCountTotal } from '../../services/cash-session.js';
@@ -60,31 +55,23 @@ async function signAsActor(
   userId: string,
   pin: string | null | undefined
 ): Promise<CashHandoffSignature> {
-  const identity = { tenantId, actorUserId: userId, targetUserId: userId };
-  const actor = db
-    .select({ staffPinHash: users.staffPinHash })
-    .from(users)
-    .where(and(eq(users.id, userId), eq(users.tenantId, tenantId)))
-    .get();
-  if (!actor?.staffPinHash && !pin) return 'session';
-  if (actor?.staffPinHash && !pin) {
+  const staffPinHash = readStaffPinHash(db, tenantId, userId);
+  if (!staffPinHash && !pin) return 'session';
+  if (staffPinHash && !pin) {
     throwServerError({
       trpcCode: 'BAD_REQUEST',
       errorCode: 'CASH_HANDOFF_PIN_REQUIRED',
       message: 'Enter your staff PIN to sign the handoff',
     });
   }
-  checkStaffPin(db, identity);
-  const matches = await verifyStaffPin(actor?.staffPinHash ?? (await getDummyStaffPinHash()), pin!);
-  if (!actor?.staffPinHash || !matches) {
-    registerStaffPinFailure(db, identity);
+  if (!(await verifyOwnStaffPin(db, { tenantId, userId, staffPinHash }, pin!))) {
     throwServerError({
-      trpcCode: 'UNAUTHORIZED',
+      // Not 401: the client refreshes and resends on 401, which would count one wrong PIN twice.
+      trpcCode: 'FORBIDDEN',
       errorCode: 'CASH_HANDOFF_PIN_INVALID',
       message: 'The staff PIN does not match',
     });
   }
-  registerStaffPinSuccess(db, identity);
   return 'pin';
 }
 

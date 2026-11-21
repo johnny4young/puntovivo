@@ -71,17 +71,33 @@ export function HandoffFrame({
 
 export type HandoffStep = 1 | 2 | 3;
 
-export function HandoffStepper({ step }: { step: HandoffStep }) {
+/** Numbered steps; a step past the last one marks every step done. */
+export function HandoffStepper({
+  step,
+  labels,
+  testId = 'handoff-stepper',
+  className,
+}: {
+  step: number;
+  labels?: string[];
+  testId?: string;
+  className?: string;
+}) {
   const { t } = useTranslation('cashHandoffs');
-  const steps = [t('sheet.steps.count'), t('sheet.steps.handover'), t('sheet.steps.sign')];
+  const steps = labels ?? [
+    t('sheet.steps.count'),
+    t('sheet.steps.handover'),
+    t('sheet.steps.sign'),
+  ];
   return (
-    <ol className="mt-3 flex flex-wrap items-center gap-1" data-testid="handoff-stepper">
+    <ol className={cn('mt-3 flex flex-wrap items-center gap-1', className)} data-testid={testId}>
       {steps.map((label, index) => {
-        const number = (index + 1) as HandoffStep;
+        const number = index + 1;
         const state = number < step ? 'done' : number === step ? 'now' : 'next';
         return (
           <li
             key={label}
+            data-state={state}
             aria-current={state === 'now' ? 'step' : undefined}
             className={cn(
               'flex h-9 items-center gap-[7px] rounded-[18px] pl-2 pr-[13px] text-sm font-semibold',

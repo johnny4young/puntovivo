@@ -50,6 +50,7 @@
     "DAY_CLOSE_FUTURE_DATE": "Elija el día comercial de hoy o uno anterior para este reporte.",
     "DAY_CLOSE_ALREADY_SIGNED": "Este día comercial ya fue firmado. Actualice para cargar su evidencia inmutable.",
     "DAY_CLOSE_NOT_READY": "Resuelva todos los bloqueos antes de firmar este día comercial.",
+    "DAY_CLOSE_PIN_INVALID": "Ese PIN no coincide. Intente de nuevo o firme en la pantalla.",
     "DAY_CLOSE_SIGNOFF_INTEGRITY_FAILED": "La evidencia firmada del cierre no superó la verificación de integridad. Deténgase y contacte a soporte.",
     "PRODUCT_FRACTION_STEP_REQUIRED": "Configure un paso fraccional mayor que cero antes de habilitar la venta fraccionada.",
     "PRODUCT_FRACTION_MINIMUM_REQUIRED": "Configure una cantidad mínima de venta mayor que cero antes de habilitar la venta fraccionada.",

@@ -1,4 +1,5 @@
 import { and, desc, eq } from 'drizzle-orm';
+import { readStaffPinHash } from '../../security/staffPinCheck.js';
 import type { DatabaseInstance } from '../../db/index.js';
 import { cashMovements, cashSessions, sites, users } from '../../db/schema.js';
 import {
@@ -294,14 +295,9 @@ export const cashSessionsRouter = router({
       });
     }),
   /** Whether the caller signs a handoff with a staff PIN or with the session. */
-  mySigner: cashierManagerOrAdminProcedure.query(({ ctx }) => {
-    const row = ctx.db
-      .select({ staffPinHash: users.staffPinHash })
-      .from(users)
-      .where(and(eq(users.id, ctx.user!.id), eq(users.tenantId, ctx.tenantId)))
-      .get();
-    return { hasPin: !!row?.staffPinHash };
-  }),
+  mySigner: cashierManagerOrAdminProcedure.query(({ ctx }) => ({
+    hasPin: readStaffPinHash(ctx.db, ctx.tenantId, ctx.user!.id) !== null,
+  })),
   /** The caller's own open shift for the handoff sheet; no cashier id is accepted. */
   myShiftSummary: cashierManagerOrAdminProcedure
     .input(getActiveCashSessionInput)

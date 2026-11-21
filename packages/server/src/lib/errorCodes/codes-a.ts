@@ -194,6 +194,8 @@ export const SERVER_ERROR_CODES_A = {
   DAY_CLOSE_ALREADY_SIGNED: 'DAY_CLOSE_ALREADY_SIGNED',
   /** a report with readiness blockers cannot be attested. */
   DAY_CLOSE_NOT_READY: 'DAY_CLOSE_NOT_READY',
+  /** the manager chose to sign the close with a staff PIN that did not match. */
+  DAY_CLOSE_PIN_INVALID: 'DAY_CLOSE_PIN_INVALID',
   /** the persisted snapshot no longer matches its canonical hash or schema. */
   DAY_CLOSE_SIGNOFF_INTEGRITY_FAILED: 'DAY_CLOSE_SIGNOFF_INTEGRITY_FAILED',
   /**

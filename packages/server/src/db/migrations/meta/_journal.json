@@ -722,6 +722,13 @@
       "when": 1795238929010,
       "tag": "0102_cash_session_handoffs",
       "breakpoints": true
+    },
+    {
+      "idx": 103,
+      "version": "6",
+      "when": 1795247341758,
+      "tag": "0103_day_close_signature",
+      "breakpoints": true
     }
   ]
 }

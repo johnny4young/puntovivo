@@ -57,6 +57,7 @@ estimates, and private work queues do not belong in ADRs.
 | [ADR-0034](./0034-server-worker-restart.md)                              | Restart the server worker after a crash    | Proposed |
 | [ADR-0035](./0035-backups-off-the-main-thread.md)                        | Build backup bundles off the main thread   | Proposed |
 | [ADR-0036](./0036-mid-day-register-handoff.md)                           | Mid-day register handoff                   | Accepted |
+| [ADR-0037](./0037-guided-day-close.md)                                   | Guided day close                           | Accepted |
 
 ## Reusable implementation patterns
 

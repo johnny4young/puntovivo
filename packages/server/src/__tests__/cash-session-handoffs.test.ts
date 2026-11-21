@@ -345,10 +345,12 @@ describe('register handoff', () => {
     const count = { actualCount: 0, denominations: [] };
 
     await expectCode(as(staff.diego).cashSessions.startHandoff(count), 'CASH_HANDOFF_PIN_REQUIRED');
-    await expectCode(
-      as(staff.diego).cashSessions.startHandoff({ ...count, pin: '111111' }),
-      'CASH_HANDOFF_PIN_INVALID'
-    );
+    await expect(
+      as(staff.diego).cashSessions.startHandoff({ ...count, pin: '111111' })
+    ).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+      cause: expect.objectContaining({ errorCode: 'CASH_HANDOFF_PIN_INVALID' }),
+    });
     const handoff = await as(staff.diego).cashSessions.startHandoff({ ...count, pin: '482915' });
     expect(handoff.fromSignature).toBe('pin');
 
