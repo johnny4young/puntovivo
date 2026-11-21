@@ -950,6 +950,7 @@
       "items_other": "{{count}} artículos",
       "lines_one": "{{count}} línea",
       "lines_other": "{{count}} líneas",
+      "prescriptions": "{{count}} con fórmula",
       "savings": "Descuentos",
       "taxIncluded": "IVA incluido"
     },

@@ -6,6 +6,7 @@ import { formatCurrency } from '@/lib/utils';
 import type { ProductSearchItem } from '@/types';
 import { getDefaultProductUnit } from './productSearchSelection';
 import { Badge } from '@/components/ui';
+import { PharmacyResultHints } from '@/features/sales/PharmacyResultHints';
 interface ProductSearchResultsProps {
   items: readonly ProductSearchItem[];
   isLoading: boolean;
@@ -14,6 +15,10 @@ interface ProductSearchResultsProps {
   query: string;
   selectedProductId: string | undefined;
   discountSuggestions: ReadonlyMap<string, number>;
+  /** Register only: medicines show their lot, class and generic savings. */
+  pharmacyHints?: boolean;
+  /** Savings of each listed product that is a cheaper equivalent of the pick. */
+  genericSavings?: ReadonlyMap<string, number>;
   canCreateProducts: boolean;
   quickCreateAvailable: boolean;
   onQuickCreate: () => void;
@@ -27,6 +32,8 @@ export function ProductSearchResults({
   query,
   selectedProductId,
   discountSuggestions,
+  pharmacyHints = false,
+  genericSavings,
   canCreateProducts,
   quickCreateAvailable,
   onQuickCreate,
@@ -175,7 +182,7 @@ export function ProductSearchResults({
                     onFocus={() => setActiveRowIndex(index)}
                     onKeyDown={event => handleRowKeyDown(event, index, product)}
                   >
-                    <td className="px-4 py-3 text-sm font-medium text-secondary-700">
+                    <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-secondary-700">
                       {product.sku}
                     </td>
                     <td className="px-4 py-3">
@@ -193,11 +200,19 @@ export function ProductSearchResults({
                             </Badge>
                           )}
                         </p>
-                        <p className="text-xs text-secondary-500">
-                          {product.categoryName ?? t('productSearch.noCategory')}
-                          {' · '}
-                          {product.providerName ?? t('productSearch.noProvider')}
-                        </p>
+                        {pharmacyHints && product.pharmacy ? (
+                          <PharmacyResultHints
+                            product={product}
+                            profile={product.pharmacy}
+                            savings={genericSavings?.get(product.id)}
+                          />
+                        ) : (
+                          <p className="text-xs text-secondary-500">
+                            {product.categoryName ?? t('productSearch.noCategory')}
+                            {' · '}
+                            {product.providerName ?? t('productSearch.noProvider')}
+                          </p>
+                        )}
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm text-secondary-700">

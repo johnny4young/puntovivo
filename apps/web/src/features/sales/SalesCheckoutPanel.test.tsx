@@ -51,6 +51,15 @@ describe('SalesCheckoutPanel dock', () => {
     expect(screen.getByTestId('checkout-savings')).toHaveTextContent(`−${formatCurrency(1_960)}`);
   });
 
+  it('counts prescription lines in place of the line count', () => {
+    renderDock({ prescriptionLineCount: 1 });
+    const total = within(screen.getByTestId('checkout-total'));
+    expect(total.getByTestId('checkout-prescription-count')).toHaveTextContent(
+      '1 with prescription'
+    );
+    expect(total.queryByText(/7 lines/)).not.toBeInTheDocument();
+  });
+
   it('leaves discounts out of the breakdown when there are none', () => {
     renderDock();
     expect(screen.queryByTestId('checkout-savings')).not.toBeInTheDocument();
@@ -154,9 +163,7 @@ describe('SalesCheckoutPanel dock', () => {
         receiveHandoff={{ registerName: 'Caja 2', isSelectedRegister: false, open }}
       />
     );
-    expect(screen.getByTestId('checkout-primary-action')).toHaveAccessibleName(
-      'Open cash session'
-    );
+    expect(screen.getByTestId('checkout-primary-action')).toHaveAccessibleName('Open cash session');
     fireEvent.click(screen.getByTestId('sales-receive-handoff'));
     expect(open).toHaveBeenCalledTimes(2);
   });

@@ -29,6 +29,7 @@ import {
   requireAuthenticPharmacyPrescriptionEvidence,
   requireAuthenticPharmacyProfessionalCredential,
 } from '../../services/pharmacy/evidence-integrity.js';
+import { resolveNextLotHints } from '../../services/inventory-lots/next-lot.js';
 import { resolvePharmacyPolicy } from '../../services/pharmacy/policy.js';
 import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import type { PharmacyCheckoutRequirementsInput } from '../../trpc/schemas/pharmacy.js';
@@ -147,6 +148,7 @@ export async function getPharmacyCheckoutRequirements(
     expiresAt: string;
     status: 'approved';
     remainingQuantity: number;
+    approverName: string;
   };
   const evidenceByProduct = new Map<string, EligibleEvidenceSummary[]>();
   const eligibleEvidenceIds = new Set<string>();
@@ -180,6 +182,7 @@ export async function getPharmacyCheckoutRequirements(
           authorizationCredentialType: pharmacyProfessionalAuthorizations.credentialType,
           authorizationCredentialDigest: pharmacyProfessionalAuthorizations.credentialDigest,
           authorizationSealedCredential: pharmacyProfessionalAuthorizations.sealedCredential,
+          approverName: users.name,
         })
         .from(pharmacyPrescriptionEvidence)
         .innerJoin(
@@ -262,6 +265,7 @@ export async function getPharmacyCheckoutRequirements(
           expiresAt: row.expiresAt,
           status: 'approved',
           remainingQuantity,
+          approverName: row.approverName,
         });
         eligibleEvidenceIds.add(row.id);
         remainingSelectionSlots -= 1;
@@ -425,6 +429,13 @@ export async function getPharmacyCheckoutRequirements(
     }
   }
 
+  // The ticket line names the lot the sale will take first.
+  const nextLots = await resolveNextLotHints(db, {
+    tenantId,
+    siteId,
+    productIds: profiles.map(profile => profile.productId),
+    clock,
+  });
   const requirements = requirementContexts.map(({ profile, decision, blockCode }) => {
     return {
       productId: profile.productId,
@@ -434,6 +445,8 @@ export async function getPharmacyCheckoutRequirements(
       policyVersion: decision.policyVersion,
       evidenceRequired: decision.evidenceRequired,
       professionalApprovalRequired: decision.professionalApprovalRequired,
+      customerRequired: decision.customerRequired,
+      nextLot: nextLots.get(profile.productId) ?? null,
       blockedErrorCode:
         blockCode ??
         (evidenceSelectionLimitByProduct.has(profile.productId)

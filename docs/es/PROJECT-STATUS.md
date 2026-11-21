@@ -279,7 +279,11 @@ El candidato validado actual incluye:
   evidencia mínima sellada de recetas, consumo determinista de cantidades,
   dispensaciones inmutables, eventos de estado de lote solo anexables, cuarentena,
   incidente de cadena de frío, retiro, liberación, destrucción, devolución al
-  proveedor y consulta de ventas afectadas. Colombia v1 permite venta libre y
+  proveedor y consulta de ventas afectadas. En la caja, los resultados de
+  búsqueda y las líneas del ticket muestran el lote FEFO, los lotes por vencer
+  que deben salir primero, la clase de venta y los equivalentes más económicos,
+  y cada línea con fórmula muestra su evidencia aprobada antes de Cobrar.
+  Colombia v1 permite venta libre y
   exige cliente actual, evidencia y empleado autorizado vigente para productos
   con receta. Los medicamentos controlados y la operación con receta en países
   sin adaptador revisado se rechazan de forma segura. Una receta aún válida cuya

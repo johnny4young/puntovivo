@@ -97,6 +97,15 @@ presentar replicación parcial como completa.
   solo lotes activos sin vencer, así un retiro excluye al candidato igual que
   bloquea la venta. Un producto desconocido, de otro negocio o que no es
   medicamento devuelve lista vacía.
+- La caja lee el mismo preflight del cobro antes de Cobrar, así cada línea de
+  medicamento muestra su clase, el lote FEFO que tomará la venta y si una
+  evidencia aprobada la cubre, y el ticket dice cuándo se requiere cliente. El
+  preflight agrega el requisito de cliente de la política, el siguiente lote y
+  el nombre del empleado que aprobó; no devuelve datos del cliente ni contenido
+  de la evidencia. Una búsqueda de productos por sede, pedida por un rol de
+  venta, también trae el siguiente lote de cada producto con lotes, marcado cuando cae dentro de la
+  ventana de descuento por vencimiento más amplia del negocio. Son pistas: el
+  cobro sigue siendo la autoridad.
 - Gerentes/admin operan lotes, evidencia, autorizaciones y retiros. Contactos
   PII de retiro solo admin; gerente recibe IDs; cajero no abre investigación.
 - Credencial actual corrupta desactiva aprobación y muestra integridad, pero no

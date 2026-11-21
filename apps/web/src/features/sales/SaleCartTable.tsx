@@ -14,10 +14,14 @@ import { useDiscountSuggestions } from '@/features/sales/useDiscountSuggestions'
 import { SaleSerialSelector } from '@/features/sales/SaleSerialSelector';
 import { usePhoneLayout } from '@/features/sales/usePhoneLayout';
 import { Button } from '@/components/ui';
+import { PharmacyClassTag, PharmacyLotTag, PharmacyStatusTag } from '@/features/sales/PharmacyTags';
+import type { PharmacyLineHint } from '@/features/sales/pharmacyRegister';
 interface SaleCartTableProps {
   items: SaleCartItem[];
   /** active site scopes the expiry-suggestion badge to this POS. */
   discountSuggestionSiteId?: string | null;
+  /** Medicine lines by product id: lot, class and prescription state. */
+  pharmacyLines?: ReadonlyMap<string, PharmacyLineHint> | undefined;
   selectedItemKey: string | null;
   onQuantityChange: (itemKey: string, quantity: number) => void;
   onDiscountChange: (itemKey: string, discount: number) => void;
@@ -35,6 +39,7 @@ interface SaleCartTableProps {
 export function SaleCartTable({
   items,
   discountSuggestionSiteId = null,
+  pharmacyLines,
   selectedItemKey,
   onQuantityChange,
   onDiscountChange,
@@ -152,6 +157,7 @@ export function SaleCartTable({
             )
             .flatMap(otherItem => otherItem.serialIds ?? []);
           const suggestedDiscount = discountSuggestions.get(item.productId) ?? 0;
+          const pharmacy = pharmacyLines?.get(item.productId);
           // A presentation is any line not sold in the base unit, even at equivalence 1.
           const isPresentation = item.isBaseUnit === false || item.unitEquivalence !== 1;
           const presentationLabel = t('cart.unitPresentation', {
@@ -220,6 +226,30 @@ export function SaleCartTable({
                       </span>
                     )}
                   </span>
+                  {pharmacy && (
+                    <span
+                      className="sales-ticket-meta"
+                      data-testid={`cart-pharmacy-${item.productSku}`}
+                    >
+                      {pharmacy.nextLot && (
+                        <PharmacyLotTag
+                          lot={pharmacy.nextLot}
+                          plain
+                          testId={`cart-pharmacy-lot-${item.productSku}`}
+                        />
+                      )}
+                      <PharmacyClassTag
+                        classification={pharmacy.classification}
+                        testId={`cart-pharmacy-class-${item.productSku}`}
+                      />
+                      {pharmacy.status && (
+                        <PharmacyStatusTag
+                          status={pharmacy.status}
+                          testId={`cart-pharmacy-status-${item.productSku}`}
+                        />
+                      )}
+                    </span>
+                  )}
                 </button>
 
                 {/* Phones read an unselected line as name, quantity and total. */}

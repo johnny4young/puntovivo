@@ -1,0 +1,33 @@
+{
+  "lot": {
+    "next": "Lote {{lot}} · vence {{month}}",
+    "nextNoExpiry": "Lote {{lot}}",
+    "leaveFirst_one": "Vence en {{count}} día · salga primero de este lote",
+    "leaveFirst_other": "Vence en {{count}} días · salga primero de este lote",
+    "leaveFirstToday": "Vence hoy · salga primero de este lote"
+  },
+  "classification": {
+    "otc": "Venta libre",
+    "prescription": "Con fórmula",
+    "controlled": "Control especial"
+  },
+  "generic": {
+    "sameIngredient": "Genérico · mismo principio activo y concentración",
+    "savings": "Le ahorra {{amount}} al cliente",
+    "panelTitle": "Mismo principio activo, más económico",
+    "choose": "Elegir {{name}}"
+  },
+  "line": {
+    "ready": "Fórmula registrada · aprobó {{name}}",
+    "missing": "Falta la fórmula",
+    "blocked": "No se puede vender"
+  },
+  "customer": {
+    "required": "Obligatorio porque lleva un medicamento con fórmula",
+    "validUntil": "fórmula vigente hasta el {{date}}",
+    "validUntilQuantity": "fórmula vigente hasta el {{date}}, {{remaining}} de {{authorized}} autorizadas",
+    "missing": "Asigne el cliente: lleva un medicamento con fórmula",
+    "assign": "Asignar cliente"
+  },
+  "controlled": "Los medicamentos de control especial todavía no se pueden vender en Puntovivo: quítelos del ticket para cobrar."
+}

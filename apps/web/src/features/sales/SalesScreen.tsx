@@ -40,6 +40,8 @@ import { usePrintSaleReceipt } from './useReceiptAutoPrint';
 import { usePhoneLayout } from './usePhoneLayout';
 import { hasAccount, useCustomerAccount } from './useCustomerAccount';
 import { CustomerAccountBar } from './CustomerAccountBar';
+import { PharmacyTicketNotices } from './PharmacyTicketNotices';
+import { usePharmacyTicket } from './usePharmacyTicket';
 import type { useShiftHandoff } from './handoff/useShiftHandoff';
 
 const LazySalesQuickAccess = lazy(() =>
@@ -449,6 +451,10 @@ export function SalesScreen({
   );
 
   const { sellsOnCredit, account: customerAccount } = useCustomerAccount(ticketCustomerId);
+  const pharmacyTicket = usePharmacyTicket(cartItems, ticketCustomerId, currentSite?.id);
+  const showsPharmacyNotices = pharmacyTicket.hasNotices;
+  // On phones only one card names the customer.
+  const pharmacyNamesCustomer = pharmacyTicket.customerNote?.missing === false;
   const [isTillPaymentOpen, setIsTillPaymentOpen] = useState(false);
   // With nothing on the ticket the projection would only repeat the debt the bar shows.
   const shownAccount = ticketCustomerName && hasAccount(customerAccount) ? customerAccount : null;
@@ -532,6 +538,7 @@ export function SalesScreen({
           <SalesCartWorkspace
             items={cartItems}
             discountSuggestionSiteId={currentSite?.id ?? null}
+            pharmacyLines={pharmacyTicket.lines}
             selectedItemKey={activeSelectedCartItemKey}
             saleError={saleError}
             onQuantityChange={handleQuantityChange}
@@ -592,13 +599,33 @@ export function SalesScreen({
             }
             quickAccessFirst={isPhone}
             account={
-              shownAccount ? (
-                <CustomerAccountBar
-                  account={shownAccount}
-                  // The dock names the customer except on phones, where it is hidden.
-                  customerName={isPhone ? ticketCustomerName : null}
-                  onPay={canPayAccount ? () => setIsTillPaymentOpen(true) : undefined}
-                />
+              shownAccount || showsPharmacyNotices ? (
+                <>
+                  {showsPharmacyNotices && (
+                    <PharmacyTicketNotices
+                      customerNote={pharmacyTicket.customerNote}
+                      hasControlled={pharmacyTicket.hasControlled}
+                      // The dock names the customer except on phones, where it is hidden.
+                      customerName={isPhone ? ticketCustomerName : null}
+                      onAssignCustomer={
+                        commandBar.attachCustomer && !customerLocked
+                          ? () => {
+                              // The @ grammar attaches the customer to this ticket.
+                              setProductSearchQuery('@');
+                              productInputRef.current?.focus();
+                            }
+                          : undefined
+                      }
+                    />
+                  )}
+                  {shownAccount && (
+                    <CustomerAccountBar
+                      account={shownAccount}
+                      customerName={isPhone && !pharmacyNamesCustomer ? ticketCustomerName : null}
+                      onPay={canPayAccount ? () => setIsTillPaymentOpen(true) : undefined}
+                    />
+                  )}
+                </>
               ) : undefined
             }
             quickAccess={
@@ -680,6 +707,7 @@ export function SalesScreen({
             onCredit={handleCredit}
             creditProjectedBalance={creditProjectedBalance}
             creditLimit={creditLimit}
+            prescriptionLineCount={pharmacyTicket.prescriptionLineCount}
           />
         </section>
 

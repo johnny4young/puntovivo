@@ -48,10 +48,15 @@ import { hasPharmacyProductProfiles } from '../../../services/pharmacy/operation
 import { findExactProductMatches } from '../../../services/products/exact-search.js';
 import { findFtsProductMatches } from '../../../services/products/fts-search.js';
 import { hydrateSearchProducts } from '../../../services/products/search-hydration.js';
+import { resolveNextLotHints } from '../../../services/inventory-lots/next-lot.js';
+import { SALES_ROLES } from '@puntovivo/shared/roles';
 import {
   productStockTotalSql,
   withSiteStock,
 } from '../../../services/inventory-balances/derive.js';
+
+const isSalesRole = (role: string | undefined) =>
+  (SALES_ROLES as readonly string[]).includes(role ?? '');
 
 function literalContains(column: AnySQLiteColumn, value: string) {
   // The compatibility fallback is a literal substring search, not an SQL
@@ -460,6 +465,15 @@ export const productQueryProcedures = {
       ctx.db,
       items.map(item => item.id)
     );
+    // Only the register asks for the lot it sells next, for one site and a selling role.
+    const nextLots =
+      input.includeNextLot && input.siteId && isSalesRole(ctx.user?.role)
+        ? await resolveNextLotHints(ctx.db, {
+            tenantId: ctx.tenantId,
+            siteId: input.siteId,
+            productIds: items.filter(item => item.tracksLots).map(item => item.id),
+          })
+        : null;
 
     return {
       items: withSiteStock(ctx.db, ctx.tenantId, input.siteId, items).map(item => {
@@ -477,6 +491,7 @@ export const productQueryProcedures = {
           baseUnitName: baseUnit?.unitName ?? null,
           baseUnitAbbreviation: baseUnit?.unitAbbreviation ?? null,
           baseUnitPrice: baseUnit?.price ?? item.price,
+          nextLot: nextLots?.get(item.id) ?? null,
         };
       }),
     };

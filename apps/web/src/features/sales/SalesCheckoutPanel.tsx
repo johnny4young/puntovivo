@@ -30,6 +30,8 @@ interface SalesCheckoutPanelProps {
   draftSummary: SaleCartSummary;
   /** Number of ticket lines, next to the unit count. */
   lineCount?: number | undefined;
+  /** Ticket lines that need a prescription, named next to the item count. */
+  prescriptionLineCount?: number | undefined;
   /** Sum of the manual line discounts already inside the total. */
   discountAmount?: number | undefined;
   canCharge: boolean;
@@ -101,6 +103,7 @@ export function SalesCheckoutPanel({
   isCashSessionLoading,
   draftSummary,
   lineCount = 0,
+  prescriptionLineCount = 0,
   discountAmount = 0,
   canCharge,
   canOpenCashSession,
@@ -224,7 +227,14 @@ export function SalesCheckoutPanel({
             <span className="sales-cap">{t('sell.total.label')}</span>
             <span className="text-[13px] text-fg2">
               {t('sell.total.items', { count: draftSummary.itemCount })} ·{' '}
-              {t('sell.total.lines', { count: lineCount })}
+              {/* Medicines name their prescription lines; the label stays on one line in the dock. */}
+              {prescriptionLineCount > 0 ? (
+                <span data-testid="checkout-prescription-count">
+                  {t('sell.total.prescriptions', { count: prescriptionLineCount })}
+                </span>
+              ) : (
+                t('sell.total.lines', { count: lineCount })
+              )}
             </span>
           </div>
           <div

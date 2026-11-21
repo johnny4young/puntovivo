@@ -130,6 +130,8 @@ export const SALE_COMPLETION_INVALIDATIONS: ReadonlyArray<InvalidationPicker> = 
   // the sale may have accrued points; refresh the balance chip
   // so the next checkout shows the customer's real total.
   u => u.loyalty.forCustomer,
+  // A sale dispenses prescriptions and lots the ticket preflight shows.
+  u => u.pharmacy.checkoutRequirements,
   // An accepted quotation may have transitioned to converted in the same
   // sale transaction. Refresh both its history row and any open detail view.
   u => u.quotations.list,
