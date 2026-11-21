@@ -41,6 +41,7 @@ import {
   useRef,
   useState,
   type Dispatch,
+  type MouseEvent,
   type SetStateAction,
 } from 'react';
 import { useForm } from 'react-hook-form';
@@ -493,6 +494,16 @@ export function PosTouchScreen() {
     );
   }
 
+  // Leaving mid-charge would orphan the in-flight sale.
+  const headerLinkProps = {
+    'aria-disabled': checkoutLocked,
+    tabIndex: checkoutLocked ? -1 : undefined,
+    onClick: (event: MouseEvent<HTMLAnchorElement>) => {
+      if (checkoutLockedRef.current) event.preventDefault();
+    },
+    className: `inline-flex min-h-[44px] items-center gap-2 rounded-full border border-line/70 bg-surface-1 px-4 py-2 text-xs font-medium text-secondary-700 hover:bg-surface-2 ${checkoutLocked ? 'pointer-events-none cursor-wait opacity-60' : ''}`,
+  };
+
   return (
     <section data-testid="pos-touch-page" className="flex flex-col gap-4 lg:h-[calc(100dvh-4rem)]">
       <header className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
@@ -503,20 +514,16 @@ export function PosTouchScreen() {
           <h2 className="font-display text-3xl tracking-[-0.02em]">{t('page.title')}</h2>
           <p className="max-w-2xl text-sm text-secondary-600">{t('page.subtitle')}</p>
         </div>
-        {dineInActive && (
-          <Link
-            to="/touch/voice"
-            data-testid="pos-touch-voice-link"
-            aria-disabled={checkoutLocked}
-            tabIndex={checkoutLocked ? -1 : undefined}
-            onClick={event => {
-              if (checkoutLockedRef.current) event.preventDefault();
-            }}
-            className={`inline-flex min-h-[44px] items-center gap-2 self-start rounded-full border border-line/70 bg-surface-1 px-4 py-2 text-xs font-medium text-secondary-700 hover:bg-surface-2 ${checkoutLocked ? 'pointer-events-none cursor-wait opacity-60' : ''}`}
-          >
-            {t('page.voiceLink')}
+        <div className="flex flex-wrap gap-2 self-start">
+          {dineInActive && (
+            <Link to="/touch/voice" data-testid="pos-touch-voice-link" {...headerLinkProps}>
+              {t('page.voiceLink')}
+            </Link>
+          )}
+          <Link to="/sales" data-testid="pos-touch-till-link" {...headerLinkProps}>
+            {t('page.tillLink')}
           </Link>
-        )}
+        </div>
       </header>
 
       <PosTouchCategoryTabs

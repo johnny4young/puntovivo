@@ -47,6 +47,8 @@ export interface ModulesSnapshot {
    * operator knows the toggles are not yet live.
    */
   isPlaceholder: boolean;
+  /** The last `getEffective` request failed, so the placeholder will not resolve on its own. */
+  isError: boolean;
 }
 
 /**
@@ -58,7 +60,8 @@ export interface ModulesSnapshot {
 interface ModulesStore extends ModulesSnapshot {
   setSnapshot(
     data: { modules?: Partial<Record<string, boolean>> } | undefined,
-    isLoading: boolean
+    isLoading: boolean,
+    isError: boolean
   ): void;
   reset(): void;
 }
@@ -88,11 +91,13 @@ const useModulesStore = create<ModulesStore>(set => ({
   modules: { ...CLIENT_MODULE_DEFAULTS },
   isLoading: true,
   isPlaceholder: true,
-  setSnapshot(data, isLoading) {
+  isError: false,
+  setSnapshot(data, isLoading, isError) {
     set({
       modules: resolveSnapshot(data?.modules),
       isLoading,
       isPlaceholder: !data,
+      isError,
     });
   },
   reset() {
@@ -100,6 +105,7 @@ const useModulesStore = create<ModulesStore>(set => ({
       modules: { ...CLIENT_MODULE_DEFAULTS },
       isLoading: false,
       isPlaceholder: true,
+      isError: false,
     });
   },
 }));
@@ -128,8 +134,8 @@ export function useModulesSync(): void {
       useModulesStore.getState().reset();
       return;
     }
-    useModulesStore.getState().setSnapshot(query.data, query.isLoading);
-  }, [isAuthenticated, query.data, query.isLoading]);
+    useModulesStore.getState().setSnapshot(query.data, query.isLoading, query.isError);
+  }, [isAuthenticated, query.data, query.isLoading, query.isError]);
 }
 
 /**
@@ -162,7 +168,8 @@ export function useModulesSnapshot(): ModulesSnapshot {
   const modules = useModulesStore(state => state.modules);
   const isLoading = useModulesStore(state => state.isLoading);
   const isPlaceholder = useModulesStore(state => state.isPlaceholder);
-  return { modules, isLoading, isPlaceholder };
+  const isError = useModulesStore(state => state.isError);
+  return { modules, isLoading, isPlaceholder, isError };
 }
 
 /**

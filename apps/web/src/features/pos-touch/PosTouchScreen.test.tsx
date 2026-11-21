@@ -413,6 +413,8 @@ describe('PosTouchScreen', () => {
     expect(screen.getByTestId('pos-touch-cart-charge-hint')).toHaveTextContent(
       'Open the cash register'
     );
+    expect(screen.getByTestId('pos-touch-till-link')).toHaveAttribute('href', '/sales');
+    expect(screen.getByTestId('pos-touch-till-link')).toHaveTextContent('Till and shift');
   });
 
   it('hides voice ordering when dine-in is disabled', () => {
@@ -869,6 +871,7 @@ describe('PosTouchScreen', () => {
     expect(screen.getByTestId('pos-touch-cart-line-p-1:p-1-unit-1-remove')).toBeDisabled();
     expect(screen.getByTestId('pos-touch-cart-clear')).toBeDisabled();
     expect(screen.getByTestId('pos-touch-voice-link')).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByTestId('pos-touch-till-link')).toHaveAttribute('aria-disabled', 'true');
     expect(createMutate).toHaveBeenCalledTimes(1);
 
     await act(async () => {

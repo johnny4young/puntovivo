@@ -128,10 +128,12 @@ export function taskOwnsPath(task: PrimaryTask, pathname: string): boolean {
   return pathname === task.href || pathname.startsWith(`${task.href}/`);
 }
 
+/** `sellingRoute` points the sell task at the register the business profile uses. */
 export function visiblePrimaryTasksForRole(
   role: UserRole | undefined,
   modules: Partial<Record<ClientModuleId, boolean>>,
-  modulesReady = true
+  modulesReady = true,
+  sellingRoute = '/sales'
 ): readonly PrimaryTask[] {
   if (!role) return [];
   return PRIMARY_TASKS.filter(task => {
@@ -140,5 +142,5 @@ export function visiblePrimaryTasksForRole(
       return false;
     }
     return true;
-  });
+  }).map(task => (task.id === 'sell' ? { ...task, href: sellingRoute } : task));
 }
