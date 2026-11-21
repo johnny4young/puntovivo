@@ -142,28 +142,31 @@ export function GuidedDayCloseSheet({
     signMutation.mutate({ date, attestationAccepted: true, signature: signature.payload() });
   };
 
-  const ownerSummaryUrl = report
-    ? buildOwnerSummaryUrl({
-        title: format.title(date),
-        lines: [
-          t('dayCloseGuide:summary.sold', {
-            amount: formatCurrency(report.sales.netRevenue),
-            count: report.sales.count,
-          }),
-          t('dayCloseGuide:summary.cash', { amount: formatCurrency(report.cash.counted) }),
-          t('dayCloseGuide:summary.electronic', {
-            amount: formatCurrency(electronicTotal(report)),
-          }),
-          t('dayCloseGuide:summary.difference', { amount: formatCurrency(report.cash.overShort) }),
-        ],
-        footer: signoff
-          ? t('dayCloseGuide:summary.signed', {
-              name: signoff.signedBy.name,
-              time: format.time(signoff.signedAt),
-            })
-          : t('dayCloseGuide:summary.unsigned'),
-      })
-    : null;
+  const ownerSummaryUrl =
+    report && progress
+      ? buildOwnerSummaryUrl({
+          title: format.title(date),
+          lines: [
+            t('dayCloseGuide:summary.sold', {
+              amount: formatCurrency(report.sales.netRevenue),
+              count: report.sales.count,
+            }),
+            t('dayCloseGuide:summary.cash', { amount: formatCurrency(progress.cashToDeposit) }),
+            t('dayCloseGuide:summary.electronic', {
+              amount: formatCurrency(electronicTotal(report)),
+            }),
+            t('dayCloseGuide:summary.difference', {
+              amount: formatCurrency(report.cash.overShort),
+            }),
+          ],
+          footer: signoff
+            ? t('dayCloseGuide:summary.signed', {
+                name: signoff.signedBy.name,
+                time: format.time(signoff.signedAt),
+              })
+            : t('dayCloseGuide:summary.unsigned'),
+        })
+      : null;
 
   const header = (
     <header className="shrink-0 border-b-[1.5px] border-line bg-surface px-5 pb-4 pt-5 sm:px-7">
@@ -191,7 +194,7 @@ export function GuidedDayCloseSheet({
               t('dayCloseGuide:steps.compare'),
               t('dayCloseGuide:steps.sign'),
             ]}
-            step={!progress.counted ? 1 : !progress.compared ? 2 : signed ? 4 : 3}
+            step={signed ? 4 : !progress.counted ? 1 : !progress.compared ? 2 : 3}
           />
         )}
       </div>
@@ -214,13 +217,9 @@ export function GuidedDayCloseSheet({
       ) : (
         <span />
       )}
-      {!signed && progress && (
+      {!signed && progress && !report?.readiness.readyToSign && (
         <p className="hidden flex-1 text-[13.5px] text-fg3 md:block" data-testid="day-close-hint">
-          {report?.readiness.readyToSign
-            ? t('dayCloseGuide:footer.sealHint')
-            : t('dayCloseGuide:footer.pending', {
-                count: progress.total - progress.ready - 1,
-              })}
+          {t('dayCloseGuide:footer.pending', { count: progress.total - progress.ready - 1 })}
         </p>
       )}
       {signed ? (
@@ -281,6 +280,7 @@ export function GuidedDayCloseSheet({
                 report={report}
                 today={today}
                 closedAt={closedAt}
+                cashToDeposit={progress.cashToDeposit}
                 formatCurrency={formatCurrency}
               />
               <ul className="mt-2" data-testid="day-close-checklist-rows">
@@ -343,7 +343,6 @@ export function GuidedDayCloseSheet({
                       ? t('dayCloseGuide:anomalies.some', { count: report.anomalies.high })
                       : t('dayCloseGuide:anomalies.none')
                   }
-                  detail={report.anomalies.high > 0 ? t('dayCloseGuide:nonBlocking') : undefined}
                 />
               </ul>
               <SignatureBlock
@@ -384,11 +383,13 @@ const DayFigures = memo(function DayFigures({
   report,
   today,
   closedAt,
+  cashToDeposit,
   formatCurrency,
 }: {
   report: CloseReport;
   today: OperationsToday | null;
   closedAt: string[];
+  cashToDeposit: number;
   formatCurrency: (value: number) => string;
 }) {
   const { t, i18n } = useTranslation('dayCloseGuide');
@@ -411,7 +412,7 @@ const DayFigures = memo(function DayFigures({
         <dd className="mt-1">
           {t('figures.cash')}{' '}
           <b className="font-numeric whitespace-nowrap text-[17px] text-fg1">
-            {formatCurrency(report.cash.counted)}
+            {formatCurrency(cashToDeposit)}
           </b>
         </dd>
         <dd>

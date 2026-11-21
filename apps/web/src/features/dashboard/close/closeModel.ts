@@ -46,6 +46,8 @@ export interface CloseProgress {
   pendingDrafts: CloseDraft[];
   carriedDrafts: CloseDraft[];
   carriedTotal: number;
+  /** Counted cash minus the floats the drawers started with; a kept drawer's float is the count it inherited. */
+  cashToDeposit: number;
   counted: boolean;
   compared: boolean;
   ready: number;
@@ -84,6 +86,9 @@ export function closeProgress(
     pendingDrafts,
     carriedDrafts,
     carriedTotal: roundMoney(sumBy(carriedDrafts, draft => draft.total)),
+    cashToDeposit: roundMoney(
+      report.cash.counted - sumBy(closedRegisters, session => session.openingFloat)
+    ),
     counted: openRegisters.length === 0,
     compared: pendingDifferences === 0 && pendingDrafts.length === 0,
     ready: total - pending,

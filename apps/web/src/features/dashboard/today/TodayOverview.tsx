@@ -96,14 +96,32 @@ export function TodayOverview({ formatCurrency }: TodayOverviewProps) {
     [today?.pending]
   );
 
-  if (!today) {
-    return query.isLoading ? (
-      <div
-        className="min-h-64 animate-pulse rounded-[22px] bg-surface-2"
-        role="status"
-        aria-label={t('today.loading')}
+  const closeSheet = closeDate && (
+    <Suspense fallback={null}>
+      <GuidedDayCloseSheet
+        isOpen
+        onClose={() => setCloseDate(null)}
+        date={closeDate}
+        today={today && closeDate === businessDay ? today : null}
+        formatCurrency={formatCurrency}
       />
-    ) : null;
+    </Suspense>
+  );
+
+  if (!today) {
+    // A dated ?close= link still opens while Hoy loads or fails.
+    return (
+      <>
+        {query.isLoading && (
+          <div
+            className="min-h-64 animate-pulse rounded-[22px] bg-surface-2"
+            role="status"
+            aria-label={t('today.loading')}
+          />
+        )}
+        {closeSheet}
+      </>
+    );
   }
 
   const change = percentChange(today.sales.total, today.sales.comparisonTotal);
@@ -215,17 +233,7 @@ export function TodayOverview({ formatCurrency }: TodayOverviewProps) {
           formatTime={formatters.time}
         />
       </div>
-      {closeDate && (
-        <Suspense fallback={null}>
-          <GuidedDayCloseSheet
-            isOpen
-            onClose={() => setCloseDate(null)}
-            date={closeDate}
-            today={closeDate === businessDay ? today : null}
-            formatCurrency={formatCurrency}
-          />
-        </Suspense>
-      )}
+      {closeSheet}
     </section>
   );
 }

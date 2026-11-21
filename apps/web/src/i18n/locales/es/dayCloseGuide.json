@@ -5,7 +5,6 @@
   "subtitle": "{{time}} · {{ready}} de {{total}} listos",
   "loading": "Cargando el cierre",
   "error": "No se pudo cargar el cierre.",
-  "nonBlocking": "No bloquea el cierre",
   "steps": {
     "count": "Contar",
     "compare": "Comparar",
@@ -85,7 +84,6 @@
   },
   "footer": {
     "owner": "Enviar resumen al dueño",
-    "sealHint": "Al firmar, el día queda sellado y ya no cambia.",
     "pending_one": "Queda {{count}} por resolver",
     "pending_other": "Quedan {{count}} por resolver",
     "sign": "Firmar y cerrar el día",

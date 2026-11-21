@@ -14,7 +14,8 @@ export function useSignatureDraft() {
     pin,
     strokes,
     invalid,
-    ready: mode === 'pin' ? pin.length === PIN_LENGTH : strokes.length > 0,
+    // A lone tap draws nothing, so it does not count as a signature.
+    ready: mode === 'pin' ? pin.length === PIN_LENGTH : strokes.some(stroke => stroke.length > 1),
     setMode: (next: 'draw' | 'pin') => {
       setModeState(next);
       setInvalid(false);

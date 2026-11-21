@@ -5,7 +5,6 @@
   "subtitle": "{{time}} · {{ready}} of {{total}} ready",
   "loading": "Loading the close",
   "error": "Could not load the close.",
-  "nonBlocking": "Does not block the close",
   "steps": {
     "count": "Count",
     "compare": "Compare",
@@ -85,7 +84,6 @@
   },
   "footer": {
     "owner": "Send summary to the owner",
-    "sealHint": "Once signed, the day is sealed and no longer changes.",
     "pending_one": "{{count}} item left to resolve",
     "pending_other": "{{count}} items left to resolve",
     "sign": "Sign and close the day",

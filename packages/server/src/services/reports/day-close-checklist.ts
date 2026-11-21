@@ -46,6 +46,11 @@ export function openAtDayEndConditions(tenantId: string, endExclusiveIso: string
   );
 }
 
+/** Left for tomorrow by a decision made on or after the day being closed; each close decides again. */
+export function carriedForDaySql(startIso: string) {
+  return sql<boolean>`(${isCarriedOverSql()} AND ${sales.carriedOverAt} >= ${startIso})`;
+}
+
 export function hasCashDifference(overShort: number | null): boolean {
   return overShort !== null && Math.abs(overShort) > DAY_CLOSE_BALANCED_EPSILON;
 }
@@ -72,6 +77,7 @@ export async function computeDayCloseChecklist(
       cashierName: users.name,
       closedAt: cashSessions.closedAt,
       actualCount: cashSessions.actualCount,
+      openingFloat: cashSessions.openingFloat,
       overShort: cashSessions.overShort,
       differenceReason: cashSessions.differenceReason,
       differenceNote: cashSessions.differenceNote,
@@ -94,7 +100,7 @@ export async function computeDayCloseChecklist(
       label: sales.suspendedLabel,
       total: sales.total,
       suspendedAt: sales.suspendedAt,
-      carriedOver: isCarriedOverSql(),
+      carriedOver: carriedForDaySql(startIso),
     })
     .from(sales)
     .where(parkedRetailDraftConditions(input.tenantId, endExclusiveIso))
@@ -113,6 +119,7 @@ export async function computeDayCloseChecklist(
         status: closedInWindow ? 'closed' : 'open',
         closedAt: closedInWindow ? row.closedAt : null,
         counted: closedInWindow && row.actualCount !== null,
+        openingFloat: row.openingFloat,
         overShort: closedInWindow ? row.overShort : null,
         hasDifference: closedInWindow && hasCashDifference(row.overShort),
         differenceReason: closedInWindow ? row.differenceReason : null,

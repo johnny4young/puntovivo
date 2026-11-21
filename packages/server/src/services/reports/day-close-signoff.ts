@@ -336,7 +336,8 @@ export async function signDayClose(
     ))
   ) {
     throwServerError({
-      trpcCode: 'UNAUTHORIZED',
+      // Not 401: the client refreshes and resends on 401, which would count one wrong PIN twice.
+      trpcCode: 'FORBIDDEN',
       errorCode: 'DAY_CLOSE_PIN_INVALID',
       message: 'The staff PIN does not match',
     });

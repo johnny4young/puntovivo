@@ -23,8 +23,8 @@ import { throwServerError } from '../../lib/errorCodes.js';
 import { detectAnomalies, type AnomalyKind } from '../ai/index.js';
 import { resolveTenantLocale } from '../tenant-locale.js';
 import { calendarDayInTimeZone, resolveUtcDayWindow } from './day-window.js';
-import { isCarriedOverSql } from '../../application/sales/carryDraftOver.js';
 import {
+  carriedForDaySql,
   closedInWindowConditions,
   hasCashDifference,
   isUnexplainedDifference,
@@ -217,7 +217,7 @@ export async function computeComprehensiveDayCloseReport(
       .where(
         and(
           parkedRetailDraftConditions(input.tenantId, endExclusiveIso),
-          sql`not ${isCarriedOverSql()}`
+          sql`not ${carriedForDaySql(startIso)}`
         )
       )
       .get()?.count ?? 0;

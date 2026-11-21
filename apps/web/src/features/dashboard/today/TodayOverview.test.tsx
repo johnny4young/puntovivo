@@ -257,4 +257,14 @@ describe('TodayOverview', () => {
     render(<TodayOverview formatCurrency={formatCurrency} />);
     expect(screen.getByTestId('today-close-day')).toHaveTextContent('Day closed');
   });
+
+  it('opens a dated close link even while Hoy is still loading', async () => {
+    todayData.current = undefined;
+    render(<TodayOverview formatCurrency={formatCurrency} />, {
+      initialEntries: ['/dashboard?close=2026-11-11'],
+    });
+    const sheet = await screen.findByTestId('guided-close');
+    expect(sheet).toHaveTextContent('2026-11-11');
+    expect(sheet).toHaveAttribute('data-has-arc', 'no');
+  });
 });

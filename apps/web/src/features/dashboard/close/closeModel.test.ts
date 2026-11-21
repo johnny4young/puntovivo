@@ -18,6 +18,8 @@ describe('closeProgress', () => {
     expect(progress.ready).toBe(4);
     expect(progress.counted).toBe(true);
     expect(progress.compared).toBe(false);
+    // Counted cash less the 200.000 float the first drawer started with.
+    expect(progress.cashToDeposit).toBe(4_989_850);
   });
 
   it('marks count pending while a register is open and shows one balanced row without differences', () => {

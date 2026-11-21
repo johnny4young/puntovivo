@@ -66,7 +66,8 @@ async function signAsActor(
   }
   if (!(await verifyOwnStaffPin(db, { tenantId, userId, staffPinHash }, pin!))) {
     throwServerError({
-      trpcCode: 'UNAUTHORIZED',
+      // Not 401: the client refreshes and resends on 401, which would count one wrong PIN twice.
+      trpcCode: 'FORBIDDEN',
       errorCode: 'CASH_HANDOFF_PIN_INVALID',
       message: 'The staff PIN does not match',
     });

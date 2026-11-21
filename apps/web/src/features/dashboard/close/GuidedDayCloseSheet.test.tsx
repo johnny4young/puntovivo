@@ -84,7 +84,7 @@ describe('GuidedDayCloseSheet', () => {
     renderSheet();
     expect(screen.getByRole('heading', { name: /Close for/ })).toBeInTheDocument();
     expect(screen.getByTestId('day-close-progress')).toHaveTextContent('4 of 7 ready');
-    expect(screen.getByTestId('day-close-figures')).toHaveTextContent('$ 5189850');
+    expect(screen.getByTestId('day-close-figures')).toHaveTextContent('$ 4989850');
     expect(screen.getByTestId('day-close-figures')).toHaveTextContent('$ 3313200');
     expect(screen.getByTestId('day-close-difference')).toHaveClass('text-danger-700');
     expect(screen.getByTestId('day-close-sold')).toHaveTextContent('171 sales');
@@ -111,7 +111,12 @@ describe('GuidedDayCloseSheet', () => {
     });
 
     await user.click(screen.getByTestId('day-close-reason-other-session-1'));
-    await user.type(screen.getByTestId('day-close-reason-note-session-1'), 'Billete roto');
+    const note = screen.getByTestId('day-close-reason-note-session-1');
+    expect(note).toHaveAttribute('maxLength', '240');
+    await user.type(note, 'no');
+    expect(within(row).getByRole('button', { name: 'Save' })).toBeDisabled();
+    await user.clear(note);
+    await user.type(note, 'Billete roto');
     await user.click(within(row).getByRole('button', { name: 'Save' }));
     expect(mutations['cashSessions.explainDifference']).toHaveBeenLastCalledWith({
       sessionId: 'session-1',
@@ -137,6 +142,19 @@ describe('GuidedDayCloseSheet', () => {
     drawSignature();
     expect(screen.getByTestId('day-close-sign')).toBeDisabled();
     expect(screen.getByTestId('day-close-hint')).toHaveTextContent('2 items left to resolve');
+  });
+
+  it('does not take a lone tap as a signature', () => {
+    state.report = closeReportFixture({
+      readiness: { readyToSign: true, blockers: [], warnings: [] },
+    });
+    renderSheet();
+    const pad = screen.getByTestId('day-close-signature-pad');
+    pad.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, width: 600, height: 160, right: 600, bottom: 160 }) as DOMRect;
+    fireEvent.pointerDown(pad, { clientX: 10, clientY: 20, pointerId: 1 });
+    fireEvent.pointerUp(pad, { pointerId: 1 });
+    expect(screen.getByTestId('day-close-sign')).toBeDisabled();
   });
 
   it('signs with the drawn signature once the day is ready', async () => {
@@ -202,6 +220,26 @@ describe('GuidedDayCloseSheet', () => {
     expect(screen.queryByTestId('day-close-reason-other-session-1')).not.toBeInTheDocument();
     expect(screen.getByTestId('day-close-done')).toBeInTheDocument();
     expect(screen.getByTestId('day-close-progress')).toHaveTextContent('7 of 7 ready');
+    const steps = within(screen.getByTestId('day-close-stepper')).getAllByRole('listitem');
+    expect(steps.map(step => step.dataset.state)).toEqual(['done', 'done', 'done']);
+  });
+
+  it('keeps every step done on a signed day even if a register opened after signing', () => {
+    const report = closeReportFixture({
+      readiness: { readyToSign: true, blockers: [], warnings: [] },
+    });
+    state.signoff = closeSignoffFixture(report);
+    const [first, second] = closeChecklistFixture().sessions;
+    state.checklist = closeChecklistFixture({
+      sessions: [
+        { ...first!, differenceReason: 'wrong_change' },
+        { ...second!, status: 'open', closedAt: null, overShort: null, hasDifference: false },
+      ],
+      drafts: [],
+    });
+    renderSheet();
+    const steps = within(screen.getByTestId('day-close-stepper')).getAllByRole('listitem');
+    expect(steps.map(step => step.dataset.state)).toEqual(['done', 'done', 'done']);
   });
 
   it('sends only totals to the owner summary', () => {
@@ -209,7 +247,7 @@ describe('GuidedDayCloseSheet', () => {
     const href = screen.getByTestId('day-close-owner-summary').getAttribute('href')!;
     const text = decodeURIComponent(href.split('text=')[1]!);
     expect(text).toContain('Sold: $ 8517350 in 171 sales');
-    expect(text).toContain('Cash to deposit: $ 5189850');
+    expect(text).toContain('Cash to deposit: $ 4989850');
     expect(text).toContain('Not signed yet');
     expect(text).not.toContain('Domicilio');
     expect(text).not.toContain('Andrés');

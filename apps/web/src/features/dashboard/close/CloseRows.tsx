@@ -17,6 +17,10 @@ import {
 
 export type RowState = 'done' | 'todo' | 'info';
 
+// Mirrors the server's explainDifference note limits.
+const NOTE_MIN = 3;
+const NOTE_MAX = 240;
+
 export function RowIcon({ state, rank }: { state: RowState; rank?: number }) {
   if (state === 'done') {
     return (
@@ -197,7 +201,7 @@ export function DifferenceRow({
           className="flex w-full items-end gap-2 pl-10"
           onSubmit={event => {
             event.preventDefault();
-            if (!note.trim()) return;
+            if (note.trim().length < NOTE_MIN) return;
             onExplain('other', note.trim());
             setOtherOpen(false);
           }}
@@ -210,13 +214,13 @@ export function DifferenceRow({
               id={noteId}
               className="input w-full"
               value={note}
-              maxLength={500}
+              maxLength={NOTE_MAX}
               onChange={event => setNote(event.target.value)}
               data-testid={`day-close-reason-note-${session.id}`}
               autoFocus
             />
           </div>
-          <Button type="submit" disabled={busy || !note.trim()}>
+          <Button type="submit" disabled={busy || note.trim().length < NOTE_MIN}>
             {t('difference.save')}
           </Button>
         </form>
@@ -295,7 +299,6 @@ export function FiscalRow({ report }: { report: CloseReport }) {
         t('fiscal.title', { accepted: report.fiscal.byStatus.accepted, inProgress }),
         ...(rejected > 0 ? [t('fiscal.rejected', { count: rejected })] : []),
       ].join(' · ')}
-      detail={inProgress > 0 || rejected > 0 ? t('nonBlocking') : undefined}
       actions={
         user?.role === 'admin' && (
           <Link

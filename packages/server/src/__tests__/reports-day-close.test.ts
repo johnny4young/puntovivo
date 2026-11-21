@@ -1026,6 +1026,7 @@ describe('reports.dayClose.preview', () => {
           cashierName: 'Cashier guided',
           status: 'closed',
           counted: true,
+          openingFloat: 0,
           overShort: -12,
           differenceReason: null,
         }),
@@ -1069,6 +1070,37 @@ describe('reports.dayClose.preview', () => {
       ).toMatchObject({ readyToSign: true, blockers: [] });
     });
 
+    it('counts a carry only for the day it was decided, so each close decides again', async () => {
+      const db = getDatabase();
+      const tenant = await seedTenant('guided-carry');
+      await db.insert(sales).values({
+        id: 'dcr-guided-carry-draft',
+        tenantId: tenant.tenantId,
+        saleNumber: 'DCR-CARRY',
+        total: 15,
+        status: 'draft',
+        suspendedAt: '2026-07-14T18:00:00.000Z',
+        carriedOverAt: '2026-07-14T23:00:00.000Z',
+        createdBy: tenant.cashierId,
+        createdAt: '2026-07-14T17:00:00.000Z',
+        updatedAt: '2026-07-14T23:00:00.000Z',
+      });
+      const reader = appRouter.createCaller(context(tenant.tenantId, tenant.managerId, 'manager'));
+
+      expect((await reader.reports.dayClose.checklist({ date: '2026-07-14' })).drafts).toEqual([
+        expect.objectContaining({ id: 'dcr-guided-carry-draft', carriedOver: true }),
+      ]);
+      expect(
+        (await reader.reports.dayClose.preview({ date: '2026-07-14' })).readiness.blockers
+      ).toEqual([]);
+      expect((await reader.reports.dayClose.checklist({ date: '2026-07-15' })).drafts).toEqual([
+        expect.objectContaining({ id: 'dcr-guided-carry-draft', carriedOver: false }),
+      ]);
+      expect(
+        (await reader.reports.dayClose.preview({ date: '2026-07-15' })).readiness.blockers
+      ).toEqual(['unresolved_drafts']);
+    });
+
     it('keeps the checklist manager-only and tenant-scoped', async () => {
       const tenant = await seedGuidedDay('guided-scope');
       const foreign = await seedTenant('guided-scope-foreign');
@@ -1099,6 +1131,7 @@ describe('reports.dayClose.preview', () => {
           signature: { method: 'pin', pin: '000000' },
         })
       ).rejects.toMatchObject({
+        code: 'FORBIDDEN',
         cause: expect.objectContaining({ errorCode: 'DAY_CLOSE_PIN_INVALID' }),
       });
       expect(

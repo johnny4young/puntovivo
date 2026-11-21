@@ -18,7 +18,9 @@ sales, but nothing required either before signing.
 - `reports.dayClose.preview` gains two readiness blockers:
   `unexplained_differences` (a session closed that day with a non-zero
   over/short and no reason) and `unresolved_drafts` (a retail draft parked
-  before the day ended that was neither discarded nor left for tomorrow).
+  before the day ended that was neither discarded nor left for tomorrow at that
+  day's close; a carry decided for an earlier day does not count, so each close
+  decides again).
   Restaurant checks stay with their table and do not count. There is no
   configurable tolerance: any difference beyond the cent epsilon needs a
   reason.

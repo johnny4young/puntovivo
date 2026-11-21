@@ -219,7 +219,10 @@ export const dayClosePreviewInput = z.object({ date: calendarDay });
 const signaturePath = z
   .string()
   .max(24_000)
-  .regex(/^M[\d.]+ [\d.]+(?:[ML][\d.]+ [\d.]+)*$/, 'Expected signature path data');
+  .regex(
+    /^M\d+(?:\.\d+)? \d+(?:\.\d+)?(?:[ML]\d+(?:\.\d+)? \d+(?:\.\d+)?)*$/,
+    'Expected signature path data'
+  );
 
 export const dayCloseSignOffInput = z.object({
   date: calendarDay,
@@ -358,6 +361,8 @@ export const dayCloseChecklistOutput = z.object({
       status: z.enum(['open', 'closed']),
       closedAt: z.string().nullable(),
       counted: z.boolean(),
+      /** The drawer's starting cash, which stays out of what is deposited. */
+      openingFloat: money,
       overShort: money.nullable(),
       /** Beyond the cent tolerance, so it needs a reason before the day is signed. */
       hasDifference: z.boolean(),

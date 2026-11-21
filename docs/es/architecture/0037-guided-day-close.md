@@ -19,7 +19,9 @@ antes de firmar.
 - `reports.dayClose.preview` suma dos bloqueos: `unexplained_differences` (una
   sesión cerrada ese día con sobrante o faltante y sin motivo) y
   `unresolved_drafts` (un borrador de mostrador suspendido antes del fin del
-  día que no se descartó ni se dejó para mañana). Las cuentas de restaurante
+  día que no se descartó ni se dejó para mañana en el cierre de ese día; dejarla
+  para mañana en un día anterior no cuenta, así que cada cierre decide de
+  nuevo). Las cuentas de restaurante
   siguen con su mesa y no cuentan. No hay tolerancia configurable: toda
   diferencia mayor al épsilon de centavos necesita motivo.
 - `reports.dayClose.checklist` devuelve las filas por caja y por borrador sobre
