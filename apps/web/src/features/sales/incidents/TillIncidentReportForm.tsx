@@ -15,6 +15,8 @@ import { useReportTillIncident } from '@/features/sales/incidents/useReportTillI
 
 const STOCKOUT_REASONS = ['not_on_shelf', 'system_zero', 'expired'] as const;
 type StockoutReason = (typeof STOCKOUT_REASONS)[number];
+/** Mirrors the server's shelfPrice bound. */
+const MAX_SHELF_PRICE = 1_000_000_000;
 
 const SERVER_KIND = {
   stockout: 'stockout',
@@ -32,7 +34,9 @@ interface ReportFormProps {
 export function TillIncidentReportForm({ kind, initialProduct, onSent }: ReportFormProps) {
   const { t } = useTranslation('tillIncidents');
   const report = useReportTillIncident();
-  const [product, setProduct] = useState(initialProduct);
+  const utils = trpc.useUtils();
+  // An item that could not be scanned is rarely the last line on the sale.
+  const [product, setProduct] = useState(kind === 'noBarcode' ? null : initialProduct);
   const [reason, setReason] = useState<StockoutReason>('not_on_shelf');
   const [shelfPrice, setShelfPrice] = useState('');
   const [note, setNote] = useState('');
@@ -49,14 +53,24 @@ export function TillIncidentReportForm({ kind, initialProduct, onSent }: ReportF
   const ready = {
     stockout: product !== null,
     noBarcode: trimmedNote !== '' || reportProduct !== null,
-    priceMismatch: product !== null && shelfPrice !== '' && shelfValue >= 0,
+    priceMismatch:
+      product !== null && shelfPrice !== '' && shelfValue >= 0 && shelfValue <= MAX_SHELF_PRICE,
   }[kind];
   const canSend = ready && !report.isPending;
 
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (!canSend) return;
-    const hasTransfer = kind === 'stockout' && (stock.data?.otherSites.length ?? 0) > 0;
+    // G then Enter can beat the stock read; the confirmation must still name the transfer.
+    let hasTransfer = false;
+    if (kind === 'stockout' && product) {
+      const stockData =
+        stock.data ??
+        (await utils.registerIncidents.productStock
+          .ensureData({ productId: product.id })
+          .catch(() => undefined));
+      hasTransfer = (stockData?.otherSites.length ?? 0) > 0;
+    }
     report.send(
       {
         kind: SERVER_KIND[kind],
@@ -97,7 +111,7 @@ export function TillIncidentReportForm({ kind, initialProduct, onSent }: ReportF
   return (
     <form
       className="till-incident-form"
-      onSubmit={submit}
+      onSubmit={event => void submit(event)}
       data-testid={`till-incident-form-${kind}`}
     >
       {kind === 'noBarcode' ? (
@@ -159,6 +173,7 @@ export function TillIncidentReportForm({ kind, initialProduct, onSent }: ReportF
             type="number"
             inputMode="decimal"
             min="0"
+            max={MAX_SHELF_PRICE}
             step="any"
             className="input min-h-12 font-numeric text-lg"
             value={shelfPrice}

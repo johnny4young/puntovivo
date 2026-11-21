@@ -606,6 +606,7 @@ export function SalesPage() {
         readinessItems={checkoutReadinessItems}
         isHistoryDrawerOpen={isHistoryDrawerOpen}
         isIncidentSheetOpen={isIncidentSheetOpen}
+        scanGapMs={scannerConfig.interCharGapMs}
         setIsIncidentSheetOpen={setIsIncidentSheetOpen}
         lastSale={lastSale}
         lastRead={lastRead}

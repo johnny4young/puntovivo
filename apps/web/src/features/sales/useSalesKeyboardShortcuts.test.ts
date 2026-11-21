@@ -265,6 +265,16 @@ describe('useSalesKeyboardShortcuts — Ctrl/Cmd guard lift', () => {
       expect(event.defaultPrevented).toBe(true);
     });
 
+    it('does not reopen the sheet when the sheet already took the F9 to close', () => {
+      const onOpenIncident = vi.fn();
+      renderHook(() => useSalesKeyboardShortcuts({ ...defaultOptions, onOpenIncident }));
+      const closeSheet = (event: KeyboardEvent) => event.preventDefault();
+      window.addEventListener('keydown', closeSheet, { capture: true });
+      fireKey('F9');
+      window.removeEventListener('keydown', closeSheet, { capture: true });
+      expect(onOpenIncident).not.toHaveBeenCalled();
+    });
+
     it('stays inert while payment, product search or another dialog is open', () => {
       const onOpenIncident = vi.fn();
       const { rerender } = renderHook(

@@ -15,7 +15,7 @@
     },
     "voidSale": {
       "label": "Anular una venta",
-      "detail": "De este turno; pide aprobación"
+      "detail": "La última venta; pide aprobación"
     },
     "priceCheck": {
       "label": "Consultar precio",

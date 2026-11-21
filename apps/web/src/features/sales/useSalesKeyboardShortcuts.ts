@@ -310,6 +310,8 @@ export function useSalesKeyboardShortcuts({
       }
 
       if (event.key === 'F9') {
+        // The open sheet closes on F9 first; React can commit that close before this listener runs.
+        if (event.defaultPrevented) return;
         if (!onOpenIncident || isPaymentModalOpen || isProductSearchOpen) return;
         if (hasOpenModalDialog()) return;
         event.preventDefault();

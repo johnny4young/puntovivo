@@ -172,6 +172,8 @@ export interface SalesScreenProps {
   // History drawer
   isHistoryDrawerOpen: boolean;
   isIncidentSheetOpen: boolean;
+  /** The site scanner's key gap, so the incident sheet can tell a scan from a hand. */
+  scanGapMs: number;
   setIsIncidentSheetOpen: Dispatch<SetStateAction<boolean>>;
   lastSale: CompletedSaleSummary | null;
   completedSale: CompletedSaleSummary | null;
@@ -310,6 +312,7 @@ export function SalesScreen({
   readinessItems,
   isHistoryDrawerOpen,
   isIncidentSheetOpen,
+  scanGapMs,
   setIsIncidentSheetOpen,
   lastSale,
   completedSale,
@@ -676,6 +679,7 @@ export function SalesScreen({
           <LazyTillIncidentSheet
             onClose={closeIncidentSheet}
             ticketTotal={draftSummary.total}
+            scanGapMs={scanGapMs}
             product={incidentProductFor(cartItems, lastRead?.key, activeSelectedCartItemKey)}
             actions={{
               returns: () => setIsHistoryDrawerOpen(true),
@@ -844,6 +848,7 @@ function incidentProductFor(
   return {
     id: line.productId,
     name: line.productName,
-    price: line.unitEquivalence === 1 ? line.unitPrice : null,
+    // The catalog price, which the server records as the system price, not a tier price.
+    price: line.unitEquivalence === 1 ? (line.tierPrices?.price ?? null) : null,
   };
 }

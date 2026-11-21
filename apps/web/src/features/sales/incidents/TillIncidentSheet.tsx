@@ -2,6 +2,7 @@ import { useEffect, useEffectEvent, useRef, useState, type Ref } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Clock3 } from 'lucide-react';
 import { Drawer } from '@/components/feedback/Drawer';
+import { isTopmostModalDialog } from '@/components/feedback/useDialogA11y';
 import { Button } from '@/components/ui/Button';
 import { isEditableShortcutTarget } from '@/features/sales/salesKeyboard';
 import {
@@ -30,6 +31,8 @@ interface TillIncidentSheetProps {
   onClose: () => void;
   /** Total of the open ticket; zero hides the line that says it stays intact. */
   ticketTotal: number;
+  /** The site scanner's key gap: keys closer than this are a scan, not a hand. */
+  scanGapMs?: number | undefined;
   /** Last product on the ticket, the default subject of a product incident. */
   product: TillIncidentProduct | null;
   actions: TillIncidentActions;
@@ -42,6 +45,7 @@ type View = 'menu' | Exclude<TillIncidentTileId, TillIncidentAction | 'callManag
 export default function TillIncidentSheet({
   onClose,
   ticketTotal,
+  scanGapMs = 30,
   product,
   actions,
   restoreFocusTo,
@@ -69,25 +73,45 @@ export default function TillIncidentSheet({
     }
   };
 
-  // Letters pick a tile from anywhere in the menu; F9 closes from any step.
+  // Letters pick a tile from anywhere in the menu; F9 closes from any step. A
+  // scanner types faster than a hand, so its burst neither picks a tile nor
+  // presses the focused control with its closing Enter.
   const activateFromKey = useEffectEvent(activate);
+  const keyRun = useRef({ last: -Infinity, fast: 0 });
+  const headerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    let pending: ReturnType<typeof setTimeout> | undefined;
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return;
+      if (event.altKey || event.ctrlKey || event.metaKey) return;
+      // A dialog opened over the sheet owns the keyboard.
+      if (!isTopmostModalDialog(headerRef.current?.closest('[role="dialog"]') ?? null)) return;
+      const now = performance.now();
+      const isFast = now - keyRun.current.last < scanGapMs;
+      keyRun.current = { last: now, fast: isFast ? keyRun.current.fast + 1 : 0 };
+      if (isFast) clearTimeout(pending);
+      if (event.key === 'Enter' && keyRun.current.fast >= 2) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+      if (event.defaultPrevented) return;
       if (event.key === 'F9') {
         event.preventDefault();
         onClose();
         return;
       }
-      if (view !== 'menu' || isEditableShortcutTarget(event.target)) return;
+      if (isFast || view !== 'menu' || isEditableShortcutTarget(event.target)) return;
       const tile = tillIncidentTileForKey(event.key);
       if (!tile) return;
       event.preventDefault();
-      activateFromKey(tile.id);
+      pending = setTimeout(() => activateFromKey(tile.id), scanGapMs * 2);
     };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [view, onClose]);
+    document.addEventListener('keydown', handleKeyDown, true);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown, true);
+      clearTimeout(pending);
+    };
+  }, [view, onClose, scanGapMs]);
 
   // Back from a step unmounts the focused control; the grid takes focus again.
   useEffect(() => {
@@ -108,7 +132,7 @@ export default function TillIncidentSheet({
       initialFocusRef={firstTileRef}
       testId="till-incident-sheet"
       pinnedContent={
-        <div className="till-incident-header">
+        <div className="till-incident-header" ref={headerRef}>
           {stepTile ? (
             <div className="flex min-w-0 items-center gap-3">
               <Button

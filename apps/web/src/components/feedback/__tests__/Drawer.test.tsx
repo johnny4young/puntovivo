@@ -190,7 +190,7 @@ describe('Drawer', () => {
     });
   });
 
-  it('gives focus to the initial control instead of the first one, even after a re-open', async () => {
+  it('gives focus to the initial control instead of the first one', async () => {
     const opener = document.createElement('button');
     document.body.appendChild(opener);
     opener.focus();

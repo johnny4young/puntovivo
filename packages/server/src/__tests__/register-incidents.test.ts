@@ -431,6 +431,10 @@ describe('register incidents', () => {
       stockBySite: [],
     });
     expect(open.find(row => row.id === otherCall.id)?.reportedByName).toBe('Cajera Dos');
+
+    await appRouter.createCaller(ctxFor('manager')).registerIncidents.resolve({ id: call.id });
+    const nextCall = await cashier.registerIncidents.report({ kind: 'call_manager' });
+    expect(nextCall.id).not.toBe(call.id);
   });
 
   it('finds a completed sale from its scanned receipt', async () => {

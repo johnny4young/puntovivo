@@ -15,7 +15,7 @@
     },
     "voidSale": {
       "label": "Void a sale",
-      "detail": "From this shift; asks for approval"
+      "detail": "The last sale; asks for approval"
     },
     "priceCheck": {
       "label": "Check a price",
