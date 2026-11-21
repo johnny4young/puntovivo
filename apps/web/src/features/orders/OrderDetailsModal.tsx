@@ -1,10 +1,16 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Printer } from 'lucide-react';
 import { ConfirmModal, Modal, ModalButton } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { OrderDetailsContent } from '@/features/orders/OrderDetailsContent';
 import { OrderReceiveModal, type OrderReceiveValues } from '@/features/orders/OrderReceiveModal';
+import {
+  canPrintOrder,
+  OrderPrintError,
+  printOrderDocument,
+} from '@/features/orders/orderPrinter';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 import { translateServerError } from '@/lib/translateServerError';
@@ -31,6 +37,7 @@ export function OrderDetailsModal({
   const [receiveModalKey, setReceiveModalKey] = useState(0);
   const [isVoidConfirmOpen, setIsVoidConfirmOpen] = useState(false);
   const [isSubmitConfirmOpen, setIsSubmitConfirmOpen] = useState(false);
+  const [isPrinting, setIsPrinting] = useState(false);
   const [voidError, setVoidError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [receiveError, setReceiveError] = useState<string | null>(null);
@@ -122,6 +129,7 @@ export function OrderDetailsModal({
 
   const hasRemainingItems =
     (order?.items ?? []).some(item => (item.remainingQuantity ?? item.quantity) > 0) ?? false;
+  const canPrint = canPrintOrder(order);
   const canReceiveOrder =
     (user?.role === 'admin' || user?.role === 'manager') &&
     (order?.status === 'submitted' || order?.status === 'partial_received') &&
@@ -190,6 +198,28 @@ export function OrderDetailsModal({
     }
   };
 
+  /**
+   * Hand the order to the supplier: a printable document with the requested
+   * lines, so the operator can walk the list or send it as a PDF.
+   */
+  const handlePrintOrder = async () => {
+    if (!order || isPrinting) {
+      return;
+    }
+    setIsPrinting(true);
+    try {
+      await printOrderDocument(order);
+    } catch (error) {
+      const code = error instanceof OrderPrintError ? error.code : 'unknown';
+      toast.error({
+        title: t('orders:details.printError'),
+        description: t(`orders:details.printErrors.${code}`),
+      });
+    } finally {
+      setIsPrinting(false);
+    }
+  };
+
   return (
     <>
       <Modal
@@ -203,6 +233,19 @@ export function OrderDetailsModal({
         size="full"
         footer={
           <>
+            {canPrint && (
+              <button
+                type="button"
+                className="btn-secondary inline-flex items-center gap-2"
+                onClick={handlePrintOrder}
+                disabled={isPrinting}
+              >
+                <Printer className="h-4 w-4" aria-hidden="true" />
+                {isPrinting
+                  ? t('orders:details.actions.printPending')
+                  : t('orders:details.actions.print')}
+              </button>
+            )}
             {canSubmitDraft && (
               <ModalButton
                 onClick={() => setIsSubmitConfirmOpen(true)}
