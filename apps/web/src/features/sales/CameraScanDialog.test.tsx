@@ -18,6 +18,7 @@ function stubCamera(getUserMedia: () => Promise<unknown>, detect: () => Promise<
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
   Reflect.deleteProperty(navigator, 'mediaDevices');
 });
 
@@ -46,6 +47,25 @@ describe('CameraScanDialog', () => {
     render(<CameraScanDialog onDetected={vi.fn()} onClose={vi.fn()} />);
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Allow camera access to scan.');
+  });
+
+  it('says the camera cannot scan when the detector reads no retail format', async () => {
+    const getUserMedia = vi.fn(() => Promise.resolve({ getTracks: () => [] }));
+    vi.stubGlobal(
+      'BarcodeDetector',
+      class {
+        static getSupportedFormats = () => Promise.resolve(['qr_code']);
+        detect = () => Promise.resolve([]);
+      }
+    );
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: { getUserMedia },
+    });
+    render(<CameraScanDialog onDetected={vi.fn()} onClose={vi.fn()} />);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('The camera could not open.');
+    expect(getUserMedia).not.toHaveBeenCalled();
   });
 });
 

@@ -139,7 +139,9 @@ test('a phone sells from the search, the key chips and a compact ticket', async 
   expect((await keys.boundingBox())!.y).toBeLessThan((await line.boundingBox())!.y);
 
   // A scanned line reads as name, quantity and total; a tap opens its keys.
-  await expect(line.locator('.sales-ticket-qty-compact')).toHaveText('× 1');
+  const compact = line.locator('.sales-ticket-qty-compact');
+  await expect(compact.locator('[aria-hidden="true"]')).toHaveText('× 1');
+  await expect(compact).toContainText('Quantity 1');
   await expect(line.getByRole('button', { name: /^Add one / })).toBeHidden();
   await line.locator('.sales-ticket-name').click();
   await expect(line.getByRole('button', { name: /^Add one / })).toBeVisible();

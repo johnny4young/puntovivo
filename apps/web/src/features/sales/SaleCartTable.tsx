@@ -12,6 +12,7 @@ import {
 import { getLineTotals } from '@/features/sales/saleCartTotals';
 import { useDiscountSuggestions } from '@/features/sales/useDiscountSuggestions';
 import { SaleSerialSelector } from '@/features/sales/SaleSerialSelector';
+import { usePhoneLayout } from '@/features/sales/usePhoneLayout';
 import { Button } from '@/components/ui';
 interface SaleCartTableProps {
   items: SaleCartItem[];
@@ -73,7 +74,14 @@ export function SaleCartTable({
   // (revertir si quedó vacío o no parsea).
   const [inputDrafts, setInputDrafts] = useState<Record<string, string>>({});
   // Phones open a line's keys only when it is tapped, not when a scan selects it.
+  const isPhone = usePhoneLayout();
   const [openKey, setOpenKey] = useState<string | null>(null);
+  const [openKeySelection, setOpenKeySelection] = useState(selectedItemKey);
+  if (openKeySelection !== selectedItemKey) {
+    // A later scan back onto the tapped line must not reopen it.
+    setOpenKeySelection(selectedItemKey);
+    if (openKey !== selectedItemKey) setOpenKey(null);
+  }
   const draftValueFor = (draftId: string, committed: number): string =>
     inputDrafts[draftId] ?? String(committed);
   const setDraft = (draftId: string, value: string): void => {
@@ -171,7 +179,7 @@ export function SaleCartTable({
                       ? `${item.productName} (${presentationLabel})`
                       : item.productName,
                   })}
-                  aria-expanded={isOpen}
+                  aria-expanded={isPhone ? isOpen : undefined}
                   onClick={() => {
                     setOpenKey(isOpen ? null : item.key);
                     onSelectItem(item.key);
@@ -215,10 +223,15 @@ export function SaleCartTable({
                 </button>
 
                 {/* Phones read an unselected line as name, quantity and total. */}
-                <span className="sales-ticket-qty-compact" aria-hidden="true">
-                  {Number.isInteger(item.quantity)
-                    ? `× ${formatNumber(item.quantity)}`
-                    : `${formatNumber(item.quantity)} ${item.unitName}`}
+                <span className="sales-ticket-qty-compact">
+                  <span aria-hidden="true">
+                    {!item.sellByFraction && Number.isInteger(item.quantity)
+                      ? `× ${formatNumber(item.quantity)}`
+                      : `${formatNumber(item.quantity)} ${item.unitName}`}
+                  </span>
+                  <span className="sr-only">
+                    {t('sell.table.quantity')} {formatNumber(item.quantity)} {item.unitName}
+                  </span>
                 </span>
                 <div className="sales-ticket-qty">
                   <Button

@@ -100,6 +100,22 @@ describe('useSalePaymentModal — tender chosen before opening', () => {
     await waitFor(() => expect(result.current.paymentMethod).toBe('credit'));
   });
 
+  it('keeps cash when the cashier taps it before picking a customer', async () => {
+    const { result } = renderPayment({ initialMethod: 'credit' });
+    act(() =>
+      result.current.form.setValue('paymentMethod', 'cash', {
+        shouldDirty: true,
+        shouldTouch: true,
+      })
+    );
+    act(() => result.current.form.setValue('customerId', 'customer-1'));
+
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 20));
+    });
+    expect(result.current.paymentMethod).toBe('cash');
+  });
+
   it('keeps the method the cashier switched to before picking a customer', async () => {
     const { result } = renderPayment({ initialMethod: 'credit' });
     act(() => result.current.form.setValue('paymentMethod', 'card'));

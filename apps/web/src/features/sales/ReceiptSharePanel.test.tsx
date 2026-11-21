@@ -69,6 +69,7 @@ describe('ReceiptSharePanel', () => {
 
   it('downloads the receipt image locally where the share sheet is unavailable', async () => {
     render(<ReceiptSharePanel saleId="sale-1" siteId="site-1" onClose={vi.fn()} />);
+    expect(mocks.createReceiptPng).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole('button', { name: 'Image' }));
 
@@ -80,18 +81,21 @@ describe('ReceiptSharePanel', () => {
   it('hands the image to the share sheet on a touch device instead of downloading it', async () => {
     const share = vi.fn().mockResolvedValue(undefined);
     vi.stubGlobal('navigator', { ...navigator, share, canShare: () => true });
-    const matchMedia = vi
-      .spyOn(window, 'matchMedia')
-      .mockImplementation(query => ({ matches: query === '(pointer: coarse)' }) as MediaQueryList);
+    const matchMedia = window.matchMedia;
+    window.matchMedia = (query: string) =>
+      ({ matches: query === '(pointer: coarse)' }) as MediaQueryList;
     try {
       render(<ReceiptSharePanel saleId="sale-1" siteId="site-1" onClose={vi.fn()} />);
+      // The picture is ready before the tap, so the share keeps the tap's activation.
+      await waitFor(() => expect(mocks.createReceiptPng).toHaveBeenCalledOnce());
       fireEvent.click(screen.getByRole('button', { name: 'Image' }));
 
       await waitFor(() => expect(share).toHaveBeenCalledOnce());
+      expect(mocks.createReceiptPng).toHaveBeenCalledOnce();
       expect(share.mock.calls[0]?.[0].files[0].name).toBe('puntovivo-recibo-v-1.png');
       expect(mocks.downloadFile).not.toHaveBeenCalled();
     } finally {
-      matchMedia.mockRestore();
+      window.matchMedia = matchMedia;
       vi.unstubAllGlobals();
     }
   });

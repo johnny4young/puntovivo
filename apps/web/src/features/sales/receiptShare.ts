@@ -142,17 +142,23 @@ export async function createReceiptPng(html: string): Promise<Blob> {
   }
 }
 
+/** A touch device whose browser can hand files to the OS share sheet. */
+export function sharesReceiptFiles(): boolean {
+  return (
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(pointer: coarse)').matches &&
+    typeof navigator.share === 'function' &&
+    typeof navigator.canShare === 'function'
+  );
+}
+
 /**
  * Hands the receipt picture to the OS share sheet on touch devices, where a
  * download is hard to find. Returns false when the caller should download it
  * instead; the file never leaves the device unless the cashier picks an app.
  */
 export async function shareReceiptImage(image: Blob, filename: string): Promise<boolean> {
-  const touch =
-    typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
-  if (!touch || typeof navigator.share !== 'function' || typeof navigator.canShare !== 'function') {
-    return false;
-  }
+  if (!sharesReceiptFiles()) return false;
   const file = new File([image], filename, { type: 'image/png' });
   if (!navigator.canShare({ files: [file] })) return false;
   try {

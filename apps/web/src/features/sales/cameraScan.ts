@@ -7,7 +7,10 @@ interface BarcodeDetectorLike {
   detect(source: CanvasImageSource): Promise<DetectedBarcode[]>;
 }
 
-type BarcodeDetectorConstructor = new (options?: { formats?: string[] }) => BarcodeDetectorLike;
+interface BarcodeDetectorConstructor {
+  new (options?: { formats?: string[] }): BarcodeDetectorLike;
+  getSupportedFormats?: () => Promise<string[]>;
+}
 
 /** Retail symbologies only: a QR here would be a payment or a link, never a product. */
 const CAMERA_SCAN_FORMATS = [
@@ -39,6 +42,15 @@ export function isCameraScanSupported(): boolean {
 export function createBarcodeDetector(): BarcodeDetectorLike | null {
   const Detector = detectorConstructor();
   return Detector ? new Detector({ formats: [...CAMERA_SCAN_FORMATS] }) : null;
+}
+
+/** Some builds ship the API without an on-device model, so it reads no retail format. */
+export async function detectsRetailCodes(): Promise<boolean> {
+  const Detector = detectorConstructor();
+  if (!Detector) return false;
+  if (typeof Detector.getSupportedFormats !== 'function') return true;
+  const formats = await Detector.getSupportedFormats().catch(() => [] as string[]);
+  return CAMERA_SCAN_FORMATS.some(format => formats.includes(format));
 }
 
 export type CameraScanError = 'permission-denied' | 'no-camera' | 'unavailable';

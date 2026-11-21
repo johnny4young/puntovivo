@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
-import { cameraErrorKind, createBarcodeDetector, type CameraScanError } from './cameraScan';
+import {
+  cameraErrorKind,
+  createBarcodeDetector,
+  detectsRetailCodes,
+  type CameraScanError,
+} from './cameraScan';
 
 const DETECT_INTERVAL_MS = 200;
 
@@ -51,27 +56,32 @@ export function CameraScanDialog({ onDetected, onClose }: CameraScanDialogProps)
       if (!cancelled) timer = window.setTimeout(() => void tick(), DETECT_INTERVAL_MS);
     };
 
-    navigator.mediaDevices
-      .getUserMedia({
+    const start = async () => {
+      if (!(await detectsRetailCodes())) {
+        if (!cancelled) setError('unavailable');
+        return;
+      }
+      if (cancelled) return;
+      const media = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: 'environment' },
           width: { ideal: 1280 },
           height: { ideal: 720 },
         },
         audio: false,
-      })
-      .then(async media => {
-        stream = media;
-        if (cancelled) return stop();
-        const video = videoRef.current;
-        if (!video) return;
-        video.srcObject = media;
-        await video.play().catch(() => undefined);
-        void tick();
-      })
-      .catch(reason => {
-        if (!cancelled) setError(cameraErrorKind(reason));
       });
+      stream = media;
+      if (cancelled) return stop();
+      const video = videoRef.current;
+      if (!video) return;
+      video.srcObject = media;
+      await video.play().catch(() => undefined);
+      void tick();
+    };
+
+    start().catch(reason => {
+      if (!cancelled) setError(cameraErrorKind(reason));
+    });
 
     return stop;
   }, [detector]);

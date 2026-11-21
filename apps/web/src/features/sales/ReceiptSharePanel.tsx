@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ImageDown, MessageCircle, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button, buttonVariants } from '@/components/ui';
@@ -10,6 +10,7 @@ import {
   buildReceiptWhatsAppUrl,
   createReceiptPng,
   shareReceiptImage,
+  sharesReceiptFiles,
 } from './receiptShare';
 
 interface ReceiptSharePanelProps {
@@ -27,6 +28,18 @@ export function ReceiptSharePanel({ saleId, siteId, onClose }: ReceiptSharePanel
     { saleId, siteId },
     { staleTime: 0 }
   );
+  // The share sheet needs a fresh tap, so touch devices render the picture before it.
+  const preparedRef = useRef<Promise<Blob> | null>(null);
+  const html = shareQuery.data?.html ?? null;
+  useEffect(() => {
+    if (!html || !sharesReceiptFiles()) return;
+    const prepared = createReceiptPng(html);
+    prepared.catch(() => undefined);
+    preparedRef.current = prepared;
+    return () => {
+      preparedRef.current = null;
+    };
+  }, [html]);
   const shareUrl = useMemo(
     () => (shareQuery.data ? buildReceiptWhatsAppUrl(shareQuery.data.text) : null),
     [shareQuery.data]
@@ -43,7 +56,7 @@ export function ReceiptSharePanel({ saleId, siteId, onClose }: ReceiptSharePanel
     setIsGenerating(true);
     setImageState('idle');
     try {
-      const image = await createReceiptPng(share.html);
+      const image = await (preparedRef.current ?? createReceiptPng(share.html));
       const filename = buildReceiptImageFilename(share.saleNumber);
       // Phones hand the picture to the share sheet; elsewhere it lands in downloads.
       if (!(await shareReceiptImage(image, filename))) {

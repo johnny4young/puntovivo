@@ -41,6 +41,25 @@ describe('SalesFlowRail', () => {
     expect(screen.getByTestId('sales-operation-strip')).not.toHaveClass('max-md:hidden');
     hub.unmount();
 
+    // Stock shortfalls are warnings, and phones hide the dock's preflight list.
+    const warning = render(
+      <SalesFlowRail
+        {...baseProps}
+        hasCashSession
+        itemCount={2}
+        canCharge
+        preflightItems={[
+          {
+            id: 'insufficient_stock',
+            severity: 'warning',
+            messageKey: 'preflight.items.insufficient_stock.message',
+          },
+        ]}
+      />
+    );
+    expect(screen.getByTestId('sales-operation-strip')).not.toHaveClass('max-md:hidden');
+    warning.unmount();
+
     render(
       <SalesFlowRail
         {...baseProps}
@@ -48,9 +67,9 @@ describe('SalesFlowRail', () => {
         itemCount={2}
         preflightItems={[
           {
-            id: 'insufficient_stock',
+            id: 'discount_exceeds_total',
             severity: 'blocker',
-            messageKey: 'preflight.items.insufficient_stock.message',
+            messageKey: 'preflight.items.discount_exceeds_total.message',
           },
         ]}
       />
@@ -140,9 +159,9 @@ describe('SalesFlowRail', () => {
         canCharge
         preflightItems={[
           {
-            id: 'insufficient_stock',
+            id: 'discount_exceeds_total',
             severity: 'blocker',
-            messageKey: 'preflight.items.insufficient_stock.message',
+            messageKey: 'preflight.items.discount_exceeds_total.message',
             messageValues: { count: 1, product: 'Coffee', otherCount: 0 },
             recoveryAction: {
               labelKey: 'preflight.items.insufficient_stock.recovery',
