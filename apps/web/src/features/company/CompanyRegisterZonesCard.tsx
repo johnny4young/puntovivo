@@ -62,7 +62,7 @@ export function CompanyRegisterZonesCard() {
 
   function ownCell(zone: RegisterZoneDescriptor, moduleOff: boolean) {
     const on = zones[zone.id] && !moduleOff;
-    if (!zone.switchable) return <ZoneMark on={on} label={stateLabel(on)} />;
+    if (zone.locked) return <ZoneMark on={on} label={stateLabel(on)} />;
     return (
       <button
         type="button"
@@ -116,7 +116,6 @@ export function CompanyRegisterZonesCard() {
           <tbody>
             {REGISTER_ZONES.map(zone => {
               const moduleOff = zone.requiresModule !== null && !modules[zone.requiresModule];
-              const unavailable = !zone.locked && !zone.switchable;
               return (
                 <tr key={zone.id} data-testid={`register-zone-row-${zone.id}`}>
                   <th scope="row" className="border-t border-line/70 py-2.5 pr-3 text-left">
@@ -125,9 +124,8 @@ export function CompanyRegisterZonesCard() {
                       {overrides[zone.id] !== undefined && (
                         <Badge variant="neutral">{t('toggle.explicit')}</Badge>
                       )}
-                      {unavailable && <Badge variant="warning">{t('toggle.unavailable')}</Badge>}
                     </span>
-                    {moduleOff && zone.switchable && zone.requiresModule && (
+                    {moduleOff && zone.requiresModule && (
                       <span className="block text-xs font-normal text-fg2">
                         {t('zones.requiresModule', {
                           module: t(MODULE_LABEL_KEY[zone.requiresModule]),

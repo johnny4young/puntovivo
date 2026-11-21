@@ -6,8 +6,6 @@ export type RegisterZoneModuleId = 'dine-in' | 'quotations';
 interface ZoneTraits {
   /** The selling engine every profile shares; never switched off. */
   locked?: true;
-  /** The register has no control for the zone yet, so a switch would do nothing. */
-  unavailable?: true;
   requiresModule?: RegisterZoneModuleId;
 }
 
@@ -18,9 +16,9 @@ const ZONE_TRAITS = {
   'weight-value': {},
   credit: {},
   'promos-parked': {},
-  'pharmacy-lot': { unavailable: true },
-  'units-cut': { unavailable: true },
-  'quote-delivery': { unavailable: true, requiresModule: 'quotations' },
+  'pharmacy-lot': {},
+  'units-cut': {},
+  'quote-delivery': { requiresModule: 'quotations' },
   tables: { requiresModule: 'dine-in' },
   'tip-split': {},
   checkout: { locked: true },
@@ -32,9 +30,8 @@ export type RegisterZoneOverrides = Partial<RegisterZoneMap>;
 
 export interface RegisterZoneDescriptor {
   id: RegisterZoneId;
+  /** Part of the selling engine; admins switch every other zone. */
   locked: boolean;
-  /** Admins can switch it: not part of the engine and the register has a control for it. */
-  switchable: boolean;
   requiresModule: RegisterZoneModuleId | null;
 }
 
@@ -42,7 +39,6 @@ export const REGISTER_ZONES: readonly RegisterZoneDescriptor[] = Object.entries(
   ([id, traits]: [string, ZoneTraits]) => ({
     id: id as RegisterZoneId,
     locked: traits.locked === true,
-    switchable: !traits.locked && !traits.unavailable,
     requiresModule: traits.requiresModule ?? null,
   })
 );
@@ -58,9 +54,9 @@ export function registerZoneDescriptor(id: RegisterZoneId): RegisterZoneDescript
   return DESCRIPTORS[id];
 }
 
-/** Zones an admin can switch today. */
+/** Zones an admin can switch. */
 export const SWITCHABLE_REGISTER_ZONE_IDS = REGISTER_ZONE_IDS.filter(
-  id => DESCRIPTORS[id].switchable
+  id => !DESCRIPTORS[id].locked
 ) as [RegisterZoneId, ...RegisterZoneId[]];
 
 const on = (...ids: RegisterZoneId[]): RegisterZoneMap =>
@@ -91,7 +87,7 @@ export function defaultRegisterZones(businessType: unknown): RegisterZoneMap {
 }
 
 function overrideOf(overrides: unknown, id: RegisterZoneId): boolean | undefined {
-  if (typeof overrides !== 'object' || overrides === null || !DESCRIPTORS[id].switchable) {
+  if (typeof overrides !== 'object' || overrides === null || DESCRIPTORS[id].locked) {
     return undefined;
   }
   const value = (overrides as Record<string, unknown>)[id];

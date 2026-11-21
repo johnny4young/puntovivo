@@ -59,17 +59,21 @@ test('a tenant without a profile keeps every zone', () => {
   assert.ok(REGISTER_ZONE_IDS.every(id => zones[id]));
 });
 
-test('overrides switch editable zones and never the engine or unavailable zones', () => {
+test('overrides switch editable zones and never the engine', () => {
   const zones = resolveRegisterZones('pharmacy', {
     'quick-keys': true,
     'promos-parked': false,
     checkout: false,
+    'command-bar': false,
     'pharmacy-lot': false,
+    'units-cut': true,
   });
   assert.equal(zones['quick-keys'], true);
   assert.equal(zones['promos-parked'], false);
   assert.equal(zones.checkout, true);
-  assert.equal(zones['pharmacy-lot'], true);
+  assert.equal(zones['command-bar'], true);
+  assert.equal(zones['pharmacy-lot'], false);
+  assert.equal(zones['units-cut'], true);
 });
 
 test('malformed overrides are dropped', () => {
@@ -87,12 +91,15 @@ test('one zone resolves like the full map', () => {
   }
 });
 
-test('only zones with a register control and outside the engine are switchable', () => {
+test('every zone outside the engine is switchable', () => {
   assert.deepEqual(SWITCHABLE_REGISTER_ZONE_IDS, [
     'quick-keys',
     'weight-value',
     'credit',
     'promos-parked',
+    'pharmacy-lot',
+    'units-cut',
+    'quote-delivery',
     'tables',
     'tip-split',
   ]);
