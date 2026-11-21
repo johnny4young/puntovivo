@@ -2370,9 +2370,21 @@
     "output": "inferred"
   },
   {
+    "path": "registerIncidents.latestToday",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
     "path": "registerIncidents.listOpen",
     "kind": "query",
     "input": "object{siteId?:string[minLength=1,maxLength=64]}",
+    "output": "inferred"
+  },
+  {
+    "path": "registerIncidents.productStock",
+    "kind": "query",
+    "input": "object{productId:string[minLength=1,maxLength=64]}",
     "output": "inferred"
   },
   {

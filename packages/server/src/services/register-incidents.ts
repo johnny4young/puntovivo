@@ -1,16 +1,18 @@
 /**
  * Till incidents: a cashier flags a stockout, a shelf price that differs from
  * the system price, or a product without a barcode, and keeps selling. The
- * open rows feed the manager's pending queue until someone resolves them.
+ * open rows feed the manager's pending queue until someone resolves them; a
+ * repeat report of an open incident returns the existing row.
  *
  * @module services/register-incidents
  */
 import { TRPCError } from '@trpc/server';
-import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNull, lt, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 import type { DatabaseInstance } from '../db/index.js';
 import {
+  cashSessions,
   inventoryBalances,
   products,
   registerIncidents,
@@ -20,6 +22,8 @@ import {
   type RegisterIncidentReason,
 } from '../db/schema.js';
 import { getActiveCashSessionForCashier } from './cash-session/queries.js';
+import { resolveTenantBusinessClock } from './pharmacy/business-clock.js';
+import { resolveUtcDayWindow } from './reports/day-window.js';
 
 export interface ReportRegisterIncidentInput {
   kind: RegisterIncidentKind;
@@ -86,23 +90,79 @@ export function getStockBySite(
   return result;
 }
 
-export function reportRegisterIncident(
+function findTenantProduct(db: DatabaseInstance, tenantId: string, productId: string) {
+  const product = db
+    .select({ id: products.id, name: products.name, price: products.price })
+    .from(products)
+    .where(and(eq(products.id, productId), eq(products.tenantId, tenantId)))
+    .get();
+  if (!product) throw new TRPCError({ code: 'NOT_FOUND', message: 'Product not found' });
+  return product;
+}
+
+async function businessDayWindow(db: DatabaseInstance, tenantId: string, now: Date) {
+  const { businessDate, timezone } = await resolveTenantBusinessClock(db, tenantId, now);
+  return resolveUtcDayWindow(businessDate, timezone);
+}
+
+/**
+ * A repeat of an incident still open from today's business day refreshes that
+ * row and returns its id; an earlier day's open incident gets a new row.
+ */
+export async function reportRegisterIncident(
   db: DatabaseInstance,
   scope: { tenantId: string; siteId: string; userId: string },
-  input: ReportRegisterIncidentInput
-): { id: string } {
+  input: ReportRegisterIncidentInput,
+  now: Date = new Date()
+): Promise<{ id: string }> {
   const product = input.productId
-    ? db
-        .select({ id: products.id, name: products.name, price: products.price })
-        .from(products)
-        .where(and(eq(products.id, input.productId), eq(products.tenantId, scope.tenantId)))
-        .get()
+    ? findTenantProduct(db, scope.tenantId, input.productId)
     : undefined;
-  if (input.productId && !product) {
-    throw new TRPCError({ code: 'NOT_FOUND', message: 'Product not found' });
-  }
   if (input.kind !== 'no_barcode' && !product) {
     throw new TRPCError({ code: 'BAD_REQUEST', message: 'This incident needs a product' });
+  }
+  const note = input.note?.trim() || null;
+  const reason = input.kind === 'stockout' ? (input.reason ?? null) : null;
+  const shelfPrice = input.kind === 'price_mismatch' ? (input.shelfPrice ?? null) : null;
+  // An unlabeled item with neither product nor note has nothing to match on.
+  const matchable = input.kind !== 'no_barcode' || product || note;
+  if (matchable) {
+    const day = await businessDayWindow(db, scope.tenantId, now);
+    const existing = db
+      .select({ id: registerIncidents.id })
+      .from(registerIncidents)
+      .where(
+        and(
+          eq(registerIncidents.tenantId, scope.tenantId),
+          eq(registerIncidents.siteId, scope.siteId),
+          eq(registerIncidents.kind, input.kind),
+          eq(registerIncidents.status, 'open'),
+          gte(registerIncidents.createdAt, day.startIso),
+          lt(registerIncidents.createdAt, day.endExclusiveIso),
+          product
+            ? eq(registerIncidents.productId, product.id)
+            : isNull(registerIncidents.productId),
+          input.kind === 'no_barcode'
+            ? note
+              ? sql`lower(${registerIncidents.note}) = lower(${note})`
+              : isNull(registerIncidents.note)
+            : undefined
+        )
+      )
+      .get();
+    if (existing) {
+      db.update(registerIncidents)
+        .set({
+          ...(reason ? { reason } : {}),
+          ...(shelfPrice !== null ? { shelfPrice } : {}),
+          ...(note ? { note } : {}),
+          systemPrice: product?.price ?? null,
+          updatedAt: new Date().toISOString(),
+        })
+        .where(eq(registerIncidents.id, existing.id))
+        .run();
+      return existing;
+    }
   }
   const session = getActiveCashSessionForCashier(db, scope.tenantId, scope.siteId, scope.userId);
   const id = nanoid();
@@ -112,12 +172,12 @@ export function reportRegisterIncident(
       tenantId: scope.tenantId,
       siteId: scope.siteId,
       kind: input.kind,
-      reason: input.kind === 'stockout' ? (input.reason ?? null) : null,
+      reason,
       productId: product?.id ?? null,
       productName: product?.name ?? null,
-      shelfPrice: input.kind === 'price_mismatch' ? (input.shelfPrice ?? null) : null,
+      shelfPrice,
       systemPrice: product?.price ?? null,
-      note: input.note?.trim() || null,
+      note,
       reportedBy: scope.userId,
       cashSessionId: session?.id ?? null,
     })
@@ -197,4 +257,77 @@ export function resolveRegisterIncident(
     throw new TRPCError({ code: 'NOT_FOUND', message: 'Incident not found or already resolved' });
   }
   return updated;
+}
+
+export interface ProductSiteStock extends SiteStock {
+  /** The tenant's other active sites with stock on hand, most stock first. */
+  otherSites: SiteStock[];
+}
+
+/** On-hand of one product at the active site and at the tenant's other sites. */
+export function getProductSiteStock(
+  db: DatabaseInstance,
+  scope: { tenantId: string; siteId: string },
+  productId: string
+): ProductSiteStock {
+  findTenantProduct(db, scope.tenantId, productId);
+  const bySite = getStockBySite(db, scope.tenantId, [productId]).get(productId) ?? [];
+  const activeSites = new Map(
+    db
+      .select({ id: sites.id, name: sites.name })
+      .from(sites)
+      .where(and(eq(sites.tenantId, scope.tenantId), eq(sites.isActive, true)))
+      .all()
+      .map(site => [site.id, site.name])
+  );
+  return {
+    siteId: scope.siteId,
+    siteName: activeSites.get(scope.siteId) ?? '',
+    onHand: bySite.find(row => row.siteId === scope.siteId)?.onHand ?? 0,
+    otherSites: bySite
+      .filter(row => row.siteId !== scope.siteId && row.onHand > 0 && activeSites.has(row.siteId))
+      .sort((a, b) => b.onHand - a.onHand),
+  };
+}
+
+export interface LatestRegisterIncident {
+  id: string;
+  kind: RegisterIncidentKind;
+  productName: string | null;
+  note: string | null;
+  createdAt: string;
+  registerName: string | null;
+}
+
+/** Newest incident reported today, in the tenant's business day, at one site. */
+export async function getLatestRegisterIncidentToday(
+  db: DatabaseInstance,
+  scope: { tenantId: string; siteId: string },
+  now: Date = new Date()
+): Promise<LatestRegisterIncident | null> {
+  const day = await businessDayWindow(db, scope.tenantId, now);
+  const row = db
+    .select({
+      id: registerIncidents.id,
+      kind: registerIncidents.kind,
+      productName: registerIncidents.productName,
+      note: registerIncidents.note,
+      createdAt: registerIncidents.createdAt,
+      registerName: cashSessions.registerName,
+    })
+    .from(registerIncidents)
+    .leftJoin(cashSessions, eq(cashSessions.id, registerIncidents.cashSessionId))
+    .where(
+      and(
+        eq(registerIncidents.tenantId, scope.tenantId),
+        eq(registerIncidents.siteId, scope.siteId),
+        gte(registerIncidents.createdAt, day.startIso),
+        lt(registerIncidents.createdAt, day.endExclusiveIso)
+      )
+    )
+    // rowid breaks same-millisecond ties in insertion order.
+    .orderBy(desc(registerIncidents.createdAt), desc(sql`${registerIncidents}.rowid`))
+    .limit(1)
+    .get();
+  return row ?? null;
 }
