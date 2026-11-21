@@ -18,6 +18,7 @@ import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 
 import { useToast } from '@/components/feedback/ToastProvider';
+import { useRegisterZone } from '@/features/modules/useRegisterZone';
 import { roundMoney } from '@/lib/money';
 import { sumBy } from '@/lib/numbers';
 import { trpc } from '@/lib/trpc';
@@ -95,8 +96,10 @@ export function useSalePaymentModal({
   const { t } = useTranslation('sales');
   const toast = useToast();
   const [splitMode, setSplitMode] = useState(initialMethod === 'split');
-  // credit method gating + projection.
-  const canLendCredit = userRole === 'admin' || userRole === 'manager' || userRole === 'cashier';
+  // credit method gating + projection. The store-credit zone hides it like the register keys.
+  const sellsOnCredit = useRegisterZone('credit');
+  const canLendCredit =
+    sellsOnCredit && (userRole === 'admin' || userRole === 'manager' || userRole === 'cashier');
   const isAdmin = userRole === 'admin';
   // service charge is derived from `total × rate / 100`,
   // not a form field. The operator cannot edit it; the server

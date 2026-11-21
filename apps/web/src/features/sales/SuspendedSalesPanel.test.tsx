@@ -76,8 +76,8 @@ vi.mock('@/features/auth/AuthProvider', () => ({
   }),
 }));
 
-vi.mock('@/features/modules', () => ({
-  useIsModuleActive: (moduleId: string) => moduleId === 'dine-in' && modulesMock.dineIn,
+vi.mock('@/features/modules/useRegisterZone', () => ({
+  useRegisterZone: (zone: string) => zone !== 'tables' || modulesMock.dineIn,
 }));
 
 vi.mock('@/features/tenant/TenantProvider', () => ({

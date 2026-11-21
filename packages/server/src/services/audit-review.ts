@@ -37,6 +37,7 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
     'device.revoke',
     'device.pairing.claimed',
     'module.toggle',
+    'register_zone.toggle',
     'backup.restore_drill',
     'backup.encryption_key_reveal',
     'security.db_key_rotation',

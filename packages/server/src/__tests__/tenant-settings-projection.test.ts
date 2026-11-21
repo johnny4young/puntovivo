@@ -31,6 +31,7 @@ function realisticSettings() {
     restaurant: { serviceChargeRate: 0.1 },
     cashClose: { blindClose: false },
     discount: { expiryTiers: [{ maxDays: 7, pct: 30 }] },
+    registerZones: { 'quick-keys': true, credit: false },
     telemetryOptIn: true,
     setupAcknowledgedAt: '2026-01-01T00:00:00.000Z',
     fiscal: { cl: { rut: '76.543.210-K', environment: 'produccion' } },
@@ -55,6 +56,7 @@ describe('tenant settings projection', () => {
       restaurant: { serviceChargeRate: 0.1 },
       cashClose: { blindClose: false },
       discount: { expiryTiers: [{ maxDays: 7, pct: 30 }] },
+      registerZones: { 'quick-keys': true, credit: false },
     });
   });
 
@@ -84,7 +86,7 @@ describe('tenant settings projection', () => {
     });
     expect(JSON.stringify(projected)).not.toContain('tok_live_whatever');
     expect(Object.keys(projected).sort()).toEqual(
-      ['businessType', 'cashClose', 'discount', 'restaurant', 'taxRate'].sort()
+      ['businessType', 'cashClose', 'discount', 'registerZones', 'restaurant', 'taxRate'].sort()
     );
   });
 
@@ -126,6 +128,15 @@ describe('tenant settings projection', () => {
     expect(
       projectTenantSettingsForClient({ discount: { expiryTiers: [{ maxDays: 7, pct: 30 }] } })
     ).toEqual({ discount: { expiryTiers: [{ maxDays: 7, pct: 30 }] } });
+  });
+
+  it('keeps only well-formed zone overrides and omits an empty set', () => {
+    expect(
+      projectTenantSettingsForClient({
+        registerZones: { credit: false, checkout: false, bogus: true, tables: 'yes' },
+      })
+    ).toEqual({ registerZones: { credit: false } });
+    expect(projectTenantSettingsForClient({ registerZones: { bogus: true } })).toEqual({});
   });
 
   it('omits a nested wrapper whose required value is missing', () => {

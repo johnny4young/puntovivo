@@ -58,6 +58,7 @@ estimaciones y colas privadas no pertenecen a los ADR.
 | [ADR-0035](0035-backups-off-the-main-thread.md)                        | Respaldos fuera del hilo principal               | Propuesta |
 | [ADR-0036](0036-mid-day-register-handoff.md)                           | Relevo de caja durante el día                    | Aceptada  |
 | [ADR-0037](0037-guided-day-close.md)                                   | Cierre guiado del día                            | Aceptada  |
+| [ADR-0038](0038-register-zones-by-profile.md)                          | Zonas de la caja por perfil de negocio           | Aceptada  |
 
 ## Patrones reutilizables de implementación
 

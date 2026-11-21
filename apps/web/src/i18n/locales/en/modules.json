@@ -95,5 +95,27 @@
       "butchery": "Butcher shop",
       "pharmacy": "Pharmacy / drugstore"
     }
+  },
+  "zones": {
+    "title": "Register zones",
+    "zoneColumn": "Zone",
+    "ownColumn": "Your register",
+    "on": "On",
+    "off": "Off",
+    "requiresModule": "Needs the {{module}} module",
+    "error": "We could not change the zone",
+    "items": {
+      "command-bar": "One bar: scan, search, order",
+      "quick-keys": "One-touch keys (no barcode)",
+      "weight-value": "Sell by weight or by value",
+      "credit": "Store credit: limit, balance and payments",
+      "promos-parked": "Promotions and parked sales",
+      "pharmacy-lot": "Lot, expiry and prescription",
+      "units-cut": "Units, metres and cut to size",
+      "quote-delivery": "Quote → sale · delivery",
+      "tables": "Tables, diners, courses, kitchen",
+      "tip-split": "Tip and split bill",
+      "checkout": "Total, Charge and incidents"
+    }
   }
 }

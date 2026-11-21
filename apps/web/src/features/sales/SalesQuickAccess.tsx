@@ -18,6 +18,7 @@ import {
   useSiteQuickKeys,
   type QuickTile,
 } from '@/features/sales/siteQuickKeys';
+import { useRegisterZone } from '@/features/modules/useRegisterZone';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { formatCurrency } from '@/lib/utils';
 import { trpc } from '@/lib/trpc';
@@ -60,7 +61,10 @@ export function SalesQuickAccess({
   // Phones show the keys as one row of chips between the search and the ticket.
   const asChips = usePhoneLayout();
 
-  const { query: keysQuery, keys, tiles: keyTiles } = useSiteQuickKeys(siteId);
+  const { query: keysQuery, keys, tiles: siteTiles } = useSiteQuickKeys(siteId);
+  // «Valor…» keys belong to the sell-by-weight-or-value zone.
+  const sellsByValue = useRegisterZone('weight-value');
+  const keyTiles = sellsByValue ? siteTiles : siteTiles.filter(tile => tile.kind !== 'open_value');
   const importMutation = trpc.quickKeys.importLocal.useMutation({
     onSuccess: list => {
       clearSalesFavoriteIds(scopeKey);
