@@ -13,6 +13,11 @@ export { returnPurchase } from './returnPurchase.js';
 export { voidPurchase } from './voidPurchase.js';
 export { confirmOcrDraftPurchase } from './confirmOcrDraftPurchase.js';
 export { getPurchaseRecord } from './purchase-read.js';
+export {
+  attachPurchaseDocument,
+  getPurchaseDocument,
+  setPurchaseDocument,
+} from './purchase-documents.js';
 export type {
   PurchaseContext,
   CriticalPurchaseContext,

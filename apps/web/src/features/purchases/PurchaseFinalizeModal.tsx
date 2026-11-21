@@ -19,6 +19,8 @@ import { useSingleFlightSubmit } from '@/lib/useSingleFlightSubmit';
 export interface PurchaseFinalizeValues {
   providerId: string;
   notes: string;
+  documentType: '' | 'invoice' | 'remision' | 'other';
+  documentNumber: string;
   lotReceiptsByItemKey: Record<string, LotReceiptPayload[]>;
 }
 
@@ -50,6 +52,8 @@ export function PurchaseFinalizeModal({
     defaultValues: {
       providerId: '',
       notes: '',
+      documentType: '',
+      documentNumber: '',
       lotReceiptsByItemKey: {},
     },
   });
@@ -171,6 +175,37 @@ export function PurchaseFinalizeModal({
             placeholder={t('checkout.notesPlaceholder')}
             {...form.register('notes')}
           />
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label htmlFor="purchase-document-type" className="label">
+              {t('purchases:document.typeLabel')}
+            </label>
+            <select
+              id="purchase-document-type"
+              className="input mt-1"
+              aria-label={t('purchases:document.typeLabel')}
+              {...form.register('documentType')}
+            >
+              <option value="">{t('purchases:document.typeNone')}</option>
+              <option value="invoice">{t('purchases:document.typeInvoice')}</option>
+              <option value="remision">{t('purchases:document.typeRemision')}</option>
+              <option value="other">{t('purchases:document.typeOther')}</option>
+            </select>
+          </div>
+          <div>
+            <label htmlFor="purchase-document-number" className="label">
+              {t('purchases:document.numberLabel')}
+            </label>
+            <input
+              id="purchase-document-number"
+              className="input mt-1"
+              maxLength={120}
+              placeholder={t('purchases:document.numberPlaceholder')}
+              {...form.register('documentNumber')}
+            />
+          </div>
         </div>
 
         {(form.formState.errors.root?.message || error) && (

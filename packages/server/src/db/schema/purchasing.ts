@@ -40,6 +40,11 @@ export type ProviderPayableSourceType = (typeof providerPayableSourceTypeEnum)[n
 export const providerPayablePaymentMethodEnum = ['cash', 'card', 'transfer', 'other'] as const;
 export type ProviderPayablePaymentMethod = (typeof providerPayablePaymentMethodEnum)[number];
 
+/** Which paper backs a purchase receipt. A remisión travels with the goods;
+ * the final invoice may arrive later. Null = not recorded. */
+export const purchaseDocumentTypeEnum = ['invoice', 'remision', 'other'] as const;
+export type PurchaseDocumentType = (typeof purchaseDocumentTypeEnum)[number];
+
 // ============================================================================
 // PURCHASES
 // ============================================================================
@@ -68,6 +73,8 @@ export const purchases = sqliteTable(
     subtotal: real('subtotal').notNull().default(0),
     total: real('total').notNull().default(0),
     notes: text('notes'),
+    documentType: text('document_type', { enum: purchaseDocumentTypeEnum }),
+    documentNumber: text('document_number'),
     createdBy: text('created_by')
       .notNull()
       .references(() => users.id),
@@ -142,6 +149,40 @@ export const invoiceUploads = sqliteTable(
       table.createdAt
     ),
     index('idx_invoice_uploads_payload_hash').on(table.payloadHash),
+  ]
+);
+
+/**
+ * Scanned or photographed supporting paper attached to a purchase: the
+ * remisión that traveled with the goods, or the supplier invoice. Payload
+ * lives in the encrypted database on purpose so the existing encrypted
+ * backup covers it with zero configuration. One attachment per purchase for
+ * now; a many-per-purchase follow-up only needs this index relaxed.
+ */
+export const purchaseDocuments = sqliteTable(
+  'purchase_documents',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    purchaseId: text('purchase_id')
+      .notNull()
+      .references(() => purchases.id),
+    fileName: text('file_name'),
+    mimeType: text('mime_type').notNull(),
+    sizeBytes: integer('size_bytes').notNull(),
+    payloadBase64: text('payload_base64').notNull(),
+    payloadHash: text('payload_hash').notNull(),
+    uploadedBy: text('uploaded_by')
+      .notNull()
+      .references(() => users.id),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_purchase_documents_tenant_created').on(table.tenantId, table.createdAt),
+    index('idx_purchase_documents_payload_hash').on(table.payloadHash),
+    uniqueIndex('idx_purchase_documents_purchase').on(table.purchaseId),
   ]
 );
 

@@ -87,6 +87,8 @@
     "inventory.transformation.void": "Inventory transformation voided",
     "purchase.receive": "Purchase received",
     "purchase.return": "Purchase returned to supplier",
+    "purchase.document_updated": "Purchase document updated",
+    "purchase.document_attached": "Purchase document attached",
     "purchase.void": "Purchase voided",
     "order.create": "Purchase order created",
     "order.submit": "Purchase-order draft submitted",

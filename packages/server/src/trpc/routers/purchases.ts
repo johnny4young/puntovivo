@@ -20,18 +20,24 @@ import {
 import { asCriticalCommandContext } from '../middleware/commandEnvelope.js';
 import { orders, providers, purchaseReturns, purchases, sites, users } from '../../db/schema.js';
 import {
+  attachPurchaseDocumentInput,
   createPurchaseFromOrderInput,
   createPurchaseInput,
+  getPurchaseDocumentInput,
   getPurchaseInput,
   listPurchasesInput,
   returnPurchaseInput,
+  setPurchaseDocumentInput,
   voidPurchaseInput,
 } from '../schemas/purchases.js';
 import {
+  attachPurchaseDocument,
   createPurchase,
   createPurchaseFromOrder,
+  getPurchaseDocument,
   getPurchaseRecord,
   returnPurchase,
+  setPurchaseDocument,
   voidPurchase,
   type CriticalPurchaseContext,
 } from '../../application/purchases/index.js';
@@ -154,6 +160,33 @@ export const purchasesRouter = router({
   getById: managerOrAdminProcedure.input(getPurchaseInput).query(async ({ ctx, input }) => {
     return getPurchaseRecord(ctx.db, ctx.tenantId, input.id);
   }),
+
+  setDocument: managerOrAdminProcedure
+    .input(setPurchaseDocumentInput)
+    .mutation(async ({ ctx, input }) => {
+      return setPurchaseDocument(
+        { db: ctx.db, tenantId: ctx.tenantId, user: ctx.user! },
+        input
+      );
+    }),
+
+  attachDocument: managerOrAdminProcedure
+    .input(attachPurchaseDocumentInput)
+    .mutation(async ({ ctx, input }) => {
+      return attachPurchaseDocument(
+        { db: ctx.db, tenantId: ctx.tenantId, user: ctx.user! },
+        input
+      );
+    }),
+
+  getDocument: managerOrAdminProcedure
+    .input(getPurchaseDocumentInput)
+    .query(async ({ ctx, input }) => {
+      return getPurchaseDocument(
+        { db: ctx.db, tenantId: ctx.tenantId, user: ctx.user! },
+        input
+      );
+    }),
 
   create: criticalCommandManagerOrAdminProcedure
     .input(createPurchaseInput)

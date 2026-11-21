@@ -17,6 +17,28 @@ export const purchaseStatusEnum = z.enum([
   'voided',
 ]);
 
+export const purchaseDocumentTypeEnum = z.enum(['invoice', 'remision', 'other']);
+
+/** Mirrors the invoice-OCR upload budget: a supporting paper for one
+ * purchase never needs more headroom than the OCR intake allows. */
+export const PURCHASE_DOCUMENT_MIME_TYPES = [
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+] as const;
+export const PURCHASE_DOCUMENT_MAX_BYTES = 10 * 1024 * 1024;
+
+const dataUrlPrefix = /^data:[^;]+;base64,/;
+
+const purchaseDocumentTypeInput = purchaseDocumentTypeEnum.optional();
+const purchaseDocumentNumberInput = z
+  .string()
+  .trim()
+  .min(1, 'Document number cannot be empty when provided')
+  .max(120)
+  .optional();
+
 const lotExpiryInput = isoDateField('Expiry must be a valid date');
 
 export const purchaseLotReceiptInput = z.object({
@@ -58,12 +80,37 @@ export const createPurchaseInput = z.object({
   providerId: z.string().min(1, 'Provider is required'),
   items: z.array(purchaseItemInput).min(1, 'At least one item is required'),
   notes: z.string().optional(),
+  documentType: purchaseDocumentTypeInput,
+  documentNumber: purchaseDocumentNumberInput,
 });
 
 export const createPurchaseFromOrderInput = z.object({
   orderId: z.string().min(1, 'Order is required'),
   items: z.array(receiveOrderItemInput).min(1, 'At least one received item is required').optional(),
   notes: z.string().optional(),
+  documentType: purchaseDocumentTypeInput,
+  documentNumber: purchaseDocumentNumberInput,
+});
+
+export const setPurchaseDocumentInput = z.object({
+  purchaseId: z.string().min(1, 'Purchase ID is required'),
+  documentType: purchaseDocumentTypeInput,
+  documentNumber: purchaseDocumentNumberInput,
+});
+
+export const attachPurchaseDocumentInput = z.object({
+  purchaseId: z.string().min(1, 'Purchase ID is required'),
+  fileName: z.string().trim().min(1).max(240).optional(),
+  mimeType: z.enum(PURCHASE_DOCUMENT_MIME_TYPES),
+  documentBase64: z
+    .string()
+    .min(1)
+    .max(Math.ceil(PURCHASE_DOCUMENT_MAX_BYTES * 1.4) + 32 * 1024)
+    .transform(value => value.replace(dataUrlPrefix, '')),
+});
+
+export const getPurchaseDocumentInput = z.object({
+  purchaseId: z.string().min(1, 'Purchase ID is required'),
 });
 
 export const voidPurchaseInput = z.object({
@@ -99,6 +146,9 @@ export type ReceiveOrderItemInput = z.infer<typeof receiveOrderItemInput>;
 export type ListPurchasesInput = z.infer<typeof listPurchasesInput>;
 export type CreatePurchaseInput = z.infer<typeof createPurchaseInput>;
 export type CreatePurchaseFromOrderInput = z.infer<typeof createPurchaseFromOrderInput>;
+export type SetPurchaseDocumentInput = z.infer<typeof setPurchaseDocumentInput>;
+export type AttachPurchaseDocumentInput = z.infer<typeof attachPurchaseDocumentInput>;
+export type GetPurchaseDocumentInput = z.infer<typeof getPurchaseDocumentInput>;
 export type VoidPurchaseInput = z.infer<typeof voidPurchaseInput>;
 export type ReturnPurchaseItemInput = z.infer<typeof returnPurchaseItemInput>;
 export type ReturnPurchaseInput = z.infer<typeof returnPurchaseInput>;

@@ -1,9 +1,30 @@
 import { screen, within } from '@testing-library/react';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import i18next from 'i18next';
 import { render } from '@/test/utils';
 import type { Purchase } from '@/types';
 import { PurchaseDetailsContent } from './PurchaseDetailsContent';
+
+vi.mock('@/lib/trpc', () => ({
+  trpc: {
+    useUtils: () => ({
+      purchases: {
+        list: { invalidate: vi.fn() },
+        getById: { invalidate: vi.fn() },
+        getDocument: { fetch: vi.fn() },
+      },
+    }),
+    purchases: {
+      attachDocument: {
+        useMutation: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
+      },
+    },
+  },
+}));
+
+vi.mock('@/components/feedback/ToastProvider', () => ({
+  useToast: () => ({ success: vi.fn(), error: vi.fn() }),
+}));
 
 const purchase = {
   id: 'purchase-1',
@@ -72,5 +93,37 @@ describe('PurchaseDetailsContent lot evidence', () => {
     const productRow = screen.getByRole('row', { name: /Producto lotificado/i });
     expect(within(productRow).getAllByRole('cell')[3]).toHaveTextContent('0');
     expect(screen.queryByRole('columnheader', { name: 'Restante' })).not.toBeInTheDocument();
+  });
+
+  it('offers to attach the supporting paper when none exists', () => {
+    render(<PurchaseDetailsContent purchase={purchase} returnError={null} voidError={null} />);
+
+    expect(screen.getByText('Sin documento')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /Adjuntar foto o PDF del documento/i })
+    ).toBeInTheDocument();
+  });
+
+  it('labels the recorded remisión and offers to view its attachment', () => {
+    render(
+      <PurchaseDetailsContent
+        purchase={{
+          ...purchase,
+          documentType: 'remision',
+          documentNumber: 'RM-0042',
+          document: {
+            fileName: 'remision.png',
+            mimeType: 'image/png',
+            sizeBytes: 1024,
+            createdAt: '2030-01-01T12:00:00.000Z',
+          },
+        } as Purchase}
+        returnError={null}
+        voidError={null}
+      />
+    );
+
+    expect(screen.getByText('Remisión · RM-0042')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Ver documento adjunto/i })).toBeInTheDocument();
   });
 });
