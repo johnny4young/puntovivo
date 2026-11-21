@@ -269,6 +269,26 @@ export async function createPurchase(ctx: CriticalPurchaseContext, input: Create
         operationId: ctx.envelope.operationId,
       });
 
+      // The supporting document's identity is receipt evidence: record its
+      // initial value in the same transaction so the trail can reconstruct
+      // which paper the operator claims backs this receipt.
+      if (input.documentType !== undefined || input.documentNumber !== undefined) {
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user.id,
+          action: 'purchase.document_updated',
+          resourceType: 'purchase',
+          resourceId: purchaseId,
+          before: null,
+          after: {
+            documentType: input.documentType ?? null,
+            documentNumber: input.documentNumber ?? null,
+          },
+          operationId: ctx.envelope.operationId,
+        });
+      }
+
       enqueueSyncInTransaction(
         { ...ctx, db: tx as unknown as typeof ctx.db },
         {

@@ -196,6 +196,10 @@
     "attachedOn": "Adjuntado el {{date}}",
     "view": "Ver documento adjunto",
     "attachSuccess": "Documento adjunto",
-    "attachError": "No se pudo adjuntar el documento"
+    "attachError": "No se pudo adjuntar el documento",
+    "attachConflict": "Esta compra ya tiene un documento adjunto. La vista se actualizó para mostrarlo.",
+    "previewTitle": "Vista previa del documento",
+    "close": "Cerrar",
+    "download": "Descargar"
   }
 }

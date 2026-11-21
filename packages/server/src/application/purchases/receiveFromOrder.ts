@@ -375,6 +375,25 @@ export async function createPurchaseFromOrder(
         operationId: ctx.envelope.operationId,
       });
 
+      // Same receipt-evidence rule as the direct path: the supporting
+      // document's identity is recorded when the operator supplies it.
+      if (input.documentType !== undefined || input.documentNumber !== undefined) {
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user.id,
+          action: 'purchase.document_updated',
+          resourceType: 'purchase',
+          resourceId: purchaseId,
+          before: null,
+          after: {
+            documentType: input.documentType ?? null,
+            documentNumber: input.documentNumber ?? null,
+          },
+          operationId: ctx.envelope.operationId,
+        });
+      }
+
       const syncContext = { ...ctx, db: tx as unknown as typeof ctx.db };
       enqueueSyncInTransaction(syncContext, {
         entityType: 'purchases',

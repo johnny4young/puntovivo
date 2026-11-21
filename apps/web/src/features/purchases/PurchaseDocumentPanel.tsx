@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Paperclip } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
@@ -15,6 +15,18 @@ const ACCEPTED_MIME = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp
 const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
 const dataUrlPrefix = /^data:[^;]+;base64,/;
 
+interface DocumentPreview {
+  url: string;
+  mimeType: string;
+  fileName: string | null;
+}
+
+/** Base64 → browser object URL. The caller owns revocation. */
+function documentObjectUrl(documentBase64: string, mimeType: string): string {
+  const bytes = Uint8Array.from(atob(documentBase64), character => character.charCodeAt(0));
+  return URL.createObjectURL(new Blob([bytes], { type: mimeType }));
+}
+
 export function PurchaseDocumentPanel({ purchase }: PurchaseDocumentPanelProps) {
   const { t } = useTranslation('purchases');
   const toast = useToast();
@@ -22,17 +34,37 @@ export function PurchaseDocumentPanel({ purchase }: PurchaseDocumentPanelProps) 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isBusy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<DocumentPreview | null>(null);
   const attached = purchase.document ?? null;
+
+  useEffect(
+    () => () => {
+      if (preview) URL.revokeObjectURL(preview.url);
+    },
+    [preview]
+  );
+
+  const refreshPurchase = async () => {
+    await invalidateGroups(utils, [u => u.purchases.list, u => u.purchases.getById]);
+  };
 
   const attachMutation = trpc.purchases.attachDocument.useMutation({
     onSuccess: async () => {
-      await invalidateGroups(utils, [u => u.purchases.list, u => u.purchases.getById]);
+      await refreshPurchase();
       toast.success({ title: t('document.attachSuccess') });
       setError(null);
       setBusy(false);
     },
-    onError: () => {
-      setError(t('document.attachError'));
+    onError: async attachError => {
+      // A stale purchase copy with a document already attached cannot accept
+      // another upload: say so specifically and refresh so the existing paper
+      // becomes visible instead of inviting retries that cannot succeed.
+      if ((attachError as { data?: { code?: string } }).data?.code === 'CONFLICT') {
+        setError(t('document.attachConflict'));
+        await refreshPurchase();
+      } else {
+        setError(t('document.attachError'));
+      }
       setBusy(false);
     },
   });
@@ -71,18 +103,22 @@ export function PurchaseDocumentPanel({ purchase }: PurchaseDocumentPanelProps) 
     setError(null);
     try {
       const document = await utils.purchases.getDocument.fetch({ purchaseId: purchase.id });
-      const bytes = Uint8Array.from(atob(document.documentBase64), character =>
-        character.charCodeAt(0)
-      );
-      const blob = new Blob([bytes], { type: document.mimeType });
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank', 'noopener');
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      if (preview) URL.revokeObjectURL(preview.url);
+      setPreview({
+        url: documentObjectUrl(document.documentBase64, document.mimeType),
+        mimeType: document.mimeType,
+        fileName: document.fileName,
+      });
     } catch {
       setError(t('document.attachError'));
     } finally {
       setBusy(false);
     }
+  };
+
+  const closePreview = () => {
+    if (preview) URL.revokeObjectURL(preview.url);
+    setPreview(null);
   };
 
   return (
@@ -132,6 +168,40 @@ export function PurchaseDocumentPanel({ purchase }: PurchaseDocumentPanelProps) 
             <Paperclip className="h-4 w-4" aria-hidden="true" />
             {t('document.attachLabel')}
           </button>
+        </div>
+      )}
+
+      {/* In-app preview: the desktop build blocks renderer-created windows and
+          external blob navigation, so the paper is shown inside the panel. */}
+      {preview && (
+        <div className="mt-3 space-y-2">
+          <p className="text-xs font-semibold text-secondary-700">{t('document.previewTitle')}</p>
+          {preview.mimeType === 'application/pdf' ? (
+            <iframe
+              title={t('document.previewTitle')}
+              src={preview.url}
+              className="h-96 w-full rounded-lg border border-secondary-200 bg-white"
+            />
+          ) : (
+            /* eslint-disable-next-line jsx-a11y/alt-text -- descriptive alt uses the file name */
+            <img
+              src={preview.url}
+              alt={preview.fileName ?? t('document.previewTitle')}
+              className="max-h-96 w-full rounded-lg border border-secondary-200 bg-white object-contain"
+            />
+          )}
+          <div className="flex flex-wrap gap-3">
+            <a
+              href={preview.url}
+              download={preview.fileName ?? 'documento'}
+              className="btn-secondary inline-flex items-center"
+            >
+              {t('document.download')}
+            </a>
+            <button type="button" className="btn-secondary" onClick={closePreview}>
+              {t('document.close')}
+            </button>
+          </div>
         </div>
       )}
 

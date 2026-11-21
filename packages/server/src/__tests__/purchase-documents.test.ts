@@ -10,6 +10,8 @@ import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import {
   auditLogs,
+  orderItems,
+  orders,
   products,
   providers,
   purchaseDocuments,
@@ -63,7 +65,7 @@ async function seedCatalogFixture() {
   await db.insert(providers).values({
     id: providerId,
     tenantId,
-    name: 'Document Fixture Supplier',
+    name: `Document Fixture Supplier ${nanoid(5)}`,
     isActive: true,
     createdAt: now,
     updatedAt: now,
@@ -222,6 +224,95 @@ describe('Purchase documents', () => {
       .get();
     expect(row?.documentType).toBe('remision');
     expect(row?.documentNumber).toBe('RM-0042');
+
+    // The receipt evidence includes the initial document identity.
+    const identityAudit = db
+      .select({ after: auditLogs.after })
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.resourceId, created.id),
+          eq(auditLogs.action, 'purchase.document_updated')
+        )
+      )
+      .get();
+    expect(identityAudit?.after).toMatchObject({
+      documentType: 'remision',
+      documentNumber: 'RM-0042',
+    });
+  });
+
+  it('records the initial document identity when receiving from an order', async () => {
+    const db = getDatabase();
+    const { providerId, productId } = await seedCatalogFixture();
+    const orderItemId = nanoid();
+    const now = new Date().toISOString();
+
+    await db.insert(orders).values({
+      id: 'order-remision-1',
+      tenantId,
+      orderNumber: 'PED-RM-1',
+      providerId,
+      siteId,
+      status: 'submitted',
+      subtotal: 20,
+      total: 20,
+      createdBy: userId,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(orderItems).values({
+      id: orderItemId,
+      orderId: 'order-remision-1',
+      productId,
+      quantity: 2,
+      unitId: baseUnitId,
+      unitEquivalence: 1,
+      costPerUnit: 10,
+      baseUnitCost: 10,
+      total: 20,
+    });
+
+    const envelope = {
+      operationId: randomUUID(),
+      idempotencyKey: randomUUID(),
+      clientCreatedAt: new Date().toISOString(),
+    };
+    const caller = appRouter.createCaller(
+      freshCriticalContext({
+        db,
+        serverApp: server.app,
+        tenantId,
+        userId,
+        email: 'admin@localhost',
+        role: 'admin',
+        siteId,
+        deviceId: testDeviceId,
+        envelope,
+      })
+    );
+
+    const received = await caller.purchases.createFromOrder({
+      orderId: 'order-remision-1',
+      items: [{ orderItemId, quantity: 2 }],
+      documentType: 'remision',
+      documentNumber: 'RM-0099',
+    });
+
+    const identityAudit = db
+      .select({ after: auditLogs.after })
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.resourceId, received.id),
+          eq(auditLogs.action, 'purchase.document_updated')
+        )
+      )
+      .get();
+    expect(identityAudit?.after).toMatchObject({
+      documentType: 'remision',
+      documentNumber: 'RM-0099',
+    });
   });
 
   it('sets and updates the document identity with an audit row', async () => {

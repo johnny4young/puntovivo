@@ -196,6 +196,10 @@
     "attachedOn": "Attached on {{date}}",
     "view": "View attached document",
     "attachSuccess": "Document attached",
-    "attachError": "Could not attach the document"
+    "attachError": "Could not attach the document",
+    "attachConflict": "This purchase already has an attached document. The view was refreshed to show it.",
+    "previewTitle": "Document preview",
+    "close": "Close",
+    "download": "Download"
   }
 }
