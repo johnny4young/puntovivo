@@ -87,6 +87,7 @@ function buildOrderRows(order: PrintableOrder, showReceiptProgress: boolean): st
   return (order.items ?? [])
     .map(item => {
       const productLabel = item.productName || item.productSku || item.productId;
+      const unitLabel = item.unitName ?? item.unitAbbreviation ?? null;
       const received = item.receivedQuantity ?? 0;
       const pending = item.remainingQuantity ?? item.quantity;
 
@@ -97,11 +98,18 @@ function buildOrderRows(order: PrintableOrder, showReceiptProgress: boolean): st
         `
         : '';
 
+      // The supplier reads quantities and costs in the unit the order used —
+      // two boxes of twelve are not "2" — so the unit travels with the
+      // quantity, falling back exactly like the order details table.
+      const unitCell = unitLabel
+        ? `<br /><span class="item-unit">${escapeHtml(unitLabel)}</span>`
+        : '';
+
       return `
         <tr>
           <td class="item-name">${escapeHtml(productLabel)}</td>
           <td class="item-code">${escapeHtml(item.productSku ?? '')}</td>
-          <td class="item-qty">${escapeHtml(formatNumber(item.quantity))}</td>
+          <td class="item-qty">${escapeHtml(formatNumber(item.quantity))}${unitCell}</td>
           ${progressCells}
           <td class="item-cost">${escapeHtml(formatCurrency(item.costPerUnit))}</td>
           <td class="item-total">${escapeHtml(formatCurrency(item.total))}</td>
@@ -210,6 +218,7 @@ export async function buildOrderDocumentHtml(
           }
           .item-name { width: 34%; padding-right: 8px; }
           .item-code { color: #475569; padding-right: 6px; }
+          .item-unit { color: #64748b; font-size: 10px; }
           .item-qty, .item-received, .item-pending, .item-cost, .item-total {
             text-align: right;
             white-space: nowrap;
@@ -343,6 +352,9 @@ export async function printOrderDocument(order: PrintableOrder): Promise<void> {
     );
 
     if (!result.success) {
+      // Closing the native print dialog is an operator choice, not a printer
+      // failure — mirror the sale receipt printer, which returns quietly.
+      if (result.errorCode === 'PRINT_CANCELLED') return;
       throw new OrderPrintError(
         'desktopBridgeFailed',
         result.error || 'Unable to print the purchase order'

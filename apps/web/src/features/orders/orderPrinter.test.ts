@@ -77,6 +77,27 @@ describe('orderPrinter', () => {
     expect(html).toContain('Submitted');
   });
 
+  it('prints the ordered unit under the quantity so a case reads as a case', async () => {
+    const baseItem = makeOrder().items?.[0];
+    if (!baseItem) throw new Error('Expected a fixture order item');
+
+    const html = await buildOrderDocumentHtml(
+      makeOrder({
+        items: [
+          {
+            ...baseItem,
+            unitName: 'Cajas',
+            unitAbbreviation: 'CJ',
+            quantity: 2,
+          },
+        ],
+      })
+    );
+
+    expect(html).toContain('class="item-unit"');
+    expect(html).toContain('Cajas');
+  });
+
   it('adds received and pending columns only when the order is partially received', async () => {
     const submitted = await buildOrderDocumentHtml(makeOrder({ status: 'submitted' }));
     expect(submitted).not.toContain('>Received<');
@@ -166,5 +187,15 @@ describe('orderPrinter', () => {
       name: 'OrderPrintError',
       code: 'desktopBridgeFailed',
     } satisfies Partial<OrderPrintError>);
+  });
+
+  it('resolves quietly when the operator cancels the native print dialog', async () => {
+    window.electron = {
+      printReceipt: vi.fn(
+        async () => ({ success: false, errorCode: 'PRINT_CANCELLED' })
+      ),
+    } as unknown as typeof window.electron;
+
+    await expect(printOrderDocument(makeOrder())).resolves.toBeUndefined();
   });
 });
