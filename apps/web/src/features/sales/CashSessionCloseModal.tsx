@@ -26,7 +26,6 @@ const LIVE_DELTA_EPSILON = 0.009;
 export interface CashSessionCloseValues {
   actualCount: number;
   denominations: CashSessionDenomination[];
-  justification?: string;
 }
 
 interface CashSessionCloseModalProps {
@@ -52,7 +51,6 @@ function createDefaultValues(currencyCode: string | undefined): CashSessionClose
   return {
     actualCount: 0,
     denominations: createCashSessionDenominations(currencyCode),
-    justification: '',
   };
 }
 
@@ -396,27 +394,6 @@ export function CashSessionCloseModal({
               })}
             </div>
           </section>
-
-          <section>
-            <label
-              htmlFor="cash-session-close-justification"
-              className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground"
-            >
-              {t('cashSession.closeForm.justificationLabel', {
-                defaultValue: 'Justificación (opcional)',
-              })}
-            </label>
-            <textarea
-              id="cash-session-close-justification"
-              rows={2}
-              className="mt-1.5 w-full rounded-[10px] border border-line-strong bg-surface px-3 py-2 text-[13px] text-ink outline-none transition focus:border-primary-300 focus:ring-2 focus:ring-primary-400/40"
-              placeholder={t('cashSession.closeForm.justificationPlaceholder', {
-                defaultValue: 'Explica cualquier sobrante o faltante…',
-              })}
-              {...form.register('justification', { maxLength: 500 })}
-            />
-          </section>
-
           {error && <p className="text-[12.5px] text-danger-600">{error}</p>}
         </form>
         {canSeeLiveDelta && cashSession && (
