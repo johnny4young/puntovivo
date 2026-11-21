@@ -32,6 +32,7 @@ import { resolveCashCloseSettings } from '../../services/cash-close-settings.js'
 import { computeDayCloseSummary } from '../../services/reports/day-close.js';
 import { computeCashierPace as computeCashierPaceFromTiming } from '../../services/reports/cashier-pace.js';
 import { computeCashierPace } from '../../services/cashier-pace.js';
+import { computeShiftSummary } from '../../services/reports/shift-summary.js';
 import {
   cashierPaceOutput,
   cashSessionMovementsInput,
@@ -45,6 +46,7 @@ import {
   pendingChecksInput,
   receiveCashHandoffInput,
   recordCashMovementInput,
+  shiftSummaryOutput,
   startCashHandoffInput,
 } from '../schemas/cashSessions.js';
 
@@ -285,6 +287,28 @@ export const cashSessionsRouter = router({
         return null;
       }
       return computeCashierPaceFromTiming({
+        db: ctx.db,
+        tenantId: ctx.tenantId,
+        siteId: ctx.siteId,
+        cashierId: ctx.user.id,
+      });
+    }),
+  /** Whether the caller signs a handoff with a staff PIN or with the session. */
+  mySigner: cashierManagerOrAdminProcedure.query(({ ctx }) => {
+    const row = ctx.db
+      .select({ staffPinHash: users.staffPinHash })
+      .from(users)
+      .where(and(eq(users.id, ctx.user!.id), eq(users.tenantId, ctx.tenantId)))
+      .get();
+    return { hasPin: !!row?.staffPinHash };
+  }),
+  /** The caller's own open shift for the handoff sheet; no cashier id is accepted. */
+  myShiftSummary: cashierManagerOrAdminProcedure
+    .input(getActiveCashSessionInput)
+    .output(shiftSummaryOutput)
+    .query(({ ctx }) => {
+      if (!ctx.siteId || !ctx.user) return null;
+      return computeShiftSummary({
         db: ctx.db,
         tenantId: ctx.tenantId,
         siteId: ctx.siteId,

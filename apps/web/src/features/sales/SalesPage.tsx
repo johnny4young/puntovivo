@@ -34,6 +34,8 @@ import { readExternalSaleEntry } from './externalSaleEntry';
 import { useTranslation } from 'react-i18next';
 import type { CompletedSaleSummary } from './SaleCompleteStrip';
 import { useEmbeddedServerState } from '@/hooks/useEmbeddedServerState';
+import { getSalesDockGates } from './salesDockGates';
+import { useShiftHandoff } from './handoff/useShiftHandoff';
 
 const LazyCashDrawerApprovalModal = lazy(() =>
   import('@/features/sales/CashDrawerApprovalModal').then(module => ({
@@ -387,6 +389,8 @@ export function SalesPage() {
     handleOpenCloseCashSessionModal,
     handleCloseCashSession,
     handleOpenCashSessionMovementModal,
+    handleOpenReplenishment,
+    cashSessionMovementType,
     handleRecordCashMovement,
     handleToggleSuspendedPanel,
     handleReprintSelectedHistoryRow,
@@ -418,6 +422,24 @@ export function SalesPage() {
     onCheckoutValidationError: () => saleMeasurement.recordValidationError(),
     onCheckoutRecoveryAttempt: () => saleMeasurement.recordRecoveryAttempt(),
   });
+
+  const shiftHandoff = useShiftHandoff({
+    siteId: currentSite?.id ?? null,
+    activeCashSession,
+    registerAssignments,
+    selectedRegisterAssignment,
+    hasReceiptPrinter: !getSalesDockGates({
+      canCharge: false,
+      hubReachable: true,
+      readinessItems: checkoutReadinessItems,
+    }).printerMissing,
+    onResumeDraft: handleResumeFromPanel,
+    onRequestChange: handleOpenReplenishment,
+  });
+  // Opening a register that is waiting to be received would discard its handoff.
+  const openOrReceiveCashSession = shiftHandoff.receive?.isSelectedRegister
+    ? shiftHandoff.receive.open
+    : handleOpenCashSessionModal;
 
   const handleMeasuredRemoveItem = (itemKey: string) => {
     saleMeasurement.recordBacktrack();
@@ -502,7 +524,10 @@ export function SalesPage() {
     // handler its visible button uses; unavailable actions pass
     // undefined so the combo stays inert instead of erroring.
     onNewSale: handleNewSale,
-    onOpenCashSession: canOpenCashSession ? handleOpenCashSessionModal : undefined,
+    onOpenCashSession:
+      shiftHandoff.receive?.isSelectedRegister || canOpenCashSession
+        ? openOrReceiveCashSession
+        : undefined,
     onOpenCashMovement: activeCashSession ? handleOpenCashSessionMovementModal : undefined,
     onOpenCashClose: canCloseCashSession ? () => setIsCashSessionCloseModalOpen(true) : undefined,
   });
@@ -520,7 +545,7 @@ export function SalesPage() {
     isResumedCart: itemsLocked,
     isProductSearchOpen,
     isPaymentModalOpen,
-    isCashSessionModalOpen,
+    isCashSessionModalOpen: isCashSessionModalOpen || shiftHandoff.isSheetOpen,
     isCashSessionCloseModalOpen,
     isCashSessionMovementModalOpen,
     productInputRef,
@@ -590,7 +615,7 @@ export function SalesPage() {
         canCloseCashSession={canCloseCashSession}
         userRole={userRole}
         handleOpenPaymentModal={handleOpenPaymentModal}
-        handleOpenCashSessionModal={handleOpenCashSessionModal}
+        handleOpenCashSessionModal={openOrReceiveCashSession}
         handleOpenCloseCashSessionModal={handleOpenCloseCashSessionModal}
         handleOpenCashSessionMovementModal={handleOpenCashSessionMovementModal}
         onKickCashDrawer={onKickCashDrawer}
@@ -658,6 +683,8 @@ export function SalesPage() {
         handleCloseCashSession={handleCloseCashSession}
         isCashSessionMovementModalOpen={isCashSessionMovementModalOpen}
         cashSessionMovementModalKey={cashSessionMovementModalKey}
+        cashSessionMovementType={cashSessionMovementType}
+        shiftHandoff={shiftHandoff}
         isRecordingMovement={recordCashMovementMutation.isPending}
         cashSessionMovementError={cashSessionMovementError}
         setIsCashSessionMovementModalOpen={setIsCashSessionMovementModalOpen}

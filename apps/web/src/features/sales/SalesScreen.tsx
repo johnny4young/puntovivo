@@ -36,6 +36,7 @@ import { canAccessRole, managerOrAdminRoles } from '@/features/auth/roleAccess';
 import { SaleCompleteStrip, type CompletedSaleSummary } from './SaleCompleteStrip';
 import { usePrintSaleReceipt } from './useReceiptAutoPrint';
 import { usePhoneLayout } from './usePhoneLayout';
+import type { useShiftHandoff } from './handoff/useShiftHandoff';
 
 const LazySalesQuickAccess = lazy(() =>
   import('@/features/sales/SalesQuickAccess').then(module => ({ default: module.SalesQuickAccess }))
@@ -220,6 +221,9 @@ export interface SalesScreenProps {
   handleCloseCashSession: CashModalsProps['onSubmitClose'];
   isCashSessionMovementModalOpen: boolean;
   cashSessionMovementModalKey: number;
+  cashSessionMovementType: CashModalsProps['cashSessionMovementType'];
+  /** Hand-over and receive entry points with their sheets. */
+  shiftHandoff: ReturnType<typeof useShiftHandoff>;
   isRecordingMovement: boolean;
   cashSessionMovementError: string | null;
   setIsCashSessionMovementModalOpen: Dispatch<SetStateAction<boolean>>;
@@ -350,6 +354,8 @@ export function SalesScreen({
   handleCloseCashSession,
   isCashSessionMovementModalOpen,
   cashSessionMovementModalKey,
+  cashSessionMovementType,
+  shiftHandoff,
   isRecordingMovement,
   cashSessionMovementError,
   setIsCashSessionMovementModalOpen,
@@ -586,6 +592,8 @@ export function SalesScreen({
             onCharge={handleCharge}
             onOpenCashSession={handleOpenCashSessionModal}
             onCloseCashSession={handleOpenCloseCashSessionModal}
+            onHandOver={hubReachable !== false ? shiftHandoff.handOver : undefined}
+            receiveHandoff={shiftHandoff.receive}
             onOpenMovement={handleOpenCashSessionMovementModal}
             onKickCashDrawer={onKickCashDrawer}
             isKickingCashDrawer={isKickingCashDrawer}
@@ -631,6 +639,7 @@ export function SalesScreen({
         canOpenCashSession={canOpenCashSession}
         onCharge={handleCharge}
         onOpenCashSession={handleOpenCashSessionModal}
+        receiveHandoff={shiftHandoff.receive}
         canSuspend={canSuspendActiveCart}
         onSuspend={handleOpenSuspendPrompt}
         suspendedDraftsCount={suspendedDraftsCount}
@@ -755,6 +764,8 @@ export function SalesScreen({
         </Suspense>
       )}
 
+      {shiftHandoff.sheets}
+
       {(isCashSessionModalOpen ||
         isCashSessionCloseModalOpen ||
         isCashSessionMovementModalOpen ||
@@ -780,6 +791,7 @@ export function SalesScreen({
             onReviewSuspended={() => setIsSuspendedPanelOpen(true)}
             isCashSessionMovementModalOpen={isCashSessionMovementModalOpen}
             cashSessionMovementModalKey={cashSessionMovementModalKey}
+            cashSessionMovementType={cashSessionMovementType}
             isRecordingMovement={isRecordingMovement}
             cashSessionMovementError={cashSessionMovementError}
             onCloseMovementModal={() => setIsCashSessionMovementModalOpen(false)}

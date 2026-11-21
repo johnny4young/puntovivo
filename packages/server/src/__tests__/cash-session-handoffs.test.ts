@@ -333,11 +333,14 @@ describe('register handoff', () => {
   });
 
   it('signs with the staff PIN when the cashier has one', async () => {
+    expect(await as(staff.diego).cashSessions.mySigner()).toEqual({ hasPin: false });
     getDatabase()
       .update(users)
       .set({ staffPinHash: await hashStaffPin('482915') })
       .where(eq(users.id, staff.diego))
       .run();
+    expect(await as(staff.diego).cashSessions.mySigner()).toEqual({ hasPin: true });
+    expect(await as(staff.camila).cashSessions.mySigner()).toEqual({ hasPin: false });
     await openRegister(staff.diego, 'Caja 6');
     const count = { actualCount: 0, denominations: [] };
 
@@ -503,6 +506,56 @@ describe('guided close decisions', () => {
       'SALE_CARRY_OVER_INVALID'
     );
     await as(staff.camila).cashSessions.close({
+      actualCount: 200000,
+      denominations: [{ value: 50000, count: 4 }],
+    });
+  });
+});
+
+describe('shift summary for the handoff sheet', () => {
+  it('sums the caller’s completed sales and spreads them over the shift', async () => {
+    expect(await as(staff.diego).cashSessions.myShiftSummary()).toBeNull();
+    const opened = await openRegister(staff.diego, 'Caja Resumen');
+    const db = getDatabase();
+    const openedAt = Date.parse(opened.openedAt);
+    db.update(cashSessions)
+      .set({ openedAt: new Date(openedAt - 60 * 60 * 1000).toISOString() })
+      .where(eq(cashSessions.id, opened.id))
+      .run();
+    const sell = (total: number, minutesAgo: number, status: 'completed' | 'draft' = 'completed') =>
+      db
+        .insert(sales)
+        .values({
+          id: nanoid(),
+          tenantId,
+          saleNumber: `SUM-${nanoid(6)}`,
+          subtotal: total,
+          taxAmount: 0,
+          discountAmount: 0,
+          total,
+          paymentMethod: 'card',
+          paymentStatus: 'paid',
+          status,
+          cashSessionId: opened.id,
+          createdBy: staff.diego,
+          checkoutCompletedAt: new Date(Date.now() - minutesAgo * 60 * 1000).toISOString(),
+        })
+        .run();
+    sell(10000, 58);
+    sell(2500.5, 2);
+    sell(99999, 2, 'draft');
+
+    const summary = await as(staff.diego).cashSessions.myShiftSummary();
+    expect(summary).toMatchObject({ sessionId: opened.id, salesCount: 2, revenue: 12500.5 });
+    expect(summary!.slices).toHaveLength(12);
+    expect(summary!.slices[0]).toBe(10000);
+    expect(summary!.slices[11]).toBe(2500.5);
+    expect(await as(staff.camila).cashSessions.myShiftSummary()).toBeNull();
+    await expect(as(staff.viewer).cashSessions.myShiftSummary()).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
+
+    await as(staff.diego).cashSessions.close({
       actualCount: 200000,
       denominations: [{ value: 50000, count: 4 }],
     });

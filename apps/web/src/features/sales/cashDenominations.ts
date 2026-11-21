@@ -18,6 +18,11 @@ export function cashDenominationsFor(currencyCode: string): number[] {
   return cash ? [...cash.bills, ...cash.coins] : [];
 }
 
+/** True when the value is a coin of a currency with a known cash set. */
+export function isCashCoin(value: number, currencyCode: string): boolean {
+  return CURRENCY_CASH[currencyCode.toUpperCase()]?.coins.includes(value) ?? false;
+}
+
 export interface ChangeBreakdown {
   bills: Array<{ value: number; count: number }>;
   /** What is left for coins, summed; zero when bills cover the change. */

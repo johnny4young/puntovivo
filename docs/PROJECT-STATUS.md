@@ -80,14 +80,17 @@ The current validated candidate includes:
   certification remain unavailable;
 - cash-session accountability, blind close, audited movements, day-close
   evidence, anomaly signals, and immutable manager sign-off;
-- mid-day register handoff on the server: the outgoing cashier closes with a
-  blind count by denomination and a note, signed with their staff PIN when they
-  have one; the next cashier keeps the counted drawer and recounts it against
-  that count, or starts a new drawer with its own float, and the outgoing
-  cashier's suspended sales pass to them. Hoy shows the handoff each register
-  came from and the registers still waiting to be received. Managers can
-  explain a closed difference and leave a suspended sale for the next day; the
-  register screens for these steps are not built yet;
+- mid-day register handoff: from the register, Hand over shift counts the
+  drawer blind by denomination, shows the shift's sales, the suspended sales
+  that pass on, returns still waiting for approval, low change and a missing
+  printer, takes a note for the next cashier and signs with the staff PIN when
+  there is one. Receive keeps the counted drawer and recounts it against that
+  count, showing whether it matches, or starts a new drawer with its own float;
+  the next cashier reads the note, can resume a passed sale and record the
+  change brought to the drawer, and signs to start selling. Hoy shows the
+  handoff each register came from and the registers still waiting to be
+  received. Managers can explain a closed difference and leave a suspended sale
+  for the next day through the API; the guided day close is not built yet;
 - site-owned inventory, units, lots, FEFO, expiry suggestions that remain
   informational until a manager converts them into an explicit lot-bound
   promotion, serialized products, warranty lookup, variant matrices, purchases,

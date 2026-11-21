@@ -240,4 +240,27 @@ describe('SalesMobileCheckoutBar', () => {
       'aria-keyshortcuts'
     );
   });
+
+  it('receives the selected register when it was handed over', async () => {
+    await i18next.changeLanguage('en');
+    const open = vi.fn();
+    const onOpenCashSession = vi.fn();
+    render(
+      <SalesMobileCheckoutBar
+        draftSummary={{ itemCount: 0, subtotal: 0, taxAmount: 0, total: 0 }}
+        cashSession={null}
+        canCharge={false}
+        canOpenCashSession={false}
+        onCharge={vi.fn()}
+        onOpenCashSession={onOpenCashSession}
+        receiveHandoff={{ registerName: 'Caja 2', isSelectedRegister: true, open }}
+      />
+    );
+
+    const primary = screen.getByTestId('mobile-checkout-primary');
+    expect(primary).toHaveAccessibleName('Receive Caja 2');
+    await userEvent.click(primary);
+    expect(open).toHaveBeenCalledOnce();
+    expect(onOpenCashSession).not.toHaveBeenCalled();
+  });
 });
