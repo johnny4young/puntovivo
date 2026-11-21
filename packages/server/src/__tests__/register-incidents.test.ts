@@ -396,6 +396,43 @@ describe('register incidents', () => {
     expect(sitesListed).not.toContain(closedSiteId);
   });
 
+  it('files a call to the manager without a product, once per cashier while open', async () => {
+    const db = getDatabase();
+    const cashier = appRouter.createCaller(ctxFor('cashier'));
+    const call = await cashier.registerIncidents.report({ kind: 'call_manager', productId });
+    const again = await cashier.registerIncidents.report({ kind: 'call_manager' });
+    expect(again.id).toBe(call.id);
+
+    const otherCashierId = nanoid();
+    db.insert(users)
+      .values({
+        id: otherCashierId,
+        tenantId,
+        email: `caja-${otherCashierId}@localhost`,
+        name: 'Cajera Dos',
+        passwordHash: 'x',
+        role: 'cashier',
+      })
+      .run();
+    const otherCall = await appRouter
+      .createCaller(
+        ctxFor('cashier', {
+          user: { id: otherCashierId, email: 'caja2@localhost', role: 'cashier', tenantId },
+        })
+      )
+      .registerIncidents.report({ kind: 'call_manager' });
+    expect(otherCall.id).not.toBe(call.id);
+
+    const open = await appRouter.createCaller(ctxFor('manager')).registerIncidents.listOpen();
+    expect(open.find(row => row.id === call.id)).toMatchObject({
+      kind: 'call_manager',
+      productId: null,
+      productName: null,
+      stockBySite: [],
+    });
+    expect(open.find(row => row.id === otherCall.id)?.reportedByName).toBe('Cajera Dos');
+  });
+
   it('finds a completed sale from its scanned receipt', async () => {
     const caller = appRouter.createCaller(ctxFor('cashier'));
     expect(await caller.sales.findByReceipt({ code: ' v-000842 ' })).toMatchObject({
