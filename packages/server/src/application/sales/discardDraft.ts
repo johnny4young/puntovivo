@@ -43,7 +43,7 @@ import {
 } from '../../services/pharmacy/business-clock.js';
 import { closeRestaurantCheckForSale } from '../restaurant/service-lifecycle.js';
 import { resolveDraftSiteEvidence } from './draft-site.js';
-import { ownsActiveDraftClaim } from './draft-ownership.js';
+import { ownsActiveDraftClaim, ownsParkedDraft } from './draft-ownership.js';
 
 const fallbackLog = createModuleLogger('application/sales/discardDraft');
 
@@ -117,10 +117,7 @@ export async function discardDraft(
   const actorRole = ctx.user.role;
   const canOverride = actorRole === 'manager' || actorRole === 'admin';
   const ownsActiveClaim = ownsActiveDraftClaim(existing, ctx.user.id, ctx.deviceId);
-  const ownsParkedDraft =
-    existing.suspendedAt !== null &&
-    (existing.createdBy === ctx.user.id || existing.suspendedBy === ctx.user.id);
-  if (!ownsActiveClaim && !ownsParkedDraft && !canOverride) {
+  if (!ownsActiveClaim && !ownsParkedDraft(existing, ctx.user.id) && !canOverride) {
     throwServerError({
       trpcCode: 'FORBIDDEN',
       errorCode: 'SALE_SUSPEND_OWNERSHIP_REQUIRED',
@@ -163,10 +160,7 @@ export async function discardDraft(
         });
       }
       const currentOwnsActiveClaim = ownsActiveDraftClaim(current, ctx.user.id, ctx.deviceId);
-      const currentOwnsParkedDraft =
-        current.suspendedAt !== null &&
-        (current.createdBy === ctx.user.id || current.suspendedBy === ctx.user.id);
-      if (!currentOwnsActiveClaim && !currentOwnsParkedDraft && !canOverride) {
+      if (!currentOwnsActiveClaim && !ownsParkedDraft(current, ctx.user.id) && !canOverride) {
         throwServerError({
           trpcCode: 'FORBIDDEN',
           errorCode: 'SALE_SUSPEND_OWNERSHIP_REQUIRED',

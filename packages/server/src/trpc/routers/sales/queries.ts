@@ -8,6 +8,8 @@
  * @module trpc/routers/sales/queries
  */
 import { and, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
+import { parkedDraftOwnedBy } from '../../../application/sales/draft-ownership.js';
+import { isCarriedOverSql } from '../../../application/sales/carryDraftOver.js';
 
 import { tenantProcedure } from '../../middleware/tenant.js';
 import { cashierManagerOrAdminProcedure } from '../../middleware/roles.js';
@@ -269,8 +271,7 @@ export const salesQueryProcedures = {
             ? sql`(
                 (${sales.suspendedAt} IS NULL AND ${sales.resumedBy} = ${ctx.user!.id})
                 OR (${sales.suspendedAt} IS NOT NULL AND (
-                  ${sales.suspendedBy} = ${ctx.user!.id}
-                  OR (${sales.suspendedBy} IS NULL AND ${sales.createdBy} = ${ctx.user!.id})
+                  ${parkedDraftOwnedBy(ctx.user!.id)}
                   OR EXISTS (
                     SELECT 1
                     FROM ${restaurantChecks}
@@ -289,8 +290,7 @@ export const salesQueryProcedures = {
             : sql`(
                 (${sales.suspendedAt} IS NULL AND ${sales.resumedBy} = ${ctx.user!.id})
                 OR (${sales.suspendedAt} IS NOT NULL AND (
-                  ${sales.suspendedBy} = ${ctx.user!.id}
-                  OR (${sales.suspendedBy} IS NULL AND ${sales.createdBy} = ${ctx.user!.id})
+                  ${parkedDraftOwnedBy(ctx.user!.id)}
                 ))
               )`
         );
@@ -334,6 +334,7 @@ export const salesQueryProcedures = {
             resumedBy: sales.resumedBy,
             resumedDeviceId: sales.resumedDeviceId,
             suspendedLabel: sales.suspendedLabel,
+            carriedOver: isCarriedOverSql().mapWith(Boolean),
             restaurantCheckLabel: sql<
               string | null
             >`(SELECT ${restaurantChecks.label} FROM ${restaurantChecks} WHERE ${restaurantChecks.tenantId} = ${ctx.tenantId} AND ${restaurantChecks.saleId} = ${sales.id} LIMIT 1)`,

@@ -174,7 +174,13 @@
       "nextIn": "Next in",
       "durationHours": "{{hours}} h {{minutes}} min",
       "durationMinutes": "{{minutes}} min",
-      "handoff": "Handoff of {{register}}: {{from}} hands over"
+      "handoff": "Handoff of {{register}}: {{from}} hands over",
+      "received": "Handoff at {{time}} · from {{from}}",
+      "receivedDifference": "Handoff at {{time}} · {{difference}} against {{from}}'s count",
+      "handedOver": "{{register}} · handed over",
+      "handedOverBy": "{{from}} handed it over at {{time}}",
+      "waitingFor": "waits for {{to}}",
+      "waitingAnyone": "to receive"
     }
   }
 }

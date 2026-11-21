@@ -1,0 +1,13 @@
+{
+  "server": {
+    "CASH_HANDOFF_NOT_FOUND": "Ese relevo de caja no está en esta sede. Recargue e intente de nuevo.",
+    "CASH_HANDOFF_NOT_PENDING": "Alguien ya recibió esta caja, o se abrió de otra forma.",
+    "CASH_HANDOFF_SAME_CASHIER": "Otro cajero debe recibir la caja que usted entregó.",
+    "CASH_HANDOFF_RECIPIENT_INVALID": "Entregue la caja a otro cajero, encargado o administrador activo.",
+    "CASH_HANDOFF_RECIPIENT_MISMATCH": "Esta caja se entregó a otro cajero.",
+    "CASH_HANDOFF_PIN_REQUIRED": "Ingrese su PIN para firmar.",
+    "CASH_HANDOFF_PIN_INVALID": "Ese PIN no coincide. Intente de nuevo.",
+    "CASH_DIFFERENCE_NOT_EXPLAINABLE": "Solo se puede explicar una caja cerrada con diferencia.",
+    "SALE_CARRY_OVER_INVALID": "Solo una venta suspendida se puede dejar para mañana."
+  }
+}

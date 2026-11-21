@@ -73,6 +73,10 @@
     {
       "namespace": "operations",
       "prefixes": ["TRANSFER_DESTINATION_"]
+    },
+    {
+      "namespace": "cashHandoffs",
+      "prefixes": ["CASH_HANDOFF_", "CASH_DIFFERENCE_", "SALE_CARRY_OVER_"]
     }
   ]
 }

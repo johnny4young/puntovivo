@@ -80,6 +80,7 @@ Required: `productId`, `siteId`, `locationId` (nullable), `quantityBefore`,
 
 Required: `cashSessionId`, `siteId`, `cashierId`, `openedAt`, `closedAt`,
 `expectedCashBalance`, `countedCashBalance`, `overShortAmount`, `currencyCode`.
+Emitted for an ordinary close and for the close of a mid-day register handoff.
 
 ### `fiscal_document.accepted`
 

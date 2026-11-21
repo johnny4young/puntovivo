@@ -5,10 +5,12 @@
  *
  * @module services/operations/today
  */
-import { and, asc, eq, gte, inArray, lt, ne, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, lt, ne, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/sqlite-core';
 
 import type { DatabaseInstance } from '../../db/index.js';
 import {
+  cashSessionHandoffs,
   cashSessions,
   managerApprovalRequests,
   sales,
@@ -20,6 +22,7 @@ import { resolveTenantBusinessClock } from '../pharmacy/business-clock.js';
 import { addCalendarDays, resolveUtcDayWindow } from '../reports/day-window.js';
 import { dailyDatedRevenueSql, type DailyRevenueRow } from '../reports/net-sales.js';
 import { listOpenRegisterIncidents, type RegisterIncidentRow } from '../register-incidents.js';
+import { roundMoney } from '../../lib/money.js';
 import { computeNeedsAttention, type OperationsAttentionArea } from './attention.js';
 
 export type PendingSeverity = 'blocks' | 'beforeClose' | 'whenPossible';
@@ -82,6 +85,17 @@ export interface TodayRegister {
   salesCount: number;
   /** End of the cashier's scheduled shift today, the planned handoff. */
   scheduledEndAt: string | null;
+  /** The handoff this session received the drawer from, if any. */
+  lastHandoff: { receivedAt: string; fromUserName: string; countDifference: number | null } | null;
+}
+
+/** A register handed over and not received yet: its cash sits counted, without a session. */
+export interface TodayAwaitingHandoff {
+  id: string;
+  registerName: string;
+  fromUserName: string;
+  toUserName: string | null;
+  handedOverAt: string;
 }
 
 export interface TodayShift {
@@ -108,6 +122,7 @@ export interface OperationsToday {
   registers: TodayRegister[];
   shifts: TodayShift[];
   nextHandoff: { at: string; registerName: string | null; fromUserName: string } | null;
+  awaitingHandoffs: TodayAwaitingHandoff[];
   pending: TodayPendingItem[];
 }
 
@@ -152,6 +167,8 @@ export async function computeOperationsToday(
   const orders = [...todayByHour.values()].reduce((sum, row) => sum + row.orders, 0);
   const comparisonTotal = hourly.reduce((sum, row) => sum + row.comparison, 0);
 
+  const fromUser = alias(users, 'handoff_from_user');
+  const toUser = alias(users, 'handoff_to_user');
   const sessionRows = db
     .select({
       sessionId: cashSessions.id,
@@ -161,10 +178,22 @@ export async function computeOperationsToday(
       siteId: cashSessions.siteId,
       siteName: sites.name,
       openedAt: cashSessions.openedAt,
+      handoffReceivedAt: cashSessionHandoffs.receivedAt,
+      handoffFromUserName: fromUser.name,
+      handoffOutgoingCount: cashSessionHandoffs.outgoingCount,
+      handoffReceivedCount: cashSessionHandoffs.receivedCount,
     })
     .from(cashSessions)
     .innerJoin(users, eq(users.id, cashSessions.cashierId))
     .innerJoin(sites, eq(sites.id, cashSessions.siteId))
+    .leftJoin(
+      cashSessionHandoffs,
+      and(
+        eq(cashSessionHandoffs.tenantId, tenantId),
+        eq(cashSessionHandoffs.toSessionId, cashSessions.id)
+      )
+    )
+    .leftJoin(fromUser, eq(fromUser.id, cashSessionHandoffs.fromCashierId))
     .where(and(eq(cashSessions.tenantId, tenantId), eq(cashSessions.status, 'open')))
     .orderBy(asc(cashSessions.registerName))
     .all();
@@ -212,7 +241,36 @@ export async function computeOperationsToday(
     .orderBy(asc(scheduledShifts.startsAt))
     .all();
 
-  const registers: TodayRegister[] = sessionRows.map(row => {
+  const awaitingHandoffs: TodayAwaitingHandoff[] = db
+    .select({
+      id: cashSessionHandoffs.id,
+      registerName: cashSessionHandoffs.registerName,
+      fromUserName: fromUser.name,
+      toUserName: toUser.name,
+      handedOverAt: cashSessionHandoffs.handedOverAt,
+    })
+    .from(cashSessionHandoffs)
+    .innerJoin(sites, eq(sites.id, cashSessionHandoffs.siteId))
+    .innerJoin(fromUser, eq(fromUser.id, cashSessionHandoffs.fromCashierId))
+    .leftJoin(toUser, eq(toUser.id, cashSessionHandoffs.toCashierId))
+    .where(
+      and(
+        eq(cashSessionHandoffs.tenantId, tenantId),
+        eq(cashSessionHandoffs.status, 'pending'),
+        eq(sites.isActive, true)
+      )
+    )
+    .orderBy(desc(cashSessionHandoffs.handedOverAt))
+    .all();
+
+  const registers: TodayRegister[] = sessionRows.map(handoffRow => {
+    const {
+      handoffReceivedAt,
+      handoffFromUserName,
+      handoffOutgoingCount,
+      handoffReceivedCount,
+      ...row
+    } = handoffRow;
     const sold = salesBySession.get(row.sessionId);
     const shiftEnd = shifts.find(
       shift => shift.userId === row.cashierId && shift.endsAt > now.toISOString()
@@ -223,6 +281,17 @@ export async function computeOperationsToday(
       salesTotal: sold?.total ?? 0,
       salesCount: sold?.count ?? 0,
       scheduledEndAt: shiftEnd ?? null,
+      lastHandoff:
+        handoffReceivedAt && handoffFromUserName && handoffOutgoingCount !== null
+          ? {
+              receivedAt: handoffReceivedAt,
+              fromUserName: handoffFromUserName,
+              countDifference:
+                handoffReceivedCount === null
+                  ? null
+                  : roundMoney(handoffReceivedCount - handoffOutgoingCount),
+            }
+          : null,
     };
   });
 
@@ -255,6 +324,7 @@ export async function computeOperationsToday(
     registers,
     shifts,
     nextHandoff,
+    awaitingHandoffs,
     pending: await pending,
   };
 }

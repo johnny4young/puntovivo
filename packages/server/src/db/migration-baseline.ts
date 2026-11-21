@@ -226,6 +226,15 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
         '0093_ai_budget_reservations',
         '0094_ocr_confirmation_idempotency',
         '0095_mighty_raza',
+        // Identity, fiscal, settings and register children with no parent in
+        // this fixture; 0102 alters cash_sessions and sales, which it lacks.
+        '0096_account_recovery_codes',
+        '0097_fiscal_numbering_ranges',
+        '0098_drop_desktop_sync_config',
+        '0099_register_incidents',
+        '0100_site_quick_keys',
+        '0101_site_transfer_destinations',
+        '0102_cash_session_handoffs',
       ].includes(entry.tag)
     ) {
       // A later marker skips every earlier entry in Drizzle. The exact

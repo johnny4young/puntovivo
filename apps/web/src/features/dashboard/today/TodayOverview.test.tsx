@@ -170,6 +170,49 @@ describe('TodayOverview', () => {
     expect(screen.getByTestId('today-register')).toHaveTextContent('waits on 2');
     expect(screen.getByTestId('today-register-stale')).toHaveTextContent('is item 1');
     expect(screen.getByTestId('today-next-handoff')).toHaveTextContent('2 h 36 min');
+    expect(screen.queryByTestId('today-register-handoff')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('today-register-awaiting')).not.toBeInTheDocument();
+  });
+
+  it('shows the handoff a register came from and the registers still waiting to be received', () => {
+    const base = todayFixture();
+    const receivedAt = '2026-11-11T19:06:00.000Z';
+    todayData.current = todayFixture({
+      registers: base.registers.map(register =>
+        register.sessionId === 's-1'
+          ? {
+              ...register,
+              lastHandoff: { receivedAt, fromUserName: 'Andrés', countDifference: -10000 },
+            }
+          : register
+      ),
+      awaitingHandoffs: [
+        {
+          id: 'h-2',
+          registerName: 'Caja 2',
+          fromUserName: 'Diego',
+          toUserName: 'Camila',
+          handedOverAt: receivedAt,
+        },
+        {
+          id: 'h-3',
+          registerName: 'Caja 4',
+          fromUserName: 'Marta',
+          toUserName: null,
+          handedOverAt: receivedAt,
+        },
+      ],
+    });
+    render(<TodayOverview formatCurrency={formatCurrency} />);
+
+    const line = screen.getByTestId('today-register-handoff');
+    expect(line).toHaveTextContent("$ -10000 against Andrés's count");
+    expect(line).toHaveClass('text-danger-700');
+    const [named, open] = screen.getAllByTestId('today-register-awaiting');
+    expect(named).toHaveTextContent('Caja 2 · handed over');
+    expect(named).toHaveTextContent('waits for Camila');
+    expect(named).toHaveTextContent('Diego handed it over at');
+    expect(open).toHaveTextContent('to receive');
   });
 
   it('remembers the expanded day per viewer', async () => {

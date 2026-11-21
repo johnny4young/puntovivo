@@ -75,6 +75,7 @@ Requeridos: `productId`, `siteId`, `locationId` (nullable), `quantityBefore`,
 
 Requeridos: `cashSessionId`, `siteId`, `cashierId`, `openedAt`, `closedAt`,
 `expectedCashBalance`, `countedCashBalance`, `overShortAmount`, `currencyCode`.
+Se emite en un cierre normal y en el cierre de un relevo de caja durante el día.
 
 ### `fiscal_document.accepted`
 

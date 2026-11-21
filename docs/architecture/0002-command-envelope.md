@@ -141,6 +141,7 @@ Adding to this list requires a superseding ADR or a documented amendment here.
 - `sales.getForReprint` (writes counter / audit row)
 - `sales.changeTable` (manager/admin restaurant transfer)
 - `sales.splitDraft` (manager/admin restaurant split-bill)
+- `sales.carryOver` (manager/admin leaves a parked draft for the next day)
 - `restaurantServices.openCheck` (atomic table service and sale draft)
 - `restaurantModifiers.save` (site catalog CAS, audit and replay snapshot)
 
@@ -150,6 +151,10 @@ Adding to this list requires a superseding ADR or a documented amendment here.
 - `cashSessions.close`
 - `cashSessions.recordMovement` (for `paid_in`, `paid_out`, `skim`,
   and `replenishment`)
+- `cashSessions.startHandoff` and `cashSessions.receiveHandoff` (mid-day
+  register handoff, ADR-0036)
+- `cashSessions.explainDifference` (manager/admin reason for a closed
+  over/short)
 
 **Reports / attestations**
 
