@@ -1,15 +1,23 @@
-import { ChevronDown, ChevronUp } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { CheckCircle2, ChevronDown, ChevronUp, PenLine } from 'lucide-react';
+import { lazy, Suspense, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router';
 import { Button } from '@/components/ui';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { trpc } from '@/lib/trpc';
+import { calendarDayAt } from '@/lib/utils';
+import { ISO_DATE_ONLY_PATTERN } from '@puntovivo/shared/iso-date';
 import { DayBand } from './DayBand';
 import { PendingQueue } from './PendingQueue';
 import { RegistersColumn } from './RegistersColumn';
 import { percentChange } from './todayModel';
 
+const GuidedDayCloseSheet = lazy(() =>
+  import('../close/GuidedDayCloseSheet').then(module => ({ default: module.GuidedDayCloseSheet }))
+);
+
 const EXPANDED_KEY = 'puntovivo.today.expanded';
+const CLOSE_PARAM = 'close';
 
 function readExpanded(): boolean {
   try {
@@ -25,15 +33,39 @@ interface TodayOverviewProps {
 
 /** The manager's day: what sold, the day band, what is pending and how the registers are. */
 export function TodayOverview({ formatCurrency }: TodayOverviewProps) {
-  const { t, i18n } = useTranslation('dashboard');
+  const { t, i18n } = useTranslation(['dashboard', 'dayCloseGuide']);
   const { user } = useAuth();
   const [expanded, setExpanded] = useState(readExpanded);
+  const [searchParams, setSearchParams] = useSearchParams();
   const query = trpc.operations.today.useQuery(undefined, {
     refetchInterval: 60_000,
     refetchOnWindowFocus: true,
   });
   const approverQuery = trpc.managerApprovals.queue.useQuery({ limit: 1 }, { staleTime: 60_000 });
   const today = query.data;
+  const businessDay = today ? calendarDayAt(new Date(today.generatedAt), today.timezone) : null;
+  const closeParam = searchParams.get(CLOSE_PARAM);
+  const closeDate =
+    closeParam !== null
+      ? ISO_DATE_ONLY_PATTERN.test(closeParam)
+        ? closeParam
+        : businessDay
+      : null;
+  const signoffQuery = trpc.reports.dayClose.signoffMetadata.useQuery(
+    { date: businessDay ?? '' },
+    { enabled: businessDay !== null, staleTime: 60_000 }
+  );
+  const daySigned = Boolean(signoffQuery.data);
+  const setCloseDate = (date: string | null) =>
+    setSearchParams(
+      params => {
+        const next = new URLSearchParams(params);
+        if (date) next.set(CLOSE_PARAM, date);
+        else next.delete(CLOSE_PARAM);
+        return next;
+      },
+      { replace: true }
+    );
 
   const formatters = useMemo(() => {
     const timeZone = today?.timezone;
@@ -105,6 +137,19 @@ export function TodayOverview({ formatCurrency }: TodayOverviewProps) {
         >
           {fiscalPending ? t('today.status.fiscalPending') : t('today.status.ready')}
         </span>
+        <Button
+          variant="outline"
+          size="compact"
+          onClick={() => setCloseDate(businessDay)}
+          data-testid="today-close-day"
+        >
+          {daySigned ? (
+            <CheckCircle2 className="h-4 w-4 text-success-700" aria-hidden="true" />
+          ) : (
+            <PenLine className="h-4 w-4" aria-hidden="true" />
+          )}
+          {daySigned ? t('dayCloseGuide:openSigned') : t('dayCloseGuide:open')}
+        </Button>
       </header>
 
       <div className="rounded-[22px] border border-line bg-surface px-5 pt-4 pb-3">
@@ -170,6 +215,17 @@ export function TodayOverview({ formatCurrency }: TodayOverviewProps) {
           formatTime={formatters.time}
         />
       </div>
+      {closeDate && (
+        <Suspense fallback={null}>
+          <GuidedDayCloseSheet
+            isOpen
+            onClose={() => setCloseDate(null)}
+            date={closeDate}
+            today={closeDate === businessDay ? today : null}
+            formatCurrency={formatCurrency}
+          />
+        </Suspense>
+      )}
     </section>
   );
 }

@@ -23,6 +23,9 @@ import { tenants, users } from './auth.js';
 export const DAY_CLOSE_SIGNOFF_SCHEMA_VERSION = 1 as const;
 export const DAY_CLOSE_PDF_RENDERER_VERSION = 1 as const;
 export const DAY_CLOSE_PDF_MIME_TYPE = 'application/pdf' as const;
+/** How the manager signed: staff PIN, a signature drawn on screen, or the authenticated session. */
+export const dayCloseSignatureMethodEnum = ['pin', 'drawn', 'session'] as const;
+export type DayCloseSignatureMethod = (typeof dayCloseSignatureMethodEnum)[number];
 
 export const dayCloseSignoffs = sqliteTable(
   'day_close_signoffs',
@@ -45,6 +48,11 @@ export const dayCloseSignoffs = sqliteTable(
     /** Name frozen at attestation time so later profile edits do not rewrite evidence. */
     signedByName: text('signed_by_name').notNull(),
     signedAt: text('signed_at').notNull(),
+    signatureMethod: text('signature_method', { enum: dayCloseSignatureMethodEnum })
+      .notNull()
+      .default('session'),
+    /** SVG path data of the drawn signature, kept outside the hashed report snapshot. */
+    signaturePath: text('signature_path'),
   },
   table => [
     uniqueIndex('idx_day_close_signoffs_tenant_date').on(table.tenantId, table.businessDate),

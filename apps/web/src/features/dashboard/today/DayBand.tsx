@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useElementWidth } from '@/hooks/useElementWidth';
 import { useTranslation } from 'react-i18next';
 import { dayPhases, hourIndex, type OperationsToday, type TodayPendingItem } from './todayModel';
 
@@ -12,25 +12,9 @@ interface DayBandProps {
 
 const PAD_X = 24;
 
-/** Track the rendered width so SVG text stays at its CSS pixel size. */
-function useWidth(fallback: number) {
-  const ref = useRef<HTMLElement>(null);
-  const [width, setWidth] = useState(fallback);
-  useLayoutEffect(() => {
-    const node = ref.current;
-    if (!node || typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(([entry]) => {
-      if (entry && entry.contentRect.width > 0) setWidth(Math.round(entry.contentRect.width));
-    });
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
-  return [ref, width] as const;
-}
-
 export function DayBand({ today, numbered, expanded, formatCurrency, formatTime }: DayBandProps) {
   const { t } = useTranslation('dashboard');
-  const [figureRef, WIDTH] = useWidth(920);
+  const [figureRef, WIDTH] = useElementWidth<HTMLElement>(920);
   const start = today.dayStartIso;
   const nowHour = hourIndex(today.generatedAt, start);
   const activeHours = today.hourly.filter(row => row.today > 0 || row.comparison > 0);

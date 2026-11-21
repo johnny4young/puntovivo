@@ -1,0 +1,112 @@
+{
+  "open": "Close the day",
+  "openSigned": "Day closed",
+  "title": "Close for {{weekday}} {{day}}",
+  "subtitle": "{{time}} · {{ready}} of {{total}} ready",
+  "loading": "Loading the close",
+  "error": "Could not load the close.",
+  "nonBlocking": "Does not block the close",
+  "steps": {
+    "count": "Count",
+    "compare": "Compare",
+    "sign": "Sign"
+  },
+  "figures": {
+    "cap": "The day in numbers",
+    "cash": "Cash to deposit",
+    "electronic": "Card and transfers",
+    "difference": "Cash difference"
+  },
+  "sold": {
+    "label": "Sold in the day",
+    "count_one": "{{count}} sale",
+    "count_other": "{{count}} sales"
+  },
+  "registers": {
+    "title": "Registers closed · {{closed}} of {{total}}",
+    "none": "No register opened this day",
+    "last": "{{name}} closed {{register}} at {{time}}",
+    "lastCounted": "{{name}} closed {{register}} at {{time}} with a count",
+    "openOne": "{{register}} is still open · {{name}}",
+    "openMany": "{{count}} registers are still open",
+    "review": "Review"
+  },
+  "difference": {
+    "pending": "{{register}} difference: {{amount}}",
+    "explained": "{{register}} difference explained: {{amount}}",
+    "detail": "Counted by {{name}} at {{time}}",
+    "balanced": "Registers balanced",
+    "reasonGroup": "Reason for the {{register}} difference",
+    "reasons": {
+      "wrong_change": "Wrong change given",
+      "unrecorded_withdrawal": "Unrecorded withdrawal",
+      "other": "Other"
+    },
+    "noteLabel": "What happened",
+    "save": "Save"
+  },
+  "drafts": {
+    "pending": "Suspended sale · {{name}} · {{amount}}",
+    "detail": "Suspended at {{time}}",
+    "resolved_one": "{{count}} suspended sale resolved",
+    "resolved_other": "{{count}} suspended sales resolved",
+    "carried": "Left for tomorrow · {{amount}}",
+    "discard": "Discard",
+    "carry": "Leave for tomorrow",
+    "discardTitle": "Discard this suspended sale?",
+    "discardMessage": "{{name}} for {{amount}} is cancelled and its items return to stock."
+  },
+  "fiscal": {
+    "title": "DIAN: {{accepted}} accepted · {{inProgress}} in progress",
+    "rejected_one": "{{count}} rejected",
+    "rejected_other": "{{count}} rejected",
+    "view": "View documents"
+  },
+  "anomalies": {
+    "none": "High-severity anomalies · none",
+    "some_one": "{{count}} high-severity anomaly",
+    "some_other": "{{count}} high-severity anomalies"
+  },
+  "sign": {
+    "title": "Manager signature",
+    "detailPin": "{{name}} · {{role}} · sign with your finger or your PIN",
+    "detailDraw": "{{name}} · {{role}} · sign with your finger",
+    "pad": "Signature area",
+    "clear": "Clear",
+    "usePin": "Use PIN",
+    "useDraw": "Sign on screen",
+    "pinLabel": "Your PIN",
+    "signedPin": "Signed with the PIN of {{name}}",
+    "signedDrawn": "Signed by {{name}}",
+    "signedSession": "Signed with the session of {{name}}"
+  },
+  "seal": {
+    "label": "DAY CLOSED"
+  },
+  "footer": {
+    "owner": "Send summary to the owner",
+    "sealHint": "Once signed, the day is sealed and no longer changes.",
+    "pending_one": "{{count}} item left to resolve",
+    "pending_other": "{{count}} items left to resolve",
+    "sign": "Sign and close the day",
+    "done": "Done"
+  },
+  "summary": {
+    "sold_one": "Sold: {{amount}} in {{count}} sale",
+    "sold_other": "Sold: {{amount}} in {{count}} sales",
+    "cash": "Cash to deposit: {{amount}}",
+    "electronic": "Card and transfers: {{amount}}",
+    "difference": "Cash difference: {{amount}}",
+    "signed": "Signed by {{name}} at {{time}}",
+    "unsigned": "Not signed yet"
+  },
+  "toast": {
+    "signed": "Day closed"
+  },
+  "errors": {
+    "explain": "Could not save the reason",
+    "carry": "Could not leave the sale for tomorrow",
+    "discard": "Could not discard the sale",
+    "sign": "Could not sign the close"
+  }
+}

@@ -22,6 +22,7 @@ import {
   users,
 } from '../db/schema.js';
 import { registerDevice } from '../services/devices/devicesService.js';
+import { hashStaffPin } from '../security/staffPins.js';
 import { signAccessToken } from '../security/authTokens.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
@@ -428,7 +429,7 @@ describe('reports.dayClose.preview', () => {
     expect(report.anomalies.total).toBe(0);
     expect(report.readiness).toMatchObject({
       readyToSign: false,
-      blockers: ['open_sessions'],
+      blockers: ['open_sessions', 'unexplained_differences'],
     });
     expect(report.readiness.warnings).toEqual([
       'cash_discrepancies',
@@ -473,6 +474,7 @@ describe('reports.dayClose.preview', () => {
       schemaVersion: 1,
       currencyCode: 'COP',
       signedBy: { id: tenant.managerId, name: 'Manager signoff' },
+      signatureMethod: 'session',
     });
     expect(signed.reportHash).toMatch(/^[a-f0-9]{64}$/);
     expect(signed.pdf).toMatchObject({
@@ -943,6 +945,217 @@ describe('reports.dayClose.preview', () => {
       cause: expect.objectContaining({
         errorCode: 'DAY_CLOSE_SIGNOFF_INTEGRITY_FAILED',
       }),
+    });
+  });
+
+  describe('guided close', () => {
+    async function seedGuidedDay(suffix: string) {
+      const db = getDatabase();
+      const tenant = await seedTenant(suffix);
+      await db.insert(cashSessions).values([
+        {
+          id: `dcr-${suffix}-short`,
+          tenantId: tenant.tenantId,
+          siteId: tenant.siteId,
+          cashierId: tenant.cashierId,
+          registerName: 'Caja 1',
+          openingFloat: 0,
+          openingCountDenominations: [],
+          expectedBalance: 100,
+          actualCount: 88,
+          overShort: -12,
+          status: 'closed',
+          openedAt: '2026-07-14T12:00:00.000Z',
+          closedAt: '2026-07-14T22:00:00.000Z',
+        },
+        {
+          id: `dcr-${suffix}-even`,
+          tenantId: tenant.tenantId,
+          siteId: tenant.siteId,
+          cashierId: tenant.managerId,
+          registerName: 'Caja 2',
+          openingFloat: 0,
+          openingCountDenominations: [],
+          expectedBalance: 50,
+          actualCount: 50,
+          overShort: 0,
+          status: 'closed',
+          openedAt: '2026-07-14T13:00:00.000Z',
+          closedAt: '2026-07-14T23:00:00.000Z',
+        },
+      ]);
+      await db.insert(sales).values([
+        {
+          id: `dcr-${suffix}-parked`,
+          tenantId: tenant.tenantId,
+          saleNumber: `DCR-${suffix}-P`,
+          total: 42,
+          status: 'draft',
+          suspendedAt: '2026-07-14T18:00:00.000Z',
+          suspendedBy: tenant.cashierId,
+          suspendedLabel: 'Domicilio',
+          createdBy: tenant.cashierId,
+          createdAt: '2026-07-14T17:00:00.000Z',
+          updatedAt: '2026-07-14T18:00:00.000Z',
+        },
+        {
+          id: `dcr-${suffix}-later`,
+          tenantId: tenant.tenantId,
+          saleNumber: `DCR-${suffix}-L`,
+          total: 9,
+          status: 'draft',
+          suspendedAt: '2026-07-15T06:00:00.000Z',
+          createdBy: tenant.cashierId,
+          createdAt: '2026-07-15T06:00:00.000Z',
+          updatedAt: '2026-07-15T06:00:00.000Z',
+        },
+      ]);
+      return tenant;
+    }
+
+    it('lists registers and parked sales, and blocks until both are resolved', async () => {
+      const tenant = await seedGuidedDay('guided');
+      const manager = await createCriticalActor(tenant, tenant.managerId, 'manager');
+      const reader = appRouter.createCaller(context(tenant.tenantId, tenant.managerId, 'manager'));
+
+      const checklist = await reader.reports.dayClose.checklist({ date: '2026-07-14' });
+      expect(checklist.sessions).toEqual([
+        expect.objectContaining({
+          id: 'dcr-guided-short',
+          registerName: 'Caja 1',
+          cashierName: 'Cashier guided',
+          status: 'closed',
+          counted: true,
+          overShort: -12,
+          differenceReason: null,
+        }),
+        expect.objectContaining({ id: 'dcr-guided-even', status: 'closed', overShort: 0 }),
+      ]);
+      expect(checklist.drafts).toEqual([
+        expect.objectContaining({
+          id: 'dcr-guided-parked',
+          label: 'Domicilio',
+          carriedOver: false,
+        }),
+      ]);
+      expect(
+        (await reader.reports.dayClose.preview({ date: '2026-07-14' })).readiness
+      ).toMatchObject({
+        readyToSign: false,
+        blockers: ['unexplained_differences', 'unresolved_drafts'],
+      });
+      await expect(
+        appRouter.createCaller(manager.fresh()).reports.dayClose.signOff({
+          date: '2026-07-14',
+          attestationAccepted: true,
+        })
+      ).rejects.toMatchObject({
+        cause: expect.objectContaining({ errorCode: 'DAY_CLOSE_NOT_READY' }),
+      });
+
+      await appRouter.createCaller(manager.fresh()).cashSessions.explainDifference({
+        sessionId: 'dcr-guided-short',
+        reason: 'wrong_change',
+      });
+      await appRouter
+        .createCaller(manager.fresh())
+        .sales.carryOver({ saleId: 'dcr-guided-parked' });
+
+      const resolved = await reader.reports.dayClose.checklist({ date: '2026-07-14' });
+      expect(resolved.sessions[0]).toMatchObject({ differenceReason: 'wrong_change' });
+      expect(resolved.drafts[0]).toMatchObject({ carriedOver: true });
+      expect(
+        (await reader.reports.dayClose.preview({ date: '2026-07-14' })).readiness
+      ).toMatchObject({ readyToSign: true, blockers: [] });
+    });
+
+    it('keeps the checklist manager-only and tenant-scoped', async () => {
+      const tenant = await seedGuidedDay('guided-scope');
+      const foreign = await seedTenant('guided-scope-foreign');
+      await expect(
+        appRouter
+          .createCaller(context(tenant.tenantId, tenant.cashierId, 'cashier'))
+          .reports.dayClose.checklist({ date: '2026-07-14' })
+      ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      const other = await appRouter
+        .createCaller(context(foreign.tenantId, foreign.managerId, 'manager'))
+        .reports.dayClose.checklist({ date: '2026-07-14' });
+      expect(other).toEqual({ date: '2026-07-14', sessions: [], drafts: [] });
+    });
+
+    it('signs with the staff PIN or a drawn signature and records which', async () => {
+      const db = getDatabase();
+      const pinTenant = await seedTenant('guided-pin');
+      await db
+        .update(users)
+        .set({ staffPinHash: await hashStaffPin('482915') })
+        .where(eq(users.id, pinTenant.managerId));
+      const pinManager = await createCriticalActor(pinTenant, pinTenant.managerId, 'manager');
+
+      await expect(
+        appRouter.createCaller(pinManager.fresh()).reports.dayClose.signOff({
+          date: '2026-07-14',
+          attestationAccepted: true,
+          signature: { method: 'pin', pin: '000000' },
+        })
+      ).rejects.toMatchObject({
+        cause: expect.objectContaining({ errorCode: 'DAY_CLOSE_PIN_INVALID' }),
+      });
+      expect(
+        db
+          .select()
+          .from(dayCloseSignoffs)
+          .where(eq(dayCloseSignoffs.tenantId, pinTenant.tenantId))
+          .all()
+      ).toHaveLength(0);
+
+      const byPin = await appRouter.createCaller(pinManager.fresh()).reports.dayClose.signOff({
+        date: '2026-07-14',
+        attestationAccepted: true,
+        signature: { method: 'pin', pin: '482915' },
+      });
+      expect(byPin.signatureMethod).toBe('pin');
+      const pinEvidence = await appRouter
+        .createCaller(context(pinTenant.tenantId, pinTenant.managerId, 'manager'))
+        .reports.dayClose.signoff({ date: '2026-07-14' });
+      expect(pinEvidence).toMatchObject({ signatureMethod: 'pin', signaturePath: null });
+
+      const drawnTenant = await seedTenant('guided-drawn');
+      const drawnManager = await createCriticalActor(drawnTenant, drawnTenant.managerId, 'manager');
+      const path = 'M10 20L12.5 22L30 18M40 20L44 25';
+      const byHand = await appRouter.createCaller(drawnManager.fresh()).reports.dayClose.signOff({
+        date: '2026-07-14',
+        attestationAccepted: true,
+        signature: { method: 'drawn', path },
+      });
+      expect(byHand.signatureMethod).toBe('drawn');
+      const drawnEvidence = await appRouter
+        .createCaller(context(drawnTenant.tenantId, drawnTenant.managerId, 'manager'))
+        .reports.dayClose.signoff({ date: '2026-07-14' });
+      expect(drawnEvidence).toMatchObject({ signatureMethod: 'drawn', signaturePath: path });
+      const audit = db
+        .select()
+        .from(auditLogs)
+        .where(
+          and(
+            eq(auditLogs.tenantId, drawnTenant.tenantId),
+            eq(auditLogs.action, 'day_close.sign_off')
+          )
+        )
+        .get();
+      expect(audit?.after).toMatchObject({ signatureMethod: 'drawn' });
+    });
+
+    it('rejects signature paths that are not plain moves and lines', async () => {
+      const tenant = await seedTenant('guided-path');
+      const manager = await createCriticalActor(tenant, tenant.managerId, 'manager');
+      await expect(
+        appRouter.createCaller(manager.fresh()).reports.dayClose.signOff({
+          date: '2026-07-14',
+          attestationAccepted: true,
+          signature: { method: 'drawn', path: 'M0 0"/><script>' },
+        })
+      ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
     });
   });
 });

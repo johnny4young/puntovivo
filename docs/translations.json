@@ -302,6 +302,10 @@
       "es": "docs/es/architecture/0036-mid-day-register-handoff.md"
     },
     {
+      "en": "docs/architecture/0037-guided-day-close.md",
+      "es": "docs/es/architecture/0037-guided-day-close.md"
+    },
+    {
       "en": "docs/architecture/patterns/operation-journal.md",
       "es": "docs/es/architecture/patterns/operation-journal.md"
     },

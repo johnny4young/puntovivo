@@ -4,9 +4,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { todayFixture } from './fixtures';
 import type { TodayPendingItem } from './todayModel';
 
-const { todayData, resolveMutate } = vi.hoisted(() => ({
+const { todayData, resolveMutate, signoffData } = vi.hoisted(() => ({
   todayData: { current: null as unknown },
   resolveMutate: vi.fn(),
+  signoffData: { current: null as unknown },
+}));
+
+vi.mock('../close/GuidedDayCloseSheet', () => ({
+  GuidedDayCloseSheet: ({ date, today }: { date: string; today: unknown }) => (
+    <div data-testid="guided-close" data-has-arc={today ? 'yes' : 'no'}>
+      {date}
+    </div>
+  ),
 }));
 
 vi.mock('@/features/auth/AuthProvider', () => ({
@@ -32,6 +41,11 @@ vi.mock('@/lib/trpc', () => ({
     managerApprovals: {
       queue: { useQuery: () => ({ data: { approver: { hasPin: true } } }) },
     },
+    reports: {
+      dayClose: {
+        signoffMetadata: { useQuery: () => ({ data: signoffData.current }) },
+      },
+    },
     registerIncidents: {
       resolve: { useMutation: () => ({ mutate: resolveMutate, isPending: false }) },
     },
@@ -45,6 +59,7 @@ const formatCurrency = (value: number) => `$ ${value}`;
 beforeEach(() => {
   todayData.current = todayFixture();
   resolveMutate.mockReset();
+  signoffData.current = null;
   localStorage.clear();
 });
 
@@ -223,5 +238,23 @@ describe('TodayOverview', () => {
     await user.click(toggle);
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
     expect(localStorage.getItem('puntovivo.today.expanded')).toBe('1');
+  });
+
+  it('opens the guided close for the business day from the header', async () => {
+    const user = userEvent.setup();
+    render(<TodayOverview formatCurrency={formatCurrency} />);
+    const open = screen.getByTestId('today-close-day');
+    expect(open).toHaveTextContent('Close the day');
+    expect(screen.queryByTestId('guided-close')).not.toBeInTheDocument();
+    await user.click(open);
+    const sheet = await screen.findByTestId('guided-close');
+    expect(sheet).toHaveAttribute('data-has-arc', 'yes');
+    expect(sheet.textContent).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it('says the day is closed once it is signed', () => {
+    signoffData.current = { id: 'signoff-1' };
+    render(<TodayOverview formatCurrency={formatCurrency} />);
+    expect(screen.getByTestId('today-close-day')).toHaveTextContent('Day closed');
   });
 });
