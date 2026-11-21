@@ -80,6 +80,12 @@ describe('pharmacyCustomerNote', () => {
     expect(pharmacyCustomerNote([requirement()], false)).toEqual({ missing: true });
   });
 
+  it('still asks for the customer when the attached one is rejected', () => {
+    expect(
+      pharmacyCustomerNote([requirement({ blockedErrorCode: 'PHARMACY_CUSTOMER_REQUIRED' })], true)
+    ).toEqual({ missing: true });
+  });
+
   it('reports the earliest expiry, and the quantity when one medicine needs a prescription', () => {
     expect(
       pharmacyCustomerNote(

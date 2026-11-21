@@ -58,7 +58,8 @@ export function daysUntilLotExpiry(
   if (ISO_DATE_ONLY_PATTERN.test(expiresAt)) {
     const currentDay = parseStrictIsoInstant(
       businessDate ?? new Date(now).toISOString().slice(0, 10)
-    )!;
+    );
+    if (currentDay === null) return null;
     return Math.round((expiry - currentDay) / DAY_MS);
   }
   return Math.ceil((expiry - now) / DAY_MS);

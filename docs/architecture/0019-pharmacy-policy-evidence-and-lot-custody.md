@@ -129,8 +129,8 @@ keeping regulated aggregates local until that contract exists.
   approved evidence covers it, and the ticket says when a customer is required.
   The preflight adds the policy's customer requirement, the next lot and the
   approving employee's name; no customer data or evidence content is returned.
-  A site-scoped product search also carries each lot-tracked product's next
-  lot, flagged when it falls inside the tenant's widest expiry-discount window.
+  A site-scoped product search asked by a selling role also carries each
+  lot-tracked product's next lot, flagged when it falls inside the tenant's widest expiry-discount window.
   These reads are hints: checkout stays the authority.
 - Managers and administrators operate lots, evidence, authorizations, and
   recalls. Recall contact PII is admin-only; managers receive operational ids

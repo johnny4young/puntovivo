@@ -78,6 +78,35 @@ describe('usePharmacyTicket', () => {
     expect(result.current.lines.size).toBe(0);
   });
 
+  it('keeps the last answer through quantity edits but never across a customer change', () => {
+    renderHook(() => usePharmacyTicket(items, 'customer-2', 'site-1'));
+    const options = checkoutRequirementsUseQuery.mock.lastCall?.[1] as {
+      placeholderData: (previous: unknown, previousQuery?: { queryKey: unknown[] }) => unknown;
+    };
+    const previous = { requirements: [] };
+    const keyFor = (customerId: string | null) => [
+      ['pharmacy', 'checkoutRequirements'],
+      { input: { customerId, items: [] }, type: 'query' },
+    ];
+    expect(options.placeholderData(previous, { queryKey: keyFor('customer-2') })).toBe(previous);
+    expect(options.placeholderData(previous, { queryKey: keyFor('customer-1') })).toBeUndefined();
+    expect(options.placeholderData(previous, { queryKey: keyFor(null) })).toBeUndefined();
+  });
+
+  it('ignores requirements of products no longer on the ticket', () => {
+    queryState.data = {
+      requirements: [
+        requirement('gone', {
+          classification: 'controlled',
+          blockedErrorCode: 'PHARMACY_CONTROLLED_NOT_ENABLED',
+        }),
+      ],
+    };
+    const { result } = renderHook(() => usePharmacyTicket(items, null, 'site-1'));
+    expect(result.current.hasControlled).toBe(false);
+    expect(result.current.hasNotices).toBe(false);
+  });
+
   it('maps medicine lines, the customer card, controlled lines and the prescription count', () => {
     queryState.data = {
       requirements: [

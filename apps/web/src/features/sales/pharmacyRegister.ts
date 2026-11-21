@@ -76,7 +76,11 @@ export function pharmacyCustomerNote(
     requirement => requirement.customerRequired && !hardBlocked(requirement)
   );
   if (needing.length === 0) return null;
-  if (!hasCustomer) return { missing: true };
+  // An attached customer the policy rejects (inactive, erased) still leaves the ticket without one.
+  const rejected = needing.some(
+    requirement => requirement.blockedErrorCode === 'PHARMACY_CUSTOMER_REQUIRED'
+  );
+  if (!hasCustomer || rejected) return { missing: true };
   const evidence = needing.flatMap(requirement => requirement.eligibleEvidence);
   const validUntil = evidence.reduce<string | null>(
     (earliest, row) => (earliest === null || row.expiresAt < earliest ? row.expiresAt : earliest),

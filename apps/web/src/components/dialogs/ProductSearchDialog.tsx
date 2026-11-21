@@ -183,7 +183,10 @@ export function ProductSearchDialog({
           searchInputId={searchInputId}
           categoryFilterId={categoryFilterId}
           providerFilterId={providerFilterId}
-          onQueryChange={setQuery}
+          onQueryChange={value => {
+            setPendingProductId(null);
+            setQuery(value);
+          }}
           onCategoryChange={setCategoryId}
           onProviderChange={setProviderId}
         />
@@ -219,6 +222,8 @@ export function ProductSearchDialog({
               onChooseAlternative={alternative => {
                 // Alternatives here are never in the results: search for it, then select it.
                 setPendingProductId(alternative.productId);
+                setCategoryId('');
+                setProviderId('');
                 setQuery(alternative.sku);
               }}
               onUnitChange={unitId => {

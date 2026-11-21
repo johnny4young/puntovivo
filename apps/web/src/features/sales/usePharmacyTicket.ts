@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { keepPreviousData } from '@tanstack/react-query';
 import { useRegisterZone } from '@/features/modules/useRegisterZone';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { trpc } from '@/lib/trpc';
@@ -35,6 +34,11 @@ const EMPTY: PharmacyTicket = {
   prescriptionLineCount: 0,
 };
 
+function queryCustomerId(queryKey: readonly unknown[] | undefined): string | null | undefined {
+  const params = queryKey?.[1] as { input?: { customerId?: string | null } } | undefined;
+  return params?.input?.customerId;
+}
+
 /** Quantity taps settle before the preflight runs again. */
 const INPUT_DEBOUNCE_MS = 250;
 
@@ -48,27 +52,33 @@ export function usePharmacyTicket(
   siteId: string | null | undefined
 ): PharmacyTicket {
   const zoneOn = useRegisterZone('pharmacy-lot');
-  const input = useMemo(() => pharmacyCheckoutInput(items, customerId), [items, customerId]);
-  const settledInput = useDebouncedValue(input, INPUT_DEBOUNCE_MS);
+  const settledItems = useDebouncedValue(items, INPUT_DEBOUNCE_MS);
+  const input = useMemo(
+    () => pharmacyCheckoutInput(settledItems, customerId),
+    [settledItems, customerId]
+  );
   const enabled = zoneOn && Boolean(siteId) && items.length > 0;
-  const query = trpc.pharmacy.checkoutRequirements.useQuery(settledInput, {
-    enabled: enabled && settledInput.items.length > 0,
+  const query = trpc.pharmacy.checkoutRequirements.useQuery(input, {
+    enabled: enabled && input.items.length > 0,
     staleTime: 15_000,
-    placeholderData: keepPreviousData,
+    // Keep the last answer through quantity edits, never across a customer change.
+    placeholderData: (previous, previousQuery) =>
+      queryCustomerId(previousQuery?.queryKey) === customerId ? previous : undefined,
   });
   const requirements: readonly PharmacyTicketRequirement[] | undefined = enabled
     ? query.data?.requirements
     : undefined;
 
   return useMemo(() => {
-    if (!requirements || requirements.length === 0) return EMPTY;
+    // A kept-previous answer can still list products that already left the ticket.
+    const onTicket = new Set(items.map(item => item.productId));
+    const current = requirements?.filter(requirement => onTicket.has(requirement.productId));
+    if (!current || current.length === 0) return EMPTY;
     const lines = new Map(
-      requirements.map(requirement => [requirement.productId, pharmacyLineHint(requirement)])
+      current.map(requirement => [requirement.productId, pharmacyLineHint(requirement)])
     );
-    const customerNote = pharmacyCustomerNote(requirements, customerId !== null);
-    const hasControlled = requirements.some(
-      requirement => requirement.classification === 'controlled'
-    );
+    const customerNote = pharmacyCustomerNote(current, customerId !== null);
+    const hasControlled = current.some(requirement => requirement.classification === 'controlled');
     return {
       lines,
       customerNote,

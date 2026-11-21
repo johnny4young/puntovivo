@@ -20,7 +20,7 @@ let userName: string;
 let businessDate: string;
 let fresh: ReturnType<typeof makeFreshContextFactory>;
 
-function caller(role: 'admin' | 'cashier' = 'admin') {
+function caller(role: 'admin' | 'cashier' | 'viewer' = 'admin') {
   return appRouter.createCaller(fresh({ role }));
 }
 
@@ -126,6 +126,7 @@ describe('daysUntilLotExpiry', () => {
     expect(daysUntilLotExpiry('2026-11-23T12:00:00.000Z', nowIso)).toBe(2);
     expect(daysUntilLotExpiry('2026-02-30', nowIso, '2026-01-01')).toBeNull();
     expect(daysUntilLotExpiry(null, nowIso)).toBeNull();
+    expect(daysUntilLotExpiry('2026-12-31', nowIso, '2026-02-30')).toBeNull();
   });
 });
 
@@ -182,6 +183,14 @@ describe('products.search lot hints', () => {
       limit: 5,
     });
     expect(tenantSearch.items[0]?.nextLot).toBeNull();
+    // Lots are a register hint: a read-only role never receives them.
+    const viewerSearch = await caller('viewer').products.search({
+      q: lotted.sku,
+      siteId,
+      includeNextLot: true,
+      limit: 5,
+    });
+    expect(viewerSearch.items[0]?.nextLot).toBeNull();
     // Searches outside the register never pay for the lot read.
     const paletteSearch = await caller('cashier').products.search({
       q: lotted.sku,
