@@ -58,6 +58,22 @@ describe('useSalesCart clear cart', () => {
       customerName: null,
     });
   });
+
+  it('drops the delivery mark once the ticket is emptied', async () => {
+    const { result } = renderSalesCart();
+    await waitFor(() => expect(result.current.activeWorkspace).not.toBeNull());
+    const id = result.current.activeWorkspace!.id;
+    act(() => result.current.setCartItems([sampleItem()]));
+    act(() => useCartWorkspaceStore.getState().setDeliveryRequested(id, true));
+
+    act(() => result.current.handleRemoveItem('product-1:unit-1'));
+    expect(useCartWorkspaceStore.getState().workspaces[id]?.deliveryRequested).toBe(false);
+
+    act(() => result.current.setCartItems([sampleItem()]));
+    act(() => useCartWorkspaceStore.getState().setDeliveryRequested(id, true));
+    act(() => result.current.handleClearCart());
+    expect(useCartWorkspaceStore.getState().workspaces[id]?.deliveryRequested).toBe(false);
+  });
 });
 
 describe('useSalesCart locked-workspace mutations', () => {

@@ -165,7 +165,7 @@ function completeDelivery(
 
 /**
  * A completed sale gets its site from its owned cash session, not the caller's current site.
- * A `cashierId` limits it to that cashier's own register sessions; null allows any.
+ * A `cashierId` limits it to that cashier's open register session; null allows any.
  */
 function eligibleSale(
   tx: DatabaseInstance,
@@ -191,7 +191,9 @@ function eligibleSale(
         eq(cashSessions.id, sales.cashSessionId),
         eq(cashSessions.tenantId, tenantId),
         eq(cashSessions.siteId, siteId),
-        cashierId === null ? undefined : eq(cashSessions.cashierId, cashierId)
+        cashierId === null
+          ? undefined
+          : and(eq(cashSessions.cashierId, cashierId), eq(cashSessions.status, 'open'))
       )
     )
     .where(and(eq(sales.id, saleId), eq(sales.tenantId, tenantId)))
@@ -267,7 +269,7 @@ export function createDelivery(ctx: DeliveryCommandContext, input: CreateDeliver
 export function createDeliveryFromSale(
   ctx: DeliveryCommandContext,
   input: CreateDeliveryFromSaleInput,
-  /** Cashiers deliver only their own sales; null for managers and admins. */
+  /** Cashiers deliver only sales of their open session and leave the courier to managers. */
   cashierId: string | null
 ) {
   return withDelivery(ctx, input.siteId, tx => {
@@ -323,7 +325,7 @@ export function createDeliveryFromSale(
         customerPhone: input.customerPhone ?? null,
         address: input.address,
         addressNotes: input.addressNotes ?? null,
-        courierName: input.courierName ?? null,
+        courierName: cashierId === null ? (input.courierName ?? null) : null,
         source: 'sale',
         currencyCode: sale.currencyCode,
         totalAmount: sale.total,

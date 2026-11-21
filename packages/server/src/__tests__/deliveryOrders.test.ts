@@ -122,7 +122,12 @@ function createOrder(h: Harness) {
     address: 'Private address',
   });
 }
-function seedSale(h: Harness, siteId = h.siteId, cashierId = h.adminId) {
+function seedSale(
+  h: Harness,
+  siteId = h.siteId,
+  cashierId = h.adminId,
+  sessionStatus: 'open' | 'closed' = 'closed'
+) {
   const db = getDatabase();
   const sessionId = nanoid();
   db.insert(cashSessions)
@@ -133,7 +138,7 @@ function seedSale(h: Harness, siteId = h.siteId, cashierId = h.adminId) {
       cashierId,
       registerName: nanoid(),
       openingCountDenominations: [],
-      status: 'closed',
+      status: sessionStatus,
     })
     .run();
   const productId = nanoid();
@@ -613,7 +618,7 @@ describe('Delivery Orders tRPC Router', () => {
     ).toBe('Customer arranged pickup');
   });
 
-  it('lets a cashier deliver only sales rung in their own register session', async () => {
+  it('lets a cashier deliver only sales of their open register session', async () => {
     const db = getDatabase();
     const now = new Date().toISOString();
     const [ownId, otherId] = ['own', 'other'].map(tag => `do-cashier-${tag}`);
@@ -650,18 +655,26 @@ describe('Delivery Orders tRPC Router', () => {
         })
       );
     const recipient = { siteId: tenantA.siteId, customerName: 'Obra', address: 'Calle 1' };
-    const others = [seedSale(tenantA, tenantA.siteId, otherId), seedSale(tenantA)];
+    const others = [
+      seedSale(tenantA, tenantA.siteId, otherId, 'open'),
+      seedSale(tenantA, tenantA.siteId, ownId, 'closed'),
+      seedSale(tenantA),
+    ];
     for (const sale of others) {
       await expect(
         cashier().deliveryOrders.createFromSale({ ...recipient, saleId: sale.id })
       ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
     }
-    const own = seedSale(tenantA, tenantA.siteId, ownId);
-    const created = await cashier().deliveryOrders.createFromSale({ ...recipient, saleId: own.id });
+    const own = seedSale(tenantA, tenantA.siteId, ownId, 'open');
+    const created = await cashier().deliveryOrders.createFromSale({
+      ...recipient,
+      saleId: own.id,
+      courierName: 'Chosen by the cashier',
+    });
     expect(created).toMatchObject({ status: 'accepted', version: 1 });
     expect(
       db.select().from(deliveryOrders).where(eq(deliveryOrders.id, created.id)).get()
-    ).toMatchObject({ saleId: own.id, source: 'sale', address: 'Calle 1' });
+    ).toMatchObject({ saleId: own.id, source: 'sale', address: 'Calle 1', courierName: null });
     await expect(cashier().deliveryOrders.list({ siteId: tenantA.siteId })).rejects.toMatchObject({
       code: 'FORBIDDEN',
     });

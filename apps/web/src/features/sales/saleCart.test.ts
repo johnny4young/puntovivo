@@ -559,12 +559,14 @@ describe('saleCart units and list prices', () => {
     expect(changeCartItemUnit(boxed, 'unit-1').quantity).toBe(300);
   });
 
-  it('keeps fractional amounts for products sold by fraction', () => {
+  it('keeps fractional amounts on the product step for products sold by fraction', () => {
     const line = updateCartItem(
       buildCartItem(screws({ sellByFraction: true, fractionStep: 0.1, fractionMinimum: 0.1 })),
-      { quantity: 37.5 }
+      { quantity: 30 }
     );
-    expect(changeCartItemUnit(line, 'unit-box').quantity).toBe(0.375);
+    expect(changeCartItemUnit(line, 'unit-box').quantity).toBe(0.3);
+    // 0.375 boxes is off the 0.1 step the server enforces, so the line starts at the minimum.
+    expect(changeCartItemUnit({ ...line, quantity: 37.5 }, 'unit-box').quantity).toBe(0.1);
   });
 
   it('never switches quotation, price-label or unknown-unit lines', () => {
@@ -576,6 +578,9 @@ describe('saleCart units and list prices', () => {
     expect(changeCartItemUnit(quoted, 'unit-box')).toBe(quoted);
     expect(changeCartItemUnit(labelled!, 'unit-box')).toBe(labelled);
     expect(changeCartItemUnit(line, 'missing')).toBe(line);
+    const serialized = { ...line, tracksSerials: true };
+    expect(canChangeCartItemUnit(serialized)).toBe(false);
+    expect(changeCartItemUnit(serialized, 'unit-box')).toBe(serialized);
   });
 
   it('reports the list price only for a line priced lower by the ticket tier', () => {

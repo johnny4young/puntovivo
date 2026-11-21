@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { deliveryInputClass } from './deliveryRecipient';
+import { deliveryInputClass, RECIPIENT_MAX_LENGTH as MAX } from './deliveryRecipient';
 
 interface DeliveryRecipientDefaults {
   customerName?: string | undefined;
@@ -16,6 +16,9 @@ export function DeliveryRecipientFields({
   defaults?: DeliveryRecipientDefaults;
 }) {
   const { t } = useTranslation('delivery');
+  // Browsers do not enforce maxLength on a default value, so an over-long one is left out.
+  const fit = (value: string | undefined, max: number) =>
+    value && value.length <= max ? value : undefined;
   return (
     <>
       <label className="block" htmlFor={`${idPrefix}-name`}>
@@ -24,9 +27,9 @@ export function DeliveryRecipientFields({
           id={`${idPrefix}-name`}
           name="customerName"
           required
-          maxLength={160}
+          maxLength={MAX.customerName}
           autoComplete="name"
-          defaultValue={defaults.customerName}
+          defaultValue={fit(defaults.customerName, MAX.customerName)}
           className={deliveryInputClass}
         />
       </label>
@@ -36,9 +39,9 @@ export function DeliveryRecipientFields({
           id={`${idPrefix}-phone`}
           name="customerPhone"
           type="tel"
-          maxLength={40}
+          maxLength={MAX.customerPhone}
           autoComplete="tel"
-          defaultValue={defaults.customerPhone}
+          defaultValue={fit(defaults.customerPhone, MAX.customerPhone)}
           className={deliveryInputClass}
         />
       </label>
@@ -48,9 +51,9 @@ export function DeliveryRecipientFields({
           id={`${idPrefix}-address`}
           name="address"
           required
-          maxLength={500}
+          maxLength={MAX.address}
           autoComplete="street-address"
-          defaultValue={defaults.address}
+          defaultValue={fit(defaults.address, MAX.address)}
           className={deliveryInputClass}
         />
       </label>
@@ -59,7 +62,7 @@ export function DeliveryRecipientFields({
         <textarea
           id={`${idPrefix}-notes`}
           name="addressNotes"
-          maxLength={500}
+          maxLength={MAX.addressNotes}
           className={deliveryInputClass}
         />
       </label>

@@ -65,6 +65,23 @@ describe('SaleDeliverySheet', () => {
     expect(h.success).toHaveBeenCalledWith(expect.objectContaining({ title: 'Delivery created' }));
   });
 
+  it('leaves out a saved value longer than the server accepts', () => {
+    h.customer = {
+      name: 'Obra',
+      phone: '300 123 4567 / 601 555 1234 ext 12 oficina',
+      address: 'Calle 1',
+    };
+    render(
+      <SaleDeliverySheet
+        siteId="site-1"
+        sale={{ ...SALE, customerId: 'customer-1', customerName: 'Obra' }}
+        onClose={vi.fn()}
+      />
+    );
+    expect(screen.getByLabelText('Phone')).toHaveValue('');
+    expect(screen.getByLabelText('Delivery address')).toHaveValue('Calle 1');
+  });
+
   it('asks for the address of a walk-in sale and keeps the sheet open on a refusal', async () => {
     h.fromSale.mockRejectedValue(new Error('refused'));
     const onClose = vi.fn();

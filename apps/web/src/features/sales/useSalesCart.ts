@@ -121,6 +121,8 @@ export function useSalesCart({
     // is idempotent and only touches lines sitting on the tier grid, so
     // label-embedded and hand-edited prices survive.
     state.updateCart(activeId, applyPriceTier(next, workspace?.priceTier ?? 1));
+    // An emptied ticket starts over, so the next shopper's sale is not sent out.
+    if (next.length === 0) state.setDeliveryRequested(activeId, false);
   }, []);
   const setSelectedCartItemKey = useCallback((key: string | null) => {
     const state = useCartWorkspaceStore.getState();

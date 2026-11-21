@@ -195,7 +195,8 @@ export function updateCartItem(
 
 /** Lines built from a catalog pick carry their units; quotation and price-label lines do not. */
 export function canChangeCartItemUnit(item: SaleCartItem): boolean {
-  return (item.unitOptions?.length ?? 0) > 1;
+  // Serialized products sell one serial per base unit only.
+  return !item.tracksSerials && (item.unitOptions?.length ?? 0) > 1;
 }
 
 /**
@@ -205,10 +206,12 @@ export function canChangeCartItemUnit(item: SaleCartItem): boolean {
  */
 export function changeCartItemUnit(item: SaleCartItem, unitId: string): SaleCartItem {
   const option = item.unitOptions?.find(candidate => candidate.unitId === unitId);
-  if (!option || unitId === item.unitId) return item;
+  if (!option || unitId === item.unitId || !canChangeCartItemUnit(item)) return item;
   const minimum = getSaleMinimumQuantity(item);
   const converted = roundQuantity((item.quantity * item.unitEquivalence) / option.equivalence, 6);
-  const keepsAmount = converted >= minimum && (item.sellByFraction || Number.isInteger(converted));
+  // The server rejects a quantity off the product's step in the sold unit.
+  const steps = converted / getSaleQuantityStep(item);
+  const keepsAmount = converted >= minimum && Math.abs(steps - Math.round(steps)) < 1e-9;
   return {
     ...item,
     key: getCartItemKey(item.productId, unitId),
