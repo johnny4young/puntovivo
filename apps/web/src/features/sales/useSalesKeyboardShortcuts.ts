@@ -98,11 +98,11 @@ function focusPaymentForm() {
   }
 }
 
-function focusProductUnitSelect() {
+function focusProductUnitSelect(): boolean {
   const unitSelect = document.getElementById(PRODUCT_SEARCH_UNIT_SELECT_ID);
-  if (unitSelect instanceof HTMLSelectElement) {
-    unitSelect.focus();
-  }
+  if (!(unitSelect instanceof HTMLSelectElement)) return false;
+  unitSelect.focus();
+  return true;
 }
 
 export function useSalesKeyboardShortcuts({
@@ -223,8 +223,8 @@ export function useSalesKeyboardShortcuts({
         const letter = altChordLetter(event);
 
         if (letter === 'u' && isProductSearchOpen) {
-          event.preventDefault();
-          focusProductUnitSelect();
+          // Without a unit picker the key keeps its native meaning.
+          if (focusProductUnitSelect()) event.preventDefault();
           return;
         }
         if (isProductSearchOpen || isPaymentModalOpen) {

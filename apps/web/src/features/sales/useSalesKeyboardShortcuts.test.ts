@@ -9,6 +9,7 @@
 
 import { renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { PRODUCT_SEARCH_UNIT_SELECT_ID } from '@/components/dialogs/productSearchSelection';
 import { useSalesKeyboardShortcuts } from './useSalesKeyboardShortcuts';
 
 function fireKey(key: string, options: Partial<KeyboardEventInit> = {}): KeyboardEvent {
@@ -193,6 +194,18 @@ describe('useSalesKeyboardShortcuts — Ctrl/Cmd guard lift', () => {
     expect(focusProductInput).not.toHaveBeenCalled();
     expect(f5Event.defaultPrevented).toBe(false);
     expect(altPEvent.defaultPrevented).toBe(false);
+  });
+
+  it('claims Alt+U in product search only while the unit picker is shown', () => {
+    renderHook(() => useSalesKeyboardShortcuts({ ...defaultOptions, isProductSearchOpen: true }));
+    expect(fireKey('u', { altKey: true, code: 'KeyU' }).defaultPrevented).toBe(false);
+
+    const select = document.createElement('select');
+    select.id = PRODUCT_SEARCH_UNIT_SELECT_ID;
+    document.body.append(select);
+    expect(fireKey('u', { altKey: true, code: 'KeyU' }).defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(select);
+    select.remove();
   });
 
   // Mod+Z undo binding.
