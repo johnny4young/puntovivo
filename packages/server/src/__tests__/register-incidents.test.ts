@@ -13,7 +13,10 @@ import {
   tenants,
   users,
 } from '../db/schema.js';
-import { getLatestRegisterIncidentToday } from '../services/register-incidents.js';
+import {
+  getLatestRegisterIncidentToday,
+  reportRegisterIncident,
+} from '../services/register-incidents.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 import { receiptCodeToSaleNumber } from '../trpc/routers/sales/queries.js';
@@ -346,6 +349,51 @@ describe('register incidents', () => {
       .run();
     const open = await appRouter.createCaller(ctxFor('manager')).registerIncidents.listOpen();
     expect(open.find(row => row.id === id)?.createdAt).toBe('2026-11-21T02:11:41.000Z');
+
+    // 10:00 in Bogota, stored in the old shape on the business day's UTC date.
+    db.update(registerIncidents)
+      .set({ createdAt: '2020-03-10 15:00:00' })
+      .where(eq(registerIncidents.id, id))
+      .run();
+    const now = new Date('2020-03-10T16:00:00.000Z');
+    const scope = { tenantId, siteId, userId: adminId };
+    expect(await reportRegisterIncident(db, scope, { kind: 'no_barcode', note }, now)).toEqual({
+      id,
+    });
+    expect((await getLatestRegisterIncidentToday(db, scope, now))?.id).toBe(id);
+  });
+
+  it('names only active sites as a place to transfer from', async () => {
+    const closedSiteId = nanoid();
+    const db = getDatabase();
+    const mainSite = db.select().from(sites).where(eq(sites.id, siteId)).get()!;
+    db.insert(sites)
+      .values({
+        id: closedSiteId,
+        tenantId,
+        companyId: mainSite.companyId,
+        name: 'Bodega cerrada',
+        isActive: false,
+      })
+      .run();
+    db.insert(inventoryBalances)
+      .values({
+        id: nanoid(),
+        tenantId,
+        siteId: closedSiteId,
+        productId,
+        onHand: 40,
+        reserved: 0,
+        createdAt: new Date().toISOString(),
+      })
+      .run();
+    const { id } = await appRouter
+      .createCaller(ctxFor('cashier'))
+      .registerIncidents.report({ kind: 'stockout', productId, reason: 'expired' });
+    const open = await appRouter.createCaller(ctxFor('manager')).registerIncidents.listOpen();
+    const sitesListed = open.find(row => row.id === id)?.stockBySite.map(site => site.siteId);
+    expect(sitesListed).toContain(otherSiteId);
+    expect(sitesListed).not.toContain(closedSiteId);
   });
 
   it('finds a completed sale from its scanned receipt', async () => {
