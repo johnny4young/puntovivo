@@ -334,6 +334,41 @@ export const providerPayableInvoices = sqliteTable(
   ]
 );
 
+/**
+ * Which purchases a supplier invoice covers. Several deliveries (remisiones)
+ * can be consolidated into one final invoice; a purchase is invoiced at most
+ * once, enforced by the unique purchase index. Legacy single-purchase
+ * invoices keep their direct column for compatibility; this bridge is the
+ * complete source of truth and migration 0103 backfills it.
+ */
+export const providerPayableInvoicePurchases = sqliteTable(
+  'provider_payable_invoice_purchases',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    invoiceId: text('invoice_id')
+      .notNull()
+      .references(() => providerPayableInvoices.id),
+    purchaseId: text('purchase_id')
+      .notNull()
+      .references(() => purchases.id),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_provider_payable_invoice_purchases_tenant').on(
+      table.tenantId,
+      table.createdAt
+    ),
+    index('idx_provider_payable_invoice_purchases_invoice').on(table.invoiceId),
+    uniqueIndex('idx_provider_payable_invoice_purchases_purchase').on(
+      table.tenantId,
+      table.purchaseId
+    ),
+  ]
+);
+
 /** One immutable supplier payment. It must be allocated in full at creation. */
 export const providerPayablePayments = sqliteTable(
   'provider_payable_payments',

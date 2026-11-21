@@ -5,9 +5,11 @@ import type { DatabaseInstance } from '../../db/index.js';
 import {
   providerPayableAllocations,
   providerPayableCredits,
+  providerPayableInvoicePurchases,
   providerPayableInvoices,
   providerPayablePayments,
   providers,
+  purchaseItems,
   purchases,
   sites,
 } from '../../db/schema.js';
@@ -131,52 +133,162 @@ export function createProviderInvoice(
       // so the ambient active site is only required when there is no purchase
       // to inherit from. Requiring it up front rejected linked invoices that
       // had a perfectly good site waiting to be read below.
+      //
+      // Consolidation: purchaseIds takes precedence over the legacy single
+      // purchaseId and may carry several deliveries (remisiones) that one
+      // final invoice covers. The legacy column keeps the single-purchase link
+      // for compatibility; the bridge table is the complete source of truth.
+      const linkedPurchaseIds = input.purchaseIds?.length
+        ? input.purchaseIds
+        : input.purchaseId
+          ? [input.purchaseId]
+          : [];
+
       let siteId: string;
-      if (input.purchaseId) {
-        const purchase = tx
-          .select({
-            id: purchases.id,
-            providerId: purchases.providerId,
-            siteId: purchases.siteId,
-            status: purchases.status,
-          })
-          .from(purchases)
-          .where(and(eq(purchases.id, input.purchaseId), eq(purchases.tenantId, ctx.tenantId)))
-          .get();
-        if (!purchase || purchase.providerId !== input.providerId) {
+      if (linkedPurchaseIds.length > 0) {
+        const seenPurchaseIds = new Set<string>();
+        const linkedSiteIds = new Set<string>();
+        for (const purchaseId of linkedPurchaseIds) {
+          if (seenPurchaseIds.has(purchaseId)) {
+            throwServerError({
+              trpcCode: 'CONFLICT',
+              errorCode: 'PROVIDER_PAYABLE_PURCHASE_DUPLICATED',
+              message: 'A purchase cannot be listed twice in one invoice',
+            });
+          }
+          seenPurchaseIds.add(purchaseId);
+          const purchase = tx
+            .select({
+              id: purchases.id,
+              providerId: purchases.providerId,
+              siteId: purchases.siteId,
+              status: purchases.status,
+            })
+            .from(purchases)
+            .where(and(eq(purchases.id, purchaseId), eq(purchases.tenantId, ctx.tenantId)))
+            .get();
+          if (!purchase || purchase.providerId !== input.providerId) {
+            throwServerError({
+              trpcCode: 'CONFLICT',
+              errorCode: 'PROVIDER_PAYABLE_PURCHASE_MISMATCH',
+              message: 'Purchase does not belong to the selected provider',
+            });
+          }
+          if (purchase.status !== 'completed') {
+            throwServerError({
+              trpcCode: 'CONFLICT',
+              errorCode: 'PROVIDER_PAYABLE_PURCHASE_NOT_COMPLETED',
+              message: 'Only a completed purchase can be linked to a supplier invoice',
+            });
+          }
+          // Invoiced twice is impossible: legacy column, bridge, either.
+          const alreadyLinked =
+            tx
+              .select({ id: providerPayableInvoices.id })
+              .from(providerPayableInvoices)
+              .where(
+                and(
+                  eq(providerPayableInvoices.tenantId, ctx.tenantId),
+                  eq(providerPayableInvoices.purchaseId, purchaseId)
+                )
+              )
+              .get() ??
+            tx
+              .select({ id: providerPayableInvoicePurchases.id })
+              .from(providerPayableInvoicePurchases)
+              .where(
+                and(
+                  eq(providerPayableInvoicePurchases.tenantId, ctx.tenantId),
+                  eq(providerPayableInvoicePurchases.purchaseId, purchaseId)
+                )
+              )
+              .get();
+          if (alreadyLinked) {
+            throwServerError({
+              trpcCode: 'CONFLICT',
+              errorCode: 'PROVIDER_PAYABLE_PURCHASE_ALREADY_INVOICED',
+              message: 'Purchase already has a supplier invoice',
+            });
+          }
+          linkedSiteIds.add(purchase.siteId);
+        }
+        if (linkedSiteIds.size > 1) {
           throwServerError({
             trpcCode: 'CONFLICT',
-            errorCode: 'PROVIDER_PAYABLE_PURCHASE_MISMATCH',
-            message: 'Purchase does not belong to the selected provider',
+            errorCode: 'PROVIDER_PAYABLE_PURCHASE_SITE_MISMATCH',
+            message: 'Purchases consolidated by one invoice must belong to the same site',
           });
         }
-        if (purchase.status !== 'completed') {
-          throwServerError({
-            trpcCode: 'CONFLICT',
-            errorCode: 'PROVIDER_PAYABLE_PURCHASE_NOT_COMPLETED',
-            message: 'Only a completed purchase can be linked to a supplier invoice',
-          });
-        }
-        const alreadyLinked = tx
-          .select({ id: providerPayableInvoices.id })
-          .from(providerPayableInvoices)
-          .where(
-            and(
-              eq(providerPayableInvoices.tenantId, ctx.tenantId),
-              eq(providerPayableInvoices.purchaseId, input.purchaseId)
-            )
-          )
-          .get();
-        if (alreadyLinked) {
-          throwServerError({
-            trpcCode: 'CONFLICT',
-            errorCode: 'PROVIDER_PAYABLE_PURCHASE_ALREADY_INVOICED',
-            message: 'Purchase already has a supplier invoice',
-          });
-        }
-        siteId = purchase.siteId;
+        siteId = [...linkedSiteIds][0]!;
       } else {
         siteId = requireSiteId(ctx);
+      }
+
+      // Strict line-by-line reconciliation (owner decision D1): when invoice
+      // lines are provided — mandatory when consolidating several purchases —
+      // every product received across the linked purchases must match its
+      // invoice line in base-unit quantity and in line total, and the lines
+      // must add up to the invoice amount. Any difference rejects the invoice
+      // with the per-product detail; accepting a difference stays an explicit
+      // admin decision in a follow-up.
+      if (input.lines?.length) {
+        const received = tx
+          .select({
+            productId: purchaseItems.productId,
+            baseQuantity: sql<number>`sum(${purchaseItems.quantity} * ${purchaseItems.unitEquivalence})`,
+            lineTotal: sql<number>`sum(${purchaseItems.total})`,
+          })
+          .from(purchaseItems)
+          .where(inArray(purchaseItems.purchaseId, linkedPurchaseIds))
+          .groupBy(purchaseItems.productId)
+          .all();
+        const receivedByProduct = new Map(received.map(row => [row.productId, row]));
+
+        const lineTotalsByProduct = new Map<string, { quantity: number; lineTotal: number }>();
+        for (const line of input.lines) {
+          const current = lineTotalsByProduct.get(line.productId) ?? { quantity: 0, lineTotal: 0 };
+          const lineQuantity = current.quantity + line.quantity;
+          const lineTotal = current.lineTotal + roundMoney(line.quantity * line.unitCost);
+          lineTotalsByProduct.set(line.productId, { quantity: lineQuantity, lineTotal });
+        }
+
+        const discrepancies: string[] = [];
+        const productIds = new Set([...receivedByProduct.keys(), ...lineTotalsByProduct.keys()]);
+        for (const productId of productIds) {
+          const receivedRow = receivedByProduct.get(productId);
+          const invoiceRow = lineTotalsByProduct.get(productId);
+          const receivedQuantity = receivedRow ? Number(receivedRow.baseQuantity) : 0;
+          const invoiceQuantity = invoiceRow?.quantity ?? 0;
+          const receivedTotal = receivedRow ? roundMoney(Number(receivedRow.lineTotal)) : 0;
+          const invoiceTotal = invoiceRow ? roundMoney(invoiceRow.lineTotal) : 0;
+          if (Math.abs(receivedQuantity - invoiceQuantity) > 1e-9) {
+            discrepancies.push(
+              `product ${productId}: invoiced ${invoiceQuantity} but received ${receivedQuantity} base units`
+            );
+          } else if (Math.abs(receivedTotal - invoiceTotal) > 0.005) {
+            discrepancies.push(
+              `product ${productId}: invoiced ${invoiceTotal.toFixed(2)} but received ${receivedTotal.toFixed(2)}`
+            );
+          }
+        }
+        if (discrepancies.length > 0) {
+          throwServerError({
+            trpcCode: 'CONFLICT',
+            errorCode: 'PROVIDER_PAYABLE_INVOICE_LINES_MISMATCH',
+            message: `Invoice lines do not match the received goods: ${discrepancies.join('; ')}`,
+          });
+        }
+
+        const linesTotal = roundMoney(
+          [...lineTotalsByProduct.values()].reduce((sum, row) => sum + row.lineTotal, 0)
+        );
+        if (Math.abs(linesTotal - amount) > 0.005) {
+          throwServerError({
+            trpcCode: 'CONFLICT',
+            errorCode: 'PROVIDER_PAYABLE_INVOICE_AMOUNT_MISMATCH',
+            message: `Invoice amount ${amount.toFixed(2)} does not match its lines total ${linesTotal.toFixed(2)}`,
+          });
+        }
       }
 
       tx.insert(providerPayableInvoices)
@@ -185,7 +297,7 @@ export function createProviderInvoice(
           tenantId: ctx.tenantId,
           providerId: input.providerId,
           siteId,
-          purchaseId: input.purchaseId ?? null,
+          purchaseId: linkedPurchaseIds.length === 1 ? linkedPurchaseIds[0]! : null,
           kind: 'invoice',
           documentNumber: input.documentNumber,
           issuedAt: input.issuedAt,
@@ -199,6 +311,20 @@ export function createProviderInvoice(
         })
         .run();
 
+      // The bridge is the complete source of truth: every linked purchase,
+      // legacy-single or consolidated, lands here.
+      for (const purchaseId of linkedPurchaseIds) {
+        tx.insert(providerPayableInvoicePurchases)
+          .values({
+            id: nanoid(),
+            tenantId: ctx.tenantId,
+            invoiceId,
+            purchaseId,
+            createdAt: now,
+          })
+          .run();
+      }
+
       writeAuditLog({
         tx,
         tenantId: ctx.tenantId,
@@ -209,7 +335,8 @@ export function createProviderInvoice(
         before: null,
         after: {
           providerId: input.providerId,
-          purchaseId: input.purchaseId ?? null,
+          purchaseId: linkedPurchaseIds.length === 1 ? linkedPurchaseIds[0]! : null,
+          purchaseIds: linkedPurchaseIds,
           documentNumber: input.documentNumber,
           amount,
           dueAt: input.dueAt,
