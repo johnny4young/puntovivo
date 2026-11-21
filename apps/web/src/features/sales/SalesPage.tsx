@@ -9,6 +9,7 @@ import { useSalesFlows } from '@/features/sales/useSalesFlows';
 import { useSalesCart } from '@/features/sales/useSalesCart';
 import { useSalesModals } from '@/features/sales/useSalesModals';
 import { useSalesCommandBar } from '@/features/sales/useSalesCommandBar';
+import { useWeighedItem } from '@/features/sales/useWeighedItem';
 import { useSalesPageData } from '@/features/sales/useSalesPageData';
 import { useLastRead } from '@/features/sales/useLastRead';
 import type { InitialTender } from '@/features/sales/salePaymentModal.types';
@@ -359,6 +360,16 @@ export function SalesPage() {
     openRestaurantCheckMutation,
   });
 
+  const weighing = useWeighedItem({
+    cartItems,
+    setCartItems,
+    scope: activeWorkspace?.id ?? null,
+    locked: itemsLocked,
+    priceTier: activeWorkspace?.priceTier ?? 1,
+    onApplied: setSelectedCartItemKey,
+    className: 'shrink-0',
+  });
+
   // slice 16b-1 — the modal/UI controller (the F1 payment-open gate
   // + F2 fast-cash, product search, the three cash-session modals, the
   // suspended-panel toggle, the history-reprint jump) + the checkout
@@ -371,6 +382,13 @@ export function SalesPage() {
     addProduct: (selection, quantity) => {
       saleMeasurement.ensure('complete_sale');
       saleMeasurement.markUsableControl();
+      // A by-weight product asks its weight first, unless a quantity was typed.
+      if (quantity === null && weighing.open(selection)) {
+        setProductSearchQuery('');
+        setSaleError(null);
+        return;
+      }
+      weighing.close();
       handleProductSelect(selection, quantity);
     },
   });
@@ -667,6 +685,7 @@ export function SalesPage() {
         productSearchDialogKey={productSearchDialogKey}
         setIsProductSearchOpen={setIsProductSearchOpen}
         handleProductSelect={commandBar.selectProduct}
+        weighPanel={weighing.panel}
         commandBar={commandBar}
         productSearchInitialQuery={productSearchInitialQuery}
         setCartItems={setCartItems}

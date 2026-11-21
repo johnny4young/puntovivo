@@ -9,6 +9,8 @@ interface PosTouchQuickKeyGridProps {
   isDisabled: boolean;
   /** The «valor…» key whose amount form is open. */
   activeValueKey: string | null;
+  /** The product whose weight is being asked. */
+  weighingProductId?: string | null;
   cartQuantities: ReadonlyMap<string, number>;
   onSelect: (tile: QuickTile) => void;
 }
@@ -18,6 +20,7 @@ export function PosTouchQuickKeyGrid({
   tiles,
   isDisabled,
   activeValueKey,
+  weighingProductId = null,
   cartQuantities,
   onSelect,
 }: PosTouchQuickKeyGridProps) {
@@ -46,7 +49,8 @@ export function PosTouchQuickKeyGrid({
             }
             disabled={isDisabled}
             onClick={() => onSelect(tile)}
-            className="relative flex min-h-[96px] flex-col justify-between gap-2 rounded-xl border-[1.5px] border-line bg-surface-1 p-3 text-left transition-colors hover:border-primary-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-300 aria-pressed:border-primary-600 aria-pressed:bg-accent disabled:cursor-wait disabled:opacity-60"
+            data-weighing={(!isOpenValue && tile.productId === weighingProductId) || undefined}
+            className="relative flex min-h-[96px] flex-col justify-between gap-2 rounded-xl border-[1.5px] border-line bg-surface-1 p-3 text-left transition-colors hover:border-primary-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-300 aria-pressed:border-primary-600 aria-pressed:bg-accent data-weighing:border-primary-600 data-weighing:bg-accent disabled:cursor-wait disabled:opacity-60"
           >
             {quantity > 0 && <PosTouchQuantityBadge id={tile.key} label={quantityLabel} />}
             <span className="flex items-start justify-between gap-2">

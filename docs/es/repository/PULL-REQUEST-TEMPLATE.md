@@ -18,4 +18,4 @@
 
 - [ ] Título Conventional Commit (`feat:`/`fix:`/`refactor:`/`docs:`/`chore:`/`ci:`/`test:`/`perf:`).
 - [ ] Gate CI correspondiente ejecutado localmente (`ci:web` / `ci:server` / `ci:desktop`).
-- [ ] Textos visibles internacionalizados en inglés y español con registro `tú`.
+- [ ] Textos visibles internacionalizados en inglés y español con registro `usted`.

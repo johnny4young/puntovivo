@@ -29,6 +29,7 @@ import { formatCurrency } from '@/lib/utils';
 import { getLineTotals } from '@/features/sales/saleCartTotals';
 import type { SaleCartItem, SaleCartSummary } from '@/features/sales/saleCart';
 import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
+import { formatQuantity } from './posTouchQuantity';
 
 /**
  * Forward-compatible loyalty profile shape. The customers schema
@@ -82,7 +83,7 @@ export function PosTouchCartSidebar({
   onRemoveLine,
   onCharge,
 }: PosTouchCartSidebarProps) {
-  const { t } = useTranslation('posTouch');
+  const { t, i18n } = useTranslation('posTouch');
   const priceIncludesTax = usePriceIncludesTax();
   const showLoyaltyBadge = Boolean(customer?.loyaltyProfile);
   const lineCount = items.length;
@@ -206,7 +207,8 @@ export function PosTouchCartSidebar({
                       {item.productName}
                     </p>
                     <p className="text-[11px] tabular-nums text-secondary-500">
-                      {item.quantity} {item.unitName} · {formatCurrency(item.unitPrice)}
+                      {formatQuantity(item.quantity, i18n.language)} {item.unitName} ·{' '}
+                      {formatCurrency(item.unitPrice)}
                     </p>
                   </div>
                   <span className="font-display text-sm tabular-nums text-secondary-900">

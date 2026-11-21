@@ -1,5 +1,6 @@
 // product / category domain shapes ( slice 28).
 
+import type { UnitDimension } from '@puntovivo/shared/units';
 import type { SyncStatus } from '../ui';
 
 // Domain Models
@@ -113,6 +114,9 @@ export interface ProductUnitAssignment {
   unitId: string;
   unitName?: string | null;
   unitAbbreviation?: string | null;
+  unitDimension?: UnitDimension | null;
+  /** Grams in one unit for mass units (kilogram = 1000); null when unknown. */
+  unitReferenceFactor?: number | null;
   equivalence: number;
   price: number;
   price2?: number;

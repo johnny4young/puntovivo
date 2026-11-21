@@ -32,6 +32,8 @@ interface PosTouchProductGridProps {
   emptyMessage?: string | undefined;
   /** Cart quantity per product id, summed across lines. */
   cartQuantities?: ReadonlyMap<string, number>;
+  /** The product whose weight is being asked. */
+  weighingProductId?: string | null;
 }
 
 const CATEGORY_HUES = [250, 200, 150, 95, 55, 25, 340, 295] as const;
@@ -65,6 +67,7 @@ interface PosTouchTileProps {
   product: Product;
   quantity: number;
   isDisabled: boolean;
+  isWeighing: boolean;
   onSelect: (product: Product) => void;
 }
 
@@ -84,6 +87,7 @@ const PosTouchTile = memo(function PosTouchTile({
   product,
   quantity,
   isDisabled,
+  isWeighing,
   onSelect,
 }: PosTouchTileProps) {
   const { t, i18n } = useTranslation('posTouch');
@@ -110,7 +114,8 @@ const PosTouchTile = memo(function PosTouchTile({
         .join('. ')}
       disabled={isDisabled}
       onClick={() => onSelect(product)}
-      className="group relative flex min-h-[96px] flex-col justify-between gap-2 rounded-xl border border-line/70 bg-surface-1 p-3 text-left transition-all hover:border-primary-300 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-300 active:scale-[0.98] disabled:cursor-wait disabled:opacity-60 disabled:active:scale-100"
+      data-weighing={isWeighing || undefined}
+      className="group relative flex min-h-[96px] flex-col justify-between gap-2 rounded-xl border border-line/70 bg-surface-1 p-3 data-weighing:border-primary-600 data-weighing:bg-accent data-weighing:ring-1 data-weighing:ring-primary-600 text-left transition-all hover:border-primary-300 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-300 active:scale-[0.98] disabled:cursor-wait disabled:opacity-60 disabled:active:scale-100"
     >
       {quantity > 0 ? <PosTouchQuantityBadge id={product.id} label={quantityLabel} /> : null}
       <div className="flex items-start gap-2">
@@ -154,6 +159,7 @@ export const PosTouchProductGrid = memo(function PosTouchProductGrid({
   isDisabled = false,
   emptyMessage,
   cartQuantities,
+  weighingProductId = null,
   onSelect,
 }: PosTouchProductGridProps) {
   const { t } = useTranslation('posTouch');
@@ -203,6 +209,7 @@ export const PosTouchProductGrid = memo(function PosTouchProductGrid({
           product={product}
           quantity={cartQuantities?.get(product.id) ?? 0}
           isDisabled={isDisabled}
+          isWeighing={product.id === weighingProductId}
           onSelect={onSelect}
         />
       ))}
