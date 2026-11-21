@@ -150,6 +150,9 @@ conserva la pantalla activa.
   añaden alcance de sede.
 - El dinero se almacena y valida según el contrato compartido de redondeo.
 - Completar una venta exige una sesión de caja activa para negocio, sede y cajero.
+- Un relevo de caja cierra y abre cajones solo con los casos de uso de sesión de
+  caja, dentro de sus transacciones; vea
+  [ADR-0036](architecture/0036-mid-day-register-handoff.md).
 - Los recursos mutables versionados usan actualizaciones de comparación e
   intercambio e informan conflictos sin sobrescribir silenciosamente cambios
   concurrentes.

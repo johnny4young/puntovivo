@@ -45,6 +45,7 @@ export * from './schema/operations.js';
 export * from './schema/registerIncidents.js';
 export * from './schema/quickKeys.js';
 export * from './schema/transferDestinations.js';
+export * from './schema/cashHandoffs.js';
 export * from './schema/pharmacy.js';
 export * from './schema/restaurant.js';
 export * from './schema/kds.js';

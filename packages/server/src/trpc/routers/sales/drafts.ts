@@ -19,6 +19,7 @@ import {
 import { restaurantTables, sales } from '../../../db/schema.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
 import {
+  carryDraftOverInput,
   changeSaleTableInput,
   discardDraftInput,
   resumeSaleInput,
@@ -28,6 +29,8 @@ import { writeAuditLog } from '../../../services/audit-logs.js';
 import { createSaleResourceCommandResultRef } from '../../../services/idempotency/commandResultRef.js';
 import { enqueueSyncInTransaction } from '../../../services/sync/enqueue.js';
 import { discardDraft as discardDraftService } from '../../../application/sales/discardDraft.js';
+import { carryDraftOver } from '../../../application/sales/carryDraftOver.js';
+import { asCriticalCommandContext } from '../../middleware/commandEnvelope.js';
 import { getSaleRecord } from '../../../application/sales/sale-read.js';
 import { buildLifecycleContext } from './helpers.js';
 import {
@@ -503,6 +506,23 @@ export const salesDraftProcedures = {
         saleId: input.saleId,
       });
       return { id: result.id, status: result.status };
+    }),
+
+  /** Leave a parked draft for the next business day; the day close stops asking about it. */
+  carryOver: criticalCommandManagerOrAdminProcedure
+    .input(carryDraftOverInput)
+    .mutation(({ ctx, input }) => {
+      const cc = asCriticalCommandContext(ctx);
+      return carryDraftOver(
+        {
+          db: cc.db,
+          tenantId: cc.tenantId,
+          actorId: cc.user.id,
+          envelope: cc.envelope,
+          deviceId: cc.deviceId,
+        },
+        input.saleId
+      );
     }),
 
   /**

@@ -35,6 +35,7 @@ export function todayFixture(overrides: Partial<OperationsToday> = {}): Operatio
         salesTotal: 40000,
         salesCount: 2,
         scheduledEndAt: at(14),
+        lastHandoff: null,
       },
       {
         sessionId: 's-3',
@@ -48,10 +49,12 @@ export function todayFixture(overrides: Partial<OperationsToday> = {}): Operatio
         salesTotal: 0,
         salesCount: 0,
         scheduledEndAt: null,
+        lastHandoff: null,
       },
     ],
     shifts: [{ userId: 'u-1', userName: 'Laura', startsAt: at(7), endsAt: at(14) }],
     nextHandoff: { at: at(14), registerName: 'Caja 1', fromUserName: 'Laura' },
+    awaitingHandoffs: [],
     pending: [
       {
         kind: 'staleSession',

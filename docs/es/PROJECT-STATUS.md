@@ -87,6 +87,14 @@ El candidato validado actual incluye:
   físicas siguen sin estar disponibles;
 - responsabilidad por sesión de caja, cierre a ciegas, movimientos auditados,
   evidencia de cierre del día, señales de anomalías y firma inmutable del gerente;
+- relevo de caja durante el día en el servidor: el cajero que sale cierra con
+  un conteo a ciegas por denominación y una nota, firmados con su PIN si lo
+  tiene; el siguiente conserva el cajón y lo recuenta contra ese conteo, o abre
+  un cajón nuevo con su fondo, y las ventas suspendidas del cajero saliente
+  pasan a él. Hoy muestra de qué relevo viene cada caja y las cajas que siguen
+  esperando a quien las reciba. Los encargados pueden explicar la diferencia de
+  una caja cerrada y dejar una venta suspendida para el día siguiente; las
+  pantallas de caja para estos pasos aún no existen;
 - inventario por sede, unidades, lotes, FEFO, sugerencias por vencimiento que siguen
   siendo informativas hasta que un gerente las convierte en una promoción
   explícitamente vinculada al lote, productos serializados, consulta de garantías,

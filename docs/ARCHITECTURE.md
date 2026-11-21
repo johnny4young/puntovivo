@@ -140,6 +140,9 @@ display.
 - Money is stored and validated under the shared rounding contract.
 - Sale completion requires an active cash session for tenant, site, and
   cashier.
+- A mid-day register handoff closes and opens drawers only through the cash
+  session use-cases, in their transactions; see
+  [ADR-0036](architecture/0036-mid-day-register-handoff.md).
 - Versioned mutable resources use compare-and-swap updates and report conflicts
   rather than silently overwriting concurrent edits.
 - AI payment tie-breaks create durable, tenant-scoped review proposals, never

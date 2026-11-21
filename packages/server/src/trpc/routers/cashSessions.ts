@@ -3,7 +3,11 @@ import type { DatabaseInstance } from '../../db/index.js';
 import { cashMovements, cashSessions, sites, users } from '../../db/schema.js';
 import {
   closeCashSession,
+  explainCashDifference,
   getPendingChecksForSession,
+  listCashHandoffs,
+  receiveCashHandoff,
+  startCashHandoff,
   openCashSession,
   recordCashMovement,
   type CashSessionContext,
@@ -20,7 +24,10 @@ import { router } from '../init.js';
 import { roundMoney } from '../../lib/money.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { cashierManagerOrAdminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
-import { criticalCommandCashierManagerOrAdminProcedure } from '../middleware/criticalCommand.js';
+import {
+  criticalCommandCashierManagerOrAdminProcedure,
+  criticalCommandManagerOrAdminProcedure,
+} from '../middleware/criticalCommand.js';
 import { resolveCashCloseSettings } from '../../services/cash-close-settings.js';
 import { computeDayCloseSummary } from '../../services/reports/day-close.js';
 import { computeCashierPace as computeCashierPaceFromTiming } from '../../services/reports/cashier-pace.js';
@@ -32,10 +39,13 @@ import {
   closeCashSessionInput,
   dayCloseSummaryInput,
   dayCloseSummaryOutput,
+  explainCashDifferenceInput,
   getActiveCashSessionInput,
   openCashSessionInput,
   pendingChecksInput,
+  receiveCashHandoffInput,
   recordCashMovementInput,
+  startCashHandoffInput,
 } from '../schemas/cashSessions.js';
 
 const CASH_SESSION_REVIEW_EPSILON = 0.009;
@@ -62,6 +72,9 @@ const cashSessionRecordSelection = {
   actualCountDenominations: cashSessions.actualCountDenominations,
   overShort: cashSessions.overShort,
   status: cashSessions.status,
+  differenceReason: cashSessions.differenceReason,
+  differenceNote: cashSessions.differenceNote,
+  differenceExplainedAt: cashSessions.differenceExplainedAt,
   openedAt: cashSessions.openedAt,
   closedAt: cashSessions.closedAt,
   createdAt: cashSessions.createdAt,
@@ -156,6 +169,22 @@ async function getCashSessionAccessRecord(db: DatabaseInstance, tenantId: string
     .from(cashSessions)
     .where(and(eq(cashSessions.id, id), eq(cashSessions.tenantId, tenantId)))
     .get();
+}
+
+/** The joined record `cashSessions.open` has always returned, masked under a blind close. */
+async function presentOpenedSession(
+  ctx: Pick<Context, 'db' | 'user'> & { tenantId: string },
+  result: { session: { id: string }; attendanceShiftStarted: boolean }
+) {
+  const created = await getCashSessionRecord(ctx.db, ctx.tenantId, result.session.id);
+  if (!created) {
+    throw new Error('Failed to load the created cash session');
+  }
+  const hideTarget = await hidesOpenCashSessionTarget(ctx.db, ctx.tenantId, ctx.user?.role);
+  return {
+    ...presentCashSessionRecord(created, hideTarget),
+    attendanceShiftStarted: result.attendanceShiftStarted,
+  };
 }
 
 /**
@@ -367,17 +396,7 @@ export const cashSessionsRouter = router({
     .input(openCashSessionInput)
     .mutation(async ({ ctx, input }) => {
       const result = await openCashSession(buildCashSessionContext(ctx), input);
-      // Preserve legacy router contract: return the joined record shape
-      // the UI already consumes via cashSessionRecordSelection.
-      const created = await getCashSessionRecord(ctx.db, ctx.tenantId, result.session.id);
-      if (!created) {
-        throw new Error('Failed to load the created cash session');
-      }
-      const hideTarget = await hidesOpenCashSessionTarget(ctx.db, ctx.tenantId, ctx.user?.role);
-      return {
-        ...presentCashSessionRecord(created, hideTarget),
-        attendanceShiftStarted: result.attendanceShiftStarted,
-      };
+      return presentOpenedSession(ctx, result);
     }),
 
   close: criticalCommandCashierManagerOrAdminProcedure
@@ -528,6 +547,31 @@ export const cashSessionsRouter = router({
 
     return getPendingChecksForSession(ctx.db, ctx.tenantId, sessionId);
   }),
+
+  /** Registers handed over at the active site and still waiting for someone to receive them. */
+  pendingHandoffs: cashierManagerOrAdminProcedure.query(({ ctx }) => {
+    if (!ctx.siteId) return [];
+    return listCashHandoffs(ctx.db, {
+      tenantId: ctx.tenantId,
+      siteId: ctx.siteId,
+      status: 'pending',
+    });
+  }),
+
+  startHandoff: criticalCommandCashierManagerOrAdminProcedure
+    .input(startCashHandoffInput)
+    .mutation(({ ctx, input }) => startCashHandoff(buildCashSessionContext(ctx), input)),
+
+  receiveHandoff: criticalCommandCashierManagerOrAdminProcedure
+    .input(receiveCashHandoffInput)
+    .mutation(async ({ ctx, input }) => {
+      const { handoff, opened } = await receiveCashHandoff(buildCashSessionContext(ctx), input);
+      return { handoff, session: await presentOpenedSession(ctx, opened) };
+    }),
+
+  explainDifference: criticalCommandManagerOrAdminProcedure
+    .input(explainCashDifferenceInput)
+    .mutation(({ ctx, input }) => explainCashDifference(buildCashSessionContext(ctx), input)),
 
   recordMovement: criticalCommandCashierManagerOrAdminProcedure
     .input(recordCashMovementInput)

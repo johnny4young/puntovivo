@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { staffPinSchema } from './auth.js';
+import { cashDifferenceReasonEnum, cashHandoffReceiveModeEnum } from '../../db/schema.js';
 
 const manualCashMovementTypeEnum = z.enum(['paid_in', 'paid_out', 'skim', 'replenishment']);
 
@@ -66,6 +68,33 @@ export const recordCashMovementInput = z.object({
     .min(3, 'Cash movement note must be at least 3 characters')
     .max(240, 'Cash movement note must be 240 characters or fewer'),
 });
+
+const staffPinInput = staffPinSchema.optional();
+
+export const startCashHandoffInput = closeCashSessionInput.extend({
+  note: z.string().trim().max(500, 'Handoff note must be 500 characters or fewer').optional(),
+  toCashierId: z.string().min(1).optional(),
+  pin: staffPinInput,
+});
+
+export const receiveCashHandoffInput = z.object({
+  handoffId: z.string().min(1, 'Handoff id is required'),
+  mode: z.enum(cashHandoffReceiveModeEnum),
+  count: z.number().min(0, 'Drawer count cannot be negative'),
+  denominations: z.array(cashSessionDenominationInput).default([]),
+  pin: staffPinInput,
+});
+
+export const explainCashDifferenceInput = z
+  .object({
+    sessionId: z.string().min(1, 'Session id is required'),
+    reason: z.enum(cashDifferenceReasonEnum),
+    note: z.string().trim().max(240, 'Note must be 240 characters or fewer').optional(),
+  })
+  .refine(input => input.reason !== 'other' || (input.note?.length ?? 0) >= 3, {
+    message: 'Describe the difference when the reason is other',
+    path: ['note'],
+  });
 
 export const pendingChecksInput = z
   .object({

@@ -8,6 +8,14 @@
  * next writer race and charge or release inventory from the wrong terminal.
  */
 
+import { sql } from 'drizzle-orm';
+import { sales } from '../../db/schema.js';
+
+/** A parked draft belongs to who parked it; legacy parks without one fall back to the creator. */
+export function parkedDraftOwnedBy(userId: string) {
+  return sql`(${sales.suspendedBy} = ${userId} OR (${sales.suspendedBy} IS NULL AND ${sales.createdBy} = ${userId}))`;
+}
+
 export interface ActiveDraftClaim {
   suspendedAt: string | null;
   resumedBy: string | null;

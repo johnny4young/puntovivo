@@ -1,0 +1,13 @@
+{
+  "server": {
+    "CASH_HANDOFF_NOT_FOUND": "That register handoff is not at this site. Reload and try again.",
+    "CASH_HANDOFF_NOT_PENDING": "Someone already received this register, or it was opened another way.",
+    "CASH_HANDOFF_SAME_CASHIER": "Another cashier has to receive the register you handed over.",
+    "CASH_HANDOFF_RECIPIENT_INVALID": "Hand the register to another active cashier, manager or administrator.",
+    "CASH_HANDOFF_RECIPIENT_MISMATCH": "This register was handed to another cashier.",
+    "CASH_HANDOFF_PIN_REQUIRED": "Enter your PIN to sign.",
+    "CASH_HANDOFF_PIN_INVALID": "That PIN does not match. Try again.",
+    "CASH_DIFFERENCE_NOT_EXPLAINABLE": "Only a closed register with a difference can be explained.",
+    "SALE_CARRY_OVER_INVALID": "Only a suspended sale can be left for tomorrow."
+  }
+}

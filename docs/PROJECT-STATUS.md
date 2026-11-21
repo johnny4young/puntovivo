@@ -80,6 +80,14 @@ The current validated candidate includes:
   certification remain unavailable;
 - cash-session accountability, blind close, audited movements, day-close
   evidence, anomaly signals, and immutable manager sign-off;
+- mid-day register handoff on the server: the outgoing cashier closes with a
+  blind count by denomination and a note, signed with their staff PIN when they
+  have one; the next cashier keeps the counted drawer and recounts it against
+  that count, or starts a new drawer with its own float, and the outgoing
+  cashier's suspended sales pass to them. Hoy shows the handoff each register
+  came from and the registers still waiting to be received. Managers can
+  explain a closed difference and leave a suspended sale for the next day; the
+  register screens for these steps are not built yet;
 - site-owned inventory, units, lots, FEFO, expiry suggestions that remain
   informational until a manager converts them into an explicit lot-bound
   promotion, serialized products, warranty lookup, variant matrices, purchases,

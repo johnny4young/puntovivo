@@ -16,7 +16,7 @@
 
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
-import { cashSessions, employeeShifts, sites } from '../../db/schema.js';
+import { cashSessionHandoffs, cashSessions, employeeShifts, sites } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { roundMoney } from '../../lib/money.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
@@ -37,7 +37,12 @@ import {
   lookupCashSessionJournalEventId,
   type CashSessionJournalEffectInput,
 } from './journal-effects.js';
-import type { CashSessionContext, OpenCashSessionInput, OpenCashSessionResult } from './types.js';
+import type {
+  CashSessionContext,
+  OpenCashSessionInput,
+  OpenCashSessionOptions,
+  OpenCashSessionResult,
+} from './types.js';
 
 const fallbackLog = createModuleLogger('application/cash-sessions/openCashSession');
 
@@ -69,7 +74,8 @@ export type OpenedCashSessionRow = typeof cashSessions.$inferSelect;
  */
 export async function openCashSession(
   ctx: CashSessionContext,
-  input: OpenCashSessionInput
+  input: OpenCashSessionInput,
+  options: OpenCashSessionOptions = {}
 ): Promise<OpenCashSessionResult<OpenedCashSessionRow>> {
   const log = ctx.log ?? fallbackLog;
 
@@ -144,6 +150,7 @@ export async function openCashSession(
   let employeeShiftAuditLogId: string | null = null;
   let employeeShiftId = '';
   let attendanceShiftStarted = false;
+  let hookEffects: CashSessionJournalEffectInput[] = [];
 
   ctx.db.transaction(
     tx => {
@@ -313,6 +320,21 @@ export async function openCashSession(
         },
         operationId: ctx.envelope?.operationId,
       });
+
+      hookEffects = options.withinTransaction?.(tx, { sessionId: id, openedAt: now }) ?? [];
+
+      // Opening the drawer any other way means nobody will receive the handoff.
+      tx.update(cashSessionHandoffs)
+        .set({ status: 'superseded', updatedAt: now })
+        .where(
+          and(
+            eq(cashSessionHandoffs.tenantId, ctx.tenantId),
+            eq(cashSessionHandoffs.siteId, site.id),
+            eq(cashSessionHandoffs.registerName, registerName),
+            eq(cashSessionHandoffs.status, 'pending')
+          )
+        )
+        .run();
     },
     { behavior: 'immediate' }
   );
@@ -380,6 +402,7 @@ export async function openCashSession(
         effectData: { action: 'employee_shift.clock_in' },
       });
     }
+    effects.push(...hookEffects);
     await emitCashSessionEffects(ctx.db, log, journalEventId, effects);
   }
 

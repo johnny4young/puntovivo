@@ -76,6 +76,9 @@ export type AuditLogAction =
   // shift-lifecycle parity (open + manual movement audits).
   | 'cash_session.open'
   | 'cash_session.movement'
+  | 'cash_session.handoff'
+  | 'cash_session.handoff_receive'
+  | 'cash_session.explain_difference'
   | 'inventory.adjust_stock'
   | 'inventory.revalue'
   | 'inventory.count.create'
@@ -124,6 +127,7 @@ export type AuditLogAction =
   // park-and-resume (including discard metadata flag).
   | 'sale.park'
   | 'sale.resume'
+  | 'sale.carry_over'
   // receipt reprint.
   | 'sale.reprint'
   // draft completion (state change on an existing draft).
@@ -265,6 +269,7 @@ export type AuditLogResourceType =
   | 'sale'
   | 'sale_return'
   | 'cash_session'
+  | 'cash_session_handoff'
   // manual cash movements emit audit rows keyed to the
   // cash_movements row id.
   | 'cash_movement'

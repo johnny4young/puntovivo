@@ -174,7 +174,13 @@
       "nextIn": "Sigue en",
       "durationHours": "{{hours}} h {{minutes}} min",
       "durationMinutes": "{{minutes}} min",
-      "handoff": "Relevo de {{register}}: entrega {{from}}"
+      "handoff": "Relevo de {{register}}: entrega {{from}}",
+      "received": "Relevo hecho {{time}} · lo entregó {{from}}",
+      "receivedDifference": "Relevo hecho {{time}} · {{difference}} contra el conteo de {{from}}",
+      "handedOver": "{{register}} · entregada",
+      "handedOverBy": "La entregó {{from}} a las {{time}}",
+      "waitingFor": "espera a {{to}}",
+      "waitingAnyone": "por recibir"
     }
   }
 }

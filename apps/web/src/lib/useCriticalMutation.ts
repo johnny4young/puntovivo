@@ -79,11 +79,15 @@ export type CriticalCommandPath =
   // same rationale as `changeTable`); the client must mint an
   // envelope AND the panel CTA must gate on role + catalog presence.
   | 'sales.splitDraft'
+  | 'sales.carryOver'
   | 'restaurantServices.openCheck'
   | 'restaurantModifiers.save'
   | 'cashSessions.open'
   | 'cashSessions.close'
   | 'cashSessions.recordMovement'
+  | 'cashSessions.startHandoff'
+  | 'cashSessions.receiveHandoff'
+  | 'cashSessions.explainDifference'
   | 'inventory.adjustStock'
   | 'inventory.createMovement'
   | 'inventoryLots.receive'
