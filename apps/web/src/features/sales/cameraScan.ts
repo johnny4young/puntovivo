@@ -56,7 +56,12 @@ async function nativeDetector(): Promise<BarcodeDetectorLike | null> {
     ? await Detector.getSupportedFormats().catch(() => [] as string[])
     : CAMERA_SCAN_FORMATS;
   const formats = CAMERA_SCAN_FORMATS.filter(format => supported.includes(format));
-  return formats.length > 0 ? new Detector({ formats }) : null;
+  if (formats.length === 0) return null;
+  try {
+    return new Detector({ formats });
+  } catch {
+    return null;
+  }
 }
 
 /**

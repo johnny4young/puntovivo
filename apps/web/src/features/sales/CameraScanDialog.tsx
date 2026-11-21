@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Flashlight, FlashlightOff } from 'lucide-react';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
@@ -27,6 +27,7 @@ interface CameraScanDialogProps {
 export function CameraScanDialog({ onDetected, onClose }: CameraScanDialogProps) {
   const { t } = useTranslation('sales');
   const videoRef = useRef<HTMLVideoElement>(null);
+  const cancelId = useId();
   const [attempt, setAttempt] = useState(0);
   const [error, setError] = useState<CameraScanError | null>(null);
   const [torch, setTorchControl] = useState<TorchControl | null>(null);
@@ -47,8 +48,10 @@ export function CameraScanDialog({ onDetected, onClose }: CameraScanDialogProps)
     };
 
     const start = async () => {
-      // The decoder loads while the cashier answers the camera prompt.
-      const readerReady = createCameraCodeReader().catch(() => null);
+      // Never prompt for a camera that nothing could decode.
+      const reader = await createCameraCodeReader().catch(() => null);
+      if (cancelled) return;
+      if (!reader) return setError('unavailable');
       const media = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: 'environment' },
@@ -60,14 +63,15 @@ export function CameraScanDialog({ onDetected, onClose }: CameraScanDialogProps)
       stream = media;
       // A grant that lands after close still has to release the camera.
       if (cancelled) return stop();
-      const reader = await readerReady;
-      if (!reader) {
-        if (!cancelled) setError('unavailable');
-        return stop();
-      }
       const video = videoRef.current;
       if (!video) return;
       const track = media.getVideoTracks()[0];
+      // Another app or a call can take the camera mid-scan; the frame would just freeze.
+      track?.addEventListener('ended', () => {
+        if (cancelled) return;
+        setError('busy');
+        stop();
+      });
       if (trackHasTorch(track)) setTorchControl({ track, on: false });
       video.srcObject = media;
       await video.play().catch(() => undefined);
@@ -88,7 +92,9 @@ export function CameraScanDialog({ onDetected, onClose }: CameraScanDialogProps)
     };
 
     start().catch(reason => {
-      if (!cancelled) setError(cameraErrorKind(reason));
+      if (cancelled) return;
+      setError(cameraErrorKind(reason));
+      stop();
     });
 
     return stop;
@@ -98,13 +104,30 @@ export function CameraScanDialog({ onDetected, onClose }: CameraScanDialogProps)
     setError(null);
     setTorchControl(null);
     setAttempt(value => value + 1);
+    // The retry button unmounts with the error, so keep focus inside the dialog.
+    document.getElementById(cancelId)?.focus();
   };
 
+  const torchPending = useRef(false);
   const toggleTorch = (control: TorchControl) => {
-    setTorch(control.track, !control.on).then(
-      () => setTorchControl({ ...control, on: !control.on }),
-      () => setTorchControl(null)
-    );
+    // A second tap before the first lands would resend the same value.
+    if (torchPending.current) return;
+    torchPending.current = true;
+    const on = !control.on;
+    setTorch(control.track, on)
+      .then(
+        () =>
+          setTorchControl(current =>
+            current?.track === control.track ? { ...current, on } : current
+          ),
+        // A torch that will not turn on goes away; one that will not turn off keeps its button.
+        () => {
+          if (on) setTorchControl(null);
+        }
+      )
+      .finally(() => {
+        torchPending.current = false;
+      });
   };
 
   const TorchIcon = torch?.on ? Flashlight : FlashlightOff;
@@ -117,7 +140,9 @@ export function CameraScanDialog({ onDetected, onClose }: CameraScanDialogProps)
       size="sm"
       footer={
         <>
-          <ModalButton onClick={onClose}>{t('scanner.camera.cancel')}</ModalButton>
+          <ModalButton id={cancelId} onClick={onClose}>
+            {t('scanner.camera.cancel')}
+          </ModalButton>
           {error && (
             <ModalButton variant="primary" onClick={retry} testId="sales-camera-scan-retry">
               {t('scanner.camera.retry')}

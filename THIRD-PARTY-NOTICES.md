@@ -21,7 +21,7 @@ Las fuentes se usan sin modificar y no se venden por separado.
 ## Bibliotecas
 
 Se incluyen en la versión web y solo se cargan en teléfonos cuyo navegador no
-trae un detector de códigos de barras.
+trae un detector de códigos de barras de retail.
 
 | Biblioteca | Uso | Copyright | Licencia |
 | --- | --- | --- | --- |

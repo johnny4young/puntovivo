@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@/test/utils';
+import { act, fireEvent, render, screen, waitFor } from '@/test/utils';
 import { CameraScanDialog } from './CameraScanDialog';
 import { cameraErrorKind, isCameraScanSupported } from './cameraScan';
 
@@ -21,8 +21,9 @@ interface FakeTrack {
   applyConstraints?: ReturnType<typeof vi.fn>;
 }
 
-function fakeStream(track: FakeTrack = { stop: vi.fn() }) {
-  return { getTracks: () => [track], getVideoTracks: () => [track] };
+function fakeStream(fields: FakeTrack = { stop: vi.fn() }) {
+  const track = Object.assign(new EventTarget(), fields);
+  return { track, getTracks: () => [track], getVideoTracks: () => [track] };
 }
 
 function stubMedia(getUserMedia: () => Promise<unknown>) {
@@ -94,14 +95,47 @@ describe('CameraScanDialog', () => {
     expect(detect).not.toHaveBeenCalled();
   });
 
-  it('releases the camera when no decoder can load', async () => {
+  it('falls back when the detector refuses to construct', async () => {
+    fallback.read.mockResolvedValue('7702010001031');
+    vi.stubGlobal(
+      'BarcodeDetector',
+      class {
+        static getSupportedFormats = () => Promise.resolve(['ean_13']);
+        constructor() {
+          throw new TypeError('unsupported');
+        }
+      }
+    );
+    stubMedia(() => Promise.resolve(fakeStream()));
+    const onDetected = vi.fn();
+    render(<CameraScanDialog onDetected={onDetected} onClose={vi.fn()} />);
+
+    await waitFor(() => expect(onDetected).toHaveBeenCalledWith('7702010001031'));
+  });
+
+  it('never opens the camera when no decoder can load', async () => {
     fallback.fail = true;
-    const track = { stop: vi.fn() };
-    stubMedia(() => Promise.resolve(fakeStream(track)));
+    const getUserMedia = vi.fn(() => Promise.resolve(fakeStream()));
+    stubMedia(getUserMedia);
     render(<CameraScanDialog onDetected={vi.fn()} onClose={vi.fn()} />);
 
     expect(await screen.findByRole('alert')).toHaveTextContent('The camera could not open.');
-    expect(track.stop).toHaveBeenCalled();
+    expect(getUserMedia).not.toHaveBeenCalled();
+  });
+
+  it('explains a camera taken mid-scan and releases it', async () => {
+    const stream = fakeStream();
+    stubMedia(() => Promise.resolve(stream));
+    render(<CameraScanDialog onDetected={vi.fn()} onClose={vi.fn()} />);
+
+    await waitFor(() => expect(fallback.read).toHaveBeenCalled());
+    act(() => {
+      stream.track.dispatchEvent(new Event('ended'));
+    });
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Another app is using the camera.');
+    expect(stream.track.stop).toHaveBeenCalled();
+    expect(screen.getByTestId('sales-camera-scan-retry')).toBeInTheDocument();
   });
 
   it('explains a refused camera and asks again on retry', async () => {
@@ -114,6 +148,7 @@ describe('CameraScanDialog', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Allow camera access to scan.');
     fireEvent.click(screen.getByTestId('sales-camera-scan-retry'));
+    expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus();
 
     await waitFor(() => expect(getUserMedia).toHaveBeenCalledTimes(2));
     expect(await screen.findByRole('status')).toHaveTextContent('Point the camera at the barcode.');
@@ -138,6 +173,59 @@ describe('CameraScanDialog', () => {
     fireEvent.click(torch);
     await waitFor(() => expect(torch).toHaveAttribute('aria-pressed', 'false'));
     expect(applyConstraints).toHaveBeenLastCalledWith({ advanced: [{ torch: false }] });
+  });
+
+  it('keeps the torch button when the light will not turn off', async () => {
+    const applyConstraints = vi.fn(({ advanced }: { advanced: { torch: boolean }[] }) =>
+      advanced[0]!.torch ? Promise.resolve() : Promise.reject(new Error('busy'))
+    );
+    stubMedia(() =>
+      Promise.resolve(
+        fakeStream({ stop: vi.fn(), getCapabilities: () => ({ torch: true }), applyConstraints })
+      )
+    );
+    render(<CameraScanDialog onDetected={vi.fn()} onClose={vi.fn()} />);
+
+    const torch = await screen.findByTestId('sales-camera-scan-torch');
+    fireEvent.click(torch);
+    await waitFor(() => expect(torch).toHaveAttribute('aria-pressed', 'true'));
+    fireEvent.click(torch);
+    await waitFor(() => expect(applyConstraints).toHaveBeenCalledTimes(2));
+
+    expect(screen.getByTestId('sales-camera-scan-torch')).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('ignores a second torch tap while the first is pending', async () => {
+    let finish: () => void = () => undefined;
+    const applyConstraints = vi.fn(() => new Promise<void>(resolve => (finish = resolve)));
+    stubMedia(() =>
+      Promise.resolve(
+        fakeStream({ stop: vi.fn(), getCapabilities: () => ({ torch: true }), applyConstraints })
+      )
+    );
+    render(<CameraScanDialog onDetected={vi.fn()} onClose={vi.fn()} />);
+
+    const torch = await screen.findByTestId('sales-camera-scan-torch');
+    fireEvent.click(torch);
+    fireEvent.click(torch);
+    act(() => finish());
+
+    await waitFor(() => expect(torch).toHaveAttribute('aria-pressed', 'true'));
+    expect(applyConstraints).toHaveBeenCalledTimes(1);
+  });
+
+  it('releases the camera when it fails after opening', async () => {
+    const stream = fakeStream({
+      stop: vi.fn(),
+      getCapabilities: () => {
+        throw new Error('capabilities unavailable');
+      },
+    });
+    stubMedia(() => Promise.resolve(stream));
+    render(<CameraScanDialog onDetected={vi.fn()} onClose={vi.fn()} />);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('The camera could not open.');
+    expect(stream.track.stop).toHaveBeenCalled();
   });
 
   it('shows no torch on a camera without one', async () => {

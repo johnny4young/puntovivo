@@ -21,7 +21,7 @@ The fonts are used unmodified and are not sold on their own.
 ## Libraries
 
 Bundled into the web build and loaded only on phones whose browser has no
-built-in barcode detector.
+built-in detector for retail barcodes.
 
 | Library | Used for | Copyright | Licence |
 | --- | --- | --- | --- |
