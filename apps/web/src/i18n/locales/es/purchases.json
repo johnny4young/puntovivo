@@ -182,5 +182,20 @@
     "partial_returned": "Parcialmente devuelto",
     "returned": "Devuelto",
     "voided": "Anulado"
+  },
+  "document": {
+    "title": "Documento de soporte",
+    "typeLabel": "Tipo de documento",
+    "numberLabel": "Número de documento",
+    "numberPlaceholder": "Ej.: RM-0042",
+    "typeNone": "Sin documento",
+    "typeInvoice": "Factura",
+    "typeRemision": "Remisión",
+    "typeOther": "Otro",
+    "attachLabel": "Adjuntar foto o PDF del documento",
+    "attachedOn": "Adjuntado el {{date}}",
+    "view": "Ver documento adjunto",
+    "attachSuccess": "Documento adjunto",
+    "attachError": "No se pudo adjuntar el documento"
   }
 }

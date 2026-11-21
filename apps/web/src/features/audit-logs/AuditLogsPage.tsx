@@ -27,6 +27,8 @@ const ACTION_OPTIONS: readonly AuditLogAction[] = [
   'inventory.transformation.void',
   'purchase.receive',
   'purchase.return',
+  'purchase.document_updated',
+  'purchase.document_attached',
   'order.create',
   'order.submit',
   'order.void',

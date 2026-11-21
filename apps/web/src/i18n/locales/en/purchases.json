@@ -182,5 +182,20 @@
     "partial_returned": "Partial returned",
     "returned": "Returned",
     "voided": "Voided"
+  },
+  "document": {
+    "title": "Supporting document",
+    "typeLabel": "Document type",
+    "numberLabel": "Document number",
+    "numberPlaceholder": "e.g. DN-0042",
+    "typeNone": "No document",
+    "typeInvoice": "Invoice",
+    "typeRemision": "Delivery note",
+    "typeOther": "Other",
+    "attachLabel": "Attach a photo or PDF of the document",
+    "attachedOn": "Attached on {{date}}",
+    "view": "View attached document",
+    "attachSuccess": "Document attached",
+    "attachError": "Could not attach the document"
   }
 }

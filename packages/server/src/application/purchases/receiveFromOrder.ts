@@ -204,6 +204,8 @@ export async function createPurchaseFromOrder(
           subtotal,
           total,
           notes: `${orderRecord.notes ? `${orderRecord.notes} | ` : ''}${input.notes ? `${input.notes} | ` : ''}Received from order ${orderRecord.orderNumber}`,
+          documentType: input.documentType ?? null,
+          documentNumber: input.documentNumber ?? null,
           createdBy: ctx.user!.id,
           syncStatus: 'pending',
           syncVersion: 1,

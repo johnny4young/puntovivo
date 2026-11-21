@@ -191,6 +191,8 @@ export function PurchasesPage() {
           ...(item.tracksLots ? { lotReceipts: values.lotReceiptsByItemKey[item.key] } : {}),
         })),
         notes: values.notes || undefined,
+        documentType: values.documentType === '' ? undefined : values.documentType,
+        documentNumber: values.documentNumber.trim() || undefined,
       });
     } catch {
       stockReceiptMeasurement.recordValidationError();

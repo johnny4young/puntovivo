@@ -23,6 +23,14 @@ export interface Purchase {
   subtotal: number;
   total: number;
   notes?: string | null;
+  documentType?: 'invoice' | 'remision' | 'other' | null;
+  documentNumber?: string | null;
+  document?: {
+    fileName: string | null;
+    mimeType: string;
+    sizeBytes: number;
+    createdAt: string;
+  } | null;
   createdBy: string;
   createdAt: string;
   updatedAt: string;

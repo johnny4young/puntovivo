@@ -89,6 +89,8 @@ describe('PurchaseFinalizeModal', () => {
       expect(onSubmit).toHaveBeenCalledWith({
         providerId: provider.id,
         notes: '',
+        documentType: '',
+        documentNumber: '',
         lotReceiptsByItemKey: {},
       })
     );
@@ -106,6 +108,35 @@ describe('PurchaseFinalizeModal', () => {
       />
     );
     expect(screen.getByRole('alert')).toHaveTextContent('Unable to register purchase');
+  });
+
+  it('carries the receiving document identity when the operator records one', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn(async () => undefined);
+
+    render(
+      <PurchaseFinalizeModal
+        isOpen
+        total={125_000}
+        providers={[provider]}
+        items={[]}
+        isSaving={false}
+        error={null}
+        onClose={vi.fn()}
+        onSubmit={onSubmit}
+      />
+    );
+
+    await user.selectOptions(screen.getByLabelText('Provider'), provider.id);
+    await user.selectOptions(screen.getByLabelText('Document type'), 'remision');
+    await user.type(screen.getByLabelText('Document number'), 'RM-0042');
+    await user.click(screen.getByRole('button', { name: 'Register Purchase' }));
+
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({ documentType: 'remision', documentNumber: 'RM-0042' })
+      )
+    );
   });
 
   it('requires exact lot identity and submits base-unit receipt provenance', async () => {
@@ -133,6 +164,8 @@ describe('PurchaseFinalizeModal', () => {
       expect(onSubmit).toHaveBeenCalledWith({
         providerId: provider.id,
         notes: '',
+        documentType: '',
+        documentNumber: '',
         lotReceiptsByItemKey: {
           [lotItem.key]: [{ lotNumber: 'LOT-2026-09', baseQuantity: 6 }],
         },

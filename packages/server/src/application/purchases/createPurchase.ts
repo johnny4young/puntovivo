@@ -101,6 +101,8 @@ export async function createPurchase(ctx: CriticalPurchaseContext, input: Create
           subtotal,
           total,
           notes: input.notes,
+          documentType: input.documentType ?? null,
+          documentNumber: input.documentNumber ?? null,
           createdBy: ctx.user!.id,
           syncStatus: 'pending',
           syncVersion: 1,
