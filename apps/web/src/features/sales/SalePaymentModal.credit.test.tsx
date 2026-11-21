@@ -39,6 +39,11 @@ let mockBalanceLoading = false;
 let mockBalanceError = false;
 const refetchBalanceMock = vi.fn();
 
+const zones = vi.hoisted(() => ({ credit: true }));
+vi.mock('@/features/modules/useRegisterZone', () => ({
+  useRegisterZone: (zone: string) => zone !== 'credit' || zones.credit,
+}));
+
 vi.mock('@/lib/trpc', () => ({
   trpc: {
     useUtils: () => ({
@@ -179,6 +184,7 @@ function renderModal(overrides: Partial<React.ComponentProps<typeof SalePaymentM
 describe('SalePaymentModal ( credit branch)', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
+    zones.credit = true;
     let uuidCounter = 0;
     vi.mocked(crypto.randomUUID).mockImplementation(() => {
       uuidCounter += 1;
@@ -393,6 +399,14 @@ describe('SalePaymentModal ( credit branch)', () => {
 
     await waitFor(() => expect(confirm).toBeEnabled());
     await waitFor(() => expect(confirm).toHaveFocus());
+  });
+
+  it('leaves credit out while the store-credit zone is off', async () => {
+    zones.credit = false;
+    const user = userEvent.setup();
+    renderModal({ userRole: 'manager' });
+    await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
+    expect(screen.queryByTestId('sale-payment-method-credit-option')).not.toBeInTheDocument();
   });
 
   it('surfaces the credit option when a customer is selected and role is manager', async () => {

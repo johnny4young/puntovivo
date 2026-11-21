@@ -49,6 +49,15 @@ and `RequireModule`; routes and navigation must apply the same gate.
 tenant. Existing tenants without an override continue to resolve the manifest
 default, preserving compatibility.
 
+## Register zones
+
+Inside an active surface, the business profile also shapes desktop Vender by
+zones (one-touch keys, store credit, parked sales, tips, tables…). The registry
+and default matrix live in `packages/shared/src/register-zones.ts`; admins
+adjust single zones from the card under Modules. A zone that needs a module
+renders only while the module is on. See
+[ADR-0038](./architecture/0038-register-zones-by-profile.md).
+
 ## Invariants
 
 - Module state never replaces `ctx.tenantId` scoping or role checks.

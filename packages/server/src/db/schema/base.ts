@@ -381,6 +381,8 @@ export const auditLogActionEnum = [
   // sets several surface modules at once. Metadata carries the preset id
   // plus the before/after of every module the patch touched.
   'module.preset_applied',
+  // Admin switches one register zone away from, or back to, the profile default.
+  'register_zone.toggle',
   // Authority Node operability. Admin revokes a hub-client
   // terminal from the Operations Center Authority tab.
   'device.revoke',
@@ -604,6 +606,7 @@ export const auditLogResourceTypeEnum = [
   // module activation kernel. `module.toggle` audit rows
   // key on the module id (one row per module per tenant per toggle).
   'tenant_module',
+  'tenant_register_zone',
   // hub-client terminal registry lifecycle.
   'device',
   // payment_outbox rows targeted by admin retry / mark_settled.

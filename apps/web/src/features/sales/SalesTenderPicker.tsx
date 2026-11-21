@@ -1,6 +1,7 @@
 import { ArrowLeftRight, Banknote, CreditCard, LayoutGrid, UserRound } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cashChange, suggestCashTenders } from '@/features/sales/cashTender';
+import { useRegisterZone } from '@/features/modules/useRegisterZone';
 import type { InitialTender } from '@/features/sales/salePaymentModal.types';
 import { ariaKeyshortcutsFor, shortcutDisplayFor } from '@/lib/shortcuts';
 import { formatCurrency } from '@/lib/utils';
@@ -12,6 +13,7 @@ const TENDERS = [
   { tender: 'credit', labelKey: 'payment.credit', icon: UserRound },
   { tender: 'split', labelKey: 'sell.tender.split', icon: LayoutGrid },
 ] as const satisfies ReadonlyArray<{ tender: InitialTender; labelKey: string; icon: unknown }>;
+const TENDERS_WITHOUT_CREDIT = TENDERS.filter(({ tender }) => tender !== 'credit');
 
 interface SalesTenderPickerProps {
   tender: InitialTender;
@@ -30,6 +32,8 @@ export function SalesTenderPicker({
   onFastCash,
 }: SalesTenderPickerProps) {
   const { t } = useTranslation('sales');
+  const sellsOnCredit = useRegisterZone('credit');
+  const tenders = sellsOnCredit ? TENDERS : TENDERS_WITHOUT_CREDIT;
   const showCashKeys = tender === 'cash' && !!onFastCash && cashDue > 0;
 
   return (
@@ -39,7 +43,7 @@ export function SalesTenderPicker({
           {t('sell.tender.title')}
         </p>
         <div className="flex gap-1.5">
-          {TENDERS.map(({ tender: option, labelKey, icon: Icon }) => (
+          {tenders.map(({ tender: option, labelKey, icon: Icon }) => (
             <button
               key={option}
               type="button"

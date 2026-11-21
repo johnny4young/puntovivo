@@ -306,6 +306,10 @@
       "es": "docs/es/architecture/0037-guided-day-close.md"
     },
     {
+      "en": "docs/architecture/0038-register-zones-by-profile.md",
+      "es": "docs/es/architecture/0038-register-zones-by-profile.md"
+    },
+    {
       "en": "docs/architecture/patterns/operation-journal.md",
       "es": "docs/es/architecture/patterns/operation-journal.md"
     },

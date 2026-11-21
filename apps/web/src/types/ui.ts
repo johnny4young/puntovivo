@@ -139,6 +139,7 @@ export type AuditLogAction =
   | 'module.toggle'
   // A-30 — vertical preset applied (sets several surface modules at once).
   | 'module.preset_applied'
+  | 'register_zone.toggle'
   // hub-client terminal revocation.
   | 'device.revoke'
   // fresh device claims its pairing code (handover trail).
@@ -290,6 +291,7 @@ export type AuditLogResourceType =
   | 'cashier'
   // module activation kernel resource type.
   | 'tenant_module'
+  | 'tenant_register_zone'
   // hub-client terminal registry lifecycle.
   | 'device'
   // payment_outbox rows targeted by admin retry / mark_settled.

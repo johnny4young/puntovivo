@@ -31,6 +31,12 @@ function renderHeader(overrides: Partial<ComponentProps<typeof SalesHeaderSectio
 }
 
 describe('SalesHeaderSection', () => {
+  it('leaves out the parked-sales key when the register does not park sales', () => {
+    renderHeader({ onOpenSuspended: undefined });
+    expect(screen.queryByTestId('sales-open-suspended')).not.toBeInTheDocument();
+    expect(screen.getByTestId('sales-open-history')).toBeInTheDocument();
+  });
+
   it('names the register, the cashier and the site', () => {
     renderHeader({ status: <span data-testid="status-slot" /> });
 
