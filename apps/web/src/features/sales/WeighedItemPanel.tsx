@@ -10,12 +10,19 @@ import {
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useResolvedLocale } from '@/features/locale/LocaleProvider';
+import { hasScaleBridge } from '@/features/peripherals/scale';
 import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
 import { quantityForAmount } from '@/features/sales/productSelection';
 import type { SaleCartItem } from '@/features/sales/saleCart';
 import { getLineTotals } from '@/features/sales/saleCartTotals';
 import type { WeighedItemSession } from '@/features/sales/useWeighedItem';
-import { kilogramsOf, quantityForWeight, WEIGHT_PRESETS_KG } from '@/features/sales/weighedItem';
+import { WeighedScaleKey } from '@/features/sales/WeighedScaleKey';
+import {
+  kilogramFormat,
+  kilogramsOf,
+  quantityForWeight,
+  WEIGHT_PRESETS_KG,
+} from '@/features/sales/weighedItem';
 import { formatCurrency } from '@/lib/utils';
 
 const PRESET_KEYS = { 0.25: 'quarter', 0.5: 'half', 1: 'one' } as const;
@@ -23,7 +30,7 @@ const ENTRIES = ['value', 'weight'] as const;
 
 type Entry = (typeof ENTRIES)[number];
 interface Choice {
-  kind: 'preset' | Entry;
+  kind: 'preset' | 'scale' | Entry;
   value: number;
 }
 
@@ -36,7 +43,7 @@ interface WeighedItemPanelProps {
   className?: string | undefined;
 }
 
-/** «¿Cuánto pesó?»: weight keys, sell by value and a typed weight for a by-weight product. */
+/** «¿Cuánto pesó?»: scale reading, weight keys, sell by value and a typed weight for a by-weight product. */
 export function WeighedItemPanel({
   session,
   line,
@@ -51,16 +58,15 @@ export function WeighedItemPanel({
   const errorId = useId();
   const firstKeyRef = useRef<HTMLButtonElement>(null);
   const entryKeys = useRef<Record<Entry, HTMLButtonElement | null>>({ value: null, weight: null });
+  const scaleKeyRef = useRef<HTMLButtonElement>(null);
+  const withScale = hasScaleBridge();
+  const [reading, setReading] = useState(false);
   const [choice, setChoice] = useState<Choice | null>(null);
   const [entry, setEntry] = useState<Entry | null>(null);
   const [draft, setDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
   const { selection, grams } = session;
-  const kgFormat = useMemo(
-    () => new Intl.NumberFormat(locale, { minimumFractionDigits: 3, maximumFractionDigits: 3 }),
-    [locale]
-  );
-
+  const kgFormat = useMemo(() => kilogramFormat(locale), [locale]);
   useEffect(() => {
     firstKeyRef.current?.focus({ preventScroll: true });
   }, []);
@@ -95,7 +101,8 @@ export function WeighedItemPanel({
     setDraft('');
     onApply(result.quantity);
     // The field goes away; focus stays in the panel so Escape still closes it.
-    if (next.kind !== 'preset') entryKeys.current[next.kind]?.focus();
+    if (next.kind === 'scale') scaleKeyRef.current?.focus();
+    else if (next.kind !== 'preset') entryKeys.current[next.kind]?.focus();
   };
 
   const toggleEntry = (next: Entry) => {
@@ -106,7 +113,8 @@ export function WeighedItemPanel({
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (entry) commit({ kind: entry, value: Number(draft) });
+    // A scale reading in flight owns the line until it lands.
+    if (entry && !reading) commit({ kind: entry, value: Number(draft) });
   };
 
   // While typing, the readout previews the entry; otherwise it shows what is on the ticket.
@@ -160,12 +168,23 @@ export function WeighedItemPanel({
       </div>
 
       <div className="weighed-keys">
+        {withScale && (
+          <WeighedScaleKey
+            buttonRef={scaleKeyRef}
+            pressed={choice?.kind === 'scale'}
+            reading={reading}
+            onReadingChange={setReading}
+            onWeight={kilograms => commit({ kind: 'scale', value: kilograms })}
+            onError={setError}
+          />
+        )}
         {WEIGHT_PRESETS_KG.map((kg, index) => (
           <button
             key={kg}
             ref={index === 0 ? firstKeyRef : undefined}
             type="button"
             className="weighed-key"
+            disabled={reading}
             aria-pressed={choice?.kind === 'preset' && choice.value === kg}
             onClick={() => commit({ kind: 'preset', value: kg })}
             data-testid={`weighed-item-preset-${kg}`}
@@ -181,6 +200,7 @@ export function WeighedItemPanel({
             }}
             type="button"
             className="weighed-key is-wide"
+            disabled={reading}
             aria-expanded={entry === kind}
             data-on={entry === kind || choice?.kind === kind || undefined}
             onClick={() => toggleEntry(kind)}

@@ -42,8 +42,15 @@ export default defineConfig(({ mode }) => ({
       // electron-updater is externalized (not bundled): it lazy-requires its
       // provider modules + reads app-update.yml at runtime, which a bundler can
       // break. It ships via electron-builder's production-dependency collection
-      // into app.asar/node_modules, alongside the native addons.
-      external: ['better-sqlite3', 'argon2', 'electron', 'electron-updater'],
+      // into app.asar/node_modules, alongside the native addons. The serial
+      // binding resolves its Node-API prebuild relative to its own package.
+      external: [
+        'better-sqlite3',
+        'argon2',
+        'electron',
+        'electron-updater',
+        '@serialport/bindings-cpp',
+      ],
       output: {
         entryFileNames: '[name].cjs',
         // Preserve diagnostic and framework-visible function/class names.

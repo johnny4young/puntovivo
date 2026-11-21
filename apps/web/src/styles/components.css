@@ -1317,6 +1317,7 @@
   }
 
   .weighed-panel {
+    container-type: inline-size;
     padding: 0.8rem 0.95rem;
     border-radius: 1.125rem;
     background: var(--accent);
@@ -1359,8 +1360,29 @@
     font-size: 0.9rem;
   }
 
-  .weighed-key:hover {
+  /* Own row in a narrow panel; joins the keys when all six fit on one line. */
+  .weighed-key.is-scale {
+    flex-basis: 100%;
+    gap: 0.5rem;
+    font-size: 0.97rem;
+  }
+
+  @container (min-width: 42rem) {
+    .weighed-key.is-scale {
+      flex: 1.4 1 8rem;
+    }
+  }
+
+  .weighed-key:hover:not(:disabled) {
     border-color: var(--primary-600);
+  }
+
+  .weighed-key:disabled {
+    opacity: 0.6;
+  }
+
+  .weighed-key:is(:disabled, [aria-busy='true']) {
+    cursor: progress;
   }
 
   .weighed-key:is([aria-pressed='true'], [data-on]) {

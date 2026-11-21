@@ -46,6 +46,7 @@ import { readDeviceIdFromDir } from './device-id-store.js';
 import { registerDeviceIpc } from './ipc/device.js';
 import { registerPeripheralsIpc } from './ipc/peripherals.js';
 import { registerPrintIpc } from './ipc/print.js';
+import { registerScaleIpc } from './ipc/scale.js';
 import { registerDataBridgeIpc } from './ipc/register.js';
 import { registerSessionIpc } from './ipc/session-ipc.js';
 import { createInstallationClaimHandler } from './session/installation-claim.js';
@@ -447,6 +448,7 @@ ipcMain.handle('session:owner-recovery-status', ownerRecovery.status);
 ipcMain.handle('session:recover-owner', ownerRecovery.recover);
 registerDataBridgeIpc({ log: mainLog });
 registerPrintIpc();
+registerScaleIpc();
 registerServerStateIpc({
   getState: serverLifecycle.getState,
   getRestartStats: () => workerCrashLog.stats(),

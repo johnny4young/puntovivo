@@ -15,6 +15,7 @@ Hardware failures are queued, observable, and recoverable.
 | Direct USB ESC/POS          | Not implemented; configuration must not claim support.                                              |
 | Direct serial ESC/POS       | Not implemented; configuration must not claim support.                                              |
 | RJ11 drawer through ESC/POS | Implemented where the selected printer transport supports the drawer pulse.                         |
+| Serial scale                | Desktop app reads continuous, Toledo 8217 and ENQ scales per computer; typed weight stays.          |
 | USB HID barcode scanner     | Implemented as keyboard-wedge input with cashier focus protection.                                  |
 | Phone camera                | Retail barcode reads in the phone browser, with a bundled decoder and torch; frames stay on device. |
 | Manual payment terminal     | Implemented as a recorded manual tender path.                                                       |
@@ -40,6 +41,8 @@ Hardware failures are queued, observable, and recoverable.
   persistence.
 - `apps/desktop/src/main/peripherals/` — local bridge and Electron transport.
 - `apps/desktop/src/main/ipc/peripherals.ts` — IPC registration and validation.
+- `apps/desktop/src/main/scale/` and `ipc/scale*.ts` — serial scale protocols,
+  reader and per-computer selection ([ADR-0039](./architecture/0039-serial-scale-reader.md)).
 - `apps/web/src/features/peripherals/` — administrative configuration and tests.
 
 ## Physical qualification gate

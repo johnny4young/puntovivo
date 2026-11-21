@@ -478,6 +478,8 @@ The current validated candidate includes:
   integer-cent carrying values preserve fractional allocation residuals through
   supported stock mutations; a lot's displayed unit cost remains a two-decimal
   value and must not be used to reconstruct that authoritative carrying value.
+  The desktop app reads a serial scale into the weight panel (continuous,
+  Toledo 8217 and ENQ protocols); no scale model is qualified yet.
   Physical scales, scanners, variable-measure label layouts, and legal metrology still require
   representative-device validation; country labels in configuration currently
   share the generic parser and do not certify a national convention. A scale's

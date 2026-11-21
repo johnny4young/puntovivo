@@ -310,6 +310,10 @@
       "es": "docs/es/architecture/0038-register-zones-by-profile.md"
     },
     {
+      "en": "docs/architecture/0039-serial-scale-reader.md",
+      "es": "docs/es/architecture/0039-serial-scale-reader.md"
+    },
+    {
       "en": "docs/architecture/patterns/operation-journal.md",
       "es": "docs/es/architecture/patterns/operation-journal.md"
     },

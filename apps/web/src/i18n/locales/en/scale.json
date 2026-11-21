@@ -1,0 +1,39 @@
+{
+  "read": "Read scale",
+  "reading": "Reading…",
+  "errors": {
+    "SCALE_NOT_CONFIGURED": "No scale is set up on this computer.",
+    "SCALE_DRIVER_UNAVAILABLE": "This computer cannot read scales. Type the weight.",
+    "SCALE_DISCONNECTED": "The scale was not found. Check the cable or type the weight.",
+    "SCALE_BUSY": "Another app is using the scale. Close it and try again.",
+    "SCALE_NO_RESPONSE": "The scale did not answer. Try again or type the weight.",
+    "SCALE_UNSTABLE": "The weight is not settling. Wait until the item is still.",
+    "SCALE_OVERLOAD": "The item is over the scale's capacity.",
+    "SCALE_NEGATIVE": "The scale shows a negative weight. Remove the item and zero it.",
+    "SCALE_EMPTY": "Put the item on the scale.",
+    "SCALE_UNSUPPORTED_UNIT": "The scale weighs in pounds. Set it to kilograms.",
+    "failed": "Could not read the scale. Type the weight."
+  },
+  "settings": {
+    "title": "This computer's scale",
+    "port": "Port",
+    "none": "No scale",
+    "disconnected": "{{path}} (not connected)",
+    "protocol": "Protocol",
+    "protocols": {
+      "continuous": "Continuous output",
+      "toledo": "Toledo 8217 (W)",
+      "enq": "ENQ request"
+    },
+    "baudRate": "Speed",
+    "framing": "Format",
+    "refresh": "Refresh ports",
+    "test": "Test reading",
+    "save": "Save",
+    "saved": "Scale saved.",
+    "noPorts": "No serial ports found. Connect the scale and refresh the list.",
+    "unavailable": "This computer cannot read serial scales. Weights are typed at the till.",
+    "weight": "Read {{weight}} kg.",
+    "saveFailed": "Could not save the scale. Refresh the ports and try again."
+  }
+}
