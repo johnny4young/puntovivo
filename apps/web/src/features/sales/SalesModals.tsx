@@ -11,10 +11,7 @@ import { useTenant } from '@/features/tenant/TenantProvider';
 import { useIsModuleActive } from '@/features/modules/ModulesContext';
 import { LazySalePaymentModal } from '@/features/sales/lazySalePaymentModal';
 import { preloadSalePaymentModal } from '@/features/sales/salePaymentModal.loader';
-import type {
-  InitialTender,
-  SalePaymentValues,
-} from '@/features/sales/salePaymentModal.types';
+import type { InitialTender, SalePaymentValues } from '@/features/sales/salePaymentModal.types';
 import type { PaymentFocusTarget } from '@/features/sales/useSalesModals';
 import { mergeCartItem, type SaleCartItem } from '@/features/sales/saleCart';
 import { useQuickCreateStore } from '@/features/sales/useQuickCreateStore';

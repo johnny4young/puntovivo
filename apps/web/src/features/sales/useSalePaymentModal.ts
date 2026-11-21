@@ -397,6 +397,7 @@ export function useSalePaymentModal({
     setSplitMode(false);
     form.setValue('paymentMethod', 'cash', {
       shouldDirty: true,
+      shouldTouch: true,
     });
     form.setValue('amountReceived', fastCashAmountRef.current ?? grandTotal, {
       shouldDirty: true,
@@ -429,6 +430,19 @@ export function useSalePaymentModal({
   const change = isCash ? Math.max(0, amountReceivedValue - grandTotal) : 0;
   const outstanding = Math.max(0, grandTotal - receivedValue);
   const creditMethodAvailable = canLendCredit && watchedCustomerId.length > 0;
+  // Opened on credit before a customer was picked: credit starts once one is,
+  // unless the cashier chose a method or split in the meantime.
+  const pendingCreditRef = useRef(initialMethod === 'credit' && !approvalCustomerId);
+  const methodTouched = form.getFieldState('paymentMethod', form.formState).isTouched;
+  useEffect(() => {
+    if (!pendingCreditRef.current) return;
+    if (methodTouched || splitMode || paymentMethod !== 'cash') {
+      pendingCreditRef.current = false;
+    } else if (creditMethodAvailable) {
+      pendingCreditRef.current = false;
+      form.setValue('paymentMethod', 'credit');
+    }
+  }, [creditMethodAvailable, form, methodTouched, paymentMethod, splitMode]);
 
   // read the active customer's current balance + creditLimit
   // when credit is the active method. The query short-circuits via

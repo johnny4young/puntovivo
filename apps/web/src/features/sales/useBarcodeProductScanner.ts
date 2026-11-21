@@ -187,4 +187,6 @@ export function useBarcodeProductScanner({
     // resets the buffer before it reaches `minLength`.
     scannerInputRef: productInputRef,
   });
+
+  return { handleBarcodeScan };
 }

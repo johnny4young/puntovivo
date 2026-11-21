@@ -40,6 +40,14 @@ El candidato validado actual incluye:
   montos en Confirmar; la factura electrónica separa el NIT de su dígito de
   verificación, completa un cliente guardado desde el número digitado y avisa que
   la factura queda en cola sin conexión;
+- vender desde el teléfono: un buscador con botón de escaneo por cámara donde el
+  navegador lee códigos en el dispositivo, las teclas rápidas de la sede como
+  chips, una línea por artículo que abre sus teclas al tocarla, y el total con
+  Cobrar, Suspender, Fiar y las ventas suspendidas fijos abajo. Los avisos de
+  estado ceden el lugar a una píldora de caja; solo un bloqueo queda sobre la
+  venta. La tarjeta de recibo por WhatsApp muestra el mensaje exacto y deja la
+  imagen como una opción aparte, que en pantallas táctiles va a la hoja de
+  compartir;
 - navegación orientada a las tareas del operador, búsqueda de comandos, configuración
   guiada del negocio y pantallas de preparación y recuperación con lenguaje claro
   para personal no técnico. La tarjeta de preparación sectorial deriva hechos

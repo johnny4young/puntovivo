@@ -28,6 +28,55 @@ describe('SalesFlowRail', () => {
     expect(screen.getByTestId('sales-operation-strip')).toHaveClass('lg:hidden');
   });
 
+  it('leaves phones to the fixed bar unless the rail carries a blocker', () => {
+    const closed = render(<SalesFlowRail {...baseProps} />);
+    expect(screen.getByTestId('sales-operation-strip')).toHaveClass('max-md:hidden');
+    closed.unmount();
+
+    const ready = render(<SalesFlowRail {...baseProps} hasCashSession itemCount={2} canCharge />);
+    expect(screen.getByTestId('sales-operation-strip')).toHaveClass('max-md:hidden');
+    ready.unmount();
+
+    const hub = render(<SalesFlowRail {...baseProps} hasCashSession hubReachable={false} />);
+    expect(screen.getByTestId('sales-operation-strip')).not.toHaveClass('max-md:hidden');
+    hub.unmount();
+
+    // Stock shortfalls are warnings, and phones hide the dock's preflight list.
+    const warning = render(
+      <SalesFlowRail
+        {...baseProps}
+        hasCashSession
+        itemCount={2}
+        canCharge
+        preflightItems={[
+          {
+            id: 'insufficient_stock',
+            severity: 'warning',
+            messageKey: 'preflight.items.insufficient_stock.message',
+          },
+        ]}
+      />
+    );
+    expect(screen.getByTestId('sales-operation-strip')).not.toHaveClass('max-md:hidden');
+    warning.unmount();
+
+    render(
+      <SalesFlowRail
+        {...baseProps}
+        hasCashSession
+        itemCount={2}
+        preflightItems={[
+          {
+            id: 'discount_exceeds_total',
+            severity: 'blocker',
+            messageKey: 'preflight.items.discount_exceeds_total.message',
+          },
+        ]}
+      />
+    );
+    expect(screen.getByTestId('sales-operation-strip')).not.toHaveClass('max-md:hidden');
+  });
+
   it('shows only the next valid step for a closed register', async () => {
     const user = userEvent.setup();
     const onOpenCashSession = vi.fn();
@@ -110,9 +159,9 @@ describe('SalesFlowRail', () => {
         canCharge
         preflightItems={[
           {
-            id: 'insufficient_stock',
+            id: 'discount_exceeds_total',
             severity: 'blocker',
-            messageKey: 'preflight.items.insufficient_stock.message',
+            messageKey: 'preflight.items.discount_exceeds_total.message',
             messageValues: { count: 1, product: 'Coffee', otherCount: 0 },
             recoveryAction: {
               labelKey: 'preflight.items.insufficient_stock.recovery',

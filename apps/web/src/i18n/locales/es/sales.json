@@ -2,8 +2,7 @@
   "page": {
     "todaySales": "Ventas de hoy",
     "transactions": "Transacciones",
-    "averageOrder": "Ticket promedio",
-    "draftTotal": "Total borrador"
+    "averageOrder": "Ticket promedio"
   },
   "view": {
     "history": "Historial",
@@ -35,8 +34,6 @@
     "addToCart": "Agregar al carrito",
     "itemCount": "Artículos",
     "activeTicket": "Ticket activo",
-    "lineItems_one": "{{count}} artículo",
-    "lineItems_other": "{{count}} artículos",
     "clearCart": "Limpiar carrito",
     "priceTier": {
       "groupLabel": "Nivel de precio de este ticket",
@@ -550,7 +547,8 @@
     "shortcut": {
       "focusSearch": "Ir a la búsqueda",
       "openCatalog": "Abrir catálogo"
-    }
+    },
+    "phonePlaceholder": "Busque un producto"
   },
   "commandBar": {
     "grammar": "Escriba 3* antes de escanear para vender tres, @ para buscar un cliente o / para ver las acciones de la caja.",
@@ -649,7 +647,7 @@
     "labelPromptConfirm": "Suspender",
     "resumedBanner": "Borrador {{saleNumber}} retomado · artículos bloqueados",
     "resumedBannerWithLabel": "Borrador {{saleNumber}} retomado ({{label}}) · artículos bloqueados",
-    "resumedBannerHint": "Para cambiar artículos, descarta este borrador e inicia una venta nueva."
+    "resumedBannerHint": "Para cambiar artículos, descarte este borrador e inicie una venta nueva."
   },
   "reprint": {
     "action": "Reimprimir recibo",
@@ -687,7 +685,18 @@
     "weightFromLabel": "Peso aplicado desde la etiqueta",
     "priceFromLabel": "Precio aplicado desde la etiqueta",
     "noBaseUnit": "El producto no tiene unidad configurada",
-    "resumedCartLocked": "Descarte el carrito retomado para agregar productos nuevos"
+    "resumedCartLocked": "Descarte el carrito retomado para agregar productos nuevos",
+    "camera": {
+      "open": "Escanear con la cámara",
+      "title": "Escanee con la cámara",
+      "aim": "Apunte la cámara al código de barras.",
+      "cancel": "Cancelar",
+      "error": {
+        "permission-denied": "Permita el uso de la cámara para escanear.",
+        "no-camera": "Este equipo no tiene una cámara disponible.",
+        "unavailable": "No se pudo abrir la cámara. Busque el producto por nombre."
+      }
+    }
   },
   "printer": {
     "escposRetryQueued": "La impresión ESC/POS está en cola. Revise la impresora y el estado de la tarea antes de imprimir otra copia.",
@@ -964,7 +973,9 @@
     },
     "actions": {
       "suspend": "Suspender",
-      "returns": "Devolución"
+      "returns": "Devolución",
+      "credit": "Fiar",
+      "suspended": "Suspendidas"
     },
     "keys": {
       "shortest": "Camino más corto:",
@@ -976,6 +987,10 @@
       "parked": "ventas en espera",
       "newSale": "nueva venta",
       "more": "todo lo demás"
+    },
+    "phone": {
+      "total_one": "Total · {{count}} artículo",
+      "total_other": "Total · {{count}} artículos"
     }
   }
 }

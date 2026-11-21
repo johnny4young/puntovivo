@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { keepPreviousData } from '@tanstack/react-query';
-import { LoaderCircle } from 'lucide-react';
+import { LoaderCircle, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { MAX_SITE_QUICK_KEYS } from '@puntovivo/shared/quick-keys';
 import { useToast } from '@/components/feedback/ToastProvider';
@@ -22,6 +22,7 @@ import { onErrorToast } from '@/lib/mutationHelpers';
 import { formatCurrency } from '@/lib/utils';
 import { trpc } from '@/lib/trpc';
 import type { ProductSearchSelection } from '@/types';
+import { usePhoneLayout } from './usePhoneLayout';
 
 const SiteQuickKeysEditor = lazy(() =>
   import('@/features/sales/SiteQuickKeysEditor').then(module => ({
@@ -56,6 +57,8 @@ export function SalesQuickAccess({
   const [legacyIds] = useState(() => readSalesFavoriteIds(scopeKey));
   const enabled = siteId.length > 0;
   const resolveSelection = useQuickTileSelection(siteId);
+  // Phones show the keys as one row of chips between the search and the ticket.
+  const asChips = usePhoneLayout();
 
   const { query: keysQuery, keys, tiles: keyTiles } = useSiteQuickKeys(siteId);
   const importMutation = trpc.quickKeys.importLocal.useMutation({
@@ -88,7 +91,7 @@ export function SalesQuickAccess({
   const topSellingQuery = trpc.products.topSelling.useQuery(
     { siteId, limit: MAX_SITE_QUICK_KEYS },
     {
-      enabled: enabled && (showsFallback || (canEdit && showsKeys && !hasCartItems)),
+      enabled: enabled && (showsFallback || (!asChips && canEdit && showsKeys && !hasCartItems)),
       staleTime: 5 * 60_000,
     }
   );
@@ -101,7 +104,7 @@ export function SalesQuickAccess({
     }
   );
   const categoriesQuery = trpc.categories.tree.useQuery(undefined, {
-    enabled: enabled && !hasCartItems,
+    enabled: enabled && !asChips && !hasCartItems,
     staleTime: 60_000,
   });
   const [dismissedSuggestions, setDismissedSuggestions] = useState(() =>
@@ -134,7 +137,7 @@ export function SalesQuickAccess({
 
   // The fallback already shows the top sellers, so the banner waits for the site's own keys.
   const suggestion =
-    canEdit && showsKeys && !hasCartItems && keys.length < MAX_SITE_QUICK_KEYS
+    !asChips && canEdit && showsKeys && !hasCartItems && keys.length < MAX_SITE_QUICK_KEYS
       ? topSellingQuery.data?.find(
           item =>
             !productKeyIds.has(item.productId) && !dismissedSuggestions.includes(item.productId)
@@ -176,11 +179,11 @@ export function SalesQuickAccess({
       aria-labelledby="sales-quick-access-title"
       data-testid="sales-quick-access"
     >
-      <div className="flex min-h-9 items-center justify-between gap-3">
+      <div className={asChips ? 'sr-only' : 'flex min-h-9 items-center justify-between gap-3'}>
         <h3 id="sales-quick-access-title" className="sales-cap">
           {t('barTitle')}
         </h3>
-        {canEdit && (
+        {canEdit && !asChips && (
           <button
             type="button"
             className="sales-quick-choose"
@@ -224,7 +227,7 @@ export function SalesQuickAccess({
         </div>
       )}
 
-      {!hasCartItems && categories.length > 0 && (
+      {!asChips && !hasCartItems && categories.length > 0 && (
         <div className="mt-2 flex gap-2 overflow-x-auto pb-1" aria-label={t('categories')}>
           <button
             type="button"
@@ -260,6 +263,42 @@ export function SalesQuickAccess({
         <div className="sales-quick-keys-loading mt-2" role="status">
           <LoaderCircle className="h-5 w-5 motion-safe:animate-spin text-fg3" aria-hidden="true" />
           <span className="sr-only">{t('loading')}</span>
+        </div>
+      ) : asChips ? (
+        <div className="sales-quick-chips">
+          {visibleTiles.map(tile => {
+            const isOpenValue = tile.kind === 'open_value';
+            return (
+              <button
+                key={tile.key}
+                type="button"
+                className="sales-pill sales-quick-chip"
+                aria-pressed={isOpenValue ? valueTile?.key === tile.key : undefined}
+                onClick={() => handleTile(tile)}
+                disabled={loadingKey === tile.key}
+                aria-label={t(isOpenValue ? 'sellByValue' : 'addProduct', { name: tile.name })}
+                data-testid={`sales-quick-${isOpenValue ? 'value' : 'product'}-${tile.sku}`}
+              >
+                <span className="truncate">{tile.name}</span>
+                {isOpenValue && <span className="text-fg3">{t('openValue')}</span>}
+                {loadingKey === tile.key && (
+                  <LoaderCircle className="h-4 w-4 motion-safe:animate-spin" aria-hidden="true" />
+                )}
+              </button>
+            );
+          })}
+          {canEdit && (
+            <button
+              type="button"
+              className="sales-pill sales-quick-chip is-edit"
+              onClick={() => setIsEditorOpen(true)}
+              aria-haspopup="dialog"
+              data-testid="sales-favorites-edit"
+            >
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              {t('editChip')}
+            </button>
+          )}
         </div>
       ) : visibleTiles.length > 0 ? (
         <div className="sales-quick-keys mt-2">

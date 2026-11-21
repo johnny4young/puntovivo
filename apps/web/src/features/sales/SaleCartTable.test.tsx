@@ -11,6 +11,8 @@ let mockDiscountSuggestions = new Map<string, number>();
 vi.mock('@/features/sales/useDiscountSuggestions', () => ({
   useDiscountSuggestions: () => mockDiscountSuggestions,
 }));
+const phone = vi.hoisted(() => ({ layout: false }));
+vi.mock('@/features/sales/usePhoneLayout', () => ({ usePhoneLayout: () => phone.layout }));
 
 function createCartItem(overrides?: Partial<SaleCartItem>): SaleCartItem {
   return {
@@ -39,6 +41,7 @@ describe('SaleCartTable', () => {
 
   beforeEach(() => {
     mockDiscountSuggestions = new Map();
+    phone.layout = false;
   });
 
   it('lays each line out as a table row under one header', () => {
@@ -82,6 +85,112 @@ describe('SaleCartTable', () => {
     const second = screen.getByTestId('sale-cart-item-SKU-002');
     expect(second).toHaveAttribute('data-selected', 'true');
     expect(second.querySelector('.sales-ticket-unit')).toHaveTextContent('Box');
+  });
+
+  it('opens a line for its keys only when it is tapped, and closes it on a second tap', async () => {
+    phone.layout = true;
+    const user = userEvent.setup();
+    const onSelectItem = vi.fn();
+    const props = {
+      items: [createCartItem({ discount: 0 })],
+      onQuantityChange: vi.fn(),
+      onDiscountChange: vi.fn(),
+      onRemove: vi.fn(),
+      onSelectItem,
+      quantityInputRefFor,
+      discountInputRefFor,
+    };
+    const { rerender } = render(<SaleCartTable {...props} selectedItemKey="product-1:unit-1" />);
+    const line = screen.getByTestId('sale-cart-item-SKU-001');
+    const name = line.querySelector<HTMLButtonElement>('.sales-ticket-name')!;
+    expect(line).toHaveAttribute('data-open', 'false');
+
+    await user.click(name);
+    expect(onSelectItem).toHaveBeenCalledWith('product-1:unit-1');
+    expect(line).toHaveAttribute('data-open', 'true');
+    expect(name).toHaveAttribute('aria-expanded', 'true');
+
+    await user.click(name);
+    expect(line).toHaveAttribute('data-open', 'false');
+
+    await user.click(name);
+    rerender(<SaleCartTable {...props} selectedItemKey={null} />);
+    expect(line).toHaveAttribute('data-open', 'false');
+
+    // A scan back onto the line selects it without reopening its keys.
+    rerender(<SaleCartTable {...props} selectedItemKey="product-1:unit-1" />);
+    expect(line).toHaveAttribute('data-open', 'false');
+  });
+
+  it('leaves aria-expanded off the desktop line, whose keys always show', async () => {
+    const user = userEvent.setup();
+    render(
+      <SaleCartTable
+        items={[createCartItem({ discount: 0 })]}
+        selectedItemKey="product-1:unit-1"
+        onQuantityChange={vi.fn()}
+        onDiscountChange={vi.fn()}
+        onRemove={vi.fn()}
+        onSelectItem={vi.fn()}
+        quantityInputRefFor={quantityInputRefFor}
+        discountInputRefFor={discountInputRefFor}
+      />
+    );
+    const name = screen
+      .getByTestId('sale-cart-item-SKU-001')
+      .querySelector<HTMLButtonElement>('.sales-ticket-name')!;
+    await user.click(name);
+    expect(name).not.toHaveAttribute('aria-expanded');
+  });
+
+  it('gives phones a compact quantity: a count for units, the amount and unit otherwise', () => {
+    render(
+      <SaleCartTable
+        items={[
+          createCartItem({ discount: 0, quantity: 6 }),
+          createCartItem({
+            key: 'product-2:unit-2',
+            productId: 'product-2',
+            productName: 'Cheese',
+            productSku: 'SKU-002',
+            unitName: 'kg',
+            quantity: 0.25,
+            discount: 0,
+          }),
+          createCartItem({
+            key: 'product-3:unit-3',
+            productId: 'product-3',
+            productName: 'Rice',
+            productSku: 'SKU-003',
+            unitName: 'kg',
+            quantity: 2,
+            discount: 0,
+            sellByFraction: true,
+            fractionStep: 0.25,
+          }),
+        ]}
+        selectedItemKey={null}
+        onQuantityChange={vi.fn()}
+        onDiscountChange={vi.fn()}
+        onRemove={vi.fn()}
+        onSelectItem={vi.fn()}
+        quantityInputRefFor={quantityInputRefFor}
+        discountInputRefFor={discountInputRefFor}
+      />
+    );
+
+    const units = screen.getByTestId('sale-cart-item-SKU-001');
+    expect(units.querySelector('.sales-ticket-qty-compact')).toHaveTextContent('× 6');
+    // The phone reading still names the quantity for screen readers.
+    expect(units.querySelector('.sales-ticket-qty-compact .sr-only')).toHaveTextContent(
+      'Quantity 6 Bottle'
+    );
+    expect(
+      screen.getByTestId('sale-cart-item-SKU-002').querySelector('.sales-ticket-qty-compact')
+    ).toHaveTextContent('0.25 kg');
+    expect(
+      screen.getByTestId('sale-cart-item-SKU-003').querySelector('.sales-ticket-qty-compact')
+    ).toHaveTextContent('2 kg');
   });
 
   it('brings a newly selected line into view, but leaves a restored ticket alone', () => {

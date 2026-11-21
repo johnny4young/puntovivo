@@ -515,7 +515,7 @@ export function SalesPage() {
   const { onKickCashDrawer, isKickingCashDrawer, approvalModal } = useCashDrawerController({
     hasRegisteredDrawer,
   });
-  useBarcodeProductScanner({
+  const { handleBarcodeScan } = useBarcodeProductScanner({
     scannerConfig,
     isResumedCart: itemsLocked,
     isProductSearchOpen,
@@ -547,6 +547,7 @@ export function SalesPage() {
         setProductSearchQuery={setProductSearchQuery}
         handleOpenProductSearch={handleMeasuredOpenProductSearch}
         productInputRef={productInputRef}
+        onCameraCode={code => void handleBarcodeScan(code)}
         setIsHistoryDrawerOpen={setIsHistoryDrawerOpen}
         setIsSuspendedPanelOpen={setIsSuspendedPanelOpen}
         suspendedDraftsCount={suspendedDraftsCount}

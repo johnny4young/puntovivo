@@ -32,6 +32,8 @@ interface SalesCartWorkspaceProps {
   banner?: ReactNode;
   /** One-touch products, pinned under the ticket. */
   quickAccess?: ReactNode;
+  /** Phones put the keys between the search and the ticket. */
+  quickAccessFirst?: boolean;
 }
 
 export function SalesCartWorkspace({
@@ -53,6 +55,7 @@ export function SalesCartWorkspace({
   searchBar,
   banner,
   quickAccess,
+  quickAccessFirst = false,
 }: SalesCartWorkspaceProps) {
   const { t } = useTranslation('sales');
   // Unusable actions stay out of the row: a disabled key fails contrast and
@@ -99,6 +102,7 @@ export function SalesCartWorkspace({
     <div className="sales-ticket-column flex flex-col gap-3 lg:min-w-0 pos:h-full pos:min-h-0">
       {searchBar}
       {banner && <div className="sales-banner-slot">{banner}</div>}
+      {quickAccessFirst && quickAccess}
 
       <section
         className="pos:min-h-0 pos:flex-1 pos:overflow-y-auto"
@@ -132,7 +136,7 @@ export function SalesCartWorkspace({
         </div>
       )}
 
-      {quickAccess}
+      {!quickAccessFirst && quickAccess}
     </div>
   );
 }

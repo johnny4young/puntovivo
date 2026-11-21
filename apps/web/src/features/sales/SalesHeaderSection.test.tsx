@@ -45,6 +45,17 @@ describe('SalesHeaderSection', () => {
   it('says so when no register is open', () => {
     renderHeader({ registerName: null });
     expect(screen.getByTestId('sales-register-identity')).toHaveTextContent('No open cash session');
+    expect(screen.getByTestId('sales-register-state')).toHaveTextContent('Register closed');
+    expect(screen.getByTestId('sales-register-state')).not.toHaveClass('is-open');
+  });
+
+  it('gives phones a register state pill that keeps the register name as its title', () => {
+    renderHeader();
+    const pill = screen.getByTestId('sales-register-state');
+    expect(pill).toHaveTextContent('Register open');
+    expect(pill).toHaveClass('is-open', 'md:hidden');
+    expect(pill).toHaveAttribute('title', 'Register 2');
+    expect(screen.getByTestId('sales-register-identity')).toHaveClass('max-md:hidden');
   });
 
   it('advertises the suspended-sales shortcut only when a draft can be opened', () => {

@@ -68,7 +68,7 @@ export function WorkspaceTabsSection({
               data-testid="cart-workspace-switcher-item"
             >
               <span>{label}</span>
-              <span className="font-numeric text-[15px] font-bold">
+              <span className="sales-ticket-tab-total font-numeric text-[15px] font-bold">
                 {formatCurrency(getCartSummary(workspace.items, priceIncludesTax).total)}
               </span>
             </button>

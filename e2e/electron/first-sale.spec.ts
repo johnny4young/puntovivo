@@ -158,7 +158,7 @@ test.describe('first sale on the desktop app', () => {
     await receiptDialog.getByRole('button', { name: /share receipt|compartir recibo/i }).click();
     const sharePanel = receiptDialog.getByTestId('receipt-share-panel');
     await expect(sharePanel).toContainText(
-      /does not choose the contact or send the message|no elige el contacto ni envía el mensaje/i
+      /You send it from your WhatsApp|Usted lo envía desde su WhatsApp/i
     );
     await expect(
       sharePanel.getByRole('link', { name: /open whatsapp|abrir whatsapp/i })

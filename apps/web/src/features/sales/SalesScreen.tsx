@@ -35,6 +35,7 @@ import type { ProductSearchSelection } from '@/types';
 import { canAccessRole, managerOrAdminRoles } from '@/features/auth/roleAccess';
 import { SaleCompleteStrip, type CompletedSaleSummary } from './SaleCompleteStrip';
 import { usePrintSaleReceipt } from './useReceiptAutoPrint';
+import { usePhoneLayout } from './usePhoneLayout';
 
 const LazySalesQuickAccess = lazy(() =>
   import('@/features/sales/SalesQuickAccess').then(module => ({ default: module.SalesQuickAccess }))
@@ -93,6 +94,7 @@ export interface SalesScreenProps {
   setProductSearchQuery: Dispatch<SetStateAction<string>>;
   handleOpenProductSearch: (initialQuery?: string) => void;
   productInputRef: ComponentProps<typeof SalesQuickSearchBar>['inputRef'];
+  onCameraCode: (code: string) => void;
   setIsHistoryDrawerOpen: Dispatch<SetStateAction<boolean>>;
   setIsSuspendedPanelOpen: Dispatch<SetStateAction<boolean>>;
   suspendedDraftsCount: number;
@@ -239,6 +241,7 @@ export function SalesScreen({
   setProductSearchQuery,
   handleOpenProductSearch,
   productInputRef,
+  onCameraCode,
   setIsHistoryDrawerOpen,
   setIsSuspendedPanelOpen,
   suspendedDraftsCount,
@@ -355,6 +358,7 @@ export function SalesScreen({
   setDayCloseSessionId,
 }: SalesScreenProps) {
   const { t } = useTranslation(['sales', 'errors', 'common']);
+  const isPhone = usePhoneLayout();
   // An exchange link is committed only when its replacement sale completes.
   // A generic suspended draft cannot persist sourceReturnId yet, so exposing
   // park here would silently turn the exchange into an unrelated sale.
@@ -391,7 +395,9 @@ export function SalesScreen({
     activeWorkspace?.sourceReturnCustomerId ??
     null;
   // A frozen ticket keeps its own customer; otherwise the one attached with @.
-  const ticketCustomerId = customerLocked ? lockedCustomerId : (activeWorkspace?.customerId ?? null);
+  const ticketCustomerId = customerLocked
+    ? lockedCustomerId
+    : (activeWorkspace?.customerId ?? null);
   const ticketCustomerName = customerLocked
     ? lockedCustomerName
     : (activeWorkspace?.customerName ?? null);
@@ -492,8 +498,8 @@ export function SalesScreen({
             quantityInputRefFor={quantityInputRefFor}
             discountInputRefFor={discountInputRefFor}
             canUndo={canUndoActiveCart}
-            // The banner carries undo while it shows a read: one control, one place.
-            onUndo={lastRead ? undefined : handleUndoCart}
+            // The banner carries undo while it shows a read; phones have no banner.
+            onUndo={lastRead && !isPhone ? undefined : handleUndoCart}
             itemsLocked={itemsLocked}
             searchBar={
               <SalesQuickSearchBar
@@ -510,6 +516,7 @@ export function SalesScreen({
                 onCreateCustomer={commandBar.createCustomer}
                 customers={commandBar.customers}
                 isLoadingCustomers={commandBar.isLoadingCustomers}
+                onCameraCode={onCameraCode}
               />
             }
             banner={
@@ -530,7 +537,7 @@ export function SalesScreen({
                     productInputRef.current?.focus();
                   }}
                 />
-              ) : (
+              ) : isPhone ? undefined : (
                 <LastReadBanner
                   read={lastRead}
                   canUndo={canUndoActiveCart}
@@ -538,6 +545,7 @@ export function SalesScreen({
                 />
               )
             }
+            quickAccessFirst={isPhone}
             quickAccess={
               !itemsLocked && currentSite && favoriteScopeKey ? (
                 <Suspense
@@ -621,15 +629,21 @@ export function SalesScreen({
         cashSession={activeCashSession}
         canCharge={canCharge}
         canOpenCashSession={canOpenCashSession}
-        canOpenSearch={!itemsLocked}
-        onOpenSearch={() => handleOpenProductSearch()}
         onCharge={handleCharge}
         onOpenCashSession={handleOpenCashSessionModal}
         canSuspend={canSuspendActiveCart}
         onSuspend={handleOpenSuspendPrompt}
-        onNewSale={handleNewSale}
         suspendedDraftsCount={suspendedDraftsCount}
         onToggleSuspendedPanel={handleToggleSuspendedPanel}
+        onCredit={
+          canCharge
+            ? () => {
+                onTicketTenderChange('credit');
+                // Credit needs a customer, so the drawer opens on the picker unless one is set.
+                handleOpenPaymentModal(false, null, ticketCustomerId ? null : 'customer');
+              }
+            : undefined
+        }
         hubReachable={hubReachable}
       />
 

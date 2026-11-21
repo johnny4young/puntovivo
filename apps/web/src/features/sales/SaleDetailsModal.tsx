@@ -520,6 +520,9 @@ export function SaleDetailsModal({
           </p>
         )}
 
+        {/* Sharing comes first: the strip's WhatsApp key opens the modal on this card. */}
+        {sale && canShareSale && receiptShareSection}
+
         {sale && sale.receiptPresentationSnapshotVersion != null && (
           <p
             className="mb-4 rounded-md border border-line bg-surface-2 px-3 py-2 text-sm text-fg2"
@@ -545,8 +548,6 @@ export function SaleDetailsModal({
                 })}
           </div>
         )}
-
-        {sale && canShareSale && receiptShareSection}
 
         {sale && (
           <SaleDetailsContent
