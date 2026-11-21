@@ -37,7 +37,10 @@ El candidato validado actual incluye:
 - un estado enfocado por medio en el cobro: varios medios lista cada uno con su
   referencia y completa lo que falta o mitad y mitad; una venta a crédito muestra
   la deuda del cliente frente al cupo, recibe un abono en efectivo y nombra ambos
-  montos en Confirmar; la factura electrónica separa el NIT de su dígito de
+  montos en Confirmar. En la caja misma, la deuda y el cupo del cliente van bajo
+  el ticket con Abonar, que recibe el pago en efectivo en la caja abierta, y Fiar
+  (A crédito en ferretería) junto a Cobrar dice en cuánto quedaría la cuenta; la
+  factura electrónica separa el NIT de su dígito de
   verificación, completa un cliente guardado desde el número digitado y avisa que
   la factura queda en cola sin conexión;
 - vender desde el teléfono: un buscador con botón de escaneo por cámara que lee

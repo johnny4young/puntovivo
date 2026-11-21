@@ -7,6 +7,8 @@ import type { UseFormReturn } from 'react-hook-form';
 
 import { formatCurrency } from '@/lib/utils';
 import type { Customer } from '@/types';
+import { cupoShare } from './cupoShare';
+import { initialsOf } from './handoff/handoffModel';
 import { coerceTipAmount } from './salePaymentModal.constants';
 import type { SalePaymentValues } from './salePaymentModal.types';
 
@@ -35,20 +37,6 @@ interface SaleCreditCustomerCardProps {
   retryBalance?: (() => void) | undefined;
 }
 
-function initialsOf(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map(word => word.charAt(0).toUpperCase())
-    .join('');
-}
-
-/** Share of the cupo, clamped to the bar; no cupo draws nothing. */
-function share(amount: number, limit: number): number {
-  return limit > 0 ? Math.min(100, Math.max(0, (amount / limit) * 100)) : 0;
-}
-
 export function SaleCreditCustomerCard({
   form,
   selectedCustomer,
@@ -73,8 +61,8 @@ export function SaleCreditCustomerCard({
     balanceUnavailable ? '—' : balanceLoading ? '…' : formatCurrency(amount);
   const showBar = creditLimit > 0 && !balanceLoading && !balanceUnavailable;
   const name = selectedCustomer?.name ?? t('credit.card.unknownCustomer');
-  const owedShare = share(currentBalance, creditLimit);
-  const saleShare = Math.min(100 - owedShare, share(creditAmount, creditLimit));
+  const owedShare = cupoShare(currentBalance, creditLimit);
+  const saleShare = Math.min(100 - owedShare, cupoShare(creditAmount, creditLimit));
 
   return (
     <section

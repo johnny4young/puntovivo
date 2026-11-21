@@ -1197,7 +1197,8 @@
 
   /* Narrow phones drop the icons so the three names keep their size. */
   @media (max-width: 399px) {
-    .sales-phone-key > svg {
+    .sales-phone-key > svg,
+    .sales-phone-key .sales-credit-key-label > svg {
       display: none;
     }
   }
@@ -1493,6 +1494,8 @@
     height: 2.5rem;
     border-radius: 999px;
     background: var(--surface-3);
+    font-size: 0.875rem;
+    font-weight: 700;
     color: var(--fg2);
   }
 
@@ -2369,6 +2372,144 @@
     font-weight: 600;
     white-space: nowrap;
     color: var(--fg1);
+  }
+
+  .sales-charge-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+    gap: 0.5rem;
+  }
+
+  .sales-charge-row .sales-charge-key {
+    gap: 0.5rem;
+    padding-inline: 0.5rem;
+    font-size: 1.1875rem;
+    white-space: nowrap;
+  }
+
+  .sales-credit-key {
+    flex-direction: column;
+    gap: 0.125rem;
+    min-height: 4rem;
+    padding-inline: 0.375rem;
+    line-height: 1.2;
+  }
+
+  .sales-credit-key[data-active] {
+    border-color: var(--primary-900);
+    background: color-mix(in oklch, var(--primary-900) 7%, var(--card));
+  }
+
+  .sales-credit-key:disabled {
+    opacity: 0.5;
+  }
+
+  .sales-credit-key-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 1rem;
+  }
+
+  .sales-credit-key-projection {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0 0.25rem;
+    max-width: 100%;
+    font-size: 0.75rem;
+    text-align: center;
+    white-space: normal;
+    font-weight: 500;
+    color: var(--fg2);
+  }
+
+  .sales-credit-key-projection[data-over] {
+    color: var(--danger-700);
+  }
+
+  .sales-phone-key.sales-credit-key {
+    min-height: 2.875rem;
+    padding-block: 0.25rem;
+  }
+
+  .sales-phone-key .sales-credit-key-label {
+    font-size: 0.875rem;
+  }
+
+  .sales-phone-key .sales-credit-key-projection {
+    font-size: 0.6875rem;
+  }
+
+  .sales-avatar-sm {
+    width: 2rem;
+    height: 2rem;
+    font-size: 0.75rem;
+  }
+
+  .sales-account {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.625rem 0.75rem;
+    border: 1.5px solid var(--line);
+    border-radius: 0.875rem;
+    background: var(--card);
+  }
+
+  .sales-account-name {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  .sales-account-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .sales-account-meter {
+    flex: 1;
+    min-width: 2.5rem;
+    height: 0.4375rem;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--surface-3);
+  }
+
+  .sales-account-meter > span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--primary-900);
+  }
+
+  .sales-account-meter[data-over] > span {
+    background: var(--danger-600);
+  }
+
+  .sales-account-owed {
+    flex: none;
+    font-size: 0.8125rem;
+    white-space: nowrap;
+    color: var(--fg2);
+  }
+
+  .sales-account-owed b {
+    @apply font-numeric;
+    font-weight: 700;
+    color: var(--fg1);
+  }
+
+  .sales-account-pay {
+    flex: none;
+    min-height: 2.75rem;
+    padding-inline: 0.875rem;
+    font-size: 0.875rem;
+    font-weight: 600;
   }
 
   .sales-shortcut-strip {

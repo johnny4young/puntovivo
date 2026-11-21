@@ -188,7 +188,19 @@
       "filename": "estado-cuenta",
       "successToast": "Estado de cuenta descargado"
     },
-    "adminOnly": "Se requiere rol admin para cargar ajustes"
+    "adminOnly": "Se requiere rol admin para cargar ajustes",
+    "tillModal": {
+      "title": "Abono de {{name}}",
+      "description": "Debe {{balance}}.",
+      "amountLabel": "Monto del abono",
+      "amountRequired": "Ingrese un monto mayor a cero",
+      "amountTooHigh": "El abono no puede superar lo que debe ({{balance}}).",
+      "noteLabel": "Nota",
+      "payAll": "Todo: {{balance}}",
+      "confirm": "Recibir abono",
+      "success": "Abono recibido en caja",
+      "error": "No se pudo registrar el abono"
+    }
   },
   "delete": {
     "title": "Eliminar cliente",

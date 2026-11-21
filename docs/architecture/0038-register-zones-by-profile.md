@@ -38,8 +38,8 @@ the restaurant tip section in every charge.
 ## Consequences
 
 - No migration: the override lives in the existing settings JSON.
-- Zones wired today: one-touch keys, amount keys, store credit (register keys
-  and the charge drawer), parking, expiry discount badges (ticket lines, keys
+- Zones wired today: one-touch keys, amount keys, store credit (the account
+  bar with its abono, the Fiar key beside Cobrar and the charge drawer), parking, expiry discount badges (ticket lines, keys
   and product search), the unit picker in product search, the quotation banner,
   table actions when parking, tips and bill splitting.
 - With the unit zone off, product search sells the base unit; a scanned

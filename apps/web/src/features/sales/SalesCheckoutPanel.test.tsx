@@ -242,4 +242,56 @@ describe('SalesCheckoutPanel dock', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Return' }));
     expect(onOpenReturns).toHaveBeenCalledOnce();
   });
+
+  it('puts Fiar beside Cobrar with what the account would come to', () => {
+    const onCredit = vi.fn();
+    renderDock({
+      showsCreditKey: true,
+      onCredit,
+      customerName: 'Juan Pérez',
+      creditProjectedBalance: 171_720,
+      creditLimit: 150_000,
+    });
+
+    expect(screen.getByTestId('checkout-customer')).toHaveTextContent('Juan Pérez');
+    expect(screen.getByText('JP')).toBeInTheDocument();
+    expect(screen.queryByTestId('sales-tender-credit')).not.toBeInTheDocument();
+    expect(screen.getByTestId('checkout-credit-projection')).toHaveTextContent(
+      `would owe ${formatCurrency(171_720)}`
+    );
+    expect(screen.getByTestId('checkout-credit-projection')).toHaveAttribute('data-over', 'true');
+    fireEvent.click(screen.getByTestId('checkout-credit'));
+    expect(onCredit).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows no Fiar key while the register does not sell on credit', () => {
+    renderDock({ showsCreditKey: false });
+    expect(screen.queryByTestId('checkout-credit')).not.toBeInTheDocument();
+  });
+
+  it('disables Fiar while the ticket cannot be charged and hides it with the register closed', () => {
+    const open = renderDock({ showsCreditKey: true });
+    expect(screen.getByTestId('checkout-credit')).toBeDisabled();
+    expect(screen.queryByTestId('checkout-credit-projection')).not.toBeInTheDocument();
+    open.unmount();
+
+    renderDock({ showsCreditKey: true, cashSession: null, onCredit: vi.fn() });
+    expect(screen.queryByTestId('checkout-credit')).not.toBeInTheDocument();
+  });
+
+  it('disables Fiar with Cobrar while a preflight blocker stands', () => {
+    renderDock({
+      showsCreditKey: true,
+      onCredit: vi.fn(),
+      preflightItems: [
+        {
+          id: 'cash_session_required',
+          severity: 'blocker',
+          messageKey: 'preflight.items.cash_session_required.message',
+        },
+      ],
+    });
+    expect(screen.getByTestId('checkout-primary-action')).toBeDisabled();
+    expect(screen.getByTestId('checkout-credit')).toBeDisabled();
+  });
 });

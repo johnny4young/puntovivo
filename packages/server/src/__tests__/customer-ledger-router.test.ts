@@ -28,7 +28,16 @@ import { and, desc, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { customers, customerLedgerEntries, sites, tenants, users } from '../db/schema.js';
+import {
+  auditLogs,
+  cashMovements,
+  cashSessions,
+  customers,
+  customerLedgerEntries,
+  sites,
+  tenants,
+  users,
+} from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 import { registerDevice } from '../services/devices/devicesService.js';
@@ -313,6 +322,24 @@ describe('customerLedger.* router', () => {
   // -------------------------------------------------------------------------
 
   describe('getBalance', () => {
+    it('returns the customer cupo with the balance, and 0 for another tenant', async () => {
+      const customerId = await seedCustomer('Saldo Cupo');
+      await getDatabase()
+        .update(customers)
+        .set({ creditLimit: 150_000 })
+        .where(eq(customers.id, customerId));
+      const caller = appRouter.createCaller(
+        createCallerContext({ userId: cashierUserId, role: 'cashier', email: 'cashier@localhost' })
+      );
+      expect(await caller.customerLedger.getBalance({ customerId })).toEqual({
+        balance: 0,
+        creditLimit: 150_000,
+      });
+      expect(
+        await caller.customerLedger.getBalance({ customerId: foreignCustomerId })
+      ).toMatchObject({ creditLimit: 0 });
+    });
+
     it('returns 0 for a customer with no entries', async () => {
       const customerId = await seedCustomer('Saldo Cero');
       const caller = appRouter.createCaller(
@@ -493,6 +520,165 @@ describe('customerLedger.* router', () => {
       await expect(caller.customerLedger.addPayment({ customerId, amount: 100 })).rejects.toThrow(
         /FORBIDDEN|UNAUTHORIZED|forbidden|Only administrators/i
       );
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // addTillPayment
+  // -------------------------------------------------------------------------
+
+  describe('addTillPayment', () => {
+    function cashierCaller() {
+      return appRouter.createCaller(
+        createCallerContext({ userId: cashierUserId, role: 'cashier', email: 'cashier@localhost' })
+      );
+    }
+
+    async function openSession(cashierId = cashierUserId, openingFloat = 50_000) {
+      const db = getDatabase();
+      const now = new Date().toISOString();
+      const id = nanoid();
+      await db.insert(cashSessions).values({
+        id,
+        tenantId,
+        siteId: primarySiteId,
+        cashierId,
+        registerName: `Caja ${nanoid(4)}`,
+        openingFloat,
+        openingCountDenominations: [],
+        expectedBalance: openingFloat,
+        status: 'open',
+        openedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      });
+      return id;
+    }
+
+    async function seedDebt(customerId: string, amount: number) {
+      await getDatabase().insert(customerLedgerEntries).values({
+        id: nanoid(),
+        tenantId,
+        customerId,
+        kind: 'sale',
+        amount,
+      });
+    }
+
+    beforeEach(async () => {
+      const db = getDatabase();
+      await db.delete(cashMovements).where(eq(cashMovements.tenantId, tenantId));
+      await db.delete(cashSessions).where(eq(cashSessions.tenantId, tenantId));
+    });
+
+    it('pays the debt down and puts the cash in the open drawer in one write', async () => {
+      const customerId = await seedCustomer('Carmen Abono');
+      await seedDebt(customerId, 84_300);
+      const sessionId = await openSession();
+
+      const result = await cashierCaller().customerLedger.addTillPayment({
+        customerId,
+        amount: 30_000,
+        note: 'semana',
+      });
+      expect(result.balance).toBe(54_300);
+
+      const db = getDatabase();
+      const entry = await db
+        .select()
+        .from(customerLedgerEntries)
+        .where(eq(customerLedgerEntries.id, result.ledgerEntryId))
+        .get();
+      expect(entry).toMatchObject({ kind: 'payment', amount: -30_000, note: 'semana' });
+
+      const movement = await db
+        .select()
+        .from(cashMovements)
+        .where(eq(cashMovements.id, result.movementId))
+        .get();
+      expect(movement).toMatchObject({
+        sessionId,
+        type: 'paid_in',
+        amount: 30_000,
+        referenceId: result.ledgerEntryId,
+        note: 'Carmen Abono · semana',
+      });
+      const session = await db
+        .select({ expectedBalance: cashSessions.expectedBalance })
+        .from(cashSessions)
+        .where(eq(cashSessions.id, sessionId))
+        .get();
+      expect(session?.expectedBalance).toBe(80_000);
+
+      const audit = await db
+        .select()
+        .from(auditLogs)
+        .where(eq(auditLogs.resourceId, result.movementId))
+        .get();
+      expect(audit?.action).toBe('cash_session.movement');
+      expect(audit?.metadata).toMatchObject({ customerId, ledgerEntryId: result.ledgerEntryId });
+
+      const balance = await cashierCaller().customerLedger.getBalance({ customerId });
+      expect(balance.balance).toBe(54_300);
+    });
+
+    it('refuses more than the customer owes and writes nothing', async () => {
+      const customerId = await seedCustomer('Carmen Excede');
+      await seedDebt(customerId, 10_000);
+      await openSession();
+
+      await expect(
+        cashierCaller().customerLedger.addTillPayment({ customerId, amount: 10_000.01 })
+      ).rejects.toMatchObject({
+        cause: { errorCode: 'CUSTOMER_TILL_PAYMENT_EXCEEDS_BALANCE' },
+      });
+      const db = getDatabase();
+      const movements = await db
+        .select()
+        .from(cashMovements)
+        .where(eq(cashMovements.tenantId, tenantId));
+      expect(movements).toEqual([]);
+      const entries = await db
+        .select()
+        .from(customerLedgerEntries)
+        .where(eq(customerLedgerEntries.customerId, customerId));
+      expect(entries).toHaveLength(1);
+    });
+
+    it('needs the caller to have an open register', async () => {
+      const customerId = await seedCustomer('Carmen Sin Caja');
+      await seedDebt(customerId, 10_000);
+      await openSession(managerUserId);
+
+      await expect(
+        cashierCaller().customerLedger.addTillPayment({ customerId, amount: 5_000 })
+      ).rejects.toMatchObject({ cause: { errorCode: 'CASH_SESSION_REQUIRED' } });
+    });
+
+    it('does not reach a customer of another tenant', async () => {
+      await openSession();
+      await expect(
+        cashierCaller().customerLedger.addTillPayment({
+          customerId: foreignCustomerId,
+          amount: 5_000,
+        })
+      ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    });
+
+    it('rejects viewers', async () => {
+      const customerId = await seedCustomer('Carmen Visor');
+      const viewer = appRouter.createCaller(
+        createCallerContext({
+          userId: adminUserId,
+          role: 'viewer',
+          email: 'viewer@localhost',
+          omitDevice: true,
+          omitEnvelope: true,
+        })
+      );
+      await expect(
+        viewer.customerLedger.addTillPayment({ customerId, amount: 5_000 })
+      ).rejects.toMatchObject({ code: 'FORBIDDEN' });
     });
   });
 

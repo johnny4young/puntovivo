@@ -582,6 +582,12 @@
     "output": "inferred"
   },
   {
+    "path": "customerLedger.addTillPayment",
+    "kind": "mutation",
+    "input": "object{amount:number[min>0],customerId:string[minLength=1],note?:string[maxLength=240]}",
+    "output": "inferred"
+  },
+  {
     "path": "customerLedger.getBalance",
     "kind": "query",
     "input": "object{customerId:string[minLength=1]}",

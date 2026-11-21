@@ -978,7 +978,8 @@
       "suspend": "Suspender",
       "returns": "Devolución",
       "credit": "Fiar",
-      "suspended": "Suspendidas"
+      "suspended": "Suspendidas",
+      "onAccount": "A crédito"
     },
     "keys": {
       "shortest": "Camino más corto:",
@@ -994,6 +995,17 @@
     "phone": {
       "total_one": "Total · {{count}} artículo",
       "total_other": "Total · {{count}} artículos"
+    },
+    "credit": {
+      "wouldOwe": "quedaría en {{amount}}",
+      "owesAfter": "queda en {{amount}}",
+      "overLimit": "supera el cupo"
+    },
+    "account": {
+      "owes": "debe",
+      "ofLimit": "de {{limit}}",
+      "inFavor": "saldo a favor",
+      "pay": "Abonar"
     }
   }
 }

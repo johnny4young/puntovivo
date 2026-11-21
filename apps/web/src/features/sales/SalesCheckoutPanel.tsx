@@ -7,6 +7,9 @@ import {
 import { CashierPaceStrip } from '@/features/sales/CashierPaceStrip';
 import { SalesRegisterAssignmentField } from '@/features/sales/SalesRegisterAssignmentField';
 import { SalesTenderPicker } from '@/features/sales/SalesTenderPicker';
+import { SalesCreditKey } from '@/features/sales/SalesCreditKey';
+import { initialsOf } from '@/features/sales/handoff/handoffModel';
+
 import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
 import { ariaKeyshortcutsFor, shortcutDisplayFor } from '@/lib/shortcuts';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
@@ -72,6 +75,13 @@ interface SalesCheckoutPanelProps {
   onOpenLastSale?: (() => void) | undefined;
   /** Opens the sales history, where a return starts from its sale. */
   onOpenReturns?: (() => void) | undefined;
+  /** The register sells on credit: Fiar sits beside Cobrar. */
+  showsCreditKey?: boolean | undefined;
+  /** Opens the charge drawer on credit; absent while the ticket cannot be charged. */
+  onCredit?: (() => void) | undefined;
+  /** What the customer would owe after this ticket; null while unknown. */
+  creditProjectedBalance?: number | null | undefined;
+  creditLimit?: number | undefined;
 }
 
 /** Characters of a condensed total that fit one line of the card. */
@@ -122,6 +132,10 @@ export function SalesCheckoutPanel({
   lastSale = null,
   onOpenLastSale,
   onOpenReturns,
+  showsCreditKey = false,
+  onCredit,
+  creditProjectedBalance = null,
+  creditLimit = 0,
 }: SalesCheckoutPanelProps) {
   const { t } = useTranslation('sales');
   const priceIncludesTax = usePriceIncludesTax();
@@ -148,6 +162,7 @@ export function SalesCheckoutPanel({
   // Unavailable Suspend stays out of the tab order: a disabled key fails contrast.
   const showSuspendAction = !!onSuspend && canSuspend;
   const totalText = formatCurrency(draftSummary.total);
+  const creditKeyShown = !!cashSession && showsCreditKey;
 
   return (
     <aside className="sales-settlement-dock" aria-labelledby="sales-dock-title">
@@ -157,7 +172,7 @@ export function SalesCheckoutPanel({
       <div className="sales-dock-top">
         <div className="flex items-center gap-3">
           <span className="sales-avatar" aria-hidden="true">
-            <UserRound className="h-5 w-5" />
+            {customerName ? initialsOf(customerName) : <UserRound className="h-5 w-5" />}
           </span>
           <div className="min-w-0 flex-1">
             <p
@@ -414,30 +429,43 @@ export function SalesCheckoutPanel({
           />
         )}
 
-        <Button
-          className={cashSession ? 'sales-charge-key' : 'min-h-14 w-full text-base'}
-          onClick={primaryAction}
-          disabled={primaryActionDisabled}
-          data-testid="checkout-primary-action"
-          aria-keyshortcuts={ariaKeyshortcutsFor(
-            cashSession ? 'sales.charge' : 'sales.openCashSession'
+        <div className={creditKeyShown ? 'sales-charge-row' : 'contents'}>
+          <Button
+            className={cashSession ? 'sales-charge-key' : 'min-h-14 w-full text-base'}
+            onClick={primaryAction}
+            disabled={primaryActionDisabled}
+            data-testid="checkout-primary-action"
+            aria-keyshortcuts={ariaKeyshortcutsFor(
+              cashSession ? 'sales.charge' : 'sales.openCashSession'
+            )}
+            aria-describedby={hasVisibleBlocker ? PREFLIGHT_PRIMARY_ELEMENT_ID : undefined}
+            variant={cashSession ? 'charge' : 'primary'}
+            type="button"
+          >
+            {!cashSession && <WalletCards className="h-5 w-5" aria-hidden="true" />}
+            {cashSession
+              ? t('checkout.chargeSale')
+              : receivesSelected
+                ? t('cashSession.receiveAction', { register: receiveHandoff!.registerName })
+                : t('cashSession.openAction')}
+            {cashSession && !primaryActionDisabled && (
+              <kbd className="sales-charge-kbd" aria-hidden="true">
+                {shortcutDisplayFor('sales.charge')}
+              </kbd>
+            )}
+          </Button>
+          {creditKeyShown && (
+            <SalesCreditKey
+              className="sales-secondary-key sales-credit-key"
+              onClick={onCredit}
+              disabled={!onCredit || isHubGated || preflightHasBlockers}
+              projectedBalance={creditProjectedBalance}
+              creditLimit={creditLimit}
+              active={tender === 'credit'}
+              testId="checkout-credit"
+            />
           )}
-          aria-describedby={hasVisibleBlocker ? PREFLIGHT_PRIMARY_ELEMENT_ID : undefined}
-          variant={cashSession ? 'charge' : 'primary'}
-          type="button"
-        >
-          {!cashSession && <WalletCards className="h-5 w-5" aria-hidden="true" />}
-          {cashSession
-            ? t('checkout.chargeSale')
-            : receivesSelected
-              ? t('cashSession.receiveAction', { register: receiveHandoff!.registerName })
-              : t('cashSession.openAction')}
-          {cashSession && !primaryActionDisabled && (
-            <kbd className="sales-charge-kbd" aria-hidden="true">
-              {shortcutDisplayFor('sales.charge')}
-            </kbd>
-          )}
-        </Button>
+        </div>
 
         {(showSuspendAction || onOpenReturns) && (
           <div className="flex gap-1.5" data-testid="checkout-park-controls">

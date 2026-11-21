@@ -44,6 +44,7 @@ import {
   companies,
   countries,
   customers,
+  customerLedgerEntries,
   departments,
   fiscalCafs,
   fiscalCertificates,
@@ -734,6 +735,8 @@ export async function seedDevData(
   for (const profile of buildCustomerFixtures(target.customerTarget)) {
     const id = nanoid();
     customerRows.push({ id, name: profile.name });
+    // Amounts are pesos, so only the Colombian fixture opens store credit.
+    const account = countryCode === 'CO' ? DEMO_CREDIT_ACCOUNTS[profile.name] : undefined;
     await db
       .insert(customers)
       .values({
@@ -754,11 +757,29 @@ export async function seedDevData(
         clientTypeId: null,
         commercialActivityId: null,
         notes: null,
+        creditLimit: account?.creditLimit ?? 0,
+        creditLimitCurrencyCode: account ? 'COP' : null,
         isActive: true,
         createdAt: now,
         updatedAt: now,
       })
       .run();
+    if (account) {
+      await db
+        .insert(customerLedgerEntries)
+        .values({
+          id: nanoid(),
+          tenantId,
+          customerId: id,
+          kind: 'adjustment',
+          amount: account.owed,
+          note: 'Saldo inicial',
+          createdBy: adminUser.id,
+          occurredAt: now,
+          createdAt: now,
+        })
+        .run();
+    }
   }
 
   // ----- 10. Products (with unit assignments + initial stock per site) ----
@@ -1283,6 +1304,13 @@ interface DevCustomerProfile {
   idTypeCode: 'CC' | 'NIT' | 'CE' | 'PA' | 'TI';
   personTypeCode: 'natural' | 'juridica';
 }
+
+/** Store-credit accounts a corner store and a hardware store would carry. */
+const DEMO_CREDIT_ACCOUNTS: Record<string, { creditLimit: number; owed: number }> = {
+  'Juan Pérez': { creditLimit: 150_000, owed: 84_300 },
+  'Carlos Rodríguez': { creditLimit: 100_000, owed: 92_000 },
+  'Ferretería La 13 S.A.S.': { creditLimit: 5_000_000, owed: 2_180_000 },
+};
 
 function buildCustomerFixtures(target = 30): DevCustomerProfile[] {
   const naturalNames = [

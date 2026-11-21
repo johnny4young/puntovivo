@@ -36,7 +36,10 @@ The current validated candidate includes:
 - one focused state per tender in the charge: a split lists each method with its
   reference and fills what is left or half and half; a credit sale shows the
   customer's debt against the cupo, takes part in cash now and names both
-  amounts on Confirm; the electronic invoice keeps the NIT and its
+  amounts on Confirm. On the register itself the customer's debt and cupo sit
+  under the ticket with Abonar, which takes the payment into the open drawer
+  as cash, and Fiar (A crédito for hardware) beside Cobrar says what the
+  account would come to; the electronic invoice keeps the NIT and its
   verification digit apart, fills a saved buyer from the typed number and says
   the invoice queues when offline;
 - selling from a phone: a search field with a camera scan button that reads

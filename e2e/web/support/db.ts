@@ -1424,6 +1424,80 @@ export function seedCashSessionScenario(seed: string): SeededCashSessionScenario
   }
 }
 
+export interface SeededCustomerAccountScenario extends SeededSaleScenario {
+  cashSessionId: string;
+  customer: BusinessCustomer;
+  creditLimit: number;
+  owed: number;
+}
+
+/**
+ * A store-credit customer with a cupo and an opening debt; the abono itself goes
+ * through the UI. The cashier's shared open register is only read, never rewritten.
+ */
+export function seedCustomerAccountScenario(seed: string): SeededCustomerAccountScenario {
+  const scenario = seedScenario(seed);
+  const db = openDb();
+  try {
+    const cashSessionId = getOpenCashSessionId(db, scenario.cashier.id, scenario.sites[0]!.id);
+    const now = nowIso();
+    const customer: BusinessCustomer = {
+      id: makeId('e2e_account_customer'),
+      name: `E2E Fiado ${normalizeSeed(seed)} ${randomUUID().slice(0, 4)}`,
+    };
+    const creditLimit = 150_000;
+    const owed = 84_300;
+    db.transaction(() => {
+      db.prepare(
+        `insert into customers (
+           id, tenant_id, name, credit_limit, credit_limit_currency_code, created_at, updated_at
+         ) values (?, ?, ?, ?, 'COP', ?, ?)`
+      ).run(customer.id, scenario.tenantId, customer.name, creditLimit, now, now);
+      db.prepare(
+        `insert into customer_ledger_entries (
+           id, tenant_id, customer_id, occurred_at, kind, amount, note, created_at
+         ) values (?, ?, ?, ?, 'adjustment', ?, 'E2E opening balance', ?)`
+      ).run(makeId('e2e_account_ledger'), scenario.tenantId, customer.id, now, owed, now);
+    })();
+    return { ...scenario, cashSessionId, customer, creditLimit, owed };
+  } finally {
+    db.close();
+  }
+}
+
+/** The drawer movement an abono at the register wrote, joined to its ledger entry. */
+export function getTillPaymentEvidence(
+  tenantId: string,
+  cashSessionId: string,
+  customerId: string
+): { movementAmount: number; ledgerAmount: number; balance: number } | null {
+  const db = openDb();
+  try {
+    const row = db
+      .prepare(
+        `select movement.amount as movementAmount, entry.amount as ledgerAmount
+           from cash_movements movement
+           join customer_ledger_entries entry on entry.id = movement.reference_id
+          where movement.tenant_id = ? and movement.session_id = ?
+            and movement.type = 'paid_in' and entry.customer_id = ?
+          order by movement.created_at desc
+          limit 1`
+      )
+      .get(tenantId, cashSessionId, customerId) as
+      { movementAmount: number; ledgerAmount: number } | undefined;
+    if (!row) return null;
+    const { balance } = db
+      .prepare(
+        `select coalesce(sum(amount), 0) as balance
+           from customer_ledger_entries where tenant_id = ? and customer_id = ?`
+      )
+      .get(tenantId, customerId) as { balance: number };
+    return { ...row, balance };
+  } finally {
+    db.close();
+  }
+}
+
 /**
  * Seed one real open register and explicitly enable the local Customer Display
  * surface. The browser journey must still publish the cart through SalesPage;
