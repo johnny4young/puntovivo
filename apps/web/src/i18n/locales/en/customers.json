@@ -191,7 +191,7 @@
     "adminOnly": "Admin role required to charge adjustments",
     "tillModal": {
       "title": "Payment from {{name}}",
-      "description": "Owes {{balance}}. The payment goes into this register as cash.",
+      "description": "Owes {{balance}}.",
       "amountLabel": "Payment amount",
       "amountRequired": "Enter an amount greater than zero",
       "amountTooHigh": "The payment cannot exceed what is owed ({{balance}}).",

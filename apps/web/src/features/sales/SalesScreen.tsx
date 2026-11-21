@@ -469,6 +469,8 @@ export function SalesScreen({
     shownAccount.balance > 0 &&
     !!activeCashSession &&
     hubReachable !== false;
+  // Closed for good once it cannot be paid, so it never reopens on its own later.
+  if (isTillPaymentOpen && !canPayAccount) setIsTillPaymentOpen(false);
 
   // Resuming a sale means the shift is not ending yet, so the close stops here.
   const handleResumeSuspended: typeof handleResumeFromPanel = draft => {

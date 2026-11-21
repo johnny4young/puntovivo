@@ -6,7 +6,7 @@ import {
   type CustomerLedgerAbonoValues,
 } from '@/features/customers/CustomerLedgerAbonoModal';
 import { onErrorToast } from '@/lib/mutationHelpers';
-import { invalidateGroups } from '@/lib/invalidateGroups';
+import { invalidateCommittedGroups } from '@/lib/invalidateGroups';
 import { trpc } from '@/lib/trpc';
 import { translateServerError } from '@/lib/translateServerError';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
@@ -30,15 +30,16 @@ export default function CustomerTillPaymentDialog({
   const utils = trpc.useUtils();
   const addTillPayment = useCriticalMutation('customerLedger.addTillPayment', {
     onSuccess: async () => {
-      await Promise.all([
+      // The payment is committed: a failed refresh must not read as a failed payment.
+      await Promise.allSettled([
         utils.customerLedger.getBalance.invalidate({ customerId }),
         utils.customerLedger.list.invalidate({ customerId }),
-      ]);
-      await invalidateGroups(utils, [
-        u => u.cashSessions.getActive,
-        u => u.cashSessions.movements,
-        u => u.cashSessions.report,
-        u => u.cashSessions.myShiftSummary,
+        invalidateCommittedGroups(utils, [
+          u => u.cashSessions.getActive,
+          u => u.cashSessions.movements,
+          u => u.cashSessions.report,
+          u => u.cashSessions.myShiftSummary,
+        ]),
       ]);
       toast.success({ title: t('ledger.tillModal.success') });
       onClose();

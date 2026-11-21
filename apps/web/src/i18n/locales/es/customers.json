@@ -191,7 +191,7 @@
     "adminOnly": "Se requiere rol admin para cargar ajustes",
     "tillModal": {
       "title": "Abono de {{name}}",
-      "description": "Debe {{balance}}. El abono entra en efectivo a esta caja.",
+      "description": "Debe {{balance}}.",
       "amountLabel": "Monto del abono",
       "amountRequired": "Ingrese un monto mayor a cero",
       "amountTooHigh": "El abono no puede superar lo que debe ({{balance}}).",

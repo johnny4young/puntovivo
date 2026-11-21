@@ -1484,8 +1484,7 @@ export function getTillPaymentEvidence(
           limit 1`
       )
       .get(tenantId, cashSessionId, customerId) as
-      | { movementAmount: number; ledgerAmount: number }
-      | undefined;
+      { movementAmount: number; ledgerAmount: number } | undefined;
     if (!row) return null;
     const { balance } = db
       .prepare(

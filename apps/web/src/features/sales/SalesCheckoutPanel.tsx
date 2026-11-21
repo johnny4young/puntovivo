@@ -430,41 +430,41 @@ export function SalesCheckoutPanel({
         )}
 
         <div className={creditKeyShown ? 'sales-charge-row' : 'contents'}>
-        <Button
-          className={cashSession ? 'sales-charge-key' : 'min-h-14 w-full text-base'}
-          onClick={primaryAction}
-          disabled={primaryActionDisabled}
-          data-testid="checkout-primary-action"
-          aria-keyshortcuts={ariaKeyshortcutsFor(
-            cashSession ? 'sales.charge' : 'sales.openCashSession'
+          <Button
+            className={cashSession ? 'sales-charge-key' : 'min-h-14 w-full text-base'}
+            onClick={primaryAction}
+            disabled={primaryActionDisabled}
+            data-testid="checkout-primary-action"
+            aria-keyshortcuts={ariaKeyshortcutsFor(
+              cashSession ? 'sales.charge' : 'sales.openCashSession'
+            )}
+            aria-describedby={hasVisibleBlocker ? PREFLIGHT_PRIMARY_ELEMENT_ID : undefined}
+            variant={cashSession ? 'charge' : 'primary'}
+            type="button"
+          >
+            {!cashSession && <WalletCards className="h-5 w-5" aria-hidden="true" />}
+            {cashSession
+              ? t('checkout.chargeSale')
+              : receivesSelected
+                ? t('cashSession.receiveAction', { register: receiveHandoff!.registerName })
+                : t('cashSession.openAction')}
+            {cashSession && !primaryActionDisabled && (
+              <kbd className="sales-charge-kbd" aria-hidden="true">
+                {shortcutDisplayFor('sales.charge')}
+              </kbd>
+            )}
+          </Button>
+          {creditKeyShown && (
+            <SalesCreditKey
+              className="sales-secondary-key sales-credit-key"
+              onClick={onCredit}
+              disabled={!onCredit || isHubGated || preflightHasBlockers}
+              projectedBalance={creditProjectedBalance}
+              creditLimit={creditLimit}
+              active={tender === 'credit'}
+              testId="checkout-credit"
+            />
           )}
-          aria-describedby={hasVisibleBlocker ? PREFLIGHT_PRIMARY_ELEMENT_ID : undefined}
-          variant={cashSession ? 'charge' : 'primary'}
-          type="button"
-        >
-          {!cashSession && <WalletCards className="h-5 w-5" aria-hidden="true" />}
-          {cashSession
-            ? t('checkout.chargeSale')
-            : receivesSelected
-              ? t('cashSession.receiveAction', { register: receiveHandoff!.registerName })
-              : t('cashSession.openAction')}
-          {cashSession && !primaryActionDisabled && (
-            <kbd className="sales-charge-kbd" aria-hidden="true">
-              {shortcutDisplayFor('sales.charge')}
-            </kbd>
-          )}
-        </Button>
-        {creditKeyShown && (
-          <SalesCreditKey
-            className="sales-secondary-key sales-credit-key"
-            onClick={onCredit}
-            disabled={!onCredit || isHubGated}
-            projectedBalance={creditProjectedBalance}
-            creditLimit={creditLimit}
-            active={tender === 'credit'}
-            testId="checkout-credit"
-          />
-        )}
         </div>
 
         {(showSuspendAction || onOpenReturns) && (

@@ -278,4 +278,20 @@ describe('SalesCheckoutPanel dock', () => {
     renderDock({ showsCreditKey: true, cashSession: null, onCredit: vi.fn() });
     expect(screen.queryByTestId('checkout-credit')).not.toBeInTheDocument();
   });
+
+  it('disables Fiar with Cobrar while a preflight blocker stands', () => {
+    renderDock({
+      showsCreditKey: true,
+      onCredit: vi.fn(),
+      preflightItems: [
+        {
+          id: 'cash_session_required',
+          severity: 'blocker',
+          messageKey: 'preflight.items.cash_session_required.message',
+        },
+      ],
+    });
+    expect(screen.getByTestId('checkout-primary-action')).toBeDisabled();
+    expect(screen.getByTestId('checkout-credit')).toBeDisabled();
+  });
 });
