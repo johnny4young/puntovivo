@@ -54,6 +54,7 @@ import {
   productStockTotalSql,
   withSiteStock,
 } from '../../../services/inventory-balances/derive.js';
+import { withSiteStockBreakdown } from '../../../services/inventory-balances/site-stock.js';
 
 const isSalesRole = (role: string | undefined) =>
   (SALES_ROLES as readonly string[]).includes(role ?? '');
@@ -476,7 +477,7 @@ export const productQueryProcedures = {
         : null;
 
     return {
-      items: withSiteStock(ctx.db, ctx.tenantId, input.siteId, items).map(item => {
+      items: withSiteStockBreakdown(ctx.db, ctx.tenantId, input.siteId, items).map(item => {
         const unitAssignments = assignmentsMap.get(item.id) ?? [];
         const baseUnit =
           unitAssignments.find(assignment => assignment.isBase) ?? unitAssignments[0];

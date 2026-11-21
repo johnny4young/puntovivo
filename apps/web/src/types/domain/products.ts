@@ -146,6 +146,14 @@ export interface ProductSearchItem extends Product {
   baseUnitPrice?: number | null;
   /** The lot sold next at the searched site (FEFO); null without a site or lots. */
   nextLot?: ProductNextLot | null;
+  /** Other active sites with stock, most first; null without a searched site. */
+  otherSites?: ProductOtherSiteStock[] | null;
+}
+
+export interface ProductOtherSiteStock {
+  siteId: string;
+  siteName: string;
+  onHand: number;
 }
 
 export interface ProductNextLot {
