@@ -133,7 +133,7 @@ describe('operations.today', () => {
     db.insert(products)
       .values({ id: productId, tenantId, name: 'Leche UHT', sku: `HOY-${nanoid(6)}`, price: 4900 })
       .run();
-    reportRegisterIncident(
+    await reportRegisterIncident(
       db,
       { tenantId, siteId, userId: adminId },
       { kind: 'stockout', productId }

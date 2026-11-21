@@ -7,6 +7,7 @@ import {
   cashSessions,
   inventoryBalances,
   products,
+  registerIncidents,
   sales,
   sites,
   tenants,
@@ -172,6 +173,22 @@ describe('register incidents', () => {
   });
 
   it('shows a cashier the product stock here and at the other sites', async () => {
+    const db = getDatabase();
+    const { companyId } = db.select().from(sites).where(eq(sites.id, siteId)).get()!;
+    const closedSiteId = nanoid();
+    const emptySiteId = nanoid();
+    db.insert(sites)
+      .values([
+        { id: closedSiteId, tenantId, companyId, name: 'Sede Cerrada', isActive: false },
+        { id: emptySiteId, tenantId, companyId, name: 'Sede Vacia' },
+      ])
+      .run();
+    db.insert(inventoryBalances)
+      .values([
+        { id: nanoid(), tenantId, siteId: closedSiteId, productId, onHand: 30, reserved: 0 },
+        { id: nanoid(), tenantId, siteId: emptySiteId, productId, onHand: 0, reserved: 0 },
+      ])
+      .run();
     const stock = await appRouter
       .createCaller(ctxFor('cashier'))
       .registerIncidents.productStock({ productId });
@@ -195,7 +212,7 @@ describe('register incidents', () => {
     expect(reopened.id).not.toBe(first.id);
   });
 
-  it('matches an open no-barcode incident on its trimmed note', async () => {
+  it('matches an open no-barcode incident on its trimmed note in any case', async () => {
     const cashier = appRouter.createCaller(ctxFor('cashier'));
     const label = await cashier.registerIncidents.report({
       kind: 'no_barcode',
@@ -203,7 +220,7 @@ describe('register incidents', () => {
     });
     const padded = await cashier.registerIncidents.report({
       kind: 'no_barcode',
-      note: '  Hielo 2 kg ',
+      note: '  hielo 2 KG ',
     });
     const other = await cashier.registerIncidents.report({
       kind: 'no_barcode',
@@ -211,10 +228,53 @@ describe('register incidents', () => {
     });
     expect(padded.id).toBe(label.id);
     expect(other.id).not.toBe(label.id);
+
+    const blank = await cashier.registerIncidents.report({ kind: 'no_barcode' });
+    const blankAgain = await cashier.registerIncidents.report({ kind: 'no_barcode' });
+    expect(blankAgain.id).not.toBe(blank.id);
+  });
+
+  it('refreshes the open incident with what the cashier reports again', async () => {
+    const db = getDatabase();
+    const cashier = appRouter.createCaller(ctxFor('cashier'));
+    const { id } = await cashier.registerIncidents.report({
+      kind: 'price_mismatch',
+      productId,
+      shelfPrice: 4500,
+    });
+    await cashier.registerIncidents.report({
+      kind: 'price_mismatch',
+      productId,
+      shelfPrice: 5200,
+      note: 'Etiqueta nueva',
+    });
+    expect(
+      db.select().from(registerIncidents).where(eq(registerIncidents.id, id)).get()
+    ).toMatchObject({ shelfPrice: 5200, note: 'Etiqueta nueva', status: 'open' });
+    await appRouter.createCaller(ctxFor('manager')).registerIncidents.resolve({ id });
+  });
+
+  it('files a new row when the open incident is from an earlier business day', async () => {
+    const db = getDatabase();
+    const cashier = appRouter.createCaller(ctxFor('cashier'));
+    const { id } = await cashier.registerIncidents.report({ kind: 'stockout', productId });
+    const twoDaysAgo = new Date(Date.now() - 2 * 86_400_000).toISOString();
+    db.update(registerIncidents)
+      .set({ createdAt: twoDaysAgo })
+      .where(eq(registerIncidents.id, id))
+      .run();
+    const today = await cashier.registerIncidents.report({ kind: 'stockout', productId });
+    expect(today.id).not.toBe(id);
+    expect((await cashier.registerIncidents.latestToday())?.id).toBe(today.id);
   });
 
   it('gives the till the newest incident of the business day with its register', async () => {
     const db = getDatabase();
+    // An open match from an earlier test would be returned instead of a new row.
+    db.update(registerIncidents)
+      .set({ status: 'resolved' })
+      .where(eq(registerIncidents.status, 'open'))
+      .run();
     const sessionId = nanoid();
     db.insert(cashSessions)
       .values({

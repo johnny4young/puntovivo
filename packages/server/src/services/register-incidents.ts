@@ -7,7 +7,7 @@
  * @module services/register-incidents
  */
 import { TRPCError } from '@trpc/server';
-import { and, asc, desc, eq, gte, inArray, isNull, lt, sql, type Column } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNull, lt, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 import type { DatabaseInstance } from '../db/index.js';
@@ -100,15 +100,21 @@ function findTenantProduct(db: DatabaseInstance, tenantId: string, productId: st
   return product;
 }
 
-function eqOrNull(column: Column, value: string | null | undefined) {
-  return value == null ? isNull(column) : eq(column, value);
+async function businessDayWindow(db: DatabaseInstance, tenantId: string, now: Date) {
+  const { businessDate, timezone } = await resolveTenantBusinessClock(db, tenantId, now);
+  return resolveUtcDayWindow(businessDate, timezone);
 }
 
-export function reportRegisterIncident(
+/**
+ * A repeat of an incident still open from today's business day refreshes that
+ * row and returns its id; an earlier day's open incident gets a new row.
+ */
+export async function reportRegisterIncident(
   db: DatabaseInstance,
   scope: { tenantId: string; siteId: string; userId: string },
-  input: ReportRegisterIncidentInput
-): { id: string } {
+  input: ReportRegisterIncidentInput,
+  now: Date = new Date()
+): Promise<{ id: string }> {
   const product = input.productId
     ? findTenantProduct(db, scope.tenantId, input.productId)
     : undefined;
@@ -116,21 +122,48 @@ export function reportRegisterIncident(
     throw new TRPCError({ code: 'BAD_REQUEST', message: 'This incident needs a product' });
   }
   const note = input.note?.trim() || null;
-  const existing = db
-    .select({ id: registerIncidents.id })
-    .from(registerIncidents)
-    .where(
-      and(
-        eq(registerIncidents.tenantId, scope.tenantId),
-        eq(registerIncidents.siteId, scope.siteId),
-        eq(registerIncidents.kind, input.kind),
-        eq(registerIncidents.status, 'open'),
-        eqOrNull(registerIncidents.productId, product?.id),
-        input.kind === 'no_barcode' ? eqOrNull(registerIncidents.note, note) : undefined
+  const reason = input.kind === 'stockout' ? (input.reason ?? null) : null;
+  const shelfPrice = input.kind === 'price_mismatch' ? (input.shelfPrice ?? null) : null;
+  // An unlabeled item with neither product nor note has nothing to match on.
+  const matchable = input.kind !== 'no_barcode' || product || note;
+  if (matchable) {
+    const day = await businessDayWindow(db, scope.tenantId, now);
+    const existing = db
+      .select({ id: registerIncidents.id })
+      .from(registerIncidents)
+      .where(
+        and(
+          eq(registerIncidents.tenantId, scope.tenantId),
+          eq(registerIncidents.siteId, scope.siteId),
+          eq(registerIncidents.kind, input.kind),
+          eq(registerIncidents.status, 'open'),
+          gte(registerIncidents.createdAt, day.startIso),
+          lt(registerIncidents.createdAt, day.endExclusiveIso),
+          product
+            ? eq(registerIncidents.productId, product.id)
+            : isNull(registerIncidents.productId),
+          input.kind === 'no_barcode'
+            ? note
+              ? sql`lower(${registerIncidents.note}) = lower(${note})`
+              : isNull(registerIncidents.note)
+            : undefined
+        )
       )
-    )
-    .get();
-  if (existing) return existing;
+      .get();
+    if (existing) {
+      db.update(registerIncidents)
+        .set({
+          ...(reason ? { reason } : {}),
+          ...(shelfPrice !== null ? { shelfPrice } : {}),
+          ...(note ? { note } : {}),
+          systemPrice: product?.price ?? null,
+          updatedAt: new Date().toISOString(),
+        })
+        .where(eq(registerIncidents.id, existing.id))
+        .run();
+      return existing;
+    }
+  }
   const session = getActiveCashSessionForCashier(db, scope.tenantId, scope.siteId, scope.userId);
   const id = nanoid();
   db.insert(registerIncidents)
@@ -139,10 +172,10 @@ export function reportRegisterIncident(
       tenantId: scope.tenantId,
       siteId: scope.siteId,
       kind: input.kind,
-      reason: input.kind === 'stockout' ? (input.reason ?? null) : null,
+      reason,
       productId: product?.id ?? null,
       productName: product?.name ?? null,
-      shelfPrice: input.kind === 'price_mismatch' ? (input.shelfPrice ?? null) : null,
+      shelfPrice,
       systemPrice: product?.price ?? null,
       note,
       reportedBy: scope.userId,
@@ -227,7 +260,7 @@ export function resolveRegisterIncident(
 }
 
 export interface ProductSiteStock extends SiteStock {
-  /** The tenant's other sites holding a balance, most stock first. */
+  /** The tenant's other active sites with stock on hand, most stock first. */
   otherSites: SiteStock[];
 }
 
@@ -239,17 +272,20 @@ export function getProductSiteStock(
 ): ProductSiteStock {
   findTenantProduct(db, scope.tenantId, productId);
   const bySite = getStockBySite(db, scope.tenantId, [productId]).get(productId) ?? [];
-  const site = db
-    .select({ name: sites.name })
-    .from(sites)
-    .where(and(eq(sites.id, scope.siteId), eq(sites.tenantId, scope.tenantId)))
-    .get();
+  const activeSites = new Map(
+    db
+      .select({ id: sites.id, name: sites.name })
+      .from(sites)
+      .where(and(eq(sites.tenantId, scope.tenantId), eq(sites.isActive, true)))
+      .all()
+      .map(site => [site.id, site.name])
+  );
   return {
     siteId: scope.siteId,
-    siteName: site?.name ?? '',
+    siteName: activeSites.get(scope.siteId) ?? '',
     onHand: bySite.find(row => row.siteId === scope.siteId)?.onHand ?? 0,
     otherSites: bySite
-      .filter(row => row.siteId !== scope.siteId)
+      .filter(row => row.siteId !== scope.siteId && row.onHand > 0 && activeSites.has(row.siteId))
       .sort((a, b) => b.onHand - a.onHand),
   };
 }
@@ -269,8 +305,7 @@ export async function getLatestRegisterIncidentToday(
   scope: { tenantId: string; siteId: string },
   now: Date = new Date()
 ): Promise<LatestRegisterIncident | null> {
-  const { businessDate, timezone } = await resolveTenantBusinessClock(db, scope.tenantId, now);
-  const day = resolveUtcDayWindow(businessDate, timezone);
+  const day = await businessDayWindow(db, scope.tenantId, now);
   const row = db
     .select({
       id: registerIncidents.id,
