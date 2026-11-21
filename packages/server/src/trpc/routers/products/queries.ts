@@ -48,6 +48,7 @@ import { hasPharmacyProductProfiles } from '../../../services/pharmacy/operation
 import { findExactProductMatches } from '../../../services/products/exact-search.js';
 import { findFtsProductMatches } from '../../../services/products/fts-search.js';
 import { hydrateSearchProducts } from '../../../services/products/search-hydration.js';
+import { resolveNextLotHints } from '../../../services/inventory-lots/next-lot.js';
 import {
   productStockTotalSql,
   withSiteStock,
@@ -460,6 +461,15 @@ export const productQueryProcedures = {
       ctx.db,
       items.map(item => item.id)
     );
+    // Only the register asks for the lot it sells next, and only for one site.
+    const nextLots =
+      input.includeNextLot && input.siteId
+        ? await resolveNextLotHints(ctx.db, {
+            tenantId: ctx.tenantId,
+            siteId: input.siteId,
+            productIds: items.filter(item => item.tracksLots).map(item => item.id),
+          })
+        : null;
 
     return {
       items: withSiteStock(ctx.db, ctx.tenantId, input.siteId, items).map(item => {
@@ -477,6 +487,7 @@ export const productQueryProcedures = {
           baseUnitName: baseUnit?.unitName ?? null,
           baseUnitAbbreviation: baseUnit?.unitAbbreviation ?? null,
           baseUnitPrice: baseUnit?.price ?? item.price,
+          nextLot: nextLots?.get(item.id) ?? null,
         };
       }),
     };

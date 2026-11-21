@@ -3,12 +3,14 @@ import { ListX, Undo2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { SaleCartTable } from '@/features/sales/SaleCartTable';
 import type { SaleCartItem } from '@/features/sales/saleCart';
+import type { PharmacyLineHint } from '@/features/sales/pharmacyRegister';
 import { ariaKeyshortcutsFor, shortcutDisplayFor } from '@/lib/shortcuts';
 
 interface SalesCartWorkspaceProps {
   items: SaleCartItem[];
   /** active POS site for the cart's suggestion badges. */
   discountSuggestionSiteId?: string | null;
+  pharmacyLines?: ReadonlyMap<string, PharmacyLineHint> | undefined;
   selectedItemKey: string | null;
   saleError: string | null;
   onQuantityChange: (itemKey: string, quantity: number) => void;
@@ -41,6 +43,7 @@ interface SalesCartWorkspaceProps {
 export function SalesCartWorkspace({
   items,
   discountSuggestionSiteId = null,
+  pharmacyLines,
   selectedItemKey,
   saleError,
   onQuantityChange,
@@ -117,6 +120,7 @@ export function SalesCartWorkspace({
         <SaleCartTable
           items={items}
           discountSuggestionSiteId={discountSuggestionSiteId}
+          pharmacyLines={pharmacyLines}
           selectedItemKey={selectedItemKey}
           onQuantityChange={onQuantityChange}
           onDiscountChange={onDiscountChange}

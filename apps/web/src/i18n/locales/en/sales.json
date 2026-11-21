@@ -950,6 +950,7 @@
       "items_other": "{{count}} items",
       "lines_one": "{{count}} line",
       "lines_other": "{{count}} lines",
+      "prescriptions": "{{count}} with prescription",
       "savings": "Discounts",
       "taxIncluded": "Tax included"
     },

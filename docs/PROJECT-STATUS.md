@@ -252,6 +252,9 @@ The current validated candidate includes:
   prescription evidence, deterministic quantity consumption, immutable
   dispensations, append-only lot-state events, quarantine, cold-chain incident,
   recall, release, destruction, supplier return, and affected-sale lookup.
+  At the register, medicine search results and ticket lines show the FEFO lot,
+  near-expiry lots to sell first, the sale class and cheaper equivalents, and
+  each prescription line shows its approved evidence before Cobrar.
   Colombia v1 permits OTC and requires current customer, evidence, and an
   effective authorized employee for prescription products. Controlled
   medicines and prescription operation in countries without a reviewed adapter

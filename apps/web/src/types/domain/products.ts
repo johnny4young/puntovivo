@@ -79,6 +79,8 @@ export type PharmacyProfileLockReason =
   | 'active_product_recall'
   | 'active_registration_recall';
 
+export type PharmacyClassification = 'otc' | 'prescription' | 'controlled';
+
 export interface PharmacyProductProfile {
   activeIngredient: string | null;
   genericName: string | null;
@@ -90,7 +92,7 @@ export interface PharmacyProductProfile {
   authorizationHolder: string | null;
   sanitaryRegistration: string | null;
   registrationExpiresAt: string | null;
-  classification: 'otc' | 'prescription' | 'controlled';
+  classification: PharmacyClassification;
   storageConditions: string | null;
   requiresColdChain: boolean;
 }
@@ -142,6 +144,16 @@ export interface ProductSearchItem extends Product {
   baseUnitName?: string | null;
   baseUnitAbbreviation?: string | null;
   baseUnitPrice?: number | null;
+  /** The lot sold next at the searched site (FEFO); null without a site or lots. */
+  nextLot?: ProductNextLot | null;
+}
+
+export interface ProductNextLot {
+  lotNumber: string;
+  expiresAt: string | null;
+  daysToExpiry: number | null;
+  /** Inside the tenant's widest expiry-discount window. */
+  nearExpiry: boolean;
 }
 
 export interface ProductSearchSelection {

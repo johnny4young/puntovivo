@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { SaleCartTable } from '@/features/sales/SaleCartTable';
 import { render } from '@/test/utils';
 import type { SaleCartItem } from '@/features/sales/saleCart';
+import type { PharmacyLineHint } from '@/features/sales/pharmacyRegister';
 
 // the cart lines read the expiry-radar suggestions through this
 // hook (a trpc query underneath); mock it so the suite stays network-free.
@@ -476,5 +477,82 @@ describe('SaleCartTable', () => {
 
     expect(screen.getByTestId('cart-unit-presentation-SKU-001')).toHaveTextContent('Kilo × 1');
     expect(screen.getByRole('button', { name: /Kilo × 1/ })).toBeInTheDocument();
+  });
+});
+
+describe('SaleCartTable pharmacy lines', () => {
+  const lot = { lotNumber: 'L2311', expiresAt: '2027-08-20', daysToExpiry: 270, nearExpiry: false };
+
+  function renderLines(pharmacyLines: Map<string, PharmacyLineHint>) {
+    render(
+      <SaleCartTable
+        items={[
+          createCartItem({ productId: 'amox', productSku: 'AMOX', key: 'amox:u', discount: 0 }),
+          createCartItem({ productId: 'lora', productSku: 'LORA', key: 'lora:u', discount: 0 }),
+          createCartItem({ productId: 'clona', productSku: 'CLONA', key: 'clona:u', discount: 0 }),
+          createCartItem({ productId: 'water', productSku: 'WATER', key: 'water:u', discount: 0 }),
+        ]}
+        pharmacyLines={pharmacyLines}
+        selectedItemKey={null}
+        onQuantityChange={vi.fn()}
+        onDiscountChange={vi.fn()}
+        onRemove={vi.fn()}
+        onSelectItem={vi.fn()}
+        quantityInputRefFor={() => () => {}}
+        discountInputRefFor={() => () => {}}
+      />
+    );
+  }
+
+  it('shows the next lot, the class and the prescription state of each medicine', () => {
+    renderLines(
+      new Map<string, PharmacyLineHint>([
+        [
+          'amox',
+          {
+            classification: 'prescription',
+            nextLot: lot,
+            status: { kind: 'ready', approverName: 'Daniela Ortiz' },
+          },
+        ],
+        [
+          'lora',
+          {
+            classification: 'otc',
+            nextLot: { ...lot, lotNumber: 'L2402', daysToExpiry: 12, nearExpiry: true },
+            status: null,
+          },
+        ],
+        ['clona', { classification: 'controlled', nextLot: null, status: null }],
+      ])
+    );
+
+    expect(screen.getByTestId('cart-pharmacy-lot-AMOX')).toHaveTextContent(
+      'Lot L2311 · expires Aug 2027'
+    );
+    expect(screen.getByTestId('cart-pharmacy-class-AMOX')).toHaveTextContent('Prescription');
+    expect(screen.getByTestId('cart-pharmacy-status-AMOX')).toHaveTextContent(
+      'Prescription on file · approved by Daniela Ortiz'
+    );
+    expect(screen.getByTestId('cart-pharmacy-lot-LORA')).toHaveTextContent(
+      'Expires in 12 days · sell this lot first'
+    );
+    expect(screen.queryByTestId('cart-pharmacy-status-LORA')).not.toBeInTheDocument();
+    // A controlled line says so once, in its class.
+    expect(screen.getByTestId('cart-pharmacy-class-CLONA')).toHaveTextContent('Controlled');
+    expect(screen.queryByTestId('cart-pharmacy-status-CLONA')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('cart-pharmacy-WATER')).not.toBeInTheDocument();
+  });
+
+  it('warns when a prescription line has no prescription yet', () => {
+    renderLines(
+      new Map<string, PharmacyLineHint>([
+        ['amox', { classification: 'prescription', nextLot: null, status: { kind: 'missing' } }],
+      ])
+    );
+    expect(screen.getByTestId('cart-pharmacy-status-AMOX')).toHaveTextContent(
+      'Prescription missing'
+    );
+    expect(screen.queryByTestId('cart-pharmacy-lot-AMOX')).not.toBeInTheDocument();
   });
 });

@@ -41,7 +41,11 @@ import {
 import { buildCheckoutApprovalContext, requiredCheckoutApprovalActions } from './checkoutApprovals';
 import { useCheckoutApprovals } from './useCheckoutApprovals';
 import { isCartPriceOverride } from './saleApprovalPricing';
-import { retainEligibleEvidenceIds, selectedEvidenceCoversRequirements } from './pharmacyCheckout';
+import {
+  pharmacyCheckoutInput,
+  retainEligibleEvidenceIds,
+  selectedEvidenceCoversRequirements,
+} from './pharmacyCheckout';
 import { asElectronicInvoiceForm, buildElectronicInvoiceRequest } from './electronicInvoiceRequest';
 import { useElectronicInvoiceAvailability } from './useElectronicInvoiceAvailability';
 import { serviceChargeFor } from './cashTender';
@@ -230,23 +234,19 @@ export function useSalePaymentModal({
   const tipAmount = Math.max(0, Number(tipAmountWatch) || 0);
   const selectedCustomer = customers.find(c => c.id === watchedCustomerId) ?? null;
 
-  const pharmacyCheckoutInput = useMemo(
-    () => ({
-      customerId: watchedCustomerId || null,
-      items: approvalItems.map(item => ({
-        productId: item.productId,
-        quantity: item.quantity,
-        unitEquivalence: item.unitEquivalence ?? 1,
-      })),
-    }),
+  const checkoutRequirementsInput = useMemo(
+    () => pharmacyCheckoutInput(approvalItems, watchedCustomerId || null),
     [approvalItems, watchedCustomerId]
   );
   const pharmacyCheckoutEnabled = isOpen && approvalItems.length > 0;
-  const pharmacyCheckoutQuery = trpc.pharmacy.checkoutRequirements.useQuery(pharmacyCheckoutInput, {
-    enabled: pharmacyCheckoutEnabled,
-    staleTime: 0,
-    refetchOnWindowFocus: true,
-  });
+  const pharmacyCheckoutQuery = trpc.pharmacy.checkoutRequirements.useQuery(
+    checkoutRequirementsInput,
+    {
+      enabled: pharmacyCheckoutEnabled,
+      staleTime: 0,
+      refetchOnWindowFocus: true,
+    }
+  );
   const pharmacyCheckoutLoading =
     pharmacyCheckoutEnabled &&
     (pharmacyCheckoutQuery.isLoading || pharmacyCheckoutQuery.isFetching);

@@ -2534,6 +2534,34 @@
     font-weight: 600;
   }
 
+  .sales-rx-missing {
+    border-color: var(--warning-500);
+    background: var(--warning-50);
+    color: var(--warning-700);
+  }
+
+  .sales-rx-icon {
+    display: inline-grid;
+    place-items: center;
+    flex: none;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 999px;
+    background: var(--primary-50);
+    color: var(--primary-700);
+  }
+
+  .sales-rx-notice {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.625rem 0.875rem;
+    border-radius: 0.875rem;
+    background: var(--surface-2);
+    font-size: 0.8125rem;
+    color: var(--fg2);
+  }
+
   .sales-shortcut-strip {
     display: flex;
     flex-wrap: wrap;

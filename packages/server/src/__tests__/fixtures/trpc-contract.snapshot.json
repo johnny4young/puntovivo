@@ -2066,7 +2066,7 @@
   {
     "path": "products.search",
     "kind": "query",
-    "input": "object{categoryId?:string,isActive?:boolean,limit?:integer[min=1,max=50]=20,pharmacyOnly?:boolean,providerId?:string,q:string[minLength=1,maxLength=120],siteId?:string[minLength=1],tracksStock?:boolean}",
+    "input": "object{categoryId?:string,includeNextLot?:boolean,isActive?:boolean,limit?:integer[min=1,max=50]=20,pharmacyOnly?:boolean,providerId?:string,q:string[minLength=1,maxLength=120],siteId?:string[minLength=1],tracksStock?:boolean}",
     "output": "inferred"
   },
   {

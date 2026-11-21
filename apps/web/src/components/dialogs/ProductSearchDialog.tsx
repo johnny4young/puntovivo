@@ -2,7 +2,9 @@ import { useDeferredValue, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
+import { useRegisterZone } from '@/features/modules/useRegisterZone';
 import { useDiscountSuggestions } from '@/features/sales/useDiscountSuggestions';
+import { useGenericAlternatives } from '@/features/sales/useGenericAlternatives';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { trpc } from '@/lib/trpc';
 import type { Category, ProductSearchItem, ProductSearchSelection, Provider } from '@/types';
@@ -30,8 +32,10 @@ interface ProductSearchDialogProps {
    * whether it is offered and mounts the follow-up form after this dialog closes.
    */
   onQuickCreateRequested?: (defaultName: string) => void;
-  /** opt-in expiry-discount badges for the POS consumer only. */
-  showDiscountSuggestions?: boolean;
+  /** POS only: expiry discounts, and for medicines the lot, class and cheaper generics. */
+  registerHints?: boolean;
+  /** Ticket price tier the generic savings are priced at. */
+  priceTier?: 1 | 2 | 3;
   /** Active POS site: results carry its stock and drive expiry suggestions. */
   siteId?: string | null;
   /** defense-in-depth role gate for the quick-create CTA. */
@@ -54,7 +58,8 @@ export function ProductSearchDialog({
   onQuickCreateRequested,
   canCreateProducts = true,
   stockTrackedOnly = false,
-  showDiscountSuggestions = false,
+  registerHints = false,
+  priceTier = 1,
   siteId = null,
   showUnitPicker = true,
 }: ProductSearchDialogProps) {
@@ -74,6 +79,7 @@ export function ProductSearchDialog({
   const deferredProviderId = useDeferredValue(providerId);
   const searchEnabled = isOpen && deferredQuery.length > 0;
 
+  const pharmacyHints = useRegisterZone('pharmacy-lot') && registerHints;
   const productsQuery = trpc.products.search.useQuery(
     {
       q: deferredQuery,
@@ -83,16 +89,32 @@ export function ProductSearchDialog({
       isActive: true,
       tracksStock: stockTrackedOnly ? true : undefined,
       siteId: siteId ?? undefined,
+      includeNextLot: pharmacyHints || undefined,
     },
     { enabled: searchEnabled }
   );
 
   const items = (productsQuery.data?.items ?? []) as ProductSearchItem[];
   // empty Map and no query unless the caller explicitly opts in.
-  const discountSuggestions = useDiscountSuggestions(showDiscountSuggestions && isOpen, siteId);
+  const discountSuggestions = useDiscountSuggestions(registerHints && isOpen, siteId);
   const selectedProduct = selection
     ? (items.find(product => product.id === selection.productId) ?? null)
     : null;
+  const generic = useGenericAlternatives({
+    product: pharmacyHints && isOpen ? selectedProduct : null,
+    siteId,
+    priceTier,
+    items,
+  });
+  // A pick from the panel may need its own search; select it once the results carry it.
+  const [pendingProductId, setPendingProductId] = useState<string | null>(null);
+  if (pendingProductId) {
+    const pending = items.find(product => product.id === pendingProductId);
+    if (pending) {
+      setPendingProductId(null);
+      setSelection(getInitialProductSelection(pending));
+    }
+  }
   const pickedUnit = showUnitPicker
     ? selectedProduct?.unitAssignments?.find(assignment => assignment.unitId === selection?.unitId)
     : undefined;
@@ -105,6 +127,7 @@ export function ProductSearchDialog({
     setCategoryId('');
     setProviderId('');
     setSelection(null);
+    setPendingProductId(null);
     onClose();
   };
 
@@ -181,6 +204,8 @@ export function ProductSearchDialog({
               query={deferredQuery}
               selectedProductId={selection?.productId}
               discountSuggestions={discountSuggestions}
+              pharmacyHints={pharmacyHints}
+              genericSavings={generic.inResults}
               canCreateProducts={canCreateProducts}
               quickCreateAvailable={Boolean(onQuickCreateRequested)}
               onQuickCreate={handleQuickCreate}
@@ -190,6 +215,12 @@ export function ProductSearchDialog({
               product={selectedProduct}
               unit={selectedUnit}
               showUnits={showUnitPicker}
+              alternatives={generic.elsewhere}
+              onChooseAlternative={alternative => {
+                // Alternatives here are never in the results: search for it, then select it.
+                setPendingProductId(alternative.productId);
+                setQuery(alternative.sku);
+              }}
               onUnitChange={unitId => {
                 if (selectedProduct) {
                   setSelection({ productId: selectedProduct.id, unitId });

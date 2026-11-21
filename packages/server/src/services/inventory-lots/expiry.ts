@@ -39,3 +39,27 @@ export function isLotExpiredAt(
   }
   return expiryTime <= nowTime;
 }
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Whole days until a lot expires, counted on the business date for date-only
+ * expiries and rounded up for timestamps. Null when it has no expiry, is
+ * already expired or is malformed.
+ */
+export function daysUntilLotExpiry(
+  expiresAt: string | null,
+  nowIso: string,
+  businessDate?: string
+): number | null {
+  if (!expiresAt || isLotExpiredAt(expiresAt, nowIso, businessDate)) return null;
+  const now = parseStrictIsoInstant(nowIso)!;
+  const expiry = parseStrictIsoInstant(expiresAt)!;
+  if (ISO_DATE_ONLY_PATTERN.test(expiresAt)) {
+    const currentDay = parseStrictIsoInstant(
+      businessDate ?? new Date(now).toISOString().slice(0, 10)
+    )!;
+    return Math.round((expiry - currentDay) / DAY_MS);
+  }
+  return Math.ceil((expiry - now) / DAY_MS);
+}
