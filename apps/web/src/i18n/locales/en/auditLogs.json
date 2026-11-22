@@ -235,7 +235,21 @@
     "transfer_destination.create": "Transfer destination added",
     "transfer_destination.update": "Transfer destination changed",
     "transfer_destination.delete": "Transfer destination removed",
-    "transfer_destination.reorder": "Transfer destinations reordered"
+    "transfer_destination.reorder": "Transfer destinations reordered",
+    "sequential.create": "Sequence created",
+    "sequential.adjust": "Sequence adjusted",
+    "sequential.delete": "Sequence deleted",
+    "product.create": "Product created",
+    "product.update": "Product changed",
+    "category.create": "Category created",
+    "category.update": "Category changed",
+    "category.delete": "Category deleted",
+    "unit.create": "Unit created",
+    "unit.update": "Unit changed",
+    "unit.delete": "Unit deleted",
+    "vat_rate.create": "Tax rate created",
+    "vat_rate.update": "Tax rate changed",
+    "vat_rate.delete": "Tax rate deleted"
   },
   "resourceTypes": {
     "transfer_order": "Transfer order",
@@ -306,7 +320,11 @@
     "restaurant_modifier_group": "Restaurant option group",
     "restaurant_service": "Table service",
     "fiscal_numbering_range": "DIAN numbering range",
-    "transfer_destination": "Transfer destination"
+    "transfer_destination": "Transfer destination",
+    "sequential": "Sequence",
+    "category": "Category",
+    "unit": "Unit",
+    "vat_rate": "Tax rate"
   },
   "summary": {
     "voidReason": "Reason: {{reason}}",
