@@ -55,7 +55,7 @@
     "active": "Activo",
     "inactive": "Inactivo",
     "match": "Coincidencia",
-    "margin": "Margen",
+    "margin": "Margen (30 días)",
     "marginTooltip": "Margen bruto realizado, últimos 30 días",
     "marginNoSales": "Sin ventas en los últimos 30 días",
     "marginUnavailable": "No se pudieron cargar los datos de margen. La gestión de productos sigue disponible.",
