@@ -20,7 +20,7 @@ vi.mock('@/lib/trpc', () => ({
     companion: { snapshot: { useQuery: snapshotUseQuery } },
     useUtils: () => ({
       companion: { snapshot: { invalidate: snapshotInvalidate, reset: snapshotReset } },
-      operations: { today: owner, dayCurve: owner },
+      operations: { today: owner, dayCurve: owner, morningRecap: owner },
       managerApprovals: { queue: owner },
       reports: {
         dayClose: {
@@ -271,7 +271,8 @@ describe('CompanionHome', () => {
     expect(snapshotUseQuery).not.toHaveBeenCalled();
 
     captureChannel().emit(invalidation('day_close'));
-    expect(owner.invalidate).toHaveBeenCalledTimes(4);
+    // Hoy, the day curve, the morning recap, the queue and the day close.
+    expect(owner.invalidate).toHaveBeenCalledTimes(5);
     expect(snapshotInvalidate).not.toHaveBeenCalled();
     await act(async () => undefined);
   });
@@ -329,9 +330,9 @@ describe('CompanionHome', () => {
     expect(screen.getByTestId('owner-stub')).toBeInTheDocument();
     owner.invalidate.mockClear();
 
-    // An approval during the gap refetches everything: Hoy, curve, queue and the day close.
+    // An approval during the gap refetches everything: Hoy, curve, recap, queue and the day close.
     channel.emit(invalidation('operations'));
-    expect(owner.invalidate).toHaveBeenCalledTimes(4);
+    expect(owner.invalidate).toHaveBeenCalledTimes(5);
     await act(async () => undefined);
     act(() => vi.advanceTimersByTime(10_000));
     owner.invalidate.mockClear();

@@ -136,6 +136,46 @@
     "openClose": "Open the close",
     "unavailable": "The signed day could not be loaded. Try again."
   },
+  "morning": {
+    "greeting": {
+      "morning": "Good morning",
+      "afternoon": "Good afternoon",
+      "evening": "Good evening"
+    },
+    "yesterdaySealed": "Yesterday, sealed",
+    "yesterdayUnsigned": "Yesterday, not sealed",
+    "fiscalAcceptedAll_one": "Since the close, the DIAN accepted the one that was missing.",
+    "fiscalAcceptedAll_other": "Since the close, the DIAN accepted the {{count}} that were missing.",
+    "fiscalAccepted_one": "Since the close, the DIAN accepted {{count}} invoice.",
+    "fiscalAccepted_other": "Since the close, the DIAN accepted {{count}} invoices.",
+    "fiscalInProgress_one": "{{count}} invoice is still in process with the DIAN.",
+    "fiscalInProgress_other": "{{count}} invoices are still in process with the DIAN.",
+    "fiscalRejected_one": "The DIAN rejected {{count}} invoice.",
+    "fiscalRejected_other": "The DIAN rejected {{count}} invoices.",
+    "backupOk": "Backup OK.",
+    "backupFailed": "The last backup failed.",
+    "backupLate": "The last backup is from {{date}}.",
+    "beforeOpening": "Before opening",
+    "opensIn": "opens in {{minutes}} min",
+    "opensAt": "opens at {{time}}",
+    "closeYesterday": "Seal yesterday",
+    "closeAction": "Close",
+    "openRegisters": "Open {{registers}}",
+    "float": {
+      "single": "Suggested float {{amount}}",
+      "each": "Suggested float {{amount}} each",
+      "total": "Suggested float {{amount}} in total"
+    },
+    "openAction": "Open",
+    "carried": "Suspended sale carried over from yesterday",
+    "viewAction": "View",
+    "nothingBeforeOpening": "Nothing to do before opening",
+    "expected": "Expected today",
+    "expectedLike": "like last {{weekday}}: {{amount}}",
+    "peaks_one": "peak: {{times}}",
+    "peaks_other": "peaks: {{times}}",
+    "unavailable": "Yesterday's recap could not be loaded. Try again."
+  },
   "more": {
     "title": "More",
     "openApp": "Open full Puntovivo"

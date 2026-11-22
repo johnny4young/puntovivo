@@ -19,6 +19,7 @@ vi.mock('@/lib/trpc', () => ({
       today: {
         useQuery: () => ({ data: todayData.current, isError: false, refetch: vi.fn() }),
       },
+      morningRecap: { useQuery: () => ({ data: undefined, isError: false }) },
     },
     managerApprovals: {
       queue: {

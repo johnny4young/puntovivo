@@ -126,6 +126,22 @@ export function getActiveTenantLocale(): ActiveTenantLocaleSnapshot | null {
 const currencyFormatterCache = new Map<string, Intl.NumberFormat>();
 const CURRENCY_FORMATTER_CACHE_CAP = 32;
 
+function cachedCurrencyFormatter(
+  cacheKey: string,
+  locale: string,
+  options: Intl.NumberFormatOptions
+): Intl.NumberFormat {
+  let formatter = currencyFormatterCache.get(cacheKey);
+  if (!formatter) {
+    if (currencyFormatterCache.size >= CURRENCY_FORMATTER_CACHE_CAP) {
+      currencyFormatterCache.clear();
+    }
+    formatter = new Intl.NumberFormat(locale, options);
+    currencyFormatterCache.set(cacheKey, formatter);
+  }
+  return formatter;
+}
+
 /** Evidence surfaces may pin precision without changing ordinary tenant/currency defaults. */
 export function formatCurrency(
   amount: number,
@@ -137,25 +153,29 @@ export function formatCurrency(
   const resolvedLocale = locale ?? activeTenantLocale?.locale ?? getActiveLocale();
   const displayDecimals =
     fractionDigits ?? (currency === undefined ? activeTenantLocale?.displayDecimals : undefined);
-  const cacheKey = `${resolvedLocale}|${resolvedCurrency}|${displayDecimals ?? ''}`;
-  let formatter = currencyFormatterCache.get(cacheKey);
-  if (!formatter) {
-    if (currencyFormatterCache.size >= CURRENCY_FORMATTER_CACHE_CAP) {
-      currencyFormatterCache.clear();
-    }
-    formatter = new Intl.NumberFormat(resolvedLocale, {
+  return cachedCurrencyFormatter(
+    `${resolvedLocale}|${resolvedCurrency}|${displayDecimals ?? ''}`,
+    resolvedLocale,
+    {
       style: 'currency',
       currency: resolvedCurrency,
       ...(displayDecimals !== undefined
-        ? {
-            minimumFractionDigits: displayDecimals,
-            maximumFractionDigits: displayDecimals,
-          }
+        ? { minimumFractionDigits: displayDecimals, maximumFractionDigits: displayDecimals }
         : {}),
-    });
-    currencyFormatterCache.set(cacheKey, formatter);
-  }
-  return formatter.format(amount);
+    }
+  ).format(amount);
+}
+
+/** A rounded figure for a glance, such as an expected day: $7,9 M. */
+export function formatCurrencyCompact(amount: number): string {
+  const currency = activeTenantLocale?.currency ?? 'USD';
+  const locale = activeTenantLocale?.locale ?? getActiveLocale();
+  return cachedCurrencyFormatter(`compact|${locale}|${currency}`, locale, {
+    style: 'currency',
+    currency,
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  }).format(amount);
 }
 
 const numberFormatterCache = new Map<string, Intl.NumberFormat>();

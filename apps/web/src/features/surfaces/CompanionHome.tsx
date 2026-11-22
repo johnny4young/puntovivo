@@ -64,6 +64,7 @@ export function CompanionHome() {
       if (scope === 'all') {
         reads.push(
           utils.operations.dayCurve.invalidate(undefined, undefined, strict),
+          utils.operations.morningRecap.invalidate(undefined, undefined, strict),
           utils.managerApprovals.queue.invalidate(undefined, undefined, strict),
           utils.reports.dayClose.invalidate(undefined, undefined, strict)
         );
@@ -76,6 +77,7 @@ export function CompanionHome() {
     if (owner) {
       void utils.operations.today.reset();
       void utils.operations.dayCurve.reset();
+      void utils.operations.morningRecap.reset();
       void utils.managerApprovals.queue.reset();
       void utils.reports.dayClose.signoff.reset();
       void utils.reports.dayClose.signoffMetadata.reset();

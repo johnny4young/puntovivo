@@ -17,8 +17,7 @@ function renderCurve(rows = hourly, now = 15.2) {
     <CompanionSalesCurve
       hourly={rows}
       dayStartIso={start}
-      generatedAt={at(now)}
-      formatTime={formatTime}
+      live={{ generatedAt: at(now), formatTime }}
       caption="84 ventas"
     />
   );
