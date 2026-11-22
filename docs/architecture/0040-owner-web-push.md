@@ -22,11 +22,14 @@ never wait on a phone to finish a sale, a handoff or a close.
   `app_settings` with the private half sealed (AES-256-GCM) under a key derived
   from the database key, which the desktop keeps in the OS keychain. Without a
   database key push is unavailable. A pair sealed under an earlier database key
-  is replaced and its subscriptions dropped; browsers subscribe again.
+  is replaced and its subscriptions dropped; people turn notifications on again.
 - `push_subscriptions` (additive migration 0107) holds one row per browser
   endpoint, owned by one user, with the browser's keys sealed and bound to the
   endpoint. It is installation-local and never synced. Re-subscribing an
-  endpoint moves it to the person who did it; each person keeps at most ten.
+  endpoint moves it to the person who did it only with the same browser keys;
+  each person keeps at most ten. Each row stores the owner's session version
+  at opt-in, so revoking their sessions silences every phone until they turn
+  notifications on again.
 - Opt-in per person from the Companion, for admins and managers with the
   Companion module on. Signing out of the Companion drops this phone first.
 - Three events: an approval request waits (people whose role can approve it),

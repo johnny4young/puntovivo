@@ -6,7 +6,7 @@
  *
  * @module db/schema/push
  */
-import { index, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 import { tenants, users } from './auth.js';
 import { nowIso, sqliteNow } from './base.js';
@@ -28,6 +28,8 @@ export const pushSubscriptions = sqliteTable(
     // p256dh and auth, sealed with the push wrapping key and bound to the endpoint.
     sealedKeys: text('sealed_keys').notNull(),
     language: text('language', { enum: PUSH_LANGUAGES }).notNull(),
+    // The owner's session version at opt-in: revoking their sessions silences the phone.
+    sessionVersion: integer('session_version').notNull(),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
     updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },

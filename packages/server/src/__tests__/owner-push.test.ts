@@ -7,7 +7,7 @@ import {
   verify,
   type ECDH,
 } from 'node:crypto';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createServer, type PuntovivoServer } from '../index.js';
@@ -463,6 +463,38 @@ describe('owner push', () => {
     expect(await db.select().from(pushSubscriptions)).toHaveLength(1);
   });
 
+  it("silences a phone once the owner's sessions are revoked, until they turn it on again", async () => {
+    const manager = await createUser('manager');
+    const phone = browser();
+    await manager.subscribe(phone);
+    await db
+      .update(users)
+      .set({ sessionVersion: sql`${users.sessionVersion} + 1` })
+      .where(eq(users.id, manager.id));
+    sent = [];
+    const handoff = {
+      id: 'handoff-revoked',
+      registerName: 'Caja 3',
+      fromCashierName: 'Laura',
+      toCashierName: 'Diego',
+      outgoingCount: 100,
+      receivedCount: 100,
+    };
+    await deliverOwnerPush(db, { kind: 'handoff_done', tenantId, actorId: 'x', handoff });
+    expect(sent).toHaveLength(0);
+    await expect(
+      manager.caller().ownerPush.status({ endpoint: phone.endpoint })
+    ).resolves.toMatchObject({
+      subscribed: false,
+    });
+
+    await manager.subscribe(phone);
+    expect(sentTo(phone).map(request => decrypt(request.body, phone).tag)).toEqual(['enabled']);
+    sent = [];
+    await deliverOwnerPush(db, { kind: 'handoff_done', tenantId, actorId: 'x', handoff });
+    expect(sentTo(phone)).toHaveLength(1);
+  });
+
   it('forgets a phone the push service reports gone', async () => {
     const manager = await createUser('manager');
     await manager.subscribe(browser());
@@ -491,6 +523,9 @@ describe('owner push', () => {
     configureWebPushKey('c'.repeat(64));
     const after = await manager.caller().ownerPush.status({ endpoint: null });
     expect(after.publicKey).not.toBe(before.publicKey);
+    expect(
+      await db.select().from(pushSubscriptions).where(eq(pushSubscriptions.userId, manager.id))
+    ).toHaveLength(0);
     sent = [];
     const result = await deliverOwnerPush(db, {
       kind: 'handoff_done',
@@ -505,8 +540,22 @@ describe('owner push', () => {
         receivedCount: null,
       },
     });
-    expect(result.removed).toBe(1);
+    expect(result.removed).toBe(0);
     expect(sent).toHaveLength(0);
+    await db.delete(appSettings).where(eq(appSettings.key, 'web_push_vapid'));
+  });
+
+  it('confirms the opt-in once, not on a language refresh of the same phone', async () => {
+    const manager = await createUser('manager');
+    const target = browser();
+    await manager.subscribe(target);
+    expect(sent).toHaveLength(1);
+    sent = [];
+    await manager.subscribe(target, 'en');
+    expect(sent).toHaveLength(0);
+    await expect(
+      manager.caller().ownerPush.status({ endpoint: target.endpoint })
+    ).resolves.toMatchObject({ subscribed: true, language: 'en' });
   });
 
   it('moves a re-subscribed phone to the new person, caps phones per person and unsubscribes', async () => {

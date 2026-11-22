@@ -21,6 +21,14 @@ export function CompanionPushCard() {
     supported ? Notification.permission : 'default'
   );
   const utils = trpc.useUtils();
+
+  // A permission changed in the browser's site settings applies when the person comes back.
+  useEffect(() => {
+    if (!supported) return;
+    const refresh = () => setPermission(Notification.permission);
+    document.addEventListener('visibilitychange', refresh);
+    return () => document.removeEventListener('visibilitychange', refresh);
+  }, [supported]);
   const language = pushLanguage(i18n.resolvedLanguage ?? i18n.language);
 
   useEffect(() => {
@@ -119,7 +127,6 @@ export function CompanionPushCard() {
           data-testid="companion-push-toggle"
         />
       </div>
-      <p className="text-xs text-secondary-500">{t('push.events')}</p>
       {blocked ? (
         <p
           className="flex items-start gap-1.5 pt-1 text-xs font-medium text-warning-900"

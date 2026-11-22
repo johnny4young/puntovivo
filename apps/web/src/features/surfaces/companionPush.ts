@@ -41,6 +41,8 @@ export async function subscribeBrowser(publicKey: string): Promise<{
   subscription: PushSubscription;
   payload: BrowserPushSubscription;
 }> {
+  // `serviceWorker.ready` never settles when no worker was registered.
+  if (!(await registerCompanionServiceWorker())) throw new Error('PUSH_WORKER_UNAVAILABLE');
   const registration = await navigator.serviceWorker.ready;
   const applicationServerKey = base64UrlToBytes(publicKey);
   let subscription = await registration.pushManager.getSubscription();
@@ -60,6 +62,8 @@ export async function subscribeBrowser(publicKey: string): Promise<{
   };
 }
 
+const DROP_PUSH_TIMEOUT_MS = 3_000;
+
 /** Stop pushes to this phone before signing out, so a shared phone stops receiving them. */
 export async function dropBrowserPush(
   unsubscribe: (endpoint: string) => Promise<unknown>
@@ -67,7 +71,10 @@ export async function dropBrowserPush(
   try {
     const subscription = await currentPushSubscription();
     if (!subscription) return;
-    await unsubscribe(subscription.endpoint).catch(() => undefined);
+    await Promise.race([
+      unsubscribe(subscription.endpoint).catch(() => undefined),
+      new Promise(resolve => setTimeout(resolve, DROP_PUSH_TIMEOUT_MS)),
+    ]);
     await subscription.unsubscribe();
   } catch {
     // Signing out never waits on push cleanup.

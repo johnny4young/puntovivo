@@ -5,6 +5,7 @@ CREATE TABLE `push_subscriptions` (
 	`endpoint` text NOT NULL,
 	`sealed_keys` text NOT NULL,
 	`language` text NOT NULL,
+	`session_version` integer NOT NULL,
 	`created_at` text DEFAULT (datetime('now')) NOT NULL,
 	`updated_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`tenant_id`) REFERENCES `tenants`(`id`) ON UPDATE no action ON DELETE no action,

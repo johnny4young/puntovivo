@@ -8,7 +8,7 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
-import { appSettings } from '../../db/schema.js';
+import { appSettings, pushSubscriptions } from '../../db/schema.js';
 import { generateVapidKeys, type PushSubscriptionKeys, type VapidKeys } from './web-push.js';
 
 const VAPID_SETTING_KEY = 'web_push_vapid';
@@ -74,8 +74,8 @@ function isStoredVapid(value: unknown): value is StoredVapid {
 
 /**
  * The installation's VAPID pair, created on first use. Null when no wrapping
- * key is configured. A pair sealed under a previous database key is replaced:
- * browsers subscribed to it re-subscribe on their next visit.
+ * key is configured. A pair sealed under a previous database key is replaced
+ * and its subscriptions dropped: those browsers must turn notifications on again.
  */
 export function getOrCreateVapidKeys(db: DatabaseInstance): VapidKeys | null {
   if (!wrappingKey) return null;
@@ -97,6 +97,13 @@ function readVapidKeys(db: DatabaseInstance): VapidKeys | null {
 }
 
 function createVapidKeys(db: DatabaseInstance): VapidKeys {
+  const replacing = db
+    .select({ key: appSettings.key })
+    .from(appSettings)
+    .where(eq(appSettings.key, VAPID_SETTING_KEY))
+    .get();
+  // Push services reject sends signed by another key, so old subscriptions are dead.
+  if (replacing) db.delete(pushSubscriptions).run();
   const created = generateVapidKeys();
   const value: StoredVapid = {
     publicKey: created.publicKey,

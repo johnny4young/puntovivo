@@ -6,7 +6,7 @@
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
-import { pushSubscriptions, type PushLanguage } from '../../db/schema.js';
+import { pushSubscriptions, users, type PushLanguage } from '../../db/schema.js';
 import { openSubscriptionKeys, sealSubscriptionKeys } from './key-store.js';
 import type { PushSubscriptionKeys } from './web-push.js';
 
@@ -24,17 +24,28 @@ export interface SavePushSubscriptionInput {
  * Insert or refresh the endpoint's row. A browser re-subscribed by another
  * person on the same phone moves to that person, but only with the same keys:
  * knowing an endpoint URL is not proof of holding that browser. The oldest
- * rows beyond the per-user cap are dropped.
+ * rows beyond the per-user cap are dropped. True when the endpoint is new to
+ * this person; a refresh of their own row (a language change) returns false.
  */
-export function savePushSubscription(db: DatabaseInstance, input: SavePushSubscriptionInput): void {
+export function savePushSubscription(
+  db: DatabaseInstance,
+  input: SavePushSubscriptionInput
+): boolean {
   const now = new Date().toISOString();
   const sealedKeys = sealSubscriptionKeys(input.endpoint, input.keys);
-  db.transaction(tx => {
+  return db.transaction(tx => {
+    const owner = tx
+      .select({ sessionVersion: users.sessionVersion })
+      .from(users)
+      .where(and(eq(users.id, input.userId), eq(users.tenantId, input.tenantId)))
+      .get();
+    if (!owner) throw new Error('PUSH_OWNER_NOT_FOUND');
     const existing = tx
       .select({
         tenantId: pushSubscriptions.tenantId,
         userId: pushSubscriptions.userId,
         sealedKeys: pushSubscriptions.sealedKeys,
+        sessionVersion: pushSubscriptions.sessionVersion,
       })
       .from(pushSubscriptions)
       .where(eq(pushSubscriptions.endpoint, input.endpoint))
@@ -54,6 +65,7 @@ export function savePushSubscription(db: DatabaseInstance, input: SavePushSubscr
         endpoint: input.endpoint,
         sealedKeys,
         language: input.language,
+        sessionVersion: owner.sessionVersion,
         createdAt: now,
         updatedAt: now,
       })
@@ -64,6 +76,7 @@ export function savePushSubscription(db: DatabaseInstance, input: SavePushSubscr
           userId: input.userId,
           sealedKeys,
           language: input.language,
+          sessionVersion: owner.sessionVersion,
           updatedAt: now,
         },
       })
@@ -91,6 +104,12 @@ export function savePushSubscription(db: DatabaseInstance, input: SavePushSubscr
         )
         .run();
     }
+    return (
+      !existing ||
+      existing.tenantId !== input.tenantId ||
+      existing.userId !== input.userId ||
+      existing.sessionVersion !== owner.sessionVersion
+    );
   });
 }
 
@@ -103,6 +122,12 @@ function sameKeys(endpoint: string, sealed: string, keys: PushSubscriptionKeys):
     return true;
   }
 }
+
+/** Rows subscribed before the owner's sessions were last revoked stay silent. */
+export const liveSession = and(
+  eq(users.id, pushSubscriptions.userId),
+  eq(users.sessionVersion, pushSubscriptions.sessionVersion)
+);
 
 interface OwnedEndpoint {
   tenantId: string;
@@ -130,6 +155,7 @@ export function findPushSubscriptionLanguage(
     db
       .select({ language: pushSubscriptions.language })
       .from(pushSubscriptions)
+      .innerJoin(users, liveSession)
       .where(ownedEndpoint(input))
       .get()?.language ?? null
   );

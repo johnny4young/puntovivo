@@ -139,6 +139,19 @@ describe('CompanionPushCard', () => {
     expect(mocks.subscribe).not.toHaveBeenCalled();
   });
 
+  it('re-reads the permission when the person returns from site settings', async () => {
+    Object.assign(Notification, { permission: 'denied' });
+    await renderCard();
+    expect(screen.getByTestId('companion-push-toggle')).toBeDisabled();
+
+    Object.assign(Notification, { permission: 'granted' });
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    expect(screen.queryByTestId('companion-push-blocked')).toBeNull();
+    expect(screen.getByTestId('companion-push-toggle')).not.toBeDisabled();
+  });
+
   it('drops the browser subscription when the server refuses it', async () => {
     mocks.subscribe.mockRejectedValue(new Error('offline'));
     await renderCard();

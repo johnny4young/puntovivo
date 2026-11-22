@@ -22,13 +22,15 @@ nunca debe esperar a un teléfono para cerrar una venta, un relevo o el día.
   `app_settings` con la mitad privada sellada (AES-256-GCM) con una llave
   derivada de la llave de la base de datos, que el escritorio guarda en el
   llavero del sistema. Sin llave de base de datos no hay avisos. Un par sellado
-  con una llave anterior se reemplaza y sus suscripciones se descartan; los
-  navegadores se suscriben de nuevo.
+  con una llave anterior se reemplaza y sus suscripciones se descartan; cada
+  persona vuelve a activar los avisos.
 - `push_subscriptions` (migración aditiva 0107) guarda una fila por endpoint
   del navegador, de una sola persona, con las llaves del navegador selladas y
   atadas al endpoint. Es local de la instalación y nunca se sincroniza. Volver
-  a suscribir un endpoint lo pasa a quien lo hizo; cada persona tiene diez
-  como máximo.
+  a suscribir un endpoint lo pasa a quien lo hizo solo con las mismas llaves
+  del navegador; cada persona tiene diez como máximo. Cada fila guarda la
+  versión de sesión del dueño al activar, así revocar sus sesiones silencia
+  todos sus teléfonos hasta que vuelva a activar los avisos.
 - Se activa por persona desde el Companion, para administradores y gerentes con
   el módulo Companion encendido. Cerrar sesión en el Companion quita primero
   este teléfono.

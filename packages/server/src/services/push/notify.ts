@@ -27,6 +27,7 @@ import { canRoleApproveAction } from '../manager-approvals.js';
 import { isModuleActiveForTenant } from '../../trpc/middleware/modules.js';
 import { getDayCloseSignoff } from '../reports/day-close-signoff.js';
 import { resolveTenantLocale } from '../tenant-locale.js';
+import { liveSession } from './subscriptions.js';
 import { getOrCreateVapidKeys, hasWebPushKey, openSubscriptionKeys } from './key-store.js';
 import { renderOwnerPush, type OwnerPushMessage, type PushFormat } from './messages.js';
 import { encryptPushPayload, vapidAuthorization } from './web-push.js';
@@ -197,7 +198,7 @@ function loadSubscriptions(db: DatabaseInstance, event: OwnerPushEvent, prepared
       role: users.role,
     })
     .from(pushSubscriptions)
-    .innerJoin(users, eq(users.id, pushSubscriptions.userId))
+    .innerJoin(users, liveSession)
     .where(and(...conditions))
     .all()
     .filter(row => prepared.recipients(row.role));
@@ -294,7 +295,8 @@ export async function deliverOwnerPush(
   );
 
   if (gone.length > 0) {
-    db.delete(pushSubscriptions)
+    result.removed = db
+      .delete(pushSubscriptions)
       .where(
         and(
           eq(pushSubscriptions.tenantId, event.tenantId),
@@ -303,8 +305,7 @@ export async function deliverOwnerPush(
           lte(pushSubscriptions.updatedAt, startedAt)
         )
       )
-      .run();
-    result.removed = gone.length;
+      .run().changes;
   }
   return result;
 }

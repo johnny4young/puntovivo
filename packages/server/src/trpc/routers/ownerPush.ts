@@ -53,8 +53,9 @@ export const ownerPushRouter = router({
       } catch {
         throw new TRPCError({ code: 'BAD_REQUEST', message: 'Invalid push endpoint' });
       }
+      let added: boolean;
       try {
-        savePushSubscription(ctx.db, {
+        added = savePushSubscription(ctx.db, {
           tenantId: ctx.tenantId,
           userId: ctx.user!.id,
           endpoint: input.endpoint,
@@ -70,12 +71,14 @@ export const ownerPushRouter = router({
         }
         throw error;
       }
-      dispatchOwnerPush(ctx.db, {
-        kind: 'enabled',
-        tenantId: ctx.tenantId,
-        userId: ctx.user!.id,
-        endpoint: input.endpoint,
-      });
+      if (added) {
+        dispatchOwnerPush(ctx.db, {
+          kind: 'enabled',
+          tenantId: ctx.tenantId,
+          userId: ctx.user!.id,
+          endpoint: input.endpoint,
+        });
+      }
       return { subscribed: true };
     }),
 
