@@ -93,6 +93,13 @@ export const INVENTORY_RESERVATION_INVALIDATIONS: ReadonlyArray<InvalidationPick
   ...SERIAL_INVENTORY_INVALIDATIONS,
 ];
 
+/** Every read that shows a table's open checks, service or floor state. */
+export const RESTAURANT_TABLE_INVALIDATIONS: ReadonlyArray<InvalidationPicker> = [
+  u => u.restaurantTables.listWithDraftStatus,
+  u => u.restaurantTables.listSummary,
+  u => u.restaurantServices.getTableState,
+];
+
 /**
  * The canonical "a sale was completed" invalidation set, shared by every
  * surface that finishes a sale (desktop SalesPage epilogue and the touch
@@ -118,8 +125,7 @@ export const SALE_COMPLETION_INVALIDATIONS: ReadonlyArray<InvalidationPicker> = 
   u => u.sales.summary,
   // Completing a normalized restaurant draft settles its check and may close
   // the table service in the same transaction.
-  u => u.restaurantTables.listWithDraftStatus,
-  u => u.restaurantServices.getTableState,
+  ...RESTAURANT_TABLE_INVALIDATIONS,
   // A fresh restaurant sale can consume the arrived reservation in this writer.
   u => u.reservations.list,
   ...INVENTORY_RESERVATION_INVALIDATIONS,

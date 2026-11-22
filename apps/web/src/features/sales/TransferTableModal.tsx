@@ -25,7 +25,7 @@ import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useTenant } from '@/features/tenant/TenantProvider';
-import { invalidateCommittedGroups } from '@/lib/invalidateGroups';
+import { invalidateCommittedGroups, RESTAURANT_TABLE_INVALIDATIONS } from '@/lib/invalidateGroups';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
@@ -85,8 +85,7 @@ export function TransferTableModal({ draft, onClose }: TransferTableModalProps) 
       onClose();
       const refreshed = await invalidateCommittedGroups(utils, [
         u => u.sales.listDrafts,
-        u => u.restaurantTables.listWithDraftStatus,
-        u => u.restaurantServices.getTableState,
+        ...RESTAURANT_TABLE_INVALIDATIONS,
       ]);
       if (refreshed) {
         toast.success({ title: successTitle });

@@ -8,6 +8,7 @@
     "RESTAURANT_SERVICE_TABLE_REQUIRED": "Las cuentas del restaurante deben permanecer vinculadas a una mesa física.",
     "RESTAURANT_SERVICE_LIMIT_REACHED": "Este servicio alcanzó el límite seguro de órdenes abiertas. Cobre o cancele las cuentas existentes antes de agregar más productos.",
     "RESTAURANT_SERVICE_PARTY_REASSIGNMENT_REQUIRED": "Esta acción dividiría o mezclaría comensales entre servicios. Mantenga la cuenta dividida en su mesa actual o mueva un servicio sin cuentas compartidas a una mesa vacía.",
+    "RESTAURANT_SERVICE_NOT_OPEN": "Esta mesa no tiene pedidos abiertos. Abra un pedido antes de marcarla.",
     "RESTAURANT_MODIFIER_UNAVAILABLE": "Este adicional ya no está disponible en esta sede. Elimínelo o seleccione una opción disponible.",
     "RESTAURANT_MODIFIER_APPROVAL_REQUIRED": "Elija un adicional aprobado o pida a un gerente que registre este pedido.",
     "RESTAURANT_MODIFIER_CHANGED": "Este adicional cambió. Elimínelo y selecciónelo de nuevo para revisar el precio actual antes de guardar.",
@@ -25,20 +26,32 @@
     "subheading": "Capture la orden por voz o búsqueda manual."
   },
   "floorMap": {
-    "kicker": "Salón",
-    "title": "Mapa del salón",
-    "count_one": "{{count}} mesa",
-    "count_other": "{{count}} mesas",
     "noAreaLabel": "Sin zona",
+    "areaCount_one": "{{area}} · {{count}} mesa",
+    "areaCount_other": "{{area}} · {{count}} mesas",
     "seatCount_one": "Cupo · {{count}} pers.",
     "seatCount_other": "Cupo · {{count}} pers.",
     "seatCountUnknown": "Cupo sin definir",
+    "party_one": "{{count}} pers.",
+    "party_other": "{{count}} pers.",
+    "elapsedMinutes_one": "{{count}} min",
+    "elapsedMinutes_other": "{{count}} min",
+    "elapsedHours": "{{hours}} h {{minutes}}",
+    "checks_one": "{{count}} cuenta",
+    "checks_other": "{{count}} cuentas",
+    "roundReady": "ronda lista para enviar",
     "status": {
       "free": "Libre",
-      "occupied_one": "{{count}} cuenta abierta",
-      "occupied_other": "{{count}} cuentas abiertas",
-      "reserved": "Reservada · {{time}}"
-    }
+      "billRequested": "Pidió la cuenta",
+      "reserved": "Reservada"
+    },
+    "legendLabel": "Estados de mesa",
+    "legend": {
+      "occupied": "Ocupada",
+      "billRequested": "Pidió la cuenta",
+      "reserved": "Reservada"
+    },
+    "occupancy": "{{occupied}} de {{total}} ocupadas"
   },
   "tableLabel": {
     "label": "Mesa",
@@ -367,5 +380,9 @@
     "empty": "Aún no hay platos en esta categoría.",
     "pages": "Páginas de platos",
     "page": "Página {{page}} de {{pages}}"
+  },
+  "billRequest": {
+    "label": "Pidió la cuenta",
+    "error": "No se pudo actualizar la solicitud de la cuenta"
   }
 }

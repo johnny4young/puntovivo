@@ -11,7 +11,6 @@ import {
   restaurantCheckLines,
   restaurantChecks,
   restaurantModifierCatalog,
-  restaurantServices,
   restaurantTables,
   sales,
   sites,
@@ -83,16 +82,11 @@ describe('restaurant catalog historical upgrade', () => {
             'INSERT INTO sale_items(id, sale_id, product_id, quantity, unit_price, restaurant_modifier_amount) VALUES (?, ?, ?, ?, ?, ?)'
           )
           .run('item', 'sale', 'plate', 1, 13, 3);
-        old
-          .insert(restaurantServices)
-          .values({
-            id: 'service',
-            tenantId,
-            siteId: site.id,
-            tableId: 'table',
-            openedBy: owner.id,
-          })
-          .run();
+        oldSqlite
+          .prepare(
+            'INSERT INTO restaurant_services(id, tenant_id, site_id, table_id, opened_by) VALUES (?, ?, ?, ?, ?)'
+          )
+          .run('service', tenantId, site.id, 'table', owner.id);
         old
           .insert(restaurantChecks)
           .values({

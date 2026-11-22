@@ -224,6 +224,8 @@
     "installation.owner_created": "Installation owner created",
     "restaurant_modifier.save": "Restaurant add-on saved",
     "restaurant_modifier_group.save": "Restaurant option group saved",
+    "restaurant_service.bill_requested": "Table asked for the bill",
+    "restaurant_service.bill_request_cleared": "Bill request cleared",
     "fiscal_numbering.create": "DIAN numbering range registered",
     "fiscal_numbering.activate": "DIAN numbering range activated",
     "fiscal_numbering.retire": "DIAN numbering range retired",
@@ -301,6 +303,7 @@
     "attendance_reconciliation": "Attendance reconciliation",
     "restaurant_modifier": "Restaurant add-on",
     "restaurant_modifier_group": "Restaurant option group",
+    "restaurant_service": "Table service",
     "fiscal_numbering_range": "DIAN numbering range",
     "transfer_destination": "Transfer destination"
   },

@@ -747,6 +747,31 @@ describe('restaurantTables.listWithDraftStatus', () => {
   });
 });
 
+describe('restaurant floor summary and markers across tenants', () => {
+  it('never reads or marks another tenant table', async () => {
+    const owner = await seedHarness('floor-owner');
+    const other = await seedHarness('floor-other');
+    const table = await appRouter
+      .createCaller(buildCtx(owner.tenantId, owner.adminId, 'admin'))
+      .restaurantTables.create({ siteId: owner.siteId, name: 'Mesa ajena' });
+    const foreign = appRouter.createCaller(buildCtx(other.tenantId, other.cashierId, 'cashier'));
+
+    await expect(
+      foreign.restaurantTables.listSummary({ siteId: owner.siteId })
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await expect(
+      foreign.restaurantServices.setBillRequested({ tableId: table.id, requested: true })
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await expect(
+      foreign.restaurantServices.setPendingRound({ tableId: table.id, itemCount: 1 })
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    const own = await appRouter
+      .createCaller(buildCtx(owner.tenantId, owner.cashierId, 'cashier'))
+      .restaurantTables.listSummary({ siteId: owner.siteId });
+    expect(own.items.map(item => [item.id, item.state])).toEqual([[table.id, 'free']]);
+  });
+});
+
 describe('restaurantTables.archive', () => {
   it('archive flips isActive to false; second archive is idempotent (no second audit row)', async () => {
     const h = await seedHarness('archive-idem');

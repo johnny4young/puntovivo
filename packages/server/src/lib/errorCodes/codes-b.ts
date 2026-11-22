@@ -325,6 +325,8 @@ export const SERVER_ERROR_CODES_B = {
   RESTAURANT_SERVICE_LIMIT_REACHED: 'RESTAURANT_SERVICE_LIMIT_REACHED',
   /** Moving/splitting would invent a cross-table diner allocation. */
   RESTAURANT_SERVICE_PARTY_REASSIGNMENT_REQUIRED: 'RESTAURANT_SERVICE_PARTY_REASSIGNMENT_REQUIRED',
+  /** A table marker needs an open service, and the table has none. */
+  RESTAURANT_SERVICE_NOT_OPEN: 'RESTAURANT_SERVICE_NOT_OPEN',
 
   // --- kitchen display () ---
   /**

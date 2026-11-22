@@ -126,5 +126,20 @@ export const getRestaurantTableStateInput = z
   })
   .strict();
 
+export const setRestaurantBillRequestedInput = z
+  .object({
+    tableId: z.string().min(1),
+    requested: z.boolean(),
+  })
+  .strict();
+
+/** Plates waiting on an ordering device; zero clears the caller's own marker. */
+export const setRestaurantPendingRoundInput = z
+  .object({
+    tableId: z.string().min(1),
+    itemCount: z.number().int().min(0).max(1000),
+  })
+  .strict();
+
 /** Fully validated payload for atomically opening a sale-backed restaurant check. */
 export type OpenRestaurantCheckProcedureInput = z.infer<typeof openRestaurantCheckInput>;

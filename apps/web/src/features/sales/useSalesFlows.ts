@@ -6,6 +6,7 @@ import { trpc } from '@/lib/trpc';
 import {
   invalidateCommittedGroups,
   INVENTORY_RESERVATION_INVALIDATIONS,
+  RESTAURANT_TABLE_INVALIDATIONS,
 } from '@/lib/invalidateGroups';
 import { translateServerError } from '@/lib/translateServerError';
 import { normalizeRestaurantGuestCount } from '@/features/restaurants/restaurantDraft';
@@ -400,8 +401,7 @@ export function useSalesFlows({
         u => u.sales.list,
         u => u.sales.listDrafts,
         u => u.sales.summary,
-        u => u.restaurantTables.listWithDraftStatus,
-        u => u.restaurantServices.getTableState,
+        ...RESTAURANT_TABLE_INVALIDATIONS,
         u => u.reservations.list,
         ...INVENTORY_RESERVATION_INVALIDATIONS,
       ]);
@@ -479,8 +479,7 @@ export function useSalesFlows({
         });
         const refreshed = await invalidateCommittedGroups(utils, [
           u => u.sales.listDrafts,
-          u => u.restaurantTables.listWithDraftStatus,
-          u => u.restaurantServices.getTableState,
+          ...RESTAURANT_TABLE_INVALIDATIONS,
         ]);
         toast.error({
           title: t('park.toastErrorTitle'),
@@ -552,8 +551,7 @@ export function useSalesFlows({
       setIsSuspendedPanelOpen(false);
       const refreshed = await invalidateCommittedGroups(utils, [
         u => u.sales.listDrafts,
-        u => u.restaurantTables.listWithDraftStatus,
-        u => u.restaurantServices.getTableState,
+        ...RESTAURANT_TABLE_INVALIDATIONS,
       ]);
       if (refreshed) {
         toast.success({ title: t('park.toastResumeTitle') });

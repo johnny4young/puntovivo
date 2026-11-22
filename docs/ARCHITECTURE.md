@@ -367,7 +367,8 @@ returns every open check. Voice Ordering and the traditional POS require that
 authoritative state before opening another check and fail closed while it is
 unavailable. Table-catalog search is a literal server-side filter applied
 before stable pagination; the administrative floor map reads the separate,
-bounded complete active catalog. Creation or reactivation beyond 500 active
+bounded floor summary (state, seated time, amount, party, checks, unsent round,
+bill request and today's next reservation) for the complete active catalog. Creation or reactivation beyond 500 active
 tables per site is rejected rather than truncating an operational view. Legacy
 create-then-suspend clients and migration `0058` normalize
 only facts that can be proven from table-backed rows still in draft state,

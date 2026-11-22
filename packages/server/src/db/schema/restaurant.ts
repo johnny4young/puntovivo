@@ -55,6 +55,15 @@ export const restaurantModifierGroupSelectionEnum = ['single', 'multiple'] as co
 export type RestaurantModifierGroupSelection =
   (typeof restaurantModifierGroupSelectionEnum)[number];
 
+/**
+ * Each waiter's unsent plates on a visit. `seenAt` is refreshed by every report
+ * so readers can drop entries from a device that stopped reporting.
+ */
+export type RestaurantPendingRounds = Record<
+  string,
+  { items: number; since: string; seenAt: string }
+>;
+
 /** One contiguous visit at a physical table. */
 export const restaurantServices = sqliteTable(
   'restaurant_services',
@@ -78,6 +87,12 @@ export const restaurantServices = sqliteTable(
     openedAt: text('opened_at').notNull().default(sqliteNow).$defaultFn(nowIso),
     closedBy: text('closed_by').references(() => users.id),
     closedAt: text('closed_at'),
+    // Staff-set markers. Plain user ids without FKs keep the columns additive
+    // (an FK would make drizzle-kit rebuild this table).
+    billRequestedAt: text('bill_requested_at'),
+    billRequestedBy: text('bill_requested_by'),
+    /** Unsent plates per waiter, keyed by user id; see RestaurantPendingRounds. */
+    pendingRounds: text('pending_rounds', { mode: 'json' }).$type<RestaurantPendingRounds>(),
     version: integer('version').notNull().default(1),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
     updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
