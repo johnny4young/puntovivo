@@ -48,4 +48,19 @@ describe('locale copy', () => {
     }
     expect(leaks).toEqual([]);
   });
+
+  it('keeps Spanish copy in the usted register, never tú or voseo', () => {
+    const TU_OR_VOSEO = /\b(tienes|puedes|quieres|necesitas|tus?|tenés|podés|querés|vos)\b|, usa /i;
+    const hits: string[] = [];
+    for (const [file, tree] of Object.entries(localeFiles)) {
+      const match = file.match(/\.\/locales\/es\/([^/]+)\.json$/);
+      if (!match) continue;
+      const leaves: [string, string][] = [];
+      collect(tree, '', leaves);
+      for (const [path, value] of leaves) {
+        if (TU_OR_VOSEO.test(value)) hits.push(`${match[1]}:${path} → ${value}`);
+      }
+    }
+    expect(hits).toEqual([]);
+  });
 });
