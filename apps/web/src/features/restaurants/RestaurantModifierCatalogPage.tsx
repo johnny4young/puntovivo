@@ -85,7 +85,7 @@ function CatalogSite({ siteId, siteName }: { siteId: string; siteName: string })
               id={`modifier-catalog-tab-${key}`}
               role="tab"
               aria-selected={view === key}
-              aria-controls={`modifier-catalog-panel-${key}`}
+              aria-controls={view === key ? `modifier-catalog-panel-${key}` : undefined}
               className={`segmented-tab ${view === key ? 'segmented-tab-active' : ''}`}
               onClick={() => setView(key)}
             >

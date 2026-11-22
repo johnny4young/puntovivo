@@ -190,8 +190,11 @@ hardware certification; the durable preparation contract is owned separately.
 - Managers group catalog options per site: a group has a kind (preparation,
   without, extras), one or several selections, a minimum and a maximum, up to
   20 ordered options and the dishes that show it (at most 8 groups per dish,
-  100 active per site). Dishes read their active groups in that kind order.
-  A line option may name its group. Every order checks that the option belongs
+  100 active per site, and a dish's minimums fit in one 20-modifier line;
+  variant parents are refused because sales reference the variant). Dishes
+  read their active groups in that kind order. A line option may name its
+  group; one sent without it counts against the dish's only group that lists
+  it. Preparations and removals are chosen once. Every order checks that the option belongs
   to an active group of that dish and that no group exceeds its maximum; a line
   that sends the groups it showed, with their versions, must also meet each
   minimum and fails as changed when a group moved on. Paths that never show

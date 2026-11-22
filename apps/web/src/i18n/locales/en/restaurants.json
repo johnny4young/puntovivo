@@ -14,7 +14,7 @@
     "RESTAURANT_MODIFIER_LIMIT_REACHED": "This site has reached 500 active add-ons. Archive an unused option first.",
     "RESTAURANT_MODIFIER_NAME_DUPLICATE": "An active add-on already uses that name. Choose another name.",
     "RESTAURANT_MODIFIER_GROUP_INVALID": "The minimum needs at least that many available options. Add options or lower the minimum.",
-    "RESTAURANT_MODIFIER_GROUP_LIMIT_REACHED": "The group limit was reached: 100 active groups per site and 8 groups per dish. Archive a group you no longer use.",
+    "RESTAURANT_MODIFIER_GROUP_LIMIT_REACHED": "The group limit was reached: 100 active groups per site, 8 groups per dish and 20 required choices per dish. Archive a group or lower a minimum.",
     "RESTAURANT_MODIFIER_GROUP_NAME_DUPLICATE": "An active group already uses that name. Choose another name.",
     "RESTAURANT_MODIFIER_GROUP_SELECTION_INVALID": "The options chosen for this dish do not meet its group rules. Review the required choices.",
     "RESTAURANT_MODIFIER_GROUP_PRODUCT_UNAVAILABLE": "A dish in this group is no longer available. Remove it and save again."

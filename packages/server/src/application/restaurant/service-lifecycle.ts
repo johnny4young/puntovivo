@@ -565,7 +565,7 @@ export function openRestaurantCheckInTransaction(
   const table = assertActiveTable(tx, context, args.input.tableId);
   assertRestaurantModifierAuthority(tx, context, args.input.lines);
   const productBySaleItem = new Map(modifierSnapshots.map(item => [item.id, item.productId]));
-  const groupKinds = assertRestaurantModifierGroups(
+  const modifierGroups = assertRestaurantModifierGroups(
     tx,
     context,
     args.input.lines.map(line => ({
@@ -770,7 +770,7 @@ export function openRestaurantCheckInTransaction(
     })
     .run();
 
-  for (const line of args.input.lines) {
+  for (const [lineIndex, line] of args.input.lines.entries()) {
     const saleItemId = args.saleItemIds[line.itemIndex];
     if (!saleItemId) {
       throwServerError({
@@ -808,8 +808,8 @@ export function openRestaurantCheckInTransaction(
           checkLineId,
           catalogId: modifier.catalogId ?? null,
           catalogVersion: modifier.catalogVersion ?? null,
-          groupId: modifier.groupId ?? null,
-          groupKind: modifier.groupId ? (groupKinds.get(modifier.groupId) ?? null) : null,
+          groupId: modifierGroups[lineIndex]?.[position]?.id ?? null,
+          groupKind: modifierGroups[lineIndex]?.[position]?.kind ?? null,
           name: modifier.name.trim(),
           quantity: modifier.quantity,
           unitPriceDelta: roundMoney(modifier.unitPriceDelta),

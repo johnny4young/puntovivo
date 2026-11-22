@@ -6,6 +6,7 @@ import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase, type DatabaseInstance } from '../db/index.js';
 import {
   auditLogs,
+  companies,
   cashSessions,
   inventoryBalances,
   products,
@@ -404,6 +405,142 @@ describe('restaurant modifier groups', () => {
       ])
     );
     expect(sale.id).toBeTruthy();
+  });
+
+  it('counts an option sent without its group and keeps a removal a removal', async () => {
+    const [medio, tres, chicharron] = await Promise.all([
+      option('Medio'),
+      option('Tres cuartos'),
+      option('Chicharrón'),
+    ]);
+    const plate = dish();
+    await saveGroup(groupInput({ catalogIds: [medio.id, tres.id], productIds: [plate] }));
+    const without = await saveGroup(
+      groupInput({
+        kind: 'without',
+        selection: 'multiple',
+        minSelections: 0,
+        maxSelections: 1,
+        catalogIds: [chicharron.id],
+        productIds: [plate],
+      })
+    );
+    const caller = () => appRouter.createCaller(cashier()).restaurantServices;
+    await expect(caller().openCheck(orderInput(plate, [pick(medio), pick(tres)]))).rejects.toThrow(
+      /do not meet the group rule/
+    );
+    await expect(
+      caller().openCheck(orderInput(plate, [pick(chicharron, undefined, 2)]))
+    ).rejects.toThrow(/Choose one option once/);
+    await caller().openCheck(orderInput(plate, [pick(chicharron)]));
+    expect(
+      db
+        .select({
+          groupId: restaurantLineModifiers.groupId,
+          groupKind: restaurantLineModifiers.groupKind,
+        })
+        .from(restaurantLineModifiers)
+        .where(eq(restaurantLineModifiers.name, chicharron.name))
+        .all()
+    ).toEqual([{ groupId: without.id, groupKind: 'without' }]);
+  });
+
+  it('keeps a dish orderable in one line and refuses variant parents', async () => {
+    const options = [];
+    for (let index = 0; index < 12; index += 1) options.push(await option(`Opt ${index}`));
+    const ids = options.map(row => row.id);
+    const plate = dish();
+    await saveGroup(
+      groupInput({
+        selection: 'multiple',
+        minSelections: 12,
+        maxSelections: 12,
+        catalogIds: ids,
+        productIds: [plate],
+      })
+    );
+    await expect(
+      saveGroup(
+        groupInput({
+          selection: 'multiple',
+          minSelections: 9,
+          maxSelections: 9,
+          catalogIds: ids,
+          productIds: [plate],
+        })
+      )
+    ).rejects.toThrow(/required choices/);
+    const parent = dish();
+    db.update(products).set({ catalogType: 'variant_parent' }).where(eq(products.id, parent)).run();
+    await expect(
+      saveGroup(groupInput({ catalogIds: [ids[0]!], productIds: [parent] }))
+    ).rejects.toThrow(/dish is unavailable/);
+  });
+
+  it('never reads or uses groups across sites or tenants', async () => {
+    const site = db.select().from(sites).where(eq(sites.id, siteId)).get()!;
+    const otherSite = nanoid();
+    db.insert(sites)
+      .values({ ...site, id: otherSite, name: 'Second site' })
+      .run();
+    const remote = await appRouter.createCaller(admin()).restaurantModifiers.save({
+      siteId: otherSite,
+      expectedVersion: 0,
+      name: `Remote ${nanoid(6)}`,
+      unitPriceDelta: 0,
+      maxQuantity: 1,
+      requiresManager: false,
+      isActive: true,
+    });
+    const local = await option('Local');
+    await expect(saveGroup(groupInput({ catalogIds: [remote.id] }))).rejects.toThrow(/unavailable/);
+    const plate = dish();
+    const remoteGroup = await saveGroup(
+      groupInput({ siteId: otherSite, catalogIds: [remote.id], productIds: [plate] })
+    );
+    expect(
+      await appRouter
+        .createCaller(cashier())
+        .restaurantModifiers.productGroups({ siteId, productId: plate })
+    ).toEqual([]);
+    await expect(
+      saveGroup(
+        groupInput({
+          id: remoteGroup.id,
+          expectedVersion: remoteGroup.version,
+          catalogIds: [local.id],
+        })
+      )
+    ).rejects.toThrow(/unavailable/);
+    await expect(
+      appRouter
+        .createCaller(cashier())
+        .restaurantServices.openCheck(orderInput(plate, [pick(local, remoteGroup.id)]))
+    ).rejects.toThrow(/configuration changed/);
+
+    const foreignTenant = nanoid(),
+      foreignCompany = nanoid(),
+      foreignSite = nanoid();
+    db.insert(tenants).values({ id: foreignTenant, name: 'Foreign', slug: foreignTenant }).run();
+    db.insert(companies)
+      .values({ id: foreignCompany, tenantId: foreignTenant, name: 'Foreign company' })
+      .run();
+    db.insert(sites)
+      .values({
+        id: foreignSite,
+        tenantId: foreignTenant,
+        companyId: foreignCompany,
+        name: 'Foreign site',
+      })
+      .run();
+    await expect(
+      appRouter.createCaller(admin()).restaurantModifiers.groups({ siteId: foreignSite })
+    ).rejects.toThrow(/Site not found/);
+    await expect(
+      appRouter
+        .createCaller(cashier())
+        .restaurantModifiers.productGroups({ siteId: foreignSite, productId: plate })
+    ).rejects.toThrow(/Site not found/);
   });
 
   it('keeps the removal kind in kitchen snapshots and accepts older ones without it', () => {

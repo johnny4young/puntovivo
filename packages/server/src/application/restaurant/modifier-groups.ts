@@ -1,5 +1,5 @@
 /** Site-local modifier groups: how a dish asks for its options, checked again on every order. */
-import { and, asc, count, eq, inArray, ne } from 'drizzle-orm';
+import { and, asc, count, eq, inArray, ne, sum } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
 import {
@@ -16,6 +16,7 @@ import { writeAuditLog } from '../../services/audit-logs.js';
 import type { CriticalCommandContext } from '../../trpc/middleware/commandEnvelope.js';
 import {
   MAX_ACTIVE_RESTAURANT_MODIFIER_GROUPS,
+  MAX_RESTAURANT_GROUP_OPTIONS,
   MAX_RESTAURANT_GROUPS_PER_PRODUCT,
   type SaveRestaurantModifierGroupInput,
 } from '../../trpc/schemas/restaurantModifiers.js';
@@ -267,6 +268,7 @@ export function saveRestaurantModifierGroup(
                   eq(restaurantModifierGroupItems.groupId, before.id)
                 )
               )
+              .orderBy(asc(restaurantModifierGroupItems.position))
               .all()
               .map(row => row.catalogId)
           : []
@@ -313,7 +315,11 @@ export function saveRestaurantModifierGroup(
       );
       const dishes = input.productIds.length
         ? tx
-            .select({ id: products.id, isActive: products.isActive })
+            .select({
+              id: products.id,
+              isActive: products.isActive,
+              catalogType: products.catalogType,
+            })
             .from(products)
             .where(and(eq(products.tenantId, ctx.tenantId), inArray(products.id, input.productIds)))
             .all()
@@ -321,7 +327,12 @@ export function saveRestaurantModifierGroup(
       const dishById = new Map(dishes.map(row => [row.id, row]));
       for (const id of input.productIds) {
         const dish = dishById.get(id);
-        if (!dish || (dish.isActive === false && !keptProducts.has(id)))
+        // Sales reference the sellable variant, so a group on a variant parent would never show.
+        if (
+          !dish ||
+          dish.catalogType === 'variant_parent' ||
+          (dish.isActive === false && !keptProducts.has(id))
+        )
           throwServerError({
             trpcCode: 'NOT_FOUND',
             errorCode: 'RESTAURANT_MODIFIER_GROUP_PRODUCT_UNAVAILABLE',
@@ -329,12 +340,13 @@ export function saveRestaurantModifierGroup(
           });
       }
       if (input.isActive) {
-        const added = input.productIds.filter(id => !keptProducts.has(id) || !before?.isActive);
-        const crowded = added.length
+        // One order line holds at most 20 modifiers, so a dish's minimums must fit in it.
+        const crowded = input.productIds.length
           ? tx
               .select({
                 productId: restaurantProductModifierGroups.productId,
-                value: count(),
+                groups: count(),
+                minimums: sum(restaurantModifierGroups.minSelections).mapWith(Number),
               })
               .from(restaurantProductModifierGroups)
               .innerJoin(
@@ -345,22 +357,27 @@ export function saveRestaurantModifierGroup(
                 and(
                   scope,
                   eq(restaurantModifierGroups.isActive, true),
-                  inArray(restaurantProductModifierGroups.productId, added),
+                  inArray(restaurantProductModifierGroups.productId, input.productIds),
                   before ? ne(restaurantModifierGroups.id, before.id) : undefined
                 )
               )
               .groupBy(restaurantProductModifierGroups.productId)
               .all()
-              .filter(row => row.value >= MAX_RESTAURANT_GROUPS_PER_PRODUCT)
+              .filter(
+                row =>
+                  row.groups >= MAX_RESTAURANT_GROUPS_PER_PRODUCT ||
+                  row.minimums + input.minSelections > MAX_RESTAURANT_GROUP_OPTIONS
+              )
           : [];
         if (crowded.length)
           throwServerError({
             trpcCode: 'CONFLICT',
             errorCode: 'RESTAURANT_MODIFIER_GROUP_LIMIT_REACHED',
-            message: 'A dish already shows the maximum number of groups',
+            message: 'A dish already shows the maximum number of groups or required choices',
             details: {
               productIds: crowded.map(row => row.productId),
-              max: MAX_RESTAURANT_GROUPS_PER_PRODUCT,
+              maxGroups: MAX_RESTAURANT_GROUPS_PER_PRODUCT,
+              maxRequired: MAX_RESTAURANT_GROUP_OPTIONS,
             },
           });
       }
@@ -478,27 +495,34 @@ export interface GroupedOrderLine {
   }[];
 }
 
+/** Group an order modifier counted against, frozen on the line. */
+export interface ResolvedModifierGroup {
+  id: string;
+  kind: RestaurantModifierGroupKind;
+}
+
 /**
- * Check each line against its dish's active groups and return the kind to freeze per group.
- * Upper bounds always apply. Minimums apply when the line declares the groups it showed, so
- * order paths that never show groups keep working until they do.
+ * Check each line against its dish's active groups and return, per line and modifier, the group
+ * to freeze. A catalog option sent without a group counts against the dish's only group that
+ * lists it, so maximums and removals hold on paths that never show groups. Minimums apply when
+ * the line declares the groups it showed.
  */
 export function assertRestaurantModifierGroups(
   db: DatabaseInstance,
   scope: { tenantId: string; siteId: string },
   lines: readonly GroupedOrderLine[]
-): Map<string, RestaurantModifierGroupKind> {
-  const kinds = new Map<string, RestaurantModifierGroupKind>();
-  const relevant = lines.filter(
-    line => line.modifierGroups !== undefined || line.modifiers.some(row => row.groupId)
+): (ResolvedModifierGroup | null)[][] {
+  const resolved = lines.map(line => line.modifiers.map((): ResolvedModifierGroup | null => null));
+  const relevant = lines.some(
+    line => line.modifierGroups !== undefined || line.modifiers.some(row => row.catalogId)
   );
-  if (relevant.length === 0) return kinds;
+  if (!relevant) return resolved;
   const groupsByProduct = activeGroupsForProducts(db, scope, [
-    ...new Set(relevant.map(line => line.productId)),
+    ...new Set(lines.map(line => line.productId)),
   ]);
   const allGroupIds = [...new Set([...groupsByProduct.values()].flat().map(group => group.id))];
   const options = optionsByGroup(db, scope.tenantId, allGroupIds);
-  for (const line of relevant) {
+  for (const [lineIndex, line] of lines.entries()) {
     const groups = groupsByProduct.get(line.productId) ?? [];
     const byId = new Map(groups.map(group => [group.id, group]));
     if (line.modifierGroups) {
@@ -511,15 +535,23 @@ export function assertRestaurantModifierGroups(
         changed();
     }
     const counts = new Map<string, number>();
-    for (const modifier of line.modifiers) {
-      if (!modifier.groupId) continue;
-      const group = byId.get(modifier.groupId);
-      if (!group) changed();
+    for (const [index, modifier] of line.modifiers.entries()) {
+      let group = modifier.groupId ? byId.get(modifier.groupId) : undefined;
+      if (modifier.groupId && !group) changed();
+      if (!group && modifier.catalogId) {
+        const owners = groups.filter(candidate =>
+          (options.get(candidate.id) ?? []).some(row => row.catalogId === modifier.catalogId)
+        );
+        // An option listed by several groups of the dish stays ungrouped: there is no one rule.
+        if (owners.length === 1) group = owners[0];
+      }
+      if (!group) continue;
       const option = (options.get(group.id) ?? []).find(
         row => row.catalogId === modifier.catalogId
       );
       if (!option?.isActive) changed();
-      if (group.selection === 'single' && modifier.quantity !== 1)
+      // A preparation is picked once and a removal has no quantity.
+      if ((group.selection === 'single' || group.kind === 'without') && modifier.quantity !== 1)
         throwServerError({
           trpcCode: 'BAD_REQUEST',
           errorCode: 'RESTAURANT_MODIFIER_GROUP_SELECTION_INVALID',
@@ -527,7 +559,7 @@ export function assertRestaurantModifierGroups(
           details: { groupId: group.id },
         });
       counts.set(group.id, (counts.get(group.id) ?? 0) + 1);
-      kinds.set(group.id, group.kind);
+      resolved[lineIndex]![index] = { id: group.id, kind: group.kind };
     }
     for (const group of groups) {
       const chosen = counts.get(group.id) ?? 0;
@@ -543,5 +575,5 @@ export function assertRestaurantModifierGroups(
         });
     }
   }
-  return kinds;
+  return resolved;
 }

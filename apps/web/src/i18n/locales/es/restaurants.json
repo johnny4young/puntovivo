@@ -14,7 +14,7 @@
     "RESTAURANT_MODIFIER_LIMIT_REACHED": "Esta sede tiene 500 adicionales activos. Archive primero una opción que ya no use.",
     "RESTAURANT_MODIFIER_NAME_DUPLICATE": "Ya existe un adicional activo con ese nombre. Elija otro nombre.",
     "RESTAURANT_MODIFIER_GROUP_INVALID": "El mínimo necesita al menos esa cantidad de opciones disponibles. Agregue opciones o baje el mínimo.",
-    "RESTAURANT_MODIFIER_GROUP_LIMIT_REACHED": "Se alcanzó el límite de grupos: 100 activos por sede y 8 por plato. Archive un grupo que ya no use.",
+    "RESTAURANT_MODIFIER_GROUP_LIMIT_REACHED": "Se alcanzó el límite de grupos: 100 activos por sede, 8 por plato y 20 elecciones obligatorias por plato. Archive un grupo o baje un mínimo.",
     "RESTAURANT_MODIFIER_GROUP_NAME_DUPLICATE": "Ya existe un grupo activo con ese nombre. Elija otro nombre.",
     "RESTAURANT_MODIFIER_GROUP_SELECTION_INVALID": "Las opciones elegidas para este plato no cumplen las reglas de sus grupos. Revise las elecciones obligatorias.",
     "RESTAURANT_MODIFIER_GROUP_PRODUCT_UNAVAILABLE": "Un plato de este grupo ya no está disponible. Quítelo y guarde de nuevo."

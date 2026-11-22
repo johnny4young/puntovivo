@@ -157,6 +157,20 @@ describe('modifier groups editor', () => {
     );
   });
 
+  it('keeps a typed minimum within the maximum so the form still submits', async () => {
+    render(<RestaurantModifierGroupsPanel siteId="site-a" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Adicionales' }));
+    const dialog = screen.getByRole('dialog');
+    fireEvent.click(within(dialog).getByLabelText('Required'));
+    fireEvent.change(within(dialog).getByLabelText('Minimum'), { target: { value: '3' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(h.save).toHaveBeenCalledWith(
+        expect.objectContaining({ minSelections: 1, maxSelections: 1 })
+      )
+    );
+  });
+
   it('switches the catalog page between options and groups', async () => {
     render(<RestaurantModifierCatalogPage />);
     expect(screen.getByRole('tab', { name: 'Options' })).toHaveAttribute('aria-selected', 'true');

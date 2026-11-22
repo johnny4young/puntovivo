@@ -422,7 +422,7 @@ function GroupForm({
             {!single && draft.required && (
               <CountInput
                 label={t('groups.min')}
-                value={draft.minSelections}
+                value={Math.min(draft.minSelections, max)}
                 max={max}
                 onChange={minSelections => patch({ minSelections })}
               />
