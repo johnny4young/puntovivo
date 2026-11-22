@@ -110,6 +110,7 @@ export interface SalesScreenProps {
   handleOpenProductSearch: (initialQuery?: string) => void;
   productInputRef: ComponentProps<typeof SalesQuickSearchBar>['inputRef'];
   onCameraCode: (code: string) => void;
+  onTypedCode?: (query: string) => Promise<boolean>;
   setIsHistoryDrawerOpen: Dispatch<SetStateAction<boolean>>;
   setIsSuspendedPanelOpen: Dispatch<SetStateAction<boolean>>;
   suspendedDraftsCount: number;
@@ -273,6 +274,7 @@ export function SalesScreen({
   handleOpenProductSearch,
   productInputRef,
   onCameraCode,
+  onTypedCode,
   setIsHistoryDrawerOpen,
   setIsSuspendedPanelOpen,
   suspendedDraftsCount,
@@ -606,6 +608,7 @@ export function SalesScreen({
                 customers={commandBar.customers}
                 isLoadingCustomers={commandBar.isLoadingCustomers}
                 onCameraCode={onCameraCode}
+                onSubmitCode={onTypedCode}
               />
             }
             banner={

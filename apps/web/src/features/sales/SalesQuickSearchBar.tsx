@@ -36,6 +36,8 @@ interface SalesQuickSearchBarProps {
   isLoadingCustomers?: boolean;
   /** Receives a code read by the phone camera, the same way a scanner read arrives. */
   onCameraCode?: ((code: string) => void) | undefined;
+  /** Tries the submitted text as an exact code first; false falls back to the search. */
+  onSubmitCode?: ((query: string) => Promise<boolean>) | undefined;
 }
 
 interface BarOption {
@@ -69,6 +71,7 @@ export function SalesQuickSearchBar({
   customers = [],
   isLoadingCustomers = false,
   onCameraCode,
+  onSubmitCode,
 }: SalesQuickSearchBarProps) {
   const { t } = useTranslation('sales');
   const isPhone = usePhoneLayout();
@@ -183,7 +186,14 @@ export function SalesQuickSearchBar({
           activeOption?.run();
           return;
         }
-        onSubmit(mode.query);
+        const submitted = mode.query;
+        if (!onSubmitCode || !submitted.trim()) {
+          onSubmit(submitted);
+          return;
+        }
+        void onSubmitCode(submitted).then(added => {
+          if (!added) onSubmit(submitted);
+        });
       }}
     >
       <label
