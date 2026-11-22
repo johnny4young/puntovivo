@@ -41,7 +41,6 @@ import {
 } from '../../services/fiscal/orchestrator.js';
 import type { ResolvedLine } from '../../services/fiscal/orchestrator/types.js';
 import { createModuleLogger } from '../../logging/logger.js';
-import { buildReturnedSaleNotes } from './policies.js';
 import { reverseSaleItemsStock } from './inventory-policy.js';
 import { broadcastSaleRetracted, materializeCommittedFiscalIntent } from './fiscalPostHook.js';
 import { restoreExactInventoryLot } from '../../services/inventory-lots/index.js';
@@ -995,7 +994,6 @@ export async function returnSale(
             // on the remaining lines does not change because part of the
             // ticket came back.
             returnState: committedPlan.nextReturnState,
-            notes: buildReturnedSaleNotes(current.notes, input.reason),
             updatedAt: now,
             syncStatus: 'pending',
             syncVersion: (current.syncVersion ?? 0) + 1,

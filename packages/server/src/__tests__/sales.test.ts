@@ -1529,6 +1529,7 @@ describe('Sales tRPC Router', () => {
       status: 'completed',
       amountReceived: 36,
       discountAmount: 0,
+      notes: 'Entregar en bodega',
     });
 
     const summaryBeforeRefund = await caller.sales.summary();
@@ -1545,7 +1546,8 @@ describe('Sales tRPC Router', () => {
     expect(refunded.returnState).toBe('refunded');
     expect(refunded.returnReason).toBe('Items returned');
     expect(refunded.refundAmount).toBeCloseTo(created.total);
-    expect(refunded.notes).toContain('Refunded: Items returned');
+    // The reason lives on the return; the cashier's note stays as written.
+    expect(refunded.notes).toBe('Entregar en bodega');
 
     const storedRefund = await db
       .select()
