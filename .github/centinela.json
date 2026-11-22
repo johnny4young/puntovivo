@@ -26,13 +26,70 @@
   },
   "language": {
     "typosExclude": ["apps/web/src/i18n/locales/es/**", "docs/es/**"],
-    "spanishRegister": { "register": "usted", "paths": ["apps/web/src/i18n/locales/es/**"] },
-    "localeParity": { "dir": "apps/web/src/i18n/locales", "languages": ["en", "es"] }
+    "spanishRegister": {
+      "register": "usted",
+      "paths": ["apps/web/src/i18n/locales/es/**"]
+    },
+    "localeParity": {
+      "dir": "apps/web/src/i18n/locales",
+      "languages": ["en", "es"]
+    }
   },
-  "rules": { "electron": true },
-  "issues": { "productName": "Puntovivo" },
+  "rules": {
+    "electron": true,
+    "custom": [
+      {
+        "id": "desktop-server-import",
+        "severity": "maintainer",
+        "paths": ["apps/desktop/src/main/**"],
+        "exclude": ["apps/desktop/src/main/server-host/**"],
+        "pattern": "^\\s*import\\s+(?!type\\b)[^'\"]*from\\s+['\"]@puntovivo/server['\"]",
+        "message": {
+          "en": "The main process reaches the server only through `apps/desktop/src/main/server-host/`; the server runs on a worker thread. Please go through the server host instead of importing `@puntovivo/server`.",
+          "es": "El proceso principal llega al servidor solo a través de `apps/desktop/src/main/server-host/`; el servidor corre en un worker. Por favor use el server host en lugar de importar `@puntovivo/server`."
+        }
+      },
+      {
+        "id": "rest-route",
+        "severity": "maintainer",
+        "paths": ["packages/server/src/server/routes/**"],
+        "message": {
+          "en": "tRPC at `/api/trpc` is the application API. Please add a tRPC procedure instead of a REST route, or explain why this one is needed.",
+          "es": "tRPC en `/api/trpc` es la API de la aplicación. Por favor agregue un procedimiento tRPC en lugar de una ruta REST, o explique por qué esta es necesaria."
+        }
+      },
+      {
+        "id": "drizzle-null-default",
+        "severity": "blocking",
+        "paths": ["packages/server/src/db/**"],
+        "pattern": "\\.default\\(null\\)",
+        "message": {
+          "en": "Drizzle writes `.default(null)` on a JSON text column as the string `'null'`, not SQL NULL. Please leave the default out.",
+          "es": "Drizzle guarda `.default(null)` en una columna JSON de texto como el texto `'null'`, no como NULL. Por favor quite el valor por defecto."
+        }
+      },
+      {
+        "id": "tenant-scope",
+        "severity": "suggestion",
+        "paths": ["packages/server/src/trpc/routers/**"],
+        "message": {
+          "en": "Please confirm every query scopes by `ctx.tenantId` and every procedure that takes a `siteId` calls `ensureTenantSite`.",
+          "es": "Por favor confirme que cada consulta filtra por `ctx.tenantId` y que cada procedimiento que recibe un `siteId` llama a `ensureTenantSite`."
+        }
+      }
+    ]
+  },
+  "issues": {
+    "productName": "Puntovivo"
+  },
   "links": {
-    "security": { "en": "docs/SECURITY.md", "es": "docs/es/SECURITY.md" },
-    "rules": { "en": ".github/triage/REVIEW.md", "es": "docs/es/repository/TRIAGE-REVIEW.md" }
+    "security": {
+      "en": "docs/SECURITY.md",
+      "es": "docs/es/SECURITY.md"
+    },
+    "rules": {
+      "en": ".github/triage/REVIEW.md",
+      "es": "docs/es/repository/TRIAGE-REVIEW.md"
+    }
   }
 }
