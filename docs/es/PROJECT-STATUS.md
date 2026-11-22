@@ -24,7 +24,10 @@ El candidato validado actual incluye:
   devoluciones normalizadas totales o parciales por línea y cantidad, ventas de
   reemplazo vinculadas para cambios, emisión y uso de saldo a favor del cliente,
   acumulación y canje de puntos de fidelidad, anulaciones, reimpresión de recibos,
-  ventas a crédito, controles de aprobación del gerente, promociones porcentuales
+  ventas a crédito, controles de aprobación del gerente cuyas solicitudes de cobro
+  muestran a quien aprueba el límite de descuento de quien pide, el margen de la
+  venta con y sin el descuento y la frecuencia y el descuento habituales del
+  cliente, promociones porcentuales
   cuya autoridad reside en el servidor con ciclo de vida explícito y evidencia
   congelada por línea, y entrega de recibos por WhatsApp controlada por una persona,
   que genera texto y un PNG local opcional sin envío en segundo plano;

@@ -5,6 +5,7 @@
  *
  * @module services/operations/today
  */
+import { CHECKOUT_APPROVAL_RESOURCE_TYPE } from '@puntovivo/shared/checkout-approval';
 import { and, asc, desc, eq, gte, inArray, lt, ne, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/sqlite-core';
 
@@ -40,7 +41,8 @@ export type TodayPendingItem =
       origin: 'cashier';
       at: string;
       action: string;
-      label: string;
+      /** Null when only the action names the request (checkout approvals). */
+      label: string | null;
       amount: number | null;
       reason: string;
       requesterId: string;
@@ -375,6 +377,7 @@ async function collectPending(
     .select({
       id: managerApprovalRequests.id,
       action: managerApprovalRequests.action,
+      resourceType: managerApprovalRequests.resourceType,
       summary: managerApprovalRequests.summary,
       reason: managerApprovalRequests.reason,
       requestedAt: managerApprovalRequests.requestedAt,
@@ -402,7 +405,8 @@ async function collectPending(
       origin: 'cashier',
       at: approval.requestedAt,
       action: approval.action,
-      label: approval.summary.label,
+      label:
+        approval.resourceType === CHECKOUT_APPROVAL_RESOURCE_TYPE ? null : approval.summary.label,
       amount: approval.summary.amount ?? null,
       reason: approval.reason,
       requesterId: approval.requesterId,

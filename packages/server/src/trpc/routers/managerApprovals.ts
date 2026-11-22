@@ -32,6 +32,7 @@ import {
   requiredApproverLabel,
 } from '../../services/manager-approvals.js';
 import { requiredLossPreventionApprovalCount } from '../../services/loss-prevention/settings.js';
+import { buildCheckoutApprovalDecisionContext } from '../../services/manager-approval-context.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
 import { router } from '../init.js';
@@ -88,9 +89,12 @@ function resolveCheckoutApprovalCurrency(
   return draft.currencyCode;
 }
 
+// Only the approver queue reads the decision context; requester polls stay small.
 function presentRequest(request: ManagerApprovalRequest, now: string) {
+  const { decisionContext, ...publicRequest } = publicManagerApprovalRequest(request);
+  void decisionContext;
   return {
-    ...publicManagerApprovalRequest(request),
+    ...publicRequest,
     status: effectiveManagerApprovalStatus(request, now),
     requiredApproverRole: requiredApproverLabel(request.action),
     approvalsCollected: managerApprovalCount(request),
@@ -278,6 +282,7 @@ export const managerApprovalsRouter = router({
         },
         items: rows.map(row => ({
           ...presentRequest(row.request, now),
+          decisionContext: row.request.decisionContext,
           requesterName: row.requesterName,
           siteName: row.siteName,
         })),
@@ -420,6 +425,15 @@ export const managerApprovalsRouter = router({
       if (existing) return presentRequest(existing, now);
 
       const id = nanoid();
+      const decisionContext = checkoutContext
+        ? await buildCheckoutApprovalDecisionContext({
+            db: criticalCtx.db,
+            tenantId: criticalCtx.tenantId,
+            requesterRole: criticalCtx.user.role,
+            checkout: checkoutContext,
+            nowMs,
+          })
+        : null;
       const requiredApprovals = requiredLossPreventionApprovalCount({
         db: criticalCtx.db,
         tenantId: criticalCtx.tenantId,
@@ -438,6 +452,7 @@ export const managerApprovalsRouter = router({
         resourceType,
         resourceId: resourceId ?? null,
         summary,
+        decisionContext,
         requiredApprovals,
         approvalEvidence: [],
         requestedAt: now,

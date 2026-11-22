@@ -10,11 +10,15 @@ import { getDatabase, type DatabaseInstance } from '../db/index.js';
 import {
   auditLogs,
   companies,
+  customers,
   managerApprovalRequests,
+  products,
   sales,
   sites,
   syncOutbox,
   tenants,
+  units,
+  unitXProduct,
   users,
 } from '../db/schema.js';
 import { hashStaffPin } from '../security/staffPins.js';
@@ -45,6 +49,8 @@ let db: DatabaseInstance;
 let tenantId: string;
 let siteId: string;
 let approvalSaleId: string;
+let seededAdminId: string;
+let seededCashSessionId: string;
 
 type EmployeeRole = 'admin' | 'manager' | 'cashier' | 'viewer';
 
@@ -191,6 +197,7 @@ describe('manager approvals router', () => {
       .get();
     if (!seededAdmin) throw new Error('Expected seeded admin user');
     tenantId = seededAdmin.tenantId;
+    seededAdminId = seededAdmin.id;
     const seededSite = await db
       .select({ id: sites.id })
       .from(sites)
@@ -203,6 +210,7 @@ describe('manager approvals router', () => {
       cashierId: seededAdmin.id,
       siteId,
     });
+    seededCashSessionId = cashSessionId;
     approvalSaleId = nanoid();
     const now = new Date().toISOString();
     await db.insert(sales).values({
@@ -316,6 +324,226 @@ describe('manager approvals router', () => {
       label: 'checkout',
       amount: 25,
       currencyCode: 'COP',
+    });
+  });
+
+  describe('decision context', () => {
+    const DAY_MS = 86_400_000;
+    let unitId: string;
+
+    async function seedProduct(args: { price: number; cost: number; taxRate: number }) {
+      const id = nanoid();
+      const now = new Date().toISOString();
+      await db.insert(products).values({
+        id,
+        tenantId,
+        name: `Context product ${id}`,
+        sku: `CTX-${id}`,
+        price: args.price,
+        cost: args.cost,
+        taxRate: args.taxRate,
+        createdAt: now,
+        updatedAt: now,
+      });
+      await db.insert(unitXProduct).values({
+        id: nanoid(),
+        productId: id,
+        unitId,
+        equivalence: 1,
+        price: args.price,
+        isBase: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+      return id;
+    }
+
+    async function seedCustomer(customerTenantId = tenantId) {
+      const id = nanoid();
+      const now = new Date().toISOString();
+      await db.insert(customers).values({
+        id,
+        tenantId: customerTenantId,
+        name: `Context customer ${id}`,
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+      return id;
+    }
+
+    async function seedCompletedSale(customerId: string, daysAgo: number, discountPercent: number) {
+      const id = nanoid();
+      const at = new Date(Date.now() - daysAgo * DAY_MS).toISOString();
+      const gross = 100;
+      const discountAmount = (gross * discountPercent) / 100;
+      await db.insert(sales).values({
+        id,
+        tenantId,
+        saleNumber: `CTX-SALE-${id}`,
+        customerId,
+        subtotal: gross - discountAmount,
+        discountAmount,
+        total: gross - discountAmount,
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        status: 'completed',
+        cashSessionId: seededCashSessionId,
+        createdBy: seededAdminId,
+        checkoutCompletedAt: at,
+        createdAt: at,
+        updatedAt: at,
+      });
+    }
+
+    function checkout(args: {
+      customerId: string | null;
+      items: { productId: string; quantity: number; unitPrice: number; discount: number }[];
+      discountAmount: number;
+      total: number;
+    }) {
+      return {
+        mode: 'fresh' as const,
+        saleId: null,
+        customerId: args.customerId,
+        items: args.items.map(item => ({ ...item, unitId })),
+        paymentMethod: 'cash' as const,
+        payments: [],
+        amountReceived: args.total,
+        discountAmount: args.discountAmount,
+        total: args.total,
+        creditAmount: 0,
+        tipAmount: 0,
+        serviceChargeAmount: 0,
+        currencyCode: 'COP',
+      };
+    }
+
+    beforeAll(async () => {
+      const unit = await db
+        .select({ id: units.id })
+        .from(units)
+        .where(and(eq(units.tenantId, tenantId), eq(units.abbreviation, 'UND')))
+        .get();
+      if (!unit) throw new Error('Expected seeded unit UND');
+      unitId = unit.id;
+    });
+
+    it('freezes the role limit, margin and customer habit for the approver', async () => {
+      const previous = resolveLossPreventionSettings(db, tenantId);
+      const next = structuredClone(previous);
+      next.roles.cashier.maxDiscountPercent = 5;
+      writeLossPreventionSettings(db, tenantId, next);
+      try {
+        const cashier = await createEmployee('cashier');
+        const manager = await createEmployee('manager');
+        const taxed = await seedProduct({ price: 11_900, cost: 8_900, taxRate: 19 });
+        const untaxed = await seedProduct({ price: 6_400, cost: 4_800, taxRate: 0 });
+        const customerId = await seedCustomer();
+        await seedCompletedSale(customerId, 21, 8);
+        await seedCompletedSale(customerId, 14, 9);
+        await seedCompletedSale(customerId, 7, 10);
+        await seedCompletedSale(customerId, 120, 50);
+
+        const created = await appRouter.createCaller(cashier.fresh()).managerApprovals.request({
+          action: 'sale_discount',
+          reason: 'Takes the whole month order today',
+          resourceType: 'sale_checkout',
+          checkoutContext: checkout({
+            customerId,
+            items: [
+              { productId: taxed, quantity: 2, unitPrice: 11_900, discount: 12 },
+              { productId: untaxed, quantity: 1, unitPrice: 6_400, discount: 0 },
+            ],
+            discountAmount: 2_856,
+            total: 27_344,
+          }),
+          summary: { label: 'checkout', amount: 2_856, currencyCode: 'COP' },
+        });
+
+        const expected = {
+          version: 1,
+          discount: { percent: 9.5, roleLimitPercent: 5 },
+          margin: { withDiscountPercent: 5.8, withoutDiscountPercent: 14.4 },
+          customer: {
+            name: `Context customer ${customerId}`,
+            windowDays: 90,
+            purchases: 3,
+            averageDaysBetween: 7,
+            usualDiscountPercent: 9,
+          },
+        };
+        expect(created).not.toHaveProperty('decisionContext');
+        const queue = await appRouter
+          .createCaller(manager.fresh())
+          .managerApprovals.queue({ limit: 50 });
+        expect(queue.items.find(item => item.id === created.id)?.decisionContext).toEqual(expected);
+      } finally {
+        writeLossPreventionSettings(db, tenantId, previous);
+      }
+    });
+
+    it('takes the pre-tax share of a ticket discount and omits unknown cost or foreign customers', async () => {
+      const cashier = await createEmployee('cashier');
+      const manager = await createEmployee('manager');
+      const contextOf = async (id: string) =>
+        (
+          await appRouter.createCaller(manager.fresh()).managerApprovals.queue({ limit: 50 })
+        ).items.find(item => item.id === id)?.decisionContext;
+      const taxed = await seedProduct({ price: 11_900, cost: 5_000, taxRate: 19 });
+      const free = await seedProduct({ price: 1_000, cost: 0, taxRate: 0 });
+      const foreignTenantId = nanoid();
+      const now = new Date().toISOString();
+      await db.insert(tenants).values({
+        id: foreignTenantId,
+        name: 'Foreign context tenant',
+        slug: `foreign-context-${foreignTenantId}`,
+        createdAt: now,
+        updatedAt: now,
+      });
+      const foreignCustomer = await seedCustomer(foreignTenantId);
+
+      const headerOnly = await appRouter.createCaller(cashier.fresh()).managerApprovals.request({
+        action: 'sale_discount',
+        reason: 'Ticket discount',
+        resourceType: 'sale_checkout',
+        checkoutContext: checkout({
+          customerId: foreignCustomer,
+          items: [{ productId: taxed, quantity: 1, unitPrice: 11_900, discount: 0 }],
+          discountAmount: 1_190,
+          total: 10_710,
+        }),
+        summary: { label: 'checkout', amount: 1_190, currencyCode: 'COP' },
+      });
+      // 10 000 base, 1 000 pre-tax share of the 1 190 ticket discount.
+      expect(await contextOf(headerOnly.id)).toEqual({
+        version: 1,
+        discount: { percent: 10, roleLimitPercent: 0 },
+        margin: { withDiscountPercent: 44.4, withoutDiscountPercent: 50 },
+        customer: null,
+      });
+
+      const unknownCost = await appRouter.createCaller(cashier.fresh()).managerApprovals.request({
+        action: 'sale_discount',
+        reason: 'Gift with purchase',
+        resourceType: 'sale_checkout',
+        checkoutContext: checkout({
+          customerId: null,
+          items: [
+            { productId: taxed, quantity: 1, unitPrice: 11_900, discount: 0 },
+            { productId: free, quantity: 1, unitPrice: 1_000, discount: 100 },
+          ],
+          discountAmount: 1_000,
+          total: 11_900,
+        }),
+        summary: { label: 'checkout', amount: 1_000, currencyCode: 'COP' },
+      });
+      expect((await contextOf(unknownCost.id))?.margin).toBeNull();
+
+      const drawer = await appRouter
+        .createCaller(cashier.fresh())
+        .managerApprovals.request(requestInput('cash_drawer_open'));
+      expect(await contextOf(drawer.id)).toBeNull();
     });
   });
 

@@ -301,7 +301,7 @@ function describe(
     case 'approval':
       return {
         title: t('dashboard:today.pending.approval', {
-          label: item.label,
+          label: item.label ?? t(`common:userMenu.approvals.actions.${item.action}`),
           amount: item.amount === null ? '' : formatCurrency(item.amount),
         }),
         detail: [
