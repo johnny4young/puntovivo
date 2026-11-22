@@ -136,6 +136,46 @@
     "openClose": "Abrir el cierre",
     "unavailable": "No se pudo cargar el día firmado. Intente de nuevo."
   },
+  "morning": {
+    "greeting": {
+      "morning": "Buenos días",
+      "afternoon": "Buenas tardes",
+      "evening": "Buenas noches"
+    },
+    "yesterdaySealed": "Ayer, sellado",
+    "yesterdayUnsigned": "Ayer, sin sellar",
+    "fiscalAcceptedAll_one": "Desde el cierre, la DIAN aceptó la que faltaba.",
+    "fiscalAcceptedAll_other": "Desde el cierre, la DIAN aceptó las {{count}} que faltaban.",
+    "fiscalAccepted_one": "Desde el cierre, la DIAN aceptó {{count}} factura.",
+    "fiscalAccepted_other": "Desde el cierre, la DIAN aceptó {{count}} facturas.",
+    "fiscalInProgress_one": "{{count}} factura sigue en proceso con la DIAN.",
+    "fiscalInProgress_other": "{{count}} facturas siguen en proceso con la DIAN.",
+    "fiscalRejected_one": "La DIAN rechazó {{count}} factura.",
+    "fiscalRejected_other": "La DIAN rechazó {{count}} facturas.",
+    "backupOk": "Respaldo correcto.",
+    "backupFailed": "El último respaldo falló.",
+    "backupLate": "El último respaldo es del {{date}}.",
+    "beforeOpening": "Antes de abrir",
+    "opensIn": "abre en {{minutes}} min",
+    "opensAt": "abre a las {{time}}",
+    "closeYesterday": "Sellar el día de ayer",
+    "closeAction": "Cerrar",
+    "openRegisters": "Abrir {{registers}}",
+    "float": {
+      "single": "Fondo sugerido {{amount}}",
+      "each": "Fondo sugerido {{amount}} cada una",
+      "total": "Fondo sugerido {{amount}} en total"
+    },
+    "openAction": "Abrir",
+    "carried": "Venta suspendida que pasó de ayer",
+    "viewAction": "Ver",
+    "nothingBeforeOpening": "Nada pendiente antes de abrir",
+    "expected": "Hoy se espera",
+    "expectedLike": "como el {{weekday}} pasado: {{amount}}",
+    "peaks_one": "pico: {{times}}",
+    "peaks_other": "picos: {{times}}",
+    "unavailable": "No se pudo cargar el resumen de ayer. Intente de nuevo."
+  },
   "more": {
     "title": "Más",
     "openApp": "Abrir Puntovivo completo"

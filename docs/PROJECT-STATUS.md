@@ -339,6 +339,10 @@ The current validated candidate includes:
   against last week, the approval waiting on them with its decision context
   (approve, counter at the customer's usual discount, or reject with their
   PIN), the registers, and the sealed day with its figures and signature.
+  Before the store opens, Hoy becomes a morning recap: yesterday's seal, what
+  the DIAN accepted or rejected since it, whether the scheduled backup ran,
+  the registers to open with their suggested float, sales carried over from
+  yesterday, and today's expected curve from the same weekday last week.
   They can opt in per phone to encrypted web push when an approval waits, a
   register handoff is received or the day is sealed, and a notification opens
   the matching screen;

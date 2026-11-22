@@ -26,6 +26,7 @@ import { createWorkerBackupBundle } from './backup/backup-worker-host.js';
 import { createSaleActivityTracker } from './backup/sale-activity.js';
 import { createBackupRestoreDrill } from './backup/restore-drill.js';
 import { backupTenantPathSegment, createBackupScheduler } from './backup/scheduler.js';
+import { BACKUP_STATUS_SETTING_KEY, projectBackupStatus } from './backup/status-publisher.js';
 import {
   getAutoUpdateStatus,
   initAutoUpdater,
@@ -66,7 +67,13 @@ import {
   installPackagedRendererProtocol,
   registerPackagedRendererScheme,
 } from './renderer-protocol.js';
-import { getServerHost, markServerReady, requireServerHost, setServerHost } from './runtime.js';
+import {
+  awaitServerHost,
+  getServerHost,
+  markServerReady,
+  requireServerHost,
+  setServerHost,
+} from './runtime.js';
 import { createOsKeyGate } from './os-key-gate.js';
 import { createServerLifecycle, type FatalWorkerExit } from './server-lifecycle.js';
 import {
@@ -291,6 +298,12 @@ const backupScheduler = createBackupScheduler({
   createBundle: createBundleOffMain,
   getLastSaleAt: saleActivity.lastSaleAt,
   replicateSnapshot: input => backupCloudVault.replicateSnapshot(input),
+  // Waits out a worker restart so a finished snapshot's outcome is not dropped.
+  publishStatus: async schedules =>
+    (await awaitServerHost()).writeAppSetting(
+      BACKUP_STATUS_SETTING_KEY,
+      projectBackupStatus(schedules)
+    ),
   log: backupLog,
 });
 const backupRestoreDrill = createBackupRestoreDrill({

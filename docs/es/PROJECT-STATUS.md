@@ -379,7 +379,11 @@ El candidato validado actual incluye:
   administradores y gerentes tienen el teléfono del dueño: lo vendido hoy
   frente a la semana pasada, la aprobación que les toca con su contexto de
   decisión (aprobar, dejarla en el descuento habitual del cliente o rechazar
-  con su PIN), las cajas y el día sellado con sus cifras y la firma. Pueden
+  con su PIN), las cajas y el día sellado con sus cifras y la firma. Antes de
+  abrir, Hoy se vuelve un resumen de la mañana: el sello de ayer, lo que la
+  DIAN aceptó o rechazó desde entonces, si corrió el respaldo programado, las
+  cajas por abrir con su fondo sugerido, las ventas que pasaron de ayer y la
+  curva esperada de hoy según el mismo día de la semana pasada. Pueden
   activar por teléfono avisos push cifrados cuando espera una aprobación, se
   recibe un relevo de caja o se sella el día, y el aviso abre la pantalla
   correspondiente;

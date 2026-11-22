@@ -170,6 +170,21 @@ function revenueByHour(db: DatabaseInstance, tenantId: string, date: string, tim
   return { hours, byHour };
 }
 
+/** Revenue per hour of one business day in a known zone. */
+export function dayCurveIn(
+  db: DatabaseInstance,
+  tenantId: string,
+  date: string,
+  timezone: string
+): DayCurve {
+  const { hours, byHour } = revenueByHour(db, tenantId, date, timezone);
+  return {
+    date,
+    dayStartIso: resolveUtcDayWindow(date, timezone).startIso,
+    hourly: hours.map((_, hour) => ({ hour, revenue: byHour.get(hour)?.revenue ?? 0 })),
+  };
+}
+
 /** Revenue per hour of any business day. */
 export async function computeDayCurve(
   db: DatabaseInstance,
@@ -177,12 +192,7 @@ export async function computeDayCurve(
   date: string
 ): Promise<DayCurve> {
   const { timezone } = await resolveTenantBusinessClock(db, tenantId);
-  const { hours, byHour } = revenueByHour(db, tenantId, date, timezone);
-  return {
-    date,
-    dayStartIso: resolveUtcDayWindow(date, timezone).startIso,
-    hourly: hours.map((_, hour) => ({ hour, revenue: byHour.get(hour)?.revenue ?? 0 })),
-  };
+  return dayCurveIn(db, tenantId, date, timezone);
 }
 
 export async function computeOperationsToday(

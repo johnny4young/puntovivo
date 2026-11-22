@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
+import { lazy, Suspense, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router';
 import { useTodayFormatters } from '@/features/dashboard/today/useTodayFormatters';
 import { trpc } from '@/lib/trpc';
 import { CompanionDecideSheet } from './CompanionDecideSheet';
+import { isBeforeOpening } from './morningModel';
 import { CompanionRegisters, type ClosedRegister } from './CompanionRegisters';
 import { CompanionSealedDay } from './CompanionSealedDay';
 import { CompanionError, CompanionSkeleton } from './CompanionStatus';
@@ -11,7 +12,13 @@ import { CompanionToday } from './CompanionToday';
 import type { CompanionView } from './companionViews';
 import type { LiveState } from './useCompanionLive';
 
+// Only the hours before opening need it, so the open day never downloads it.
+const CompanionMorning = lazy(() =>
+  import('./CompanionMorning').then(module => ({ default: module.CompanionMorning }))
+);
+
 const TODAY_REFRESH_MS = 30_000;
+const RECAP_REFRESH_MS = 5 * 60_000;
 const DECIDE_PARAM = 'decide';
 
 interface CompanionOwnerViewsProps {
@@ -37,9 +44,16 @@ export function CompanionOwnerViews({ view, liveState, businessDay }: CompanionO
     { enabled: view === 'today' || decideId !== null, refetchInterval: TODAY_REFRESH_MS }
   );
   const today = todayQuery.data;
+  const morning = view === 'today' && today !== undefined && isBeforeOpening(today);
+  // Yesterday is settled; live refreshes carry the rest, so this polls slowly.
+  const recapQuery = trpc.operations.morningRecap.useQuery(undefined, {
+    enabled: morning,
+    refetchInterval: RECAP_REFRESH_MS,
+    refetchOnWindowFocus: true,
+  });
   const checklistQuery = trpc.reports.dayClose.checklist.useQuery(
     { date: businessDay },
-    { enabled: view !== 'day', refetchInterval: TODAY_REFRESH_MS }
+    { enabled: view !== 'day' && !morning, refetchInterval: TODAY_REFRESH_MS }
   );
 
   const format = useTodayFormatters(i18n.language, today?.timezone);
@@ -90,6 +104,24 @@ export function CompanionOwnerViews({ view, liveState, businessDay }: CompanionO
     }
     if (view === 'registers') {
       return <CompanionRegisters today={today} closed={closed} formatTime={format.time} />;
+    }
+    if (morning) {
+      return (
+        <Suspense fallback={<CompanionSkeleton />}>
+          <CompanionMorning
+            today={today}
+            liveState={liveState}
+            recap={recapQuery.data}
+            recapFailed={recapQuery.isError}
+            queue={queueQuery.isSuccess ? (queue?.items ?? []) : null}
+            queueFailed={queueQuery.isError}
+            formatTime={format.time}
+            formatLongDate={format.longDate}
+            formatWeekday={format.weekday}
+            decideHref={decideHref}
+          />
+        </Suspense>
+      );
     }
     return (
       <CompanionToday
