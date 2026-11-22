@@ -178,6 +178,12 @@ The current validated candidate includes:
   buys at the catalog price, so it never becomes an off-catalog price. A site
   without keys offers what it sold most, topped up from the catalog, and a
   browser's former local favourites seed it once;
+- one incident sheet on F9 (or the Novedad key and `/` in the scan field) over
+  the open ticket: return, void, price check, out of stock, product without
+  barcode, shelf price mismatch, cash in or out, reprint and calling the
+  manager, each on a fixed letter. Stockout, barcode, price and call reports
+  land on the manager's Today pending queue until resolved, a stockout with the
+  other site holding the most stock, and the sheet names today's last incident;
 - by-weight products ask how much they weighed when tapped or picked on the
   register and the touch POS: quarter, half and one kilogram keys, a sale by
   value that buys the quantity to 0.001 at the line's price after tier,

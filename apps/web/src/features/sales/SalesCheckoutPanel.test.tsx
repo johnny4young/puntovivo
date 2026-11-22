@@ -268,6 +268,24 @@ describe('SalesCheckoutPanel dock', () => {
     expect(onOpenReturns).toHaveBeenCalledOnce();
   });
 
+  it('opens the incident sheet from the F9 key between Suspend and Return', () => {
+    const onOpenIncident = vi.fn();
+    renderDock({ onOpenIncident, onOpenReturns: vi.fn(), canSuspend: true, onSuspend: vi.fn() });
+
+    const keys = within(screen.getByTestId('checkout-park-controls')).getAllByRole('button');
+    expect(keys.map(key => key.dataset.testid)).toEqual([
+      'checkout-suspend',
+      'checkout-incident',
+      'checkout-returns',
+    ]);
+    const incident = screen.getByTestId('checkout-incident');
+    expect(incident).toHaveAccessibleName('Incident');
+    expect(incident).toHaveAttribute('aria-keyshortcuts', 'F9');
+    expect(incident).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(incident);
+    expect(onOpenIncident).toHaveBeenCalledOnce();
+  });
+
   it('puts Fiar beside Cobrar with what the account would come to', () => {
     const onCredit = vi.fn();
     renderDock({

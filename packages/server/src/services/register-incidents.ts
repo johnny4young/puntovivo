@@ -1,8 +1,8 @@
 /**
  * Till incidents: a cashier flags a stockout, a shelf price that differs from
- * the system price, or a product without a barcode, and keeps selling. The
- * open rows feed the manager's pending queue until someone resolves them; a
- * repeat report of an open incident returns the existing row.
+ * the system price or a product without a barcode, or calls the manager, and
+ * keeps selling. The open rows feed the manager's pending queue until someone
+ * resolves them; a repeat report of an open incident returns the existing row.
  *
  * @module services/register-incidents
  */
@@ -93,10 +93,10 @@ export async function reportRegisterIncident(
   input: ReportRegisterIncidentInput,
   now: Date = new Date()
 ): Promise<{ id: string }> {
-  const product = input.productId
-    ? findTenantProduct(db, scope.tenantId, input.productId)
-    : undefined;
-  if (input.kind !== 'no_barcode' && !product) {
+  const isCall = input.kind === 'call_manager';
+  const product =
+    input.productId && !isCall ? findTenantProduct(db, scope.tenantId, input.productId) : undefined;
+  if ((input.kind === 'stockout' || input.kind === 'price_mismatch') && !product) {
     throw new TRPCError({ code: 'BAD_REQUEST', message: 'This incident needs a product' });
   }
   const note = input.note?.trim() || null;
@@ -123,7 +123,9 @@ export async function reportRegisterIncident(
             ? note
               ? sql`lower(${registerIncidents.note}) = lower(${note})`
               : isNull(registerIncidents.note)
-            : undefined
+            : undefined,
+          // Two cashiers calling at once are two calls.
+          isCall ? eq(registerIncidents.reportedBy, scope.userId) : undefined
         )
       )
       .get();

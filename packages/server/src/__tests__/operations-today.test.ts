@@ -264,6 +264,20 @@ describe('operations.today', () => {
     });
   });
 
+  it('puts a call to the manager first among the incidents, though it came later', async () => {
+    const db = getDatabase();
+    const { id } = await reportRegisterIncident(
+      db,
+      { tenantId, siteId, userId: adminId },
+      { kind: 'call_manager' },
+      new Date(Date.now() + 60_000)
+    );
+    const { pending } = await computeOperationsToday(db, tenantId, now);
+    const incidents = pending.filter(item => item.kind === 'incident');
+    expect(incidents[0]).toMatchObject({ id, severity: 'beforeClose' });
+    expect(incidents.length).toBeGreaterThan(1);
+  });
+
   it('is for managers only and never leaks another tenant', async () => {
     const foreignTenant = nanoid();
     getDatabase()

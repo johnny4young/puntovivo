@@ -274,6 +274,8 @@ function incidentFacts(
     case 'no_barcode':
       // Without a product the note is already the title.
       return [incident.productName ? incident.note : null];
+    case 'call_manager':
+      return [incident.note];
   }
 }
 
@@ -312,10 +314,13 @@ function describe(
       return {
         title: t(`dashboard:today.pending.incident.${incident.kind}`, {
           product: incident.productName ?? incident.note ?? '',
+          reporter: incident.reportedByName,
         }),
         detail: [
           ...incidentFacts(incident, t, formatCurrency),
-          t('dashboard:today.pending.incidentReporter', { reporter: incident.reportedByName }),
+          // A call already names the cashier in its title.
+          incident.kind !== 'call_manager' &&
+            t('dashboard:today.pending.incidentReporter', { reporter: incident.reportedByName }),
           incident.siteName,
           formatTime(item.at),
           source &&

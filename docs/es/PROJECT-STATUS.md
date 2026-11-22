@@ -197,6 +197,13 @@ El candidato validado actual incluye:
   fuera de catálogo. Una sede sin teclas ofrece lo que más vendió, completado con
   el catálogo, y los favoritos locales que tenía un navegador la siembran una
   vez;
+- una hoja de novedades en F9 (o la tecla Novedad y `/` en el campo de escaneo)
+  sobre el ticket abierto: devolución, anulación, consulta de precio, agotado,
+  producto sin código, precio de góndola distinto, retiro o ingreso,
+  reimpresión y llamado al encargado, cada una con una letra fija. Los reportes
+  de agotado, sin código, precio y llamado llegan a la cola Pendiente de Hoy del
+  encargado hasta que los resuelve, el agotado con la otra sede que más tiene, y
+  la hoja nombra la última novedad del día;
 - los productos por peso preguntan cuánto pesaron al tocarlos o elegirlos en la
   caja y en el POS táctil: teclas de un cuarto, medio y un kilogramo, una venta
   por valor que compra la cantidad a 0,001 al precio de la línea con tarifa,

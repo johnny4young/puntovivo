@@ -69,6 +69,10 @@
     "closeCashSession": {
       "label": "Cerrar caja",
       "description": "Inicie el cierre ciego de la sesión abierta."
+    },
+    "incident": {
+      "label": "Novedad",
+      "description": "Abra la hoja de novedades sobre la venta."
     }
   },
   "nav": {

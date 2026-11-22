@@ -1,0 +1,90 @@
+{
+  "title": "Novedad",
+  "ticketIntact": "La venta de {{total}} queda intacta a la izquierda.",
+  "close": "Cerrar",
+  "back": "Volver a novedades",
+  "groups": {
+    "customer": "Con el cliente",
+    "product": "Con el producto",
+    "register": "Con la caja"
+  },
+  "tiles": {
+    "returns": {
+      "label": "Devolución",
+      "detail": "Elija la venta en el historial de hoy"
+    },
+    "voidSale": {
+      "label": "Anular una venta",
+      "detail": "La última venta; pide aprobación"
+    },
+    "priceCheck": {
+      "label": "Consultar precio",
+      "detail": "Sin agregar nada a la venta"
+    },
+    "stockout": {
+      "label": "Agotado o faltante",
+      "detail": "Avisa al administrador; queda en Hoy"
+    },
+    "noBarcode": {
+      "label": "Producto sin código",
+      "detail": "Descríbalo para el administrador"
+    },
+    "priceMismatch": {
+      "label": "Precio no coincide",
+      "detail": "El de góndola es distinto al de caja"
+    },
+    "cashMovement": {
+      "label": "Retiro o ingreso",
+      "detail": "Saque o meta efectivo, con motivo"
+    },
+    "reprint": {
+      "label": "Reimprimir recibo",
+      "detail": "El último, o búsquelo en el historial"
+    },
+    "callManager": {
+      "label": "Llamar al encargado",
+      "detail": "Le aparece en Pendiente; usted sigue vendiendo"
+    }
+  },
+  "unavailable": "No disponible ahora",
+  "latest": "Última novedad de hoy: {{summary}}",
+  "kind": {
+    "stockout": "Agotado",
+    "price_mismatch": "Precio no coincide",
+    "no_barcode": "Sin código",
+    "call_manager": "Llamado al encargado"
+  },
+  "product": {
+    "change": "Cambiar producto",
+    "search": "Busque por nombre, código o código de barras",
+    "noResults": "Ningún producto coincide",
+    "stockHere": "{{count}} en {{site}}",
+    "stockElsewhere": "{{site}} tiene {{count}}",
+    "price": "Precio en caja {{price}}"
+  },
+  "priceCheck": {
+    "stock": "{{count}} en existencia"
+  },
+  "stockout": {
+    "reasons": "Motivo",
+    "reason": {
+      "not_on_shelf": "No hay en góndola",
+      "system_zero": "El sistema dice 0",
+      "expired": "Vencido"
+    }
+  },
+  "noBarcode": {
+    "note": "¿Qué producto es?",
+    "linkProduct": "Está en el catálogo"
+  },
+  "priceMismatch": {
+    "shelfPrice": "Precio en góndola"
+  },
+  "submit": "Avisar al administrador",
+  "sent": {
+    "default": "Queda en Hoy, en «Antes de cerrar».",
+    "transfer": "Queda en Hoy, en «Antes de cerrar», con el traslado listo.",
+    "call": "El encargado ve su llamado en Pendiente."
+  },
+  "error": "No se pudo enviar la novedad"
+}

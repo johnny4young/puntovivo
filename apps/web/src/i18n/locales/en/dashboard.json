@@ -129,7 +129,8 @@
       "incident": {
         "stockout": "{{product}} out of stock",
         "price_mismatch": "{{product}}: shelf price differs",
-        "no_barcode": "Product without barcode: {{product}}"
+        "no_barcode": "Product without barcode: {{product}}",
+        "call_manager": "{{reporter}} is calling you to the till"
       },
       "incidentReporter": "Reported by {{reporter}}",
       "incidentReason": {

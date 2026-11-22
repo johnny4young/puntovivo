@@ -19,7 +19,7 @@
  *
  * @module components/feedback/Drawer
  */
-import { useId, useRef, type ReactNode, type MouseEvent } from 'react';
+import { useId, useRef, type ReactNode, type MouseEvent, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -45,6 +45,8 @@ export interface DrawerProps {
   pinnedContent?: ReactNode | undefined;
   /** Optional sticky footer (action buttons). */
   footer?: ReactNode | undefined;
+  /** `clear` keeps the screen behind readable, for sheets that work beside it. Default `dim`. */
+  backdrop?: 'dim' | 'clear' | undefined;
   /** Close on backdrop click. Default true. */
   closeOnBackdrop?: boolean | undefined;
   /** Close on ESC key. Default true. */
@@ -64,6 +66,8 @@ export interface DrawerProps {
    * product search input regardless of how the drawer was opened.
    */
   restoreFocusTo?: (() => HTMLElement | null) | undefined;
+  /** Control that takes focus on open instead of the first focusable one. */
+  initialFocusRef?: RefObject<HTMLElement | null> | undefined;
   /** `data-testid` for the sliding panel. */
   testId?: string | undefined;
 }
@@ -83,6 +87,7 @@ export function Drawer({
   children,
   pinnedContent,
   footer,
+  backdrop = 'dim',
   closeOnBackdrop = true,
   closeOnEsc = true,
   showCloseButton = true,
@@ -90,6 +95,7 @@ export function Drawer({
   className,
   contentClassName,
   restoreFocusTo,
+  initialFocusRef,
   testId,
 }: DrawerProps) {
   const { t } = useTranslation('common');
@@ -105,6 +111,7 @@ export function Drawer({
     restoreFocusTo,
     dialogRef,
     requireTopmost: true,
+    initialFocusRef,
   });
 
   const handleBackdropClick = (e: MouseEvent<HTMLDivElement>) => {
@@ -123,7 +130,10 @@ export function Drawer({
       aria-label={title ? undefined : ariaLabel}
     >
       <div
-        className="fixed inset-0 bg-scrim/60 backdrop-blur-sm animate-fade-in"
+        className={cn(
+          'fixed inset-0',
+          backdrop === 'dim' && 'bg-scrim/60 backdrop-blur-sm animate-fade-in'
+        )}
         onClick={handleBackdropClick}
         aria-hidden="true"
       />

@@ -23,6 +23,12 @@ describe('buildRegisterBarActions', () => {
     expect(suspend).toHaveBeenCalledOnce();
   });
 
+  it('lists the incident sheet after returns with its F9 key', () => {
+    const actions = buildRegisterBarActions({ incident: vi.fn(), returns: vi.fn() });
+    expect(actions.map(action => action.id)).toEqual(['returns', 'incident']);
+    expect(actions[1]?.shortcutId).toBe('sales.incident');
+  });
+
   it('has no shortcut for actions without a key', () => {
     const [action] = buildRegisterBarActions({ returns: vi.fn() });
     expect(action?.shortcutId).toBeNull();

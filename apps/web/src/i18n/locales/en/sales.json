@@ -585,7 +585,8 @@
       "catalog": "Search the catalog",
       "cashMovement": "Cash movement",
       "openCashSession": "Open register",
-      "closeCashSession": "Close register"
+      "closeCashSession": "Close register",
+      "incident": "Incident"
     }
   },
   "paymentStatus": {
@@ -985,6 +986,7 @@
       "returns": "Return",
       "credit": "On credit",
       "suspended": "Suspended",
+      "incident": "Incident",
       "onAccount": "On account"
     },
     "keys": {

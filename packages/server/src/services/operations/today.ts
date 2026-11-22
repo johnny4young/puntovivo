@@ -502,6 +502,14 @@ async function collectPending(
   }
 
   return items.sort(
-    (a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity] || a.at.localeCompare(b.at)
+    (a, b) =>
+      SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity] ||
+      Number(isCall(b)) - Number(isCall(a)) ||
+      a.at.localeCompare(b.at)
   );
+}
+
+// A cashier waiting at the till comes before the rest of its group.
+function isCall(item: TodayPendingItem): boolean {
+  return item.kind === 'incident' && item.incident.kind === 'call_manager';
 }

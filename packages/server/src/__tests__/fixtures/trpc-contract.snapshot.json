@@ -2468,7 +2468,7 @@
   {
     "path": "registerIncidents.report",
     "kind": "mutation",
-    "input": "object{kind:enum(\"stockout\"|\"price_mismatch\"|\"no_barcode\"),note?:string[maxLength=500],productId?:string[minLength=1,maxLength=64],reason?:enum(\"not_on_shelf\"|\"system_zero\"|\"expired\"),shelfPrice?:number[min=0,max=1000000000]}",
+    "input": "object{kind:enum(\"stockout\"|\"price_mismatch\"|\"no_barcode\"|\"call_manager\"),note?:string[maxLength=500],productId?:string[minLength=1,maxLength=64],reason?:enum(\"not_on_shelf\"|\"system_zero\"|\"expired\"),shelfPrice?:number[min=0,max=1000000000]}",
     "output": "inferred"
   },
   {

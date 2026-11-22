@@ -288,6 +288,13 @@ export const SHORTCUTS: readonly ShortcutDefinition[] = [
     labelKey: 'sales.fastCash',
     roles: ['admin', 'manager', 'cashier'],
   },
+  {
+    id: 'sales.incident',
+    keys: ['F9'],
+    scope: 'sales',
+    labelKey: 'sales.incident',
+    roles: ['admin', 'manager', 'cashier'],
+  },
 ];
 
 /**

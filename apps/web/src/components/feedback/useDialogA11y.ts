@@ -90,6 +90,8 @@ export interface UseDialogA11yOptions {
    * modal dialog in the DOM. Default false (Modal's historical behaviour).
    */
   requireTopmost?: boolean | undefined;
+  /** Control that takes focus on open instead of the first focusable one. */
+  initialFocusRef?: RefObject<HTMLElement | null> | undefined;
 }
 
 export function isTopmostModalDialog(dialog: HTMLElement | null): boolean {
@@ -106,6 +108,7 @@ export function useDialogA11y({
   restoreFocusTo,
   dialogRef,
   requireTopmost = false,
+  initialFocusRef,
 }: UseDialogA11yOptions): void {
   const previousActiveElement = useRef<HTMLElement | null>(null);
   const wasOpenRef = useRef(false);
@@ -204,12 +207,15 @@ export function useDialogA11y({
     if (focusedElement && targetList.some(target => target.contains(focusedElement))) {
       previousActiveElement.current = focusedElement;
       const container = containerRef.current;
-      const focusTarget = container?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR) ?? container;
+      const focusTarget =
+        initialFocusRef?.current ??
+        container?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR) ??
+        container;
       focusTarget?.focus();
     }
     targetList.forEach(acquireIsolation);
     return () => targetList.forEach(releaseIsolation);
-  }, [isOpen, containerRef, dialogRef]);
+  }, [isOpen, containerRef, dialogRef, initialFocusRef]);
 
   // Focus management: focus first element on open, restore on close.
   useEffect(() => {
@@ -227,7 +233,11 @@ export function useDialogA11y({
       if (active && active !== document.body && container.contains(active)) {
         return;
       }
-      (container.querySelector<HTMLElement>(FOCUSABLE_SELECTOR) ?? container).focus();
+      (
+        initialFocusRef?.current ??
+        container.querySelector<HTMLElement>(FOCUSABLE_SELECTOR) ??
+        container
+      ).focus();
     }, 50);
 
     // Call restoration from cleanup as well as the closed-state branch.
@@ -237,7 +247,7 @@ export function useDialogA11y({
       clearTimeout(timer);
       restoreFocus();
     };
-  }, [isOpen, containerRef, restoreFocus]);
+  }, [isOpen, containerRef, restoreFocus, initialFocusRef]);
 
   // Lock body scroll while open.
   useEffect(() => {

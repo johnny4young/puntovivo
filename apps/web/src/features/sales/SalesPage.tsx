@@ -98,6 +98,7 @@ export function SalesPage() {
   // el POS es ahora la única superficie de /sales; el historial y
   // las ventas suspendidas viven detrás de cajones laterales (Drawer).
   const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
+  const [isIncidentSheetOpen, setIsIncidentSheetOpen] = useState(false);
   const [productSearchQuery, setProductSearchQuery] = useState('');
   // multi-cart workspace UX state. The label-prompt modal
   // captures an optional "Mesa 5" annotation before the Suspend server
@@ -599,6 +600,7 @@ export function SalesPage() {
         : undefined,
     onOpenCashMovement: activeCashSession ? handleOpenCashSessionMovementModal : undefined,
     onOpenCashClose: canCloseCashSession ? () => setIsCashSessionCloseModalOpen(true) : undefined,
+    onOpenIncident: () => setIsIncidentSheetOpen(true),
   });
 
   // Role-aware cash drawer kick and barcode scanner pipeline.
@@ -700,6 +702,9 @@ export function SalesPage() {
         preflightItems={preflight.items}
         readinessItems={checkoutReadinessItems}
         isHistoryDrawerOpen={isHistoryDrawerOpen}
+        isIncidentSheetOpen={isIncidentSheetOpen}
+        scanGapMs={scannerConfig.interCharGapMs}
+        setIsIncidentSheetOpen={setIsIncidentSheetOpen}
         lastSale={lastSale}
         lastRead={lastRead}
         ticketTender={ticketTender}
