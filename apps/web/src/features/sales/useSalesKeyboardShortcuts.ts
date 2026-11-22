@@ -154,6 +154,10 @@ export function useSalesKeyboardShortcuts({
       // `preventDefault()` aggressively when we accept the key. Modal
       // overlays suppress them to avoid cross-talk with the payment
       // form submit key (Enter) etc.
+      // A sheet or dialog over the register (Novedad, Devolución, cash) owns these keys,
+      // so they never charge, suspend, undo or delete in the cart behind it.
+      const behindDialog = !isPaymentModalOpen && !isProductSearchOpen && hasOpenModalDialog();
+
       if (event.metaKey || event.ctrlKey) {
         if (isPaymentModalOpen || isProductSearchOpen) {
           return;
@@ -182,7 +186,7 @@ export function useSalesKeyboardShortcuts({
         }
 
         if (key === 'p') {
-          if (onSuspend && canSuspend) {
+          if (onSuspend && canSuspend && !behindDialog) {
             event.preventDefault();
             onSuspend();
           }
@@ -208,7 +212,7 @@ export function useSalesKeyboardShortcuts({
           // editable field and the cashier intends a cart-level
           // undo. The handler is always called when wired; it
           // owns the "nothing to undo" toast / success toast.
-          if (onUndo) {
+          if (onUndo && !behindDialog) {
             event.preventDefault();
             onUndo();
           }
@@ -292,7 +296,7 @@ export function useSalesKeyboardShortcuts({
         if (!isPaymentModalOpen && !isSalesSearchInput && isEditableShortcutTarget(event.target)) {
           return;
         }
-        if (onFastCash) {
+        if (onFastCash && !behindDialog) {
           event.preventDefault();
           onFastCash();
         }
@@ -300,7 +304,7 @@ export function useSalesKeyboardShortcuts({
       }
 
       if (event.key === 'F5') {
-        if (!canOpenSearch || isPaymentModalOpen || isProductSearchOpen) {
+        if (!canOpenSearch || isPaymentModalOpen || isProductSearchOpen || behindDialog) {
           return;
         }
 
@@ -320,6 +324,7 @@ export function useSalesKeyboardShortcuts({
       }
 
       if (event.key === 'F1') {
+        if (behindDialog) return;
         event.preventDefault();
 
         if (isPaymentModalOpen) {
@@ -335,7 +340,12 @@ export function useSalesKeyboardShortcuts({
         return;
       }
 
-      if (event.key === 'Delete' && selectedItemKey && !isEditableShortcutTarget(event.target)) {
+      if (
+        event.key === 'Delete' &&
+        selectedItemKey &&
+        !behindDialog &&
+        !isEditableShortcutTarget(event.target)
+      ) {
         event.preventDefault();
         onRemoveSelectedItem(selectedItemKey);
       }

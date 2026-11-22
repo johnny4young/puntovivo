@@ -496,6 +496,7 @@
       "expired": "Vencido / mal estado",
       "duplicate": "Compra duplicada",
       "wrong_item": "Cambio de producto",
+      "charge_error": "Error de cobro",
       "other": "Otro"
     },
     "linesLabel": "Productos disponibles para devolución",
@@ -762,14 +763,14 @@
     "progress": "{{collected}} de {{required}} aprobaciones de personas diferentes recibidas",
     "inline": {
       "title": "Aprobar en esta caja",
-      "help": "Mantenga este cobro abierto. Un responsable elige su nombre e ingresa su propio PIN.",
+      "help": "Mantenga esta pantalla abierta. Un responsable elige su nombre e ingresa su propio PIN.",
       "loadError": "No se pudieron cargar las personas responsables.",
       "empty": "No hay una persona responsable disponible para esta aprobación.",
       "pinMissing": "Las personas responsables necesitan un PIN de personal para aprobar aquí.",
       "approverLabel": "Persona responsable",
       "pinLabel": "Su PIN de personal",
-      "submit": "Aprobar cobro",
-      "success": "Cobro aprobado"
+      "submit": "Aprobar",
+      "success": "Aprobación registrada"
     },
     "actions": {
       "sale_discount": "Cobro con descuento",

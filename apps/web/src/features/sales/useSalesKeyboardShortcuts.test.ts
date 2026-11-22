@@ -264,6 +264,48 @@ describe('useSalesKeyboardShortcuts — Ctrl/Cmd guard lift', () => {
     });
   });
 
+  it('leaves the cart alone while a sheet over the register owns the keyboard', () => {
+    const onOpenPayment = vi.fn();
+    const onRemoveSelectedItem = vi.fn();
+    const onOpenSearch = vi.fn();
+    const onFastCash = vi.fn();
+    const onSuspend = vi.fn();
+    const onUndo = vi.fn();
+    renderHook(() =>
+      useSalesKeyboardShortcuts({
+        ...defaultOptions,
+        selectedItemKey: 'line-1',
+        canOpenSearch: true,
+        canSuspend: true,
+        onOpenPayment,
+        onRemoveSelectedItem,
+        onOpenSearch,
+        onFastCash,
+        onSuspend,
+        onUndo,
+      })
+    );
+    const sheet = document.createElement('div');
+    sheet.setAttribute('role', 'dialog');
+    sheet.setAttribute('aria-modal', 'true');
+    document.body.append(sheet);
+
+    for (const key of ['F1', 'F2', 'F5', 'Delete']) fireKey(key);
+    fireKey('p', { ctrlKey: true });
+    fireKey('z', { ctrlKey: true });
+
+    expect(onOpenPayment).not.toHaveBeenCalled();
+    expect(onFastCash).not.toHaveBeenCalled();
+    expect(onOpenSearch).not.toHaveBeenCalled();
+    expect(onRemoveSelectedItem).not.toHaveBeenCalled();
+    expect(onSuspend).not.toHaveBeenCalled();
+    expect(onUndo).not.toHaveBeenCalled();
+
+    sheet.remove();
+    fireKey('Delete');
+    expect(onRemoveSelectedItem).toHaveBeenCalledWith('line-1');
+  });
+
   describe('F9 incident sheet', () => {
     it('opens the sheet from the scan field and prevents the browser default', () => {
       const onOpenIncident = vi.fn();

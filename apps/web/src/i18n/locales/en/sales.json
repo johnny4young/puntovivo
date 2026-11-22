@@ -496,6 +496,7 @@
       "expired": "Expired / damaged",
       "duplicate": "Duplicate purchase",
       "wrong_item": "Wrong item",
+      "charge_error": "Charge error",
       "other": "Other"
     },
     "linesLabel": "Returnable items",
@@ -762,14 +763,14 @@
     "progress": "{{collected}} of {{required}} distinct approvals received",
     "inline": {
       "title": "Approve at this register",
-      "help": "Keep this checkout open. A manager chooses their name and enters their own PIN.",
+      "help": "Keep this screen open. A manager chooses their name and enters their own PIN.",
       "loadError": "Eligible managers could not be loaded.",
       "empty": "No eligible manager is available for this approval.",
       "pinMissing": "Eligible managers need a staff PIN before they can approve here.",
       "approverLabel": "Responsible person",
       "pinLabel": "Their staff PIN",
-      "submit": "Approve checkout",
-      "success": "Checkout approved"
+      "submit": "Approve",
+      "success": "Approval recorded"
     },
     "actions": {
       "sale_discount": "Discounted checkout",

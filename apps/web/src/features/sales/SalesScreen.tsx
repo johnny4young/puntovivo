@@ -57,6 +57,7 @@ const LazySalesHistoryDrawerContent = lazy(() =>
 );
 
 const LazyTillIncidentSheet = lazy(() => import('@/features/sales/incidents/TillIncidentSheet'));
+const LazyTillReturnSheet = lazy(() => import('@/features/sales/returns/TillReturnSheet'));
 
 const LazySalesModals = lazy(() =>
   import('@/features/sales/SalesModals').then(module => ({
@@ -450,6 +451,9 @@ export function SalesScreen({
     () => setIsIncidentSheetOpen(true),
     [setIsIncidentSheetOpen]
   );
+  const [isReturnSheetOpen, setIsReturnSheetOpen] = useState(false);
+  const openReturnSheet = useCallback(() => setIsReturnSheetOpen(true), []);
+  const closeReturnSheet = useCallback(() => setIsReturnSheetOpen(false), []);
   const printSale = (saleId: string) => {
     void completedSalePrint.print(saleId).finally(() => {
       productInputRef.current?.focus();
@@ -457,7 +461,7 @@ export function SalesScreen({
   };
   const registerActions = buildRegisterBarActions({
     suspend: canSuspendActiveCart ? handleOpenSuspendPrompt : undefined,
-    returns: () => setIsHistoryDrawerOpen(true),
+    returns: openReturnSheet,
     incident: openIncidentSheet,
     newSale: handleNewSale,
     openDrawer:
@@ -731,7 +735,7 @@ export function SalesScreen({
             onOpenLastSale={() => {
               if (lastSale) openSaleDetails(lastSale.id);
             }}
-            onOpenReturns={() => setIsHistoryDrawerOpen(true)}
+            onOpenReturns={openReturnSheet}
             onOpenIncident={openIncidentSheet}
             isIncidentOpen={isIncidentSheetOpen}
             showsCreditKey={sellsOnCredit}
@@ -782,12 +786,21 @@ export function SalesScreen({
             scanGapMs={scanGapMs}
             product={incidentProductFor(cartItems, lastRead?.key, activeSelectedCartItemKey)}
             actions={{
-              returns: () => setIsHistoryDrawerOpen(true),
+              returns: openReturnSheet,
               voidSale: () =>
                 lastSale ? openSaleDetails(lastSale.id) : setIsHistoryDrawerOpen(true),
               cashMovement: activeCashSession ? handleOpenCashSessionMovementModal : undefined,
               reprint: () => (lastSale ? printSale(lastSale.id) : setIsHistoryDrawerOpen(true)),
             }}
+            restoreFocusTo={() => productInputRef.current}
+          />
+        </Suspense>
+      )}
+
+      {isReturnSheetOpen && (
+        <Suspense fallback={null}>
+          <LazyTillReturnSheet
+            onClose={closeReturnSheet}
             restoreFocusTo={() => productInputRef.current}
           />
         </Suspense>

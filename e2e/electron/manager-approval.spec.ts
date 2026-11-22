@@ -90,7 +90,7 @@ async function approveAndConsumeAtRegister(
   await expect(responsible).toContainText(manager.name);
   await expect(responsible).not.toHaveValue('');
   await inlineDecision.getByLabel('Their staff PIN').fill(MANAGER_PIN);
-  await inlineDecision.getByRole('button', { name: 'Approve checkout' }).click();
+  await inlineDecision.getByRole('button', { name: 'Approve', exact: true }).click();
   await expect(checkout.approval.getByTestId('checkout-approval-status-sale_discount')).toHaveText(
     'Approved',
     { timeout: 15_000 }

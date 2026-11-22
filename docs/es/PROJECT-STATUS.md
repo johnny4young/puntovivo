@@ -204,6 +204,13 @@ El candidato validado actual incluye:
   de agotado, sin código, precio y llamado llegan a la cola Pendiente de Hoy del
   encargado hasta que los resuelve, el agotado con la otra sede que más tiene, y
   la hoja nombra la última novedad del día;
+- una hoja de devolución sobre el ticket abierto desde la tecla Devolución, `/`
+  o la hoja de novedades: el cajero escanea o escribe el recibo, o elige una de
+  las ventas de hoy de la sede, marca las líneas y cantidades que vuelven, elige
+  un motivo y ve el reembolso como se pagó. Cuando el reembolso necesita un
+  encargado (siempre para cajeros, o al pasar un límite del turno, que la hoja
+  nombra) el cajero pide la aprobación y sigue vendiendo, o un encargado ingresa
+  su PIN en la caja; un cambio abre la venta de reemplazo enlazada;
 - los productos por peso preguntan cuánto pesaron al tocarlos o elegirlos en la
   caja y en el POS táctil: teclas de un cuarto, medio y un kilogramo, una venta
   por valor que compra la cantidad a 0,001 al precio de la línea con tarifa,
