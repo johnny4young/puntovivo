@@ -518,11 +518,14 @@ El candidato validado actual incluye:
   de producto, política, evidencia, retiro y custodia de lotes atómicamente.
 - La notificación duradera de cocina es al menos una vez y requiere consulta
   periódica/reconexión; un reconocimiento de difusión local no prueba entrega
-  a una pantalla o impresora física. El editor de líneas del restaurante admite
-  la lista acotada existente de modificadores. Los gerentes configuran adicionales
+  a una pantalla o impresora física. Los gerentes configuran adicionales
   versionados por sede desde la UI y los agrupan por plato (preparación, sin,
   adicionales) con elecciones obligatorias y máximas que los pedidos deben
-  cumplir; la hoja por plato que muestra esos grupos aún no existe. Los
+  cumplir. La pantalla de pedidos abre una hoja por plato con el comensal, esos
+  grupos, el tiempo y una nota para cocina, y muestra las rondas enviadas de la
+  mesa sobre la ronda en preparación. Cada ronda enviada abre su propia cuenta
+  en el servicio de la mesa; agregar una ronda a una cuenta existente aún no
+  existe. Los
   recargos de cajeros exigen una referencia
   exacta de catálogo activo comprobada dentro de la transacción de venta. Las
   instrucciones libres sin precio siguen disponibles, mientras cargos

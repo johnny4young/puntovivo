@@ -1086,6 +1086,49 @@
     outline-offset: 2px;
   }
 
+  .modifier-option:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .dish-tile {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 0.75rem;
+    min-height: 5.25rem;
+    padding: 0.75rem;
+    border: 1px solid var(--line);
+    border-radius: 0.875rem;
+    background: var(--card);
+    color: var(--fg1);
+    text-align: left;
+  }
+
+  .dish-tile[aria-pressed='true'] {
+    border: 1.5px solid var(--primary-600);
+    background: var(--accent);
+  }
+
+  .dish-tile:focus-visible {
+    outline: 2px solid var(--primary-600);
+    outline-offset: 2px;
+  }
+
+  .dish-tile:disabled {
+    opacity: 0.6;
+    cursor: wait;
+  }
+
+  .dish-tile-dot {
+    width: 0.625rem;
+    height: 0.625rem;
+    flex: none;
+    margin-top: 0.25rem;
+    border-radius: 9999px;
+    background: oklch(0.62 0.14 var(--tile-hue));
+  }
+
   /* Composed with .sales-pill: a touch-sized, neutral chip. */
   .sales-quick-chip {
     flex: none;

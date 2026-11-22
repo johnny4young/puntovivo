@@ -52,55 +52,28 @@
     "checkLabelPlaceholder": "p. ej. Grupo del patio",
     "tableStateLoading": "Verificando el servicio abierto de esta mesa...",
     "tableStateError": "No se pudo verificar el estado de la mesa. Intente de nuevo antes de abrir una cuenta.",
-    "generalParkOption": "Sin mesa · venta suspendida general",
-    "openChecks_one": "{{count}} cuenta abierta",
-    "openChecks_other": "{{count}} cuentas abiertas"
+    "generalParkOption": "Sin mesa · venta suspendida general"
   },
   "cart": {
-    "heading": "Orden",
     "empty": "Aún no hay productos.",
-    "subtotal": "Subtotal",
-    "tax": "Impuesto",
-    "total": "Total",
     "quantityIncrement": "Aumentar cantidad",
     "quantityDecrement": "Disminuir cantidad",
     "removeRow": "Eliminar producto",
-    "notesPlaceholder": "Nota para cocina (p. ej. sin queso)",
-    "courseLabel": "Tiempo",
     "courses": {
       "starter": "Entrada",
       "main": "Plato principal",
       "dessert": "Postre",
       "drink": "Bebida",
       "other": "Otro"
-    },
-    "seatLabel": "Comensal",
-    "seatOption": "Puesto {{count}}",
-    "modifierLabel": "Modificador (opcional)",
-    "modifierPlaceholder": "p. ej. Queso extra",
-    "modifierPrice": "Valor adicional",
-    "modifiersHeading": "Modificadores",
-    "modifiersHelp": "Las cantidades y los precios adicionales se aplican a cada unidad del pedido. Las instrucciones de cocina sin recargo pueden tener precio cero.",
-    "modifierQuantity": "Cantidad",
-    "addModifier": "Agregar modificador",
-    "removeModifier": "Eliminar modificador {{name}}",
-    "duplicateModifiers": "Cada modificador necesita un nombre distinto. Cambie el nombre o elimine el duplicado antes de guardar.",
-    "modifiersLimit": "Máximo {{count}} modificadores por línea.",
-    "modifiersLoading": "Cargando modificadores…",
-    "guests_one": "{{count}} comensal",
-    "guests_other": "{{count}} comensales",
-    "repeatModifiers": "Repetir modificadores"
+    }
   },
   "actions": {
     "voiceCTA": "Orden por voz",
     "manualAdd": "Buscar producto",
-    "saveOrder": "Guardar orden",
     "exit": "Cerrar sesión"
   },
   "save": {
-    "successToast_one": "Se guardó la orden de {{tableLabel}} con {{count}} producto.",
-    "successToast_other": "Se guardó la orden de {{tableLabel}} con {{count}} productos.",
-    "errorTitle": "No se pudo guardar la orden",
+    "errorTitle": "No se pudo enviar la ronda",
     "tableRequired": "Escriba el nombre de la mesa antes de guardar.",
     "emptyCartHint": "Agregue al menos un producto antes de guardar."
   },
@@ -297,8 +270,9 @@
     "choose": "Elegir adicional aprobado",
     "chooseHelp": "Revise el precio antes de agregarlo. La cantidad es por plato, no por todo el pedido.",
     "selected": "Ya seleccionado",
-    "cashierHelp": "Las instrucciones personalizadas son gratuitas. Para un adicional con precio, elija una opción aprobada.",
-    "saved": "Adicional guardado"
+    "saved": "Adicional guardado",
+    "custom": "Adicional personalizado",
+    "customAdd": "Agregar adicional personalizado"
   },
   "tabs": {
     "label": "Vistas del catálogo de adicionales",
@@ -343,5 +317,55 @@
     "includeArchived": "Mostrar grupos archivados",
     "active": "Visible en sus platos",
     "saved": "Grupo guardado"
+  },
+  "sheet": {
+    "forWhom": "¿Para quién?",
+    "wholeTable": "Mesa",
+    "diner": "Comensal {{count}}",
+    "loading": "Cargando opciones…",
+    "groupsError": "No se pudieron cargar las opciones de este plato.",
+    "otherExtras": "Otros adicionales",
+    "moreExtras": "Otro adicional",
+    "removeExtra": "Quitar {{name}}",
+    "extraPrice": "+ {{price}}",
+    "servedWith": "Sale con",
+    "courses": {
+      "starter": "Entradas",
+      "main": "Fuertes",
+      "dessert": "Postres",
+      "drink": "Bebidas",
+      "other": "Cuando esté"
+    },
+    "kitchenNote": "Nota para cocina",
+    "missing": "Falta elegir: {{groups}}",
+    "add": "Agregar al pedido",
+    "update": "Guardar cambios",
+    "empty": "Elija un plato",
+    "quantity": "Cantidad"
+  },
+  "rail": {
+    "label": "Pedido de la mesa",
+    "sentRound": "Ronda {{count}} · enviada {{time}}",
+    "draftRound": "Ronda {{count}} · sin enviar",
+    "sharedTag": "mesa",
+    "dinerTag": "C{{count}}",
+    "without": "sin {{name}}",
+    "extra": "+ {{name}}",
+    "editLine": "Editar {{name}}",
+    "tableTotal": "Lleva la mesa",
+    "send": "Enviar ronda {{count}} a cocina",
+    "save": "Guardar ronda {{count}}",
+    "sentToast": "Ronda {{count}} enviada a cocina · {{tableLabel}}",
+    "savedToast": "Ronda {{count}} guardada · {{tableLabel}}"
+  },
+  "catalogGrid": {
+    "label": "Platos",
+    "categories": "Categorías de platos",
+    "all": "Todos",
+    "loading": "Cargando platos…",
+    "error": "No se pudieron cargar los platos.",
+    "empty": "Aún no hay platos en esta categoría.",
+    "pages": "Páginas de platos",
+    "page": "Página {{page}} de {{pages}}"
   }
 }

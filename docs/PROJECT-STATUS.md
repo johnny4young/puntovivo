@@ -463,11 +463,13 @@ The current validated candidate includes:
   product identity, policy, evidence, recall, and lot custody atomically.
 - Durable kitchen notification is at least once and requires polling/reconnect;
   a local broadcast acknowledgement is not proof of physical screen or printer
-  delivery. The restaurant line editor supports the existing bounded modifier
-  list. Managers configure versioned, site-local add-ons from the UI and group
-  them per dish (preparation, without, extras) with required and maximum
-  choices that orders must meet; the plate sheet that shows those groups is not
-  built yet. Cashier surcharges require an exact active catalog reference
+  delivery. Managers configure versioned, site-local add-ons from the UI and
+  group them per dish (preparation, without, extras) with required and maximum
+  choices that orders must meet. The ordering screen opens one sheet per plate
+  with the diner, those groups, the course and a kitchen note, and lists the
+  table's sent rounds above the round being built. Each sent round opens its
+  own check on the table's service; adding a round to an existing check is not
+  built. Cashier surcharges require an exact active catalog reference
   checked inside the sale transaction. Free-form zero-price instructions remain available, while custom
   charges and restricted add-ons require a manager/admin. Catalog edits and
   archival do not alter accepted orders. Reservation scheduling

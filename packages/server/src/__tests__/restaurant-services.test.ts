@@ -1494,11 +1494,13 @@ describe('restaurantServices.openCheck', () => {
       .restaurantServices.openCheck(
         openInput({ tableId, productId, guestCount: 2, label: 'Cuenta A' })
       );
+    const secondInput = openInput({ tableId, productId, guestCount: 2, label: 'Cuenta B' });
     const second = await appRouter
       .createCaller(fresh({ role: 'cashier' }))
-      .restaurantServices.openCheck(
-        openInput({ tableId, productId, guestCount: 2, label: 'Cuenta B' })
-      );
+      .restaurantServices.openCheck({
+        ...secondInput,
+        items: [{ ...secondInput.items[0]!, notes: 'Sin cebolla' }],
+      });
     await db
       .update(saleItems)
       .set({ productNameSnapshot: null })
@@ -1515,6 +1517,11 @@ describe('restaurantServices.openCheck', () => {
     expect(state.checks.flatMap(check => check.lines.map(line => line.productName))).toEqual([
       'Entrada multi',
       'Entrada multi',
+    ]);
+    // The order rail shows each sent line's kitchen note.
+    expect(state.checks.flatMap(check => check.lines.map(line => line.notes))).toEqual([
+      null,
+      'Sin cebolla',
     ]);
 
     await expect(
