@@ -30,7 +30,7 @@ jobs:
       pull-requests: write
       statuses: write
     steps:
-      - uses: johnny4young/centinela@v1.1.2
+      - uses: johnny4young/centinela@v1.2.0
         with:
           app-client-id: ${{ vars.CENTINELA_APP_CLIENT_ID }}
           app-private-key: ${{ secrets.CENTINELA_APP_PRIVATE_KEY }}
