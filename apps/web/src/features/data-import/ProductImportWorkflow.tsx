@@ -282,7 +282,7 @@ export function ProductImportWorkflow({ dataMode, onBusyChange }: ProductImportW
           name: t('dataImport:template.sampleName'),
           sku: 'SKU-001',
           description: t('dataImport:template.sampleDescription'),
-          barcode: '7701234567890',
+          barcode: '7701234567897',
           price: '12500',
           price2: '11800',
           price3: '11000',

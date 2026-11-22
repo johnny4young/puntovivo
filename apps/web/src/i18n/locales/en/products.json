@@ -199,6 +199,7 @@
       "salePrice": "Sale Price",
       "skuHelp": "Required internal code used in searches and imports.",
       "barcodePlaceholder": "Scan or type",
+      "barcodeCheckDigitInvalid": "The check digit is invalid. Check the code; the register could not scan it.",
       "descriptionPlaceholder": "Notes shown on quotes (optional).",
       "minStockHelp": "Used for low-stock alerts.",
       "serviceItem": "Service item (no inventory)",

@@ -66,3 +66,16 @@ export function resolveGs1PrefixRole(
   if (isWeight === isPrice) return null;
   return isWeight ? 'weight' : 'price';
 }
+
+/** True for a digit-only EAN-8/UPC-A/EAN-13 whose mod-10 check digit fails; other codes are internal. */
+export function hasInvalidGs1CheckDigit(barcode: string | null | undefined): boolean {
+  const code = barcode?.trim() ?? '';
+  if (!/^\d+$/.test(code) || (code.length !== 8 && code.length !== 12 && code.length !== 13)) {
+    return false;
+  }
+  let sum = 0;
+  for (let i = code.length - 2, weight = 3; i >= 0; i--, weight = 4 - weight) {
+    sum += Number(code[i]) * weight;
+  }
+  return (10 - (sum % 10)) % 10 !== Number(code[code.length - 1]);
+}

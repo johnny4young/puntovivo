@@ -1,5 +1,6 @@
 import type { Product } from '@/types';
 import { MIN_OPERATIONAL_QUANTITY } from '@puntovivo/shared/unit-math';
+import { hasInvalidGs1CheckDigit } from '@puntovivo/shared/gs1';
 import { normalizeProductProviderSelections } from './providerState';
 import type { ProductFormValues } from './productForm.types';
 
@@ -146,6 +147,17 @@ export function parseNumber(value: string): number {
  * `exactOptionalPropertyTypes`: the prop is omitted entirely when there is
  * no message rather than passed as `undefined`.
  */
+/** Mirrors the till's GS1 check; a code already stored stays editable, as on the server. */
+export function validateBarcodeCheckDigit(
+  value: string | null | undefined,
+  storedCodes: ReadonlyArray<string | null | undefined>,
+  message: string
+): string | true {
+  const code = value?.trim() ?? '';
+  if (storedCodes.some(stored => stored?.trim() === code)) return true;
+  return hasInvalidGs1CheckDigit(code) ? message : true;
+}
+
 export function errorProp(message: string | undefined): { error?: string } {
   return message ? { error: message } : {};
 }

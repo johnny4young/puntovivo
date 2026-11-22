@@ -25,13 +25,13 @@ describe('validateUnitAssignments packaging barcodes', () => {
           unitId: 'unit-case',
           equivalence: 12,
           isBase: false,
-          barcode: '7701234567890',
+          barcode: '7701234567897',
         }),
         assignment({
           unitId: 'unit-box',
           equivalence: 24,
           isBase: false,
-          barcode: '7701234567890',
+          barcode: '7701234567897',
         }),
       ] as Assignments)
     ).toThrow(/unique within a product/);
@@ -45,13 +45,13 @@ describe('validateUnitAssignments packaging barcodes', () => {
           unitId: 'unit-case',
           equivalence: 12,
           isBase: false,
-          barcode: '7701234567890',
+          barcode: '7701234567897',
         }),
         assignment({
           unitId: 'unit-box',
           equivalence: 24,
           isBase: false,
-          barcode: '7701234567891',
+          barcode: '7701234567880',
         }),
       ] as Assignments)
     ).not.toThrow();
@@ -76,6 +76,15 @@ describe('validateUnitAssignments packaging barcodes', () => {
         '770111'
       )
     ).toThrow(/cannot equal the product barcode/);
+  });
+
+  it('rejects a new presentation GTIN with a bad check digit but keeps stored ones', () => {
+    const bad = [
+      assignment(),
+      assignment({ unitId: 'unit-case', equivalence: 12, isBase: false, barcode: '7701234567890' }),
+    ] as Assignments;
+    expect(() => validateUnitAssignments(bad)).toThrow(/check digit/);
+    expect(() => validateUnitAssignments(bad, null, new Set(['7701234567890']))).not.toThrow();
   });
 
   it('lets the base presentation reuse the product barcode', () => {

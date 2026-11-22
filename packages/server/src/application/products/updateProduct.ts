@@ -63,6 +63,8 @@ import {
   replacePharmacyProductProfile,
 } from '../../services/pharmacy/product-profile.js';
 
+import { assertGs1CheckDigit } from '../../services/products/barcode-check-digit.js';
+
 export async function updateProduct(ctx: ProductMutationContext, input: UpdateProductInput) {
   const { id, ...updates } = input;
 
@@ -88,6 +90,10 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
     });
   }
 
+  if (updates.barcode !== undefined && updates.barcode?.trim() !== existing.barcode?.trim()) {
+    assertGs1CheckDigit(updates.barcode);
+  }
+
   if (updates.sku && updates.sku !== existing.sku) {
     const duplicateSku = await ctx.db
       .select({ id: products.id })
@@ -110,7 +116,12 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
     ctx.db,
     ctx.tenantId,
     updates.unitAssignments ?? existingUnitAssignments,
-    updates.barcode !== undefined ? updates.barcode : existing.barcode
+    updates.barcode !== undefined ? updates.barcode : existing.barcode,
+    new Set(
+      existingUnitAssignments.flatMap(assignment =>
+        assignment.barcode ? [assignment.barcode.trim()] : []
+      )
+    )
   );
   const normalizedProviderState = normalizeProviderState({
     providerId: updates.providerId,

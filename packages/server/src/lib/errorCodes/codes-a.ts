@@ -236,6 +236,8 @@ export const SERVER_ERROR_CODES_A = {
   PRODUCT_FRACTION_MINIMUM_BELOW_STEP: 'PRODUCT_FRACTION_MINIMUM_BELOW_STEP',
   /** Admin config: fractionMinimum is not a multiple of fractionStep. */
   PRODUCT_FRACTION_MINIMUM_NOT_ALIGNED: 'PRODUCT_FRACTION_MINIMUM_NOT_ALIGNED',
+  /** Catalog write: an EAN-8/UPC-A/EAN-13 barcode fails its check digit. */
+  PRODUCT_BARCODE_CHECK_DIGIT_INVALID: 'PRODUCT_BARCODE_CHECK_DIGIT_INVALID',
   /** : enabling lot tracking would orphan existing/opening stock. */
   PRODUCT_LOT_TRACKING_REQUIRES_ZERO_STOCK: 'PRODUCT_LOT_TRACKING_REQUIRES_ZERO_STOCK',
   /** : a direct stock edit would bypass lot and FEFO evidence. */

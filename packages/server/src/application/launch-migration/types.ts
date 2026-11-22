@@ -48,6 +48,7 @@ export type ProductImportIssueCode =
   | 'duplicate_existing_sku'
   | 'duplicate_file_barcode'
   | 'duplicate_existing_barcode'
+  | 'invalid_check_digit'
   | 'concurrent_duplicate'
   | 'import_failed'
   | 'stock_failed';

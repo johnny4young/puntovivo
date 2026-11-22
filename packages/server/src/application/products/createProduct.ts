@@ -11,6 +11,7 @@ import { resolveFractionPolicy } from '../../services/fraction-policy.js';
 import { applyInventoryBalanceDelta, getPrimarySiteId } from '../../services/inventory-balances.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import { normalizeProductPricing } from '../../services/pricing.js';
+import { assertGs1CheckDigit } from '../../services/products/barcode-check-digit.js';
 import {
   assertCreateLotTrackingPolicy,
   assertCreateSerialTrackingPolicy,
@@ -56,6 +57,8 @@ async function persistProduct(ctx: ProductMutationContext, input: CreateProductI
     tracksLots: input.tracksLots,
     tracksSerials: input.tracksSerials,
   });
+
+  assertGs1CheckDigit(input.barcode);
 
   const existingSku = await ctx.db
     .select({ id: products.id })
