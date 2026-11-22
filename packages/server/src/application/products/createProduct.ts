@@ -129,6 +129,11 @@ async function persistProduct(ctx: ProductMutationContext, input: CreateProductI
   const productCurrencyCode = resolveTenantCurrency(ctx.db, ctx.tenantId);
 
   const openingMovementId = input.stock > 0 ? nanoid() : null;
+  // Opening stock with only a cost typed must still carry inventory value.
+  const openingInitialCost =
+    input.initialCost > 0 || input.stock <= 0
+      ? roundMoney(input.initialCost)
+      : normalizedPricing.cost;
   ctx.db.transaction(
     tx => {
       tx.insert(products)
@@ -154,7 +159,7 @@ async function persistProduct(ctx: ProductMutationContext, input: CreateProductI
           vatRateId: taxSummary.vatRateId,
           providerId: normalizedProviderState?.providerId ?? null,
           locationId: resolvedLocationId,
-          initialCost: roundMoney(input.initialCost),
+          initialCost: openingInitialCost,
           currencyCode: productCurrencyCode,
           minStock: input.minStock,
           sellByFraction: resolvedFractionPolicy.sellByFraction,
