@@ -122,6 +122,10 @@
       "es": "docs/es/repository/PULL-REQUEST-TEMPLATE.md"
     },
     {
+      "en": ".github/triage/REVIEW.md",
+      "es": "docs/es/repository/TRIAGE-REVIEW.md"
+    },
+    {
       "en": "docs/INVENTORY-MODEL.md",
       "es": "docs/es/INVENTORY-MODEL.md"
     },

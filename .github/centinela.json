@@ -1,0 +1,38 @@
+{
+  "maintainers": ["johnny4young"],
+  "license": "MIT",
+  "size": {
+    "ignore": [
+      "pnpm-lock.yaml",
+      "CHANGELOG.md",
+      "packages/server/src/db/migrations/meta/**",
+      "**/__snapshots__/**",
+      "**/*.snap",
+      "docs/releases/**",
+      "docs/es/releases/**"
+    ]
+  },
+  "paths": {
+    "ui": ["apps/web/src/**/*.tsx", "apps/web/src/**/*.css", "apps/web/src/i18n/locales/**"],
+    "source": ["apps/*/src/**", "packages/*/src/**", "scripts/**/*.mjs"],
+    "tests": ["**/*.test.*", "**/*.spec.*", "**/__tests__/**", "e2e/**", "scripts/fixtures/**"],
+    "sensitive": [
+      "scripts/ensure-*.mjs",
+      "apps/desktop/src/main/window-config.ts",
+      "apps/desktop/src/preload/**",
+      "apps/desktop/electron-builder.yml",
+      "packages/server/src/trpc/middleware/**"
+    ]
+  },
+  "language": {
+    "typosExclude": ["apps/web/src/i18n/locales/es/**", "docs/es/**"],
+    "spanishRegister": { "register": "usted", "paths": ["apps/web/src/i18n/locales/es/**"] },
+    "localeParity": { "dir": "apps/web/src/i18n/locales", "languages": ["en", "es"] }
+  },
+  "rules": { "electron": true },
+  "issues": { "productName": "Puntovivo" },
+  "links": {
+    "security": { "en": "docs/SECURITY.md", "es": "docs/es/SECURITY.md" },
+    "rules": { "en": ".github/triage/REVIEW.md", "es": "docs/es/repository/TRIAGE-REVIEW.md" }
+  }
+}
