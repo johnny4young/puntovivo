@@ -123,7 +123,13 @@ describe('restaurant catalog historical upgrade', () => {
             .prepare('SELECT * FROM restaurant_line_modifiers')
             .all() as Array<Record<string, unknown>>;
           expect(rows).toEqual(
-            before.map(row => ({ ...(row as object), catalog_id: null, catalog_version: null }))
+            before.map(row => ({
+              ...(row as object),
+              catalog_id: null,
+              catalog_version: null,
+              group_id: null,
+              group_kind: null,
+            }))
           );
           expect(current.select().from(restaurantModifierCatalog).all()).toEqual([]);
           expect(currentSqlite.pragma('foreign_key_check')).toEqual([]);

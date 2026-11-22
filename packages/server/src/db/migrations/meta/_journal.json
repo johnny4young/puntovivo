@@ -729,6 +729,13 @@
       "when": 1795247341758,
       "tag": "0103_day_close_signature",
       "breakpoints": true
+    },
+    {
+      "idx": 104,
+      "version": "6",
+      "when": 1795304641980,
+      "tag": "0104_restaurant_modifier_groups",
+      "breakpoints": true
     }
   ]
 }

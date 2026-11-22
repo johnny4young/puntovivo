@@ -11,6 +11,7 @@
  * @module application/restaurant/service-lifecycle
  */
 import { assertRestaurantModifierAuthority } from './modifier-catalog.js';
+import { assertRestaurantModifierGroups } from './modifier-groups.js';
 import { assertNoReservationHold, reservationError } from '../reservations/invariants.js';
 import {
   prepareReservationSeating,
@@ -44,6 +45,8 @@ export interface RestaurantLineModifierInput {
   /** Optional provenance; absent on historical and free-form instructions. */
   catalogId?: string | undefined;
   catalogVersion?: number | undefined;
+  /** Group the option was chosen in; requires catalogId. */
+  groupId?: string | undefined;
   name: string;
   quantity: number;
   unitPriceDelta: number;
@@ -54,6 +57,8 @@ export interface RestaurantOrderLineInput {
   itemIndex: number;
   dinerClientId?: string | null | undefined;
   courseKey: 'starter' | 'main' | 'dessert' | 'drink' | 'other';
+  /** Groups the client showed; present means their minimums apply. */
+  modifierGroups?: { id: string; version: number }[] | undefined;
   modifiers: RestaurantLineModifierInput[];
 }
 
@@ -531,6 +536,7 @@ export function openRestaurantCheckInTransaction(
   const modifierSnapshots = tx
     .select({
       id: saleItems.id,
+      productId: saleItems.productId,
       restaurantModifierAmount: saleItems.restaurantModifierAmount,
     })
     .from(saleItems)
@@ -558,6 +564,16 @@ export function openRestaurantCheckInTransaction(
   assertDineInStillActive(tx, context.tenantId);
   const table = assertActiveTable(tx, context, args.input.tableId);
   assertRestaurantModifierAuthority(tx, context, args.input.lines);
+  const productBySaleItem = new Map(modifierSnapshots.map(item => [item.id, item.productId]));
+  const modifierGroups = assertRestaurantModifierGroups(
+    tx,
+    context,
+    args.input.lines.map(line => ({
+      productId: productBySaleItem.get(args.saleItemIds[line.itemIndex]!) ?? '',
+      modifierGroups: line.modifierGroups,
+      modifiers: line.modifiers,
+    }))
+  );
   if (table.seatCount !== null && args.input.guestCount > table.seatCount) {
     throwServerError({
       trpcCode: 'BAD_REQUEST',
@@ -754,7 +770,7 @@ export function openRestaurantCheckInTransaction(
     })
     .run();
 
-  for (const line of args.input.lines) {
+  for (const [lineIndex, line] of args.input.lines.entries()) {
     const saleItemId = args.saleItemIds[line.itemIndex];
     if (!saleItemId) {
       throwServerError({
@@ -792,6 +808,8 @@ export function openRestaurantCheckInTransaction(
           checkLineId,
           catalogId: modifier.catalogId ?? null,
           catalogVersion: modifier.catalogVersion ?? null,
+          groupId: modifierGroups[lineIndex]?.[position]?.id ?? null,
+          groupKind: modifierGroups[lineIndex]?.[position]?.kind ?? null,
           name: modifier.name.trim(),
           quantity: modifier.quantity,
           unitPriceDelta: roundMoney(modifier.unitPriceDelta),

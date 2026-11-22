@@ -12,7 +12,12 @@
     "RESTAURANT_MODIFIER_APPROVAL_REQUIRED": "Choose an approved add-on or ask a manager to place this order.",
     "RESTAURANT_MODIFIER_CHANGED": "This add-on changed. Remove it and choose it again to review the current price before saving.",
     "RESTAURANT_MODIFIER_LIMIT_REACHED": "This site has reached 500 active add-ons. Archive an unused option first.",
-    "RESTAURANT_MODIFIER_NAME_DUPLICATE": "An active add-on already uses that name. Choose another name."
+    "RESTAURANT_MODIFIER_NAME_DUPLICATE": "An active add-on already uses that name. Choose another name.",
+    "RESTAURANT_MODIFIER_GROUP_INVALID": "The minimum needs at least that many available options. Add options or lower the minimum.",
+    "RESTAURANT_MODIFIER_GROUP_LIMIT_REACHED": "The group limit was reached: 100 active groups per site, 8 groups per dish and 20 required choices per dish. Archive a group or lower a minimum.",
+    "RESTAURANT_MODIFIER_GROUP_NAME_DUPLICATE": "An active group already uses that name. Choose another name.",
+    "RESTAURANT_MODIFIER_GROUP_SELECTION_INVALID": "The options chosen for this dish do not meet its group rules. Review the required choices.",
+    "RESTAURANT_MODIFIER_GROUP_PRODUCT_UNAVAILABLE": "A dish in this group is no longer available. Remove it and save again."
   },
   "surface": {
     "touchHeading": "POS Touch",
@@ -294,5 +299,49 @@
     "selected": "Already selected",
     "cashierHelp": "Custom instructions are free. For a priced add-on, choose an approved option.",
     "saved": "Add-on saved"
+  },
+  "tabs": {
+    "label": "Add-on catalog views",
+    "options": "Options",
+    "groups": "Groups"
+  },
+  "groups": {
+    "create": "Create group",
+    "edit": "Edit group",
+    "editNamed": "Edit {{name}}",
+    "name": "Group name",
+    "kind": "Type",
+    "kinds": {
+      "choice": "Preparation",
+      "without": "Without",
+      "extra": "Extras"
+    },
+    "selection": "Selection",
+    "selections": {
+      "single": "One option",
+      "multiple": "Several"
+    },
+    "required": "Required",
+    "min": "Minimum",
+    "max": "Maximum",
+    "options": "Options",
+    "addOption": "Search options to add",
+    "moveUp": "Move {{name}} up",
+    "moveDown": "Move {{name}} down",
+    "remove": "Remove {{name}}",
+    "dishes": "Dishes",
+    "addDish": "Search dishes to add",
+    "noDishes": "No dishes yet",
+    "rule": {
+      "chooseOne": "Choose one",
+      "atMostOne": "One at most",
+      "upTo": "Up to {{count}}",
+      "exactly": "Choose {{count}}",
+      "range": "Choose {{min}} to {{max}}"
+    },
+    "empty": "No groups match this view.",
+    "includeArchived": "Show archived groups",
+    "active": "Shown on its dishes",
+    "saved": "Group saved"
   }
 }

@@ -87,6 +87,7 @@ export const restaurantServicesRouter = router({
             itemIndex,
             dinerClientId: item.dinerClientId,
             courseKey: item.courseKey,
+            modifierGroups: item.modifierGroups,
             modifiers: item.modifiers,
           })),
         },

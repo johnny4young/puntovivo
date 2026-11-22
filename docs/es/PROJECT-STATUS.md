@@ -520,7 +520,10 @@ El candidato validado actual incluye:
   periódica/reconexión; un reconocimiento de difusión local no prueba entrega
   a una pantalla o impresora física. El editor de líneas del restaurante admite
   la lista acotada existente de modificadores. Los gerentes configuran adicionales
-  versionados por sede desde la UI; los recargos de cajeros exigen una referencia
+  versionados por sede desde la UI y los agrupan por plato (preparación, sin,
+  adicionales) con elecciones obligatorias y máximas que los pedidos deben
+  cumplir; la hoja por plato que muestra esos grupos aún no existe. Los
+  recargos de cajeros exigen una referencia
   exacta de catálogo activo comprobada dentro de la transacción de venta. Las
   instrucciones libres sin precio siguen disponibles, mientras cargos
   personalizados y adicionales restringidos requieren gerente/administrador.

@@ -223,6 +223,7 @@
     "attendance_reconciliation.changed": "Attendance reconciliation recorded",
     "installation.owner_created": "Installation owner created",
     "restaurant_modifier.save": "Restaurant add-on saved",
+    "restaurant_modifier_group.save": "Restaurant option group saved",
     "fiscal_numbering.create": "DIAN numbering range registered",
     "fiscal_numbering.activate": "DIAN numbering range activated",
     "fiscal_numbering.retire": "DIAN numbering range retired",
@@ -299,6 +300,7 @@
     "shift_swap": "Shift exchange",
     "attendance_reconciliation": "Attendance reconciliation",
     "restaurant_modifier": "Restaurant add-on",
+    "restaurant_modifier_group": "Restaurant option group",
     "fiscal_numbering_range": "DIAN numbering range",
     "transfer_destination": "Transfer destination"
   },

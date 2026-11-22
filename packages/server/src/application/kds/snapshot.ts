@@ -1,5 +1,6 @@
 /** Bounded kitchen-only wire snapshots shared by writer and read-side validation. */
 import { z } from 'zod';
+import { restaurantModifierGroupKindEnum } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { KDS_MAX_LINES } from './common.js';
 const label = z
@@ -21,7 +22,11 @@ export const kitchenItemSnapshotSchema = z.object({
   roundLabel: label.nullable(),
   courseKey: z.string().max(80).nullable(),
   dinerLabel: label.nullable(),
-  modifiers: z.array(z.object({ name: label, quantity })).max(20),
+  modifiers: z
+    .array(
+      z.object({ name: label, quantity, kind: z.enum(restaurantModifierGroupKindEnum).optional() })
+    )
+    .max(20),
 });
 /** Frozen preparation projection; operational ownership/status live separately. */
 export type KitchenItemSnapshot = z.infer<typeof kitchenItemSnapshotSchema>;

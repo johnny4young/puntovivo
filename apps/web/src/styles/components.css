@@ -1049,6 +1049,43 @@
     scrollbar-width: none;
   }
 
+  /* Restaurant option chip; pressed means chosen. */
+  .modifier-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 2.75rem;
+    padding: 0 1rem;
+    border: 1.5px solid var(--line-strong);
+    border-radius: 0.875rem;
+    background: var(--card);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    white-space: nowrap;
+    color: var(--fg1);
+  }
+
+  .modifier-option small {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--fg2);
+  }
+
+  .modifier-option[aria-pressed='true'] {
+    border-color: var(--foreground);
+    background: var(--foreground);
+    color: var(--background);
+  }
+
+  .modifier-option[aria-pressed='true'] small {
+    color: inherit;
+  }
+
+  .modifier-option:focus-visible {
+    outline: 2px solid var(--primary-600);
+    outline-offset: 2px;
+  }
+
   /* Composed with .sales-pill: a touch-sized, neutral chip. */
   .sales-quick-chip {
     flex: none;

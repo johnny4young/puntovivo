@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { lazy, Suspense, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus, Pencil, Archive } from 'lucide-react';
 import type { inferRouterInputs, inferRouterOutputs } from '@trpc/server';
@@ -10,6 +10,13 @@ import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { translateServerError } from '@/lib/translateServerError';
 import { formatCurrency } from '@/lib/utils';
+
+const RestaurantModifierGroupsPanel = lazy(() =>
+  import('./RestaurantModifierGroupsPanel').then(module => ({
+    default: module.RestaurantModifierGroupsPanel,
+  }))
+);
+const VIEWS = ['options', 'groups'] as const;
 
 /** Public projection has no employee ids or audit metadata. */
 export type RestaurantCatalogEntry =
@@ -55,139 +62,173 @@ function CatalogSite({ siteId, siteName }: { siteId: string; siteName: string })
   const debouncedSearch = useDebouncedValue(search, 250);
   const [draft, setDraft] = useState<CatalogDraft | null>(null);
   const [saved, setSaved] = useState(false);
+  const [view, setView] = useState<(typeof VIEWS)[number]>('options');
   const list = trpc.restaurantModifiers.list.useQuery(
     { siteId, search: debouncedSearch, includeArchived, offset },
-    { enabled: !!siteId, trpc: { abortOnUnmount: true } }
+    { enabled: !!siteId && view === 'options', trpc: { abortOnUnmount: true } }
   );
   if (!siteId) return <p role="status">{t('catalog.noSite')}</p>;
   return (
     <section className="space-y-6" data-testid="modifier-catalog-page">
-      <header className="flex flex-wrap items-start justify-between gap-4">
+      <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 data-shell-title className="font-display text-3xl">
             {t('catalog.title')}
           </h1>
           <p className="mt-1 text-sm text-fg2">{siteName}</p>
-          <p className="mt-2 max-w-2xl text-sm text-fg3">{t('catalog.description')}</p>
         </div>
-        <button
-          type="button"
-          className="btn-primary min-h-11"
-          onClick={() => {
-            setSaved(false);
-            setDraft(blank());
-          }}
-        >
-          <Plus className="h-4 w-4" aria-hidden="true" />
-          {t('catalog.create')}
-        </button>
+        <div className="segmented-control" role="tablist" aria-label={t('tabs.label')}>
+          {VIEWS.map(key => (
+            <button
+              key={key}
+              type="button"
+              id={`modifier-catalog-tab-${key}`}
+              role="tab"
+              aria-selected={view === key}
+              aria-controls={view === key ? `modifier-catalog-panel-${key}` : undefined}
+              className={`segmented-tab ${view === key ? 'segmented-tab-active' : ''}`}
+              onClick={() => setView(key)}
+            >
+              {t(`tabs.${key}`)}
+            </button>
+          ))}
+        </div>
       </header>
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
-        <label className="flex min-w-0 flex-1 flex-col gap-1 text-sm">
-          {t('catalog.search')}
-          <input
-            type="search"
-            className="input min-h-11"
-            maxLength={80}
-            value={search}
-            onChange={e => {
-              setSearch(e.target.value);
-              setOffset(0);
-            }}
-          />
-        </label>
-        <label className="flex min-h-11 items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={includeArchived}
-            onChange={e => {
-              setIncludeArchived(e.target.checked);
-              setOffset(0);
-            }}
-          />
-          {t('catalog.includeArchived')}
-        </label>
-      </div>
-      {saved && (
-        <p role="status" className="rounded-lg border border-line bg-surface-2 p-3 text-sm">
-          {t('catalog.saved')}
-        </p>
-      )}
-      {list.isFetching && <p role="status">{t('common:status.loading')}</p>}
-      {list.error ? (
-        <div role="alert">
-          <p>{translateServerError(list.error, t, t('errors:server.unknown'))}</p>
-          <button
-            type="button"
-            className="btn-outline min-h-11"
-            onClick={() => void list.refetch()}
-          >
-            {t('common:actions.retry')}
-          </button>
-        </div>
+      {view === 'groups' ? (
+        <Suspense fallback={<p role="status">{t('common:status.loading')}</p>}>
+          <RestaurantModifierGroupsPanel siteId={siteId} />
+        </Suspense>
       ) : (
-        <>
-          {list.data?.items.length === 0 && (
-            <p className="rounded-xl border border-dashed border-line p-8 text-center text-fg3">
-              {t('catalog.empty')}
+        <div
+          id="modifier-catalog-panel-options"
+          role="tabpanel"
+          aria-labelledby="modifier-catalog-tab-options"
+          className="space-y-6"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <p className="max-w-2xl text-sm text-fg3">{t('catalog.description')}</p>
+            <button
+              type="button"
+              className="btn-primary min-h-11"
+              onClick={() => {
+                setSaved(false);
+                setDraft(blank());
+              }}
+            >
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              {t('catalog.create')}
+            </button>
+          </div>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+            <label className="flex min-w-0 flex-1 flex-col gap-1 text-sm">
+              {t('catalog.search')}
+              <input
+                type="search"
+                className="input min-h-11"
+                maxLength={80}
+                value={search}
+                onChange={e => {
+                  setSearch(e.target.value);
+                  setOffset(0);
+                }}
+              />
+            </label>
+            <label className="flex min-h-11 items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={includeArchived}
+                onChange={e => {
+                  setIncludeArchived(e.target.checked);
+                  setOffset(0);
+                }}
+              />
+              {t('catalog.includeArchived')}
+            </label>
+          </div>
+          {saved && (
+            <p role="status" className="rounded-lg border border-line bg-surface-2 p-3 text-sm">
+              {t('catalog.saved')}
             </p>
           )}
-          <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {list.data?.items.map(row => (
-              <li key={row.id} className="card flex items-start justify-between gap-3 p-4">
-                <div className="min-w-0">
-                  <h2 className="break-words font-semibold">{row.name}</h2>
-                  <p className="mt-1 font-semibold tabular-nums">
-                    {formatCurrency(row.unitPriceDelta)}
-                  </p>
-                  <p className="mt-1 text-sm text-fg3">
-                    {t('catalog.quantityLimit', { count: row.maxQuantity })}
-                  </p>
-                  {row.requiresManager && (
-                    <p className="mt-2 text-xs font-medium text-fg2">{t('catalog.managerOnly')}</p>
-                  )}
-                  {!row.isActive && (
-                    <p className="mt-2 flex items-center gap-1 text-xs text-fg3">
-                      <Archive className="h-3 w-3" aria-hidden="true" />
-                      {t('catalog.archived')}
-                    </p>
-                  )}
-                </div>
+          {list.isFetching && <p role="status">{t('common:status.loading')}</p>}
+          {list.error ? (
+            <div role="alert">
+              <p>{translateServerError(list.error, t, t('errors:server.unknown'))}</p>
+              <button
+                type="button"
+                className="btn-outline min-h-11"
+                onClick={() => void list.refetch()}
+              >
+                {t('common:actions.retry')}
+              </button>
+            </div>
+          ) : (
+            <>
+              {list.data?.items.length === 0 && (
+                <p className="rounded-xl border border-dashed border-line p-8 text-center text-fg3">
+                  {t('catalog.empty')}
+                </p>
+              )}
+              <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {list.data?.items.map(row => (
+                  <li key={row.id} className="card flex items-start justify-between gap-3 p-4">
+                    <div className="min-w-0">
+                      <h2 className="break-words font-semibold">{row.name}</h2>
+                      <p className="mt-1 font-semibold tabular-nums">
+                        {formatCurrency(row.unitPriceDelta)}
+                      </p>
+                      <p className="mt-1 text-sm text-fg3">
+                        {t('catalog.quantityLimit', { count: row.maxQuantity })}
+                      </p>
+                      {row.requiresManager && (
+                        <p className="mt-2 text-xs font-medium text-fg2">
+                          {t('catalog.managerOnly')}
+                        </p>
+                      )}
+                      {!row.isActive && (
+                        <p className="mt-2 flex items-center gap-1 text-xs text-fg3">
+                          <Archive className="h-3 w-3" aria-hidden="true" />
+                          {t('catalog.archived')}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-outline min-h-11 shrink-0"
+                      disabled={list.isFetching}
+                      aria-label={t('catalog.editNamed', { name: row.name })}
+                      onClick={() => {
+                        setSaved(false);
+                        setDraft(edit(row));
+                      }}
+                    >
+                      <Pencil className="h-4 w-4" aria-hidden="true" />
+                      {t('catalog.edit')}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <nav className="flex justify-between gap-3" aria-label={t('catalog.pagination')}>
                 <button
                   type="button"
-                  className="btn-outline min-h-11 shrink-0"
-                  disabled={list.isFetching}
-                  aria-label={t('catalog.editNamed', { name: row.name })}
-                  onClick={() => {
-                    setSaved(false);
-                    setDraft(edit(row));
-                  }}
+                  className="btn-outline min-h-11"
+                  disabled={offset === 0 || list.isFetching}
+                  onClick={() => setOffset(Math.max(0, offset - 25))}
                 >
-                  <Pencil className="h-4 w-4" aria-hidden="true" />
-                  {t('catalog.edit')}
+                  {t('catalog.previous')}
                 </button>
-              </li>
-            ))}
-          </ul>
-          <nav className="flex justify-between gap-3" aria-label={t('catalog.pagination')}>
-            <button
-              type="button"
-              className="btn-outline min-h-11"
-              disabled={offset === 0 || list.isFetching}
-              onClick={() => setOffset(Math.max(0, offset - 25))}
-            >
-              {t('catalog.previous')}
-            </button>
-            <button
-              type="button"
-              className="btn-outline min-h-11"
-              disabled={list.data?.nextOffset == null || list.isFetching}
-              onClick={() => setOffset(list.data!.nextOffset!)}
-            >
-              {t('catalog.next')}
-            </button>
-          </nav>
-        </>
+                <button
+                  type="button"
+                  className="btn-outline min-h-11"
+                  disabled={list.data?.nextOffset == null || list.isFetching}
+                  onClick={() => setOffset(list.data!.nextOffset!)}
+                >
+                  {t('catalog.next')}
+                </button>
+              </nav>
+            </>
+          )}
+        </div>
       )}
       {draft && (
         <CatalogForm
