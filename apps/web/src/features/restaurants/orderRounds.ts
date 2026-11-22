@@ -8,6 +8,7 @@ type TableState = inferRouterOutputs<AppRouter>['restaurantServices']['getTableS
 interface SummaryModifier {
   name: string;
   quantity: number;
+  unitPriceDelta: number;
   groupKind?: RestaurantModifierGroupKind | null | undefined;
 }
 
@@ -17,8 +18,10 @@ export function modifierSummary(t: TFunction, modifiers: readonly SummaryModifie
     .map(modifier => {
       const name = modifier.quantity > 1 ? `${modifier.quantity}× ${modifier.name}` : modifier.name;
       if (modifier.groupKind === 'without') return t('restaurants:rail.without', { name });
-      if (modifier.groupKind === 'choice') return name;
-      return t('restaurants:rail.extra', { name });
+      // An ungrouped free instruction is not an extra the kitchen adds.
+      if (modifier.groupKind === 'extra' || modifier.unitPriceDelta > 0)
+        return t('restaurants:rail.extra', { name });
+      return name;
     })
     .join(' · ');
 }

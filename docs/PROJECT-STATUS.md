@@ -470,7 +470,7 @@ The current validated candidate includes:
   table's sent rounds above the round being built. Each sent round opens its
   own check on the table's service; adding a round to an existing check is not
   built. Cashier surcharges require an exact active catalog reference
-  checked inside the sale transaction. Free-form zero-price instructions remain available, while custom
+  checked inside the sale transaction. Free-form instructions go in the plate's kitchen note, while custom
   charges and restricted add-ons require a manager/admin. Catalog edits and
   archival do not alter accepted orders. Reservation scheduling
   cannot guarantee that a prior table service finishes on time. The signed external

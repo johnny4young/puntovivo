@@ -528,7 +528,7 @@ El candidato validado actual incluye:
   existe. Los
   recargos de cajeros exigen una referencia
   exacta de catálogo activo comprobada dentro de la transacción de venta. Las
-  instrucciones libres sin precio siguen disponibles, mientras cargos
+  instrucciones libres van en la nota para cocina del plato, mientras cargos
   personalizados y adicionales restringidos requieren gerente/administrador.
   Editar y archivar el catálogo no altera pedidos aceptados. La programación
   de reservas no garantiza que el servicio previo de una mesa termine a tiempo.

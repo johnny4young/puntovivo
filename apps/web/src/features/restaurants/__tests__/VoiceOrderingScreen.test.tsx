@@ -847,6 +847,67 @@ describe('VoiceOrderingScreen', () => {
     }
   });
 
+  it('keeps a plate out while its options cannot load', async () => {
+    productGroupsMock.mockReturnValue({
+      data: undefined as unknown as unknown[],
+      isLoading: false,
+      isSuccess: false,
+      error: new Error('offline'),
+      refetch: vi.fn(),
+    });
+    renderScreen();
+    await openSheetFromSearch();
+    expect(sheet().getByRole('alert')).toBeInTheDocument();
+    expect(sheet().getByTestId('plate-sheet-submit')).toBeDisabled();
+  });
+
+  async function addCustom(name: string, price: string): Promise<void> {
+    fireEvent.click(sheet().getByTestId('plate-sheet-more-extras'));
+    fireEvent.change(await screen.findByTestId('modifier-picker-custom-name'), {
+      target: { value: name },
+    });
+    fireEvent.change(screen.getByTestId('modifier-picker-custom-price'), {
+      target: { value: price },
+    });
+  }
+
+  it('keeps the dish options in their groups and custom add-ons apart', async () => {
+    mockAuthRole = 'manager';
+    productGroupsMock.mockReturnValue({
+      data: GROUPS,
+      isLoading: false,
+      isSuccess: true,
+      error: null,
+      refetch: vi.fn(),
+    });
+    try {
+      renderScreen();
+      await openSheetFromSearch();
+      // A dish option is picked from its group, where the group rule applies.
+      await addCustom('queso', '100');
+      expect(screen.getByTestId('modifier-picker-custom-add')).toBeDisabled();
+      fireEvent.change(screen.getByTestId('modifier-picker-custom-name'), {
+        target: { value: 'Velas' },
+      });
+      fireEvent.click(screen.getByTestId('modifier-picker-custom-add'));
+      await waitFor(() =>
+        expect(sheet().getByRole('button', { name: 'Quitar Velas' })).toBeInTheDocument()
+      );
+      fireEvent.click(sheet().getByTestId('plate-sheet-option-o-medio'));
+      fireEvent.click(sheet().getByTestId('plate-sheet-submit'));
+
+      // A second sheet for the same line must not reuse the first add-on's id.
+      await editLine();
+      await addCustom('Flores', '500');
+      fireEvent.click(screen.getByTestId('modifier-picker-custom-add'));
+      fireEvent.click(await sheet().findByRole('button', { name: 'Quitar Flores' }));
+      expect(sheet().getByRole('button', { name: 'Quitar Velas' })).toBeInTheDocument();
+      expect(sheet().queryByRole('button', { name: 'Quitar Flores' })).not.toBeInTheDocument();
+    } finally {
+      mockAuthRole = 'cashier';
+    }
+  });
+
   it('keeps the custom add-on form away from cashiers', async () => {
     renderScreen();
     await openSheetFromSearch();

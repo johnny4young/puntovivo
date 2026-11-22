@@ -89,13 +89,14 @@ export function RestaurantPlateSheet({
     { staleTime: 30_000 }
   );
   const groups = groupsQuery.data ?? [];
-  const groupIds = new Set(groups.map(group => group.id));
-  const ungrouped = modifiers.filter(
-    modifier => !modifier.groupId || !groupIds.has(modifier.groupId)
-  );
+  const inGroup = (group: ProductGroup, modifier: RestaurantModifierDraft) =>
+    modifier.groupId === group.id &&
+    group.options.some(option => option.catalogId === modifier.catalogId);
+  // A pick whose option left its group stays visible here so it can be removed.
+  const ungrouped = modifiers.filter(modifier => !groups.some(group => inGroup(group, modifier)));
   const full = modifiers.length >= RESTAURANT_MODIFIER_LIMIT;
-  const picked = (group: ProductGroup) =>
-    modifiers.filter(modifier => modifier.groupId === group.id);
+  const picked = (group: ProductGroup) => modifiers.filter(modifier => inGroup(group, modifier));
+  const takenNames = new Set(modifiers.map(modifier => modifier.name.trim().toLowerCase()));
   const missing = groups.filter(group => picked(group).length < group.minSelections);
   const platePrice = roundMoney(unitPrice + getRestaurantModifierPriceDelta(modifiers));
   const hasExtraGroup = groups.some(group => group.kind === 'extra');
@@ -129,7 +130,13 @@ export function RestaurantPlateSheet({
   }
 
   function addUngrouped(row: Omit<RestaurantModifierDraft, 'id' | 'quantity'>): void {
-    setModifiers(current => [...current, { ...row, id: `extra-${nextId.current++}`, quantity: 1 }]);
+    setModifiers(current => {
+      // An edited line already holds ids from the sheet that first built it.
+      let id: string;
+      do id = `extra-${nextId.current++}`;
+      while (current.some(modifier => modifier.id === id));
+      return [...current, { ...row, id, quantity: 1 }];
+    });
     setPicking(false);
   }
 
@@ -148,7 +155,7 @@ export function RestaurantPlateSheet({
         courseKey,
         modifiers,
         modifierGroups:
-          groupsQuery.isSuccess && groups.length > 0
+          groups.length > 0
             ? groups.map(group => ({ id: group.id, version: group.version }))
             : undefined,
       },
@@ -261,17 +268,18 @@ export function RestaurantPlateSheet({
                   const pressed = selected.some(
                     modifier => modifier.catalogId === option.catalogId
                   );
+                  // Line modifier names must be unique, so a same-named add-on blocks the option.
                   const elsewhere =
-                    !pressed && modifiers.some(modifier => modifier.catalogId === option.catalogId);
+                    !pressed &&
+                    (modifiers.some(modifier => modifier.catalogId === option.catalogId) ||
+                      takenNames.has(option.name.trim().toLowerCase()));
                   const restricted = option.requiresManager && !canManage;
+                  const noRoom = full && (group.maxSelections !== 1 || selected.length === 0);
                   return (
                     <button
                       key={option.catalogId}
                       {...chip(pressed)}
-                      disabled={
-                        !pressed &&
-                        (restricted || elsewhere || atMax || (full && group.maxSelections !== 1))
-                      }
+                      disabled={!pressed && (restricted || elsewhere || atMax || noRoom)}
                       onClick={() => toggle(group, option)}
                       data-testid={`plate-sheet-option-${option.catalogId}`}
                     >
@@ -403,7 +411,8 @@ export function RestaurantPlateSheet({
           <button
             type="button"
             className="btn-primary col-span-2 min-h-14 text-lg"
-            disabled={groupsQuery.isLoading}
+            // Without the dish's groups the plate could skip a required choice.
+            disabled={!groupsQuery.data}
             onClick={submit}
             data-testid="plate-sheet-submit"
           >
@@ -417,7 +426,13 @@ export function RestaurantPlateSheet({
           <RestaurantModifierPicker
             siteId={siteId}
             canManage={canManage}
-            selectedNames={modifiers.map(row => row.name.trim().toLowerCase())}
+            // The dish's own options are picked from their group, where its rule applies.
+            selectedNames={[
+              ...takenNames,
+              ...groups.flatMap(group =>
+                group.options.map(option => option.name.trim().toLowerCase())
+              ),
+            ]}
             onClose={() => setPicking(false)}
             onSelect={row =>
               addUngrouped({
