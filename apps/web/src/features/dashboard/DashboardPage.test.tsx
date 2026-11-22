@@ -158,7 +158,9 @@ describe('DashboardPage audience', () => {
     expect(screen.getByTestId('dashboard-stats')).toHaveTextContent('Sales count today');
     expect(screen.getByTestId('dashboard-stats')).not.toHaveTextContent(/orders/i);
     // Viewers cannot open a till, so the briefing offers no way into sales.
-    expect(screen.queryByRole('link', { name: /go to sales|ir a ventas/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: /go to sales|ir a ventas/i })
+    ).not.toBeInTheDocument();
     expect(screen.getByTestId('revenue-trend-card')).toHaveAttribute(
       'data-hide-latest-day',
       'false'
