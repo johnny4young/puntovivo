@@ -8,7 +8,7 @@ import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import { auditLogs, companies, sites, tenants, units, users, vatRates } from '../db/schema.js';
-import { verifyAuditChain } from '../services/audit-logs.js';
+import { verifyAuditChain, writeAuditLog } from '../services/audit-logs.js';
 import { registerDevice } from '../services/devices/devicesService.js';
 import { appRouter } from '../trpc/router.js';
 import { makeFreshContextFactory } from './utils/criticalCommandFixture.js';
@@ -214,5 +214,47 @@ describe('catalog audit', () => {
     expect(
       db.select().from(auditLogs).where(eq(auditLogs.tenantId, foreignTenantId)).all()
     ).toHaveLength(0);
+  });
+
+  it('lists the current resource name and never resolves a name from another tenant', async () => {
+    const db = getDatabase();
+    const ownRate = await caller().vatRates.create({ name: 'Named 7%', rate: 7 });
+    const foreignTenantId = nanoid();
+    const now = new Date().toISOString();
+    db.insert(tenants)
+      .values({
+        id: foreignTenantId,
+        name: 'Foreign names',
+        slug: `fn-${foreignTenantId}`,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
+    const foreignRateId = nanoid();
+    db.insert(vatRates)
+      .values({
+        id: foreignRateId,
+        tenantId: foreignTenantId,
+        name: 'Foreign secret',
+        rate: 3,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
+    const admin = db.select().from(users).where(eq(users.email, 'admin@localhost')).get()!;
+    db.transaction(tx =>
+      writeAuditLog({
+        tx,
+        tenantId,
+        actorId: admin.id,
+        action: 'vat_rate.update',
+        resourceType: 'vat_rate',
+        resourceId: foreignRateId,
+      })
+    );
+
+    const { items } = await caller().auditLogs.list({ resourceType: 'vat_rate' });
+    expect(items.find(row => row.resourceId === ownRate.id)?.resourceName).toBe('Named 7%');
+    expect(items.find(row => row.resourceId === foreignRateId)?.resourceName).toBeNull();
   });
 });

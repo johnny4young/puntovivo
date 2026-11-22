@@ -11,6 +11,10 @@ function translateQuotationStatus(status: unknown, t: TFunction): string {
     : '?';
 }
 
+function translateRole(role: string, t: TFunction): string {
+  return t(`common:userMenu.roles.${role}`, { defaultValue: role });
+}
+
 export function AuditLogSummary({ entry }: { entry: AuditLogEntry }) {
   const { t } = useTranslation([
     'auditLogs',
@@ -451,7 +455,9 @@ export function AuditLogSummary({ entry }: { entry: AuditLogEntry }) {
       return <span className="text-sm text-secondary-500">—</span>;
     }
     return (
-      <span className="text-sm text-secondary-700">{t('summary.userCreate', { email, role })}</span>
+      <span className="text-sm text-secondary-700">
+        {t('summary.userCreate', { email, role: translateRole(role, t) })}
+      </span>
     );
   }
 
@@ -467,7 +473,10 @@ export function AuditLogSummary({ entry }: { entry: AuditLogEntry }) {
       entry.after && typeof entry.after.isActive === 'boolean' ? entry.after.isActive : null;
     const roleChange =
       beforeRole !== null && afterRole !== null
-        ? t('summary.userRoleChange', { from: beforeRole, to: afterRole })
+        ? t('summary.userRoleChange', {
+            from: translateRole(beforeRole, t),
+            to: translateRole(afterRole, t),
+          })
         : null;
     const activeChange =
       beforeActive !== null && afterActive !== null
