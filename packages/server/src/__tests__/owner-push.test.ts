@@ -528,6 +528,21 @@ describe('owner push', () => {
       subscribed: false,
     });
 
+    // Knowing the endpoint URL without the browser's keys does not take it over.
+    await expect(
+      manager.caller().ownerPush.subscribe({
+        endpoint: shared.endpoint,
+        keys: browser().keys,
+        language: 'es',
+      })
+    ).rejects.toMatchObject({ code: 'CONFLICT' });
+    const owner = await db
+      .select({ userId: pushSubscriptions.userId })
+      .from(pushSubscriptions)
+      .where(eq(pushSubscriptions.endpoint, shared.endpoint))
+      .get();
+    expect(owner?.userId).toBe(admin.id);
+
     for (let index = 0; index < MAX_PUSH_SUBSCRIPTIONS_PER_USER + 2; index += 1) {
       await manager.subscribe(browser());
     }

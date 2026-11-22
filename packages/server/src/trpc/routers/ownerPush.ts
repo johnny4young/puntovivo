@@ -53,13 +53,23 @@ export const ownerPushRouter = router({
       } catch {
         throw new TRPCError({ code: 'BAD_REQUEST', message: 'Invalid push endpoint' });
       }
-      savePushSubscription(ctx.db, {
-        tenantId: ctx.tenantId,
-        userId: ctx.user!.id,
-        endpoint: input.endpoint,
-        keys: input.keys,
-        language: input.language,
-      });
+      try {
+        savePushSubscription(ctx.db, {
+          tenantId: ctx.tenantId,
+          userId: ctx.user!.id,
+          endpoint: input.endpoint,
+          keys: input.keys,
+          language: input.language,
+        });
+      } catch (error) {
+        if (error instanceof Error && error.message === 'PUSH_ENDPOINT_TAKEN') {
+          throw new TRPCError({
+            code: 'CONFLICT',
+            message: 'Push endpoint belongs to another browser',
+          });
+        }
+        throw error;
+      }
       dispatchOwnerPush(ctx.db, {
         kind: 'enabled',
         tenantId: ctx.tenantId,

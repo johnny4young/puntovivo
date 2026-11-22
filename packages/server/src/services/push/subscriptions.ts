@@ -7,7 +7,7 @@ import { and, asc, eq, inArray } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
 import { pushSubscriptions, type PushLanguage } from '../../db/schema.js';
-import { sealSubscriptionKeys } from './key-store.js';
+import { openSubscriptionKeys, sealSubscriptionKeys } from './key-store.js';
 import type { PushSubscriptionKeys } from './web-push.js';
 
 export const MAX_PUSH_SUBSCRIPTIONS_PER_USER = 10;
@@ -22,13 +22,30 @@ export interface SavePushSubscriptionInput {
 
 /**
  * Insert or refresh the endpoint's row. A browser re-subscribed by another
- * person on the same phone moves to that person; the oldest rows beyond the
- * per-user cap are dropped.
+ * person on the same phone moves to that person, but only with the same keys:
+ * knowing an endpoint URL is not proof of holding that browser. The oldest
+ * rows beyond the per-user cap are dropped.
  */
 export function savePushSubscription(db: DatabaseInstance, input: SavePushSubscriptionInput): void {
   const now = new Date().toISOString();
   const sealedKeys = sealSubscriptionKeys(input.endpoint, input.keys);
   db.transaction(tx => {
+    const existing = tx
+      .select({
+        tenantId: pushSubscriptions.tenantId,
+        userId: pushSubscriptions.userId,
+        sealedKeys: pushSubscriptions.sealedKeys,
+      })
+      .from(pushSubscriptions)
+      .where(eq(pushSubscriptions.endpoint, input.endpoint))
+      .get();
+    if (
+      existing &&
+      (existing.tenantId !== input.tenantId || existing.userId !== input.userId) &&
+      !sameKeys(input.endpoint, existing.sealedKeys, input.keys)
+    ) {
+      throw new Error('PUSH_ENDPOINT_TAKEN');
+    }
     tx.insert(pushSubscriptions)
       .values({
         id: nanoid(),
@@ -75,6 +92,16 @@ export function savePushSubscription(db: DatabaseInstance, input: SavePushSubscr
         .run();
     }
   });
+}
+
+function sameKeys(endpoint: string, sealed: string, keys: PushSubscriptionKeys): boolean {
+  try {
+    const stored = openSubscriptionKeys(endpoint, sealed);
+    return stored.p256dh === keys.p256dh && stored.auth === keys.auth;
+  } catch {
+    // Sealed under an earlier database key: the row can no longer be delivered.
+    return true;
+  }
 }
 
 interface OwnedEndpoint {
