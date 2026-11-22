@@ -63,7 +63,10 @@ function tileLines(t: TFunction, table: FloorTable, generatedAt: string): [strin
           : '',
       ];
     case 'billRequested':
-      return [t('floorMap.status.billRequested'), amount];
+      return [
+        t('floorMap.status.billRequested'),
+        [amount, table.pendingRound ? t('floorMap.roundReady') : null].filter(Boolean).join(' · '),
+      ];
     case 'occupied': {
       const elapsed = table.openedAt ? formatElapsed(t, table.openedAt, generatedAt) : '';
       const head =

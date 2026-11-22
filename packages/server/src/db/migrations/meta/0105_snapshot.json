@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "ebfac08e-1d76-4b71-b6f2-79241f6a9e1e",
+  "id": "51fc03ff-e7b8-4489-9140-69e1d5e6d1ae",
   "prevId": "85b73f0f-0a49-4e52-8a82-7cd7e646fc27",
   "tables": {
     "account_recovery_codes": {
@@ -34903,22 +34903,8 @@
           "notNull": false,
           "autoincrement": false
         },
-        "pending_round_items": {
-          "name": "pending_round_items",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "pending_round_by": {
-          "name": "pending_round_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "pending_round_at": {
-          "name": "pending_round_at",
+        "pending_rounds": {
+          "name": "pending_rounds",
           "type": "text",
           "primaryKey": false,
           "notNull": false,

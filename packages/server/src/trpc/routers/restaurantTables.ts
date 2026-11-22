@@ -42,7 +42,10 @@ import { router } from '../init.js';
 import { adminProcedure, cashierManagerOrAdminProcedure } from '../middleware/roles.js';
 import { createModuleGuard } from '../middleware/modules.js';
 import { ensureTenantSite } from '../middleware/tenantSite.js';
-import { RESTAURANT_SERVICE_LIMITS } from '../../application/restaurant/service-lifecycle.js';
+import {
+  RESTAURANT_SERVICE_LIMITS,
+  summarizePendingRounds,
+} from '../../application/restaurant/service-lifecycle.js';
 import {
   archiveRestaurantTableInput,
   createRestaurantTableInput,
@@ -367,6 +370,10 @@ export const restaurantTablesRouter = router({
           tx.select({ value: count() }).from(restaurantTables).where(where).get()?.value ?? 0;
         // One pass over the open drafts of every filtered table: the page reads
         // its rows from it and the floor count needs all of them.
+        const filteredTableIds = tx
+          .select({ id: restaurantTables.id })
+          .from(restaurantTables)
+          .where(where);
         const drafts = tx
           .select({
             tableId: sales.tableId,
@@ -379,14 +386,41 @@ export const restaurantTablesRouter = router({
             and(
               eq(sales.tenantId, ctx.tenantId),
               eq(sales.status, 'draft'),
-              inArray(
-                sales.tableId,
-                tx.select({ id: restaurantTables.id }).from(restaurantTables).where(where)
-              )
+              inArray(sales.tableId, filteredTableIds)
             )
           )
           .groupBy(sales.tableId)
           .all();
+        const services = tx
+          .select({
+            tableId: restaurantServices.tableId,
+            siteId: restaurantServices.siteId,
+            openedAt: restaurantServices.openedAt,
+            guestCount: restaurantServices.guestCount,
+            billRequestedAt: restaurantServices.billRequestedAt,
+            pendingRounds: restaurantServices.pendingRounds,
+          })
+          .from(restaurantServices)
+          .where(
+            and(
+              eq(restaurantServices.tenantId, ctx.tenantId),
+              eq(restaurantServices.status, 'open'),
+              inArray(restaurantServices.tableId, filteredTableIds)
+            )
+          )
+          .all();
+        if (services.some(service => service.siteId !== input.siteId)) {
+          throwServerError({
+            trpcCode: 'CONFLICT',
+            errorCode: 'RESTAURANT_SERVICE_STATE_INVALID',
+            message: 'Restaurant service site does not match its physical table',
+          });
+        }
+        // A tile reads occupied on an open service too, so the count must agree.
+        const occupiedTables = new Set([
+          ...drafts.map(row => row.tableId),
+          ...services.map(row => row.tableId),
+        ]).size;
 
         const tableRows = tx
           .select({
@@ -407,38 +441,12 @@ export const restaurantTablesRouter = router({
           offset: input.offset,
           limit: input.limit,
           totalItems,
-          occupiedTables: drafts.length,
+          occupiedTables,
           hasMore: input.offset + tableRows.length < totalItems,
         };
         if (tableRows.length === 0) return { ...page, items: [] };
         const tableIds = tableRows.map(row => row.id);
 
-        const services = tx
-          .select({
-            tableId: restaurantServices.tableId,
-            siteId: restaurantServices.siteId,
-            openedAt: restaurantServices.openedAt,
-            guestCount: restaurantServices.guestCount,
-            billRequestedAt: restaurantServices.billRequestedAt,
-            pendingRoundItems: restaurantServices.pendingRoundItems,
-            pendingRoundAt: restaurantServices.pendingRoundAt,
-          })
-          .from(restaurantServices)
-          .where(
-            and(
-              eq(restaurantServices.tenantId, ctx.tenantId),
-              eq(restaurantServices.status, 'open'),
-              inArray(restaurantServices.tableId, tableIds)
-            )
-          )
-          .all();
-        if (services.some(service => service.siteId !== input.siteId)) {
-          throwServerError({
-            trpcCode: 'CONFLICT',
-            errorCode: 'RESTAURANT_SERVICE_STATE_INVALID',
-            message: 'Restaurant service site does not match its physical table',
-          });
-        }
         // Booked or arrived, not yet over, starting before the business day ends.
         const reservations = tx
           .select({
@@ -486,10 +494,7 @@ export const restaurantTablesRouter = router({
               openChecks: draft?.openChecks ?? 0,
               total: roundMoney(Number(draft?.total ?? 0)),
               billRequestedAt: service?.billRequestedAt ?? null,
-              pendingRound:
-                service?.pendingRoundItems != null && service.pendingRoundAt
-                  ? { itemCount: service.pendingRoundItems, since: service.pendingRoundAt }
-                  : null,
+              pendingRound: summarizePendingRounds(service?.pendingRounds ?? null, now.getTime()),
               nextReservation: reservation
                 ? {
                     id: reservation.id,

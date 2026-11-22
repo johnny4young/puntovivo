@@ -20,8 +20,8 @@ import { completeSale } from '../../application/sales/completeSale.js';
 import {
   RESTAURANT_SERVICE_LIMITS,
   assertNoUnnormalizedRestaurantDrafts,
-  clearOwnPendingRound,
   findOpenService,
+  writePendingRound,
   restaurantModifierAmount,
 } from '../../application/restaurant/service-lifecycle.js';
 import { router } from '../init.js';
@@ -218,10 +218,10 @@ export const restaurantServicesRouter = router({
     ),
 
   /**
-   * An ordering device reports how many plates it holds unsent. A table
-   * without an open service has nothing to mark yet, so the call is a no-op;
-   * zero clears only the caller's own marker so one waiter never hides
-   * another's round.
+   * An ordering device reports how many plates it holds unsent, and repeats
+   * the report while it holds any. Each waiter has their own entry, so one
+   * waiter never hides another's round; entries from a device that stopped
+   * reporting expire. A table without an open service has nothing to mark.
    */
   setPendingRound: restaurantStaffProcedure
     .input(setRestaurantPendingRoundInput)
@@ -231,31 +231,9 @@ export const restaurantServicesRouter = router({
           const db = tx as unknown as RestaurantDb;
           const { service } = findTableWithOpenService(db, ctx.tenantId, ctx.siteId, input.tableId);
           if (!service) return { pending: false };
-          const actorId = ctx.user!.id;
-          if (input.itemCount === 0) {
-            clearOwnPendingRound(db, ctx.tenantId, service.id, actorId);
-            return {
-              pending: service.pendingRoundBy !== null && service.pendingRoundBy !== actorId,
-            };
-          }
-          tx.update(restaurantServices)
-            .set({
-              pendingRoundItems: input.itemCount,
-              pendingRoundBy: actorId,
-              // The marker ages from the first unsent plate, not the last edit.
-              pendingRoundAt:
-                service.pendingRoundBy === actorId && service.pendingRoundAt
-                  ? service.pendingRoundAt
-                  : new Date().toISOString(),
-            })
-            .where(
-              and(
-                eq(restaurantServices.id, service.id),
-                eq(restaurantServices.tenantId, ctx.tenantId)
-              )
-            )
-            .run();
-          return { pending: true };
+          return {
+            pending: writePendingRound(db, service, ctx.user!.id, input.itemCount, new Date()),
+          };
         },
         { behavior: 'immediate' }
       )

@@ -153,11 +153,15 @@ view drift from the sale that is eventually paid.
   (`restaurantServices.setBillRequested`). It is idempotent, audited per
   change, advances the service version and ends with the visit.
 - An ordering device reports its unsent plates with
-  `restaurantServices.setPendingRound`. The round exists only in that device's
-  memory, so the marker is a hint: it is never audited, never advances the
-  version, clears when the same waiter sends a round, and a zero from one
-  waiter never clears another waiter's marker. A table without an open
-  service has nothing to mark.
+  `restaurantServices.setPendingRound` and repeats the report every two
+  minutes while any plate waits. The round exists only in that device's
+  memory, so the marker is a hint: one JSON entry per waiter, never audited,
+  never advancing the version. Sending a round clears only the sender's
+  entry, one waiter's report never changes another's, and an entry without a
+  report for five minutes is ignored and pruned, so a closed, crashed or moved
+  screen cannot leave a round on the floor. The summary adds the live entries
+  and ages them from the oldest. A table without an open service has nothing
+  to mark.
 - Migration `0105` adds the marker columns with plain `ADD COLUMN` and no
   foreign keys, so `restaurant_services` is never rebuilt.
 

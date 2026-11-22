@@ -309,6 +309,7 @@ describe('RestaurantTablesPage — admin', () => {
           openedAt: '2026-05-10T20:10:00.000Z',
           total: 88500,
           billRequestedAt: '2026-05-10T20:57:00.000Z',
+          pendingRound: { itemCount: 1, since: '2026-05-10T20:59:00.000Z' },
         }),
         floorTable('rt-4', 'Mesa 4', 'reserved', {
           nextReservation: {
@@ -345,6 +346,9 @@ describe('RestaurantTablesPage — admin', () => {
     );
     expect(screen.getByTestId('restaurant-floor-table-rt-3')).toHaveTextContent(
       'Asked for the bill'
+    );
+    expect(screen.getByTestId('restaurant-floor-table-rt-3')).toHaveTextContent(
+      'round ready to send'
     );
     expect(screen.getByTestId('restaurant-floor-table-rt-4')).toHaveTextContent('Reserved');
     expect(screen.getByTestId('restaurant-floor-occupancy')).toHaveTextContent('3 of 5 occupied');

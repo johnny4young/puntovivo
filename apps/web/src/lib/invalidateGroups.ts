@@ -93,6 +93,13 @@ export const INVENTORY_RESERVATION_INVALIDATIONS: ReadonlyArray<InvalidationPick
   ...SERIAL_INVENTORY_INVALIDATIONS,
 ];
 
+/** Every read that shows a table's open checks, service or floor state. */
+export const RESTAURANT_TABLE_INVALIDATIONS: ReadonlyArray<InvalidationPicker> = [
+  u => u.restaurantTables.listWithDraftStatus,
+  u => u.restaurantTables.listSummary,
+  u => u.restaurantServices.getTableState,
+];
+
 /**
  * The canonical "a sale was completed" invalidation set, shared by every
  * surface that finishes a sale (desktop SalesPage epilogue and the touch
@@ -101,13 +108,6 @@ export const INVENTORY_RESERVATION_INVALIDATIONS: ReadonlyArray<InvalidationPick
  * sales — the customer ledger; missing any of these leaves another page
  * showing pre-sale data for the whole staleTime window.
  */
-/** Every read that shows a table's open checks, service or floor state. */
-export const RESTAURANT_TABLE_INVALIDATIONS: ReadonlyArray<InvalidationPicker> = [
-  u => u.restaurantTables.listWithDraftStatus,
-  u => u.restaurantTables.listSummary,
-  u => u.restaurantServices.getTableState,
-];
-
 export const SALE_COMPLETION_INVALIDATIONS: ReadonlyArray<InvalidationPicker> = [
   // the shell celebrates only after the server confirms the
   // tenant's first completed sale.

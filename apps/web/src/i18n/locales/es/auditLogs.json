@@ -225,7 +225,7 @@
     "restaurant_modifier.save": "Adicional de restaurante guardado",
     "restaurant_modifier_group.save": "Grupo de opciones de restaurante guardado",
     "restaurant_service.bill_requested": "La mesa pidió la cuenta",
-    "restaurant_service.bill_request_cleared": "Se quitó pidió la cuenta",
+    "restaurant_service.bill_request_cleared": "Se retiró la solicitud de la cuenta",
     "fiscal_numbering.create": "Rango de numeración DIAN registrado",
     "fiscal_numbering.activate": "Rango de numeración DIAN activado",
     "fiscal_numbering.retire": "Rango de numeración DIAN retirado",

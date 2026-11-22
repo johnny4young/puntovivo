@@ -1035,6 +1035,31 @@ describe('VoiceOrderingScreen', () => {
     expect(setPendingRoundMutate).toHaveBeenLastCalledWith({ tableId: 'table-1', itemCount: 0 });
   });
 
+  it('keeps refreshing an unsent round so the floor map does not expire it', async () => {
+    restaurantTableStateMock.mockReturnValue({
+      data: { service: { id: 'service-1', guestCount: 2 }, diners: [], checks: [] },
+      isLoading: false,
+      error: null,
+    });
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      renderScreen();
+      selectTable();
+      await addVoiceItem();
+      await waitFor(() =>
+        expect(setPendingRoundMutate).toHaveBeenLastCalledWith({ tableId: 'table-1', itemCount: 1 })
+      );
+      const before = setPendingRoundMutate.mock.calls.length;
+      await act(async () => {
+        vi.advanceTimersByTime(2 * 60_000);
+      });
+      expect(setPendingRoundMutate.mock.calls.length).toBe(before + 1);
+      expect(setPendingRoundMutate).toHaveBeenLastCalledWith({ tableId: 'table-1', itemCount: 1 });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('says it saves the round when no kitchen screen is on', async () => {
     moduleActiveMock.mockImplementation(id => id !== 'kds');
     renderScreen();

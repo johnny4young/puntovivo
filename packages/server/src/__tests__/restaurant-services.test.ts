@@ -45,7 +45,10 @@ import { registerDevice as registerDeviceService } from '../services/devices/dev
 import { makeFreshContextFactory } from './utils/criticalCommandFixture.js';
 import { completeSale } from '../application/sales/completeSale.js';
 import { parkDraftsForIdentityChange } from '../application/sales/parkDraftsForIdentityChange.js';
-import { RESTAURANT_SERVICE_LIMITS } from '../application/restaurant/service-lifecycle.js';
+import {
+  PENDING_ROUND_TTL_MS,
+  RESTAURANT_SERVICE_LIMITS,
+} from '../application/restaurant/service-lifecycle.js';
 import { hashStaffPin } from '../security/staffPins.js';
 import { __withExpectedTestLogs } from '../logging/logger.js';
 
@@ -3354,16 +3357,45 @@ describe('restaurant floor summary and table markers', () => {
     expect(await otherWaiter.restaurantServices.setPendingRound({ tableId, itemCount: 0 })).toEqual(
       { pending: true }
     );
-    expect((await summaryFor(tableId)).pendingRound?.itemCount).toBe(4);
+    await otherWaiter.restaurantServices.setPendingRound({ tableId, itemCount: 1 });
+    expect((await summaryFor(tableId)).pendingRound).toEqual({ itemCount: 5, since: first?.since });
 
     await appRouter
       .createCaller(fresh({ role: 'cashier' }))
       .restaurantServices.openCheck(openInput({ tableId, productId }));
-    expect(await summaryFor(tableId)).toMatchObject({ openChecks: 2, pendingRound: null });
+    expect(await summaryFor(tableId)).toMatchObject({
+      openChecks: 2,
+      pendingRound: { itemCount: 1 },
+    });
 
-    await otherWaiter.restaurantServices.setPendingRound({ tableId, itemCount: 1 });
     await otherWaiter.restaurantServices.setPendingRound({ tableId, itemCount: 0 });
     expect((await summaryFor(tableId)).pendingRound).toBeNull();
+  });
+
+  it('drops an unsent round once its device stops reporting', async () => {
+    const tableId = await createTable(`${prefix} H2 ronda vieja`);
+    const productId = await createProduct('Plato de la ronda vieja');
+    const waiter = appRouter.createCaller(fresh({ role: 'cashier' }));
+    await waiter.restaurantServices.openCheck(openInput({ tableId, productId }));
+    await appRouter
+      .createCaller(freshHandoffCashier())
+      .restaurantServices.setPendingRound({ tableId, itemCount: 3 });
+    const staleAt = new Date(Date.now() - PENDING_ROUND_TTL_MS - 1_000).toISOString();
+    await db
+      .update(restaurantServices)
+      .set({
+        pendingRounds: { [handoffCashierId]: { items: 3, since: staleAt, seenAt: staleAt } },
+      })
+      .where(and(eq(restaurantServices.tableId, tableId), eq(restaurantServices.status, 'open')));
+    expect((await summaryFor(tableId)).pendingRound).toBeNull();
+
+    await waiter.restaurantServices.setPendingRound({ tableId, itemCount: 1 });
+    const stored = await db
+      .select({ pendingRounds: restaurantServices.pendingRounds })
+      .from(restaurantServices)
+      .where(and(eq(restaurantServices.tableId, tableId), eq(restaurantServices.status, 'open')))
+      .get();
+    expect(Object.keys(stored?.pendingRounds ?? {})).toEqual([adminId]);
   });
 
   it('refuses markers and the summary for another tenant or a viewer', async () => {

@@ -18,7 +18,7 @@ import {
   seatReservation,
   type ReservationReference,
 } from '../reservations/seating.js';
-import type { ReservationRow } from '../../db/schema.js';
+import type { ReservationRow, RestaurantPendingRounds } from '../../db/schema.js';
 import { and, count, eq, inArray, isNull, ne } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
@@ -383,23 +383,62 @@ export function findOpenService(
     .get();
 }
 
-/** Clears the actor's own unsent-round marker; another waiter's marker stays. */
-export function clearOwnPendingRound(
+/** A waiter's unsent round counts while their device reported within this window. */
+export const PENDING_ROUND_TTL_MS = 5 * 60_000;
+
+function livePendingRounds(
+  rounds: RestaurantPendingRounds | null,
+  nowMs: number
+): RestaurantPendingRounds {
+  return Object.fromEntries(
+    Object.entries(rounds ?? {}).filter(
+      ([, entry]) => nowMs - Date.parse(entry.seenAt) < PENDING_ROUND_TTL_MS
+    )
+  );
+}
+
+/** Plates waiting across every live waiter, aged from the oldest unsent one. */
+export function summarizePendingRounds(
+  rounds: RestaurantPendingRounds | null,
+  nowMs: number
+): { itemCount: number; since: string } | null {
+  const live = Object.values(livePendingRounds(rounds, nowMs));
+  if (live.length === 0) return null;
+  return {
+    itemCount: live.reduce((total, entry) => total + entry.items, 0),
+    since: live.reduce(
+      (oldest, entry) => (entry.since < oldest ? entry.since : oldest),
+      live[0]!.since
+    ),
+  };
+}
+
+/**
+ * Sets or clears one waiter's entry and drops stale ones; other waiters'
+ * live entries are kept. Returns whether any live entry remains.
+ */
+export function writePendingRound(
   tx: RestaurantTransaction,
-  tenantId: string,
-  serviceId: string,
-  actorId: string
-): void {
+  service: Pick<typeof restaurantServices.$inferSelect, 'id' | 'tenantId' | 'pendingRounds'>,
+  actorId: string,
+  itemCount: number,
+  now: Date
+): boolean {
+  const nowIso = now.toISOString();
+  const next = livePendingRounds(service.pendingRounds, now.getTime());
+  const previous = next[actorId];
+  delete next[actorId];
+  if (itemCount > 0) {
+    next[actorId] = { items: itemCount, since: previous?.since ?? nowIso, seenAt: nowIso };
+  }
+  const remaining = Object.keys(next).length > 0;
   tx.update(restaurantServices)
-    .set({ pendingRoundItems: null, pendingRoundBy: null, pendingRoundAt: null })
+    .set({ pendingRounds: remaining ? next : null })
     .where(
-      and(
-        eq(restaurantServices.id, serviceId),
-        eq(restaurantServices.tenantId, tenantId),
-        eq(restaurantServices.pendingRoundBy, actorId)
-      )
+      and(eq(restaurantServices.id, service.id), eq(restaurantServices.tenantId, service.tenantId))
     )
     .run();
+  return remaining;
 }
 
 function createOpenService(
@@ -422,9 +461,7 @@ function createOpenService(
     closedAt: null,
     billRequestedAt: null,
     billRequestedBy: null,
-    pendingRoundItems: null,
-    pendingRoundBy: null,
-    pendingRoundAt: null,
+    pendingRounds: null,
     version: 1,
     createdAt: context.now,
     updatedAt: context.now,
@@ -628,8 +665,8 @@ export function openRestaurantCheckInTransaction(
   if (reservation && context.envelope)
     seatReservation(tx, { ...context, envelope: context.envelope }, reservation, service.id);
   // Sending answers the sender's own unsent-round marker.
-  if (service.pendingRoundBy === context.actorId) {
-    clearOwnPendingRound(tx, context.tenantId, service.id, context.actorId);
+  if (service.pendingRounds?.[context.actorId]) {
+    writePendingRound(tx, service, context.actorId, 0, new Date(context.now));
   }
   assertCheckCapacity(tx, context.tenantId, service.id);
   assertServiceProjectionCapacity(

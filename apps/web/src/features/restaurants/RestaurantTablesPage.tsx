@@ -386,7 +386,11 @@ export function RestaurantTablesPage() {
             <p className="card p-6 text-center text-sm text-secondary-600">
               {floorQuery.error
                 ? translateServerError(floorQuery.error, t, t('tables.error'))
-                : t('tables.loading')}
+                : selectedSiteId || sitesQuery.isLoading
+                  ? t('tables.loading')
+                  : sitesQuery.error
+                    ? translateServerError(sitesQuery.error, t, t('tables.error'))
+                    : t('tables.empty')}
             </p>
           )}
         </>

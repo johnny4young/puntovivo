@@ -383,6 +383,6 @@
   },
   "billRequest": {
     "label": "Pidió la cuenta",
-    "error": "No se pudo actualizar pidió la cuenta"
+    "error": "No se pudo actualizar la solicitud de la cuenta"
   }
 }
