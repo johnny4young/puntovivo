@@ -138,6 +138,7 @@ vi.mock('@/features/tenant/TenantProvider', () => ({
 
 vi.mock('@/features/modules/ModulesContext', () => ({
   useIsModuleActive: (id: string) => moduleActiveMock(id),
+  useIsOptionalModuleActive: (id: string | null | undefined) => (id ? moduleActiveMock(id) : true),
 }));
 
 vi.mock('@/lib/useCriticalMutation', () => ({
@@ -225,6 +226,12 @@ vi.mock('@/lib/trpc', () => ({
       },
     }),
   },
+}));
+
+vi.mock('../RestaurantSplitSheet', () => ({
+  RestaurantSplitSheet: ({ tableId, tableName }: { tableId: string; tableName: string }) => (
+    <div data-testid="split-sheet-stub">{`${tableId} · ${tableName}`}</div>
+  ),
 }));
 
 vi.mock('@/features/voice/VoiceCartCommandModal', () => ({
@@ -994,6 +1001,95 @@ describe('VoiceOrderingScreen', () => {
     expect(screen.getByTestId('order-rail-draft-round')).toHaveTextContent('Ronda 3 · sin enviar');
     expect(screen.getByTestId('voice-ordering-save')).toHaveTextContent('Enviar ronda 3 a cocina');
     expect(screen.getByTestId('order-rail-total')).toHaveTextContent(money(30_000));
+  });
+
+  it('shows a round once when a split copied it into several checks', () => {
+    const line = (id: string, dinerId: string, total: number) => ({
+      id,
+      roundId: `r-${id}`,
+      dinerId,
+      quantity: 1,
+      productName: `Plato ${id}`,
+      total,
+      notes: null,
+      modifiers: [],
+    });
+    const check = (id: string, lines: ReturnType<typeof line>[]) => ({
+      id,
+      label: null,
+      openedAt: '2026-11-21T19:00:00.000Z',
+      total: lines.reduce((sum, row) => sum + row.total, 0),
+      rounds: lines.map(row => ({
+        id: row.roundId,
+        submittedAt: '2026-11-21T19:00:00.000Z',
+        createdAt: '',
+      })),
+      lines,
+    });
+    restaurantTableStateMock.mockReturnValue({
+      data: {
+        service: { id: 'service-1', guestCount: 2 },
+        diners: [
+          { id: 'd-1', seatNumber: 1 },
+          { id: 'd-2', seatNumber: 2 },
+        ],
+        checks: [check('c-1', [line('a', 'd-1', 5_000)]), check('c-2', [line('b', 'd-2', 7_000)])],
+      },
+      isLoading: false,
+      error: null,
+    });
+    renderScreen();
+    selectTable();
+    const rounds = screen.getAllByTestId('order-rail-sent-round');
+    expect(rounds).toHaveLength(1);
+    expect(rounds[0]).toHaveTextContent('Plato a');
+    expect(rounds[0]).toHaveTextContent('Plato b');
+    expect(screen.getByTestId('order-rail-draft-round')).toHaveTextContent('Ronda 2 · sin enviar');
+  });
+
+  it('offers Dividir cuenta to managers once the table has two sent plates', async () => {
+    restaurantTableStateMock.mockReturnValue({
+      data: {
+        service: { id: 'service-1', guestCount: 2, billRequestedAt: null },
+        diners: [{ id: 'd-1', seatNumber: 1 }],
+        checks: [
+          {
+            id: 'c-1',
+            label: null,
+            openedAt: '2026-11-21T19:00:00.000Z',
+            total: 12_000,
+            rounds: [{ id: 'r-1', submittedAt: '2026-11-21T19:00:00.000Z', createdAt: '' }],
+            lines: ['a', 'b'].map(id => ({
+              id,
+              roundId: 'r-1',
+              dinerId: 'd-1',
+              quantity: 1,
+              productName: `Plato ${id}`,
+              total: 6_000,
+              notes: null,
+              modifiers: [],
+            })),
+          },
+        ],
+      },
+      isLoading: false,
+      error: null,
+    });
+    const view = renderScreen();
+    selectTable();
+    // Regrouping checks is a manager override; a cashier never sees it.
+    expect(screen.queryByTestId('voice-ordering-split')).not.toBeInTheDocument();
+    view.unmount();
+
+    mockAuthRole = 'manager';
+    try {
+      renderScreen();
+      selectTable();
+      fireEvent.click(screen.getByTestId('voice-ordering-split'));
+      expect(await screen.findByTestId('split-sheet-stub')).toHaveTextContent('table-1 · Mesa 1');
+    } finally {
+      mockAuthRole = 'cashier';
+    }
   });
 
   it('lets staff mark that an open table asked for the bill', () => {

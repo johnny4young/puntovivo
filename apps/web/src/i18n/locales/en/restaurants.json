@@ -9,6 +9,9 @@
     "RESTAURANT_SERVICE_LIMIT_REACHED": "This table service has reached its safe open-order limit. Settle or cancel existing checks before adding more items.",
     "RESTAURANT_SERVICE_PARTY_REASSIGNMENT_REQUIRED": "This action would split or merge a party between table services. Keep the split at its current table, or move an unshared service to an empty table.",
     "RESTAURANT_SERVICE_NOT_OPEN": "This table has no open orders. Open an order before marking it.",
+    "RESTAURANT_SPLIT_CHECK_IN_USE": "One of the checks is open on a register. Suspend it and try again.",
+    "RESTAURANT_SPLIT_STALE": "The table changed. Review the checks and try again.",
+    "RESTAURANT_SPLIT_SINGLE_DINER": "Every dish belongs to the same diner.",
     "RESTAURANT_MODIFIER_UNAVAILABLE": "This add-on is no longer available at this site. Remove it or select an available option.",
     "RESTAURANT_MODIFIER_APPROVAL_REQUIRED": "Choose an approved add-on or ask a manager to place this order.",
     "RESTAURANT_MODIFIER_CHANGED": "This add-on changed. Remove it and choose it again to review the current price before saving.",
@@ -223,8 +226,18 @@
     "confirming": "Splitting...",
     "successToast": "New draft created for {{label}}",
     "errorEmptySelection": "Pick at least one item before splitting.",
-    "errorSourceWouldBeEmpty": "Leave at least one item on the source check, or transfer the whole order instead.",
-    "sameTableOnlyHint": "A normalized check shares diners with its table service. Split it at the same table; moving diners between tables requires an explicit party reassignment."
+    "errorSourceWouldBeEmpty": "Leave at least one item on the source check, or transfer the whole order instead."
+  },
+  "splitSheet": {
+    "title": "{{table}} · split the bill",
+    "byDiner": "By diner",
+    "addAccount": "Another check",
+    "account": "Check {{count}}",
+    "accountWithDiners": "Check {{count}} · {{diners}}",
+    "lineName": "{{quantity}} {{name}}",
+    "moveTo": "Move {{name}} to check {{count}}",
+    "charge": "Charge check {{count}}",
+    "errorTitle": "Could not split the bill"
   },
   "reservations": {
     "title": "Reservations",

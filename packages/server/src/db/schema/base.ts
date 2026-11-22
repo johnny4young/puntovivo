@@ -449,6 +449,8 @@ export const auditLogActionEnum = [
   'restaurant_modifier_group.save',
   'restaurant_service.bill_requested',
   'restaurant_service.bill_request_cleared',
+  // Lines moved between the open checks of one table service.
+  'restaurant.checks.regrouped',
   'kds.routing.saved',
   'kds.routing.removed',
   // closure — credit-policy mutations. `customer.credit_limit.update`

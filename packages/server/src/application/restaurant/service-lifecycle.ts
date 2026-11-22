@@ -1257,6 +1257,32 @@ export function moveRestaurantCheckInTransaction(
   }
 }
 
+/** Copy a round onto another check; pass `sequence` when the target already uses the source's. */
+export function cloneRestaurantRound(
+  tx: RestaurantTransaction,
+  source: typeof restaurantRounds.$inferSelect,
+  checkId: string,
+  now: string,
+  sequence: number = source.sequence
+): typeof restaurantRounds.$inferSelect {
+  const clone = { ...source, id: nanoid(), checkId, sequence, createdAt: now };
+  tx.insert(restaurantRounds).values(clone).run();
+  return clone;
+}
+
+/** Copy a course onto another check; pass `position` when the target already uses the source's. */
+export function cloneRestaurantCourse(
+  tx: RestaurantTransaction,
+  source: typeof restaurantCourses.$inferSelect,
+  checkId: string,
+  now: string,
+  position: number = source.position
+): typeof restaurantCourses.$inferSelect {
+  const clone = { ...source, id: nanoid(), checkId, position, createdAt: now };
+  tx.insert(restaurantCourses).values(clone).run();
+  return clone;
+}
+
 /** Mirror an existing sale split into the normalized check model. */
 export function splitRestaurantCheckInTransaction(
   tx: RestaurantTransaction,
@@ -1411,19 +1437,7 @@ export function splitRestaurantCheckInTransaction(
       });
     }
     for (const course of sourceCourses) {
-      const clonedId = nanoid();
-      courseIdMap.set(course.id, clonedId);
-      tx.insert(restaurantCourses)
-        .values({
-          id: clonedId,
-          tenantId: context.tenantId,
-          checkId,
-          courseKey: course.courseKey,
-          name: course.name,
-          position: course.position,
-          createdAt: context.now,
-        })
-        .run();
+      courseIdMap.set(course.id, cloneRestaurantCourse(tx, course, checkId, context.now).id);
     }
   }
 
@@ -1451,21 +1465,7 @@ export function splitRestaurantCheckInTransaction(
       });
     }
     for (const round of sourceRounds) {
-      const clonedId = nanoid();
-      roundIdMap.set(round.id, clonedId);
-      tx.insert(restaurantRounds)
-        .values({
-          id: clonedId,
-          tenantId: context.tenantId,
-          checkId,
-          sequence: round.sequence,
-          label: round.label,
-          status: round.status,
-          submittedBy: round.submittedBy,
-          submittedAt: round.submittedAt,
-          createdAt: context.now,
-        })
-        .run();
+      roundIdMap.set(round.id, cloneRestaurantRound(tx, round, checkId, context.now).id);
     }
   }
 

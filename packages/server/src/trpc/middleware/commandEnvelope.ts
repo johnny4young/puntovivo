@@ -151,6 +151,7 @@ export const TRANSACTIONAL_COMPLETION_REQUIRED_KINDS = new Set([
   'purchases.returnPurchase',
   'purchases.void',
   'restaurantServices.openCheck',
+  'restaurantServices.regroupChecks',
   'restaurantModifiers.save',
   'restaurantModifiers.saveGroup',
   'sales.changeTable',

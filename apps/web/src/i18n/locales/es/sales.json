@@ -339,18 +339,18 @@
     "notes": "Notas",
     "notesHint": "Comentarios opcionales para la venta",
     "tip": {
-      "heading": "Propina",
+      "heading": "Propina voluntaria",
       "presetZero": "Sin propina",
-      "presetPercentage": "{{percentage}}%",
-      "customLabel": "Monto personalizado",
-      "grandTotalBreakdown": "Base {{base}} + propina {{tip}}"
+      "presetPercentage": "{{percentage}} %",
+      "custom": "Otro valor",
+      "customLabel": "Valor de la propina"
     },
+    "consumption": "Consumo {{amount}}",
+    "consumptionTaxIncluded": "Impoconsumo incluido {{amount}}",
     "serviceCharge": {
       "heading": "Servicio",
       "helper": "Se aplica automáticamente al subtotal.",
-      "rateLabel": "Servicio ({{rate}}%)",
-      "grandTotalBreakdownOnly": "Base {{base}} + servicio {{service}}",
-      "grandTotalBreakdownWithTip": "Base {{base}} + servicio {{service}} + propina {{tip}}"
+      "rateLabel": "Servicio ({{rate}}%)"
     },
     "lockedCustomer": "Cliente de la cotización",
     "confirmPartialAmount": "Confirmar venta con pago parcial · faltan {{amount}}",
@@ -956,7 +956,8 @@
       "lines_other": "{{count}} líneas",
       "prescriptions": "{{count}} con fórmula",
       "savings": "Descuentos",
-      "taxIncluded": "IVA incluido"
+      "taxIncluded": "IVA incluido",
+      "consumptionTaxIncluded": "Impoconsumo incluido"
     },
     "ready": {
       "title": "Todo listo para cobrar",

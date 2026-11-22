@@ -9,6 +9,9 @@
     "RESTAURANT_SERVICE_LIMIT_REACHED": "Este servicio alcanzó el límite seguro de órdenes abiertas. Cobre o cancele las cuentas existentes antes de agregar más productos.",
     "RESTAURANT_SERVICE_PARTY_REASSIGNMENT_REQUIRED": "Esta acción dividiría o mezclaría comensales entre servicios. Mantenga la cuenta dividida en su mesa actual o mueva un servicio sin cuentas compartidas a una mesa vacía.",
     "RESTAURANT_SERVICE_NOT_OPEN": "Esta mesa no tiene pedidos abiertos. Abra un pedido antes de marcarla.",
+    "RESTAURANT_SPLIT_CHECK_IN_USE": "Una de las cuentas está abierta en una caja. Suspéndala y vuelva a intentar.",
+    "RESTAURANT_SPLIT_STALE": "La mesa cambió. Revise las cuentas y vuelva a intentar.",
+    "RESTAURANT_SPLIT_SINGLE_DINER": "Todos los platos son del mismo comensal.",
     "RESTAURANT_MODIFIER_UNAVAILABLE": "Este adicional ya no está disponible en esta sede. Elimínelo o seleccione una opción disponible.",
     "RESTAURANT_MODIFIER_APPROVAL_REQUIRED": "Elija un adicional aprobado o pida a un gerente que registre este pedido.",
     "RESTAURANT_MODIFIER_CHANGED": "Este adicional cambió. Elimínelo y selecciónelo de nuevo para revisar el precio actual antes de guardar.",
@@ -223,8 +226,18 @@
     "confirming": "Dividiendo...",
     "successToast": "Nueva cuenta creada para {{label}}",
     "errorEmptySelection": "Elija al menos un producto antes de dividir.",
-    "errorSourceWouldBeEmpty": "Deje al menos un producto en la cuenta de origen o traslade la orden completa.",
-    "sameTableOnlyHint": "Una cuenta normalizada comparte comensales con el servicio de su mesa. Divídala en la misma mesa; mover comensales entre mesas requiere una reasignación explícita."
+    "errorSourceWouldBeEmpty": "Deje al menos un producto en la cuenta de origen o traslade la orden completa."
+  },
+  "splitSheet": {
+    "title": "{{table}} · dividir cuenta",
+    "byDiner": "Por comensal",
+    "addAccount": "Otra cuenta",
+    "account": "Cuenta {{count}}",
+    "accountWithDiners": "Cuenta {{count}} · {{diners}}",
+    "lineName": "{{quantity}} {{name}}",
+    "moveTo": "Pasar {{name}} a la cuenta {{count}}",
+    "charge": "Cobrar cuenta {{count}}",
+    "errorTitle": "No se pudo dividir la cuenta"
   },
   "reservations": {
     "title": "Reservas",

@@ -74,6 +74,7 @@ export type {
 export function SalePaymentModal({
   isOpen,
   total,
+  consumptionTaxAmount = 0,
   customers,
   isSaving,
   error,
@@ -211,8 +212,30 @@ export function SalePaymentModal({
     void handleSubmit();
   };
 
+  const totalDetail = [
+    ...(serviceChargeAmount > 0 || tipAmount > 0
+      ? [t('payment.consumption', { amount: formatCurrency(checkoutBaseTotal) })]
+      : []),
+    // Promotions reprice lines after the cart computed its tax.
+    ...(consumptionTaxAmount > 0 && promotionDiscountAmount === 0
+      ? [t('payment.consumptionTaxIncluded', { amount: formatCurrency(consumptionTaxAmount) })]
+      : []),
+  ];
+
   const paymentSummary = (
     <div className="sale-pay-summary" data-testid="sale-payment-summary">
+      {allowTip && (
+        <Suspense fallback={<div className="min-h-[4.75rem]" aria-hidden="true" />}>
+          <SalePaymentTipSection
+            form={form}
+            baseTotal={checkoutBaseTotal}
+            tipAmount={tipAmount}
+            presetActive={presetActive}
+            handleTipPreset={handleTipPreset}
+            syncPaymentInputsForTip={syncPaymentInputsForTip}
+          />
+        </Suspense>
+      )}
       <p className="sales-cap">
         <span id="sale-payment-total-label">{t('payment.saleTotal')}</span>
         {itemCount > 0 && ` · ${t('sell.total.items', { count: itemCount })}`}
@@ -226,29 +249,9 @@ export function SalePaymentModal({
       >
         {formatCurrency(grandTotal)}
       </p>
-      {serviceChargeAmount > 0 && tipAmount > 0 && (
-        <p className="mt-1 text-xs text-secondary-600">
-          {t('payment.serviceCharge.grandTotalBreakdownWithTip', {
-            base: formatCurrency(checkoutBaseTotal),
-            service: formatCurrency(serviceChargeAmount),
-            tip: formatCurrency(tipAmount),
-          })}
-        </p>
-      )}
-      {serviceChargeAmount > 0 && tipAmount === 0 && (
-        <p className="mt-1 text-xs text-secondary-600">
-          {t('payment.serviceCharge.grandTotalBreakdownOnly', {
-            base: formatCurrency(checkoutBaseTotal),
-            service: formatCurrency(serviceChargeAmount),
-          })}
-        </p>
-      )}
-      {serviceChargeAmount === 0 && tipAmount > 0 && (
-        <p className="mt-1 text-xs text-secondary-600">
-          {t('payment.tip.grandTotalBreakdown', {
-            base: formatCurrency(checkoutBaseTotal),
-            tip: formatCurrency(tipAmount),
-          })}
+      {totalDetail.length > 0 && (
+        <p className="mt-1 text-xs text-secondary-600" data-testid="sale-payment-total-detail">
+          {totalDetail.join(' · ')}
         </p>
       )}
       {promotionQuoteLoading && (
@@ -553,25 +556,6 @@ export function SalePaymentModal({
               onToggleEvidence={pharmacyCheckout.toggleEvidence}
               onEvidenceApproved={pharmacyCheckout.selectEvidence}
               onRefetch={pharmacyCheckout.refetch}
-            />
-          </Suspense>
-        )}
-
-        {allowTip && (
-          <Suspense
-            fallback={
-              <div
-                className="min-h-24 motion-safe:animate-pulse rounded-xl border border-secondary-200 bg-surface-2/50"
-                role="status"
-                aria-label={t('common:status.loading')}
-              />
-            }
-          >
-            <SalePaymentTipSection
-              form={form}
-              presetActive={presetActive}
-              handleTipPreset={handleTipPreset}
-              syncPaymentInputsForTip={syncPaymentInputsForTip}
             />
           </Suspense>
         )}

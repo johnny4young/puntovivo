@@ -13,6 +13,7 @@ import { initialsOf } from '@/features/sales/handoff/handoffModel';
 
 import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
 import { ariaKeyshortcutsFor, shortcutDisplayFor } from '@/lib/shortcuts';
+import { roundMoney } from '@/lib/money';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import type { CompletedSaleSummary } from '@/features/sales/SaleCompleteStrip';
 import type { InitialTender } from '@/features/sales/salePaymentModal.types';
@@ -175,6 +176,8 @@ export function SalesCheckoutPanel({
   // Unavailable Suspend stays out of the tab order: a disabled key fails contrast.
   const showSuspendAction = !!onSuspend && canSuspend;
   const totalText = formatCurrency(draftSummary.total);
+  const consumptionTax = draftSummary.consumptionTaxAmount ?? 0;
+  const vatAmount = roundMoney(draftSummary.taxAmount - consumptionTax);
   const creditKeyShown = !!cashSession && showsCreditKey;
   const { t: th, ready: hardwareReady } = useHardwareCopy();
   const deliveryKeyShown = !!cashSession && showsDeliveryKey && hardwareReady;
@@ -267,10 +270,18 @@ export function SalesCheckoutPanel({
                 <dd>−{formatCurrency(discountAmount)}</dd>
               </div>
             )}
-            <div>
-              <dt>{t(priceIncludesTax ? 'sell.total.taxIncluded' : 'checkout.vat')}</dt>
-              <dd>{formatCurrency(draftSummary.taxAmount)}</dd>
-            </div>
+            {(vatAmount > 0 || consumptionTax === 0) && (
+              <div>
+                <dt>{t(priceIncludesTax ? 'sell.total.taxIncluded' : 'checkout.vat')}</dt>
+                <dd>{formatCurrency(vatAmount)}</dd>
+              </div>
+            )}
+            {consumptionTax > 0 && (
+              <div data-testid="checkout-consumption-tax">
+                <dt>{t('sell.total.consumptionTaxIncluded')}</dt>
+                <dd>{formatCurrency(consumptionTax)}</dd>
+              </div>
+            )}
           </dl>
         </div>
 

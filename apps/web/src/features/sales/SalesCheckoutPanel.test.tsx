@@ -60,6 +60,24 @@ describe('SalesCheckoutPanel dock', () => {
     expect(total.queryByText(/7 lines/)).not.toBeInTheDocument();
   });
 
+  it('names the impoconsumo apart from VAT inside the tax', () => {
+    renderDock({
+      draftSummary: {
+        itemCount: 2,
+        subtotal: 20_000,
+        taxAmount: 2_700,
+        consumptionTaxAmount: 800,
+        total: 22_700,
+      },
+    });
+    expect(screen.getByText('Tax included').nextElementSibling).toHaveTextContent(
+      formatCurrency(1_900)
+    );
+    expect(screen.getByTestId('checkout-consumption-tax')).toHaveTextContent(
+      `Consumption tax included${formatCurrency(800)}`
+    );
+  });
+
   it('leaves discounts out of the breakdown when there are none', () => {
     renderDock();
     expect(screen.queryByTestId('checkout-savings')).not.toBeInTheDocument();

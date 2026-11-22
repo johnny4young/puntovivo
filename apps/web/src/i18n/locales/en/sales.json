@@ -339,18 +339,18 @@
     "notes": "Notes",
     "notesHint": "Optional comments for the sale",
     "tip": {
-      "heading": "Tip",
+      "heading": "Voluntary tip",
       "presetZero": "No tip",
       "presetPercentage": "{{percentage}}%",
-      "customLabel": "Custom amount",
-      "grandTotalBreakdown": "Base {{base}} + tip {{tip}}"
+      "custom": "Other amount",
+      "customLabel": "Tip amount"
     },
+    "consumption": "Consumption {{amount}}",
+    "consumptionTaxIncluded": "Consumption tax included {{amount}}",
     "serviceCharge": {
       "heading": "Service charge",
       "helper": "Auto-applied to the subtotal.",
-      "rateLabel": "Service ({{rate}}%)",
-      "grandTotalBreakdownOnly": "Base {{base}} + service {{service}}",
-      "grandTotalBreakdownWithTip": "Base {{base}} + service {{service}} + tip {{tip}}"
+      "rateLabel": "Service ({{rate}}%)"
     },
     "lockedCustomer": "Quotation customer",
     "confirmPartialAmount": "Confirm partial sale · {{amount}} missing",
@@ -956,7 +956,8 @@
       "lines_other": "{{count}} lines",
       "prescriptions": "{{count}} with prescription",
       "savings": "Discounts",
-      "taxIncluded": "Tax included"
+      "taxIncluded": "Tax included",
+      "consumptionTaxIncluded": "Consumption tax included"
     },
     "ready": {
       "title": "Ready to charge",

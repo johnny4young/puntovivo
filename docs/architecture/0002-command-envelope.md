@@ -143,6 +143,7 @@ Adding to this list requires a superseding ADR or a documented amendment here.
 - `sales.splitDraft` (manager/admin restaurant split-bill)
 - `sales.carryOver` (manager/admin leaves a parked draft for the next day)
 - `restaurantServices.openCheck` (atomic table service and sale draft)
+- `restaurantServices.regroupChecks` (manager/admin moves lines between a table's open checks)
 - `restaurantModifiers.save` (site catalog CAS, audit and replay snapshot)
 - `restaurantModifiers.saveGroup` (site modifier group CAS with its options and dishes, audit and replay snapshot)
 

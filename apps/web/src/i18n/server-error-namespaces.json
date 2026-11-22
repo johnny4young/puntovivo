@@ -23,7 +23,7 @@
     },
     {
       "namespace": "restaurants",
-      "prefixes": ["RESTAURANT_SERVICE_", "RESTAURANT_MODIFIER_"]
+      "prefixes": ["RESTAURANT_SERVICE_", "RESTAURANT_MODIFIER_", "RESTAURANT_SPLIT_"]
     },
     {
       "namespace": "promotions",

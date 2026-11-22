@@ -33,6 +33,7 @@ import { getOrCreateCustomerDisplayAccessId } from '@/features/surfaces/customer
 import { useToast } from '@/components/feedback/ToastProvider';
 import { isTaskActivationKey, useTaskMeasurementController } from '@/lib/taskMeasurement';
 import { readExternalSaleEntry } from './externalSaleEntry';
+import { readRestaurantChargeEntry } from './restaurantChargeEntry';
 import { useTranslation } from 'react-i18next';
 import type { CompletedSaleSummary } from './SaleCompleteStrip';
 import { useEmbeddedServerState } from '@/hooks/useEmbeddedServerState';
@@ -341,6 +342,7 @@ export function SalesPage() {
   // `useSalesFlows`. The shell still owns ALL the state they read; the
   // read values + setters + the mutation handles are injected so the
   // dependency direction stays shell → hook, never hook ↔ hook.
+  const pendingChargeSaleIdRef = useRef<string | null>(null);
   const {
     handleCheckout,
     handleOpenSuspendPrompt,
@@ -368,6 +370,9 @@ export function SalesPage() {
     resumeMutation,
     discardDraftMutation,
     openRestaurantCheckMutation,
+    onResumedForCharge: saleId => {
+      pendingChargeSaleIdRef.current = saleId;
+    },
   });
 
   const weighing = useWeighedItem({
@@ -522,6 +527,28 @@ export function SalesPage() {
     handleMeasuredOpenProductSearch(omniboxQuery);
     navigate(location.pathname, { replace: true, state: null });
   }, [omniboxQuery, handleMeasuredOpenProductSearch, navigate, location.pathname]);
+
+  // «Cobrar cuenta N» resumes the check, then charges it once its lines are on screen.
+  const activeServerSaleId = activeWorkspace?.serverSaleId ?? null;
+  useEffect(() => {
+    const pending = pendingChargeSaleIdRef.current;
+    if (!pending) return;
+    // One shot: another ticket taking the screen first cancels the charge.
+    pendingChargeSaleIdRef.current = null;
+    if (activeServerSaleId === pending && cartItems.length > 0) handleOpenPaymentModal();
+  }, [activeServerSaleId, cartItems.length, handleOpenPaymentModal]);
+  const restaurantCharge = useMemo(
+    () => readRestaurantChargeEntry(location.state),
+    [location.state]
+  );
+  const consumedRestaurantChargeRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!restaurantCharge || !ownerKey) return;
+    if (consumedRestaurantChargeRef.current === restaurantCharge.id) return;
+    consumedRestaurantChargeRef.current = restaurantCharge.id;
+    navigate(location.pathname, { replace: true, state: null });
+    void handleResumeFromPanel(restaurantCharge, { charge: true });
+  }, [restaurantCharge, ownerKey, navigate, location.pathname, handleResumeFromPanel]);
 
   // keep the product-search input focused across the cashier flow
   // so a USB HID barcode scanner always lands on the right target.

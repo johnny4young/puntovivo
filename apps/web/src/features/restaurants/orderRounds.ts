@@ -79,7 +79,14 @@ export function sentRoundsFromTableState(state: TableState | undefined): SentRou
     }
     rounds.push(...[...buckets.values()].filter(bucket => bucket.lines.length > 0));
   }
-  return rounds
+  // A split copies a round into each check it reaches; one send is one round.
+  const bySend = new Map<string, Omit<SentRound, 'sequence'>>();
+  for (const round of rounds) {
+    const sent = bySend.get(round.sentAt);
+    if (sent) sent.lines.push(...round.lines);
+    else bySend.set(round.sentAt, { ...round, lines: [...round.lines] });
+  }
+  return [...bySend.values()]
     .sort((a, b) => a.sentAt.localeCompare(b.sentAt))
     .map((round, index) => ({ ...round, sequence: index + 1 }));
 }

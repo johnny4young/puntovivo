@@ -36,6 +36,8 @@ export interface SaleCartItem {
   unitPrice: number;
   discount: number;
   taxRate: number;
+  /** Absent on carts persisted before it existed; read as VAT. */
+  taxKind?: 'iva' | 'inc' | undefined;
   /** Frozen tax-rate identities from an accepted quotation. */
   taxComponents?: Array<{ vatRateId: string }> | undefined;
   availableStock: number;
@@ -74,6 +76,8 @@ export interface SaleCartSummary {
   itemCount: number;
   subtotal: number;
   taxAmount: number;
+  /** Impoconsumo part of taxAmount; projections that do not split it leave it out. */
+  consumptionTaxAmount?: number | undefined;
   total: number;
 }
 
@@ -143,6 +147,7 @@ export function buildCartItem(selection: ProductSearchSelection): SaleCartItem {
     unitPrice: selection.price,
     discount: 0,
     taxRate: selection.product.taxRate ?? 0,
+    taxKind: selection.product.taxKind,
     // A sale can only take stock from its own site, so prefer that figure.
     availableStock: selection.product.siteStock ?? selection.product.stock,
     tracksStock: selection.product.tracksStock !== false,

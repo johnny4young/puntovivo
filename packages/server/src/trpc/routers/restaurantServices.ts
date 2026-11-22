@@ -27,11 +27,16 @@ import {
 import { router } from '../init.js';
 import { createModuleGuard } from '../middleware/modules.js';
 import { cashierManagerOrAdminProcedure } from '../middleware/roles.js';
-import { criticalCommandCashierManagerOrAdminProcedureWithModule } from '../middleware/criticalCommand.js';
+import {
+  criticalCommandCashierManagerOrAdminProcedureWithModule,
+  criticalCommandManagerOrAdminProcedureWithModule,
+} from '../middleware/criticalCommand.js';
 import { buildLifecycleContext } from './sales/helpers.js';
+import { regroupRestaurantChecksInTransaction } from '../../application/restaurant/regroup-checks.js';
 import {
   getRestaurantTableStateInput,
   openRestaurantCheckInput,
+  regroupRestaurantChecksInput,
   setRestaurantBillRequestedInput,
   setRestaurantPendingRoundInput,
 } from '../schemas/restaurantServices.js';
@@ -46,6 +51,8 @@ const restaurantStaffProcedure = cashierManagerOrAdminProcedure.use(createModule
 // after the original request would still serve its cached result.
 const restaurantCommandProcedure =
   criticalCommandCashierManagerOrAdminProcedureWithModule('dine-in');
+const restaurantManagerCommandProcedure =
+  criticalCommandManagerOrAdminProcedureWithModule('dine-in');
 
 type RestaurantDb = Context['db'];
 
@@ -142,6 +149,37 @@ export const restaurantServicesRouter = router({
         change: result.change,
         loyaltyPointsEarned: result.loyaltyPointsEarned ?? 0,
       };
+    }),
+
+  /**
+   * Move lines between the open checks of one table: an explicit layout, or
+   * one check per diner. New accounts open a suspended draft and a check left
+   * without lines is cancelled, all in one immediate transaction. A plan that
+   * already matches the table writes nothing.
+   */
+  regroupChecks: restaurantManagerCommandProcedure
+    .input(regroupRestaurantChecksInput)
+    .mutation(({ ctx, input }) => {
+      const lifecycle = buildLifecycleContext(ctx);
+      return ctx.db.transaction(
+        tx => {
+          const result = regroupRestaurantChecksInTransaction(
+            tx,
+            {
+              tenantId: ctx.tenantId,
+              callerSiteId: ctx.siteId,
+              actorId: ctx.user!.id,
+              now: new Date().toISOString(),
+              envelope: lifecycle.envelope,
+              deviceId: lifecycle.deviceId,
+            },
+            input
+          );
+          lifecycle.completeInTransaction?.(tx as unknown as RestaurantDb, result);
+          return result;
+        },
+        { behavior: 'immediate' }
+      );
     }),
 
   /**
