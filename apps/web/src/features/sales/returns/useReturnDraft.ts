@@ -25,9 +25,19 @@ export function lineBaseQuantity(line: SaleItem, quantity: number): number {
   return quantity * Number(line.unitEquivalence ?? 1);
 }
 
-/** The name frozen on the sale, so a later catalog rename never changes the receipt. */
-export function lineName(line: SaleItem): string {
-  return line.productNameSnapshot ?? line.productName ?? line.productId;
+/**
+ * The name frozen on the sale, so a later catalog rename never changes the receipt.
+ * The unit joins it for a pack, or when another line sells the same product in another unit.
+ */
+export function lineName(line: SaleItem, lines: readonly SaleItem[] = []): string {
+  const name = line.productNameSnapshot ?? line.productName ?? line.productId;
+  const unit = line.unitName ?? line.unitAbbreviation;
+  const sharesProduct = lines.some(
+    other =>
+      other.id !== line.id && other.productId === line.productId && other.unitId !== line.unitId
+  );
+  const isPack = Number(line.unitEquivalence ?? 1) !== 1;
+  return unit && (isPack || sharesProduct) ? `${name} (${unit})` : name;
 }
 
 export interface LineSelection {

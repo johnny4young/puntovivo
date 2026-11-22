@@ -461,6 +461,41 @@ describe('SaleCartTable', () => {
 
     expect(screen.queryByTestId('cart-unit-presentation-SKU-001')).not.toBeInTheDocument();
   });
+  it('names the unit of each line when one product is on the ticket twice', () => {
+    render(
+      <SaleCartTable
+        items={[
+          createCartItem({ discount: 0, isBaseUnit: true }),
+          createCartItem({
+            key: 'product-1:unit-pack',
+            unitId: 'unit-pack',
+            unitName: 'Pack',
+            unitEquivalence: 6,
+            isBaseUnit: false,
+            discount: 0,
+          }),
+        ]}
+        selectedItemKey={null}
+        onQuantityChange={vi.fn()}
+        onDiscountChange={vi.fn()}
+        onRemove={vi.fn()}
+        onSelectItem={vi.fn()}
+        quantityInputRefFor={quantityInputRefFor}
+        discountInputRefFor={discountInputRefFor}
+      />
+    );
+
+    expect(
+      screen.getAllByTestId('cart-unit-presentation-SKU-001').map(tag => tag.textContent)
+    ).toEqual(['Bottle', 'Pack × 6']);
+    expect(
+      screen.getByRole('button', { name: 'Select Sparkling Water (Bottle)' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Select Sparkling Water (Pack × 6)' })
+    ).toBeInTheDocument();
+  });
+
   it('labels a non-base unit even when its equivalence is 1', () => {
     render(
       <SaleCartTable
@@ -476,7 +511,9 @@ describe('SaleCartTable', () => {
     );
 
     expect(screen.getByTestId('cart-unit-presentation-SKU-001')).toHaveTextContent('Kilo × 1');
-    expect(screen.getByRole('button', { name: /Kilo × 1/ })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Select Sparkling Water (Kilo × 1)' })
+    ).toBeInTheDocument();
   });
 });
 
