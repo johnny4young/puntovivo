@@ -106,6 +106,7 @@ interface SalesModalsProps {
   /** Opens the receipt's WhatsApp share review along with the sale. */
   shareReceiptOnOpen?: boolean | undefined;
   onCloseSaleDetails: () => void;
+  onExchangeStarted?: () => void;
   // Suspend-label prompt
   isSuspendLabelPromptOpen: boolean;
   isSuspending: boolean;
@@ -155,6 +156,7 @@ export function SalesModals({
   selectedSaleId,
   shareReceiptOnOpen = false,
   onCloseSaleDetails,
+  onExchangeStarted,
   isSuspendLabelPromptOpen,
   isSuspending,
   suspendLabelDraft,
@@ -401,6 +403,7 @@ export function SalesModals({
             saleId={selectedSaleId}
             isOpen={!!selectedSaleId}
             onClose={onCloseSaleDetails}
+            onExchangeStarted={onExchangeStarted}
             receiptShareSection={
               <Suspense fallback={null}>
                 <LazyReceiptShareSection

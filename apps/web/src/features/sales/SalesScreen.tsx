@@ -921,6 +921,7 @@ export function SalesScreen({
             selectedSaleId={selectedSaleId}
             shareReceiptOnOpen={shareReceiptOnOpen}
             onCloseSaleDetails={() => openSaleDetails(null)}
+            onExchangeStarted={() => setIsHistoryDrawerOpen(false)}
             isSuspendLabelPromptOpen={isSuspendLabelPromptOpen}
             isSuspending={isSuspending}
             suspendLabelDraft={suspendLabelDraft}
