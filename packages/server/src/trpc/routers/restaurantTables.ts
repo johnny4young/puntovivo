@@ -33,8 +33,10 @@ import {
   restaurantTables,
   sales,
 } from '../../db/schema.js';
+import type { DatabaseInstance } from '../../db/index.js';
 import { roundMoney } from '../../lib/money.js';
 import { resolveTenantBusinessClock } from '../../services/pharmacy/business-clock.js';
+import { parkedRetailDraftConditions } from '../../services/reports/day-close-checklist.js';
 import { resolveUtcDayWindow } from '../../services/reports/day-window.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
@@ -83,6 +85,44 @@ async function ensureRestaurantSite(
       details: { tenantId, siteId },
     });
   }
+}
+
+const TAKEAWAY_LIST_LIMIT = 50;
+type TableSummaryTransaction = Pick<DatabaseInstance, 'select'>;
+
+/** Parked tickets with no table at this site, oldest first: in a restaurant they are takeaway orders. */
+function listTakeawayOrders(
+  tx: TableSummaryTransaction,
+  tenantId: string,
+  siteId: string,
+  nowIso: string
+) {
+  const where = and(
+    parkedRetailDraftConditions(tenantId, nowIso),
+    inArray(
+      sales.cashSessionId,
+      tx
+        .select({ id: cashSessions.id })
+        .from(cashSessions)
+        .where(and(eq(cashSessions.tenantId, tenantId), eq(cashSessions.siteId, siteId)))
+    )
+  );
+  const totalItems = tx.select({ value: count() }).from(sales).where(where).get()?.value ?? 0;
+  const items = tx
+    .select({
+      id: sales.id,
+      saleNumber: sales.saleNumber,
+      label: sales.suspendedLabel,
+      suspendedAt: sales.suspendedAt,
+      total: sales.total,
+    })
+    .from(sales)
+    .where(where)
+    .orderBy(asc(sales.suspendedAt), asc(sales.id))
+    .limit(TAKEAWAY_LIST_LIMIT)
+    .all()
+    .map(row => ({ ...row, suspendedAt: row.suspendedAt!, total: roundMoney(row.total) }));
+  return { totalItems, items };
 }
 
 function isUniqueViolation(err: unknown): boolean {
@@ -443,6 +483,7 @@ export const restaurantTablesRouter = router({
           totalItems,
           occupiedTables,
           hasMore: input.offset + tableRows.length < totalItems,
+          takeaway: listTakeawayOrders(tx, ctx.tenantId, input.siteId, nowIso),
         };
         if (tableRows.length === 0) return { ...page, items: [] };
         const tableIds = tableRows.map(row => row.id);

@@ -144,11 +144,12 @@ const cashSessionByTenant = new Map<string, string>();
 async function insertSaleOnTable(
   tenantIdValue: string,
   actorId: string,
-  tableRowId: string,
+  tableRowId: string | null,
   overrides: Partial<{
     status: 'draft' | 'completed';
     suspended: boolean;
     suspendedAt: string;
+    label: string | null;
     total: number;
     cashSessionId: string | null;
   }> = {}
@@ -181,7 +182,7 @@ async function insertSaleOnTable(
     createdBy: actorId,
     suspendedAt: suspended ? now : null,
     suspendedBy: suspended ? actorId : null,
-    suspendedLabel: suspended ? 'auto' : null,
+    suspendedLabel: suspended ? (overrides.label === undefined ? 'auto' : overrides.label) : null,
     createdAt: now,
     updatedAt: now,
   });
@@ -769,6 +770,77 @@ describe('restaurant floor summary and markers across tenants', () => {
       .createCaller(buildCtx(owner.tenantId, owner.cashierId, 'cashier'))
       .restaurantTables.listSummary({ siteId: owner.siteId });
     expect(own.items.map(item => [item.id, item.state])).toEqual([[table.id, 'free']]);
+  });
+});
+
+describe('restaurantTables.listSummary takeaway', () => {
+  it('lists parked untabled tickets of this site oldest first, apart from the table page', async () => {
+    const h = await seedHarness('takeaway');
+    const db = getDatabase();
+    const now = new Date().toISOString();
+    const otherSiteId = 'rt-site-takeaway-other';
+    await db.insert(sites).values({
+      id: otherSiteId,
+      tenantId: h.tenantId,
+      companyId: 'rt-company-takeaway',
+      name: 'Other site',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(cashSessions).values({
+      id: 'rt-cs-takeaway-other',
+      tenantId: h.tenantId,
+      siteId: otherSiteId,
+      cashierId: h.cashierId,
+      registerName: 'reg-other',
+      openingFloat: 0,
+      openingCountDenominations: [],
+      expectedBalance: 0,
+      status: 'closed',
+      openedAt: now,
+      closedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const caller = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
+    const table = await caller.restaurantTables.create({ siteId: h.siteId, name: 'Mesa 1' });
+    const sessionId = cashSessionByTenant.get(h.tenantId)!;
+    const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
+
+    const newer = await insertSaleOnTable(h.tenantId, h.cashierId, null, {
+      cashSessionId: sessionId,
+      suspendedAt: minutesAgo(5),
+      label: null,
+      total: 52_000,
+    });
+    const older = await insertSaleOnTable(h.tenantId, h.cashierId, null, {
+      cashSessionId: sessionId,
+      suspendedAt: minutesAgo(14),
+      label: 'Camilo',
+      total: 36_000,
+    });
+    await insertSaleOnTable(h.tenantId, h.cashierId, table.id, { cashSessionId: sessionId });
+    await insertSaleOnTable(h.tenantId, h.cashierId, null, {
+      cashSessionId: sessionId,
+      suspended: false,
+    });
+    await insertSaleOnTable(h.tenantId, h.cashierId, null, {
+      cashSessionId: 'rt-cs-takeaway-other',
+    });
+    await insertSaleOnTable(h.tenantId, h.cashierId, null, { cashSessionId: null });
+
+    const summary = await caller.restaurantTables.listSummary({
+      siteId: h.siteId,
+      search: 'no table matches this',
+    });
+
+    expect(summary.items).toEqual([]);
+    expect(summary.takeaway.totalItems).toBe(2);
+    expect(summary.takeaway.items).toEqual([
+      expect.objectContaining({ id: older, label: 'Camilo', total: 36_000 }),
+      expect.objectContaining({ id: newer, label: null, total: 52_000 }),
+    ]);
   });
 });
 

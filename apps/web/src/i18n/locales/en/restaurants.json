@@ -51,7 +51,20 @@
       "billRequested": "Asked for the bill",
       "reserved": "Reserved"
     },
-    "occupancy": "{{occupied}} of {{total}} occupied"
+    "occupancy": "{{occupied}} of {{total}} occupied",
+    "channels": {
+      "label": "Order channels",
+      "floor": "Dining room",
+      "takeaway": "Takeaway",
+      "takeawayCount": "Takeaway · {{count}}",
+      "delivery": "Delivery",
+      "deliveryCount": "Delivery · {{count}}"
+    },
+    "takeaway": {
+      "empty": "No takeaway orders.",
+      "untitled": "Sale {{number}}",
+      "partial": "Showing {{shown}} of {{total}}."
+    }
   },
   "tableLabel": {
     "label": "Table",

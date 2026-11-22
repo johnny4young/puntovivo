@@ -19,7 +19,13 @@ const listInvalidate = vi.fn();
 
 let mockUserRole: 'admin' | 'manager' = 'admin';
 let mockTables: Array<Record<string, unknown>> = [];
-let mockFloor: { items: Array<Record<string, unknown>>; occupiedTables: number } | null = null;
+let mockFloor: {
+  items: Array<Record<string, unknown>>;
+  occupiedTables: number;
+  takeaway?: { totalItems: number; items: Array<Record<string, unknown>> };
+} | null = null;
+let mockDeliveryActive = false;
+let mockDeliveryCounts: Record<string, number> | undefined;
 let summaryInputs: Array<Record<string, unknown>> = [];
 let mockTotalItems = 0;
 let mockHasMore = false;
@@ -48,6 +54,10 @@ vi.mock('@/features/tenant/TenantProvider', () => ({
   }),
 }));
 
+vi.mock('@/features/modules', () => ({
+  useIsModuleActive: (moduleId: string) => moduleId === 'delivery' && mockDeliveryActive,
+}));
+
 vi.mock('@/lib/trpc', () => ({
   trpc: {
     useUtils: () => ({
@@ -56,6 +66,13 @@ vi.mock('@/lib/trpc', () => ({
         listSummary: { invalidate: vi.fn() },
       },
     }),
+    deliveryOrders: {
+      counts: {
+        useQuery: (_input: unknown, options: { enabled: boolean }) => ({
+          data: options.enabled ? mockDeliveryCounts : undefined,
+        }),
+      },
+    },
     sites: {
       list: {
         useQuery: () => ({
@@ -84,6 +101,7 @@ vi.mock('@/lib/trpc', () => ({
                   occupiedTables: mockFloor.occupiedTables,
                   hasMore: false,
                   items: mockFloor.items,
+                  takeaway: mockFloor.takeaway ?? { totalItems: 0, items: [] },
                 }
               : undefined,
             error: null,
@@ -219,6 +237,8 @@ beforeEach(() => {
   mockTotalItems = mockTables.length;
   mockHasMore = false;
   mockFloor = null;
+  mockDeliveryActive = false;
+  mockDeliveryCounts = undefined;
   summaryInputs = [];
   void i18n.changeLanguage('en');
 });
@@ -378,6 +398,90 @@ describe('RestaurantTablesPage — admin', () => {
 
     fireEvent.click(screen.getByTestId('restaurant-floor-table-rt-2'));
     expect(screen.getByTestId('restaurant-table-name')).toHaveValue('Mesa 2');
+  });
+
+  it('outlines the chosen tile and keeps it outlined after the editor closes', () => {
+    mockFloor = {
+      occupiedTables: 0,
+      items: [floorTable('rt-2', 'Mesa 2', 'free'), floorTable('rt-3', 'Mesa 3', 'free')],
+    };
+    renderPage('/restaurants/tables');
+
+    expect(screen.getByTestId('restaurant-floor-table-rt-2')).not.toHaveAttribute('aria-current');
+    fireEvent.click(screen.getByTestId('restaurant-floor-table-rt-2'));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(screen.queryByTestId('restaurant-table-name')).not.toBeInTheDocument();
+    expect(screen.getByTestId('restaurant-floor-table-rt-2')).toHaveAttribute(
+      'aria-current',
+      'true'
+    );
+    expect(screen.getByTestId('restaurant-floor-table-rt-3')).not.toHaveAttribute('aria-current');
+  });
+
+  it('switches to takeaway orders and links open deliveries when the module is on', () => {
+    mockDeliveryActive = true;
+    mockDeliveryCounts = { accepted: 1, preparing: 2, dispatched: 1, delivered: 9, cancelled: 3 };
+    mockFloor = {
+      occupiedTables: 0,
+      items: [floorTable('rt-2', 'Mesa 2', 'free')],
+      takeaway: {
+        totalItems: 51,
+        items: [
+          {
+            id: 'sale-a',
+            saleNumber: 'VTA-9',
+            label: 'Camilo',
+            suspendedAt: '2026-05-10T20:46:00.000Z',
+            total: 36000,
+          },
+          {
+            id: 'sale-b',
+            saleNumber: 'VTA-10',
+            label: null,
+            suspendedAt: '2026-05-10T19:55:00.000Z',
+            total: 52000,
+          },
+        ],
+      },
+    };
+    renderPage('/restaurants/tables');
+
+    expect(screen.getByTestId('restaurant-floor-channel-floor')).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    expect(screen.getByTestId('restaurant-floor-channel-delivery')).toHaveTextContent(
+      'Delivery · 4'
+    );
+    expect(screen.getByTestId('restaurant-floor-channel-delivery')).toHaveAttribute(
+      'href',
+      '/delivery'
+    );
+    fireEvent.click(screen.getByTestId('restaurant-floor-channel-takeaway'));
+
+    expect(screen.getByTestId('restaurant-floor-channel-takeaway')).toHaveTextContent(
+      'Takeaway · 51'
+    );
+    expect(screen.queryByTestId('restaurant-floor-table-rt-2')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('restaurant-floor-occupancy')).not.toBeInTheDocument();
+    expect(screen.getByTestId('restaurant-takeaway-sale-a')).toHaveTextContent('Camilo');
+    expect(screen.getByTestId('restaurant-takeaway-sale-a')).toHaveTextContent('14 min');
+    expect(screen.getByTestId('restaurant-takeaway-sale-b')).toHaveTextContent('Sale VTA-10');
+    expect(screen.getByTestId('restaurant-takeaway-sale-b')).toHaveTextContent('1 h 05');
+    expect(screen.getByText('Showing 2 of 51.')).toBeInTheDocument();
+  });
+
+  it('hides the delivery tab without the module and shows an empty takeaway list', () => {
+    mockFloor = { occupiedTables: 0, items: [floorTable('rt-2', 'Mesa 2', 'free')] };
+    renderPage('/restaurants/tables');
+
+    expect(screen.queryByTestId('restaurant-floor-channel-delivery')).not.toBeInTheDocument();
+    expect(screen.getByTestId('restaurant-floor-channel-takeaway')).toHaveTextContent(/^Takeaway$/);
+    fireEvent.click(screen.getByTestId('restaurant-floor-channel-takeaway'));
+    expect(screen.getByTestId('restaurant-takeaway-empty')).toHaveTextContent(
+      'No takeaway orders.'
+    );
   });
 
   it('searches the list on the server without narrowing the floor map', async () => {
