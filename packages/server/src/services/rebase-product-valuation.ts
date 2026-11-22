@@ -1,4 +1,4 @@
-/** Explicit catalog/purchase revaluation is not a conservative stock transformation. */
+/** Explicit catalog revaluation is not a conservative stock transformation. */
 import { inventoryValueGuard } from './inventory-value-errors.js';
 import type { DatabaseInstance } from '../db/index.js';
 import { writeAuditLog } from './audit-logs.js';
@@ -9,7 +9,7 @@ import {
 } from './inventory-valuation.js';
 import { applyProductValueDelta, type ProductValuationState } from './product-valuation.js';
 
-/** Call after the catalog basis update but before any physical receipt/adjustment, in the same transaction. */
+/** Call after the catalog basis update but before any physical adjustment, in the same transaction. */
 export function rebaseProductValuation(
   db: DatabaseInstance,
   input: {
@@ -17,7 +17,7 @@ export function rebaseProductValuation(
     initialCost: number;
     cost: number;
     actorId: string;
-    source: 'product_update' | 'purchase' | 'order_receipt' | 'inventory_entry';
+    source: 'product_update';
     referenceId: string;
     operationId?: string | null | undefined;
   }
@@ -25,11 +25,9 @@ export function rebaseProductValuation(
   return inventoryValueGuard(() => {
     const before = input.before;
     if (!before) return;
-    // A purchase deliberately replaces both baselines. An unrelated product edit
-    // must not erase a residual merely because the form submits the same price.
-    const replacesBothBaselines = input.source === 'purchase' || input.source === 'order_receipt';
-    const replaceInventory = replacesBothBaselines || input.initialCost !== before.initialCost;
-    const replaceCogs = replacesBothBaselines || input.cost !== before.cost;
+    // An unrelated product edit must not erase a residual merely because the form submits the same price.
+    const replaceInventory = input.initialCost !== before.initialCost;
+    const replaceCogs = input.cost !== before.cost;
     if (!replaceInventory && !replaceCogs) return;
     const inventoryValue = replaceInventory
       ? legacyInventoryValue(before.quantity, input.initialCost)

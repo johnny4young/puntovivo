@@ -187,6 +187,18 @@ export function applyProductValueDelta(
   }, 'INVENTORY_VALUE_INVALID');
 }
 
+/**
+ * Pin a legacy (unadopted) pool before a catalog cost write; otherwise the derived
+ * pool would silently revalue existing stock at the new cost instead of averaging.
+ */
+export function adoptProductValuation(
+  db: DatabaseInstance,
+  before: ProductValuationState | null
+): void {
+  if (!before || before.storedInventoryCents !== null) return;
+  applyProductValueDelta(db, before, 0, { inventoryValue: 0, cogsValue: 0 });
+}
+
 /** Freeze only authoritative applied amounts; null is unknown, not a zero-valued movement. */
 export function inventoryMovementValueSnapshot(values: InventoryValueDelta | null) {
   return inventoryValueGuard(

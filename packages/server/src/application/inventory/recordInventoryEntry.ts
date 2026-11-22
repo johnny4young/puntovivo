@@ -1,10 +1,11 @@
 /** Record an initial inventory or physical-count entry. */
 import { writeAuditLog } from '../../services/audit-logs.js';
-import { rebaseProductValuation } from '../../services/rebase-product-valuation.js';
 import {
+  adoptProductValuation,
   readProductValuation,
   inventoryMovementValueSnapshot,
 } from '../../services/product-valuation.js';
+import { legacyInventoryValue } from '../../services/inventory-valuation.js';
 import { TRPCError } from '@trpc/server';
 import { and, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -145,15 +146,7 @@ export async function recordInventoryEntry(ctx: InventoryContext, input: RecordE
         })
         .where(and(eq(products.id, input.productId), eq(products.tenantId, ctx.tenantId)))
         .run();
-      rebaseProductValuation(tx, {
-        before: valuationBefore,
-        initialCost: cost,
-        cost: product.cost,
-        actorId: ctx.user.id,
-        source: 'inventory_entry',
-        referenceId: entryId,
-        operationId: ctx.envelope?.operationId,
-      });
+      adoptProductValuation(tx, valuationBefore);
 
       let movementValue = inventoryMovementValueSnapshot({ inventoryValue: 0, cogsValue: 0 });
       applyInventoryBalanceDelta(tx, {
@@ -161,6 +154,15 @@ export async function recordInventoryEntry(ctx: InventoryContext, input: RecordE
         siteId: entrySiteId,
         productId: input.productId,
         delta: stockDelta,
+        // Weighted average: the typed cost values only the units added, in both pools.
+        ...(stockDelta > 0
+          ? {
+              valueDelta: {
+                inventoryValue: legacyInventoryValue(stockDelta, cost),
+                cogsValue: legacyInventoryValue(stockDelta, cost),
+              },
+            }
+          : {}),
         onValueDelta: values => {
           movementValue = inventoryMovementValueSnapshot(values);
         },
