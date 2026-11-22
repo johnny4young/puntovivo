@@ -51,7 +51,9 @@ compilan. Si un cambio afecta al frontend y al backend, deben pasar tanto
 - Mantén un cambio lógico por PR.
 - Comprueba que la validación de CI correspondiente pase localmente.
 - Internacionaliza todos los textos visibles para el usuario en inglés y español;
-  el español usa el registro `tú` del español latinoamericano neutro.
+  el español usa el registro `usted` del español latinoamericano neutro.
+- Un bot revisa primero cada PR e issue externo y deja un comentario con lo
+  que falta; consulta el [triage de contribuciones](./docs/es/repository/TRIAGE-REVIEW.md).
 - Las guías públicas nuevas necesitan versiones en inglés y español enlazadas
   entre sí. Registra los pares en `docs/translations.json` y ejecuta
   `node scripts/check-documentation-translations.mjs`; consulta las
