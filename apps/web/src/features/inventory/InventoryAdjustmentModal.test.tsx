@@ -54,6 +54,11 @@ function renderModal(
   return props;
 }
 
+/** A reason keeps the guards below from passing only because validation failed. */
+function fillReason() {
+  fireEvent.change(screen.getByLabelText('Reason'), { target: { value: 'Shelf count' } });
+}
+
 /** The modal portals into document.body. */
 function adjustmentForm(): HTMLFormElement {
   const form = document.querySelector('form');
@@ -78,6 +83,7 @@ describe('InventoryAdjustmentModal submit guard', () => {
     renderModal({ onSubmit });
 
     fireEvent.change(screen.getByLabelText('Stock After'), { target: { value: '20' } });
+    fillReason();
     // One act() around all three, so they land the way a key repeat does:
     // before React has re-rendered anything the first one caused.
     await act(async () => {
@@ -91,7 +97,7 @@ describe('InventoryAdjustmentModal submit guard', () => {
     expect(onSubmit).toHaveBeenCalledOnce();
     // react-hook-form passes the submit event as a second argument, before
     // and after the guard alike; assert on the payload only.
-    expect(onSubmit.mock.calls[0]?.[0]).toEqual({ newStock: 20, notes: '' });
+    expect(onSubmit.mock.calls[0]?.[0]).toEqual({ newStock: 20, notes: 'Shelf count' });
 
     await act(async () => {
       releaseWrite();
@@ -100,6 +106,7 @@ describe('InventoryAdjustmentModal submit guard', () => {
 
   it('refuses a submit event while the parent reports the write in flight', async () => {
     const props = renderModal({ isSaving: true });
+    fillReason();
     await act(async () => {
       fireEvent.submit(adjustmentForm());
     });
@@ -108,6 +115,7 @@ describe('InventoryAdjustmentModal submit guard', () => {
 
   it('refuses a submit event for a lot-tracked product, as the button does', async () => {
     const props = renderModal({ product: { ...plainProduct, tracksLots: true } });
+    fillReason();
     await act(async () => {
       fireEvent.submit(adjustmentForm());
     });
@@ -116,9 +124,22 @@ describe('InventoryAdjustmentModal submit guard', () => {
 
   it('refuses a submit event for a serial-tracked product, as the button does', async () => {
     const props = renderModal({ product: { ...plainProduct, tracksSerials: true } });
+    fillReason();
     await act(async () => {
       fireEvent.submit(adjustmentForm());
     });
     expect(props.onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('requires a reason before saving a manual adjustment', async () => {
+    await i18next.changeLanguage('es');
+    const props = renderModal();
+    fireEvent.change(screen.getByLabelText('Motivo'), { target: { value: '   ' } });
+    await act(async () => {
+      fireEvent.submit(adjustmentForm());
+    });
+
+    expect(props.onSubmit).not.toHaveBeenCalled();
+    expect(await screen.findByText('Indique el motivo del ajuste')).toBeInTheDocument();
   });
 });

@@ -1106,7 +1106,7 @@
   {
     "path": "inventory.adjustStock",
     "kind": "mutation",
-    "input": "object{newStock:number[min=0],notes?:string,productId:string[minLength=1],siteId?:string[minLength=1]}",
+    "input": "object{newStock:number[min=0],notes:string[minLength=1,maxLength=500],productId:string[minLength=1],siteId?:string[minLength=1]}",
     "output": "inferred"
   },
   {

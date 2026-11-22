@@ -289,8 +289,9 @@
     "siteScope": "Este ajuste impactará el balance de la sede activa: {{site}}.",
     "lotTrackedHelp": "Este producto controla lotes. Reciba un lote identificado en vez de editar el stock agregado.",
     "serialTrackedHelp": "Este producto controla números de serie. Reciba o venda unidades exactas en vez de editar el stock agregado.",
-    "notesPlaceholder": "Razón del ajuste",
-    "stockMin": "El stock debe ser cero o mayor"
+    "stockMin": "El stock debe ser cero o mayor",
+    "reason": "Motivo",
+    "reasonRequired": "Indique el motivo del ajuste"
   },
   "entry": {
     "titleInitial": "Registrar inventario inicial",

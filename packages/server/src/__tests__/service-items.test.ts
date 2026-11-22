@@ -380,7 +380,12 @@ describe('service items are fail-closed against every stock writer', () => {
     });
 
     await expect(
-      caller.inventory.adjustStock({ productId: serviceId, newStock: 25, siteId })
+      caller.inventory.adjustStock({
+        notes: 'Counted on the shelf',
+        productId: serviceId,
+        newStock: 25,
+        siteId,
+      })
     ).rejects.toMatchObject({ message: expect.stringContaining('cannot receive stock') });
     expect(await balancesFor(serviceId)).toHaveLength(0);
   });
