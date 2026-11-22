@@ -50,6 +50,10 @@ export function sentRoundsFromTableState(state: TableState | undefined): SentRou
   if (!state?.service) return [];
   const seatByDiner = new Map(state.diners.map(diner => [diner.id, diner.seatNumber]));
   const rounds: Omit<SentRound, 'sequence'>[] = [];
+  const oldestCheckOpening = state.checks.reduce(
+    (oldest, check) => (check.openedAt < oldest ? check.openedAt : oldest),
+    state.checks[0]?.openedAt ?? ''
+  );
   for (const check of state.checks) {
     const buckets = new Map<string, Omit<SentRound, 'sequence'>>();
     for (const round of check.rounds) {
@@ -61,10 +65,11 @@ export function sentRoundsFromTableState(state: TableState | undefined): SentRou
       });
     }
     for (const line of check.lines) {
-      const bucketKey = line.roundId ?? `check:${check.id}`;
+      // Lines without a round predate rounds; a split must not date them to the move.
+      const bucketKey = line.roundId ?? 'without-round';
       let bucket = buckets.get(bucketKey);
       if (!bucket) {
-        bucket = { key: bucketKey, sentAt: check.openedAt, checkLabel: check.label, lines: [] };
+        bucket = { key: bucketKey, sentAt: oldestCheckOpening, checkLabel: check.label, lines: [] };
         buckets.set(bucketKey, bucket);
       }
       bucket.lines.push({

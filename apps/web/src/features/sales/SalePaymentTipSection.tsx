@@ -36,6 +36,8 @@ export function SalePaymentTipSection({
     setValueAs: coerceTipAmount,
     min: { value: 0, message: t('payment.amountNegative') },
     onChange: event => {
+      // Keep the field mounted while the amount is cleared and retyped.
+      setCustomOpen(true);
       syncPaymentInputsForTip(coerceTipAmount(event.target.value));
       form.setValue('tipMethod', 'fixed', { shouldDirty: true });
     },

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   canSplitByDiner,
-  moveTargetIndex,
+  checksSeen,
+  moveTargets,
   planForMove,
   splitAccountsFromTableState,
 } from '../splitAccounts';
@@ -29,6 +30,7 @@ function tableState(checks: Array<{ id: string; lines: ReturnType<typeof line>[]
     ],
     checks: checks.map((check, index) => ({
       id: check.id,
+      version: 3,
       saleId: `sale-${check.id}`,
       saleNumber: `VTA-${index + 1}`,
       label: 'Mesa 7',
@@ -50,7 +52,11 @@ describe('splitAccountsFromTableState', () => {
     expect(accounts.map(account => account.checkId)).toEqual(['c-early', 'c-late', null]);
     expect(accounts[0]?.seats).toEqual([1, 2]);
     expect(accounts[1]?.seats).toEqual([3, null]);
-    expect(accounts[2]).toMatchObject({ lines: [], total: 0, saleId: null });
+    expect(accounts[2]).toMatchObject({ lines: [], total: 0, saleId: null, version: null });
+    expect(checksSeen(accounts)).toEqual([
+      { checkId: 'c-early', version: 3 },
+      { checkId: 'c-late', version: 3 },
+    ]);
   });
 
   it('keeps a pinned order and puts unknown checks last', () => {
@@ -63,11 +69,12 @@ describe('splitAccountsFromTableState', () => {
   });
 });
 
-describe('moveTargetIndex', () => {
-  it('sends a plate to the next account and the last account back', () => {
-    expect(moveTargetIndex(0, 2)).toBe(1);
-    expect(moveTargetIndex(1, 2)).toBe(0);
-    expect(moveTargetIndex(1, 3)).toBe(2);
+describe('moveTargets', () => {
+  it('offers the neighbouring accounts on each side and none with one account', () => {
+    expect(moveTargets(0, 2)).toEqual([1]);
+    expect(moveTargets(1, 2)).toEqual([0]);
+    expect(moveTargets(1, 3)).toEqual([0, 2]);
+    expect(moveTargets(0, 1)).toEqual([]);
   });
 });
 

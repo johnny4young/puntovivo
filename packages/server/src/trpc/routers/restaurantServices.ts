@@ -154,8 +154,9 @@ export const restaurantServicesRouter = router({
   /**
    * Move lines between the open checks of one table: an explicit layout, or
    * one check per diner. New accounts open a suspended draft and a check left
-   * without lines is cancelled, all in one immediate transaction. A plan that
-   * already matches the table writes nothing.
+   * without lines is cancelled, all in one immediate transaction. The caller
+   * sends the check versions it saw, so a layout built on an older table fails
+   * as stale. A plan that already matches the table writes nothing.
    */
   regroupChecks: restaurantManagerCommandProcedure
     .input(regroupRestaurantChecksInput)
@@ -376,6 +377,7 @@ export const restaurantServicesRouter = router({
             saleId: restaurantChecks.saleId,
             label: restaurantChecks.label,
             status: restaurantChecks.status,
+            version: restaurantChecks.version,
             openedAt: restaurantChecks.openedAt,
             saleNumber: sales.saleNumber,
             saleStatus: sales.status,
@@ -718,6 +720,7 @@ export const restaurantServicesRouter = router({
             saleId: check.saleId,
             label: check.label,
             status: check.status,
+            version: check.version,
             openedAt: check.openedAt,
             saleNumber: check.saleNumber,
             total: check.total,

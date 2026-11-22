@@ -12,6 +12,7 @@
     "RESTAURANT_SPLIT_CHECK_IN_USE": "Una de las cuentas está abierta en una caja. Suspéndala y vuelva a intentar.",
     "RESTAURANT_SPLIT_STALE": "La mesa cambió. Revise las cuentas y vuelva a intentar.",
     "RESTAURANT_SPLIT_SINGLE_DINER": "Todos los platos son del mismo comensal.",
+    "RESTAURANT_SPLIT_TERMS_DIFFER": "Estas cuentas tienen precios o clientes distintos y no se pueden mezclar.",
     "RESTAURANT_MODIFIER_UNAVAILABLE": "Este adicional ya no está disponible en esta sede. Elimínelo o seleccione una opción disponible.",
     "RESTAURANT_MODIFIER_APPROVAL_REQUIRED": "Elija un adicional aprobado o pida a un gerente que registre este pedido.",
     "RESTAURANT_MODIFIER_CHANGED": "Este adicional cambió. Elimínelo y selecciónelo de nuevo para revisar el precio actual antes de guardar.",

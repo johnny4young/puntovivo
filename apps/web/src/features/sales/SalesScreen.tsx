@@ -454,8 +454,7 @@ export function SalesScreen({
   });
   // Mirrors the charge drawer: quotations carry no service charge.
   const cashDue = roundMoney(
-    draftSummary.total +
-      percentOf(draftSummary.total, isQuotationCart ? 0 : serviceChargeRate)
+    draftSummary.total + percentOf(draftSummary.total, isQuotationCart ? 0 : serviceChargeRate)
   );
 
   const { sellsOnCredit, account: customerAccount } = useCustomerAccount(ticketCustomerId);
@@ -487,9 +486,9 @@ export function SalesScreen({
   if (isTillPaymentOpen && !canPayAccount) setIsTillPaymentOpen(false);
 
   // Resuming a sale means the shift is not ending yet, so the close stops here.
-  const handleResumeSuspended: typeof handleResumeFromPanel = draft => {
+  const handleResumeSuspended: typeof handleResumeFromPanel = (draft, options) => {
     setIsCashSessionCloseModalOpen(false);
-    return handleResumeFromPanel(draft);
+    return handleResumeFromPanel(draft, options);
   };
 
   return (

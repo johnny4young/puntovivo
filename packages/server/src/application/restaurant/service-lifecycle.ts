@@ -10,6 +10,7 @@
  *
  * @module application/restaurant/service-lifecycle
  */
+import { RESTAURANT_REGROUP_MAX_ACCOUNTS } from '@puntovivo/shared/restaurant-split';
 import { assertRestaurantModifierAuthority } from './modifier-catalog.js';
 import { assertRestaurantModifierGroups } from './modifier-groups.js';
 import { assertNoReservationHold, reservationError } from '../reservations/invariants.js';
@@ -95,7 +96,7 @@ type RestaurantTransaction = DatabaseInstance;
 
 /** Shared writer/read projection ceilings for one open table service. */
 export const RESTAURANT_SERVICE_LIMITS = {
-  openChecks: 100,
+  openChecks: RESTAURANT_REGROUP_MAX_ACCOUNTS,
   activeDiners: 200,
   openLines: 1_000,
   openRounds: 1_000,
@@ -1496,6 +1497,27 @@ export function splitRestaurantCheckInTransaction(
         message: 'Restaurant line changed while its check was being split',
       });
     }
+  }
+
+  // The source lost lines: a layout read before this split is now stale.
+  const bumped = tx
+    .update(restaurantChecks)
+    .set({ version: sourceCheck.version + 1, updatedAt: context.now })
+    .where(
+      and(
+        eq(restaurantChecks.id, sourceCheck.id),
+        eq(restaurantChecks.tenantId, context.tenantId),
+        eq(restaurantChecks.status, 'open'),
+        eq(restaurantChecks.version, sourceCheck.version)
+      )
+    )
+    .run();
+  if (bumped.changes !== 1) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'RESTAURANT_SERVICE_STATE_INVALID',
+      message: 'Restaurant check changed while it was being split',
+    });
   }
 
   const updatedSale = tx

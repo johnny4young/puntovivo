@@ -14,6 +14,7 @@ import {
   auditLogs,
   cashSessions,
   companies,
+  customers,
   inventoryBalances,
   kdsOrderLines,
   products,
@@ -191,6 +192,14 @@ async function auditCount(serviceId: string): Promise<number> {
 
 const sorted = (ids: string[]) => [...ids].sort();
 
+/** The open checks and versions a screen would send with its plan. */
+async function views(tableId: string) {
+  return (await tableState(tableId)).checks.map(check => ({
+    checkId: check.id,
+    version: check.version,
+  }));
+}
+
 beforeAll(async () => {
   server = await createServer({ dbPath: ':memory:', verbose: false });
   db = getDatabase();
@@ -280,6 +289,7 @@ describe('restaurantServices.regroupChecks', () => {
 
     const result = await manager().restaurantServices.regroupChecks({
       tableId,
+      checks: await views(tableId),
       plan: { kind: 'byDiner' },
     });
 
@@ -380,6 +390,7 @@ describe('restaurantServices.regroupChecks', () => {
     // A second tap finds the table already split by diner.
     const again = await manager().restaurantServices.regroupChecks({
       tableId,
+      checks: await views(tableId),
       plan: { kind: 'byDiner' },
     });
     expect(again.cancelledCheckIds).toEqual([]);
@@ -396,6 +407,7 @@ describe('restaurantServices.regroupChecks', () => {
 
     const result = await manager().restaurantServices.regroupChecks({
       tableId,
+      checks: await views(tableId),
       plan: { kind: 'byDiner' },
     });
 
@@ -422,6 +434,7 @@ describe('restaurantServices.regroupChecks', () => {
 
     const moved = await manager().restaurantServices.regroupChecks({
       tableId,
+      checks: await views(tableId),
       plan: {
         kind: 'accounts',
         accounts: [
@@ -447,6 +460,7 @@ describe('restaurantServices.regroupChecks', () => {
 
     const back = await manager().restaurantServices.regroupChecks({
       tableId,
+      checks: await views(tableId),
       plan: {
         kind: 'accounts',
         accounts: [
@@ -489,6 +503,7 @@ describe('restaurantServices.regroupChecks', () => {
 
     const result = await manager().restaurantServices.regroupChecks({
       tableId,
+      checks: await views(tableId),
       plan: {
         kind: 'accounts',
         accounts: [
@@ -540,6 +555,7 @@ describe('restaurantServices.regroupChecks', () => {
 
     const result = await manager().restaurantServices.regroupChecks({
       tableId,
+      checks: await views(tableId),
       plan: {
         kind: 'accounts',
         accounts: [{ checkId: second.checkId, saleItemIds: [...first.itemIds, ...second.itemIds] }],
@@ -571,6 +587,7 @@ describe('restaurantServices.regroupChecks', () => {
 
     const result = await manager().restaurantServices.regroupChecks({
       tableId,
+      checks: await views(tableId),
       plan: { kind: 'byDiner' },
     });
 
@@ -616,6 +633,7 @@ describe('restaurantServices.regroupChecks', () => {
 
     const result = await manager().restaurantServices.regroupChecks({
       tableId,
+      checks: await views(tableId),
       plan: {
         kind: 'accounts',
         accounts: [
@@ -652,7 +670,7 @@ describe('restaurantServices.regroupChecks', () => {
       idempotencyKey: randomUUID(),
       clientCreatedAt: new Date().toISOString(),
     };
-    const input = { tableId, plan: { kind: 'byDiner' as const } };
+    const input = { tableId, checks: await views(tableId), plan: { kind: 'byDiner' as const } };
 
     const firstResult = await appRouter
       .createCaller(fresh({ role: 'manager', envelope }))
@@ -677,8 +695,12 @@ describe('restaurantServices.regroupChecks', () => {
     const other = await sendRound(await createTable(`Mesa ajena ${nanoid(5)}`), [
       { price: 5, seat: 1 },
     ]);
-    const attempt = (accounts: Array<{ checkId: string | null; saleItemIds: string[] }>) =>
-      manager().restaurantServices.regroupChecks({ tableId, plan: { kind: 'accounts', accounts } });
+    const attempt = async (accounts: Array<{ checkId: string | null; saleItemIds: string[] }>) =>
+      manager().restaurantServices.regroupChecks({
+        tableId,
+        checks: await views(tableId),
+        plan: { kind: 'accounts', accounts },
+      });
     const staleError = {
       code: 'CONFLICT',
       cause: expect.objectContaining({ errorCode: 'RESTAURANT_SPLIT_STALE' }),
@@ -703,6 +725,205 @@ describe('restaurantServices.regroupChecks', () => {
     expect((await tableState(tableId)).checks.map(check => check.lines.length)).toEqual([2]);
   });
 
+  it('rejects a plan built before another device moved a line', async () => {
+    const tableId = await createTable(`Mesa dos pantallas ${nanoid(5)}`);
+    const first = await sendRound(tableId, [
+      { price: 10, seat: 1 },
+      { price: 20, seat: 1 },
+    ]);
+    const second = await sendRound(tableId, [{ price: 5, seat: 2 }]);
+    const third = await sendRound(tableId, [{ price: 7, seat: 3 }]);
+    const seenBefore = await views(tableId);
+    expect(seenBefore.map(view => view.version)).toEqual([1, 1, 1]);
+
+    await manager().restaurantServices.regroupChecks({
+      tableId,
+      checks: seenBefore,
+      plan: {
+        kind: 'accounts',
+        accounts: [
+          { checkId: first.checkId, saleItemIds: [first.itemIds[0]!] },
+          { checkId: second.checkId, saleItemIds: [second.itemIds[0]!, first.itemIds[1]!] },
+          { checkId: third.checkId, saleItemIds: third.itemIds },
+        ],
+      },
+    });
+    // Only the checks whose lines changed move to a new version.
+    expect(await views(tableId)).toEqual([
+      { checkId: first.checkId, version: 2 },
+      { checkId: second.checkId, version: 2 },
+      { checkId: third.checkId, version: 1 },
+    ]);
+
+    // The other screen still shows the old layout and tries to keep it.
+    await expect(
+      manager().restaurantServices.regroupChecks({
+        tableId,
+        checks: seenBefore,
+        plan: {
+          kind: 'accounts',
+          accounts: [
+            { checkId: first.checkId, saleItemIds: first.itemIds },
+            { checkId: second.checkId, saleItemIds: second.itemIds },
+            { checkId: third.checkId, saleItemIds: third.itemIds },
+          ],
+        },
+      })
+    ).rejects.toMatchObject({
+      code: 'CONFLICT',
+      cause: expect.objectContaining({ errorCode: 'RESTAURANT_SPLIT_STALE' }),
+    });
+    expect(
+      await db.select().from(saleItems).where(eq(saleItems.id, first.itemIds[1]!)).get()
+    ).toMatchObject({ saleId: second.saleId });
+  });
+
+  it('rejects a plan that omits a check split off meanwhile', async () => {
+    const tableId = await createTable(`Mesa division vieja ${nanoid(5)}`);
+    const round = await sendRound(tableId, [
+      { price: 10, seat: 1 },
+      { price: 20, seat: 2 },
+      { price: 30, seat: 2 },
+    ]);
+    const seenBefore = await views(tableId);
+
+    await manager().sales.splitDraft({
+      sourceSaleId: round.saleId,
+      saleItemIds: [round.itemIds[2]!],
+      tableId,
+    });
+    const seenAfter = await views(tableId);
+    expect(seenAfter).toHaveLength(2);
+    expect(seenAfter[0]).toEqual({ checkId: round.checkId, version: 2 });
+
+    await expect(
+      manager().restaurantServices.regroupChecks({
+        tableId,
+        checks: seenBefore,
+        plan: { kind: 'byDiner' },
+      })
+    ).rejects.toMatchObject({
+      code: 'CONFLICT',
+      cause: expect.objectContaining({ errorCode: 'RESTAURANT_SPLIT_STALE' }),
+    });
+    // A view with the right versions but without the new check is stale too.
+    await expect(
+      manager().restaurantServices.regroupChecks({
+        tableId,
+        checks: [seenAfter[0]!],
+        plan: { kind: 'byDiner' },
+      })
+    ).rejects.toMatchObject({
+      cause: expect.objectContaining({ errorCode: 'RESTAURANT_SPLIT_STALE' }),
+    });
+    expect((await tableState(tableId)).checks.map(check => check.lines.length)).toEqual([2, 1]);
+  });
+
+  it('runs a repeated split by diner against the current versions', async () => {
+    const tableId = await createTable(`Mesa repetir ${nanoid(5)}`);
+    await sendRound(tableId, [
+      { price: 10, seat: 1 },
+      { price: 20, seat: 2 },
+    ]);
+    const firstView = await views(tableId);
+    await manager().restaurantServices.regroupChecks({
+      tableId,
+      checks: firstView,
+      plan: { kind: 'byDiner' },
+    });
+    const service = (await tableState(tableId)).service;
+    if (!service) throw new Error('Expected an open service');
+
+    // The same input again describes a table that no longer exists.
+    await expect(
+      manager().restaurantServices.regroupChecks({
+        tableId,
+        checks: firstView,
+        plan: { kind: 'byDiner' },
+      })
+    ).rejects.toMatchObject({
+      cause: expect.objectContaining({ errorCode: 'RESTAURANT_SPLIT_STALE' }),
+    });
+
+    await sendRound(tableId, [
+      { price: 5, seat: 1 },
+      { price: 7, seat: 2 },
+    ]);
+    const result = await manager().restaurantServices.regroupChecks({
+      tableId,
+      checks: await views(tableId),
+      plan: { kind: 'byDiner' },
+    });
+    expect(result.checks.map(check => check.total)).toEqual([15, 27]);
+    expect(result.cancelledCheckIds).toHaveLength(1);
+    expect(await auditCount(service.id)).toBe(2);
+  });
+
+  it('refuses to mix checks priced at different tiers or billed to different customers', async () => {
+    const termsError = {
+      code: 'CONFLICT',
+      cause: expect.objectContaining({ errorCode: 'RESTAURANT_SPLIT_TERMS_DIFFER' }),
+    };
+    const tierTable = await createTable(`Mesa lista ${nanoid(5)}`);
+    const tierFirst = await sendRound(tierTable, [{ price: 10, seat: 1 }]);
+    const tierSecond = await sendRound(tierTable, [{ price: 20, seat: 1 }]);
+    await db.update(sales).set({ priceTier: 2 }).where(eq(sales.id, tierSecond.saleId));
+    await expect(
+      manager().restaurantServices.regroupChecks({
+        tableId: tierTable,
+        checks: await views(tierTable),
+        plan: {
+          kind: 'accounts',
+          accounts: [
+            {
+              checkId: tierFirst.checkId,
+              saleItemIds: [...tierFirst.itemIds, ...tierSecond.itemIds],
+            },
+          ],
+        },
+      })
+    ).rejects.toMatchObject(termsError);
+    // One new account cannot take lines sold under different terms either.
+    await expect(
+      manager().restaurantServices.regroupChecks({
+        tableId: tierTable,
+        checks: await views(tierTable),
+        plan: {
+          kind: 'accounts',
+          accounts: [{ checkId: null, saleItemIds: [...tierFirst.itemIds, ...tierSecond.itemIds] }],
+        },
+      })
+    ).rejects.toMatchObject(termsError);
+
+    const customerId = nanoid();
+    const now = new Date().toISOString();
+    await db.insert(customers).values({
+      id: customerId,
+      tenantId,
+      name: 'Cliente de la mesa',
+      createdAt: now,
+      updatedAt: now,
+    });
+    const customerTable = await createTable(`Mesa cliente ${nanoid(5)}`);
+    const customerFirst = await sendRound(customerTable, [
+      { price: 10, seat: 1 },
+      { price: 20, seat: 2 },
+    ]);
+    const customerSecond = await sendRound(customerTable, [{ price: 5, seat: 1 }]);
+    await db.update(sales).set({ customerId }).where(eq(sales.id, customerSecond.saleId));
+    await expect(
+      manager().restaurantServices.regroupChecks({
+        tableId: customerTable,
+        checks: await views(customerTable),
+        plan: { kind: 'byDiner' },
+      })
+    ).rejects.toMatchObject(termsError);
+    expect((await tableState(customerTable)).checks.map(check => check.lines.length)).toEqual([
+      2, 1,
+    ]);
+    expect(customerFirst.itemIds).toHaveLength(2);
+  });
+
   it('rejects malformed plans before touching the table', async () => {
     const tableId = await createTable(`Mesa plan ${nanoid(5)}`);
     const round = await sendRound(tableId, [{ price: 10, seat: 1 }]);
@@ -710,6 +931,7 @@ describe('restaurantServices.regroupChecks', () => {
     await expect(
       manager().restaurantServices.regroupChecks({
         tableId,
+        checks: await views(tableId),
         plan: {
           kind: 'accounts',
           accounts: [
@@ -722,6 +944,7 @@ describe('restaurantServices.regroupChecks', () => {
     await expect(
       manager().restaurantServices.regroupChecks({
         tableId,
+        checks: await views(tableId),
         plan: {
           kind: 'accounts',
           accounts: [
@@ -741,7 +964,11 @@ describe('restaurantServices.regroupChecks', () => {
     await cashier.sales.resume({ saleId: first.saleId });
 
     await expect(
-      manager().restaurantServices.regroupChecks({ tableId, plan: { kind: 'byDiner' } })
+      manager().restaurantServices.regroupChecks({
+        tableId,
+        checks: await views(tableId),
+        plan: { kind: 'byDiner' },
+      })
     ).rejects.toMatchObject({
       code: 'CONFLICT',
       cause: expect.objectContaining({ errorCode: 'RESTAURANT_SPLIT_CHECK_IN_USE' }),
@@ -756,7 +983,11 @@ describe('restaurantServices.regroupChecks', () => {
     await sendRound(tableId, [{ price: 20, seat: 1 }]);
 
     await expect(
-      manager().restaurantServices.regroupChecks({ tableId, plan: { kind: 'byDiner' } })
+      manager().restaurantServices.regroupChecks({
+        tableId,
+        checks: await views(tableId),
+        plan: { kind: 'byDiner' },
+      })
     ).rejects.toMatchObject({
       code: 'BAD_REQUEST',
       cause: expect.objectContaining({ errorCode: 'RESTAURANT_SPLIT_SINGLE_DINER' }),
@@ -771,9 +1002,11 @@ describe('restaurantServices.regroupChecks', () => {
     ]);
 
     await expect(
-      appRouter
-        .createCaller(fresh({ role: 'cashier' }))
-        .restaurantServices.regroupChecks({ tableId, plan: { kind: 'byDiner' } })
+      appRouter.createCaller(fresh({ role: 'cashier' })).restaurantServices.regroupChecks({
+        tableId,
+        checks: await views(tableId),
+        plan: { kind: 'byDiner' },
+      })
     ).rejects.toMatchObject({ code: 'FORBIDDEN' });
     expect((await tableState(tableId)).checks).toHaveLength(1);
   });
@@ -823,9 +1056,11 @@ describe('restaurantServices.regroupChecks', () => {
     tenantWide.siteId = null;
 
     await expect(
-      appRouter
-        .createCaller(tenantWide)
-        .restaurantServices.regroupChecks({ tableId: foreignTableId, plan: { kind: 'byDiner' } })
+      appRouter.createCaller(tenantWide).restaurantServices.regroupChecks({
+        tableId: foreignTableId,
+        checks: [{ checkId: 'unknown', version: 1 }],
+        plan: { kind: 'byDiner' },
+      })
     ).rejects.toMatchObject({
       code: 'NOT_FOUND',
       cause: expect.objectContaining({ errorCode: 'RESTAURANT_TABLE_NOT_FOUND' }),
@@ -841,6 +1076,7 @@ describe('restaurantServices.regroupChecks', () => {
     const second = await sendRound(tableId, [{ price: 5, seat: 1 }]);
     const result = await manager().restaurantServices.regroupChecks({
       tableId,
+      checks: await views(tableId),
       plan: { kind: 'byDiner' },
     });
     const seatOne = result.checks.find(check => check.checkId === first.checkId);

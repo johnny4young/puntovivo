@@ -333,6 +333,8 @@ export const SERVER_ERROR_CODES_B = {
   RESTAURANT_SPLIT_STALE: 'RESTAURANT_SPLIT_STALE',
   /** Splitting by diner needs lines from at least two diners. */
   RESTAURANT_SPLIT_SINGLE_DINER: 'RESTAURANT_SPLIT_SINGLE_DINER',
+  /** Lines cannot move between checks priced at different tiers or billed to different customers. */
+  RESTAURANT_SPLIT_TERMS_DIFFER: 'RESTAURANT_SPLIT_TERMS_DIFFER',
 
   // --- kitchen display () ---
   /**

@@ -58,6 +58,12 @@ export type RegroupChecksPlan =
       accounts: ReadonlyArray<{ checkId: string | null; saleItemIds: readonly string[] }>;
     };
 
+/** An open check as the caller last read it. */
+export interface RegroupCheckView {
+  checkId: string;
+  version: number;
+}
+
 /** Open checks of the table after the command, oldest first. */
 export interface RegroupChecksResult {
   checks: Array<{
@@ -87,6 +93,7 @@ type CourseRow = typeof restaurantCourses.$inferSelect;
 interface CheckState {
   id: string;
   openedAt: string;
+  version: number;
   sale: SaleRow;
   /** Opened by this command. */
   created: boolean;
@@ -253,7 +260,7 @@ function planByAccounts(
 export function regroupRestaurantChecksInTransaction(
   transaction: DraftSplitTransaction,
   context: RegroupContext,
-  args: { tableId: string; plan: RegroupChecksPlan }
+  args: { tableId: string; checks: readonly RegroupCheckView[]; plan: RegroupChecksPlan }
 ): RegroupChecksResult {
   const tx = transaction as unknown as DatabaseInstance;
   const { tenantId, actorId, now } = context;
@@ -296,7 +303,12 @@ export function regroupRestaurantChecksInTransaction(
   const kdsScope = { tenantId, siteId: table.siteId, actorId };
 
   const checks: CheckState[] = tx
-    .select({ id: restaurantChecks.id, openedAt: restaurantChecks.openedAt, sale: sales })
+    .select({
+      id: restaurantChecks.id,
+      openedAt: restaurantChecks.openedAt,
+      version: restaurantChecks.version,
+      sale: sales,
+    })
     .from(restaurantChecks)
     .innerJoin(sales, and(eq(sales.id, restaurantChecks.saleId), eq(sales.tenantId, tenantId)))
     .where(
@@ -311,6 +323,12 @@ export function regroupRestaurantChecksInTransaction(
     .map(row => ({ ...row, created: false }));
   const firstCheck = checks[0];
   if (!firstCheck) conflict('Restaurant service has no open check');
+  // The plan was built on the caller's view; any check opened, closed or
+  // changed since then would be silently overwritten.
+  const seen = new Map(args.checks.map(view => [view.checkId, view.version]));
+  if (seen.size !== checks.length || checks.some(check => seen.get(check.id) !== check.version)) {
+    stale('The open checks of this table changed since the plan was built');
+  }
   const checkIds = checks.map(check => check.id);
   const saleIds = checks.map(check => check.sale.id);
   const checkById = new Map(checks.map(check => [check.id, check]));
@@ -441,6 +459,26 @@ export function regroupRestaurantChecksInTransaction(
     });
   }
 
+  // Completion prices lines by the draft's tier and credits its customer, so
+  // a line only joins a draft with the terms it was sold under.
+  for (const target of targets) {
+    const terms =
+      target.checkId === null ? target.lines[0]?.origin.sale : checkOf(target.checkId).sale;
+    if (
+      terms &&
+      target.lines.some(
+        ({ origin }) =>
+          origin.sale.priceTier !== terms.priceTier || origin.sale.customerId !== terms.customerId
+      )
+    ) {
+      throwServerError({
+        trpcCode: 'CONFLICT',
+        errorCode: 'RESTAURANT_SPLIT_TERMS_DIFFER',
+        message: 'Lines cannot move between checks with a different price tier or customer',
+      });
+    }
+  }
+
   const grandTotalBefore = sumOf(checks, check => toCents(check.sale.total));
   const beforeSummary = checks.map(check => ({
     checkId: check.id,
@@ -491,7 +529,7 @@ export function regroupRestaurantChecksInTransaction(
         updatedAt: now,
       })
       .run();
-    checkById.set(checkId, { id: checkId, openedAt, sale, created: true });
+    checkById.set(checkId, { id: checkId, openedAt, version: 1, sale, created: true });
     target.checkId = checkId;
   }
 
@@ -741,6 +779,22 @@ export function regroupRestaurantChecksInTransaction(
       .run();
     if (updated.changes !== 1) inUse(check.sale.id);
     check.sale = { ...check.sale, total, syncVersion };
+    // Cancelled checks get their bump from the close below.
+    if (!check.created) {
+      const bumped = tx
+        .update(restaurantChecks)
+        .set({ version: check.version + 1, updatedAt: now })
+        .where(
+          and(
+            eq(restaurantChecks.id, check.id),
+            eq(restaurantChecks.tenantId, tenantId),
+            eq(restaurantChecks.status, 'open'),
+            eq(restaurantChecks.version, check.version)
+          )
+        )
+        .run();
+      if (bumped.changes !== 1) stale('A check changed while the table was being regrouped');
+    }
     rebuildProvisionalDraftPayment(tx, {
       tenantId,
       saleId: check.sale.id,

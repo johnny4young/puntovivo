@@ -17,6 +17,8 @@ export interface SplitLine {
 export interface SplitAccount {
   /** Null for an account opened with «Otra cuenta» that has no line yet. */
   checkId: string | null;
+  /** The check version this view saw; the server refuses a plan built on an older one. */
+  version: number | null;
   saleId: string | null;
   label: string | null;
   suspendedAt: string | null;
@@ -48,6 +50,7 @@ export function splitAccountsFromTableState(
     }));
     return {
       checkId: check.id,
+      version: check.version,
       saleId: check.saleId,
       label: check.label,
       suspendedAt: check.suspendedAt,
@@ -65,6 +68,7 @@ export function splitAccountsFromTableState(
   for (let index = 0; index < emptyAccounts; index += 1) {
     accounts.push({
       checkId: null,
+      version: null,
       saleId: null,
       label: null,
       suspendedAt: null,
@@ -82,9 +86,9 @@ function seatsOf(lines: readonly SplitLine[]): Array<number | null> {
   return seats.sort((a, b) => (a ?? Number.MAX_SAFE_INTEGER) - (b ?? Number.MAX_SAFE_INTEGER));
 }
 
-/** The arrow sends a line to the next account; the last account sends it back. */
-export function moveTargetIndex(accountIndex: number, accountCount: number): number {
-  return accountIndex === accountCount - 1 ? accountIndex - 1 : accountIndex + 1;
+/** Neighbouring accounts a plate can move to: left, then right; none with one account. */
+export function moveTargets(accountIndex: number, accountCount: number): number[] {
+  return [accountIndex - 1, accountIndex + 1].filter(index => index >= 0 && index < accountCount);
 }
 
 /** Every line of the table in the account it should end in, after one move. */
@@ -113,4 +117,13 @@ export function canSplitByDiner(accounts: readonly SplitAccount[]): boolean {
   if (groups.size < 2) return false;
   const filled = accounts.filter(account => account.lines.length > 0);
   return !(filled.length === groups.size && filled.every(account => account.seats.length === 1));
+}
+
+/** Every open check of the view with the version it saw, sent with each regroup. */
+export function checksSeen(accounts: readonly SplitAccount[]) {
+  return accounts.flatMap(account =>
+    account.checkId !== null && account.version !== null
+      ? [{ checkId: account.checkId, version: account.version }]
+      : []
+  );
 }

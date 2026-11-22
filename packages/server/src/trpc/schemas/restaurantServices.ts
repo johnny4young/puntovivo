@@ -142,10 +142,24 @@ export const setRestaurantPendingRoundInput = z
   })
   .strict();
 
-/** Target layout for the open checks of one table; a null `checkId` opens a new check. */
+/**
+ * Target layout for the open checks of one table; a null `checkId` opens a new
+ * check. `checks` is the caller's view of every open check with its version.
+ */
 export const regroupRestaurantChecksInput = z
   .object({
     tableId: z.string().min(1),
+    checks: z
+      .array(
+        z
+          .object({
+            checkId: z.string().min(1),
+            version: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
+          })
+          .strict()
+      )
+      .min(1)
+      .max(RESTAURANT_REGROUP_MAX_ACCOUNTS),
     plan: z.discriminatedUnion('kind', [
       z.object({ kind: z.literal('byDiner') }).strict(),
       z

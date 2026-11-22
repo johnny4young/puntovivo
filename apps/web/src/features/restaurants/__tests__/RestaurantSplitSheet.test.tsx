@@ -50,6 +50,7 @@ function line(saleItemId: string, dinerId: string | null, total: number, quantit
 function check(id: string, lines: ReturnType<typeof line>[], suspendedAt: string | null = 'x') {
   return {
     id,
+    version: 1,
     saleId: `sale-${id}`,
     saleNumber: `VTA-${id}`,
     label: 'Mesa 7',
@@ -116,6 +117,10 @@ describe('RestaurantSplitSheet', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Pasar Plato a a la cuenta 2' }));
     expect(regroupMutate).toHaveBeenCalledWith({
       tableId: 't-7',
+      checks: [
+        { checkId: 'c-1', version: 1 },
+        { checkId: 'c-2', version: 1 },
+      ],
       plan: {
         kind: 'accounts',
         accounts: [
@@ -127,10 +132,43 @@ describe('RestaurantSplitSheet', () => {
     expect(screen.queryByTestId('split-sheet-charge')).not.toBeInTheDocument();
   });
 
+  it('lets a middle account send a plate either way and hides arrows with one account', () => {
+    mockTable([
+      check('c-1', [line('a', 'd-1', 1_000)]),
+      check('c-2', [line('b', 'd-2', 1_000)]),
+      check('c-3', [line('c', 'd-3', 1_000)]),
+    ]);
+    const view = render(
+      <RestaurantSplitSheet tableId="t-7" tableName="Mesa 7" onClose={vi.fn()} />
+    );
+    const middle = screen.getAllByTestId('split-sheet-account')[1]!;
+    expect(
+      within(middle).getByRole('button', { name: 'Pasar Plato b a la cuenta 1' })
+    ).toBeInTheDocument();
+    fireEvent.click(within(middle).getByRole('button', { name: 'Pasar Plato b a la cuenta 3' }));
+    expect(regroupMutate.mock.calls[0]![0].plan.accounts).toEqual([
+      { checkId: 'c-1', saleItemIds: ['a'] },
+      { checkId: 'c-2', saleItemIds: [] },
+      { checkId: 'c-3', saleItemIds: ['c', 'b'] },
+    ]);
+    view.unmount();
+
+    mockTable([check('c-1', [line('a', 'd-1', 1_000), line('b', 'd-2', 1_000)])]);
+    render(<RestaurantSplitSheet tableId="t-7" tableName="Mesa 7" onClose={vi.fn()} />);
+    expect(screen.queryByTestId('split-sheet-move')).not.toBeInTheDocument();
+  });
+
   it('regroups by diner in one tap', () => {
     render(<RestaurantSplitSheet tableId="t-7" tableName="Mesa 7" onClose={vi.fn()} />);
     fireEvent.click(screen.getByTestId('split-sheet-by-diner'));
-    expect(regroupMutate).toHaveBeenCalledWith({ tableId: 't-7', plan: { kind: 'byDiner' } });
+    expect(regroupMutate).toHaveBeenCalledWith({
+      tableId: 't-7',
+      checks: [
+        { checkId: 'c-1', version: 1 },
+        { checkId: 'c-2', version: 1 },
+      ],
+      plan: { kind: 'byDiner' },
+    });
   });
 
   it('opens another account that becomes real with its first plate', async () => {

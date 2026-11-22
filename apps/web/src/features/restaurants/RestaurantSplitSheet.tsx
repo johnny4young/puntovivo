@@ -18,7 +18,8 @@ import { formatCurrency } from '@/lib/utils';
 import type { ResumeDraftSelection } from '@/features/sales/useSalesFlows';
 import {
   canSplitByDiner,
-  moveTargetIndex,
+  checksSeen,
+  moveTargets,
   planForMove,
   splitAccountsFromTableState,
   type SplitAccount,
@@ -101,6 +102,7 @@ export function RestaurantSplitSheet({
     }
     regroup.mutate({
       tableId,
+      checks: checksSeen(accounts),
       plan: { kind: 'accounts', accounts: planForMove(accounts, saleItemId, targetIndex) },
     });
   };
@@ -132,8 +134,7 @@ export function RestaurantSplitSheet({
       >
         {accounts.map((account, index) => {
           const title = accountName(account, index);
-          const target = moveTargetIndex(index, accounts.length);
-          const Arrow = target > index ? ArrowRight : ArrowLeft;
+          const targets = moveTargets(index, accounts.length);
           return (
             <section
               key={account.checkId ?? `empty-${index}`}
@@ -164,19 +165,25 @@ export function RestaurantSplitSheet({
                       <span className="text-sm font-semibold text-fg1 tabular-nums">
                         {formatCurrency(line.total)}
                       </span>
-                      <button
-                        type="button"
-                        className="split-sheet-move"
-                        disabled={locked}
-                        onClick={() => moveLine(line.saleItemId, target)}
-                        aria-label={t('restaurants:splitSheet.moveTo', {
-                          name,
-                          count: target + 1,
-                        })}
-                        data-testid="split-sheet-move"
-                      >
-                        <Arrow className="h-4 w-4" aria-hidden="true" />
-                      </button>
+                      {targets.map(target => {
+                        const Arrow = target > index ? ArrowRight : ArrowLeft;
+                        return (
+                          <button
+                            key={target}
+                            type="button"
+                            className="split-sheet-move"
+                            disabled={locked}
+                            onClick={() => moveLine(line.saleItemId, target)}
+                            aria-label={t('restaurants:splitSheet.moveTo', {
+                              name,
+                              count: target + 1,
+                            })}
+                            data-testid="split-sheet-move"
+                          >
+                            <Arrow className="h-4 w-4" aria-hidden="true" />
+                          </button>
+                        );
+                      })}
                     </li>
                   );
                 })}
@@ -219,7 +226,10 @@ export function RestaurantSplitSheet({
             type="button"
             className="btn-outline whitespace-nowrap"
             disabled={locked || !tableId || !canSplitByDiner(accounts)}
-            onClick={() => tableId && regroup.mutate({ tableId, plan: { kind: 'byDiner' } })}
+            onClick={() =>
+              tableId &&
+              regroup.mutate({ tableId, checks: checksSeen(accounts), plan: { kind: 'byDiner' } })
+            }
             data-testid="split-sheet-by-diner"
           >
             <Users className="h-4 w-4" aria-hidden="true" />
@@ -228,7 +238,9 @@ export function RestaurantSplitSheet({
           <button
             type="button"
             className="btn-outline whitespace-nowrap"
-            disabled={locked || accounts.length === 0 || accounts.length >= RESTAURANT_REGROUP_MAX_ACCOUNTS}
+            disabled={
+              locked || accounts.length === 0 || accounts.length >= RESTAURANT_REGROUP_MAX_ACCOUNTS
+            }
             onClick={() => setEmptyAccounts(current => current + 1)}
             data-testid="split-sheet-add-account"
           >

@@ -554,6 +554,20 @@ describe('SalePaymentModal — tip / propina', () => {
     expect(submittedValues.tipMethod).toBe('fixed');
   });
 
+  it('keeps the custom tip field while its amount is cleared and retyped', async () => {
+    const user = userEvent.setup();
+    const props = createProps({ total: 100 });
+    const { rerender } = render(<SalePaymentModal {...props} />);
+    await user.click(await screen.findByRole('button', { name: /^10%/ }));
+    // The base moves under the chosen preset, so the same tip now reads as a custom amount.
+    rerender(<SalePaymentModal {...props} total={80} />);
+    const field = await screen.findByLabelText('Tip amount');
+    await user.clear(field);
+    expect(screen.getByLabelText('Tip amount')).toBeInTheDocument();
+    await user.type(screen.getByLabelText('Tip amount'), '4');
+    expect(screen.getByRole('status', { name: 'Sale total' })).toHaveTextContent('$84.00');
+  });
+
   it('updates the seeded split tender when a tip is added after split mode is enabled', async () => {
     const onSubmit = vi.fn(async () => undefined);
     render(<SalePaymentModal {...createProps({ onSubmit, total: 100 })} />);
@@ -641,9 +655,7 @@ describe('SalePaymentModal — service charge / propina sugerida', () => {
     await user.click(await screen.findByRole('button', { name: /^10%/ }));
 
     await waitFor(() => {
-      expect(
-        screen.getByRole('status', { name: 'Sale total' })
-      ).toHaveTextContent('$120.00');
+      expect(screen.getByRole('status', { name: 'Sale total' })).toHaveTextContent('$120.00');
     });
 
     await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));

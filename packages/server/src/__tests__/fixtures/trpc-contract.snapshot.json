@@ -2648,7 +2648,7 @@
   {
     "path": "restaurantServices.regroupChecks",
     "kind": "mutation",
-    "input": "object{plan:object{kind:literal(\"byDiner\")}|object{accounts:array<object>[minItems=1,maxItems=20],kind:literal(\"accounts\")},tableId:string[minLength=1]}",
+    "input": "object{checks:array<object>[minItems=1,maxItems=100],plan:object{kind:literal(\"byDiner\")}|object{accounts:array<object>[minItems=1,maxItems=100],kind:literal(\"accounts\")},tableId:string[minLength=1]}",
     "output": "inferred"
   },
   {

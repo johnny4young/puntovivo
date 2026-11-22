@@ -12,6 +12,7 @@
     "RESTAURANT_SPLIT_CHECK_IN_USE": "One of the checks is open on a register. Suspend it and try again.",
     "RESTAURANT_SPLIT_STALE": "The table changed. Review the checks and try again.",
     "RESTAURANT_SPLIT_SINGLE_DINER": "Every dish belongs to the same diner.",
+    "RESTAURANT_SPLIT_TERMS_DIFFER": "These checks have different prices or customers and cannot be combined.",
     "RESTAURANT_MODIFIER_UNAVAILABLE": "This add-on is no longer available at this site. Remove it or select an available option.",
     "RESTAURANT_MODIFIER_APPROVAL_REQUIRED": "Choose an approved add-on or ask a manager to place this order.",
     "RESTAURANT_MODIFIER_CHANGED": "This add-on changed. Remove it and choose it again to review the current price before saving.",
