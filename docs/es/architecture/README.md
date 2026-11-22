@@ -60,6 +60,7 @@ estimaciones y colas privadas no pertenecen a los ADR.
 | [ADR-0037](0037-guided-day-close.md)                                   | Cierre guiado del día                            | Aceptada  |
 | [ADR-0038](0038-register-zones-by-profile.md)                          | Zonas de la caja por perfil de negocio           | Aceptada  |
 | [ADR-0039](0039-serial-scale-reader.md)                                | Lector de báscula serial en el proceso main      | Aceptada  |
+| [ADR-0040](0040-owner-web-push.md)                                     | Avisos push al dueño desde el servidor local     | Aceptada  |
 
 ## Patrones reutilizables de implementación
 

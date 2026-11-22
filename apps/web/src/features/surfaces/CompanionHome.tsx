@@ -15,6 +15,7 @@ import { trpc } from '@/lib/trpc';
 import { useRealtimeChannel, type RealtimeEvent } from '@/hooks/useRealtimeChannel';
 import { useResolvedLocale } from '@/features/locale/LocaleProvider';
 import { calendarDayAt, formatCurrency, formatDateTime } from '@/lib/utils';
+import { CompanionPushCard } from './CompanionPushCard';
 
 const SNAPSHOT_REFRESH_INTERVAL_MS = 30_000;
 const SALES_INVALIDATION_THROTTLE_MS = 10_000;
@@ -294,6 +295,8 @@ function CompanionSnapshot({ data }: { data: CompanionSnapshotData }) {
         )}
         <p className="text-xs text-secondary-500">{t('attention.readOnly')}</p>
       </section>
+
+      <CompanionPushCard />
 
       <section className="card space-y-3 p-4">
         <h2 className="flex items-center gap-2 text-sm font-semibold text-secondary-600">

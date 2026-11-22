@@ -1698,6 +1698,24 @@
     "output": "inferred"
   },
   {
+    "path": "ownerPush.status",
+    "kind": "query",
+    "input": "object{endpoint:string[format=uri,maxLength=2048]|null}",
+    "output": "object{available:boolean,language:enum(\"es\"|\"en\")|null,publicKey:string|null,subscribed:boolean}"
+  },
+  {
+    "path": "ownerPush.subscribe",
+    "kind": "mutation",
+    "input": "object{endpoint:string[format=uri,maxLength=2048],keys:object{auth:string[maxLength=128],p256dh:string[maxLength=128]},language:enum(\"es\"|\"en\")}",
+    "output": "object{subscribed:boolean}"
+  },
+  {
+    "path": "ownerPush.unsubscribe",
+    "kind": "mutation",
+    "input": "object{endpoint:string[format=uri,maxLength=2048]}",
+    "output": "object{subscribed:boolean}"
+  },
+  {
     "path": "payments.cancelWalletCharge",
     "kind": "mutation",
     "input": "object{chargeId:string[minLength=1,maxLength=64]}",

@@ -1,6 +1,7 @@
 /** manager/admin comprehensive day-close report namespace. */
 
 import { broadcastCompanionInvalidation } from '../../../services/companion/invalidation.js';
+import { dispatchOwnerPush } from '../../../services/push/notify.js';
 import { computeComprehensiveDayCloseReport } from '../../../services/reports/comprehensive-day-close.js';
 import { computeDayCloseChecklist } from '../../../services/reports/day-close-checklist.js';
 import {
@@ -76,6 +77,12 @@ export const dayCloseReportsRouter = router({
           'companion day-close invalidation failed (non-blocking)'
         );
       }
+      dispatchOwnerPush(criticalCtx.db, {
+        kind: 'day_sealed',
+        tenantId: criticalCtx.tenantId,
+        actorId: criticalCtx.user.id,
+        date: input.date,
+      });
       return signed;
     }),
 });

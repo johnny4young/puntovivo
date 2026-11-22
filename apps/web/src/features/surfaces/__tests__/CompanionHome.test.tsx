@@ -31,6 +31,8 @@ vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
 
+vi.mock('../CompanionPushCard', () => ({ CompanionPushCard: () => null }));
+
 import { CompanionHome } from '../CompanionHome';
 
 const SNAPSHOT = {

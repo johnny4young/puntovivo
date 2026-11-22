@@ -58,6 +58,8 @@ import type { PuntovivoServer, ServerOptions } from './types.js';
 import { registerWorkers } from './workers.js';
 import { configureExternalOrderSecretKey } from '../services/external-orders/secret-box.js';
 import { configureWebhookSecretKey } from '../services/events/secret-box.js';
+import { configureWebPushKey } from '../services/push/key-store.js';
+import { stopOwnerPush } from '../services/push/notify.js';
 import { configureAuditAnchor } from '../services/audit-anchor.js';
 import { assertAuditAnchorHeadsTrusted } from '../services/audit-logs.js';
 import { configurePharmacyEvidenceKey } from '../services/pharmacy/evidence-box.js';
@@ -149,6 +151,9 @@ async function createOwnedServer(
   owner.defer('active runtime configuration', clearActiveRuntimeConfig);
   configureWebhookSecretKey(options.webhookSecretKey ?? options.encryptionKey);
   owner.defer('webhook secret key', () => configureWebhookSecretKey(undefined));
+  configureWebPushKey(options.encryptionKey);
+  owner.defer('web push key', () => configureWebPushKey(undefined));
+  owner.defer('web push deliveries', stopOwnerPush);
   configureExternalOrderSecretKey(
     resolveExternalOrderWrappingKey({
       dedicated: options.externalOrderSecretKey,

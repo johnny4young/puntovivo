@@ -60,6 +60,7 @@ estimates, and private work queues do not belong in ADRs.
 | [ADR-0037](./0037-guided-day-close.md)                                   | Guided day close                           | Accepted |
 | [ADR-0038](./0038-register-zones-by-profile.md)                          | Register zones by business profile         | Accepted |
 | [ADR-0039](./0039-serial-scale-reader.md)                                | Serial scale reader in the main process    | Accepted |
+| [ADR-0040](./0040-owner-web-push.md)                                     | Owner web push from the local server       | Accepted |
 
 ## Reusable implementation patterns
 

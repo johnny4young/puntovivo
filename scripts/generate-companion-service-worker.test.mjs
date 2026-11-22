@@ -3,6 +3,7 @@ import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
+import { runInNewContext } from 'node:vm';
 import { generateCompanionServiceWorker } from './generate-companion-service-worker.mjs';
 
 async function createBuild() {
@@ -98,4 +99,82 @@ test('fails closed when the selected shell exceeds the mobile precache budget', 
   const root = await createBuild();
   await writeFile(join(root, 'assets', 'index-a1.js'), Buffer.alloc(5 * 1024 * 1024, 1));
   await assert.rejects(generateCompanionServiceWorker(root), /precache exceeds/);
+});
+
+function loadWorker(source) {
+  const listeners = new Map();
+  const shown = [];
+  const opened = [];
+  const focused = [];
+  const windows = [];
+  const self = {
+    location: new URL('https://store.example/service-worker.js'),
+    addEventListener: (type, listener) => listeners.set(type, listener),
+    registration: {
+      // Copy out of the sandbox realm so strict deep equality compares plain objects.
+      showNotification: async (title, options) =>
+        shown.push(JSON.parse(JSON.stringify({ title, ...options }))),
+    },
+    clients: {
+      matchAll: async () => windows,
+      openWindow: async url => opened.push(url),
+    },
+  };
+  runInNewContext(source, { self, URL, caches: {}, fetch: () => {} });
+  const dispatch = async (type, event) => {
+    let pending = Promise.resolve();
+    listeners.get(type)({ ...event, waitUntil: promise => (pending = promise) });
+    await pending;
+  };
+  return { dispatch, shown, opened, focused, windows };
+}
+
+test('shows the server-rendered notification and opens the Companion on tap', async () => {
+  const root = await createBuild();
+  await generateCompanionServiceWorker(root);
+  const worker = loadWorker(await readFile(join(root, 'service-worker.js'), 'utf8'));
+
+  await worker.dispatch('push', {
+    data: {
+      json: () => ({
+        title: 'Le toca a usted: descuento de $ 74.400',
+        body: 'Marta Ríos pide su aprobación en Sede Norte.',
+        tag: 'approval:1',
+        url: '/c/',
+      }),
+    },
+  });
+  assert.deepEqual(worker.shown, [
+    {
+      title: 'Le toca a usted: descuento de $ 74.400',
+      body: 'Marta Ríos pide su aprobación en Sede Norte.',
+      tag: 'approval:1',
+      icon: '/companion-icon-192.png',
+      badge: '/companion-icon-192.png',
+      data: { url: '/c/' },
+    },
+  ]);
+
+  await worker.dispatch('push', {
+    data: {
+      json: () => {
+        throw new Error('not json');
+      },
+    },
+  });
+  assert.equal(worker.shown.length, 1);
+
+  const close = () => {};
+  await worker.dispatch('notificationclick', {
+    notification: { close, data: { url: 'https://evil.example/c/' } },
+  });
+  assert.deepEqual(worker.opened, ['https://store.example/c/']);
+
+  worker.windows.push({
+    url: 'https://store.example/c/',
+    focus: async () => worker.focused.push('companion'),
+  });
+  await worker.dispatch('notificationclick', { notification: { close, data: { url: '/c/' } } });
+  assert.deepEqual(worker.focused, ['companion']);
+  assert.equal(worker.opened.length, 1);
 });

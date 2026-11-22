@@ -33,6 +33,7 @@ import { resolveCashCloseSettings } from '../../services/cash-close-settings.js'
 import { computeDayCloseSummary } from '../../services/reports/day-close.js';
 import { computeCashierPace as computeCashierPaceFromTiming } from '../../services/reports/cashier-pace.js';
 import { computeCashierPace } from '../../services/cashier-pace.js';
+import { dispatchOwnerPush } from '../../services/push/notify.js';
 import { computeShiftSummary } from '../../services/reports/shift-summary.js';
 import {
   cashierPaceOutput,
@@ -586,6 +587,12 @@ export const cashSessionsRouter = router({
     .input(receiveCashHandoffInput)
     .mutation(async ({ ctx, input }) => {
       const { handoff, opened } = await receiveCashHandoff(buildCashSessionContext(ctx), input);
+      dispatchOwnerPush(ctx.db, {
+        kind: 'handoff_done',
+        tenantId: ctx.tenantId,
+        actorId: ctx.user!.id,
+        handoff,
+      });
       return { handoff, session: await presentOpenedSession(ctx, opened) };
     }),
 

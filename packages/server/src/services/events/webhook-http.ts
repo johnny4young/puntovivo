@@ -1,24 +1,26 @@
 import { request } from 'node:https';
 import { isIP } from 'node:net';
 
-export interface WebhookPostRequest {
+export interface WebhookPostRequest<Body extends string | Buffer = string> {
   url: URL;
   pinnedAddress: { address: string; family: number };
   headers: Record<string, string>;
-  body: string;
+  body: Body;
   timeoutMs: number;
   /** Cancels an admitted delivery during coordinated worker shutdown. */
   signal?: AbortSignal;
 }
 
-export type WebhookTransport = (request: WebhookPostRequest) => Promise<{ status: number }>;
+export type WebhookTransport<Body extends string | Buffer = string> = (
+  request: WebhookPostRequest<Body>
+) => Promise<{ status: number }>;
 
 /**
  * HTTPS transport with DNS pinning. The hostname is retained for TLS SNI and
  * certificate validation, while the socket lookup is forced to the public IP
  * that passed the destination policy immediately before this call.
  */
-export const postPinnedWebhook: WebhookTransport = args =>
+export const postPinnedWebhook: WebhookTransport<string | Buffer> = args =>
   new Promise((resolve, reject) => {
     if (args.signal?.aborted) {
       reject(new Error('WEBHOOK_DELIVERY_ABORTED'));

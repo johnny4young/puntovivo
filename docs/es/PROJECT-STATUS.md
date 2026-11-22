@@ -375,7 +375,9 @@ El candidato validado actual incluye:
   con integridad verificada, almacena en caché solo recursos versionados de la
   estructura de la aplicación y oculta datos operativos sin conexión en lugar
   de presentar una lectura almacenada como actual. Es una PWA de solo lectura,
-  no una aplicación de ventas sin conexión;
+  no una aplicación de ventas sin conexión. Administradores y gerentes pueden
+  activar por teléfono avisos push cifrados cuando espera una aprobación, se
+  recibe un relevo de caja o se sella el día;
 - webhooks de salida opcionales por negocio para un contrato pequeño y
   versionado de eventos comerciales, con destinos HTTPS fijos, secretos de firma
   cifrados que se muestran una vez, firmas HMAC, claves estables de idempotencia,

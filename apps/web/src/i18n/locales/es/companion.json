@@ -49,5 +49,11 @@
   "ticker": {
     "title": "Últimas ventas",
     "empty": "Todavía no hay ventas hoy."
+  },
+  "push": {
+    "title": "Avisos en este teléfono",
+    "events": "Aprobaciones, relevos de caja y día sellado",
+    "blocked": "El navegador los tiene bloqueados. Permítalos en los ajustes del sitio.",
+    "failed": "No se pudieron cambiar los avisos. Intente de nuevo."
   }
 }
