@@ -63,12 +63,17 @@ export function useCompanionLive({ refresh, reset }: CompanionLiveOptions) {
     actions.current = { refresh, reset };
   }, [refresh, reset]);
 
-  const invalidateNow = useCallback(async (scope: RefreshScope) => {
-    if (trailingRefresh.current !== null) {
-      clearTimeout(trailingRefresh.current);
-      trailingRefresh.current = null;
+  const invalidateNow = useCallback(async (requested: RefreshScope) => {
+    // While a replay gap is open only a full refresh may clear it.
+    const scope = replayGapRef.current ? 'all' : requested;
+    // An approval refresh does not cover a sale, so a queued sales refresh keeps its turn.
+    if (scope !== 'operations') {
+      if (trailingRefresh.current !== null) {
+        clearTimeout(trailingRefresh.current);
+        trailingRefresh.current = null;
+      }
+      lastSalesRefresh.current = Date.now();
     }
-    lastSalesRefresh.current = Date.now();
     const started = generation.current;
     try {
       await actions.current.refresh(scope);
@@ -84,7 +89,7 @@ export function useCompanionLive({ refresh, reset }: CompanionLiveOptions) {
   const scheduleSalesRefresh = useCallback(() => {
     const elapsed = Date.now() - lastSalesRefresh.current;
     if (replayGapRef.current || elapsed >= SALES_INVALIDATION_THROTTLE_MS) {
-      void invalidateNow(replayGapRef.current ? 'all' : 'sales');
+      void invalidateNow('sales');
       return;
     }
     if (trailingRefresh.current === null) {

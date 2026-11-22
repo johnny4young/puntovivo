@@ -21,7 +21,12 @@ vi.mock('@/lib/trpc', () => ({
       },
     },
     managerApprovals: {
-      queue: { useQuery: () => ({ data: queueData.current, isPending: false }) },
+      queue: {
+        useQuery: () =>
+          queueData.current === 'error'
+            ? { data: undefined, isPending: false, isError: true, isSuccess: false }
+            : { data: queueData.current, isPending: false, isError: false, isSuccess: true },
+      },
     },
     reports: {
       dayClose: { checklist: { useQuery: () => ({ data: checklistData.current }) } },
@@ -181,6 +186,7 @@ describe('CompanionOwnerViews', () => {
       awaitingHandoffs: [
         {
           id: 'h-1',
+          siteId: 'site-1',
           registerName: 'Caja 2',
           fromUserName: 'Andrés',
           toUserName: null,
@@ -194,6 +200,7 @@ describe('CompanionOwnerViews', () => {
       sessions: [
         {
           id: 'c-2',
+          siteId: 'site-1',
           registerName: 'Caja 2',
           status: 'closed',
           closedAt: '2026-11-11T19:06:00.000Z',
@@ -201,10 +208,20 @@ describe('CompanionOwnerViews', () => {
         },
         {
           id: 'c-4',
+          siteId: 'site-1',
           registerName: 'Caja 4',
           status: 'closed',
           closedAt: '2026-11-11T16:40:00.000Z',
           counted: true,
+        },
+        // Same name as an open register, but at another site.
+        {
+          id: 'c-1-sur',
+          siteId: 'site-2',
+          registerName: 'Caja 1',
+          status: 'closed',
+          closedAt: '2026-11-11T15:00:00.000Z',
+          counted: false,
         },
       ],
     };
@@ -217,12 +234,84 @@ describe('CompanionOwnerViews', () => {
       'waiting for someone to receive it'
     );
     const closed = screen.getAllByTestId('companion-register-closed');
-    expect(closed).toHaveLength(1);
+    expect(closed).toHaveLength(2);
     expect(closed[0]).toHaveTextContent('Caja 4 · closed and counted at');
+    expect(closed[1]).toHaveTextContent('Caja 1 · closed without a count at');
   });
 
   it('opens the sealed day for the date a notification names', () => {
     renderViews('/c/?view=day&date=2026-11-10', 'day');
     expect(screen.getByTestId('sealed-stub')).toHaveTextContent('2026-11-10');
+  });
+
+  it('does not tell the owner nothing waits when the queue could not be read', () => {
+    queueData.current = 'error';
+    renderViews();
+    expect(screen.queryByTestId('companion-nothing-waiting')).not.toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('Your approvals could not be loaded');
+    // The approval is not counted as the store's while the queue is unknown.
+    expect(screen.getByTestId('companion-store-pending')).toHaveTextContent('3 more items');
+  });
+
+  it('says a request could not be loaded instead of gone when the queue fails', () => {
+    queueData.current = 'error';
+    renderViews('/c/?decide=a-1');
+    expect(screen.getByTestId('companion-decide-sheet')).toHaveTextContent(
+      'The request could not be loaded. Try again.'
+    );
+  });
+
+  it('offers the counter only for a discount the cashier can apply alone', () => {
+    const withLimit = (roleLimitPercent: number | null, action = 'sale_discount') => ({
+      approver: { id: 'owner-1', hasPin: true },
+      items: [
+        {
+          ...DISCOUNT,
+          action,
+          decisionContext: {
+            ...DISCOUNT.decisionContext!,
+            discount: { percent: 12, roleLimitPercent },
+          },
+        },
+      ],
+    });
+    queueData.current = withLimit(5);
+    const above = renderViews('/c/?decide=a-1');
+    expect(screen.queryByTestId('companion-decide-counter')).not.toBeInTheDocument();
+    above.unmount();
+
+    queueData.current = withLimit(10, 'credit_sale');
+    const credit = renderViews('/c/?decide=a-1');
+    expect(screen.queryByTestId('companion-decide-counter')).not.toBeInTheDocument();
+    expect(screen.getByTestId('companion-decide-approve')).toHaveTextContent(/^Approve$/);
+    credit.unmount();
+
+    queueData.current = withLimit(null);
+    renderViews('/c/?decide=a-1');
+    expect(screen.getByTestId('companion-decide-counter')).toHaveTextContent('Leave it at 9%');
+  });
+
+  it('shows only the discounted total when the before is not exact', () => {
+    queueData.current = {
+      approver: { id: 'owner-1', hasPin: true },
+      items: [
+        {
+          ...DISCOUNT,
+          decisionContext: {
+            ...DISCOUNT.decisionContext!,
+            ticket: { totalBefore: null, total: 545_600, itemCount: 14 },
+          },
+        },
+      ],
+    };
+    renderViews('/c/?decide=a-1');
+    const ticket = screen.getByTestId('companion-decide-ticket');
+    expect(ticket).toHaveTextContent('COP 545,600 · 14 items');
+    expect(ticket.querySelector('s')).toBeNull();
+  });
+
+  it('draws the sheet dark over the sealed day', () => {
+    renderViews('/c/?view=day&decide=a-1', 'day');
+    expect(screen.getByTestId('companion-decide-sheet').closest('.dark')).not.toBeNull();
   });
 });

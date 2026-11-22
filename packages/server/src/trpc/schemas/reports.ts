@@ -356,6 +356,7 @@ export const dayCloseChecklistOutput = z.object({
   sessions: z.array(
     z.object({
       id: z.string().min(1),
+      siteId: z.string().min(1),
       registerName: z.string(),
       cashierName: z.string(),
       status: z.enum(['open', 'closed']),

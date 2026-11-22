@@ -10,7 +10,7 @@ import {
   type ApprovalDecision,
 } from '@/features/approvals/ManagerApprovalQueue';
 import type { OperationsToday } from '@/features/dashboard/today/todayModel';
-import { formatCurrency } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
 import {
   approvalWhat,
   counterOffer,
@@ -24,6 +24,10 @@ interface CompanionDecideSheetProps {
   item: QueueItem | null;
   /** The queue is still loading, so a missing item is not yet gone. */
   loading: boolean;
+  /** The queue read failed, so a missing item may still be waiting. */
+  failed: boolean;
+  /** Drawn over the dark sealed day; the sheet portals outside the shell's theme. */
+  dark: boolean;
   approverId: string | null;
   today: OperationsToday | undefined;
   formatTime: (iso: string) => string;
@@ -37,6 +41,8 @@ type Step = { decision: ApprovalDecision; reason?: string; label: string } | nul
 export function CompanionDecideSheet({
   item,
   loading,
+  failed,
+  dark,
   approverId,
   today,
   formatTime,
@@ -52,7 +58,7 @@ export function CompanionDecideSheet({
       ariaLabel={item ? approvalWhat(item, t) : t('decide.loading')}
       showCloseButton={false}
       size="md"
-      className="bg-surface"
+      className={cn('bg-surface', dark && 'dark')}
       contentClassName="p-0 sm:p-0"
     >
       <div className="px-5 pt-2 pb-5" data-testid="companion-decide-sheet">
@@ -70,7 +76,7 @@ export function CompanionDecideSheet({
         </div>
         {!item ? (
           <p className="py-6 text-center text-fg2" role="status">
-            {loading ? t('decide.loading') : t('decide.gone')}
+            {loading ? t('decide.loading') : failed ? t('decide.unavailable') : t('decide.gone')}
           </p>
         ) : (
           <DecideBody
@@ -134,8 +140,12 @@ function DecideBody({
       )}
       {ticket && (
         <p className="mt-2 text-sm text-fg3" data-testid="companion-decide-ticket">
-          <s>{formatCurrency(ticket.totalBefore, item.summary.currencyCode)}</s>
-          <span aria-hidden="true"> → </span>
+          {ticket.totalBefore !== null && (
+            <>
+              <s>{formatCurrency(ticket.totalBefore, item.summary.currencyCode)}</s>
+              <span aria-hidden="true"> → </span>
+            </>
+          )}
           <b className="font-numeric text-fg1">
             {formatCurrency(ticket.total, item.summary.currencyCode)}
           </b>

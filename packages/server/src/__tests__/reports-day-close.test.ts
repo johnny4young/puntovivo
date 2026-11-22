@@ -1069,6 +1069,7 @@ describe('reports.dayClose.preview', () => {
       expect(checklist.sessions).toEqual([
         expect.objectContaining({
           id: 'dcr-guided-short',
+          siteId: tenant.siteId,
           registerName: 'Caja 1',
           cashierName: 'Cashier guided',
           status: 'closed',

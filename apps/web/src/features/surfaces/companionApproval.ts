@@ -29,6 +29,8 @@ export function approvalWhat(item: QueueItem, t: TFunction): string {
 
 /** The requested share, when the request is a discount with a stored context. */
 export function requestedPercent(item: QueueItem): string | null {
+  // Credit or price-override requests on a discounted ticket carry the share too.
+  if (item.action !== 'sale_discount') return null;
   const share = item.decisionContext?.discount?.percent;
   return share === undefined ? null : percent(share);
 }
@@ -41,10 +43,14 @@ export function waitingPlace(item: QueueItem, today: OperationsToday | undefined
   );
 }
 
-/** The customer's usual discount, offered only when it is below what was asked. */
+/**
+ * The customer's usual discount, offered only below what was asked and within the cashier's own
+ * limit, so the cashier can apply it without asking again.
+ */
 export function counterOffer(item: QueueItem): number | null {
-  const context = item.decisionContext;
-  const usual = context?.customer?.usualDiscountPercent ?? null;
-  const asked = context?.discount?.percent ?? null;
-  return usual !== null && asked !== null && usual > 0 && usual < asked ? usual : null;
+  if (item.action !== 'sale_discount') return null;
+  const discount = item.decisionContext?.discount;
+  const usual = item.decisionContext?.customer?.usualDiscountPercent ?? null;
+  if (!discount || usual === null || usual <= 0 || usual >= discount.percent) return null;
+  return discount.roleLimitPercent === null || usual <= discount.roleLimitPercent ? usual : null;
 }

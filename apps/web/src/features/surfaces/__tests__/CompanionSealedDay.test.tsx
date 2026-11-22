@@ -87,4 +87,11 @@ describe('CompanionSealedDay', () => {
       '/?close=2026-11-09'
     );
   });
+
+  it('ignores a malformed date and still finds today once it is signed', () => {
+    metadata.current = { date: '2026-11-11' };
+    signoffs.set('2026-11-11', closeSignoffFixture(closeReportFixture()));
+    render(<CompanionSealedDay businessDay="2026-11-11" requestedDate="foo" />);
+    expect(signoffInputs.at(-1)).toBe('2026-11-11');
+  });
 });

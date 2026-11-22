@@ -302,4 +302,50 @@ describe('CompanionHome', () => {
     expect(screen.getByTestId('more-stub')).toBeInTheDocument();
     expect(screen.queryByTestId('companion-offline')).not.toBeInTheDocument();
   });
+
+  it('asks every refetch to fail loudly so a broken read keeps the gap visible', async () => {
+    render(home());
+    captureChannel().emit(invalidation('day_close'));
+    expect(snapshotInvalidate).toHaveBeenCalledWith({ date: expect.any(String) }, undefined, {
+      throwOnError: true,
+    });
+    await act(async () => undefined);
+  });
+
+  it('lets only a full refresh close a replay gap, and keeps a queued sales refresh', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-28T18:00:00.000Z'));
+    auth.role = 'manager';
+    render(home());
+    await act(async () => {
+      await vi.dynamicImportSettled();
+    });
+    const channel = captureChannel();
+    channel.setState('open');
+
+    owner.invalidate.mockRejectedValueOnce(new Error('offline'));
+    channel.emit({ type: 'realtime.replay_gap', data: {} });
+    await act(async () => undefined);
+    expect(screen.getByTestId('owner-stub')).toBeInTheDocument();
+    owner.invalidate.mockClear();
+
+    // An approval during the gap refetches everything: Hoy, curve, queue and the day close.
+    channel.emit(invalidation('operations'));
+    expect(owner.invalidate).toHaveBeenCalledTimes(4);
+    await act(async () => undefined);
+    act(() => vi.advanceTimersByTime(10_000));
+    owner.invalidate.mockClear();
+
+    channel.emit(invalidation('sales'));
+    expect(owner.invalidate).toHaveBeenCalledTimes(2);
+    channel.emit(invalidation('sales'));
+    channel.emit(invalidation('operations'));
+    // The approval refreshes Hoy and the queue without swallowing the queued sale.
+    expect(owner.invalidate).toHaveBeenCalledTimes(4);
+    owner.invalidate.mockClear();
+    // The throttled sale still refreshes once its window ends.
+    act(() => vi.advanceTimersByTime(10_000));
+    expect(owner.invalidate).toHaveBeenCalledTimes(2);
+    await act(async () => undefined);
+  });
 });

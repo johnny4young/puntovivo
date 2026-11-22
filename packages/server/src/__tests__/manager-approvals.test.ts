@@ -430,6 +430,7 @@ describe('manager approvals router', () => {
       items: { productId: string; quantity: number; unitPrice: number; discount: number }[];
       discountAmount: number;
       total: number;
+      serviceChargeAmount?: number;
     }) {
       return {
         mode: 'fresh' as const,
@@ -443,7 +444,7 @@ describe('manager approvals router', () => {
         total: args.total,
         creditAmount: 0,
         tipAmount: 0,
-        serviceChargeAmount: 0,
+        serviceChargeAmount: args.serviceChargeAmount ?? 0,
         currencyCode: 'COP',
       };
     }
@@ -598,6 +599,26 @@ describe('manager approvals router', () => {
         totalBefore: 25_800,
         total: 23_800,
         itemCount: 3,
+      });
+
+      // A service charge is taken on the discounted base, so the sum would understate the before.
+      const withService = await appRouter.createCaller(cashier.fresh()).managerApprovals.request({
+        action: 'sale_discount',
+        reason: 'Table with service',
+        resourceType: 'sale_checkout',
+        checkoutContext: checkout({
+          customerId: null,
+          items: [{ productId: taxed, quantity: 1, unitPrice: 11_900, discount: 10 }],
+          discountAmount: 1_190,
+          total: 11_781,
+          serviceChargeAmount: 1_071,
+        }),
+        summary: { label: 'checkout', amount: 1_190, currencyCode: 'COP' },
+      });
+      expect((await contextOf(withService.id))?.ticket).toEqual({
+        totalBefore: null,
+        total: 11_781,
+        itemCount: 1,
       });
 
       const justOver = await appRouter.createCaller(cashier.fresh()).managerApprovals.request({
@@ -894,12 +915,20 @@ describe('manager approvals router', () => {
       .createCaller(cashier.fresh())
       .managerApprovals.request(requestInput('credit_sale'));
 
+    const broadcast = vi.spyOn(server.app.sse, 'broadcast');
     const decided = await appRouter.createCaller(cashier.fresh()).managerApprovals.decideWithPin({
       requestId: request.id,
       approverId: manager.id,
       pin: '864209',
       decision: 'approved',
     });
+    // Other owner phones drop the card at once instead of on the next poll.
+    expect(broadcast).toHaveBeenCalledWith(
+      'companion.invalidated',
+      expect.objectContaining({ scope: 'operations' }),
+      tenantId
+    );
+    broadcast.mockRestore();
     expect(decided).toMatchObject({
       id: request.id,
       status: 'approved',

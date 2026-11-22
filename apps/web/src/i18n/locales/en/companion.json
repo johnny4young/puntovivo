@@ -81,7 +81,8 @@
     "loading": "Loading the day…",
     "unavailable": "The day could not be loaded. Try again.",
     "moreApprovals_one": "{{count}} more request is waiting for your decision",
-    "moreApprovals_other": "{{count}} more requests are waiting for your decision"
+    "moreApprovals_other": "{{count}} more requests are waiting for your decision",
+    "queueUnavailable": "Your approvals could not be loaded. Try again."
   },
   "registers": {
     "title": "Registers",
@@ -110,7 +111,8 @@
     "reject": "Reject",
     "gone": "This request is no longer waiting for your decision.",
     "close": "Close",
-    "loading": "Loading the request…"
+    "loading": "Loading the request…",
+    "unavailable": "The request could not be loaded. Try again."
   },
   "day": {
     "sealedAt": "Day closed · {{time}}",

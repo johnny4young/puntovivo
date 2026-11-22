@@ -1,4 +1,4 @@
-/** `operations` covers an approval waiting or a register handoff received. */
+/** `operations` covers an approval or a register handoff changing state. */
 export type CompanionInvalidationScope = 'sales' | 'operations' | 'day_close';
 
 export interface CompanionRealtimeBroadcaster {

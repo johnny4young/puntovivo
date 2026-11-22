@@ -270,6 +270,7 @@ describe('TodayOverview', () => {
       awaitingHandoffs: [
         {
           id: 'h-2',
+          siteId: 'site-1',
           registerName: 'Caja 2',
           fromUserName: 'Diego',
           toUserName: 'Camila',
@@ -277,6 +278,7 @@ describe('TodayOverview', () => {
         },
         {
           id: 'h-3',
+          siteId: 'site-1',
           registerName: 'Caja 4',
           fromUserName: 'Marta',
           toUserName: null,

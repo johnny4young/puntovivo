@@ -582,7 +582,16 @@ export const cashSessionsRouter = router({
 
   startHandoff: criticalCommandCashierManagerOrAdminProcedure
     .input(startCashHandoffInput)
-    .mutation(({ ctx, input }) => startCashHandoff(buildCashSessionContext(ctx), input)),
+    .mutation(async ({ ctx, input }) => {
+      const result = await startCashHandoff(buildCashSessionContext(ctx), input);
+      tryBroadcastCompanionInvalidation({
+        sse: ctx.req?.server?.sse,
+        tenantId: ctx.tenantId,
+        scope: 'operations',
+        log: ctx.req?.server?.log,
+      });
+      return result;
+    }),
 
   receiveHandoff: criticalCommandCashierManagerOrAdminProcedure
     .input(receiveCashHandoffInput)

@@ -81,7 +81,8 @@
     "loading": "Cargando el día…",
     "unavailable": "No se pudo cargar el día. Intente de nuevo.",
     "moreApprovals_one": "{{count}} solicitud más espera su decisión",
-    "moreApprovals_other": "{{count}} solicitudes más esperan su decisión"
+    "moreApprovals_other": "{{count}} solicitudes más esperan su decisión",
+    "queueUnavailable": "No se pudieron cargar sus aprobaciones. Intente de nuevo."
   },
   "registers": {
     "title": "Cajas",
@@ -110,7 +111,8 @@
     "reject": "Rechazar",
     "gone": "Esta solicitud ya no espera su decisión.",
     "close": "Cerrar",
-    "loading": "Cargando la solicitud…"
+    "loading": "Cargando la solicitud…",
+    "unavailable": "No se pudo cargar la solicitud. Intente de nuevo."
   },
   "day": {
     "sealedAt": "Día cerrado · {{time}}",

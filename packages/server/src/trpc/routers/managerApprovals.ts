@@ -768,6 +768,12 @@ export const managerApprovalsRouter = router({
         data: publicManagerApprovalRequest(updated),
         priority: 10,
       });
+      tryBroadcastCompanionInvalidation({
+        sse: criticalCtx.req?.server?.sse,
+        tenantId: criticalCtx.tenantId,
+        scope: 'operations',
+        log: criticalCtx.req?.server?.log,
+      });
       return {
         ...presentRequest(updated, new Date().toISOString()),
         approverName: approver.name,
@@ -851,6 +857,12 @@ export const managerApprovalsRouter = router({
         operation: 'update',
         data: publicManagerApprovalRequest(updated),
         priority: 10,
+      });
+      tryBroadcastCompanionInvalidation({
+        sse: criticalCtx.req?.server?.sse,
+        tenantId: criticalCtx.tenantId,
+        scope: 'operations',
+        log: criticalCtx.req?.server?.log,
       });
       return presentRequest(updated, now);
     }),

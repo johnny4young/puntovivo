@@ -14,11 +14,14 @@ import { approvalWhat, requestedPercent, type QueueItem } from './companionAppro
 import { CompanionConnection } from './CompanionConnection';
 import { CompanionRegisterList, type ClosedRegister } from './CompanionRegisters';
 import { CompanionSalesCurve } from './CompanionSalesCurve';
+import { CompanionError } from './CompanionStatus';
 import type { LiveState } from './useCompanionLive';
 
 interface CompanionTodayProps {
   today: OperationsToday;
-  queue: readonly QueueItem[];
+  /** Null until the approvals queue has loaded. */
+  queue: readonly QueueItem[] | null;
+  queueFailed: boolean;
   closed: readonly ClosedRegister[];
   liveState: LiveState;
   formatTime: (iso: string) => string;
@@ -31,6 +34,7 @@ interface CompanionTodayProps {
 export function CompanionToday({
   today,
   queue,
+  queueFailed,
   closed,
   liveState,
   formatTime,
@@ -41,9 +45,12 @@ export function CompanionToday({
   const { t } = useTranslation(['companion', 'dashboard', 'common']);
   const change = percentChange(today.sales.total, today.sales.comparisonTotal);
   const weekday = formatWeekday(today.dayStartIso);
-  const [mine, ...moreMine] = queue;
-  const queueIds = new Set(queue.map(item => item.id));
-  const storePending = today.pending.filter(item => !queueIds.has(item.id)).length;
+  const [mine, ...moreMine] = queue ?? [];
+  const queueIds = new Set((queue ?? []).map(item => item.id));
+  // Until the queue answers, approvals are neither the owner's nor the store's.
+  const storePending = today.pending.filter(item =>
+    queue ? !queueIds.has(item.id) : item.kind !== 'approval'
+  ).length;
 
   return (
     <div className="space-y-5" data-testid="companion-today">
@@ -144,7 +151,9 @@ export function CompanionToday({
             </Link>
           )}
         </section>
-      ) : (
+      ) : queueFailed ? (
+        <CompanionError message={t('owner.queueUnavailable')} />
+      ) : queue === null ? null : (
         <p
           className="flex items-center gap-2 text-sm text-fg2"
           data-testid="companion-nothing-waiting"

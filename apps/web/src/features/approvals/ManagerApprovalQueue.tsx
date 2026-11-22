@@ -45,8 +45,9 @@ export function ApprovalDecisionForm({
   const [rejectionReason, setRejectionReason] = useState('');
   const decisionMutation = useCriticalMutation('managerApprovals.decideWithPin', {
     onSuccess: async result => {
-      await utils.managerApprovals.queue.invalidate();
+      // Close first: the refetch drops the item, and an open view would flash it as gone.
       onDecided();
+      await utils.managerApprovals.queue.invalidate();
       toast.success({
         title:
           result.status === 'pending'

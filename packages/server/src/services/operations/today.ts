@@ -96,6 +96,7 @@ export interface TodayRegister {
 /** A register handed over and not received yet: its cash sits counted, without a session. */
 export interface TodayAwaitingHandoff {
   id: string;
+  siteId: string;
   registerName: string;
   fromUserName: string;
   toUserName: string | null;
@@ -287,6 +288,7 @@ export async function computeOperationsToday(
   const awaitingHandoffs: TodayAwaitingHandoff[] = db
     .select({
       id: cashSessionHandoffs.id,
+      siteId: cashSessionHandoffs.siteId,
       registerName: cashSessionHandoffs.registerName,
       fromUserName: fromUser.name,
       toUserName: toUser.name,

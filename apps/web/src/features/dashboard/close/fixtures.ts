@@ -70,6 +70,7 @@ export function closeChecklistFixture(overrides: Partial<CloseChecklist> = {}): 
     sessions: [
       {
         id: 'session-1',
+        siteId: 'site-1',
         registerName: 'Caja 1',
         cashierName: 'Andrés Rojas',
         status: 'closed',
@@ -83,6 +84,7 @@ export function closeChecklistFixture(overrides: Partial<CloseChecklist> = {}): 
       },
       {
         id: 'session-2',
+        siteId: 'site-1',
         registerName: 'Caja 2',
         cashierName: 'Camila Pérez',
         status: 'closed',

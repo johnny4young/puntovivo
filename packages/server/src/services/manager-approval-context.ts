@@ -220,11 +220,15 @@ async function customerContext(
 }
 
 /** A line of a product sold by fraction (0,250 kg) is one article, like the register counts it. */
-function ticketContext(
+async function ticketContext(
   db: DatabaseInstance,
   tenantId: string,
   checkout: CheckoutApprovalContext
-): NonNullable<ManagerApprovalDecisionContext['ticket']> {
+): Promise<NonNullable<ManagerApprovalDecisionContext['ticket']>> {
+  const { priceIncludesTax } = await resolvePricingSettings(db, tenantId);
+  // The discount comes off tax-inclusive line prices, so only then is total plus discount the
+  // undiscounted total; a percent service charge is also taken on the discounted base.
+  const exact = priceIncludesTax && checkout.serviceChargeAmount === 0;
   const productIds = [...new Set(checkout.items.map(item => item.productId))];
   const fractional = new Set(
     db
@@ -241,7 +245,7 @@ function ticketContext(
       .map(row => row.id)
   );
   return {
-    totalBefore: roundMoney(checkout.total + checkout.discountAmount),
+    totalBefore: exact ? roundMoney(checkout.total + checkout.discountAmount) : null,
     total: checkout.total,
     itemCount: checkout.items.reduce(
       (count, item) => count + (fractional.has(item.productId) ? 1 : item.quantity),
@@ -263,6 +267,6 @@ export async function buildCheckoutApprovalDecisionContext(args: {
     discount: discountContext(db, tenantId, args.requesterRole, checkout),
     margin: await marginContext(db, tenantId, checkout),
     customer: await customerContext(db, tenantId, checkout.customerId, args.nowMs),
-    ticket: ticketContext(db, tenantId, checkout),
+    ticket: await ticketContext(db, tenantId, checkout),
   };
 }

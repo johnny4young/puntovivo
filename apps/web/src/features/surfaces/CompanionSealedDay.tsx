@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { ISO_DATE_ONLY_PATTERN } from '@puntovivo/shared/iso-date';
 import { useTranslation } from 'react-i18next';
 import { ArrowRight, CheckCircle2 } from 'lucide-react';
 import { DayArc } from '@/features/dashboard/close/DayArc';
@@ -23,11 +24,12 @@ interface CompanionSealedDayProps {
 /** The signed day as the owner reads it at night: the figures, the differences and who signed. */
 export function CompanionSealedDay({ businessDay, requestedDate }: CompanionSealedDayProps) {
   const { t } = useTranslation('companion');
+  const explicit = requestedDate !== null && ISO_DATE_ONLY_PATTERN.test(requestedDate);
   const todaySigned = trpc.reports.dayClose.signoffMetadata.useQuery(
     { date: businessDay },
-    { enabled: requestedDate === null, staleTime: 60_000 }
+    { enabled: !explicit, staleTime: 60_000 }
   );
-  const ready = requestedDate !== null || todaySigned.isSuccess || todaySigned.isError;
+  const ready = explicit || todaySigned.isSuccess || todaySigned.isError;
   const date = sealedDayDate(requestedDate, businessDay, Boolean(todaySigned.data));
   // A past signed day cannot change; today's still moves until the day_close event.
   const staleTime = date < businessDay ? Infinity : 60_000;

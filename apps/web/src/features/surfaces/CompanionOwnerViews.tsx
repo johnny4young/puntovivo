@@ -32,7 +32,8 @@ export function CompanionOwnerViews({ view, liveState, businessDay }: CompanionO
     refetchOnWindowFocus: true,
   });
   const queueQuery = trpc.managerApprovals.queue.useQuery(
-    { limit: 20 },
+    // The schema's maximum, so a push for a recent request still finds it on a busy day.
+    { limit: 50 },
     { enabled: view === 'today' || decideId !== null, refetchInterval: TODAY_REFRESH_MS }
   );
   const today = todayQuery.data;
@@ -46,12 +47,13 @@ export function CompanionOwnerViews({ view, liveState, businessDay }: CompanionO
   // A register handed over or reopened already shows as open or waiting.
   const closed = useMemo<ClosedRegister[]>(() => {
     if (!today || !checklistQuery.data) return [];
+    const key = (siteId: string, registerName: string) => `${siteId}\u0000${registerName}`;
     const live = new Set([
-      ...today.registers.map(register => register.registerName),
-      ...today.awaitingHandoffs.map(handoff => handoff.registerName),
+      ...today.registers.map(register => key(register.siteId, register.registerName)),
+      ...today.awaitingHandoffs.map(handoff => key(handoff.siteId, handoff.registerName)),
     ]);
     return checklistQuery.data.sessions.filter(
-      session => session.status === 'closed' && !live.has(session.registerName)
+      session => session.status === 'closed' && !live.has(key(session.siteId, session.registerName))
     );
   }, [today, checklistQuery.data]);
 
@@ -92,7 +94,8 @@ export function CompanionOwnerViews({ view, liveState, businessDay }: CompanionO
     return (
       <CompanionToday
         today={today}
-        queue={queue?.items ?? []}
+        queue={queueQuery.isSuccess ? (queue?.items ?? []) : null}
+        queueFailed={queueQuery.isError}
         closed={closed}
         liveState={liveState}
         formatTime={format.time}
@@ -111,6 +114,8 @@ export function CompanionOwnerViews({ view, liveState, businessDay }: CompanionO
           key={decideId}
           item={decideItem}
           loading={queueQuery.isPending}
+          failed={queueQuery.isError}
+          dark={view === 'day'}
           approverId={queue?.approver.hasPin ? queue.approver.id : null}
           today={today}
           formatTime={format.time}

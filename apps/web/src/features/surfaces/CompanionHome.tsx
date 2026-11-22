@@ -48,17 +48,24 @@ export function CompanionHome() {
 
   const refresh = useCallback(
     (scope: RefreshScope) => {
-      if (!owner) return utils.companion.snapshot.invalidate({ date: today });
-      const reads: Array<Promise<unknown>> = [utils.operations.today.invalidate()];
+      // A failed refetch must reject so a replay gap stays visible until a read succeeds.
+      const strict = { throwOnError: true } as const;
+      if (!owner) return utils.companion.snapshot.invalidate({ date: today }, undefined, strict);
+      const reads: Array<Promise<unknown>> = [
+        utils.operations.today.invalidate(undefined, undefined, strict),
+      ];
       // A sale moves Hoy and the open day only; a signed day or approval stays as it was.
-      if (scope === 'sales')
-        reads.push(utils.reports.dayClose.checklist.invalidate({ date: today }));
-      if (scope === 'operations') reads.push(utils.managerApprovals.queue.invalidate());
+      if (scope === 'sales') {
+        reads.push(utils.reports.dayClose.checklist.invalidate({ date: today }, undefined, strict));
+      }
+      if (scope === 'operations') {
+        reads.push(utils.managerApprovals.queue.invalidate(undefined, undefined, strict));
+      }
       if (scope === 'all') {
         reads.push(
-          utils.operations.dayCurve.invalidate(),
-          utils.managerApprovals.queue.invalidate(),
-          utils.reports.dayClose.invalidate()
+          utils.operations.dayCurve.invalidate(undefined, undefined, strict),
+          utils.managerApprovals.queue.invalidate(undefined, undefined, strict),
+          utils.reports.dayClose.invalidate(undefined, undefined, strict)
         );
       }
       return Promise.all(reads);

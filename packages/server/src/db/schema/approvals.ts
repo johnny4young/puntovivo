@@ -58,8 +58,11 @@ export interface ManagerApprovalDecisionContext {
     daysPerVisit: number | null;
     usualDiscountPercent: number | null;
   } | null;
-  /** Ticket total before and after the discount; absent on requests made before it was stored. */
-  ticket?: { totalBefore: number; total: number; itemCount: number };
+  /**
+   * Ticket total after the discount and before it, null when a service charge or tax-exclusive
+   * prices make the sum inexact; absent on requests made before it was stored.
+   */
+  ticket?: { totalBefore: number | null; total: number; itemCount: number };
 }
 
 export const managerApprovalRequests = sqliteTable(
