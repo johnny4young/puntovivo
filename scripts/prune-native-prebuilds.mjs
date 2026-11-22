@@ -44,6 +44,25 @@ export async function pruneNativePrebuilds(prebuildDir, targetName) {
   return { kept: targetName, removed: binaries.length - 1 };
 }
 
+/** Serial binding prebuilds live in one folder per target; macOS ships a universal one. */
+export function getSerialPrebuildDir({ platform, arch }) {
+  return platform === 'darwin' ? 'darwin-x64+arm64' : `${platform}-${arch}`;
+}
+
+export async function pruneSerialPrebuilds(prebuildsRoot, targetDir) {
+  const entries = await readdir(prebuildsRoot, { withFileTypes: true });
+  const dirs = entries.filter(entry => entry.isDirectory());
+  if (!dirs.some(entry => entry.name === targetDir)) {
+    throw new Error(`Packaged serial prebuild ${targetDir} is missing from ${prebuildsRoot}`);
+  }
+  await Promise.all(
+    dirs
+      .filter(entry => entry.name !== targetDir)
+      .map(entry => rm(path.join(prebuildsRoot, entry.name), { recursive: true, force: true }))
+  );
+  return { kept: targetDir, removed: dirs.length - 1 };
+}
+
 export default async function afterPack(context) {
   if (context.electronPlatformName !== process.platform) {
     throw new Error(
@@ -60,21 +79,23 @@ export default async function afterPack(context) {
           'Resources'
         )
       : path.join(context.appOutDir, 'resources');
-  const prebuildDir = path.join(
-    resourcesDir,
-    'app.asar.unpacked',
-    'node_modules',
-    'better-sqlite3',
-    'prebuilds'
-  );
+  const target = {
+    platform: context.electronPlatformName,
+    arch: getElectronBuilderArch(context.arch),
+  };
+  const unpackedModules = path.join(resourcesDir, 'app.asar.unpacked', 'node_modules');
   const result = await pruneNativePrebuilds(
-    prebuildDir,
-    getPackagedPrebuildName({
-      platform: context.electronPlatformName,
-      arch: getElectronBuilderArch(context.arch),
-    })
+    path.join(unpackedModules, 'better-sqlite3', 'prebuilds'),
+    getPackagedPrebuildName(target)
   );
   console.log(
     `[native-package] kept ${result.kept}; removed ${result.removed} non-target SQLite prebuilds`
+  );
+  const serial = await pruneSerialPrebuilds(
+    path.join(unpackedModules, '@serialport', 'bindings-cpp', 'prebuilds'),
+    getSerialPrebuildDir(target)
+  );
+  console.log(
+    `[native-package] kept ${serial.kept}; removed ${serial.removed} non-target serial prebuilds`
   );
 }

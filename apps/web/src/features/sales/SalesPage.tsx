@@ -9,6 +9,7 @@ import { useSalesFlows } from '@/features/sales/useSalesFlows';
 import { useSalesCart } from '@/features/sales/useSalesCart';
 import { useSalesModals } from '@/features/sales/useSalesModals';
 import { useSalesCommandBar } from '@/features/sales/useSalesCommandBar';
+import { useWeighedItem } from '@/features/sales/useWeighedItem';
 import { useSalesPageData } from '@/features/sales/useSalesPageData';
 import { useLastRead } from '@/features/sales/useLastRead';
 import type { InitialTender } from '@/features/sales/salePaymentModal.types';
@@ -32,11 +33,13 @@ import { getOrCreateCustomerDisplayAccessId } from '@/features/surfaces/customer
 import { useToast } from '@/components/feedback/ToastProvider';
 import { isTaskActivationKey, useTaskMeasurementController } from '@/lib/taskMeasurement';
 import { readExternalSaleEntry } from './externalSaleEntry';
+import { readRestaurantChargeEntry } from './restaurantChargeEntry';
 import { useTranslation } from 'react-i18next';
 import type { CompletedSaleSummary } from './SaleCompleteStrip';
 import { useEmbeddedServerState } from '@/hooks/useEmbeddedServerState';
 import { getSalesDockGates } from './salesDockGates';
 import { useShiftHandoff } from './handoff/useShiftHandoff';
+import { useSaleDelivery } from './useSaleDelivery';
 
 const LazyCashDrawerApprovalModal = lazy(() =>
   import('@/features/sales/CashDrawerApprovalModal').then(module => ({
@@ -154,6 +157,7 @@ export function SalesPage() {
     handleQuantityChange,
     handleDiscountChange,
     handleSerialSelectionChange,
+    handleUnitChange,
     handleRemoveItem,
     handleClearCart,
     handleUndoCart,
@@ -226,6 +230,13 @@ export function SalesPage() {
     selectedRegisterAssignmentId,
     hasCartItems: cartItems.length > 0,
   });
+  const saleDelivery = useSaleDelivery({
+    activeWorkspace,
+    hasItems: cartItems.length > 0,
+    completedSale,
+    hasCashSession: hasActiveCashSession,
+    userRole,
+  });
 
   // slice 10 — the sales + cash-session mutation handles and the
   // shared finish-sale epilogue live in `useSalesMutations`. ALL the
@@ -259,6 +270,7 @@ export function SalesPage() {
       setLastSale(sale);
       setCompletedSale(sale);
       saleMeasurement.finish('success');
+      saleDelivery.onSaleCompleted(sale);
     },
     onCashSessionRecoverySucceeded: () => saleMeasurement.recordRecoveryOutcome('succeeded'),
     onCashSessionRecoveryFailed: () => saleMeasurement.recordRecoveryOutcome('failed'),
@@ -331,6 +343,7 @@ export function SalesPage() {
   // `useSalesFlows`. The shell still owns ALL the state they read; the
   // read values + setters + the mutation handles are injected so the
   // dependency direction stays shell → hook, never hook ↔ hook.
+  const pendingChargeSaleIdRef = useRef<string | null>(null);
   const {
     handleCheckout,
     handleOpenSuspendPrompt,
@@ -358,6 +371,19 @@ export function SalesPage() {
     resumeMutation,
     discardDraftMutation,
     openRestaurantCheckMutation,
+    onResumedForCharge: saleId => {
+      pendingChargeSaleIdRef.current = saleId;
+    },
+  });
+
+  const weighing = useWeighedItem({
+    cartItems,
+    setCartItems,
+    scope: activeWorkspace?.id ?? null,
+    locked: itemsLocked,
+    priceTier: activeWorkspace?.priceTier ?? 1,
+    onApplied: setSelectedCartItemKey,
+    className: 'shrink-0',
   });
 
   // slice 16b-1 — the modal/UI controller (the F1 payment-open gate
@@ -372,6 +398,13 @@ export function SalesPage() {
     addProduct: (selection, quantity) => {
       saleMeasurement.ensure('complete_sale');
       saleMeasurement.markUsableControl();
+      // A by-weight product asks its weight first, unless a quantity was typed.
+      if (quantity === null && weighing.open(selection)) {
+        setProductSearchQuery('');
+        setSaleError(null);
+        return;
+      }
+      weighing.close();
       handleProductSelect(selection, quantity);
     },
   });
@@ -496,6 +529,28 @@ export function SalesPage() {
     navigate(location.pathname, { replace: true, state: null });
   }, [omniboxQuery, handleMeasuredOpenProductSearch, navigate, location.pathname]);
 
+  // «Cobrar cuenta N» resumes the check, then charges it once its lines are on screen.
+  const activeServerSaleId = activeWorkspace?.serverSaleId ?? null;
+  useEffect(() => {
+    const pending = pendingChargeSaleIdRef.current;
+    if (!pending) return;
+    // One shot: another ticket taking the screen first cancels the charge.
+    pendingChargeSaleIdRef.current = null;
+    if (activeServerSaleId === pending && cartItems.length > 0) handleOpenPaymentModal();
+  }, [activeServerSaleId, cartItems.length, handleOpenPaymentModal]);
+  const restaurantCharge = useMemo(
+    () => readRestaurantChargeEntry(location.state),
+    [location.state]
+  );
+  const consumedRestaurantChargeRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!restaurantCharge || !ownerKey) return;
+    if (consumedRestaurantChargeRef.current === restaurantCharge.id) return;
+    consumedRestaurantChargeRef.current = restaurantCharge.id;
+    navigate(location.pathname, { replace: true, state: null });
+    void handleResumeFromPanel(restaurantCharge, { charge: true });
+  }, [restaurantCharge, ownerKey, navigate, location.pathname, handleResumeFromPanel]);
+
   // keep the product-search input focused across the cashier flow
   // so a USB HID barcode scanner always lands on the right target.
   useScannerFocusRestoration({
@@ -614,6 +669,7 @@ export function SalesPage() {
         handleQuantityChange={handleQuantityChange}
         handleDiscountChange={handleDiscountChange}
         handleSerialSelectionChange={handleSerialSelectionChange}
+        handleUnitChange={handleUnitChange}
         handleRemoveItem={handleMeasuredRemoveItem}
         setSelectedCartItemKey={setSelectedCartItemKey}
         handleClearCart={handleMeasuredClearCart}
@@ -660,6 +716,7 @@ export function SalesPage() {
         fastCashAmount={fastCashAmount}
         paymentFocusTarget={paymentFocusTarget}
         completedSale={completedSale}
+        saleDelivery={saleDelivery}
         onDismissCompletedSale={() => setCompletedSale(null)}
         setSelectedSaleId={setSelectedSaleId}
         selectedHistorySaleId={selectedHistorySaleId}
@@ -672,6 +729,7 @@ export function SalesPage() {
         productSearchDialogKey={productSearchDialogKey}
         setIsProductSearchOpen={setIsProductSearchOpen}
         handleProductSelect={commandBar.selectProduct}
+        weighPanel={weighing.panel}
         commandBar={commandBar}
         productSearchInitialQuery={productSearchInitialQuery}
         setCartItems={setCartItems}

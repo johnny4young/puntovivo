@@ -41,10 +41,14 @@ import {
 import { buildCheckoutApprovalContext, requiredCheckoutApprovalActions } from './checkoutApprovals';
 import { useCheckoutApprovals } from './useCheckoutApprovals';
 import { isCartPriceOverride } from './saleApprovalPricing';
-import { retainEligibleEvidenceIds, selectedEvidenceCoversRequirements } from './pharmacyCheckout';
+import {
+  pharmacyCheckoutInput,
+  retainEligibleEvidenceIds,
+  selectedEvidenceCoversRequirements,
+} from './pharmacyCheckout';
 import { asElectronicInvoiceForm, buildElectronicInvoiceRequest } from './electronicInvoiceRequest';
 import { useElectronicInvoiceAvailability } from './useElectronicInvoiceAvailability';
-import { serviceChargeFor } from './cashTender';
+import { percentOf } from './cashTender';
 
 /**
  * Inputs the modal shell forwards into the hook. Mirrors the subset of
@@ -105,7 +109,7 @@ export function useSalePaymentModal({
   // not a form field. The operator cannot edit it; the server
   // re-validates against the tenant rate at submit time.
   const initialServiceChargeAmount = useMemo(
-    () => serviceChargeFor(total, serviceChargeRate),
+    () => percentOf(total, serviceChargeRate),
     [total, serviceChargeRate]
   );
   const form = useForm<SalePaymentValues>({
@@ -230,23 +234,19 @@ export function useSalePaymentModal({
   const tipAmount = Math.max(0, Number(tipAmountWatch) || 0);
   const selectedCustomer = customers.find(c => c.id === watchedCustomerId) ?? null;
 
-  const pharmacyCheckoutInput = useMemo(
-    () => ({
-      customerId: watchedCustomerId || null,
-      items: approvalItems.map(item => ({
-        productId: item.productId,
-        quantity: item.quantity,
-        unitEquivalence: item.unitEquivalence ?? 1,
-      })),
-    }),
+  const checkoutRequirementsInput = useMemo(
+    () => pharmacyCheckoutInput(approvalItems, watchedCustomerId || null),
     [approvalItems, watchedCustomerId]
   );
   const pharmacyCheckoutEnabled = isOpen && approvalItems.length > 0;
-  const pharmacyCheckoutQuery = trpc.pharmacy.checkoutRequirements.useQuery(pharmacyCheckoutInput, {
-    enabled: pharmacyCheckoutEnabled,
-    staleTime: 0,
-    refetchOnWindowFocus: true,
-  });
+  const pharmacyCheckoutQuery = trpc.pharmacy.checkoutRequirements.useQuery(
+    checkoutRequirementsInput,
+    {
+      enabled: pharmacyCheckoutEnabled,
+      staleTime: 0,
+      refetchOnWindowFocus: true,
+    }
+  );
   const pharmacyCheckoutLoading =
     pharmacyCheckoutEnabled &&
     (pharmacyCheckoutQuery.isLoading || pharmacyCheckoutQuery.isFetching);
@@ -354,7 +354,7 @@ export function useSalePaymentModal({
   const checkoutBaseTotal =
     promotionQuoteEnabled && promotionQuote.data ? promotionQuote.data.total : total;
   const serviceChargeAmount = useMemo(
-    () => serviceChargeFor(checkoutBaseTotal, serviceChargeRate),
+    () => percentOf(checkoutBaseTotal, serviceChargeRate),
     [checkoutBaseTotal, serviceChargeRate]
   );
   const grandTotal = roundMoney(checkoutBaseTotal + serviceChargeAmount + tipAmount);
@@ -728,7 +728,7 @@ export function useSalePaymentModal({
     // Percentage base is the authoritative checkout total after promotions
     // before tip is layered on. This is the customer-facing "what I
     // owe" amount and matches the LATAM hospitality convention.
-    const nextAmount = roundMoney((checkoutBaseTotal * percentage) / 100);
+    const nextAmount = percentOf(checkoutBaseTotal, percentage);
     syncPaymentInputsForTip(nextAmount);
     form.setValue('tipAmount', nextAmount, { shouldDirty: true, shouldValidate: false });
     form.setValue('tipMethod', percentage === 0 ? null : 'percentage', { shouldDirty: true });
@@ -964,7 +964,7 @@ export function useSalePaymentModal({
     if (tipMethodWatch !== 'percentage') {
       return false;
     }
-    return Math.abs(tipAmount - (checkoutBaseTotal * percentage) / 100) < TENDER_SUM_EPSILON;
+    return Math.abs(tipAmount - percentOf(checkoutBaseTotal, percentage)) < TENDER_SUM_EPSILON;
   };
 
   const appliedPromotions = useMemo(() => {

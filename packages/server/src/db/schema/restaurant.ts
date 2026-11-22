@@ -20,6 +20,7 @@ import {
 } from 'drizzle-orm/sqlite-core';
 import { moneyTwoDecimalCheck, nowIso, sqliteNow } from './base.js';
 import { sites, tenants, users } from './auth.js';
+import { products } from './products.js';
 import { sales } from './sales.js';
 import { restaurantTables, saleItems } from './salesAux.js';
 
@@ -42,6 +43,26 @@ export type RestaurantRoundStatus = (typeof restaurantRoundStatusEnum)[number];
 export const restaurantCourseKeyEnum = ['starter', 'main', 'dessert', 'drink', 'other'] as const;
 /** Union derived from {@link restaurantCourseKeyEnum}. */
 export type RestaurantCourseKey = (typeof restaurantCourseKeyEnum)[number];
+
+/** Group meaning: pick a preparation, leave something out, or add extras. Also the plate-sheet order. */
+export const restaurantModifierGroupKindEnum = ['choice', 'without', 'extra'] as const;
+/** Union derived from {@link restaurantModifierGroupKindEnum}. */
+export type RestaurantModifierGroupKind = (typeof restaurantModifierGroupKindEnum)[number];
+
+/** Whether a group accepts one option or several. */
+export const restaurantModifierGroupSelectionEnum = ['single', 'multiple'] as const;
+/** Union derived from {@link restaurantModifierGroupSelectionEnum}. */
+export type RestaurantModifierGroupSelection =
+  (typeof restaurantModifierGroupSelectionEnum)[number];
+
+/**
+ * Each waiter's unsent plates on a visit. `seenAt` is refreshed by every report
+ * so readers can drop entries from a device that stopped reporting.
+ */
+export type RestaurantPendingRounds = Record<
+  string,
+  { items: number; since: string; seenAt: string }
+>;
 
 /** One contiguous visit at a physical table. */
 export const restaurantServices = sqliteTable(
@@ -66,6 +87,12 @@ export const restaurantServices = sqliteTable(
     openedAt: text('opened_at').notNull().default(sqliteNow).$defaultFn(nowIso),
     closedBy: text('closed_by').references(() => users.id),
     closedAt: text('closed_at'),
+    // Staff-set markers. Plain user ids without FKs keep the columns additive
+    // (an FK would make drizzle-kit rebuild this table).
+    billRequestedAt: text('bill_requested_at'),
+    billRequestedBy: text('bill_requested_by'),
+    /** Unsent plates per waiter, keyed by user id; see RestaurantPendingRounds. */
+    pendingRounds: text('pending_rounds', { mode: 'json' }).$type<RestaurantPendingRounds>(),
     version: integer('version').notNull().default(1),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
     updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
@@ -301,6 +328,108 @@ export const restaurantModifierCatalog = sqliteTable(
   ]
 );
 
+/** Site-local rule set over catalog options; a product shows every active group assigned to it. */
+export const restaurantModifierGroups = sqliteTable(
+  'restaurant_modifier_groups',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    siteId: text('site_id')
+      .notNull()
+      .references(() => sites.id),
+    name: text('name').notNull(),
+    nameKey: text('name_key').notNull(),
+    kind: text('kind', { enum: restaurantModifierGroupKindEnum }).notNull(),
+    selection: text('selection', { enum: restaurantModifierGroupSelectionEnum }).notNull(),
+    /** Required means at least one; zero keeps the group optional. */
+    minSelections: integer('min_selections').notNull().default(0),
+    maxSelections: integer('max_selections').notNull().default(1),
+    isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+    version: integer('version').notNull().default(1),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => users.id),
+    updatedBy: text('updated_by')
+      .notNull()
+      .references(() => users.id),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_restaurant_modifier_groups_site').on(
+      table.tenantId,
+      table.siteId,
+      table.isActive,
+      table.nameKey
+    ),
+    uniqueIndex('idx_restaurant_modifier_groups_active_name')
+      .on(table.tenantId, table.siteId, table.nameKey)
+      .where(sql`${table.isActive} = 1`),
+    check('chk_restaurant_modifier_groups_name', sql`length(trim(${table.name})) BETWEEN 1 AND 80`),
+    check(
+      'chk_restaurant_modifier_groups_kind',
+      sql`${table.kind} IN ('choice', 'without', 'extra')`
+    ),
+    check(
+      'chk_restaurant_modifier_groups_selection',
+      sql`${table.selection} IN ('single', 'multiple')`
+    ),
+    check(
+      'chk_restaurant_modifier_groups_bounds',
+      sql`${table.minSelections} BETWEEN 0 AND 20 AND ${table.maxSelections} BETWEEN 1 AND 20 AND ${table.minSelections} <= ${table.maxSelections} AND (${table.selection} = 'multiple' OR ${table.maxSelections} = 1)`
+    ),
+    check('chk_restaurant_modifier_groups_version', sql`${table.version} >= 1`),
+  ]
+);
+
+/** Ordered catalog options inside one group; the catalog keeps price and approval rules. */
+export const restaurantModifierGroupItems = sqliteTable(
+  'restaurant_modifier_group_items',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    groupId: text('group_id')
+      .notNull()
+      .references(() => restaurantModifierGroups.id, { onDelete: 'cascade' }),
+    catalogId: text('catalog_id')
+      .notNull()
+      .references(() => restaurantModifierCatalog.id, { onDelete: 'restrict' }),
+    position: integer('position').notNull(),
+  },
+  table => [
+    uniqueIndex('idx_restaurant_modifier_group_items_option').on(table.groupId, table.catalogId),
+    uniqueIndex('idx_restaurant_modifier_group_items_position').on(table.groupId, table.position),
+    index('idx_restaurant_modifier_group_items_catalog').on(table.tenantId, table.catalogId),
+    check('chk_restaurant_modifier_group_items_position', sql`${table.position} BETWEEN 0 AND 19`),
+  ]
+);
+
+/** Which dishes show a group. Tenant products are shared; the group carries the site. */
+export const restaurantProductModifierGroups = sqliteTable(
+  'restaurant_product_modifier_groups',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    groupId: text('group_id')
+      .notNull()
+      .references(() => restaurantModifierGroups.id, { onDelete: 'cascade' }),
+    productId: text('product_id')
+      .notNull()
+      .references(() => products.id, { onDelete: 'cascade' }),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    uniqueIndex('idx_restaurant_product_modifier_groups_pair').on(table.groupId, table.productId),
+    index('idx_restaurant_product_modifier_groups_product').on(table.tenantId, table.productId),
+  ]
+);
+
 /** Frozen, non-negative line modifier; pricing is already included in sale_items.unit_price. */
 export const restaurantLineModifiers = sqliteTable(
   'restaurant_line_modifiers',
@@ -321,6 +450,9 @@ export const restaurantLineModifiers = sqliteTable(
       onDelete: 'restrict',
     }),
     catalogVersion: integer('catalog_version'),
+    /** Group provenance; the kind is frozen so a kitchen reads "sin X" even after the group changes. */
+    groupId: text('group_id'),
+    groupKind: text('group_kind', { enum: restaurantModifierGroupKindEnum }),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
@@ -373,3 +505,5 @@ export type RestaurantRoundRow = typeof restaurantRounds.$inferSelect;
 export type RestaurantCheckLineRow = typeof restaurantCheckLines.$inferSelect;
 /** Persisted frozen modifier whose delta is already included in the sale-item price. */
 export type RestaurantLineModifierRow = typeof restaurantLineModifiers.$inferSelect;
+/** Site-local rule set over catalog options; dishes show it through product assignments. */
+export type RestaurantModifierGroupRow = typeof restaurantModifierGroups.$inferSelect;

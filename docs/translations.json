@@ -122,6 +122,10 @@
       "es": "docs/es/repository/PULL-REQUEST-TEMPLATE.md"
     },
     {
+      "en": ".github/triage/REVIEW.md",
+      "es": "docs/es/repository/TRIAGE-REVIEW.md"
+    },
+    {
       "en": "docs/INVENTORY-MODEL.md",
       "es": "docs/es/INVENTORY-MODEL.md"
     },
@@ -308,6 +312,14 @@
     {
       "en": "docs/architecture/0038-register-zones-by-profile.md",
       "es": "docs/es/architecture/0038-register-zones-by-profile.md"
+    },
+    {
+      "en": "docs/architecture/0039-serial-scale-reader.md",
+      "es": "docs/es/architecture/0039-serial-scale-reader.md"
+    },
+    {
+      "en": "docs/architecture/0040-owner-web-push.md",
+      "es": "docs/es/architecture/0040-owner-web-push.md"
     },
     {
       "en": "docs/architecture/patterns/operation-journal.md",

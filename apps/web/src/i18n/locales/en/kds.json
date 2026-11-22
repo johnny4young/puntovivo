@@ -25,7 +25,8 @@
     "destination": "{{table}} · Check {{check}}",
     "unknownCheck": "Unavailable",
     "cancelled": "Cancelled — do not prepare",
-    "resend": "Resend notification (same ticket)"
+    "resend": "Resend notification (same ticket)",
+    "without": "No {{name}}"
   },
   "empty": {
     "title": "No pending orders",

@@ -4,6 +4,7 @@ import {
   cn,
   formatCalendarDay,
   formatCurrency,
+  formatCurrencyCompact,
   formatNumber,
   formatPercent,
   formatDate,
@@ -74,6 +75,21 @@ describe('formatNumber', () => {
     expect(formatNumber(null)).toBe('');
     expect(formatNumber(undefined)).toBe('');
     expect(formatNumber(0)).toBe('0');
+  });
+});
+
+describe('formatCurrencyCompact', () => {
+  it('rounds to one decimal in the tenant locale without leaking into the full formatter', () => {
+    setActiveTenantLocale({
+      locale: 'es-CO',
+      currency: 'COP',
+      displayDecimals: 0,
+      timezone: 'America/Bogota',
+      dateFormatShort: 'dd/MM/yyyy',
+    });
+    expect(formatCurrencyCompact(7_912_300)).toBe('$7,9\u00a0M');
+    expect(formatCurrency(7_912_300)).toContain('7.912.300');
+    setActiveTenantLocale(null);
   });
 });
 

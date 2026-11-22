@@ -72,6 +72,7 @@ export async function computeDayCloseChecklist(
   const sessionRows = db
     .select({
       id: cashSessions.id,
+      siteId: cashSessions.siteId,
       status: cashSessions.status,
       registerName: cashSessions.registerName,
       cashierName: users.name,
@@ -114,6 +115,7 @@ export async function computeDayCloseChecklist(
         row.status === 'closed' && row.closedAt !== null && row.closedAt < endExclusiveIso;
       return {
         id: row.id,
+        siteId: row.siteId,
         registerName: row.registerName,
         cashierName: row.cashierName,
         status: closedInWindow ? 'closed' : 'open',

@@ -1,6 +1,6 @@
 import type { ResolvedItemsBundle } from '../sales/item-resolution.js';
 /** Authoritative inbox/sale link and cancellation guards, always inside the caller's writer. */
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
 import { externalOrders, externalOrderEvents, type ExternalOrderRow } from '../../db/schema.js';
@@ -167,10 +167,19 @@ export function assertSaleNotExternallyBound(
   tenantId: string,
   saleId: string
 ): void {
+  assertSalesNotExternallyBound(tx, tenantId, [saleId]);
+}
+/** Same rule for several drafts, in one query. */
+export function assertSalesNotExternallyBound(
+  tx: DatabaseInstance,
+  tenantId: string,
+  saleIds: readonly string[]
+): void {
+  if (saleIds.length === 0) return;
   const row = tx
     .select({ id: externalOrders.id })
     .from(externalOrders)
-    .where(and(eq(externalOrders.tenantId, tenantId), eq(externalOrders.saleId, saleId)))
+    .where(and(eq(externalOrders.tenantId, tenantId), inArray(externalOrders.saleId, [...saleIds])))
     .get();
   if (row) externalOrderError('conflict');
 }

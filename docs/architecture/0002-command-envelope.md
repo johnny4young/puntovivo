@@ -143,7 +143,9 @@ Adding to this list requires a superseding ADR or a documented amendment here.
 - `sales.splitDraft` (manager/admin restaurant split-bill)
 - `sales.carryOver` (manager/admin leaves a parked draft for the next day)
 - `restaurantServices.openCheck` (atomic table service and sale draft)
+- `restaurantServices.regroupChecks` (manager/admin moves lines between a table's open checks)
 - `restaurantModifiers.save` (site catalog CAS, audit and replay snapshot)
+- `restaurantModifiers.saveGroup` (site modifier group CAS with its options and dishes, audit and replay snapshot)
 
 **Cash sessions**
 
@@ -201,7 +203,8 @@ transaction, without authorizing any local payment or sale.
 **Delivery fulfillment**
 
 - `deliveryOrders.create` (manual logistics quote, not a sale)
-- `deliveryOrders.createFromSale` (owned completed-sale snapshot)
+- `deliveryOrders.createFromSale` (owned completed-sale snapshot; cashiers
+  only for sales of their open register session, without choosing the courier)
 - `deliveryOrders.advance` (observed-version transition; delivered and cancelled are terminal)
 
 These commands finish their idempotency result inside the same immediate transaction as the
@@ -227,9 +230,10 @@ header or return ledger. Cancelling a delivery never cancels/refunds the financi
 **Customer ledger**
 
 - `customerLedger.addPayment`
+- `customerLedger.addTillPayment` (cash taken at the register; also moves the open drawer)
 - `customerLedger.addAdjustment`
 
-Both change the customer balance and require one retained logical intent so a
+All three change the customer balance and require one retained logical intent so a
 repeated confirmation cannot debit the debt twice.
 
 **Peripherals**

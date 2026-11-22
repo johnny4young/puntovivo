@@ -410,7 +410,9 @@ devuelve todas las cuentas abiertas. Pedidos por voz y el POS tradicional exigen
 ese estado autorizado antes de abrir otra cuenta y fallan de forma segura cuando
 no está disponible. Buscar en el catálogo de mesas es un filtro literal del
 servidor aplicado antes de una paginación estable; el plano administrativo lee
-el catálogo activo completo y acotado por separado. Se rechaza crear o reactivar
+por separado el resumen acotado del salón (estado, tiempo sentado, monto,
+comensales, cuentas, ronda sin enviar, pidió la cuenta y la próxima reserva del
+día) para el catálogo activo completo. Se rechaza crear o reactivar
 más de 500 mesas activas por sede sin truncar una vista operativa. Los clientes
 heredados que crean y luego suspenden, y la migración `0058`, normalizan solo
 hechos demostrables a partir de filas ligadas a mesas aún en borrador, incluido
@@ -488,7 +490,10 @@ sede en la UI. Los recargos de cajeros requieren una referencia exacta de
 catálogo activo validada dentro de la transacción de venta; las instrucciones
 libres sin precio siguen disponibles, mientras cargos personalizados y
 adicionales restringidos requieren gerente o administrador. Editar y archivar
-el catálogo nunca reescribe pedidos aceptados.
+el catálogo nunca reescribe pedidos aceptados. Las opciones se agrupan por plato
+(preparación, sin, adicionales). Los máximos se validan dentro de la misma
+transacción; los mínimos aplican cuando el pedido envía los grupos que mostró
+(ADR-0020).
 
 ## Límite de reservas y cumplimiento externo
 

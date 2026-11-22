@@ -148,6 +148,7 @@
       "pinMissing": "Configure su PIN de personal en Usuarios antes de decidir solicitudes.",
       "freshPinHint": "Ingrese su propio PIN en cada decisión. No se crea una sesión elevada.",
       "checkoutSummary": "Solicitud exacta de cobro",
+      "note": "«{{reason}}»",
       "requestedBy": "Solicitada por {{name}} · {{site}}",
       "expiresAt": "Vence {{time}}",
       "pinLabel": "Su PIN de personal",
@@ -162,6 +163,22 @@
       "partialSuccess": "Aprobación {{collected}} de {{required}} registrada",
       "rejectedSuccess": "Solicitud rechazada",
       "progress": "{{collected}} de {{required}} aprobaciones recibidas",
+      "context": {
+        "limit": "Límite de {{name}}",
+        "requested": "Pide {{percent}}",
+        "margin": "Margen de esta venta",
+        "marginWithout": "Sin el descuento, {{percent}}",
+        "usualDiscount": "su descuento habitual",
+        "purchases_zero": "Sin compras en {{days}} días",
+        "purchases_one": "1 compra en {{days}} días",
+        "purchases_other": "{{count}} compras en {{days}} días",
+        "cadence": {
+          "daily": "Compra casi a diario",
+          "weekly": "Compra cada semana",
+          "biweekly": "Compra cada dos semanas",
+          "monthly": "Compra cada mes"
+        }
+      },
       "actions": {
         "credit_override": "Excepción de crédito",
         "sale_void": "Anular venta",

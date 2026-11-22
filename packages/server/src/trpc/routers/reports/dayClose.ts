@@ -1,6 +1,7 @@
 /** manager/admin comprehensive day-close report namespace. */
 
-import { broadcastCompanionInvalidation } from '../../../services/companion/invalidation.js';
+import { tryBroadcastCompanionInvalidation } from '../../../services/companion/invalidation.js';
+import { dispatchOwnerPush } from '../../../services/push/notify.js';
 import { computeComprehensiveDayCloseReport } from '../../../services/reports/comprehensive-day-close.js';
 import { computeDayCloseChecklist } from '../../../services/reports/day-close-checklist.js';
 import {
@@ -64,18 +65,18 @@ export const dayCloseReportsRouter = router({
         operationId: criticalCtx.envelope.operationId,
         signature: input.signature,
       });
-      try {
-        broadcastCompanionInvalidation({
-          sse: criticalCtx.req?.server?.sse,
-          tenantId: criticalCtx.tenantId,
-          scope: 'day_close',
-        });
-      } catch (error) {
-        criticalCtx.req?.server?.log.warn(
-          { err: error, date: input.date },
-          'companion day-close invalidation failed (non-blocking)'
-        );
-      }
+      tryBroadcastCompanionInvalidation({
+        sse: criticalCtx.req?.server?.sse,
+        tenantId: criticalCtx.tenantId,
+        scope: 'day_close',
+        log: criticalCtx.req?.server?.log,
+      });
+      dispatchOwnerPush(criticalCtx.db, {
+        kind: 'day_sealed',
+        tenantId: criticalCtx.tenantId,
+        actorId: criticalCtx.user.id,
+        date: input.date,
+      });
       return signed;
     }),
 });

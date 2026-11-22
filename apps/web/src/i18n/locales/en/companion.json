@@ -9,7 +9,6 @@
     "offline": "Offline"
   },
   "shell": {
-    "product": "Puntovivo Companion",
     "readOnly": "Secure read-only view",
     "logout": "Log out"
   },
@@ -49,5 +48,136 @@
   "ticker": {
     "title": "Latest sales",
     "empty": "No sales yet today."
+  },
+  "push": {
+    "title": "Notifications on this phone",
+    "blocked": "The browser blocks them. Allow them in the site settings.",
+    "failed": "Could not change notifications. Try again."
+  },
+  "tabs": {
+    "label": "Sections",
+    "today": "Today",
+    "day": "Yesterday",
+    "registers": "Registers",
+    "more": "More"
+  },
+  "owner": {
+    "title": "Today",
+    "sold": "Sold today",
+    "changeUp": "{{percent}}% more than last {{weekday}}",
+    "changeDown": "{{percent}}% less than last {{weekday}}",
+    "salesCount_one": "{{count}} sale",
+    "salesCount_other": "{{count}} sales",
+    "yourCall": "Your call",
+    "waiting": "{{what}} is waiting for your approval",
+    "discountWhat": "Discount of {{amount}}",
+    "actionWhat": "{{label}} of {{amount}}",
+    "discountTo": "{{percent}} for {{customer}}",
+    "requestedBy": "asked by {{name}}",
+    "decide": "See and decide",
+    "nothingWaiting": "Nothing is waiting for your decision",
+    "morePending_one": "{{count}} more item is handled at the store",
+    "morePending_other": "{{count}} more items are handled at the store",
+    "loading": "Loading the day…",
+    "unavailable": "The day could not be loaded. Try again.",
+    "moreApprovals_one": "{{count}} more request is waiting for your decision",
+    "moreApprovals_other": "{{count}} more requests are waiting for your decision",
+    "queueUnavailable": "Your approvals could not be loaded. Try again."
+  },
+  "registers": {
+    "title": "Registers",
+    "register": "{{register}} · {{name}}",
+    "receivedFrom": "received from {{name}}, {{time}}",
+    "openedAt": "opened at {{time}}",
+    "openedBefore": "open since an earlier day",
+    "sales_one": "{{count}} sale",
+    "sales_other": "{{count}} sales",
+    "awaiting": "{{register}} · handed over by {{name}}",
+    "awaitingNobody": "{{time}} · waiting for someone to receive it",
+    "awaitingTo": "{{time}} · {{name}} receives it",
+    "closed": "{{register}} · closed and counted at {{time}}",
+    "closedUncounted": "{{register}} · closed without a count at {{time}}",
+    "empty": "No registers are open."
+  },
+  "decide": {
+    "blocks": "Blocking · the customer is waiting at {{place}}",
+    "discountTitle": "{{percent}} discount",
+    "items_one": "{{count}} item",
+    "items_other": "{{count}} items",
+    "approve": "Approve",
+    "approvePercent": "Approve {{percent}}",
+    "counter": "Leave it at {{percent}}",
+    "counterReason": "Leave it at {{percent}}",
+    "reject": "Reject",
+    "gone": "This request is no longer waiting for your decision.",
+    "close": "Close",
+    "loading": "Loading the request…",
+    "unavailable": "The request could not be loaded. Try again."
+  },
+  "day": {
+    "sealedAt": "Day closed · {{time}}",
+    "title": "{{weekday}} {{day}}, sealed",
+    "sold": "Sold",
+    "cash": "Cash to deposit",
+    "cashDetail_one": "{{count}} register counted",
+    "cashDetail_other": "{{count}} registers counted",
+    "difference": "Cash difference",
+    "explained": "Explained: {{reason}}",
+    "explainedMany_one": "{{count}} difference explained",
+    "explainedMany_other": "{{count}} differences explained",
+    "balanced": "The registers balanced",
+    "fiscal": "Electronic invoices",
+    "fiscalValue": "{{accepted}} of {{total}}",
+    "fiscalInProgress_one": "{{count}} in progress",
+    "fiscalInProgress_other": "{{count}} in progress",
+    "signedBy": "Signed by {{name}}",
+    "full": "See the full day",
+    "unsigned": "{{weekday}} {{day}} has not been signed",
+    "openClose": "Open the close",
+    "unavailable": "The signed day could not be loaded. Try again."
+  },
+  "morning": {
+    "greeting": {
+      "morning": "Good morning",
+      "afternoon": "Good afternoon",
+      "evening": "Good evening"
+    },
+    "yesterdaySealed": "Yesterday, sealed",
+    "yesterdayUnsigned": "Yesterday, not sealed",
+    "fiscalAcceptedAll_one": "Since the close, the DIAN accepted the one that was missing.",
+    "fiscalAcceptedAll_other": "Since the close, the DIAN accepted the {{count}} that were missing.",
+    "fiscalAccepted_one": "Since the close, the DIAN accepted {{count}} invoice.",
+    "fiscalAccepted_other": "Since the close, the DIAN accepted {{count}} invoices.",
+    "fiscalInProgress_one": "{{count}} invoice is still in process with the DIAN.",
+    "fiscalInProgress_other": "{{count}} invoices are still in process with the DIAN.",
+    "fiscalRejected_one": "The DIAN rejected {{count}} invoice.",
+    "fiscalRejected_other": "The DIAN rejected {{count}} invoices.",
+    "backupOk": "Backup OK.",
+    "backupFailed": "The last backup failed.",
+    "backupLate": "The last backup is from {{date}}.",
+    "beforeOpening": "Before opening",
+    "opensIn": "opens in {{minutes}} min",
+    "opensAt": "opens at {{time}}",
+    "closeYesterday": "Seal yesterday",
+    "closeAction": "Close",
+    "openRegisters": "Open {{registers}}",
+    "float": {
+      "single": "Suggested float {{amount}}",
+      "each": "Suggested float {{amount}} each",
+      "total": "Suggested float {{amount}} in total"
+    },
+    "openAction": "Open",
+    "carried": "Suspended sale carried over from yesterday",
+    "viewAction": "View",
+    "nothingBeforeOpening": "Nothing to do before opening",
+    "expected": "Expected today",
+    "expectedLike": "like last {{weekday}}: {{amount}}",
+    "peaks_one": "peak: {{times}}",
+    "peaks_other": "peaks: {{times}}",
+    "unavailable": "Yesterday's recap could not be loaded. Try again."
+  },
+  "more": {
+    "title": "More",
+    "openApp": "Open full Puntovivo"
   }
 }

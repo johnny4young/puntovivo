@@ -18,7 +18,11 @@
 
 export { openCashSession, type OpenedCashSessionRow } from './openCashSession.js';
 export { closeCashSession, type ClosedCashSessionRow } from './closeCashSession.js';
-export { recordCashMovement, type RecordedCashMovement } from './recordCashMovement.js';
+export {
+  insertAuditedCashMovement,
+  recordCashMovement,
+  type RecordedCashMovement,
+} from './recordCashMovement.js';
 export {
   listCashHandoffs,
   receiveCashHandoff,

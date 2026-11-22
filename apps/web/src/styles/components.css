@@ -589,6 +589,50 @@
     white-space: nowrap;
   }
 
+  .sales-unit-select {
+    width: auto;
+    max-width: 100%;
+    height: 1.625rem;
+    padding: 0 1.5rem 0 0.5rem;
+    border: 1.5px solid var(--line-strong);
+    border-radius: 0.5rem;
+    background-color: var(--card);
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--fg1);
+    cursor: pointer;
+  }
+
+  .sales-unit-chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.75rem;
+    padding: 0 0.625rem;
+    border: 1.5px solid var(--line);
+    border-radius: 999px;
+    background: var(--surface-2);
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+    color: var(--fg2);
+  }
+
+  .sales-unit-chip:hover {
+    border-color: var(--primary-600);
+  }
+
+  .sales-unit-chip[aria-pressed='true'] {
+    border-color: var(--primary-900);
+    background: color-mix(in oklch, var(--primary-900) 8%, var(--card));
+    color: var(--fg1);
+  }
+
+  .sales-unit-chip:focus-visible,
+  .sales-unit-select:focus-visible {
+    outline: 2px solid var(--primary-600);
+    outline-offset: 1px;
+  }
+
   /* Relative so screen-reader-only labels stay inside the strip when it scrolls. */
   .sales-register-strip {
     position: relative;
@@ -1005,6 +1049,133 @@
     scrollbar-width: none;
   }
 
+  /* Restaurant option chip; pressed means chosen. */
+  .modifier-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 2.75rem;
+    padding: 0 1rem;
+    border: 1.5px solid var(--line-strong);
+    border-radius: 0.875rem;
+    background: var(--card);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    white-space: nowrap;
+    color: var(--fg1);
+  }
+
+  .modifier-option small {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--fg2);
+  }
+
+  .modifier-option[aria-pressed='true'] {
+    border-color: var(--foreground);
+    background: var(--foreground);
+    color: var(--background);
+  }
+
+  .modifier-option[aria-pressed='true'] small {
+    color: inherit;
+  }
+
+  .modifier-option:focus-visible {
+    outline: 2px solid var(--primary-600);
+    outline-offset: 2px;
+  }
+
+  .modifier-option:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* Split sheet: one column per account, scrolling sideways past two. */
+  .split-sheet-columns {
+    display: grid;
+    gap: 1.5rem;
+    grid-template-columns: 1fr;
+  }
+
+  @media (min-width: 48rem) {
+    .split-sheet-columns {
+      grid-template-columns: repeat(var(--split-columns, 2), minmax(17rem, 1fr));
+      overflow-x: auto;
+    }
+  }
+
+  .split-sheet-account {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-height: 12rem;
+  }
+
+  .split-sheet-move {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.625rem;
+    background: color-mix(in oklch, var(--fg1) 8%, transparent);
+    color: var(--fg1);
+  }
+
+  .split-sheet-move:hover:not(:disabled) {
+    background: color-mix(in oklch, var(--fg1) 14%, transparent);
+  }
+
+  .split-sheet-move:focus-visible {
+    outline: 2px solid var(--primary-600);
+    outline-offset: 2px;
+  }
+
+  .split-sheet-move:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .dish-tile {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 0.75rem;
+    min-height: 5.25rem;
+    padding: 0.75rem;
+    border: 1px solid var(--line);
+    border-radius: 0.875rem;
+    background: var(--card);
+    color: var(--fg1);
+    text-align: left;
+  }
+
+  .dish-tile[aria-pressed='true'] {
+    border: 1.5px solid var(--primary-600);
+    background: var(--accent);
+  }
+
+  .dish-tile:focus-visible {
+    outline: 2px solid var(--primary-600);
+    outline-offset: 2px;
+  }
+
+  .dish-tile:disabled {
+    opacity: 0.6;
+    cursor: wait;
+  }
+
+  .dish-tile-dot {
+    width: 0.625rem;
+    height: 0.625rem;
+    flex: none;
+    margin-top: 0.25rem;
+    border-radius: 9999px;
+    background: oklch(0.62 0.14 var(--tile-hue));
+  }
+
   /* Composed with .sales-pill: a touch-sized, neutral chip. */
   .sales-quick-chip {
     flex: none;
@@ -1121,12 +1292,8 @@
       font-size: 1.1875rem;
     }
 
-    .sales-ticket-line:not([data-open='true']) :is(
-        .sales-ticket-meta,
-        .sales-ticket-qty,
-        .sales-ticket-remove,
-        .sales-ticket-details
-      ) {
+    .sales-ticket-line:not([data-open='true'])
+      :is(.sales-ticket-meta, .sales-ticket-qty, .sales-ticket-remove, .sales-ticket-details) {
       display: none;
     }
 
@@ -1195,13 +1362,10 @@
     padding-inline: 0.5rem;
   }
 
-  .sales-phone-key:disabled {
-    opacity: 0.5;
-  }
-
   /* Narrow phones drop the icons so the three names keep their size. */
   @media (max-width: 399px) {
-    .sales-phone-key > svg {
+    .sales-phone-key > svg,
+    .sales-phone-key .sales-credit-key-label > svg {
       display: none;
     }
   }
@@ -1317,6 +1481,81 @@
   .sales-quick-choose:hover {
     color: var(--fg1);
     text-decoration: underline;
+  }
+
+  .weighed-panel {
+    container-type: inline-size;
+    padding: 0.8rem 0.95rem;
+    border-radius: 1.125rem;
+    background: var(--accent);
+    color: var(--fg1);
+  }
+
+  .weighed-readout {
+    @apply font-numeric;
+    font-size: 1.625rem;
+    font-weight: 700;
+    line-height: 1.1;
+    white-space: nowrap;
+  }
+
+  .weighed-keys {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.625rem;
+  }
+
+  .weighed-key {
+    display: flex;
+    flex: 1 1 4.5rem;
+    align-items: center;
+    justify-content: center;
+    min-height: 3.25rem;
+    padding: 0 0.75rem;
+    border: 1.5px solid var(--line-strong);
+    border-radius: 0.875rem;
+    background: var(--card);
+    font-size: 1rem;
+    font-weight: 700;
+    white-space: nowrap;
+    color: var(--fg1);
+  }
+
+  .weighed-key.is-wide {
+    flex: 1.4 1 8rem;
+    font-size: 0.9rem;
+  }
+
+  /* Own row in a narrow panel; joins the keys when all six fit on one line. */
+  .weighed-key.is-scale {
+    flex-basis: 100%;
+    gap: 0.5rem;
+    font-size: 0.97rem;
+  }
+
+  @container (min-width: 42rem) {
+    .weighed-key.is-scale {
+      flex: 1.4 1 8rem;
+    }
+  }
+
+  .weighed-key:hover:not(:disabled) {
+    border-color: var(--primary-600);
+  }
+
+  .weighed-key:disabled {
+    opacity: 0.6;
+  }
+
+  .weighed-key:is(:disabled, [aria-busy='true']) {
+    cursor: progress;
+  }
+
+  .weighed-key:is([aria-pressed='true'], [data-on]) {
+    border-color: var(--fg1);
+    background: var(--fg1);
+    color: var(--card);
   }
 
   .sales-quick-key {
@@ -1444,6 +1683,8 @@
     height: 2.5rem;
     border-radius: 999px;
     background: var(--surface-3);
+    font-size: 0.875rem;
+    font-weight: 700;
     color: var(--fg2);
   }
 
@@ -1588,6 +1829,12 @@
   /* Charge drawer, cash state: the change is the largest figure. */
   .sale-pay-summary {
     container-type: inline-size;
+  }
+
+  .sale-pay-tip {
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--line);
   }
 
   .sale-pay-total-figure,
@@ -2517,6 +2764,194 @@
     .till-incident-tile > span:last-child {
       margin-top: 0;
     }
+  }
+
+  .sales-charge-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+    gap: 0.5rem;
+  }
+
+  /* Credit and delivery stack beside a full-height Cobrar. */
+  .sales-charge-side {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .sales-charge-side > * {
+    flex: 1;
+  }
+
+  .sales-charge-side:has(> :nth-child(2)) .sales-credit-key {
+    min-height: 2.75rem;
+  }
+
+  .sales-delivery-key {
+    gap: 0.375rem;
+    padding-inline: 0.5rem;
+    white-space: normal;
+    line-height: 1.15;
+  }
+
+  .sales-charge-row .sales-charge-key {
+    gap: 0.5rem;
+    padding-inline: 0.5rem;
+    font-size: 1.1875rem;
+    white-space: nowrap;
+  }
+
+  .sales-credit-key {
+    flex-direction: column;
+    gap: 0.125rem;
+    min-height: 4rem;
+    padding-inline: 0.375rem;
+    line-height: 1.2;
+  }
+
+  .sales-secondary-key[data-active] {
+    border-color: var(--primary-900);
+    background: color-mix(in oklch, var(--primary-900) 7%, var(--card));
+  }
+
+  .sales-secondary-key:disabled {
+    opacity: 0.5;
+  }
+
+  .sales-credit-key-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 1rem;
+  }
+
+  .sales-credit-key-projection {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0 0.25rem;
+    max-width: 100%;
+    font-size: 0.75rem;
+    text-align: center;
+    white-space: normal;
+    font-weight: 500;
+    color: var(--fg2);
+  }
+
+  .sales-credit-key-projection[data-over] {
+    color: var(--danger-700);
+  }
+
+  .sales-phone-key.sales-credit-key {
+    min-height: 2.875rem;
+    padding-block: 0.25rem;
+  }
+
+  .sales-phone-key .sales-credit-key-label {
+    font-size: 0.875rem;
+  }
+
+  .sales-phone-key .sales-credit-key-projection {
+    font-size: 0.6875rem;
+  }
+
+  .sales-avatar-sm {
+    width: 2rem;
+    height: 2rem;
+    font-size: 0.75rem;
+  }
+
+  .sales-account {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.625rem 0.75rem;
+    border: 1.5px solid var(--line);
+    border-radius: 0.875rem;
+    background: var(--card);
+  }
+
+  .sales-account-name {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  .sales-account-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .sales-account-meter {
+    flex: 1;
+    min-width: 2.5rem;
+    height: 0.4375rem;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--surface-3);
+  }
+
+  .sales-account-meter > span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--primary-900);
+  }
+
+  .sales-account-meter[data-over] > span {
+    background: var(--danger-600);
+  }
+
+  .sales-account-owed {
+    flex: none;
+    font-size: 0.8125rem;
+    white-space: nowrap;
+    color: var(--fg2);
+  }
+
+  .sales-account-owed b {
+    @apply font-numeric;
+    font-weight: 700;
+    color: var(--fg1);
+  }
+
+  .sales-account-pay {
+    flex: none;
+    min-height: 2.75rem;
+    padding-inline: 0.875rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  .sales-rx-missing {
+    border-color: var(--warning-500);
+    background: var(--warning-50);
+    color: var(--warning-700);
+  }
+
+  .sales-rx-icon {
+    display: inline-grid;
+    place-items: center;
+    flex: none;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 999px;
+    background: var(--primary-50);
+    color: var(--primary-700);
+  }
+
+  .sales-rx-notice {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.625rem 0.875rem;
+    border-radius: 0.875rem;
+    background: var(--surface-2);
+    font-size: 0.8125rem;
+    color: var(--fg2);
   }
 
   .sales-shortcut-strip {

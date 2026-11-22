@@ -1,14 +1,18 @@
-import { type ReactNode } from 'react';
+import { type ComponentProps, type ReactNode } from 'react';
 import { ListX, Undo2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { SaleCartTable } from '@/features/sales/SaleCartTable';
 import type { SaleCartItem } from '@/features/sales/saleCart';
+import type { PharmacyLineHint } from '@/features/sales/pharmacyRegister';
 import { ariaKeyshortcutsFor, shortcutDisplayFor } from '@/lib/shortcuts';
 
 interface SalesCartWorkspaceProps {
   items: SaleCartItem[];
   /** active POS site for the cart's suggestion badges. */
   discountSuggestionSiteId?: string | null;
+  pharmacyLines?: ReadonlyMap<string, PharmacyLineHint> | undefined;
+  onUnitChange?: ComponentProps<typeof SaleCartTable>['onUnitChange'];
+  priceTier?: ComponentProps<typeof SaleCartTable>['priceTier'];
   selectedItemKey: string | null;
   saleError: string | null;
   onQuantityChange: (itemKey: string, quantity: number) => void;
@@ -34,11 +38,16 @@ interface SalesCartWorkspaceProps {
   quickAccess?: ReactNode;
   /** Phones put the keys between the search and the ticket. */
   quickAccessFirst?: boolean;
+  /** The customer's account, right under the lines it would add to. */
+  account?: ReactNode;
 }
 
 export function SalesCartWorkspace({
   items,
   discountSuggestionSiteId = null,
+  pharmacyLines,
+  onUnitChange,
+  priceTier,
   selectedItemKey,
   saleError,
   onQuantityChange,
@@ -56,6 +65,7 @@ export function SalesCartWorkspace({
   banner,
   quickAccess,
   quickAccessFirst = false,
+  account,
 }: SalesCartWorkspaceProps) {
   const { t } = useTranslation('sales');
   // Unusable actions stay out of the row: a disabled key fails contrast and
@@ -114,18 +124,23 @@ export function SalesCartWorkspace({
         <SaleCartTable
           items={items}
           discountSuggestionSiteId={discountSuggestionSiteId}
+          pharmacyLines={pharmacyLines}
           selectedItemKey={selectedItemKey}
           onQuantityChange={onQuantityChange}
           onDiscountChange={onDiscountChange}
           onRemove={onRemove}
           onSelectItem={itemKey => onSelectItem(itemKey)}
           onSerialSelectionChange={onSerialSelectionChange}
+          onUnitChange={onUnitChange}
+          priceTier={priceTier}
           quantityInputRefFor={quantityInputRefFor}
           discountInputRefFor={discountInputRefFor}
           itemsLocked={itemsLocked}
           headerActions={headerActions}
         />
       </section>
+
+      {account && <div className="lg:shrink-0">{account}</div>}
 
       {saleError && (
         <div

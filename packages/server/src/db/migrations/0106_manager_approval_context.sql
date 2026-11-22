@@ -1,0 +1,1 @@
+ALTER TABLE `manager_approval_requests` ADD `decision_context` text;

@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { SaleCartTable } from '@/features/sales/SaleCartTable';
 import { render } from '@/test/utils';
 import type { SaleCartItem } from '@/features/sales/saleCart';
+import type { PharmacyLineHint } from '@/features/sales/pharmacyRegister';
 
 // the cart lines read the expiry-radar suggestions through this
 // hook (a trpc query underneath); mock it so the suite stays network-free.
@@ -102,7 +103,7 @@ describe('SaleCartTable', () => {
     };
     const { rerender } = render(<SaleCartTable {...props} selectedItemKey="product-1:unit-1" />);
     const line = screen.getByTestId('sale-cart-item-SKU-001');
-    const name = line.querySelector<HTMLButtonElement>('.sales-ticket-name')!;
+    const name = line.querySelector<HTMLButtonElement>('.sales-ticket-name > button')!;
     expect(line).toHaveAttribute('data-open', 'false');
 
     await user.click(name);
@@ -138,7 +139,7 @@ describe('SaleCartTable', () => {
     );
     const name = screen
       .getByTestId('sale-cart-item-SKU-001')
-      .querySelector<HTMLButtonElement>('.sales-ticket-name')!;
+      .querySelector<HTMLButtonElement>('.sales-ticket-name > button')!;
     await user.click(name);
     expect(name).not.toHaveAttribute('aria-expanded');
   });
@@ -476,5 +477,193 @@ describe('SaleCartTable', () => {
 
     expect(screen.getByTestId('cart-unit-presentation-SKU-001')).toHaveTextContent('Kilo × 1');
     expect(screen.getByRole('button', { name: /Kilo × 1/ })).toBeInTheDocument();
+  });
+});
+
+describe('SaleCartTable pharmacy lines', () => {
+  const lot = { lotNumber: 'L2311', expiresAt: '2027-08-20', daysToExpiry: 270, nearExpiry: false };
+
+  function renderLines(pharmacyLines: Map<string, PharmacyLineHint>) {
+    render(
+      <SaleCartTable
+        items={[
+          createCartItem({ productId: 'amox', productSku: 'AMOX', key: 'amox:u', discount: 0 }),
+          createCartItem({ productId: 'lora', productSku: 'LORA', key: 'lora:u', discount: 0 }),
+          createCartItem({ productId: 'clona', productSku: 'CLONA', key: 'clona:u', discount: 0 }),
+          createCartItem({ productId: 'water', productSku: 'WATER', key: 'water:u', discount: 0 }),
+        ]}
+        pharmacyLines={pharmacyLines}
+        selectedItemKey={null}
+        onQuantityChange={vi.fn()}
+        onDiscountChange={vi.fn()}
+        onRemove={vi.fn()}
+        onSelectItem={vi.fn()}
+        quantityInputRefFor={() => () => {}}
+        discountInputRefFor={() => () => {}}
+      />
+    );
+  }
+
+  it('shows the next lot, the class and the prescription state of each medicine', () => {
+    renderLines(
+      new Map<string, PharmacyLineHint>([
+        [
+          'amox',
+          {
+            classification: 'prescription',
+            nextLot: lot,
+            status: { kind: 'ready', approverName: 'Daniela Ortiz' },
+          },
+        ],
+        [
+          'lora',
+          {
+            classification: 'otc',
+            nextLot: { ...lot, lotNumber: 'L2402', daysToExpiry: 12, nearExpiry: true },
+            status: null,
+          },
+        ],
+        ['clona', { classification: 'controlled', nextLot: null, status: null }],
+      ])
+    );
+
+    expect(screen.getByTestId('cart-pharmacy-lot-AMOX')).toHaveTextContent(
+      'Lot L2311 · expires Aug 2027'
+    );
+    expect(screen.getByTestId('cart-pharmacy-class-AMOX')).toHaveTextContent('Prescription');
+    expect(screen.getByTestId('cart-pharmacy-status-AMOX')).toHaveTextContent(
+      'Prescription on file · approved by Daniela Ortiz'
+    );
+    expect(screen.getByTestId('cart-pharmacy-lot-LORA')).toHaveTextContent(
+      'Expires in 12 days · sell this lot first'
+    );
+    expect(screen.queryByTestId('cart-pharmacy-status-LORA')).not.toBeInTheDocument();
+    // A controlled line says so once, in its class.
+    expect(screen.getByTestId('cart-pharmacy-class-CLONA')).toHaveTextContent('Controlled');
+    expect(screen.queryByTestId('cart-pharmacy-status-CLONA')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('cart-pharmacy-WATER')).not.toBeInTheDocument();
+  });
+
+  it('warns when a prescription line has no prescription yet', () => {
+    renderLines(
+      new Map<string, PharmacyLineHint>([
+        ['amox', { classification: 'prescription', nextLot: null, status: { kind: 'missing' } }],
+      ])
+    );
+    expect(screen.getByTestId('cart-pharmacy-status-AMOX')).toHaveTextContent(
+      'Prescription missing'
+    );
+    expect(screen.queryByTestId('cart-pharmacy-lot-AMOX')).not.toBeInTheDocument();
+  });
+  describe('hardware lines', () => {
+    const quantityInputRefFor = () => () => {};
+    const discountInputRefFor = () => () => {};
+    const units = [
+      { unitId: 'm', unitName: 'Metre', equivalence: 1, price: 2150, isBase: true },
+      { unitId: 'roll', unitName: 'Roll', equivalence: 100, price: 198000, isBase: false },
+    ];
+    const baseProps = {
+      selectedItemKey: null,
+      onQuantityChange: vi.fn(),
+      onDiscountChange: vi.fn(),
+      onRemove: vi.fn(),
+      onSelectItem: vi.fn(),
+      quantityInputRefFor,
+      discountInputRefFor,
+    };
+    const cable = (overrides?: Partial<SaleCartItem>) =>
+      createCartItem({
+        key: 'cable:m',
+        productId: 'cable',
+        productName: 'THHN cable',
+        productSku: 'CAB-12',
+        unitId: 'm',
+        unitName: 'Metre',
+        unitDimension: 'length',
+        sellByFraction: true,
+        fractionStep: 0.1,
+        quantity: 37.5,
+        unitPrice: 2150,
+        discount: 0,
+        unitOptions: units,
+        ...overrides,
+      });
+
+    it('lets a line with several units switch unit in place, cut to measure', async () => {
+      const user = userEvent.setup();
+      const onUnitChange = vi.fn();
+      const onSelectItem = vi.fn();
+      render(
+        <SaleCartTable
+          {...baseProps}
+          items={[cable()]}
+          onSelectItem={onSelectItem}
+          onUnitChange={onUnitChange}
+        />
+      );
+      const picker = screen.getByRole('combobox', { name: 'Unit for THHN cable' });
+      expect(
+        within(picker)
+          .getAllByRole('option')
+          .map(option => option.textContent)
+      ).toEqual(['Metre', 'Roll × 100']);
+      await user.selectOptions(picker, 'roll');
+      expect(onUnitChange).toHaveBeenCalledWith('cable:m', 'roll');
+      // Picking a unit is not a tap on the line.
+      expect(onSelectItem).not.toHaveBeenCalled();
+      expect(screen.getByTestId('cart-cut-to-measure-CAB-12')).toHaveTextContent('cut to measure');
+    });
+
+    it('shows no picker while the ticket is locked, for one-unit products or without the zone', () => {
+      const { rerender } = render(
+        <SaleCartTable {...baseProps} items={[cable()]} onUnitChange={vi.fn()} itemsLocked />
+      );
+      expect(screen.queryByTestId('cart-unit-select-CAB-12')).not.toBeInTheDocument();
+      rerender(
+        <SaleCartTable
+          {...baseProps}
+          items={[cable({ unitOptions: undefined })]}
+          onUnitChange={vi.fn()}
+        />
+      );
+      expect(screen.queryByTestId('cart-unit-select-CAB-12')).not.toBeInTheDocument();
+      rerender(<SaleCartTable {...baseProps} items={[cable()]} />);
+      expect(screen.queryByTestId('cart-unit-select-CAB-12')).not.toBeInTheDocument();
+    });
+
+    it('strikes the list price beside a cheaper tier price and names service lines', () => {
+      render(
+        <SaleCartTable
+          {...baseProps}
+          priceTier={2}
+          items={[
+            createCartItem({
+              key: 'cement:bag',
+              productSku: 'CEM-50',
+              productName: 'Cement',
+              unitPrice: 31500,
+              catalogUnitPrice: 33900,
+              isBaseUnit: true,
+              tierPrices: { price: 33900, price2: 31500, price3: 30500 },
+              discount: 0,
+            }),
+            createCartItem({
+              key: 'cut:u',
+              productId: 'cut',
+              productSku: 'SRV-CUT',
+              productName: 'Pipe cut',
+              tracksStock: false,
+              discount: 0,
+            }),
+          ]}
+        />
+      );
+      const listPrice = screen.getByTestId('cart-list-price-CEM-50');
+      expect(listPrice.querySelector('s')).toHaveTextContent('$33,900.00');
+      expect(listPrice).toHaveTextContent('List price');
+      expect(screen.getByTestId('sale-cart-item-CEM-50')).toHaveTextContent('Price 2');
+      expect(screen.getByTestId('cart-service-SRV-CUT')).toHaveTextContent('Service');
+      expect(screen.queryByTestId('cart-list-price-SRV-CUT')).not.toBeInTheDocument();
+    });
   });
 });

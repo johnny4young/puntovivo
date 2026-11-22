@@ -17,7 +17,15 @@ export function shouldRegisterCompanionServiceWorker(
   );
 }
 
-export async function registerCompanionServiceWorker(): Promise<ServiceWorkerRegistration | null> {
+let registration: Promise<ServiceWorkerRegistration | null> | null = null;
+
+/** One registration per page load; the push card reuses the shell's. */
+export function registerCompanionServiceWorker(): Promise<ServiceWorkerRegistration | null> {
+  registration ??= registerOnce();
+  return registration;
+}
+
+async function registerOnce(): Promise<ServiceWorkerRegistration | null> {
   if (typeof window === 'undefined' || typeof navigator === 'undefined') return null;
 
   const environment: CompanionServiceWorkerEnvironment = {

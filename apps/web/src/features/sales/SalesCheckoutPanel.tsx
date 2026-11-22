@@ -1,4 +1,12 @@
-import { FileText, PauseCircle, TriangleAlert, Undo2, UserRound, WalletCards } from 'lucide-react';
+import {
+  FileText,
+  PauseCircle,
+  TriangleAlert,
+  Truck,
+  Undo2,
+  UserRound,
+  WalletCards,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   CheckoutPreflightPanel,
@@ -7,8 +15,13 @@ import {
 import { CashierPaceStrip } from '@/features/sales/CashierPaceStrip';
 import { SalesRegisterAssignmentField } from '@/features/sales/SalesRegisterAssignmentField';
 import { SalesTenderPicker } from '@/features/sales/SalesTenderPicker';
+import { SalesCreditKey } from '@/features/sales/SalesCreditKey';
+import { useHardwareCopy } from '@/features/sales/useHardwareCopy';
+import { initialsOf } from '@/features/sales/handoff/handoffModel';
+
 import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
 import { ariaKeyshortcutsFor, shortcutDisplayFor } from '@/lib/shortcuts';
+import { roundMoney } from '@/lib/money';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import type { CompletedSaleSummary } from '@/features/sales/SaleCompleteStrip';
 import type { InitialTender } from '@/features/sales/salePaymentModal.types';
@@ -27,6 +40,8 @@ interface SalesCheckoutPanelProps {
   draftSummary: SaleCartSummary;
   /** Number of ticket lines, next to the unit count. */
   lineCount?: number | undefined;
+  /** Ticket lines that need a prescription, named next to the item count. */
+  prescriptionLineCount?: number | undefined;
   /** Sum of the manual line discounts already inside the total. */
   discountAmount?: number | undefined;
   canCharge: boolean;
@@ -74,6 +89,19 @@ interface SalesCheckoutPanelProps {
   onOpenReturns?: (() => void) | undefined;
   onOpenIncident?: (() => void) | undefined;
   isIncidentOpen?: boolean | undefined;
+  /** The register sells on credit: Fiar sits beside Cobrar. */
+  showsCreditKey?: boolean | undefined;
+  /** Opens the charge drawer on credit; absent while the ticket cannot be charged. */
+  onCredit?: (() => void) | undefined;
+  /** What the customer would owe after this ticket; null while unknown. */
+  creditProjectedBalance?: number | null | undefined;
+  creditLimit?: number | undefined;
+  /** «Entregar en obra» sits in the charge row. */
+  showsDeliveryKey?: boolean | undefined;
+  /** Marks the ticket for delivery, or sends the sale just charged; absent when neither applies. */
+  onDelivery?: (() => void) | undefined;
+  /** The ticket goes out as a delivery once charged. */
+  deliveryActive?: boolean | undefined;
 }
 
 /** Characters of a condensed total that fit one line of the card. */
@@ -93,6 +121,7 @@ export function SalesCheckoutPanel({
   isCashSessionLoading,
   draftSummary,
   lineCount = 0,
+  prescriptionLineCount = 0,
   discountAmount = 0,
   canCharge,
   canOpenCashSession,
@@ -126,6 +155,13 @@ export function SalesCheckoutPanel({
   onOpenReturns,
   onOpenIncident,
   isIncidentOpen = false,
+  showsCreditKey = false,
+  onCredit,
+  creditProjectedBalance = null,
+  showsDeliveryKey = false,
+  onDelivery,
+  deliveryActive = false,
+  creditLimit = 0,
 }: SalesCheckoutPanelProps) {
   const { t } = useTranslation('sales');
   const priceIncludesTax = usePriceIncludesTax();
@@ -152,6 +188,12 @@ export function SalesCheckoutPanel({
   // Unavailable Suspend stays out of the tab order: a disabled key fails contrast.
   const showSuspendAction = !!onSuspend && canSuspend;
   const totalText = formatCurrency(draftSummary.total);
+  const consumptionTax = draftSummary.consumptionTaxAmount ?? 0;
+  const vatAmount = roundMoney(draftSummary.taxAmount - consumptionTax);
+  const creditKeyShown = !!cashSession && showsCreditKey;
+  const { t: th, ready: hardwareReady } = useHardwareCopy();
+  const deliveryKeyShown = !!cashSession && showsDeliveryKey && hardwareReady;
+  const sideKeysShown = creditKeyShown || deliveryKeyShown;
 
   return (
     <aside className="sales-settlement-dock" aria-labelledby="sales-dock-title">
@@ -161,7 +203,7 @@ export function SalesCheckoutPanel({
       <div className="sales-dock-top">
         <div className="flex items-center gap-3">
           <span className="sales-avatar" aria-hidden="true">
-            <UserRound className="h-5 w-5" />
+            {customerName ? initialsOf(customerName) : <UserRound className="h-5 w-5" />}
           </span>
           <div className="min-w-0 flex-1">
             <p
@@ -213,7 +255,14 @@ export function SalesCheckoutPanel({
             <span className="sales-cap">{t('sell.total.label')}</span>
             <span className="text-[13px] text-fg2">
               {t('sell.total.items', { count: draftSummary.itemCount })} ·{' '}
-              {t('sell.total.lines', { count: lineCount })}
+              {/* Medicines name their prescription lines; the label stays on one line in the dock. */}
+              {prescriptionLineCount > 0 ? (
+                <span data-testid="checkout-prescription-count">
+                  {t('sell.total.prescriptions', { count: prescriptionLineCount })}
+                </span>
+              ) : (
+                t('sell.total.lines', { count: lineCount })
+              )}
             </span>
           </div>
           <div
@@ -233,10 +282,18 @@ export function SalesCheckoutPanel({
                 <dd>−{formatCurrency(discountAmount)}</dd>
               </div>
             )}
-            <div>
-              <dt>{t(priceIncludesTax ? 'sell.total.taxIncluded' : 'checkout.vat')}</dt>
-              <dd>{formatCurrency(draftSummary.taxAmount)}</dd>
-            </div>
+            {(vatAmount > 0 || consumptionTax === 0) && (
+              <div>
+                <dt>{t(priceIncludesTax ? 'sell.total.taxIncluded' : 'checkout.vat')}</dt>
+                <dd>{formatCurrency(vatAmount)}</dd>
+              </div>
+            )}
+            {consumptionTax > 0 && (
+              <div data-testid="checkout-consumption-tax">
+                <dt>{t('sell.total.consumptionTaxIncluded')}</dt>
+                <dd>{formatCurrency(consumptionTax)}</dd>
+              </div>
+            )}
           </dl>
         </div>
 
@@ -418,30 +475,61 @@ export function SalesCheckoutPanel({
           />
         )}
 
-        <Button
-          className={cashSession ? 'sales-charge-key' : 'min-h-14 w-full text-base'}
-          onClick={primaryAction}
-          disabled={primaryActionDisabled}
-          data-testid="checkout-primary-action"
-          aria-keyshortcuts={ariaKeyshortcutsFor(
-            cashSession ? 'sales.charge' : 'sales.openCashSession'
+        <div className={sideKeysShown ? 'sales-charge-row' : 'contents'}>
+          <Button
+            className={cashSession ? 'sales-charge-key' : 'min-h-14 w-full text-base'}
+            onClick={primaryAction}
+            disabled={primaryActionDisabled}
+            data-testid="checkout-primary-action"
+            aria-keyshortcuts={ariaKeyshortcutsFor(
+              cashSession ? 'sales.charge' : 'sales.openCashSession'
+            )}
+            aria-describedby={hasVisibleBlocker ? PREFLIGHT_PRIMARY_ELEMENT_ID : undefined}
+            variant={cashSession ? 'charge' : 'primary'}
+            type="button"
+          >
+            {!cashSession && <WalletCards className="h-5 w-5" aria-hidden="true" />}
+            {cashSession
+              ? t('checkout.chargeSale')
+              : receivesSelected
+                ? t('cashSession.receiveAction', { register: receiveHandoff!.registerName })
+                : t('cashSession.openAction')}
+            {cashSession && !primaryActionDisabled && (
+              <kbd className="sales-charge-kbd" aria-hidden="true">
+                {shortcutDisplayFor('sales.charge')}
+              </kbd>
+            )}
+          </Button>
+          {sideKeysShown && (
+            <div className="sales-charge-side">
+              {creditKeyShown && (
+                <SalesCreditKey
+                  className="sales-secondary-key sales-credit-key"
+                  onClick={onCredit}
+                  disabled={!onCredit || isHubGated || preflightHasBlockers}
+                  projectedBalance={creditProjectedBalance}
+                  creditLimit={creditLimit}
+                  active={tender === 'credit'}
+                  testId="checkout-credit"
+                />
+              )}
+              {deliveryKeyShown && (
+                <button
+                  type="button"
+                  className="sales-secondary-key sales-delivery-key"
+                  onClick={onDelivery}
+                  disabled={!onDelivery}
+                  aria-pressed={deliveryActive}
+                  data-active={deliveryActive || undefined}
+                  data-testid="checkout-delivery"
+                >
+                  <Truck className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  {th('delivery.key')}
+                </button>
+              )}
+            </div>
           )}
-          aria-describedby={hasVisibleBlocker ? PREFLIGHT_PRIMARY_ELEMENT_ID : undefined}
-          variant={cashSession ? 'charge' : 'primary'}
-          type="button"
-        >
-          {!cashSession && <WalletCards className="h-5 w-5" aria-hidden="true" />}
-          {cashSession
-            ? t('checkout.chargeSale')
-            : receivesSelected
-              ? t('cashSession.receiveAction', { register: receiveHandoff!.registerName })
-              : t('cashSession.openAction')}
-          {cashSession && !primaryActionDisabled && (
-            <kbd className="sales-charge-kbd" aria-hidden="true">
-              {shortcutDisplayFor('sales.charge')}
-            </kbd>
-          )}
-        </Button>
+        </div>
 
         {(showSuspendAction || onOpenIncident || onOpenReturns) && (
           <div className="sales-park-row flex gap-1.5" data-testid="checkout-park-controls">

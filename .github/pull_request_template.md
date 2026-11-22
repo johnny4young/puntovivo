@@ -18,4 +18,4 @@
 
 - [ ] Conventional Commit title (`feat:`/`fix:`/`refactor:`/`docs:`/`chore:`/`ci:`/`test:`/`perf:`)
 - [ ] Ran the relevant CI gate locally (`ci:web` / `ci:server` / `ci:desktop`)
-- [ ] User-facing strings are internationalized (English + Spanish, `tú` register)
+- [ ] User-facing strings are internationalized (English + Spanish, `usted` register)

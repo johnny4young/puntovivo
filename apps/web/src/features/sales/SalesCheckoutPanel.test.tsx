@@ -51,6 +51,33 @@ describe('SalesCheckoutPanel dock', () => {
     expect(screen.getByTestId('checkout-savings')).toHaveTextContent(`−${formatCurrency(1_960)}`);
   });
 
+  it('counts prescription lines in place of the line count', () => {
+    renderDock({ prescriptionLineCount: 1 });
+    const total = within(screen.getByTestId('checkout-total'));
+    expect(total.getByTestId('checkout-prescription-count')).toHaveTextContent(
+      '1 with prescription'
+    );
+    expect(total.queryByText(/7 lines/)).not.toBeInTheDocument();
+  });
+
+  it('names the impoconsumo apart from VAT inside the tax', () => {
+    renderDock({
+      draftSummary: {
+        itemCount: 2,
+        subtotal: 20_000,
+        taxAmount: 2_700,
+        consumptionTaxAmount: 800,
+        total: 22_700,
+      },
+    });
+    expect(screen.getByText('Tax included').nextElementSibling).toHaveTextContent(
+      formatCurrency(1_900)
+    );
+    expect(screen.getByTestId('checkout-consumption-tax')).toHaveTextContent(
+      `Consumption tax included${formatCurrency(800)}`
+    );
+  });
+
   it('leaves discounts out of the breakdown when there are none', () => {
     renderDock();
     expect(screen.queryByTestId('checkout-savings')).not.toBeInTheDocument();
@@ -154,9 +181,7 @@ describe('SalesCheckoutPanel dock', () => {
         receiveHandoff={{ registerName: 'Caja 2', isSelectedRegister: false, open }}
       />
     );
-    expect(screen.getByTestId('checkout-primary-action')).toHaveAccessibleName(
-      'Open cash session'
-    );
+    expect(screen.getByTestId('checkout-primary-action')).toHaveAccessibleName('Open cash session');
     fireEvent.click(screen.getByTestId('sales-receive-handoff'));
     expect(open).toHaveBeenCalledTimes(2);
   });
@@ -259,5 +284,99 @@ describe('SalesCheckoutPanel dock', () => {
     expect(incident).toHaveAttribute('aria-expanded', 'false');
     fireEvent.click(incident);
     expect(onOpenIncident).toHaveBeenCalledOnce();
+  });
+
+  it('puts Fiar beside Cobrar with what the account would come to', () => {
+    const onCredit = vi.fn();
+    renderDock({
+      showsCreditKey: true,
+      onCredit,
+      customerName: 'Juan Pérez',
+      creditProjectedBalance: 171_720,
+      creditLimit: 150_000,
+    });
+
+    expect(screen.getByTestId('checkout-customer')).toHaveTextContent('Juan Pérez');
+    expect(screen.getByText('JP')).toBeInTheDocument();
+    expect(screen.queryByTestId('sales-tender-credit')).not.toBeInTheDocument();
+    expect(screen.getByTestId('checkout-credit-projection')).toHaveTextContent(
+      `would owe ${formatCurrency(171_720)}`
+    );
+    expect(screen.getByTestId('checkout-credit-projection')).toHaveAttribute('data-over', 'true');
+    fireEvent.click(screen.getByTestId('checkout-credit'));
+    expect(onCredit).toHaveBeenCalledTimes(1);
+  });
+
+  it('puts Entregar en obra in the charge row as a toggle for the ticket', () => {
+    const onDelivery = vi.fn();
+    const { rerender } = renderDock({ showsCreditKey: true, showsDeliveryKey: true, onDelivery });
+    const key = screen.getByTestId('checkout-delivery');
+    expect(key).toHaveAccessibleName('Deliver to job site');
+    expect(key).toHaveAttribute('aria-pressed', 'false');
+    expect(key.parentElement).toContainElement(screen.getByTestId('checkout-credit'));
+    fireEvent.click(key);
+    expect(onDelivery).toHaveBeenCalledOnce();
+
+    rerender(
+      <SalesCheckoutPanel
+        currentSite={null}
+        cashSession={CASH_SESSION}
+        registerAssignments={[]}
+        selectedRegisterAssignment={null}
+        isCashSessionLoading={false}
+        draftSummary={{ itemCount: 0, subtotal: 0, taxAmount: 0, total: 0 }}
+        canCharge={false}
+        canOpenCashSession={false}
+        canCloseCashSession
+        onCharge={vi.fn()}
+        onOpenCashSession={vi.fn()}
+        onCloseCashSession={vi.fn()}
+        onOpenMovement={vi.fn()}
+        onRegisterAssignmentChange={vi.fn()}
+        showsDeliveryKey
+        deliveryActive
+      />
+    );
+    expect(screen.getByTestId('checkout-delivery')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('checkout-delivery')).toBeDisabled();
+  });
+
+  it('shows no delivery key without the zone or with the register closed', () => {
+    const off = renderDock({ showsDeliveryKey: false, onDelivery: vi.fn() });
+    expect(screen.queryByTestId('checkout-delivery')).not.toBeInTheDocument();
+    off.unmount();
+    renderDock({ showsDeliveryKey: true, cashSession: null, onDelivery: vi.fn() });
+    expect(screen.queryByTestId('checkout-delivery')).not.toBeInTheDocument();
+  });
+
+  it('shows no Fiar key while the register does not sell on credit', () => {
+    renderDock({ showsCreditKey: false });
+    expect(screen.queryByTestId('checkout-credit')).not.toBeInTheDocument();
+  });
+
+  it('disables Fiar while the ticket cannot be charged and hides it with the register closed', () => {
+    const open = renderDock({ showsCreditKey: true });
+    expect(screen.getByTestId('checkout-credit')).toBeDisabled();
+    expect(screen.queryByTestId('checkout-credit-projection')).not.toBeInTheDocument();
+    open.unmount();
+
+    renderDock({ showsCreditKey: true, cashSession: null, onCredit: vi.fn() });
+    expect(screen.queryByTestId('checkout-credit')).not.toBeInTheDocument();
+  });
+
+  it('disables Fiar with Cobrar while a preflight blocker stands', () => {
+    renderDock({
+      showsCreditKey: true,
+      onCredit: vi.fn(),
+      preflightItems: [
+        {
+          id: 'cash_session_required',
+          severity: 'blocker',
+          messageKey: 'preflight.items.cash_session_required.message',
+        },
+      ],
+    });
+    expect(screen.getByTestId('checkout-primary-action')).toBeDisabled();
+    expect(screen.getByTestId('checkout-credit')).toBeDisabled();
   });
 });

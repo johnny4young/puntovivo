@@ -446,6 +446,11 @@ export const auditLogActionEnum = [
   'kds.order.voided',
   'kds.station.saved',
   'restaurant_modifier.save',
+  'restaurant_modifier_group.save',
+  'restaurant_service.bill_requested',
+  'restaurant_service.bill_request_cleared',
+  // Lines moved between the open checks of one table service.
+  'restaurant.checks.regrouped',
   'kds.routing.saved',
   'kds.routing.removed',
   // closure — credit-policy mutations. `customer.credit_limit.update`
@@ -622,6 +627,8 @@ export const auditLogResourceTypeEnum = [
   // kitchen display rows.
   'kds_order',
   'restaurant_modifier',
+  'restaurant_modifier_group',
+  'restaurant_service',
   'kds_configuration',
   // closure — customer rows targeted by credit-limit audits.
   // shipped the credit-sales feature without ever emitting

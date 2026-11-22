@@ -26,6 +26,8 @@ export interface ModalProps {
   children: ReactNode;
   /** Footer content (typically action buttons) */
   footer?: ReactNode | undefined;
+  /** Controls shown in the header between the title and the close button */
+  headerActions?: ReactNode | undefined;
   /** Modal size */
   size?: 'sm' | 'md' | 'lg' | 'xl' | 'full' | undefined;
   /** Close on backdrop click */
@@ -72,6 +74,7 @@ export function Modal({
   ariaLabelledBy,
   children,
   footer,
+  headerActions,
   size = 'md',
   closeOnBackdrop = true,
   closeOnEsc = true,
@@ -116,7 +119,7 @@ export function Modal({
     >
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-secondary-950/60 backdrop-blur-sm animate-fade-in"
+        className="fixed inset-0 bg-scrim/60 backdrop-blur-sm animate-fade-in"
         onClick={handleBackdropClick}
         aria-hidden="true"
       />
@@ -133,7 +136,7 @@ export function Modal({
       >
         {/* Header */}
         {(title || showCloseButton) && (
-          <div className="modal-header">
+          <div className={cn('modal-header', headerActions && 'flex-wrap sm:flex-nowrap')}>
             {title && (
               <h2
                 id={titleId}
@@ -141,6 +144,11 @@ export function Modal({
               >
                 {title}
               </h2>
+            )}
+            {headerActions && (
+              <div className="order-last basis-full sm:order-none sm:ml-auto sm:basis-auto">
+                {headerActions}
+              </div>
             )}
             {showCloseButton && (
               <Button

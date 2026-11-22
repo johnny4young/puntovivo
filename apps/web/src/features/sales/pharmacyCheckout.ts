@@ -1,3 +1,5 @@
+import type { PharmacyClassification } from '@/types';
+
 export interface EligiblePharmacyEvidence {
   id: string;
   remainingQuantity: number;
@@ -6,7 +8,7 @@ export interface EligiblePharmacyEvidence {
 export interface PharmacyCheckoutRequirement {
   productId: string;
   productName: string;
-  classification: 'otc' | 'prescription' | 'controlled';
+  classification: PharmacyClassification;
   requestedQuantity: number;
   policyVersion: string;
   evidenceRequired: boolean;
@@ -20,6 +22,25 @@ export interface PharmacyCheckoutRequirement {
 }
 
 const QUANTITY_EPSILON = 1e-9;
+
+/** Input of pharmacy.checkoutRequirements; the drawer and the ticket share its cache. */
+export function pharmacyCheckoutInput(
+  items: ReadonlyArray<{
+    productId: string;
+    quantity: number;
+    unitEquivalence?: number | undefined;
+  }>,
+  customerId: string | null
+) {
+  return {
+    customerId,
+    items: items.map(item => ({
+      productId: item.productId,
+      quantity: item.quantity,
+      unitEquivalence: item.unitEquivalence ?? 1,
+    })),
+  };
+}
 
 export function selectedEvidenceCoversRequirement(
   requirement: PharmacyCheckoutRequirement,

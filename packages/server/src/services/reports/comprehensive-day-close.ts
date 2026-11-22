@@ -47,6 +47,32 @@ const FISCAL_STATUSES: readonly FiscalDocumentStatus[] = [
   'partial_send',
 ];
 
+/** Sent or queued and not yet decided by the authority. */
+const FISCAL_IN_PROGRESS_STATUSES = [
+  'pending',
+  'sent',
+  'contingency',
+  'notified_correction',
+  'partial_send',
+] as const satisfies readonly FiscalDocumentStatus[];
+
+export function countFiscalInProgress(byStatus: Record<FiscalDocumentStatus, number>): number {
+  return FISCAL_IN_PROGRESS_STATUSES.reduce((sum, status) => sum + byStatus[status], 0);
+}
+
+/** Documents a business day reports: emitted inside its window, whatever their status now. */
+export function fiscalDocumentsInWindow(
+  tenantId: string,
+  startIso: string,
+  endExclusiveIso: string
+) {
+  return and(
+    eq(fiscalDocuments.tenantId, tenantId),
+    gte(fiscalDocuments.emittedAt, startIso),
+    lt(fiscalDocuments.emittedAt, endExclusiveIso)
+  );
+}
+
 const ANOMALY_KINDS: readonly AnomalyKind[] = [
   'ticketsPerHourSpike',
   'voidRate',
@@ -124,7 +150,7 @@ export interface ComputeComprehensiveDayCloseInput {
   now?: Date;
 }
 
-function zeroFiscalStatusCounts(): Record<FiscalDocumentStatus, number> {
+export function zeroFiscalStatusCounts(): Record<FiscalDocumentStatus, number> {
   return Object.fromEntries(FISCAL_STATUSES.map(status => [status, 0])) as Record<
     FiscalDocumentStatus,
     number
@@ -230,13 +256,7 @@ export async function computeComprehensiveDayCloseReport(
       amount: sql<number>`coalesce(sum(${fiscalDocuments.totalAmount}), 0)`,
     })
     .from(fiscalDocuments)
-    .where(
-      and(
-        eq(fiscalDocuments.tenantId, input.tenantId),
-        gte(fiscalDocuments.emittedAt, startIso),
-        lt(fiscalDocuments.emittedAt, endExclusiveIso)
-      )
-    )
+    .where(fiscalDocumentsInWindow(input.tenantId, startIso, endExclusiveIso))
     .groupBy(fiscalDocuments.status, fiscalDocuments.source)
     .all();
 
@@ -326,16 +346,7 @@ export async function computeComprehensiveDayCloseReport(
   if (closedSessionRows.some(isUnexplainedDifference)) blockers.push('unexplained_differences');
   if (unresolvedDrafts > 0) blockers.push('unresolved_drafts');
   if (discrepancySessions > 0) warnings.push('cash_discrepancies');
-  if (
-    fiscalByStatus.pending +
-      fiscalByStatus.sent +
-      fiscalByStatus.contingency +
-      fiscalByStatus.notified_correction +
-      fiscalByStatus.partial_send >
-    0
-  ) {
-    warnings.push('fiscal_pending');
-  }
+  if (countFiscalInProgress(fiscalByStatus) > 0) warnings.push('fiscal_pending');
   if (fiscalByStatus.rejected > 0) warnings.push('fiscal_rejected');
   if (highAnomalies > 0) warnings.push('high_anomalies');
   // Coverage gaps remain explicit but follow actionable reconciliation risks.

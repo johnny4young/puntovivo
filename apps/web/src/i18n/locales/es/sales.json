@@ -339,18 +339,18 @@
     "notes": "Notas",
     "notesHint": "Comentarios opcionales para la venta",
     "tip": {
-      "heading": "Propina",
+      "heading": "Propina voluntaria",
       "presetZero": "Sin propina",
-      "presetPercentage": "{{percentage}}%",
-      "customLabel": "Monto personalizado",
-      "grandTotalBreakdown": "Base {{base}} + propina {{tip}}"
+      "presetPercentage": "{{percentage}} %",
+      "custom": "Otro valor",
+      "customLabel": "Valor de la propina"
     },
+    "consumption": "Consumo {{amount}}",
+    "consumptionTaxIncluded": "Impoconsumo incluido {{amount}}",
     "serviceCharge": {
       "heading": "Servicio",
       "helper": "Se aplica automáticamente al subtotal.",
-      "rateLabel": "Servicio ({{rate}}%)",
-      "grandTotalBreakdownOnly": "Base {{base}} + servicio {{service}}",
-      "grandTotalBreakdownWithTip": "Base {{base}} + servicio {{service}} + propina {{tip}}"
+      "rateLabel": "Servicio ({{rate}}%)"
     },
     "lockedCustomer": "Cliente de la cotización",
     "confirmPartialAmount": "Confirmar venta con pago parcial · faltan {{amount}}",
@@ -905,8 +905,12 @@
     "storeCreditBalance": "{{amount}} en crédito de tienda"
   },
   "quotationCart": {
-    "banner": "Cobro de la cotización {{quotationNumber}}",
-    "bannerHint": "Los productos, cantidades, precios, descuentos, cliente y tarifa corresponden a la cotización aceptada y están bloqueados. Seleccione las series requeridas y elija el pago.",
+    "banner": "Viene de la cotización {{quotationNumber}} · precios y condiciones bloqueados",
+    "bannerHint": "Seleccione las series requeridas antes de cobrar.",
+    "expiresIn_one": "vence en {{count}} día",
+    "expiresIn_other": "vence en {{count}} días",
+    "expiresToday": "vence hoy",
+    "expired": "vencida",
     "workspaceLabel": "Cotización {{quotationNumber}}"
   },
   "exchangeCart": {
@@ -951,8 +955,10 @@
       "items_other": "{{count}} artículos",
       "lines_one": "{{count}} línea",
       "lines_other": "{{count}} líneas",
+      "prescriptions": "{{count}} con fórmula",
       "savings": "Descuentos",
-      "taxIncluded": "IVA incluido"
+      "taxIncluded": "IVA incluido",
+      "consumptionTaxIncluded": "Impoconsumo incluido"
     },
     "ready": {
       "title": "Todo listo para cobrar",
@@ -980,7 +986,8 @@
       "returns": "Devolución",
       "credit": "Fiar",
       "suspended": "Suspendidas",
-      "incident": "Novedad"
+      "incident": "Novedad",
+      "onAccount": "A crédito"
     },
     "keys": {
       "shortest": "Camino más corto:",
@@ -996,6 +1003,17 @@
     "phone": {
       "total_one": "Total · {{count}} artículo",
       "total_other": "Total · {{count}} artículos"
+    },
+    "credit": {
+      "wouldOwe": "quedaría en {{amount}}",
+      "owesAfter": "queda en {{amount}}",
+      "overLimit": "supera el cupo"
+    },
+    "account": {
+      "owes": "debe",
+      "ofLimit": "de {{limit}}",
+      "inFavor": "saldo a favor",
+      "pay": "Abonar"
     }
   }
 }

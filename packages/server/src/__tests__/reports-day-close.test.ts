@@ -1,6 +1,6 @@
 /** -141b — comprehensive day-close report and immutable sign-off integration. */
 
-import { createHash } from 'node:crypto';
+import { createECDH, createHash, randomBytes } from 'node:crypto';
 import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createServer, type PuntovivoServer } from '../index.js';
@@ -22,6 +22,9 @@ import {
   users,
 } from '../db/schema.js';
 import { registerDevice } from '../services/devices/devicesService.js';
+import { configureWebPushKey } from '../services/push/key-store.js';
+import { configureOwnerPushDelivery, settleOwnerPush } from '../services/push/notify.js';
+import { savePushSubscription } from '../services/push/subscriptions.js';
 import { hashStaffPin } from '../security/staffPins.js';
 import { signAccessToken } from '../security/authTokens.js';
 import { appRouter } from '../trpc/router.js';
@@ -618,6 +621,50 @@ describe('reports.dayClose.preview', () => {
     });
   });
 
+  it('tells the opted-in admin, not the signer, that the day is sealed', async () => {
+    const tenant = await seedTenant('signoff-push');
+    const db = getDatabase();
+    await db
+      .update(tenants)
+      .set({ settings: { modules: { companion: true } } })
+      .where(eq(tenants.id, tenant.tenantId));
+    const sent: string[] = [];
+    configureWebPushKey('e'.repeat(64));
+    configureOwnerPushDelivery({
+      resolver: async () => [{ address: '93.184.216.34', family: 4 }],
+      transport: async request => {
+        sent.push(request.url.href);
+        return { status: 201 };
+      },
+    });
+    try {
+      for (const [userId, endpoint] of [
+        [tenant.adminId, 'https://push.example.test/admin'],
+        [tenant.managerId, 'https://push.example.test/signer'],
+      ] as const) {
+        savePushSubscription(db, {
+          tenantId: tenant.tenantId,
+          userId,
+          endpoint,
+          keys: {
+            p256dh: createECDH('prime256v1').generateKeys().toString('base64url'),
+            auth: randomBytes(16).toString('base64url'),
+          },
+          language: 'es',
+        });
+      }
+      const manager = await createCriticalActor(tenant, tenant.managerId, 'manager');
+      await appRouter
+        .createCaller(manager.fresh())
+        .reports.dayClose.signOff({ date: '2026-07-14', attestationAccepted: true });
+      await settleOwnerPush();
+      expect(sent).toEqual(['https://push.example.test/admin']);
+    } finally {
+      configureOwnerPushDelivery();
+      configureWebPushKey(undefined);
+    }
+  });
+
   it('reports an unsigned day as null rather than an error', async () => {
     const tenant = await seedTenant('signoff-meta-null');
     const reader = appRouter.createCaller(context(tenant.tenantId, tenant.managerId, 'manager'));
@@ -1022,6 +1069,7 @@ describe('reports.dayClose.preview', () => {
       expect(checklist.sessions).toEqual([
         expect.objectContaining({
           id: 'dcr-guided-short',
+          siteId: tenant.siteId,
           registerName: 'Caja 1',
           cashierName: 'Cashier guided',
           status: 'closed',

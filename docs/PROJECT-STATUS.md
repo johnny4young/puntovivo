@@ -22,8 +22,10 @@ The current validated candidate includes:
 - barcode-first sales, suspended carts, split tenders, normalized full or
   partial returns by line and quantity, linked replacement sales for exchanges,
   customer store-credit issuance and redemption, loyalty earning and
-  redemption, voids, receipt reprints, credit sales, manager approval controls,
-  server-authoritative percentage promotions with explicit lifecycle and
+  redemption, voids, receipt reprints, credit sales, manager approval controls
+  whose checkout requests show the approver the requester's discount limit, the
+  sale's margin with and without the discount, and the customer's usual cadence
+  and discount, server-authoritative percentage promotions with explicit lifecycle and
   frozen line evidence, and a
   human-controlled WhatsApp receipt handoff that renders text plus an optional
   local PNG without background delivery;
@@ -36,9 +38,20 @@ The current validated candidate includes:
 - one focused state per tender in the charge: a split lists each method with its
   reference and fills what is left or half and half; a credit sale shows the
   customer's debt against the cupo, takes part in cash now and names both
-  amounts on Confirm; the electronic invoice keeps the NIT and its
+  amounts on Confirm. On the register itself the customer's debt and cupo sit
+  under the ticket with Abonar, which takes the payment into the open drawer
+  as cash, and Fiar (A crédito for hardware) beside Cobrar says what the
+  account would come to; the electronic invoice keeps the NIT and its
   verification digit apart, fills a saved buyer from the typed number and says
   the invoice queues when offline;
+- hardware selling on the register: product search names the site with the
+  most stock after this one and lists the other units with their price, each
+  one a tap from being picked; a ticket line switches unit in place, marks
+  products cut to measure and service lines, and strikes the list price beside
+  a cheaper tier price. A ticket from a quotation says prices and terms are
+  locked and how many days the quotation still holds, and Entregar en obra
+  sends the charged sale out as a delivery with the customer's address filled
+  in. Measured lines count as one article;
 - selling from a phone: a search field with a camera scan button that reads
   retail barcodes on the device in any secure phone browser, with a torch where
   the camera has one, the site's quick keys as chips, one
@@ -171,6 +184,11 @@ The current validated candidate includes:
   manager, each on a fixed letter. Stockout, barcode, price and call reports
   land on the manager's Today pending queue until resolved, a stockout with the
   other site holding the most stock, and the sheet names today's last incident;
+- by-weight products ask how much they weighed when tapped or picked on the
+  register and the touch POS: quarter, half and one kilogram keys, a sale by
+  value that buys the quantity to 0.001 at the line's price after tier,
+  discount and tax, or a typed weight, with a live weight and amount readout. Picking another weight
+  corrects the same line. The weight and value register zone turns it on;
 - transfer destinations per site: Bre-B keys, Nequi and Daviplata numbers and
   bank accounts, up to six, each with a label the administrator chooses and
   edits under payment settings. Charging by transfer shows the site's QR for
@@ -213,7 +231,8 @@ The current validated candidate includes:
   settle a normalized check while generic retail drafts remain private; the
   receipt and audit retain distinct opener and settlement identities. Table
   catalogs search on the server before deterministic pagination, the floor map
-  reads the bounded complete active catalog, and suspended work pages through
+  reads a bounded summary of every active table with its seated time, amount,
+  party, checks, unsent round, staff-set bill request and next reservation, and suspended work pages through
   the complete recoverable result set instead of hiding excess rows. Fresh and
   resumed drafts record actor-and-device claims; every lifecycle mutation
   enforces the active actor, logout parks all actor claims, and staff switch
@@ -250,6 +269,9 @@ The current validated candidate includes:
   prescription evidence, deterministic quantity consumption, immutable
   dispensations, append-only lot-state events, quarantine, cold-chain incident,
   recall, release, destruction, supplier return, and affected-sale lookup.
+  At the register, medicine search results and ticket lines show the FEFO lot,
+  near-expiry lots to sell first, the sale class and cheaper equivalents, and
+  each prescription line shows its approved evidence before Cobrar.
   Colombia v1 permits OTC and requires current customer, evidence, and an
   effective authorized employee for prescription products. Controlled
   medicines and prescription operation in countries without a reviewed adapter
@@ -318,7 +340,18 @@ The current validated candidate includes:
   invalidation. It exposes bounded sales/attention summaries and
   integrity-verified day-close signature metadata, caches only versioned app
   shell assets, and hides operational data offline instead of presenting a
-  cached read as current. It is a read-only PWA, not an offline sales app;
+  cached read as current. It is not an offline sales app. Viewers keep the
+  read-only pulse; admins and managers get the owner's phone: today's sales
+  against last week, the approval waiting on them with its decision context
+  (approve, counter at the customer's usual discount, or reject with their
+  PIN), the registers, and the sealed day with its figures and signature.
+  Before the store opens, Hoy becomes a morning recap: yesterday's seal, what
+  the DIAN accepted or rejected since it, whether the scheduled backup ran,
+  the registers to open with their suggested float, sales carried over from
+  yesterday, and today's expected curve from the same weekday last week.
+  They can opt in per phone to encrypted web push when an approval waits, a
+  register handoff is received or the day is sealed, and a notification opens
+  the matching screen;
 - optional tenant-scoped outbound webhooks for a small versioned business-event
   contract, with fixed HTTPS destinations, encrypted one-time signing secrets,
   HMAC signatures, stable idempotency keys, bounded retry and dead-letter
@@ -450,10 +483,14 @@ The current validated candidate includes:
   product identity, policy, evidence, recall, and lot custody atomically.
 - Durable kitchen notification is at least once and requires polling/reconnect;
   a local broadcast acknowledgement is not proof of physical screen or printer
-  delivery. The restaurant line editor supports the existing bounded modifier
-  list. Managers configure versioned, site-local add-ons from the UI; cashier
-  surcharges require an exact active catalog reference checked inside the sale
-  transaction. Free-form zero-price instructions remain available, while custom
+  delivery. Managers configure versioned, site-local add-ons from the UI and
+  group them per dish (preparation, without, extras) with required and maximum
+  choices that orders must meet. The ordering screen opens one sheet per plate
+  with the diner, those groups, the course and a kitchen note, and lists the
+  table's sent rounds above the round being built. Each sent round opens its
+  own check on the table's service; adding a round to an existing check is not
+  built. Cashier surcharges require an exact active catalog reference
+  checked inside the sale transaction. Free-form instructions go in the plate's kitchen note, while custom
   charges and restricted add-ons require a manager/admin. Catalog edits and
   archival do not alter accepted orders. Reservation scheduling
   cannot guarantee that a prior table service finishes on time. The signed external
@@ -476,6 +513,8 @@ The current validated candidate includes:
   integer-cent carrying values preserve fractional allocation residuals through
   supported stock mutations; a lot's displayed unit cost remains a two-decimal
   value and must not be used to reconstruct that authoritative carrying value.
+  The desktop app reads a serial scale into the weight panel (continuous,
+  Toledo 8217 and ENQ protocols); no scale model is qualified yet.
   Physical scales, scanners, variable-measure label layouts, and legal metrology still require
   representative-device validation; country labels in configuration currently
   share the generic parser and do not certify a national convention. A scale's

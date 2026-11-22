@@ -5,11 +5,23 @@ import { TRPCError } from '@trpc/server';
 
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { auditLogs, cashSessionHandoffs, cashSessions, sales, sites, users } from '../db/schema.js';
+import { createECDH, randomBytes } from 'node:crypto';
+import {
+  auditLogs,
+  cashSessionHandoffs,
+  cashSessions,
+  sales,
+  sites,
+  tenants,
+  users,
+} from '../db/schema.js';
 import { ServerErrorWithCode } from '../lib/errorCodes.js';
 import { hashStaffPin } from '../security/staffPins.js';
 import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
 import { computeOperationsToday } from '../services/operations/today.js';
+import { configureWebPushKey } from '../services/push/key-store.js';
+import { configureOwnerPushDelivery, settleOwnerPush } from '../services/push/notify.js';
+import { savePushSubscription } from '../services/push/subscriptions.js';
 import { appRouter } from '../trpc/router.js';
 import { makeFreshContextFactory } from './utils/criticalCommandFixture.js';
 
@@ -422,6 +434,74 @@ describe('register handoff', () => {
     expect(
       (await computeOperationsToday(db, tenantId)).awaitingHandoffs.map(row => row.id)
     ).toContain(handoff.id);
+  });
+  it('tells an opted-in manager once the drawer changed hands', async () => {
+    const db = getDatabase();
+    const fromId = nanoid();
+    const toId = nanoid();
+    roleOf[fromId] = 'cashier';
+    roleOf[toId] = 'cashier';
+    for (const [id, name] of [
+      [fromId, 'Laura Gómez'],
+      [toId, 'Pedro Gil'],
+    ] as const) {
+      db.insert(users)
+        .values({
+          id,
+          tenantId,
+          email: `${id}@handoff.test`,
+          passwordHash: 'x',
+          name,
+          role: 'cashier',
+        })
+        .run();
+    }
+    db.update(tenants)
+      .set({ settings: { modules: { companion: true } } })
+      .where(eq(tenants.id, tenantId))
+      .run();
+    const sent: string[] = [];
+    configureWebPushKey('d'.repeat(64));
+    configureOwnerPushDelivery({
+      resolver: async () => [{ address: '93.184.216.34', family: 4 }],
+      transport: async request => {
+        sent.push(request.url.href);
+        return { status: 201 };
+      },
+    });
+    try {
+      const receiver = createECDH('prime256v1');
+      savePushSubscription(db, {
+        tenantId,
+        userId: staff.manager,
+        endpoint: 'https://push.example.test/manager',
+        keys: {
+          p256dh: receiver.generateKeys().toString('base64url'),
+          auth: randomBytes(16).toString('base64url'),
+        },
+        language: 'es',
+      });
+
+      await openRegister(fromId, 'Caja Avisos');
+      const handoff = await as(fromId).cashSessions.startHandoff({
+        actualCount: 200000,
+        denominations: [{ value: 50000, count: 4 }],
+      });
+      await settleOwnerPush();
+      expect(sent).toEqual([]);
+
+      await as(toId).cashSessions.receiveHandoff({
+        handoffId: handoff.id,
+        mode: 'counted_drawer',
+        count: 200000,
+        denominations: [{ value: 50000, count: 4 }],
+      });
+      await settleOwnerPush();
+      expect(sent).toEqual(['https://push.example.test/manager']);
+    } finally {
+      configureOwnerPushDelivery();
+      configureWebPushKey(undefined);
+    }
   });
 });
 

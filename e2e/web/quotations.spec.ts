@@ -137,7 +137,9 @@ test.describe('web quotations', () => {
       .getByRole('button', { name: 'Convert to sale' })
       .click();
     await expect(page).toHaveURL(/\/sales$/);
-    await expect(page.getByText(`Charging quotation ${quotationNumber}`)).toBeVisible();
+    await expect(page.getByTestId('quotation-cart-banner')).toContainText(
+      `From quotation ${quotationNumber} · prices and terms locked`
+    );
     await expect(page.getByTestId(`sale-cart-item-${scenario.product.sku}`)).toBeVisible();
     await expect(page.locator('#sales-product-search-input')).toBeDisabled();
     const productSearchButton = page.getByRole('button', { name: 'Search', exact: true });

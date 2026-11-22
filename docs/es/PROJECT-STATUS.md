@@ -24,7 +24,10 @@ El candidato validado actual incluye:
   devoluciones normalizadas totales o parciales por línea y cantidad, ventas de
   reemplazo vinculadas para cambios, emisión y uso de saldo a favor del cliente,
   acumulación y canje de puntos de fidelidad, anulaciones, reimpresión de recibos,
-  ventas a crédito, controles de aprobación del gerente, promociones porcentuales
+  ventas a crédito, controles de aprobación del gerente cuyas solicitudes de cobro
+  muestran a quien aprueba el límite de descuento de quien pide, el margen de la
+  venta con y sin el descuento y la frecuencia y el descuento habituales del
+  cliente, promociones porcentuales
   cuya autoridad reside en el servidor con ciclo de vida explícito y evidencia
   congelada por línea, y entrega de recibos por WhatsApp controlada por una persona,
   que genera texto y un PNG local opcional sin envío en segundo plano;
@@ -37,9 +40,20 @@ El candidato validado actual incluye:
 - un estado enfocado por medio en el cobro: varios medios lista cada uno con su
   referencia y completa lo que falta o mitad y mitad; una venta a crédito muestra
   la deuda del cliente frente al cupo, recibe un abono en efectivo y nombra ambos
-  montos en Confirmar; la factura electrónica separa el NIT de su dígito de
+  montos en Confirmar. En la caja misma, la deuda y el cupo del cliente van bajo
+  el ticket con Abonar, que recibe el pago en efectivo en la caja abierta, y Fiar
+  (A crédito en ferretería) junto a Cobrar dice en cuánto quedaría la cuenta; la
+  factura electrónica separa el NIT de su dígito de
   verificación, completa un cliente guardado desde el número digitado y avisa que
   la factura queda en cola sin conexión;
+- vender en ferretería: la búsqueda de productos nombra la sede con más
+  existencias después de esta y lista las otras unidades con su precio, cada
+  una a un toque de quedar elegida; una línea del ticket cambia de unidad en el
+  mismo lugar, marca los productos de corte a medida y los servicios, y tacha
+  el precio de lista junto a un precio de tarifa más bajo. Un ticket que viene
+  de una cotización dice que precios y condiciones están bloqueados y cuántos
+  días le quedan, y Entregar en obra envía la venta cobrada como entrega con la
+  dirección del cliente ya escrita. Las líneas medidas cuentan como un artículo;
 - vender desde el teléfono: un buscador con botón de escaneo por cámara que lee
   códigos de retail en el dispositivo desde cualquier navegador seguro del
   teléfono, con linterna si la cámara la tiene, las teclas rápidas de la sede como
@@ -190,6 +204,11 @@ El candidato validado actual incluye:
   de agotado, sin código, precio y llamado llegan a la cola Pendiente de Hoy del
   encargado hasta que los resuelve, el agotado con la otra sede que más tiene, y
   la hoja nombra la última novedad del día;
+- los productos por peso preguntan cuánto pesaron al tocarlos o elegirlos en la
+  caja y en el POS táctil: teclas de un cuarto, medio y un kilogramo, una venta
+  por valor que compra la cantidad a 0,001 al precio de la línea con tarifa,
+  descuento e impuesto, o el peso escrito, con la lectura en vivo del peso y el monto. Elegir otro peso corrige
+  la misma línea. Lo enciende la zona de peso y valor de la caja;
 - destinos de transferencia por sede: llaves Bre-B, números Nequi y Daviplata y
   cuentas bancarias, hasta seis, cada uno con el nombre que elija el
   administrador y que se editan en la configuración de pagos. Al cobrar por
@@ -237,7 +256,9 @@ El candidato validado actual incluye:
   mientras los borradores minoristas genéricos siguen siendo privados; recibo y
   auditoría conservan identidades distintas de apertura y liquidación. Los
   catálogos de mesas buscan en el servidor antes de paginar de forma determinista,
-  el plano lee el catálogo activo completo acotado y el trabajo suspendido pagina
+  el plano lee un resumen acotado de cada mesa activa con su tiempo sentada,
+  monto, comensales, cuentas, ronda sin enviar, pidió la cuenta marcado por el
+  personal y próxima reserva, y el trabajo suspendido pagina
   todo el conjunto recuperable sin ocultar filas excedentes. Los borradores
   nuevos y reanudados registran reclamaciones de actor y dispositivo; cada mutación
   del ciclo de vida exige el actor activo, el cierre de sesión estaciona todas
@@ -278,7 +299,11 @@ El candidato validado actual incluye:
   evidencia mínima sellada de recetas, consumo determinista de cantidades,
   dispensaciones inmutables, eventos de estado de lote solo anexables, cuarentena,
   incidente de cadena de frío, retiro, liberación, destrucción, devolución al
-  proveedor y consulta de ventas afectadas. Colombia v1 permite venta libre y
+  proveedor y consulta de ventas afectadas. En la caja, los resultados de
+  búsqueda y las líneas del ticket muestran el lote FEFO, los lotes por vencer
+  que deben salir primero, la clase de venta y los equivalentes más económicos,
+  y cada línea con fórmula muestra su evidencia aprobada antes de Cobrar.
+  Colombia v1 permite venta libre y
   exige cliente actual, evidencia y empleado autorizado vigente para productos
   con receta. Los medicamentos controlados y la operación con receta en países
   sin adaptador revisado se rechazan de forma segura. Una receta aún válida cuya
@@ -356,8 +381,19 @@ El candidato validado actual incluye:
   resúmenes acotados de ventas/atención y metadatos de firma de cierre diario
   con integridad verificada, almacena en caché solo recursos versionados de la
   estructura de la aplicación y oculta datos operativos sin conexión en lugar
-  de presentar una lectura almacenada como actual. Es una PWA de solo lectura,
-  no una aplicación de ventas sin conexión;
+  de presentar una lectura almacenada como actual. No es una aplicación de
+  ventas sin conexión. Los lectores conservan el pulso de solo lectura;
+  administradores y gerentes tienen el teléfono del dueño: lo vendido hoy
+  frente a la semana pasada, la aprobación que les toca con su contexto de
+  decisión (aprobar, dejarla en el descuento habitual del cliente o rechazar
+  con su PIN), las cajas y el día sellado con sus cifras y la firma. Antes de
+  abrir, Hoy se vuelve un resumen de la mañana: el sello de ayer, lo que la
+  DIAN aceptó o rechazó desde entonces, si corrió el respaldo programado, las
+  cajas por abrir con su fondo sugerido, las ventas que pasaron de ayer y la
+  curva esperada de hoy según el mismo día de la semana pasada. Pueden
+  activar por teléfono avisos push cifrados cuando espera una aprobación, se
+  recibe un relevo de caja o se sella el día, y el aviso abre la pantalla
+  correspondiente;
 - webhooks de salida opcionales por negocio para un contrato pequeño y
   versionado de eventos comerciales, con destinos HTTPS fijos, secretos de firma
   cifrados que se muestran una vez, firmas HMAC, claves estables de idempotencia,
@@ -505,11 +541,17 @@ El candidato validado actual incluye:
   de producto, política, evidencia, retiro y custodia de lotes atómicamente.
 - La notificación duradera de cocina es al menos una vez y requiere consulta
   periódica/reconexión; un reconocimiento de difusión local no prueba entrega
-  a una pantalla o impresora física. El editor de líneas del restaurante admite
-  la lista acotada existente de modificadores. Los gerentes configuran adicionales
-  versionados por sede desde la UI; los recargos de cajeros exigen una referencia
+  a una pantalla o impresora física. Los gerentes configuran adicionales
+  versionados por sede desde la UI y los agrupan por plato (preparación, sin,
+  adicionales) con elecciones obligatorias y máximas que los pedidos deben
+  cumplir. La pantalla de pedidos abre una hoja por plato con el comensal, esos
+  grupos, el tiempo y una nota para cocina, y muestra las rondas enviadas de la
+  mesa sobre la ronda en preparación. Cada ronda enviada abre su propia cuenta
+  en el servicio de la mesa; agregar una ronda a una cuenta existente aún no
+  existe. Los
+  recargos de cajeros exigen una referencia
   exacta de catálogo activo comprobada dentro de la transacción de venta. Las
-  instrucciones libres sin precio siguen disponibles, mientras cargos
+  instrucciones libres van en la nota para cocina del plato, mientras cargos
   personalizados y adicionales restringidos requieren gerente/administrador.
   Editar y archivar el catálogo no altera pedidos aceptados. La programación
   de reservas no garantiza que el servicio previo de una mesa termine a tiempo.
@@ -535,7 +577,9 @@ El candidato validado actual incluye:
   contables exactos en centavos enteros conservan residuos de asignaciones
   fraccionarias en las mutaciones de stock admitidas; el costo unitario mostrado
   de un lote sigue teniendo dos decimales y no debe usarse para reconstruir ese
-  valor contable autorizado. Balanzas, lectores, diseños de etiquetas de medida
+  valor contable autorizado. La app de escritorio lee una báscula serial en el
+  panel de peso (protocolos continuo, Toledo 8217 y ENQ); ningún modelo está
+  homologado todavía. Balanzas, lectores, diseños de etiquetas de medida
   variable y metrología legal aún requieren validación con dispositivos
   representativos; las etiquetas de país en configuración comparten actualmente
   el analizador genérico y no certifican una convención nacional. El precio de

@@ -28,7 +28,7 @@ import type { DatabaseInstance } from '../db/index.js';
 import { inventoryLots, priceSuggestions, products, promotions } from '../db/schema.js';
 import { throwServerError } from '../lib/errorCodes.js';
 import { writeAuditLog } from './audit-logs.js';
-import { isLotExpiredAt } from './inventory-lots/expiry.js';
+import { daysUntilLotExpiry, isLotExpiredAt } from './inventory-lots/expiry.js';
 import { assertTenantBusinessClockCurrent } from './pharmacy/business-clock.js';
 
 /**
@@ -53,9 +53,6 @@ export const EXPIRY_DISCOUNT_TIERS: readonly ExpiryDiscountTier[] = [
   { maxDays: 30, pct: 10 },
 ];
 
-/** Milliseconds in a UTC day — the tier rule counts whole calendar days up. */
-const DAY_MS = 24 * 60 * 60 * 1000;
-
 /**
  * The tier percent for a lot expiring at `expiresAt`, evaluated at `nowIso`.
  * Returns `null` when the lot has no expiry, is already expired (the radar
@@ -75,22 +72,9 @@ export function suggestedDiscountPctForExpiry(
   tiers: readonly ExpiryDiscountTier[] = EXPIRY_DISCOUNT_TIERS,
   businessDate?: string
 ): number | null {
-  if (!expiresAt) return null;
-  const now = Date.parse(nowIso);
-  if (Number.isNaN(now)) return null;
-  let daysUntil: number;
-  if (/^\d{4}-\d{2}-\d{2}$/.test(expiresAt)) {
-    const effectiveBusinessDate = businessDate ?? new Date(now).toISOString().slice(0, 10);
-    if (isLotExpiredAt(expiresAt, nowIso, effectiveBusinessDate)) return null;
-    const expiryDay = Date.parse(`${expiresAt}T00:00:00.000Z`);
-    const currentDay = Date.parse(`${effectiveBusinessDate}T00:00:00.000Z`);
-    if (!Number.isFinite(expiryDay) || !Number.isFinite(currentDay)) return null;
-    daysUntil = Math.round((expiryDay - currentDay) / DAY_MS);
-  } else {
-    const expiry = Date.parse(expiresAt);
-    if (Number.isNaN(expiry) || expiry < now) return null;
-    daysUntil = Math.ceil((expiry - now) / DAY_MS);
-  }
+  if (Number.isNaN(Date.parse(nowIso))) return null;
+  const daysUntil = daysUntilLotExpiry(expiresAt, nowIso, businessDate);
+  if (daysUntil === null) return null;
   for (const tier of tiers) {
     if (daysUntil <= tier.maxDays) return tier.pct;
   }

@@ -367,7 +367,8 @@ returns every open check. Voice Ordering and the traditional POS require that
 authoritative state before opening another check and fail closed while it is
 unavailable. Table-catalog search is a literal server-side filter applied
 before stable pagination; the administrative floor map reads the separate,
-bounded complete active catalog. Creation or reactivation beyond 500 active
+bounded floor summary (state, seated time, amount, party, checks, unsent round,
+bill request and today's next reservation) for the complete active catalog. Creation or reactivation beyond 500 active
 tables per site is rejected rather than truncating an operational view. Legacy
 create-then-suspend clients and migration `0058` normalize
 only facts that can be proven from table-backed rows still in draft state,
@@ -437,7 +438,9 @@ Managers configure a versioned, site-local modifier catalog in the UI. Cashier
 surcharges require an exact active catalog reference validated inside the sale
 transaction; free-form zero-price instructions remain available, while custom
 charges and restricted add-ons require a manager or administrator. Catalog edits
-and archival never rewrite accepted orders.
+and archival never rewrite accepted orders. Options are grouped per dish
+(preparation, without, extras). Maximums are enforced inside the same
+transaction; minimums bind once an order sends the groups it showed (ADR-0020).
 
 ## Reservation and external fulfillment boundary
 

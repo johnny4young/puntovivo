@@ -56,6 +56,14 @@ export function quantityForAmount(
     const whole = roundQuantity(exact, 6);
     return Number.isInteger(whole) && whole > 0 ? { quantity: whole } : { error: 'wholeUnits' };
   }
+  return fitSaleQuantity(exact, product);
+}
+
+/** Rounds a fractional quantity to the product's step and checks its minimum. */
+export function fitSaleQuantity(
+  exact: number,
+  product: Pick<SaleCartItem, 'sellByFraction' | 'fractionStep' | 'fractionMinimum'>
+): { quantity: number } | { error: 'belowMinimum'; minimum: number } {
   const step = getSaleQuantityStep(product);
   const quantity = roundQuantity(Math.round(exact / step) * step, 6);
   const minimum = getSaleMinimumQuantity(product);

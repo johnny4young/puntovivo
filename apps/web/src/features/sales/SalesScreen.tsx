@@ -5,6 +5,7 @@ import {
   useState,
   type ComponentProps,
   type Dispatch,
+  type ReactNode,
   type SetStateAction,
 } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -29,7 +30,7 @@ import { LastReadBanner } from '@/features/sales/LastReadBanner';
 import type { LastRead } from '@/features/sales/useLastRead';
 import type { PaymentFocusTarget } from '@/features/sales/useSalesModals';
 import { roundMoney } from '@/lib/money';
-import { serviceChargeFor } from '@/features/sales/cashTender';
+import { percentOf } from '@/features/sales/cashTender';
 import type { SuspendedSalesPanel } from '@/features/sales/SuspendedSalesPanel';
 import type { ProductSearchSelection } from '@/types';
 import type { SaleCartItem } from '@/features/sales/saleCart';
@@ -38,7 +39,12 @@ import { useRegisterZone } from '@/features/modules/useRegisterZone';
 import { SaleCompleteStrip, type CompletedSaleSummary } from './SaleCompleteStrip';
 import { usePrintSaleReceipt } from './useReceiptAutoPrint';
 import { usePhoneLayout } from './usePhoneLayout';
+import { hasAccount, useCustomerAccount } from './useCustomerAccount';
+import { CustomerAccountBar } from './CustomerAccountBar';
+import { PharmacyTicketNotices } from './PharmacyTicketNotices';
+import { usePharmacyTicket } from './usePharmacyTicket';
 import type { useShiftHandoff } from './handoff/useShiftHandoff';
+import type { SaleDelivery } from './useSaleDelivery';
 
 const LazySalesQuickAccess = lazy(() =>
   import('@/features/sales/SalesQuickAccess').then(module => ({ default: module.SalesQuickAccess }))
@@ -63,6 +69,9 @@ const LazyCashSessionModals = lazy(() =>
     default: module.CashSessionModals,
   }))
 );
+
+const LazyCustomerTillPaymentDialog = lazy(() => import('./CustomerTillPaymentDialog'));
+const LazySaleDeliverySheet = lazy(() => import('./SaleDeliverySheet'));
 
 const LazySuspendedSalesPanel = lazy(() =>
   import('@/features/sales/SuspendedSalesPanel').then(module => ({
@@ -127,6 +136,7 @@ export interface SalesScreenProps {
   handleQuantityChange: CartProps['onQuantityChange'];
   handleDiscountChange: CartProps['onDiscountChange'];
   handleSerialSelectionChange: CartProps['onSerialSelectionChange'];
+  handleUnitChange: NonNullable<CartProps['onUnitChange']>;
   handleRemoveItem: CartProps['onRemove'];
   setSelectedCartItemKey: CartProps['onSelectItem'];
   handleClearCart: CartProps['onClearCart'];
@@ -183,6 +193,8 @@ export interface SalesScreenProps {
   setIsIncidentSheetOpen: Dispatch<SetStateAction<boolean>>;
   lastSale: CompletedSaleSummary | null;
   completedSale: CompletedSaleSummary | null;
+  /** «Entregar en obra» key and the sheet it opens. */
+  saleDelivery: SaleDelivery;
   onDismissCompletedSale: () => void;
   setSelectedSaleId: Dispatch<SetStateAction<string | null>>;
   selectedHistorySaleId: string | null;
@@ -197,6 +209,8 @@ export interface SalesScreenProps {
   productSearchDialogKey: number;
   setIsProductSearchOpen: Dispatch<SetStateAction<boolean>>;
   handleProductSelect: (selection: ProductSearchSelection, quantity?: number) => void;
+  /** «¿Cuánto pesó?» for the by-weight product just picked; it takes the keys' place. */
+  weighPanel?: ReactNode;
   commandBar: SalesCommandBar;
   productSearchInitialQuery: string;
   setCartItems: ModalsProps['setCartItems'];
@@ -281,6 +295,7 @@ export function SalesScreen({
   handleQuantityChange,
   handleDiscountChange,
   handleSerialSelectionChange,
+  handleUnitChange,
   handleRemoveItem,
   setSelectedCartItemKey,
   handleClearCart,
@@ -327,6 +342,7 @@ export function SalesScreen({
   setIsIncidentSheetOpen,
   lastSale,
   completedSale,
+  saleDelivery,
   onDismissCompletedSale,
   setSelectedSaleId,
   selectedHistorySaleId,
@@ -339,6 +355,7 @@ export function SalesScreen({
   productSearchDialogKey,
   setIsProductSearchOpen,
   handleProductSelect,
+  weighPanel,
   commandBar,
   productSearchInitialQuery,
   setCartItems,
@@ -383,8 +400,8 @@ export function SalesScreen({
   const { t } = useTranslation(['sales', 'errors', 'common']);
   const isPhone = usePhoneLayout();
   const showsQuickKeys = useRegisterZone('quick-keys');
-  const sellsOnCredit = useRegisterZone('credit');
   const takesTips = useRegisterZone('tip-split');
+  const sellsInUnits = useRegisterZone('units-cut');
   // Sales parked before the zone was switched off stay reachable.
   const showsSuspended = parksSales || suspendedDraftsCount > 0;
 
@@ -461,14 +478,41 @@ export function SalesScreen({
   });
   // Mirrors the charge drawer: quotations carry no service charge.
   const cashDue = roundMoney(
-    draftSummary.total +
-      serviceChargeFor(draftSummary.total, isQuotationCart ? 0 : serviceChargeRate)
+    draftSummary.total + percentOf(draftSummary.total, isQuotationCart ? 0 : serviceChargeRate)
   );
 
+  const { sellsOnCredit, account: customerAccount } = useCustomerAccount(ticketCustomerId);
+  const pharmacyTicket = usePharmacyTicket(cartItems, ticketCustomerId, currentSite?.id);
+  const showsPharmacyNotices = pharmacyTicket.hasNotices;
+  // On phones only one card names the customer.
+  const pharmacyNamesCustomer = pharmacyTicket.customerNote?.missing === false;
+  const [isTillPaymentOpen, setIsTillPaymentOpen] = useState(false);
+  // With nothing on the ticket the projection would only repeat the debt the bar shows.
+  const shownAccount = ticketCustomerName && hasAccount(customerAccount) ? customerAccount : null;
+  const creditLimit = shownAccount?.creditLimit ?? 0;
+  const creditProjectedBalance =
+    shownAccount && cashDue > 0 ? roundMoney(shownAccount.balance + cashDue) : null;
+  const handleCredit = canCharge
+    ? () => {
+        onTicketTenderChange('credit');
+        // Credit needs a customer, so the drawer opens on the picker unless one is set.
+        handleOpenPaymentModal(false, null, ticketCustomerId ? null : 'customer');
+      }
+    : undefined;
+  // The abono needs something owed and an open register that takes the cash.
+  const canPayAccount =
+    !!ticketCustomerId &&
+    !!shownAccount &&
+    shownAccount.balance > 0 &&
+    !!activeCashSession &&
+    hubReachable !== false;
+  // Closed for good once it cannot be paid, so it never reopens on its own later.
+  if (isTillPaymentOpen && !canPayAccount) setIsTillPaymentOpen(false);
+
   // Resuming a sale means the shift is not ending yet, so the close stops here.
-  const handleResumeSuspended: typeof handleResumeFromPanel = draft => {
+  const handleResumeSuspended: typeof handleResumeFromPanel = (draft, options) => {
     setIsCashSessionCloseModalOpen(false);
-    return handleResumeFromPanel(draft);
+    return handleResumeFromPanel(draft, options);
   };
 
   return (
@@ -525,11 +569,14 @@ export function SalesScreen({
           <SalesCartWorkspace
             items={cartItems}
             discountSuggestionSiteId={currentSite?.id ?? null}
+            pharmacyLines={pharmacyTicket.lines}
             selectedItemKey={activeSelectedCartItemKey}
             saleError={saleError}
             onQuantityChange={handleQuantityChange}
             onDiscountChange={handleDiscountChange}
             onSerialSelectionChange={handleSerialSelectionChange}
+            onUnitChange={sellsInUnits ? handleUnitChange : undefined}
+            priceTier={activePriceTier}
             onRemove={handleRemoveItem}
             onSelectItem={setSelectedCartItemKey}
             onClearCart={handleClearCart}
@@ -580,8 +627,39 @@ export function SalesScreen({
               )
             }
             quickAccessFirst={isPhone}
+            account={
+              shownAccount || showsPharmacyNotices ? (
+                <>
+                  {showsPharmacyNotices && (
+                    <PharmacyTicketNotices
+                      customerNote={pharmacyTicket.customerNote}
+                      hasControlled={pharmacyTicket.hasControlled}
+                      // The dock names the customer except on phones, where it is hidden.
+                      customerName={isPhone ? ticketCustomerName : null}
+                      onAssignCustomer={
+                        commandBar.attachCustomer && !customerLocked
+                          ? () => {
+                              // The @ grammar attaches the customer to this ticket.
+                              setProductSearchQuery('@');
+                              productInputRef.current?.focus();
+                            }
+                          : undefined
+                      }
+                    />
+                  )}
+                  {shownAccount && (
+                    <CustomerAccountBar
+                      account={shownAccount}
+                      customerName={isPhone && !pharmacyNamesCustomer ? ticketCustomerName : null}
+                      onPay={canPayAccount ? () => setIsTillPaymentOpen(true) : undefined}
+                    />
+                  )}
+                </>
+              ) : undefined
+            }
             quickAccess={
-              showsQuickKeys && !itemsLocked && currentSite && favoriteScopeKey ? (
+              weighPanel ??
+              (showsQuickKeys && !itemsLocked && currentSite && favoriteScopeKey ? (
                 <Suspense
                   fallback={
                     <div
@@ -600,7 +678,7 @@ export function SalesScreen({
                     onSelectProduct={handleProductSelect}
                   />
                 </Suspense>
-              ) : undefined
+              ) : undefined)
             }
           />
 
@@ -656,6 +734,14 @@ export function SalesScreen({
             onOpenReturns={() => setIsHistoryDrawerOpen(true)}
             onOpenIncident={openIncidentSheet}
             isIncidentOpen={isIncidentSheetOpen}
+            showsCreditKey={sellsOnCredit}
+            onCredit={handleCredit}
+            creditProjectedBalance={creditProjectedBalance}
+            creditLimit={creditLimit}
+            prescriptionLineCount={pharmacyTicket.prescriptionLineCount}
+            showsDeliveryKey={saleDelivery.shown}
+            onDelivery={hubReachable === false ? undefined : saleDelivery.onKey}
+            deliveryActive={saleDelivery.active}
           />
         </section>
 
@@ -676,15 +762,10 @@ export function SalesScreen({
         showsCredit={sellsOnCredit}
         suspendedDraftsCount={suspendedDraftsCount}
         onToggleSuspendedPanel={showsSuspended ? handleToggleSuspendedPanel : undefined}
-        onCredit={
-          canCharge
-            ? () => {
-                onTicketTenderChange('credit');
-                // Credit needs a customer, so the drawer opens on the picker unless one is set.
-                handleOpenPaymentModal(false, null, ticketCustomerId ? null : 'customer');
-              }
-            : undefined
-        }
+        onCredit={handleCredit}
+        creditProjectedBalance={creditProjectedBalance}
+        creditLimit={creditLimit}
+        creditActive={ticketTender === 'credit'}
         hubReachable={hubReachable}
       />
 
@@ -736,6 +817,27 @@ export function SalesScreen({
           trae su propio header (título + cerrar), así que el Drawer va sin
           chrome (`showCloseButton={false}`, sin `title`). Ctrl+R sigue
           abriéndolo vía `handleToggleSuspendedPanel`. */}
+      {isTillPaymentOpen && canPayAccount && ticketCustomerId && shownAccount && (
+        <Suspense fallback={null}>
+          <LazyCustomerTillPaymentDialog
+            customerId={ticketCustomerId}
+            customerName={ticketCustomerName ?? ''}
+            balance={shownAccount.balance}
+            onClose={() => setIsTillPaymentOpen(false)}
+          />
+        </Suspense>
+      )}
+
+      {saleDelivery.sale && currentSite && (
+        <Suspense fallback={null}>
+          <LazySaleDeliverySheet
+            siteId={currentSite.id}
+            sale={saleDelivery.sale}
+            onClose={saleDelivery.close}
+          />
+        </Suspense>
+      )}
+
       {isSuspendedPanelOpen && (
         <Drawer
           isOpen
@@ -775,6 +877,7 @@ export function SalesScreen({
             isPaymentModalOpen={isPaymentModalOpen}
             paymentModalKey={paymentModalKey}
             paymentTotal={draftSummary.total}
+            paymentConsumptionTax={draftSummary.consumptionTaxAmount}
             paymentApprovalSaleId={activeWorkspace?.serverSaleId ?? null}
             paymentApprovalCustomerId={ticketCustomerId}
             paymentCustomerLocked={customerLocked}

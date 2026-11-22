@@ -140,6 +140,37 @@ view drift from the sale that is eventually paid.
 - Mobile Waiter is usable only when both `mobile-waiter` and `dine-in` are
   active. Voice Ordering has the equivalent `pos-touch` plus `dine-in` gate.
 
+### Floor summary and table markers
+
+- `restaurantTables.listSummary` pages the active tables of one site with a
+  state (`free`, `occupied`, `billRequested`, `reserved`), the visit start,
+  party size, open checks and amount. Amount and checks come from the table's
+  open sale drafts, so a legacy draft without a service still reads occupied.
+  The response carries `generatedAt`; clients measure elapsed time against it
+  instead of a moving clock. The next booked or arrived reservation counts
+  only while it has not ended and starts before the tenant business day ends.
+- "Asked for the bill" is a staff-set marker on the open service
+  (`restaurantServices.setBillRequested`). It is idempotent, audited per
+  change, advances the service version and ends with the visit.
+- An ordering device reports its unsent plates with
+  `restaurantServices.setPendingRound` and repeats the report every two
+  minutes while any plate waits. The round exists only in that device's
+  memory, so the marker is a hint: one JSON entry per waiter, never audited,
+  never advancing the version. Sending a round clears only the sender's
+  entry, one waiter's report never changes another's, and an entry without a
+  report for five minutes is ignored and pruned, so a closed, crashed or moved
+  screen cannot leave a round on the floor. The summary adds the live entries
+  and ages them from the oldest. A table without an open service has nothing
+  to mark.
+- The summary also lists the site's takeaway orders: parked sale drafts with
+  no table whose register belongs to the site, oldest opened first and aged
+  from when they were opened, capped at 50 with
+  the full count. They are the same tickets the kitchen labels takeaway. A
+  cashier sees only the tickets they parked, as in `sales.listDrafts`. Open
+  deliveries stay in `deliveryOrders`; the floor only links to that queue.
+- Migration `0105` adds the marker columns with plain `ADD COLUMN` and no
+  foreign keys, so `restaurant_services` is never rebuilt.
+
 ### KDS boundary
 
 The original post-commit compatibility hook is superseded by
@@ -187,6 +218,46 @@ hardware certification; the durable preparation contract is owned separately.
   split, settlement, KDS and receipts continue using those frozen values.
 - The operator explicitly removes and reselects a stale choice to accept a new
   price. Neither a background refresh nor a site switch reprices a cart.
+- Managers group catalog options per site: a group has a kind (preparation,
+  without, extras), one or several selections, a minimum and a maximum, up to
+  20 ordered options and the dishes that show it (at most 8 groups per dish,
+  100 active per site, and a dish's minimums fit in one 20-modifier line;
+  variant parents are refused because sales reference the variant). Dishes
+  read their active groups in that kind order. A line option may name its
+  group; one sent without it counts against the dish's only group that lists
+  it. Preparations and removals are chosen once. Every order checks that the option belongs
+  to an active group of that dish and that no group exceeds its maximum; a line
+  that sends the groups it showed, with their versions, must also meet each
+  minimum and fails as changed when a group moved on. Paths that never show
+  groups keep ordering. The group kind is frozen on the line modifier, so a
+  kitchen reads a removal as one even after the group changes.
+- The plate sheet sends the groups it showed, so their minimums bind; voice
+  lines skip the sheet and keep ordering. A round is sent with
+  `restaurantServices.openCheck`, so each round opens its own check on the
+  table's service, and the order rail numbers rounds across those checks by
+  their send time. Appending a round to an open check needs a draft-append
+  command in the sale pipeline and is not part of this model yet.
+- `restaurantServices.regroupChecks` (manager or administrator) rearranges the
+  lines of a table across its open checks in one immediate transaction: an
+  explicit layout of accounts, or one account per diner by seat with shared
+  plates last. Every arrow in the split screen is its own command, so the
+  server always holds the layout the staff sees and a second device never
+  works from an unsaved one. The command carries the version of every open
+  check the screen read, and each check whose lines change moves to a new
+  version (a bill split bumps its source too), so a layout built on an older
+  table fails as stale and the screen reloads instead of undoing another
+  device's move. Lines only move between checks with the same price tier and
+  customer, because completion prices and credits by the draft's terms. Every check must be a suspended draft; one
+  resumed on a register blocks the move. A new account opens a suspended draft
+  with its own sale number, and a check left without lines is cancelled with
+  its draft without touching stock, because the reservations travel with the
+  lines. Each draft's discount, tip and service charge are split across its
+  lines to the cent before anything moves, so the table owes the same amount
+  afterwards. Rounds and courses belong to a check: a moved line reuses the
+  receiving check's copy of the same submission or course, or gets a clone
+  (keeping the round sequence when it is free). A round or course a surviving
+  check no longer uses is removed, except a round a kitchen line still names.
+  Kitchen lines follow their plates.
 
 ## Alternatives rejected
 
@@ -206,6 +277,7 @@ hardware certification; the durable preparation contract is owned separately.
 ## Verification evidence
 
 - `packages/server/src/__tests__/restaurant-services.test.ts`
+- `packages/server/src/__tests__/restaurant-regroup-checks.test.ts`
 - `packages/server/src/__tests__/restaurant-tables-router.test.ts`
 - `packages/server/src/__tests__/sales-park-and-reprint.test.ts`
 - `packages/server/src/__tests__/kds.test.ts`

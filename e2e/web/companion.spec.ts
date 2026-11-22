@@ -27,7 +27,9 @@ test('Companion is viewer-safe, honest offline and live after a signed close', a
   try {
     await login(manager, COMPANION_E2E_USERS.manager, { entryPath: '/c/' });
     await expect(manager.getByTestId('companion-shell')).toBeVisible();
-    await expect(manager.getByRole('heading', { name: 'How the day is going' })).toBeVisible();
+    // Managers get the owner phone; only viewers see the read-only pulse.
+    await expect(manager.getByRole('heading', { level: 1 })).toBeVisible();
+    await expect(manager.getByRole('heading', { name: 'How the day is going' })).toHaveCount(0);
     await expect(manager.getByTestId('companion-connection')).toContainText('Live');
 
     await login(viewer, COMPANION_E2E_USERS.viewer, { spanish: true, entryPath: '/c/' });
@@ -77,10 +79,12 @@ test('Companion is viewer-safe, honest offline and live after a signed close', a
       { timeout: 15_000 }
     );
 
+    // Language and sign out live in the Más tab.
+    await viewer.getByRole('link', { name: 'Más' }).click();
     await viewer.getByTestId('companion-language').selectOption('en');
-    await expect(viewer.getByRole('heading', { name: 'How the day is going' })).toBeVisible();
+    await expect(viewer.getByRole('heading', { name: 'More', level: 1 })).toBeVisible();
     await viewer.getByTestId('companion-language').selectOption('es');
-    await expect(viewer.getByRole('heading', { name: 'Cómo va el día' })).toBeVisible();
+    await expect(viewer.getByRole('heading', { name: 'Más', level: 1 })).toBeVisible();
 
     const screenshotPath = testInfo.outputPath('companion-mobile.png');
     await viewer.screenshot({ path: screenshotPath, fullPage: true });

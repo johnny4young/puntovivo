@@ -1,0 +1,36 @@
+name: Centinela
+
+# First-pass review of contributions; rules in .github/centinela.json and
+# .github/triage/REVIEW.md. pull_request_target runs this file from main with
+# a write token: never add a checkout of PR code here.
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, edited, ready_for_review, labeled, unlabeled]
+  issues:
+    types: [opened, reopened, edited, labeled, unlabeled]
+
+permissions: {}
+
+concurrency:
+  group: centinela-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: Centinela
+    # Keep in sync with optInLabel, overrideLabel and issues.bugLabel.
+    if: >-
+      (github.event.action != 'labeled' && github.event.action != 'unlabeled') ||
+      contains(fromJSON('["triage", "triage: approved", "bug"]'), github.event.label.name)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+      statuses: write
+    steps:
+      - uses: johnny4young/centinela@v1.1.2
+        with:
+          app-client-id: ${{ vars.CENTINELA_APP_CLIENT_ID }}
+          app-private-key: ${{ secrets.CENTINELA_APP_PRIVATE_KEY }}

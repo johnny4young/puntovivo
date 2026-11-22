@@ -76,6 +76,7 @@ import { managerApprovalsRouter } from './routers/managerApprovals.js';
 import { launchMigrationRouter } from './routers/launchMigration.js';
 import { lossPreventionRouter } from './routers/lossPrevention.js';
 import { companionRouter } from './routers/companion.js';
+import { ownerPushRouter } from './routers/ownerPush.js';
 import { providerPayablesRouter } from './routers/providerPayables.js';
 import { promotionsRouter } from './routers/promotions.js';
 import { inventoryTransformationsRouter } from './routers/inventoryTransformations.js';
@@ -164,6 +165,7 @@ export const appRouter = router({
   launchMigration: launchMigrationRouter,
   lossPrevention: lossPreventionRouter,
   companion: companionRouter,
+  ownerPush: ownerPushRouter,
   providerPayables: providerPayablesRouter,
   promotions: promotionsRouter,
   inventoryTransformations: inventoryTransformationsRouter,

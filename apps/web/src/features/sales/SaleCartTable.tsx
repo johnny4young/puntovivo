@@ -3,21 +3,30 @@ import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
 import { Minus, Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ariaKeyshortcutsFor, shortcutDisplayFor } from '@/lib/shortcuts';
-import { formatCurrency, formatNumber } from '@/lib/utils';
+import { cn, formatCurrency, formatNumber } from '@/lib/utils';
 import {
+  canChangeCartItemUnit,
+  getCartItemListPrice,
   getSaleMinimumQuantity,
   getSaleQuantityStep,
+  unitLabel,
   type SaleCartItem,
 } from '@/features/sales/saleCart';
+import { SalesTag } from '@/features/sales/SalesTag';
 import { getLineTotals } from '@/features/sales/saleCartTotals';
 import { useDiscountSuggestions } from '@/features/sales/useDiscountSuggestions';
 import { SaleSerialSelector } from '@/features/sales/SaleSerialSelector';
 import { usePhoneLayout } from '@/features/sales/usePhoneLayout';
 import { Button } from '@/components/ui';
+import { PharmacyClassTag, PharmacyLotTag, PharmacyStatusTag } from '@/features/sales/PharmacyTags';
+import type { PharmacyLineHint } from '@/features/sales/pharmacyRegister';
+import { useHardwareCopy } from '@/features/sales/useHardwareCopy';
 interface SaleCartTableProps {
   items: SaleCartItem[];
   /** active site scopes the expiry-suggestion badge to this POS. */
   discountSuggestionSiteId?: string | null;
+  /** Medicine lines by product id: lot, class and prescription state. */
+  pharmacyLines?: ReadonlyMap<string, PharmacyLineHint> | undefined;
   selectedItemKey: string | null;
   onQuantityChange: (itemKey: string, quantity: number) => void;
   onDiscountChange: (itemKey: string, discount: number) => void;
@@ -25,6 +34,10 @@ interface SaleCartTableProps {
   onSelectItem: (itemKey: string) => void;
   onSerialSelectionChange?:
     ((itemKey: string, serialIds: string[], siteId: string) => void) | undefined;
+  /** Units zone: a unit picker on lines with several units and the cut-to-measure tag. */
+  onUnitChange?: ((itemKey: string, unitId: string) => void) | undefined;
+  /** Ticket tier; lines priced below their list price show it struck through. */
+  priceTier?: 1 | 2 | 3 | undefined;
   quantityInputRefFor: (itemKey: string) => (node: HTMLInputElement | null) => void;
   discountInputRefFor: (itemKey: string) => (node: HTMLInputElement | null) => void;
   /** Freeze quantity, discount, add/remove terms while allowing serial selection. */
@@ -35,12 +48,15 @@ interface SaleCartTableProps {
 export function SaleCartTable({
   items,
   discountSuggestionSiteId = null,
+  pharmacyLines,
   selectedItemKey,
   onQuantityChange,
   onDiscountChange,
   onRemove,
   onSelectItem,
   onSerialSelectionChange = () => {},
+  onUnitChange,
+  priceTier = 1,
   quantityInputRefFor,
   discountInputRefFor,
   itemsLocked = false,
@@ -48,6 +64,7 @@ export function SaleCartTable({
 }: SaleCartTableProps) {
   const priceIncludesTax = usePriceIncludesTax();
   const { t } = useTranslation('sales');
+  const { t: th, ready: hardwareReady } = useHardwareCopy();
 
   // expiry-radar badge on cart lines; the table only renders in
   // the POS, so the query is gated on having lines at all.
@@ -152,12 +169,26 @@ export function SaleCartTable({
             )
             .flatMap(otherItem => otherItem.serialIds ?? []);
           const suggestedDiscount = discountSuggestions.get(item.productId) ?? 0;
+          const pharmacy = pharmacyLines?.get(item.productId);
           // A presentation is any line not sold in the base unit, even at equivalence 1.
           const isPresentation = item.isBaseUnit === false || item.unitEquivalence !== 1;
           const presentationLabel = t('cart.unitPresentation', {
             unit: item.unitName,
             equivalence: item.unitEquivalence,
           });
+          const showsUnitPicker =
+            hardwareReady && !!onUnitChange && !itemsLocked && canChangeCartItemUnit(item);
+          const listPrice = hardwareReady ? getCartItemListPrice(item, priceTier) : null;
+          const cutToMeasure =
+            hardwareReady &&
+            !!onUnitChange &&
+            item.sellByFraction &&
+            item.unitDimension === 'length';
+          const isService = hardwareReady && item.tracksStock === false;
+          const selectLine = () => {
+            setOpenKey(isOpen ? null : item.key);
+            onSelectItem(item.key);
+          };
           return (
             <li
               key={item.key}
@@ -171,36 +202,81 @@ export function SaleCartTable({
                 <span className="sales-ticket-index" aria-hidden="true">
                   {index + 1}
                 </span>
-                <button
-                  type="button"
+                {/* The name is the button; the meta row beside it holds the unit picker. */}
+                <div
                   className="sales-ticket-name min-w-0 text-left"
-                  aria-label={t('cart.selectItem', {
-                    name: isPresentation
-                      ? `${item.productName} (${presentationLabel})`
-                      : item.productName,
-                  })}
-                  aria-expanded={isPhone ? isOpen : undefined}
-                  onClick={() => {
-                    setOpenKey(isOpen ? null : item.key);
-                    onSelectItem(item.key);
+                  onClick={event => {
+                    if (!(event.target instanceof HTMLSelectElement)) selectLine();
                   }}
                 >
-                  <span className="line-clamp-2 text-base font-semibold leading-tight text-fg1">
-                    {item.productName}
-                  </span>
+                  <button
+                    type="button"
+                    className="block w-full text-left"
+                    aria-label={t('cart.selectItem', {
+                      name: isPresentation
+                        ? `${item.productName} (${presentationLabel})`
+                        : item.productName,
+                    })}
+                    aria-expanded={isPhone ? isOpen : undefined}
+                  >
+                    <span className="line-clamp-2 text-base font-semibold leading-tight text-fg1">
+                      {item.productName}
+                    </span>
+                  </button>
                   <span className="sales-ticket-meta">
                     <span className="font-mono">{item.productSku}</span>
-                    {isPresentation && (
+                    {item.tracksStock !== false && Number.isFinite(item.availableStock) && (
+                      <span>
+                        · {t('cart.stock')} {item.availableStock}
+                      </span>
+                    )}
+                    {showsUnitPicker && (
+                      <select
+                        className="sales-unit-select"
+                        value={item.unitId}
+                        aria-label={th('line.unitFor', { name: item.productName })}
+                        data-testid={`cart-unit-select-${item.productSku}`}
+                        onChange={event => onUnitChange(item.key, event.target.value)}
+                      >
+                        {item.unitOptions?.map(option => (
+                          <option key={option.unitId} value={option.unitId}>
+                            {option.isBase && option.equivalence === 1
+                              ? unitLabel(option)
+                              : t('cart.unitPresentation', {
+                                  unit: unitLabel(option),
+                                  equivalence: option.equivalence,
+                                })}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    {cutToMeasure && (
+                      <SalesTag tone="info" testId={`cart-cut-to-measure-${item.productSku}`}>
+                        {th('line.cutToMeasure')}
+                      </SalesTag>
+                    )}
+                    {isService && (
+                      <SalesTag tone="neutral" testId={`cart-service-${item.productSku}`}>
+                        {th('line.service')}
+                      </SalesTag>
+                    )}
+                    {listPrice && (
+                      <>
+                        <span data-testid={`cart-list-price-${item.productSku}`}>
+                          <span className="sr-only">{th('line.listPrice')} </span>
+                          <s>{formatCurrency(listPrice.listPrice)}</s>
+                        </span>
+                        <SalesTag tone="ok">
+                          {t(`checkout.priceTier.tier${listPrice.tier}Title`)}
+                        </SalesTag>
+                      </>
+                    )}
+                    {isPresentation && !showsUnitPicker && (
                       <span
                         className="sales-tag bg-secondary-50 text-secondary-700"
                         data-testid={`cart-unit-presentation-${item.productSku}`}
                       >
                         {presentationLabel}
-                      </span>
-                    )}
-                    {item.tracksStock !== false && Number.isFinite(item.availableStock) && (
-                      <span>
-                        · {t('cart.stock')} {item.availableStock}
                       </span>
                     )}
                     {!isSelected && item.discount > 0 && (
@@ -220,7 +296,31 @@ export function SaleCartTable({
                       </span>
                     )}
                   </span>
-                </button>
+                  {pharmacy && (
+                    <span
+                      className="sales-ticket-meta"
+                      data-testid={`cart-pharmacy-${item.productSku}`}
+                    >
+                      {pharmacy.nextLot && (
+                        <PharmacyLotTag
+                          lot={pharmacy.nextLot}
+                          plain
+                          testId={`cart-pharmacy-lot-${item.productSku}`}
+                        />
+                      )}
+                      <PharmacyClassTag
+                        classification={pharmacy.classification}
+                        testId={`cart-pharmacy-class-${item.productSku}`}
+                      />
+                      {pharmacy.status && (
+                        <PharmacyStatusTag
+                          status={pharmacy.status}
+                          testId={`cart-pharmacy-status-${item.productSku}`}
+                        />
+                      )}
+                    </span>
+                  )}
+                </div>
 
                 {/* Phones read an unselected line as name, quantity and total. */}
                 <span className="sales-ticket-qty-compact">
@@ -315,7 +415,11 @@ export function SaleCartTable({
                   </Button>
                 </div>
 
-                <span className="sales-ticket-unit">
+                {/* With the picker the unit is named there; the cell keeps its grid slot. */}
+                <span
+                  className={cn('sales-ticket-unit', showsUnitPicker && 'invisible')}
+                  aria-hidden={showsUnitPicker || undefined}
+                >
                   <span className="sr-only">{t('sell.table.unit')} </span>
                   {item.unitName}
                 </span>

@@ -339,18 +339,18 @@
     "notes": "Notes",
     "notesHint": "Optional comments for the sale",
     "tip": {
-      "heading": "Tip",
+      "heading": "Voluntary tip",
       "presetZero": "No tip",
       "presetPercentage": "{{percentage}}%",
-      "customLabel": "Custom amount",
-      "grandTotalBreakdown": "Base {{base}} + tip {{tip}}"
+      "custom": "Other amount",
+      "customLabel": "Tip amount"
     },
+    "consumption": "Consumption {{amount}}",
+    "consumptionTaxIncluded": "Consumption tax included {{amount}}",
     "serviceCharge": {
       "heading": "Service charge",
       "helper": "Auto-applied to the subtotal.",
-      "rateLabel": "Service ({{rate}}%)",
-      "grandTotalBreakdownOnly": "Base {{base}} + service {{service}}",
-      "grandTotalBreakdownWithTip": "Base {{base}} + service {{service}} + tip {{tip}}"
+      "rateLabel": "Service ({{rate}}%)"
     },
     "lockedCustomer": "Quotation customer",
     "confirmPartialAmount": "Confirm partial sale · {{amount}} missing",
@@ -905,8 +905,12 @@
     "storeCreditBalance": "{{amount}} store credit"
   },
   "quotationCart": {
-    "banner": "Charging quotation {{quotationNumber}}",
-    "bannerHint": "Products, quantities, prices, discounts, customer, and tier are locked to the accepted quotation. Select required serials and choose payment.",
+    "banner": "From quotation {{quotationNumber}} · prices and terms locked",
+    "bannerHint": "Select the required serials before charging.",
+    "expiresIn_one": "expires in {{count}} day",
+    "expiresIn_other": "expires in {{count}} days",
+    "expiresToday": "expires today",
+    "expired": "expired",
     "workspaceLabel": "Quotation {{quotationNumber}}"
   },
   "exchangeCart": {
@@ -951,8 +955,10 @@
       "items_other": "{{count}} items",
       "lines_one": "{{count}} line",
       "lines_other": "{{count}} lines",
+      "prescriptions": "{{count}} with prescription",
       "savings": "Discounts",
-      "taxIncluded": "Tax included"
+      "taxIncluded": "Tax included",
+      "consumptionTaxIncluded": "Consumption tax included"
     },
     "ready": {
       "title": "Ready to charge",
@@ -980,7 +986,8 @@
       "returns": "Return",
       "credit": "On credit",
       "suspended": "Suspended",
-      "incident": "Incident"
+      "incident": "Incident",
+      "onAccount": "On account"
     },
     "keys": {
       "shortest": "Shortest path:",
@@ -996,6 +1003,17 @@
     "phone": {
       "total_one": "Total · {{count}} item",
       "total_other": "Total · {{count}} items"
+    },
+    "credit": {
+      "wouldOwe": "would owe {{amount}}",
+      "owesAfter": "owes {{amount}} after",
+      "overLimit": "over the credit limit"
+    },
+    "account": {
+      "owes": "owes",
+      "ofLimit": "of {{limit}}",
+      "inFavor": "credit in favor",
+      "pay": "Take payment"
     }
   }
 }

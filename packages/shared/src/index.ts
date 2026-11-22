@@ -44,6 +44,7 @@ export {
   type SiteQuickKeyColour,
   type SiteQuickKeyKind,
 } from './quick-keys.js';
+export { RESTAURANT_REGROUP_MAX_ACCOUNTS } from './restaurant-split.js';
 export {
   BANK_ACCOUNT_TYPES,
   buildTransferQr,

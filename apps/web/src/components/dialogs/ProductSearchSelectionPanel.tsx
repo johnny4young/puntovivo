@@ -5,12 +5,18 @@ import { formatCurrency } from '@/lib/utils';
 import { ariaKeyshortcutsFor } from '@/lib/shortcuts';
 import type { ProductSearchItem, ProductUnitAssignment } from '@/types';
 
+import { PharmacyAlternatives } from '@/features/sales/PharmacyAlternatives';
+import type { GenericAlternative } from '@/features/sales/useGenericAlternatives';
+
 import { PRODUCT_SEARCH_UNIT_SELECT_ID } from './productSearchSelection';
 
 interface ProductSearchSelectionPanelProps {
   product: ProductSearchItem | null;
   unit: ProductUnitAssignment | null;
   showUnits?: boolean;
+  /** Cheaper equivalents of the pick that the current results do not list. */
+  alternatives?: readonly GenericAlternative[];
+  onChooseAlternative?: (alternative: GenericAlternative) => void;
   onUnitChange: (unitId: string) => void;
 }
 
@@ -18,6 +24,8 @@ export function ProductSearchSelectionPanel({
   product,
   unit,
   showUnits = true,
+  alternatives = [],
+  onChooseAlternative,
   onUnitChange,
 }: ProductSearchSelectionPanelProps) {
   const { t } = useTranslation('common');
@@ -97,6 +105,9 @@ export function ProductSearchSelectionPanel({
                 </>
               )}
             </div>
+            {alternatives.length > 0 && onChooseAlternative && (
+              <PharmacyAlternatives alternatives={alternatives} onChoose={onChooseAlternative} />
+            )}
           </div>
         </div>
       )}

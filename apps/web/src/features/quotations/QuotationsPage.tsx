@@ -137,6 +137,7 @@ export function QuotationsPage() {
           siteId: quotation.siteId,
           customerId: quotation.customerId,
           customerName: quotation.customerName,
+          validUntil: quotation.validUntil ?? null,
           priceTier: quotation.priceTier,
           items,
         });

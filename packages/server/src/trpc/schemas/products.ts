@@ -337,6 +337,8 @@ export const searchProductsInput = z.object({
   tracksStock: z.boolean().optional(),
   pharmacyOnly: z.boolean().optional(),
   siteId: z.string().min(1).optional(),
+  /** Register only: attach the FEFO lot each result sells next at siteId. */
+  includeNextLot: z.boolean().optional(),
 });
 
 // exact-match scanner lookup. Distinct from `searchProductsInput`

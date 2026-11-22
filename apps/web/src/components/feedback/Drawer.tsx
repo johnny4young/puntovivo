@@ -132,7 +132,7 @@ export function Drawer({
       <div
         className={cn(
           'fixed inset-0',
-          backdrop === 'dim' && 'bg-secondary-950/60 backdrop-blur-sm animate-fade-in'
+          backdrop === 'dim' && 'bg-scrim/60 backdrop-blur-sm animate-fade-in'
         )}
         onClick={handleBackdropClick}
         aria-hidden="true"

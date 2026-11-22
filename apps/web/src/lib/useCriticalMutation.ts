@@ -81,7 +81,9 @@ export type CriticalCommandPath =
   | 'sales.splitDraft'
   | 'sales.carryOver'
   | 'restaurantServices.openCheck'
+  | 'restaurantServices.regroupChecks'
   | 'restaurantModifiers.save'
+  | 'restaurantModifiers.saveGroup'
   | 'cashSessions.open'
   | 'cashSessions.close'
   | 'cashSessions.recordMovement'
@@ -118,6 +120,7 @@ export type CriticalCommandPath =
   // neither is reversible from the UI, so a repeated confirm has to collapse
   // onto one idempotency key rather than pay the debt down twice.
   | 'customerLedger.addPayment'
+  | 'customerLedger.addTillPayment'
   | 'customerLedger.addAdjustment'
   | 'users.create'
   | 'users.update'

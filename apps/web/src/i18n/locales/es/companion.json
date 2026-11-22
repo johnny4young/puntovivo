@@ -9,7 +9,6 @@
     "offline": "Sin conexión"
   },
   "shell": {
-    "product": "Puntovivo Companion",
     "readOnly": "Vista segura de solo lectura",
     "logout": "Cerrar sesión"
   },
@@ -49,5 +48,136 @@
   "ticker": {
     "title": "Últimas ventas",
     "empty": "Todavía no hay ventas hoy."
+  },
+  "push": {
+    "title": "Avisos en este teléfono",
+    "blocked": "El navegador los tiene bloqueados. Permítalos en los ajustes del sitio.",
+    "failed": "No se pudieron cambiar los avisos. Intente de nuevo."
+  },
+  "tabs": {
+    "label": "Secciones",
+    "today": "Hoy",
+    "day": "Ayer",
+    "registers": "Cajas",
+    "more": "Más"
+  },
+  "owner": {
+    "title": "Hoy",
+    "sold": "Vendido hoy",
+    "changeUp": "{{percent}} % más que el {{weekday}} pasado",
+    "changeDown": "{{percent}} % menos que el {{weekday}} pasado",
+    "salesCount_one": "{{count}} venta",
+    "salesCount_other": "{{count}} ventas",
+    "yourCall": "Le toca a usted",
+    "waiting": "{{what}} espera su aprobación",
+    "discountWhat": "Descuento de {{amount}}",
+    "actionWhat": "{{label}} de {{amount}}",
+    "discountTo": "{{percent}} a {{customer}}",
+    "requestedBy": "lo pide {{name}}",
+    "decide": "Ver y decidir",
+    "nothingWaiting": "Nada espera su decisión",
+    "morePending_one": "{{count}} pendiente más se resuelve en la tienda",
+    "morePending_other": "{{count}} pendientes más se resuelven en la tienda",
+    "loading": "Cargando el día…",
+    "unavailable": "No se pudo cargar el día. Intente de nuevo.",
+    "moreApprovals_one": "{{count}} solicitud más espera su decisión",
+    "moreApprovals_other": "{{count}} solicitudes más esperan su decisión",
+    "queueUnavailable": "No se pudieron cargar sus aprobaciones. Intente de nuevo."
+  },
+  "registers": {
+    "title": "Cajas",
+    "register": "{{register}} · {{name}}",
+    "receivedFrom": "la recibió de {{name}}, {{time}}",
+    "openedAt": "abrió a las {{time}}",
+    "openedBefore": "abierta desde un día anterior",
+    "sales_one": "{{count}} venta",
+    "sales_other": "{{count}} ventas",
+    "awaiting": "{{register}} · entregada por {{name}}",
+    "awaitingNobody": "{{time}} · espera a quien la reciba",
+    "awaitingTo": "{{time}} · la recibe {{name}}",
+    "closed": "{{register}} · cerrada y contada a las {{time}}",
+    "closedUncounted": "{{register}} · cerrada sin contar a las {{time}}",
+    "empty": "No hay cajas abiertas."
+  },
+  "decide": {
+    "blocks": "Bloquea · el cliente espera en {{place}}",
+    "discountTitle": "Descuento de {{percent}}",
+    "items_one": "{{count}} artículo",
+    "items_other": "{{count}} artículos",
+    "approve": "Aprobar",
+    "approvePercent": "Aprobar {{percent}}",
+    "counter": "Dejar en {{percent}}",
+    "counterReason": "Déjelo en {{percent}}",
+    "reject": "Rechazar",
+    "gone": "Esta solicitud ya no espera su decisión.",
+    "close": "Cerrar",
+    "loading": "Cargando la solicitud…",
+    "unavailable": "No se pudo cargar la solicitud. Intente de nuevo."
+  },
+  "day": {
+    "sealedAt": "Día cerrado · {{time}}",
+    "title": "{{weekday}} {{day}}, sellado",
+    "sold": "Vendido",
+    "cash": "Efectivo para consignar",
+    "cashDetail_one": "{{count}} caja contada",
+    "cashDetail_other": "{{count}} cajas contadas",
+    "difference": "Diferencia de caja",
+    "explained": "Explicada: {{reason}}",
+    "explainedMany_one": "{{count}} diferencia explicada",
+    "explainedMany_other": "{{count}} diferencias explicadas",
+    "balanced": "Las cajas cuadraron",
+    "fiscal": "Facturas electrónicas",
+    "fiscalValue": "{{accepted}} de {{total}}",
+    "fiscalInProgress_one": "{{count}} en proceso",
+    "fiscalInProgress_other": "{{count}} en proceso",
+    "signedBy": "Firmó {{name}}",
+    "full": "Ver el día completo",
+    "unsigned": "El {{weekday}} {{day}} no se ha firmado",
+    "openClose": "Abrir el cierre",
+    "unavailable": "No se pudo cargar el día firmado. Intente de nuevo."
+  },
+  "morning": {
+    "greeting": {
+      "morning": "Buenos días",
+      "afternoon": "Buenas tardes",
+      "evening": "Buenas noches"
+    },
+    "yesterdaySealed": "Ayer, sellado",
+    "yesterdayUnsigned": "Ayer, sin sellar",
+    "fiscalAcceptedAll_one": "Desde el cierre, la DIAN aceptó la que faltaba.",
+    "fiscalAcceptedAll_other": "Desde el cierre, la DIAN aceptó las {{count}} que faltaban.",
+    "fiscalAccepted_one": "Desde el cierre, la DIAN aceptó {{count}} factura.",
+    "fiscalAccepted_other": "Desde el cierre, la DIAN aceptó {{count}} facturas.",
+    "fiscalInProgress_one": "{{count}} factura sigue en proceso con la DIAN.",
+    "fiscalInProgress_other": "{{count}} facturas siguen en proceso con la DIAN.",
+    "fiscalRejected_one": "La DIAN rechazó {{count}} factura.",
+    "fiscalRejected_other": "La DIAN rechazó {{count}} facturas.",
+    "backupOk": "Respaldo correcto.",
+    "backupFailed": "El último respaldo falló.",
+    "backupLate": "El último respaldo es del {{date}}.",
+    "beforeOpening": "Antes de abrir",
+    "opensIn": "abre en {{minutes}} min",
+    "opensAt": "abre a las {{time}}",
+    "closeYesterday": "Sellar el día de ayer",
+    "closeAction": "Cerrar",
+    "openRegisters": "Abrir {{registers}}",
+    "float": {
+      "single": "Fondo sugerido {{amount}}",
+      "each": "Fondo sugerido {{amount}} cada una",
+      "total": "Fondo sugerido {{amount}} en total"
+    },
+    "openAction": "Abrir",
+    "carried": "Venta suspendida que pasó de ayer",
+    "viewAction": "Ver",
+    "nothingBeforeOpening": "Nada pendiente antes de abrir",
+    "expected": "Hoy se espera",
+    "expectedLike": "como el {{weekday}} pasado: {{amount}}",
+    "peaks_one": "pico: {{times}}",
+    "peaks_other": "picos: {{times}}",
+    "unavailable": "No se pudo cargar el resumen de ayer. Intente de nuevo."
+  },
+  "more": {
+    "title": "Más",
+    "openApp": "Abrir Puntovivo completo"
   }
 }

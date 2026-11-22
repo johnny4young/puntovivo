@@ -1,205 +1,136 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '@puntovivo/server';
 import {
   AlertTriangle,
   CheckCircle2,
   ClipboardCheck,
-  Radio,
   RefreshCw,
   ShoppingBag,
   WifiOff,
 } from 'lucide-react';
-import { trpc } from '@/lib/trpc';
-import { useRealtimeChannel, type RealtimeEvent } from '@/hooks/useRealtimeChannel';
+import { useAuth } from '@/features/auth/AuthProvider';
 import { useResolvedLocale } from '@/features/locale/LocaleProvider';
+import { trpc } from '@/lib/trpc';
 import { calendarDayAt, formatCurrency, formatDateTime } from '@/lib/utils';
+import { CompanionConnection } from './CompanionConnection';
+import { CompanionMore } from './CompanionMore';
+import { isCompanionOwner, parseCompanionView } from './companionViews';
+import {
+  SALES_INVALIDATION_THROTTLE_MS,
+  useCompanionLive,
+  type LiveState,
+  type RefreshScope,
+} from './useCompanionLive';
 
 const SNAPSHOT_REFRESH_INTERVAL_MS = 30_000;
-const SALES_INVALIDATION_THROTTLE_MS = 10_000;
 
-type LiveState = 'connecting' | 'open' | 'closed' | 'stale' | 'offline';
+// Viewers never download the owner's screens.
+const CompanionOwnerViews = lazy(() =>
+  import('./CompanionOwnerViews').then(module => ({ default: module.CompanionOwnerViews }))
+);
+
 type CompanionSnapshotData = inferRouterOutputs<AppRouter>['companion']['snapshot'];
 
-function isCompanionInvalidation(
-  value: unknown
-): value is { scope: 'sales' | 'day_close'; changedAt: string } {
-  if (!value || typeof value !== 'object') return false;
-  const candidate = value as Record<string, unknown>;
-  return (
-    (candidate.scope === 'sales' || candidate.scope === 'day_close') &&
-    typeof candidate.changedAt === 'string'
-  );
-}
-
-function useOnlineStatus(onOffline: () => void): boolean {
-  const [online, setOnline] = useState(() =>
-    typeof navigator === 'undefined' ? true : navigator.onLine
-  );
-  useEffect(() => {
-    const handleOnline = () => setOnline(true);
-    const handleOffline = () => {
-      onOffline();
-      setOnline(false);
-    };
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, [onOffline]);
-  return online;
-}
-
-/** Viewer-safe installable phone surface backed by one minimal snapshot. */
+/** Installable phone surface: the owner's day for admins and managers, a read-only pulse for viewers. */
 export function CompanionHome() {
-  const { t } = useTranslation('companion');
-  const [replayGap, setReplayGap] = useState(false);
-  const clearReplayGap = useCallback(() => setReplayGap(false), []);
-  const online = useOnlineStatus(clearReplayGap);
-  const [connection, setConnection] = useState<'connecting' | 'open' | 'closed'>('connecting');
+  const { user } = useAuth();
+  const owner = isCompanionOwner(user?.role);
+  const [searchParams] = useSearchParams();
+  const view = parseCompanionView(searchParams.get('view'), owner);
   const locale = useResolvedLocale();
-  // Recompute on every query/SSE render so a long-lived installed surface
-  // crosses the tenant's midnight without remaining pinned to yesterday.
+  // Recompute on every render so a long-lived installed surface crosses the
+  // tenant's midnight without remaining pinned to yesterday.
   const today = calendarDayAt(new Date(), locale.timezone);
   const utils = trpc.useUtils();
-  const lastSalesRefresh = useRef(0);
-  const trailingRefresh = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const snapshotGeneration = useRef(0);
-  const replayGapRef = useRef(false);
 
+  const refresh = useCallback(
+    (scope: RefreshScope) => {
+      // A failed refetch must reject so a replay gap stays visible until a read succeeds.
+      const strict = { throwOnError: true } as const;
+      if (!owner) return utils.companion.snapshot.invalidate({ date: today }, undefined, strict);
+      const reads: Array<Promise<unknown>> = [
+        utils.operations.today.invalidate(undefined, undefined, strict),
+      ];
+      // A sale moves Hoy and the open day only; a signed day or approval stays as it was.
+      if (scope === 'sales') {
+        reads.push(utils.reports.dayClose.checklist.invalidate({ date: today }, undefined, strict));
+      }
+      if (scope === 'operations') {
+        reads.push(utils.managerApprovals.queue.invalidate(undefined, undefined, strict));
+      }
+      if (scope === 'all') {
+        reads.push(
+          utils.operations.dayCurve.invalidate(undefined, undefined, strict),
+          utils.operations.morningRecap.invalidate(undefined, undefined, strict),
+          utils.managerApprovals.queue.invalidate(undefined, undefined, strict),
+          utils.reports.dayClose.invalidate(undefined, undefined, strict)
+        );
+      }
+      return Promise.all(reads);
+    },
+    [owner, today, utils]
+  );
+  const reset = useCallback(() => {
+    if (owner) {
+      void utils.operations.today.reset();
+      void utils.operations.dayCurve.reset();
+      void utils.operations.morningRecap.reset();
+      void utils.managerApprovals.queue.reset();
+      void utils.reports.dayClose.signoff.reset();
+      void utils.reports.dayClose.signoffMetadata.reset();
+      void utils.reports.dayClose.checklist.reset();
+    } else {
+      void utils.companion.snapshot.reset({ date: today });
+    }
+  }, [owner, today, utils]);
+  const { online, liveState } = useCompanionLive({ refresh, reset });
+
+  if (view === 'more') return <CompanionMore />;
+  if (!online) return <OfflineNotice />;
+  return owner ? (
+    <CompanionOwnerViews view={view} liveState={liveState} businessDay={today} />
+  ) : (
+    <CompanionPulse liveState={liveState} date={today} />
+  );
+}
+
+function OfflineNotice() {
+  const { t } = useTranslation('companion');
+  return (
+    <section
+      className="card space-y-2 border-warning-300 bg-warning-50 p-4"
+      data-testid="companion-offline"
+      role="status"
+    >
+      <h2 className="flex items-center gap-2 text-sm font-semibold text-warning-900">
+        <WifiOff className="h-4 w-4" aria-hidden="true" />
+        {t('offline.title')}
+      </h2>
+      <p className="text-sm text-warning-800">{t('offline.description')}</p>
+    </section>
+  );
+}
+
+/** The viewer's read-only pulse backed by one minimal snapshot. */
+function CompanionPulse({ liveState, date }: { liveState: LiveState; date: string }) {
+  const { t } = useTranslation('companion');
   const snapshotQuery = trpc.companion.snapshot.useQuery(
-    { date: today },
-    {
-      enabled: online,
-      staleTime: SALES_INVALIDATION_THROTTLE_MS,
-      refetchInterval: online ? SNAPSHOT_REFRESH_INTERVAL_MS : false,
-    }
+    { date },
+    { staleTime: SALES_INVALIDATION_THROTTLE_MS, refetchInterval: SNAPSHOT_REFRESH_INTERVAL_MS }
   );
-
-  const invalidateNow = useCallback(async () => {
-    if (trailingRefresh.current !== null) {
-      clearTimeout(trailingRefresh.current);
-      trailingRefresh.current = null;
-    }
-    lastSalesRefresh.current = Date.now();
-    const generation = snapshotGeneration.current;
-    try {
-      await utils.companion.snapshot.invalidate({ date: today });
-      if (snapshotGeneration.current === generation) {
-        replayGapRef.current = false;
-        setReplayGap(false);
-      }
-    } catch {
-      // Keep the stale/closed state visible until a later poll or event succeeds.
-    }
-  }, [today, utils]);
-
-  const scheduleSalesRefresh = useCallback(() => {
-    const elapsed = Date.now() - lastSalesRefresh.current;
-    if (replayGapRef.current || elapsed >= SALES_INVALIDATION_THROTTLE_MS) {
-      void invalidateNow();
-      return;
-    }
-    if (trailingRefresh.current === null) {
-      trailingRefresh.current = setTimeout(() => {
-        trailingRefresh.current = null;
-        void invalidateNow();
-      }, SALES_INVALIDATION_THROTTLE_MS - elapsed);
-    }
-  }, [invalidateNow]);
-
-  useEffect(
-    () => () => {
-      snapshotGeneration.current += 1;
-      if (trailingRefresh.current !== null) clearTimeout(trailingRefresh.current);
-    },
-    []
-  );
-
-  useEffect(() => {
-    if (online) return;
-    snapshotGeneration.current += 1;
-    replayGapRef.current = false;
-    lastSalesRefresh.current = 0;
-    if (trailingRefresh.current !== null) {
-      clearTimeout(trailingRefresh.current);
-      trailingRefresh.current = null;
-    }
-    // Remove authenticated operational data, not merely hide it. Re-enabling
-    // the query after reconnect must perform a network read instead of
-    // treating a recently cached pre-outage snapshot as current.
-    void utils.companion.snapshot.reset({ date: today });
-  }, [online, today, utils]);
-
-  const onEvent = useCallback(
-    (event: RealtimeEvent) => {
-      if (event.type === 'realtime.replay_gap') {
-        snapshotGeneration.current += 1;
-        replayGapRef.current = true;
-        setReplayGap(true);
-        void invalidateNow();
-        return;
-      }
-      if (event.type !== 'companion.invalidated' || !isCompanionInvalidation(event.data)) return;
-      if (event.data.scope === 'day_close') {
-        void invalidateNow();
-      } else {
-        scheduleSalesRefresh();
-      }
-    },
-    [invalidateNow, scheduleSalesRefresh]
-  );
-
-  useRealtimeChannel({
-    collection: 'companion',
-    onEvent,
-    onStateChange: setConnection,
-    enabled: online,
-  });
-
-  const liveState: LiveState = !online
-    ? 'offline'
-    : replayGap && connection === 'open'
-      ? 'stale'
-      : connection;
 
   return (
     <div className="space-y-5" data-testid="companion-home">
       <header className="space-y-1">
         <p className="pv-kicker">{t('kicker')}</p>
         <h1 className="pv-title text-xl">{t('title')}</h1>
-        <p
-          className={`flex items-center gap-1.5 text-sm ${
-            liveState === 'open' ? 'text-success-700' : 'text-secondary-500'
-          }`}
-          data-testid="companion-connection"
-          role="status"
-        >
-          {liveState === 'open' ? (
-            <Radio className="h-4 w-4" aria-hidden="true" />
-          ) : (
-            <WifiOff className="h-4 w-4" aria-hidden="true" />
-          )}
-          {t(`connection.${liveState}`)}
-        </p>
+        <CompanionConnection liveState={liveState} />
       </header>
 
-      {!online ? (
-        <section
-          className="card space-y-2 border-warning-300 bg-warning-50 p-4"
-          data-testid="companion-offline"
-          role="status"
-        >
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-warning-900">
-            <WifiOff className="h-4 w-4" aria-hidden="true" />
-            {t('offline.title')}
-          </h2>
-          <p className="text-sm text-warning-800">{t('offline.description')}</p>
-        </section>
-      ) : snapshotQuery.isPending ? (
+      {snapshotQuery.isPending ? (
         <section className="card flex items-center gap-2 p-4 text-sm text-secondary-500">
           <RefreshCw className="h-4 w-4 animate-spin" aria-hidden="true" />
           {t('snapshot.loading')}

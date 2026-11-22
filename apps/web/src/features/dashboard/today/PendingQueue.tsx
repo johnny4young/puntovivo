@@ -11,9 +11,10 @@ import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 import { cn } from '@/lib/utils';
 import {
+  ago,
+  clip,
+  REASON_MAX,
   filterPending,
-  formatDuration,
-  minutesBetween,
   type PendingFilter,
   type TodayPendingItem,
 } from './todayModel';
@@ -278,20 +279,6 @@ function incidentFacts(
   }
 }
 
-// The full reason (up to 500 characters) stays in the approvals queue.
-const REASON_MAX = 80;
-
-function clip(text: string, max: number) {
-  return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
-}
-
-function ago(fromIso: string, nowIso: string, t: Translate) {
-  const minutes = minutesBetween(fromIso, nowIso);
-  return minutes < 1
-    ? t('dashboard:today.pending.agoNow')
-    : t('dashboard:today.pending.ago', { duration: formatDuration(minutes, t) });
-}
-
 function describe(
   item: TodayPendingItem,
   t: Translate,
@@ -303,7 +290,7 @@ function describe(
     case 'approval':
       return {
         title: t('dashboard:today.pending.approval', {
-          label: item.label,
+          label: item.label ?? t(`common:userMenu.approvals.actions.${item.action}`),
           amount: item.amount === null ? '' : formatCurrency(item.amount),
         }),
         detail: [

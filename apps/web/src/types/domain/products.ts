@@ -1,5 +1,6 @@
 // product / category domain shapes ( slice 28).
 
+import type { UnitDimension } from '@puntovivo/shared/units';
 import type { SyncStatus } from '../ui';
 
 // Domain Models
@@ -78,6 +79,8 @@ export type PharmacyProfileLockReason =
   | 'active_product_recall'
   | 'active_registration_recall';
 
+export type PharmacyClassification = 'otc' | 'prescription' | 'controlled';
+
 export interface PharmacyProductProfile {
   activeIngredient: string | null;
   genericName: string | null;
@@ -89,7 +92,7 @@ export interface PharmacyProductProfile {
   authorizationHolder: string | null;
   sanitaryRegistration: string | null;
   registrationExpiresAt: string | null;
-  classification: 'otc' | 'prescription' | 'controlled';
+  classification: PharmacyClassification;
   storageConditions: string | null;
   requiresColdChain: boolean;
 }
@@ -113,6 +116,9 @@ export interface ProductUnitAssignment {
   unitId: string;
   unitName?: string | null;
   unitAbbreviation?: string | null;
+  unitDimension?: UnitDimension | null;
+  /** Grams in one unit for mass units (kilogram = 1000); null when unknown. */
+  unitReferenceFactor?: number | null;
   equivalence: number;
   price: number;
   price2?: number;
@@ -138,6 +144,24 @@ export interface ProductSearchItem extends Product {
   baseUnitName?: string | null;
   baseUnitAbbreviation?: string | null;
   baseUnitPrice?: number | null;
+  /** The lot sold next at the searched site (FEFO); null without a site or lots. */
+  nextLot?: ProductNextLot | null;
+  /** Other active sites with stock, most first; null without a searched site. */
+  otherSites?: ProductOtherSiteStock[] | null;
+}
+
+export interface ProductOtherSiteStock {
+  siteId: string;
+  siteName: string;
+  onHand: number;
+}
+
+export interface ProductNextLot {
+  lotNumber: string;
+  expiresAt: string | null;
+  daysToExpiry: number | null;
+  /** Inside the tenant's widest expiry-discount window. */
+  nearExpiry: boolean;
 }
 
 export interface ProductSearchSelection {

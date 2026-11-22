@@ -79,6 +79,7 @@ interface SalesModalsProps {
   isPaymentModalOpen: boolean;
   paymentModalKey: number;
   paymentTotal: number;
+  paymentConsumptionTax?: number | undefined;
   paymentApprovalSaleId: string | null;
   paymentApprovalCustomerId: string | null;
   paymentCustomerLocked: boolean;
@@ -129,6 +130,7 @@ export function SalesModals({
   isPaymentModalOpen,
   paymentModalKey,
   paymentTotal,
+  paymentConsumptionTax,
   paymentApprovalSaleId,
   paymentApprovalCustomerId,
   paymentCustomerLocked,
@@ -297,10 +299,10 @@ export function SalesModals({
             useQuickCreateStore.getState().requestCreateProduct({ defaultName });
           }}
           canCreateProducts={user?.role === 'admin' || user?.role === 'manager'}
-          // the POS is the surface where the expiry-radar
-          // suggestion must reach the cashier; other dialog consumers
-          // keep the prop off (zero extra queries).
-          showDiscountSuggestions
+          // Only the register shows expiry suggestions, lots and generics;
+          // other dialog consumers keep the prop off (zero extra queries).
+          registerHints
+          priceTier={activePriceTier}
           siteId={discountSuggestionSiteId}
           showUnitPicker={sellsInUnits}
         />
@@ -360,6 +362,7 @@ export function SalesModals({
             key={paymentModalKey}
             isOpen={isPaymentModalOpen}
             total={paymentTotal}
+            consumptionTaxAmount={paymentConsumptionTax}
             approvalSaleId={paymentApprovalSaleId}
             approvalCustomerId={paymentApprovalCustomerId}
             customerLocked={paymentCustomerLocked}

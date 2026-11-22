@@ -17,7 +17,7 @@
  * it. A typical host toggles it via Ctrl+R.
  */
 
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   AlertCircle,
@@ -38,6 +38,7 @@ import { useTenant } from '@/features/tenant/TenantProvider';
 import {
   invalidateCommittedGroups,
   INVENTORY_RESERVATION_INVALIDATIONS,
+  RESTAURANT_TABLE_INVALIDATIONS,
 } from '@/lib/invalidateGroups';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
@@ -46,7 +47,14 @@ import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { formatDateTime } from '@/lib/utils';
 import { getCachedDeviceIdSync } from '@/lib/deviceId';
 import { SplitBillModal } from './SplitBillModal';
+import type { ResumeDraftSelection, ResumeOptions } from './useSalesFlows';
 import { TransferTableModal } from './TransferTableModal';
+
+const RestaurantSplitSheet = lazy(() =>
+  import('@/features/restaurants/RestaurantSplitSheet').then(module => ({
+    default: module.RestaurantSplitSheet,
+  }))
+);
 
 /** Bounded draft-card projection used for resume, discard, transfer and split. */
 export interface SuspendedDraftSummary {
@@ -85,7 +93,7 @@ interface SuspendedSalesPanelProps {
    * responsible for calling `sales.resume`, hydrating the workspace
    * store, and (usually) closing this panel afterwards.
    */
-  onResume: (draft: SuspendedDraftSummary) => void | Promise<void>;
+  onResume: (draft: ResumeDraftSelection, options?: ResumeOptions) => void | Promise<void>;
 }
 
 export function SuspendedSalesPanel(props: SuspendedSalesPanelProps) {
@@ -162,8 +170,7 @@ function OpenSuspendedSalesPanel({ isOpen, onClose, onResume }: SuspendedSalesPa
       setDraftPage(1);
       const refreshed = await invalidateCommittedGroups(utils, [
         u => u.sales.listDrafts,
-        u => u.restaurantTables.listWithDraftStatus,
-        u => u.restaurantServices.getTableState,
+        ...RESTAURANT_TABLE_INVALIDATIONS,
         ...INVENTORY_RESERVATION_INVALIDATIONS,
       ]);
       if (refreshed) {
@@ -473,9 +480,23 @@ function OpenSuspendedSalesPanel({ isOpen, onClose, onResume }: SuspendedSalesPa
           a draft is also a manager/admin operations override. */}
       <SplitBillModal
         key={splitTarget?.id ?? 'split-closed'}
-        draft={canTransferTables ? splitTarget : null}
+        draft={canTransferTables && !splitTarget?.hasRestaurantCheck ? splitTarget : null}
         onClose={() => setSplitTarget(null)}
       />
+      {canTransferTables && splitTarget?.hasRestaurantCheck && splitTarget.tableId && (
+        <Suspense fallback={null}>
+          <RestaurantSplitSheet
+            key={splitTarget.tableId}
+            tableId={splitTarget.tableId}
+            tableName={splitTarget.tableName ?? splitTarget.label ?? ''}
+            onClose={() => setSplitTarget(null)}
+            onCharge={account => {
+              setSplitTarget(null);
+              void onResume(account, { charge: true });
+            }}
+          />
+        </Suspense>
+      )}
     </>
   );
 }

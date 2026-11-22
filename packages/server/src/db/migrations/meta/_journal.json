@@ -729,6 +729,34 @@
       "when": 1795247341758,
       "tag": "0103_day_close_signature",
       "breakpoints": true
+    },
+    {
+      "idx": 104,
+      "version": "6",
+      "when": 1795304641980,
+      "tag": "0104_restaurant_modifier_groups",
+      "breakpoints": true
+    },
+    {
+      "idx": 105,
+      "version": "6",
+      "when": 1795317614616,
+      "tag": "0105_restaurant_service_markers",
+      "breakpoints": true
+    },
+    {
+      "idx": 106,
+      "version": "6",
+      "when": 1795329546328,
+      "tag": "0106_manager_approval_context",
+      "breakpoints": true
+    },
+    {
+      "idx": 107,
+      "version": "6",
+      "when": 1795338282602,
+      "tag": "0107_owner_push_subscriptions",
+      "breakpoints": true
     }
   ]
 }

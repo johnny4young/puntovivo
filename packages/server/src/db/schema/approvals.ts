@@ -42,6 +42,29 @@ export interface ManagerApprovalEvidence {
   approvedAt: string;
 }
 
+/** What the approver sees next to the amount, frozen when the request is made. */
+export interface ManagerApprovalDecisionContext {
+  version: 1;
+  /** Requested discount against the requester's role limit; null without a discount. */
+  discount: { percent: number; roleLimitPercent: number | null } | null;
+  /** Pre-tax margin from catalog cost; null when any line has no cost. */
+  margin: { withDiscountPercent: number | null; withoutDiscountPercent: number } | null;
+  /** Completed, unrefunded purchases of the ticket's customer in the trailing window. */
+  customer: {
+    /** The name is read live so anonymizing the customer reaches this row. */
+    id: string;
+    windowDays: number;
+    purchases: number;
+    daysPerVisit: number | null;
+    usualDiscountPercent: number | null;
+  } | null;
+  /**
+   * Ticket total after the discount and before it, null when a service charge or tax-exclusive
+   * prices make the sum inexact; absent on requests made before it was stored.
+   */
+  ticket?: { totalBefore: number | null; total: number; itemCount: number };
+}
+
 export const managerApprovalRequests = sqliteTable(
   'manager_approval_requests',
   {
@@ -61,6 +84,9 @@ export const managerApprovalRequests = sqliteTable(
     resourceType: text('resource_type').notNull(),
     resourceId: text('resource_id'),
     summary: text('summary', { mode: 'json' }).$type<ManagerApprovalSummary>().notNull(),
+    decisionContext: text('decision_context', {
+      mode: 'json',
+    }).$type<ManagerApprovalDecisionContext>(),
     // one exact request can require two distinct fresh-PIN decisions.
     requiredApprovals: integer('required_approvals').notNull().default(1),
     approvalEvidence: text('approval_evidence', { mode: 'json' })

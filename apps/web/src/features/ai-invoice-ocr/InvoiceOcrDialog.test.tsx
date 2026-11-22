@@ -51,6 +51,12 @@ vi.mock('@/lib/trpc', () => ({
         useQuery: () => ({ data: undefined, isLoading: false, error: null }),
       },
     },
+    // Its generic hint also mounts, disabled outside the register.
+    pharmacy: {
+      genericAlternatives: {
+        useQuery: () => ({ data: undefined, isLoading: false, error: null }),
+      },
+    },
   },
 }));
 
@@ -215,9 +221,7 @@ describe('InvoiceOcrDialog states', () => {
 
       expect(screen.getByText(/PDF \(1 página\)/i)).toBeInTheDocument();
       await userEvent.upload(uploadInput(document.body), pdfFile());
-      expect(
-        await screen.findByText(/Solo se admiten PDF de una página/i)
-      ).toBeInTheDocument();
+      expect(await screen.findByText(/Solo se admiten PDF de una página/i)).toBeInTheDocument();
       expect(screen.queryByText(/Synchronous invoice extraction/i)).not.toBeInTheDocument();
     } finally {
       await act(async () => {

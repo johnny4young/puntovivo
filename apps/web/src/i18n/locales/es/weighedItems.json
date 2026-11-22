@@ -1,0 +1,25 @@
+{
+  "title": "{{name}} · ¿cuánto pesó?",
+  "readout": "{{weight}} kg = {{total}}",
+  "presets": {
+    "quarter": "¼ kg",
+    "half": "½ kg",
+    "one": "1 kg"
+  },
+  "value": {
+    "button": "Por valor",
+    "buttonAmount": "Por valor {{amount}}",
+    "label": "Valor"
+  },
+  "weight": {
+    "button": "Escribir peso",
+    "label": "Peso en kg"
+  },
+  "add": "Agregar",
+  "close": "Cerrar",
+  "errors": {
+    "invalid": "Ingrese un valor mayor que cero.",
+    "unpriced": "Este producto no tiene precio.",
+    "belowMinimum": "El mínimo es {{minimum}} kg."
+  }
+}

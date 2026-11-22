@@ -131,6 +131,11 @@ ni impresora externa.
   de instalación, junto con manifiesto e identificador de dispositivo en texto
   plano. Se comprueba la integridad del conjunto al restaurar y se
   replica el mismo objeto por HTTPS al destino S3 del operador.
+- Tras cada respaldo programado, el proceso main del escritorio publica solo la
+  frecuencia, el último intento, el último éxito y el código de fallo del
+  negocio en el ajuste permitido `backup_snapshot_status`, para que el teléfono
+  del dueño diga si corrió el respaldo. Rutas y tamaños se quedan en el archivo
+  de estado local del equipo.
 - La envoltura por contraseña v2 conserva exactamente N, r, p, sal, normalización
   y resultado de 32 bytes, pero deriva mediante scrypt asíncrono en una cola
   acotada para no bloquear el renderer ni el ciclo de main. Crear y extraer en
@@ -208,6 +213,13 @@ ni impresora externa.
   flujo de invalidación sin payload. Su worker PWA cachea una lista generada
   de recursos versionados y nunca intercepta `/api/*`; los totales autenticados
   se limpian sin conexión y tras salir, en lugar de tratarlos como datos móviles persistentes.
+- Los avisos push al dueño se activan por administrador o gerente. El contenido
+  va cifrado para el navegador suscrito (RFC 8291) y firmado con una llave VAPID
+  de la instalación sellada con la llave de la base de datos; los nombres de
+  clientes nunca viajan. Los endpoints deben ser hosts HTTPS públicos en el
+  puerto por defecto y se fija su DNS en cada envío, como los webhooks. El envío
+  es de mejor esfuerzo después de confirmar y nunca bloquea una escritura de
+  negocio (ADR-0040).
 
 ## Bandeja firmada de pedidos externos
 

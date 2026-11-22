@@ -162,6 +162,8 @@ export interface SalePaymentModalProps {
   /** Display label when the frozen customer is outside the active catalog query. */
   lockedCustomerName?: string | null | undefined;
   approvalItems?: SalePaymentQuoteItem[] | undefined;
+  /** Impoconsumo included in `total`, shown under it. */
+  consumptionTaxAmount?: number | undefined;
   approvalDiscountAmount?: number | undefined;
   /** Accepted quotations keep frozen prices and never request live promotions. */
   promotionPricingEnabled?: boolean | undefined;

@@ -6,6 +6,8 @@ import { formatCurrency } from '@/lib/utils';
 import type { ProductSearchItem } from '@/types';
 import { getDefaultProductUnit } from './productSearchSelection';
 import { Badge } from '@/components/ui';
+import { PharmacyResultHints } from '@/features/sales/PharmacyResultHints';
+import { OtherSiteStock, UnitPriceChips } from '@/features/sales/HardwareResultHints';
 interface ProductSearchResultsProps {
   items: readonly ProductSearchItem[];
   isLoading: boolean;
@@ -13,7 +15,17 @@ interface ProductSearchResultsProps {
   isEmptyState: boolean;
   query: string;
   selectedProductId: string | undefined;
+  /** Unit picked for the selected product. */
+  selectedUnitId?: string | undefined;
   discountSuggestions: ReadonlyMap<string, number>;
+  /** Register only: medicines show their lot, class and generic savings. */
+  pharmacyHints?: boolean;
+  /** Savings of each listed product that is a cheaper equivalent of the pick. */
+  genericSavings?: ReadonlyMap<string, number>;
+  /** Register only: stock at the best other site under this site's figure. */
+  otherSiteStock?: boolean;
+  /** Units zone: the other units with their price, each one a tap away. */
+  onProductUnitSelect?: ((product: ProductSearchItem, unitId: string) => void) | undefined;
   canCreateProducts: boolean;
   quickCreateAvailable: boolean;
   onQuickCreate: () => void;
@@ -26,7 +38,12 @@ export function ProductSearchResults({
   isEmptyState,
   query,
   selectedProductId,
+  selectedUnitId,
   discountSuggestions,
+  pharmacyHints = false,
+  genericSavings,
+  otherSiteStock = false,
+  onProductUnitSelect,
   canCreateProducts,
   quickCreateAvailable,
   onQuickCreate,
@@ -49,6 +66,8 @@ export function ProductSearchResults({
     index: number,
     product: ProductSearchItem
   ) => {
+    // Keys on a unit chip belong to the chip.
+    if (event.target !== event.currentTarget) return;
     switch (event.key) {
       case 'ArrowDown': {
         event.preventDefault();
@@ -175,7 +194,7 @@ export function ProductSearchResults({
                     onFocus={() => setActiveRowIndex(index)}
                     onKeyDown={event => handleRowKeyDown(event, index, product)}
                   >
-                    <td className="px-4 py-3 text-sm font-medium text-secondary-700">
+                    <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-secondary-700">
                       {product.sku}
                     </td>
                     <td className="px-4 py-3">
@@ -193,17 +212,37 @@ export function ProductSearchResults({
                             </Badge>
                           )}
                         </p>
-                        <p className="text-xs text-secondary-500">
-                          {product.categoryName ?? t('productSearch.noCategory')}
-                          {' · '}
-                          {product.providerName ?? t('productSearch.noProvider')}
-                        </p>
+                        {pharmacyHints && product.pharmacy ? (
+                          <PharmacyResultHints
+                            product={product}
+                            profile={product.pharmacy}
+                            savings={genericSavings?.get(product.id)}
+                          />
+                        ) : (
+                          <p className="text-xs text-secondary-500">
+                            {product.categoryName ?? t('productSearch.noCategory')}
+                            {' · '}
+                            {product.providerName ?? t('productSearch.noProvider')}
+                          </p>
+                        )}
+                        {onProductUnitSelect && (
+                          <UnitPriceChips
+                            product={product}
+                            defaultUnitId={defaultUnit?.unitId}
+                            selectedUnitId={isSelected ? selectedUnitId : undefined}
+                            focusable={isActiveRow}
+                            onSelectUnit={unitId => onProductUnitSelect(product, unitId)}
+                          />
+                        )}
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm text-secondary-700">
                       {product.tracksStock === false
                         ? t('productSearch.serviceItem')
                         : (product.siteStock ?? product.stock)}
+                      {otherSiteStock &&
+                        product.tracksStock !== false &&
+                        product.otherSites?.[0] && <OtherSiteStock product={product} />}
                     </td>
                     <td className="px-4 py-3 text-sm text-secondary-700">
                       {formatCurrency(defaultUnit?.price ?? product.baseUnitPrice ?? product.price)}

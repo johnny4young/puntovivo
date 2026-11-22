@@ -97,14 +97,50 @@ describe('SalesHeaderSection', () => {
     expect(screen.queryByTestId('sales-price-tier')).not.toBeInTheDocument();
   });
 
+  const quotationWorkspace = (overrides: Record<string, unknown> = {}) =>
+    ({
+      sourceQuotationNumber: 'COT-000042',
+      sourceQuotationValidUntil: null,
+      items: [],
+      ...overrides,
+    }) as never;
+
   it('shows the accepted-quotation lock', () => {
-    renderHeader({ activeWorkspace: { sourceQuotationNumber: 'COT-000042' } as never });
-    expect(screen.getByTestId('quotation-cart-banner')).toHaveTextContent('COT-000042');
+    renderHeader({ activeWorkspace: quotationWorkspace() });
+    const banner = screen.getByTestId('quotation-cart-banner');
+    expect(banner).toHaveTextContent('From quotation COT-000042 · prices and terms locked');
+    // No end date, no serial lines: nothing else to say.
+    expect(screen.queryByTestId('quotation-cart-expiry')).not.toBeInTheDocument();
+    expect(banner).not.toHaveTextContent('serials');
+  });
+
+  it('says how many days the quotation still holds, and asks for serials only when needed', () => {
+    const validUntil = new Date();
+    validUntil.setDate(validUntil.getDate() + 4);
+    renderHeader({
+      activeWorkspace: quotationWorkspace({
+        sourceQuotationValidUntil: validUntil.toISOString(),
+        items: [{ tracksSerials: true }],
+      }),
+    });
+    expect(screen.getByTestId('quotation-cart-expiry')).toHaveTextContent('expires in 4 days');
+    expect(screen.getByTestId('quotation-cart-banner')).toHaveTextContent(
+      'Select the required serials before charging.'
+    );
+  });
+
+  it('marks a quotation past its last day as expired', () => {
+    const validUntil = new Date();
+    validUntil.setDate(validUntil.getDate() - 1);
+    renderHeader({
+      activeWorkspace: quotationWorkspace({ sourceQuotationValidUntil: validUntil.toISOString() }),
+    });
+    expect(screen.getByTestId('quotation-cart-expiry')).toHaveTextContent('expired');
   });
 
   it('leaves out the quotation banner while the quotation zone is off', () => {
     zones.quote = false;
-    renderHeader({ activeWorkspace: { sourceQuotationNumber: 'COT-000042' } as never });
+    renderHeader({ activeWorkspace: quotationWorkspace() });
     expect(screen.queryByTestId('quotation-cart-banner')).not.toBeInTheDocument();
   });
 
