@@ -22,8 +22,10 @@ The current validated candidate includes:
 - barcode-first sales, suspended carts, split tenders, normalized full or
   partial returns by line and quantity, linked replacement sales for exchanges,
   customer store-credit issuance and redemption, loyalty earning and
-  redemption, voids, receipt reprints, credit sales, manager approval controls,
-  server-authoritative percentage promotions with explicit lifecycle and
+  redemption, voids, receipt reprints, credit sales, manager approval controls
+  whose checkout requests show the approver the requester's discount limit, the
+  sale's margin with and without the discount, and the customer's usual cadence
+  and discount, server-authoritative percentage promotions with explicit lifecycle and
   frozen line evidence, and a
   human-controlled WhatsApp receipt handoff that renders text plus an optional
   local PNG without background delivery;

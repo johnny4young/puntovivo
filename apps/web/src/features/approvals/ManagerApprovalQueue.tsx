@@ -7,6 +7,7 @@ import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import { CHECKOUT_APPROVAL_RESOURCE_TYPE } from '@puntovivo/shared/checkout-approval';
+import { ApprovalDecisionContext } from './ApprovalDecisionContext';
 
 export type ApprovalDecision = 'approved' | 'rejected';
 
@@ -250,7 +251,16 @@ export function ManagerApprovalQueue() {
                       </span>
                     )}
                   </div>
-                  <p className="mt-1.5 text-[11px] text-secondary-700">{item.reason}</p>
+                  {item.decisionContext && (
+                    <ApprovalDecisionContext
+                      requestId={item.id}
+                      requesterName={item.requesterName}
+                      context={item.decisionContext}
+                    />
+                  )}
+                  <blockquote className="mt-1.5 rounded-lg border border-dashed border-line px-2 py-1.5 text-[11px] text-secondary-700">
+                    {t('common:userMenu.approvals.note', { reason: item.reason })}
+                  </blockquote>
                   <p className="mt-1 text-[10px] text-fg2">
                     {t('common:userMenu.approvals.requestedBy', {
                       name: item.requesterName,

@@ -743,6 +743,13 @@
       "when": 1795317614616,
       "tag": "0105_restaurant_service_markers",
       "breakpoints": true
+    },
+    {
+      "idx": 106,
+      "version": "6",
+      "when": 1795329546328,
+      "tag": "0106_manager_approval_context",
+      "breakpoints": true
     }
   ]
 }

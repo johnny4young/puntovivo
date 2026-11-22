@@ -138,6 +138,26 @@ describe('TodayOverview', () => {
     expect(row).toHaveTextContent(`Laura · ${'a'.repeat(79)}… · Norte · 24 min ago`);
   });
 
+  it('names a checkout approval by its action', () => {
+    const base = todayFixture();
+    todayData.current = todayFixture({
+      pending: base.pending.map(item =>
+        item.kind === 'approval'
+          ? {
+              ...item,
+              action: 'sale_discount',
+              label: null,
+              amount: 2856,
+            }
+          : item
+      ),
+    });
+    render(<TodayOverview formatCurrency={formatCurrency} />);
+    const row = screen.getByTestId('today-pending-row-approval');
+    expect(row).toHaveTextContent(`Sale discount ${formatCurrency(2856)} awaits your approval`);
+    expect(row).not.toHaveTextContent('checkout');
+  });
+
   describe('incident detail', () => {
     type IncidentItem = Extract<TodayPendingItem, { kind: 'incident' }>;
     const baseIncident = () =>
