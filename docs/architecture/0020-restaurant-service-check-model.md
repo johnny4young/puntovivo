@@ -163,7 +163,8 @@ view drift from the sale that is eventually paid.
   and ages them from the oldest. A table without an open service has nothing
   to mark.
 - The summary also lists the site's takeaway orders: parked sale drafts with
-  no table whose register belongs to the site, oldest first, capped at 50 with
+  no table whose register belongs to the site, oldest opened first and aged
+  from when they were opened, capped at 50 with
   the full count. They are the same tickets the kitchen labels takeaway. A
   cashier sees only the tickets they parked, as in `sales.listDrafts`. Open
   deliveries stay in `deliveryOrders`; the floor only links to that queue.

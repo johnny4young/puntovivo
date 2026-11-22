@@ -121,7 +121,7 @@ function TakeawayList({ summary }: { summary: FloorSummary }) {
               {order.label ?? t('floorMap.takeaway.untitled', { number: order.saleNumber })}
             </span>
             <span className="text-sm text-fg2">
-              {formatElapsed(t, order.suspendedAt, summary.generatedAt)}
+              {formatElapsed(t, order.openedAt, summary.generatedAt)}
             </span>
             <span className="w-28 text-right font-semibold tabular-nums text-fg1">
               {formatCurrency(order.total)}
@@ -161,7 +161,8 @@ export function RestaurantFloorMapPreview({
     return [...map.entries()];
   }, [summary.items, t]);
   const channelTabs = (
-    <nav
+    <div
+      role="group"
       aria-label={t('floorMap.channels.label')}
       className="mb-5 flex flex-wrap gap-2"
       data-testid="restaurant-floor-channels"
@@ -193,7 +194,7 @@ export function RestaurantFloorMapPreview({
           {channelLabel(t, 'delivery', deliveryCount)}
         </Link>
       )}
-    </nav>
+    </div>
   );
   let body: ReactNode;
   if (channel === 'takeaway') {

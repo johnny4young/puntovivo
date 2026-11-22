@@ -93,7 +93,8 @@ type TableSummaryTransaction = Pick<DatabaseInstance, 'select'>;
 
 /**
  * Parked tickets with no table at this site, oldest first: in a restaurant they
- * are takeaway orders. A cashier sees only their own, as in `sales.listDrafts`.
+ * are takeaway orders, aged from when they were opened. A cashier sees only their
+ * own, as in `sales.listDrafts`.
  */
 function listTakeawayOrders(
   tx: TableSummaryTransaction,
@@ -117,15 +118,15 @@ function listTakeawayOrders(
       id: sales.id,
       saleNumber: sales.saleNumber,
       label: sales.suspendedLabel,
-      suspendedAt: sales.suspendedAt,
+      openedAt: sales.createdAt,
       total: sales.total,
     })
     .from(sales)
     .where(where)
-    .orderBy(asc(sales.suspendedAt), asc(sales.id))
+    .orderBy(asc(sales.createdAt), asc(sales.id))
     .limit(TAKEAWAY_LIST_LIMIT)
     .all()
-    .map(row => ({ ...row, suspendedAt: row.suspendedAt!, total: roundMoney(row.total) }));
+    .map(row => ({ ...row, total: roundMoney(row.total) }));
   return { totalItems, items };
 }
 

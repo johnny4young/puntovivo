@@ -149,6 +149,7 @@ async function insertSaleOnTable(
     status: 'draft' | 'completed';
     suspended: boolean;
     suspendedAt: string;
+    createdAt: string;
     label: string | null;
     total: number;
     cashSessionId: string | null;
@@ -183,7 +184,7 @@ async function insertSaleOnTable(
     suspendedAt: suspended ? now : null,
     suspendedBy: suspended ? actorId : null,
     suspendedLabel: suspended ? (overrides.label === undefined ? 'auto' : overrides.label) : null,
-    createdAt: now,
+    createdAt: overrides.createdAt ?? now,
     updatedAt: now,
   });
   return id;
@@ -843,13 +844,42 @@ describe('restaurantTables.listSummary takeaway', () => {
     ]);
   });
 
+  it('ages takeaway tickets from when they were opened, not from the last park', async () => {
+    const h = await seedHarness('takeaway-reparked');
+    const sessionId = cashSessionByTenant.get(h.tenantId)!;
+    const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
+    const openedAt = minutesAgo(40);
+    const reparked = await insertSaleOnTable(h.tenantId, h.cashierId, null, {
+      cashSessionId: sessionId,
+      createdAt: openedAt,
+      suspendedAt: minutesAgo(1),
+    });
+    const recent = await insertSaleOnTable(h.tenantId, h.cashierId, null, {
+      cashSessionId: sessionId,
+      createdAt: minutesAgo(10),
+      suspendedAt: minutesAgo(9),
+    });
+
+    const summary = await appRouter
+      .createCaller(buildCtx(h.tenantId, h.adminId, 'admin'))
+      .restaurantTables.listSummary({ siteId: h.siteId });
+
+    expect(summary.takeaway.items.map(row => row.id)).toEqual([reparked, recent]);
+    expect(summary.takeaway.items[0]?.openedAt).toBe(openedAt);
+  });
+
   it('shows a cashier only the takeaway tickets they parked', async () => {
     const h = await seedHarness('takeaway-cashier');
     const sessionId = cashSessionByTenant.get(h.tenantId)!;
+    const parkedAt = new Date(Date.now() - 60_000).toISOString();
     const own = await insertSaleOnTable(h.tenantId, h.cashierId, null, {
       cashSessionId: sessionId,
+      suspendedAt: parkedAt,
     });
-    await insertSaleOnTable(h.tenantId, h.managerId, null, { cashSessionId: sessionId });
+    await insertSaleOnTable(h.tenantId, h.managerId, null, {
+      cashSessionId: sessionId,
+      suspendedAt: parkedAt,
+    });
 
     const cashierView = await appRouter
       .createCaller(buildCtx(h.tenantId, h.cashierId, 'cashier'))
