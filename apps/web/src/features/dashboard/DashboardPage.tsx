@@ -11,7 +11,7 @@ import {
 } from '@/features/dashboard/DashboardPanels';
 import { AnomalyDetectionCard } from '@/features/dashboard/AnomalyDetectionCard';
 import { useAuth } from '@/features/auth/AuthProvider';
-import { managerOrAdminRoles } from '@/features/auth/roleAccess';
+import { managerOrAdminRoles, salesRoles } from '@/features/auth/roleAccess';
 import { NumberingAlertBanner } from '@/features/fiscal/NumberingAlertBanner';
 import { useIsModuleActive } from '@/features/modules';
 import { QueryErrorState } from '@/components/feedback/QueryErrorState';
@@ -70,6 +70,7 @@ export function DashboardPage() {
   // return MODULE_NOT_ACTIVATED/role FORBIDDEN for the current user.
   const isManager = user ? (managerOrAdminRoles as readonly string[]).includes(user.role) : false;
   const showAnomalyCard = isManager && anomalyModuleActive;
+  const canSell = user ? (salesRoles as readonly string[]).includes(user.role) : false;
   const dashboardQuery = trpc.dashboard.summary.useQuery();
   // Reads Hoy's cached day without fetching: the latest-day figure hides only once Hoy shows it.
   const hoyShowsToday =
@@ -194,12 +195,14 @@ export function DashboardPage() {
                 </div>
               )}
 
-              <Link className="pv-action-pill group" to="/sales">
-                <span>{t('page.primaryAction')}</span>
-                <span className="pv-action-island" aria-hidden="true">
-                  <ArrowUpRight className="h-4 w-4" strokeWidth={1.7} />
-                </span>
-              </Link>
+              {canSell && (
+                <Link className="pv-action-pill group" to="/sales">
+                  <span>{t('page.primaryAction')}</span>
+                  <span className="pv-action-island" aria-hidden="true">
+                    <ArrowUpRight className="h-4 w-4" strokeWidth={1.7} />
+                  </span>
+                </Link>
+              )}
             </div>
 
             <div className="dashboard-briefing-signals">
