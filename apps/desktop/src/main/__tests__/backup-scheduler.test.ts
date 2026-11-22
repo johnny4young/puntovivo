@@ -8,6 +8,7 @@ import {
   backupTenantPathSegment,
   computeNextBackupRunAt,
   createBackupScheduler,
+  type BackupScheduleRecord,
 } from '../backup/scheduler.ts';
 
 const ENCRYPTION_KEY = 'a'.repeat(64);
@@ -37,6 +38,7 @@ function makeScheduler(
     lifecycleEvents?: string[];
     statePath?: () => string;
     getLastSaleAt?: () => number | null;
+    publishStatus?: (schedules: Record<string, BackupScheduleRecord>) => Promise<void>;
     replicateSnapshot?: (input: {
       tenantId: string;
       zipPath: string;
@@ -59,6 +61,7 @@ function makeScheduler(
     },
     ...(options.replicateSnapshot ? { replicateSnapshot: options.replicateSnapshot } : {}),
     ...(options.getLastSaleAt ? { getLastSaleAt: options.getLastSaleAt } : {}),
+    ...(options.publishStatus ? { publishStatus: options.publishStatus } : {}),
     createBundle:
       options.createBundle ??
       (async args => ({
@@ -296,5 +299,40 @@ describe('backup scheduler quiet till', () => {
     await scheduler.tick();
     await scheduler.stop();
     assert.equal(bundles, 1);
+  });
+
+  it('publishes every saved outcome and keeps the snapshot when publishing fails', async () => {
+    const published: Array<Record<string, BackupScheduleRecord>> = [];
+    let failPublish = false;
+    const publishStatus = async (schedules: Record<string, BackupScheduleRecord>) => {
+      if (failPublish) throw new Error('server not ready');
+      published.push(schedules);
+    };
+    const first = makeScheduler({
+      now: () => new Date('2026-07-14T12:00:00.000Z'),
+      publishStatus,
+    });
+    await first.updateSchedule('tenant-a', { frequency: 'daily' });
+    await first.updateSchedule('tenant-b', { frequency: 'weekly' });
+    const result = await first.runNow('tenant-a');
+    assert.equal(result.success, true);
+    const latest = published.at(-1)!;
+    assert.deepEqual(Object.keys(latest).sort(), ['tenant-a', 'tenant-b']);
+    assert.equal(latest['tenant-a']?.lastSuccessAt, '2026-07-14T12:00:00.000Z');
+
+    failPublish = true;
+    assert.equal((await first.runNow('tenant-a')).success, true);
+
+    failPublish = false;
+    published.length = 0;
+    // Not due yet, so start only republishes what is saved.
+    const restarted = makeScheduler({
+      now: () => new Date('2026-07-14T13:00:00.000Z'),
+      publishStatus,
+    });
+    await restarted.start();
+    await restarted.stop();
+    assert.equal(published.length, 1);
+    assert.deepEqual(Object.keys(published[0]!).sort(), ['tenant-a', 'tenant-b']);
   });
 });

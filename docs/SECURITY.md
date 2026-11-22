@@ -127,6 +127,11 @@ and does not assert external screen/printer receipt.
   key) inside a ZIP alongside a cleartext manifest and device id; the whole
   bundle is integrity-checked on restore, and cloud-vault replication ships
   that same object over HTTPS to the operator's S3 destination.
+- After each scheduled snapshot, the desktop main process publishes only the
+  tenant's frequency, last attempt, last success and failure code to the
+  allow-listed `backup_snapshot_status` app setting, so the owner's phone can
+  say whether the backup ran. Paths and sizes stay in the device-local state
+  file.
 - Backup v2 passphrase wrapping retains its exact N, r, p, salt, normalization,
   and 32-byte result, but derives through asynchronous scrypt behind a bounded
   queue so renderer and main lifecycle work are not synchronously blocked.

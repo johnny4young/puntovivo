@@ -131,6 +131,11 @@ ni impresora externa.
   de instalación, junto con manifiesto e identificador de dispositivo en texto
   plano. Se comprueba la integridad del conjunto al restaurar y se
   replica el mismo objeto por HTTPS al destino S3 del operador.
+- Tras cada respaldo programado, el proceso main del escritorio publica solo la
+  frecuencia, el último intento, el último éxito y el código de fallo del
+  negocio en el ajuste permitido `backup_snapshot_status`, para que el teléfono
+  del dueño diga si corrió el respaldo. Rutas y tamaños se quedan en el archivo
+  de estado local del equipo.
 - La envoltura por contraseña v2 conserva exactamente N, r, p, sal, normalización
   y resultado de 32 bytes, pero deriva mediante scrypt asíncrono en una cola
   acotada para no bloquear el renderer ni el ciclo de main. Crear y extraer en

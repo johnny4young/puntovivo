@@ -26,6 +26,7 @@ import { createWorkerBackupBundle } from './backup/backup-worker-host.js';
 import { createSaleActivityTracker } from './backup/sale-activity.js';
 import { createBackupRestoreDrill } from './backup/restore-drill.js';
 import { backupTenantPathSegment, createBackupScheduler } from './backup/scheduler.js';
+import { BACKUP_STATUS_SETTING_KEY, projectBackupStatus } from './backup/status-publisher.js';
 import {
   getAutoUpdateStatus,
   initAutoUpdater,
@@ -291,6 +292,8 @@ const backupScheduler = createBackupScheduler({
   createBundle: createBundleOffMain,
   getLastSaleAt: saleActivity.lastSaleAt,
   replicateSnapshot: input => backupCloudVault.replicateSnapshot(input),
+  publishStatus: async schedules =>
+    requireServerHost().writeAppSetting(BACKUP_STATUS_SETTING_KEY, projectBackupStatus(schedules)),
   log: backupLog,
 });
 const backupRestoreDrill = createBackupRestoreDrill({

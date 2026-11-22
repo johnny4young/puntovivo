@@ -9,6 +9,7 @@
  * @module trpc/routers/operations
  */
 import { computeNeedsAttention } from '../../services/operations/attention.js';
+import { computeMorningRecap } from '../../services/operations/morning.js';
 import { computeDayCurve, computeOperationsToday } from '../../services/operations/today.js';
 import {
   acknowledgeOperationalAlert,
@@ -49,6 +50,11 @@ export const operationsRouter = router({
   dayCurve: managerOrAdminProcedure
     .input(dayClosePreviewInput)
     .query(({ ctx, input }) => computeDayCurve(ctx.db, ctx.tenantId, input.date)),
+
+  /** The owner's phone before opening: yesterday sealed, DIAN since the seal, backup, what to open. */
+  morningRecap: managerOrAdminProcedure.query(({ ctx }) =>
+    computeMorningRecap(ctx.db, ctx.tenantId)
+  ),
 
   alertsOverview: managerOrAdminProcedure
     .output(operationalAlertsOverviewOutputSchema)
