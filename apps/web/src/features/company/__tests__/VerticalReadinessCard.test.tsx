@@ -236,6 +236,22 @@ describe('VerticalReadinessCard', () => {
     expect(screen.getByTestId('location-probe')).toHaveTextContent('/inventory?view=pharmacy');
   });
 
+  it('agrees counts with their nouns in Spanish', async () => {
+    await i18next.changeLanguage('es');
+    setData(pharmacyReadiness());
+    render(<VerticalReadinessCard />);
+
+    expect(screen.getByTestId('vertical-readiness-pharmacyAuthorizations')).toHaveTextContent(
+      '1 autorización profesional está vigente hoy.'
+    );
+    expect(screen.getByTestId('vertical-readiness-customerDisplay')).toHaveTextContent(
+      'La pantalla para clientes no está habilitada.'
+    );
+    expect(screen.getByTestId('vertical-readiness-catalog')).toHaveTextContent(
+      '27 productos activos están disponibles'
+    );
+  });
+
   it('appends a tab CTA without dropping an existing query', () => {
     const data = pharmacyReadiness();
     data.checks[3]!.cta = { route: '/company?step=business', tab: 'modules' };
