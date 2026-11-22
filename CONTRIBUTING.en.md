@@ -49,7 +49,9 @@ touches both frontend and backend should pass both `ci:web` and `ci:server`.
 - Keep one logical change per PR.
 - Make sure the relevant CI gate passes locally.
 - All user-facing strings must be internationalized (English + Spanish);
-  Spanish copy uses neutral Latin American Spanish in the `tú` register.
+  Spanish copy uses neutral Latin American Spanish in the `usted` register.
+- A bot reviews every outside PR and issue first and comments with anything
+  missing; see [contribution triage](./.github/triage/REVIEW.md).
 - New public guides need English and Spanish versions with reciprocal language links.
   Register pairs in `docs/translations.json` and run
   `node scripts/check-documentation-translations.mjs`; see
