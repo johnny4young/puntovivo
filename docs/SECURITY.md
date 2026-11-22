@@ -211,6 +211,12 @@ and does not assert external screen/printer receipt.
   of versioned shell assets and never intercepts `/api/*`; authenticated totals
   are reset offline and after logout rather than treated as durable mobile
   data.
+- Owner web push is opt-in per admin or manager. Payloads are encrypted for
+  the subscribed browser (RFC 8291) and signed with an installation VAPID key
+  sealed under the database key; customer names never travel. Endpoints must
+  be public HTTPS hosts on the default port and are DNS-pinned per send, like
+  webhooks. Delivery is best effort after commit and never blocks a business
+  write (ADR-0040).
 
 ## Signed external-order inbox
 

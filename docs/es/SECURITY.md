@@ -208,6 +208,13 @@ ni impresora externa.
   flujo de invalidación sin payload. Su worker PWA cachea una lista generada
   de recursos versionados y nunca intercepta `/api/*`; los totales autenticados
   se limpian sin conexión y tras salir, en lugar de tratarlos como datos móviles persistentes.
+- Los avisos push al dueño se activan por administrador o gerente. El contenido
+  va cifrado para el navegador suscrito (RFC 8291) y firmado con una llave VAPID
+  de la instalación sellada con la llave de la base de datos; los nombres de
+  clientes nunca viajan. Los endpoints deben ser hosts HTTPS públicos en el
+  puerto por defecto y se fija su DNS en cada envío, como los webhooks. El envío
+  es de mejor esfuerzo después de confirmar y nunca bloquea una escritura de
+  negocio (ADR-0040).
 
 ## Bandeja firmada de pedidos externos
 

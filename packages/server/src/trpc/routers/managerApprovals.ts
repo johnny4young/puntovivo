@@ -39,6 +39,7 @@ import { writeAuditLog } from '../../services/audit-logs.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
 import { router } from '../init.js';
 import { asCriticalCommandContext } from '../middleware/commandEnvelope.js';
+import { dispatchOwnerPush } from '../../services/push/notify.js';
 import { criticalCommandCashierManagerOrAdminProcedure } from '../middleware/criticalCommand.js';
 import { cashierManagerOrAdminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
 import { ensureTenantSite } from '../middleware/tenantSite.js';
@@ -534,6 +535,12 @@ export const managerApprovalsRouter = router({
         )
         .get();
       if (!inserted) throwApprovalNotFound();
+      dispatchOwnerPush(criticalCtx.db, {
+        kind: 'approval_waiting',
+        tenantId: criticalCtx.tenantId,
+        actorId: criticalCtx.user.id,
+        requestId: id,
+      });
       return presentRequest(inserted, now);
     }),
 

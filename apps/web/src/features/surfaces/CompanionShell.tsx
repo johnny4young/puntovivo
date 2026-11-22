@@ -24,12 +24,15 @@ import {
   resolveBootLocale,
   type LanguagePreference,
 } from '@/i18n/resolveLocale';
+import { trpc } from '@/lib/trpc';
+import { dropBrowserPush } from './companionPush';
 import { registerCompanionServiceWorker } from './companionPwa';
 
 export function CompanionShell() {
   const location = useLocation();
   const needsCanonicalRedirect = location.pathname === '/c';
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
+  const unsubscribePush = trpc.ownerPush.unsubscribe.useMutation();
   const { t, i18n } = useTranslation(['common', 'companion']);
   const [language, setLanguage] = useState<LanguagePreference>(() => readLanguagePreference());
 
@@ -43,6 +46,13 @@ export function CompanionShell() {
       <Navigate to={{ pathname: '/c/', search: location.search, hash: location.hash }} replace />
     );
   }
+
+  const handleLogout = async () => {
+    if (user?.role === 'admin' || user?.role === 'manager') {
+      await dropBrowserPush(endpoint => unsubscribePush.mutateAsync({ endpoint }));
+    }
+    await logout();
+  };
 
   const handleLanguageChange = (preference: LanguagePreference) => {
     setLanguage(preference);
@@ -88,7 +98,7 @@ export function CompanionShell() {
             </select>
             <button
               type="button"
-              onClick={() => void logout()}
+              onClick={() => void handleLogout()}
               className="grid h-9 w-9 place-items-center rounded-lg border border-line bg-surface text-secondary-600 transition hover:border-danger-300 hover:text-danger-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary-100"
               aria-label={t('companion:shell.logout')}
               title={t('companion:shell.logout')}

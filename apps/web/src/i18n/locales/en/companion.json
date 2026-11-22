@@ -49,5 +49,10 @@
   "ticker": {
     "title": "Latest sales",
     "empty": "No sales yet today."
+  },
+  "push": {
+    "title": "Notifications on this phone",
+    "blocked": "The browser blocks them. Allow them in the site settings.",
+    "failed": "Could not change notifications. Try again."
   }
 }

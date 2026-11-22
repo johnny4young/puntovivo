@@ -318,6 +318,10 @@
       "es": "docs/es/architecture/0039-serial-scale-reader.md"
     },
     {
+      "en": "docs/architecture/0040-owner-web-push.md",
+      "es": "docs/es/architecture/0040-owner-web-push.md"
+    },
+    {
       "en": "docs/architecture/patterns/operation-journal.md",
       "es": "docs/es/architecture/patterns/operation-journal.md"
     },

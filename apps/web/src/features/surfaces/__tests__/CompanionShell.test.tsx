@@ -11,7 +11,11 @@ const { logout, registerWorker, persistLanguage, changeLanguage } = vi.hoisted((
 }));
 
 vi.mock('@/features/auth/AuthProvider', () => ({
-  useAuth: () => ({ logout }),
+  useAuth: () => ({ logout, user: { role: 'viewer' } }),
+}));
+
+vi.mock('@/lib/trpc', () => ({
+  trpc: { ownerPush: { unsubscribe: { useMutation: () => ({ mutateAsync: vi.fn() }) } } },
 }));
 
 vi.mock('../companionPwa', () => ({
