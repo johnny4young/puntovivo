@@ -842,6 +842,26 @@ describe('restaurantTables.listSummary takeaway', () => {
       expect.objectContaining({ id: newer, label: null, total: 52_000 }),
     ]);
   });
+
+  it('shows a cashier only the takeaway tickets they parked', async () => {
+    const h = await seedHarness('takeaway-cashier');
+    const sessionId = cashSessionByTenant.get(h.tenantId)!;
+    const own = await insertSaleOnTable(h.tenantId, h.cashierId, null, {
+      cashSessionId: sessionId,
+    });
+    await insertSaleOnTable(h.tenantId, h.managerId, null, { cashSessionId: sessionId });
+
+    const cashierView = await appRouter
+      .createCaller(buildCtx(h.tenantId, h.cashierId, 'cashier'))
+      .restaurantTables.listSummary({ siteId: h.siteId });
+    const managerView = await appRouter
+      .createCaller(buildCtx(h.tenantId, h.managerId, 'manager'))
+      .restaurantTables.listSummary({ siteId: h.siteId });
+
+    expect(cashierView.takeaway.totalItems).toBe(1);
+    expect(cashierView.takeaway.items.map(row => row.id)).toEqual([own]);
+    expect(managerView.takeaway.totalItems).toBe(2);
+  });
 });
 
 describe('restaurantTables.archive', () => {

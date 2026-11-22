@@ -164,7 +164,8 @@ view drift from the sale that is eventually paid.
   to mark.
 - The summary also lists the site's takeaway orders: parked sale drafts with
   no table whose register belongs to the site, oldest first, capped at 50 with
-  the full count. They are the same tickets the kitchen labels takeaway. Open
+  the full count. They are the same tickets the kitchen labels takeaway. A
+  cashier sees only the tickets they parked, as in `sales.listDrafts`. Open
   deliveries stay in `deliveryOrders`; the floor only links to that queue.
 - Migration `0105` adds the marker columns with plain `ADD COLUMN` and no
   foreign keys, so `restaurant_services` is never rebuilt.

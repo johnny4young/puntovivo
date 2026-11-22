@@ -34,6 +34,7 @@ import {
   sales,
 } from '../../db/schema.js';
 import type { DatabaseInstance } from '../../db/index.js';
+import { parkedDraftOwnedBy } from '../../application/sales/draft-ownership.js';
 import { roundMoney } from '../../lib/money.js';
 import { resolveTenantBusinessClock } from '../../services/pharmacy/business-clock.js';
 import { parkedRetailDraftConditions } from '../../services/reports/day-close-checklist.js';
@@ -90,15 +91,18 @@ async function ensureRestaurantSite(
 const TAKEAWAY_LIST_LIMIT = 50;
 type TableSummaryTransaction = Pick<DatabaseInstance, 'select'>;
 
-/** Parked tickets with no table at this site, oldest first: in a restaurant they are takeaway orders. */
+/**
+ * Parked tickets with no table at this site, oldest first: in a restaurant they
+ * are takeaway orders. A cashier sees only their own, as in `sales.listDrafts`.
+ */
 function listTakeawayOrders(
   tx: TableSummaryTransaction,
-  tenantId: string,
-  siteId: string,
-  nowIso: string
+  scope: { tenantId: string; siteId: string; nowIso: string; cashierId: string | null }
 ) {
+  const { tenantId, siteId, nowIso, cashierId } = scope;
   const where = and(
     parkedRetailDraftConditions(tenantId, nowIso),
+    cashierId ? parkedDraftOwnedBy(cashierId) : undefined,
     inArray(
       sales.cashSessionId,
       tx
@@ -483,7 +487,12 @@ export const restaurantTablesRouter = router({
           totalItems,
           occupiedTables,
           hasMore: input.offset + tableRows.length < totalItems,
-          takeaway: listTakeawayOrders(tx, ctx.tenantId, input.siteId, nowIso),
+          takeaway: listTakeawayOrders(tx, {
+            tenantId: ctx.tenantId,
+            siteId: input.siteId,
+            nowIso,
+            cashierId: ctx.user!.role === 'cashier' ? ctx.user!.id : null,
+          }),
         };
         if (tableRows.length === 0) return { ...page, items: [] };
         const tableIds = tableRows.map(row => row.id);
