@@ -15,6 +15,7 @@ import { ConfirmModal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { ResourcePage } from '@/components/resources/ResourcePage';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { useIsModuleActive } from '@/features/modules';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { onErrorToast } from '@/lib/mutationHelpers';
@@ -29,6 +30,7 @@ import { RestaurantFloorMapPreview } from './RestaurantFloorMapPreview';
 import { Badge } from '@/components/ui';
 
 const RESTAURANT_TABLE_PAGE_SIZE = 100;
+const OPEN_DELIVERY_STATUSES = ['accepted', 'preparing', 'dispatched'] as const;
 
 interface RestaurantTableRow {
   id: string;
@@ -193,6 +195,19 @@ export function RestaurantTablesPage() {
     { siteId: selectedSiteId || 'placeholder', limit: 500, offset: 0 },
     { enabled: selectedSiteId.length > 0 && view === 'map', refetchInterval: 60_000 }
   );
+  const deliveryActive = useIsModuleActive('delivery');
+  const deliveryCountsQuery = trpc.deliveryOrders.counts.useQuery(
+    { siteId: selectedSiteId },
+    {
+      enabled: deliveryActive && selectedSiteId.length > 0 && view === 'map',
+      refetchInterval: 60_000,
+    }
+  );
+  const deliveryCounts = deliveryCountsQuery.data;
+  const openDeliveries = deliveryActive
+    ? OPEN_DELIVERY_STATUSES.reduce((total, status) => total + (deliveryCounts?.[status] ?? 0), 0)
+    : null;
+  const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const createMutation = trpc.restaurantTables.create.useMutation({
     onSuccess: async () => {
       await Promise.all([
@@ -381,7 +396,15 @@ export function RestaurantTablesPage() {
             <div className="page-header-actions">{toolbar}</div>
           </div>
           {floorQuery.data ? (
-            <RestaurantFloorMapPreview summary={floorQuery.data} onSelect={handleOpenEdit} />
+            <RestaurantFloorMapPreview
+              summary={floorQuery.data}
+              selectedTableId={selectedTableId}
+              deliveryCount={openDeliveries}
+              onSelect={table => {
+                setSelectedTableId(table.id);
+                handleOpenEdit(table);
+              }}
+            />
           ) : (
             <p className="card p-6 text-center text-sm text-secondary-600">
               {floorQuery.error

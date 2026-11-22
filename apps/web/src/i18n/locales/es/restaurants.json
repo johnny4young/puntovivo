@@ -51,7 +51,20 @@
       "billRequested": "Pidió la cuenta",
       "reserved": "Reservada"
     },
-    "occupancy": "{{occupied}} de {{total}} ocupadas"
+    "occupancy": "{{occupied}} de {{total}} ocupadas",
+    "channels": {
+      "label": "Canales de pedido",
+      "floor": "Salón",
+      "takeaway": "Para llevar",
+      "takeawayCount": "Para llevar · {{count}}",
+      "delivery": "Domicilios",
+      "deliveryCount": "Domicilios · {{count}}"
+    },
+    "takeaway": {
+      "empty": "No hay pedidos para llevar.",
+      "untitled": "Venta {{number}}",
+      "partial": "Se muestran {{shown}} de {{total}}."
+    }
   },
   "tableLabel": {
     "label": "Mesa",

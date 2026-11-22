@@ -33,8 +33,11 @@ import {
   restaurantTables,
   sales,
 } from '../../db/schema.js';
+import type { DatabaseInstance } from '../../db/index.js';
+import { parkedDraftOwnedBy } from '../../application/sales/draft-ownership.js';
 import { roundMoney } from '../../lib/money.js';
 import { resolveTenantBusinessClock } from '../../services/pharmacy/business-clock.js';
+import { parkedRetailDraftConditions } from '../../services/reports/day-close-checklist.js';
 import { resolveUtcDayWindow } from '../../services/reports/day-window.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
@@ -83,6 +86,48 @@ async function ensureRestaurantSite(
       details: { tenantId, siteId },
     });
   }
+}
+
+const TAKEAWAY_LIST_LIMIT = 50;
+type TableSummaryTransaction = Pick<DatabaseInstance, 'select'>;
+
+/**
+ * Parked tickets with no table at this site, oldest first: in a restaurant they
+ * are takeaway orders, aged from when they were opened. A cashier sees only their
+ * own, as in `sales.listDrafts`.
+ */
+function listTakeawayOrders(
+  tx: TableSummaryTransaction,
+  scope: { tenantId: string; siteId: string; nowIso: string; cashierId: string | null }
+) {
+  const { tenantId, siteId, nowIso, cashierId } = scope;
+  const where = and(
+    parkedRetailDraftConditions(tenantId, nowIso),
+    cashierId ? parkedDraftOwnedBy(cashierId) : undefined,
+    inArray(
+      sales.cashSessionId,
+      tx
+        .select({ id: cashSessions.id })
+        .from(cashSessions)
+        .where(and(eq(cashSessions.tenantId, tenantId), eq(cashSessions.siteId, siteId)))
+    )
+  );
+  const totalItems = tx.select({ value: count() }).from(sales).where(where).get()?.value ?? 0;
+  const items = tx
+    .select({
+      id: sales.id,
+      saleNumber: sales.saleNumber,
+      label: sales.suspendedLabel,
+      openedAt: sales.createdAt,
+      total: sales.total,
+    })
+    .from(sales)
+    .where(where)
+    .orderBy(asc(sales.createdAt), asc(sales.id))
+    .limit(TAKEAWAY_LIST_LIMIT)
+    .all()
+    .map(row => ({ ...row, total: roundMoney(row.total) }));
+  return { totalItems, items };
 }
 
 function isUniqueViolation(err: unknown): boolean {
@@ -443,6 +488,12 @@ export const restaurantTablesRouter = router({
           totalItems,
           occupiedTables,
           hasMore: input.offset + tableRows.length < totalItems,
+          takeaway: listTakeawayOrders(tx, {
+            tenantId: ctx.tenantId,
+            siteId: input.siteId,
+            nowIso,
+            cashierId: ctx.user!.role === 'cashier' ? ctx.user!.id : null,
+          }),
         };
         if (tableRows.length === 0) return { ...page, items: [] };
         const tableIds = tableRows.map(row => row.id);
