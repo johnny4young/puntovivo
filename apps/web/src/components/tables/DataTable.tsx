@@ -712,50 +712,52 @@ export function DataTable<TData extends RowData>({
                   total: table.getFilteredRowModel().rows.length,
                 })}
           </div>
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => table.setPageIndex(0)}
-              disabled={!table.getCanPreviousPage()}
-              aria-label={t('pagination.goToFirst')}
-            >
-              <ChevronsLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
-              aria-label={t('pagination.goToPrevious')}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="text-sm text-secondary-600">
-              {t('table.page', {
-                current: table.getPageCount() === 0 ? 0 : table.state.pagination.pageIndex + 1,
-                total: table.getPageCount(),
-              })}
-            </span>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
-              aria-label={t('pagination.goToNext')}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-              disabled={!table.getCanNextPage()}
-              aria-label={t('pagination.goToLast')}
-            >
-              <ChevronsRight className="h-4 w-4" />
-            </Button>
-          </div>
+          {table.getPageCount() > 0 && (
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => table.setPageIndex(0)}
+                disabled={!table.getCanPreviousPage()}
+                aria-label={t('pagination.goToFirst')}
+              >
+                <ChevronsLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => table.previousPage()}
+                disabled={!table.getCanPreviousPage()}
+                aria-label={t('pagination.goToPrevious')}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-sm text-secondary-600">
+                {t('table.page', {
+                  current: table.state.pagination.pageIndex + 1,
+                  total: table.getPageCount(),
+                })}
+              </span>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => table.nextPage()}
+                disabled={!table.getCanNextPage()}
+                aria-label={t('pagination.goToNext')}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+                disabled={!table.getCanNextPage()}
+                aria-label={t('pagination.goToLast')}
+              >
+                <ChevronsRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>
