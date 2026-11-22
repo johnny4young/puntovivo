@@ -121,3 +121,18 @@ export function formatDuration(minutes: number, t: TFunction) {
 export function minutesBetween(fromIso: string, toIso: string): number {
   return Math.max(0, Math.floor((Date.parse(toIso) - Date.parse(fromIso)) / 60_000));
 }
+
+// The full reason (up to 500 characters) stays in the approvals queue.
+export const REASON_MAX = 80;
+
+export function clip(text: string, max: number) {
+  return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
+}
+
+/** "hace 2 min" from one instant to a later one, "hace un momento" under a minute. */
+export function ago(fromIso: string, nowIso: string, t: TFunction) {
+  const minutes = minutesBetween(fromIso, nowIso);
+  return minutes < 1
+    ? t('dashboard:today.pending.agoNow')
+    : t('dashboard:today.pending.ago', { duration: formatDuration(minutes, t) });
+}

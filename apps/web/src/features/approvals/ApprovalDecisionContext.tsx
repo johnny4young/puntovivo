@@ -1,7 +1,8 @@
 import type { inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '@puntovivo/server';
 import { useTranslation } from 'react-i18next';
-import { formatPercent } from '@/lib/utils';
+import { cn } from '@/lib/utils';
+import { percent } from './approvalPercent';
 
 export type ApprovalDecisionContextData = NonNullable<
   inferRouterOutputs<AppRouter>['managerApprovals']['queue']['items'][number]['decisionContext']
@@ -9,12 +10,6 @@ export type ApprovalDecisionContextData = NonNullable<
 
 type Customer = NonNullable<ApprovalDecisionContextData['customer']>;
 type Translate = ReturnType<typeof useTranslation>['t'];
-
-function percent(value: number): string;
-function percent(value: number | null): string | null;
-function percent(value: number | null) {
-  return value === null ? null : formatPercent(value, Number.isInteger(value) ? 0 : 1);
-}
 
 const CADENCE_MAX_DAYS = [
   ['daily', 1.5],
@@ -39,18 +34,38 @@ interface RowProps {
   title: string;
   detail: string | null;
   value: string | null;
+  large: boolean;
 }
 
-function ContextRow({ testId, title, detail, value }: RowProps) {
+function ContextRow({ testId, title, detail, value, large }: RowProps) {
   return (
     <div
       data-testid={testId}
-      className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 py-2"
+      className={cn(
+        'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3',
+        large ? 'py-2.5' : 'py-2'
+      )}
     >
-      <dt className="col-start-1 truncate text-xs font-semibold text-secondary-950">{title}</dt>
-      {detail && <dd className="col-start-1 text-[11px] text-fg2">{detail}</dd>}
+      <dt
+        className={cn(
+          'col-start-1 truncate font-semibold text-secondary-950',
+          large ? 'text-[15px]' : 'text-xs'
+        )}
+      >
+        {title}
+      </dt>
+      {detail && (
+        <dd className={cn('col-start-1 text-fg2', large ? 'text-[13px]' : 'text-[11px]')}>
+          {detail}
+        </dd>
+      )}
       {value && (
-        <dd className="col-start-2 row-span-2 row-start-1 text-base font-bold tabular-nums text-secondary-950">
+        <dd
+          className={cn(
+            'col-start-2 row-span-2 row-start-1 font-bold tabular-nums text-secondary-950',
+            large ? 'font-numeric text-[1.3rem]' : 'text-base'
+          )}
+        >
           {value}
         </dd>
       )}
@@ -63,10 +78,13 @@ export function ApprovalDecisionContext({
   requestId,
   requesterName,
   context,
+  large = false,
 }: {
   requestId: string;
   requesterName: string;
   context: ApprovalDecisionContextData;
+  /** Phone-size rows for the owner's decide sheet. */
+  large?: boolean;
 }) {
   const { t } = useTranslation('common');
   const { customer, discount, margin } = context;
@@ -87,6 +105,7 @@ export function ApprovalDecisionContext({
       {customer && (
         <ContextRow
           testId="approval-context-customer"
+          large={large}
           title={customer.name}
           detail={
             customer.usualDiscountPercent === null
@@ -99,6 +118,7 @@ export function ApprovalDecisionContext({
       {discount && (
         <ContextRow
           testId="approval-context-limit"
+          large={large}
           title={
             discount.roleLimitPercent === null
               ? requested
@@ -111,6 +131,7 @@ export function ApprovalDecisionContext({
       {margin && (
         <ContextRow
           testId="approval-context-margin"
+          large={large}
           title={t('common:userMenu.approvals.context.margin')}
           detail={
             discount

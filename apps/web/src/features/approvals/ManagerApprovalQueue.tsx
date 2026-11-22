@@ -5,7 +5,7 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
-import { formatCurrency, formatDateTime } from '@/lib/utils';
+import { cn, formatCurrency, formatDateTime } from '@/lib/utils';
 import { CHECKOUT_APPROVAL_RESOURCE_TYPE } from '@puntovivo/shared/checkout-approval';
 import { ApprovalDecisionContext } from './ApprovalDecisionContext';
 
@@ -20,6 +20,11 @@ export interface ApprovalDecisionFormProps extends ActiveDecision {
   approverId: string;
   onCancel: () => void;
   onDecided: () => void;
+  /** A rejection whose reason is already chosen, such as a counter-offer. */
+  fixedReason?: string | undefined;
+  submitLabel?: string | undefined;
+  /** Phone-size targets for the owner's decide sheet. */
+  large?: boolean | undefined;
 }
 
 /** Keep the short-lived PIN inside the active card's mount lifecycle. */
@@ -29,6 +34,9 @@ export function ApprovalDecisionForm({
   approverId,
   onCancel,
   onDecided,
+  fixedReason,
+  submitLabel,
+  large = false,
 }: ApprovalDecisionFormProps) {
   const { t } = useTranslation(['common', 'errors']);
   const toast = useToast();
@@ -57,12 +65,15 @@ export function ApprovalDecisionForm({
     }),
   });
 
+  const reason = (fixedReason ?? rejectionReason).trim();
+  const labelSize = large ? 'text-sm' : 'text-[11px]';
+  const buttonSize = large ? 'h-12 text-base' : 'text-xs';
+
   const submitDecision = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (pin.length !== 6) return;
 
     if (decision === 'rejected') {
-      const reason = rejectionReason.trim();
       if (!reason) return;
       decisionMutation.mutate({
         requestId,
@@ -85,7 +96,7 @@ export function ApprovalDecisionForm({
   return (
     <form className="mt-2 space-y-2" onSubmit={submitDecision}>
       <label className="block">
-        <span className="text-[11px] font-medium text-secondary-800">
+        <span className={cn('font-medium text-secondary-800', labelSize)}>
           {t('common:userMenu.approvals.pinLabel')}
         </span>
         <input
@@ -93,7 +104,7 @@ export function ApprovalDecisionForm({
           inputMode="numeric"
           autoComplete="off"
           maxLength={6}
-          className="input mt-1 h-9 font-mono tracking-[0.35em]"
+          className={cn('input mt-1 font-mono tracking-[0.35em]', large ? 'h-12 text-lg' : 'h-9')}
           value={pin}
           onChange={event => setPin(event.target.value.replace(/\D/g, '').slice(0, 6))}
           placeholder={t('common:userMenu.approvals.pinPlaceholder')}
@@ -101,13 +112,13 @@ export function ApprovalDecisionForm({
           autoFocus
         />
       </label>
-      {decision === 'rejected' && (
+      {decision === 'rejected' && fixedReason === undefined && (
         <label className="block">
-          <span className="text-[11px] font-medium text-secondary-800">
+          <span className={cn('font-medium text-secondary-800', labelSize)}>
             {t('common:userMenu.approvals.rejectionReasonLabel')}
           </span>
           <textarea
-            className="input mt-1 min-h-16 resize-y py-2 text-xs"
+            className={cn('input mt-1 min-h-16 resize-y py-2', large ? 'text-base' : 'text-xs')}
             maxLength={500}
             value={rejectionReason}
             onChange={event => setRejectionReason(event.target.value)}
@@ -119,24 +130,24 @@ export function ApprovalDecisionForm({
       <div className="flex gap-2">
         <button
           type="submit"
-          className={
-            decision === 'approved'
-              ? 'btn-primary flex-1 justify-center px-2 text-xs'
-              : 'btn-danger flex-1 justify-center px-2 text-xs'
-          }
+          className={cn(
+            // A counter-offer rejects only to propose less, so it is not styled as a refusal.
+            decision === 'approved' || fixedReason !== undefined ? 'btn-primary' : 'btn-danger',
+            'flex-1 justify-center px-2',
+            buttonSize
+          )}
           disabled={
-            decisionMutation.isPending ||
-            pin.length !== 6 ||
-            (decision === 'rejected' && !rejectionReason.trim())
+            decisionMutation.isPending || pin.length !== 6 || (decision === 'rejected' && !reason)
           }
         >
-          {decision === 'approved'
-            ? t('common:userMenu.approvals.confirmApprove')
-            : t('common:userMenu.approvals.confirmReject')}
+          {submitLabel ??
+            (decision === 'approved'
+              ? t('common:userMenu.approvals.confirmApprove')
+              : t('common:userMenu.approvals.confirmReject'))}
         </button>
         <button
           type="button"
-          className="btn-outline justify-center px-2 text-xs"
+          className={cn('btn-outline justify-center px-2', buttonSize)}
           disabled={decisionMutation.isPending}
           onClick={onCancel}
         >

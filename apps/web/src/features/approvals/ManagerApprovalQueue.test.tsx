@@ -63,7 +63,7 @@ vi.mock('@/components/feedback/ToastProvider', () => ({
   }),
 }));
 
-import { ManagerApprovalQueue } from './ManagerApprovalQueue';
+import { ApprovalDecisionForm, ManagerApprovalQueue } from './ManagerApprovalQueue';
 
 const pendingRequest: QueueItem = {
   id: 'approval-1',
@@ -230,6 +230,32 @@ describe('ManagerApprovalQueue', () => {
       pin: '654321',
       decision: 'rejected',
       reason: 'Verify the receipt first',
+    });
+  });
+
+  it('sends a counter-offer as a rejection with its reason already chosen', async () => {
+    const user = userEvent.setup();
+    render(
+      <ApprovalDecisionForm
+        requestId="approval-1"
+        decision="rejected"
+        approverId="manager-1"
+        fixedReason="Leave it at 9%"
+        submitLabel="Leave it at 9%"
+        large
+        onCancel={vi.fn()}
+        onDecided={vi.fn()}
+      />
+    );
+    expect(screen.queryByLabelText('Rejection reason')).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText('Your staff PIN'), '654321');
+    await user.click(screen.getByRole('button', { name: 'Leave it at 9%' }));
+    expect(decisionMutation.mutate).toHaveBeenCalledWith({
+      requestId: 'approval-1',
+      approverId: 'manager-1',
+      pin: '654321',
+      decision: 'rejected',
+      reason: 'Leave it at 9%',
     });
   });
 

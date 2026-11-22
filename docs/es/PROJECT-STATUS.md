@@ -374,10 +374,15 @@ El candidato validado actual incluye:
   resúmenes acotados de ventas/atención y metadatos de firma de cierre diario
   con integridad verificada, almacena en caché solo recursos versionados de la
   estructura de la aplicación y oculta datos operativos sin conexión en lugar
-  de presentar una lectura almacenada como actual. Es una PWA de solo lectura,
-  no una aplicación de ventas sin conexión. Administradores y gerentes pueden
+  de presentar una lectura almacenada como actual. No es una aplicación de
+  ventas sin conexión. Los lectores conservan el pulso de solo lectura;
+  administradores y gerentes tienen el teléfono del dueño: lo vendido hoy
+  frente a la semana pasada, la aprobación que les toca con su contexto de
+  decisión (aprobar, dejarla en el descuento habitual del cliente o rechazar
+  con su PIN), las cajas y el día sellado con sus cifras y la firma. Pueden
   activar por teléfono avisos push cifrados cuando espera una aprobación, se
-  recibe un relevo de caja o se sella el día;
+  recibe un relevo de caja o se sella el día, y el aviso abre la pantalla
+  correspondiente;
 - webhooks de salida opcionales por negocio para un contrato pequeño y
   versionado de eventos comerciales, con destinos HTTPS fijos, secretos de firma
   cifrados que se muestran una vez, firmas HMAC, claves estables de idempotencia,

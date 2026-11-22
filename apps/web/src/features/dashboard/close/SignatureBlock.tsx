@@ -4,7 +4,8 @@ import { PinField } from '@/features/sales/handoff/HandoffFrame';
 import type { CloseSignoff } from './closeModel';
 import { RowIcon } from './CloseRows';
 import { DaySeal } from './DaySeal';
-import { PAD_HEIGHT, PAD_WIDTH, SignaturePad } from './SignaturePad';
+import { SignaturePad } from './SignaturePad';
+import { SignaturePreview } from './SignaturePreview';
 import type { SignatureDraft } from './useSignatureDraft';
 
 export function SignatureBlock({
@@ -41,21 +42,11 @@ export function SignatureBlock({
           <p className="text-[16.5px] font-semibold text-fg1">{t('sign.title')}</p>
           <p className="text-sm text-fg3">{t(signedWith, { name: signoff.signedBy.name })}</p>
           {signoff.signaturePath && (
-            <svg
-              viewBox={`0 0 ${PAD_WIDTH} ${PAD_HEIGHT}`}
+            <SignaturePreview
+              path={signoff.signaturePath}
               className="mt-2 block h-auto w-full max-w-[26rem]"
-              aria-hidden="true"
-              data-testid="day-close-signed-path"
-            >
-              <path
-                d={signoff.signaturePath}
-                fill="none"
-                stroke="var(--fg1)"
-                strokeWidth={3.5}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+              testId="day-close-signed-path"
+            />
           )}
         </div>
         <DaySeal date={signoff.date} signedAt={signoff.signedAt} timeZone={signoff.timeZone} />
