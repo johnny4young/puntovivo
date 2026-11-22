@@ -184,6 +184,30 @@ describe('operations.today', () => {
     expect(today.hourly.reduce((sum, row) => sum + row.today, 0)).toBe(40000);
   });
 
+  it('reports whether electronic invoicing is on, so Hoy never claims DIAN is up to date while it is off', async () => {
+    const db = getDatabase();
+    const row = db
+      .select({ settings: tenants.settings })
+      .from(tenants)
+      .where(eq(tenants.id, tenantId))
+      .get();
+    const original = (row?.settings ?? {}) as Record<string, unknown>;
+    try {
+      db.update(tenants)
+        .set({ settings: { ...original, fiscal_dian_enabled: false } })
+        .where(eq(tenants.id, tenantId))
+        .run();
+      expect((await computeOperationsToday(db, tenantId, now)).fiscalEnabled).toBe(false);
+      db.update(tenants)
+        .set({ settings: { ...original, fiscal_dian_enabled: true } })
+        .where(eq(tenants.id, tenantId))
+        .run();
+      expect((await computeOperationsToday(db, tenantId, now)).fiscalEnabled).toBe(true);
+    } finally {
+      db.update(tenants).set({ settings: original }).where(eq(tenants.id, tenantId)).run();
+    }
+  });
+
   it('lists open registers with their sales and the planned handoff', async () => {
     const today = await computeOperationsToday(getDatabase(), tenantId, now);
     const open = today.registers.find(register => register.sessionId === openSessionId);
