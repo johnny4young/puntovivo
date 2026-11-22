@@ -99,6 +99,8 @@ export interface BackupScheduler {
   updateSchedule(tenantId: string, update: BackupScheduleUpdate): Promise<BackupScheduleStatus>;
   setCustomDestination(tenantId: string, directory: string): Promise<BackupScheduleStatus>;
   runNow(tenantId: string): Promise<BackupScheduleRunResult>;
+  /** Publishes the saved state again, at launch and after a restore replaced the database. */
+  republishStatus(): Promise<void>;
 }
 
 /** Keep a signed tenant id inside one cross-platform directory segment. */
@@ -270,6 +272,14 @@ export function createBackupScheduler(deps: BackupSchedulerDeps): BackupSchedule
     }
   }
 
+  async function republishStatus(): Promise<void> {
+    const republish = stateTail.then(async () =>
+      publish((await loadState(deps.getStatePath())).schedules)
+    );
+    stateTail = republish.catch(() => undefined);
+    await republish;
+  }
+
   function withProgress(record: BackupScheduleRecord): BackupScheduleStatus {
     return { ...record, inProgress: inProgressTenants.has(record.tenantId) };
   }
@@ -281,11 +291,8 @@ export function createBackupScheduler(deps: BackupSchedulerDeps): BackupSchedule
 
     inProgressTenants.add(record.tenantId);
     const attemptedAt = now();
-    let next: BackupScheduleRecord = {
-      ...record,
-      lastAttemptAt: attemptedAt.toISOString(),
-      lastError: null,
-    };
+    // A previous failure stands until this attempt ends; the owner's phone reads it meanwhile.
+    let next: BackupScheduleRecord = { ...record, lastAttemptAt: attemptedAt.toISOString() };
 
     try {
       await writeRecord(next);
@@ -404,11 +411,7 @@ export function createBackupScheduler(deps: BackupSchedulerDeps): BackupSchedule
     async start(): Promise<void> {
       if (!stopped) return;
       stopped = false;
-      // Each launch republishes the saved state without holding up the rest of boot.
-      const republish = stateTail.then(async () =>
-        publish((await loadState(deps.getStatePath())).schedules)
-      );
-      stateTail = republish.catch(() => undefined);
+      await republishStatus();
       await tick();
       timer = setInterval(() => {
         void tick().catch(error => {
@@ -477,6 +480,7 @@ export function createBackupScheduler(deps: BackupSchedulerDeps): BackupSchedule
       deps.log.info({ tenantId }, 'custom backup destination updated');
       return withProgress(next);
     },
+    republishStatus,
     async runNow(tenantId: string): Promise<BackupScheduleRunResult> {
       return createSnapshot(await readRecord(tenantId));
     },

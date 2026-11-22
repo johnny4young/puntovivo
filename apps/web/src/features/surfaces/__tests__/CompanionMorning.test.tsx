@@ -168,6 +168,28 @@ describe('CompanionMorning', () => {
     expect(screen.getByTestId('companion-morning-opens')).toHaveTextContent(/opens at 11:00/);
   });
 
+  it('still flags a failed backup after a day without sales', async () => {
+    recapData.current = recap({
+      yesterday: { ...recap().yesterday, total: 0, hourly: [] },
+      seal: null,
+      fiscal: null,
+      backup: { state: 'failed', at: '2026-11-11T03:00:00.000Z' },
+    });
+    renderViews();
+    expect(await screen.findByTestId('companion-morning-notes')).toHaveTextContent(
+      'The last backup failed.'
+    );
+    expect(screen.queryByTestId('companion-morning-yesterday')).not.toBeInTheDocument();
+  });
+
+  it('does not say every missing invoice was accepted when the DIAN rejected one', async () => {
+    recapData.current = recap({ fiscal: { accepted: 2, rejected: 1, inProgress: 0 } });
+    renderViews();
+    const notes = await screen.findByTestId('companion-morning-notes');
+    expect(notes).toHaveTextContent('Since the close, the DIAN accepted 2 invoices.');
+    expect(notes).toHaveTextContent('The DIAN rejected 1 invoice.');
+  });
+
   it('keeps an approval waiting on the owner on top and says when nothing is left to do', async () => {
     recapData.current = recap({ registersToOpen: [], carriedSales: [] });
     todayData.current = morningToday('2026-11-11T11:00:00.000Z');

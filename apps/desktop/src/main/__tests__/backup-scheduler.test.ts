@@ -335,4 +335,47 @@ describe('backup scheduler quiet till', () => {
     assert.equal(published.length, 1);
     assert.deepEqual(Object.keys(published[0]!).sort(), ['tenant-a', 'tenant-b']);
   });
+
+  it('keeps a previous failure published until the next attempt ends', async () => {
+    const published: Array<Record<string, BackupScheduleRecord>> = [];
+    let fail = true;
+    let seenDuringAttempt: BackupScheduleRecord | undefined;
+    const scheduler = makeScheduler({
+      now: () => new Date('2026-07-14T12:00:00.000Z'),
+      publishStatus: async schedules => {
+        published.push(schedules);
+      },
+      createBundle: async args => {
+        seenDuringAttempt = published.at(-1)?.['tenant-a'];
+        if (fail) throw new Error('disk full');
+        return {
+          zipPath: args.outZipPath,
+          zipBytes: 1,
+          manifest: { schemaVersion: 2, generatedAt: '2026-07-14T12:00:00.000Z', dbBytes: 1 },
+        };
+      },
+    });
+    await scheduler.updateSchedule('tenant-a', { frequency: 'daily' });
+    assert.equal((await scheduler.runNow('tenant-a')).success, false);
+
+    fail = false;
+    assert.equal((await scheduler.runNow('tenant-a')).success, true);
+    assert.equal(seenDuringAttempt?.lastError, 'snapshot_failed');
+    assert.equal(published.at(-1)?.['tenant-a']?.lastError, null);
+  });
+
+  it('republishes the saved state on demand, as after a restore', async () => {
+    const published: Array<Record<string, BackupScheduleRecord>> = [];
+    const scheduler = makeScheduler({
+      now: () => new Date('2026-07-14T12:00:00.000Z'),
+      publishStatus: async schedules => {
+        published.push(schedules);
+      },
+    });
+    await scheduler.updateSchedule('tenant-a', { frequency: 'weekly' });
+    published.length = 0;
+    await scheduler.republishStatus();
+    assert.equal(published.length, 1);
+    assert.equal(published[0]?.['tenant-a']?.frequency, 'weekly');
+  });
 });

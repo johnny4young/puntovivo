@@ -147,7 +147,6 @@ function Yesterday({
 }) {
   const { t, i18n } = useTranslation('companion');
   const { yesterday, seal, fiscal, backup } = recap;
-  if (!seal && yesterday.total === 0) return null;
 
   const notes: string[] = [];
   let severity: 'ready' | 'beforeClose' | 'blocks' = 'ready';
@@ -157,9 +156,12 @@ function Yesterday({
   if (fiscal) {
     if (fiscal.accepted > 0) {
       notes.push(
-        t(fiscal.inProgress === 0 ? 'morning.fiscalAcceptedAll' : 'morning.fiscalAccepted', {
-          count: fiscal.accepted,
-        })
+        t(
+          fiscal.inProgress === 0 && fiscal.rejected === 0
+            ? 'morning.fiscalAcceptedAll'
+            : 'morning.fiscalAccepted',
+          { count: fiscal.accepted }
+        )
       );
     }
     if (fiscal.inProgress > 0) {
@@ -188,6 +190,20 @@ function Yesterday({
     }
   }
 
+  const notesLine = notes.length > 0 && (
+    <p
+      className="mt-2.5 flex items-start gap-2 text-[13px] text-fg2"
+      data-testid="companion-morning-notes"
+    >
+      <span className="mt-0.5 shrink-0">
+        <SeverityMark severity={severity} size={14} />
+      </span>
+      <span>{notes.join(' ')}</span>
+    </p>
+  );
+  // A day without sales has no card, but a failed or late backup still needs saying.
+  if (!seal && yesterday.total === 0) return notesLine || null;
+
   return (
     <CompanionFigureCard
       id="companion-morning-yesterday-title"
@@ -202,17 +218,7 @@ function Yesterday({
         dayStartIso={yesterday.dayStartIso}
         caption={seal ? t('owner.salesCount', { count: seal.salesCount }) : ''}
       />
-      {notes.length > 0 && (
-        <p
-          className="mt-2.5 flex items-start gap-2 text-[13px] text-fg2"
-          data-testid="companion-morning-notes"
-        >
-          <span className="mt-0.5 shrink-0">
-            <SeverityMark severity={severity} size={14} />
-          </span>
-          <span>{notes.join(' ')}</span>
-        </p>
-      )}
+      {notesLine}
     </CompanionFigureCard>
   );
 }

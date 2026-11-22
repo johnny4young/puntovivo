@@ -167,6 +167,12 @@ describe('operations.morningRecap', () => {
         closedSession(t, `${t.tenantId}-s1`, 'Caja 1', 150000),
         closedSession(t, `${t.tenantId}-s2`, 'Caja 2', 100000),
         closedSession(t, `${t.tenantId}-s3`, 'Caja 3', 100000),
+        // Closed after midnight, so outside yesterday's window but still to open.
+        {
+          ...closedSession(t, `${t.tenantId}-s5`, 'Caja 4', 80000),
+          openedAt: '2026-07-15T05:10:00.000Z',
+          closedAt: '2026-07-15T06:30:00.000Z',
+        },
         // Caja 3 already opened again, so it is not on the list.
         {
           ...closedSession(t, `${t.tenantId}-s4`, 'Caja 3', 100000),
@@ -179,15 +185,27 @@ describe('operations.morningRecap', () => {
       ])
       .run();
     db.insert(denominationTemplates)
-      .values({
-        id: `${t.tenantId}-tpl`,
-        tenantId: t.tenantId,
-        siteId: t.siteId,
-        registerName: 'Caja 2',
-        label: 'Caja 2',
-        openingFloat: 200000,
-        denominations: [],
-      })
+      .values([
+        // A template kept only for denominations leaves its float at 0.
+        {
+          id: `${t.tenantId}-tpl-1`,
+          tenantId: t.tenantId,
+          siteId: t.siteId,
+          registerName: 'Caja 1',
+          label: 'Caja 1',
+          openingFloat: 0,
+          denominations: [],
+        },
+        {
+          id: `${t.tenantId}-tpl`,
+          tenantId: t.tenantId,
+          siteId: t.siteId,
+          registerName: 'Caja 2',
+          label: 'Caja 2',
+          openingFloat: 200000,
+          denominations: [],
+        },
+      ])
       .run();
     db.insert(sales)
       .values([
@@ -282,6 +300,7 @@ describe('operations.morningRecap', () => {
     expect(recap.registersToOpen).toEqual([
       { siteId: t.siteId, siteName: 'Sede Norte', registerName: 'Caja 1', openingFloat: 150000 },
       { siteId: t.siteId, siteName: 'Sede Norte', registerName: 'Caja 2', openingFloat: 200000 },
+      { siteId: t.siteId, siteName: 'Sede Norte', registerName: 'Caja 4', openingFloat: 80000 },
     ]);
     expect(recap.carriedSales).toEqual([
       { id: 'm-carried', saleNumber: 'm-carried', label: 'Domicilio Calle 80', total: 42100 },

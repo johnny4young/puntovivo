@@ -48,6 +48,7 @@ export function makeBackupIpcDeps(overrides: Partial<BackupIpcDeps> = {}): Backu
       updateSchedule: notExpected('backupScheduler.updateSchedule'),
       setCustomDestination: notExpected('backupScheduler.setCustomDestination'),
       runNow: notExpected('backupScheduler.runNow'),
+      republishStatus: async () => {},
     },
     runBackupRestoreDrill: notExpected('runBackupRestoreDrill'),
     recordBackupRestoreDrillAudit: async () => {},

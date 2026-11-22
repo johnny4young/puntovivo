@@ -149,7 +149,8 @@ function registersToOpen(
       siteId: row.siteId,
       siteName: row.siteName,
       registerName: row.registerName,
-      openingFloat: row.standardFloat ?? row.lastFloat,
+      // A template's float defaults to 0, which means unset rather than an empty drawer.
+      openingFloat: row.standardFloat || row.lastFloat,
     });
   }
   return result;
@@ -212,7 +213,11 @@ export async function computeMorningRecap(
       : null,
     fiscal,
     backup: readBackupStatus(db, tenantId, now),
-    registersToOpen: registersToOpen(db, tenantId, yesterdayWindow),
+    // A register closed after midnight still worked yesterday.
+    registersToOpen: registersToOpen(db, tenantId, {
+      startIso: yesterdayWindow.startIso,
+      endExclusiveIso: todayWindow.endExclusiveIso,
+    }),
     carriedSales,
   };
 }

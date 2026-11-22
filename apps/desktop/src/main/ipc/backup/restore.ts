@@ -218,6 +218,8 @@ async function swapRestoredDatabase(
       { reloadWindow: true }
     )
   );
+  // The restored database carries the backup status of its own day; the local schedule is current.
+  await deps.backupScheduler.republishStatus();
 }
 
 /**
