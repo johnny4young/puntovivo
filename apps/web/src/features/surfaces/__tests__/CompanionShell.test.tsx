@@ -1,44 +1,31 @@
 import { act } from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { logout, registerWorker, persistLanguage, changeLanguage } = vi.hoisted(() => ({
-  logout: vi.fn(),
+const { registerWorker, auth } = vi.hoisted(() => ({
   registerWorker: vi.fn(),
-  persistLanguage: vi.fn(),
-  changeLanguage: vi.fn(),
+  auth: { role: 'viewer' },
 }));
 
 vi.mock('@/features/auth/AuthProvider', () => ({
-  useAuth: () => ({ logout, user: { role: 'viewer' } }),
-}));
-
-vi.mock('@/lib/trpc', () => ({
-  trpc: { ownerPush: { unsubscribe: { useMutation: () => ({ mutateAsync: vi.fn() }) } } },
+  useAuth: () => ({ user: { role: auth.role } }),
 }));
 
 vi.mock('../companionPwa', () => ({
   registerCompanionServiceWorker: registerWorker,
 }));
 
-vi.mock('@/i18n/resolveLocale', () => ({
-  readLanguagePreference: () => 'system',
-  persistLanguagePreference: persistLanguage,
-  resolveBootLocale: () => 'es',
-}));
-
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key, i18n: { changeLanguage } }),
+  useTranslation: () => ({ t: (key: string) => key }),
 }));
 
 import { CompanionShell } from '../CompanionShell';
 
 beforeEach(() => {
   vi.clearAllMocks();
-  logout.mockResolvedValue(undefined);
+  auth.role = 'viewer';
   registerWorker.mockResolvedValue(null);
-  changeLanguage.mockResolvedValue(undefined);
 });
 
 describe('CompanionShell', () => {
@@ -52,9 +39,9 @@ describe('CompanionShell', () => {
     );
   }
 
-  function renderShell() {
+  function renderShell(path = '/c') {
     return render(
-      <MemoryRouter initialEntries={['/c']}>
+      <MemoryRouter initialEntries={[path]}>
         <Routes>
           <Route path="/c/*" element={<CompanionShell />}>
             <Route index element={<CompanionBody />} />
@@ -66,24 +53,54 @@ describe('CompanionShell', () => {
 
   it('hosts the standalone PWA chrome and registers the bounded worker', () => {
     renderShell();
-    expect(screen.getByTestId('companion-shell')).toHaveTextContent('companion:shell.product');
     expect(screen.getByText('companion body')).toBeInTheDocument();
     expect(screen.getByTestId('companion-path')).toHaveTextContent('/c/');
     expect(registerWorker).toHaveBeenCalledOnce();
   });
 
-  it('persists EN/ES selection through the canonical locale resolver', async () => {
+  it('gives viewers only the read-only tabs', () => {
     renderShell();
-    fireEvent.change(screen.getByTestId('companion-language'), { target: { value: 'es' } });
-    expect(persistLanguage).toHaveBeenCalledWith('es');
-    expect(changeLanguage).toHaveBeenCalledWith('es');
+    expect(screen.getByTestId('companion-tab-today')).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByTestId('companion-tab-more')).toHaveAttribute('href', '/c/?view=more');
+    expect(screen.queryByTestId('companion-tab-day')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('companion-tab-registers')).not.toBeInTheDocument();
   });
 
-  it('uses the shared logout path that clears authenticated query state', async () => {
-    renderShell();
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('companion-logout'));
-    });
-    expect(logout).toHaveBeenCalledOnce();
+  it('gives owners every tab and keeps an open decision across them', () => {
+    auth.role = 'admin';
+    renderShell('/c/?view=registers&decide=req-1');
+    expect(screen.getByTestId('companion-tab-registers')).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByTestId('companion-tab-today')).toHaveAttribute('href', '/c/?decide=req-1');
+    expect(screen.getByTestId('companion-tab-day')).toHaveAttribute(
+      'href',
+      '/c/?view=day&decide=req-1'
+    );
+  });
+
+  it('draws the sealed day on the dark tokens', () => {
+    auth.role = 'manager';
+    renderShell('/c/?view=day');
+    expect(screen.getByTestId('companion-shell')).toHaveClass('dark');
+  });
+
+  it('follows a notification the worker routes to an open Companion', () => {
+    const worker = new EventTarget();
+    Object.defineProperty(window.navigator, 'serviceWorker', { configurable: true, value: worker });
+    try {
+      renderShell('/c/');
+      act(() => {
+        worker.dispatchEvent(
+          new MessageEvent('message', {
+            data: { type: 'companion:navigate', url: '/c/?decide=r-1' },
+          })
+        );
+        worker.dispatchEvent(
+          new MessageEvent('message', { data: { type: 'companion:navigate', url: '/admin' } })
+        );
+      });
+      expect(screen.getByTestId('companion-tab-today')).toHaveAttribute('href', '/c/?decide=r-1');
+    } finally {
+      Reflect.deleteProperty(window.navigator, 'serviceWorker');
+    }
   });
 });

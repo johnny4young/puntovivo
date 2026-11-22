@@ -334,9 +334,14 @@ The current validated candidate includes:
   invalidation. It exposes bounded sales/attention summaries and
   integrity-verified day-close signature metadata, caches only versioned app
   shell assets, and hides operational data offline instead of presenting a
-  cached read as current. It is a read-only PWA, not an offline sales app.
-  Admins and managers can opt in per phone to encrypted web push when an
-  approval waits, a register handoff is received or the day is sealed;
+  cached read as current. It is not an offline sales app. Viewers keep the
+  read-only pulse; admins and managers get the owner's phone: today's sales
+  against last week, the approval waiting on them with its decision context
+  (approve, counter at the customer's usual discount, or reject with their
+  PIN), the registers, and the sealed day with its figures and signature.
+  They can opt in per phone to encrypted web push when an approval waits, a
+  register handoff is received or the day is sealed, and a notification opens
+  the matching screen;
 - optional tenant-scoped outbound webhooks for a small versioned business-event
   contract, with fixed HTTPS destinations, encrypted one-time signing secrets,
   HMAC signatures, stable idempotency keys, bounded retry and dead-letter

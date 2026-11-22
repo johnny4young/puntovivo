@@ -1,22 +1,49 @@
-import { act } from 'react';
+import { act, Suspense } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import type { RealtimeEvent } from '@/hooks/useRealtimeChannel';
 
-const { snapshotUseQuery, snapshotInvalidate, snapshotReset, channelSpy } = vi.hoisted(() => ({
-  snapshotUseQuery: vi.fn(),
-  snapshotInvalidate: vi.fn(),
-  snapshotReset: vi.fn(),
-  channelSpy: vi.fn(),
-}));
+const { snapshotUseQuery, snapshotInvalidate, snapshotReset, channelSpy, auth, owner } = vi.hoisted(
+  () => ({
+    snapshotUseQuery: vi.fn(),
+    snapshotInvalidate: vi.fn(),
+    snapshotReset: vi.fn(),
+    channelSpy: vi.fn(),
+    auth: { role: 'viewer' },
+    owner: { invalidate: vi.fn(), reset: vi.fn() },
+  })
+);
 
 vi.mock('@/lib/trpc', () => ({
   trpc: {
     companion: { snapshot: { useQuery: snapshotUseQuery } },
     useUtils: () => ({
       companion: { snapshot: { invalidate: snapshotInvalidate, reset: snapshotReset } },
+      operations: { today: owner, dayCurve: owner },
+      managerApprovals: { queue: owner },
+      reports: {
+        dayClose: {
+          invalidate: owner.invalidate,
+          signoff: owner,
+          signoffMetadata: owner,
+          checklist: owner,
+        },
+      },
     }),
   },
+}));
+
+vi.mock('@/features/auth/AuthProvider', () => ({
+  useAuth: () => ({ user: { role: auth.role } }),
+}));
+
+vi.mock('../CompanionMore', () => ({
+  CompanionMore: () => <p data-testid="more-stub">more</p>,
+}));
+
+vi.mock('../CompanionOwnerViews', () => ({
+  CompanionOwnerViews: ({ view }: { view: string }) => <p data-testid="owner-stub">{view}</p>,
 }));
 
 vi.mock('@/hooks/useRealtimeChannel', () => ({
@@ -31,9 +58,17 @@ vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
 
-vi.mock('../CompanionPushCard', () => ({ CompanionPushCard: () => null }));
-
 import { CompanionHome } from '../CompanionHome';
+
+function home(path = '/c/') {
+  return (
+    <MemoryRouter initialEntries={[path]}>
+      <Suspense fallback={null}>
+        <CompanionHome />
+      </Suspense>
+    </MemoryRouter>
+  );
+}
 
 const SNAPSHOT = {
   businessDate: '2026-08-28',
@@ -67,7 +102,7 @@ function captureChannel(): Channel {
   };
 }
 
-function invalidation(scope: 'sales' | 'day_close'): RealtimeEvent {
+function invalidation(scope: 'sales' | 'operations' | 'day_close'): RealtimeEvent {
   return {
     type: 'companion.invalidated',
     data: { scope, changedAt: '2026-08-28T18:01:00.000Z' },
@@ -80,6 +115,8 @@ function setOnline(online: boolean) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  auth.role = 'viewer';
+  owner.invalidate.mockResolvedValue(undefined);
   setOnline(true);
   snapshotInvalidate.mockResolvedValue(undefined);
   snapshotReset.mockResolvedValue(undefined);
@@ -96,13 +133,13 @@ afterEach(() => {
 
 describe('CompanionHome', () => {
   it('loads one minimal snapshot and subscribes only to Companion invalidations', () => {
-    render(<CompanionHome />);
+    render(home());
     expect(channelSpy).toHaveBeenCalledWith(
       expect.objectContaining({ collection: 'companion', enabled: true })
     );
     expect(snapshotUseQuery).toHaveBeenCalledWith(
       { date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) },
-      expect.objectContaining({ enabled: true, refetchInterval: 30_000 })
+      expect.objectContaining({ refetchInterval: 30_000 })
     );
     expect(screen.getByTestId('companion-revenue')).toHaveTextContent('1');
     expect(screen.getByTestId('companion-ticker')).toHaveTextContent('VTA-000001');
@@ -122,7 +159,7 @@ describe('CompanionHome', () => {
       isPending: false,
       isError: false,
     });
-    render(<CompanionHome />);
+    render(home());
     expect(screen.getByTestId('companion-attention-list')).toHaveTextContent(
       'attention.areas.fiscal'
     );
@@ -143,7 +180,7 @@ describe('CompanionHome', () => {
       isPending: false,
       isError: false,
     });
-    render(<CompanionHome />);
+    render(home());
     expect(screen.getByTestId('companion-day-close-signed')).toHaveTextContent('dayClose.signed');
     expect(screen.queryByTestId('companion-day-close-pending')).not.toBeInTheDocument();
   });
@@ -151,7 +188,7 @@ describe('CompanionHome', () => {
   it('coalesces sale bursts but refreshes day-close invalidations immediately', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-08-28T18:00:00.000Z'));
-    render(<CompanionHome />);
+    render(home());
     const channel = captureChannel();
 
     channel.emit(invalidation('sales'));
@@ -174,7 +211,7 @@ describe('CompanionHome', () => {
           finishRefresh = resolve;
         })
     );
-    render(<CompanionHome />);
+    render(home());
     const channel = captureChannel();
     channel.setState('open');
     channel.emit({ type: 'realtime.replay_gap', data: {} });
@@ -187,7 +224,7 @@ describe('CompanionHome', () => {
   });
 
   it('ignores unrelated events and malformed invalidations', () => {
-    render(<CompanionHome />);
+    render(home());
     const channel = captureChannel();
     channel.emit({ type: 'sales.completed', data: { saleId: 'secret-detail' } });
     channel.emit({ type: 'companion.invalidated', data: { scope: 'sales' } });
@@ -196,7 +233,7 @@ describe('CompanionHome', () => {
   });
 
   it('hides cached operational data while offline and resumes from the network', () => {
-    render(<CompanionHome />);
+    render(home());
     expect(screen.getByTestId('companion-ticker')).toBeInTheDocument();
 
     setOnline(false);
@@ -217,13 +254,98 @@ describe('CompanionHome', () => {
 
   it('does not invent zero totals while the current snapshot is pending or failed', () => {
     snapshotUseQuery.mockReturnValueOnce({ data: undefined, isPending: true, isError: false });
-    const view = render(<CompanionHome />);
+    const view = render(home());
     expect(screen.getByText('snapshot.loading')).toBeInTheDocument();
     expect(screen.queryByTestId('companion-revenue')).not.toBeInTheDocument();
 
     snapshotUseQuery.mockReturnValue({ data: undefined, isPending: false, isError: true });
-    view.rerender(<CompanionHome />);
+    view.rerender(home());
     expect(screen.getByText('snapshot.unavailable')).toBeInTheDocument();
     expect(screen.queryByTestId('companion-revenue')).not.toBeInTheDocument();
+  });
+
+  it('gives admins and managers the owner screens and refreshes what they show', async () => {
+    auth.role = 'manager';
+    render(home('/c/?view=registers'));
+    expect(await screen.findByTestId('owner-stub')).toHaveTextContent('registers');
+    expect(snapshotUseQuery).not.toHaveBeenCalled();
+
+    captureChannel().emit(invalidation('day_close'));
+    expect(owner.invalidate).toHaveBeenCalledTimes(4);
+    expect(snapshotInvalidate).not.toHaveBeenCalled();
+    await act(async () => undefined);
+  });
+
+  it('refreshes only what an approval or a sale changes for the owner', async () => {
+    auth.role = 'admin';
+    render(home());
+    await screen.findByTestId('owner-stub');
+    const channel = captureChannel();
+    channel.emit(invalidation('sales'));
+    // Hoy and today's open checklist.
+    expect(owner.invalidate).toHaveBeenCalledTimes(2);
+    channel.emit(invalidation('operations'));
+    // Hoy and the approvals queue, never the signed day.
+    expect(owner.invalidate).toHaveBeenCalledTimes(4);
+    await act(async () => undefined);
+  });
+
+  it('keeps viewers on the read-only pulse even when a link names an owner tab', () => {
+    render(home('/c/?view=day'));
+    expect(screen.getByTestId('companion-home')).toBeInTheDocument();
+    expect(screen.queryByTestId('owner-stub')).not.toBeInTheDocument();
+  });
+
+  it('opens the phone settings on the more tab, also offline', () => {
+    setOnline(false);
+    render(home('/c/?view=more'));
+    expect(screen.getByTestId('more-stub')).toBeInTheDocument();
+    expect(screen.queryByTestId('companion-offline')).not.toBeInTheDocument();
+  });
+
+  it('asks every refetch to fail loudly so a broken read keeps the gap visible', async () => {
+    render(home());
+    captureChannel().emit(invalidation('day_close'));
+    expect(snapshotInvalidate).toHaveBeenCalledWith({ date: expect.any(String) }, undefined, {
+      throwOnError: true,
+    });
+    await act(async () => undefined);
+  });
+
+  it('lets only a full refresh close a replay gap, and keeps a queued sales refresh', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-28T18:00:00.000Z'));
+    auth.role = 'manager';
+    render(home());
+    await act(async () => {
+      await vi.dynamicImportSettled();
+    });
+    const channel = captureChannel();
+    channel.setState('open');
+
+    owner.invalidate.mockRejectedValueOnce(new Error('offline'));
+    channel.emit({ type: 'realtime.replay_gap', data: {} });
+    await act(async () => undefined);
+    expect(screen.getByTestId('owner-stub')).toBeInTheDocument();
+    owner.invalidate.mockClear();
+
+    // An approval during the gap refetches everything: Hoy, curve, queue and the day close.
+    channel.emit(invalidation('operations'));
+    expect(owner.invalidate).toHaveBeenCalledTimes(4);
+    await act(async () => undefined);
+    act(() => vi.advanceTimersByTime(10_000));
+    owner.invalidate.mockClear();
+
+    channel.emit(invalidation('sales'));
+    expect(owner.invalidate).toHaveBeenCalledTimes(2);
+    channel.emit(invalidation('sales'));
+    channel.emit(invalidation('operations'));
+    // The approval refreshes Hoy and the queue without swallowing the queued sale.
+    expect(owner.invalidate).toHaveBeenCalledTimes(4);
+    owner.invalidate.mockClear();
+    // The throttled sale still refreshes once its window ends.
+    act(() => vi.advanceTimersByTime(10_000));
+    expect(owner.invalidate).toHaveBeenCalledTimes(2);
+    await act(async () => undefined);
   });
 });

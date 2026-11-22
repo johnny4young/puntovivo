@@ -12,6 +12,7 @@ import { DayBand, EXPANDED_AXIS_Y } from './DayBand';
 import { PendingQueue } from './PendingQueue';
 import { RegistersColumn } from './RegistersColumn';
 import { percentChange } from './todayModel';
+import { useTodayFormatters } from './useTodayFormatters';
 
 // Only the expanded day draws the arc, so compact Hoy never downloads it.
 const TodayArc = lazy(() => import('./TodayArc').then(module => ({ default: module.TodayArc })));
@@ -72,29 +73,7 @@ export function TodayOverview({ formatCurrency }: TodayOverviewProps) {
       { replace: true }
     );
 
-  const formatters = useMemo(() => {
-    const timeZone = today?.timezone;
-    const time = new Intl.DateTimeFormat(i18n.language, {
-      hour: 'numeric',
-      minute: '2-digit',
-      timeZone,
-    });
-    const long = new Intl.DateTimeFormat(i18n.language, {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      timeZone,
-    });
-    const weekday = new Intl.DateTimeFormat(i18n.language, { weekday: 'long', timeZone });
-    return {
-      time: (iso: string) => time.format(new Date(iso)),
-      longDate: (iso: string) => {
-        const text = long.format(new Date(iso));
-        return text.charAt(0).toLocaleUpperCase(i18n.language) + text.slice(1);
-      },
-      weekday: (iso: string) => weekday.format(new Date(iso)),
-    };
-  }, [i18n.language, today?.timezone]);
+  const formatters = useTodayFormatters(i18n.language, today?.timezone);
 
   const numbered = useMemo(
     () => (today?.pending ?? []).map((item, index) => ({ item, rank: index + 1 })),

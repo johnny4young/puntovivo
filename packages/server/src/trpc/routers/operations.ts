@@ -9,7 +9,7 @@
  * @module trpc/routers/operations
  */
 import { computeNeedsAttention } from '../../services/operations/attention.js';
-import { computeOperationsToday } from '../../services/operations/today.js';
+import { computeDayCurve, computeOperationsToday } from '../../services/operations/today.js';
 import {
   acknowledgeOperationalAlert,
   listOperationalAlertsOverview,
@@ -26,6 +26,7 @@ import {
   operationsNeedsAttentionOutputSchema,
   retryOperationalAlertDeliveryOutputSchema,
 } from '../schemas/operations.js';
+import { dayClosePreviewInput } from '../schemas/reports.js';
 
 export const operationsRouter = router({
   /**
@@ -43,6 +44,11 @@ export const operationsRouter = router({
 
   /** The manager's day: sales against last week, hourly curve, open registers, shifts and the pending queue. */
   today: managerOrAdminProcedure.query(({ ctx }) => computeOperationsToday(ctx.db, ctx.tenantId)),
+
+  /** Revenue per hour of a past business day, for the sealed day's arc. */
+  dayCurve: managerOrAdminProcedure
+    .input(dayClosePreviewInput)
+    .query(({ ctx, input }) => computeDayCurve(ctx.db, ctx.tenantId, input.date)),
 
   alertsOverview: managerOrAdminProcedure
     .output(operationalAlertsOverviewOutputSchema)

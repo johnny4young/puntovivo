@@ -287,4 +287,33 @@ describe('operations.today', () => {
     expect(foreign.pending.filter(item => item.kind !== 'attention')).toEqual([]);
     expect(foreign.sales.total).toBe(0);
   });
+
+  it('reads any past day with the curve Hoy draws, for managers of that tenant only', async () => {
+    const clock = await resolveTenantBusinessClock(getDatabase(), tenantId, now);
+    const lastWeek = addCalendarDays(clock.businessDate, -7);
+    const ctx = (role: 'cashier' | 'manager', tenant: string) =>
+      ({
+        req: { server: server.app, headers: {}, user: { userId: adminId, role, tenantId: tenant } },
+        res: {},
+        db: getDatabase(),
+        user: { id: adminId, email: 'admin@localhost', role, tenantId: tenant },
+        tenantId: tenant,
+        siteId: null,
+      }) as unknown as Context;
+    const curve = await appRouter
+      .createCaller(ctx('manager', tenantId))
+      .operations.dayCurve({ date: lastWeek });
+    expect(curve.dayStartIso).toBe(resolveUtcDayWindow(lastWeek, clock.timezone).startIso);
+    expect(curve.hourly[9]).toEqual({ hour: 9, revenue: 20000 });
+    expect(curve.hourly.reduce((sum, row) => sum + row.revenue, 0)).toBe(20000);
+    await expect(
+      appRouter.createCaller(ctx('cashier', tenantId)).operations.dayCurve({ date: lastWeek })
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    const foreignTenant = getDatabase().select({ id: tenants.id }).from(tenants).all();
+    const other = foreignTenant.find(row => row.id !== tenantId)!.id;
+    const foreign = await appRouter
+      .createCaller(ctx('manager', other))
+      .operations.dayCurve({ date: lastWeek });
+    expect(foreign.hourly.every(row => row.revenue === 0)).toBe(true);
+  });
 });

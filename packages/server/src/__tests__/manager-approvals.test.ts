@@ -332,7 +332,12 @@ describe('manager approvals router', () => {
     const DAY_MS = 86_400_000;
     let unitId: string;
 
-    async function seedProduct(args: { price: number; cost: number; taxRate: number }) {
+    async function seedProduct(args: {
+      price: number;
+      cost: number;
+      taxRate: number;
+      sellByFraction?: boolean;
+    }) {
       const id = nanoid();
       const now = new Date().toISOString();
       await db.insert(products).values({
@@ -343,6 +348,7 @@ describe('manager approvals router', () => {
         price: args.price,
         cost: args.cost,
         taxRate: args.taxRate,
+        sellByFraction: args.sellByFraction ?? false,
         createdAt: now,
         updatedAt: now,
       });
@@ -424,6 +430,7 @@ describe('manager approvals router', () => {
       items: { productId: string; quantity: number; unitPrice: number; discount: number }[];
       discountAmount: number;
       total: number;
+      serviceChargeAmount?: number;
     }) {
       return {
         mode: 'fresh' as const,
@@ -437,7 +444,7 @@ describe('manager approvals router', () => {
         total: args.total,
         creditAmount: 0,
         tipAmount: 0,
-        serviceChargeAmount: 0,
+        serviceChargeAmount: args.serviceChargeAmount ?? 0,
         currencyCode: 'COP',
       };
     }
@@ -498,6 +505,7 @@ describe('manager approvals router', () => {
             daysPerVisit: 7,
             usualDiscountPercent: 9,
           },
+          ticket: { totalBefore: 30_200, total: 27_344, itemCount: 3 },
         };
         expect(created).not.toHaveProperty('decisionContext');
         const queue = await appRouter
@@ -562,6 +570,55 @@ describe('manager approvals router', () => {
         discount: { percent: 10, roleLimitPercent: 0 },
         margin: { withDiscountPercent: 44.4, withoutDiscountPercent: 50 },
         customer: null,
+        ticket: { totalBefore: 11_900, total: 10_710, itemCount: 1 },
+      });
+
+      // A line sold by fraction is one article even at a whole 2 kg; counted lines are their quantity.
+      const cheese = await seedProduct({
+        price: 1_000,
+        cost: 500,
+        taxRate: 0,
+        sellByFraction: true,
+      });
+      const weighed = await appRouter.createCaller(cashier.fresh()).managerApprovals.request({
+        action: 'sale_discount',
+        reason: 'Weighed and counted',
+        resourceType: 'sale_checkout',
+        checkoutContext: checkout({
+          customerId: null,
+          items: [
+            { productId: taxed, quantity: 2, unitPrice: 11_900, discount: 0 },
+            { productId: cheese, quantity: 2, unitPrice: 1_000, discount: 0 },
+          ],
+          discountAmount: 2_000,
+          total: 23_800,
+        }),
+        summary: { label: 'checkout', amount: 2_000, currencyCode: 'COP' },
+      });
+      expect((await contextOf(weighed.id))?.ticket).toEqual({
+        totalBefore: 25_800,
+        total: 23_800,
+        itemCount: 3,
+      });
+
+      // A service charge is taken on the discounted base, so the sum would understate the before.
+      const withService = await appRouter.createCaller(cashier.fresh()).managerApprovals.request({
+        action: 'sale_discount',
+        reason: 'Table with service',
+        resourceType: 'sale_checkout',
+        checkoutContext: checkout({
+          customerId: null,
+          items: [{ productId: taxed, quantity: 1, unitPrice: 11_900, discount: 10 }],
+          discountAmount: 1_190,
+          total: 11_781,
+          serviceChargeAmount: 1_071,
+        }),
+        summary: { label: 'checkout', amount: 1_190, currencyCode: 'COP' },
+      });
+      expect((await contextOf(withService.id))?.ticket).toEqual({
+        totalBefore: null,
+        total: 11_781,
+        itemCount: 1,
       });
 
       const justOver = await appRouter.createCaller(cashier.fresh()).managerApprovals.request({
@@ -858,12 +915,20 @@ describe('manager approvals router', () => {
       .createCaller(cashier.fresh())
       .managerApprovals.request(requestInput('credit_sale'));
 
+    const broadcast = vi.spyOn(server.app.sse, 'broadcast');
     const decided = await appRouter.createCaller(cashier.fresh()).managerApprovals.decideWithPin({
       requestId: request.id,
       approverId: manager.id,
       pin: '864209',
       decision: 'approved',
     });
+    // Other owner phones drop the card at once instead of on the next poll.
+    expect(broadcast).toHaveBeenCalledWith(
+      'companion.invalidated',
+      expect.objectContaining({ scope: 'operations' }),
+      tenantId
+    );
+    broadcast.mockRestore();
     expect(decided).toMatchObject({
       id: request.id,
       status: 'approved',

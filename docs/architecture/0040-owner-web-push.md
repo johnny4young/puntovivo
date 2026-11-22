@@ -49,4 +49,6 @@ never wait on a phone to finish a sale, a handoff or a close.
 - Requests created on another node and replicated by sync do not notify from
   the receiving node; the node that took the request sends it.
 - The Companion service worker gains `push` and `notificationclick` handlers;
-  a tap opens or focuses the Companion and never leaves its origin.
+  a tap opens or focuses the Companion on the screen the notification names
+  (the decision sheet, the registers or the sealed day) and never leaves its
+  origin.

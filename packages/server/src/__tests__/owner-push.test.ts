@@ -9,7 +9,7 @@ import {
 } from 'node:crypto';
 import { eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase, type DatabaseInstance } from '../db/index.js';
 import {
@@ -371,6 +371,7 @@ describe('owner push', () => {
       });
 
     sent = [];
+    const broadcast = vi.spyOn(server.app.sse, 'broadcast');
     const discount = await appRouter.createCaller(cashierCritical()).managerApprovals.request({
       action: 'sale_discount',
       reason: 'Cliente mayorista',
@@ -379,12 +380,20 @@ describe('owner push', () => {
       summary: { label: 'checkout', amount: 74400, currencyCode: 'COP' },
     });
     expect(discount.status).toBe('pending');
+    // An open Companion refreshes the queue at once, push or not.
+    expect(broadcast).toHaveBeenCalledWith(
+      'companion.invalidated',
+      expect.objectContaining({ scope: 'operations' }),
+      tenantId
+    );
+    broadcast.mockRestore();
     await settleOwnerPush();
     expect(sent).toHaveLength(2);
     const managerMessage = decrypt(sentTo(managerPhone)[0]!.body, managerPhone);
     expect(managerMessage.title).toMatch(/^Le toca a usted: descuento de \$\s?74\.400$/u);
     expect(managerMessage.body).toMatch(/^Marta Ríos pide su aprobación en .+\.$/u);
     expect(managerMessage.tag).toBe(`approval:${discount.id}`);
+    expect(managerMessage.url).toBe(`/c/?decide=${discount.id}`);
     expect(sentTo(managerPhone)[0]!.headers).toMatchObject({ urgency: 'high', ttl: '600' });
     expect(decrypt(sentTo(adminPhone)[0]!.body, adminPhone).title).toMatch(
       /^Your call: discount of /

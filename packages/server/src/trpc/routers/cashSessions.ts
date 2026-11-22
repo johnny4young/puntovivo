@@ -33,6 +33,7 @@ import { resolveCashCloseSettings } from '../../services/cash-close-settings.js'
 import { computeDayCloseSummary } from '../../services/reports/day-close.js';
 import { computeCashierPace as computeCashierPaceFromTiming } from '../../services/reports/cashier-pace.js';
 import { computeCashierPace } from '../../services/cashier-pace.js';
+import { tryBroadcastCompanionInvalidation } from '../../services/companion/invalidation.js';
 import { dispatchOwnerPush } from '../../services/push/notify.js';
 import { computeShiftSummary } from '../../services/reports/shift-summary.js';
 import {
@@ -581,7 +582,16 @@ export const cashSessionsRouter = router({
 
   startHandoff: criticalCommandCashierManagerOrAdminProcedure
     .input(startCashHandoffInput)
-    .mutation(({ ctx, input }) => startCashHandoff(buildCashSessionContext(ctx), input)),
+    .mutation(async ({ ctx, input }) => {
+      const result = await startCashHandoff(buildCashSessionContext(ctx), input);
+      tryBroadcastCompanionInvalidation({
+        sse: ctx.req?.server?.sse,
+        tenantId: ctx.tenantId,
+        scope: 'operations',
+        log: ctx.req?.server?.log,
+      });
+      return result;
+    }),
 
   receiveHandoff: criticalCommandCashierManagerOrAdminProcedure
     .input(receiveCashHandoffInput)
@@ -592,6 +602,12 @@ export const cashSessionsRouter = router({
         tenantId: ctx.tenantId,
         actorId: ctx.user!.id,
         handoff,
+      });
+      tryBroadcastCompanionInvalidation({
+        sse: ctx.req?.server?.sse,
+        tenantId: ctx.tenantId,
+        scope: 'operations',
+        log: ctx.req?.server?.log,
       });
       return { handoff, session: await presentOpenedSession(ctx, opened) };
     }),

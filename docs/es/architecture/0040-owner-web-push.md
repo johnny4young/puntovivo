@@ -51,5 +51,6 @@ nunca debe esperar a un teléfono para cerrar una venta, un relevo o el día.
 - Las solicitudes creadas en otro nodo y replicadas por sincronización no
   avisan desde el nodo que las recibe; avisa el nodo que tomó la solicitud.
 - El service worker del Companion gana los manejadores `push` y
-  `notificationclick`; un toque abre o enfoca el Companion y nunca sale de su
-  origen.
+  `notificationclick`; un toque abre o enfoca el Companion en la pantalla que
+  nombra el aviso (la hoja de decisión, las cajas o el día sellado) y nunca sale
+  de su origen.

@@ -123,7 +123,7 @@ export function Drawer({
       aria-label={title ? undefined : ariaLabel}
     >
       <div
-        className="fixed inset-0 bg-secondary-950/60 backdrop-blur-sm animate-fade-in"
+        className="fixed inset-0 bg-scrim/60 backdrop-blur-sm animate-fade-in"
         onClick={handleBackdropClick}
         aria-hidden="true"
       />
