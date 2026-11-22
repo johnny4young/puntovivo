@@ -1,5 +1,8 @@
 import type { UserRole } from '@puntovivo/shared/roles';
-import type { ManagerApprovalAction } from '@puntovivo/shared/manager-approval';
+import {
+  canRolePerformApprovalActionDirectly,
+  type ManagerApprovalAction,
+} from '@puntovivo/shared/manager-approval';
 import { and, eq, gte } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
 import { auditLogs } from '../../db/schema.js';
@@ -259,6 +262,43 @@ export function evaluateShiftLossPrevention(args: {
     violation: violations[0] ?? null,
     alertChannels,
   };
+}
+
+export type ShiftApprovalReason = 'dual' | 'shift_amount' | 'shift_count' | 'no_shift' | 'role';
+
+export interface ShiftApprovalSummary {
+  required: boolean;
+  /** The strongest cause, so the register can say why it stops. */
+  reason: ShiftApprovalReason | null;
+  /** The configured amount the action crosses, when a value rule is the cause. */
+  limitAmount: number | null;
+}
+
+/** What the claim at commit time will demand for this evaluation, without claiming. */
+export function summarizeShiftApproval(
+  evaluation: ShiftLossPreventionEvaluation
+): ShiftApprovalSummary {
+  const cause = shiftApprovalCause(evaluation);
+  return { required: cause.reason !== null, ...cause };
+}
+
+function shiftApprovalCause(
+  evaluation: ShiftLossPreventionEvaluation
+): Omit<ShiftApprovalSummary, 'required'> {
+  const dual = evaluation.violations.find(v => v.kind === 'dual_approval_threshold');
+  if (dual) return { reason: 'dual', limitAmount: dual.thresholdAmount };
+  const limit = evaluation.violations.find(
+    (v): v is ShiftLimitViolation => v.kind !== 'dual_approval_threshold'
+  );
+  if (limit?.reason === 'shift_unavailable') return { reason: 'no_shift', limitAmount: null };
+  if (limit?.exceeded.includes('amount')) {
+    return { reason: 'shift_amount', limitAmount: limit.maxAmount };
+  }
+  if (limit) return { reason: 'shift_count', limitAmount: null };
+  if (!canRolePerformApprovalActionDirectly(evaluation.role, evaluation.action)) {
+    return { reason: 'role', limitAmount: null };
+  }
+  return { reason: null, limitAmount: null };
 }
 
 /** A denied or approved cap crossing leaves one privacy-safe trigger row. */

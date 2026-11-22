@@ -2832,6 +2832,12 @@
     "output": "inferred"
   },
   {
+    "path": "sales.returnableToday",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
     "path": "sales.returnSale",
     "kind": "mutation",
     "input": "object{approvalRequestId?:string[minLength=1],destination?:enum(\"original\"|\"store_credit\"),externalReferences?:array<object>[maxItems=20],id:string[minLength=1],items?:array<object>[minItems=1,maxItems=200],reason?:string[maxLength=500]}",
