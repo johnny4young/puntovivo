@@ -387,6 +387,7 @@ export const restaurantServicesRouter = router({
             currentProductName: products.name,
             quantity: saleItems.quantity,
             total: saleItems.total,
+            notes: saleItems.notes,
             restaurantModifierAmount: saleItems.restaurantModifierAmount,
           })
           .from(restaurantCheckLines)

@@ -77,14 +77,17 @@ test('kitchen routing, structured preparation and versioned transitions survive 
   await search.getByPlaceholder('Search by SKU, name, or barcode').fill(scenario.product.sku);
   await search.getByTestId(`product-search-row-${scenario.product.sku}`).click();
   await search.getByRole('button', { name: 'Search', exact: true }).click();
-  const row = page.getByTestId('voice-ordering-cart-row');
-  await row
-    .getByTestId('voice-ordering-note-input')
-    .fill('No onions <script>not executable</script>');
-  await row.getByTestId('voice-ordering-course-select').selectOption('starter');
-  await row.getByTestId('voice-ordering-seat-select').selectOption('2');
-  await row.getByTestId('voice-ordering-modifier-name').fill('Extra cheese');
-  await row.getByTestId('voice-ordering-modifier-price').fill('1500');
+  const sheet = page.getByTestId('plate-sheet');
+  await sheet.getByTestId('plate-sheet-note-toggle').click();
+  await sheet.getByTestId('plate-sheet-note').fill('No onions <script>not executable</script>');
+  await sheet.getByTestId('plate-sheet-course-starter').click();
+  await sheet.getByTestId('plate-sheet-seat-2').click();
+  await sheet.getByTestId('plate-sheet-more-extras').click();
+  await page.getByTestId('modifier-picker-custom-name').fill('Extra cheese');
+  await page.getByTestId('modifier-picker-custom-price').fill('1500');
+  await page.getByTestId('modifier-picker-custom-add').click();
+  await sheet.getByTestId('plate-sheet-submit').click();
+  await expect(page.getByTestId('voice-ordering-save')).toHaveText('Send round 1 to the kitchen');
   await page.getByTestId('voice-ordering-save').click();
   await expect(page.getByTestId('voice-ordering-cart-empty')).toBeVisible();
   await page.goto('/kds');

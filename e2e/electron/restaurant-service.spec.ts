@@ -123,26 +123,29 @@ test.describe('restaurant service on the desktop app', () => {
     await page.getByTestId('voice-ordering-check-label').fill(CHECK_LABEL);
     await addRestaurantProduct(page);
 
-    const cartRow = page.getByTestId('voice-ordering-cart-row');
-    await cartRow.getByTestId('voice-ordering-note-input').fill('No onions');
-    await cartRow.getByTestId('voice-ordering-course-select').selectOption('starter');
-    await cartRow.getByTestId('voice-ordering-seat-select').selectOption('2');
-    await cartRow.getByRole('button', { name: 'Choose approved add-on' }).click();
+    const sheet = page.getByTestId('plate-sheet');
+    await expect(sheet).toBeVisible();
+    await sheet.getByTestId('plate-sheet-note-toggle').click();
+    await sheet.getByTestId('plate-sheet-note').fill('No onions');
+    await sheet.getByTestId('plate-sheet-course-starter').click();
+    await sheet.getByTestId('plate-sheet-seat-2').click();
+    await sheet.getByTestId('plate-sheet-more-extras').click();
     const picker = page.getByRole('dialog', { name: 'Choose approved add-on' });
     await picker.getByRole('button', { name: /Extra cheese/ }).click();
     await expect(picker).toBeHidden();
-    await expect(cartRow.getByTestId('voice-ordering-modifier-name')).toHaveAttribute(
-      'readonly',
-      ''
-    );
-    await expect(cartRow.getByTestId('voice-ordering-modifier-price')).toHaveValue('1500');
+    await expect(
+      sheet.getByRole('button', { name: 'Remove Extra cheese', exact: true })
+    ).toContainText(/1[.,]500/);
+    await sheet.getByTestId('plate-sheet-submit').click();
+    await expect(page.getByTestId('voice-ordering-cart-row')).toContainText('No onions');
+    await expect(page.getByTestId('voice-ordering-save')).toHaveText('Send round 1 to the kitchen');
     await page.getByTestId('voice-ordering-save').click();
     await expect(page.getByTestId('voice-ordering-cart-empty')).toBeVisible({ timeout: 15_000 });
     await page
       .getByTestId('voice-ordering-table-grid')
       .getByRole('button', { name: TABLE_NAME, exact: true })
       .click();
-    await expect(page.getByTestId('voice-ordering-open-checks')).toContainText(CHECK_LABEL);
+    await expect(page.getByTestId('order-rail-sent-round')).toContainText(CHECK_LABEL);
     await captureEvidence(page, 'restaurant-service-open-electron');
 
     // A renderer reload keeps the encrypted SQLite projection authoritative.
@@ -152,7 +155,7 @@ test.describe('restaurant service on the desktop app', () => {
       .getByTestId('voice-ordering-table-grid')
       .getByRole('button', { name: TABLE_NAME, exact: true })
       .click();
-    await expect(page.getByTestId('voice-ordering-open-checks')).toContainText(CHECK_LABEL);
+    await expect(page.getByTestId('order-rail-sent-round')).toContainText(CHECK_LABEL);
 
     await goToRoute(page, '/restaurants/modifiers');
     await page.getByRole('button', { name: 'Edit Extra cheese', exact: true }).click();
@@ -213,7 +216,7 @@ test.describe('restaurant service on the desktop app', () => {
     await expect(page.getByTestId('voice-ordering-table-state-loading')).toHaveCount(0, {
       timeout: 15_000,
     });
-    await expect(page.getByTestId('voice-ordering-open-checks')).toHaveCount(0);
+    await expect(page.getByTestId('order-rail-sent-round')).toHaveCount(0);
     await captureEvidence(page, 'restaurant-service-settled-electron');
     await goToRoute(page, '/kds');
     await expect(kitchenCard).toHaveCount(1);

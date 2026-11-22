@@ -200,6 +200,12 @@ hardware certification; the durable preparation contract is owned separately.
   minimum and fails as changed when a group moved on. Paths that never show
   groups keep ordering. The group kind is frozen on the line modifier, so a
   kitchen reads a removal as one even after the group changes.
+- The plate sheet sends the groups it showed, so their minimums bind; voice
+  lines skip the sheet and keep ordering. A round is sent with
+  `restaurantServices.openCheck`, so each round opens its own check on the
+  table's service, and the order rail numbers rounds across those checks by
+  their send time. Appending a round to an open check needs a draft-append
+  command in the sale pipeline and is not part of this model yet.
 
 ## Alternatives rejected
 

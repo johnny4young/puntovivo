@@ -1,6 +1,5 @@
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { TFunction } from 'i18next';
 import { Archive, ArrowDown, ArrowUp, Pencil, Plus, X } from 'lucide-react';
 import type { inferRouterInputs, inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '@puntovivo/server';
@@ -11,6 +10,7 @@ import { translateServerError } from '@/lib/translateServerError';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { useSingleFlightSubmit } from '@/lib/useSingleFlightSubmit';
 import { formatCurrency } from '@/lib/utils';
+import { groupRule } from './modifierGroupRule';
 
 /** Editor projection: rule, ordered options (archived ones included) and assigned dishes. */
 export type RestaurantModifierGroup =
@@ -95,18 +95,6 @@ function toInput(siteId: string, draft: GroupDraft): SaveGroupInput {
 }
 
 /** Rule as the plate sheet will phrase it. */
-function groupRule(
-  t: TFunction,
-  group: Pick<RestaurantModifierGroup, 'selection' | 'minSelections' | 'maxSelections'>
-): string {
-  const { minSelections: min, maxSelections: max } = group;
-  if (group.selection === 'single')
-    return t(min ? 'groups.rule.chooseOne' : 'groups.rule.atMostOne');
-  if (min === 0) return t('groups.rule.upTo', { count: max });
-  if (min === max) return t('groups.rule.exactly', { count: max });
-  return t('groups.rule.range', { min, max });
-}
-
 /** Site groups: what each dish asks for, in the order the plate sheet shows it. */
 export function RestaurantModifierGroupsPanel({ siteId }: { siteId: string }) {
   const { t } = useTranslation(['restaurants', 'common', 'errors']);

@@ -37,6 +37,7 @@ async function addRestaurantProduct(page: Page, sku: string): Promise<void> {
   await row.click();
   await dialog.getByRole('button', { name: /^(Search|Buscar)$/ }).click();
   await expect(dialog).toBeHidden();
+  await expect(page.getByTestId('plate-sheet')).toBeVisible();
 }
 
 test.describe('restaurant service lifecycle', () => {
@@ -150,12 +151,11 @@ test.describe('restaurant service lifecycle', () => {
 
       // Mobile Waiter and POS Touch share this component and the same atomic
       // restaurantServices.openCheck command. Exercise party, seat, course,
-      // kitchen note and priced modifier in one real renderer-to-SQLite round trip.
+      // kitchen note and priced add-ons in one real renderer-to-SQLite round trip.
       await ensureLanguage(page, language);
-      const modifierRequests: string[] = [];
+      const sheetRequests: string[] = [];
       page.on('request', request => {
-        if (request.url().includes('/RestaurantModifierEditor.'))
-          modifierRequests.push(request.url());
+        if (request.url().includes('/RestaurantPlateSheet.')) sheetRequests.push(request.url());
       });
       await page.goto('/m');
       await expect(page.getByTestId('voice-ordering-screen')).toHaveAttribute(
@@ -168,68 +168,64 @@ test.describe('restaurant service lifecycle', () => {
         .click();
       await page.getByTestId('voice-ordering-guest-count').fill('2');
       await page.getByTestId('voice-ordering-check-label').fill(checkLabel);
-      expect(modifierRequests).toHaveLength(0);
+      expect(sheetRequests).toHaveLength(0);
       await addRestaurantProduct(page, scenario.product.sku);
-      await expect.poll(() => modifierRequests.length).toBe(1);
+      expect(sheetRequests).toHaveLength(1);
 
-      const cartRow = page.getByTestId('voice-ordering-cart-row');
-      await expect(cartRow).toHaveCount(1);
-      await cartRow.getByTestId('voice-ordering-note-input').fill('No onions');
-      await cartRow.getByTestId('voice-ordering-course-select').selectOption('starter');
-      await cartRow.getByTestId('voice-ordering-seat-select').selectOption('2');
-      await cartRow.getByTestId('voice-ordering-modifier-name').fill('Extra cheese');
-      await cartRow.getByTestId('voice-ordering-modifier-price').fill('1500');
-      await cartRow.getByTestId('voice-ordering-modifier-quantity').fill('2');
-      const addModifier = cartRow.getByRole('button', {
-        name: language === 'en' ? 'Add modifier' : 'Agregar modificador',
-        exact: true,
-      });
-      await addModifier.focus();
-      await page.keyboard.press('Enter');
-      const secondName = cartRow.getByTestId('voice-ordering-modifier-name').nth(1);
-      await expect(secondName).toBeFocused();
-      await page.keyboard.type(' EXTRA CHEESE ');
-      await expect(cartRow.getByRole('alert')).toContainText(
-        language === 'en'
-          ? 'Each modifier needs a different name.'
-          : 'Cada modificador necesita un nombre distinto.'
-      );
-      await expect(page.getByTestId('voice-ordering-save')).toBeDisabled();
-      await secondName.fill('Extra bacon');
-      await cartRow.getByTestId('voice-ordering-modifier-price').nth(1).fill('500');
-      await expect(cartRow.getByRole('alert')).toHaveCount(0);
+      const sheet = page.getByTestId('plate-sheet');
+      await sheet.getByTestId('plate-sheet-seat-2').click();
+      await sheet.getByTestId('plate-sheet-course-starter').click();
+      await sheet.getByTestId('plate-sheet-note-toggle').click();
+      await sheet.getByTestId('plate-sheet-note').fill('No onions');
+      for (const [name, price] of [
+        ['Extra cheese', '1500'],
+        ['Extra bacon', '500'],
+      ] as const) {
+        await sheet.getByTestId('plate-sheet-more-extras').click();
+        await page.getByTestId('modifier-picker-custom-name').fill(name);
+        await page.getByTestId('modifier-picker-custom-price').fill(price);
+        await page.getByTestId('modifier-picker-custom-add').click();
+        await expect(
+          sheet.getByRole('button', {
+            name: language === 'en' ? `Remove ${name}` : `Quitar ${name}`,
+          })
+        ).toBeVisible();
+      }
       await page.setViewportSize({ width: 390, height: 844 });
-      await expect(
-        cartRow.getByRole('group', {
-          name: language === 'en' ? 'Modifiers' : 'Modificadores',
-          exact: true,
-        })
-      ).toBeVisible();
+      await expect(sheet.getByTestId('plate-sheet-submit')).toBeVisible();
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
       ).toBe(true);
-      await captureRestaurantEvidence(page, `restaurant-multiple-modifiers-mobile-${language}`);
+      await captureRestaurantEvidence(page, `restaurant-plate-sheet-mobile-${language}`);
+      await sheet.getByTestId('plate-sheet-submit').click();
+      await expect(sheet).toBeHidden();
+      const cartRow = page.getByTestId('voice-ordering-cart-row');
+      await expect(cartRow).toHaveCount(1);
+      await expect(cartRow).toContainText('No onions');
       await page.setViewportSize({ width: 1280, height: 900 });
-      await expect(page.getByTestId('voice-ordering-save')).toBeEnabled();
-      await page.getByTestId('voice-ordering-save').click();
+      const send = page.getByTestId('voice-ordering-save');
+      // The kitchen screen is on by default, so the round goes to the kitchen.
+      await expect(send).toHaveText(
+        language === 'en' ? 'Send round 1 to the kitchen' : 'Enviar ronda 1 a cocina'
+      );
+      await send.click();
       await expect(page.getByTestId('voice-ordering-cart-empty')).toBeVisible({ timeout: 15_000 });
       await expectSuccessToast(
         page,
         language === 'en'
-          ? `Saved order for ${tableName} with 1 item.`
-          : `Se guardó la orden de ${tableName} con 1 producto.`
+          ? `Round 1 sent to the kitchen · ${tableName}`
+          : `Ronda 1 enviada a cocina · ${tableName}`
       );
 
       await page
         .getByTestId('voice-ordering-table-grid')
         .getByRole('button', { name: tableName, exact: true })
         .click();
-      const openChecks = page.getByTestId('voice-ordering-open-checks');
-      await expect(openChecks).toContainText(
-        language === 'en' ? '1 open check' : '1 cuenta abierta'
-      );
-      await expect(openChecks).toContainText(checkLabel);
-      await expect(openChecks).toContainText(/16[.,]000/);
+      const sentRound = page.getByTestId('order-rail-sent-round');
+      await expect(sentRound).toHaveCount(1);
+      await expect(sentRound).toContainText(checkLabel);
+      await expect(sentRound).toContainText('No onions');
+      await expect(page.getByTestId('order-rail-total')).toContainText(/14[.,]500/);
       await captureRestaurantEvidence(page, `restaurant-service-open-mobile-${language}`);
 
       await expect
@@ -240,7 +236,7 @@ test.describe('restaurant service lifecycle', () => {
           checkStatus: 'open',
           checkLabel,
           saleStatus: 'draft',
-          saleTotal: 16_000,
+          saleTotal: 14_500,
           dinerCount: 2,
           lineCount: 1,
           roundCount: 1,
@@ -251,7 +247,7 @@ test.describe('restaurant service lifecycle', () => {
               seatNumber: 2,
               modifierName: 'Extra cheese',
               modifierPriceDelta: 1500,
-              modifierQuantity: 2,
+              modifierQuantity: 1,
             },
             {
               note: 'No onions',
@@ -270,7 +266,7 @@ test.describe('restaurant service lifecycle', () => {
         .getByTestId('voice-ordering-table-grid')
         .getByRole('button', { name: tableName, exact: true })
         .click();
-      await expect(page.getByTestId('voice-ordering-open-checks')).toContainText(checkLabel);
+      await expect(page.getByTestId('order-rail-sent-round')).toContainText(checkLabel);
 
       // Resume through the ordinary till and settle with the existing payment
       // drawer. This must close both the check and its last open table service.
@@ -294,7 +290,7 @@ test.describe('restaurant service lifecycle', () => {
           serviceStatus: 'closed',
           checkStatus: 'settled',
           saleStatus: 'completed',
-          saleTotal: 16_000,
+          saleTotal: 14_500,
           lineCount: 1,
         });
 
@@ -306,7 +302,7 @@ test.describe('restaurant service lifecycle', () => {
       await expect(page.getByTestId('voice-ordering-table-state-loading')).toHaveCount(0, {
         timeout: 15_000,
       });
-      await expect(page.getByTestId('voice-ordering-open-checks')).toHaveCount(0);
+      await expect(page.getByTestId('order-rail-sent-round')).toHaveCount(0);
       await captureRestaurantEvidence(page, `restaurant-service-settled-mobile-${language}`);
       await expectNoClientIssues(tracker);
     });

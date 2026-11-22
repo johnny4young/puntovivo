@@ -3,7 +3,7 @@
  *
  * The suite keeps transport mocks at the tRPC boundary and exercises the
  * operator-visible state machine: catalog gating, session/AI permissions,
- * service-state loading, structured line metadata and atomic check opening.
+ * service-state loading, the plate sheet, the order rail and round sending.
  */
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -12,6 +12,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import i18n from '@/i18n';
 import { formatCurrency } from '@/lib/utils';
+
+/** toHaveTextContent collapses the currency's non-breaking space. */
+const money = (value: number) => formatCurrency(value).replace(/\s/g, ' ');
 
 const toastSuccess = vi.fn();
 const toastError = vi.fn();
@@ -51,7 +54,7 @@ interface TableServiceState {
   data:
     | {
         service: { id: string; guestCount: number } | null;
-        checks: Array<{ id: string; label: string | null; saleNumber: string; total: number }>;
+        checks: Array<Record<string, unknown>>;
         diners: Array<{ id: string; seatNumber: number | null }>;
       }
     | undefined;
@@ -67,6 +70,19 @@ const restaurantTablesUseQueryMock = vi.fn((_input: unknown, _options: { enabled
 const restaurantTableStateUseQueryMock = vi.fn((_input: unknown, _options: { enabled: boolean }) =>
   restaurantTableStateMock()
 );
+const productGroupsMock = vi.fn(() => ({
+  data: [] as unknown[],
+  isLoading: false,
+  isSuccess: true,
+  error: null as Error | null,
+  refetch: vi.fn(),
+}));
+const productsListMock = vi.fn(() => ({
+  data: { items: [] as unknown[], totalPages: 1 },
+  isLoading: false,
+  error: null,
+}));
+const getByIdFetch = vi.fn();
 const openCheckMutateAsync = vi.fn();
 const invalidateSales = vi.fn();
 const invalidateDrafts = vi.fn();
@@ -157,6 +173,22 @@ vi.mock('@/lib/trpc', () => ({
           restaurantTableStateUseQueryMock(input, options),
       },
     },
+    restaurantModifiers: {
+      productGroups: { useQuery: () => productGroupsMock() },
+      list: {
+        useQuery: () => ({
+          data: { items: [], nextOffset: null },
+          isFetching: false,
+          error: null,
+          refetch: vi.fn(),
+        }),
+      },
+    },
+    products: {
+      list: { useQuery: () => productsListMock() },
+      categoryCounts: { useQuery: () => ({ data: { categories: [] } }) },
+    },
+    categories: { tree: { useQuery: () => ({ data: { items: [] } }) } },
     useUtils: () => ({
       sales: {
         list: { invalidate: invalidateSales },
@@ -166,6 +198,7 @@ vi.mock('@/lib/trpc', () => ({
       cashSessions: { getActive: { invalidate: invalidateCashSession } },
       restaurantTables: { listWithDraftStatus: { invalidate: invalidateTableStatus } },
       restaurantServices: { getTableState: { invalidate: invalidateTableState } },
+      restaurantModifiers: { productGroups: { prefetch: vi.fn() } },
       reservations: { list: { invalidate: invalidateReservations } },
       inventory: {
         listMovements: { invalidate: invalidateInventoryMovements },
@@ -174,6 +207,7 @@ vi.mock('@/lib/trpc', () => ({
       products: {
         list: { invalidate: invalidateProducts },
         search: { invalidate: invalidateProductSearch },
+        getById: { fetch: getByIdFetch },
       },
       productSerials: {
         list: { invalidate: invalidateSerials },
@@ -296,9 +330,112 @@ async function addVoiceItem(
     lastVoiceOnApply?.([{ selection, quantity, note }]);
   });
   await waitFor(() =>
-    expect(screen.getAllByTestId('voice-ordering-modifier-name').length).toBeGreaterThan(0)
+    expect(screen.getAllByTestId('voice-ordering-cart-row').length).toBeGreaterThan(0)
   );
 }
+
+async function openSheetFromSearch(selection = makeSelection()): Promise<void> {
+  fireEvent.click(screen.getByTestId('voice-ordering-manual-add'));
+  await waitFor(() => expect(typeof lastSearchOnSelect).toBe('function'));
+  await act(async () => lastSearchOnSelect?.(selection));
+  await screen.findByTestId('plate-sheet');
+}
+
+async function editLine(index = 0): Promise<void> {
+  fireEvent.click(screen.getAllByTestId('order-rail-edit-line')[index]!);
+  await screen.findByTestId('plate-sheet');
+}
+
+function sheet() {
+  return within(screen.getByTestId('plate-sheet'));
+}
+
+const GROUPS = [
+  {
+    id: 'g-term',
+    siteId: 'site-1',
+    name: 'Término',
+    kind: 'choice',
+    selection: 'single',
+    minSelections: 1,
+    maxSelections: 1,
+    isActive: true,
+    version: 3,
+    options: [
+      {
+        position: 0,
+        catalogId: 'o-medio',
+        name: 'Medio',
+        unitPriceDelta: 0,
+        maxQuantity: 1,
+        requiresManager: false,
+        version: 1,
+      },
+      {
+        position: 1,
+        catalogId: 'o-34',
+        name: 'Tres cuartos',
+        unitPriceDelta: 0,
+        maxQuantity: 1,
+        requiresManager: false,
+        version: 1,
+      },
+    ],
+  },
+  {
+    id: 'g-sin',
+    siteId: 'site-1',
+    name: 'Sin',
+    kind: 'without',
+    selection: 'multiple',
+    minSelections: 0,
+    maxSelections: 2,
+    isActive: true,
+    version: 1,
+    options: [
+      {
+        position: 0,
+        catalogId: 'o-cebolla',
+        name: 'Cebolla',
+        unitPriceDelta: 0,
+        maxQuantity: 1,
+        requiresManager: false,
+        version: 1,
+      },
+    ],
+  },
+  {
+    id: 'g-extra',
+    siteId: 'site-1',
+    name: 'Adicionales',
+    kind: 'extra',
+    selection: 'multiple',
+    minSelections: 0,
+    maxSelections: 2,
+    isActive: true,
+    version: 2,
+    options: [
+      {
+        position: 0,
+        catalogId: 'o-queso',
+        name: 'Queso',
+        unitPriceDelta: 1500,
+        maxQuantity: 1,
+        requiresManager: false,
+        version: 4,
+      },
+      {
+        position: 1,
+        catalogId: 'o-trufa',
+        name: 'Trufa',
+        unitPriceDelta: 9000,
+        maxQuantity: 1,
+        requiresManager: true,
+        version: 1,
+      },
+    ],
+  },
+];
 
 beforeEach(async () => {
   vi.clearAllMocks();
@@ -325,6 +462,13 @@ beforeEach(async () => {
     data: { service: null, checks: [], diners: [] },
     isLoading: false,
     error: null,
+  });
+  productGroupsMock.mockReturnValue({
+    data: [],
+    isLoading: false,
+    isSuccess: true,
+    error: null,
+    refetch: vi.fn(),
   });
   openCheckMutateAsync.mockResolvedValue({ id: 'draft-1' });
   invalidateDrafts.mockResolvedValue(undefined);
@@ -358,17 +502,46 @@ describe('VoiceOrderingScreen', () => {
   it('renders the focused surface without the main application chrome', () => {
     renderScreen();
     expect(screen.getByTestId('voice-ordering-screen')).toBeInTheDocument();
-    expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
     expect(screen.queryByTestId('app-header')).not.toBeInTheDocument();
     expect(screen.queryByTestId('app-sidebar')).not.toBeInTheDocument();
   });
 
-  it('adds products through manual search without requiring voice', async () => {
+  it('opens the plate sheet from search and adds the plate to the unsent round', async () => {
     renderScreen();
-    fireEvent.click(screen.getByTestId('voice-ordering-manual-add'));
-    await waitFor(() => expect(typeof lastSearchOnSelect).toBe('function'));
-    await act(async () => lastSearchOnSelect?.(makeSelection()));
+    expect(screen.getByTestId('plate-sheet-empty')).toHaveTextContent('Elija un plato');
+    await openSheetFromSearch();
+    expect(screen.queryByTestId('voice-ordering-cart-row')).not.toBeInTheDocument();
+    fireEvent.click(sheet().getByTestId('plate-sheet-submit'));
     expect(screen.getAllByTestId('voice-ordering-cart-row')).toHaveLength(1);
+    expect(screen.queryByTestId('plate-sheet')).not.toBeInTheDocument();
+    expect(screen.getByTestId('order-rail-draft-round')).toHaveTextContent('Ronda 1 · sin enviar');
+  });
+
+  it('opens the plate sheet from a dish tile with the hydrated base unit', async () => {
+    const selection = makeSelection({
+      productId: 'p-bandeja',
+      productName: 'Bandeja',
+      price: 38_000,
+    });
+    productsListMock.mockReturnValue({
+      data: {
+        items: [{ id: 'p-bandeja', name: 'Bandeja', price: 38_000, categoryId: 'c-1' }],
+        totalPages: 1,
+      },
+      isLoading: false,
+      error: null,
+    });
+    getByIdFetch.mockResolvedValue({
+      ...selection.product,
+      unitAssignments: [{ ...selection.unit, isBase: true }],
+    });
+    renderScreen();
+    fireEvent.click(screen.getByTestId('dish-tile-p-bandeja'));
+    await screen.findByTestId('plate-sheet');
+    expect(getByIdFetch).toHaveBeenCalledWith({ id: 'p-bandeja', siteId: 'site-1' });
+    expect(sheet().getByRole('heading', { name: 'Bandeja' })).toBeInTheDocument();
+    expect(sheet().getByTestId('plate-sheet-price')).toHaveTextContent(money(38_000));
+    expect(screen.getByTestId('dish-tile-p-bandeja')).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('keeps repeated products distinct for diner-specific kitchen details', async () => {
@@ -387,15 +560,15 @@ describe('VoiceOrderingScreen', () => {
         },
       ]);
     });
-    expect(screen.getAllByTestId('voice-ordering-cart-row')).toHaveLength(2);
-    expect(screen.getAllByTestId('voice-ordering-qty')[0]).toHaveTextContent('1');
-    expect(screen.getAllByTestId('voice-ordering-qty')[1]).toHaveTextContent('2');
-    expect(screen.getAllByTestId('voice-ordering-note-input')[0]).toHaveValue('sin sal');
-    expect(screen.getAllByTestId('voice-ordering-note-input')[1]).toHaveValue('con miel');
+    const rows = screen.getAllByTestId('voice-ordering-cart-row');
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toHaveTextContent('sin sal');
+    expect(rows[1]).toHaveTextContent('con miel');
 
-    fireEvent.change(screen.getAllByTestId('voice-ordering-seat-select')[1]!, {
-      target: { value: '2' },
-    });
+    await editLine(1);
+    fireEvent.click(sheet().getByTestId('plate-sheet-seat-2'));
+    fireEvent.click(sheet().getByTestId('plate-sheet-submit'));
+    expect(screen.getAllByTestId('voice-ordering-cart-row')[1]).toHaveTextContent('C2');
     fireEvent.click(screen.getByTestId('voice-ordering-save'));
 
     await waitFor(() => expect(openCheckMutateAsync).toHaveBeenCalledTimes(1));
@@ -404,11 +577,13 @@ describe('VoiceOrderingScreen', () => {
         items: [
           expect.objectContaining({
             productId: 'p-pan',
+            quantity: 1,
             notes: 'sin sal',
             dinerClientId: 'seat-1',
           }),
           expect.objectContaining({
             productId: 'p-pan',
+            quantity: 2,
             notes: 'con miel',
             dinerClientId: 'seat-2',
           }),
@@ -417,7 +592,7 @@ describe('VoiceOrderingScreen', () => {
     );
   });
 
-  it('keeps fractional quantity controls aligned without floating-point drift', async () => {
+  it('keeps fractional quantity steps aligned without floating-point drift', async () => {
     renderScreen();
     await addVoiceItem(
       makeSelection({
@@ -429,14 +604,15 @@ describe('VoiceOrderingScreen', () => {
       }),
       0.1
     );
-
-    const increment = screen.getByTestId('voice-ordering-qty-increment');
+    await editLine();
+    const increment = sheet().getByTestId('voice-ordering-qty-increment');
     fireEvent.click(increment);
     fireEvent.click(increment);
-    expect(screen.getByTestId('voice-ordering-qty')).toHaveTextContent(/^0\.3$/);
-
-    fireEvent.click(screen.getByTestId('voice-ordering-qty-decrement'));
-    expect(screen.getByTestId('voice-ordering-qty')).toHaveTextContent(/^0\.2$/);
+    expect(sheet().getByTestId('voice-ordering-qty')).toHaveTextContent(/^0\.3$/);
+    fireEvent.click(sheet().getByTestId('voice-ordering-qty-decrement'));
+    expect(sheet().getByTestId('voice-ordering-qty')).toHaveTextContent(/^0\.2$/);
+    fireEvent.click(sheet().getByTestId('plate-sheet-submit'));
+    expect(screen.getByTestId('voice-ordering-cart-row')).toHaveTextContent(/^0\.2/);
   });
 
   it.each([
@@ -457,7 +633,6 @@ describe('VoiceOrderingScreen', () => {
     restaurantTablesMock.mockReturnValue({ data: { items: [] }, isLoading: false, error: null });
     renderScreen();
     await addVoiceItem();
-    expect(screen.queryByTestId('voice-ordering-table-input')).not.toBeInTheDocument();
     expect(screen.getByTestId('voice-ordering-table-setup-hint')).toHaveTextContent(
       /Cree al menos una mesa activa/
     );
@@ -495,30 +670,16 @@ describe('VoiceOrderingScreen', () => {
     expect(screen.queryByTestId('voice-ordering-table-grid')).not.toBeInTheDocument();
   });
 
-  it('keeps the check summary on phones and copies modifiers to the next line', async () => {
+  it('opens the sheet in a dialog on phones and keeps the send action in reach', async () => {
     renderScreen('mobile');
-    await addVoiceItem();
-    await addVoiceItem(makeSelection({ productId: 'p-agua', productName: 'Agua' }));
-    expect(screen.getByTestId('voice-ordering-check-summary')).toHaveTextContent(
-      /1 (guest|comensal)/
+    expect(screen.queryByTestId('plate-sheet-empty')).not.toBeInTheDocument();
+    await openSheetFromSearch(makeSelection({ productName: 'Limonada' }));
+    expect(screen.getByRole('dialog', { name: 'Limonada' })).toContainElement(
+      screen.getByTestId('plate-sheet')
     );
-    expect(screen.queryByTestId('voice-ordering-repeat-modifiers')).not.toBeInTheDocument();
-
-    const [firstName] = screen.getAllByTestId('voice-ordering-modifier-name');
-    fireEvent.change(firstName!, { target: { value: 'Sin hielo' } });
-    fireEvent.click(screen.getByTestId('voice-ordering-repeat-modifiers'));
-
-    await waitFor(() => {
-      expect(screen.getAllByTestId('voice-ordering-modifier-name')[1]).toHaveValue('Sin hielo');
-    });
-    // A line with its own modifiers keeps them: the copy would overwrite the waiter's work.
-    expect(screen.queryByTestId('voice-ordering-repeat-modifiers')).not.toBeInTheDocument();
-  });
-
-  it('leaves the till layout without the phone summary', async () => {
-    renderScreen('touch');
-    await addVoiceItem();
-    expect(screen.queryByTestId('voice-ordering-check-summary')).not.toBeInTheDocument();
+    fireEvent.click(sheet().getByTestId('plate-sheet-close'));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(screen.getByTestId('voice-ordering-save').closest('footer')).toHaveClass('sticky');
   });
 
   it('fails closed when the table catalog cannot be loaded', () => {
@@ -534,7 +695,14 @@ describe('VoiceOrderingScreen', () => {
     expect(screen.getByTestId('voice-ordering-save')).toBeDisabled();
   });
 
-  it('opens one atomic check with diners, course, modifier and kitchen note', async () => {
+  it('sends one atomic round with diner, course, grouped options and kitchen note', async () => {
+    productGroupsMock.mockReturnValue({
+      data: GROUPS,
+      isLoading: false,
+      isSuccess: true,
+      error: null,
+      refetch: vi.fn(),
+    });
     renderScreen();
     selectTable();
     fireEvent.change(screen.getByTestId('voice-ordering-guest-count'), {
@@ -543,23 +711,37 @@ describe('VoiceOrderingScreen', () => {
     fireEvent.change(screen.getByTestId('voice-ordering-check-label'), {
       target: { value: 'Familia López' },
     });
-    await addVoiceItem(
-      makeSelection({ productId: 'p-burg', productName: 'Hamburguesa' }),
-      2,
-      'sin cebolla'
+    await openSheetFromSearch(makeSelection({ productId: 'p-burg', productName: 'Hamburguesa' }));
+    expect(sheet().getByRole('heading', { name: 'Término · Elija uno' })).toBeInTheDocument();
+
+    fireEvent.click(sheet().getByTestId('plate-sheet-submit'));
+    expect(sheet().getByRole('alert')).toHaveTextContent('Falta elegir: Término');
+    expect(screen.queryByTestId('voice-ordering-cart-row')).not.toBeInTheDocument();
+
+    fireEvent.click(sheet().getByTestId('plate-sheet-option-o-medio'));
+    fireEvent.click(sheet().getByTestId('plate-sheet-option-o-34'));
+    expect(sheet().getByTestId('plate-sheet-option-o-medio')).toHaveAttribute(
+      'aria-pressed',
+      'false'
     );
-    fireEvent.change(screen.getByTestId('voice-ordering-course-select'), {
-      target: { value: 'starter' },
+    fireEvent.click(sheet().getByTestId('plate-sheet-option-o-cebolla'));
+    fireEvent.click(sheet().getByTestId('plate-sheet-option-o-queso'));
+    expect(sheet().getByTestId('plate-sheet-option-o-trufa')).toBeDisabled();
+    expect(sheet().getByTestId('plate-sheet-price')).toHaveTextContent(money(6_500));
+    fireEvent.click(sheet().getByTestId('plate-sheet-seat-2'));
+    fireEvent.click(sheet().getByTestId('plate-sheet-course-starter'));
+    fireEvent.click(sheet().getByTestId('plate-sheet-note-toggle'));
+    fireEvent.change(sheet().getByTestId('plate-sheet-note'), {
+      target: { value: ' bien caliente ' },
     });
-    fireEvent.change(screen.getByTestId('voice-ordering-seat-select'), {
-      target: { value: '2' },
-    });
-    fireEvent.change(screen.getByTestId('voice-ordering-modifier-name'), {
-      target: { value: 'Queso extra' },
-    });
-    fireEvent.change(screen.getByTestId('voice-ordering-modifier-price'), {
-      target: { value: '1500' },
-    });
+    fireEvent.click(sheet().getByTestId('voice-ordering-qty-increment'));
+    fireEvent.click(sheet().getByTestId('plate-sheet-submit'));
+
+    const row = screen.getByTestId('voice-ordering-cart-row');
+    expect(row).toHaveTextContent('Tres cuartos · sin Cebolla · + Queso · bien caliente');
+    expect(row).toHaveTextContent(money(13_000));
+    expect(screen.getByTestId('order-rail-total')).toHaveTextContent(money(13_000));
+    expect(screen.getByTestId('voice-ordering-save')).toHaveTextContent('Enviar ronda 1 a cocina');
     fireEvent.click(screen.getByTestId('voice-ordering-save'));
 
     await waitFor(() => expect(openCheckMutateAsync).toHaveBeenCalledTimes(1));
@@ -576,14 +758,46 @@ describe('VoiceOrderingScreen', () => {
           productId: 'p-burg',
           quantity: 2,
           unitPrice: 5_000,
-          notes: 'sin cebolla',
+          notes: 'bien caliente',
           dinerClientId: 'seat-2',
           courseKey: 'starter',
-          modifiers: [{ name: 'Queso extra', quantity: 1, unitPriceDelta: 1_500 }],
+          modifierGroups: [
+            { id: 'g-term', version: 3 },
+            { id: 'g-sin', version: 1 },
+            { id: 'g-extra', version: 2 },
+          ],
+          modifiers: [
+            {
+              catalogId: 'o-34',
+              catalogVersion: 1,
+              groupId: 'g-term',
+              name: 'Tres cuartos',
+              quantity: 1,
+              unitPriceDelta: 0,
+            },
+            {
+              catalogId: 'o-cebolla',
+              catalogVersion: 1,
+              groupId: 'g-sin',
+              name: 'Cebolla',
+              quantity: 1,
+              unitPriceDelta: 0,
+            },
+            {
+              catalogId: 'o-queso',
+              catalogVersion: 4,
+              groupId: 'g-extra',
+              name: 'Queso',
+              quantity: 1,
+              unitPriceDelta: 1_500,
+            },
+          ],
         }),
       ],
     });
-    await waitFor(() => expect(toastSuccess).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(toastSuccess).toHaveBeenCalledWith({ title: 'Ronda 1 enviada a cocina · Mesa 1' })
+    );
     expect(invalidateSales).toHaveBeenCalled();
     expect(invalidateDrafts).toHaveBeenCalled();
     expect(invalidateSalesSummary).toHaveBeenCalled();
@@ -597,148 +811,207 @@ describe('VoiceOrderingScreen', () => {
     expect(invalidateSerials).toHaveBeenCalled();
     expect(invalidateSerialLookup).toHaveBeenCalled();
     expect(screen.queryByTestId('voice-ordering-cart-row')).not.toBeInTheDocument();
+    // The table stays picked so the rail can show the round as sent.
+    expect(screen.getByTestId('voice-ordering-table-select')).toHaveValue('Mesa 1');
   });
 
-  it('blocks duplicate modifier names, then sends every modifier exactly once with matching preview totals', async () => {
+  it('shares a plate with the table and lets managers price a custom add-on', async () => {
+    mockAuthRole = 'manager';
+    try {
+      renderScreen();
+      selectTable();
+      await openSheetFromSearch();
+      fireEvent.click(sheet().getByTestId('plate-sheet-seat-shared'));
+      fireEvent.click(sheet().getByTestId('plate-sheet-more-extras'));
+      fireEvent.change(await screen.findByTestId('modifier-picker-custom-name'), {
+        target: { value: 'Velas' },
+      });
+      fireEvent.change(screen.getByTestId('modifier-picker-custom-price'), {
+        target: { value: '2000' },
+      });
+      fireEvent.click(screen.getByTestId('modifier-picker-custom-add'));
+      await waitFor(() =>
+        expect(sheet().getByRole('button', { name: 'Quitar Velas' })).toBeInTheDocument()
+      );
+      fireEvent.click(sheet().getByTestId('plate-sheet-submit'));
+      expect(screen.getByTestId('voice-ordering-cart-row')).toHaveTextContent('mesa');
+      fireEvent.click(screen.getByTestId('voice-ordering-save'));
+      await waitFor(() => expect(openCheckMutateAsync).toHaveBeenCalledTimes(1));
+      expect(openCheckMutateAsync.mock.calls[0]![0].items[0]).toMatchObject({
+        dinerClientId: null,
+        modifiers: [{ name: 'Velas', quantity: 1, unitPriceDelta: 2_000 }],
+      });
+      expect(openCheckMutateAsync.mock.calls[0]![0].items[0]).not.toHaveProperty('modifierGroups');
+    } finally {
+      mockAuthRole = 'cashier';
+    }
+  });
+
+  it('keeps a plate out while its options cannot load', async () => {
+    productGroupsMock.mockReturnValue({
+      data: undefined as unknown as unknown[],
+      isLoading: false,
+      isSuccess: false,
+      error: new Error('offline'),
+      refetch: vi.fn(),
+    });
     renderScreen();
-    selectTable();
-    await addVoiceItem(makeSelection({ productId: 'p-burg', productName: 'Hamburguesa' }), 2);
-    fireEvent.change(screen.getByTestId('voice-ordering-modifier-name'), {
-      target: { value: 'Queso' },
+    await openSheetFromSearch();
+    expect(sheet().getByRole('alert')).toBeInTheDocument();
+    expect(sheet().getByTestId('plate-sheet-submit')).toBeDisabled();
+  });
+
+  async function addCustom(name: string, price: string): Promise<void> {
+    fireEvent.click(sheet().getByTestId('plate-sheet-more-extras'));
+    fireEvent.change(await screen.findByTestId('modifier-picker-custom-name'), {
+      target: { value: name },
     });
-    fireEvent.change(screen.getByTestId('voice-ordering-modifier-price'), {
-      target: { value: '1500' },
+    fireEvent.change(screen.getByTestId('modifier-picker-custom-price'), {
+      target: { value: price },
     });
-    fireEvent.change(screen.getByTestId('voice-ordering-modifier-quantity'), {
-      target: { value: '2' },
+  }
+
+  it('keeps the dish options in their groups and custom add-ons apart', async () => {
+    mockAuthRole = 'manager';
+    productGroupsMock.mockReturnValue({
+      data: GROUPS,
+      isLoading: false,
+      isSuccess: true,
+      error: null,
+      refetch: vi.fn(),
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Agregar modificador' }));
-    fireEvent.change(screen.getAllByTestId('voice-ordering-modifier-name')[1]!, {
-      target: { value: ' QUESO ' },
-    });
-    expect(screen.getByTestId('voice-ordering-save')).toBeDisabled();
-    fireEvent.click(screen.getByTestId('voice-ordering-save'));
-    expect(openCheckMutateAsync).not.toHaveBeenCalled();
-    fireEvent.change(screen.getAllByTestId('voice-ordering-modifier-name')[1]!, {
-      target: { value: 'Tocineta' },
-    });
-    fireEvent.change(screen.getAllByTestId('voice-ordering-modifier-price')[1]!, {
-      target: { value: '500' },
-    });
-    expect(screen.getByText(i18n.t('restaurants:cart.total')).parentElement).toHaveTextContent(
-      formatCurrency(17_000).replaceAll('\u00a0', ' ')
-    );
-    fireEvent.click(screen.getByTestId('voice-ordering-save'));
-    await waitFor(() => expect(openCheckMutateAsync).toHaveBeenCalledTimes(1));
-    expect(openCheckMutateAsync).toHaveBeenCalledWith(
-      expect.objectContaining({
-        items: [
-          expect.objectContaining({
-            unitPrice: 5000,
-            quantity: 2,
-            modifiers: [
-              { name: 'Queso', quantity: 2, unitPriceDelta: 1500 },
-              { name: 'Tocineta', quantity: 1, unitPriceDelta: 500 },
+    try {
+      renderScreen();
+      await openSheetFromSearch();
+      // A dish option is picked from its group, where the group rule applies.
+      await addCustom('queso', '100');
+      expect(screen.getByTestId('modifier-picker-custom-add')).toBeDisabled();
+      fireEvent.change(screen.getByTestId('modifier-picker-custom-name'), {
+        target: { value: 'Velas' },
+      });
+      fireEvent.click(screen.getByTestId('modifier-picker-custom-add'));
+      await waitFor(() =>
+        expect(sheet().getByRole('button', { name: 'Quitar Velas' })).toBeInTheDocument()
+      );
+      fireEvent.click(sheet().getByTestId('plate-sheet-option-o-medio'));
+      fireEvent.click(sheet().getByTestId('plate-sheet-submit'));
+
+      // A second sheet for the same line must not reuse the first add-on's id.
+      await editLine();
+      await addCustom('Flores', '500');
+      fireEvent.click(screen.getByTestId('modifier-picker-custom-add'));
+      fireEvent.click(await sheet().findByRole('button', { name: 'Quitar Flores' }));
+      expect(sheet().getByRole('button', { name: 'Quitar Velas' })).toBeInTheDocument();
+      expect(sheet().queryByRole('button', { name: 'Quitar Flores' })).not.toBeInTheDocument();
+    } finally {
+      mockAuthRole = 'cashier';
+    }
+  });
+
+  it('keeps the custom add-on form away from cashiers', async () => {
+    renderScreen();
+    await openSheetFromSearch();
+    fireEvent.click(sheet().getByTestId('plate-sheet-more-extras'));
+    await screen.findByRole('dialog', { name: 'Elegir adicional aprobado' });
+    expect(screen.queryByTestId('modifier-picker-custom-name')).not.toBeInTheDocument();
+  });
+
+  it('lists sent rounds from the table state and numbers the next one', () => {
+    restaurantTableStateMock.mockReturnValue({
+      data: {
+        service: { id: 'service-1', guestCount: 3 },
+        diners: [
+          { id: 'd-1', seatNumber: 1 },
+          { id: 'd-2', seatNumber: 2 },
+          { id: 'd-3', seatNumber: 3 },
+        ],
+        checks: [
+          {
+            id: 'c-2',
+            label: null,
+            openedAt: '2026-11-21T20:30:00.000Z',
+            total: 20_000,
+            rounds: [{ id: 'r-2', submittedAt: '2026-11-21T20:30:00.000Z', createdAt: '' }],
+            lines: [
+              {
+                id: 'l-2',
+                roundId: 'r-2',
+                dinerId: 'd-2',
+                quantity: 1,
+                productName: 'Bandeja',
+                total: 20_000,
+                notes: 'sin sal',
+                modifiers: [{ name: 'Tres cuartos', quantity: 1, groupKind: 'choice' }],
+              },
             ],
-          }),
+          },
+          {
+            id: 'c-1',
+            label: 'Familia',
+            openedAt: '2026-11-21T19:00:00.000Z',
+            total: 10_000,
+            rounds: [{ id: 'r-1', submittedAt: '2026-11-21T19:00:00.000Z', createdAt: '' }],
+            lines: [
+              {
+                id: 'l-1',
+                roundId: 'r-1',
+                dinerId: null,
+                quantity: 4,
+                productName: 'Empanadas',
+                total: 10_000,
+                notes: null,
+                modifiers: [],
+              },
+            ],
+          },
         ],
-      })
-    );
-  });
-
-  it('normalizes an emptied modifier price before sending the command', async () => {
+      },
+      isLoading: false,
+      error: null,
+    });
     renderScreen();
     selectTable();
-    await addVoiceItem(makeSelection({ productId: 'p-soup', productName: 'Sopa' }));
-    fireEvent.change(screen.getByTestId('voice-ordering-modifier-name'), {
-      target: { value: 'Pan adicional' },
-    });
-    const modifierPrice = screen.getByTestId('voice-ordering-modifier-price');
-    fireEvent.change(modifierPrice, { target: { value: '1200' } });
-    fireEvent.change(modifierPrice, { target: { value: '' } });
-    fireEvent.click(screen.getByTestId('voice-ordering-save'));
-
-    await waitFor(() => expect(openCheckMutateAsync).toHaveBeenCalledTimes(1));
-    expect(openCheckMutateAsync).toHaveBeenCalledWith(
-      expect.objectContaining({
-        items: [
-          expect.objectContaining({
-            modifiers: [{ name: 'Pan adicional', quantity: 1, unitPriceDelta: 0 }],
-          }),
-        ],
-      })
-    );
+    expect(screen.getByTestId('voice-ordering-guest-count')).toHaveValue(3);
+    expect(screen.getByTestId('voice-ordering-guest-count')).toBeDisabled();
+    const rounds = screen.getAllByTestId('order-rail-sent-round');
+    expect(rounds).toHaveLength(2);
+    expect(rounds[0]).toHaveTextContent(/Ronda 1 · enviada .*Familia/);
+    expect(rounds[0]).toHaveTextContent('Empanadas');
+    expect(rounds[0]).toHaveTextContent('mesa');
+    expect(rounds[1]).toHaveTextContent('Ronda 2');
+    expect(rounds[1]).toHaveTextContent('C2');
+    expect(rounds[1]).toHaveTextContent('Tres cuartos · sin sal');
+    expect(screen.getByTestId('order-rail-draft-round')).toHaveTextContent('Ronda 3 · sin enviar');
+    expect(screen.getByTestId('voice-ordering-save')).toHaveTextContent('Enviar ronda 3 a cocina');
+    expect(screen.getByTestId('order-rail-total')).toHaveTextContent(money(30_000));
   });
 
-  it('uses the server money rule for sub-cent modifier previews and snapshots', async () => {
+  it('says it saves the round when no kitchen screen is on', async () => {
+    moduleActiveMock.mockImplementation(id => id !== 'kds');
     renderScreen();
     selectTable();
-    await addVoiceItem(makeSelection({ productId: 'p-soup', productName: 'Sopa' }), 2);
-    fireEvent.change(screen.getByTestId('voice-ordering-modifier-name'), {
-      target: { value: 'Pan adicional' },
-    });
-    fireEvent.change(screen.getByTestId('voice-ordering-modifier-price'), {
-      target: { value: '0.005' },
-    });
-
-    const expectedTotal = formatCurrency(10_000.02).replaceAll('\u00a0', ' ');
-    expect(screen.getByText(i18n.t('restaurants:cart.total')).parentElement).toHaveTextContent(
-      expectedTotal
-    );
-
+    await addVoiceItem();
+    expect(screen.getByTestId('voice-ordering-save')).toHaveTextContent('Guardar ronda 1');
     fireEvent.click(screen.getByTestId('voice-ordering-save'));
-    await waitFor(() => expect(openCheckMutateAsync).toHaveBeenCalledTimes(1));
-    expect(openCheckMutateAsync).toHaveBeenCalledWith(
-      expect.objectContaining({
-        items: [
-          expect.objectContaining({
-            quantity: 2,
-            modifiers: [{ name: 'Pan adicional', quantity: 1, unitPriceDelta: 0.01 }],
-          }),
-        ],
-      })
+    await waitFor(() =>
+      expect(toastSuccess).toHaveBeenCalledWith({ title: 'Ronda 1 guardada · Mesa 1' })
     );
   });
 
-  it('removes a stale modifier delta from preview and payload when its name is erased', async () => {
-    renderScreen();
-    selectTable();
-    await addVoiceItem(makeSelection({ productId: 'p-soup', productName: 'Sopa' }));
-    const modifierName = screen.getByTestId('voice-ordering-modifier-name');
-    const modifierPrice = screen.getByTestId('voice-ordering-modifier-price');
-
-    fireEvent.change(modifierName, { target: { value: 'Pan adicional' } });
-    fireEvent.change(modifierPrice, { target: { value: '1200' } });
-    expect(screen.getByText(i18n.t('restaurants:cart.total')).parentElement).toHaveTextContent(
-      formatCurrency(6_200).replaceAll('\u00a0', ' ')
-    );
-
-    fireEvent.change(modifierName, { target: { value: '   ' } });
-    expect(modifierPrice).toBeDisabled();
-    expect(screen.getByText(i18n.t('restaurants:cart.total')).parentElement).toHaveTextContent(
-      formatCurrency(5_000).replaceAll('\u00a0', ' ')
-    );
-    fireEvent.click(screen.getByTestId('voice-ordering-save'));
-
-    await waitFor(() => expect(openCheckMutateAsync).toHaveBeenCalledTimes(1));
-    expect(openCheckMutateAsync).toHaveBeenCalledWith(
-      expect.objectContaining({
-        items: [expect.objectContaining({ unitPrice: 5_000, modifiers: [] })],
-      })
-    );
-  });
-
-  it('preserves the cart when the atomic command fails', async () => {
+  it('preserves the round when the atomic command fails', async () => {
     openCheckMutateAsync.mockRejectedValue(new Error('boom'));
     renderScreen();
     selectTable();
     await addVoiceItem();
     fireEvent.click(screen.getByTestId('voice-ordering-save'));
     await waitFor(() => expect(toastError).toHaveBeenCalledTimes(1));
+    expect(toastError).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'No se pudo enviar la ronda' })
+    );
     expect(screen.getByTestId('voice-ordering-cart-row')).toBeInTheDocument();
   });
 
-  it('clears a committed order and warns when projection refresh fails', async () => {
+  it('clears a committed round and warns when projection refresh fails', async () => {
     invalidateTableState.mockRejectedValueOnce(new Error('cache refresh failed'));
     renderScreen();
     selectTable();
@@ -756,7 +1029,7 @@ describe('VoiceOrderingScreen', () => {
     expect(screen.queryByTestId('voice-ordering-cart-row')).not.toBeInTheDocument();
   });
 
-  it('suppresses a second save while the first atomic command is pending', async () => {
+  it('suppresses a second send while the first atomic command is pending', async () => {
     let resolveOpen!: (value: { id: string }) => void;
     openCheckMutateAsync.mockReturnValue(
       new Promise(resolve => {
@@ -777,17 +1050,13 @@ describe('VoiceOrderingScreen', () => {
     expect(screen.getByTestId('voice-ordering-check-label')).toBeDisabled();
     expect(screen.getByTestId('voice-ordering-mic-cta')).toBeDisabled();
     expect(screen.getByTestId('voice-ordering-manual-add')).toBeDisabled();
-    expect(screen.getByTestId('voice-ordering-qty-increment')).toBeDisabled();
     expect(screen.getByTestId('voice-ordering-remove-row')).toBeDisabled();
-    expect(screen.getByTestId('voice-ordering-note-input')).toBeDisabled();
-    expect(screen.getByTestId('voice-ordering-course-select')).toBeDisabled();
-    expect(screen.getByTestId('voice-ordering-seat-select')).toBeDisabled();
-    expect(screen.getByTestId('voice-ordering-modifier-name')).toBeDisabled();
+    expect(screen.getByTestId('order-rail-edit-line')).toBeDisabled();
     await act(async () => resolveOpen({ id: 'draft-1' }));
     await waitFor(() => expect(toastSuccess).toHaveBeenCalledTimes(1));
   });
 
-  it('blocks save while the selected table state is loading', async () => {
+  it('blocks send while the selected table state is loading', async () => {
     restaurantTableStateMock.mockReturnValue({ data: undefined, isLoading: true, error: null });
     renderScreen();
     selectTable();
@@ -796,7 +1065,7 @@ describe('VoiceOrderingScreen', () => {
     expect(screen.getByTestId('voice-ordering-save')).toBeDisabled();
   });
 
-  it('blocks save and explains a table-state read failure', async () => {
+  it('blocks send and explains a table-state read failure', async () => {
     restaurantTableStateMock.mockReturnValue({
       data: undefined,
       isLoading: false,
@@ -809,31 +1078,6 @@ describe('VoiceOrderingScreen', () => {
       /No se pudo verificar el estado de la mesa/
     );
     expect(screen.getByTestId('voice-ordering-save')).toBeDisabled();
-  });
-
-  it('locks the established guest count and renders every open check', () => {
-    restaurantTableStateMock.mockReturnValue({
-      data: {
-        service: { id: 'service-1', guestCount: 3 },
-        diners: [
-          { id: 'd-1', seatNumber: 1 },
-          { id: 'd-2', seatNumber: 2 },
-          { id: 'd-3', seatNumber: 3 },
-        ],
-        checks: [
-          { id: 'c-1', label: 'Familia', saleNumber: 'VTA-1', total: 10_000 },
-          { id: 'c-2', label: null, saleNumber: 'VTA-2', total: 20_000 },
-        ],
-      },
-      isLoading: false,
-      error: null,
-    });
-    renderScreen();
-    selectTable();
-    expect(screen.getByTestId('voice-ordering-guest-count')).toHaveValue(3);
-    expect(screen.getByTestId('voice-ordering-guest-count')).toBeDisabled();
-    expect(screen.getByTestId('voice-ordering-open-checks')).toHaveTextContent('Familia');
-    expect(screen.getByTestId('voice-ordering-open-checks')).toHaveTextContent('VTA-2');
   });
 
   it('uses capacity as a ceiling without inventing a capacity-sized party', () => {
@@ -885,6 +1129,7 @@ describe('VoiceOrderingScreen', () => {
     expect(screen.getByTestId('voice-ordering-table-setup-hint')).toHaveTextContent(
       /servicio en salón está desactivado/i
     );
+    expect(screen.queryByTestId('dish-catalog')).not.toBeInTheDocument();
   });
 
   it('localizes accessibility metadata and keeps mobile layout parity', () => {
@@ -895,6 +1140,7 @@ describe('VoiceOrderingScreen', () => {
       expect.stringMatching(/Orden por voz|Voice order/)
     );
     expect(screen.getByTestId('voice-ordering-table-grid')).toHaveAccessibleName(/Mesa|Table/);
+    expect(screen.getByTestId('order-rail')).toHaveAccessibleName('Pedido de la mesa');
   });
 
   it('marks the till table dropdown as required', () => {
@@ -905,16 +1151,11 @@ describe('VoiceOrderingScreen', () => {
     );
   });
 
-  it('mirrors the server limits on preparation notes and modifier prices', async () => {
+  it('mirrors the server limit on kitchen notes', async () => {
     renderScreen('mobile');
-    await addVoiceItem();
-    expect(screen.getByTestId('voice-ordering-note-input')).toHaveAttribute('maxLength', '280');
-    const modifierPrice = screen.getByTestId('voice-ordering-modifier-price');
-    expect(modifierPrice).toHaveAttribute('max', '1000000000');
-    fireEvent.change(screen.getByTestId('voice-ordering-modifier-name'), {
-      target: { value: 'Edición limitada' },
-    });
-    fireEvent.change(modifierPrice, { target: { value: '1000000001' } });
-    expect(modifierPrice).toHaveValue(1000000000);
+    await openSheetFromSearch();
+    fireEvent.click(sheet().getByTestId('plate-sheet-note-toggle'));
+    expect(sheet().getByTestId('plate-sheet-note')).toHaveAttribute('maxLength', '280');
+    expect(sheet().getByTestId('plate-sheet-note-toggle')).toHaveAttribute('aria-expanded', 'true');
   });
 });

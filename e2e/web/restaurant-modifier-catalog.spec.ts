@@ -25,6 +25,7 @@ async function addProduct(page: Page, sku: string) {
   await dialog.getByTestId(`product-search-row-${sku}`).click();
   await dialog.getByRole('button', { name: /^(Search|Buscar)$/ }).click();
   await expect(dialog).toBeHidden();
+  await expect(page.getByTestId('plate-sheet')).toBeVisible();
 }
 for (const language of ['en', 'es'] as const)
   test(`site catalog survives manager edits and cashier settlement (${language})`, async ({
@@ -95,23 +96,26 @@ for (const language of ['en', 'es'] as const)
         .click();
       await till.getByTestId('voice-ordering-check-label').fill(label);
       await addProduct(till, scenario.product.sku);
-      await expect(till.getByTestId('voice-ordering-modifier-price')).toHaveAttribute(
-        'readonly',
-        ''
-      );
-      await till
-        .getByRole('button', { name: es ? 'Elegir adicional aprobado' : 'Choose approved add-on' })
-        .click();
-      let picker = till.getByRole('dialog');
-      await picker.getByRole('button', { name: new RegExp(addonName) }).click();
-      await expect(picker).toBeHidden();
-      await expect(till.getByTestId('voice-ordering-modifier-name')).toHaveAttribute(
-        'readonly',
-        ''
-      );
-      await till.getByTestId('voice-ordering-modifier-quantity').fill('2');
-      await expect(till.getByTestId('voice-ordering-modifier-price')).toHaveValue('1500');
+      const sheet = till.getByTestId('plate-sheet');
+      const pickerName = es ? 'Elegir adicional aprobado' : 'Choose approved add-on';
+      const chooseAddon = async () => {
+        await sheet.getByTestId('plate-sheet-more-extras').click();
+        const picker = till.getByRole('dialog', { name: pickerName });
+        // Cashiers only choose approved prices; the custom form is for managers.
+        await expect(picker.getByTestId('modifier-picker-custom-name')).toHaveCount(0);
+        await picker.getByRole('button', { name: new RegExp(addonName) }).click();
+        await expect(picker).toBeHidden();
+      };
+      const removeAddon = sheet.getByRole('button', {
+        name: `${es ? 'Quitar' : 'Remove'} ${addonName}`,
+        exact: true,
+      });
+      await chooseAddon();
+      await expect(removeAddon).toContainText(/1[.,]500/);
+      await expect(sheet.getByTestId('plate-sheet-price')).toContainText(/14[.,]000/);
       await capture(till, `modifier-catalog-cashier-mobile-${language}`);
+      await sheet.getByTestId('plate-sheet-submit').click();
+      await expect(sheet).toBeHidden();
 
       // Manager changes the catalog after the cashier selected it. No silent reprice.
       await page
@@ -132,19 +136,14 @@ for (const language of ['en', 'es'] as const)
       await expect(
         till.getByText(es ? /Este adicional cambió/ : /This add-on changed/)
       ).toBeVisible();
-      await expect(till.getByTestId('voice-ordering-modifier-price')).toHaveValue('1500');
-      await till
-        .getByRole('button', {
-          name: `${es ? 'Eliminar modificador' : 'Remove modifier'} ${addonName}`,
-          exact: true,
-        })
-        .click();
-      await till
-        .getByRole('button', { name: es ? 'Elegir adicional aprobado' : 'Choose approved add-on' })
-        .click();
-      picker = till.getByRole('dialog');
-      await picker.getByRole('button', { name: new RegExp(addonName) }).click();
-      await expect(till.getByTestId('voice-ordering-modifier-price')).toHaveValue('2000');
+      await expect(till.getByTestId('voice-ordering-cart-row')).toHaveCount(1);
+      await till.getByTestId('order-rail-edit-line').click();
+      await removeAddon.click();
+      await expect(removeAddon).toHaveCount(0);
+      await chooseAddon();
+      await expect(removeAddon).toContainText(/2[.,]000/);
+      await sheet.getByTestId('plate-sheet-submit').click();
+      await expect(sheet).toBeHidden();
       await till.getByTestId('voice-ordering-save').click();
       await expect(till.getByTestId('voice-ordering-cart-empty')).toBeVisible();
       await expect
@@ -180,7 +179,8 @@ for (const language of ['en', 'es'] as const)
         .getByTestId('voice-ordering-table-grid')
         .getByRole('button', { name: tableName, exact: true })
         .click();
-      await expect(till.getByTestId('voice-ordering-open-checks')).toContainText(/14[.,]500/);
+      await expect(till.getByTestId('order-rail-sent-round')).toContainText(addonName);
+      await expect(till.getByTestId('order-rail-total')).toContainText(/14[.,]500/);
       await till.setViewportSize({ width: 1280, height: 900 });
       await till.goto('/sales');
       await till.getByTestId('sales-open-suspended').click();
