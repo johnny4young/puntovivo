@@ -1650,6 +1650,12 @@
     "output": "object{alerts:array<object>,attempts:array<object>,deliveries:array<object>,provisioned:boolean,retention:object{attemptDays:integer[min=-9007199254740991,max=9007199254740991],historyDays:integer[min=-9007199254740991,max=9007199254740991]},subscriptions:array<object>}"
   },
   {
+    "path": "operations.dayCurve",
+    "kind": "query",
+    "input": "object{date:string}",
+    "output": "inferred"
+  },
+  {
     "path": "operations.needsAttention",
     "kind": "query",
     "input": "void",

@@ -332,7 +332,12 @@ describe('manager approvals router', () => {
     const DAY_MS = 86_400_000;
     let unitId: string;
 
-    async function seedProduct(args: { price: number; cost: number; taxRate: number }) {
+    async function seedProduct(args: {
+      price: number;
+      cost: number;
+      taxRate: number;
+      sellByFraction?: boolean;
+    }) {
       const id = nanoid();
       const now = new Date().toISOString();
       await db.insert(products).values({
@@ -343,6 +348,7 @@ describe('manager approvals router', () => {
         price: args.price,
         cost: args.cost,
         taxRate: args.taxRate,
+        sellByFraction: args.sellByFraction ?? false,
         createdAt: now,
         updatedAt: now,
       });
@@ -498,6 +504,7 @@ describe('manager approvals router', () => {
             daysPerVisit: 7,
             usualDiscountPercent: 9,
           },
+          ticket: { totalBefore: 30_200, total: 27_344, itemCount: 3 },
         };
         expect(created).not.toHaveProperty('decisionContext');
         const queue = await appRouter
@@ -562,6 +569,35 @@ describe('manager approvals router', () => {
         discount: { percent: 10, roleLimitPercent: 0 },
         margin: { withDiscountPercent: 44.4, withoutDiscountPercent: 50 },
         customer: null,
+        ticket: { totalBefore: 11_900, total: 10_710, itemCount: 1 },
+      });
+
+      // A line sold by fraction is one article even at a whole 2 kg; counted lines are their quantity.
+      const cheese = await seedProduct({
+        price: 1_000,
+        cost: 500,
+        taxRate: 0,
+        sellByFraction: true,
+      });
+      const weighed = await appRouter.createCaller(cashier.fresh()).managerApprovals.request({
+        action: 'sale_discount',
+        reason: 'Weighed and counted',
+        resourceType: 'sale_checkout',
+        checkoutContext: checkout({
+          customerId: null,
+          items: [
+            { productId: taxed, quantity: 2, unitPrice: 11_900, discount: 0 },
+            { productId: cheese, quantity: 2, unitPrice: 1_000, discount: 0 },
+          ],
+          discountAmount: 2_000,
+          total: 23_800,
+        }),
+        summary: { label: 'checkout', amount: 2_000, currencyCode: 'COP' },
+      });
+      expect((await contextOf(weighed.id))?.ticket).toEqual({
+        totalBefore: 25_800,
+        total: 23_800,
+        itemCount: 3,
       });
 
       const justOver = await appRouter.createCaller(cashier.fresh()).managerApprovals.request({

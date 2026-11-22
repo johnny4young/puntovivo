@@ -76,6 +76,7 @@ test('generates a content-versioned shell allowlist without runtime API caching'
   assert.match(worker, /caches\.match\('\/c\/index\.html'\)/);
   assert.match(worker, /url\.pathname\.startsWith\('\/api\/'\)/);
   assert.match(worker, /if \(PRECACHE_SET\.has\(url\.pathname\)\)/);
+  assert.match(worker, /type: 'companion:navigate'/);
   assert.doesNotMatch(worker, /cache\.put/);
   assert.doesNotMatch(worker, /sales-heavy-d4/);
   assert.doesNotMatch(worker, /inter-greek/);
@@ -170,11 +171,16 @@ test('shows the server-rendered notification and opens the Companion on tap', as
   });
   assert.deepEqual(worker.opened, ['https://store.example/c/']);
 
+  const posted = [];
   worker.windows.push({
     url: 'https://store.example/c/',
     focus: async () => worker.focused.push('companion'),
+    postMessage: message => posted.push(JSON.parse(JSON.stringify(message))),
   });
-  await worker.dispatch('notificationclick', { notification: { close, data: { url: '/c/' } } });
+  await worker.dispatch('notificationclick', {
+    notification: { close, data: { url: '/c/?decide=req-1' } },
+  });
   assert.deepEqual(worker.focused, ['companion']);
+  assert.deepEqual(posted, [{ type: 'companion:navigate', url: '/c/?decide=req-1' }]);
   assert.equal(worker.opened.length, 1);
 });

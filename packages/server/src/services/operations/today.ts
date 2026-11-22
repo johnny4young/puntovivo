@@ -150,6 +150,40 @@ function hourWindows(date: string, timezone: string) {
   }));
 }
 
+export interface DayCurve {
+  date: string;
+  /** UTC instant where the business day starts; hourly[0] begins here. */
+  dayStartIso: string;
+  hourly: Array<{ hour: number; revenue: number }>;
+}
+
+/** Revenue and orders per hour of one business day; the definition Hoy and the day curve share. */
+function revenueByHour(db: DatabaseInstance, tenantId: string, date: string, timezone: string) {
+  const hours = hourWindows(date, timezone);
+  const byHour = new Map(
+    db
+      .all<DailyRevenueRow>(dailyDatedRevenueSql(tenantId, hours))
+      .filter(row => row.date !== null)
+      .map(row => [Number(row.date), row])
+  );
+  return { hours, byHour };
+}
+
+/** Revenue per hour of any business day. */
+export async function computeDayCurve(
+  db: DatabaseInstance,
+  tenantId: string,
+  date: string
+): Promise<DayCurve> {
+  const { timezone } = await resolveTenantBusinessClock(db, tenantId);
+  const { hours, byHour } = revenueByHour(db, tenantId, date, timezone);
+  return {
+    date,
+    dayStartIso: resolveUtcDayWindow(date, timezone).startIso,
+    hourly: hours.map((_, hour) => ({ hour, revenue: byHour.get(hour)?.revenue ?? 0 })),
+  };
+}
+
 export async function computeOperationsToday(
   db: DatabaseInstance,
   tenantId: string,
@@ -159,16 +193,13 @@ export async function computeOperationsToday(
   const comparisonDate = addCalendarDays(businessDate, -7);
   const today = resolveUtcDayWindow(businessDate, timezone);
 
-  const todayHours = hourWindows(businessDate, timezone);
-  const comparisonHours = hourWindows(comparisonDate, timezone);
-  const [todayRows, comparisonRows] = [
-    db.all<DailyRevenueRow>(dailyDatedRevenueSql(tenantId, todayHours)),
-    db.all<DailyRevenueRow>(dailyDatedRevenueSql(tenantId, comparisonHours)),
-  ];
-  const byHour = (rows: DailyRevenueRow[]) =>
-    new Map(rows.filter(row => row.date !== null).map(row => [Number(row.date), row]));
-  const todayByHour = byHour(todayRows);
-  const comparisonByHour = byHour(comparisonRows);
+  const { hours: todayHours, byHour: todayByHour } = revenueByHour(
+    db,
+    tenantId,
+    businessDate,
+    timezone
+  );
+  const { byHour: comparisonByHour } = revenueByHour(db, tenantId, comparisonDate, timezone);
   const hourly = todayHours.map((_, hour) => ({
     hour,
     today: todayByHour.get(hour)?.revenue ?? 0,

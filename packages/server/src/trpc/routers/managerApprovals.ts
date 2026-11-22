@@ -39,6 +39,7 @@ import { writeAuditLog } from '../../services/audit-logs.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
 import { router } from '../init.js';
 import { asCriticalCommandContext } from '../middleware/commandEnvelope.js';
+import { tryBroadcastCompanionInvalidation } from '../../services/companion/invalidation.js';
 import { dispatchOwnerPush } from '../../services/push/notify.js';
 import { criticalCommandCashierManagerOrAdminProcedure } from '../middleware/criticalCommand.js';
 import { cashierManagerOrAdminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
@@ -540,6 +541,12 @@ export const managerApprovalsRouter = router({
         tenantId: criticalCtx.tenantId,
         actorId: criticalCtx.user.id,
         requestId: id,
+      });
+      tryBroadcastCompanionInvalidation({
+        sse: criticalCtx.req?.server?.sse,
+        tenantId: criticalCtx.tenantId,
+        scope: 'operations',
+        log: criticalCtx.req?.server?.log,
       });
       return presentRequest(inserted, now);
     }),

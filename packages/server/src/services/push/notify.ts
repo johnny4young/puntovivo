@@ -34,7 +34,7 @@ import { encryptPushPayload, vapidAuthorization } from './web-push.js';
 
 const log = createModuleLogger('owner-push');
 
-const OWNER_PUSH_URL = '/c/';
+const OWNER_PUSH_HOME = '/c/';
 const VAPID_SUBJECT = 'https://puntovivo.app';
 const DELIVERY_TIMEOUT_MS = 10_000;
 
@@ -62,6 +62,8 @@ export interface OwnerPushResult {
 interface Prepared {
   message: OwnerPushMessage;
   tag: string;
+  /** Companion screen the notification opens. */
+  url: string;
   ttlSeconds: number;
   urgency: 'high' | 'normal';
   recipients: (role: UserRole) => boolean;
@@ -121,6 +123,7 @@ function prepare(db: DatabaseInstance, event: OwnerPushEvent, currency: string):
           currencyCode: row.summary.currencyCode ?? null,
         },
         tag: `approval:${event.requestId}`,
+        url: `${OWNER_PUSH_HOME}?decide=${encodeURIComponent(event.requestId)}`,
         // The request itself expires after ten minutes.
         ttlSeconds: 600,
         urgency: 'high',
@@ -140,6 +143,7 @@ function prepare(db: DatabaseInstance, event: OwnerPushEvent, currency: string):
           currencyCode: currency,
         },
         tag: `handoff:${event.handoff.id}`,
+        url: `${OWNER_PUSH_HOME}?view=registers`,
         ttlSeconds: 12 * 60 * 60,
         urgency: 'normal',
         recipients: isManagerOrAdmin,
@@ -158,6 +162,7 @@ function prepare(db: DatabaseInstance, event: OwnerPushEvent, currency: string):
           currencyCode: signoff.currencyCode,
         },
         tag: `day:${event.date}`,
+        url: `${OWNER_PUSH_HOME}?view=day&date=${event.date}`,
         ttlSeconds: 24 * 60 * 60,
         urgency: 'normal',
         recipients: isManagerOrAdmin,
@@ -168,6 +173,7 @@ function prepare(db: DatabaseInstance, event: OwnerPushEvent, currency: string):
       return {
         message: { kind: 'enabled' },
         tag: 'enabled',
+        url: OWNER_PUSH_HOME,
         ttlSeconds: 60 * 60,
         urgency: 'normal',
         recipients: isManagerOrAdmin,
@@ -241,7 +247,7 @@ export async function deliverOwnerPush(
     let payload = rendered.get(language);
     if (!payload) {
       const text = renderOwnerPush(prepared.message, language, format);
-      payload = Buffer.from(JSON.stringify({ ...text, tag: prepared.tag, url: OWNER_PUSH_URL }));
+      payload = Buffer.from(JSON.stringify({ ...text, tag: prepared.tag, url: prepared.url }));
       rendered.set(language, payload);
     }
     return payload;

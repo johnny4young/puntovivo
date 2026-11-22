@@ -35,8 +35,9 @@ function shouldPrecacheAsset(file) {
 function selectCompanionBuildFiles(manifest) {
   const entries = Object.entries(manifest);
   const entryKey = entries.find(([, value]) => value?.isEntry)?.[0];
-  const companionKeys = COMPANION_ENTRY_SUFFIXES.map(suffix =>
-    entries.find(([key, value]) => key.endsWith(suffix) || value?.src?.endsWith(suffix))?.[0]
+  const companionKeys = COMPANION_ENTRY_SUFFIXES.map(
+    suffix =>
+      entries.find(([key, value]) => key.endsWith(suffix) || value?.src?.endsWith(suffix))?.[0]
   );
   if (!entryKey || companionKeys.some(key => !key)) {
     throw new Error('Companion PWA manifest is missing the app or Companion entries');
@@ -143,7 +144,10 @@ self.addEventListener('notificationclick', event => {
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windows => {
       const open = windows.find(client => new URL(client.url).pathname.startsWith(COMPANION_HOME));
-      return open ? open.focus() : self.clients.openWindow(target.href);
+      if (!open) return self.clients.openWindow(target.href);
+      // The open Companion routes itself to the named screen, keeping its session and cache.
+      open.postMessage({ type: 'companion:navigate', url: target.pathname + target.search });
+      return open.focus();
     })
   );
 });
@@ -155,7 +159,10 @@ async function writeCompanionEntrypoint(dist) {
   if (/<base\s/i.test(rootHtml)) {
     throw new Error('Companion PWA root entry must preserve the portable relative base');
   }
-  const companionHtml = rootHtml.replace(/<head(\s[^>]*)?>/i, match => `${match}\n    <base href="/" />`);
+  const companionHtml = rootHtml.replace(
+    /<head(\s[^>]*)?>/i,
+    match => `${match}\n    <base href="/" />`
+  );
   if (companionHtml === rootHtml) {
     throw new Error('Companion PWA root entry has no head element');
   }
