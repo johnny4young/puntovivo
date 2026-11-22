@@ -8,7 +8,7 @@ import type { ProductSearchItem, ProductUnitAssignment } from '@/types';
 import { PharmacyAlternatives } from '@/features/sales/PharmacyAlternatives';
 import type { GenericAlternative } from '@/features/sales/useGenericAlternatives';
 
-import { PRODUCT_SEARCH_UNIT_SELECT_ID } from './productSearchSelection';
+import { PRODUCT_SEARCH_UNIT_SELECT_ID, productUnitCost } from './productSearchSelection';
 
 interface ProductSearchSelectionPanelProps {
   product: ProductSearchItem | null;
@@ -18,6 +18,7 @@ interface ProductSearchSelectionPanelProps {
   alternatives?: readonly GenericAlternative[];
   onChooseAlternative?: (alternative: GenericAlternative) => void;
   onUnitChange: (unitId: string) => void;
+  priceMode?: 'sale' | 'cost';
 }
 
 export function ProductSearchSelectionPanel({
@@ -27,6 +28,7 @@ export function ProductSearchSelectionPanel({
   alternatives = [],
   onChooseAlternative,
   onUnitChange,
+  priceMode = 'sale',
 }: ProductSearchSelectionPanelProps) {
   const { t } = useTranslation('common');
 
@@ -71,8 +73,14 @@ export function ProductSearchSelectionPanel({
 
             <div className="rounded-[14px] border border-line/70 bg-surface/92 px-4 py-4">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-secondary-500">{t('productSearch.price')}</span>
-                <span className="font-medium text-secondary-900">{formatCurrency(unit.price)}</span>
+                <span className="text-secondary-500">
+                  {t(priceMode === 'cost' ? 'productSearch.cost' : 'productSearch.price')}
+                </span>
+                <span className="font-medium text-secondary-900">
+                  {formatCurrency(
+                    priceMode === 'cost' ? productUnitCost(product, unit) : unit.price
+                  )}
+                </span>
               </div>
               {showUnits && (
                 <div className="mt-2 flex items-center justify-between text-sm">

@@ -86,6 +86,7 @@ export function OrderCartTable({
                     step="0.01"
                     className="input w-32"
                     value={item.costPerUnit}
+                    aria-label={t('cart.costFor', { name: item.productName })}
                     onChange={event =>
                       onCostChange(item.key, Math.max(0, Number(event.target.value) || 0))
                     }

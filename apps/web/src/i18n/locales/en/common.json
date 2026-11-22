@@ -325,6 +325,7 @@
     "name": "Name",
     "stock": "Stock",
     "price": "Price",
+    "cost": "Cost",
     "unit": "Unit",
     "searching": "Searching products...",
     "noResults": "No products matched the current filters.",
