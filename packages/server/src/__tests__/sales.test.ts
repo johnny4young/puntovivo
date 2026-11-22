@@ -642,6 +642,73 @@ describe('Sales tRPC Router', () => {
     ).rejects.toMatchObject({ cause: { errorCode: 'TAX_COMPONENTS_INVALID' } });
   });
 
+  it('reads sale lines back in the order the cashier rang them up', async () => {
+    const db = getDatabase();
+    const productId = nanoid();
+    const now = new Date().toISOString();
+    await db.insert(products).values({
+      id: productId,
+      tenantId,
+      name: 'Ordered Lines Product',
+      sku: 'ORDER-LINES-01',
+      price: 10,
+      price2: 10,
+      price3: 10,
+      cost: 4,
+      marginPercent1: 0,
+      marginPercent2: 0,
+      marginPercent3: 0,
+      marginAmount1: 0,
+      marginAmount2: 0,
+      marginAmount3: 0,
+      taxRate: 0,
+      initialCost: 4,
+      minStock: 0,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(unitXProduct).values({
+      id: nanoid(),
+      productId,
+      unitId: baseUnitId,
+      equivalence: 1,
+      price: 10,
+      isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(inventoryBalances).values({
+      id: nanoid(),
+      tenantId,
+      siteId,
+      productId,
+      onHand: 100,
+      reserved: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const caller = appRouter.createCaller(createTestContext());
+    const rungUp = [5, 1, 4, 2, 3, 6];
+    const created = await caller.sales.create({
+      items: rungUp.map(quantity => ({
+        productId,
+        unitId: baseUnitId,
+        quantity,
+        unitPrice: 10,
+        discount: 0,
+      })),
+      paymentMethod: 'cash',
+      paymentStatus: 'pending',
+      status: 'completed',
+      discountAmount: 0,
+    });
+
+    const read = await caller.sales.getById({ id: created.id });
+    expect(read.items?.map(item => item.quantity)).toEqual(rungUp);
+  });
+
   it('rejects sales that exceed available stock across repeated lines for the same product', async () => {
     const db = getDatabase();
     const productId = nanoid();
