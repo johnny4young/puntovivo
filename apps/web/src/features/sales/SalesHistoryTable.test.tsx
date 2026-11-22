@@ -41,6 +41,21 @@ describe('SalesHistoryTable', () => {
     expect(screen.getByText('Voided')).toBeInTheDocument();
   });
 
+  it('heads the number column as a sale, not a fiscal invoice', () => {
+    render(
+      <SalesHistoryTable
+        sales={[sale]}
+        isLoading={false}
+        error={null}
+        onRetry={vi.fn()}
+        onView={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole('columnheader', { name: /Sale #/ })).toBeInTheDocument();
+    expect(screen.queryByText(/Invoice/)).not.toBeInTheDocument();
+  });
+
   it('renders a partially returned ticket with its dedicated status', () => {
     render(
       <SalesHistoryTable

@@ -406,7 +406,7 @@
     "title": "Historial de ventas",
     "kicker": "Recibos",
     "description": "Revise recibos recientes, estados de pago y actividad del cajero sin salir del espacio POS.",
-    "search": "Buscar por factura...",
+    "search": "Buscar por número de venta...",
     "loading": "Cargando ventas...",
     "error": "No se pudo cargar las ventas",
     "recordsLoaded": "registros cargados",
@@ -415,7 +415,7 @@
     "viewSale": "Ver {{number}}",
     "viewSaleTitle": "Ver venta",
     "columns": {
-      "invoiceNumber": "Factura #",
+      "saleNumber": "Venta #",
       "date": "Fecha",
       "customer": "Cliente",
       "total": "Total",

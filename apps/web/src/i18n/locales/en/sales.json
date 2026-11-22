@@ -406,7 +406,7 @@
     "title": "Sales history",
     "kicker": "Receipts",
     "description": "Review recent receipts, payment states, and cashier activity without leaving the POS workspace.",
-    "search": "Search by invoice...",
+    "search": "Search by sale number...",
     "loading": "Loading sales...",
     "error": "Unable to load sales",
     "recordsLoaded": "records loaded",
@@ -415,7 +415,7 @@
     "viewSale": "View {{number}}",
     "viewSaleTitle": "View sale",
     "columns": {
-      "invoiceNumber": "Invoice #",
+      "saleNumber": "Sale #",
       "date": "Date",
       "customer": "Customer",
       "total": "Total",
