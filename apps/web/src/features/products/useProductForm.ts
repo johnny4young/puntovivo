@@ -6,6 +6,7 @@ import {
   type UseFormReturn,
   type UseFormRegisterReturn,
 } from 'react-hook-form';
+import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MIN_OPERATIONAL_QUANTITY } from '@puntovivo/shared/unit-math';
 import type { Product } from '@/types';
@@ -185,12 +186,17 @@ export function useProductForm({
     }
   };
 
+  // Tiers whose margin the operator typed; a cost change keeps those margins and reprices.
+  const marginLedTiers = useRef(new Set<PricingField>());
+
   const syncTier = (
     priceField: PricingField,
     percentField: MarginPercentField,
     amountField: MarginAmountField,
     pricingInput: PricingInput
   ) => {
+    if ('price' in pricingInput) marginLedTiers.current.delete(priceField);
+    else marginLedTiers.current.add(priceField);
     const previousProductValue = form.getValues(priceField);
     const result = calculatePricing({ cost: form.getValues('cost'), ...pricingInput });
     form.setValue(priceField, result.price, { shouldDirty: true, shouldValidate: true });
@@ -209,14 +215,26 @@ export function useProductForm({
     ];
 
     for (const [priceField, percentField, amountField] of tiers) {
-      const previousProductValue = form.getValues(priceField);
-      const result = calculatePricing({
-        cost,
-        marginPercent: form.getValues(percentField),
-      });
-
-      form.setValue(priceField, result.price, { shouldDirty: true, shouldValidate: true });
-      syncBaseUnitTierPrice(priceField, previousProductValue, result.price);
+      const previousProductValue = form.getValues(priceField) || 0;
+      if (marginLedTiers.current.has(priceField)) {
+        const result = calculatePricing({ cost, marginPercent: form.getValues(percentField) });
+        form.setValue(priceField, result.price, { shouldDirty: true, shouldValidate: true });
+        syncBaseUnitTierPrice(priceField, previousProductValue, result.price);
+        form.setValue(percentField, result.marginPercent, {
+          shouldDirty: true,
+          shouldValidate: true,
+        });
+        form.setValue(amountField, result.marginAmount, {
+          shouldDirty: true,
+          shouldValidate: true,
+        });
+        continue;
+      }
+      // An empty tier stays 0, which means it falls back to tier 1.
+      const result =
+        previousProductValue > 0
+          ? calculatePricing({ cost, price: previousProductValue })
+          : { marginPercent: 0, marginAmount: 0 };
       form.setValue(percentField, result.marginPercent, {
         shouldDirty: true,
         shouldValidate: true,
