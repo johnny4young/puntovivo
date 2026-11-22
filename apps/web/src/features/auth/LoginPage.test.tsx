@@ -53,7 +53,7 @@ describe('LoginPage Store Hub errors', () => {
 
       render(<LoginPage />);
 
-      expect(screen.getByText(expected)).toBeInTheDocument();
+      expect(screen.getByRole('alert')).toHaveTextContent(expected);
       expect(document.body).not.toHaveTextContent(
         /STORE_HUB_LOCAL_SESSION_ERROR|\/Users\/|Library\/Application Support|keychain/i
       );
