@@ -125,7 +125,7 @@
       "title": "Dispositivos"
     },
     "auditLogs": {
-      "kicker": "Gobierno",
+      "kicker": "Control",
       "title": "Auditoría"
     },
     "fiscalDocuments": {
@@ -185,7 +185,7 @@
     "overview": "Resumen",
     "flow": "Operaciones",
     "setup": "Configuración",
-    "surfaces": "Superficies"
+    "surfaces": "Pantallas"
   },
   "items": {
     "dashboard": "Hoy",

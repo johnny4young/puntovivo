@@ -5,7 +5,7 @@
     "description": "Active cada función de IA por separado y elija el proveedor OCR usado para facturas de proveedor.",
     "featuresTitle": "Funciones activas",
     "enableLabel": "Activar funciones de IA",
-    "enableHint": "Cuando está desactivado, cada superficie de IA se corta con un aviso claro.",
+    "enableHint": "Cuando está desactivado, cada función de IA se detiene con un aviso claro.",
     "providerLabel": "Proveedor OCR",
     "providerHint": "Elija Anthropic, OpenAI u Ollama. El proveedor seleccionado necesita su propia credencial de API o un servicio local antes de usarlo.",
     "providerLocked": "Disponible cuando se conecten las credenciales y el soporte del proveedor.",

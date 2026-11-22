@@ -199,7 +199,7 @@ describe('AuditLogsPage', () => {
     ).toHaveValue('data_retention.sweep.run');
 
     const resourceFilter = screen.getByRole('combobox', { name: 'Resource type' });
-    expect(within(resourceFilter).getByRole('option', { name: 'Tenant' })).toHaveValue('tenant');
+    expect(within(resourceFilter).getByRole('option', { name: 'Company' })).toHaveValue('tenant');
   });
 
   it('offers backup restore-drill evidence as action and resource filters', () => {

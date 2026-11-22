@@ -201,7 +201,7 @@ describe('CompanyModulesCard', () => {
     };
     render(<CompanyModulesCard />);
 
-    expect(screen.getByText('Superficies de venta')).toBeInTheDocument();
+    expect(screen.getByText('Pantallas de venta')).toBeInTheDocument();
     expect(screen.queryByText('Integraciones')).not.toBeInTheDocument();
     expect(screen.getByTestId('modules-row-dine-in')).toHaveTextContent('Servicio en mesa');
   });
@@ -334,7 +334,7 @@ describe('CompanyModulesCard', () => {
 
     await waitFor(() => {
       expect(toastSuccess).toHaveBeenCalledWith(
-        expect.objectContaining({ title: expect.stringMatching(/ya está aplicado/i) })
+        expect.objectContaining({ title: expect.stringMatching(/ya está aplicada/i) })
       );
     });
   });

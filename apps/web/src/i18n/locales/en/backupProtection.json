@@ -151,7 +151,7 @@
     },
     "result": {
       "title": "Ready to restore",
-      "description": "The snapshot passed its integrity and tenant-data checks. The live database was not changed.",
+      "description": "The snapshot passed its integrity and business-data checks. The live database was not changed.",
       "checkedAt": "Checked",
       "snapshotAt": "Snapshot created",
       "currentTotal": "Current records",

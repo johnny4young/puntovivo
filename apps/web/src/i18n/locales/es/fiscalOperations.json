@@ -22,7 +22,7 @@
       "error": "El reintento falló",
       "noPermission": "Solo el administrador puede reintentar documentos fiscales.",
       "confirmTitle": "¿Reintentar este documento fiscal?",
-      "confirmMessage": "Re-arma la fila del outbox fiscal para que el trabajador lo empuje al proveedor de nuevo."
+      "confirmMessage": "El documento vuelve a la cola fiscal para enviarlo de nuevo al proveedor."
     },
     "intent": {
       "title": "Facturas aún no creadas",

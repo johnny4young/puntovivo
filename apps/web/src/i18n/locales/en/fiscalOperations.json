@@ -22,7 +22,7 @@
       "error": "Retry failed",
       "noPermission": "Only admins can retry fiscal documents.",
       "confirmTitle": "Retry this fiscal document?",
-      "confirmMessage": "This re-arms the fiscal outbox row so the worker pushes it to the provider again."
+      "confirmMessage": "The document goes back to the fiscal queue to be sent to the provider again."
     },
     "intent": {
       "title": "Invoices not created yet",
@@ -44,7 +44,7 @@
         "dead_letter": "Needs manual retry"
       },
       "reason": {
-        "pending": "Waiting for the worker",
+        "pending": "Waiting to be sent",
         "unknown": "Review fiscal configuration and try again.",
         "numbering_resolution_missing": "No matching numbering resolution is available.",
         "numbering_resolution_changed": "The frozen numbering resolution changed after the sale.",

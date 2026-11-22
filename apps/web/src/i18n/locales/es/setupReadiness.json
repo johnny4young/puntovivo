@@ -34,7 +34,7 @@
     "sections": {
       "businessType": {
         "label": "Tipo de negocio",
-        "hint": "Lo que vende, que define las superficies de caja que Puntovivo activa."
+        "hint": "Lo que vende, que define las pantallas de caja que Puntovivo activa."
       },
       "locale": {
         "label": "Idioma y país",

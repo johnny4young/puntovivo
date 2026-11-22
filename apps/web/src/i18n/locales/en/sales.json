@@ -847,7 +847,7 @@
         "recovery": "Set up printer"
       },
       "payment_rail_missing": {
-        "message": "Only cash is configured — add a card or transfer rail when you need one.",
+        "message": "Only cash is configured — add a card or transfer method when you need one.",
         "recovery": "Set up payments"
       },
       "sync_backlog": {

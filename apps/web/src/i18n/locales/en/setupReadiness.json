@@ -34,7 +34,7 @@
     "sections": {
       "businessType": {
         "label": "Business type",
-        "hint": "What you sell, which decides the register surfaces Puntovivo turns on."
+        "hint": "What you sell, which decides the register screens Puntovivo turns on."
       },
       "locale": {
         "label": "Locale and country",
@@ -50,15 +50,15 @@
       },
       "fiscal": {
         "label": "Fiscal profile",
-        "hint": "Required when the tenant emits electronic invoices."
+        "hint": "Required when the business issues electronic invoices."
       },
       "peripherals": {
         "label": "Peripherals",
         "hint": "Printers, scanners and payment terminals are optional."
       },
       "payments": {
-        "label": "Payment rails",
-        "hint": "Cash always works; add cards or transfer rails as needed."
+        "label": "Payment methods",
+        "hint": "Cash always works; add cards or transfers as needed."
       },
       "modules": {
         "label": "Modules",
