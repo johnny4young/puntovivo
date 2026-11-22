@@ -25,6 +25,7 @@ const invalidateReadiness = vi.fn(async () => undefined);
 const invalidateVerticalReadiness = vi.fn(async () => undefined);
 const updateTenantSettings = vi.fn();
 let listResponse: {
+  businessType?: string | null;
   modules: Array<{
     id: string;
     i18nKey: string;
@@ -32,6 +33,7 @@ let listResponse: {
     defaultEnabled: boolean;
     enabled: boolean;
     isExplicit: boolean;
+    customized?: boolean;
     available: boolean;
   }>;
 } = {
@@ -52,6 +54,7 @@ let listResponse: {
       defaultEnabled: true,
       enabled: false,
       isExplicit: true,
+      customized: true,
       available: true,
     },
   ],
@@ -138,6 +141,7 @@ describe('CompanyModulesCard', () => {
           defaultEnabled: true,
           enabled: false,
           isExplicit: true,
+          customized: true,
           available: true,
         },
       ],
@@ -148,6 +152,44 @@ describe('CompanyModulesCard', () => {
       changed: true,
     });
     await i18n.changeLanguage('es');
+  });
+
+  it('shows a fresh install as its business type, not as customized', () => {
+    listResponse = {
+      businessType: 'retail',
+      modules: [
+        {
+          id: 'kds',
+          i18nKey: 'kds',
+          adminVisibilityRole: 'admin',
+          defaultEnabled: false,
+          enabled: false,
+          isExplicit: true,
+          customized: false,
+          available: true,
+        },
+        {
+          id: 'quotations',
+          i18nKey: 'quotations',
+          adminVisibilityRole: 'admin',
+          defaultEnabled: true,
+          enabled: true,
+          isExplicit: true,
+          customized: true,
+          available: true,
+        },
+      ],
+    };
+    render(<CompanyModulesCard />);
+
+    expect(screen.getByTestId('modules-row-kds')).toHaveTextContent('Por defecto');
+    expect(screen.getByTestId('modules-row-kds')).not.toHaveTextContent('Personalizado');
+    expect(screen.getByTestId('modules-row-quotations')).toHaveTextContent('Personalizado');
+    expect(screen.getByTestId('modules-preset-retail')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('modules-preset-restaurant')).toHaveAttribute(
+      'aria-pressed',
+      'false'
+    );
   });
 
   it('renders translated label + description for each module', () => {
@@ -176,9 +218,9 @@ describe('CompanyModulesCard', () => {
     );
   });
 
-  it('shows the default vs explicit indicator per row', () => {
+  it('shows the default vs customized indicator per row', () => {
     render(<CompanyModulesCard />);
-    // copilot row → default; quotations row → explicit.
+    // copilot row → default; quotations row → customized.
     const copilotRow = screen.getByTestId('modules-row-copilot');
     const quotationsRow = screen.getByTestId('modules-row-quotations');
     expect(copilotRow).toHaveTextContent(/por defecto/i);
